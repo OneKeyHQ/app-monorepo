@@ -66,6 +66,15 @@ function projectHomeBalanceAuthority({
   confirmedAt: number;
 }): IHomeBalanceAuthorityDecision {
   if (aggregation.kind === 'loading') {
+    if (confirmed) {
+      return {
+        presentation: confirmedPresentation({
+          bannerAvailable,
+          record: confirmed,
+          refresh: 'refreshing',
+        }),
+      };
+    }
     if (aggregation.positiveEvidence) {
       return {
         presentation: {
@@ -77,18 +86,12 @@ function projectHomeBalanceAuthority({
       };
     }
     return {
-      presentation: confirmed
-        ? confirmedPresentation({
-            bannerAvailable,
-            record: confirmed,
-            refresh: 'refreshing',
-          })
-        : {
-            kind: 'loading',
-            header: { kind: 'loading' },
-            actions: { kind: 'loading', items: [] },
-            banner: { kind: 'none' },
-          },
+      presentation: {
+        kind: 'loading',
+        header: { kind: 'loading' },
+        actions: { kind: 'loading', items: [] },
+        banner: { kind: 'none' },
+      },
     };
   }
 

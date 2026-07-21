@@ -10,12 +10,13 @@ import type { IHomePageViewedState } from '@onekeyhq/shared/src/logger/scopes/ac
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useHomeBalancePresentation } from '../../../hooks/useHomeBalanceState';
-import { useWalletTopBannersAtom } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { useHomeResource } from '../../../states/jotai/contexts/home';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { onHomePageRefresh } from '../components/PullToRefresh';
 import { WalletActions } from '../components/WalletActions';
 import WalletBanner from '../components/WalletBanner';
+import { readHomeBannerStorePayload } from '../model/sections/banner/homeBannerStoreModel';
 import { HomeTestIDs } from '../testIDs';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
@@ -28,7 +29,7 @@ function BaseHomeHeaderContainer({
   variant?: IHomeHeaderContainerVariant;
 }) {
   const {
-    activeAccount: { wallet, account, network, vaultSettings },
+    activeAccount: { wallet },
   } = useActiveAccount({
     num: 0,
   });
@@ -37,11 +38,15 @@ function BaseHomeHeaderContainer({
   // matches what the banner will actually display. WalletBanner returns null
   // when there's no banner content (no banners and no Tron-resource card);
   // otherwise the banner band is ~110pt and the header settles at 292pt.
-  const [{ banners }] = useWalletTopBannersAtom();
-  const hasTronCard = Boolean(
-    vaultSettings?.hasResource && account?.id && network?.id,
+  const bannerResource = useHomeResource('banner');
+  const bannerPayload =
+    bannerResource.kind === 'ready'
+      ? readHomeBannerStorePayload(bannerResource.data)
+      : undefined;
+  const hasWalletBannerContent = Boolean(
+    bannerPayload &&
+    (bannerPayload.banners.length > 0 || bannerPayload.tronResource),
   );
-  const hasWalletBannerContent = banners.length > 0 || hasTronCard;
 
   const isWalletNotBackedUp = variant === 'notBackedUp';
 
@@ -111,9 +116,9 @@ function BaseHomeHeaderContainer({
       >
         {isWalletNotBackedUp ? (
           <Stack gap="$2.5">
-            {/* Backup-required is a separate shell; keep its existing balance
-                renderer until that surface is migrated explicitly. */}
-            <HomeOverviewContainer balancePresentation={undefined} />
+            <HomeOverviewContainer
+              balancePresentation={balancePresentation.correlated}
+            />
           </Stack>
         ) : (
           <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
@@ -130,22 +135,13 @@ function BaseHomeHeaderContainer({
           </HeaderScrollGestureWrapper>
         )}
       </Stack>
-      {/* Keep mounted on the normal variant so initLocalBanners + remote fetch
-          effects run. Gating the component on `shouldShowBanner` would create
-          a deadlock because WalletBanner owns the effect that populates its
-          atom. The not-backed-up variant intentionally skips banner work. */}
+      {/* Keep the read-only renderer mounted so Store updates do not reset its
+          scroll position. The root controller owns all banner source work. */}
       {isWalletNotBackedUp ? null : <WalletBanner hidden={!shouldShowBanner} />}
     </YStack>
   );
 }
 
-// The provider mirror must wrap the component (not live inside its return):
-// `useHomeBalancePresentation` reads tokenList context atoms, so the hook call in
-// `BaseHomeHeaderContainer`'s body has to sit inside the provider.
-// Note: on the URL-account page (which reuses HomePageView) the token list is
-// written to the separate urlAccountHomeTokenList store, not this mirror's
-// homeTokenList store — the hook's owner-stamp guard absorbs the mismatch and
-// the holdings override simply stays inactive there (worth-only behavior).
 export const HomeHeaderContainer = memo(
   ({ variant = 'normal' }: { variant?: IHomeHeaderContainerVariant }) => (
     <HomeTokenListProviderMirror>

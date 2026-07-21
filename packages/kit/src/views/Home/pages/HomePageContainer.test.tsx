@@ -39,10 +39,13 @@ let mockLaunchSnapshot: {
 };
 let mockAccountSelectorStorageInitDone: boolean;
 let mockActiveAccountInitDone: boolean;
-let mockShadowBridgeMounts = 0;
-let mockIsNative = true;
+let mockRootControllerMounts = 0;
+const mockSceneStore = {};
+let mockHomeProviderStore: unknown;
+let mockHomeShellKind: 'loading' | 'backupRequired' | 'portfolio' = 'loading';
 const mockTestGlobal = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean;
+  __homePageContainerIsNative?: boolean;
 };
 
 jest.mock('@onekeyhq/components', () => {
@@ -67,7 +70,13 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
     get isNative() {
-      return mockIsNative;
+      return (
+        (
+          globalThis as typeof globalThis & {
+            __homePageContainerIsNative?: boolean;
+          }
+        ).__homePageContainerIsNative ?? true
+      );
     },
   },
 }));
@@ -106,8 +115,17 @@ jest.mock('../../../states/jotai/contexts/accountOverview', () => ({
 }));
 
 jest.mock('../../../states/jotai/contexts/home', () => ({
-  ProviderJotaiContextHome: ({ children }: { children?: ReactNode }) =>
+  ProviderJotaiContextHome: ({
     children,
+    store,
+  }: {
+    children?: ReactNode;
+    store?: unknown;
+  }) => {
+    mockHomeProviderStore = store;
+    return children;
+  },
+  useHomeShell: () => ({ value: { kind: mockHomeShellKind } }),
 }));
 
 jest.mock('../../../states/jotai/contexts/accountSelector', () => ({
@@ -121,7 +139,7 @@ jest.mock('../../../states/jotai/contexts/accountSelector', () => ({
 }));
 
 jest.mock('../../../states/jotai/utils/useJotaiContextRootStore', () => ({
-  useJotaiContextRootStore: () => ({}),
+  useJotaiContextRootStore: () => mockSceneStore,
 }));
 
 jest.mock('../../Notifications/components/NotificationRegisterDaily', () => ({
@@ -162,13 +180,22 @@ jest.mock('../components/BTCFreshAddressProvider', () => ({
   BTCFreshAddressProvider: () => null,
 }));
 
+jest.mock(
+  '../components/HomeTokenListProvider/HomeTokenListRootProvider',
+  () => ({
+    useHomeTokenListContextStoreInitData: () => ({
+      storeName: 'homeTokenList',
+    }),
+  }),
+);
+
 jest.mock('../nativeHomeFeatureFlag', () => ({
   isNativeHomeEnabled: () => true,
 }));
 
-jest.mock('../model/react/HomeAuthorityShadowBridge', () => ({
-  HomeAuthorityShadowBridge: () => {
-    mockShadowBridgeMounts += 1;
+jest.mock('../model/react/HomeStoreSourceControllers', () => ({
+  HomeStoreSourceControllers: () => {
+    mockRootControllerMounts += 1;
     return null;
   },
 }));
@@ -235,6 +262,13 @@ function setWalletState({
       ? undefined
       : { wallets: walletListWallet ? [walletListWallet] : [] },
   };
+  if (activeWallet?.type === 'hd' && activeWallet.backuped === false) {
+    mockHomeShellKind = 'backupRequired';
+  } else if (activeWallet) {
+    mockHomeShellKind = 'portfolio';
+  } else {
+    mockHomeShellKind = 'loading';
+  }
 }
 
 function renderOwner(nativeHomeEnabled = true) {
@@ -265,17 +299,20 @@ beforeEach(() => {
   };
   mockAccountSelectorStorageInitDone = true;
   mockActiveAccountInitDone = true;
-  mockShadowBridgeMounts = 0;
-  mockIsNative = true;
+  mockRootControllerMounts = 0;
+  mockHomeProviderStore = undefined;
+  mockHomeShellKind = 'loading';
+  mockTestGlobal.__homePageContainerIsNative = true;
 });
 
-describe('HomePageContainer shadow authority integration', () => {
-  it('mounts the inert shadow bridge without selecting a visible surface', () => {
+describe('HomePageContainer Unified Store integration', () => {
+  it('mounts Store controllers without selecting a visible surface', () => {
     let view!: ReactTestRenderer;
     act(() => {
       view = create(<HomePageContainer />);
     });
-    expect(mockShadowBridgeMounts).toBe(1);
+    expect(mockRootControllerMounts).toBe(1);
+    expect(mockHomeProviderStore).toBe(mockSceneStore);
     expect(view.root.findAllByProps({ testID: 'surface-empty' })).toHaveLength(
       0,
     );
@@ -295,11 +332,12 @@ beforeAll(() => {
 
 afterAll(() => {
   delete mockTestGlobal.IS_REACT_ACT_ENVIRONMENT;
+  delete mockTestGlobal.__homePageContainerIsNative;
 });
 
 describe('HomeLaunchGatedContent surface ownership', () => {
   it('does not gate non-native legacy Home on the native launch decision', () => {
-    mockIsNative = false;
+    mockTestGlobal.__homePageContainerIsNative = false;
     mockLaunchSnapshot.decision = 'unknown';
     const backedUp = hdWallet(true);
     setWalletState({ activeWallet: backedUp, walletListWallet: backedUp });
@@ -341,7 +379,15 @@ describe('HomeLaunchGatedContent surface ownership', () => {
     expect(mockSurfaceLifecycle.native.mounts).toBe(0);
     expect(mockSurfaceLifecycle.legacy.mounts).toBe(0);
 
-    setWalletState({ activeWallet: unbacked, pending: true });
+    mockActiveAccount = {
+      ready: true,
+      wallet: unbacked,
+      account: { id: 'account-hd-1' },
+    };
+    mockWalletList = {
+      pending: true,
+      result: { wallets: [unbacked] },
+    };
     act(() => view.update(renderOwner()));
     expect(mockSurfaceLifecycle.empty).toEqual({ mounts: 1, unmounts: 0 });
     expect(mockSurfaceLifecycle.native.mounts).toBe(0);
@@ -349,8 +395,8 @@ describe('HomeLaunchGatedContent surface ownership', () => {
     const backedUp = hdWallet(true);
     setWalletState({ activeWallet: backedUp, walletListWallet: unbacked });
     act(() => view.update(renderOwner()));
-    expect(mockSurfaceLifecycle.empty).toEqual({ mounts: 1, unmounts: 0 });
-    expect(mockSurfaceLifecycle.native.mounts).toBe(0);
+    expect(mockSurfaceLifecycle.empty).toEqual({ mounts: 1, unmounts: 1 });
+    expect(mockSurfaceLifecycle.native).toEqual({ mounts: 1, unmounts: 0 });
 
     setWalletState({ activeWallet: backedUp, walletListWallet: backedUp });
     act(() => view.update(renderOwner()));
@@ -387,6 +433,44 @@ describe('HomeLaunchGatedContent surface ownership', () => {
       0,
     );
   });
+
+  it.each([
+    [true, 'native'],
+    [false, 'legacy'],
+  ] as const)(
+    'keeps the %s surface mounted while same-owner recovery flags are pending',
+    (nativeHomeEnabled, surface) => {
+      const backedUp = hdWallet(true);
+      setWalletState({ activeWallet: backedUp, walletListWallet: backedUp });
+      let view!: ReactTestRenderer;
+      act(() => {
+        view = create(renderOwner(nativeHomeEnabled));
+      });
+      expect(mockSurfaceLifecycle[surface]).toEqual({ mounts: 1, unmounts: 0 });
+
+      mockLaunchSnapshot.readyHomeGeneration = 1;
+      mockAccountSelectorStorageInitDone = false;
+      mockActiveAccountInitDone = false;
+      act(() => view.update(renderOwner(nativeHomeEnabled)));
+
+      expect(mockSurfaceLifecycle[surface]).toEqual({ mounts: 1, unmounts: 0 });
+      expect(
+        view.root.findAllByProps({ testID: `surface-${surface}` }),
+      ).toHaveLength(1);
+
+      mockActiveAccount = {
+        ...mockActiveAccount,
+        account: { id: 'account-next' },
+      };
+      act(() => view.update(renderOwner(nativeHomeEnabled)));
+
+      expect(mockSurfaceLifecycle[surface]).toEqual({ mounts: 1, unmounts: 1 });
+      expect(
+        view.root.findAllByProps({ testID: `surface-${surface}` }),
+      ).toHaveLength(0);
+      act(() => view.unmount());
+    },
+  );
 
   it.each([
     ['no-wallet', undefined, undefined, true, 'legacy'],

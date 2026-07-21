@@ -18,8 +18,8 @@ import type {
   IHomeSectionSourceIdentity,
 } from '../homeSectionCoordinator';
 
-const HOME_DEFI_SOURCE_REVISION = 1;
-const HOME_DEFI_DATA_SCHEMA_VERSION = 1;
+const HOME_DEFI_SOURCE_REVISION = 2;
+const HOME_DEFI_DATA_SCHEMA_VERSION = 2;
 
 type IHomeDeFiSourceParams = {
   accountId: string;
@@ -32,6 +32,13 @@ type IHomeDeFiSourceParams = {
 };
 
 type IHomeDeFiLegacyPayload = {
+  currency: string;
+  overview: {
+    totalValue: number;
+    totalDebt: number;
+    totalReward: number;
+    netWorth: number;
+  };
   protocolMap: Record<string, IProtocolSummary>;
   protocols: IDeFiProtocol[];
   supportedActions: IDeFiSupportedProtocolAction[];
@@ -74,7 +81,7 @@ type IHomeDeFiSourceSnapshot =
     };
 
 function getHomeDeFiProtocolRowIds(
-  data: IHomeDeFiLegacyPayload,
+  data: Pick<IHomeDeFiLegacyPayload, 'protocols'>,
 ): readonly string[] {
   return data.protocols.map((protocol) =>
     defiUtils.buildProtocolMapKey({

@@ -13,7 +13,7 @@ import { HomeSessionMachine } from './homeSessionMachine';
 
 import type { IHomeRuntimeAdapter } from '../runtime/homeRuntimeAdapter';
 
-export interface IHomeAuthorityShadowSnapshot {
+export interface IHomeSessionSnapshot {
   topology: IHomeRuntimeTopology;
   status: 'idle' | 'waitingForProducer' | 'active' | 'degraded' | 'stopped';
   ownerToken?: IHomeRuntimeOwnerToken;
@@ -126,7 +126,7 @@ export class HomeSessionCoordinator {
     return this.session;
   }
 
-  getSnapshot(): IHomeAuthorityShadowSnapshot {
+  getSnapshot(): IHomeSessionSnapshot {
     const sessionSnapshot = this.session?.getSnapshot();
     return {
       topology: this.adapter.topology,

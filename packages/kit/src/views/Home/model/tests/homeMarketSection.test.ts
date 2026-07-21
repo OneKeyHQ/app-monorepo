@@ -55,6 +55,10 @@ function payload(
   rows: readonly IHomeMarketTokenRow[],
 ): IHomeMarketLegacyPayload<IHomeMarketTokenRow> {
   return {
+    categories: [
+      { id: 'favorites', name: 'Favorites' },
+      { id: 'trending', name: 'Trending' },
+    ],
     favoriteMode: params.favoriteMode,
     prefetchCategoryIds: params.prefetchCategoryIds,
     prefetchedRowsByRequestKey: {},
@@ -63,6 +67,13 @@ function payload(
     selectedCategoryId: params.selectedCategoryId,
     totalFavorites: 1,
     watchListContentKey: params.watchListContentKey,
+    watchListItems: [
+      {
+        chainId: 'evm--1',
+        contractAddress: '0xabc',
+        sortIndex: 1000,
+      },
+    ],
   };
 }
 
@@ -121,6 +132,45 @@ describe('home Market section authority', () => {
         perpsCoin: 'BTC',
       }),
     ).toBe('perps:BTC');
+  });
+
+  it('keeps renderer categories and watchlist evidence in authoritative data', () => {
+    const identity = createIdentity();
+    const live = payload([spotToken()]);
+    const resolution = new HomeSectionCoordinator<
+      IHomeMarketLegacyPayload<IHomeMarketTokenRow>
+    >(identity).dispatch(
+      adaptHomeMarketSourceSnapshot({
+        identity,
+        snapshot: {
+          kind: 'complete',
+          requestSeq: 1,
+          coverageFingerprint: 'market-complete',
+          result: {
+            kind: 'success',
+            data: live,
+            rowIds: getHomeMarketRowIds(live),
+          },
+        },
+      }),
+    );
+
+    expect(resolution.authoritative).toMatchObject({
+      kind: 'live',
+      data: {
+        categories: [
+          { id: 'favorites', name: 'Favorites' },
+          { id: 'trending', name: 'Trending' },
+        ],
+        watchListItems: [
+          {
+            chainId: 'evm--1',
+            contractAddress: '0xabc',
+            sortIndex: 1000,
+          },
+        ],
+      },
+    });
   });
 
   it('seeds confirmed cache and keeps cached rows through partial refreshes', () => {

@@ -1,0 +1,93 @@
+{
+  "kind": "patch",
+  "protocolVersion": 3,
+  "identity": {
+    "scopeKey": "wallet-1:account-1:all",
+    "sessionId": "session-1",
+    "storeCommitId": 8
+  },
+  "baseTransportRevision": 11,
+  "transportRevision": 12,
+  "presentationRevisions": {
+    "shell": 5,
+    "navigation": 4,
+    "sections": {
+      "portfolio": 6,
+      "perps": 1,
+      "defi": 2,
+      "nft": 1,
+      "history": 3,
+      "market": 1
+    }
+  },
+  "authorityRevisions": {
+    "shellCommands": 2,
+    "tabApplicability": 3,
+    "sectionCommands": {
+      "portfolio": 2,
+      "perps": 1,
+      "defi": 1,
+      "nft": 1,
+      "history": 1,
+      "market": 1
+    }
+  },
+  "requiredSlotRevisions": {},
+  "changes": [
+    {
+      "kind": "replaceShell",
+      "value": {
+        "accountName": "Account 1",
+        "balance": "$101.00",
+        "actions": [],
+        "banners": []
+      }
+    },
+    {
+      "kind": "replaceNavigation",
+      "value": {
+        "selectedTabId": "history",
+        "tabs": [
+          {
+            "id": "portfolio",
+            "title": "Spot",
+            "destination": "inline"
+          },
+          {
+            "id": "perps",
+            "title": "Perps",
+            "destination": "handoff",
+            "handoffCommandId": "home.perps.openWeb"
+          },
+          {
+            "id": "defi",
+            "title": "DeFi",
+            "destination": "inline"
+          },
+          {
+            "id": "history",
+            "title": "History",
+            "destination": "inline"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "replaceSection",
+      "tabId": "history",
+      "sectionId": "history",
+      "index": 0,
+      "value": {
+        "id": "history",
+        "items": [
+          {
+            "id": "transfer-1",
+            "renderer": "history",
+            "title": "Receive",
+            "value": "+1 USDC"
+          }
+        ]
+      }
+    }
+  ]
+}

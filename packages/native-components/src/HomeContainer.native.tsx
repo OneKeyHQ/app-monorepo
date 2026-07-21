@@ -26,6 +26,7 @@ import {
   type IHomeContainerProps,
   type IHomeContainerRef,
   type IHomeContainerSlot,
+  type IHomeContainerSlotBundle,
   type IHomeContainerSlots,
   isHomeContainerTransportResultForSubmission,
   parseHomeContainerTransportResult,
@@ -33,6 +34,7 @@ import {
 } from './HomeContainer.types';
 import { resolveHomeContainerBackgroundColor } from './HomeContainerBackground';
 import HomeContainerSlotNativeComponent from './HomeContainerSlotNativeComponent';
+import { resolveHomeContainerSlots } from './HomeContainerSlotPresentation';
 import HomeContainerSurfaceNativeComponent from './HomeContainerSurfaceNativeComponent';
 
 import type {
@@ -121,9 +123,16 @@ function parseCapabilities(
   }
 }
 
-interface IRenderedTransportIdentity {
+interface ISubmittedTransportIdentity {
   owner: IHomeContainerOwner;
   revision: number;
+  slots?: IHomeContainerSlots;
+}
+
+interface ISubmittedSlotAuthority {
+  owner: IHomeContainerOwner;
+  parentOwnerAtSubmission?: IHomeContainerOwner;
+  parentBundleWasPresent: boolean;
 }
 
 function ownersMatch(
@@ -133,42 +142,39 @@ function ownersMatch(
   return left.scopeKey === right.scopeKey && left.sessionId === right.sessionId;
 }
 
-function createReservedSlot(slot: IHomeContainerSlot): IHomeContainerSlot {
-  return { ...slot, content: null, interaction: 'none' };
-}
-
-function createReservedSlots(slots: IHomeContainerSlots): IHomeContainerSlots {
-  const mapSlots = <T extends string>(
-    values: Partial<Record<T, IHomeContainerSlot>> | undefined,
-  ): Partial<Record<T, IHomeContainerSlot>> | undefined => {
-    if (!values) {
-      return undefined;
-    }
-    return Object.fromEntries(
-      Object.entries(values).flatMap(([key, slot]) =>
-        slot ? [[key, createReservedSlot(slot as IHomeContainerSlot)]] : [],
-      ),
-    ) as Partial<Record<T, IHomeContainerSlot>>;
-  };
-  return {
-    backgroundColor: slots.backgroundColor,
-    accountRow: slots.accountRow
-      ? createReservedSlot(slots.accountRow)
-      : undefined,
-    balance: slots.balance ? createReservedSlot(slots.balance) : undefined,
-    headerActionRow: slots.headerActionRow
-      ? createReservedSlot(slots.headerActionRow)
-      : undefined,
-    contentHeaders: mapSlots(slots.contentHeaders),
-    contentStates: mapSlots(slots.contentStates),
-    tabAccessories: mapSlots(slots.tabAccessories),
-    contentFooters: Object.fromEntries(
-      Object.entries(slots.contentFooters ?? {}).map(([tabId, footers]) => [
-        tabId,
-        mapSlots(footers),
-      ]),
+function submittedOwnerIsCurrent({
+  currentBundle,
+  safeFallbackBundle,
+  submittedAuthority,
+}: {
+  currentBundle: IHomeContainerSlotBundle | undefined;
+  safeFallbackBundle: IHomeContainerSlotBundle | undefined;
+  submittedAuthority: ISubmittedSlotAuthority | undefined;
+}): boolean {
+  if (
+    !safeFallbackBundle ||
+    !submittedAuthority ||
+    !ownersMatch(safeFallbackBundle.owner, submittedAuthority.owner)
+  ) {
+    return false;
+  }
+  if (
+    currentBundle &&
+    ownersMatch(currentBundle.owner, submittedAuthority.owner)
+  ) {
+    return true;
+  }
+  if (!submittedAuthority.parentBundleWasPresent) {
+    return currentBundle === undefined;
+  }
+  return Boolean(
+    currentBundle &&
+    submittedAuthority.parentOwnerAtSubmission &&
+    ownersMatch(
+      currentBundle.owner,
+      submittedAuthority.parentOwnerAtSubmission,
     ),
-  };
+  );
 }
 
 function getSlotLayoutStyle(key: string) {
@@ -265,13 +271,19 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
   ) => {
     const { width: windowWidth } = useWindowDimensions();
     const nativeRef = useRef<HomeContainerNativeView | null>(null);
-    const [renderedTransport, setRenderedTransport] =
-      useState<IRenderedTransportIdentity>();
+    const [acknowledgedSlotBundle, setAcknowledgedSlotBundle] =
+      useState<IHomeContainerSlotBundle>();
+    const [safeFallbackSlotBundle, setSafeFallbackSlotBundle] =
+      useState<IHomeContainerSlotBundle>();
+    const [submittedSlotAuthority, setSubmittedSlotAuthority] =
+      useState<ISubmittedSlotAuthority>();
     const submittedTransportRef = useRef<
-      IRenderedTransportIdentity | undefined
+      ISubmittedTransportIdentity | undefined
     >(undefined);
     const snapshotRef = useRef(snapshot);
     snapshotRef.current = snapshot;
+    const slotBundleRef = useRef(slotBundle);
+    slotBundleRef.current = slotBundle;
 
     const pushSnapshot = useCallback(() => {
       const nextSnapshot = snapshotRef.current;
@@ -297,12 +309,37 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
         applyPatch: (patch) => {
           nativeRef.current?.applyPatch(serializeHomeContainerPayload(patch));
         },
-        setProtocolV2Snapshot: (nextSnapshot) => {
+        setProtocolV2Snapshot: (nextSnapshot, nextSlots) => {
+          const parentSlotBundle = slotBundleRef.current;
           submittedTransportRef.current = {
             owner: nextSnapshot.owner,
             revision: nextSnapshot.revision,
+            slots: nextSlots,
           };
-          setRenderedTransport((current) =>
+          const submittedSlotBundle = nextSlots
+            ? {
+                owner: nextSnapshot.owner,
+                semanticRevision: nextSnapshot.revision,
+                slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
+                slots: nextSlots,
+              }
+            : undefined;
+          setSubmittedSlotAuthority((current) =>
+            current && ownersMatch(current.owner, nextSnapshot.owner)
+              ? current
+              : {
+                  owner: nextSnapshot.owner,
+                  parentOwnerAtSubmission: parentSlotBundle?.owner,
+                  parentBundleWasPresent: Boolean(parentSlotBundle),
+                },
+          );
+          setSafeFallbackSlotBundle((current) => {
+            if (!current || !ownersMatch(current.owner, nextSnapshot.owner)) {
+              return submittedSlotBundle;
+            }
+            return current;
+          });
+          setAcknowledgedSlotBundle((current) =>
             current && ownersMatch(current.owner, nextSnapshot.owner)
               ? current
               : undefined,
@@ -311,10 +348,62 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
             serializeHomeContainerPayload(nextSnapshot),
           );
         },
-        applyProtocolV2Patch: (patch) => {
+        applyProtocolV2Patch: (patch, nextSlots) => {
           submittedTransportRef.current = {
             owner: patch.owner,
             revision: patch.revision,
+            slots: nextSlots,
+          };
+          nativeRef.current?.applyPatch(serializeHomeContainerPayload(patch));
+        },
+        setProtocolV3Snapshot: (nextSnapshot, nextSlots) => {
+          const owner = {
+            scopeKey: nextSnapshot.identity.scopeKey,
+            sessionId: nextSnapshot.identity.sessionId,
+          };
+          const parentSlotBundle = slotBundleRef.current;
+          submittedTransportRef.current = {
+            owner,
+            revision: nextSnapshot.transportRevision,
+            slots: nextSlots,
+          };
+          const submittedSlotBundle = nextSlots
+            ? {
+                owner,
+                semanticRevision: nextSnapshot.transportRevision,
+                slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
+                slots: nextSlots,
+              }
+            : undefined;
+          setSubmittedSlotAuthority((current) =>
+            current && ownersMatch(current.owner, owner)
+              ? current
+              : {
+                  owner,
+                  parentOwnerAtSubmission: parentSlotBundle?.owner,
+                  parentBundleWasPresent: Boolean(parentSlotBundle),
+                },
+          );
+          setSafeFallbackSlotBundle((current) =>
+            current && ownersMatch(current.owner, owner)
+              ? current
+              : submittedSlotBundle,
+          );
+          setAcknowledgedSlotBundle((current) =>
+            current && ownersMatch(current.owner, owner) ? current : undefined,
+          );
+          nativeRef.current?.setSnapshot(
+            serializeHomeContainerPayload(nextSnapshot),
+          );
+        },
+        applyProtocolV3Patch: (patch, nextSlots) => {
+          submittedTransportRef.current = {
+            owner: {
+              scopeKey: patch.identity.scopeKey,
+              sessionId: patch.identity.sessionId,
+            },
+            revision: patch.transportRevision,
+            slots: nextSlots,
           };
           nativeRef.current?.applyPatch(serializeHomeContainerPayload(patch));
         },
@@ -366,26 +455,27 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
     }, []);
     const stableOnTransportResult = useCallback((resultJson: string) => {
       const result = parseHomeContainerTransportResult(resultJson);
+      const submission = submittedTransportRef.current;
       if (
         result &&
-        isHomeContainerTransportResultForSubmission(
-          result,
-          submittedTransportRef.current,
-        ) &&
+        isHomeContainerTransportResultForSubmission(result, submission) &&
         (result.kind === 'applied' || result.kind === 'duplicate')
       ) {
-        setRenderedTransport({
-          owner: result.owner,
-          revision: result.revision,
-        });
+        const nextAcknowledgedBundle = submission?.slots
+          ? {
+              owner: result.owner,
+              semanticRevision: result.revision,
+              slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
+              slots: submission.slots,
+            }
+          : undefined;
+        setAcknowledgedSlotBundle(nextAcknowledgedBundle);
+        setSafeFallbackSlotBundle(nextAcknowledgedBundle);
       } else if (
         result?.kind === 'needSnapshot' &&
-        isHomeContainerTransportResultForSubmission(
-          result,
-          submittedTransportRef.current,
-        )
+        isHomeContainerTransportResultForSubmission(result, submission)
       ) {
-        setRenderedTransport(undefined);
+        setAcknowledgedSlotBundle(undefined);
       }
       onTransportResultRef.current?.(resultJson);
     }, []);
@@ -441,27 +531,39 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
       () => nitroCallback(stableHybridRef),
       [stableHybridRef],
     );
+    const authoritativeSlotBundle = useMemo(
+      () =>
+        submittedOwnerIsCurrent({
+          currentBundle: slotBundle,
+          safeFallbackBundle: safeFallbackSlotBundle,
+          submittedAuthority: submittedSlotAuthority,
+        })
+          ? safeFallbackSlotBundle
+          : slotBundle,
+      [safeFallbackSlotBundle, slotBundle, submittedSlotAuthority],
+    );
     const resolvedBackgroundColor = resolveHomeContainerBackgroundColor({
       snapshotBackgroundColor: snapshot?.theme.backgroundColor,
       slotBackgroundColor:
-        slotBundle?.slots.backgroundColor ?? slots?.backgroundColor,
+        authoritativeSlotBundle?.slots.backgroundColor ??
+        slots?.backgroundColor,
     });
 
-    const resolvedSlots = useMemo(() => {
-      if (!slotBundle) {
-        return slots;
-      }
-      if (
-        renderedTransport &&
-        ownersMatch(slotBundle.owner, renderedTransport.owner) &&
-        slotBundle.semanticRevision === renderedTransport.revision &&
-        slotBundle.slotContractRevision ===
-          HOME_CONTAINER_SLOT_CONTRACT_REVISION
-      ) {
-        return slotBundle.slots;
-      }
-      return createReservedSlots(slotBundle.slots);
-    }, [renderedTransport, slotBundle, slots]);
+    const resolvedSlots = useMemo(
+      () =>
+        resolveHomeContainerSlots({
+          acknowledgedBundle: acknowledgedSlotBundle,
+          currentBundle: authoritativeSlotBundle,
+          legacySlots: slots,
+          safeFallbackBundle: safeFallbackSlotBundle,
+        }),
+      [
+        acknowledgedSlotBundle,
+        authoritativeSlotBundle,
+        safeFallbackSlotBundle,
+        slots,
+      ],
+    );
 
     const slotViews = useMemo(() => {
       if (!resolvedSlots) {

@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 import { type GestureResponderEvent, StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -28,29 +27,21 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ResourceBannerCard } from '@onekeyhq/kit/src/components/Resource';
-import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useWalletBanner } from '@onekeyhq/kit/src/hooks/useWalletBanner';
-import {
-  useAccountOverviewActions,
-  useWalletTopBannersAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { shouldBlockBotWalletReceive } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
-import {
-  HYPERLIQUID_REFERRAL_CODE,
-  PERPS_NETWORK_ID,
-} from '@onekeyhq/shared/src/consts/perp';
+import { useHomeResource } from '@onekeyhq/kit/src/states/jotai/contexts/home';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
-import { ERookieTaskType } from '@onekeyhq/shared/types/rookieGuide';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
-const PERPS_REFERRAL_BANNER_ID = 'local-perps-referral';
+import { useHomeBannerIntents } from '../../model/react/useHomeBannerIntents';
+import {
+  HOME_BANNER_ACTION_IDS,
+  HOME_PERPS_REFERRAL_BANNER_ID,
+  fromHomeBannerStoreItem,
+  readHomeBannerStorePayload,
+} from '../../model/sections/banner/homeBannerStoreModel';
 
 const BANNER_ITEM_WIDTH = 280;
 // Shared row height: every card in the banner row (standard BannerItem and the
@@ -62,8 +53,6 @@ const BANNER_PADDING_H = 20;
 // The leading Tron resource card is intentionally narrower than a standard
 // banner item; WalletBanner needs its width for the scroll-bound math too.
 const TRON_CARD_WIDTH = 220;
-
-const closedBanners: Record<string, boolean> = {};
 
 function BannerItem({
   item,
@@ -527,113 +516,44 @@ function PerpsReferralDialogContent({
 
 function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
   const {
-    activeAccount: { account, network, wallet, vaultSettings, indexedAccount },
+    activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
-
   const intl = useIntl();
-
-  const closedBannerInitRef = useRef(false);
-
-  const bannersInitRef = useRef(false);
-
-  const [{ banners }] = useWalletTopBannersAtom();
-  const { updateWalletTopBanners } = useAccountOverviewActions().current;
-
+  const bannerResource = useHomeResource('banner');
+  const payload =
+    bannerResource.kind === 'ready'
+      ? readHomeBannerStorePayload(bannerResource.data)
+      : undefined;
+  const banners = useMemo(
+    () => payload?.banners.map(fromHomeBannerStoreItem) ?? [],
+    [payload?.banners],
+  );
+  const dispatchBannerIntent = useHomeBannerIntents();
   const { handleBannerOnPress } = useWalletBanner({
     account,
     network,
     wallet,
   });
-
-  // --- Perps Referral Banner ---
-  const [referralBannerHiddenForAccount, setReferralBannerHiddenForAccount] =
-    useState<string | null>(null);
-
-  const { result: referralEligibility } = usePromiseResult(async () => {
-    if (!account?.id) {
-      return null;
-    }
-    // Use the global EVM deriveType for PERPS_NETWORK_ID, not the scene-local
-    // deriveType. Home may currently be on a non-EVM network (e.g. BTC with
-    // 'native_segwit'), in which case the scene deriveType cannot resolve the
-    // Arbitrum account.
-    const globalEvmDeriveType =
-      await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-        networkId: PERPS_NETWORK_ID,
-      });
-    return backgroundApiProxy.serviceHyperliquidReferral.checkBannerReferralEligibility(
-      {
-        accountId: account.id,
-        indexedAccountId: indexedAccount?.id || undefined,
-        deriveType: globalEvmDeriveType,
-      },
-    );
-  }, [account?.id, indexedAccount?.id]);
+  const referralEligibility = payload?.referralEligibility;
 
   const handleReferralBind = useCallback(async () => {
-    // Guard against eligibility flipping mid-signing (race condition).
-    if (!referralEligibility?.shouldShow) return;
-    if (
-      !referralEligibility?.resolvedAddress ||
-      !referralEligibility?.resolvedAccountId
-    )
+    if (!referralEligibility?.shouldShow) {
       return;
-    const { resolvedAccountId, resolvedAddress } = referralEligibility;
-
-    try {
-      const { typedData, action, nonce } =
-        await backgroundApiProxy.serviceHyperliquidReferral.buildSetReferrerTypedData(
-          { code: HYPERLIQUID_REFERRAL_CODE },
-        );
-
-      const signatureHex = await backgroundApiProxy.serviceSend.signMessage({
-        unsignedMessage: {
-          type: EMessageTypesEth.TYPED_DATA_V4,
-          message: JSON.stringify(typedData),
-          payload: [resolvedAddress, JSON.stringify(typedData)],
-        },
-        accountId: resolvedAccountId,
-        networkId: PERPS_NETWORK_ID,
-      });
-
-      if (!signatureHex || typeof signatureHex !== 'string') return;
-
-      const submitResult =
-        await backgroundApiProxy.serviceHyperliquidReferral.submitSetReferrerWithSignature(
-          { action, nonce, signatureHex },
-        );
-
-      if (submitResult.status === 'ok') {
-        await backgroundApiProxy.serviceHyperliquidReferral.invalidateBannerCache(
-          { userAddress: resolvedAddress },
-        );
-        void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
-          ERookieTaskType.HYPERLIQUID_REFERRAL,
-        );
-        setReferralBannerHiddenForAccount(resolvedAddress);
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.perps__fee_discount_activated__msg,
-          }),
-        });
-      }
-    } catch (e) {
-      Toast.error({
-        title: intl.formatMessage({
-          id: ETranslations.perps__claim_failed__msg,
-        }),
-      });
-      throw e;
     }
-  }, [referralEligibility, intl]);
+    dispatchBannerIntent({
+      actionId: HOME_BANNER_ACTION_IDS.bindReferral,
+      execution: 'controller',
+      itemId: HOME_PERPS_REFERRAL_BANNER_ID,
+    });
+  }, [dispatchBannerIntent, referralEligibility?.shouldShow]);
 
   const handleSnoozeReferralBanner = useCallback(async () => {
-    if (!referralEligibility?.resolvedAddress) return;
-    await backgroundApiProxy.serviceHyperliquidReferral.snoozeReferralBanner({
-      userAddress: referralEligibility.resolvedAddress,
+    dispatchBannerIntent({
+      actionId: HOME_BANNER_ACTION_IDS.snoozeReferral,
+      execution: 'controller',
+      itemId: HOME_PERPS_REFERRAL_BANNER_ID,
     });
-    setReferralBannerHiddenForAccount(referralEligibility.resolvedAddress);
-  }, [referralEligibility]);
+  }, [dispatchBannerIntent]);
 
   const handleReferralBannerPress = useCallback(() => {
     let snoozed = false;
@@ -660,160 +580,42 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
     });
   }, [handleReferralBind, handleSnoozeReferralBanner, intl]);
 
-  const referralBannerItem: IWalletBanner | null = useMemo(() => {
-    if (
-      referralBannerHiddenForAccount === referralEligibility?.resolvedAddress ||
-      !referralEligibility?.shouldShow
-    )
-      return null;
-    return {
-      _id: PERPS_REFERRAL_BANNER_ID,
-      id: PERPS_REFERRAL_BANNER_ID,
-      title: intl.formatMessage({
-        id: ETranslations.perps__claim_fee_discount__title,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.perps__claim_fee_discount_short__desc,
-      }),
-      src: '',
-      button: '',
-      rank: 0,
-      closeable: false,
-      closeForever: false,
-      useSystemBrowser: false,
-      theme: 'light',
-      position: 'home',
-      icon: 'GiftSolid',
-    };
-  }, [
-    referralBannerHiddenForAccount,
-    referralEligibility?.resolvedAddress,
-    referralEligibility?.shouldShow,
-    intl,
-  ]);
-
-  const [closedForeverBanners, setClosedForeverBanners] = useState<
-    Record<string, boolean>
-  >({});
-
-  const { result: latestBanners } = usePromiseResult(
-    async () => {
-      if (isNil(account?.id)) {
-        return [];
-      }
-      const resp =
-        await backgroundApiProxy.serviceWalletBanner.fetchWalletBanner({
-          accountId: account.id,
-        });
-      bannersInitRef.current = true;
-      return resp;
-    },
-    [account?.id],
-    {
-      initResult: [],
-    },
-  );
-
-  usePromiseResult(async () => {
-    if (!closedBannerInitRef.current || !bannersInitRef.current) return;
-
-    const filteredBanners = latestBanners.filter((banner) => {
-      if (banner.position && banner.position !== 'home') {
-        return false;
-      }
-      if (banner.networkIds && banner.networkIds.length > 0) {
-        if (!network?.id || !banner.networkIds.includes(network.id)) {
-          return false;
-        }
-      }
-      return !closedForeverBanners[banner.id];
-    });
-    // Inject Perps referral banner at the beginning
-    const allBanners = referralBannerItem
-      ? [referralBannerItem, ...filteredBanners]
-      : filteredBanners;
-    updateWalletTopBanners({
-      banners: allBanners,
-    });
-    await backgroundApiProxy.serviceWalletBanner.updateLocalTopBanners({
-      topBanners: filteredBanners,
-    });
-  }, [
-    latestBanners,
-    closedForeverBanners,
-    updateWalletTopBanners,
-    network?.id,
-    referralBannerItem,
-  ]);
-
-  const handleDismiss = useCallback(async (item: IWalletBanner) => {
-    if (item.closeable) {
-      closedBanners[item.id] = true;
-      setClosedForeverBanners((prev) => ({
-        ...prev,
-        [item.id]: true,
-      }));
-      defaultLogger.wallet.walletBanner.walletBannerClicked({
-        bannerId: item.id,
-        type: 'close',
+  const handleDismiss = useCallback(
+    (item: IWalletBanner) => {
+      dispatchBannerIntent({
+        actionId: HOME_BANNER_ACTION_IDS.dismiss,
+        execution: 'controller',
+        itemId: item.id,
       });
-      if (item.closeForever) {
-        await backgroundApiProxy.serviceWalletBanner.updateClosedForeverBanners(
-          {
-            bannerId: item.id,
-            closedForever: true,
-          },
-        );
-      }
-    }
-  }, []);
-
-  const initLocalBanners = useCallback(async () => {
-    const walletBannerRawData =
-      await backgroundApiProxy.simpleDb.walletBanner.getRawData();
-    const localTopBanners = walletBannerRawData?.topBanners ?? [];
-    const localClosedForeverBanners = walletBannerRawData?.closedForever ?? {};
-    updateWalletTopBanners({
-      banners: localTopBanners,
-    });
-    closedBannerInitRef.current = true;
-    setClosedForeverBanners({
-      ...closedBanners,
-      ...localClosedForeverBanners,
-    });
-  }, [updateWalletTopBanners, setClosedForeverBanners]);
-
-  useEffect(() => {
-    void initLocalBanners();
-  }, [initLocalBanners]);
-
-  const tronCard = useMemo(
-    () =>
-      vaultSettings?.hasResource && account?.id && network?.id ? (
-        <ResourceBannerCard
-          key={`${account.id}-${network.id}`}
-          accountId={account.id}
-          networkId={network.id}
-          width={TRON_CARD_WIDTH}
-          height={BANNER_ITEM_HEIGHT}
-        />
-      ) : null,
-    [vaultSettings?.hasResource, account?.id, network?.id],
-  );
-
-  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
-    {
-      walletId: wallet?.id,
     },
+    [dispatchBannerIntent],
   );
-  const isBotWalletReceiveBlocked = shouldBlockBotWalletReceive({
-    isBotWallet,
-    isBotWalletDeactivated,
-  });
+
+  const tronCard = useMemo(() => {
+    const resource = payload?.tronResource;
+    return resource ? (
+      <ResourceBannerCard
+        key={`${resource.accountId}-${resource.networkId}`}
+        accountId={resource.accountId}
+        networkId={resource.networkId}
+        width={TRON_CARD_WIDTH}
+        height={BANNER_ITEM_HEIGHT}
+      />
+    ) : null;
+  }, [payload?.tronResource]);
 
   const wrappedHandleBannerOnPress = useCallback(
     (item: IWalletBanner) => {
-      if (item.id === PERPS_REFERRAL_BANNER_ID) {
+      if (
+        !dispatchBannerIntent({
+          actionId: HOME_BANNER_ACTION_IDS.open,
+          execution: 'caller',
+          itemId: item.id,
+        })
+      ) {
+        return;
+      }
+      if (item.id === HOME_PERPS_REFERRAL_BANNER_ID) {
         handleReferralBannerPress();
         return;
       }
@@ -823,7 +625,7 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
         href.includes('deposit') ||
         href.includes('/buy') ||
         href.includes('fund');
-      if (isBotWalletReceiveBlocked && looksLikeDepositTarget) {
+      if (payload?.isBotWalletReceiveBlocked && looksLikeDepositTarget) {
         Toast.error({
           title: '该钱包已停用，无法接收资产',
         });
@@ -831,7 +633,12 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
       }
       void handleBannerOnPress(item);
     },
-    [handleBannerOnPress, handleReferralBannerPress, isBotWalletReceiveBlocked],
+    [
+      dispatchBannerIntent,
+      handleBannerOnPress,
+      handleReferralBannerPress,
+      payload?.isBotWalletReceiveBlocked,
+    ],
   );
 
   if (hidden) {

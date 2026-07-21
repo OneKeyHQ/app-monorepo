@@ -19,11 +19,11 @@ import type {
   IHomeFacts,
   IHomeNetworkFamily,
 } from './homeFacts';
-import type { IHomeAuthorityShadowSnapshot } from '../lifecycle/homeSessionCoordinator';
+import type { IHomeSessionSnapshot } from '../lifecycle/homeSessionCoordinator';
 
 export type ICurrentHomeFactsAdapterInput = {
   owner: IHomeRuntimeOwnerScope;
-  authority: IHomeAuthorityShadowSnapshot;
+  authority: IHomeSessionSnapshot;
   wallet: {
     ready: boolean;
     backuped?: boolean;
@@ -78,7 +78,7 @@ function normalizeNetworkFamily({
 }
 
 function resolveRuntimeConnection(
-  status: IHomeAuthorityShadowSnapshot['status'],
+  status: IHomeSessionSnapshot['status'],
 ): IHomeFacts['runtime']['connection'] {
   if (status === 'active') {
     return 'ready';

@@ -304,9 +304,10 @@ function guardHomeNativeIntent({
     }
     case 'refresh':
     case 'selectTab':
-      if (intent.renderedRevision !== currentRevision) {
-        return { accepted: false, reason: 'revisionMismatch', intent };
-      }
+      // Protocol v2 has one global rendered revision. Shell or unrelated
+      // section updates must not invalidate a still-applicable tab intent.
+      // Owner and current Navigation remain the business authority here;
+      // protocol v3 carries the dedicated tab/section authority revision.
       if (
         !currentSnapshot.tabs.some(
           (tab) =>

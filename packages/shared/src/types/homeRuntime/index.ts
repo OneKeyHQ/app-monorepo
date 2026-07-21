@@ -3,6 +3,8 @@ export const HOME_RUNTIME_PROTOCOL_VERSION = 1 as const;
 export type IHomeRuntimeTopology = 'single' | 'split';
 
 export type IHomeRuntimeSourceId =
+  | 'capability'
+  | 'banner'
   | 'portfolio'
   | 'defi'
   | 'perps'
@@ -136,9 +138,16 @@ export function isHomeRuntimeSourceKey(
   return (
     typeof value.scopeKey === 'string' &&
     value.scopeKey.length > 0 &&
-    ['portfolio', 'defi', 'perps', 'nft', 'history', 'market'].includes(
-      String(value.sourceId),
-    ) &&
+    [
+      'capability',
+      'banner',
+      'portfolio',
+      'defi',
+      'perps',
+      'nft',
+      'history',
+      'market',
+    ].includes(String(value.sourceId)) &&
     typeof value.paramsFingerprint === 'string' &&
     Number.isSafeInteger(value.dataSchemaVersion) &&
     Number(value.dataSchemaVersion) > 0 &&

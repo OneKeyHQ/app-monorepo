@@ -79,6 +79,12 @@ function setNavigationRef(
   return getRootState;
 }
 
+function clearNavigationRef(ref: typeof rootNavigationRef) {
+  (
+    ref as MutableRefObject<NavigationContainerRef<ParamListBase> | null>
+  ).current = null;
+}
+
 function createWrapper(store: ReturnType<typeof createRouterEventStore>) {
   return function Wrapper({ children }: PropsWithChildren) {
     return <RouterEventProvider value={store}>{children}</RouterEventProvider>;
@@ -100,6 +106,38 @@ describe('useRouterConfig navigation event wiring', () => {
 
     act(() => config.containerProps.onReady?.());
     expect(getRootState).toHaveBeenCalledTimes(1);
+    expect(store).toEqual(
+      expect.objectContaining({ isReady: true, currentState: homeState }),
+    );
+
+    const listener = jest.fn();
+    const subscription = renderHook(() => useOnRouterChange(listener), {
+      wrapper,
+    });
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledWith(homeState);
+
+    subscription.unmount();
+    expect(store.listeners.size).toBe(0);
+  });
+
+  it('uses the first concrete container state change when onReady has no root state', () => {
+    const homeState = createNavigationState('Home');
+    const store = createRouterEventStore();
+    const wrapper = createWrapper(store);
+    clearNavigationRef(rootNavigationRef);
+    const config = renderHook(() => useRouterConfig(), { wrapper }).result
+      .current;
+
+    act(() => config.containerProps.onReady?.());
+    expect(store).toEqual(
+      expect.objectContaining({ isReady: false, currentState: undefined }),
+    );
+
+    act(() => config.containerProps.onStateChange?.(undefined));
+    expect(store.isReady).toBe(false);
+
+    act(() => config.containerProps.onStateChange?.(homeState));
     expect(store).toEqual(
       expect.objectContaining({ isReady: true, currentState: homeState }),
     );

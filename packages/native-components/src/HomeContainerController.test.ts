@@ -3,12 +3,17 @@ import path from 'path';
 
 import {
   HOME_CONTAINER_SCHEMA_VERSION,
+  HOME_CONTAINER_SLOT_CONTRACT_REVISION,
   type IHomeContainerCapabilities,
   type IHomeContainerRef,
   type IHomeContainerSlots,
   type IHomeContainerSnapshot,
 } from './HomeContainer.types';
-import { HomeContainerController } from './HomeContainerController';
+import {
+  HOME_CONTAINER_TRANSPORT_ACK_DEADLINE_MS,
+  HomeContainerController,
+} from './HomeContainerController';
+import { resolveHomeContainerSlots } from './HomeContainerSlotPresentation';
 
 const capabilities: IHomeContainerCapabilities = {
   schemaVersions: [HOME_CONTAINER_SCHEMA_VERSION],
@@ -23,6 +28,12 @@ const protocolV2Capabilities: IHomeContainerCapabilities = {
   ...capabilities,
   protocolVersions: [1, 2],
   preferredProtocol: 2,
+};
+
+const protocolV3Capabilities: IHomeContainerCapabilities = {
+  ...capabilities,
+  protocolVersions: [1, 2, 3],
+  preferredProtocol: 3,
 };
 
 function buildSnapshot(): IHomeContainerSnapshot {
@@ -90,6 +101,8 @@ function buildTarget() {
     applyPatch: jest.fn(),
     setProtocolV2Snapshot: jest.fn(),
     applyProtocolV2Patch: jest.fn(),
+    setProtocolV3Snapshot: jest.fn(),
+    applyProtocolV3Patch: jest.fn(),
     completeRefresh: jest.fn(),
     selectTab: jest.fn(),
     getCapabilities: jest.fn(() => capabilities),
@@ -421,6 +434,142 @@ describe('HomeContainerController', () => {
     expect(controller.getProtocolVersion()).toBe(1);
   });
 
+  it('negotiates protocol v3 and transports Store revision vectors independently', () => {
+    const scheduled: (() => void)[] = [];
+    const target = buildTarget();
+    target.getCapabilities.mockReturnValue(protocolV3Capabilities);
+    const owner = { scopeKey: 'scope-1', sessionId: 'session-1' };
+    const sections = {
+      portfolio: 1,
+      perps: 1,
+      defi: 1,
+      nft: 1,
+      history: 1,
+      market: 1,
+    };
+    const controller = new HomeContainerController({
+      initialOwner: owner,
+      initialSnapshot: buildSnapshot(),
+      initialProtocolV3Revisions: {
+        storeCommitId: 10,
+        presentationRevisions: {
+          shell: 2,
+          navigation: 3,
+          sections,
+        },
+        authorityRevisions: {
+          shellCommands: 1,
+          tabApplicability: 4,
+          sectionCommands: sections,
+        },
+      },
+      requireProtocolV3: true,
+      schedule: (flush) => scheduled.push(flush),
+    });
+
+    expect(controller.attach(target)).toBe(true);
+    expect(controller.getProtocolVersion()).toBe(3);
+    expect(target.setProtocolV3Snapshot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        protocolVersion: 3,
+        identity: { ...owner, storeCommitId: 10 },
+        transportRevision: 5,
+        authorityRevisions: expect.objectContaining({ tabApplicability: 4 }),
+      }),
+      undefined,
+    );
+    controller.handleTransportResult(
+      JSON.stringify({ kind: 'applied', owner, revision: 5 }),
+    );
+    controller.setProtocolV3RevisionState({
+      storeCommitId: 11,
+      presentationRevisions: {
+        shell: 3,
+        navigation: 3,
+        sections,
+      },
+      authorityRevisions: {
+        shellCommands: 1,
+        tabApplicability: 4,
+        sectionCommands: sections,
+      },
+    });
+    controller.updateHeader({
+      accountName: 'Account 1',
+      balance: '$101',
+      actions: [],
+      banners: [],
+    });
+    scheduled.shift()?.();
+
+    expect(target.applyProtocolV3Patch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseTransportRevision: 5,
+        transportRevision: 6,
+        identity: { ...owner, storeCommitId: 11 },
+        presentationRevisions: expect.objectContaining({ shell: 3 }),
+        authorityRevisions: expect.objectContaining({
+          shellCommands: 1,
+          tabApplicability: 4,
+        }),
+        changes: [expect.objectContaining({ kind: 'replaceShell' })],
+      }),
+      undefined,
+    );
+  });
+
+  it('transports a v3 slot-only commit as an empty patch', () => {
+    const scheduled: (() => void)[] = [];
+    const target = buildTarget();
+    target.getCapabilities.mockReturnValue(protocolV3Capabilities);
+    const owner = { scopeKey: 'scope-1', sessionId: 'session-1' };
+    const controller = new HomeContainerController({
+      initialOwner: owner,
+      initialSnapshot: buildSnapshot(),
+      requireProtocolV3: true,
+      schedule: (flush) => scheduled.push(flush),
+    });
+
+    expect(controller.attach(target)).toBe(true);
+    expect(
+      controller.handleTransportResult({
+        kind: 'applied',
+        owner,
+        revision: 5,
+      }),
+    ).toBe(true);
+    jest.mocked(target.setProtocolV3Snapshot!).mockClear();
+    const slots: IHomeContainerSlots = {
+      balance: { content: 'confirmed', height: 58 },
+    };
+
+    controller.updateSlots(slots);
+    scheduled.shift()?.();
+
+    expect(target.setProtocolV3Snapshot).not.toHaveBeenCalled();
+    expect(target.applyProtocolV3Patch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseTransportRevision: 5,
+        transportRevision: 6,
+        changes: [],
+      }),
+      slots,
+    );
+  });
+
+  it('rejects a native binary without protocol v3 when v3 is required', () => {
+    const target = buildTarget();
+    target.getCapabilities.mockReturnValue(protocolV2Capabilities);
+    const controller = new HomeContainerController({
+      initialSnapshot: buildSnapshot(),
+      requireProtocolV3: true,
+    });
+
+    expect(controller.attach(target)).toBe(false);
+    expect(target.setSnapshot).not.toHaveBeenCalled();
+    expect(target.setProtocolV2Snapshot).not.toHaveBeenCalled();
+  });
+
   it('allows only one protocol v2 transaction in flight and coalesces pending changes', () => {
     const scheduled: (() => void)[] = [];
     const target = buildTarget();
@@ -439,6 +588,7 @@ describe('HomeContainerController', () => {
         schemaVersion: 2,
         revision: 5,
       }),
+      undefined,
     );
 
     controller.updateHeader({
@@ -476,6 +626,7 @@ describe('HomeContainerController', () => {
           }),
         ]),
       }),
+      undefined,
     );
   });
 
@@ -563,6 +714,10 @@ describe('HomeContainerController', () => {
     });
     controller.updateSlots(firstSlots);
     controller.attach(target);
+    expect(target.setProtocolV2Snapshot).toHaveBeenLastCalledWith(
+      expect.objectContaining({ revision: 5 }),
+      firstSlots,
+    );
     controller.handleTransportResult({ kind: 'applied', owner, revision: 5 });
     expect(controller.getRenderedSlotState()).toEqual({
       owner,
@@ -573,6 +728,10 @@ describe('HomeContainerController', () => {
     controller.updateSlots(secondSlots);
     expect(controller.getRenderedSlotState()?.slots).toBe(firstSlots);
     scheduled.shift()?.();
+    expect(target.setProtocolV2Snapshot).toHaveBeenLastCalledWith(
+      expect.objectContaining({ revision: 6 }),
+      secondSlots,
+    );
     expect(controller.getRenderedSlotState()?.slots).toBe(firstSlots);
 
     controller.handleTransportResult({ kind: 'applied', owner, revision: 6 });
@@ -581,6 +740,92 @@ describe('HomeContainerController', () => {
       revision: 6,
       slots: secondSlots,
     });
+  });
+
+  it('keeps an equivalent repeated attach idempotent but reattaches a new target', () => {
+    const target = buildTarget();
+    const replacementTarget = buildTarget();
+    const owner = { scopeKey: 'scope-1', sessionId: 'session-1' };
+    const slots: IHomeContainerSlots = {
+      balance: { content: 'settled', height: 58 },
+      contentHeaders: {
+        portfolio: { content: 'Tokens', height: 56 },
+      },
+    };
+    const controller = new HomeContainerController({
+      initialOwner: owner,
+      initialSnapshot: buildSnapshot(),
+    });
+    controller.updateSlots(slots);
+
+    expect(controller.attach(target, protocolV2Capabilities)).toBe(true);
+    expect(
+      controller.handleTransportResult({
+        kind: 'applied',
+        owner,
+        revision: 5,
+      }),
+    ).toBe(true);
+    const renderedSlotState = controller.getRenderedSlotState();
+
+    expect(
+      controller.attach(target, {
+        ...protocolV2Capabilities,
+        protocolVersions: [...(protocolV2Capabilities.protocolVersions ?? [])],
+        schemaVersions: [...protocolV2Capabilities.schemaVersions],
+        tabIds: [...protocolV2Capabilities.tabIds],
+      }),
+    ).toBe(true);
+    expect(target.setProtocolV2Snapshot).toHaveBeenCalledTimes(1);
+    expect(controller.getRenderedSlotState()).toBe(renderedSlotState);
+    expect(controller.getSnapshot().revision).toBe(5);
+
+    expect(controller.attach(replacementTarget, protocolV2Capabilities)).toBe(
+      true,
+    );
+    expect(replacementTarget.setProtocolV2Snapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ revision: 6 }),
+      slots,
+    );
+  });
+
+  it('submits captured slots with an incremental business patch', () => {
+    const scheduled: (() => void)[] = [];
+    const target = buildTarget();
+    target.getCapabilities.mockReturnValue(protocolV2Capabilities);
+    const owner = { scopeKey: 'scope-1', sessionId: 'session-1' };
+    const firstSlots: IHomeContainerSlots = {
+      balance: { content: 'first', height: 58 },
+    };
+    const secondSlots: IHomeContainerSlots = {
+      balance: { content: 'second', height: 58 },
+    };
+    const controller = new HomeContainerController({
+      initialOwner: owner,
+      initialSnapshot: buildSnapshot(),
+      schedule: (flush) => scheduled.push(flush),
+    });
+    controller.updateSlots(firstSlots);
+    controller.attach(target);
+    controller.handleTransportResult({ kind: 'applied', owner, revision: 5 });
+
+    controller.updateHeader({
+      accountName: 'Account 2',
+      balance: '$200',
+      actions: [],
+      banners: [],
+    });
+    controller.updateSlots(secondSlots);
+    scheduled.shift()?.();
+
+    expect(target.applyProtocolV2Patch).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        baseRevision: 5,
+        revision: 6,
+        changes: [expect.objectContaining({ kind: 'replaceShell' })],
+      }),
+      secondSlots,
+    );
   });
 
   it('never captures the previous owner slots after an owner switch', () => {
@@ -610,6 +855,584 @@ describe('HomeContainerController', () => {
     });
 
     expect(controller.getRenderedSlotState()).toBeUndefined();
+  });
+
+  it('settles a replacement owner after the previous owner acknowledgement arrives late', () => {
+    const scheduled: (() => void)[] = [];
+    const target = buildTarget();
+    target.getCapabilities.mockReturnValue(protocolV2Capabilities);
+    const ownerA = { scopeKey: 'all-networks', sessionId: 'session-a' };
+    const ownerB = { scopeKey: 'bitcoin', sessionId: 'session-b' };
+    const loadingSlots: IHomeContainerSlots = {
+      balance: { content: 'bitcoin-loading', height: 58 },
+      headerActionRow: { content: 'bitcoin-loading-actions', height: 82 },
+      contentStates: {
+        portfolio: { content: 'bitcoin-loading-tokens', height: 320 },
+      },
+    };
+    const settledSlots: IHomeContainerSlots = {
+      balance: { content: 'bitcoin-settled', height: 58 },
+      headerActionRow: { content: 'bitcoin-actions', height: 62 },
+      contentHeaders: {
+        portfolio: { content: 'Tokens', height: 56 },
+      },
+      tabAccessories: {
+        portfolio: { content: 'manage-tokens', height: 36 },
+      },
+    };
+    const bitcoinLoadingSnapshot: IHomeContainerSnapshot = {
+      ...buildSnapshot(),
+      header: {
+        accountName: 'Bitcoin Account',
+        balance: '',
+        actionLayout: 'loading',
+        actionRowHeight: 82,
+        actions: [],
+        banners: [],
+      },
+      tabs: buildSnapshot().tabs.filter(
+        (tab) => tab.id === 'portfolio' || tab.id === 'history',
+      ),
+    };
+    const controller = new HomeContainerController({
+      initialOwner: ownerA,
+      initialSnapshot: buildSnapshot(),
+      schedule: (flush) => scheduled.push(flush),
+    });
+
+    controller.attach(target);
+    expect(target.setProtocolV2Snapshot).toHaveBeenLastCalledWith(
+      expect.objectContaining({ owner: ownerA, revision: 5 }),
+      undefined,
+    );
+
+    controller.replaceOwner(ownerB, bitcoinLoadingSnapshot);
+    controller.updateSlots(loadingSlots);
+    scheduled.shift()?.();
+    expect(target.setProtocolV2Snapshot).toHaveBeenLastCalledWith(
+      expect.objectContaining({ owner: ownerB, revision: 6 }),
+      loadingSlots,
+    );
+
+    controller.updateHeader({
+      ...bitcoinLoadingSnapshot.header,
+      balance: '$1',
+      actionLayout: 'standard',
+      actionRowHeight: 62,
+      actions: [
+        {
+          actionId: 'home.header.send',
+          icon: 'send',
+          id: 'send',
+          title: 'Send',
+        },
+      ],
+    });
+    controller.updateTabSections('portfolio', [
+      {
+        id: 'assets-bitcoin',
+        title: 'Tokens',
+        items: [{ id: 'btc', renderer: 'asset', title: 'BTC' }],
+      },
+    ]);
+    controller.updateSlots(settledSlots);
+
+    expect(
+      controller.handleTransportResult({
+        kind: 'applied',
+        owner: ownerA,
+        revision: 5,
+      }),
+    ).toBe(false);
+    expect(target.applyProtocolV2Patch).not.toHaveBeenCalled();
+
+    expect(
+      controller.handleTransportResult({
+        kind: 'applied',
+        owner: ownerB,
+        revision: 6,
+      }),
+    ).toBe(true);
+    scheduled.shift()?.();
+    expect(target.applyProtocolV2Patch).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        owner: ownerB,
+        baseRevision: 6,
+        revision: 7,
+        changes: expect.arrayContaining([
+          expect.objectContaining({ kind: 'replaceShell' }),
+          expect.objectContaining({
+            kind: 'replaceSection',
+            tabId: 'portfolio',
+            sectionId: 'assets-bitcoin',
+          }),
+        ]),
+      }),
+      settledSlots,
+    );
+
+    expect(
+      controller.handleTransportResult({
+        kind: 'applied',
+        owner: ownerB,
+        revision: 7,
+      }),
+    ).toBe(true);
+    expect(controller.getRenderedSlotState()).toEqual({
+      owner: ownerB,
+      revision: 7,
+      slots: settledSlots,
+    });
+    expect(controller.getSnapshot()).toMatchObject({
+      header: {
+        accountName: 'Bitcoin Account',
+        actionLayout: 'standard',
+        actionRowHeight: 62,
+        balance: '$1',
+      },
+      tabs: [
+        {
+          id: 'portfolio',
+          sections: [
+            {
+              id: 'assets-bitcoin',
+              items: [{ id: 'btc', renderer: 'asset', title: 'BTC' }],
+            },
+          ],
+        },
+        { id: 'history' },
+      ],
+    });
+  });
+
+  describe('protocol v2 acknowledgement recovery', () => {
+    const acknowledgementDeadlineMs = HOME_CONTAINER_TRANSPORT_ACK_DEADLINE_MS;
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('retries one full snapshot and then stops when acknowledgements never arrive', () => {
+      const scheduled: (() => void)[] = [];
+      const target = buildTarget();
+      target.getCapabilities.mockReturnValue(protocolV2Capabilities);
+      const controller = new HomeContainerController({
+        initialOwner: { scopeKey: 'bitcoin', sessionId: 'session-timeout' },
+        initialSnapshot: buildSnapshot(),
+        schedule: (flush) => scheduled.push(flush),
+      });
+
+      controller.attach(target);
+      expect(target.setProtocolV2Snapshot).toHaveBeenCalledTimes(1);
+
+      jest.advanceTimersByTime(acknowledgementDeadlineMs);
+      scheduled.shift()?.();
+      expect(target.setProtocolV2Snapshot).toHaveBeenCalledTimes(2);
+      expect(target.setProtocolV2Snapshot).toHaveBeenLastCalledWith(
+        expect.objectContaining({ revision: 6 }),
+        undefined,
+      );
+
+      jest.advanceTimersByTime(acknowledgementDeadlineMs * 4);
+      scheduled.splice(0).forEach((flush) => flush());
+      expect(target.setProtocolV2Snapshot).toHaveBeenCalledTimes(2);
+      expect(target.applyProtocolV2Patch).not.toHaveBeenCalled();
+    });
+
+    it('ignores wrong owner and revision results before the deadline recovery', () => {
+      const scheduled: (() => void)[] = [];
+      const target = buildTarget();
+      target.getCapabilities.mockReturnValue(protocolV2Capabilities);
+      const owner = { scopeKey: 'bitcoin', sessionId: 'session-exact-ack' };
+      const controller = new HomeContainerController({
+        initialOwner: owner,
+        initialSnapshot: buildSnapshot(),
+        schedule: (flush) => scheduled.push(flush),
+      });
+
+      controller.attach(target);
+      expect(
+        controller.handleTransportResult({
+          kind: 'applied',
+          owner,
+          revision: 4,
+        }),
+      ).toBe(false);
+      expect(
+        controller.handleTransportResult({
+          kind: 'applied',
+          owner: { ...owner, sessionId: 'wrong-session' },
+          revision: 5,
+        }),
+      ).toBe(false);
+      expect(target.setProtocolV2Snapshot).toHaveBeenCalledTimes(1);
+
+      jest.advanceTimersByTime(acknowledgementDeadlineMs);
+      scheduled.shift()?.();
+      expect(target.setProtocolV2Snapshot).toHaveBeenCalledTimes(2);
+      expect(
+        controller.handleTransportResult({
+          kind: 'applied',
+          owner,
+          revision: 5,
+        }),
+      ).toBe(false);
+      expect(
+        controller.handleTransportResult({
+          kind: 'applied',
+          owner,
+          revision: 6,
+        }),
+      ).toBe(true);
+      expect(controller.getRenderedRevision()).toBe(6);
+    });
+
+    it('resends the queued terminal snapshot and slots after a loading transaction wedges', () => {
+      const scheduled: (() => void)[] = [];
+      const target = buildTarget();
+      target.getCapabilities.mockReturnValue(protocolV2Capabilities);
+      const owner = { scopeKey: 'bitcoin', sessionId: 'session-terminal' };
+      const loadingSnapshot = buildSnapshot();
+      loadingSnapshot.header = {
+        accountName: 'Bitcoin Account',
+        balance: '',
+        actionLayout: 'loading',
+        actionRowHeight: 82,
+        actions: [],
+        banners: [],
+      };
+      const loadingSlots: IHomeContainerSlots = {
+        contentStates: {
+          portfolio: { content: 'loading', height: 320 },
+        },
+      };
+      const terminalSlots: IHomeContainerSlots = {
+        headerActionRow: { content: 'actions', height: 62 },
+        contentHeaders: {
+          portfolio: { content: 'Tokens', height: 56 },
+        },
+      };
+      const controller = new HomeContainerController({
+        initialOwner: owner,
+        initialSnapshot: loadingSnapshot,
+        initialSlots: loadingSlots,
+        schedule: (flush) => scheduled.push(flush),
+      });
+
+      controller.attach(target);
+      controller.updateHeader({
+        ...loadingSnapshot.header,
+        balance: '$1',
+        actionLayout: 'standard',
+        actionRowHeight: 62,
+      });
+      controller.updateTabSections('portfolio', [
+        {
+          id: 'assets-bitcoin',
+          title: 'Tokens',
+          items: [{ id: 'btc', renderer: 'asset', title: 'BTC' }],
+        },
+      ]);
+      controller.updateSlots(terminalSlots);
+
+      jest.advanceTimersByTime(acknowledgementDeadlineMs);
+      scheduled.shift()?.();
+
+      expect(target.setProtocolV2Snapshot).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          owner,
+          revision: 6,
+          payload: expect.objectContaining({
+            header: expect.objectContaining({
+              actionLayout: 'standard',
+              balance: '$1',
+            }),
+            tabs: expect.arrayContaining([
+              expect.objectContaining({
+                id: 'portfolio',
+                sections: [expect.objectContaining({ id: 'assets-bitcoin' })],
+              }),
+            ]),
+          }),
+        }),
+        terminalSlots,
+      );
+      expect(
+        controller.handleTransportResult({
+          kind: 'applied',
+          owner,
+          revision: 5,
+        }),
+      ).toBe(false);
+      expect(
+        controller.handleTransportResult({
+          kind: 'applied',
+          owner,
+          revision: 6,
+        }),
+      ).toBe(true);
+      expect(controller.getRenderedSlotState()).toEqual({
+        owner,
+        revision: 6,
+        slots: terminalSlots,
+      });
+      const renderedSlotState = controller.getRenderedSlotState();
+      expect(
+        resolveHomeContainerSlots({
+          acknowledgedBundle: renderedSlotState
+            ? {
+                owner: renderedSlotState.owner,
+                semanticRevision: renderedSlotState.revision,
+                slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
+                slots: renderedSlotState.slots,
+              }
+            : undefined,
+          currentBundle: {
+            owner,
+            semanticRevision: 6,
+            slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
+            slots: terminalSlots,
+          },
+          legacySlots: undefined,
+        }),
+      ).toBe(terminalSlots);
+    });
+
+    it('accepts only the latest exact late acknowledgement after recovery stops', () => {
+      const scheduled: (() => void)[] = [];
+      const target = buildTarget();
+      target.getCapabilities.mockReturnValue(protocolV2Capabilities);
+      const owner = { scopeKey: 'bitcoin', sessionId: 'session-late-ack' };
+      const slots: IHomeContainerSlots = {
+        contentStates: {
+          portfolio: { content: 'terminal', height: 320 },
+        },
+      };
+      const controller = new HomeContainerController({
+        initialOwner: owner,
+        initialSnapshot: buildSnapshot(),
+        initialSlots: slots,
+        schedule: (flush) => scheduled.push(flush),
+      });
+
+      controller.attach(target);
+      jest.advanceTimersByTime(acknowledgementDeadlineMs);
+      scheduled.shift()?.();
+      jest.advanceTimersByTime(acknowledgementDeadlineMs);
+
+      expect(
+        controller.handleTransportResult({
+          kind: 'applied',
+          owner,
+          revision: 5,
+        }),
+      ).toBe(false);
+      expect(
+        controller.handleTransportResult({
+          kind: 'applied',
+          owner,
+          revision: 6,
+        }),
+      ).toBe(true);
+      expect(controller.getRenderedSlotState()).toEqual({
+        owner,
+        revision: 6,
+        slots,
+      });
+    });
+
+    it('starts a fresh bounded cycle when new data arrives after recovery stops', () => {
+      const scheduled: (() => void)[] = [];
+      const target = buildTarget();
+      target.getCapabilities.mockReturnValue(protocolV2Capabilities);
+      const owner = { scopeKey: 'bitcoin', sessionId: 'session-new-data' };
+      const controller = new HomeContainerController({
+        initialOwner: owner,
+        initialSnapshot: buildSnapshot(),
+        schedule: (flush) => scheduled.push(flush),
+      });
+
+      controller.attach(target);
+      jest.advanceTimersByTime(acknowledgementDeadlineMs);
+      scheduled.shift()?.();
+      jest.advanceTimersByTime(acknowledgementDeadlineMs);
+      expect(target.setProtocolV2Snapshot).toHaveBeenCalledTimes(2);
+
+      controller.updateHeader({
+        accountName: 'Updated Account',
+        balance: '$2',
+        actions: [],
+        banners: [],
+      });
+      scheduled.shift()?.();
+      expect(target.setProtocolV2Snapshot).toHaveBeenCalledTimes(3);
+      expect(target.setProtocolV2Snapshot).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          revision: 7,
+          payload: expect.objectContaining({
+            header: expect.objectContaining({ balance: '$2' }),
+          }),
+        }),
+        undefined,
+      );
+      expect(
+        controller.handleTransportResult({
+          kind: 'applied',
+          owner,
+          revision: 6,
+        }),
+      ).toBe(false);
+      expect(
+        controller.handleTransportResult({
+          kind: 'applied',
+          owner,
+          revision: 7,
+        }),
+      ).toBe(true);
+    });
+
+    it('limits every new business update to one initial send and one recovery send', () => {
+      const scheduled: (() => void)[] = [];
+      const target = buildTarget();
+      target.getCapabilities.mockReturnValue(protocolV2Capabilities);
+      const controller = new HomeContainerController({
+        initialOwner: { scopeKey: 'bitcoin', sessionId: 'session-update-cap' },
+        initialSnapshot: buildSnapshot(),
+        schedule: (flush) => scheduled.push(flush),
+      });
+
+      controller.attach(target);
+      jest.advanceTimersByTime(acknowledgementDeadlineMs);
+      scheduled.shift()?.();
+      jest.advanceTimersByTime(acknowledgementDeadlineMs);
+
+      const updateCount = 3;
+      for (let index = 1; index <= updateCount; index += 1) {
+        controller.updateHeader({
+          accountName: `Account ${index}`,
+          balance: `$${index}`,
+          actions: [],
+          banners: [],
+        });
+        scheduled.shift()?.();
+        jest.advanceTimersByTime(acknowledgementDeadlineMs);
+        scheduled.shift()?.();
+        jest.advanceTimersByTime(acknowledgementDeadlineMs);
+        expect(scheduled).toHaveLength(0);
+      }
+
+      jest.advanceTimersByTime(acknowledgementDeadlineMs * 20);
+      expect(target.setProtocolV2Snapshot).toHaveBeenCalledTimes(
+        2 + updateCount * 2,
+      );
+      expect(target.applyProtocolV2Patch).not.toHaveBeenCalled();
+    });
+
+    it('cancels the old owner deadline and never commits its late result', () => {
+      const scheduled: (() => void)[] = [];
+      const target = buildTarget();
+      target.getCapabilities.mockReturnValue(protocolV2Capabilities);
+      const ownerA = { scopeKey: 'all-networks', sessionId: 'session-owner-a' };
+      const ownerB = { scopeKey: 'bitcoin', sessionId: 'session-owner-b' };
+      const controller = new HomeContainerController({
+        initialOwner: ownerA,
+        initialSnapshot: buildSnapshot(),
+        schedule: (flush) => scheduled.push(flush),
+      });
+
+      controller.attach(target);
+      controller.replaceOwner(ownerB, buildSnapshot());
+      scheduled.shift()?.();
+      expect(target.setProtocolV2Snapshot).toHaveBeenLastCalledWith(
+        expect.objectContaining({ owner: ownerB, revision: 6 }),
+        undefined,
+      );
+
+      expect(
+        controller.handleTransportResult({
+          kind: 'applied',
+          owner: ownerA,
+          revision: 5,
+        }),
+      ).toBe(false);
+      expect(
+        controller.handleTransportResult({
+          kind: 'applied',
+          owner: ownerB,
+          revision: 6,
+        }),
+      ).toBe(true);
+      jest.advanceTimersByTime(acknowledgementDeadlineMs);
+      expect(target.setProtocolV2Snapshot).toHaveBeenCalledTimes(2);
+    });
+
+    it('reports only hashed owner identity and slot barrier state in debug diagnostics', () => {
+      const scheduled: (() => void)[] = [];
+      const diagnostics: unknown[] = [];
+      const target = buildTarget();
+      target.getCapabilities.mockReturnValue(protocolV2Capabilities);
+      const owner = { scopeKey: 'bitcoin', sessionId: 'sensitive-session-id' };
+      const controller = new HomeContainerController({
+        initialOwner: owner,
+        initialSnapshot: buildSnapshot(),
+        initialSlots: {
+          contentStates: {
+            portfolio: { content: 'loading', height: 320 },
+          },
+        },
+        schedule: (flush) => scheduled.push(flush),
+        diagnosticsEnabled: true,
+        reportDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
+      });
+
+      controller.attach(target);
+      expect(
+        controller.handleTransportResult({
+          kind: 'applied',
+          owner,
+          revision: 4,
+        }),
+      ).toBe(false);
+      jest.advanceTimersByTime(acknowledgementDeadlineMs);
+      scheduled.shift()?.();
+
+      expect(diagnostics).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            event: 'result',
+            revision: 4,
+            inFlightRevision: 5,
+            resultKind: 'applied',
+            exactMatch: false,
+            mismatch: 'revision',
+            portfolioSlot: {
+              current: 'content',
+              acknowledged: 'absent',
+              presentation: 'reserved',
+            },
+          }),
+          expect.objectContaining({
+            event: 'deadline',
+            revision: 5,
+            inFlightAgeMs: acknowledgementDeadlineMs,
+            resultKind: 'deadline',
+          }),
+          expect.objectContaining({
+            event: 'recoverySnapshot',
+            revision: 6,
+            resultKind: 'recoverySnapshot',
+          }),
+        ]),
+      );
+      const serializedDiagnostics = JSON.stringify(diagnostics);
+      expect(serializedDiagnostics).not.toContain(owner.sessionId);
+      expect(serializedDiagnostics).not.toContain(owner.scopeKey);
+      expect(serializedDiagnostics).toMatch(/"sessionHash":"[0-9a-f]{8}"/);
+    });
   });
 
   it('ignores stale acknowledgements from another owner', () => {

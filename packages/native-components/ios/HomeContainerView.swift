@@ -621,6 +621,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   private let lifecycleLock = NSLock()
   private var snapshot: HomeContainerSnapshot?
   private var protocolV2State: HomeContainerProtocolV2State?
+  private var protocolV3State: HomeContainerProtocolV3State?
   private var lastNeedSnapshotResultKey: String?
   private var pages: [HomeContainerPageView] = []
   private var refreshRequestIds = Set<String>()
@@ -781,6 +782,18 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       do {
         let probe = try? self.decoder.decode(HomeContainerTransportProbe.self, from: data)
         if probe?.protocolVersion != nil || probe?.kind == "snapshot" {
+          if probe?.protocolVersion == 3 {
+            let envelope = try self.decoder.decode(
+              HomeContainerProtocolV3SnapshotEnvelope.self,
+              from: data
+            )
+            DispatchQueue.main.async { [weak self] in
+              self?.handleProtocolV3Outcome(
+                HomeContainerProtocolV3Transaction.apply(snapshot: envelope)
+              )
+            }
+            return
+          }
           guard probe?.protocolVersion == homeContainerProtocolVersion else {
             DispatchQueue.main.async { [weak self] in
               self?.emitNeedSnapshot(
@@ -807,6 +820,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
           )
           DispatchQueue.main.async { [weak self] in
             guard let self else { return }
+            self.protocolV3State = nil
             self.handleProtocolV2Outcome(
               HomeContainerProtocolV2Transaction.apply(
                 snapshot: envelope,
@@ -837,6 +851,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
         DispatchQueue.main.async { [weak self] in
           guard let self else { return }
           self.protocolV2State = nil
+          self.protocolV3State = nil
           self.lastNeedSnapshotResultKey = nil
           self.applySnapshot(
             next,
@@ -868,6 +883,23 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       do {
         let probe = try? self.decoder.decode(HomeContainerTransportProbe.self, from: data)
         if probe?.protocolVersion != nil || probe?.kind == "patch" {
+          if probe?.protocolVersion == 3 {
+            let patch = try self.decoder.decode(
+              HomeContainerProtocolV3PatchEnvelope.self,
+              from: data
+            )
+            DispatchQueue.main.async { [weak self] in
+              guard let self else { return }
+              self.handleProtocolV3Outcome(
+                HomeContainerProtocolV3Transaction.apply(
+                  patch: patch,
+                  current: self.protocolV3State,
+                  availableSlotRevisions: self.protocolV3State?.slotRevisions ?? [:]
+                )
+              )
+            }
+            return
+          }
           guard probe?.protocolVersion == homeContainerProtocolVersion else {
             DispatchQueue.main.async { [weak self] in
               self?.emitNeedSnapshot(
@@ -894,6 +926,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
           )
           DispatchQueue.main.async { [weak self] in
             guard let self else { return }
+            self.protocolV3State = nil
             self.handleProtocolV2Outcome(
               HomeContainerProtocolV2Transaction.apply(
                 patch: patch,
@@ -1448,6 +1481,45 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     emitRefresh(tabId: selectedTabId, requestId: requestId)
   }
 
+  private func handleProtocolV3Outcome(_ outcome: HomeContainerProtocolV3ApplyOutcome) {
+    guard !isDisposed() else { return }
+    switch outcome {
+    case .applied(let state):
+      protocolV3State = state
+      protocolV2State = state.legacyState
+      lastNeedSnapshotResultKey = nil
+      applySnapshot(
+        state.snapshot,
+        allowsMissingSelectedTabFallback: false,
+        enforcesMonotonicRevision: false
+      )
+      emitTransportResult(
+        .applied(owner: state.identity.owner, revision: state.transportRevision)
+      )
+    case .duplicate(let state):
+      emitTransportResult(
+        .duplicate(owner: state.identity.owner, revision: state.transportRevision)
+      )
+    case .needSnapshot(let reason):
+      let legacyReason: HomeContainerProtocolV2NeedSnapshotReason
+      switch reason {
+      case .ownerMismatch:
+        legacyReason = .ownerMismatch
+      case .revisionGap:
+        legacyReason = .revisionGap
+      case .unsupportedProtocol:
+        legacyReason = .unsupportedProtocol
+      case .invalidInvariant, .slotRevisionGap:
+        legacyReason = .invalidInvariant
+      }
+      emitNeedSnapshot(
+        owner: protocolV3State?.identity.owner,
+        currentRevision: protocolV3State?.transportRevision,
+        reason: legacyReason
+      )
+    }
+  }
+
   private func handleProtocolV2Outcome(_ outcome: HomeContainerProtocolV2ApplyOutcome) {
     guard !isDisposed() else { return }
     switch outcome {
@@ -1472,6 +1544,28 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   }
 
   private func emitAction(actionId: String, itemId: String, tabId: String) {
+    if let state = protocolV3State {
+      let authority: HomeContainerProtocolV3IntentAuthority
+      if homeContainerHeaderContainsCommand(state.snapshot.header, commandId: actionId) {
+        authority = .shellCommands(
+          revision: state.authorityRevisions.shellCommands
+        )
+      } else {
+        let sectionId = actionId.hasPrefix("home.widget.market") ? "market" : tabId
+        guard
+          let revision = state.authorityRevisions.sectionCommands[sectionId]
+        else {
+          return
+        }
+        authority = .sectionCommands(sectionId: sectionId, revision: revision)
+      }
+      emitProtocolV3Intent(
+        state: state,
+        authority: authority,
+        payload: .action(commandId: actionId, itemId: itemId)
+      )
+      return
+    }
     guard let state = protocolV2State else {
       onAction?(actionId, itemId, tabId)
       return
@@ -1483,6 +1577,16 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   }
 
   private func emitRefresh(tabId: String, requestId: String) {
+    if let state = protocolV3State,
+      let revision = state.authorityRevisions.sectionCommands[tabId]
+    {
+      emitProtocolV3Intent(
+        state: state,
+        authority: .sectionCommands(sectionId: tabId, revision: revision),
+        payload: .refresh(tabId: tabId, requestId: requestId)
+      )
+      return
+    }
     guard let state = protocolV2State else {
       onRefresh?(tabId, requestId)
       return
@@ -1518,6 +1622,24 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     )
     snapshot = selectedSnapshot
     protocolV2State = selectedState
+    if let state = protocolV3State {
+      protocolV3State = HomeContainerProtocolV3State(
+        identity: state.identity,
+        transportRevision: state.transportRevision,
+        presentationRevisions: state.presentationRevisions,
+        authorityRevisions: state.authorityRevisions,
+        slotRevisions: state.slotRevisions,
+        legacyState: selectedState
+      )
+      emitProtocolV3Intent(
+        state: state,
+        authority: .tabApplicability(
+          revision: state.authorityRevisions.tabApplicability
+        ),
+        payload: .selectTab(tabId: tabId)
+      )
+      return
+    }
     emitIntent(state: selectedState, payload: .selectTab(tabId: tabId))
   }
 
@@ -1525,6 +1647,16 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     guard tab.destination == .handoff,
           let commandId = tab.handoffCommandId,
           !commandId.isEmpty else { return }
+    if let state = protocolV3State {
+      emitProtocolV3Intent(
+        state: state,
+        authority: .tabApplicability(
+          revision: state.authorityRevisions.tabApplicability
+        ),
+        payload: .handoff(tabId: tab.id, commandId: commandId)
+      )
+      return
+    }
     guard let state = protocolV2State else {
       onAction?(commandId, tab.id, selectedTabId)
       return
@@ -1546,6 +1678,27 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       intent: payload
     )
     guard let data = try? encoder.encode(intent),
+          let json = String(data: data, encoding: .utf8) else {
+      reportError(code: "intent_encode_failed", message: "Unable to encode native intent")
+      return
+    }
+    onIntent?(json)
+  }
+
+  private func emitProtocolV3Intent(
+    state: HomeContainerProtocolV3State,
+    authority: HomeContainerProtocolV3IntentAuthority,
+    payload: HomeContainerProtocolV3IntentPayload
+  ) {
+    let intent = HomeContainerProtocolV3Intent(
+      protocolVersion: 3,
+      intentId: UUID().uuidString,
+      owner: state.identity.owner,
+      authority: authority,
+      intent: payload
+    )
+    guard intent.isValid(against: state),
+          let data = try? encoder.encode(intent),
           let json = String(data: data, encoding: .utf8) else {
       reportError(code: "intent_encode_failed", message: "Unable to encode native intent")
       return

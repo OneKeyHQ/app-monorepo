@@ -1,6 +1,3 @@
-import { mergeHomeSemanticSectionPublication } from '@onekeyhq/kit/src/states/jotai/contexts/home/actions';
-
-import { resolveNativeHomeCompatibilitySections } from '../../nativeHomeDataAdapters';
 import { adaptHomeSectionRenderState } from '../compatibility/homeSectionRenderStateAdapter';
 import { createReplaceSectionChange } from '../native/homeNativeDTOAdapter';
 import {
@@ -117,11 +114,6 @@ describe('homeSectionSourceAdapter', () => {
     });
   });
 
-  it('preserves the exact legacy section reference when no compatibility data exists', () => {
-    const sections = [{ id: 'portfolio-assets', items: [] }];
-    expect(resolveNativeHomeCompatibilitySections({ sections })).toBe(sections);
-  });
-
   it('creates replaceSection only from an authoritative concrete section', () => {
     const section = { id: 'portfolio-assets', items: [] };
     expect(
@@ -133,131 +125,5 @@ describe('homeSectionSourceAdapter', () => {
       index: 0,
       value: section,
     });
-  });
-
-  it('keeps newer same-owner section slices and clear tombstones', () => {
-    const incoming = {
-      portfolio: {
-        revision: 3,
-        value: { kind: 'loading' as const, placeholder: 'portfolio' as const },
-      },
-      perps: {
-        revision: 3,
-        value: { kind: 'hidden' as const, reason: 'notApplicable' as const },
-      },
-      defi: {
-        revision: 3,
-        value: { kind: 'hidden' as const, reason: 'notApplicable' as const },
-      },
-      nft: {
-        revision: 3,
-        value: { kind: 'hidden' as const, reason: 'notApplicable' as const },
-      },
-      history: {
-        revision: 3,
-        value: { kind: 'hidden' as const, reason: 'notApplicable' as const },
-      },
-      market: {
-        revision: 3,
-        value: { kind: 'hidden' as const, reason: 'notApplicable' as const },
-      },
-    };
-    const currentPortfolio = {
-      revision: 5,
-      value: { kind: 'empty' as const, emptyState: 'portfolio' as const },
-    };
-    const result = mergeHomeSemanticSectionPublication({
-      currentRevisions: { portfolio: 5, nft: 5 },
-      currentSections: { portfolio: currentPortfolio },
-      incomingSections: incoming,
-      sameOwner: true,
-    });
-    expect(result.sections.portfolio).toBe(currentPortfolio);
-    expect(result.sections.nft).toBeUndefined();
-    expect(result.revisions).toMatchObject({ portfolio: 5, nft: 5 });
-  });
-
-  it('replaces prior section revisions as one transaction for a new owner', () => {
-    const section = {
-      revision: 3,
-      value: { kind: 'loading' as const, placeholder: 'portfolio' as const },
-    };
-    const incoming = {
-      portfolio: section,
-      perps: {
-        revision: 3,
-        value: { kind: 'hidden' as const, reason: 'notApplicable' as const },
-      },
-      defi: {
-        revision: 3,
-        value: { kind: 'hidden' as const, reason: 'notApplicable' as const },
-      },
-      nft: {
-        revision: 3,
-        value: { kind: 'hidden' as const, reason: 'notApplicable' as const },
-      },
-      history: {
-        revision: 3,
-        value: { kind: 'hidden' as const, reason: 'notApplicable' as const },
-      },
-      market: {
-        revision: 3,
-        value: { kind: 'hidden' as const, reason: 'notApplicable' as const },
-      },
-    };
-    const result = mergeHomeSemanticSectionPublication({
-      currentRevisions: { portfolio: 5 },
-      currentSections: {},
-      incomingSections: incoming,
-      sameOwner: false,
-    });
-    expect(result.sections.portfolio).toBe(section);
-    expect(result.sections).toBe(incoming);
-    expect(result.revisions.portfolio).toBe(3);
-  });
-
-  it('preserves both map references for a same-owner semantic no-op', () => {
-    const currentSections = {
-      portfolio: {
-        revision: 5,
-        value: { kind: 'empty' as const, emptyState: 'portfolio' as const },
-      },
-      perps: {
-        revision: 5,
-        value: { kind: 'hidden' as const, reason: 'notApplicable' as const },
-      },
-      defi: {
-        revision: 5,
-        value: { kind: 'hidden' as const, reason: 'notApplicable' as const },
-      },
-      nft: {
-        revision: 5,
-        value: { kind: 'hidden' as const, reason: 'notApplicable' as const },
-      },
-      history: {
-        revision: 5,
-        value: { kind: 'hidden' as const, reason: 'notApplicable' as const },
-      },
-      market: {
-        revision: 5,
-        value: { kind: 'hidden' as const, reason: 'notApplicable' as const },
-      },
-    };
-    const currentRevisions = {
-      portfolio: 5,
-      perps: 5,
-      defi: 5,
-      nft: 5,
-      history: 5,
-      market: 5,
-    };
-    const result = mergeHomeSemanticSectionPublication({
-      currentRevisions,
-      currentSections,
-      incomingSections: currentSections,
-      sameOwner: true,
-    });
-    expect(result.sections).toBe(currentSections);
-    expect(result.revisions).toBe(currentRevisions);
   });
 });

@@ -97,6 +97,10 @@ export function useRouterContainerEventHandlers() {
         }
       },
       onStateChange: (state: IRouterState) => {
+        if (!store.isReady && state !== undefined) {
+          markRouterEventStoreReady(store, state);
+          return;
+        }
         publishRouterStateChange(store, state);
       },
     }),

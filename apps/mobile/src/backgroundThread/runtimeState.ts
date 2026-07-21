@@ -1,8 +1,16 @@
+import {
+  type INativeBackgroundThreadReadyReason,
+  publishNativeBackgroundThreadReady,
+} from '@onekeyhq/shared/src/background/nativeBackgroundThreadReady';
+
+import type { IBackgroundThreadTransportState } from './rpcProtocol';
 import type { IBackgroundThreadReadyPayload } from './runtimeReady';
 
 type IBackgroundThreadReadyListener = (
   payload: IBackgroundThreadReadyPayload,
 ) => void;
+
+export type IBackgroundThreadReadyReason = INativeBackgroundThreadReadyReason;
 
 type IBackgroundThreadStateGlobal = typeof globalThis & {
   __onekeyBackgroundThreadReadyPayload?: IBackgroundThreadReadyPayload;
@@ -17,20 +25,53 @@ function getBackgroundThreadStateGlobal() {
 
 function saveBackgroundThreadReadyPayload(
   payload: IBackgroundThreadReadyPayload,
+  reason: IBackgroundThreadReadyReason,
 ) {
   currentPayload = payload;
   getBackgroundThreadStateGlobal().__onekeyBackgroundThreadReadyPayload =
     payload;
+  publishNativeBackgroundThreadReady({
+    bootId: payload.bootId,
+    reason,
+  });
+}
+
+function notifyListener(
+  listener: IBackgroundThreadReadyListener,
+  payload: IBackgroundThreadReadyPayload,
+) {
+  try {
+    listener(payload);
+  } catch {
+    // Ready publication and queued-call flushing must survive listener errors.
+  }
+}
+
+export function classifyBackgroundThreadReadyReason({
+  nextBootId,
+  previousBootId,
+  transportState,
+}: {
+  nextBootId: string;
+  previousBootId: string | undefined;
+  transportState: IBackgroundThreadTransportState;
+}): IBackgroundThreadReadyReason {
+  if (previousBootId && previousBootId !== nextBootId) {
+    return 'restarted';
+  }
+  if (transportState === 'remote-broken') {
+    return 'recovered';
+  }
+  return 'initial';
 }
 
 export function setBackgroundThreadReadyPayload(
   payload: IBackgroundThreadReadyPayload,
+  reason: IBackgroundThreadReadyReason = 'initial',
 ) {
-  saveBackgroundThreadReadyPayload(payload);
+  saveBackgroundThreadReadyPayload(payload, reason);
 
-  listeners.forEach((listener) => {
-    listener(payload);
-  });
+  listeners.forEach((listener) => notifyListener(listener, payload));
 }
 
 export function getBackgroundThreadReadyPayload() {
@@ -51,7 +92,7 @@ export function onBackgroundThreadReady(
 
   const payload = getBackgroundThreadReadyPayload();
   if (payload) {
-    listener(payload);
+    notifyListener(listener, payload);
   }
 
   return () => {

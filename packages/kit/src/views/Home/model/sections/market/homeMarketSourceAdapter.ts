@@ -13,11 +13,28 @@ import type {
 } from '../homeSectionCoordinator';
 
 const HOME_MARKET_SOURCE_REVISION = 1;
-const HOME_MARKET_DATA_SCHEMA_VERSION = 1;
+const HOME_MARKET_DATA_SCHEMA_VERSION = 2;
 
 type IHomeMarketTokenRow = {
   chainId: string;
   contractAddress: string;
+  isNative?: boolean;
+  perpsCoin?: string;
+};
+
+type IHomeMarketCategory = {
+  id: string;
+  name: string;
+  icon?: string;
+  iconName?: string;
+  iconOnly?: boolean;
+  isStockCategory?: boolean;
+};
+
+type IHomeMarketWatchListItem = {
+  chainId: string;
+  contractAddress: string;
+  sortIndex?: number;
   isNative?: boolean;
   perpsCoin?: string;
 };
@@ -34,6 +51,7 @@ type IHomeMarketSourceParams = {
 };
 
 type IHomeMarketLegacyPayload<TToken extends IHomeMarketTokenRow> = {
+  categories?: readonly IHomeMarketCategory[];
   favoriteMode: 'favorites' | 'recommendation';
   prefetchCategoryIds: readonly string[];
   prefetchedRowsByRequestKey: Readonly<Record<string, readonly TToken[]>>;
@@ -42,6 +60,7 @@ type IHomeMarketLegacyPayload<TToken extends IHomeMarketTokenRow> = {
   selectedCategoryId: string;
   totalFavorites: number;
   watchListContentKey: string;
+  watchListItems?: readonly IHomeMarketWatchListItem[];
 };
 
 type IHomeMarketSourceSnapshot<TToken extends IHomeMarketTokenRow> =
@@ -158,8 +177,10 @@ export {
   getHomeMarketTokenRowId,
 };
 export type {
+  IHomeMarketCategory,
   IHomeMarketLegacyPayload,
   IHomeMarketSourceParams,
   IHomeMarketSourceSnapshot,
   IHomeMarketTokenRow,
+  IHomeMarketWatchListItem,
 };

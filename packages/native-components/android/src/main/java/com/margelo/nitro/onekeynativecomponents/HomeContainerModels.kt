@@ -38,6 +38,16 @@ internal data class HomeContainerBanner(
   val dismissActionId: String,
 )
 
+internal data class HomeContainerSegment(
+  val id: String,
+  val title: String,
+  val imageUrl: String,
+  val leadingIcon: String,
+  val iconOnly: Boolean,
+  val selected: Boolean,
+  val actionId: String,
+)
+
 internal data class HomeContainerHeader(
   val accountName: String,
   val accountSubtitle: String,
@@ -68,15 +78,24 @@ internal data class HomeContainerItem(
   val value: String,
   val detail: String,
   val imageUrl: String,
+  val imageUrls: List<String>,
   val secondaryImageUrl: String,
+  val titleAccessoryImageUrl: String,
+  val titleAccessoryIcon: String,
   val badge: String,
+  val badges: List<String>,
   val badgeImageUrl: String,
+  val communityRecognized: Boolean,
   val accentColor: String,
   val buttonTitle: String,
   val leadingIcon: String,
   val showChevron: Boolean,
   val actionId: String,
+  val favorite: Boolean,
+  val favoriteActionId: String,
+  val favoriteLabel: String,
   val displayHeight: Int,
+  val segments: List<HomeContainerSegment>,
 )
 
 internal data class HomeContainerSection(
@@ -84,6 +103,7 @@ internal data class HomeContainerSection(
   val title: String,
   val actionTitle: String,
   val actionId: String,
+  val actionDisabled: Boolean,
   val layout: String,
   val items: List<HomeContainerItem>,
 )
@@ -292,6 +312,7 @@ internal object HomeContainerJson {
     title = value.optString("title"),
     actionTitle = value.optString("actionTitle"),
     actionId = value.optString("actionId"),
+    actionDisabled = value.optBoolean("actionDisabled"),
     layout = value.optString("layout", "list"),
     items = value.getJSONArray("items").mapObjects { item ->
       HomeContainerItem(
@@ -304,15 +325,24 @@ internal object HomeContainerJson {
         value = item.optString("value"),
         detail = item.optString("detail"),
         imageUrl = item.optString("imageUrl"),
+        imageUrls = item.optJSONArray("imageUrls")?.mapStrings() ?: emptyList(),
         secondaryImageUrl = item.optString("secondaryImageUrl"),
+        titleAccessoryImageUrl = item.optString("titleAccessoryImageUrl"),
+        titleAccessoryIcon = item.optString("titleAccessoryIcon"),
         badge = item.optString("badge"),
+        badges = item.optJSONArray("badges")?.mapStrings() ?: emptyList(),
         badgeImageUrl = item.optString("badgeImageUrl"),
+        communityRecognized = item.optBoolean("communityRecognized"),
         accentColor = item.optString("accentColor"),
         buttonTitle = item.optString("buttonTitle"),
         leadingIcon = item.optString("leadingIcon"),
         showChevron = item.optBoolean("showChevron"),
         actionId = item.optString("actionId"),
+        favorite = item.optBoolean("favorite"),
+        favoriteActionId = item.optString("favoriteActionId"),
+        favoriteLabel = item.optString("favoriteLabel"),
         displayHeight = item.optInt("displayHeight"),
+        segments = item.optJSONArray("segments")?.mapObjects(::parseSegment) ?: emptyList(),
       )
     },
   )
@@ -330,6 +360,16 @@ internal object HomeContainerJson {
     icon = action.optString("icon"),
     iconUrl = action.optString("iconUrl"),
     actionId = action.getString("actionId"),
+  )
+
+  private fun parseSegment(segment: JSONObject): HomeContainerSegment = HomeContainerSegment(
+    id = segment.getString("id"),
+    title = segment.getString("title"),
+    imageUrl = segment.optString("imageUrl"),
+    leadingIcon = segment.optString("leadingIcon"),
+    iconOnly = segment.optBoolean("iconOnly"),
+    selected = segment.optBoolean("selected"),
+    actionId = segment.getString("actionId"),
   )
 }
 

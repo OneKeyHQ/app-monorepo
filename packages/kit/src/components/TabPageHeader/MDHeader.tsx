@@ -31,6 +31,9 @@ import { LegacyUniversalSearchInput } from './LegacyUniversalSearchInput';
 
 import type { SharedValue } from 'react-native-reanimated';
 
+// Keep the native Home surface aligned with the React-owned search row.
+export const HOME_HEADER_SEARCH_ROW_HEIGHT = 56;
+
 function HomeWalletConnectionRow({
   headerPx,
   selectedHeaderTab,
@@ -147,8 +150,9 @@ export function MDHeader({
               <XStack
                 alignItems="center"
                 px={headerPx}
-                h={56}
+                h={HOME_HEADER_SEARCH_ROW_HEIGHT}
                 gap={headerGlassActive ? '$3' : '$6'}
+                bg={platformEnv.isNativeAndroid ? '$bgApp' : undefined}
                 {...(top || platformEnv.isNativeAndroid
                   ? { mt: top || '$2' }
                   : {})}

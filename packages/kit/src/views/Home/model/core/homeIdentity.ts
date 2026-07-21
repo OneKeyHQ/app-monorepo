@@ -27,7 +27,7 @@ export function buildHomeOwnerScopeKey(owner: IHomeRuntimeOwnerScope): string {
 }
 
 export function createHomeAuthorityId(
-  prefix: 'client' | 'session',
+  prefix: 'client' | 'intent' | 'session',
   generateId: () => string = () =>
     stringUtils.generateUUID({ removeDashes: true }),
 ): string {

@@ -12,7 +12,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { adaptCurrentHomeCapabilityFacts } from '../model/capabilities/currentHomeCapabilityFactsAdapter';
-import { useHomeFactsShadow } from '../model/react/homeSemanticHooks';
+import { useHomeFactsSnapshot } from '../model/react/homeStoreHooks';
 import { useHomeNavigationCoordinator } from '../model/react/useHomeNavigationCoordinator';
 
 import {
@@ -45,7 +45,7 @@ export function useHomeWalletTabSupport({
 }) {
   const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
   const [{ perpConfigLoaded }] = usePerpsCommonConfigPersistAtom();
-  const homeFacts = useHomeFactsShadow();
+  const homeFacts = useHomeFactsSnapshot();
   const {
     activeAccount: { account, indexedAccount, wallet },
   } = useActiveAccount({ num: 0 });

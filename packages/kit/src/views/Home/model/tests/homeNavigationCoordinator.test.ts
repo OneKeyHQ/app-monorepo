@@ -3,7 +3,7 @@ import {
   initialHomeConfirmedCapabilityCacheState,
   reduceHomeConfirmedCapabilityCache,
 } from '../capabilities/homeConfirmedCapabilityCache';
-import { resolveHomeNavigationCoordinatorState } from '../react/useHomeNavigationCoordinator';
+import { projectHomeNavigation as resolveHomeNavigationCoordinatorState } from '../navigation/homeNavigationProjector';
 
 import type { IHomeCapabilityFacts } from '../capabilities/homeCapabilityTypes';
 

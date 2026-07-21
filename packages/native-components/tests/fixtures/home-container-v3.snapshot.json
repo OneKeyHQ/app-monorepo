@@ -1,0 +1,95 @@
+{
+  "kind": "snapshot",
+  "protocolVersion": 3,
+  "identity": {
+    "scopeKey": "wallet-1:account-1:all",
+    "sessionId": "session-1",
+    "storeCommitId": 7
+  },
+  "transportRevision": 11,
+  "presentationRevisions": {
+    "shell": 4,
+    "navigation": 3,
+    "sections": {
+      "portfolio": 6,
+      "perps": 1,
+      "defi": 2,
+      "nft": 1,
+      "history": 2,
+      "market": 1
+    }
+  },
+  "authorityRevisions": {
+    "shellCommands": 2,
+    "tabApplicability": 3,
+    "sectionCommands": {
+      "portfolio": 2,
+      "perps": 1,
+      "defi": 1,
+      "nft": 1,
+      "history": 1,
+      "market": 1
+    }
+  },
+  "slotRevisions": {
+    "header.balance": 4,
+    "content.state.portfolio": 6
+  },
+  "payload": {
+    "selectedTabId": "portfolio",
+    "header": {
+      "accountName": "Account 1",
+      "balance": "$100.00",
+      "actions": [],
+      "banners": []
+    },
+    "tabs": [
+      {
+        "id": "portfolio",
+        "title": "Spot",
+        "destination": "inline",
+        "sections": [
+          {
+            "id": "tokens",
+            "title": "Tokens",
+            "items": []
+          }
+        ]
+      },
+      {
+        "id": "perps",
+        "title": "Perps",
+        "destination": "handoff",
+        "handoffCommandId": "home.perps.openWeb",
+        "sections": []
+      },
+      {
+        "id": "defi",
+        "title": "DeFi",
+        "destination": "inline",
+        "sections": []
+      },
+      {
+        "id": "history",
+        "title": "History",
+        "destination": "inline",
+        "sections": [
+          {
+            "id": "history",
+            "items": []
+          }
+        ]
+      }
+    ],
+    "theme": {
+      "backgroundColor": "#FFFFFF",
+      "cardColor": "#F5F5F5",
+      "dividerColor": "#E5E5E5",
+      "primaryTextColor": "#111111",
+      "secondaryTextColor": "#666666",
+      "accentColor": "#5B5BD6",
+      "positiveColor": "#087A55",
+      "negativeColor": "#D92D20"
+    }
+  }
+}

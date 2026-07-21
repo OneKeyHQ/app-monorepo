@@ -2,22 +2,14 @@ import {
   buildHomeWalletCapabilityTabModel,
   resolveHomeWalletSelectedTab,
 } from '../../homeWalletCapabilityTabModel';
-import {
-  resolveNativeHomeBalanceState,
-  resolveNativeHomeHeaderActionPresentation,
-  resolveNativeHomeScopeCachedBalanceState,
-} from '../../nativeHomeBalanceAuthority';
-import { resolveNativeHomeListStateSlot } from '../../nativeHomeDataAdapters';
 import { isNativeHomePortfolioRequestCurrent } from '../../nativeHomePortfolioRequestLifecycle';
 import { resolveHomeWalletPageSurface } from '../../pages/homeWalletPageSurface';
 import {
   type IPerpsHomePortfolioResult,
   selectCurrentPerpsHomePortfolioResult,
 } from '../../pages/perpsHomePortfolioAuthority';
-import {
-  type INativeHomeAmountSourceAuthority,
-  resolveNativeHomeBalanceAmountPresentation,
-} from '../../useNativeHomeBalanceAmountPresentation';
+import { createHomeHistoryStoreResult } from '../sections/history/homeHistoryControllerUtils';
+import { createHomeHistoryStorePayload } from '../sections/history/homeHistoryStoreModel';
 
 import {
   type IHomeBehaviorOracleProbe,
@@ -25,6 +17,13 @@ import {
   homeBehaviorOracleFixtures,
   homeUICoverageManifest,
 } from './fixtures/homeBehaviorOracleFixtures';
+import {
+  type IHomeLegacyAmountSourceAuthority,
+  resolveHomeLegacyBalanceAmountPresentation,
+  resolveHomeLegacyBalanceState,
+  resolveHomeLegacyHeaderActionPresentation,
+  resolveHomeLegacyScopeCachedBalanceState,
+} from './fixtures/homeLegacyBalanceOracle';
 
 const authoritativeRequiredHomeUICoverageIds = [
   'account8ToAccount1',
@@ -77,9 +76,9 @@ const scopeB = 'wallet-fixture-a__account-fixture-b__network-fixture-all';
 
 function source(
   scopeKey: string | undefined,
-  status: INativeHomeAmountSourceAuthority['status'],
+  status: IHomeLegacyAmountSourceAuthority['status'],
   included = true,
-): INativeHomeAmountSourceAuthority {
+): IHomeLegacyAmountSourceAuthority {
   return { included, scopeKey, status };
 }
 
@@ -100,13 +99,13 @@ function runExecutableProbe(probe: IHomeBehaviorOracleProbe) {
           walletListWallet: wallet,
         }),
       ).toEqual({
-        surface: 'not-backed-up-rn',
+        surface: 'native',
         walletId: 'wallet-fixture-unbacked',
       });
       return;
     }
     case 'backedZeroBalance': {
-      const state = resolveNativeHomeBalanceState({
+      const state = resolveHomeLegacyBalanceState({
         currentScopeKey: scopeB,
         hasCurrentPositiveBalance: false,
         hasHoldings: false,
@@ -119,13 +118,13 @@ function runExecutableProbe(probe: IHomeBehaviorOracleProbe) {
         },
       });
       expect(state).toBe('zero');
-      expect(resolveNativeHomeHeaderActionPresentation(state)).toEqual({
+      expect(resolveHomeLegacyHeaderActionPresentation(state)).toEqual({
         actionLayout: 'zeroBalance',
         rowHeight: 82,
         slotKind: 'zero',
       });
       expect(
-        resolveNativeHomeBalanceAmountPresentation({
+        resolveHomeLegacyBalanceAmountPresentation({
           confirmedValueUsd: '0',
           deFi: source(scopeB, 'success'),
           liveValueUsd: '0',
@@ -146,7 +145,7 @@ function runExecutableProbe(probe: IHomeBehaviorOracleProbe) {
     }
     case 'fundedAllNetworksAmount': {
       expect(
-        resolveNativeHomeBalanceAmountPresentation({
+        resolveHomeLegacyBalanceAmountPresentation({
           confirmedValueUsd: '120',
           deFi: source(scopeB, 'success'),
           liveValueUsd: '125',
@@ -167,7 +166,7 @@ function runExecutableProbe(probe: IHomeBehaviorOracleProbe) {
     }
     case 'fundedBitcoinCapability': {
       expect(
-        resolveNativeHomeBalanceState({
+        resolveHomeLegacyBalanceState({
           currentScopeKey: scopeB,
           hasCurrentPositiveBalance: true,
           hasHoldings: true,
@@ -195,13 +194,13 @@ function runExecutableProbe(probe: IHomeBehaviorOracleProbe) {
       return;
     }
     case 'scopeSwitchExactCache': {
-      const remembered = resolveNativeHomeScopeCachedBalanceState({
+      const remembered = resolveHomeLegacyScopeCachedBalanceState({
         computed: 'positive',
         previous: { entries: [] },
         scopeKey: scopeB,
       });
       expect(
-        resolveNativeHomeScopeCachedBalanceState({
+        resolveHomeLegacyScopeCachedBalanceState({
           computed: 'unknown',
           previous: remembered.cache,
           scopeKey: scopeB,
@@ -210,7 +209,7 @@ function runExecutableProbe(probe: IHomeBehaviorOracleProbe) {
       return;
     }
     case 'scopeSwitchNoCache': {
-      const state = resolveNativeHomeScopeCachedBalanceState({
+      const state = resolveHomeLegacyScopeCachedBalanceState({
         computed: 'unknown',
         previous: {
           entries: [{ scopeKey: scopeA, state: 'positive' }],
@@ -218,7 +217,7 @@ function runExecutableProbe(probe: IHomeBehaviorOracleProbe) {
         scopeKey: scopeB,
       }).state;
       expect(state).toBe('unknown');
-      expect(resolveNativeHomeHeaderActionPresentation(state)).toEqual({
+      expect(resolveHomeLegacyHeaderActionPresentation(state)).toEqual({
         actionLayout: 'loading',
         rowHeight: 82,
         slotKind: 'loading',
@@ -226,7 +225,7 @@ function runExecutableProbe(probe: IHomeBehaviorOracleProbe) {
       return;
     }
     case 'backgroundNotReady': {
-      const state = resolveNativeHomeBalanceState({
+      const state = resolveHomeLegacyBalanceState({
         currentScopeKey: scopeB,
         hasCurrentPositiveBalance: false,
         hasHoldings: false,
@@ -239,14 +238,14 @@ function runExecutableProbe(probe: IHomeBehaviorOracleProbe) {
         },
       });
       expect(state).toBe('unknown');
-      expect(resolveNativeHomeHeaderActionPresentation(state).slotKind).toBe(
+      expect(resolveHomeLegacyHeaderActionPresentation(state).slotKind).toBe(
         'loading',
       );
       return;
     }
     case 'partialPortfolioResponse': {
       expect(
-        resolveNativeHomeBalanceAmountPresentation({
+        resolveHomeLegacyBalanceAmountPresentation({
           confirmedValueUsd: '80',
           deFi: source(scopeB, 'success'),
           liveValueUsd: '30',
@@ -263,7 +262,7 @@ function runExecutableProbe(probe: IHomeBehaviorOracleProbe) {
     }
     case 'staleDefiResponse': {
       expect(
-        resolveNativeHomeBalanceAmountPresentation({
+        resolveHomeLegacyBalanceAmountPresentation({
           confirmedValueUsd: '70',
           deFi: source(scopeA, 'success'),
           liveValueUsd: '90',
@@ -300,27 +299,20 @@ function runExecutableProbe(probe: IHomeBehaviorOracleProbe) {
       ).toBe(current);
       return;
     }
-    case 'historyEmptySlot': {
-      const createContent = jest.fn(() => 'history-empty-fixture');
+    case 'historyEmptyStore': {
       expect(
-        resolveNativeHomeListStateSlot(
-          [
-            {
-              id: 'history-state-fixture',
-              items: [
-                {
-                  displayHeight: 320,
-                  id: 'history-state-fixture:state',
-                  renderer: 'empty',
-                  title: 'No fixture activity',
-                },
-              ],
-            },
-          ],
-          createContent,
+        createHomeHistoryStoreResult(
+          createHomeHistoryStorePayload({
+            addressMap: {},
+            data: [],
+            tokenMap: {},
+          }),
         ),
-      ).toEqual({ content: 'history-empty-fixture', height: 320 });
-      expect(createContent).toHaveBeenCalledTimes(1);
+      ).toMatchObject({
+        kind: 'ready',
+        rowIds: [],
+        data: { addressMap: {}, data: [], tokenMap: {} },
+      });
       return;
     }
     case 'capabilityChanged': {
@@ -359,7 +351,7 @@ function runExecutableProbe(probe: IHomeBehaviorOracleProbe) {
       return;
     }
     case 'partialPositiveExactZero': {
-      const state = resolveNativeHomeBalanceState({
+      const state = resolveHomeLegacyBalanceState({
         currentScopeKey: scopeB,
         hasCurrentPositiveBalance: true,
         hasHoldings: true,
@@ -371,11 +363,11 @@ function runExecutableProbe(probe: IHomeBehaviorOracleProbe) {
           status: 'loading',
         },
       });
-      expect(resolveNativeHomeHeaderActionPresentation(state).slotKind).toBe(
+      expect(resolveHomeLegacyHeaderActionPresentation(state).slotKind).toBe(
         'positive',
       );
       expect(
-        resolveNativeHomeBalanceAmountPresentation({
+        resolveHomeLegacyBalanceAmountPresentation({
           confirmedValueUsd: '0',
           deFi: source(scopeB, 'loading'),
           liveValueUsd: '15',
@@ -388,7 +380,7 @@ function runExecutableProbe(probe: IHomeBehaviorOracleProbe) {
       return;
     }
     case 'aggregationRequiredSetChanged': {
-      const oldRequiredSet = resolveNativeHomeBalanceAmountPresentation({
+      const oldRequiredSet = resolveHomeLegacyBalanceAmountPresentation({
         confirmedValueUsd: '10',
         deFi: source(scopeB, 'loading', false),
         liveValueUsd: '10',
@@ -397,7 +389,7 @@ function runExecutableProbe(probe: IHomeBehaviorOracleProbe) {
         portfolio: source(scopeB, 'success'),
         scopeKey: scopeB,
       });
-      const newRequiredSet = resolveNativeHomeBalanceAmountPresentation({
+      const newRequiredSet = resolveHomeLegacyBalanceAmountPresentation({
         confirmedValueUsd: '10',
         deFi: source(scopeB, 'loading', true),
         liveValueUsd: '10',

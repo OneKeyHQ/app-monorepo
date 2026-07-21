@@ -148,6 +148,7 @@ internal class HomeContainerSurfaceView(context: Context) : FrameLayout(context)
     reactChildren.filterIsInstance<HomeContainerSlotView>().forEach { child ->
       val frame = currentEngine?.slotFrame(child.slotKey)
       if (frame == null || frame.width() <= 0 || frame.height() <= 0) {
+        child.layout(0, 0, 0, 0)
         child.visibility = GONE
       } else {
         child.visibility = VISIBLE

@@ -26,7 +26,10 @@ import {
   useSelectedAccount,
   useSelectedAccountsAtom,
 } from '../../../states/jotai/contexts/accountSelector';
-import { ProviderJotaiContextHome } from '../../../states/jotai/contexts/home';
+import {
+  ProviderJotaiContextHome,
+  useHomeShell,
+} from '../../../states/jotai/contexts/home';
 import { useJotaiContextRootStore } from '../../../states/jotai/utils/useJotaiContextRootStore';
 import { NotificationRegisterDaily } from '../../Notifications/components/NotificationRegisterDaily';
 import {
@@ -36,11 +39,16 @@ import {
 } from '../../Onboarding/components/onboardingLaunchGate';
 import { KYTIntroOnMount } from '../../Setting/pages/Protection/KYTIntroDialog';
 import { BTCFreshAddressProvider } from '../components/BTCFreshAddressProvider';
-import { HomeAuthorityShadowBridge } from '../model/react/HomeAuthorityShadowBridge';
+import { useHomeTokenListContextStoreInitData } from '../components/HomeTokenListProvider/HomeTokenListRootProvider';
+import { HomeStoreSourceControllers } from '../model/react/HomeStoreSourceControllers';
 import { isNativeHomeEnabled } from '../nativeHomeFeatureFlag';
 import { NativeHomePageView } from '../NativeHomePageView';
 
 import { EmptyWalletHomePage } from './EmptyWalletHomePage';
+import {
+  HomeBackgroundRecoveryRefreshProvider,
+  useAcknowledgeHomeBackgroundRecoverySurfaceCommit,
+} from './HomeBackgroundRecoveryRefreshProvider';
 import { shouldMountHomeForegroundEffects } from './homeLaunchVisibility';
 import { resolveHomeWalletContentReadiness } from './homePageNoWalletContent';
 import { HomePageView } from './HomePageView';
@@ -52,6 +60,10 @@ import {
   type IHomeWalletPageSurfaceState,
   resolveHomeWalletPageSurface,
 } from './homeWalletPageSurface';
+
+const HOME_STORE_CONTEXT_CONFIG = {
+  sceneId: EAccountSelectorSceneName.home,
+} as const;
 
 function EmptyRenderTest() {
   // console.log('AccountSelectorAtomChanged EmptyRenderTest render');
@@ -85,6 +97,49 @@ function SelectedAccountsMapTest() {
   return null;
 }
 
+function HomeStoreDrivenWalletSurface({
+  onPressHide,
+  pageSurface,
+  sceneName,
+}: {
+  onPressHide: () => void;
+  pageSurface: IHomeWalletPageSurfaceState;
+  sceneName: EAccountSelectorSceneName;
+}) {
+  const shell = useHomeShell();
+  if (
+    (pageSurface.surface === 'native' || pageSurface.surface === 'legacy') &&
+    shell.value.kind === 'backupRequired'
+  ) {
+    return (
+      <EmptyWalletHomePage
+        key={`empty-wallet-${pageSurface.walletId ?? ''}`}
+        variant="notBackedUp"
+        sceneName={sceneName}
+      />
+    );
+  }
+  if (pageSurface.surface === 'native') {
+    return (
+      <NativeHomePageView
+        key={`native-${sceneName}-${pageSurface.walletId ?? ''}`}
+        sceneName={sceneName}
+        onPressHide={onPressHide}
+      />
+    );
+  }
+  if (pageSurface.surface === 'legacy' || pageSurface.surface === 'no-wallet') {
+    return (
+      <HomePageView
+        key={`${sceneName}-${pageSurface.walletId ?? pageSurface.surface}`}
+        sceneName={sceneName}
+        onPressHide={onPressHide}
+      />
+    );
+  }
+  return null;
+}
+
 export function HomeLaunchGatedContent({
   nativeHomeEnabled,
   sceneName,
@@ -95,7 +150,7 @@ export function HomeLaunchGatedContent({
   onPressHide: () => void;
 }) {
   const {
-    activeAccount: { ready: activeAccountReady, wallet, account },
+    activeAccount: { ready: activeAccountReady, wallet, account, network },
   } = useActiveAccount({ num: 0 });
   const { result: walletListResult, pending: walletListPending } =
     useHomeWalletList();
@@ -132,10 +187,22 @@ export function HomeLaunchGatedContent({
   const pageSurface = resolveHomeWalletPageSurface({
     launchDecision: surfaceLaunchDecision,
     walletContentReadiness,
+    activeAccountId: account?.id,
     activeWallet: wallet,
     walletListWallet,
     nativeHomeEnabled,
     previous: previousPageSurfaceRef.current,
+  });
+  useAcknowledgeHomeBackgroundRecoverySurfaceCommit({
+    owner: {
+      accountId: account?.id,
+      networkId: network?.id,
+      walletId: wallet?.id,
+    },
+    surfaceHasRenderer:
+      pageSurface.surface === 'native' ||
+      pageSurface.surface === 'legacy' ||
+      pageSurface.surface === 'no-wallet',
   });
   useLayoutEffect(() => {
     previousPageSurfaceRef.current = pageSurface;
@@ -172,28 +239,11 @@ export function HomeLaunchGatedContent({
           isHomeVisible ? 'auto' : 'no-hide-descendants'
         }
       >
-        {pageSurface.surface === 'not-backed-up-rn' ? (
-          <EmptyWalletHomePage
-            key={`empty-wallet-${pageSurface.walletId ?? ''}`}
-            variant="notBackedUp"
-            sceneName={sceneName}
-          />
-        ) : null}
-        {pageSurface.surface === 'native' ? (
-          <NativeHomePageView
-            key={`native-${sceneName}-${pageSurface.walletId ?? ''}`}
-            sceneName={sceneName}
-            onPressHide={onPressHide}
-          />
-        ) : null}
-        {pageSurface.surface === 'legacy' ||
-        pageSurface.surface === 'no-wallet' ? (
-          <HomePageView
-            key={`${sceneName}-${pageSurface.walletId ?? pageSurface.surface}`}
-            sceneName={sceneName}
-            onPressHide={onPressHide}
-          />
-        ) : null}
+        <HomeStoreDrivenWalletSurface
+          onPressHide={onPressHide}
+          pageSurface={pageSurface}
+          sceneName={sceneName}
+        />
         {/* <UrlAccountAutoReplaceHistory num={0} /> */}
 
         {process.env.NODE_ENV !== 'production' ? (
@@ -222,6 +272,8 @@ export function HomePageContainer() {
   const [isHide, setIsHide] = useState(false);
   const isDesktopModeUI = useIsDesktopModeUIInTabPages();
   const nativeHomeEnabled = isNativeHomeEnabled();
+  const homeStoreData = useHomeTokenListContextStoreInitData();
+  const homeStore = useJotaiContextRootStore(homeStoreData);
   const handlePressHide = useCallback(() => {
     setIsHide((value) => !value);
   }, []);
@@ -239,7 +291,10 @@ export function HomePageContainer() {
         className="HomeRootTabPageContainer"
         bg={isDesktopModeUI ? '$bgSubdued' : '$bgApp'}
       >
-        <ProviderJotaiContextHome>
+        <ProviderJotaiContextHome
+          config={HOME_STORE_CONTEXT_CONFIG}
+          store={homeStore}
+        >
           <AccountSelectorProviderMirror
             config={{
               sceneName,
@@ -247,13 +302,16 @@ export function HomePageContainer() {
             }}
             enabledNum={[0]}
           >
-            <HomeAuthorityShadowBridge />
             <HomeWalletListProvider>
-              <HomeLaunchGatedContent
-                nativeHomeEnabled={nativeHomeEnabled}
-                sceneName={sceneName}
-                onPressHide={handlePressHide}
-              />
+              <HomeBackgroundRecoveryRefreshProvider>
+                <HomeStoreSourceControllers enableWalletSources>
+                  <HomeLaunchGatedContent
+                    nativeHomeEnabled={nativeHomeEnabled}
+                    sceneName={sceneName}
+                    onPressHide={handlePressHide}
+                  />
+                </HomeStoreSourceControllers>
+              </HomeBackgroundRecoveryRefreshProvider>
             </HomeWalletListProvider>
           </AccountSelectorProviderMirror>
         </ProviderJotaiContextHome>

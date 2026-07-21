@@ -2,72 +2,67 @@ import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import {
-  useAccountDeFiOverviewAtom,
-  useAccountWorthAtom,
-  useLastConfirmedOverviewBalanceAtom,
-  useOverviewDeFiDataStateAtom,
-  useWalletTopBannersAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useHomeFactsShadowAtom } from '@onekeyhq/kit/src/states/jotai/contexts/home';
-import { useListStructureAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import {
+  useHomeFacts,
+  useHomeResource,
+} from '@onekeyhq/kit/src/states/jotai/contexts/home';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import {
   adaptCurrentHomeBalanceFacts,
   buildHomeBalanceQuoteRateIdentity,
   resolveHomeBalanceQuotedAmount,
-  selectHomePortfolioWorth,
 } from '../facts/currentHomeBalanceFactsAdapter';
+import { readHomeBannerStorePayload } from '../sections/banner/homeBannerStoreModel';
+
+import { useHomeSectionPayload } from './homeStoreHooks';
 
 import type { IHomeFacts } from '../facts/homeFacts';
 
 function useHomeBalanceFacts(): IHomeFacts | undefined {
-  const [shadowFacts] = useHomeFactsShadowAtom();
+  const storeFacts = useHomeFacts();
   const {
-    activeAccount: { account, indexedAccount, network, vaultSettings, wallet },
+    activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
-  const [accountWorth] = useAccountWorthAtom();
-  const [accountDeFiOverview] = useAccountDeFiOverviewAtom();
-  const [lastConfirmed] = useLastConfirmedOverviewBalanceAtom();
-  const [deFiState] = useOverviewDeFiDataStateAtom();
-  const [{ banners }] = useWalletTopBannersAtom();
-  const [listStructure] = useListStructureAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [settings] = useSettingsPersistAtom();
+  const portfolioResource = useHomeResource('portfolio');
+  const perpsResource = useHomeResource('perps');
+  const deFiResource = useHomeResource('defi');
+  const bannerResource = useHomeResource('banner');
+  const bannerPayload =
+    bannerResource.kind === 'ready'
+      ? readHomeBannerStorePayload(bannerResource.data)
+      : undefined;
+  const portfolioPayload = useHomeSectionPayload('portfolio');
+  const perpsPayload = useHomeSectionPayload('perps');
+  const deFiPayload = useHomeSectionPayload('defi');
 
   return useMemo(() => {
     if (
-      !shadowFacts ||
+      !storeFacts ||
       !wallet?.id ||
       !account?.id ||
       !network?.id ||
-      shadowFacts.owner.walletId !== wallet.id ||
-      shadowFacts.owner.accountId !== account.id ||
+      storeFacts.owner.walletId !== wallet.id ||
+      storeFacts.owner.accountId !== account.id ||
       (network.isAllNetworks
-        ? shadowFacts.owner.network.kind !== 'allNetworks'
-        : shadowFacts.owner.network.kind !== 'singleNetwork' ||
-          shadowFacts.owner.network.networkId !== network.id)
+        ? storeFacts.owner.network.kind !== 'allNetworks'
+        : storeFacts.owner.network.kind !== 'singleNetwork' ||
+          storeFacts.owner.network.networkId !== network.id)
     ) {
       return undefined;
     }
-    const ownerKey = `${account.id}__${network.id}`;
-    const isWorthOwnerCurrent =
-      accountWorth.accountId === account.id ||
-      accountWorth.accountId === indexedAccount?.id;
     const portfolioSourceCurrency =
-      accountWorth.currency ?? settings.currencyInfo.id;
+      portfolioPayload?.accountTokensWorthCurrency ?? settings.currencyInfo.id;
     const deFiSourceCurrency =
-      accountDeFiOverview.currency || settings.currencyInfo.id;
-    const confirmedSourceCurrency =
-      lastConfirmed.currency ?? settings.currencyInfo.id;
+      deFiPayload?.currency || settings.currencyInfo.id;
     const portfolioRateIdentity = buildHomeBalanceQuoteRateIdentity({
       currencyMap,
       sourceCurrency: portfolioSourceCurrency,
@@ -78,196 +73,214 @@ function useHomeBalanceFacts(): IHomeFacts | undefined {
       sourceCurrency: deFiSourceCurrency,
       targetCurrency: USD_CURRENCY_ID,
     });
-    const confirmedRateIdentity = buildHomeBalanceQuoteRateIdentity({
-      currencyMap,
-      sourceCurrency: confirmedSourceCurrency,
-      targetCurrency: USD_CURRENCY_ID,
-    });
     const quoteBasis = {
       currency: USD_CURRENCY_ID,
       pricingRevision: stringUtils.stableStringify(
-        [
-          confirmedRateIdentity,
-          portfolioRateIdentity,
-          deFiRateIdentity,
-        ].toSorted(),
+        [portfolioRateIdentity, deFiRateIdentity].toSorted(),
       ),
     };
-    const usesAggregateWorth = Boolean(
-      network.isAllNetworks || vaultSettings?.mergeDeriveAssetsEnabled,
+    const portfolioTotal = new BigNumber(
+      portfolioPayload?.accountTokensValue ?? 0,
     );
-    const currentWorthKey = usesAggregateWorth
-      ? undefined
-      : accountUtils.buildAccountValueKey({
-          accountId: account.id,
-          networkId: network.id,
-        });
-    const portfolioWorth = selectHomePortfolioWorth({
-      currentWorthKey,
-      usesAggregateWorth,
-      worth: accountWorth.worth,
-    });
-    const hasCurrentWorthKey = portfolioWorth.sourcePresent;
-    const portfolioTotal = new BigNumber(portfolioWorth.amount);
     const portfolioTotalUsd = resolveHomeBalanceQuotedAmount({
       currencyMap,
-      value: portfolioTotal.toFixed(),
+      value: portfolioTotal.isFinite() ? portfolioTotal.toFixed() : 'NaN',
       sourceCurrency: portfolioSourceCurrency,
       targetCurrency: USD_CURRENCY_ID,
     });
-    const deFiTotal = new BigNumber(accountDeFiOverview.netWorth ?? 0);
+    const deFiTotal = new BigNumber(deFiPayload?.overview?.netWorth ?? 0);
     const deFiTotalUsd = resolveHomeBalanceQuotedAmount({
       currencyMap,
       value: deFiTotal.isFinite() ? deFiTotal.toFixed() : 'NaN',
       sourceCurrency: deFiSourceCurrency,
       targetCurrency: USD_CURRENCY_ID,
     });
-    const structureOwnerMatches =
-      listStructure.ownerKey === ownerKey ||
-      (!!indexedAccount?.id &&
-        listStructure.ownerKey === `${indexedAccount.id}__${network.id}`);
-    const hasHoldings =
-      structureOwnerMatches && listStructure.fundedIds.length > 0;
+    const hasHoldings = Boolean(portfolioPayload?.tokens.length);
     const hasNonZeroPortfolioWorth = !portfolioTotal.isZero();
-    let isPortfolioComplete = false;
-    if (isWorthOwnerCurrent && accountWorth.initialized) {
-      if (usesAggregateWorth) {
-        isPortfolioComplete = Boolean(accountWorth.updateAll);
+    let portfolioStatus:
+      | 'idle'
+      | 'loading'
+      | 'partial'
+      | 'success'
+      | 'empty'
+      | 'error' =
+      portfolioResource.kind === 'ready' ? 'loading' : portfolioResource.kind;
+    if (portfolioResource.kind === 'ready') {
+      if (!portfolioPayload) {
+        portfolioStatus = 'loading';
       } else {
-        isPortfolioComplete = hasCurrentWorthKey;
+        portfolioStatus = hasNonZeroPortfolioWorth ? 'success' : 'empty';
       }
+    } else if (portfolioResource.kind === 'partial' && !portfolioTotalUsd) {
+      portfolioStatus = hasHoldings ? 'partial' : 'loading';
     }
-    let portfolioStatus: 'loading' | 'partial' | 'success' | 'empty' =
-      'loading';
-    if (!portfolioTotalUsd) {
-      portfolioStatus =
-        hasHoldings || hasNonZeroPortfolioWorth ? 'partial' : 'loading';
-    } else if (
-      isPortfolioComplete &&
-      !(hasHoldings && !hasNonZeroPortfolioWorth)
-    ) {
-      portfolioStatus = hasNonZeroPortfolioWorth ? 'success' : 'empty';
-    } else if (
-      isWorthOwnerCurrent &&
-      ((usesAggregateWorth && Object.keys(accountWorth.worth).length > 0) ||
-        hasHoldings)
-    ) {
-      portfolioStatus = 'partial';
+    let deFiStatus:
+      | 'idle'
+      | 'loading'
+      | 'partial'
+      | 'success'
+      | 'empty'
+      | 'error' = deFiResource.kind === 'ready' ? 'loading' : deFiResource.kind;
+    if (deFiResource.kind === 'ready') {
+      if (!deFiPayload) {
+        deFiStatus = 'loading';
+      } else {
+        deFiStatus = deFiTotal.isZero() ? 'empty' : 'success';
+      }
+    } else if (deFiResource.kind === 'partial' && !deFiTotalUsd) {
+      deFiStatus = deFiTotal.isZero() ? 'loading' : 'partial';
     }
-    const isDeFiOwnerCurrent =
-      accountDeFiOverview.accountId === account.id &&
-      accountDeFiOverview.networkId === network.id &&
-      deFiState.ownerKey === ownerKey;
-    let deFiStatus: 'loading' | 'partial' | 'success' | 'empty' = 'loading';
-    if (!deFiTotalUsd) {
-      deFiStatus = !deFiTotal.isZero() ? 'partial' : 'loading';
-    } else if (isDeFiOwnerCurrent && deFiState.isReady !== undefined) {
-      deFiStatus = !deFiTotal.isZero() ? 'success' : 'empty';
-    } else if (isDeFiOwnerCurrent && !deFiTotal.isZero()) {
-      deFiStatus = 'partial';
-    }
-    const isPerpsCapabilityReady = shadowFacts.capabilityInputs.ready;
+    const isCapabilityReady = storeFacts.capabilityInputs.ready;
+    const isDeFiSupported =
+      storeFacts.capabilityInputs.serverConfig.defi &&
+      storeFacts.capabilityInputs.productAvailability.defi;
+    const shouldIncludeDeFi = !isCapabilityReady || isDeFiSupported;
     const isPerpsSupported =
-      shadowFacts.capabilityInputs.serverConfig.perps &&
-      shadowFacts.capabilityInputs.productAvailability.perps;
-    const shouldIncludePerps = !isPerpsCapabilityReady || isPerpsSupported;
-    const confirmedValue = lastConfirmed.byOwner[ownerKey];
-    const confirmedUsd = confirmedValue
-      ? resolveHomeBalanceQuotedAmount({
-          currencyMap,
-          value: confirmedValue,
-          sourceCurrency: confirmedSourceCurrency,
-          targetCurrency: USD_CURRENCY_ID,
-        })?.amount
-      : undefined;
-    const requiredSetRevision = `legacy-overview:v1:${
+      storeFacts.capabilityInputs.serverConfig.perps &&
+      storeFacts.capabilityInputs.productAvailability.perps;
+    const shouldIncludePerps = !isCapabilityReady || isPerpsSupported;
+    const perpsAmount = new BigNumber(perpsPayload?.view.accountValueUsd ?? 0);
+    let perpsStatus:
+      | 'idle'
+      | 'loading'
+      | 'partial'
+      | 'success'
+      | 'empty'
+      | 'error' =
+      perpsResource.kind === 'ready' ? 'loading' : perpsResource.kind;
+    if (perpsResource.kind === 'ready' && perpsPayload) {
+      perpsStatus = perpsAmount.isZero() ? 'empty' : 'success';
+    } else if (perpsResource.kind === 'ready') {
+      perpsStatus = 'loading';
+    }
+    const expectedSourceScopeKey = storeFacts.ownerToken.scopeKey;
+    const getResourceSourceScopeKey = (
+      resource:
+        | typeof portfolioResource
+        | typeof perpsResource
+        | typeof deFiResource,
+    ) => {
+      if (resource.kind === 'idle') {
+        return undefined;
+      }
+      return (
+        resource.token?.sourceKey.scopeKey ??
+        (resource.kind === 'ready' || resource.kind === 'empty'
+          ? expectedSourceScopeKey
+          : undefined)
+      );
+    };
+    const requiredSetRevision = `home-store-balance:v2:${
       network.isAllNetworks ? 'all' : network.id
     }`;
     const balance = adaptCurrentHomeBalanceFacts({
       bannerAvailable:
-        banners.length > 0 ||
-        Boolean(vaultSettings?.hasResource && account.id && network.id),
-      compatibilityConfirmedAmount: confirmedUsd,
+        Boolean(bannerPayload?.banners.length) ||
+        Boolean(bannerPayload?.tronResource),
+      compatibilityConfirmedAmount: undefined,
       contributors: [
         {
           amount: portfolioTotalUsd?.amount,
-          coverageFingerprint: stringUtils.stableStringify({
-            updateAll: accountWorth.updateAll,
-            worthKeys: Object.keys(accountWorth.worth).toSorted(),
-          }),
-          expectedSourceScopeKey: ownerKey,
+          coverageFingerprint:
+            portfolioResource.kind === 'ready' ||
+            portfolioResource.kind === 'partial' ||
+            portfolioResource.kind === 'empty'
+              ? portfolioResource.coverageFingerprint
+              : undefined,
+          errorKind:
+            portfolioResource.kind === 'error'
+              ? portfolioResource.errorKind
+              : undefined,
+          expectedSourceScopeKey,
           id: 'portfolio',
           included: true,
           positiveEvidence: hasHoldings || hasNonZeroPortfolioWorth,
-          sourceIdentity: 'legacy-overview-aggregate:v1',
-          sourceScopeKey:
-            (isWorthOwnerCurrent &&
-              (usesAggregateWorth || hasCurrentWorthKey)) ||
-            structureOwnerMatches
-              ? ownerKey
-              : accountWorth.accountId,
+          sourceIdentity:
+            portfolioResource.kind === 'idle'
+              ? 'home-store-portfolio:v1'
+              : (portfolioResource.token?.sourceKey.paramsFingerprint ??
+                'home-store-portfolio:v1'),
+          sourceScopeKey: getResourceSourceScopeKey(portfolioResource),
           status: portfolioStatus,
         },
         {
           amount: deFiTotalUsd?.amount,
-          coverageFingerprint: stringUtils.stableStringify({
-            isReady: deFiState.isReady,
-            netWorth: accountDeFiOverview.netWorth,
-          }),
-          expectedSourceScopeKey: ownerKey,
+          coverageFingerprint:
+            deFiResource.kind === 'ready' ||
+            deFiResource.kind === 'partial' ||
+            deFiResource.kind === 'empty'
+              ? deFiResource.coverageFingerprint
+              : undefined,
+          errorKind:
+            deFiResource.kind === 'error' ? deFiResource.errorKind : undefined,
+          expectedSourceScopeKey,
           id: 'defi',
-          included: true,
+          included: shouldIncludeDeFi,
           positiveEvidence: !deFiTotal.isZero(),
-          sourceIdentity: 'legacy-overview-defi:v1',
-          sourceScopeKey: isDeFiOwnerCurrent ? ownerKey : deFiState.ownerKey,
+          sourceIdentity:
+            deFiResource.kind === 'idle'
+              ? 'home-store-defi:v2'
+              : (deFiResource.token?.sourceKey.paramsFingerprint ??
+                'home-store-defi:v2'),
+          sourceScopeKey: getResourceSourceScopeKey(deFiResource),
           status: deFiStatus,
         },
         {
-          coverageFingerprint: `perps-capability:${
-            isPerpsCapabilityReady ? String(isPerpsSupported) : 'unknown'
-          }`,
-          expectedSourceScopeKey: ownerKey,
+          amount:
+            perpsStatus === 'success' || perpsStatus === 'empty'
+              ? perpsAmount.toFixed()
+              : undefined,
+          coverageFingerprint:
+            perpsResource.kind === 'ready' || perpsResource.kind === 'empty'
+              ? perpsResource.coverageFingerprint
+              : `perps-capability:${
+                  isCapabilityReady ? String(isPerpsSupported) : 'unknown'
+                }`,
+          errorKind:
+            perpsResource.kind === 'error'
+              ? perpsResource.errorKind
+              : undefined,
+          expectedSourceScopeKey,
           id: 'perps',
           included: shouldIncludePerps,
-          positiveEvidence: false,
-          sourceIdentity: 'legacy-overview-perps-compatibility:v1',
-          sourceScopeKey: ownerKey,
-          status: 'loading',
+          positiveEvidence: perpsAmount.isGreaterThan(0),
+          sourceIdentity:
+            perpsResource.kind === 'idle'
+              ? 'home-store-perps:v1'
+              : (perpsResource.token?.sourceKey.paramsFingerprint ??
+                'home-store-perps:v1'),
+          sourceScopeKey: getResourceSourceScopeKey(perpsResource),
+          status: perpsStatus,
         },
       ],
-      ownerToken: shadowFacts.ownerToken,
+      ownerToken: storeFacts.ownerToken,
       quoteBasis,
-      requiredSetRevision: `${requiredSetRevision}:perps:${
-        isPerpsCapabilityReady ? String(isPerpsSupported) : 'unknown'
-      }`,
+      requiredSetRevision: `${requiredSetRevision}:defi:${
+        isCapabilityReady ? String(isDeFiSupported) : 'unknown'
+      }:perps:${isCapabilityReady ? String(isPerpsSupported) : 'unknown'}`,
     });
     return {
-      ...shadowFacts,
+      ...storeFacts,
       balance,
       environment: {
-        ...shadowFacts.environment,
+        ...storeFacts.environment,
         currency: USD_CURRENCY_ID,
       },
     };
   }, [
     account?.id,
-    accountDeFiOverview,
-    accountWorth,
-    banners.length,
+    bannerPayload,
     currencyMap,
-    deFiState.isReady,
-    deFiState.ownerKey,
-    indexedAccount?.id,
-    lastConfirmed.byOwner,
-    lastConfirmed.currency,
-    listStructure.fundedIds.length,
-    listStructure.ownerKey,
+    deFiPayload,
+    deFiResource,
     network?.id,
     network?.isAllNetworks,
+    perpsPayload,
+    perpsResource,
+    portfolioPayload,
+    portfolioResource,
     settings.currencyInfo.id,
-    shadowFacts,
-    vaultSettings?.hasResource,
-    vaultSettings?.mergeDeriveAssetsEnabled,
+    storeFacts,
     wallet?.id,
   ]);
 }

@@ -65,10 +65,15 @@ import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import { buildHomeWalletCapabilityNavigationModel } from '../homeWalletCapabilityTabModel';
-import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
+import { useHomeWalletTabStore } from '../hooks/useHomeWalletTabStore';
 import { HomeTestIDs } from '../testIDs';
 
 import { DeFiContainerWithProvider } from './DeFiContainer';
+import {
+  EHomeBackgroundRecoveryRefreshDomain,
+  getLegacyHomeBackgroundRecoveryRefreshDomains,
+  useRegisterHomeBackgroundRecoveryRefresh,
+} from './HomeBackgroundRecoveryRefreshProvider';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { homePageContentMaxWidthSx } from './homePageContentMaxWidth';
 import {
@@ -328,13 +333,7 @@ export function HomePageView({
   // fallback to avoid tab config change on first render.
   const vaultSettings = fetchedVaultSettings ?? cachedVaultSettings;
 
-  const { capabilityNavigation, selectCapabilityTab } = useHomeWalletTabSupport(
-    {
-      enableCapabilityAuthority: true,
-      network,
-      vaultSettings,
-    },
-  );
+  const { capabilityNavigation, selectCapabilityTab } = useHomeWalletTabStore();
   const homeWalletCapabilityTabModel = useMemo(
     () => buildHomeWalletCapabilityNavigationModel(capabilityNavigation),
     [capabilityNavigation],
@@ -580,26 +579,9 @@ export function HomePageView({
   const handleRenderItem = useCallback(
     (props: ITabBarItemProps) => {
       const testID = tabTestIDMap[props.name];
-      const nextTab = tabConfigs.find((tab) => tab.name === props.name);
-      const handlePress = (name: string) => {
-        if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
-          switchToPerpsWebTab();
-          return;
-        }
-        if (nextTab?.id && !selectCapabilityTab(nextTab.id)) {
-          return;
-        }
-        props.onPress(name);
-      };
-      return <TabBarItem {...props} testID={testID} onPress={handlePress} />;
+      return <TabBarItem {...props} testID={testID} />;
     },
-    [
-      perpTabShowWeb,
-      selectCapabilityTab,
-      switchToPerpsWebTab,
-      tabConfigs,
-      tabTestIDMap,
-    ],
+    [tabTestIDMap],
   );
 
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
@@ -616,61 +598,76 @@ export function HomePageView({
     setStickyHost((prev) => (prev === next ? prev : next));
   }, []);
 
-  const initialTabName = pagerTabConfigs[0]?.name ?? '';
-  const [activeTabName, setActiveTabName] = useState(initialTabName);
-  const initialTabId = pagerTabConfigs[0]?.id;
-  const [activeTabId, setActiveTabId] = useState<EHomeWalletTab | undefined>(
-    initialTabId,
-  );
+  const selectedTabId =
+    homeWalletCapabilityTabModel.status === 'confirmed'
+      ? (homeWalletCapabilityTabModel.selectedTabId as EHomeWalletTab)
+      : undefined;
+  const selectedTab = pagerTabConfigs.find((tab) => tab.id === selectedTabId);
+  const selectedTabName = selectedTab?.name ?? '';
+  const initialPagerTabName = selectedTabName || pagerTabConfigs[0]?.name || '';
+  const [pagerTabName, setPagerTabName] = useState(initialPagerTabName);
+  const pendingPagerTabIdRef = useRef<EHomeWalletTab | undefined>(undefined);
+  const selectedTabIdRef = useRef(selectedTabId);
+  selectedTabIdRef.current = selectedTabId;
+  useRegisterHomeBackgroundRecoveryRefresh({
+    callback: ({ runDomains }) =>
+      runDomains(
+        getLegacyHomeBackgroundRecoveryRefreshDomains(selectedTabIdRef.current),
+      ),
+    domain: EHomeBackgroundRecoveryRefreshDomain.renderer,
+    owner: {
+      accountId: account?.id,
+      networkId: network?.id,
+      walletId: wallet?.id,
+    },
+  });
+  const initialMountedTabId = selectedTabId ?? pagerTabConfigs[0]?.id;
   const [mountedHomeTabIds, setMountedHomeTabIds] = useState<
     Set<EHomeWalletTab>
-  >(() => (initialTabId ? new Set([initialTabId]) : new Set()));
-  const lastDisplayableTabNameRef = useRef(initialTabName);
+  >(() => (initialMountedTabId ? new Set([initialMountedTabId]) : new Set()));
+  const lastDisplayableTabNameRef = useRef(initialPagerTabName);
 
   useEffect(() => {
-    if (!homeWalletCapabilityTabModel.shouldCommitTabs) {
+    if (!homeWalletCapabilityTabModel.shouldCommitTabs || !selectedTab) {
       return;
     }
-    const nextActiveTabId = homeWalletCapabilityTabModel.selectedTabId;
-    if (nextActiveTabId !== activeTabId) {
-      const nextActiveTab = pagerTabConfigs.find(
-        (tab) => tab.id === nextActiveTabId,
-      );
-      if (nextActiveTab) {
-        tabsRef.current?.jumpToTab(nextActiveTab.name);
-      }
+    if (pagerTabName !== selectedTab.name) {
+      tabsRef.current?.jumpToTab(selectedTab.name);
+      setPagerTabName(selectedTab.name);
     }
-    const selectedTab = pagerTabConfigs.find(
-      (tab) => tab.id === nextActiveTabId,
-    );
-    setActiveTabName(selectedTab?.name ?? '');
-    setActiveTabId(nextActiveTabId as EHomeWalletTab);
-    lastDisplayableTabNameRef.current = selectedTab?.name ?? '';
-  }, [activeTabId, homeWalletCapabilityTabModel, pagerTabConfigs]);
+    if (pendingPagerTabIdRef.current === selectedTab.id) {
+      pendingPagerTabIdRef.current = undefined;
+    }
+    lastDisplayableTabNameRef.current = selectedTab.name;
+  }, [
+    homeWalletCapabilityTabModel.shouldCommitTabs,
+    pagerTabName,
+    selectedTab,
+  ]);
 
   useEffect(() => {
-    if (!perpTabShowWeb || activeTabId !== EHomeWalletTab.Perps) {
+    if (!perpTabShowWeb || selectedTabId !== EHomeWalletTab.Perps) {
       return;
     }
     const fallbackTabName = pagerTabConfigs[0]?.name;
     if (fallbackTabName) {
       tabsRef.current?.jumpToTab(fallbackTabName);
     }
-  }, [activeTabId, perpTabShowWeb, pagerTabConfigs]);
+  }, [pagerTabConfigs, perpTabShowWeb, selectedTabId]);
 
   useEffect(() => {
-    if (!activeTabId) {
+    if (!selectedTabId) {
       return;
     }
     setMountedHomeTabIds((prev) => {
-      if (prev.has(activeTabId)) {
+      if (prev.has(selectedTabId)) {
         return prev;
       }
       const next = new Set(prev);
-      next.add(activeTabId);
+      next.add(selectedTabId);
       return next;
     });
-  }, [activeTabId]);
+  }, [selectedTabId]);
 
   const renderToolbar = useCallback(
     ({ focusedTab }: { focusedTab: string }) => (
@@ -694,14 +691,20 @@ export function HomePageView({
           switchToPerpsWebTab();
           return;
         }
-        setActiveTabName(nextTab?.name ?? name);
         if (nextTab?.id) {
-          if (!selectCapabilityTab(nextTab.id)) {
+          if (
+            nextTab.id !== selectedTabId &&
+            !selectCapabilityTab(nextTab.id)
+          ) {
             return;
           }
-          setActiveTabId(nextTab.id);
+          if (nextTab.id !== selectedTabId) {
+            pendingPagerTabIdRef.current = nextTab.id;
+          }
         }
-        lastDisplayableTabNameRef.current = nextTab?.name ?? name;
+        const nextPagerTabName = nextTab?.name ?? name;
+        setPagerTabName(nextPagerTabName);
+        lastDisplayableTabNameRef.current = nextPagerTabName;
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         tabBarProps.onTabPress?.(name);
       };
@@ -771,6 +774,7 @@ export function HomePageView({
       tabConfigs,
       tabBarTabNames,
       homeWalletCapabilityTabModel,
+      selectedTabId,
     ],
   );
 
@@ -789,28 +793,34 @@ export function HomePageView({
         }
         return;
       }
-      setActiveTabName(nextTab?.name ?? data.tabName);
       if (nextTab?.id) {
-        if (!selectCapabilityTab(nextTab.id)) {
-          const selectedTab = pagerTabConfigs.find(
-            (tab) =>
-              homeWalletCapabilityTabModel.status === 'confirmed' &&
-              tab.id === homeWalletCapabilityTabModel.selectedTabId,
+        if (
+          nextTab.id !== selectedTabId &&
+          nextTab.id !== pendingPagerTabIdRef.current &&
+          !selectCapabilityTab(nextTab.id)
+        ) {
+          const currentSelectedPagerTab = pagerTabConfigs.find(
+            (tab) => tab.id === selectedTabId,
           );
-          if (selectedTab) {
-            tabsRef.current?.jumpToTab(selectedTab.name);
+          if (currentSelectedPagerTab) {
+            tabsRef.current?.jumpToTab(currentSelectedPagerTab.name);
           }
           return;
         }
-        setActiveTabId(nextTab.id);
+        if (nextTab.id !== selectedTabId) {
+          pendingPagerTabIdRef.current = nextTab.id;
+        }
       }
-      lastDisplayableTabNameRef.current = nextTab?.name ?? data.tabName;
+      const nextPagerTabName = nextTab?.name ?? data.tabName;
+      setPagerTabName(nextPagerTabName);
+      lastDisplayableTabNameRef.current = nextPagerTabName;
     },
     [
       homeWalletCapabilityTabModel,
       pagerTabConfigs,
       perpTabShowWeb,
       selectCapabilityTab,
+      selectedTabId,
       switchToPerpsWebTab,
       tabConfigs,
     ],
@@ -831,7 +841,7 @@ export function HomePageView({
     if (!prevNetworkId || !nextNetworkId || prevNetworkId === nextNetworkId) {
       return;
     }
-    if (!activeTabId || activeTabId === EHomeWalletTab.Portfolio) {
+    if (!selectedTabId || selectedTabId === EHomeWalletTab.Portfolio) {
       return;
     }
     const accountId = account?.id;
@@ -851,16 +861,16 @@ export function HomePageView({
       ],
       refreshByProvidedAccounts: true,
     });
-  }, [network?.id, activeTabId, account?.id, indexedAccount?.id]);
+  }, [network?.id, selectedTabId, account?.id, indexedAccount?.id]);
 
   const stickyHeaderCtx = useMemo(
     () => ({
       portalTarget,
       stickyHost,
-      activeTabName,
-      activeTabId,
+      activeTabName: pagerTabName,
+      activeTabId: selectedTabId,
     }),
-    [portalTarget, stickyHost, activeTabName, activeTabId],
+    [pagerTabName, portalTarget, selectedTabId, stickyHost],
   );
 
   const tabs = useMemo(() => {
@@ -909,7 +919,7 @@ export function HomePageView({
               <FreezeInactiveHomeTab tabName={tab.name}>
                 {platformEnv.isNative ||
                 tab.id === EHomeWalletTab.Perps ||
-                activeTabId === tab.id ||
+                selectedTabId === tab.id ||
                 mountedHomeTabIds.has(tab.id) ? (
                   tab.component
                 ) : (
@@ -921,7 +931,7 @@ export function HomePageView({
         ) : (
           <Tabs.Tab
             name={
-              activeTabName ||
+              pagerTabName ||
               pagerTabConfigs[0]?.name ||
               'home-wallet-capability-pending'
             }
@@ -941,8 +951,8 @@ export function HomePageView({
     handleTabChange,
     renderSubHeader,
     pagerTabConfigs,
-    activeTabName,
-    activeTabId,
+    pagerTabName,
+    selectedTabId,
     mountedHomeTabIds,
     homeWalletCapabilityTabModel.shouldCommitTabs,
   ]);
@@ -957,7 +967,15 @@ export function HomePageView({
         return;
       }
       const name = tabConfigs.find((i) => i.id === payload.id)?.name;
-      if (name && selectCapabilityTab(payload.id)) {
+      if (
+        name &&
+        (payload.id === selectedTabId || selectCapabilityTab(payload.id))
+      ) {
+        if (payload.id !== selectedTabId) {
+          pendingPagerTabIdRef.current = payload.id;
+        }
+        setPagerTabName(name);
+        lastDisplayableTabNameRef.current = name;
         tabsRef.current?.jumpToTab(name);
       }
     },
@@ -965,6 +983,7 @@ export function HomePageView({
       homeWalletCapabilityTabModel.shouldCommitTabs,
       perpTabShowWeb,
       selectCapabilityTab,
+      selectedTabId,
       switchToPerpsWebTab,
       tabConfigs,
     ],
