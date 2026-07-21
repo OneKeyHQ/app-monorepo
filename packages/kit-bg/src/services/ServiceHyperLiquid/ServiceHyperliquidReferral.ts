@@ -14,6 +14,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { perpsActiveAccountAtom } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
 import {
@@ -450,10 +451,12 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
     isChecked: boolean;
     action: 'shown' | 'checked' | 'unchecked';
   }): Promise<void> {
+    const activePerpsAccount = await perpsActiveAccountAtom.get();
     defaultLogger.perp.hyperliquid.referralCheckboxInteraction({
       userAddress,
       isChecked,
       action,
+      walletType: activePerpsAccount.walletType ?? 'unknown',
     });
   }
 
@@ -501,11 +504,13 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
     referralCode: string;
     errorMessage?: string;
   }): Promise<void> {
+    const activePerpsAccount = await perpsActiveAccountAtom.get();
     defaultLogger.perp.hyperliquid.referralBindingResult({
       userAddress,
       success,
       referralCode,
       errorMessage,
+      walletType: activePerpsAccount.walletType ?? 'unknown',
     });
   }
 

@@ -40,6 +40,8 @@ import type {
   IEthWatchAssetParameter,
 } from '@onekeyhq/shared/types/token';
 
+import { perpsActiveAccountAtom } from '../states/jotai/atoms';
+
 import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
@@ -925,6 +927,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     this.ensureHyperLiquidOrigin(request);
 
     if (apiPayload?.action?.type === 'order') {
+      const activePerpsAccount = await perpsActiveAccountAtom.get();
       const orderAction = apiPayload.action as {
         type: 'order';
         builder?: {
@@ -934,7 +937,7 @@ class ProviderApiEthereum extends ProviderApiBase {
         grouping?: string;
         orders?: object[];
       };
-      defaultLogger.perp.common.placeOrder({
+      defaultLogger.perp.common.perpWebviewPlaceOrder({
         userAddress,
         chainId,
         builderAddress: orderAction?.builder?.b ?? '',
@@ -943,6 +946,9 @@ class ProviderApiEthereum extends ProviderApiBase {
         orders: orderAction?.orders ?? [],
         nonce: apiPayload?.nonce,
         errorMessage: errorMessage ?? '',
+        walletType: activePerpsAccount.walletType ?? 'unknown',
+        status: errorMessage ? 'fail' : 'success',
+        errorCode: errorMessage ? 'webview_order_error' : undefined,
       });
     }
   }

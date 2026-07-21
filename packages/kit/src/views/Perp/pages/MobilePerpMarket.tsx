@@ -19,6 +19,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -231,6 +232,7 @@ function MobilePerpCandlesStatic({
 }
 
 function MobilePerpMarket() {
+  const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const { baseName, displayName, mode } = useActiveTradeDisplay();
   const themeVariant = useThemeVariant();
@@ -274,12 +276,14 @@ function MobilePerpMarket() {
     defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
       currentToken: activeTradeInstrument.coin,
       tradeMode: mode === 'spot' ? 'spot' : 'perp',
+      walletType: activePerpsAccount.walletType ?? 'unknown',
     });
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
     });
   }, [
     activeTradeInstrument.coin,
+    activePerpsAccount.walletType,
     mode,
     navigation,
     prewarmTokenSelectorImages,

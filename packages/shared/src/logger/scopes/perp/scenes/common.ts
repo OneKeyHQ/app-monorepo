@@ -6,13 +6,19 @@ import type { EPerpPageEnterSource } from '../type';
 export class CommonScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public pageView({ source }: { source: EPerpPageEnterSource }) {
-    return { source, pageName: 'Perp' };
+  public pageView({
+    source,
+    walletType,
+  }: {
+    source: EPerpPageEnterSource;
+    walletType: string;
+  }) {
+    return { source, walletType, pageName: 'Perp' };
   }
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public placeOrder({
+  public perpWebviewPlaceOrder({
     userAddress,
     chainId,
     builderAddress,
@@ -21,6 +27,9 @@ export class CommonScene extends BaseScene {
     orders,
     nonce,
     errorMessage,
+    walletType,
+    status,
+    errorCode,
   }: {
     userAddress: string;
     chainId: string;
@@ -30,6 +39,9 @@ export class CommonScene extends BaseScene {
     orders: object[];
     nonce: number;
     errorMessage: string;
+    walletType: string;
+    status: 'success' | 'fail';
+    errorCode?: string;
   }) {
     void userAddress;
     const result = {
@@ -42,6 +54,9 @@ export class CommonScene extends BaseScene {
       orders,
       nonce,
       errorMessage,
+      walletType,
+      status,
+      errorCode,
     };
     return result;
   }
