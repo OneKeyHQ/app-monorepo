@@ -88,12 +88,13 @@ async function buildDeviceMetaStatic(
         features,
         defaultDeviceName: vendorProfile.defaultDeviceName,
       })
-    : deviceUtils.buildDeviceBleName({
+    : await deviceUtils.buildDeviceName({
+        device,
         features,
       });
 
   return {
-    deviceName: pro2Overrides?.deviceName ?? deviceName,
+    deviceName,
     deviceType,
     firmwareType,
     firmwareVersion: firmwareVersion ?? '0.0.0',
@@ -182,7 +183,10 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
       get,
       set,
       incomingWalletId?: string,
-      options?: { refreshPro2Info?: boolean },
+      options?: {
+        refreshPro2Info?: boolean;
+        skipPro2Snapshot?: boolean;
+      },
     ) => {
       const walletId = incomingWalletId ?? get(currentWalletIdAtom());
       if (!walletId) return;
@@ -212,7 +216,8 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
         set(walletWithDeviceStateAtom(), data);
         if (
           data?.device?.deviceType === EDeviceType.Pro2 &&
-          data.device.connectId
+          data.device.connectId &&
+          !options?.skipPro2Snapshot
         ) {
           const snapshot = await backgroundApiProxy.serviceHardware
             .getPro2DeviceManagementSnapshot({
@@ -224,7 +229,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
             return data;
           }
           set(pro2DeviceManagementSnapshotAtom(), snapshot);
-        } else {
+        } else if (data?.device?.deviceType !== EDeviceType.Pro2) {
           set(pro2DeviceManagementSnapshotAtom(), undefined);
         }
         await this.updateDeviceMetaStatic.call(set, walletId);

@@ -10,6 +10,25 @@ jest.mock('../hardware/instance', () => ({
 }));
 
 describe('deviceUtils', () => {
+  it('uses the user label as display name before the BLE connection name', async () => {
+    await expect(
+      deviceUtils.buildDeviceName({
+        device: {
+          connectId: 'connect-id',
+          uuid: 'uuid',
+          deviceId: 'device-id',
+          deviceType: EDeviceType.Pro2,
+          name: 'Pro2 6136',
+        },
+        features: {
+          label: 'Renamed Pro 2',
+          bleName: 'Pro2 6136',
+          deviceType: EDeviceType.Pro2,
+        } as never,
+      }),
+    ).resolves.toBe('Renamed Pro 2');
+  });
+
   it.each([
     ESupportSettings.Language,
     ESupportSettings.Brightness,

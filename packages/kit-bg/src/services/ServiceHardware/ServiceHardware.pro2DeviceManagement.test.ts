@@ -1,5 +1,7 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
+import localDb from '../../dbs/local/localDb';
+
 import ServiceHardware from './ServiceHardware';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -60,6 +62,20 @@ jest.mock('../../states/jotai/atoms', () => ({
 }));
 
 const createService = ({ unlocked }: { unlocked: boolean }) => {
+  const cachedFeatures = {
+    deviceId: 'PRO2_DEVICE_ID',
+    unlocked,
+    initialized: true,
+    backupRequired: false,
+    passphraseProtection: false,
+    attachToPinEnabled: false,
+    unlockedAttachPin: false,
+  };
+  jest.mocked(localDb.getDeviceByQuery).mockResolvedValue({
+    id: 'db-device-1',
+    connectId: 'PRO2_USB',
+    featuresInfo: cachedFeatures,
+  } as never);
   const deviceInfoGet = jest.fn().mockResolvedValue({
     success: true,
     payload: {
@@ -110,17 +126,23 @@ const createService = ({ unlocked }: { unlocked: boolean }) => {
     deviceSettingsGet,
     deviceSettingsSet,
     deviceSettingsPageShow,
+    cachedFeatures,
   };
 };
 
 describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
-  it('caches DeviceInfo and only reads DeviceSettings after unlock', async () => {
-    const { service, deviceInfoGet, deviceStatusGet, deviceSettingsGet } =
-      createService({ unlocked: false });
+  it('caches DeviceInfo and reads settings from cached Features without polling DeviceStatus', async () => {
+    const {
+      service,
+      deviceInfoGet,
+      deviceStatusGet,
+      deviceSettingsGet,
+      cachedFeatures,
+    } = createService({ unlocked: false });
 
     await expect(
       service.getPro2DeviceManagementSnapshot({ connectId: 'ORIGINAL_ID' }),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       info: {
         device_id: 'PRO2_DEVICE_ID',
         serial_number: 'PRO2_SERIAL',
@@ -134,7 +156,7 @@ describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
     });
 
     expect(deviceInfoGet).toHaveBeenCalledTimes(1);
-    expect(deviceStatusGet).toHaveBeenCalledTimes(1);
+    expect(deviceStatusGet).not.toHaveBeenCalled();
     expect(deviceSettingsGet).not.toHaveBeenCalled();
     expect(deviceInfoGet).toHaveBeenCalledWith('PRO2_USB', {
       connectProtocol: 'V2',
@@ -155,19 +177,11 @@ describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
       },
     });
 
-    deviceStatusGet.mockResolvedValueOnce({
-      success: true,
-      payload: {
-        device_id: 'PRO2_DEVICE_ID',
-        unlocked: true,
-        init_states: true,
-        backup_required: false,
-      },
-    });
+    cachedFeatures.unlocked = true;
 
     await expect(
       service.getPro2DeviceManagementSnapshot({ connectId: 'ORIGINAL_ID' }),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       info: {
         device_id: 'PRO2_DEVICE_ID',
         serial_number: 'PRO2_SERIAL',
@@ -185,7 +199,7 @@ describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
     });
 
     expect(deviceInfoGet).toHaveBeenCalledTimes(1);
-    expect(deviceStatusGet).toHaveBeenCalledTimes(2);
+    expect(deviceStatusGet).not.toHaveBeenCalled();
     expect(deviceSettingsGet).toHaveBeenCalledTimes(1);
   });
 
@@ -201,33 +215,18 @@ describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
     expect(deviceInfoGet).toHaveBeenCalledTimes(2);
   });
 
-  it('refreshes DeviceInfo when DeviceStatus reports a different device ID', async () => {
+  it('deduplicates concurrent snapshot requests for one connection', async () => {
     const { service, deviceInfoGet, deviceStatusGet } = createService({
       unlocked: false,
     });
-
-    await service.getPro2DeviceManagementSnapshot({ connectId: 'PRO2' });
-    deviceStatusGet.mockResolvedValueOnce({
-      success: true,
-      payload: {
-        device_id: 'ANOTHER_DEVICE_ID',
-        unlocked: false,
-      },
-    });
-    await service.getPro2DeviceManagementSnapshot({ connectId: 'PRO2' });
-
-    expect(deviceInfoGet).toHaveBeenCalledTimes(2);
-  });
-
-  it('deduplicates concurrent snapshot requests for one connection', async () => {
-    const { service, deviceStatusGet } = createService({ unlocked: false });
 
     await Promise.all([
       service.getPro2DeviceManagementSnapshot({ connectId: 'PRO2' }),
       service.getPro2DeviceManagementSnapshot({ connectId: 'PRO2' }),
     ]);
 
-    expect(deviceStatusGet).toHaveBeenCalledTimes(1);
+    expect(deviceInfoGet).toHaveBeenCalledTimes(1);
+    expect(deviceStatusGet).not.toHaveBeenCalled();
   });
 });
 

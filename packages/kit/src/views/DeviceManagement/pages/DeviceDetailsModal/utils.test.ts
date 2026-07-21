@@ -50,9 +50,9 @@ describe('DeviceDetailsModal utils', () => {
     });
   });
 
-  it('does not subscribe Pro2 details to hardware feature updates', () => {
+  it('subscribes Pro2 details to confirmed hardware feature updates', () => {
     expect(shouldSubscribeToHardwareFeaturesUpdate(EDeviceType.Pro2)).toBe(
-      false,
+      true,
     );
     expect(shouldSubscribeToHardwareFeaturesUpdate(EDeviceType.Classic1s)).toBe(
       true,

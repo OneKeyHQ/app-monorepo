@@ -35,7 +35,6 @@ export function getPro2DeviceMetaStaticOverrides(
   snapshot: IPro2DeviceManagementSnapshot,
 ) {
   return {
-    deviceName: snapshot.info?.coprocessor?.bt_adv_name,
     firmwareVersion: snapshot.info?.fw?.application?.version,
   };
 }

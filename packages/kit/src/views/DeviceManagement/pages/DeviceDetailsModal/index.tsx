@@ -115,6 +115,11 @@ function DeviceDetailsModalV2Cmp({
     }
   }, [refresh, walletId, handleBackPress]);
 
+  const refreshConfirmedFeatures = useCallback(async () => {
+    if (!walletId) return;
+    await refresh(walletId, { skipPro2Snapshot: true });
+  }, [refresh, walletId]);
+
   useFocusEffect(
     useCallback(() => {
       void refreshCurrentDevice();
@@ -129,7 +134,7 @@ function DeviceDetailsModalV2Cmp({
     if (shouldSubscribeHardwareFeatures) {
       appEventBus.on(
         EAppEventBusNames.HardwareFeaturesUpdate,
-        refreshCurrentDevice,
+        refreshConfirmedFeatures,
       );
     }
     appEventBus.on(
@@ -141,7 +146,7 @@ function DeviceDetailsModalV2Cmp({
       if (shouldSubscribeHardwareFeatures) {
         appEventBus.off(
           EAppEventBusNames.HardwareFeaturesUpdate,
-          refreshCurrentDevice,
+          refreshConfirmedFeatures,
         );
       }
       appEventBus.off(
@@ -151,6 +156,7 @@ function DeviceDetailsModalV2Cmp({
     };
   }, [
     refresh,
+    refreshConfirmedFeatures,
     refreshCurrentDevice,
     shouldSubscribeHardwareFeatures,
     walletId,

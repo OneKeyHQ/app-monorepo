@@ -183,6 +183,20 @@ export type IPro2DeviceSettingsPage =
 
 const nullableToUndefined = (value?: string | null) => value ?? undefined;
 
+function buildProtocolV2StatusFromFeatures(
+  features?: IOneKeyDeviceFeatures,
+): ProtocolV2DeviceStatus {
+  return {
+    device_id: features?.deviceId ?? undefined,
+    unlocked: features?.unlocked ?? undefined,
+    init_states: features?.initialized ?? undefined,
+    backup_required: features?.backupRequired ?? undefined,
+    passphrase_enabled: features?.passphraseProtection ?? undefined,
+    attach_to_pin_enabled: features?.attachToPinEnabled ?? undefined,
+    unlocked_by_attach_to_pin: features?.unlockedAttachPin ?? undefined,
+  };
+}
+
 function buildOnekeyFeaturesFromDeviceInfo(
   deviceInfo: DeviceProfile,
 ): OnekeyFeatures {
@@ -1350,11 +1364,10 @@ class ServiceHardware extends ServiceBase {
       const cachedEntry = refreshInfo
         ? undefined
         : this.pro2DeviceInfoCache.get(compatibleConnectId);
-      const status = await convertDeviceResponse(() =>
-        hardwareSDK.deviceStatusGet(compatibleConnectId, {
-          connectProtocol: 'V2',
-        }),
-      );
+      const dbDevice = await localDb.getDeviceByQuery({
+        connectId: compatibleConnectId,
+      });
+      const status = buildProtocolV2StatusFromFeatures(dbDevice?.featuresInfo);
       const deviceChanged = Boolean(
         cachedEntry?.deviceId &&
         status.device_id &&

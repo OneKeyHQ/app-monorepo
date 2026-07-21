@@ -104,7 +104,7 @@ describe('buildPro2DeviceMetaState', () => {
 });
 
 describe('getPro2DeviceMetaStaticOverrides', () => {
-  it('uses DeviceInfo for the device name and firmware version', () => {
+  it('uses DeviceInfo only for immutable firmware metadata', () => {
     expect(
       getPro2DeviceMetaStaticOverrides({
         status: {},
@@ -115,7 +115,6 @@ describe('getPro2DeviceMetaStaticOverrides', () => {
         },
       }),
     ).toEqual({
-      deviceName: 'Pro2 FDD5',
       firmwareVersion: '2.1.0',
     });
   });
