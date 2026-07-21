@@ -2434,4 +2434,33 @@ describe('ServiceKeylessWallet.prepareOneKeyIdLoginWithLocalKeyless', () => {
       provider: EOAuthSocialLoginProvider.Google,
     });
   });
+
+  test('degrades a transient wallet-read failure to NeedOAuthLogin, never NoLocalKeyless', async () => {
+    // A transient serviceAccount.getKeylessWallet() failure is UNKNOWN state,
+    // not "no wallet". Reporting NoLocalKeyless would drop the provider lock /
+    // token-matches-wallet guard and — via loginOneKeyId's
+    // preserveLocalKeylessAuth=false branch — trigger a full logout that clears
+    // the shared keyless session slot and deletes the legacy OAuth refresh
+    // blobs over a momentary read error.
+    const { service, backgroundApi } = createService();
+    backgroundApi.serviceAccount.getKeylessWallet = jest.fn(async () => {
+      throw new OneKeyLocalError('transient wallet read failure');
+    });
+    await expect(
+      service.prepareOneKeyIdLoginWithLocalKeyless(),
+    ).resolves.toEqual({
+      status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NeedOAuthLogin,
+    });
+  });
+
+  test('returns NoLocalKeyless when getKeylessWallet resolves undefined (genuine no wallet)', async () => {
+    // A resolved `undefined` wallet is a definitive no-wallet verdict and must
+    // still map to NoLocalKeyless (nothing to preserve on logout).
+    const { service } = createService({ wallet: undefined });
+    await expect(
+      service.prepareOneKeyIdLoginWithLocalKeyless(),
+    ).resolves.toEqual({
+      status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NoLocalKeyless,
+    });
+  });
 });

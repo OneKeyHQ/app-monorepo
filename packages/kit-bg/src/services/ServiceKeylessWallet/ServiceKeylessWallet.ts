@@ -2866,13 +2866,20 @@ class ServiceKeylessWallet extends ServiceBase {
     ownerId: string;
     provider: EOAuthSocialLoginProvider;
   } | null> {
-    let keylessWallet: IDBWallet | undefined;
-    try {
-      keylessWallet =
-        await this.backgroundApi.serviceAccount.getKeylessWallet();
-    } catch {
-      return null;
-    }
+    // Do NOT swallow a transient getKeylessWallet() read failure into `null`.
+    // `null` is a DEFINITIVE "no usable local Keyless wallet" verdict, and
+    // prepareOneKeyIdLoginWithLocalKeyless maps that verdict to NoLocalKeyless.
+    // NoLocalKeyless drops the provider lock and the token-matches-wallet
+    // guard in the bind/login UI, and — via loginOneKeyId's
+    // preserveLocalKeylessAuth=false branch — triggers a FULL logout that
+    // clears the shared keyless session slot and deletes the legacy OAuth
+    // refresh blobs. Collapsing an unknown/transient storage error into that
+    // verdict would silently log a Keyless wallet out over a momentary read
+    // failure, so let the error propagate and let callers decide (prepare
+    // degrades to NeedOAuthLogin, keeping the guards armed). A resolved
+    // `undefined` wallet is a genuine no-wallet state and still returns null.
+    const keylessWallet =
+      await this.backgroundApi.serviceAccount.getKeylessWallet();
     const ownerId = keylessWallet?.keylessDetailsInfo?.keylessOwnerId;
     const provider = keylessWallet?.keylessDetailsInfo?.keylessProvider;
     if (
@@ -3130,7 +3137,29 @@ class ServiceKeylessWallet extends ServiceBase {
 
   @backgroundMethod()
   async prepareOneKeyIdLoginWithLocalKeyless(): Promise<IOneKeyIdLoginWithLocalKeylessPrepareResult> {
-    const context = await this.getLocalKeylessLoginContext();
+    let context: {
+      keylessWallet: IDBWallet;
+      ownerId: string;
+      provider: EOAuthSocialLoginProvider;
+    } | null;
+    try {
+      context = await this.getLocalKeylessLoginContext();
+    } catch (error) {
+      // A transient wallet-read failure is UNKNOWN state, not "no wallet".
+      // Reporting NoLocalKeyless here would drop the caller-side guards and
+      // let loginOneKeyId take its full-logout branch (clearing the shared
+      // keyless session slot + legacy OAuth blobs) over a momentary error.
+      // Degrade to NeedOAuthLogin with an unknown provider: the callers'
+      // isLocalKeylessOAuthMode stays true, so preserveLocalKeylessAuth stays
+      // true and the token-matches-wallet guard stays armed. A later attempt
+      // can still reach ContinueWithKeyless once the read succeeds.
+      defaultLogger.wallet.keyless.prepareOneKeyIdLoginWithLocalKeylessFailed({
+        error: String(error),
+      });
+      return {
+        status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NeedOAuthLogin,
+      };
+    }
     if (!context) {
       return {
         status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NoLocalKeyless,
