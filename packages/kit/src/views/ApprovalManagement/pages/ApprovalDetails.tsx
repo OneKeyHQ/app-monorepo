@@ -27,6 +27,7 @@ import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/appr
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IApproval } from '@onekeyhq/shared/types/approval';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -115,10 +116,10 @@ function ApprovalDetails() {
 
   const handleTokenOnSelect = useCallback(
     async ({
-      tokenInfo,
+      approval: tokenApproval,
       isSelected,
     }: {
-      tokenInfo: IToken;
+      approval: IApproval;
       isSelected: boolean;
     }) => {
       if (!isMountedRef.current) return;
@@ -129,7 +130,8 @@ function ApprovalDetails() {
           accountId: approval.accountId,
           networkId: approval.networkId,
           contractAddress: approval.contractAddress,
-          tokenAddress: tokenInfo.address,
+          tokenAddress: tokenApproval.tokenAddress,
+          permit2Address: tokenApproval.permit2Address,
         })]: isSelected,
       }));
     },
@@ -155,6 +157,7 @@ function ApprovalDetails() {
               networkId: approval.networkId,
               contractAddress: approval.contractAddress,
               tokenAddress: item.tokenAddress,
+              permit2Address: item.permit2Address,
             })
           ] = isSelectAll;
           return acc;
@@ -186,6 +189,7 @@ function ApprovalDetails() {
       selectedTokens,
       tokenMap,
       contractMap,
+      approvals: [approval],
     });
   }, [
     isSelectMode,
@@ -195,6 +199,7 @@ function ApprovalDetails() {
     selectedTokens,
     tokenMap,
     contractMap,
+    approval,
   ]);
 
   const handleOnCancel = useCallback(() => {
@@ -202,7 +207,13 @@ function ApprovalDetails() {
   }, [setIsBulkRevokeMode]);
 
   const handleTokenOnRevoke = useCallback(
-    async ({ tokenInfo }: { tokenInfo: IToken }) => {
+    async ({
+      approval: tokenApproval,
+      tokenInfo,
+    }: {
+      approval: IApproval;
+      tokenInfo: IToken;
+    }) => {
       if (!isMountedRef.current) return;
 
       if (
@@ -218,6 +229,24 @@ function ApprovalDetails() {
         return;
       }
 
+      const hasPermit2Metadata = approvalUtils.hasPermit2ApprovalMetadata({
+        approval: tokenApproval,
+      });
+      const permit2Expiration = tokenApproval.permit2Address
+        ? approvalUtils.normalizePermit2ExpirationMs(tokenApproval.expirationMs)
+        : undefined;
+      if (
+        hasPermit2Metadata &&
+        (!tokenApproval.permit2Address || !permit2Expiration)
+      ) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.wallet_approval_permit2_data_invalid__msg,
+          }),
+        });
+        return;
+      }
+
       setIsBuildingRevokeTxs(true);
       setSelectedTokens({
         [approvalUtils.buildSelectedTokenKey({
@@ -225,15 +254,23 @@ function ApprovalDetails() {
           networkId: approval.networkId,
           contractAddress: approval.contractAddress,
           tokenAddress: tokenInfo.address,
+          permit2Address: tokenApproval.permit2Address,
         })]: true,
       });
 
       try {
         const revokeInfo: IApproveInfo = {
           owner: approval.owner,
-          spender: approval.contractAddress,
+          spender: tokenApproval.spenderAddress,
           amount: '0',
           tokenInfo,
+          permit2Info:
+            tokenApproval.permit2Address && permit2Expiration
+              ? {
+                  permit2Address: tokenApproval.permit2Address,
+                  expirationSeconds: permit2Expiration.expirationSeconds,
+                }
+              : undefined,
         };
 
         const unsignedTx =
@@ -476,11 +513,20 @@ function ApprovalDetails() {
           )
         }
         data={filteredApprovals}
+        keyExtractor={(item) =>
+          approvalUtils.buildSelectedTokenKey({
+            accountId: approval.accountId,
+            networkId: approval.networkId,
+            contractAddress: approval.contractAddress,
+            tokenAddress: item.tokenAddress,
+            permit2Address: item.permit2Address,
+          })
+        }
         renderItem={({ item }) => (
           <ApprovedTokenItem
-            key={item.tokenAddress}
             networkId={approval.networkId}
             accountId={approval.accountId}
+            contractAddress={approval.contractAddress}
             approval={item}
             isSelectMode={!!(isSelectMode || isBulkRevokeMode)}
             onSelect={handleTokenOnSelect}
@@ -497,6 +543,7 @@ function ApprovalDetails() {
     isSelectMode,
     intl,
     approval.accountId,
+    approval.contractAddress,
     approval.networkId,
   ]);
 
