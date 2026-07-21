@@ -3,7 +3,13 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { DebugRenderTracker, YStack } from '@onekeyhq/components';
+import {
+  DebugRenderTracker,
+  Icon,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -207,6 +213,38 @@ const PerpTradingDisabledPlaceOrderButtonMemo = memo(
   PerpTradingDisabledPlaceOrderButton,
 );
 
+function PerpConnectWalletPromptCard() {
+  return (
+    <XStack
+      testID="perp-connect-wallet-prompt-card"
+      width="100%"
+      gap="$2"
+      px="$3"
+      py="$2.5"
+      borderRadius="$2"
+      bg="$bgSubdued"
+      alignItems="center"
+    >
+      <Icon
+        name="InfoCircleOutline"
+        size="$4"
+        color="$iconSubdued"
+        flexShrink={0}
+      />
+      <SizableText
+        minWidth={0}
+        flex={1}
+        flexShrink={1}
+        numberOfLines={2}
+        size="$bodySmMedium"
+        color="$text"
+      >
+        Connect your wallet to access Perps trading.
+      </SizableText>
+    </XStack>
+  );
+}
+
 function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const sizeInputRef = useRef<IInputRef>(null);
   const minimumOrderActionRef = useRef<
@@ -222,6 +260,11 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
   const tradingMode = activeTradeInstrumentForMode.mode;
   const [isSubmitting] = useTradingLoadingAtom();
+  const shouldShowConnectWalletPrompt =
+    (platformEnv.isWeb || platformEnv.isDesktop) &&
+    (!perpsActiveAccount?.accountAddress ||
+      perpsAccountStatus.accountNotSupport) &&
+    !perpsAccountStatus.canCreateAddress;
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const snapshotLookupIndexedAccountId = selectedWalletAccount.ready
     ? selectedWalletAccount.indexedAccount?.id
@@ -403,6 +446,28 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
     requestAnimationFrame(() => sizeInputRef.current?.focus());
   }, []);
 
+  let tradingActionContent = (
+    <PerpTradingDisabledPlaceOrderButtonMemo isMobile={isMobile} />
+  );
+  if (canShowTradingButtons) {
+    tradingActionContent = (
+      <TradingButtonGroup
+        onRequestSizeInputFocus={handleRequestSizeInputFocus}
+        minimumOrderActionRef={minimumOrderActionRef}
+        isMobile={isMobile}
+        isLiveStatusPending={isLiveStatusPending}
+        enableTradingModeOverride={orderPanelEnableTradingMode}
+      />
+    );
+  } else if (shouldShowConnectWalletPrompt) {
+    tradingActionContent = (
+      <YStack gap="$3">
+        <PerpConnectWalletPromptCard />
+        <PerpTradingDisabledPlaceOrderButtonMemo isMobile={isMobile} />
+      </YStack>
+    );
+  }
+
   const content = (
     <YStack
       gap={isMobile && tradingMode === 'spot' ? '$0.5' : '$2'}
@@ -419,19 +484,13 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
         minimumOrderActionRef={minimumOrderActionRef}
         isSubmitting={isSubmitting}
         isMobile={isMobile}
-        reserveMobileEnableTradingLayout={reserveMobileEnableTradingLayout}
+        reserveMobileEnableTradingLayout={
+          shouldShowConnectWalletPrompt
+            ? false
+            : reserveMobileEnableTradingLayout
+        }
       />
-      {canShowTradingButtons ? (
-        <TradingButtonGroup
-          onRequestSizeInputFocus={handleRequestSizeInputFocus}
-          minimumOrderActionRef={minimumOrderActionRef}
-          isMobile={isMobile}
-          isLiveStatusPending={isLiveStatusPending}
-          enableTradingModeOverride={orderPanelEnableTradingMode}
-        />
-      ) : (
-        <PerpTradingDisabledPlaceOrderButtonMemo isMobile={isMobile} />
-      )}
+      {tradingActionContent}
     </YStack>
   );
   return (
