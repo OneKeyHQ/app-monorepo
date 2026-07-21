@@ -400,7 +400,6 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.SwapQuoteEvent]: {
     type: 'message' | 'done' | 'error' | 'close' | 'open';
     event: ISwapQuoteEvent;
-    quoteEventSessionId?: string;
     params: IFetchQuotesParams;
     accountId?: string;
     tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };

@@ -590,7 +590,6 @@ export interface ISwapPreSwapData {
 export interface IFetchSwapQuoteParams {
   fromToken: ISwapToken;
   toToken: ISwapToken;
-  quoteEventSessionId?: string;
   fromTokenAmount?: string;
   receivingAddress?: string;
   incognito?: boolean;

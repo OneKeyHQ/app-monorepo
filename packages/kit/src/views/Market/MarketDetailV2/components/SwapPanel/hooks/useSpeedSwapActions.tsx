@@ -41,7 +41,6 @@ import {
 import type {
   IApproveInfo,
   IBuildUnsignedTxParams,
-  IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -55,7 +54,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   buildSwapHistoryNetworkFromServer,
   buildSwapHistoryNetworkPlaceholder,
@@ -87,7 +85,6 @@ import {
   ESwapQuoteKind,
   ESwapTabSwitchType,
   ESwapTxHistoryStatus,
-  EWrappedType,
 } from '@onekeyhq/shared/types/swap/types';
 import type {
   ISendTxBaseParams,
@@ -116,7 +113,6 @@ import {
   mergeMarketBuildResultWithQuote,
   pickMarketQuoteResultByProvider,
   shouldFetchMarketQuoteFallbackData,
-  waitForMarketWrappedQuote,
 } from './marketSwapBuildUtils';
 import {
   areMarketApproveAmountsEqual,
@@ -1000,124 +996,6 @@ export function useSpeedSwapActions(props: {
     ],
   );
 
-  const buildWrappedSwapData = useCallback(
-    async ({
-      fromAmount,
-      fromToken: currentFromToken,
-      toToken: currentToToken,
-    }: {
-      fromAmount?: string;
-      fromToken?: ISwapToken;
-      toToken?: ISwapToken;
-    } = {}) => {
-      const amount = fromAmount ?? fromTokenAmountDebounced;
-      const fromTokenFinal = currentFromToken ?? fromToken;
-      const toTokenFinal = currentToToken ?? toToken;
-      const userAddress = netAccountRes.result?.addressDetail.address ?? '';
-
-      if (!amount || !userAddress || !netAccountRes.result?.id) {
-        throw new OneKeyLocalError(
-          'Market wrap review requires account and amount.',
-        );
-      }
-
-      const accountId = netAccountRes.result.id;
-      const quoteEventSessionId = stringUtils.generateUUID();
-      const quoteResultFromServer = await waitForMarketWrappedQuote({
-        request: {
-          accountId,
-          fromToken: fromTokenFinal,
-          toToken: toTokenFinal,
-          quoteEventSessionId,
-          fromTokenAmount: amount,
-          slippagePercentage: slippage,
-        },
-        subscribe: (listener) => {
-          appEventBus.on(EAppEventBusNames.SwapQuoteEvent, listener);
-          return () => {
-            appEventBus.off(EAppEventBusNames.SwapQuoteEvent, listener);
-          };
-        },
-        start: () =>
-          backgroundApiProxy.serviceSwap.fetchQuotesEvents({
-            fromToken: fromTokenFinal,
-            toToken: toTokenFinal,
-            quoteEventSessionId,
-            fromTokenAmount: amount,
-            userAddress,
-            receivingAddress: userAddress,
-            slippagePercentage: slippage,
-            autoSlippage: false,
-            accountId,
-            protocol: ESwapTabSwitchType.SWAP,
-            kind: ESwapQuoteKind.SELL,
-          }),
-        cancel: () =>
-          backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents({
-            quoteEventSessionId,
-          }),
-      });
-      const quoteResult: IFetchQuoteResult = {
-        ...quoteResultFromServer,
-        protocol: quoteResultFromServer.protocol ?? EProtocolOfExchange.SWAP,
-        fromTokenInfo: fromTokenFinal,
-        toTokenInfo: toTokenFinal,
-      };
-
-      const wrappedType = fromTokenFinal.isNative
-        ? EWrappedType.DEPOSIT
-        : EWrappedType.WITHDRAW;
-      const wrappedInfo: IWrappedInfo = {
-        from: userAddress,
-        type: wrappedType,
-        contract:
-          wrappedType === EWrappedType.WITHDRAW
-            ? fromTokenFinal.contractAddress
-            : toTokenFinal.contractAddress,
-        amount: quoteResult.fromAmount ?? amount,
-      };
-      const swapInfo: ISwapTxInfo = {
-        protocol: quoteResult.protocol ?? EProtocolOfExchange.SWAP,
-        sender: {
-          amount: quoteResult.fromAmount ?? amount,
-          token: fromTokenFinal,
-          accountInfo: {
-            accountId,
-            networkId: fromTokenFinal.networkId,
-          },
-        },
-        receiver: {
-          amount: quoteResult.toAmount ?? amount,
-          token: toTokenFinal,
-          accountInfo: {
-            accountId,
-            networkId: toTokenFinal.networkId,
-          },
-        },
-        accountAddress: userAddress,
-        receivingAddress: userAddress,
-        swapBuildResData: {
-          orderId: quoteResult.quoteId ?? '',
-          result: quoteResult,
-        },
-      };
-
-      return {
-        quoteResult,
-        wrappedInfo,
-        swapInfo,
-      };
-    },
-    [
-      fromTokenAmountDebounced,
-      fromToken,
-      netAccountRes.result?.addressDetail.address,
-      netAccountRes.result?.id,
-      slippage,
-      toToken,
-    ],
-  );
-
   const logMarketCreateOrder = useCallback(
     ({
       buildRes,
@@ -1371,7 +1249,6 @@ export function useSpeedSwapActions(props: {
       fromAmount,
       fromToken: currentFromToken,
       toToken: currentToToken,
-      isWrap,
       quoteResult,
       networkFeeLevel = ESwapNetworkFeeLevel.MEDIUM,
       customPriorityFee,
@@ -1396,45 +1273,6 @@ export function useSpeedSwapActions(props: {
           tradeTokenCurrency: currentCurrencyId,
         });
 
-      if (isWrap || isWrapped) {
-        const shouldFallback = buildMarketReviewShouldFallback({
-          networkId: reviewFromToken.networkId,
-          isCustomRpcUnavailable,
-        });
-        const {
-          quoteResult: wrappedQuoteResult,
-          wrappedInfo,
-          swapInfo,
-        } = await buildWrappedSwapData({
-          fromAmount: amount,
-          fromToken: reviewFromToken,
-          toToken: reviewToToken,
-        });
-        reviewExecutionSnapshotRef.current = {
-          kind: 'wrap',
-          accountAddress: swapInfo.accountAddress,
-          accountId: netAccountRes.result?.id ?? '',
-          networkId: reviewFromToken.networkId,
-          shouldFallback,
-          quoteResult: wrappedQuoteResult,
-          buildUnsignedParams: {
-            networkId: reviewFromToken.networkId,
-            accountId: netAccountRes.result?.id ?? '',
-            wrappedInfo,
-            swapInfo,
-            isInternalSwap: true,
-            disableMev: !antiMEV,
-          } as ISendTxBaseParams & IBuildUnsignedTxParams,
-          swapInfo,
-        };
-
-        return buildMarketReviewStateFromSnapshot(
-          reviewExecutionSnapshotRef.current,
-          networkFeeLevel,
-          customPriorityFee,
-        );
-      }
-
       const currentSpenderAddress = effectiveSpenderAddress;
       const [
         { buildRes, encodedTx, transferInfo, swapInfo, userAddress },
@@ -1452,7 +1290,6 @@ export function useSpeedSwapActions(props: {
             shouldApprove,
             shouldResetApprove,
           },
-          isWrapped,
           spenderAddress: currentSpenderAddress,
           token: reviewFromToken,
           walletAddress: netAccountRes.result?.addressDetail.address,
@@ -1510,14 +1347,12 @@ export function useSpeedSwapActions(props: {
       antiMEV,
       buildMarketReviewStateFromSnapshot,
       buildSpeedSwapTxData,
-      buildWrappedSwapData,
       currentCurrencyId,
       effectiveSpenderAddress,
       effectiveTradeTokenPrice,
       fromToken,
       fromTokenAmountDebounced,
       isCustomRpcUnavailable,
-      isWrapped,
       netAccountRes.result?.id,
       netAccountRes.result?.addressDetail.address,
       shouldApprove,
@@ -1541,8 +1376,7 @@ export function useSpeedSwapActions(props: {
           amountBN.isZero() ||
           amountBN.isNaN() ||
           fromToken.isNative ||
-          !fromToken.contractAddress ||
-          isWrapped
+          !fromToken.contractAddress
         ) {
           setShouldApprove(false);
           setShouldResetApprove(false);
@@ -1582,7 +1416,6 @@ export function useSpeedSwapActions(props: {
       netAccountRes.result?.addressDetail.address,
       netAccountRes.result?.addressDetail.networkId,
       effectiveSpenderAddress,
-      isWrapped,
     ],
   );
 
@@ -2969,7 +2802,6 @@ export function useSpeedSwapActions(props: {
         // Proceed with allowance check if non-native token
         if (
           !fromToken.isNative &&
-          !isWrapped &&
           fromToken.contractAddress &&
           netAccountRes?.result?.addressDetail.address &&
           (newSpenderAddress || spenderAddress)
@@ -2996,7 +2828,6 @@ export function useSpeedSwapActions(props: {
       fromToken.isNative,
       toToken.networkId,
       toToken.contractAddress,
-      isWrapped,
       netAccountRes?.result?.addressDetail.address,
       spenderAddress,
       checkTokenApproveAllowance,
