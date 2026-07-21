@@ -234,6 +234,8 @@ const desktopApi = {
       ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_GET_DEVICE, uuid),
     connect: (uuid: string) =>
       ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_CONNECT, uuid),
+    release: (uuid: string) =>
+      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_RELEASE, uuid),
     disconnect: (uuid: string) =>
       ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_DISCONNECT, uuid),
     subscribe: (uuid: string) =>
