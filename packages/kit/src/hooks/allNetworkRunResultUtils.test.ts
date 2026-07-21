@@ -22,16 +22,31 @@ describe('resolveAllNetworkPublishedResult', () => {
   test('keeps the previous stable result when the run is superseded', () => {
     const previous = [{ networkId: 'btc--0' }];
 
+    const resolved = resolveAllNetworkPublishedResult({
+      completedResult: [{ networkId: 'evm--1' }],
+      hasQueuedRerun: true,
+      lastPublished: { result: previous, runSignature: signature },
+      runSignature: signature,
+    });
+
+    expect(resolved).toEqual({
+      publishedResult: previous,
+      nextLastPublished: { result: previous, runSignature: signature },
+    });
+    expect(resolved.publishedResult).toBe(previous);
+  });
+
+  test('does not publish when the first run is superseded', () => {
     expect(
       resolveAllNetworkPublishedResult({
         completedResult: [{ networkId: 'evm--1' }],
         hasQueuedRerun: true,
-        lastPublished: { result: previous, runSignature: signature },
+        lastPublished: undefined,
         runSignature: signature,
       }),
     ).toEqual({
-      publishedResult: previous,
-      nextLastPublished: { result: previous, runSignature: signature },
+      publishedResult: undefined,
+      nextLastPublished: undefined,
     });
   });
 
