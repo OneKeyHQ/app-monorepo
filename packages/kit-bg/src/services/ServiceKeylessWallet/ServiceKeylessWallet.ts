@@ -2886,13 +2886,22 @@ class ServiceKeylessWallet extends ServiceBase {
     ownerId: string;
     provider: EOAuthSocialLoginProvider;
   } | null> {
-    let keylessWallet: IDBWallet | undefined;
-    try {
-      keylessWallet =
-        await this.backgroundApi.serviceAccount.getKeylessWallet();
-    } catch {
-      return null;
-    }
+    // Do NOT swallow a transient getKeylessWallet() read failure into `null`.
+    // `null` is a DEFINITIVE "no usable local Keyless wallet" verdict, and
+    // prepareOneKeyIdLoginWithLocalKeyless maps that verdict to NoLocalKeyless.
+    // NoLocalKeyless drops the provider lock and the token-matches-wallet
+    // guard in the bind/login UI, and — via loginOneKeyId's
+    // preserveLocalKeylessAuth=false branch — triggers a FULL logout that
+    // clears the shared keyless session slot and deletes the legacy OAuth
+    // refresh blobs. Collapsing an unknown/transient storage error into that
+    // verdict would silently log a Keyless wallet out over a momentary read
+    // failure, so let the error PROPAGATE and let each caller decide: the
+    // login UI (loginOneKeyId) preserves the session, the passive upgrade-bind
+    // gate skips its throttle and retries, and the bind dialog keeps its
+    // buttons disabled. A resolved `undefined` wallet is a genuine no-wallet
+    // state and still returns null.
+    const keylessWallet =
+      await this.backgroundApi.serviceAccount.getKeylessWallet();
     const ownerId = keylessWallet?.keylessDetailsInfo?.keylessOwnerId;
     const provider = keylessWallet?.keylessDetailsInfo?.keylessProvider;
     if (
@@ -3150,6 +3159,20 @@ class ServiceKeylessWallet extends ServiceBase {
 
   @backgroundMethod()
   async prepareOneKeyIdLoginWithLocalKeyless(): Promise<IOneKeyIdLoginWithLocalKeylessPrepareResult> {
+    // A transient getKeylessWallet() read failure PROPAGATES out of
+    // getLocalKeylessLoginContext (it is unknown state, not "no wallet").
+    // Deliberately do NOT catch it here into a status: consumers must be able
+    // to tell "wallet existence unknown / retry" apart from a confirmed
+    // NoLocalKeyless.
+    // - checkAndMarkShouldShowLocalKeylessUpgradeBindPrompt keys off
+    //   `status !== NoLocalKeyless` to mean "wallet confirmed exists"; it
+    //   relies on the throw to skip its 24h throttle and retry later, instead
+    //   of prompting (and throttling) on an unconfirmed wallet.
+    // - the bind dialog keeps its buttons disabled while the probe keeps
+    //   throwing.
+    // Only the login UI (loginOneKeyId) degrades a thrown result to a
+    // session-preserving prepare result. A resolved `undefined` wallet is a
+    // genuine no-wallet state and still maps to NoLocalKeyless below.
     const context = await this.getLocalKeylessLoginContext();
     if (!context) {
       return {
