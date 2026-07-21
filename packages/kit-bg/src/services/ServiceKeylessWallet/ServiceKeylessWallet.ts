@@ -928,6 +928,9 @@ class ServiceKeylessWallet extends ServiceBase {
     if (!devSettings.enabled) {
       throw new OneKeyLocalError('Dev settings is not enabled');
     }
+    if (!devSettings.settings?.allowDeleteKeylessKey) {
+      throw new OneKeyLocalError('Keyless wallet reset is not allowed');
+    }
     const { token } = params;
     const client = await this.getClient(EServiceEndpointEnum.Prime);
     // /prime/v1/keyless-wallet/resetKeylessBackendShare

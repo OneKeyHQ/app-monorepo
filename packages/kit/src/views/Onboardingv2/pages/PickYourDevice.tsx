@@ -20,11 +20,13 @@ import {
   ANIMATE_ONLY_BG_BORDER_COLOR,
   ANIMATE_ONLY_OPACITY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import { MOCK_PRO2_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/devicePro2Mock';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
@@ -34,20 +36,39 @@ import {
   LayoutHeaderTitle,
 } from '../components/Layout';
 import { showOtherDevicesDialog } from '../components/OtherDevicesDialog';
+import PixelShimmer from '../components/PixelShimmer';
+
+// Neutral shimmer for the non-OneKey "use another device" card; OneKey device
+// cards fall back to PixelShimmer's brand-green default.
+const SHIMMER_NEUTRAL = ['#94A3B8', '#CBD5E1', '#A0AEC0'];
 
 export default function PickYourDevice() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
+  const [devSettings] = useDevSettingsPersistAtom();
   const DEVICES = useMemo<
     Array<{
       name: string;
       tags?: string[];
       deviceType: EDeviceType[];
       image: ReturnType<typeof require>;
+      colors?: string[];
     }>
   >(() => {
     const devices = [
+      // MOCK(pro2): Pro 2 is not on the market yet, so its picker card only
+      // appears when dev settings are enabled. Production users never see it,
+      // which keeps every downstream Pro 2 mock path unreachable for them.
+      ...(devSettings.enabled
+        ? [
+            {
+              name: 'OneKey Pro 2',
+              deviceType: [MOCK_PRO2_DEVICE_TYPE],
+              image: require('@onekeyhq/kit/assets/pick-pro-2.png'),
+            },
+          ]
+        : []),
       {
         name: 'OneKey Pro',
         deviceType: [EDeviceType.Pro],
@@ -74,6 +95,7 @@ export default function PickYourDevice() {
         tags: ['Ledger', 'Trezor'],
         deviceType: [],
         image: require('@onekeyhq/kit/assets/pick-others.png'),
+        colors: SHIMMER_NEUTRAL,
       },
     ];
 
@@ -83,7 +105,7 @@ export default function PickYourDevice() {
     }
 
     return devices;
-  }, [intl]);
+  }, [intl, devSettings.enabled]);
 
   const scrollable = platformEnv.isNative || !gtMd;
   const { bottom: safeAreaBottom } = useSafeAreaInsets();
@@ -118,7 +140,7 @@ export default function PickYourDevice() {
           px: 0,
         }}
       >
-        {DEVICES.map(({ name, tags, image, deviceType }) => (
+        {DEVICES.map(({ name, tags, image, deviceType, colors }) => (
           <YStack
             key={name}
             group="card"
@@ -155,11 +177,12 @@ export default function PickYourDevice() {
                 borderWidth: 0,
                 borderRadius: 0,
                 gap: '$16',
+                overflow: 'hidden',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              {/* Hover/press bg layer — no responsive overrides so
+              {/* Hover bg layer — no responsive overrides so
                   $group-card-* always wins over $gtMd cascade */}
               <Stack
                 position="absolute"
@@ -177,17 +200,16 @@ export default function PickYourDevice() {
                   borderRightColor: '$transparent',
                 }}
                 $group-card-hover={{
-                  bg: '$bgHover',
-                  borderColor: '$borderSubdued',
-                }}
-                $group-card-press={{
-                  bg: '$bgActive',
                   borderColor: '$borderSubdued',
                 }}
               />
+              {/* Clerk-style pixel shimmer on hover (web + desktop wide layout
+                  only); renders null on native. Painted above the hover tint
+                  but behind the device image and text. */}
+              {gtMd ? <PixelShimmer colors={colors} /> : null}
               <YStack
                 position="absolute"
-                animation="quick"
+                animation="medium"
                 animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                 enterStyle={{
                   opacity: 0,
@@ -219,7 +241,10 @@ export default function PickYourDevice() {
                 />
               </YStack>
               <YStack gap="$3" $gtMd={{ gap: '$5', alignItems: 'center' }}>
-                <SizableText size="$headingXl" $gtMd={{ size: '$heading2xl' }}>
+                <SizableText
+                  size="$headingXl"
+                  $gtMd={{ size: '$heading2xl', textAlign: 'center' }}
+                >
                   {name}
                 </SizableText>
                 <XStack gap="$2" $gtMd={{ minHeight: '$6' }}>
