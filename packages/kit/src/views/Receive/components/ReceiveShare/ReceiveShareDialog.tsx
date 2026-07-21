@@ -3,7 +3,7 @@ import { useCallback, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
-import { Dialog, Stack, Toast, YStack } from '@onekeyhq/components';
+import { Dialog, Toast, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -126,30 +126,19 @@ function ShareContent({
     });
   }, [runWithImage, shareImage, closeDialog]);
 
-  const desktopLayout = (
-    <YStack gap="$5">
-      <Stack
-        width={SHARE_CARD_CONFIG.width}
-        testID={ReceiveTestIDs.ShareDialogPreview}
-      >
-        <ShareView
-          data={data}
-          generatorRef={generatorRef}
-          maxHeight={previewMaxHeight}
-          presetImage={presetImage}
-        />
-      </Stack>
-      <ControlPanel
-        onSaveImage={handleSaveImage}
-        onShareImage={handleShareImage}
-        isLoading={isActionLoading}
-        isMobile={false}
-      />
-    </YStack>
-  );
-
-  const mobileLayout = (
-    <YStack gap="$5" width="100%" testID={ReceiveTestIDs.ShareDialogPreview}>
+  return (
+    // on desktop the fixed width drives the autoWidth floating panel's
+    // shrink-to-fit sizing; below the md breakpoint the dialog becomes a
+    // full-width sheet (ext side panel / popup), where maxWidth lets the
+    // card shrink instead of clipping and alignSelf centers it in wider
+    // panels (OK-58222)
+    <YStack
+      gap="$5"
+      width={isMobile ? '100%' : SHARE_CARD_CONFIG.width}
+      maxWidth="100%"
+      alignSelf="center"
+      testID={ReceiveTestIDs.ShareDialogPreview}
+    >
       <ShareView
         data={data}
         generatorRef={generatorRef}
@@ -160,12 +149,10 @@ function ShareContent({
         onSaveImage={handleSaveImage}
         onShareImage={handleShareImage}
         isLoading={isActionLoading}
-        isMobile
+        isMobile={isMobile}
       />
     </YStack>
   );
-
-  return isMobile ? mobileLayout : desktopLayout;
 }
 
 export function showReceiveShareDialog(
