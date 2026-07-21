@@ -75,14 +75,12 @@ import {
 } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 import { buildSwapIncognitoSettingsUpdate } from '../../utils/incognitoSettings';
-import { shouldBlockSwapTradeSubmissionForMarketClosed } from '../../utils/usMarketStatusUtils';
 
 import { SwapIncognitoRecipientInput } from './SwapIncognitoRecipientInput';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 
 interface ISwapActionsStateProps {
   forceQuoteActionLoading?: boolean;
-  stockMarketClosed?: boolean;
   onPreSwap: () => void;
   onOpenRecipientAddress: () => void;
   onSelectPercentageStage?: (stage: number) => void;
@@ -92,7 +90,6 @@ interface ISwapActionsStateProps {
 
 const SwapActionsState = ({
   forceQuoteActionLoading,
-  stockMarketClosed = false,
   onPreSwap,
   onOpenRecipientAddress,
   onSelectPercentageStage,
@@ -284,22 +281,15 @@ const SwapActionsState = ({
       loading: incognitoRecipientInput.loading,
       queryResult: incognitoRecipientInput.queryResult,
     });
-  const shouldBlockTradeSubmission =
-    shouldBlockSwapTradeSubmissionForMarketClosed({
-      isMarketClosed: stockMarketClosed,
-      noConnectWallet: Boolean(swapActionState.noConnectWallet),
-      isRefreshQuote: Boolean(swapActionState.isRefreshQuote),
-    });
 
   const isActionDisabled =
     swapActionState.disabled ||
     swapActionState.isLoading ||
     forceQuoteActionLoading ||
-    shouldBlockIncognitoRecipientAction ||
-    shouldBlockTradeSubmission;
+    shouldBlockIncognitoRecipientAction;
 
   const onActionHandlerBefore = useCallback(async () => {
-    if (shouldBlockIncognitoRecipientAction || shouldBlockTradeSubmission) {
+    if (shouldBlockIncognitoRecipientAction) {
       return;
     }
 
@@ -339,7 +329,6 @@ const SwapActionsState = ({
     onPreSwap,
     quoteAction,
     shouldBlockIncognitoRecipientAction,
-    shouldBlockTradeSubmission,
     swapActionState.isRefreshQuote,
     swapActionState.noConnectWallet,
     swapIncognitoMode,

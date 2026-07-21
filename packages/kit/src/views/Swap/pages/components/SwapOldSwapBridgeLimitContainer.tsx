@@ -17,7 +17,6 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import type { ISwapPairStockMarketStatus } from '@onekeyhq/kit/src/views/Swap/utils/usMarketStatusUtils';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -39,10 +38,10 @@ import LimitOrderOpenItem from './LimitOrderOpenItem';
 import SwapActionsState from './SwapActionsState';
 import SwapAlertContainer from './SwapAlertContainer';
 import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
-import { SwapPairStockMarketStatusAlert } from './SwapPairStockMarketStatusAlert';
 import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
+import { SwapQuoteStockMarketStatusAlert } from './SwapQuoteStockMarketStatusAlert';
 import SwapTipsContainer from './SwapTipsContainer';
 
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
@@ -77,7 +76,6 @@ interface ISwapOldSwapBridgeLimitContainerProps {
   fromTokenAmountValue: string;
   swapRecentTokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
   headerContent?: ReactNode;
-  stockMarketStatus?: ISwapPairStockMarketStatus;
 }
 
 const DESKTOP_SWAP_TITLE_TRANSITION =
@@ -141,7 +139,6 @@ const SwapOldSwapBridgeLimitContainer = ({
   fromTokenAmountValue,
   swapRecentTokenPairs,
   headerContent,
-  stockMarketStatus,
 }: ISwapOldSwapBridgeLimitContainerProps) => {
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
   const bottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET + 60;
@@ -149,7 +146,6 @@ const SwapOldSwapBridgeLimitContainer = ({
   const intl = useIntl();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
-  const stockMarketClosed = Boolean(stockMarketStatus?.closedStock);
 
   const swapLabel = intl.formatMessage({ id: ETranslations.swap_page_swap });
   const bridgeLabel = intl.formatMessage({
@@ -246,7 +242,6 @@ const SwapOldSwapBridgeLimitContainer = ({
         <LimitInfoContainer />
       ) : null}
       <SwapActionsState
-        stockMarketClosed={stockMarketClosed}
         onPreSwap={onPreSwap}
         onOpenRecipientAddress={onToAnotherAddressModal}
         onSelectPercentageStage={onSelectPercentageStage}
@@ -258,7 +253,7 @@ const SwapOldSwapBridgeLimitContainer = ({
         }
         quoteResult={quoteResult}
       />
-      <SwapPairStockMarketStatusAlert status={stockMarketStatus} />
+      <SwapQuoteStockMarketStatusAlert />
       {alerts.states.length > 0 &&
       !quoteLoading &&
       !quoteEventFetching &&
@@ -310,7 +305,6 @@ const SwapOldSwapBridgeLimitContainer = ({
           onBalanceMaxPress={onBalanceMaxPress}
         />
         <SwapActionsState
-          stockMarketClosed={stockMarketClosed}
           onPreSwap={onPreSwap}
           onOpenRecipientAddress={onToAnotherAddressModal}
           onSelectPercentageStage={onSelectPercentageStage}
@@ -320,7 +314,7 @@ const SwapOldSwapBridgeLimitContainer = ({
           onOpenProviderList={undefined}
           quoteResult={quoteResult}
         />
-        <SwapPairStockMarketStatusAlert status={stockMarketStatus} />
+        <SwapQuoteStockMarketStatusAlert />
         {alerts.states.length > 0 &&
         !quoteLoading &&
         !quoteEventFetching &&
@@ -416,7 +410,6 @@ const SwapOldSwapBridgeLimitContainer = ({
             />
             {!isWrapped ? <LimitInfoContainer /> : null}
             <SwapActionsState
-              stockMarketClosed={stockMarketClosed}
               onPreSwap={onPreSwap}
               onOpenRecipientAddress={onToAnotherAddressModal}
               onSelectPercentageStage={onSelectPercentageStage}
@@ -426,7 +419,7 @@ const SwapOldSwapBridgeLimitContainer = ({
               onOpenProviderList={undefined}
               quoteResult={quoteResult}
             />
-            <SwapPairStockMarketStatusAlert status={stockMarketStatus} />
+            <SwapQuoteStockMarketStatusAlert />
             {alerts.states.length > 0 &&
             !quoteLoading &&
             !quoteEventFetching &&
