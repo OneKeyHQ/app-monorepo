@@ -81,8 +81,6 @@ import type {
   IBook,
   IEventWebData2Parameters,
   IFill,
-  IFrontendOpenOrdersParameters,
-  IFrontendOpenOrdersResponse,
   IFundingHistoryRecord,
   IHex,
   IL2BookResponse,
@@ -1647,14 +1645,6 @@ export default class ServiceHyperliquid extends ServiceBase {
     const { infoClient } = hyperLiquidApiClients;
     const { apiCoin } = this.resolveInfoRequestCoin(coin);
     return infoClient.l2Book(buildL2BookByCoinRequest(apiCoin));
-  }
-
-  @backgroundMethod()
-  async getFrontendOpenOrders(
-    params: IFrontendOpenOrdersParameters,
-  ): Promise<IFrontendOpenOrdersResponse> {
-    const { infoClient } = hyperLiquidApiClients;
-    return infoClient.frontendOpenOrders(params);
   }
 
   @backgroundMethod()
