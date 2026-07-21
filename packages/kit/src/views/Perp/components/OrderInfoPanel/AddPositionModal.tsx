@@ -19,14 +19,15 @@ import {
   useHyperliquidActions,
   usePerpsAllMidsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import type { IPerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   formatPriceToSignificantDigits,
   parseDexCoin,
-  validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 import type {
   IActiveAssetData,
   IHex,
@@ -44,8 +45,8 @@ import {
 } from '../PerpDialogLayout';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { PriceInput } from '../TradingPanel/inputs/PriceInput';
+import { SizeInput } from '../TradingPanel/inputs/SizeInput';
 import { TpSlFormInput } from '../TradingPanel/inputs/TpSlFormInput';
-import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
 
 import {
   isAddPositionAssetDataScoped,
@@ -92,7 +93,7 @@ const AddPositionForm = memo(
     const [slType, setSlType] = useState<'price' | 'percentage'>('price');
     const [slValue, setSlValue] = useState('');
     const [assetData, setAssetData] = useState<IActiveAssetData>();
-    const [szDecimals, setSzDecimals] = useState<number>();
+    const [targetAsset, setTargetAsset] = useState<IPerpsActiveAssetAtom>();
     const [isLoadingAssetData, setIsLoadingAssetData] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const requestIdRef = useRef(0);
@@ -113,11 +114,20 @@ const AddPositionForm = memo(
         !isAddPositionAssetDataScoped({ data, coin, accountAddress }) ||
         !symbolMeta ||
         symbolMeta.isSpot ||
+        symbolMeta.coin !== coin ||
         symbolMeta.universe?.szDecimals === undefined
       ) {
         throw new OneKeyLocalError('The target market data scope changed');
       }
-      return { data, szDecimals: symbolMeta.universe.szDecimals };
+      return {
+        data,
+        targetAsset: {
+          coin: symbolMeta.coin,
+          assetId: symbolMeta.assetId,
+          universe: symbolMeta.universe,
+          margin: symbolMeta.marginTable,
+        } satisfies IPerpsActiveAssetAtom,
+      };
     }, [accountAddress, coin]);
 
     useEffect(() => {
@@ -129,13 +139,13 @@ const AddPositionForm = memo(
         .then((result) => {
           if (!disposed && requestId === requestIdRef.current) {
             setAssetData(result.data);
-            setSzDecimals(result.szDecimals);
+            setTargetAsset(result.targetAsset);
           }
         })
         .catch(() => {
           if (!disposed && requestId === requestIdRef.current) {
             setAssetData(undefined);
-            setSzDecimals(undefined);
+            setTargetAsset(undefined);
           }
         })
         .finally(() => {
@@ -164,6 +174,24 @@ const AddPositionForm = memo(
     });
     const maxSize = assetData?.maxTradeSzs?.[isBuy ? 0 : 1] ?? '0';
     const effectivePrice = orderType === 'market' ? midPrice : limitPrice;
+    const szDecimals = targetAsset?.universe?.szDecimals;
+    const sizeInputAsset = useMemo<IPerpsActiveAssetAtom>(
+      () =>
+        targetAsset ?? {
+          coin,
+          assetId: undefined,
+          universe: undefined,
+          margin: undefined,
+        },
+      [coin, targetAsset],
+    );
+    const isTargetAssetReady = Boolean(
+      !isLoadingAssetData &&
+      targetAsset?.coin === coin &&
+      targetAsset.assetId !== undefined &&
+      szDecimals !== undefined &&
+      isAddPositionAssetDataScoped({ data: assetData, coin, accountAddress }),
+    );
     const validation = validateAddPositionOrder({
       size: amount,
       price: effectivePrice,
@@ -171,11 +199,7 @@ const AddPositionForm = memo(
       szDecimals: szDecimals ?? 0,
     });
     const isFormValid = Boolean(
-      isScopeValid &&
-      !isLoadingAssetData &&
-      szDecimals !== undefined &&
-      isAddPositionAssetDataScoped({ data: assetData, coin, accountAddress }) &&
-      !validation.error,
+      isScopeValid && isTargetAssetReady && !validation.error,
     );
 
     const handleTpslCheckboxChange = useCallback(
@@ -224,7 +248,7 @@ const AddPositionForm = memo(
           size: amount,
           price: latestPrice,
           maxSize: latestAssetData.maxTradeSzs[isBuy ? 0 : 1],
-          szDecimals: latestTargetData.szDecimals,
+          szDecimals: latestTargetData.targetAsset.universe?.szDecimals ?? 0,
         });
         if (latestValidation.error) {
           throw new OneKeyLocalError(
@@ -375,18 +399,19 @@ const AddPositionForm = memo(
             ifOnDialog
           />
         ) : null}
-        <TradingFormInput
+        <SizeInput
           testID={PerpTestIDs.AddPositionAmountInput}
-          label={intl.formatMessage({
-            id: ETranslations.dexmarket_details_history_amount,
-          })}
+          referencePrice={effectivePrice}
+          side={isBuy ? 'long' : 'short'}
+          activeAsset={sizeInputAsset}
+          isAssetCtxReady={isTargetAssetReady}
+          symbol={displayName}
           value={amount}
           onChange={setAmount}
-          suffix={displayName}
-          validator={(value: string) =>
-            value === '' ||
-            validateSizeInput(value.replace(/。/g, '.'), szDecimals ?? 0)
-          }
+          sizeInputMode={EPerpsSizeInputMode.MANUAL}
+          sliderPercent={0}
+          leverage={leverage}
+          allowMarginInput
           ifOnDialog
         />
         <Checkbox
