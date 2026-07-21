@@ -1,5 +1,7 @@
 /* eslint-disable no-plusplus */
 import {
+  copyAsync as ExpoFSCopyAsync,
+  deleteAsync as ExpoFSDeleteAsync,
   downloadAsync as ExpoFSDownloadAsync,
   getInfoAsync as ExpoFSGetInfoAsync,
   makeDirectoryAsync as ExpoFSMakeDirectoryAsync,
@@ -24,6 +26,7 @@ import platformEnv from '../platformEnv';
 import bufferUtils from './bufferUtils';
 import { getImageEmbedBridge } from './imageUtils.embedBridge';
 
+import type { ReadingOptions } from 'expo-file-system/legacy';
 import type {
   Action as ExpoImageManipulatorAction,
   ImageResult,
@@ -551,7 +554,7 @@ function detectFileFormatFromUri(uri: string): {
 }
 
 async function getRNLocalImageBase64({
-  nativeModuleId: _nativeModuleId,
+  nativeModuleId,
   uri,
   logFn,
 }: {
@@ -560,18 +563,14 @@ async function getRNLocalImageBase64({
   logFn?: ICommonImageLogFn;
 }) {
   const errors: string[] = [];
-  let downloadedUri: string | undefined | null;
-  let downloadedUri1: string | undefined | null;
-  let downloadedUri2: string | undefined | null;
   let base64a: string | undefined;
-  let base64a1: string | undefined;
   let base64b: string | undefined;
   let base64c: string | undefined;
   let base64d: string | undefined;
 
   // **** use expo-file-system
   try {
-    base64a = await ExpoFSReadAsStringAsync(uri, {
+    base64a = await readAsStringAsync(nativeModuleId ?? uri, {
       encoding: 'base64',
     });
   } catch (error) {
@@ -580,32 +579,6 @@ async function getRNLocalImageBase64({
       (error as Error)?.message || '',
     );
   }
-
-  // **** use expo-asset
-  // https://stackoverflow.com/a/77425150
-  //
-  // if (isNumber(nativeModuleId)) {
-  //   try {
-  //     const loadAsyncResult = await Asset.loadAsync(nativeModuleId);
-  //     downloadedUri = loadAsyncResult?.[0]?.localUri;
-  //     downloadedUri1 = (loadAsyncResult || [])
-  //       .map((item) => item?.uri || '')
-  //       .join(',');
-  //     downloadedUri2 = (loadAsyncResult || [])
-  //       .map((item) => item?.localUri || '')
-  //       .join(',');
-  //     if (downloadedUri) {
-  //       base64a1 = await ExpoFSReadAsStringAsync(downloadedUri, {
-  //         encoding: 'base64',
-  //       });
-  //     }
-  //   } catch (error) {
-  //     errors.push(
-  //       'ExpoFSReadAsStringAsync downloadedUri error',
-  //       (error as Error)?.message || '',
-  //     );
-  //   }
-  // }
 
   // **** use react-native-image-base64
   // import RNImgToBase64 from 'react-native-image-base64';
@@ -635,20 +608,16 @@ async function getRNLocalImageBase64({
   // }
 
   logFn?.('getRNLocalImageBase64 errors', errors.join('  |||   '));
-  logFn?.('getRNLocalImageBase64 uris', uri, downloadedUri || '', uri2 || '');
-  logFn?.('getRNLocalImageBase64 downloadedUri', downloadedUri || '');
-  logFn?.('getRNLocalImageBase64 downloadedUri1', downloadedUri1 || '');
-  logFn?.('getRNLocalImageBase64 downloadedUri2', downloadedUri2 || '');
+  logFn?.('getRNLocalImageBase64 uris', uri, uri2 || '');
   logFn?.(
     'getRNLocalImageBase64 base64',
     base64a || '',
-    base64a1 || '',
     base64b || '',
     base64c || '',
     base64d || '',
   );
 
-  const base64 = base64a || base64a1 || base64b || base64c || base64d;
+  const base64 = base64a || base64b || base64c || base64d;
   if (!base64) {
     throw new OneKeyLocalError('getRNLocalImageBase64 failed');
   }
@@ -911,6 +880,73 @@ async function getUriFromRequiredImageSource(
   return source?.uri;
 }
 
+let androidBundledResourceCopySequence = 0;
+
+/**
+ * Read a URI or a React Native `require()` asset as a string.
+ *
+ * Android release bundles resolve `require()` assets to drawable resource
+ * identifiers without a URI scheme. Expo FileSystem can copy those resources,
+ * but its Base64 reader only accepts URI-backed input streams.
+ */
+export async function readAsStringAsync(
+  source: ImageSourcePropType | string,
+  options?: ReadingOptions,
+): Promise<string> {
+  const uri = await getUriFromRequiredImageSource(source);
+  if (!uri) {
+    throw new OneKeyLocalError('Failed to resolve file source');
+  }
+
+  // `require('./image.png')` returns a numeric Metro asset ID on React
+  // Native. In Android release builds, `resolveAssetSource()` maps that ID to
+  // a compiled drawable resource name without a URI scheme. There is no full
+  // path to construct because the image lives in the APK resource table.
+  //
+  // expo-file-system's legacy Android implementation already handles such
+  // resource names for non-Base64 reads through `openResourceInputStream`.
+  // Its Base64 branch instead uses `getInputStream`, which rejects a null
+  // scheme. Detect that known limitation before calling into native code so
+  // an expected exception is not used as normal control flow. Requiring a
+  // numeric source also prevents arbitrary scheme-less paths from being
+  // mistaken for packaged drawable resources.
+  const shouldCopyAndroidBundledResource =
+    platformEnv.isNativeAndroid &&
+    isNumber(source) &&
+    !uri.includes(':') &&
+    options?.encoding === 'base64';
+
+  if (!shouldCopyAndroidBundledResource) {
+    return ExpoFSReadAsStringAsync(uri, options);
+  }
+
+  const cacheDir = await getNativeCacheDirectory();
+  androidBundledResourceCopySequence += 1;
+  const timestamp = Date.now();
+  const random = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+  // The sequence makes concurrent calls unique within one JS runtime, even if
+  // their timestamp and random value happen to match. Android main and bg use
+  // isolated JS runtimes, so their counters are not shared; the timestamp and
+  // wide random component make collisions across those runtimes negligible.
+  // This matters because both runtimes share the native cache directory: a
+  // collision could let one call overwrite or delete another call's file.
+  const copiedUri = `${cacheDir}bundled-resource-${source}-${timestamp}-${random}-${androidBundledResourceCopySequence}`;
+
+  try {
+    // Materialize the APK drawable as a regular file URI, which the Base64
+    // reader can consume without needing to understand Android resources.
+    await ExpoFSCopyAsync({ from: uri, to: copiedUri });
+    return await ExpoFSReadAsStringAsync(copiedUri, options);
+  } finally {
+    try {
+      await ExpoFSDeleteAsync(copiedUri, { idempotent: true });
+    } catch {
+      // Cleanup is best-effort: a deletion failure must not replace either a
+      // successful read result or the original copy/read error.
+    }
+  }
+}
+
 async function getBase64FromRequiredImageSource(
   source: ImageSourcePropType | string | undefined,
   logFn?: ICommonImageLogFn,
@@ -1149,6 +1185,7 @@ export default {
   stripBase64UriPrefix,
   convertToBlackAndWhiteImageBase64,
   getUriFromRequiredImageSource,
+  readAsStringAsync,
   getBase64FromRequiredImageSource,
   getBase64FromImageUri,
   base64ImageToBitmap,
