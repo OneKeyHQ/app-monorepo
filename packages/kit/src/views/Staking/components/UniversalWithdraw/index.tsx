@@ -1032,6 +1032,15 @@ export function UniversalWithdraw({
     if (isInvalidAmount(amount)) {
       return;
     }
+    // Treat a non-positive amount (0 / "0.00" / mid-typing) as "not entered
+    // yet": clear any previous error and skip the backend check. Otherwise
+    // providers whose backend rejects 0 (e.g. Bitway) would flash an error
+    // before the user finishes typing (OK-58205).
+    if (new BigNumber(amount).isLessThanOrEqualTo(0)) {
+      setCheckoutAmountMessage('');
+      setCheckAmountAlerts([]);
+      return;
+    }
     setCheckAmountLoading(true);
     try {
       const response = await backgroundApiProxy.serviceStaking.checkAmount({
