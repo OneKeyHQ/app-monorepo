@@ -45,67 +45,104 @@ export const useManagePage = ({
   revalidateOnFocus?: boolean;
   undefinedResultIfReRun?: boolean;
 }) => {
+  // Fingerprint of the request params. Stamped onto each result so callers can
+  // tell — synchronously, during render — whether the data on screen belongs to
+  // the currently requested protocol. This closes the effect-ordering race on
+  // protocol switch: child effects (e.g. allowance fetch) run before this
+  // hook's own reload effect flips isLoading, so isLoading alone can't guard
+  // the first render where fresh params meet stale data.
+  const requestKey = [
+    accountId,
+    networkId,
+    symbol,
+    provider,
+    vault ?? '',
+    type,
+    reserveAddress ?? '',
+    marketAddress ?? '',
+  ].join('|');
+
   const {
     result,
     isLoading = true,
     run,
   } = usePromiseResult(
     async () => {
-      const isBorrowType = [
-        EManagePositionType.Supply,
-        EManagePositionType.Borrow,
-        EManagePositionType.Withdraw,
-        EManagePositionType.Repay,
-      ].includes(type);
+      try {
+        const isBorrowType = [
+          EManagePositionType.Supply,
+          EManagePositionType.Borrow,
+          EManagePositionType.Withdraw,
+          EManagePositionType.Repay,
+        ].includes(type);
 
-      const earnAccount =
-        await backgroundApiProxy.serviceStaking.getEarnAccount({
-          accountId,
-          networkId,
-          indexedAccountId,
-          btcOnlyTaproot: true,
-        });
-
-      if (!earnAccount || !earnAccount.accountAddress) {
-        return undefined;
-      }
-
-      if (isBorrowType) {
-        const managePageData =
-          await backgroundApiProxy.serviceStaking.getBorrowManagePage({
+        const earnAccount =
+          await backgroundApiProxy.serviceStaking.getEarnAccount({
             accountId,
             networkId,
-            provider,
-            marketAddress: marketAddress || '',
-            reserveAddress: reserveAddress || '',
-            type: type as 'supply' | 'withdraw' | 'borrow' | 'repay',
+            indexedAccountId,
+            btcOnlyTaproot: true,
           });
 
-        return { managePageData, protocolList: undefined, earnAccount };
+        if (!earnAccount || !earnAccount.accountAddress) {
+          return undefined;
+        }
+
+        if (isBorrowType) {
+          const managePageData =
+            await backgroundApiProxy.serviceStaking.getBorrowManagePage({
+              accountId,
+              networkId,
+              provider,
+              marketAddress: marketAddress || '',
+              reserveAddress: reserveAddress || '',
+              type: type as 'supply' | 'withdraw' | 'borrow' | 'repay',
+            });
+
+          return {
+            managePageData,
+            protocolList: undefined,
+            earnAccount,
+            requestKey,
+          };
+        }
+
+        const [managePageData, protocolList] = await Promise.all([
+          backgroundApiProxy.serviceStaking.getManagePage({
+            accountId,
+            networkId,
+            symbol,
+            provider,
+            vault,
+            accountAddress: earnAccount.accountAddress,
+            publicKey: networkUtils.isBTCNetwork(networkId)
+              ? earnAccount.account.pub
+              : undefined,
+          }),
+          backgroundApiProxy.serviceStaking.getProtocolList({
+            symbol,
+            accountId,
+            networkId,
+            filterNetworkId: networkId,
+            includeWithdrawOnly: true,
+          }),
+        ]);
+
+        return { managePageData, protocolList, earnAccount, requestKey };
+      } catch {
+        // Settle the result with the CURRENT requestKey on failure. Otherwise a
+        // rejected switch would keep the previous protocol's requestKey around,
+        // leaving isStaleData (and the switch-loading confirm button) stuck
+        // forever with no retry path — this modal doesn't revalidate on focus.
+        // Falling back to an empty result matches the pre-remount failure
+        // behavior (empty form); the user can switch protocols again to retry.
+        return {
+          managePageData: undefined,
+          protocolList: undefined,
+          earnAccount: undefined,
+          requestKey,
+        };
       }
-
-      const [managePageData, protocolList] = await Promise.all([
-        backgroundApiProxy.serviceStaking.getManagePage({
-          accountId,
-          networkId,
-          symbol,
-          provider,
-          vault,
-          accountAddress: earnAccount.accountAddress,
-          publicKey: networkUtils.isBTCNetwork(networkId)
-            ? earnAccount.account.pub
-            : undefined,
-        }),
-        backgroundApiProxy.serviceStaking.getProtocolList({
-          symbol,
-          accountId,
-          networkId,
-          filterNetworkId: networkId,
-          includeWithdrawOnly: true,
-        }),
-      ]);
-
-      return { managePageData, protocolList, earnAccount };
     },
     [
       networkId,
@@ -117,11 +154,16 @@ export const useManagePage = ({
       type,
       reserveAddress,
       marketAddress,
+      requestKey,
     ],
     { watchLoading: true, revalidateOnFocus, undefinedResultIfReRun },
   );
 
   const { managePageData, protocolList, earnAccount } = result || {};
+
+  // True while the data on screen was fetched for different params (protocol
+  // switch in flight). Computed during render — no effect-timing dependence.
+  const isStaleData = !!result && result.requestKey !== requestKey;
 
   const resolvedProtocolVault = useMemo(() => {
     if (!earnUtils.shouldSendEarnProtocolVault({ providerName: provider })) {
@@ -404,6 +446,7 @@ export const useManagePage = ({
   return {
     managePageData,
     isLoading,
+    isStaleData,
     run,
     tokenInfo,
     earnAccount,

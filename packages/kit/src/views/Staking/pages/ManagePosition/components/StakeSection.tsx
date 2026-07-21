@@ -444,6 +444,13 @@ export const StakeSection = ({
       ) {
         return undefined;
       }
+      // While a protocol switch is in flight (confirm button force-loading),
+      // networkId is already the new chain but token/spender still come from
+      // the previous protocol's stale data — skip to avoid a mismatched
+      // allowance request. Re-runs automatically once fresh data lands.
+      if (footerActionOverride?.loading) {
+        return undefined;
+      }
       const { allowanceParsed } =
         await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
           accountId,
@@ -465,6 +472,7 @@ export const StakeSection = ({
       effectiveApproveType,
       effectiveStakeTokenInfo?.token?.isNative,
       effectiveStakeTokenInfo?.token.address,
+      footerActionOverride?.loading,
     ],
     {
       watchLoading: true,
@@ -804,7 +812,12 @@ export const StakeSection = ({
         />
       ) : (
         <UniversalStake
-          key={`stake-input-${selectedStakeTokenUniqueKey || tokenInfo?.token?.uniqueKey || 'default'}`}
+          // Include protocol identity (provider/vault) so switching between
+          // protocols that share the same deposit token still remounts the
+          // form and drops the previous protocol's transactionConfirmation.
+          // Sourced from protocolInfo (same origin as the manage data), so the
+          // key flips exactly when fresh protocol data lands.
+          key={`stake-input-${protocolInfo?.provider ?? ''}-${protocolInfo?.vault ?? ''}-${selectedStakeTokenUniqueKey || tokenInfo?.token?.uniqueKey || 'default'}`}
           accountId={accountId}
           networkId={networkId}
           decimals={
