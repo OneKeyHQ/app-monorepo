@@ -1379,12 +1379,23 @@ export default class ServiceSwap extends ServiceBase {
     if (!list.length) {
       return [];
     }
-    const client = await this.getRawDataClient(EServiceEndpointEnum.Swap);
-    const response = await client.post<
-      IFetchResponse<ICheckStableCoinsListItem[]>
-    >('/swap/v1/check-stable-coins-list', list);
-    return response.data?.data ?? [];
+    return this.checkStableCoinsListMemo(list);
   }
+
+  private checkStableCoinsListMemo = memoizee(
+    async (list: ICheckStableCoinsListParamsItem[]) => {
+      const client = await this.getRawDataClient(EServiceEndpointEnum.Swap);
+      const response = await client.post<
+        IFetchResponse<ICheckStableCoinsListItem[]>
+      >('/swap/v1/check-stable-coins-list', list);
+      return response.data?.data ?? [];
+    },
+    {
+      max: 100,
+      maxAge: timerUtils.getTimeDurationMs({ hour: 12 }),
+      promise: true,
+    },
+  );
 
   @backgroundMethod()
   async checkSupportSwap({ networkId }: { networkId: string }) {
