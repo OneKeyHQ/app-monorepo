@@ -64,6 +64,7 @@ function buildDevice(deviceType: EDeviceType): IDBDevice {
 
 function buildManager(device: IDBDevice, sdk: CoreApi) {
   jest.spyOn(localDb, 'getDeviceByQuery').mockResolvedValue(device);
+  jest.spyOn(localDb, 'getWalletDevice').mockResolvedValue(device);
   const manager = new DeviceSettingsManager({
     backgroundApi: {} as IBackgroundApi,
   });
@@ -83,26 +84,28 @@ describe('DeviceSettingsManager Pro2 adapter', () => {
     [
       'setAutoLockDelayMs',
       { autoLockDelayMs: 60_000 },
-      // cspell:disable-next-line
-      { autolock_delay_ms: 60_000 },
+      { autoLockDelayMs: 60_000 },
     ],
     [
       'setAutoShutDownDelayMs',
       { autoShutdownDelayMs: 300_000 },
-      // cspell:disable-next-line
-      { autoshutdown_delay_ms: 300_000 },
+      { autoShutdownDelayMs: 300_000 },
     ],
-    ['setHapticFeedback', { hapticFeedback: true }, { haptic_feedback: true }],
-    ['setBrightness', { brightness: 60 }, { brightness: 60 }],
+    ['setHapticFeedback', { hapticFeedback: true }, { hapticFeedback: true }],
+    [
+      'setBrightness',
+      { brightness: 60 },
+      { brightness: 60, changeBrightness: true },
+    ],
   ] as const)(
-    'routes %s through deviceSettingsSet',
+    'routes %s through the protocol-neutral deviceSettings API',
     async (methodName, params, settings) => {
-      const deviceSettingsSet = jest.fn(async () => ({
+      const deviceSettings = jest.fn(async () => ({
         success: true as const,
         payload: { message: 'Success' },
       }));
       const manager = buildManager(buildDevice(EDeviceType.Pro2), {
-        deviceSettingsSet,
+        deviceSettings,
       } as unknown as CoreApi);
 
       const method = manager[methodName] as (
@@ -113,11 +116,28 @@ describe('DeviceSettingsManager Pro2 adapter', () => {
         ...params,
       });
 
-      expect(deviceSettingsSet).toHaveBeenCalledWith('PRO2_CONNECT_ID', {
-        settings,
-      });
+      expect(deviceSettings).toHaveBeenCalledWith('PRO2_CONNECT_ID', settings);
     },
   );
+
+  test('routes label updates through deviceSettings as well', async () => {
+    const deviceSettings = jest.fn(async () => ({
+      success: true as const,
+      payload: { message: 'Success' },
+    }));
+    const manager = buildManager(buildDevice(EDeviceType.Pro2), {
+      deviceSettings,
+    } as unknown as CoreApi);
+
+    await manager.setDeviceLabel({
+      walletId: 'wallet-1',
+      label: 'Renamed Pro 2',
+    });
+
+    expect(deviceSettings).toHaveBeenCalledWith('PRO2_CONNECT_ID', {
+      label: 'Renamed Pro 2',
+    });
+  });
 
   test.each([
     ['changePin', { remove: false }, { page: 'DevicePinChange' }],

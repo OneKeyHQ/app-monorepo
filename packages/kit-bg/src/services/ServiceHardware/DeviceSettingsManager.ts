@@ -514,29 +514,13 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         preciseUpdateFields: { label },
       });
     }
-    if (this._isPro2Device(device)) {
-      return this._withDeviceProcessing({
-        walletId,
-        dbDevice: device,
-        debugMethodName: 'deviceSettings.setDeviceLabel.pro2',
-        action: async (sdk, compatibleConnectId) =>
-          sdk.deviceSettingsSet(compatibleConnectId, {
-            settings: { label },
-          }),
-      });
-    }
-    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      () =>
-        this.applySettingsToDevice(device.connectId, {
-          label,
-        }),
-      {
-        deviceParams: {
-          dbDevice: device,
-        },
-        debugMethodName: 'deviceSettings.applySettingsToDevice',
-      },
-    );
+    return this._withDeviceProcessing({
+      walletId,
+      dbDevice: device,
+      debugMethodName: 'deviceSettings.setDeviceLabel',
+      action: async (sdk, compatibleConnectId) =>
+        sdk.deviceSettings(compatibleConnectId, { label }),
+    });
   }
 
   @backgroundMethod()
@@ -775,20 +759,6 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         },
       });
     }
-    if (this._isPro2Device(device)) {
-      return this._withDeviceProcessing({
-        walletId,
-        connectId,
-        featuresDeviceId,
-        dbDevice: device,
-        debugMethodName: 'deviceSettings.setAutoLockDelayMs.pro2',
-        action: async (sdk, compatibleConnectId) =>
-          sdk.deviceSettingsSet(compatibleConnectId, {
-            // cspell:disable-next-line
-            settings: { autolock_delay_ms: autoLockDelayMs },
-          }),
-      });
-    }
     return this._withDeviceProcessing({
       walletId,
       connectId,
@@ -828,20 +798,6 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     });
     if (this._isTrezorDevice(device)) {
       throw new OneKeyLocalError('Trezor auto shutdown settings not available');
-    }
-    if (this._isPro2Device(device)) {
-      return this._withDeviceProcessing({
-        walletId,
-        connectId,
-        featuresDeviceId,
-        dbDevice: device,
-        debugMethodName: 'deviceSettings.setAutoShutDownDelayMs.pro2',
-        action: async (sdk, compatibleConnectId) =>
-          sdk.deviceSettingsSet(compatibleConnectId, {
-            // cspell:disable-next-line
-            settings: { autoshutdown_delay_ms: autoShutdownDelayMs },
-          }),
-      });
     }
     return this._withDeviceProcessing({
       walletId,
@@ -891,19 +847,6 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         preciseUpdateFields: {
           language,
         },
-      });
-    }
-    if (this._isPro2Device(device)) {
-      return this._withDeviceProcessing({
-        walletId,
-        connectId,
-        featuresDeviceId,
-        dbDevice: device,
-        debugMethodName: 'deviceSettings.setLanguage.pro2',
-        action: async (sdk, compatibleConnectId) =>
-          sdk.deviceSettingsSet(compatibleConnectId, {
-            settings: { language },
-          }),
       });
     }
     return this._withDeviceProcessing({
@@ -963,21 +906,8 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         },
       });
     }
-    if (this._isPro2Device(device)) {
-      if (typeof brightness !== 'number') {
-        throw new OneKeyLocalError('Pro2 brightness value is required');
-      }
-      return this._withDeviceProcessing({
-        walletId,
-        connectId,
-        featuresDeviceId,
-        dbDevice: device,
-        debugMethodName: 'deviceSettings.setBrightness.pro2',
-        action: async (sdk, compatibleConnectId) =>
-          sdk.deviceSettingsSet(compatibleConnectId, {
-            settings: { brightness },
-          }),
-      });
+    if (this._isPro2Device(device) && typeof brightness !== 'number') {
+      throw new OneKeyLocalError('Pro2 brightness value is required');
     }
     return this._withDeviceProcessing({
       walletId,
@@ -988,7 +918,8 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       action: async (sdk, compatibleConnectId, _device) =>
         sdk.deviceSettings(compatibleConnectId, {
           changeBrightness: true,
-        }),
+          ...(typeof brightness === 'number' ? { brightness } : {}),
+        } as DeviceSettingsParams),
     });
   }
 
@@ -1012,19 +943,6 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         dbDevice: device,
         debugMethodName: 'deviceSettings.setHapticFeedback.trezor',
         settings: { haptic_feedback: hapticFeedback },
-      });
-    }
-    if (this._isPro2Device(device)) {
-      return this._withDeviceProcessing({
-        walletId,
-        connectId,
-        featuresDeviceId,
-        dbDevice: device,
-        debugMethodName: 'deviceSettings.setHapticFeedback.pro2',
-        action: async (sdk, compatibleConnectId) =>
-          sdk.deviceSettingsSet(compatibleConnectId, {
-            settings: { haptic_feedback: hapticFeedback },
-          }),
       });
     }
     return this._withDeviceProcessing({
