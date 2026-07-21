@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
@@ -567,7 +568,16 @@ export function MarketFilterChipsBar({
         </XStack>
         <Divider vertical h="$4" />
         {isExpanded ? (
-          <XStack alignItems="center" px="$0.5" gap="$0.5">
+          <XStack
+            alignItems="center"
+            px="$0.5"
+            gap="$0.5"
+            // Subtle fade + slide as the quick chips morph into condition pills
+            // (app-idiomatic "quick" spring, opacity/transform only).
+            animation="quick"
+            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+            enterStyle={{ opacity: 0, x: -4 }}
+          >
             {/* Group anchor: the matched chip's icon, or a generic filter
                 glyph once the conditions no longer spell out a chip. */}
             <XStack p="$1" alignItems="center">
@@ -639,7 +649,12 @@ export function MarketFilterChipsBar({
             </XStack>
           </XStack>
         ) : (
-          <XStack gap="$0.5">
+          <XStack
+            gap="$0.5"
+            animation="quick"
+            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+            enterStyle={{ opacity: 0, x: -4 }}
+          >
             {MARKET_FILTER_CHIPS.map((chip) => (
               <QuickChip
                 key={chip.id}
