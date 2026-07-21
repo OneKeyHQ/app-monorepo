@@ -2625,7 +2625,11 @@ class ServiceKeylessWallet extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async prepareKeylessCreateWithOneKeyId(): Promise<IKeylessCreateWithOneKeyIdPrepareResult> {
+  async prepareKeylessCreateWithOneKeyId({
+    signInProvider,
+  }: {
+    signInProvider?: EOAuthSocialLoginProvider;
+  } = {}): Promise<IKeylessCreateWithOneKeyIdPrepareResult> {
     if (await this.backgroundApi.serviceAccount.getKeylessWallet()) {
       return {
         status: EKeylessCreateWithOneKeyIdPrepareStatus.LocalKeylessExists,
@@ -2662,6 +2666,19 @@ class ServiceKeylessWallet extends ServiceBase {
     }
 
     if (authSessionSource !== EPrimeAuthSessionSource.KeylessOAuth) {
+      if (
+        signInProvider &&
+        (await this.backgroundApi.servicePrime.isOAuthProviderBoundToCurrentOneKeyId(
+          {
+            provider: signInProvider,
+          },
+        ))
+      ) {
+        return {
+          status: EKeylessCreateWithOneKeyIdPrepareStatus.NeedLegacyOAuthReauth,
+          displayEmail,
+        };
+      }
       return {
         status: EKeylessCreateWithOneKeyIdPrepareStatus.NeedLegacyOAuthBind,
         displayEmail,
