@@ -125,22 +125,33 @@ describe('getSwapOrderProgressSteps', () => {
     ]);
   });
 
-  it.each([ESwapCrossChainStatus.REFUNDING, ESwapCrossChainStatus.REFUNDED])(
-    'renders %s as an active Refund step',
-    (crossChainStatus) => {
-      expect(
-        getSwapOrderProgressSteps({
-          status: ESwapTxHistoryStatus.PENDING,
-          crossChainStatus,
-        }),
-      ).toEqual([
-        { label: 'submitted', status: 'done' },
-        { label: 'fromChain', status: 'done' },
-        { label: 'toChain', status: 'error' },
-        { label: 'refund', status: 'process' },
-      ]);
-    },
-  );
+  it('renders REFUNDING as an active Refund step', () => {
+    expect(
+      getSwapOrderProgressSteps({
+        status: ESwapTxHistoryStatus.PENDING,
+        crossChainStatus: ESwapCrossChainStatus.REFUNDING,
+      }),
+    ).toEqual([
+      { label: 'submitted', status: 'done' },
+      { label: 'fromChain', status: 'done' },
+      { label: 'toChain', status: 'error' },
+      { label: 'refund', status: 'process' },
+    ]);
+  });
+
+  it('renders REFUNDED as a completed Refund step', () => {
+    expect(
+      getSwapOrderProgressSteps({
+        status: ESwapTxHistoryStatus.PENDING,
+        crossChainStatus: ESwapCrossChainStatus.REFUNDED,
+      }),
+    ).toEqual([
+      { label: 'submitted', status: 'done' },
+      { label: 'fromChain', status: 'done' },
+      { label: 'toChain', status: 'error' },
+      { label: 'refund', status: 'done' },
+    ]);
+  });
 
   it('renders a failed Refund step', () => {
     expect(

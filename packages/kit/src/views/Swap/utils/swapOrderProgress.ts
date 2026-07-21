@@ -92,17 +92,18 @@ export function getSwapOrderProgressSteps({
     crossChainStatus === ESwapCrossChainStatus.REFUNDED ||
     crossChainStatus === ESwapCrossChainStatus.REFUND_FAILED
   ) {
+    let refundStatus: ISwapOrderProgressStepStatus = 'process';
+    if (crossChainStatus === ESwapCrossChainStatus.REFUNDED) {
+      refundStatus = 'done';
+    } else if (crossChainStatus === ESwapCrossChainStatus.REFUND_FAILED) {
+      refundStatus = 'error';
+    }
+
     return [
       { label: 'submitted', status: 'done' },
       { label: 'fromChain', status: 'done' },
       { label: 'toChain', status: 'error' },
-      {
-        label: 'refund',
-        status:
-          crossChainStatus === ESwapCrossChainStatus.REFUND_FAILED
-            ? 'error'
-            : 'process',
-      },
+      { label: 'refund', status: refundStatus },
     ];
   }
 

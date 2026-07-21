@@ -279,7 +279,7 @@ const swapOrderProgressLabelKeys: Record<
   toChain: ETranslations.trade_status_to_chain,
   done: ETranslations.private_send_done,
   failed: ETranslations.private_send_failed,
-  refund: ETranslations.trade_status_refunded,
+  refund: ETranslations.refund__title,
 };
 
 function SwapHistoryOrderProgress({
