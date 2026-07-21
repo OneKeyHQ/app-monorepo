@@ -9,7 +9,7 @@ import { useSwapProAmountSlider } from './useSwapProAmountSlider';
 const mockToastMessage = jest.fn();
 let mockInputToken:
   | {
-      balanceParsed: string;
+      balanceParsed?: string;
       contractAddress: string;
       decimals: number;
       isNative?: boolean;
@@ -121,6 +121,70 @@ describe('useSwapProAmountSlider', () => {
     rerender();
 
     expect(result.current.sliderValue).toBe(0);
+  });
+
+  it('resets the zero-balance percentage when the amount is cleared externally', () => {
+    const { result, rerender } = renderHook(
+      (props: { inputAmount: string }) =>
+        useSwapProAmountSlider({
+          inputAmount: props.inputAmount,
+          onAmountChange: jest.fn(),
+        }),
+      {
+        initialProps: { inputAmount: '0' },
+      },
+    );
+
+    act(() => {
+      result.current.onSliderChange(50);
+    });
+    expect(result.current.sliderValue).toBe(50);
+
+    rerender({ inputAmount: '' });
+
+    expect(result.current.sliderValue).toBe(0);
+  });
+
+  it('keeps the slider disabled until the token balance is loaded and valid', () => {
+    const onAmountChange = jest.fn();
+    mockInputToken = {
+      balanceParsed: undefined,
+      contractAddress: '0xloading',
+      decimals: 18,
+      networkId: 'evm--1',
+      symbol: 'LOADING',
+    };
+
+    const { result, rerender } = renderHook(() =>
+      useSwapProAmountSlider({
+        inputAmount: '',
+        onAmountChange,
+      }),
+    );
+
+    expect(result.current.sliderDisabled).toBe(true);
+    act(() => {
+      result.current.onSliderChange(50);
+    });
+
+    mockInputToken = {
+      ...mockInputToken,
+      balanceParsed: 'invalid',
+    };
+    rerender();
+    expect(result.current.sliderDisabled).toBe(true);
+
+    mockInputToken = {
+      ...mockInputToken,
+      balanceParsed: '0',
+    };
+    rerender();
+    expect(result.current.sliderDisabled).toBe(false);
+
+    act(() => {
+      jest.runAllTimers();
+    });
+    expect(onAmountChange).not.toHaveBeenCalled();
   });
 
   it('keeps the slider disabled until an input token is selected', () => {

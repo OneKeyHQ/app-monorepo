@@ -62,7 +62,11 @@ export function useSwapProAmountSlider({
     [inputToken?.balanceParsed, inputToken?.isNative, reserveGas],
   );
 
-  const sliderDisabled = !inputToken;
+  const isInputBalanceReady = useMemo(() => {
+    const balance = new BigNumber(inputToken?.balanceParsed ?? '');
+    return balance.isFinite() && balance.gte(0);
+  }, [inputToken?.balanceParsed]);
+  const sliderDisabled = !inputToken || !isInputBalanceReady;
 
   // Trade type is part of the key: a trailing commit must not survive a
   // MARKET/LIMIT flip either, since onAmountChange routes to a different
@@ -74,6 +78,11 @@ export function useSwapProAmountSlider({
   useEffect(() => {
     setZeroBalanceSliderValue(0);
   }, [availableBalance, inputTokenKey]);
+  useEffect(() => {
+    if (inputAmount === '') {
+      setZeroBalanceSliderValue(0);
+    }
+  }, [inputAmount]);
 
   // Positive balances derive the thumb position from the amount so manual
   // typing and keyboard percentage stages stay in sync. A zero balance cannot
