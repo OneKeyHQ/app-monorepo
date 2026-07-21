@@ -345,9 +345,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
 
       <ActionButton
         supportSpeedSwap={!!supportSpeedSwap?.enabled}
-        isAccountNetworkSupported={
-          supportSpeedSwap.isAccountNetworkSupported
-        }
+        isAccountNetworkSupported={supportSpeedSwap.isAccountNetworkSupported}
         onlySupportCrossChain={!!supportSpeedSwap?.onlySupportCrossChain}
         loading={isLoading}
         actionToken={supportSpeedSwap?.actionToken}
