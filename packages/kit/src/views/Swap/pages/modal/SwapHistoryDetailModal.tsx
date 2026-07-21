@@ -489,11 +489,11 @@ const swapOrderProgressLabelKeys: Record<
 > = {
   submitted: ETranslations.private_send_submitted,
   pending: ETranslations.private_send_pending,
-  fromChain: ETranslations.from_chain__title,
-  toChain: ETranslations.to_chain__title,
+  fromChain: ETranslations.trade_status_from_chain,
+  toChain: ETranslations.trade_status_to_chain,
   done: ETranslations.private_send_done,
   failed: ETranslations.private_send_failed,
-  refund: ETranslations.refund__title,
+  refund: ETranslations.trade_status_refunded,
 };
 
 function SwapHistoryOrderProgress({
