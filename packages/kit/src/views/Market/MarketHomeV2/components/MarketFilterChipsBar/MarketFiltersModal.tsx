@@ -391,11 +391,11 @@ export function MarketFiltersTrigger({
           px="$1"
           py={1}
           borderRadius="$full"
-          bg="$bgStrong"
+          bg="$bgInfo"
           alignItems="center"
           justifyContent="center"
         >
-          <SizableText size="$bodySmMedium" color="$textSubdued">
+          <SizableText size="$bodySmMedium" color="$textInfo">
             {activeConditionCount}
           </SizableText>
         </XStack>
