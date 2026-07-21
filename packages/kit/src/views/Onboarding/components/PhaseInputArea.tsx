@@ -48,7 +48,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useRecoveryPhraseProtected from '@onekeyhq/kit/src/hooks/useRecoveryPhraseProtected';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { parseSecretRecoveryPhrase } from '@onekeyhq/shared/src/utils/phrase';
+import { parseSecretRecoveryPhraseToWords } from '@onekeyhq/shared/src/utils/phrase';
 import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
 import { PHRASE_LENGTHS, useSuggestion } from './hooks';
@@ -223,7 +223,7 @@ function BasicPhaseInput(
     onInputChange: (value: string) => string;
     onChange?: (value: string) => void;
     onInputFocus: (index: number) => void;
-    onPasteMnemonic: (text: string, index: number) => boolean;
+    onPasteMnemonic: (words: string[], index: number) => boolean;
     onInputBlur: (index: number) => void;
     suggestionsRef: RefObject<string[]>;
     selectInputIndex: number;
@@ -262,12 +262,9 @@ function BasicPhaseInput(
   const handleChangeText = useCallback(
     (v: string) => {
       // Supports inputting mnemonic phrases via drag-and-drop text or toolbar of keyboard, such as 1Password.
-      const trimmedValue = v ? parseSecretRecoveryPhrase(v) : '';
-      if (
-        trimmedValue &&
-        trimmedValue.split(' ').filter(Boolean).length === phraseLength
-      ) {
-        if (onPasteMnemonic(trimmedValue, 0)) {
+      const phraseWords = v ? parseSecretRecoveryPhraseToWords(v) : [];
+      if (phraseWords.length === phraseLength) {
+        if (onPasteMnemonic(phraseWords, 0)) {
           onInputChange('');
           onChange?.('');
           return;
@@ -312,7 +309,10 @@ function BasicPhaseInput(
       if (!platformEnv.isNative) {
         const item = event.nativeEvent?.items?.[0];
         if (item?.type === EPasteEventPayloadItemType.TextPlain && item.data) {
-          onPasteMnemonic(parseSecretRecoveryPhrase(item?.data || ''), index);
+          onPasteMnemonic(
+            parseSecretRecoveryPhraseToWords(item?.data || ''),
+            index,
+          );
         }
       }
     },

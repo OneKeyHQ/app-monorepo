@@ -246,24 +246,26 @@ export const useSuggestion = (
   const { clearText } = useClipboard();
 
   const onPasteMnemonic = useCallback(
-    (value: string, inputIndex: number) => {
-      const arrays = value.trim().split(' ');
-      if (arrays.length > 1) {
+    (pastedWords: string[], inputIndex: number) => {
+      if (pastedWords.length > 1) {
         Haptics.success();
         let currentPhraseLength = phraseLength;
         setTimeout(async () => {
           clearText();
           if (
-            PHRASE_LENGTHS.includes(arrays.length) &&
-            arrays.length > currentPhraseLength
+            PHRASE_LENGTHS.includes(pastedWords.length) &&
+            pastedWords.length > currentPhraseLength
           ) {
-            currentPhraseLength = arrays.length;
+            currentPhraseLength = pastedWords.length;
             setPhraseLength(currentPhraseLength.toString());
             await timerUtils.wait(30);
           }
           const formValues = Object.values(form.getValues());
           const values: string[] = formValues.slice(0, inputIndex);
-          const words = [...values, ...arrays].slice(0, currentPhraseLength);
+          const words = [...values, ...pastedWords].slice(
+            0,
+            currentPhraseLength,
+          );
           if (words.length < currentPhraseLength) {
             words.push(...formValues.slice(words.length, currentPhraseLength));
           }
