@@ -86,6 +86,53 @@ export function getOAuthSocialLoginProviderName(
   return descriptor?.name ?? String(provider);
 }
 
+export function getOneKeyIdOAuthProviderFromSocialLoginProvider(
+  provider: EOAuthSocialLoginProvider,
+): EOneKeyIdOAuthProvider {
+  if (provider === EOAuthSocialLoginProvider.Google) {
+    return EOneKeyIdOAuthProvider.Google;
+  }
+  return EOneKeyIdOAuthProvider.Apple;
+}
+
+export function isOneKeyIdOAuthProviderBound({
+  account,
+  provider,
+}: {
+  account: IOneKeyIdAccount | undefined;
+  provider: EOneKeyIdOAuthProvider;
+}): boolean {
+  return (
+    account?.identities?.some(
+      (identity) =>
+        identity.identityType === EOneKeyIdIdentityType.OAuth &&
+        identity.oauthProvider === provider,
+    ) === true
+  );
+}
+
+export function isOneKeyIdOAuthIdentityBound({
+  account,
+  provider,
+  subject,
+}: {
+  account: IOneKeyIdAccount | undefined;
+  provider: EOneKeyIdOAuthProvider;
+  subject: string;
+}): boolean {
+  if (!subject) {
+    return false;
+  }
+  return (
+    account?.identities?.some(
+      (identity) =>
+        identity.identityType === EOneKeyIdIdentityType.OAuth &&
+        identity.oauthProvider === provider &&
+        identity.oauthSubject === subject,
+    ) === true
+  );
+}
+
 export function getBoundOAuthProviders(
   onekeyAccount: IOneKeyIdAccount | undefined,
 ): EOneKeyIdOAuthProvider[] {
