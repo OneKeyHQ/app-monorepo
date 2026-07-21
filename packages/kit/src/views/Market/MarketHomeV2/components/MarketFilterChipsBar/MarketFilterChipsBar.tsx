@@ -322,7 +322,7 @@ function TierPopoverContent({
   return (
     <YStack pt="$3" pb={14} px={14} gap="$3">
       <XStack alignItems="center" justifyContent="space-between" pr="$1">
-        <SizableText size="$bodySm" color="$textSubdued">
+        <SizableText size="$bodySmMedium" color="$textSubdued">
           {title}
         </SizableText>
         <ClearTextButton onPress={onClear} testID={`${testIdPrefix}-clear`} />
