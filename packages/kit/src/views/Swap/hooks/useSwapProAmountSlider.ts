@@ -41,6 +41,7 @@ export function useSwapProAmountSlider({
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const lastDragPercentRef = useRef(0);
   const hasDragChangeRef = useRef(false);
+  const isDraggingRef = useRef(false);
 
   const reserveGas = useMemo(() => {
     if (!inputToken?.isNative) {
@@ -79,6 +80,7 @@ export function useSwapProAmountSlider({
   useEffect(() => {
     lastDragPercentRef.current = 0;
     hasDragChangeRef.current = false;
+    isDraggingRef.current = false;
     setZeroBalanceSliderValue(0);
   }, [availableBalance, inputTokenKey]);
 
@@ -145,6 +147,7 @@ export function useSwapProAmountSlider({
       commitPercentThrottled.cancel();
       lastDragPercentRef.current = 0;
       hasDragChangeRef.current = false;
+      isDraggingRef.current = false;
       setZeroBalanceSliderValue(0);
     }
   }, [commitPercentThrottled, inputAmount]);
@@ -160,9 +163,12 @@ export function useSwapProAmountSlider({
       }
       lastDragPercentRef.current = percent;
       hasDragChangeRef.current = true;
+      if (availableBalance.lte(0) && !isDraggingRef.current) {
+        setZeroBalanceSliderValue(percent);
+      }
       commitPercentThrottled(percent, commitContextRef.current.inputTokenKey);
     },
-    [sliderDisabled, commitPercentThrottled],
+    [availableBalance, sliderDisabled, commitPercentThrottled],
   );
 
   // Each gesture starts from a clean slate so a tap/long-press that emits no
@@ -170,12 +176,14 @@ export function useSwapProAmountSlider({
   const onSlideStart = useCallback(() => {
     lastDragPercentRef.current = 0;
     hasDragChangeRef.current = false;
+    isDraggingRef.current = true;
   }, []);
 
   // Toast once on release at 100% instead of during the drag, mirroring the
   // native-token reserve tips shown by the balance max press.
   const onSlideComplete = useCallback(() => {
     const completedPercent = lastDragPercentRef.current;
+    isDraggingRef.current = false;
     if (
       hasDragChangeRef.current &&
       !sliderDisabled &&

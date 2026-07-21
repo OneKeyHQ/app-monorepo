@@ -93,6 +93,7 @@ describe('useSwapProAmountSlider', () => {
     expect(result.current.sliderValue).toBe(25);
 
     act(() => {
+      result.current.onSlideStart();
       result.current.onSliderChange(100);
       result.current.onSlideComplete();
     });
@@ -125,6 +126,21 @@ describe('useSwapProAmountSlider', () => {
     expect(result.current.sliderValue).toBe(50);
   });
 
+  it('updates the zero-balance slider value for a keyboard change', () => {
+    const { result } = renderHook(() =>
+      useSwapProAmountSlider({
+        inputAmount: '0',
+        onAmountChange: jest.fn(),
+      }),
+    );
+
+    act(() => {
+      result.current.onSliderChange(50);
+    });
+
+    expect(result.current.sliderValue).toBe(50);
+  });
+
   it('resets the zero-balance percentage when the input token changes', () => {
     const onAmountChange = jest.fn();
     const { result, rerender } = renderHook(
@@ -137,6 +153,7 @@ describe('useSwapProAmountSlider', () => {
     );
 
     act(() => {
+      result.current.onSlideStart();
       result.current.onSliderChange(50);
       result.current.onSlideComplete();
     });
@@ -167,6 +184,7 @@ describe('useSwapProAmountSlider', () => {
     );
 
     act(() => {
+      result.current.onSlideStart();
       result.current.onSliderChange(50);
       result.current.onSlideComplete();
     });
