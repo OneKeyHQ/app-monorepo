@@ -171,6 +171,9 @@ export const ShareContentRenderer = memo(
                           height: qr.logoSize,
                           borderRadius: qr.logoSize / 2,
                         }}
+                        // Android fades images in for 300ms after onLoad;
+                        // ViewShot must never capture mid-fade (OK-58189)
+                        fadeDuration={0}
                         onLoad={() => setIsTokenLogoLoaded(true)}
                         onError={handleImageLoaded}
                       />
@@ -191,6 +194,7 @@ export const ShareContentRenderer = memo(
                               height: qr.networkBadgeIconSize,
                               borderRadius: qr.networkBadgeIconSize / 2,
                             }}
+                            fadeDuration={0}
                             onLoad={handleImageLoaded}
                             onError={handleImageLoaded}
                           />
@@ -247,6 +251,7 @@ export const ShareContentRenderer = memo(
           <Image
             source={{ uri: ONEKEY_LOGO_URL }}
             style={{ width: footer.logoSize, height: footer.logoSize }}
+            fadeDuration={0}
             onLoad={handleImageLoaded}
             onError={handleImageLoaded}
           />
