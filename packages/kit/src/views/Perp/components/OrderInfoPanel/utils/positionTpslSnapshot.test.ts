@@ -6,7 +6,6 @@ import {
   getPositionTpslDex,
   hasPositionTpslSubmission,
   selectPositionTpslOrders,
-  shouldApplyPositionTpslSnapshotResponse,
 } from './positionTpslSnapshot';
 
 function makeOrder(
@@ -77,26 +76,7 @@ describe('position TP/SL snapshot helpers', () => {
     expect(mainScope).not.toBe(subDexScope);
   });
 
-  it('rejects stale request ids and changed account/dex/position scopes', () => {
-    expect(
-      shouldApplyPositionTpslSnapshotResponse({
-        requestId: 1,
-        latestRequestId: 2,
-        responseScopeKey: 'account|dex|coin|1|100|5',
-        currentScopeKey: 'account|dex|coin|1|100|5',
-      }),
-    ).toBe(false);
-    expect(
-      shouldApplyPositionTpslSnapshotResponse({
-        requestId: 2,
-        latestRequestId: 2,
-        responseScopeKey: 'account|dex|coin|1|100|5',
-        currentScopeKey: 'account|dex|coin|2|100|5',
-      }),
-    ).toBe(false);
-  });
-
-  it('strips legs found by the submit-time snapshot and detects no-op', () => {
+  it('strips legs found in subscribed open orders and detects no-op', () => {
     const tpOrder = makeOrder({ oid: 1 });
     const slOrder = makeOrder({
       oid: 2,

@@ -34,10 +34,7 @@ import {
   parseDexCoin,
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import type {
-  IHex,
-  IPerpsFrontendOrder,
-} from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
 import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
@@ -62,10 +59,8 @@ import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
 import {
   buildPositionTpslScopeKey,
   buildPositionTpslSubmission,
-  getPositionTpslDex,
   hasPositionTpslSubmission,
   selectPositionTpslOrders,
-  shouldApplyPositionTpslSnapshotResponse,
 } from './utils/positionTpslSnapshot';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -253,34 +248,6 @@ const SetTpslForm = memo(
     );
     const currentScopeKeyRef = useRef(currentScopeKey);
     currentScopeKeyRef.current = currentScopeKey;
-    const snapshotRequestIdRef = useRef(0);
-
-    const loadOpenOrdersSnapshot = useCallback(async () => {
-      const scopeKey = currentScopeKey;
-      const accountAddress = activeAccount?.accountAddress;
-      if (!scopeKey || !accountAddress) {
-        throw new OneKeyLocalError('Position TP/SL scope is unavailable');
-      }
-
-      snapshotRequestIdRef.current += 1;
-      const requestId = snapshotRequestIdRef.current;
-      const orders =
-        await backgroundApiProxy.serviceHyperliquid.getFrontendOpenOrders({
-          user: accountAddress as IHex,
-          dex: getPositionTpslDex(coin),
-        });
-      if (
-        !shouldApplyPositionTpslSnapshotResponse({
-          requestId,
-          latestRequestId: snapshotRequestIdRef.current,
-          responseScopeKey: scopeKey,
-          currentScopeKey: currentScopeKeyRef.current,
-        })
-      ) {
-        throw new OneKeyLocalError('Position TP/SL snapshot became stale');
-      }
-      return selectPositionTpslOrders(orders, coin);
-    }, [activeAccount?.accountAddress, coin, currentScopeKey]);
 
     const scopedOpenOrders = useMemo(() => {
       if (
@@ -525,12 +492,11 @@ const SetTpslForm = memo(
         setIsSubmitting(true);
 
         await hyperliquidActions.current.ensureTradingEnabled();
-        const latestOrders = await loadOpenOrdersSnapshot();
         if (currentScopeKeyRef.current !== currentScopeKey) {
           throw new OneKeyLocalError('Position TP/SL scope changed');
         }
         const submission = buildPositionTpslSubmission({
-          orders: latestOrders,
+          orders: { tpOrder, slOrder },
           tpTriggerPx: formData.tpPrice,
           slTriggerPx: formData.slPrice,
         });
@@ -676,9 +642,10 @@ const SetTpslForm = memo(
       isValidForm,
       intl,
       canSubmitForScopedAccount,
-      loadOpenOrdersSnapshot,
       currentScopeKey,
       activeAccount?.accountAddress,
+      tpOrder,
+      slOrder,
     ]);
 
     // Early return if position doesn't exist to prevent accessing undefined properties

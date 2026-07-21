@@ -61,24 +61,6 @@ export function selectPositionTpslOrders(
   return { tpOrder, slOrder };
 }
 
-export function shouldApplyPositionTpslSnapshotResponse({
-  requestId,
-  latestRequestId,
-  responseScopeKey,
-  currentScopeKey,
-}: {
-  requestId: number;
-  latestRequestId: number;
-  responseScopeKey: string;
-  currentScopeKey: string;
-}) {
-  return Boolean(
-    responseScopeKey &&
-    requestId === latestRequestId &&
-    responseScopeKey === currentScopeKey,
-  );
-}
-
 export function buildPositionTpslSubmission({
   orders,
   tpTriggerPx,
