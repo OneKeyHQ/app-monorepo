@@ -12,6 +12,7 @@ export enum EKeylessCreateWithOneKeyIdPrepareStatus {
   LocalKeylessExists = 'local_keyless_exists',
   NeedOneKeyIdOAuthLogin = 'need_onekey_id_oauth_login',
   NeedLegacyOAuthBind = 'need_legacy_oauth_bind',
+  NeedLegacyOAuthReauth = 'need_legacy_oauth_reauth',
   ContinueCreate = 'continue_create',
   ContinueRestore = 'continue_restore',
 }

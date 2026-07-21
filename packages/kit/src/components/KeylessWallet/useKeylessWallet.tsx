@@ -58,6 +58,7 @@ import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
 import {
   showKeylessOneKeyIdSessionConflictDialog,
   showKeylessWalletAccountMismatchError,
+  showOneKeyIdOAuthReauthAccountMismatchDialog,
 } from './AccountMismatchDialog';
 import {
   getPromotedSameEmailAccountStatusAfterAutoRetryRateLimit,
@@ -275,6 +276,7 @@ export function useKeylessWallet() {
     signInWithSocialLogin,
     logout,
     keylessSupabaseSignOut,
+    legacySupabaseSignOut,
     persistKeylessOAuthSession,
   } = useOneKeyAuth();
   const navigation = useAppNavigation();
@@ -677,6 +679,98 @@ export function useKeylessWallet() {
     [checkKeylessWalletCreatedOnServer, logout, signInWithSocialLogin],
   );
 
+  const clearPendingKeylessOAuthSession = useCallback(async () => {
+    await keylessSupabaseSignOut();
+    await backgroundApiProxy.serviceKeylessWallet.clearKeylessAuthSessionAndLoginState();
+  }, [keylessSupabaseSignOut]);
+
+  const reauthenticateLegacyOneKeyIdWithOAuthProvider = useCallback(
+    async ({ provider }: { provider: EOAuthSocialLoginProvider }) => {
+      let accessToken = '';
+      let refreshToken = '';
+
+      while (!accessToken) {
+        // Do not persist the newly selected account until it is proven to be
+        // the immutable provider identity already bound to this OneKey ID.
+        const result = await signInWithSocialLogin(provider);
+        const candidateAccessToken = result?.session?.accessToken || '';
+        const candidateRefreshToken = result?.session?.refreshToken || '';
+        if (!candidateAccessToken) {
+          throw new OneKeyLocalError(
+            'OneKey ID OAuth reauthentication failed: access token not found',
+          );
+        }
+
+        const isMatched =
+          await backgroundApiProxy.servicePrime.isOAuthIdentityBoundToCurrentOneKeyId(
+            {
+              oauthAccessToken: candidateAccessToken,
+              provider,
+            },
+          );
+        if (!isMatched) {
+          const shouldRetry =
+            await showOneKeyIdOAuthReauthAccountMismatchDialog({
+              intl,
+              provider,
+            });
+          if (!shouldRetry) {
+            throw new OneKeyLocalError({
+              message: 'OneKey ID OAuth reauthentication cancelled by user',
+              autoToast: false,
+            });
+          }
+        } else {
+          accessToken = candidateAccessToken;
+          refreshToken = candidateRefreshToken;
+        }
+      }
+
+      await persistKeylessOAuthSession({ accessToken, refreshToken });
+      try {
+        // The profile + subject check above proves this provider identity is
+        // already owned by the current OneKey ID. Log in through that
+        // identity to switch the local auth source; never call the immutable
+        // identity bind endpoint again for this OAuth sign-in path.
+        await backgroundApiProxy.servicePrime.apiOAuthLogin({ accessToken });
+        try {
+          await legacySupabaseSignOut();
+        } catch (cleanupError) {
+          defaultLogger.prime.subscription.onekeyIdLogout({
+            reason: `useKeylessWallet: legacy Supabase sign-out failed after OAuth login committed: ${String(
+              cleanupError,
+            )}`,
+          });
+        }
+      } catch (error) {
+        if (
+          !isTransientNetworkLikeError(error) &&
+          !errorUtils.isErrorByClassName({
+            error,
+            className:
+              EOneKeyErrorClassNames.OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
+          })
+        ) {
+          await clearPendingKeylessOAuthSession();
+        }
+        throw error;
+      }
+
+      await checkKeylessWalletCreatedOnServer({
+        token: accessToken,
+        mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
+      });
+    },
+    [
+      checkKeylessWalletCreatedOnServer,
+      clearPendingKeylessOAuthSession,
+      intl,
+      legacySupabaseSignOut,
+      persistKeylessOAuthSession,
+      signInWithSocialLogin,
+    ],
+  );
+
   const showContinueWithCurrentOneKeyIdDialog = useCallback(
     async ({
       provider,
@@ -798,7 +892,9 @@ export function useKeylessWallet() {
           checkBindRequired: false,
           onBindSuccess: async () => {
             const nextPrepareResult =
-              await backgroundApiProxy.serviceKeylessWallet.prepareKeylessCreateWithOneKeyId();
+              await backgroundApiProxy.serviceKeylessWallet.prepareKeylessCreateWithOneKeyId(
+                { signInProvider: provider },
+              );
             if (
               nextPrepareResult.status ===
                 EKeylessCreateWithOneKeyIdPrepareStatus.ContinueCreate ||
@@ -825,6 +921,14 @@ export function useKeylessWallet() {
 
       if (
         prepareResult.status ===
+        EKeylessCreateWithOneKeyIdPrepareStatus.NeedLegacyOAuthReauth
+      ) {
+        await reauthenticateLegacyOneKeyIdWithOAuthProvider({ provider });
+        return;
+      }
+
+      if (
+        prepareResult.status ===
         EKeylessCreateWithOneKeyIdPrepareStatus.NeedOneKeyIdOAuthLogin
       ) {
         await startKeylessCreateWithOAuthProvider({ provider });
@@ -838,6 +942,7 @@ export function useKeylessWallet() {
     },
     [
       continueKeylessCreateWithPreparedOneKeyId,
+      reauthenticateLegacyOneKeyIdWithOAuthProvider,
       showContinueWithCurrentOneKeyIdDialog,
       showLocalKeylessWalletExistsDialog,
       startKeylessCreateWithOAuthProvider,
@@ -934,7 +1039,9 @@ export function useKeylessWallet() {
           } else {
             if (signInProvider) {
               const prepareResult =
-                await backgroundApiProxy.serviceKeylessWallet.prepareKeylessCreateWithOneKeyId();
+                await backgroundApiProxy.serviceKeylessWallet.prepareKeylessCreateWithOneKeyId(
+                  { signInProvider },
+                );
               await handlePreparedKeylessCreateWithOneKeyId({
                 provider: signInProvider,
                 prepareResult,
