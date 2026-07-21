@@ -696,6 +696,7 @@ export function useKeylessWallet() {
         const candidateAccessToken = result?.session?.accessToken || '';
         const candidateRefreshToken = result?.session?.refreshToken || '';
         if (!candidateAccessToken) {
+          // TODO: i18n
           throw new OneKeyLocalError(
             'OneKey ID OAuth reauthentication failed: access token not found',
           );
