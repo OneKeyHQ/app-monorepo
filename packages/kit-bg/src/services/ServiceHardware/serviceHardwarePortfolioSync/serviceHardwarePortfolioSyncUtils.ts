@@ -33,6 +33,16 @@ export type IPortfolioSyncArtifacts = {
 
 export const PORTFOLIO_SYNC_TRANSFER_COOLDOWN_MS = 20_000;
 
+export function getPortfolioDisplayTimestamp({
+  timestamp,
+  timezoneOffsetMinutes = new Date(timestamp).getTimezoneOffset(),
+}: {
+  timestamp: number;
+  timezoneOffsetMinutes?: number;
+}): number {
+  return timestamp - timezoneOffsetMinutes * 60_000;
+}
+
 export function getPortfolioSyncCooldownRemainingMs({
   cooldownMs = PORTFOLIO_SYNC_TRANSFER_COOLDOWN_MS,
   lastTransferAt,
