@@ -659,6 +659,12 @@ export function UniversalStake({
 
   const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
     useState(false);
+  // Whether getTransactionConfirmation has settled at least once (success OR
+  // failure). The summary placeholder below is restricted to this first-load
+  // window: protocols whose response carries no summary would otherwise pulse
+  // the skeleton on every amount edit, and a failed first request would leave
+  // the skeleton stuck forever.
+  const transactionConfirmationSettledRef = useRef(false);
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async (amount?: string) => {
@@ -672,6 +678,7 @@ export function UniversalStake({
       } catch {
         // keep stale state
       } finally {
+        transactionConfirmationSettledRef.current = true;
         setTransactionConfirmationLoading(false);
       }
     },
@@ -2081,14 +2088,16 @@ export function UniversalStake({
   // The "Est. annual rewards" summary depends on a second request
   // (getTransactionConfirmation) that resolves after managePageData. Without a
   // placeholder it pops in on the second stage and shoves the rest of the card
-  // down. While that quote is still pending — and we don't yet have any summary
-  // content — reserve its space with a skeleton so the layout stays stable.
+  // down. Reserve its space with a skeleton, but only during the first-load
+  // window: once the quote settles (success or failure) never show it again,
+  // so no-summary protocols don't pulse on amount edits and a failed request
+  // doesn't leave the skeleton stuck.
   const summaryPending =
     !hasSummarySection &&
     !isPendleLikeLayout &&
     !protocolSwitchConfig &&
     !isDisabled &&
-    (quoteLoading || !transactionConfirmation);
+    !transactionConfirmationSettledRef.current;
 
   const summaryLoadingContent = summaryPending ? (
     <YStack gap="$1.5">

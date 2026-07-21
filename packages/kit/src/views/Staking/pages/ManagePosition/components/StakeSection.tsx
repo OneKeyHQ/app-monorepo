@@ -812,7 +812,12 @@ export const StakeSection = ({
         />
       ) : (
         <UniversalStake
-          key={`stake-input-${selectedStakeTokenUniqueKey || tokenInfo?.token?.uniqueKey || 'default'}`}
+          // Include protocol identity (provider/vault) so switching between
+          // protocols that share the same deposit token still remounts the
+          // form and drops the previous protocol's transactionConfirmation.
+          // Sourced from protocolInfo (same origin as the manage data), so the
+          // key flips exactly when fresh protocol data lands.
+          key={`stake-input-${protocolInfo?.provider ?? ''}-${protocolInfo?.vault ?? ''}-${selectedStakeTokenUniqueKey || tokenInfo?.token?.uniqueKey || 'default'}`}
           accountId={accountId}
           networkId={networkId}
           decimals={
