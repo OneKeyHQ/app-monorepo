@@ -13,6 +13,7 @@ import { coinSelect } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import {
   InsufficientBalance,
   NotImplemented,
+  OneKeyError,
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
@@ -71,6 +72,11 @@ import type {
 } from '../../types';
 
 const DEFAULT_TX_FEE = 1_000_000;
+
+// Classic-family firmware statically allocates ring-signature buffers for at
+// most 10 inputs (MAX_INPUTS_COUNT in legacy/firmware/dynex.h) and rejects
+// DnxSignTx with more inputs after PIN entry ("Invalid number of inputs").
+const MAX_TX_INPUTS_COUNT = 10;
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.dynex.hd;
@@ -240,6 +246,16 @@ export default class Vault extends VaultBase {
       outputsForCoinSelect,
       feeRate: '0',
     });
+
+    // Fail fast before the device-side check so the user gets an actionable
+    // message instead of a raw firmware error after entering the PIN.
+    if ((inputsFromCoinSelect?.length ?? 0) > MAX_TX_INPUTS_COUNT) {
+      throw new OneKeyError(
+        `This amount requires ${
+          inputsFromCoinSelect?.length ?? 0
+        } inputs (max ${MAX_TX_INPUTS_COUNT}). Please split into smaller transfers.`,
+      );
+    }
 
     return {
       finalAmount: finalAmount.toFixed(),
