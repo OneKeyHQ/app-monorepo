@@ -238,10 +238,18 @@ const ManageSectionShell = ({
                   )}
                 </SizableText>
                 <XStack gap="$2">
-                  <Button size="small" disabled>
+                  <Button
+                    testID="earn-manage-shell-trade"
+                    size="small"
+                    disabled
+                  >
                     {intl.formatMessage({ id: ETranslations.global_trade })}
                   </Button>
-                  <Button size="small" disabled>
+                  <Button
+                    testID="earn-manage-shell-buy"
+                    size="small"
+                    disabled
+                  >
                     {intl.formatMessage({ id: ETranslations.global_buy })}
                   </Button>
                 </XStack>
@@ -284,10 +292,18 @@ const ManageSectionShell = ({
                   )}
                 </SizableText>
                 <XStack gap="$2">
-                  <Button size="small" disabled>
+                  <Button
+                    testID="earn-manage-shell-trade"
+                    size="small"
+                    disabled
+                  >
                     {intl.formatMessage({ id: ETranslations.global_trade })}
                   </Button>
-                  <Button size="small" disabled>
+                  <Button
+                    testID="earn-manage-shell-buy"
+                    size="small"
+                    disabled
+                  >
                     {intl.formatMessage({ id: ETranslations.global_buy })}
                   </Button>
                 </XStack>
@@ -300,7 +316,13 @@ const ManageSectionShell = ({
             modal the real button sits in Page.Footer, so we render nothing here
             to avoid a stray full-width button that vanishes on load. */}
         {isInModalContext ? null : (
-          <Button size="medium" variant="primary" disabled width="100%">
+          <Button
+            testID="earn-manage-shell-confirm"
+            size="medium"
+            variant="primary"
+            disabled
+            width="100%"
+          >
             {activeLabel}
           </Button>
         )}
@@ -465,8 +487,8 @@ export function ManagePositionContent({
     });
   }, [intl, type, defaultTab]);
 
-  // When switching protocols, useManagePage refetches while keeping the previous
-  // (stale) data on screen. Surface that whole refetch as a single loading state
+  // When switching protocols, useManagePage re-fetches while keeping the
+  // previous (stale) data on screen. Surface that whole refetch as one loading
   // on the confirm button — instead of letting it surface late/scattered on a
   // downstream request — and disable the button so stale data can't be acted on.
   // isStaleData flips synchronously on the very render the params change (before

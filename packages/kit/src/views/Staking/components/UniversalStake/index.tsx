@@ -280,6 +280,7 @@ function ProtocolSwitcher({
   fallbackProviderLogoUri,
   fallbackAprText,
   protocolSwitchConfig,
+  disabled,
 }: {
   tokenSymbol: string;
   accountId: string;
@@ -287,6 +288,9 @@ function ProtocolSwitcher({
   fallbackProviderLogoUri?: string;
   fallbackAprText?: string;
   protocolSwitchConfig: IManagePositionProtocolSwitchConfig;
+  // Lock the switcher while an approve/stake is in flight, so the protocol list
+  // can't be opened over the in-flight tx confirm dialog (OK-58029).
+  disabled?: boolean;
 }) {
   const intl = useIntl();
   const {
@@ -297,7 +301,7 @@ function ProtocolSwitcher({
     protocols,
     selectedProtocol,
   } = protocolSwitchConfig;
-  const isSwitchEnabled = protocols.length > 1;
+  const isSwitchEnabled = protocols.length > 1 && !disabled;
   const renderProtocolListContent = useCallback(
     ({
       closePopover,
@@ -2234,6 +2238,7 @@ export function UniversalStake({
           fallbackProviderLogoUri={providerLogo}
           fallbackAprText={apyDetail?.description?.text}
           protocolSwitchConfig={protocolSwitchConfig}
+          disabled={approving || submitting}
         />
       ) : null}
 
