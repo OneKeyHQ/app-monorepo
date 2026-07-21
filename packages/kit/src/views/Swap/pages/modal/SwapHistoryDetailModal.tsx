@@ -81,9 +81,14 @@ import {
   InfoItemGroup,
 } from '../../../AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 import SwapTxHistoryViewInBrowser from '../../components/SwapHistoryTxViewInBrowser';
+import { SwapOrderProgress } from '../../components/SwapOrderProgress';
 import SwapRateInfoItem from '../../components/SwapRateInfoItem';
 import { useShouldShowSwapLocalData } from '../../hooks/useSwapLocalDataVisibility';
 import { getSwapTokenDisplayPrice } from '../../utils/swapDisplayFiatValue';
+import {
+  type ISwapOrderProgressStepLabel,
+  getSwapOrderProgressSteps,
+} from '../../utils/swapOrderProgress';
 import {
   getSwapCrossChainStatusTextProps,
   getSwapHistoryStatusTextProps,
@@ -476,6 +481,41 @@ function PrivateSendProgress({
       </XStack>
     </Stack>
   );
+}
+
+const swapOrderProgressLabelKeys: Record<
+  ISwapOrderProgressStepLabel,
+  ETranslations
+> = {
+  submitted: ETranslations.private_send_submitted,
+  pending: ETranslations.private_send_pending,
+  fromChain: ETranslations.from_chain__title,
+  toChain: ETranslations.to_chain__title,
+  done: ETranslations.private_send_done,
+  failed: ETranslations.private_send_failed,
+  refund: ETranslations.refund__title,
+};
+
+function SwapHistoryOrderProgress({
+  status,
+  crossChainStatus,
+}: {
+  status?: ESwapTxHistoryStatus;
+  crossChainStatus?: ESwapCrossChainStatus;
+}) {
+  const intl = useIntl();
+  const steps = useMemo(
+    () =>
+      getSwapOrderProgressSteps({ status, crossChainStatus }).map((step) => ({
+        status: step.status,
+        label: intl.formatMessage({
+          id: swapOrderProgressLabelKeys[step.label],
+        }),
+      })),
+    [crossChainStatus, intl, status],
+  );
+
+  return <SwapOrderProgress steps={steps} />;
 }
 
 function isPrivateSendSwapTxHistory(item?: ISwapTxHistory) {
@@ -1651,7 +1691,12 @@ const SwapHistoryDetailModal = () => {
             extraStatus={txHistory.extraStatus}
             crossChainStatus={txHistory.crossChainStatus}
           />
-        ) : null}
+        ) : (
+          <SwapHistoryOrderProgress
+            status={txHistory.status}
+            crossChainStatus={txHistory.crossChainStatus}
+          />
+        )}
         <Stack>
           <InfoItemGroup>
             <InfoItem
