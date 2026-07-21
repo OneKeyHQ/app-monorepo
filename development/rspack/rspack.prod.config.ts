@@ -143,18 +143,6 @@ export function createProductionConfig({
                 priority: 20,
                 reuseExistingChunk: true,
               },
-              // These UI primitives sit below splitChunks.minSize, so once no
-              // initial module imports them they get re-inlined into every
-              // async chunk that uses them (dozens of copies). Pin them to one
-              // shared chunk; `enforce` bypasses the minSize floor.
-              sharedUiPrimitives: {
-                test: /[\\/]packages[\\/]components[\\/]src[\\/](actions[\\/](Popover|Tooltip|SegmentControl)|forms[\\/]Select|content[\\/]DashText)[\\/]/,
-                name: 'shared-ui-primitives',
-                chunks: 'all' as const,
-                enforce: true,
-                priority: 25,
-                reuseExistingChunk: true,
-              },
             },
       },
     },
