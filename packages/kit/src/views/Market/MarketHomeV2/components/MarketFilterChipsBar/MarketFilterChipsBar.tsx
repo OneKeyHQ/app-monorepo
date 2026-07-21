@@ -290,6 +290,11 @@ function ConditionChipShell({
 
 type ITierPopoverOption = { id: string; label: string; disabled?: boolean };
 
+// Wide enough that three tiers share a row without the widest floor label
+// ("100K+"/"500K+") getting truncated: 3 pills (~72px incl. border + px 11)
+// + 2 gaps (8) + popover px (14) each side.
+const TIER_POPOVER_WIDTH = 264;
+
 // Figma tier popover (25117-6453 / 25117-6494): 240 wide, header = dimension
 // label + Clear text button, then pills that share the row equally. Three or
 // fewer options sit on one line; four wrap to a 2x2 grid (the pill floor drops
@@ -371,7 +376,11 @@ function FilterConditionChip({
       title={dimension.label}
       open={isOpen}
       onOpenChange={onOpenChange}
-      floatingPanelProps={{ width: 240, minWidth: 240, maxWidth: 240 }}
+      floatingPanelProps={{
+        width: TIER_POPOVER_WIDTH,
+        minWidth: TIER_POPOVER_WIDTH,
+        maxWidth: TIER_POPOVER_WIDTH,
+      }}
       renderTrigger={
         <ConditionChipShell
           label={dimension.label}
@@ -424,7 +433,11 @@ function SortConditionChip({
       title={columnLabel}
       open={isOpen}
       onOpenChange={onOpenChange}
-      floatingPanelProps={{ width: 240, minWidth: 240, maxWidth: 240 }}
+      floatingPanelProps={{
+        width: TIER_POPOVER_WIDTH,
+        minWidth: TIER_POPOVER_WIDTH,
+        maxWidth: TIER_POPOVER_WIDTH,
+      }}
       renderTrigger={
         <ConditionChipShell
           label={columnLabel}
