@@ -16,13 +16,17 @@ export interface ISimpleDBPrime {
   authToken?: string;
   authSessionSource?: EPrimeAuthSessionSource;
   // Monotonic auth-state commit epoch, bumped on every setAuthSessionSource
-  // write (login commits, bind switches, legacy self-heal). Destructive
-  // cleanups that decide on a pre-await snapshot (keyless session teardown,
-  // bg->main invalid-token events) compare it before acting: a source-only
-  // recheck cannot distinguish "the same KeylessOAuth login I decided to
-  // clear" from "a FRESH KeylessOAuth login committed while I awaited", but
-  // the generation can. Clears intentionally do NOT bump: gating only needs
-  // to detect commits, and a redundant clear is idempotent.
+  // write (login commits, bind switches). Destructive cleanups that decide
+  // on a pre-await snapshot (keyless session teardown, bg->main
+  // invalid-token events) compare it before acting: a source-only recheck
+  // cannot distinguish "the same KeylessOAuth login I decided to clear" from
+  // "a FRESH KeylessOAuth login committed while I awaited", but the
+  // generation can. Clears and the legacy self-heal migration intentionally
+  // do NOT bump: gating only needs to detect fresh login commits, a
+  // redundant clear is idempotent, and the self-heal merely recovers the
+  // source of an ALREADY-established login (never a new commit) — letting
+  // its lockless write advance the epoch would let it defeat an in-flight
+  // invalid-token teardown of that same session.
   authStateGeneration?: number;
   // Per-user throttle timestamp for the local-keyless upgrade bind prompt.
   // Written by ServicePrime.checkAndMarkShouldShowLocalKeylessUpgradeBindPrompt
@@ -101,12 +105,51 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     }
     const legacyAuthToken = await this.getSupabaseAuthToken();
     if (legacyAuthToken) {
-      await this.setAuthSessionSource(
-        EPrimeAuthSessionSource.LegacyEmailSupabase,
-      );
-      return EPrimeAuthSessionSource.LegacyEmailSupabase;
+      // Self-heal via a compare-and-set (see
+      // persistMigratedLegacyAuthSessionSourceIfUnset): the source read
+      // above and this write straddle a network-capable getSession(), so a
+      // KeylessOAuth login can commit in between — never clobber it, and
+      // never advance the auth-state generation for a migration write.
+      return this.persistMigratedLegacyAuthSessionSourceIfUnset();
     }
     return undefined;
+  }
+
+  /**
+   * Self-heal writer for the legacy-migration fallback, hardened against the
+   * lockless read -> network getSession() -> write window in
+   * getEffectiveAuthSessionSource:
+   *
+   * - Compare-and-set INSIDE the setRawData entity mutex (its builder reads
+   *   the freshest rawData under the same lock that serializes
+   *   setAuthSessionSource): if a source was committed while we resolved the
+   *   legacy session — e.g. a concurrent KeylessOAuth login — keep the
+   *   committed source and never overwrite it with Legacy. Returning the
+   *   committed source keeps callers on the real active realm instead of a
+   *   clobbered Legacy value that would strand the fresh keyless session (a
+   *   wiped/overwritten KeylessOAuth source is never re-inferred).
+   * - NEVER bump authStateGeneration: self-heal recovers the source of an
+   *   ALREADY-established (pre-OAuth-upgrade) login, not a new login commit.
+   *   The generation gate must trip ONLY on fresh commits; letting this
+   *   lockless write advance it would let a self-heal landing in an
+   *   invalid-token teardown's window falsely mark the epoch as changed and
+   *   skip the gated session-slot removal + server revocation.
+   */
+  private async persistMigratedLegacyAuthSessionSourceIfUnset(): Promise<EPrimeAuthSessionSource> {
+    const persisted = await this.setRawData((rawData) => {
+      if (rawData?.authSessionSource) {
+        return rawData;
+      }
+      return {
+        ...rawData,
+        authSessionSource: EPrimeAuthSessionSource.LegacyEmailSupabase,
+      };
+    });
+    clearSupabaseStorageCache();
+    return (
+      persisted?.authSessionSource ??
+      EPrimeAuthSessionSource.LegacyEmailSupabase
+    );
   }
 
   /**
