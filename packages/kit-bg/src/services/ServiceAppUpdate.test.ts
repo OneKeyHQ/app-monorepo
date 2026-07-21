@@ -39,11 +39,8 @@ const INITIAL_APP_UPDATE_VALUE: IAppUpdateInfo = {
 let atomValue: IAppUpdateInfo = { ...INITIAL_APP_UPDATE_VALUE };
 let pendingInstallTaskValue: any;
 
-// The OCDS §5.11 download-attempt budget persists under this MMKV key (see
-// ServiceAppUpdate). It must round-trip through a DURABLE, key-addressed store
-// so the cross-relaunch budget test below actually exercises persistence rather
-// than the single-slot pending-install fallback. Backed by a module-level Map
-// so values survive across createService() calls (= simulated relaunches).
+// Legacy MMKV key retained by ServiceAppUpdate only for stale-data cleanup.
+// The Map lets tests prove that stored values no longer drive the gate.
 const DOWNLOAD_ATTEMPT_BUDGET_KEY = 'onekey_app_update_download_attempt_budget';
 const syncStorageBackingMap = new Map<string, any>();
 function resetSyncStorageBackingMap() {
@@ -1203,12 +1200,19 @@ describe('ServiceAppUpdate state transitions', () => {
         status: EAppUpdateStatus.ready,
         downloadedEvent: { downloadedFile: '/tmp/old.zip' },
       });
+      for (let i = 1; i <= 8; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        await service.recordDownloadAttempt({ targetKey: '1.0.0:10' });
+      }
 
       await service.clearCache();
 
       expect(AppUpdate.clearPackage).toHaveBeenCalled();
       expect(BundleUpdate.clearDownload).toHaveBeenCalled();
       expect(atomValue.status).toBe(EAppUpdateStatus.done);
+      await expect(
+        service.getDownloadAttemptBudget({ targetKey: '1.0.0:10' }),
+      ).resolves.toMatchObject({ attemptCount: 0, givenUp: false });
     });
 
     test('also rewrites lastUpdateDialogShownAt to 0 (re-arms the 24h dialog)', async () => {
@@ -3917,17 +3921,13 @@ describe('computeUpdateTargetKey consistency', () => {
   });
 
   // =========================================================================
-  // OCDS v1.1 §5.11 — persisted cross-restart download attempt budget.
-  // Proves the budget (a) persists to the durable key-addressed store across
-  // simulated relaunches (= fresh createService() while the backing Map
-  // survives), (b) goes terminal after N failures, and (c) resets to a fresh
-  // budget when a NEW bundle/app target version supersedes the old one.
+  // Service-instance download attempt budget.
   // =========================================================================
-  describe('download attempt budget (§5.11 persistence)', () => {
+  describe('in-memory download attempt budget', () => {
     const TARGET_A = '1.0.0:10';
     const TARGET_B = '1.1.0:11'; // a new bundle version
 
-    test('persists attempts across relaunches and goes terminal after the budget is spent', async () => {
+    test('allows eight real attempts, then resets on service restart', async () => {
       // Fresh: no record yet → not given up.
       const entry0 = await service.getDownloadAttemptBudget({
         targetKey: TARGET_A,
@@ -3935,47 +3935,39 @@ describe('computeUpdateTargetKey consistency', () => {
       expect(entry0.attemptCount).toBe(0);
       expect(entry0.givenUp).toBe(false);
 
-      // Simulate N relaunches, each recording exactly one attempt against the
-      // SAME target. Each relaunch is a brand-new service instance; only the
-      // durable backing Map carries state between them.
       let lastResult: any;
-      let relaunchService = service;
-      // DOWNLOAD_PERSISTED_MAX_ATTEMPTS is 8: attempts 1..7 keep going, attempt
-      // 8 trips the budget → terminal give-up.
       for (let i = 1; i <= 8; i += 1) {
         // eslint-disable-next-line no-await-in-loop
-        lastResult = await relaunchService.recordDownloadAttempt({
+        lastResult = await service.recordDownloadAttempt({
           targetKey: TARGET_A,
         });
         expect(lastResult.attemptCount).toBe(i);
-        if (i < 8) {
-          expect(lastResult.givenUp).toBe(false);
-        }
-        // New process: budget must survive even with a fresh service instance.
-        relaunchService = createService();
+        expect(lastResult.givenUp).toBe(false);
       }
 
-      // The 8th recorded attempt exhausts the persisted budget → terminal.
-      expect(lastResult.givenUp).toBe(true);
-      expect(lastResult.reason).toBe('maxAttempts');
-
-      // A subsequent entry check on yet another relaunch is ALSO terminal
-      // (scenario #9: no re-spending the in-memory budget on every launch).
-      const afterService = createService();
-      const entryAfter = await afterService.getDownloadAttemptBudget({
+      // recordDownloadAttempt runs immediately before the native operation, so
+      // attempt 8 remains allowed. The next entry check blocks attempt 9.
+      const entryAfter = await service.getDownloadAttemptBudget({
         targetKey: TARGET_A,
       });
       expect(entryAfter.givenUp).toBe(true);
       expect(entryAfter.reason).toBe('maxAttempts');
+
+      syncStorageBackingMap.set(DOWNLOAD_ATTEMPT_BUDGET_KEY, entryAfter);
+      const restartedService = createService();
+      const restartedEntry = await restartedService.getDownloadAttemptBudget({
+        targetKey: TARGET_A,
+      });
+      expect(restartedEntry.attemptCount).toBe(0);
+      expect(restartedEntry.givenUp).toBe(false);
     });
 
     test('a NEW bundle/app target version resets the counter to a fresh budget', async () => {
       // Spend the whole budget on target A → terminal.
-      let svc = service;
+      const svc = service;
       for (let i = 1; i <= 8; i += 1) {
         // eslint-disable-next-line no-await-in-loop
         await svc.recordDownloadAttempt({ targetKey: TARGET_A });
-        svc = createService();
       }
       const aTerminal = await svc.getDownloadAttemptBudget({
         targetKey: TARGET_A,
@@ -4102,7 +4094,7 @@ describe('computeUpdateTargetKey consistency', () => {
     test('a long idle gap does NOT give up — only the attempt count matters (resume-friendly)', async () => {
       const now = 1_000_000_000_000;
       jest.setSystemTime(now);
-      // A couple of failed attempts, then the user closes the app.
+      // A couple of failed attempts, then the app remains idle.
       await service.recordDownloadAttempt({ targetKey: TARGET_A });
       const second = await service.recordDownloadAttempt({
         targetKey: TARGET_A,
@@ -4110,35 +4102,30 @@ describe('computeUpdateTargetKey consistency', () => {
       expect(second.attemptCount).toBe(2);
       expect(second.givenUp).toBe(false);
 
-      // Reopen 30 days later — far past the old 24h wall-clock deadline. Idle
-      // (app-closed) time must NOT abandon a still-resumable partial: with the
-      // attempt count under the cap the budget is NOT given up, so the download
-      // can resume. (There is intentionally no wall-clock deadline.)
+      // Idle time must not abandon a still-resumable partial; only actual
+      // attempts spend the service instance's budget.
       jest.setSystemTime(now + 30 * 24 * 60 * 60 * 1000);
-      const relaunch = createService();
-      const entry = await relaunch.getDownloadAttemptBudget({
+      const entry = await service.getDownloadAttemptBudget({
         targetKey: TARGET_A,
       });
       expect(entry.givenUp).toBe(false);
       expect(entry.attemptCount).toBe(2);
     });
 
-    test('resetDownloadAttemptBudget clears the persisted give-up (success path)', async () => {
+    test('resetDownloadAttemptBudget clears the in-memory give-up', async () => {
       // Exhaust the budget.
-      let svc = service;
+      const svc = service;
       for (let i = 1; i <= 8; i += 1) {
         // eslint-disable-next-line no-await-in-loop
         await svc.recordDownloadAttempt({ targetKey: TARGET_A });
-        svc = createService();
       }
       expect(
         (await svc.getDownloadAttemptBudget({ targetKey: TARGET_A })).givenUp,
       ).toBe(true);
 
-      // A successful download resets the budget; the next relaunch is fresh.
+      // A successful download resets the current service instance's budget.
       await svc.resetDownloadAttemptBudget({ targetKey: TARGET_A });
-      const fresh = createService();
-      const entry = await fresh.getDownloadAttemptBudget({
+      const entry = await svc.getDownloadAttemptBudget({
         targetKey: TARGET_A,
       });
       expect(entry.attemptCount).toBe(0);
