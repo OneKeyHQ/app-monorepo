@@ -578,6 +578,10 @@ export type IApproveInfo = {
   isMax?: boolean;
   tokenInfo?: IToken;
   swapApproveRes?: IFetchBuildTxResult;
+  permit2Info?: {
+    permit2Address: string;
+    expirationSeconds: string;
+  };
 };
 
 export type ITransferPayload = {

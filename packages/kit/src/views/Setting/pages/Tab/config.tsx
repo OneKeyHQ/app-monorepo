@@ -67,6 +67,7 @@ import {
   ClearPendingTransactionsListItem,
   CurrencyListItem,
   DesktopBluetoothListItem,
+  HapticFeedbackListItem,
   HardwareTransportTypeListItem,
   LanguageListItem,
   ListVersionItem,
@@ -379,6 +380,17 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     id: ETranslations.settings_split_view_desc,
                   }),
                   renderElement: <SplitViewListItem />,
+                }
+              : undefined,
+          ],
+          [
+            platformEnv.isNative
+              ? {
+                  icon: 'HandPointerOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.global_vibration_haptic,
+                  }),
+                  renderElement: <HapticFeedbackListItem />,
                 }
               : undefined,
           ],
