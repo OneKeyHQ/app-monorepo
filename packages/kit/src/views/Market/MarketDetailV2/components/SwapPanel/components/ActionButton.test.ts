@@ -5,16 +5,29 @@ describe('shouldJumpFromMarketToSwap', () => {
     expect(
       shouldJumpFromMarketToSwap({
         supportSpeedSwap: false,
+        isAccountNetworkSupported: true,
         isInsufficientBalance: false,
         isWrapped: true,
       }),
     ).toBe(false);
   });
 
+  it('falls back to Swap for wrapped pairs on unsupported accounts', () => {
+    expect(
+      shouldJumpFromMarketToSwap({
+        supportSpeedSwap: false,
+        isAccountNetworkSupported: false,
+        isInsufficientBalance: false,
+        isWrapped: true,
+      }),
+    ).toBe(true);
+  });
+
   it('falls back to Swap for unsupported ordinary pairs', () => {
     expect(
       shouldJumpFromMarketToSwap({
         supportSpeedSwap: false,
+        isAccountNetworkSupported: true,
         isInsufficientBalance: false,
         isWrapped: false,
       }),
@@ -25,6 +38,7 @@ describe('shouldJumpFromMarketToSwap', () => {
     expect(
       shouldJumpFromMarketToSwap({
         supportSpeedSwap: true,
+        isAccountNetworkSupported: true,
         isInsufficientBalance: true,
         isWrapped: false,
       }),

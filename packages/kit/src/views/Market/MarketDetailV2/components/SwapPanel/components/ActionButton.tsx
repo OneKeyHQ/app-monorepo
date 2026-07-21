@@ -41,6 +41,7 @@ import type { GestureResponderEvent } from 'react-native';
 export interface IActionButtonProps extends IButtonProps {
   tradeType: ITradeType;
   supportSpeedSwap?: boolean;
+  isAccountNetworkSupported: boolean;
   onlySupportCrossChain?: boolean;
   amount: string;
   token?: IToken;
@@ -62,6 +63,7 @@ export function ActionButton({
   token,
   balance,
   supportSpeedSwap,
+  isAccountNetworkSupported,
   disabled,
   onPress,
   isWrapped,
@@ -254,6 +256,7 @@ export function ActionButton({
 
   const shouldJumpToSwap = shouldJumpFromMarketToSwap({
     supportSpeedSwap,
+    isAccountNetworkSupported,
     isInsufficientBalance,
     isWrapped,
   });

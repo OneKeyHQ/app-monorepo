@@ -45,6 +45,7 @@ export type ISwapPanelContentProps = {
   slippageAutoValue?: number;
   supportSpeedSwap: {
     enabled?: boolean;
+    isAccountNetworkSupported: boolean;
     warningMessage?: string;
     actionToken?: ISwapToken;
     actionOtherToken?: ISwapToken;
@@ -344,6 +345,9 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
 
       <ActionButton
         supportSpeedSwap={!!supportSpeedSwap?.enabled}
+        isAccountNetworkSupported={
+          supportSpeedSwap.isAccountNetworkSupported
+        }
         onlySupportCrossChain={!!supportSpeedSwap?.onlySupportCrossChain}
         loading={isLoading}
         actionToken={supportSpeedSwap?.actionToken}
