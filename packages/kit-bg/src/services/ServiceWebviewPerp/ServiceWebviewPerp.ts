@@ -256,6 +256,7 @@ export interface IPerpServerCommonConfig {
   disablePerp?: boolean;
   disablePerpActionPerp?: boolean;
   ipDisablePerp?: boolean;
+  unifoldDepositEnabled?: boolean;
 }
 
 export interface IPerpDynamicTab {

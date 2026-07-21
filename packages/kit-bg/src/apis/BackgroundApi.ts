@@ -184,6 +184,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceUnifoldDeposit() {
+    const ServiceUnifoldDeposit =
+      require('../services/ServiceUnifoldDeposit') as typeof import('../services/ServiceUnifoldDeposit');
+    const value = new ServiceUnifoldDeposit.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceUnifoldDeposit', { value });
+    return value;
+  }
+
   get serviceBootstrap() {
     const Service =
       require('../services/ServiceBootstrap') as typeof import('../services/ServiceBootstrap');

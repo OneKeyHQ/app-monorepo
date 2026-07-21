@@ -88,6 +88,7 @@ import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardwar
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceTokenViewModel from '../services/ServiceTokenViewModel';
 import type ServiceTransaction from '../services/ServiceTransaction';
+import type ServiceUnifoldDeposit from '../services/ServiceUnifoldDeposit';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
@@ -170,6 +171,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceApp: ServiceApp;
   serviceSend: ServiceSend;
   serviceSwap: ServiceSwap;
+  serviceUnifoldDeposit: ServiceUnifoldDeposit;
   serviceBootstrap: ServiceBootstrap;
   serviceNetwork: ServiceNetwork;
   serviceAccount: ServiceAccount;

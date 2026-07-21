@@ -744,6 +744,8 @@ export default class ServiceHyperliquid extends ServiceBase {
               disablePerpActionPerp:
                 commonConfig.disablePerpActionPerp === true,
               ipDisablePerp: commonConfig.ipDisablePerp === true,
+              unifoldDepositEnabled:
+                commonConfig.unifoldDepositEnabled === true,
             }),
             perpBannerConfig: options?.fromServerConfig
               ? bannerConfig

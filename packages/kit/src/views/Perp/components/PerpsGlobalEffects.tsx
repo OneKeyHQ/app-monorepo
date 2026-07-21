@@ -303,6 +303,15 @@ function useHydrateFavoritesBarMarketCache() {
   }, [actions]);
 }
 
+// Resume the Unifold deposit tracking loop after an app restart: the loop
+// polls persisted in-flight executions and exits by itself once none remain,
+// so a single kick on mount is enough.
+function useResumeUnifoldDepositTracking() {
+  useEffect(() => {
+    void backgroundApiProxy.serviceUnifoldDeposit.unifoldDepositTrackingLoop();
+  }, []);
+}
+
 function useHyperliquidEventBusListener() {
   const actions = useHyperliquidActions();
 
@@ -1421,6 +1430,7 @@ function useHyperliquidInstrumentSwitchRequest() {
 function PerpsGlobalEffectsView() {
   usePrewarmPerpsTokenSelectorImages();
   useHydrateFavoritesBarMarketCache();
+  useResumeUnifoldDepositTracking();
   useHyperliquidEventBusListener();
   useHyperliquidSession();
   useHyperliquidAccountSelect();

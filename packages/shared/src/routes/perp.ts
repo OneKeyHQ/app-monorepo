@@ -7,6 +7,8 @@ export enum EModalPerpRoutes {
   MobileSetTpsl = 'MobileSetTpsl',
   MobileDepositWithdrawModal = 'MobileDepositWithdrawModal',
   MobileDepositSelectToken = 'MobileDepositSelectToken',
+  MobileUnifoldDepositTransfer = 'MobileUnifoldDepositTransfer',
+  MobileUnifoldDepositTracker = 'MobileUnifoldDepositTracker',
   PerpsInviteeRewardModal = 'PerpsInviteeRewardModal',
   MobilePortfolioPage = 'MobilePortfolioPage',
   PerpGuidePage = 'PerpGuidePage',
@@ -45,6 +47,14 @@ export type IModalPerpParamList = {
     depositTokenListOwnerKey?: string;
     hasLoadedDepositTokenBalances?: boolean;
     symbol: string;
+  };
+  // expectedRecipient is never trusted directly: the session hook cross-checks
+  // it against the live active-account atom and fails closed on mismatch.
+  [EModalPerpRoutes.MobileUnifoldDepositTransfer]: {
+    expectedRecipient: string;
+  };
+  [EModalPerpRoutes.MobileUnifoldDepositTracker]: {
+    expectedRecipient: string;
   };
   [EModalPerpRoutes.PerpsInviteeRewardModal]: undefined;
   [EModalPerpRoutes.MobilePortfolioPage]: undefined;

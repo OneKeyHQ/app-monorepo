@@ -88,6 +88,7 @@ import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardwar
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceTokenViewModel from '../services/ServiceTokenViewModel';
 import type ServiceTransaction from '../services/ServiceTransaction';
+import type ServiceUnifoldDeposit from '../services/ServiceUnifoldDeposit';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
@@ -185,6 +186,10 @@ class BackgroundApiProxy
 
   get serviceSwap(): ServiceSwap {
     return this.getProxyService<ServiceSwap>('serviceSwap');
+  }
+
+  get serviceUnifoldDeposit(): ServiceUnifoldDeposit {
+    return this.getProxyService<ServiceUnifoldDeposit>('serviceUnifoldDeposit');
   }
 
   get serviceToken(): ServiceToken {
