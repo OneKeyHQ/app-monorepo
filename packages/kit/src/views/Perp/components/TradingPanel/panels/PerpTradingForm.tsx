@@ -2864,13 +2864,13 @@ function PerpTradingForm({
         <YStack gap="$2.5" flexShrink={0}>
           {isSpot ? null : (
             <XStack alignItems="center" gap="$2.5" width="100%">
-              <YStack flex={1.2} flexBasis={0} minWidth={0}>
+              <YStack flex={1} flexBasis={0} minWidth={0}>
                 <MarginModeSelector
                   disabled={isSubmitting}
                   isMobile={isMobile}
                 />
               </YStack>
-              <YStack flex={1} flexBasis={0} minWidth={0}>
+              <YStack flex={0.8} flexBasis={0} minWidth={0}>
                 <LeverageAdjustModal isMobile={isMobile} />
               </YStack>
               <YStack flex={1} flexBasis={0} minWidth={0}>
