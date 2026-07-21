@@ -157,8 +157,8 @@ mod win {
         Devices::Bluetooth::{BluetoothAddressType, BluetoothLEDevice},
         Devices::Enumeration::{
             DeviceInformation, DeviceInformationCustomPairing, DeviceInformationPairing,
-            DevicePairingKinds, DevicePairingRequestedEventArgs, DevicePairingResultStatus,
-            DeviceUnpairingResultStatus,
+            DeviceInformationUpdate, DevicePairingKinds, DevicePairingRequestedEventArgs,
+            DevicePairingResultStatus, DeviceUnpairingResultStatus, DeviceWatcher,
         },
         Foundation::TypedEventHandler,
     };
@@ -369,52 +369,66 @@ mod win {
     /// Microsoft's own DeviceEnumerationAndPairing sample does the same. The two
     /// kinds do not behave identically under PairAsync.
     ///
-    /// Retries a few times because the AEP list is refreshed by discovery and the
-    /// entry can lag a freshly-rotated RPA by a second or two.
-    async fn find_unpaired_aep(addr: u64) -> Option<DeviceInformation> {
-        let mac = {
-            let b: [u8; 6] = [
-                ((addr >> 40) & 0xff) as u8,
-                ((addr >> 32) & 0xff) as u8,
-                ((addr >> 24) & 0xff) as u8,
-                ((addr >> 16) & 0xff) as u8,
-                ((addr >> 8) & 0xff) as u8,
-                (addr & 0xff) as u8,
-            ];
-            format!(
-                "-{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-                b[0], b[1], b[2], b[3], b[4], b[5]
+    /// Discovers with a DeviceWatcher, because that is what actually MINTS the
+    /// AEP entries — Settings' device list is a DeviceWatcher. The first
+    /// implementation used `FindAllAsyncAqsFilter`, a snapshot query: with the
+    /// unpaired-BLE selector it blocked ~30s per call and still missed a device
+    /// that was advertising loudly (184s burned in the field, which also let the
+    /// device's pairing window lapse). The watcher delivers an Added event within
+    /// a second or two, and the deadline here is kept short for the same reason.
+    async fn find_unpaired_aep(addr: u64, timeout_ms: u64) -> Option<DeviceInformation> {
+        let b = addr.to_be_bytes(); // 8 bytes; the MAC is the low 6
+        let suffix = format!(
+            "-{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+            b[2], b[3], b[4], b[5], b[6], b[7]
+        );
+        let selector = BluetoothLEDevice::GetDeviceSelectorFromPairingState(false).ok()?;
+        let watcher = DeviceInformation::CreateWatcherAqsFilter(&selector).ok()?;
+
+        let found: &'static Mutex<Option<DeviceInformation>> =
+            Box::leak(Box::new(Mutex::new(None)));
+        let added = {
+            let suffix = suffix.clone();
+            TypedEventHandler::<DeviceWatcher, DeviceInformation>::new(
+                move |_, info: Ref<DeviceInformation>| {
+                    if let Ok(info) = info.ok() {
+                        let id = info.Id()?.to_string().to_lowercase();
+                        if id.ends_with(&suffix) {
+                            diag(&format!("AEP watcher matched: id='{id}'"));
+                            if let Ok(mut slot) = found.lock() {
+                                *slot = Some(info.clone());
+                            }
+                        }
+                    }
+                    Ok(())
+                },
             )
         };
-        let selector = BluetoothLEDevice::GetDeviceSelectorFromPairingState(false).ok()?;
-        for attempt in 0..6u32 {
-            if attempt > 0 {
-                std::thread::sleep(std::time::Duration::from_millis(800));
-            }
-            let list = match DeviceInformation::FindAllAsyncAqsFilter(&selector) {
-                Ok(op) => match op.await {
-                    Ok(l) => l,
-                    Err(_) => continue,
-                },
-                Err(_) => continue,
-            };
-            let size = list.Size().unwrap_or(0);
-            for i in 0..size {
-                if let Ok(info) = list.GetAt(i) {
-                    let id = info
-                        .Id()
-                        .map(|v| v.to_string().to_lowercase())
-                        .unwrap_or_default();
-                    if id.ends_with(&mac) {
-                        diag(&format!(
-                            "found unpaired AEP on attempt {attempt}: id='{id}'"
-                        ));
-                        return Some(info);
-                    }
+        // Updated/Removed must be subscribed before Start() for an AEP watcher;
+        // no-ops are fine, we only care about Added.
+        let noop = TypedEventHandler::<DeviceWatcher, DeviceInformationUpdate>::new(|_, _| Ok(()));
+        watcher.Added(&added).ok()?;
+        watcher.Updated(&noop).ok()?;
+        watcher.Removed(&noop).ok()?;
+        watcher.Start().ok()?;
+        diag(&format!(
+            "AEP watcher started (settings-style discovery), waiting up to {timeout_ms}ms for {suffix}"
+        ));
+
+        let started = std::time::Instant::now();
+        let result = loop {
+            if let Ok(mut slot) = found.lock() {
+                if slot.is_some() {
+                    break slot.take();
                 }
             }
-        }
-        None
+            if started.elapsed().as_millis() as u64 >= timeout_ms {
+                break None;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(200));
+        };
+        let _ = watcher.Stop();
+        result
     }
 
     pub async fn run_pair(address: Option<String>, keep_link: bool) -> Result<(), String> {
@@ -438,7 +452,8 @@ mod win {
 
         // Settings-style pairing: prefer the AEP; fall back to the old
         // device-interface pairing only if the AEP cannot be found.
-        let ceremony_pairing: DeviceInformationPairing = match find_unpaired_aep(addr).await {
+        let ceremony_pairing: DeviceInformationPairing = match find_unpaired_aep(addr, 12_000).await
+        {
             Some(info) => {
                 diag("pairing via AEP DeviceInformation (settings-style)");
                 info.Pairing().map_err(we)?
