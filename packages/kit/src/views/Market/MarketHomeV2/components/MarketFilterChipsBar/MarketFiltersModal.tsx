@@ -135,7 +135,7 @@ function FilterRow({
         pr="$1"
         jc="center"
       >
-        <SizableText size="$bodyMd" color="$textSubdued">
+        <SizableText size="$bodyMd" color="$text">
           {label}
         </SizableText>
         {note ? (

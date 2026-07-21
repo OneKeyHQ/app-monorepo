@@ -235,10 +235,10 @@ function ConditionChipShell({
       role="button"
       testID={testID}
     >
-      <SizableText size="$bodySm" color="$textSubdued">
+      <SizableText size="$bodySm" color="$text">
         {label}
       </SizableText>
-      <SizableText size="$bodySmMedium" color="$textSubdued">
+      <SizableText size="$bodySmMedium" color="$text">
         {value}
       </SizableText>
       {showRemove ? (
