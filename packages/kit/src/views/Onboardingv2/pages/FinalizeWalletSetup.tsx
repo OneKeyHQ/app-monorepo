@@ -620,16 +620,12 @@ function FinalizeWalletSetupPage({
                   intl,
                 );
               }
-              if (!connectedDeviceId) {
-                throw new OneKeyLocalError({
-                  message: intl.formatMessage({
-                    id: ETranslations.trezor_device_id_required_before_wallet_creation__msg,
-                  }),
-                });
-              }
-              // Device has no seed yet — block creation and prompt the user to
-              // set it up first (we can't drive third-party device setup).
-              if (connectedFeatures?.initialized === false) {
+              // No firmware or no seed yet: no device_id exists, so check this
+              // before the device_id guard to show the real reason.
+              if (
+                connectedFeatures?.firmware_present === false ||
+                connectedFeatures?.initialized === false
+              ) {
                 await trackHardwareWalletConnection({
                   status: 'failure',
                   deviceType: thirdPartyDevice.deviceType,
@@ -651,6 +647,13 @@ function FinalizeWalletSetupPage({
                   }),
                 });
                 return;
+              }
+              if (!connectedDeviceId) {
+                throw new OneKeyLocalError({
+                  message: intl.formatMessage({
+                    id: ETranslations.trezor_device_id_required_before_wallet_creation__msg,
+                  }),
+                });
               }
               featuresForCreate = {
                 ...connectedFeatures,
