@@ -6,16 +6,17 @@ import {
 import { getSwapOrderProgressSteps } from './swapOrderProgress';
 
 describe('getSwapOrderProgressSteps', () => {
-  it.each([ESwapTxHistoryStatus.PENDING, ESwapTxHistoryStatus.DEPOSIT_SUCCESS])(
-    'renders the three-step pending state for %s',
-    (status) => {
-      expect(getSwapOrderProgressSteps({ status })).toEqual([
-        { label: 'submitted', status: 'done' },
-        { label: 'pending', status: 'process' },
-        { label: 'done', status: 'todo' },
-      ]);
-    },
-  );
+  it.each([
+    ESwapTxHistoryStatus.PENDING,
+    ESwapTxHistoryStatus.DEPOSIT_SUCCESS,
+    ESwapTxHistoryStatus.CANCELING,
+  ])('renders the three-step pending state for %s', (status) => {
+    expect(getSwapOrderProgressSteps({ status })).toEqual([
+      { label: 'submitted', status: 'done' },
+      { label: 'pending', status: 'process' },
+      { label: 'done', status: 'todo' },
+    ]);
+  });
 
   it.each([
     ESwapTxHistoryStatus.SUCCESS,
@@ -28,17 +29,16 @@ describe('getSwapOrderProgressSteps', () => {
     ]);
   });
 
-  it.each([
-    ESwapTxHistoryStatus.FAILED,
-    ESwapTxHistoryStatus.CANCELED,
-    ESwapTxHistoryStatus.CANCELING,
-  ])('renders the three-step failed state for %s', (status) => {
-    expect(getSwapOrderProgressSteps({ status })).toEqual([
-      { label: 'submitted', status: 'done' },
-      { label: 'failed', status: 'error' },
-      { label: 'done', status: 'todo' },
-    ]);
-  });
+  it.each([ESwapTxHistoryStatus.FAILED, ESwapTxHistoryStatus.CANCELED])(
+    'renders the three-step failed state for %s',
+    (status) => {
+      expect(getSwapOrderProgressSteps({ status })).toEqual([
+        { label: 'submitted', status: 'done' },
+        { label: 'failed', status: 'error' },
+        { label: 'done', status: 'todo' },
+      ]);
+    },
+  );
 
   it.each([
     ESwapCrossChainStatus.FROM_SUCCESS,

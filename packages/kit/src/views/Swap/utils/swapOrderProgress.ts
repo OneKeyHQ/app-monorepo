@@ -31,7 +31,6 @@ const successStatuses = new Set<ESwapTxHistoryStatus>([
 const failedStatuses = new Set<ESwapTxHistoryStatus>([
   ESwapTxHistoryStatus.FAILED,
   ESwapTxHistoryStatus.CANCELED,
-  ESwapTxHistoryStatus.CANCELING,
 ]);
 
 function getThreeStepProgress(
