@@ -32,8 +32,8 @@ import { useAllNetworkRequests } from '../../hooks/useAllNetwork';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 
 import {
-  useHomeFactsShadow,
   useHomeSectionSemantic,
+  useStableHomeFactsOwner,
 } from './model/react/homeSemanticHooks';
 import {
   buildHomeDeFiCoverage,
@@ -163,7 +163,7 @@ export function useNativeHomeDeFiData({
   );
   const sourceCurrencyInfo = currencyMap[settings.currencyInfo.id];
   const targetCurrencyInfo = currencyMap.usd;
-  const homeFactsShadow = useHomeFactsShadow();
+  const homeFactsOwner = useStableHomeFactsOwner();
   const homeDeFiSemantic = useHomeSectionSemantic('defi');
   const { clearSemanticSection, publishSemanticSection } =
     useHomeActions().current;
@@ -172,16 +172,16 @@ export function useNativeHomeDeFiData({
   );
   const deFiSourceIdentity = useMemo(() => {
     const ownerMatches =
-      homeFactsShadow?.owner.walletId === walletId &&
-      homeFactsShadow?.owner.accountId === accountId &&
+      homeFactsOwner?.owner.walletId === walletId &&
+      homeFactsOwner?.owner.accountId === accountId &&
       (isAllNetworks
-        ? homeFactsShadow?.owner.network.kind === 'allNetworks'
-        : homeFactsShadow?.owner.network.kind === 'singleNetwork' &&
-          homeFactsShadow.owner.network.networkId === networkId);
+        ? homeFactsOwner?.owner.network.kind === 'allNetworks'
+        : homeFactsOwner?.owner.network.kind === 'singleNetwork' &&
+          homeFactsOwner.owner.network.networkId === networkId);
     if (
       !enabled ||
       !ownerMatches ||
-      !homeFactsShadow ||
+      !homeFactsOwner ||
       !accountId ||
       !networkId ||
       !walletId
@@ -198,7 +198,7 @@ export function useNativeHomeDeFiData({
       targetCurrencyId: targetCurrencyInfo?.id,
     };
     return createHomeDeFiSourceIdentity({
-      owner: homeFactsShadow.ownerToken,
+      owner: homeFactsOwner.ownerToken,
       params,
       producerInstanceId: deFiProducerInstanceId,
     });
@@ -206,7 +206,7 @@ export function useNativeHomeDeFiData({
     accountId,
     deFiProducerInstanceId,
     enabled,
-    homeFactsShadow,
+    homeFactsOwner,
     indexedAccountId,
     isAllNetworks,
     networkId,
@@ -341,10 +341,10 @@ export function useNativeHomeDeFiData({
       return;
     }
     deFiCoordinatorRef.current = undefined;
-    if (homeFactsShadow) {
+    if (homeFactsOwner) {
       deFiSemanticRevisionRef.current += 1;
       clearSemanticSection({
-        owner: homeFactsShadow.ownerToken,
+        owner: homeFactsOwner.ownerToken,
         revision: deFiSemanticRevisionRef.current,
         sectionId: 'defi',
       });
@@ -353,7 +353,7 @@ export function useNativeHomeDeFiData({
     clearSemanticSection,
     deFiSourceIdentity,
     deFiSourceIdentityKey,
-    homeFactsShadow,
+    homeFactsOwner,
   ]);
 
   useEffect(
