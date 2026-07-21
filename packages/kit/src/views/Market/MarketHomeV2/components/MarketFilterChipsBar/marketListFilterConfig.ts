@@ -77,8 +77,10 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
     minParam: 'liquidityMin',
     maxParam: 'liquidityMax',
     localField: 'liquidity',
-    // 99/88/66/~22; 10K is the Mid-cap chip anchor, 5K cut.
-    options: usdFloors([10_000, 50_000, 500_000, 5_000_000]),
+    // Trimmed to three so the row fits one line (matching Holders/Change/Txns).
+    // 10K is the Mid-cap chip anchor, 50K the Large-cap anchor; 5M+ (~22
+    // retention, rarely tapped) dropped as the least-used end of the ladder.
+    options: usdFloors([10_000, 50_000, 500_000]),
   },
   {
     id: EMarketFilterDimension.Holders,
@@ -98,9 +100,10 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
     minParam: 'volumeMin',
     maxParam: 'volumeMax',
     localField: 'turnover',
-    // 69/36/25/4 at 1h. Window-sensitive: the first three tiers stop
-    // discriminating at 24h (per-window tiers = PRD open question 8).
-    options: usdFloors([10_000, 50_000, 100_000, 1_000_000]),
+    // Trimmed to three (one-line row). 50K is the Mid-cap anchor, 100K the
+    // Large-cap anchor; 1M+ (~4 retention, extreme) dropped. Window-sensitive:
+    // the remaining tiers stop discriminating at 24h (PRD open question 8).
+    options: usdFloors([10_000, 50_000, 100_000]),
   },
   {
     id: EMarketFilterDimension.Change,
@@ -234,7 +237,7 @@ export const MARKET_FILTER_CHIPS: IMarketFilterChip[] = [
   {
     id: 'midCap',
     label: 'Mid-cap tokens',
-    icon: 'GalaxyOutline',
+    icon: 'WorldOutline',
     conditions: {
       [EMarketFilterDimension.MarketCap]: 'min-500000',
       [EMarketFilterDimension.Liquidity]: 'min-10000',
@@ -244,11 +247,13 @@ export const MARKET_FILTER_CHIPS: IMarketFilterChip[] = [
     tooltip: 'Hot tokens matching these conditions',
   },
   {
-    // The holders floor is the PRD's optional note (open question 5), kept on
-    // because it is what clears fake market caps from the top.
+    // PENDING (PM 2026-07-21): drop the Holders floor from Large-cap. Kept for
+    // now on request; the holders>=1K passthrough is what clears fake market
+    // caps, so removing it needs the quality-floor question (open question 5)
+    // settled first.
     id: 'largeCap',
     label: 'Large-cap tokens',
-    icon: 'WorldOutline',
+    icon: 'GalaxyOutline',
     conditions: {
       [EMarketFilterDimension.MarketCap]: 'min-1000000',
       [EMarketFilterDimension.Liquidity]: 'min-50000',

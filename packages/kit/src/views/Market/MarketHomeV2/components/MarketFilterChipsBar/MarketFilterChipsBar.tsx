@@ -1,16 +1,19 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import {
   Divider,
   Icon,
+  LinearGradient,
   Popover,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import {
@@ -166,9 +169,42 @@ function ClearTextButton({
   );
 }
 
-// Figma 25099-6710: bg-strong capsule, h 26 / radius full / px 9, label in
-// regular weight + value in medium. Hovering swaps to bg-strong-hover and
-// reveals an inline remove button (pr shrinks to 5 to seat the 16px icon).
+// bg-strong-hover is a translucent gray overlay, so a fade drawn in it would
+// not actually hide the text underneath — the mask must fade to the chip's
+// EFFECTIVE surface = bgStrongHover composited over bgApp. Both tokens are
+// fixed, so the two composites are precomputed per theme rather than parsed
+// from theme.*.val (which is not a reliable color string on web).
+// light: #FFFFFF + grayA4 (#00000017) -> rgb(232); dark: #0f0f0f + grayA4
+// dark (#ffffff1b) -> rgb(40). Recompute if those tokens change.
+const CHIP_MASK_SOLID = { light: 'rgb(232,232,232)', dark: 'rgb(40,40,40)' };
+const CHIP_MASK_TRANSPARENT = {
+  light: 'rgba(232,232,232,0)',
+  dark: 'rgba(40,40,40,0)',
+};
+
+function useChipMaskColors() {
+  const themeVariant = useThemeVariant();
+  const key = themeVariant === 'dark' ? 'dark' : 'light';
+  return {
+    solid: CHIP_MASK_SOLID[key],
+    transparent: CHIP_MASK_TRANSPARENT[key],
+  };
+}
+
+// Width of the remove hit-target and the gradient fade over the chip's right
+// edge. The gradient sits ON TOP of the value text so revealing the × never
+// changes the chip width (no layout jitter) — the text just fades out beneath.
+const CHIP_REMOVE_WIDTH = 26;
+const CHIP_FADE_WIDTH = 34;
+const CHIP_FADE_START: [number, number] = [0, 0];
+const CHIP_FADE_END: [number, number] = [1, 0];
+// Solid for the last ~55% so the × always sits on an opaque patch.
+const CHIP_FADE_LOCATIONS: [number, number, number] = [0, 0.45, 1];
+
+// Figma 25099-6710 / 25116-6318: bg-strong capsule, h 26 / radius full / px 9,
+// label regular + value medium. Hover swaps to bg-strong-hover and fades in a
+// remove control over the right edge; the 26px hit-target and the gradient are
+// overlays, so nothing about the chip's size changes on hover.
 function ConditionChipShell({
   label,
   value,
@@ -185,15 +221,20 @@ function ConditionChipShell({
   removeTestID?: string;
 }) {
   const [isHovered, setIsHovered] = useState(false);
+  const mask = useChipMaskColors();
   const showRemove = isHovered || isOpen;
+  const fadeColors = useMemo(
+    () => [mask.transparent, mask.solid, mask.solid],
+    [mask],
+  );
   return (
     <XStack
       alignItems="center"
       gap="$1"
       height={26}
-      pl={9}
-      pr={showRemove ? 5 : 9}
+      px={9}
       borderRadius="$full"
+      overflow="hidden"
       bg={showRemove ? '$bgStrongHover' : '$bgStrong'}
       pressStyle={{ bg: '$bgStrongActive' }}
       userSelect="none"
@@ -211,23 +252,39 @@ function ConditionChipShell({
         {value}
       </SizableText>
       {showRemove ? (
-        <XStack
-          alignItems="center"
-          justifyContent="center"
-          width={16}
-          height={16}
-          borderRadius="$full"
-          hoverStyle={{ bg: '$bgActive' }}
-          onPress={(event) => {
-            // The chip body opens the tier popover; the × must not.
-            event.stopPropagation();
-            onRemove();
-          }}
-          role="button"
-          testID={removeTestID}
-        >
-          <Icon name="CrossedSmallOutline" size="$4" color="$iconSubdued" />
-        </XStack>
+        <>
+          <LinearGradient
+            position="absolute"
+            top={0}
+            bottom={0}
+            right={0}
+            width={CHIP_FADE_WIDTH}
+            pointerEvents="none"
+            colors={fadeColors}
+            locations={CHIP_FADE_LOCATIONS}
+            start={CHIP_FADE_START}
+            end={CHIP_FADE_END}
+          />
+          <Stack
+            position="absolute"
+            top={0}
+            bottom={0}
+            right={0}
+            width={CHIP_REMOVE_WIDTH}
+            alignItems="center"
+            justifyContent="center"
+            cursor="pointer"
+            onPress={(event) => {
+              // The chip body opens the tier popover; the × must not.
+              event.stopPropagation();
+              onRemove();
+            }}
+            role="button"
+            testID={removeTestID}
+          >
+            <Icon name="CrossedSmallOutline" size="$4" color="$iconSubdued" />
+          </Stack>
+        </>
       ) : null}
     </XStack>
   );
@@ -329,17 +386,13 @@ function FilterConditionChip({
 // The active sort, shown as a peer of the filter conditions: the sort is part
 // of "how you are seeing this table", so leaving it implicit would hide half
 // the applied state. Same state machine as the column header (P1-10).
+// This chip has no direction dropdown: the quick-sort scenario is descending
+// only, and finer control lives on the column header itself.
 function SortConditionChip({
   sortState,
-  isOpen,
-  onOpenChange,
-  onSelectDirection,
   onRemove,
 }: {
   sortState: IMarketListSortState;
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSelectDirection: (direction: 'asc' | 'desc') => void;
   onRemove: () => void;
 }) {
   const { sortBy, sortType } = sortState;
@@ -348,34 +401,12 @@ function SortConditionChip({
   }
   const columnLabel = SORT_COLUMN_LABELS[sortBy] ?? sortBy;
   return (
-    <Popover
-      title={columnLabel}
-      open={isOpen}
-      onOpenChange={onOpenChange}
-      floatingPanelProps={{ width: 240, minWidth: 240, maxWidth: 240 }}
-      renderTrigger={
-        <ConditionChipShell
-          label={columnLabel}
-          value={SORT_DIRECTION_LABELS[sortType]}
-          isOpen={isOpen}
-          onRemove={onRemove}
-          testID="market-filter-chip-sort"
-          removeTestID="market-filter-chip-sort-remove"
-        />
-      }
-      renderContent={
-        <TierPopoverContent
-          title={columnLabel}
-          options={[
-            { id: 'desc', label: SORT_DIRECTION_LABELS.desc },
-            { id: 'asc', label: SORT_DIRECTION_LABELS.asc },
-          ]}
-          selectedOptionId={sortType}
-          onSelect={(id) => onSelectDirection(id as 'asc' | 'desc')}
-          onClear={onRemove}
-          testIdPrefix="market-filter-tier-sort"
-        />
-      }
+    <ConditionChipShell
+      label={columnLabel}
+      value={SORT_DIRECTION_LABELS[sortType]}
+      onRemove={onRemove}
+      testID="market-filter-chip-sort"
+      removeTestID="market-filter-chip-sort-remove"
     />
   );
 }
@@ -495,26 +526,12 @@ export function MarketFilterChipsBar({
             <XStack gap="$0.5" alignItems="center">
               <SortConditionChip
                 sortState={sortState}
-                isOpen={openPopover === 'sort'}
-                onOpenChange={(open) =>
-                  setOpenPopover(open ? 'sort' : undefined)
-                }
-                onSelectDirection={(direction) => {
-                  defaultLogger.dex.list.dexFilterChip({
-                    action: 'conditionChange',
-                    field: 'sort',
-                    value: direction,
-                  });
-                  setSortState((prev) => ({ ...prev, sortType: direction }));
-                  setOpenPopover(undefined);
-                }}
                 onRemove={() => {
                   defaultLogger.dex.list.dexFilterChip({
                     action: 'conditionRemove',
                     field: 'sort',
                   });
                   setSortState({});
-                  setOpenPopover(undefined);
                 }}
               />
               {conditionEntries.map(([dimensionId, optionId]) => (
