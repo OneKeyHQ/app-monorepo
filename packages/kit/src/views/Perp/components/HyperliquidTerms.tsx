@@ -16,6 +16,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
+import { perpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -278,6 +279,7 @@ export function HyperliquidTermsContent({
 }
 
 export async function showHyperliquidTermsDialog(): Promise<boolean> {
+  const activePerpsAccount = await perpsActiveAccountAtom.get();
   const isTermsAccepted =
     await backgroundApiProxy.simpleDb.perp.getHyperliquidTermsAccepted();
   if (isTermsAccepted) {
@@ -293,7 +295,9 @@ export async function showHyperliquidTermsDialog(): Promise<boolean> {
     const trackTermsAgree = () => {
       if (!didTrackAgree) {
         didTrackAgree = true;
-        defaultLogger.perp.hyperliquid.perpTermsAgree();
+        defaultLogger.perp.hyperliquid.perpTermsAgree({
+          walletType: activePerpsAccount.walletType ?? 'unknown',
+        });
       }
     };
     const trackTermsReject = () => {
@@ -304,7 +308,9 @@ export async function showHyperliquidTermsDialog(): Promise<boolean> {
         !didOpenLegalLink
       ) {
         didTrackReject = true;
-        defaultLogger.perp.hyperliquid.perpTermsReject();
+        defaultLogger.perp.hyperliquid.perpTermsReject({
+          walletType: activePerpsAccount.walletType ?? 'unknown',
+        });
       }
     };
     const safeResolve = (value: boolean) => {

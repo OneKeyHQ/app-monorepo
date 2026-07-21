@@ -7,6 +7,7 @@ export class PerpTokenSelectorScene extends BaseScene {
   public perpTokenSelectorOpen(params: {
     currentToken: string;
     tradeMode: 'perp' | 'spot';
+    walletType: string;
   }) {
     return params;
   }
@@ -16,6 +17,7 @@ export class PerpTokenSelectorScene extends BaseScene {
   public perpTokenSelectorPrimaryTabClick(params: {
     tab: string;
     previousTab: string;
+    walletType: string;
   }) {
     return params;
   }
@@ -25,6 +27,7 @@ export class PerpTokenSelectorScene extends BaseScene {
   public perpTokenSelectorCategoryTabClick(params: {
     tab: string;
     previousTab: string;
+    walletType: string;
   }) {
     return params;
   }
@@ -37,6 +40,7 @@ export class PerpTokenSelectorScene extends BaseScene {
     direction: string;
     previousField: string;
     previousDirection: string;
+    walletType: string;
   }) {
     return params;
   }
@@ -49,6 +53,7 @@ export class PerpTokenSelectorScene extends BaseScene {
     tradeMode: 'perp' | 'spot';
     sortField: string;
     sortDirection: string;
+    walletType: string;
   }) {
     return params;
   }
@@ -62,6 +67,7 @@ export class PerpTokenSelectorScene extends BaseScene {
     activeTab: string;
     sortField: string;
     sortDirection: string;
+    walletType: string;
   }) {
     return params;
   }
