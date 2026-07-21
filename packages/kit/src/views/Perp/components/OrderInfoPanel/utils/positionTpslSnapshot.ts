@@ -10,12 +10,6 @@ export interface IPositionTpslOrders {
   slOrder: IPerpsFrontendOrder | null;
 }
 
-export type IPositionTpslSnapshotStatus =
-  | 'idle'
-  | 'loading'
-  | 'ready'
-  | 'error';
-
 export function getPositionTpslDex(coin: string) {
   return parseDexCoin(coin).dexLabel ?? '';
 }
@@ -65,33 +59,6 @@ export function selectPositionTpslOrders(
     }
   });
   return { tpOrder, slOrder };
-}
-
-export function isPositionTpslSnapshotReady({
-  status,
-  snapshotScopeKey,
-  currentScopeKey,
-}: {
-  status: IPositionTpslSnapshotStatus;
-  snapshotScopeKey: string;
-  currentScopeKey: string;
-}) {
-  return Boolean(
-    currentScopeKey &&
-    status === 'ready' &&
-    snapshotScopeKey === currentScopeKey,
-  );
-}
-
-export function getPositionTpslSnapshotViewState(params: {
-  status: IPositionTpslSnapshotStatus;
-  snapshotScopeKey: string;
-  currentScopeKey: string;
-}): 'content' | 'loading' | 'retry' {
-  if (isPositionTpslSnapshotReady(params)) {
-    return 'content';
-  }
-  return params.status === 'error' ? 'retry' : 'loading';
 }
 
 export function shouldApplyPositionTpslSnapshotResponse({

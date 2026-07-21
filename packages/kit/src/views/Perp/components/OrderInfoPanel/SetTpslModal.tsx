@@ -11,14 +11,16 @@ import {
   Divider,
   Page,
   SizableText,
-  Spinner,
   Toast,
   XStack,
   YStack,
   getFontSize,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  useHyperliquidActions,
+  usePerpsActiveOpenOrdersAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -58,12 +60,9 @@ import { TpslInput } from '../TradingPanel/inputs/TpslInput';
 import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
 
 import {
-  type IPositionTpslOrders,
-  type IPositionTpslSnapshotStatus,
   buildPositionTpslScopeKey,
   buildPositionTpslSubmission,
   getPositionTpslDex,
-  getPositionTpslSnapshotViewState,
   hasPositionTpslSubmission,
   selectPositionTpslOrders,
   shouldApplyPositionTpslSnapshotResponse,
@@ -194,6 +193,7 @@ const SetTpslForm = memo(
 
     const activePositions = usePerpsAccountScopedActivePositions();
     const [activeAccount] = usePerpsActiveAccountAtom();
+    const [activeOpenOrders] = usePerpsActiveOpenOrdersAtom();
     const accountScopedAddress = usePerpsAccountScopedCacheAddress();
     const canSubmitForScopedAccount = isPerpsAccountAddressMatched({
       activeAccountAddress: activeAccount?.accountAddress,
@@ -254,86 +254,49 @@ const SetTpslForm = memo(
     const currentScopeKeyRef = useRef(currentScopeKey);
     currentScopeKeyRef.current = currentScopeKey;
     const snapshotRequestIdRef = useRef(0);
-    const [openOrdersSnapshot, setOpenOrdersSnapshot] = useState<{
-      status: IPositionTpslSnapshotStatus;
-      scopeKey: string;
-      orders: IPositionTpslOrders;
-    }>({
-      status: 'idle',
-      scopeKey: '',
-      orders: { tpOrder: null, slOrder: null },
-    });
 
-    const refreshOpenOrdersSnapshot = useCallback(async () => {
+    const loadOpenOrdersSnapshot = useCallback(async () => {
       const scopeKey = currentScopeKey;
       const accountAddress = activeAccount?.accountAddress;
       if (!scopeKey || !accountAddress) {
-        setOpenOrdersSnapshot({
-          status: 'error',
-          scopeKey,
-          orders: { tpOrder: null, slOrder: null },
-        });
         throw new OneKeyLocalError('Position TP/SL scope is unavailable');
       }
 
       snapshotRequestIdRef.current += 1;
       const requestId = snapshotRequestIdRef.current;
-      setOpenOrdersSnapshot((previous) => ({
-        ...previous,
-        status: 'loading',
-        scopeKey,
-      }));
-      try {
-        const orders =
-          await backgroundApiProxy.serviceHyperliquid.getFrontendOpenOrders({
-            user: accountAddress as IHex,
-            dex: getPositionTpslDex(coin),
-          });
-        if (
-          !shouldApplyPositionTpslSnapshotResponse({
-            requestId,
-            latestRequestId: snapshotRequestIdRef.current,
-            responseScopeKey: scopeKey,
-            currentScopeKey: currentScopeKeyRef.current,
-          })
-        ) {
-          throw new OneKeyLocalError('Position TP/SL snapshot became stale');
-        }
-        const nextOrders = selectPositionTpslOrders(orders, coin);
-        setOpenOrdersSnapshot({
-          status: 'ready',
-          scopeKey,
-          orders: nextOrders,
+      const orders =
+        await backgroundApiProxy.serviceHyperliquid.getFrontendOpenOrders({
+          user: accountAddress as IHex,
+          dex: getPositionTpslDex(coin),
         });
-        return nextOrders;
-      } catch (error) {
-        if (
-          requestId === snapshotRequestIdRef.current &&
-          scopeKey === currentScopeKeyRef.current
-        ) {
-          setOpenOrdersSnapshot({
-            status: 'error',
-            scopeKey,
-            orders: { tpOrder: null, slOrder: null },
-          });
-        }
-        throw error;
+      if (
+        !shouldApplyPositionTpslSnapshotResponse({
+          requestId,
+          latestRequestId: snapshotRequestIdRef.current,
+          responseScopeKey: scopeKey,
+          currentScopeKey: currentScopeKeyRef.current,
+        })
+      ) {
+        throw new OneKeyLocalError('Position TP/SL snapshot became stale');
       }
+      return selectPositionTpslOrders(orders, coin);
     }, [activeAccount?.accountAddress, coin, currentScopeKey]);
 
-    useEffect(() => {
-      void refreshOpenOrdersSnapshot().catch(() => undefined);
-    }, [refreshOpenOrdersSnapshot]);
-
-    const openOrdersViewState = getPositionTpslSnapshotViewState({
-      status: openOrdersSnapshot.status,
-      snapshotScopeKey: openOrdersSnapshot.scopeKey,
-      currentScopeKey,
-    });
-    const isOpenOrdersReady = openOrdersViewState === 'content';
-    const { tpOrder, slOrder } = isOpenOrdersReady
-      ? openOrdersSnapshot.orders
-      : { tpOrder: null, slOrder: null };
+    const scopedOpenOrders = useMemo(() => {
+      if (
+        !isPerpsAccountAddressMatched({
+          activeAccountAddress: activeAccount?.accountAddress,
+          dataAccountAddress: activeOpenOrders.accountAddress,
+        })
+      ) {
+        return [];
+      }
+      return activeOpenOrders.openOrdersByCoin[coin] ?? [];
+    }, [activeAccount?.accountAddress, activeOpenOrders, coin]);
+    const { tpOrder, slOrder } = useMemo(
+      () => selectPositionTpslOrders(scopedOpenOrders, coin),
+      [coin, scopedOpenOrders],
+    );
 
     const expectedProfit = useMemo(() => {
       if (tpOrder && currentPosition) {
@@ -360,16 +323,10 @@ const SetTpslForm = memo(
 
     const handleCancelOrder = useCallback(
       async (order: IPerpsFrontendOrder) => {
-        if (!canSubmitForScopedAccount || !isOpenOrdersReady) {
+        if (!canSubmitForScopedAccount) {
           return;
         }
 
-        snapshotRequestIdRef.current += 1;
-        setOpenOrdersSnapshot((previous) => ({
-          ...previous,
-          status: 'loading',
-          scopeKey: currentScopeKey,
-        }));
         try {
           await hyperliquidActions.current.ensureTradingEnabled();
           const symbolMeta =
@@ -390,17 +347,9 @@ const SetTpslForm = memo(
           });
         } catch (error) {
           console.error('SetTpslModal handleCancelOrder error:', error);
-        } finally {
-          await refreshOpenOrdersSnapshot().catch(() => undefined);
         }
       },
-      [
-        canSubmitForScopedAccount,
-        currentScopeKey,
-        hyperliquidActions,
-        isOpenOrdersReady,
-        refreshOpenOrdersSnapshot,
-      ],
+      [canSubmitForScopedAccount, hyperliquidActions],
     );
 
     const entryPrice = useMemo(() => {
@@ -419,7 +368,7 @@ const SetTpslForm = memo(
     const tpslSeededRef = useRef({ tp: false, sl: false });
 
     useEffect(() => {
-      if (!isOpenOrdersReady || !new BigNumber(entryPrice).gt(0)) {
+      if (!new BigNumber(entryPrice).gt(0)) {
         return;
       }
       const defaultPrices = resolveTpSlTriggerPx({
@@ -466,7 +415,6 @@ const SetTpslForm = memo(
     }, [
       entryPrice,
       isLongPosition,
-      isOpenOrdersReady,
       leverage,
       presetTpsl,
       presetTriggerPrice,
@@ -571,13 +519,13 @@ const SetTpslForm = memo(
 
     const handleSubmit = useCallback(async () => {
       try {
-        if (!canSubmitForScopedAccount || !isOpenOrdersReady) {
+        if (!canSubmitForScopedAccount) {
           return;
         }
         setIsSubmitting(true);
 
         await hyperliquidActions.current.ensureTradingEnabled();
-        const latestOrders = await refreshOpenOrdersSnapshot();
+        const latestOrders = await loadOpenOrdersSnapshot();
         if (currentScopeKeyRef.current !== currentScopeKey) {
           throw new OneKeyLocalError('Position TP/SL scope changed');
         }
@@ -728,8 +676,7 @@ const SetTpslForm = memo(
       isValidForm,
       intl,
       canSubmitForScopedAccount,
-      isOpenOrdersReady,
-      refreshOpenOrdersSnapshot,
+      loadOpenOrdersSnapshot,
       currentScopeKey,
       activeAccount?.accountAddress,
     ]);
@@ -782,87 +729,64 @@ const SetTpslForm = memo(
             </XStack>
           </YStack>
           <Divider />
-          {isOpenOrdersReady ? (
-            <>
-              {!tpOrder ? null : (
-                <YStack gap="$1">
-                  {expectedProfit ? (
-                    <ExistingTpslOrderSummary
-                      relationLabel={intl.formatMessage({
-                        id: ETranslations.perp_tp_sl_above,
-                      })}
-                      triggerPx={tpOrder.triggerPx}
-                      pnlLabel={intl.formatMessage({
-                        id: ETranslations.perp_tp_sl_profit,
-                      })}
-                      pnlValue={expectedProfit}
-                      disabled={!canSubmitForScopedAccount}
-                      cancelLabel={intl.formatMessage({
-                        id: ETranslations.perp_open_orders_cancel,
-                      })}
-                      onCancel={() => handleCancelOrder(tpOrder)}
-                    />
-                  ) : null}
-                </YStack>
-              )}
-              <TpslInput
-                price={entryPrice}
-                side={isLongPosition ? 'long' : 'short'}
-                szDecimals={szDecimals}
-                leverage={leverage}
-                tpsl={{ tpPrice: formData.tpPrice, slPrice: formData.slPrice }}
-                onChange={handleTpslChange}
-                amount={
-                  configureAmount
-                    ? formData.amount || calculatedAmount
-                    : positionSize.toFixed(szDecimals)
-                }
-                ifOnDialog
-                hiddenTp={!!tpOrder}
-                hiddenSl={!!slOrder}
-              />
-              {!slOrder ? null : (
-                <YStack gap="$1">
-                  {expectedLoss ? (
-                    <ExistingTpslOrderSummary
-                      relationLabel={intl.formatMessage({
-                        id: ETranslations.perp_tp_sl_below,
-                      })}
-                      triggerPx={slOrder.triggerPx}
-                      pnlLabel={intl.formatMessage({
-                        id: ETranslations.perp_tp_sl_loss,
-                      })}
-                      pnlValue={expectedLoss}
-                      disabled={!canSubmitForScopedAccount}
-                      cancelLabel={intl.formatMessage({
-                        id: ETranslations.perp_open_orders_cancel,
-                      })}
-                      onCancel={() => handleCancelOrder(slOrder)}
-                    />
-                  ) : null}
-                </YStack>
-              )}
-            </>
-          ) : null}
-          {openOrdersViewState === 'loading' ? (
-            <YStack alignItems="center" py="$4">
-              <Spinner size="small" />
+          {!tpOrder ? null : (
+            <YStack gap="$1">
+              {expectedProfit ? (
+                <ExistingTpslOrderSummary
+                  relationLabel={intl.formatMessage({
+                    id: ETranslations.perp_tp_sl_above,
+                  })}
+                  triggerPx={tpOrder.triggerPx}
+                  pnlLabel={intl.formatMessage({
+                    id: ETranslations.perp_tp_sl_profit,
+                  })}
+                  pnlValue={expectedProfit}
+                  disabled={!canSubmitForScopedAccount}
+                  cancelLabel={intl.formatMessage({
+                    id: ETranslations.perp_open_orders_cancel,
+                  })}
+                  onCancel={() => handleCancelOrder(tpOrder)}
+                />
+              ) : null}
             </YStack>
-          ) : null}
-          {openOrdersViewState === 'retry' ? (
-            <YStack alignItems="center" py="$4">
-              <Button
-                testID="perp-position-tpsl-refresh"
-                size="small"
-                variant="secondary"
-                onPress={() => {
-                  void refreshOpenOrdersSnapshot().catch(() => undefined);
-                }}
-              >
-                {intl.formatMessage({ id: ETranslations.global_refresh })}
-              </Button>
+          )}
+          <TpslInput
+            price={entryPrice}
+            side={isLongPosition ? 'long' : 'short'}
+            szDecimals={szDecimals}
+            leverage={leverage}
+            tpsl={{ tpPrice: formData.tpPrice, slPrice: formData.slPrice }}
+            onChange={handleTpslChange}
+            amount={
+              configureAmount
+                ? formData.amount || calculatedAmount
+                : positionSize.toFixed(szDecimals)
+            }
+            ifOnDialog
+            hiddenTp={!!tpOrder}
+            hiddenSl={!!slOrder}
+          />
+          {!slOrder ? null : (
+            <YStack gap="$1">
+              {expectedLoss ? (
+                <ExistingTpslOrderSummary
+                  relationLabel={intl.formatMessage({
+                    id: ETranslations.perp_tp_sl_below,
+                  })}
+                  triggerPx={slOrder.triggerPx}
+                  pnlLabel={intl.formatMessage({
+                    id: ETranslations.perp_tp_sl_loss,
+                  })}
+                  pnlValue={expectedLoss}
+                  disabled={!canSubmitForScopedAccount}
+                  cancelLabel={intl.formatMessage({
+                    id: ETranslations.perp_open_orders_cancel,
+                  })}
+                  onCancel={() => handleCancelOrder(slOrder)}
+                />
+              ) : null}
             </YStack>
-          ) : null}
+          )}
 
           <YStack alignItems="flex-start" gap="$2" width="100%">
             <Checkbox
@@ -925,10 +849,7 @@ const SetTpslForm = memo(
             variant="primary"
             onPress={handleSubmit}
             disabled={
-              !canSubmitForScopedAccount ||
-              !isOpenOrdersReady ||
-              !isValidForm ||
-              isSubmitting
+              !canSubmitForScopedAccount || !isValidForm || isSubmitting
             }
             loading={isSubmitting}
           >

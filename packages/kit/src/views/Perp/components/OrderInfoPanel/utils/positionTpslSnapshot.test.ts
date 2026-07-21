@@ -4,9 +4,7 @@ import {
   buildPositionTpslScopeKey,
   buildPositionTpslSubmission,
   getPositionTpslDex,
-  getPositionTpslSnapshotViewState,
   hasPositionTpslSubmission,
-  isPositionTpslSnapshotReady,
   selectPositionTpslOrders,
   shouldApplyPositionTpslSnapshotResponse,
 } from './positionTpslSnapshot';
@@ -58,7 +56,7 @@ describe('position TP/SL snapshot helpers', () => {
     ).toEqual({ tpOrder: null, slOrder: null });
   });
 
-  it('maps main and sub-dex scopes without sharing readiness', () => {
+  it('maps main and sub-dex scopes independently', () => {
     const accountAddress = '0x1111111111111111111111111111111111111111';
     const mainScope = buildPositionTpslScopeKey({
       accountAddress,
@@ -76,52 +74,7 @@ describe('position TP/SL snapshot helpers', () => {
     });
     expect(getPositionTpslDex('BTC')).toBe('');
     expect(getPositionTpslDex('xyz:NVDA')).toBe('xyz');
-    expect(
-      isPositionTpslSnapshotReady({
-        status: 'ready',
-        snapshotScopeKey: mainScope,
-        currentScopeKey: subDexScope,
-      }),
-    ).toBe(false);
-    expect(
-      isPositionTpslSnapshotReady({
-        status: 'loading',
-        snapshotScopeKey: subDexScope,
-        currentScopeKey: subDexScope,
-      }),
-    ).toBe(false);
-  });
-
-  it('shows a spinner while loading and retry only after an error', () => {
-    const scopeKey = 'account|dex|coin|1|100|5';
-    expect(
-      getPositionTpslSnapshotViewState({
-        status: 'ready',
-        snapshotScopeKey: scopeKey,
-        currentScopeKey: scopeKey,
-      }),
-    ).toBe('content');
-    expect(
-      getPositionTpslSnapshotViewState({
-        status: 'loading',
-        snapshotScopeKey: scopeKey,
-        currentScopeKey: scopeKey,
-      }),
-    ).toBe('loading');
-    expect(
-      getPositionTpslSnapshotViewState({
-        status: 'error',
-        snapshotScopeKey: scopeKey,
-        currentScopeKey: scopeKey,
-      }),
-    ).toBe('retry');
-    expect(
-      getPositionTpslSnapshotViewState({
-        status: 'ready',
-        snapshotScopeKey: scopeKey,
-        currentScopeKey: `${scopeKey}|changed`,
-      }),
-    ).toBe('loading');
+    expect(mainScope).not.toBe(subDexScope);
   });
 
   it('rejects stale request ids and changed account/dex/position scopes', () => {
