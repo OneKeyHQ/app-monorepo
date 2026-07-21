@@ -8,7 +8,10 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import {
+  EHardwareVendor,
+  type IOneKeyDeviceFeatures,
+} from '@onekeyhq/shared/types/device';
 
 import {
   contextAtomMethod,
@@ -127,7 +130,14 @@ async function buildDeviceMetaState(
     });
   }
   const autoLockDelayMs = features.autoLockDelayMs ?? 0;
-  const autoShutDownDelayMs = features.autoLockDelayMs ?? 0;
+  const autoShutDownDelayMs =
+    (
+      features as IOneKeyDeviceFeatures & {
+        autoShutdownDelayMs?: number;
+      }
+    ).autoShutdownDelayMs ??
+    features.autoLockDelayMs ??
+    0;
   const language = features.language ?? undefined;
   const hapticFeedback = false;
 

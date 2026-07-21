@@ -815,8 +815,8 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
               await localDb.updateDevice({
                 features: targetDevice.featuresInfo,
                 preciseUpdateFields: {
-                  autoLockDelayMs: autoShutdownDelayMs,
-                },
+                  autoShutdownDelayMs,
+                } as Partial<IOneKeyDeviceFeatures>,
               });
             }
             return res;

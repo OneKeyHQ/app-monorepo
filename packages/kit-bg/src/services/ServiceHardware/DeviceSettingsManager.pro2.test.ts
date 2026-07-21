@@ -139,6 +139,35 @@ describe('DeviceSettingsManager Pro2 adapter', () => {
     });
   });
 
+  test('persists auto shutdown independently from auto lock', async () => {
+    const deviceSettings = jest.fn(async () => ({
+      success: true as const,
+      payload: { message: 'Success' },
+    }));
+    const device = buildDevice(EDeviceType.Pro2);
+    device.featuresInfo = {
+      deviceId: 'PRO2_DEVICE_ID',
+      autoLockDelayMs: 60_000,
+    } as never;
+    const manager = buildManager(device, {
+      deviceSettings,
+    } as unknown as CoreApi);
+
+    await manager.setAutoShutDownDelayMs({
+      connectId: 'PRO2_CONNECT_ID',
+      autoShutdownDelayMs: 300_000,
+    });
+
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    expect(localDb.updateDevice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        preciseUpdateFields: {
+          autoShutdownDelayMs: 300_000,
+        },
+      }),
+    );
+  });
+
   test.each([
     ['changePin', { remove: false }, { page: 'DevicePinChange' }],
     [
