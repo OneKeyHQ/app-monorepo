@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { RefreshControl, ScrollView } from 'react-native';
+import { ScrollView } from 'react-native';
 
 import {
   IconButton,
+  RefreshControl,
   Skeleton,
   XStack,
   YStack,
