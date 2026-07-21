@@ -105,6 +105,8 @@ function getExploreTabName(tab: ETranslations): IExploreTabName {
 }
 
 const styles = StyleSheet.create({
+  // iOS WKWebViews must stay in the native layout tree. In nested layouts,
+  // display:none can reload the page even though React keeps it mounted.
   webPageLayer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 3,
@@ -112,6 +114,14 @@ const styles = StyleSheet.create({
   webPageRootLayer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 3,
+  },
+  iosWebPageRootLayerVisible: {
+    opacity: 1,
+    zIndex: 3,
+  },
+  iosWebPageRootLayerHidden: {
+    opacity: 0,
+    zIndex: 0,
   },
 });
 
@@ -518,9 +528,40 @@ function MobileBrowser() {
     styles.webPageRootLayer,
     {
       bottom: BROWSER_BOTTOM_BAR_HEIGHT + bottom,
-      display: shouldShowRootWebPageLayer ? 'flex' : 'none',
     },
+    shouldShowRootWebPageLayer
+      ? styles.iosWebPageRootLayerVisible
+      : styles.iosWebPageRootLayerHidden,
   ];
+  const browserDashboardContent = (
+    <View
+      style={{
+        display: showDiscoveryPage ? 'flex' : 'none',
+        flex: showDiscoveryPage ? 1 : undefined,
+      }}
+    >
+      <DashboardContent onScroll={handleScroll} />
+    </View>
+  );
+  const browserBottomBarContent = (
+    <Freeze freeze={!displayBottomBar}>
+      <Animated.View
+        style={[
+          toolbarAnimatedStyle,
+          {
+            bottom: 0,
+            left: 0,
+            right: 0,
+          },
+        ]}
+      >
+        <MobileBrowserBottomBar
+          id={activeTabId ?? ''}
+          onGoBackHomePage={handleGoBackHome}
+        />
+      </Animated.View>
+    </Freeze>
+  );
 
   return (
     <Page fullPage>
@@ -577,46 +618,28 @@ function MobileBrowser() {
               browserContent={
                 <Stack flex={1} zIndex={3}>
                   <Stack flex={1}>
-                    <View
-                      style={{
-                        display: showDiscoveryPage ? 'flex' : 'none',
-                        flex: showDiscoveryPage ? 1 : undefined,
-                      }}
-                    >
-                      <DashboardContent onScroll={handleScroll} />
-                    </View>
+                    {browserDashboardContent}
+                    {platformEnv.isNativeAndroid ? (
+                      <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
+                    ) : null}
                   </Stack>
-                  <Freeze freeze={!displayBottomBar}>
-                    <Animated.View
-                      style={[
-                        toolbarAnimatedStyle,
-                        {
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                        },
-                      ]}
-                    >
-                      <MobileBrowserBottomBar
-                        id={activeTabId ?? ''}
-                        onGoBackHomePage={handleGoBackHome}
-                      />
-                    </Animated.View>
-                  </Freeze>
+                  {browserBottomBarContent}
                 </Stack>
               }
             />
-            <View
-              collapsable={false}
-              pointerEvents={shouldShowRootWebPageLayer ? 'auto' : 'none'}
-              accessibilityElementsHidden={!shouldShowRootWebPageLayer}
-              importantForAccessibility={
-                shouldShowRootWebPageLayer ? 'auto' : 'no-hide-descendants'
-              }
-              style={rootWebPageLayerStyle}
-            >
-              {content}
-            </View>
+            {platformEnv.isNativeIOS ? (
+              <View
+                collapsable={false}
+                pointerEvents={shouldShowRootWebPageLayer ? 'auto' : 'none'}
+                accessibilityElementsHidden={!shouldShowRootWebPageLayer}
+                importantForAccessibility={
+                  shouldShowRootWebPageLayer ? 'auto' : 'no-hide-descendants'
+                }
+                style={rootWebPageLayerStyle}
+              >
+                {content}
+              </View>
+            ) : null}
           </>
         ) : (
           <>
