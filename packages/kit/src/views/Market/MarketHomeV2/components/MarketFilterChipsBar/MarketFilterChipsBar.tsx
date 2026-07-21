@@ -171,14 +171,10 @@ function ClearTextButton({
 
 // The fade must hide the text under the × — it fades to the chip's EFFECTIVE
 // surface (its translucent bg token composited over bgApp), precomputed per
-// theme as a hex (theme.*.val is not a reliable color string on web). Two
-// surfaces because the two chip kinds sit on different bg tokens:
-//   bgStrong        (interactive chip, resting) : light #F0F0F0 / dark #202020
-//   bgStrongHover   (interactive chip, hovered) : light #E8E8E8 / dark #282828
-// The interactive chip only shows the fade while hovered (bg = bgStrongHover),
-// so it uses the hover surface; the display-only chip never changes bg, so it
-// uses the resting surface. Recompute if grayA3/grayA4 change.
-const CHIP_MASK_HEX_BASE = { light: '#f0f0f0', dark: '#202020' };
+// theme as a hex (theme.*.val is not a reliable color string on web). The fade
+// only appears while the chip is highlighted (hover/open), so the target is the
+// hovered surface: bgStrongHover over bgApp = light #E8E8E8 / dark #282828
+// (grayA4 over bgApp). Recompute if grayA4 changes.
 const CHIP_MASK_HEX_HOVER = { light: '#e8e8e8', dark: '#282828' };
 
 // Remove hit-target + fade geometry. The overlays sit ON TOP of the value
@@ -193,17 +189,14 @@ const CHIP_FADE_END: [number, number] = [1, 0];
 const CHIP_FADE_LOCATIONS: [number, number, number] = [0, 0.45, 1];
 
 // Figma 25099-6710 / 25116-6318: bg-strong capsule, h 26 / radius full, label
-// regular + value medium; hover fades in a remove control over the right edge.
-// `interactive` chips (filter conditions) open a tier popover when the body is
-// pressed, so the body highlights (bg-strong-hover) and shows a pointer. The
-// sort chip is display-only: its body never highlights and carries no pointer,
-// so only the × reacts — that is what lets the user tell "pressing the pill"
-// from "pressing close".
+// regular + value medium; the body opens a popover on press (highlighting to
+// bg-strong-hover with a pointer), and hover fades in a remove control over the
+// right edge. Both the sort chip and the filter chips use this, so they read
+// as one consistent control.
 function ConditionChipShell({
   label,
   value,
   isOpen,
-  interactive = true,
   onRemove,
   testID,
   removeTestID,
@@ -211,7 +204,6 @@ function ConditionChipShell({
   label: string;
   value: string;
   isOpen?: boolean;
-  interactive?: boolean;
   onRemove: () => void;
   testID?: string;
   removeTestID?: string;
@@ -221,12 +213,9 @@ function ConditionChipShell({
   const themeVariant = useThemeVariant();
   const themeKey = themeVariant === 'dark' ? 'dark' : 'light';
   const showRemove = isHovered || isOpen;
-  // The body only highlights for interactive chips; the display-only chip
-  // stays on bg-strong, so its fade targets the resting surface.
-  const bodyHighlighted = interactive && showRemove;
-  const maskHex = bodyHighlighted
-    ? CHIP_MASK_HEX_HOVER[themeKey]
-    : CHIP_MASK_HEX_BASE[themeKey];
+  // The fade only shows while the body is highlighted (hover/open), so it
+  // targets the hover surface.
+  const maskHex = CHIP_MASK_HEX_HOVER[themeKey];
   return (
     <XStack
       alignItems="center"
@@ -235,18 +224,14 @@ function ConditionChipShell({
       px={CHIP_HORIZONTAL_PADDING}
       borderRadius="$full"
       overflow="hidden"
-      bg={bodyHighlighted ? '$bgStrongHover' : '$bgStrong'}
+      bg={showRemove ? '$bgStrongHover' : '$bgStrong'}
       userSelect="none"
+      cursor="pointer"
+      pressStyle={{ bg: '$bgStrongActive' }}
       onHoverIn={() => setIsHovered(true)}
       onHoverOut={() => setIsHovered(false)}
-      {...(interactive
-        ? {
-            cursor: 'pointer' as const,
-            pressStyle: { bg: '$bgStrongActive' },
-            onPress: noop,
-            role: 'button' as const,
-          }
-        : null)}
+      onPress={noop}
+      role="button"
       testID={testID}
     >
       <SizableText size="$bodySm" color="$textSubdued">
@@ -303,8 +288,12 @@ function ConditionChipShell({
   );
 }
 
-// Figma tier popover (25053-6035): 240 wide, two-column grid of pills
-// (min-w 72, grow), header = dimension label + Clear text button.
+type ITierPopoverOption = { id: string; label: string; disabled?: boolean };
+
+// Figma tier popover (25117-6453 / 25117-6494): 240 wide, header = dimension
+// label + Clear text button, then pills that share the row equally. Three or
+// fewer options sit on one line; four wrap to a 2x2 grid (the pill floor drops
+// to 0 so three can fit, matching the design's min-w-px pills).
 function TierPopoverContent({
   title,
   options,
@@ -314,12 +303,17 @@ function TierPopoverContent({
   testIdPrefix,
 }: {
   title: string;
-  options: { id: string; label: string }[];
+  options: ITierPopoverOption[];
   selectedOptionId?: string;
   onSelect: (optionId: string) => void;
   onClear: () => void;
   testIdPrefix: string;
 }) {
+  const columns = options.length === 4 ? 2 : options.length;
+  const rows: ITierPopoverOption[][] = [];
+  for (let i = 0; i < options.length; i += columns) {
+    rows.push(options.slice(i, i + columns));
+  }
   return (
     <YStack pt="$3" pb={14} px={14} gap="$3">
       <XStack alignItems="center" justifyContent="space-between" pr="$1">
@@ -328,18 +322,24 @@ function TierPopoverContent({
         </SizableText>
         <ClearTextButton onPress={onClear} testID={`${testIdPrefix}-clear`} />
       </XStack>
-      <XStack flexWrap="wrap" gap="$2">
-        {options.map((option) => (
-          <TierPill
-            key={option.id}
-            grow
-            label={option.label}
-            selected={option.id === selectedOptionId}
-            onPress={() => onSelect(option.id)}
-            testID={`${testIdPrefix}-${option.id}`}
-          />
+      <YStack gap="$2">
+        {rows.map((row) => (
+          <XStack key={row[0].id} gap="$2">
+            {row.map((option) => (
+              <TierPill
+                key={option.id}
+                grow
+                minWidth={0}
+                label={option.label}
+                selected={option.id === selectedOptionId}
+                disabled={option.disabled}
+                onPress={() => onSelect(option.id)}
+                testID={`${testIdPrefix}-${option.id}`}
+              />
+            ))}
+          </XStack>
         ))}
-      </XStack>
+      </YStack>
     </YStack>
   );
 }
@@ -398,14 +398,20 @@ function FilterConditionChip({
 
 // The active sort, shown as a peer of the filter conditions: the sort is part
 // of "how you are seeing this table", so leaving it implicit would hide half
-// the applied state. Same state machine as the column header (P1-10).
-// This chip has no direction dropdown: the quick-sort scenario is descending
-// only, and finer control lives on the column header itself.
+// the applied state. Same state machine as the column header (P1-10). It opens
+// a direction dropdown for consistency with the filter chips, but the ascending
+// option is disabled — the quick-sort scenario is descending only.
 function SortConditionChip({
   sortState,
+  isOpen,
+  onOpenChange,
+  onSelectDirection,
   onRemove,
 }: {
   sortState: IMarketListSortState;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSelectDirection: (direction: 'asc' | 'desc') => void;
   onRemove: () => void;
 }) {
   const { sortBy, sortType } = sortState;
@@ -414,13 +420,34 @@ function SortConditionChip({
   }
   const columnLabel = SORT_COLUMN_LABELS[sortBy] ?? sortBy;
   return (
-    <ConditionChipShell
-      label={columnLabel}
-      value={SORT_DIRECTION_LABELS[sortType]}
-      interactive={false}
-      onRemove={onRemove}
-      testID="market-filter-chip-sort"
-      removeTestID="market-filter-chip-sort-remove"
+    <Popover
+      title={columnLabel}
+      open={isOpen}
+      onOpenChange={onOpenChange}
+      floatingPanelProps={{ width: 240, minWidth: 240, maxWidth: 240 }}
+      renderTrigger={
+        <ConditionChipShell
+          label={columnLabel}
+          value={SORT_DIRECTION_LABELS[sortType]}
+          isOpen={isOpen}
+          onRemove={onRemove}
+          testID="market-filter-chip-sort"
+          removeTestID="market-filter-chip-sort-remove"
+        />
+      }
+      renderContent={
+        <TierPopoverContent
+          title={columnLabel}
+          options={[
+            { id: 'desc', label: SORT_DIRECTION_LABELS.desc },
+            { id: 'asc', label: SORT_DIRECTION_LABELS.asc, disabled: true },
+          ]}
+          selectedOptionId={sortType}
+          onSelect={(id) => onSelectDirection(id as 'asc' | 'desc')}
+          onClear={onRemove}
+          testIdPrefix="market-filter-tier-sort"
+        />
+      }
     />
   );
 }
@@ -540,12 +567,26 @@ export function MarketFilterChipsBar({
             <XStack gap="$0.5" alignItems="center">
               <SortConditionChip
                 sortState={sortState}
+                isOpen={openPopover === 'sort'}
+                onOpenChange={(open) =>
+                  setOpenPopover(open ? 'sort' : undefined)
+                }
+                onSelectDirection={(direction) => {
+                  defaultLogger.dex.list.dexFilterChip({
+                    action: 'conditionChange',
+                    field: 'sort',
+                    value: direction,
+                  });
+                  setSortState((prev) => ({ ...prev, sortType: direction }));
+                  setOpenPopover(undefined);
+                }}
                 onRemove={() => {
                   defaultLogger.dex.list.dexFilterChip({
                     action: 'conditionRemove',
                     field: 'sort',
                   });
                   setSortState({});
+                  setOpenPopover(undefined);
                 }}
               />
               {conditionEntries.map(([dimensionId, optionId]) => (
