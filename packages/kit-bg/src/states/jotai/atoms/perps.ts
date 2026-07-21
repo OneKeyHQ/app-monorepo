@@ -22,6 +22,7 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid';
 import { DEFAULT_PERP_TOKEN_ACTIVE_TAB } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import type { IUnifoldExecutionStatus } from '@onekeyhq/shared/types/unifoldDeposit';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputedR } from '../utils';
@@ -955,6 +956,31 @@ export const { target: perpsDepositOrderAtom, use: usePerpsDepositOrderAtom } =
       orders: [],
     },
   });
+
+// Unifold executions still in flight after the deposit modal closed. The bg
+// fetch loop keeps polling these and fires the standard perps deposit toast on
+// terminal status; entries age out after 48h (the server keeps reconciling —
+// history stays queryable forever).
+export interface IPerpsUnifoldTrackedExecution {
+  executionId: string;
+  recipientAddress: string;
+  // Support reference from the deposit-address response; shown in the
+  // failed/refunded toast (contract §1: contact support + sessionId).
+  sessionId: string | null;
+  lastStatus: IUnifoldExecutionStatus;
+  trackedAt: number;
+}
+
+export const {
+  target: perpsUnifoldDepositTrackingAtom,
+  use: usePerpsUnifoldDepositTrackingAtom,
+} = globalAtom<{ items: IPerpsUnifoldTrackedExecution[] }>({
+  name: EAtomNames.perpsUnifoldDepositTrackingAtom,
+  persist: true,
+  initialValue: {
+    items: [],
+  },
+});
 
 export interface IPerpsUserConfigPersistAtom {
   perpUserConfig: IPerpUserConfig;

@@ -1566,3 +1566,8 @@ navigations
 
 # OpenType tabular-figures feature tag
 tnum
+
+# Unifold deposit vendor
+unifold
+hypercore
+lookback
