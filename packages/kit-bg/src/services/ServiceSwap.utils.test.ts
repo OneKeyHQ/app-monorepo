@@ -1,4 +1,41 @@
-import { buildSwapRequestErrorToastPayload } from './ServiceSwap.utils';
+import {
+  buildPerpDepositOrderStatusRequestParams,
+  buildSwapRequestErrorToastPayload,
+} from './ServiceSwap.utils';
+
+describe('buildPerpDepositOrderStatusRequestParams', () => {
+  it('maps the quote order ID to the status request', () => {
+    expect(
+      buildPerpDepositOrderStatusRequestParams({
+        networkId: 'evm--1',
+        txId: '0xtx',
+        isArbUSDCToken: false,
+        toPerpDepositTokenAddress: '0xdeposit',
+        receivingAddress: '0xreceiver',
+        orderId: 'order-123',
+      }),
+    ).toEqual({
+      networkId: 'evm--1',
+      txId: '0xtx',
+      isArbUSDCToken: false,
+      toPerpDepositTokenAddress: '0xdeposit',
+      receivedAddress: '0xreceiver',
+      orderId: 'order-123',
+    });
+  });
+
+  it('omits the order ID for direct deposits and legacy pending orders', () => {
+    expect(
+      buildPerpDepositOrderStatusRequestParams({
+        networkId: 'evm--42161',
+        txId: '0xtx',
+        isArbUSDCToken: true,
+        toPerpDepositTokenAddress: '0xdeposit',
+        receivingAddress: '0xreceiver',
+      }),
+    ).not.toHaveProperty('orderId');
+  });
+});
 
 describe('buildSwapRequestErrorToastPayload', () => {
   it('keeps the request ID out of visible text while preserving diagnostics', () => {
