@@ -145,6 +145,35 @@ describe('useSwapProAmountSlider', () => {
     expect(result.current.sliderValue).toBe(0);
   });
 
+  it('cancels a pending trailing commit when the amount is cleared externally', () => {
+    const onAmountChange = jest.fn();
+    const { result, rerender } = renderHook(
+      (props: { inputAmount: string }) =>
+        useSwapProAmountSlider({
+          inputAmount: props.inputAmount,
+          onAmountChange,
+        }),
+      {
+        initialProps: { inputAmount: '0' },
+      },
+    );
+
+    act(() => {
+      result.current.onSliderChange(25);
+      result.current.onSliderChange(50);
+    });
+    expect(onAmountChange).toHaveBeenCalledTimes(1);
+
+    rerender({ inputAmount: '' });
+    onAmountChange.mockClear();
+
+    act(() => {
+      jest.runAllTimers();
+    });
+
+    expect(onAmountChange).not.toHaveBeenCalled();
+  });
+
   it('keeps the slider disabled until the token balance is loaded and valid', () => {
     const onAmountChange = jest.fn();
     mockInputToken = {

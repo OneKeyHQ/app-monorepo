@@ -78,11 +78,6 @@ export function useSwapProAmountSlider({
   useEffect(() => {
     setZeroBalanceSliderValue(0);
   }, [availableBalance, inputTokenKey]);
-  useEffect(() => {
-    if (inputAmount === '') {
-      setZeroBalanceSliderValue(0);
-    }
-  }, [inputAmount]);
 
   // Positive balances derive the thumb position from the amount so manual
   // typing and keyboard percentage stages stay in sync. A zero balance cannot
@@ -142,6 +137,13 @@ export function useSwapProAmountSlider({
       ),
     [],
   );
+  useEffect(() => {
+    if (inputAmount === '') {
+      commitPercentThrottled.cancel();
+      lastDragPercentRef.current = 0;
+      setZeroBalanceSliderValue(0);
+    }
+  }, [commitPercentThrottled, inputAmount]);
   useEffect(
     () => () => commitPercentThrottled.cancel(),
     [commitPercentThrottled],
