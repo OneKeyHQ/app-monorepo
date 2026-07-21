@@ -2276,9 +2276,7 @@ export function UniversalStake({
           ) : null}
           {summaryContent}
           {summaryLoadingContent}
-          {summaryContent || summaryLoadingContent ? (
-            <Divider my="$5" />
-          ) : null}
+          {summaryContent || summaryLoadingContent ? <Divider my="$5" /> : null}
           <YStack gap="$5">
             {ongoingValidator ? (
               <EarnValidatorSelect

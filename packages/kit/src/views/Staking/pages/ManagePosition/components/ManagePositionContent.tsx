@@ -112,7 +112,9 @@ const ManageSectionShell = ({
 }) => {
   const intl = useIntl();
   const { primaryLabel, secondaryLabel } = useMemo(() => {
-    if ([EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)) {
+    if (
+      [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
+    ) {
       return {
         primaryLabel: intl.formatMessage({ id: ETranslations.global_borrow }),
         secondaryLabel: intl.formatMessage({ id: ETranslations.defi_repay }),
@@ -245,11 +247,7 @@ const ManageSectionShell = ({
                   >
                     {intl.formatMessage({ id: ETranslations.global_trade })}
                   </Button>
-                  <Button
-                    testID="earn-manage-shell-buy"
-                    size="small"
-                    disabled
-                  >
+                  <Button testID="earn-manage-shell-buy" size="small" disabled>
                     {intl.formatMessage({ id: ETranslations.global_buy })}
                   </Button>
                 </XStack>
@@ -299,11 +297,7 @@ const ManageSectionShell = ({
                   >
                     {intl.formatMessage({ id: ETranslations.global_trade })}
                   </Button>
-                  <Button
-                    testID="earn-manage-shell-buy"
-                    size="small"
-                    disabled
-                  >
+                  <Button testID="earn-manage-shell-buy" size="small" disabled>
                     {intl.formatMessage({ id: ETranslations.global_buy })}
                   </Button>
                 </XStack>
