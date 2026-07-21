@@ -11,6 +11,7 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import {
   PORTFOLIO_SYNC_TRANSFER_COOLDOWN_MS,
   buildPortfolioSyncArtifacts,
+  getPortfolioDisplayTimestamp,
   getPortfolioSyncCooldownRemainingMs,
   isPortfolioSyncDevEnabled,
 } from './serviceHardwarePortfolioSyncUtils';
@@ -56,6 +57,15 @@ function buildFiat(params: Partial<ITokenFiat>): ITokenFiat {
 }
 
 describe('serviceHardwarePortfolioSyncUtils', () => {
+  test('converts a Unix timestamp to the App local display time', () => {
+    expect(
+      getPortfolioDisplayTimestamp({
+        timestamp: 1_784_592_000_000,
+        timezoneOffsetMinutes: -540,
+      }),
+    ).toBe(1_784_624_400_000);
+  });
+
   test('requires both the Pro 2 master switch and explicit portfolio switch', () => {
     expect(
       isPortfolioSyncDevEnabled({

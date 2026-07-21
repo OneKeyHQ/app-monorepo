@@ -23,6 +23,7 @@ import ServiceBase from '../../ServiceBase';
 
 import {
   buildPortfolioSyncArtifacts,
+  getPortfolioDisplayTimestamp,
   getPortfolioSyncCooldownRemainingMs,
   isPortfolioSyncDevEnabled,
 } from './serviceHardwarePortfolioSyncUtils';
@@ -394,7 +395,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         currencyMap,
         displayCurrency,
         eventPayload,
-        timestamp: updatedAt,
+        timestamp: getPortfolioDisplayTimestamp({ timestamp: updatedAt }),
       });
       debugPortfolioSyncLog('portfolio-built', {
         contentHash: artifacts.contentHash,
