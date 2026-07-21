@@ -40,6 +40,7 @@ export function useSwapProAmountSlider({
   const [swapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const lastDragPercentRef = useRef(0);
+  const hasDragChangeRef = useRef(false);
 
   const reserveGas = useMemo(() => {
     if (!inputToken?.isNative) {
@@ -76,6 +77,8 @@ export function useSwapProAmountSlider({
   )}`;
   const [zeroBalanceSliderValue, setZeroBalanceSliderValue] = useState(0);
   useEffect(() => {
+    lastDragPercentRef.current = 0;
+    hasDragChangeRef.current = false;
     setZeroBalanceSliderValue(0);
   }, [availableBalance, inputTokenKey]);
 
@@ -141,6 +144,7 @@ export function useSwapProAmountSlider({
     if (inputAmount === '') {
       commitPercentThrottled.cancel();
       lastDragPercentRef.current = 0;
+      hasDragChangeRef.current = false;
       setZeroBalanceSliderValue(0);
     }
   }, [commitPercentThrottled, inputAmount]);
@@ -155,33 +159,41 @@ export function useSwapProAmountSlider({
         return;
       }
       lastDragPercentRef.current = percent;
-      if (availableBalance.lte(0)) {
-        setZeroBalanceSliderValue(percent);
-      }
+      hasDragChangeRef.current = true;
       commitPercentThrottled(percent, commitContextRef.current.inputTokenKey);
     },
-    [availableBalance, sliderDisabled, commitPercentThrottled],
+    [sliderDisabled, commitPercentThrottled],
   );
 
   // Each gesture starts from a clean slate so a tap/long-press that emits no
   // onChange can't reuse the previous drag's percent.
   const onSlideStart = useCallback(() => {
     lastDragPercentRef.current = 0;
+    hasDragChangeRef.current = false;
   }, []);
 
   // Toast once on release at 100% instead of during the drag, mirroring the
   // native-token reserve tips shown by the balance max press.
   const onSlideComplete = useCallback(() => {
+    const completedPercent = lastDragPercentRef.current;
+    if (
+      hasDragChangeRef.current &&
+      !sliderDisabled &&
+      availableBalance.lte(0)
+    ) {
+      setZeroBalanceSliderValue(completedPercent);
+    }
     // Land the final drag value immediately instead of waiting out the
     // throttle window.
     commitPercentThrottled.flush();
     const releasedAtMax =
-      lastDragPercentRef.current >= SWAP_PRO_SLIDER_MAX_PERCENT &&
+      completedPercent >= SWAP_PRO_SLIDER_MAX_PERCENT &&
       !sliderDisabled &&
       availableBalance.gt(0);
     // Consume the gesture's percent so a later release without any onChange
     // (tap on the current mark, long-press) can't re-trigger the toast.
     lastDragPercentRef.current = 0;
+    hasDragChangeRef.current = false;
     if (!releasedAtMax || !inputToken?.isNative) {
       return;
     }

@@ -80,8 +80,14 @@ describe('useSwapProAmountSlider', () => {
       result.current.onSliderChange(25);
     });
 
-    expect(result.current.sliderValue).toBe(25);
+    expect(result.current.sliderValue).toBe(0);
     expect(onAmountChange).toHaveBeenCalledWith('0');
+
+    act(() => {
+      result.current.onSlideComplete();
+    });
+
+    expect(result.current.sliderValue).toBe(25);
 
     rerender({ inputAmount: '0' });
     expect(result.current.sliderValue).toBe(25);
@@ -93,6 +99,30 @@ describe('useSwapProAmountSlider', () => {
 
     expect(result.current.sliderValue).toBe(100);
     expect(mockToastMessage).not.toHaveBeenCalled();
+  });
+
+  it('defers the zero-balance slider value update until the drag completes', () => {
+    const onAmountChange = jest.fn();
+    const { result } = renderHook(() =>
+      useSwapProAmountSlider({
+        inputAmount: '0',
+        onAmountChange,
+      }),
+    );
+
+    act(() => {
+      result.current.onSlideStart();
+      result.current.onSliderChange(25);
+      result.current.onSliderChange(50);
+    });
+
+    expect(result.current.sliderValue).toBe(0);
+
+    act(() => {
+      result.current.onSlideComplete();
+    });
+
+    expect(result.current.sliderValue).toBe(50);
   });
 
   it('resets the zero-balance percentage when the input token changes', () => {
@@ -108,6 +138,7 @@ describe('useSwapProAmountSlider', () => {
 
     act(() => {
       result.current.onSliderChange(50);
+      result.current.onSlideComplete();
     });
     expect(result.current.sliderValue).toBe(50);
 
@@ -137,6 +168,7 @@ describe('useSwapProAmountSlider', () => {
 
     act(() => {
       result.current.onSliderChange(50);
+      result.current.onSlideComplete();
     });
     expect(result.current.sliderValue).toBe(50);
 
