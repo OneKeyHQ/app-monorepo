@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import {
   Divider,
+  GradientMask,
   Icon,
-  LinearGradient,
   Popover,
   SizableText,
   Stack,
@@ -172,43 +172,33 @@ function ClearTextButton({
 // bg-strong-hover is a translucent gray overlay, so a fade drawn in it would
 // not actually hide the text underneath — the mask must fade to the chip's
 // EFFECTIVE surface = bgStrongHover composited over bgApp. Both tokens are
-// fixed, so the two composites are precomputed per theme rather than parsed
-// from theme.*.val (which is not a reliable color string on web).
-// light: #FFFFFF + grayA4 (#00000017) -> rgb(232); dark: #0f0f0f + grayA4
-// dark (#ffffff1b) -> rgb(40). Recompute if those tokens change.
-const CHIP_MASK_SOLID = { light: 'rgb(232,232,232)', dark: 'rgb(40,40,40)' };
-const CHIP_MASK_TRANSPARENT = {
-  light: 'rgba(232,232,232,0)',
-  dark: 'rgba(40,40,40,0)',
-};
-
-function useChipMaskColors() {
-  const themeVariant = useThemeVariant();
-  const key = themeVariant === 'dark' ? 'dark' : 'light';
-  return {
-    solid: CHIP_MASK_SOLID[key],
-    transparent: CHIP_MASK_TRANSPARENT[key],
-  };
-}
+// fixed, so the composite is precomputed per theme (as a hex GradientMask can
+// append "00" to) rather than parsed from theme.*.val, which is not a reliable
+// color string on web.
+// light: #FFFFFF + grayA4 (#00000017) -> #E8E8E8; dark: #0f0f0f + grayA4 dark
+// (#ffffff1b) -> #282828. Recompute if those tokens change.
+const CHIP_MASK_HEX = { light: '#e8e8e8', dark: '#282828' };
 
 // Width of the remove hit-target and the gradient fade over the chip's right
-// edge. The gradient sits ON TOP of the value text so revealing the × never
-// changes the chip width (no layout jitter) — the text just fades out beneath.
+// edge. Same technique the mobile category scroller uses (GradientMask), but
+// fading to the chip's own surface instead of the page. The overlays sit ON
+// TOP of the value text, so revealing the × never changes the chip width (no
+// layout jitter) — the text just fades out beneath it.
 const CHIP_REMOVE_WIDTH = 26;
 const CHIP_FADE_WIDTH = 34;
-const CHIP_FADE_START: [number, number] = [0, 0];
-const CHIP_FADE_END: [number, number] = [1, 0];
-// Solid for the last ~55% so the × always sits on an opaque patch.
-const CHIP_FADE_LOCATIONS: [number, number, number] = [0, 0.45, 1];
+const CHIP_HORIZONTAL_PADDING = 10;
 
-// Figma 25099-6710 / 25116-6318: bg-strong capsule, h 26 / radius full / px 9,
-// label regular + value medium. Hover swaps to bg-strong-hover and fades in a
-// remove control over the right edge; the 26px hit-target and the gradient are
-// overlays, so nothing about the chip's size changes on hover.
+// Figma 25099-6710 / 25116-6318: bg-strong capsule, h 26 / radius full, label
+// regular + value medium. Hover swaps to bg-strong-hover and fades in a remove
+// control over the right edge. `interactive` chips (filter conditions) open a
+// tier popover when the body is pressed; the sort chip is display-only, so its
+// body carries no pointer affordance and only the × is actionable — that is
+// what lets the user tell "pressing the pill" from "pressing close".
 function ConditionChipShell({
   label,
   value,
   isOpen,
+  interactive = true,
   onRemove,
   testID,
   removeTestID,
@@ -216,33 +206,36 @@ function ConditionChipShell({
   label: string;
   value: string;
   isOpen?: boolean;
+  interactive?: boolean;
   onRemove: () => void;
   testID?: string;
   removeTestID?: string;
 }) {
   const [isHovered, setIsHovered] = useState(false);
-  const mask = useChipMaskColors();
+  const [isRemoveHovered, setIsRemoveHovered] = useState(false);
+  const themeVariant = useThemeVariant();
+  const maskHex = CHIP_MASK_HEX[themeVariant === 'dark' ? 'dark' : 'light'];
   const showRemove = isHovered || isOpen;
-  const fadeColors = useMemo(
-    () => [mask.transparent, mask.solid, mask.solid],
-    [mask],
-  );
   return (
     <XStack
       alignItems="center"
       gap="$1"
       height={26}
-      px={9}
+      px={CHIP_HORIZONTAL_PADDING}
       borderRadius="$full"
       overflow="hidden"
       bg={showRemove ? '$bgStrongHover' : '$bgStrong'}
-      pressStyle={{ bg: '$bgStrongActive' }}
       userSelect="none"
-      cursor="pointer"
       onHoverIn={() => setIsHovered(true)}
       onHoverOut={() => setIsHovered(false)}
-      onPress={noop}
-      role="button"
+      {...(interactive
+        ? {
+            cursor: 'pointer' as const,
+            pressStyle: { bg: '$bgStrongActive' },
+            onPress: noop,
+            role: 'button' as const,
+          }
+        : null)}
       testID={testID}
     >
       <SizableText size="$bodySm" color="$textSubdued">
@@ -253,27 +246,23 @@ function ConditionChipShell({
       </SizableText>
       {showRemove ? (
         <>
-          <LinearGradient
-            position="absolute"
-            top={0}
-            bottom={0}
-            right={0}
+          <GradientMask
+            position="right"
             width={CHIP_FADE_WIDTH}
-            pointerEvents="none"
-            colors={fadeColors}
-            locations={CHIP_FADE_LOCATIONS}
-            start={CHIP_FADE_START}
-            end={CHIP_FADE_END}
+            bgColor={maskHex}
           />
           <Stack
             position="absolute"
             top={0}
             bottom={0}
             right={0}
+            zIndex={10}
             width={CHIP_REMOVE_WIDTH}
             alignItems="center"
             justifyContent="center"
             cursor="pointer"
+            onHoverIn={() => setIsRemoveHovered(true)}
+            onHoverOut={() => setIsRemoveHovered(false)}
             onPress={(event) => {
               // The chip body opens the tier popover; the × must not.
               event.stopPropagation();
@@ -282,7 +271,13 @@ function ConditionChipShell({
             role="button"
             testID={removeTestID}
           >
-            <Icon name="CrossedSmallOutline" size="$4" color="$iconSubdued" />
+            {/* Recolor on hover, matching the popover's Clear button, so the
+                close target reads as distinct from the pill body. */}
+            <Icon
+              name="CrossedSmallOutline"
+              size="$4"
+              color={isRemoveHovered ? '$icon' : '$iconSubdued'}
+            />
           </Stack>
         </>
       ) : null}
@@ -404,6 +399,7 @@ function SortConditionChip({
     <ConditionChipShell
       label={columnLabel}
       value={SORT_DIRECTION_LABELS[sortType]}
+      interactive={false}
       onRemove={onRemove}
       testID="market-filter-chip-sort"
       removeTestID="market-filter-chip-sort-remove"

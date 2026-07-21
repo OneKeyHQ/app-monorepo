@@ -141,7 +141,6 @@ describe('findActiveMarketFilterChip', () => {
       findActiveMarketFilterChip(
         {
           [EMarketFilterDimension.Turnover]: 'min-100000',
-          [EMarketFilterDimension.Holders]: 'min-1000',
           [EMarketFilterDimension.Liquidity]: 'min-50000',
           [EMarketFilterDimension.MarketCap]: 'min-1000000',
         },

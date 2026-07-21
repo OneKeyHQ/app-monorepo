@@ -247,10 +247,9 @@ export const MARKET_FILTER_CHIPS: IMarketFilterChip[] = [
     tooltip: 'Hot tokens matching these conditions',
   },
   {
-    // PENDING (PM 2026-07-21): drop the Holders floor from Large-cap. Kept for
-    // now on request; the holders>=1K passthrough is what clears fake market
-    // caps, so removing it needs the quality-floor question (open question 5)
-    // settled first.
+    // Holders floor dropped per PM 2026-07-21 (was the PRD's optional
+    // quality-floor note, open question 5). Large-cap now filters on the three
+    // size/liquidity/turnover floors only.
     id: 'largeCap',
     label: 'Large-cap tokens',
     icon: 'GalaxyOutline',
@@ -258,7 +257,6 @@ export const MARKET_FILTER_CHIPS: IMarketFilterChip[] = [
       [EMarketFilterDimension.MarketCap]: 'min-1000000',
       [EMarketFilterDimension.Liquidity]: 'min-50000',
       [EMarketFilterDimension.Turnover]: 'min-100000',
-      [EMarketFilterDimension.Holders]: 'min-1000',
     },
     timeRange: '1h',
     tooltip: 'Hot tokens matching these conditions',
