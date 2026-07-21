@@ -932,6 +932,7 @@ export const {
 export interface IPerpsDepositOrderAtom {
   isArbUSDCOrder: boolean;
   fromTxId: string;
+  orderId?: string;
   toTxId?: string;
   amount: string;
   token: IPerpsDepositToken;
