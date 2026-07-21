@@ -125,6 +125,30 @@ describe('getSwapOrderProgressSteps', () => {
     ]);
   });
 
+  it.each([
+    ESwapCrossChainStatus.FROM_PENDING,
+    ESwapCrossChainStatus.FROM_SUCCESS,
+    ESwapCrossChainStatus.BRIDGE_PENDING,
+    ESwapCrossChainStatus.BRIDGE_SUCCESS,
+    ESwapCrossChainStatus.TO_PENDING,
+  ])(
+    'prioritizes a top-level failed status over stale %s',
+    (crossChainStatus) => {
+      for (const status of [
+        ESwapTxHistoryStatus.FAILED,
+        ESwapTxHistoryStatus.CANCELED,
+      ]) {
+        expect(getSwapOrderProgressSteps({ status, crossChainStatus })).toEqual(
+          [
+            { label: 'submitted', status: 'done' },
+            { label: 'failed', status: 'error' },
+            { label: 'done', status: 'todo' },
+          ],
+        );
+      }
+    },
+  );
+
   it('renders REFUNDING as an active Refund step', () => {
     expect(
       getSwapOrderProgressSteps({

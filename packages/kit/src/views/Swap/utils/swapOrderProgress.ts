@@ -33,6 +33,14 @@ const failedStatuses = new Set<ESwapTxHistoryStatus>([
   ESwapTxHistoryStatus.CANCELED,
 ]);
 
+const processingCrossChainStatuses = new Set<ESwapCrossChainStatus>([
+  ESwapCrossChainStatus.FROM_PENDING,
+  ESwapCrossChainStatus.FROM_SUCCESS,
+  ESwapCrossChainStatus.BRIDGE_PENDING,
+  ESwapCrossChainStatus.BRIDGE_SUCCESS,
+  ESwapCrossChainStatus.TO_PENDING,
+]);
+
 function getThreeStepProgress(
   status?: ESwapTxHistoryStatus,
 ): ISwapOrderProgressStep[] {
@@ -111,6 +119,14 @@ export function getSwapOrderProgressSteps({
     (status && successStatuses.has(status))
   ) {
     return getFourStepSuccessProgress();
+  }
+
+  if (
+    status &&
+    failedStatuses.has(status) &&
+    processingCrossChainStatuses.has(crossChainStatus)
+  ) {
+    return getThreeStepProgress(status);
   }
 
   switch (crossChainStatus) {
