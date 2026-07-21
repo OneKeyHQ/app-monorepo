@@ -117,6 +117,7 @@ export function useTokenListCellsProducer(
   ownerKey: string,
   currencyId: string,
   storeName?: string,
+  onFrameApplied?: (kind: ITokenFrameKind) => void,
 ): void {
   const { store } = useTokenListContextData();
 
@@ -219,6 +220,7 @@ export function useTokenListCellsProducer(
           getCurrency: () => currencyIdRef.current,
         });
       }
+      onFrameApplied?.(kind);
     },
     kinds: [
       {
@@ -308,6 +310,6 @@ export function useTokenListCellsProducer(
           }) satisfies IRiskyPush,
       },
     ],
-    extraDeps: [store, deps, storeName],
+    extraDeps: [store, deps, storeName, onFrameApplied],
   });
 }

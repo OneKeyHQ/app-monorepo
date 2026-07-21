@@ -1,0 +1,202 @@
+import { type ReactNode, createElement } from 'react';
+
+import { type ReactTestRenderer, act, create } from 'react-test-renderer';
+
+import { HomeStoreSourceControllers } from './HomeStoreSourceControllers';
+
+const mockTestGlobal = globalThis as typeof globalThis & {
+  IS_REACT_ACT_ENVIRONMENT?: boolean;
+};
+
+jest.mock(
+  '../../components/HomeTokenListProvider/HomeTokenListProviderMirror',
+  () => {
+    const React = jest.requireActual<typeof import('react')>('react');
+    return {
+      HomeTokenListProviderMirror: ({ children }: { children?: ReactNode }) =>
+        React.createElement('View', { testID: 'token-list-mirror' }, children),
+    };
+  },
+);
+
+jest.mock('./HomeBalanceStoreController', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    HomeBalanceStoreController: () =>
+      React.createElement('View', { testID: 'balance-controller' }),
+  };
+});
+
+jest.mock('./HomeAccountValuePersistenceController', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    HomeAccountValuePersistenceController: () =>
+      React.createElement('View', { testID: 'account-value-controller' }),
+  };
+});
+
+jest.mock('./HomeBannerStoreController', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    HomeBannerStoreController: () =>
+      React.createElement('View', { testID: 'banner-controller' }),
+  };
+});
+
+jest.mock(
+  '../../components/TokenListBlock/HomePortfolioStoreController',
+  () => {
+    const React = jest.requireActual<typeof import('react')>('react');
+    return {
+      HomePortfolioStoreController: () =>
+        React.createElement('View', { testID: 'portfolio-controller' }),
+    };
+  },
+);
+
+jest.mock('./HomeCapabilityStoreController', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    HomeCapabilityStoreController: () =>
+      React.createElement('View', { testID: 'capability-controller' }),
+  };
+});
+
+jest.mock('./HomeDeFiStoreController', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    HomeDeFiStoreController: () =>
+      React.createElement('View', { testID: 'defi-controller' }),
+  };
+});
+
+jest.mock('./HomeHistoryStoreController', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    HomeHistoryStoreController: () =>
+      React.createElement('View', { testID: 'history-controller' }),
+  };
+});
+
+jest.mock('./HomeMarketStoreController', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    HomeMarketStoreController: () =>
+      React.createElement('View', { testID: 'market-controller' }),
+  };
+});
+
+jest.mock('./HomeNFTStoreController', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    HomeNFTStoreController: () =>
+      React.createElement('View', { testID: 'nft-controller' }),
+  };
+});
+
+jest.mock('./HomePerpsStoreController', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    HomePerpsStoreController: () =>
+      React.createElement('View', { testID: 'perps-controller' }),
+  };
+});
+
+jest.mock('./HomeStoreControllerBridge', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    HomeStoreControllerBridge: () =>
+      React.createElement('View', { testID: 'runtime-controller' }),
+  };
+});
+
+jest.mock('./HomeStoreSnapshotController', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    HomeStoreSnapshotController: () =>
+      React.createElement('View', { testID: 'snapshot-controller' }),
+  };
+});
+
+beforeAll(() => {
+  mockTestGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+});
+
+afterAll(() => {
+  delete mockTestGlobal.IS_REACT_ACT_ENVIRONMENT;
+});
+
+describe('HomeStoreSourceControllers', () => {
+  it('mounts every root Store controller exactly once', () => {
+    let view!: ReactTestRenderer;
+    act(() => {
+      view = create(<HomeStoreSourceControllers />);
+    });
+
+    expect(
+      view.root.findAllByProps({ testID: 'runtime-controller' }),
+    ).toHaveLength(1);
+    expect(
+      view.root.findAllByProps({ testID: 'capability-controller' }),
+    ).toHaveLength(1);
+    expect(
+      view.root.findAllByProps({ testID: 'balance-controller' }),
+    ).toHaveLength(1);
+    expect(
+      view.root.findAllByProps({ testID: 'snapshot-controller' }),
+    ).toHaveLength(1);
+    expect(
+      view.root
+        .findByProps({ testID: 'token-list-mirror' })
+        .findAllByProps({ testID: 'balance-controller' }),
+    ).toHaveLength(1);
+
+    act(() => view.unmount());
+  });
+
+  it('mounts wallet domain sources only for the Wallet Home scene', () => {
+    let view!: ReactTestRenderer;
+    act(() => {
+      view = create(
+        <HomeStoreSourceControllers enableWalletSources>
+          {createElement('View', { testID: 'home-renderer' })}
+        </HomeStoreSourceControllers>,
+      );
+    });
+
+    expect(
+      view.root.findAllByProps({ testID: 'banner-controller' }),
+    ).toHaveLength(1);
+    expect(
+      view.root.findAllByProps({ testID: 'account-value-controller' }),
+    ).toHaveLength(1);
+    expect(
+      view.root.findAllByProps({ testID: 'perps-controller' }),
+    ).toHaveLength(1);
+    expect(
+      view.root.findAllByProps({ testID: 'defi-controller' }),
+    ).toHaveLength(1);
+    expect(
+      view.root.findAllByProps({ testID: 'history-controller' }),
+    ).toHaveLength(1);
+    expect(
+      view.root.findAllByProps({ testID: 'portfolio-controller' }),
+    ).toHaveLength(1);
+    expect(
+      view.root
+        .findByProps({ testID: 'token-list-mirror' })
+        .findAllByProps({ testID: 'portfolio-controller' }),
+    ).toHaveLength(1);
+    expect(view.root.findAllByProps({ testID: 'nft-controller' })).toHaveLength(
+      1,
+    );
+    expect(
+      view.root.findAllByProps({ testID: 'market-controller' }),
+    ).toHaveLength(1);
+    expect(view.root.findAllByProps({ testID: 'home-renderer' })).toHaveLength(
+      1,
+    );
+
+    act(() => view.unmount());
+  });
+});

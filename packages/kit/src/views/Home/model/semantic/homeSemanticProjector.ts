@@ -4,9 +4,6 @@ import { projectHomePortfolioPresentation } from '../policies/homePortfolioPolic
 import { projectHomeSection } from '../policies/homeSectionPolicy';
 
 import type {
-  IHomeAuthoritativeNavigationSnapshot,
-  IHomeAuthoritativeSectionSnapshot,
-  IHomeAuthoritativeShellSnapshot,
   IHomeSectionId,
   IHomeSectionSemanticModel,
   IHomeSemanticModel,
@@ -23,27 +20,14 @@ const sectionIds: readonly IHomeSectionId[] = [
 ];
 
 export function projectHomeSemanticModel({
-  authoritativeNavigation,
-  authoritativeShell,
-  authoritativeSections,
   facts,
   selectedTabId,
 }: {
-  authoritativeNavigation?: IHomeAuthoritativeNavigationSnapshot;
-  authoritativeShell?: IHomeAuthoritativeShellSnapshot;
-  authoritativeSections?: Partial<
-    Record<IHomeSectionId, IHomeAuthoritativeSectionSnapshot>
-  >;
   facts: IHomeFacts;
   selectedTabId?: string;
 }): IHomeSemanticModel {
   const capabilities = projectHomeCapabilities({ facts, selectedTabId });
-  const authoritativeNavigationMatches =
-    authoritativeNavigation?.owner.scopeKey === facts.ownerToken.scopeKey &&
-    authoritativeNavigation.owner.sessionId === facts.ownerToken.sessionId;
-  const navigation = authoritativeNavigationMatches
-    ? authoritativeNavigation.value
-    : capabilities.navigation;
+  const navigation = capabilities.navigation;
   const capabilitySections =
     navigation.kind === 'ready' && navigation.sections
       ? navigation.sections
@@ -52,29 +36,19 @@ export function projectHomeSemanticModel({
   const projectsPortfolioShell = backupShell === undefined;
   const sections = {} as Record<IHomeSectionId, IHomeSectionSemanticModel>;
   sectionIds.forEach((id) => {
-    const authoritative = authoritativeSections?.[id];
-    sections[id] =
-      authoritative?.owner.scopeKey === facts.ownerToken.scopeKey &&
-      authoritative.owner.sessionId === facts.ownerToken.sessionId &&
-      authoritative.sectionId === id
-        ? authoritative.value
-        : projectHomeSection({
-            applicable: projectsPortfolioShell && capabilitySections[id],
-            confirmed: facts.confirmed[id],
-            id,
-            resource: facts.sources[id],
-          });
+    sections[id] = projectHomeSection({
+      applicable: projectsPortfolioShell && capabilitySections[id],
+      confirmed: facts.confirmed[id],
+      id,
+      resource: facts.sources[id],
+    });
   });
   return {
     owner: facts.ownerToken,
-    shell:
-      authoritativeShell?.owner.scopeKey === facts.ownerToken.scopeKey &&
-      authoritativeShell.owner.sessionId === facts.ownerToken.sessionId
-        ? authoritativeShell.value
-        : (backupShell ?? {
-            kind: 'portfolio',
-            presentation: projectHomePortfolioPresentation(facts),
-          }),
+    shell: backupShell ?? {
+      kind: 'portfolio',
+      presentation: projectHomePortfolioPresentation(facts),
+    },
     navigation: projectsPortfolioShell ? navigation : { kind: 'hidden' },
     sections,
   };

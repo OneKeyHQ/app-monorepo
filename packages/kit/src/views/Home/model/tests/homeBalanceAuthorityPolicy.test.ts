@@ -49,7 +49,7 @@ describe('homeBalanceAuthorityPolicy', () => {
     });
   });
 
-  it('keeps funded-safe actions but no partial total for positive evidence', () => {
+  it('keeps the exact confirmed total while positive live evidence refreshes', () => {
     expect(
       projectHomeBalanceAuthority({
         aggregation: {
@@ -62,10 +62,30 @@ describe('homeBalanceAuthorityPolicy', () => {
         confirmedAt: 2,
       }).presentation,
     ).toMatchObject({
+      kind: 'funded',
+      header: { balance: { amount: confirmed.amount } },
+      actions: { kind: 'funded' },
+      banner: { kind: 'positive' },
+      freshness: 'confirmedCache',
+      refresh: 'refreshing',
+    });
+  });
+
+  it('keeps funded-safe actions without inventing a partial amount when uncached', () => {
+    expect(
+      projectHomeBalanceAuthority({
+        aggregation: {
+          kind: 'loading',
+          positiveEvidence: true,
+          reason: 'sourcePending',
+        },
+        bannerAvailable: true,
+        confirmedAt: 2,
+      }).presentation,
+    ).toMatchObject({
       kind: 'fundedPendingTotal',
       header: { kind: 'loading' },
       actions: { kind: 'funded' },
-      banner: { kind: 'positive' },
     });
   });
 

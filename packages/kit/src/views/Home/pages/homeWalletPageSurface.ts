@@ -1,16 +1,14 @@
-import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
-
 import type { IHomeWalletContentReadiness } from './homePageNoWalletContent';
 import type { IOnboardingLaunchDecision } from '../../Onboarding/components/onboardingLaunchGate';
 
 export type IHomeWalletPageSurface =
   | 'pending'
   | 'no-wallet'
-  | 'not-backed-up-rn'
   | 'native'
   | 'legacy';
 
 export type IHomeWalletPageSurfaceState = {
+  accountId?: string;
   surface: IHomeWalletPageSurface;
   walletId?: string;
 };
@@ -28,6 +26,7 @@ function resolveNormalWalletSurface(nativeHomeEnabled: boolean) {
 export function resolveHomeWalletPageSurface({
   launchDecision,
   walletContentReadiness,
+  activeAccountId,
   activeWallet,
   walletListWallet,
   nativeHomeEnabled,
@@ -35,25 +34,40 @@ export function resolveHomeWalletPageSurface({
 }: {
   launchDecision: IOnboardingLaunchDecision;
   walletContentReadiness: IHomeWalletContentReadiness;
+  activeAccountId?: string;
   activeWallet: IHomeWalletPageSurfaceWallet | undefined;
   walletListWallet: IHomeWalletPageSurfaceWallet | undefined;
   nativeHomeEnabled: boolean;
   previous?: IHomeWalletPageSurfaceState;
 }): IHomeWalletPageSurfaceState {
   const activeWalletId = activeWallet?.id;
+  const activeOwner = {
+    ...(activeAccountId ? { accountId: activeAccountId } : {}),
+    walletId: activeWalletId,
+  };
   const pending = (): IHomeWalletPageSurfaceState => {
+    const walletIdentityConfirmed =
+      Boolean(activeWalletId) &&
+      activeWalletId === walletListWallet?.id &&
+      Boolean(activeWallet?.type) &&
+      activeWallet?.type === walletListWallet?.type;
+    const sameOwner =
+      Boolean(previous) &&
+      previous?.walletId === activeWalletId &&
+      previous?.accountId === activeAccountId;
+    const normalSurface = resolveNormalWalletSurface(nativeHomeEnabled);
     if (
-      activeWalletId &&
-      previous?.surface === 'not-backed-up-rn' &&
-      previous.walletId === activeWalletId
+      walletIdentityConfirmed &&
+      sameOwner &&
+      previous?.surface === normalSurface
     ) {
       return previous;
     }
-    return { surface: 'pending', walletId: activeWalletId };
+    return { surface: 'pending', ...activeOwner };
   };
 
   if (launchDecision !== 'main') {
-    return { surface: 'pending', walletId: activeWalletId };
+    return { surface: 'pending', ...activeOwner };
   }
   if (walletContentReadiness === 'no-wallet') {
     return { surface: 'no-wallet' };
@@ -70,22 +84,8 @@ export function resolveHomeWalletPageSurface({
     return pending();
   }
 
-  if (activeWallet.type !== WALLET_TYPE_HD) {
-    return {
-      surface: resolveNormalWalletSurface(nativeHomeEnabled),
-      walletId: activeWalletId,
-    };
-  }
-  // Surface ownership follows the authoritative backup verdict only. Balance
-  // and portfolio data must never participate in this resolver.
-  if (activeWallet.backuped === false && walletListWallet.backuped === false) {
-    return { surface: 'not-backed-up-rn', walletId: activeWalletId };
-  }
-  if (activeWallet.backuped === true && walletListWallet.backuped === true) {
-    return {
-      surface: resolveNormalWalletSurface(nativeHomeEnabled),
-      walletId: activeWalletId,
-    };
-  }
-  return pending();
+  return {
+    surface: resolveNormalWalletSurface(nativeHomeEnabled),
+    ...activeOwner,
+  };
 }

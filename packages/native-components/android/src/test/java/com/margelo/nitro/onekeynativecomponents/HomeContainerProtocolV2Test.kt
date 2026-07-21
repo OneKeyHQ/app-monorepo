@@ -10,6 +10,346 @@ import org.junit.Test
 
 class HomeContainerProtocolV2Test {
   @Test
+  fun `replace section patches keep shell and navigation stable`() {
+    var current = canonicalState()
+
+    repeat(100) { index ->
+      val revision = current.revision + 1
+      val outcome = HomeContainerProtocolV2Transaction.applyPatch(
+        patchFor(
+          current,
+          JSONArray().put(
+            JSONObject()
+              .put("kind", "replaceSection")
+              .put("tabId", "portfolio")
+              .put("sectionId", "tokens")
+              .put("index", 0)
+              .put(
+                "value",
+                JSONObject()
+                  .put("id", "tokens")
+                  .put("title", "Tokens")
+                  .put(
+                    "items",
+                    JSONArray().put(
+                      JSONObject()
+                        .put("id", "token-$index")
+                        .put("renderer", "asset")
+                        .put("title", "Token $index"),
+                    ),
+                  ),
+              ),
+          ),
+        ),
+        current,
+      ) as HomeContainerProtocolV2ApplyOutcome.Applied
+
+      assertEquals(revision, outcome.state.revision)
+      assertFalse(outcome.renderPlan.isFullSnapshot)
+      assertFalse(outcome.renderPlan.shouldBindHeader)
+      assertFalse(outcome.renderPlan.shouldReconcileNavigation)
+      assertFalse(outcome.renderPlan.shouldApplySurface)
+      assertEquals(setOf("portfolio"), outcome.renderPlan.sectionTabIds)
+      current = outcome.state
+    }
+  }
+
+  @Test
+  fun `replace shell retains stable tab view keys`() {
+    val current = canonicalState()
+    val header = current.documentCopy().getJSONObject("header")
+      .put("balance", "$102.00")
+    val outcome = HomeContainerProtocolV2Transaction.applyPatch(
+      patchFor(
+        current,
+        JSONArray().put(
+          JSONObject()
+            .put("kind", "replaceShell")
+            .put("value", header),
+        ),
+      ),
+      current,
+    ) as HomeContainerProtocolV2ApplyOutcome.Applied
+
+    assertTrue(outcome.renderPlan.shouldBindHeader)
+    assertFalse(outcome.renderPlan.shouldReconcileNavigation)
+    assertTrue(outcome.renderPlan.sectionTabIds.isEmpty())
+    assertFalse(
+      homeContainerTabsRequireRebuild(
+        current.snapshot.tabs,
+        outcome.state.snapshot.tabs,
+      ),
+    )
+  }
+
+  @Test
+  fun `multiple navigation changes reconcile once from final state`() {
+    val current = canonicalState()
+    val navigation = JSONObject(fixture("home-container-v2.patch.json"))
+      .getJSONArray("changes")
+      .getJSONObject(1)
+      .getJSONObject("value")
+    val outcome = HomeContainerProtocolV2Transaction.applyPatch(
+      patchFor(
+        current,
+        JSONArray()
+          .put(
+            JSONObject()
+              .put("kind", "replaceNavigation")
+              .put("value", JSONObject(navigation.toString())),
+          )
+          .put(
+            JSONObject()
+              .put("kind", "replaceNavigation")
+              .put("value", JSONObject(navigation.toString())),
+          ),
+      ),
+      current,
+    ) as HomeContainerProtocolV2ApplyOutcome.Applied
+
+    assertFalse(outcome.renderPlan.shouldBindHeader)
+    assertTrue(outcome.renderPlan.shouldReconcileNavigation)
+    assertEquals(1, outcome.renderPlan.navigationReconcileCount)
+    assertEquals("history", outcome.state.snapshot.selectedTabId)
+  }
+
+  @Test
+  fun `replace surface updates theme without tab teardown`() {
+    val current = canonicalState()
+    val theme = current.documentCopy().getJSONObject("theme")
+      .put("backgroundColor", "#101010")
+    val outcome = HomeContainerProtocolV2Transaction.applyPatch(
+      patchFor(
+        current,
+        JSONArray().put(
+          JSONObject()
+            .put("kind", "replaceSurface")
+            .put("value", theme),
+        ),
+      ),
+      current,
+    ) as HomeContainerProtocolV2ApplyOutcome.Applied
+
+    assertFalse(outcome.renderPlan.shouldBindHeader)
+    assertFalse(outcome.renderPlan.shouldReconcileNavigation)
+    assertTrue(outcome.renderPlan.shouldApplySurface)
+    assertTrue(outcome.renderPlan.sectionTabIds.isEmpty())
+    assertFalse(
+      homeContainerTabsRequireRebuild(
+        current.snapshot.tabs,
+        outcome.state.snapshot.tabs,
+      ),
+    )
+  }
+
+  @Test
+  fun `tab view keys rebuild only for structural navigation changes`() {
+    val tabs = canonicalState().snapshot.tabs
+
+    assertFalse(homeContainerTabsRequireRebuild(tabs, tabs.map { it.copy() }))
+    assertTrue(
+      homeContainerTabsRequireRebuild(
+        tabs,
+        tabs.map { tab -> if (tab.id == "history") tab.copy(title = "Activity") else tab },
+      ),
+    )
+    assertTrue(
+      homeContainerTabsRequireRebuild(
+        tabs,
+        tabs.reversed(),
+      ),
+    )
+  }
+
+  @Test
+  fun `same tab id with changed sections invalidates its holder`() {
+    val current = canonicalState()
+    val outcome = HomeContainerProtocolV2Transaction.applyPatch(
+      patchFor(
+        current,
+        JSONArray().put(
+          replaceTokensSectionChange(
+            JSONArray().put(
+              JSONObject()
+                .put("id", "btc")
+                .put("renderer", "asset")
+                .put("title", "BTC"),
+            ),
+          ),
+        ),
+      ),
+      current,
+    ) as HomeContainerProtocolV2ApplyOutcome.Applied
+
+    assertEquals(
+      setOf("portfolio"),
+      homeContainerChangedInlineTabIds(current.snapshot, outcome.state.snapshot),
+    )
+  }
+
+  @Test
+  fun `market category tabs keep their same section loading state`() {
+    val current = canonicalState()
+    val outcome = HomeContainerProtocolV2Transaction.applyPatch(
+      patchFor(
+        current,
+        JSONArray().put(
+          replaceTokensSectionChange(
+            JSONArray()
+              .put(
+                JSONObject()
+                  .put("id", "market-tabs")
+                  .put("renderer", "marketTabs")
+                  .put("title", "Market"),
+              )
+              .put(
+                JSONObject()
+                  .put("id", "market-loading")
+                  .put("renderer", "loading")
+                  .put("title", "")
+                  .put("displayHeight", 320),
+              ),
+          ),
+        ),
+      ),
+      current,
+    ) as HomeContainerProtocolV2ApplyOutcome.Applied
+    val sections = outcome.state.snapshot.tabs
+      .single { it.id == "portfolio" }
+      .sections
+    val projection = homeContainerSectionsForRendering(sections)
+    val items = projection.single().items
+
+    assertEquals(listOf("market-tabs", "market-loading"), items.map { it.id })
+    assertEquals(listOf("marketTabs", "loading"), items.map { it.renderer })
+    assertEquals(1, homeContainerStatePosition(projection))
+    assertEquals(320, items.last().displayHeight)
+  }
+
+  @Test
+  fun `terminal portfolio assets remove a stale sibling state section`() {
+    val current = canonicalState()
+    val loadingState = HomeContainerProtocolV2Transaction.applyPatch(
+      patchFor(
+        current,
+        JSONArray().put(
+          replaceTokensSectionChange(
+            JSONArray().put(
+              JSONObject()
+                .put("id", "portfolio-state-loading")
+                .put("renderer", "loading")
+                .put("title", "")
+                .put("displayHeight", 320),
+            ),
+          ),
+        ),
+      ),
+      current,
+    ).appliedState()
+    val terminalState = HomeContainerProtocolV2Transaction.applyPatch(
+      patchFor(
+        current,
+        JSONArray().put(
+          replaceTokensSectionChange(
+            JSONArray().put(
+              JSONObject()
+                .put("id", "btc")
+                .put("renderer", "asset")
+                .put("title", "BTC"),
+            ),
+          ),
+        ),
+      ),
+      current,
+    ).appliedState()
+    val loadingSection = loadingState.snapshot.tabs.single { it.id == "portfolio" }
+      .sections.single().copy(id = "portfolio-state")
+    val assetSection = terminalState.snapshot.tabs.single { it.id == "portfolio" }
+      .sections.single().copy(id = "portfolio-assets")
+
+    val projection = homeContainerSectionsForRendering(
+      listOf(loadingSection, assetSection),
+    )
+
+    assertEquals(listOf("portfolio-assets"), projection.map { it.id })
+    assertEquals(-1, homeContainerStatePosition(projection))
+    assertEquals(listOf("btc"), projection.flatMap { it.items }.map { it.id })
+  }
+
+  @Test
+  fun `render completion waits for list commit and pre draw then acknowledges once`() {
+    val coordinator = HomeContainerRenderCompletionCoordinator()
+    val state = canonicalState()
+    coordinator.enqueue(state, "portfolio", "ack-7")
+    coordinator.registerPage("portfolio", "page-a")
+
+    assertTrue(coordinator.markPreDraw("portfolio", "page-a", 7).isEmpty())
+    coordinator.markListCommitted("portfolio", "page-a", 7)
+    val completed = coordinator.markPreDraw("portfolio", "page-a", 7)
+    assertEquals(listOf("ack-7"), completed.map { it.acknowledgement })
+    assertEquals(listOf(7L), completed.map { it.state.revision })
+    assertTrue(coordinator.markPreDraw("portfolio", "page-a", 7).isEmpty())
+  }
+
+  @Test
+  fun `render completion follows the latest selected tab and ignores the old page`() {
+    val coordinator = HomeContainerRenderCompletionCoordinator()
+    val state = canonicalState()
+    coordinator.enqueue(state, "portfolio", "ack-7")
+    coordinator.registerPage("portfolio", "portfolio-page")
+    coordinator.markListCommitted("portfolio", "portfolio-page", 7)
+
+    coordinator.retargetPending("history")
+    coordinator.registerPage("history", "history-page")
+
+    assertTrue(
+      coordinator.markPreDraw("portfolio", "portfolio-page", 7).isEmpty(),
+    )
+    coordinator.markListCommitted("history", "history-page", 7)
+    val completed = coordinator.markPreDraw("history", "history-page", 7)
+    assertEquals(listOf("ack-7"), completed.map { it.acknowledgement })
+  }
+
+  @Test
+  fun `recycled selected page must be replaced before render completion`() {
+    val coordinator = HomeContainerRenderCompletionCoordinator()
+    val state = canonicalState()
+    coordinator.enqueue(state, "portfolio", "ack-7")
+    coordinator.registerPage("portfolio", "old-page")
+    coordinator.markListCommitted("portfolio", "old-page", 7)
+    coordinator.unregisterPage("portfolio", "old-page")
+
+    assertTrue(coordinator.markPreDraw("portfolio", "old-page", 7).isEmpty())
+
+    coordinator.registerPage("portfolio", "new-page")
+    assertTrue(coordinator.markPreDraw("portfolio", "new-page", 7).isEmpty())
+    coordinator.markListCommitted("portfolio", "new-page", 7)
+    val completed = coordinator.markPreDraw("portfolio", "new-page", 7)
+    assertEquals(listOf("ack-7"), completed.map { it.acknowledgement })
+  }
+
+  @Test
+  fun `a newer rendered revision completes pending acknowledgements in order`() {
+    val coordinator = HomeContainerRenderCompletionCoordinator()
+    val state7 = canonicalState()
+    val state8 = HomeContainerProtocolV2Transaction.applyPatch(
+      fixture("home-container-v2.patch.json"),
+      current = state7,
+    ).appliedState()
+    coordinator.enqueue(state7, "history", "ack-7")
+    coordinator.enqueue(state8, "history", "ack-8")
+    coordinator.registerPage("history", "history-page")
+
+    coordinator.markListCommitted("history", "history-page", 8)
+    val completed = coordinator.markPreDraw("history", "history-page", 8)
+    assertEquals(
+      listOf("ack-7", "ack-8"),
+      completed.map { it.acknowledgement },
+    )
+    assertEquals(listOf(7L, 8L), completed.map { it.state.revision })
+  }
+
+  @Test
   fun `canonical snapshot and patch apply atomically`() {
     val snapshotOutcome = HomeContainerProtocolV2Transaction.applySnapshot(
       fixture("home-container-v2.snapshot.json"),
@@ -486,6 +826,32 @@ class HomeContainerProtocolV2Test {
       fixture("home-container-v2.snapshot.json"),
       current = null,
     ).appliedState()
+
+  private fun patchFor(
+    current: HomeContainerProtocolV2State,
+    changes: JSONArray,
+  ): String = JSONObject()
+    .put("kind", "patch")
+    .put("protocolVersion", HOME_CONTAINER_PROTOCOL_VERSION)
+    .put("schemaVersion", HOME_CONTAINER_BUSINESS_SCHEMA_VERSION)
+    .put("owner", current.owner.toJson())
+    .put("baseRevision", current.revision)
+    .put("revision", current.revision + 1)
+    .put("changes", changes)
+    .toString()
+
+  private fun replaceTokensSectionChange(items: JSONArray): JSONObject = JSONObject()
+    .put("kind", "replaceSection")
+    .put("tabId", "portfolio")
+    .put("sectionId", "tokens")
+    .put("index", 0)
+    .put(
+      "value",
+      JSONObject()
+        .put("id", "tokens")
+        .put("title", "Tokens")
+        .put("items", items),
+    )
 
   private fun HomeContainerProtocolV2ApplyOutcome.appliedState(): HomeContainerProtocolV2State {
     assertTrue(this is HomeContainerProtocolV2ApplyOutcome.Applied)

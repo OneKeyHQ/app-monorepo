@@ -6,6 +6,10 @@ import {
   getBackgroundServiceApi,
   throwMethodNotFound,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
+import {
+  type INativeBackgroundThreadReadySignal,
+  onNativeBackgroundThreadReady,
+} from '@onekeyhq/shared/src/background/nativeBackgroundThreadReady';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { globalErrorHandler } from '@onekeyhq/shared/src/errors/globalErrorHandler';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
@@ -44,6 +48,8 @@ import type {
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
+
+export type { INativeBackgroundThreadReadySignal } from '@onekeyhq/shared/src/background/nativeBackgroundThreadReady';
 
 export class BackgroundApiProxyBase
   extends BackgroundServiceProxyBase
@@ -103,6 +109,19 @@ export class BackgroundApiProxyBase
     };
 
     return runtimeGlobal.__onekeyNativeBackgroundThreadTransport;
+  }
+
+  subscribeNativeBackgroundThreadReady(
+    listener: (signal: INativeBackgroundThreadReadySignal) => void,
+  ): (() => void) | undefined {
+    if (
+      !platformEnv.isNativeMainThread ||
+      !platformEnv.enableNativeBackgroundThread
+    ) {
+      return undefined;
+    }
+
+    return onNativeBackgroundThreadReady(listener);
   }
 
   private async ensureLocalBackgroundApi() {

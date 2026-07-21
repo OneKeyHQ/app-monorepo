@@ -71,7 +71,7 @@ final class HybridHomeContainer: HybridHomeContainerSpec {
   }
 
   func getCapabilities() throws -> String {
-    return "{\"schemaVersions\":[2],\"protocolVersions\":[1,2],\"preferredProtocol\":2,"
+    return "{\"schemaVersions\":[2],\"protocolVersions\":[1,2,3],\"preferredProtocol\":3,"
       + "\"tabIds\":[\"portfolio\",\"perps\",\"defi\",\"nft\",\"history\"],"
       + "\"supportsPatches\":true,\"supportsAtomicPatches\":true,"
       + "\"supportsNativeRefresh\":true,\"supportsHorizontalPaging\":true,"

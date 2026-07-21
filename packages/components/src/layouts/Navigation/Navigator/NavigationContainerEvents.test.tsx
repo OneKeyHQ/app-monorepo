@@ -53,6 +53,12 @@ function setNavigationRef(
   return getRootState;
 }
 
+function clearNavigationRef(ref: typeof rootNavigationRef) {
+  (
+    ref as MutableRefObject<NavigationContainerRef<ParamListBase> | null>
+  ).current = null;
+}
+
 function createWrapper({
   store = createRouterEventStore(),
   strict = false,
@@ -108,6 +114,56 @@ describe('NavigationContainerEvents', () => {
     expect(store.listeners.size).toBe(0);
     act(() => handlers.onStateChange(homeState));
     expect(listener).toHaveBeenCalledTimes(2);
+  });
+
+  it('waits for the first concrete state before becoming ready and replays it to late subscribers', () => {
+    const homeState = createNavigationState('Home');
+    const store = createRouterEventStore();
+    const wrapper = createWrapper({ store });
+    clearNavigationRef(rootNavigationRef);
+    const listener = jest.fn();
+    const subscription = renderHook(() => useOnRouterChange(listener), {
+      wrapper,
+    });
+    const handlers = renderHook(() => useRouterContainerEventHandlers(), {
+      wrapper,
+    }).result.current;
+
+    act(() => handlers.onReady());
+    expect(store).toEqual(
+      expect.objectContaining({ isReady: false, currentState: undefined }),
+    );
+    expect(listener).not.toHaveBeenCalled();
+
+    act(() => handlers.onStateChange(undefined));
+    expect(store.isReady).toBe(false);
+    expect(listener).not.toHaveBeenCalled();
+
+    act(() => handlers.onStateChange(homeState));
+    expect(store).toEqual(
+      expect.objectContaining({ isReady: true, currentState: homeState }),
+    );
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenLastCalledWith(homeState);
+
+    const lateListener = jest.fn();
+    const lateSubscription = renderHook(() => useOnRouterChange(lateListener), {
+      wrapper,
+    });
+    expect(lateListener).toHaveBeenCalledTimes(1);
+    expect(lateListener).toHaveBeenLastCalledWith(homeState);
+
+    act(() => handlers.onStateChange(undefined));
+    expect(store).toEqual(
+      expect.objectContaining({ isReady: true, currentState: undefined }),
+    );
+    expect(listener).toHaveBeenCalledTimes(2);
+    expect(listener).toHaveBeenLastCalledWith(undefined);
+    expect(lateListener).toHaveBeenCalledTimes(2);
+    expect(lateListener).toHaveBeenLastCalledWith(undefined);
+
+    lateSubscription.unmount();
+    subscription.unmount();
   });
 
   it('replays only the ready store state to a late subscriber and keeps one StrictMode listener', () => {

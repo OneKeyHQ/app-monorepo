@@ -76,6 +76,13 @@ function payload(id: string): IHomeDeFiLegacyPayload {
   const item = protocol({ protocolId: id });
   const key = `${item.networkId}-${item.protocol}`;
   return {
+    currency: 'usd',
+    overview: {
+      totalValue: 1,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 1,
+    },
     protocolMap: { [key]: summary(id) },
     protocols: [item],
     supportedActions: [],

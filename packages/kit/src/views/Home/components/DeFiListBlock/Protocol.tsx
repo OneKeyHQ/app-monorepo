@@ -18,10 +18,6 @@ import type { IProtocolPositionProviderDisplayInfo } from '@onekeyhq/kit/src/com
 import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
-  useDeFiListProtocolMapAtom,
-  useDeFiListSupportedActionsAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
-import {
   type IDeFiProtocolDisplayInfo,
   type ILocalizedProtocolCategoryGroup,
   buildLocalizedProtocolCategoryGroups,
@@ -31,7 +27,6 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
-import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type {
   IDeFiProtocol,
   IDeFiSupportedProtocolAction,
@@ -46,6 +41,8 @@ type IProtocolProps = {
   accountId?: string;
   indexedAccountId?: string;
   protocol: IDeFiProtocol;
+  protocolInfo?: IProtocolSummary;
+  supportedActions: IDeFiSupportedProtocolAction[];
   tableLayout?: boolean;
   isAllNetworks?: boolean;
   onActionSuccess?: (
@@ -63,11 +60,13 @@ const ProtocolListLayout = memo(
   ({
     protocol,
     protocolInfo,
+    supportedActions,
     isAllNetworks,
     onPressProtocol,
   }: {
     protocol: IDeFiProtocol;
     protocolInfo?: IProtocolSummary;
+    supportedActions: IDeFiSupportedProtocolAction[];
     isAllNetworks?: boolean;
     onPressProtocol: () => void;
   }) => {
@@ -75,6 +74,7 @@ const ProtocolListLayout = memo(
       <ProtocolRow
         protocol={protocol}
         protocolInfo={protocolInfo}
+        supportedActions={supportedActions}
         isAllNetworks={isAllNetworks}
         onPress={onPressProtocol}
       />
@@ -248,23 +248,21 @@ ProtocolDesktopLayout.displayName = 'ProtocolDesktopLayout';
 
 function useProtocolViewModel({
   protocol,
+  protocolInfo,
+  supportedActions,
   accountId,
   indexedAccountId,
-}: Pick<IProtocolProps, 'protocol' | 'accountId' | 'indexedAccountId'>) {
+}: Pick<
+  IProtocolProps,
+  | 'protocol'
+  | 'protocolInfo'
+  | 'supportedActions'
+  | 'accountId'
+  | 'indexedAccountId'
+>) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [settings] = useSettingsPersistAtom();
-  const [{ protocolMap }] = useDeFiListProtocolMapAtom();
-  const [{ supportedActions }] = useDeFiListSupportedActionsAtom();
-
-  const protocolInfo =
-    protocolMap[
-      defiUtils.buildProtocolMapKey({
-        protocol: protocol.protocol,
-        networkId: protocol.networkId,
-      })
-    ];
-
   const currencySymbol = settings.currencyInfo.symbol;
   const translate = useCallback(
     (id: ETranslations) => intl.formatMessage({ id }),
@@ -357,6 +355,8 @@ const Protocol = forwardRef<IProtocolHandle, IProtocolProps>(
       accountId,
       indexedAccountId,
       protocol,
+      protocolInfo,
+      supportedActions,
       tableLayout,
       isAllNetworks,
       onActionSuccess,
@@ -365,6 +365,8 @@ const Protocol = forwardRef<IProtocolHandle, IProtocolProps>(
   ) => {
     const viewModel = useProtocolViewModel({
       protocol,
+      protocolInfo,
+      supportedActions,
       accountId,
       indexedAccountId,
     });
@@ -378,6 +380,7 @@ const Protocol = forwardRef<IProtocolHandle, IProtocolProps>(
         <ProtocolListLayout
           protocol={protocol}
           protocolInfo={viewModel.protocolInfo}
+          supportedActions={viewModel.supportedActions}
           isAllNetworks={isAllNetworks}
           onPressProtocol={viewModel.onPressProtocol}
         />

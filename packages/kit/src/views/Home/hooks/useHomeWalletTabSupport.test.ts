@@ -84,8 +84,8 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePerpsCommonConfigPersistAtom: () => [{ perpConfigLoaded: true }],
 }));
 
-jest.mock('../model/react/homeSemanticHooks', () => ({
-  useHomeFactsShadow: () => undefined,
+jest.mock('../model/react/homeStoreHooks', () => ({
+  useHomeFactsSnapshot: () => undefined,
 }));
 
 jest.mock('../model/react/useHomeNavigationCoordinator', () => ({

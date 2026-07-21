@@ -53,10 +53,33 @@ internal enum class HomeContainerProtocolV2NeedSnapshotReason(val wireValue: Str
   UNSUPPORTED_PROTOCOL("unsupportedProtocol"),
 }
 
+internal data class HomeContainerProtocolV2RenderPlan(
+  val isFullSnapshot: Boolean = false,
+  val shouldBindHeader: Boolean = false,
+  val shouldReconcileNavigation: Boolean = false,
+  val sectionTabIds: Set<String> = emptySet(),
+  val shouldApplySurface: Boolean = false,
+) {
+  val navigationReconcileCount: Int
+    get() = if (shouldReconcileNavigation) 1 else 0
+
+  companion object {
+    val FULL_SNAPSHOT = HomeContainerProtocolV2RenderPlan(
+      isFullSnapshot = true,
+      shouldBindHeader = true,
+      shouldReconcileNavigation = true,
+      shouldApplySurface = true,
+    )
+  }
+}
+
 internal sealed class HomeContainerProtocolV2ApplyOutcome {
   abstract fun toTransportResultJson(): String
 
-  data class Applied(val state: HomeContainerProtocolV2State) :
+  data class Applied(
+    val state: HomeContainerProtocolV2State,
+    val renderPlan: HomeContainerProtocolV2RenderPlan,
+  ) :
     HomeContainerProtocolV2ApplyOutcome() {
     override fun toTransportResultJson(): String = JSONObject()
       .put("kind", "applied")
@@ -154,6 +177,7 @@ internal object HomeContainerProtocolV2Transaction {
     }
     return HomeContainerProtocolV2ApplyOutcome.Applied(
       HomeContainerProtocolV2State(owner, revision, candidate, document),
+      HomeContainerProtocolV2RenderPlan.FULL_SNAPSHOT,
     )
   }
 
@@ -205,10 +229,10 @@ internal object HomeContainerProtocolV2Transaction {
       )
     }
     val candidateDocument = current.documentCopy()
-    val changesApplied = runCatching {
+    val renderPlan = runCatching {
       applyChanges(candidateDocument, root.getJSONArray("changes"))
-    }.getOrDefault(false)
-    if (!changesApplied) {
+    }.getOrNull()
+    if (renderPlan == null) {
       return needSnapshot(owner = owner, current = current)
     }
     candidateDocument
@@ -228,23 +252,47 @@ internal object HomeContainerProtocolV2Transaction {
     }
     return HomeContainerProtocolV2ApplyOutcome.Applied(
       HomeContainerProtocolV2State(owner, revision, candidate, candidateDocument),
+      renderPlan,
     )
   }
 
-  private fun applyChanges(document: JSONObject, changes: JSONArray): Boolean {
+  private fun applyChanges(
+    document: JSONObject,
+    changes: JSONArray,
+  ): HomeContainerProtocolV2RenderPlan? {
+    var shouldBindHeader = false
+    var shouldReconcileNavigation = false
+    var shouldApplySurface = false
+    val sectionTabIds = linkedSetOf<String>()
     repeat(changes.length()) { index ->
       val change = changes.getJSONObject(index)
-      val applied = when (change.getString("kind")) {
-        "replaceShell" -> replaceShell(document, change)
-        "replaceNavigation" -> replaceNavigation(document, change)
-        "replaceSection" -> replaceSection(document, change)
-        "removeSection" -> removeSection(document, change)
-        "replaceSurface" -> replaceSurface(document, change)
+      val kind = change.getString("kind")
+      val applied = when (kind) {
+        "replaceShell" -> replaceShell(document, change).also {
+          if (it) shouldBindHeader = true
+        }
+        "replaceNavigation" -> replaceNavigation(document, change).also {
+          if (it) shouldReconcileNavigation = true
+        }
+        "replaceSection" -> replaceSection(document, change).also {
+          if (it) sectionTabIds += change.getString("tabId")
+        }
+        "removeSection" -> removeSection(document, change).also {
+          if (it) sectionTabIds += change.getString("tabId")
+        }
+        "replaceSurface" -> replaceSurface(document, change).also {
+          if (it) shouldApplySurface = true
+        }
         else -> false
       }
-      if (!applied) return false
+      if (!applied) return null
     }
-    return true
+    return HomeContainerProtocolV2RenderPlan(
+      shouldBindHeader = shouldBindHeader,
+      shouldReconcileNavigation = shouldReconcileNavigation,
+      sectionTabIds = sectionTabIds,
+      shouldApplySurface = shouldApplySurface,
+    )
   }
 
   private fun replaceShell(document: JSONObject, change: JSONObject): Boolean {

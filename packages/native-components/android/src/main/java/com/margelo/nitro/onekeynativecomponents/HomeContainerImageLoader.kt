@@ -47,7 +47,27 @@ internal object HomeContainerImageLoader {
     }
   }
 
-  private val mainHandler = Handler(Looper.getMainLooper())
+  private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
+
+  internal fun candidates(primary: String, fallbacks: List<String>): List<String> =
+    buildList {
+      (listOf(primary) + fallbacks).forEach { value ->
+        if (value.isNotEmpty() && value !in this) add(value)
+      }
+    }
+
+  internal fun representedSignature(
+    primary: String,
+    fallbacks: List<String>,
+    fallbackKind: String,
+    fallbackColor: Int,
+  ): String = buildString {
+    append(candidates(primary, fallbacks).joinToString("|"))
+    append("|fallback:")
+    append(fallbackKind)
+    append(':')
+    append(fallbackColor)
+  }
 
   fun load(context: Context, value: String, completion: (Bitmap?) -> Unit): Request? {
     if (value.isEmpty()) return null

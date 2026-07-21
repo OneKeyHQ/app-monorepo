@@ -69,6 +69,18 @@ describe('Home runtime transport contract', () => {
     ).toBe(false);
   });
 
+  it.each(['capability', 'banner'] as const)(
+    'accepts the %s controller source identity',
+    (sourceId) => {
+      expect(
+        isHomeRuntimeRequestToken({
+          ...requestToken,
+          sourceKey: { ...requestToken.sourceKey, sourceId },
+        }),
+      ).toBe(true);
+    },
+  );
+
   it('accepts JSON null but rejects undefined, non-finite numbers, and dates', () => {
     expect(isHomeRuntimeJsonValue({ nested: [null, 0, 'value'] })).toBe(true);
     expect(isHomeRuntimeJsonValue({ value: undefined })).toBe(false);

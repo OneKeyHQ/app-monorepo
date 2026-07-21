@@ -51,15 +51,17 @@ function isPerpsHomeAsyncScopeCurrent({
   );
 }
 
-function selectCurrentPerpsHomePortfolioResult<TView>({
+function selectCurrentPerpsHomePortfolioResult<
+  TResult extends IPerpsHomePortfolioResult,
+>({
   currentScopeKey,
   incoming,
   previous,
 }: {
   currentScopeKey: string | undefined;
-  incoming: IPerpsHomePortfolioResult<TView> | undefined;
-  previous: IPerpsHomePortfolioResult<TView> | undefined;
-}) {
+  incoming: TResult | undefined;
+  previous: TResult | undefined;
+}): TResult | undefined {
   if (incoming?.scopeKey === currentScopeKey) {
     return incoming;
   }

@@ -1,7 +1,4 @@
-import {
-  type IHomeWalletPageSurfaceState,
-  resolveHomeWalletPageSurface,
-} from './homeWalletPageSurface';
+import { resolveHomeWalletPageSurface } from './homeWalletPageSurface';
 
 const matchingHdWallet = {
   id: 'hd-1',
@@ -37,24 +34,13 @@ describe('resolveHomeWalletPageSurface', () => {
       'wallet type mismatch',
       { walletListWallet: { ...matchingHdWallet, type: 'hw' } },
     ],
-    [
-      'undefined HD backup verdict',
-      {
-        activeWallet: { ...matchingHdWallet, backuped: undefined },
-        walletListWallet: { ...matchingHdWallet, backuped: undefined },
-      },
-    ],
-    [
-      'HD backup verdict mismatch',
-      { walletListWallet: { ...matchingHdWallet, backuped: true } },
-    ],
   ])('keeps %s pending on a cold surface', (_label, overrides) => {
     expect(resolve(overrides)).toEqual(
       expect.objectContaining({ surface: 'pending' }),
     );
   });
 
-  it('routes no-wallet readiness only to the existing no-wallet owner', () => {
+  it('routes no-wallet readiness only to the no-wallet owner', () => {
     expect(
       resolve({
         walletContentReadiness: 'no-wallet',
@@ -64,113 +50,46 @@ describe('resolveHomeWalletPageSurface', () => {
     ).toEqual({ surface: 'no-wallet' });
   });
 
-  it('routes a matching unbacked HD wallet to the lightweight RN page', () => {
-    expect(resolve()).toEqual({
-      surface: 'not-backed-up-rn',
-      walletId: 'hd-1',
-    });
-  });
-
-  it('routes a matching backed-up HD wallet through the normal feature choice', () => {
-    const backedUpWallet = { ...matchingHdWallet, backuped: true };
-    expect(
-      resolve({
-        activeWallet: backedUpWallet,
-        walletListWallet: backedUpWallet,
-      }),
-    ).toEqual({ surface: 'native', walletId: 'hd-1' });
-    expect(
-      resolve({
-        activeWallet: backedUpWallet,
-        walletListWallet: backedUpWallet,
-        nativeHomeEnabled: false,
-      }),
-    ).toEqual({ surface: 'legacy', walletId: 'hd-1' });
-  });
-
-  it.each(['imported', 'watching', 'hw', 'qr', 'external'])(
-    'never treats a %s wallet as the unbacked HD safety page',
-    (type) => {
-      const wallet = { ...matchingHdWallet, type, backuped: false };
+  it('does not use backup status as an entry-surface authority', () => {
+    for (const backuped of [false, true, undefined]) {
+      const wallet = { ...matchingHdWallet, backuped };
       expect(
         resolve({ activeWallet: wallet, walletListWallet: wallet }),
       ).toEqual({ surface: 'native', walletId: 'hd-1' });
-    },
-  );
-
-  it('keeps the same RN wallet sticky through refetch and commits Native once', () => {
-    const states: IHomeWalletPageSurfaceState[] = [];
-    const append = (
-      overrides: Partial<Parameters<typeof resolveHomeWalletPageSurface>[0]>,
-    ) => {
-      states.push(resolve({ ...overrides, previous: states.at(-1) }));
-    };
-    const backedUpWallet = { ...matchingHdWallet, backuped: true };
-
-    append({});
-    append({ walletContentReadiness: 'pending' });
-    append({ activeWallet: backedUpWallet });
-    append({
-      activeWallet: backedUpWallet,
-      walletListWallet: backedUpWallet,
-    });
-    append({
-      activeWallet: backedUpWallet,
-      walletListWallet: backedUpWallet,
-    });
-
-    expect(states.map((state) => state.surface)).toEqual([
-      'not-backed-up-rn',
-      'not-backed-up-rn',
-      'not-backed-up-rn',
-      'native',
-      'native',
-    ]);
-    expect(
-      states
-        .slice(1)
-        .filter((state, index) => state.surface !== states[index].surface),
-    ).toHaveLength(1);
+    }
   });
 
-  it('clears a sticky RN surface immediately when the active wallet changes', () => {
-    expect(
-      resolve({
-        walletContentReadiness: 'pending',
-        activeWallet: { ...matchingHdWallet, id: 'hd-2' },
-        walletListWallet: undefined,
-        previous: {
-          surface: 'not-backed-up-rn',
-          walletId: 'hd-1',
-        },
-      }),
-    ).toEqual({ surface: 'pending', walletId: 'hd-2' });
-  });
-
-  it('keeps a funded HD wallet on the RN safety page until backup is authoritative', () => {
-    const unbackedWithFunds = {
-      launchDecision: 'main' as const,
-      walletContentReadiness: 'wallet' as const,
-      activeWallet: matchingHdWallet,
-      walletListWallet: matchingHdWallet,
-      nativeHomeEnabled: true,
-      balance: '1000',
-      tokenCount: 8,
-    };
-    const unbackedSurface = resolveHomeWalletPageSurface(unbackedWithFunds);
-    expect(unbackedSurface).toEqual({
-      surface: 'not-backed-up-rn',
+  it('retains renderer selection as a non-business platform choice', () => {
+    expect(resolve()).toEqual({ surface: 'native', walletId: 'hd-1' });
+    expect(resolve({ nativeHomeEnabled: false })).toEqual({
+      surface: 'legacy',
       walletId: 'hd-1',
     });
+  });
 
-    const backedUpWallet = { ...matchingHdWallet, backuped: true };
+  it('keeps a same-owner surface through warm readiness recovery', () => {
+    const previous = resolve({ activeAccountId: 'account-1' });
     expect(
-      resolveHomeWalletPageSurface({
-        ...unbackedWithFunds,
-        activeWallet: backedUpWallet,
-        walletListWallet: backedUpWallet,
-        previous: unbackedSurface,
+      resolve({
+        activeAccountId: 'account-1',
+        walletContentReadiness: 'pending',
+        previous,
       }),
-    ).toEqual({ surface: 'native', walletId: 'hd-1' });
+    ).toBe(previous);
+  });
+
+  it('does not retain a surface for a different account owner', () => {
+    const previous = resolve({ activeAccountId: 'account-1' });
+    expect(
+      resolve({
+        activeAccountId: 'account-2',
+        walletContentReadiness: 'pending',
+        previous,
+      }),
+    ).toEqual({
+      accountId: 'account-2',
+      surface: 'pending',
+      walletId: 'hd-1',
+    });
   });
 });

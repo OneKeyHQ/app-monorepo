@@ -59,17 +59,22 @@ jest.mock('../../../hooks/useHomeBalanceState', () => ({
   useHomeBalancePresentation: () => mockBalancePresentation,
 }));
 
-jest.mock('../../../states/jotai/contexts/accountOverview', () => ({
-  useWalletTopBannersAtom: () => [{ banners: mockBanners }],
+jest.mock('../../../states/jotai/contexts/home', () => ({
+  useHomeResource: () => ({
+    kind: 'ready',
+    data: {
+      banners: mockBanners,
+      referralEligibility: null,
+      tronResource: null,
+      isBotWalletReceiveBlocked: false,
+    },
+  }),
 }));
 
 jest.mock('../../../states/jotai/contexts/accountSelector', () => ({
   useActiveAccount: () => ({
     activeAccount: {
       wallet: { id: 'hd-1', type: 'hd', backuped: false },
-      account: { id: 'account-1' },
-      network: { id: 'network-1' },
-      vaultSettings: {},
     },
   }),
 }));
@@ -160,7 +165,7 @@ describe('HomeHeaderContainer refresh ownership', () => {
     expect(
       view.root.findByProps({ testID: 'home-overview' }).props
         .balancePresentation,
-    ).toBeUndefined();
+    ).toEqual(mockBalancePresentation.correlated);
 
     act(() => {
       view.update(<HomeHeaderContainer variant="normal" />);

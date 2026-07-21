@@ -2,6 +2,7 @@ import type { IHomeRuntimeOwnerToken } from '@onekeyhq/shared/src/types/homeRunt
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import type { ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import {
   createHomeSourceKey,
@@ -15,7 +16,7 @@ import type {
 } from '../homeSectionCoordinator';
 
 const HOME_HISTORY_SOURCE_REVISION = 1;
-const HOME_HISTORY_DATA_SCHEMA_VERSION = 1;
+const HOME_HISTORY_DATA_SCHEMA_VERSION = 2;
 
 type IHomeHistorySourceParams = {
   accountId: string;
@@ -33,6 +34,14 @@ type IHomeHistorySourceParams = {
 type IHomeHistoryLegacyPayload = {
   addressMap: Record<string, IAddressBadge>;
   data: IAccountHistoryTx[];
+};
+
+type IHomeHistoryStorePayload = IHomeHistoryLegacyPayload & {
+  cursor: string | null;
+  hasMore: boolean;
+  isLoadingMore: boolean;
+  refresh: 'idle' | 'refreshing' | 'failed';
+  tokenMap: Record<string, ITokenFiat>;
 };
 
 type IHomeHistorySourceSnapshot =
@@ -140,6 +149,7 @@ export {
 };
 export type {
   IHomeHistoryLegacyPayload,
+  IHomeHistoryStorePayload,
   IHomeHistorySourceParams,
   IHomeHistorySourceSnapshot,
 };

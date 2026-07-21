@@ -1,5 +1,9 @@
 import type { ReactNode } from 'react';
 
+import type {
+  IHomeContainerPatchEnvelopeV3,
+  IHomeContainerSnapshotEnvelopeV3,
+} from './HomeContainerProtocolV3';
 import type { StyleProp, ViewStyle } from 'react-native';
 
 export const HOME_CONTAINER_SCHEMA_VERSION = 2;
@@ -294,7 +298,9 @@ export type IHomeContainerTransportPayload =
   | IHomeContainerSnapshot
   | IHomeContainerPatch
   | IHomeContainerSnapshotEnvelope
-  | IHomeContainerPatchEnvelope;
+  | IHomeContainerPatchEnvelope
+  | IHomeContainerSnapshotEnvelopeV3
+  | IHomeContainerPatchEnvelopeV3;
 
 export type IHomeContainerTransportResult =
   | {
@@ -309,6 +315,7 @@ export type IHomeContainerTransportResult =
       reason:
         | 'ownerMismatch'
         | 'revisionGap'
+        | 'slotRevisionGap'
         | 'invalidInvariant'
         | 'unsupportedSchema'
         | 'unsupportedProtocol';
@@ -363,8 +370,22 @@ export interface IHomeContainerProps {
 export interface IHomeContainerRef {
   setSnapshot: (snapshot: IHomeContainerSnapshot) => void;
   applyPatch: (patch: IHomeContainerPatch) => void;
-  setProtocolV2Snapshot?: (snapshot: IHomeContainerSnapshotEnvelope) => void;
-  applyProtocolV2Patch?: (patch: IHomeContainerPatchEnvelope) => void;
+  setProtocolV2Snapshot?: (
+    snapshot: IHomeContainerSnapshotEnvelope,
+    slots?: IHomeContainerSlots,
+  ) => void;
+  applyProtocolV2Patch?: (
+    patch: IHomeContainerPatchEnvelope,
+    slots?: IHomeContainerSlots,
+  ) => void;
+  setProtocolV3Snapshot?: (
+    snapshot: IHomeContainerSnapshotEnvelopeV3,
+    slots?: IHomeContainerSlots,
+  ) => void;
+  applyProtocolV3Patch?: (
+    patch: IHomeContainerPatchEnvelopeV3,
+    slots?: IHomeContainerSlots,
+  ) => void;
   completeRefresh: (requestId: string) => void;
   selectTab: (tabId: IHomeContainerTabId, animated?: boolean) => void;
   getCapabilities: () => IHomeContainerCapabilities | undefined;
@@ -442,6 +463,7 @@ export function parseHomeContainerTransportResult(
     const reasons = [
       'ownerMismatch',
       'revisionGap',
+      'slotRevisionGap',
       'invalidInvariant',
       'unsupportedSchema',
       'unsupportedProtocol',

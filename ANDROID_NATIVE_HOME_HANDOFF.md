@@ -1,5 +1,19 @@
 # Native Home UI Continuation Handoff Prompt
 
+> Architecture update (2026-07-21): Native Home is a renderer and transport
+> boundary for the per-scene Unified Home Store. Protocol v3 carries Store
+> owner/session, presentation revisions, command-authority revisions, and slot
+> revisions. This document remains authoritative for renderer interaction and
+> visual defects only; `HOME_UNIFIED_STORE_MIGRATION_HANDOFF.md` is
+> authoritative for business state and source ownership.
+>
+> Final architecture update (2026-07-22): the custom iOS/Android HomeContainer
+> business host has been retired. Mobile renders the shared React Native Home
+> from the same per-scene Store used by Web/Desktop/Extension. Protocol v3 is
+> retained as a compiled/tested future transport contract, but it is not an
+> active second Home business runtime. The completion checkpoint at the end of
+> this document overrides earlier `notRun`, `Fail`, and `下一步` checkpoints.
+
 你正在继续维护 OneKey `app-monorepo` 的原生首页。这个文档最初用于 Windows/Android 交接；2026-07-14 的 iOS 真机复测又发现了分页、下拉刷新和业务语义问题，因此现在同时记录 Android UI 对齐要求与 iOS/shared 遗留问题。
 
 如果当前环境是 Windows，只处理并验证 Android 能覆盖的部分，不要宣称 iOS 问题已经通过。如果当前环境是 macOS，先在 iOS 模拟器复现本文新增的 5 个遗留问题，再修改 iOS；涉及公共 schema 或 JS action 的修改必须回归 Android。
@@ -96,13 +110,13 @@ WalletActions
 
 不要再用一个“通用 Show more”含义覆盖所有 section。Native 只负责展示按钮和发出稳定 action ID，具体业务语义由 main JS runtime 执行。
 
-| 位置 | 原版语义 | 当前原生问题 | 正确行为 |
-| --- | --- | --- | --- |
-| Spot Token 列表 | `TokenListView` 默认显示 6 项，Show more 原地取消 slice，随后可 Show less | `home.portfolio.manageTokens` 打开 Token 管理页 | 原地扩展/收起，保留当前滚动位置，通过精确 section patch 增删行 |
-| Spot 内 DeFi / DeFi Tab | `DeFiOverviewGrid` / `DeFiListBlock` 切换 `isSliced`，Show more/less 原地增减 Protocol | `openDeFiOverview` 仅选择 DeFi Tab；在 DeFi Tab 内是无效动作 | 当前 section 原地扩展/收起；不得重建整个 HomeContainer |
-| Market View more | `PopularTrading.handleViewMore()` 根据当前 category 跳 Perps category、Spot category 或 Watchlist | 仅粗粒度切到 Discovery | 复用 `navigateToMarketTab()` 和原版参数 |
-| Earn View more | `EarnListView.handleViewMore()` 通过 `safePushToEarnRoute(..., EarnHome)`，Extension 还有 expand-tab 分支 | 仅切换顶层 Earn Tab | 复用原版 helper 和平台分支 |
-| History | `TxHistoryContainer` 在 `onEndReached` 调用分页 `loadMore()` | 不能改造成 Show more 按钮或一次性全量列表 | 保留滚动到底分页、并发锁、cursor 与错误恢复语义 |
+| 位置                    | 原版语义                                                                                                  | 当前原生问题                                                 | 正确行为                                                       |
+| ----------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------- |
+| Spot Token 列表         | `TokenListView` 默认显示 6 项，Show more 原地取消 slice，随后可 Show less                                 | `home.portfolio.manageTokens` 打开 Token 管理页              | 原地扩展/收起，保留当前滚动位置，通过精确 section patch 增删行 |
+| Spot 内 DeFi / DeFi Tab | `DeFiOverviewGrid` / `DeFiListBlock` 切换 `isSliced`，Show more/less 原地增减 Protocol                    | `openDeFiOverview` 仅选择 DeFi Tab；在 DeFi Tab 内是无效动作 | 当前 section 原地扩展/收起；不得重建整个 HomeContainer         |
+| Market View more        | `PopularTrading.handleViewMore()` 根据当前 category 跳 Perps category、Spot category 或 Watchlist         | 仅粗粒度切到 Discovery                                       | 复用 `navigateToMarketTab()` 和原版参数                        |
+| Earn View more          | `EarnListView.handleViewMore()` 通过 `safePushToEarnRoute(..., EarnHome)`，Extension 还有 expand-tab 分支 | 仅切换顶层 Earn Tab                                          | 复用原版 helper 和平台分支                                     |
+| History                 | `TxHistoryContainer` 在 `onEndReached` 调用分页 `loadMore()`                                              | 不能改造成 Show more 按钮或一次性全量列表                    | 保留滚动到底分页、并发锁、cursor 与错误恢复语义                |
 
 实现约束：
 
@@ -1642,15 +1656,15 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 
 ### 总体产品状态矩阵
 
-| 场景 | 产品决策 | Native / Hybrid 边界 | 当前证据状态 |
-| --- | --- | --- | --- |
-| 首次创建、未备份的标准 mnemonic HD 空钱包 | **需要 Native Home 承接，但必须是 Hybrid 特殊内容态** | Header/页面容器继续 Native；body 复用现有 RN `NotBackedUpEmpty`，不在 Swift 重写备份流程；隐藏普通资产 Tab、Market、Earn、banner 和普通 WalletActions | P0，未验收 |
-| 已备份的零资产钱包 | **需要正常 Native Home** | 显示普通零资产 Native 页面；动作与 banner gating 必须和 Legacy 一致 | P1，未验收 |
-| Keyless create/recover、导入 mnemonic/KeyTag 的零资产钱包 | **需要正常 Native Home** | 这些路径按当前创建语义视为已备份，不显示未备份 CTA；仍需验证各 wallet type 的动作能力 | P1，未验收 |
-| 第一次启动且本地没有钱包 | **Onboarding 本身不 Native 化** | `unknown -> onboarding | main` gate 由现有 RN 导航/启动体系决定；Native Home 只可在不可见、不可点击、不可访问状态下预热，不能先露出任何 Home 像素 | P0，未验收 |
-| 普通单链 EVM 有钱钱包 | **需要 Native Home** | Header、Tab、资产列表、History、滚动和 snapshot Native；复杂 selector、More、Explorer、业务 modal 可继续 RN Hybrid | P0/P1，只有部分切网证据 |
-| BTC merge-derive 单链有钱钱包 | **需要 Native Home** | Native 列表/分页/footer；AddressTypeSelector、Explorer 等复用 RN；保持 BTC merge-derive 数据与分页语义 | P1，已有部分 BTC 证据但无完整 A/B |
-| imported private-key / watching / external / hardware 单链有钱钱包 | **需要 Native Home，不允许退回 Legacy 规避** | Native 页面只展示真实可用 action；账户管理、硬件通信和复杂业务仍由现有 RN/bg owner 负责 | P1，真实 fixture 与动作能力证据缺失 |
+| 场景                                                               | 产品决策                                              | Native / Hybrid 边界                                                                                                                                  | 当前证据状态                                                                                                             |
+| ------------------------------------------------------------------ | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 首次创建、未备份的标准 mnemonic HD 空钱包                          | **需要 Native Home 承接，但必须是 Hybrid 特殊内容态** | Header/页面容器继续 Native；body 复用现有 RN `NotBackedUpEmpty`，不在 Swift 重写备份流程；隐藏普通资产 Tab、Market、Earn、banner 和普通 WalletActions | P0，未验收                                                                                                               |
+| 已备份的零资产钱包                                                 | **需要正常 Native Home**                              | 显示普通零资产 Native 页面；动作与 banner gating 必须和 Legacy 一致                                                                                   | P1，未验收                                                                                                               |
+| Keyless create/recover、导入 mnemonic/KeyTag 的零资产钱包          | **需要正常 Native Home**                              | 这些路径按当前创建语义视为已备份，不显示未备份 CTA；仍需验证各 wallet type 的动作能力                                                                 | P1，未验收                                                                                                               |
+| 第一次启动且本地没有钱包                                           | **Onboarding 本身不 Native 化**                       | `unknown -> onboarding                                                                                                                                | main` gate 由现有 RN 导航/启动体系决定；Native Home 只可在不可见、不可点击、不可访问状态下预热，不能先露出任何 Home 像素 | P0，未验收 |
+| 普通单链 EVM 有钱钱包                                              | **需要 Native Home**                                  | Header、Tab、资产列表、History、滚动和 snapshot Native；复杂 selector、More、Explorer、业务 modal 可继续 RN Hybrid                                    | P0/P1，只有部分切网证据                                                                                                  |
+| BTC merge-derive 单链有钱钱包                                      | **需要 Native Home**                                  | Native 列表/分页/footer；AddressTypeSelector、Explorer 等复用 RN；保持 BTC merge-derive 数据与分页语义                                                | P1，已有部分 BTC 证据但无完整 A/B                                                                                        |
+| imported private-key / watching / external / hardware 单链有钱钱包 | **需要 Native Home，不允许退回 Legacy 规避**          | Native 页面只展示真实可用 action；账户管理、硬件通信和复杂业务仍由现有 RN/bg owner 负责                                                               | P1，真实 fixture 与动作能力证据缺失                                                                                      |
 
 ### 场景一：首次创建的空钱包
 
@@ -1735,13 +1749,13 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 
 ### 主 agent / subagent 职责矩阵
 
-| 工作 | 责任角色 | 强制边界 |
-| --- | --- | --- |
-| 需求拆解、P0/P1 排序、文件冲突与 dirty scope 控制 | 主 agent | 不直接编写产品代码，不自行做代码/UI Pass 判定 |
-| 未备份 Hybrid、启动 gate、单链 capability 和后续产品修复 | 对应编写 subagent | 每个 subagent 只改被分配范围；不得 reset/checkout/clean/stash，不得 commit/push，不得混入 Discovery/Swap/TradingView/Firmware/Performance 等无关改动 |
-| 源码审查、聚焦 Jest/ESLint/Swift parse/diff-check | 独立代码验收 subagent | 与编写角色分离；失败必须给出可定位证据，不能由编写者自验收 |
-| `yarn app:ios`、main/bg ready、真实截图/录屏、交互与 A/B differ | 独立 UI 验收 subagent | 只用 Debug；元素存在和编译通过不是 Pass；严格遵守数据安全与 fixture 边界 |
-| handoff 内容协调、stage/commit/push 与最终结论汇总 | 主 agent | 产品行为和 Pass/Fail 只能引用 subagent 的实际结果；每轮完成后更新 handoff，并按用户要求 commit/push，不夹带无关 dirty files |
+| 工作                                                            | 责任角色              | 强制边界                                                                                                                                             |
+| --------------------------------------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 需求拆解、P0/P1 排序、文件冲突与 dirty scope 控制               | 主 agent              | 不直接编写产品代码，不自行做代码/UI Pass 判定                                                                                                        |
+| 未备份 Hybrid、启动 gate、单链 capability 和后续产品修复        | 对应编写 subagent     | 每个 subagent 只改被分配范围；不得 reset/checkout/clean/stash，不得 commit/push，不得混入 Discovery/Swap/TradingView/Firmware/Performance 等无关改动 |
+| 源码审查、聚焦 Jest/ESLint/Swift parse/diff-check               | 独立代码验收 subagent | 与编写角色分离；失败必须给出可定位证据，不能由编写者自验收                                                                                           |
+| `yarn app:ios`、main/bg ready、真实截图/录屏、交互与 A/B differ | 独立 UI 验收 subagent | 只用 Debug；元素存在和编译通过不是 Pass；严格遵守数据安全与 fixture 边界                                                                             |
+| handoff 内容协调、stage/commit/push 与最终结论汇总              | 主 agent              | 产品行为和 Pass/Fail 只能引用 subagent 的实际结果；每轮完成后更新 handoff，并按用户要求 commit/push，不夹带无关 dirty files                          |
 
 ### 当前完成边界
 
@@ -1860,14 +1874,14 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 
 ### 同状态量化 A/B 与交互结果
 
-| 检查项 | Legacy RN 基准 | 当前 Native `content.body` | 结论 |
-| --- | --- | --- | --- |
-| Header/body 分界线 y | 262 | 364 | Native 多保留 102pt Header 空间 |
-| illustration/body 内容位置 | 基准 | illustration、标题、描述和 CTA 整体下沉约 198.67pt | Native 几何 Fail |
-| 首帧 primary CTA | `Backup to iCloud` 完整可见且位于底部 Tab 之上 | 被浮动 Tab bar 覆盖 | Native Fail |
-| 首帧 secondary CTA | `More backup options` 完整可见 | 已超出屏幕 | Native Fail |
-| 向上/向下 swipe | 内容保持可用；当前短内容首帧已完整，不依赖补救性滚动 | body 不产生有效滚动，手势反而触发顶部 `Refreshing...` | Native scroll owner Fail |
-| More backup options | 真实打开标题为 `Backup` 的 sheet，显示 `Manual backup / OneKey Lite / OneKey KeyTag`，关闭后页面恢复 | 首帧无法触达 secondary CTA | Legacy 交互 Pass / Native Fail |
+| 检查项                     | Legacy RN 基准                                                                                       | 当前 Native `content.body`                            | 结论                            |
+| -------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------- |
+| Header/body 分界线 y       | 262                                                                                                  | 364                                                   | Native 多保留 102pt Header 空间 |
+| illustration/body 内容位置 | 基准                                                                                                 | illustration、标题、描述和 CTA 整体下沉约 198.67pt    | Native 几何 Fail                |
+| 首帧 primary CTA           | `Backup to iCloud` 完整可见且位于底部 Tab 之上                                                       | 被浮动 Tab bar 覆盖                                   | Native Fail                     |
+| 首帧 secondary CTA         | `More backup options` 完整可见                                                                       | 已超出屏幕                                            | Native Fail                     |
+| 向上/向下 swipe            | 内容保持可用；当前短内容首帧已完整，不依赖补救性滚动                                                 | body 不产生有效滚动，手势反而触发顶部 `Refreshing...` | Native scroll owner Fail        |
+| More backup options        | 真实打开标题为 `Backup` 的 sheet，显示 `Manual backup / OneKey Lite / OneKey KeyTag`，关闭后页面恢复 | 首帧无法触达 secondary CTA                            | Legacy 交互 Pass / Native Fail  |
 
 - Native 首帧与滚动证据：`native-home-empty-wallet-native-before-viewport.png`、`native-home-empty-wallet-native-before-bottom.png`、`native-home-empty-wallet-native-before-scroll.mp4`、`native-home-empty-wallet-native-before-scroll-contact-sheet.png`、`native-home-empty-wallet-native-before-scroll-down.mp4`、`native-home-empty-wallet-native-before-scroll-down-settled.png` 以及对应 `.gesture-telemetry.json`。contact sheet 中真实出现了顶部蓝色 `Refreshing...`，但 backup body 的几何位置没有得到有效修正；不能把“收到 swipe”写成“RN body 能滚动”。
 - Legacy 首帧与交互证据：`native-home-empty-wallet-legacy-reference-viewport.png`、`native-home-empty-wallet-legacy-reference-bottom.png`、`native-home-empty-wallet-legacy-reference-scroll.mp4`、`native-home-empty-wallet-legacy-reference-scroll-contact-sheet.png`、`native-home-empty-wallet-legacy-reference-backup-entry.mp4`、`native-home-empty-wallet-legacy-reference-backup-sheet.png`、`native-home-empty-wallet-legacy-reference-backup-sheet-dismissed.png` 以及对应 `.gesture-telemetry.json`。
@@ -2178,15 +2192,15 @@ Native 和 Legacy 共用 `useHomeWalletTabSupport({ network })` / `buildHomeWall
 
 当前 Account #1、当前 server config 的真实 Tab 矩阵为：
 
-| scope | 当前实际 Tab |
-| --- | --- |
-| All Networks | Spot、Perps、DeFi、NFT、History |
-| Bitcoin | Spot、History |
-| Ethereum | Spot、Perps、DeFi、NFT、History |
-| Solana | Spot、NFT、History |
-| Polygon | Spot、Perps、DeFi、NFT、History |
-| TON | Native 渲染 Spot、History；Legacy 因缺少 TON address/account，在页面层直接显示 `No address / Create address to enable network / Create address` |
-| Tron | Spot、History |
+| scope        | 当前实际 Tab                                                                                                                                    |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| All Networks | Spot、Perps、DeFi、NFT、History                                                                                                                 |
+| Bitcoin      | Spot、History                                                                                                                                   |
+| Ethereum     | Spot、Perps、DeFi、NFT、History                                                                                                                 |
+| Solana       | Spot、NFT、History                                                                                                                              |
+| Polygon      | Spot、Perps、DeFi、NFT、History                                                                                                                 |
+| TON          | Native 渲染 Spot、History；Legacy 因缺少 TON address/account，在页面层直接显示 `No address / Create address to enable network / Create address` |
+| Tron         | Spot、History                                                                                                                                   |
 
 通用数量规则不是“单链固定几个”：DeFi=false/NFT=false 为 2 个；DeFi=false/NFT=true 为 3 个；DeFi=true 且全局禁用 Perps时，NFT=false/true 分别为 3/4 个；DeFi=true、Perps 启用时，NFT=false/true 分别为 4/5 个；All Networks 通常为 5 个，全局禁用 Perps 时为 4 个。禁止为截图写死 Perps 或 Tab 数量。
 
@@ -2270,15 +2284,15 @@ Native 根因：`useNativeHomePortfolioData` 在 scope effect 先清 rows、置 
 
 以下只采用最终目录中的目标确认帧；selector 尚未关闭、目标标题未确认、坐标误点、上一轮 stale 帧均排除。
 
-| scope | 最终 Tabs | Spot/页面终态与逐帧结论 |
-| --- | --- | --- |
-| All Networks | Spot、Perps、DeFi、NFT、History | `26` 至 `30` 的 Tron -> All first/100ms/300ms/3s/20s 均进入 All scope；20 秒帧显示 All 聚合 rows（可见 BTC、USDT、USDC、ETH、SOL 等），没有保留 Tron 或 Polygon body。|
-| Bitcoin | Spot、History | `34-all-to-btc-first-valid.png` 首帧和 `35-all-to-btc-3s-valid.png` 都只显示 BTC token row；没有旧 All rows 回灌、`rows -> empty -> rows`、section 高度突增或 offset 跳变。|
-| Ethereum | Spot、Perps、DeFi、NFT、History | `36`/`37` 首帧与 3 秒帧进入 ETH scope；settled 可见 ETH、USDT、USDC、DAI、RNDR 等当前网络 rows，没有 BTC/All/Polygon 旧 body。|
-| Solana | Spot、NFT、History | `38`/`39` 首帧与 3 秒帧进入 SOL scope；settled 可见 SOL、USDT、USDC rows，Tab 数量与当前 capability 一致。|
-| Polygon | Spot、Perps、DeFi、NFT、History | `40`/`41` 首帧与 3 秒帧进入 POL scope；settled 可见 POL、USDT、USDC.e、BUSD、DAI rows。随后五个 Tab 分别获得独立 first/3s 证据。|
-| TON | 不挂载普通 Native tabs/body | `15` 至 `19` 的 Polygon -> TON first/100ms/300ms/3s/20s 始终为 `No address / Create address to enable network / Create address`；没有 skeleton，也没有 Polygon rows。|
-| Tron | Spot、History | `20` 至 `24` 的 TON -> Tron first/100ms/300ms/3s/20s 均显示 Tron scope；settled 可见 TRX、USDT、USDC rows，没有回到 Polygon 或 missing page。|
+| scope        | 最终 Tabs                       | Spot/页面终态与逐帧结论                                                                                                                                                     |
+| ------------ | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| All Networks | Spot、Perps、DeFi、NFT、History | `26` 至 `30` 的 Tron -> All first/100ms/300ms/3s/20s 均进入 All scope；20 秒帧显示 All 聚合 rows（可见 BTC、USDT、USDC、ETH、SOL 等），没有保留 Tron 或 Polygon body。      |
+| Bitcoin      | Spot、History                   | `34-all-to-btc-first-valid.png` 首帧和 `35-all-to-btc-3s-valid.png` 都只显示 BTC token row；没有旧 All rows 回灌、`rows -> empty -> rows`、section 高度突增或 offset 跳变。 |
+| Ethereum     | Spot、Perps、DeFi、NFT、History | `36`/`37` 首帧与 3 秒帧进入 ETH scope；settled 可见 ETH、USDT、USDC、DAI、RNDR 等当前网络 rows，没有 BTC/All/Polygon 旧 body。                                              |
+| Solana       | Spot、NFT、History              | `38`/`39` 首帧与 3 秒帧进入 SOL scope；settled 可见 SOL、USDT、USDC rows，Tab 数量与当前 capability 一致。                                                                  |
+| Polygon      | Spot、Perps、DeFi、NFT、History | `40`/`41` 首帧与 3 秒帧进入 POL scope；settled 可见 POL、USDT、USDC.e、BUSD、DAI rows。随后五个 Tab 分别获得独立 first/3s 证据。                                            |
+| TON          | 不挂载普通 Native tabs/body     | `15` 至 `19` 的 Polygon -> TON first/100ms/300ms/3s/20s 始终为 `No address / Create address to enable network / Create address`；没有 skeleton，也没有 Polygon rows。       |
+| Tron         | Spot、History                   | `20` 至 `24` 的 TON -> Tron first/100ms/300ms/3s/20s 均显示 Tron scope；settled 可见 TRX、USDT、USDC rows，没有回到 Polygon 或 missing page。                               |
 
 Polygon 的完整 Tab 结果：Spot 使用当前 POL rows，并在 `50-polygon-spot-bottom.png` 抵达页面底部；Perps 的 `42/43` 显示 `Perps · $0.00`、Deposit 与真实 Hot Markets rows，不是白屏；DeFi 的 `44/45` 收敛为 `$0.00 / Start earning / Your positions will appear here`；NFT 的 `46/47` 收敛为 `No NFTs / No NFTs found at this address`；History 的 `48/49` 收敛为 `No activity yet / Block explorer`。五个 Tab first/3s 均没有跨 Tab 旧 rows、全页白屏或持久 skeleton。
 
@@ -2818,7 +2832,6 @@ Runtime scope：main runtime 拥有 NFT section coordinator、semantic projectio
 
 Rollback 边界是删除 NFT source adapter/policy/legacy adapter/tests，并撤回 `useNativeHomeNFTData` 的 semantic publish/clear/evidence 接线，恢复 Phase 6 DeFi checkpoint；Legacy NFTListContainer 未迁移，无需回滚其 renderer。
 
-
 ## 2026-07-20 Home State Model Phase 6 History checkpoint
 
 Phase 6 History 已完成 Native History hook 的 section authority 接入：新增 History source adapter、policy、Legacy-compatible render adapter 与 model tests；`useNativeHomeHistoryData` 现在发布 `history` semantic section。`TxHistoryContainer.tsx` 本 wave 未修改：当前 scoped diff 是 Native hook-only History wave，保留现有 History renderer、load-more hook、polling 和 refresh 语义。
@@ -2939,7 +2952,7 @@ Phase 7 统一 Debug 包验证已推进到“可启动但 UI matrix 未完成”
 - `yarn agent:check --profile commit`：Fail，但本轮相关 lint/format/context/lint-staged 已全部 Pass；剩余 `tsc-staged` 失败为无关 baseline：
   - `apps/desktop/web-build/static/js-sdk/data/config.ts` 缺少 `./config.perfReady`。
   - `packages/kit/src/views/Home/NativeHomePageView.native.tsx` 引用不存在的 `HOME_HEADER_SEARCH_ROW_HEIGHT`。
-  这两个文件当前没有本轮 diff，按“保留无关 dirty/不混入 Native Home”的规则未修。
+    这两个文件当前没有本轮 diff，按“保留无关 dirty/不混入 Native Home”的规则未修。
 
 ### UI 证据与未完成项
 
@@ -2976,3 +2989,56 @@ iOS Native Home 当前仍是 split-runtime：main runtime 拥有 Native Home UI�
 3. 补全 main/bg ready 明确信号。
 4. 用真实截图/录屏重走今天 UI matrix：多链有钱钱包、空钱包未备份、空钱包已备份、单链 BTC/ETH/Solana/Polygon/TON/TRON、Market Favorites/Trending/Stocks、History/NFT/DeFi/Perps、Dark mode、动态字体、pressed/hover、图片全候选失败态、scroll inertia、tab/category 连续切换无白屏/无跳变。
 5. 提交时只 stage Native Home/refactor/handoff 相关文件；不要 stage `HOME_STATE_MODEL_REFACTOR_PLAN.md`、app-update、Discovery、TradingView、device-performance、outputs、docs 等无关 dirty。
+
+## 2026-07-22 Unified Home Phase 0–7 Completion Checkpoint
+
+本 checkpoint 覆盖并替代上面的旧 Phase 7 `UI matrix 未完成` 与 `下一步`。
+架构目标已从维护一套自定义 Native HomeContainer 业务 UI，收敛为所有平台共用一个
+per-scene Home Store 和 shared React/React Native renderer；因此旧文档中只针对已退休
+HomeContainer 的 Market、slot、Pager、pressed/hover、Dynamic Type 等扩展矩阵不再是
+Unified Store 迁移的退出条件。
+
+最终状态：
+
+- iOS/Android/extension 仍是 split runtime。Home Store 只存在于 main UI JS heap；
+  bg services 在独立 heap 初始化并通过 JSON-safe proxy DTO 交付数据。MMKV、DB/file
+  handles 和部分 native singleton 可能是进程共享资源，但不是共享 JS Store。
+- Web/Desktop 是 single runtime；使用同一 Store/reducer/source contract，不模拟第二个
+  runtime。
+- `NativeHomePage.native.tsx`、Native-only Portfolio/DeFi/NFT/History/supplemental
+  producer hooks 和 Native balance authority 已物理删除。
+- `NativeHomePageView.native.tsx` 只返回 shared `HomePageView`；iOS/Android 不再拥有第二套
+  Header、Tab、section 或 cache writer。
+- Portfolio、Perps、DeFi、NFT、History、Market、Banner source lifecycle 全部由 scene
+  root controller 唯一持有；renderer 只读 typed Store selector 并发送 intent。
+- Header balance 从 Store 的 Portfolio/Perps/DeFi resource 组成同一 aggregation round；
+  owner scope 使用 Store `ownerToken.scopeKey`，只有全部 required contributor terminal 才
+  原子提交 confirmed balance。DeFi payload schema v2 同时携带 overview/currency。
+- custom Native protocol v3 保留 TS/Swift/Kotlin 合约和测试，作为未来纯 renderer
+  transport；当前 shared React Native renderer 不启用第二份 Native business state。
+
+最终 iOS Simulator Debug 证据：
+
+- iPhone 17 Pro / iOS 26.5 / UDID
+  `4837E819-A117-4E08-9936-445785D199E3`；
+- Debug build/install/launch：Pass，0 errors、13 warnings；
+- Header：连续 12 个采样均为 `$52.62`；
+- Spot/Perps/DeFi：先将当前页 tab 吸顶再点击，完成 17 轮共 51 次真实触摸
+  切换；另一次 acknowledgement run 在每次选中后都保存截图，17/17 Spot、
+  17/17 Perps、17/17 DeFi 的 tab-row crop 分别保持唯一稳定 hash，因此不是只验证
+  首轮和最终态；
+- DeFi：0/2/5/10 秒画面均保留同一 live rows，无 skeleton 回退或闪烁；
+- active interaction 日志窗口
+  `2026-07-21T20:02:15.079Z`–`2026-07-21T20:04:06.479Z` 没有 Home error、
+  invalid number、maximum-depth、RedBox、fatal、`useContextStore` 或 unhandled
+  rejection；
+- 交互录屏：
+  `outputs/home-unified-phase6-current/home-unified-phase6-final-verified.mp4`；
+- 金额/DeFi 稳定性录屏：
+  `outputs/home-unified-phase6-current/home-unified-phase6-balance-defi-stability.mp4`；
+- 截图与采样：`outputs/home-unified-phase6-current/`。
+
+最终代码验证为 Home/Store/Native protocol 101 suites / 725 tests Pass，另有 bg
+Home runtime/cache ownership 1 suite / 5 tests Pass，
+`yarn tsc:only` Pass，iOS/Android protocol contract Pass。独立 subagent 的最终验收结果
+记录在 `HOME_UNIFIED_STORE_MIGRATION_HANDOFF.md`。

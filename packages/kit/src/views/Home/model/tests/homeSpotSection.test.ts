@@ -32,7 +32,27 @@ const identity = createHomeSpotSourceIdentity({
 });
 
 function payload(id: string): IHomeSpotLegacyPayload {
-  return { ownerKey: 'account-a__all', generation: 1, displayIds: [id] };
+  return {
+    accountTokensValue: '1',
+    aggregateTokenListMap: {},
+    allAggregateTokenMap: {},
+    displayIds: [id],
+    generation: 1,
+    homeDefaultTokenMap: {},
+    isAllNetworkEmptyAccount: false,
+    isLpTokenSwitchLoading: false,
+    mergeDeriveAddressData: false,
+    networksMap: {},
+    ownerKey: 'account-a__all',
+    scopedLpTokenList: { keys: '', tokens: [] },
+    scopedLpTokenListMap: {},
+    scopedLpTokenListState: { initialized: true, isRefreshing: false },
+    showLpTokenFilterSwitch: false,
+    showLpTokensOnly: false,
+    tapTokenMap: {},
+    tokenListMap: {},
+    tokens: [],
+  };
 }
 
 describe('home Spot section authority', () => {

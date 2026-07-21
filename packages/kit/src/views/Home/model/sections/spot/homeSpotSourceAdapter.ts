@@ -1,8 +1,10 @@
 import type { IHomeRuntimeOwnerToken } from '@onekeyhq/shared/src/types/homeRuntime';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IAccountToken,
   ICustomTokenItem,
+  IHomeDefaultToken,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
@@ -45,9 +47,32 @@ type IHomeSpotNativePayload = {
 };
 
 type IHomeSpotLegacyPayload = {
+  accountTokensValue: string;
+  accountTokensWorthCurrency?: string;
+  aggregateTokenListMap: Record<string, { tokens: IAccountToken[] }>;
+  allAggregateTokenMap: Record<string, { tokens: IAccountToken[] }>;
   displayIds: readonly string[];
   generation: number;
+  homeDefaultTokenMap: Record<string, IHomeDefaultToken>;
+  isAllNetworkEmptyAccount: boolean;
+  isLpTokenSwitchLoading: boolean;
+  mergeDeriveAddressData: boolean;
+  networksMap: Record<string, IServerNetwork>;
   ownerKey: string;
+  showLpTokenFilterSwitch: boolean;
+  showLpTokensOnly: boolean;
+  scopedLpTokenList: {
+    keys: string;
+    tokens: IAccountToken[];
+  };
+  scopedLpTokenListMap: Record<string, ITokenFiat>;
+  scopedLpTokenListState: {
+    initialized: boolean;
+    isRefreshing: boolean;
+  };
+  tapTokenMap: Record<string, ITokenFiat>;
+  tokenListMap: Record<string, ITokenFiat>;
+  tokens: IAccountToken[];
 };
 
 type IHomeSpotSourceSnapshot<T> =

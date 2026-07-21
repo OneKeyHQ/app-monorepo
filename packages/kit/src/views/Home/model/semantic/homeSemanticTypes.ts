@@ -74,25 +74,6 @@ export type IHomeShellSemanticModel =
   | { kind: 'missingNetworkAccount' }
   | { kind: 'portfolio'; presentation: IHomePortfolioPresentation };
 
-export type IHomeAuthoritativeShellSnapshot = {
-  owner: IHomeRuntimeOwnerToken;
-  revision: number;
-  value: IHomeShellSemanticModel;
-};
-
-export type IHomeAuthoritativeNavigationSnapshot = {
-  owner: IHomeRuntimeOwnerToken;
-  revision: number;
-  value: IHomeNavigationSemanticModel;
-};
-
-export type IHomeAuthoritativeSectionSnapshot = {
-  owner: IHomeRuntimeOwnerToken;
-  revision: number;
-  sectionId: IHomeSectionId;
-  value: IHomeSectionSemanticModel;
-};
-
 export type IHomeNavigationSemanticModel =
   | { kind: 'hidden' }
   | {
@@ -133,22 +114,4 @@ export type IHomeSemanticModel = {
   shell: IHomeShellSemanticModel;
   navigation: IHomeNavigationSemanticModel;
   sections: Readonly<Record<IHomeSectionId, IHomeSectionSemanticModel>>;
-};
-
-export type IVersionedHomeSemanticSlice<T> = {
-  revision: number;
-  value: T;
-};
-
-export type IHomeSemanticStoreSnapshot = {
-  owner: IHomeRuntimeOwnerToken;
-  revision: number;
-  shell: IVersionedHomeSemanticSlice<IHomeShellSemanticModel>;
-  navigation: IVersionedHomeSemanticSlice<IHomeNavigationSemanticModel>;
-  sections: Readonly<
-    Record<
-      IHomeSectionId,
-      IVersionedHomeSemanticSlice<IHomeSectionSemanticModel>
-    >
-  >;
 };

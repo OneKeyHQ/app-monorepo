@@ -62,7 +62,7 @@ export type IHomeBehaviorOracleProbe =
   | 'partialPortfolioResponse'
   | 'staleDefiResponse'
   | 'stalePerpsResponse'
-  | 'historyEmptySlot'
+  | 'historyEmptyStore'
   | 'capabilityChanged'
   | 'sameScopeRequestOutOfOrder'
   | 'partialPositiveExactZero'
@@ -279,7 +279,7 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
         {
           kind: 'test',
           reference:
-            'packages/kit/src/views/Home/nativeHomeBalanceAuthority.test.ts :: allows an exact-owner cached zero while current sources reload',
+            'packages/kit/src/views/Home/model/tests/fixtures/homeLegacyBalanceOracle.ts :: historical exact-owner cached-zero oracle',
         },
         {
           kind: 'ui',
@@ -307,9 +307,9 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
         kind: 'executable',
         probe: 'backedZeroBalance',
         resolverNames: [
-          'resolveNativeHomeBalanceState',
+          'resolveHomeLegacyBalanceState',
           'resolveNativeHomeHeaderActionPresentation',
-          'resolveNativeHomeBalanceAmountPresentation',
+          'resolveHomeLegacyBalanceAmountPresentation',
         ],
       },
     },
@@ -353,7 +353,7 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
           kind: 'test',
           platform: 'iosNative',
           reference:
-            'packages/kit/src/views/Home/useNativeHomeBalanceAmountPresentation.test.ts :: commits one final value only after every included source is current and successful',
+            'packages/kit/src/views/Home/model/tests/fixtures/homeLegacyBalanceOracle.ts :: historical complete-source aggregation oracle',
         },
         {
           kind: 'ui',
@@ -372,7 +372,7 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
       verification: {
         kind: 'executable',
         probe: 'fundedAllNetworksAmount',
-        resolverNames: ['resolveNativeHomeBalanceAmountPresentation'],
+        resolverNames: ['resolveHomeLegacyBalanceAmountPresentation'],
       },
     },
     {
@@ -436,7 +436,7 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
         kind: 'executable',
         probe: 'fundedBitcoinCapability',
         resolverNames: [
-          'resolveNativeHomeBalanceState',
+          'resolveHomeLegacyBalanceState',
           'buildHomeWalletCapabilityTabModel',
         ],
       },
@@ -475,7 +475,7 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
           kind: 'test',
           platform: 'iosNative',
           reference:
-            'packages/kit/src/views/Home/nativeHomeBalanceAuthority.test.ts :: reuses known state only for the exact home balance scope',
+            'packages/kit/src/views/Home/model/tests/fixtures/homeLegacyBalanceOracle.ts :: historical exact-scope cache oracle',
         },
         {
           kind: 'ui',
@@ -541,7 +541,7 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
         {
           kind: 'test',
           reference:
-            'packages/kit/src/views/Home/nativeHomeBalanceAuthority.test.ts :: keeps error or retry unknown when the exact scope has no cache',
+            'packages/kit/src/views/Home/model/tests/fixtures/homeLegacyBalanceOracle.ts :: historical missing-scope cache oracle',
         },
         {
           kind: 'ui',
@@ -606,7 +606,7 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
           kind: 'test',
           platform: 'iosNative',
           reference:
-            'packages/kit/src/views/Home/nativeHomeBalanceAuthority.test.ts :: keeps an old-scope or failed portfolio unknown without a cache',
+            'packages/kit/src/views/Home/model/tests/fixtures/homeLegacyBalanceOracle.ts :: historical stale-scope oracle',
         },
       ],
       productExpectation: {
@@ -618,7 +618,7 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
         kind: 'executable',
         probe: 'backgroundNotReady',
         resolverNames: [
-          'resolveNativeHomeBalanceState',
+          'resolveHomeLegacyBalanceState',
           'resolveNativeHomeHeaderActionPresentation',
         ],
       },
@@ -663,7 +663,7 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
           kind: 'test',
           platform: 'iosNative',
           reference:
-            'packages/kit/src/views/Home/useNativeHomeBalanceAmountPresentation.test.ts :: holds an exact confirmed amount instead of a partial live sum',
+            'packages/kit/src/views/Home/model/tests/fixtures/homeLegacyBalanceOracle.ts :: historical partial-source aggregation oracle',
         },
       ],
       productExpectation: {
@@ -674,7 +674,7 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
       verification: {
         kind: 'executable',
         probe: 'partialPortfolioResponse',
-        resolverNames: ['resolveNativeHomeBalanceAmountPresentation'],
+        resolverNames: ['resolveHomeLegacyBalanceAmountPresentation'],
       },
     },
     {
@@ -711,7 +711,7 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
           kind: 'test',
           platform: 'iosNative',
           reference:
-            'packages/kit/src/views/Home/useNativeHomeBalanceAmountPresentation.test.ts :: rejects stale DeFi or included Perps authority while allowing excluded Perps',
+            'packages/kit/src/views/Home/model/tests/fixtures/homeLegacyBalanceOracle.ts :: historical stale-contributor oracle',
         },
       ],
       productExpectation: {
@@ -722,7 +722,7 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
       verification: {
         kind: 'executable',
         probe: 'staleDefiResponse',
-        resolverNames: ['resolveNativeHomeBalanceAmountPresentation'],
+        resolverNames: ['resolveHomeLegacyBalanceAmountPresentation'],
       },
     },
     {
@@ -823,8 +823,11 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
       },
       verification: {
         kind: 'executable',
-        probe: 'historyEmptySlot',
-        resolverNames: ['resolveNativeHomeListStateSlot'],
+        probe: 'historyEmptyStore',
+        resolverNames: [
+          'createHomeHistoryStoreResult',
+          'createHomeHistoryStorePayload',
+        ],
       },
     },
     {
@@ -861,7 +864,7 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
         {
           kind: 'test',
           reference:
-            'packages/kit/src/views/Home/nativeHomeDataAdapters.test.ts :: preserves loading and empty on one stable native state row',
+            'packages/kit/src/views/Home/model/react/useHomeNFTStoreSource.test.ts :: begins one owner-scoped request before cache and live BG work, then completes the same handle',
         },
       ],
       productExpectation: {
@@ -1140,7 +1143,7 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
           kind: 'test',
           platform: 'iosNative',
           reference:
-            'packages/kit/src/views/Home/useNativeHomeBalanceAmountPresentation.test.ts :: keeps positive actions independent while holding progressive amount until one final commit',
+            'packages/kit/src/views/Home/model/tests/fixtures/homeLegacyBalanceOracle.ts :: historical partial-positive oracle',
         },
       ],
       productExpectation: {
@@ -1152,9 +1155,9 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
         kind: 'executable',
         probe: 'partialPositiveExactZero',
         resolverNames: [
-          'resolveNativeHomeBalanceState',
+          'resolveHomeLegacyBalanceState',
           'resolveNativeHomeHeaderActionPresentation',
-          'resolveNativeHomeBalanceAmountPresentation',
+          'resolveHomeLegacyBalanceAmountPresentation',
         ],
       },
     },
@@ -1201,7 +1204,7 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
           kind: 'test',
           platform: 'iosNative',
           reference:
-            'packages/kit/src/views/Home/useNativeHomeBalanceAmountPresentation.test.ts :: commits one final value only after every included source is current and successful',
+            'packages/kit/src/views/Home/model/tests/fixtures/homeLegacyBalanceOracle.ts :: historical required-source-set oracle',
         },
       ],
       productExpectation: {
@@ -1212,7 +1215,7 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
       verification: {
         kind: 'executable',
         probe: 'aggregationRequiredSetChanged',
-        resolverNames: ['resolveNativeHomeBalanceAmountPresentation'],
+        resolverNames: ['resolveHomeLegacyBalanceAmountPresentation'],
       },
     },
     {

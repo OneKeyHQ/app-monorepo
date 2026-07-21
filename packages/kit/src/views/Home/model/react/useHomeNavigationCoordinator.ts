@@ -1,160 +1,71 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import {
-  useHomeActions,
-  useHomeConfirmedCapabilityCacheAtom,
-  useHomeTabIntentAtom,
+  useHomeFacts,
+  useHomeNavigation,
+  useHomeStoreIntentActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/home';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import { projectHomeCapabilityAuthority } from '../capabilities/homeCapabilityPolicy';
-import {
-  buildHomeConfirmedCapabilityIdentity,
-  getHomeConfirmedCapability,
-} from '../capabilities/homeConfirmedCapabilityCache';
-import { reduceHomeTabIntent } from '../navigation/homeTabIntentReducer';
+import { createHomeAuthorityId } from '../core/homeIdentity';
+import { projectHomeNavigation } from '../navigation/homeNavigationProjector';
+
+import { useHomeStoreSourcePublisher } from './useHomeStoreSourcePublisher';
 
 import type { IHomeCapabilityFacts } from '../capabilities/homeCapabilityTypes';
-import type { IHomeTabIntentState } from '../navigation/homeTabIntentReducer';
-import type {
-  IHomeNavigationSemanticModel,
-  IHomeTabId,
-} from '../semantic/homeSemanticTypes';
-
-type IHomeNavigationCoordinatorResult = {
-  cacheCommand?: Parameters<
-    ReturnType<
-      typeof useHomeActions
-    >['current']['dispatchConfirmedCapabilityCache']
-  >[0];
-  intent: IHomeTabIntentState;
-  navigation: IHomeNavigationSemanticModel;
-};
-
-function resolveHomeNavigationCoordinatorState({
-  cache,
-  facts,
-  intent,
-}: {
-  cache: Parameters<typeof getHomeConfirmedCapability>[0];
-  facts: IHomeCapabilityFacts;
-  intent: IHomeTabIntentState;
-}): IHomeNavigationCoordinatorResult {
-  const identity = buildHomeConfirmedCapabilityIdentity(facts);
-  const confirmed = getHomeConfirmedCapability(cache, identity);
-  const authority = projectHomeCapabilityAuthority({ confirmed, facts });
-  if (authority.presentation.kind === 'pending') {
-    return {
-      intent,
-      navigation: { kind: 'hidden' },
-    };
-  }
-  const presentation = authority.presentation;
-  const selectableTabs = presentation.value.tabs.filter(
-    (tabId) => presentation.value.destinations[tabId] === 'inline',
-  ) as [
-    (typeof presentation.value.tabs)[number],
-    ...(typeof presentation.value.tabs)[number][],
-  ];
-  const nextIntent = reduceHomeTabIntent(intent, {
-    kind: 'reconcile',
-    ownerToken: facts.ownerToken,
-    tabs: selectableTabs,
-  });
-  let cacheCommand: IHomeNavigationCoordinatorResult['cacheCommand'];
-  if (authority.cacheCommit) {
-    cacheCommand = { kind: 'commit', record: authority.cacheCommit };
-  } else if (confirmed) {
-    cacheCommand = { identity, kind: 'touch' };
-  }
-  return {
-    cacheCommand,
-    intent: nextIntent,
-    navigation: {
-      kind: 'ready',
-      destinations: presentation.value.destinations,
-      freshness: presentation.freshness,
-      perpsDestination: presentation.value.perpsDestination,
-      refresh: presentation.refresh,
-      sections: presentation.value.sections,
-      selectedTabId: nextIntent.selectedTabId ?? presentation.value.tabs[0],
-      tabs: presentation.value.tabs,
-    },
-  };
-}
+import type { IHomeTabId } from '../semantic/homeSemanticTypes';
 
 function useHomeNavigationCoordinator(facts: IHomeCapabilityFacts | undefined) {
-  const [cache] = useHomeConfirmedCapabilityCacheAtom();
-  const [intent] = useHomeTabIntentAtom();
-  const actions = useHomeActions().current;
-  const publicationIdentityRef = useRef('');
-  const result = useMemo(
-    () =>
-      facts
-        ? resolveHomeNavigationCoordinatorState({ cache, facts, intent })
-        : undefined,
-    [cache, facts, intent],
-  );
+  const homeFacts = useHomeFacts();
+  const navigation = useHomeNavigation();
+  const { dispatchHomeIntent } = useHomeStoreIntentActions().current;
+  const { publishHomeCapabilitySource } = useHomeStoreSourcePublisher();
 
   useEffect(() => {
-    if (!result || result.intent === intent) {
+    if (!facts) {
       return;
     }
-    actions.setHomeTabIntent(result.intent);
-  }, [actions, intent, result]);
-
-  useEffect(() => {
-    if (result?.cacheCommand) {
-      actions.dispatchConfirmedCapabilityCache(result.cacheCommand);
-    }
-  }, [actions, result?.cacheCommand]);
-
-  useEffect(() => {
-    if (!facts || !result) {
-      return;
-    }
-    const identity = stringUtils.stableStringify({
-      navigation: result.navigation,
-      owner: facts.ownerToken,
+    publishHomeCapabilitySource({
+      facts,
     });
-    if (publicationIdentityRef.current === identity) {
-      return;
-    }
-    publicationIdentityRef.current = identity;
-    actions.publishAuthoritativeNavigation({
-      owner: facts.ownerToken,
-      revision: 0,
-      value: result.navigation,
-    });
-  }, [actions, facts, result]);
+  }, [facts, publishHomeCapabilitySource]);
 
   const selectTab = useCallback(
     (tabId: IHomeTabId) => {
-      if (!facts || result?.navigation.kind !== 'ready') {
+      if (
+        !facts ||
+        !homeFacts ||
+        homeFacts.ownerToken.scopeKey !== facts.ownerToken.scopeKey ||
+        homeFacts.ownerToken.sessionId !== facts.ownerToken.sessionId ||
+        navigation.value.kind !== 'ready'
+      ) {
         return false;
       }
-      const navigation = result.navigation;
-      const selectableTabs = navigation.tabs.filter(
-        (candidate) => navigation.destinations?.[candidate] === 'inline',
-      ) as [typeof tabId, ...(typeof tabId)[]];
-      if (!selectableTabs.includes(tabId)) {
+      const storeNavigation = navigation.value;
+      if (
+        !storeNavigation.tabs.includes(tabId) ||
+        (storeNavigation.destinations &&
+          storeNavigation.destinations[tabId] !== 'inline')
+      ) {
         return false;
       }
-      actions.setHomeTabIntent(
-        reduceHomeTabIntent(result.intent, {
-          kind: 'select',
-          ownerToken: facts.ownerToken,
-          tabId,
-          tabs: selectableTabs,
-        }),
-      );
+      dispatchHomeIntent({
+        type: 'tabSelected',
+        authority: {
+          kind: 'tabApplicability',
+          revision: navigation.tabApplicabilityRevision,
+        },
+        intentId: createHomeAuthorityId('intent'),
+        owner: homeFacts.owner,
+        sessionId: facts.ownerToken.sessionId,
+        tabId,
+      });
       return true;
     },
-    [actions, facts, result],
+    [dispatchHomeIntent, facts, homeFacts, navigation],
   );
 
-  return { navigation: result?.navigation, selectTab };
+  return { navigation: navigation.value, selectTab };
 }
 
-export { resolveHomeNavigationCoordinatorState, useHomeNavigationCoordinator };
-export type { IHomeNavigationCoordinatorResult };
+export { projectHomeNavigation as resolveHomeNavigationCoordinatorState };
+export { useHomeNavigationCoordinator };

@@ -89,7 +89,7 @@ describe('Perps Home amount authority scope gates', () => {
     ).toBe(false);
   });
 
-  it('invalidates focus and deposit work synchronously on a scope change', () => {
+  it('invalidates deposit work synchronously on a scope change', () => {
     const source = fs.readFileSync(
       path.join(__dirname, 'usePerpsHomePortfolio.ts'),
       'utf8',
@@ -102,12 +102,62 @@ describe('Perps Home amount authority scope gates', () => {
         'const currentResult = selectCurrentPerpsHomePortfolioResult',
       ),
     );
-    expect(scopeChangeBlock).toContain('focusRefreshNonceRef.current += 1');
     expect(scopeChangeBlock).toContain('depositRetryNonceRef.current += 1');
     expect(source).toContain(
       'liveAccountScopeKeyRef.current !== requestScopeKey',
     );
-    expect(source.match(/isPerpsHomeAsyncScopeCurrent\(/g)).toHaveLength(4);
+    expect(source.match(/isPerpsHomeAsyncScopeCurrent\(/g)).toHaveLength(2);
+  });
+
+  it('uses the polling focus gate as the only tab-refocus scheduler', () => {
+    const source = fs.readFileSync(
+      path.join(__dirname, 'usePerpsHomePortfolio.ts'),
+      'utf8',
+    );
+
+    expect(source).toContain(
+      'overrideIsFocused: (isPageFocused) => isPageFocused && isSourceActive',
+    );
+    expect(source).not.toContain('useTabIsRefreshingFocused');
+    expect(source).not.toContain('focusRefreshNonceRef');
+    expect(source).not.toContain('wasTabFocusedRef');
+    expect(source.match(/force: true/g)).toHaveLength(1);
+  });
+
+  it('opens Store request tokens before each real background request', () => {
+    const source = fs.readFileSync(
+      path.join(__dirname, 'usePerpsHomePortfolio.ts'),
+      'utf8',
+    );
+    const mainRequestSource = source.slice(
+      source.indexOf('async () => {'),
+      source.indexOf('const depositRetryTimerRef'),
+    );
+    const mainBeginIndex = mainRequestSource.indexOf(
+      'beginHomeSectionRequest({',
+    );
+    expect(mainBeginIndex).toBeGreaterThan(-1);
+    [
+      'getGlobalDeriveTypeOfNetwork(',
+      'getNetworkAccount(',
+      'getHyperliquidPortfolioSnapshot(',
+    ].forEach((requestCall) => {
+      expect(mainBeginIndex).toBeLessThan(
+        mainRequestSource.indexOf(requestCall),
+      );
+    });
+
+    const depositRequestSource = source.slice(
+      source.indexOf('const forceRefreshAfterDeposit'),
+      source.indexOf('const startDepositConfirmationRetry'),
+    );
+    expect(
+      depositRequestSource.indexOf('beginHomeSectionRequest({'),
+    ).toBeLessThan(
+      depositRequestSource.indexOf('getHyperliquidPortfolioSnapshot('),
+    );
+    expect(source).toContain('completeHomeSectionRequest(');
+    expect(source).not.toContain('publishHomeSectionSource');
   });
 
   it('projects portfolio results to loading empty success and error evidence', () => {
@@ -163,32 +213,27 @@ describe('Perps Home amount authority scope gates', () => {
     expect(source).toContain("errorKind: 'source'");
     expect(source).toContain('requestResolved: true');
     expect(source).toContain(
-      'projectPerpsHomePortfolioEvidence(currentResult)',
+      'projectPerpsHomePortfolioEvidence(requestResult)',
     );
   });
 
-  it('keeps the initial undefined coordinator resolution in semantic loading state', () => {
+  it('completes the Store response before exposing the local compatibility result', () => {
     const source = fs.readFileSync(
       path.join(__dirname, 'usePerpsHomePortfolio.ts'),
       'utf8',
     );
-    const semanticStateBlock = source.slice(
-      source.indexOf('const semanticPerpsState = useMemo(() => {'),
-      source.indexOf(
-        'const view =',
-        source.indexOf('const semanticPerpsState'),
-      ),
+    const finishRequestSource = source.slice(
+      source.indexOf('const finishRequest ='),
+      source.indexOf('let address ='),
     );
 
-    expect(semanticStateBlock).toContain('!perpsCoordinatorResolution');
-    expect(semanticStateBlock).toContain('!perpsSourceIdentityKey');
-    expect(semanticStateBlock).toContain(
-      'return adaptHomeLegacyPerpsSection({})',
-    );
     expect(
-      semanticStateBlock.indexOf('!perpsCoordinatorResolution'),
-    ).toBeLessThan(
-      semanticStateBlock.indexOf('perpsCoordinatorResolution.resolution'),
+      finishRequestSource.indexOf('completeHomeSectionRequest('),
+    ).toBeLessThan(finishRequestSource.indexOf('return requestResult'));
+    expect(finishRequestSource.indexOf('completePerpsRequest({')).toBeLessThan(
+      finishRequestSource.lastIndexOf('return requestResult'),
     );
+    expect(source).not.toContain('requestHandleByResultRef');
+    expect(source).not.toContain('publishHomeSectionSource');
   });
 });

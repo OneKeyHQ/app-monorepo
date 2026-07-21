@@ -1,8 +1,7 @@
 import {
-  adaptHomeShellToLegacy,
+  adaptHomeShellToReactHeader,
   resolveHomeBalancePresentation,
-  resolveHomeLegacyBalanceState,
-} from '../compatibility/homeLegacyShellAdapter';
+} from '../compatibility/homeShellRenderAdapter';
 import { adaptHomeShellToNativeHeader } from '../native/homeNativeDTOAdapter';
 import { isHomeShellCommandAvailable } from '../native/homeNativeIntentGuard';
 
@@ -22,7 +21,7 @@ describe('home shell compatibility adapters', () => {
       },
     };
 
-    expect(adaptHomeShellToLegacy(shell)).toMatchObject({
+    expect(adaptHomeShellToReactHeader(shell)).toMatchObject({
       actionFamily: 'zero',
       balanceState: 'zero',
       showPositiveBanner: false,
@@ -50,7 +49,7 @@ describe('home shell compatibility adapters', () => {
       },
     };
 
-    expect(adaptHomeShellToLegacy(shell)).toEqual({
+    expect(adaptHomeShellToReactHeader(shell)).toEqual({
       actionFamily: 'funded',
       balance: undefined,
       balanceState: 'positive',
@@ -64,7 +63,9 @@ describe('home shell compatibility adapters', () => {
   });
 
   it('maps unavailable and special shells to loading without guessing zero', () => {
-    expect(adaptHomeShellToLegacy({ kind: 'missingNetworkAccount' })).toEqual({
+    expect(
+      adaptHomeShellToReactHeader({ kind: 'missingNetworkAccount' }),
+    ).toEqual({
       actionFamily: 'loading',
       balanceState: 'unknown',
       showPositiveBanner: false,
@@ -131,30 +132,11 @@ describe('home shell compatibility adapters', () => {
     ).toBe(true);
   });
 
-  it('does not reuse Account A sticky actions while Account B waits for matching facts', () => {
-    expect(
-      resolveHomeLegacyBalanceState({
-        legacyState: 'positive',
-        shadowFactsPresent: true,
-        shell: undefined,
-      }),
-    ).toBe('unknown');
-    expect(
-      resolveHomeLegacyBalanceState({
-        legacyState: 'positive',
-        shadowFactsPresent: false,
-        shell: undefined,
-      }),
-    ).toBe('positive');
-  });
-
-  it('builds one correlated amount/action/banner presentation and rolls back only when semantic facts are absent', () => {
+  it('builds one correlated amount/action/banner presentation from Store Shell', () => {
     const ownerToken = { scopeKey: 'owner-1', sessionId: 'session-1' };
     expect(
       resolveHomeBalancePresentation({
-        legacyState: 'positive',
         ownerToken,
-        shadowFactsPresent: true,
         shell: { kind: 'loading' },
       }),
     ).toMatchObject({
@@ -167,9 +149,7 @@ describe('home shell compatibility adapters', () => {
     });
 
     const zero = resolveHomeBalancePresentation({
-      legacyState: 'positive',
       ownerToken,
-      shadowFactsPresent: true,
       shell: {
         kind: 'portfolio',
         presentation: {
@@ -190,34 +170,5 @@ describe('home shell compatibility adapters', () => {
       },
     });
     expect(zero.correlated?.revision).toEqual(expect.any(String));
-
-    expect(
-      resolveHomeBalancePresentation({
-        legacyState: 'positive',
-        shadowFactsPresent: false,
-      }),
-    ).toEqual({ balanceState: 'positive' });
-  });
-
-  it('keeps a non-native Legacy renderer independent from semantic shadow loading', () => {
-    expect(
-      resolveHomeBalancePresentation({
-        legacyState: 'positive',
-        semanticPresentationEnabled: false,
-        shadowFactsPresent: true,
-        shell: {
-          kind: 'portfolio',
-          presentation: {
-            kind: 'fundedPendingTotal',
-            header: { kind: 'loading' },
-            actions: {
-              kind: 'funded',
-              items: ['send', 'receive', 'buySell', 'swap'],
-            },
-            banner: { kind: 'positive' },
-          },
-        },
-      }),
-    ).toEqual({ balanceState: 'positive' });
   });
 });

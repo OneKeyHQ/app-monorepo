@@ -26,6 +26,7 @@ type IHomeWalletListContext = {
   result: IWalletListResult | undefined;
   pending: boolean;
   refresh: () => Promise<void>;
+  refreshSilently: () => Promise<void>;
 };
 
 const HomeWalletListContext = createContext<IHomeWalletListContext | undefined>(
@@ -34,13 +35,17 @@ const HomeWalletListContext = createContext<IHomeWalletListContext | undefined>(
 
 export function HomeWalletListProvider({ children }: PropsWithChildren) {
   const requestTokenRef = useRef(0);
+  const hasConfirmedResultRef = useRef(false);
   const [result, setResult] = useState<IWalletListResult>();
   const [pending, setPending] = useState(true);
 
-  const refresh = useCallback(async () => {
+  const loadWallets = useCallback(async ({ silent }: { silent: boolean }) => {
     requestTokenRef.current += 1;
     const requestToken = requestTokenRef.current;
-    setPending(true);
+    const shouldGateSurface = !silent || !hasConfirmedResultRef.current;
+    if (shouldGateSurface) {
+      setPending(true);
+    }
     const fetchWallets = async (retryIndex = 0): Promise<void> => {
       if (requestToken !== requestTokenRef.current) {
         return;
@@ -50,6 +55,7 @@ export function HomeWalletListProvider({ children }: PropsWithChildren) {
           ignoreEmptySingletonWalletAccounts: true,
         });
         if (requestToken === requestTokenRef.current) {
+          hasConfirmedResultRef.current = true;
           setResult(nextResult);
           setPending(false);
         }
@@ -63,6 +69,14 @@ export function HomeWalletListProvider({ children }: PropsWithChildren) {
     };
     await fetchWallets();
   }, []);
+  const refresh = useCallback(
+    () => loadWallets({ silent: false }),
+    [loadWallets],
+  );
+  const refreshSilently = useCallback(
+    () => loadWallets({ silent: true }),
+    [loadWallets],
+  );
 
   useEffect(() => {
     void refresh();
@@ -81,8 +95,8 @@ export function HomeWalletListProvider({ children }: PropsWithChildren) {
   }, [refresh]);
 
   const value = useMemo(
-    () => ({ result, pending, refresh }),
-    [pending, refresh, result],
+    () => ({ result, pending, refresh, refreshSilently }),
+    [pending, refresh, refreshSilently, result],
   );
   return (
     <HomeWalletListContext.Provider value={value}>

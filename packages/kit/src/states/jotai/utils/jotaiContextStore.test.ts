@@ -9,6 +9,7 @@ import { type Atom, type WritableAtom, createStore } from 'jotai';
 import {
   EJotaiContextStoreNames,
   getJotaiContextTrackerMap,
+  jotaiContextStoreMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IJotaiSetAtom } from '@onekeyhq/kit-bg/src/states/jotai/types';
@@ -17,6 +18,11 @@ import {
   contextAtomSnapshotRegistry,
   hydrateContextColdStartCacheForProvider,
 } from '@onekeyhq/kit-bg/src/states/jotai/utils';
+import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
+import {
+  type INativeBackgroundThreadReadySignal,
+  publishNativeBackgroundThreadReady,
+} from '@onekeyhq/shared/src/background/nativeBackgroundThreadReady';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -112,6 +118,25 @@ type IGlobalColdStartSnapshot = typeof globalThis & {
   __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
 };
 
+type INativeBackgroundReadyTestState = {
+  listeners: Set<(signal: INativeBackgroundThreadReadySignal) => void>;
+  signal?: INativeBackgroundThreadReadySignal;
+};
+
+type INativeBackgroundReadyTestGlobal = typeof globalThis & {
+  __onekeyNativeBackgroundThreadReadyState?: INativeBackgroundReadyTestState;
+};
+
+const jotaiContextStoreMapAtomInstance = jotaiContextStoreMapAtom.atom();
+
+function setJotaiContextStoreMapForTest(map: Record<string, never>) {
+  void jotaiDefaultStore.set(jotaiContextStoreMapAtomInstance, map);
+}
+
+function getJotaiContextStoreMapForTest() {
+  return jotaiDefaultStore.get(jotaiContextStoreMapAtomInstance);
+}
+
 class TestErrorBoundary extends Component<
   { children?: ReactNode },
   { hasError: boolean }
@@ -161,8 +186,12 @@ describe('jotaiContextStore reset flow', () => {
     jest.clearAllMocks();
     const globalCache = globalThis as IGlobalColdStartSnapshot;
     delete globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__;
+    delete (globalThis as INativeBackgroundReadyTestGlobal)
+      .__onekeyNativeBackgroundThreadReadyState;
     platformEnv.isNative = false;
     platformEnv.isDesktop = false;
+    platformEnv.isNativeMainThread = false;
+    platformEnv.enableNativeBackgroundThread = false;
     jotaiContextStore.storeCache.clear();
     jotaiContextStore.storeResetRequests.clear();
     clearJotaiContextTrackerMap();
@@ -174,6 +203,8 @@ describe('jotaiContextStore reset flow', () => {
     clearJotaiContextTrackerMap();
     const globalCache = globalThis as IGlobalColdStartSnapshot;
     delete globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__;
+    delete (globalThis as INativeBackgroundReadyTestGlobal)
+      .__onekeyNativeBackgroundThreadReadyState;
     jest.restoreAllMocks();
   });
 
@@ -349,6 +380,92 @@ describe('jotaiContextStore reset flow', () => {
     await waitFor(() => {
       expect(queryAllByTestId('perps-root-provider')).toHaveLength(1);
     });
+  });
+
+  it('replays the latest native mirror map once for each bg ready sequence', async () => {
+    platformEnv.isNativeMainThread = true;
+    platformEnv.enableNativeBackgroundThread = true;
+    const { unmount } = render(
+      createElement(JotaiContextRootProvidersAutoMount),
+    );
+    const trackerMap = getJotaiContextTrackerMap();
+    const snapshots = [
+      EJotaiContextStoreNames.accountSelector,
+      EJotaiContextStoreNames.swap,
+      EJotaiContextStoreNames.discoveryBrowser,
+    ].map((storeName, index) => ({
+      [`store:${storeName}`]: {
+        storeName,
+        count: index + 1,
+      },
+    }));
+
+    for (const [index, reason] of (
+      ['initial', 'recovered', 'restarted'] as const
+    ).entries()) {
+      Object.keys(trackerMap).forEach((key) => delete trackerMap[key]);
+      Object.assign(trackerMap, snapshots[index]);
+      setJotaiContextStoreMapForTest({});
+
+      publishNativeBackgroundThreadReady({
+        bootId: `boot-${index}`,
+        reason,
+      });
+
+      await waitFor(() => {
+        expect(getJotaiContextStoreMapForTest()).toEqual(snapshots[index]);
+      });
+    }
+
+    const readyState = (globalThis as INativeBackgroundReadyTestGlobal)
+      .__onekeyNativeBackgroundThreadReadyState;
+    const lastSignal = readyState?.signal;
+    setJotaiContextStoreMapForTest({});
+    if (lastSignal) {
+      readyState?.listeners.forEach((listener) => listener(lastSignal));
+    }
+    await waitFor(() => {
+      expect(getJotaiContextStoreMapForTest()).toEqual({});
+    });
+
+    unmount();
+    expect(readyState?.listeners.size).toBe(0);
+    publishNativeBackgroundThreadReady({
+      bootId: 'boot-after-unmount',
+      reason: 'recovered',
+    });
+    expect(getJotaiContextStoreMapForTest()).toEqual({});
+  });
+
+  it('replays a bg ready signal that happened before the owner mounted', async () => {
+    platformEnv.isNativeMainThread = true;
+    platformEnv.enableNativeBackgroundThread = true;
+    const trackerMap = getJotaiContextTrackerMap();
+    const snapshot = {
+      'store:accountSelector@home': {
+        storeName: EJotaiContextStoreNames.accountSelector,
+        accountSelectorInfo: {
+          sceneName: EAccountSelectorSceneName.home,
+          enabledNum: [0],
+        },
+        count: 6,
+      },
+    };
+    Object.assign(trackerMap, snapshot);
+    setJotaiContextStoreMapForTest({});
+    publishNativeBackgroundThreadReady({
+      bootId: 'boot-already-ready',
+      reason: 'initial',
+    });
+
+    const { unmount } = render(
+      createElement(JotaiContextRootProvidersAutoMount),
+    );
+
+    await waitFor(() => {
+      expect(getJotaiContextStoreMapForTest()).toEqual(snapshot);
+    });
+    unmount();
   });
 
   it('removes runtime snapshot values when a cold-start atom is cleared through the normal setter path', () => {

@@ -4,11 +4,15 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import '@onekeyhq/shared/src/storage/appStorage';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import {
   HOME_RUNTIME_PROTOCOL_VERSION,
   type IHomeRuntimeHandshake,
 } from '@onekeyhq/shared/src/types/homeRuntime';
+import {
+  type IHomeOpaqueCacheEnvelope,
+  isHomeOpaqueCacheEnvelope,
+} from '@onekeyhq/shared/src/types/homeStoreCache';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
@@ -23,6 +27,26 @@ export function createHomeRuntimeProducerInstanceId(): string {
 // One producer identity is shared by every ServiceBootstrap facade created in
 // this background JS heap and changes only when that producer runtime restarts.
 const HOME_RUNTIME_PRODUCER_INSTANCE_ID = createHomeRuntimeProducerInstanceId();
+const HOME_STORE_CACHE_STORAGE_PREFIX = '$$home-store-cache-v1:';
+const HOME_STORE_CACHE_INDEX_KEY = '$$home-store-cache-v1:index';
+const HOME_STORE_CACHE_OWNER_LIMIT = 8;
+let homeStoreCacheIndexQueue = Promise.resolve();
+
+async function withHomeStoreCacheIndexLock<T>(
+  task: () => Promise<T>,
+): Promise<T> {
+  const previous = homeStoreCacheIndexQueue;
+  let release: () => void = () => undefined;
+  homeStoreCacheIndexQueue = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await previous;
+  try {
+    return await task();
+  } finally {
+    release();
+  }
+}
 
 @backgroundClass()
 class ServiceBootstrap extends ServiceBase {
@@ -47,6 +71,95 @@ class ServiceBootstrap extends ServiceBase {
       protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
       producerInstanceId: HOME_RUNTIME_PRODUCER_INSTANCE_ID,
     };
+  }
+
+  @backgroundMethod()
+  public async loadHomeStoreCache(
+    key: string,
+  ): Promise<IHomeOpaqueCacheEnvelope | undefined> {
+    const raw = await appStorage.getItem(
+      `${HOME_STORE_CACHE_STORAGE_PREFIX}${key}`,
+    );
+    if (!raw) {
+      return undefined;
+    }
+    try {
+      const envelope: unknown = JSON.parse(raw);
+      return isHomeOpaqueCacheEnvelope(envelope) ? envelope : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  @backgroundMethod()
+  public async persistHomeStoreCache(
+    envelope: IHomeOpaqueCacheEnvelope,
+  ): Promise<boolean> {
+    if (!isHomeOpaqueCacheEnvelope(envelope)) {
+      return false;
+    }
+    return withHomeStoreCacheIndexLock(async () => {
+      await appStorage.setItem(
+        `${HOME_STORE_CACHE_STORAGE_PREFIX}${envelope.key}`,
+        stringUtils.stableStringify(envelope),
+      );
+      const rawIndex = await appStorage.getItem(HOME_STORE_CACHE_INDEX_KEY);
+      let index: string[] = [];
+      if (rawIndex) {
+        try {
+          const parsed: unknown = JSON.parse(rawIndex);
+          if (Array.isArray(parsed)) {
+            index = parsed.filter(
+              (value): value is string => typeof value === 'string',
+            );
+          }
+        } catch {
+          index = [];
+        }
+      }
+      const nextIndex = [
+        ...index.filter((key) => key !== envelope.key),
+        envelope.key,
+      ].slice(-HOME_STORE_CACHE_OWNER_LIMIT);
+      const retiredKeys = index.filter((key) => !nextIndex.includes(key));
+      await Promise.all(
+        retiredKeys.map((key) =>
+          appStorage.removeItem(`${HOME_STORE_CACHE_STORAGE_PREFIX}${key}`),
+        ),
+      );
+      await appStorage.setItem(
+        HOME_STORE_CACHE_INDEX_KEY,
+        stringUtils.stableStringify(nextIndex),
+      );
+      return true;
+    });
+  }
+
+  @backgroundMethod()
+  public async removeHomeStoreCache(key: string): Promise<void> {
+    await withHomeStoreCacheIndexLock(async () => {
+      await appStorage.removeItem(`${HOME_STORE_CACHE_STORAGE_PREFIX}${key}`);
+      const rawIndex = await appStorage.getItem(HOME_STORE_CACHE_INDEX_KEY);
+      if (!rawIndex) {
+        return;
+      }
+      try {
+        const parsed: unknown = JSON.parse(rawIndex);
+        if (!Array.isArray(parsed)) {
+          return;
+        }
+        const nextIndex = parsed.filter(
+          (value): value is string =>
+            typeof value === 'string' && value !== key,
+        );
+        await appStorage.setItem(
+          HOME_STORE_CACHE_INDEX_KEY,
+          stringUtils.stableStringify(nextIndex),
+        );
+      } catch {
+        await appStorage.removeItem(HOME_STORE_CACHE_INDEX_KEY);
+      }
+    });
   }
 
   private async timed<T>(label: string, fn: () => Promise<T>): Promise<T> {
