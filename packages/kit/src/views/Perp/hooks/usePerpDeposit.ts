@@ -185,6 +185,7 @@ const usePerpDeposit = (
       toAmount,
       fromToken,
       fromTxId,
+      orderId,
       isArbUSDCOrder,
       skipToast,
     }: {
@@ -192,6 +193,7 @@ const usePerpDeposit = (
       toAmount: string;
       fromToken: IPerpsDepositToken;
       fromTxId: string;
+      orderId?: string;
       isArbUSDCOrder: boolean;
       skipToast?: boolean;
     }) => {
@@ -221,6 +223,7 @@ const usePerpDeposit = (
             {
               isArbUSDCOrder,
               fromTxId,
+              orderId,
               amount: toAmount,
               token: fromToken,
               status: ESwapTxHistoryStatus.PENDING,
@@ -1249,6 +1252,7 @@ const usePerpDeposit = (
           });
         void handlePerpDepositTxSuccess({
           fromTxId: res.txid,
+          orderId: perpDepositQuote.orderId,
           isArbUSDCOrder,
           fromToken: token,
           toAmount: perpDepositQuote.result.toAmount,
