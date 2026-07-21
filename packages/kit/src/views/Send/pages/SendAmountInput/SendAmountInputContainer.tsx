@@ -143,6 +143,7 @@ import {
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
 import { AttentionPulse } from './components/AttentionPulse';
+import { showPrivateSendGuideDialog } from './components/PrivateSendGuideDialog';
 import { useAutoSwitchDeriveType } from './hooks/useAutoSwitchDeriveType';
 import {
   type ISiblingDeriveBalance,
@@ -802,7 +803,7 @@ function SendAmountInputContainer() {
   const [isUseFiat, setIsUseFiat] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMaxSend, setIsMaxSend] = useState(false);
-  const [settings] = useSettingsPersistAtom();
+  const [settings, setSettings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [selectedUTXOs] = useSelectedUTXOsAtom();
   const sendConfirmActions = useSendConfirmActions();
@@ -1024,6 +1025,7 @@ function SendAmountInputContainer() {
   );
   const enableAllowListValidation = !isLightningNetwork;
   const [sendMode, setSendMode] = useState<ESendMode>(ESendMode.PUBLIC);
+  const hasOpenedPrivateSendGuideRef = useRef(false);
   const trackedPrivateSendQuoteKeysRef = useRef(new Set<string>());
   const trackedPrivateSendValueDropQuoteKeysRef = useRef(new Set<string>());
   const shouldUsePrivateSendQuoteCollapse =
@@ -3205,6 +3207,11 @@ function SendAmountInputContainer() {
     networkId,
   ]);
 
+  const openPrivateSendGuide = useCallback(async () => {
+    await dismissAmountInputKeyboardBeforeOverlayOpen();
+    showPrivateSendGuideDialog({ intl });
+  }, [dismissAmountInputKeyboardBeforeOverlayOpen, intl]);
+
   const handleSendModeChange = useCallback(
     (value: string | number) => {
       const nextMode =
@@ -3217,9 +3224,29 @@ function SendAmountInputContainer() {
           tokenSymbol,
         });
       }
+      if (
+        nextMode === ESendMode.PRIVATE &&
+        nextMode !== sendMode &&
+        !settings.isPrivateSendGuideClicked &&
+        !hasOpenedPrivateSendGuideRef.current
+      ) {
+        hasOpenedPrivateSendGuideRef.current = true;
+        setSettings((currentSettings) => ({
+          ...currentSettings,
+          isPrivateSendGuideClicked: true,
+        }));
+        void openPrivateSendGuide();
+      }
       setSendMode(nextMode);
     },
-    [networkId, sendMode, tokenSymbol],
+    [
+      networkId,
+      openPrivateSendGuide,
+      sendMode,
+      setSettings,
+      settings.isPrivateSendGuideClicked,
+      tokenSymbol,
+    ],
   );
 
   // Shared Public | Private segmented control, reused by the desktop
@@ -3244,6 +3271,7 @@ function SendAmountInputContainer() {
         minWidth: number;
       }) => (
         <XStack
+          testID={`send-mode-${value}`}
           minWidth={minWidth}
           h={28}
           px="$2"
@@ -4260,6 +4288,7 @@ function SendAmountInputContainer() {
         }}
       >
         <DashText
+          testID="private-send-how-it-works"
           size="$bodyMd"
           color="$textSubdued"
           dashColor="$textSubdued"
@@ -4268,14 +4297,14 @@ function SendAmountInputContainer() {
           hoverStyle={{ color: '$text' }}
           pressStyle={{ opacity: 0.7 }}
           onPress={() => {
-            openUrlExternal(privateSendHelpCenterUrl);
+            void openPrivateSendGuide();
           }}
         >
           {intl.formatMessage({ id: ETranslations.private_send_how_it_works })}
         </DashText>
       </XStack>
     );
-  }, [intl, sendMode, shouldHidePrivateSendFooterHelp]);
+  }, [intl, openPrivateSendGuide, sendMode, shouldHidePrivateSendFooterHelp]);
 
   const footerConfirmText = isInsufficientBalance
     ? intl.formatMessage({

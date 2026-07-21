@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { throttle } from 'lodash';
@@ -62,19 +62,7 @@ export function useSwapProAmountSlider({
     [inputToken?.balanceParsed, inputToken?.isNative, reserveGas],
   );
 
-  const sliderDisabled = availableBalance.lte(0);
-
-  // Derive the thumb position from the amount instead of storing it, so manual
-  // typing, keyboard percentage stages and token switches stay in sync without
-  // extra reset wiring. The native slider skips external syncs mid-drag.
-  const sliderValue = useMemo(
-    () =>
-      calcSwapProSliderPercent({
-        amount: inputAmount,
-        availableBalance,
-      }),
-    [inputAmount, availableBalance],
-  );
+  const sliderDisabled = !inputToken;
 
   // Trade type is part of the key: a trailing commit must not survive a
   // MARKET/LIMIT flip either, since onAmountChange routes to a different
@@ -82,6 +70,25 @@ export function useSwapProAmountSlider({
   const inputTokenKey = `${swapProTradeType}_${getTokenIdentityKey(
     inputToken,
   )}`;
+  const [zeroBalanceSliderValue, setZeroBalanceSliderValue] = useState(0);
+  useEffect(() => {
+    setZeroBalanceSliderValue(0);
+  }, [availableBalance, inputTokenKey]);
+
+  // Positive balances derive the thumb position from the amount so manual
+  // typing and keyboard percentage stages stay in sync. A zero balance cannot
+  // be used as the divisor, so preserve the user's slider position locally
+  // while every positive percentage continues to resolve to amount 0.
+  const sliderValue = useMemo(
+    () =>
+      availableBalance.lte(0)
+        ? zeroBalanceSliderValue
+        : calcSwapProSliderPercent({
+            amount: inputAmount,
+            availableBalance,
+          }),
+    [availableBalance, inputAmount, zeroBalanceSliderValue],
+  );
   // Latest inputs for the throttled committer, so the throttle instance can
   // stay stable across renders without capturing stale values. The ref is
   // written during render on purpose — a latest-callback hook such as
@@ -137,9 +144,12 @@ export function useSwapProAmountSlider({
         return;
       }
       lastDragPercentRef.current = percent;
+      if (availableBalance.lte(0)) {
+        setZeroBalanceSliderValue(percent);
+      }
       commitPercentThrottled(percent, commitContextRef.current.inputTokenKey);
     },
-    [sliderDisabled, commitPercentThrottled],
+    [availableBalance, sliderDisabled, commitPercentThrottled],
   );
 
   // Each gesture starts from a clean slate so a tap/long-press that emits no
@@ -156,7 +166,8 @@ export function useSwapProAmountSlider({
     commitPercentThrottled.flush();
     const releasedAtMax =
       lastDragPercentRef.current >= SWAP_PRO_SLIDER_MAX_PERCENT &&
-      !sliderDisabled;
+      !sliderDisabled &&
+      availableBalance.gt(0);
     // Consume the gesture's percent so a later release without any onChange
     // (tap on the current mark, long-press) can't re-trigger the toast.
     lastDragPercentRef.current = 0;
@@ -189,6 +200,7 @@ export function useSwapProAmountSlider({
   }, [
     commitPercentThrottled,
     sliderDisabled,
+    availableBalance,
     reserveGas,
     inputToken?.isNative,
     inputToken?.symbol,
