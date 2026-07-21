@@ -1,5 +1,7 @@
 import { useRef } from 'react';
 
+import { isEqual } from 'lodash';
+
 import {
   type IHomeConfirmedBalanceCacheCommand,
   initialHomeConfirmedBalanceCacheState,
@@ -186,7 +188,9 @@ class ContextJotaiActionsHome extends ContextJotaiActionsBase {
         incomingSections: payload.store.sections,
         sameOwner,
       });
-      set(homeFactsShadowAtom(), payload.facts);
+      if (!isEqual(currentFacts, payload.facts)) {
+        set(homeFactsShadowAtom(), payload.facts);
+      }
       set(homeSemanticShellAtom(), payload.store.shell);
       set(homeSemanticNavigationAtom(), payload.store.navigation);
       set(homeSemanticSectionsAtom(), sectionPublication.sections);

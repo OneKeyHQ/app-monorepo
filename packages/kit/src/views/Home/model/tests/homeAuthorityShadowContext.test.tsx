@@ -4,15 +4,19 @@ import { type ReactTestRenderer, act, create } from 'react-test-renderer';
 
 import {
   ProviderJotaiContextHome,
+  useHomeActions,
   useHomeAuthorityShadowAtom,
+  useHomeFactsShadowAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/home';
 import { HOME_RUNTIME_PROTOCOL_VERSION } from '@onekeyhq/shared/src/types/homeRuntime';
 
 import { HomeAuthorityShadowBridge } from '../react/HomeAuthorityShadowBridge';
 
+import type { IHomeFacts } from '../facts/homeFacts';
 import type { IHomeAuthorityShadowSnapshot } from '../lifecycle/homeSessionCoordinator';
 
 const mockGetHandshake = jest.fn();
+let publishTestShell: (() => void) | undefined;
 let mockActiveAccount: {
   ready: boolean;
   wallet?: { id: string };
@@ -73,6 +77,27 @@ function SnapshotObserver({
   return null;
 }
 
+function FactsObserver({
+  onFacts,
+}: {
+  onFacts: (facts: IHomeFacts | undefined) => void;
+}) {
+  const [facts] = useHomeFactsShadowAtom();
+  const actions = useHomeActions().current;
+  publishTestShell = () => {
+    if (!facts) {
+      return;
+    }
+    actions.publishAuthoritativeShell({
+      owner: facts.ownerToken,
+      revision: 1,
+      value: { kind: 'loading' },
+    });
+  };
+  onFacts(facts);
+  return null;
+}
+
 function TestOwner({
   children,
   onSnapshot,
@@ -124,6 +149,7 @@ describe('Home authority shadow context', () => {
     mockPlatformEnv.isNative = true;
     mockPlatformEnv.isExtension = false;
     mockActiveAccount = { ready: false };
+    publishTestShell = undefined;
   });
 
   it('tracks split-runtime A -> B -> A ownership without rendering content', async () => {
@@ -172,6 +198,28 @@ describe('Home authority shadow context', () => {
       status: 'active',
     });
     expect(mockGetHandshake).not.toHaveBeenCalled();
+    act(() => view.unmount());
+  });
+
+  it('retains equal facts when an authoritative shell is republished', async () => {
+    setActiveOwner('wallet-a');
+    let latestFacts: IHomeFacts | undefined;
+    let view!: ReactTestRenderer;
+    act(() => {
+      view = create(
+        <TestOwner onSnapshot={() => undefined}>
+          <FactsObserver onFacts={(facts) => (latestFacts = facts)} />
+        </TestOwner>,
+      );
+    });
+    await flushEffects();
+    const firstFacts = latestFacts;
+
+    act(() => publishTestShell?.());
+    await flushEffects();
+
+    expect(firstFacts).toBeDefined();
+    expect(latestFacts).toBe(firstFacts);
     act(() => view.unmount());
   });
 });
