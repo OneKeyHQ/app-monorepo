@@ -3,8 +3,8 @@ import type { ReactNode } from 'react';
 
 import {
   Divider,
-  GradientMask,
   Icon,
+  LinearGradient,
   Popover,
   SizableText,
   Stack,
@@ -169,31 +169,36 @@ function ClearTextButton({
   );
 }
 
-// bg-strong-hover is a translucent gray overlay, so a fade drawn in it would
-// not actually hide the text underneath — the mask must fade to the chip's
-// EFFECTIVE surface = bgStrongHover composited over bgApp. Both tokens are
-// fixed, so the composite is precomputed per theme (as a hex GradientMask can
-// append "00" to) rather than parsed from theme.*.val, which is not a reliable
-// color string on web.
-// light: #FFFFFF + grayA4 (#00000017) -> #E8E8E8; dark: #0f0f0f + grayA4 dark
-// (#ffffff1b) -> #282828. Recompute if those tokens change.
-const CHIP_MASK_HEX = { light: '#e8e8e8', dark: '#282828' };
+// The fade must hide the text under the × — it fades to the chip's EFFECTIVE
+// surface (its translucent bg token composited over bgApp), precomputed per
+// theme as a hex (theme.*.val is not a reliable color string on web). Two
+// surfaces because the two chip kinds sit on different bg tokens:
+//   bgStrong        (interactive chip, resting) : light #F0F0F0 / dark #202020
+//   bgStrongHover   (interactive chip, hovered) : light #E8E8E8 / dark #282828
+// The interactive chip only shows the fade while hovered (bg = bgStrongHover),
+// so it uses the hover surface; the display-only chip never changes bg, so it
+// uses the resting surface. Recompute if grayA3/grayA4 change.
+const CHIP_MASK_HEX_BASE = { light: '#f0f0f0', dark: '#202020' };
+const CHIP_MASK_HEX_HOVER = { light: '#e8e8e8', dark: '#282828' };
 
-// Width of the remove hit-target and the gradient fade over the chip's right
-// edge. Same technique the mobile category scroller uses (GradientMask), but
-// fading to the chip's own surface instead of the page. The overlays sit ON
-// TOP of the value text, so revealing the × never changes the chip width (no
-// layout jitter) — the text just fades out beneath it.
+// Remove hit-target + fade geometry. The overlays sit ON TOP of the value
+// text, so revealing the × never changes the chip width (no layout jitter).
+// The gradient keeps a solid plateau over the right ~55% so the × always sits
+// on an opaque patch; only the left edge fades, blending into the text.
 const CHIP_REMOVE_WIDTH = 26;
 const CHIP_FADE_WIDTH = 34;
 const CHIP_HORIZONTAL_PADDING = 10;
+const CHIP_FADE_START: [number, number] = [0, 0];
+const CHIP_FADE_END: [number, number] = [1, 0];
+const CHIP_FADE_LOCATIONS: [number, number, number] = [0, 0.45, 1];
 
 // Figma 25099-6710 / 25116-6318: bg-strong capsule, h 26 / radius full, label
-// regular + value medium. Hover swaps to bg-strong-hover and fades in a remove
-// control over the right edge. `interactive` chips (filter conditions) open a
-// tier popover when the body is pressed; the sort chip is display-only, so its
-// body carries no pointer affordance and only the × is actionable — that is
-// what lets the user tell "pressing the pill" from "pressing close".
+// regular + value medium; hover fades in a remove control over the right edge.
+// `interactive` chips (filter conditions) open a tier popover when the body is
+// pressed, so the body highlights (bg-strong-hover) and shows a pointer. The
+// sort chip is display-only: its body never highlights and carries no pointer,
+// so only the × reacts — that is what lets the user tell "pressing the pill"
+// from "pressing close".
 function ConditionChipShell({
   label,
   value,
@@ -214,8 +219,14 @@ function ConditionChipShell({
   const [isHovered, setIsHovered] = useState(false);
   const [isRemoveHovered, setIsRemoveHovered] = useState(false);
   const themeVariant = useThemeVariant();
-  const maskHex = CHIP_MASK_HEX[themeVariant === 'dark' ? 'dark' : 'light'];
+  const themeKey = themeVariant === 'dark' ? 'dark' : 'light';
   const showRemove = isHovered || isOpen;
+  // The body only highlights for interactive chips; the display-only chip
+  // stays on bg-strong, so its fade targets the resting surface.
+  const bodyHighlighted = interactive && showRemove;
+  const maskHex = bodyHighlighted
+    ? CHIP_MASK_HEX_HOVER[themeKey]
+    : CHIP_MASK_HEX_BASE[themeKey];
   return (
     <XStack
       alignItems="center"
@@ -224,7 +235,7 @@ function ConditionChipShell({
       px={CHIP_HORIZONTAL_PADDING}
       borderRadius="$full"
       overflow="hidden"
-      bg={showRemove ? '$bgStrongHover' : '$bgStrong'}
+      bg={bodyHighlighted ? '$bgStrongHover' : '$bgStrong'}
       userSelect="none"
       onHoverIn={() => setIsHovered(true)}
       onHoverOut={() => setIsHovered(false)}
@@ -246,10 +257,17 @@ function ConditionChipShell({
       </SizableText>
       {showRemove ? (
         <>
-          <GradientMask
-            position="right"
+          <LinearGradient
+            position="absolute"
+            top={0}
+            bottom={0}
+            right={0}
             width={CHIP_FADE_WIDTH}
-            bgColor={maskHex}
+            pointerEvents="none"
+            colors={[`${maskHex}00`, maskHex, maskHex]}
+            locations={CHIP_FADE_LOCATIONS}
+            start={CHIP_FADE_START}
+            end={CHIP_FADE_END}
           />
           <Stack
             position="absolute"
