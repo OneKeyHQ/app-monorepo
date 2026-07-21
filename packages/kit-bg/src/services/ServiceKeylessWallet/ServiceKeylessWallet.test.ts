@@ -2485,22 +2485,22 @@ describe('ServiceKeylessWallet.prepareOneKeyIdLoginWithLocalKeyless', () => {
     });
   });
 
-  test('degrades a transient wallet-read failure to NeedOAuthLogin, never NoLocalKeyless', async () => {
+  test('propagates a transient wallet-read failure instead of reporting NoLocalKeyless', async () => {
     // A transient serviceAccount.getKeylessWallet() failure is UNKNOWN state,
-    // not "no wallet". Reporting NoLocalKeyless would drop the provider lock /
-    // token-matches-wallet guard and — via loginOneKeyId's
-    // preserveLocalKeylessAuth=false branch — trigger a full logout that clears
-    // the shared keyless session slot and deletes the legacy OAuth refresh
-    // blobs over a momentary read error.
+    // not "no wallet". prepare must NOT swallow it into a status: the passive
+    // upgrade-bind gate (checkAndMarkShouldShowLocalKeylessUpgradeBindPrompt)
+    // relies on the throw to skip its 24h throttle and retry, and reporting
+    // NoLocalKeyless would let loginOneKeyId's full-logout branch clear the
+    // shared keyless session slot + legacy OAuth blobs. Only the login UI
+    // degrades a thrown result to a session-preserving one.
     const { service, backgroundApi } = createService();
+    const readError = new OneKeyLocalError('transient wallet read failure');
     backgroundApi.serviceAccount.getKeylessWallet = jest.fn(async () => {
-      throw new OneKeyLocalError('transient wallet read failure');
+      throw readError;
     });
-    await expect(
-      service.prepareOneKeyIdLoginWithLocalKeyless(),
-    ).resolves.toEqual({
-      status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NeedOAuthLogin,
-    });
+    await expect(service.prepareOneKeyIdLoginWithLocalKeyless()).rejects.toBe(
+      readError,
+    );
   });
 
   test('returns NoLocalKeyless when getKeylessWallet resolves undefined (genuine no wallet)', async () => {
