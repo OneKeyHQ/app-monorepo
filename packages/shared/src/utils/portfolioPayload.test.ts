@@ -5,6 +5,10 @@ import {
   buildPortfolioPayload,
   buildPortfolioPayloadHash,
 } from './portfolioPayload';
+import {
+  PORTFOLIO_TOKEN_FALLBACK_COLORS,
+  resolvePortfolioTokenColor,
+} from './portfolioTokenIcon';
 
 import type { ICurrencyItem } from '../../types/currency';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
@@ -44,6 +48,53 @@ function buildFiat(params: Partial<ITokenFiat>): ITokenFiat {
 }
 
 describe('buildPortfolioPayload', () => {
+  test('uses official colors and stable identity colors for unsupported tokens', () => {
+    const officialColors = {
+      BTC: 0xf7_93_1a,
+      ETH: 0xb8_c4_d6,
+      TRON: 0xff_06_0a,
+      SOL: 0x70_68_e8,
+      BNB: 0xf3_ba_2f,
+      USDT: 0x26_a1_7b,
+      USDC: 0x27_75_ca,
+    } as const;
+    for (const [iconName, color] of Object.entries(officialColors)) {
+      expect(
+        resolvePortfolioTokenColor({
+          contractAddress: '',
+          iconName: iconName as keyof typeof officialColors,
+          networkId: '',
+          symbol: iconName,
+        }),
+      ).toBe(color);
+    }
+
+    expect(
+      resolvePortfolioTokenColor({
+        contractAddress: '',
+        iconName: 'ETH',
+        networkId: 'evm--1',
+        symbol: 'ETH',
+      }),
+    ).toBe(0xb8_c4_d6);
+
+    const first = resolvePortfolioTokenColor({
+      contractAddress: '0xABCDEF',
+      iconName: null,
+      networkId: 'evm--137',
+      symbol: 'CUSTOM',
+    });
+    const sameIdentity = resolvePortfolioTokenColor({
+      contractAddress: '0xabcdef',
+      iconName: null,
+      networkId: 'evm--137',
+      symbol: 'custom',
+    });
+
+    expect(sameIdentity).toBe(first);
+    expect(PORTFOLIO_TOKEN_FALLBACK_COLORS).toContain(first);
+  });
+
   test('uses the UI token order and converts fiat values to the display currency', () => {
     const lowValueFirst = buildToken({
       $key: 'low',
@@ -82,25 +133,52 @@ describe('buildPortfolioPayload', () => {
     ]);
     expect(payload.tokens[0]).toMatchObject({
       contractAddress: '',
-      fiatValue: '7.00',
+      fiatValue: '¥7.00',
       iconName: null,
       isAllNetworks: false,
       isNative: true,
-      price: 7,
+      portfolioPercentage: 0.99,
     });
     expect(payload.tokens[1]).toMatchObject({
       contractAddress: '',
-      fiatValue: '700.00',
+      fiatValue: '¥700.00',
       iconName: null,
       isAllNetworks: false,
       isNative: true,
-      price: 700,
+      portfolioPercentage: 99.01,
     });
-    expect(payload.tokens[0]).not.toHaveProperty('icon');
-    expect(payload.totalFiat).toBe('707.00');
-    expect(payload.otherTokens).toEqual({ count: 0, fiat: '0.00' });
-    expect(payload.currency).toBe('cny');
-    expect(payload.currencySymbol).toBe('¥');
+    expect(Object.keys(payload).toSorted()).toEqual(
+      [
+        'account',
+        'otherTokens',
+        'tokenCount',
+        'tokens',
+        'totalFiat',
+        'ts',
+        'v',
+      ].toSorted(),
+    );
+    expect(Object.keys(payload.tokens[0]).toSorted()).toEqual(
+      [
+        'balance',
+        'color',
+        'contractAddress',
+        'fiatValue',
+        'iconName',
+        'isAllNetworks',
+        'isNative',
+        'name',
+        'networkId',
+        'portfolioPercentage',
+        'symbol',
+      ].toSorted(),
+    );
+    expect(payload.totalFiat).toBe('¥707.00');
+    expect(payload.otherTokens).toEqual({
+      count: 0,
+      fiat: '< ¥0.01',
+      portfolioPercentage: 0,
+    });
   });
 
   test('only marks iconName for allowlisted native and contract tokens', () => {
@@ -154,6 +232,7 @@ describe('buildPortfolioPayload', () => {
       'USDT',
     ]);
     expect(payload.tokens[0]).toMatchObject({
+      color: 0xb8_c4_d6,
       contractAddress: '',
       isNative: true,
     });
@@ -161,7 +240,10 @@ describe('buildPortfolioPayload', () => {
       contractAddress: '0x0000000000000000000000000000000000000001',
       isNative: false,
     });
+    expect(PORTFOLIO_TOKEN_FALLBACK_COLORS).toContain(payload.tokens[1].color);
+    expect(payload.tokens[1].color).not.toBe(0x26_a1_7b);
     expect(payload.tokens[2]).toMatchObject({
+      color: 0x26_a1_7b,
       contractAddress: '0xdac17f958d2ee523a2206206994597c13d831ec7',
       isNative: false,
     });
@@ -251,12 +333,12 @@ describe('buildPortfolioPayload', () => {
     expect(payload.tokens[0]).toMatchObject({
       balance: '2',
       contractAddress: '',
-      fiatValue: '1400.00',
+      fiatValue: '¥1,400.00',
       iconName: 'ETH',
       isAllNetworks: true,
       isNative: false,
       networkId: '',
-      price: 700,
+      portfolioPercentage: 100,
     });
   });
 
@@ -286,13 +368,17 @@ describe('buildPortfolioPayload', () => {
       'FIRST',
       'MISS',
     ]);
-    expect(payload.tokens[0].fiatValue).toBe('1.00');
+    expect(payload.tokens[0].fiatValue).toBe('€1.00');
     expect(payload.tokens[1]).toMatchObject({
-      change24h: 0,
-      fiatValue: '0.00',
-      price: 0,
+      fiatValue: '€0.00',
+      portfolioPercentage: 0,
     });
-    expect(payload.totalFiat).toBe('101.00');
+    expect(payload.totalFiat).toBe('€101.00');
+    expect(payload.otherTokens).toEqual({
+      count: 0,
+      fiat: '€100.00',
+      portfolioPercentage: 99.01,
+    });
   });
 
   test('limits the payload to five tokens and summarizes the remainder', () => {
@@ -330,7 +416,17 @@ describe('buildPortfolioPayload', () => {
     expect(payload.tokens.map((token) => token.symbol)).toEqual(
       tokens.slice(0, 5).map((token) => token.symbol),
     );
-    expect(payload.otherTokens).toEqual({ count: 7, fiat: '644.00' });
+    expect(payload.otherTokens).toEqual({
+      count: 7,
+      fiat: '$644.00',
+      portfolioPercentage: 56.79,
+    });
+    expect(
+      payload.tokens.reduce(
+        (total, token) => total + token.portfolioPercentage,
+        payload.otherTokens.portfolioPercentage,
+      ),
+    ).toBe(100);
   });
 
   test('formats fiat and balance precision consistently with the App', () => {
@@ -356,12 +452,17 @@ describe('buildPortfolioPayload', () => {
       tokens: [token],
     });
 
-    expect(payload.totalFiat).toBe('27112.11');
+    expect(payload.totalFiat).toBe('$27,112.11');
     expect(payload.tokens[0]).toMatchObject({
       balance: '0.4131',
-      fiatValue: '27112.11',
+      fiatValue: '$27,112.11',
+      portfolioPercentage: 100,
     });
-    expect(payload.otherTokens).toEqual({ count: 0, fiat: '0.00' });
+    expect(payload.otherTokens).toEqual({
+      count: 0,
+      fiat: '$0.00',
+      portfolioPercentage: 0,
+    });
   });
 
   test('keeps four meaningful balance decimals after leading zeros', () => {
@@ -388,6 +489,73 @@ describe('buildPortfolioPayload', () => {
     });
 
     expect(payload.tokens[0].balance).toBe('0.00001235');
+  });
+
+  test('uses App display formatting for sub-cent fiat values', () => {
+    const token = buildToken({ $key: 'dust', symbol: 'DUST' });
+    const payload = buildPortfolioPayload({
+      account: { label: 'Account #1', addressMasked: '0x12...ab' },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '0.009',
+      totalTokenCount: 1,
+      timestamp: 1_780_900_000,
+      tokenMap: {
+        dust: buildFiat({ balanceParsed: '0.0000041', fiatValue: '0.009' }),
+      },
+      tokens: [token],
+    });
+
+    expect(payload.totalFiat).toBe('< $0.01');
+    expect(payload.tokens[0]).toMatchObject({
+      balance: '0.0000041',
+      fiatValue: '< $0.01',
+      portfolioPercentage: 100,
+    });
+  });
+
+  test('uses zero percentages when the portfolio has no value', () => {
+    const token = buildToken({ $key: 'zero', symbol: 'ZERO' });
+    const payload = buildPortfolioPayload({
+      account: { label: 'Account #1', addressMasked: '0x12...ab' },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '0',
+      totalTokenCount: 1,
+      timestamp: 1_780_900_000,
+      tokenMap: { zero: buildFiat({ fiatValue: '0' }) },
+      tokens: [token],
+    });
+
+    expect(payload.tokens[0].portfolioPercentage).toBe(0);
+    expect(payload.otherTokens.portfolioPercentage).toBe(0);
+  });
+
+  test('builds an empty portfolio without NaN display values', () => {
+    const payload = buildPortfolioPayload({
+      account: { label: 'Account #1', addressMasked: '0x12...ab' },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '0',
+      totalTokenCount: 0,
+      timestamp: 1_780_900_000,
+      tokenMap: {},
+      tokens: [],
+    });
+
+    expect(payload).toMatchObject({
+      tokenCount: 0,
+      tokens: [],
+      totalFiat: '$0.00',
+      otherTokens: {
+        count: 0,
+        fiat: '$0.00',
+        portfolioPercentage: 0,
+      },
+    });
   });
 
   test('content hash excludes ts but includes portfolio content', () => {
@@ -418,7 +586,7 @@ describe('buildPortfolioPayload', () => {
     expect(
       buildPortfolioPayloadHash({
         ...basePayload,
-        currency: 'usd',
+        totalFiat: '¥701.00',
       }),
     ).not.toBe(buildPortfolioPayloadHash(basePayload));
   });

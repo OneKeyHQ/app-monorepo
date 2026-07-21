@@ -3,10 +3,11 @@ import BigNumber from 'bignumber.js';
 import appCrypto from '../appCrypto';
 
 import bufferUtils from './bufferUtils';
-import { countLeadingZeroDecimals } from './numberUtils';
+import { formatBalance, formatDisplayNumber, formatValue } from './numberUtils';
 import {
   type IPortfolioTokenIconName,
   normalizePortfolioTokenContractAddress,
+  resolvePortfolioTokenColor,
   resolvePortfolioTokenIconName,
 } from './portfolioTokenIcon';
 import { stableStringify } from './stringUtils';
@@ -24,20 +25,18 @@ export type IPortfolioPayloadToken = {
   name: string;
   contractAddress: string;
   iconName: IPortfolioTokenIconName | null;
+  color: number;
   isAllNetworks: boolean;
   isNative: boolean;
   balance: string;
   fiatValue: string;
-  price: number;
-  change24h: number;
+  portfolioPercentage: number;
   networkId: string;
 };
 
 export type IPortfolioPayload = {
   v: 1;
   ts: number;
-  currency: string;
-  currencySymbol: string;
   account: {
     label: string;
     addressMasked: string;
@@ -48,6 +47,7 @@ export type IPortfolioPayload = {
   otherTokens: {
     count: number;
     fiat: string;
+    portfolioPercentage: number;
   };
 };
 
@@ -70,42 +70,80 @@ type IConvertFiatStrictResult = {
 
 const PORTFOLIO_NATIVE_TOKEN_CONTRACT_NETWORK_IMPLS = new Set(['aptos', 'sui']);
 const PORTFOLIO_TOKEN_LIMIT = 5;
-const PORTFOLIO_FIAT_DECIMAL_PLACES = 2;
-const PORTFOLIO_BALANCE_DECIMAL_PLACES = 4;
+const PORTFOLIO_PERCENTAGE_DECIMAL_PLACES = 2;
 
-function formatPortfolioFiat(value: BigNumber.Value): string {
+function toPortfolioAllocationValue(value: BigNumber.Value): BigNumber {
   const valueBn = new BigNumber(value);
   if (!valueBn.isFinite() || valueBn.isNegative()) {
-    return '0.00';
+    return new BigNumber(0);
   }
-  return valueBn.toFixed(
-    PORTFOLIO_FIAT_DECIMAL_PLACES,
-    BigNumber.ROUND_HALF_UP,
+  return valueBn;
+}
+
+function displayNumberToString(
+  value: ReturnType<typeof formatDisplayNumber>,
+): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  return value
+    .map((part) => (typeof part === 'string' ? part : String(part.value)))
+    .join('');
+}
+
+function formatPortfolioFiat(
+  value: BigNumber.Value,
+  currencySymbol: string,
+): string {
+  const normalizedValue = toPortfolioAllocationValue(value).toFixed();
+  return displayNumberToString(
+    formatDisplayNumber(
+      formatValue(normalizedValue, { currency: currencySymbol }),
+    ),
   );
 }
 
 function formatPortfolioBalance(value: BigNumber.Value): string {
   const valueBn = new BigNumber(value);
-  if (!valueBn.isFinite() || valueBn.isNegative()) {
-    return '0';
-  }
-  const decimalPlaces = valueBn.abs().gte(1)
-    ? PORTFOLIO_BALANCE_DECIMAL_PLACES
-    : PORTFOLIO_BALANCE_DECIMAL_PLACES + countLeadingZeroDecimals(valueBn);
-  return valueBn
-    .decimalPlaces(decimalPlaces, BigNumber.ROUND_HALF_UP)
-    .toFixed();
+  const normalizedValue =
+    valueBn.isFinite() && !valueBn.isNegative() ? valueBn.toFixed() : '0';
+  return displayNumberToString(
+    formatDisplayNumber(
+      formatBalance(normalizedValue, { keepLeadingZero: true }),
+    ),
+  );
 }
 
-function formatPortfolioNumber(
-  value: BigNumber.Value | null | undefined,
-  { allowNegative = false }: { allowNegative?: boolean } = {},
-): number {
-  const valueBn = new BigNumber(value ?? NaN);
-  if (!valueBn.isFinite() || (!allowNegative && valueBn.isNegative())) {
-    return 0;
+function calculatePortfolioPercentages(values: BigNumber[]): number[] {
+  const total = BigNumber.sum(...values);
+  if (!total.isFinite() || total.lte(0)) {
+    return values.map(() => 0);
   }
-  return valueBn.toNumber();
+
+  let absorberIndex = 0;
+  for (let index = 1; index < values.length; index += 1) {
+    if (values[index].gt(values[absorberIndex])) {
+      absorberIndex = index;
+    }
+  }
+
+  const percentages = values.map((value, index) =>
+    index === absorberIndex || value.lte(0)
+      ? new BigNumber(0)
+      : value
+          .times(100)
+          .div(total)
+          .decimalPlaces(
+            PORTFOLIO_PERCENTAGE_DECIMAL_PLACES,
+            BigNumber.ROUND_HALF_UP,
+          ),
+  );
+  const assigned = BigNumber.sum(...percentages);
+  percentages[absorberIndex] = BigNumber.maximum(
+    new BigNumber(100).minus(assigned),
+    0,
+  ).decimalPlaces(PORTFOLIO_PERCENTAGE_DECIMAL_PLACES);
+  return percentages.map((value) => value.toNumber());
 }
 
 function isUsableRate(rate: BigNumber): boolean {
@@ -143,26 +181,6 @@ export function convertFiatStrictToDisplayCurrency({
   }
 
   return { value: valueBn.div(sourceRate).times(targetRate).toFixed() };
-}
-
-function convertPriceStrictToDisplayCurrency({
-  currencyMap,
-  sourceCurrency,
-  targetCurrency,
-  value,
-}: {
-  currencyMap: Record<string, ICurrencyItem>;
-  sourceCurrency?: string;
-  targetCurrency: string;
-  value: BigNumber.Value | null | undefined;
-}): number {
-  const converted = convertFiatStrictToDisplayCurrency({
-    currencyMap,
-    sourceCurrency,
-    targetCurrency,
-    value,
-  });
-  return formatPortfolioNumber(converted.value);
 }
 
 function getTokenFiat({
@@ -242,9 +260,8 @@ export function buildPortfolioPayload({
   tokens,
 }: IBuildPortfolioPayloadParams): IPortfolioPayload {
   const topTokens = tokens.slice(0, PORTFOLIO_TOKEN_LIMIT);
-  let topTokensFiat = new BigNumber(0);
 
-  const payloadTokens = topTokens.map((token) => {
+  const tokenBuildResults = topTokens.map((token) => {
     const isAllNetworks = Boolean(token.isAggregateToken);
     const isNative = isAllNetworks ? false : Boolean(token.isNative);
     const networkId = isAllNetworks ? '' : (token.networkId ?? '');
@@ -263,54 +280,68 @@ export function buildPortfolioPayload({
       targetCurrency: displayCurrency.id,
       value: fiat?.fiatValue,
     });
-    const fiatValue = formatPortfolioFiat(convertedFiat.value ?? 0);
-    topTokensFiat = topTokensFiat.plus(fiatValue);
-
-    return {
-      balance: formatPortfolioBalance(fiat?.balanceParsed ?? '0'),
-      change24h: formatPortfolioNumber(fiat?.price24h, {
-        allowNegative: true,
-      }),
+    const allocationValue = toPortfolioAllocationValue(
+      convertedFiat.value ?? 0,
+    );
+    const iconName = resolvePortfolioTokenIconName({
       contractAddress,
-      fiatValue,
-      iconName: resolvePortfolioTokenIconName({
-        contractAddress,
-        isAllNetworks,
-        isNative,
-        networkId,
-        symbol,
-      }),
       isAllNetworks,
       isNative,
-      name: token.name,
       networkId,
-      price: convertPriceStrictToDisplayCurrency({
-        currencyMap,
-        sourceCurrency,
-        targetCurrency: displayCurrency.id,
-        value: fiat?.price,
-      }),
       symbol,
+    });
+
+    return {
+      allocationValue,
+      payload: {
+        balance: formatPortfolioBalance(fiat?.balanceParsed ?? '0'),
+        color: resolvePortfolioTokenColor({
+          contractAddress,
+          iconName,
+          networkId,
+          symbol,
+        }),
+        contractAddress,
+        fiatValue: formatPortfolioFiat(allocationValue, displayCurrency.symbol),
+        iconName,
+        isAllNetworks,
+        isNative,
+        name: token.name,
+        networkId,
+        portfolioPercentage: 0,
+        symbol,
+      },
     };
   });
 
-  const totalFiat = formatPortfolioFiat(rawTotalFiat);
-  const otherTokensFiat = BigNumber.maximum(
-    new BigNumber(totalFiat).minus(topTokensFiat),
+  const totalFiatValue = toPortfolioAllocationValue(rawTotalFiat);
+  const topTokensFiatValue = tokenBuildResults.reduce(
+    (total, result) => total.plus(result.allocationValue),
+    new BigNumber(0),
+  );
+  const otherTokensFiatValue = BigNumber.maximum(
+    totalFiatValue.minus(topTokensFiatValue),
     0,
-  ).toFixed(PORTFOLIO_FIAT_DECIMAL_PLACES);
+  );
+  const percentages = calculatePortfolioPercentages([
+    ...tokenBuildResults.map((result) => result.allocationValue),
+    otherTokensFiatValue,
+  ]);
+  const payloadTokens = tokenBuildResults.map((result, index) => ({
+    ...result.payload,
+    portfolioPercentage: percentages[index],
+  }));
 
   return {
     account,
-    currency: displayCurrency.id,
-    currencySymbol: displayCurrency.symbol,
     tokenCount: payloadTokens.length,
     tokens: payloadTokens,
     otherTokens: {
       count: Math.max(Math.trunc(totalTokenCount) - payloadTokens.length, 0),
-      fiat: otherTokensFiat,
+      fiat: formatPortfolioFiat(otherTokensFiatValue, displayCurrency.symbol),
+      portfolioPercentage: percentages[payloadTokens.length] ?? 0,
     },
-    totalFiat,
+    totalFiat: formatPortfolioFiat(totalFiatValue, displayCurrency.symbol),
     ts: timestamp,
     v: 1,
   };

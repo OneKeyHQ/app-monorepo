@@ -185,16 +185,20 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
     );
     const portfolio = JSON.parse(portfolioJson) as {
       account: { addressMasked: string; label: string };
-      currency: string;
-      otherTokens: { count: number; fiat: string };
+      otherTokens: {
+        count: number;
+        fiat: string;
+        portfolioPercentage: number;
+      };
       totalFiat: string;
       tokens: {
+        color: number;
         contractAddress: string;
         fiatValue: string;
         iconName: string | null;
         isAllNetworks: boolean;
         isNative: boolean;
-        price: number;
+        portfolioPercentage: number;
       }[];
     };
 
@@ -203,33 +207,38 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
         addressMasked: 'Account #1',
         label: 'Account #1',
       },
-      currency: 'cny',
-      otherTokens: { count: 5, fiat: '421.56' },
-      totalFiat: '2500.56',
+      otherTokens: {
+        count: 5,
+        fiat: '¥421.56',
+        portfolioPercentage: 16.86,
+      },
+      totalFiat: '¥2,500.56',
       tokens: [
         {
+          color: 0xb8_c4_d6,
           contractAddress: '',
-          fiatValue: '700.00',
+          fiatValue: '¥700.00',
           iconName: null,
           isAllNetworks: false,
           isNative: true,
-          price: 700,
+          portfolioPercentage: 28,
         },
         {
           contractAddress: '0x0000000000000000000000000000000000000001',
-          fiatValue: '693.00',
+          fiatValue: '¥693.00',
           iconName: null,
           isAllNetworks: false,
           isNative: false,
-          price: 7,
+          portfolioPercentage: 27.71,
         },
         {
+          color: 0x26_a1_7b,
           contractAddress: '0xdac17f958d2ee523a2206206994597c13d831ec7',
-          fiatValue: '686.00',
+          fiatValue: '¥686.00',
           iconName: null,
           isAllNetworks: false,
           isNative: false,
-          price: 7,
+          portfolioPercentage: 27.43,
         },
       ],
     });
@@ -245,9 +254,20 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
       null,
       'USDT',
     ]);
-    expect(portfolio.tokens[0]).not.toHaveProperty('icon');
+    expect(Object.keys(portfolio).toSorted()).toEqual(
+      [
+        'account',
+        'otherTokens',
+        'tokenCount',
+        'tokens',
+        'totalFiat',
+        'ts',
+        'v',
+      ].toSorted(),
+    );
+    expect(portfolio.tokens[0]).not.toHaveProperty('price');
+    expect(portfolio.tokens[0]).not.toHaveProperty('change24h');
     expect(artifacts.contentHash).toMatch(/^[\da-f]{64}$/);
-    expect(artifacts.contentHash).not.toContain('cny');
 
     const view = new DataView(artifacts.mockArchiveBytes);
     expect(view.getUint32(0, true)).toBe(0x52_41_4b_4f);
