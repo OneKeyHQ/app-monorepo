@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
+import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { DOWNLOAD_MOBILE_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -84,6 +85,9 @@ function PerpBodyContent() {
 
 function PerpContent() {
   const { gtMd } = useMedia();
+  const [activePerpsAccount] = usePerpsActiveAccountAtom();
+  const walletTypeRef = useRef(activePerpsAccount.walletType);
+  walletTypeRef.current = activePerpsAccount.walletType;
   const { top: safeAreaTop } = useSafeAreaInsets();
   const resolvedSafeAreaTop =
     safeAreaTop || initialWindowMetrics?.insets.top || 0;
@@ -98,6 +102,7 @@ function PerpContent() {
         firedRef.current = true;
         defaultLogger.perp.common.pageView({
           source: consumePerpPageEnterSource(),
+          walletType: walletTypeRef.current ?? 'unknown',
         });
       }
       return () => {
