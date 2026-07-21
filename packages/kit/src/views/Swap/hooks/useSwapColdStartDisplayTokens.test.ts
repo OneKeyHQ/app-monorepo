@@ -375,7 +375,7 @@ describe('resolveSwapDisplayToken', () => {
     ).toEqual(solToken);
   });
 
-  it('prefers a newly normalized fallback over a stale previous token', () => {
+  it('keeps the modal display token when the global fallback belongs to another store', () => {
     const btcToken = {
       networkId: 'btc--0',
       contractAddress: '',
@@ -389,6 +389,23 @@ describe('resolveSwapDisplayToken', () => {
         allowFallback: true,
         fallbackToken: btcToken,
         previousDisplayToken: cachedEthToken,
+      }),
+    ).toEqual(cachedEthToken);
+  });
+
+  it('uses the global fallback before the current surface has rendered a token', () => {
+    const btcToken = {
+      networkId: 'btc--0',
+      contractAddress: '',
+      decimals: 8,
+      isNative: true,
+      symbol: 'BTC',
+    } satisfies ISwapToken;
+
+    expect(
+      resolveSwapDisplayToken({
+        allowFallback: true,
+        fallbackToken: btcToken,
       }),
     ).toEqual(btcToken);
   });

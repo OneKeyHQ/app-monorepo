@@ -362,10 +362,10 @@ export function resolveSwapDisplayToken({
   let nextToken: ISwapToken | undefined;
   if (currentToken?.symbol) {
     nextToken = currentToken;
-  } else if (allowFallback && fallbackToken?.symbol) {
-    nextToken = fallbackToken;
   } else if (allowFallback && previousDisplayToken?.symbol) {
     nextToken = previousDisplayToken;
+  } else if (allowFallback && fallbackToken?.symbol) {
+    nextToken = fallbackToken;
   }
   if (!nextToken) {
     return undefined;
