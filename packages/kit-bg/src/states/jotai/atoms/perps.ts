@@ -969,6 +969,11 @@ export interface IPerpsUnifoldTrackedExecution {
   sessionId: string | null;
   lastStatus: IUnifoldExecutionStatus;
   trackedAt: number;
+  // Set while a live deposit session owns the announcements for this
+  // recipient. Muted entries are retained (never deleted) so an execution the
+  // session cannot see — one older than its lookback window — still gets
+  // announced once the session ends.
+  mutedAt?: number | null;
 }
 
 export const {

@@ -28,6 +28,10 @@ import ServiceBase from './ServiceBase';
 
 const TRACKING_LOOP_INTERVAL_MS = 10 * 1000;
 const TRACKING_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+// A live session renews its claim on a fixed cadence, so a mute older than a
+// few renewal periods means the session is gone without having handed
+// tracking back (tab closed, app killed) and the entry must be reactivated.
+const TRACKING_MUTE_MAX_AGE_MS = 3 * 60 * 1000;
 
 @backgroundClass()
 export default class ServiceUnifoldDeposit extends ServiceBase {
@@ -145,6 +149,7 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
     }>;
   }) {
     const now = Date.now();
+    const recipient = params.recipientAddress.toLowerCase();
     await perpsUnifoldDepositTrackingAtom.set((prev) => {
       const existingIds = new Set(prev.items.map((i) => i.executionId));
       const added = params.executions
@@ -155,23 +160,36 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
           sessionId: params.sessionId,
           lastStatus: e.lastStatus,
           trackedAt: now,
+          mutedAt: null,
         }));
-      return { items: [...prev.items, ...added] };
+      // The session is over, so it hands announcements back for every entry of
+      // this recipient — including ones it never saw itself.
+      const unmuted = prev.items.map((item) =>
+        item.recipientAddress.toLowerCase() === recipient && item.mutedAt
+          ? { ...item, mutedAt: null }
+          : item,
+      );
+      return { items: [...unmuted, ...added] };
     });
     void this.unifoldDepositTrackingLoop();
   }
 
   // Called when a deposit-modal session (re)starts polling for a recipient:
   // the live session becomes the announcer for that recipient, so the bg loop
-  // must stop tracking it — otherwise both would toast the same terminal
-  // transition. The modal re-registers in-flight executions on close.
+  // must stay quiet — otherwise both would toast the same terminal transition.
+  //
+  // Muted, never deleted: the session only sees executions inside its lookback
+  // window, so deleting here would strand any older in-flight execution with
+  // nobody left to announce its outcome.
   @backgroundMethod()
   async claimTrackedExecutions(params: { recipientAddress: string }) {
+    const now = Date.now();
+    const recipient = params.recipientAddress.toLowerCase();
     await perpsUnifoldDepositTrackingAtom.set((prev) => ({
-      items: prev.items.filter(
-        (item) =>
-          item.recipientAddress.toLowerCase() !==
-          params.recipientAddress.toLowerCase(),
+      items: prev.items.map((item) =>
+        item.recipientAddress.toLowerCase() === recipient
+          ? { ...item, mutedAt: now }
+          : item,
       ),
     }));
   }
@@ -186,9 +204,19 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
       this.trackingLoopTimer = null;
     }
     const now = Date.now();
+    // A mute is released by the session's unmount handler. If that never ran
+    // (tab closed, app killed) the mute would strand the entry forever, so a
+    // stale one expires here.
+    await perpsUnifoldDepositTrackingAtom.set((prev) => ({
+      items: prev.items.map((item) =>
+        item.mutedAt && now - item.mutedAt >= TRACKING_MUTE_MAX_AGE_MS
+          ? { ...item, mutedAt: null }
+          : item,
+      ),
+    }));
     const { items } = await perpsUnifoldDepositTrackingAtom.get();
     const liveItems = items.filter(
-      (item) => now - item.trackedAt < TRACKING_MAX_AGE_MS,
+      (item) => now - item.trackedAt < TRACKING_MAX_AGE_MS && !item.mutedAt,
     );
 
     const settledIds = new Set<string>();
@@ -255,16 +283,15 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
       void this.backgroundApi.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
       return;
     }
-    // failed / refunded: never invent a failure reason (contract §1) — point
-    // the user at support, with the session reference when we have it.
+    // failed / refunded: never invent a failure reason (contract §1). The body
+    // stays the bare support reference rather than an English sentence under a
+    // localized title; the in-app screens carry the "contact support" wording.
     void this.backgroundApi.serviceApp.showToast({
       method: 'error',
       title: appLocale.intl.formatMessage({
         id: ETranslations.perp_deposit_fail_title,
       }),
-      message: sessionId
-        ? `Please contact support · Ref ${sessionId}`
-        : 'Please contact support',
+      ...(sessionId ? { message: `Ref ${sessionId}` } : undefined),
     });
   }
 }
