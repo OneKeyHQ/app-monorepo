@@ -1277,3 +1277,171 @@ describe('ServicePrime.apiOAuthLogin keyless slot identity guard', () => {
     expect(post).not.toHaveBeenCalled();
   });
 });
+
+describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => {
+  let emitSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrimePersistAtom.get.mockImplementation(async () => ({}));
+    emitSpy = jest.spyOn(appEventBus, 'emit').mockImplementation(() => true);
+  });
+
+  afterEach(() => {
+    emitSpy.mockRestore();
+  });
+
+  function mockBindClient(service: any) {
+    const post = jest.fn(async () => ({
+      data: {
+        data: {
+          onekeyAccount: {
+            onekeyUserId: 'user-l',
+            normalizedEmail: 'l@example.com',
+            displayEmail: 'l@example.com',
+          },
+        },
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+    return post;
+  }
+
+  it('aborts when the live login is not a legacy email session (stale legacy slot leftover)', async () => {
+    // Post-commit legacy cleanup failures are tolerated ("leftovers are
+    // re-cleaned later"), so a residual legacy token can coexist with a
+    // live KeylessOAuth login. The bind must never consume that leftover.
+    const { service, simpleDbPrime } = createService();
+    const post = mockBindClient(service);
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getSupabaseAuthToken.mockResolvedValue('stale-legacy-token');
+
+    await expect(
+      service.apiBindLegacyOneKeyIdOAuth({
+        oauthAccessToken: buildFakeJwt({ sub: 'oauth-a' }),
+        expectedOnekeyUserId: 'user-l',
+      }),
+    ).rejects.toThrow('Active login is not a legacy email session');
+
+    expect(post).not.toHaveBeenCalled();
+    expect(simpleDbPrime.setAuthSessionSource).not.toHaveBeenCalled();
+  });
+
+  it('aborts when the logged-in account differs from the one the user consented to', async () => {
+    // Consent-target mismatch: the bind dialog showed account L, but a
+    // concurrent surface (ext popup vs expand tab) re-logged the legacy
+    // slot in as account M before the OAuth round-trip finished.
+    const { service, simpleDbPrime } = createService();
+    const post = mockBindClient(service);
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getSupabaseAuthToken.mockResolvedValue('legacy-token-m');
+    mockPrimePersistAtom.get.mockImplementation(async () => ({
+      isLoggedIn: true,
+      onekeyUserId: 'user-m',
+    }));
+
+    await expect(
+      service.apiBindLegacyOneKeyIdOAuth({
+        oauthAccessToken: buildFakeJwt({ sub: 'oauth-a' }),
+        expectedOnekeyUserId: 'user-l',
+      }),
+    ).rejects.toThrow('OneKey ID account changed since the bind was confirmed');
+
+    expect(post).not.toHaveBeenCalled();
+    expect(simpleDbPrime.setAuthSessionSource).not.toHaveBeenCalled();
+  });
+
+  it('aborts when the login was cleared after the user consented', async () => {
+    const { service, simpleDbPrime } = createService();
+    const post = mockBindClient(service);
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    mockPrimePersistAtom.get.mockImplementation(async () => ({
+      isLoggedIn: false,
+      onekeyUserId: '',
+    }));
+
+    await expect(
+      service.apiBindLegacyOneKeyIdOAuth({
+        oauthAccessToken: buildFakeJwt({ sub: 'oauth-a' }),
+        expectedOnekeyUserId: 'user-l',
+      }),
+    ).rejects.toThrow('OneKey ID is not logged in');
+
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('passes the legacy guard and reaches the keyless slot guard when identity matches', async () => {
+    // Proves guard ordering: with the consented account still logged in,
+    // execution proceeds to the pre-existing keyless slot guard (which
+    // aborts here on an empty slot).
+    const { service, simpleDbPrime } = createService();
+    const post = mockBindClient(service);
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getSupabaseAuthToken.mockResolvedValue('legacy-token-l');
+    mockPrimePersistAtom.get.mockImplementation(async () => ({
+      isLoggedIn: true,
+      onekeyUserId: 'user-l',
+    }));
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValueOnce({
+      status: 'empty',
+    });
+
+    await expect(
+      service.apiBindLegacyOneKeyIdOAuth({
+        oauthAccessToken: buildFakeJwt({ sub: 'oauth-a' }),
+        expectedOnekeyUserId: 'user-l',
+      }),
+    ).rejects.toThrow('Keyless OAuth session is not persisted locally');
+
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('binds successfully when the consented account still holds the live legacy login', async () => {
+    const { service, simpleDbPrime } = createService();
+    const post = mockBindClient(service);
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getSupabaseAuthToken.mockResolvedValue('legacy-token-l');
+    mockPrimePersistAtom.get.mockImplementation(async () => ({
+      isLoggedIn: true,
+      onekeyUserId: 'user-l',
+    }));
+    // Pre-POST guard read, then in-lock commit re-check read.
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValueOnce({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'oauth-a' }),
+    });
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValueOnce({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'oauth-a' }),
+    });
+    service.updatePrimeAtomByOneKeyIdAccount = jest.fn(async () => undefined);
+    service.apiFetchPrimeUserInfo = jest.fn(async () => undefined);
+
+    const result = await service.apiBindLegacyOneKeyIdOAuth({
+      oauthAccessToken: buildFakeJwt({ sub: 'oauth-a' }),
+      expectedOnekeyUserId: 'user-l',
+    });
+
+    expect(result.onekeyAccount.onekeyUserId).toBe('user-l');
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/account/identities/oauth/bind',
+      expect.objectContaining({
+        legacyOneKeyIdAuthToken: 'legacy-token-l',
+      }),
+    );
+    expect(simpleDbPrime.setAuthSessionSource).toHaveBeenCalledWith(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    await flushAsync();
+  });
+});

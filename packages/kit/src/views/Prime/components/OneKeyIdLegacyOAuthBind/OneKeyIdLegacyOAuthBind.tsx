@@ -28,6 +28,7 @@ import {
   EExtOneKeyIdAuthFlow,
   EOAuthSocialLoginProvider,
 } from '@onekeyhq/shared/src/consts/authConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EOneKeyErrorClassNames,
   type IOneKeyError,
@@ -342,6 +343,20 @@ function OneKeyIdLegacyOAuthBindActions({
       try {
         setShowKeylessLogoutAction(false);
         await errorToastUtils.withErrorAutoToast(async () => {
+          // Capture the account the user is consenting to bind at press
+          // time, BEFORE the user-paced OAuth round-trip: the bg method
+          // re-asserts it right before the irreversible bind POST, so a
+          // concurrent login switch in another surface (ext popup vs expand
+          // tab) aborts the bind instead of permanently attaching the OAuth
+          // identity to whichever account then occupies the legacy slot.
+          const { isLoggedIn, onekeyUserId: expectedOnekeyUserId } =
+            await backgroundApiProxy.servicePrime.getLocalUserInfo();
+          if (!isLoggedIn || !expectedOnekeyUserId) {
+            // TODO: i18n (surfaces as a raw toast via withErrorAutoToast)
+            throw new OneKeyLocalError(
+              'OAuth bind failed: OneKey ID is not logged in',
+            );
+          }
           let didUseOAuthSignIn = false;
           let oauthAccessToken = '';
           try {
@@ -354,6 +369,7 @@ function OneKeyIdLegacyOAuthBindActions({
             oauthAccessToken = result.accessToken;
             await backgroundApiProxy.servicePrime.apiBindLegacyOneKeyIdOAuth({
               oauthAccessToken,
+              expectedOnekeyUserId,
             });
           } catch (error) {
             if (

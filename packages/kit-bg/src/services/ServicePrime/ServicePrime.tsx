@@ -1224,13 +1224,56 @@ class ServicePrime extends ServiceBase {
   @toastIfError()
   async apiBindLegacyOneKeyIdOAuth({
     oauthAccessToken,
+    expectedOnekeyUserId,
   }: {
     oauthAccessToken: string;
+    // The onekeyUserId the bind UI displayed when the user consented,
+    // captured at button-press time; re-asserted below against the live
+    // login right before the irreversible bind POST.
+    expectedOnekeyUserId: string;
   }): Promise<IOneKeyIdOAuthBindResponse> {
     return this.loginMutex.runExclusive(async () => {
       if (!oauthAccessToken) {
         throw new OneKeyLocalError(
           'apiBindLegacyOneKeyIdOAuth ERROR: Invalid oauthAccessToken',
+        );
+      }
+      if (!expectedOnekeyUserId) {
+        throw new OneKeyLocalError(
+          'apiBindLegacyOneKeyIdOAuth ERROR: Invalid expectedOnekeyUserId',
+        );
+      }
+
+      // Legacy-side identity guard, mirroring the keyless-side slot guard
+      // below but for the account that permanently RECEIVES the identity:
+      // the legacy token read further down is whatever currently occupies
+      // the shared legacy slot, which another surface (ext popup vs expand
+      // tab) may have replaced with a different account's session since the
+      // user consented — and which post-commit cleanup failures deliberately
+      // leave behind as a tolerated leftover while the live login is already
+      // KeylessOAuth. Binding is irreversible and one-time per identity, so
+      // a wrong-target bind can never be undone or repeated; abort unless
+      // the live login is still the legacy-email account the UI showed.
+      const effectiveAuthSessionSource =
+        await this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource();
+      if (
+        effectiveAuthSessionSource !==
+        EPrimeAuthSessionSource.LegacyEmailSupabase
+      ) {
+        throw new OneKeyLocalError(
+          'apiBindLegacyOneKeyIdOAuth ERROR: Active login is not a legacy email session',
+        );
+      }
+      const { isLoggedIn: isAtomLoggedIn, onekeyUserId: currentOnekeyUserId } =
+        await primePersistAtom.get();
+      if (!isAtomLoggedIn || !currentOnekeyUserId) {
+        throw new OneKeyLocalError(
+          'apiBindLegacyOneKeyIdOAuth ERROR: OneKey ID is not logged in',
+        );
+      }
+      if (currentOnekeyUserId !== expectedOnekeyUserId) {
+        throw new OneKeyLocalError(
+          'apiBindLegacyOneKeyIdOAuth ERROR: OneKey ID account changed since the bind was confirmed',
         );
       }
 
