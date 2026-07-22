@@ -408,9 +408,15 @@ export function usePerpsUnifoldDepositSession({
   // (possibly already-terminal) execution.
   const primedRef = useRef(false);
   const tickBusyRef = useRef(false);
-  const addressReady = addressState.status === 'ready';
+  // The poll starts once the address is ready and then stays up for the rest
+  // of the session. A veto that lands later (sanction, catalog error) must not
+  // tear down tracking while money is already in flight.
+  const [pollEnabled, setPollEnabled] = useState(false);
+  if (addressState.status === 'ready' && !pollEnabled) {
+    setPollEnabled(true);
+  }
   useEffect(() => {
-    if (!enabled || !recipientAddress || !addressReady) {
+    if (!enabled || !recipientAddress || !pollEnabled) {
       return;
     }
     // This live session takes over announcements for the recipient — remove
@@ -475,7 +481,7 @@ export function usePerpsUnifoldDepositSession({
       clearInterval(timer);
       clearTimeout(waitingTimer);
     };
-  }, [enabled, recipientAddress, addressReady]);
+  }, [enabled, recipientAddress, pollEnabled]);
 
   // ── Hand off in-flight executions to the bg tracking loop on unmount ──
   const sessionExecutionsRef = useRef(sessionExecutions);
@@ -518,7 +524,11 @@ export function usePerpsUnifoldDepositSession({
     return wallet?.address ?? null;
   }, [addressState, selection]);
 
-  const hasDetectedExecution = sessionExecutions.length > 0;
+  // Only an execution that is still moving suppresses the waiting hint. A
+  // finished deposit stays in the 60s lookback window for the rest of the
+  // session, so keying this on "any execution" would silence the panel
+  // permanently after the first successful deposit.
+  const hasInFlightExecution = sessionExecutions.some((item) => !item.terminal);
 
   return {
     recipientAddress,
@@ -528,8 +538,9 @@ export function usePerpsUnifoldDepositSession({
     // neutral when this is false.
     isHyperCoreDestination,
     addressState,
-    sessionId:
-      addressState.status === 'ready' ? addressState.result.sessionId : null,
+    // Sticky: the support copy on the sanctioned screen quotes this ref, so it
+    // must survive a veto that replaces the ready state.
+    sessionId: sessionIdRef.current,
     supportedAssets,
     assetsLoading: supportedAssets === undefined,
     selection,
@@ -537,7 +548,7 @@ export function usePerpsUnifoldDepositSession({
     selectChain,
     qrAddress,
     sessionExecutions,
-    showWaitingUi: showWaitingUi && !hasDetectedExecution,
+    showWaitingUi: showWaitingUi && !hasInFlightExecution,
     activationFee: activationStatus?.activationFee ?? null,
     showActivationWarning,
   };

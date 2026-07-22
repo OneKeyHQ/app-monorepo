@@ -89,47 +89,56 @@ export function UnifoldDepositQRCard({
           />
         ) : null}
       </YStack>
-      <XStack
-        mt="$2"
-        px="$2"
-        py="$1"
-        gap="$1.5"
-        alignItems="center"
-        borderRadius="$2"
-        cursor="pointer"
-        hoverStyle={{ bg: '$bgHover' }}
-        pressStyle={{ bg: '$bgActive' }}
-        onPress={() => {
-          if (!address) {
-            return;
-          }
-          copyText(address);
-          setCopied(true);
-          if (copiedTimerRef.current) {
-            clearTimeout(copiedTimerRef.current);
-          }
-          copiedTimerRef.current = setTimeout(() => setCopied(false), 2000);
-        }}
-      >
-        {address ? (
-          <>
-            <SizableText size="$bodyMd" color="$text">
-              {accountUtils.shortenAddress({
-                address,
-                leadingLength: 8,
-                trailingLength: 6,
-              })}
-            </SizableText>
-            <Icon
-              name={copied ? 'CheckLargeOutline' : 'Copy3Outline'}
-              size="$4"
-              color={copied ? '$iconSuccess' : '$iconSubdued'}
-            />
-          </>
-        ) : (
-          <Skeleton width={128} height={16} radius={4} />
-        )}
-      </XStack>
+      {/* Hidden entirely when there is no address to show and none is coming:
+          a shimmering skeleton under the "No address available" plate would
+          contradict it, in a row that still looks pressable. */}
+      {address || loading ? (
+        <XStack
+          mt="$2"
+          px="$2"
+          py="$1"
+          gap="$1.5"
+          alignItems="center"
+          borderRadius="$2"
+          {...(address
+            ? {
+                cursor: 'pointer',
+                hoverStyle: { bg: '$bgHover' },
+                pressStyle: { bg: '$bgActive' },
+                onPress: () => {
+                  copyText(address);
+                  setCopied(true);
+                  if (copiedTimerRef.current) {
+                    clearTimeout(copiedTimerRef.current);
+                  }
+                  copiedTimerRef.current = setTimeout(
+                    () => setCopied(false),
+                    2000,
+                  );
+                },
+              }
+            : undefined)}
+        >
+          {address ? (
+            <>
+              <SizableText size="$bodyMd" color="$text">
+                {accountUtils.shortenAddress({
+                  address,
+                  leadingLength: 8,
+                  trailingLength: 6,
+                })}
+              </SizableText>
+              <Icon
+                name={copied ? 'CheckLargeOutline' : 'Copy3Outline'}
+                size="$4"
+                color={copied ? '$iconSuccess' : '$iconSubdued'}
+              />
+            </>
+          ) : (
+            <Skeleton width={128} height={16} radius={4} />
+          )}
+        </XStack>
+      ) : null}
     </YStack>
   );
 }

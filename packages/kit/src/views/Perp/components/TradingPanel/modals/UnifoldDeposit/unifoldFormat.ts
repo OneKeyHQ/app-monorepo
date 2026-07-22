@@ -2,6 +2,23 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { formatUnifoldTokenAmountValue } from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
+import type { IUnifoldDepositExecution } from '@onekeyhq/shared/types/unifoldDeposit';
+
+// `terminal` covers succeeded as well, so it can never stand in for "went
+// wrong" — every failure affordance keys on this instead.
+export function isUnifoldExecutionFailed(
+  execution: IUnifoldDepositExecution,
+): boolean {
+  return execution.terminal && execution.status !== 'succeeded';
+}
+
+// Support references are 36-char UUIDs and never fit a single card line.
+export function shortenUnifoldRef(id: string): string {
+  if (id.length <= 14) {
+    return id;
+  }
+  return `${id.slice(0, 6)}…${id.slice(-4)}`;
+}
 
 // SDK formatter: ceil(seconds/60) → "< N min"; ≥60min → "< N hr"; null → "< 1 min".
 export function formatUnifoldProcessingTime(

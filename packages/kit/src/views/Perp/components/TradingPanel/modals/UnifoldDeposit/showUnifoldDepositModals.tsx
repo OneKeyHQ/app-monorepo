@@ -1,4 +1,6 @@
 // cspell: words unifold Unifold
+import { useWindowDimensions } from 'react-native';
+
 import {
   Dialog,
   Icon,
@@ -13,30 +15,57 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { resolveUnifoldDepositDestination } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IUnifoldDepositExecution } from '@onekeyhq/shared/types/unifoldDeposit';
 
 import { normalizeUnifoldIconUrl } from './unifoldFormat';
-import {
-  UnifoldExecutionDetail,
-  UnifoldTrackerContent,
-} from './UnifoldTrackerContent';
+import { UnifoldTrackerContent } from './UnifoldTrackerContent';
 import { UnifoldTransferContent } from './UnifoldTransferContent';
 
 const DESKTOP_DIALOG_MAX_HEIGHT = 'calc(100vh - 64px)';
+// The dialog panel clamps its own height but never scrolls, so the body has to
+// be told how much room is left: 64px panel inset + 70px dialog header + 20px
+// content padding.
+const DESKTOP_DIALOG_CHROME_HEIGHT = 154;
+const DESKTOP_DIALOG_MIN_BODY_HEIGHT = 320;
+
+function useDesktopDialogBodyMaxHeight() {
+  const { height } = useWindowDimensions();
+  return Math.max(
+    DESKTOP_DIALOG_MIN_BODY_HEIGHT,
+    height - DESKTOP_DIALOG_CHROME_HEIGHT,
+  );
+}
+
+// Dialog content is built from a plain function, so the window-dependent bound
+// has to be resolved inside a component.
+function DesktopTransferBody({
+  expectedRecipient,
+}: {
+  expectedRecipient: string;
+}) {
+  const bodyMaxHeight = useDesktopDialogBodyMaxHeight();
+  return (
+    <UnifoldTransferContent
+      expectedRecipient={expectedRecipient}
+      bodyMaxHeight={bodyMaxHeight}
+    />
+  );
+}
+
+function DesktopTrackerBody({
+  expectedRecipient,
+}: {
+  expectedRecipient: string;
+}) {
+  const bodyMaxHeight = useDesktopDialogBodyMaxHeight();
+  return (
+    <UnifoldTrackerContent
+      recipientAddress={expectedRecipient}
+      listHeight={bodyMaxHeight}
+    />
+  );
+}
 
 export type IUnifoldDepositMenuAction = 'onekey' | 'transfer' | 'tracker';
-
-// Execution detail opened from a status card / tracker row press. Dialog.show
-// renders a centered dialog on desktop and a bottom sheet on mobile.
-export function showUnifoldExecutionDetailDialog(
-  execution: IUnifoldDepositExecution,
-) {
-  Dialog.show({
-    title: 'Deposit Details',
-    showFooter: false,
-    renderContent: <UnifoldExecutionDetail execution={execution} />,
-  });
-}
 
 function MenuActionRow({
   icon,
@@ -192,10 +221,7 @@ export function showUnifoldTransferDialog({
       maxHeight: DESKTOP_DIALOG_MAX_HEIGHT,
     },
     renderContent: (
-      <UnifoldTransferContent
-        expectedRecipient={expectedRecipient}
-        onPressExecution={showUnifoldExecutionDetailDialog}
-      />
+      <DesktopTransferBody expectedRecipient={expectedRecipient} />
     ),
   });
 }
@@ -213,8 +239,6 @@ export function showUnifoldTrackerDialog({
     floatingPanelProps: {
       maxHeight: DESKTOP_DIALOG_MAX_HEIGHT,
     },
-    renderContent: (
-      <UnifoldTrackerContent recipientAddress={expectedRecipient} />
-    ),
+    renderContent: <DesktopTrackerBody expectedRecipient={expectedRecipient} />,
   });
 }
