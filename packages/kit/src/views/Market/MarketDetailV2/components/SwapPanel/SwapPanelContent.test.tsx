@@ -143,6 +143,7 @@ function createProps(): ISwapPanelContentProps {
     slippageAutoValue: 1,
     supportSpeedSwap: {
       enabled: true,
+      isAccountNetworkSupported: true,
       onlySupportCrossChain: false,
     },
     defaultTokens: [],

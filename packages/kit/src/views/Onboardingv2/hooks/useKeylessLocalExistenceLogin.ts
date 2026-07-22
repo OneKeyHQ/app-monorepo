@@ -5,16 +5,11 @@ import { useIntl } from 'react-intl';
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, Toast } from '@onekeyhq/components';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { getOAuthSocialLoginProviderName } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
-  showKeylessOneKeyIdSessionConflictDialog,
-  showKeylessWalletAccountMismatchError,
-} from '../../../components/KeylessWallet/AccountMismatchDialog';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import { useOneKeyAuth } from '../../../components/OneKeyAuth/useOneKeyAuth';
 
@@ -34,8 +29,7 @@ export function useKeylessLocalExistenceLogin({
   const intl = useIntl();
   const { enableKeylessWalletLoading, checkKeylessWalletLocalExistence } =
     useKeylessWallet();
-  const { logout, persistKeylessOAuthSession, signInWithSocialLogin } =
-    useOneKeyAuth();
+  const { signInWithSocialLogin } = useOneKeyAuth();
 
   const [loadingProvider, setLoadingProvider] =
     useState<EOAuthSocialLoginProvider | null>(null);
@@ -81,69 +75,15 @@ export function useKeylessLocalExistenceLogin({
           });
         }
         if (isResetMode) {
-          // Sign in WITHOUT persisting the OAuth session: there is a single
-          // shared keyless session slot, and persisting before validation
-          // would let a wrong-account session overwrite the active one
-          // (which may back the live OneKey ID login).
-          const result = await signInWithSocialLogin(provider);
+          // This dev-only cloud reset authenticates with the fresh OAuth token
+          // itself. It must not require, validate, or persist a local Keyless
+          // session because the target cloud wallet may intentionally have no
+          // corresponding local wallet. Keeping the token ephemeral also
+          // avoids touching an active OneKey ID or Keyless session.
+          const result = await signInWithSocialLogin(provider, {
+            persistSession: false,
+          });
           if (result?.session?.accessToken) {
-            const { isValid } =
-              await backgroundApiProxy.serviceKeylessWallet.validateTokenMatchesKeylessWallet(
-                { token: result.session.accessToken },
-              );
-            if (!isValid) {
-              // The wrong-account session was never persisted, so the
-              // previously persisted keyless session stays intact and no
-              // cleanup is needed here.
-              const keylessWallet =
-                await backgroundApiProxy.serviceAccount.getKeylessWallet();
-              showKeylessWalletAccountMismatchError({
-                intl,
-                keylessProvider:
-                  keylessWallet?.keylessDetailsInfo?.keylessProvider,
-              });
-              throw new OneKeyLocalError(
-                intl.formatMessage({
-                  id: ETranslations.keyless_wallet_verify_pin_account_mismatch_desc,
-                }),
-              );
-            }
-            // The session matches the local keyless wallet, but it may still
-            // belong to a DIFFERENT account than the one backing the live
-            // OneKey ID login (single shared keyless session slot). Detect
-            // that BEFORE persisting; on conflict the user must explicitly
-            // confirm logging OneKey ID out (recoverable by re-login) — the
-            // keyless wallet itself is never logged out here.
-            const { hasConflict, currentOneKeyIdEmail } =
-              await backgroundApiProxy.serviceKeylessWallet.getIncomingKeylessOAuthSessionConflictInfo(
-                {
-                  incomingAccessToken: result.session.accessToken,
-                },
-              );
-            if (hasConflict) {
-              const confirmed = await showKeylessOneKeyIdSessionConflictDialog({
-                intl,
-                currentOneKeyIdEmail,
-              });
-              if (!confirmed) {
-                // Abort without persisting: the active OneKey ID session and
-                // its keyless slot stay fully intact.
-                throw new OneKeyLocalError({
-                  message: 'OneKey ID account switch cancelled by user',
-                  autoToast: false,
-                });
-              }
-              // Log out OneKey ID while preserving the keyless wallet and
-              // its local auth artifacts (bg resets the Prime persist atom +
-              // auth session source; the atom change syncs to main runtime).
-              await logout({ preserveLocalKeylessAuth: true });
-            }
-            // Persist the session only after validation passed, keeping the
-            // previous success-path behavior for downstream keyless flows.
-            await persistKeylessOAuthSession({
-              accessToken: result.session.accessToken,
-              refreshToken: result.session.refreshToken,
-            });
             await backgroundApiProxy.serviceKeylessWallet.apiResetKeylessBackendShare(
               {
                 token: result.session.accessToken,
@@ -168,9 +108,7 @@ export function useKeylessLocalExistenceLogin({
       checkKeylessWalletLocalExistence,
       intl,
       isResetMode,
-      logout,
       onResetModeChange,
-      persistKeylessOAuthSession,
       signInWithSocialLogin,
     ],
   );

@@ -41,6 +41,7 @@ import type {
 import type { EHardwareVendor } from '../../types/device';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type { ESubscriptionType } from '../../types/hyperliquid/types';
+import type { IMarketWsDataUpdatePayload } from '../../types/marketV2';
 import type {
   INotificationPushMessageInfo,
   INotificationViewDialogPayload,
@@ -51,9 +52,8 @@ import type { IRookieShareData } from '../../types/rookieGuide';
 import type {
   ESwapCrossChainStatus,
   ESwapTxHistoryStatus,
-  IFetchQuotesParams,
   ISwapApproveTransaction,
-  ISwapQuoteEvent,
+  ISwapQuoteEventPayload,
   ISwapToken,
   ISwapTokenBase,
 } from '../../types/swap/types';
@@ -409,13 +409,7 @@ export interface IAppEventBusPayload {
           errorMessage?: string;
         };
       };
-  [EAppEventBusNames.SwapQuoteEvent]: {
-    type: 'message' | 'done' | 'error' | 'close' | 'open';
-    event: ISwapQuoteEvent;
-    params: IFetchQuotesParams;
-    accountId?: string;
-    tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
-  };
+  [EAppEventBusNames.SwapQuoteEvent]: ISwapQuoteEventPayload;
   [EAppEventBusNames.ShowSystemDiskFullWarning]: undefined;
   [EAppEventBusNames.ShowLinuxBundleUdevGuide]: IEventBusPayloadShowLinuxUdevGuide;
   [EAppEventBusNames.SwapTxHistoryStatusUpdate]: {
@@ -472,6 +466,14 @@ export interface IAppEventBusPayload {
     authSessionSource: EPrimeAuthSessionSource;
     callerName: string;
   };
+  [EAppEventBusNames.PrimeSubscriptionPurchaseSuccess]: {
+    // UI-local event: use emitToSelf so multiple Extension surfaces cannot race
+    // to show the same post-purchase dialog.
+    onekeyUserId: string;
+    // A purchase flow reserves this BG-owned claim before refreshing Prime
+    // state, preventing another Extension Home runtime from winning the race.
+    claimId?: string;
+  };
   [EAppEventBusNames.PrimeExceedDeviceLimit]: undefined;
   [EAppEventBusNames.PrimeDeviceLogout]: undefined;
   [EAppEventBusNames.PrimeMasterPasswordInvalid]: undefined;
@@ -511,15 +513,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.UnlockApp]: undefined;
   [EAppEventBusNames.LockApp]: undefined;
   [EAppEventBusNames.AddressBookUpdate]: undefined;
-  [EAppEventBusNames.MarketWSDataUpdate]: {
-    channel: string;
-    tokenAddress: string;
-    networkId?: string;
-    isSubscriptionAmbiguous?: boolean;
-    messageType?: string;
-    data: any;
-    originalData?: any;
-  };
+  [EAppEventBusNames.MarketWSDataUpdate]: IMarketWsDataUpdatePayload;
   [EAppEventBusNames.MarketWatchlistOnlyChanged]: {
     showWatchlistOnly: boolean;
   };

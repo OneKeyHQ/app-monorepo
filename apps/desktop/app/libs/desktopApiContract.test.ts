@@ -87,6 +87,9 @@ describe('desktopApi contract', () => {
     // > 0 also guards the fallback path itself.
     expect(typeof info.processStartAt).toBe('number');
     expect(info.processStartAt).toBeGreaterThan(0);
+    // `supportsShareImageFile` is the binary-side share capability flag;
+    // required on both writers so older-binary skew is detectable renderer-side
+    expect(typeof info.supportsShareImageFile).toBe('boolean');
     // `channel` is optional — may be undefined outside Linux
     if (info.channel !== undefined) {
       expect(typeof info.channel).toBe('string');

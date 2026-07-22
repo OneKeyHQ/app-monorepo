@@ -33,6 +33,7 @@ import {
   useTokenDetail,
 } from '../hooks/useTokenDetail';
 import { useTradingViewNativeInMarketDetail } from '../hooks/useTradingViewNativeInMarketDetail';
+import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
 
 import type { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 import type { IMarketTradingViewProps } from '../components/MarketTradingView/MarketTradingView';
@@ -164,6 +165,7 @@ export function DesktopLayout({
     tokenDetail,
     isNative,
     websocketConfig,
+    perpsInfo,
     isStockToken,
   } = useTokenDetail();
   const useTradingViewNative = useTradingViewNativeInMarketDetail();
@@ -182,6 +184,8 @@ export function DesktopLayout({
 
   const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
   const isBTCMainnet = networkUtils.isBTCMainnet(networkId);
+  const nativeHyperliquidCoin =
+    isBTCMainnet && isNative ? (perpsInfo?.hlTicker ?? '') : '';
 
   const swapToken = useMemo(
     () => ({
@@ -228,15 +232,30 @@ export function DesktopLayout({
     isNative,
     websocketConfig,
   });
+  const tradingViewNativeSource = useMemo(
+    () =>
+      getMarketDetailTradingViewNativeSource({
+        hyperliquidCoin: nativeHyperliquidCoin,
+        marketDataSource: marketTradingViewParams?.dataSource,
+        networkId,
+        symbol: tokenDetail?.symbol ?? '',
+        tokenAddress,
+      }),
+    [
+      marketTradingViewParams?.dataSource,
+      nativeHyperliquidCoin,
+      networkId,
+      tokenAddress,
+      tokenDetail?.symbol,
+    ],
+  );
   const marketTradingView = useMemo(() => {
     if (useTradingViewNative) {
       return networkId ? (
         <TradingViewNative
           testID={MarketTestIDs.detailChart}
-          networkId={networkId}
-          tokenAddress={tokenAddress}
-          symbol={tokenDetail?.symbol ?? ''}
-          decimal={tokenDetail?.decimals ?? 8}
+          source={tradingViewNativeSource}
+          enableNativeChartSettings
           nativeControlsLayoutMode="desktop"
         />
       ) : null;
@@ -270,9 +289,7 @@ export function DesktopLayout({
     isChartFullscreen,
     marketTradingViewParams,
     networkId,
-    tokenAddress,
-    tokenDetail?.decimals,
-    tokenDetail?.symbol,
+    tradingViewNativeSource,
     useTradingViewNative,
   ]);
   return (

@@ -185,8 +185,7 @@ const SwapInputContainer = ({
     toToken,
   });
   const tokenSelectorDisplayToken =
-    (token?.symbol ? token : undefined) ??
-    (direction === ESwapDirectionType.FROM ? displayFromToken : displayToToken);
+    direction === ESwapDirectionType.FROM ? displayFromToken : displayToToken;
   const isInitialTokenSelectionPending =
     direction === ESwapDirectionType.FROM
       ? isInitialFromTokenSelectionPending

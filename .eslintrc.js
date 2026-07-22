@@ -313,6 +313,9 @@ const resolveExtensions = (platform) =>
 
 module.exports = {
   root: true,
+  // Added by the Storybook upgrade CLI (eslintPlugin auto-migration): activates
+  // eslint-plugin-storybook's own overrides for *.stories.* files only.
+  extends: ['plugin:storybook/recommended'],
   plugins: [
     'import-path',
     'use-effect-no-deps',

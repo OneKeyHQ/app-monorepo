@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { clampLimitRateDecimals } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IFetchLimitOrderRes } from '@onekeyhq/shared/types/swap/types';
 
 type ILimitOrderDisplayAmountInput = {
@@ -41,4 +42,32 @@ export function getLimitOrderDisplayAmounts({
       -(toTokenInfo?.decimals ?? 0),
     ),
   };
+}
+
+type ILimitOrderDisplayPriceInput = {
+  // Human-unit amounts (already shifted by token decimals).
+  fromAmount: BigNumber;
+  toAmount: BigNumber;
+  fromTokenDecimals?: number;
+  toTokenDecimals?: number;
+  reverse?: boolean;
+};
+
+// The displayed limit price of an order, shared by LimitOrderCard and
+// LimitOrderDetailModal so both surfaces show the same number. The rate is
+// aligned to the decimals of the token it is denominated in, via
+// clampLimitRateDecimals so ultra-small rates (many-leading-zeros tokens)
+// keep their significant digits instead of collapsing to "0". Degenerate
+// orders (a zero side would divide to Infinity/NaN) display as 0.
+export function getLimitOrderDisplayPrice({
+  fromAmount,
+  toAmount,
+  fromTokenDecimals,
+  toTokenDecimals,
+  reverse,
+}: ILimitOrderDisplayPriceInput): BigNumber {
+  const price = reverse
+    ? clampLimitRateDecimals(fromAmount.div(toAmount), fromTokenDecimals)
+    : clampLimitRateDecimals(toAmount.div(fromAmount), toTokenDecimals);
+  return price.isFinite() ? price : new BigNumber(0);
 }

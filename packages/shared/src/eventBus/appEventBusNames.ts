@@ -113,6 +113,7 @@ export enum EAppEventBusNames {
   // main-runtime holders (SupabaseAuthProvider) must re-resolve the source
   // and re-read both persisted session slots when this arrives.
   PrimeAuthSessionSourceCommitted = 'PrimeAuthSessionSourceCommitted',
+  PrimeSubscriptionPurchaseSuccess = 'PrimeSubscriptionPurchaseSuccess',
   PrimeExceedDeviceLimit = 'PrimeExceedDeviceLimit',
   PrimeDeviceLogout = 'PrimeDeviceLogout',
   PrimeMasterPasswordInvalid = 'PrimeMasterPasswordInvalid',

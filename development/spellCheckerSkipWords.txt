@@ -163,6 +163,7 @@ babylon
 backends
 backgrounded
 backgrounding
+backpackapp
 backuped
 bassed
 bch
@@ -504,6 +505,8 @@ jsx
 juno
 kaspa
 Kaspa
+katana
+Katana
 Kdsr
 keccak256
 keyframes
