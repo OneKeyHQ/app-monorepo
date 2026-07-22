@@ -1,4 +1,4 @@
-export function shouldJumpFromMarketToSwap({
+export function resolveMarketTradeActionState({
   supportSpeedSwap,
   isAccountNetworkSupported,
   isInsufficientBalance,
@@ -9,8 +9,9 @@ export function shouldJumpFromMarketToSwap({
   isInsufficientBalance: boolean;
   isWrapped?: boolean;
 }) {
-  return (
-    !isAccountNetworkSupported ||
-    (!isWrapped && (!supportSpeedSwap || isInsufficientBalance))
-  );
+  const shouldJumpToSwap =
+    !isAccountNetworkSupported || (!isWrapped && !supportSpeedSwap);
+  const shouldDisable = isInsufficientBalance && !shouldJumpToSwap;
+
+  return { shouldDisable, shouldJumpToSwap };
 }

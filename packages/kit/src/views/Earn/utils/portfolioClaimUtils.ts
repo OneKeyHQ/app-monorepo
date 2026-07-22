@@ -52,16 +52,16 @@ export function resolvePortfolioClaimProtocolIdentity({
   stakedSymbol?: string;
   stakedVault?: string;
 }) {
-  if (claimSymbol) {
+  if (earnUtils.isPendleProvider({ providerName })) {
     return {
-      symbol: claimSymbol,
+      symbol: assetSymbol,
       vault: assetVault,
     };
   }
 
-  if (earnUtils.isPendleProvider({ providerName })) {
+  if (claimSymbol) {
     return {
-      symbol: assetSymbol,
+      symbol: claimSymbol,
       vault: assetVault,
     };
   }

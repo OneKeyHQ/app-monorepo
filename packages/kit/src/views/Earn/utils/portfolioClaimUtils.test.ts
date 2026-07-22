@@ -147,6 +147,7 @@ describe('resolvePortfolioClaimProtocolIdentity', () => {
         providerName: 'Pendle',
         assetSymbol: 'USDe',
         assetVault: 'pendle-reward-vault',
+        claimSymbol: 'sUSDe',
         stakedSymbol: 'sUSDe',
         stakedVault: 'pendle-position-vault',
       }),
