@@ -39,6 +39,50 @@ enum HomeContainerProtocolV3Contract {
     try verifyMountedSlotRevisionVector(owner: initial.identity.owner)
     try verifySlotAndTransportGaps(patch: patch, current: initial)
     try verifyIntentAuthority(current: next)
+    try verifyRapidTabSelectionQueue()
+    try verifyExactSectionRevisionKeys(current: next)
+  }
+
+  private static func verifyExactSectionRevisionKeys(
+    current: HomeContainerProtocolV3State
+  ) throws {
+    var sections = current.presentationRevisions.sections
+    sections["unknown"] = 1
+    let presentation = HomeContainerProtocolV3PresentationRevisions(
+      shell: current.presentationRevisions.shell,
+      navigation: current.presentationRevisions.navigation,
+      sections: sections
+    )
+    try expect(!presentation.isValid)
+
+    var sectionCommands = current.authorityRevisions.sectionCommands
+    sectionCommands["unknown"] = 1
+    let authority = HomeContainerProtocolV3AuthorityRevisions(
+      shellCommands: current.authorityRevisions.shellCommands,
+      tabApplicability: current.authorityRevisions.tabApplicability,
+      sectionCommands: sectionCommands
+    )
+    try expect(!authority.isValid)
+  }
+
+  private static func verifyRapidTabSelectionQueue() throws {
+    var queue = HomeContainerTabSelectionQueue()
+    queue.replacePending(
+      with: HomeContainerTabSelectionRequest(
+        tabId: "perps",
+        animated: true,
+        notify: true
+      )
+    )
+    queue.replacePending(
+      with: HomeContainerTabSelectionRequest(
+        tabId: "defi",
+        animated: true,
+        notify: true
+      )
+    )
+    try expect(queue.takePending()?.tabId == "defi")
+    try expect(queue.takePending() == nil)
   }
 
   private static func verifyMountedSlotRevisionVector(

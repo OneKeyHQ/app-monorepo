@@ -14,9 +14,14 @@ import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/A
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerHome';
 import { AllNetworksManagerTrigger } from '@onekeyhq/kit/src/components/AccountSelector/AllNetworksManagerTrigger';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
+import { EmptyNFT } from '@onekeyhq/kit/src/components/Empty';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { showResourceDetailsDialog } from '@onekeyhq/kit/src/components/Resource';
 import { HomeTabSearchHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
+import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHomeBalancePresentation } from '@onekeyhq/kit/src/hooks/useHomeBalanceState';
+import { useManageToken } from '@onekeyhq/kit/src/hooks/useManageToken';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useHomeCommitIdentity,
@@ -28,23 +33,43 @@ import {
   useHomeShell,
   useHomeStoreIntentActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/home';
+import { formatPortfolioTotal } from '@onekeyhq/kit/src/views/Home/components/DeFiListBlock/formatPortfolioTotal';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { NotBackedUpEmpty } from '@onekeyhq/kit/src/views/Home/components/NotBakcedUp';
+import {
+  HOME_PERPS_GUIDE_URL,
+  HOME_PERPS_HOT_CATEGORY_ID,
+} from '@onekeyhq/kit/src/views/Home/components/PopularTrading/constants';
+import { RichBlockHeader } from '@onekeyhq/kit/src/views/Home/components/RichBlock/RichBlockHeader';
+import { SupportHub } from '@onekeyhq/kit/src/views/Home/components/SupportHub';
+import { Upgrade } from '@onekeyhq/kit/src/views/Home/components/Upgrade';
 import { WalletActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions';
 import { createHomeAuthorityId } from '@onekeyhq/kit/src/views/Home/model/core/homeIdentity';
 import { useHomeSectionPayload } from '@onekeyhq/kit/src/views/Home/model/react/homeStoreHooks';
+import { useHomeMarketIntents } from '@onekeyhq/kit/src/views/Home/model/react/useHomeMarketIntents';
+import { useHomePortfolioIntents } from '@onekeyhq/kit/src/views/Home/model/react/useHomePortfolioIntents';
 import {
   HOME_BANNER_ACTION_IDS,
   readHomeBannerStorePayload,
 } from '@onekeyhq/kit/src/views/Home/model/sections/banner/homeBannerStoreModel';
-import { HOME_SHELL_ACTION_IDS } from '@onekeyhq/kit/src/views/Home/model/store/homeStoreCommandIds';
+import { getHomeMarketTokenRowId } from '@onekeyhq/kit/src/views/Home/model/sections/market/homeMarketSourceAdapter';
+import {
+  HOME_SECTION_ACTION_IDS,
+  HOME_SHELL_ACTION_IDS,
+} from '@onekeyhq/kit/src/views/Home/model/store/homeStoreCommandIds';
 import type {
   IHomeStoreEffect,
   IHomeStoreIntent,
 } from '@onekeyhq/kit/src/views/Home/model/store/homeStoreTypes';
 import type { INativeHomePageViewProps } from '@onekeyhq/kit/src/views/Home/NativeHomePageView.types';
-import { HomePageView } from '@onekeyhq/kit/src/views/Home/pages/HomePageView';
-import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { HomePageView } from '@onekeyhq/kit/src/views/Home/pages/HomePageViewLoader';
+import { PerpsHomeHeaderSlot } from '@onekeyhq/kit/src/views/Home/pages/PerpsContainer';
+import { TabHeaderSettings } from '@onekeyhq/kit/src/views/Home/pages/TabHeaderSettings';
+import { usePrimeAvailable } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAvailable';
+import {
+  useSettingsPersistAtom,
+  useSettingsValuePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   HOME_CONTAINER_SCHEMA_VERSION,
   HOME_CONTAINER_SLOT_CONTRACT_REVISION,
@@ -55,6 +80,7 @@ import {
   type IHomeContainerIntentV3,
   type IHomeContainerOwner,
   type IHomeContainerRef,
+  type IHomeContainerSection,
   type IHomeContainerSlotKey,
   type IHomeContainerSlots,
   type IHomeContainerSnapshot,
@@ -68,9 +94,18 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import { buildMobileNativeHomeSections } from './mobileNativeHomeProjector';
+import {
+  type IHomeNativeExpandedState,
+  type IHomeNativeMarketRecommendationState,
+  MOBILE_NATIVE_HOME_MARKET_ACTION_IDS,
+  MOBILE_NATIVE_HOME_MARKET_CATEGORY_ACTION_PREFIX,
+  MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS,
+  buildMobileNativeHomeViewModelSections,
+  getDeFiTotal,
+} from './mobileNativeHomeViewModelAdapter';
 
 const TAB_ORDER: readonly IHomeContainerTabId[] = [
   'portfolio',
@@ -81,10 +116,15 @@ const TAB_ORDER: readonly IHomeContainerTabId[] = [
 ];
 
 type IRefreshState = {
-  sectionId: IHomeContainerTabId;
-  seenRefreshing: boolean;
+  sections: Map<
+    IHomeContainerTabId,
+    { completed: boolean; seenRefreshing: boolean }
+  >;
   timeoutId: ReturnType<typeof setTimeout>;
 };
+
+const MOBILE_NATIVE_HOME_TRON_RESOURCE_ACTION_ID =
+  'home.native.banner.openTronResource';
 
 function isTabId(value: string): value is IHomeContainerTabId {
   return TAB_ORDER.some((tabId) => tabId === value);
@@ -132,6 +172,33 @@ function navigationShell(tabs: IHomeContainerTab[]) {
   return tabs.map(({ sections: _sections, ...tab }) => tab);
 }
 
+function countSectionItems(sections: IHomeContainerSection[]): number {
+  return sections.reduce((count, section) => count + section.items.length, 0);
+}
+
+function collectSlotRevisions(
+  slots: IHomeContainerSlots,
+): Record<string, number> {
+  const revisions: Record<string, number> = {};
+  const addSlot = (
+    slot: { authority?: { slotId: string; slotRevision: number } } | undefined,
+  ) => {
+    if (slot?.authority) {
+      revisions[slot.authority.slotId] = slot.authority.slotRevision;
+    }
+  };
+  addSlot(slots.accountRow);
+  addSlot(slots.balance);
+  addSlot(slots.headerActionRow);
+  Object.values(slots.contentHeaders ?? {}).forEach(addSlot);
+  Object.values(slots.contentStates ?? {}).forEach(addSlot);
+  Object.values(slots.tabAccessories ?? {}).forEach(addSlot);
+  Object.values(slots.contentFooters ?? {}).forEach((footerSlots) => {
+    Object.values(footerSlots ?? {}).forEach(addSlot);
+  });
+  return revisions;
+}
+
 export function MobileNativeHomeRenderer({
   onPressHide,
   sceneName,
@@ -144,8 +211,20 @@ export function MobileNativeHomeRenderer({
     undefined,
   );
   const homeNativeDecisionKeyRef = useRef<string | undefined>(undefined);
+  const homeNativeContentDecisionKeyRef = useRef<string | undefined>(undefined);
   const [nativeUnavailable, setNativeUnavailable] = useState(
     () => !isHomeContainerAvailable(),
+  );
+  const [expandedSections, setExpandedSections] =
+    useState<IHomeNativeExpandedState>({
+      defi: false,
+      portfolioAssets: false,
+      portfolioDeFi: false,
+    });
+  const [selectedRecommendedMarketRowIds, setSelectedRecommendedMarketRowIds] =
+    useState<string[]>([]);
+  const marketRecommendationSelectionKeyRef = useRef<string | undefined>(
+    undefined,
   );
   const session = useHomeSessionState();
   const facts = useHomeFacts();
@@ -165,11 +244,36 @@ export function MobileNativeHomeRenderer({
   const nftResource = useHomeResource('nft');
   const historyResource = useHomeResource('history');
   const reactBalancePresentation = useHomeBalancePresentation();
+  const [settings] = useSettingsPersistAtom();
   const [{ hideValue }] = useSettingsValuePersistAtom();
   const { dispatchHomeIntent } = useHomeStoreIntentActions().current;
+  const { setShowLpTokensOnly } = useHomePortfolioIntents();
   const {
-    activeAccount: { isOthersWallet, network },
+    addRecommended: addRecommendedMarketTokens,
+    selectCategory: selectMarketCategory,
+    toggleFavorite: toggleMarketFavorite,
+    viewMore: viewMoreMarket,
+  } = useHomeMarketIntents();
+  const { isPrimeAvailable } = usePrimeAvailable();
+  const { user } = useOneKeyAuth();
+  const {
+    activeAccount: {
+      account,
+      deriveType,
+      indexedAccount,
+      isOthersWallet,
+      network,
+      wallet,
+    },
   } = useActiveAccount({ num: 0 });
+  const { handleOnManageToken } = useManageToken({
+    accountId: account?.id ?? '',
+    deriveType,
+    indexedAccountId: indexedAccount?.id,
+    isOthersWallet,
+    networkId: network?.id ?? '',
+    walletId: wallet?.id ?? '',
+  });
   const portfolioPayload = useHomeSectionPayload('portfolio');
   const perpsPayload = useHomeSectionPayload('perps');
   const defiPayload = useHomeSectionPayload('defi');
@@ -180,6 +284,49 @@ export function MobileNativeHomeRenderer({
     bannerResource.kind === 'ready'
       ? readHomeBannerStorePayload(bannerResource.data)
       : undefined;
+
+  useEffect(() => {
+    const recommendationRows =
+      marketPayload?.favoriteMode === 'recommendation'
+        ? marketPayload.rows.slice(0, 4)
+        : [];
+    const selectionKey =
+      recommendationRows.length > 0 && session.ownerToken
+        ? `${session.ownerToken.scopeKey}:${session.ownerToken.sessionId}:${
+            marketPayload?.selectedCategoryId ?? ''
+          }:${marketPayload?.favoriteMode ?? ''}`
+        : undefined;
+    if (!selectionKey) {
+      marketRecommendationSelectionKeyRef.current = undefined;
+      setSelectedRecommendedMarketRowIds((current) =>
+        current.length > 0 ? [] : current,
+      );
+      return;
+    }
+    const availableIds = recommendationRows.map(getHomeMarketTokenRowId);
+    if (marketRecommendationSelectionKeyRef.current !== selectionKey) {
+      marketRecommendationSelectionKeyRef.current = selectionKey;
+      setSelectedRecommendedMarketRowIds(availableIds);
+      return;
+    }
+    const availableIdSet = new Set(availableIds);
+    setSelectedRecommendedMarketRowIds((current) => {
+      const next = current.filter((rowId) => availableIdSet.has(rowId));
+      return equal(current, next) ? current : next;
+    });
+  }, [marketPayload, session.ownerToken]);
+
+  useEffect(() => {
+    setExpandedSections({
+      defi: false,
+      portfolioAssets: false,
+      portfolioDeFi: false,
+    });
+  }, [
+    portfolioPayload?.showLpTokensOnly,
+    session.ownerToken?.scopeKey,
+    session.ownerToken?.sessionId,
+  ]);
 
   const owner = useMemo<IHomeContainerOwner | undefined>(() => {
     if (!session.ownerToken) {
@@ -223,80 +370,177 @@ export function MobileNativeHomeRenderer({
   );
   const nativeLabels = useMemo(
     () => ({
+      addTokenInstruction: intl.formatMessage({
+        id: ETranslations.add_token_instruction,
+      }),
+      addTokenLabel: intl.formatMessage({ id: ETranslations.add_token_label }),
+      approve: intl.formatMessage({ id: ETranslations.global_approve }),
+      contract: intl.formatMessage({ id: ETranslations.global_contract }),
+      earn: intl.formatMessage({ id: ETranslations.earn_title }),
+      favoriteAdd: intl.formatMessage({
+        id: ETranslations.market_add_to_favorites,
+      }),
+      favoriteRemove: intl.formatMessage({
+        id: ETranslations.market_remove_from_favorites,
+      }),
+      hotMarkets: intl.formatMessage({
+        id: ETranslations.perp_home_hot_markets__title,
+      }),
       loading: intl.formatMessage({
         id: ETranslations.perp_token_selector_loading,
       }),
+      long: intl.formatMessage({ id: ETranslations.perp_long }),
+      margin: intl.formatMessage({ id: ETranslations.perp_position_margin }),
+      market: intl.formatMessage({ id: ETranslations.global_market }),
       noData: intl.formatMessage({ id: ETranslations.global_no_data }),
-      popular: intl.formatMessage({ id: ETranslations.global_popular }),
       positions: intl.formatMessage({ id: ETranslations.earn_positions }),
+      receive: intl.formatMessage({ id: ETranslations.global_receive }),
+      revokeApprove: (symbol: string) =>
+        intl.formatMessage(
+          { id: ETranslations.global_revoke_approve },
+          { symbol },
+        ),
+      send: intl.formatMessage({ id: ETranslations.global_send }),
+      short: intl.formatMessage({ id: ETranslations.perp_short }),
+      showLess: intl.formatMessage({ id: ETranslations.global_show_less }),
+      showMore: intl.formatMessage({ id: ETranslations.global_show_more }),
+      statusFailed: intl.formatMessage({ id: ETranslations.global_failed }),
+      statusPending: intl.formatMessage({ id: ETranslations.global_pending }),
+      swap: intl.formatMessage({ id: ETranslations.global_swap }),
       tokens: intl.formatMessage({
         id: ETranslations.global_universal_search_tabs_tokens,
       }),
       unableToLoad: intl.formatMessage({ id: ETranslations.global_failed }),
+      unlimited: intl.formatMessage({
+        id: ETranslations.swap_page_provider_approve_amount_un_limit,
+      }),
+      viewMore: intl.formatMessage({ id: ETranslations.global_view_more }),
     }),
     [intl],
+  );
+  const marketRecommendationState = useMemo<
+    IHomeNativeMarketRecommendationState | undefined
+  >(
+    () =>
+      marketPayload?.favoriteMode === 'recommendation'
+        ? {
+            actionTitle: intl.formatMessage(
+              { id: ETranslations.market_add_number_tokens },
+              { number: selectedRecommendedMarketRowIds.length },
+            ),
+            selectedRowIds: selectedRecommendedMarketRowIds,
+          }
+        : undefined,
+    [intl, marketPayload?.favoriteMode, selectedRecommendedMarketRowIds],
   );
 
   const portfolioSections = useMemo(
     () =>
-      buildMobileNativeHomeSections({
+      buildMobileNativeHomeViewModelSections({
+        allNetworksBadgeImageUrl: network?.logoURI,
+        expanded: expandedSections,
+        formatActionLabel: (labelId) => intl.formatMessage({ id: labelId }),
+        isAllNetworks: Boolean(network?.isAllNetworks),
         labels: nativeLabels,
         locale: intl.locale,
-        payloads: { portfolio: portfolioPayload, market: marketPayload },
+        marketRecommendationState,
+        payloads: {
+          portfolio: portfolioPayload,
+          defi: defiPayload,
+          market: marketPayload,
+        },
         sectionId: 'portfolio',
         semantic: portfolioSection.value,
       }),
     [
-      intl.locale,
+      defiPayload,
+      expandedSections,
+      intl,
       marketPayload,
+      marketRecommendationState,
       nativeLabels,
+      network?.logoURI,
+      network?.isAllNetworks,
       portfolioPayload,
       portfolioSection.value,
     ],
   );
   const perpsSections = useMemo(
     () =>
-      buildMobileNativeHomeSections({
+      buildMobileNativeHomeViewModelSections({
+        expanded: expandedSections,
         labels: nativeLabels,
         locale: intl.locale,
-        payloads: { perps: perpsPayload },
+        payloads: { perps: perpsPayload, market: marketPayload },
         sectionId: 'perps',
         semantic: perpsSection.value,
       }),
-    [intl.locale, nativeLabels, perpsPayload, perpsSection.value],
+    [
+      expandedSections,
+      intl.locale,
+      marketPayload,
+      nativeLabels,
+      perpsPayload,
+      perpsSection.value,
+    ],
   );
   const defiSections = useMemo(
     () =>
-      buildMobileNativeHomeSections({
+      buildMobileNativeHomeViewModelSections({
+        expanded: expandedSections,
+        formatActionLabel: (labelId) => intl.formatMessage({ id: labelId }),
         labels: nativeLabels,
         locale: intl.locale,
         payloads: { defi: defiPayload },
+        sectionTitle: defiPayload
+          ? `${tabTitles.defi} · ${formatPortfolioTotal(
+              getDeFiTotal(defiPayload),
+              settings.currencyInfo.symbol,
+              hideValue,
+            )}`
+          : undefined,
         sectionId: 'defi',
         semantic: defiSection.value,
       }),
-    [defiPayload, defiSection.value, intl.locale, nativeLabels],
+    [
+      defiPayload,
+      defiSection.value,
+      expandedSections,
+      hideValue,
+      intl,
+      nativeLabels,
+      settings.currencyInfo.symbol,
+      tabTitles.defi,
+    ],
   );
   const nftSections = useMemo(
     () =>
-      buildMobileNativeHomeSections({
+      buildMobileNativeHomeViewModelSections({
         labels: nativeLabels,
         locale: intl.locale,
-        payloads: { nft: nftPayload },
+        payloads: { nft: nftPayload, portfolio: portfolioPayload },
         sectionId: 'nft',
         semantic: nftSection.value,
       }),
-    [intl.locale, nativeLabels, nftPayload, nftSection.value],
+    [intl.locale, nativeLabels, nftPayload, nftSection.value, portfolioPayload],
   );
   const historySections = useMemo(
     () =>
-      buildMobileNativeHomeSections({
+      buildMobileNativeHomeViewModelSections({
+        isAllNetworks: Boolean(network?.isAllNetworks),
         labels: nativeLabels,
         locale: intl.locale,
         payloads: { history: historyPayload },
         sectionId: 'history',
         semantic: historySection.value,
       }),
-    [historyPayload, historySection.value, intl.locale, nativeLabels],
+    [
+      historyPayload,
+      historySection.value,
+      intl.locale,
+      nativeLabels,
+      network?.isAllNetworks,
+    ],
   );
   const sectionsByTab = useMemo(
     () => ({
@@ -371,11 +615,11 @@ export function MobileNativeHomeRenderer({
     } else if (balanceModel) {
       actionLayout = 'standard';
     }
-    let actionRowHeight = 96;
+    let actionRowHeight = 62;
     if (isBackupRequired) {
       actionRowHeight = 0;
     } else if (reactBalancePresentation.balanceState === 'zero') {
-      actionRowHeight = 112;
+      actionRowHeight = 98;
     }
     return {
       accountName: '',
@@ -386,24 +630,42 @@ export function MobileNativeHomeRenderer({
       actionLayout: isBackupRequired ? 'standard' : actionLayout,
       actions: [],
       banners: showBanners
-        ? (bannerPayload?.banners ?? []).map((banner) => ({
-            id: banner.id,
-            title: banner.title,
-            subtitle: banner.description,
-            imageUrl: banner.src,
-            actionId: HOME_BANNER_ACTION_IDS.open,
-            dismissActionId: banner.closeable
-              ? HOME_BANNER_ACTION_IDS.dismiss
-              : undefined,
-          }))
+        ? [
+            ...(bannerPayload?.tronResource
+              ? [
+                  {
+                    id: 'home-tron-resource',
+                    title: intl.formatMessage({
+                      id: ETranslations.global_energy_bandwidth,
+                    }),
+                    subtitle: intl.formatMessage({
+                      id: ETranslations.global_energy_bandwidth_desc,
+                    }),
+                    actionId: MOBILE_NATIVE_HOME_TRON_RESOURCE_ACTION_ID,
+                  },
+                ]
+              : []),
+            ...(bannerPayload?.banners ?? []).map((banner) => ({
+              id: banner.id,
+              title: banner.title,
+              subtitle: banner.description,
+              imageUrl: banner.src,
+              actionId: HOME_BANNER_ACTION_IDS.open,
+              dismissActionId: banner.closeable
+                ? HOME_BANNER_ACTION_IDS.dismiss
+                : undefined,
+            })),
+          ]
         : [],
     };
   }, [
     balanceModel,
     balancePresentation,
     bannerPayload?.banners,
+    bannerPayload?.tronResource,
     funded,
     hideValue,
+    intl,
     isBackupRequired,
     reactBalancePresentation.balanceState,
   ]);
@@ -419,6 +681,7 @@ export function MobileNativeHomeRenderer({
       ? requested
       : (tabs.find((tab) => tab.destination === 'inline')?.id ?? 'portfolio');
   }, [homeNavigation.value, tabs]);
+
   const snapshot = useMemo<IHomeContainerSnapshot>(
     () => ({
       schemaVersion: HOME_CONTAINER_SCHEMA_VERSION,
@@ -430,6 +693,15 @@ export function MobileNativeHomeRenderer({
     }),
     [header, nativeTheme, selectedTabId, tabs],
   );
+
+  const shouldShowUpgrade = Boolean(
+    isPrimeAvailable &&
+    !(user?.primeSubscription?.isActive && user.onekeyUserId),
+  );
+  const perpsCanDeposit = Boolean(perpsPayload?.address);
+  const perpsDepositDisabled = accountUtils.isWatchingAccount({
+    accountId: facts?.owner.accountId ?? '',
+  });
 
   const accountRowAuthority = useMemo(
     () =>
@@ -484,6 +756,156 @@ export function MobileNativeHomeRenderer({
       shell.presentationRevision,
     ],
   );
+  const portfolioHeaderAuthority = useMemo(
+    () =>
+      owner
+        ? {
+            owner,
+            producedByStoreCommitId: commitIdentity.storeCommitId,
+            slotId: 'content.header.portfolio' as IHomeContainerSlotKey,
+            slotRevision: portfolioSection.presentationRevision,
+          }
+        : undefined,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [owner?.scopeKey, owner?.sessionId, portfolioSection.presentationRevision],
+  );
+  const perpsHeaderAuthority = useMemo(
+    () =>
+      owner && perpsPayload
+        ? {
+            owner,
+            producedByStoreCommitId: commitIdentity.storeCommitId,
+            slotId: 'content.header.perps' as IHomeContainerSlotKey,
+            slotRevision: perpsSection.presentationRevision,
+          }
+        : undefined,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      owner?.scopeKey,
+      owner?.sessionId,
+      perpsPayload,
+      perpsSection.presentationRevision,
+    ],
+  );
+  const nftStateAuthority = useMemo(
+    () =>
+      owner &&
+      (nftSection.value.kind === 'empty' || nftSection.value.kind === 'error')
+        ? {
+            owner,
+            producedByStoreCommitId: commitIdentity.storeCommitId,
+            slotId: 'content.state.nft' as IHomeContainerSlotKey,
+            slotRevision: nftSection.presentationRevision,
+          }
+        : undefined,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      nftSection.presentationRevision,
+      nftSection.value.kind,
+      owner?.scopeKey,
+      owner?.sessionId,
+    ],
+  );
+  const portfolioAccessoryAuthority = useMemo(
+    () =>
+      owner
+        ? {
+            owner,
+            producedByStoreCommitId: commitIdentity.storeCommitId,
+            slotId: 'tab.accessory.portfolio' as IHomeContainerSlotKey,
+            slotRevision: 1,
+          }
+        : undefined,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [owner?.scopeKey, owner?.sessionId],
+  );
+  const historyAccessoryAuthority = useMemo(
+    () =>
+      owner
+        ? {
+            owner,
+            producedByStoreCommitId: commitIdentity.storeCommitId,
+            slotId: 'tab.accessory.history' as IHomeContainerSlotKey,
+            slotRevision: 1,
+          }
+        : undefined,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [owner?.scopeKey, owner?.sessionId],
+  );
+
+  const footerAuthorities = useMemo(() => {
+    if (!owner) {
+      return {
+        portfolioUpgrade: undefined,
+        portfolioSupport: undefined,
+        perpsUpgrade: undefined,
+        perpsSupport: undefined,
+        defiUpgrade: undefined,
+        defiSupport: undefined,
+      };
+    }
+    const build = (
+      tabId: 'portfolio' | 'perps' | 'defi',
+      footerId: 'upgrade' | 'support',
+    ) => ({
+      owner,
+      producedByStoreCommitId: commitIdentity.storeCommitId,
+      slotId: `content.footer.${tabId}.${footerId}` as IHomeContainerSlotKey,
+      slotRevision: 1,
+    });
+    return {
+      portfolioUpgrade: build('portfolio', 'upgrade'),
+      portfolioSupport: build('portfolio', 'support'),
+      perpsUpgrade: build('perps', 'upgrade'),
+      perpsSupport: build('perps', 'support'),
+      defiUpgrade: build('defi', 'upgrade'),
+      defiSupport: build('defi', 'support'),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [owner?.scopeKey, owner?.sessionId]);
+
+  useEffect(() => {
+    const decision = {
+      selectedTab: selectedTabId,
+      showTokenFilter: Boolean(portfolioPayload?.showLpTokenFilterSwitch),
+      showPortfolioSettings: Boolean(portfolioAccessoryAuthority),
+      showHistoryFilter: Boolean(historyAccessoryAuthority),
+      showPerpsHeader: Boolean(perpsHeaderAuthority),
+      showDeFiHeader: false,
+      showUpgrade: shouldShowUpgrade,
+      showSupport: true,
+      portfolioItemCount: countSectionItems(portfolioSections),
+      perpsItemCount: countSectionItems(perpsSections),
+      deFiItemCount: countSectionItems(defiSections),
+      nftState: nftSection.value.kind,
+      nftItemCount: nftPayload?.data.length ?? 0,
+      historyItemCount: countSectionItems(historySections),
+      marketItemCount: marketPayload?.rows.length ?? 0,
+      earnItemCount: marketPayload?.earnRows.length ?? 0,
+    };
+    const key = stringUtils.stableStringify(decision);
+    if (homeNativeContentDecisionKeyRef.current === key) {
+      return;
+    }
+    homeNativeContentDecisionKeyRef.current = key;
+    defaultLogger.wallet.homeUi.homeNativeContentDecision(decision);
+  }, [
+    defiSections,
+    historyAccessoryAuthority,
+    historySections,
+    marketPayload?.earnRows.length,
+    marketPayload?.rows.length,
+    nftPayload?.data.length,
+    nftSection.value.kind,
+    perpsHeaderAuthority,
+    perpsSections,
+    portfolioAccessoryAuthority,
+    portfolioPayload?.showLpTokenFilterSwitch,
+    portfolioSections,
+    selectedTabId,
+    shouldShowUpgrade,
+  ]);
+
   const slots = useMemo<IHomeContainerSlots>(
     () => ({
       backgroundColor: nativeTheme.backgroundColor,
@@ -530,27 +952,176 @@ export function MobileNativeHomeRenderer({
               </HomeTokenListProviderMirror>
             ),
           },
-      contentStates: backupStateAuthority
-        ? {
-            portfolio: {
-              interaction: 'tap',
-              authority: backupStateAuthority,
-              content: <NotBackedUpEmpty />,
-              height: 320,
-            },
-          }
-        : undefined,
+      contentStates: {
+        ...(backupStateAuthority
+          ? {
+              portfolio: {
+                interaction: 'tap',
+                authority: backupStateAuthority,
+                content: <NotBackedUpEmpty />,
+                height: 320,
+              },
+            }
+          : {}),
+        ...(nftStateAuthority
+          ? {
+              nft: {
+                interaction: 'none' as const,
+                authority: nftStateAuthority,
+                content: <EmptyNFT />,
+                height: 360,
+              },
+            }
+          : {}),
+      },
+      contentHeaders: {
+        portfolio: {
+          interaction: portfolioPayload?.showLpTokenFilterSwitch
+            ? 'tap'
+            : 'none',
+          authority: portfolioHeaderAuthority,
+          content: (
+            <RichBlockHeader
+              title={nativeLabels.tokens}
+              headerActions={
+                portfolioPayload?.showLpTokenFilterSwitch ? (
+                  <TokenSelectorLpTokenSwitch
+                    value={portfolioPayload.showLpTokensOnly}
+                    loading={portfolioPayload.isLpTokenSwitchLoading}
+                    onChange={setShowLpTokensOnly}
+                  />
+                ) : null
+              }
+              headerContainerProps={{ flex: 1, px: '$pagePadding' }}
+            />
+          ),
+        },
+        ...(perpsHeaderAuthority && perpsPayload
+          ? {
+              perps: {
+                interaction: 'tap' as const,
+                authority: perpsHeaderAuthority,
+                content: (
+                  <PerpsHomeHeaderSlot
+                    totalUsd={perpsPayload.view.accountValueUsd}
+                    isDegraded={perpsPayload.view.isDegraded}
+                    canDeposit={perpsCanDeposit}
+                    isDepositDisabled={perpsDepositDisabled}
+                  />
+                ),
+              },
+            }
+          : {}),
+      },
+      tabAccessories: {
+        portfolio: {
+          interaction: 'tap',
+          authority: portfolioAccessoryAuthority,
+          content: (
+            <TabHeaderSettings nativeSlot focusedTab={tabTitles.portfolio} />
+          ),
+        },
+        history: {
+          interaction: 'tap',
+          authority: historyAccessoryAuthority,
+          content: (
+            <TabHeaderSettings
+              nativeSlot
+              focusedTab={tabTitles.history}
+              historyIcon="Filter1Outline"
+            />
+          ),
+        },
+      },
+      contentFooters: {
+        portfolio: {
+          ...(shouldShowUpgrade
+            ? {
+                upgrade: {
+                  interaction: 'tap' as const,
+                  authority: footerAuthorities.portfolioUpgrade,
+                  content: <Upgrade />,
+                },
+              }
+            : {}),
+          support: {
+            interaction: 'tap',
+            authority: footerAuthorities.portfolioSupport,
+            content: <SupportHub nativeSlot />,
+          },
+        },
+        ...(perpsSection.value.kind === 'ready'
+          ? {
+              perps: {
+                ...(shouldShowUpgrade
+                  ? {
+                      upgrade: {
+                        interaction: 'tap' as const,
+                        authority: footerAuthorities.perpsUpgrade,
+                        content: <Upgrade />,
+                      },
+                    }
+                  : {}),
+                support: {
+                  interaction: 'tap' as const,
+                  authority: footerAuthorities.perpsSupport,
+                  content: (
+                    <SupportHub
+                      nativeSlot
+                      helpCenterTitle={intl.formatMessage({
+                        id: ETranslations.perp_guide_title,
+                      })}
+                      helpCenterLink={HOME_PERPS_GUIDE_URL}
+                    />
+                  ),
+                },
+              },
+            }
+          : {}),
+        defi: {
+          ...(shouldShowUpgrade
+            ? {
+                upgrade: {
+                  interaction: 'tap' as const,
+                  authority: footerAuthorities.defiUpgrade,
+                  content: <Upgrade />,
+                },
+              }
+            : {}),
+          support: {
+            interaction: 'tap',
+            authority: footerAuthorities.defiSupport,
+            content: <SupportHub nativeSlot />,
+          },
+        },
+      },
     }),
     [
       accountRowAuthority,
       actionRowAuthority,
       backupStateAuthority,
+      footerAuthorities,
       header.actionRowHeight,
+      historyAccessoryAuthority,
+      intl,
       isBackupRequired,
       isOthersWallet,
       nativeTheme.backgroundColor,
+      nativeLabels.tokens,
       network?.isAllNetworks,
+      nftStateAuthority,
+      perpsCanDeposit,
+      perpsDepositDisabled,
+      perpsHeaderAuthority,
+      perpsPayload,
+      perpsSection.value.kind,
+      portfolioAccessoryAuthority,
+      portfolioHeaderAuthority,
+      portfolioPayload,
       reactBalancePresentation,
+      setShowLpTokensOnly,
+      shouldShowUpgrade,
+      tabTitles,
     ],
   );
   const slotBundle = useMemo(
@@ -593,22 +1164,9 @@ export function MobileNativeHomeRenderer({
           market: marketSection.sectionCommandRevision,
         },
       },
-      slotRevisions: {
-        ...(accountRowAuthority
-          ? { [accountRowAuthority.slotId]: accountRowAuthority.slotRevision }
-          : {}),
-        ...(actionRowAuthority
-          ? { [actionRowAuthority.slotId]: actionRowAuthority.slotRevision }
-          : {}),
-        ...(backupStateAuthority
-          ? { [backupStateAuthority.slotId]: backupStateAuthority.slotRevision }
-          : {}),
-      },
+      slotRevisions: collectSlotRevisions(slots),
     }),
     [
-      accountRowAuthority,
-      actionRowAuthority,
-      backupStateAuthority,
       commitIdentity.storeCommitId,
       defiSection,
       historySection,
@@ -618,6 +1176,7 @@ export function MobileNativeHomeRenderer({
       perpsSection,
       portfolioSection,
       shell,
+      slots,
     ],
   );
 
@@ -737,10 +1296,11 @@ export function MobileNativeHomeRenderer({
       walletActionFamily = 'funded';
     }
     const bannerCount = bannerPayload?.banners.length ?? 0;
+    const hasTronResource = Boolean(bannerPayload?.tronResource);
     const shouldShowBanner =
       funded &&
       balancePresentation?.banner.kind === 'positive' &&
-      bannerCount > 0;
+      (bannerCount > 0 || hasTronResource);
     const decisionKey = stringUtils.stableStringify({
       accountRowAuthority,
       actionRowAuthority,
@@ -748,6 +1308,7 @@ export function MobileNativeHomeRenderer({
       balanceModel,
       balancePresentation,
       bannerCount,
+      hasTronResource,
       bannerPayloadParsed: Boolean(bannerPayload),
       bannerResourceKind: bannerResource.kind,
       funded,
@@ -784,9 +1345,8 @@ export function MobileNativeHomeRenderer({
       bannerResourceKind: bannerResource.kind,
       bannerPayloadParsed: Boolean(bannerPayload),
       bannerCount,
-      hasTronResource: Boolean(bannerPayload?.tronResource),
-      hasWalletBannerContent:
-        bannerCount > 0 || Boolean(bannerPayload?.tronResource),
+      hasTronResource,
+      hasWalletBannerContent: bannerCount > 0 || hasTronResource,
       showPositiveBanner: balancePresentation?.banner.kind === 'positive',
       shouldShowBanner,
       walletActionFamily,
@@ -877,15 +1437,36 @@ export function MobileNativeHomeRenderer({
           sessionId: facts.ownerToken.sessionId,
         };
       } else if (authority.kind === 'sectionCommands') {
+        let targetSectionId = authority.sectionId;
+        if (
+          intent.intent.commandId === HOME_SECTION_ACTION_IDS.openDeFiProtocol
+        ) {
+          targetSectionId = 'defi';
+        } else if (
+          intent.intent.commandId === HOME_SECTION_ACTION_IDS.openMarket ||
+          intent.intent.commandId === HOME_SECTION_ACTION_IDS.openEarn
+        ) {
+          targetSectionId = 'market';
+        }
+        let targetRevision = authority.revision;
+        if (targetSectionId === 'defi') {
+          targetRevision = defiSection.sectionCommandRevision;
+        } else if (targetSectionId === 'market') {
+          targetRevision = marketSection.sectionCommandRevision;
+        }
         storeIntent = {
           type: 'sectionActionInvoked',
           actionId: intent.intent.commandId,
-          authority,
+          authority: {
+            kind: 'sectionCommands',
+            revision: targetRevision,
+            sectionId: targetSectionId,
+          },
           execution: 'controller',
           intentId: intent.intentId,
           itemId: intent.intent.itemId,
           owner: facts.owner,
-          sectionId: authority.sectionId,
+          sectionId: targetSectionId,
           sessionId: facts.ownerToken.sessionId,
         };
       } else {
@@ -893,7 +1474,12 @@ export function MobileNativeHomeRenderer({
       }
       dispatchHomeIntent(storeIntent);
     },
-    [dispatchHomeIntent, facts],
+    [
+      defiSection.sectionCommandRevision,
+      dispatchHomeIntent,
+      facts,
+      marketSection.sectionCommandRevision,
+    ],
   );
 
   const handleRefreshIntent = useCallback(
@@ -902,27 +1488,37 @@ export function MobileNativeHomeRenderer({
         nativeRef.current?.completeRefresh(requestId);
         return;
       }
-      let actionId = `home.${tabId}.refresh`;
-      if (tabId === 'defi') {
-        actionId = 'home.defi.refresh';
-      } else if (tabId === 'history') {
-        actionId = 'home.history.refresh';
-      }
-      const effects = dispatchHomeIntent({
-        type: 'sectionRefreshRequested',
-        actionId,
-        authority: {
-          kind: 'sectionCommands',
-          revision,
-          sectionId: tabId,
-        },
-        execution: 'controller',
-        intentId: createHomeAuthorityId('intent'),
-        owner: facts.owner,
-        sectionId: tabId,
-        sessionId: facts.ownerToken.sessionId,
+      const sections = new Map<
+        IHomeContainerTabId,
+        { completed: boolean; seenRefreshing: boolean }
+      >();
+      tabs.forEach((tab) => {
+        const sectionId = tab.id;
+        const effects = dispatchHomeIntent({
+          type: 'sectionRefreshRequested',
+          actionId: `home.${sectionId}.refresh`,
+          authority: {
+            kind: 'sectionCommands',
+            revision:
+              sectionId === tabId
+                ? revision
+                : revisionState.authorityRevisions.sectionCommands[sectionId],
+            sectionId,
+          },
+          execution: 'controller',
+          intentId: createHomeAuthorityId('intent'),
+          owner: facts.owner,
+          sectionId,
+          sessionId: facts.ownerToken.sessionId,
+        });
+        if (didAcceptIntent(effects)) {
+          sections.set(sectionId, {
+            completed: false,
+            seenRefreshing: false,
+          });
+        }
       });
-      if (!didAcceptIntent(effects)) {
+      if (sections.size === 0) {
         nativeRef.current?.completeRefresh(requestId);
         return;
       }
@@ -931,12 +1527,11 @@ export function MobileNativeHomeRenderer({
         pendingRefreshesRef.current.delete(requestId);
       }, 15_000);
       pendingRefreshesRef.current.set(requestId, {
-        sectionId: tabId,
-        seenRefreshing: false,
+        sections,
         timeoutId,
       });
     },
-    [dispatchHomeIntent, facts],
+    [dispatchHomeIntent, facts, revisionState, tabs],
   );
 
   useEffect(() => {
@@ -948,15 +1543,20 @@ export function MobileNativeHomeRenderer({
       history: historyResource,
     };
     pendingRefreshesRef.current.forEach((pending, requestId) => {
-      const resource = resources[pending.sectionId];
-      const refreshing =
-        resource.kind === 'loading' ||
-        resource.kind === 'partial' ||
-        ((resource.kind === 'ready' || resource.kind === 'empty') &&
-          resource.refresh === 'refreshing');
-      if (refreshing) {
-        pending.seenRefreshing = true;
-      } else if (pending.seenRefreshing) {
+      pending.sections.forEach((state, sectionId) => {
+        const resource = resources[sectionId];
+        const refreshing =
+          resource.kind === 'loading' ||
+          resource.kind === 'partial' ||
+          ((resource.kind === 'ready' || resource.kind === 'empty') &&
+            resource.refresh === 'refreshing');
+        if (refreshing) {
+          state.seenRefreshing = true;
+        } else if (state.seenRefreshing) {
+          state.completed = true;
+        }
+      });
+      if ([...pending.sections.values()].every((state) => state.completed)) {
         clearTimeout(pending.timeoutId);
         nativeRef.current?.completeRefresh(requestId);
         pendingRefreshesRef.current.delete(requestId);
@@ -986,9 +1586,129 @@ export function MobileNativeHomeRenderer({
         }
         return;
       }
+      if (parsed.intent.kind === 'action') {
+        const commandId = parsed.intent.commandId;
+        if (commandId === MOBILE_NATIVE_HOME_TRON_RESOURCE_ACTION_ID) {
+          const resource = bannerPayload?.tronResource;
+          if (resource) {
+            showResourceDetailsDialog({
+              accountId: resource.accountId,
+              networkId: resource.networkId,
+            });
+          }
+          return;
+        }
+        if (
+          commandId ===
+          MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS.openManageToken
+        ) {
+          handleOnManageToken();
+          return;
+        }
+        if (
+          commandId ===
+          MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS.togglePortfolioAssetsExpanded
+        ) {
+          setExpandedSections((current) => ({
+            ...current,
+            portfolioAssets: !current.portfolioAssets,
+          }));
+          return;
+        }
+        if (
+          commandId ===
+          MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS.togglePortfolioDeFiExpanded
+        ) {
+          setExpandedSections((current) => ({
+            ...current,
+            portfolioDeFi: !current.portfolioDeFi,
+          }));
+          return;
+        }
+        if (
+          commandId ===
+          MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS.toggleDeFiExpanded
+        ) {
+          setExpandedSections((current) => ({
+            ...current,
+            defi: !current.defi,
+          }));
+          return;
+        }
+        if (
+          commandId.startsWith(MOBILE_NATIVE_HOME_MARKET_CATEGORY_ACTION_PREFIX)
+        ) {
+          selectMarketCategory(
+            commandId.slice(
+              MOBILE_NATIVE_HOME_MARKET_CATEGORY_ACTION_PREFIX.length,
+            ),
+          );
+          return;
+        }
+        if (commandId === MOBILE_NATIVE_HOME_MARKET_ACTION_IDS.toggleFavorite) {
+          const itemId = parsed.intent.itemId;
+          const record = [
+            ...(marketPayload?.rows ?? []),
+            ...(marketPayload?.perpsHotRows ?? []),
+          ].find((candidate) => getHomeMarketTokenRowId(candidate) === itemId);
+          if (record && marketPayload) {
+            const checked = marketPayload.watchListItems.some((item) =>
+              record.perpsCoin
+                ? item.perpsCoin === record.perpsCoin
+                : item.chainId === record.chainId &&
+                  item.contractAddress.toLowerCase() ===
+                    record.contractAddress.toLowerCase(),
+            );
+            void toggleMarketFavorite({
+              checked,
+              record,
+              watchListItems: marketPayload.watchListItems,
+            });
+          }
+          return;
+        }
+        if (
+          commandId === MOBILE_NATIVE_HOME_MARKET_ACTION_IDS.toggleRecommended
+        ) {
+          const itemId = parsed.intent.itemId;
+          if (itemId) {
+            setSelectedRecommendedMarketRowIds((current) =>
+              current.includes(itemId)
+                ? current.filter((rowId) => rowId !== itemId)
+                : [...current, itemId],
+            );
+          }
+          return;
+        }
+        if (commandId === MOBILE_NATIVE_HOME_MARKET_ACTION_IDS.addRecommended) {
+          const selectedIds = new Set(selectedRecommendedMarketRowIds);
+          const selectedTokens = (marketPayload?.rows ?? [])
+            .slice(0, 4)
+            .filter((record) =>
+              selectedIds.has(getHomeMarketTokenRowId(record)),
+            );
+          if (selectedTokens.length > 0) {
+            void addRecommendedMarketTokens(selectedTokens);
+          }
+          return;
+        }
+        if (commandId === MOBILE_NATIVE_HOME_MARKET_ACTION_IDS.viewMore) {
+          const selectedCategory = marketPayload?.resolvedCategoryId;
+          viewMoreMarket(
+            selectedCategory === 'favorites' ? undefined : selectedCategory,
+          );
+          return;
+        }
+        if (commandId === MOBILE_NATIVE_HOME_MARKET_ACTION_IDS.viewMorePerps) {
+          viewMoreMarket(HOME_PERPS_HOT_CATEGORY_ID);
+          return;
+        }
+      }
       if (parsed.intent.kind === 'selectTab') {
         if (dispatchTabIntent(parsed.intent.tabId, parsed.authority.revision)) {
           controller?.recordSelectedTab(parsed.intent.tabId);
+        } else {
+          nativeRef.current?.selectTab(selectedTabId, false);
         }
         return;
       }
@@ -1026,13 +1746,22 @@ export function MobileNativeHomeRenderer({
     },
     [
       controller,
+      addRecommendedMarketTokens,
+      bannerPayload?.tronResource,
       dispatchHomeIntent,
       dispatchNativeAction,
       dispatchTabIntent,
       facts,
+      handleOnManageToken,
       handleRefreshIntent,
       navigation,
+      marketPayload,
       owner,
+      selectMarketCategory,
+      selectedTabId,
+      selectedRecommendedMarketRowIds,
+      toggleMarketFavorite,
+      viewMoreMarket,
     ],
   );
 

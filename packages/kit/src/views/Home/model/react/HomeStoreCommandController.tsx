@@ -17,6 +17,7 @@ import {
   EModalAssetDetailRoutes,
   EModalRoutes,
   ERootRoutes,
+  ETabEarnRoutes,
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -25,6 +26,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
+import { safePushToEarnRoute } from '../../../Earn/earnUtils';
 import { maybeOpenPrivateSendHistoryDetail } from '../../../Swap/utils/privateSendHistory';
 import {
   HOME_BANNER_ACTION_IDS,
@@ -318,8 +320,15 @@ export function HomeStoreCommandController() {
         }
         return;
       }
+      if (command.actionId === HOME_SECTION_ACTION_IDS.openEarn) {
+        await safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHome);
+        return;
+      }
       if (command.actionId === HOME_SECTION_ACTION_IDS.openMarket) {
-        const token = marketPayload?.rows.find(
+        const token = [
+          ...(marketPayload?.rows ?? []),
+          ...(marketPayload?.perpsHotRows ?? []),
+        ].find(
           (candidate) => getHomeMarketTokenRowId(candidate) === command.itemId,
         );
         if (!token) {
@@ -371,6 +380,7 @@ export function HomeStoreCommandController() {
       historyPayload?.data,
       indexedAccount?.id,
       isCommandCurrent,
+      marketPayload?.perpsHotRows,
       marketPayload?.rows,
       navigation,
       network,

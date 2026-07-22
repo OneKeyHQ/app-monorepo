@@ -121,7 +121,8 @@ describe('Home banner Store source', () => {
       tronResource: null,
     });
 
-    expect(payload.banners.map((banner) => banner.id)).toEqual(['local-a']);
+    expect(payload).toBeDefined();
+    expect(payload?.banners.map((banner) => banner.id)).toEqual(['local-a']);
     expect(complete).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ kind: 'success', data: payload }),
@@ -180,7 +181,45 @@ describe('Home banner Store source', () => {
       tronResource: null,
     });
 
-    expect(payload.banners.map((banner) => banner.id)).toEqual(['network-a']);
+    expect(payload).toBeDefined();
+    expect(payload?.banners.map((banner) => banner.id)).toEqual(['network-a']);
     expect(updateLocalTopBanners).toHaveBeenCalledWith(remoteBanners);
+  });
+
+  it('preserves the current Store banner when local and remote sources both fail', async () => {
+    const complete = jest.fn();
+    const gateway = {
+      begin: jest.fn(() => ({
+        request: { ownerToken, sourceId: 'banner' as const },
+        token: { requestSeq: 1 },
+      })),
+      complete,
+    } as unknown as IHomeBannerSourceGateway;
+
+    const payload = await runHomeBannerStoreRequest({
+      api: {
+        readLocal: async () => Promise.reject(new Error('local unavailable')),
+        fetchRemote: async () =>
+          Promise.reject(new Error('remote unavailable')),
+        fetchReferralEligibility: async () =>
+          Promise.reject(new Error('referral unavailable')),
+        fetchBotWalletDeactivated: async () => false,
+        updateLocalTopBanners: async () => undefined,
+      },
+      createReferralBanner: () => null,
+      gateway,
+      hasBotWallet: false,
+      networkId: 'network-a',
+      ownerToken,
+      paramsFingerprint: 'owner-a-banner',
+      sessionDismissedIds: [],
+      tronResource: null,
+    });
+
+    expect(payload).toBeUndefined();
+    expect(complete).toHaveBeenCalledWith(expect.anything(), {
+      kind: 'error',
+      errorKind: 'source',
+    });
   });
 });

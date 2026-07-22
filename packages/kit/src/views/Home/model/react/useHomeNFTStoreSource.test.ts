@@ -21,7 +21,7 @@ interface ITestAllNetworkParams {
   onStarted?: (value: {
     accountId?: string;
     networkId?: string;
-  }) => Promise<void>;
+  }) => Promise<void> | void;
 }
 
 interface ITestAllNetworkAccount {
@@ -132,27 +132,23 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
 });
 
 jest.mock('./homeStoreHooks', () => {
-  const React = jest.requireActual<typeof import('react')>('react');
   return {
     useHomeFactsSnapshot: () => {
       const activeState = (globalThis as ITestGlobal).__homeNFTActiveState;
       const network = activeState.activeAccount.network;
-      return React.useMemo(
-        () => ({
-          owner: {
-            accountId: 'account-1',
-            network: network.isAllNetworks
-              ? { kind: 'allNetworks' as const }
-              : {
-                  kind: 'singleNetwork' as const,
-                  networkId: network.id,
-                },
-            walletId: 'wallet-1',
-          },
-          ownerToken: { scopeKey: 'scope-1', sessionId: 'session-1' },
-        }),
-        [network.id, network.isAllNetworks],
-      );
+      return {
+        owner: {
+          accountId: 'account-1',
+          network: network.isAllNetworks
+            ? { kind: 'allNetworks' as const }
+            : {
+                kind: 'singleNetwork' as const,
+                networkId: network.id,
+              },
+          walletId: 'wallet-1',
+        },
+        ownerToken: { scopeKey: 'scope-1', sessionId: 'session-1' },
+      };
     },
   };
 });
@@ -250,6 +246,30 @@ describe('useHomeNFTStoreSource', () => {
     expect(
       background.fetchAccountNFTs.mock.invocationCallOrder[0],
     ).toBeLessThan(publisher.complete.mock.invocationCallOrder[0]);
+
+    view.unmount();
+  });
+
+  it('does not block cache and live NFT loading on account synchronization', async () => {
+    const background = testGlobal.__homeNFTBackgroundControl;
+    const publisher = testGlobal.__homeNFTPublisherControl;
+    background.updateCurrentAccount.mockImplementation(
+      () => new Promise<void>(() => undefined),
+    );
+    background.getAccountLocalNFTs.mockResolvedValue([]);
+    background.fetchAccountNFTs.mockResolvedValue({
+      data: [],
+      isSameAllNetworksAccountData: true,
+      networkId: 'btc--0',
+    });
+
+    const view = renderHook(() =>
+      useHomeNFTStoreSource({ enabled: true, visible: false }),
+    );
+
+    await waitFor(() => expect(publisher.complete).toHaveBeenCalledTimes(1));
+    expect(background.getAccountLocalNFTs).toHaveBeenCalledTimes(1);
+    expect(background.fetchAccountNFTs).toHaveBeenCalledTimes(1);
 
     view.unmount();
   });

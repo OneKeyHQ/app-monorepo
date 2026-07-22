@@ -1,4 +1,5 @@
 import type {
+  IHomeRuntimeHandshake,
   IHomeRuntimeOwnerScope,
   IHomeRuntimeOwnerToken,
   IHomeRuntimeTopology,
@@ -22,28 +23,45 @@ export interface IHomeSessionSnapshot {
 }
 
 export class HomeSessionCoordinator {
+  private static readonly defaultRetryDelaysMs = [100, 500] as const;
+
   private session: HomeSessionMachine | undefined;
 
   private owner: IHomeRuntimeOwnerScope | undefined;
 
   private revision = 0;
 
+  private handshakeRequestSequence = 0;
+
   private readonly listeners = new Set<() => void>();
 
   constructor({
     adapter,
     createSessionId = () => createHomeAuthorityId('session'),
+    retryDelaysMs = HomeSessionCoordinator.defaultRetryDelaysMs,
+    wait = (delayMs) =>
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, delayMs);
+      }),
   }: {
     adapter: IHomeRuntimeAdapter;
     createSessionId?: () => string;
+    retryDelaysMs?: readonly number[];
+    wait?: (delayMs: number) => Promise<void>;
   }) {
     this.adapter = adapter;
     this.createSessionId = createSessionId;
+    this.retryDelaysMs = retryDelaysMs;
+    this.wait = wait;
   }
 
   private readonly adapter: IHomeRuntimeAdapter;
 
   private readonly createSessionId: () => string;
+
+  private readonly retryDelaysMs: readonly number[];
+
+  private readonly wait: (delayMs: number) => Promise<void>;
 
   setOwner(
     owner: IHomeRuntimeOwnerScope | undefined,
@@ -85,43 +103,60 @@ export class HomeSessionCoordinator {
   }
 
   async connectCurrent(): Promise<void> {
-    const session = this.session;
-    if (!session) {
-      return;
-    }
-    try {
-      const handshake = await this.adapter.connect();
-      if (session !== this.session) {
-        return;
-      }
-      session.applyHandshake(handshake);
-    } catch (_error) {
-      if (session !== this.session) {
-        return;
-      }
-      session.markDegraded();
-    }
-    this.bumpRevision();
+    await this.requestHandshake(() => this.adapter.connect());
   }
 
   async refreshHandshake(): Promise<void> {
+    await this.requestHandshake(() => this.adapter.refreshHandshake());
+  }
+
+  private async requestHandshake(
+    request: () => Promise<IHomeRuntimeHandshake>,
+  ): Promise<void> {
     const session = this.session;
+    const requestSequence = this.handshakeRequestSequence + 1;
+    this.handshakeRequestSequence = requestSequence;
     if (!session) {
       return;
     }
-    try {
-      const handshake = await this.adapter.refreshHandshake();
-      if (session !== this.session) {
+    for (let attempt = 0; attempt <= this.retryDelaysMs.length; attempt += 1) {
+      if (
+        session !== this.session ||
+        requestSequence !== this.handshakeRequestSequence
+      ) {
         return;
       }
-      session.applyHandshake(handshake);
-    } catch (_error) {
-      if (session !== this.session) {
+      try {
+        const handshake = await request();
+        if (
+          session !== this.session ||
+          requestSequence !== this.handshakeRequestSequence
+        ) {
+          return;
+        }
+        session.applyHandshake(handshake);
+        this.bumpRevision();
         return;
+      } catch (_error) {
+        if (
+          session !== this.session ||
+          requestSequence !== this.handshakeRequestSequence
+        ) {
+          return;
+        }
+        const retryDelayMs = this.retryDelaysMs[attempt];
+        if (retryDelayMs !== undefined) {
+          await this.wait(retryDelayMs);
+        }
       }
-      session.markDegraded();
     }
-    this.bumpRevision();
+    if (
+      session === this.session &&
+      requestSequence === this.handshakeRequestSequence
+    ) {
+      session.markDegraded();
+      this.bumpRevision();
+    }
   }
 
   stop(): void {

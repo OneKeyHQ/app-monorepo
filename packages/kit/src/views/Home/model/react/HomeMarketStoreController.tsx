@@ -67,6 +67,8 @@ const HOME_MARKET_FAVORITES_DISPLAY_COUNT = 3;
 const homeMarketSourceApi = {
   fetchBasicConfig: () =>
     backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig(),
+  fetchEarnAssets: () =>
+    backgroundApiProxy.serviceStaking.fetchAllNetworkAssetsV2(),
   fetchPerpsTokens: (category: string) =>
     backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({ category }),
   fetchSpotCategoryTokens: ({
@@ -340,6 +342,10 @@ async function loadHomeMarketPayload({
   perpsLabel: string;
   selectedCategoryId: string;
 }): Promise<IHomePopularTradingPayload> {
+  const earnRowsPromise = api
+    .fetchEarnAssets()
+    .then((response) => response?.tokens?.slice(0, 6) ?? [])
+    .catch(() => []);
   const [configResponse, watchList] = await Promise.all([
     api.fetchBasicConfig(),
     api.getWatchList(),
@@ -398,9 +404,10 @@ async function loadHomeMarketPayload({
     selectedMarketCategoryId !== HOME_PERPS_HOT_CATEGORY_ID
       ? fetchCategoryRows(HOME_PERPS_HOT_CATEGORY_ID)
       : Promise.resolve<IFavoriteTokenDisplay[]>([]);
-  const [rows, independentPerpsHotRows] = await Promise.all([
+  const [rows, independentPerpsHotRows, earnRows] = await Promise.all([
     rowsPromise,
     independentPerpsHotRowsPromise,
+    earnRowsPromise,
   ]);
   const perpsHotRows =
     selectedMarketCategoryId === HOME_PERPS_HOT_CATEGORY_ID
@@ -411,6 +418,7 @@ async function loadHomeMarketPayload({
     .filter((categoryId) => categoryId !== FAVORITES_CATEGORY_ID);
   return {
     categories,
+    earnRows,
     favoriteMode: watchList.data.length > 0 ? 'favorites' : 'recommendation',
     perpsHotRows,
     prefetchCategoryIds,

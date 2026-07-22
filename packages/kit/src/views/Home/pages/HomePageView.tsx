@@ -96,8 +96,9 @@ const AndroidScrollContainer = platformEnv.isNativeAndroid
   ? ({ children }: IAndroidScrollContainerProps) => {
       const [height, setHeight] = useState(0);
       const heightRef = useRef(0);
-      const { refreshSelectedSection, selectedSectionRefreshing } =
+      const { refreshAllSections, refreshingBySection } =
         useHomeRefreshIntents();
+      const isRefreshing = Object.values(refreshingBySection).some(Boolean);
       const handleLayout = useCallback((event: LayoutChangeEvent) => {
         const h = Math.round(event.nativeEvent.layout.height);
         if (h !== heightRef.current) {
@@ -113,8 +114,8 @@ const AndroidScrollContainer = platformEnv.isNativeAndroid
               nestedScrollEnabled
               refreshControl={
                 <PullToRefresh
-                  onRefresh={refreshSelectedSection}
-                  refreshing={selectedSectionRefreshing}
+                  onRefresh={refreshAllSections}
+                  refreshing={isRefreshing}
                 />
               }
               contentContainerStyle={contentContainerStyle}

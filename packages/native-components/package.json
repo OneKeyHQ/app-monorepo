@@ -25,11 +25,15 @@
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx"
   },
   "peerDependencies": {
+    "@onekeyfe/react-native-skeleton": "3.0.78",
     "react": "*",
     "react-native": "*",
     "react-native-nitro-modules": "0.33.2"
   },
   "peerDependenciesMeta": {
+    "@onekeyfe/react-native-skeleton": {
+      "optional": true
+    },
     "react": {
       "optional": true
     },

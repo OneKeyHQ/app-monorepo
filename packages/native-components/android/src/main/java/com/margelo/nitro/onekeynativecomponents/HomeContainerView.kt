@@ -30,12 +30,14 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.graphics.PathParser
 import androidx.core.view.setPadding
+import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.viewpager2.widget.ViewPager2
+import com.margelo.nitro.skeleton.SkeletonNativeView
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
@@ -43,6 +45,23 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt
+
+private fun HomeContainerTheme.skeletonGradientColors(): Array<String> {
+  val background = parseHomeContainerColor(backgroundColor, Color.WHITE)
+  val red = Color.red(background) / 255.0
+  val green = Color.green(background) / 255.0
+  val blue = Color.blue(background) / 255.0
+  val luminance = (0.2126 * red) + (0.7152 * green) + (0.0722 * blue)
+  return if (luminance < 0.5) {
+    arrayOf("#111111", "#333333")
+  } else {
+    arrayOf("#fafafa", "#cdcdcd")
+  }
+}
+
+private fun SkeletonNativeView.applyHomeContainerSkeletonTheme(theme: HomeContainerTheme) {
+  configure(shimmerSpeed = 3.0, shimmerGradientColors = theme.skeletonGradientColors())
+}
 
 private data class HomeContainerTabViewKey(
   val id: String,
@@ -462,7 +481,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
   }
 
   fun selectTab(tabId: String, animated: Boolean) {
-    post { moveToTab(tabId, animated, true) }
+    post { moveToTab(tabId, animated, false) }
   }
 
   fun dispatchExternalTouchEvent(event: MotionEvent, horizontal: Boolean): Boolean {
@@ -817,6 +836,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
     }
     val index = adapter.positionForTab(tabId)
     if (index < 0) return
+    val didChangeTab = selectedTabId != tabId
     val source = adapter.pageForTab(selectedTabId)
     val target = adapter.pageForTab(tabId)
     if (source != null && target != null) {
@@ -829,7 +849,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
     refreshPullOffset = target?.refreshPullOffset ?: 0
     updateSharedChromePosition()
     pager.setCurrentItem(index, animated)
-    if (notify) emitTabSelection(tabId)
+    if (notify && didChangeTab) emitTabSelection(tabId)
     protocolV2State?.revision?.let(::awaitSelectedPageRender)
   }
 
@@ -1383,7 +1403,13 @@ private class HomePageView(context: Context) : FrameLayout(context) {
   init {
     recycler.layoutManager = LinearLayoutManager(context)
     recycler.adapter = listAdapter
-    recycler.itemAnimator = null
+    recycler.itemAnimator = DefaultItemAnimator().apply {
+      supportsChangeAnimations = false
+      addDuration = 180
+      removeDuration = 180
+      moveDuration = 180
+      changeDuration = 0
+    }
     recycler.overScrollMode = View.OVER_SCROLL_ALWAYS
     recycler.setPadding(0, 0, 0, dp(112))
     recycler.clipToPadding = false
@@ -1989,7 +2015,9 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
   private val networkButton = text("", 15f, Typeface.BOLD, "#111111")
   private val networkGroup = LinearLayout(context)
   private val accountRow = LinearLayout(context)
+  private val balanceContainer = FrameLayout(context)
   private val balanceButton = text("", 48f, Typeface.NORMAL, "#111111")
+  private var balanceSkeletonView: SkeletonNativeView? = null
   private val balanceActionsContent = LinearLayout(context)
   private val actionsScroll = AxisLockHorizontalScrollView(context)
   private val actionsContent = LinearLayout(context)
@@ -2007,6 +2035,8 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
   private var representedAccountImageUrl: String? = null
   private var representedNetworkImageUrl: String? = null
   private var representedNetworkSecondaryImageUrl: String? = null
+  private var balanceIsLoading = false
+  private var currentTheme: HomeContainerTheme? = null
   init {
     orientation = VERTICAL
     setPadding(dp(16))
@@ -2041,7 +2071,11 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
       addView(networkGroup, LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, dp(32)))
     }
     addView(accountRow, row(32))
-    addView(balanceButton, row(64))
+    balanceContainer.addView(
+      balanceButton,
+      FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
+    )
+    addView(balanceContainer, row(64))
     balanceActionsContent.orientation = HORIZONTAL
     balanceActionsContent.gravity = Gravity.CENTER_VERTICAL
     addView(balanceActionsContent, row(32))
@@ -2072,6 +2106,7 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
     theme: HomeContainerTheme,
   ) {
     this.header = header
+    currentTheme = theme
     setBackgroundColor(Color.TRANSPARENT)
     val primary = parseHomeContainerColor(theme.primaryTextColor, Color.BLACK)
     val secondary = parseHomeContainerColor(theme.secondaryTextColor, Color.DKGRAY)
@@ -2094,6 +2129,8 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
     networkIconSecondary.visibility =
       if (isNetworkGroup && header.networkImageUrls.size > 1) VISIBLE else GONE
     val balanceText = header.balance + header.balanceSecondary
+    balanceIsLoading =
+      header.actionLayout == "loading" && balanceText.isEmpty()
     balanceButton.text = SpannableString(balanceText).apply {
       setSpan(
         ForegroundColorSpan(primary),
@@ -2241,6 +2278,7 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
     val ownsBalance = !mountedSlotKeys.contains("header.balance")
     balanceButton.alpha = if (ownsBalance) 1f else 0f
     balanceButton.isClickable = ownsBalance
+    updateBalanceSkeleton(ownsBalance && balanceIsLoading)
 
     val ownsActionRow = !mountedSlotKeys.contains("header.action-row")
     actionViews.values.forEach { view ->
@@ -2249,16 +2287,38 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
     }
   }
 
+  private fun updateBalanceSkeleton(shouldShow: Boolean) {
+    val theme = currentTheme
+    if (!shouldShow || theme == null) {
+      balanceSkeletonView?.let(balanceContainer::removeView)
+      balanceSkeletonView = null
+      return
+    }
+    val skeleton = balanceSkeletonView ?: SkeletonNativeView(context).also {
+      it.clipToOutline = true
+      it.background = GradientDrawable().apply {
+        cornerRadius = dp(8).toFloat()
+      }
+      balanceContainer.addView(
+        it,
+        FrameLayout.LayoutParams(dp(209), dp(40), Gravity.START or Gravity.CENTER_VERTICAL),
+      )
+      balanceSkeletonView = it
+    }
+    skeleton.applyHomeContainerSkeletonTheme(theme)
+  }
+
   private fun updateBanners(banners: List<HomeContainerBanner>, theme: HomeContainerTheme) {
     if (banners.map { it.id } != bannerViews.keys.toList()) {
       bannersContent.removeAllViews()
       bannerViews.clear()
       banners.forEach { banner ->
+        val bannerWidth = if (banner.id == "home-tron-resource") 220 else 280
         val view = HomeBannerView(context).apply {
           this.onAction = { actionId -> this@HomeHeaderView.onAction?.invoke(actionId, banner.id) }
         }
         bannerViews[banner.id] = view
-        bannersContent.addView(view, LinearLayout.LayoutParams(dp(246), dp(84)).apply {
+        bannersContent.addView(view, LinearLayout.LayoutParams(dp(bannerWidth), dp(88)).apply {
           marginEnd = dp(10)
         })
       }
@@ -2266,19 +2326,21 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
     banners.forEach { banner ->
       bannerViews[banner.id]?.bind(banner, theme)
     }
-    bannersContentWidth = banners.size * (dp(246) + dp(10))
+    bannersContentWidth = banners.sumOf {
+      dp(if (it.id == "home-tron-resource") 220 else 280) + dp(10)
+    }
     bannersContent.layoutParams = bannersContent.layoutParams.apply {
       width = bannersContentWidth
-      height = dp(84)
+      height = dp(88)
     }
     bannersContent.requestLayout()
     bannersContent.post {
       if (bannersContentWidth <= 0) return@post
       bannersContent.measure(
         MeasureSpec.makeMeasureSpec(bannersContentWidth, MeasureSpec.EXACTLY),
-        MeasureSpec.makeMeasureSpec(dp(84), MeasureSpec.EXACTLY),
+        MeasureSpec.makeMeasureSpec(dp(88), MeasureSpec.EXACTLY),
       )
-      bannersContent.layout(0, 0, bannersContentWidth, dp(84))
+      bannersContent.layout(0, 0, bannersContentWidth, dp(88))
     }
   }
 
@@ -2437,6 +2499,7 @@ private class HomeBannerView(context: Context) : FrameLayout(context) {
 
   fun bind(value: HomeContainerBanner, theme: HomeContainerTheme) {
     banner = value
+    val isTronResourceBanner = value.id == "home-tron-resource"
     title.text = value.title
     title.setTextColor(parseHomeContainerColor(theme.primaryTextColor, Color.BLACK))
     subtitle.text = value.subtitle
@@ -2448,7 +2511,21 @@ private class HomeBannerView(context: Context) : FrameLayout(context) {
       setColor(parseHomeContainerColor(theme.cardColor, Color.LTGRAY))
       cornerRadius = dp(16).toFloat()
     }
-    loadImage(value.imageUrl)
+    (image.layoutParams as LayoutParams).apply {
+      width = if (isTronResourceBanner) 0 else dp(50)
+      height = if (isTronResourceBanner) 0 else dp(50)
+      marginStart = if (isTronResourceBanner) 0 else dp(12)
+    }
+    val labels = title.parent as? View
+    labels?.layoutParams = (labels?.layoutParams as? LayoutParams)?.apply {
+      marginStart = if (isTronResourceBanner) dp(16) else dp(72)
+      marginEnd = dp(14)
+    }
+    if (isTronResourceBanner) {
+      loadImage("")
+    } else {
+      loadImage(value.imageUrl)
+    }
   }
 
   private fun loadImage(value: String) {
@@ -4312,7 +4389,13 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
   private val centerButton = TextView(context)
   private val centerChevron = ImageView(context)
   private val left = LinearLayout(context)
+  private val subtitleRow = LinearLayout(context)
   private val right = LinearLayout(context)
+  private var iconSkeleton: SkeletonNativeView? = null
+  private var titleSkeleton: SkeletonNativeView? = null
+  private var subtitleSkeleton: SkeletonNativeView? = null
+  private var valueSkeleton: SkeletonNativeView? = null
+  private var detailSkeleton: SkeletonNativeView? = null
   private var imageRequest: HomeContainerImageLoader.Request? = null
   private var secondaryImageRequest: HomeContainerImageLoader.Request? = null
   private var badgeImageRequest: HomeContainerImageLoader.Request? = null
@@ -4360,14 +4443,15 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
       title.setTypeface(title.typeface, Typeface.NORMAL)
       subtitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
       addView(title)
-      addView(LinearLayout(context).apply {
+      subtitleRow.apply {
         orientation = HORIZONTAL
         addView(subtitle)
         subtitleDetail.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
         addView(subtitleDetail, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
           marginStart = dp(4)
         })
-      }, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+      }
+      addView(subtitleRow, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
         topMargin = dp(3)
       })
     }
@@ -4407,15 +4491,20 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
   }
 
   fun bind(item: HomeContainerItem, theme: HomeContainerTheme) {
-    alpha = if (item.renderer == "empty" || item.renderer == "loading") 0f else 1f
+    val isLoading = item.renderer == "loading"
+    alpha = 1f
     setBackgroundColor(parseHomeContainerColor(theme.backgroundColor, Color.WHITE))
-    icon.text = when (item.leadingIcon) {
-      "star" -> "★"
-      "support" -> "◉"
-      "book" -> "▣"
-      "download" -> "↓"
-      "prime" -> "1"
-      else -> item.title.take(1).uppercase()
+    icon.text = if (isLoading) {
+      ""
+    } else {
+      when (item.leadingIcon) {
+        "star" -> "★"
+        "support" -> "◉"
+        "book" -> "▣"
+        "download" -> "↓"
+        "prime" -> "1"
+        else -> item.title.take(1).uppercase()
+      }
     }
     icon.setTextColor(parseHomeContainerColor(theme.primaryTextColor, Color.BLACK))
     iconContainer.background = GradientDrawable().apply {
@@ -4431,22 +4520,35 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
       }
     }
     if (item.renderer == "upgrade") icon.setTextColor(Color.BLACK)
-    iconContainer.clipToOutline = true
+    val usesPairedHistoryIcons =
+      item.renderer == "history" && item.secondaryImageUrl.isNotEmpty()
+    iconContainer.clipChildren = !usesPairedHistoryIcons
+    iconContainer.clipToOutline = !usesPairedHistoryIcons
+    iconImage.layoutParams = FrameLayout.LayoutParams(
+      if (usesPairedHistoryIcons) dp(24) else LayoutParams.MATCH_PARENT,
+      if (usesPairedHistoryIcons) dp(24) else LayoutParams.MATCH_PARENT,
+      Gravity.START or Gravity.TOP,
+    )
+    secondaryIconImage.layoutParams = FrameLayout.LayoutParams(
+      dp(if (usesPairedHistoryIcons) 24 else 26),
+      dp(if (usesPairedHistoryIcons) 24 else 26),
+      Gravity.END or Gravity.BOTTOM,
+    )
     loadImage(item.imageUrl)
     loadAuxiliaryImage(item.secondaryImageUrl, secondaryIconImage, true)
     loadAuxiliaryImage(item.badgeImageUrl, badgeImage, false)
-    title.text = item.title
+    title.text = if (isLoading) "            " else item.title
     title.setTextColor(parseHomeContainerColor(theme.primaryTextColor, Color.BLACK))
-    subtitle.text = item.subtitle
-    subtitle.visibility = if (item.subtitle.isEmpty()) GONE else VISIBLE
+    subtitle.text = if (isLoading) "        " else item.subtitle
+    subtitle.visibility = if (isLoading || item.subtitle.isNotEmpty()) VISIBLE else GONE
     subtitle.setTextColor(parseHomeContainerColor(theme.secondaryTextColor, Color.DKGRAY))
     subtitleDetail.text = item.subtitleDetail
     subtitleDetail.visibility = if (item.subtitleDetail.isEmpty()) GONE else VISIBLE
     subtitleDetail.setTextColor(
       parseHomeContainerColor(item.subtitleDetailColor.ifEmpty { theme.secondaryTextColor }, Color.DKGRAY),
     )
-    value.text = item.value
-    value.visibility = if (item.value.isEmpty()) GONE else VISIBLE
+    value.text = if (isLoading) "      " else item.value
+    value.visibility = if (isLoading || item.value.isNotEmpty()) VISIBLE else GONE
     value.setTextColor(
       parseHomeContainerColor(
         if (item.renderer == "market") theme.primaryTextColor
@@ -4454,14 +4556,18 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
         Color.BLACK,
       ),
     )
-    detail.text = item.detail
-    detail.visibility = if (item.detail.isEmpty()) GONE else VISIBLE
+    detail.text = if (isLoading) "    " else item.detail
+    detail.visibility = if (isLoading || item.detail.isNotEmpty()) VISIBLE else GONE
     detail.setTextColor(parseHomeContainerColor(theme.secondaryTextColor, Color.DKGRAY))
     if (item.renderer == "market") {
       detail.setTextColor(
         parseHomeContainerColor(item.accentColor.ifEmpty { theme.secondaryTextColor }, Color.DKGRAY),
       )
     }
+    listOf(title, subtitle, value, detail).forEach { label ->
+      label.background = null
+    }
+    updateSkeletonState(isLoading = isLoading, theme = theme)
     if (item.renderer == "upgrade") {
       value.text = item.buttonTitle
       value.visibility = if (item.buttonTitle.isEmpty()) GONE else VISIBLE
@@ -4477,12 +4583,16 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
     }
     chevron.text = if (layoutDirection == LAYOUT_DIRECTION_RTL) "‹" else "›"
     chevron.setTextColor(parseHomeContainerColor(theme.secondaryTextColor, Color.DKGRAY))
-    chevron.visibility = if (item.showChevron) VISIBLE else GONE
-    val isCentered = item.renderer == "showMore" || item.renderer == "marketTabs"
+    chevron.visibility = if (!isLoading && item.showChevron) VISIBLE else GONE
+    val isCentered =
+      item.renderer == "addToken" ||
+        item.renderer == "showMore" ||
+        item.renderer == "marketTabs" ||
+        item.renderer == "empty"
     iconContainer.visibility = if (isCentered) GONE else VISIBLE
     left.visibility = if (isCentered) GONE else VISIBLE
     right.visibility = if (isCentered) GONE else VISIBLE
-    chevron.visibility = if (!isCentered && item.showChevron) VISIBLE else GONE
+    chevron.visibility = if (!isLoading && !isCentered && item.showChevron) VISIBLE else GONE
     centerPill.visibility = if (isCentered) VISIBLE else GONE
     if (item.renderer == "showMore") {
       centerButton.gravity = Gravity.CENTER
@@ -4510,6 +4620,21 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
         marginStart = dp(4)
         marginEnd = dp(4)
       }
+    } else if (item.renderer == "empty") {
+      centerButton.gravity = Gravity.CENTER
+      centerButton.text = item.title
+      centerButton.typeface = HomeContainerFonts.regular(context)
+      centerButton.setTextColor(
+        parseHomeContainerColor(theme.secondaryTextColor, Color.DKGRAY),
+      )
+      centerChevron.visibility = GONE
+      centerPill.background = null
+      centerPill.layoutParams = (centerPill.layoutParams as LinearLayout.LayoutParams).apply {
+        height = LayoutParams.MATCH_PARENT
+        gravity = Gravity.CENTER
+        marginStart = 0
+        marginEnd = 0
+      }
     } else if (item.renderer == "marketTabs") {
       centerButton.gravity = Gravity.CENTER_VERTICAL or Gravity.START
       centerButton.text = "☆    ${item.title}      ${item.subtitle}"
@@ -4522,9 +4647,41 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
         marginStart = 0
         marginEnd = 0
       }
+    } else if (item.renderer == "addToken") {
+      centerButton.gravity = Gravity.CENTER
+      centerButton.typeface = HomeContainerFonts.regular(context)
+      val instructionColor = parseHomeContainerColor(theme.secondaryTextColor, Color.DKGRAY)
+      val actionColor = parseHomeContainerColor(
+        theme.subduedIconColor.ifEmpty { theme.secondaryTextColor },
+        Color.DKGRAY,
+      )
+      val instruction = "${item.title}  "
+      val action = "${item.buttonTitle}  →"
+      centerButton.text = SpannableString(instruction + action).apply {
+        setSpan(
+          ForegroundColorSpan(instructionColor),
+          0,
+          instruction.length,
+          Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+        )
+        setSpan(
+          ForegroundColorSpan(actionColor),
+          instruction.length,
+          instruction.length + action.length,
+          Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+        )
+      }
+      centerChevron.visibility = GONE
+      centerPill.background = null
+      centerPill.layoutParams = (centerPill.layoutParams as LinearLayout.LayoutParams).apply {
+        height = LayoutParams.MATCH_PARENT
+        gravity = Gravity.CENTER
+        marginStart = 0
+        marginEnd = 0
+      }
     }
     val usesCard = item.renderer == "supportAction" || item.renderer == "upgrade"
-    drawsDivider = !isCentered && !usesCard
+    drawsDivider = item.showDivider
     dividerPaint.color = parseHomeContainerColor(theme.dividerColor, Color.GRAY)
     dividerPaint.strokeWidth = (resources.displayMetrics.density * 0.5f).coerceAtLeast(1f)
     layoutParams = RecyclerView.LayoutParams(
@@ -4586,6 +4743,81 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
     secondaryIconImage.visibility = GONE
     badgeImage.visibility = GONE
     icon.visibility = VISIBLE
+    clearSkeletonViews()
+  }
+
+  private fun updateSkeletonState(isLoading: Boolean, theme: HomeContainerTheme) {
+    if (!isLoading) {
+      clearSkeletonViews()
+      return
+    }
+
+    icon.visibility = GONE
+    iconImage.visibility = GONE
+    secondaryIconImage.visibility = GONE
+    badgeImage.visibility = GONE
+    title.visibility = GONE
+    subtitleRow.visibility = GONE
+    value.visibility = GONE
+    detail.visibility = GONE
+
+    if (iconSkeleton == null) {
+      iconSkeleton = createSkeletonView(radius = 20).also {
+        iconContainer.addView(
+          it,
+          FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
+        )
+      }
+      titleSkeleton = createSkeletonView().also {
+        left.addView(it, LinearLayout.LayoutParams(dp(128), dp(16)))
+      }
+      subtitleSkeleton = createSkeletonView().also {
+        left.addView(it, LinearLayout.LayoutParams(dp(96), dp(12)).apply {
+          topMargin = dp(8)
+        })
+      }
+      valueSkeleton = createSkeletonView().also {
+        right.addView(it, LinearLayout.LayoutParams(dp(64), dp(16)).apply {
+          gravity = Gravity.END
+        })
+      }
+      detailSkeleton = createSkeletonView().also {
+        right.addView(it, LinearLayout.LayoutParams(dp(48), dp(12)).apply {
+          gravity = Gravity.END
+          topMargin = dp(8)
+        })
+      }
+    }
+    listOfNotNull(
+      iconSkeleton,
+      titleSkeleton,
+      subtitleSkeleton,
+      valueSkeleton,
+      detailSkeleton,
+    ).forEach { it.applyHomeContainerSkeletonTheme(theme) }
+  }
+
+  private fun createSkeletonView(radius: Int = 8): SkeletonNativeView =
+    SkeletonNativeView(context).apply {
+      background = GradientDrawable().apply {
+        cornerRadius = dp(radius).toFloat()
+      }
+      clipToOutline = true
+    }
+
+  private fun clearSkeletonViews() {
+    iconSkeleton?.let(iconContainer::removeView)
+    titleSkeleton?.let(left::removeView)
+    subtitleSkeleton?.let(left::removeView)
+    valueSkeleton?.let(right::removeView)
+    detailSkeleton?.let(right::removeView)
+    iconSkeleton = null
+    titleSkeleton = null
+    subtitleSkeleton = null
+    valueSkeleton = null
+    detailSkeleton = null
+    title.visibility = VISIBLE
+    subtitleRow.visibility = VISIBLE
   }
 
   private fun loadImage(value: String) {

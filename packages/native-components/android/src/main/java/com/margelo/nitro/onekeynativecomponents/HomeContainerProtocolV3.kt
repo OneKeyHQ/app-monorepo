@@ -492,7 +492,8 @@ private fun JSONObject.validAuthorityRevisions(): Boolean =
     optJSONObject("sectionCommands")?.hasAllSectionRevisions() == true
 
 private fun JSONObject.hasAllSectionRevisions(): Boolean =
-  HOME_CONTAINER_PROTOCOL_V3_SECTION_IDS.all { safeRevision(it) != null }
+  keys().asSequence().toSet() == HOME_CONTAINER_PROTOCOL_V3_SECTION_IDS.toSet() &&
+    HOME_CONTAINER_PROTOCOL_V3_SECTION_IDS.all { safeRevision(it) != null }
 
 private fun JSONObject.revisionsDoNotRegress(
   current: JSONObject,

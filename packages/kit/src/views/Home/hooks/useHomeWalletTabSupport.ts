@@ -13,17 +13,13 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { adaptCurrentHomeCapabilityFacts } from '../model/capabilities/currentHomeCapabilityFactsAdapter';
 import { useHomeFactsSnapshot } from '../model/react/homeStoreHooks';
-import { useHomeNavigationCoordinator } from '../model/react/useHomeNavigationCoordinator';
 
 import {
   HOME_WALLET_TAB_SUPPORT_INIT,
-  type IHomeWalletTabSupportConfirmedCache,
   type IHomeWalletTabSupportNetwork,
   type IScopedHomeWalletTabSupportState,
   buildHomeWalletTabSupport,
   buildHomeWalletTabSupportScopeKey,
-  rememberConfirmedHomeWalletTabSupport,
-  resolveHomeWalletTabSupport,
   resolveHomeWalletTabSupportAccountScopeId,
 } from './homeWalletTabSupportUtils';
 
@@ -35,11 +31,9 @@ type IHomeWalletTabSupportResult = IScopedHomeWalletTabSupportState & {
 };
 
 export function useHomeWalletTabSupport({
-  enableCapabilityAuthority = false,
   network,
   vaultSettings,
 }: {
-  enableCapabilityAuthority?: boolean;
   network?: IHomeWalletTabSupportNetwork | null;
   vaultSettings?: { NFTEnabled?: boolean };
 }) {
@@ -162,17 +156,6 @@ export function useHomeWalletTabSupport({
     },
   );
 
-  const confirmedByScopeRef = useRef<IHomeWalletTabSupportConfirmedCache>(
-    new Map(),
-  );
-  useEffect(() => {
-    rememberConfirmedHomeWalletTabSupport({
-      confirmedByScope: confirmedByScopeRef.current,
-      result,
-      scopeKey,
-    });
-  }, [result, scopeKey]);
-
   const retryStateRef = useRef({ scopeKey: '', attempts: 0 });
   useEffect(() => {
     if (retryStateRef.current.scopeKey !== scopeKey) {
@@ -205,12 +188,15 @@ export function useHomeWalletTabSupport({
     return () => clearTimeout(timer);
   }, [hasResolvedScope, isAllNetworks, result, scopeKey]);
 
-  const tabSupport = resolveHomeWalletTabSupport({
-    result,
-    scopeKey,
-    confirmedByScope: confirmedByScopeRef.current,
-    perpDisabled,
-  });
+  const tabSupport =
+    result?.scopeKey === scopeKey
+      ? {
+          isReady: result.isReady,
+          isDeFiSupported: result.isDeFiSupported,
+          isPerpsSupported:
+            result.isReady && result.isDeFiSupported && !perpDisabled,
+        }
+      : HOME_WALLET_TAB_SUPPORT_INIT;
   const isNFTReady = Boolean(isAllNetworks || vaultSettings !== undefined);
   const isNFTEnabled = Boolean(
     isAllNetworks ||
@@ -219,7 +205,7 @@ export function useHomeWalletTabSupport({
   );
 
   const capabilityFacts = useMemo(() => {
-    if (!enableCapabilityAuthority || !homeFacts || !networkId) {
+    if (!homeFacts || !networkId) {
       return undefined;
     }
     const ownerMatchesActiveAccount =
@@ -287,7 +273,6 @@ export function useHomeWalletTabSupport({
       sourceScopeKey: capabilityReady ? scopeKey : undefined,
     });
   }, [
-    enableCapabilityAuthority,
     homeFacts,
     isAllNetworks,
     isNFTEnabled,
@@ -304,12 +289,5 @@ export function useHomeWalletTabSupport({
     account?.id,
     wallet?.id,
   ]);
-  const capabilityCoordinator = useHomeNavigationCoordinator(capabilityFacts);
-
-  return {
-    ...tabSupport,
-    capabilityNavigation: capabilityCoordinator.navigation,
-    selectCapabilityTab: capabilityCoordinator.selectTab,
-    perpTabShowWeb,
-  };
+  return capabilityFacts;
 }

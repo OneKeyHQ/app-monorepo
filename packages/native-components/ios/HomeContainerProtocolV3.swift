@@ -42,6 +42,7 @@ struct HomeContainerProtocolV3PresentationRevisions: Decodable, Equatable {
   var isValid: Bool {
     homeContainerIsNonnegativeSafeInteger(shell)
       && homeContainerIsNonnegativeSafeInteger(navigation)
+      && Set(sections.keys) == Set(homeContainerProtocolV3SectionIds)
       && homeContainerProtocolV3SectionIds.allSatisfy {
         sections[$0].map(homeContainerIsNonnegativeSafeInteger) == true
       }
@@ -67,6 +68,7 @@ struct HomeContainerProtocolV3AuthorityRevisions: Decodable, Equatable {
   var isValid: Bool {
     homeContainerIsNonnegativeSafeInteger(shellCommands)
       && homeContainerIsNonnegativeSafeInteger(tabApplicability)
+      && Set(sectionCommands.keys) == Set(homeContainerProtocolV3SectionIds)
       && homeContainerProtocolV3SectionIds.allSatisfy {
         sectionCommands[$0].map(homeContainerIsNonnegativeSafeInteger) == true
       }

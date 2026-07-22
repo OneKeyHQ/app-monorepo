@@ -129,6 +129,16 @@ function isRevisionRecord(
   return Object.values(value).every(isSafeRevision);
 }
 
+function hasExactSectionRevisionKeys(
+  value: Readonly<Record<string, number>>,
+): boolean {
+  const keys = Object.keys(value);
+  return (
+    keys.length === HOME_CONTAINER_SECTION_IDS.length &&
+    keys.every((key) => isSectionId(key))
+  );
+}
+
 function isPresentationRevisionVector(
   value: unknown,
 ): value is IHomeContainerPresentationRevisionVectorV3 {
@@ -141,6 +151,7 @@ function isPresentationRevisionVector(
     isSafeRevision(candidate.shell) &&
     isSafeRevision(candidate.navigation) &&
     isRevisionRecord(candidate.sections) &&
+    hasExactSectionRevisionKeys(candidate.sections) &&
     HOME_CONTAINER_SECTION_IDS.every((sectionId) =>
       isSafeRevision(candidate.sections?.[sectionId]),
     )
@@ -158,6 +169,7 @@ function isAuthorityRevisionVector(
     isSafeRevision(candidate.shellCommands) &&
     isSafeRevision(candidate.tabApplicability) &&
     isRevisionRecord(candidate.sectionCommands) &&
+    hasExactSectionRevisionKeys(candidate.sectionCommands) &&
     HOME_CONTAINER_SECTION_IDS.every((sectionId) =>
       isSafeRevision(candidate.sectionCommands?.[sectionId]),
     )

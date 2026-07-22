@@ -21,6 +21,7 @@ Pod::Spec.new do |s|
   s.dependency "React-jsi"
   s.dependency "React-callinvoker"
   s.dependency "SDWebImage", "~> 5.21.0"
+  s.dependency "Skeleton"
 
   load "nitrogen/generated/ios/OneKeyNativeComponents+autolinking.rb"
   add_nitrogen_files(s)

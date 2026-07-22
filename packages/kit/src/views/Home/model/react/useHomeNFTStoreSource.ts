@@ -140,6 +140,15 @@ export function useHomeNFTStoreSource({
   const walletId = wallet?.id;
   const isAllNetworks = Boolean(network?.isAllNetworks);
   const homeFactsSnapshot = useHomeFactsSnapshot();
+  const homeOwnerAccountId = homeFactsSnapshot?.owner.accountId;
+  const homeOwnerNetworkKind = homeFactsSnapshot?.owner.network.kind;
+  const homeOwnerNetworkId =
+    homeFactsSnapshot?.owner.network.kind === 'singleNetwork'
+      ? homeFactsSnapshot.owner.network.networkId
+      : undefined;
+  const homeOwnerScopeKey = homeFactsSnapshot?.ownerToken.scopeKey;
+  const homeOwnerSessionId = homeFactsSnapshot?.ownerToken.sessionId;
+  const homeOwnerWalletId = homeFactsSnapshot?.owner.walletId;
   const {
     beginHomeSectionRequest,
     completeHomeSectionRequest,
@@ -150,16 +159,17 @@ export function useHomeNFTStoreSource({
   );
   const nftSourceIdentity = useMemo(() => {
     const ownerMatches =
-      homeFactsSnapshot?.owner.walletId === walletId &&
-      homeFactsSnapshot?.owner.accountId === accountId &&
+      homeOwnerWalletId === walletId &&
+      homeOwnerAccountId === accountId &&
       (isAllNetworks
-        ? homeFactsSnapshot?.owner.network.kind === 'allNetworks'
-        : homeFactsSnapshot?.owner.network.kind === 'singleNetwork' &&
-          homeFactsSnapshot.owner.network.networkId === networkId);
+        ? homeOwnerNetworkKind === 'allNetworks'
+        : homeOwnerNetworkKind === 'singleNetwork' &&
+          homeOwnerNetworkId === networkId);
     if (
       !enabled ||
       !ownerMatches ||
-      !homeFactsSnapshot ||
+      !homeOwnerScopeKey ||
+      !homeOwnerSessionId ||
       !accountId ||
       !networkId ||
       !walletId
@@ -174,14 +184,22 @@ export function useHomeNFTStoreSource({
       networkMode: isAllNetworks ? 'allNetworks' : 'singleNetwork',
     };
     return createHomeNFTSourceIdentity({
-      owner: homeFactsSnapshot.ownerToken,
+      owner: {
+        scopeKey: homeOwnerScopeKey,
+        sessionId: homeOwnerSessionId,
+      },
       params,
       producerInstanceId: nftProducerInstanceId,
     });
   }, [
     accountId,
     enabled,
-    homeFactsSnapshot,
+    homeOwnerAccountId,
+    homeOwnerNetworkId,
+    homeOwnerNetworkKind,
+    homeOwnerScopeKey,
+    homeOwnerSessionId,
+    homeOwnerWalletId,
     indexedAccountId,
     isAllNetworks,
     networkId,
@@ -468,11 +486,13 @@ export function useHomeNFTStoreSource({
       networkId: string;
       dbAccount?: IDBAccount;
     }) =>
-      backgroundApiProxy.serviceNFT.getAccountLocalNFTs({
-        accountId: childAccountId,
-        networkId: childNetworkId,
-        dbAccount,
-      }),
+      backgroundApiProxy.serviceNFT
+        .getAccountLocalNFTs({
+          accountId: childAccountId,
+          networkId: childNetworkId,
+          dbAccount,
+        })
+        .then((cached) => (cached.length > 0 ? cached : null)),
     [],
   );
 
@@ -537,7 +557,7 @@ export function useHomeNFTStoreSource({
     setData([]);
   }, []);
   const handleAllNetworkStarted = useCallback(
-    async ({
+    ({
       accountId: ownerAccountId,
       networkId: ownerNetworkId,
     }: {
@@ -569,10 +589,12 @@ export function useHomeNFTStoreSource({
         });
       }
       if (ownerAccountId && ownerNetworkId) {
-        await backgroundApiProxy.serviceNFT.updateCurrentAccount({
-          accountId: ownerAccountId,
-          networkId: ownerNetworkId,
-        });
+        void backgroundApiProxy.serviceNFT
+          .updateCurrentAccount({
+            accountId: ownerAccountId,
+            networkId: ownerNetworkId,
+          })
+          .catch(() => undefined);
       }
       allNetworkStartedSucceededRef.current = true;
     },
@@ -714,14 +736,12 @@ export function useHomeNFTStoreSource({
       if (!handle) {
         return;
       }
-      try {
-        await backgroundApiProxy.serviceNFT.updateCurrentAccount({
+      void backgroundApiProxy.serviceNFT
+        .updateCurrentAccount({
           accountId,
           networkId,
-        });
-      } catch {
-        // Account-scoped fetch and cache reads remain authoritative.
-      }
+        })
+        .catch(() => undefined);
       try {
         const cached = await backgroundApiProxy.serviceNFT.getAccountLocalNFTs({
           accountId,

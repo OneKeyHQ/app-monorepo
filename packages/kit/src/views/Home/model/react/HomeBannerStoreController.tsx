@@ -231,7 +231,7 @@ export function HomeBannerStoreController() {
       sessionDismissedIds: [...dismissedIdsRef.current],
       tronResource,
     });
-    if (generation === requestGenerationRef.current) {
+    if (payload && generation === requestGenerationRef.current) {
       payloadRef.current = payload;
     }
   }, [

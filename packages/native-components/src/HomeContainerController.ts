@@ -102,6 +102,8 @@ const LEGACY_OWNER: IHomeContainerOwner = {
   sessionId: 'legacy',
 };
 
+const MAX_PENDING_NATIVE_TAB_SELECTIONS = 16;
+
 const defaultSchedule: IHomeContainerControllerScheduler = (flush) => {
   queueMicrotask(flush);
 };
@@ -348,6 +350,8 @@ export class HomeContainerController {
 
   private protocolV3RevisionsAreExternal = false;
 
+  private pendingNativeTabSelections: IHomeContainerTabId[] = [];
+
   private readonly requireProtocolV3: boolean;
 
   private inFlight: IHomeContainerInFlightTransaction | undefined;
@@ -528,6 +532,7 @@ export class HomeContainerController {
     }
     this.target = undefined;
     this.capabilities = undefined;
+    this.pendingNativeTabSelections = [];
     this.resetTransportRecovery();
     this.acknowledgedSnapshot = undefined;
     this.renderedSlotState = undefined;
@@ -541,6 +546,7 @@ export class HomeContainerController {
       return;
     }
     this.owner = owner;
+    this.pendingNativeTabSelections = [];
     this.resetTransportRecovery();
     this.acknowledgedSnapshot = undefined;
     this.renderedSlotState = undefined;
@@ -707,11 +713,24 @@ export class HomeContainerController {
     ) {
       return false;
     }
+    const nativeSelectionIndex = this.pendingNativeTabSelections.indexOf(tabId);
+    const confirmsNativeSelection = nativeSelectionIndex >= 0;
+    if (confirmsNativeSelection) {
+      this.pendingNativeTabSelections.splice(0, nativeSelectionIndex + 1);
+    } else {
+      this.pendingNativeTabSelections = [];
+    }
+    const changesSelection = this.snapshot.selectedTabId !== tabId;
     this.snapshot = { ...this.snapshot, selectedTabId: tabId };
     this.bumpProtocolV3({ navigationPresentation: true });
-    if (this.target) {
+    if (this.protocolVersion === 2 || this.protocolVersion === 3) {
+      this.resumeTransportForNewData();
+      this.navigationPending = true;
+      this.scheduleFlush();
+    }
+    if (this.target && !confirmsNativeSelection && changesSelection) {
       this.target.selectTab(tabId, animated);
-    } else {
+    } else if (!this.target) {
       this.fullSnapshotPending = true;
     }
     return true;
@@ -726,8 +745,13 @@ export class HomeContainerController {
     ) {
       return false;
     }
+    if (this.pendingNativeTabSelections.at(-1) !== tabId) {
+      this.pendingNativeTabSelections.push(tabId);
+      this.pendingNativeTabSelections = this.pendingNativeTabSelections.slice(
+        -MAX_PENDING_NATIVE_TAB_SELECTIONS,
+      );
+    }
     this.snapshot = { ...this.snapshot, selectedTabId: tabId };
-    this.bumpProtocolV3({ navigationPresentation: true });
     return true;
   }
 
@@ -871,6 +895,7 @@ export class HomeContainerController {
     this.disposed = true;
     this.target = undefined;
     this.capabilities = undefined;
+    this.pendingNativeTabSelections = [];
     this.resetTransportRecovery();
     this.acknowledgedSnapshot = undefined;
     this.renderedSlotState = undefined;

@@ -173,6 +173,39 @@ describe('HomeContainer protocol v3', () => {
     });
   });
 
+  it('rejects unknown section revision keys', () => {
+    const envelope = snapshotEnvelope();
+    const unknownPresentationEnvelope = {
+      ...envelope,
+      presentationRevisions: {
+        ...envelope.presentationRevisions,
+        sections: {
+          ...envelope.presentationRevisions.sections,
+          unknown: 1,
+        },
+      },
+    } as unknown as IHomeContainerSnapshotEnvelopeV3;
+    const unknownAuthorityEnvelope = {
+      ...envelope,
+      authorityRevisions: {
+        ...envelope.authorityRevisions,
+        sectionCommands: {
+          ...envelope.authorityRevisions.sectionCommands,
+          unknown: 1,
+        },
+      },
+    } as unknown as IHomeContainerSnapshotEnvelopeV3;
+
+    expect(applyHomeContainerSnapshotV3(unknownPresentationEnvelope)).toEqual({
+      kind: 'needSnapshot',
+      reason: 'invalidInvariant',
+    });
+    expect(applyHomeContainerSnapshotV3(unknownAuthorityEnvelope)).toEqual({
+      kind: 'needSnapshot',
+      reason: 'invalidInvariant',
+    });
+  });
+
   it('rejects mounted slot regressions and records only required slots', () => {
     const current = state();
     expect(

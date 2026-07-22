@@ -190,6 +190,27 @@ class HomeContainerProtocolV3Test {
     )
   }
 
+  @Test
+  fun `snapshot rejects unknown section revision keys`() {
+    val presentation = JSONObject(fixture("home-container-v3.snapshot.json"))
+    presentation.getJSONObject("presentationRevisions")
+      .getJSONObject("sections")
+      .put("unknown", 1)
+    assertNeedSnapshot(
+      HomeContainerProtocolV3Transaction.applySnapshot(presentation.toString()),
+      HomeContainerProtocolV3NeedSnapshotReason.INVALID_INVARIANT,
+    )
+
+    val authority = JSONObject(fixture("home-container-v3.snapshot.json"))
+    authority.getJSONObject("authorityRevisions")
+      .getJSONObject("sectionCommands")
+      .put("unknown", 1)
+    assertNeedSnapshot(
+      HomeContainerProtocolV3Transaction.applySnapshot(authority.toString()),
+      HomeContainerProtocolV3NeedSnapshotReason.INVALID_INVARIANT,
+    )
+  }
+
   private fun canonicalState(): HomeContainerProtocolV3State = applied(
     HomeContainerProtocolV3Transaction.applySnapshot(
       fixture("home-container-v3.snapshot.json"),

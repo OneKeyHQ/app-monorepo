@@ -178,6 +178,7 @@ export interface IHomeContainerItem {
     | 'star'
     | 'support';
   showChevron?: boolean;
+  showDivider?: boolean;
   actionId?: string;
   favorite?: boolean;
   favoriteActionId?: string;
