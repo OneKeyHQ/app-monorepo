@@ -161,27 +161,38 @@ const WrappedActionButtonCmp = ({
   const isMorphoProvider = earnUtils.isMorphoProvider({
     providerName,
   });
-  const { symbol: symbolForConfig, vault: vaultForConfig } =
-    resolvePortfolioClaimProtocolIdentity({
-      providerName,
-      assetSymbol: asset.token.info.symbol,
-      assetVault: asset.metadata.protocol.vault,
-      claimSymbol:
-        'airdropAssets' in asset
-          ? asset.metadata.protocol.claimSymbol
-          : undefined,
-      stakedSymbol,
-      stakedVault,
-    });
-
-  const stakeTag = buildLocalTxStatusSyncId({
-    providerName: asset.metadata.protocol.providerDetail.code,
-    tokenSymbol: symbolForConfig,
-    protocolVault: vaultForConfig,
+  const claimIdentity = resolvePortfolioClaimProtocolIdentity({
+    providerName,
+    assetSymbol: asset.token.info.symbol,
+    assetVault: asset.metadata.protocol.vault,
+    claimSymbol:
+      'airdropAssets' in asset
+        ? asset.metadata.protocol.claimSymbol
+        : undefined,
+    claimSymbolStatus:
+      'airdropAssets' in asset
+        ? asset.metadata.protocol.claimSymbolStatus
+        : undefined,
+    stakedSymbol,
+    stakedVault,
   });
+  const isClaimIdentityAmbiguous = claimIdentity === null;
+  const symbolForConfig = claimIdentity?.symbol || '';
+  const vaultForConfig = claimIdentity?.vault;
+
+  const stakeTag = claimIdentity
+    ? buildLocalTxStatusSyncId({
+        providerName: asset.metadata.protocol.providerDetail.code,
+        tokenSymbol: symbolForConfig,
+        protocolVault: vaultForConfig,
+      })
+    : undefined;
 
   const pendingTxsFilter = useCallback(
     (tx: IStakePendingTx) => {
+      if (!stakeTag) {
+        return false;
+      }
       return (
         [EEarnLabels.Claim].includes(tx.stakingInfo.label) &&
         tx.stakingInfo.tags?.includes(stakeTag)
@@ -217,6 +228,10 @@ const WrappedActionButtonCmp = ({
   });
 
   const onPress = useCallback(() => {
+    if (isClaimIdentityAmbiguous) {
+      return;
+    }
+
     // Only Morpho reward claims need the backend reward token selector.
     const rewardTokenAddress =
       isMorphoProvider &&
@@ -245,10 +260,12 @@ const WrappedActionButtonCmp = ({
     indexedAccount?.id,
     stakedSymbol,
     rewardSymbol,
+    isClaimIdentityAmbiguous,
   ]);
   const isDesktopLayout = useIsDesktopLayout();
 
-  const buttonDisabled = getRewardButtonDisabled(reward.button);
+  const buttonDisabled =
+    isClaimIdentityAmbiguous || getRewardButtonDisabled(reward.button);
   const buttonText = getRewardButtonText(reward.button);
 
   if (!buttonText) {

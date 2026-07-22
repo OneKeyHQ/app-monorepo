@@ -28,7 +28,7 @@ describe('buildPortfolioClaimSymbolMap', () => {
 
     expect(
       claimSymbolMap.get(getPortfolioProtocolIdentityKey(airdropAsset)),
-    ).toBe('USDC');
+    ).toEqual({ status: 'matched', symbol: 'USDC' });
   });
 
   it('resolves non-USDC claim symbols without provider-specific rules', () => {
@@ -52,7 +52,7 @@ describe('buildPortfolioClaimSymbolMap', () => {
 
     expect(
       claimSymbolMap.get(getPortfolioProtocolIdentityKey(airdropAsset)),
-    ).toBe('USDT');
+    ).toEqual({ status: 'matched', symbol: 'USDT' });
   });
 
   it('does not guess when the same protocol identity has conflicting symbols', () => {
@@ -71,9 +71,20 @@ describe('buildPortfolioClaimSymbolMap', () => {
         symbol: 'USDT',
         vault: 'shared-vault',
       },
+      {
+        type: 'normal',
+        networkId: 'evm--1',
+        provider: 'morpho',
+        symbol: 'USDC',
+        vault: 'shared-vault',
+      },
     ];
 
-    expect(buildPortfolioClaimSymbolMap(assets).size).toBe(0);
+    expect(
+      buildPortfolioClaimSymbolMap(assets).get(
+        getPortfolioProtocolIdentityKey(assets[0]),
+      ),
+    ).toEqual({ status: 'ambiguous' });
   });
 
   it('keeps non-EVM vault identities case-sensitive', () => {
@@ -141,6 +152,19 @@ describe('resolvePortfolioClaimProtocolIdentity', () => {
     });
   });
 
+  it('fails closed when the claim identity is ambiguous', () => {
+    expect(
+      resolvePortfolioClaimProtocolIdentity({
+        providerName: 'Morpho',
+        assetSymbol: 'MORPHO',
+        assetVault: 'shared-vault',
+        claimSymbolStatus: 'ambiguous',
+        stakedSymbol: 'USDC',
+        stakedVault: 'shared-vault',
+      }),
+    ).toBeNull();
+  });
+
   it('preserves Pendle reward protocol identity', () => {
     expect(
       resolvePortfolioClaimProtocolIdentity({
@@ -148,6 +172,7 @@ describe('resolvePortfolioClaimProtocolIdentity', () => {
         assetSymbol: 'USDe',
         assetVault: 'pendle-reward-vault',
         claimSymbol: 'sUSDe',
+        claimSymbolStatus: 'ambiguous',
         stakedSymbol: 'sUSDe',
         stakedVault: 'pendle-position-vault',
       }),

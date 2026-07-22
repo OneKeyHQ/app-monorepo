@@ -1,6 +1,16 @@
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IEarnAvailableAssetV2 } from '@onekeyhq/shared/types/earn';
+import type { IEarnPortfolioClaimSymbolStatus } from '@onekeyhq/shared/types/staking';
+
+export type IPortfolioClaimSymbolMatch =
+  | {
+      status: 'matched';
+      symbol: string;
+    }
+  | {
+      status: 'ambiguous';
+    };
 
 export function getPortfolioProtocolIdentityKey({
   networkId,
@@ -14,8 +24,7 @@ export function getPortfolioProtocolIdentityKey({
 }
 
 export function buildPortfolioClaimSymbolMap(assets: IEarnAvailableAssetV2[]) {
-  const claimSymbolMap = new Map<string, string>();
-  const ambiguousKeys = new Set<string>();
+  const claimSymbolMap = new Map<string, IPortfolioClaimSymbolMatch>();
 
   assets.forEach((asset) => {
     if (asset.type !== 'normal') {
@@ -23,15 +32,15 @@ export function buildPortfolioClaimSymbolMap(assets: IEarnAvailableAssetV2[]) {
     }
 
     const key = getPortfolioProtocolIdentityKey(asset);
-    const existingSymbol = claimSymbolMap.get(key);
-    if (existingSymbol && existingSymbol !== asset.symbol) {
-      claimSymbolMap.delete(key);
-      ambiguousKeys.add(key);
+    const existingMatch = claimSymbolMap.get(key);
+    if (existingMatch?.status === 'ambiguous') {
       return;
     }
-    if (!ambiguousKeys.has(key)) {
-      claimSymbolMap.set(key, asset.symbol);
+    if (existingMatch && existingMatch.symbol !== asset.symbol) {
+      claimSymbolMap.set(key, { status: 'ambiguous' });
+      return;
     }
+    claimSymbolMap.set(key, { status: 'matched', symbol: asset.symbol });
   });
 
   return claimSymbolMap;
@@ -42,6 +51,7 @@ export function resolvePortfolioClaimProtocolIdentity({
   assetSymbol,
   assetVault,
   claimSymbol,
+  claimSymbolStatus,
   stakedSymbol,
   stakedVault,
 }: {
@@ -49,6 +59,7 @@ export function resolvePortfolioClaimProtocolIdentity({
   assetSymbol: string;
   assetVault?: string;
   claimSymbol?: string;
+  claimSymbolStatus?: IEarnPortfolioClaimSymbolStatus;
   stakedSymbol?: string;
   stakedVault?: string;
 }) {
@@ -57,6 +68,10 @@ export function resolvePortfolioClaimProtocolIdentity({
       symbol: assetSymbol,
       vault: assetVault,
     };
+  }
+
+  if (claimSymbolStatus === 'ambiguous') {
+    return null;
   }
 
   if (claimSymbol) {
