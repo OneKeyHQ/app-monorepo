@@ -109,9 +109,17 @@ export function useOneKeyIdLocalKeylessOAuth({
     async ({
       provider,
       missingTokenMessage,
+      beforePersistSession,
     }: {
       provider: EOAuthSocialLoginProvider;
       missingTokenMessage: string;
+      // Host-supplied guard run right before the fresh OAuth session is
+      // persisted into the SINGLE shared keyless slot. A throw here must
+      // leave the slot untouched (nothing has been persisted yet), so hosts
+      // whose flow depends on state that can change during the user-paced
+      // OAuth round-trip (e.g. the legacy bind's login preconditions) can
+      // abort without clobbering a session a concurrent flow committed.
+      beforePersistSession?: () => Promise<void>;
     }) => {
       let accessToken = '';
       let didUseOAuthSignIn = false;
@@ -154,13 +162,20 @@ export function useOneKeyIdLocalKeylessOAuth({
         // previously persisted keyless session stays intact and no cleanup
         // is needed here.
         await assertTokenMatchesLocalKeylessWallet({ accessToken });
-        // No OneKey ID account-conflict check is needed before persisting
-        // here (unlike checkKeylessWalletCreatedOnServer): both hosts of
-        // this hook guarantee no live KeylessOAuth-backed OneKey ID login
-        // exists at this point — PrimeLoginOAuthDialog only renders after
-        // showOneKeyIdLoginDialog logged out / cleared the OneKey ID state,
-        // and OneKeyIdLegacyOAuthBind runs only for LegacyEmailSupabase-
-        // sourced logins, whose session does not live in the keyless slot.
+        // No generic OneKey ID account-conflict check is needed before
+        // persisting here (unlike checkKeylessWalletCreatedOnServer): both
+        // hosts of this hook start from a state where no live
+        // KeylessOAuth-backed OneKey ID login exists —
+        // PrimeLoginOAuthDialog only renders after showOneKeyIdLoginDialog
+        // logged out / cleared the OneKey ID state, and
+        // OneKeyIdLegacyOAuthBind runs only for LegacyEmailSupabase-sourced
+        // logins, whose session does not live in the keyless slot. That
+        // starting state can however be invalidated DURING the user-paced
+        // OAuth round-trip by a concurrent surface (e.g. a KeylessOAuth
+        // login committing into this shared slot); hosts with such a
+        // dependency re-assert it via beforePersistSession, whose throw
+        // keeps the slot untouched.
+        await beforePersistSession?.();
         await persistKeylessOAuthSession({ accessToken, refreshToken });
       }
 

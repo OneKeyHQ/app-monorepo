@@ -1512,4 +1512,93 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
     );
     await flushAsync();
   });
+
+  it('throws the typed state-changed error so UI cleanup can skip shared-slot teardown', async () => {
+    // The className (not instanceof — errors lose their prototype across
+    // the bg -> main bridge) is what the bind UI matches to skip
+    // clearOAuthSignInTempSession, keeping a concurrent login's slot
+    // session intact.
+    const { service, simpleDbPrime } = createService();
+    mockBindClient(service);
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+
+    const error: unknown = await service
+      .apiBindLegacyOneKeyIdOAuth({
+        oauthAccessToken: buildFakeJwt({ sub: 'oauth-a' }),
+        expectedOnekeyUserId: 'user-l',
+      })
+      .then(
+        () => undefined,
+        (e: unknown) => e,
+      );
+
+    expect((error as { className?: string }).className).toBe(
+      EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    );
+  });
+
+  describe('assertLegacyOneKeyIdOAuthBindPreconditions (UI pre-persist guard)', () => {
+    it('passes when the consented legacy login is live', async () => {
+      const { service, simpleDbPrime } = createService();
+      simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+        EPrimeAuthSessionSource.LegacyEmailSupabase,
+      );
+      mockPrimePersistAtom.get.mockImplementation(async () => ({
+        isLoggedIn: true,
+        onekeyUserId: 'user-l',
+      }));
+
+      await expect(
+        service.assertLegacyOneKeyIdOAuthBindPreconditions({
+          expectedOnekeyUserId: 'user-l',
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('throws typed state-changed when a KeylessOAuth login committed meanwhile', async () => {
+      const { service, simpleDbPrime } = createService();
+      simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+        EPrimeAuthSessionSource.KeylessOAuth,
+      );
+
+      const error: unknown = await service
+        .assertLegacyOneKeyIdOAuthBindPreconditions({
+          expectedOnekeyUserId: 'user-l',
+        })
+        .then(
+          () => undefined,
+          (e: unknown) => e,
+        );
+
+      expect((error as { className?: string }).className).toBe(
+        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+      );
+    });
+
+    it('throws typed state-changed when the consented account is no longer logged in', async () => {
+      const { service, simpleDbPrime } = createService();
+      simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+        EPrimeAuthSessionSource.LegacyEmailSupabase,
+      );
+      mockPrimePersistAtom.get.mockImplementation(async () => ({
+        isLoggedIn: true,
+        onekeyUserId: 'user-m',
+      }));
+
+      const error: unknown = await service
+        .assertLegacyOneKeyIdOAuthBindPreconditions({
+          expectedOnekeyUserId: 'user-l',
+        })
+        .then(
+          () => undefined,
+          (e: unknown) => e,
+        );
+
+      expect((error as { className?: string }).className).toBe(
+        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+      );
+    });
+  });
 });

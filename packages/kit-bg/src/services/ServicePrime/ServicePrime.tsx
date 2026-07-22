@@ -14,6 +14,7 @@ import {
   ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_CODE,
   ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_MESSAGE_ID,
   OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
+  OneKeyErrorOneKeyIdLegacyBindStateChanged,
   OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound,
   OneKeyErrorPrimeLoginInvalidToken,
   OneKeyLocalError,
@@ -1220,6 +1221,57 @@ class ServicePrime extends ServiceBase {
     );
   }
 
+  /**
+   * Shared guard for the irreversible legacy->OAuth bind: the effective auth
+   * session source must still be LegacyEmailSupabase and the prime atom must
+   * still be logged in as the consented account. Every state-changed outcome
+   * throws the typed OneKeyErrorOneKeyIdLegacyBindStateChanged so
+   * main-runtime failure cleanup can recognize it and SKIP the shared
+   * keyless-slot teardown (the slot may hold or back a concurrent flow's
+   * valid login).
+   *
+   * Called from the bind UI right BEFORE persisting the keyless OAuth
+   * session into the shared slot (fail-fast that keeps a concurrent login's
+   * slot session untouched), and re-run inside apiBindLegacyOneKeyIdOAuth's
+   * loginMutex section to cover the persist->POST window.
+   */
+  @backgroundMethod()
+  async assertLegacyOneKeyIdOAuthBindPreconditions({
+    expectedOnekeyUserId,
+  }: {
+    expectedOnekeyUserId: string;
+  }): Promise<void> {
+    if (!expectedOnekeyUserId) {
+      throw new OneKeyLocalError(
+        'assertLegacyOneKeyIdOAuthBindPreconditions ERROR: Invalid expectedOnekeyUserId',
+      );
+    }
+    const effectiveAuthSessionSource =
+      await this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource();
+    if (
+      effectiveAuthSessionSource !== EPrimeAuthSessionSource.LegacyEmailSupabase
+    ) {
+      throw new OneKeyErrorOneKeyIdLegacyBindStateChanged({
+        message:
+          'assertLegacyOneKeyIdOAuthBindPreconditions ERROR: Active login is not a legacy email session',
+      });
+    }
+    const { isLoggedIn: isAtomLoggedIn, onekeyUserId: currentOnekeyUserId } =
+      await primePersistAtom.get();
+    if (!isAtomLoggedIn || !currentOnekeyUserId) {
+      throw new OneKeyErrorOneKeyIdLegacyBindStateChanged({
+        message:
+          'assertLegacyOneKeyIdOAuthBindPreconditions ERROR: OneKey ID is not logged in',
+      });
+    }
+    if (currentOnekeyUserId !== expectedOnekeyUserId) {
+      throw new OneKeyErrorOneKeyIdLegacyBindStateChanged({
+        message:
+          'assertLegacyOneKeyIdOAuthBindPreconditions ERROR: OneKey ID account changed since the bind was confirmed',
+      });
+    }
+  }
+
   @backgroundMethod()
   @toastIfError()
   async apiBindLegacyOneKeyIdOAuth({
@@ -1238,12 +1290,6 @@ class ServicePrime extends ServiceBase {
           'apiBindLegacyOneKeyIdOAuth ERROR: Invalid oauthAccessToken',
         );
       }
-      if (!expectedOnekeyUserId) {
-        throw new OneKeyLocalError(
-          'apiBindLegacyOneKeyIdOAuth ERROR: Invalid expectedOnekeyUserId',
-        );
-      }
-
       // Legacy-side identity guard, mirroring the keyless-side slot guard
       // below but for the account that permanently RECEIVES the identity:
       // the legacy token read further down is whatever currently occupies
@@ -1254,35 +1300,23 @@ class ServicePrime extends ServiceBase {
       // KeylessOAuth. Binding is irreversible and one-time per identity, so
       // a wrong-target bind can never be undone or repeated; abort unless
       // the live login is still the legacy-email account the UI showed.
-      const effectiveAuthSessionSource =
-        await this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource();
-      if (
-        effectiveAuthSessionSource !==
-        EPrimeAuthSessionSource.LegacyEmailSupabase
-      ) {
-        throw new OneKeyLocalError(
-          'apiBindLegacyOneKeyIdOAuth ERROR: Active login is not a legacy email session',
-        );
-      }
-      const { isLoggedIn: isAtomLoggedIn, onekeyUserId: currentOnekeyUserId } =
-        await primePersistAtom.get();
-      if (!isAtomLoggedIn || !currentOnekeyUserId) {
-        throw new OneKeyLocalError(
-          'apiBindLegacyOneKeyIdOAuth ERROR: OneKey ID is not logged in',
-        );
-      }
-      if (currentOnekeyUserId !== expectedOnekeyUserId) {
-        throw new OneKeyLocalError(
-          'apiBindLegacyOneKeyIdOAuth ERROR: OneKey ID account changed since the bind was confirmed',
-        );
-      }
+      // (The same guard already ran UI-side BEFORE the keyless session
+      // persist; this re-run inside loginMutex covers the persist->POST
+      // window.)
+      await this.assertLegacyOneKeyIdOAuthBindPreconditions({
+        expectedOnekeyUserId,
+      });
 
       const legacyOneKeyIdAuthToken =
         await this.backgroundApi.simpleDb.prime.getSupabaseAuthToken();
       if (!legacyOneKeyIdAuthToken) {
-        throw new OneKeyLocalError(
-          'apiBindLegacyOneKeyIdOAuth ERROR: Legacy auth token not found',
-        );
+        // Typed (state-changed): a concurrent login switch cleared the
+        // legacy slot after the user consented — same cleanup-skip contract
+        // as the guard above.
+        throw new OneKeyErrorOneKeyIdLegacyBindStateChanged({
+          message:
+            'apiBindLegacyOneKeyIdOAuth ERROR: Legacy auth token not found',
+        });
       }
 
       // Same fail-fast (occupancy + identity) as apiOAuthLogin — and it
@@ -1323,14 +1357,16 @@ class ServicePrime extends ServiceBase {
       const tokenOwnerOnekeyUserId =
         profileResult?.data?.data?.onekeyAccount?.onekeyUserId;
       if (!tokenOwnerOnekeyUserId) {
-        throw new OneKeyLocalError(
-          'apiBindLegacyOneKeyIdOAuth ERROR: Unable to resolve legacy token owner',
-        );
+        throw new OneKeyErrorOneKeyIdLegacyBindStateChanged({
+          message:
+            'apiBindLegacyOneKeyIdOAuth ERROR: Unable to resolve legacy token owner',
+        });
       }
       if (tokenOwnerOnekeyUserId !== expectedOnekeyUserId) {
-        throw new OneKeyLocalError(
-          'apiBindLegacyOneKeyIdOAuth ERROR: Legacy session account changed since the bind was confirmed',
-        );
+        throw new OneKeyErrorOneKeyIdLegacyBindStateChanged({
+          message:
+            'apiBindLegacyOneKeyIdOAuth ERROR: Legacy session account changed since the bind was confirmed',
+        });
       }
 
       let result: {

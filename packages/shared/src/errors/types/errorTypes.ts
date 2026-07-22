@@ -43,6 +43,7 @@ export enum EOneKeyErrorClassNames {
   PrimeSendEmailOTPCancelError = 'PrimeSendEmailOTPCancelError',
   OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound = 'OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound',
   OneKeyErrorOneKeyIdKeylessSessionSlotReplaced = 'OneKeyErrorOneKeyIdKeylessSessionSlotReplaced',
+  OneKeyErrorOneKeyIdLegacyBindStateChanged = 'OneKeyErrorOneKeyIdLegacyBindStateChanged',
   OAuthLoginCancelError = 'OAuthLoginCancelError',
   OneKeyErrorPrimeMasterPasswordInvalid = 'OneKeyErrorPrimeMasterPasswordInvalid',
   VaultKeyringNotDefinedError = 'VaultKeyringNotDefinedError',
