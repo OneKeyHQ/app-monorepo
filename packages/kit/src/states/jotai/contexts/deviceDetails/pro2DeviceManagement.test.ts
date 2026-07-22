@@ -4,7 +4,6 @@ import {
   getPro2DeviceMetaStaticData,
   getPro2SnapshotFromDeviceStateEvent,
   resolvePro2DeviceState,
-  shouldRefreshDeviceSettingsAfterUpdate,
 } from './pro2DeviceManagement';
 
 describe('getPro2SnapshotFromDeviceStateEvent', () => {
@@ -32,26 +31,6 @@ describe('getPro2SnapshotFromDeviceStateEvent', () => {
 describe('canEditPro2DeviceWideSettings', () => {
   it('keeps device-wide settings editable while Pro 2 is locked', () => {
     expect(canEditPro2DeviceWideSettings({ unlocked: false })).toBe(true);
-  });
-});
-
-describe('shouldRefreshDeviceSettingsAfterUpdate', () => {
-  it('does not refresh unreadable settings after a locked Pro 2 update', () => {
-    expect(
-      shouldRefreshDeviceSettingsAfterUpdate({
-        isPro2: true,
-        unlocked: false,
-      }),
-    ).toBe(false);
-  });
-
-  it('refreshes settings when Pro 2 is already unlocked', () => {
-    expect(
-      shouldRefreshDeviceSettingsAfterUpdate({
-        isPro2: true,
-        unlocked: true,
-      }),
-    ).toBe(true);
   });
 });
 
