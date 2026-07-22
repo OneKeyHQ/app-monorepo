@@ -376,9 +376,7 @@ export function useSpeedSwapActions(props: {
       }
     | undefined
   >(undefined);
-  const [balance, setBalance] = useState<BigNumber | undefined>(
-    new BigNumber(0),
-  );
+  const [balance, setBalance] = useState<BigNumber | undefined>();
   const [speedCheckError, setSpeedCheckError] = useState('');
   const [speedCheckLoading, setSpeedCheckLoading] = useState(false);
   const [checkSpenderAddress, setCheckSpenderAddress] = useState('');
@@ -2664,12 +2662,13 @@ export function useSpeedSwapActions(props: {
       ) {
         balanceRequestIdRef.current += 1;
         setFetchBalanceLoading(false);
-        setBalance(new BigNumber(0));
+        setBalance(undefined);
         return;
       }
 
       const currentRequestId = balanceRequestIdRef.current + 1;
       balanceRequestIdRef.current = currentRequestId;
+      setBalance(undefined);
       setFetchBalanceLoading(true);
 
       try {
@@ -2685,13 +2684,18 @@ export function useSpeedSwapActions(props: {
           return;
         }
 
-        setBalance(new BigNumber(tokenDetail?.[0]?.balanceParsed ?? 0));
+        const balanceParsed = tokenDetail?.[0]?.balanceParsed;
+        setBalance(
+          balanceParsed === undefined
+            ? undefined
+            : new BigNumber(balanceParsed),
+        );
       } catch (_e) {
         if (currentRequestId !== balanceRequestIdRef.current) {
           return;
         }
 
-        setBalance(new BigNumber(0));
+        setBalance(undefined);
       } finally {
         if (currentRequestId === balanceRequestIdRef.current) {
           setFetchBalanceLoading(false);

@@ -446,6 +446,103 @@ describe('useSpeedSwapActions', () => {
     });
   });
 
+  it('clears a previous token balance while the next balance is loading', async () => {
+    const nextBalanceRequest = createDeferred<ISwapToken[]>();
+
+    mockFetchSwapTokenDetails.mockImplementation(
+      ({ accountId, contractAddress }: IFetchSwapTokenDetailsParams) => {
+        if (!accountId) {
+          return Promise.resolve([]);
+        }
+        if (contractAddress === usdtToken.contractAddress) {
+          return nextBalanceRequest.promise;
+        }
+        return Promise.resolve(
+          createTokenDetail({
+            networkId: usdcToken.networkId,
+            contractAddress: usdcToken.contractAddress,
+            symbol: usdcToken.symbol,
+            decimals: usdcToken.decimals,
+            balanceParsed: '100',
+          }),
+        );
+      },
+    );
+
+    const { result, rerender } = renderHook(
+      ({ tradeToken }: { tradeToken: ISwapTokenBase }) =>
+        useSpeedSwapActions(
+          createHookProps({
+            marketToken: { ...btcToken, price: '100000' },
+            tradeToken: { ...tradeToken, price: '1' },
+          }),
+        ),
+      { initialProps: { tradeToken: usdcToken } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.balance?.toFixed()).toBe('100');
+    });
+
+    rerender({ tradeToken: usdtToken });
+
+    await waitFor(() => {
+      expect(result.current.balanceToken.symbol).toBe('USDT');
+      expect(result.current.fetchBalanceLoading).toBe(true);
+      expect(result.current.balance).toBeUndefined();
+    });
+
+    await act(async () => {
+      nextBalanceRequest.resolve(
+        createTokenDetail({
+          networkId: usdtToken.networkId,
+          contractAddress: usdtToken.contractAddress,
+          symbol: usdtToken.symbol,
+          decimals: usdtToken.decimals,
+          balanceParsed: '250',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(result.current.balance?.toFixed()).toBe('250');
+      expect(result.current.fetchBalanceLoading).toBe(false);
+    });
+  });
+
+  it('keeps the balance unknown when the balance request fails', async () => {
+    mockFetchSwapTokenDetails.mockImplementation(({ accountId }) =>
+      accountId
+        ? Promise.reject(new Error('balance request failed'))
+        : Promise.resolve([]),
+    );
+
+    const { result } = renderHook(() => useSpeedSwapActions(createHookProps()));
+
+    await waitFor(() => {
+      expect(result.current.fetchBalanceLoading).toBe(false);
+      expect(result.current.balance).toBeUndefined();
+      expect(mockFetchSwapTokenDetails).toHaveBeenCalledWith(
+        expect.objectContaining({ accountId: 'net-account-1' }),
+      );
+    });
+  });
+
+  it('preserves a successfully fetched zero balance', async () => {
+    mockFetchSwapTokenDetails.mockImplementation(({ accountId }) =>
+      Promise.resolve(
+        accountId ? createTokenDetail({ balanceParsed: '0' }) : [],
+      ),
+    );
+
+    const { result } = renderHook(() => useSpeedSwapActions(createHookProps()));
+
+    await waitFor(() => {
+      expect(result.current.fetchBalanceLoading).toBe(false);
+      expect(result.current.balance?.isZero()).toBe(true);
+    });
+  });
+
   it('waits for the matching network account before refreshing the current token balance', async () => {
     mockFetchSwapTokenDetails.mockResolvedValue(
       createTokenDetail({
@@ -498,7 +595,7 @@ describe('useSpeedSwapActions', () => {
       expect(result.current.balanceToken.networkId).toBe(
         tonUsdtToken.networkId,
       );
-      expect(result.current.balance?.toFixed()).toBe('0');
+      expect(result.current.balance).toBeUndefined();
     });
 
     mockNetAccountPromiseResult = {
@@ -527,6 +624,7 @@ describe('useSpeedSwapActions', () => {
           contractAddress: tonUsdtToken.contractAddress,
         }),
       );
+      expect(result.current.balance?.toFixed()).toBe('100');
     });
   });
 

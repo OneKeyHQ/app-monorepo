@@ -52,7 +52,7 @@ export type ISwapPanelContentProps = {
     onlySupportCrossChain?: boolean;
   };
   defaultTokens: IToken[];
-  balance: BigNumber;
+  balance?: BigNumber;
   balanceToken?: IToken;
   onSwap: () => void;
   onWrappedSwap: () => void;
@@ -157,6 +157,10 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   }, [tradeType, paymentAmount, sellAmount]);
 
   const handleBalanceClick = useCallback(() => {
+    if (!balance) {
+      return;
+    }
+
     const reserveGas = swapNativeTokenReserveGas.find(
       (item) => item.networkId === balanceToken?.networkId,
     )?.reserveGas;
