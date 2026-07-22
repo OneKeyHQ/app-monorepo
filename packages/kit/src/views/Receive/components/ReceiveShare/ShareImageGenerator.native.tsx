@@ -113,7 +113,12 @@ export const ShareImageGenerator = memo(
               width: SHARE_CARD_CONFIG.width,
             }}
           >
+            {/* keyed remount: the renderer's load counter and reveal state
+                must reset in lockstep with the deferred above when the logo
+                URIs change, or a stale count resolves the new deferred before
+                the images actually rendered (OK-58189) */}
             <ShareContentRenderer
+              key={imagesKey}
               data={data}
               onImagesReady={handleImagesReady}
             />

@@ -525,7 +525,7 @@ function TokenDetailsOverview(props: IProps) {
       {/* Allocation */}
       <YStack pb="$5">
         <SizableText px="$5" pb="$1" size="$headingSm" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.defi_allocation })}
+          {intl.formatMessage({ id: ETranslations.global_asset_allocation })}
         </SizableText>
         {rows.map(({ token, tokenDetail }) => {
           const percentText = renderPercent(tokenDetail);

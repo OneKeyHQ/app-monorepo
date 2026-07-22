@@ -11,6 +11,8 @@ import Animated, {
   withDecay,
 } from 'react-native-reanimated';
 
+import { Haptics, ImpactFeedbackStyle } from '../../primitives/Haptics';
+
 import { CollapsibleTabContext } from './CollapsibleTabContext';
 
 import type { IHeaderScrollGestureWrapperProps } from './HeaderScrollGestureWrapper';
@@ -21,10 +23,12 @@ const REFRESH_THRESHOLD = 80;
 export function HeaderScrollGestureWrapper({
   children,
   disabled = false,
+  disableVerticalScroll = false,
   onRefresh,
   disableMomentum = false,
   panActiveOffsetY = [-10, 10],
   panFailOffsetX = [-10, 10],
+  verticalPanMaxPointers,
   excludeRightEdgeRatio = 0,
   scrollScale = 1,
   onHorizontalSwipe,
@@ -47,7 +51,12 @@ export function HeaderScrollGestureWrapper({
   const containerHeight = useSharedValue(0);
   const isGestureEnabled = useSharedValue(true);
   const hasNotifiedGestureActive = useSharedValue(false);
+  const hasTriggeredRefreshHaptic = useSharedValue(false);
   const [measuredWidth, setMeasuredWidth] = useState(0);
+
+  const triggerRefreshHaptic = useCallback(() => {
+    Haptics.impact(ImpactFeedbackStyle.Medium);
+  }, []);
 
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
@@ -117,9 +126,15 @@ export function HeaderScrollGestureWrapper({
     };
 
     let verticalPanGesture = Gesture.Pan()
-      .enabled(!disabled)
+      .enabled(!disabled && !disableVerticalScroll)
       .activeOffsetY(panActiveOffsetY)
       .failOffsetX(panFailOffsetX);
+
+    if (verticalPanMaxPointers !== undefined) {
+      verticalPanGesture = verticalPanGesture.maxPointers(
+        verticalPanMaxPointers,
+      );
+    }
 
     if (gestureHitSlop) {
       verticalPanGesture = verticalPanGesture.hitSlop(gestureHitSlop);
@@ -131,6 +146,7 @@ export function HeaderScrollGestureWrapper({
       .onStart((e) => {
         'worklet';
 
+        hasTriggeredRefreshHaptic.value = false;
         isGestureEnabled.value = !shouldIgnoreByStartPoint(e.x, e.y);
         if (!isGestureEnabled.value) {
           hasNotifiedGestureActive.value = false;
@@ -150,6 +166,17 @@ export function HeaderScrollGestureWrapper({
           return;
         }
         targetScrollY.value = startScrollY.value - e.translationY * scrollScale;
+        const isRefreshThresholdReached =
+          startScrollY.value <= contentInset &&
+          e.translationY > REFRESH_THRESHOLD;
+        if (
+          onRefresh &&
+          isRefreshThresholdReached &&
+          !hasTriggeredRefreshHaptic.value
+        ) {
+          hasTriggeredRefreshHaptic.value = true;
+          runOnJS(triggerRefreshHaptic)();
+        }
       })
       .onEnd((e) => {
         'worklet';
@@ -240,6 +267,7 @@ export function HeaderScrollGestureWrapper({
     disableMomentum,
     panActiveOffsetY,
     panFailOffsetX,
+    verticalPanMaxPointers,
     excludeRightEdgeRatio,
     excludeBottomEdgeHeight,
     scrollScale,
@@ -250,11 +278,14 @@ export function HeaderScrollGestureWrapper({
     cancelChildTouches,
     onGestureActiveChange,
     disabled,
+    disableVerticalScroll,
     containerHeight,
     containerWidth,
     measuredWidth,
     isGestureEnabled,
     hasNotifiedGestureActive,
+    hasTriggeredRefreshHaptic,
+    triggerRefreshHaptic,
   ]);
 
   return (

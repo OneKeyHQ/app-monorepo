@@ -41,18 +41,19 @@ import type {
 import type { EHardwareVendor } from '../../types/device';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type { ESubscriptionType } from '../../types/hyperliquid/types';
+import type { IMarketWsDataUpdatePayload } from '../../types/marketV2';
 import type {
   INotificationPushMessageInfo,
   INotificationViewDialogPayload,
 } from '../../types/notification';
 import type { IPrimeTransferData } from '../../types/prime/primeTransferTypes';
+import type { EPrimeAuthSessionSource } from '../../types/prime/primeTypes';
 import type { IRookieShareData } from '../../types/rookieGuide';
 import type {
   ESwapCrossChainStatus,
   ESwapTxHistoryStatus,
-  IFetchQuotesParams,
   ISwapApproveTransaction,
-  ISwapQuoteEvent,
+  ISwapQuoteEventPayload,
   ISwapToken,
   ISwapTokenBase,
 } from '../../types/swap/types';
@@ -408,13 +409,7 @@ export interface IAppEventBusPayload {
           errorMessage?: string;
         };
       };
-  [EAppEventBusNames.SwapQuoteEvent]: {
-    type: 'message' | 'done' | 'error' | 'close' | 'open';
-    event: ISwapQuoteEvent;
-    params: IFetchQuotesParams;
-    accountId?: string;
-    tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
-  };
+  [EAppEventBusNames.SwapQuoteEvent]: ISwapQuoteEventPayload;
   [EAppEventBusNames.ShowSystemDiskFullWarning]: undefined;
   [EAppEventBusNames.ShowLinuxBundleUdevGuide]: IEventBusPayloadShowLinuxUdevGuide;
   [EAppEventBusNames.SwapTxHistoryStatusUpdate]: {
@@ -449,7 +444,36 @@ export interface IAppEventBusPayload {
     autoCreateAddress: boolean;
     deriveType: IAccountDeriveTypes;
   };
-  [EAppEventBusNames.PrimeLoginInvalidToken]: undefined;
+  [EAppEventBusNames.PrimeLoginInvalidToken]:
+    | {
+        authSessionSource?: EPrimeAuthSessionSource;
+        clearedByBackground?: boolean;
+        // Auth-state commit generation (simpleDb.prime.getAuthStateGeneration)
+        // observed by the bg cleanup when it decided to clear. Handlers must
+        // treat the event as STALE and skip their sign-outs when the current
+        // generation differs: a login commit that landed after the clear
+        // decision owns the shared session slot, and a stale sign-out would
+        // destroy the fresh login's persisted session.
+        authStateGeneration?: number;
+      }
+    | undefined;
+  // Emitted from the bg runtime after it clears the shared keyless Supabase
+  // session storage (wallet removal / cleanup). JS heaps are isolated per
+  // runtime, so the main runtime must sign out its own in-memory keyless
+  // client copy when this arrives.
+  [EAppEventBusNames.KeylessAuthSessionCleared]: undefined;
+  [EAppEventBusNames.PrimeAuthSessionSourceCommitted]: {
+    authSessionSource: EPrimeAuthSessionSource;
+    callerName: string;
+  };
+  [EAppEventBusNames.PrimeSubscriptionPurchaseSuccess]: {
+    // UI-local event: use emitToSelf so multiple Extension surfaces cannot race
+    // to show the same post-purchase dialog.
+    onekeyUserId: string;
+    // A purchase flow reserves this BG-owned claim before refreshing Prime
+    // state, preventing another Extension Home runtime from winning the race.
+    claimId?: string;
+  };
   [EAppEventBusNames.PrimeExceedDeviceLimit]: undefined;
   [EAppEventBusNames.PrimeDeviceLogout]: undefined;
   [EAppEventBusNames.PrimeMasterPasswordInvalid]: undefined;
@@ -489,15 +513,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.UnlockApp]: undefined;
   [EAppEventBusNames.LockApp]: undefined;
   [EAppEventBusNames.AddressBookUpdate]: undefined;
-  [EAppEventBusNames.MarketWSDataUpdate]: {
-    channel: string;
-    tokenAddress: string;
-    networkId?: string;
-    isSubscriptionAmbiguous?: boolean;
-    messageType?: string;
-    data: any;
-    originalData?: any;
-  };
+  [EAppEventBusNames.MarketWSDataUpdate]: IMarketWsDataUpdatePayload;
   [EAppEventBusNames.MarketWatchlistOnlyChanged]: {
     showWatchlistOnly: boolean;
   };

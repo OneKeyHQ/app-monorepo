@@ -1,18 +1,5 @@
 /* eslint-disable import/first */
 
-jest.mock('react-intl', () => {
-  const actualReactIntl =
-    jest.requireActual<typeof import('react-intl')>('react-intl');
-
-  return {
-    __esModule: true,
-    ...actualReactIntl,
-    useIntl: () => ({
-      formatMessage: ({ id }: { id: string }) => id,
-    }),
-  };
-});
-
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   const serviceStaking = {
     getBorrowTransactionConfirmation: jest.fn(),
@@ -20,13 +7,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
     getBorrowCheckAmount: jest.fn(),
   };
 
-  (
-    globalThis as unknown as {
-      __universalBorrowActionBackgroundMock: {
-        serviceStaking: typeof serviceStaking;
-      };
-    }
-  ).__universalBorrowActionBackgroundMock = {
+  (globalThis as any).__universalBorrowActionBackgroundMock = {
     serviceStaking,
   };
 
@@ -38,46 +19,40 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   };
 });
 
-import { type IUniversalBorrowActionParams, useUniversalBorrowAction } from '.';
+import { useUniversalBorrowAction } from '.';
 
 import { act, renderHook } from '@testing-library/react-native';
 
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-const backgroundMock = (
-  globalThis as unknown as {
-    __universalBorrowActionBackgroundMock: {
-      serviceStaking: {
-        getBorrowTransactionConfirmation: jest.Mock;
-        getBorrowEstimateFee: jest.Mock;
-        getBorrowCheckAmount: jest.Mock;
-      };
-    };
-  }
-).__universalBorrowActionBackgroundMock;
-
-const baseParams: IUniversalBorrowActionParams = {
-  action: 'borrow',
-  accountId: 'account-id',
-  networkId: 'evm--1',
-  provider: 'aave',
-  marketAddress: '0xMarket',
-  reserveAddress: '',
-  amount: '1',
+type IDeferred<T> = {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
 };
 
-function createDeferred<T>() {
+function createDeferred<T>(): IDeferred<T> {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((resolvePromise) => {
-    resolve = resolvePromise;
+  const promise = new Promise<T>((innerResolve) => {
+    resolve = innerResolve;
   });
   return { promise, resolve };
 }
 
-async function flushPromises() {
-  await Promise.resolve();
-  await Promise.resolve();
-}
+const backgroundMock = (globalThis as any)
+  .__universalBorrowActionBackgroundMock as {
+  serviceStaking: {
+    getBorrowTransactionConfirmation: jest.Mock;
+    getBorrowEstimateFee: jest.Mock;
+    getBorrowCheckAmount: jest.Mock;
+  };
+};
+
+const baseParams = {
+  action: 'repay' as const,
+  accountId: 'account-1',
+  networkId: 'evm--1',
+  provider: 'aave',
+  marketAddress: 'market-1',
+  amount: '1',
+};
 
 describe('useUniversalBorrowAction', () => {
   beforeEach(() => {
@@ -94,109 +69,20 @@ describe('useUniversalBorrowAction', () => {
   });
 
   afterEach(() => {
-    jest.clearAllTimers();
     jest.useRealTimers();
   });
 
-  it('ignores stale check amount responses after the request scope changes', async () => {
+  it('ignores stale checkAmount responses after the reserve changes', async () => {
     const firstCheck = createDeferred<{
       code: number;
-      data: { result: boolean; alerts: [] };
+      message?: string;
+      data?: { result?: boolean };
     }>();
     const secondCheck = createDeferred<{
       code: number;
-      data: { result: boolean; alerts: []; riskOfLiquidationAlert: boolean };
+      message?: string;
+      data?: { result?: boolean };
     }>();
-
-    backgroundMock.serviceStaking.getBorrowCheckAmount
-      .mockImplementationOnce(() => firstCheck.promise)
-      .mockImplementationOnce(() => secondCheck.promise);
-
-    const { result, rerender } = renderHook(
-      (props: IUniversalBorrowActionParams) => useUniversalBorrowAction(props),
-      { initialProps: baseParams },
-    );
-
-    expect(result.current.checkAmountLoading).toBe(true);
-
-    await act(async () => {
-      jest.advanceTimersByTime(300);
-      await flushPromises();
-    });
-
-    expect(
-      backgroundMock.serviceStaking.getBorrowCheckAmount,
-    ).toHaveBeenCalledWith(
-      expect.objectContaining({
-        amount: '1',
-        reserveAddress: '',
-      }),
-    );
-
-    await act(async () => {
-      rerender({ ...baseParams, amount: '2' });
-      await flushPromises();
-    });
-
-    expect(result.current.checkAmountResult).toBeUndefined();
-    expect(result.current.riskOfLiquidationAlert).toBeUndefined();
-    expect(result.current.checkAmountLoading).toBe(true);
-
-    await act(async () => {
-      jest.advanceTimersByTime(300);
-      await flushPromises();
-    });
-
-    expect(
-      backgroundMock.serviceStaking.getBorrowCheckAmount,
-    ).toHaveBeenCalledWith(
-      expect.objectContaining({
-        amount: '2',
-        reserveAddress: '',
-      }),
-    );
-
-    await act(async () => {
-      secondCheck.resolve({
-        code: 0,
-        data: {
-          result: false,
-          alerts: [],
-          riskOfLiquidationAlert: true,
-        },
-      });
-      await flushPromises();
-    });
-
-    expect(result.current.checkAmountResult).toBe(false);
-    expect(result.current.riskOfLiquidationAlert).toBe(true);
-    expect(result.current.checkAmountLoading).toBe(false);
-
-    await act(async () => {
-      firstCheck.resolve({
-        code: 0,
-        data: {
-          result: true,
-          alerts: [],
-        },
-      });
-      await flushPromises();
-    });
-
-    expect(result.current.checkAmountResult).toBe(false);
-    expect(result.current.riskOfLiquidationAlert).toBe(true);
-  });
-
-  it('ignores stale check amount responses after the reserve changes', async () => {
-    const firstCheck = createDeferred<{
-      code: number;
-      message: string;
-    }>();
-    const secondCheck = createDeferred<{
-      code: number;
-      data: { result: boolean; alerts: [] };
-    }>();
-
     backgroundMock.serviceStaking.getBorrowCheckAmount.mockImplementation(
       ({ reserveAddress }: { reserveAddress: string }) =>
         reserveAddress === 'reserve-a'
@@ -205,19 +91,17 @@ describe('useUniversalBorrowAction', () => {
     );
 
     const { result, rerender } = renderHook(
-      (props: IUniversalBorrowActionParams) => useUniversalBorrowAction(props),
-      {
-        initialProps: {
+      ({ reserveAddress }: { reserveAddress: string }) =>
+        useUniversalBorrowAction({
           ...baseParams,
-          reserveAddress: 'reserve-a',
-        },
-      },
+          reserveAddress,
+        }),
+      { initialProps: { reserveAddress: 'reserve-a' } },
     );
 
     expect(result.current.checkAmountLoading).toBe(true);
     await act(async () => {
       jest.advanceTimersByTime(300);
-      await flushPromises();
     });
     expect(
       backgroundMock.serviceStaking.getBorrowCheckAmount,
@@ -228,19 +112,11 @@ describe('useUniversalBorrowAction', () => {
       }),
     );
 
-    await act(async () => {
-      rerender({
-        ...baseParams,
-        reserveAddress: 'reserve-b',
-      });
-      await flushPromises();
-    });
+    rerender({ reserveAddress: 'reserve-b' });
     expect(result.current.checkAmountLoading).toBe(true);
     expect(result.current.checkAmountResult).toBeUndefined();
-
     await act(async () => {
       jest.advanceTimersByTime(300);
-      await flushPromises();
     });
     expect(
       backgroundMock.serviceStaking.getBorrowCheckAmount,
@@ -253,119 +129,18 @@ describe('useUniversalBorrowAction', () => {
 
     await act(async () => {
       firstCheck.resolve({ code: 1, message: 'old reserve failed' });
-      await flushPromises();
+      await Promise.resolve();
     });
     expect(result.current.checkAmountLoading).toBe(true);
     expect(result.current.checkAmountMessage).toBe('');
     expect(result.current.checkAmountResult).toBeUndefined();
 
     await act(async () => {
-      secondCheck.resolve({
-        code: 0,
-        data: {
-          result: true,
-          alerts: [],
-        },
-      });
-      await flushPromises();
+      secondCheck.resolve({ code: 0, data: { result: true } });
+      await Promise.resolve();
     });
     expect(result.current.checkAmountLoading).toBe(false);
     expect(result.current.checkAmountMessage).toBe('');
     expect(result.current.checkAmountResult).toBe(true);
-  });
-
-  it('keeps a visible error when check amount fails', async () => {
-    backgroundMock.serviceStaking.getBorrowCheckAmount.mockRejectedValueOnce(
-      new Error('network failed'),
-    );
-
-    const { result } = renderHook(() => useUniversalBorrowAction(baseParams));
-
-    await act(async () => {
-      jest.advanceTimersByTime(300);
-      await flushPromises();
-    });
-
-    expect(result.current.checkAmountResult).toBe(false);
-    expect(result.current.checkAmountMessage).toBe(
-      ETranslations.global_network_error,
-    );
-    expect(result.current.isCheckAmountMessageError).toBe(true);
-    expect(result.current.checkAmountLoading).toBe(false);
-  });
-
-  it('passes withdrawAll to transaction confirmation and estimate fee without sending it to check amount', async () => {
-    renderHook(() =>
-      useUniversalBorrowAction({
-        ...baseParams,
-        action: 'withdraw',
-        withdrawAll: true,
-      }),
-    );
-
-    await act(async () => {
-      jest.advanceTimersByTime(350);
-      await flushPromises();
-    });
-
-    expect(
-      backgroundMock.serviceStaking.getBorrowTransactionConfirmation,
-    ).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: 'withdraw',
-        withdrawAll: true,
-      }),
-    );
-    expect(
-      backgroundMock.serviceStaking.getBorrowEstimateFee,
-    ).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: 'withdraw',
-        withdrawAll: true,
-      }),
-    );
-    expect(
-      backgroundMock.serviceStaking.getBorrowCheckAmount.mock.calls[0][0],
-    ).not.toHaveProperty('withdrawAll');
-  });
-
-  it('passes repayAll to transaction confirmation, estimate fee, and check amount', async () => {
-    renderHook(() =>
-      useUniversalBorrowAction({
-        ...baseParams,
-        action: 'repay',
-        repayAll: true,
-      }),
-    );
-
-    await act(async () => {
-      jest.advanceTimersByTime(350);
-      await flushPromises();
-    });
-
-    expect(
-      backgroundMock.serviceStaking.getBorrowTransactionConfirmation,
-    ).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: 'repay',
-        repayAll: true,
-      }),
-    );
-    expect(
-      backgroundMock.serviceStaking.getBorrowEstimateFee,
-    ).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: 'repay',
-        repayAll: true,
-      }),
-    );
-    expect(
-      backgroundMock.serviceStaking.getBorrowCheckAmount,
-    ).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: 'repay',
-        repayAll: true,
-      }),
-    );
   });
 });

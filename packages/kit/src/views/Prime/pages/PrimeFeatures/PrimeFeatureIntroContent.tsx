@@ -37,6 +37,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
+import { EModalBulkExportHistoryRoutes } from '@onekeyhq/shared/src/routes/bulkExportHistory';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
@@ -650,6 +651,16 @@ export function PrimeFeatureIntroContent({
 
     if (activeFeature.action === 'notifications') {
       navigation.navigate(EModalRoutes.NotificationsModal);
+      return;
+    }
+
+    if (activeFeature.action === 'historyExport') {
+      navigation.pushModal(EModalRoutes.BulkExportHistoryModal, {
+        screen: EModalBulkExportHistoryRoutes.BulkExportHistoryModal,
+        params: {
+          networkId: networkId ?? network?.id,
+        },
+      });
       return;
     }
 

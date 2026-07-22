@@ -11,7 +11,6 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -26,7 +25,6 @@ import type {
 import type { RouteProp } from '@react-navigation/native';
 
 export default function PrimeDeviceLimit() {
-  const { getAccessToken } = useOneKeyAuth();
   const navigation = useAppNavigation();
   const intl = useIntl();
   const { formatDistanceToNow } = useFormatDate();
@@ -40,15 +38,11 @@ export default function PrimeDeviceLimit() {
     run: reloadDevices,
   } = usePromiseResult(
     async () => {
-      const token = await getAccessToken();
-      if (!token) {
-        return;
-      }
       return backgroundApiProxy.servicePrime.apiGetPrimeUserDevices({
-        accessToken: token || '',
+        accessToken: '',
       });
     },
-    [getAccessToken],
+    [],
     {
       watchLoading: true,
     },
@@ -78,10 +72,9 @@ export default function PrimeDeviceLimit() {
         id: ETranslations.global_logout,
       }),
       onConfirm: async () => {
-        const token = await getAccessToken();
         await backgroundApiProxy.servicePrime.apiLogoutPrimeUserDevice({
           instanceId,
-          accessToken: token || '',
+          accessToken: '',
         });
         if (params?.isExceedDeviceLimit) {
           const userInfo =

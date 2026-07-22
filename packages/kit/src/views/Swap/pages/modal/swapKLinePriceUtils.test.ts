@@ -30,25 +30,29 @@ const createSwapToken = (overrides: Partial<ISwapToken> = {}): ISwapToken => ({
 
 describe('swapKLinePriceUtils', () => {
   describe('getSwapKLineDisplayPrice', () => {
-    it('keeps a fresh chart price authoritative over later polling completion time', () => {
+    it('keeps a fresh realtime chart price authoritative over later polling completion time', () => {
       const now = 100_000;
 
       expect(
         getSwapKLineDisplayPrice({
           tokenMarketDetail: createMarketTokenDetail('100'),
           tokenMarketDetailUpdatedAt: now - 100,
-          chartRealtimePrice: {
+          chartPrice: {
+            source: 'realtime',
+            sourceKey: 'market:evm--1:0xabc:ONE',
             tokenKey: 'evm--1:0xabc:contract',
             price: '101',
-            updatedAt: now - 5000,
             receivedAt: now - 5000,
+            updatedAt: now - 5000,
           },
+          chartSourceKey: 'market:evm--1:0xabc:ONE',
+          chartTokenKey: 'evm--1:0xabc:contract',
           now,
         }),
       ).toBe('101');
     });
 
-    it('allows REST or fallback prices to take over after the chart price is stale', () => {
+    it('allows REST or fallback prices to take over after a realtime chart price is stale', () => {
       const now = 100_000;
 
       expect(
@@ -57,15 +61,59 @@ describe('swapKLinePriceUtils', () => {
           tokenMarketDetailUpdatedAt: now - 100,
           tokenUsdFallbackPrice: '99',
           tokenUsdFallbackPriceUpdatedAt: now - 200,
-          chartRealtimePrice: {
+          chartPrice: {
+            source: 'realtime',
+            sourceKey: 'market:evm--1:0xabc:ONE',
             tokenKey: 'evm--1:0xabc:contract',
             price: '101',
-            updatedAt: now - SWAP_KLINE_CHART_PRICE_FRESHNESS_MS - 1,
             receivedAt: now - SWAP_KLINE_CHART_PRICE_FRESHNESS_MS - 1,
+            updatedAt: now - 5000,
           },
+          chartSourceKey: 'market:evm--1:0xabc:ONE',
+          chartTokenKey: 'evm--1:0xabc:contract',
           now,
         }),
       ).toBe('100');
+    });
+
+    it('compares a history chart price with REST and fallback prices by update time', () => {
+      expect(
+        getSwapKLineDisplayPrice({
+          tokenMarketDetail: createMarketTokenDetail('100'),
+          tokenMarketDetailUpdatedAt: 300,
+          tokenUsdFallbackPrice: '99',
+          tokenUsdFallbackPriceUpdatedAt: 200,
+          chartPrice: {
+            source: 'history',
+            sourceKey: 'market:evm--1:0xabc:ONE',
+            tokenKey: 'evm--1:0xabc:contract',
+            price: '101',
+            receivedAt: 400,
+            updatedAt: 100,
+          },
+          chartSourceKey: 'market:evm--1:0xabc:ONE',
+          chartTokenKey: 'evm--1:0xabc:contract',
+        }),
+      ).toBe('100');
+    });
+
+    it('uses a history chart price when it is the newest available candidate', () => {
+      expect(
+        getSwapKLineDisplayPrice({
+          tokenMarketDetail: createMarketTokenDetail('100'),
+          tokenMarketDetailUpdatedAt: 100,
+          chartPrice: {
+            source: 'history',
+            sourceKey: 'market:evm--1:0xabc:ONE',
+            tokenKey: 'evm--1:0xabc:contract',
+            price: '101',
+            receivedAt: 300,
+            updatedAt: 200,
+          },
+          chartSourceKey: 'market:evm--1:0xabc:ONE',
+          chartTokenKey: 'evm--1:0xabc:contract',
+        }),
+      ).toBe('101');
     });
 
     it('ignores invalid chart prices and falls back to normalized REST price', () => {
@@ -75,16 +123,50 @@ describe('swapKLinePriceUtils', () => {
         getSwapKLineDisplayPrice({
           tokenMarketDetail: createMarketTokenDetail('100'),
           tokenMarketDetailUpdatedAt: now - 100,
-          chartRealtimePrice: {
+          chartPrice: {
+            source: 'realtime',
+            sourceKey: 'market:evm--1:0xabc:ONE',
             tokenKey: 'evm--1:0xabc:contract',
             price: '0',
-            updatedAt: now,
             receivedAt: now,
+            updatedAt: now,
           },
-          now,
+          chartSourceKey: 'market:evm--1:0xabc:ONE',
+          chartTokenKey: 'evm--1:0xabc:contract',
         }),
       ).toBe('100');
     });
+
+    it.each([
+      {
+        chartSourceKey: 'market:evm--1:0xdef:ONE',
+        chartTokenKey: 'evm--1:0xabc:contract',
+      },
+      {
+        chartSourceKey: 'market:evm--1:0xabc:ONE',
+        chartTokenKey: 'evm--1:0xdef:contract',
+      },
+    ])(
+      'rejects a chart price from a stale token or source identity',
+      ({ chartSourceKey, chartTokenKey }) => {
+        expect(
+          getSwapKLineDisplayPrice({
+            tokenMarketDetail: createMarketTokenDetail('100'),
+            tokenMarketDetailUpdatedAt: 200,
+            chartPrice: {
+              source: 'realtime',
+              sourceKey: 'market:evm--1:0xabc:ONE',
+              tokenKey: 'evm--1:0xabc:contract',
+              price: '101',
+              receivedAt: 300,
+              updatedAt: 300,
+            },
+            chartSourceKey,
+            chartTokenKey,
+          }),
+        ).toBe('100');
+      },
+    );
   });
 
   describe('isSwapKLineChartPriceUpdateForToken', () => {

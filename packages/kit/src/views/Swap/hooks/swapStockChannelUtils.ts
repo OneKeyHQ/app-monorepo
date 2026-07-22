@@ -3,8 +3,12 @@ import BigNumber from 'bignumber.js';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketTokenDetail,
+  IMarketTokenListItem,
+} from '@onekeyhq/shared/types/marketV2';
 import type {
   ISwapToken,
   ISwapTokenBase,
@@ -31,6 +35,31 @@ export enum ESwapStockChannelStage {
 export enum ESwapStockTradeSide {
   Buy = 'buy',
   Sell = 'sell',
+}
+
+export function isStockTradeReadyForQuote({
+  currentStockToken,
+  marketOpen,
+  marketStatusStatus,
+  payToken,
+  payTokenStatus,
+  stockTokenStatus,
+}: {
+  currentStockToken?: ISwapToken;
+  marketOpen?: boolean;
+  marketStatusStatus: ESwapStockChannelAsyncStatus;
+  payToken?: ISwapToken;
+  payTokenStatus: ESwapStockChannelAsyncStatus;
+  stockTokenStatus: ESwapStockChannelAsyncStatus;
+}) {
+  return Boolean(
+    currentStockToken &&
+    payToken &&
+    stockTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
+    marketStatusStatus !== ESwapStockChannelAsyncStatus.Initializing &&
+    payTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
+    marketOpen !== false,
+  );
 }
 
 const STOCK_DEFAULT_PAY_SYMBOLS = new Set(['USDC', 'USDT']);
@@ -79,6 +108,47 @@ export function shouldLoadDefaultStockToken({
   selectedStockTokenKey: string;
 }) {
   return !selectedStockTokenKey;
+}
+
+export function resolveSwapStockDefaultTokenStatus({
+  hasSelectableToken,
+  hasStockCategory,
+  isLoading,
+  marketBasicConfigLoading,
+  requestScope,
+  resultScope,
+  shouldLoad,
+}: {
+  hasSelectableToken: boolean;
+  hasStockCategory: boolean;
+  isLoading?: boolean;
+  marketBasicConfigLoading?: boolean;
+  requestScope: string;
+  resultScope: string;
+  shouldLoad: boolean;
+}) {
+  if (!shouldLoad) {
+    return ESwapStockChannelAsyncStatus.Idle;
+  }
+
+  if (marketBasicConfigLoading !== false) {
+    return ESwapStockChannelAsyncStatus.Initializing;
+  }
+
+  if (!hasStockCategory) {
+    return ESwapStockChannelAsyncStatus.Empty;
+  }
+
+  if (
+    isLoading !== false ||
+    !requestScope ||
+    resultScope !== requestScope ||
+    hasSelectableToken
+  ) {
+    return ESwapStockChannelAsyncStatus.Initializing;
+  }
+
+  return ESwapStockChannelAsyncStatus.Empty;
 }
 
 export function getMarketListTokenKey(token?: IMarketTokenListItem) {
@@ -132,6 +202,41 @@ export function filterStockPayTokenCandidates<
   return candidates.filter((candidate) =>
     STOCK_DEFAULT_PAY_SYMBOLS.has(candidate.symbol?.toUpperCase() ?? ''),
   );
+}
+
+// Pro select tokens persisted before the isStock field existed restore with
+// the flag missing, which would silently bypass every stock stable-coin rule.
+// Backfill the identity from the authoritative market detail once it matches
+// the token (stale/late details for another token are ignored); returns the
+// original reference when nothing needs to change so callers can cheaply
+// detect the migration case.
+export function backfillSwapProTokenStockIdentity<T extends ISwapTokenBase>({
+  token,
+  tokenDetail,
+}: {
+  token?: T;
+  tokenDetail?: IMarketTokenDetail;
+}): T | undefined {
+  if (!token || !tokenDetail) {
+    return token;
+  }
+  const detailMatchesToken = equalTokenNoCaseSensitive({
+    token1: {
+      networkId: tokenDetail.networkId,
+      contractAddress: tokenDetail.address,
+    },
+    token2: token,
+  });
+  if (!detailMatchesToken) {
+    return token;
+  }
+  const isStock = Boolean(tokenDetail.stock);
+  // A missing field still gets the explicit flag written once, so the
+  // migration persists instead of re-deriving forever.
+  if (token.isStock !== undefined && Boolean(token.isStock) === isStock) {
+    return token;
+  }
+  return { ...token, isStock };
 }
 
 export function resolveStockChannelSwapPair({
@@ -228,15 +333,96 @@ export function isStockPayTokenReadyForTradeInput({
 }
 
 export function shouldRenderStockTradeInputSkeleton({
+  inputTokenStatus,
   inputTokenReady,
   inputTokenVisible,
   isBuySide,
 }: {
+  inputTokenStatus: ESwapStockChannelAsyncStatus;
   inputTokenReady: boolean;
   inputTokenVisible: boolean;
   isBuySide: boolean;
 }) {
+  if (inputTokenStatus !== ESwapStockChannelAsyncStatus.Initializing) {
+    return false;
+  }
   return isBuySide ? !inputTokenVisible : !inputTokenReady;
+}
+
+export function isStockBalanceInitializing({
+  balance,
+  requestPending,
+}: {
+  balance?: string;
+  requestPending: boolean;
+}) {
+  return balance === undefined && requestPending;
+}
+
+export function resolveStockBalanceSeed({
+  hasActiveAccount,
+  networkAccountAddress,
+  token,
+}: {
+  hasActiveAccount: boolean;
+  networkAccountAddress?: string;
+  token?: ISwapToken;
+}) {
+  if (token?.balanceParsed === undefined) {
+    return undefined;
+  }
+  if (!hasActiveAccount) {
+    return token.balanceParsed;
+  }
+  if (
+    !token.accountAddress ||
+    !networkAccountAddress ||
+    !equalsIgnoreCase(token.accountAddress, networkAccountAddress)
+  ) {
+    return undefined;
+  }
+  return token.balanceParsed;
+}
+
+export type IStockBalanceSnapshot = {
+  ownerScope: string;
+  balance: string;
+  tokenDetail?: ISwapToken;
+};
+
+export function resolveStockBalanceSnapshot({
+  authoritativeBalance,
+  authoritativeTokenDetail,
+  ownerScope,
+  previousSnapshot,
+  seededBalance,
+  seededTokenDetail,
+}: {
+  authoritativeBalance?: string;
+  authoritativeTokenDetail?: ISwapToken;
+  ownerScope: string;
+  previousSnapshot?: IStockBalanceSnapshot;
+  seededBalance?: string;
+  seededTokenDetail?: ISwapToken;
+}): IStockBalanceSnapshot | undefined {
+  if (authoritativeBalance !== undefined) {
+    return {
+      ownerScope,
+      balance: authoritativeBalance,
+      tokenDetail: authoritativeTokenDetail,
+    };
+  }
+  if (previousSnapshot?.ownerScope === ownerScope) {
+    return previousSnapshot;
+  }
+  if (seededBalance !== undefined) {
+    return {
+      ownerScope,
+      balance: seededBalance,
+      tokenDetail: seededTokenDetail,
+    };
+  }
+  return undefined;
 }
 
 function getStockDefaultPayTokenCandidates(candidates: IToken[]) {
@@ -281,4 +467,37 @@ export function findDefaultStockPayToken({
     }
   }
   return preferredCandidates[0];
+}
+
+export function resolveStockPayTokenDisplaySeed({
+  balances,
+  candidates,
+  persistedTokenKey,
+  selectedToken,
+}: {
+  balances?: Record<string, string | undefined>;
+  candidates: IToken[];
+  persistedTokenKey?: string;
+  selectedToken?: Partial<ISwapTokenBase>;
+}) {
+  const selectedCandidate = findTokenFromCandidates({
+    candidates,
+    token: selectedToken,
+  });
+  if (selectedCandidate) {
+    return selectedCandidate;
+  }
+
+  const persistedCandidate = persistedTokenKey
+    ? candidates.find(
+        (candidate) => getTokenIdentityKey(candidate) === persistedTokenKey,
+      )
+    : undefined;
+  return (
+    persistedCandidate ??
+    findDefaultStockPayToken({
+      candidates,
+      balances,
+    })
+  );
 }

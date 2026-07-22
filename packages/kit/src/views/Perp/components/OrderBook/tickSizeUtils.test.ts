@@ -2,7 +2,198 @@ import BigNumber from 'bignumber.js';
 
 import { getDisplayPriceScaleDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
-import { buildTickOptions } from './tickSizeUtils';
+import {
+  buildReferenceTickOptions,
+  buildTickOptions,
+  getTickOptionsDataDuringTransition,
+  shouldPersistOrderBookTickOption,
+} from './tickSizeUtils';
+
+describe('getTickOptionsDataDuringTransition', () => {
+  const cached = {
+    symbol: '@188',
+    marker: 'cached',
+  };
+
+  it('keeps same-coin precision data while the order book is temporarily empty', () => {
+    expect(
+      getTickOptionsDataDuringTransition({
+        symbol: '@188',
+        hasMarketData: false,
+        cached,
+      }),
+    ).toBe(cached);
+  });
+
+  it('does not reuse precision data after switching coins', () => {
+    const reference = {
+      symbol: '@166',
+      marker: 'reference',
+    };
+    expect(
+      getTickOptionsDataDuringTransition({
+        symbol: '@166',
+        hasMarketData: false,
+        cached,
+        reference,
+      }),
+    ).toBe(reference);
+  });
+
+  it('does not use reference precision from another coin', () => {
+    expect(
+      getTickOptionsDataDuringTransition({
+        symbol: '@166',
+        hasMarketData: false,
+        cached,
+        reference: {
+          symbol: '@107',
+          marker: 'reference',
+        },
+      }),
+    ).toBeNull();
+  });
+});
+
+describe('buildReferenceTickOptions', () => {
+  it.each([
+    {
+      name: 'ETH perp',
+      price: '4400',
+      szDecimals: 4,
+      isSpot: false,
+      expectedTick: '0.1',
+      expectedDecimals: 1,
+    },
+    {
+      name: 'HYPE perp',
+      price: '55',
+      szDecimals: 2,
+      isSpot: false,
+      expectedTick: '0.001',
+      expectedDecimals: 3,
+    },
+    {
+      name: 'BTC perp',
+      price: '114000',
+      szDecimals: 5,
+      isSpot: false,
+      expectedTick: '1',
+      expectedDecimals: 0,
+    },
+    {
+      name: 'low price spot',
+      price: '0.002699',
+      szDecimals: 0,
+      isSpot: true,
+      expectedTick: '0.0000001',
+      expectedDecimals: 7,
+    },
+  ])(
+    'derives the finest full-precision option for $name',
+    ({ price, szDecimals, isSpot, expectedTick, expectedDecimals }) => {
+      expect(buildReferenceTickOptions).toBeDefined();
+      const result = buildReferenceTickOptions({
+        symbol: 'TEST',
+        price,
+        szDecimals,
+        isSpot,
+      });
+
+      expect(result?.defaultTickOption).toMatchObject({
+        value: expectedTick,
+        label: expectedTick,
+        nSigFigs: null,
+      });
+      expect(result?.priceDecimals).toBe(expectedDecimals);
+    },
+  );
+
+  it('does not invent precision without valid reference inputs', () => {
+    expect(
+      buildReferenceTickOptions({
+        symbol: 'ETH',
+        price: undefined,
+        szDecimals: 4,
+        isSpot: false,
+      }),
+    ).toBeNull();
+  });
+
+  it('does not expose spot tick options finer than the protocol decimal limit', () => {
+    const result = buildReferenceTickOptions({
+      symbol: '@591',
+      price: '0.0000004',
+      szDecimals: 1,
+      isSpot: true,
+    });
+
+    expect(result?.tickOptions.map((option) => option.value)).toEqual([
+      '0.0000001',
+    ]);
+  });
+
+  it('formats small tick options without scientific notation', () => {
+    const result = buildReferenceTickOptions({
+      symbol: 'TEST',
+      price: '0.002699',
+      szDecimals: 0,
+      isSpot: true,
+    });
+
+    expect(
+      result?.tickOptions.every(
+        (option) => !option.label.includes('e') && !option.value.includes('e'),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('shouldPersistOrderBookTickOption', () => {
+  it('does not replace precision while order book data is transitioning', () => {
+    expect(
+      shouldPersistOrderBookTickOption({
+        isReady: false,
+        persisted: { value: '0.2', nSigFigs: 5, mantissa: 2 },
+        next: { value: '0.1', nSigFigs: 5, mantissa: null },
+      }),
+    ).toBe(false);
+  });
+
+  it('does not rewrite a matching persisted selection', () => {
+    expect(
+      shouldPersistOrderBookTickOption({
+        isReady: true,
+        persisted: { value: '0.1', nSigFigs: 5, mantissa: null },
+        next: { value: '0.1', nSigFigs: 5, mantissa: null },
+      }),
+    ).toBe(false);
+  });
+
+  it('initializes a missing selection after market data arrives', () => {
+    expect(
+      shouldPersistOrderBookTickOption({
+        isReady: true,
+        persisted: undefined,
+        next: { value: '0.1', nSigFigs: 5, mantissa: null },
+      }),
+    ).toBe(true);
+  });
+
+  it.each([
+    ['value', { value: '0.2', nSigFigs: 5 as const, mantissa: 2 as const }],
+    ['nSigFigs', { value: '0.1', nSigFigs: 4 as const, mantissa: null }],
+    ['mantissa', { value: '0.1', nSigFigs: 5 as const, mantissa: 2 as const }],
+  ])('syncs a selection whose %s changed', (_field, persisted) => {
+    expect(
+      shouldPersistOrderBookTickOption({
+        isReady: true,
+        persisted,
+        next: { value: '0.1', nSigFigs: 5, mantissa: null },
+      }),
+    ).toBe(true);
+  });
+});
 
 const fixtures = {
   BTC: {

@@ -24,16 +24,15 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 export default function PrimeDeleteAccount() {
-  const { logoutWithPurchasesSdk, user, getAccessToken, sendEmailOTP } =
-    useOneKeyAuth();
+  const { logoutWithPurchasesSdk, user, sendEmailOTP } = useOneKeyAuth();
   const navigation = useAppNavigation();
   const intl = useIntl();
 
   const { result: _canDeleteAccount } = usePromiseResult(
     async () => {
       // Check if user has active subscription or other restrictions
-      const token = await getAccessToken();
-      if (!token) {
+      const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
+      if (!isLoggedIn) {
         return { canDelete: false, reason: 'No access token' };
       }
 
@@ -49,7 +48,7 @@ export default function PrimeDeleteAccount() {
 
       return { canDelete: true, reason: null };
     },
-    [getAccessToken, user, intl],
+    [user, intl],
     {
       watchLoading: true,
     },
@@ -67,13 +66,11 @@ export default function PrimeDeleteAccount() {
     await sendEmailOTP({
       scene: EPrimeEmailOTPScene.DeleteOneKeyId,
       onConfirm: async ({ code, uuid }) => {
-        console.log('emailOTP>>>>>>', code, uuid);
         const deleteResult =
           await backgroundApiProxy.servicePrime.apiDeleteAccount({
             uuid,
             emailOTP: code,
           });
-        console.log('deleteResult>>>>>>', deleteResult);
 
         if (!deleteResult?.ok) {
           Toast.error({
@@ -89,6 +86,18 @@ export default function PrimeDeleteAccount() {
           defaultLogger.prime.subscription.onekeyIdLogout({
             reason: 'PrimeDeleteAccount: handleDeleteAccount',
           });
+          // INTENTIONAL: do NOT pass `preserveLocalKeylessAuth` here.
+          // Confirmed account-deletion semantics:
+          // - Local Keyless wallet and its mnemonic data stay on the device
+          //   (this logout clears credentials only, never calls removeWallet).
+          // - ALL local OAuth credentials are cleared (keyless Supabase
+          //   session + legacy per-owner refresh tokens), so Verify PIN /
+          //   Reset PIN require a fresh Google/Apple OAuth afterwards.
+          // - Server contract: deleting the OneKey ID account must NOT
+          //   cascade-delete the keyless server backend share, which is what
+          //   keeps the wallet recoverable after re-OAuth.
+          // Do not "fix" this by preserving keyless auth — the credential
+          // wipe on account deletion is deliberate.
           await logoutWithPurchasesSdk();
         } catch (error) {
           console.error('logout error', error);

@@ -56,6 +56,53 @@ function fixAxiosAbortCancelError(error: unknown) {
   }
 }
 
+// Errors caused by a user-initiated cancellation/abort — no error toast
+// should surface for these.
+const USER_CANCEL_STYLE_ERROR_CLASS_NAMES: Set<EOneKeyErrorClassNames> =
+  new Set([
+    EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
+    EOneKeyErrorClassNames.PrimeLoginDialogCancelError,
+    EOneKeyErrorClassNames.OAuthLoginCancelError,
+    EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
+    EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+    EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
+    EOneKeyErrorClassNames.FirmwareUpdateExit,
+    EOneKeyErrorClassNames.FirmwareUpdateTasksClear,
+    EOneKeyErrorClassNames.AxiosAbortCancelError,
+  ]);
+
+// Errors whose feedback is handled by other UI, so the auto toast is
+// suppressed. Unlike the list above, these are NOT user cancellations.
+const AUTO_TOAST_HANDLED_BY_OTHER_UI_ERROR_CLASS_NAMES: Set<EOneKeyErrorClassNames> =
+  new Set([
+    EOneKeyErrorClassNames.WebDeviceNotFoundOrNeedsPermission,
+    EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound,
+    EOneKeyErrorClassNames.OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
+    // use Dialog instead of Toast, check GlobalErrorHandlerContainer
+    EOneKeyErrorClassNames.DeviceNotOpenedPassphrase,
+    EOneKeyErrorClassNames.DeviceNotFound,
+    // IncorrectPinError is handled inline in VerifyPinPage
+    EOneKeyErrorClassNames.IncorrectPinError,
+  ]);
+
+// True if the global auto toast has already been shown for this error
+// instance (marker set by showToastOfError).
+function wasAutoToastShown(error: unknown): boolean {
+  const err = error as IOneKeyError | undefined;
+  return err?.$$autoToastErrorTriggered === true;
+}
+
+// True if the error represents a user-initiated cancellation/abort
+// (including aborted axios requests) — callers should not surface any
+// error feedback for these.
+function isUserCancelStyleError(error: unknown): boolean {
+  fixAxiosAbortCancelError(error);
+  const err = error as IOneKeyError | undefined;
+  return Boolean(
+    err?.className && USER_CANCEL_STYLE_ERROR_CLASS_NAMES.has(err.className),
+  );
+}
+
 let lastToastErrorInstance: IOneKeyError | undefined;
 let lastToastErrorCode: number | string | undefined;
 let lastToastTimestamp = 0;
@@ -105,27 +152,9 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
   showLocalSecretEnvelopeErrorDialogIfNeeded(error);
   const err = error as IOneKeyError | undefined;
   if (
-    err?.className &&
-    [
-      // ignore auto toast errors
-      EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
-      EOneKeyErrorClassNames.PrimeLoginDialogCancelError,
-      EOneKeyErrorClassNames.OAuthLoginCancelError,
-      EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
-      EOneKeyErrorClassNames.PasswordPromptDialogCancel,
-      EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
-      EOneKeyErrorClassNames.FirmwareUpdateExit,
-      EOneKeyErrorClassNames.FirmwareUpdateTasksClear,
-      EOneKeyErrorClassNames.WebDeviceNotFoundOrNeedsPermission,
-      EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound,
-      EOneKeyErrorClassNames.OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
-      EOneKeyErrorClassNames.AxiosAbortCancelError,
-      // use Dialog instead of Toast, check GlobalErrorHandlerContainer
-      EOneKeyErrorClassNames.DeviceNotOpenedPassphrase,
-      EOneKeyErrorClassNames.DeviceNotFound,
-      // IncorrectPinError is handled inline in VerifyPinPage
-      EOneKeyErrorClassNames.IncorrectPinError,
-    ].includes(err?.className)
+    isUserCancelStyleError(err) ||
+    (err?.className &&
+      AUTO_TOAST_HANDLED_BY_OTHER_UI_ERROR_CLASS_NAMES.has(err.className))
   ) {
     return;
   }
@@ -140,7 +169,7 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
   ) {
     shouldMuteToast = true;
   }
-  const isTriggered = err?.$$autoToastErrorTriggered;
+  const isTriggered = wasAutoToastShown(err);
   const isSameError = lastToastErrorInstance === err;
   // Deduplicate by errorCode within a time window — collapse parallel requests
   // hitting the same error, but allow legitimate recurring errors after the window expires
@@ -255,4 +284,6 @@ export default {
   showToastOfError,
   showLocalSecretEnvelopeErrorDialogIfNeeded,
   withErrorAutoToast,
+  wasAutoToastShown,
+  isUserCancelStyleError,
 };

@@ -356,8 +356,8 @@ export function AmountInput({
     }
     if (balanceProps.loading) {
       return (
-        <Stack py="$0.5" my={7} px="$3.5">
-          <Skeleton h="$3" w="$16" />
+        <Stack m="$1" px="$2.5" py="$1">
+          <Skeleton h="$4" w="$16" />
         </Stack>
       );
     }

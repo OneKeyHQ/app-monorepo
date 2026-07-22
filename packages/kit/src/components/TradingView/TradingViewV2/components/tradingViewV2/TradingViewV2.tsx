@@ -34,10 +34,12 @@ import {
   type ITradingViewNativeIndicatorControlMode,
   type ITradingViewNativeIntervalControlMode,
   type ITradingViewNativePriceMarketCapControlMode,
-  TradingViewNativeChartControls,
   TradingViewNativeIndicatorQuickBar,
+  TradingViewV2ChartControlsContainer,
+  getTradingViewNativeSubIndicatorCount,
+  getTradingViewNativeSubIndicatorCountFromOptions,
   useNativeIndicatorActiveValues,
-} from '../TradingViewNativeChartControls';
+} from '../TradingViewV2ChartControls';
 
 import {
   useAutoKLineUpdate,
@@ -122,13 +124,18 @@ interface IBaseTradingViewV2Props {
   onPrimaryKLineDataUnavailable?: () => void;
   onPriceUpdate?: (data: ITradingViewPriceUpdateData) => void;
   enableNativeChartControls?: boolean;
+  enableNativeChartSettings?: boolean;
   enableNativeIntervalSelector?: boolean;
+  maxNativeSubIndicatorCount?: number;
+  // `null` means the WebView controls configuration is not ready.
+  onNativeSubIndicatorCountChange?: (count: number | null) => void;
   nativeChartTypeControlMode?: ITradingViewNativeChartTypeControlMode;
   nativeIndicatorControlMode?: ITradingViewNativeIndicatorControlMode;
   nativeIntervalControlMode?: ITradingViewNativeIntervalControlMode;
   nativePriceMarketCapControlMode?: ITradingViewNativePriceMarketCapControlMode;
   nativeControlsLayoutMode?: ITradingViewNativeControlsLayoutMode;
   isNativeChartFullscreen?: boolean;
+  nativeChartFullscreenHeader?: ReactNode;
   showNativeIndicatorQuickBar?: boolean;
   onNativeIndicatorQuickBarChange?: (quickBar: ReactNode | null) => void;
   onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
@@ -183,13 +190,17 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onPrimaryKLineDataUnavailable,
     onPriceUpdate,
     enableNativeChartControls: enableNativeChartControlsProp,
+    enableNativeChartSettings = false,
     enableNativeIntervalSelector: enableNativeIntervalSelectorProp = false,
+    maxNativeSubIndicatorCount,
+    onNativeSubIndicatorCountChange,
     nativeChartTypeControlMode,
     nativeIndicatorControlMode,
     nativeIntervalControlMode,
     nativePriceMarketCapControlMode,
     nativeControlsLayoutMode,
     isNativeChartFullscreen,
+    nativeChartFullscreenHeader,
     showNativeIndicatorQuickBar = true,
     onNativeIndicatorQuickBarChange,
     onNativeChartFullscreenChange,
@@ -202,8 +213,48 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const enableNativeChartControls = Boolean(enableNativeChartControlsProp);
   const enableNativeIntervalSelector =
     enableNativeIntervalSelectorProp || enableNativeChartControls;
+  const hasNativeChartControlsConfig = Boolean(nativeChartControlsConfig);
   const isNativeChartControlsReady =
-    !enableNativeChartControls || Boolean(nativeChartControlsConfig);
+    !enableNativeChartControls || hasNativeChartControlsConfig;
+  const nativeSubIndicatorCountFromConfig = useMemo(
+    () =>
+      getTradingViewNativeSubIndicatorCountFromOptions(
+        nativeChartControlsConfig?.indicators,
+      ),
+    [nativeChartControlsConfig?.indicators],
+  );
+  const nativeSubIndicatorCountFromAppState = useMemo(
+    () =>
+      getTradingViewNativeSubIndicatorCount(
+        nativeIndicatorState.activeIndicatorValues,
+      ),
+    [nativeIndicatorState.activeIndicatorValues],
+  );
+  const nativeSubIndicatorCount = useMemo(
+    () =>
+      nativeIndicatorState.isInitialized
+        ? nativeSubIndicatorCountFromAppState
+        : nativeSubIndicatorCountFromConfig,
+    [
+      nativeIndicatorState.isInitialized,
+      nativeSubIndicatorCountFromAppState,
+      nativeSubIndicatorCountFromConfig,
+    ],
+  );
+
+  useEffect(() => {
+    if (!enableNativeChartControls) {
+      return;
+    }
+    onNativeSubIndicatorCountChange?.(
+      hasNativeChartControlsConfig ? nativeSubIndicatorCount : null,
+    );
+  }, [
+    enableNativeChartControls,
+    hasNativeChartControlsConfig,
+    nativeSubIndicatorCount,
+    onNativeSubIndicatorCountChange,
+  ]);
 
   const { handleNavigation } = useNavigationHandler();
   const handleCurrentKLineResolutionChange = useCallback(
@@ -637,6 +688,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       <TradingViewNativeIndicatorQuickBar
         nativeChartControlsConfig={nativeChartControlsConfig}
         nativeIndicatorState={nativeIndicatorState}
+        maxSubIndicatorCount={maxNativeSubIndicatorCount}
         onIndicatorSelect={handleNativeIndicatorSelect}
         onControlInteraction={handleNativeControlInteraction}
       />
@@ -645,6 +697,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     enableNativeChartControls,
     handleNativeControlInteraction,
     handleNativeIndicatorSelect,
+    maxNativeSubIndicatorCount,
     nativeChartControlsConfig,
     nativeIndicatorState,
     showNativeIndicatorQuickBar,
@@ -717,10 +770,12 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   return (
     <Stack flex={1} {...stackStyle}>
       {enableNativeIntervalSelector ? (
-        <TradingViewNativeChartControls
+        <TradingViewV2ChartControlsContainer
+          enableNativeChartSettings={enableNativeChartSettings}
           intervalConfig={intervalConfig}
           nativeChartControlsConfig={nativeChartControlsConfig}
           nativeIndicatorState={nativeIndicatorState}
+          maxSubIndicatorCount={maxNativeSubIndicatorCount}
           isControlsReady={isNativeChartControlsReady}
           chartTypeControlMode={nativeChartTypeControlMode}
           indicatorControlMode={nativeIndicatorControlMode}
@@ -729,6 +784,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           layoutMode={nativeControlsLayoutMode}
           chartTimezone={tradingViewTimezone}
           isFullscreen={isNativeChartFullscreen}
+          fullscreenHeader={nativeChartFullscreenHeader}
           onIntervalChange={handleNativeIntervalChange}
           onIndicatorSelect={handleNativeIndicatorSelect}
           onChartTypeChange={handleNativeChartTypeChange}

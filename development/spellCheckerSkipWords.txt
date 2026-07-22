@@ -163,6 +163,7 @@ babylon
 backends
 backgrounded
 backgrounding
+backpackapp
 backuped
 bassed
 bch
@@ -1403,6 +1404,7 @@ avd
 AVD
 oxlint
 oxlintrc
+oxfmt
 serviceworker
 newtab
 hrstart

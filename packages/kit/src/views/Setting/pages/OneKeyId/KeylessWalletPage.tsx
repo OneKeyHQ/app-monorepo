@@ -41,12 +41,10 @@ function KeylessWalletPageView() {
   const handleToggleKeylessWallet = useCallback((value: boolean) => {
     // TODO: Call API to toggle keyless wallet
     setKeylessWalletEnabled(value);
-    console.log('Toggle keyless wallet:', value);
   }, []);
 
   const handleKeysRecovery = useCallback(() => {
     // TODO: Navigate to keys & recovery page
-    console.log('Keys & Recovery');
   }, []);
 
   if (!isKeylessWalletEnabled) {

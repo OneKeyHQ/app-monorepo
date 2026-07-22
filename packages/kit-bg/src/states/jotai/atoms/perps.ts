@@ -35,6 +35,7 @@ export interface IPerpsActiveAccountAtom {
   indexedAccountId: string | null;
   deriveType: IAccountDeriveTypes;
   accountAddress: IHex | null;
+  walletType?: string;
 }
 export const {
   target: perpsActiveAccountAtom,
@@ -46,6 +47,7 @@ export const {
     accountId: null,
     accountAddress: null,
     deriveType: 'default',
+    walletType: 'unknown',
   },
 });
 
@@ -932,6 +934,7 @@ export const {
 export interface IPerpsDepositOrderAtom {
   isArbUSDCOrder: boolean;
   fromTxId: string;
+  orderId?: string;
   toTxId?: string;
   amount: string;
   token: IPerpsDepositToken;

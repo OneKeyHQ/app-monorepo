@@ -128,7 +128,9 @@ function TxConfirmActions(props: IProps) {
   } = props;
   const intl = useIntl();
   const isSubmitted = useRef(false);
-  const [continueOperate, setContinueOperate] = useState(false);
+  const [riskAcceptedForUnsignedTxs, setRiskAcceptedForUnsignedTxs] = useState<
+    IUnsignedTxPro[] | null
+  >(null);
 
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
@@ -139,6 +141,9 @@ function TxConfirmActions(props: IProps) {
   const [gasAccountUiState] = useGasAccountUiStateAtom();
   const [megafuelEligible] = useMegafuelEligibleAtom();
   const [unsignedTxs] = useUnsignedTxsAtom();
+  // Risk acknowledgement belongs to the exact transaction revision. Editing
+  // an approval or other payload replaces this array and requires a new check.
+  const continueOperate = riskAcceptedForUnsignedTxs === unsignedTxs;
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
   const [nativeTokenTransferAmountToUpdate] =
     useNativeTokenTransferAmountToUpdateAtom();
@@ -1048,7 +1053,7 @@ function TxConfirmActions(props: IProps) {
               })}
               value={continueOperate}
               onChange={(checked) => {
-                setContinueOperate(!!checked);
+                setRiskAcceptedForUnsignedTxs(checked ? unsignedTxs : null);
               }}
             />
           ) : null}

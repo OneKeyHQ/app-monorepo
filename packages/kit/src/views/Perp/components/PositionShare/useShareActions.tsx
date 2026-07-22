@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 import { Linking } from 'react-native';
 
 import { Button, Toast, useClipboard } from '@onekeyhq/components';
+import { shareImageOnDesktop } from '@onekeyhq/kit/src/utils/shareUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import MediaLibrary from '@onekeyhq/shared/src/modules3rdParty/expo-media-library';
 import Sharing from '@onekeyhq/shared/src/modules3rdParty/expo-sharing';
@@ -164,6 +165,11 @@ export function useShareActions(referralQrCodeUrl?: string) {
         });
 
         await RNFS.unlink(filepath);
+      } else if (platformEnv.isDesktop) {
+        await shareImageOnDesktop(
+          base64Image,
+          `onekey-position-${Date.now()}.png`,
+        );
       } else {
         // Web: Use Web Share API if available
         const byteString = atob(base64Image.split(',')[1]);

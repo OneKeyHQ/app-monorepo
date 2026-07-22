@@ -78,6 +78,7 @@ const platformInfo = ipcRenderer.sendSync(ipcMessageKeys.GET_PLATFORM_INFO) as {
   channel?: string;
   deskChannel: string;
   processStartAt: number;
+  supportsShareImageFile: boolean;
 };
 
 const isDev = ipcRenderer.sendSync(ipcMessageKeys.IS_DEV);
@@ -110,6 +111,7 @@ const desktopApi = {
   systemVersion: platformInfo.systemVersion,
   isMas: platformInfo.isMas,
   processStartAt: platformInfo.processStartAt,
+  supportsShareImageFile: platformInfo.supportsShareImageFile,
   isDev,
   channel: platformInfo.channel,
   ready: () => ipcRenderer.send(ipcMessageKeys.APP_READY),

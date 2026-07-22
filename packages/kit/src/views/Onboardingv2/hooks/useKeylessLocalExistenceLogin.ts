@@ -7,15 +7,11 @@ import { Dialog, Toast } from '@onekeyhq/components';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { getOAuthSocialLoginProviderName } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import { useOneKeyAuth } from '../../../components/OneKeyAuth/useOneKeyAuth';
-
-const PROVIDER_PLATFORM_NAME: Record<EOAuthSocialLoginProvider, string> = {
-  [EOAuthSocialLoginProvider.Google]: 'Google',
-  [EOAuthSocialLoginProvider.Apple]: 'Apple',
-};
 
 // Shared hook for the "check local keyless existence then continue" entry flow
 // used by CreateNewWallet and CreateOrImportWallet. When autoLoginKeylessProvider
@@ -66,7 +62,7 @@ export function useKeylessLocalExistenceLogin({
           });
         }
         if (autoLoginKeylessProvider) {
-          const platform = PROVIDER_PLATFORM_NAME[provider];
+          const platform = getOAuthSocialLoginProviderName(provider);
           loadingDialogRef.current = Dialog.loading({
             title: intl.formatMessage(
               { id: ETranslations.continue_with_social_platform },
@@ -79,7 +75,14 @@ export function useKeylessLocalExistenceLogin({
           });
         }
         if (isResetMode) {
-          const result = await signInWithSocialLogin(provider);
+          // This dev-only cloud reset authenticates with the fresh OAuth token
+          // itself. It must not require, validate, or persist a local Keyless
+          // session because the target cloud wallet may intentionally have no
+          // corresponding local wallet. Keeping the token ephemeral also
+          // avoids touching an active OneKey ID or Keyless session.
+          const result = await signInWithSocialLogin(provider, {
+            persistSession: false,
+          });
           if (result?.session?.accessToken) {
             await backgroundApiProxy.serviceKeylessWallet.apiResetKeylessBackendShare(
               {

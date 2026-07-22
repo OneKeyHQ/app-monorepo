@@ -83,7 +83,7 @@ private enum BackgroundThreadBridge {
 
 /// Single flag controlling HBC + segment profile on native side. Read from
 /// either the env var (Xcode scheme → Arguments → Environment Variables) or
-/// Info.plist. See `.skillshare/skills/1k-startup-profile/skill.md`.
+/// Info.plist. See `.skillshare/skills/1k-startup-profile/SKILL.md`.
 private func isStartupProfileEnabled() -> Bool {
   if let env = ProcessInfo.processInfo.environment["ONEKEY_STARTUP_PROFILE"]?.lowercased() {
     if ["1", "true", "yes", "on"].contains(env) { return true }

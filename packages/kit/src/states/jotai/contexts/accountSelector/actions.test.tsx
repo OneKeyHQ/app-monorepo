@@ -5,10 +5,16 @@ import type { ReactNode } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
-import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBAccount,
+  IDBCreateQRWalletParams,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import {
   EAccountSelectorAutoSelectTriggerBy,
   EAccountSelectorSceneName,
@@ -193,6 +199,33 @@ const mockAddTonImportedAccountByMnemonic = jest.fn<
     },
   ]
 >();
+const mockCreateQrWalletService = jest.fn<
+  Promise<{
+    wallet: IWallet;
+    indexedAccount: IIndexedAccount | undefined;
+    isOverrideWallet?: boolean;
+  }>,
+  [IDBCreateQRWalletParams]
+>();
+const mockAddDefaultNetworkAccountsService = jest.fn<
+  Promise<{
+    addedAccounts: { networkId: string; deriveType: IAccountDeriveTypes }[];
+    failedAccounts: {
+      networkId: string;
+      deriveType: IAccountDeriveTypes;
+      error: unknown;
+    }[];
+  }>,
+  [unknown]
+>();
+const mockGetEnabledNetworksCompatibleWithWalletId = jest.fn<
+  Promise<IServerNetwork[]>,
+  [{ walletId: string }]
+>();
+const mockGetAllNetworksFallbackNetworkId = jest.fn<
+  Promise<string | undefined>,
+  [{ walletId: string }]
+>();
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/utils', () => {
   const actual = jest.requireActual<
@@ -271,6 +304,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       addTonImportedAccountByMnemonic: (
         ...args: Parameters<typeof mockAddTonImportedAccountByMnemonic>
       ) => mockAddTonImportedAccountByMnemonic(...args),
+      createQrWallet: (...args: Parameters<typeof mockCreateQrWalletService>) =>
+        mockCreateQrWalletService(...args),
       clearAccountCache: () => mockClearAccountCache(),
       getAllHdHwQrWallets: () => mockGetAllHdHwQrWallets(),
       getIndexedAccountsOfWallet: ({ walletId }: { walletId: string }) =>
@@ -309,6 +344,19 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       shouldSyncWithHomeSource: (params: IGetSelectedAccountParams) =>
         mockShouldSyncWithHomeSource(params),
       shouldUseGlobalDeriveType: () => mockShouldUseGlobalDeriveType(),
+    },
+    serviceAllNetwork: {
+      getAllNetworksFallbackNetworkId: (
+        ...args: Parameters<typeof mockGetAllNetworksFallbackNetworkId>
+      ) => mockGetAllNetworksFallbackNetworkId(...args),
+      getEnabledNetworksCompatibleWithWalletId: (
+        ...args: Parameters<typeof mockGetEnabledNetworksCompatibleWithWalletId>
+      ) => mockGetEnabledNetworksCompatibleWithWalletId(...args),
+    },
+    serviceBatchCreateAccount: {
+      addDefaultNetworkAccounts: (
+        ...args: Parameters<typeof mockAddDefaultNetworkAccountsService>
+      ) => mockAddDefaultNetworkAccountsService(...args),
     },
     serviceNetwork: {
       isDeriveTypeAvailableForNetwork: () =>
@@ -535,6 +583,297 @@ describe('useAccountSelectorActions', () => {
       focusedWallet: WALLET_TYPE_IMPORTED,
       indexedAccountId: undefined,
       othersWalletAccountId: accountId,
+    });
+  });
+
+  describe('createQrWallet onboarding network selection', () => {
+    const qrWallet = { id: 'qr-1' } as IWallet;
+    const qrIndexedAccount = {
+      id: 'qr-1--0',
+      walletId: 'qr-1',
+    } as IIndexedAccount;
+    const qrDevice = {
+      deviceId: 'qr-device-1',
+    } as unknown as IDBCreateQRWalletParams['qrDevice'];
+
+    function seedAllNetworksSelection(
+      store: ReturnType<typeof createWrapper>['store'],
+    ) {
+      store.set(selectedAccountsAtom(), {
+        0: {
+          ...defaultSelectedAccount(),
+          walletId: 'hd-1',
+          indexedAccountId: 'hd-1--0',
+          focusedWallet: 'hd-1',
+          networkId: getNetworkIdsMap().onekeyall,
+          deriveType: 'default',
+        },
+      });
+    }
+
+    beforeEach(() => {
+      mockCreateQrWalletService.mockResolvedValue({
+        wallet: qrWallet,
+        indexedAccount: qrIndexedAccount,
+        isOverrideWallet: false,
+      });
+      mockAddDefaultNetworkAccountsService.mockResolvedValue({
+        addedAccounts: [
+          { networkId: 'btc--0', deriveType: 'default' },
+          { networkId: 'evm--1', deriveType: 'default' },
+        ],
+        failedAccounts: [],
+      });
+    });
+
+    it('falls back to the first added network when All Networks has no compatible enabled networks', async () => {
+      mockGetEnabledNetworksCompatibleWithWalletId.mockResolvedValue([]);
+
+      const { store, Wrapper } = createWrapper();
+      seedAllNetworksSelection(store);
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.createQrWallet({
+          qrDevice,
+          airGapAccounts: [],
+          isOnboarding: true,
+        });
+      });
+
+      expect(mockGetEnabledNetworksCompatibleWithWalletId).toHaveBeenCalledWith(
+        {
+          walletId: 'qr-1',
+        },
+      );
+      expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+        walletId: 'qr-1',
+        indexedAccountId: 'qr-1--0',
+        networkId: 'btc--0',
+        deriveType: 'default',
+      });
+    });
+
+    it('keeps All Networks when compatible enabled networks exist', async () => {
+      mockGetEnabledNetworksCompatibleWithWalletId.mockResolvedValue([
+        { id: 'evm--1' } as IServerNetwork,
+      ]);
+
+      const { store, Wrapper } = createWrapper();
+      seedAllNetworksSelection(store);
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.createQrWallet({
+          qrDevice,
+          airGapAccounts: [],
+          isOnboarding: true,
+        });
+      });
+
+      expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+        walletId: 'qr-1',
+        indexedAccountId: 'qr-1--0',
+        networkId: getNetworkIdsMap().onekeyall,
+        deriveType: 'default',
+      });
+    });
+
+    it('keeps All Networks when the compatibility check fails', async () => {
+      mockGetEnabledNetworksCompatibleWithWalletId.mockRejectedValue(
+        new Error('bg call failed'),
+      );
+
+      const { store, Wrapper } = createWrapper();
+      seedAllNetworksSelection(store);
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.createQrWallet({
+          qrDevice,
+          airGapAccounts: [],
+          isOnboarding: true,
+        });
+      });
+
+      expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+        walletId: 'qr-1',
+        networkId: getNetworkIdsMap().onekeyall,
+        deriveType: 'default',
+      });
+    });
+  });
+
+  describe('confirmAccountSelect All Networks fallback', () => {
+    const qrIndexedAccount = {
+      id: 'qr-1--0',
+      walletId: 'qr-1',
+    } as IIndexedAccount;
+
+    function seedSelection(
+      store: ReturnType<typeof createWrapper>['store'],
+      networkId: string,
+    ) {
+      store.set(selectedAccountsAtom(), {
+        0: {
+          ...defaultSelectedAccount(),
+          walletId: 'hd-1',
+          indexedAccountId: 'hd-1--0',
+          focusedWallet: 'hd-1',
+          networkId,
+          deriveType: 'default',
+        },
+      });
+    }
+
+    it('falls back to the first compatible chain when All Networks is a dead end for the target wallet', async () => {
+      mockGetAllNetworksFallbackNetworkId.mockResolvedValue('btc--0');
+
+      const { store, Wrapper } = createWrapper();
+      seedSelection(store, getNetworkIdsMap().onekeyall);
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.confirmAccountSelect({
+          indexedAccount: qrIndexedAccount,
+          othersWalletAccount: undefined,
+          num: 0,
+        });
+      });
+
+      expect(mockGetAllNetworksFallbackNetworkId).toHaveBeenCalledWith({
+        walletId: 'qr-1',
+      });
+      expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+        walletId: 'qr-1',
+        indexedAccountId: 'qr-1--0',
+        networkId: 'btc--0',
+      });
+    });
+
+    it('keeps All Networks when the target wallet has compatible enabled networks', async () => {
+      mockGetAllNetworksFallbackNetworkId.mockResolvedValue(undefined);
+
+      const { store, Wrapper } = createWrapper();
+      seedSelection(store, getNetworkIdsMap().onekeyall);
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.confirmAccountSelect({
+          indexedAccount: qrIndexedAccount,
+          othersWalletAccount: undefined,
+          num: 0,
+        });
+      });
+
+      expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+        walletId: 'qr-1',
+        indexedAccountId: 'qr-1--0',
+        networkId: getNetworkIdsMap().onekeyall,
+      });
+    });
+
+    it('keeps All Networks when the fallback check fails', async () => {
+      mockGetAllNetworksFallbackNetworkId.mockRejectedValue(
+        new Error('bg call failed'),
+      );
+
+      const { store, Wrapper } = createWrapper();
+      seedSelection(store, getNetworkIdsMap().onekeyall);
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.confirmAccountSelect({
+          indexedAccount: qrIndexedAccount,
+          othersWalletAccount: undefined,
+          num: 0,
+        });
+      });
+
+      expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+        walletId: 'qr-1',
+        indexedAccountId: 'qr-1--0',
+        networkId: getNetworkIdsMap().onekeyall,
+      });
+    });
+
+    it('does not run the fallback check for single-chain selections', async () => {
+      const { store, Wrapper } = createWrapper();
+      seedSelection(store, 'tron--0x2b6653dc');
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.confirmAccountSelect({
+          indexedAccount: qrIndexedAccount,
+          othersWalletAccount: undefined,
+          num: 0,
+        });
+      });
+
+      expect(mockGetAllNetworksFallbackNetworkId).not.toHaveBeenCalled();
+      expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+        walletId: 'qr-1',
+        indexedAccountId: 'qr-1--0',
+        networkId: 'tron--0x2b6653dc',
+      });
+    });
+
+    it('drops a stale fallback result when a newer selection completes first', async () => {
+      const resolvers = new Map<string, (value: string | undefined) => void>();
+      mockGetAllNetworksFallbackNetworkId.mockImplementation(
+        ({ walletId }) =>
+          new Promise<string | undefined>((resolve) => {
+            resolvers.set(walletId, resolve);
+          }),
+      );
+
+      const { store, Wrapper } = createWrapper();
+      seedSelection(store, getNetworkIdsMap().onekeyall);
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        const staleSelect = result.current.confirmAccountSelect({
+          indexedAccount: {
+            id: 'hd-2--0',
+            walletId: 'hd-2',
+          } as IIndexedAccount,
+          othersWalletAccount: undefined,
+          num: 0,
+        });
+        const latestSelect = result.current.confirmAccountSelect({
+          indexedAccount: qrIndexedAccount,
+          othersWalletAccount: undefined,
+          num: 0,
+        });
+        // The later selection resolves first...
+        resolvers.get('qr-1')?.('btc--0');
+        await latestSelect;
+        // ...then the earlier one resolves last and must be dropped.
+        resolvers.get('hd-2')?.('evm--1');
+        await staleSelect;
+      });
+
+      expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+        walletId: 'qr-1',
+        indexedAccountId: 'qr-1--0',
+        networkId: 'btc--0',
+      });
     });
   });
 
@@ -1152,6 +1491,106 @@ describe('useAccountSelectorActions', () => {
         sceneName: EAccountSelectorSceneName.swap,
       }),
     );
+  });
+
+  it('fills a missing Swap recipient account when restoring a partial recent-selection cache', async () => {
+    const selectedAccount = createHdSelectedAccount('hd-1--1');
+    mockGetSelectedAccountsMap.mockResolvedValue({
+      0: selectedAccount,
+    });
+    mockMergeHomeDataToSwapMap.mockResolvedValue({
+      0: selectedAccount,
+      1: selectedAccount,
+    });
+
+    getAccountSelectorActions().setRecentAccountSelectorSelectionCache({
+      sceneName: EAccountSelectorSceneName.swap,
+      selectedAccountsMap: {
+        0: selectedAccount,
+      },
+      updateMeta: {
+        0: {
+          eventEmitDisabled: false,
+          updatedAt: Date.now(),
+        },
+      },
+    });
+
+    const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.swap);
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.initFromStorage({
+        sceneName: EAccountSelectorSceneName.swap,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())).toMatchObject({
+      0: {
+        indexedAccountId: selectedAccount.indexedAccountId,
+      },
+      1: {
+        indexedAccountId: selectedAccount.indexedAccountId,
+      },
+    });
+  });
+
+  it('ignores an affected-version Swap recent cache with the wrong recipient account', async () => {
+    const selectedAccount = createHdSelectedAccount('hd-1--1');
+    const wrongRecipientAccount = createHdSelectedAccount('hd-1--0');
+    mockGetSelectedAccountsMap.mockResolvedValue({
+      0: selectedAccount,
+      1: selectedAccount,
+    });
+    mockMergeHomeDataToSwapMap.mockResolvedValue({
+      0: selectedAccount,
+      1: selectedAccount,
+    });
+    mockColdStartCacheStorageData.set(
+      EAppSyncStorageKeys.onekey_account_selector_recent_selection,
+      {
+        [EAccountSelectorSceneName.swap]: {
+          version: 1,
+          updatedAt: Date.now(),
+          selectedAccountsMap: {
+            0: selectedAccount,
+            1: wrongRecipientAccount,
+          },
+          updateMeta: {
+            0: {
+              eventEmitDisabled: false,
+              updatedAt: Date.now(),
+            },
+            1: {
+              eventEmitDisabled: true,
+              updatedAt: Date.now(),
+            },
+          },
+        },
+      },
+    );
+
+    const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.swap);
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.initFromStorage({
+        sceneName: EAccountSelectorSceneName.swap,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())).toMatchObject({
+      0: {
+        indexedAccountId: selectedAccount.indexedAccountId,
+      },
+      1: {
+        indexedAccountId: selectedAccount.indexedAccountId,
+      },
+    });
   });
 
   it('keeps a locked temp hidden wallet selection during storage init', async () => {

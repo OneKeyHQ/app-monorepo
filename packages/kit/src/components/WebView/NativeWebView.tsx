@@ -168,14 +168,21 @@ const NativeWebView = forwardRef(
         // Guard against events after unmount started
         if (isUnmountingRef.current) return;
 
-        setLoadTimeoutError(false);
-        startLoadTimeout();
-
         // eslint-disable-next-line no-unsafe-optional-chaining, @typescript-eslint/no-unsafe-member-access
-        const { url } = syntheticEvent?.nativeEvent;
+        const { loading, url } = syntheticEvent?.nativeEvent;
+        setLoadTimeoutError(false);
+        if (platformEnv.isNativeAndroid && !useGeckoView && loading === false) {
+          // Android WebView reports same-document history updates as load-start
+          // events without a matching load-end event.
+          clearLoadTimeout();
+        } else {
+          startLoadTimeout();
+        }
+
         try {
           if (checkOneKeyCardGoogleOauthUrl({ url })) {
-            openUrlExternal(url);
+            // Google OAuth rejects embedded browser UAs (disallowed_useragent).
+            openUrlExternal(url, { useSystemBrowser: true });
             webviewRef.current?.stopLoading();
           }
           onLoadStart?.(syntheticEvent);
@@ -184,7 +191,7 @@ const NativeWebView = forwardRef(
           console.log('onLoadStart: ', error);
         }
       },
-      [onLoadStart, startLoadTimeout],
+      [clearLoadTimeout, onLoadStart, startLoadTimeout, useGeckoView],
     );
 
     const renderError = useCallback(
@@ -260,7 +267,7 @@ const NativeWebView = forwardRef(
             layoutMeasurement,
           } = e.nativeEvent;
           // @ts-expect-error
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+          // oxlint-disable-next-line @typescript-eslint/no-unsafe-call -- React Native does not type the private inner ref
           refreshControlRef?.current?._nativeRef?.setNativeProps?.({
             enabled:
               contentOffset?.y === 0 &&
