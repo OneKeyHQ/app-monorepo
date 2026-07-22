@@ -9,7 +9,12 @@ import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { resolvePhraseLengthAfterPaste } from './mnemonicPasteUtils';
+import {
+  buildPhraseFormValues,
+  getInvalidWordErrors,
+  mergePastedPhraseWords,
+  resolvePhraseLengthAfterPaste,
+} from './mnemonicPasteUtils';
 
 // Force the BIP39 JSON module to evaluate synchronously at this module's
 // load time. With split-thread bundles the original `wordLists.includes(...)`
@@ -75,19 +80,6 @@ export const useSuggestion = (
   const openStatusRef = useRef(false);
 
   const updateByPressLock = useRef(false);
-
-  const checkAllWords = useCallback(() => {
-    const values = form.getValues() as Record<string, string>;
-    const errors: Record<string, boolean> = {};
-    for (let i = 0; i < phraseLength; i += 1) {
-      const key = `phrase${i + 1}`;
-      const value = values[key];
-      if (value && !isValidWord(value)) {
-        errors[i] = true;
-      }
-    }
-    setIsShowErrors(errors);
-  }, [form, phraseLength]);
 
   const checkIsValidWord = useCallback(
     (index: number, text?: string, isBlur = false) => {
@@ -259,46 +251,34 @@ export const useSuggestion = (
           pastedWords.length,
           phraseLength,
         );
-        setTimeout(async () => {
+        setTimeout(() => {
           clearText();
+          const currentValues = form.getValues() as Record<string, string>;
+          const currentWords = Array.from(
+            { length: phraseLength },
+            (_, index) => currentValues[`phrase${index + 1}`] ?? '',
+          );
+          const words = mergePastedPhraseWords({
+            currentWords,
+            pastedWords,
+            inputIndex,
+            phraseLength: currentPhraseLength,
+          });
+
+          // Reset before mounting dynamic fields so Controllers read the
+          // pasted values instead of registering their empty defaults.
+          form.reset(buildPhraseFormValues(words));
           if (currentPhraseLength !== phraseLength) {
             setPhraseLength(currentPhraseLength.toString());
-            await timerUtils.wait(30);
           }
-          const formValues = Object.values(form.getValues());
-          const values: string[] = formValues.slice(0, inputIndex);
-          const words = [...values, ...pastedWords].slice(
-            0,
-            currentPhraseLength,
-          );
-          if (words.length < currentPhraseLength) {
-            words.push(...formValues.slice(words.length, currentPhraseLength));
-          }
-          form.reset(
-            words.reduce(
-              (prev, next, index) => {
-                prev[`phrase${index + 1}`] = next;
-                return prev;
-              },
-              {} as Record<`phrase${number}`, string>,
-            ),
-          );
           resetSuggestions();
-          await timerUtils.wait(10);
-          checkAllWords();
+          setIsShowErrors(getInvalidWordErrors(words, wordListSet));
         }, 30);
         return true;
       }
       return false;
     },
-    [
-      checkAllWords,
-      clearText,
-      form,
-      phraseLength,
-      resetSuggestions,
-      setPhraseLength,
-    ],
+    [clearText, form, phraseLength, resetSuggestions, setPhraseLength],
   );
 
   const closePopover = useCallback(() => {
