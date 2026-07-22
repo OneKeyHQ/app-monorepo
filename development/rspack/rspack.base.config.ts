@@ -205,6 +205,11 @@ const baseResolve = ({
     // cannot resolve. Pin the entry to the ESM build (same file kit-bg imports
     // directly), keeping a single algosdk module graph in the bundle.
     'algosdk$': require.resolve('algosdk/dist/esm/index.js'),
+    // @walletconnect/pay (bundled into @reown/walletkit >=1.5) imports
+    // 'brotli/decompress' without an extension from an ESM context; brotli
+    // has no exports map, so strict fully-specified resolution fails. Pin
+    // the file directly.
+    'brotli/decompress$': require.resolve('brotli/decompress.js'),
   },
   fallback: {
     crypto:
