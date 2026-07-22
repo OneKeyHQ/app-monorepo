@@ -267,9 +267,7 @@ export function Container({
   const listContainerRef = useRef<Element>(null);
 
   const stickyHeaderHeight = useRef(0);
-  const handlerStickyHeaderLayout = useCallback((event: LayoutChangeEvent) => {
-    stickyHeaderHeight.current = event.nativeEvent.layout.height;
-  }, []);
+  const hasMeasuredStickyHeaderRef = useRef(false);
 
   const [scrollElement, setScrollElement] = useState<Element | null>(null);
   const isSwitchingTabRef = useRef(false);
@@ -339,6 +337,25 @@ export function Container({
     }
     isSwitchingTabRef.current = prevSwitching;
   }, [scrollElement]);
+  const handlerStickyHeaderLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const nextHeight = event.nativeEvent.layout.height;
+      const previousHeight = stickyHeaderHeight.current;
+      stickyHeaderHeight.current = nextHeight;
+      if (!hasMeasuredStickyHeaderRef.current) {
+        hasMeasuredStickyHeaderRef.current = true;
+        return;
+      }
+      // renderHeader can change height independently from the focused tab
+      // (for example, dismissing the wallet banner). Chromium can retain the
+      // old async-scroll extent until the list layout box is rebuilt, leaving
+      // the current tab unable to reach its real bottom until a tab switch.
+      if (Math.abs(nextHeight - previousHeight) > 0.5) {
+        refreshScrollExtent();
+      }
+    },
+    [refreshScrollExtent],
+  );
   // Attach (or re-attach) a ResizeObserver to the focused tab's scroll
   // element so listContainerRef height follows it. Replaces the previous
   // 250ms-polling retry loop entirely:

@@ -615,6 +615,7 @@ async function runDappColdStartDesktop(cdpUrl, flags) {
 async function runTabsScrollExtentDesktop(cdpUrl) {
   const { page } = await connectCdpMainWindow(cdpUrl);
   const growthProbeTestId = 'tabs-scroll-extent-late-growth-probe';
+  const headerProbeTestId = 'tabs-scroll-extent-header-probe';
   const tabSwitchRounds = Number(process.env.TAB_SWITCH_ROUNDS || 8);
   const visiblePasswordInput = page.locator(
     '[data-testid="password-input"]:visible',
@@ -739,6 +740,141 @@ async function runTabsScrollExtentDesktop(cdpUrl) {
       previousScrollTop = metrics.scrollTop;
     }
   };
+
+  // Closing a wallet banner shrinks renderHeader without changing the focused
+  // tab's own content height. Reproduce that structural change with a
+  // deterministic header child, then verify the current tab accepts real wheel
+  // input immediately; switching tabs must not be required to recover it.
+  const cleanupHeaderProbe = () =>
+    defiContent.evaluate((tabContent, testId) => {
+      if (!(tabContent instanceof HTMLElement)) return;
+      const scroller = tabContent
+        .closest('.onekey-tabs-scroll-view')
+        ?.closest('.onekey-tabs-container');
+      if (scroller instanceof HTMLElement) {
+        scroller.querySelector(`[data-testid="${testId}"]`)?.remove();
+      }
+    }, headerProbeTestId);
+  const cleanupHeaderRefreshObserver = () =>
+    defiContent.evaluate((tabContent) => {
+      if (!(tabContent instanceof HTMLElement)) return;
+      const scroller = tabContent
+        .closest('.onekey-tabs-scroll-view')
+        ?.closest('.onekey-tabs-container');
+      if (!(scroller instanceof HTMLElement)) return;
+      scroller.__tabsHeaderRefreshObserver?.disconnect();
+      delete scroller.__tabsHeaderRefreshObserver;
+      delete scroller.dataset.tabsHeaderRefreshObserved;
+    });
+
+  await cleanupHeaderProbe();
+  await cleanupHeaderRefreshObserver();
+  let headerShrinkFailure = false;
+  try {
+    const insertedHeaderProbe = await defiContent.evaluate(
+      (tabContent, testId) => {
+        if (!(tabContent instanceof HTMLElement)) return false;
+        const scroller = tabContent
+          .closest('.onekey-tabs-scroll-view')
+          ?.closest('.onekey-tabs-container');
+        const header = scroller?.firstElementChild;
+        if (
+          !(scroller instanceof HTMLElement) ||
+          !(header instanceof HTMLElement)
+        ) {
+          return false;
+        }
+        const scrollViewRoot = tabContent.closest('.onekey-tabs-scroll-view');
+        let listContainer = scrollViewRoot?.parentElement;
+        while (
+          listContainer &&
+          listContainer !== scroller &&
+          !listContainer.style.height
+        ) {
+          listContainer = listContainer.parentElement;
+        }
+        if (
+          !(listContainer instanceof HTMLElement) ||
+          listContainer === scroller
+        ) {
+          return false;
+        }
+        scroller.dataset.tabsHeaderRefreshObserved = 'false';
+        const refreshObserver = new MutationObserver((records) => {
+          if (
+            records.some((record) => record.oldValue?.includes('display: none'))
+          ) {
+            scroller.dataset.tabsHeaderRefreshObserved = 'true';
+          }
+        });
+        refreshObserver.observe(listContainer, {
+          attributeFilter: ['style'],
+          attributeOldValue: true,
+          attributes: true,
+        });
+        scroller.__tabsHeaderRefreshObserver = refreshObserver;
+        scroller.scrollTop = 0;
+        const probe = document.createElement('div');
+        probe.setAttribute('data-testid', testId);
+        probe.style.cssText =
+          'display:block;flex:none;width:100%;height:96px;min-height:96px;';
+        header.append(probe);
+        return true;
+      },
+      headerProbeTestId,
+    );
+    if (!insertedHeaderProbe) {
+      throw new Error('Could not insert the Tabs header probe');
+    }
+    await sleep(300);
+    await cleanupHeaderProbe();
+    await sleep(300);
+
+    await wheelToBottom();
+    await sleep(300);
+
+    const headerShrinkMetrics = await getMetrics();
+    if (!headerShrinkMetrics) {
+      throw new Error(
+        'Tabs scroll metrics are unavailable after header shrink',
+      );
+    }
+    const headerRefreshObserved = await defiContent.evaluate((tabContent) => {
+      if (!(tabContent instanceof HTMLElement)) return false;
+      const scroller = tabContent
+        .closest('.onekey-tabs-scroll-view')
+        ?.closest('.onekey-tabs-container');
+      return (
+        scroller instanceof HTMLElement &&
+        scroller.dataset.tabsHeaderRefreshObserved === 'true'
+      );
+    });
+    headerShrinkFailure =
+      !headerRefreshObserved ||
+      !headerShrinkMetrics.atBottom ||
+      headerShrinkMetrics.hiddenBelowScroller > 2 ||
+      headerShrinkMetrics.unmeasuredScrollViewOverflow > 2;
+    log(
+      `Header shrink wheel: ${
+        headerShrinkFailure ? 'stuck' : 'clean'
+      } refresh=${headerRefreshObserved} scrollTop=${headerShrinkMetrics.scrollTop.toFixed(
+        1,
+      )}/${headerShrinkMetrics.maxScrollTop.toFixed(1)}`,
+    );
+  } finally {
+    await cleanupHeaderProbe();
+    await cleanupHeaderRefreshObserver();
+  }
+
+  if (headerShrinkFailure) {
+    const screenshotPath = path.resolve(
+      '.tmp/ui/tabs-scroll-extent-header-shrink-desktop.png',
+    );
+    fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
+    await page.screenshot({ path: screenshotPath });
+    log(`evidence -> ${screenshotPath}`);
+    return report('tabs-scroll-extent-desktop', 1, 1, 0, 0, '');
+  }
 
   // Reproduce OK-57257's recorded sequence first: a fully rendered, tall DeFi
   // tab is scrolled away from the top, switched to the short NFT tab, restored,
@@ -888,6 +1024,7 @@ async function runTabsScrollExtentDesktop(cdpUrl) {
     const listContainerGrowth =
       metrics.listContainerHeight - beforeGrowthMetrics.listContainerHeight;
     const reproduced =
+      headerShrinkFailure ||
       coldStartClipped ||
       tabRoundTripFailures > 0 ||
       extentGrowth < 90 ||
@@ -896,7 +1033,7 @@ async function runTabsScrollExtentDesktop(cdpUrl) {
       metrics.hiddenBelowScroller > 2 ||
       metrics.unmeasuredScrollViewOverflow > 2;
     log(
-      `Tabs extent coldStartClipped=${coldStartClipped} roundTripFailures=${tabRoundTripFailures}/${tabSwitchRounds} oldMax=${beforeGrowthMetrics.maxScrollTop.toFixed(
+      `Tabs extent headerShrinkFailure=${headerShrinkFailure} coldStartClipped=${coldStartClipped} roundTripFailures=${tabRoundTripFailures}/${tabSwitchRounds} oldMax=${beforeGrowthMetrics.maxScrollTop.toFixed(
         1,
       )} scrollTop=${metrics.scrollTop.toFixed(1)}/${metrics.maxScrollTop.toFixed(
         1,
