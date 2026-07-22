@@ -17,6 +17,8 @@ import type {
   IUnifoldSupportedAssetChain,
 } from '@onekeyhq/shared/types/unifoldDeposit';
 
+import { normalizeUnifoldIconUrl } from './unifoldFormat';
+
 // Two side-by-side dropdowns replicating the SDK double_input variant:
 // "Selected token" and "Selected chain $N min". Options render icon + name
 // (+ right-aligned minimum on chain rows), so both dropdowns use Popover with
@@ -48,7 +50,7 @@ function SelectorTrigger({
         </SizableText>
       ) : (
         <>
-          <Token size="xs" tokenImageUri={iconUri} />
+          <Token size="xs" tokenImageUri={normalizeUnifoldIconUrl(iconUri)} />
           <SizableText
             size="$bodySm"
             color="$text"
@@ -100,7 +102,7 @@ function OptionRow({
           <Icon name="CheckLargeOutline" size="$4" color="$icon" />
         ) : null}
       </Stack>
-      <Token size="xs" tokenImageUri={iconUri} />
+      <Token size="xs" tokenImageUri={normalizeUnifoldIconUrl(iconUri)} />
       <SizableText size="$bodySm" color="$text" flex={1} numberOfLines={1}>
         {label}
       </SizableText>

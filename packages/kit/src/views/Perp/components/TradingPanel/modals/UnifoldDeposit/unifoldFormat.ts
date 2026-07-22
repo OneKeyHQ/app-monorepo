@@ -1,7 +1,7 @@
 // cspell: words unifold Unifold
-import BigNumber from 'bignumber.js';
-
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatUnifoldTokenAmountValue } from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
 
 // SDK formatter: ceil(seconds/60) → "< N min"; ≥60min → "< N hr"; null → "< 1 min".
 export function formatUnifoldProcessingTime(
@@ -18,13 +18,8 @@ export function formatUnifoldProcessingTime(
 }
 
 // Amount discipline (contract §4-3): strings end-to-end, null renders as an
-// em dash, never 0.
-export function formatUnifoldUsd(value: string | null | undefined): string {
-  if (!value) {
-    return '—';
-  }
-  return `$${value}`;
-}
+// em dash, never 0. Implementation is shared with the bg terminal toast.
+export { formatUnifoldUsdAmount as formatUnifoldUsd } from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
 
 export function formatUnifoldTokenAmount({
   baseUnit,
@@ -35,17 +30,68 @@ export function formatUnifoldTokenAmount({
   decimals: number | null | undefined;
   currency: string | null | undefined;
 }): string {
-  if (!baseUnit || decimals === null || decimals === undefined) {
+  const rendered = formatUnifoldTokenAmountValue({ baseUnit, decimals });
+  if (rendered === null) {
     return '—';
   }
-  const amount = new BigNumber(baseUnit).shiftedBy(-decimals);
-  if (amount.isNaN()) {
-    return '—';
-  }
-  const rendered = amount.gte(1)
-    ? amount.toFixed(2)
-    : amount.decimalPlaces(8).toFixed();
   return currency ? `${rendered} ${currency.toUpperCase()}` : rendered;
+}
+
+// The vendor serves every icon as both SVG and PNG under parallel paths
+// (/icons/<kind>/svg/x.svg and /icons/<kind>/png/x.png) and the API hands us
+// the SVG one. React Native's Image cannot render SVG, so native falls back to
+// the PNG variant — the same trick the vendor SDK used for its RN build.
+// Web keeps the SVG (sharper, and <img> handles it).
+export function normalizeUnifoldIconUrl(
+  url: string | null | undefined,
+): string | undefined {
+  if (!url) {
+    return undefined;
+  }
+  if (!platformEnv.isNative || !url.endsWith('.svg')) {
+    return url;
+  }
+  return url.replace('/svg/', '/png/').replace(/\.svg$/, '.png');
+}
+
+// Chain display names, mirroring the vendor SDK: EVM chains are named by
+// chainId, everything else falls back to its chain type.
+const EVM_CHAIN_NAMES: Record<string, string> = {
+  '1': 'Ethereum',
+  '10': 'Optimism',
+  '56': 'BSC',
+  '137': 'Polygon',
+  '999': 'HyperEVM',
+  '1337': 'HyperCore',
+  '4326': 'MegaETH',
+  '4663': 'Robinhood Chain',
+  '8453': 'Base',
+  '42161': 'Arbitrum',
+};
+
+const CHAIN_TYPE_NAMES: Record<string, string> = {
+  solana: 'Solana',
+  bitcoin: 'Bitcoin',
+  cardano: 'Cardano',
+  algorand: 'Algorand',
+  xrpl: 'XRPL',
+  n1: 'N1',
+};
+
+export function formatUnifoldChainName({
+  chainType,
+  chainId,
+}: {
+  chainType: string | null | undefined;
+  chainId: string | null | undefined;
+}): string {
+  if (chainId && EVM_CHAIN_NAMES[chainId]) {
+    return EVM_CHAIN_NAMES[chainId];
+  }
+  if (chainType && CHAIN_TYPE_NAMES[chainType.toLowerCase()]) {
+    return CHAIN_TYPE_NAMES[chainType.toLowerCase()];
+  }
+  return chainType || '—';
 }
 
 export function formatUnifoldExecutionDate(

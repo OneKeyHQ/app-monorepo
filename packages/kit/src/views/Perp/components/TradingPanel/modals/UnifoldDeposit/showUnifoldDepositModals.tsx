@@ -11,9 +11,11 @@ import type { IDialogInstance, useInTabDialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { UNIFOLD_DEPOSIT_DESTINATION } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
+import { resolveUnifoldDepositDestination } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IUnifoldDepositExecution } from '@onekeyhq/shared/types/unifoldDeposit';
 
+import { normalizeUnifoldIconUrl } from './unifoldFormat';
 import {
   UnifoldExecutionDetail,
   UnifoldTrackerContent,
@@ -83,12 +85,12 @@ function MenuActionRow({
 // wallet-service supported-assets catalog (replaces the old SDK project-config
 // logos — no vendor SDK, no pk_ in the client).
 function TransferChainHintLogos() {
+  const [devSettings] = useDevSettingsPersistAtom();
+  const destination = resolveUnifoldDepositDestination(devSettings);
   const { result } = usePromiseResult(
     async () =>
-      backgroundApiProxy.serviceUnifoldDeposit.getSupportedAssets(
-        UNIFOLD_DEPOSIT_DESTINATION,
-      ),
-    [],
+      backgroundApiProxy.serviceUnifoldDeposit.getSupportedAssets(destination),
+    [destination],
     { watchLoading: false },
   );
   const logos = Array.from(
@@ -108,7 +110,7 @@ function TransferChainHintLogos() {
         <Token
           key={uri}
           size="xxs"
-          tokenImageUri={uri}
+          tokenImageUri={normalizeUnifoldIconUrl(uri)}
           w="$4.5"
           h="$4.5"
           borderWidth="$px"
