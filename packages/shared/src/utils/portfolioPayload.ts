@@ -7,7 +7,6 @@ import { formatBalance, formatDisplayNumber, formatValue } from './numberUtils';
 import {
   type IPortfolioTokenIconName,
   normalizePortfolioTokenContractAddress,
-  resolvePortfolioTokenColor,
   resolvePortfolioTokenIconName,
 } from './portfolioTokenIcon';
 import { stableStringify } from './stringUtils';
@@ -25,7 +24,6 @@ export type IPortfolioPayloadToken = {
   name: string;
   contractAddress: string;
   iconName: IPortfolioTokenIconName | null;
-  color: number;
   isAllNetworks: boolean;
   isNative: boolean;
   balance: string;
@@ -295,12 +293,6 @@ export function buildPortfolioPayload({
       allocationValue,
       payload: {
         balance: formatPortfolioBalance(fiat?.balanceParsed ?? '0'),
-        color: resolvePortfolioTokenColor({
-          contractAddress,
-          iconName,
-          networkId,
-          symbol,
-        }),
         contractAddress,
         fiatValue: formatPortfolioFiat(allocationValue, displayCurrency.symbol),
         iconName,
