@@ -2108,7 +2108,9 @@ export type IEarnPortfolioAirdropAsset =
   IEarnAirdropInvestmentItemV2['assets'][number] & {
     // Metadata containing protocol and network information for this airdrop asset
     metadata: {
-      protocol: IEarnAirdropInvestmentItemV2['protocol'];
+      protocol: IEarnAirdropInvestmentItemV2['protocol'] & {
+        claimSymbol?: string;
+      };
       network: IEarnAirdropInvestmentItemV2['network'];
     };
   };

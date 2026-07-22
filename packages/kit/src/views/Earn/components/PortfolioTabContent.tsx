@@ -27,7 +27,6 @@ import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableLi
 import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { MorphoUSDCVaultAddress } from '@onekeyhq/shared/src/consts/addresses';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
@@ -51,6 +50,7 @@ import { EarnNavigation } from '../earnUtils';
 import { usePortfolioAction } from '../hooks/usePortfolioAction';
 import { useStakingPendingTxsByInfo } from '../hooks/useStakingPendingTxs';
 import { EarnTestIDs } from '../testIDs';
+import { resolvePortfolioClaimProtocolIdentity } from '../utils/portfolioClaimUtils';
 
 import type {
   IRefreshOptions,
@@ -161,24 +161,18 @@ const WrappedActionButtonCmp = ({
   const isMorphoProvider = earnUtils.isMorphoProvider({
     providerName,
   });
-  const isPendleProvider = earnUtils.isPendleProvider({
-    providerName,
-  });
-
-  // Default airdrop claims reuse the source position's symbol/vault, but some
-  // providers expose rewards as their own backend asset (for example Pendle's
-  // Ethena unstake claim), so we normalize those separately below.
-  let symbolForConfig = stakedSymbol || asset.token.info.symbol;
-  let vaultForConfig = stakedVault || asset.metadata.protocol.vault;
-  if (isMorphoProvider) {
-    symbolForConfig = 'USDC';
-    vaultForConfig = MorphoUSDCVaultAddress;
-  } else if (isPendleProvider) {
-    // Pendle Ethena-unstake rewards have their own protocol identity on the
-    // backend, so don't reuse the original staked position's symbol/vault.
-    symbolForConfig = asset.token.info.symbol;
-    vaultForConfig = asset.metadata.protocol.vault;
-  }
+  const { symbol: symbolForConfig, vault: vaultForConfig } =
+    resolvePortfolioClaimProtocolIdentity({
+      providerName,
+      assetSymbol: asset.token.info.symbol,
+      assetVault: asset.metadata.protocol.vault,
+      claimSymbol:
+        'airdropAssets' in asset
+          ? asset.metadata.protocol.claimSymbol
+          : undefined,
+      stakedSymbol,
+      stakedVault,
+    });
 
   const stakeTag = buildLocalTxStatusSyncId({
     providerName: asset.metadata.protocol.providerDetail.code,

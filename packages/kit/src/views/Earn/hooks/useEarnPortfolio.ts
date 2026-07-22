@@ -26,6 +26,10 @@ import {
   useEarnAtom,
   useEarnPortfolioInvestmentsAtom,
 } from '../../../states/jotai/contexts/earn';
+import {
+  buildPortfolioClaimSymbolMap,
+  getPortfolioProtocolIdentityKey,
+} from '../utils/portfolioClaimUtils';
 
 import {
   buildEarnPortfolioBatchGroups,
@@ -56,6 +60,7 @@ export interface IRefreshOptions {
 
 interface IAccountAssetPair {
   isAirdrop: boolean;
+  claimSymbol?: string;
   enableBatch?: boolean;
   params: IPortfolioFetchRequest;
 }
@@ -196,11 +201,13 @@ const aggregateByProtocol = (
 function normalizeAirdropInvestmentResult(
   params: Pick<IPortfolioFetchRequest, 'symbol' | 'vault'>,
   result: IEarnAirdropInvestmentItemV2,
+  claimSymbol?: string,
 ): IEarnPortfolioInvestmentFetchResult {
   const resolvedVault = result.protocol.vault || params.vault;
   const normalizedProtocol = {
     ...result.protocol,
     symbol: params.symbol,
+    ...(claimSymbol ? { claimSymbol } : {}),
     ...(resolvedVault ? { vault: resolvedVault } : {}),
   };
 
@@ -304,6 +311,7 @@ function normalizeInvestmentResult(
 async function fetchSingleInvestment(
   params: IPortfolioFetchRequest,
   isAirdrop: boolean,
+  claimSymbol?: string,
 ): Promise<IEarnPortfolioInvestmentFetchResult | null> {
   if (isAirdrop) {
     const result =
@@ -311,7 +319,7 @@ async function fetchSingleInvestment(
         params,
       );
 
-    return normalizeAirdropInvestmentResult(params, result);
+    return normalizeAirdropInvestmentResult(params, result, claimSymbol);
   }
 
   const result =
@@ -604,27 +612,37 @@ export const useEarnPortfolio = ({
           });
         }
 
+        const claimSymbolMap = buildPortfolioClaimSymbolMap(assets);
+
         // Build account-asset pairs
         const accountAssetPairs: IAccountAssetPair[] = accounts.flatMap(
           (accountItem) =>
             assets
               .filter((asset) => asset.networkId === accountItem.networkId)
-              .map((asset) => ({
-                isAirdrop: asset.type === 'airdrop',
-                enableBatch: asset.enableBatch,
-                params: {
-                  accountId: accountIdValue || '',
-                  accountAddress: accountItem.accountAddress,
-                  networkId: accountItem.networkId,
-                  provider: asset.provider,
-                  symbol: asset.symbol,
-                  ...(asset.vault && { vault: asset.vault }),
-                  ...(asset.ptAddress && { ptAddress: asset.ptAddress }),
-                  ...(accountItem.publicKey && {
-                    publicKey: accountItem.publicKey,
-                  }),
-                },
-              })),
+              .map((asset) => {
+                const isAirdrop = asset.type === 'airdrop';
+                const claimSymbol = isAirdrop
+                  ? claimSymbolMap.get(getPortfolioProtocolIdentityKey(asset))
+                  : undefined;
+
+                return {
+                  isAirdrop,
+                  claimSymbol,
+                  enableBatch: asset.enableBatch,
+                  params: {
+                    accountId: accountIdValue || '',
+                    accountAddress: accountItem.accountAddress,
+                    networkId: accountItem.networkId,
+                    provider: asset.provider,
+                    symbol: asset.symbol,
+                    ...(asset.vault && { vault: asset.vault }),
+                    ...(asset.ptAddress && { ptAddress: asset.ptAddress }),
+                    ...(accountItem.publicKey && {
+                      publicKey: accountItem.publicKey,
+                    }),
+                  },
+                };
+              }),
         );
 
         // Filter pairs based on refresh options
@@ -721,13 +739,17 @@ export const useEarnPortfolio = ({
         };
 
         const tasks = [
-          ...singlePairs.map(({ params, isAirdrop }) =>
+          ...singlePairs.map(({ params, isAirdrop, claimSymbol }) =>
             limit(async () => {
               if (isRequestStale(requestId) || !isMountedRef.current) return;
 
               let result: IEarnPortfolioInvestmentFetchResult | null = null;
               try {
-                result = await fetchSingleInvestment(params, isAirdrop);
+                result = await fetchSingleInvestment(
+                  params,
+                  isAirdrop,
+                  claimSymbol,
+                );
               } catch (error) {
                 const failedKey = createEarnPortfolioRequestKey(params);
                 if (isAirdrop) {
