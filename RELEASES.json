@@ -15,5 +15,24 @@
       "#12505"
     ],
     "notes": "Align swap k-line and same-chain token selection (#12436); consolidate pending issue fixes (#12461); resolve Jira UI issues (#12468); adjust market chart height (#12180); ignore network filter for market stocks (#12490); add attempt-level firmware update tracking (#12481); translate Perps fallback strings (#12499); correct Swap and Market display states (#12494); refine Japanese Perps translations (#12505)"
+  },
+  {
+    "seq": 2,
+    "commit": "3a5b11c690eae8ea7ed890345a20f69710920d8f",
+    "date": "2026-07-21T12:47:41Z",
+    "prs": [
+      "#12471",
+      "#12473",
+      "#12475",
+      "#12477",
+      "#12506",
+      "#12509",
+      "#12516",
+      "#12519",
+      "#12541",
+      "#12549",
+      "#12561"
+    ],
+    "notes": "Use Hyperliquid Fast L2 order book subscriptions (#12477); recognize Robinhood wrapped token pair (#12561); add configurable haptic feedback (#12549); pass Perps deposit order ID to status request (#12541); unify security checks and transaction preview (#12471); support Permit2 approvals and revocation (#12473); backport device capability tiers for v6.5.0 (#12475); resolve five release 6.5.0 issues (#12506); adjust native browser header spacing (#12516); prevent false DApp WebView timeout (#12509); refine Perps locale labels (#12519)"
   }
 ]
