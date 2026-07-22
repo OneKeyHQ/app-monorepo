@@ -16,19 +16,8 @@ export function canEditPro2DeviceWideSettings({
 }: {
   unlocked: boolean;
 }) {
-  // DeviceSettingsSet accepts device-wide preferences while locked. Reading
-  // DeviceSettings still requires unlock, but that must not disable editing.
+  // Pro2 的公开设置支持在锁定状态下读取和修改。
   return true;
-}
-
-export function shouldRefreshDeviceSettingsAfterUpdate({
-  isPro2,
-  unlocked,
-}: {
-  isPro2: boolean;
-  unlocked: boolean;
-}) {
-  return !isPro2 || unlocked;
 }
 
 export function getPro2DeviceMetaStaticOverrides(

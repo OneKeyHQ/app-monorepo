@@ -114,7 +114,7 @@ const createService = ({ unlocked }: { unlocked: boolean }) => {
 };
 
 describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
-  it('caches DeviceInfo and only reads DeviceSettings after unlock', async () => {
+  it('caches DeviceInfo and reads public DeviceSettings while locked', async () => {
     const { service, deviceInfoGet, deviceStatusGet, deviceSettingsGet } =
       createService({ unlocked: false });
 
@@ -131,11 +131,15 @@ describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
         init_states: true,
         backup_required: false,
       },
+      settings: {
+        label: 'OneKey Pro 2',
+        language: 'en-US',
+      },
     });
 
     expect(deviceInfoGet).toHaveBeenCalledTimes(1);
     expect(deviceStatusGet).toHaveBeenCalledTimes(1);
-    expect(deviceSettingsGet).not.toHaveBeenCalled();
+    expect(deviceSettingsGet).toHaveBeenCalledTimes(1);
     expect(deviceInfoGet).toHaveBeenCalledWith('PRO2_USB', {
       connectProtocol: 'V2',
       targets: {
@@ -186,7 +190,7 @@ describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
 
     expect(deviceInfoGet).toHaveBeenCalledTimes(1);
     expect(deviceStatusGet).toHaveBeenCalledTimes(2);
-    expect(deviceSettingsGet).toHaveBeenCalledTimes(1);
+    expect(deviceSettingsGet).toHaveBeenCalledTimes(2);
   });
 
   it('supports explicit DeviceInfo refresh', async () => {
@@ -299,7 +303,6 @@ describe('ServiceHardware Pro 2 settings API', () => {
         tap_to_wake: true,
         device_name_display_enabled: true,
         fido_enabled: true,
-        experimental_features: false,
         usb_lock_enable: true,
         random_keypad: true,
       },
@@ -316,7 +319,6 @@ describe('ServiceHardware Pro 2 settings API', () => {
         tap_to_wake: true,
         device_name_display_enabled: true,
         fido_enabled: true,
-        experimental_features: false,
         usb_lock_enable: true,
         random_keypad: true,
       },

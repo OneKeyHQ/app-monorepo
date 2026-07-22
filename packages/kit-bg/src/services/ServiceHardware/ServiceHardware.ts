@@ -1390,18 +1390,16 @@ class ServiceHardware extends ServiceBase {
         });
       }
 
-      const settings = status.unlocked
-        ? await convertDeviceResponse(() =>
-            hardwareSDK.deviceSettingsGet(compatibleConnectId, {
-              connectProtocol: 'V2',
-            }),
-          )
-        : undefined;
+      const settings = await convertDeviceResponse(() =>
+        hardwareSDK.deviceSettingsGet(compatibleConnectId, {
+          connectProtocol: 'V2',
+        }),
+      );
 
       return {
         info,
         status,
-        ...(settings ? { settings } : {}),
+        settings,
       };
     })();
     this.pro2DeviceManagementSnapshotInFlight.set(compatibleConnectId, request);

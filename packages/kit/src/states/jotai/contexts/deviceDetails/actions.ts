@@ -24,7 +24,6 @@ import {
 import {
   buildPro2DeviceMetaState,
   getPro2DeviceMetaStaticOverrides,
-  shouldRefreshDeviceSettingsAfterUpdate,
 } from './pro2DeviceManagement';
 
 import type { IDeviceMetaState, IDeviceMetaStatic } from './atoms';
@@ -255,17 +254,8 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
     return get(deviceMetaStateAtom());
   });
 
-  refreshAfterDeviceSettingUpdate = contextAtomMethod(async (get, set) => {
-    const deviceType = get(deviceMetaStaticAtom()).deviceType;
-    const unlocked = Boolean(get(deviceMetaStateAtom()).unlocked);
-    if (
-      shouldRefreshDeviceSettingsAfterUpdate({
-        isPro2: deviceType === EDeviceType.Pro2,
-        unlocked,
-      })
-    ) {
-      await this.refresh.call(set);
-    }
+  refreshAfterDeviceSettingUpdate = contextAtomMethod(async (_get, set) => {
+    await this.refresh.call(set);
   });
 
   updateLanguage = contextAtomMethod(async (get, set, value: string) => {
