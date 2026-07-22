@@ -24,6 +24,7 @@ import {
   useSpotActiveOpenOrdersAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
@@ -41,9 +42,11 @@ import { OpenOrdersRow } from '../Components/OpenOrdersRow';
 import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
+import { shouldRenderMobileOpenOrdersNativeTree } from './mobileOpenOrdersVisibility';
 
 interface IPerpOpenOrdersListProps {
   isMobile?: boolean;
+  isPanelActive?: boolean;
   useTabsList?: boolean;
   disableListScroll?: boolean;
 }
@@ -202,6 +205,7 @@ function useOpenOrdersColumnsConfig({
 
 function PerpOpenOrdersList({
   isMobile,
+  isPanelActive,
   useTabsList,
   disableListScroll,
 }: IPerpOpenOrdersListProps) {
@@ -527,6 +531,23 @@ function PerpOpenOrdersList({
   ) : null;
   const listEmptyComponent =
     activeOpenOrdersSubTab === 'twap' ? <MobileTwapEmptyState /> : undefined;
+  const listViewDebugRenderTrackerProps = useMemo(
+    (): IDebugRenderTrackerProps => ({
+      name: 'PerpOpenOrdersList',
+      position: 'top-left',
+    }),
+    [],
+  );
+
+  if (
+    !shouldRenderMobileOpenOrdersNativeTree({
+      isNative: Boolean(platformEnv.isNative),
+      isMobile,
+      isPanelActive,
+    })
+  ) {
+    return null;
+  }
 
   return (
     <CommonTableListView
@@ -536,13 +557,7 @@ function PerpOpenOrdersList({
           await actions.current.loadTwapData();
         }
       }}
-      listViewDebugRenderTrackerProps={useMemo(
-        (): IDebugRenderTrackerProps => ({
-          name: 'PerpOpenOrdersList',
-          position: 'top-left',
-        }),
-        [],
-      )}
+      listViewDebugRenderTrackerProps={listViewDebugRenderTrackerProps}
       useTabsList={useTabsList}
       disableListScroll={disableListScroll}
       enablePagination

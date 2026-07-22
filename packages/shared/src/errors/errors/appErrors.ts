@@ -779,6 +779,22 @@ export class TransferValueTooSmall extends OneKeyAppError {
   }
 }
 
+export type ITooManyTransactionInputsInfo = {
+  number: string | number;
+  max: string | number;
+};
+
+export class TooManyTransactionInputs extends OneKeyAppError<ITooManyTransactionInputsInfo> {
+  constructor(props?: IOneKeyError<ITooManyTransactionInputsInfo>) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'TooManyTransactionInputs',
+        defaultKey: ETranslations.send_too_many_inputs__msg,
+      }),
+    );
+  }
+}
+
 // **** only for Native Token  InsufficientBalance
 
 export type IInsufficientBalanceInfo = {

@@ -10,13 +10,19 @@ import platformEnv from '../platformEnv';
 import { headerPlatform } from '../request/InterceptorConsts';
 
 import { getDeviceInfo } from './deviceInfo';
+import { type TAnalyticsTier, getAnalyticsTier } from './tier';
 
+import type { IAnalyticsUserProfile } from './type';
 import type { AxiosInstance } from 'axios';
 
 export const ANALYTICS_EVENT_PATH = '/utility/v1/track';
 
 const TRACK_EVENT_PATH = `${ANALYTICS_EVENT_PATH}/event`;
 const TRACK_ATTRIBUTES_PATH = `${ANALYTICS_EVENT_PATH}/attributes`;
+
+type IAnalyticsDeviceInfo = Record<string, unknown> & {
+  tier: TAnalyticsTier;
+};
 
 export class Analytics {
   private instanceId = '';
@@ -25,7 +31,7 @@ export class Analytics {
 
   private cacheEvents = [] as [string, Record<string, any> | undefined][];
 
-  private cacheUserProfile = [] as Record<string, any>[];
+  private cacheUserProfile = [] as IAnalyticsUserProfile[];
 
   private request: AxiosInstance | null = null;
 
@@ -33,7 +39,7 @@ export class Analytics {
     pageName: string;
   };
 
-  private deviceInfo: Record<string, any> | null = null;
+  private deviceInfoPromise: Promise<IAnalyticsDeviceInfo> | null = null;
 
   private enableAnalyticsInDev = false;
 
@@ -115,15 +121,31 @@ export class Analytics {
     }
   }
 
-  private async lazyDeviceInfo() {
-    if (!this.deviceInfo) {
-      this.deviceInfo = await getDeviceInfo();
-      this.deviceInfo.platform = headerPlatform;
-      this.deviceInfo.appBuildNumber = platformEnv.buildNumber;
-      this.deviceInfo.appVersion = platformEnv.version;
+  private async lazyDeviceInfo(): Promise<IAnalyticsDeviceInfo> {
+    let deviceInfoPromise = this.deviceInfoPromise;
+    if (!deviceInfoPromise) {
+      deviceInfoPromise = (async () => {
+        const deviceInfo = await getDeviceInfo();
+        const { getDeviceCpuTier } =
+          await import('../performance/devicePerformanceTier');
+        return {
+          ...deviceInfo,
+          tier: getAnalyticsTier(getDeviceCpuTier()),
+          platform: headerPlatform,
+          appBuildNumber: platformEnv.buildNumber,
+          appVersion: platformEnv.version,
+        };
+      })().catch((error) => {
+        this.deviceInfoPromise = null;
+        throw error;
+      });
+      this.deviceInfoPromise = deviceInfoPromise;
     }
-    this.deviceInfo.pageName = this.basicInfo.pageName;
-    return this.deviceInfo;
+    const deviceInfo = await deviceInfoPromise;
+    return {
+      ...deviceInfo,
+      pageName: this.basicInfo.pageName,
+    };
   }
 
   private async requestEvent(
@@ -140,8 +162,9 @@ export class Analytics {
     const event = {
       ...deviceInfo,
       ...eventProps,
+      tier: deviceInfo.tier,
       distinct_id: this.instanceId,
-    } as Record<string, string>;
+    } as Record<string, unknown>;
     if (
       !platformEnv.isNative &&
       // eslint-disable-next-line unicorn/prefer-global-this
@@ -158,7 +181,7 @@ export class Analytics {
     });
   }
 
-  private async requestUserProfile(attributes: Record<string, any>) {
+  private async requestUserProfile(attributes: IAnalyticsUserProfile) {
     if (
       (platformEnv.isDev || platformEnv.isE2E) &&
       !this.enableAnalyticsInDev
@@ -175,14 +198,7 @@ export class Analytics {
     });
   }
 
-  public updateUserProfile(attributes: {
-    walletCount?: number;
-    appWalletCount?: number;
-    hwWalletCount?: number;
-    keylessWalletCount?: number;
-    hwVendors?: string[];
-    primaryHwVendor?: string;
-  }) {
+  public updateUserProfile(attributes: IAnalyticsUserProfile) {
     if (this.instanceId && this.baseURL) {
       void this.requestUserProfile(attributes);
     } else {

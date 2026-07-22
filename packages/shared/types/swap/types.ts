@@ -930,6 +930,7 @@ export interface IFetchBuildTxResponse {
 export interface IPerpDepositQuoteResponse {
   result: IPerpDepositQuoteRes;
   tx?: ITransaction;
+  orderId?: string;
 }
 
 export interface IPerpDepositQuoteRes {

@@ -33,12 +33,15 @@ import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { usePaymentTokenPrice } from '../hooks/usePaymentTokenPrice';
 import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
 
+import { shouldJumpFromMarketToSwap } from './ActionButton.utils';
+
 import type { IToken } from '../types';
 import type { GestureResponderEvent } from 'react-native';
 
 export interface IActionButtonProps extends IButtonProps {
   tradeType: ITradeType;
   supportSpeedSwap?: boolean;
+  isAccountNetworkSupported: boolean;
   onlySupportCrossChain?: boolean;
   amount: string;
   token?: IToken;
@@ -60,6 +63,7 @@ export function ActionButton({
   token,
   balance,
   supportSpeedSwap,
+  isAccountNetworkSupported,
   disabled,
   onPress,
   isWrapped,
@@ -243,13 +247,19 @@ export function ActionButton({
 
   // Check for insufficient balance for both buy and sell operations
   const hasAmount = amountBN.gt(0);
-  const isInsufficientBalance = balance && hasAmount && amountBN.gt(balance);
+  const isInsufficientBalance = Boolean(
+    balance && hasAmount && amountBN.gt(balance),
+  );
 
   const noAccount =
     !activeAccount?.indexedAccount?.id && !activeAccount?.account?.id;
 
-  const shouldJumpToSwap =
-    !supportSpeedSwap || (isInsufficientBalance && !isWrapped);
+  const shouldJumpToSwap = shouldJumpFromMarketToSwap({
+    supportSpeedSwap,
+    isAccountNetworkSupported,
+    isInsufficientBalance,
+    isWrapped,
+  });
   const shouldDisable = isInsufficientBalance && !shouldJumpToSwap;
   const displayAmountFormatted = numberFormat(displayAmount, tokenFormatter);
 

@@ -966,11 +966,12 @@ const BaseDevSettingsSection = () => {
                             typeof __BUNDLE_START_TIME__ !== 'undefined'
                               ? __BUNDLE_START_TIME__
                               : 0;
-                          const { getDevicePerformanceTier } =
+                          const { getDevicePerformanceProfile } =
                             await import('@onekeyhq/shared/src/performance/devicePerformanceTier');
                           Dialog.debugMessage({
                             debugMessage: {
-                              devicePerformanceTier: getDevicePerformanceTier(),
+                              devicePerformanceProfile:
+                                getDevicePerformanceProfile(),
                               startupTimeAt:
                                 await LaunchOptionsManager.getStartupTimeAt(),
                               jsReadyTimeAt:

@@ -76,10 +76,26 @@ import ServiceBase from '../ServiceBase';
 
 import hyperLiquidCache from './hyperLiquidCache';
 import {
+  FastL2Book,
+  type IFastL2Frame,
+  isFastL2RecoveryCurrent,
+  isStaleFastL2TargetError,
+  shouldResetFastL2RecoveryAfterFrame,
+} from './utils/FastL2Book';
+import {
   SUBSCRIPTION_TYPE_INFO,
   calculateRequiredSubscriptionsMap,
+  getOrderBookSubscriptionCoin,
+  getSubscriptionResumeAction,
+  isOrderBookOptionsTargetReady,
+  normalizeL2BookForSubscriptionSpec,
 } from './utils/SubscriptionConfig';
-import { PerKeyMutationQueue } from './utils/SubscriptionMutationQueue';
+import {
+  PerKeyMutationQueue,
+  executeOrderBookSubscriptionTransition,
+  executeSubscriptionTasksWithOrderBookPriority,
+} from './utils/SubscriptionMutationQueue';
+import { LatestSubscriptionReconcileQueue } from './utils/SubscriptionReconcileQueue';
 
 import type {
   ISubscriptionSpec,
@@ -125,6 +141,7 @@ interface ISubscriptionUpdateParams {
   tradingMode?: 'perp' | 'spot';
   isConnected?: boolean;
   l2BookOptions?: IL2BookOptions | null;
+  orderBookTransport?: 'l2' | 'l2Book';
 }
 
 interface IRequiredSubscriptionInfo {
@@ -162,6 +179,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     spotAssetCtxsEnabled: false,
     currentSpotSymbol: undefined,
     tradingMode: 'perp',
+    orderBookTransport: 'l2',
   };
 
   private _networkTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
@@ -192,6 +210,36 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _activeSubscriptions = new Map<string, IActiveSubscription>();
 
+  private _activeL2BookSpec: ISubscriptionSpec<ESubscriptionType.L2_BOOK> | null =
+    null;
+
+  private _fastL2Book: FastL2Book | null = null;
+
+  private _fastL2SubscriptionKey: string | null = null;
+
+  private _fastL2SnapshotTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private _fastL2TargetKey: string | null = null;
+
+  private _fastL2FallbackTargetKey: string | null = null;
+
+  private _fastL2RecoveryAttempts = 0;
+
+  private _fastL2ReconnectAttempted = false;
+
+  private _fastL2RecoveryPromise: Promise<void> | null = null;
+
+  private _fastL2RecoveryGeneration = 0;
+
+  private static readonly FAST_L2_SNAPSHOT_TIMEOUT_MS = 3000;
+
+  private static readonly FAST_L2_RECOVERY_DELAYS_MS = [0, 1000, 3000];
+
+  private static readonly ORDER_BOOK_MUTATION_KEY = 'hyperliquid-order-book';
+
+  private static readonly ORDER_BOOK_STRATEGY: 'fastL2Primary' | 'l2BookOnly' =
+    'fastL2Primary';
+
   // Cross-runtime atom sync can lag behind a reopened socket, leaving current
   // market subscriptions absent while the socket still looks healthy.
   private _subscriptionAtomsUnsubs: Array<() => void> = [];
@@ -199,6 +247,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _subscriptionLifecycleVersion = 0;
 
   private _subscriptionMutationQueue = new PerKeyMutationQueue();
+
+  private _subscriptionReconcileQueue = new LatestSubscriptionReconcileQueue();
 
   private _destroyingSubscriptionKeys = new Set<string>();
 
@@ -234,6 +284,163 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     ];
   }
 
+  private _resetFastL2Book(subscriptionKey?: string): void {
+    if (subscriptionKey && this._fastL2SubscriptionKey !== subscriptionKey) {
+      return;
+    }
+    if (this._fastL2SnapshotTimer) {
+      clearTimeout(this._fastL2SnapshotTimer);
+      this._fastL2SnapshotTimer = null;
+    }
+    this._fastL2Book = null;
+    this._fastL2SubscriptionKey = null;
+  }
+
+  private _clearActiveL2BookSpec(subscriptionKey?: string): void {
+    if (subscriptionKey && this._activeL2BookSpec?.key !== subscriptionKey) {
+      return;
+    }
+    this._activeL2BookSpec = null;
+  }
+
+  private _resetFastL2Recovery(): void {
+    this._invalidateFastL2RecoveryTask();
+    this._fastL2TargetKey = null;
+    this._fastL2FallbackTargetKey = null;
+    this._fastL2RecoveryAttempts = 0;
+    this._fastL2ReconnectAttempted = false;
+  }
+
+  private _invalidateFastL2RecoveryTask(): void {
+    this._fastL2RecoveryGeneration += 1;
+    this._fastL2RecoveryPromise = null;
+  }
+
+  private _prepareFastL2Book(
+    spec: ISubscriptionSpec<ESubscriptionType.L2>,
+  ): void {
+    this._resetFastL2Book();
+    if (this._fastL2TargetKey !== spec.key) {
+      this._invalidateFastL2RecoveryTask();
+      this._fastL2TargetKey = spec.key;
+      this._fastL2FallbackTargetKey = null;
+      this._fastL2RecoveryAttempts = 0;
+      this._fastL2ReconnectAttempted = false;
+    }
+    this._fastL2SubscriptionKey = spec.key;
+    this._fastL2Book = new FastL2Book(spec.params.c, {
+      nSigFigs: spec.params.s ?? null,
+      mantissa: spec.params.m ?? null,
+    });
+  }
+
+  private _startFastL2SnapshotTimer(subscriptionKey: string): void {
+    if (
+      this._fastL2SubscriptionKey !== subscriptionKey ||
+      this._fastL2Book?.hasSnapshot
+    ) {
+      return;
+    }
+    if (this._fastL2SnapshotTimer) {
+      clearTimeout(this._fastL2SnapshotTimer);
+    }
+    this._fastL2SnapshotTimer = setTimeout(() => {
+      if (
+        this._fastL2SubscriptionKey === subscriptionKey &&
+        !this._fastL2Book?.hasSnapshot
+      ) {
+        void this._recoverFastL2('snapshot_timeout');
+      }
+    }, ServiceHyperliquidSubscription.FAST_L2_SNAPSHOT_TIMEOUT_MS);
+  }
+
+  private async _recoverFastL2(reason: string): Promise<void> {
+    if (this._fastL2RecoveryPromise || !this._fastL2TargetKey) {
+      return;
+    }
+
+    const targetKey = this._fastL2TargetKey;
+    const spec = this.pendingSubSpecsMap[targetKey] as
+      | ISubscriptionSpec<ESubscriptionType.L2>
+      | undefined;
+    if (!spec) {
+      return;
+    }
+    const startedGeneration = this._fastL2RecoveryGeneration;
+    const isRecoveryCurrent = () =>
+      isFastL2RecoveryCurrent({
+        startedGeneration,
+        currentGeneration: this._fastL2RecoveryGeneration,
+        targetKey,
+        currentTargetKey: this._fastL2TargetKey,
+        isTargetPending: Boolean(this.pendingSubSpecsMap[targetKey]),
+      });
+
+    const recoveryPromise = (async () => {
+      const delay =
+        ServiceHyperliquidSubscription.FAST_L2_RECOVERY_DELAYS_MS[
+          this._fastL2RecoveryAttempts
+        ];
+      if (delay !== undefined) {
+        this._fastL2RecoveryAttempts += 1;
+        if (delay > 0) {
+          await timerUtils.wait(delay);
+        }
+        if (!isRecoveryCurrent()) {
+          return;
+        }
+        console.warn(
+          `[HyperLiquid WebSocket] Reset Fast L2 subscription: ${reason}`,
+        );
+        const resetSucceeded = await this._subscriptionMutationQueue.enqueue(
+          ServiceHyperliquidSubscription.ORDER_BOOK_MUTATION_KEY,
+          async () => {
+            if (!isRecoveryCurrent()) {
+              return true;
+            }
+            const destroyed = await this._destroySubscription(spec);
+            if (!destroyed) {
+              return false;
+            }
+            if (isRecoveryCurrent()) {
+              await this._createSubscription(spec);
+            }
+            return true;
+          },
+        );
+        if (!resetSucceeded && !this._fastL2ReconnectAttempted) {
+          this._fastL2ReconnectAttempted = true;
+          await this._forceReconnectTransport();
+        }
+        return;
+      }
+
+      if (!this._fastL2ReconnectAttempted) {
+        this._fastL2ReconnectAttempted = true;
+        console.warn(
+          `[HyperLiquid WebSocket] Reconnect after Fast L2 recovery exhausted: ${reason}`,
+        );
+        await this._forceReconnectTransport();
+        return;
+      }
+
+      this._fastL2FallbackTargetKey = targetKey;
+      this._resetFastL2Book(targetKey);
+      console.warn(
+        `[HyperLiquid WebSocket] Fast L2 fallback to l2Book for current target: ${reason}`,
+      );
+      await this.updateSubscriptions();
+    })();
+    this._fastL2RecoveryPromise = recoveryPromise;
+    try {
+      await recoveryPromise;
+    } finally {
+      if (this._fastL2RecoveryPromise === recoveryPromise) {
+        this._fastL2RecoveryPromise = null;
+      }
+    }
+  }
+
   private _unwatchSubscriptionAtoms(): void {
     for (const unsub of this._subscriptionAtomsUnsubs) {
       try {
@@ -262,6 +469,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const currentAssetId =
       currentMode === 'spot' ? spotActiveAsset?.assetId : activeAsset?.assetId;
     const activeOrderBookOptions = await perpsActiveOrderBookOptionsAtom.get();
+    if (
+      !isOrderBookOptionsTargetReady(currentCoin, activeOrderBookOptions?.coin)
+    ) {
+      return undefined;
+    }
     const isOrderBookOptionsForCurrentCoin =
       Boolean(currentCoin) && activeOrderBookOptions?.coin === currentCoin;
 
@@ -307,9 +519,20 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       spotAssetCtxsEnabled: this._currentState.spotAssetCtxsEnabled,
       currentSpotSymbol,
       tradingMode: currentMode,
+      orderBookTransport:
+        ServiceHyperliquidSubscription.ORDER_BOOK_STRATEGY === 'l2BookOnly'
+          ? 'l2Book'
+          : 'l2',
     };
 
-    const requiredSubSpecsMap = calculateRequiredSubscriptionsMap(params);
+    let requiredSubSpecsMap = calculateRequiredSubscriptionsMap(params);
+    const fastL2Spec = Object.values(requiredSubSpecsMap).find(
+      (spec) => spec.type === ESubscriptionType.L2,
+    );
+    if (fastL2Spec?.key === this._fastL2FallbackTargetKey) {
+      params.orderBookTransport = 'l2Book';
+      requiredSubSpecsMap = calculateRequiredSubscriptionsMap(params);
+    }
 
     return { requiredSubSpecsMap, params };
   }
@@ -328,6 +551,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       params.currentSymbol !== this._currentState.currentSymbol ||
       params.currentSpotSymbol !== this._currentState.currentSpotSymbol ||
       params.tradingMode !== this._currentState.tradingMode ||
+      params.orderBookTransport !== this._currentState.orderBookTransport ||
       !isEqual(
         params.l2BookOptions ?? null,
         this._currentState.l2BookOptions ?? null,
@@ -380,12 +604,21 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._currentState = newState;
     this._emitConnectionStatus();
     await this._executeSubscriptionChanges();
+    if (this._activeSubscriptions.size > 0) {
+      this._startPostOpenDataCheck();
+    }
     this._scheduleCriticalSubscriptionHealthCheck('update_subscriptions');
+  }
+
+  private async _enqueueSubscriptionReconcile(): Promise<void> {
+    await this._subscriptionReconcileQueue.enqueue(async () => {
+      await this._updateSubscriptionsCore();
+    });
   }
 
   _updateSubscriptionsDebounced = debounce(
     async () => {
-      await this._updateSubscriptionsCore();
+      await this._enqueueSubscriptionReconcile();
     },
     300,
     {
@@ -420,12 +653,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     // Skip debounce on first subscription to speed up initial load
     if (!this._hasInitialSubscription) {
       this._hasInitialSubscription = true;
-      const requiredSubInfo = await this.buildRequiredSubscriptionsMap();
-      if (!requiredSubInfo) {
-        return;
-      }
       markPerpsColdStartPerf('service_update_subscriptions_core_first_start');
-      await this._updateSubscriptionsCore(requiredSubInfo);
+      await this._enqueueSubscriptionReconcile();
       markPerpsColdStartPerf('service_update_subscriptions_core_first_end');
       return;
     }
@@ -437,7 +666,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     if (this._shouldUpdateSubscriptionsImmediately(requiredSubInfo.params)) {
       this._updateSubscriptionsDebounced.cancel();
       this._hasInitialSubscription = true;
-      await this._updateSubscriptionsCore(requiredSubInfo);
+      await this._enqueueSubscriptionReconcile();
       markPerpsColdStartPerf('service_update_subscriptions_end');
       return;
     }
@@ -516,6 +745,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const criticalTypes = new Set<ESubscriptionType>([
       ESubscriptionType.ALL_DEXS_ASSET_CTXS,
       ESubscriptionType.L2_BOOK,
+      ESubscriptionType.L2,
     ]);
     const now = Date.now();
     const staleTypes = new Set<ESubscriptionType>();
@@ -550,6 +780,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const criticalTypes = new Set<ESubscriptionType>([
       ESubscriptionType.ALL_DEXS_ASSET_CTXS,
       ESubscriptionType.L2_BOOK,
+      ESubscriptionType.L2,
     ]);
     const missingTypes = new Set<ESubscriptionType>();
     for (const spec of Object.values(requiredSubSpecsMap)) {
@@ -806,21 +1037,31 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
 
     const client = await this.getWebSocketClient();
-    if (client?.transport?.socket?.readyState !== WebSocket.OPEN) {
+    const readyState = client?.transport?.socket?.readyState;
+    const action = getSubscriptionResumeAction({
+      isOpen: readyState === WebSocket.OPEN,
+      isClosedOrClosing:
+        readyState === WebSocket.CLOSED || readyState === WebSocket.CLOSING,
+    });
+    if (action === 'reconnect') {
       console.log('resumeSubscriptions__force_reconnect_transport');
       await this._forceReconnectTransport();
-    } else {
-      // OK-53014: re-install atom watcher since pauseSubscriptions() tore
-      // it down.  The socket is still OPEN here, so socketOpenHandler will
-      // not fire again to reinstall it for us.
-      this._watchSubscriptionAtoms();
-      await this._reconcileOpenSocketSubscriptionsOnResume({
-        forceRebuild: params?.forceRebuild,
-        reason: params?.forceRebuild
-          ? 'force_rebuild'
-          : 'native_resume_stale_data',
-      });
+      return;
     }
+    if (action === 'waitForOpen') {
+      return;
+    }
+
+    // OK-53014: re-install atom watcher since pauseSubscriptions() tore
+    // it down. The socket is already OPEN, so socketOpenHandler will not
+    // fire again to reinstall it for us.
+    this._watchSubscriptionAtoms();
+    await this._reconcileOpenSocketSubscriptionsOnResume({
+      forceRebuild: params?.forceRebuild,
+      reason: params?.forceRebuild
+        ? 'force_rebuild'
+        : 'native_resume_stale_data',
+    });
   }
 
   @backgroundMethod()
@@ -927,6 +1168,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   async disconnect(): Promise<void> {
     this.backgroundApi.serviceHyperliquidCache.flushPendingL2BookSnapshotCache();
     this._subscriptionLifecycleVersion += 1;
+    this._resetFastL2Book();
+    this._resetFastL2Recovery();
     this._updateSubscriptionsDebounced.cancel();
     this._unwatchSubscriptionAtoms();
     await this._cleanupAllSubscriptions();
@@ -953,6 +1196,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   async cleanup(): Promise<void> {
     this.backgroundApi.serviceHyperliquidCache.flushPendingL2BookSnapshotCache();
     this._subscriptionLifecycleVersion += 1;
+    this._resetFastL2Book();
+    this._resetFastL2Recovery();
     this._updateSubscriptionsDebounced.cancel();
     this._unwatchSubscriptionAtoms();
     this._stopPingLoop();
@@ -966,6 +1211,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private async _forceReconnectTransport(): Promise<void> {
     this.backgroundApi.serviceHyperliquidCache.flushPendingL2BookSnapshotCache();
     this._subscriptionLifecycleVersion += 1;
+    this._resetFastL2Book();
     this._updateSubscriptionsDebounced.cancel();
     this._unwatchSubscriptionAtoms();
     this._clearPostOpenDataCheck();
@@ -1017,7 +1263,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         );
         this._currentState.isConnected = true;
         this._startPingLoop();
-        this._startPostOpenDataCheck();
         return;
       }
 
@@ -1139,6 +1384,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     if ('l2BookOptions' in params) {
       state.l2BookOptions = params.l2BookOptions;
     }
+    if ('orderBookTransport' in params) {
+      state.orderBookTransport = params.orderBookTransport;
+    }
   }
 
   // export interface ISubscriptionSpec<T extends ESubscriptionType> {
@@ -1167,6 +1415,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     void perpsWebSocketReadyStateAtom.set({ readyState });
     // WS close event — readyState tracked via perpsWebSocketReadyStateAtom
     this._activeSubscriptions.clear();
+    this._invalidateFastL2RecoveryTask();
+    this._resetFastL2Book();
     this._clearPostOpenDataCheck();
     this._stopPingLoop();
     // OK-53014: WS closed — drop any pending atom-change reconcile.  A new
@@ -1198,7 +1448,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       await perpsWebSocketReadyStateAtom.set({
         readyState: readyState ?? WebSocket.OPEN,
       });
-
+      // A new transport retries Fast L2 even if the previous connection had
+      // temporarily degraded this target to l2Book.
+      this._fastL2FallbackTargetKey = null;
       const prevNetworkStatus = await perpsNetworkStatusAtom.get();
       const wasConnected = prevNetworkStatus?.connected;
       const openClient = this._client;
@@ -1235,8 +1487,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       if (wasConnected === false && this._lastMessageAt !== null) {
         appEventBus.emit(EAppEventBusNames.PerpsWebSocketRecovered, undefined);
       }
-
-      this._startPostOpenDataCheck();
     } catch (error) {
       defaultLogger.perp.hyperliquid.subscriptionSocketOpenError({ error });
     }
@@ -1355,6 +1605,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         ESubscriptionType.ALL_MIDS,
         ESubscriptionType.BBO,
         ESubscriptionType.L2_BOOK,
+        ESubscriptionType.L2,
         ESubscriptionType.ACTIVE_ASSET_CTX,
         ESubscriptionType.ACTIVE_ASSET_DATA,
         ESubscriptionType.WEB_DATA2,
@@ -1477,7 +1728,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private async _closeClient(): Promise<void> {
+    this._invalidateFastL2RecoveryTask();
     this._unwatchSubscriptionAtoms();
+    this._clearActiveL2BookSpec();
     if (this._client) {
       try {
         // TODO remove all eventListeners
@@ -1535,12 +1788,42 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
     });
 
-    // Different subscription keys must reconcile independently; otherwise an
-    // obsolete L2 subscribe ack can stall the next selected market.
-    await Promise.all([
-      ...toDestroySubscriptions.map((spec) => this._destroySubscription(spec)),
-      ...toCreateSubscriptions.map((spec) => this._createSubscription(spec)),
-    ]);
+    const isOrderBookSpec = (spec: ISubscriptionSpec<ESubscriptionType>) =>
+      spec.type === ESubscriptionType.L2 ||
+      spec.type === ESubscriptionType.L2_BOOK;
+    const orderBookToDestroy = toDestroySubscriptions.filter(isOrderBookSpec);
+    const orderBookToCreate = toCreateSubscriptions.filter(isOrderBookSpec);
+    const otherTasks = [
+      ...toDestroySubscriptions
+        .filter((spec) => !isOrderBookSpec(spec))
+        .map((spec) => () => this._destroySubscription(spec)),
+      ...toCreateSubscriptions
+        .filter((spec) => !isOrderBookSpec(spec))
+        .map((spec) => () => this._createSubscription(spec)),
+    ];
+
+    const orderBookTask = () =>
+      orderBookToDestroy.length > 0 || orderBookToCreate.length > 0
+        ? executeOrderBookSubscriptionTransition({
+            toDestroy: orderBookToDestroy,
+            toCreate: orderBookToCreate,
+            destroy: (spec) => this._destroySubscription(spec),
+            create: (spec) => this._createSubscription(spec),
+            isPending: (spec) => this._isSubscriptionSpecPending(spec),
+            getConflictKey: (spec) => getOrderBookSubscriptionCoin(spec),
+            runExclusive: (task) =>
+              this._subscriptionMutationQueue.enqueue(
+                ServiceHyperliquidSubscription.ORDER_BOOK_MUTATION_KEY,
+                task,
+              ),
+            reconnect: () => this._forceReconnectTransport(),
+          })
+        : Promise.resolve(true);
+
+    await executeSubscriptionTasksWithOrderBookPriority({
+      orderBookTask,
+      otherTasks,
+    });
   }
 
   private async _createSubscription<T extends ESubscriptionType>(
@@ -1579,6 +1862,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
     try {
       const lifecycleVersion = this._subscriptionLifecycleVersion;
+      if (spec.type === ESubscriptionType.L2) {
+        this._prepareFastL2Book(
+          spec as ISubscriptionSpec<ESubscriptionType.L2>,
+        );
+      }
       const client = await this._createSubscriptionDirect(spec);
       const isCreateResultStale =
         this.subscriptionsHandlerDisabled ||
@@ -1603,11 +1891,24 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         lastActivity: Date.now(),
         isActive: true,
       });
+      if (spec.type === ESubscriptionType.L2_BOOK) {
+        this._activeL2BookSpec =
+          spec as ISubscriptionSpec<ESubscriptionType.L2_BOOK>;
+      }
+      if (spec.type === ESubscriptionType.L2) {
+        this._startFastL2SnapshotTimer(spec.key);
+      }
     } catch (error) {
+      this._resetFastL2Book(spec.key);
       console.error(
         `[ServiceHyperliquidSubscription.createSubscription] Failed to create subscription ${spec.type}:`,
         error,
       );
+      if (spec.type === ESubscriptionType.L2) {
+        setTimeout(() => {
+          void this._recoverFastL2('subscribe_failed');
+        }, 0);
+      }
     } finally {
       if (
         !this.subscriptionsHandlerDisabled &&
@@ -1635,7 +1936,15 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   ): Promise<boolean> {
     try {
       if (spec) {
+        if (spec.type === ESubscriptionType.L2) {
+          this._resetFastL2Book(spec.key);
+        }
         const shouldRemoveCache = options?.removeCache ?? true;
+        const clearActiveL2BookSpec = () => {
+          if (spec.type === ESubscriptionType.L2_BOOK) {
+            this._clearActiveL2BookSpec(spec.key);
+          }
+        };
         const removeSubCache = () => {
           if (!shouldRemoveCache) {
             return;
@@ -1647,16 +1956,19 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           this._destroyingSubscriptionKeys.add(spec.key);
           const client = targetClient ?? (await this.getWebSocketClient());
           if (!client) {
+            clearActiveL2BookSpec();
             removeSubCache();
             return true;
           }
           // await sdkSub.unsubscribe();
           await client.unsubscribe(spec.type, spec.params);
+          clearActiveL2BookSpec();
           removeSubCache();
           return true;
         } catch (error) {
           const e = error as OneKeyError | undefined;
           if (e?.message?.includes('Already unsubscribed')) {
+            clearActiveL2BookSpec();
             removeSubCache();
             return true;
           }
@@ -1769,7 +2081,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
 
       const messageTimestamp = Date.now();
-      this._markSubscriptionActivity(subscriptionType, messageTimestamp);
+      if (
+        subscriptionType !== ESubscriptionType.L2 &&
+        subscriptionType !== ESubscriptionType.L2_BOOK
+      ) {
+        this._markSubscriptionActivity(subscriptionType, messageTimestamp);
+      }
       markPerpsColdStartPerfOnce(`service_ws_first_${subscriptionType}`, {
         subscriptionType,
       });
@@ -1952,16 +2269,74 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           subscriptionType,
           data as IWsAllDexsAssetCtxs,
         );
-      } else if (subscriptionType === ESubscriptionType.L2_BOOK) {
+      } else if (subscriptionType === ESubscriptionType.L2) {
+        const subscriptionKey = this._fastL2SubscriptionKey;
+        const fastL2Book = this._fastL2Book;
+        if (!subscriptionKey || !fastL2Book) {
+          return;
+        }
+        // A late frame from a destroyed subscription must never mutate a
+        // newly selected market's book.
+        if (!this.pendingSubSpecsMap[subscriptionKey]) {
+          return;
+        }
+
+        const fastL2Frame = data as IFastL2Frame;
+        let normalizedBook: IBook | null;
+        try {
+          normalizedBook = fastL2Book.apply(fastL2Frame);
+        } catch (error) {
+          if (isStaleFastL2TargetError(error)) {
+            return;
+          }
+          await this._recoverFastL2('invalid_frame');
+          return;
+        }
+        if (!normalizedBook) {
+          return;
+        }
+        this._markSubscriptionActivity(subscriptionType, messageTimestamp);
+        if (this._fastL2SnapshotTimer && fastL2Book.hasSnapshot) {
+          clearTimeout(this._fastL2SnapshotTimer);
+          this._fastL2SnapshotTimer = null;
+        }
+        if (shouldResetFastL2RecoveryAfterFrame(fastL2Frame, normalizedBook)) {
+          this._invalidateFastL2RecoveryTask();
+          this._fastL2RecoveryAttempts = 0;
+          this._fastL2ReconnectAttempted = false;
+          this._fastL2FallbackTargetKey = null;
+        }
         this.backgroundApi.serviceHyperliquidCache.cacheL2BookSnapshot({
-          data: data as IBook,
+          data: normalizedBook,
           activeBookCoin:
             this._currentState.tradingMode === 'spot'
               ? this._currentState.currentSpotSymbol
               : this._currentState.currentSymbol,
           activeOptions: this._currentState.l2BookOptions,
         });
-        this._emitHyperliquidDataUpdate(subscriptionType, data);
+        this._emitHyperliquidDataUpdate(
+          ESubscriptionType.L2_BOOK,
+          normalizedBook,
+        );
+      } else if (subscriptionType === ESubscriptionType.L2_BOOK) {
+        const activeL2BookSpec = this._activeL2BookSpec;
+        const normalizedBook = normalizeL2BookForSubscriptionSpec(
+          data as IBook,
+          activeL2BookSpec,
+        );
+        if (!normalizedBook || !activeL2BookSpec) {
+          return;
+        }
+        this._markSubscriptionActivity(subscriptionType, messageTimestamp);
+        this.backgroundApi.serviceHyperliquidCache.cacheL2BookSnapshot({
+          data: normalizedBook,
+          activeBookCoin: activeL2BookSpec.params.coin,
+          activeOptions: {
+            nSigFigs: activeL2BookSpec.params.nSigFigs,
+            mantissa: activeL2BookSpec.params.mantissa,
+          },
+        });
+        this._emitHyperliquidDataUpdate(subscriptionType, normalizedBook);
       } else {
         this._emitHyperliquidDataUpdate(subscriptionType, data);
       }
