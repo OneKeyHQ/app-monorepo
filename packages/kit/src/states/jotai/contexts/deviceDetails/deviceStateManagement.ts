@@ -35,6 +35,12 @@ export function getDeviceStateSnapshotFromEvent({
     event.state.identity.deviceId &&
     device?.deviceId === event.state.identity.deviceId,
   );
+  if (event.state.identity.serialNo && device?.uuid) {
+    return matchesSerialNo ? { state: event.state } : undefined;
+  }
+  if (event.state.identity.deviceId && device?.deviceId) {
+    return matchesDeviceId ? { state: event.state } : undefined;
+  }
   return matchesConnectId || matchesSerialNo || matchesDeviceId
     ? { state: event.state }
     : undefined;

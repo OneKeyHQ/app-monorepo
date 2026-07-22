@@ -51,6 +51,28 @@ describe('deviceUtils', () => {
     ).resolves.toBe('Renamed Pro 2');
   });
 
+  it.each([
+    ['normal', null, 'normal'],
+    ['notInitialized', false, 'notInitialized'],
+    ['backupMode', true, 'backupMode'],
+    ['bootloader', null, 'bootloader'],
+    ['romloader', null, 'bootloader'],
+  ])(
+    'prefers canonical %s mode when initialized is %s',
+    async (mode, initialized, expected) => {
+      await expect(
+        deviceUtils.getDeviceModeFromFeatures({
+          features: {
+            mode,
+            initialized,
+            bootloaderMode: false,
+            noBackup: false,
+          } as never,
+        }),
+      ).resolves.toBe(expected);
+    },
+  );
+
   it('exposes a stable product model name independently from the user label', () => {
     expect(deviceUtils.getDefaultDeviceLabel(EDeviceType.Pro2)).toBe(
       'OneKey Pro 2',

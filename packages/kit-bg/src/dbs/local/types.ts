@@ -206,6 +206,8 @@ export type IDBCreateHwWalletParamsBase = {
   name?: string;
   device: Omit<SearchDevice, 'commType'>;
   features: IOneKeyDeviceFeatures;
+  /** OneKey SDK 的统一状态快照；仅由后台服务填充，不增加 UI 接入负担。 */
+  deviceState?: IOneKeyDeviceState;
   isFirmwareVerified?: boolean;
   skipDeviceCancel?: boolean;
   hideCheckingDeviceLoading?: boolean;

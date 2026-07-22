@@ -202,6 +202,15 @@ import type {
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
+export function sanitizeDeviceStateForPersistence(
+  state: IOneKeyDeviceState,
+): IOneKeyDeviceState {
+  const persistedState = structuredClone(state);
+  delete (persistedState as unknown as { raw?: unknown }).raw;
+  delete (persistedState as unknown as { session?: unknown }).session;
+  return persistedState;
+}
+
 const LOCAL_PASSWORD_KDF_LAZY_UPGRADE_CREDENTIAL_BATCH_SIZE = 3;
 const LOCAL_SECRET_ENVELOPE_CREDENTIAL_MIGRATION_BATCH_SIZE = 3;
 const LOCAL_SECRET_ENVELOPE_CREDENTIAL_MIGRATION_TARGET_VERSION = 1;
@@ -4998,26 +5007,35 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     state: IOneKeyDeviceState;
   }) {
     const { devices } = await this.getAllDevices();
-    const device = devices.find((item) => {
-      if ((item.vendor ?? EHardwareVendor.onekey) !== EHardwareVendor.onekey) {
-        return false;
-      }
+    const oneKeyDevices = devices.filter(
+      (item) =>
+        (item.vendor ?? EHardwareVendor.onekey) === EHardwareVendor.onekey,
+    );
+    const serialNo = state.identity.serialNo;
+    const deviceId = state.identity.deviceId;
+    let device = serialNo
+      ? oneKeyDevices.find((item) => item.uuid === serialNo)
+      : undefined;
+    if (!device && deviceId) {
+      device = oneKeyDevices.find(
+        (item) =>
+          item.deviceId === deviceId &&
+          (!serialNo || !item.uuid || item.uuid === serialNo),
+      );
+    }
+    if (!device) {
       const normalizedConnectId = connectId?.toLowerCase();
-      if (
-        normalizedConnectId &&
-        [item.connectId, item.usbConnectId, item.bleConnectId].some(
-          (value) => value?.toLowerCase() === normalizedConnectId,
-        )
-      ) {
-        return true;
-      }
-      const deviceId = state.identity.deviceId;
-      if (deviceId && item.deviceId === deviceId) {
-        return true;
-      }
-      const serialNo = state.identity.serialNo;
-      return Boolean(serialNo && item.uuid === serialNo);
-    });
+      device = normalizedConnectId
+        ? oneKeyDevices.find(
+            (item) =>
+              [item.connectId, item.usbConnectId, item.bleConnectId].some(
+                (value) => value?.toLowerCase() === normalizedConnectId,
+              ) &&
+              (!serialNo || !item.uuid || item.uuid === serialNo) &&
+              (!deviceId || !item.deviceId || item.deviceId === deviceId),
+          )
+        : undefined;
+    }
     if (!device) {
       return;
     }
@@ -5040,7 +5058,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           }
           const persistedState = currentState
             ? structuredClone(currentState)
-            : structuredClone(state);
+            : sanitizeDeviceStateForPersistence(state);
           if (currentState) {
             for (const changedKey of changedKeys) {
               const isNonPersistedKey =
@@ -5085,7 +5103,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             ) ||
             persistedState.identity.model ||
             `OneKey ${persistedState.identity.deviceType.toUpperCase()}`;
-          delete persistedState.session;
+          delete (persistedState as unknown as { raw?: unknown }).raw;
+          delete (persistedState as unknown as { session?: unknown }).session;
           item.deviceState = stringUtils.stableStringify(persistedState);
           item.name = persistedState.identity.displayName;
           return item;
@@ -6006,14 +6025,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           vendor: resolvedVendor,
         };
 
+    const initialDeviceState = params.deviceState
+      ? sanitizeDeviceStateForPersistence(params.deviceState)
+      : undefined;
+
     const deviceToAdd: IDBDevice = {
       id: dbDeviceId,
-      name: deviceName,
+      name: initialDeviceState?.identity.displayName || deviceName,
       connectId: compatibleConnectId || '',
       uuid: deviceUUID,
       deviceId: rawDeviceId,
       deviceType,
       features: featuresStr,
+      deviceState: initialDeviceState
+        ? stringUtils.stableStringify(initialDeviceState)
+        : undefined,
       settingsRaw: JSON.stringify(initialSettings),
       createdAt: now,
       updatedAt: now,

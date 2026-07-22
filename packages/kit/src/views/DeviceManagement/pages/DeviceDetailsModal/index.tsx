@@ -48,6 +48,7 @@ import { DeviceUpdateAlert } from './DeviceUpdateAlert';
 import {
   buildDeviceDetailsVisibility,
   shouldShowDeviceInteractiveSections,
+  syncRelevantDeviceStateEvent,
 } from './utils';
 
 import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
@@ -119,8 +120,11 @@ function DeviceDetailsModalV2Cmp({
       event: IAppEventBusPayload[EAppEventBusNames.HardwareDeviceStateUpdate],
     ) => {
       if (!walletId) return;
-      await applyDeviceStateEvent(event);
-      await refresh(walletId, { skipPro2Snapshot: true });
+      await syncRelevantDeviceStateEvent({
+        event,
+        applyEvent: applyDeviceStateEvent,
+        refresh: () => refresh(walletId, { skipPro2Snapshot: true }),
+      });
     },
     [applyDeviceStateEvent, refresh, walletId],
   );

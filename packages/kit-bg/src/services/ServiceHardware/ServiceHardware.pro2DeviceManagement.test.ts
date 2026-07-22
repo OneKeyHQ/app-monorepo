@@ -102,6 +102,10 @@ const createService = ({
     success: true,
     payload: state,
   });
+  const getFeatures = jest.fn().mockResolvedValue({
+    success: true,
+    payload: { protocol: 'V1', label: 'SDK legacy projection' },
+  });
   const refreshDeviceState = jest.fn().mockResolvedValue({
     success: true,
     payload: state,
@@ -116,6 +120,7 @@ const createService = ({
   service.getCompatibleConnectId = jest.fn().mockResolvedValue('PRO2_USB');
   service.getSDKInstance = jest.fn().mockResolvedValue({
     getDeviceState,
+    getFeatures,
     refreshDeviceState,
     deviceSettingsPageShow,
   } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
@@ -123,6 +128,7 @@ const createService = ({
   return {
     service,
     getDeviceState,
+    getFeatures,
     refreshDeviceState,
     deviceSettingsPageShow,
     state,
@@ -169,9 +175,10 @@ describe('ServiceHardware.getDeviceState', () => {
     });
   });
 
-  it('projects V1 compatibility fields only from canonical state sections', async () => {
-    const { service, refreshDeviceState } = createService({ unlocked: true });
-    refreshDeviceState.mockResolvedValue({
+  it('delegates Protocol V1 compatibility projection to the SDK', async () => {
+    const { service, getDeviceState, getFeatures, refreshDeviceState } =
+      createService({ unlocked: true });
+    getDeviceState.mockResolvedValue({
       success: true,
       payload: {
         schemaVersion: 1,
@@ -199,6 +206,17 @@ describe('ServiceHardware.getDeviceState', () => {
         capabilities: [],
       },
     } as never);
+    getFeatures.mockResolvedValue({
+      success: true,
+      payload: {
+        protocol: 'V1',
+        deviceType: EDeviceType.Classic1s,
+        onekey_firmware_version: '3.11.0',
+        onekey_firmware_build_id: 'firmware-build',
+        onekey_se01_boot_version: '1.2.0',
+        onekey_se01_boot_hash: 'abcd',
+      },
+    });
 
     await expect(
       service.getFeaturesWithoutCache({ connectId: 'CLASSIC' }),
@@ -210,6 +228,8 @@ describe('ServiceHardware.getDeviceState', () => {
       onekey_se01_boot_version: '1.2.0',
       onekey_se01_boot_hash: 'abcd',
     });
+    expect(getFeatures).toHaveBeenCalledWith('CLASSIC', undefined);
+    expect(refreshDeviceState).not.toHaveBeenCalled();
   });
 
   it('projects romloader mode to both legacy bootloader flags', async () => {

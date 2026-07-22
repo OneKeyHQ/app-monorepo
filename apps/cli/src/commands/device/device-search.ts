@@ -6,12 +6,13 @@ import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
 
 /** Minimal shape of a device returned by sdk.searchDevices() */
-interface ISearchedDevice {
+export interface ISearchedDevice {
   connectId?: string;
   deviceId?: string;
   deviceType?: string;
   uuid?: string;
   name?: string;
+  displayName?: string;
   label?: string;
   firmwareVersion?: [number, number, number] | null;
   features?: {
@@ -20,6 +21,20 @@ interface ISearchedDevice {
     firmwareVersion?: string;
     unlocked?: boolean;
     passphraseProtection?: boolean;
+  };
+}
+
+export function formatSearchedDevice(d: ISearchedDevice) {
+  return {
+    connectId: d.connectId,
+    deviceId: d.deviceId ?? '',
+    name: d.displayName ?? d.name ?? d.label ?? 'Unknown',
+    model: d.deviceType ?? d.features?.deviceType ?? 'Unknown',
+    serial: d.uuid ?? d.features?.serialNo ?? '',
+    firmware:
+      formatVersion(d.firmwareVersion) || d.features?.firmwareVersion || '',
+    unlocked: d.features?.unlocked ?? null,
+    passphraseProtection: d.features?.passphraseProtection ?? false,
   };
 }
 
@@ -45,21 +60,9 @@ export function registerDeviceSearchCommand(parent: Command): void {
           return;
         }
 
-        const formatted = (devices as ISearchedDevice[]).map((d) => {
-          return {
-            connectId: d.connectId,
-            deviceId: d.deviceId ?? '',
-            name: d.name ?? d.label ?? 'Unknown',
-            model: d.deviceType ?? d.features?.deviceType ?? 'Unknown',
-            serial: d.uuid ?? d.features?.serialNo ?? '',
-            firmware:
-              formatVersion(d.firmwareVersion) ||
-              d.features?.firmwareVersion ||
-              '',
-            unlocked: d.features?.unlocked ?? null,
-            passphraseProtection: d.features?.passphraseProtection ?? false,
-          };
-        });
+        const formatted = (devices as ISearchedDevice[]).map(
+          formatSearchedDevice,
+        );
 
         output.success({ devices: formatted, count: formatted.length });
       } catch (error) {

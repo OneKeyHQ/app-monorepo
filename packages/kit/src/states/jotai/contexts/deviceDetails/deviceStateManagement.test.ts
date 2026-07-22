@@ -44,6 +44,18 @@ describe('getDeviceStateSnapshotFromEvent', () => {
       } as never),
     ).toBeUndefined();
   });
+
+  it('rejects a reused connect id when the serial number belongs to another device', () => {
+    expect(
+      getDeviceStateSnapshotFromEvent({
+        device: { connectId: 'REUSED', uuid: 'SERIAL-CURRENT' },
+        event: {
+          connectId: 'REUSED',
+          state: { identity: { serialNo: 'SERIAL-OTHER' } },
+        },
+      } as never),
+    ).toBeUndefined();
+  });
 });
 
 describe('DeviceState metadata projection', () => {

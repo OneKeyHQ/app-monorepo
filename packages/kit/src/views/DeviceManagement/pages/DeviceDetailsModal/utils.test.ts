@@ -8,6 +8,7 @@ import {
   canShowTrezorBleBinding,
   getTrezorAutoLockOptionsMs,
   shouldShowDeviceInteractiveSections,
+  syncRelevantDeviceStateEvent,
 } from './utils';
 
 describe('DeviceDetailsModal utils', () => {
@@ -59,6 +60,32 @@ describe('DeviceDetailsModal utils', () => {
     expect(
       shouldShowDeviceInteractiveSections(EDeviceType.Classic1s, false),
     ).toBe(true);
+  });
+
+  it('does not refresh details for an unrelated device state event', async () => {
+    const refresh = jest.fn();
+
+    await expect(
+      syncRelevantDeviceStateEvent({
+        event: { connectId: 'OTHER' },
+        applyEvent: jest.fn().mockResolvedValue(false),
+        refresh,
+      }),
+    ).resolves.toBe(false);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('refreshes details after applying a relevant device state event', async () => {
+    const refresh = jest.fn().mockResolvedValue(undefined);
+
+    await expect(
+      syncRelevantDeviceStateEvent({
+        event: { connectId: 'CURRENT' },
+        applyEvent: jest.fn().mockResolvedValue(true),
+        refresh,
+      }),
+    ).resolves.toBe(true);
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   it('shows Trezor BLE binding on BLE capable models, including re-binding when already bound', () => {

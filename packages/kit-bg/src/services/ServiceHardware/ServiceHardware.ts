@@ -252,6 +252,7 @@ function buildLegacyAppFeaturesFromState(
     ...oneKeyFeatures,
     onekey_device_type: identity.deviceType,
     protocol: state.protocol,
+    protocolVersion: state.protocol === 'V2' ? 2 : 1,
     deviceType: identity.deviceType,
     firmwareType: identity.firmwareType,
     model: identity.model,
@@ -307,8 +308,7 @@ function buildLegacyAppFeaturesFromState(
     se03BootVersion: versions.se03Boot,
     se04BootVersion: versions.se04Boot,
     verify: state.verification,
-    sessionId: state.session?.sessionId ?? null,
-    passphraseState: state.session?.passphraseState,
+    sessionId: null,
     unlockedAttachPin: status.unlockedAttachPin ?? undefined,
     device_id: identity.deviceId ?? undefined,
     bootloader_mode: isLoaderMode,
@@ -1722,10 +1722,7 @@ class ServiceHardware extends ServiceBase {
     const { connectId, params, silentMode, hardwareCallContext } = options;
     const { allowEmptyConnectId, detectBootloaderDevice, ...sdkParams } =
       params ?? {};
-    serviceHardwareUtils.hardwareLog(
-      'project legacy app features from refreshDeviceState(basic)',
-      connectId,
-    );
+    serviceHardwareUtils.hardwareLog('read legacy app features', connectId);
     if (!allowEmptyConnectId && !connectId) {
       throw new OneKeyLocalError(
         'hardware getFeatures ERROR: connectId is undefined',
@@ -1735,6 +1732,28 @@ class ServiceHardware extends ServiceBase {
       connectId,
       hardwareCallContext,
     });
+    const readParams =
+      Object.keys(sdkParams).length > 0 ? sdkParams : undefined;
+    const currentState = await convertDeviceResponse(
+      () => hardwareSDK?.getDeviceState(connectId as string, readParams),
+      { silentMode },
+    );
+    if (currentState.protocol === 'V1') {
+      const getFeaturesParams = {
+        ...sdkParams,
+        ...(detectBootloaderDevice ? { detectBootloaderDevice: true } : {}),
+      };
+      return convertDeviceResponse(
+        () =>
+          hardwareSDK?.getFeatures(
+            connectId as string,
+            Object.keys(getFeaturesParams).length > 0
+              ? getFeaturesParams
+              : undefined,
+          ),
+        { silentMode },
+      );
+    }
     const state = await convertDeviceResponse(
       () =>
         hardwareSDK?.refreshDeviceState(connectId as string, {

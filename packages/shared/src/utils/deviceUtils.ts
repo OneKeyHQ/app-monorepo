@@ -169,21 +169,24 @@ async function getDeviceModeFromFeatures({
   // if (features?.no_backup) return EOneKeyDeviceMode.seedless;
   // return EOneKeyDeviceMode.normal;
 
-  if (features?.bootloaderMode) {
-    // bootloader mode
-    return EOneKeyDeviceMode.bootloader;
-  }
-  if (!features?.initialized) {
-    // not initialized
-    return EOneKeyDeviceMode.notInitialized;
+  switch (features?.mode) {
+    case 'bootloader':
+    case 'romloader':
+      return EOneKeyDeviceMode.bootloader;
+    case 'notInitialized':
+      return EOneKeyDeviceMode.notInitialized;
+    case 'backupMode':
+      return EOneKeyDeviceMode.backupMode;
+    case 'normal':
+      return EOneKeyDeviceMode.normal;
+    default:
+      break;
   }
 
-  if (features?.noBackup) {
-    // backup mode
-    return EOneKeyDeviceMode.backupMode;
-  }
+  if (features?.bootloaderMode) return EOneKeyDeviceMode.bootloader;
+  if (features?.initialized === false) return EOneKeyDeviceMode.notInitialized;
+  if (features?.noBackup) return EOneKeyDeviceMode.backupMode;
 
-  // normal mode
   return EOneKeyDeviceMode.normal;
 }
 

@@ -202,6 +202,7 @@ import {
   isDefaultBotWalletName,
   resolveBotWalletSyncItemDataTime,
 } from './botWalletCreateUtils';
+import { resolveDeviceStateForHwWalletCreate } from './deviceStateForHwWalletCreate';
 import { getHwHiddenWalletPassphraseState } from './hardwarePassphraseState';
 import { resolveHwWalletTransportType } from './resolveHwWalletTransportType';
 
@@ -3689,6 +3690,19 @@ class ServiceAccount extends ServiceBase {
         vendor,
       });
     }
+    const deviceState = await resolveDeviceStateForHwWalletCreate({
+      existingState: params.deviceState,
+      isThirdParty: Boolean(vendorProfile?.isThirdParty),
+      isMocked: Boolean(isMockedStandardHwWallet),
+      connectId: compatibleConnectId,
+      getDeviceState: (connectId) =>
+        this.backgroundApi.serviceHardware.getDeviceState({ connectId }),
+      onError: (error) =>
+        console.warn(
+          'createHWWalletBase: unable to seed canonical device state',
+          error,
+        ),
+    });
     // Refresh DB info when compatibility lookup resolves to another connectId.
     // Skip empty connectId: getDeviceByQuery would otherwise match by vendor
     // alone and swap in another device of the same vendor.
@@ -3707,6 +3721,7 @@ class ServiceAccount extends ServiceBase {
     }
     const result = await localDb.createHwWallet({
       ...params,
+      deviceState,
       vendor,
       xfp,
       passphraseState: passphraseState || '',

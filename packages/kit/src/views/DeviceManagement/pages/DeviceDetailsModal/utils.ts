@@ -72,6 +72,22 @@ export function shouldShowDeviceInteractiveSections(
   return deviceType !== EDeviceType.Pro2 || deviceStateReady;
 }
 
+export async function syncRelevantDeviceStateEvent<T>({
+  event,
+  applyEvent,
+  refresh,
+}: {
+  event: T;
+  applyEvent: (event: T) => Promise<boolean>;
+  refresh: () => Promise<unknown>;
+}) {
+  const applied = await applyEvent(event);
+  if (applied) {
+    await refresh();
+  }
+  return applied;
+}
+
 export function canShowTrezorBleBinding(
   device: IDeviceConnectionInfo | undefined,
   platform: {

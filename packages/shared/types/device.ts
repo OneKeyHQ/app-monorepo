@@ -24,7 +24,7 @@ import type { ImageSourcePropType } from 'react-native';
 export type IOneKeyDeviceType = IDeviceType;
 
 export type IOneKeyDeviceState = DeviceState;
-export type IOneKeyPersistedDeviceState = Omit<DeviceState, 'session'>;
+export type IOneKeyPersistedDeviceState = DeviceState;
 
 /** 仅用于 Protocol V1、第三方硬件适配和历史数据库迁移。 */
 export type IOneKeyDeviceFeatures = FeaturesCore & {
