@@ -61,6 +61,8 @@ export interface IDevSettings {
 
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
+  // enable WalletConnect Pay payment-link entries (QR scan / deeplink)
+  enableWalletConnectPay?: boolean;
   showWebviewDevTools?: boolean;
   // strict signature alert display
   strictSignatureAlert?: boolean;

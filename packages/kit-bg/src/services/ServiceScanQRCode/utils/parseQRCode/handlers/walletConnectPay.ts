@@ -16,9 +16,19 @@ restricted to the pay.walletconnect.com host. Must be registered BEFORE the
 */
 const walletConnectPay: IQRCodeHandler<IWalletConnectPayValue> = async (
   value,
+  options,
 ) => {
   if (!value || typeof value !== 'string') {
     return null;
+  }
+  // feature-gated in the app runtime; unit tests exercise the matching
+  // logic without a backgroundApi
+  if (options?.backgroundApi) {
+    const enabled =
+      await options.backgroundApi.serviceWalletConnectPay.isPayFeatureEnabled();
+    if (!enabled) {
+      return null;
+    }
   }
   let matched = false;
   try {

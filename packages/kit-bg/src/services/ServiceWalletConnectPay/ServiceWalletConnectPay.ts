@@ -17,6 +17,7 @@ import type {
   IWcPayOptionsResult,
 } from '@onekeyhq/shared/src/walletConnect/payTypes';
 
+import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 import { vaultFactory } from '../../vaults/factory';
 import ServiceBase from '../ServiceBase';
 import walletConnectClients from '../ServiceWalletConnect/walletConnectClient';
@@ -36,8 +37,19 @@ class ServiceWalletConnectPay extends ServiceBase {
   }
 
   @backgroundMethod()
+  async isPayFeatureEnabled(): Promise<boolean> {
+    const devSettings = await devSettingsPersistAtom.get();
+    return Boolean(
+      devSettings.enabled && devSettings.settings?.enableWalletConnectPay,
+    );
+  }
+
+  @backgroundMethod()
   async isPaymentLink({ uri }: { uri: string }): Promise<boolean> {
     if (!uri || typeof uri !== 'string') {
+      return false;
+    }
+    if (!(await this.isPayFeatureEnabled())) {
       return false;
     }
     try {
