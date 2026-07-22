@@ -5086,7 +5086,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             persistedState.identity.model ||
             `OneKey ${persistedState.identity.deviceType.toUpperCase()}`;
           delete persistedState.session;
-          delete persistedState.raw;
           item.deviceState = stringUtils.stableStringify(persistedState);
           item.name = persistedState.identity.displayName;
           return item;
