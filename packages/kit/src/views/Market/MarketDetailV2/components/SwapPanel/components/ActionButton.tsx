@@ -257,6 +257,7 @@ export function ActionButton({
   const { shouldJumpToSwap, shouldDisable } = resolveMarketTradeActionState({
     supportSpeedSwap,
     isAccountNetworkSupported,
+    isBalanceAvailable: balance !== undefined,
     isInsufficientBalance,
     isWrapped,
   });
@@ -273,7 +274,7 @@ export function ActionButton({
     });
   }
 
-  if (shouldDisable) {
+  if (shouldDisable && isInsufficientBalance) {
     buttonText = intl.formatMessage({
       id: ETranslations.swap_page_button_insufficient_balance,
     });

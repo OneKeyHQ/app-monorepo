@@ -6,6 +6,7 @@ describe('resolveMarketTradeActionState', () => {
       resolveMarketTradeActionState({
         supportSpeedSwap: false,
         isAccountNetworkSupported: true,
+        isBalanceAvailable: true,
         isInsufficientBalance: false,
         isWrapped: true,
       }),
@@ -17,6 +18,7 @@ describe('resolveMarketTradeActionState', () => {
       resolveMarketTradeActionState({
         supportSpeedSwap: false,
         isAccountNetworkSupported: false,
+        isBalanceAvailable: true,
         isInsufficientBalance: false,
         isWrapped: true,
       }),
@@ -28,6 +30,7 @@ describe('resolveMarketTradeActionState', () => {
       resolveMarketTradeActionState({
         supportSpeedSwap: false,
         isAccountNetworkSupported: true,
+        isBalanceAvailable: true,
         isInsufficientBalance: false,
         isWrapped: false,
       }),
@@ -39,6 +42,7 @@ describe('resolveMarketTradeActionState', () => {
       resolveMarketTradeActionState({
         supportSpeedSwap: true,
         isAccountNetworkSupported: true,
+        isBalanceAvailable: true,
         isInsufficientBalance: true,
         isWrapped: false,
       }),
@@ -50,6 +54,7 @@ describe('resolveMarketTradeActionState', () => {
       resolveMarketTradeActionState({
         supportSpeedSwap: false,
         isAccountNetworkSupported: true,
+        isBalanceAvailable: true,
         isInsufficientBalance: true,
         isWrapped: false,
       }),
@@ -61,7 +66,8 @@ describe('resolveMarketTradeActionState', () => {
       resolveMarketTradeActionState({
         supportSpeedSwap: false,
         isAccountNetworkSupported: false,
-        isInsufficientBalance: true,
+        isBalanceAvailable: false,
+        isInsufficientBalance: false,
         isWrapped: true,
       }),
     ).toEqual({ shouldDisable: false, shouldJumpToSwap: true });
@@ -72,7 +78,20 @@ describe('resolveMarketTradeActionState', () => {
       resolveMarketTradeActionState({
         supportSpeedSwap: false,
         isAccountNetworkSupported: true,
+        isBalanceAvailable: true,
         isInsufficientBalance: true,
+        isWrapped: true,
+      }),
+    ).toEqual({ shouldDisable: true, shouldJumpToSwap: false });
+  });
+
+  it('disables wrapped pairs while balance is unavailable', () => {
+    expect(
+      resolveMarketTradeActionState({
+        supportSpeedSwap: false,
+        isAccountNetworkSupported: true,
+        isBalanceAvailable: false,
+        isInsufficientBalance: false,
         isWrapped: true,
       }),
     ).toEqual({ shouldDisable: true, shouldJumpToSwap: false });
