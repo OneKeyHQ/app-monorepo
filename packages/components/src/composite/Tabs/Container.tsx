@@ -475,7 +475,11 @@ export function Container({
     // set follows the live children and remeasure the registered root. This is
     // intentionally generic to Tabs.ScrollView; business tabs do not need to
     // report their loading phases or schedule delayed retries.
-    if (isRegisteredScrollView && typeof MutationObserver !== 'undefined') {
+    if (
+      isRegisteredScrollView &&
+      registeredElement &&
+      typeof MutationObserver !== 'undefined'
+    ) {
       const mo = new MutationObserver(() => {
         if (
           !isEffectValid.current ||
