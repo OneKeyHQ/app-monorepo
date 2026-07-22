@@ -4,6 +4,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   WALLET_CONNECT_PAY_EIP155_CHAIN_REFS,
@@ -48,22 +49,27 @@ class ServiceWalletConnectPay extends ServiceBase {
    * Build the CAIP-10 account list to offer for a payment: the account's EVM
    * address on every WalletConnect-Pay-supported chain that exists in the
    * wallet. EVM addresses are identical across eip155 chains, so a single
-   * address resolution covers all of them.
+   * address resolution covers all of them. The active account may live on a
+   * non-EVM network, so the EVM account is resolved through the indexed
+   * account when available.
    */
   private async buildPayAccounts({
     accountId,
-    networkId,
+    indexedAccountId,
   }: {
-    accountId: string;
-    networkId: string;
+    accountId?: string;
+    indexedAccountId?: string;
   }): Promise<string[]> {
     const { serviceAccount, serviceNetwork } = this.backgroundApi;
-    const address = await serviceAccount.getAccountAddressForApi({
-      accountId,
-      networkId,
+    const evmAccount = await serviceAccount.getNetworkAccount({
+      accountId: indexedAccountId ? undefined : accountId,
+      indexedAccountId,
+      networkId: getNetworkIdsMap().eth,
+      deriveType: 'default',
     });
+    const address = evmAccount?.address;
     if (!address) {
-      throw new OneKeyError('Account address not found');
+      throw new OneKeyError('EVM account address not found');
     }
     const chainRefs: string[] = [];
     for (const ref of WALLET_CONNECT_PAY_EIP155_CHAIN_REFS) {
@@ -84,14 +90,17 @@ class ServiceWalletConnectPay extends ServiceBase {
   async getPaymentOptions({
     paymentLink,
     accountId,
-    networkId,
+    indexedAccountId,
   }: {
     paymentLink: string;
-    accountId: string;
-    networkId: string;
+    accountId?: string;
+    indexedAccountId?: string;
   }): Promise<IWcPayOptionsResult> {
     const pay = await this.getPayClient();
-    const accounts = await this.buildPayAccounts({ accountId, networkId });
+    const accounts = await this.buildPayAccounts({
+      accountId,
+      indexedAccountId,
+    });
     const result = await pay.getPaymentOptions({
       paymentLink,
       accounts,

@@ -1,0 +1,32 @@
+import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
+import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
+import type { IModalWalletConnectPayParamList } from '@onekeyhq/shared/src/routes';
+import { EModalWalletConnectPayRoutes } from '@onekeyhq/shared/src/routes';
+
+const PaymentOptionsModal = LazyLoadPage(
+  () => import('../pages/PaymentOptionsModal'),
+);
+const DataCollectionModal = LazyLoadPage(
+  () => import('../pages/DataCollectionModal'),
+);
+const PaymentResultModal = LazyLoadPage(
+  () => import('../pages/PaymentResultModal'),
+);
+
+export const WalletConnectPayModalRouter: IModalFlowNavigatorConfig<
+  EModalWalletConnectPayRoutes,
+  IModalWalletConnectPayParamList
+>[] = [
+  {
+    name: EModalWalletConnectPayRoutes.PaymentOptions,
+    component: PaymentOptionsModal,
+  },
+  {
+    name: EModalWalletConnectPayRoutes.DataCollection,
+    component: DataCollectionModal,
+  },
+  {
+    name: EModalWalletConnectPayRoutes.PaymentResult,
+    component: PaymentResultModal,
+  },
+];

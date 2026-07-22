@@ -49,6 +49,7 @@ import { ModalSwapStack } from '../../views/Swap/router';
 import { TestModalRouter } from '../../views/TestModal/router';
 import { UniversalSearchRouter } from '../../views/UniversalSearch/router';
 import { WalletAddressModalRouter } from '../../views/WalletAddress/router';
+import { WalletConnectPayModalRouter } from '../../views/WalletConnectPay/router';
 import { ModalWebViewStack } from '../../views/WebView/router';
 
 import { ModalMainStack } from './Main';
@@ -196,6 +197,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.WalletAddress,
     children: WalletAddressModalRouter,
+  },
+  {
+    name: EModalRoutes.WalletConnectPayModal,
+    children: WalletConnectPayModalRouter,
   },
   {
     name: EModalRoutes.NotificationsModal,

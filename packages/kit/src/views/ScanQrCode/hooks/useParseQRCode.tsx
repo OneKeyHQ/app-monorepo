@@ -26,6 +26,7 @@ import type {
   IMarketDetailValue,
   IQRCodeHandlerParse,
   IUrlAccountValue,
+  IWalletConnectPayValue,
   IWalletConnectValue,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -36,6 +37,7 @@ import {
   EModalRoutes,
   EModalSettingRoutes,
   EModalSignatureConfirmRoutes,
+  EModalWalletConnectPayRoutes,
   EOnboardingPagesV2,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -327,6 +329,18 @@ export async function parseQRCodeWithDeps(
         await closeScanPage();
         const wcValue = result.data as IWalletConnectValue;
         void backgroundApiProxy.walletConnect.connectToDapp(wcValue.wcUri);
+      }
+      break;
+    case EQRCodeHandlerType.WALLET_CONNECT_PAY:
+      {
+        await closeScanPage();
+        const wcPayValue = result.data as IWalletConnectPayValue;
+        navigation.pushModal(EModalRoutes.WalletConnectPayModal, {
+          screen: EModalWalletConnectPayRoutes.PaymentOptions,
+          params: {
+            paymentLink: wcPayValue.paymentLink,
+          },
+        });
       }
       break;
     case EQRCodeHandlerType.ANIMATION_CODE: {

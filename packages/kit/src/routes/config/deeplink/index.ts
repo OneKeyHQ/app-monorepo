@@ -31,6 +31,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAppUpdateRoutes,
   EModalRoutes,
+  EModalWalletConnectPayRoutes,
   ERootRoutes,
   ETabDiscoveryRoutes,
   ETabMarketRoutes,
@@ -491,6 +492,36 @@ async function processDeepLinkWalletConnect({
       if (queryParams?.['relay-protocol'] && queryParams?.symKey) {
         wcUri = url;
       }
+    }
+
+    // ** WalletConnect Pay links (wc:...?pay=... or extracted ?uri=) must be
+    // routed to the payment flow BEFORE pairing; pair() would fail on them
+    const payLinkCandidate =
+      wcUri ||
+      (scheme === WALLET_CONNECT_DEEP_LINK ||
+      scheme === WALLET_CONNECT_DEEP_LINK_NAME
+        ? url
+        : '');
+    if (
+      payLinkCandidate &&
+      (await backgroundApiProxy.serviceWalletConnectPay.isPaymentLink({
+        uri: payLinkCandidate,
+      }))
+    ) {
+      appGlobals.$rootAppNavigation?.pushModal(
+        EModalRoutes.WalletConnectPayModal,
+        {
+          screen: EModalWalletConnectPayRoutes.PaymentOptions,
+          params: {
+            paymentLink: payLinkCandidate,
+          },
+        },
+      );
+      return {
+        type: 'walletConnectPay',
+        url,
+        urlExtracted: payLinkCandidate,
+      };
     }
 
     if (wcUri) {
