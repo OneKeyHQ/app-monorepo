@@ -3,6 +3,10 @@ export const MarketTestIDs = {
   marketPage: 'market-page',
   searchBar: 'market-search-bar',
 
+  // Banner
+  bannerItem: 'market-banner-item',
+  bannerItemSkeleton: 'market-banner-item-skeleton',
+
   // Token list
   tokenListItem: (symbol: string) => `market-token-item-${symbol}`,
   tokenStarButton: (symbol: string) => `market-token-star-${symbol}`,
