@@ -36,6 +36,7 @@ import {
   isHyperLiquidAbstractionModeEnabled,
   isPredictionMarketInstrument,
   resolveBboOrderPrice,
+  resolveOrderBookSizeDecimals,
   resolveTradingSizeBN,
   snapHlPriceToGrid,
 } from './perpsUtils';
@@ -448,6 +449,29 @@ describe('analyzeOrderBookPrecision', () => {
     const result = analyzeOrderBookPrecision(bids, asks);
     expect(result.priceDecimals).toBe(2);
     expect(result.sizeDecimals).toBe(4);
+  });
+});
+
+describe('resolveOrderBookSizeDecimals', () => {
+  const bids = [
+    { px: '63857', sz: '0.78' },
+    { px: '63856', sz: '0.79' },
+  ];
+  const asks = [
+    { px: '63858', sz: '0.46' },
+    { px: '63859', sz: '0.02' },
+  ];
+
+  test('uses metadata precision instead of inferring it from live L2 values', () => {
+    expect(resolveOrderBookSizeDecimals({ bids, asks, szDecimals: 5 })).toBe(5);
+  });
+
+  test('accepts integer-only metadata precision', () => {
+    expect(resolveOrderBookSizeDecimals({ bids, asks, szDecimals: 0 })).toBe(0);
+  });
+
+  test('falls back to L2 inference when metadata is unavailable', () => {
+    expect(resolveOrderBookSizeDecimals({ bids, asks })).toBe(2);
   });
 });
 

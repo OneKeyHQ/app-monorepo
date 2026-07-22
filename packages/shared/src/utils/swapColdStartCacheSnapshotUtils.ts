@@ -27,6 +27,14 @@ export type IColdStartSwapTokenLike = {
   networkId?: string;
 };
 
+type IColdStartStockDisplayTokenLike = IColdStartSwapTokenLike & {
+  contractAddress?: string;
+  decimals?: number;
+  isNative?: boolean;
+  isStock?: boolean;
+  symbol?: string;
+};
+
 type IColdStartSelectedAccountLike = {
   walletId?: string;
   indexedAccountId?: string;
@@ -259,14 +267,54 @@ function getSelectedAccountFromSnapshot(
   return selectedAccounts?.[0] ?? selectedAccounts?.['0'];
 }
 
-function deleteSwapSelectedTokensColdStartSnapshot(
+function isValidSwapStockDisplaySeed(
+  value: unknown,
+): value is IColdStartStockDisplayTokenLike {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const token = value as IColdStartStockDisplayTokenLike;
+  return Boolean(
+    token.isStock === true &&
+    token.isNative !== true &&
+    typeof token.networkId === 'string' &&
+    token.networkId.length > 0 &&
+    typeof token.contractAddress === 'string' &&
+    token.contractAddress.length > 0 &&
+    typeof token.symbol === 'string' &&
+    token.symbol.length > 0 &&
+    typeof token.decimals === 'number' &&
+    Number.isFinite(token.decimals) &&
+    token.decimals >= 0,
+  );
+}
+
+function normalizeSwapStockDisplaySeedSnapshot(
+  snapshot: Record<string, unknown>,
+) {
+  const stockDisplaySeedKey = buildContextAtomSnapshotKey({
+    coldStartScopeKey: SWAP_STORE_SCOPE_KEY,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
+  });
+  const stockDisplaySeed = snapshot[stockDisplaySeedKey];
+
+  if (
+    stockDisplaySeed !== undefined &&
+    !isValidSwapStockDisplaySeed(stockDisplaySeed)
+  ) {
+    delete snapshot[stockDisplaySeedKey];
+  }
+}
+
+function deleteSwapExecutionColdStartSnapshot(
   snapshot: Record<string, unknown>,
 ) {
   [
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
-    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
   ].forEach((coldStartCacheKey) => {
     delete snapshot[
@@ -462,6 +510,12 @@ export function normalizeSwapColdStartCacheSnapshot(
     return snapshot;
   }
 
+  // The selected Stock token is a display-only identity seed. Keep a valid
+  // seed across account/network execution-context cleanup so Stock can render
+  // its first frame without waiting for config/default-token requests. Quote,
+  // build, and send readiness still come from freshly restored execution state.
+  normalizeSwapStockDisplaySeedSnapshot(snapshot);
+
   const contextKey = buildContextAtomSnapshotKey({
     coldStartScopeKey: SWAP_STORE_SCOPE_KEY,
     coldStartCacheKey:
@@ -478,7 +532,7 @@ export function normalizeSwapColdStartCacheSnapshot(
       snapshot,
     });
     if (!cachedContext) {
-      deleteSwapSelectedTokensColdStartSnapshot(snapshot);
+      deleteSwapExecutionColdStartSnapshot(snapshot);
       return snapshot;
     }
   }
@@ -505,7 +559,7 @@ export function normalizeSwapColdStartCacheSnapshot(
     }) ||
     !isSwapSelectedTokenSnapshotMatchedContext({ snapshot, cachedContext })
   ) {
-    deleteSwapSelectedTokensColdStartSnapshot(snapshot);
+    deleteSwapExecutionColdStartSnapshot(snapshot);
     return snapshot;
   }
 

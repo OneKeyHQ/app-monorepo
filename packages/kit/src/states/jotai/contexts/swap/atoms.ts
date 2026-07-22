@@ -7,6 +7,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import type { ICustomPriorityFeeOverride } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
+import { clampLimitRateDecimals } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import {
@@ -206,6 +207,8 @@ export const {
   atom: swapStockSelectedTokenAtom,
   use: useSwapStockSelectedTokenAtom,
 } = contextAtom<ISwapToken | undefined>(undefined, {
+  // Display-only Stock identity. Ordinary Swap execution resets must not clear
+  // it; realtime market/pay-token readiness still gates quote and execution.
   coldStartCache: true,
   coldStartCacheKey:
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
@@ -327,6 +330,7 @@ export const {
   kind?: ESwapQuoteKind;
   address?: string;
   receivingAddress?: string;
+  quoteRequestId?: string;
 }>({ actionLock: false });
 
 export const {
@@ -688,9 +692,6 @@ export const { atom: swapProTradeTypeAtom, use: useSwapProTradeTypeAtom } =
 export const { atom: swapProInputAmountAtom, use: useSwapProInputAmountAtom } =
   contextAtom<string>('');
 
-export const { atom: swapProSliderValueAtom, use: useSwapProSliderValueAtom } =
-  contextAtom<number>(0);
-
 export const {
   atom: swapProUseSelectBuyTokenAtom,
   use: useSwapProUseSelectBuyTokenAtom,
@@ -865,24 +866,18 @@ export const {
     if (fromPriceBN.isZero() || toPriceBN.isZero()) {
       return {};
     }
-    const rate = fromPriceBN
-      .div(toPriceBN)
-      .decimalPlaces(
-        Number(
-          toTokenPriceInfo.tokenInfo.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
-        ),
-        BigNumber.ROUND_HALF_UP,
-      )
-      .toFixed();
-    const reverseRate = toPriceBN
-      .div(fromPriceBN)
-      .decimalPlaces(
-        Number(
-          fromTokenPriceInfo.tokenInfo.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
-        ),
-        BigNumber.ROUND_HALF_UP,
-      )
-      .toFixed();
+    // clampLimitRateDecimals keeps ultra-small market rates (many-leading-
+    // zeros tokens) from collapsing to "0" at the source, which would defeat
+    // every downstream consumer (percent presets, market-price display,
+    // equal-market checks).
+    const rate = clampLimitRateDecimals(
+      fromPriceBN.div(toPriceBN),
+      toTokenPriceInfo.tokenInfo.decimals,
+    ).toFixed();
+    const reverseRate = clampLimitRateDecimals(
+      toPriceBN.div(fromPriceBN),
+      fromTokenPriceInfo.tokenInfo.decimals,
+    ).toFixed();
     const limitPriceMarketInfo = {
       fromToken: fromTokenPriceInfo.tokenInfo,
       toToken: toTokenPriceInfo.tokenInfo,

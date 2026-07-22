@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 
 import { BigNumber } from 'bignumber.js';
-import { isEqual, isNil } from 'lodash';
+import { isNil } from 'lodash';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -125,10 +125,13 @@ import {
   shouldResetOpenOrdersForAccount,
   sortActivePerpsPositions,
 } from './utils/coldStartMergeUtils';
+import { publishLatestOrderBookOptions } from './utils/instrumentSwitch';
 import {
   shouldClearPerpsMarketDataForInstrument,
   shouldUpdatePerpsBbo,
   shouldUpdatePerpsL2Book,
+  shouldWritePerpsL2BookColdCacheTarget,
+  upsertPerpsL2BookColdCacheTarget,
   withPerpsBboLocalReceivedAt,
   withPerpsL2BookLocalReceivedAt,
 } from './utils/l2BookUtils';
@@ -157,7 +160,6 @@ const TWAP_MAX_DURATION_MINUTES = 1440;
 const TWAP_MIN_ORDER_NOTIONAL = Number(SCALE_ORDER_MIN_NOTIONAL);
 const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
 const TWAP_SLICE_FILLS_MAX_COUNT = 2000;
-let lastL2BookColdCacheWriteAt = 0;
 
 const setAbstractionWithUserWalletTimeout = makeTimeoutPromise<
   void,
@@ -261,7 +263,7 @@ function getFreshL2BookSnapshotFromSwr({
       entry?.data?.coin === coin &&
       Date.now() - entry.updatedAt <= PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS
     ) {
-      return withPerpsL2BookLocalReceivedAt(entry.data, entry.updatedAt);
+      return withPerpsL2BookLocalReceivedAt(entry.data, entry.updatedAt, true);
     }
   }
   return undefined;
@@ -536,11 +538,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       nSigFigs: stored?.nSigFigs ?? null,
       mantissa: stored?.mantissa ?? null,
     };
-    const prevOrderBookOptions = await perpsActiveOrderBookOptionsAtom.get();
-    if (!isEqual(prevOrderBookOptions, nextOrderBookOptions)) {
-      await perpsActiveOrderBookOptionsAtom.set(() => nextOrderBookOptions);
-    }
-    if (!this.isLatestActiveInstrumentChange(params.requestId)) {
+    const isLatest = await publishLatestOrderBookOptions({
+      read: () => perpsActiveOrderBookOptionsAtom.get(),
+      write: (value) => perpsActiveOrderBookOptionsAtom.set(() => value),
+      next: nextOrderBookOptions,
+      isLatest: () => this.isLatestActiveInstrumentChange(params.requestId),
+    });
+    if (!isLatest) {
       return;
     }
 
@@ -1380,35 +1384,41 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const nextBook = withPerpsL2BookLocalReceivedAt(data);
       set(l2BookAtom(), nextBook);
       const now = Date.now();
+      const storedTickOptions = getPerpsOrderBookTickOptionWithCache({
+        coin: data.coin,
+        options: get(orderBookTickOptionsAtom()),
+      });
+      const keys = getPerpsL2BookSnapshotCacheKeys({
+        coin: data.coin,
+        nSigFigs: nextBook.nSigFigs ?? storedTickOptions?.nSigFigs ?? null,
+        mantissa:
+          nextBook.mantissa === undefined &&
+          storedTickOptions?.mantissa === undefined
+            ? undefined
+            : (nextBook.mantissa ?? storedTickOptions?.mantissa),
+      });
+      const currentColdCache = get(perpsL2BookColdCacheAtom());
+      const targetKey = keys[0];
       if (
         hasL2BookCacheableLevels(nextBook) &&
-        now - lastL2BookColdCacheWriteAt >=
-          PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS
+        targetKey &&
+        shouldWritePerpsL2BookColdCacheTarget({
+          cache: currentColdCache,
+          targetKey,
+          now,
+          minWriteIntervalMs: PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS,
+        })
       ) {
-        lastL2BookColdCacheWriteAt = now;
-        const storedTickOptions = getPerpsOrderBookTickOptionWithCache({
-          coin: data.coin,
-          options: get(orderBookTickOptionsAtom()),
-        });
-        const keys = getPerpsL2BookSnapshotCacheKeys({
-          coin: data.coin,
-          nSigFigs: storedTickOptions?.nSigFigs ?? null,
-          mantissa:
-            storedTickOptions?.mantissa === undefined
-              ? undefined
-              : storedTickOptions.mantissa,
-        });
         const updatedAt = nextBook.localReceivedAt ?? now;
-        const nextColdCache = Object.fromEntries(
-          keys.map((key) => [
-            key,
-            {
-              data: nextBook,
-              updatedAt,
-            },
-          ]),
+        set(
+          perpsL2BookColdCacheAtom(),
+          upsertPerpsL2BookColdCacheTarget({
+            cache: currentColdCache,
+            targetKeys: keys,
+            data: nextBook,
+            updatedAt,
+          }),
         );
-        set(perpsL2BookColdCacheAtom(), nextColdCache);
       }
     } else {
       const currentBook = get(l2BookAtom());
@@ -1733,6 +1743,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         }
       }
 
+      await this.ensureOrderBookTickOptionsLoaded.call(set);
+      if (!this.isLatestActiveInstrumentChange(requestId)) {
+        return false;
+      }
       if (!(await this.waitForActiveInstrumentChangeSettle(requestId))) {
         return false;
       }

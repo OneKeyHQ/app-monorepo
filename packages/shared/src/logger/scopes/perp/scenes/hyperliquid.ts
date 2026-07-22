@@ -30,12 +30,19 @@ import { LogToLocal, LogToServer } from '../../../base/decorators';
 export interface IHyperLiquidAccountContext {
   accountAddress: string | null;
   exchangeAccountAddress: string | null;
+  walletType: string;
 }
 
-export interface IHyperLiquidLogParams<
-  TRequest,
-  TResponse,
-> extends IHyperLiquidAccountContext {
+export type IHyperLiquidEventStatus = 'success' | 'fail';
+
+export interface IHyperLiquidLogResult {
+  status: IHyperLiquidEventStatus;
+  duration: number;
+  errorCode?: string;
+}
+
+export interface IHyperLiquidLogParams<TRequest, TResponse>
+  extends IHyperLiquidAccountContext, IHyperLiquidLogResult {
   request: TRequest;
   response?: TResponse;
   error?: Record<string, unknown>;
@@ -160,6 +167,16 @@ export class HyperLiquidScene extends BaseScene {
   }
 
   @LogToServer()
+  public placeSpotOrder(
+    params: IHyperLiquidLogParams<
+      IHyperLiquidOrderRequestPayload,
+      IOrderResponse | IApiErrorResponse
+    >,
+  ) {
+    return stripSensitiveFields(params);
+  }
+
+  @LogToServer()
   public orderOpen(
     params: IHyperLiquidLogParams<
       IHyperLiquidOrderRequestPayload,
@@ -170,13 +187,13 @@ export class HyperLiquidScene extends BaseScene {
   }
 
   @LogToServer()
-  public perpTermsAgree() {
-    return {};
+  public perpTermsAgree(params: { walletType: string }) {
+    return params;
   }
 
   @LogToServer()
-  public perpTermsReject() {
-    return {};
+  public perpTermsReject(params: { walletType: string }) {
+    return params;
   }
 
   @LogToServer()
@@ -280,6 +297,7 @@ export class HyperLiquidScene extends BaseScene {
     userAddress: string;
     isChecked: boolean;
     action: 'shown' | 'checked' | 'unchecked';
+    walletType: string;
   }) {
     const { userAddress, ...rest } = params;
     void userAddress;
@@ -314,6 +332,7 @@ export class HyperLiquidScene extends BaseScene {
     success: boolean;
     referralCode: string;
     errorMessage?: string;
+    walletType: string;
   }) {
     const { userAddress, ...rest } = params;
     void userAddress;
@@ -457,11 +476,51 @@ export function dispatchHyperLiquidOrderLog({
     case 'orderTrigger':
       scene.orderTrigger(payload);
       break;
+    case 'placeSpotOrder':
+      scene.placeSpotOrder(payload);
+      break;
     case 'placeOrder':
     default:
       scene.placeOrder(payload);
       break;
   }
+}
+
+function normalizeHyperLiquidErrorCode(value: unknown): string | undefined {
+  if (typeof value === 'string' || typeof value === 'number') {
+    return String(value);
+  }
+  return undefined;
+}
+
+export function buildHyperLiquidLogResult({
+  startedAt,
+  error,
+}: {
+  startedAt: number;
+  error?: unknown;
+}): IHyperLiquidLogResult {
+  if (!error) {
+    return {
+      status: 'success',
+      duration: Math.max(0, Date.now() - startedAt),
+    };
+  }
+
+  const requestError = error as IApiRequestError & {
+    code?: unknown;
+    status?: unknown;
+  };
+  const errorCode =
+    normalizeHyperLiquidErrorCode(requestError.code) ??
+    normalizeHyperLiquidErrorCode(requestError.status) ??
+    (error instanceof Error ? error.name : undefined);
+
+  return {
+    status: 'fail',
+    duration: Math.max(0, Date.now() - startedAt),
+    ...(errorCode ? { errorCode } : {}),
+  };
 }
 
 export function extractHyperLiquidErrorResponse<T>(

@@ -19,6 +19,8 @@ import {
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -75,6 +77,12 @@ import {
 
 import { VaultBase } from '../../base/VaultBase';
 
+import {
+  buildErc20ApproveEncodedTx,
+  buildPermit2ApproveAction,
+  buildPermit2ApproveEncodedTx,
+  resolveTrustedPermit2Address,
+} from './approveTransactionUtils';
 import { EVMContractDecoder } from './decoder';
 import {
   ABI,
@@ -257,7 +265,7 @@ export default class Vault extends VaultBase {
     const { unsignedTx, transferPayload } = params;
 
     const encodedTx = unsignedTx.encodedTx as IEncodedTxEvm;
-    const { swapInfo, stakingInfo } = unsignedTx;
+    const { swapInfo, stakingInfo, approveInfo } = unsignedTx;
 
     const [network, accountAddress, nativeTx] = await Promise.all([
       this.getNetwork(),
@@ -291,6 +299,27 @@ export default class Vault extends VaultBase {
         stakingData: encodedTx.data,
         stakingToAddress: encodedTx.to,
       });
+    } else if (approveInfo?.permit2Info) {
+      const permit2ApproveInfo =
+        await this._assertPermit2ApproveInfo(approveInfo);
+      isToContract = true;
+      action = buildPermit2ApproveAction({
+        encodedTx,
+        accountAddress,
+        owner: approveInfo.owner,
+        spender: approveInfo.spender,
+        amount: approveInfo.amount,
+        tokenInfo: permit2ApproveInfo.tokenInfo,
+        permit2Address: permit2ApproveInfo.permit2Address,
+        expirationSeconds: permit2ApproveInfo.expirationSeconds,
+      });
+      if (!action) {
+        throw new OneKeyLocalError(
+          appLocale.intl.formatMessage({
+            id: ETranslations.wallet_approval_permit2_data_invalid__msg,
+          }),
+        );
+      }
     } else {
       if (encodedTx.value) {
         const valueBn = new BigNumber(encodedTx.value);
@@ -624,8 +653,22 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTxEvm> {
     const { approveInfo } = params;
 
-    const { owner, spender, amount, tokenInfo, isMax } =
+    const { owner, spender, amount, tokenInfo, isMax, permit2Info } =
       approveInfo as IApproveInfo;
+
+    if (permit2Info) {
+      const permit2ApproveInfo = await this._assertPermit2ApproveInfo(
+        approveInfo as IApproveInfo,
+      );
+
+      return buildPermit2ApproveEncodedTx({
+        owner,
+        spender,
+        tokenAddress: permit2ApproveInfo.tokenInfo.address,
+        permit2Address: permit2ApproveInfo.permit2Address,
+        expirationSeconds: permit2ApproveInfo.expirationSeconds,
+      });
+    }
 
     if (!tokenInfo) {
       throw new OneKeyLocalError(
@@ -633,20 +676,76 @@ export default class Vault extends VaultBase {
       );
     }
 
-    const amountBN = new BigNumber(amount);
-    const amountHex = toBigIntHex(
-      amountBN.isNaN() || isMax
-        ? new BigNumber(2).pow(256).minus(1)
-        : amountBN.shiftedBy(tokenInfo.decimals),
+    return buildErc20ApproveEncodedTx({
+      owner,
+      spender,
+      amount,
+      tokenInfo,
+      isMax,
+    });
+  }
+
+  async _assertPermit2ApproveInfo(approveInfo: IApproveInfo): Promise<{
+    tokenInfo: IToken;
+    permit2Address: string;
+    expirationSeconds: string;
+  }> {
+    const { owner, spender, amount, tokenInfo, isMax, permit2Info } =
+      approveInfo;
+    const permit2Address = permit2Info?.permit2Address;
+    const expirationSeconds = permit2Info?.expirationSeconds;
+    const trustedPermit2Address = resolveTrustedPermit2Address({
+      networkId: this.networkId,
+      permit2Address,
+    });
+    const hasRequiredData = Boolean(
+      owner &&
+      spender &&
+      tokenInfo?.address &&
+      permit2Address &&
+      trustedPermit2Address &&
+      expirationSeconds,
     );
-    const data = `${EErc20MethodSelectors.tokenApprove}${defaultAbiCoder
-      .encode(['address', 'uint256'], [spender, amountHex])
-      .slice(2)}`;
+    const addressValidationResults = hasRequiredData
+      ? await Promise.all(
+          [owner, spender, tokenInfo?.address, trustedPermit2Address].map(
+            async (address) =>
+              address ? (await this.validateAddress(address)).isValid : false,
+          ),
+        )
+      : [false];
+    const amountBN = new BigNumber(amount);
+    const expirationBN = new BigNumber(expirationSeconds ?? '');
+    const isPermit2InfoValid =
+      hasRequiredData &&
+      addressValidationResults.every(Boolean) &&
+      isMax !== true &&
+      amountBN.isFinite() &&
+      amountBN.isZero() &&
+      typeof expirationSeconds === 'string' &&
+      /^\d+$/.test(expirationSeconds) &&
+      expirationBN.isFinite() &&
+      expirationBN.isInteger() &&
+      expirationBN.gte(0) &&
+      expirationBN.lte(new BigNumber(2).pow(48).minus(1));
+
+    if (
+      !isPermit2InfoValid ||
+      !tokenInfo ||
+      !trustedPermit2Address ||
+      !expirationSeconds
+    ) {
+      throw new OneKeyLocalError(
+        appLocale.intl.formatMessage({
+          id: ETranslations.wallet_approval_permit2_data_invalid__msg,
+        }),
+      );
+    }
+
     return {
-      from: owner,
-      to: tokenInfo.address,
-      value: '0x0',
-      data,
+      tokenInfo,
+      permit2Address: trustedPermit2Address,
+      expirationSeconds,
     };
   }
 

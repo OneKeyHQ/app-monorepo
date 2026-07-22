@@ -372,6 +372,32 @@ export class OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound extends OneKeyAppError
     EOneKeyErrorClassNames.OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound;
 }
 
+// Local (bg-side) guard rejection: a concurrent login flow overwrote the
+// shared keyless session slot with ANOTHER account's valid session before
+// this flow's server POST. Definitive for THIS flow (never retried blindly),
+// but main-runtime failure cleanup must recognize this class and SKIP its
+// session teardown — the slot holds the winning account's valid session, and
+// wiping it would fail both concurrent logins. className/name are plain own
+// properties so the check survives bg -> main bridge serialization.
+export class OneKeyErrorOneKeyIdKeylessSessionSlotReplaced extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        // TODO: i18n
+        defaultMessage:
+          'Another account signed in during this login; please retry.',
+        defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override className =
+    EOneKeyErrorClassNames.OneKeyErrorOneKeyIdKeylessSessionSlotReplaced;
+
+  override name =
+    EOneKeyErrorClassNames.OneKeyErrorOneKeyIdKeylessSessionSlotReplaced;
+}
+
 export class OneKeyInternalError extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(
@@ -748,6 +774,22 @@ export class TransferValueTooSmall extends OneKeyAppError {
       normalizeErrorProps(props, {
         defaultMessage: 'TransferValueTooSmall',
         defaultKey: ETranslations.send_amount_too_small,
+      }),
+    );
+  }
+}
+
+export type ITooManyTransactionInputsInfo = {
+  number: string | number;
+  max: string | number;
+};
+
+export class TooManyTransactionInputs extends OneKeyAppError<ITooManyTransactionInputsInfo> {
+  constructor(props?: IOneKeyError<ITooManyTransactionInputsInfo>) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'TooManyTransactionInputs',
+        defaultKey: ETranslations.send_too_many_inputs__msg,
       }),
     );
   }
