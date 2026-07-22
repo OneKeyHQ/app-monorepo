@@ -11,7 +11,6 @@ import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSe
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useManageToken } from '@onekeyhq/kit/src/hooks/useManageToken';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useTokenSelectorFilterPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalAssetDetailRoutes,
@@ -23,6 +22,7 @@ import {
   useHomeSectionPayload,
   useHomeSectionSnapshot,
 } from '../../model/react/homeStoreHooks';
+import { useHomePortfolioIntents } from '../../model/react/useHomePortfolioIntents';
 import { RichBlock } from '../RichBlock/RichBlock';
 
 function TokenListBlock({
@@ -47,7 +47,7 @@ function TokenListBlock({
   } = useActiveAccount({ num: 0 });
   const portfolioSection = useHomeSectionSnapshot('portfolio');
   const portfolioPayload = useHomeSectionPayload('portfolio');
-  const [, setTokenSelectorFilter] = useTokenSelectorFilterPersistAtom();
+  const { setShowLpTokensOnly } = useHomePortfolioIntents();
   const { handleOnManageToken, manageTokenEnabled } = useManageToken({
     accountId: account?.id ?? '',
     networkId: network?.id ?? '',
@@ -62,12 +62,9 @@ function TokenListBlock({
 
   const handleLpTokenFilterChange = useCallback(
     (value: boolean) => {
-      setTokenSelectorFilter((previous) => ({
-        ...previous,
-        homeShowLpTokensOnly: value,
-      }));
+      setShowLpTokensOnly(value);
     },
-    [setTokenSelectorFilter],
+    [setShowLpTokensOnly],
   );
 
   const handleOnPressToken = useCallback(

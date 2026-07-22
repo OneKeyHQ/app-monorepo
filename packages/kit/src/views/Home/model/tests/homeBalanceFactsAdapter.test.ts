@@ -13,7 +13,6 @@ describe('currentHomeBalanceFactsAdapter', () => {
   it('builds an exact owner, required-set, and quote-bound source identity', () => {
     const facts = adaptCurrentHomeBalanceFacts({
       bannerAvailable: true,
-      compatibilityConfirmedAmount: '12',
       contributors: [
         {
           amount: '10',
@@ -53,12 +52,6 @@ describe('currentHomeBalanceFactsAdapter', () => {
 
     expect(facts.requiredContributors).toEqual(['defi', 'portfolio']);
     expect(facts.contributors.portfolio?.resource.kind).toBe('complete');
-    expect(facts.compatibilityConfirmed).toMatchObject({
-      amount: '12',
-      ownerScopeKey: ownerToken.scopeKey,
-      quoteBasis,
-      sourceKeyIdentity: facts.sourceKeyIdentity,
-    });
   });
 
   it('turns a stale source scope into loading instead of accepting its value', () => {
@@ -82,29 +75,6 @@ describe('currentHomeBalanceFactsAdapter', () => {
     });
 
     expect(facts.contributors.portfolio?.resource).toEqual({ kind: 'loading' });
-  });
-
-  it('does not seed a non-finite compatibility balance', () => {
-    const facts = adaptCurrentHomeBalanceFacts({
-      bannerAvailable: false,
-      compatibilityConfirmedAmount: 'NaN',
-      contributors: [
-        {
-          expectedSourceScopeKey: 'scope-1',
-          id: 'portfolio',
-          included: true,
-          positiveEvidence: false,
-          sourceIdentity: 'portfolio-v1',
-          sourceScopeKey: 'scope-1',
-          status: 'loading',
-        },
-      ],
-      ownerToken,
-      quoteBasis,
-      requiredSetRevision: 'portfolio:v1',
-    });
-
-    expect(facts.compatibilityConfirmed).toBeUndefined();
   });
 
   it('never relabels an amount as USD while its quote rate is unavailable', () => {

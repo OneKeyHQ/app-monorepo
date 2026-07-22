@@ -7,8 +7,8 @@ import {
   withNFTListProvider,
 } from '../../../states/jotai/contexts/nftList';
 import { NFTListView } from '../components/NFTListView';
-import { onHomePageRefresh } from '../components/PullToRefresh';
 import { useHomeSectionPayload } from '../model/react/homeStoreHooks';
+import { useHomeRefreshIntents } from '../model/react/useHomeRefreshIntents';
 
 function NFTListContainer() {
   const { updateSearchKey } = useNFTListActions().current;
@@ -17,6 +17,7 @@ function NFTListContainer() {
   } = useActiveAccount({ num: 0 });
   const homeNFTResource = useHomeResource('nft');
   const homeNFTPayload = useHomeSectionPayload('nft');
+  const { refreshSection, refreshingBySection } = useHomeRefreshIntents();
 
   useEffect(() => {
     updateSearchKey('');
@@ -29,7 +30,8 @@ function NFTListContainer() {
 
   return (
     <NFTListView
-      onRefresh={onHomePageRefresh}
+      onRefresh={() => refreshSection('nft')}
+      refreshing={refreshingBySection.nft}
       data={homeNFTPayload?.data ?? []}
       isLoading={!initialized}
       initialized={initialized}

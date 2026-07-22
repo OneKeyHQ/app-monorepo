@@ -422,6 +422,11 @@ enum HomeContainerProtocolV3Transaction {
     }) else {
       return .needSnapshot(.slotRevisionGap)
     }
+    guard availableSlotRevisions.allSatisfy({ key, revision in
+      current.slotRevisions[key].map { revision >= $0 } ?? true
+    }) else {
+      return .needSnapshot(.invalidInvariant)
+    }
     let legacyPatch = HomeContainerProtocolV2PatchEnvelope(
       kind: "patch",
       protocolVersion: homeContainerProtocolVersion,
@@ -442,9 +447,9 @@ enum HomeContainerProtocolV3Transaction {
           transportRevision: patch.transportRevision,
           presentationRevisions: patch.presentationRevisions,
           authorityRevisions: patch.authorityRevisions,
-          slotRevisions: availableSlotRevisions.merging(
+          slotRevisions: patch.requiredSlotRevisions.merging(
             current.slotRevisions,
-            uniquingKeysWith: { available, _ in available }
+            uniquingKeysWith: { required, _ in required }
           ),
           legacyState: legacyState
         ),

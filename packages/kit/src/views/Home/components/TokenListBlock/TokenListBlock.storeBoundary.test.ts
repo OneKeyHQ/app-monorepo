@@ -26,6 +26,8 @@ describe('Home portfolio Store boundary', () => {
     expect(rendererSource).not.toContain('useListStructureAtom');
     expect(rendererSource).not.toContain('useTokenListContextData');
     expect(rendererSource).not.toContain('useHomeTokenListOwnerKey');
+    expect(rendererSource).not.toContain('useTokenSelectorFilterPersistAtom');
+    expect(rendererSource).toContain('useHomePortfolioIntents');
     expect(rendererSource).toContain("useHomeSectionPayload('portfolio')");
   });
 

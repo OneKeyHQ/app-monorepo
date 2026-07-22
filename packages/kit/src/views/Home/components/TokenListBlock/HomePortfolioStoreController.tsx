@@ -63,10 +63,7 @@ import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entit
 import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
-import {
-  useSettingsPersistAtom,
-  useTokenSelectorFilterPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
@@ -118,6 +115,7 @@ import { useHomeFactsSnapshot } from '../../model/react/homeStoreHooks';
 import { useHomeStoreControllerActions } from '../../model/react/useHomeStoreControllerActions';
 import { useHomeStoreSourcePublisher } from '../../model/react/useHomeStoreSourcePublisher';
 import { HomeSectionCoordinator } from '../../model/sections/homeSectionCoordinator';
+import { HOME_PORTFOLIO_SHOW_LP_TOKENS_CONTROL_ID } from '../../model/sections/spot/homePortfolioControls';
 import {
   buildHomeSpotAllCoverage,
   buildHomeSpotSingleCoverage,
@@ -433,7 +431,6 @@ function HomePortfolioStoreController({
     buildAuthoritativeSnapshot,
     commitAuthoritativeIngest,
   } = pipeline;
-  const [tokenSelectorFilter] = useTokenSelectorFilterPersistAtom();
   const isDeFiEnabled = useIsDeFiEnabled(network?.id);
   const showLpTokenFilterSwitch =
     isTokenSelectorDappTokenFilterSupportedNetwork({
@@ -441,7 +438,9 @@ function HomePortfolioStoreController({
       isDeFiEnabled,
     });
   const showLpTokensOnly = showLpTokenFilterSwitch
-    ? tokenSelectorFilter.homeShowLpTokensOnly
+    ? interaction.sectionControls.portfolio?.[
+        HOME_PORTFOLIO_SHOW_LP_TOKENS_CONTROL_ID
+      ] === true
     : false;
   const [scopedLpTokenList, setScopedLpTokenList] =
     useState<IScopedActiveTokenList>({

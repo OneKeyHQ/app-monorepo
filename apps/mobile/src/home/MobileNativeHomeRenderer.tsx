@@ -143,6 +143,7 @@ export function MobileNativeHomeRenderer({
   const nativeCapabilitiesRef = useRef<IHomeContainerCapabilities | undefined>(
     undefined,
   );
+  const homeNativeDecisionKeyRef = useRef<string | undefined>(undefined);
   const [nativeUnavailable, setNativeUnavailable] = useState(
     () => !isHomeContainerAvailable(),
   );
@@ -236,38 +237,81 @@ export function MobileNativeHomeRenderer({
     [intl],
   );
 
-  const payloads = useMemo(
-    () => ({
-      portfolio: portfolioPayload,
-      perps: perpsPayload,
-      defi: defiPayload,
-      nft: nftPayload,
-      history: historyPayload,
-      market: marketPayload,
-    }),
+  const portfolioSections = useMemo(
+    () =>
+      buildMobileNativeHomeSections({
+        labels: nativeLabels,
+        locale: intl.locale,
+        payloads: { portfolio: portfolioPayload, market: marketPayload },
+        sectionId: 'portfolio',
+        semantic: portfolioSection.value,
+      }),
     [
-      defiPayload,
-      historyPayload,
+      intl.locale,
       marketPayload,
-      nftPayload,
-      perpsPayload,
+      nativeLabels,
       portfolioPayload,
+      portfolioSection.value,
     ],
   );
-  const semanticSections = useMemo(
+  const perpsSections = useMemo(
+    () =>
+      buildMobileNativeHomeSections({
+        labels: nativeLabels,
+        locale: intl.locale,
+        payloads: { perps: perpsPayload },
+        sectionId: 'perps',
+        semantic: perpsSection.value,
+      }),
+    [intl.locale, nativeLabels, perpsPayload, perpsSection.value],
+  );
+  const defiSections = useMemo(
+    () =>
+      buildMobileNativeHomeSections({
+        labels: nativeLabels,
+        locale: intl.locale,
+        payloads: { defi: defiPayload },
+        sectionId: 'defi',
+        semantic: defiSection.value,
+      }),
+    [defiPayload, defiSection.value, intl.locale, nativeLabels],
+  );
+  const nftSections = useMemo(
+    () =>
+      buildMobileNativeHomeSections({
+        labels: nativeLabels,
+        locale: intl.locale,
+        payloads: { nft: nftPayload },
+        sectionId: 'nft',
+        semantic: nftSection.value,
+      }),
+    [intl.locale, nativeLabels, nftPayload, nftSection.value],
+  );
+  const historySections = useMemo(
+    () =>
+      buildMobileNativeHomeSections({
+        labels: nativeLabels,
+        locale: intl.locale,
+        payloads: { history: historyPayload },
+        sectionId: 'history',
+        semantic: historySection.value,
+      }),
+    [historyPayload, historySection.value, intl.locale, nativeLabels],
+  );
+  const sectionsByTab = useMemo(
     () => ({
-      portfolio: portfolioSection.value,
-      perps: perpsSection.value,
-      defi: defiSection.value,
-      nft: nftSection.value,
-      history: historySection.value,
+      portfolio: portfolioSections,
+      perps: perpsSections,
+      defi: defiSections,
+      nft: nftSections,
+      history: historySections,
     }),
     [
-      defiSection.value,
-      historySection.value,
-      nftSection.value,
-      perpsSection.value,
-      portfolioSection.value,
+      defiSections,
+      historySections,
+      nftSections,
+      perpsSections,
+      portfolioSections,
     ],
   );
 
@@ -293,24 +337,11 @@ export function MobileNativeHomeRenderer({
           id: tabId,
           title: tabTitles[tabId],
           destination,
-          sections: buildMobileNativeHomeSections({
-            labels: nativeLabels,
-            locale: intl.locale,
-            payloads,
-            sectionId: tabId,
-            semantic: semanticSections[tabId],
-          }),
+          sections: sectionsByTab[tabId],
         };
       },
     );
-  }, [
-    homeNavigation.value,
-    intl.locale,
-    nativeLabels,
-    payloads,
-    semanticSections,
-    tabTitles,
-  ]);
+  }, [homeNavigation.value, sectionsByTab, tabTitles]);
 
   const balancePresentation =
     shell.value.kind === 'portfolio' ? shell.value.presentation : undefined;
@@ -607,9 +638,23 @@ export function MobileNativeHomeRenderer({
   );
   const previousSnapshotRef = useRef(snapshot);
   const attachedTargetRef = useRef<IHomeContainerRef | undefined>(undefined);
+  const pendingRefreshesRef = useRef(new Map<string, IRefreshState>());
+
+  const disposeNativeSession = useCallback(() => {
+    const target = attachedTargetRef.current ?? nativeRef.current ?? undefined;
+    pendingRefreshesRef.current.forEach((pending, requestId) => {
+      clearTimeout(pending.timeoutId);
+      target?.completeRefresh(requestId);
+    });
+    pendingRefreshesRef.current.clear();
+    controller?.detach(target);
+    controller?.dispose();
+    attachedTargetRef.current = undefined;
+    nativeCapabilitiesRef.current = undefined;
+  }, [controller]);
 
   useLayoutEffect(() => {
-    if (!controller) {
+    if (!controller || nativeUnavailable) {
       return;
     }
     const previous = previousSnapshotRef.current;
@@ -641,19 +686,19 @@ export function MobileNativeHomeRenderer({
     }
     controller.updateSlots(slots);
     previousSnapshotRef.current = snapshot;
-  }, [controller, revisionState, slots, snapshot]);
+  }, [controller, nativeUnavailable, revisionState, slots, snapshot]);
 
-  useEffect(
-    () => () => {
-      controller?.detach(attachedTargetRef.current);
-      controller?.dispose();
-    },
-    [controller],
-  );
+  useLayoutEffect(() => () => disposeNativeSession(), [disposeNativeSession]);
+
+  useEffect(() => {
+    if (nativeUnavailable) {
+      disposeNativeSession();
+    }
+  }, [disposeNativeSession, nativeUnavailable]);
 
   useLayoutEffect(() => {
     const target = nativeRef.current;
-    if (!target || !controller) {
+    if (!target || !controller || nativeUnavailable) {
       return;
     }
     // The native view outlives an owner-scoped controller, so an owner switch
@@ -669,7 +714,7 @@ export function MobileNativeHomeRenderer({
     }
     nativeCapabilitiesRef.current = capabilities;
     attachedTargetRef.current = target;
-  }, [controller]);
+  }, [controller, nativeUnavailable]);
 
   useEffect(() => {
     const value = homeNavigation.value;
@@ -696,6 +741,29 @@ export function MobileNativeHomeRenderer({
       funded &&
       balancePresentation?.banner.kind === 'positive' &&
       bannerCount > 0;
+    const decisionKey = stringUtils.stableStringify({
+      accountRowAuthority,
+      actionRowAuthority,
+      backupStateAuthority,
+      balanceModel,
+      balancePresentation,
+      bannerCount,
+      bannerPayloadParsed: Boolean(bannerPayload),
+      bannerResourceKind: bannerResource.kind,
+      funded,
+      headerBalance: header.balance,
+      headerBalanceSecondary: header.balanceSecondary,
+      isBackupRequired,
+      nativeUnavailable,
+      networkScope,
+      portfolioResource,
+      shouldShowBanner,
+      value,
+    });
+    if (homeNativeDecisionKeyRef.current === decisionKey) {
+      return;
+    }
+    homeNativeDecisionKeyRef.current = decisionKey;
     defaultLogger.wallet.homeUi.homeRendererDecision({
       renderer: nativeUnavailable ? 'react' : 'native',
       reason: nativeUnavailable ? 'capabilityUnavailable' : 'platformDefault',
@@ -828,7 +896,6 @@ export function MobileNativeHomeRenderer({
     [dispatchHomeIntent, facts],
   );
 
-  const pendingRefreshesRef = useRef(new Map<string, IRefreshState>());
   const handleRefreshIntent = useCallback(
     (tabId: IHomeContainerTabId, requestId: string, revision: number) => {
       if (!facts) {
@@ -903,20 +970,6 @@ export function MobileNativeHomeRenderer({
     portfolioResource,
   ]);
 
-  useEffect(
-    () => () => {
-      const target = nativeRef.current;
-      pendingRefreshesRef.current.forEach((pending) => {
-        clearTimeout(pending.timeoutId);
-      });
-      pendingRefreshesRef.current.forEach((_pending, requestId) => {
-        target?.completeRefresh(requestId);
-      });
-      pendingRefreshesRef.current.clear();
-    },
-    [owner?.scopeKey, owner?.sessionId],
-  );
-
   const handleIntent = useCallback(
     (value: string) => {
       const parsed = parseHomeContainerIntentV3(value);
@@ -987,7 +1040,7 @@ export function MobileNativeHomeRenderer({
     (capabilities: IHomeContainerCapabilities) => {
       const target = nativeRef.current;
       nativeCapabilitiesRef.current = capabilities;
-      if (!target || !controller) {
+      if (!target || !controller || nativeUnavailable) {
         return;
       }
       if (!controller.attach(target, capabilities)) {
@@ -996,7 +1049,7 @@ export function MobileNativeHomeRenderer({
       }
       attachedTargetRef.current = target;
     },
-    [controller],
+    [controller, nativeUnavailable],
   );
   const handleTransportResult = useCallback(
     (value: string) => {
@@ -1017,9 +1070,11 @@ export function MobileNativeHomeRenderer({
           revision: result.revision,
         });
       }
-      controller?.handleTransportResult(value);
+      if (!nativeUnavailable) {
+        controller?.handleTransportResult(value);
+      }
     },
-    [controller],
+    [controller, nativeUnavailable],
   );
 
   if (nativeUnavailable || !owner || !controller) {

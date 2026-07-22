@@ -170,10 +170,11 @@ Final ownership is intentionally narrow:
 | Backup-required CTA | Controlled RN `content.state.portfolio` slot | Keeps the mobile business surface inside HomeContainer while reusing the existing backup interaction. |
 | Persistence | Confirmed-cache codec/service | Bounded acceleration artifact, never a live authority. |
 
-The Native entry is app-injected instead of imported into `kit`: the generic
+The Native renderer remains app-injected: the generic
 `NativeHomeRendererProvider` lives in `kit`, while `apps/mobile` installs
-`MobileNativeHomeRenderer`. This keeps `kit` independent of an app-specific
-native implementation and preserves the package hierarchy.
+`MobileNativeHomeRenderer`. `kit` may import renderer-neutral protocol types and
+adapters from `native-components`, but app-specific Native registration and
+platform bootstrap remain in `apps/mobile`.
 
 On iOS and Android, `main` and `bg` are isolated JS heaps. Producer payloads
 are serialized in `bg` and deserialized again in `main`; no JS object is
@@ -557,9 +558,10 @@ Desktop and Web are single-runtime for Home JavaScript business state.
 The dependency graph remains:
 
 ```text
-shared ─────────→ components ──→ kit ──→ apps
-  │                                ↑
-  └─────────────→ core ──→ kit-bg ┘
+shared ─────────→ components ───────────→ kit ──→ apps
+  │                                       ↑
+  ├─────────────→ native-components ──────┤
+  ├─────────────→ core ──→ kit-bg ────────┘
   └──────────────────────→ kit-bg
 ```
 
@@ -567,8 +569,10 @@ More precisely:
 
 - `shared` imports no other OneKey package;
 - `components` imports `shared` only;
+- `native-components` imports `shared` only and owns renderer/protocol bridges,
+  never Home business state or services;
 - `kit-bg` imports `shared` and `core` only;
-- `kit` may import `shared`, `components`, and `kit-bg`;
+- `kit` may import `shared`, `components`, `native-components`, and `kit-bg`;
 - apps may import all packages.
 
 JSON contracts needed by both `kit-bg` and `kit` must live low enough in the

@@ -118,6 +118,32 @@ enum HomeContainerProtocolV3Contract {
       reason: .revisionGap
     )
 
+    var regressingSlots = current.slotRevisions
+    if let slotId = regressingSlots.keys.first,
+      let revision = regressingSlots[slotId]
+    {
+      regressingSlots[slotId] = revision - 1
+    }
+    try expectNeedSnapshot(
+      HomeContainerProtocolV3Transaction.apply(
+        patch: patch,
+        current: current,
+        availableSlotRevisions: regressingSlots
+      ),
+      reason: .invalidInvariant
+    )
+
+    var unrequiredSlots = current.slotRevisions
+    unrequiredSlots["header.action-row"] = 99
+    let unrequiredResult = try applied(
+      HomeContainerProtocolV3Transaction.apply(
+        patch: patch,
+        current: current,
+        availableSlotRevisions: unrequiredSlots
+      )
+    )
+    try expect(unrequiredResult.slotRevisions["header.action-row"] == nil)
+
     let regressingAuthority = HomeContainerProtocolV3AuthorityRevisions(
       shellCommands: patch.authorityRevisions.shellCommands,
       tabApplicability: current.authorityRevisions.tabApplicability - 1,

@@ -130,6 +130,59 @@ describe('createStaticImportChainReport', () => {
     ]);
   });
 
+  it('resolves the native-components workspace package', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'import-chain-'));
+    const root = 'packages/kit/src/nativeBridge.ts';
+    const nativeEntry = 'packages/native-components/src/index.ts';
+    const protocolTarget =
+      'packages/native-components/src/HomeContainerProtocolV3.ts';
+
+    writeFile(
+      repoRoot,
+      root,
+      "import { protocol } from '@onekeyhq/native-components';",
+    );
+    writeFile(
+      repoRoot,
+      'packages/native-components/package.json',
+      JSON.stringify({ main: 'src/index.ts' }),
+    );
+    writeFile(
+      repoRoot,
+      nativeEntry,
+      "export { protocol } from './HomeContainerProtocolV3';",
+    );
+    writeFile(repoRoot, protocolTarget, 'export const protocol = 3;');
+
+    const report = createStaticImportChainReport({
+      repoRoot,
+      modules: [root, nativeEntry, protocolTarget],
+      roots: [root],
+      targets: [protocolTarget],
+    });
+
+    expect(report.chains).toEqual([
+      {
+        target: protocolTarget,
+        status: 'found',
+        chain: [
+          {
+            from: root,
+            to: nativeEntry,
+            specifier: '@onekeyhq/native-components',
+            edgeType: 'sync',
+          },
+          {
+            from: nativeEntry,
+            to: protocolTarget,
+            specifier: './HomeContainerProtocolV3',
+            edgeType: 'sync',
+          },
+        ],
+      },
+    ]);
+  });
+
   it('resolves the QR wallet SDK workspace package and src submodules', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'import-chain-'));
     const root = 'apps/web/src/root.ts';

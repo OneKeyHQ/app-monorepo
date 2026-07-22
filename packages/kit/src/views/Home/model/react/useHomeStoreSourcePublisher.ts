@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { useHomeStoreInternalActions } from '@onekeyhq/kit/src/states/jotai/contexts/home/actions';
 import {
@@ -64,6 +64,23 @@ export type IHomeStoreSourceRequestHandle<
 };
 
 let homeSourceGatewayInstanceSeq = 0;
+const HOME_SOURCE_GATEWAY_MAX_TRACKED_IDENTITIES = 32;
+
+function setBoundedMapValue<TKey, TValue>(
+  map: Map<TKey, TValue>,
+  key: TKey,
+  value: TValue,
+) {
+  map.delete(key);
+  map.set(key, value);
+  while (map.size > HOME_SOURCE_GATEWAY_MAX_TRACKED_IDENTITIES) {
+    const oldestKey = map.keys().next().value as TKey | undefined;
+    if (oldestKey === undefined) {
+      break;
+    }
+    map.delete(oldestKey);
+  }
+}
 
 function createHomeSourceGatewayInstanceId(prefix: string) {
   homeSourceGatewayInstanceSeq += 1;
@@ -96,7 +113,7 @@ export function createHomeStoreSourceGateway({
           currentRequestSeq,
           requestSeqBySource.get(sourceIdentity) ?? 0,
         ) + 1;
-      requestSeqBySource.set(sourceIdentity, requestSeq);
+      setBoundedMapValue(requestSeqBySource, sourceIdentity, requestSeq);
       const token: IHomeStoreRequestToken<TSourceId> = {
         protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
         clientInstanceId,
@@ -127,6 +144,9 @@ export function createHomeStoreSourceGateway({
         type: 'sourceResponded',
         envelope: { token: handle.token, result },
       } as IHomeStoreEvent);
+    },
+    dispose() {
+      requestSeqBySource.clear();
     },
   };
 }
@@ -177,7 +197,7 @@ export function createHomeStoreSectionSourceGateway({
         requestSeqBySource.get(sourceIdentity) ?? 0,
         currentStoreRequestSeq,
       ) + 1;
-    requestSeqBySource.set(sourceIdentity, requestSeq);
+    setBoundedMapValue(requestSeqBySource, sourceIdentity, requestSeq);
     const token: IHomeRuntimeRequestToken = {
       protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
       clientInstanceId,
@@ -199,7 +219,7 @@ export function createHomeStoreSectionSourceGateway({
         quoteBasis: payload.quoteBasis,
       },
     };
-    activeTokenBySource.set(sourceIdentity, token);
+    setBoundedMapValue(activeTokenBySource, sourceIdentity, token);
     dispatchHomeEvent({ type: 'sourceRequested', token });
     return token;
   };
@@ -267,13 +287,17 @@ export function createHomeStoreSectionSourceGateway({
       };
     },
     complete: completeRequest,
+    dispose() {
+      activeTokenBySource.clear();
+      requestSeqBySource.clear();
+    },
   };
 }
 
 export function useHomeStoreSourcePublisher() {
   const actions = useHomeStoreInternalActions();
 
-  return useMemo(() => {
+  const publisher = useMemo(() => {
     const sectionGateway = createHomeStoreSectionSourceGateway({
       dispatchHomeEvent: (event) => actions.current.dispatchHomeEvent(event),
       readHomeStoreSnapshot: () => actions.current.readHomeStoreSnapshot(),
@@ -320,6 +344,19 @@ export function useHomeStoreSourcePublisher() {
           ...payload,
         });
       },
+      dispose() {
+        sectionGateway.dispose();
+        sourceGateway.dispose();
+      },
     };
   }, [actions]);
+
+  useEffect(
+    () => () => {
+      publisher.dispose();
+    },
+    [publisher],
+  );
+
+  return publisher;
 }

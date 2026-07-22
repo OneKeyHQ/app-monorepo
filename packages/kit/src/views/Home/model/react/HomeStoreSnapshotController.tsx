@@ -16,6 +16,7 @@ import {
 import {
   HOME_STORE_CACHE_TTL_MS,
   createCacheRecord,
+  getHomeStoreCacheContentSignature,
   mergeHomeStoreCacheRecords,
 } from '../store/homeStoreSnapshotRecord';
 
@@ -46,6 +47,7 @@ export function HomeStoreSnapshotController() {
   const market = useHomeResource('market');
   const { hydrateHomeConfirmedSnapshot } = useHomeStoreControllerActions();
   const loadGenerationRef = useRef(0);
+  const lastPersistedSignatureRef = useRef<string | undefined>(undefined);
   const hydratedSourceIdsRef = useRef(new Set<IHomeStoreSourceId>());
   const hydratedPreferenceRef = useRef(false);
   const confirmedRecordsRef = useRef<{
@@ -74,6 +76,7 @@ export function HomeStoreSnapshotController() {
     const generation = loadGenerationRef.current;
     hydratedSourceIdsRef.current.clear();
     hydratedPreferenceRef.current = false;
+    lastPersistedSignatureRef.current = undefined;
     confirmedRecordsRef.current = {
       ownerScopeKey: ownerToken?.scopeKey,
       records: [],
@@ -108,6 +111,8 @@ export function HomeStoreSnapshotController() {
           recordCount: snapshot?.records.length ?? 0,
         });
         if (snapshot) {
+          lastPersistedSignatureRef.current =
+            getHomeStoreCacheContentSignature(snapshot);
           if (
             confirmedRecordsRef.current.ownerScopeKey ===
               snapshot.ownerScopeKey &&
@@ -119,6 +124,10 @@ export function HomeStoreSnapshotController() {
             };
           }
           setLoadedSnapshot(snapshot);
+        } else if (envelope) {
+          void backgroundApiProxy.serviceBootstrap.removeHomeStoreCache(
+            getHomeStoreCacheKey(ownerToken.scopeKey),
+          );
         }
       } catch {
         defaultLogger.wallet.homeUi.homeStoreCacheDecision({
@@ -222,6 +231,13 @@ export function HomeStoreSnapshotController() {
           records,
         };
       }
+      const contentSignature = getHomeStoreCacheContentSignature({
+        records,
+        selectedTabPreference: interaction.preferredTabId,
+      });
+      if (contentSignature === lastPersistedSignatureRef.current) {
+        return;
+      }
       const envelope = encodeHomeStoreSnapshot({
         key: getHomeStoreCacheKey(ownerToken.scopeKey),
         ownerScopeKey: ownerToken.scopeKey,
@@ -231,6 +247,7 @@ export function HomeStoreSnapshotController() {
         expiresAt: now + HOME_STORE_CACHE_TTL_MS,
       });
       if (envelope) {
+        lastPersistedSignatureRef.current = contentSignature;
         void backgroundApiProxy.serviceBootstrap
           .persistHomeStoreCache(envelope)
           .then(() => {
@@ -241,6 +258,9 @@ export function HomeStoreSnapshotController() {
             });
           })
           .catch(() => {
+            if (lastPersistedSignatureRef.current === contentSignature) {
+              lastPersistedSignatureRef.current = undefined;
+            }
             defaultLogger.wallet.homeUi.homeStoreCacheDecision({
               operation: 'persist',
               outcome: 'failed',

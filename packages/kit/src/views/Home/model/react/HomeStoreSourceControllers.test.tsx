@@ -20,6 +20,11 @@ let mockHomeRuntime: {
 };
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/home', () => ({
+  useHomeInteraction: () => ({
+    sectionControls: {
+      portfolio: { 'home.portfolio.showLpTokensOnly': false },
+    },
+  }),
   useHomeRuntimeState: () => mockHomeRuntime,
 }));
 
@@ -117,6 +122,14 @@ jest.mock('./HomePerpsStoreController', () => {
   };
 });
 
+jest.mock('./HomePortfolioControlPersistenceController', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    HomePortfolioControlPersistenceController: () =>
+      React.createElement('View', { testID: 'portfolio-control-controller' }),
+  };
+});
+
 jest.mock('./HomeStoreControllerBridge', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
@@ -180,6 +193,9 @@ describe('HomeStoreSourceControllers', () => {
     expect(
       view.root.findAllByProps({ testID: 'command-controller' }),
     ).toHaveLength(0);
+    expect(
+      view.root.findAllByProps({ testID: 'portfolio-control-controller' }),
+    ).toHaveLength(0);
 
     act(() => view.unmount());
   });
@@ -214,6 +230,9 @@ describe('HomeStoreSourceControllers', () => {
     ).toHaveLength(1);
     expect(
       view.root.findAllByProps({ testID: 'portfolio-controller' }),
+    ).toHaveLength(1);
+    expect(
+      view.root.findAllByProps({ testID: 'portfolio-control-controller' }),
     ).toHaveLength(1);
     expect(
       view.root

@@ -26,6 +26,7 @@ import {
   type IAppEventBusPayload,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { REQUEST_TIMEOUT } from '@onekeyhq/shared/src/request/requestConst';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -76,6 +77,17 @@ type ITokenRefreshAccount = { accountId: string; networkId: string };
 const NATIVE_LOAD_MORE_HARD_LIMIT = 30;
 const LOAD_MORE_SOFT_TIMEOUT_MS = REQUEST_TIMEOUT + 15 * 1000;
 const EMPTY_HOME_HISTORY_TOKEN_MAP: IHomeHistoryStorePayload['tokenMap'] = {};
+
+function logHomeHistorySourceFailure(
+  stage: 'cacheRead' | 'firstPage' | 'loadMore',
+  error: unknown,
+) {
+  defaultLogger.wallet.homeUi.homeSourceFailure({
+    sourceId: 'history',
+    stage,
+    errorName: error instanceof Error ? error.name : 'UnknownError',
+  });
+}
 
 function normalizeCursor(input: unknown): string | null {
   if (input === null || input === undefined) {
@@ -463,7 +475,7 @@ function useHomeHistoryStoreSource({
           afterSuccess: runPostFetchEffects,
         });
       } catch (error) {
-        console.error('Home History first page failed:', error);
+        logHomeHistorySourceFailure('firstPage', error);
       }
     },
     [
@@ -559,7 +571,7 @@ function useHomeHistoryStoreSource({
       hasPublishedPayloadRef.current = true;
     } catch (error) {
       gateway.complete(handle, { kind: 'error' });
-      console.error('Home History cache read failed:', error);
+      logHomeHistorySourceFailure('cacheRead', error);
     }
     if (identityGenerationRef.current === identityGeneration) {
       await loadFirstPage({ manual: false });
@@ -640,7 +652,7 @@ function useHomeHistoryStoreSource({
         },
       });
     } catch (error) {
-      console.error('Home History load more failed:', error);
+      logHomeHistorySourceFailure('loadMore', error);
     } finally {
       if (identityGenerationRef.current === identityGeneration) {
         loadMoreInFlightRef.current = false;

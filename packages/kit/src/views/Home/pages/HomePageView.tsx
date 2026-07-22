@@ -63,9 +63,10 @@ import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
-import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
+import { PullToRefresh } from '../components/PullToRefresh';
 import { buildHomeWalletCapabilityNavigationModel } from '../homeWalletCapabilityTabModel';
 import { useHomeWalletTabStore } from '../hooks/useHomeWalletTabStore';
+import { useHomeRefreshIntents } from '../model/react/useHomeRefreshIntents';
 import { HomeTestIDs } from '../testIDs';
 
 import { DeFiContainerWithProvider } from './DeFiContainer';
@@ -95,6 +96,8 @@ const AndroidScrollContainer = platformEnv.isNativeAndroid
   ? ({ children }: IAndroidScrollContainerProps) => {
       const [height, setHeight] = useState(0);
       const heightRef = useRef(0);
+      const { refreshSelectedSection, selectedSectionRefreshing } =
+        useHomeRefreshIntents();
       const handleLayout = useCallback((event: LayoutChangeEvent) => {
         const h = Math.round(event.nativeEvent.layout.height);
         if (h !== heightRef.current) {
@@ -108,7 +111,12 @@ const AndroidScrollContainer = platformEnv.isNativeAndroid
           {height > 0 ? (
             <ScrollView
               nestedScrollEnabled
-              refreshControl={<PullToRefresh onRefresh={onHomePageRefresh} />}
+              refreshControl={
+                <PullToRefresh
+                  onRefresh={refreshSelectedSection}
+                  refreshing={selectedSectionRefreshing}
+                />
+              }
               contentContainerStyle={contentContainerStyle}
             >
               {children}

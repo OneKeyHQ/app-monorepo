@@ -1,14 +1,32 @@
 import type { IHomeRuntimeJsonValue } from '@onekeyhq/shared/src/types/homeRuntime';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { getHomeSourceKeyIdentity } from '../core/homeIdentity';
 
 import type {
+  IHomeCachedSnapshotPayload,
   IHomeCachedSourceRecord,
   IHomeStoreResourceSlot,
   IHomeStoreSourceId,
 } from './homeStoreTypes';
 
 const HOME_STORE_CACHE_TTL_MS = 5 * 60 * 1000;
+
+function getHomeStoreCacheContentSignature({
+  records,
+  selectedTabPreference,
+}: Pick<
+  IHomeCachedSnapshotPayload,
+  'records' | 'selectedTabPreference'
+>): string {
+  return stringUtils.stableStringify({
+    records: records.map(
+      ({ confirmedAt: _confirmedAt, expiresAt: _expiresAt, ...record }) =>
+        record,
+    ),
+    selectedTabPreference,
+  });
+}
 
 function createCacheRecord({
   now,
@@ -65,5 +83,6 @@ function mergeHomeStoreCacheRecords({
 export {
   HOME_STORE_CACHE_TTL_MS,
   createCacheRecord,
+  getHomeStoreCacheContentSignature,
   mergeHomeStoreCacheRecords,
 };

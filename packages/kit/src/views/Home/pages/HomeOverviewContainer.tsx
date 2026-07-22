@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -27,7 +27,6 @@ import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import { EHomeTab } from '@onekeyhq/shared/types';
 
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
 import { showResourceDetailsDialog } from '../../../components/Resource';
@@ -35,24 +34,10 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 import { resolveHomeOverviewBalanceRenderDecision } from '../model/compatibility/homeShellRenderAdapter';
 import { resolveHomeBalanceQuotedAmount } from '../model/facts/currentHomeBalanceFactsAdapter';
+import { useHomeRefreshIntents } from '../model/react/useHomeRefreshIntents';
 import { HomeTestIDs } from '../testIDs';
 
 import type { IHomeCorrelatedBalancePresentation } from '../model/compatibility/homeShellRenderAdapter';
-
-const HOME_OVERVIEW_REFRESH_TABS = [
-  EHomeTab.TOKENS,
-  EHomeTab.NFT,
-  EHomeTab.HISTORY,
-  EHomeTab.DEFI,
-] as const;
-
-type IHomeOverviewRefreshTab = (typeof HOME_OVERVIEW_REFRESH_TABS)[number];
-
-function isHomeOverviewRefreshTab(
-  type: EHomeTab,
-): type is IHomeOverviewRefreshTab {
-  return HOME_OVERVIEW_REFRESH_TABS.includes(type as IHomeOverviewRefreshTab);
-}
 
 function HomeOverviewContainer({
   balancePresentation,
@@ -75,16 +60,7 @@ function HomeOverviewContainer({
     });
   }, [account?.id, network?.id]);
   const intl = useIntl();
-
-  const [isRefreshingWorth, setIsRefreshingWorth] = useState(false);
-  const [isRefreshingTokenList, setIsRefreshingTokenList] = useState(false);
-  const [isRefreshingNftList, setIsRefreshingNftList] = useState(false);
-  const [isRefreshingDeFiList, setIsRefreshingDeFiList] = useState(false);
-  const [isRefreshingHistoryList, setIsRefreshingHistoryList] = useState(false);
-
-  const listRefreshKeys = useRef<
-    Partial<Record<IHomeOverviewRefreshTab, string>>
-  >({});
+  const { refreshAllSections, refreshingBySection } = useHomeRefreshIntents();
 
   const [{ currencyMap }] = useCurrencyPersistAtom();
 
@@ -103,131 +79,14 @@ function HomeOverviewContainer({
     };
   }, []);
 
-  useEffect(() => {
-    const refreshStateSetters: Record<
-      IHomeOverviewRefreshTab,
-      (isRefreshing: boolean) => void
-    > = {
-      [EHomeTab.TOKENS]: setIsRefreshingTokenList,
-      [EHomeTab.NFT]: setIsRefreshingNftList,
-      [EHomeTab.HISTORY]: setIsRefreshingHistoryList,
-      [EHomeTab.DEFI]: setIsRefreshingDeFiList,
-    };
-
-    const syncWorthRefreshingState = () => {
-      setIsRefreshingWorth(
-        HOME_OVERVIEW_REFRESH_TABS.some((refreshType) =>
-          Boolean(listRefreshKeys.current[refreshType]),
-        ),
-      );
-    };
-
-    const updateRefreshState = ({
-      refreshType,
-      isRefreshing,
-      key,
-    }: {
-      refreshType: IHomeOverviewRefreshTab;
-      isRefreshing: boolean;
-      key: string;
-    }) => {
-      if (isRefreshing) {
-        listRefreshKeys.current[refreshType] = key;
-        refreshStateSetters[refreshType](true);
-        return true;
-      }
-
-      if (
-        listRefreshKeys.current[refreshType] &&
-        listRefreshKeys.current[refreshType] !== key
-      ) {
-        return false;
-      }
-
-      delete listRefreshKeys.current[refreshType];
-      refreshStateSetters[refreshType](false);
-      return true;
-    };
-
-    const fn = ({
-      isRefreshing,
-      type,
-      accountId,
-      networkId,
-    }: {
-      isRefreshing: boolean;
-      type: EHomeTab;
-      accountId: string;
-      networkId: string;
-    }) => {
-      const key = `${accountId}-${networkId}`;
-      let didUpdateState = false;
-
-      if (type === EHomeTab.ALL) {
-        HOME_OVERVIEW_REFRESH_TABS.forEach((refreshType) => {
-          didUpdateState =
-            updateRefreshState({ refreshType, isRefreshing, key }) ||
-            didUpdateState;
-        });
-      } else if (isHomeOverviewRefreshTab(type)) {
-        didUpdateState = updateRefreshState({
-          refreshType: type,
-          isRefreshing,
-          key,
-        });
-      }
-
-      if (!didUpdateState) {
-        return;
-      }
-
-      syncWorthRefreshingState();
-      if (isRefreshing) {
-        perfMark(`Home:refresh:start:${type}`, {
-          refreshType: type,
-        });
-      } else {
-        perfMark(`Home:done:${type}`, {
-          refreshType: type,
-        });
-        perfMark(`Home:refresh:done:${type}`, {
-          refreshType: type,
-        });
-      }
-    };
-    appEventBus.on(EAppEventBusNames.TabListStateUpdate, fn);
-    return () => {
-      appEventBus.off(EAppEventBusNames.TabListStateUpdate, fn);
-    };
-  }, []);
-
-  useEffect(() => {
-    listRefreshKeys.current = {};
-    setIsRefreshingWorth(false);
-    setIsRefreshingTokenList(false);
-    setIsRefreshingNftList(false);
-    setIsRefreshingHistoryList(false);
-    setIsRefreshingDeFiList(false);
-  }, [account?.id, account?.indexedAccountId, network?.id, wallet?.id]);
-
   const balanceDialogInstance = useRef<IDialogInstance | null>(null);
 
   const handleRefreshWorth = useCallback(() => {
-    if (isRefreshingWorth) return;
-    setIsRefreshingWorth(true);
-    appEventBus.emit(EAppEventBusNames.AccountDataUpdate, {
-      isManualRefresh: true,
-      refreshSource: 'home-header',
-    });
+    refreshAllSections();
     defaultLogger.account.wallet.walletManualRefresh();
-  }, [isRefreshingWorth]);
+  }, [refreshAllSections]);
 
-  const isLoading =
-    isRefreshingWorth ||
-    isRefreshingTokenList ||
-    isRefreshingNftList ||
-    isRefreshingHistoryList ||
-    isRefreshingDeFiList;
+  const isLoading = Object.values(refreshingBySection).some(Boolean);
 
   const refreshButton = useMemo(() => {
     return platformEnv.isNative || isWalletNotBackedUp ? undefined : (

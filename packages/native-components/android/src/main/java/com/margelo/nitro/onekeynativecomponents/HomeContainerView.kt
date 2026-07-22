@@ -630,10 +630,28 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
       resetChromeGesture()
       externalHorizontalTarget = null
       parser.shutdownNow()
+      val mountedPages = adapter.pages().toList()
+      pager.adapter = null
+      mountedPages.forEach(HomePageView::recycle)
+      headerView.recycle()
       refreshPages.clear()
+      snapshot = null
       protocolV2State = null
       renderedProtocolV2State = null
+      protocolV3State = null
+      renderedProtocolV3State = null
+      pendingProtocolV3PatchJson = null
+      pendingProtocolV3PatchRetryScheduled = false
+      mountedSlotKeys = emptySet()
+      mountedSlotMetadata = emptyList()
       renderCompletionCoordinator.reset()
+      onAction = null
+      onRefresh = null
+      onVisibleTabChange = null
+      onRenderError = null
+      onIntent = null
+      onTransportResult = null
+      onSlotLayoutChange = null
     }
   }
 
@@ -1471,6 +1489,24 @@ private class HomePageView(context: Context) : FrameLayout(context) {
     refreshLayout.isEnabled = enabled
   }
 
+  fun recycle() {
+    preDrawListener?.let { listener ->
+      if (viewTreeObserver.isAlive) {
+        viewTreeObserver.removeOnPreDrawListener(listener)
+      }
+    }
+    preDrawListener = null
+    refreshLayout.setOnRefreshListener(null)
+    recycler.adapter = null
+    onAction = null
+    onRefresh = null
+    onCollapseOffsetChange = null
+    onRefreshPullOffsetChange = null
+    onSlotLayoutChange = null
+    onListContentCommitted = null
+    onRenderPreDraw = null
+  }
+
   fun dispatchExternalTouchEvent(event: MotionEvent, sourceLocation: IntArray): Boolean {
     val targetLocation = IntArray(2)
     refreshLayout.getLocationInWindow(targetLocation)
@@ -1882,6 +1918,7 @@ private class HomeListAdapter : ListAdapter<HomeListRow, RecyclerView.ViewHolder
   override fun onViewRecycled(holder: RecyclerView.ViewHolder) {
     if (holder is ItemHolder) holder.view.recycle()
     if (holder is GridHolder) holder.view.recycle()
+    if (holder is HorizontalHolder) holder.view.recycle()
     if (holder is MarketItemHolder) holder.view.recycle()
     if (holder is MarketTabsHolder) holder.view.recycle()
     if (holder is MarketRecommendationsHolder) holder.view.recycle()
@@ -2286,6 +2323,30 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
     }
   }
 
+  fun recycle() {
+    accountImageRequest?.cancel()
+    networkImageRequest?.cancel()
+    networkSecondaryImageRequest?.cancel()
+    accountImageRequest = null
+    networkImageRequest = null
+    networkSecondaryImageRequest = null
+    representedAccountImageUrl = null
+    representedNetworkImageUrl = null
+    representedNetworkSecondaryImageUrl = null
+    accountIcon.setImageDrawable(null)
+    networkIcon.setImageDrawable(null)
+    networkIconSecondary.setImageDrawable(null)
+    bannerViews.values.forEach(HomeBannerView::recycle)
+    bannerViews.clear()
+    bannersContent.removeAllViews()
+    actionViews.clear()
+    actionsContent.removeAllViews()
+    balanceActionViews.clear()
+    balanceActionsContent.removeAllViews()
+    onAction = null
+    onSlotLayoutChange = null
+  }
+
   private fun headerImage(size: Int): ImageView = ImageView(context).apply {
     scaleType = ImageView.ScaleType.CENTER_CROP
     background = GradientDrawable().apply {
@@ -2404,6 +2465,16 @@ private class HomeBannerView(context: Context) : FrameLayout(context) {
       image.setImageBitmap(bitmap)
       image.visibility = if (bitmap == null) GONE else VISIBLE
     }
+  }
+
+  fun recycle() {
+    imageRequest?.cancel()
+    imageRequest = null
+    representedImageUrl = null
+    image.setImageDrawable(null)
+    banner = null
+    onAction = null
+    setOnClickListener(null)
   }
 
   private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
@@ -2649,6 +2720,7 @@ private class HomeHorizontalView(context: Context) : AxisLockHorizontalScrollVie
     val nextIds = items.map { it.id }
     if (itemIds != nextIds) {
       itemIds = nextIds
+      recycleCards()
       content.removeAllViews()
       items.forEach { item ->
         val card = HomeHorizontalCardView(context)
@@ -2680,6 +2752,18 @@ private class HomeHorizontalView(context: Context) : AxisLockHorizontalScrollVie
         }
         bind(item, theme)
       }
+    }
+  }
+
+  fun recycle() {
+    recycleCards()
+    content.removeAllViews()
+    itemIds = emptyList()
+  }
+
+  private fun recycleCards() {
+    repeat(content.childCount) { index ->
+      (content.getChildAt(index) as? HomeHorizontalCardView)?.recycle()
     }
   }
 
@@ -2763,6 +2847,15 @@ private class HomeHorizontalCardView(context: Context) : LinearLayout(context) {
       image.setImageBitmap(bitmap)
       image.visibility = if (bitmap == null) GONE else VISIBLE
     }
+  }
+
+  fun recycle() {
+    imageRequest?.cancel()
+    imageRequest = null
+    representedImageUrl = null
+    image.setImageDrawable(null)
+    image.visibility = GONE
+    setOnClickListener(null)
   }
 
   private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()

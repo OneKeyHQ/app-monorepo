@@ -153,17 +153,20 @@ export function HomeStoreControllerBridge() {
       return;
     }
     let lastReadySequence = 0;
-    return onNativeBackgroundThreadReady((signal) => {
-      if (signal.sequence <= lastReadySequence) {
-        return;
-      }
-      lastReadySequence = signal.sequence;
-      if (signal.reason === 'restarted') {
-        coordinator.restartCurrent();
-        publishRef.current();
-      }
-      void coordinator.refreshHandshake();
-    });
+    return onNativeBackgroundThreadReady(
+      (signal) => {
+        if (signal.sequence <= lastReadySequence) {
+          return;
+        }
+        lastReadySequence = signal.sequence;
+        if (signal.reason === 'restarted') {
+          coordinator.restartCurrent();
+          publishRef.current();
+        }
+        void coordinator.refreshHandshake();
+      },
+      { replayLatest: false },
+    );
   }, [coordinator]);
 
   useEffect(

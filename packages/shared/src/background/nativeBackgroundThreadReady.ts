@@ -63,10 +63,11 @@ export function publishNativeBackgroundThreadReady({
 
 export function onNativeBackgroundThreadReady(
   listener: INativeBackgroundThreadReadyListener,
+  options: { replayLatest?: boolean } = {},
 ): () => void {
   const state = getState();
   state.listeners.add(listener);
-  if (state.signal) {
+  if (state.signal && options.replayLatest !== false) {
     notifyListener(listener, state.signal);
   }
   return () => {

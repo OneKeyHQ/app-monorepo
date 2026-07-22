@@ -85,8 +85,16 @@ class ServiceBootstrap extends ServiceBase {
     }
     try {
       const envelope: unknown = JSON.parse(raw);
-      return isHomeOpaqueCacheEnvelope(envelope) ? envelope : undefined;
+      if (
+        !isHomeOpaqueCacheEnvelope(envelope) ||
+        envelope.expiresAt <= Date.now()
+      ) {
+        await this.removeHomeStoreCache(key);
+        return undefined;
+      }
+      return envelope;
     } catch {
+      await this.removeHomeStoreCache(key);
       return undefined;
     }
   }
@@ -117,11 +125,38 @@ class ServiceBootstrap extends ServiceBase {
           index = [];
         }
       }
+      const now = Date.now();
+      const retainedIndex = (
+        await Promise.all(
+          index.map(async (key) => {
+            const raw = await appStorage.getItem(
+              `${HOME_STORE_CACHE_STORAGE_PREFIX}${key}`,
+            );
+            if (!raw) {
+              return;
+            }
+            try {
+              const value: unknown = JSON.parse(raw);
+              if (isHomeOpaqueCacheEnvelope(value) && value.expiresAt > now) {
+                return key;
+              }
+            } catch {
+              // Invalid cache entries are removed below.
+            }
+            await appStorage.removeItem(
+              `${HOME_STORE_CACHE_STORAGE_PREFIX}${key}`,
+            );
+            return undefined;
+          }),
+        )
+      ).filter((key): key is string => Boolean(key));
       const nextIndex = [
-        ...index.filter((key) => key !== envelope.key),
+        ...retainedIndex.filter((key) => key !== envelope.key),
         envelope.key,
       ].slice(-HOME_STORE_CACHE_OWNER_LIMIT);
-      const retiredKeys = index.filter((key) => !nextIndex.includes(key));
+      const retiredKeys = retainedIndex.filter(
+        (key) => !nextIndex.includes(key),
+      );
       await Promise.all(
         retiredKeys.map((key) =>
           appStorage.removeItem(`${HOME_STORE_CACHE_STORAGE_PREFIX}${key}`),

@@ -62,7 +62,7 @@ import {
   HOME_PERPS_GUIDE_URL,
   HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
 } from '../components/PopularTrading/constants';
-import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
+import { PullToRefresh } from '../components/PullToRefresh';
 import { RichBlock } from '../components/RichBlock';
 import { SupportHub } from '../components/SupportHub/SupportHub';
 import { Upgrade } from '../components/Upgrade/Upgrade';
@@ -72,6 +72,7 @@ import {
   useHomeSectionSnapshot,
 } from '../model/react/homeStoreHooks';
 import { useHomePerpsIntents } from '../model/react/useHomePerpsIntents';
+import { useHomeRefreshIntents } from '../model/react/useHomeRefreshIntents';
 import { HomeTestIDs } from '../testIDs';
 
 const HYPER_EVM_LOGO_URI =
@@ -1568,6 +1569,7 @@ export function PerpsContainer() {
   const perpsSection = useHomeSectionSnapshot('perps');
   const perpsResource = useHomeResource('perps');
   const perpsPayload = useHomeSectionPayload('perps');
+  const { refreshSection, refreshingBySection } = useHomeRefreshIntents();
   const view = perpsPayload?.view;
   let viewState: 'ready' | 'loading' | 'empty' = 'loading';
   if (perpsPayload) {
@@ -1592,7 +1594,10 @@ export function PerpsContainer() {
         nestedScrollEnabled={platformEnv.isNativeAndroid}
         refreshControl={
           !platformEnv.isNativeAndroid ? (
-            <PullToRefresh onRefresh={onHomePageRefresh} />
+            <PullToRefresh
+              onRefresh={() => refreshSection('perps')}
+              refreshing={refreshingBySection.perps}
+            />
           ) : undefined
         }
       >

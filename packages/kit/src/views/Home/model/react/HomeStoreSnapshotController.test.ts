@@ -2,6 +2,7 @@ import { getHomeSourceKeyIdentity } from '../core/homeIdentity';
 import { isHomeCachedRecordExactForToken } from '../store/homeStoreSnapshotCodec';
 import {
   createCacheRecord,
+  getHomeStoreCacheContentSignature,
   mergeHomeStoreCacheRecords,
 } from '../store/homeStoreSnapshotRecord';
 
@@ -117,5 +118,41 @@ describe('HomeStoreSnapshotController cache admission', () => {
         now: 250,
       }),
     ).toEqual([liveHistory, cachedPortfolio]);
+  });
+
+  it('deduplicates cache writes by content instead of refreshed timestamps', () => {
+    const first = createCacheRecord({
+      now: 100,
+      slot: liveSlot,
+      sourceId: 'history',
+    });
+    const second = createCacheRecord({
+      now: 200,
+      slot: liveSlot,
+      sourceId: 'history',
+    });
+
+    expect(
+      getHomeStoreCacheContentSignature({
+        records: [first!],
+        selectedTabPreference: 'history',
+      }),
+    ).toBe(
+      getHomeStoreCacheContentSignature({
+        records: [second!],
+        selectedTabPreference: 'history',
+      }),
+    );
+    expect(
+      getHomeStoreCacheContentSignature({
+        records: [second!],
+        selectedTabPreference: 'portfolio',
+      }),
+    ).not.toBe(
+      getHomeStoreCacheContentSignature({
+        records: [second!],
+        selectedTabPreference: 'history',
+      }),
+    );
   });
 });

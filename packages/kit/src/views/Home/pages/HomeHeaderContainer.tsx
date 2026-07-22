@@ -14,9 +14,9 @@ import { useHomeBalancePresentation } from '../../../hooks/useHomeBalanceState';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useHomeResource } from '../../../states/jotai/contexts/home';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import { onHomePageRefresh } from '../components/PullToRefresh';
 import { WalletActions } from '../components/WalletActions';
 import WalletBanner from '../components/WalletBanner';
+import { useHomeRefreshIntents } from '../model/react/useHomeRefreshIntents';
 import { readHomeBannerStorePayload } from '../model/sections/banner/homeBannerStoreModel';
 import { HomeTestIDs } from '../testIDs';
 
@@ -50,6 +50,7 @@ function BaseHomeHeaderContainer({
   );
 
   const isWalletNotBackedUp = variant === 'notBackedUp';
+  const { refreshSelectedSection } = useHomeRefreshIntents();
 
   // Banner only renders once we have actual banner content AND the balance is
   // confirmed positive. Treating 'unknown' as hidden avoids the show→hide
@@ -177,7 +178,7 @@ function BaseHomeHeaderContainer({
             />
           </Stack>
         ) : (
-          <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
+          <HeaderScrollGestureWrapper onRefresh={refreshSelectedSection}>
             <Stack gap="$2.5">
               <HomeOverviewContainer
                 balancePresentation={balancePresentation.correlated}
@@ -186,7 +187,7 @@ function BaseHomeHeaderContainer({
           </HeaderScrollGestureWrapper>
         )}
         {isWalletNotBackedUp ? null : (
-          <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
+          <HeaderScrollGestureWrapper onRefresh={refreshSelectedSection}>
             <WalletActions balancePresentation={balancePresentation} />
           </HeaderScrollGestureWrapper>
         )}

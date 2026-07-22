@@ -201,6 +201,12 @@ internal object HomeContainerProtocolV3Transaction {
     ) {
       return needSnapshot(HomeContainerProtocolV3NeedSnapshotReason.SLOT_REVISION_GAP)
     }
+    if (availableSlotRevisions.any { (slotId, revision) ->
+        current.slotRevisions[slotId]?.let { revision < it } == true
+      }
+    ) {
+      return needSnapshot(HomeContainerProtocolV3NeedSnapshotReason.INVALID_INVARIANT)
+    }
     val legacyJson = runCatching {
       JSONObject()
         .put("kind", "patch")
@@ -227,7 +233,7 @@ internal object HomeContainerProtocolV3Transaction {
             transportRevision = transportRevision,
             presentationRevisions = JSONObject(presentation.toString()),
             authorityRevisions = JSONObject(authority.toString()),
-            slotRevisions = current.slotRevisions + availableSlotRevisions,
+            slotRevisions = current.slotRevisions + requiredSlots,
             legacyState = outcome.state,
           ),
           renderPlan = outcome.renderPlan,
