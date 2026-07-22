@@ -99,7 +99,7 @@
     "@shopify/flash-list": "2.2.0",
     "@shopify/react-native-skia": "2.6.2",
     "@types/react-native-canvas": "^0.1.13",
-    "@walletconnect/react-native-compat": "2.21.9",
+    "@walletconnect/react-native-compat": "2.23.10",
     "burnt": "0.12.2",
     "expo": "54.0.26",
     "expo-apple-authentication": "7.2.4",

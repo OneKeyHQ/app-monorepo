@@ -2557,7 +2557,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-compat (2.21.9):
+  - react-native-compat (2.23.10):
     - boost
     - DoubleConversion
     - fast_float
@@ -2585,6 +2585,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
+    - YttriumWrapper (= 0.10.54)
   - react-native-document-picker (12.0.1):
     - boost
     - DoubleConversion
@@ -4101,6 +4102,34 @@ PODS:
   - RealmJS (20.2.0):
     - React
   - RevenueCat (5.32.0)
+  - RNDateTimePicker (8.4.4):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
   - RNGestureHandler (2.30.0):
     - boost
     - DoubleConversion
@@ -4803,6 +4832,7 @@ PODS:
     - Yoga
   - TOCropViewController (2.8.1)
   - Yoga (0.0.0)
+  - YttriumWrapper (0.10.54)
   - ZXingObjC/Core (3.6.9)
   - ZXingObjC/OneD (3.6.9):
     - ZXingObjC/Core
@@ -4971,6 +5001,7 @@ DEPENDENCIES:
   - "ReactNativeSplashScreen (from `../../../node_modules/@onekeyfe/react-native-splash-screen`)"
   - ReactNativeZipArchive (from `../../../node_modules/react-native-zip-archive`)
   - RealmJS (from `../../../node_modules/realm`)
+  - "RNDateTimePicker (from `../../../node_modules/@react-native-community/datetimepicker`)"
   - RNGestureHandler (from `../../../node_modules/react-native-gesture-handler`)
   - "RNGoogleSignin (from `../../../node_modules/@react-native-google-signin/google-signin`)"
   - RNImageCropPicker (from `../../../node_modules/react-native-image-crop-picker`)
@@ -5022,6 +5053,7 @@ SPEC REPOS:
     - SPAlert
     - SPIndicator
     - SSZipArchive
+    - YttriumWrapper
     - ZXingObjC
 
 EXTERNAL SOURCES:
@@ -5344,6 +5376,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-zip-archive"
   RealmJS:
     :path: "../../../node_modules/realm"
+  RNDateTimePicker:
+    :path: "../../../node_modules/@react-native-community/datetimepicker"
   RNGestureHandler:
     :path: "../../../node_modules/react-native-gesture-handler"
   RNGoogleSignin:
@@ -5506,7 +5540,7 @@ SPEC CHECKSUMS:
   React-microtasksnativemodule: 6c4ee39a36958c39c97b074d28f360246a335e84
   react-native-ble-plx: 152b07bdf772c95e30c0251649d462b5154a0e13
   react-native-capture-protection: a8abb2b0880aa1808e3724aa3fc7e56e72225a24
-  react-native-compat: eef236df1b5c7a7efb4eebbb185c7ae4e305c9e6
+  react-native-compat: 9716380244b1133103493ac54d695f050d812a54
   react-native-document-picker: dc2d83366e47e89e7c51e8a41eab99c1d54e941c
   react-native-keyboard-controller: dbf568b5d029cdc5b26667a7c2323b160c25dc00
   react-native-netinfo: cec9c4e86083cb5b6aba0e0711f563e2fbbff187
@@ -5569,6 +5603,7 @@ SPEC CHECKSUMS:
   ReactNativeZipArchive: bb4a2b338281c0166bee97142bf59ef9cd124c62
   RealmJS: 1c37c6bdfe060f4caa0f9175aa0eedb962622ee1
   RevenueCat: 7e1d0768fb287c9983173c9b28e39ccbeeb828a9
+  RNDateTimePicker: cda4c045beca864cebb3209ef9cc4094f974864c
   RNGestureHandler: e37bdb684df1ac17c7e1d8f71a3311b2793c186b
   RNGoogleSignin: 628d629e8dca39fc4ab70e30cf55bb3fc284f518
   RNImageCropPicker: 5fd4ceaead64d8c53c787e4e559004f97bc76df7
@@ -5597,6 +5632,7 @@ SPEC CHECKSUMS:
   TcpSocket: 632cb39345c55b831e0db32c8ffaa55c942ebff2
   TOCropViewController: 5fa42dd0ac8c32790c06fc6057831d17b3b16857
   Yoga: 728df40394d49f3f471688747cf558158b3a3bd1
+  YttriumWrapper: 850d3c5bfa7815ad9962591ff3c1b289039266f2
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
 PODFILE CHECKSUM: 06fc46f54e658b7a1bed81102467631d6bc25323
