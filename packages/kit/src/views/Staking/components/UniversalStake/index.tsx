@@ -1418,9 +1418,17 @@ export function UniversalStake({
                 // 0, and skips the reset branch — no loop. Without this the flow
                 // dead-ended right after the reset tx, so the stake never fired
                 // (OK-58027). Keep approving=true; onApprove owns the state from
-                // here.
+                // here — but observe rejections: onApprove awaits getAccount /
+                // navigationToTxConfirm outside any try/catch, and a swallowed
+                // reject would leave the confirm button stuck loading+disabled.
                 if (BigNumber(allowanceInfo.allowanceParsed).isZero()) {
-                  void onApproveRef.current?.();
+                  void onApproveRef.current?.().catch((e) => {
+                    console.error(
+                      'Re-enter approve after USDT reset failed:',
+                      e,
+                    );
+                    setApproving(false);
+                  });
                   return;
                 }
               }
