@@ -157,21 +157,28 @@ describe('Home Store reducer', () => {
 
   it('holds one confirmed Header amount while an incomplete round churns', () => {
     let state = createOwnedState();
-    const publishBalance = (amount: string, observedAt: number) => {
+    const publishBalance = (
+      amount: string,
+      observedAt: number,
+      status: 'partial' | 'success',
+    ) => {
       const base = createBaseFacts();
       const balance = adaptCurrentHomeBalanceFacts({
         bannerAvailable: false,
-        compatibilityConfirmedAmount: amount,
         contributors: [
           {
-            coverageFingerprint: 'portfolio-refreshing',
+            amount,
+            coverageFingerprint:
+              status === 'success'
+                ? 'portfolio-confirmed'
+                : 'portfolio-refreshing',
             expectedSourceScopeKey: ownerToken.scopeKey,
             id: 'portfolio',
             included: true,
             positiveEvidence: true,
             sourceIdentity: 'portfolio-v1',
             sourceScopeKey: ownerToken.scopeKey,
-            status: 'partial',
+            status,
           },
         ],
         ownerToken,
@@ -185,15 +192,21 @@ describe('Home Store reducer', () => {
       });
     };
 
-    publishBalance('11.61', 1);
+    publishBalance('11.61', 1, 'success');
     const stableShell = state.shell;
-    publishBalance('11.62', 2);
+    publishBalance('11.62', 2, 'partial');
 
     expect(state.confirmedBalance?.amount).toBe('11.61');
-    expect(state.shell).toBe(stableShell);
+    expect(state.shell).not.toBe(stableShell);
     expect(state.shell.value).toMatchObject({
       kind: 'portfolio',
-      presentation: { header: { balance: { amount: '11.61' } } },
+      presentation: {
+        header: {
+          authority: 'confirmedCache',
+          balance: { amount: '11.61' },
+        },
+        refresh: 'refreshing',
+      },
     });
   });
 

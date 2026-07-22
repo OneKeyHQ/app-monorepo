@@ -48,8 +48,13 @@ allowed-tools: Read, Grep, Glob
 **HIERARCHY (NEVER violate this order):**
 - `@onekeyhq/shared` - **FORBIDDEN** to import from any other OneKey packages
 - `@onekeyhq/components` - **ONLY** allowed to import from `shared`
+- `@onekeyhq/native-components` - **ONLY** allowed to import from `shared`; it
+  owns renderer/protocol bridges and must never import `components`, `kit-bg`,
+  or `kit`
 - `@onekeyhq/kit-bg` - **ONLY** allowed to import from `shared` and `core` (NEVER `components` or `kit`)
-- `@onekeyhq/kit` - Can import from `shared`, `components`, and `kit-bg`
+- `@onekeyhq/kit` - Can import from `shared`, `components`,
+  `native-components`, and `kit-bg`; Native imports must stay at the
+  renderer/protocol boundary and must not introduce app-specific setup
 - Apps (desktop/mobile/ext/web) - Can import from all packages
 
 **BEFORE ADDING ANY IMPORT:**
@@ -59,6 +64,8 @@ allowed-tools: Read, Grep, Glob
 
 **COMMON VIOLATIONS TO AVOID:**
 - ❌ Importing from `@onekeyhq/kit` in `@onekeyhq/components`
+- ❌ Importing from `@onekeyhq/kit`, `@onekeyhq/kit-bg`, or
+  `@onekeyhq/components` in `@onekeyhq/native-components`
 - ❌ Importing from `@onekeyhq/components` in `@onekeyhq/kit-bg`
 - ❌ Importing from `@onekeyhq/kit` in `@onekeyhq/core`
 - ❌ Any "upward" imports in the hierarchy

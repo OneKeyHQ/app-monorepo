@@ -39,6 +39,25 @@ describe('native background thread ready latch', () => {
     unsubscribe();
   });
 
+  it('can subscribe to future readiness without replaying a prior restart', () => {
+    publishNativeBackgroundThreadReady({
+      bootId: 'boot-prior',
+      reason: 'restarted',
+    });
+    const listener = jest.fn();
+    const unsubscribe = onNativeBackgroundThreadReady(listener, {
+      replayLatest: false,
+    });
+
+    expect(listener).not.toHaveBeenCalled();
+    const next = publishNativeBackgroundThreadReady({
+      bootId: 'boot-next',
+      reason: 'restarted',
+    });
+    expect(listener).toHaveBeenCalledWith(next);
+    unsubscribe();
+  });
+
   it('isolates throwing listeners during publish and late replay', () => {
     const throwingListener = jest.fn(() => {
       throw new OneKeyLocalError('listener failed');

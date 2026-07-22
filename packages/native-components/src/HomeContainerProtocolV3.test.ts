@@ -173,6 +173,33 @@ describe('HomeContainer protocol v3', () => {
     });
   });
 
+  it('rejects mounted slot regressions and records only required slots', () => {
+    const current = state();
+    expect(
+      applyHomeContainerPatchV3({
+        current,
+        availableSlotRevisions: {
+          ...current.slotRevisions,
+          'header.balance': 1,
+        },
+        envelope: patch(current),
+      }),
+    ).toEqual({ kind: 'needSnapshot', reason: 'invalidInvariant' });
+
+    const result = applyHomeContainerPatchV3({
+      current,
+      availableSlotRevisions: {
+        ...current.slotRevisions,
+        'header.action-row': 9,
+      },
+      envelope: patch(current),
+    });
+    expect(result.kind).toBe('applied');
+    if (result.kind === 'applied') {
+      expect(result.state.slotRevisions).toEqual(current.slotRevisions);
+    }
+  });
+
   it('waits only for explicitly required slot revisions', () => {
     const current = state();
     expect(
@@ -258,6 +285,32 @@ describe('HomeContainer protocol v3', () => {
             tabApplicability: 3,
           },
         }),
+      }),
+    ).toEqual({ kind: 'needSnapshot', reason: 'invalidInvariant' });
+    expect(
+      applyHomeContainerPatchV3({
+        current,
+        availableSlotRevisions: current.slotRevisions,
+        envelope: patch(current, {
+          baseTransportRevision: current.transportRevision - 1,
+          transportRevision: current.transportRevision,
+          authorityRevisions: {
+            ...current.authorityRevisions,
+            tabApplicability: 3,
+          },
+        }),
+      }),
+    ).toEqual({ kind: 'needSnapshot', reason: 'invalidInvariant' });
+  });
+
+  it('rejects snapshots with an empty owner identity', () => {
+    expect(
+      applyHomeContainerSnapshotV3({
+        ...snapshotEnvelope(),
+        identity: {
+          ...snapshotEnvelope().identity,
+          scopeKey: '',
+        },
       }),
     ).toEqual({ kind: 'needSnapshot', reason: 'invalidInvariant' });
   });

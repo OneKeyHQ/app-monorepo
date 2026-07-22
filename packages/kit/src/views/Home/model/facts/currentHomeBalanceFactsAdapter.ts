@@ -8,7 +8,6 @@ import type {
   IHomeBalanceContributorId,
   IHomeBalanceFacts,
   IHomeBalanceQuoteBasis,
-  IHomeCompatibilityConfirmedBalance,
   IHomeFactResource,
 } from './homeFacts';
 
@@ -27,7 +26,6 @@ type ICurrentHomeBalanceContributorInput = {
 
 type IAdaptCurrentHomeBalanceFactsOptions = {
   bannerAvailable: boolean;
-  compatibilityConfirmedAmount?: string;
   contributors: readonly ICurrentHomeBalanceContributorInput[];
   ownerToken: IHomeRuntimeOwnerToken;
   quoteBasis: IHomeBalanceQuoteBasis;
@@ -232,7 +230,6 @@ function toResource({
 
 function adaptCurrentHomeBalanceFacts({
   bannerAvailable,
-  compatibilityConfirmedAmount,
   contributors,
   ownerToken,
   quoteBasis,
@@ -276,22 +273,8 @@ function adaptCurrentHomeBalanceFacts({
     quoteBasis,
     requiredSetRevision,
   });
-  let compatibilityConfirmed: IHomeCompatibilityConfirmedBalance | undefined;
-  if (compatibilityConfirmedAmount !== undefined) {
-    const amount = new BigNumber(compatibilityConfirmedAmount);
-    if (amount.isFinite()) {
-      compatibilityConfirmed = {
-        amount: amount.toFixed(),
-        coverageFingerprint: 'legacy-exact-owner',
-        ownerScopeKey: ownerToken.scopeKey,
-        quoteBasis,
-        sourceKeyIdentity,
-      };
-    }
-  }
   return {
     bannerAvailable,
-    compatibilityConfirmed,
     contributors: adaptedContributors,
     ownerToken,
     quoteBasis,

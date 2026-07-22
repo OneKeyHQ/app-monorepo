@@ -108,12 +108,13 @@ describe('ServiceBootstrap Home runtime handshake', () => {
 
   it('persists the Home snapshot envelope without decoding its opaque payload', async () => {
     const service = new ServiceBootstrap({ backgroundApi: {} });
+    const now = Date.now();
     const envelope = {
       key: 'owner-a',
       schemaVersion: 1 as const,
       ownerScopeKey: 'scope-a',
-      createdAt: 1,
-      expiresAt: 2,
+      createdAt: now,
+      expiresAt: now + 60_000,
       payload: 'kit-owned-opaque-payload',
     };
 
@@ -130,12 +131,13 @@ describe('ServiceBootstrap Home runtime handshake', () => {
 
   it('serializes concurrent cache index updates', async () => {
     const service = new ServiceBootstrap({ backgroundApi: {} });
+    const now = Date.now();
     const createEnvelope = (key: string) => ({
       key,
       schemaVersion: 1 as const,
       ownerScopeKey: `scope-${key}`,
-      createdAt: 1,
-      expiresAt: 2,
+      createdAt: now,
+      expiresAt: now + 60_000,
       payload: `opaque-${key}`,
     });
 
@@ -151,12 +153,13 @@ describe('ServiceBootstrap Home runtime handshake', () => {
 
   it('evicts the least-recently-used entry beyond the eight-owner bound', async () => {
     const service = new ServiceBootstrap({ backgroundApi: {} });
+    const now = Date.now();
     const createEnvelope = (index: number) => ({
       key: `owner-${index}`,
       schemaVersion: 1 as const,
       ownerScopeKey: `scope-${index}`,
-      createdAt: 1,
-      expiresAt: 2,
+      createdAt: now,
+      expiresAt: now + 60_000,
       payload: `opaque-${index}`,
     });
 
@@ -169,5 +172,38 @@ describe('ServiceBootstrap Home runtime handshake', () => {
     ).toEqual(Array.from({ length: 8 }, (_, index) => `owner-${index + 1}`));
     expect(mockGetStorage().has('$$home-store-cache-v1:owner-0')).toBe(false);
     expect(mockGetStorage().has('$$home-store-cache-v1:owner-8')).toBe(true);
+  });
+
+  it('physically removes expired and malformed cache entries on load', async () => {
+    const service = new ServiceBootstrap({ backgroundApi: {} });
+    const storage = mockGetStorage();
+    storage.set(
+      '$$home-store-cache-v1:expired',
+      JSON.stringify({
+        key: 'expired',
+        schemaVersion: 1,
+        ownerScopeKey: 'scope-expired',
+        createdAt: 1,
+        expiresAt: 2,
+        payload: 'expired',
+      }),
+    );
+    storage.set('$$home-store-cache-v1:malformed', '{');
+    storage.set(
+      '$$home-store-cache-v1:index',
+      JSON.stringify(['expired', 'malformed']),
+    );
+
+    await expect(
+      service.loadHomeStoreCache('expired'),
+    ).resolves.toBeUndefined();
+    await expect(
+      service.loadHomeStoreCache('malformed'),
+    ).resolves.toBeUndefined();
+    expect(storage.has('$$home-store-cache-v1:expired')).toBe(false);
+    expect(storage.has('$$home-store-cache-v1:malformed')).toBe(false);
+    expect(
+      JSON.parse(storage.get('$$home-store-cache-v1:index') ?? '[]'),
+    ).toEqual([]);
   });
 });

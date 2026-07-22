@@ -324,6 +324,8 @@ export function applyHomeContainerSnapshotV3(
   if (
     !isSafeRevision(envelope.transportRevision) ||
     !isSafeRevision(envelope.identity.storeCommitId) ||
+    envelope.identity.scopeKey.length === 0 ||
+    envelope.identity.sessionId.length === 0 ||
     !isPresentationRevisionVector(envelope.presentationRevisions) ||
     !isAuthorityRevisionVector(envelope.authorityRevisions) ||
     !isRevisionRecord(envelope.slotRevisions) ||
@@ -370,6 +372,9 @@ export function applyHomeContainerPatchV3({
   if (!ownersMatch(current.identity, envelope.identity)) {
     return { kind: 'needSnapshot', reason: 'ownerMismatch' };
   }
+  if (!revisionsDoNotRegress(current, envelope)) {
+    return { kind: 'needSnapshot', reason: 'invalidInvariant' };
+  }
   if (
     envelope.transportRevision === current.transportRevision &&
     envelope.baseTransportRevision < envelope.transportRevision
@@ -387,7 +392,13 @@ export function applyHomeContainerPatchV3({
   ) {
     return { kind: 'needSnapshot', reason: 'slotRevisionGap' };
   }
-  if (!revisionsDoNotRegress(current, envelope)) {
+  if (
+    Object.entries(availableSlotRevisions).some(
+      ([slotId, revision]) =>
+        current.slotRevisions[slotId] !== undefined &&
+        revision < current.slotRevisions[slotId],
+    )
+  ) {
     return { kind: 'needSnapshot', reason: 'invalidInvariant' };
   }
   const payload = applyChanges(current.payload, envelope.changes);
@@ -401,7 +412,10 @@ export function applyHomeContainerPatchV3({
       transportRevision: envelope.transportRevision,
       presentationRevisions: envelope.presentationRevisions,
       authorityRevisions: envelope.authorityRevisions,
-      slotRevisions: { ...current.slotRevisions, ...availableSlotRevisions },
+      slotRevisions: {
+        ...current.slotRevisions,
+        ...envelope.requiredSlotRevisions,
+      },
       payload,
     },
   };

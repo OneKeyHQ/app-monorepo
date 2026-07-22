@@ -64,6 +64,12 @@ jest.mock(
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   EJotaiContextStoreNames: { homeAccountOverview: 'homeAccountOverview' },
+  useDevSettingsPersistAtom: () => [
+    {
+      enabled: false,
+      settings: {},
+    },
+  ],
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({

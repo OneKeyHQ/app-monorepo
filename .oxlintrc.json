@@ -541,6 +541,36 @@
       }
     },
     {
+      // packages/native-components - low-level native bridge, shared-only OneKey dependency
+      "files": [
+        "packages/native-components/src/**/*.ts",
+        "packages/native-components/src/**/*.tsx"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "tamagui",
+                  "@onekeyhq/core",
+                  "@onekeyhq/core/**",
+                  "@onekeyhq/components",
+                  "@onekeyhq/components/**",
+                  "@onekeyhq/kit-bg",
+                  "@onekeyhq/kit-bg/**",
+                  "@onekeyhq/kit",
+                  "@onekeyhq/kit/**"
+                ],
+                "message": "native-components is a low-level bridge and may depend only on shared plus third-party native peers"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       // packages/kit-bg - cannot import from kit or components, or tamagui
       "files": ["packages/kit-bg/src/**/*.ts", "packages/kit-bg/src/**/*.tsx"],
       "rules": {

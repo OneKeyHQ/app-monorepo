@@ -65,14 +65,6 @@ export type IHomeBalanceContributorFact = {
   resource: IHomeFactResource<IHomeBalanceContributionData>;
 };
 
-export type IHomeCompatibilityConfirmedBalance = {
-  amount: string;
-  coverageFingerprint: string;
-  ownerScopeKey: string;
-  quoteBasis: IHomeBalanceQuoteBasis;
-  sourceKeyIdentity: string;
-};
-
 export type IHomeBalanceFacts = {
   ownerToken: IHomeRuntimeOwnerToken;
   requiredContributors: readonly IHomeBalanceContributorId[];
@@ -83,7 +75,6 @@ export type IHomeBalanceFacts = {
     Record<IHomeBalanceContributorId, IHomeBalanceContributorFact>
   >;
   bannerAvailable: boolean;
-  compatibilityConfirmed?: IHomeCompatibilityConfirmedBalance;
 };
 
 export type IHomeSectionFactData = {

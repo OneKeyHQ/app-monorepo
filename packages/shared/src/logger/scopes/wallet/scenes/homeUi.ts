@@ -140,4 +140,13 @@ export class HomeUiScene extends BaseScene {
   }) {
     return params;
   }
+
+  @LogToLocal({ level: 'error' })
+  public homeSourceFailure(params: {
+    sourceId: 'history';
+    stage: 'cacheRead' | 'firstPage' | 'loadMore';
+    errorName: string;
+  }) {
+    return params;
+  }
 }

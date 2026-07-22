@@ -58,11 +58,12 @@ import { buildPortfolioStats } from '../components/DeFiListBlock/DeFiPortfolioSt
 import { formatPortfolioTotal } from '../components/DeFiListBlock/formatPortfolioTotal';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
-import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
+import { PullToRefresh } from '../components/PullToRefresh';
 import { RichBlock } from '../components/RichBlock/RichBlock';
 import { SupportHub } from '../components/SupportHub';
 import { Upgrade } from '../components/Upgrade';
 import { useHomeSectionPayload } from '../model/react/homeStoreHooks';
+import { useHomeRefreshIntents } from '../model/react/useHomeRefreshIntents';
 import { STICKY_TOP_OFFSET } from '../types';
 
 import {
@@ -887,6 +888,7 @@ function DeFiContainer() {
 
 function DeFiContainerScrollable() {
   const tabBarOffset = useScrollContentTabBarOffset();
+  const { refreshSection, refreshingBySection } = useHomeRefreshIntents();
 
   return (
     <Stack flex={1}>
@@ -896,7 +898,10 @@ function DeFiContainerScrollable() {
         nestedScrollEnabled={platformEnv.isNativeAndroid}
         refreshControl={
           !platformEnv.isNativeAndroid ? (
-            <PullToRefresh onRefresh={onHomePageRefresh} />
+            <PullToRefresh
+              onRefresh={() => refreshSection('defi')}
+              refreshing={refreshingBySection.defi}
+            />
           ) : undefined
         }
       >

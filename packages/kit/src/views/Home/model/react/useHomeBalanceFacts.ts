@@ -177,7 +177,6 @@ function useHomeBalanceFacts(): IHomeFacts | undefined {
       bannerAvailable:
         Boolean(bannerPayload?.banners.length) ||
         Boolean(bannerPayload?.tronResource),
-      compatibilityConfirmedAmount: undefined,
       contributors: [
         {
           amount: portfolioTotalUsd?.amount,

@@ -52,6 +52,32 @@ class HomeContainerProtocolV3Test {
   }
 
   @Test
+  fun `patch rejects mounted slot regressions and records only required slots`() {
+    val current = canonicalState()
+    val regressingSlots = current.slotRevisions.toMutableMap()
+    val firstSlot = regressingSlots.entries.first()
+    regressingSlots[firstSlot.key] = firstSlot.value - 1
+    assertNeedSnapshot(
+      HomeContainerProtocolV3Transaction.applyPatch(
+        fixture("home-container-v3.patch.json"),
+        current,
+        regressingSlots,
+      ),
+      HomeContainerProtocolV3NeedSnapshotReason.INVALID_INVARIANT,
+    )
+
+    val unrequiredSlots = current.slotRevisions + ("header.action-row" to 99L)
+    val next = applied(
+      HomeContainerProtocolV3Transaction.applyPatch(
+        fixture("home-container-v3.patch.json"),
+        current,
+        unrequiredSlots,
+      ),
+    )
+    assertFalse(next.slotRevisions.containsKey("header.action-row"))
+  }
+
+  @Test
   fun `available slot vector is derived only from valid mounted metadata for current owner`() {
     val owner = HomeContainerProtocolV2Owner("wallet", "session")
     val otherOwner = HomeContainerProtocolV2Owner("wallet", "other-session")

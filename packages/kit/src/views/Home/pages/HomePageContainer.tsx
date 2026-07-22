@@ -9,7 +9,10 @@ import {
 
 import { Stack, useIsDesktopModeUIInTabPages } from '@onekeyhq/components';
 import DAppConnectExtensionFloatingTrigger from '@onekeyhq/kit/src/views/DAppConnection/components/DAppConnectExtensionFloatingTrigger';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useDevSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
@@ -270,8 +273,11 @@ export function HomeLaunchGatedContent({
 
 export function HomePageContainer() {
   const [isHide, setIsHide] = useState(false);
+  const [devSettings] = useDevSettingsPersistAtom();
   const isDesktopModeUI = useIsDesktopModeUIInTabPages();
-  const nativeHomeEnabled = isNativeHomeEnabled();
+  const nativeHomeEnabled = isNativeHomeEnabled(
+    !(devSettings.enabled && devSettings.settings?.disableNativeHome === true),
+  );
   const homeStoreData = useHomeTokenListContextStoreInitData();
   const homeStore = useJotaiContextRootStore(homeStoreData);
   const handlePressHide = useCallback(() => {

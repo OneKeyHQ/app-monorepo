@@ -89,13 +89,12 @@ jest.mock(
   }),
 );
 
-jest.mock('../components/PullToRefresh', () => ({
-  onHomePageRefresh: jest.fn(),
+const mockRefreshSelectedSection = jest.fn();
+jest.mock('../model/react/useHomeRefreshIntents', () => ({
+  useHomeRefreshIntents: () => ({
+    refreshSelectedSection: mockRefreshSelectedSection,
+  }),
 }));
-
-const { onHomePageRefresh: mockOnHomePageRefresh } = jest.requireMock<{
-  onHomePageRefresh: jest.Mock;
-}>('../components/PullToRefresh');
 
 jest.mock('../components/WalletActions', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -177,7 +176,7 @@ describe('HomeHeaderContainer refresh ownership', () => {
     });
     expect(normalRefreshOwners).toHaveLength(2);
     normalRefreshOwners.forEach((owner) => {
-      expect(owner.props.onRefresh).toBe(mockOnHomePageRefresh);
+      expect(owner.props.onRefresh).toBe(mockRefreshSelectedSection);
     });
   });
 

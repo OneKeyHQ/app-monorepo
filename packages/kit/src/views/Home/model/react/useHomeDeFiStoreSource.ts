@@ -282,6 +282,14 @@ export function useHomeDeFiStoreSource({
     new Map<number, IHomeSectionSourceRequestHandle>(),
   );
 
+  useEffect(() => {
+    const requestHandles = requestHandleBySeqRef.current;
+    requestHandles.clear();
+    return () => {
+      requestHandles.clear();
+    };
+  }, [deFiSourceIdentityKey]);
+
   const applyAuthoritativeDeFiPayload = useCallback(
     (resolution: IHomeSectionCoordinatorResolution<IHomeDeFiLegacyPayload>) => {
       if (resolution.authoritative.kind === 'none') {

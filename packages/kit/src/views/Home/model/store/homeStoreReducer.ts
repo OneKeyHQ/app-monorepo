@@ -460,26 +460,6 @@ function exactConfirmedBalance(
     : undefined;
 }
 
-function compatibilityBalanceRecord(
-  facts: IHomeBalanceFacts,
-): IHomeConfirmedBalanceRecord | undefined {
-  const confirmed = facts.compatibilityConfirmed;
-  if (
-    !confirmed ||
-    confirmed.ownerScopeKey !== facts.ownerToken.scopeKey ||
-    confirmed.sourceKeyIdentity !== facts.sourceKeyIdentity ||
-    confirmed.quoteBasis.currency !== facts.quoteBasis.currency ||
-    confirmed.quoteBasis.pricingRevision !== facts.quoteBasis.pricingRevision
-  ) {
-    return undefined;
-  }
-  return {
-    ...confirmed,
-    confirmedAt: 0,
-    quality: 'confirmed',
-  };
-}
-
 function getResourceToken(
   current: IHomeStoreResourceSlot<
     IHomeStoreState['resources'][IHomeStoreSourceId] extends IHomeStoreResourceSlot<
@@ -740,11 +720,10 @@ export function reduceHomeStore(
       }
       const aggregation = aggregateHomeBalanceFacts(balance);
       const exact = exactConfirmedBalance(state, balance);
-      const compatibility = compatibilityBalanceRecord(balance);
       const decision = projectHomeBalanceAuthority({
         aggregation,
         bannerAvailable: balance.bannerAvailable,
-        confirmed: exact ?? compatibility,
+        confirmed: exact,
         confirmedAt: event.observedAt,
       });
       const facts = {
@@ -783,7 +762,7 @@ export function reduceHomeStore(
           operation: { kind: 'set', value: next },
         });
       }
-      const confirmedBalance = decision.cacheCommit ?? exact ?? compatibility;
+      const confirmedBalance = decision.cacheCommit ?? exact;
       if (
         confirmedBalance &&
         !equal(state.confirmedBalance, confirmedBalance)
