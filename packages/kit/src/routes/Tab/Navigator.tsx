@@ -19,7 +19,6 @@ import {
   useSplitSubView,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { getDevicePerformanceTier } from '@onekeyhq/shared/src/performance/devicePerformanceTier';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
@@ -31,7 +30,7 @@ import { BottomMenu } from '../../provider/Container/PortalBodyContainer/BottomM
 import { WebPageTabBar } from '../../provider/Container/PortalBodyContainer/WebPageTabBar';
 import { TabFreezeOnBlurContext } from '../../provider/Container/TabFreezeOnBlurContainer';
 
-import { defaultPreloadEntry, tabPreloadConfig } from './preloadConfig';
+import { getTabPreloadPolicy } from './preloadPolicy';
 import { tabExtraConfig, useTabRouterConfig } from './router';
 
 // prevent pushModal from using unreleased Navigation instances during iOS modal animation by temporary exclusion,
@@ -143,7 +142,7 @@ export function TabNavigator() {
   useGlobalShortcuts();
   useCheckTabsChangedInDev(config);
 
-  // Progressively preload tabs during idle time, driven by device performance tier.
+  // Progressively preload tabs during idle time using a feature-specific policy.
   // Tabs are lazy-loaded on all platforms; this ensures key tabs are
   // pre-rendered in the background before the user navigates to them.
   // IMPORTANT: Must use `target` to send the PRELOAD action directly to the
@@ -153,10 +152,8 @@ export function TabNavigator() {
   // Also do NOT pass params — mismatched params cause TabRouter to regenerate
   // route keys via nanoid(), which unmounts/remounts screens.
   useEffect(() => {
-    const tier = getDevicePerformanceTier();
-
     const { queue: preloadQueue, intervalMs: PRELOAD_INTERVAL_MS } =
-      tabPreloadConfig[tier] ?? defaultPreloadEntry;
+      getTabPreloadPolicy();
 
     if (preloadQueue.length === 0) return;
     let index = 0;
@@ -210,18 +207,6 @@ export function TabNavigator() {
       if (idleHandle !== undefined) cancelIdleCallback(idleHandle);
       if (timerId !== undefined) clearTimeout(timerId);
     };
-  }, []);
-
-  // Calibrate performance tier after UI is visible (async, result used on next launch)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      void (async () => {
-        const { calibrateDevicePerformanceTier } =
-          await import('@onekeyhq/shared/src/performance/devicePerformanceTier');
-        await calibrateDevicePerformanceTier();
-      })();
-    }, 5000);
-    return () => clearTimeout(timer);
   }, []);
 
   return (

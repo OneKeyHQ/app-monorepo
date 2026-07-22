@@ -18,7 +18,7 @@ import type {
   ITradingViewNativeChartControlsConfigData,
   ITradingViewPriceMarketCapMode,
   ITradingViewPriceScaleMode,
-} from '../../types';
+} from '../types';
 import type { IChartSettingsSegmentValue } from '../utils/NativeChartControlsShared';
 
 function ChartSettingsSegmentedControl<

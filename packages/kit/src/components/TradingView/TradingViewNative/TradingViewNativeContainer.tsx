@@ -16,6 +16,7 @@ export const TradingViewNativeContainer = memo(
   ({
     testID,
     source,
+    enableNativeChartSettings,
     nativeControlsLayoutMode,
     onDataStateChange,
     onIntervalChange,
@@ -111,6 +112,7 @@ export const TradingViewNativeContainer = memo(
     return (
       <Stack flex={1} w="100%" h="100%" bg="$bgApp">
         <TradingViewNativeChartControlsContainer
+          enableNativeChartSettings={enableNativeChartSettings}
           intervalConfig={intervalConfig}
           layoutMode={nativeControlsLayoutMode}
           onIntervalChange={handleChartIntervalChange}
