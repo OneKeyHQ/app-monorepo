@@ -6,11 +6,14 @@ import {
   QRCode,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+import { normalizeUnifoldIconUrl } from './unifoldFormat';
 
 const QR_SIZE = 180;
 
@@ -54,16 +57,37 @@ export function UnifoldDepositQRCard({
         borderColor="$borderSubdued"
         alignItems="center"
       >
-        {loading || !address ? (
+        {!loading && !address ? (
+          // Mirrors the SDK: an address that never arrives must say so rather
+          // than leave a skeleton spinning forever.
+          <Stack
+            width={QR_SIZE}
+            height={QR_SIZE}
+            alignItems="center"
+            justifyContent="center"
+          >
+            <SizableText size="$bodyMd" color="$textCritical">
+              No address available
+            </SizableText>
+          </Stack>
+        ) : null}
+        {loading ? (
           <Skeleton width={QR_SIZE} height={QR_SIZE} radius={8} />
-        ) : (
+        ) : null}
+        {!loading && address ? (
           <QRCode
             value={address}
             size={QR_SIZE}
             drawType="dot"
-            {...(chainIconUri ? { logo: { uri: chainIconUri } } : {})}
+            {...(normalizeUnifoldIconUrl(chainIconUri)
+              ? {
+                  logo: {
+                    uri: normalizeUnifoldIconUrl(chainIconUri) as string,
+                  },
+                }
+              : {})}
           />
-        )}
+        ) : null}
       </YStack>
       <XStack
         mt="$2"

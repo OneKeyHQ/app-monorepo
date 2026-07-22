@@ -17,6 +17,7 @@ import {
   formatUnifoldExecutionDate,
   formatUnifoldProcessingTime,
   formatUnifoldUsd,
+  normalizeUnifoldIconUrl,
 } from './unifoldFormat';
 
 // Per-execution status cards pinned to the bottom of the deposit modal while
@@ -133,7 +134,9 @@ export function UnifoldExecutionStatusCards({
           <Stack>
             <Token
               size="md"
-              tokenImageUri={execution.destinationTokenIconUrl ?? undefined}
+              tokenImageUri={normalizeUnifoldIconUrl(
+                execution.destinationTokenIconUrl,
+              )}
             />
             <StatusBadge execution={execution} />
           </Stack>
@@ -153,14 +156,22 @@ export function UnifoldExecutionStatusCards({
               {statusSubtitle(execution, sessionId)}
             </SizableText>
           </YStack>
-          <YStack alignItems="flex-end">
-            <SizableText size="$bodyMdMedium" color="$textInverse">
+          <YStack alignItems="flex-end" flexShrink={0}>
+            <SizableText
+              size="$bodyMdMedium"
+              color="$textInverse"
+              numberOfLines={1}
+            >
               {formatUnifoldUsd(
                 execution.destinationAmountUsd ?? execution.sourceAmountUsd,
               )}
             </SizableText>
             {!execution.terminal ? (
-              <SizableText size="$bodySm" color="$textInverseSubdued">
+              <SizableText
+                size="$bodySm"
+                color="$textInverseSubdued"
+                numberOfLines={1}
+              >
                 {`Est. ${formatUnifoldProcessingTime(
                   estimatedProcessingTimeSeconds,
                 )}`}

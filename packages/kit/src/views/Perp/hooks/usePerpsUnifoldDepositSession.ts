@@ -4,8 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { perpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  perpsActiveAccountAtom,
+  useDevSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { formatUnifoldUsdAmount } from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
 import type {
   IUnifoldDepositAddressResult,
   IUnifoldDepositDestination,
@@ -20,6 +25,9 @@ import {
 } from '@onekeyhq/shared/types/unifoldDeposit';
 
 import {
+  UNIFOLD_ARBITRUM_CHAIN_ID,
+  UNIFOLD_ARBITRUM_CHAIN_TYPE,
+  UNIFOLD_ARBITRUM_USDC_ADDRESS,
   UNIFOLD_HYPERCORE_CHAIN_ID,
   UNIFOLD_HYPERCORE_CHAIN_TYPE,
   UNIFOLD_HYPERCORE_USDC_PERP_ADDRESS,
@@ -39,11 +47,43 @@ const RETRY_INTERVAL_MS = 5000;
 const WAITING_UI_DELAY_MS = 5000;
 const SESSION_LOOKBACK_MS = 60_000;
 
+// Production destination: HyperCore Perp USDC.
 export const UNIFOLD_DEPOSIT_DESTINATION: IUnifoldDepositDestination = {
   destinationChainType: UNIFOLD_HYPERCORE_CHAIN_TYPE,
   destinationChainId: UNIFOLD_HYPERCORE_CHAIN_ID,
   destinationTokenAddress: UNIFOLD_HYPERCORE_USDC_PERP_ADDRESS,
 };
+
+// Dev-only destination: funds settle back into the user's own Arbitrum wallet
+// instead of the perps account, which makes end-to-end pipeline runs cheap.
+const UNIFOLD_DEV_TEST_DESTINATION: IUnifoldDepositDestination = {
+  destinationChainType: UNIFOLD_ARBITRUM_CHAIN_TYPE,
+  destinationChainId: UNIFOLD_ARBITRUM_CHAIN_ID,
+  destinationTokenAddress: UNIFOLD_ARBITRUM_USDC_ADDRESS,
+};
+
+export function isUnifoldHyperCoreDestination(
+  destination: IUnifoldDepositDestination,
+): boolean {
+  return destination.destinationChainId === UNIFOLD_HYPERCORE_CHAIN_ID;
+}
+
+// Single source of truth for the deposit destination. Fail-safe by
+// construction: anything other than a dev build with the switch explicitly on
+// resolves to the production HyperCore destination.
+export function resolveUnifoldDepositDestination(
+  devSettings:
+    | { enabled?: boolean; settings?: { unifoldUseTestDestination?: boolean } }
+    | undefined,
+): IUnifoldDepositDestination {
+  const useTestDestination =
+    platformEnv.isDev &&
+    Boolean(devSettings?.enabled) &&
+    devSettings?.settings?.unifoldUseTestDestination === true;
+  return useTestDestination
+    ? UNIFOLD_DEV_TEST_DESTINATION
+    : UNIFOLD_DEPOSIT_DESTINATION;
+}
 
 export type IUnifoldDepositErrorType =
   | 'accountMismatch'
@@ -149,6 +189,19 @@ export function usePerpsUnifoldDepositSession({
   }
   const recipientAddress = recipientRef.current ?? null;
 
+  // Destination is frozen for the whole session: the address, the catalog and
+  // the activation gate must all agree on one destination even if the dev
+  // switch is toggled mid-session.
+  const [devSettings] = useDevSettingsPersistAtom();
+  const destinationRef = useRef<IUnifoldDepositDestination | undefined>(
+    undefined,
+  );
+  if (!destinationRef.current) {
+    destinationRef.current = resolveUnifoldDepositDestination(devSettings);
+  }
+  const destination = destinationRef.current;
+  const isHyperCoreDestination = isUnifoldHyperCoreDestination(destination);
+
   const sessionStartRef = useRef<number>(Date.now() - SESSION_LOOKBACK_MS);
 
   const [addressState, setAddressStateRaw] = useState<IUnifoldAddressState>(
@@ -198,7 +251,7 @@ export function usePerpsUnifoldDepositSession({
       try {
         const assets =
           await backgroundApiProxy.serviceUnifoldDeposit.getSupportedAssets(
-            UNIFOLD_DEPOSIT_DESTINATION,
+            destination,
           );
         if (!cancelled) {
           setSupportedAssets(assets);
@@ -225,7 +278,13 @@ export function usePerpsUnifoldDepositSession({
         clearTimeout(retryTimer);
       }
     };
-  }, [enabled, recipientAddress, assetsAttempt, applyAddressState]);
+  }, [
+    enabled,
+    recipientAddress,
+    assetsAttempt,
+    applyAddressState,
+    destination,
+  ]);
 
   useEffect(() => {
     if (!supportedAssets || selection) {
@@ -266,7 +325,7 @@ export function usePerpsUnifoldDepositSession({
         const result =
           await backgroundApiProxy.serviceUnifoldDeposit.createDepositAddress({
             recipientAddress,
-            ...UNIFOLD_DEPOSIT_DESTINATION,
+            ...destination,
           });
         if (!cancelled) {
           applyAddressState({ status: 'ready', result });
@@ -297,12 +356,21 @@ export function usePerpsUnifoldDepositSession({
         clearTimeout(retryTimer);
       }
     };
-  }, [enabled, recipientAddress, addressAttempt, applyAddressState]);
+  }, [
+    enabled,
+    recipientAddress,
+    addressAttempt,
+    applyAddressState,
+    destination,
+  ]);
 
   // ── HyperCore activation status (server caches 2min) ──
+  // Activation is HyperCore-only (the vendor endpoint is
+  // /addresses/hypercore/activation), so it is skipped entirely for any other
+  // destination — including the dev Arbitrum one.
   const { result: activationStatus } = usePromiseResult(
     async () => {
-      if (!enabled || !recipientAddress) {
+      if (!enabled || !recipientAddress || !isHyperCoreDestination) {
         return undefined;
       }
       try {
@@ -315,7 +383,7 @@ export function usePerpsUnifoldDepositSession({
         return undefined;
       }
     },
-    [enabled, recipientAddress],
+    [enabled, recipientAddress, isHyperCoreDestination],
     {},
   );
 
@@ -326,6 +394,7 @@ export function usePerpsUnifoldDepositSession({
   }, [activationStatus?.isSanctioned, applyAddressState]);
 
   const showActivationWarning = Boolean(
+    isHyperCoreDestination &&
     activationStatus &&
     !activationStatus.userExists &&
     !activationStatus.sponsored &&
@@ -381,9 +450,9 @@ export function usePerpsUnifoldDepositSession({
             seenRef.current.set(item.executionId, item.status);
             if (!priming && item.terminal && item.status === 'succeeded') {
               Toast.success({
-                title: `Deposit completed $${
-                  item.destinationAmountUsd ?? item.sourceAmountUsd ?? '—'
-                }`,
+                title: `Deposit completed ${formatUnifoldUsdAmount(
+                  item.destinationAmountUsd ?? item.sourceAmountUsd,
+                )}`,
               });
               void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
             }
@@ -453,6 +522,11 @@ export function usePerpsUnifoldDepositSession({
 
   return {
     recipientAddress,
+    destination,
+    // Dev builds can route to a plain chain, where funds land in the user's
+    // own wallet rather than the perps account — callers keep their copy
+    // neutral when this is false.
+    isHyperCoreDestination,
     addressState,
     sessionId:
       addressState.status === 'ready' ? addressState.result.sessionId : null,

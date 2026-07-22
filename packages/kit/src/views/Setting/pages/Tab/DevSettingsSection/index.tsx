@@ -1572,6 +1572,16 @@ const BaseDevSettingsSection = () => {
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
 
+                      <SectionFieldItem
+                        icon="QrCodeOutline"
+                        name="unifoldUseTestDestination"
+                        title="Unifold 充值改用 Arbitrum USDC 目的地（测试用）"
+                        subtitle="开启后资金回到自己的 Arbitrum 钱包而非永续账户，仅 dev 生效，用于低成本跑通充值管线"
+                        searchKeywords="Unifold deposit destination Arbitrum USDC 充值 目的地 测试"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+
                       <SearchFilterItem keywords="Bg Api 可序列化检测 serializable">
                         <ListItem
                           icon="LabOutline"

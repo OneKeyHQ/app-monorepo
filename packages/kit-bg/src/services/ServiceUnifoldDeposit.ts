@@ -6,7 +6,10 @@ import {
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { assertUnifoldEchoMatches } from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
+import {
+  assertUnifoldEchoMatches,
+  formatUnifoldUsdAmount,
+} from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -245,9 +248,9 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
         title: appLocale.intl.formatMessage({
           id: ETranslations.perp_deposit_success_title,
         }),
-        message: `$${
-          execution.destinationAmountUsd ?? execution.sourceAmountUsd ?? '—'
-        }`,
+        message: formatUnifoldUsdAmount(
+          execution.destinationAmountUsd ?? execution.sourceAmountUsd,
+        ),
       });
       void this.backgroundApi.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
       return;

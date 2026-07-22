@@ -205,6 +205,11 @@ const PerpGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PerpGallery'),
 );
 
+const UnifoldDepositGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/UnifoldDepositGallery'),
+);
+
 const CloudBackupGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CloudBackupGallery'),
@@ -469,6 +474,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentPerp,
     component: PerpGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentUnifoldDeposit,
+    component: UnifoldDepositGallery,
   },
   {
     name: EGalleryRoutes.ComponentCloudBackup,

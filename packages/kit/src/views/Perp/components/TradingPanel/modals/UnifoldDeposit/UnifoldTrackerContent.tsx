@@ -16,17 +16,26 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  isUnifoldHyperCoreDestination,
+  resolveUnifoldDepositDestination,
+} from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
 import { getSafeUnifoldRecipient } from '@onekeyhq/kit/src/views/Perp/utils/unifoldRecipient';
-import { perpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  perpsActiveAccountAtom,
+  useDevSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IUnifoldDepositExecution } from '@onekeyhq/shared/types/unifoldDeposit';
 
 import {
+  formatUnifoldChainName,
   formatUnifoldExecutionDate,
   formatUnifoldProcessingTime,
   formatUnifoldTokenAmount,
   formatUnifoldUsd,
+  normalizeUnifoldIconUrl,
 } from './unifoldFormat';
 
 const TRACKER_POLL_INTERVAL_MS = 3000;
@@ -64,7 +73,8 @@ function shortenHash(hash: string): string {
   return `${hash.slice(0, 12)}...${hash.slice(-4)}`;
 }
 
-function ExecutionRow({
+// Exported so the dev gallery can render fixture rows without any network.
+export function UnifoldExecutionRow({
   execution,
   onPress,
 }: {
@@ -86,7 +96,9 @@ function ExecutionRow({
       <Stack>
         <Token
           size="md"
-          tokenImageUri={execution.destinationTokenIconUrl ?? undefined}
+          tokenImageUri={normalizeUnifoldIconUrl(
+            execution.destinationTokenIconUrl,
+          )}
         />
         <Stack position="absolute" right={-2} bottom={-2}>
           {isProcessing(execution) ? (
@@ -122,7 +134,12 @@ function ExecutionRow({
           {formatUnifoldExecutionDate(execution.createdAt)}
         </SizableText>
       </YStack>
-      <SizableText size="$bodyMdMedium" color="$text">
+      <SizableText
+        size="$bodyMdMedium"
+        color="$text"
+        numberOfLines={1}
+        flexShrink={0}
+      >
         {formatUnifoldUsd(
           execution.destinationAmountUsd ?? execution.sourceAmountUsd,
         )}
@@ -152,6 +169,11 @@ export function UnifoldExecutionDetail({
 }) {
   const [moreExpanded, setMoreExpanded] = useState(false);
   const processing = isProcessing(execution);
+  const [devSettings] = useDevSettingsPersistAtom();
+  const destination = resolveUnifoldDepositDestination(devSettings);
+  const destinationLabel = isUnifoldHyperCoreDestination(destination)
+    ? 'HyperCore'
+    : 'Arbitrum';
 
   return (
     <YStack px="$2">
@@ -159,7 +181,9 @@ export function UnifoldExecutionDetail({
         <Stack>
           <Token
             size="xl"
-            tokenImageUri={execution.destinationTokenIconUrl ?? undefined}
+            tokenImageUri={normalizeUnifoldIconUrl(
+              execution.destinationTokenIconUrl,
+            )}
           />
           <Stack position="absolute" right={-4} bottom={-4}>
             {processing ? (
@@ -265,9 +289,15 @@ export function UnifoldExecutionDetail({
         ) : null}
         <DetailInfoRow
           label="Source Network"
-          value={execution.sourceChainType ?? '—'}
+          value={formatUnifoldChainName({
+            chainType: execution.sourceChainType,
+            chainId: execution.sourceChainId,
+          })}
         />
-        <DetailInfoRow label="Destination Network" value="HyperCore" />
+        {/* Executions do not carry the destination triplet, so this reflects
+            the destination the app is configured for. In production that is
+            always HyperCore; dev builds may route to a plain chain. */}
+        <DetailInfoRow label="Destination Network" value={destinationLabel} />
       </YStack>
 
       <XStack
@@ -463,7 +493,7 @@ export function UnifoldTrackerContent({
     <ScrollView maxHeight={listHeight ?? 460}>
       <YStack gap="$3" pb="$4">
         {executions.map((execution) => (
-          <ExecutionRow
+          <UnifoldExecutionRow
             key={execution.executionId}
             execution={execution}
             onPress={() =>
