@@ -626,7 +626,7 @@ describe('ipTableAdapter fail-open on domain network failures', () => {
     // come from the runtime request sequence, not Date.now().
     jest.spyOn(Date, 'now').mockReturnValue(1000);
     // Request A starts first and fails slowly; request B starts later and
-    // succeeds before A's failure lands. B's success must leave its ledger
+    // succeeds before A's failure lands. B's success must leave its outcome
     // mark even though no failure entry existed yet, making A's late
     // failure stale — otherwise a recovered hostname would accumulate
     // toward fail-open.
@@ -771,7 +771,7 @@ describe('ipTableAdapter fail-open on domain network failures', () => {
     // Three slow requests start BEFORE anything goes wrong. The circuit then
     // opens, recovers (which must preserve the per-hostname watermark), and
     // only afterwards do the three old failures land: they must all be
-    // stale — if deactivation had cleared the ledger they would re-open the
+    // stale — if deactivation had cleared the outcome state they would re-open
     // circuit on a link that already proved healthy.
     let releaseOldFailures: (() => void) | undefined;
     const oldFailureGate = new Promise<void>((resolve) => {
@@ -906,6 +906,94 @@ describe('ipTableAdapter fail-open on domain network failures', () => {
       ),
     ).resolves.toMatchObject({ status: 200, data: { ok: true } });
     expect(mockedSniRequest).toHaveBeenCalledTimes(1);
+  });
+
+  test('one recovered hostname does not close fail-open for another activated hostname', async () => {
+    let releaseWalletFailures: (() => void) | undefined;
+    let releaseUtilityFailures: (() => void) | undefined;
+    let markAllRequestsStarted: (() => void) | undefined;
+    const walletFailureGate = new Promise<void>((resolve) => {
+      releaseWalletFailures = resolve;
+    });
+    const utilityFailureGate = new Promise<void>((resolve) => {
+      releaseUtilityFailures = resolve;
+    });
+    const allRequestsStarted = new Promise<void>((resolve) => {
+      markAllRequestsStarted = resolve;
+    });
+    let startedRequests = 0;
+
+    fallbackAdapter.mockImplementation(async (config) => {
+      startedRequests += 1;
+      if (startedRequests === 6) {
+        markAllRequestsStarted?.();
+      }
+      if (config.url?.includes('wallet.onekeycn.com')) {
+        await walletFailureGate;
+      } else {
+        await utilityFailureGate;
+      }
+      throw networkError();
+    });
+
+    // Start both hostnames while the circuit is closed, then let each group
+    // independently reach the threshold under the same root domain.
+    const walletFailures = Array.from({ length: 3 }, (_, index) =>
+      createIpTableAdapter({})(
+        buildConfig(`https://wallet.onekeycn.com/wallet/v1/fail-${index}`),
+      ),
+    );
+    const utilityFailures = Array.from({ length: 3 }, (_, index) =>
+      createIpTableAdapter({})(
+        buildConfig(`https://utility.onekeycn.com/utility/v1/fail-${index}`),
+      ),
+    );
+    await allRequestsStarted;
+
+    releaseWalletFailures?.();
+    for (const pending of walletFailures) {
+      await expect(pending).rejects.toMatchObject({ code: 'ECONNABORTED' });
+    }
+    releaseUtilityFailures?.();
+    for (const pending of utilityFailures) {
+      await expect(pending).rejects.toMatchObject({ code: 'ECONNABORTED' });
+    }
+
+    // Recover only wallet.* through the domain fallback. utility.* still has
+    // its own threshold of failures and must keep the root-domain circuit open.
+    mockedSniRequest.mockRejectedValueOnce(
+      Object.assign(new Error('sni timeout'), { code: 'SNI_TIMEOUT' }),
+    );
+    fallbackAdapter.mockImplementation(async (config) => ({
+      data: { recovered: true },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    }));
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/recover'),
+      ),
+    ).resolves.toMatchObject({ data: { recovered: true } });
+
+    mockedSniRequest.mockClear();
+    mockedSniRequest.mockResolvedValue({
+      statusCode: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{"utility":true}',
+    });
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://utility.onekeycn.com/utility/v1/health'),
+      ),
+    ).resolves.toMatchObject({ data: { utility: true } });
+    expect(mockedSniRequest).toHaveBeenCalledTimes(1);
+    expect(mockedSniRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ hostname: 'utility.onekeycn.com' }),
+    );
   });
 });
 

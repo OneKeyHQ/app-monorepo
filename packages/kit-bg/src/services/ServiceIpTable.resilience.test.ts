@@ -101,7 +101,7 @@ function createService() {
   return { service, ipTableDb };
 }
 
-describe('ServiceIpTable review regressions', () => {
+describe('ServiceIpTable resilience', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });

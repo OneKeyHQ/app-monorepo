@@ -4,7 +4,7 @@ import {
 } from '../constants/ipTableDefaults';
 
 /**
- * Outcome ledger shared by the adapter's per-hostname fail-open tracking and
+ * Request outcome state shared by the adapter's per-hostname fail-open tracking and
  * the service's per-endpoint health stats.
  *
  * Request outcomes arrive through async callbacks with no ordering guarantee:
@@ -16,11 +16,11 @@ import {
  * success remove every failure at or before its request position while
  * retaining failures from later requests, regardless of arrival order.
  */
-export const IP_TABLE_OUTCOME_LEDGER_FAILURE_CAP =
+export const IP_TABLE_REQUEST_OUTCOME_FAILURE_CAP =
   Math.max(IP_TABLE_DOMAIN_FAILOVER_THRESHOLD, IP_TABLE_SNI_FAILURE_THRESHOLD) *
   4;
 
-export interface IIpTableOutcomeLedgerEntry {
+export interface IIpTableRequestOutcomeState {
   /** Capped number of unresolved failures after the latest success */
   consecutiveFailures: number;
   /** Runtime-local request sequence of the latest successful request */
@@ -29,7 +29,7 @@ export interface IIpTableOutcomeLedgerEntry {
   failureSequences: Set<number>;
 }
 
-export function createOutcomeLedgerEntry(): IIpTableOutcomeLedgerEntry {
+export function createRequestOutcomeState(): IIpTableRequestOutcomeState {
   return {
     consecutiveFailures: 0,
     latestSuccessSequence: 0,
@@ -45,10 +45,10 @@ export function nextIpTableRequestSequence(): number {
   return ipTableRequestSequence;
 }
 
-function capFailureSequences(entry: IIpTableOutcomeLedgerEntry): void {
-  while (entry.failureSequences.size > IP_TABLE_OUTCOME_LEDGER_FAILURE_CAP) {
+function capFailureSequences(state: IIpTableRequestOutcomeState): void {
+  while (state.failureSequences.size > IP_TABLE_REQUEST_OUTCOME_FAILURE_CAP) {
     let smallestSequence: number | undefined;
-    entry.failureSequences.forEach((failureSequence) => {
+    state.failureSequences.forEach((failureSequence) => {
       if (
         smallestSequence === undefined ||
         failureSequence < smallestSequence
@@ -59,40 +59,40 @@ function capFailureSequences(entry: IIpTableOutcomeLedgerEntry): void {
     if (smallestSequence === undefined) {
       break;
     }
-    entry.failureSequences.delete(smallestSequence);
+    state.failureSequences.delete(smallestSequence);
   }
 }
 
-export function applyOutcome(
-  entry: IIpTableOutcomeLedgerEntry,
+export function applyRequestOutcome(
+  state: IIpTableRequestOutcomeState,
   outcome: { ok: boolean; requestSequence: number },
 ): 'applied' | 'stale' {
   if (outcome.ok) {
-    if (outcome.requestSequence <= entry.latestSuccessSequence) {
+    if (outcome.requestSequence <= state.latestSuccessSequence) {
       return 'stale';
     }
-    entry.latestSuccessSequence = outcome.requestSequence;
-    entry.failureSequences.forEach((failureSequence) => {
+    state.latestSuccessSequence = outcome.requestSequence;
+    state.failureSequences.forEach((failureSequence) => {
       if (failureSequence <= outcome.requestSequence) {
-        entry.failureSequences.delete(failureSequence);
+        state.failureSequences.delete(failureSequence);
       }
     });
-    entry.consecutiveFailures = entry.failureSequences.size;
+    state.consecutiveFailures = state.failureSequences.size;
     return 'applied';
   }
 
   if (
-    outcome.requestSequence <= entry.latestSuccessSequence ||
-    entry.failureSequences.has(outcome.requestSequence)
+    outcome.requestSequence <= state.latestSuccessSequence ||
+    state.failureSequences.has(outcome.requestSequence)
   ) {
     return 'stale';
   }
-  entry.failureSequences.add(outcome.requestSequence);
+  state.failureSequences.add(outcome.requestSequence);
   // Only threshold comparisons consume this count. Keeping the greatest
   // request sequences preserves those comparisons under any later success:
   // discarded sequences are older than every retained one, so they can never
   // be the difference between below-threshold and at/above-threshold.
-  capFailureSequences(entry);
-  entry.consecutiveFailures = entry.failureSequences.size;
+  capFailureSequences(state);
+  state.consecutiveFailures = state.failureSequences.size;
   return 'applied';
 }

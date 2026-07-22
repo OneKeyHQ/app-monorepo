@@ -13,15 +13,15 @@ import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
 import {
-  applyOutcome,
-  createOutcomeLedgerEntry,
+  applyRequestOutcome,
+  createRequestOutcomeState,
   nextIpTableRequestSequence,
-} from './ipTableOutcomeLedger';
+} from './ipTableRequestOutcome';
 import { isSniFailClosedError } from './sniFailClosedError';
 import { redactIpLiterals, safeSniLogValue } from './sniLogRedaction';
 import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
 
-import type { IIpTableOutcomeLedgerEntry } from './ipTableOutcomeLedger';
+import type { IIpTableRequestOutcomeState } from './ipTableRequestOutcome';
 import type {
   AxiosAdapter,
   AxiosRequestConfig,
@@ -242,28 +242,29 @@ const getSelectedIpForHost = memoizee(getSelectedIpForHostInternal, {
 
 interface IAdapterFailoverState {
   /**
-   * Per-hostname outcome ledger (consecutive transport failures + newest
+   * Per-hostname request outcome state (consecutive transport failures + newest
    * applied outcome ordered by runtime request sequence). Entries persist across
    * successes so a late-arriving old failure can always be recognized as
    * stale — deleting them would lose the ordering mark.
    */
-  hostFailures: Map<string, IIpTableOutcomeLedgerEntry>;
+  hostFailures: Map<string, IIpTableRequestOutcomeState>;
   failOpenUntil: number;
-  /** Sequence of the failure request that opened the circuit */
-  activatedRequestSequence: number;
-  /** Hostnames whose failures opened the circuit; only they may close it early */
-  activatedHostnames: Set<string>;
+  /**
+   * Hostnames keeping the root-domain circuit open, mapped to the latest
+   * failure sequence that left each hostname at or above the threshold.
+   */
+  activatedHostSequences: Map<string, number>;
   /** Rotates across activations so a dead builtin endpoint is not retried forever */
   fallbackIpIndex: number;
 }
 
-function getHostOutcomeLedger(
+function getHostOutcomeState(
   state: IAdapterFailoverState,
   hostname: string,
-): IIpTableOutcomeLedgerEntry {
+): IIpTableRequestOutcomeState {
   let entry = state.hostFailures.get(hostname);
   if (!entry) {
-    entry = createOutcomeLedgerEntry();
+    entry = createRequestOutcomeState();
     state.hostFailures.set(hostname, entry);
   }
   return entry;
@@ -325,8 +326,7 @@ function getFailoverState(lookupDomain: string): IAdapterFailoverState {
     state = {
       hostFailures: new Map(),
       failOpenUntil: 0,
-      activatedRequestSequence: 0,
-      activatedHostnames: new Set(),
+      activatedHostSequences: new Map(),
       fallbackIpIndex: 0,
     };
     adapterFailoverStates.set(lookupDomain, state);
@@ -363,8 +363,7 @@ function deactivateFailover(lookupDomain: string, cause: string): void {
     entry.consecutiveFailures = 0;
   });
   state.failOpenUntil = 0;
-  state.activatedRequestSequence = 0;
-  state.activatedHostnames.clear();
+  state.activatedHostSequences.clear();
   getSelectedIpForHost.clear();
 }
 
@@ -388,42 +387,37 @@ async function recordDomainRequestOutcome(options: {
   const state = getFailoverState(lookupDomain);
 
   // Both success and failure go through the same request-sequence-ordered
-  // ledger. A success removes all failures no later than itself while keeping
+  // state. A success removes all failures no later than itself while keeping
   // later-request failures, so completion order cannot change the count.
-  const ledger = getHostOutcomeLedger(state, hostname);
+  const outcomeState = getHostOutcomeState(state, hostname);
 
   if (ok) {
-    const applied = applyOutcome(ledger, { ok: true, requestSequence });
-    // A success may arrive after later failures and reveal that the failures
-    // which opened the circuit were not actually consecutive in request
-    // order. Retract that provisional activation once every activating host
-    // falls below the threshold; this is ordering reconciliation, not a claim
-    // that an older request proves present-time recovery.
-    const activationWasInvalidated =
-      applied === 'applied' &&
-      state.failOpenUntil > Date.now() &&
-      state.activatedHostnames.has(hostname) &&
-      ledger.consecutiveFailures < IP_TABLE_DOMAIN_FAILOVER_THRESHOLD &&
-      [...state.activatedHostnames].every(
-        (activatedHostname) =>
-          (state.hostFailures.get(activatedHostname)?.consecutiveFailures ??
-            0) < IP_TABLE_DOMAIN_FAILOVER_THRESHOLD,
-      );
-    if (activationWasInvalidated) {
-      deactivateFailover(lookupDomain, 'failure_sequence_reconciled');
-      return;
-    }
-    // A success only proves the path that was exercised: it may close the
-    // circuit only when it comes from a hostname that opened it AND started
-    // after activation (a long-in-flight request resolving late says
-    // nothing about recovery).
+    const applied = applyRequestOutcome(outcomeState, {
+      ok: true,
+      requestSequence,
+    });
+    const activationSequence = state.activatedHostSequences.get(hostname);
+    // A success can either prove this hostname recovered after its own
+    // activation, or arrive late and reveal that its activating failures were
+    // not consecutive in request order. In both cases, retire only this
+    // hostname once its unresolved failures fall below the threshold. Other
+    // activated hostnames under the same root domain must keep the circuit
+    // open until they independently recover or reconcile.
     if (
       applied === 'applied' &&
       state.failOpenUntil > Date.now() &&
-      state.activatedHostnames.has(hostname) &&
-      requestSequence > state.activatedRequestSequence
+      activationSequence !== undefined &&
+      outcomeState.consecutiveFailures < IP_TABLE_DOMAIN_FAILOVER_THRESHOLD
     ) {
-      deactivateFailover(lookupDomain, 'domain_recovered');
+      state.activatedHostSequences.delete(hostname);
+      if (state.activatedHostSequences.size === 0) {
+        deactivateFailover(
+          lookupDomain,
+          requestSequence > activationSequence
+            ? 'domain_recovered'
+            : 'failure_sequence_reconciled',
+        );
+      }
     }
     return;
   }
@@ -435,22 +429,24 @@ async function recordDomainRequestOutcome(options: {
     return;
   }
 
-  if (applyOutcome(ledger, { ok: false, requestSequence }) === 'stale') {
+  if (
+    applyRequestOutcome(outcomeState, { ok: false, requestSequence }) ===
+    'stale'
+  ) {
     return;
   }
 
-  if (ledger.consecutiveFailures >= IP_TABLE_DOMAIN_FAILOVER_THRESHOLD) {
+  if (outcomeState.consecutiveFailures >= IP_TABLE_DOMAIN_FAILOVER_THRESHOLD) {
     const now = Date.now();
-    state.activatedHostnames.add(hostname);
+    state.activatedHostSequences.set(hostname, requestSequence);
     if (state.failOpenUntil <= now) {
       state.failOpenUntil = now + IP_TABLE_ADAPTER_FAILOVER_TTL_MS;
-      state.activatedRequestSequence = requestSequence;
       state.fallbackIpIndex += 1;
       getSelectedIpForHost.clear();
       logIpTableEvent('warn', 'adapter_failover_activated', {
         lookupDomain,
         hostname,
-        consecutiveNetworkFailures: ledger.consecutiveFailures,
+        consecutiveNetworkFailures: outcomeState.consecutiveFailures,
         ttlMs: IP_TABLE_ADAPTER_FAILOVER_TTL_MS,
       });
       defaultLogger.ipTable.metrics.adapterFailover({

@@ -33,9 +33,9 @@ import {
 } from '@onekeyhq/shared/src/request/helpers/ipTableAdapter';
 import { decideEndpoint } from '@onekeyhq/shared/src/request/helpers/ipTableEndpointDecision';
 import {
-  applyOutcome,
+  applyRequestOutcome,
   nextIpTableRequestSequence,
-} from '@onekeyhq/shared/src/request/helpers/ipTableOutcomeLedger';
+} from '@onekeyhq/shared/src/request/helpers/ipTableRequestOutcome';
 import {
   isProxyActiveForUrl,
   isSniSupported,
@@ -86,7 +86,7 @@ interface IDomainHealthStats {
    * success on one hostname must not clear another hostname's failures, and
    * different hostnames' failures must not jointly reach a threshold. Root
    * domain routing decisions aggregate over these explicitly. Mirrors the
-   * adapter-side per-hostname ledger so main and bg runtimes agree.
+   * adapter-side per-hostname outcome state so main and bg runtimes agree.
    */
   directHosts: Map<string, IEndpointHealth>;
   /** Timestamp of last speed test */
@@ -1014,11 +1014,11 @@ class ServiceIpTable extends ServiceBase {
     const endpointHealth = this.getEndpointHealth(stats, requestType, target);
 
     // Outcomes arrive through async callbacks with no ordering guarantee:
-    // the shared ledger orders them by a monotonic sequence allocated at
+    // the shared outcome state orders them by a monotonic sequence allocated at
     // transport hand-off, so a failure whose request predates the newest
     // applied outcome never re-increments the counter, even within one ms.
     if (
-      applyOutcome(endpointHealth, {
+      applyRequestOutcome(endpointHealth, {
         ok: false,
         requestSequence: outcomeSequence,
       }) === 'stale'
@@ -1029,7 +1029,7 @@ class ServiceIpTable extends ServiceBase {
       return;
     }
 
-    // Update failure statistics (consecutiveFailures is owned by the ledger)
+    // Update failure statistics (consecutiveFailures is owned by outcome state)
     endpointHealth.failureCount += 1;
     endpointHealth.lastFailureTime = now;
 
@@ -1174,7 +1174,7 @@ class ServiceIpTable extends ServiceBase {
     );
 
     // Successes reset the consecutive-failure counters, so "consecutive"
-    // means what it says. The success path MUST create the ledger entry when
+    // means what it says. The success path MUST create the outcome state when
     // none exists yet: a later-started success completing before an
     // early-started slow failure has to leave its ordering mark, otherwise
     // the old failure would create the entry afterwards and count against a
@@ -1187,7 +1187,7 @@ class ServiceIpTable extends ServiceBase {
           requestType,
           target,
         );
-        applyOutcome(endpointHealth, { ok: true, requestSequence });
+        applyRequestOutcome(endpointHealth, { ok: true, requestSequence });
       },
     );
 
