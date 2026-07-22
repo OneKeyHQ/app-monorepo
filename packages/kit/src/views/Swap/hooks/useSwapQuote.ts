@@ -50,7 +50,6 @@ import {
   useSwapShouldRefreshQuoteAtom,
   useSwapSlippageDialogOpeningAtom,
   useSwapStockExecutionTokenSyncIdAtom,
-  useSwapToAnotherAccountAddressAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
@@ -80,10 +79,10 @@ export function useSwapQuote() {
     closeQuoteEvent,
     swapTypeSwitchAction,
   } = useSwapActions().current;
-  const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
+  const [swapQuoteActionLock, setSwapQuoteActionLock] =
+    useSwapQuoteActionLockAtom();
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const [swapToAnotherAccountAddress] = useSwapToAnotherAccountAddressAtom();
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
   const [swapStockExecutionTokenSyncId] =
     useSwapStockExecutionTokenSyncIdAtom();
@@ -210,6 +209,38 @@ export function useSwapQuote() {
   if (isFocusRef.current !== isFocused) {
     isFocusRef.current = isFocused;
   }
+
+  // Automatic quote effects are paused while this route is hidden. Remember
+  // quote identity changes so the visible Swap surface refreshes once on return.
+  useEffect(() => {
+    if (
+      !isFocusRef.current &&
+      shouldPreserveSwapUserInputAmountOnAccountSwitch({
+        fromTokenAmount,
+        toTokenAmount,
+      })
+    ) {
+      shouldRefreshPreservedInputQuoteOnFocusRef.current = true;
+    }
+  }, [
+    fromToken?.contractAddress,
+    fromToken?.networkId,
+    fromTokenAmount,
+    slippageItem.key,
+    slippageItem.value,
+    swapAddressInfo.accountInfo?.account?.id,
+    swapAddressInfo.accountInfo?.deriveType,
+    swapAddressInfo.address,
+    swapAddressInfo.networkId,
+    swapStockExecutionTokenSyncId,
+    swapTabSwitchType,
+    swapToAddressInfo.address,
+    swapToAddressInfo.networkId,
+    toToken?.contractAddress,
+    toToken?.networkId,
+    toTokenAmount,
+  ]);
+
   const activeAccountRef = useRef<
     ReturnType<typeof useSwapAddressInfo> | undefined
   >(undefined);
@@ -241,7 +272,7 @@ export function useSwapQuote() {
     fromTokenAmount.value !== fromAmountDebounce.value;
 
   useEffect(() => {
-    if (swapTabSwitchType !== ESwapTabSwitchType.STOCK) {
+    if (!isFocused || swapTabSwitchType !== ESwapTabSwitchType.STOCK) {
       return;
     }
     if (isStockFromAmountDebouncing && !swapQuoteFetching) {
@@ -252,6 +283,7 @@ export function useSwapQuote() {
     }
   }, [
     fromTokenAmount.value,
+    isFocused,
     isStockFromAmountDebouncing,
     setSwapQuoteFetching,
     swapQuoteFetching,
@@ -340,6 +372,9 @@ export function useSwapQuote() {
   }, [toTokenAmount, quoteAction, shouldPauseQuote]);
 
   useEffect(() => {
+    if (!isFocusRef.current) {
+      return;
+    }
     if (shouldPauseQuote) {
       return;
     }
@@ -388,6 +423,10 @@ export function useSwapQuote() {
       return;
     }
 
+    if (!isFocusRef.current) {
+      return;
+    }
+
     const keyChanged = prevKey !== slippageItem.key;
     const customValueChanged =
       slippageItem.key === ESwapSlippageSegmentKey.CUSTOM &&
@@ -418,21 +457,10 @@ export function useSwapQuote() {
   ]);
 
   useEffect(() => {
+    if (!isFocusRef.current) {
+      return;
+    }
     if (shouldPauseQuote) {
-      return;
-    }
-    if (
-      !isFocusRef.current &&
-      swapToAddressInfo.address ===
-        swapQuoteActionLockRef.current?.receivingAddress
-    ) {
-      return;
-    }
-    if (
-      !isFocusRef.current &&
-      !swapToAnotherAccountAddress?.address &&
-      settingsAtomRef.current.swapToAnotherAccountSwitchOn
-    ) {
       return;
     }
     if (
@@ -493,9 +521,10 @@ export function useSwapQuote() {
       swapToAddressInfoRef.current.address,
     );
   }, [
-    swapToAnotherAccountAddress?.address,
     cleanQuoteInterval,
     quoteAction,
+    swapAddressInfo.accountInfo?.account?.id,
+    swapAddressInfo.accountInfo?.deriveType,
     swapAddressInfo.address,
     swapAddressInfo.networkId,
     swapToAddressInfo.address,
@@ -510,6 +539,9 @@ export function useSwapQuote() {
   ]);
 
   useEffect(() => {
+    if (!isFocusRef.current) {
+      return;
+    }
     if (shouldPauseQuote) {
       return;
     }
@@ -542,21 +574,10 @@ export function useSwapQuote() {
   );
 
   useEffect(() => {
+    if (!isFocusRef.current) {
+      return;
+    }
     if (shouldPauseQuote) {
-      return;
-    }
-    if (
-      !isFocusRef.current &&
-      swapToAddressInfo.address ===
-        swapQuoteActionLockRef.current?.receivingAddress
-    ) {
-      return;
-    }
-    if (
-      !isFocusRef.current &&
-      !swapToAnotherAccountAddress?.address &&
-      settingsAtomRef.current.swapToAnotherAccountSwitchOn
-    ) {
       return;
     }
     if (swapTabSwitchTypeRef.current !== ESwapTabSwitchType.LIMIT) {
@@ -620,9 +641,10 @@ export function useSwapQuote() {
       swapToAddressInfoRef.current.address,
     );
   }, [
-    swapToAnotherAccountAddress?.address,
     cleanQuoteInterval,
     quoteAction,
+    swapAddressInfo.accountInfo?.account?.id,
+    swapAddressInfo.accountInfo?.deriveType,
     swapAddressInfo.address,
     swapAddressInfo.networkId,
     swapToAddressInfo.address,
@@ -634,41 +656,6 @@ export function useSwapQuote() {
     toAmountDebounce,
     shouldPauseQuote,
   ]);
-
-  // Due to the changes in derived types causing address changes, this is not in the swap tab.
-  useEffect(() => {
-    if (shouldPauseQuote) {
-      return;
-    }
-    if (isFocusRef.current) return;
-    if (
-      fromToken?.networkId !== activeAccountRef.current?.networkId ||
-      equalTokenNoCaseSensitive({
-        token1: {
-          networkId: fromToken?.networkId,
-          contractAddress: fromToken?.contractAddress,
-        },
-        token2: {
-          networkId: toToken?.networkId,
-          contractAddress: toToken?.contractAddress,
-        },
-      })
-    ) {
-      return;
-    }
-    alignmentDecimal();
-    void quoteAction(
-      swapSlippageRef.current,
-      activeAccountRef.current?.address,
-      activeAccountRef.current?.accountInfo?.account?.id,
-      undefined,
-      undefined,
-      ESwapQuoteKind.SELL,
-      undefined,
-      swapToAddressInfoRef.current.address,
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [swapAddressInfo.accountInfo?.deriveType, shouldPauseQuote]);
 
   const swapApprovingSuccessAction = useCallback(
     async (data: {
@@ -873,6 +860,7 @@ export function useSwapQuote() {
             swapApprovingSuccessAction,
           );
           if (
+            !isHiddenModel &&
             shouldRefreshPreservedInputQuoteOnFocusRef.current &&
             !shouldPauseQuote
           ) {
@@ -893,49 +881,44 @@ export function useSwapQuote() {
               undefined,
               swapToAddressInfoRef.current.address,
             );
-          } else if (shouldPauseQuote) {
+          } else if (!isHiddenModel && shouldPauseQuote) {
             shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
           }
-        } else if (isHiddenModel) {
+        } else {
+          const shouldPreserveUserInputAmount =
+            shouldPreserveSwapUserInputAmountOnAccountSwitch({
+              fromTokenAmount: fromTokenAmountRef.current,
+              toTokenAmount: toTokenAmountRef.current,
+            });
+          shouldRefreshPreservedInputQuoteOnFocusRef.current =
+            shouldPreserveUserInputAmount;
+          const quoteRequestId = swapQuoteActionLockRef.current.quoteRequestId;
+          if (quoteRequestId) {
+            closeQuoteEvent(quoteRequestId);
+          }
+          setSwapQuoteActionLock((value) => ({
+            ...value,
+            actionLock: false,
+          }));
+          setSwapQuoteFetching(false);
+
           if (
             swapQuoteFetchingRef.current ||
             (swapQuoteEventTotalCountRef.current.count > 0 &&
               swapQuoteResultListRef.current.length <
                 swapQuoteEventTotalCountRef.current.count)
           ) {
-            // reset tab quote data when swap modal is open and tab quote data is fetching
-            const shouldPreserveUserInputAmount =
-              shouldPreserveSwapUserInputAmountOnAccountSwitch({
-                fromTokenAmount: fromTokenAmountRef.current,
-                toTokenAmount: toTokenAmountRef.current,
-              });
-            closeQuoteEvent(swapQuoteActionLockRef.current.quoteRequestId);
             setSwapQuoteEventTotalCount({
               count: 0,
             });
             setSwapQuoteResultList([]);
             if (!shouldPreserveUserInputAmount) {
               setFromTokenAmount({ value: '', isInput: true });
-            } else {
-              shouldRefreshPreservedInputQuoteOnFocusRef.current = true;
             }
           }
           appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
           appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
           appEventBus.off(
-            EAppEventBusNames.SwapApprovingSuccess,
-            swapApprovingSuccessAction,
-          );
-        } else {
-          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-          appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
-          appEventBus.on(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
-          appEventBus.off(
-            EAppEventBusNames.SwapApprovingSuccess,
-            swapApprovingSuccessAction,
-          );
-          appEventBus.on(
             EAppEventBusNames.SwapApprovingSuccess,
             swapApprovingSuccessAction,
           );
