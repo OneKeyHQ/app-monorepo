@@ -1,5 +1,16 @@
 // cspell: words unifold Unifold hypercore Hypercore arbiscan
-import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import { useState } from 'react';
+
+import {
+  Button,
+  Icon,
+  ScrollView,
+  SizableText,
+  Spinner,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { UnifoldDepositQRCard } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/UnifoldDeposit/UnifoldDepositQRCard';
 import { UnifoldExecutionStatusCards } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/UnifoldDeposit/UnifoldExecutionStatusCards';
 import {
@@ -24,8 +35,10 @@ import { Layout } from './utils/Layout';
 // can be reviewed on every platform before shipping.
 
 const USDC_ICON = 'https://api.unifold.io/api/public/icons/tokens/svg/usdc.svg';
+// Chain icons live under /networks/, not /chains/ — the wrong path 404s and
+// the QR centre logo renders as a broken image.
 const ARB_ICON =
-  'https://api.unifold.io/api/public/icons/chains/svg/arbitrum.svg';
+  'https://api.unifold.io/api/public/icons/networks/svg/arbitrum.svg';
 const TX = '0x41f367d5a06097f392e2b3d88cc0170a41fce6b20d46bd552145a7d5af87d592';
 
 // Verbatim payload from a real Arbitrum deposit (2026-07-22).
@@ -246,6 +259,215 @@ const SELECTION = {
   chain: SUPPORTED_ASSETS[0].chains[0],
 };
 
+// Production widths: the desktop dialog gives the body 360pt (400 panel − 2×$5)
+// and a 375pt phone gives 343pt (− 2×$4). Fixtures that render at the gallery's
+// default width never squeeze, which is how the overlap bug stayed invisible.
+const DESKTOP_BODY_WIDTH = 360;
+const MOBILE_BODY_WIDTH = 343;
+
+// Stand-ins for the two rows the overlay is most likely to cover. Kept
+// visually identical to UnifoldTransferContent's real ones.
+function ProcessingTimeRowStub() {
+  return (
+    <YStack
+      px="$2.5"
+      bg="$bgSubdued"
+      borderRadius="$3"
+      borderWidth="$px"
+      borderColor="$borderSubdued"
+    >
+      <XStack py="$2.5" alignItems="center" justifyContent="space-between">
+        <XStack alignItems="center" gap="$2">
+          <Stack borderRadius="$full" p="$1" bg="$bgInfoSubdued">
+            <Icon name="ClockTimeHistoryOutline" size="$3" color="$iconInfo" />
+          </Stack>
+          <SizableText size="$bodySm" color="$textSubdued">
+            Processing time:
+          </SizableText>
+          <SizableText size="$bodySmMedium" color="$text">
+            {'< 1 min'}
+          </SizableText>
+        </XStack>
+        <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
+      </XStack>
+    </YStack>
+  );
+}
+
+function TermsRowStub({ waiting }: { waiting?: boolean }) {
+  return (
+    <XStack alignItems="center" justifyContent="space-between">
+      <XStack alignItems="center" gap="$1.5">
+        {waiting ? (
+          <>
+            <Spinner size="small" />
+            <SizableText size="$bodySm" color="$textSubdued">
+              Checking for deposit
+            </SizableText>
+          </>
+        ) : null}
+      </XStack>
+      <XStack alignItems="center" gap="$1">
+        <SizableText size="$bodySm" color="$textInfo">
+          Terms
+        </SizableText>
+        <SizableText size="$bodySm" color="$textSubdued">
+          |
+        </SizableText>
+        <SizableText size="$bodySm" color="$textInfo">
+          Help
+        </SizableText>
+      </XStack>
+    </XStack>
+  );
+}
+
+function ActivationWarningStub() {
+  return (
+    <XStack
+      bg="$bgCautionSubdued"
+      borderWidth="$px"
+      borderColor="$borderCautionSubdued"
+      borderRadius="$3"
+      p="$3"
+      gap="$2"
+      alignItems="center"
+    >
+      <Icon name="ErrorOutline" size="$4" color="$iconCaution" />
+      <SizableText size="$bodySm" color="$textCaution" flex={1}>
+        ~$1 fee is required to activate a new HyperCore account.
+      </SizableText>
+    </XStack>
+  );
+}
+
+// Reproduces the real Transfer panel geometry: same body, same overlay, same
+// measured reservation. UnifoldTransferContent itself cannot be mounted here
+// (it calls the session hook: network + jotai), so the body is composed from
+// the same presentational pieces.
+function PanelFrame({
+  title,
+  width = DESKTOP_BODY_WIDTH,
+  maxHeight,
+  executions,
+  sessionId,
+  expanded,
+  activationWarning,
+  qrLoading,
+  qrAddress = '0x1c30fdd3bb555dd594d92cbcf37dedaa327043b1',
+  selectorLoading,
+  onDismiss,
+}: {
+  title: string;
+  width?: number;
+  maxHeight?: number;
+  executions: IUnifoldDepositExecution[];
+  sessionId?: string | null;
+  expanded?: boolean;
+  activationWarning?: boolean;
+  qrLoading?: boolean;
+  qrAddress?: string | null;
+  selectorLoading?: boolean;
+  onDismiss?: (executionId: string) => void;
+}) {
+  const [cardsHeight, setCardsHeight] = useState(0);
+  const reserve = executions.length ? cardsHeight : undefined;
+  const body = (
+    <Stack pb={reserve}>
+      <YStack gap="$3">
+        <UnifoldSourceSelector
+          assets={selectorLoading ? undefined : SUPPORTED_ASSETS}
+          selection={selectorLoading ? null : SELECTION}
+          loading={Boolean(selectorLoading)}
+          onSelectToken={() => {}}
+          onSelectChain={() => {}}
+        />
+        <UnifoldDepositQRCard
+          address={qrAddress}
+          chainIconUri={ARB_ICON}
+          loading={Boolean(qrLoading)}
+        />
+        <ProcessingTimeRowStub />
+        {expanded ? (
+          <YStack gap="$2.5" px="$2.5">
+            <SizableText size="$bodySm" color="$textSubdued">
+              Max slippage: Auto • 0.25%
+            </SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">
+              Price impact: 0.10%
+            </SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">
+              Recipient address: 0x8de690f9…3c8eb0
+            </SizableText>
+          </YStack>
+        ) : null}
+        {activationWarning ? <ActivationWarningStub /> : null}
+        <TermsRowStub waiting={!executions.length} />
+      </YStack>
+    </Stack>
+  );
+
+  return (
+    <YStack gap="$2">
+      <SizableText size="$bodySmMedium" color="$textSubdued">
+        {title}
+      </SizableText>
+      <Stack
+        width={width}
+        borderWidth="$px"
+        borderColor="$borderSubdued"
+        borderRadius="$3"
+        p="$2"
+        overflow="hidden"
+      >
+        <Stack>
+          {maxHeight === undefined ? (
+            <Stack>{body}</Stack>
+          ) : (
+            <ScrollView maxHeight={maxHeight}>{body}</ScrollView>
+          )}
+          {executions.length ? (
+            <UnifoldExecutionStatusCards
+              executions={executions}
+              // `??` would swallow an explicit null (the no-sessionId case),
+              // so only default when the prop is omitted entirely.
+              sessionId={sessionId === undefined ? SESSION_ID : sessionId}
+              estimatedProcessingTimeSeconds={60}
+              onDismiss={onDismiss ?? (() => {})}
+              onHeightChange={setCardsHeight}
+            />
+          ) : null}
+        </Stack>
+      </Stack>
+    </YStack>
+  );
+}
+
+// A frame that owns dismissal, so the "executions present, nothing visible"
+// state (which used to leave a dead reserved gap) is reachable here.
+function DismissiblePanelFrame() {
+  const [dismissed, setDismissed] = useState<string[]>([]);
+  const executions = [SUCCEEDED, DELAYED, PENDING].filter(
+    (item) => !dismissed.includes(item.executionId),
+  );
+  return (
+    <YStack gap="$2">
+      <PanelFrame
+        title="Dismissible · reservation must follow the visible cards"
+        executions={executions}
+        onDismiss={(id) => setDismissed((prev) => [...prev, id])}
+      />
+      <Button
+        size="small"
+        alignSelf="flex-start"
+        onPress={() => setDismissed([])}
+      >
+        Reset dismissed
+      </Button>
+    </YStack>
+  );
+}
+
 function StatusCardCase({
   title,
   executions,
@@ -255,15 +477,17 @@ function StatusCardCase({
   executions: IUnifoldDepositExecution[];
   sessionId?: string | null;
 }) {
+  const [cardsHeight, setCardsHeight] = useState(0);
   return (
     <YStack gap="$2">
       <SizableText size="$bodySmMedium" color="$textSubdued">
         {title}
       </SizableText>
       {/* The real cards are absolutely positioned at the bottom of the modal;
-          this fixed-height frame reproduces that container in the gallery. */}
+          this frame reproduces that container, sized by the measured overlay
+          height exactly like the real panel reserves it. */}
       <Stack
-        height={90 + 78 * Math.max(executions.length - 1, 0)}
+        height={Math.max(cardsHeight, 24) + 16}
         bg="$bgSubdued"
         borderRadius="$3"
       >
@@ -273,8 +497,91 @@ function StatusCardCase({
           // only default when the prop is omitted entirely.
           sessionId={sessionId === undefined ? SESSION_ID : sessionId}
           estimatedProcessingTimeSeconds={60}
+          onDismiss={() => {}}
+          onHeightChange={setCardsHeight}
         />
       </Stack>
+    </YStack>
+  );
+}
+
+// The composite section: the overlay meeting real content, at production
+// width. Every case here exists because an isolated fixture could not have
+// shown the defect.
+function CompositePanelGallery() {
+  const noLinks: IUnifoldDepositExecution = {
+    ...FAILED,
+    explorerUrl: null,
+    transactionHash: null,
+    destinationExplorerUrl: null,
+    destinationTransactionHashes: [],
+  };
+  return (
+    <YStack gap="$6">
+      <PanelFrame title="Desktop 360pt · no deposits" executions={[]} />
+      <PanelFrame
+        title="Desktop 360pt · 1 card (must not cover Terms | Help)"
+        executions={[SUCCEEDED]}
+      />
+      <PanelFrame
+        title="Desktop 360pt · 2 cards"
+        executions={[SUCCEEDED, DELAYED]}
+      />
+      <PanelFrame
+        title="Desktop 360pt · 3 cards"
+        executions={[SUCCEEDED, DELAYED, PENDING]}
+      />
+      <PanelFrame
+        title="Desktop 360pt · 5 cards + extreme amounts"
+        executions={[SUCCEEDED, LARGE_AMOUNT, SUB_CENT_AMOUNT, DELAYED, FAILED]}
+      />
+      <PanelFrame
+        title="Mobile 343pt · 2 cards"
+        width={MOBILE_BODY_WIDTH}
+        executions={[SUCCEEDED, FAILED]}
+      />
+      <DismissiblePanelFrame />
+      <PanelFrame
+        title="Short window 386pt · expanded + activation warning + 1 card (must scroll)"
+        maxHeight={386}
+        expanded
+        activationWarning
+        executions={[DELAYED]}
+      />
+      <PanelFrame
+        title="Loading race · address ready but no selection yet"
+        selectorLoading
+        qrLoading
+        executions={[]}
+      />
+      <PanelFrame
+        title="Address fetch failed · terminal message, no shimmer, no dead press target"
+        qrAddress={null}
+        executions={[]}
+      />
+      <YStack gap="$2">
+        <SizableText size="$bodySmMedium" color="$textSubdued">
+          Terminal execution with no explorer links · &quot;See more
+          details&quot; must not appear
+        </SizableText>
+        <Stack width={MOBILE_BODY_WIDTH}>
+          <UnifoldExecutionDetail execution={noLinks} />
+        </Stack>
+      </YStack>
+      <YStack gap="$2">
+        <SizableText size="$bodySmMedium" color="$textSubdued">
+          Divider guard · pending (7 rows) vs succeeded (6 rows) — every row
+          must keep its divider
+        </SizableText>
+        <XStack gap="$4" flexWrap="wrap">
+          <Stack width={MOBILE_BODY_WIDTH}>
+            <UnifoldExecutionDetail execution={PENDING} />
+          </Stack>
+          <Stack width={MOBILE_BODY_WIDTH}>
+            <UnifoldExecutionDetail execution={SUCCEEDED} />
+          </Stack>
+        </XStack>
+      </YStack>
     </YStack>
   );
 }
@@ -506,6 +813,10 @@ const UnifoldDepositGallery = () => (
     getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="UnifoldDepositGallery"
     elements={[
+      {
+        title: 'Composite panel (overlay over real content, production widths)',
+        element: <CompositePanelGallery />,
+      },
       {
         title: 'Status cards (in-modal, D2 behaviour)',
         element: <StatusCardsGallery />,

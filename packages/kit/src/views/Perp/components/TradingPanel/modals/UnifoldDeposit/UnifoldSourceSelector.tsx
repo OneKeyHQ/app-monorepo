@@ -28,10 +28,12 @@ function SelectorTrigger({
   iconUri,
   label,
   loading,
+  disabled,
 }: {
   iconUri?: string;
   label?: string;
   loading: boolean;
+  disabled?: boolean;
 }) {
   return (
     <XStack
@@ -43,6 +45,7 @@ function SelectorTrigger({
       borderRadius="$2"
       borderWidth="$px"
       borderColor="$borderSubdued"
+      opacity={disabled ? 0.6 : 1}
     >
       {loading ? (
         <SizableText size="$bodySm" color="$textSubdued">
@@ -132,7 +135,12 @@ export function UnifoldSourceSelector({
   const [chainOpen, setChainOpen] = useState(false);
 
   const usableAssets = (assets ?? []).filter((a) => (a.chains ?? []).length);
+  const chainOptions = selection?.asset.chains ?? [];
   const minUsd = selection?.chain.minimum_deposit_amount_usd ?? 3;
+  // Popover has no disabled state of its own, so an empty catalog would open a
+  // blank sheet (and, on desktop, an invisible overlay that swallows a click).
+  const canSelectToken = usableAssets.length > 0;
+  const canSelectChain = chainOptions.length > 0;
 
   return (
     <XStack gap="$2.5">
@@ -143,12 +151,13 @@ export function UnifoldSourceSelector({
         <Popover
           title="Select token"
           open={tokenOpen}
-          onOpenChange={setTokenOpen}
+          onOpenChange={(next) => setTokenOpen(next && canSelectToken)}
           renderTrigger={
             <SelectorTrigger
               iconUri={selection?.asset.icon_url}
               label={selection?.asset.symbol}
               loading={loading || !selection}
+              disabled={!canSelectToken}
             />
           }
           renderContent={
@@ -181,17 +190,18 @@ export function UnifoldSourceSelector({
         <Popover
           title="Select chain"
           open={chainOpen}
-          onOpenChange={setChainOpen}
+          onOpenChange={(next) => setChainOpen(next && canSelectChain)}
           renderTrigger={
             <SelectorTrigger
               iconUri={selection?.chain.icon_url}
               label={selection?.chain.chain_name}
               loading={loading || !selection}
+              disabled={!canSelectChain}
             />
           }
           renderContent={
             <ScrollView maxHeight={300} p="$1">
-              {(selection?.asset.chains ?? []).map((chain) => (
+              {chainOptions.map((chain) => (
                 <OptionRow
                   key={`${chain.chain_type}-${chain.chain_id}`}
                   iconUri={chain.icon_url}

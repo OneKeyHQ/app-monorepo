@@ -1,6 +1,4 @@
 // cspell: words unifold Unifold
-import { useState } from 'react';
-
 import {
   Icon,
   IconButton,
@@ -17,8 +15,12 @@ import {
   formatUnifoldExecutionDate,
   formatUnifoldProcessingTime,
   formatUnifoldUsd,
+  isUnifoldExecutionFailed,
   normalizeUnifoldIconUrl,
+  shortenUnifoldRef,
 } from './unifoldFormat';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 // Per-execution status cards pinned to the bottom of the deposit modal while
 // it is open (D2 decision: SDK-style in-modal cards; after the modal closes
@@ -45,7 +47,7 @@ function StatusBadge({ execution }: { execution: IUnifoldDepositExecution }) {
       </Stack>
     );
   }
-  if (execution.terminal) {
+  if (isUnifoldExecutionFailed(execution)) {
     return (
       <Stack
         position="absolute"
@@ -70,7 +72,7 @@ function statusTitle(execution: IUnifoldDepositExecution): string {
   if (execution.status === 'succeeded') {
     return 'Deposit completed';
   }
-  if (execution.terminal) {
+  if (isUnifoldExecutionFailed(execution)) {
     return 'Deposit needs attention';
   }
   return 'Deposit processing';
@@ -80,10 +82,12 @@ function statusSubtitle(
   execution: IUnifoldDepositExecution,
   sessionId: string | null,
 ): string {
-  if (execution.terminal && execution.status !== 'succeeded') {
+  if (isUnifoldExecutionFailed(execution)) {
+    // The card subtitle is a single narrow line, so the ref is shortened here;
+    // the full value stays copyable in the execution detail.
     return sessionId
-      ? `Please contact support · Ref ${sessionId}`
-      : 'Please contact support';
+      ? `Contact support · Ref ${shortenUnifoldRef(sessionId)}`
+      : 'Contact support';
   }
   if (execution.status === 'delayed') {
     return 'Processing, taking longer than usual';
@@ -96,29 +100,44 @@ export function UnifoldExecutionStatusCards({
   sessionId,
   estimatedProcessingTimeSeconds,
   onPressExecution,
+  onDismiss,
+  onHeightChange,
+  floating = true,
 }: {
+  // Already filtered by the owner: dismissal lives with whoever reserves the
+  // space for this overlay, otherwise the two states drift apart.
   executions: IUnifoldDepositExecution[];
   sessionId: string | null;
   estimatedProcessingTimeSeconds?: number;
   onPressExecution?: (execution: IUnifoldDepositExecution) => void;
+  onDismiss: (executionId: string) => void;
+  onHeightChange?: (height: number) => void;
+  floating?: boolean;
 }) {
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
-  const visible = executions.filter((e) => !dismissedIds.has(e.executionId));
-  if (!visible.length) {
+  if (!executions.length) {
     return null;
   }
 
   return (
     <YStack
-      position="absolute"
-      left="$0"
-      right="$0"
-      bottom="$0"
-      px="$2"
+      {...(floating
+        ? ({
+            position: 'absolute',
+            left: '$0',
+            right: '$0',
+            bottom: '$0',
+          } as const)
+        : undefined)}
       pb="$2"
       gap="$1"
+      onLayout={(event: LayoutChangeEvent) =>
+        // Rounded up: react-native-web measures through ResizeObserver and
+        // reports fractional heights that would otherwise flip the reserved
+        // padding back and forth between renders.
+        onHeightChange?.(Math.ceil(event.nativeEvent.layout.height))
+      }
     >
-      {visible.map((execution) => (
+      {executions.map((execution) => (
         <XStack
           key={execution.executionId}
           bg="$bgInverse"
@@ -127,7 +146,11 @@ export function UnifoldExecutionStatusCards({
           alignItems="center"
           gap="$3"
           borderWidth="$px"
-          borderColor={execution.terminal ? '$borderInverse' : '$borderCaution'}
+          borderColor={
+            isUnifoldExecutionFailed(execution)
+              ? '$borderCaution'
+              : '$borderInverse'
+          }
           cursor="pointer"
           onPress={() => onPressExecution?.(execution)}
         >
@@ -183,13 +206,7 @@ export function UnifoldExecutionStatusCards({
             icon="CrossedSmallOutline"
             size="small"
             variant="tertiary"
-            onPress={() => {
-              setDismissedIds((prev) => {
-                const next = new Set(prev);
-                next.add(execution.executionId);
-                return next;
-              });
-            }}
+            onPress={() => onDismiss(execution.executionId)}
           />
         </XStack>
       ))}

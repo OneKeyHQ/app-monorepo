@@ -1,10 +1,11 @@
 // cspell: words unifold Unifold
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import {
   Divider,
   Empty,
   Icon,
+  NATIVE_HIT_SLOP,
   ScrollView,
   SizableText,
   Skeleton,
@@ -12,6 +13,8 @@ import {
   Stack,
   XStack,
   YStack,
+  useBackHandler,
+  useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -26,6 +29,7 @@ import {
   useDevSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IUnifoldDepositExecution } from '@onekeyhq/shared/types/unifoldDeposit';
 
@@ -64,6 +68,20 @@ function detailStatusText(execution: IUnifoldDepositExecution): string {
     return 'Needs attention';
   }
   return 'Processing';
+}
+
+// Processing (including delayed) must read as neutral progress, never as the
+// caution color reserved for deposits that actually need attention.
+function detailStatusDotColor(
+  execution: IUnifoldDepositExecution,
+): '$bgInfoStrong' | '$bgSuccessStrong' | '$bgCautionStrong' {
+  if (isProcessing(execution)) {
+    return '$bgInfoStrong';
+  }
+  if (execution.status === 'succeeded') {
+    return '$bgSuccessStrong';
+  }
+  return '$bgCautionStrong';
 }
 
 function shortenHash(hash: string): string {
@@ -149,15 +167,53 @@ export function UnifoldExecutionRow({
   );
 }
 
-function DetailInfoRow({ label, value }: { label: string; value: string }) {
+function DetailInfoRow({
+  label,
+  value,
+  onCopy,
+}: {
+  label: string;
+  value: string;
+  onCopy?: () => void;
+}) {
   return (
-    <XStack px="$4" py="$3" alignItems="center" justifyContent="space-between">
-      <SizableText size="$bodyMd" color="$textSubdued">
+    <XStack
+      px="$4"
+      py="$3"
+      gap="$3"
+      alignItems="center"
+      justifyContent="space-between"
+    >
+      <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
         {label}
       </SizableText>
-      <SizableText size="$bodyMdMedium" color="$text">
-        {value}
-      </SizableText>
+      <XStack alignItems="center" gap="$1.5" flexShrink={1} minWidth={0}>
+        <SizableText
+          size="$bodyMdMedium"
+          color="$text"
+          numberOfLines={1}
+          flexShrink={1}
+          minWidth={0}
+        >
+          {value}
+        </SizableText>
+        {onCopy ? (
+          <Stack
+            role="button"
+            p="$1"
+            m="$-1"
+            borderRadius="$2"
+            cursor="pointer"
+            userSelect="none"
+            hitSlop={NATIVE_HIT_SLOP}
+            hoverStyle={{ bg: '$bgHover' }}
+            pressStyle={{ bg: '$bgActive' }}
+            onPress={onCopy}
+          >
+            <Icon name="Copy3Outline" size="$3.5" color="$iconSubdued" />
+          </Stack>
+        ) : null}
+      </XStack>
     </XStack>
   );
 }
@@ -168,12 +224,22 @@ export function UnifoldExecutionDetail({
   execution: IUnifoldDepositExecution;
 }) {
   const [moreExpanded, setMoreExpanded] = useState(false);
+  const { copyText } = useClipboard();
   const processing = isProcessing(execution);
   const [devSettings] = useDevSettingsPersistAtom();
   const destination = resolveUnifoldDepositDestination(devSettings);
   const destinationLabel = isUnifoldHyperCoreDestination(destination)
     ? 'HyperCore'
     : 'Arbitrum';
+  const hasDepositTx = Boolean(
+    execution.explorerUrl && execution.transactionHash,
+  );
+  const hasCompletionTx = Boolean(
+    execution.status === 'succeeded' &&
+    execution.destinationExplorerUrl &&
+    execution.destinationTransactionHashes[0],
+  );
+  const hasMoreDetails = hasDepositTx || hasCompletionTx;
 
   return (
     <YStack px="$2">
@@ -218,11 +284,7 @@ export function UnifoldExecutionDetail({
             w="$2"
             h="$2"
             borderRadius="$full"
-            bg={
-              execution.status === 'succeeded'
-                ? '$bgSuccessStrong'
-                : '$bgCautionStrong'
-            }
+            bg={detailStatusDotColor(execution)}
           />
           <SizableText size="$bodyLgMedium" color="$text">
             {detailStatusText(execution)}
@@ -253,74 +315,104 @@ export function UnifoldExecutionDetail({
         </XStack>
       ) : null}
 
+      {/* Built as one pre-filtered array: tamagui's separator skips a `null`
+          child without emitting its divider, so a conditional row rendered
+          inline would silently drop the divider next to it. */}
       <YStack
         bg="$bgSubdued"
         borderRadius="$3"
         overflow="hidden"
         separator={<Divider mx="$4" />}
       >
-        <DetailInfoRow
-          label="Amount Sent"
-          value={formatUnifoldTokenAmount({
-            baseUnit: execution.sourceAmountBaseUnit,
-            decimals: execution.sourceTokenDecimals,
-            currency: execution.sourceCurrency,
-          })}
-        />
-        <DetailInfoRow
-          label="Amount Received"
-          value={formatUnifoldTokenAmount({
-            baseUnit: execution.destinationAmountBaseUnit,
-            decimals: execution.destinationTokenDecimals,
-            currency: execution.destinationCurrency,
-          })}
-        />
-        <DetailInfoRow
-          label="USD Value"
-          value={formatUnifoldUsd(
-            execution.destinationAmountUsd ?? execution.sourceAmountUsd,
-          )}
-        />
-        {processing ? (
+        {[
           <DetailInfoRow
-            label="Estimated delivery time"
-            value={formatUnifoldProcessingTime(null)}
-          />
-        ) : null}
-        <DetailInfoRow
-          label="Source Network"
-          value={formatUnifoldChainName({
-            chainType: execution.sourceChainType,
-            chainId: execution.sourceChainId,
-          })}
-        />
-        {/* Executions do not carry the destination triplet, so this reflects
-            the destination the app is configured for. In production that is
-            always HyperCore; dev builds may route to a plain chain. */}
-        <DetailInfoRow label="Destination Network" value={destinationLabel} />
+            key="amount-sent"
+            label="Amount Sent"
+            value={formatUnifoldTokenAmount({
+              baseUnit: execution.sourceAmountBaseUnit,
+              decimals: execution.sourceTokenDecimals,
+              currency: execution.sourceCurrency,
+            })}
+          />,
+          <DetailInfoRow
+            key="amount-received"
+            label="Amount Received"
+            value={formatUnifoldTokenAmount({
+              baseUnit: execution.destinationAmountBaseUnit,
+              decimals: execution.destinationTokenDecimals,
+              currency: execution.destinationCurrency,
+            })}
+          />,
+          <DetailInfoRow
+            key="usd-value"
+            label="USD Value"
+            value={formatUnifoldUsd(
+              execution.destinationAmountUsd ?? execution.sourceAmountUsd,
+            )}
+          />,
+          ...(processing
+            ? [
+                <DetailInfoRow
+                  key="eta"
+                  label="Estimated delivery time"
+                  value={formatUnifoldProcessingTime(null)}
+                />,
+              ]
+            : []),
+          <DetailInfoRow
+            key="source-network"
+            label="Source Network"
+            value={formatUnifoldChainName({
+              chainType: execution.sourceChainType,
+              chainId: execution.sourceChainId,
+            })}
+          />,
+          // Executions do not carry the destination triplet, so this reflects
+          // the destination the app is configured for. In production that is
+          // always HyperCore; dev builds may route to a plain chain.
+          <DetailInfoRow
+            key="destination-network"
+            label="Destination Network"
+            value={destinationLabel}
+          />,
+          // Always present: this is the id support asks for, and the caution
+          // banner above is what sends the user here.
+          <DetailInfoRow
+            key="reference"
+            label="Reference"
+            value={execution.executionId}
+            onCopy={() => copyText(execution.executionId)}
+          />,
+        ]}
       </YStack>
 
-      <XStack
-        px="$1"
-        py="$3"
-        alignItems="center"
-        justifyContent="space-between"
-        cursor="pointer"
-        onPress={() => setMoreExpanded((v) => !v)}
-      >
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {moreExpanded ? 'See less' : 'See more details'}
-        </SizableText>
-        <Icon
-          name={
-            moreExpanded ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'
-          }
-          size="$3.5"
-          color="$iconSubdued"
-        />
-      </XStack>
+      {/* Every explorer field is nullable by contract, so the toggle only
+          appears when it has something to reveal. */}
+      {hasMoreDetails ? (
+        <XStack
+          px="$1"
+          py="$3"
+          alignItems="center"
+          justifyContent="space-between"
+          cursor="pointer"
+          onPress={() => setMoreExpanded((v) => !v)}
+        >
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {moreExpanded ? 'See less' : 'See more details'}
+          </SizableText>
+          <Icon
+            name={
+              moreExpanded
+                ? 'ChevronTopSmallOutline'
+                : 'ChevronDownSmallOutline'
+            }
+            size="$3.5"
+            color="$iconSubdued"
+          />
+        </XStack>
+      ) : null}
 
-      {moreExpanded ? (
+      {hasMoreDetails && moreExpanded ? (
         <YStack
           bg="$bgSubdued"
           borderRadius="$3"
@@ -429,6 +521,18 @@ export function UnifoldTrackerContent({
     { watchLoading: true, pollingInterval: TRACKER_POLL_INTERVAL_MS },
   );
 
+  // The detail is a sub-view, not a route, so Android's hardware back would
+  // otherwise pop the whole tracker modal. Android only: on web the same hook
+  // listens for Escape (which must still close the dialog) and iOS modals are
+  // dismissed by drag, not by a back event.
+  useBackHandler(
+    useCallback(() => {
+      setDetailSelection(null);
+      return true;
+    }, []),
+    platformEnv.isNativeAndroid && Boolean(detailSelection),
+  );
+
   if (!safeRecipient) {
     return (
       <YStack py="$8">
@@ -446,22 +550,26 @@ export function UnifoldTrackerContent({
       executions?.find((e) => e.executionId === detailSelection.executionId) ??
       detailSelection.snapshot;
     return (
-      <YStack>
-        <XStack
-          px="$2"
-          pb="$2"
-          alignItems="center"
-          gap="$1"
-          cursor="pointer"
-          onPress={() => setDetailSelection(null)}
-        >
-          <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
-          <SizableText size="$bodyMdMedium" color="$text">
-            Deposit Details
-          </SizableText>
-        </XStack>
-        <UnifoldExecutionDetail execution={liveExecution} />
-      </YStack>
+      // Bounded like the list branch: the dialog panel clamps its height but
+      // does not scroll, so a tall detail would render outside it.
+      <ScrollView maxHeight={listHeight ?? 460}>
+        <YStack>
+          <XStack
+            px="$2"
+            pb="$2"
+            alignItems="center"
+            gap="$1"
+            cursor="pointer"
+            onPress={() => setDetailSelection(null)}
+          >
+            <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
+            <SizableText size="$bodyMdMedium" color="$text">
+              Deposit Details
+            </SizableText>
+          </XStack>
+          <UnifoldExecutionDetail execution={liveExecution} />
+        </YStack>
+      </ScrollView>
     );
   }
 
@@ -469,9 +577,11 @@ export function UnifoldTrackerContent({
   // "not loaded yet" — render the skeleton, never flash the empty state.
   if (executions === undefined) {
     return (
-      <YStack gap="$3" width="100%" px="$2" py="$4">
+      // Geometry matches the loaded list exactly, so resolving the first poll
+      // does not shift the rows sideways or upwards.
+      <YStack gap="$3" width="100%" pb="$4">
         {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} width="100%" height={64} radius={12} />
+          <Skeleton key={i} width="100%" height={60} radius={12} />
         ))}
       </YStack>
     );

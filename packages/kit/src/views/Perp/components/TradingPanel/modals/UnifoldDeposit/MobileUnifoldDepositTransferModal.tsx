@@ -7,7 +7,6 @@ import type {
   IModalPerpParamList,
 } from '@onekeyhq/shared/src/routes/perp';
 
-import { showUnifoldExecutionDetailDialog } from './showUnifoldDepositModals';
 import { UnifoldTransferContent } from './UnifoldTransferContent';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -24,9 +23,11 @@ export default function MobileUnifoldDepositTransferModal() {
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header title="Transfer Crypto" />
       <Page.Body px="$4" pb="$4">
+        {/* The page scrolls, so an absolute overlay would ride the content
+            instead of the screen — the cards go in the page footer here. */}
         <UnifoldTransferContent
           expectedRecipient={route.params?.expectedRecipient}
-          onPressExecution={showUnifoldExecutionDetailDialog}
+          statusCardsPlacement="pageFooter"
         />
       </Page.Body>
     </Page>
