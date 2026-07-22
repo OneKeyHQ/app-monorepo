@@ -180,10 +180,13 @@ function trackPrimeSubscriptionSuccess({
   });
 }
 
-// PurchasesHybridCommon 18.x exposes subscription prices in major currency
-// units on both iOS and Android.
-function normalizeNativePrice(rawPrice: number): number {
-  return rawPrice;
+function normalizeNativePrice(
+  rawPrice: number,
+  priceUnit: 'major' | 'micros',
+): number {
+  return priceUnit === 'micros'
+    ? new BigNumber(rawPrice || 0).div(1_000_000).toNumber()
+    : rawPrice;
 }
 
 function extractWebPaywallPrice(paywallPackage: {

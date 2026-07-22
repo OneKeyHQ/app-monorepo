@@ -6,8 +6,16 @@ yarn test packages/kit/src/views/Prime/hooks/primePaymentUtils.test.ts
 
 describe('primePaymentUtils', () => {
   describe('normalizeNativePrice', () => {
-    it('keeps RevenueCat prices in major currency units', () => {
-      expect(primePaymentUtils.normalizeNativePrice(29.99)).toBe(29.99);
+    it('keeps current RevenueCat prices in major currency units', () => {
+      expect(primePaymentUtils.normalizeNativePrice(29.99, 'major')).toBe(
+        29.99,
+      );
+    });
+
+    it('converts legacy Android RevenueCat prices from micros', () => {
+      expect(primePaymentUtils.normalizeNativePrice(29_990_000, 'micros')).toBe(
+        29.99,
+      );
     });
   });
 

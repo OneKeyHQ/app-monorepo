@@ -7,6 +7,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
+import primePaymentUtils from './primePaymentUtils';
 import { usePrimePaymentMethods } from './usePrimePaymentMethods.native';
 
 const mockConfigure = jest.fn<void, [unknown]>();
@@ -32,6 +33,10 @@ const mockEmitToSelf = jest.spyOn(appEventBus, 'emitToSelf');
 const mockIsGooglePlayAvailable = jest.fn(async () => true);
 let mockIsNativeAndroid = false;
 let mockIsNativeIOS = true;
+let mockRecurringPriceUnit: 'major' | 'micros' = 'major';
+const mockTrackPrimeSubscriptionSuccessSpy = jest
+  .spyOn(primePaymentUtils, 'trackPrimeSubscriptionSuccess')
+  .mockImplementation((params) => mockTrackPrimeSubscriptionSuccess(params));
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -136,15 +141,9 @@ jest.mock('./getPrimePaymentApiKey', () => ({
   getPrimePaymentApiKey: jest.fn(async () => ({ apiKey: 'rc-native-key' })),
 }));
 
-jest.mock('./primePaymentUtils', () => ({
-  __esModule: true,
-  default: {
-    extractNativeFreeTrial: jest.fn(),
-    formatPriceString: jest.fn((value: number) => String(value)),
-    normalizeNativePrice: jest.fn((value: number) => value),
-    trackPrimeSubscriptionSuccess: (params: unknown) =>
-      mockTrackPrimeSubscriptionSuccess(params),
-  },
+jest.mock('./revenueCatNativeCompatibility.native', () => ({
+  configureRevenueCat: (params: unknown) => mockConfigure(params),
+  getRevenueCatRecurringPriceUnit: () => mockRecurringPriceUnit,
 }));
 
 type ISuccessDialogOptions = {
@@ -179,6 +178,7 @@ describe('usePrimePaymentMethods native purchase', () => {
     jest.clearAllMocks();
     mockIsNativeAndroid = false;
     mockIsNativeIOS = true;
+    mockRecurringPriceUnit = 'major';
     setRequestIdleCallback();
     mockGetAppUserID.mockResolvedValue('user-a');
     mockGetOfferings.mockResolvedValue({
@@ -208,16 +208,54 @@ describe('usePrimePaymentMethods native purchase', () => {
 
   afterAll(() => {
     mockEmitToSelf.mockRestore();
+    mockTrackPrimeSubscriptionSuccessSpy.mockRestore();
   });
 
   it.each([
-    ['iOS', false, true],
-    ['Google Play', true, false],
+    {
+      platform: 'iOS',
+      isNativeAndroid: false,
+      isNativeIOS: true,
+      recurringPriceUnit: 'major' as const,
+      rawPricePerYear: 99,
+    },
+    {
+      platform: 'Google Play',
+      isNativeAndroid: true,
+      isNativeIOS: false,
+      recurringPriceUnit: 'major' as const,
+      rawPricePerYear: 99,
+    },
+    {
+      platform: 'legacy Google Play OTA',
+      isNativeAndroid: true,
+      isNativeIOS: false,
+      recurringPriceUnit: 'micros' as const,
+      rawPricePerYear: 99_000_000,
+    },
   ])(
-    'emits after the success dialog closes for an active %s entitlement',
-    async (_platform, isNativeAndroid, isNativeIOS) => {
+    'emits after the success dialog closes for an active $platform entitlement',
+    async ({
+      isNativeAndroid,
+      isNativeIOS,
+      recurringPriceUnit,
+      rawPricePerYear,
+    }) => {
       mockIsNativeAndroid = isNativeAndroid;
       mockIsNativeIOS = isNativeIOS;
+      mockRecurringPriceUnit = recurringPriceUnit;
+      mockGetOfferings.mockResolvedValue({
+        current: {
+          availablePackages: [
+            {
+              product: {
+                ...mockOffering.product,
+                pricePerYear: rawPricePerYear,
+              },
+            },
+          ],
+        },
+      });
       const purchaseResult = {
         customerInfo: {
           entitlements: {
@@ -297,10 +335,49 @@ describe('usePrimePaymentMethods native purchase', () => {
     expect(packages).toEqual([
       expect.objectContaining({
         pricePerMonth: 9,
-        pricePerMonthString: '9',
+        pricePerMonthString: '9 USD',
         pricePerYear: 99,
-        pricePerYearString: '99',
-        priceTotalPerYearString: '99',
+        pricePerYearString: '99 USD',
+        priceTotalPerYearString: '99 USD',
+      }),
+    ]);
+  });
+
+  it('converts legacy Android offering prices from micros', async () => {
+    mockIsNativeAndroid = true;
+    mockIsNativeIOS = false;
+    mockRecurringPriceUnit = 'micros';
+    mockGetOfferings.mockResolvedValue({
+      current: {
+        availablePackages: [
+          {
+            product: {
+              ...mockOffering.product,
+              pricePerMonth: 9_000_000,
+              pricePerYear: 99_000_000,
+            },
+          },
+        ],
+      },
+    });
+
+    const { result } = renderHook(() => usePrimePaymentMethods());
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+
+    let packages: Awaited<
+      ReturnType<NonNullable<typeof result.current.getPackagesNative>>
+    > = [];
+    await act(async () => {
+      packages = (await result.current.getPackagesNative?.()) || [];
+    });
+
+    expect(packages).toEqual([
+      expect.objectContaining({
+        pricePerMonth: 9,
+        pricePerMonthString: '9 USD',
+        pricePerYear: 99,
+        pricePerYearString: '99 USD',
+        priceTotalPerYearString: '99 USD',
       }),
     ]);
   });
