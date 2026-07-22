@@ -140,6 +140,47 @@ describe('buildMergedAllNetworkSnapshot', () => {
     expect(snap.orderedTokens.map((t) => t.$key)).toEqual(['dup']);
   });
 
+  it('does not double a cache-floor round worth whose groups share one map', () => {
+    // seedAndFlushCache builds cache-floor rounds with the ONE cached full
+    // tokenListMap as tokens.map, smallBalanceTokens.map AND riskTokens.map
+    // (the cache stores a single merged map). The per-round worth must count
+    // each $key once — summing tokens.map + smallBalanceTokens.map verbatim
+    // doubled every cache-floor network on the Home total (desktop "assets
+    // doubled" report, ticket 906970).
+    const fullCachedMap = {
+      usdt: makeFiat('5000'),
+      trx: makeFiat('150'),
+    };
+    const rounds: IAllNetworkSnapshotRound[] = [
+      makeRound({
+        networkId: 'tron--0.9',
+        accountId: 'acc1',
+        tokens: {
+          data: [makeToken('usdt'), makeToken('trx')],
+          keys: 'k',
+          map: fullCachedMap,
+        },
+        smallBalanceTokens: { data: [], keys: '', map: fullCachedMap },
+        riskTokens: { data: [], keys: '', map: fullCachedMap },
+      }),
+    ];
+
+    const snap = buildMergedAllNetworkSnapshot({
+      rounds,
+      mergeDeriveAssetsByNetworkId: {},
+      accountId: 'acc1',
+    });
+
+    expect(
+      snap.accountsWorth[
+        accountUtils.buildAccountValueKey({
+          accountId: 'acc1',
+          networkId: 'tron--0.9',
+        })
+      ],
+    ).toBe('5150');
+  });
+
   it('carries and sorts the risky slice', () => {
     const rounds: IAllNetworkSnapshotRound[] = [
       makeRound({
