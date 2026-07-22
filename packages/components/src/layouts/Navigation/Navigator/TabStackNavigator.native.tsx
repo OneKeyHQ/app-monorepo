@@ -12,6 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
+import { useSettingConfig } from '../../../hocs/Provider/hooks/useProviderValue';
 import {
   ESplitViewType,
   useIsSplitView,
@@ -100,6 +101,7 @@ export function TabStackNavigator<RouteName extends string>({
 }: ITabNavigatorProps<RouteName>) {
   const intl = useIntl();
   const theme = useTheme();
+  const { hapticFeedbackEnabled } = useSettingConfig();
   // Subscribe to theme name so OS dark/light switch triggers re-render —
   // `theme.*.val` reads are non-reactive on native.
   useThemeName();
@@ -225,7 +227,7 @@ export function TabStackNavigator<RouteName extends string>({
   return (
     <NativeTab.Navigator
       labeled
-      hapticFeedbackEnabled
+      hapticFeedbackEnabled={hapticFeedbackEnabled !== false}
       disablePageAnimations
       sidebarAdaptable={false}
       tabBarHidden={hidden}

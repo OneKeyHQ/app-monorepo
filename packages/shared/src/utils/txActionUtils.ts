@@ -468,10 +468,12 @@ function convertTokenApproveActionToSignatureConfirmComponent({
   action,
   isMultiTxs,
   networkId,
+  interactWithContract,
 }: {
   action: IDecodedTxActionTokenApprove;
   isMultiTxs?: boolean;
   networkId: string;
+  interactWithContract?: string;
 }) {
   // Only absolute `approve(spender, 0)` is a revoke. `increaseAllowance(spender, 0)`
   // and `increaseApproval(spender, 0)` are no-op increments, not revocations.
@@ -533,7 +535,24 @@ function convertTokenApproveActionToSignatureConfirmComponent({
         isNavigable: true,
       };
 
-  return [approveComponent, spenderComponent].filter(Boolean);
+  const interactWithContractComponent: IDisplayComponentAddress | null =
+    interactWithContract && !isMultiTxs
+      ? {
+          type: EParseTxComponentType.Address,
+          label: appLocale.intl.formatMessage({
+            id: ETranslations.sig_interact_contract_label,
+          }),
+          address: interactWithContract,
+          tags: [],
+          isNavigable: true,
+        }
+      : null;
+
+  return [
+    approveComponent,
+    spenderComponent,
+    interactWithContractComponent,
+  ].filter(Boolean);
 }
 
 function convertTokenActiveActionToSignatureConfirmComponent({
@@ -654,6 +673,9 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
           action: action.tokenApprove,
           isMultiTxs,
           networkId,
+          interactWithContract: unsignedTx.approveInfo?.permit2Info
+            ? action.tokenApprove.to
+            : undefined,
         }),
       );
     } else if (

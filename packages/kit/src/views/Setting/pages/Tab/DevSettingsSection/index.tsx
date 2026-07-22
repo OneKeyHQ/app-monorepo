@@ -966,11 +966,12 @@ const BaseDevSettingsSection = () => {
                             typeof __BUNDLE_START_TIME__ !== 'undefined'
                               ? __BUNDLE_START_TIME__
                               : 0;
-                          const { getDevicePerformanceTier } =
+                          const { getDevicePerformanceProfile } =
                             await import('@onekeyhq/shared/src/performance/devicePerformanceTier');
                           Dialog.debugMessage({
                             debugMessage: {
-                              devicePerformanceTier: getDevicePerformanceTier(),
+                              devicePerformanceProfile:
+                                getDevicePerformanceProfile(),
                               startupTimeAt:
                                 await LaunchOptionsManager.getStartupTimeAt(),
                               jsReadyTimeAt:
@@ -2414,6 +2415,25 @@ const BaseDevSettingsSection = () => {
                             );
                           }}
                           value={devSettings.settings?.enableMockHighTxFee}
+                        />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="BezierNodesOutline"
+                        name="mockKaspaRefTxFetchFailed"
+                        title="模拟 Kaspa refTx 获取失败"
+                        subtitle="强制获取前序交易失败，验证硬件仍能回退盲签"
+                      >
+                        <Switch
+                          size={ESwitchSize.small}
+                          onChange={() => {
+                            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+                              'mockKaspaRefTxFetchFailed',
+                              !devSettings.settings?.mockKaspaRefTxFetchFailed,
+                            );
+                          }}
+                          value={
+                            devSettings.settings?.mockKaspaRefTxFetchFailed
+                          }
                         />
                       </SectionFieldItem>
                       <SectionFieldItem

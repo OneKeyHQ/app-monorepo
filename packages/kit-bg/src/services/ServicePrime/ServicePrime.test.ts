@@ -87,6 +87,21 @@ jest.mock('@onekeyhq/shared/src/appApiClient/appApiClient', () => ({
           use: jest.fn(),
         },
         response: {
+          use: jest.fn(),
+        },
+      },
+      get: jest.fn(),
+      post: jest.fn(),
+      put: jest.fn(),
+    })),
+    // ServiceBase.getOneKeyIdClient registers the auth/prime interceptors on
+    // this dedicated client (not on the shared plain client above).
+    getOneKeyIdAuthClient: jest.fn(async () => ({
+      interceptors: {
+        request: {
+          use: jest.fn(),
+        },
+        response: {
           use: jest.fn(
             (
               _onFulfilled: unknown,
@@ -162,6 +177,9 @@ jest.mock('./primeAuthSessionAccess', () => ({
 }));
 
 const {
+  EOAuthSocialLoginProvider,
+} = require('@onekeyhq/shared/src/consts/authConsts');
+const {
   OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
   OneKeyErrorPrimeLoginInvalidToken,
   OneKeyLocalError,
@@ -179,6 +197,9 @@ const {
 } = require('@onekeyhq/shared/src/request/requestAuthTokenErrorStash');
 const {
   EPrimeAuthSessionSource,
+  EOneKeyIdAccountStatus,
+  EOneKeyIdIdentityType,
+  EOneKeyIdOAuthProvider,
 } = require('@onekeyhq/shared/types/prime/primeTypes');
 
 const ServicePrime = require('./ServicePrime').default;
@@ -1055,6 +1076,72 @@ function buildFakeJwt(payload: Record<string, unknown>): string {
     payload,
   )}.fake-signature`;
 }
+
+describe('ServicePrime OneKey ID OAuth identity precheck', () => {
+  function mockProfile(service: any) {
+    service.apiFetchOneKeyIdProfile = jest.fn(async () => ({
+      onekeyAccount: {
+        onekeyUserId: 'onekey-user-a',
+        status: EOneKeyIdAccountStatus.Active,
+        identities: [
+          {
+            identityType: EOneKeyIdIdentityType.LegacyEmail,
+            legacyEmail: 'a@example.com',
+          },
+          {
+            identityType: EOneKeyIdIdentityType.OAuth,
+            oauthProvider: EOneKeyIdOAuthProvider.Google,
+            oauthSubject: 'google-sub-a',
+          },
+        ],
+      },
+    }));
+  }
+
+  it('detects whether the selected provider is already bound on the current OneKey ID', async () => {
+    const { service } = createService();
+    mockProfile(service);
+
+    await expect(
+      service.isOAuthProviderBoundToCurrentOneKeyId({
+        provider: EOAuthSocialLoginProvider.Google,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      service.isOAuthProviderBoundToCurrentOneKeyId({
+        provider: EOAuthSocialLoginProvider.Apple,
+      }),
+    ).resolves.toBe(false);
+  });
+
+  it('matches only the exact provider subject selected during OAuth reauthentication', async () => {
+    const { service } = createService();
+    mockProfile(service);
+
+    await expect(
+      service.isOAuthIdentityBoundToCurrentOneKeyId({
+        oauthAccessToken: buildFakeJwt({
+          user_metadata: { sub: 'google-sub-a' },
+        }),
+        provider: EOAuthSocialLoginProvider.Google,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      service.isOAuthIdentityBoundToCurrentOneKeyId({
+        oauthAccessToken: buildFakeJwt({
+          user_metadata: { sub: 'different-google-sub' },
+        }),
+        provider: EOAuthSocialLoginProvider.Google,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      service.isOAuthIdentityBoundToCurrentOneKeyId({
+        oauthAccessToken: buildFakeJwt({}),
+        provider: EOAuthSocialLoginProvider.Google,
+      }),
+    ).resolves.toBe(false);
+  });
+});
 
 describe('ServicePrime.apiOAuthLogin keyless slot identity guard', () => {
   let emitSpy: jest.SpyInstance;

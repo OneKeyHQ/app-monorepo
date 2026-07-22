@@ -348,6 +348,26 @@ function analyzeOrderBookPrecision(
   };
 }
 
+function resolveOrderBookSizeDecimals({
+  bids,
+  asks,
+  szDecimals,
+}: {
+  bids: Array<{ px: string; sz: string }>;
+  asks: Array<{ px: string; sz: string }>;
+  szDecimals?: number;
+}): number {
+  if (
+    szDecimals !== undefined &&
+    Number.isInteger(szDecimals) &&
+    szDecimals >= 0
+  ) {
+    return szDecimals;
+  }
+
+  return analyzeOrderBookPrecision(bids, asks).sizeDecimals;
+}
+
 /**
  * Calculate bid-ask spread percentage
  *
@@ -2115,6 +2135,7 @@ export {
   calculateDisplayPriceScale,
   formatPriceToValid,
   analyzeOrderBookPrecision,
+  resolveOrderBookSizeDecimals,
   formatWithPrecision,
   countDecimalPlaces,
   getMostFrequentDecimalPlaces,
@@ -2171,6 +2192,7 @@ export default {
   calculateDisplayPriceScale,
   formatPriceToValid,
   analyzeOrderBookPrecision,
+  resolveOrderBookSizeDecimals,
   formatWithPrecision,
   countDecimalPlaces,
   getMostFrequentDecimalPlaces,

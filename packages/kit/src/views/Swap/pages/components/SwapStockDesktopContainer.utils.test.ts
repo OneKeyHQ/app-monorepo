@@ -11,8 +11,11 @@ import {
   STOCK_DESKTOP_HEADER_SLOT_PROPS,
   getStockChartDisplayState,
   getStockDisabledActionButtonProps,
+  getStockNetworkLogoUri,
   isStockMarketPanelLoadingStage,
   mergeStockChartRealtimePoint,
+  shouldShowStockMarketHeaderSkeleton,
+  shouldShowStockQuoteActionLoading,
 } from './SwapStockDesktopContainer.utils';
 
 describe('SwapStockDesktopContainer utils', () => {
@@ -33,6 +36,23 @@ describe('SwapStockDesktopContainer utils', () => {
       pt: '$8',
       pb: '$4',
     });
+  });
+
+  it('resolves the preset Stock network logo before async network data arrives', () => {
+    expect(
+      getStockNetworkLogoUri({
+        networkId: 'evm--56',
+      }),
+    ).toBe('https://uni.onekey-asset.com/static/chain/bsc.png');
+  });
+
+  it('keeps the token-provided Stock network logo when available', () => {
+    expect(
+      getStockNetworkLogoUri({
+        networkId: 'evm--56',
+        networkLogoUri: 'https://example.com/custom-network.png',
+      }),
+    ).toBe('https://example.com/custom-network.png');
   });
 
   it('keeps disabled buy actions in the buy color family', () => {
@@ -57,7 +77,7 @@ describe('SwapStockDesktopContainer utils', () => {
     );
   });
 
-  it('shows market skeletons only while Stock identity is initializing', () => {
+  it('shows market panel skeletons while Stock identity or detail initializes', () => {
     expect(
       isStockMarketPanelLoadingStage(ESwapStockChannelStage.InitializingStock),
     ).toBe(true);
@@ -71,6 +91,86 @@ describe('SwapStockDesktopContainer utils', () => {
     ).toBe(false);
     expect(
       isStockMarketPanelLoadingStage(ESwapStockChannelStage.MarketUnavailable),
+    ).toBe(false);
+  });
+
+  it('keeps the Stock header mounted while only market detail is loading', () => {
+    expect(
+      shouldShowStockMarketHeaderSkeleton({
+        channelStage: ESwapStockChannelStage.InitializingStock,
+        hasStockIdentity: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowStockMarketHeaderSkeleton({
+        channelStage: ESwapStockChannelStage.CheckingMarketStatus,
+        hasStockIdentity: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowStockMarketHeaderSkeleton({
+        channelStage: ESwapStockChannelStage.MissingStock,
+        hasStockIdentity: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('shows Stock action loading until the current quote event settles', () => {
+    const baseParams = {
+      inputAmount: '100',
+      quoteEventCompleted: false,
+      quoteRequestMatchesStockTrade: true,
+    };
+
+    expect(shouldShowStockQuoteActionLoading(baseParams)).toBe(true);
+    expect(
+      shouldShowStockQuoteActionLoading({
+        ...baseParams,
+        quoteRequestMatchesStockTrade: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowStockQuoteActionLoading({
+        ...baseParams,
+        quoteEventCompleted: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps a stale Stock quote in loading instead of disabled Review', () => {
+    expect(
+      shouldShowStockQuoteActionLoading({
+        inputAmount: '100',
+        quoteEventCompleted: true,
+        quoteRequestMatchesStockTrade: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps a new Stock input loading before its quote request starts', () => {
+    expect(
+      shouldShowStockQuoteActionLoading({
+        inputAmount: '100',
+        quoteEventCompleted: true,
+        quoteRequestMatchesStockTrade: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not turn current terminal or empty-input states into loading', () => {
+    expect(
+      shouldShowStockQuoteActionLoading({
+        inputAmount: '100',
+        quoteEventCompleted: true,
+        quoteRequestMatchesStockTrade: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowStockQuoteActionLoading({
+        inputAmount: '',
+        quoteEventCompleted: false,
+        quoteRequestMatchesStockTrade: false,
+      }),
     ).toBe(false);
   });
 
@@ -103,6 +203,24 @@ describe('SwapStockDesktopContainer utils', () => {
       }),
     ).toEqual({
       chartData: previousChartData,
+      shouldShowChartLoading: false,
+    });
+  });
+
+  it('keeps a cached current-scope chart visible while revalidating', () => {
+    const cachedChartData: IMarketTokenChart = [
+      [1_725_000_000, 310],
+      [1_725_003_600, 311],
+    ];
+
+    expect(
+      getStockChartDisplayState({
+        baseChartData: cachedChartData,
+        isChartStateForCurrentScope: true,
+        isLoading: true,
+      }),
+    ).toEqual({
+      chartData: cachedChartData,
       shouldShowChartLoading: false,
     });
   });

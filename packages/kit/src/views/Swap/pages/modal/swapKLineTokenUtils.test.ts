@@ -5,17 +5,56 @@ import {
   getDefaultSwapKLineSide,
   getResolvableDefaultSwapKLineSide,
   haveSameSwapKLineTokenSymbol,
+  prefetchSwapKLineMetadata,
+  prefetchSwapKLineTokenInfo,
 } from './swapKLineTokenUtils';
+
+const mockFetchTokenInfoOnly = jest.fn<
+  Promise<unknown>,
+  [{ networkId: string; tokenAddress: string }]
+>();
+const mockCheckStableCoinsList = jest.fn<
+  Promise<unknown>,
+  [
+    {
+      list: {
+        networkId: string;
+        contractAddressList: string[];
+      }[];
+    },
+  ]
+>();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    serviceSwap: {
+      checkStableCoinsList: (params: {
+        list: {
+          networkId: string;
+          contractAddressList: string[];
+        }[];
+      }) => mockCheckStableCoinsList(params),
+    },
+    serviceToken: {
+      fetchTokenInfoOnly: (params: {
+        networkId: string;
+        tokenAddress: string;
+      }) => mockFetchTokenInfoOnly(params),
+    },
+  },
 }));
 
 const buildToken = (symbol: string, overrides: Partial<ISwapKLineToken> = {}) =>
   ({ symbol, ...overrides }) as ISwapKLineToken;
 
 describe('swapKLineTokenUtils', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCheckStableCoinsList.mockResolvedValue([]);
+    mockFetchTokenInfoOnly.mockResolvedValue(undefined);
+  });
+
   describe('haveSameSwapKLineTokenSymbol', () => {
     it('matches token symbols without case or surrounding whitespace', () => {
       expect(
@@ -102,4 +141,96 @@ describe('swapKLineTokenUtils', () => {
       ).toBe(expectedSide);
     },
   );
+
+  it('prefetches supported chart token info once per request identity', async () => {
+    const fromToken = buildToken('ETH', {
+      contractAddress: '',
+      isNative: true,
+      networkId: 'evm--1',
+    });
+    const toToken = buildToken('USDC', {
+      contractAddress: '0xabc',
+      networkId: 'evm--1',
+    });
+
+    const prefetchPromise = prefetchSwapKLineTokenInfo([
+      fromToken,
+      toToken,
+      { ...toToken },
+    ]);
+
+    expect(mockFetchTokenInfoOnly).toHaveBeenCalledTimes(2);
+    expect(mockFetchTokenInfoOnly).toHaveBeenNthCalledWith(1, {
+      networkId: 'evm--1',
+      tokenAddress: '',
+    });
+    expect(mockFetchTokenInfoOnly).toHaveBeenNthCalledWith(2, {
+      networkId: 'evm--1',
+      tokenAddress: '0xabc',
+    });
+    await prefetchPromise;
+  });
+
+  it('prefetches token info and stable status in parallel', async () => {
+    let resolveTokenInfo: (() => void) | undefined;
+    let resolveStableStatus: (() => void) | undefined;
+    const tokenInfoPromise = new Promise<unknown>((resolve) => {
+      resolveTokenInfo = () => resolve(undefined);
+    });
+    const stableStatusPromise = new Promise<unknown>((resolve) => {
+      resolveStableStatus = () => resolve([]);
+    });
+    mockFetchTokenInfoOnly.mockReturnValue(tokenInfoPromise);
+    mockCheckStableCoinsList.mockReturnValue(stableStatusPromise);
+    const fromToken = buildToken('ETH', {
+      contractAddress: '',
+      isNative: true,
+      networkId: 'evm--1',
+    });
+    const toToken = buildToken('USDC', {
+      contractAddress: '0xabc',
+      networkId: 'evm--1',
+    });
+
+    const prefetchPromise = prefetchSwapKLineMetadata([fromToken, toToken]);
+
+    expect(mockFetchTokenInfoOnly).toHaveBeenCalledTimes(2);
+    expect(mockCheckStableCoinsList).toHaveBeenCalledWith({
+      list: [
+        {
+          networkId: 'evm--1',
+          contractAddressList: ['0xabc'],
+        },
+      ],
+    });
+
+    resolveTokenInfo?.();
+    resolveStableStatus?.();
+    await expect(prefetchPromise).resolves.toBeUndefined();
+  });
+
+  it('skips unsupported tokens and contains prefetch failures', async () => {
+    mockFetchTokenInfoOnly.mockRejectedValueOnce(new Error('unavailable'));
+
+    await expect(
+      prefetchSwapKLineTokenInfo([
+        buildToken('ETH', {
+          contractAddress: '',
+          isNative: true,
+          networkId: 'evm--1',
+        }),
+        buildToken('LP', {
+          contractAddress: '0xdef',
+          defiMarked: true,
+          networkId: 'evm--1',
+        }),
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mockFetchTokenInfoOnly).toHaveBeenCalledTimes(1);
+    expect(mockFetchTokenInfoOnly).toHaveBeenCalledWith({
+      networkId: 'evm--1',
+      tokenAddress: '',
+    });
+  });
 });

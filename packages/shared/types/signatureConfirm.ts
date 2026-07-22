@@ -28,6 +28,7 @@ export enum EParseTxComponentRole {
 export enum EParseTxType {
   Unknown = 'unknown',
   Approve = 'approveToken',
+  RevokeApproval = 'revokeApproval',
 }
 
 export enum EParseMessageType {

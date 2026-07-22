@@ -1283,6 +1283,18 @@ function TokenListBlock({
       if (!a?.aggregateTokenConfigMap) {
         await backgroundApiProxy.serviceSetting.syncWalletConfig();
         a = await backgroundApiProxy.simpleDb.aggregateToken.getRawData();
+      } else {
+        // Refresh the cached wallet config in the background when it is stale
+        // (app version changed or TTL expired) so delisted networks get purged
+        // from the persisted aggregate-token maps. Not awaited: the current
+        // refresh renders with the cached data and the next one picks up the
+        // fresh config.
+        backgroundApiProxy.serviceSetting
+          .syncWalletConfigIfNeeded()
+          .catch(() => {
+            // Background refresh failure is non-fatal; the stale cache heals on
+            // the next refresh attempt.
+          });
       }
 
       customTokensRawData.current = c ?? undefined;
@@ -2701,6 +2713,7 @@ function TokenListBlock({
             variant="tertiary"
             icon="SliderHorOutline"
             onPress={handleOnManageToken}
+            disabled={showLpTokensOnly}
             size="medium"
           />
         </XStack>
@@ -2750,7 +2763,7 @@ function TokenListBlock({
           showLpTokensOnly ? false : !!network?.isAllNetworks
         }
         deferTokenManagement={!!network?.isAllNetworks}
-        manageTokenEnabled={manageTokenEnabled}
+        manageTokenEnabled={manageTokenEnabled && !showLpTokensOnly}
         onManageToken={handleOnManageToken}
         onPressToken={handleOnPressToken}
         isAllNetworks={network?.isAllNetworks}

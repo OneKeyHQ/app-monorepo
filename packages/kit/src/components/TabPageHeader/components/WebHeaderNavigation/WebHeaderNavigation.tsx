@@ -238,7 +238,11 @@ export function WebHeaderNavigation({
   return (
     <XStack ai="center" gap="$4">
       <Icon name="OnekeyLogoIllus" size="$7" />
+      {/* Small screens navigate via the bottom tab bar, so the inline nav
+          links are desktop-only; the logo stays on every breakpoint. */}
       <HeaderNavigation
+        display="none"
+        $gtMd={{ display: 'flex' }}
         items={navigationItems}
         activeKey={activeNavigationKey}
         onTabChange={handleNavigationChange}

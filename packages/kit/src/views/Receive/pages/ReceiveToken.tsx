@@ -545,15 +545,16 @@ function ReceiveToken() {
     );
   }, [displayAddress, handleCopyAddress]);
 
-  const arrivalTimeText = useMemo(
-    () =>
-      getReceiveArrivalTimeText({
-        networkId,
-        isTestnet: network?.isTestnet,
-        isCustomNetwork: network?.isCustomNetwork,
-      }),
-    [networkId, network?.isTestnet, network?.isCustomNetwork],
-  );
+  const arrivalTimeText = useMemo(() => {
+    // The text is formatted via appLocale inside the util; depending on
+    // intl.locale recomputes it when the app language changes.
+    void intl.locale;
+    return getReceiveArrivalTimeText({
+      networkId,
+      isTestnet: network?.isTestnet,
+      isCustomNetwork: network?.isCustomNetwork,
+    });
+  }, [intl.locale, networkId, network?.isTestnet, network?.isCustomNetwork]);
 
   const pageTitleText = useMemo(
     () =>

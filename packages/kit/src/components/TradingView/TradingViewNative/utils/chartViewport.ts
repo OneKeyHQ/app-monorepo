@@ -17,6 +17,16 @@ export interface ITradingViewNativePriceRange {
   minPrice: number;
 }
 
+export interface ITradingViewNativeDataUpdateMetadata {
+  appendedPointCount: number;
+  latestTimestamp: number | undefined;
+}
+
+export interface ITradingViewNativeViewportOffsetTransition {
+  nextOffset: number;
+  offsetDelta: number;
+}
+
 export function clampTradingViewNativeZoomScale(scale: number) {
   'worklet';
 
@@ -79,6 +89,140 @@ export function clampTradingViewNativePanOffset({
   );
 }
 
+export function getTradingViewNativeAppendedPointCount({
+  points,
+  previousLatestTimestamp,
+}: {
+  points: IMarketTokenKLineDataPoint[];
+  previousLatestTimestamp: number | undefined;
+}) {
+  if (
+    previousLatestTimestamp === undefined ||
+    !Number.isFinite(previousLatestTimestamp)
+  ) {
+    return 0;
+  }
+
+  const previousLatestPointIndex = points.findIndex(
+    (point) => point.t === previousLatestTimestamp,
+  );
+  if (previousLatestPointIndex === -1) {
+    return 0;
+  }
+
+  return Math.max(points.length - previousLatestPointIndex - 1, 0);
+}
+
+export function getTradingViewNativeDataUpdateMetadata({
+  points,
+  previousLatestTimestamp,
+}: {
+  points: IMarketTokenKLineDataPoint[];
+  previousLatestTimestamp: number | undefined;
+}): ITradingViewNativeDataUpdateMetadata {
+  return {
+    appendedPointCount: getTradingViewNativeAppendedPointCount({
+      points,
+      previousLatestTimestamp,
+    }),
+    latestTimestamp: points[points.length - 1]?.t,
+  };
+}
+
+export function getTradingViewNativePanOffsetAfterDataUpdate({
+  appendedPointCount,
+  candleGap = TRADING_VIEW_NATIVE_CANDLE_GAP,
+  chartWidth,
+  currentOffset,
+  pointCount,
+  zoomScale,
+}: {
+  appendedPointCount: number;
+  candleGap?: number;
+  chartWidth: number;
+  currentOffset: number;
+  pointCount: number;
+  zoomScale: number;
+}) {
+  'worklet';
+
+  const clampedOffset = clampTradingViewNativePanOffset({
+    candleGap,
+    chartWidth,
+    offset: currentOffset,
+    pointCount,
+    zoomScale,
+  });
+  const safeAppendedPointCount = Number.isFinite(appendedPointCount)
+    ? Math.max(Math.floor(appendedPointCount), 0)
+    : 0;
+  if (clampedOffset <= 0 || safeAppendedPointCount === 0) {
+    return clampedOffset;
+  }
+
+  const candleStep =
+    (TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH + candleGap) *
+    clampTradingViewNativeZoomScale(zoomScale);
+  return clampTradingViewNativePanOffset({
+    candleGap,
+    chartWidth,
+    offset: clampedOffset + safeAppendedPointCount * candleStep,
+    pointCount,
+    zoomScale,
+  });
+}
+
+export function getTradingViewNativeViewportOffsetTransition({
+  appendedPointCount,
+  candleGap = TRADING_VIEW_NATIVE_CANDLE_GAP,
+  chartWidth,
+  currentOffset,
+  pointCount,
+  zoomScale,
+}: {
+  appendedPointCount: number;
+  candleGap?: number;
+  chartWidth: number;
+  currentOffset: number;
+  pointCount: number;
+  zoomScale: number;
+}): ITradingViewNativeViewportOffsetTransition {
+  'worklet';
+
+  const nextOffset = getTradingViewNativePanOffsetAfterDataUpdate({
+    appendedPointCount,
+    candleGap,
+    chartWidth,
+    currentOffset,
+    pointCount,
+    zoomScale,
+  });
+  return {
+    nextOffset,
+    offsetDelta: nextOffset - currentOffset,
+  };
+}
+
+export function getTradingViewNativeGestureStartOffsetAfterDataUpdate({
+  currentZoomScale,
+  offsetDelta,
+  startOffset,
+  startZoomScale,
+}: {
+  currentZoomScale: number;
+  offsetDelta: number;
+  startOffset: number;
+  startZoomScale: number;
+}) {
+  'worklet';
+
+  return (
+    startOffset +
+    (offsetDelta * clampTradingViewNativeZoomScale(startZoomScale)) /
+      clampTradingViewNativeZoomScale(currentZoomScale)
+  );
+}
+
 export function getTradingViewNativeVisiblePointRange({
   candleGap = TRADING_VIEW_NATIVE_CANDLE_GAP,
   chartWidth,
@@ -135,6 +279,82 @@ export function getTradingViewNativeVisiblePointRange({
   };
 }
 
+export function getTradingViewNativeCandleX({
+  candleGap = TRADING_VIEW_NATIVE_CANDLE_GAP,
+  index,
+  offset,
+  pointCount,
+  priceAxisX,
+  zoomScale,
+}: {
+  candleGap?: number;
+  index: number;
+  offset: number;
+  pointCount: number;
+  priceAxisX: number;
+  zoomScale: number;
+}) {
+  'worklet';
+
+  if (pointCount <= 0) {
+    return priceAxisX;
+  }
+
+  const clampedZoomScale = clampTradingViewNativeZoomScale(zoomScale);
+  const clampedIndex = Math.min(Math.max(Math.floor(index), 0), pointCount - 1);
+  const distanceFromNewest = pointCount - clampedIndex - 1;
+  const candleStep = TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH + candleGap;
+
+  return (
+    priceAxisX -
+    (candleGap +
+      TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH / 2 +
+      distanceFromNewest * candleStep) *
+      clampedZoomScale +
+    offset
+  );
+}
+
+export function getTradingViewNativePointIndexAtX({
+  candleGap = TRADING_VIEW_NATIVE_CANDLE_GAP,
+  offset,
+  pointCount,
+  priceAxisX,
+  x,
+  zoomScale,
+}: {
+  candleGap?: number;
+  offset: number;
+  pointCount: number;
+  priceAxisX: number;
+  x: number;
+  zoomScale: number;
+}) {
+  'worklet';
+
+  if (
+    pointCount <= 0 ||
+    priceAxisX <= 0 ||
+    !Number.isFinite(x) ||
+    x < 0 ||
+    x > priceAxisX
+  ) {
+    return null;
+  }
+
+  const clampedZoomScale = clampTradingViewNativeZoomScale(zoomScale);
+  const candleStep =
+    (TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH + candleGap) * clampedZoomScale;
+  const lastCandleCenter =
+    priceAxisX -
+    (candleGap + TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH / 2) * clampedZoomScale +
+    offset;
+  const distanceFromNewest = Math.round((lastCandleCenter - x) / candleStep);
+  const index = pointCount - distanceFromNewest - 1;
+
+  return index >= 0 && index < pointCount ? index : null;
+}
+
 export function getTradingViewNativePriceRange({
   endIndex,
   points,
@@ -142,6 +362,8 @@ export function getTradingViewNativePriceRange({
 }: ITradingViewNativeVisiblePointRange & {
   points: IMarketTokenKLineDataPoint[];
 }): ITradingViewNativePriceRange | null {
+  'worklet';
+
   const clampedStartIndex = Math.min(
     Math.max(Math.floor(startIndex), 0),
     points.length,

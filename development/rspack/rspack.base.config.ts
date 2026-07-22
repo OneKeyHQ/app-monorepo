@@ -200,6 +200,11 @@ const baseResolve = ({
         }
       : {}),
     'bn.js$': require.resolve('bn.js'),
+    // algosdk's browser field value ('.': 'dist/browser/algosdk.min.js') lacks
+    // the './' prefix; rspack's strict resolver fails on it, so bare 'algosdk'
+    // cannot resolve. Pin the entry to the ESM build (same file kit-bg imports
+    // directly), keeping a single algosdk module graph in the bundle.
+    'algosdk$': require.resolve('algosdk/dist/esm/index.js'),
   },
   fallback: {
     crypto:
@@ -219,7 +224,6 @@ const baseResolve = ({
     os: false,
     wbg: false,
     buffer: require.resolve('buffer/'),
-    algosdk: false,
   },
   fullySpecified: false,
 });

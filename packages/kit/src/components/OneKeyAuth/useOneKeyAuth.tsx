@@ -339,8 +339,27 @@ export function useOneKeyAuth() {
     }: {
       toOneKeyIdPageOnLoginSuccess?: boolean;
     } = {}) => {
-      const localKeylessLoginPrepareResult: IOneKeyIdLoginWithLocalKeylessPrepareResult =
-        await backgroundApiProxy.serviceKeylessWallet.prepareOneKeyIdLoginWithLocalKeyless();
+      let localKeylessLoginPrepareResult: IOneKeyIdLoginWithLocalKeylessPrepareResult;
+      try {
+        localKeylessLoginPrepareResult =
+          await backgroundApiProxy.serviceKeylessWallet.prepareOneKeyIdLoginWithLocalKeyless();
+      } catch (error) {
+        // A transient wallet-read failure is UNKNOWN state, not "no wallet"
+        // (prepareOneKeyIdLoginWithLocalKeyless propagates it rather than
+        // reporting NoLocalKeyless). Degrade to a provider-less keyless-mode
+        // result so showOneKeyIdLoginDialog keeps preserveLocalKeylessAuth=true
+        // (never the destructive full-logout branch that clears the shared
+        // keyless session slot + legacy OAuth blobs) and the OAuth dialog keeps
+        // the token-matches-wallet guard armed. A later attempt can still
+        // resolve ContinueWithKeyless once the read succeeds.
+        console.error(
+          'useOneKeyAuth.loginOneKeyId: prepareOneKeyIdLoginWithLocalKeyless failed, preserving local Keyless auth:',
+          error,
+        );
+        localKeylessLoginPrepareResult = {
+          status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NeedOAuthLogin,
+        };
+      }
       const preserveLocalKeylessAuth =
         localKeylessLoginPrepareResult.status !==
         EOneKeyIdLoginWithLocalKeylessPrepareStatus.NoLocalKeyless;

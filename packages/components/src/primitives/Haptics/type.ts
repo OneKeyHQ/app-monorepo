@@ -4,6 +4,7 @@ import type {
 } from 'expo-haptics';
 
 export type IHaptics = {
+  setEnabled: (enabled: boolean) => void;
   impact: (style: ImpactFeedbackStyle) => void;
   selection: () => void;
   notification: (type: NotificationFeedbackType) => void;
