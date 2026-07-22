@@ -51,6 +51,15 @@ describe('deviceUtils', () => {
     ).resolves.toBe('Renamed Pro 2');
   });
 
+  it('exposes a stable product model name independently from the user label', () => {
+    expect(deviceUtils.getDefaultDeviceLabel(EDeviceType.Pro2)).toBe(
+      'OneKey Pro 2',
+    );
+    expect(deviceUtils.getDefaultDeviceLabel(EDeviceType.Classic1s)).toBe(
+      'OneKey Classic 1S',
+    );
+  });
+
   it.each([
     ESupportSettings.Language,
     ESupportSettings.Brightness,

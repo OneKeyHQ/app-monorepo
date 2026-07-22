@@ -5080,6 +5080,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           persistedState.identity.displayName =
             persistedState.identity.label ||
             persistedState.identity.bleName ||
+            deviceUtils.getDefaultDeviceLabel(
+              persistedState.identity.deviceType,
+            ) ||
             persistedState.identity.model ||
             `OneKey ${persistedState.identity.deviceType.toUpperCase()}`;
           delete persistedState.session;

@@ -1,19 +1,17 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
-
 import type { IOneKeyDeviceState } from '@onekeyhq/shared/types/device';
 
 import type { IDeviceMetaState } from './atoms';
-import type { DeviceStateEvent, IDeviceType } from '@onekeyfe/hd-core';
-export type IPro2DeviceManagementSnapshot = {
+import type { DeviceStateEvent } from '@onekeyfe/hd-core';
+
+export type IDeviceStateSnapshot = {
   state: IOneKeyDeviceState;
 };
 
-export function getPro2SnapshotFromDeviceStateEvent({
+export function getDeviceStateSnapshotFromEvent({
   device,
   event,
 }: {
   device?: {
-    deviceType?: IDeviceType;
     connectId?: string;
     usbConnectId?: string;
     bleConnectId?: string;
@@ -21,36 +19,33 @@ export function getPro2SnapshotFromDeviceStateEvent({
     uuid?: string;
   };
   event: DeviceStateEvent;
-}): IPro2DeviceManagementSnapshot | undefined {
-  if (device?.deviceType !== EDeviceType.Pro2) {
-    return undefined;
-  }
+}): IDeviceStateSnapshot | undefined {
   const normalizedEventConnectId = event.connectId?.toLowerCase();
   const matchesConnectId = Boolean(
     normalizedEventConnectId &&
-    [device.connectId, device.usbConnectId, device.bleConnectId].some(
+    [device?.connectId, device?.usbConnectId, device?.bleConnectId].some(
       (connectId) => connectId?.toLowerCase() === normalizedEventConnectId,
     ),
   );
   const matchesSerialNo = Boolean(
     event.state.identity.serialNo &&
-    device.uuid === event.state.identity.serialNo,
+    device?.uuid === event.state.identity.serialNo,
   );
   const matchesDeviceId = Boolean(
     event.state.identity.deviceId &&
-    device.deviceId === event.state.identity.deviceId,
+    device?.deviceId === event.state.identity.deviceId,
   );
   return matchesConnectId || matchesSerialNo || matchesDeviceId
     ? { state: event.state }
     : undefined;
 }
 
-export function resolvePro2DeviceState({
+export function resolveDeviceState({
   persistedState,
   snapshot,
 }: {
   persistedState?: IOneKeyDeviceState;
-  snapshot?: IPro2DeviceManagementSnapshot;
+  snapshot?: IDeviceStateSnapshot;
 }) {
   return snapshot?.state ?? persistedState;
 }
@@ -60,11 +55,11 @@ export function canEditPro2DeviceWideSettings({
 }: {
   unlocked: boolean;
 }) {
-  // Pro2 的公开设置支持在锁定状态下读取和修改。
+  // Pro 2 的公开设置支持在锁定状态下读取和修改。
   return true;
 }
 
-export function getPro2DeviceMetaStaticData(state: IOneKeyDeviceState) {
+export function getDeviceMetaStaticDataFromState(state: IOneKeyDeviceState) {
   return {
     deviceName: state.identity.displayName,
     deviceType: state.identity.deviceType,
@@ -73,11 +68,13 @@ export function getPro2DeviceMetaStaticData(state: IOneKeyDeviceState) {
   };
 }
 
-export function buildPro2DeviceMetaState({
+export function buildDeviceMetaStateFromState({
   isVerified,
+  pinOnAppEnabled,
   state,
 }: {
   isVerified: boolean;
+  pinOnAppEnabled?: boolean;
   state: IOneKeyDeviceState;
 }): IDeviceMetaState {
   return {
@@ -87,7 +84,8 @@ export function buildPro2DeviceMetaState({
     backupRequired: state.status.backupRequired ?? undefined,
     unlockedByAttachToPin: state.status.unlockedAttachPin ?? undefined,
     passphraseEnabled: state.status.passphraseProtection ?? undefined,
-    pinOnAppEnabled: state.status.attachToPinEnabled ?? undefined,
+    pinOnAppEnabled:
+      pinOnAppEnabled ?? state.status.attachToPinEnabled ?? undefined,
     autoLockDelayMs: state.settings.autoLockDelayMs ?? undefined,
     autoShutDownDelayMs: state.settings.autoShutdownDelayMs ?? undefined,
     language: state.settings.language ?? undefined,

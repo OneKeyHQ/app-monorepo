@@ -20,6 +20,8 @@ const createState = ({
   bleName = 'Pro2 6136',
   language,
   firmware = '1.0.0',
+  deviceType = EDeviceType.Pro2,
+  model = 'pro2',
 }: {
   revision: number;
   updatedAt: number;
@@ -27,6 +29,8 @@ const createState = ({
   bleName?: string;
   language: string | null;
   firmware?: string;
+  deviceType?: EDeviceType;
+  model?: string;
 }): IOneKeyDeviceState =>
   ({
     schemaVersion: 1,
@@ -34,9 +38,9 @@ const createState = ({
     updatedAt,
     protocol: 'V2',
     identity: {
-      deviceType: EDeviceType.Pro2,
+      deviceType,
       firmwareType: EFirmwareType.Universal,
-      model: 'pro2',
+      model,
       vendor: 'onekey.so',
       deviceId: null,
       serialNo: '',
@@ -167,5 +171,39 @@ describe('LocalDb DeviceState persistence', () => {
     const persisted = JSON.parse(db.device.deviceState || '{}');
     expect(persisted.identity.label).toBe('Newest');
     expect(persisted.settings.language).toBe('en-US');
+  });
+
+  it('uses the stable product name when a V1 device has no label or BLE name', async () => {
+    const current = createState({
+      revision: 1,
+      updatedAt: 100,
+      label: null,
+      bleName: '',
+      language: null,
+      deviceType: EDeviceType.Classic1s,
+      model: '1',
+    });
+    const incoming = createState({
+      revision: 2,
+      updatedAt: 200,
+      label: null,
+      bleName: '',
+      language: null,
+      deviceType: EDeviceType.Classic1s,
+      model: '1',
+    });
+    const db = new DeviceStateTestLocalDb(current);
+
+    await db.updateDeviceState({
+      connectId: 'ABC-DEF',
+      state: incoming,
+      revision: incoming.revision,
+      source: 'initialize',
+      changedKeys: ['identity.label'],
+    });
+
+    const persisted = JSON.parse(db.device.deviceState || '{}');
+    expect(persisted.identity.displayName).toBe('OneKey Classic 1S');
+    expect(db.device.name).toBe('OneKey Classic 1S');
   });
 });

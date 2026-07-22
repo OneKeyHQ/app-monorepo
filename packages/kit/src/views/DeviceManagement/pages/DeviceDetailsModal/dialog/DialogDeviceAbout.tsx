@@ -147,21 +147,21 @@ function DialogDeviceSpecsContent({ data }: { data: IHwQrWalletWithDevice }) {
         internal_model?: string;
         model?: string;
       };
-      const model =
-        vendorProfile.isThirdParty && device.featuresInfo
-          ? thirdPartyDeviceUtils.getDeviceModelName({
-              device,
-              features,
-              defaultDeviceName: vendorProfile.defaultDeviceName,
-            })
-          : (state?.identity.model ??
-            state?.identity.displayName ??
-            (device.featuresInfo
-              ? await deviceUtils.buildDeviceLabel({
-                  features: device.featuresInfo,
-                  buildModelName: true,
-                })
-              : undefined));
+      let model: string | undefined;
+      if (vendorProfile.isThirdParty && device.featuresInfo) {
+        model = thirdPartyDeviceUtils.getDeviceModelName({
+          device,
+          features,
+          defaultDeviceName: vendorProfile.defaultDeviceName,
+        });
+      } else if (state) {
+        model = deviceUtils.getDefaultDeviceLabel(state.identity.deviceType);
+      } else if (device.featuresInfo) {
+        model = await deviceUtils.buildDeviceLabel({
+          features: device.featuresInfo,
+          buildModelName: true,
+        });
+      }
 
       let firmwareTypeLabel;
       if (vendorProfile.isThirdParty) {

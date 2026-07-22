@@ -70,7 +70,13 @@ jest.mock('../../states/jotai/atoms', () => ({
   settingsPersistAtom: {},
 }));
 
-const createService = ({ unlocked }: { unlocked: boolean }) => {
+const createService = ({
+  unlocked,
+  mode = 'normal',
+}: {
+  unlocked: boolean;
+  mode?: 'normal' | 'bootloader' | 'romloader';
+}) => {
   const state = {
     revision: 1,
     protocol: 'V2',
@@ -82,7 +88,7 @@ const createService = ({ unlocked }: { unlocked: boolean }) => {
       displayName: 'OneKey Pro 2',
       deviceType: EDeviceType.Pro2,
     },
-    status: { mode: 'normal', unlocked },
+    status: { mode, unlocked },
     settings: { language: 'en-US' },
     versions: { firmware: '1.0.0' },
   };
@@ -161,6 +167,71 @@ describe('ServiceHardware.getDeviceState', () => {
     expect(refreshDeviceState).toHaveBeenCalledWith('PRO2', {
       scope: 'basic',
     });
+  });
+
+  it('projects V1 compatibility fields only from canonical state sections', async () => {
+    const { service, refreshDeviceState } = createService({ unlocked: true });
+    refreshDeviceState.mockResolvedValue({
+      success: true,
+      payload: {
+        schemaVersion: 1,
+        revision: 2,
+        updatedAt: 2,
+        protocol: 'V1',
+        identity: {
+          deviceId: 'CLASSIC_DEVICE_ID',
+          serialNo: 'CLASSIC_SERIAL',
+          label: 'Classic Wallet',
+          bleName: null,
+          displayName: 'Classic Wallet',
+          deviceType: EDeviceType.Classic1s,
+          firmwareType: 'universal',
+          model: '1',
+          vendor: 'onekey.so',
+        },
+        status: { mode: 'normal', initialized: true },
+        settings: { language: 'en-US' },
+        versions: { firmware: '3.11.0', se01Boot: '1.2.0' },
+        verification: {
+          firmwareBuildId: 'firmware-build',
+          se01BootHash: 'abcd',
+        },
+        capabilities: [],
+      },
+    } as never);
+
+    await expect(
+      service.getFeaturesWithoutCache({ connectId: 'CLASSIC' }),
+    ).resolves.toMatchObject({
+      protocol: 'V1',
+      deviceType: EDeviceType.Classic1s,
+      onekey_firmware_version: '3.11.0',
+      onekey_firmware_build_id: 'firmware-build',
+      onekey_se01_boot_version: '1.2.0',
+      onekey_se01_boot_hash: 'abcd',
+    });
+  });
+
+  it('projects romloader mode to both legacy bootloader flags', async () => {
+    const { service } = createService({ unlocked: false, mode: 'romloader' });
+
+    await expect(
+      service.getFeaturesWithoutCache({ connectId: 'PRO2' }),
+    ).resolves.toMatchObject({
+      bootloaderMode: true,
+      bootloader_mode: true,
+    });
+  });
+
+  it('detects romloader as a legacy bootloader device', async () => {
+    const { service } = createService({ unlocked: false, mode: 'romloader' });
+
+    await expect(
+      service.getFeaturesWithoutCache({
+        connectId: 'PRO2',
+        params: { detectBootloaderDevice: true },
+      }),
+    ).rejects.toBeDefined();
   });
 });
 

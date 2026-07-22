@@ -825,6 +825,7 @@ export default {
   buildDeviceLabel,
   buildDeviceName,
   buildDeviceBleName,
+  getDefaultDeviceLabel,
   getDeviceVerifyVersionsFromFeatures,
   getDeviceVerifyVersionsFromRawOnekeyFeatures,
   formatVersionWithHash,

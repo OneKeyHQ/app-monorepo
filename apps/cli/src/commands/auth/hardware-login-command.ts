@@ -185,7 +185,7 @@ export async function executeHardwareLoginCommand({
     const deviceStateResult = await sdk.refreshDeviceState(connectId, {
       scope: 'runtime',
     });
-    return unwrapSDKResult(deviceStateResult, 'getDeviceState') as {
+    return unwrapSDKResult(deviceStateResult, 'refreshDeviceState') as {
       identity: {
         label?: string | null;
         deviceType?: string;

@@ -3,7 +3,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
-import type { IPro2DeviceManagementSnapshot } from './pro2DeviceManagement';
+import type { IDeviceStateSnapshot } from './deviceStateManagement';
 import type { EDeviceType } from '@onekeyfe/hd-shared';
 
 const {
@@ -29,9 +29,9 @@ export const {
 } = contextAtom<IHwQrWalletWithDevice | undefined>(undefined);
 
 export const {
-  atom: pro2DeviceManagementSnapshotAtom,
-  use: usePro2DeviceManagementSnapshotAtom,
-} = contextAtom<IPro2DeviceManagementSnapshot | undefined>(undefined);
+  atom: deviceStateSnapshotAtom,
+  use: useDeviceStateSnapshotAtom,
+} = contextAtom<IDeviceStateSnapshot | undefined>(undefined);
 
 // True once the first refresh settles; distinguishes "still loading" from
 // "loaded, no device" for the header skeleton gate.

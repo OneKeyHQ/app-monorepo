@@ -127,11 +127,11 @@ import type {
   DeviceSupportFeaturesPayload,
   DeviceUploadResourceParams,
   Features,
-  RefreshDeviceStateParams,
   Response as HardwareResponse,
   IDeviceType,
   KnownDevice,
   OnekeyFeatures,
+  RefreshDeviceStateParams,
   SearchDevice,
   UiEvent,
 } from '@onekeyfe/hd-core';
@@ -185,107 +185,70 @@ export type IPro2DeviceSettingsPage =
 
 const nullableToUndefined = (value?: string | null) => value ?? undefined;
 
+const isOneKeyLoaderMode = (mode?: string | null) =>
+  mode === EOneKeyDeviceMode.bootloader || mode === EOneKeyDeviceMode.romloader;
+
 function buildOnekeyFeaturesFromState(
   state: IOneKeyDeviceState,
 ): OnekeyFeatures {
-  const rawFeatures = {
-    ...state.raw?.protocolV1OneKeyFeatures,
-  } as OnekeyFeatures;
   const { verification: verify, versions } = state;
 
   return {
-    ...rawFeatures,
-    onekey_serial_no: rawFeatures.onekey_serial_no || state.identity.serialNo,
-    onekey_ble_name:
-      rawFeatures.onekey_ble_name || state.identity.bleName || '',
-    onekey_firmware_version:
-      rawFeatures.onekey_firmware_version ??
-      nullableToUndefined(versions.firmware),
-    onekey_boot_version:
-      rawFeatures.onekey_boot_version ??
-      nullableToUndefined(versions.bootloader),
-    onekey_board_version:
-      rawFeatures.onekey_board_version ?? nullableToUndefined(versions.board),
-    onekey_ble_version:
-      rawFeatures.onekey_ble_version ?? nullableToUndefined(versions.ble),
-    onekey_firmware_hash:
-      rawFeatures.onekey_firmware_hash ?? verify?.firmwareHash,
-    onekey_boot_hash: rawFeatures.onekey_boot_hash ?? verify?.bootloaderHash,
-    onekey_board_hash: rawFeatures.onekey_board_hash ?? verify?.boardHash,
-    onekey_ble_hash: rawFeatures.onekey_ble_hash ?? verify?.bleHash,
-    onekey_firmware_build_id:
-      rawFeatures.onekey_firmware_build_id ?? verify?.firmwareBuildId,
-    onekey_boot_build_id:
-      rawFeatures.onekey_boot_build_id ?? verify?.bootloaderBuildId,
-    onekey_board_build_id:
-      rawFeatures.onekey_board_build_id ?? verify?.boardBuildId,
-    onekey_ble_build_id: rawFeatures.onekey_ble_build_id ?? verify?.bleBuildId,
-    onekey_se01_version:
-      rawFeatures.onekey_se01_version ?? nullableToUndefined(versions.se01),
-    onekey_se02_version:
-      rawFeatures.onekey_se02_version ?? nullableToUndefined(versions.se02),
-    onekey_se03_version:
-      rawFeatures.onekey_se03_version ?? nullableToUndefined(versions.se03),
-    onekey_se04_version:
-      rawFeatures.onekey_se04_version ?? nullableToUndefined(versions.se04),
-    onekey_se01_hash: rawFeatures.onekey_se01_hash ?? verify?.se01Hash,
-    onekey_se02_hash: rawFeatures.onekey_se02_hash ?? verify?.se02Hash,
-    onekey_se03_hash: rawFeatures.onekey_se03_hash ?? verify?.se03Hash,
-    onekey_se04_hash: rawFeatures.onekey_se04_hash ?? verify?.se04Hash,
-    onekey_se01_build_id:
-      rawFeatures.onekey_se01_build_id ?? verify?.se01BuildId,
-    onekey_se02_build_id:
-      rawFeatures.onekey_se02_build_id ?? verify?.se02BuildId,
-    onekey_se03_build_id:
-      rawFeatures.onekey_se03_build_id ?? verify?.se03BuildId,
-    onekey_se04_build_id:
-      rawFeatures.onekey_se04_build_id ?? verify?.se04BuildId,
-    onekey_se01_boot_version:
-      rawFeatures.onekey_se01_boot_version ??
-      nullableToUndefined(versions.se01Boot),
-    onekey_se02_boot_version:
-      rawFeatures.onekey_se02_boot_version ??
-      nullableToUndefined(versions.se02Boot),
-    onekey_se03_boot_version:
-      rawFeatures.onekey_se03_boot_version ??
-      nullableToUndefined(versions.se03Boot),
-    onekey_se04_boot_version:
-      rawFeatures.onekey_se04_boot_version ??
-      nullableToUndefined(versions.se04Boot),
-    onekey_se01_boot_hash:
-      rawFeatures.onekey_se01_boot_hash ?? verify?.se01BootHash,
-    onekey_se02_boot_hash:
-      rawFeatures.onekey_se02_boot_hash ?? verify?.se02BootHash,
-    onekey_se03_boot_hash:
-      rawFeatures.onekey_se03_boot_hash ?? verify?.se03BootHash,
-    onekey_se04_boot_hash:
-      rawFeatures.onekey_se04_boot_hash ?? verify?.se04BootHash,
-    onekey_se01_boot_build_id:
-      rawFeatures.onekey_se01_boot_build_id ?? verify?.se01BootBuildId,
-    onekey_se02_boot_build_id:
-      rawFeatures.onekey_se02_boot_build_id ?? verify?.se02BootBuildId,
-    onekey_se03_boot_build_id:
-      rawFeatures.onekey_se03_boot_build_id ?? verify?.se03BootBuildId,
-    onekey_se04_boot_build_id:
-      rawFeatures.onekey_se04_boot_build_id ?? verify?.se04BootBuildId,
+    onekey_serial_no: state.identity.serialNo,
+    onekey_ble_name: state.identity.bleName || '',
+    onekey_firmware_version: nullableToUndefined(versions.firmware),
+    onekey_boot_version: nullableToUndefined(versions.bootloader),
+    onekey_board_version: nullableToUndefined(versions.board),
+    onekey_ble_version: nullableToUndefined(versions.ble),
+    onekey_firmware_hash: verify?.firmwareHash,
+    onekey_boot_hash: verify?.bootloaderHash,
+    onekey_board_hash: verify?.boardHash,
+    onekey_ble_hash: verify?.bleHash,
+    onekey_firmware_build_id: verify?.firmwareBuildId,
+    onekey_boot_build_id: verify?.bootloaderBuildId,
+    onekey_board_build_id: verify?.boardBuildId,
+    onekey_ble_build_id: verify?.bleBuildId,
+    onekey_se01_version: nullableToUndefined(versions.se01),
+    onekey_se02_version: nullableToUndefined(versions.se02),
+    onekey_se03_version: nullableToUndefined(versions.se03),
+    onekey_se04_version: nullableToUndefined(versions.se04),
+    onekey_se01_hash: verify?.se01Hash,
+    onekey_se02_hash: verify?.se02Hash,
+    onekey_se03_hash: verify?.se03Hash,
+    onekey_se04_hash: verify?.se04Hash,
+    onekey_se01_build_id: verify?.se01BuildId,
+    onekey_se02_build_id: verify?.se02BuildId,
+    onekey_se03_build_id: verify?.se03BuildId,
+    onekey_se04_build_id: verify?.se04BuildId,
+    onekey_se01_boot_version: nullableToUndefined(versions.se01Boot),
+    onekey_se02_boot_version: nullableToUndefined(versions.se02Boot),
+    onekey_se03_boot_version: nullableToUndefined(versions.se03Boot),
+    onekey_se04_boot_version: nullableToUndefined(versions.se04Boot),
+    onekey_se01_boot_hash: verify?.se01BootHash,
+    onekey_se02_boot_hash: verify?.se02BootHash,
+    onekey_se03_boot_hash: verify?.se03BootHash,
+    onekey_se04_boot_hash: verify?.se04BootHash,
+    onekey_se01_boot_build_id: verify?.se01BootBuildId,
+    onekey_se02_boot_build_id: verify?.se02BootBuildId,
+    onekey_se03_boot_build_id: verify?.se03BootBuildId,
+    onekey_se04_boot_build_id: verify?.se04BootBuildId,
   };
 }
 
 /**
- * App 内部旧流程仍消费 Features 形状；Protocol V2 的真实数据源始终是 DeviceState。
- * 该投影只作为 App 迁移层，不重新引入 SDK 的 Protocol V2 getFeatures 接口。
+ * App 内部旧流程仍消费 Features 形状；OneKey 设备的真实数据源始终是 DeviceState。
+ * 该投影只作为 App 兼容层，不重新引入 SDK 的 Protocol V2 getFeatures 接口。
  */
 function buildLegacyAppFeaturesFromState(
   state: IOneKeyDeviceState,
 ): IOneKeyDeviceFeatures {
   const { identity, status, settings, versions } = state;
-  const rawFeatures = state.raw?.protocolV1Features ?? {};
+  const isLoaderMode = isOneKeyLoaderMode(status.mode);
   const oneKeyFeatures = buildOnekeyFeaturesFromState(
     state,
   ) as unknown as Partial<IOneKeyDeviceFeatures>;
 
   return {
-    ...rawFeatures,
     ...oneKeyFeatures,
     onekey_device_type: identity.deviceType,
     protocol: state.protocol,
@@ -300,7 +263,7 @@ function buildLegacyAppFeaturesFromState(
     capabilities: state.capabilities,
     mode: status.mode,
     initialized: status.initialized,
-    bootloaderMode: status.mode === EOneKeyDeviceMode.bootloader,
+    bootloaderMode: isLoaderMode,
     unlocked: status.unlocked,
     firmwarePresent: status.firmwarePresent,
     passphraseProtection: status.passphraseProtection,
@@ -347,9 +310,8 @@ function buildLegacyAppFeaturesFromState(
     sessionId: state.session?.sessionId ?? null,
     passphraseState: state.session?.passphraseState,
     unlockedAttachPin: status.unlockedAttachPin ?? undefined,
-    raw: state.raw,
     device_id: identity.deviceId ?? undefined,
-    bootloader_mode: status.mode === EOneKeyDeviceMode.bootloader,
+    bootloader_mode: isLoaderMode,
     passphrase_protection: status.passphraseProtection ?? undefined,
     pin_protection: status.pinProtection ?? undefined,
   };
@@ -744,7 +706,7 @@ class ServiceHardware extends ServiceBase {
         const deviceMode = await this.getDeviceModeFromFeatures({
           features: features || {},
         });
-        const isBootloaderMode = deviceMode === EOneKeyDeviceMode.bootloader;
+        const isBootloaderMode = isOneKeyLoaderMode(deviceMode);
 
         const usedPayload: IHardwareUiPayload = {
           uiRequestType,
@@ -1781,10 +1743,7 @@ class ServiceHardware extends ServiceBase {
         }),
       { silentMode },
     );
-    if (
-      detectBootloaderDevice &&
-      state.status.mode === EOneKeyDeviceMode.bootloader
-    ) {
+    if (detectBootloaderDevice && isOneKeyLoaderMode(state.status.mode)) {
       throw new deviceErrors.DeviceDetectInBootloaderMode();
     }
     return buildLegacyAppFeaturesFromState(state);

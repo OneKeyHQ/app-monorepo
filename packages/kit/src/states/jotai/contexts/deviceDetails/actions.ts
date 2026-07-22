@@ -15,45 +15,55 @@ import {
   currentWalletIdAtom,
   deviceMetaStateAtom,
   deviceMetaStaticAtom,
+  deviceStateSnapshotAtom,
   emptyMetaState,
   emptyMetaStatic,
-  pro2DeviceManagementSnapshotAtom,
   refreshSettledAtom,
   walletWithDeviceStateAtom,
 } from './atoms';
 import {
-  buildPro2DeviceMetaState,
-  getPro2DeviceMetaStaticData,
-  getPro2SnapshotFromDeviceStateEvent,
-  resolvePro2DeviceState,
-} from './pro2DeviceManagement';
+  buildDeviceMetaStateFromState,
+  getDeviceMetaStaticDataFromState,
+  getDeviceStateSnapshotFromEvent,
+  resolveDeviceState,
+} from './deviceStateManagement';
 
 import type { IDeviceMetaState, IDeviceMetaStatic } from './atoms';
-import type { IPro2DeviceManagementSnapshot } from './pro2DeviceManagement';
+import type { IDeviceStateSnapshot } from './deviceStateManagement';
 import type { DeviceStateEvent } from '@onekeyfe/hd-core';
 
 async function buildDeviceMetaStatic(
   walletWithDevice?: IHwQrWalletWithDevice,
-  pro2Snapshot?: IPro2DeviceManagementSnapshot,
+  stateSnapshot?: IDeviceStateSnapshot,
 ): Promise<IDeviceMetaStatic | undefined> {
   if (!walletWithDevice?.device) {
     return undefined;
   }
 
   const { device } = walletWithDevice;
-  if (device.deviceType === EDeviceType.Pro2) {
-    const state = resolvePro2DeviceState({
-      persistedState: device.deviceStateInfo,
-      snapshot: pro2Snapshot,
-    });
-    if (!state) {
-      return undefined;
-    }
-    const data = getPro2DeviceMetaStaticData(state);
+  const vendorProfile = getVendorProfile(
+    device.vendor ?? EHardwareVendor.onekey,
+  );
+  const isThirdParty = vendorProfile.isThirdParty;
+  const state = isThirdParty
+    ? undefined
+    : resolveDeviceState({
+        persistedState: device.deviceStateInfo,
+        snapshot: stateSnapshot,
+      });
+  if (state) {
+    const data = getDeviceMetaStaticDataFromState(state);
     const firmwareTypeLabel = deviceUtils.getFirmwareTypeLabelByFirmwareType({
       firmwareType: data.firmwareType,
       displayFormat: 'withSpace',
     });
+    let addWallpaperTitleId = ETranslations.global_wallpaper;
+    if (
+      data.deviceType !== EDeviceType.Pro2 &&
+      deviceUtils.isTouchDevice(data.deviceType)
+    ) {
+      addWallpaperTitleId = ETranslations.global_wallpaper_add;
+    }
     return {
       ...data,
       firmwareVersion: data.firmwareVersion ?? '0.0.0',
@@ -61,7 +71,7 @@ async function buildDeviceMetaStatic(
         ? `${firmwareTypeLabel}v${data.firmwareVersion}`
         : '-',
       firmwareTypeLabel,
-      addWallpaperTitleId: ETranslations.global_wallpaper,
+      addWallpaperTitleId,
     };
   }
 
@@ -69,11 +79,6 @@ async function buildDeviceMetaStatic(
   if (!features) {
     return undefined;
   }
-  const vendorProfile = getVendorProfile(
-    device.vendor ?? EHardwareVendor.onekey,
-  );
-  const isThirdParty = vendorProfile.isThirdParty;
-
   const versions = isThirdParty
     ? thirdPartyDeviceUtils.getDeviceVersion({
         device,
@@ -130,21 +135,28 @@ async function buildDeviceMetaStatic(
 
 async function buildDeviceMetaState(
   walletWithDevice?: IHwQrWalletWithDevice,
-  pro2Snapshot?: IPro2DeviceManagementSnapshot,
+  stateSnapshot?: IDeviceStateSnapshot,
 ): Promise<IDeviceMetaState | undefined> {
   if (!walletWithDevice?.device) {
     return undefined;
   }
 
   const { device } = walletWithDevice;
-  if (device.deviceType === EDeviceType.Pro2) {
-    const state = resolvePro2DeviceState({
+  const vendorProfile = getVendorProfile(
+    device.vendor ?? EHardwareVendor.onekey,
+  );
+  if (!vendorProfile.isThirdParty) {
+    const state = resolveDeviceState({
       persistedState: device.deviceStateInfo,
-      snapshot: pro2Snapshot,
+      snapshot: stateSnapshot,
     });
     if (state) {
-      return buildPro2DeviceMetaState({
+      return buildDeviceMetaStateFromState({
         isVerified: Boolean(device.verifiedAtVersion),
+        pinOnAppEnabled:
+          device.deviceType === EDeviceType.Pro2
+            ? undefined
+            : Boolean(device.settings?.inputPinOnSoftware),
         state,
       });
     }
@@ -183,7 +195,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
       const data = get(walletWithDeviceStateAtom());
       const metaStatic = await buildDeviceMetaStatic(
         data,
-        get(pro2DeviceManagementSnapshotAtom()),
+        get(deviceStateSnapshotAtom()),
       );
       // Superseded by a newer device switch during the await — drop this write.
       if (walletId && get(currentWalletIdAtom()) !== walletId) return;
@@ -198,7 +210,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
       const data = get(walletWithDeviceStateAtom());
       const metaState = await buildDeviceMetaState(
         data,
-        get(pro2DeviceManagementSnapshotAtom()),
+        get(deviceStateSnapshotAtom()),
       );
       if (walletId && get(currentWalletIdAtom()) !== walletId) return;
       if (metaState) {
@@ -210,14 +222,20 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
   applyDeviceStateEvent = contextAtomMethod(
     async (get, set, event: DeviceStateEvent) => {
       const data = get(walletWithDeviceStateAtom());
-      const snapshot = getPro2SnapshotFromDeviceStateEvent({
+      const vendorProfile = getVendorProfile(
+        data?.device?.vendor ?? EHardwareVendor.onekey,
+      );
+      if (vendorProfile.isThirdParty) {
+        return false;
+      }
+      const snapshot = getDeviceStateSnapshotFromEvent({
         device: data?.device,
         event,
       });
       if (!snapshot) {
         return false;
       }
-      set(pro2DeviceManagementSnapshotAtom(), snapshot);
+      set(deviceStateSnapshotAtom(), snapshot);
       const walletId = get(currentWalletIdAtom());
       await this.updateDeviceMetaStatic.call(set, walletId);
       await this.updateDeviceMetaState.call(set, walletId);
@@ -242,7 +260,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
       if (walletId !== get(currentWalletIdAtom())) {
         set(currentWalletIdAtom(), walletId);
         set(walletWithDeviceStateAtom(), undefined);
-        set(pro2DeviceManagementSnapshotAtom(), undefined);
+        set(deviceStateSnapshotAtom(), undefined);
         set(deviceMetaStaticAtom(), emptyMetaStatic);
         set(deviceMetaStateAtom(), emptyMetaState);
         set(refreshSettledAtom(), false);
@@ -275,9 +293,14 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
           if (get(currentWalletIdAtom()) !== walletId) {
             return data;
           }
-          set(pro2DeviceManagementSnapshotAtom(), snapshot);
+          set(deviceStateSnapshotAtom(), snapshot);
         } else if (data?.device?.deviceType !== EDeviceType.Pro2) {
-          set(pro2DeviceManagementSnapshotAtom(), undefined);
+          set(
+            deviceStateSnapshotAtom(),
+            data?.device?.deviceStateInfo
+              ? { state: data.device.deviceStateInfo }
+              : undefined,
+          );
         }
         await this.updateDeviceMetaStatic.call(set, walletId);
         await this.updateDeviceMetaState.call(set, walletId);

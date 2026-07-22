@@ -24,7 +24,7 @@ import type { ImageSourcePropType } from 'react-native';
 export type IOneKeyDeviceType = IDeviceType;
 
 export type IOneKeyDeviceState = DeviceState;
-export type IOneKeyPersistedDeviceState = Omit<DeviceState, 'session' | 'raw'>;
+export type IOneKeyPersistedDeviceState = Omit<DeviceState, 'session'>;
 
 /** 仅用于 Protocol V1、第三方硬件适配和历史数据库迁移。 */
 export type IOneKeyDeviceFeatures = FeaturesCore & {
@@ -305,6 +305,8 @@ export enum EHardwareVendor {
 
 export enum EOneKeyDeviceMode {
   bootloader = 'bootloader',
+  // cspell:disable-next-line
+  romloader = 'romloader',
   notInitialized = 'notInitialized',
   // initialize = 'initialize',
   backupMode = 'backupMode',
