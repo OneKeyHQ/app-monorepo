@@ -2,9 +2,32 @@ import {
   buildPro2DeviceMetaState,
   canEditPro2DeviceWideSettings,
   getPro2DeviceMetaStaticData,
+  getPro2SnapshotFromDeviceStateEvent,
   resolvePro2DeviceState,
   shouldRefreshDeviceSettingsAfterUpdate,
 } from './pro2DeviceManagement';
+
+describe('getPro2SnapshotFromDeviceStateEvent', () => {
+  it('uses a matching state event as the newest Pro2 snapshot', () => {
+    const state = {
+      identity: { serialNo: 'PRO2_SERIAL', label: 'Renamed Pro 2' },
+    };
+
+    expect(
+      getPro2SnapshotFromDeviceStateEvent({
+        device: {
+          deviceType: 'pro2',
+          connectId: 'PRO2_USB',
+          uuid: 'PRO2_SERIAL',
+        },
+        event: {
+          connectId: 'PRO2_BLE',
+          state,
+        },
+      } as never),
+    ).toEqual({ state });
+  });
+});
 
 describe('canEditPro2DeviceWideSettings', () => {
   it('keeps device-wide settings editable while Pro 2 is locked', () => {
@@ -33,6 +56,34 @@ describe('shouldRefreshDeviceSettingsAfterUpdate', () => {
 });
 
 describe('buildPro2DeviceMetaState', () => {
+  it('preserves unknown runtime status instead of treating it as false', () => {
+    expect(
+      buildPro2DeviceMetaState({
+        isVerified: false,
+        state: {
+          status: {
+            unlocked: null,
+            initialized: null,
+            backupRequired: null,
+            unlockedAttachPin: null,
+            passphraseProtection: null,
+            attachToPinEnabled: null,
+          },
+          settings: { hapticFeedback: null },
+        } as never,
+      }),
+    ).toMatchObject({
+      unlocked: undefined,
+      initialized: undefined,
+      backupRequired: undefined,
+      unlockedByAttachToPin: undefined,
+      passphraseEnabled: undefined,
+      pinOnAppEnabled: undefined,
+      hapticFeedback: undefined,
+      isReady: true,
+    });
+  });
+
   it('uses canonical state sections for session state and preferences', () => {
     expect(
       buildPro2DeviceMetaState({
@@ -88,16 +139,16 @@ describe('buildPro2DeviceMetaState', () => {
     ).toEqual({
       isVerified: false,
       unlocked: false,
-      initialized: false,
-      backupRequired: false,
-      unlockedByAttachToPin: false,
+      initialized: undefined,
+      backupRequired: undefined,
+      unlockedByAttachToPin: undefined,
       passphraseEnabled: false,
       pinOnAppEnabled: false,
       autoLockDelayMs: undefined,
       autoShutDownDelayMs: undefined,
       language: undefined,
       brightness: undefined,
-      hapticFeedback: false,
+      hapticFeedback: undefined,
       isReady: true,
     });
   });
@@ -119,6 +170,21 @@ describe('getPro2DeviceMetaStaticData', () => {
       deviceType: 'pro2',
       firmwareType: 'universal',
       firmwareVersion: '2.1.0',
+    });
+  });
+
+  it('keeps an unavailable firmware version unknown instead of fabricating 0.0.0', () => {
+    expect(
+      getPro2DeviceMetaStaticData({
+        identity: {
+          displayName: 'My Pro 2',
+          deviceType: 'pro2',
+          firmwareType: 'universal',
+        },
+        versions: {},
+      } as never),
+    ).toMatchObject({
+      firmwareVersion: undefined,
     });
   });
 });

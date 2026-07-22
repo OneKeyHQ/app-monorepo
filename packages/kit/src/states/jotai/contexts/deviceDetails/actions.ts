@@ -24,12 +24,14 @@ import {
 import {
   buildPro2DeviceMetaState,
   getPro2DeviceMetaStaticData,
+  getPro2SnapshotFromDeviceStateEvent,
   resolvePro2DeviceState,
   shouldRefreshDeviceSettingsAfterUpdate,
 } from './pro2DeviceManagement';
 
 import type { IDeviceMetaState, IDeviceMetaStatic } from './atoms';
 import type { IPro2DeviceManagementSnapshot } from './pro2DeviceManagement';
+import type { DeviceStateEvent } from '@onekeyfe/hd-core';
 
 async function buildDeviceMetaStatic(
   walletWithDevice?: IHwQrWalletWithDevice,
@@ -55,7 +57,10 @@ async function buildDeviceMetaStatic(
     });
     return {
       ...data,
-      firmwareVersionDisplay: `${firmwareTypeLabel}v${data.firmwareVersion}`,
+      firmwareVersion: data.firmwareVersion ?? '0.0.0',
+      firmwareVersionDisplay: data.firmwareVersion
+        ? `${firmwareTypeLabel}v${data.firmwareVersion}`
+        : '-',
       firmwareTypeLabel,
       addWallpaperTitleId: ETranslations.global_wallpaper,
     };
@@ -200,6 +205,24 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
       if (metaState) {
         set(deviceMetaStateAtom(), metaState);
       }
+    },
+  );
+
+  applyDeviceStateEvent = contextAtomMethod(
+    async (get, set, event: DeviceStateEvent) => {
+      const data = get(walletWithDeviceStateAtom());
+      const snapshot = getPro2SnapshotFromDeviceStateEvent({
+        device: data?.device,
+        event,
+      });
+      if (!snapshot) {
+        return false;
+      }
+      set(pro2DeviceManagementSnapshotAtom(), snapshot);
+      const walletId = get(currentWalletIdAtom());
+      await this.updateDeviceMetaStatic.call(set, walletId);
+      await this.updateDeviceMetaState.call(set, walletId);
+      return true;
     },
   );
 
@@ -388,6 +411,7 @@ const createActions = memoFn(() => new DeviceDetailsActions());
 
 export function useDeviceDetailsActions() {
   const actions = createActions();
+  const applyDeviceStateEvent = actions.applyDeviceStateEvent.use();
   const refresh = actions.refresh.use();
   const updateDeviceMetaState = actions.updateDeviceMetaState.use();
   const getWalletWithDevice = actions.getWalletWithDevice.use();
@@ -403,6 +427,7 @@ export function useDeviceDetailsActions() {
   const updateInputPinOnSoftware = actions.updateInputPinOnSoftware.use();
 
   return {
+    applyDeviceStateEvent,
     refresh,
     getCurrentWalletId,
     updateDeviceMetaState,

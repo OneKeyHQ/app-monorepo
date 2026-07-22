@@ -153,6 +153,7 @@ describe('ServiceHardware.getDeviceState', () => {
       label: 'OneKey Pro 2',
     });
     expect(getDeviceState).toHaveBeenCalledWith('PRO2', {
+      refresh: ['identity'],
       includeRaw: true,
     });
   });
@@ -164,8 +165,39 @@ describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
 
     await service.getPro2DeviceManagementSnapshot({ connectId: 'PRO2' });
 
-    expect(getDeviceState).toHaveBeenCalledWith('PRO2_USB', {
+    expect(getDeviceState).toHaveBeenNthCalledWith(1, 'PRO2_USB', undefined);
+    expect(getDeviceState).toHaveBeenNthCalledWith(2, 'PRO2_USB', {
       refresh: ['settings'],
+    });
+  });
+
+  it('keeps the base snapshot when locked settings cannot be refreshed', async () => {
+    const { service } = createService({ unlocked: false });
+    const baseState = {
+      protocol: 'V2',
+      identity: { serialNo: 'PRO2_SERIAL', displayName: 'OneKey Pro 2' },
+      status: { mode: 'normal', unlocked: false },
+      settings: {},
+      versions: {},
+    };
+    const getDeviceState = jest
+      .fn()
+      .mockResolvedValueOnce(baseState)
+      .mockRejectedValueOnce(new Error('Device locked'));
+    service.getDeviceState = getDeviceState;
+
+    await expect(
+      service.getPro2DeviceManagementSnapshot({ connectId: 'PRO2' }),
+    ).resolves.toEqual({ state: baseState });
+    expect(getDeviceState).toHaveBeenNthCalledWith(1, {
+      connectId: 'PRO2_USB',
+      params: undefined,
+      hardwareCallContext: 'user_interaction_no_ble_dialog',
+    });
+    expect(getDeviceState).toHaveBeenNthCalledWith(2, {
+      connectId: 'PRO2_USB',
+      params: { refresh: ['settings'] },
+      hardwareCallContext: 'user_interaction_no_ble_dialog',
     });
   });
 });
@@ -268,6 +300,9 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
     const updateDeviceStateMock = jest.mocked(localDb.updateDeviceState);
     updateDeviceStateMock.mockReset();
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    const emitMock = jest.mocked(appEventBus.emit);
+    emitMock.mockClear();
     const listeners = new Map<
       string,
       (payload: unknown) => void | Promise<void>
@@ -292,14 +327,22 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     const listener = listeners.get('state');
     const first = listener?.({
       connectId: 'PRO2_USB',
-      state: { revision: 1, updatedAt: 1, identity: {} },
+      state: {
+        revision: 1,
+        updatedAt: 1,
+        identity: { serialNo: 'PRO2_SERIAL' },
+      },
       revision: 1,
       source: 'device-info',
       changedKeys: ['identity.bleName'],
     });
     const second = listener?.({
-      connectId: 'PRO2_USB',
-      state: { revision: 2, updatedAt: 2, identity: {} },
+      connectId: 'PRO2_BLE',
+      state: {
+        revision: 2,
+        updatedAt: 2,
+        identity: { serialNo: 'PRO2_SERIAL' },
+      },
       revision: 2,
       source: 'apply-settings',
       changedKeys: ['identity.label'],
@@ -310,10 +353,15 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     });
     // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
     expect(localDb.updateDeviceState).toHaveBeenCalledTimes(1);
+    expect(emitMock).not.toHaveBeenCalledWith(
+      EAppEventBusNames.HardwareDeviceStateUpdate,
+      expect.anything(),
+    );
     resolveFirst?.();
     await Promise.all([first, second]);
     // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
     expect(localDb.updateDeviceState).toHaveBeenCalledTimes(2);
+    expect(emitMock).toHaveBeenCalledTimes(2);
   });
 
   it('does not duplicate label persistence after the SDK state event', async () => {

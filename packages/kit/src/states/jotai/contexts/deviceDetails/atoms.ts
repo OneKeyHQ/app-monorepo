@@ -72,17 +72,17 @@ export const { atom: deviceMetaStaticAtom, use: useDeviceMetaStaticAtom } =
 
 export type IDeviceMetaState = {
   isVerified: boolean;
-  unlocked: boolean;
-  initialized: boolean;
-  backupRequired: boolean;
-  unlockedByAttachToPin: boolean;
-  passphraseEnabled: boolean;
-  pinOnAppEnabled: boolean;
+  unlocked: boolean | undefined;
+  initialized: boolean | undefined;
+  backupRequired: boolean | undefined;
+  unlockedByAttachToPin: boolean | undefined;
+  passphraseEnabled: boolean | undefined;
+  pinOnAppEnabled: boolean | undefined;
   autoLockDelayMs: number | undefined;
   autoShutDownDelayMs: number | undefined;
   language: string | undefined;
   brightness: number | undefined;
-  hapticFeedback: boolean;
+  hapticFeedback: boolean | undefined;
   /** false = still the loading placeholder; true = real device data resolved */
   isReady: boolean;
 };

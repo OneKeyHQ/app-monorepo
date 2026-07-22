@@ -814,11 +814,10 @@ class ServiceHardware extends ServiceBase {
       instance.on(DEVICE.STATE, async (event: DeviceStateEvent) => {
         serviceHardwareUtils.hardwareLog('device state update', event);
         const queueKey =
-          event.connectId ||
           event.state.identity.serialNo ||
           event.state.identity.deviceId ||
+          event.connectId ||
           'unknown-device';
-        appEventBus.emit(EAppEventBusNames.HardwareDeviceStateUpdate, event);
         const previous = this.deviceStateSyncQueues.get(queueKey);
         const task = (previous ?? Promise.resolve())
           .catch(() => undefined)
@@ -831,6 +830,10 @@ class ServiceHardware extends ServiceBase {
                 error,
               );
             }
+            appEventBus.emit(
+              EAppEventBusNames.HardwareDeviceStateUpdate,
+              event,
+            );
           });
         this.deviceStateSyncQueues.set(queueKey, task);
         await task;
@@ -1442,17 +1445,26 @@ class ServiceHardware extends ServiceBase {
     }
 
     const request = (async () => {
-      return {
-        state: await this.getDeviceState({
+      let state = await this.getDeviceState({
+        connectId: compatibleConnectId,
+        params: refreshInfo
+          ? { refresh: ['identity', 'versions', 'verification'] }
+          : undefined,
+        hardwareCallContext,
+      });
+      try {
+        state = await this.getDeviceState({
           connectId: compatibleConnectId,
-          params: {
-            refresh: refreshInfo
-              ? ['identity', 'settings', 'versions', 'verification']
-              : ['settings'],
-          },
+          params: { refresh: ['settings'] },
           hardwareCallContext,
-        }),
-      };
+        });
+      } catch (error) {
+        serviceHardwareUtils.hardwareLog(
+          'device settings snapshot unavailable',
+          error,
+        );
+      }
+      return { state };
     })();
     this.pro2DeviceManagementSnapshotInFlight.set(compatibleConnectId, request);
 
@@ -1754,6 +1766,7 @@ class ServiceHardware extends ServiceBase {
       () =>
         hardwareSDK?.getDeviceState(connectId, {
           ...sdkParams,
+          refresh: ['identity'],
           includeRaw: true,
         }),
       { silentMode },

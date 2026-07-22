@@ -18,6 +18,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalDeviceManagementRoutes,
@@ -75,7 +76,8 @@ function DeviceDetailsModalV2Cmp({
   initialDeviceVendor?: EHardwareVendor;
 }) {
   const intl = useIntl();
-  const { refresh } = useDeviceDetailsActions();
+  const localActions = useDeviceDetailsActions();
+  const { applyDeviceStateEvent, refresh } = localActions;
   const { handleBackPress } = useDeviceBackNavigation();
 
   const isQrWallet = accountUtils.isQrWallet({ walletId });
@@ -112,7 +114,18 @@ function DeviceDetailsModalV2Cmp({
     }
   }, [refresh, walletId, handleBackPress]);
 
-  const refreshConfirmedState = useCallback(async () => {
+  const refreshConfirmedState = useCallback(
+    async (
+      event: IAppEventBusPayload[EAppEventBusNames.HardwareDeviceStateUpdate],
+    ) => {
+      if (!walletId) return;
+      await applyDeviceStateEvent(event);
+      await refresh(walletId, { skipPro2Snapshot: true });
+    },
+    [applyDeviceStateEvent, refresh, walletId],
+  );
+
+  const refreshLegacyFeatures = useCallback(async () => {
     if (!walletId) return;
     await refresh(walletId, { skipPro2Snapshot: true });
   }, [refresh, walletId]);
@@ -134,7 +147,7 @@ function DeviceDetailsModalV2Cmp({
     );
     appEventBus.on(
       EAppEventBusNames.HardwareFeaturesUpdate,
-      refreshConfirmedState,
+      refreshLegacyFeatures,
     );
     appEventBus.on(
       EAppEventBusNames.FinishFirmwareUpdate,
@@ -148,18 +161,22 @@ function DeviceDetailsModalV2Cmp({
       );
       appEventBus.off(
         EAppEventBusNames.HardwareFeaturesUpdate,
-        refreshConfirmedState,
+        refreshLegacyFeatures,
       );
       appEventBus.off(
         EAppEventBusNames.FinishFirmwareUpdate,
         refreshAfterFirmwareUpdate,
       );
     };
-  }, [refresh, refreshConfirmedState, refreshCurrentDevice, walletId]);
+  }, [
+    refresh,
+    refreshConfirmedState,
+    refreshCurrentDevice,
+    refreshLegacyFeatures,
+    walletId,
+  ]);
 
   const actions = useFirmwareUpdateActions();
-  const localActions = useDeviceDetailsActions();
-
   const onPressCheckForUpdates = useCallback(
     async (
       firmwareType?: EFirmwareType,

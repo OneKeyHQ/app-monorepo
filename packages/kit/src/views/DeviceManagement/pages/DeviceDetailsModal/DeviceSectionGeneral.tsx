@@ -335,7 +335,7 @@ export function HapticFeedbackListItem({
         id: ETranslations.global_vibration_haptic,
       })}
       titleProps={{ size: '$bodyMdMedium', color: '$text' }}
-      value={hapticFeedback}
+      value={hapticFeedback ?? false}
       onAction={onUpdateHapticFeedback}
     >
       {({ value, disabled: actionDisabled, onChange }) => (
@@ -343,7 +343,9 @@ export function HapticFeedbackListItem({
           size="small"
           value={value}
           onChange={onChange}
-          disabled={settingsDisabled || actionDisabled}
+          disabled={
+            settingsDisabled || hapticFeedback === undefined || actionDisabled
+          }
           testID={DeviceManagementTestIDs.hapticFeedbackSwitch}
         />
       )}
