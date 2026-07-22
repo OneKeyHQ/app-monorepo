@@ -64,6 +64,7 @@ export type INetworkShortCode =
   | 'base'
   | 'ton'
   | 'bob'
+  | 'katana'
   | 'taiko'
   | 'hsk'
   | 'hyperevm'

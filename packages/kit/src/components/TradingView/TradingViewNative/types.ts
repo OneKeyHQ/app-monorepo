@@ -45,6 +45,7 @@ export interface ITradingViewNativeIntervalChangeData {
 export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
+  enableNativeChartSettings?: boolean;
   nativeControlsLayoutMode?: 'mobile' | 'desktop';
   onDataStateChange?: (state: ITradingViewNativeDataState) => void;
   onIntervalChange?: (data: ITradingViewNativeIntervalChangeData) => void;

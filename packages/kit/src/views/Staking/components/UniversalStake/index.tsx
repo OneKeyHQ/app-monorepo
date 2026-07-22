@@ -1373,6 +1373,10 @@ export function UniversalStake({
 
   const showStakeProgressRef = useRef<Record<string, boolean>>({});
 
+  // Holds the latest onApprove so the USDT reset flow (defined before onApprove)
+  // can re-enter the approve step once the allowance has been reset to 0.
+  const onApproveRef = useRef<(() => Promise<void>) | undefined>(undefined);
+
   const resetUSDTApproveValue = useCallback(async () => {
     const account = await backgroundApiProxy.serviceAccount.getAccount({
       accountId: approveTarget.accountId,
@@ -1408,9 +1412,23 @@ export function UniversalStake({
               const allowanceInfo = await fetchAllowanceResponse();
 
               if (allowanceInfo) {
-                // If allowance is now 0, stop polling
+                // Allowance is now 0: the USDT reset landed on-chain. Re-enter
+                // the approve step to continue the flow (approve the new amount
+                // then submit the stake). onApprove re-reads the allowance, sees
+                // 0, and skips the reset branch — no loop. Without this the flow
+                // dead-ended right after the reset tx, so the stake never fired
+                // (OK-58027). Keep approving=true; onApprove owns the state from
+                // here — but observe rejections: onApprove awaits getAccount /
+                // navigationToTxConfirm outside any try/catch, and a swallowed
+                // reject would leave the confirm button stuck loading+disabled.
                 if (BigNumber(allowanceInfo.allowanceParsed).isZero()) {
-                  setApproving(false);
+                  void onApproveRef.current?.().catch((e) => {
+                    console.error(
+                      'Re-enter approve after USDT reset failed:',
+                      e,
+                    );
+                    setApproving(false);
+                  });
                   return;
                 }
               }
@@ -1683,6 +1701,12 @@ export function UniversalStake({
     fetchEstimateFeeResp,
     trackAllowance,
   ]);
+
+  // Keep the ref pointing at the latest onApprove so the earlier-defined USDT
+  // reset flow can re-enter it after the allowance is zeroed.
+  useEffect(() => {
+    onApproveRef.current = onApprove;
+  }, [onApprove]);
 
   const {
     isPendleLikeLayout,

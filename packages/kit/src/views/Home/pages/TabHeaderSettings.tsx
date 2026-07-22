@@ -124,7 +124,7 @@ function TxHistorySettingsContent({
       return;
     }
 
-    navigation.pushModal(EModalRoutes.PrimeModal, {
+    navigation.pushFullModal(EModalRoutes.PrimeModal, {
       screen: EPrimePages.PrimeDashboard,
       params: {
         fromFeature: EPrimeFeatures.HistoryExport,
