@@ -606,6 +606,53 @@ function snapHlPriceToGrid(
   return snappedPrice.gt(0) ? snappedPrice : null;
 }
 
+function getNextHlPrice(
+  price: BigNumber.Value,
+  direction: 'up' | 'down',
+  szDecimals: number,
+  type: 'perp' | 'spot' = 'perp',
+): BigNumber | null {
+  const priceBN = price instanceof BigNumber ? price : new BigNumber(price);
+  if (
+    !priceBN.isFinite() ||
+    priceBN.lte(0) ||
+    !Number.isInteger(szDecimals) ||
+    szDecimals < 0
+  ) {
+    return null;
+  }
+
+  const maxDecimals = Math.max(
+    (type === 'perp' ? MAX_DECIMALS_PERP : MAX_DECIMALS_SPOT) - szDecimals,
+    0,
+  );
+  const minimumStep = new BigNumber(10).pow(-maxDecimals);
+  const probe =
+    direction === 'up' ? priceBN.plus(minimumStep) : priceBN.minus(minimumStep);
+  if (probe.lte(0)) {
+    return null;
+  }
+
+  const tick = getHlPriceTick(probe, szDecimals, type);
+  if (!tick) {
+    return null;
+  }
+
+  const roundingMode =
+    direction === 'up' ? BigNumber.ROUND_CEIL : BigNumber.ROUND_FLOOR;
+  let nextPrice = priceBN
+    .dividedBy(tick)
+    .integerValue(roundingMode)
+    .multipliedBy(tick);
+  if (direction === 'up' && nextPrice.lte(priceBN)) {
+    nextPrice = nextPrice.plus(tick);
+  } else if (direction === 'down' && nextPrice.gte(priceBN)) {
+    nextPrice = nextPrice.minus(tick);
+  }
+
+  return nextPrice.gt(0) ? nextPrice : null;
+}
+
 function resolveBboOrderPrice({
   bid,
   ask,
@@ -635,21 +682,11 @@ function resolveBboOrderPrice({
   }
 
   for (let index = 0; index < offsetTicks; index += 1) {
-    const tick = getHlPriceTick(price, szDecimals, 'perp');
-    if (!tick) {
+    const nextPrice = getNextHlPrice(price, direction, szDecimals, 'perp');
+    if (!nextPrice) {
       return null;
     }
-    const nextPrice = direction === 'up' ? price.plus(tick) : price.minus(tick);
-    const snappedPrice = snapHlPriceToGrid(
-      nextPrice,
-      direction,
-      szDecimals,
-      'perp',
-    );
-    if (!snappedPrice) {
-      return null;
-    }
-    price = snappedPrice;
+    price = nextPrice;
   }
 
   return price;

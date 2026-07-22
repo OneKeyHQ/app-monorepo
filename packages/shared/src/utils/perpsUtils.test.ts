@@ -610,6 +610,33 @@ describe('HyperLiquid BBO price ticks', () => {
     ).toBe(expected);
   });
 
+  test.each([
+    ['1', '0.99995'],
+    ['10', '9.9995'],
+    ['100', '99.995'],
+  ])('uses the five nearest valid downward ticks below %s', (bid, expected) => {
+    expect(
+      resolveBboOrderPrice({
+        bid,
+        ask: bid,
+        side: 'long',
+        type: 'queue',
+        offsetTicks: 5,
+        szDecimals: 0,
+      })?.toFixed(),
+    ).toBe(expected);
+    expect(
+      resolveBboOrderPrice({
+        bid,
+        ask: bid,
+        side: 'short',
+        type: 'counterparty',
+        offsetTicks: 5,
+        szDecimals: 0,
+      })?.toFixed(),
+    ).toBe(expected);
+  });
+
   test('snaps upward and downward without moving toward the market', () => {
     expect(snapHlPriceToGrid('1.23456', 'up', 2)?.toFixed()).toBe('1.2346');
     expect(snapHlPriceToGrid('1.23456', 'down', 2)?.toFixed()).toBe('1.2345');
