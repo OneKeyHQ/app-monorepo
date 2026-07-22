@@ -168,6 +168,28 @@ const delegationTarget = {
   allowance: '10',
 };
 
+const tokenApproveTarget = {
+  accountId: 'account-id',
+  networkId: 'evm--1',
+  spenderAddress: '0xMarket',
+  token: {
+    address: '0xToken',
+    decimals: 18,
+    isNative: false,
+    name: 'Token',
+    networkId: 'evm--1',
+    symbol: 'TOKEN',
+  },
+};
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return { promise, resolve };
+}
+
 describe('useBorrowApproval', () => {
   beforeEach(() => {
     signatureConfirmMock.navigationToTxConfirm.mockReset();
@@ -272,6 +294,138 @@ describe('useBorrowApproval', () => {
     expect(onApprovedSubmit).not.toHaveBeenCalled();
   });
 
+  it('does not report a stale allowance check as ready', async () => {
+    const allowanceDeferred = createDeferred<{ allowanceParsed: string }>();
+    allowanceMock.fetchAllowanceResponse.mockReturnValueOnce(
+      allowanceDeferred.promise,
+    );
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    const { result, rerender } = renderHook(
+      ({ amountValue }: { amountValue: string }) =>
+        useBorrowApproval({
+          action: 'repay',
+          amountValue,
+          approveType: EApproveType.Legacy,
+          approveTarget: tokenApproveTarget,
+          onApprovedSubmit,
+        }),
+      { initialProps: { amountValue: '5' } },
+    );
+
+    const readyPromise = result.current.ensureReadyToSubmit();
+    rerender({ amountValue: '6' });
+    await act(async () => {
+      allowanceDeferred.resolve({ allowanceParsed: '100' });
+      await allowanceDeferred.promise;
+    });
+
+    await expect(readyPromise).resolves.toBe(false);
+    expect(signatureConfirmMock.navigationToTxConfirm).not.toHaveBeenCalled();
+    expect(onApprovedSubmit).not.toHaveBeenCalled();
+  });
+
+  it('does not call a replaced submit callback after allowance polling', async () => {
+    const allowanceDeferred = createDeferred<{ allowanceParsed: string }>();
+    allowanceMock.fetchAllowanceResponse
+      .mockResolvedValueOnce({ allowanceParsed: '0' })
+      .mockReturnValueOnce(allowanceDeferred.promise);
+    signatureConfirmMock.navigationToTxConfirm.mockImplementation(
+      async () => undefined,
+    );
+    const previousSubmit = jest.fn().mockResolvedValue(undefined);
+    const currentSubmit = jest.fn().mockResolvedValue(undefined);
+    const { result, rerender } = renderHook(
+      ({ onApprovedSubmit }: { onApprovedSubmit: () => Promise<void> }) =>
+        useBorrowApproval({
+          action: 'repay',
+          amountValue: '5',
+          approveType: EApproveType.Legacy,
+          approveTarget: tokenApproveTarget,
+          onApprovedSubmit,
+        }),
+      { initialProps: { onApprovedSubmit: previousSubmit } },
+    );
+
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    const confirmParams = signatureConfirmMock.navigationToTxConfirm.mock
+      .calls[0][0] as {
+      onSuccess: (
+        data: {
+          decodedTx: { txid: string };
+          signedTx: { txid: string };
+        }[],
+      ) => void;
+    };
+    act(() => {
+      confirmParams.onSuccess([
+        { decodedTx: { txid: '0xApprove' }, signedTx: { txid: '' } },
+      ]);
+    });
+    await waitFor(() =>
+      expect(allowanceMock.fetchAllowanceResponse).toHaveBeenCalledTimes(2),
+    );
+
+    rerender({ onApprovedSubmit: currentSubmit });
+    await act(async () => {
+      allowanceDeferred.resolve({ allowanceParsed: '100' });
+      await allowanceDeferred.promise;
+    });
+
+    expect(previousSubmit).not.toHaveBeenCalled();
+    expect(currentSubmit).not.toHaveBeenCalled();
+    expect(result.current.approving).toBe(false);
+  });
+
+  it('ignores a stale USDT reset dialog confirmation', async () => {
+    allowanceMock.fetchAllowanceResponse.mockResolvedValue({
+      allowanceParsed: '1',
+    });
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    const { result, rerender } = renderHook(
+      ({ accountId }: { accountId: string }) =>
+        useBorrowApproval({
+          action: 'repay',
+          amountValue: '5',
+          repayAll: true,
+          approveType: EApproveType.Legacy,
+          approveTarget: {
+            ...tokenApproveTarget,
+            accountId,
+            token: {
+              ...tokenApproveTarget.token,
+              address: '0xUSDT',
+              decimals: 6,
+              name: 'Tether USD',
+              symbol: 'USDT',
+            },
+          },
+          onApprovedSubmit,
+        }),
+      { initialProps: { accountId: 'account-id' } },
+    );
+
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    const dialog = (
+      Dialog.show as unknown as {
+        mock: { calls: [{ onConfirm: () => void }][] };
+      }
+    ).mock.calls[0][0];
+
+    rerender({ accountId: 'next-account-id' });
+    act(() => {
+      dialog.onConfirm();
+    });
+
+    expect(backgroundMock.serviceAccount.getAccount).not.toHaveBeenCalled();
+    expect(signatureConfirmMock.navigationToTxConfirm).not.toHaveBeenCalled();
+    expect(onApprovedSubmit).not.toHaveBeenCalled();
+    expect(result.current.approving).toBe(false);
+  });
+
   it('persists the E-Mode pending tag on a USDT reset approval', async () => {
     const stakingInfo = {
       label: EEarnLabels.Borrow,
@@ -281,6 +435,7 @@ describe('useBorrowApproval', () => {
     allowanceMock.fetchAllowanceResponse.mockResolvedValue({
       allowanceParsed: '1',
     });
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
     const { result } = renderHook(() =>
       useBorrowApproval({
         action: 'repay',
@@ -301,7 +456,7 @@ describe('useBorrowApproval', () => {
           },
         },
         stakingInfo,
-        onApprovedSubmit: jest.fn().mockResolvedValue(undefined),
+        onApprovedSubmit,
       }),
     );
 

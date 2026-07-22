@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
@@ -38,6 +45,11 @@ type IBorrowApprovalEncodedTx = NonNullable<
     ReturnType<typeof useSignatureConfirm>['navigationToTxConfirm']
   >[0]['encodedTx']
 >;
+
+type IBorrowApprovalRequest = {
+  scopeKey: string;
+  submit: () => Promise<void>;
+};
 
 function getBorrowApprovalSubmitErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
@@ -114,6 +126,42 @@ export function useBorrowApproval({
   const [approving, setApproving] = useState(false);
   const mountedRef = useRef(false);
   const allowanceAbortRef = useRef<AbortController | undefined>(undefined);
+  const approvalScopeKey = JSON.stringify([
+    action,
+    amountValue,
+    repayAll,
+    approveType,
+    approveTarget?.accountId,
+    approveTarget?.networkId,
+    approveTarget?.spenderAddress,
+    approveTarget?.token?.networkId,
+    approveTarget?.token?.address,
+    approveTarget?.token?.decimals,
+    approveTarget?.token?.isNative,
+    borrowDelegationApproveTarget?.accountId,
+    borrowDelegationApproveTarget?.networkId,
+    borrowDelegationApproveTarget?.provider,
+    borrowDelegationApproveTarget?.marketAddress,
+    borrowDelegationApproveTarget?.reserveAddress,
+    stakingInfo?.protocol,
+    stakingInfo?.label,
+    stakingInfo?.tags,
+    stakingInfo?.orderId,
+    stakingInfo?.send?.amount,
+    stakingInfo?.send?.token.networkId,
+    stakingInfo?.send?.token.address,
+    stakingInfo?.send?.token.decimals,
+    stakingInfo?.send?.token.isNative,
+    stakingInfo?.receive?.amount,
+    stakingInfo?.receive?.token.networkId,
+    stakingInfo?.receive?.token.address,
+    stakingInfo?.receive?.token.decimals,
+    stakingInfo?.receive?.token.isNative,
+  ]);
+  const latestApprovalRequestRef = useRef<IBorrowApprovalRequest>({
+    scopeKey: approvalScopeKey,
+    submit: onApprovedSubmit,
+  });
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId:
       approveTarget?.accountId ??
@@ -144,6 +192,53 @@ export function useBorrowApproval({
     allowanceAbortRef.current?.abort();
     allowanceAbortRef.current = undefined;
   }, []);
+
+  useLayoutEffect(() => {
+    const isSameRequest =
+      latestApprovalRequestRef.current.scopeKey === approvalScopeKey &&
+      latestApprovalRequestRef.current.submit === onApprovedSubmit;
+    latestApprovalRequestRef.current = {
+      scopeKey: approvalScopeKey,
+      submit: onApprovedSubmit,
+    };
+    if (!isSameRequest) {
+      stopAllowancePolling();
+      setApprovingSafe(false);
+    }
+  }, [
+    approvalScopeKey,
+    onApprovedSubmit,
+    setApprovingSafe,
+    stopAllowancePolling,
+  ]);
+
+  const getApprovalRequest = useCallback(
+    (): IBorrowApprovalRequest => ({
+      scopeKey: approvalScopeKey,
+      submit: onApprovedSubmit,
+    }),
+    [approvalScopeKey, onApprovedSubmit],
+  );
+
+  const isCurrentApprovalRequest = useCallback(
+    (request: IBorrowApprovalRequest) =>
+      mountedRef.current &&
+      latestApprovalRequestRef.current.scopeKey === request.scopeKey &&
+      latestApprovalRequestRef.current.submit === request.submit,
+    [],
+  );
+
+  const finishApprovalRequest = useCallback(
+    (request: IBorrowApprovalRequest) => {
+      if (!isCurrentApprovalRequest(request)) {
+        return false;
+      }
+      stopAllowancePolling();
+      setApprovingSafe(false);
+      return true;
+    },
+    [isCurrentApprovalRequest, setApprovingSafe, stopAllowancePolling],
+  );
 
   const startAllowancePolling = useCallback(() => {
     stopAllowancePolling();
@@ -299,16 +394,21 @@ export function useBorrowApproval({
 
   const pollAllowanceThen = useCallback(
     ({
+      request,
       enabled,
       isReady,
       fetchAllowance,
       onReady,
     }: {
+      request: IBorrowApprovalRequest;
       enabled: boolean;
       isReady: (allowance: string) => boolean;
       fetchAllowance: () => Promise<string>;
       onReady?: (signal: AbortSignal) => Promise<void>;
     }) => {
+      if (!isCurrentApprovalRequest(request)) {
+        return;
+      }
       const abortController = startAllowancePolling();
       void (async () => {
         try {
@@ -318,122 +418,156 @@ export function useBorrowApproval({
             fetchAllowance,
             signal: abortController.signal,
           });
-          if (allowanceReady && !abortController.signal.aborted) {
+          if (
+            allowanceReady &&
+            !abortController.signal.aborted &&
+            isCurrentApprovalRequest(request)
+          ) {
             await onReady?.(abortController.signal);
           }
         } finally {
           if (!abortController.signal.aborted) {
-            setApprovingSafe(false);
+            finishApprovalRequest(request);
           }
         }
       })();
     },
-    [setApprovingSafe, startAllowancePolling, waitForAllowance],
+    [
+      finishApprovalRequest,
+      isCurrentApprovalRequest,
+      startAllowancePolling,
+      waitForAllowance,
+    ],
   );
 
-  const resetApproveToZero = useCallback(async () => {
-    if (!approveTarget?.token) {
-      setApprovingSafe(false);
-      return;
-    }
-
-    try {
-      const account = await backgroundApiProxy.serviceAccount.getAccount({
-        accountId: approveTarget.accountId,
-        networkId: approveTarget.networkId,
-      });
-
-      await navigationToTxConfirm({
-        approvesInfo: [
-          buildBorrowApproveInfo({
-            owner: account.address,
-            spenderAddress: approveTarget.spenderAddress,
-            token: approveTarget.token,
-            amount: '0',
-            isMax: false,
-          }),
-        ],
-        stakingInfo,
-        onSuccess(data) {
-          const txid =
-            data?.[0]?.decodedTx?.txid || data?.[0]?.signedTx?.txid || '';
-          if (txid) {
-            trackAllowance(txid);
-          }
-
-          pollAllowanceThen({
-            enabled: approvalEnabled,
-            fetchAllowance: fetchTokenAllowanceParsed,
-            isReady: isBorrowAllowanceZero,
-          });
-        },
-        onFail() {
-          stopAllowancePolling();
-          setApprovingSafe(false);
-        },
-        onCancel() {
-          stopAllowancePolling();
-          setApprovingSafe(false);
-        },
-      });
-    } catch (error) {
-      stopAllowancePolling();
-      setApprovingSafe(false);
-      showApprovalError({ error, scope: 'resetApproveToZero' });
-    }
-  }, [
-    approveTarget,
-    approvalEnabled,
-    fetchTokenAllowanceParsed,
-    navigationToTxConfirm,
-    pollAllowanceThen,
-    setApprovingSafe,
-    showApprovalError,
-    stakingInfo,
-    stopAllowancePolling,
-    trackAllowance,
-  ]);
-
-  const showResetUSDTApproveValueDialog = useCallback(() => {
-    Dialog.show({
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.global_continue,
-      }),
-      showExitButton: false,
-      dismissOnOverlayPress: false,
-      onCancel: () => {
-        setApprovingSafe(false);
-      },
-      onConfirm: () => {
-        void resetApproveToZero();
-      },
-      title: intl.formatMessage({
-        id: ETranslations.swap_page_provider_approve_usdt_dialog_title,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.swap_page_provider_approve_usdt_dialog_content,
-      }),
-      icon: 'ErrorOutline',
-    });
-  }, [intl, resetApproveToZero, setApprovingSafe]);
-
-  const submitApprovedAction = useCallback(
-    async (signal?: AbortSignal) => {
-      if (signal?.aborted) {
+  const resetApproveToZero = useCallback(
+    async (request: IBorrowApprovalRequest) => {
+      if (!isCurrentApprovalRequest(request)) {
+        return;
+      }
+      if (!approveTarget?.token) {
+        finishApprovalRequest(request);
         return;
       }
 
       try {
-        await onApprovedSubmit();
+        const account = await backgroundApiProxy.serviceAccount.getAccount({
+          accountId: approveTarget.accountId,
+          networkId: approveTarget.networkId,
+        });
+        if (!isCurrentApprovalRequest(request)) {
+          return;
+        }
+
+        await navigationToTxConfirm({
+          approvesInfo: [
+            buildBorrowApproveInfo({
+              owner: account.address,
+              spenderAddress: approveTarget.spenderAddress,
+              token: approveTarget.token,
+              amount: '0',
+              isMax: false,
+            }),
+          ],
+          stakingInfo,
+          onSuccess(data) {
+            if (!isCurrentApprovalRequest(request)) {
+              return;
+            }
+            const txid =
+              data?.[0]?.decodedTx?.txid || data?.[0]?.signedTx?.txid || '';
+            if (txid) {
+              trackAllowance(txid);
+            }
+
+            pollAllowanceThen({
+              request,
+              enabled: approvalEnabled,
+              fetchAllowance: fetchTokenAllowanceParsed,
+              isReady: isBorrowAllowanceZero,
+            });
+          },
+          onFail() {
+            finishApprovalRequest(request);
+          },
+          onCancel() {
+            finishApprovalRequest(request);
+          },
+        });
       } catch (error) {
-        showApprovalError({ error, scope: 'onApprovedSubmit' });
+        if (finishApprovalRequest(request)) {
+          showApprovalError({ error, scope: 'resetApproveToZero' });
+        }
       }
     },
-    [onApprovedSubmit, showApprovalError],
+    [
+      approveTarget,
+      approvalEnabled,
+      fetchTokenAllowanceParsed,
+      finishApprovalRequest,
+      isCurrentApprovalRequest,
+      navigationToTxConfirm,
+      pollAllowanceThen,
+      showApprovalError,
+      stakingInfo,
+      trackAllowance,
+    ],
+  );
+
+  const showResetUSDTApproveValueDialog = useCallback(
+    (request: IBorrowApprovalRequest) => {
+      if (!isCurrentApprovalRequest(request)) {
+        return;
+      }
+      Dialog.show({
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_continue,
+        }),
+        showExitButton: false,
+        dismissOnOverlayPress: false,
+        onCancel: () => {
+          finishApprovalRequest(request);
+        },
+        onConfirm: () => {
+          if (isCurrentApprovalRequest(request)) {
+            void resetApproveToZero(request);
+          }
+        },
+        title: intl.formatMessage({
+          id: ETranslations.swap_page_provider_approve_usdt_dialog_title,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.swap_page_provider_approve_usdt_dialog_content,
+        }),
+        icon: 'ErrorOutline',
+      });
+    },
+    [finishApprovalRequest, intl, isCurrentApprovalRequest, resetApproveToZero],
+  );
+
+  const submitApprovedAction = useCallback(
+    async (request: IBorrowApprovalRequest, signal?: AbortSignal) => {
+      if (signal?.aborted || !isCurrentApprovalRequest(request)) {
+        return;
+      }
+
+      try {
+        await request.submit();
+      } catch (error) {
+        if (isCurrentApprovalRequest(request)) {
+          showApprovalError({ error, scope: 'onApprovedSubmit' });
+        }
+      }
+    },
+    [isCurrentApprovalRequest, showApprovalError],
   );
 
   const onApprove = useCallback(async () => {
     if (delegationApprovalEnabled && borrowDelegationApproveTarget) {
+      const request = getApprovalRequest();
+      if (!isCurrentApprovalRequest(request)) {
+        return;
+      }
       Keyboard.dismiss();
       stopAllowancePolling();
       setApprovingSafe(true);
@@ -452,6 +586,9 @@ export function useBorrowApproval({
             throw error;
           }
         }
+        if (!isCurrentApprovalRequest(request)) {
+          return;
+        }
 
         const approvalActionStep = resolveBorrowApprovalActionStep({
           enabled: delegationApprovalEnabled,
@@ -462,15 +599,15 @@ export function useBorrowApproval({
 
         if (approvalActionStep === 'submit') {
           try {
-            await submitApprovedAction();
+            await submitApprovedAction(request);
           } finally {
-            setApprovingSafe(false);
+            finishApprovalRequest(request);
           }
           return;
         }
 
         if (approvalActionStep !== 'approve') {
-          setApprovingSafe(false);
+          finishApprovalRequest(request);
           return;
         }
 
@@ -484,12 +621,19 @@ export function useBorrowApproval({
               reserveAddress: borrowDelegationApproveTarget.reserveAddress,
             },
           );
+        if (!isCurrentApprovalRequest(request)) {
+          return;
+        }
 
         await navigationToTxConfirm({
           encodedTx: parseBorrowApprovalEncodedTx(resp.tx),
           stakingInfo,
           onSuccess() {
+            if (!isCurrentApprovalRequest(request)) {
+              return;
+            }
             pollAllowanceThen({
+              request,
               enabled: delegationApprovalEnabled,
               fetchAllowance: fetchBorrowDelegationAllowance,
               isReady: (nextAllowance) =>
@@ -497,27 +641,29 @@ export function useBorrowApproval({
                   amount: amountValue,
                   allowance: nextAllowance,
                 }),
-              onReady: submitApprovedAction,
+              onReady: (signal) => submitApprovedAction(request, signal),
             });
           },
           onFail() {
-            stopAllowancePolling();
-            setApprovingSafe(false);
+            finishApprovalRequest(request);
           },
           onCancel() {
-            stopAllowancePolling();
-            setApprovingSafe(false);
+            finishApprovalRequest(request);
           },
         });
       } catch (error) {
-        stopAllowancePolling();
-        setApprovingSafe(false);
-        showApprovalError({ error, scope: 'borrowDelegationApprove' });
+        if (finishApprovalRequest(request)) {
+          showApprovalError({ error, scope: 'borrowDelegationApprove' });
+        }
       }
       return;
     }
 
     if (!approvalEnabled || !approveTarget?.token) {
+      return;
+    }
+    const request = getApprovalRequest();
+    if (!isCurrentApprovalRequest(request)) {
       return;
     }
 
@@ -540,6 +686,9 @@ export function useBorrowApproval({
           throw error;
         }
       }
+      if (!isCurrentApprovalRequest(request)) {
+        return;
+      }
 
       const approvalActionStep = resolveBorrowApprovalActionStep({
         enabled: approvalEnabled,
@@ -551,20 +700,20 @@ export function useBorrowApproval({
 
       if (approvalActionStep === 'submit') {
         try {
-          await submitApprovedAction();
+          await submitApprovedAction(request);
         } finally {
-          setApprovingSafe(false);
+          finishApprovalRequest(request);
         }
         return;
       }
 
       if (approvalActionStep === 'resetUSDT') {
-        showResetUSDTApproveValueDialog();
+        showResetUSDTApproveValueDialog(request);
         return;
       }
 
       if (approvalActionStep !== 'approve') {
-        setApprovingSafe(false);
+        finishApprovalRequest(request);
         return;
       }
 
@@ -572,6 +721,9 @@ export function useBorrowApproval({
         accountId: approveTarget.accountId,
         networkId: approveTarget.networkId,
       });
+      if (!isCurrentApprovalRequest(request)) {
+        return;
+      }
 
       await navigationToTxConfirm({
         approvesInfo: [
@@ -585,6 +737,9 @@ export function useBorrowApproval({
         ],
         stakingInfo,
         onSuccess(data) {
+          if (!isCurrentApprovalRequest(request)) {
+            return;
+          }
           const txid =
             data?.[0]?.decodedTx?.txid || data?.[0]?.signedTx?.txid || '';
           if (txid) {
@@ -592,6 +747,7 @@ export function useBorrowApproval({
           }
 
           pollAllowanceThen({
+            request,
             enabled: approvalEnabled,
             fetchAllowance: fetchTokenAllowanceParsed,
             isReady: (nextAllowance) =>
@@ -600,22 +756,20 @@ export function useBorrowApproval({
                 allowance: nextAllowance,
                 requiresMaxApproval: action === 'repay' && repayAll,
               }),
-            onReady: submitApprovedAction,
+            onReady: (signal) => submitApprovedAction(request, signal),
           });
         },
         onFail() {
-          stopAllowancePolling();
-          setApprovingSafe(false);
+          finishApprovalRequest(request);
         },
         onCancel() {
-          stopAllowancePolling();
-          setApprovingSafe(false);
+          finishApprovalRequest(request);
         },
       });
     } catch (error) {
-      stopAllowancePolling();
-      setApprovingSafe(false);
-      showApprovalError({ error, scope: 'onApprove' });
+      if (finishApprovalRequest(request)) {
+        showApprovalError({ error, scope: 'onApprove' });
+      }
     }
   }, [
     allowance,
@@ -627,6 +781,9 @@ export function useBorrowApproval({
     delegationApprovalEnabled,
     fetchBorrowDelegationAllowance,
     fetchTokenAllowanceParsed,
+    finishApprovalRequest,
+    getApprovalRequest,
+    isCurrentApprovalRequest,
     navigationToTxConfirm,
     pollAllowanceThen,
     repayAll,
@@ -640,9 +797,16 @@ export function useBorrowApproval({
   ]);
 
   const ensureReadyToSubmit = useCallback(async () => {
+    const request = getApprovalRequest();
+    if (!isCurrentApprovalRequest(request)) {
+      return false;
+    }
     try {
       if (approvalEnabled) {
         const approveAllowance = await fetchTokenAllowanceParsed();
+        if (!isCurrentApprovalRequest(request)) {
+          return false;
+        }
         const approvalActionStep = resolveBorrowApprovalActionStep({
           enabled: approvalEnabled,
           amount: amountValue,
@@ -654,15 +818,21 @@ export function useBorrowApproval({
         });
 
         if (approvalActionStep === 'submit') {
-          return true;
+          return isCurrentApprovalRequest(request);
         }
 
+        if (!isCurrentApprovalRequest(request)) {
+          return false;
+        }
         await onApprove();
         return false;
       }
 
       if (delegationApprovalEnabled && borrowDelegationApproveTarget) {
         const approveAllowance = await fetchBorrowDelegationAllowance();
+        if (!isCurrentApprovalRequest(request)) {
+          return false;
+        }
         const approvalActionStep = resolveBorrowApprovalActionStep({
           enabled: delegationApprovalEnabled,
           amount: amountValue,
@@ -671,16 +841,21 @@ export function useBorrowApproval({
         });
 
         if (approvalActionStep === 'submit') {
-          return true;
+          return isCurrentApprovalRequest(request);
         }
 
+        if (!isCurrentApprovalRequest(request)) {
+          return false;
+        }
         await onApprove();
         return false;
       }
 
-      return true;
+      return isCurrentApprovalRequest(request);
     } catch (error) {
-      showApprovalError({ error, scope: 'ensureReadyToSubmit' });
+      if (isCurrentApprovalRequest(request)) {
+        showApprovalError({ error, scope: 'ensureReadyToSubmit' });
+      }
       return false;
     }
   }, [
@@ -692,6 +867,8 @@ export function useBorrowApproval({
     delegationApprovalEnabled,
     fetchBorrowDelegationAllowance,
     fetchTokenAllowanceParsed,
+    getApprovalRequest,
+    isCurrentApprovalRequest,
     onApprove,
     repayAll,
     showApprovalError,

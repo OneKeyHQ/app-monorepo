@@ -108,7 +108,7 @@ export function getLastSignedTxid(
     return undefined;
   }
   for (let i = data.length - 1; i >= 0; i -= 1) {
-    const txid = data[i]?.signedTx?.txid ?? data[i]?.decodedTx?.txid;
+    const txid = data[i]?.signedTx?.txid || data[i]?.decodedTx?.txid;
     if (txid) {
       return txid;
     }

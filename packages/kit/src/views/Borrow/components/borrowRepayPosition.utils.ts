@@ -19,7 +19,7 @@ export function hasPositiveDebtBalance(debtBalance?: string) {
 }
 
 export function getBorrowBalanceAmount(balance?: Partial<IBorrowBalance>) {
-  return balance?.amount ?? balance?.title?.text ?? '0';
+  return balance?.number ?? balance?.amount ?? balance?.title?.text ?? '0';
 }
 
 export function hasPositiveBorrowBalance(balance?: Partial<IBorrowBalance>) {

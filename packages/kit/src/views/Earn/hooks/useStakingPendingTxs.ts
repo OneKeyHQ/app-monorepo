@@ -13,8 +13,6 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { useEarnAtom } from '../../../states/jotai/contexts/earn';
 import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
 
-import { createPendingCompletionRefreshOwner } from './stakingPendingCompletion';
-
 export type IStakePendingTx = IAccountHistoryTx &
   Required<Pick<IAccountHistoryTx, 'stakingInfo'>>;
 
@@ -170,9 +168,7 @@ export const useStakingPendingTxsByInfo = ({
   const mountedRef = useRef(true);
   const [isCompletionRevalidating, setIsCompletionRevalidating] =
     useState(false);
-  const [completionRefreshOwner] = useState(
-    createPendingCompletionRefreshOwner,
-  );
+  const completionRefreshGenerationRef = useRef(0);
 
   // Stabilize onRefresh callback reference
   const onRefreshRef = useRef(onRefresh);
@@ -603,16 +599,17 @@ export const useStakingPendingTxsByInfo = ({
     if (!isPending) {
       return;
     }
-    completionRefreshOwner.invalidate();
+    completionRefreshGenerationRef.current += 1;
     if (refreshTimeoutRef.current) {
       clearTimeout(refreshTimeoutRef.current);
       refreshTimeoutRef.current = null;
     }
-  }, [completionRefreshOwner, isPending]);
+  }, [isPending]);
 
   useEffect(() => {
     if (!isPending && prevIsPending) {
-      const attempt = completionRefreshOwner.begin();
+      completionRefreshGenerationRef.current += 1;
+      const attempt = completionRefreshGenerationRef.current;
       let ownedTimeout: ReturnType<typeof setTimeout> | null = null;
       setIsCompletionRevalidating(true);
       const refreshAfterPending = async () => {
@@ -621,7 +618,10 @@ export const useStakingPendingTxsByInfo = ({
         } catch {
           // Best-effort refresh; pending history remains the durable guard.
         } finally {
-          if (mountedRef.current && completionRefreshOwner.isCurrent(attempt)) {
+          if (
+            mountedRef.current &&
+            attempt === completionRefreshGenerationRef.current
+          ) {
             setIsCompletionRevalidating(false);
           }
           if (refreshTimeoutRef.current === ownedTimeout) {
@@ -638,19 +638,19 @@ export const useStakingPendingTxsByInfo = ({
         void refreshAfterPending();
       }
     }
-  }, [completionRefreshOwner, isPending, prevIsPending, onRefreshDelayMs]);
+  }, [isPending, prevIsPending, onRefreshDelayMs]);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      completionRefreshOwner.invalidate();
+      completionRefreshGenerationRef.current += 1;
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current);
         refreshTimeoutRef.current = null;
       }
     };
-  }, [completionRefreshOwner]);
+  }, []);
 
   // Refresh both account history and pending transactions
   const refreshPendingWithHistory = useCallback(async () => {

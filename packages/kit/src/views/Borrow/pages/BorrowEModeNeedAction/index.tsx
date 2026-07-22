@@ -537,6 +537,8 @@ function BorrowEModeNeedActionView() {
   if (failedKey && failedKey === activeStep?.key) {
     confirmText = intl.formatMessage({ id: ETranslations.global_retry });
   }
+  const canRetryCheck =
+    isFocused && !focusRevalidating && !isChecking && !check;
 
   return (
     <Page scrollEnabled>
@@ -627,19 +629,24 @@ function BorrowEModeNeedActionView() {
         ) : null}
       </Page.Body>
       <Page.Footer
-        onConfirmText={confirmText}
+        onConfirmText={
+          canRetryCheck
+            ? intl.formatMessage({ id: ETranslations.global_retry })
+            : confirmText
+        }
         confirmButtonProps={{
           testID: BorrowTestIDs.eModeNeedActionConfirmBtn,
-          loading: isBusy || pendingGuardActive,
+          loading: isBusy || pendingGuardActive || isChecking,
           disabled:
             isBusy ||
             pendingGuardActive ||
-            !check ||
-            checkingActiveBalance ||
-            !!activeUnderfundedRepay ||
-            (activeStep?.kind === 'switch' && !check.canSwitch),
+            (!canRetryCheck &&
+              (!check ||
+                checkingActiveBalance ||
+                !!activeUnderfundedRepay ||
+                (activeStep?.kind === 'switch' && !check.canSwitch))),
         }}
-        onConfirm={run}
+        onConfirm={canRetryCheck ? refresh : run}
       />
     </Page>
   );

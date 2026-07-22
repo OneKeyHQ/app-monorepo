@@ -3,13 +3,26 @@ import { EStakeProgressStep } from '@onekeyhq/kit/src/views/Staking/components/S
 import {
   appendBorrowRepaySetupState,
   buildBorrowRepayPositionKey,
+  getBorrowBalanceAmount,
   getBorrowRepayProgressStep,
   getEffectiveBorrowRepayNeedsSetupLut,
+  hasPositiveBorrowBalance,
   hasPositiveDebtBalance,
   isCollateralRepayEnabled,
 } from './borrowRepayPosition.utils';
 
 describe('borrowRepayPosition utils', () => {
+  it('uses the raw borrow balance before rounded display values', () => {
+    const balance = {
+      number: '0.0000001',
+      amount: '0',
+      title: { text: '0' },
+    };
+
+    expect(getBorrowBalanceAmount(balance)).toBe('0.0000001');
+    expect(hasPositiveBorrowBalance(balance)).toBe(true);
+  });
+
   it('treats zero debt as not eligible for collateral repay entry', () => {
     expect(hasPositiveDebtBalance('0')).toBe(false);
     expect(

@@ -15,6 +15,7 @@ import {
   buildBorrowTokenFromAsset,
   filterUnsupportedAaveNativeReserveAssets,
   getBorrowAssetByReserveAddress,
+  getBorrowBalanceAmount,
   getBorrowRepayDebtBalance,
   getBorrowRepayMaxInputBalance,
   getBorrowRepayWalletBalance,
@@ -877,17 +878,11 @@ export const WithdrawSection = ({
     if (borrowAction === 'withdraw' && selectedAsset) {
       return (
         selectedBorrowManagePageData?.withdraw?.data?.balance ??
-        selectedAsset.supplied?.title?.text ??
-        '0'
+        getBorrowBalanceAmount(selectedAsset.supplied)
       );
     }
     if (selectedAsset) {
-      // For withdraw, use supplied balance
-      return (
-        selectedAsset.supplied?.number ??
-        selectedAsset.supplied?.title?.text ??
-        '0'
-      );
+      return getBorrowBalanceAmount(selectedAsset.supplied);
     }
     return protocolInfo?.activeBalance ?? '0';
   }, [
