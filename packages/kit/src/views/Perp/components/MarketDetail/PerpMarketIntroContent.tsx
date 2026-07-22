@@ -310,6 +310,9 @@ export function PerpMarketIntroContent({
     effectiveResolvedMarketDetail.result?.localizedMessage;
   const { assetAnalysisRows, tradingActivityRows, descriptionRows } =
     useStockSecurityStats(stockDetail?.stock);
+  const hasTradingActivity = tradingActivityRows.some((row) =>
+    row.some((item) => Boolean(item.value) && item.value !== '--'),
+  );
   const marketDetailReferenceNote = intl.formatMessage({
     id: ETranslations.perp_market_info_reference_note__desc,
   });
@@ -585,14 +588,16 @@ export function PerpMarketIntroContent({
             </SizableText>
             <IntroInfoRows rows={stockAssetRows} />
           </YStack>
-          <YStack gap="$3.5">
-            <SizableText size="$headingSm">
-              {intl.formatMessage({
-                id: ETranslations.dexmarket_stock_trading_activity,
-              })}
-            </SizableText>
-            <IntroInfoRows rows={tradingActivityRows} />
-          </YStack>
+          {hasTradingActivity ? (
+            <YStack gap="$3.5">
+              <SizableText size="$headingSm">
+                {intl.formatMessage({
+                  id: ETranslations.dexmarket_stock_trading_activity,
+                })}
+              </SizableText>
+              <IntroInfoRows rows={tradingActivityRows} />
+            </YStack>
+          ) : null}
         </YStack>
       ) : null}
 

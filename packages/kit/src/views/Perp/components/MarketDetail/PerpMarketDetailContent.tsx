@@ -1020,6 +1020,9 @@ export function PerpMarketDetailContent({
       ...stockAssetAnalysisRows.flat(),
     ];
     const stockTradingReferenceRows = stockTradingActivityRows.flat();
+    const hasStockTradingActivity = stockTradingReferenceRows.some(
+      (item) => Boolean(item.value) && item.value !== '--',
+    );
     const renderReferenceNote = () => (
       <SizableText
         size="$bodyXs"
@@ -1075,13 +1078,17 @@ export function PerpMarketDetailContent({
             </YStack>
 
             <YStack flex={1} flexBasis={0} minWidth={0} width="100%" gap="$2.5">
-              <SizableText size="$headingSm">
-                {intl.formatMessage({
-                  id: ETranslations.dexmarket_stock_trading_activity,
-                })}
-              </SizableText>
+              {hasStockTradingActivity ? (
+                <SizableText size="$headingSm">
+                  {intl.formatMessage({
+                    id: ETranslations.dexmarket_stock_trading_activity,
+                  })}
+                </SizableText>
+              ) : null}
               <YStack gap="$3">
-                <DetailInfoTable rows={stockTradingReferenceRows} />
+                {hasStockTradingActivity ? (
+                  <DetailInfoTable rows={stockTradingReferenceRows} />
+                ) : null}
                 {renderReferenceNote()}
               </YStack>
             </YStack>
