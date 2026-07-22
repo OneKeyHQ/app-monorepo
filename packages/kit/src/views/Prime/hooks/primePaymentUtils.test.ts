@@ -5,6 +5,12 @@ yarn test packages/kit/src/views/Prime/hooks/primePaymentUtils.test.ts
 */
 
 describe('primePaymentUtils', () => {
+  describe('normalizeNativePrice', () => {
+    it('keeps RevenueCat prices in major currency units', () => {
+      expect(primePaymentUtils.normalizeNativePrice(29.99)).toBe(29.99);
+    });
+  });
+
   describe('extractCurrencySymbol', () => {
     it('should extract $ from $183.77', () => {
       expect(primePaymentUtils.extractCurrencySymbol('$183.77')).toBe('$');

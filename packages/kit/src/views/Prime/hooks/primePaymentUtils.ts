@@ -180,11 +180,10 @@ function trackPrimeSubscriptionSuccess({
   });
 }
 
-// RevenueCat React Native SDK returns prices in micros on Android, in major
-// units on iOS — normalize to major units here.
+// PurchasesHybridCommon 18.x exposes subscription prices in major currency
+// units on both iOS and Android.
 function normalizeNativePrice(rawPrice: number): number {
-  if (!platformEnv.isNativeAndroid) return rawPrice;
-  return new BigNumber(rawPrice || 0).div(1_000_000).toNumber();
+  return rawPrice;
 }
 
 function extractWebPaywallPrice(paywallPackage: {

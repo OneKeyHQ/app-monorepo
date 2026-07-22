@@ -269,6 +269,12 @@ describe('usePrimePaymentMethods native purchase', () => {
       );
       // The hook is the single refresh owner: exactly one refresh per purchase.
       expect(mockFetchPrimeUserInfo).toHaveBeenCalledTimes(1);
+      expect(mockTrackPrimeSubscriptionSuccess).toHaveBeenCalledWith({
+        amount: 99,
+        currency: 'USD',
+        subscriptionPeriod: 'P1Y',
+        featureName: undefined,
+      });
       if (isNativeAndroid) {
         expect(mockIsGooglePlayAvailable).toHaveBeenCalledTimes(1);
       } else {
@@ -276,6 +282,28 @@ describe('usePrimePaymentMethods native purchase', () => {
       }
     },
   );
+
+  it('keeps native offering prices in major currency units', async () => {
+    const { result } = renderHook(() => usePrimePaymentMethods());
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+
+    let packages: Awaited<
+      ReturnType<NonNullable<typeof result.current.getPackagesNative>>
+    > = [];
+    await act(async () => {
+      packages = (await result.current.getPackagesNative?.()) || [];
+    });
+
+    expect(packages).toEqual([
+      expect.objectContaining({
+        pricePerMonth: 9,
+        pricePerMonthString: '9',
+        pricePerYear: 99,
+        pricePerYearString: '99',
+        priceTotalPerYearString: '99',
+      }),
+    ]);
+  });
 
   it('does not show success or emit without an active Prime entitlement', async () => {
     mockPurchasePackage.mockResolvedValue({
