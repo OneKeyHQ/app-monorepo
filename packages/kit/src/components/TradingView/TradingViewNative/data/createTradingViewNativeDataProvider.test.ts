@@ -140,14 +140,19 @@ function createDeferred<T = void>() {
   return { promise, resolve };
 }
 
-function runMarketKLineDataFallback(
+async function runMarketKLineDataFallback(
   params: IFetchMarketKLineDataParams,
   request: Parameters<IMarketKLineDataFallback>[0],
+  { primaryDataUnavailable = false } = {},
 ) {
   if (!params.kLineDataFallback) {
     throw new OneKeyLocalError('Expected a Market K-line fallback');
   }
-  return params.kLineDataFallback(request);
+  const fallbackData = await params.kLineDataFallback(request);
+  if (primaryDataUnavailable && fallbackData?.points.length) {
+    params.onPrimaryKLineDataUnavailable?.();
+  }
+  return fallbackData;
 }
 
 describe('TradingViewNative data providers', () => {
@@ -208,6 +213,7 @@ describe('TradingViewNative data providers', () => {
         timeTo: 200,
         autoHandleError: false,
         kLineDataFallback: expect.any(Function),
+        onPrimaryKLineDataUnavailable: expect.any(Function),
         primaryKLineDataUnavailable: false,
       }),
     );
@@ -237,6 +243,55 @@ describe('TradingViewNative data providers', () => {
     ).toBe(false);
   });
 
+  it('uses a supplied CoinGecko hint only after the Market fallback runs', async () => {
+    const mocks = globalMockBag.__tradingViewNativeProviderMocks;
+    mocks?.coinGeckoFetchChart.mockResolvedValue([[7200, 10]]);
+    mocks?.marketFetchHistory.mockImplementationOnce((params) =>
+      runMarketKLineDataFallback(params, {
+        tokenAddress: '',
+        networkId: 'btc--0',
+        interval: '1H',
+        timeFrom: 3600,
+        timeTo: 10_800,
+      }),
+    );
+    const provider = createTradingViewNativeDataProvider({
+      kind: 'market',
+      fallbackCoinGeckoId: 'bitcoin',
+      networkId: 'btc--0',
+      tokenAddress: '',
+      symbol: 'BTC',
+      realtime: 'disabled',
+    });
+
+    expect(provider.isReady).toBe(true);
+    expect(provider.key).toBe('market:btc--0::BTC:coingecko:bitcoin');
+    expect(provider.supportsRealtime).toBe(false);
+    expect(provider.getHistoryRequestCandleCount(getInterval('60'))).toBe(2000);
+    await expect(
+      provider.fetchHistory({
+        interval: getInterval('60'),
+        signal: new AbortController().signal,
+        timeFrom: 3600,
+        timeTo: 10_800,
+      }),
+    ).resolves.toEqual({
+      points: [{ o: 10, h: 10, l: 10, c: 10, v: 0, t: 7200 }],
+      total: 1,
+    });
+    expect(mocks?.coinGeckoFetchChart).toHaveBeenCalledWith('bitcoin', '30', {
+      requestCurrency: 'usd',
+    });
+    expect(mocks?.tokenInfoFetch).not.toHaveBeenCalled();
+    expect(mocks?.marketFetchHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        networkId: 'btc--0',
+        tokenAddress: '',
+        primaryKLineDataUnavailable: false,
+      }),
+    );
+  });
+
   it('resolves CoinGecko inside the Market fallback callback', async () => {
     const mocks = globalMockBag.__tradingViewNativeProviderMocks;
     mocks?.tokenInfoFetch.mockResolvedValue({
@@ -244,13 +299,17 @@ describe('TradingViewNative data providers', () => {
     });
     mocks?.coinGeckoFetchChart.mockResolvedValue([[7200, 10]]);
     mocks?.marketFetchHistory.mockImplementationOnce((params) =>
-      runMarketKLineDataFallback(params, {
-        tokenAddress: 'stock-aapl',
-        networkId: 'stock--0',
-        interval: '1H',
-        timeFrom: 3600,
-        timeTo: 10_800,
-      }),
+      runMarketKLineDataFallback(
+        params,
+        {
+          tokenAddress: 'stock-aapl',
+          networkId: 'stock--0',
+          interval: '1H',
+          timeFrom: 3600,
+          timeTo: 10_800,
+        },
+        { primaryDataUnavailable: true },
+      ),
     );
     const provider = createTradingViewNativeDataProvider({
       kind: 'market',
@@ -305,13 +364,17 @@ describe('TradingViewNative data providers', () => {
       [timeTo - daySeconds, 20],
     ]);
     mocks?.marketFetchHistory.mockImplementationOnce((params) =>
-      runMarketKLineDataFallback(params, {
-        tokenAddress: '0xabc',
-        networkId: 'evm--1',
-        interval: '1D',
-        timeFrom: marketTimeFrom,
-        timeTo,
-      }),
+      runMarketKLineDataFallback(
+        params,
+        {
+          tokenAddress: '0xabc',
+          networkId: 'evm--1',
+          interval: '1D',
+          timeFrom: marketTimeFrom,
+          timeTo,
+        },
+        { primaryDataUnavailable: true },
+      ),
     );
     const provider = createTradingViewNativeDataProvider({
       kind: 'market',
@@ -345,13 +408,17 @@ describe('TradingViewNative data providers', () => {
     const chartRequest = createDeferred<[number, number][]>();
     mocks?.coinGeckoFetchChart.mockReturnValueOnce(chartRequest.promise);
     mocks?.marketFetchHistory.mockImplementation((params) =>
-      runMarketKLineDataFallback(params, {
-        tokenAddress: 'stock-aapl',
-        networkId: 'stock--0',
-        interval: '1H',
-        timeFrom: 3600,
-        timeTo: 10_800,
-      }),
+      runMarketKLineDataFallback(
+        params,
+        {
+          tokenAddress: 'stock-aapl',
+          networkId: 'stock--0',
+          interval: '1H',
+          timeFrom: 3600,
+          timeTo: 10_800,
+        },
+        { primaryDataUnavailable: true },
+      ),
     );
     const provider = createTradingViewNativeDataProvider({
       kind: 'market',
@@ -386,13 +453,17 @@ describe('TradingViewNative data providers', () => {
     const mocks = globalMockBag.__tradingViewNativeProviderMocks;
     mocks?.coinGeckoFetchChart.mockResolvedValue([[7200, 10]]);
     mocks?.marketFetchHistory.mockImplementation((params) =>
-      runMarketKLineDataFallback(params, {
-        tokenAddress: '0xabc',
-        networkId: 'evm--1',
-        interval: '1H',
-        timeFrom: 3600,
-        timeTo: 10_800,
-      }),
+      runMarketKLineDataFallback(
+        params,
+        {
+          tokenAddress: '0xabc',
+          networkId: 'evm--1',
+          interval: '1H',
+          timeFrom: 3600,
+          timeTo: 10_800,
+        },
+        { primaryDataUnavailable: true },
+      ),
     );
     const source = {
       kind: 'market' as const,
@@ -457,6 +528,51 @@ describe('TradingViewNative data providers', () => {
       expect.objectContaining({ primaryKLineDataUnavailable: true }),
     );
     expect(mocks?.tokenInfoFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries Market after a transient fallback succeeds', async () => {
+    const mocks = globalMockBag.__tradingViewNativeProviderMocks;
+    mocks?.coinGeckoFetchChart.mockResolvedValue([[7200, 10]]);
+    mocks?.marketFetchHistory.mockImplementation((params) =>
+      runMarketKLineDataFallback(params, {
+        tokenAddress: '',
+        networkId: 'btc--0',
+        interval: '1H',
+        timeFrom: 3600,
+        timeTo: 10_800,
+      }),
+    );
+    const source = {
+      kind: 'market' as const,
+      fallbackCoinGeckoId: 'bitcoin',
+      networkId: 'btc--0',
+      tokenAddress: '',
+      symbol: 'BTC',
+      realtime: 'disabled' as const,
+    };
+    const request = {
+      interval: getInterval('60'),
+      signal: new AbortController().signal,
+      timeFrom: 3600,
+      timeTo: 10_800,
+    };
+    const provider = createTradingViewNativeDataProvider(source);
+
+    await expect(provider.fetchHistory(request)).resolves.toEqual({
+      points: [{ o: 10, h: 10, l: 10, c: 10, v: 0, t: 7200 }],
+      total: 1,
+    });
+    expect(provider.getHistoryRequestCandleCount(getInterval('60'))).toBe(2000);
+
+    const nextProvider = createTradingViewNativeDataProvider(source);
+    await nextProvider.fetchHistory(request);
+    expect(nextProvider.getHistoryRequestCandleCount(getInterval('60'))).toBe(
+      2000,
+    );
+    expect(mocks?.marketFetchHistory).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ primaryKLineDataUnavailable: false }),
+    );
   });
 
   it('adapts validated Market WS candles and owns subscription cleanup', async () => {

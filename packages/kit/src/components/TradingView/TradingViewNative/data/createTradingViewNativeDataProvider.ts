@@ -70,12 +70,21 @@ function createMarketDataProvider(
   source: Extract<ITradingViewNativeSource, { kind: 'market' }>,
 ): ITradingViewNativeDataProvider {
   const marketTokenKey = getTradingViewNativeMarketTokenKey(source);
-  const fetchCoinGeckoHistory = createCoinGeckoKLineDataFetcher({
-    networkId: source.networkId,
-    tokenAddress: source.tokenAddress,
-    tokenKey: marketTokenKey,
-  });
+  const normalizedFallbackCoinGeckoId = source.fallbackCoinGeckoId?.trim();
+  const fetchCoinGeckoHistory = createCoinGeckoKLineDataFetcher(
+    normalizedFallbackCoinGeckoId
+      ? { coinGeckoId: normalizedFallbackCoinGeckoId }
+      : {
+          networkId: source.networkId,
+          tokenAddress: source.tokenAddress,
+          tokenKey: marketTokenKey,
+        },
+  );
+  const canUseMarketHistory = Boolean(
+    source.networkId && (source.tokenAddress || source.symbol),
+  );
   let primaryHistoryUnavailable =
+    !canUseMarketHistory ||
     unavailableMarketHistoryTokenKeys.has(marketTokenKey);
   const marketHistoryPageSize = source.tokenAddress.trim()
     ? MARKET_CONTRACT_HISTORY_PAGE_SIZE
@@ -94,9 +103,7 @@ function createMarketDataProvider(
         : MARKET_HISTORY_REQUEST_CANDLE_COUNT,
     hasMoreHistory: ({ receivedPointCount }) =>
       !primaryHistoryUnavailable && receivedPointCount >= marketHistoryPageSize,
-    isReady: Boolean(
-      source.networkId && (source.tokenAddress || source.symbol),
-    ),
+    isReady: canUseMarketHistory || Boolean(normalizedFallbackCoinGeckoId),
     key: getTradingViewNativeSourceKey(source),
     supportsRealtime: source.realtime === 'websocket',
     fetchHistory: async (request) => {
@@ -118,17 +125,16 @@ function createMarketDataProvider(
                 getCoinGeckoHistoryRequestCandleCount(interval),
             0,
           );
-          const fallbackData = await fetchCoinGeckoHistory({
+          return fetchCoinGeckoHistory({
             interval,
             signal,
             timeFrom: Math.min(fallbackRequest.timeFrom, coinGeckoTimeFrom),
             timeTo: fallbackRequest.timeTo,
           });
-          if (fallbackData?.points.length) {
-            primaryHistoryUnavailable = true;
-            cacheUnavailableMarketHistoryTokenKey(marketTokenKey);
-          }
-          return fallbackData;
+        },
+        onPrimaryKLineDataUnavailable: () => {
+          primaryHistoryUnavailable = true;
+          cacheUnavailableMarketHistoryTokenKey(marketTokenKey);
         },
         primaryKLineDataUnavailable: primaryHistoryUnavailable,
       });
@@ -311,7 +317,8 @@ function createHyperliquidDataProvider(
 export function createTradingViewNativeDataProvider(
   source: ITradingViewNativeSource,
 ): ITradingViewNativeDataProvider {
-  return source.kind === 'hyperliquid'
-    ? createHyperliquidDataProvider(source)
-    : createMarketDataProvider(source);
+  if (source.kind === 'hyperliquid') {
+    return createHyperliquidDataProvider(source);
+  }
+  return createMarketDataProvider(source);
 }

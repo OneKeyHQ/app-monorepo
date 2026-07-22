@@ -72,13 +72,9 @@ function BasicTokenDetailTabs({
               page: (
                 <Stack flex={1}>
                   <TokenPriceChart
-                    fallbackToChart={!!token?.fallbackToChart}
-                    tvPlatform={token?.tvPlatform}
-                    isFetching={!token}
-                    tickers={token?.tickers}
                     coinGeckoId={coinGeckoId}
                     defer={defer}
-                    symbol={token?.symbol}
+                    token={token}
                   />
                 </Stack>
               ),

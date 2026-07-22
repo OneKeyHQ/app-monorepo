@@ -132,14 +132,17 @@ function buildProviderKey(source: ITradingViewNativeSource) {
 }
 
 function buildMarketSource({
+  fallbackCoinGeckoId,
   realtime = 'disabled',
   tokenAddress = '0x123',
 }: {
+  fallbackCoinGeckoId?: string;
   realtime?: 'disabled' | 'websocket';
   tokenAddress?: string;
 } = {}): ITradingViewNativeSource {
   return {
     kind: 'market',
+    ...(fallbackCoinGeckoId ? { fallbackCoinGeckoId } : {}),
     networkId: 'evm--1',
     tokenAddress,
     symbol: 'TOKEN',
@@ -181,7 +184,8 @@ describe('TradingViewNative K-line data state machine', () => {
       isReady: true,
       key: buildProviderKey(source),
       supportsRealtime:
-        source.kind === 'hyperliquid' || source.realtime === 'websocket',
+        source.kind === 'hyperliquid' ||
+        (source.kind === 'market' && source.realtime === 'websocket'),
       fetchHistory: mockFetchHistory,
       subscribeRealtime: mockSubscribeRealtime,
     }));
@@ -625,6 +629,38 @@ describe('TradingViewNative K-line data state machine', () => {
     rerender({ tokenAddress: '0x456' });
     await waitFor(() => expect(result.current.points[0]?.c).toBe(200));
     expect(obsoleteRequest?.signal.aborted).toBe(true);
+
+    await act(async () => {
+      olderHistoryRequest.resolve(buildResponse(90, 996_400));
+      await olderHistoryRequest.promise;
+    });
+    expect(result.current.points.map((point) => point.c)).toEqual([200]);
+  });
+
+  it('resets the series when the CoinGecko fallback identity changes', async () => {
+    const olderHistoryRequest =
+      createDeferred<IMarketTokenKLineResponse | null>();
+    mockFetchHistory
+      .mockResolvedValueOnce(buildResponse(100, 1_000_000))
+      .mockReturnValueOnce(olderHistoryRequest.promise)
+      .mockResolvedValueOnce(buildResponse(200, 2_000_000));
+    const { result, rerender } = renderHook(
+      ({ fallbackCoinGeckoId }: { fallbackCoinGeckoId: string }) =>
+        useTradingViewNativeKLine({
+          source: buildMarketSource({ fallbackCoinGeckoId }),
+        }),
+      { initialProps: { fallbackCoinGeckoId: 'coin-a' } },
+    );
+
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
+    await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(2));
+    const obsoleteRequest = mockFetchHistory.mock.calls[1]?.[0];
+
+    rerender({ fallbackCoinGeckoId: 'coin-b' });
+    expect(result.current.points).toEqual([]);
+    expect(obsoleteRequest?.signal.aborted).toBe(true);
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(200));
 
     await act(async () => {
       olderHistoryRequest.resolve(buildResponse(90, 996_400));
