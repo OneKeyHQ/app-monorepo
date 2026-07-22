@@ -99,4 +99,20 @@ describe('position TP/SL snapshot helpers', () => {
       ),
     ).toBe(false);
   });
+
+  it('keeps every leg found at click time or in the latest snapshot', () => {
+    const tpOrder = makeOrder({ oid: 1 });
+    const slOrder = makeOrder({
+      oid: 2,
+      triggerCondition: 'Price below 90000',
+    });
+    expect(
+      buildPositionTpslSubmission({
+        orders: { tpOrder: null, slOrder },
+        latestOrders: { tpOrder, slOrder: null },
+        tpTriggerPx: '100000',
+        slTriggerPx: '90000',
+      }),
+    ).toEqual({ tpTriggerPx: undefined, slTriggerPx: undefined });
+  });
 });

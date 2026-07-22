@@ -63,16 +63,20 @@ export function selectPositionTpslOrders(
 
 export function buildPositionTpslSubmission({
   orders,
+  latestOrders = orders,
   tpTriggerPx,
   slTriggerPx,
 }: {
   orders: IPositionTpslOrders;
+  latestOrders?: IPositionTpslOrders;
   tpTriggerPx?: string;
   slTriggerPx?: string;
 }) {
+  const hasTpOrder = Boolean(orders.tpOrder || latestOrders.tpOrder);
+  const hasSlOrder = Boolean(orders.slOrder || latestOrders.slOrder);
   return {
-    tpTriggerPx: orders.tpOrder ? undefined : tpTriggerPx?.trim() || undefined,
-    slTriggerPx: orders.slOrder ? undefined : slTriggerPx?.trim() || undefined,
+    tpTriggerPx: hasTpOrder ? undefined : tpTriggerPx?.trim() || undefined,
+    slTriggerPx: hasSlOrder ? undefined : slTriggerPx?.trim() || undefined,
   };
 }
 

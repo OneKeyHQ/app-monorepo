@@ -260,10 +260,13 @@ const SetTpslForm = memo(
       }
       return activeOpenOrders.openOrdersByCoin[coin] ?? [];
     }, [activeAccount?.accountAddress, activeOpenOrders, coin]);
-    const { tpOrder, slOrder } = useMemo(
+    const currentTpslOrders = useMemo(
       () => selectPositionTpslOrders(scopedOpenOrders, coin),
       [coin, scopedOpenOrders],
     );
+    const latestTpslOrdersRef = useRef(currentTpslOrders);
+    latestTpslOrdersRef.current = currentTpslOrders;
+    const { tpOrder, slOrder } = currentTpslOrders;
 
     const expectedProfit = useMemo(() => {
       if (tpOrder && currentPosition) {
@@ -497,6 +500,7 @@ const SetTpslForm = memo(
         }
         const submission = buildPositionTpslSubmission({
           orders: { tpOrder, slOrder },
+          latestOrders: latestTpslOrdersRef.current,
           tpTriggerPx: formData.tpPrice,
           slTriggerPx: formData.slPrice,
         });
