@@ -19,7 +19,7 @@
     "mime-db": "1.52.0",
     "passport-desktop": "0.1.2",
     "passport-desktop-win32-x64-msvc": "0.1.2",
-    "systeminformation": "5.31.6",
+    "systeminformation": "5.31.7",
     "tr46": "0.0.3",
     "validator": "13.15.23"
   },
