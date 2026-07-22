@@ -683,30 +683,21 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         featuresDeviceId,
         dbDevice: device,
         debugMethodName: 'deviceSettings.setPassphraseEnabled.pro2',
-        action: async (sdk, compatibleConnectId, targetDevice) =>
-          sdk
-            .deviceSettingsPageShow(compatibleConnectId, {
+        action: async (sdk, compatibleConnectId) => {
+          const response = await sdk.deviceSettingsPageShow(
+            compatibleConnectId,
+            {
               page: 'DevicePassphrase',
               fieldName: 'passphrase_enable',
-            })
-            .then(async (response) => {
-              if (response.success && targetDevice.featuresInfo) {
-                const features =
-                  await this.serviceHardware.getFeaturesWithoutCache({
-                    connectId: compatibleConnectId,
-                    hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-                  });
-                await localDb.updateDevice({
-                  features: targetDevice.featuresInfo,
-                  preciseUpdateFields: {
-                    passphraseProtection: Boolean(
-                      features?.passphraseProtection,
-                    ),
-                  },
-                });
-              }
-              return response;
-            }),
+            },
+          );
+          if (response.success) {
+            await sdk.getDeviceState(compatibleConnectId, {
+              refresh: ['status'],
+            });
+          }
+          return response;
+        },
       });
     }
     return this._withDeviceProcessing({

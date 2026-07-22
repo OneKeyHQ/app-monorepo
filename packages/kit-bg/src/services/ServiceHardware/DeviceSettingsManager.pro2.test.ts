@@ -139,7 +139,7 @@ describe('DeviceSettingsManager Pro2 adapter', () => {
     });
   });
 
-  test('relies on the SDK Features event instead of manually patching the database', async () => {
+  test('relies on the SDK state event instead of manually patching the database', async () => {
     const deviceSettings = jest.fn(async () => ({
       success: true as const,
       payload: { message: 'Success' },
@@ -166,11 +166,6 @@ describe('DeviceSettingsManager Pro2 adapter', () => {
 
   test.each([
     ['changePin', { remove: false }, { page: 'DevicePinChange' }],
-    [
-      'setPassphraseEnabled',
-      { passphraseEnabled: true },
-      { page: 'DevicePassphrase', fieldName: 'passphrase_enable' },
-    ],
     ['wipeDevice', {}, { page: 'DeviceReset' }],
   ] as const)(
     'routes %s through deviceSettingsPageShow',
@@ -197,6 +192,34 @@ describe('DeviceSettingsManager Pro2 adapter', () => {
       );
     },
   );
+
+  test('refreshes canonical status after changing the Pro2 passphrase setting', async () => {
+    const deviceSettingsPageShow = jest.fn(async () => ({
+      success: true as const,
+      payload: { message: 'Success' },
+    }));
+    const getDeviceState = jest.fn(async () => ({
+      success: true as const,
+      payload: { status: { passphraseProtection: true } },
+    }));
+    const manager = buildManager(buildDevice(EDeviceType.Pro2), {
+      deviceSettingsPageShow,
+      getDeviceState,
+    } as unknown as CoreApi);
+
+    await manager.setPassphraseEnabled({
+      connectId: 'PRO2_CONNECT_ID',
+      passphraseEnabled: true,
+    });
+
+    expect(deviceSettingsPageShow).toHaveBeenCalledWith('PRO2_CONNECT_ID', {
+      page: 'DevicePassphrase',
+      fieldName: 'passphrase_enable',
+    });
+    expect(getDeviceState).toHaveBeenCalledWith('PRO2_CONNECT_ID', {
+      refresh: ['status'],
+    });
+  });
 
   test('decodes the compressed Pro2 wallpaper in background before upload', async () => {
     const device = buildDevice(EDeviceType.Pro2);

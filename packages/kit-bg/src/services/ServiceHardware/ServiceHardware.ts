@@ -263,6 +263,90 @@ function buildOnekeyFeaturesFromState(
   };
 }
 
+/**
+ * App 内部旧流程仍消费 Features 形状；Protocol V2 的真实数据源始终是 DeviceState。
+ * 该投影只作为 App 迁移层，不重新引入 SDK 的 Protocol V2 getFeatures 接口。
+ */
+function buildLegacyAppFeaturesFromState(
+  state: IOneKeyDeviceState,
+): IOneKeyDeviceFeatures {
+  const { identity, status, settings, versions } = state;
+  const rawFeatures = state.raw?.protocolV1Features ?? {};
+  const oneKeyFeatures = buildOnekeyFeaturesFromState(
+    state,
+  ) as unknown as Partial<IOneKeyDeviceFeatures>;
+
+  return {
+    ...rawFeatures,
+    ...oneKeyFeatures,
+    onekey_device_type: identity.deviceType,
+    protocol: state.protocol,
+    deviceType: identity.deviceType,
+    firmwareType: identity.firmwareType,
+    model: identity.model,
+    vendor: identity.vendor,
+    deviceId: identity.deviceId,
+    serialNo: identity.serialNo,
+    label: identity.label,
+    bleName: identity.bleName,
+    capabilities: state.capabilities,
+    mode: status.mode,
+    initialized: status.initialized,
+    bootloaderMode: status.mode === EOneKeyDeviceMode.bootloader,
+    unlocked: status.unlocked,
+    firmwarePresent: status.firmwarePresent,
+    passphraseProtection: status.passphraseProtection,
+    pinProtection: status.pinProtection,
+    backupRequired: status.backupRequired,
+    noBackup: status.noBackup,
+    unfinishedBackup: status.unfinishedBackup,
+    recoveryMode: status.recoveryMode,
+    language: settings.language,
+    bleEnabled: settings.bleEnabled,
+    sdCardPresent: settings.sdCardPresent,
+    sdProtection: settings.sdProtection,
+    wipeCodeProtection: settings.wipeCodeProtection,
+    passphraseAlwaysOnDevice: settings.passphraseAlwaysOnDevice,
+    attachToPinEnabled: status.attachToPinEnabled,
+    safetyChecks: settings.safetyChecks,
+    autoLockDelayMs: settings.autoLockDelayMs,
+    autoShutdownDelayMs: settings.autoShutdownDelayMs,
+    displayRotation: settings.displayRotation,
+    experimentalFeatures: settings.experimentalFeatures,
+    wallpaperPath: settings.wallpaperPath,
+    brightness: settings.brightness,
+    animationEnabled: settings.animationEnabled,
+    tapToWake: settings.tapToWake,
+    hapticFeedback: settings.hapticFeedback,
+    deviceNameDisplayEnabled: settings.deviceNameDisplayEnabled,
+    airgapMode: settings.airgapMode,
+    fidoEnabled: settings.fidoEnabled,
+    usbLockEnabled: settings.usbLockEnabled,
+    randomKeypad: settings.randomKeypad,
+    firmwareVersion: versions.firmware,
+    bootloaderVersion: versions.bootloader,
+    boardVersion: versions.board,
+    bleVersion: versions.ble,
+    se01Version: versions.se01,
+    se02Version: versions.se02,
+    se03Version: versions.se03,
+    se04Version: versions.se04,
+    se01BootVersion: versions.se01Boot,
+    se02BootVersion: versions.se02Boot,
+    se03BootVersion: versions.se03Boot,
+    se04BootVersion: versions.se04Boot,
+    verify: state.verification,
+    sessionId: state.session?.sessionId ?? null,
+    passphraseState: state.session?.passphraseState,
+    unlockedAttachPin: status.unlockedAttachPin ?? undefined,
+    raw: state.raw,
+    device_id: identity.deviceId ?? undefined,
+    bootloader_mode: status.mode === EOneKeyDeviceMode.bootloader,
+    passphrase_protection: status.passphraseProtection ?? undefined,
+    pin_protection: status.pinProtection ?? undefined,
+  };
+}
+
 type IHandleLinuxWebUsbAccessDeniedErrorParams = {
   error?: unknown;
 };
@@ -288,6 +372,8 @@ const LINUX_UDEV_RULES_INSTALL_MAX_ATTEMPTS = 2;
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
   private activeHardwareConnectIds = new Set<string>();
+
+  private deviceStateSyncQueues = new Map<string, Promise<void>>();
 
   /** 合并同一连接并发发起的设备管理读取，避免硬件请求互相争用。 */
   private pro2DeviceManagementSnapshotInFlight = new Map<
@@ -726,14 +812,31 @@ class ServiceHardware extends ServiceBase {
       });
 
       instance.on(DEVICE.STATE, async (event: DeviceStateEvent) => {
-        const { state, revision } = event;
         serviceHardwareUtils.hardwareLog('device state update', event);
-        await localDb.updateDeviceState({ connectId: event.connectId, state });
-        appEventBus.emit(EAppEventBusNames.HardwareDeviceStateUpdate, {
-          ...event,
-          state,
-          revision,
-        });
+        const queueKey =
+          event.connectId ||
+          event.state.identity.serialNo ||
+          event.state.identity.deviceId ||
+          'unknown-device';
+        appEventBus.emit(EAppEventBusNames.HardwareDeviceStateUpdate, event);
+        const previous = this.deviceStateSyncQueues.get(queueKey);
+        const task = (previous ?? Promise.resolve())
+          .catch(() => undefined)
+          .then(async () => {
+            try {
+              await localDb.updateDeviceState(event);
+            } catch (error) {
+              serviceHardwareUtils.hardwareLog(
+                'device state persistence failed',
+                error,
+              );
+            }
+          });
+        this.deviceStateSyncQueues.set(queueKey, task);
+        await task;
+        if (this.deviceStateSyncQueues.get(queueKey) === task) {
+          this.deviceStateSyncQueues.delete(queueKey);
+        }
       });
 
       instance.on(
@@ -1342,9 +1445,11 @@ class ServiceHardware extends ServiceBase {
       return {
         state: await this.getDeviceState({
           connectId: compatibleConnectId,
-          params: refreshInfo
-            ? { refresh: ['identity', 'settings', 'versions', 'verification'] }
-            : undefined,
+          params: {
+            refresh: refreshInfo
+              ? ['identity', 'settings', 'versions', 'verification']
+              : ['settings'],
+          },
           hardwareCallContext,
         }),
       };
@@ -1630,8 +1735,13 @@ class ServiceHardware extends ServiceBase {
 
   _getFeaturesLowLevel = async (options: IDeviceGetFeaturesOptions) => {
     const { connectId, params, silentMode, hardwareCallContext } = options;
-    serviceHardwareUtils.hardwareLog('call getFeatures()', connectId);
-    if (!params?.allowEmptyConnectId && !connectId) {
+    const { allowEmptyConnectId, detectBootloaderDevice, ...sdkParams } =
+      params ?? {};
+    serviceHardwareUtils.hardwareLog(
+      'project legacy app features from getDeviceState()',
+      connectId,
+    );
+    if (!allowEmptyConnectId && !connectId) {
       throw new OneKeyLocalError(
         'hardware getFeatures ERROR: connectId is undefined',
       );
@@ -1640,11 +1750,21 @@ class ServiceHardware extends ServiceBase {
       connectId,
       hardwareCallContext,
     });
-    const features = await convertDeviceResponse(
-      () => hardwareSDK?.getFeatures(connectId, params),
+    const state = await convertDeviceResponse(
+      () =>
+        hardwareSDK?.getDeviceState(connectId, {
+          ...sdkParams,
+          includeRaw: true,
+        }),
       { silentMode },
     );
-    return features;
+    if (
+      detectBootloaderDevice &&
+      state.status.mode === EOneKeyDeviceMode.bootloader
+    ) {
+      throw new deviceErrors.DeviceDetectInBootloaderMode();
+    }
+    return buildLegacyAppFeaturesFromState(state);
   };
 
   _getFeaturesWithTimeout = makeTimeoutPromise({
@@ -1932,7 +2052,7 @@ class ServiceHardware extends ServiceBase {
       const walletName = wallet?.name;
       const dbDeviceId = wallet?.associatedDevice;
       if (dbDeviceId) {
-        // Features 持久化和 HardwareFeaturesUpdate 由 SDK DEVICE.FEATURES 统一驱动。
+        // DeviceState 持久化和界面刷新由 SDK DEVICE.STATE 统一驱动。
         appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
           walletId: p.walletId,
           dbDeviceId,

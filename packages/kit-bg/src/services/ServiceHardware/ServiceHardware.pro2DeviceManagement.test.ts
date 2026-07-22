@@ -142,6 +142,32 @@ describe('ServiceHardware.getDeviceState', () => {
       refresh: ['identity', 'versions'],
     });
   });
+
+  it('projects legacy App features from DeviceState without calling SDK getFeatures', async () => {
+    const { service, getDeviceState } = createService({ unlocked: true });
+
+    await expect(
+      service.getFeaturesWithoutCache({ connectId: 'PRO2' }),
+    ).resolves.toMatchObject({
+      deviceId: 'PRO2_DEVICE_ID',
+      label: 'OneKey Pro 2',
+    });
+    expect(getDeviceState).toHaveBeenCalledWith('PRO2', {
+      includeRaw: true,
+    });
+  });
+});
+
+describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
+  it('refreshes readable settings on the initial device-details load', async () => {
+    const { service, getDeviceState } = createService({ unlocked: true });
+
+    await service.getPro2DeviceManagementSnapshot({ connectId: 'PRO2' });
+
+    expect(getDeviceState).toHaveBeenCalledWith('PRO2_USB', {
+      refresh: ['settings'],
+    });
+  });
 });
 
 describe('ServiceHardware SDK DeviceState synchronization', () => {
@@ -185,7 +211,10 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
 
     // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
     expect(localDb.updateDeviceState).toHaveBeenCalledWith({
+      changedKeys: ['identity.label'],
       connectId: 'PRO2_USB',
+      revision: 2,
+      source: 'apply-settings',
       state,
     });
     // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
@@ -195,7 +224,99 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     );
   });
 
-  it('does not duplicate label persistence after the SDK Features event', async () => {
+  it('still broadcasts the in-memory state when persistence fails', async () => {
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    const updateDeviceStateMock = jest.mocked(localDb.updateDeviceState);
+    updateDeviceStateMock.mockReset();
+    const listeners = new Map<
+      string,
+      (payload: unknown) => void | Promise<void>
+    >();
+    const instance = {
+      on: jest.fn(
+        (event: string, listener: (payload: unknown) => void | Promise<void>) =>
+          listeners.set(event, listener),
+      ),
+    };
+    updateDeviceStateMock.mockRejectedValueOnce(new Error('DB unavailable'));
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    await service.registerSdkEvents(instance as never);
+    const event = {
+      connectId: 'PRO2_USB',
+      state: {
+        revision: 2,
+        updatedAt: 2,
+        protocol: 'V2',
+        identity: { deviceId: 'device-1', serialNo: 'serial-1' },
+      },
+      revision: 2,
+      source: 'apply-settings',
+      changedKeys: ['identity.label'],
+    };
+
+    await expect(listeners.get('state')?.(event)).resolves.toBeUndefined();
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.HardwareDeviceStateUpdate,
+      event,
+    );
+  });
+
+  it('serializes state persistence in SDK event order', async () => {
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    const updateDeviceStateMock = jest.mocked(localDb.updateDeviceState);
+    updateDeviceStateMock.mockReset();
+    const listeners = new Map<
+      string,
+      (payload: unknown) => void | Promise<void>
+    >();
+    const instance = {
+      on: jest.fn(
+        (event: string, listener: (payload: unknown) => void | Promise<void>) =>
+          listeners.set(event, listener),
+      ),
+    };
+    let resolveFirst: (() => void) | undefined;
+    updateDeviceStateMock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveFirst = resolve;
+        }),
+    );
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    await service.registerSdkEvents(instance as never);
+    const listener = listeners.get('state');
+    const first = listener?.({
+      connectId: 'PRO2_USB',
+      state: { revision: 1, updatedAt: 1, identity: {} },
+      revision: 1,
+      source: 'device-info',
+      changedKeys: ['identity.bleName'],
+    });
+    const second = listener?.({
+      connectId: 'PRO2_USB',
+      state: { revision: 2, updatedAt: 2, identity: {} },
+      revision: 2,
+      source: 'apply-settings',
+      changedKeys: ['identity.label'],
+    });
+
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    expect(localDb.updateDeviceState).toHaveBeenCalledTimes(1);
+    resolveFirst?.();
+    await Promise.all([first, second]);
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    expect(localDb.updateDeviceState).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not duplicate label persistence after the SDK state event', async () => {
     const service = new ServiceHardware({
       backgroundApi: {
         serviceAccount: {

@@ -5,6 +5,16 @@ export type IPro2DeviceManagementSnapshot = {
   state: IOneKeyDeviceState;
 };
 
+export function resolvePro2DeviceState({
+  persistedState,
+  snapshot,
+}: {
+  persistedState?: IOneKeyDeviceState;
+  snapshot?: IPro2DeviceManagementSnapshot;
+}) {
+  return snapshot?.state ?? persistedState;
+}
+
 export function canEditPro2DeviceWideSettings({
   unlocked: _unlocked,
 }: {
@@ -25,11 +35,12 @@ export function shouldRefreshDeviceSettingsAfterUpdate({
   return !isPro2 || unlocked;
 }
 
-export function getPro2DeviceMetaStaticOverrides(
-  snapshot: IPro2DeviceManagementSnapshot,
-) {
+export function getPro2DeviceMetaStaticData(state: IOneKeyDeviceState) {
   return {
-    firmwareVersion: snapshot.state.versions.firmware ?? undefined,
+    deviceName: state.identity.displayName,
+    deviceType: state.identity.deviceType,
+    firmwareType: state.identity.firmwareType,
+    firmwareVersion: state.versions.firmware ?? '0.0.0',
   };
 }
 

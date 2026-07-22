@@ -1,7 +1,8 @@
 import {
   buildPro2DeviceMetaState,
   canEditPro2DeviceWideSettings,
-  getPro2DeviceMetaStaticOverrides,
+  getPro2DeviceMetaStaticData,
+  resolvePro2DeviceState,
   shouldRefreshDeviceSettingsAfterUpdate,
 } from './pro2DeviceManagement';
 
@@ -102,16 +103,36 @@ describe('buildPro2DeviceMetaState', () => {
   });
 });
 
-describe('getPro2DeviceMetaStaticOverrides', () => {
-  it('uses canonical versions for immutable firmware metadata', () => {
+describe('getPro2DeviceMetaStaticData', () => {
+  it('builds Pro2 static metadata without legacy features', () => {
     expect(
-      getPro2DeviceMetaStaticOverrides({
-        state: {
-          versions: { firmware: '2.1.0' },
-        } as never,
-      }),
+      getPro2DeviceMetaStaticData({
+        identity: {
+          displayName: 'My Pro 2',
+          deviceType: 'pro2',
+          firmwareType: 'universal',
+        },
+        versions: { firmware: '2.1.0' },
+      } as never),
     ).toEqual({
+      deviceName: 'My Pro 2',
+      deviceType: 'pro2',
+      firmwareType: 'universal',
       firmwareVersion: '2.1.0',
     });
+  });
+});
+
+describe('resolvePro2DeviceState', () => {
+  it('prefers the freshly loaded snapshot over persisted state', () => {
+    const persistedState = { revision: 1 };
+    const snapshotState = { revision: 2 };
+
+    expect(
+      resolvePro2DeviceState({
+        persistedState,
+        snapshot: { state: snapshotState },
+      } as never),
+    ).toBe(snapshotState);
   });
 });

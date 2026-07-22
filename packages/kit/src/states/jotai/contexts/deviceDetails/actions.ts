@@ -23,7 +23,8 @@ import {
 } from './atoms';
 import {
   buildPro2DeviceMetaState,
-  getPro2DeviceMetaStaticOverrides,
+  getPro2DeviceMetaStaticData,
+  resolvePro2DeviceState,
   shouldRefreshDeviceSettingsAfterUpdate,
 } from './pro2DeviceManagement';
 
@@ -34,11 +35,32 @@ async function buildDeviceMetaStatic(
   walletWithDevice?: IHwQrWalletWithDevice,
   pro2Snapshot?: IPro2DeviceManagementSnapshot,
 ): Promise<IDeviceMetaStatic | undefined> {
-  if (!walletWithDevice?.device?.featuresInfo) {
+  if (!walletWithDevice?.device) {
     return undefined;
   }
 
   const { device } = walletWithDevice;
+  if (device.deviceType === EDeviceType.Pro2) {
+    const state = resolvePro2DeviceState({
+      persistedState: device.deviceStateInfo,
+      snapshot: pro2Snapshot,
+    });
+    if (!state) {
+      return undefined;
+    }
+    const data = getPro2DeviceMetaStaticData(state);
+    const firmwareTypeLabel = deviceUtils.getFirmwareTypeLabelByFirmwareType({
+      firmwareType: data.firmwareType,
+      displayFormat: 'withSpace',
+    });
+    return {
+      ...data,
+      firmwareVersionDisplay: `${firmwareTypeLabel}v${data.firmwareVersion}`,
+      firmwareTypeLabel,
+      addWallpaperTitleId: ETranslations.global_wallpaper,
+    };
+  }
+
   const features = device.featuresInfo;
   if (!features) {
     return undefined;
@@ -73,11 +95,7 @@ async function buildDeviceMetaStatic(
     firmwareType,
     displayFormat: 'withSpace',
   });
-  const pro2Overrides = pro2Snapshot
-    ? getPro2DeviceMetaStaticOverrides(pro2Snapshot)
-    : undefined;
-  const firmwareVersion =
-    pro2Overrides?.firmwareVersion ?? versions?.firmwareVersion;
+  const firmwareVersion = versions?.firmwareVersion;
   const firmwareVersionDisplay = firmwareVersion
     ? `${firmwareTypeLabel}v${firmwareVersion}`
     : '-';
@@ -108,23 +126,30 @@ async function buildDeviceMetaStatic(
 
 async function buildDeviceMetaState(
   walletWithDevice?: IHwQrWalletWithDevice,
+  pro2Snapshot?: IPro2DeviceManagementSnapshot,
 ): Promise<IDeviceMetaState | undefined> {
-  if (!walletWithDevice?.device?.featuresInfo) {
+  if (!walletWithDevice?.device) {
     return undefined;
   }
 
   const { device } = walletWithDevice;
+  if (device.deviceType === EDeviceType.Pro2) {
+    const state = resolvePro2DeviceState({
+      persistedState: device.deviceStateInfo,
+      snapshot: pro2Snapshot,
+    });
+    if (state) {
+      return buildPro2DeviceMetaState({
+        isVerified: Boolean(device.verifiedAtVersion),
+        state,
+      });
+    }
+  }
   const features = device.featuresInfo;
   if (!features) {
     return undefined;
   }
   const isVerified = Boolean(device.verifiedAtVersion);
-  if (device.deviceType === EDeviceType.Pro2 && device.deviceStateInfo) {
-    return buildPro2DeviceMetaState({
-      isVerified,
-      state: device.deviceStateInfo,
-    });
-  }
   const autoLockDelayMs = features.autoLockDelayMs ?? 0;
   const autoShutDownDelayMs =
     features.autoShutdownDelayMs ?? features.autoLockDelayMs ?? 0;
@@ -167,7 +192,10 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
   updateDeviceMetaState = contextAtomMethod(
     async (get, set, walletId?: string) => {
       const data = get(walletWithDeviceStateAtom());
-      const metaState = await buildDeviceMetaState(data);
+      const metaState = await buildDeviceMetaState(
+        data,
+        get(pro2DeviceManagementSnapshotAtom()),
+      );
       if (walletId && get(currentWalletIdAtom()) !== walletId) return;
       if (metaState) {
         set(deviceMetaStateAtom(), metaState);

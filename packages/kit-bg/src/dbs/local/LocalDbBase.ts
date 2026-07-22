@@ -4987,10 +4987,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async updateDeviceState({
+    changedKeys,
     connectId,
     state,
   }: {
+    changedKeys: string[];
     connectId?: string | null;
+    revision: number;
+    source: string;
     state: IOneKeyDeviceState;
   }) {
     const { devices } = await this.getAllDevices();
@@ -4998,10 +5002,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       if ((item.vendor ?? EHardwareVendor.onekey) !== EHardwareVendor.onekey) {
         return false;
       }
+      const normalizedConnectId = connectId?.toLowerCase();
       if (
-        connectId &&
-        [item.connectId, item.usbConnectId, item.bleConnectId].includes(
-          connectId,
+        normalizedConnectId &&
+        [item.connectId, item.usbConnectId, item.bleConnectId].some(
+          (value) => value?.toLowerCase() === normalizedConnectId,
         )
       ) {
         return true;
@@ -5016,19 +5021,71 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (!device) {
       return;
     }
-    const persistedState = {
-      ...state,
-      session: undefined,
-      raw: undefined,
-    };
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Device,
         ids: [device.id],
         updater: (item) => {
+          const currentState = item.deviceState
+            ? (JSON.parse(item.deviceState) as IOneKeyDeviceState)
+            : undefined;
+          if (
+            currentState &&
+            (state.updatedAt < currentState.updatedAt ||
+              (state.updatedAt === currentState.updatedAt &&
+                state.revision <= currentState.revision))
+          ) {
+            return item;
+          }
+          const persistedState = currentState
+            ? structuredClone(currentState)
+            : structuredClone(state);
+          if (currentState) {
+            for (const changedKey of changedKeys) {
+              const isNonPersistedKey =
+                changedKey === 'identity.displayName' ||
+                changedKey === 'raw' ||
+                changedKey === 'session';
+              if (!isNonPersistedKey) {
+                if (changedKey === '*') {
+                  Object.assign(persistedState, structuredClone(state));
+                  break;
+                }
+                const [section, field] = changedKey.split('.');
+                if (field) {
+                  const targetSection = persistedState[
+                    section as keyof IOneKeyDeviceState
+                  ] as unknown as Record<string, unknown>;
+                  const incomingSection = state[
+                    section as keyof IOneKeyDeviceState
+                  ] as unknown as Record<string, unknown>;
+                  if (targetSection && incomingSection) {
+                    targetSection[field] = structuredClone(
+                      incomingSection[field],
+                    );
+                  }
+                } else if (section in state) {
+                  (persistedState as unknown as Record<string, unknown>)[
+                    section
+                  ] = structuredClone(
+                    (state as unknown as Record<string, unknown>)[section],
+                  );
+                }
+              }
+            }
+            persistedState.revision = state.revision;
+            persistedState.updatedAt = state.updatedAt;
+          }
+          persistedState.identity.displayName =
+            persistedState.identity.label ||
+            persistedState.identity.bleName ||
+            persistedState.identity.model ||
+            `OneKey ${persistedState.identity.deviceType.toUpperCase()}`;
+          delete persistedState.session;
+          delete persistedState.raw;
           item.deviceState = stringUtils.stableStringify(persistedState);
-          item.name = state.identity.displayName;
+          item.name = persistedState.identity.displayName;
           return item;
         },
       });
