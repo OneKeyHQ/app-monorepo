@@ -928,7 +928,8 @@ describe('ipTableAdapter fail-open on domain network failures', () => {
       if (startedRequests === 6) {
         markAllRequestsStarted?.();
       }
-      if (config.url?.includes('wallet.onekeycn.com')) {
+      const hostname = config.url ? new URL(config.url).hostname : '';
+      if (hostname === 'wallet.onekeycn.com') {
         await walletFailureGate;
       } else {
         await utilityFailureGate;
