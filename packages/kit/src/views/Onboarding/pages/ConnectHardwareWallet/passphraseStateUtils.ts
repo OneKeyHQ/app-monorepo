@@ -1,6 +1,7 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 
@@ -28,25 +29,14 @@ export async function resolveHardwarePassphraseEnabled({
     return Boolean(features.passphraseProtection);
   }
 
-  try {
-    const passphraseState =
-      await backgroundApiProxy.serviceHardware.getPassphraseStateBase({
-        connectId: device.connectId ?? '',
-        forceInputPassphrase: false,
-        useEmptyPassphrase: true,
-      });
-    const passphraseEnabled = Boolean(passphraseState);
-
-    if (passphraseEnabled) {
-      features.passphraseProtection = true;
-    }
-
-    return passphraseEnabled;
-  } catch (error) {
-    console.warn(
-      '[resolveHardwarePassphraseEnabled] failed to read Pro2 passphrase state',
-      error,
-    );
-    return false;
+  const refreshedState =
+    await backgroundApiProxy.serviceHardware.refreshDeviceState({
+      connectId: device.connectId ?? '',
+      params: { scope: 'settings' },
+    });
+  if (typeof refreshedState.status.passphraseProtection === 'boolean') {
+    return refreshedState.status.passphraseProtection;
   }
+
+  throw new OneKeyLocalError('Unable to determine Pro2 passphrase state');
 }

@@ -108,6 +108,24 @@ describe('DeviceState metadata projection', () => {
     });
   });
 
+  it('uses the last trusted passphrase setting while Pro 2 is locked', () => {
+    expect(
+      buildDeviceMetaStateFromState({
+        isVerified: true,
+        state: {
+          status: {
+            unlocked: false,
+            passphraseProtection: true,
+          },
+          settings: {},
+        } as never,
+      }),
+    ).toMatchObject({
+      unlocked: false,
+      passphraseEnabled: true,
+    });
+  });
+
   it('prefers the newest event snapshot over persisted state', () => {
     const persistedState = { revision: 1 };
     const snapshotState = { revision: 2 };
