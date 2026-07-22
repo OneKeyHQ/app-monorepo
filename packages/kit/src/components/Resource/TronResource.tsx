@@ -44,7 +44,7 @@ function getResourcePercentage(available: BigNumber, total: BigNumber) {
   return total.isZero() ? 0 : available.div(total).times(100).toNumber();
 }
 
-function useTronAccountResources({
+export function useTronAccountResources({
   accountId,
   networkId,
   pollingInterval,
@@ -65,6 +65,9 @@ function useTronAccountResources({
 
   return usePromiseResult(
     async () => {
+      if (!accountId || !networkId) {
+        return undefined;
+      }
       try {
         const accountAddress =
           await backgroundApiProxy.serviceAccount.getAccountAddressForApi({

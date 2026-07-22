@@ -125,11 +125,16 @@ function reuseHomePortfolioPayload(
     previous.mergeDeriveAddressData === next.mergeDeriveAddressData &&
     previous.networksMap === next.networksMap &&
     previous.ownerKey === next.ownerKey &&
+    previous.riskMap === next.riskMap &&
+    previous.riskTokens === next.riskTokens &&
     previous.scopedLpTokenList === next.scopedLpTokenList &&
     previous.scopedLpTokenListMap === next.scopedLpTokenListMap &&
     previous.scopedLpTokenListState === next.scopedLpTokenListState &&
     previous.showLpTokenFilterSwitch === next.showLpTokenFilterSwitch &&
     previous.showLpTokensOnly === next.showLpTokensOnly &&
+    previous.smallBalanceFiatValue === next.smallBalanceFiatValue &&
+    previous.smallBalanceMap === next.smallBalanceMap &&
+    previous.smallBalanceTokens === next.smallBalanceTokens &&
     previous.tapTokenMap === next.tapTokenMap &&
     previous.tokenListMap === next.tokenListMap &&
     previous.tokens === next.tokens

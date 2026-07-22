@@ -55,7 +55,9 @@ const HYPER_EVM_LOGO_URI =
 const VISIBLE_ROW_LIMIT = 6;
 
 const MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS = {
+  openLowValueAssets: 'home.native.portfolio.assets.openLowValueAssets',
   openManageToken: 'home.native.portfolio.assets.manageToken',
+  openRiskAssets: 'home.native.portfolio.assets.openRiskAssets',
   toggleDeFiExpanded: 'home.native.defi.expanded.toggle',
   togglePortfolioAssetsExpanded: 'home.native.portfolio.assets.expanded.toggle',
   togglePortfolioDeFiExpanded: 'home.native.portfolio.defi.expanded.toggle',
@@ -97,12 +99,14 @@ type IHomeNativeLabels = {
   hotMarkets: string;
   loading: string;
   long: string;
+  lowValueAssets: string;
   margin: string;
   market: string;
   noData: string;
   positions: string;
   receive: string;
   revokeApprove: (symbol: string) => string;
+  riskAssets: (count: number) => string;
   send: string;
   short: string;
   showLess: string;
@@ -189,6 +193,23 @@ function formatCompactCurrency(
   return `$${displayNumberToString(
     formatDisplayNumber(formatMarketCap(String(value))),
   )}`;
+}
+
+function sumTokenFiatValue({
+  map,
+  tokens,
+}: {
+  map: Record<string, { fiatValue?: string }>;
+  tokens: { $key: string }[];
+}): string {
+  return tokens
+    .reduce((total, token) => {
+      const value = map[token.$key]?.fiatValue;
+      return value === undefined || !new BigNumber(value).isFinite()
+        ? total
+        : total.plus(value);
+    }, new BigNumber(0))
+    .toFixed();
 }
 
 function formatEarnApr(
@@ -316,6 +337,14 @@ function buildPortfolioAssetSections({
     tokens: payload?.tokens ?? [],
     map: payload?.tokenListMap ?? {},
   });
+  const smallBalanceTokens = sortTokensByFiatValue({
+    tokens: payload?.smallBalanceTokens ?? [],
+    map: payload?.smallBalanceMap ?? {},
+  });
+  const riskTokens = sortTokensByFiatValue({
+    tokens: payload?.riskTokens ?? [],
+    map: payload?.riskMap ?? {},
+  });
   const visibleTokens = expanded
     ? sortedTokens
     : sortedTokens.slice(0, VISIBLE_ROW_LIMIT);
@@ -356,7 +385,59 @@ function buildPortfolioAssetSections({
       }),
     },
   ];
-  if (sortedTokens.length > VISIBLE_ROW_LIMIT) {
+  const hasHiddenAssetRows =
+    smallBalanceTokens.length > 0 || riskTokens.length > 0;
+  if (expanded && hasHiddenAssetRows) {
+    sections.push({
+      id: 'portfolio-assets-hidden-groups',
+      items: [
+        ...(smallBalanceTokens.length > 0
+          ? [
+              {
+                id: 'portfolio-assets-low-value',
+                renderer: 'asset' as const,
+                title: `${smallBalanceTokens.length} ${labels.lowValueAssets}`,
+                value: formatCurrency(
+                  payload?.smallBalanceFiatValue ??
+                    sumTokenFiatValue({
+                      tokens: smallBalanceTokens,
+                      map: payload?.smallBalanceMap ?? {},
+                    }),
+                  currency,
+                  locale,
+                ),
+                leadingIcon: 'lowValue' as const,
+                showChevron: true,
+                actionId:
+                  MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS.openLowValueAssets,
+              },
+            ]
+          : []),
+        ...(riskTokens.length > 0
+          ? [
+              {
+                id: 'portfolio-assets-risk',
+                renderer: 'asset' as const,
+                title: labels.riskAssets(riskTokens.length),
+                value: formatCurrency(
+                  sumTokenFiatValue({
+                    tokens: riskTokens,
+                    map: payload?.riskMap ?? {},
+                  }),
+                  currency,
+                  locale,
+                ),
+                leadingIcon: 'risk' as const,
+                showChevron: true,
+                actionId:
+                  MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS.openRiskAssets,
+              },
+            ]
+          : []),
+      ],
+    });
+  }
+  if (sortedTokens.length > VISIBLE_ROW_LIMIT || hasHiddenAssetRows) {
     if (expanded) {
       sections.push({
         id: 'portfolio-assets-add-token',

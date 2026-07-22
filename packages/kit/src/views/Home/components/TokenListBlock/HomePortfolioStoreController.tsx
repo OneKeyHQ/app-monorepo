@@ -39,6 +39,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { useHomeInteraction } from '@onekeyhq/kit/src/states/jotai/contexts/home';
 import {
   useListStructureAtom,
+  useRiskyListFrameAtom,
   useTokenListActions,
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
@@ -603,6 +604,7 @@ function HomePortfolioStoreController({
   // receive a normalized Store payload and never subscribe to this cache.
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const tokenListStore = useTokenListContextData().store!;
+  const [riskyListFrame] = useRiskyListFrameAtom();
 
   const { result: homeDefaultTokenMap } = usePromiseResult(async () => {
     const r = await backgroundApiProxy.serviceToken.getHomeDefaultTokenMap();
@@ -1208,7 +1210,7 @@ function HomePortfolioStoreController({
     void listStructure.ownerKey;
     const tokens: IAccountToken[] = [];
     const tokenListMap: Record<string, ITokenFiat> = {};
-    for (const key of legacySpotDisplayIds) {
+    for (const key of listStructure.orderedIds) {
       const tokenMeta = tokenListStore.get(meta(tokenListStore, key));
       if (tokenMeta) {
         tokens.push({ $key: key, ...tokenMeta } as IAccountToken);
@@ -1223,11 +1225,52 @@ function HomePortfolioStoreController({
     return { tokenListMap, tokens };
   }, [
     cellsSnapshotRevision,
-    legacySpotDisplayIds,
     listStructure.generation,
+    listStructure.orderedIds,
     listStructure.ownerKey,
     tokenListStore,
   ]);
+  const smallBalanceTokenSnapshot = useMemo(() => {
+    void cellsSnapshotRevision;
+    void listStructure.generation;
+    void listStructure.ownerKey;
+    const tokens: IAccountToken[] = [];
+    const tokenListMap: Record<string, ITokenFiat> = {};
+    for (const key of listStructure.smallBalanceIds) {
+      const tokenMeta = tokenListStore.get(meta(tokenListStore, key));
+      if (tokenMeta) {
+        tokens.push({ $key: key, ...tokenMeta } as IAccountToken);
+      }
+      const tokenFiat = isAgg(key, tokenMeta)
+        ? tokenListStore.get(aggCell(tokenListStore, key))
+        : tokenListStore.get(cell(tokenListStore, key));
+      if (tokenFiat) {
+        tokenListMap[key] = tokenFiat;
+      }
+    }
+    return { tokenListMap, tokens };
+  }, [
+    cellsSnapshotRevision,
+    listStructure.generation,
+    listStructure.ownerKey,
+    listStructure.smallBalanceIds,
+    tokenListStore,
+  ]);
+  const riskTokenSnapshot = useMemo(
+    () =>
+      riskyListFrame.ownerKey === listStructure.ownerKey
+        ? {
+            tokenListMap: riskyListFrame.riskyMap,
+            tokens: riskyListFrame.riskyTokens,
+          }
+        : { tokenListMap: {}, tokens: [] },
+    [
+      listStructure.ownerKey,
+      riskyListFrame.ownerKey,
+      riskyListFrame.riskyMap,
+      riskyListFrame.riskyTokens,
+    ],
+  );
   const tapTokenMap = useMemo(() => {
     void cellsSnapshotRevision;
     void listStructure.generation;
@@ -1275,11 +1318,22 @@ function HomePortfolioStoreController({
       mergeDeriveAddressData: !!mergeDeriveAddressData,
       networksMap: homeNetworksMap,
       ownerKey: showLpTokensOnly ? cellsOwnerKey : listStructure.ownerKey,
+      riskMap: showLpTokensOnly ? {} : riskTokenSnapshot.tokenListMap,
+      riskTokens: showLpTokensOnly ? [] : riskTokenSnapshot.tokens,
       scopedLpTokenList,
       scopedLpTokenListMap,
       scopedLpTokenListState,
       showLpTokenFilterSwitch,
       showLpTokensOnly,
+      smallBalanceFiatValue: showLpTokensOnly
+        ? '0'
+        : listStructure.smallBalanceFiatValue,
+      smallBalanceMap: showLpTokensOnly
+        ? {}
+        : smallBalanceTokenSnapshot.tokenListMap,
+      smallBalanceTokens: showLpTokensOnly
+        ? []
+        : smallBalanceTokenSnapshot.tokens,
       tapTokenMap,
       tokenListMap: showLpTokensOnly
         ? scopedLpTokenListMap
@@ -1302,12 +1356,17 @@ function HomePortfolioStoreController({
       listStructure.generation,
       listStructure.ownerKey,
       mergeDeriveAddressData,
+      riskTokenSnapshot.tokenListMap,
+      riskTokenSnapshot.tokens,
       scopedLpTokenList,
       scopedLpTokenListMap,
       scopedLpTokenListState,
       showLpTokenFilterSwitch,
       showLpTokensOnly,
+      smallBalanceTokenSnapshot.tokenListMap,
+      smallBalanceTokenSnapshot.tokens,
       tapTokenMap,
+      listStructure.smallBalanceFiatValue,
       walletTokenSnapshot.tokenListMap,
       walletTokenSnapshot.tokens,
     ],

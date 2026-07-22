@@ -29,6 +29,12 @@ internal data class HomeContainerAction(
   val actionId: String,
 )
 
+internal data class HomeContainerBannerResourceRow(
+  val label: String,
+  val value: String,
+  val progress: Double,
+)
+
 internal data class HomeContainerBanner(
   val id: String,
   val title: String,
@@ -36,6 +42,7 @@ internal data class HomeContainerBanner(
   val imageUrl: String,
   val actionId: String,
   val dismissActionId: String,
+  val resourceRows: List<HomeContainerBannerResourceRow>,
 )
 
 internal data class HomeContainerSegment(
@@ -277,6 +284,13 @@ internal object HomeContainerJson {
         imageUrl = banner.optString("imageUrl"),
         actionId = banner.optString("actionId"),
         dismissActionId = banner.optString("dismissActionId"),
+        resourceRows = banner.optJSONArray("resourceRows")?.mapObjects { row ->
+          HomeContainerBannerResourceRow(
+            label = row.optString("label"),
+            value = row.optString("value"),
+            progress = row.optDouble("progress"),
+          )
+        } ?: emptyList(),
       )
     },
   )

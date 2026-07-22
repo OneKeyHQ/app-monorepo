@@ -45,6 +45,12 @@ struct HomeContainerAction: Decodable {
   let actionId: String
 }
 
+struct HomeContainerBannerResourceRow: Decodable {
+  let label: String
+  let value: String
+  let progress: CGFloat?
+}
+
 struct HomeContainerBanner: Decodable {
   let id: String
   let title: String
@@ -52,6 +58,7 @@ struct HomeContainerBanner: Decodable {
   let imageUrl: String?
   let actionId: String?
   let dismissActionId: String?
+  let resourceRows: [HomeContainerBannerResourceRow]?
 }
 
 struct HomeContainerSegment: Decodable {
