@@ -1,5 +1,5 @@
 import { useNativeHomeRenderer } from './NativeHomeRendererProvider';
-import { HomePageView } from './pages/HomePageView';
+import { HomePageView } from './pages/HomePageViewLoader';
 
 import type { INativeHomePageViewProps } from './NativeHomePageView.types';
 

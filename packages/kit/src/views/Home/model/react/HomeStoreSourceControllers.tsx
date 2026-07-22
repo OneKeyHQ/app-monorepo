@@ -4,24 +4,21 @@ import {
   useHomeInteraction,
   useHomeRuntimeState,
 } from '@onekeyhq/kit/src/states/jotai/contexts/home';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 
 import { HomeTokenListProviderMirror } from '../../components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import { HomePortfolioStoreController } from '../../components/TokenListBlock/HomePortfolioStoreController';
 import { HOME_PORTFOLIO_SHOW_LP_TOKENS_CONTROL_ID } from '../sections/spot/homePortfolioControls';
 
-import { HomeAccountValuePersistenceController } from './HomeAccountValuePersistenceController';
-import { HomeBalanceStoreController } from './HomeBalanceStoreController';
-import { HomeBannerStoreController } from './HomeBannerStoreController';
-import { HomeCapabilityStoreController } from './HomeCapabilityStoreController';
-import { HomeDeFiStoreController } from './HomeDeFiStoreController';
-import { HomeHistoryStoreController } from './HomeHistoryStoreController';
-import { HomeMarketStoreController } from './HomeMarketStoreController';
-import { HomeNFTStoreController } from './HomeNFTStoreController';
-import { HomePerpsStoreController } from './HomePerpsStoreController';
 import { HomePortfolioControlPersistenceController } from './HomePortfolioControlPersistenceController';
 import { HomeStoreCommandController } from './HomeStoreCommandController';
 import { HomeStoreControllerBridge } from './HomeStoreControllerBridge';
 import { HomeStoreSnapshotController } from './HomeStoreSnapshotController';
+
+const HomeReadySourceControllers = LazyLoad(async () => {
+  const { HomeReadySourceControllers: Controllers } =
+    await import('./HomeReadySourceControllers');
+  return { default: Controllers };
+});
 
 export function HomeStoreSourceControllers({
   children,
@@ -47,28 +44,13 @@ export function HomeStoreSourceControllers({
       ) : null}
       <HomeTokenListProviderMirror>
         {walletSourcesReady ? (
-          <>
-            <HomeBalanceStoreController />
-            {portfolioControlsReady ? (
-              <HomePortfolioStoreController showRecentHistory />
-            ) : null}
-          </>
+          <HomeReadySourceControllers
+            portfolioControlsReady={portfolioControlsReady}
+          />
         ) : null}
       </HomeTokenListProviderMirror>
       <HomeStoreSnapshotController />
       {enableWalletSources ? <HomeStoreCommandController /> : null}
-      {walletSourcesReady ? (
-        <>
-          <HomeCapabilityStoreController />
-          <HomeAccountValuePersistenceController />
-          <HomeBannerStoreController />
-          <HomePerpsStoreController />
-          <HomeDeFiStoreController />
-          <HomeHistoryStoreController />
-          <HomeNFTStoreController />
-          <HomeMarketStoreController />
-        </>
-      ) : null}
       {children}
     </>
   );

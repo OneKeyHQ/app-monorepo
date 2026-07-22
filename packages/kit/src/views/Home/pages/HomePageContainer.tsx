@@ -53,7 +53,7 @@ import {
 } from './HomeBackgroundRecoveryRefreshProvider';
 import { shouldMountHomeForegroundEffects } from './homeLaunchVisibility';
 import { resolveHomeWalletContentReadiness } from './homePageNoWalletContent';
-import { HomePageView } from './HomePageView';
+import { HomePageView } from './HomePageViewLoader';
 import {
   HomeWalletListProvider,
   useHomeWalletList,

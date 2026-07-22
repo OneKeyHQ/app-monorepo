@@ -1,0 +1,1 @@
+export { HomePageView } from './HomePageView';
