@@ -114,6 +114,7 @@ export const earnMainnetNetworkIds: string[] = [
   getNetworkIdsMap().eth,
   getNetworkIdsMap().arbitrum,
   getNetworkIdsMap().base,
+  getNetworkIdsMap().katana,
   getNetworkIdsMap().cosmoshub,
   getNetworkIdsMap().apt,
   getNetworkIdsMap().sol,
@@ -175,6 +176,7 @@ export function normalizeToEarnSymbol(symbol: string): string {
     'khype': 'kHYPE',
     'lista': 'LISTA',
     'u': 'U',
+    'vbusdc': 'vbUSDC',
   };
   // Known symbols get case-normalized; unknown symbols (e.g. Pendle tokens) pass through
   return symbolMap[symbol.toLowerCase()] ?? symbol;
@@ -330,5 +332,6 @@ export function getSymbolSupportedNetworks(): Record<
     'MORPHO': [networkIdsMap.eth],
     'LISTA': [networkIdsMap.bsc],
     'U': [networkIdsMap.bsc],
+    'vbUSDC': [networkIdsMap.katana],
   };
 }
