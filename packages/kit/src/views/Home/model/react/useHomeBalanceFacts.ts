@@ -15,6 +15,10 @@ import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import {
+  isHomeBalanceContributorRefreshing,
+  shouldIncludeHomeBalanceOptionalContributor,
+} from '../balance/homeBalanceContributorPolicy';
+import {
   adaptCurrentHomeBalanceFacts,
   buildHomeBalanceQuoteRateIdentity,
   resolveHomeBalanceQuotedAmount,
@@ -114,6 +118,18 @@ function useHomeBalanceFacts(): IHomeFacts | undefined {
     } else if (portfolioResource.kind === 'partial' && !portfolioTotalUsd) {
       portfolioStatus = hasHoldings ? 'partial' : 'loading';
     }
+    if (
+      isHomeBalanceContributorRefreshing({
+        kind: portfolioResource.kind,
+        refresh:
+          portfolioResource.kind === 'ready' ||
+          portfolioResource.kind === 'empty'
+            ? portfolioResource.refresh
+            : undefined,
+      })
+    ) {
+      portfolioStatus = 'partial';
+    }
     let deFiStatus:
       | 'idle'
       | 'loading'
@@ -130,15 +146,32 @@ function useHomeBalanceFacts(): IHomeFacts | undefined {
     } else if (deFiResource.kind === 'partial' && !deFiTotalUsd) {
       deFiStatus = deFiTotal.isZero() ? 'loading' : 'partial';
     }
+    if (
+      isHomeBalanceContributorRefreshing({
+        kind: deFiResource.kind,
+        refresh:
+          deFiResource.kind === 'ready' || deFiResource.kind === 'empty'
+            ? deFiResource.refresh
+            : undefined,
+      })
+    ) {
+      deFiStatus = 'partial';
+    }
     const isCapabilityReady = storeFacts.capabilityInputs.ready;
     const isDeFiSupported =
       storeFacts.capabilityInputs.serverConfig.defi &&
       storeFacts.capabilityInputs.productAvailability.defi;
-    const shouldIncludeDeFi = !isCapabilityReady || isDeFiSupported;
+    const shouldIncludeDeFi = shouldIncludeHomeBalanceOptionalContributor({
+      capabilityReady: isCapabilityReady,
+      supported: isDeFiSupported,
+    });
     const isPerpsSupported =
       storeFacts.capabilityInputs.serverConfig.perps &&
       storeFacts.capabilityInputs.productAvailability.perps;
-    const shouldIncludePerps = !isCapabilityReady || isPerpsSupported;
+    const shouldIncludePerps = shouldIncludeHomeBalanceOptionalContributor({
+      capabilityReady: isCapabilityReady,
+      supported: isPerpsSupported,
+    });
     const perpsAmount = new BigNumber(perpsPayload?.view.accountValueUsd ?? 0);
     let perpsStatus:
       | 'idle'
@@ -152,6 +185,17 @@ function useHomeBalanceFacts(): IHomeFacts | undefined {
       perpsStatus = perpsAmount.isZero() ? 'empty' : 'success';
     } else if (perpsResource.kind === 'ready') {
       perpsStatus = 'loading';
+    }
+    if (
+      isHomeBalanceContributorRefreshing({
+        kind: perpsResource.kind,
+        refresh:
+          perpsResource.kind === 'ready' || perpsResource.kind === 'empty'
+            ? perpsResource.refresh
+            : undefined,
+      })
+    ) {
+      perpsStatus = 'partial';
     }
     const expectedSourceScopeKey = storeFacts.ownerToken.scopeKey;
     const getResourceSourceScopeKey = (

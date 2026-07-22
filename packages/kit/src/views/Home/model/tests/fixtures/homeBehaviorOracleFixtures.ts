@@ -424,7 +424,7 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
         {
           kind: 'test',
           reference:
-            'packages/kit/src/views/Home/homeWalletCapabilityTabModel.test.ts :: commits hidden capability tabs only after unsupported BTC is confirmed',
+            'packages/kit/src/views/Home/model/tests/homeCapabilityPolicy.test.ts :: confirms only applicable Bitcoin tabs',
         },
       ],
       productExpectation: {
@@ -437,7 +437,7 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
         probe: 'fundedBitcoinCapability',
         resolverNames: [
           'resolveHomeLegacyBalanceState',
-          'buildHomeWalletCapabilityTabModel',
+          'projectHomeCapabilities',
         ],
       },
     },
@@ -977,7 +977,7 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
         {
           kind: 'test',
           reference:
-            'packages/kit/src/views/Home/homeWalletCapabilityTabModel.test.ts :: keeps a legal selected tab and falls back only after it is removed',
+            'packages/kit/src/views/Home/model/tests/homeCapabilityPolicy.test.ts :: falls back after the selected capability is removed',
         },
         {
           kind: 'ui',
@@ -998,10 +998,7 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
       verification: {
         kind: 'executable',
         probe: 'capabilityChanged',
-        resolverNames: [
-          'buildHomeWalletCapabilityTabModel',
-          'resolveHomeWalletSelectedTab',
-        ],
+        resolverNames: ['projectHomeCapabilities'],
       },
     },
     {

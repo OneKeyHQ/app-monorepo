@@ -10441,10 +10441,13 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/native-components@workspace:packages/native-components"
   peerDependencies:
+    "@onekeyfe/react-native-skeleton": 3.0.78
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.33.2
   peerDependenciesMeta:
+    "@onekeyfe/react-native-skeleton":
+      optional: true
     react:
       optional: true
     react-native:

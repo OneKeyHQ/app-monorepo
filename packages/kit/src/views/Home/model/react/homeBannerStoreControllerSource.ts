@@ -86,7 +86,9 @@ export async function runHomeBannerStoreRequest({
   paramsFingerprint,
   sessionDismissedIds,
   tronResource,
-}: IRunHomeBannerStoreRequestParams): Promise<IHomeBannerStorePayload> {
+}: IRunHomeBannerStoreRequestParams): Promise<
+  IHomeBannerStorePayload | undefined
+> {
   const handle = gateway.begin({
     ownerToken,
     paramsFingerprint,
@@ -100,6 +102,11 @@ export async function runHomeBannerStoreRequest({
       api.fetchReferralEligibility(),
       hasBotWallet ? api.fetchBotWalletDeactivated() : Promise.resolve(false),
     ]);
+
+  if (localResult.status === 'rejected' && remoteResult.status === 'rejected') {
+    gateway.complete(handle, { kind: 'error', errorKind: 'source' });
+    return undefined;
+  }
 
   const local = localResult.status === 'fulfilled' ? localResult.value : null;
   const closedForever = {

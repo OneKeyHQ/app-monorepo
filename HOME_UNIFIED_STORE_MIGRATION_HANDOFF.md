@@ -15,9 +15,11 @@
 >
 > Audited branch: `codex/native-home-container`
 >
-> Base HEAD: `ab4e1fe427ac930a4abf31e2fda6086a42519748`
+> Review-remediation baseline HEAD: `b69d05b849feb66a3396ae4fe6afdfd1da1230e2`
 >
-> Completion record: the uncommitted working tree on that base HEAD.
+> Completion record: the review-remediation working tree relative to that
+> baseline; unrelated local mobile, app-update, Discovery, TradingView, build,
+> and performance artifacts are outside this handoff.
 >
 > Last updated: 2026-07-22
 
@@ -34,7 +36,7 @@ exists.
 | 2     | Complete | Root-owned Portfolio, Perps, DeFi, NFT, History, Market, Banner, capability, balance, snapshot, and persistence controllers publish through typed begin/complete Store gateways; renderers own no request lifecycle.                                         | None.                    |
 | 3     | Complete | Shell, exact confirmed balance, capability, Navigation, typed intents, and backup-required surface are Store-derived. React tabs are controlled by Store Navigation.                                                                                         | None.                    |
 | 4     | Complete | Every section carries its complete JSON-safe payload in a Store resource. Spot, Perps, DeFi, NFT, History, Market, and Banner renderers read typed Store selectors only.                                                                                     | None.                    |
-| 5     | Complete | The Native-only business host and source hooks are retired. iOS uses Swift HomeContainer and Android uses Kotlin HomeContainer. An app-owned adapter projects Store slices into protocol-v3 snapshots/patches and forwards typed intents; search chrome and the controlled account/action/backup slots reuse shared RN components without creating another data authority. | None.                    |
+| 5     | Complete | The Native-only business host and source hooks are retired. iOS uses Swift HomeContainer and Android uses Kotlin HomeContainer. The app-owned `mobileNativeHomeViewModelAdapter` maps Store slices into renderer ViewModels carried by protocol-v3 snapshots/patches and forwards typed intents; search chrome and controlled RN slots reuse shared components without creating another data authority. | None.                    |
 | 6     | Complete | Current-worktree iOS Simulator Debug build/install/launch, owner changes, Search/action-row layout, Banner retention, DeFi continuity, five settled balance samples, and 51 recorded rapid Spot/Perps/DeFi selections passed. | None. |
 | 7     | Complete | Shadow Store, semantic sidecar, legacy publishers, Native balance authority, Native-only producer hooks, duplicate renderer persistence, and obsolete compatibility files were removed. Production boundary tests enforce the retired paths. | None. |
 
@@ -51,7 +53,12 @@ The independent validation agent must audit this status table against the
 working tree. It must report unmet gates rather than infer completion from the
 presence of files.
 
-### 0.0.1 Current validation result
+### 0.0.1 Pre-remediation acceptance baseline
+
+This subsection preserves the simulator acceptance evidence recorded before
+the final code-review remediation. The current remediation result is recorded
+separately in section 0.0.1.1 so historical screenshots are not presented as
+proof for a newer build.
 
 - `yarn tsc:only`: pass;
 - focused Home/Store/Native regression: 98 suites, 712 tests, pass;
@@ -97,6 +104,96 @@ Three independent implementation agents audited Store concurrency, Native
 transport/runtime behavior, and integration/redundancy. Their implementation
 findings and final cross-domain acceptance are recorded in the task handoff;
 no audit claim relies only on file presence.
+
+### 0.0.1.1 Final code-review remediation checkpoint — 2026-07-22
+
+The final review pass closed the remaining correctness and architecture gaps
+without adding another Home authority:
+
+- Balance aggregation excludes optional DeFi and Perps contributors until the
+  Store has confirmed that the capability is both ready and supported. A
+  settled contributor entering revalidation is projected as `partial`, so the
+  balance policy retains the last confirmed aggregate until the full required
+  contributor set reaches one refresh epoch. This prevents both permanent
+  loading and mixed-epoch amount churn.
+- Banner refresh no longer commits an empty successful payload when both local
+  and remote sources fail. It commits a typed source error and keeps the last
+  confirmed Store payload visible.
+- Split-runtime producer handshakes use bounded retry, latest-request wins
+  sequencing, and replay of the latest readiness signal. A transient `bg`
+  startup failure can recover, while a stale failed handshake cannot overwrite
+  a newer active session.
+- The iOS pager keeps one latest-wins pending tab selection while a transition
+  is settling. Control taps publish their Store intent immediately, while
+  Store-originated `selectTab` commands are presentation-only and never emit a
+  second user intent. The JS controller correlates rapid Native selections so
+  an older Store confirmation cannot enqueue a stale command behind a newer
+  local transition.
+- The mobile app loads the Native Home renderer lazily and owns a fatal-load
+  error boundary that falls back to the React Home loader. The active Native
+  startup graph no longer statically imports the full React Home renderer.
+- Phase 7 cleanup removed the hook-local confirmed capability cache and the
+  effectful `useHomeNavigationCoordinator`. The capability source hook now
+  returns typed facts; the root Store controller is the single publisher and
+  the Store remains the only confirmed-state authority.
+- Protocol v3 now rejects missing or unknown section revision keys in
+  TypeScript, Swift, and Kotlin. This prevents a newer producer from silently
+  applying a revision vector that an older Native renderer cannot interpret.
+- Repository import rules now enforce the reverse boundary as well:
+  `shared`, `components`, `core`, and `kit-bg` cannot import
+  `native-components`. `kit` may import only renderer/protocol-facing Native
+  APIs, while app-specific Native registration remains in `apps/mobile`.
+- Native protocol contracts are first-class PR checks in
+  `.github/workflows/native-home-contract.yml`, with a Swift contract job and
+  a Kotlin/Gradle contract job gated by relevant paths.
+
+Runtime topology remains explicit. On iOS and Android this checkpoint affects
+the `main` Home Store/controllers and the app-injected Native renderer; `bg`
+continues to own service production. Their JS heaps are isolated, payloads are
+deserialized once per runtime, and initialization order is independent. Native
+MMKV/DB/file handles or native singletons may still be process-shared. Browser
+Extension follows the same split-runtime rule with the React renderer. Web and
+Desktop remain single-runtime and use the same Store/reducer without Native
+transport assumptions.
+
+Current remediation validation:
+
+- `yarn tsc:only`: pass;
+- focused code-review regressions: 11 suites, 193 tests, pass, including the
+  reverse import-boundary contract;
+- scoped type-aware Oxlint, Oxfmt, and `git diff --check`: pass;
+- `yarn agent:check --profile commit`: pass, including worktree JS/TS lint,
+  format, agent-context, staged lint, and staged TypeScript checks;
+- `development/scripts/test-home-container-protocol-ios.sh`: pass;
+- `development/scripts/test-home-container-protocol-android.sh`: pass,
+  `BUILD SUCCESSFUL`;
+- iOS Simulator Debug build/install/launch: pass with 0 errors and 13 existing
+  dependency/deprecation warnings on iPhone 17 Pro, iOS 26.5,
+  `4837E819-A117-4E08-9936-445785D199E3`;
+- the current OP single-network screen is settled at `$12.84` with token rows;
+  Search, account/network controls, Wallet Actions, Banner, Native tabs, and
+  body content are visible without the former reserved blank Header region;
+- direct Native Spot/Perps/DeFi controls are hittable. Repeated
+  Perps → DeFi → Spot → DeFi batches show DeFi selected at both 800 ms and
+  2400 ms, with no delayed jump back; returning through Perps to Spot likewise
+  remains on Spot at both checkpoints. The Swift contract separately proves
+  the pending transition queue is latest-wins;
+- the app-log segment marked immediately before interaction contains none of
+  `OneKeyLocalError`, Native renderer fallback, missing translation, maximum
+  update depth, `slotRevisionGap`, invalid invariant, Render Error, or
+  unhandled JS exception. Debug startup still emits the pre-existing
+  `NetworkStatusBadge` and `Navigation` registration errors before Home is
+  ready; those are outside the Home review patch and are not represented as
+  fixed here;
+- current ignored evidence is under `.tmp/ui/`, including
+  `home-review-post-echo-build.png`, `home-review-multi-defi-800ms.png`,
+  `home-review-multi-defi-2400ms.png`, `home-review-rapid-spot-800ms.png`, and
+  `home-review-rapid-spot-2400ms.png`; it is not part of the PR;
+- the first local build attempt exposed an unrelated dirty-worktree CocoaPods
+  checksum mismatch between the user-modified `Podfile` and committed
+  `Podfile.lock`. The ignored generated manifest was synchronized only for the
+  validation build and the pre-existing source/lock state was restored; no
+  unrelated mobile dependency file is included in this remediation.
 
 ### 0.0.2 Final renderer and Store architecture
 
@@ -163,7 +260,7 @@ Final ownership is intentionally narrow:
 | Requests and response normalization | Root source controllers plus `bg` services | Renderers do not start a competing Home request lifecycle. |
 | Web/Desktop/Extension pixels and local gestures | React renderer | Reads slice selectors and sends typed intents. |
 | iOS pixels, native scroll/pager/gesture/reuse | Swift HomeContainer | Receives only validated snapshots/patches. |
-| Android pixels, native scroll/pager/gesture/reuse | Kotlin HomeContainer | Same protocol and Store projection as iOS. |
+| Android pixels, native scroll/pager/gesture/reuse | Kotlin HomeContainer | Same protocol and Store-to-ViewModel mapping as iOS. |
 | Shared mobile search/notification chrome | React Native row above HomeContainer | Reuses the existing modal/navigation behavior and owns no Home business state. |
 | Shared account/network selector interaction | Controlled RN `header.account-row` slot | Slot authority carries the same owner/session/Store commit identity as the native snapshot. |
 | Shared wallet actions | Controlled RN `header.action-row` slot | Reuses the existing interaction component; its authority advances only with the Shell slice. |

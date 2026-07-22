@@ -165,7 +165,7 @@ export function HomeStoreControllerBridge() {
         }
         void coordinator.refreshHandshake();
       },
-      { replayLatest: false },
+      { replayLatest: true },
     );
   }, [coordinator]);
 

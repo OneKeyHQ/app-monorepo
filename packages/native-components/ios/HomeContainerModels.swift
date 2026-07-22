@@ -1,5 +1,24 @@
 import Foundation
 
+struct HomeContainerTabSelectionRequest: Equatable {
+  let tabId: String
+  let animated: Bool
+  let notify: Bool
+}
+
+struct HomeContainerTabSelectionQueue {
+  private(set) var pending: HomeContainerTabSelectionRequest?
+
+  mutating func replacePending(with request: HomeContainerTabSelectionRequest) {
+    pending = request
+  }
+
+  mutating func takePending() -> HomeContainerTabSelectionRequest? {
+    defer { pending = nil }
+    return pending
+  }
+}
+
 struct HomeContainerTheme: Decodable {
   let backgroundColor: String
   let cardColor: String
@@ -87,6 +106,7 @@ struct HomeContainerItem: Decodable {
   let buttonTitle: String?
   let leadingIcon: String?
   let showChevron: Bool?
+  let showDivider: Bool?
   let actionId: String?
   let favorite: Bool?
   let favoriteActionId: String?

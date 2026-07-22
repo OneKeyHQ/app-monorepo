@@ -849,14 +849,10 @@ export function HomeHistoryStoreController() {
   const enabled =
     navigation.value.kind === 'ready' &&
     navigation.value.tabs.includes('history');
-  const visible =
-    navigation.value.kind === 'ready' &&
-    (navigation.value.selectedTabId === 'portfolio' ||
-      navigation.value.selectedTabId === 'history');
   const {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
-  const source = useHomeHistoryStoreSource({ enabled, visible });
+  const source = useHomeHistoryStoreSource({ enabled, visible: enabled });
 
   useRegisterHomeBackgroundRecoveryRefresh({
     callback: source.refresh,

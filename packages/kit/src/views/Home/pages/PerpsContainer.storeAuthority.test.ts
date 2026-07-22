@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 describe('PerpsContainer Store display authority', () => {
-  it('renders business state only from the Home Store projection', () => {
+  it('renders business state only from Home Store-derived data', () => {
     const source = fs.readFileSync(
       path.join(__dirname, 'PerpsContainer.tsx'),
       'utf8',

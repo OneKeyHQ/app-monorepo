@@ -1,4 +1,5 @@
 import UIKit
+import Skeleton
 
 private enum HomeContainerMetrics {
   // Provisional same-state Legacy/Native A/B measurements. Debug UI verification remains authoritative.
@@ -68,6 +69,38 @@ private extension UIColor {
       return description
     }
     return String(format: "%.4f:%.4f:%.4f:%.4f", red, green, blue, alpha)
+  }
+}
+
+private func homeContainerSkeletonGradientColors(
+  theme: HomeContainerTheme
+) -> [String] {
+  let background = UIColor(
+    homeContainerColor: theme.backgroundColor,
+    fallback: .systemBackground
+  )
+  var red: CGFloat = 0
+  var green: CGFloat = 0
+  var blue: CGFloat = 0
+  var alpha: CGFloat = 0
+  let resolved = background.resolvedColor(
+    with: UITraitCollection.current
+  )
+  guard resolved.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
+    return ["#fafafa", "#cdcdcd"]
+  }
+  let luminance = (0.2126 * red) + (0.7152 * green) + (0.0722 * blue)
+  return luminance < 0.5
+    ? ["#111111", "#333333"]
+    : ["#fafafa", "#cdcdcd"]
+}
+
+private extension SkeletonNativeView {
+  func applyHomeContainerSkeletonTheme(_ theme: HomeContainerTheme) {
+    configure(
+      shimmerSpeed: 3,
+      shimmerGradientColors: homeContainerSkeletonGradientColors(theme: theme)
+    )
   }
 }
 
@@ -333,6 +366,7 @@ private struct HomeContainerRow {
         item.buttonTitle ?? "",
         item.leadingIcon ?? "",
         item.showChevron == true ? "1" : "0",
+        item.showDivider == true ? "1" : "0",
         item.actionId ?? "",
         item.favorite == true ? "1" : "0",
         item.favoriteActionId ?? "",
@@ -638,6 +672,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   private var mountedSlotMetadata = [HomeContainerProtocolV3MountedSlotMetadata]()
   private var pagerTransitionState = PagerTransitionState.idle
   private var pendingPagerNotify = false
+  private var tabSelectionQueue = HomeContainerTabSelectionQueue()
   private var isCoordinatingNestedScroll = false
   private var isSynchronizingUnifiedVerticalPage = false
   private var verticalScrollOwner = VerticalScrollOwner.header
@@ -683,7 +718,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       self.emitAction(actionId: actionId, itemId: itemId, tabId: self.selectedTabId)
     }
     tabsView.onSelect = { [weak self] tabId in
-      self?.moveToTab(tabId, animated: true, notify: true)
+      self?.selectTabFromControl(tabId)
     }
     tabsView.onAction = { [weak self] actionId, itemId in
       guard let self else { return }
@@ -981,7 +1016,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
 
   func selectTab(_ tabId: String, animated: Bool) {
     DispatchQueue.main.async { [weak self] in
-      self?.moveToTab(tabId, animated: animated, notify: true)
+      self?.moveToTab(tabId, animated: animated, notify: false)
     }
   }
 
@@ -1349,7 +1384,16 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       return
     }
     guard let index = pages.firstIndex(where: { $0.tabId == tabId }) else { return }
-    guard pagerTransitionState == .idle else { return }
+    guard pagerTransitionState == .idle else {
+      tabSelectionQueue.replacePending(
+        with: HomeContainerTabSelectionRequest(
+          tabId: tabId,
+          animated: animated,
+          notify: notify
+        )
+      )
+      return
+    }
     let targetPage = pages[index]
     preparePagesForPagerTransition()
     pagerTransitionState = .settling(targetIndex: index)
@@ -1362,6 +1406,20 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     if !animated || abs(pager.contentOffset.x - targetOffset.x) <= 0.5 {
       finishPaging(notify: notify)
     }
+  }
+
+  private func selectTabFromControl(_ tabId: String) {
+    guard let tab = snapshot?.tabs.first(where: { $0.id == tabId }) else { return }
+    if tab.destination == .handoff {
+      emitHandoff(tab: tab)
+      return
+    }
+    guard pages.contains(where: { $0.tabId == tabId }) else { return }
+    if pagerTransitionState == .idle, selectedTabId == tabId {
+      return
+    }
+    emitTabSelection(tabId: tabId)
+    moveToTab(tabId, animated: true, notify: false)
   }
 
   private func preparePagesForPagerTransition() {
@@ -1448,6 +1506,14 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     slotLayoutDidChange?()
     if notify, didChangeTab {
       emitTabSelection(tabId: nextTabId)
+    }
+    if let pendingSelection = tabSelectionQueue.takePending(),
+       pendingSelection.tabId != nextTabId {
+      moveToTab(
+        pendingSelection.tabId,
+        animated: pendingSelection.animated,
+        notify: pendingSelection.notify
+      )
     }
   }
 
@@ -2193,15 +2259,17 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
       nextRows: rowsById,
       changedIds: changedIds
     )
-    // Category selection changes replace the Market rows without animating
-    // their insertion/deletion. Favorite mutations keep the original smooth
-    // row animation; both paths pin the outer content offset.
-    let animatesMarketMutation = isMarketMutation &&
-      !changedIds.contains("item:portfolio-market:market-tabs")
+    // Keep the original smooth transition for both category selection and
+    // favorite mutations while pinning the outer content offset.
+    let animatesMarketMutation = isMarketMutation
     // DeFi data settles after the initial single-network portfolio snapshot.
     // Animate its structural rows so Market moves in one continuous direction
     // instead of being replaced by the inserted section in a single frame.
     let animatesPortfolioDeFiMutation = shouldAnimatePortfolioDeFiMutation(
+      previousRows: previousRows,
+      nextRows: rowsById
+    )
+    let animatesPortfolioAssetsMutation = shouldAnimatePortfolioAssetsMutation(
       previousRows: previousRows,
       nextRows: rowsById
     )
@@ -2218,7 +2286,11 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     dataSource.apply(
       nextSnapshot,
       animatingDifferences: cellUpdatePlan.reloadRowIds.isEmpty &&
-        (animatesMarketMutation || animatesPortfolioDeFiMutation)
+        (
+          animatesMarketMutation ||
+            animatesPortfolioDeFiMutation ||
+            animatesPortfolioAssetsMutation
+        )
     ) { [weak self] in
       DispatchQueue.main.async {
         guard let self else { return }
@@ -2265,6 +2337,14 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     return !structuralIds.isEmpty && structuralIds.allSatisfy(isPortfolioDeFiMutationRowId)
   }
 
+  private func shouldAnimatePortfolioAssetsMutation(
+    previousRows: [String: HomeContainerRow],
+    nextRows: [String: HomeContainerRow]
+  ) -> Bool {
+    let structuralIds = Set(previousRows.keys).symmetricDifference(nextRows.keys)
+    return !structuralIds.isEmpty && structuralIds.allSatisfy(isPortfolioAssetsMutationRowId)
+  }
+
   private func stateRowHeightChanged(
     previousRows: [String: HomeContainerRow],
     nextRows: [String: HomeContainerRow]
@@ -2292,6 +2372,12 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   private func isPortfolioDeFiMutationRowId(_ id: String) -> Bool {
     id.hasPrefix("section:portfolio-defi-") ||
       id.hasPrefix("item:portfolio-defi-")
+  }
+
+  private func isPortfolioAssetsMutationRowId(_ id: String) -> Bool {
+    id.hasPrefix("item:portfolio-assets:") ||
+      id == "item:portfolio-assets-add-token:portfolio-assets-add-token" ||
+      id == "item:portfolio-assets-toggle:portfolio-assets-toggle"
   }
 
   private func restorePinnedMarketMutationContentOffset() {
@@ -2607,6 +2693,7 @@ private final class HomeContainerHeaderView: UIView {
   private let networkIconViews = [UIImageView(), UIImageView()]
   private let networkButton = UIButton(type: .system)
   private let balanceButton = UIButton(type: .system)
+  private var balanceSkeletonView: SkeletonNativeView?
   private let balanceActionsStack = UIStackView()
   private let actionsScroll = HomeContainerHorizontalScrollView()
   private let actionsStack = UIStackView()
@@ -2625,6 +2712,7 @@ private final class HomeContainerHeaderView: UIView {
   private var representedNetworkImageURL: URL?
   private var representedNetworkGroupImageValues: [String] = []
   private var header: HomeContainerHeader?
+  private var currentTheme: HomeContainerTheme?
   private var mountedSlotKeys = Set<String>()
   private var accountRowHeightConstraint: NSLayoutConstraint!
   private var balanceHeightConstraint: NSLayoutConstraint!
@@ -2791,6 +2879,7 @@ private final class HomeContainerHeaderView: UIView {
 
   func apply(header: HomeContainerHeader, theme: HomeContainerTheme) {
     self.header = header
+    currentTheme = theme
     backgroundColor = .clear
     compactBackdropView.backgroundColor = UIColor(
       homeContainerColor: theme.backgroundColor,
@@ -2924,6 +3013,15 @@ private final class HomeContainerHeaderView: UIView {
     layoutSlotHost(accountSlotHost, target: accountRow)
     layoutSlotHost(balanceSlotHost, target: balanceButton)
     layoutSlotHost(actionRowSlotHost, target: actionsScroll)
+    if let balanceSkeletonView {
+      let skeletonHeight = min(balanceButton.bounds.height, 40)
+      balanceSkeletonView.frame = CGRect(
+        x: 0,
+        y: max(0, (balanceButton.bounds.height - skeletonHeight) / 2),
+        width: min(balanceButton.bounds.width, 209),
+        height: skeletonHeight
+      )
+    }
     bringSubviewToFront(compactBackdropView)
     bringSubviewToFront(accountSlotHost)
   }
@@ -3167,12 +3265,36 @@ private final class HomeContainerHeaderView: UIView {
     let ownsBalance = !mountedSlotKeys.contains("header.balance")
     balanceButton.alpha = ownsBalance ? 1 : 0
     balanceButton.isUserInteractionEnabled = ownsBalance
+    updateBalanceSkeleton()
 
     let ownsActionRow = !mountedSlotKeys.contains("header.action-row")
     actionControls.values.forEach { control in
       control.alpha = ownsActionRow ? 1 : 0
       control.isUserInteractionEnabled = ownsActionRow
     }
+  }
+
+  private func updateBalanceSkeleton() {
+    let shouldShow = !mountedSlotKeys.contains("header.balance") &&
+      header?.actionLayout == "loading" &&
+      header?.balance.isEmpty == true &&
+      header?.balanceSecondary?.isEmpty != false
+    guard shouldShow, let currentTheme else {
+      balanceSkeletonView?.removeFromSuperview()
+      balanceSkeletonView = nil
+      return
+    }
+    let skeleton = balanceSkeletonView ?? SkeletonNativeView(frame: .zero)
+    if skeleton.superview == nil {
+      skeleton.isUserInteractionEnabled = false
+      skeleton.accessibilityElementsHidden = true
+      skeleton.layer.cornerRadius = 8
+      skeleton.clipsToBounds = true
+      balanceButton.addSubview(skeleton)
+    }
+    skeleton.applyHomeContainerSkeletonTheme(currentTheme)
+    balanceSkeletonView = skeleton
+    setNeedsLayout()
   }
 
   private func updateBalanceActions(
@@ -3522,8 +3644,10 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
   private let titleLabel = UILabel()
   private let subtitleLabel = UILabel()
   private let dismissButton = HomeContainerHitSlopButton(type: .system)
+  private var widthConstraint: NSLayoutConstraint!
   private var imageWidthConstraint: NSLayoutConstraint!
   private var labelsLeadingConstraint: NSLayoutConstraint!
+  private var labelsLeadingToLeadingConstraint: NSLayoutConstraint!
   private var imageTask: HomeContainerImageRequest?
   private var representedImageValue: String?
   private var normalBackgroundColor = UIColor.secondarySystemBackground
@@ -3542,7 +3666,8 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
     itemId = banner.id
     super.init(frame: .zero)
     layer.cornerRadius = 16
-    widthAnchor.constraint(equalToConstant: 280).isActive = true
+    widthConstraint = widthAnchor.constraint(equalToConstant: 280)
+    widthConstraint.isActive = true
     imageView.contentMode = .scaleAspectFit
     imageView.layer.cornerRadius = 10
     imageView.clipsToBounds = true
@@ -3576,6 +3701,10 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
     labelsLeadingConstraint = labels.leadingAnchor.constraint(
       equalTo: imageView.trailingAnchor,
       constant: 12
+    )
+    labelsLeadingToLeadingConstraint = labels.leadingAnchor.constraint(
+      equalTo: leadingAnchor,
+      constant: 16
     )
     NSLayoutConstraint.activate([
       imageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
@@ -3619,6 +3748,12 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
     subtitleLabel.text = banner.subtitle
     subtitleLabel.isHidden = banner.subtitle?.isEmpty != false
     dismissButton.isHidden = banner.dismissActionId?.isEmpty != false
+    let isTronResourceBanner = banner.id == "home-tron-resource"
+    widthConstraint.constant = isTronResourceBanner ? 220 : 280
+    imageWidthConstraint.constant = isTronResourceBanner ? 0 : 56
+    imageView.isHidden = isTronResourceBanner || banner.imageUrl?.isEmpty != false
+    labelsLeadingConstraint.isActive = !isTronResourceBanner
+    labelsLeadingToLeadingConstraint.isActive = isTronResourceBanner
     dismissButton.tintColor = UIColor(
       homeContainerColor: theme.subduedIconColor ?? theme.secondaryTextColor,
       fallback: .tertiaryLabel
@@ -3638,7 +3773,7 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
       fallback: .tertiarySystemBackground
     )
     accessibilityLabel = banner.title
-    loadImage(banner.imageUrl)
+    loadImage(isTronResourceBanner ? nil : banner.imageUrl)
   }
 
   @objc private func handleHover(_ gestureRecognizer: UIHoverGestureRecognizer) {
@@ -5196,6 +5331,48 @@ private final class HomeContainerInsetLabel: UILabel {
   }
 }
 
+private final class HomeContainerItemSkeletonOverlay: UIView {
+  private let icon = SkeletonNativeView(frame: .zero)
+  private let title = SkeletonNativeView(frame: .zero)
+  private let subtitle = SkeletonNativeView(frame: .zero)
+  private let value = SkeletonNativeView(frame: .zero)
+  private let detail = SkeletonNativeView(frame: .zero)
+
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    isUserInteractionEnabled = false
+    accessibilityElementsHidden = true
+    icon.layer.cornerRadius = 20
+    [title, subtitle, value, detail].forEach {
+      $0.layer.cornerRadius = 8
+    }
+    [icon, title, subtitle, value, detail].forEach {
+      $0.clipsToBounds = true
+      addSubview($0)
+    }
+  }
+
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  func apply(theme: HomeContainerTheme) {
+    [icon, title, subtitle, value, detail].forEach {
+      $0.applyHomeContainerSkeletonTheme(theme)
+    }
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    let centerY = bounds.midY
+    icon.frame = CGRect(x: 20, y: centerY - 20, width: 40, height: 40)
+    title.frame = CGRect(x: 72, y: centerY - 20, width: 128, height: 16)
+    subtitle.frame = CGRect(x: 72, y: centerY + 4, width: 96, height: 12)
+    value.frame = CGRect(x: bounds.width - 84, y: centerY - 20, width: 64, height: 16)
+    detail.frame = CGRect(x: bounds.width - 68, y: centerY + 4, width: 48, height: 12)
+  }
+}
+
 private final class HomeContainerItemCell: UITableViewCell {
   private let highlightView = UIView()
   private let favoriteButton = HomeContainerInteractiveButton(type: .system)
@@ -5219,6 +5396,7 @@ private final class HomeContainerItemCell: UITableViewCell {
   private let marketTabsScrollView = HomeContainerPagerChildHorizontalScrollView()
   private let marketTabsStack = UIStackView()
   private let divider = UIView()
+  private var skeletonOverlay: HomeContainerItemSkeletonOverlay?
   private var rightTrailingConstraint: NSLayoutConstraint?
   private var iconLeadingConstraint: NSLayoutConstraint?
   private var marketIconLeadingConstraint: NSLayoutConstraint?
@@ -5228,6 +5406,10 @@ private final class HomeContainerItemCell: UITableViewCell {
   private var iconImageHeightConstraint: NSLayoutConstraint?
   private var secondaryIconWidthConstraint: NSLayoutConstraint?
   private var secondaryIconHeightConstraint: NSLayoutConstraint?
+  private var badgeContainerWidthConstraint: NSLayoutConstraint?
+  private var badgeContainerHeightConstraint: NSLayoutConstraint?
+  private var badgeImageWidthConstraint: NSLayoutConstraint?
+  private var badgeImageHeightConstraint: NSLayoutConstraint?
   private var titleMaxWidthConstraint: NSLayoutConstraint?
   private var subtitleMaxWidthConstraint: NSLayoutConstraint?
   private var centerButtonTopConstraint: NSLayoutConstraint?
@@ -5292,7 +5474,6 @@ private final class HomeContainerItemCell: UITableViewCell {
     iconLabel.textAlignment = .center
     iconLabel.translatesAutoresizingMaskIntoConstraints = false
     iconContainer.addSubview(iconLabel)
-
     titleLabel.font = HomeContainerTypography.medium(16)
     subtitleLabel.font = HomeContainerTypography.regular(14)
     subtitleDetailLabel.font = HomeContainerTypography.regular(14)
@@ -5407,6 +5588,10 @@ private final class HomeContainerItemCell: UITableViewCell {
     let iconImageHeightConstraint = iconImageView.heightAnchor.constraint(equalToConstant: 40)
     let secondaryIconWidthConstraint = secondaryIconImageView.widthAnchor.constraint(equalToConstant: 26)
     let secondaryIconHeightConstraint = secondaryIconImageView.heightAnchor.constraint(equalToConstant: 26)
+    let badgeContainerWidthConstraint = badgeContainerView.widthAnchor.constraint(equalToConstant: 20)
+    let badgeContainerHeightConstraint = badgeContainerView.heightAnchor.constraint(equalToConstant: 20)
+    let badgeImageWidthConstraint = badgeImageView.widthAnchor.constraint(equalToConstant: 16)
+    let badgeImageHeightConstraint = badgeImageView.heightAnchor.constraint(equalToConstant: 16)
     let titleMaxWidthConstraint = titleLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 128)
     let subtitleMaxWidthConstraint = subtitleLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 66)
     let centerButtonTopConstraint = centerButton.topAnchor.constraint(
@@ -5428,6 +5613,10 @@ private final class HomeContainerItemCell: UITableViewCell {
     self.iconImageHeightConstraint = iconImageHeightConstraint
     self.secondaryIconWidthConstraint = secondaryIconWidthConstraint
     self.secondaryIconHeightConstraint = secondaryIconHeightConstraint
+    self.badgeContainerWidthConstraint = badgeContainerWidthConstraint
+    self.badgeContainerHeightConstraint = badgeContainerHeightConstraint
+    self.badgeImageWidthConstraint = badgeImageWidthConstraint
+    self.badgeImageHeightConstraint = badgeImageHeightConstraint
     self.titleMaxWidthConstraint = titleMaxWidthConstraint
     self.subtitleMaxWidthConstraint = subtitleMaxWidthConstraint
     self.centerButtonTopConstraint = centerButtonTopConstraint
@@ -5472,12 +5661,12 @@ private final class HomeContainerItemCell: UITableViewCell {
       chevronLabel.widthAnchor.constraint(equalToConstant: 12),
       badgeContainerView.trailingAnchor.constraint(equalTo: iconContainer.trailingAnchor, constant: 4),
       badgeContainerView.bottomAnchor.constraint(equalTo: iconContainer.bottomAnchor, constant: 4),
-      badgeContainerView.widthAnchor.constraint(equalToConstant: 20),
-      badgeContainerView.heightAnchor.constraint(equalToConstant: 20),
+      badgeContainerWidthConstraint,
+      badgeContainerHeightConstraint,
       badgeImageView.leadingAnchor.constraint(equalTo: badgeContainerView.leadingAnchor, constant: 2),
       badgeImageView.topAnchor.constraint(equalTo: badgeContainerView.topAnchor, constant: 2),
-      badgeImageView.widthAnchor.constraint(equalToConstant: 16),
-      badgeImageView.heightAnchor.constraint(equalToConstant: 16),
+      badgeImageWidthConstraint,
+      badgeImageHeightConstraint,
       centerButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
       centerButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
       centerButtonTopConstraint,
@@ -5519,6 +5708,7 @@ private final class HomeContainerItemCell: UITableViewCell {
     } else {
       contentView.frame = bounds
     }
+    skeletonOverlay?.frame = contentView.bounds
   }
 
   override func setHighlighted(_ highlighted: Bool, animated: Bool) {
@@ -5590,6 +5780,8 @@ private final class HomeContainerItemCell: UITableViewCell {
     leverageLabel.isHidden = true
     titleAccessoryImageView.isHidden = true
     recognizedImageView.isHidden = true
+    skeletonOverlay?.removeFromSuperview()
+    skeletonOverlay = nil
     favoriteActionId = nil
     favoriteItemId = ""
     representedFavoriteItemId = nil
@@ -5674,6 +5866,14 @@ private final class HomeContainerItemCell: UITableViewCell {
     iconImageHeightConstraint?.constant = primaryIconSize
     secondaryIconWidthConstraint?.constant = secondaryIconSize
     secondaryIconHeightConstraint?.constant = secondaryIconSize
+    let badgeContainerSize: CGFloat = usesPairedHistoryIcons ? 16 : 20
+    let badgeImageSize: CGFloat = usesPairedHistoryIcons ? 12 : 16
+    badgeContainerWidthConstraint?.constant = badgeContainerSize
+    badgeContainerHeightConstraint?.constant = badgeContainerSize
+    badgeImageWidthConstraint?.constant = badgeImageSize
+    badgeImageHeightConstraint?.constant = badgeImageSize
+    badgeContainerView.layer.cornerRadius = badgeContainerSize / 2
+    badgeImageView.layer.cornerRadius = badgeImageSize / 2
     iconImageView.layer.cornerRadius = usesPairedHistoryIcons ? 12 : 0
     secondaryIconImageView.layer.cornerRadius = secondaryIconSize / 2
     secondaryIconImageView.layer.borderWidth = usesPairedHistoryIcons ? 2 : 0
@@ -5681,7 +5881,7 @@ private final class HomeContainerItemCell: UITableViewCell {
       homeContainerColor: theme.backgroundColor,
       fallback: .systemBackground
     ).cgColor
-    contentView.alpha = item.renderer == "empty" || item.renderer == "loading" ? 0 : 1
+    contentView.alpha = 1
     backgroundColor = UIColor(homeContainerColor: theme.backgroundColor, fallback: .systemBackground)
     titleLabel.textColor = UIColor(homeContainerColor: theme.primaryTextColor, fallback: .label)
     subtitleLabel.textColor = UIColor(homeContainerColor: theme.secondaryTextColor, fallback: .secondaryLabel)
@@ -5739,6 +5939,7 @@ private final class HomeContainerItemCell: UITableViewCell {
     if usesPairedHistoryIcons {
       iconContainer.backgroundColor = .clear
     }
+    iconContainer.layer.masksToBounds = !usesPairedHistoryIcons
     switch item.leadingIcon {
     case "star": iconLabel.text = "★"
     case "support": iconLabel.text = "◉"
@@ -5820,16 +6021,50 @@ private final class HomeContainerItemCell: UITableViewCell {
     titleAccessoryImageView.isHidden =
       titleAccessoryImageView.image == nil && item.titleAccessoryIcon == nil
     recognizedImageView.isHidden = item.communityRecognized != true
-    chevronLabel.isHidden = item.showChevron != true
-    rightTrailingConstraint?.constant = item.showChevron == true ? -42 : -20
-    let isCentered = item.renderer == "addToken" || item.renderer == "showMore"
+    let isLoading = item.renderer == "loading"
+    chevronLabel.isHidden = isLoading || item.showChevron != true
+    rightTrailingConstraint?.constant = !isLoading && item.showChevron == true ? -42 : -20
+    if isLoading {
+      let overlay = skeletonOverlay ?? HomeContainerItemSkeletonOverlay()
+      if overlay.superview == nil {
+        contentView.addSubview(overlay)
+      }
+      overlay.frame = contentView.bounds
+      overlay.apply(theme: theme)
+      skeletonOverlay = overlay
+    } else {
+      skeletonOverlay?.removeFromSuperview()
+      skeletonOverlay = nil
+    }
+    [titleLabel, subtitleLabel, valueLabel, detailLabel].forEach { label in
+      label.backgroundColor = .clear
+      label.layer.cornerRadius = 0
+      label.layer.masksToBounds = false
+    }
+    if isLoading {
+      iconLabel.text = ""
+      iconImageView.image = nil
+      iconImageView.isHidden = true
+      secondaryIconImageView.isHidden = true
+      badgeContainerView.isHidden = true
+      titleLabel.text = ""
+      subtitleLabel.text = ""
+      valueLabel.text = ""
+      detailLabel.text = ""
+      titleLabel.isHidden = true
+      subtitleLabel.isHidden = true
+      valueLabel.isHidden = true
+      detailLabel.isHidden = true
+    }
+    let isCentered =
+      item.renderer == "addToken" || item.renderer == "showMore" || item.renderer == "empty"
     let isMarketTabs = item.renderer == "marketTabs"
     centerButton.isHidden = !isCentered
     marketTabsScrollView.isHidden = !isMarketTabs
     iconContainer.isHidden = isCentered || isMarketTabs
     titleLabel.superview?.isHidden = isCentered || isMarketTabs
     valueLabel.superview?.isHidden = isCentered || isMarketTabs
-    divider.isHidden = item.renderer != "defi"
+    divider.isHidden = item.showDivider != true
     centerButtonTopConstraint?.constant = item.renderer == "showMore" ? 12 : 6
     centerButtonBottomConstraint?.constant = item.renderer == "showMore" ? 0 : -6
     usesCard = item.renderer == "supportAction" || item.renderer == "upgrade"
@@ -5904,6 +6139,16 @@ private final class HomeContainerItemCell: UITableViewCell {
         fallback: .secondarySystemBackground
       )
       centerButton.backgroundColor = normalCenterBackgroundColor
+    } else if item.renderer == "empty" {
+      centerButton.attributedText = nil
+      centerButton.text = item.title
+      centerButton.font = HomeContainerTypography.regular(15)
+      centerButton.textColor = UIColor(
+        homeContainerColor: theme.secondaryTextColor,
+        fallback: .secondaryLabel
+      )
+      centerButton.backgroundColor = .clear
+      centerButton.layer.cornerRadius = 0
     } else if item.renderer == "marketTabs" {
       applyMarketSegments(
         item.segments ?? [],

@@ -57,6 +57,7 @@ type IHomeMarketLegacyPayload<TToken extends IHomeMarketTokenRow> = {
   prefetchedRowsByRequestKey: Readonly<Record<string, readonly TToken[]>>;
   resolvedCategoryId: string;
   rows: readonly TToken[];
+  perpsHotRows?: readonly TToken[];
   selectedCategoryId: string;
   totalFavorites: number;
   watchListContentKey: string;
@@ -111,7 +112,9 @@ function getHomeMarketTokenRowId(token: IHomeMarketTokenRow): string {
 function getHomeMarketRowIds<TToken extends IHomeMarketTokenRow>(
   data: IHomeMarketLegacyPayload<TToken>,
 ): readonly string[] {
-  return data.rows.map(getHomeMarketTokenRowId);
+  return [...data.rows, ...(data.perpsHotRows ?? [])].map(
+    getHomeMarketTokenRowId,
+  );
 }
 
 function createHomeMarketSourceIdentity({

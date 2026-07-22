@@ -50,7 +50,7 @@ function BaseHomeHeaderContainer({
   );
 
   const isWalletNotBackedUp = variant === 'notBackedUp';
-  const { refreshSelectedSection } = useHomeRefreshIntents();
+  const { refreshAllSections } = useHomeRefreshIntents();
 
   // Banner only renders once we have actual banner content AND the balance is
   // confirmed positive. Treating 'unknown' as hidden avoids the show→hide
@@ -178,7 +178,7 @@ function BaseHomeHeaderContainer({
             />
           </Stack>
         ) : (
-          <HeaderScrollGestureWrapper onRefresh={refreshSelectedSection}>
+          <HeaderScrollGestureWrapper onRefresh={refreshAllSections}>
             <Stack gap="$2.5">
               <HomeOverviewContainer
                 balancePresentation={balancePresentation.correlated}
@@ -187,7 +187,7 @@ function BaseHomeHeaderContainer({
           </HeaderScrollGestureWrapper>
         )}
         {isWalletNotBackedUp ? null : (
-          <HeaderScrollGestureWrapper onRefresh={refreshSelectedSection}>
+          <HeaderScrollGestureWrapper onRefresh={refreshAllSections}>
             <WalletActions balancePresentation={balancePresentation} />
           </HeaderScrollGestureWrapper>
         )}

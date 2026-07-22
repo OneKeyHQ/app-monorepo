@@ -668,6 +668,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - SDWebImage (~> 5.21.0)
+    - Skeleton
     - SocketRocket
     - Yoga
   - OpenSSL-Universal (3.6.2000)
@@ -5529,7 +5530,7 @@ SPEC CHECKSUMS:
   NetworkInfo: 8f477bda9569e9f5cf6ac784df616540037fb4a4
   NitroMmkv: ce1df9b9f0e06dfbde2455d863047e0411fceb6e
   NitroModules: 11bba9d065af151eae51e38a6425e04c3b223ff3
-  OneKeyNativeComponents: 6265bb623a1c18b553fd989e77e77f333ff5283f
+  OneKeyNativeComponents: e725090d63c28f971a124e2e4016feae2bb3d1cc
   OpenSSL-Universal: ecee7b138fa75a74ecf00d7ffd248fb584739b9e
   Pbkdf2: 76a41c21cebe8b04bd539c0070a7dc6a69f50068
   PerpDepthBar: ea764fd9ca6dde336b3b6ca292e783e2b9c66c69
@@ -5666,6 +5667,6 @@ SPEC CHECKSUMS:
   Yoga: 728df40394d49f3f471688747cf558158b3a3bd1
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
-PODFILE CHECKSUM: 06fc46f54e658b7a1bed81102467631d6bc25323
+PODFILE CHECKSUM: 0e219e54e9511a7261e50ecd72b651453722a11a
 
 COCOAPODS: 1.16.2

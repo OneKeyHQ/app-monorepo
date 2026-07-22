@@ -55,6 +55,7 @@ const handle = {
 } satisfies IHomeSectionSourceRequestHandle;
 
 const payload: IHomePopularTradingPayload = {
+  earnRows: [],
   categories: [{ id: 'favorites', name: 'Favorites' }],
   favoriteMode: 'favorites',
   perpsHotRows: [],
@@ -175,6 +176,7 @@ describe('HomeMarketStoreController', () => {
           spotCategories: [],
         },
       }),
+      fetchEarnAssets: async () => ({ tokens: [] }),
       fetchPerpsTokens,
       fetchSpotCategoryTokens: jest.fn(async () => ({ list: [] })),
       fetchTokenAliases: jest.fn(async () => undefined),

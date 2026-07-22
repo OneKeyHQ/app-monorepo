@@ -43,6 +43,18 @@ describe('Native Home runtime surface', () => {
         '../../../../../apps/mobile/src/home/MobileNativeHomeRenderer.tsx',
       ),
     );
+    const mobileViewModelAdapterSource = readSource(
+      path.resolve(
+        __dirname,
+        '../../../../../apps/mobile/src/home/mobileNativeHomeViewModelAdapter.ts',
+      ),
+    );
+    const mobileRendererDevSwitchSource = readSource(
+      path.resolve(
+        __dirname,
+        '../../../../../apps/mobile/src/home/mobileHomeRendererDevSwitch.ts',
+      ),
+    );
     const iosNativeSource = readSource(
       path.resolve(
         __dirname,
@@ -53,6 +65,12 @@ describe('Native Home runtime surface', () => {
       path.resolve(
         __dirname,
         '../../../../native-components/android/src/main/java/com/margelo/nitro/onekeynativecomponents/HomeContainerView.kt',
+      ),
+    );
+    const homeUiLoggerSource = readSource(
+      path.resolve(
+        __dirname,
+        '../../../../shared/src/logger/scopes/wallet/scenes/homeUi.ts',
       ),
     );
 
@@ -73,11 +91,24 @@ describe('Native Home runtime surface', () => {
     expect(mobileAppSource).toMatch(
       /import\(\s*['"]\.\/src\/home\/MobileNativeHomeRenderer['"]\s*\)/,
     );
+    expect(mobileAppSource).toMatch(
+      /import\(\s*['"]@onekeyhq\/kit\/src\/views\/Home\/pages\/HomePageView['"]\s*\)/,
+    );
+    expect(mobileAppSource).not.toMatch(
+      /import\s+\{\s*HomePageView\s*\}\s+from/,
+    );
+    expect(mobileAppSource).toContain('class MobileNativeHomeRendererBoundary');
     expect(mobileAppSource).not.toMatch(
       /import\s+\{\s*MobileNativeHomeRenderer\s*\}\s+from/,
     );
     expect(mobileRendererSource).toContain(
       "from '@onekeyhq/native-components';",
+    );
+    expect(mobileRendererSource).toContain(
+      "from '@onekeyhq/kit/src/views/Home/pages/HomePageViewLoader';",
+    );
+    expect(mobileRendererSource).not.toContain(
+      "from '@onekeyhq/kit/src/views/Home/pages/HomePageView';",
     );
     expect(mobileRendererSource).toContain('<HomeContainer');
     expect(mobileRendererSource).toContain("execution: 'controller'");
@@ -86,10 +117,29 @@ describe('Native Home runtime surface', () => {
     expect(mobileRendererSource).toContain('<WalletActions');
     expect(mobileRendererSource).toContain('<NotBackedUpEmpty />');
     expect(mobileRendererSource).toContain('contentStates:');
+    expect(mobileRendererSource).toContain('contentHeaders:');
+    expect(mobileRendererSource).toContain('contentFooters:');
+    expect(mobileRendererSource).toContain('tabAccessories:');
     expect(mobileRendererSource).toContain('height: header.actionRowHeight');
     expect(mobileRendererSource).toContain(
-      '[backupStateAuthority.slotId]: backupStateAuthority.slotRevision',
+      'slotRevisions: collectSlotRevisions(slots)',
     );
+    expect(mobileRendererSource).toContain(
+      'defaultLogger.wallet.homeUi.homeNativeContentDecision(decision)',
+    );
+    expect(homeUiLoggerSource).toMatch(
+      /@LogToLocal\(\{ level: 'info' \}\)\s+public homeNativeContentDecision/,
+    );
+    expect(mobileViewModelAdapterSource).toContain("renderer: 'history'");
+    expect(mobileViewModelAdapterSource).toContain("renderer: 'market'");
+    expect(mobileViewModelAdapterSource).toContain("renderer: 'earn'");
+    expect(mobileViewModelAdapterSource).not.toMatch(
+      /use[A-Z]\w+\(|backgroundApiProxy|usePromiseResult/,
+    );
+    expect(mobileRendererDevSwitchSource).toContain(
+      'var __ONEKEY_HOME_RENDERER__',
+    );
+    expect(mobileRendererDevSwitchSource).toContain('useSyncExternalStore');
     expect(iosNativeSource).toContain(
       'let hasMountedSlot = mountedSlotKeys.contains("header.action-row")',
     );

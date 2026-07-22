@@ -79,6 +79,22 @@ describe('Home Unified Store production boundary', () => {
     expect(source).toContain('completeHomeSectionRequest');
   });
 
+  it('keeps capability publication and confirmed state in the Store controller', () => {
+    expect(
+      fs.existsSync(
+        path.join(homeRoot, 'model/react/useHomeNavigationCoordinator.ts'),
+      ),
+    ).toBe(false);
+    const capabilityController = readHomeFile(
+      'model/react/HomeCapabilityStoreController.tsx',
+    );
+    const supportSource = readHomeFile('hooks/useHomeWalletTabSupport.ts');
+    expect(capabilityController).toContain('publishHomeCapabilitySource');
+    expect(supportSource).not.toMatch(
+      /confirmedByScope|rememberConfirmedHomeWalletTabSupport|\bresolveHomeWalletTabSupport\b/,
+    );
+  });
+
   it('derives every Header balance contributor from the Home Store', () => {
     const source = readHomeFile('model/react/useHomeBalanceFacts.ts');
     for (const sourceId of ['portfolio', 'perps', 'defi']) {

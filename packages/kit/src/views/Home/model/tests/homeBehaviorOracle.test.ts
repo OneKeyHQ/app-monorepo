@@ -1,13 +1,11 @@
-import {
-  buildHomeWalletCapabilityTabModel,
-  resolveHomeWalletSelectedTab,
-} from '../../homeWalletCapabilityTabModel';
 import { isNativeHomePortfolioRequestCurrent } from '../../nativeHomePortfolioRequestLifecycle';
 import { resolveHomeWalletPageSurface } from '../../pages/homeWalletPageSurface';
 import {
   type IPerpsHomePortfolioResult,
   selectCurrentPerpsHomePortfolioResult,
 } from '../../pages/perpsHomePortfolioAuthority';
+import { projectHomeCapabilities } from '../capabilities/homeCapabilityPolicy';
+import { createIdleHomeSourceFacts } from '../facts/homeFacts';
 import { createHomeHistoryStoreResult } from '../sections/history/homeHistoryControllerUtils';
 import { createHomeHistoryStorePayload } from '../sections/history/homeHistoryStoreModel';
 
@@ -24,6 +22,8 @@ import {
   resolveHomeLegacyHeaderActionPresentation,
   resolveHomeLegacyScopeCachedBalanceState,
 } from './fixtures/homeLegacyBalanceOracle';
+
+import type { IHomeFacts } from '../facts/homeFacts';
 
 const authoritativeRequiredHomeUICoverageIds = [
   'account8ToAccount1',
@@ -80,6 +80,40 @@ function source(
   included = true,
 ): IHomeLegacyAmountSourceAuthority {
   return { included, scopeKey, status };
+}
+
+function createCapabilityFacts(
+  capabilityInputs: IHomeFacts['capabilityInputs'],
+): IHomeFacts {
+  return {
+    owner: {
+      walletId: 'wallet-fixture-capability',
+      accountId: 'account-fixture-capability',
+      network: {
+        kind: 'singleNetwork',
+        networkId: 'network-fixture-capability',
+      },
+    },
+    ownerToken: {
+      scopeKey: 'scope-fixture-capability',
+      sessionId: 'session-fixture-capability',
+    },
+    wallet: {
+      ready: true,
+      hasNetworkAccount: true,
+      backupStatus: 'complete',
+      accountType: 'hd',
+    },
+    environment: { theme: 'light' },
+    runtime: {
+      topology: 'single',
+      connection: 'ready',
+      protocolVersion: 1,
+    },
+    capabilityInputs,
+    sources: createIdleHomeSourceFacts(),
+    confirmed: {},
+  };
 }
 
 function runExecutableProbe(probe: IHomeBehaviorOracleProbe) {
@@ -180,16 +214,32 @@ function runExecutableProbe(probe: IHomeBehaviorOracleProbe) {
         }),
       ).toBe('positive');
       expect(
-        buildHomeWalletCapabilityTabModel({
-          isDeFiSupported: false,
-          isPerpsSupported: false,
-          isReady: true,
-        }),
-      ).toEqual({
-        isDeFiVisible: false,
-        isPerpsVisible: false,
-        shouldCommitTabs: true,
-        status: 'confirmed',
+        projectHomeCapabilities({
+          facts: createCapabilityFacts({
+            accountType: 'hd',
+            allNetworks: false,
+            networkFamily: 'btc',
+            ready: true,
+            productAvailability: {
+              defi: false,
+              history: true,
+              market: true,
+              nft: false,
+              perps: false,
+            },
+            serverConfig: {
+              defi: false,
+              history: true,
+              market: true,
+              nft: false,
+              perps: false,
+            },
+          }),
+          selectedTabId: 'portfolio',
+        }).navigation,
+      ).toMatchObject({
+        kind: 'ready',
+        tabs: ['portfolio', 'history'],
       });
       return;
     }
@@ -316,20 +366,34 @@ function runExecutableProbe(probe: IHomeBehaviorOracleProbe) {
       return;
     }
     case 'capabilityChanged': {
-      expect(
-        buildHomeWalletCapabilityTabModel({
-          isDeFiSupported: false,
-          isPerpsSupported: false,
-          isReady: true,
-        }).shouldCommitTabs,
-      ).toBe(true);
-      expect(
-        resolveHomeWalletSelectedTab({
-          fallbackTabId: 'portfolio',
-          selectedTabId: 'defi',
-          visibleTabIds: ['portfolio', 'history'],
+      const projection = projectHomeCapabilities({
+        facts: createCapabilityFacts({
+          accountType: 'hd',
+          allNetworks: false,
+          networkFamily: 'btc',
+          ready: true,
+          productAvailability: {
+            defi: false,
+            history: true,
+            market: true,
+            nft: false,
+            perps: false,
+          },
+          serverConfig: {
+            defi: false,
+            history: true,
+            market: true,
+            nft: false,
+            perps: false,
+          },
         }),
-      ).toBe('portfolio');
+        selectedTabId: 'defi',
+      });
+      expect(projection.navigation).toMatchObject({
+        kind: 'ready',
+        selectedTabId: 'portfolio',
+        tabs: ['portfolio', 'history'],
+      });
       return;
     }
     case 'sameScopeRequestOutOfOrder': {

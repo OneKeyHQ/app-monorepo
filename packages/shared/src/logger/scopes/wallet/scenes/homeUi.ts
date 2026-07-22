@@ -107,6 +107,28 @@ export class HomeUiScene extends BaseScene {
   }
 
   @LogToLocal({ level: 'info' })
+  public homeNativeContentDecision(params: {
+    selectedTab: string;
+    showTokenFilter: boolean;
+    showPortfolioSettings: boolean;
+    showHistoryFilter: boolean;
+    showPerpsHeader: boolean;
+    showDeFiHeader: boolean;
+    showUpgrade: boolean;
+    showSupport: boolean;
+    portfolioItemCount: number;
+    perpsItemCount: number;
+    deFiItemCount: number;
+    nftState: string;
+    nftItemCount: number;
+    historyItemCount: number;
+    marketItemCount: number;
+    earnItemCount: number;
+  }) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
   public homeNativeTransportDecision(params: {
     resultKind: 'applied' | 'duplicate' | 'needSnapshot' | 'invalid';
     revision?: number;

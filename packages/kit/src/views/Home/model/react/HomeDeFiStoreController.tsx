@@ -43,16 +43,12 @@ export function HomeDeFiStoreController() {
   const interaction = useHomeInteraction();
   const { markHomeSectionCommandHandled } = useHomeStoreControllerActions();
   const processingCommandIdsRef = useRef(new Set<string>());
-  const selectedTabId =
-    navigation.value.kind === 'ready'
-      ? navigation.value.selectedTabId
-      : undefined;
   const enabled =
     navigation.value.kind === 'ready' && navigation.value.tabs.includes('defi');
   const source = useHomeDeFiStoreSource({
     enabled,
     refreshCacheOnly: false,
-    visible: selectedTabId === 'defi',
+    visible: enabled,
   });
   const refresh = source.refresh;
 

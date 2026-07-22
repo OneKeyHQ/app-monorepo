@@ -89,10 +89,10 @@ jest.mock(
   }),
 );
 
-const mockRefreshSelectedSection = jest.fn();
+const mockRefreshAllSections = jest.fn();
 jest.mock('../model/react/useHomeRefreshIntents', () => ({
   useHomeRefreshIntents: () => ({
-    refreshSelectedSection: mockRefreshSelectedSection,
+    refreshAllSections: mockRefreshAllSections,
   }),
 }));
 
@@ -176,7 +176,7 @@ describe('HomeHeaderContainer refresh ownership', () => {
     });
     expect(normalRefreshOwners).toHaveLength(2);
     normalRefreshOwners.forEach((owner) => {
-      expect(owner.props.onRefresh).toBe(mockRefreshSelectedSection);
+      expect(owner.props.onRefresh).toBe(mockRefreshAllSections);
     });
   });
 

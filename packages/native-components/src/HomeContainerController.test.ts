@@ -343,6 +343,54 @@ describe('HomeContainerController', () => {
     expect(target.selectTab).not.toHaveBeenCalled();
   });
 
+  it('confirms rapid native selections without echoing stale commands', () => {
+    const scheduled: (() => void)[] = [];
+    const target = buildTarget();
+    target.getCapabilities.mockReturnValue(protocolV3Capabilities);
+    const owner = { scopeKey: 'scope-1', sessionId: 'session-1' };
+    const controller = new HomeContainerController({
+      initialOwner: owner,
+      initialSnapshot: buildSnapshot(),
+      schedule: (flush) => scheduled.push(flush),
+    });
+    controller.attach(target);
+    controller.handleTransportResult({ kind: 'applied', owner, revision: 5 });
+    target.selectTab.mockClear();
+
+    expect(controller.recordSelectedTab('perps')).toBe(true);
+    expect(controller.recordSelectedTab('defi')).toBe(true);
+    expect(controller.selectTab('perps')).toBe(true);
+    expect(controller.selectTab('defi')).toBe(true);
+
+    expect(target.selectTab).not.toHaveBeenCalled();
+    expect(scheduled).toHaveLength(1);
+    scheduled[0]();
+    expect(target.applyProtocolV3Patch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changes: [
+          expect.objectContaining({
+            kind: 'replaceNavigation',
+            value: expect.objectContaining({ selectedTabId: 'defi' }),
+          }),
+        ],
+      }),
+      undefined,
+    );
+  });
+
+  it('presents Store-originated tab changes without treating them as native confirmations', () => {
+    const target = buildTarget();
+    const controller = new HomeContainerController({
+      initialSnapshot: buildSnapshot(),
+    });
+    controller.attach(target);
+    target.selectTab.mockClear();
+
+    expect(controller.selectTab('history', false)).toBe(true);
+
+    expect(target.selectTab).toHaveBeenCalledWith('history', false);
+  });
+
   it('keeps handoff tabs out of inline selection and section updates', () => {
     const target = buildTarget();
     const controller = new HomeContainerController({
@@ -1719,6 +1767,14 @@ describe('iOS HomeContainer tab automation identifiers', () => {
     expect(source).toContain('view.removeFromSuperview()');
     expect(source).toContain('self?.onSelect?(tab.id)');
   });
+
+  it('emits control selections immediately and keeps Store commands presentation-only', () => {
+    expect(source).toContain('self?.selectTabFromControl(tabId)');
+    expect(source).toContain('emitTabSelection(tabId: tabId)');
+    expect(source).toMatch(
+      /func selectTab\(_ tabId: String, animated: Bool\)[\s\S]*?moveToTab\(tabId, animated: animated, notify: false\)/,
+    );
+  });
 });
 
 describe('native HomeContainer background authority', () => {
@@ -1733,6 +1789,15 @@ describe('native HomeContainer background authority', () => {
     ),
     'utf8',
   );
+
+  it('keeps Android Store tab commands presentation-only', () => {
+    expect(androidSource).toMatch(
+      /fun selectTab\(tabId: String, animated: Boolean\)[\s\S]*?moveToTab\(tabId, animated, false\)/,
+    );
+    expect(androidSource).toContain(
+      'if (notify && didChangeTab) emitTabSelection(tabId)',
+    );
+  });
 
   it('keeps an iOS snapshot authoritative over a late fallback setter', () => {
     const fallbackBlock = iosSource.slice(

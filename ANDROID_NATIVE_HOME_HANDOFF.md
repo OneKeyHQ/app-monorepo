@@ -2996,3 +2996,63 @@ iOS Native Home 当前仍是 split-runtime：main runtime 拥有 Native Home UI�
 3. 补全 main/bg ready 明确信号。
 4. 用真实截图/录屏重走今天 UI matrix：多链有钱钱包、空钱包未备份、空钱包已备份、单链 BTC/ETH/Solana/Polygon/TON/TRON、Market Favorites/Trending/Stocks、History/NFT/DeFi/Perps、Dark mode、动态字体、pressed/hover、图片全候选失败态、scroll inertia、tab/category 连续切换无白屏/无跳变。
 5. 提交时只 stage Native Home/refactor/handoff 相关文件；不要 stage `HOME_STATE_MODEL_REFACTOR_PLAN.md`、app-update、Discovery、TradingView、device-performance、outputs、docs 等无关 dirty。
+
+## 2026-07-22 Final code-review remediation checkpoint
+
+This checkpoint supersedes the unresolved architecture and protocol items in
+the 2026-07-20 Phase 7 checkpoint. It does not retroactively convert that
+checkpoint's broad Android UI matrix into a pass; the user-selected interactive
+acceptance target for this PR remains iOS Simulator Debug.
+
+### Android implementation status
+
+- Kotlin protocol v3 now requires the section revision key set to be exact,
+  not merely a superset containing the known sections. Unknown producer keys
+  therefore request a full snapshot instead of being silently accepted.
+- `HomeContainerProtocolV3Test` covers unknown presentation and authority
+  section keys. The stable Android contract wrapper compiles the current
+  Native Home module and reports `BUILD SUCCESSFUL`.
+- `.github/workflows/native-home-contract.yml` runs the Android Kotlin/Gradle
+  contract on relevant pull requests, alongside the iOS Swift contract. Native
+  protocol changes are no longer dependent on a developer remembering a local
+  command.
+- Reverse import rules prevent `shared`, `components`, `core`, and `kit-bg`
+  from importing `native-components`. `kit` may consume renderer/protocol APIs,
+  but Android application registration and setup remain owned by
+  `apps/mobile`.
+- The app continues to inject `MobileNativeHomeRenderer`; Android therefore
+  renders the Kotlin HomeContainer rather than the React Home body. The React
+  Home loader is retained only as an app-owned fatal lazy-load fallback.
+- Kotlin tab controls emit only when the visible tab actually changes. A
+  Store-originated `selectTab` call is presentation-only, so it cannot echo a
+  second user intent back into the Store or create a Native/Store selection
+  loop.
+
+### Runtime and authority boundary
+
+Android remains a split-runtime target. The `main` JS runtime owns the one Home
+Store, source controllers, Store-to-protocol ViewModel adapter, and the
+app-injected Kotlin renderer. The `bg` JS runtime owns service production. Their JS
+heaps are isolated, each runtime deserializes its own payload copy, and startup
+order is independent; bounded handshake retry and readiness replay handle that
+ordering without creating a second Store. MMKV, DB/file handles, and native
+singletons may still be process-shared native resources.
+
+Renderer updates remain slice-scoped. One exhaustive Store transaction updates
+only the affected atoms, structural sharing preserves unrelated slice
+references, and the Native adapter sends the corresponding revisioned patch.
+The Kotlin renderer validates owner/session, transport, Store, authority,
+presentation, and slot revisions before applying it.
+
+### Validation scope
+
+- `development/scripts/test-home-container-protocol-android.sh`: pass,
+  `BUILD SUCCESSFUL`;
+- TypeScript protocol, import-boundary, Store, capability, balance, Banner,
+  handshake, runtime-surface, and production-boundary regression suites are
+  part of the final focused review command: 11 suites, 193 tests, pass,
+  including the reverse import-boundary contract;
+- `yarn tsc:only` and `yarn agent:check --profile commit`: pass;
+- no Android emulator/device UI run is claimed in this checkpoint;
+- iOS Simulator Debug is validated separately in
+  `HOME_UNIFIED_STORE_MIGRATION_HANDOFF.md`.

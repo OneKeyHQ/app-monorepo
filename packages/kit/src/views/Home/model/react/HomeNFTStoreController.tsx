@@ -28,9 +28,7 @@ export function HomeNFTStoreController() {
     navigation.value.kind === 'ready' && navigation.value.tabs.includes('nft');
   const { refresh } = useHomeNFTStoreSource({
     enabled,
-    visible:
-      navigation.value.kind === 'ready' &&
-      navigation.value.selectedTabId === 'nft',
+    visible: enabled,
   });
 
   useEffect(() => {
