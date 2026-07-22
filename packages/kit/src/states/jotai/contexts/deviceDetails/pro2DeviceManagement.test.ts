@@ -32,23 +32,27 @@ describe('shouldRefreshDeviceSettingsAfterUpdate', () => {
 });
 
 describe('buildPro2DeviceMetaState', () => {
-  it('uses normalized Features for session state and preferences', () => {
+  it('uses canonical state sections for session state and preferences', () => {
     expect(
       buildPro2DeviceMetaState({
         isVerified: true,
-        features: {
-          unlocked: true,
-          initialized: true,
-          backupRequired: true,
-          passphraseProtection: true,
-          attachToPinEnabled: true,
-          unlockedAttachPin: true,
-          language: 'ja-JP',
-          brightness: 60,
-          autoLockDelayMs: 60_000,
-          autoShutdownDelayMs: 300_000,
-          hapticFeedback: true,
-        },
+        state: {
+          status: {
+            unlocked: true,
+            initialized: true,
+            backupRequired: true,
+            passphraseProtection: true,
+            attachToPinEnabled: true,
+            unlockedAttachPin: true,
+          },
+          settings: {
+            language: 'ja-JP',
+            brightness: 60,
+            autoLockDelayMs: 60_000,
+            autoShutdownDelayMs: 300_000,
+            hapticFeedback: true,
+          },
+        } as never,
       }),
     ).toEqual({
       isVerified: true,
@@ -71,11 +75,14 @@ describe('buildPro2DeviceMetaState', () => {
     expect(
       buildPro2DeviceMetaState({
         isVerified: false,
-        features: {
-          unlocked: false,
-          passphraseProtection: false,
-          attachToPinEnabled: false,
-        },
+        state: {
+          status: {
+            unlocked: false,
+            passphraseProtection: false,
+            attachToPinEnabled: false,
+          },
+          settings: {},
+        } as never,
       }),
     ).toEqual({
       isVerified: false,
@@ -96,14 +103,12 @@ describe('buildPro2DeviceMetaState', () => {
 });
 
 describe('getPro2DeviceMetaStaticOverrides', () => {
-  it('uses DeviceInfo only for immutable firmware metadata', () => {
+  it('uses canonical versions for immutable firmware metadata', () => {
     expect(
       getPro2DeviceMetaStaticOverrides({
-        info: {
-          protocol_version: 1,
-          fw: { application: { version: '2.1.0' } },
-          coprocessor: { bt_adv_name: 'Pro2 FDD5' },
-        },
+        state: {
+          versions: { firmware: '2.1.0' },
+        } as never,
       }),
     ).toEqual({
       firmwareVersion: '2.1.0',

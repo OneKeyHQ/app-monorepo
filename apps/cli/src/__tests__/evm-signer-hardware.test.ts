@@ -89,7 +89,7 @@ function makeDeps(
   });
 
   const sdk = {
-    getDeviceInfo: jest.fn(async () =>
+    getDeviceState: jest.fn(async () =>
       makeSuccess({ status: { unlocked: overrides.unlocked ?? true } }),
     ),
     deviceUnlock: jest.fn(async () => makeSuccess({})),

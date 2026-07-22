@@ -122,6 +122,7 @@ import type {
   IDeviceHomeScreen,
   IDeviceVersionCacheInfo,
   IOneKeyDeviceFeatures,
+  IOneKeyDeviceState,
 } from '@onekeyhq/shared/types/device';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
@@ -4985,6 +4986,55 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
+  async updateDeviceState({
+    connectId,
+    state,
+  }: {
+    connectId?: string | null;
+    state: IOneKeyDeviceState;
+  }) {
+    const { devices } = await this.getAllDevices();
+    const device = devices.find((item) => {
+      if ((item.vendor ?? EHardwareVendor.onekey) !== EHardwareVendor.onekey) {
+        return false;
+      }
+      if (
+        connectId &&
+        [item.connectId, item.usbConnectId, item.bleConnectId].includes(
+          connectId,
+        )
+      ) {
+        return true;
+      }
+      const deviceId = state.identity.deviceId;
+      if (deviceId && item.deviceId === deviceId) {
+        return true;
+      }
+      const serialNo = state.identity.serialNo;
+      return Boolean(serialNo && item.uuid === serialNo);
+    });
+    if (!device) {
+      return;
+    }
+    const persistedState = {
+      ...state,
+      session: undefined,
+      raw: undefined,
+    };
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [device.id],
+        updater: (item) => {
+          item.deviceState = stringUtils.stableStringify(persistedState);
+          item.name = state.identity.displayName;
+          return item;
+        },
+      });
+    });
+  }
+
   async updateThirdPartyDeviceFeatures({
     vendor,
     features,
@@ -8389,6 +8439,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   refillDeviceInfo({ device }: { device: IDBDevice }) {
     device.featuresInfo = JSON.parse(device.features || '{}');
+    device.deviceStateInfo = device.deviceState
+      ? JSON.parse(device.deviceState)
+      : undefined;
     device.settings = JSON.parse(device.settingsRaw || '{}');
     device.vendor = device.settings?.vendor ?? EHardwareVendor.onekey;
     return device;

@@ -34,7 +34,7 @@ import type {
   IOneKeyDeviceType,
 } from '../../types/device';
 import type {
-  DeviceProfile,
+  DeviceState,
   Features,
   IDeviceType,
   KnownDevice,
@@ -53,11 +53,17 @@ type IGetDeviceVersionParams = {
   features: IOneKeyDeviceFeatures | undefined;
 };
 
-type IDeviceProfileVersionResult = {
-  bleVersion: string;
-  firmwareVersion: string;
-  bootloaderVersion: string;
-};
+function getDeviceDisplayName({ state }: { state: DeviceState }): string {
+  return state.identity.displayName;
+}
+
+function getDeviceVersionsFromState({ state }: { state: DeviceState }) {
+  return {
+    bleVersion: state.versions.ble || '',
+    firmwareVersion: state.versions.firmware || '',
+    bootloaderVersion: state.versions.bootloader || '',
+  };
+}
 
 // TODO move to db converter
 function dbDeviceToSearchDevice(device: IDBDevice) {
@@ -76,24 +82,6 @@ function getDeviceSerialNoFromFeatures(
   features: IOneKeyDeviceFeatures | undefined,
 ) {
   return features ? getDeviceUUID(features) : undefined;
-}
-
-function getDeviceSerialNoFromProfile(
-  deviceInfo: DeviceProfile | undefined,
-): string | undefined {
-  return deviceInfo?.serialNo || undefined;
-}
-
-function getDeviceVersionFromProfile({
-  deviceInfo,
-}: {
-  deviceInfo: DeviceProfile | undefined;
-}): IDeviceProfileVersionResult {
-  return {
-    bleVersion: deviceInfo?.versions.ble || '',
-    firmwareVersion: deviceInfo?.versions.firmware || '',
-    bootloaderVersion: deviceInfo?.versions.bootloader || '',
-  };
 }
 
 // web sdk return KnownDevice
@@ -352,22 +340,6 @@ function getDefaultDeviceLabel(deviceType: IDeviceType): string {
   return defaultLabelsByDeviceType[deviceType] || '';
 }
 
-function buildDeviceLabelFromProfile({
-  deviceInfo,
-  buildModelName,
-}: {
-  deviceInfo: DeviceProfile | undefined;
-  buildModelName?: boolean;
-}): string | undefined {
-  if (!deviceInfo) {
-    return undefined;
-  }
-  if (deviceInfo.label && !buildModelName) {
-    return deviceInfo.label;
-  }
-  return getDefaultDeviceLabel(deviceInfo.deviceType);
-}
-
 async function buildDeviceName({
   device,
   features,
@@ -396,14 +368,6 @@ function buildDeviceBleName({
     return undefined;
   }
   return getDeviceBleName(features) || undefined;
-}
-
-function buildDeviceBleNameFromProfile({
-  deviceInfo,
-}: {
-  deviceInfo: DeviceProfile | undefined;
-}): string | undefined {
-  return deviceInfo?.bleName || undefined;
 }
 
 async function getFirmwareType({
@@ -842,11 +806,11 @@ function supportSettings({
 }
 
 export default {
+  getDeviceDisplayName,
+  getDeviceVersionsFromState,
   dbDeviceToSearchDevice,
   getDeviceVersion,
-  getDeviceVersionFromProfile,
   getDeviceSerialNoFromFeatures,
-  getDeviceSerialNoFromProfile,
   getDeviceVersionStr,
   getDeviceTypeFromFeatures,
   getDeviceModeFromFeatures,
@@ -859,10 +823,8 @@ export default {
   getFixedUpdatingConnectId,
   isConfirmOnDeviceAction,
   buildDeviceLabel,
-  buildDeviceLabelFromProfile,
   buildDeviceName,
   buildDeviceBleName,
-  buildDeviceBleNameFromProfile,
   getDeviceVerifyVersionsFromFeatures,
   getDeviceVerifyVersionsFromRawOnekeyFeatures,
   formatVersionWithHash,

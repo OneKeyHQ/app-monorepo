@@ -112,7 +112,7 @@ function DeviceDetailsModalV2Cmp({
     }
   }, [refresh, walletId, handleBackPress]);
 
-  const refreshConfirmedFeatures = useCallback(async () => {
+  const refreshConfirmedState = useCallback(async () => {
     if (!walletId) return;
     await refresh(walletId, { skipPro2Snapshot: true });
   }, [refresh, walletId]);
@@ -129,8 +129,12 @@ function DeviceDetailsModalV2Cmp({
     };
     appEventBus.on(EAppEventBusNames.WalletUpdate, refreshCurrentDevice);
     appEventBus.on(
+      EAppEventBusNames.HardwareDeviceStateUpdate,
+      refreshConfirmedState,
+    );
+    appEventBus.on(
       EAppEventBusNames.HardwareFeaturesUpdate,
-      refreshConfirmedFeatures,
+      refreshConfirmedState,
     );
     appEventBus.on(
       EAppEventBusNames.FinishFirmwareUpdate,
@@ -139,15 +143,19 @@ function DeviceDetailsModalV2Cmp({
     return () => {
       appEventBus.off(EAppEventBusNames.WalletUpdate, refreshCurrentDevice);
       appEventBus.off(
+        EAppEventBusNames.HardwareDeviceStateUpdate,
+        refreshConfirmedState,
+      );
+      appEventBus.off(
         EAppEventBusNames.HardwareFeaturesUpdate,
-        refreshConfirmedFeatures,
+        refreshConfirmedState,
       );
       appEventBus.off(
         EAppEventBusNames.FinishFirmwareUpdate,
         refreshAfterFirmwareUpdate,
       );
     };
-  }, [refresh, refreshConfirmedFeatures, refreshCurrentDevice, walletId]);
+  }, [refresh, refreshConfirmedState, refreshCurrentDevice, walletId]);
 
   const actions = useFirmwareUpdateActions();
   const localActions = useDeviceDetailsActions();

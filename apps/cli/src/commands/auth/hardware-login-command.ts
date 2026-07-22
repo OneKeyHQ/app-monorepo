@@ -179,35 +179,36 @@ export async function executeHardwareLoginCommand({
   output.info('Searching for OneKey hardware device...');
   const { connectId, deviceId } = await searchDevice({ deviceIdHint });
 
-  // 通过统一设备信息读取标签和状态。
+  // 通过统一设备状态读取身份和动态状态。
   const sdk = await ensureSDKReady();
-  const getDeviceInfo = async () => {
-    const deviceInfoResult = await sdk.getDeviceInfo(connectId, {
-      scope: 'basic',
-      refresh: true,
+  const getDeviceState = async () => {
+    const deviceStateResult = await sdk.getDeviceState(connectId, {
+      refresh: ['identity', 'status'],
     });
-    return unwrapSDKResult(deviceInfoResult, 'getDeviceInfo') as {
-      label?: string | null;
-      deviceType?: string;
+    return unwrapSDKResult(deviceStateResult, 'getDeviceState') as {
+      identity: {
+        label?: string | null;
+        deviceType?: string;
+      };
       status?: {
         unlocked?: boolean | null;
         passphraseProtection?: boolean | null;
       };
     };
   };
-  let deviceInfo = await getDeviceInfo();
+  let deviceState = await getDeviceState();
 
   // Unlock if locked (matches app-monorepo ServiceHardware.getFeaturesWithUnlock)
-  if (deviceInfo.status?.unlocked === false) {
+  if (deviceState.status?.unlocked === false) {
     output.info('Device is locked. Please enter PIN on device...');
     const unlockResult = await sdk.deviceUnlock(connectId, {});
     unwrapSDKResult(unlockResult, 'deviceUnlock');
-    deviceInfo = await getDeviceInfo();
+    deviceState = await getDeviceState();
   }
 
   const deviceLabel =
-    deviceInfo.label ||
-    deviceInfo.deviceType ||
+    deviceState.identity.label ||
+    deviceState.identity.deviceType ||
     `OneKey-${deviceId.slice(0, 8)}`;
 
   output.info(`Found device: ${deviceLabel} (${deviceId})`);
@@ -220,7 +221,7 @@ export async function executeHardwareLoginCommand({
   // 与 DeviceSettingsManager 的设备 passphraseProtection 判断保持一致。
   let passphraseMode: PassphraseMode = PASSPHRASE_MODE_NONE;
   let passphraseState: string | undefined;
-  const passphraseEnabled = Boolean(deviceInfo.status?.passphraseProtection);
+  const passphraseEnabled = Boolean(deviceState.status?.passphraseProtection);
   const requestedPassphraseMode = assertValidExplicitPassphraseMode(
     normalizeExplicitPassphraseMode(explicitPassphraseMode),
   );

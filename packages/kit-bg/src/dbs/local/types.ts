@@ -28,6 +28,7 @@ import type {
   IDeviceHomeScreen,
   IHardwareGetPubOrAddressExtraInfo,
   IOneKeyDeviceFeatures,
+  IOneKeyDeviceState,
   IQrWalletDevice,
 } from '@onekeyhq/shared/types/device';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
@@ -409,6 +410,8 @@ export type IDBDevice = IDBBaseObjectWithName & {
     // only qr wallet
     $app_firmware_type?: EFirmwareType;
   }; // readonly field // TODO rename to features
+  deviceState?: string;
+  deviceStateInfo?: IOneKeyDeviceState;
   // TODO make index for better performance (getDeviceByQuery)
   connectId: string; // alias BLE mac or USB sn, never changed even if device reset
   name: string;

@@ -119,10 +119,10 @@ async function buildDeviceMetaState(
     return undefined;
   }
   const isVerified = Boolean(device.verifiedAtVersion);
-  if (device.deviceType === EDeviceType.Pro2) {
+  if (device.deviceType === EDeviceType.Pro2 && device.deviceStateInfo) {
     return buildPro2DeviceMetaState({
       isVerified,
-      features,
+      state: device.deviceStateInfo,
     });
   }
   const autoLockDelayMs = features.autoLockDelayMs ?? 0;

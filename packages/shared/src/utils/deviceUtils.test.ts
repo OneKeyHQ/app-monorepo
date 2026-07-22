@@ -10,6 +10,28 @@ jest.mock('../hardware/instance', () => ({
 }));
 
 describe('deviceUtils', () => {
+  it('reads the visible name and versions from canonical DeviceState sections', () => {
+    const state = {
+      identity: {
+        label: 'Renamed Pro 2',
+        bleName: 'Pro2 6136',
+        displayName: 'Renamed Pro 2',
+      },
+      versions: {
+        firmware: '1.2.3',
+        bootloader: '0.2.0',
+        ble: '3.4.5',
+      },
+    } as never;
+
+    expect(deviceUtils.getDeviceDisplayName({ state })).toBe('Renamed Pro 2');
+    expect(deviceUtils.getDeviceVersionsFromState({ state })).toEqual({
+      firmwareVersion: '1.2.3',
+      bootloaderVersion: '0.2.0',
+      bleVersion: '3.4.5',
+    });
+  });
+
   it('uses the user label as display name before the BLE connection name', async () => {
     await expect(
       deviceUtils.buildDeviceName({

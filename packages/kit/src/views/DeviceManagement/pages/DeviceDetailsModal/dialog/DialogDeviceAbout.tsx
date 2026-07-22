@@ -21,8 +21,6 @@ import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUt
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-import { getPro2DeviceInfoDisplayFields } from './pro2DeviceInfo';
-
 const VERSION_PLACEHOLDER = '--';
 
 function isValidVersion(version?: string) {
@@ -111,54 +109,33 @@ function DialogDeviceSpecsContent({ data }: { data: IHwQrWalletWithDevice }) {
   );
   const { result: deviceInfo } = usePromiseResult(
     async () => {
-      if (!device || !device.featuresInfo) {
+      if (!device) {
         return defaultDeviceInfo;
       }
 
       const vendorProfile = getVendorProfile(
         device.vendor ?? EHardwareVendor.onekey,
       );
-      const isPro2 = device.deviceType === EDeviceType.Pro2;
-      const pro2Info = isPro2
-        ? getPro2DeviceInfoDisplayFields(
-            (
-              await backgroundApiProxy.serviceHardware
-                .getPro2DeviceManagementSnapshot({
-                  connectId: device.connectId,
-                })
-                .catch(() => undefined)
-            )?.info,
-          )
-        : undefined;
-      let deviceProfile;
-      if (!vendorProfile.isThirdParty && !isPro2) {
-        deviceProfile = await backgroundApiProxy.serviceHardware
-          .getDeviceInfo({
-            connectId: device.connectId,
-            params: {
-              scope: 'versions',
-            },
-            silentMode: true,
-          })
-          .catch(() => undefined);
-      }
+      const state = vendorProfile.isThirdParty
+        ? undefined
+        : await backgroundApiProxy.serviceHardware
+            .getDeviceState({
+              connectId: device.connectId,
+              params: {
+                refresh: ['identity', 'versions'],
+              },
+              silentMode: true,
+            })
+            .catch(() => device.deviceStateInfo);
 
       let versions;
       if (vendorProfile.isThirdParty) {
         versions = thirdPartyDeviceUtils.getDeviceVersion({
           device,
-          features: device.featuresInfo,
+          features: device.featuresInfo ?? ({} as never),
         });
-      } else if (pro2Info) {
-        versions = {
-          firmwareVersion: pro2Info.firmwareVersion,
-          bootloaderVersion: pro2Info.bootloaderVersion,
-          bleVersion: pro2Info.bleVersion,
-        };
-      } else if (deviceProfile) {
-        versions = deviceUtils.getDeviceVersionFromProfile({
-          deviceInfo: deviceProfile,
-        });
+      } else if (state) {
+        versions = deviceUtils.getDeviceVersionsFromState({ state });
       } else {
         versions = await deviceUtils.getDeviceVersion({
           device,
@@ -170,20 +147,21 @@ function DialogDeviceSpecsContent({ data }: { data: IHwQrWalletWithDevice }) {
         internal_model?: string;
         model?: string;
       };
-      const model = vendorProfile.isThirdParty
-        ? thirdPartyDeviceUtils.getDeviceModelName({
-            device,
-            features,
-            defaultDeviceName: vendorProfile.defaultDeviceName,
-          })
-        : (deviceUtils.buildDeviceLabelFromProfile({
-            deviceInfo: deviceProfile,
-            buildModelName: true,
-          }) ??
-          (await deviceUtils.buildDeviceLabel({
-            features: device.featuresInfo,
-            buildModelName: true,
-          })));
+      const model =
+        vendorProfile.isThirdParty && device.featuresInfo
+          ? thirdPartyDeviceUtils.getDeviceModelName({
+              device,
+              features,
+              defaultDeviceName: vendorProfile.defaultDeviceName,
+            })
+          : (state?.identity.model ??
+            state?.identity.displayName ??
+            (device.featuresInfo
+              ? await deviceUtils.buildDeviceLabel({
+                  features: device.featuresInfo,
+                  buildModelName: true,
+                })
+              : undefined));
 
       let firmwareTypeLabel;
       if (vendorProfile.isThirdParty) {
@@ -193,9 +171,9 @@ function DialogDeviceSpecsContent({ data }: { data: IHwQrWalletWithDevice }) {
           }),
           displayFormat: 'withSpace',
         });
-      } else if (deviceProfile) {
+      } else if (state) {
         firmwareTypeLabel = deviceUtils.getFirmwareTypeLabelByFirmwareType({
-          firmwareType: deviceProfile.firmwareType,
+          firmwareType: state.identity.firmwareType,
           displayFormat: 'withSpace',
         });
       } else {
@@ -207,30 +185,24 @@ function DialogDeviceSpecsContent({ data }: { data: IHwQrWalletWithDevice }) {
       const firmwareVersion = `${firmwareTypeLabel}${getDisplayVersion(
         versions?.firmwareVersion,
       )}`;
-      const deviceType = deviceProfile?.deviceType ?? device.deviceType;
+      const deviceType = state?.identity.deviceType ?? device.deviceType;
 
       return {
         model: model ?? VERSION_PLACEHOLDER,
         bleName:
-          pro2Info?.bleName ??
-          (deviceUtils.buildDeviceBleNameFromProfile({
-            deviceInfo: deviceProfile,
-          }) ||
-            deviceUtils.buildDeviceBleName({
-              features: device.featuresInfo,
-            })) ??
+          state?.identity.bleName ??
+          deviceUtils.buildDeviceBleName({
+            features: device.featuresInfo,
+          }) ??
           VERSION_PLACEHOLDER,
         bleVersion: getDisplayVersion(versions?.bleVersion),
         bootloaderVersion: getDisplayVersion(versions?.bootloaderVersion),
         firmwareVersion,
         serialNumber:
-          pro2Info?.serialNumber ??
-          (vendorProfile.isThirdParty
+          (vendorProfile.isThirdParty && device.featuresInfo
             ? thirdPartyDeviceUtils.getSerialNo(device.featuresInfo)
-            : (deviceUtils.getDeviceSerialNoFromProfile(deviceProfile) ??
-              deviceUtils.getDeviceSerialNoFromFeatures(
-                device.featuresInfo,
-              ))) ??
+            : state?.identity.serialNo ||
+              deviceUtils.getDeviceSerialNoFromFeatures(device.featuresInfo)) ??
           VERSION_PLACEHOLDER,
         certifications: [
           EDeviceType.Pro,

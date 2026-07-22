@@ -119,8 +119,10 @@ export function AccountSelectorWalletListSideBar({
         trailing: true,
       },
     );
+    appEventBus.on(EAppEventBusNames.HardwareDeviceStateUpdate, fn);
     appEventBus.on(EAppEventBusNames.HardwareFeaturesUpdate, fn);
     return () => {
+      appEventBus.off(EAppEventBusNames.HardwareDeviceStateUpdate, fn);
       appEventBus.off(EAppEventBusNames.HardwareFeaturesUpdate, fn);
     };
   }, []);
@@ -133,7 +135,7 @@ export function AccountSelectorWalletListSideBar({
   //   - Wallet/Account CRUD funnels through WalletUpdate / AccountUpdate
   //     (see ServiceAccount emits) — listeners below call reloadWallets,
   //     which runs the fetcher and overwrites this slot via usePromiseResult.
-  //   - HardwareFeaturesUpdate / passphrase toggle flow through
+  //   - OneKey state / third-party features / passphrase toggle flow through
   //     reloadWalletsHook -> useEffect refetch -> same overwrite path.
   //   - Bulk wipes (ServiceApp.resetApp, ServiceE2E.clearWalletsAndAccounts)
   //     clear the cold-start cache in the bg service before emitting the

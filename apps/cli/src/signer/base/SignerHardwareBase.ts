@@ -257,9 +257,7 @@ export abstract class SignerHardwareBase implements ISigner {
       }>;
       if (!Array.isArray(devices)) return;
       // Match on stable deviceId (device UUID), not connectId.
-      const match = devices.find(
-        (d) => d.deviceId === this.device.deviceId,
-      );
+      const match = devices.find((d) => d.deviceId === this.device.deviceId);
       if (match?.connectId) {
         this.device.connectId = match.connectId;
       }
@@ -271,15 +269,17 @@ export abstract class SignerHardwareBase implements ISigner {
   private async ensureDeviceUnlocked(): Promise<void> {
     try {
       const sdk = await this.deps.ensureSDKReady();
-      const deviceInfoResult = await sdk.getDeviceInfo(this.device.connectId, {
-        scope: 'basic',
-        refresh: true,
-      });
+      const deviceStateResult = await sdk.getDeviceState(
+        this.device.connectId,
+        {
+          refresh: ['status'],
+        },
+      );
       if (
-        deviceInfoResult?.success &&
-        deviceInfoResult.payload &&
+        deviceStateResult?.success &&
+        deviceStateResult.payload &&
         (
-          deviceInfoResult.payload as {
+          deviceStateResult.payload as {
             status?: { unlocked?: boolean | null };
           }
         ).status?.unlocked === false

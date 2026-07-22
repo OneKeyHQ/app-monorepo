@@ -21,6 +21,8 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
    */
   public features!: string;
 
+  public deviceState?: string;
+
   /**
    * ble connectId address (mac)
    */
@@ -80,6 +82,7 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
       deviceType: 'string',
       settingsRaw: 'string',
       features: 'string',
+      deviceState: 'string?',
       createdAt: 'int',
       updatedAt: 'int',
       verifiedAtVersion: 'string?',
@@ -98,6 +101,7 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
       deviceId: this.deviceId,
       deviceType: this.deviceType,
       features: this.features,
+      deviceState: this.deviceState,
       settingsRaw: this.settingsRaw,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,

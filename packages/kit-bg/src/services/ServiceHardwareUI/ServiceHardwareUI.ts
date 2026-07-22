@@ -13,6 +13,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -76,37 +77,55 @@ class ServiceHardwareUI extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
     // This service caches `connectId -> IDBDevice` for hardware interaction dialogs.
-    // When device features (including label) change, invalidate cache to avoid showing stale names.
+    // 设备状态（包括 label）变化后清理缓存，避免交互弹窗展示旧名称。
+    appEventBus.on(
+      EAppEventBusNames.HardwareDeviceStateUpdate,
+      this.onHardwareDeviceStateUpdate,
+    );
+    // 第三方硬件仍由各自 SDK 的 features 事件驱动。
     appEventBus.on(
       EAppEventBusNames.HardwareFeaturesUpdate,
-      this.onHardwareFeaturesUpdate,
+      this.onThirdPartyHardwareFeaturesUpdate,
     );
   }
 
   hardwareProcessingManager = new HardwareProcessingManager();
 
-  private onHardwareFeaturesUpdate = async ({
-    deviceId,
-  }: {
-    deviceId: string;
-  }) => {
+  private onHardwareDeviceStateUpdate = async ({
+    connectId,
+    state,
+  }: IAppEventBusPayload[EAppEventBusNames.HardwareDeviceStateUpdate]) => {
     try {
       // Delete from cache first to avoid a race where a new interaction immediately reads stale cache.
-      for (const [connectId, cached] of this.deviceCacheByConnectId.entries()) {
-        if (cached?.id === deviceId) {
-          this.deviceCacheByConnectId.delete(connectId);
+      for (const [
+        cachedConnectId,
+        cached,
+      ] of this.deviceCacheByConnectId.entries()) {
+        if (
+          cached?.deviceId === state.identity.deviceId ||
+          cached?.uuid === state.identity.serialNo
+        ) {
+          this.deviceCacheByConnectId.delete(cachedConnectId);
         }
       }
+      if (connectId) this.deviceCacheByConnectId.delete(connectId);
+    } catch {
+      // Best-effort: this event is only for UI consistency. Clear cache on any error.
+      this.deviceCacheByConnectId.clear();
+    }
+  };
 
+  private onThirdPartyHardwareFeaturesUpdate = async ({
+    deviceId,
+  }: IAppEventBusPayload[EAppEventBusNames.HardwareFeaturesUpdate]) => {
+    try {
       const device = await localDb.getDevice(deviceId);
       if (device?.connectId) {
         this.deviceCacheByConnectId.delete(device.connectId);
       } else {
-        // Conservative fallback: if connectId cannot be resolved, clear all cache to avoid stale UI.
         this.deviceCacheByConnectId.clear();
       }
     } catch {
-      // Best-effort: this event is only for UI consistency. Clear cache on any error.
       this.deviceCacheByConnectId.clear();
     }
   };
