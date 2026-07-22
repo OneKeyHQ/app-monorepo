@@ -178,6 +178,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     };
     return {
       enabled: isEnabled,
+      isAccountNetworkSupported,
       warningMessage,
       actionToken,
       actionOtherToken,

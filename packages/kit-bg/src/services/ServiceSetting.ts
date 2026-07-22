@@ -756,6 +756,14 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async setHapticFeedbackEnabled(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      hapticFeedbackEnabled: value,
+    }));
+  }
+
+  @backgroundMethod()
   public async setEnableSplitView(value: boolean) {
     await settingsPersistAtom.set((prev) => ({
       ...prev,
