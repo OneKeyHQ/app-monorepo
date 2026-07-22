@@ -10,7 +10,6 @@ import {
   EthereumCbBTC,
   EthereumDAI,
   EthereumMORPHO,
-  KatanaVbUSDC,
   EthereumPol,
   EthereumUSDC,
   EthereumUSDF,
@@ -18,6 +17,7 @@ import {
   EthereumUSDe,
   EthereumWBTC,
   EthereumWETH,
+  KatanaVbUSDC,
   PlasmaNetworkId,
 } from '@onekeyhq/shared/src/consts/addresses';
 import {
