@@ -508,14 +508,26 @@ export function UnifoldTrackerContent({
 
   // Full history: no `since` param (newest first, up to 100 rows). The 3s
   // poll matches the contract; the server throttles upstream QPS.
+  // A rejected poll must not leave the screen shimmering forever, which reads
+  // exactly like "still loading" — the failure is surfaced instead, while the
+  // poll keeps retrying underneath.
+  const [loadFailed, setLoadFailed] = useState(false);
   const { result: executions } = usePromiseResult(
     async () => {
       if (!safeRecipient) {
         return [];
       }
-      return backgroundApiProxy.serviceUnifoldDeposit.listDepositExecutions({
-        recipientAddress: safeRecipient,
-      });
+      try {
+        const items =
+          await backgroundApiProxy.serviceUnifoldDeposit.listDepositExecutions({
+            recipientAddress: safeRecipient,
+          });
+        setLoadFailed(false);
+        return items;
+      } catch (error) {
+        setLoadFailed(true);
+        throw error;
+      }
     },
     [safeRecipient],
     { watchLoading: true, pollingInterval: TRACKER_POLL_INTERVAL_MS },
@@ -570,6 +582,18 @@ export function UnifoldTrackerContent({
           <UnifoldExecutionDetail execution={liveExecution} />
         </YStack>
       </ScrollView>
+    );
+  }
+
+  if (executions === undefined && loadFailed) {
+    return (
+      <YStack py="$8">
+        <Empty
+          icon="ErrorOutline"
+          title="Couldn't load deposit history"
+          description="Check your connection — this keeps retrying automatically."
+        />
+      </YStack>
     );
   }
 

@@ -22,7 +22,7 @@ import type { IUnifoldDepositExecution } from '@onekeyhq/shared/types/unifoldDep
 
 import { UnifoldDepositQRCard } from './UnifoldDepositQRCard';
 import { UnifoldExecutionStatusCards } from './UnifoldExecutionStatusCards';
-import { formatUnifoldProcessingTime } from './unifoldFormat';
+import { formatUnifoldProcessingTime, formatUnifoldUsd } from './unifoldFormat';
 import { UnifoldSourceSelector } from './UnifoldSourceSelector';
 import { UnifoldExecutionDetail } from './UnifoldTrackerContent';
 
@@ -104,7 +104,7 @@ function ErrorState({
     unavailable: {
       icon: 'ErrorOutline',
       title: 'Deposit unavailable',
-      body: 'Destination config mismatch',
+      body: 'This deposit method is temporarily unavailable. Please try again later or use another method.',
     },
     sanctioned: {
       icon: 'ErrorOutline',
@@ -396,7 +396,11 @@ export function UnifoldTransferContent({
           <Icon name="ErrorOutline" size="$4" color="$iconCaution" />
           <SizableText size="$bodySm" color="$textCaution" flex={1}>
             {activationFee
-              ? `~$${activationFee} fee is required to activate a new HyperCore account.`
+              ? // Formatted like every other amount: the vendor sends a raw
+                // decimal string, so "1" must not surface as "~$1".
+                `~${formatUnifoldUsd(
+                  activationFee,
+                )} fee is required to activate a new HyperCore account.`
               : 'A one-time fee is required to activate a new HyperCore account.'}
           </SizableText>
         </XStack>

@@ -1,6 +1,8 @@
 // cspell: words unifold Unifold hypercore Hypercore
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -9,6 +11,7 @@ import {
   useDevSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatUnifoldUsdAmount } from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
 import type {
@@ -46,6 +49,9 @@ const RETRY_INTERVAL_MS = 5000;
 // address is shown (code constant wins over the vendor docs' 10s).
 const WAITING_UI_DELAY_MS = 5000;
 const SESSION_LOOKBACK_MS = 60_000;
+// Must stay well under the background loop's mute expiry so a long-lived modal
+// never lets the loop start announcing behind it.
+const TRACKING_CLAIM_RENEW_INTERVAL_MS = 60_000;
 
 // Production destination: HyperCore Perp USDC.
 export const UNIFOLD_DEPOSIT_DESTINATION: IUnifoldDepositDestination = {
@@ -408,6 +414,10 @@ export function usePerpsUnifoldDepositSession({
   // (possibly already-terminal) execution.
   const primedRef = useRef(false);
   const tickBusyRef = useRef(false);
+  // Held in a ref so a locale change never restarts the poll.
+  const intl = useIntl();
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
   // The poll starts once the address is ready and then stays up for the rest
   // of the session. A veto that lands later (sanction, catalog error) must not
   // tear down tracking while money is already in flight.
@@ -419,12 +429,18 @@ export function usePerpsUnifoldDepositSession({
     if (!enabled || !recipientAddress || !pollEnabled) {
       return;
     }
-    // This live session takes over announcements for the recipient — remove
-    // its entries from the bg tracking loop so terminal transitions are not
-    // double-toasted. In-flight executions re-register on unmount below.
-    void backgroundApiProxy.serviceUnifoldDeposit.claimTrackedExecutions({
-      recipientAddress,
-    });
+    // This live session takes over announcements for the recipient, so the bg
+    // tracking loop stays quiet and terminal transitions are not double
+    // toasted. The claim expires on its own, so it is renewed while mounted:
+    // that is what lets the bg loop recover if this session dies without
+    // running its unmount handler.
+    const claim = () => {
+      void backgroundApiProxy.serviceUnifoldDeposit.claimTrackedExecutions({
+        recipientAddress,
+      });
+    };
+    claim();
+    const claimTimer = setInterval(claim, TRACKING_CLAIM_RENEW_INTERVAL_MS);
 
     const waitingTimer = setTimeout(() => {
       setShowWaitingUi(true);
@@ -455,10 +471,16 @@ export function usePerpsUnifoldDepositSession({
           if (seenStatus !== item.status) {
             seenRef.current.set(item.executionId, item.status);
             if (!priming && item.terminal && item.status === 'succeeded') {
+              // Same key as the background loop's toast: one event must not
+              // be announced in two different languages depending on whether
+              // the modal happened to be open.
               Toast.success({
-                title: `Deposit completed ${formatUnifoldUsdAmount(
+                title: intlRef.current.formatMessage({
+                  id: ETranslations.perp_deposit_success_title,
+                }),
+                message: formatUnifoldUsdAmount(
                   item.destinationAmountUsd ?? item.sourceAmountUsd,
-                )}`,
+                ),
               });
               void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
             }
@@ -479,6 +501,7 @@ export function usePerpsUnifoldDepositSession({
     return () => {
       cancelled = true;
       clearInterval(timer);
+      clearInterval(claimTimer);
       clearTimeout(waitingTimer);
     };
   }, [enabled, recipientAddress, pollEnabled]);
