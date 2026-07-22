@@ -11,14 +11,14 @@ using namespace facebook::react;
 @interface UIView (HomeContainerSlotLayout)
 - (NSValue *)slotFrameForKey:(NSString *)key;
 - (UIView *)slotHostViewForKey:(NSString *)key;
-- (void)setMountedSlotKeys:(NSArray<NSString *> *)keys;
+- (void)setMountedSlotMetadata:(NSArray<NSDictionary<NSString *, id> *> *)metadata;
 @end
 
 static UIView *FindHomeContainerEngine(UIView *view)
 {
   if ([view respondsToSelector:@selector(slotFrameForKey:)] &&
       [view respondsToSelector:@selector(slotHostViewForKey:)] &&
-      [view respondsToSelector:@selector(setMountedSlotKeys:)]) {
+      [view respondsToSelector:@selector(setMountedSlotMetadata:)]) {
     return view;
   }
   for (UIView *child in view.subviews) {
@@ -111,18 +111,25 @@ static UIView *FindHomeContainerEngine(UIView *view)
   }
 }
 
-- (NSArray<NSString *> *)mountedSlotKeys
+- (NSArray<NSDictionary<NSString *, id> *> *)mountedSlotMetadata
 {
-  NSMutableArray<NSString *> *keys = [NSMutableArray new];
+  NSMutableArray<NSDictionary<NSString *, id> *> *metadata = [NSMutableArray new];
   for (UIView *child in _mountedChildren) {
     if ([child isKindOfClass:HomeContainerSlotComponentView.class]) {
-      NSString *key = ((HomeContainerSlotComponentView *)child).slotKey;
-      if (key.length > 0) {
-        [keys addObject:key];
+      HomeContainerSlotComponentView *slot =
+          (HomeContainerSlotComponentView *)child;
+      if (slot.slotKey.length > 0) {
+        [metadata addObject:@{
+          @"slotId" : slot.slotKey,
+          @"ownerScopeKey" : slot.ownerScopeKey,
+          @"ownerSessionId" : slot.ownerSessionId,
+          @"slotRevision" : @(slot.slotRevision),
+          @"producedByStoreCommitId" : @(slot.producedByStoreCommitId),
+        }];
       }
     }
   }
-  return keys;
+  return metadata;
 }
 
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
@@ -161,11 +168,12 @@ static UIView *FindHomeContainerEngine(UIView *view)
   [self connectEngineIfNeeded];
   UIView *engine = _engine;
   if (engine != nil) {
-    NSArray<NSString *> *keys = [self mountedSlotKeys];
-    ((void (*)(id, SEL, NSArray<NSString *> *))objc_msgSend)(
+    NSArray<NSDictionary<NSString *, id> *> *metadata =
+        [self mountedSlotMetadata];
+    ((void (*)(id, SEL, NSArray<NSDictionary<NSString *, id> *> *))objc_msgSend)(
         engine,
-        @selector(setMountedSlotKeys:),
-        keys);
+        @selector(setMountedSlotMetadata:),
+        metadata);
   }
 
   for (UIView *child in _mountedChildren) {

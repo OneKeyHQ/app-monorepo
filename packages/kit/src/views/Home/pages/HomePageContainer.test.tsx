@@ -12,7 +12,7 @@ type IMockWallet = {
   backuped?: boolean;
 };
 
-type IMockSurfaceName = 'empty' | 'native' | 'legacy';
+type IMockSurfaceName = 'empty' | 'native' | 'react';
 
 const mockSurfaceLifecycle: Record<
   IMockSurfaceName,
@@ -20,7 +20,7 @@ const mockSurfaceLifecycle: Record<
 > = {
   empty: { mounts: 0, unmounts: 0 },
   native: { mounts: 0, unmounts: 0 },
-  legacy: { mounts: 0, unmounts: 0 },
+  react: { mounts: 0, unmounts: 0 },
 };
 
 let mockActiveAccount: {
@@ -126,6 +126,9 @@ jest.mock('../../../states/jotai/contexts/home', () => ({
     return children;
   },
   useHomeShell: () => ({ value: { kind: mockHomeShellKind } }),
+  useHomeNavigation: () => ({
+    value: { kind: 'ready', selectedTabId: 'portfolio' },
+  }),
 }));
 
 jest.mock('../../../states/jotai/contexts/accountSelector', () => ({
@@ -228,7 +231,7 @@ jest.mock('./EmptyWalletHomePage', () => ({
 }));
 
 jest.mock('./HomePageView', () => ({
-  HomePageView: mockCreateSurface('legacy'),
+  HomePageView: mockCreateSurface('react'),
 }));
 
 jest.mock('./HomeWalletListProvider', () => ({
@@ -319,7 +322,7 @@ describe('HomePageContainer Unified Store integration', () => {
     expect(view.root.findAllByProps({ testID: 'surface-native' })).toHaveLength(
       0,
     );
-    expect(view.root.findAllByProps({ testID: 'surface-legacy' })).toHaveLength(
+    expect(view.root.findAllByProps({ testID: 'surface-react' })).toHaveLength(
       0,
     );
     act(() => view.unmount());
@@ -347,14 +350,14 @@ describe('HomeLaunchGatedContent surface ownership', () => {
       view = create(renderOwner(false));
     });
 
-    expect(view.root.findAllByProps({ testID: 'surface-legacy' })).toHaveLength(
+    expect(view.root.findAllByProps({ testID: 'surface-react' })).toHaveLength(
       1,
     );
     expect(mockSurfaceLifecycle.native.mounts).toBe(0);
     act(() => view.unmount());
   });
 
-  it('keeps one Empty page through same-wallet refetch and switches once after backup', () => {
+  it('keeps one Native page through same-wallet backup state changes', () => {
     let view!: ReactTestRenderer;
     act(() => {
       view = create(renderOwner());
@@ -365,19 +368,19 @@ describe('HomeLaunchGatedContent surface ownership', () => {
     expect(view.root.findAllByProps({ testID: 'surface-native' })).toHaveLength(
       0,
     );
-    expect(view.root.findAllByProps({ testID: 'surface-legacy' })).toHaveLength(
+    expect(view.root.findAllByProps({ testID: 'surface-react' })).toHaveLength(
       0,
     );
 
     const unbacked = hdWallet(false);
     setWalletState({ activeWallet: unbacked, walletListWallet: unbacked });
     act(() => view.update(renderOwner()));
-    expect(mockSurfaceLifecycle.empty).toEqual({ mounts: 1, unmounts: 0 });
-    expect(view.root.findAllByProps({ testID: 'surface-empty' })).toHaveLength(
+    expect(mockSurfaceLifecycle.native).toEqual({ mounts: 1, unmounts: 0 });
+    expect(view.root.findAllByProps({ testID: 'surface-native' })).toHaveLength(
       1,
     );
-    expect(mockSurfaceLifecycle.native.mounts).toBe(0);
-    expect(mockSurfaceLifecycle.legacy.mounts).toBe(0);
+    expect(mockSurfaceLifecycle.empty.mounts).toBe(0);
+    expect(mockSurfaceLifecycle.react.mounts).toBe(0);
 
     mockActiveAccount = {
       ready: true,
@@ -389,54 +392,49 @@ describe('HomeLaunchGatedContent surface ownership', () => {
       result: { wallets: [unbacked] },
     };
     act(() => view.update(renderOwner()));
-    expect(mockSurfaceLifecycle.empty).toEqual({ mounts: 1, unmounts: 0 });
-    expect(mockSurfaceLifecycle.native.mounts).toBe(0);
+    expect(mockSurfaceLifecycle.native).toEqual({ mounts: 1, unmounts: 0 });
 
     const backedUp = hdWallet(true);
     setWalletState({ activeWallet: backedUp, walletListWallet: unbacked });
     act(() => view.update(renderOwner()));
-    expect(mockSurfaceLifecycle.empty).toEqual({ mounts: 1, unmounts: 1 });
     expect(mockSurfaceLifecycle.native).toEqual({ mounts: 1, unmounts: 0 });
 
     setWalletState({ activeWallet: backedUp, walletListWallet: backedUp });
     act(() => view.update(renderOwner()));
     act(() => view.update(renderOwner()));
-    expect(mockSurfaceLifecycle.empty).toEqual({ mounts: 1, unmounts: 1 });
+    expect(mockSurfaceLifecycle.empty).toEqual({ mounts: 0, unmounts: 0 });
     expect(mockSurfaceLifecycle.native).toEqual({ mounts: 1, unmounts: 0 });
-    expect(mockSurfaceLifecycle.legacy.mounts).toBe(0);
+    expect(mockSurfaceLifecycle.react.mounts).toBe(0);
     expect(view.root.findAllByProps({ testID: 'surface-native' })).toHaveLength(
       1,
     );
   });
 
-  it('unmounts the old Empty page immediately when a new wallet scope is pending', () => {
+  it('unmounts the old Native page immediately when a new wallet scope is pending', () => {
     const unbacked = hdWallet(false);
     setWalletState({ activeWallet: unbacked, walletListWallet: unbacked });
     let view!: ReactTestRenderer;
     act(() => {
       view = create(renderOwner());
     });
-    expect(
-      view.root.findAllByProps({ testID: 'empty-wallet-cta' }),
-    ).toHaveLength(1);
+    expect(view.root.findAllByProps({ testID: 'surface-native' })).toHaveLength(
+      1,
+    );
 
     setWalletState({ activeWallet: hdWallet(false, 'hd-2'), pending: true });
     act(() => view.update(renderOwner()));
-    expect(mockSurfaceLifecycle.empty).toEqual({ mounts: 1, unmounts: 1 });
-    expect(
-      view.root.findAllByProps({ testID: 'empty-wallet-cta' }),
-    ).toHaveLength(0);
+    expect(mockSurfaceLifecycle.native).toEqual({ mounts: 1, unmounts: 1 });
     expect(view.root.findAllByProps({ testID: 'surface-native' })).toHaveLength(
       0,
     );
-    expect(view.root.findAllByProps({ testID: 'surface-legacy' })).toHaveLength(
+    expect(view.root.findAllByProps({ testID: 'surface-react' })).toHaveLength(
       0,
     );
   });
 
   it.each([
     [true, 'native'],
-    [false, 'legacy'],
+    [false, 'react'],
   ] as const)(
     'keeps the %s surface mounted while same-owner recovery flags are pending',
     (nativeHomeEnabled, surface) => {
@@ -473,8 +471,8 @@ describe('HomeLaunchGatedContent surface ownership', () => {
   );
 
   it.each([
-    ['no-wallet', undefined, undefined, true, 'legacy'],
-    ['normal legacy', hdWallet(true), hdWallet(true), false, 'legacy'],
+    ['no-wallet', undefined, undefined, true, 'react'],
+    ['normal React', hdWallet(true), hdWallet(true), false, 'react'],
     ['normal native', hdWallet(true), hdWallet(true), true, 'native'],
   ] as const)(
     'renders only the %s owner',
@@ -493,7 +491,7 @@ describe('HomeLaunchGatedContent surface ownership', () => {
       ).toHaveLength(0);
       expect(
         view.root.findAllByProps({
-          testID: expected === 'native' ? 'surface-legacy' : 'surface-native',
+          testID: expected === 'native' ? 'surface-react' : 'surface-native',
         }),
       ).toHaveLength(0);
     },

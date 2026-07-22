@@ -28,6 +28,7 @@ import { UrlAccountPageHeader } from './urlAccountPageHeader';
 import type { ITabPageHeaderProp } from './type';
 
 export { DiscoveryHeaderSegment };
+export { HomeTabSearchHeader } from './MDHeader';
 
 function HomeWalletConnectionInPage({ tabRoute }: { tabRoute: ETabRoutes }) {
   const {

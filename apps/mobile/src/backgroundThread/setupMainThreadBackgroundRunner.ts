@@ -893,7 +893,6 @@ function handleRuntimeSignal() {
       transportLog(
         `background runtime bootId changed while transport ready: ${previousBootId} -> ${runtimePayload.bootId}`,
       );
-      setBackgroundThreadReadyPayload(runtimePayload, 'restarted');
       // The new bg runtime has already signaled ready, so keep the transport
       // ready for new calls. Old in-flight calls belonged to the previous bg
       // JS heap and cannot receive a reliable response anymore. Do not replay
@@ -901,6 +900,7 @@ function handleRuntimeSignal() {
       // are the special case that owns a request-status fence and retry loop.
       rejectQueuedCalls(reason);
       rejectPendingRemoteCalls(reason);
+      setBackgroundThreadReadyPayload(runtimePayload, 'restarted');
     }
     return;
   }

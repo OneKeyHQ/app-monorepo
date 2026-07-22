@@ -8,6 +8,7 @@ import {
   type IHomeContainerPatchEnvelope,
   type IHomeContainerRef,
   type IHomeContainerSection,
+  type IHomeContainerSlotKey,
   type IHomeContainerSlots,
   type IHomeContainerSnapshot,
   type IHomeContainerSnapshotEnvelope,
@@ -121,12 +122,8 @@ function isDebugRuntime(): boolean {
   );
 }
 
-function defaultReportDiagnostic(
-  diagnostic: IHomeContainerTransportDiagnostic,
-): void {
-  // eslint-disable-next-line no-console
-  globalThis.console.info('[NativeHomeTransport]', diagnostic);
-}
+const ignoreDiagnostic = (_diagnostic: IHomeContainerTransportDiagnostic) =>
+  undefined;
 
 function hashSessionId(sessionId: string): string {
   let hash = 2_166_136_261;
@@ -258,6 +255,18 @@ function slotKeys(slots: IHomeContainerSlots): string[] {
   return keys;
 }
 
+function pickSlotRevisions(
+  revisions: IHomeContainerSlotRevisionVectorV3,
+  keys: ReadonlySet<string>,
+): IHomeContainerSlotRevisionVectorV3 {
+  return Object.fromEntries(
+    Array.from(keys).flatMap((slotId) => {
+      const revision = revisions[slotId];
+      return revision === undefined ? [] : [[slotId, revision]];
+    }),
+  );
+}
+
 function headerCommandSignature(header: IHomeContainerHeader): string {
   return JSON.stringify({
     accountActionId: header.accountActionId,
@@ -367,6 +376,10 @@ export class HomeContainerController {
 
   private slotsPending = false;
 
+  private readonly pendingRequiredSlotIds = new Set<IHomeContainerSlotKey>();
+
+  private slotRevisionsForCurrentSlots: IHomeContainerSlotRevisionVectorV3;
+
   private fullSnapshotPending = false;
 
   private flushScheduled = false;
@@ -393,7 +406,7 @@ export class HomeContainerController {
     scheduleDeadline = defaultScheduleDeadline,
     now = Date.now,
     diagnosticsEnabled = isDebugRuntime(),
-    reportDiagnostic = defaultReportDiagnostic,
+    reportDiagnostic = ignoreDiagnostic,
     requireProtocolV3 = false,
     initialProtocolV3Revisions,
   }: IHomeContainerControllerOptions) {
@@ -410,6 +423,9 @@ export class HomeContainerController {
     this.protocolV3Revisions =
       initialProtocolV3Revisions ?? createProtocolV3RevisionState();
     this.protocolV3RevisionsAreExternal = Boolean(initialProtocolV3Revisions);
+    this.slotRevisionsForCurrentSlots = {
+      ...this.protocolV3Revisions.slotRevisions,
+    };
   }
 
   getSnapshot(): IHomeContainerSnapshot {
@@ -529,6 +545,7 @@ export class HomeContainerController {
     this.acknowledgedSnapshot = undefined;
     this.renderedSlotState = undefined;
     this.currentSlots = undefined;
+    this.slotRevisionsForCurrentSlots = {};
     this.protocolV3Revisions = createProtocolV3RevisionState();
     this.protocolV3RevisionsAreExternal = false;
     this.replaceSnapshot(nextSnapshot);
@@ -627,8 +644,22 @@ export class HomeContainerController {
       return;
     }
     this.resumeTransportForNewData();
+    const previousSlots = this.currentSlots;
+    const previousSlotRevisions = this.slotRevisionsForCurrentSlots;
     this.currentSlots = slots;
     this.bumpProtocolV3Slots(slots);
+    const nextSlotRevisions = this.protocolV3Revisions.slotRevisions ?? {};
+    const nextSlotIds = new Set(slotKeys(slots));
+    const previousSlotIds = new Set(slotKeys(previousSlots ?? {}));
+    nextSlotIds.forEach((slotId) => {
+      if (
+        !previousSlotIds.has(slotId) ||
+        previousSlotRevisions[slotId] !== nextSlotRevisions[slotId]
+      ) {
+        this.pendingRequiredSlotIds.add(slotId as IHomeContainerSlotKey);
+      }
+    });
+    this.slotRevisionsForCurrentSlots = { ...nextSlotRevisions };
     if (
       this.target &&
       (this.protocolVersion === 2 || this.protocolVersion === 3)
@@ -862,6 +893,7 @@ export class HomeContainerController {
     this.themePending = false;
     this.navigationPending = false;
     this.slotsPending = false;
+    this.pendingRequiredSlotIds.clear();
     this.pendingTabIds.clear();
   }
 
@@ -953,6 +985,14 @@ export class HomeContainerController {
 
   private flushProtocolV3(target: IHomeContainerRef): boolean {
     const hasPendingSlots = this.slotsPending;
+    const requiredSlotRevisions = pickSlotRevisions(
+      this.protocolV3Revisions.slotRevisions ?? {},
+      new Set(
+        Array.from(this.pendingRequiredSlotIds).filter((slotId) =>
+          slotKeys(this.currentSlots ?? {}).includes(slotId),
+        ),
+      ),
+    );
     const sendsFullSnapshot =
       this.fullSnapshotPending || !this.acknowledgedSnapshot;
     let baseRevision: number | undefined;
@@ -1000,7 +1040,10 @@ export class HomeContainerController {
         transportRevision: this.revision,
         presentationRevisions: revisionState.presentationRevisions,
         authorityRevisions: revisionState.authorityRevisions,
-        slotRevisions: revisionState.slotRevisions ?? {},
+        slotRevisions: pickSlotRevisions(
+          revisionState.slotRevisions ?? {},
+          new Set(slotKeys(inFlight.slots ?? {})),
+        ),
         payload: {
           selectedTabId: sentSnapshot.selectedTabId,
           header: sentSnapshot.header,
@@ -1033,7 +1076,7 @@ export class HomeContainerController {
         transportRevision: this.revision,
         presentationRevisions: revisionState.presentationRevisions,
         authorityRevisions: revisionState.authorityRevisions,
-        requiredSlotRevisions: {},
+        requiredSlotRevisions: hasPendingSlots ? requiredSlotRevisions : {},
         changes,
       };
       target.applyProtocolV3Patch?.(patch, inFlight.slots);
@@ -1251,6 +1294,9 @@ export class HomeContainerController {
   }
 
   private bumpProtocolV3Slots(slots: IHomeContainerSlots): void {
+    if (this.protocolV3RevisionsAreExternal) {
+      return;
+    }
     const current = this.protocolV3Revisions;
     const revisions = { ...current.slotRevisions };
     slotKeys(slots).forEach((slotId) => {

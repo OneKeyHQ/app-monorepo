@@ -52,6 +52,36 @@ class HomeContainerProtocolV3Test {
   }
 
   @Test
+  fun `available slot vector is derived only from valid mounted metadata for current owner`() {
+    val owner = HomeContainerProtocolV2Owner("wallet", "session")
+    val otherOwner = HomeContainerProtocolV2Owner("wallet", "other-session")
+    val revisions = homeContainerProtocolV3AvailableSlotRevisions(
+      owner,
+      listOf(
+        HomeContainerProtocolV3MountedSlotMetadata(
+          "header.balance",
+          owner,
+          slotRevision = 7,
+          producedByStoreCommitId = 9,
+        ),
+        HomeContainerProtocolV3MountedSlotMetadata(
+          "header.action-row",
+          otherOwner,
+          slotRevision = 11,
+          producedByStoreCommitId = 9,
+        ),
+        HomeContainerProtocolV3MountedSlotMetadata(
+          "content.state.defi",
+          owner,
+          slotRevision = -1,
+          producedByStoreCommitId = 9,
+        ),
+      ),
+    )
+    assertEquals(mapOf("header.balance" to 7L), revisions)
+  }
+
+  @Test
   fun `transport gaps and authority regression request a snapshot`() {
     val current = canonicalState()
     val gap = JSONObject(fixture("home-container-v3.patch.json"))
@@ -66,6 +96,8 @@ class HomeContainerProtocolV3Test {
     )
 
     val regression = JSONObject(fixture("home-container-v3.patch.json"))
+      .put("baseTransportRevision", current.transportRevision - 1)
+      .put("transportRevision", current.transportRevision)
     regression.getJSONObject("authorityRevisions")
       .put("tabApplicability", 2)
     assertNeedSnapshot(

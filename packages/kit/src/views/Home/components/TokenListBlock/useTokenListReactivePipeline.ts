@@ -105,6 +105,11 @@ export interface ITokenListReactivePipelineParams {
   enabled: boolean;
 }
 
+export interface ITokenListIngestReceipt {
+  ownerKey: string;
+  valuationVersion: number;
+}
+
 export interface ITokenListReactivePipeline {
   /** Reset the LWW view + drop a pending flush. Does NOT bump epoch (P1-g). */
   reset: () => void;
@@ -124,7 +129,9 @@ export interface ITokenListReactivePipeline {
   /** materialize ∩ enabledKeys → resolve merge flags → build the merged snapshot. */
   buildAuthoritativeSnapshot: () => Promise<IMergedAllNetworkSnapshot>;
   /** Ingest the authoritative snapshot + clear timer + bump epoch. */
-  commitAuthoritativeIngest: (snapshot: IMergedAllNetworkSnapshot) => void;
+  commitAuthoritativeIngest: (
+    snapshot: IMergedAllNetworkSnapshot,
+  ) => Promise<ITokenListIngestReceipt | undefined>;
 }
 
 type IIngestOwnerToken = {
@@ -236,8 +243,8 @@ export function useTokenListReactivePipeline(
       snapshot: IMergedAllNetworkSnapshot,
       source: string,
       ownerToken?: IIngestOwnerToken,
-    ) => {
-      void backgroundApiProxy.serviceTokenViewModel.ingestRound({
+    ): Promise<ITokenListIngestReceipt | undefined> =>
+      backgroundApiProxy.serviceTokenViewModel.ingestRound({
         ownerKey: ownerToken?.ownerKey ?? cellsIngestInputsRef.current.ownerKey,
         orderedTokens: snapshot.orderedTokens,
         smallBalanceTokens: snapshot.smallBalanceTokens,
@@ -256,8 +263,7 @@ export function useTokenListReactivePipeline(
         networkId: ownerToken?.ownerNetworkId ?? ownerNetworkId,
         rawKeys: `${snapshot.tokenKeys}_${snapshot.smallBalanceKeys}_${snapshot.riskyKeys}`,
         source,
-      });
-    },
+      }),
     [cellsIngestInputsRef, ownerAccountId, ownerNetworkId],
   );
 
@@ -309,7 +315,7 @@ export function useTokenListReactivePipeline(
         accountId: ownerAccountId,
         createAtNetwork: ownerCreateAtNetwork,
       });
-      ingestMergedSnapshot(snapshot, source, ownerTokenAtFlushStart);
+      void ingestMergedSnapshot(snapshot, source, ownerTokenAtFlushStart);
     },
     [
       ownerAccountId,
@@ -447,14 +453,15 @@ export function useTokenListReactivePipeline(
 
   const commitAuthoritativeIngest = useCallback(
     (snapshot: IMergedAllNetworkSnapshot) => {
-      if (enabled) {
-        ingestMergedSnapshot(snapshot, 'authoritative');
-      }
+      const receiptPromise = enabled
+        ? ingestMergedSnapshot(snapshot, 'authoritative')
+        : Promise.resolve(undefined);
       if (progressiveFlushTimerRef.current !== null) {
         clearTimeout(progressiveFlushTimerRef.current);
         progressiveFlushTimerRef.current = null;
       }
       progressivePaintEpochRef.current += 1;
+      return receiptPromise;
     },
     [enabled, ingestMergedSnapshot],
   );

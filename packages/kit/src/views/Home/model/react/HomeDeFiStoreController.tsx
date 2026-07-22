@@ -100,7 +100,7 @@ export function HomeDeFiStoreController() {
 
   useRegisterHomeBackgroundRecoveryRefresh({
     callback: refresh,
-    domain: EHomeBackgroundRecoveryRefreshDomain.legacyDeFi,
+    domain: EHomeBackgroundRecoveryRefreshDomain.defi,
     enabled,
     operationKey: 'home-defi-store-source',
     owner: {

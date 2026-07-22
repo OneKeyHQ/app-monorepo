@@ -1,17 +1,23 @@
 # Home Unified Store Migration Handoff
 
-> Status: Phase 0 through Phase 7 implemented and validated in the working
-> tree. Section 0.0 is the completion record; the later phase sections retain
-> the original requirements as the audit checklist.
+> Status: Phases 0 through 7 are implemented and validated in the working tree.
+> Section 0.0 is the completion record; the later phase sections retain the
+> original requirements as the audit checklist.
 >
-> Architecture scope: Web, Desktop, Browser Extension, React Native Home, iOS
-> Native Home, and Android Native Home. The user-requested interactive
-> acceptance target is iOS Simulator Debug only; no physical-device or Release
-> UI gate is required for this migration.
+> Architecture scope: Web, Desktop, and Browser Extension use the React Home
+> renderer. iOS and Android use the app-injected Swift/Kotlin HomeContainer;
+> controlled React Native slots are limited to shared interactive components
+> such as the account/network selector, wallet actions, and backup CTA. The
+> shared search/notification row remains React Native chrome above the Native
+> container. Both renderer families consume the
+> same Home Store. The user-requested interactive acceptance target is iOS
+> Simulator Debug only; no physical-device or Release UI gate is required.
 >
 > Audited branch: `codex/native-home-container`
 >
-> Audited HEAD: `efc9fb896f9988a24a275628ab38f8c3468aa68f`
+> Base HEAD: `ab4e1fe427ac930a4abf31e2fda6086a42519748`
+>
+> Completion record: the uncommitted working tree on that base HEAD.
 >
 > Last updated: 2026-07-22
 
@@ -28,9 +34,9 @@ exists.
 | 2     | Complete | Root-owned Portfolio, Perps, DeFi, NFT, History, Market, Banner, capability, balance, snapshot, and persistence controllers publish through typed begin/complete Store gateways; renderers own no request lifecycle.                                         | None.                    |
 | 3     | Complete | Shell, exact confirmed balance, capability, Navigation, typed intents, and backup-required surface are Store-derived. React tabs are controlled by Store Navigation.                                                                                         | None.                    |
 | 4     | Complete | Every section carries its complete JSON-safe payload in a Store resource. Spot, Perps, DeFi, NFT, History, Market, and Banner renderers read typed Store selectors only.                                                                                     | None.                    |
-| 5     | Complete | The Native-only Home business host and Native source hooks are physically retired. iOS and Android now use the shared React Native Home renderer backed by the same Store; protocol v3 remains a tested transport contract, not a second business authority. | None.                    |
-| 6     | Complete | Current-worktree iOS Simulator Debug build/install/launch passed. The final run completed 51 scroll-calibrated Spot/Perps/DeFi selections, 12 pixel-identical balance samples, DeFi 0/2/5/10-second continuity samples, and a separate 51-selection active-log audit. | None.                    |
-| 7     | Complete | Shadow Store, semantic sidecar, legacy publishers, Native balance authority, Native-only producer hooks, duplicate renderer persistence, and obsolete compatibility files were removed. Production boundary tests enforce the retired paths.                 | None.                    |
+| 5     | Complete | The Native-only business host and source hooks are retired. iOS uses Swift HomeContainer and Android uses Kotlin HomeContainer. An app-owned adapter projects Store slices into protocol-v3 snapshots/patches and forwards typed intents; search chrome and the controlled account/action/backup slots reuse shared RN components without creating another data authority. | None.                    |
+| 6     | Complete | Current-worktree iOS Simulator Debug build/install/launch, owner changes, Search/action-row layout, Banner retention, DeFi continuity, five settled balance samples, and 51 recorded rapid Spot/Perps/DeFi selections passed. | None. |
+| 7     | Complete | Shadow Store, semantic sidecar, legacy publishers, Native balance authority, Native-only producer hooks, duplicate renderer persistence, and obsolete compatibility files were removed. Production boundary tests enforce the retired paths. | None. |
 
 Current local validation commands:
 
@@ -45,57 +51,171 @@ The independent validation agent must audit this status table against the
 working tree. It must report unmet gates rather than infer completion from the
 presence of files.
 
-### 0.0.1 Final validation result
+### 0.0.1 Current validation result
 
 - `yarn tsc:only`: pass;
-- Home/Store/Native protocol regression: 101 suites, 725 tests, pass;
-- background Home runtime/cache ownership: 1 suite, 5 tests, pass, including
-  explicit ninth-owner LRU eviction;
+- focused Home/Store/Native regression: 98 suites, 712 tests, pass;
+- exact Portfolio round/valuation regression: 3 suites, 36 tests, pass;
+- Native slot staging/transport regression: 6 suites, 75 tests, pass;
 - iOS and Android protocol contract scripts: pass; Android Gradle contract
   target reports `BUILD SUCCESSFUL`;
-- iOS Simulator Debug build: pass with 0 errors and 13 warnings;
+- type-aware scoped Oxlint, Oxfmt, and `git diff --check`: pass;
+- `yarn agent:check --profile commit`: pass;
+- `yarn agent:check --profile pr`: all local and GitHub code checks pass;
+  PR #12567 remains `REVIEW_REQUIRED` with 7 passing, 0 failed, and 0 pending
+  CI checks;
+- iOS Simulator Debug build/install/launch: pass with 0 errors and 13
+  dependency/deprecation warnings;
 - simulator: iPhone 17 Pro, iOS 26.5,
   `4837E819-A117-4E08-9936-445785D199E3`;
-- Header stability: 12 consecutive samples over approximately five seconds,
-  all `$52.62`;
-- interaction: 51 scroll-calibrated real-touch Spot/Perps/DeFi selections;
-  the current section was pinned before every tap, first-cycle screenshots
-  prove each active state, the final DeFi active state is retained, and a
-  separate acknowledgement run captures all 51 selected states; the pinned
-  tab-row crop has one distinct, stable hash for each target across 17 cycles;
-- DeFi continuity: live rows and Header remain identical at 0, 2, 5, and 10
-  seconds with no skeleton regression or flash;
-- final active-log interaction window:
-  `2026-07-21T20:02:15.079Z`–`2026-07-21T20:04:06.479Z`; log capture was
-  confirmed active and the marked 51-selection window contains no
-  `OneKeyLocalError`, unhandled rejection, invalid number, maximum-depth,
-  RedBox, fatal, invariant, or `useContextStore` entry;
-- evidence directory:
-  `outputs/home-unified-phase6-current/`;
-- final interaction recording:
-  `outputs/home-unified-phase6-current/home-unified-phase6-final-verified.mp4`
-  (148.113 seconds);
-- balance/DeFi recording:
-  `outputs/home-unified-phase6-current/home-unified-phase6-balance-defi-stability.mp4`
-  (46.568 seconds).
+- mobile composition: shared Search/notification chrome, controlled account
+  row, Wallet Actions, Banner, Native tabs, and token rows are all visible;
+  the missing action slot no longer leaves reserved blank Header geometry;
+- owner replacement: all-networks → OP → Tron → Ethereum → all-networks
+  completed without relaunch. Each single network displayed a settled amount
+  and rows; the all-networks return was still revalidating at four seconds and
+  was settled by ten seconds, so it did not remain in permanent loading;
+- Header stability: five one-second-spaced settled samples have the identical
+  Header crop SHA-256
+  `26d1518247b3b25819cb7f833e9b3995ca6d45fa61f0687f468f662583993a86`;
+- navigation: 17 Spot → Perps → DeFi cycles produced 51 recorded physical
+  taps. The gesture telemetry contains exactly 51 events at the three tab
+  coordinates, and the terminal capture shows DeFi selected with settled rows;
+- DeFi continuity: the visible body at 1, 5, and 10 seconds has identical crop
+  SHA-256
+  `a0caa060e5a16bf50d5b5fe28517b5d918f9224953242d4542bd9d4200d324f4`,
+  with no skeleton regression or flash;
+- the app-local log contains none of `OneKeyLocalError`, unhandled/fatal,
+  RedBox, missing-translation, maximum-update-depth, invariant, or
+  `slotRevisionGap` during the current recorded run;
+- local, ignored evidence directory: `.tmp/ui/`, including
+  `home-final-interactions.mp4`, `home-final-51-taps.mp4`, its 51-event gesture
+  telemetry, layout, tab, owner-switch, DeFi-continuity, and balance-stability
+  screenshots. These artifacts are intentionally not added to the PR.
 
-The earlier 2026-07-21 independent audit was a pre-implementation finding. It
-correctly blocked cleanup while renderers still owned sources. After the
-Perps/History/snapshot fixes, obsolete Market polling-hook deletion, explicit
-owner/record/row/byte cache-bound tests, and final Simulator evidence, the same
-independent validation subagent re-audited every phase. Its final result is:
+Three independent implementation agents audited Store concurrency, Native
+transport/runtime behavior, and integration/redundancy. Their implementation
+findings and final cross-domain acceptance are recorded in the task handoff;
+no audit claim relies only on file presence.
 
-- Phase 0: PASS;
-- Phase 1: PASS;
-- Phase 2: PASS;
-- Phase 3: PASS;
-- Phase 4: PASS;
-- Phase 5: PASS;
-- Phase 6: PASS;
-- Phase 7: PASS;
-- overall: PASS, with no remaining code or evidence blocker.
+### 0.0.2 Final renderer and Store architecture
 
-### 0.0.2 Supplied iOS defect baseline
+The final implementation has one business state authority and two renderer
+families. “One Store” does not mean that iOS/Android render React UI, and
+“Native renderer” does not introduce a second Store.
+
+```mermaid
+flowchart LR
+  subgraph SplitBG["bg JS runtime — iOS / Android / Extension"]
+    Services["Domain services"]
+    ConfirmedCache["Bounded confirmed cache\nlogical single writer"]
+  end
+
+  subgraph Main["main UI JS runtime — one Home scene"]
+    Inputs["Account / wallet / network inputs"]
+    Sources["Root Home source controllers"]
+    Dispatch["typed dispatchHomeEvent"]
+    Reducer["pure Home reducer"]
+    Commit["one atomic mutation commit"]
+    Store["one ProviderJotaiContextHome"]
+    Shell["Shell atom"]
+    Navigation["Navigation atom"]
+    Resources["per-resource atoms"]
+    Sections["per-section atoms"]
+    ReactAdapter["React selectors"]
+    NativeAdapter["MobileNativeHomeRenderer\nStore → protocol v3"]
+    SharedChrome["shared RN chrome\nsearch / notification"]
+    SharedSlots["controlled RN slots\naccount / actions / backup"]
+  end
+
+  ReactRenderer["React renderer\nWeb / Desktop / Extension"]
+  NativeTransport["HomeContainerController\nowner + revision + ack"]
+  IOS["Swift HomeContainer"]
+  Android["Kotlin HomeContainer"]
+
+  Services -->|JSON-safe proxy response| Sources
+  ConfirmedCache --> Sources
+  Inputs --> Sources --> Dispatch --> Reducer --> Commit --> Store
+  Store --> Shell
+  Store --> Navigation
+  Store --> Resources
+  Store --> Sections
+  Shell --> ReactAdapter
+  Navigation --> ReactAdapter
+  Resources --> ReactAdapter
+  Sections --> ReactAdapter --> ReactRenderer
+  Shell --> NativeAdapter
+  Navigation --> NativeAdapter
+  Resources --> NativeAdapter
+  Sections --> NativeAdapter --> NativeTransport
+  SharedSlots --> NativeTransport
+  NativeTransport --> IOS
+  NativeTransport --> Android
+  IOS -->|typed intent| Dispatch
+  Android -->|typed intent| Dispatch
+```
+
+Final ownership is intentionally narrow:
+
+| Concern | Owner | Notes |
+| --- | --- | --- |
+| Owner/session, source acceptance, balance policy, capability, selected tab, section state | Home Store in `main` | The only business authority. |
+| Requests and response normalization | Root source controllers plus `bg` services | Renderers do not start a competing Home request lifecycle. |
+| Web/Desktop/Extension pixels and local gestures | React renderer | Reads slice selectors and sends typed intents. |
+| iOS pixels, native scroll/pager/gesture/reuse | Swift HomeContainer | Receives only validated snapshots/patches. |
+| Android pixels, native scroll/pager/gesture/reuse | Kotlin HomeContainer | Same protocol and Store projection as iOS. |
+| Shared mobile search/notification chrome | React Native row above HomeContainer | Reuses the existing modal/navigation behavior and owns no Home business state. |
+| Shared account/network selector interaction | Controlled RN `header.account-row` slot | Slot authority carries the same owner/session/Store commit identity as the native snapshot. |
+| Shared wallet actions | Controlled RN `header.action-row` slot | Reuses the existing interaction component; its authority advances only with the Shell slice. |
+| Backup-required CTA | Controlled RN `content.state.portfolio` slot | Keeps the mobile business surface inside HomeContainer while reusing the existing backup interaction. |
+| Persistence | Confirmed-cache codec/service | Bounded acceleration artifact, never a live authority. |
+
+The Native entry is app-injected instead of imported into `kit`: the generic
+`NativeHomeRendererProvider` lives in `kit`, while `apps/mobile` installs
+`MobileNativeHomeRenderer`. This keeps `kit` independent of an app-specific
+native implementation and preserves the package hierarchy.
+
+On iOS and Android, `main` and `bg` are isolated JS heaps. Producer payloads
+are serialized in `bg` and deserialized again in `main`; no JS object is
+shared. MMKV, files, DB handles, and native singletons may still be backed by
+process-shared native resources, so the confirmed cache retains one logical
+writer. `main` and `bg` initialize independently; the Store remains in
+`waiting` until a real producer handshake is available. Portfolio stays
+mounted so it can observe the first token lifecycle, while RPC-backed sources
+start only after producer readiness. Browser Extension uses this same split
+runtime rule but the React renderer. Web/Desktop are single-runtime and use
+the same events/reducer without fake serialization.
+
+Atomicity has two levels:
+
+1. The reducer returns an exhaustive mutation patch. A single Jotai
+   `contextAtomMethod` commit writes the affected consistency-group atoms as
+   one Store transaction.
+2. Consumers subscribe only to Shell, Navigation, one Resource, or one
+   Section atom. Structural sharing preserves untouched references, so a
+   DeFi update does not invalidate Spot/Perps consumers or the entire Store.
+3. The Native adapter translates the same committed revisions into a protocol
+   v3 Header/Navigation/Section patch. Swift/Kotlin validate owner, transport,
+   Store, authority, presentation, and slot revisions before applying the
+   batch; a gap requests a full resync rather than showing a partial frame.
+
+Owner replacement is a transport boundary. The Store creates a new
+owner/session, the app creates a new owner-scoped `HomeContainerController`,
+and that controller explicitly reattaches to the long-lived Swift/Kotlin view.
+Native `onReady` is a view-lifecycle signal and is not expected to fire again
+for every owner change. This reattachment rule prevents the RN network slot
+from displaying the new chain while native Header/rows remain on the previous
+acknowledged owner.
+
+Whole live Store state is not restored verbatim. The cache may contain
+versioned, JSON-safe, confirmed owner records and settled presentation data,
+subject to record/row/byte bounds. It must not restore in-flight request
+tokens, runtime handshake state, refresh flags, interaction state, Native
+transport revisions, scroll/pager state, or unconfirmed values. Hydration is
+therefore a display floor followed by normal owner and producer
+revalidation—not a second Store.
+
+### 0.0.3 Supplied iOS defect baseline
 
 The supplied baseline is
 `/Users/huhuanming/Downloads/ScreenRecording_07-21-2026 18-41-25_1.MP4`:
@@ -112,7 +232,7 @@ This is evidence for one iOS run only. It is not a substitute for a controlled
 reproduction from the current worktree or the Phase 6 iOS Simulator Debug
 interaction pass.
 
-### 0.0.3 Phase 0 provenance and controlled counts
+### 0.0.4 Phase 0 provenance and controlled counts
 
 Phase 0 is a retrospective freeze because the migration worktree already
 existed when this handoff was requested. The supplied failure recording is
@@ -270,8 +390,8 @@ flowchart LR
     Sections["Per-section slices"]
   end
 
-  ReactRenderer["React renderer<br/>Web, Desktop, Extension, React Native"]
-  NativeAdapter["Native DTO and patch adapter"]
+  ReactRenderer["React renderer<br/>Web, Desktop, Extension"]
+  NativeAdapter["app-injected Native DTO and patch adapter<br/>plus controlled RN slots"]
   NativeRenderer["Swift or Kotlin HomeContainer"]
 
   Producers --> Gateway --> Controller --> Dispatch --> Reducer --> Store
@@ -1871,10 +1991,12 @@ or balance contributor decisions.
 
 ## 16. Phase 5 — Make Native Home a Pure Renderer Adapter
 
-> Completion: Complete by retirement. The custom Native Home business host is
-> no longer mounted; iOS and Android render the shared React Native Home from
-> the same Store. Protocol v3 stays version-locked and tested for future pure
-> transport use.
+> Completion: Complete. The former Native-only business host and source hooks
+> are retired. iOS and Android render Swift/Kotlin HomeContainer views from the
+> same Store through the app-injected adapter. Protocol v3 is the active,
+> version-locked transport; controlled RN slots reuse only interaction-heavy
+> components such as the account/network selector and wallet actions. Search
+> and notification chrome remains a shared RN row above the container.
 
 ### 16.1 Goal
 
@@ -1892,6 +2014,22 @@ Home Store slices
 → typed user intent
 → Home Store dispatch
 ```
+
+The mobile screen composes the shared RN search/notification row above the
+native container. This composition is explicit because replacing
+`HomePageView` also removes the React header that used to render that row. The
+container Header then owns the account/balance/banner geometry while the
+controlled `header.account-row` and `header.action-row` slots reuse the shared
+account selector and Wallet Actions.
+
+Slot presence must come from the Fabric-mounted child metadata, not from the
+desired slot bundle. A slot child carries owner, session, slot revision, and
+producing Store commit identity into Swift/Kotlin. Native only acknowledges a
+patch after the required mounted revision is available. In particular,
+`header.actions=[]` means the native fallback buttons are absent; it must not
+hide the action-row host while the controlled RN slot is mounted. Hiding that
+host leaves the Header's action height reserved and produces the apparent
+blank area between Banner and tabs.
 
 ### 16.2 Native may own
 
@@ -1937,11 +2075,14 @@ Home Store slices
 - Normal balance and section updates do not send full snapshots.
 - Native renderer can resync after revision gaps.
 - Native and React semantic fixture parity passes.
+- Replacing an owner-scoped controller reattaches it to the existing native
+  view; RN slots and native Header/rows cannot advance under different owners.
 
 ## 17. Phase 6 — iOS Simulator Debug Acceptance
 
-> Completion: Complete on iPhone 17 Pro / iOS 26.5 Debug. Evidence is under
-> `outputs/home-unified-phase6-current/`.
+> Completion: Complete on iPhone 17 Pro / iOS 26.5 Debug. Local ignored
+> evidence under `.tmp/ui/` covers the build, owner changes, layout, balance
+> stability, DeFi continuity, and 51 recorded rapid tab selections.
 
 ### 17.1 Goal
 
@@ -2016,8 +2157,9 @@ Sanitize any evidence before it is retained.
 
 ## 18. Phase 7 — Delete Obsolete Authorities and Migration Scaffolding
 
-> Completion: Complete. Production-boundary tests lock the deletion list and
-> prevent renderer source publication from returning.
+> Completion: Complete. The obsolete production authorities, adapters, and
+> migration-only scaffolding are removed, and the final Phase 6 and repository
+> gates pass.
 
 ### 18.1 Goal
 
@@ -2211,14 +2353,14 @@ existing, or a settled screenshot. Each row needs the exact evidence listed.
 | Slice atomicity/isolation | Atomic owner replacement, one event/one commit, unchanged slice reference, render-isolation, and independent-scene tests.                                                                                       | **PASS** — reducer, invariant, atomic-commit, selector-isolation, and per-scene lease suites pass.                                                                                                                                                                                                           |
 | Split runtime             | Debug simulator evidence for `main` Store ownership, `bg` source/persistence ownership, handshake/restart, stale producer rejection, JSON-safe proxy payloads, and independent readiness.                       | **PASS** — runtime-conformance, restart/order, JSON contract, stale-producer, and protocol suites pass; the Simulator Debug run uses the production split-runtime path.                                                                                                                                      |
 | Snapshot cache            | Exact owner/source/schema/quote/coverage admission, confirmed-only hydration, one writer, hard owner/record/row/byte bounds, sensitive-field rejection, live revalidation, and concurrent persistence behavior. | **PASS** — snapshot codec, admission, bounds, concurrency, hydration, and persistence-owner suites pass.                                                                                                                                                                                                     |
-| Header balance            | Current-worktree Debug recording with a fixed aggregation round, displayed value stable, one confirmed writer, and correlated Store/Native patch counts.                                                        | **PASS** — 12 consecutive current-worktree samples show `$52.62`; all 12 decoded Header crops have MD5 `e61b9834a133c24bac6190b16d831a6f`, and the balance/DeFi recording has no amount churn.                                                                                                                   |
-| Navigation                | 50 automated Spot/Perps/DeFi selections using stable test IDs; zero dropped applicable intents and Store/visible selection agreement.                                                                           | **PASS** — the final run pins the current tab bar before each tap and completes 17 Spot/Perps/DeFi cycles (51 applicable selections). A separate acknowledgement run captures every selected state: 17/17 Spot, 17/17 Perps, and 17/17 DeFi tab-row crops are internally identical and distinct across targets. Production test IDs remain mapped, but XCTest exposed only the RN root, so pinned measured centers were the device-driver fallback. Store-controlled intent agreement is asserted by Navigation and `HomePageView` suites. |
-| DeFi continuity           | Debug recording of first load and same-owner refresh behavior, plus deterministic failed-refresh/retry coverage, without blank/loading regression.                                                              | **PASS** — live DeFi rows are unchanged at 0/2/5/10 seconds in Simulator; source lifecycle tests cover ready refresh, failure, retry, and stale response rejection.                                                                                                                                          |
-| Owner replacement         | A → B → A plus delayed old response, all-network/single-network switch, background/foreground, and producer restart; no old-owner frame or stale acceptance.                                                    | **PASS** — deterministic owner-ordering, scope-switch, producer-restart, snapshot-owner, and stale-response fixtures pass. The simulator run supplies the current production attach path; timing-sensitive permutations are asserted deterministically.                                                      |
-| Native protocol v3        | TS/Swift/Kotlin canonical contracts plus Debug attach, typed patch, slot-only patch, revision gap, bounded resync, stale command, and owner/slot identity evidence.                                             | **PASS** — TypeScript regression plus canonical iOS and Android contract wrappers pass. Native protocol v3 is retained for future transport use; the shipped iOS/Android Home business renderer now uses the shared React Native Store renderer.                                                             |
+| Header balance            | Current-worktree Debug recording with a fixed aggregation round, displayed value stable, one confirmed writer, and correlated Store/Native patch counts.                                                        | **PASS** — five one-second-spaced settled samples have the identical Header crop SHA-256 `26d1518247b3b25819cb7f833e9b3995ca6d45fa61f0687f468f662583993a86`; exact owner/valuation receipts and same-owner overlapping-round tests guard the writer boundary.                                                    |
+| Navigation                | Fifty rapid Spot/Perps/DeFi selections with zero dropped applicable intents and Store/visible selection agreement.                                                                                              | **PASS** — 17 Spot → Perps → DeFi cycles produced 51 physical taps. `.tmp/ui/home-final-51-taps.gesture-telemetry.json` records exactly 51 events at the three tab coordinates; the recording and terminal capture show the final DeFi state selected with settled rows. Store-controlled command acknowledgement is also asserted by Navigation and `HomePageView` suites. |
+| DeFi continuity           | Debug recording of first load and same-owner refresh behavior, plus deterministic failed-refresh/retry coverage, without blank/loading regression.                                                              | **PASS** — visible DeFi content at 1, 5, and 10 seconds has the identical crop SHA-256 `a0caa060e5a16bf50d5b5fe28517b5d918f9224953242d4542bd9d4200d324f4`; source lifecycle tests cover ready refresh, failure, retry, and stale-response rejection.                 |
+| Owner replacement         | A → B → A plus delayed old response, all-network/single-network switch, background/foreground, and producer restart; no old-owner frame or stale acceptance.                                                    | **PASS** — all-networks → OP → Tron → Ethereum → all-networks completed without relaunch. Each single-network view settled in 2–3 seconds; the all-networks return was still revalidating at four seconds and was settled by ten seconds. Deterministic owner-ordering and stale-response fixtures pass.     |
+| Native protocol v3        | TS/Swift/Kotlin canonical contracts plus Debug attach, typed patch, slot-only patch, revision gap, bounded resync, stale command, and owner/slot identity evidence.                                             | **PASS** — actual Fabric mounted-slot metadata carries owner/session/slot revision/producing commit identity. Snapshot and patch slot payloads are staged until the layout barrier, revision gaps defer and retry, and TypeScript plus canonical iOS/Android contract suites pass.                           |
 | Renderer parity           | Identical fake source events produce equivalent React and Native Shell/Navigation/Section semantics; renderer replacement starts zero new sources.                                                              | **PASS** — semantic golden/runtime conformance suites pass, and iOS/Android no longer create an independent Native Home business source graph.                                                                                                                                                               |
-| Log cleanliness           | Complete Debug matrix with no Home redbox, uncaught exception, repeated error toast, sensitive logging, or invalid-number formatting error.                                                                     | **PASS** — log capture was confirmed active before the separate 51-selection run. The marked `PHASE6_LOGGED_STRESS_START`/`END` window (`20:02:15.079Z`–`20:04:06.479Z`) contains no Home error, unhandled rejection, invalid number, maximum-depth, RedBox, fatal, invariant, or `useContextStore` entry. A cold-launch diagnostic separately records one pre-existing Developer Gallery warning outside the window. |
-| Final cleanup             | Required searches return no obsolete Shadow/publisher/duplicate-authority imports, documentation matches the Unified-only architecture, and repository checks pass.                                             | **PASS** — cleanup boundary tests and searches pass; `agent:check --profile commit` is green. The PR-readiness command has no failed local/GitHub code check and stops only on the external `REVIEW_REQUIRED` merge decision.                                                                                |
+| Log cleanliness           | Complete Debug matrix with no Home redbox, uncaught exception, repeated error toast, sensitive logging, or invalid-number formatting error.                                                                     | **PASS** — the app-local log remained free of `OneKeyLocalError`, unhandled/fatal, RedBox, missing-translation, maximum-update-depth, invariant, and `slotRevisionGap` entries through the marked 51-tap run. |
+| Final cleanup             | Required searches return no obsolete Shadow/publisher/duplicate-authority imports, documentation matches the Unified-only architecture, and repository checks pass.                                             | **PASS** — cleanup boundary tests and searches pass; both commit and PR agent-check profiles are green. PR #12567 has 7 passing, 0 failed, and 0 pending CI checks; its only remaining GitHub decision is external review (`REVIEW_REQUIRED`).                                                              |
 
 Cross-platform architecture remains guarded by model, gateway, renderer-parity,
 TypeScript, Swift, and Kotlin contract tests. Manual Android, Web, Desktop,
@@ -2439,8 +2581,8 @@ The migration is complete only when all conditions hold:
 
 ## 24. Handoff Start Point
 
-Phase 0 through Phase 7 are complete in the working tree. A subsequent agent
-should treat this as maintenance rather than continuing the migration:
+Phases 0 through 7 are complete in the working tree. Continue from this
+accepted architecture:
 
 1. preserve the per-scene Provider and single reducer/dispatch authority;
 2. add new business data through a root source controller and typed Store

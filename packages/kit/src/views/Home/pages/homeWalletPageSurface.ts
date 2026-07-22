@@ -5,7 +5,7 @@ export type IHomeWalletPageSurface =
   | 'pending'
   | 'no-wallet'
   | 'native'
-  | 'legacy';
+  | 'react';
 
 export type IHomeWalletPageSurfaceState = {
   accountId?: string;
@@ -20,7 +20,7 @@ export type IHomeWalletPageSurfaceWallet = {
 };
 
 function resolveNormalWalletSurface(nativeHomeEnabled: boolean) {
-  return nativeHomeEnabled ? ('native' as const) : ('legacy' as const);
+  return nativeHomeEnabled ? ('native' as const) : ('react' as const);
 }
 
 export function resolveHomeWalletPageSurface({

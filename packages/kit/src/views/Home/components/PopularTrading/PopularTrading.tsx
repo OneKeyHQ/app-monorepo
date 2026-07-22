@@ -173,6 +173,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const [selectedTokens, setSelectedTokens] = useState<IFavoriteTokenDisplay[]>(
     [],
   );
+  const initializedSelectionKeyRef = useRef<string | undefined>(undefined);
   const shownCategorySelectorOwnerRef = useRef<string | undefined>(undefined);
   const handleRemoveFromWatchlistRef = useRef<
     (record: IFavoriteTokenDisplay) => void
@@ -306,12 +307,45 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     }
   }, [activeHomeOwnerKey, shouldHideCategorySelector]);
 
-  // Initialize selected tokens when favorites load (for empty state)
+  // Initialize once per authoritative owner/category generation. Subsequent
+  // refreshes preserve the user's selection and only discard rows that are no
+  // longer part of the current Store payload.
   useEffect(() => {
-    if (!displayHasUserFavorites && displayRows.length > 0) {
-      setSelectedTokens([...displayRows]);
+    if (
+      !activeHomeOwnerKey ||
+      !storeHasDisplayAuthority ||
+      displayHasUserFavorites ||
+      displayRows.length === 0
+    ) {
+      initializedSelectionKeyRef.current = undefined;
+      setSelectedTokens([]);
+      return;
     }
-  }, [displayHasUserFavorites, displayRows]);
+    const selectionKey = `${activeHomeOwnerKey}:${
+      homeMarketPayload?.selectedCategoryId ?? ''
+    }:${homeMarketPayload?.favoriteMode ?? ''}`;
+    if (initializedSelectionKeyRef.current !== selectionKey) {
+      initializedSelectionKeyRef.current = selectionKey;
+      setSelectedTokens([...displayRows]);
+      return;
+    }
+    const currentRows = new Map(
+      displayRows.map((token) => [getTokenKey(token), token]),
+    );
+    setSelectedTokens((current) =>
+      current.flatMap((token) => {
+        const next = currentRows.get(getTokenKey(token));
+        return next ? [next] : [];
+      }),
+    );
+  }, [
+    activeHomeOwnerKey,
+    displayHasUserFavorites,
+    displayRows,
+    homeMarketPayload?.favoriteMode,
+    homeMarketPayload?.selectedCategoryId,
+    storeHasDisplayAuthority,
+  ]);
 
   const handleRecommendItemChange = useCallback(
     (checked: boolean, tokenKey: string) => {

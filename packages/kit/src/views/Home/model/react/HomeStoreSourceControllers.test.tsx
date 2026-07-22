@@ -7,6 +7,21 @@ import { HomeStoreSourceControllers } from './HomeStoreSourceControllers';
 const mockTestGlobal = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean;
 };
+let mockHomeRuntime: {
+  topology: 'split';
+  connection: 'ready' | 'waiting';
+  producerInstanceId?: string;
+  protocolVersion: number;
+} = {
+  topology: 'split' as const,
+  connection: 'ready' as const,
+  producerInstanceId: 'producer-a',
+  protocolVersion: 1,
+};
+
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/home', () => ({
+  useHomeRuntimeState: () => mockHomeRuntime,
+}));
 
 jest.mock(
   '../../components/HomeTokenListProvider/HomeTokenListProviderMirror',
@@ -110,6 +125,14 @@ jest.mock('./HomeStoreControllerBridge', () => {
   };
 });
 
+jest.mock('./HomeStoreCommandController', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    HomeStoreCommandController: () =>
+      React.createElement('View', { testID: 'command-controller' }),
+  };
+});
+
 jest.mock('./HomeStoreSnapshotController', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
@@ -127,7 +150,16 @@ afterAll(() => {
 });
 
 describe('HomeStoreSourceControllers', () => {
-  it('mounts every root Store controller exactly once', () => {
+  beforeEach(() => {
+    mockHomeRuntime = {
+      topology: 'split',
+      connection: 'ready',
+      producerInstanceId: 'producer-a',
+      protocolVersion: 1,
+    };
+  });
+
+  it('mounts only runtime and cache controllers outside Wallet Home', () => {
     let view!: ReactTestRenderer;
     act(() => {
       view = create(<HomeStoreSourceControllers />);
@@ -138,18 +170,16 @@ describe('HomeStoreSourceControllers', () => {
     ).toHaveLength(1);
     expect(
       view.root.findAllByProps({ testID: 'capability-controller' }),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(
       view.root.findAllByProps({ testID: 'balance-controller' }),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(
       view.root.findAllByProps({ testID: 'snapshot-controller' }),
     ).toHaveLength(1);
     expect(
-      view.root
-        .findByProps({ testID: 'token-list-mirror' })
-        .findAllByProps({ testID: 'balance-controller' }),
-    ).toHaveLength(1);
+      view.root.findAllByProps({ testID: 'command-controller' }),
+    ).toHaveLength(0);
 
     act(() => view.unmount());
   });
@@ -169,6 +199,9 @@ describe('HomeStoreSourceControllers', () => {
     ).toHaveLength(1);
     expect(
       view.root.findAllByProps({ testID: 'account-value-controller' }),
+    ).toHaveLength(1);
+    expect(
+      view.root.findAllByProps({ testID: 'command-controller' }),
     ).toHaveLength(1);
     expect(
       view.root.findAllByProps({ testID: 'perps-controller' }),
@@ -196,6 +229,77 @@ describe('HomeStoreSourceControllers', () => {
     expect(view.root.findAllByProps({ testID: 'home-renderer' })).toHaveLength(
       1,
     );
+
+    act(() => view.unmount());
+  });
+
+  it('starts every wallet producer only after the runtime handshake is ready', () => {
+    mockHomeRuntime = {
+      topology: 'split',
+      connection: 'waiting',
+      producerInstanceId: undefined,
+      protocolVersion: 0,
+    };
+    let view!: ReactTestRenderer;
+    const render = () => <HomeStoreSourceControllers enableWalletSources />;
+    act(() => {
+      view = create(render());
+    });
+
+    expect(
+      view.root.findAllByProps({ testID: 'portfolio-controller' }),
+    ).toHaveLength(0);
+    expect(
+      view.root.findAllByProps({ testID: 'balance-controller' }),
+    ).toHaveLength(0);
+    expect(
+      view.root.findAllByProps({ testID: 'banner-controller' }),
+    ).toHaveLength(0);
+    expect(
+      view.root.findAllByProps({ testID: 'command-controller' }),
+    ).toHaveLength(1);
+
+    mockHomeRuntime = {
+      topology: 'split',
+      connection: 'ready',
+      producerInstanceId: 'producer-after-handshake',
+      protocolVersion: 1,
+    };
+    act(() => view.update(render()));
+
+    expect(
+      view.root.findAllByProps({ testID: 'portfolio-controller' }),
+    ).toHaveLength(1);
+    expect(
+      view.root.findAllByProps({ testID: 'balance-controller' }),
+    ).toHaveLength(1);
+    expect(
+      view.root.findAllByProps({ testID: 'banner-controller' }),
+    ).toHaveLength(1);
+    expect(
+      view.root.findAllByProps({ testID: 'command-controller' }),
+    ).toHaveLength(1);
+
+    mockHomeRuntime = {
+      topology: 'split',
+      connection: 'waiting',
+      producerInstanceId: undefined,
+      protocolVersion: 0,
+    };
+    act(() => view.update(render()));
+
+    expect(
+      view.root.findAllByProps({ testID: 'portfolio-controller' }),
+    ).toHaveLength(0);
+    expect(
+      view.root.findAllByProps({ testID: 'balance-controller' }),
+    ).toHaveLength(0);
+    expect(
+      view.root.findAllByProps({ testID: 'banner-controller' }),
+    ).toHaveLength(0);
+    expect(
+      view.root.findAllByProps({ testID: 'command-controller' }),
+    ).toHaveLength(1);
 
     act(() => view.unmount());
   });

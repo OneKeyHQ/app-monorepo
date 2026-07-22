@@ -18,6 +18,7 @@ export class HomeUiScene extends BaseScene {
   public homeHeaderDecision(params: {
     networkScope: IHomeUiNetworkScope;
     balancePresentationKind: 'loading' | 'ready';
+    balanceTextLength: number;
     balanceState: 'unknown' | 'zero' | 'positive';
     bannerResourceKind: IHomeUiResourceKind;
     bannerPayloadParsed: boolean;
@@ -49,6 +50,12 @@ export class HomeUiScene extends BaseScene {
   @LogToLocal({ level: 'info' })
   public homeBalanceInputs(params: {
     networkScope: IHomeUiNetworkScope;
+    factsAvailable: boolean;
+    guardReason:
+      | 'ready'
+      | 'missingStoreFacts'
+      | 'missingOwnerInput'
+      | 'ownerMismatch';
     requiredContributors: string;
     portfolioResourceKind: IHomeUiResourceKind;
     deFiResourceKind: IHomeUiResourceKind;
@@ -71,6 +78,65 @@ export class HomeUiScene extends BaseScene {
     showNFT: boolean;
     showHistory: boolean;
     perpsDestination: 'inline' | 'web' | 'unavailable';
+  }) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public homeStoreCacheDecision(params: {
+    operation: 'load' | 'hydrate' | 'persist';
+    outcome: 'accepted' | 'empty' | 'failed' | 'rejected';
+    recordCount: number;
+  }) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public homeRendererDecision(params: {
+    renderer: 'native' | 'react';
+    reason: 'capabilityUnavailable' | 'platformDefault';
+    navigationKind: 'hidden' | 'ready';
+    selectedTab: string;
+    visibleTabs: string;
+    showSearchHeader: boolean;
+    showAccountSlot: boolean;
+    showActionSlot: boolean;
+    showBackupSlot: boolean;
+  }) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public homeNativeTransportDecision(params: {
+    resultKind: 'applied' | 'duplicate' | 'needSnapshot' | 'invalid';
+    revision?: number;
+    currentRevision?: number;
+    reason?:
+      | 'ownerMismatch'
+      | 'revisionGap'
+      | 'slotRevisionGap'
+      | 'invalidInvariant'
+      | 'unsupportedSchema'
+      | 'unsupportedProtocol';
+  }) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public homePortfolioCommitDecision(params: {
+    decision: 'accepted' | 'rejected';
+    reason:
+      | 'accepted'
+      | 'missingResults'
+      | 'missingOutcomeIdentity'
+      | 'resultGenerationMismatch'
+      | 'activeGenerationMismatch'
+      | 'invalidFilterMode'
+      | 'ownerMismatch'
+      | 'staleOwnerAfterSnapshot';
+    resultCount: number;
+    snapshotTokenCount: number;
+    outcomePresent: boolean;
   }) {
     return params;
   }

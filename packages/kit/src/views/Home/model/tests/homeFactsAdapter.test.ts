@@ -15,7 +15,6 @@ function authority(scopeKey = buildHomeOwnerScopeKey(owner)) {
     status: 'active' as const,
     ownerToken: { scopeKey, sessionId: 'session-a' },
     producerInstanceId: 'producer-a',
-    staleRejectCount: 0,
     revision: 2,
   };
 }

@@ -121,6 +121,32 @@ struct HomeContainerProtocolV3State {
   var snapshot: HomeContainerSnapshot { legacyState.snapshot }
 }
 
+struct HomeContainerProtocolV3MountedSlotMetadata: Equatable {
+  let slotId: String
+  let owner: HomeContainerProtocolV2Owner
+  let slotRevision: Int
+  let producedByStoreCommitId: Int
+
+  var isValid: Bool {
+    !slotId.isEmpty
+      && owner.isValid
+      && homeContainerIsNonnegativeSafeInteger(slotRevision)
+      && homeContainerIsNonnegativeSafeInteger(producedByStoreCommitId)
+  }
+}
+
+func homeContainerProtocolV3AvailableSlotRevisions(
+  owner: HomeContainerProtocolV2Owner,
+  mountedSlots: [HomeContainerProtocolV3MountedSlotMetadata]
+) -> [String: Int] {
+  let matchingSlots = mountedSlots.filter { $0.isValid && $0.owner == owner }
+  let slotsById = Dictionary(grouping: matchingSlots, by: \.slotId)
+  return slotsById.reduce(into: [:]) { result, entry in
+    guard entry.value.count == 1, let slot = entry.value.first else { return }
+    result[entry.key] = slot.slotRevision
+  }
+}
+
 enum HomeContainerProtocolV3NeedSnapshotReason: String, Equatable {
   case invalidInvariant
   case ownerMismatch
@@ -130,7 +156,7 @@ enum HomeContainerProtocolV3NeedSnapshotReason: String, Equatable {
 }
 
 enum HomeContainerProtocolV3ApplyOutcome {
-  case applied(HomeContainerProtocolV3State)
+  case applied(HomeContainerProtocolV3State, HomeContainerProtocolV2RenderPlan)
   case duplicate(HomeContainerProtocolV3State)
   case needSnapshot(HomeContainerProtocolV3NeedSnapshotReason)
 }
@@ -333,7 +359,7 @@ enum HomeContainerProtocolV3Transaction {
       snapshot: legacyEnvelope,
       current: nil
     ) {
-    case .applied(let legacyState):
+    case .applied(let legacyState, let renderPlan):
       return .applied(
         HomeContainerProtocolV3State(
           identity: envelope.identity,
@@ -342,7 +368,8 @@ enum HomeContainerProtocolV3Transaction {
           authorityRevisions: envelope.authorityRevisions,
           slotRevisions: envelope.slotRevisions,
           legacyState: legacyState
-        )
+        ),
+        renderPlan
       )
     case .duplicate:
       return .needSnapshot(.invalidInvariant)
@@ -365,11 +392,6 @@ enum HomeContainerProtocolV3Transaction {
     guard patch.identity.owner == current.identity.owner else {
       return .needSnapshot(.ownerMismatch)
     }
-    if patch.transportRevision == current.transportRevision,
-      patch.baseTransportRevision < patch.transportRevision
-    {
-      return .duplicate(current)
-    }
     guard patch.kind == "patch",
       patch.identity.isValid,
       patch.identity.storeCommitId >= current.identity.storeCommitId,
@@ -384,6 +406,11 @@ enum HomeContainerProtocolV3Transaction {
       revisionsAreValid(patch.requiredSlotRevisions)
     else {
       return .needSnapshot(.invalidInvariant)
+    }
+    if patch.transportRevision == current.transportRevision,
+      patch.baseTransportRevision < patch.transportRevision
+    {
+      return .duplicate(current)
     }
     guard patch.baseTransportRevision == current.transportRevision,
       patch.transportRevision == current.transportRevision + 1
@@ -408,7 +435,7 @@ enum HomeContainerProtocolV3Transaction {
       patch: legacyPatch,
       current: current.legacyState
     ) {
-    case .applied(let legacyState):
+    case .applied(let legacyState, let renderPlan):
       return .applied(
         HomeContainerProtocolV3State(
           identity: patch.identity,
@@ -420,7 +447,8 @@ enum HomeContainerProtocolV3Transaction {
             uniquingKeysWith: { available, _ in available }
           ),
           legacyState: legacyState
-        )
+        ),
+        renderPlan
       )
     case .duplicate:
       return .duplicate(current)

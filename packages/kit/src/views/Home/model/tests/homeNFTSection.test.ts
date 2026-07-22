@@ -1,6 +1,5 @@
 import { ENFTType, type IAccountNFT } from '@onekeyhq/shared/types/nft';
 
-import { adaptHomeLegacyNFTSection } from '../compatibility/homeLegacyNFTSectionAdapter';
 import { HomeSectionCoordinator } from '../sections/homeSectionCoordinator';
 import {
   buildHomeNFTCoverage,
@@ -533,84 +532,5 @@ describe('home NFT section authority', () => {
       kind: 'live',
       data: complete,
     });
-  });
-
-  it('adapts legacy semantic loading empty error and ready payload reference', () => {
-    const identity = createIdentity();
-    const coordinator = new HomeSectionCoordinator<IHomeNFTLegacyPayload>(
-      identity,
-    );
-
-    expect(adaptHomeLegacyNFTSection({})).toEqual({
-      kind: 'loading',
-      viewState: 'loading',
-    });
-    expect(
-      adaptHomeLegacyNFTSection({
-        resolution: coordinator.dispatch(
-          adaptHomeNFTSourceSnapshot({
-            identity,
-            snapshot: {
-              kind: 'complete',
-              requestSeq: 1,
-              coverageFingerprint: buildHomeNFTCoverage({
-                requestSeq: 1,
-                rowCount: 0,
-                source: 'singleNetwork',
-              }),
-              result: { kind: 'empty' },
-            },
-          }),
-        ),
-      }),
-    ).toEqual({ kind: 'empty', viewState: 'empty' });
-
-    const errorCoordinator = new HomeSectionCoordinator<IHomeNFTLegacyPayload>(
-      identity,
-    );
-    expect(
-      adaptHomeLegacyNFTSection({
-        resolution: errorCoordinator.dispatch(
-          adaptHomeNFTSourceSnapshot({
-            identity,
-            snapshot: {
-              kind: 'error',
-              requestSeq: 1,
-              errorKind: 'transport',
-            },
-          }),
-        ),
-      }),
-    ).toEqual({ kind: 'error', refresh: 'failed', viewState: 'empty' });
-
-    const ready = payload('ready');
-    const readyRows = getHomeNFTRowIds(ready);
-    const readyState = adaptHomeLegacyNFTSection({
-      resolution: coordinator.dispatch(
-        adaptHomeNFTSourceSnapshot({
-          identity,
-          snapshot: {
-            kind: 'complete',
-            requestSeq: 2,
-            coverageFingerprint: buildHomeNFTCoverage({
-              requestSeq: 2,
-              rowCount: readyRows.length,
-              source: 'singleNetwork',
-            }),
-            result: { kind: 'success', data: ready, rowIds: readyRows },
-          },
-        }),
-      ),
-    });
-
-    expect(readyState).toMatchObject({
-      kind: 'ready',
-      freshness: 'live',
-      refresh: 'idle',
-      viewState: 'ready',
-    });
-    if (readyState.kind === 'ready') {
-      expect(readyState.payload).toBe(ready);
-    }
   });
 });

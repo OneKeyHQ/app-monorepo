@@ -7,12 +7,19 @@
 > visual defects only; `HOME_UNIFIED_STORE_MIGRATION_HANDOFF.md` is
 > authoritative for business state and source ownership.
 >
-> Final architecture update (2026-07-22): the custom iOS/Android HomeContainer
-> business host has been retired. Mobile renders the shared React Native Home
-> from the same per-scene Store used by Web/Desktop/Extension. Protocol v3 is
-> retained as a compiled/tested future transport contract, but it is not an
-> active second Home business runtime. The completion checkpoint at the end of
-> this document overrides earlier `notRun`, `Fail`, and `下一步` checkpoints.
+> Final architecture update (2026-07-22): Android actively renders the Kotlin
+> `HomeContainer`, and iOS actively renders the Swift `HomeContainer`. The
+> app-owned `MobileNativeHomeRenderer` reads the same per-scene Unified Home
+> Store used by the React renderer, projects Store slices into active protocol
+> v3 snapshots/patches, and forwards typed intents back to the Store. React
+> Native remains responsible only for shared search/notification chrome and
+> controlled interaction slots such as account/network selection, Wallet
+> Actions, and backup CTA. Native owns pixels, layout, scrolling, pager state,
+> gesture state, and transport acknowledgements; it does not own Home business
+> sources, balance policy, capability, selected-tab authority, or persistence.
+> The completion checkpoint at the end of this document overrides earlier
+> `notRun`, `Fail`, and `下一步` checkpoints only where it agrees with this
+> Unified Store architecture.
 
 你正在继续维护 OneKey `app-monorepo` 的原生首页。这个文档最初用于 Windows/Android 交接；2026-07-14 的 iOS 真机复测又发现了分页、下拉刷新和业务语义问题，因此现在同时记录 Android UI 对齐要求与 iOS/shared 遗留问题。
 

@@ -1,4 +1,3 @@
-import { adaptHomeLegacySpotSection } from '../compatibility/homeLegacySpotSectionAdapter';
 import { HomeSectionCoordinator } from '../sections/homeSectionCoordinator';
 import {
   buildHomeSpotAllCoverage,
@@ -339,46 +338,5 @@ describe('home Spot section authority', () => {
     if (snapshot.authoritative.kind === 'live') {
       expect(snapshot.authoritative.data).toBe(current);
     }
-  });
-
-  it('keeps gate off content by reference and gate on ready typed payload', () => {
-    const content = { render: 'legacy-token-list' };
-    expect(adaptHomeLegacySpotSection({ content, enabled: false })).toEqual({
-      kind: 'legacy',
-      content,
-    });
-    expect(
-      adaptHomeLegacySpotSection({ content, enabled: false }),
-    ).toMatchObject({ content });
-    expect(adaptHomeLegacySpotSection({ content, enabled: true })).toEqual({
-      kind: 'loading',
-    });
-
-    const coordinator = new HomeSectionCoordinator<IHomeSpotLegacyPayload>(
-      identity,
-    );
-    const data = payload('ready');
-    const resolution = coordinator.dispatch(
-      adaptHomeSpotSourceSnapshot({
-        identity,
-        snapshot: {
-          kind: 'complete',
-          requestSeq: 1,
-          coverageFingerprint: buildHomeSpotSingleCoverage(1),
-          result: { kind: 'success', data, rowIds: data.displayIds },
-        },
-      }),
-    );
-    const adapted = adaptHomeLegacySpotSection({
-      content,
-      enabled: true,
-      resolution,
-    });
-    expect(adapted).toMatchObject({
-      kind: 'ready',
-      content,
-      payload: data,
-      freshness: 'live',
-    });
   });
 });

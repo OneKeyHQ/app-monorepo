@@ -14,6 +14,11 @@ import {
   type IHomeContainerSnapshotEnvelope,
 } from './HomeContainer.types';
 import { HomeContainerController } from './HomeContainerController';
+import {
+  HOME_CONTAINER_PROTOCOL_V3_VERSION,
+  type IHomeContainerPatchEnvelopeV3,
+  type IHomeContainerSnapshotEnvelopeV3,
+} from './HomeContainerProtocolV3';
 
 jest.mock('react-native', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -28,8 +33,23 @@ jest.mock('react-native', () => {
   };
 });
 
+const mockSlotPropsByTestId = new Map<string, Record<string, unknown>>();
+let mockProtocolV3SnapshotSlotPropsAtSubmission:
+  | Record<string, unknown>
+  | undefined;
+let mockProtocolV3PatchSlotPropsAtSubmission:
+  | Record<string, unknown>
+  | undefined;
+
 const mockNativeView = {
-  applyPatch: jest.fn(),
+  applyPatch: jest.fn((json: string) => {
+    const payload = JSON.parse(json) as { protocolVersion?: number };
+    if (payload.protocolVersion === HOME_CONTAINER_PROTOCOL_V3_VERSION) {
+      mockProtocolV3PatchSlotPropsAtSubmission = mockSlotPropsByTestId.get(
+        'HomeContainer.Slot.header.balance',
+      );
+    }
+  }),
   completeRefresh: jest.fn(),
   getCapabilities: jest.fn(() =>
     JSON.stringify({
@@ -45,7 +65,14 @@ const mockNativeView = {
     }),
   ),
   selectTab: jest.fn(),
-  setSnapshot: jest.fn(),
+  setSnapshot: jest.fn((json: string) => {
+    const payload = JSON.parse(json) as { protocolVersion?: number };
+    if (payload.protocolVersion === HOME_CONTAINER_PROTOCOL_V3_VERSION) {
+      mockProtocolV3SnapshotSlotPropsAtSubmission = mockSlotPropsByTestId.get(
+        'HomeContainer.Slot.header.balance',
+      );
+    }
+  }),
 };
 
 let mockHostProps:
@@ -80,6 +107,10 @@ jest.mock('./HomeContainerSlotNativeComponent', () => ({
   __esModule: true,
   default: ({ children, ...props }: { children?: ReactNode }) => {
     const React = jest.requireActual<typeof import('react')>('react');
+    const testID = (props as { testID?: string }).testID;
+    if (testID) {
+      mockSlotPropsByTestId.set(testID, props);
+    }
     return React.createElement('View', props, children);
   },
 }));
@@ -163,6 +194,46 @@ function buildBundle(
   };
 }
 
+function buildProtocolV3Snapshot(
+  owner: IHomeContainerOwner,
+  transportRevision: number,
+  storeCommitId: number,
+  slotRevisions: Readonly<Record<string, number>>,
+): IHomeContainerSnapshotEnvelopeV3 {
+  return {
+    kind: 'snapshot',
+    protocolVersion: HOME_CONTAINER_PROTOCOL_V3_VERSION,
+    identity: { ...owner, storeCommitId },
+    transportRevision,
+    presentationRevisions: {
+      shell: 1,
+      navigation: 1,
+      sections: {
+        portfolio: 1,
+        perps: 1,
+        defi: 1,
+        nft: 1,
+        history: 1,
+        market: 1,
+      },
+    },
+    authorityRevisions: {
+      shellCommands: 1,
+      tabApplicability: 1,
+      sectionCommands: {
+        portfolio: 1,
+        perps: 1,
+        defi: 1,
+        nft: 1,
+        history: 1,
+        market: 1,
+      },
+    },
+    slotRevisions,
+    payload: buildEnvelope(owner, transportRevision).payload,
+  };
+}
+
 function rendererHasText(view: TestRenderer.ReactTestRenderer, text: string) {
   return view.root.findAll((node) => node.children.includes(text)).length > 0;
 }
@@ -186,6 +257,9 @@ describe('Native HomeContainer protocol v2 slot fallback', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSlotPropsByTestId.clear();
+    mockProtocolV3SnapshotSlotPropsAtSubmission = undefined;
+    mockProtocolV3PatchSlotPropsAtSubmission = undefined;
     mockHostProps = undefined;
   });
 
@@ -401,5 +475,100 @@ describe('Native HomeContainer protocol v2 slot fallback', () => {
     expect(rendererHasText(view, 'old-owner-loading')).toBe(false);
     act(() => view.unmount());
     controller.dispose();
+  });
+
+  it('publishes same-owner v3 slot metadata before submitting the native patch', () => {
+    const ref = createRef<IHomeContainerRef>();
+    const initialSlots: IHomeContainerSlots = {
+      balance: {
+        content: 'balance-revision-4',
+        authority: {
+          owner: ownerA,
+          producedByStoreCommitId: 7,
+          slotId: 'header.balance',
+          slotRevision: 4,
+        },
+      },
+    };
+    const nextSlots: IHomeContainerSlots = {
+      balance: {
+        content: 'balance-revision-5',
+        authority: {
+          owner: ownerA,
+          producedByStoreCommitId: 8,
+          slotId: 'header.balance',
+          slotRevision: 5,
+        },
+      },
+    };
+    const snapshot = buildProtocolV3Snapshot(ownerA, 11, 7, {
+      'header.balance': 4,
+    });
+    const patch: IHomeContainerPatchEnvelopeV3 = {
+      kind: 'patch',
+      protocolVersion: HOME_CONTAINER_PROTOCOL_V3_VERSION,
+      identity: { ...ownerA, storeCommitId: 8 },
+      baseTransportRevision: 11,
+      transportRevision: 12,
+      presentationRevisions: snapshot.presentationRevisions,
+      authorityRevisions: snapshot.authorityRevisions,
+      requiredSlotRevisions: { 'header.balance': 5 },
+      changes: [],
+    };
+    let view!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      view = TestRenderer.create(
+        <HomeContainer
+          ref={ref}
+          onTransportResult={jest.fn()}
+          slotBundle={buildBundle(ownerA, 11, initialSlots)}
+        />,
+      );
+    });
+    act(() => {
+      ref.current?.setProtocolV3Snapshot?.(snapshot, initialSlots);
+    });
+    expect(mockProtocolV3SnapshotSlotPropsAtSubmission).toMatchObject({
+      ownerScopeKey: ownerA.scopeKey,
+      ownerSessionId: ownerA.sessionId,
+      producedByStoreCommitId: 7,
+      slotRevision: 4,
+    });
+    act(() => {
+      mockHostProps?.onTransportResult?.(
+        JSON.stringify({ kind: 'applied', owner: ownerA, revision: 11 }),
+      );
+    });
+
+    mockNativeView.applyPatch.mockClear();
+    act(() => {
+      ref.current?.applyProtocolV3Patch?.(patch, nextSlots);
+    });
+
+    const balanceSlot = view.root.findByProps({
+      testID: 'HomeContainer.Slot.header.balance',
+    });
+    expect(balanceSlot.props).toMatchObject({
+      ownerScopeKey: ownerA.scopeKey,
+      ownerSessionId: ownerA.sessionId,
+      producedByStoreCommitId: 8,
+      slotRevision: 5,
+    });
+    expect(rendererHasText(view, 'balance-revision-5')).toBe(true);
+    expect(mockNativeView.applyPatch).toHaveBeenCalledTimes(1);
+    expect(mockProtocolV3PatchSlotPropsAtSubmission).toMatchObject({
+      ownerScopeKey: ownerA.scopeKey,
+      ownerSessionId: ownerA.sessionId,
+      producedByStoreCommitId: 8,
+      slotRevision: 5,
+    });
+    expect(
+      JSON.parse(mockNativeView.applyPatch.mock.calls[0][0] as string),
+    ).toMatchObject({
+      kind: 'patch',
+      requiredSlotRevisions: { 'header.balance': 5 },
+      transportRevision: 12,
+    });
+    act(() => view.unmount());
   });
 });

@@ -377,7 +377,6 @@ export type IHomeStoreMutation =
     };
 
 export type IHomeStoreEffect =
-  | { kind: 'fetchSource'; token: IHomeRuntimeRequestToken }
   | { kind: 'executeCommand'; intent: IHomeStoreIntent }
   | {
       kind: 'traceReject';

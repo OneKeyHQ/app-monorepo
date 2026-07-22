@@ -622,6 +622,10 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   private var snapshot: HomeContainerSnapshot?
   private var protocolV2State: HomeContainerProtocolV2State?
   private var protocolV3State: HomeContainerProtocolV3State?
+  private var renderedProtocolV2State: HomeContainerProtocolV2State?
+  private var renderedProtocolV3State: HomeContainerProtocolV3State?
+  private var pendingProtocolV3Patch: HomeContainerProtocolV3PatchEnvelope?
+  private var pendingProtocolV3PatchRetryScheduled = false
   private var lastNeedSnapshotResultKey: String?
   private var pages: [HomeContainerPageView] = []
   private var refreshRequestIds = Set<String>()
@@ -631,6 +635,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   private var refreshEnabled = false
   private var headerHeight: CGFloat = 0
   private var mountedSlotKeys = Set<String>()
+  private var mountedSlotMetadata = [HomeContainerProtocolV3MountedSlotMetadata]()
   private var pagerTransitionState = PagerTransitionState.idle
   private var pendingPagerNotify = false
   private var isCoordinatingNestedScroll = false
@@ -788,6 +793,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
               from: data
             )
             DispatchQueue.main.async { [weak self] in
+              self?.pendingProtocolV3Patch = nil
               self?.handleProtocolV3Outcome(
                 HomeContainerProtocolV3Transaction.apply(snapshot: envelope)
               )
@@ -821,6 +827,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
           DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.protocolV3State = nil
+            self.pendingProtocolV3Patch = nil
             self.handleProtocolV2Outcome(
               HomeContainerProtocolV2Transaction.apply(
                 snapshot: envelope,
@@ -852,6 +859,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
           guard let self else { return }
           self.protocolV2State = nil
           self.protocolV3State = nil
+          self.pendingProtocolV3Patch = nil
           self.lastNeedSnapshotResultKey = nil
           self.applySnapshot(
             next,
@@ -890,13 +898,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
             )
             DispatchQueue.main.async { [weak self] in
               guard let self else { return }
-              self.handleProtocolV3Outcome(
-                HomeContainerProtocolV3Transaction.apply(
-                  patch: patch,
-                  current: self.protocolV3State,
-                  availableSlotRevisions: self.protocolV3State?.slotRevisions ?? [:]
-                )
-              )
+              self.applyProtocolV3PatchOrDefer(patch)
             }
             return
           }
@@ -927,6 +929,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
           DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.protocolV3State = nil
+            self.pendingProtocolV3Patch = nil
             self.handleProtocolV2Outcome(
               HomeContainerProtocolV2Transaction.apply(
                 patch: patch,
@@ -987,10 +990,76 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     let nextKeys = Set(keys)
     guard nextKeys != mountedSlotKeys else { return }
     mountedSlotKeys = nextKeys
+    headerView.setMountedSlotKeys(nextKeys)
     tabsView.setMountedSlotKeys(nextKeys)
     pages.forEach { $0.setMountedSlotKeys(nextKeys) }
     setNeedsLayout()
     slotLayoutDidChange?()
+  }
+
+  @objc(setMountedSlotMetadata:)
+  func setMountedSlotMetadata(_ entries: [[String: Any]]) {
+    let metadata = entries.compactMap { entry -> HomeContainerProtocolV3MountedSlotMetadata? in
+      guard let slotId = entry["slotId"] as? String,
+            let ownerScopeKey = entry["ownerScopeKey"] as? String,
+            let ownerSessionId = entry["ownerSessionId"] as? String,
+            let slotRevisionNumber = entry["slotRevision"] as? NSNumber,
+            let producedByStoreCommitIdNumber =
+              entry["producedByStoreCommitId"] as? NSNumber,
+            let slotRevision = Int(exactly: slotRevisionNumber.doubleValue),
+            let producedByStoreCommitId = Int(
+              exactly: producedByStoreCommitIdNumber.doubleValue
+            )
+      else { return nil }
+      return HomeContainerProtocolV3MountedSlotMetadata(
+        slotId: slotId,
+        owner: HomeContainerProtocolV2Owner(
+          scopeKey: ownerScopeKey,
+          sessionId: ownerSessionId
+        ),
+        slotRevision: slotRevision,
+        producedByStoreCommitId: producedByStoreCommitId
+      )
+    }
+    mountedSlotMetadata = metadata
+    setMountedSlotKeys(entries.compactMap { $0["slotId"] as? String })
+    schedulePendingProtocolV3PatchRetry()
+  }
+
+  private func availableProtocolV3SlotRevisions() -> [String: Int] {
+    guard let owner = protocolV3State?.identity.owner else { return [:] }
+    return homeContainerProtocolV3AvailableSlotRevisions(
+      owner: owner,
+      mountedSlots: mountedSlotMetadata
+    )
+  }
+
+  private func applyProtocolV3PatchOrDefer(
+    _ patch: HomeContainerProtocolV3PatchEnvelope
+  ) {
+    let outcome = HomeContainerProtocolV3Transaction.apply(
+      patch: patch,
+      current: protocolV3State,
+      availableSlotRevisions: availableProtocolV3SlotRevisions()
+    )
+    if case .needSnapshot(.slotRevisionGap) = outcome {
+      pendingProtocolV3Patch = patch
+      return
+    }
+    pendingProtocolV3Patch = nil
+    handleProtocolV3Outcome(outcome)
+  }
+
+  private func schedulePendingProtocolV3PatchRetry() {
+    guard pendingProtocolV3Patch != nil,
+          !pendingProtocolV3PatchRetryScheduled else { return }
+    pendingProtocolV3PatchRetryScheduled = true
+    DispatchQueue.main.async { [weak self] in
+      guard let self else { return }
+      self.pendingProtocolV3PatchRetryScheduled = false
+      guard let patch = self.pendingProtocolV3Patch else { return }
+      self.applyProtocolV3PatchOrDefer(patch)
+    }
   }
 
   @objc(slotFrameForKey:)
@@ -1052,7 +1121,8 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   private func applySnapshot(
     _ next: HomeContainerSnapshot,
     allowsMissingSelectedTabFallback: Bool,
-    enforcesMonotonicRevision: Bool
+    enforcesMonotonicRevision: Bool,
+    completion: (() -> Void)? = nil
   ) {
     guard !isDisposed() else { return }
     guard homeContainerValidatesBusinessInvariants(next) else { return }
@@ -1083,11 +1153,14 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     }
     var nextPages: [HomeContainerPageView] = []
     let inlineTabs = next.tabs.filter { $0.destination == .inline }
+    let renderGroup = DispatchGroup()
     for tab in inlineTabs {
       let page = oldPages[tab.id] ?? makePage(tabId: tab.id)
+      renderGroup.enter()
       page.apply(
         tab: tab,
-        theme: next.theme
+        theme: next.theme,
+        completion: renderGroup.leave
       )
       nextPages.append(page)
       if page.superview == nil {
@@ -1114,6 +1187,9 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     homeContainerEnableDynamicTypeRecursively()
     setNeedsLayout()
     layoutIfNeeded()
+    if let completion {
+      renderGroup.notify(queue: .main, execute: completion)
+    }
   }
 
   private func applyPatch(_ patch: HomeContainerPatch) {
@@ -1143,6 +1219,95 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       guard let page = pages.first(where: { $0.tabId == tabPatch.tabId }) else { continue }
       page.updateSections(tabPatch.sections)
     }
+  }
+
+  private func applyProtocolV2Patch(
+    _ next: HomeContainerSnapshot,
+    renderPlan: HomeContainerProtocolV2RenderPlan,
+    completion: @escaping () -> Void
+  ) {
+    guard !isDisposed(), homeContainerValidatesBusinessInvariants(next) else { return }
+    snapshot = next
+
+    if renderPlan.shouldApplySurface {
+      let nextBackgroundColor = UIColor(
+        homeContainerColor: next.theme.backgroundColor,
+        fallback: .systemBackground
+      )
+      backgroundColor = nextBackgroundColor
+      pager.backgroundColor = nextBackgroundColor
+    }
+
+    if renderPlan.shouldBindHeader || renderPlan.shouldApplySurface {
+      let previousHeaderHeight = headerHeight
+      headerView.apply(header: next.header, theme: next.theme)
+      headerHeight = headerView.preferredHeight
+      if abs(previousHeaderHeight - headerHeight) > 0.5 {
+        setNeedsLayout()
+      }
+    }
+    if renderPlan.shouldReconcileNavigation || renderPlan.shouldApplySurface {
+      tabsView.apply(
+        tabs: next.tabs,
+        selectedTabId: next.selectedTabId,
+        theme: next.theme
+      )
+    }
+
+    let renderGroup = DispatchGroup()
+    if renderPlan.shouldReconcileNavigation {
+      let oldPages = Dictionary(
+        pages.map { ($0.tabId, $0) },
+        uniquingKeysWith: { first, _ in first }
+      )
+      var nextPages = [HomeContainerPageView]()
+      for tab in next.tabs where tab.destination == .inline {
+        let existingPage = oldPages[tab.id]
+        let page = existingPage ?? makePage(tabId: tab.id)
+        if existingPage == nil || renderPlan.shouldApplySurface ||
+          renderPlan.sectionTabIds.contains(tab.id)
+        {
+          renderGroup.enter()
+          page.apply(tab: tab, theme: next.theme, completion: renderGroup.leave)
+        }
+        if page.superview == nil {
+          pager.addSubview(page)
+        }
+        nextPages.append(page)
+      }
+      let nextIds = Set(nextPages.map(\.tabId))
+      pages.filter { !nextIds.contains($0.tabId) }.forEach { $0.removeFromSuperview() }
+      pages = nextPages
+      selectedTabId = next.selectedTabId
+      updateSelectedTab(next.selectedTabId)
+      homeContainerEnableDynamicTypeRecursively()
+    } else if renderPlan.shouldApplySurface {
+      let tabsById = Dictionary(
+        uniqueKeysWithValues: next.tabs.map { ($0.id, $0) }
+      )
+      pages.forEach { page in
+        guard let tab = tabsById[page.tabId] else { return }
+        renderGroup.enter()
+        page.apply(tab: tab, theme: next.theme, completion: renderGroup.leave)
+      }
+    } else {
+      renderPlan.sectionTabIds.forEach { tabId in
+        guard let tab = next.tabs.first(where: { $0.id == tabId }),
+              let page = pages.first(where: { $0.tabId == tabId })
+        else { return }
+        renderGroup.enter()
+        page.updateSections(tab.sections, completion: renderGroup.leave)
+      }
+    }
+
+    if renderPlan.shouldBindHeader || renderPlan.shouldReconcileNavigation ||
+      renderPlan.shouldApplySurface
+    {
+      updateSharedChromeLayout()
+    }
+    setNeedsLayout()
+    layoutIfNeeded()
+    renderGroup.notify(queue: .main, execute: completion)
   }
 
   private func makePage(tabId: String) -> HomeContainerPageView {
@@ -1484,23 +1649,53 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   private func handleProtocolV3Outcome(_ outcome: HomeContainerProtocolV3ApplyOutcome) {
     guard !isDisposed() else { return }
     switch outcome {
-    case .applied(let state):
+    case .applied(let state, let renderPlan):
+      if renderPlan.isFullSnapshot {
+        pendingProtocolV3Patch = nil
+      }
+      if protocolV3State?.identity.owner != state.identity.owner {
+        renderedProtocolV2State = nil
+        renderedProtocolV3State = nil
+      }
       protocolV3State = state
       protocolV2State = state.legacyState
       lastNeedSnapshotResultKey = nil
-      applySnapshot(
-        state.snapshot,
-        allowsMissingSelectedTabFallback: false,
-        enforcesMonotonicRevision: false
-      )
-      emitTransportResult(
-        .applied(owner: state.identity.owner, revision: state.transportRevision)
-      )
+      let completion = { [weak self] in
+        guard let self,
+              self.protocolV3State?.identity == state.identity,
+              self.protocolV3State?.transportRevision == state.transportRevision
+        else { return }
+        self.renderedProtocolV2State = state.legacyState
+        self.renderedProtocolV3State = state
+        self.emitTransportResult(
+          .applied(owner: state.identity.owner, revision: state.transportRevision)
+        )
+      }
+      if renderPlan.isFullSnapshot {
+        applySnapshot(
+          state.snapshot,
+          allowsMissingSelectedTabFallback: false,
+          enforcesMonotonicRevision: false,
+          completion: completion
+        )
+      } else {
+        applyProtocolV2Patch(
+          state.snapshot,
+          renderPlan: renderPlan,
+          completion: completion
+        )
+      }
     case .duplicate(let state):
+      guard renderedProtocolV3State?.identity == state.identity,
+            renderedProtocolV3State?.transportRevision == state.transportRevision
+      else { return }
       emitTransportResult(
         .duplicate(owner: state.identity.owner, revision: state.transportRevision)
       )
     case .needSnapshot(let reason):
+      pendingProtocolV3Patch = nil
+      renderedProtocolV2State = nil
+      renderedProtocolV3State = nil
       let legacyReason: HomeContainerProtocolV2NeedSnapshotReason
       switch reason {
       case .ownerMismatch:
@@ -1523,18 +1718,41 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   private func handleProtocolV2Outcome(_ outcome: HomeContainerProtocolV2ApplyOutcome) {
     guard !isDisposed() else { return }
     switch outcome {
-    case .applied(let state):
+    case .applied(let state, let renderPlan):
+      if protocolV2State?.owner != state.owner {
+        renderedProtocolV2State = nil
+      }
       protocolV2State = state
       lastNeedSnapshotResultKey = nil
-      applySnapshot(
-        state.snapshot,
-        allowsMissingSelectedTabFallback: false,
-        enforcesMonotonicRevision: false
-      )
-      emitTransportResult(.applied(owner: state.owner, revision: state.revision))
+      let completion = { [weak self] in
+        guard let self,
+              self.protocolV2State?.owner == state.owner,
+              self.protocolV2State?.revision == state.revision
+        else { return }
+        self.renderedProtocolV2State = state
+        self.emitTransportResult(.applied(owner: state.owner, revision: state.revision))
+      }
+      if renderPlan.isFullSnapshot {
+        applySnapshot(
+          state.snapshot,
+          allowsMissingSelectedTabFallback: false,
+          enforcesMonotonicRevision: false,
+          completion: completion
+        )
+      } else {
+        applyProtocolV2Patch(
+          state.snapshot,
+          renderPlan: renderPlan,
+          completion: completion
+        )
+      }
     case let .duplicate(owner, revision):
+      guard renderedProtocolV2State?.owner == owner,
+            renderedProtocolV2State?.revision == revision
+      else { return }
       emitTransportResult(.duplicate(owner: owner, revision: revision))
     case let .needSnapshot(owner, currentRevision, reason):
+      renderedProtocolV2State = nil
       emitNeedSnapshot(
         owner: owner,
         currentRevision: currentRevision,
@@ -1544,14 +1762,16 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   }
 
   private func emitAction(actionId: String, itemId: String, tabId: String) {
-    if let state = protocolV3State {
+    if let state = renderedProtocolV3State {
       let authority: HomeContainerProtocolV3IntentAuthority
       if homeContainerHeaderContainsCommand(state.snapshot.header, commandId: actionId) {
         authority = .shellCommands(
           revision: state.authorityRevisions.shellCommands
         )
       } else {
-        let sectionId = actionId.hasPrefix("home.widget.market") ? "market" : tabId
+        let sectionId =
+          actionId.hasPrefix("home.widget.market") || actionId.hasPrefix("home.market.")
+          ? "market" : tabId
         guard
           let revision = state.authorityRevisions.sectionCommands[sectionId]
         else {
@@ -1566,7 +1786,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       )
       return
     }
-    guard let state = protocolV2State else {
+    guard let state = renderedProtocolV2State else {
       onAction?(actionId, itemId, tabId)
       return
     }
@@ -1577,7 +1797,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   }
 
   private func emitRefresh(tabId: String, requestId: String) {
-    if let state = protocolV3State,
+    if let state = renderedProtocolV3State,
       let revision = state.authorityRevisions.sectionCommands[tabId]
     {
       emitProtocolV3Intent(
@@ -1587,7 +1807,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       )
       return
     }
-    guard let state = protocolV2State else {
+    guard let state = renderedProtocolV2State else {
       onRefresh?(tabId, requestId)
       return
     }
@@ -1598,7 +1818,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   }
 
   private func emitTabSelection(tabId: String) {
-    guard let currentState = protocolV2State else {
+    guard let currentState = renderedProtocolV2State else {
       onVisibleTabChange?(tabId)
       return
     }
@@ -1622,8 +1842,9 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     )
     snapshot = selectedSnapshot
     protocolV2State = selectedState
-    if let state = protocolV3State {
-      protocolV3State = HomeContainerProtocolV3State(
+    renderedProtocolV2State = selectedState
+    if let state = renderedProtocolV3State {
+      let selectedV3State = HomeContainerProtocolV3State(
         identity: state.identity,
         transportRevision: state.transportRevision,
         presentationRevisions: state.presentationRevisions,
@@ -1631,6 +1852,8 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
         slotRevisions: state.slotRevisions,
         legacyState: selectedState
       )
+      protocolV3State = selectedV3State
+      renderedProtocolV3State = selectedV3State
       emitProtocolV3Intent(
         state: state,
         authority: .tabApplicability(
@@ -1647,7 +1870,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     guard tab.destination == .handoff,
           let commandId = tab.handoffCommandId,
           !commandId.isEmpty else { return }
-    if let state = protocolV3State {
+    if let state = renderedProtocolV3State {
       emitProtocolV3Intent(
         state: state,
         authority: .tabApplicability(
@@ -1657,7 +1880,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       )
       return
     }
-    guard let state = protocolV2State else {
+    guard let state = renderedProtocolV2State else {
       onAction?(commandId, tab.id, selectedTabId)
       return
     }
@@ -1827,7 +2050,8 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
 
   func apply(
     tab: HomeContainerTab,
-    theme: HomeContainerTheme
+    theme: HomeContainerTheme,
+    completion: (() -> Void)? = nil
   ) {
     let nextThemeSignature = theme.contentSignature
     let shouldReconfigureAllRows = !themeSignature.isEmpty && themeSignature != nextThemeSignature
@@ -1837,15 +2061,20 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
       homeContainerColor: theme.backgroundColor,
       fallback: .systemBackground
     )
-    updateSections(tab.sections, forceReconfigureAll: shouldReconfigureAllRows)
+    updateSections(
+      tab.sections,
+      forceReconfigureAll: shouldReconfigureAllRows,
+      completion: completion
+    )
   }
 
   func updateSections(
     _ sections: [HomeContainerSection],
-    forceReconfigureAll: Bool = false
+    forceReconfigureAll: Bool = false,
+    completion: (() -> Void)? = nil
   ) {
     self.sections = sections
-    rebuildRows(forceReconfigureAll: forceReconfigureAll)
+    rebuildRows(forceReconfigureAll: forceReconfigureAll, completion: completion)
   }
 
   func setMountedSlotKeys(_ keys: Set<String>) {
@@ -1864,7 +2093,8 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
 
   private func rebuildRows(
     forceReconfigureAll: Bool = false,
-    reloadsStateSlotRows: Bool = false
+    reloadsStateSlotRows: Bool = false,
+    completion: (() -> Void)? = nil
   ) {
     var rows: [HomeContainerRow] = []
     if mountedSlotKeys.contains("content.header.\(tabId)"),
@@ -2003,6 +2233,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
         self.tableView.layoutIfNeeded()
         self.refreshVisibleSlotHosts()
         self.onSlotLayoutChange?()
+        completion?()
       }
     }
     restorePinnedMarketMutationContentOffset()
@@ -2394,6 +2625,7 @@ private final class HomeContainerHeaderView: UIView {
   private var representedNetworkImageURL: URL?
   private var representedNetworkGroupImageValues: [String] = []
   private var header: HomeContainerHeader?
+  private var mountedSlotKeys = Set<String>()
   private var accountRowHeightConstraint: NSLayoutConstraint!
   private var balanceHeightConstraint: NSLayoutConstraint!
   private var balanceActionsHeightConstraint: NSLayoutConstraint!
@@ -2632,9 +2864,10 @@ private final class HomeContainerHeaderView: UIView {
     updateBalanceActions(header.balanceActions ?? [], theme: theme)
     updateActions(header.actions, theme: theme)
     updateBanners(header.banners, theme: theme)
+    updateNativeOwnershipVisibility()
     let actionRowHeight = max(0, header.actionRowHeight ?? 62)
     actionsScrollHeightConstraint.constant = HomeContainerMetrics.scaledHeight(actionRowHeight)
-    actionsScroll.isHidden = header.actions.isEmpty && header.actionLayout != "loading"
+    updateActionRowVisibility()
     bannersScroll.isHidden = header.banners.isEmpty
     let balanceActionsHeight: CGFloat = (header.balanceActions ?? []).isEmpty ? 0 : 38
     let actionHeightAdjustment = preferredHeightAdjustment(for: header)
@@ -2704,6 +2937,22 @@ private final class HomeContainerHeaderView: UIView {
     bringSubviewToFront(compactBackdropView)
     bringSubviewToFront(accountSlotHost)
     onSlotLayoutChange?()
+  }
+
+  func setMountedSlotKeys(_ keys: Set<String>) {
+    guard mountedSlotKeys != keys else { return }
+    mountedSlotKeys = keys
+    updateNativeOwnershipVisibility()
+    updateActionRowVisibility()
+    setNeedsLayout()
+    onSlotLayoutChange?()
+  }
+
+  private func updateActionRowVisibility() {
+    guard let header else { return }
+    let hasMountedSlot = mountedSlotKeys.contains("header.action-row")
+    actionsScroll.isHidden =
+      !hasMountedSlot && header.actions.isEmpty && header.actionLayout != "loading"
   }
 
   func slotHostView(forKey key: String) -> UIView? {
@@ -2902,6 +3151,27 @@ private final class HomeContainerHeaderView: UIView {
       }
     } else {
       actions.forEach { actionControls[$0.id]?.apply(action: $0, theme: theme) }
+    }
+    updateNativeOwnershipVisibility()
+  }
+
+  private func updateNativeOwnershipVisibility() {
+    let ownsAccountRow = !mountedSlotKeys.contains("header.account-row")
+    accountButton.alpha = ownsAccountRow ? 1 : 0
+    accountButton.isUserInteractionEnabled = ownsAccountRow
+    copyButton.alpha = ownsAccountRow ? 1 : 0
+    copyButton.isUserInteractionEnabled = ownsAccountRow
+    networkSelectorControl.alpha = ownsAccountRow ? 1 : 0
+    networkSelectorControl.isUserInteractionEnabled = ownsAccountRow
+
+    let ownsBalance = !mountedSlotKeys.contains("header.balance")
+    balanceButton.alpha = ownsBalance ? 1 : 0
+    balanceButton.isUserInteractionEnabled = ownsBalance
+
+    let ownsActionRow = !mountedSlotKeys.contains("header.action-row")
+    actionControls.values.forEach { control in
+      control.alpha = ownsActionRow ? 1 : 0
+      control.isUserInteractionEnabled = ownsActionRow
     }
   }
 

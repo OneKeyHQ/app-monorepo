@@ -62,7 +62,7 @@ describe('resolveHomeWalletPageSurface', () => {
   it('retains renderer selection as a non-business platform choice', () => {
     expect(resolve()).toEqual({ surface: 'native', walletId: 'hd-1' });
     expect(resolve({ nativeHomeEnabled: false })).toEqual({
-      surface: 'legacy',
+      surface: 'react',
       walletId: 'hd-1',
     });
   });

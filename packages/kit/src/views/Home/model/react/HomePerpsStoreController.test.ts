@@ -34,7 +34,7 @@ describe('HomePerpsStoreController ownership', () => {
     );
     expect(source).toContain('useRegisterHomeBackgroundRecoveryRefresh({');
     expect(source).toContain(
-      'domain: EHomeBackgroundRecoveryRefreshDomain.legacyPerps',
+      'domain: EHomeBackgroundRecoveryRefreshDomain.perps',
     );
     expect(source).toContain("operationKey: 'home-perps-store-source'");
     expect(source).not.toContain('useTabIsRefreshingFocused');

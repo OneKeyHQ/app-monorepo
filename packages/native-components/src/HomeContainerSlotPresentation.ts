@@ -132,11 +132,13 @@ function resolveHomeContainerSlots({
   acknowledgedBundle,
   currentBundle,
   legacySlots,
+  preferCurrentBundle = false,
   safeFallbackBundle,
 }: {
   acknowledgedBundle: IHomeContainerSlotBundle | undefined;
   currentBundle: IHomeContainerSlotBundle | undefined;
   legacySlots: IHomeContainerSlots | undefined;
+  preferCurrentBundle?: boolean;
   safeFallbackBundle?: IHomeContainerSlotBundle;
 }): IHomeContainerSlots | undefined {
   if (!currentBundle) {
@@ -152,7 +154,9 @@ function resolveHomeContainerSlots({
       HOME_CONTAINER_SLOT_CONTRACT_REVISION &&
     ownersMatch(currentBundle.owner, acknowledgedBundle.owner)
   ) {
-    return filterSlots(acknowledgedBundle.slots);
+    return filterSlots(
+      preferCurrentBundle ? currentBundle.slots : acknowledgedBundle.slots,
+    );
   }
   if (
     currentBundle.slotContractRevision ===
@@ -161,7 +165,9 @@ function resolveHomeContainerSlots({
       HOME_CONTAINER_SLOT_CONTRACT_REVISION &&
     ownersMatch(currentBundle.owner, safeFallbackBundle.owner)
   ) {
-    return filterSlots(safeFallbackBundle.slots);
+    return filterSlots(
+      preferCurrentBundle ? currentBundle.slots : safeFallbackBundle.slots,
+    );
   }
   return createReservedSlots(currentBundle.slots);
 }

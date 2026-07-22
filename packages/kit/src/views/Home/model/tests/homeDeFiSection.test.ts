@@ -3,7 +3,6 @@ import type {
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
-import { adaptHomeLegacyDeFiSection } from '../compatibility/homeLegacyDeFiSectionAdapter';
 import {
   buildHomeDeFiCoverage,
   projectHomeDeFiSectionSource,
@@ -374,84 +373,5 @@ describe('home DeFi section authority', () => {
       kind: 'live',
       data: current,
     });
-  });
-
-  it('adapts legacy semantic loading empty error and ready payload reference', () => {
-    const identity = createIdentity();
-    const coordinator = new HomeSectionCoordinator<IHomeDeFiLegacyPayload>(
-      identity,
-    );
-
-    expect(adaptHomeLegacyDeFiSection({})).toEqual({
-      kind: 'loading',
-      viewState: 'loading',
-    });
-    expect(
-      adaptHomeLegacyDeFiSection({
-        resolution: coordinator.dispatch(
-          adaptHomeDeFiSourceSnapshot({
-            identity,
-            snapshot: {
-              kind: 'complete',
-              requestSeq: 1,
-              coverageFingerprint: buildHomeDeFiCoverage({
-                requestSeq: 1,
-                rowCount: 0,
-                source: 'singleNetwork',
-              }),
-              result: { kind: 'empty' },
-            },
-          }),
-        ),
-      }),
-    ).toEqual({ kind: 'empty', viewState: 'empty' });
-
-    const errorCoordinator = new HomeSectionCoordinator<IHomeDeFiLegacyPayload>(
-      identity,
-    );
-    expect(
-      adaptHomeLegacyDeFiSection({
-        resolution: errorCoordinator.dispatch(
-          adaptHomeDeFiSourceSnapshot({
-            identity,
-            snapshot: {
-              kind: 'error',
-              requestSeq: 1,
-              errorKind: 'transport',
-            },
-          }),
-        ),
-      }),
-    ).toEqual({ kind: 'error', refresh: 'failed', viewState: 'empty' });
-
-    const ready = payload('ready');
-    const readyRows = getHomeDeFiProtocolRowIds(ready);
-    const readyState = adaptHomeLegacyDeFiSection({
-      resolution: coordinator.dispatch(
-        adaptHomeDeFiSourceSnapshot({
-          identity,
-          snapshot: {
-            kind: 'complete',
-            requestSeq: 2,
-            coverageFingerprint: buildHomeDeFiCoverage({
-              requestSeq: 2,
-              rowCount: readyRows.length,
-              source: 'singleNetwork',
-            }),
-            result: { kind: 'success', data: ready, rowIds: readyRows },
-          },
-        }),
-      ),
-    });
-
-    expect(readyState).toMatchObject({
-      kind: 'ready',
-      freshness: 'live',
-      refresh: 'idle',
-      viewState: 'ready',
-    });
-    if (readyState.kind === 'ready') {
-      expect(readyState.payload).toBe(ready);
-    }
   });
 });

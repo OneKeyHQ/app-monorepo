@@ -18,12 +18,13 @@ export interface IHomeSessionSnapshot {
   status: 'idle' | 'waitingForProducer' | 'active' | 'degraded' | 'stopped';
   ownerToken?: IHomeRuntimeOwnerToken;
   producerInstanceId?: string;
-  staleRejectCount: number;
   revision: number;
 }
 
 export class HomeSessionCoordinator {
   private session: HomeSessionMachine | undefined;
+
+  private owner: IHomeRuntimeOwnerScope | undefined;
 
   private revision = 0;
 
@@ -48,9 +49,11 @@ export class HomeSessionCoordinator {
     owner: IHomeRuntimeOwnerScope | undefined,
   ): HomeSessionMachine | undefined {
     if (!owner) {
+      this.owner = undefined;
       this.stop();
       return undefined;
     }
+    this.owner = owner;
     const scopeKey = buildHomeOwnerScopeKey(owner);
     if (
       this.session?.getSnapshot().status !== 'stopped' &&
@@ -60,7 +63,20 @@ export class HomeSessionCoordinator {
     }
     this.session?.stop();
     this.session = new HomeSessionMachine({
-      adapter: this.adapter,
+      owner,
+      sessionId: this.createSessionId(),
+    });
+    this.bumpRevision();
+    return this.session;
+  }
+
+  restartCurrent(): HomeSessionMachine | undefined {
+    const owner = this.owner;
+    if (!owner) {
+      return undefined;
+    }
+    this.session?.stop();
+    this.session = new HomeSessionMachine({
       owner,
       sessionId: this.createSessionId(),
     });
@@ -133,7 +149,6 @@ export class HomeSessionCoordinator {
       status: sessionSnapshot?.status ?? 'idle',
       ownerToken: sessionSnapshot?.ownerToken,
       producerInstanceId: sessionSnapshot?.producerInstanceId,
-      staleRejectCount: sessionSnapshot?.staleRejectCount ?? 0,
       revision: this.revision,
     };
   }

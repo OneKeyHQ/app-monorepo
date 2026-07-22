@@ -33,10 +33,21 @@ export type IHomeContainerSlotKey =
 
 export type IHomeContainerSlotInteraction = 'none' | 'tap';
 
+export interface IHomeContainerSlotAuthority {
+  owner: {
+    scopeKey: string;
+    sessionId: string;
+  };
+  producedByStoreCommitId: number;
+  slotId: IHomeContainerSlotKey;
+  slotRevision: number;
+}
+
 export interface IHomeContainerSlot {
   content: ReactNode;
   height?: number;
   interaction?: IHomeContainerSlotInteraction;
+  authority?: IHomeContainerSlotAuthority;
 }
 
 export type IHomeContainerHeaderActionLayout =

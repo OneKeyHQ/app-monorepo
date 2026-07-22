@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -133,6 +134,11 @@ interface ISubmittedSlotAuthority {
   owner: IHomeContainerOwner;
   parentOwnerAtSubmission?: IHomeContainerOwner;
   parentBundleWasPresent: boolean;
+}
+
+interface IPendingProtocolV3Transport {
+  json: string;
+  kind: 'patch' | 'snapshot';
 }
 
 function ownersMatch(
@@ -277,6 +283,12 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
       useState<IHomeContainerSlotBundle>();
     const [submittedSlotAuthority, setSubmittedSlotAuthority] =
       useState<ISubmittedSlotAuthority>();
+    const [protocolV3SlotStagingEnabled, setProtocolV3SlotStagingEnabled] =
+      useState(false);
+    const [protocolV3StagedSlotBundle, setProtocolV3StagedSlotBundle] =
+      useState<IHomeContainerSlotBundle>();
+    const [pendingProtocolV3Transport, setPendingProtocolV3Transport] =
+      useState<IPendingProtocolV3Transport>();
     const submittedTransportRef = useRef<
       ISubmittedTransportIdentity | undefined
     >(undefined);
@@ -298,6 +310,20 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
       pushSnapshot();
     }, [pushSnapshot, snapshot]);
 
+    useLayoutEffect(() => {
+      if (!pendingProtocolV3Transport || !nativeRef.current) {
+        return;
+      }
+      if (pendingProtocolV3Transport.kind === 'snapshot') {
+        nativeRef.current.setSnapshot(pendingProtocolV3Transport.json);
+      } else {
+        nativeRef.current.applyPatch(pendingProtocolV3Transport.json);
+      }
+      setPendingProtocolV3Transport((current) =>
+        current === pendingProtocolV3Transport ? undefined : current,
+      );
+    }, [pendingProtocolV3Transport]);
+
     useImperativeHandle(
       ref,
       () => ({
@@ -310,6 +336,9 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
           nativeRef.current?.applyPatch(serializeHomeContainerPayload(patch));
         },
         setProtocolV2Snapshot: (nextSnapshot, nextSlots) => {
+          setProtocolV3SlotStagingEnabled(false);
+          setProtocolV3StagedSlotBundle(undefined);
+          setPendingProtocolV3Transport(undefined);
           const parentSlotBundle = slotBundleRef.current;
           submittedTransportRef.current = {
             owner: nextSnapshot.owner,
@@ -357,6 +386,7 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
           nativeRef.current?.applyPatch(serializeHomeContainerPayload(patch));
         },
         setProtocolV3Snapshot: (nextSnapshot, nextSlots) => {
+          setProtocolV3SlotStagingEnabled(true);
           const owner = {
             scopeKey: nextSnapshot.identity.scopeKey,
             sessionId: nextSnapshot.identity.sessionId,
@@ -375,6 +405,7 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
                 slots: nextSlots,
               }
             : undefined;
+          setProtocolV3StagedSlotBundle(submittedSlotBundle);
           setSubmittedSlotAuthority((current) =>
             current && ownersMatch(current.owner, owner)
               ? current
@@ -392,20 +423,35 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
           setAcknowledgedSlotBundle((current) =>
             current && ownersMatch(current.owner, owner) ? current : undefined,
           );
-          nativeRef.current?.setSnapshot(
-            serializeHomeContainerPayload(nextSnapshot),
-          );
+          setPendingProtocolV3Transport({
+            json: serializeHomeContainerPayload(nextSnapshot),
+            kind: 'snapshot',
+          });
         },
         applyProtocolV3Patch: (patch, nextSlots) => {
+          const owner = {
+            scopeKey: patch.identity.scopeKey,
+            sessionId: patch.identity.sessionId,
+          };
           submittedTransportRef.current = {
-            owner: {
-              scopeKey: patch.identity.scopeKey,
-              sessionId: patch.identity.sessionId,
-            },
+            owner,
             revision: patch.transportRevision,
             slots: nextSlots,
           };
-          nativeRef.current?.applyPatch(serializeHomeContainerPayload(patch));
+          setProtocolV3StagedSlotBundle(
+            nextSlots
+              ? {
+                  owner,
+                  semanticRevision: patch.transportRevision,
+                  slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
+                  slots: nextSlots,
+                }
+              : undefined,
+          );
+          setPendingProtocolV3Transport({
+            json: serializeHomeContainerPayload(patch),
+            kind: 'patch',
+          });
         },
         completeRefresh: (requestId) => {
           nativeRef.current?.completeRefresh(requestId);
@@ -522,7 +568,14 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
         pushSnapshot();
         const capabilities = parseCapabilities(nextRef.getCapabilities());
         if (capabilities) {
-          onReadyRef.current?.(capabilities);
+          // Nitro publishes the hybrid ref during the native commit, before
+          // React publishes this wrapper's imperative ref to its parent.
+          // Defer readiness until both sides of the ref bridge are committed.
+          void Promise.resolve().then(() => {
+            if (nativeRef.current === nextRef) {
+              onReadyRef.current?.(capabilities);
+            }
+          });
         }
       },
       [pushSnapshot],
@@ -531,16 +584,32 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
       () => nitroCallback(stableHybridRef),
       [stableHybridRef],
     );
-    const authoritativeSlotBundle = useMemo(
-      () =>
-        submittedOwnerIsCurrent({
-          currentBundle: slotBundle,
-          safeFallbackBundle: safeFallbackSlotBundle,
-          submittedAuthority: submittedSlotAuthority,
-        })
-          ? safeFallbackSlotBundle
-          : slotBundle,
-      [safeFallbackSlotBundle, slotBundle, submittedSlotAuthority],
+    const authoritativeSlotBundle = useMemo(() => {
+      const currentBundle =
+        protocolV3SlotStagingEnabled && protocolV3StagedSlotBundle
+          ? protocolV3StagedSlotBundle
+          : slotBundle;
+      const currentOwnerIsSubmitted = submittedOwnerIsCurrent({
+        currentBundle,
+        safeFallbackBundle: safeFallbackSlotBundle,
+        submittedAuthority: submittedSlotAuthority,
+      });
+      if (protocolV3SlotStagingEnabled && currentOwnerIsSubmitted) {
+        return currentBundle;
+      }
+      return currentOwnerIsSubmitted ? safeFallbackSlotBundle : currentBundle;
+    }, [
+      protocolV3SlotStagingEnabled,
+      protocolV3StagedSlotBundle,
+      safeFallbackSlotBundle,
+      slotBundle,
+      submittedSlotAuthority,
+    ]);
+    const stagesCurrentProtocolV3Slots = Boolean(
+      protocolV3SlotStagingEnabled &&
+      authoritativeSlotBundle &&
+      submittedSlotAuthority &&
+      ownersMatch(authoritativeSlotBundle.owner, submittedSlotAuthority.owner),
     );
     const resolvedBackgroundColor = resolveHomeContainerBackgroundColor({
       snapshotBackgroundColor: snapshot?.theme.backgroundColor,
@@ -555,6 +624,7 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
           acknowledgedBundle: acknowledgedSlotBundle,
           currentBundle: authoritativeSlotBundle,
           legacySlots: slots,
+          preferCurrentBundle: stagesCurrentProtocolV3Slots,
           safeFallbackBundle: safeFallbackSlotBundle,
         }),
       [
@@ -562,6 +632,7 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
         authoritativeSlotBundle,
         safeFallbackSlotBundle,
         slots,
+        stagesCurrentProtocolV3Slots,
       ],
     );
 
@@ -620,10 +691,16 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
       );
       return values.map(({ key, slot }) => {
         const interactive = slot.interaction === 'tap';
+        const authority =
+          slot.authority?.slotId === key ? slot.authority : undefined;
         return (
           <HomeContainerSlot
             key={key}
+            ownerScopeKey={authority?.owner.scopeKey ?? ''}
+            ownerSessionId={authority?.owner.sessionId ?? ''}
+            producedByStoreCommitId={authority?.producedByStoreCommitId ?? -1}
             slotKey={key}
+            slotRevision={authority?.slotRevision ?? -1}
             testID={`HomeContainer.Slot.${key}`}
             pointerEvents={interactive ? 'auto' : 'none'}
             style={[

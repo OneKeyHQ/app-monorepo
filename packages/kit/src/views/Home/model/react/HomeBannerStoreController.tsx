@@ -265,7 +265,7 @@ export function HomeBannerStoreController() {
 
   useRegisterHomeBackgroundRecoveryRefresh({
     callback: refresh,
-    domain: EHomeBackgroundRecoveryRefreshDomain.legacyBanner,
+    domain: EHomeBackgroundRecoveryRefreshDomain.banner,
     enabled,
     operationKey: 'home-banner-store-source',
     owner: { accountId, networkId, walletId },
@@ -418,7 +418,10 @@ export function HomeBannerStoreController() {
   useEffect(() => {
     const command = interaction.pendingShellCommands.find(
       (candidate) =>
-        candidate.actionId.startsWith('home.banner.') &&
+        candidate.actionId !== HOME_BANNER_ACTION_IDS.open &&
+        (candidate.actionId === HOME_BANNER_ACTION_IDS.dismiss ||
+          candidate.actionId === HOME_BANNER_ACTION_IDS.bindReferral ||
+          candidate.actionId === HOME_BANNER_ACTION_IDS.snoozeReferral) &&
         !processingCommandIdsRef.current.has(candidate.intentId),
     );
     if (!command || !stableOwner) {

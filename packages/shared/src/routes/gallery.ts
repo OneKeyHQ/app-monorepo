@@ -46,7 +46,6 @@ export enum EGalleryRoutes {
   ComponentMarkdown = 'component-Markdown',
   ComponentNetworkDoctor = 'component-NetworkDoctor',
   ComponentNetworkStatusBadge = 'component-NetworkStatusBadge',
-  ComponentNavigation = 'component-Navigation',
   ComponentNotification = 'component-Notification',
   ComponentNumberSizeableTextGallery = 'component-NumberSizeableText',
   ComponentOrderBook = 'component-OrderBook',

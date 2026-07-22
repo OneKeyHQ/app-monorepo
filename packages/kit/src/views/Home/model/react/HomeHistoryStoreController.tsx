@@ -848,7 +848,7 @@ export function HomeHistoryStoreController() {
 
   useRegisterHomeBackgroundRecoveryRefresh({
     callback: source.refresh,
-    domain: EHomeBackgroundRecoveryRefreshDomain.legacyHistory,
+    domain: EHomeBackgroundRecoveryRefreshDomain.history,
     operationKey: 'home-history-store-source',
     owner: {
       accountId: account?.id,
