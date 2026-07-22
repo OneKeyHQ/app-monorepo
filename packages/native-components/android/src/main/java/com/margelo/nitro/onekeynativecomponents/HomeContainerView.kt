@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PixelFormat
 import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
@@ -2446,6 +2447,8 @@ private class HomeBannerView(context: Context) : FrameLayout(context) {
   private val image = ImageView(context)
   private val title = TextView(context)
   private val subtitle = TextView(context)
+  private val labels = LinearLayout(context)
+  private val resourceStack = LinearLayout(context)
   private val dismiss = TextView(context)
   private var banner: HomeContainerBanner? = null
   private var imageRequest: HomeContainerImageLoader.Request? = null
@@ -2461,7 +2464,7 @@ private class HomeBannerView(context: Context) : FrameLayout(context) {
     addView(image, LayoutParams(dp(50), dp(50), Gravity.CENTER_VERTICAL).apply {
       marginStart = dp(12)
     })
-    val labels = LinearLayout(context).apply {
+    labels.apply {
       orientation = LinearLayout.VERTICAL
       gravity = Gravity.CENTER_VERTICAL
       title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
@@ -2475,6 +2478,13 @@ private class HomeBannerView(context: Context) : FrameLayout(context) {
     addView(labels, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT).apply {
       marginStart = dp(72)
       marginEnd = dp(14)
+    })
+    resourceStack.orientation = LinearLayout.VERTICAL
+    resourceStack.gravity = Gravity.CENTER_VERTICAL
+    resourceStack.visibility = GONE
+    addView(resourceStack, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT).apply {
+      marginStart = dp(16)
+      marginEnd = dp(16)
     })
     dismiss.text = "×"
     dismiss.gravity = Gravity.CENTER
@@ -2500,6 +2510,8 @@ private class HomeBannerView(context: Context) : FrameLayout(context) {
   fun bind(value: HomeContainerBanner, theme: HomeContainerTheme) {
     banner = value
     val isTronResourceBanner = value.id == "home-tron-resource"
+    labels.visibility = if (isTronResourceBanner) GONE else VISIBLE
+    resourceStack.visibility = if (isTronResourceBanner) VISIBLE else GONE
     title.text = value.title
     title.setTextColor(parseHomeContainerColor(theme.primaryTextColor, Color.BLACK))
     subtitle.text = value.subtitle
@@ -2516,15 +2528,53 @@ private class HomeBannerView(context: Context) : FrameLayout(context) {
       height = if (isTronResourceBanner) 0 else dp(50)
       marginStart = if (isTronResourceBanner) 0 else dp(12)
     }
-    val labels = title.parent as? View
-    labels?.layoutParams = (labels?.layoutParams as? LayoutParams)?.apply {
-      marginStart = if (isTronResourceBanner) dp(16) else dp(72)
-      marginEnd = dp(14)
+    (labels.layoutParams as? LayoutParams)?.let { params ->
+      params.marginStart = if (isTronResourceBanner) dp(16) else dp(72)
+      params.marginEnd = dp(14)
+      labels.layoutParams = params
     }
     if (isTronResourceBanner) {
+      bindResourceRows(value.resourceRows, theme)
       loadImage("")
     } else {
+      resourceStack.removeAllViews()
       loadImage(value.imageUrl)
+    }
+  }
+
+  private fun bindResourceRows(rows: List<HomeContainerBannerResourceRow>, theme: HomeContainerTheme) {
+    resourceStack.removeAllViews()
+    val textColor = parseHomeContainerColor(theme.primaryTextColor, Color.BLACK)
+    val secondaryColor = parseHomeContainerColor(theme.secondaryTextColor, Color.DKGRAY)
+    rows.take(2).forEachIndexed { index, row ->
+      val line = LinearLayout(context).apply {
+        orientation = HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+      }
+      val ring = HomeResourceRingView(context).apply {
+        progress = (row.progress.coerceIn(0.0, 100.0) / 100.0).toFloat()
+      }
+      line.addView(ring, LinearLayout.LayoutParams(dp(20), dp(20)).apply {
+        marginEnd = dp(10)
+      })
+      val label = TextView(context).apply {
+        text = row.label
+        setTextColor(textColor)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+        setTypeface(typeface, Typeface.BOLD)
+        maxLines = 1
+      }
+      line.addView(label, LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+      val value = TextView(context).apply {
+        text = row.value
+        setTextColor(secondaryColor)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+        maxLines = 1
+      }
+      line.addView(value)
+      resourceStack.addView(line, LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+        if (index > 0) topMargin = dp(12)
+      })
     }
   }
 
@@ -2555,6 +2605,33 @@ private class HomeBannerView(context: Context) : FrameLayout(context) {
   }
 
   private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+}
+
+private class HomeResourceRingView(context: Context) : View(context) {
+  var progress: Float = 0f
+    set(value) {
+      field = value
+      invalidate()
+    }
+  private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    style = Paint.Style.STROKE
+    strokeWidth = 2f * resources.displayMetrics.density
+    color = Color.argb(64, 120, 120, 120)
+  }
+  private val foregroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    style = Paint.Style.STROKE
+    strokeWidth = 2f * resources.displayMetrics.density
+    strokeCap = Paint.Cap.ROUND
+    color = Color.rgb(129, 140, 248)
+  }
+
+  override fun onDraw(canvas: Canvas) {
+    super.onDraw(canvas)
+    val inset = backgroundPaint.strokeWidth / 2
+    val rect = RectF(inset, inset, width - inset, height - inset)
+    canvas.drawOval(rect, backgroundPaint)
+    canvas.drawArc(rect, -90f, 360f * progress, false, foregroundPaint)
+  }
 }
 
 private class HomeActionView(context: Context) : LinearLayout(context) {

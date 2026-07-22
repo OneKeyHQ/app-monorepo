@@ -59,8 +59,13 @@ type IHomeSpotLegacyPayload = {
   mergeDeriveAddressData: boolean;
   networksMap: Record<string, IServerNetwork>;
   ownerKey: string;
+  riskMap: Record<string, ITokenFiat>;
+  riskTokens: IAccountToken[];
   showLpTokenFilterSwitch: boolean;
   showLpTokensOnly: boolean;
+  smallBalanceFiatValue?: string;
+  smallBalanceMap: Record<string, ITokenFiat>;
+  smallBalanceTokens: IAccountToken[];
   scopedLpTokenList: {
     keys: string;
     tokens: IAccountToken[];

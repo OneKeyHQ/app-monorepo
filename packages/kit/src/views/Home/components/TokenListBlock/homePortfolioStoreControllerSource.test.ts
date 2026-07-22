@@ -22,11 +22,15 @@ function createPayload(
     mergeDeriveAddressData: false,
     networksMap: {},
     ownerKey: 'account__network',
+    riskMap: {},
+    riskTokens: [],
     scopedLpTokenList: { keys: '', tokens: [] },
     scopedLpTokenListMap: {},
     scopedLpTokenListState: { initialized: true, isRefreshing: false },
     showLpTokenFilterSwitch: false,
     showLpTokensOnly: false,
+    smallBalanceMap: {},
+    smallBalanceTokens: [],
     tapTokenMap: {},
     tokenListMap: {},
     tokens: [],
@@ -145,9 +149,13 @@ describe('HomePortfolioStoreController source', () => {
       displayIds: [...previous.displayIds],
       homeDefaultTokenMap: previous.homeDefaultTokenMap,
       networksMap: previous.networksMap,
+      riskMap: previous.riskMap,
+      riskTokens: previous.riskTokens,
       scopedLpTokenList: previous.scopedLpTokenList,
       scopedLpTokenListMap: previous.scopedLpTokenListMap,
       scopedLpTokenListState: previous.scopedLpTokenListState,
+      smallBalanceMap: previous.smallBalanceMap,
+      smallBalanceTokens: previous.smallBalanceTokens,
       tapTokenMap: previous.tapTokenMap,
       tokenListMap: previous.tokenListMap,
       tokens: previous.tokens,
@@ -156,6 +164,22 @@ describe('HomePortfolioStoreController source', () => {
     expect(reuseHomePortfolioPayload(previous, equalPayload)).toBe(previous);
     expect(
       reuseHomePortfolioPayload(previous, createPayload({ generation: 2 })),
+    ).not.toBe(previous);
+  });
+
+  it('replaces the payload when a hidden asset group changes', () => {
+    const previous = createPayload();
+    expect(
+      reuseHomePortfolioPayload(
+        previous,
+        createPayload({ riskTokens: [{ $key: 'risk-a' } as never] }),
+      ),
+    ).not.toBe(previous);
+    expect(
+      reuseHomePortfolioPayload(
+        previous,
+        createPayload({ smallBalanceFiatValue: '2' }),
+      ),
     ).not.toBe(previous);
   });
 });

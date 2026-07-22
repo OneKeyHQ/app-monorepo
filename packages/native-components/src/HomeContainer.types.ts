@@ -117,6 +117,11 @@ export interface IHomeContainerBanner {
   imageUrl?: string;
   actionId?: string;
   dismissActionId?: string;
+  resourceRows?: {
+    label: string;
+    value: string;
+    progress?: number;
+  }[];
 }
 
 export interface IHomeContainerSegment {

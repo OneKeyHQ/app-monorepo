@@ -2319,9 +2319,14 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     let previousIds = Set(previousRows.keys)
     let nextIds = Set(nextRows.keys)
     let structuralIds = previousIds.symmetricDifference(nextIds)
-    guard !structuralIds.isEmpty,
+    let hasFavoriteMutation = changedIds.contains { id in
+      guard isMarketMutationRowId(id),
+            case .item(let previousItem) = previousRows[id]?.kind,
+            case .item(let nextItem) = nextRows[id]?.kind else { return false }
+      return previousItem.favorite != nextItem.favorite
+    }
+    guard !structuralIds.isEmpty || hasFavoriteMutation,
           structuralIds.allSatisfy(isMarketMutationRowId) else { return false }
-
     return changedIds.allSatisfy { id in
       isMarketMutationRowId(id) ||
         id == "section:portfolio-market" ||
@@ -2365,6 +2370,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
 
   private func isMarketMutationRowId(_ id: String) -> Bool {
     id.hasPrefix("item:portfolio-market:market:") ||
+      id == "item:portfolio-market:market-tabs" ||
       id == "item:portfolio-market:market-show-more" ||
       id.hasPrefix("market-recommendations:portfolio-market:")
   }
@@ -2376,6 +2382,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
 
   private func isPortfolioAssetsMutationRowId(_ id: String) -> Bool {
     id.hasPrefix("item:portfolio-assets:") ||
+      id.hasPrefix("item:portfolio-assets-hidden-groups:") ||
       id == "item:portfolio-assets-add-token:portfolio-assets-add-token" ||
       id == "item:portfolio-assets-toggle:portfolio-assets-toggle"
   }
@@ -3643,6 +3650,7 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
   private let imageView = UIImageView()
   private let titleLabel = UILabel()
   private let subtitleLabel = UILabel()
+  private let resourceStack = UIStackView()
   private let dismissButton = HomeContainerHitSlopButton(type: .system)
   private var widthConstraint: NSLayoutConstraint!
   private var imageWidthConstraint: NSLayoutConstraint!
@@ -3684,6 +3692,11 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
     labels.isUserInteractionEnabled = false
     labels.translatesAutoresizingMaskIntoConstraints = false
     addSubview(labels)
+    resourceStack.axis = .vertical
+    resourceStack.spacing = 12
+    resourceStack.isUserInteractionEnabled = false
+    resourceStack.translatesAutoresizingMaskIntoConstraints = false
+    addSubview(resourceStack)
     dismissButton.setImage(HomeContainerIcons.crossedSmall, for: .normal)
     dismissButton.accessibilityIdentifier = "native-home-banner-dismiss"
     dismissButton.addAction(UIAction { [weak self] _ in self?.onDismiss?() }, for: .touchUpInside)
@@ -3714,6 +3727,9 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
       labelsLeadingConstraint,
       labels.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
       labels.centerYAnchor.constraint(equalTo: centerYAnchor),
+      resourceStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+      resourceStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+      resourceStack.centerYAnchor.constraint(equalTo: centerYAnchor),
       dismissButton.topAnchor.constraint(equalTo: topAnchor, constant: 3),
       dismissButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -3),
       dismissButton.widthAnchor.constraint(equalToConstant: 28),
@@ -3754,6 +3770,16 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
     imageView.isHidden = isTronResourceBanner || banner.imageUrl?.isEmpty != false
     labelsLeadingConstraint.isActive = !isTronResourceBanner
     labelsLeadingToLeadingConstraint.isActive = isTronResourceBanner
+    resourceStack.isHidden = !isTronResourceBanner
+    titleLabel.superview?.isHidden = isTronResourceBanner
+    if isTronResourceBanner {
+      applyResourceRows(banner.resourceRows ?? [], theme: theme)
+    } else {
+      resourceStack.arrangedSubviews.forEach { view in
+        resourceStack.removeArrangedSubview(view)
+        view.removeFromSuperview()
+      }
+    }
     dismissButton.tintColor = UIColor(
       homeContainerColor: theme.subduedIconColor ?? theme.secondaryTextColor,
       fallback: .tertiaryLabel
@@ -3774,6 +3800,43 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
     )
     accessibilityLabel = banner.title
     loadImage(isTronResourceBanner ? nil : banner.imageUrl)
+  }
+
+  private func applyResourceRows(
+    _ rows: [HomeContainerBannerResourceRow],
+    theme: HomeContainerTheme
+  ) {
+    resourceStack.arrangedSubviews.forEach { view in
+      resourceStack.removeArrangedSubview(view)
+      view.removeFromSuperview()
+    }
+    rows.prefix(2).forEach { row in
+      let container = UIStackView()
+      container.axis = .horizontal
+      container.alignment = .center
+      container.spacing = 10
+      let ring = HomeContainerResourceRingView()
+      ring.translatesAutoresizingMaskIntoConstraints = false
+      ring.progress = max(0, min(100, row.progress ?? 0)) / 100
+      NSLayoutConstraint.activate([
+        ring.widthAnchor.constraint(equalToConstant: 20),
+        ring.heightAnchor.constraint(equalToConstant: 20),
+      ])
+      let label = UILabel()
+      label.font = HomeContainerTypography.system(14, weight: .medium)
+      label.textColor = UIColor(homeContainerColor: theme.primaryTextColor, fallback: .label)
+      label.text = row.label
+      label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+      let value = UILabel()
+      value.font = HomeContainerTypography.system(14)
+      value.textColor = UIColor(homeContainerColor: theme.secondaryTextColor, fallback: .secondaryLabel)
+      value.text = row.value
+      value.setContentCompressionResistancePriority(.required, for: .horizontal)
+      container.addArrangedSubview(ring)
+      container.addArrangedSubview(label)
+      container.addArrangedSubview(value)
+      resourceStack.addArrangedSubview(container)
+    }
   }
 
   @objc private func handleHover(_ gestureRecognizer: UIHoverGestureRecognizer) {
@@ -3834,6 +3897,53 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
     imageView.contentMode = .center
     imageView.image = UIImage(systemName: "photo")
     imageView.isHidden = false
+  }
+}
+
+private final class HomeContainerResourceRingView: UIView {
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    isOpaque = false
+    backgroundColor = .clear
+  }
+
+  required init?(coder: NSCoder) {
+    super.init(coder: coder)
+    isOpaque = false
+    backgroundColor = .clear
+  }
+
+  var progress: CGFloat = 0 {
+    didSet { setNeedsDisplay() }
+  }
+
+  override func draw(_ rect: CGRect) {
+    let lineWidth: CGFloat = 2
+    let insetRect = rect.insetBy(dx: lineWidth / 2, dy: lineWidth / 2)
+    let center = CGPoint(x: rect.midX, y: rect.midY)
+    let radius = min(insetRect.width, insetRect.height) / 2
+    let backgroundPath = UIBezierPath(
+      arcCenter: center,
+      radius: radius,
+      startAngle: 0,
+      endAngle: .pi * 2,
+      clockwise: true
+    )
+    UIColor.secondaryLabel.withAlphaComponent(0.25).setStroke()
+    backgroundPath.lineWidth = lineWidth
+    backgroundPath.stroke()
+
+    let foregroundPath = UIBezierPath(
+      arcCenter: center,
+      radius: radius,
+      startAngle: -.pi / 2,
+      endAngle: -.pi / 2 + (.pi * 2 * progress),
+      clockwise: true
+    )
+    UIColor(red: 0.51, green: 0.55, blue: 0.97, alpha: 1).setStroke()
+    foregroundPath.lineWidth = lineWidth
+    foregroundPath.lineCapStyle = .round
+    foregroundPath.stroke()
   }
 }
 

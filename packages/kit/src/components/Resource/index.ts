@@ -2,9 +2,13 @@ import type { IDialogShowProps } from '@onekeyhq/components';
 import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-import { showTronResourceDetailsDialog } from './TronResource';
+import {
+  showTronResourceDetailsDialog,
+  useTronAccountResources,
+} from './TronResource';
 
 export { ResourceBannerCard } from './ResourceBannerCard';
+export { useTronAccountResources };
 
 export const showResourceDetailsDialog = (
   props: IDialogShowProps & {

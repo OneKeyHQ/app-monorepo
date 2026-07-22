@@ -23,12 +23,14 @@ const presentation = {
     hotMarkets: 'Hot Markets',
     loading: 'Loading',
     long: 'Long',
+    lowValueAssets: 'Low-value assets',
     margin: 'Margin',
     market: 'Market',
     noData: 'No data',
     positions: 'Positions',
     receive: 'Receive',
     revokeApprove: (symbol: string) => `Revoke ${symbol}`,
+    riskAssets: (count: number) => `${count} Collapsed risk assets`,
     send: 'Send',
     short: 'Short',
     showLess: 'Show less',
@@ -159,11 +161,15 @@ describe('mobileNativeHomeViewModelAdapter', () => {
           mergeDeriveAddressData: false,
           networksMap: {},
           ownerKey: 'owner-a',
+          riskMap: {},
+          riskTokens: [],
           scopedLpTokenList: { keys: '', tokens: [] },
           scopedLpTokenListMap: {},
           scopedLpTokenListState: { initialized: true, isRefreshing: false },
           showLpTokenFilterSwitch: false,
           showLpTokensOnly: false,
+          smallBalanceMap: {},
+          smallBalanceTokens: [],
           tapTokenMap: {},
           tokenListMap: Object.fromEntries(
             tokens.map((token, index) => [
@@ -205,6 +211,111 @@ describe('mobileNativeHomeViewModelAdapter', () => {
         expect.objectContaining({ renderer: 'showMore', title: 'Show less' }),
       ],
     });
+  });
+
+  it('keeps hidden assets out of token rows and exposes their entry rows', () => {
+    const token = (key: string, symbol: string) => ({
+      $key: key,
+      accountId: 'account-a',
+      address: `0x${key}`,
+      balanceParsed: '1',
+      decimals: 18,
+      isNative: false,
+      logoURI: `${key}.png`,
+      name: symbol,
+      networkId: 'evm--1',
+      symbol,
+    });
+    const visible = token('visible', 'VISIBLE');
+    const lowValue = token('low-value', 'LOW');
+    const risk = token('risk', 'RISK');
+    const sections = buildMobileNativeHomeViewModelSections({
+      ...presentation,
+      expanded: {
+        defi: false,
+        portfolioAssets: true,
+        portfolioDeFi: false,
+      },
+      payloads: {
+        portfolio: {
+          accountTokensValue: '4',
+          accountTokensWorthCurrency: 'USD',
+          aggregateTokenListMap: {},
+          allAggregateTokenMap: {},
+          displayIds: [visible.$key, lowValue.$key],
+          generation: 1,
+          homeDefaultTokenMap: {},
+          isAllNetworkEmptyAccount: false,
+          isLpTokenSwitchLoading: false,
+          mergeDeriveAddressData: false,
+          networksMap: {},
+          ownerKey: 'owner-a',
+          riskMap: {
+            [risk.$key]: {
+              balance: '1',
+              balanceParsed: '1',
+              fiatValue: '1',
+              price: 1,
+              price24h: 0,
+            },
+          },
+          riskTokens: [risk],
+          scopedLpTokenList: { keys: '', tokens: [] },
+          scopedLpTokenListMap: {},
+          scopedLpTokenListState: { initialized: true, isRefreshing: false },
+          showLpTokenFilterSwitch: false,
+          showLpTokensOnly: false,
+          smallBalanceFiatValue: '2',
+          smallBalanceMap: {
+            [lowValue.$key]: {
+              balance: '1',
+              balanceParsed: '1',
+              fiatValue: '2',
+              price: 2,
+              price24h: 0,
+            },
+          },
+          smallBalanceTokens: [lowValue],
+          tapTokenMap: {},
+          tokenListMap: {
+            [visible.$key]: {
+              balance: '1',
+              balanceParsed: '1',
+              fiatValue: '4',
+              price: 4,
+              price24h: 0,
+            },
+          },
+          tokens: [visible],
+        } as IHomeSpotLegacyPayload,
+      },
+      sectionId: 'portfolio',
+      semantic: {
+        kind: 'ready',
+        rowIds: [visible.$key, lowValue.$key],
+        freshness: 'live',
+        refresh: 'idle',
+      },
+    });
+
+    expect(sections[0]?.items.map((item) => item.title)).toEqual(['VISIBLE']);
+    expect(
+      sections.find((section) => section.id === 'portfolio-assets-hidden-groups')
+        ?.items,
+    ).toEqual([
+      expect.objectContaining({
+        actionId: 'home.native.portfolio.assets.openLowValueAssets',
+        leadingIcon: 'lowValue',
+        title: '1 Low-value assets',
+        value: '$2.00',
+      }),
+      expect.objectContaining({
+        actionId: 'home.native.portfolio.assets.openRiskAssets',
+        leadingIcon: 'risk',
+        title: '1 Collapsed risk assets',
+        value: '$1.00',
+      }),
+    ]);
   });
 
   it('keeps Market and Earn presentation data in the portfolio ViewModel', () => {

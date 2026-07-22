@@ -16,7 +16,10 @@ import { AllNetworksManagerTrigger } from '@onekeyhq/kit/src/components/AccountS
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { EmptyNFT } from '@onekeyhq/kit/src/components/Empty';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import { showResourceDetailsDialog } from '@onekeyhq/kit/src/components/Resource';
+import {
+  showResourceDetailsDialog,
+  useTronAccountResources,
+} from '@onekeyhq/kit/src/components/Resource';
 import { HomeTabSearchHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -93,7 +96,11 @@ import {
 } from '@onekeyhq/native-components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalAssetListRoutes,
+  EModalRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
@@ -284,6 +291,13 @@ export function MobileNativeHomeRenderer({
     bannerResource.kind === 'ready'
       ? readHomeBannerStorePayload(bannerResource.data)
       : undefined;
+  const tronResource = bannerPayload?.tronResource;
+  const tronAccountResource = useTronAccountResources({
+    accountId: tronResource?.accountId ?? '',
+    networkId: tronResource?.networkId ?? '',
+    pollingInterval: 30_000,
+    suppressErrors: true,
+  });
 
   useEffect(() => {
     const recommendationRows =
@@ -390,6 +404,9 @@ export function MobileNativeHomeRenderer({
         id: ETranslations.perp_token_selector_loading,
       }),
       long: intl.formatMessage({ id: ETranslations.perp_long }),
+      lowValueAssets: intl.formatMessage({
+        id: ETranslations.low_value_assets,
+      }),
       margin: intl.formatMessage({ id: ETranslations.perp_position_margin }),
       market: intl.formatMessage({ id: ETranslations.global_market }),
       noData: intl.formatMessage({ id: ETranslations.global_no_data }),
@@ -399,6 +416,11 @@ export function MobileNativeHomeRenderer({
         intl.formatMessage(
           { id: ETranslations.global_revoke_approve },
           { symbol },
+        ),
+      riskAssets: (number: number) =>
+        intl.formatMessage(
+          { id: ETranslations.wallet_collapsed_risk_assets_number },
+          { number },
         ),
       send: intl.formatMessage({ id: ETranslations.global_send }),
       short: intl.formatMessage({ id: ETranslations.perp_short }),
@@ -635,13 +657,44 @@ export function MobileNativeHomeRenderer({
               ? [
                   {
                     id: 'home-tron-resource',
-                    title: intl.formatMessage({
-                      id: ETranslations.global_energy_bandwidth,
-                    }),
-                    subtitle: intl.formatMessage({
-                      id: ETranslations.global_energy_bandwidth_desc,
-                    }),
+                    title: '',
                     actionId: MOBILE_NATIVE_HOME_TRON_RESOURCE_ACTION_ID,
+                    resourceRows: [
+                      {
+                        label: intl.formatMessage({
+                          id: ETranslations.global_energy,
+                        }),
+                        value: `${tronAccountResource.result?.energyAvailable?.toFixed() ?? '0'} / ${
+                          tronAccountResource.result?.energyTotal?.toFixed() ??
+                          '0'
+                        }`,
+                        progress:
+                          tronAccountResource.result?.energyTotal?.isZero() ===
+                          false
+                            ? tronAccountResource.result.energyAvailable
+                                .div(tronAccountResource.result.energyTotal)
+                                .times(100)
+                                .toNumber()
+                            : 0,
+                      },
+                      {
+                        label: intl.formatMessage({
+                          id: ETranslations.global_bandwidth,
+                        }),
+                        value: `${tronAccountResource.result?.netAvailable?.toFixed() ?? '0'} / ${
+                          tronAccountResource.result?.netTotal?.toFixed() ??
+                          '0'
+                        }`,
+                        progress:
+                          tronAccountResource.result?.netTotal?.isZero() ===
+                          false
+                            ? tronAccountResource.result.netAvailable
+                                .div(tronAccountResource.result.netTotal)
+                                .times(100)
+                                .toNumber()
+                            : 0,
+                      },
+                    ],
                   },
                 ]
               : []),
@@ -668,6 +721,7 @@ export function MobileNativeHomeRenderer({
     intl,
     isBackupRequired,
     reactBalancePresentation.balanceState,
+    tronAccountResource.result,
   ]);
 
   const selectedTabId = useMemo<IHomeContainerTabId>(() => {
@@ -1482,6 +1536,78 @@ export function MobileNativeHomeRenderer({
     ],
   );
 
+  const openLowValueAssets = useCallback(() => {
+    if (!account || !network || !wallet || !portfolioPayload) {
+      return;
+    }
+    const tokens = portfolioPayload.smallBalanceTokens ?? [];
+    navigation.pushModal(EModalRoutes.MainModal, {
+      screen: EModalAssetListRoutes.TokenList,
+      params: {
+        title: intl.formatMessage({ id: ETranslations.low_value_assets }),
+        accountId: account.id,
+        networkId: network.id,
+        walletId: wallet.id,
+        indexedAccountId: indexedAccount?.id,
+        tokenList: {
+          tokens,
+          keys: tokens.map((token) => token.$key).join(','),
+          map: portfolioPayload.smallBalanceMap ?? {},
+        },
+        deriveType,
+        hideValue,
+        isAllNetworks: network.isAllNetworks,
+        aggregateTokensListMap: portfolioPayload.aggregateTokenListMap,
+        aggregateTokensMap: {},
+        accountAddress: account.address,
+        allAggregateTokenMap: portfolioPayload.allAggregateTokenMap,
+        searchKeyLengthThreshold: 1,
+      },
+    });
+  }, [
+    account,
+    deriveType,
+    hideValue,
+    indexedAccount?.id,
+    intl,
+    navigation,
+    network,
+    portfolioPayload,
+    wallet,
+  ]);
+
+  const openRiskAssets = useCallback(() => {
+    if (!account || !network || !wallet || !portfolioPayload) {
+      return;
+    }
+    const tokens = portfolioPayload.riskTokens ?? [];
+    navigation.pushModal(EModalRoutes.MainModal, {
+      screen: EModalAssetListRoutes.RiskTokenManager,
+      params: {
+        accountId: account.id,
+        networkId: network.id,
+        walletId: wallet.id,
+        tokenList: {
+          tokens,
+          keys: tokens.map((token) => token.$key).join(','),
+          map: portfolioPayload.riskMap ?? {},
+        },
+        deriveType,
+        isAllNetworks: network.isAllNetworks,
+        hideValue,
+        accountAddress: account.address,
+      },
+    });
+  }, [
+    account,
+    deriveType,
+    hideValue,
+    navigation,
+    network,
+    portfolioPayload,
+    wallet,
+  ]);
+
   const handleRefreshIntent = useCallback(
     (tabId: IHomeContainerTabId, requestId: string, revision: number) => {
       if (!facts) {
@@ -1596,6 +1722,20 @@ export function MobileNativeHomeRenderer({
               networkId: resource.networkId,
             });
           }
+          return;
+        }
+        if (
+          commandId ===
+          MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS.openLowValueAssets
+        ) {
+          openLowValueAssets();
+          return;
+        }
+        if (
+          commandId ===
+          MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS.openRiskAssets
+        ) {
+          openRiskAssets();
           return;
         }
         if (
@@ -1756,6 +1896,8 @@ export function MobileNativeHomeRenderer({
       handleRefreshIntent,
       navigation,
       marketPayload,
+      openLowValueAssets,
+      openRiskAssets,
       owner,
       selectMarketCategory,
       selectedTabId,
