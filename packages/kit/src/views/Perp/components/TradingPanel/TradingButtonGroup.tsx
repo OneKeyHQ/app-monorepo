@@ -15,7 +15,6 @@ import { useDebouncedCallback } from 'use-debounce';
 import {
   Button,
   DashText,
-  Icon,
   NumberSizeableText,
   Popover,
   SizableText,
@@ -123,6 +122,7 @@ import {
 import { getScaleOrderValidationErrorMessage } from '../../utils/scaleOrderValidation';
 import { getTradingButtonStyleValues } from '../../utils/styleUtils';
 
+import { PerpsFirstDepositPromptCard } from './components/PerpsFirstDepositPromptCard';
 import {
   type ISizeInputMinimumOrderAction,
   getMinimumOrderToastActionProps,
@@ -135,8 +135,6 @@ import type { LayoutChangeEvent } from 'react-native';
 const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
 const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
-const TRADING_PANEL_META_TEXT_SIZE = '$bodySm';
-const TRADING_PANEL_META_TEXT_COLOR = '$textSubdued';
 
 interface ITradingButtonGroupProps {
   isMobile: boolean;
@@ -175,34 +173,6 @@ function IpRestrictedSingleButton({ isMobile }: { isMobile: boolean }) {
         </SizableText>
       </Button>
     </YStack>
-  );
-}
-
-function FirstDepositPromptCard() {
-  const intl = useIntl();
-
-  return (
-    <XStack
-      gap="$1.5"
-      p="$3"
-      borderRadius="$3"
-      bg="$bgSubdued"
-      alignItems="center"
-    >
-      <XStack w="$6" h="$6" alignItems="center" justifyContent="center">
-        <Icon name="DownloadOutline" size="$3.5" color="$iconSubdued" />
-      </XStack>
-      <SizableText
-        flex={1}
-        size={TRADING_PANEL_META_TEXT_SIZE}
-        color={TRADING_PANEL_META_TEXT_COLOR}
-        numberOfLines={2}
-      >
-        {intl.formatMessage({
-          id: ETranslations.perp_trade_first_deposit_ready__desc,
-        })}
-      </SizableText>
-    </XStack>
   );
 }
 
@@ -2673,7 +2643,7 @@ function TradingButtonGroup({
   if (shouldShowFirstDepositPrompt) {
     return (
       <YStack gap="$3">
-        <FirstDepositPromptCard />
+        <PerpsFirstDepositPromptCard />
         <Button
           width="100%"
           size="medium"
@@ -2691,7 +2661,6 @@ function TradingButtonGroup({
               size="$bodyMdMedium"
               lineHeight={18}
               color="$textInverse"
-              textTransform="uppercase"
               numberOfLines={1}
             >
               {intl.formatMessage({
