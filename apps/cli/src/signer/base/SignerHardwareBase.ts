@@ -269,10 +269,10 @@ export abstract class SignerHardwareBase implements ISigner {
   private async ensureDeviceUnlocked(): Promise<void> {
     try {
       const sdk = await this.deps.ensureSDKReady();
-      const deviceStateResult = await sdk.getDeviceState(
+      const deviceStateResult = await sdk.refreshDeviceState(
         this.device.connectId,
         {
-          refresh: ['status'],
+          scope: 'runtime',
         },
       );
       if (

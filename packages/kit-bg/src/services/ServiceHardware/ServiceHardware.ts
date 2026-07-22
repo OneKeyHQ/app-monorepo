@@ -127,7 +127,7 @@ import type {
   DeviceSupportFeaturesPayload,
   DeviceUploadResourceParams,
   Features,
-  GetDeviceStateParams,
+  RefreshDeviceStateParams,
   Response as HardwareResponse,
   IDeviceType,
   KnownDevice,
@@ -159,10 +159,18 @@ export type IDeviceGetStateOptions = Omit<
   IDeviceGetFeaturesOptions,
   'params'
 > & {
-  params?: CommonParams &
-    GetDeviceStateParams & {
-      allowEmptyConnectId?: boolean;
-    };
+  params?: CommonParams & {
+    allowEmptyConnectId?: boolean;
+  };
+};
+
+export type IDeviceRefreshStateOptions = Omit<
+  IDeviceGetFeaturesOptions,
+  'params'
+> & {
+  params: RefreshDeviceStateParams & {
+    allowEmptyConnectId?: boolean;
+  };
 };
 
 export type IPro2DeviceManagementSnapshot = {
@@ -1445,17 +1453,20 @@ class ServiceHardware extends ServiceBase {
     }
 
     const request = (async () => {
-      let state = await this.getDeviceState({
-        connectId: compatibleConnectId,
-        params: refreshInfo
-          ? { refresh: ['identity', 'versions', 'verification'] }
-          : undefined,
-        hardwareCallContext,
-      });
+      let state = refreshInfo
+        ? await this.refreshDeviceState({
+            connectId: compatibleConnectId,
+            params: { scope: 'firmware' },
+            hardwareCallContext,
+          })
+        : await this.getDeviceState({
+            connectId: compatibleConnectId,
+            hardwareCallContext,
+          });
       try {
-        state = await this.getDeviceState({
+        state = await this.refreshDeviceState({
           connectId: compatibleConnectId,
-          params: { refresh: ['settings'] },
+          params: { scope: 'settings' },
           hardwareCallContext,
         });
       } catch (error) {
@@ -1750,7 +1761,7 @@ class ServiceHardware extends ServiceBase {
     const { allowEmptyConnectId, detectBootloaderDevice, ...sdkParams } =
       params ?? {};
     serviceHardwareUtils.hardwareLog(
-      'project legacy app features from getDeviceState()',
+      'project legacy app features from refreshDeviceState(basic)',
       connectId,
     );
     if (!allowEmptyConnectId && !connectId) {
@@ -1764,10 +1775,9 @@ class ServiceHardware extends ServiceBase {
     });
     const state = await convertDeviceResponse(
       () =>
-        hardwareSDK?.getDeviceState(connectId, {
+        hardwareSDK?.refreshDeviceState(connectId as string, {
           ...sdkParams,
-          refresh: ['identity'],
-          includeRaw: true,
+          scope: 'basic',
         }),
       { silentMode },
     );
@@ -1861,6 +1871,59 @@ class ServiceHardware extends ServiceBase {
         })
       : options.connectId;
     return this._getDeviceStateWithMutex({
+      ...options,
+      connectId: compatibleConnectId,
+      hardwareCallContext,
+    });
+  }
+
+  _refreshDeviceStateLowLevel = async (options: IDeviceRefreshStateOptions) => {
+    const { connectId, params, silentMode, hardwareCallContext } = options;
+    const { allowEmptyConnectId, ...sdkParams } = params;
+    serviceHardwareUtils.hardwareLog(
+      `call refreshDeviceState(${sdkParams.scope})`,
+      connectId,
+    );
+    if (!allowEmptyConnectId && !connectId) {
+      throw new OneKeyLocalError(
+        'hardware refreshDeviceState ERROR: connectId is undefined',
+      );
+    }
+    const hardwareSDK = await this.getSDKInstance({
+      connectId,
+      hardwareCallContext,
+    });
+    return convertDeviceResponse(
+      () => hardwareSDK?.refreshDeviceState(connectId as string, sdkParams),
+      { silentMode },
+    );
+  };
+
+  _refreshDeviceStateWithTimeout = makeTimeoutPromise({
+    asyncFunc: this._refreshDeviceStateLowLevel,
+    timeout: timerUtils.getTimeDurationMs({ seconds: 60 }),
+    timeoutRejectError: new deviceErrors.DeviceMethodCallTimeout(),
+  });
+
+  _refreshDeviceStateWithMutex = async (
+    options: IDeviceRefreshStateOptions,
+  ): Promise<IOneKeyDeviceState> =>
+    this.getFeaturesMutex.runExclusive(async () =>
+      this._refreshDeviceStateWithTimeout(options),
+    );
+
+  @backgroundMethod()
+  async refreshDeviceState(options: IDeviceRefreshStateOptions) {
+    const hardwareCallContext =
+      options.hardwareCallContext ??
+      EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG;
+    const compatibleConnectId = options.connectId
+      ? await this.getCompatibleConnectId({
+          connectId: options.connectId,
+          hardwareCallContext,
+        })
+      : options.connectId;
+    return this._refreshDeviceStateWithMutex({
       ...options,
       connectId: compatibleConnectId,
       hardwareCallContext,
@@ -2277,12 +2340,9 @@ class ServiceHardware extends ServiceBase {
       connectId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
-    const state = await this.getDeviceState({
+    const state = await this.refreshDeviceState({
       connectId: compatibleConnectId,
-      params: {
-        refresh: ['identity', 'versions', 'verification'],
-        includeRaw: true,
-      },
+      params: { scope: 'firmware' },
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
     return buildOnekeyFeaturesFromState(state);

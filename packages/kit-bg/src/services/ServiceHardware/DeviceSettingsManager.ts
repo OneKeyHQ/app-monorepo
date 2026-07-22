@@ -692,8 +692,8 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             },
           );
           if (response.success) {
-            await sdk.getDeviceState(compatibleConnectId, {
-              refresh: ['status'],
+            await sdk.refreshDeviceState(compatibleConnectId, {
+              scope: 'runtime',
             });
           }
           return response;

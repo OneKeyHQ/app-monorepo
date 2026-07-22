@@ -96,6 +96,10 @@ const createService = ({ unlocked }: { unlocked: boolean }) => {
     success: true,
     payload: state,
   });
+  const refreshDeviceState = jest.fn().mockResolvedValue({
+    success: true,
+    payload: state,
+  });
   const deviceSettingsPageShow = jest.fn().mockResolvedValue({
     success: true,
     payload: { message: 'Success' },
@@ -106,12 +110,14 @@ const createService = ({ unlocked }: { unlocked: boolean }) => {
   service.getCompatibleConnectId = jest.fn().mockResolvedValue('PRO2_USB');
   service.getSDKInstance = jest.fn().mockResolvedValue({
     getDeviceState,
+    refreshDeviceState,
     deviceSettingsPageShow,
   } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
 
   return {
     service,
     getDeviceState,
+    refreshDeviceState,
     deviceSettingsPageShow,
     state,
   };
@@ -130,21 +136,21 @@ describe('ServiceHardware.getDeviceState', () => {
     expect(getDeviceState).toHaveBeenCalledWith('PRO2_USB', undefined);
   });
 
-  it('forwards only explicitly requested refresh sections', async () => {
-    const { service, getDeviceState } = createService({ unlocked: false });
+  it('refreshes the canonical state through a semantic scope', async () => {
+    const { service, refreshDeviceState } = createService({ unlocked: false });
 
-    await service.getDeviceState({
+    await service.refreshDeviceState({
       connectId: 'PRO2',
-      params: { refresh: ['identity', 'versions'] },
+      params: { scope: 'firmware' },
     });
 
-    expect(getDeviceState).toHaveBeenCalledWith('PRO2_USB', {
-      refresh: ['identity', 'versions'],
+    expect(refreshDeviceState).toHaveBeenCalledWith('PRO2_USB', {
+      scope: 'firmware',
     });
   });
 
   it('projects legacy App features from DeviceState without calling SDK getFeatures', async () => {
-    const { service, getDeviceState } = createService({ unlocked: true });
+    const { service, refreshDeviceState } = createService({ unlocked: true });
 
     await expect(
       service.getFeaturesWithoutCache({ connectId: 'PRO2' }),
@@ -152,22 +158,23 @@ describe('ServiceHardware.getDeviceState', () => {
       deviceId: 'PRO2_DEVICE_ID',
       label: 'OneKey Pro 2',
     });
-    expect(getDeviceState).toHaveBeenCalledWith('PRO2', {
-      refresh: ['identity'],
-      includeRaw: true,
+    expect(refreshDeviceState).toHaveBeenCalledWith('PRO2', {
+      scope: 'basic',
     });
   });
 });
 
 describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
   it('refreshes readable settings on the initial device-details load', async () => {
-    const { service, getDeviceState } = createService({ unlocked: true });
+    const { service, getDeviceState, refreshDeviceState } = createService({
+      unlocked: true,
+    });
 
     await service.getPro2DeviceManagementSnapshot({ connectId: 'PRO2' });
 
     expect(getDeviceState).toHaveBeenNthCalledWith(1, 'PRO2_USB', undefined);
-    expect(getDeviceState).toHaveBeenNthCalledWith(2, 'PRO2_USB', {
-      refresh: ['settings'],
+    expect(refreshDeviceState).toHaveBeenCalledWith('PRO2_USB', {
+      scope: 'settings',
     });
   });
 
@@ -180,11 +187,12 @@ describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
       settings: {},
       versions: {},
     };
-    const getDeviceState = jest
+    const getDeviceState = jest.fn().mockResolvedValue(baseState);
+    const refreshDeviceState = jest
       .fn()
-      .mockResolvedValueOnce(baseState)
-      .mockRejectedValueOnce(new Error('Device locked'));
+      .mockRejectedValue(new Error('Device locked'));
     service.getDeviceState = getDeviceState;
+    service.refreshDeviceState = refreshDeviceState;
 
     await expect(
       service.getPro2DeviceManagementSnapshot({ connectId: 'PRO2' }),
@@ -194,9 +202,9 @@ describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
       params: undefined,
       hardwareCallContext: 'user_interaction_no_ble_dialog',
     });
-    expect(getDeviceState).toHaveBeenNthCalledWith(2, {
+    expect(refreshDeviceState).toHaveBeenCalledWith({
       connectId: 'PRO2_USB',
-      params: { refresh: ['settings'] },
+      params: { scope: 'settings' },
       hardwareCallContext: 'user_interaction_no_ble_dialog',
     });
   });

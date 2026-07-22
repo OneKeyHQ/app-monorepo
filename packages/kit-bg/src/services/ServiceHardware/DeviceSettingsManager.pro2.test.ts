@@ -198,13 +198,13 @@ describe('DeviceSettingsManager Pro2 adapter', () => {
       success: true as const,
       payload: { message: 'Success' },
     }));
-    const getDeviceState = jest.fn(async () => ({
+    const refreshDeviceState = jest.fn(async () => ({
       success: true as const,
       payload: { status: { passphraseProtection: true } },
     }));
     const manager = buildManager(buildDevice(EDeviceType.Pro2), {
       deviceSettingsPageShow,
-      getDeviceState,
+      refreshDeviceState,
     } as unknown as CoreApi);
 
     await manager.setPassphraseEnabled({
@@ -216,8 +216,8 @@ describe('DeviceSettingsManager Pro2 adapter', () => {
       page: 'DevicePassphrase',
       fieldName: 'passphrase_enable',
     });
-    expect(getDeviceState).toHaveBeenCalledWith('PRO2_CONNECT_ID', {
-      refresh: ['status'],
+    expect(refreshDeviceState).toHaveBeenCalledWith('PRO2_CONNECT_ID', {
+      scope: 'runtime',
     });
   });
 
