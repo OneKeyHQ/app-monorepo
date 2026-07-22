@@ -176,6 +176,7 @@ export const MarketTradingView = memo(
         onPriceUpdate={handlePriceUpdate}
         disabledFeatures={MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES}
         enableNativeChartControls
+        enableNativeChartSettings={nativeControlsLayoutMode === 'desktop'}
         nativeChartTypeControlMode={nativeChartTypeControlMode}
         nativeIndicatorControlMode={nativeIndicatorControlMode}
         nativeIntervalControlMode={nativeIntervalControlMode}
