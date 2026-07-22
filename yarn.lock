@@ -10410,7 +10410,7 @@ __metadata:
     react-native-passkeys: "npm:0.3.3"
     react-native-permissions: "npm:5.4.4"
     react-native-ping: "npm:@onekeyfe/react-native-ping@3.0.78"
-    react-native-purchases: "npm:8.11.9"
+    react-native-purchases: "npm:10.4.3"
     react-native-qrcode-styled: "npm:0.4.0"
     react-native-quick-base64: "npm:^3.0.0"
     react-native-quick-crypto: "npm:^1.1.3"
@@ -14563,6 +14563,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@revenuecat/purchases-js-hybrid-mappings@npm:18.21.0":
+  version: 18.21.0
+  resolution: "@revenuecat/purchases-js-hybrid-mappings@npm:18.21.0"
+  dependencies:
+    "@revenuecat/purchases-js": "npm:1.47.1"
+  checksum: 10/7205efe31d7b992f86be987ca9200903a74d4b01dbd2bd5d4893991ab3e5e5a1da0f945fb0ad9839b7f83a5d330e46e6f57bb8f44251bc10008825848d3be33f
+  languageName: node
+  linkType: hard
+
 "@revenuecat/purchases-js@npm:0.15.1":
   version: 0.15.1
   resolution: "@revenuecat/purchases-js@npm:0.15.1"
@@ -14570,10 +14579,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@revenuecat/purchases-typescript-internal@npm:14.2.0":
-  version: 14.2.0
-  resolution: "@revenuecat/purchases-typescript-internal@npm:14.2.0"
-  checksum: 10/6ea103adf6956d0c018b242627bfca9fe64b2da94c1d5c5fbb5f8528f936d331b30f3def55499a4d9de9a274843c0fa584c9c6b5b1ad0f1e357e4cc79642759a
+"@revenuecat/purchases-js@npm:1.47.1":
+  version: 1.47.1
+  resolution: "@revenuecat/purchases-js@npm:1.47.1"
+  checksum: 10/88c205cce7a59b67ec3d936559f179f466b9427d6e664c97752856510836ad84dfac761a99e7392ce870a46e269d1246a911fef5dc2baa7e3592f30c19eec3ba
+  languageName: node
+  linkType: hard
+
+"@revenuecat/purchases-typescript-internal@npm:18.21.0":
+  version: 18.21.0
+  resolution: "@revenuecat/purchases-typescript-internal@npm:18.21.0"
+  checksum: 10/8edc1fc98a79c05294bac90f3f3a11e4de2f667624e3ffc3bede7b341a9b47971b73b2537181a3c72c20302129680af30134dfceaf65aa1f82c8e128980d291d
   languageName: node
   linkType: hard
 
@@ -42642,15 +42658,20 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-purchases@npm:8.11.9":
-  version: 8.11.9
-  resolution: "react-native-purchases@npm:8.11.9"
+"react-native-purchases@npm:10.4.3":
+  version: 10.4.3
+  resolution: "react-native-purchases@npm:10.4.3"
   dependencies:
-    "@revenuecat/purchases-typescript-internal": "npm:14.2.0"
+    "@revenuecat/purchases-js-hybrid-mappings": "npm:18.21.0"
+    "@revenuecat/purchases-typescript-internal": "npm:18.21.0"
   peerDependencies:
     react: ">= 16.6.3"
-    react-native: "*"
-  checksum: 10/9194e08e65f730a50b852de15ef654b3da478d0bfef55137c749b96f3c1e068d7c910d4c3ee89ccabadd8361e45e9d59ecce1da8e999cb3e19a79c2478c71282
+    react-native: ">= 0.73.0"
+    react-native-web: "*"
+  peerDependenciesMeta:
+    react-native-web:
+      optional: true
+  checksum: 10/1bc2e6d057f3495c27ee238e825afc71012757b513a0addc2aa3e52b83d8c82ad63c4e8bdb504e4fb0f03ca5124e44732ae0f4f61eb4c2312e31f1949ba3c795
   languageName: node
   linkType: hard
 

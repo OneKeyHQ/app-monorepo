@@ -1,9 +1,15 @@
 import axios from 'axios';
 
+import { OneKeyLocalError } from '../../errors';
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
-import { createIpTableAdapter, testIpSpeed } from './ipTableAdapter';
+import {
+  createIpTableAdapter,
+  resetAdapterFailoverStatesForTesting,
+  setReportRequestFailureCallback,
+  testIpSpeed,
+} from './ipTableAdapter';
 import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
 
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
@@ -27,6 +33,11 @@ jest.mock('../../logger/logger', () => ({
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn(),
+      },
+      metrics: {
+        endpointSwitched: jest.fn(),
+        adapterFailover: jest.fn(),
+        configVerifyFailed: jest.fn(),
       },
     },
   },
@@ -226,5 +237,938 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
         hostname: 'wallet.example.com',
       }),
     );
+  });
+});
+
+describe('ipTableAdapter fail-open on domain network failures', () => {
+  const BUILTIN_CN_IPS = [
+    '104.18.20.233',
+    '104.18.21.233',
+    '216.19.3.115',
+    '216.19.2.116',
+    '216.19.4.106',
+  ];
+
+  let originalAdapter: typeof axios.defaults.adapter;
+  let fallbackAdapter: jest.Mock<
+    Promise<AxiosResponse>,
+    [InternalAxiosRequestConfig]
+  >;
+  let consoleErrorSpy: jest.SpyInstance;
+
+  function networkError() {
+    // Transport-level failure: no HTTP response attached.
+    return Object.assign(new Error('timeout of 30000ms exceeded'), {
+      code: 'ECONNABORTED',
+    });
+  }
+
+  function httpError(status: number) {
+    return Object.assign(new Error(`Request failed with status ${status}`), {
+      response: { status },
+    });
+  }
+
+  beforeEach(() => {
+    consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    originalAdapter = axios.defaults.adapter;
+    fallbackAdapter = jest.fn(async (config) => ({
+      data: { fallback: true },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    }));
+    axios.defaults.adapter = fallbackAdapter;
+
+    mockedIsSniSupported.mockReturnValue(true);
+    mockedIsProxyActiveForUrl.mockResolvedValue(false);
+    mockedSniRequest.mockReset();
+    mockedGetRequestHeaders.mockResolvedValue({});
+    mockedRequestHelper.getDevSettingsPersistAtom.mockResolvedValue({
+      settings: {},
+    } as never);
+    // Simulate the main runtime / cold-start window: no config installed.
+    mockedRequestHelper.getIpTableConfig.mockResolvedValue(null as never);
+    resetAdapterFailoverStatesForTesting();
+  });
+
+  afterEach(() => {
+    axios.defaults.adapter = originalAdapter;
+    consoleErrorSpy.mockRestore();
+    resetAdapterFailoverStatesForTesting();
+    jest.restoreAllMocks();
+    jest.clearAllMocks();
+  });
+
+  async function failNTimes(n: number) {
+    fallbackAdapter.mockImplementation(async () => {
+      throw networkError();
+    });
+    for (let i = 0; i < n; i += 1) {
+      await expect(
+        createIpTableAdapter({})(
+          buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+        ),
+      ).rejects.toMatchObject({ code: 'ECONNABORTED' });
+    }
+  }
+
+  test('activates fail-open after 3 consecutive network errors and routes next request via builtin ip', async () => {
+    await failNTimes(3);
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+
+    mockedSniRequest.mockResolvedValue({
+      statusCode: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{"ok":true}',
+    });
+
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+      ),
+    ).resolves.toMatchObject({ status: 200, data: { ok: true } });
+
+    expect(mockedSniRequest).toHaveBeenCalledTimes(1);
+    const sniArgs = mockedSniRequest.mock.calls[0][0] as {
+      ip: string;
+      hostname: string;
+    };
+    expect(BUILTIN_CN_IPS).toContain(sniArgs.ip);
+    expect(sniArgs.hostname).toBe('wallet.onekeycn.com');
+  });
+
+  test('does not replay the failing request itself', async () => {
+    await failNTimes(3);
+    // Every one of the 3 failing requests must reject; no hidden retry via SNI.
+    expect(fallbackAdapter).toHaveBeenCalledTimes(3);
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+  });
+
+  test('http error responses do not count as network failures', async () => {
+    fallbackAdapter.mockImplementation(async () => {
+      throw httpError(500);
+    });
+    for (let i = 0; i < 3; i += 1) {
+      await expect(
+        createIpTableAdapter({})(
+          buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+        ),
+      ).rejects.toMatchObject({ response: { status: 500 } });
+    }
+
+    // Next request still goes direct domain: fail-open must not be active.
+    fallbackAdapter.mockImplementation(async (config) => ({
+      data: { fallback: true },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    }));
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+      ),
+    ).resolves.toMatchObject({ data: { fallback: true } });
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+  });
+
+  test('an http error response resets the consecutive failure counter', async () => {
+    // 2 transport failures, then a 500 response, then 2 more transport
+    // failures: without the reset this would be 4 "consecutive" failures
+    // and the circuit would open despite proof the path works.
+    await failNTimes(2);
+    fallbackAdapter.mockImplementation(async () => {
+      throw httpError(500);
+    });
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+      ),
+    ).rejects.toMatchObject({ response: { status: 500 } });
+    await failNTimes(2);
+
+    fallbackAdapter.mockImplementation(async (config) => ({
+      data: { fallback: true },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    }));
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+      ),
+    ).resolves.toMatchObject({ data: { fallback: true } });
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+  });
+
+  test('a success resets the consecutive failure counter', async () => {
+    await failNTimes(2);
+    fallbackAdapter.mockImplementation(async (config) => ({
+      data: { fallback: true },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    }));
+    await createIpTableAdapter({})(
+      buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+    );
+    await failNTimes(2);
+
+    // 2 + reset + 2 consecutive failures: threshold (3) not reached.
+    fallbackAdapter.mockImplementation(async (config) => ({
+      data: { fallback: true },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    }));
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+      ),
+    ).resolves.toMatchObject({ data: { fallback: true } });
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+  });
+
+  test('fail-open expires after its TTL window', async () => {
+    await failNTimes(3);
+
+    const realNow = Date.now();
+    const nowSpy = jest
+      .spyOn(Date, 'now')
+      .mockReturnValue(realNow + 5 * 60_000 + 1);
+
+    fallbackAdapter.mockImplementation(async (config) => ({
+      data: { fallback: true },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    }));
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+      ),
+    ).resolves.toMatchObject({ data: { fallback: true } });
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+
+    nowSpy.mockRestore();
+  });
+
+  test('kill switch disables fail-open entirely', async () => {
+    mockedRequestHelper.getDevSettingsPersistAtom.mockResolvedValue({
+      enabled: true,
+      settings: { disableIpTableFailover: true },
+    } as never);
+
+    await failNTimes(3);
+
+    fallbackAdapter.mockImplementation(async (config) => ({
+      data: { fallback: true },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    }));
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+      ),
+    ).resolves.toMatchObject({ data: { fallback: true } });
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+  });
+
+  test('flipping the kill switch while fail-open is active takes effect immediately', async () => {
+    await failNTimes(3);
+
+    // Circuit is open now; turn the kill switch on afterwards.
+    mockedRequestHelper.getDevSettingsPersistAtom.mockResolvedValue({
+      enabled: true,
+      settings: { disableIpTableFailover: true },
+    } as never);
+
+    fallbackAdapter.mockImplementation(async (config) => ({
+      data: { fallback: true },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    }));
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+      ),
+    ).resolves.toMatchObject({ data: { fallback: true } });
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+  });
+
+  test('cancellations do not count as transport failures', async () => {
+    fallbackAdapter.mockImplementation(async () => {
+      throw Object.assign(new Error('canceled'), { code: 'ERR_CANCELED' });
+    });
+    for (let i = 0; i < 3; i += 1) {
+      await expect(
+        createIpTableAdapter({})(
+          buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+        ),
+      ).rejects.toMatchObject({ code: 'ERR_CANCELED' });
+    }
+
+    fallbackAdapter.mockImplementation(async (config) => ({
+      data: { fallback: true },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    }));
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+      ),
+    ).resolves.toMatchObject({ data: { fallback: true } });
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+  });
+
+  test('errors without an allowlisted transport code do not count', async () => {
+    fallbackAdapter.mockImplementation(async () => {
+      throw Object.assign(
+        new OneKeyLocalError('something exploded internally'),
+        {
+          code: 'SOME_INTERNAL_ERROR',
+        },
+      );
+    });
+    for (let i = 0; i < 3; i += 1) {
+      await expect(
+        createIpTableAdapter({})(
+          buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+        ),
+      ).rejects.toMatchObject({ message: 'something exploded internally' });
+    }
+
+    fallbackAdapter.mockImplementation(async (config) => ({
+      data: { fallback: true },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    }));
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+      ),
+    ).resolves.toMatchObject({ data: { fallback: true } });
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+  });
+
+  test('a domain success on another hostname does not close the circuit', async () => {
+    // wallet.* opens the circuit.
+    await failNTimes(3);
+
+    // While the circuit is open, utility.* goes via SNI too; make its SNI
+    // attempt fail ambiguously (GET is idempotent -> falls back to domain)
+    // and let the domain succeed. That domain success comes from a hostname
+    // that did NOT open the circuit, so the circuit must stay open.
+    fallbackAdapter.mockImplementation(async (config) => ({
+      data: { fallback: true },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    }));
+    mockedSniRequest.mockRejectedValueOnce(
+      Object.assign(new Error('sni timeout'), { code: 'SNI_TIMEOUT' }),
+    );
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://utility.onekeycn.com/utility/v1/something'),
+      ),
+    ).resolves.toMatchObject({ data: { fallback: true } });
+
+    // wallet traffic must still route via SNI (circuit still open).
+    mockedSniRequest.mockResolvedValue({
+      statusCode: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{"ok":true}',
+    });
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+      ),
+    ).resolves.toMatchObject({ status: 200, data: { ok: true } });
+    const lastSniCall = mockedSniRequest.mock.calls.at(-1)?.[0] as {
+      hostname: string;
+    };
+    expect(lastSniCall.hostname).toBe('wallet.onekeycn.com');
+  });
+
+  test('a late failure from a request started before a newer success does not count', async () => {
+    // Both transports start in the same wall-clock millisecond. Ordering must
+    // come from the runtime request sequence, not Date.now().
+    jest.spyOn(Date, 'now').mockReturnValue(1000);
+    // Request A starts first and fails slowly; request B starts later and
+    // succeeds before A's failure lands. B's success must leave its outcome
+    // mark even though no failure entry existed yet, making A's late
+    // failure stale — otherwise a recovered hostname would accumulate
+    // toward fail-open.
+    let releaseSlowFail: (() => void) | undefined;
+    const slowFailGate = new Promise<void>((resolve) => {
+      releaseSlowFail = resolve;
+    });
+    fallbackAdapter.mockImplementation(async (config) => {
+      if (config.url?.includes('slow-fail')) {
+        await slowFailGate;
+        throw networkError();
+      }
+      if (config.url?.includes('ok-probe')) {
+        return {
+          data: { probe: true },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+          request: {},
+        };
+      }
+      throw networkError();
+    });
+
+    const slowFailing = createIpTableAdapter({})(
+      buildConfig('https://wallet.onekeycn.com/wallet/v1/slow-fail'),
+    );
+    await new Promise((resolve) => {
+      setTimeout(resolve, 5);
+    });
+
+    // Later-started success completes first.
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/ok-probe'),
+      ),
+    ).resolves.toMatchObject({ data: { probe: true } });
+
+    // Now the early-started failure lands: it must be ignored as stale.
+    releaseSlowFail?.();
+    await expect(slowFailing).rejects.toMatchObject({ code: 'ECONNABORTED' });
+
+    // Two fresh failures: total applied failures is 2, not 3.
+    for (let i = 0; i < 2; i += 1) {
+      await expect(
+        createIpTableAdapter({})(
+          buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+        ),
+      ).rejects.toMatchObject({ code: 'ECONNABORTED' });
+    }
+
+    // The circuit must still be closed: the next request goes via domain.
+    mockedSniRequest.mockResolvedValue({
+      statusCode: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{"ok":true}',
+    });
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/ok-probe'),
+      ),
+    ).resolves.toMatchObject({ data: { probe: true } });
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+  });
+
+  test('a late middle success retracts a fail-open based on non-consecutive failures', async () => {
+    // Request order: fail 1, success 2, fail 3, fail 4. Completion order:
+    // fail 1, fail 3, fail 4, success 2. The first three completions can open
+    // the circuit provisionally, but success 2 later cuts off failure 1 and
+    // leaves only failures 3 and 4, below the threshold.
+    let releaseLateSuccess: (() => void) | undefined;
+    const lateSuccessGate = new Promise<void>((resolve) => {
+      releaseLateSuccess = resolve;
+    });
+    fallbackAdapter.mockImplementation(async (config) => {
+      if (config.url?.includes('late-success')) {
+        await lateSuccessGate;
+        return {
+          data: { lateSuccess: true },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+          request: {},
+        };
+      }
+      if (config.url?.includes('direct-ok')) {
+        return {
+          data: { direct: true },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+          request: {},
+        };
+      }
+      throw networkError();
+    });
+
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/fail-1'),
+      ),
+    ).rejects.toMatchObject({ code: 'ECONNABORTED' });
+    const lateSuccess = createIpTableAdapter({})(
+      buildConfig('https://wallet.onekeycn.com/wallet/v1/late-success'),
+    );
+    await Promise.resolve();
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/fail-3'),
+      ),
+    ).rejects.toMatchObject({ code: 'ECONNABORTED' });
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/fail-4'),
+      ),
+    ).rejects.toMatchObject({ code: 'ECONNABORTED' });
+
+    releaseLateSuccess?.();
+    await expect(lateSuccess).resolves.toMatchObject({
+      data: { lateSuccess: true },
+    });
+
+    mockedSniRequest.mockResolvedValue({
+      statusCode: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{"sni":true}',
+    });
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/direct-ok'),
+      ),
+    ).resolves.toMatchObject({ data: { direct: true } });
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+  });
+
+  test('after recovery closes the circuit, old failures landing later stay stale', async () => {
+    // Three slow requests start BEFORE anything goes wrong. The circuit then
+    // opens, recovers (which must preserve the per-hostname watermark), and
+    // only afterwards do the three old failures land: they must all be
+    // stale — if deactivation had cleared the outcome state they would re-open
+    // circuit on a link that already proved healthy.
+    let releaseOldFailures: (() => void) | undefined;
+    const oldFailureGate = new Promise<void>((resolve) => {
+      releaseOldFailures = resolve;
+    });
+    fallbackAdapter.mockImplementation(async (config) => {
+      if (config.url?.includes('old-slow-fail')) {
+        await oldFailureGate;
+        throw networkError();
+      }
+      if (config.url?.includes('ok-probe')) {
+        return {
+          data: { probe: true },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+          request: {},
+        };
+      }
+      throw networkError();
+    });
+
+    const oldSlowFailures = [1, 2, 3].map((i) =>
+      createIpTableAdapter({})(
+        buildConfig(`https://wallet.onekeycn.com/wallet/v1/old-slow-fail-${i}`),
+      ),
+    );
+    await new Promise((resolve) => {
+      setTimeout(resolve, 5);
+    });
+
+    // Open the circuit with 3 fresh transport failures.
+    for (let i = 0; i < 3; i += 1) {
+      await expect(
+        createIpTableAdapter({})(
+          buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+        ),
+      ).rejects.toMatchObject({ code: 'ECONNABORTED' });
+    }
+
+    // Recover: circuit is open, so the probe goes SNI first; an ambiguous
+    // timeout on a GET falls back to the domain, and that domain success
+    // (activated hostname, started after activation) closes the circuit.
+    mockedSniRequest.mockRejectedValueOnce(
+      Object.assign(new Error('sni timeout'), { code: 'SNI_TIMEOUT' }),
+    );
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/ok-probe'),
+      ),
+    ).resolves.toMatchObject({ data: { probe: true } });
+
+    // Old failures land only now — after recovery.
+    releaseOldFailures?.();
+    for (const pending of oldSlowFailures) {
+      await expect(pending).rejects.toMatchObject({ code: 'ECONNABORTED' });
+    }
+
+    // Circuit must still be closed: next request goes via domain, not SNI.
+    mockedSniRequest.mockClear();
+    mockedSniRequest.mockResolvedValue({
+      statusCode: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{"ok":true}',
+    });
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/ok-probe'),
+      ),
+    ).resolves.toMatchObject({ data: { probe: true } });
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+  });
+
+  test('a late success from a request started before activation does not close the circuit', async () => {
+    // One shared implementation routed by URL marker so the in-flight stale
+    // request is unaffected when the failing behavior is exercised.
+    let resolveStale: (() => void) | undefined;
+    const stalePending = new Promise<void>((resolve) => {
+      resolveStale = resolve;
+    });
+    fallbackAdapter.mockImplementation(async (config) => {
+      if (config.url?.includes('stale-probe')) {
+        await stalePending;
+        return {
+          data: { stale: true },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+          request: {},
+        };
+      }
+      throw networkError();
+    });
+
+    const staleRequest = createIpTableAdapter({})(
+      buildConfig('https://wallet.onekeycn.com/wallet/v1/stale-probe'),
+    );
+    // Ensure the stale request's transport start timestamp precedes the
+    // activation timestamp deterministically.
+    await new Promise((resolve) => {
+      setTimeout(resolve, 5);
+    });
+
+    // Open the circuit with 3 fresh transport failures.
+    for (let i = 0; i < 3; i += 1) {
+      await expect(
+        createIpTableAdapter({})(
+          buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+        ),
+      ).rejects.toMatchObject({ code: 'ECONNABORTED' });
+    }
+
+    // Let the stale request resolve successfully AFTER activation.
+    resolveStale?.();
+    await expect(staleRequest).resolves.toMatchObject({
+      data: { stale: true },
+    });
+
+    // Circuit must still be open: next request goes via SNI.
+    mockedSniRequest.mockResolvedValue({
+      statusCode: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{"ok":true}',
+    });
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+      ),
+    ).resolves.toMatchObject({ status: 200, data: { ok: true } });
+    expect(mockedSniRequest).toHaveBeenCalledTimes(1);
+  });
+
+  test('one recovered hostname does not close fail-open for another activated hostname', async () => {
+    let releaseWalletFailures: (() => void) | undefined;
+    let releaseUtilityFailures: (() => void) | undefined;
+    let markAllRequestsStarted: (() => void) | undefined;
+    const walletFailureGate = new Promise<void>((resolve) => {
+      releaseWalletFailures = resolve;
+    });
+    const utilityFailureGate = new Promise<void>((resolve) => {
+      releaseUtilityFailures = resolve;
+    });
+    const allRequestsStarted = new Promise<void>((resolve) => {
+      markAllRequestsStarted = resolve;
+    });
+    let startedRequests = 0;
+
+    fallbackAdapter.mockImplementation(async (config) => {
+      startedRequests += 1;
+      if (startedRequests === 6) {
+        markAllRequestsStarted?.();
+      }
+      const hostname = config.url ? new URL(config.url).hostname : '';
+      if (hostname === 'wallet.onekeycn.com') {
+        await walletFailureGate;
+      } else {
+        await utilityFailureGate;
+      }
+      throw networkError();
+    });
+
+    // Start both hostnames while the circuit is closed, then let each group
+    // independently reach the threshold under the same root domain.
+    const walletFailures = Array.from({ length: 3 }, (_, index) =>
+      createIpTableAdapter({})(
+        buildConfig(`https://wallet.onekeycn.com/wallet/v1/fail-${index}`),
+      ),
+    );
+    const utilityFailures = Array.from({ length: 3 }, (_, index) =>
+      createIpTableAdapter({})(
+        buildConfig(`https://utility.onekeycn.com/utility/v1/fail-${index}`),
+      ),
+    );
+    await allRequestsStarted;
+
+    releaseWalletFailures?.();
+    for (const pending of walletFailures) {
+      await expect(pending).rejects.toMatchObject({ code: 'ECONNABORTED' });
+    }
+    releaseUtilityFailures?.();
+    for (const pending of utilityFailures) {
+      await expect(pending).rejects.toMatchObject({ code: 'ECONNABORTED' });
+    }
+
+    // Recover only wallet.* through the domain fallback. utility.* still has
+    // its own threshold of failures and must keep the root-domain circuit open.
+    mockedSniRequest.mockRejectedValueOnce(
+      Object.assign(new Error('sni timeout'), { code: 'SNI_TIMEOUT' }),
+    );
+    fallbackAdapter.mockImplementation(async (config) => ({
+      data: { recovered: true },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    }));
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/recover'),
+      ),
+    ).resolves.toMatchObject({ data: { recovered: true } });
+
+    mockedSniRequest.mockClear();
+    mockedSniRequest.mockResolvedValue({
+      statusCode: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{"utility":true}',
+    });
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://utility.onekeycn.com/utility/v1/health'),
+      ),
+    ).resolves.toMatchObject({ data: { utility: true } });
+    expect(mockedSniRequest).toHaveBeenCalledTimes(1);
+    expect(mockedSniRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ hostname: 'utility.onekeycn.com' }),
+    );
+  });
+});
+
+describe('ipTableAdapter idempotency-gated fallback after SNI started', () => {
+  let originalAdapter: typeof axios.defaults.adapter;
+  let fallbackAdapter: jest.Mock<
+    Promise<AxiosResponse>,
+    [InternalAxiosRequestConfig]
+  >;
+  let consoleErrorSpy: jest.SpyInstance;
+
+  function buildMethodConfig(
+    url: string,
+    method: string,
+  ): InternalAxiosRequestConfig {
+    return {
+      url,
+      method,
+      headers: axios.AxiosHeaders.from({}),
+    } as InternalAxiosRequestConfig;
+  }
+
+  beforeEach(() => {
+    consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    originalAdapter = axios.defaults.adapter;
+    fallbackAdapter = jest.fn(async (config) => ({
+      data: { fallback: true },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    }));
+    axios.defaults.adapter = fallbackAdapter;
+
+    mockedIsSniSupported.mockReturnValue(true);
+    mockedIsProxyActiveForUrl.mockResolvedValue(false);
+    mockedSniRequest.mockReset();
+    mockedGetRequestHeaders.mockResolvedValue({});
+    mockedRequestHelper.getDevSettingsPersistAtom.mockResolvedValue({
+      settings: {},
+    } as never);
+    mockedRequestHelper.getIpTableConfig.mockResolvedValue({
+      config: {
+        version: 1,
+        ttl_sec: 60,
+        generated_at: '2026-06-30T00:00:00.000Z',
+        signature: '',
+        domains: {
+          'example.com': {
+            endpoints: [
+              {
+                ip: '93.184.216.34',
+                provider: 'test',
+                region: 'ALL',
+                weight: 1,
+              },
+            ],
+          },
+        },
+      },
+      runtime: {
+        enabled: true,
+        lastUpdated: 0,
+        lastRegionCheck: 0,
+        selections: {
+          'example.com': '93.184.216.34',
+        },
+      },
+    } as never);
+    resetAdapterFailoverStatesForTesting();
+  });
+
+  afterEach(() => {
+    axios.defaults.adapter = originalAdapter;
+    consoleErrorSpy.mockRestore();
+    resetAdapterFailoverStatesForTesting();
+    jest.clearAllMocks();
+  });
+
+  test('GET falls back to domain after an ambiguous SNI timeout', async () => {
+    mockedSniRequest.mockRejectedValue(
+      Object.assign(new Error('sni timeout'), { code: 'SNI_TIMEOUT' }),
+    );
+    await expect(
+      createIpTableAdapter({})(
+        buildMethodConfig('https://api.example.com/v1', 'get'),
+      ),
+    ).resolves.toMatchObject({ data: { fallback: true } });
+    expect(fallbackAdapter).toHaveBeenCalledTimes(1);
+  });
+
+  test('POST does NOT fall back after an ambiguous SNI timeout (double-send risk)', async () => {
+    mockedSniRequest.mockRejectedValue(
+      Object.assign(new Error('sni timeout'), { code: 'SNI_TIMEOUT' }),
+    );
+    await expect(
+      createIpTableAdapter({})(
+        buildMethodConfig('https://api.example.com/v1', 'post'),
+      ),
+    ).rejects.toMatchObject({ code: 'SNI_TIMEOUT' });
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+  });
+
+  test('POST falls back when the error proves the connection was never established', async () => {
+    mockedSniRequest.mockRejectedValue(
+      Object.assign(new Error('connection refused'), {
+        code: 'SNI_CONNECTION_REFUSED',
+      }),
+    );
+    await expect(
+      createIpTableAdapter({})(
+        buildMethodConfig('https://api.example.com/v1', 'post'),
+      ),
+    ).resolves.toMatchObject({ data: { fallback: true } });
+    expect(fallbackAdapter).toHaveBeenCalledTimes(1);
+  });
+
+  test('POST does NOT fall back on SNI_NETWORK_UNREACHABLE (iOS maps connection-lost to it)', async () => {
+    // NSURLErrorNetworkConnectionLost — which can fire after the body was
+    // sent — maps to SNI_NETWORK_UNREACHABLE on iOS, so this code cannot
+    // prove the request was never written.
+    mockedSniRequest.mockRejectedValue(
+      Object.assign(new Error('network unreachable'), {
+        code: 'SNI_NETWORK_UNREACHABLE',
+      }),
+    );
+    await expect(
+      createIpTableAdapter({})(
+        buildMethodConfig('https://api.example.com/v1', 'post'),
+      ),
+    ).rejects.toMatchObject({ code: 'SNI_NETWORK_UNREACHABLE' });
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+  });
+
+  test('POST does NOT fall back when SNI returns a null response', async () => {
+    mockedSniRequest.mockResolvedValue(null);
+    await expect(
+      createIpTableAdapter({})(
+        buildMethodConfig('https://api.example.com/v1', 'post'),
+      ),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('not idempotent'),
+    });
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+  });
+
+  test('one sni attempt reports at most one ip failure (null response + blocked fallback)', async () => {
+    // The null-response branch reports an ip failure, then throws for
+    // non-idempotent requests; the outer catch must not report the same
+    // failure a second time.
+    const failureSpy = jest.fn();
+    setReportRequestFailureCallback(failureSpy);
+    try {
+      mockedSniRequest.mockResolvedValue(null);
+      await expect(
+        createIpTableAdapter({})(
+          buildMethodConfig('https://api.example.com/v1', 'post'),
+        ),
+      ).rejects.toMatchObject({
+        message: expect.stringContaining('not idempotent'),
+      });
+      expect(failureSpy).toHaveBeenCalledTimes(1);
+      expect(failureSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestType: 'ip',
+          target: '93.184.216.34',
+          requestSequence: expect.any(Number),
+        }),
+      );
+    } finally {
+      setReportRequestFailureCallback(() => undefined);
+    }
   });
 });
