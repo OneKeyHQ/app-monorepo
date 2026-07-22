@@ -35,6 +35,7 @@ jest.mock('@onekeyhq/components', () => {
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     account: { wallet: { homePageViewed: jest.fn() } },
+    wallet: { homeUi: { homeHeaderDecision: jest.fn() } },
   },
 }));
 
@@ -74,6 +75,7 @@ jest.mock('../../../states/jotai/contexts/home', () => ({
 jest.mock('../../../states/jotai/contexts/accountSelector', () => ({
   useActiveAccount: () => ({
     activeAccount: {
+      network: { id: 'all-network', isAllNetworks: true },
       wallet: { id: 'hd-1', type: 'hd', backuped: false },
     },
   }),

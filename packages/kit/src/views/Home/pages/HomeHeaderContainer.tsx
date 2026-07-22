@@ -8,6 +8,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IHomePageViewedState } from '@onekeyhq/shared/src/logger/scopes/account/scenes/wallet';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { useHomeBalancePresentation } from '../../../hooks/useHomeBalanceState';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -29,7 +30,7 @@ function BaseHomeHeaderContainer({
   variant?: IHomeHeaderContainerVariant;
 }) {
   const {
-    activeAccount: { wallet },
+    activeAccount: { network, wallet },
   } = useActiveAccount({
     num: 0,
   });
@@ -69,6 +70,55 @@ function BaseHomeHeaderContainer({
   if (platformEnv.isNative && !isWalletNotBackedUp) {
     nativeMinHeight = shouldShowBanner ? 292 : 182;
   }
+  let networkScope: 'allNetworks' | 'singleNetwork' | 'unknown' = 'unknown';
+  if (network) {
+    networkScope = network.isAllNetworks ? 'allNetworks' : 'singleNetwork';
+  }
+  let walletActionFamily: 'loading' | 'zero' | 'funded' = 'loading';
+  if (homeBalanceState === 'positive') {
+    walletActionFamily = 'funded';
+  } else if (homeBalanceState === 'zero') {
+    walletActionFamily = 'zero';
+  }
+
+  const homeHeaderDecisionKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const decision = {
+      networkScope,
+      balancePresentationKind: balancePresentation.correlated.kind,
+      balanceState: homeBalanceState,
+      bannerResourceKind: bannerResource.kind,
+      bannerPayloadParsed: Boolean(bannerPayload),
+      bannerCount: bannerPayload?.banners.length ?? 0,
+      hasTronResource: Boolean(bannerPayload?.tronResource),
+      hasWalletBannerContent,
+      showPositiveBanner: balancePresentation.correlated.showPositiveBanner,
+      shouldShowBanner,
+      walletActionFamily,
+      shouldShowWalletActions:
+        !isWalletNotBackedUp && homeBalanceState !== 'unknown',
+      isWalletNotBackedUp,
+      nativeMinHeight,
+    } as const;
+    const key = stringUtils.stableStringify(decision);
+    if (homeHeaderDecisionKeyRef.current === key) {
+      return;
+    }
+    homeHeaderDecisionKeyRef.current = key;
+    defaultLogger.wallet.homeUi.homeHeaderDecision(decision);
+  }, [
+    balancePresentation.correlated.kind,
+    balancePresentation.correlated.showPositiveBanner,
+    bannerPayload,
+    bannerResource.kind,
+    hasWalletBannerContent,
+    homeBalanceState,
+    isWalletNotBackedUp,
+    nativeMinHeight,
+    networkScope,
+    shouldShowBanner,
+    walletActionFamily,
+  ]);
 
   // Funnel denominator for backup / receive completion rates: log once per
   // (walletId, state) tuple seen this session. Skip `unknown` so we don't
