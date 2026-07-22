@@ -51,7 +51,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { parseSecretRecoveryPhraseToWords } from '@onekeyhq/shared/src/utils/phrase';
 import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
-import { PHRASE_LENGTHS, useSuggestion } from './hooks';
+import { PHRASE_LENGTHS } from '../utils/mnemonicPasteUtils';
+
+import { useSuggestion } from './hooks';
 
 import type { ReturnKeyTypeOptions, TextInput, ViewProps } from 'react-native';
 
@@ -202,7 +204,6 @@ function BasicPhaseInput(
     onChange,
     value,
     isShowError = false,
-    phraseLength,
     onInputChange,
     onInputFocus,
     onInputBlur,
@@ -218,7 +219,6 @@ function BasicPhaseInput(
   }: IPropsWithTestId<{
     value?: string;
     index: number;
-    phraseLength: number;
     isShowError: boolean;
     onInputChange: (value: string) => string;
     onChange?: (value: string) => void;
@@ -263,7 +263,7 @@ function BasicPhaseInput(
     (v: string) => {
       // Supports inputting mnemonic phrases via drag-and-drop text or toolbar of keyboard, such as 1Password.
       const phraseWords = v ? parseSecretRecoveryPhraseToWords(v) : [];
-      if (phraseWords.length === phraseLength) {
+      if (phraseWords.length > 1) {
         if (onPasteMnemonic(phraseWords, 0)) {
           onInputChange('');
           onChange?.('');
@@ -275,7 +275,7 @@ function BasicPhaseInput(
       const text = onInputChange(rawText);
       onChange?.(text);
     },
-    [onChange, onInputChange, onPasteMnemonic, phraseLength],
+    [onChange, onInputChange, onPasteMnemonic],
   );
 
   const handleOpenChange = useCallback(
@@ -613,7 +613,6 @@ export function PhaseInputArea({
                     index={index}
                     isShowError={isShowErrors[index]}
                     onInputBlur={onInputBlur}
-                    phraseLength={phraseLengthNumber}
                     onInputChange={onInputChange}
                     onInputFocus={onInputFocus}
                     onPasteMnemonic={onPasteMnemonic}

@@ -1,5 +1,29 @@
 export const PHRASE_LENGTHS = [12, 15, 18, 21, 24] as const;
 
+export function resolvePhraseLengthAfterPaste({
+  pastedWordCount,
+  currentPhraseLength,
+  inputIndex,
+}: {
+  pastedWordCount: number;
+  currentPhraseLength: number;
+  inputIndex: number;
+}) {
+  if (
+    !PHRASE_LENGTHS.includes(pastedWordCount as (typeof PHRASE_LENGTHS)[number])
+  ) {
+    return null;
+  }
+
+  if (inputIndex === 0) {
+    return pastedWordCount;
+  }
+
+  return inputIndex + pastedWordCount <= currentPhraseLength
+    ? currentPhraseLength
+    : null;
+}
+
 export function mergePastedPhraseWords({
   currentWords,
   pastedWords,
@@ -11,16 +35,12 @@ export function mergePastedPhraseWords({
   inputIndex: number;
   phraseLength: number;
 }) {
-  const words = [...currentWords.slice(0, inputIndex), ...pastedWords].slice(
-    0,
-    phraseLength,
-  );
+  const words = [...currentWords];
+  pastedWords.forEach((word, index) => {
+    words[inputIndex + index] = word;
+  });
 
-  if (words.length < phraseLength) {
-    words.push(...currentWords.slice(words.length, phraseLength));
-  }
-
-  return words;
+  return Array.from({ length: phraseLength }, (_, index) => words[index] ?? '');
 }
 
 export function buildPhraseFormValues(words: string[]) {
@@ -46,15 +66,4 @@ export function getInvalidWordErrors(
     },
     {} as Record<string, boolean>,
   );
-}
-
-export function resolvePhraseLengthAfterPaste(
-  pastedWordCount: number,
-  currentPhraseLength: number,
-) {
-  return PHRASE_LENGTHS.includes(
-    pastedWordCount as (typeof PHRASE_LENGTHS)[number],
-  )
-    ? pastedWordCount
-    : currentPhraseLength;
 }

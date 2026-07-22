@@ -14,7 +14,7 @@ import {
   getInvalidWordErrors,
   mergePastedPhraseWords,
   resolvePhraseLengthAfterPaste,
-} from './mnemonicPasteUtils';
+} from '../../Onboarding/utils/mnemonicPasteUtils';
 
 // Force the BIP39 JSON module to evaluate synchronously at this module's
 // load time. With split-thread bundles the original `wordLists.includes(...)`
@@ -245,38 +245,40 @@ export const useSuggestion = (
 
   const onPasteMnemonic = useCallback(
     (pastedWords: string[], inputIndex: number) => {
-      if (pastedWords.length > 1) {
-        Haptics.success();
-        const currentPhraseLength = resolvePhraseLengthAfterPaste(
-          pastedWords.length,
-          phraseLength,
-        );
-        setTimeout(() => {
-          clearText();
-          const currentValues = form.getValues() as Record<string, string>;
-          const currentWords = Array.from(
-            { length: phraseLength },
-            (_, index) => currentValues[`phrase${index + 1}`] ?? '',
-          );
-          const words = mergePastedPhraseWords({
-            currentWords,
-            pastedWords,
-            inputIndex,
-            phraseLength: currentPhraseLength,
-          });
-
-          // Reset before mounting dynamic fields so Controllers read the
-          // pasted values instead of registering their empty defaults.
-          form.reset(buildPhraseFormValues(words));
-          if (currentPhraseLength !== phraseLength) {
-            setPhraseLength(currentPhraseLength.toString());
-          }
-          resetSuggestions();
-          setIsShowErrors(getInvalidWordErrors(words, wordListSet));
-        }, 30);
-        return true;
+      const currentPhraseLength = resolvePhraseLengthAfterPaste({
+        pastedWordCount: pastedWords.length,
+        currentPhraseLength: phraseLength,
+        inputIndex,
+      });
+      if (currentPhraseLength === null) {
+        return false;
       }
-      return false;
+
+      Haptics.success();
+      setTimeout(() => {
+        clearText();
+        const currentValues = form.getValues() as Record<string, string>;
+        const currentWords = Array.from(
+          { length: phraseLength },
+          (_, index) => currentValues[`phrase${index + 1}`] ?? '',
+        );
+        const words = mergePastedPhraseWords({
+          currentWords,
+          pastedWords,
+          inputIndex,
+          phraseLength: currentPhraseLength,
+        });
+
+        // Reset before mounting dynamic fields so Controllers read the
+        // pasted values instead of registering their empty defaults.
+        form.reset(buildPhraseFormValues(words));
+        if (currentPhraseLength !== phraseLength) {
+          setPhraseLength(currentPhraseLength.toString());
+        }
+        resetSuggestions();
+        setIsShowErrors(getInvalidWordErrors(words, wordListSet));
+      }, 30);
+      return true;
     },
     [clearText, form, phraseLength, resetSuggestions, setPhraseLength],
   );

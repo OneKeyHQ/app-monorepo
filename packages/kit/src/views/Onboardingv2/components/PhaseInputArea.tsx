@@ -51,9 +51,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { parseSecretRecoveryPhraseToWords } from '@onekeyhq/shared/src/utils/phrase';
 import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
+import { PHRASE_LENGTHS } from '../../Onboarding/utils/mnemonicPasteUtils';
 import { OnboardingTestIDs } from '../testIDs';
 
-import { PHRASE_LENGTHS } from './mnemonicPasteUtils';
 import { useSuggestion } from './useSuggestion';
 
 import type { ReturnKeyTypeOptions, TextInput, ViewProps } from 'react-native';
