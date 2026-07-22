@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  DashText,
   Icon,
   Illustration,
   SizableText,
@@ -12,6 +13,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useStockSecurityStats } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useStockSecurityStats';
 import { PerpTestIDs } from '@onekeyhq/kit/src/views/Perp/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -104,16 +106,19 @@ type IIntroInfoItemData = {
   label: string;
   value: string;
   secondaryValue?: string;
+  tooltip?: string;
 };
 
 function IntroInfoItem({
   label,
   value,
   secondaryValue,
+  tooltip,
 }: {
   label: string;
   value: string;
   secondaryValue?: string;
+  tooltip?: string;
 }) {
   if (!value || value === '--') {
     return null;
@@ -121,9 +126,23 @@ function IntroInfoItem({
 
   return (
     <YStack flex={1} flexBasis={0} minWidth={0} gap="$1">
-      <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-        {label}
-      </SizableText>
+      {tooltip ? (
+        <DashText
+          size="$bodyMd"
+          color="$textSubdued"
+          dashColor="$borderStrong"
+          dashThickness={0.5}
+          tooltip={tooltip}
+          tooltipTitle={label}
+          numberOfLines={1}
+        >
+          {label}
+        </DashText>
+      ) : (
+        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+          {label}
+        </SizableText>
+      )}
       <SizableText size="$headingSm" numberOfLines={1}>
         {value}
       </SizableText>
@@ -137,6 +156,49 @@ function IntroInfoItem({
           {secondaryValue}
         </SizableText>
       ) : null}
+    </YStack>
+  );
+}
+
+function IntroInfoRows({
+  rows,
+}: {
+  rows: Array<
+    Array<{
+      label: string;
+      value: string;
+      tooltip?: string;
+    }>
+  >;
+}) {
+  const visibleRows = rows.filter((row) =>
+    row.some((item) => item.value && item.value !== '--'),
+  );
+
+  return (
+    <YStack gap="$4">
+      {visibleRows.map((row) => (
+        <XStack
+          key={row[0]?.label}
+          gap={INTRO_INFO_COLUMN_GAP}
+          justifyContent="space-between"
+          alignItems="flex-start"
+        >
+          {row.map((item) =>
+            item.value && item.value !== '--' ? (
+              <IntroInfoItem
+                key={item.label}
+                label={item.label}
+                value={item.value}
+                tooltip={item.tooltip}
+              />
+            ) : (
+              <YStack key={item.label} flex={1} flexBasis={0} />
+            ),
+          )}
+          {row.length === 1 ? <YStack flex={1} flexBasis={0} /> : null}
+        </XStack>
+      ))}
     </YStack>
   );
 }
@@ -243,16 +305,25 @@ export function PerpMarketIntroContent({
     resolvedMarketDetail ?? internalResolvedMarketDetail;
 
   const marketDetail = effectiveResolvedMarketDetail.result?.detail;
+  const stockDetail = effectiveResolvedMarketDetail.result?.stockDetail;
   const localizedDescription =
     effectiveResolvedMarketDetail.result?.localizedMessage;
+  const { assetAnalysisRows, tradingActivityRows, descriptionRows } =
+    useStockSecurityStats(stockDetail?.stock);
+  const hasTradingActivity = tradingActivityRows.some((row) =>
+    row.some((item) => Boolean(item.value) && item.value !== '--'),
+  );
   const marketDetailReferenceNote = intl.formatMessage({
     id: ETranslations.perp_market_info_reference_note__desc,
   });
   const aboutText = useMemo(
     () =>
-      sanitizeDescriptionText(localizedDescription || marketDetail?.about) ||
-      '',
-    [localizedDescription, marketDetail?.about],
+      sanitizeDescriptionText(
+        localizedDescription ||
+          stockDetail?.introduction ||
+          marketDetail?.about,
+      ) || '',
+    [localizedDescription, marketDetail?.about, stockDetail?.introduction],
   );
 
   const infoItems = useMemo(
@@ -411,8 +482,15 @@ export function PerpMarketIntroContent({
         : [],
     [infoItems],
   );
+  const stockAssetRows = useMemo(
+    () => [
+      descriptionRows.map(({ label, value }) => ({ label, value })),
+      ...assetAnalysisRows,
+    ],
+    [assetAnalysisRows, descriptionRows],
+  );
   const showDescriptionToggle = aboutText.length > 320;
-  const showReferenceNote = Boolean(marketDetail || aboutText);
+  const showReferenceNote = Boolean(marketDetail || stockDetail || aboutText);
 
   if (!enabled) {
     return null;
@@ -439,7 +517,7 @@ export function PerpMarketIntroContent({
     );
   }
 
-  if (!marketDetail && !aboutText) {
+  if (!marketDetail && !stockDetail && !aboutText) {
     return (
       <YStack
         px={paddingX}
@@ -486,15 +564,42 @@ export function PerpMarketIntroContent({
         />
         <XStack flex={1} minWidth={0} alignItems="baseline" gap="$2.5">
           <SizableText size="$headingLg" numberOfLines={1}>
-            {displayName || marketDetail?.symbol?.toUpperCase() || coin || '--'}
+            {displayName ||
+              stockDetail?.ticker ||
+              marketDetail?.symbol?.toUpperCase() ||
+              coin ||
+              '--'}
           </SizableText>
-          {marketDetail?.name ? (
+          {stockDetail?.name || marketDetail?.name ? (
             <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-              {marketDetail.name}
+              {stockDetail?.name || marketDetail?.name}
             </SizableText>
           ) : null}
         </XStack>
       </XStack>
+
+      {stockDetail ? (
+        <YStack gap="$6">
+          <YStack gap="$3.5">
+            <SizableText size="$headingSm">
+              {intl.formatMessage({
+                id: ETranslations.dexmarket_stock_asset_analysis,
+              })}
+            </SizableText>
+            <IntroInfoRows rows={stockAssetRows} />
+          </YStack>
+          {hasTradingActivity ? (
+            <YStack gap="$3.5">
+              <SizableText size="$headingSm">
+                {intl.formatMessage({
+                  id: ETranslations.dexmarket_stock_trading_activity,
+                })}
+              </SizableText>
+              <IntroInfoRows rows={tradingActivityRows} />
+            </YStack>
+          ) : null}
+        </YStack>
+      ) : null}
 
       {infoRows.length ? (
         <YStack gap="$3.5">
