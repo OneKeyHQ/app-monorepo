@@ -6,10 +6,8 @@ import { Freeze } from 'react-freeze';
 import {
   BackHandler,
   type LayoutChangeEvent,
-  type StyleProp,
   StyleSheet,
   View,
-  type ViewStyle,
 } from 'react-native';
 import Animated, { useSharedValue } from 'react-native-reanimated';
 
@@ -69,7 +67,6 @@ import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebu
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import { OuterTabPagerView } from '../../components/OuterTabPagerView';
-import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
 // import { useEdgeSwipeDetection } from '../../hooks/useEdgeSwipeDetection';
 import useMobileBottomBarAnimation from '../../hooks/useMobileBottomBarAnimation';
@@ -112,6 +109,13 @@ const styles = StyleSheet.create({
   webPageRootLayer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 3,
+  },
+  webPageRootToolbar: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 4,
   },
 });
 
@@ -404,7 +408,7 @@ function MobileBrowser() {
     [tabs, navigation, activeTabId],
   );
 
-  const { top, bottom } = useSafeAreaInsets();
+  const { top } = useSafeAreaInsets();
   // iOS 26: the Discover search bar opts into the Liquid Glass capsule (so it
   // matches the Wallet header's glass search bar) and is nudged down so its
   // center vertically aligns with the Wallet search bar — which sits centered in
@@ -514,13 +518,6 @@ function MobileBrowser() {
 
   const displayBottomBar = !showDiscoveryPage;
   const shouldShowRootWebPageLayer = useOuterPager && isBrowserWebPageVisible;
-  const rootWebPageLayerStyle: StyleProp<ViewStyle> = [
-    styles.webPageRootLayer,
-    {
-      bottom: BROWSER_BOTTOM_BAR_HEIGHT + bottom,
-      display: shouldShowRootWebPageLayer ? 'flex' : 'none',
-    },
-  ];
 
   return (
     <Page fullPage>
@@ -586,26 +583,12 @@ function MobileBrowser() {
                       <DashboardContent onScroll={handleScroll} />
                     </View>
                   </Stack>
-                  <Freeze freeze={!displayBottomBar}>
-                    <Animated.View
-                      style={[
-                        toolbarAnimatedStyle,
-                        {
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                        },
-                      ]}
-                    >
-                      <MobileBrowserBottomBar
-                        id={activeTabId ?? ''}
-                        onGoBackHomePage={handleGoBackHome}
-                      />
-                    </Animated.View>
-                  </Freeze>
                 </Stack>
               }
             />
+            {/* Keep the native WebView full-height while the toolbar reveals or
+                covers its bottom edge. Resizing the WebView during a scroll
+                changes its viewport and causes a visible jump. */}
             <View
               collapsable={false}
               pointerEvents={shouldShowRootWebPageLayer ? 'auto' : 'none'}
@@ -613,10 +596,32 @@ function MobileBrowser() {
               importantForAccessibility={
                 shouldShowRootWebPageLayer ? 'auto' : 'no-hide-descendants'
               }
-              style={rootWebPageLayerStyle}
+              style={[
+                styles.webPageRootLayer,
+                {
+                  display: shouldShowRootWebPageLayer ? 'flex' : 'none',
+                },
+              ]}
             >
               {content}
             </View>
+            <Freeze freeze={!displayBottomBar}>
+              <Animated.View
+                pointerEvents={shouldShowRootWebPageLayer ? 'auto' : 'none'}
+                style={[
+                  styles.webPageRootToolbar,
+                  toolbarAnimatedStyle,
+                  {
+                    display: shouldShowRootWebPageLayer ? 'flex' : 'none',
+                  },
+                ]}
+              >
+                <MobileBrowserBottomBar
+                  id={activeTabId ?? ''}
+                  onGoBackHomePage={handleGoBackHome}
+                />
+              </Animated.View>
+            </Freeze>
           </>
         ) : (
           <>
