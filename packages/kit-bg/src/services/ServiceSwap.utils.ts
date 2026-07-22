@@ -1,4 +1,20 @@
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IFetchBuildTxParams,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
+
+export function buildSwapReferralBuildTxParams(referralInfo?: {
+  address: string;
+  networkId: string;
+}): Pick<IFetchBuildTxParams, 'bindedAccountAddress' | 'bindedNetworkId'> {
+  if (!referralInfo) {
+    return {};
+  }
+  return {
+    bindedAccountAddress: referralInfo.address,
+    bindedNetworkId: referralInfo.networkId,
+  };
+}
 
 export function buildPerpDepositOrderStatusRequestParams(params: {
   networkId: string;

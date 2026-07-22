@@ -135,6 +135,7 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 import {
   buildPerpDepositOrderStatusRequestParams,
+  buildSwapReferralBuildTxParams,
   buildSwapRequestErrorToastPayload,
   normalizeSwapTokenListCurrency,
 } from './ServiceSwap.utils';
@@ -527,6 +528,17 @@ export default class ServiceSwap extends ServiceBase {
   private swapSupportNetworksCacheTime = 0;
 
   private swapSupportNetworksTtl = 1000 * 60 * 120;
+
+  private async getSwapReferralBuildTxParams(accountId?: string) {
+    if (!accountId) {
+      return buildSwapReferralBuildTxParams();
+    }
+    // Referral attribution is best effort and must not block building a swap.
+    const referralInfo = await this.backgroundApi.serviceReferralCode
+      .getBoundEvmReferralCodeWalletInfo({ accountId })
+      .catch(() => undefined);
+    return buildSwapReferralBuildTxParams(referralInfo);
+  }
 
   private _limitOrderCurrentAccountId?: string;
 
@@ -1229,6 +1241,8 @@ export default class ServiceSwap extends ServiceBase {
     kind: ESwapQuoteKind;
     walletType?: string;
   }): Promise<IFetchBuildTxResponse | undefined> {
+    const referralBuildTxParams =
+      await this.getSwapReferralBuildTxParams(accountId);
     const params: IFetchBuildTxParams = {
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
@@ -1244,6 +1258,7 @@ export default class ServiceSwap extends ServiceBase {
       quoteResultCtx,
       kind,
       walletType,
+      ...referralBuildTxParams,
     };
     const client = await this.getClient(EServiceEndpointEnum.Swap);
     const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(
@@ -3300,19 +3315,22 @@ export default class ServiceSwap extends ServiceBase {
           }
         : {}),
     };
-    const params: IFetchBuildTxParams = buildSpeedSwapTxParams({
-      fromToken,
-      toToken,
-      fromTokenAmount,
-      protocol,
-      provider,
-      userAddress,
-      receivingAddress,
-      slippagePercentage,
-      kind,
-      walletType,
-      quoteResultCtx,
-    });
+    const params: IFetchBuildTxParams = {
+      ...buildSpeedSwapTxParams({
+        fromToken,
+        toToken,
+        fromTokenAmount,
+        protocol,
+        provider,
+        userAddress,
+        receivingAddress,
+        slippagePercentage,
+        kind,
+        walletType,
+        quoteResultCtx,
+      }),
+      ...(await this.getSwapReferralBuildTxParams(accountId)),
+    };
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(

@@ -551,6 +551,26 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getBoundEvmReferralCodeWalletInfo({
+    accountId,
+  }: {
+    accountId: string;
+  }) {
+    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+    const walletInfo = await this.getReferralCodeWalletInfo({ walletId });
+    // Swap attribution uses the first EVM address as the stable wallet identity.
+    if (!walletInfo || walletInfo.networkId !== getNetworkIdsMap().eth) {
+      return undefined;
+    }
+
+    const bindStatus = await this.checkWalletBindStatus({
+      address: walletInfo.address,
+      networkId: walletInfo.networkId,
+    });
+    return bindStatus.data ? walletInfo : undefined;
+  }
+
+  @backgroundMethod()
   async updateMyReferralCode(code: string) {
     await this.backgroundApi.simpleDb.referralCode.updateCode({
       myReferralCode: code,

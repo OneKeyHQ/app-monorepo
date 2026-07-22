@@ -1,7 +1,26 @@
 import {
   buildPerpDepositOrderStatusRequestParams,
+  buildSwapReferralBuildTxParams,
   buildSwapRequestErrorToastPayload,
 } from './ServiceSwap.utils';
+
+describe('buildSwapReferralBuildTxParams', () => {
+  it('maps a bound EVM wallet to the swap build contract', () => {
+    expect(
+      buildSwapReferralBuildTxParams({
+        address: '0xabc',
+        networkId: 'evm--1',
+      }),
+    ).toEqual({
+      bindedAccountAddress: '0xabc',
+      bindedNetworkId: 'evm--1',
+    });
+  });
+
+  it('omits referral attribution for an unbound wallet', () => {
+    expect(buildSwapReferralBuildTxParams()).toEqual({});
+  });
+});
 
 describe('buildPerpDepositOrderStatusRequestParams', () => {
   it('maps the quote order ID to the status request', () => {
