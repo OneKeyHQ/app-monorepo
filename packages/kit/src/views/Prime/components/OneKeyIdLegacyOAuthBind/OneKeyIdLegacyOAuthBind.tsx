@@ -364,17 +364,16 @@ function OneKeyIdLegacyOAuthBindActions({
               provider,
               // TODO: i18n (surfaces as a raw toast via withErrorAutoToast)
               missingTokenMessage: 'OAuth bind failed: access token not found',
-              // Re-assert the consented legacy login right before the fresh
-              // OAuth session would be persisted into the SINGLE shared
-              // keyless slot: if a concurrent surface switched or committed
-              // a KeylessOAuth login during the user-paced OAuth
-              // round-trip, abort while the slot is still untouched — the
-              // typed state-changed error also skips the teardown below.
-              beforePersistSession: async () => {
-                await backgroundApiProxy.servicePrime.assertLegacyOneKeyIdOAuthBindPreconditions(
-                  { expectedOnekeyUserId },
-                );
-              },
+              // Re-assert the consented legacy login atomically with
+              // persisting the fresh OAuth session into the SINGLE shared
+              // keyless slot: the bg-owned persist runs this guard and the
+              // slot write inside one loginMutex section, so a concurrent
+              // KeylessOAuth login committed during the user-paced OAuth
+              // round-trip aborts the bind while the slot is still
+              // untouched — no commit can interleave between the check and
+              // the write. The typed state-changed error also skips the
+              // teardown below.
+              persistLegacyBindGuard: { expectedOnekeyUserId },
             });
             didUseOAuthSignIn = result.didUseOAuthSignIn;
             oauthAccessToken = result.accessToken;
@@ -422,10 +421,11 @@ function OneKeyIdLegacyOAuthBindActions({
                   EOneKeyErrorClassNames.OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
               }) &&
               // Legacy-bind-state-changed is likewise definitive for THIS
-              // flow only: either nothing was persisted yet (pre-persist
-              // guard threw, slot untouched) or the slot may back the
-              // concurrent login that invalidated the bind — tearing it
-              // down would break that login too.
+              // flow only: either nothing was persisted yet (the guard
+              // inside the bg persist threw atomically with the write, slot
+              // untouched) or the slot may back the concurrent login that
+              // invalidated the bind — tearing it down would break that
+              // login too.
               !errorUtils.isErrorByClassName({
                 error,
                 className:

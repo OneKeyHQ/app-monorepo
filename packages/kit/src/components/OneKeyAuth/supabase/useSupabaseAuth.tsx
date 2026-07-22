@@ -10,7 +10,6 @@ import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/auth
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { OAuthPopup } from '../OAuthPopup';
@@ -81,62 +80,47 @@ export function useSupabaseAuth() {
   // ============ OAuth Sign In Methods ============
 
   // Persist a Keyless OAuth session into the shared Supabase session storage.
-  // There is a single keyless session slot (one shared native store; the bg
-  // runtime re-reads it from storage), so persisting overwrites any currently
-  // active keyless session. Flows that verify an existing keyless wallet MUST
-  // validate the OAuth account first and only persist after validation passes.
+  // There is a single keyless session slot (one shared native store), so
+  // persisting overwrites any currently active keyless session. Flows that
+  // verify an existing keyless wallet MUST validate the OAuth account first
+  // and only persist after validation passes.
+  //
+  // The write itself is delegated to the bg-owned commit path
+  // (ServicePrime.persistKeylessOAuthSession, serialized on the bg
+  // loginMutex), so no slot write can interleave with a concurrent
+  // login/bind commit. legacyBindGuard makes the bg method re-assert the
+  // legacy bind preconditions atomically with the slot write; its typed
+  // state-changed failure always means the slot was left untouched.
   const persistKeylessOAuthSession = useCallback(
     async ({
       accessToken,
       refreshToken,
+      legacyBindGuard,
     }: {
       accessToken: string;
       refreshToken: string;
+      legacyBindGuard?: { expectedOnekeyUserId: string };
     }): Promise<void> => {
-      const { data, error } = await (
-        await getKeylessSupabaseClient()
-      ).client.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-      // setSession returns AuthErrors instead of throwing them. Swallowing
-      // one leaves the shared keyless session slot EMPTY while the caller
-      // continues as if the login stuck — apiOAuthLogin then commits on the
-      // server but the local commit cannot read the token back, surfacing
-      // only as a generic "unknown error" much later. Fail here with the
-      // underlying reason instead (setSession internally performs
-      // GET /auth/v1/user, so e.g. a gateway/WAF rejection of that endpoint
-      // shows up as its HTTP status).
-      if (error || !data?.session) {
-        // Check the type, not truthiness: AuthRetryableFetchError (produced
-        // when sessionPreservingSupabaseFetch masks an intercepted response)
-        // carries status 0, which a truthiness check would silently drop.
-        const statusPart =
-          typeof error?.status === 'number' ? ` status=${error.status}` : '';
-        const codePart = error?.code ? ` code=${error.code}` : '';
-        const reason = `Failed to persist Keyless OAuth session: ${
-          error?.message || 'no session returned'
-        }${statusPart}${codePart}`;
-        // Mirror into exported logs at the failure source — this covers paths
-        // where the error is later swallowed and never reaches the fallback
-        // toast (e.g. useKeylessWallet's apiOAuthLogin try/catch).
-        defaultLogger.prime.subscription.onekeyIdSessionPersistFailed({
-          reason,
+      try {
+        await backgroundApiProxy.servicePrime.persistKeylessOAuthSession({
+          accessToken,
+          refreshToken,
+          legacyBindGuard,
         });
-        // autoToast so callers WITHOUT their own catch/toast (e.g. the
-        // verify-PIN flow, whose onPress rethrows into a voided promise) still
-        // surface the failure via the global handler instead of dying
-        // silently; httpStatusCode kept for transient-vs-definitive
-        // classification. Mark it server-logged so the fallback toast does not
-        // emit a duplicate @LogToServer event for the same failure.
-        const persistError = new OneKeyLocalError({
-          message: reason,
-          autoToast: true,
-          httpStatusCode:
-            typeof error?.status === 'number' ? error.status : undefined,
-        });
-        markOneKeyIdFailureServerLogged(persistError);
-        throw persistError;
+      } catch (error) {
+        // The bg method already mirrored persist failures into exported
+        // logs; its server-logged dedup marker travels in the serialized
+        // `data` payload (`$$` properties do not survive the bridge), so
+        // re-apply the marker here before the error reaches the fallback
+        // toast — otherwise a single failure would emit two @LogToServer
+        // events.
+        if (
+          (error as { data?: { onekeyIdFailureServerLogged?: boolean } })?.data
+            ?.onekeyIdFailureServerLogged
+        ) {
+          markOneKeyIdFailureServerLogged(error);
+        }
+        throw error;
       }
     },
     [],

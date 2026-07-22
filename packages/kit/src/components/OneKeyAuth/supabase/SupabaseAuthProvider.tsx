@@ -207,13 +207,17 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
         setLegacySession(nextLegacySession);
         setKeylessSession(nextKeylessSession);
         // Auth state events only fire from THIS runtime's client (interactive
-        // flows: verifyOtp / setSession / signOut). In pure-UI runtimes the bg
-        // runtime's token refreshes do NOT emit TOKEN_REFRESHED here — that is
-        // fine because this context only tracks identity (user / isLoggedIn),
+        // flows: verifyOtp / signOut). In pure-UI runtimes the bg runtime's
+        // token refreshes do NOT emit TOKEN_REFRESHED here — that is fine
+        // because this context only tracks identity (user / isLoggedIn),
         // which a token refresh never changes; nothing may read a steady-state
         // access token from this context. Subscribe to BOTH realms' clients:
-        // interactive OAuth flows (persistKeylessOAuthSession / keylessSignOut
-        // in useSupabaseAuth) run against the keyless client in this runtime.
+        // keylessSignOut (useSupabaseAuth) still runs against the keyless
+        // client in this runtime, and on single-runtime targets the bg-owned
+        // keyless persist (ServicePrime.persistKeylessOAuthSession) uses the
+        // same client instance, so its setSession emits here too; on
+        // split-runtime targets that persist is covered by the
+        // PrimeAuthSessionSourceCommitted projection refresh below.
         const legacySubscription = legacyClient.auth.onAuthStateChange(
           (_event, nextSession) => {
             setLegacySession(nextSession);
@@ -247,14 +251,15 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
   // while staying logged in, so the [isPrimeLoggedIn] effect above never
   // re-resolves the source in that flow and this context would keep
   // selecting the (just signed-out) legacy slot — session=null while the
-  // app is logged in — until restart. bg-side setSession writes (legacy
-  // keyless migration) additionally never emit auth events in this runtime,
-  // leaving the keyless SLOT stale even when the source is re-resolved.
-  // Handle both by re-resolving the source AND re-reading both slots on
-  // every commit. Ordering vs the in-flight bind flow is safe: the slots
-  // converge through the onAuthStateChange subscriptions above regardless
-  // of whether this handler runs before or after the main-side legacy
-  // sign-out / keyless persist.
+  // app is logged in — until restart. bg-side setSession writes (the legacy
+  // keyless migration and, on split-runtime targets, the bg-owned keyless
+  // persist) additionally never emit auth events in this runtime, leaving
+  // the keyless SLOT stale even when the source is re-resolved. Handle both
+  // by re-resolving the source AND re-reading both slots on every commit.
+  // Ordering vs the in-flight bind flow is safe: the slots converge through
+  // the storage re-reads here and the onAuthStateChange subscriptions above
+  // regardless of whether this handler runs before or after the main-side
+  // legacy sign-out.
   useEffect(() => {
     let isActive = true;
     // Pure PROJECTION refresh: re-resolve the source and re-read both
