@@ -7,7 +7,7 @@ import type {
 import type {
   CustomerInfo as CustomerInfoNative,
   MakePurchaseResult,
-} from '@revenuecat/purchases-typescript-internal';
+} from 'react-native-purchases';
 
 export type ISubscriptionPeriod = 'P1Y' | 'P1M';
 

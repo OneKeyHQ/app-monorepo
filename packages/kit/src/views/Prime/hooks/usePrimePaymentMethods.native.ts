@@ -3,8 +3,10 @@ import { useCallback, useEffect, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import PurchasesReactNative, {
+  type CustomerInfo,
   INTRO_ELIGIBILITY_STATUS,
   LOG_LEVEL,
+  type PurchasesPackage,
 } from 'react-native-purchases';
 
 import { Dialog, Toast } from '@onekeyhq/components';
@@ -37,11 +39,6 @@ import type {
   ISubscriptionPeriod,
   IUsePrimePayment,
 } from './usePrimePaymentTypes';
-import type {
-  CustomerInfo,
-  PurchasesPackage,
-} from '@revenuecat/purchases-typescript-internal';
-
 void (async () => {
   if (process.env.NODE_ENV !== 'production') {
     await PurchasesReactNative.setLogLevel(LOG_LEVEL.VERBOSE);
