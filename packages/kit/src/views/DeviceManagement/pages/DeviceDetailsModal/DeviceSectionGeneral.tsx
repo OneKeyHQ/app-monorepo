@@ -36,6 +36,7 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
 
+import { DeviceBrightnessSlider } from './DeviceBrightnessSlider';
 import { TREZOR_AUTO_LOCK_OPTIONS } from './utils';
 
 const NEVER_LOCK_VALUE = 268_435_456;
@@ -52,11 +53,6 @@ type IDeviceDelayOption = {
   hour: number;
   day: number;
 };
-
-const PRO2_BRIGHTNESS_OPTIONS = Array.from({ length: 10 }, (_, index) => {
-  const value = (index + 1) * 10;
-  return { label: `${value}%`, value };
-});
 
 function getDurationLabel({
   intl,
@@ -352,48 +348,14 @@ export function HapticFeedbackListItem({
 }
 
 function Pro2BrightnessListItem({ disabled }: { disabled?: boolean }) {
-  const intl = useIntl();
   const actions = useDeviceDetailsActions();
   const [brightness] = useDeviceBrightnessAtom();
-  const stateful = useStatefulAction<number>({
-    value: brightness ?? 50,
-    onAction: actions.updateBrightness,
-  });
 
   return (
-    <Select
-      offset={{ mainAxis: -4, crossAxis: -10 }}
-      items={PRO2_BRIGHTNESS_OPTIONS}
-      value={stateful.value}
-      onChange={stateful.onChange}
-      placement="bottom-end"
-      title={intl.formatMessage({ id: ETranslations.global_brightness })}
-      disabled={disabled || stateful.loading}
-      testID={DeviceManagementTestIDs.brightnessItem}
-      renderTrigger={() => (
-        <ListItem
-          mx="$0"
-          px="$5"
-          py="$3"
-          borderRadius="$0"
-          $gtMd={{ py: '$0' }}
-          title={intl.formatMessage({ id: ETranslations.global_brightness })}
-          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
-          disabled={disabled || stateful.loading}
-        >
-          <XStack alignItems="center">
-            <ListItem.Text
-              primary={`${stateful.value}%`}
-              align="right"
-              primaryTextProps={{
-                size: '$bodyMdMedium',
-                color: '$textSubdued',
-              }}
-            />
-            <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
-          </XStack>
-        </ListItem>
-      )}
+    <DeviceBrightnessSlider
+      value={brightness ?? 50}
+      disabled={disabled}
+      onCommit={actions.updateBrightness}
     />
   );
 }
