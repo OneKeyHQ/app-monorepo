@@ -57,6 +57,12 @@ const CheckAndUpdate = LazyLoadPage(
   false,
   pageFallback,
 );
+const DeviceSetup = LazyLoadPage(
+  () => import('../pages/DeviceSetup'),
+  undefined,
+  false,
+  pageFallback,
+);
 const ImportPhraseOrPrivateKey = LazyLoadPage(
   () => import('../pages/ImportPhraseOrPrivateKey'),
   undefined,
@@ -215,6 +221,11 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.CheckAndUpdate,
     component: CheckAndUpdate,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.DeviceSetup,
+    component: DeviceSetup,
     options: hiddenHeaderOptions,
   },
   {

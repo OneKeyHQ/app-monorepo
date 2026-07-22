@@ -23,7 +23,8 @@ export class PrimeSubscriptionScene extends BaseScene {
       | 'approvalPopup'
       | 'primePage'
       | 'walletEdit'
-      | 'browserTranslate';
+      | 'browserTranslate'
+      | 'historySettings';
     isPrimeActive: boolean;
   }) {
     return {
@@ -226,6 +227,28 @@ export class PrimeSubscriptionScene extends BaseScene {
       url,
       errorCode,
       errorMessage,
+    };
+  }
+
+  // Local Supabase session persistence failed (e.g. setSession's internal
+  // GET /auth/v1/user was rejected). The reason carries the underlying auth
+  // error so exported logs can distinguish a gateway/WAF rejection from a
+  // GoTrue verdict without needing a toast screenshot.
+  @LogToLocal()
+  @LogToServer()
+  public onekeyIdSessionPersistFailed({ reason }: { reason: string }) {
+    return {
+      reason,
+    };
+  }
+
+  // The fallback login-failed toast was shown (errors NOT handled by the
+  // global auto toast). Mirrors the toast body into exported logs.
+  @LogToLocal()
+  @LogToServer()
+  public onekeyIdLoginFailedToast({ reason }: { reason: string }) {
+    return {
+      reason,
     };
   }
 }

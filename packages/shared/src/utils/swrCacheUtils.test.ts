@@ -34,6 +34,15 @@ describe('SWR cache keys', () => {
         tokenScope: 'evm--1:0xstock',
       }),
     ).toBe('swapStockTokenDetail:v1:evm--1:0xstock');
+    expect(swrKeys.swapHistoryPreviewList()).toBe('swapHistoryPreviewList');
+    expect(
+      swrKeys.swapStockChart({
+        networkId: 'evm--1',
+        tokenAddress: '0xstock',
+        range: '1W',
+        requestCurrency: 'usd',
+      }),
+    ).toBe('swapStockChart:v1:evm--1:0xstock:token:1W:usd');
     expect(
       swrKeys.swapStockSpeedConfig({
         networkId: 'evm--1',

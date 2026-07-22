@@ -45,28 +45,209 @@ const storage = supabaseStorageInstance;
 const isTransientSupabaseHttpStatus = (status: number) =>
   status === 408 || status === 429 || (status >= 500 && status < 600);
 
+// Whether an intercepted error-page body parses as JSON. A parseable JSON
+// body on a non-OK response is a definitive GoTrue verdict (invalid_grant,
+// rate-limit, ...) and must reach auth-js unchanged; a non-JSON body is an
+// intermediary error page (proxy / CDN / WAF) that must be masked as a
+// network failure so auth-js does not drop the persisted session.
+function isJsonParseableBody(bodyText: string): boolean {
+  const trimmed = bodyText.trim();
+  if (!trimmed) {
+    return false;
+  }
+  try {
+    JSON.parse(trimmed);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const ERROR_BODY_FINGERPRINT_MAX_BYTES = 2048;
+const ERROR_BODY_FINGERPRINT_TIMEOUT_MS = 1500;
+
+/**
+ * Bounded best-effort read of an error-page body prefix. A proxy/WAF error
+ * response can be huge or stream forever, so cap the bytes via the stream
+ * reader where one exists (web / desktop / extension) and cap the wall-clock
+ * wait everywhere. React Native's fetch exposes no ReadableStream and its
+ * native layer buffers the body regardless — there the timeout only bounds
+ * how long WE wait, which is the part that matters for fast retryable
+ * classification. Returns undefined when nothing could be read in time.
+ */
+async function readErrorBodyPrefixBestEffort(
+  response: Response,
+): Promise<string | undefined> {
+  try {
+    const clone = response.clone();
+    const reader = clone.body?.getReader?.();
+    if (reader) {
+      const deadline = Date.now() + ERROR_BODY_FINGERPRINT_TIMEOUT_MS;
+      const chunks: Uint8Array[] = [];
+      let receivedBytes = 0;
+      while (
+        receivedBytes < ERROR_BODY_FINGERPRINT_MAX_BYTES &&
+        Date.now() < deadline
+      ) {
+        const readResult = await Promise.race([
+          reader.read(),
+          new Promise<{ done: true; value: undefined }>((resolve) => {
+            setTimeout(
+              () => resolve({ done: true, value: undefined }),
+              Math.max(0, deadline - Date.now()),
+            );
+          }),
+        ]);
+        if (readResult.done) {
+          break;
+        }
+        if (readResult.value) {
+          chunks.push(readResult.value);
+          receivedBytes += readResult.value.byteLength;
+        }
+      }
+      void reader.cancel().catch(() => {});
+      const merged = new Uint8Array(receivedBytes);
+      let offset = 0;
+      for (const chunk of chunks) {
+        merged.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+      return new TextDecoder().decode(merged);
+    }
+    return await Promise.race([
+      clone.text(),
+      new Promise<undefined>((resolve) => {
+        setTimeout(() => resolve(undefined), ERROR_BODY_FINGERPRINT_TIMEOUT_MS);
+      }),
+    ]);
+  } catch {
+    return undefined;
+  }
+}
+
+// Whitelist classification of an intercepted error-page body from ALREADY-READ
+// text (undefined = the body could not be read in time). Only fixed labels
+// leave this function (see the privacy note on
+// buildInterceptedResponseFingerprint); the labels keep the
+// Cloudflare-vs-other discrimination the raw snippet used to provide.
+function classifyInterceptedResponseBody(bodyText: string | undefined): string {
+  if (bodyText === undefined) {
+    return 'unreadable';
+  }
+  const text = bodyText.slice(0, 2048);
+  if (!text.trim()) {
+    return 'empty';
+  }
+  const lowerText = text.toLowerCase();
+  // Anchor Cloudflare detection to markers that appear in CF's OWN block /
+  // challenge pages — never the bare word 'cloudflare', which also appears
+  // when an unrelated proxy / captive-portal page merely loads a
+  // cdnjs.cloudflare.com asset (that would contradict the cf-ray header half
+  // of the fingerprint).
+  if (
+    lowerText.includes('cloudflare ray id') ||
+    lowerText.includes('cf-error') ||
+    lowerText.includes('just a moment') ||
+    lowerText.includes('attention required') ||
+    lowerText.includes('performance & security by cloudflare')
+  ) {
+    return 'cloudflare-page';
+  }
+  if (lowerText.includes('<html') || lowerText.includes('<!doctype')) {
+    return 'html';
+  }
+  return 'text';
+}
+
+/**
+ * Identify WHICH intermediary produced an intercepted error response. Supabase
+ * auth hosts sit behind Cloudflare, so a response that genuinely traversed the
+ * edge carries a `cf-ray` header:
+ * - no `cf-ray`            -> produced by a local proxy/VPN on the device's
+ *                             network path (never reached Cloudflare);
+ * - `cf-ray` + cf-mitigated/challenge markers -> blocked by Cloudflare
+ *                             itself (WAF / bot management);
+ * - `cf-ray` + server!=cloudflare -> passed the edge, rejected by the origin
+ *                             gateway/reverse proxy in front of GoTrue.
+ *
+ * IMPORTANT: header evidence is only authoritative on NATIVE. On browser-CORS
+ * runtimes (web / desktop renderer / extension) `server`/`cf-ray`/`cf-mitigated`
+ * are not exposed to page JS by CORS and read `none` even for responses that
+ * DID traverse Cloudflare, so `cf-ray=none` there means "CORS-hidden", not
+ * "local proxy". The emitted `platform` field lets log triage tell the two
+ * apart; body classification and `content-type` (a CORS-exposed header) stay
+ * trustworthy everywhere.
+ *
+ * The fingerprint is embedded in the thrown error message so it reaches the
+ * login-failure toast and exported logs without extra plumbing. It carries
+ * response headers and a body CLASSIFICATION only — never raw body content:
+ * this string flows into server-side failure logging, and intermediary pages
+ * (captive portals, corporate proxies) can embed user- or network-identifying
+ * details.
+ */
+function buildInterceptedResponseFingerprint(
+  response: Response,
+  bodyText: string | undefined,
+): string {
+  const header = (name: string) => response.headers?.get?.(name) || 'none';
+  return `[platform=${platformEnv.appPlatform} server=${header(
+    'server',
+  )} content-type=${header('content-type')} cf-ray=${header(
+    'cf-ray',
+  )} cf-mitigated=${header(
+    'cf-mitigated',
+  )} body=${classifyInterceptedResponseBody(bodyText)}]`;
+}
+
 const sessionPreservingSupabaseFetch: typeof fetch = async (input, init) => {
   const response = await fetch(input, init);
   if (response.ok) {
     return response;
   }
   if (isTransientSupabaseHttpStatus(response.status)) {
+    // 408/429/5xx: the status ALONE decides the retryable verdict — classify
+    // touching the body so a huge/streaming intermediary payload can never
+    // delay the retryable failure, and read only a bounded prefix for the
+    // fingerprint (Cloudflare's legacy 503 challenge / 429 rate-limit pages
+    // are exactly the intermediary responses worth identifying).
+    const bodyPrefix = await readErrorBodyPrefixBestEffort(response);
     throw new TypeError(
-      `Supabase transient HTTP ${response.status} treated as network failure to preserve the persisted session`,
+      `Supabase transient HTTP ${
+        response.status
+      } treated as network failure to preserve the persisted session ${buildInterceptedResponseFingerprint(
+        response,
+        bodyPrefix,
+      )}`,
     );
   }
-  // A non-OK response whose body is not JSON is an intermediary error page
-  // (corporate proxy / CDN bot challenge), never a GoTrue verdict on the
-  // credential — treat it as transient too, otherwise auth-js turns it into
-  // a non-retryable AuthUnknownError and drops the persisted session.
+  // Non-transient statuses need FULL body fidelity: a truncated read could
+  // misclassify a real GoTrue JSON verdict as an intermediary page. Read the
+  // error body once from a clone (pre-existing behavior for this branch; the
+  // original stays unread for the pass-through below) and reuse the text for
+  // both the JSON check and the fingerprint.
+  let bodyText: string | undefined;
   try {
-    await response.clone().json();
+    bodyText = await response.clone().text();
   } catch {
-    throw new TypeError(
-      `Supabase non-JSON HTTP ${response.status} error response treated as network failure to preserve the persisted session`,
-    );
+    bodyText = undefined;
   }
-  return response;
+  // A non-OK response with a parseable JSON body is a definitive GoTrue verdict
+  // — pass it through UNCHANGED so auth-js/callers surface the real error. Only
+  // a non-JSON body is an intermediary error page (corporate proxy / CDN bot
+  // challenge), which must be masked, otherwise auth-js turns it into a
+  // non-retryable AuthUnknownError and drops the persisted session.
+  if (bodyText !== undefined && isJsonParseableBody(bodyText)) {
+    return response;
+  }
+  throw new TypeError(
+    `Supabase non-JSON HTTP ${
+      response.status
+    } error response treated as network failure to preserve the persisted session ${buildInterceptedResponseFingerprint(
+      response,
+      bodyText,
+    )}`,
+  );
 };
 
 /**

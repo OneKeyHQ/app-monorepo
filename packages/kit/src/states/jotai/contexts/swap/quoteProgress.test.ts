@@ -2,6 +2,7 @@ import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
   ESwapQuoteKind,
+  ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
@@ -15,9 +16,14 @@ import {
   isSwapQuoteEventFetching,
   isSwapQuoteFromCurrentEvent,
   isSwapQuoteInputAmountMatched,
+  isSwapQuoteRequestForCurrentInput,
   isSwapZeroProviderQuoteCompleted,
+  resolveSwapQuoteForDisplay,
   selectSwapCurrentQuote,
   selectSwapPreviousActionableQuote,
+  shouldOfferSwapQuoteRefresh,
+  shouldShowSwapQuoteActionLoading,
+  shouldShowSwapQuoteRequestLoading,
 } from './quoteProgress';
 
 function buildQuote({
@@ -49,6 +55,181 @@ function buildQuote({
 }
 
 describe('swap quote progress', () => {
+  it('matches the quote request to the current Swap input scope', () => {
+    const fromToken = {
+      networkId: 'evm--56',
+      contractAddress: '0xfrom',
+      decimals: 6,
+      isNative: false,
+      symbol: 'FROM',
+    };
+    const toToken = {
+      networkId: 'evm--56',
+      contractAddress: '0xto',
+      decimals: 6,
+      isNative: false,
+      symbol: 'TO',
+    };
+    const quoteRequest = {
+      type: ESwapTabSwitchType.SWAP,
+      fromToken,
+      toToken,
+      fromTokenAmount: '1.0',
+      kind: ESwapQuoteKind.SELL,
+      accountId: 'account-1',
+      address: '0xsender-1',
+      receivingAddress: '0xreceiver-1',
+    };
+
+    expect(
+      isSwapQuoteRequestForCurrentInput({
+        currentAccountId: 'account-1',
+        currentAddress: '0xsender-1',
+        currentReceivingAddress: '0xreceiver-1',
+        currentSwapType: ESwapTabSwitchType.SWAP,
+        fromAmount: '1',
+        fromToken,
+        quoteKind: ESwapQuoteKind.SELL,
+        quoteRequest,
+        toAmount: '',
+        toToken,
+      }),
+    ).toBe(true);
+    expect(
+      isSwapQuoteRequestForCurrentInput({
+        currentAccountId: 'account-1',
+        currentAddress: '0xsender-1',
+        currentReceivingAddress: '0xreceiver-1',
+        currentSwapType: ESwapTabSwitchType.SWAP,
+        fromAmount: '10',
+        fromToken,
+        quoteKind: ESwapQuoteKind.SELL,
+        quoteRequest,
+        toAmount: '',
+        toToken,
+      }),
+    ).toBe(false);
+    [
+      {
+        currentAccountId: 'account-2',
+        currentAddress: '0xsender-1',
+        currentReceivingAddress: '0xreceiver-1',
+      },
+      {
+        currentAccountId: 'account-1',
+        currentAddress: '0xsender-2',
+        currentReceivingAddress: '0xreceiver-1',
+      },
+      {
+        currentAccountId: 'account-1',
+        currentAddress: '0xsender-1',
+        currentReceivingAddress: '0xreceiver-2',
+      },
+    ].forEach((currentExecutionScope) => {
+      expect(
+        isSwapQuoteRequestForCurrentInput({
+          ...currentExecutionScope,
+          currentSwapType: ESwapTabSwitchType.SWAP,
+          fromAmount: '1',
+          fromToken,
+          quoteKind: ESwapQuoteKind.SELL,
+          quoteRequest,
+          toAmount: '',
+          toToken,
+        }),
+      ).toBe(false);
+    });
+  });
+
+  it('keeps a new input round loading until its current quote is actionable', () => {
+    expect(
+      shouldShowSwapQuoteRequestLoading({
+        swapType: ESwapTabSwitchType.SWAP,
+        hasCurrentActionableQuote: false,
+        hasValidInput: true,
+        isQuoteRequestStarting: false,
+        quoteEventCompleted: true,
+        quoteRequestMatchesInput: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowSwapQuoteRequestLoading({
+        swapType: ESwapTabSwitchType.SWAP,
+        hasCurrentActionableQuote: false,
+        hasValidInput: true,
+        isQuoteRequestStarting: true,
+        quoteEventCompleted: false,
+        quoteRequestMatchesInput: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowSwapQuoteRequestLoading({
+        swapType: ESwapTabSwitchType.SWAP,
+        hasCurrentActionableQuote: true,
+        hasValidInput: true,
+        isQuoteRequestStarting: false,
+        quoteEventCompleted: false,
+        quoteRequestMatchesInput: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowSwapQuoteRequestLoading({
+        swapType: ESwapTabSwitchType.SWAP,
+        hasCurrentActionableQuote: true,
+        hasValidInput: true,
+        isQuoteRequestStarting: false,
+        quoteEventCompleted: true,
+        quoteRequestMatchesInput: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('leaves current terminal and empty-input states out of quote loading', () => {
+    expect(
+      shouldShowSwapQuoteRequestLoading({
+        swapType: ESwapTabSwitchType.SWAP,
+        hasCurrentActionableQuote: false,
+        hasValidInput: true,
+        isQuoteRequestStarting: false,
+        quoteEventCompleted: true,
+        quoteRequestMatchesInput: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowSwapQuoteRequestLoading({
+        swapType: ESwapTabSwitchType.SWAP,
+        hasCurrentActionableQuote: false,
+        hasValidInput: false,
+        isQuoteRequestStarting: false,
+        quoteEventCompleted: false,
+        quoteRequestMatchesInput: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps Bridge in the same request-start loading contract as Swap', () => {
+    const requestState = {
+      hasCurrentActionableQuote: false,
+      hasValidInput: true,
+      isQuoteRequestStarting: false,
+      quoteEventCompleted: true,
+      quoteRequestMatchesInput: false,
+    };
+
+    expect(
+      shouldShowSwapQuoteRequestLoading({
+        ...requestState,
+        swapType: ESwapTabSwitchType.BRIDGE,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowSwapQuoteRequestLoading({
+        ...requestState,
+        swapType: ESwapTabSwitchType.LIMIT,
+      }),
+    ).toBe(false);
+  });
+
   it('caps quote event total count for scoped provider flows', () => {
     expect(
       getSwapQuoteEventProgressTotalCount({
@@ -225,7 +406,7 @@ describe('swap quote progress', () => {
       isSwapNoProviderSupportsTrade({
         zeroProviderQuoteCompleted: true,
         quote: undefined,
-        quoteResultNoMatch: false,
+        quoteResultPairNoMatch: false,
       }),
     ).toBe(true);
 
@@ -234,7 +415,19 @@ describe('swap quote progress', () => {
       isSwapNoProviderSupportsTrade({
         zeroProviderQuoteCompleted: false,
         quote: { toAmount: '' },
-        quoteResultNoMatch: false,
+        quoteResultPairNoMatch: false,
+      }),
+    ).toBe(true);
+
+    // Real server shape for an unsupported pair: totalQuoteCount > 0 and
+    // every provider returns an error quote WITHOUT any amount fields
+    // (e.g. "Provider error" / "Insufficient liquidity"). Amount mismatch
+    // against the user input must not veto the verdict here.
+    expect(
+      isSwapNoProviderSupportsTrade({
+        zeroProviderQuoteCompleted: false,
+        quote: { toAmount: undefined, limit: undefined },
+        quoteResultPairNoMatch: false,
       }),
     ).toBe(true);
 
@@ -243,7 +436,7 @@ describe('swap quote progress', () => {
       isSwapNoProviderSupportsTrade({
         zeroProviderQuoteCompleted: false,
         quote: { toAmount: '', limit: { min: '1' } },
-        quoteResultNoMatch: false,
+        quoteResultPairNoMatch: false,
       }),
     ).toBe(false);
 
@@ -252,17 +445,17 @@ describe('swap quote progress', () => {
       isSwapNoProviderSupportsTrade({
         zeroProviderQuoteCompleted: false,
         quote: { toAmount: '10' },
-        quoteResultNoMatch: false,
+        quoteResultPairNoMatch: false,
       }),
     ).toBe(false);
 
-    // A stale quote that no longer matches the current inputs must not lock
-    // the action button out of its "Refresh quotes" recovery state.
+    // A stale quote left over from a DIFFERENT token pair must not lock the
+    // action button out of its "Refresh quotes" recovery state.
     expect(
       isSwapNoProviderSupportsTrade({
         zeroProviderQuoteCompleted: true,
         quote: { toAmount: '' },
-        quoteResultNoMatch: true,
+        quoteResultPairNoMatch: true,
       }),
     ).toBe(false);
   });
@@ -293,10 +486,10 @@ describe('swap quote progress', () => {
     expect(state.phase).toBe(ESwapQuoteUiPhase.StaleRefreshing);
     expect(state.displayQuote).toBe(previousQuote);
     expect(state.isWaitingActionableQuote).toBe(true);
-    expect(state.isInputQuoteLoading).toBe(false);
+    expect(state.isQuotePresentationLoading).toBe(false);
   });
 
-  it('loads the input only while waiting without a previous quote', () => {
+  it('shows quote loading only while waiting without a previous quote', () => {
     const state = getSwapQuoteProgressState({
       quoteLoading: true,
       quoteEventFetching: false,
@@ -307,7 +500,108 @@ describe('swap quote progress', () => {
     expect(state.phase).toBe(ESwapQuoteUiPhase.Waiting);
     expect(state.displayQuote).toBeUndefined();
     expect(state.isWaitingActionableQuote).toBe(true);
-    expect(state.isInputQuoteLoading).toBe(true);
+    expect(state.isQuotePresentationLoading).toBe(true);
+  });
+
+  it('keeps the compatible display quote during stale refresh', () => {
+    const previousQuote = buildQuote({
+      eventId: 'event-1',
+      provider: 'previous',
+    });
+    const currentErrorQuote = buildQuote({
+      eventId: 'event-2',
+      provider: 'current-error',
+      toAmount: '0',
+      errorMessage: 'Provider error',
+    });
+
+    expect(
+      resolveSwapQuoteForDisplay({
+        quoteResult: currentErrorQuote,
+        displayQuote: previousQuote,
+        phase: ESwapQuoteUiPhase.StaleRefreshing,
+      }),
+    ).toBe(previousQuote);
+    expect(
+      resolveSwapQuoteForDisplay({
+        quoteResult: currentErrorQuote,
+        displayQuote: previousQuote,
+        phase: ESwapQuoteUiPhase.HasQuote,
+      }),
+    ).toBe(currentErrorQuote);
+  });
+
+  it('offers refresh only after quote mismatch and request state settle', () => {
+    expect(
+      shouldOfferSwapQuoteRefresh({
+        isRefreshQuote: false,
+        quoteResultNoMatch: false,
+        quoteResultNoMatchDebounced: true,
+        quoteLoading: false,
+        quoteEventFetching: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldOfferSwapQuoteRefresh({
+        isRefreshQuote: false,
+        quoteResultNoMatch: true,
+        quoteResultNoMatchDebounced: true,
+        quoteLoading: false,
+        quoteEventFetching: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldOfferSwapQuoteRefresh({
+        isRefreshQuote: false,
+        quoteResultNoMatch: true,
+        quoteResultNoMatchDebounced: true,
+        quoteLoading: false,
+        quoteEventFetching: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('stops action loading when the first actionable quote arrives', () => {
+    expect(
+      shouldShowSwapQuoteActionLoading({
+        hasActionableQuote: false,
+        isWaitingActionableQuote: true,
+        isQuoteEventSettlingForAction: false,
+        isWaitingAutoSlippage: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowSwapQuoteActionLoading({
+        hasActionableQuote: false,
+        isWaitingActionableQuote: false,
+        isQuoteEventSettlingForAction: true,
+        isWaitingAutoSlippage: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowSwapQuoteActionLoading({
+        hasActionableQuote: true,
+        isWaitingActionableQuote: false,
+        isQuoteEventSettlingForAction: false,
+        isWaitingAutoSlippage: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowSwapQuoteActionLoading({
+        hasActionableQuote: false,
+        isWaitingActionableQuote: false,
+        isQuoteEventSettlingForAction: false,
+        isWaitingAutoSlippage: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowSwapQuoteActionLoading({
+        hasActionableQuote: true,
+        isWaitingActionableQuote: false,
+        isQuoteEventSettlingForAction: true,
+        isWaitingAutoSlippage: false,
+      }),
+    ).toBe(false);
   });
 
   it('keeps a previous actionable quote while the current event is still waiting', () => {
@@ -319,6 +613,7 @@ describe('swap quote progress', () => {
     const selectedPreviousQuote = selectSwapPreviousActionableQuote({
       quotes: [previousQuote],
       quoteEventTotalCount: { eventId: 'event-2', count: 2 },
+      currentEventProviderKeys: [],
       quoteLoading: false,
       quoteEventFetching: true,
     });
@@ -334,6 +629,35 @@ describe('swap quote progress', () => {
     expect(state.phase).toBe(ESwapQuoteUiPhase.StaleRefreshing);
     expect(state.displayQuote).toBe(previousQuote);
     expect(state.hasPreviousActionableQuote).toBe(true);
+  });
+
+  it('keeps a retagged provider quote display-only until that provider responds', () => {
+    const retainedQuote = buildQuote({
+      eventId: 'event-2',
+      provider: 'retained-provider',
+    });
+
+    expect(
+      selectSwapPreviousActionableQuote({
+        quotes: [retainedQuote],
+        quoteEventTotalCount: { eventId: 'event-2', count: 2 },
+        currentEventProviderKeys: ['returned-error-provider'],
+        quoteLoading: false,
+        quoteEventFetching: true,
+      }),
+    ).toBe(retainedQuote);
+    expect(
+      selectSwapPreviousActionableQuote({
+        quotes: [retainedQuote],
+        quoteEventTotalCount: { eventId: 'event-2', count: 2 },
+        currentEventProviderKeys: [
+          buildSwapQuoteProviderKey(retainedQuote),
+          'returned-error-provider',
+        ],
+        quoteLoading: false,
+        quoteEventFetching: true,
+      }),
+    ).toBeUndefined();
   });
 
   it('moves to hasQuote when the current event quote arrives', () => {

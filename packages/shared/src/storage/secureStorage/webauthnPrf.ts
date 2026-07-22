@@ -437,7 +437,7 @@ export async function encryptWithPrfKey(
   const encrypted = await globalThis.crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     cryptoKey,
-    encodedData,
+    encodedData as BufferSource,
   );
 
   // Combine IV and encrypted data, then encode as base64
@@ -596,7 +596,7 @@ export async function encryptWithMasterKey(
   const encrypted = await globalThis.crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     cryptoKey,
-    encodedData,
+    encodedData as BufferSource,
   );
 
   // Combine IV and encrypted data, then encode as base64

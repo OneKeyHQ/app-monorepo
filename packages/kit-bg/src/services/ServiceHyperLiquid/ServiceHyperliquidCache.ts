@@ -10,18 +10,20 @@ import {
   PERPS_ACCOUNT_DISPLAY_SNAPSHOT_MAX_ENTRIES,
   PERPS_ALL_DEXS_ASSET_CTXS_CACHE_WRITE_INTERVAL_MS,
   PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS,
-  PERPS_L2_BOOK_SNAPSHOT_CACHE_MIN_LEVELS_PER_SIDE,
   PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS,
+  PERPS_SNAPSHOT_CACHE_MAX_ENTRIES,
 } from '@onekeyhq/shared/src/consts/perpCache';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   markPerpsColdStartPerf,
   markPerpsColdStartPerfOnce,
 } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
+import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import perpsUtils from '@onekeyhq/shared/src/utils/perpsUtils';
 import {
   getPerpsL2BookSnapshotCacheKeys,
   swrCacheUtils,
+  swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 import type {
@@ -90,10 +92,7 @@ export function getL2BookSnapshotCacheEntryLevelCount(
 export function isL2BookSnapshotCacheEntryComplete(
   entry: IPerpsL2BookSnapshotCacheEntry | undefined,
 ): entry is IPerpsL2BookSnapshotCacheEntry {
-  return (
-    getL2BookSnapshotCacheEntryLevelCount(entry) >=
-    PERPS_L2_BOOK_SNAPSHOT_CACHE_MIN_LEVELS_PER_SIDE
-  );
+  return getL2BookSnapshotCacheEntryLevelCount(entry) > 0;
 }
 
 export function selectL2BookSnapshotCacheEntry({
@@ -139,15 +138,27 @@ export function buildL2BookSnapshotCachePayload({
   }
 
   const isActiveBook = activeBookCoin === coin;
+  const hasSourceOptions =
+    Object.prototype.hasOwnProperty.call(data, 'nSigFigs') ||
+    Object.prototype.hasOwnProperty.call(data, 'mantissa');
+  let nSigFigs = null;
+  let mantissa = null;
+  if (hasSourceOptions) {
+    nSigFigs = data.nSigFigs ?? null;
+    mantissa = data.mantissa ?? null;
+  } else if (isActiveBook) {
+    nSigFigs = activeOptions?.nSigFigs ?? null;
+    mantissa = activeOptions?.mantissa ?? null;
+  }
   return {
     coin,
-    nSigFigs: isActiveBook ? (activeOptions?.nSigFigs ?? null) : null,
-    mantissa: isActiveBook ? (activeOptions?.mantissa ?? null) : null,
+    nSigFigs,
+    mantissa,
     data,
   };
 }
 
-function getL2BookSnapshotSwrCache({
+export function getL2BookSnapshotSwrCache({
   coin,
   nSigFigs,
   mantissa,
@@ -163,17 +174,25 @@ function getL2BookSnapshotSwrCache({
     nSigFigs,
     mantissa,
   });
+  const hasRequestedPrecision =
+    nSigFigs !== undefined || mantissa !== undefined;
   for (const key of keys) {
     const entry = swrCacheUtils.getWithTimestamp<IBook>(key);
+    const sourceNSigFigs = entry?.data?.nSigFigs ?? null;
+    const sourceMantissa = entry?.data?.mantissa ?? null;
+    const matchesRequestedPrecision =
+      sourceNSigFigs === (nSigFigs ?? null) &&
+      sourceMantissa === (mantissa ?? null);
     if (
       entry?.data?.coin === coin &&
-      Date.now() - entry.updatedAt <= maxAgeMs
+      Date.now() - entry.updatedAt <= maxAgeMs &&
+      (!hasRequestedPrecision || matchesRequestedPrecision)
     ) {
       return {
         data: entry.data,
         updatedAt: entry.updatedAt,
-        nSigFigs,
-        mantissa,
+        nSigFigs: sourceNSigFigs,
+        mantissa: sourceMantissa,
       };
     }
   }
@@ -193,7 +212,6 @@ function setL2BookSnapshotSwrCache({
       mantissa,
     });
     keys.forEach((key) => swrCacheUtils.set(key, data));
-    swrCacheUtils.flushNow();
     return true;
   } catch (error) {
     defaultLogger.perp.hyperliquid.cacheSnapshotError({
@@ -202,6 +220,30 @@ function setL2BookSnapshotSwrCache({
     });
     return false;
   }
+}
+
+function getL2BookSnapshotTargetKey({
+  coin,
+  nSigFigs,
+  mantissa,
+}: {
+  coin: string;
+  nSigFigs?: number | null;
+  mantissa?: number | null;
+}) {
+  return swrKeys.perpsL2BookSnapshot({ coin, nSigFigs, mantissa });
+}
+
+function buildCachedL2Book(
+  entry: IPerpsL2BookSnapshotCacheEntry,
+): IBook & { localReceivedAt?: number; isCachedSnapshot?: boolean } {
+  return {
+    ...entry.data,
+    nSigFigs: entry.nSigFigs ?? null,
+    mantissa: entry.mantissa ?? null,
+    localReceivedAt: entry.updatedAt,
+    isCachedSnapshot: true,
+  };
 }
 
 function getPerpsActiveAssetAvailableToTradeDisplay(
@@ -249,6 +291,14 @@ export default class ServiceHyperliquidCache extends ServiceBase {
 
   private _lastL2BookSnapshotCacheWriteAt = 0;
 
+  private _l2BookSnapshotMemoryCache = new cacheUtils.LRUCache<
+    string,
+    IPerpsL2BookSnapshotCacheEntry
+  >({
+    max: PERPS_SNAPSHOT_CACHE_MAX_ENTRIES,
+    ttl: PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS,
+  });
+
   private _lastAccountDisplayCacheWriteAt: Record<
     string,
     Partial<Record<IPerpsAccountDisplayCacheWriteType, number>>
@@ -257,9 +307,10 @@ export default class ServiceHyperliquidCache extends ServiceBase {
   private _l2BookSnapshotCacheTimer: ReturnType<typeof setTimeout> | null =
     null;
 
-  private _pendingL2BookSnapshotCache:
-    | IPerpsL2BookSnapshotCachePayload
-    | undefined;
+  private _pendingL2BookSnapshotCache = new Map<
+    string,
+    IPerpsL2BookSnapshotCachePayload
+  >();
 
   @backgroundMethod()
   async getL2BookSnapshotCache({
@@ -276,6 +327,19 @@ export default class ServiceHyperliquidCache extends ServiceBase {
       nSigFigs,
       mantissa,
     });
+    const memoryEntry = this._l2BookSnapshotMemoryCache.get(
+      getL2BookSnapshotTargetKey({ coin, nSigFigs, mantissa }),
+    );
+    if (isL2BookSnapshotCacheEntryComplete(memoryEntry)) {
+      markPerpsColdStartPerf('service_l2_book_cache_hit', {
+        coin,
+        source: 'memory',
+        ageMs: Date.now() - memoryEntry.updatedAt,
+        bidLevels: memoryEntry.data.levels?.[0]?.length ?? 0,
+        askLevels: memoryEntry.data.levels?.[1]?.length ?? 0,
+      });
+      return buildCachedL2Book(memoryEntry);
+    }
     const entry = await this.backgroundApi.simpleDb.perp.getL2BookSnapshotCache(
       {
         coin,
@@ -311,10 +375,7 @@ export default class ServiceHyperliquidCache extends ServiceBase {
       simpleDbLevels: getL2BookSnapshotCacheEntryLevelCount(entry),
       swrLevels: getL2BookSnapshotCacheEntryLevelCount(swrEntry),
     });
-    return {
-      ...cacheEntry.data,
-      localReceivedAt: cacheEntry.updatedAt,
-    } as IBook & { localReceivedAt?: number };
+    return buildCachedL2Book(cacheEntry);
   }
 
   writeActiveAssetCtxSnapshotCache(data: IWsActiveAssetCtx) {
@@ -411,19 +472,37 @@ export default class ServiceHyperliquidCache extends ServiceBase {
       });
   }
 
-  private _writeL2BookSnapshotCache(payload: IPerpsL2BookSnapshotCachePayload) {
+  private _writeL2BookSnapshotCaches(
+    payloads: IPerpsL2BookSnapshotCachePayload[],
+  ) {
+    if (payloads.length === 0) {
+      return;
+    }
     this._lastL2BookSnapshotCacheWriteAt = Date.now();
-    const didWriteSwrCache = setL2BookSnapshotSwrCache(payload);
-    markPerpsColdStartPerfOnce('service_l2_book_ws_cache_write_first', {
-      coin: payload.coin,
-      bidLevels: payload.data.levels?.[0]?.length ?? 0,
-      askLevels: payload.data.levels?.[1]?.length ?? 0,
-      nSigFigs: payload.nSigFigs,
-      mantissa: payload.mantissa,
-      swr: didWriteSwrCache,
+    let didWriteSwrCache = false;
+    payloads.forEach((payload) => {
+      didWriteSwrCache = setL2BookSnapshotSwrCache(payload) || didWriteSwrCache;
+      markPerpsColdStartPerfOnce('service_l2_book_ws_cache_write_first', {
+        coin: payload.coin,
+        bidLevels: payload.data.levels?.[0]?.length ?? 0,
+        askLevels: payload.data.levels?.[1]?.length ?? 0,
+        nSigFigs: payload.nSigFigs,
+        mantissa: payload.mantissa,
+        swr: didWriteSwrCache,
+      });
     });
+    if (didWriteSwrCache) {
+      try {
+        swrCacheUtils.flushNow();
+      } catch (error) {
+        defaultLogger.perp.hyperliquid.cacheSnapshotError({
+          type: 'l2_book_swr',
+          error,
+        });
+      }
+    }
     void this.backgroundApi.simpleDb.perp
-      .setL2BookSnapshotCache(payload)
+      .setL2BookSnapshotCaches(payloads)
       .catch((error) => {
         defaultLogger.perp.hyperliquid.cacheSnapshotError({
           type: 'l2_book_simple_db',
@@ -437,10 +516,10 @@ export default class ServiceHyperliquidCache extends ServiceBase {
       clearTimeout(this._l2BookSnapshotCacheTimer);
       this._l2BookSnapshotCacheTimer = null;
     }
-    const pending = this._pendingL2BookSnapshotCache;
-    this._pendingL2BookSnapshotCache = undefined;
-    if (pending) {
-      this._writeL2BookSnapshotCache(pending);
+    const pending = Array.from(this._pendingL2BookSnapshotCache.values());
+    this._pendingL2BookSnapshotCache.clear();
+    if (pending.length > 0) {
+      this._writeL2BookSnapshotCaches(pending);
     }
   }
 
@@ -462,26 +541,29 @@ export default class ServiceHyperliquidCache extends ServiceBase {
       return;
     }
 
-    const now = Date.now();
-    const elapsed = now - this._lastL2BookSnapshotCacheWriteAt;
+    const targetKey = getL2BookSnapshotTargetKey(payload);
+    const updatedAt = Date.now();
+    this._l2BookSnapshotMemoryCache.set(targetKey, {
+      data: payload.data,
+      updatedAt,
+      nSigFigs: payload.nSigFigs,
+      mantissa: payload.mantissa,
+    });
+    this._pendingL2BookSnapshotCache.set(targetKey, payload);
+
+    const elapsed = updatedAt - this._lastL2BookSnapshotCacheWriteAt;
     if (elapsed >= PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS) {
-      this._pendingL2BookSnapshotCache = undefined;
-      this._writeL2BookSnapshotCache(payload);
+      this.flushPendingL2BookSnapshotCache();
       return;
     }
 
-    this._pendingL2BookSnapshotCache = payload;
     if (this._l2BookSnapshotCacheTimer) {
       return;
     }
 
     this._l2BookSnapshotCacheTimer = setTimeout(() => {
       this._l2BookSnapshotCacheTimer = null;
-      const pending = this._pendingL2BookSnapshotCache;
-      this._pendingL2BookSnapshotCache = undefined;
-      if (pending) {
-        this._writeL2BookSnapshotCache(pending);
-      }
+      this.flushPendingL2BookSnapshotCache();
     }, PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS - elapsed);
   }
 

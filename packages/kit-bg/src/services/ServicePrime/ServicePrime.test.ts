@@ -87,6 +87,21 @@ jest.mock('@onekeyhq/shared/src/appApiClient/appApiClient', () => ({
           use: jest.fn(),
         },
         response: {
+          use: jest.fn(),
+        },
+      },
+      get: jest.fn(),
+      post: jest.fn(),
+      put: jest.fn(),
+    })),
+    // ServiceBase.getOneKeyIdClient registers the auth/prime interceptors on
+    // this dedicated client (not on the shared plain client above).
+    getOneKeyIdAuthClient: jest.fn(async () => ({
+      interceptors: {
+        request: {
+          use: jest.fn(),
+        },
+        response: {
           use: jest.fn(
             (
               _onFulfilled: unknown,
@@ -112,6 +127,12 @@ const mockRemoveAuthSessionStorageBySessionSource = jest.fn(
 );
 const mockReadPersistedAccessTokenBySessionSource = jest.fn(
   async (_source: unknown) => 'persisted-access-token',
+);
+const mockReadPersistedAccessTokenBySessionSourceStrict = jest.fn(
+  async (_source: unknown): Promise<unknown> => ({
+    status: 'ok',
+    accessToken: 'persisted-access-token',
+  }),
 );
 const mockRevokeAuthSessionTokenOnServerBestEffort = jest.fn(
   async (_params: unknown) => undefined,
@@ -148,14 +169,24 @@ jest.mock('./primeAuthSessionAccess', () => ({
     mockRemoveAuthSessionStorageBySessionSource(source),
   readPersistedAccessTokenBySessionSource: (source: unknown) =>
     mockReadPersistedAccessTokenBySessionSource(source),
+  readPersistedAccessTokenBySessionSourceStrict: (source: unknown) =>
+    mockReadPersistedAccessTokenBySessionSourceStrict(source),
   revokeAuthSessionTokenOnServerBestEffort: (params: unknown) =>
     mockRevokeAuthSessionTokenOnServerBestEffort(params),
+  clearSupabaseStorageLocalCache: jest.fn(),
 }));
 
 const {
+  EOAuthSocialLoginProvider,
+} = require('@onekeyhq/shared/src/consts/authConsts');
+const {
+  OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
   OneKeyErrorPrimeLoginInvalidToken,
   OneKeyLocalError,
 } = require('@onekeyhq/shared/src/errors');
+const {
+  EOneKeyErrorClassNames,
+} = require('@onekeyhq/shared/src/errors/types/errorTypes');
 const {
   EAppEventBusNames,
   appEventBus,
@@ -166,6 +197,9 @@ const {
 } = require('@onekeyhq/shared/src/request/requestAuthTokenErrorStash');
 const {
   EPrimeAuthSessionSource,
+  EOneKeyIdAccountStatus,
+  EOneKeyIdIdentityType,
+  EOneKeyIdOAuthProvider,
 } = require('@onekeyhq/shared/types/prime/primeTypes');
 
 const ServicePrime = require('./ServicePrime').default;
@@ -904,7 +938,7 @@ describe('ServicePrime.apiLogin invalid-token clear guard', () => {
   });
 });
 
-describe('ServicePrime.commitAuthSessionSourceBeforeAtomUpdate', () => {
+describe('ServicePrime.commitAuthSessionSourceAndPrimeAtom', () => {
   let emitSpy: jest.SpyInstance;
 
   beforeEach(() => {
@@ -916,21 +950,29 @@ describe('ServicePrime.commitAuthSessionSourceBeforeAtomUpdate', () => {
     emitSpy.mockRestore();
   });
 
-  it('emits PrimeAuthSessionSourceCommitted after a successful commit', async () => {
+  it('emits PrimeAuthSessionSourceCommitted and runs the atom update after a successful commit', async () => {
     // The main-runtime SupabaseAuthProvider relies on this event: a bind
     // commit switches the source without flipping primePersistAtom.isLoggedIn,
     // so without the event the provider would keep selecting the stale slot.
     const { service, simpleDbPrime } = createService();
-    simpleDbPrime.getActiveAuthToken.mockResolvedValue('active-token');
+    const updatePrimeAtom = jest.fn(async () => undefined);
 
-    await service.commitAuthSessionSourceBeforeAtomUpdate({
+    await service.commitAuthSessionSourceAndPrimeAtom({
       authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
       callerName: 'test',
+      updatePrimeAtom,
     });
 
     expect(simpleDbPrime.setAuthSessionSource).toHaveBeenCalledWith(
       EPrimeAuthSessionSource.KeylessOAuth,
     );
+    // Lock policy: the in-lock slot check must be the strict LOCAL
+    // persisted-bytes read of the committed source, never a network-capable
+    // getSession-based token read.
+    expect(
+      mockReadPersistedAccessTokenBySessionSourceStrict,
+    ).toHaveBeenCalledWith(EPrimeAuthSessionSource.KeylessOAuth);
+    expect(simpleDbPrime.getActiveAuthToken).not.toHaveBeenCalled();
     expect(emitSpy).toHaveBeenCalledWith(
       EAppEventBusNames.PrimeAuthSessionSourceCommitted,
       {
@@ -938,27 +980,300 @@ describe('ServicePrime.commitAuthSessionSourceBeforeAtomUpdate', () => {
         callerName: 'test',
       },
     );
+    expect(updatePrimeAtom).toHaveBeenCalled();
+    expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
   });
 
-  it('does not emit when the commit fails safe (no readable active token)', async () => {
+  it('does not emit and rolls back when the committed slot is empty', async () => {
     const { service, simpleDbPrime } = createService();
-    simpleDbPrime.getActiveAuthToken.mockResolvedValue('');
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValueOnce({
+      status: 'empty',
+    });
+    const updatePrimeAtom = jest.fn(async () => undefined);
     const atomResetSpy = jest
       .spyOn(service, 'setPrimePersistAtomNotLoggedIn')
       .mockResolvedValue(undefined);
 
     await expect(
-      service.commitAuthSessionSourceBeforeAtomUpdate({
+      service.commitAuthSessionSourceAndPrimeAtom({
         authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
         callerName: 'test',
+        updatePrimeAtom,
       }),
     ).rejects.toThrow('Active auth token not found');
 
     expect(atomResetSpy).toHaveBeenCalled();
     expect(simpleDbPrime.clearAuthTokens).toHaveBeenCalled();
+    expect(updatePrimeAtom).not.toHaveBeenCalled();
     expect(emitSpy).not.toHaveBeenCalledWith(
       EAppEventBusNames.PrimeAuthSessionSourceCommitted,
       expect.anything(),
     );
+  });
+
+  it('rolls back before rethrowing when the strict slot read fails transiently', async () => {
+    // Previously a transient throw escaped AFTER setAuthSessionSource,
+    // leaving source persisted + atom logged out (half-committed state).
+    const { service, simpleDbPrime } = createService();
+    const transientError = new Error('sealed storage transient failure');
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockRejectedValueOnce(
+      transientError,
+    );
+    const atomResetSpy = jest
+      .spyOn(service, 'setPrimePersistAtomNotLoggedIn')
+      .mockResolvedValue(undefined);
+
+    await expect(
+      service.commitAuthSessionSourceAndPrimeAtom({
+        authSessionSource: EPrimeAuthSessionSource.LegacyEmailSupabase,
+        callerName: 'test',
+        updatePrimeAtom: jest.fn(async () => undefined),
+      }),
+    ).rejects.toBe(transientError);
+
+    expect(simpleDbPrime.setAuthSessionSource).toHaveBeenCalled();
+    expect(simpleDbPrime.clearAuthTokens).toHaveBeenCalled();
+    expect(atomResetSpy).toHaveBeenCalled();
+    expect(emitSpy).not.toHaveBeenCalledWith(
+      EAppEventBusNames.PrimeAuthSessionSourceCommitted,
+      expect.anything(),
+    );
+  });
+
+  it('rolls back before rethrowing when the prime-atom update fails', async () => {
+    const { service, simpleDbPrime } = createService();
+    const atomError = new Error('atom write failed');
+    const atomResetSpy = jest
+      .spyOn(service, 'setPrimePersistAtomNotLoggedIn')
+      .mockResolvedValue(undefined);
+
+    await expect(
+      service.commitAuthSessionSourceAndPrimeAtom({
+        authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+        callerName: 'test',
+        updatePrimeAtom: jest.fn(async () => {
+          throw atomError;
+        }),
+      }),
+    ).rejects.toBe(atomError);
+
+    expect(simpleDbPrime.clearAuthTokens).toHaveBeenCalled();
+    expect(atomResetSpy).toHaveBeenCalled();
+  });
+});
+
+// Build an unsigned JWT-shaped token whose payload decodes to the given
+// claims — enough for the identity guard, which reads claims only and never
+// verifies signatures.
+function buildFakeJwt(payload: Record<string, unknown>): string {
+  const encodeBase64Url = (obj: Record<string, unknown>) =>
+    Buffer.from(JSON.stringify(obj))
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+  return `${encodeBase64Url({ alg: 'none', typ: 'JWT' })}.${encodeBase64Url(
+    payload,
+  )}.fake-signature`;
+}
+
+describe('ServicePrime OneKey ID OAuth identity precheck', () => {
+  function mockProfile(service: any) {
+    service.apiFetchOneKeyIdProfile = jest.fn(async () => ({
+      onekeyAccount: {
+        onekeyUserId: 'onekey-user-a',
+        status: EOneKeyIdAccountStatus.Active,
+        identities: [
+          {
+            identityType: EOneKeyIdIdentityType.LegacyEmail,
+            legacyEmail: 'a@example.com',
+          },
+          {
+            identityType: EOneKeyIdIdentityType.OAuth,
+            oauthProvider: EOneKeyIdOAuthProvider.Google,
+            oauthSubject: 'google-sub-a',
+          },
+        ],
+      },
+    }));
+  }
+
+  it('detects whether the selected provider is already bound on the current OneKey ID', async () => {
+    const { service } = createService();
+    mockProfile(service);
+
+    await expect(
+      service.isOAuthProviderBoundToCurrentOneKeyId({
+        provider: EOAuthSocialLoginProvider.Google,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      service.isOAuthProviderBoundToCurrentOneKeyId({
+        provider: EOAuthSocialLoginProvider.Apple,
+      }),
+    ).resolves.toBe(false);
+  });
+
+  it('matches only the exact provider subject selected during OAuth reauthentication', async () => {
+    const { service } = createService();
+    mockProfile(service);
+
+    await expect(
+      service.isOAuthIdentityBoundToCurrentOneKeyId({
+        oauthAccessToken: buildFakeJwt({
+          user_metadata: { sub: 'google-sub-a' },
+        }),
+        provider: EOAuthSocialLoginProvider.Google,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      service.isOAuthIdentityBoundToCurrentOneKeyId({
+        oauthAccessToken: buildFakeJwt({
+          user_metadata: { sub: 'different-google-sub' },
+        }),
+        provider: EOAuthSocialLoginProvider.Google,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      service.isOAuthIdentityBoundToCurrentOneKeyId({
+        oauthAccessToken: buildFakeJwt({}),
+        provider: EOAuthSocialLoginProvider.Google,
+      }),
+    ).resolves.toBe(false);
+  });
+});
+
+describe('ServicePrime.apiOAuthLogin keyless slot identity guard', () => {
+  let emitSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    emitSpy = jest.spyOn(appEventBus, 'emit').mockImplementation(() => true);
+  });
+
+  afterEach(() => {
+    emitSpy.mockRestore();
+  });
+
+  function mockOAuthLoginClient(service: any) {
+    const post = jest.fn(async () => ({
+      data: {
+        data: {
+          userId: 'user-a',
+          onekeyAccount: {
+            onekeyUserId: 'user-a',
+            normalizedEmail: 'a@example.com',
+            displayEmail: 'a@example.com',
+          },
+        },
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+    return post;
+  }
+
+  it('aborts before the server POST when the slot was replaced by a different account', async () => {
+    // TOCTOU repro: account A's persist finished, but a concurrent flow
+    // (ext popup vs expand tab) overwrote the shared keyless slot with
+    // account B's session before the bg commit.
+    const { service } = createService();
+    const post = mockOAuthLoginClient(service);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValueOnce({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'user-b' }),
+    });
+
+    const loginPromise = service.apiOAuthLogin({
+      accessToken: buildFakeJwt({ sub: 'user-a' }),
+    });
+    await expect(loginPromise).rejects.toBeDefined();
+    const error: unknown = await loginPromise.then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    // The typed class (not a plain OneKeyLocalError) is load-bearing: the
+    // slot holds the WINNING flow's valid session, and main-runtime cleanup
+    // matches this className to skip its session teardown.
+    expect(error).toBeInstanceOf(OneKeyErrorOneKeyIdKeylessSessionSlotReplaced);
+    expect((error as { className?: string }).className).toBe(
+      EOneKeyErrorClassNames.OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
+    );
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('accepts a rotated slot token carrying the same identity', async () => {
+    // bg auto-refresh legitimately rotates tokens: different bytes, same
+    // `sub` claim — neither the pre-POST guard nor the in-lock commit
+    // re-check must reject that.
+    const { service } = createService();
+    const post = mockOAuthLoginClient(service);
+    // First read: pre-POST guard. Second read: in-lock commit re-check.
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValueOnce({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'user-a', iat: 1_752_000_000 }),
+    });
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValueOnce({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'user-a', iat: 1_752_000_500 }),
+    });
+
+    await service.apiOAuthLogin({
+      accessToken: buildFakeJwt({ sub: 'user-a' }),
+    });
+
+    expect(post).toHaveBeenCalled();
+  });
+
+  it('rolls back but keeps the replacement session when the slot is replaced during the commit', async () => {
+    // The pre-POST guard cannot cover the guard->POST->commit window: the
+    // main-runtime persist takes no bg mutex, so account B can overwrite
+    // the shared slot while account A's POST is in flight. The in-lock
+    // commit re-check must then abort (typed slot-replaced error) and roll
+    // back source + atom — WITHOUT which the commit would persist
+    // atom=A / slot=B and every later authenticated request would use B's
+    // token while the UI shows A.
+    const { service, simpleDbPrime } = createService();
+    const post = mockOAuthLoginClient(service);
+    // Guard read: slot still holds account A.
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValueOnce({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'user-a' }),
+    });
+    // Commit read: account B replaced the slot during the POST.
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValueOnce({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'user-b' }),
+    });
+
+    const loginPromise = service.apiOAuthLogin({
+      accessToken: buildFakeJwt({ sub: 'user-a' }),
+    });
+    await expect(loginPromise).rejects.toBeDefined();
+    const error: unknown = await loginPromise.then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(error).toBeInstanceOf(OneKeyErrorOneKeyIdKeylessSessionSlotReplaced);
+    expect(post).toHaveBeenCalled();
+    // Rollback resets only the simpleDb source/token pair; the session slot
+    // (B's valid session) is deliberately untouched.
+    expect(simpleDbPrime.clearAuthTokens).toHaveBeenCalled();
+  });
+
+  it('aborts definitively when the in-flight token payload is undecodable', async () => {
+    const { service } = createService();
+    const post = mockOAuthLoginClient(service);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValueOnce({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'user-a' }),
+    });
+
+    await expect(
+      service.apiOAuthLogin({ accessToken: 'not-a-jwt' }),
+    ).rejects.toThrow('session token payload is not decodable');
+
+    expect(post).not.toHaveBeenCalled();
   });
 });

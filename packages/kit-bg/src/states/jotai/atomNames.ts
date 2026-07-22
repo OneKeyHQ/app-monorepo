@@ -68,6 +68,7 @@ export enum EAtomNames {
   accountSelectorAccountsListIsLoadingAtom = 'accountSelectorAccountsListIsLoadingAtom',
   accountSelectorStatusAtom = 'accountSelectorStatusAtom',
   allNetworksPersistAtom = 'allNetworksPersistAtom',
+  bulkExportHistorySupportedNetworksPersistAtom = 'bulkExportHistorySupportedNetworksPersistAtom',
   tokenSelectorFilterPersistAtom = 'tokenSelectorFilterPersistAtom',
   desktopBluetoothAtom = 'desktopBluetoothAtom',
   hardwareForceTransportAtom = 'hardwareForceTransportAtom',

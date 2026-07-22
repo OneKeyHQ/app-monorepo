@@ -79,6 +79,8 @@ export interface IDevSettings {
   showPerformanceMonitorV2?: boolean;
   // use local trading view URL for development
   useLocalTradingViewUrl?: boolean;
+  // use the data-only native chart in Market Detail
+  useTradingViewNativeInMarketDetail?: boolean;
   showPerpsRenderStats?: boolean;
   mockTradingViewKLineEmptyEnabled?: boolean;
   mockTradingViewKLineEmptyIntervals?: ITradingViewKLineMockEmptyInterval[];
@@ -117,6 +119,8 @@ export interface IDevSettings {
   useFastPbkdf2NativeBackend?: boolean;
   // Enable Slow 4G throttling on platforms with a supported backend.
   networkThrottleEnabled?: boolean;
+  // Force kaspa refTx fetch to fail, so QA can verify the blind-sign fallback.
+  mockKaspaRefTxFetchFailed?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -163,6 +167,7 @@ export const {
         selectedTab: ETabRoutes.Home,
       },
       useLocalTradingViewUrl: false,
+      useTradingViewNativeInMarketDetail: false,
       mockTradingViewKLineEmptyEnabled: false,
       mockTradingViewKLineEmptyIntervals: ['1m'],
       showMarketHomeWsDebug: false,
