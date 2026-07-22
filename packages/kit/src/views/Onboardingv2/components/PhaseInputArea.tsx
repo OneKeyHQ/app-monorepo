@@ -51,7 +51,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { parseSecretRecoveryPhraseToWords } from '@onekeyhq/shared/src/utils/phrase';
 import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
-import { PHRASE_LENGTHS } from '../../Onboarding/utils/mnemonicPasteUtils';
+import {
+  PHRASE_LENGTHS,
+  getMnemonicPasteWordsFromChangeText,
+} from '../../Onboarding/utils/mnemonicPasteUtils';
 import { OnboardingTestIDs } from '../testIDs';
 
 import { useSuggestion } from './useSuggestion';
@@ -271,9 +274,12 @@ function BasicPhaseInput(
 
   const handleChangeText = useCallback(
     (v: string) => {
-      // Supports inputting mnemonic phrases via drag-and-drop text or toolbar of keyboard, such as 1Password.
-      const phraseWords = v ? parseSecretRecoveryPhraseToWords(v) : [];
-      if (phraseWords.length > 1) {
+      // Native fallback for multi-word input from keyboard toolbars such as 1Password.
+      const phraseWords = getMnemonicPasteWordsFromChangeText({
+        value: v,
+        isNative: platformEnv.isNative,
+      });
+      if (phraseWords) {
         if (onPasteMnemonic(phraseWords, 0)) {
           onInputChange('');
           onChange?.('');

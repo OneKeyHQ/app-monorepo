@@ -1,4 +1,22 @@
+import { parseSecretRecoveryPhraseToWords } from '@onekeyhq/shared/src/utils/phrase';
+
 export const PHRASE_LENGTHS = [12, 15, 18, 21, 24] as const;
+
+export function getMnemonicPasteWordsFromChangeText({
+  value,
+  isNative,
+}: {
+  value: string;
+  isNative?: boolean;
+}) {
+  // Web receives a separate paste event with the actual input index.
+  if (!isNative) {
+    return null;
+  }
+
+  const phraseWords = value ? parseSecretRecoveryPhraseToWords(value) : [];
+  return phraseWords.length > 1 ? phraseWords : null;
+}
 
 export function resolvePhraseLengthAfterPaste({
   pastedWordCount,

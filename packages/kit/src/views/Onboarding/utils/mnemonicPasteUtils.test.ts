@@ -1,11 +1,29 @@
 import {
   buildPhraseFormValues,
   getInvalidWordErrors,
+  getMnemonicPasteWordsFromChangeText,
   mergePastedPhraseWords,
   resolvePhraseLengthAfterPaste,
 } from './mnemonicPasteUtils';
 
 describe('mnemonicPasteUtils', () => {
+  it('uses change text as a paste fallback only on native', () => {
+    const value = Array.from({ length: 12 }, () => 'abandon').join(' ');
+
+    expect(
+      getMnemonicPasteWordsFromChangeText({ value, isNative: false }),
+    ).toBeNull();
+    expect(
+      getMnemonicPasteWordsFromChangeText({ value, isNative: true }),
+    ).toHaveLength(12);
+    expect(
+      getMnemonicPasteWordsFromChangeText({
+        value: 'abandon',
+        isNative: true,
+      }),
+    ).toBeNull();
+  });
+
   it('updates the selected phrase length for a full phrase replacement', () => {
     expect(
       resolvePhraseLengthAfterPaste({
