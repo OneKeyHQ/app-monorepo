@@ -165,7 +165,7 @@
     "react-native-passkeys": "0.3.3",
     "react-native-permissions": "5.4.4",
     "react-native-ping": "npm:@onekeyfe/react-native-ping@3.0.78",
-    "react-native-purchases": "10.4.3",
+    "react-native-purchases": "10.4.2",
     "react-native-qrcode-styled": "0.4.0",
     "react-native-quick-base64": "^3.0.0",
     "react-native-quick-crypto": "^1.1.3",
