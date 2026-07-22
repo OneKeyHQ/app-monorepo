@@ -1762,6 +1762,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         id: ETranslations.swap_page_alert_account_does_not_support_swap,
       });
       if (
+        swapFromAddressInfo.isAddressInfoReady &&
         shouldShowSwapAccountUnsupportedAlert({
           hasFromToken: Boolean(fromToken),
           fromAddress: swapFromAddressInfo.address,
@@ -1779,6 +1780,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
 
       if (
+        swapFromAddressInfo.isAddressInfoReady &&
         fromToken &&
         swapFromAddressInfo.accountInfo?.wallet?.id &&
         alertsRes.every((item) => item.message !== notSupportSwapMessage)
@@ -1806,6 +1808,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
       }
       if (
+        swapToAddressInfo.isAddressInfoReady &&
         toToken &&
         !swapToAddressInfo.address &&
         swapToAddressInfo.accountInfo?.wallet?.id &&

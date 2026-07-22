@@ -83,6 +83,13 @@ const mockCloseApproving: jest.MockedFunction<() => Promise<void>> = jest.fn();
 const mockCancelFetchQuoteEvents: jest.MockedFunction<
   (quoteRequestId?: string) => Promise<void>
 > = jest.fn();
+const mockCheckAccountNetworkNotSupported: jest.MockedFunction<
+  (params: {
+    walletId?: string;
+    accountId?: string;
+    activeNetworkId: string;
+  }) => Promise<boolean>
+> = jest.fn();
 const mockSetSwapNetworksSortRawData: jest.MockedFunction<
   (params: { data: unknown[] }) => Promise<void>
 > = jest.fn();
@@ -103,6 +110,13 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         setRawData: (params: { data: unknown[] }) =>
           mockSetSwapNetworksSortRawData(params),
       },
+    },
+    serviceAccount: {
+      checkAccountNetworkNotSupported: (params: {
+        walletId?: string;
+        accountId?: string;
+        activeNetworkId: string;
+      }) => mockCheckAccountNetworkNotSupported(params),
     },
   },
 }));
@@ -205,6 +219,26 @@ const fromAddressInfo: ISwapAddressInfo = {
   isAddressInfoReady: true,
 };
 
+function createExternalAddressInfo({
+  address,
+  isAddressInfoReady,
+}: Pick<ISwapAddressInfo, 'address' | 'isAddressInfoReady'>): ISwapAddressInfo {
+  return {
+    ...fromAddressInfo,
+    address,
+    networkId: usdtToken.networkId,
+    accountInfo: {
+      ...activeAccountInfo,
+      wallet: externalWallet,
+    },
+    activeAccount: {
+      ...activeAccountInfo,
+      wallet: externalWallet,
+    },
+    isAddressInfoReady,
+  };
+}
+
 function createWrapperWithStore(
   setup?: (store: ReturnType<typeof createStore>) => void,
 ) {
@@ -269,6 +303,7 @@ describe('useSwapActions', () => {
     mockSetSwapNetworksSortRawData.mockResolvedValue(undefined);
     mockCloseApproving.mockResolvedValue(undefined);
     mockCancelFetchQuoteEvents.mockResolvedValue(undefined);
+    mockCheckAccountNetworkNotSupported.mockResolvedValue(false);
     mockFetchQuotesEvents.mockResolvedValue(undefined);
     jest.spyOn(settingsAtom, 'get').mockResolvedValue({
       swapEnableRecipientAddress: false,
@@ -2021,6 +2056,65 @@ describe('useSwapActions', () => {
     expect(mockCancelFetchQuoteEvents).toHaveBeenCalledWith(
       'current-stock-error-request',
     );
+  });
+
+  it('does not emit or check unsupported-account alerts while addresses are resolving', async () => {
+    mockCheckAccountNetworkNotSupported.mockResolvedValue(true);
+    const resolvingAddressInfo = createExternalAddressInfo({
+      address: undefined,
+      isAddressInfoReady: false,
+    });
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapSelectFromTokenAtom(), usdtToken);
+      storeInstance.set(swapSelectToTokenAtom(), appleStockToken);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await withMutedConsoleError(async () => {
+      await act(async () => {
+        await result.current.checkSwapWarning(
+          resolvingAddressInfo,
+          resolvingAddressInfo,
+          { allowNoConnectWallet: true },
+        );
+      });
+    });
+
+    expect(mockCheckAccountNetworkNotSupported).not.toHaveBeenCalled();
+    expect(store.get(swapAlertsAtom())).toEqual({
+      quoteId: '',
+      states: [],
+    });
+  });
+
+  it('keeps the unsupported-account alert after address resolution completes', async () => {
+    const unsupportedAddressInfo = createExternalAddressInfo({
+      address: undefined,
+      isAddressInfoReady: true,
+    });
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapSelectFromTokenAtom(), usdtToken);
+      storeInstance.set(swapSelectToTokenAtom(), appleStockToken);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await withMutedConsoleError(async () => {
+      await act(async () => {
+        await result.current.checkSwapWarning(
+          unsupportedAddressInfo,
+          unsupportedAddressInfo,
+          { allowNoConnectWallet: true },
+        );
+      });
+    });
+
+    expect(store.get(swapAlertsAtom()).states).toHaveLength(1);
   });
 
   it('does not keep noConnectWallet warning when native wallet readiness is not proven', async () => {
