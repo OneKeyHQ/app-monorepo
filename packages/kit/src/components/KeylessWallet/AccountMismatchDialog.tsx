@@ -3,6 +3,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getOAuthSocialLoginProviderName } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 
 import { getDisplayEmailOrUnknown } from '../OneKeyAuth/oneKeyIdDisplayEmailUtils';
 
@@ -126,6 +127,41 @@ export async function showKeylessOneKeyIdSessionConflictDialog(params: {
       showCancelButton: true,
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_continue,
+      }),
+      onCancelText: intl.formatMessage({
+        id: ETranslations.global_cancel,
+      }),
+      onConfirm: () => settle(true),
+      onCancel: () => settle(false),
+      onClose: () => settle(false),
+    });
+  });
+}
+
+export async function showOneKeyIdOAuthReauthAccountMismatchDialog(params: {
+  intl: IntlShape;
+  provider: EOAuthSocialLoginProvider;
+}): Promise<boolean> {
+  const { intl, provider } = params;
+  const providerName = getOAuthSocialLoginProviderName(provider);
+  return new Promise<boolean>((resolve) => {
+    let isSettled = false;
+    const settle = (value: boolean) => {
+      if (!isSettled) {
+        isSettled = true;
+        resolve(value);
+      }
+    };
+    Dialog.show({
+      icon: 'ErrorOutline',
+      title: intl.formatMessage({
+        id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
+      }),
+      // TODO: i18n
+      description: `This ${providerName} account isn't the one linked to your current OneKey ID. Please choose the linked account and try again.`,
+      showCancelButton: true,
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_retry,
       }),
       onCancelText: intl.formatMessage({
         id: ETranslations.global_cancel,

@@ -23,6 +23,7 @@ export enum EPerpPageEnterSource {
 export interface IPerpDepositInitiateParams {
   userAddress: string;
   receiverAddress: string;
+  walletType: string;
   txId?: string;
   token: IPerpsDepositToken;
   amount: string;
@@ -33,5 +34,6 @@ export interface IPerpDepositInitiateParams {
 
 export interface IPerpUserSelectDepositTokenParams {
   userAddress: string;
+  walletType: string;
   depositToken: IPerpsDepositToken;
 }

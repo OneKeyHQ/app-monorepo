@@ -8,6 +8,7 @@ export enum EPerpsSubscriptionCategory {
 export enum ESubscriptionType {
   ALL_MIDS = 'allMids',
   L2_BOOK = 'l2Book',
+  L2 = 'l2',
   ACTIVE_ASSET_CTX = 'activeAssetCtx',
   ACTIVE_ASSET_DATA = 'activeAssetData',
   WEB_DATA2 = 'webData2',

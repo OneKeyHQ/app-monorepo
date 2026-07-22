@@ -66,6 +66,8 @@ import {
 } from '../../hooks/useSwapAccount';
 import {
   shouldBlockSwapActionForIncognitoRecipientInput,
+  shouldEnableSwapIncognitoRecipientValidation,
+  shouldShowSwapIncognitoRecipientInput,
   useSwapIncognitoRecipientInput,
 } from '../../hooks/useSwapIncognitoRecipientInput';
 import {
@@ -204,19 +206,32 @@ const SwapActionsState = ({
 
   const shouldShowIncognitoRecipientInput = useMemo(
     () =>
-      !!(
-        swapIncognitoMode &&
-        swapProviderSupportReceiveAddress &&
-        fromToken &&
-        toToken &&
-        swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
-        swapTypeSwitch !== ESwapTabSwitchType.STOCK
-      ),
+      shouldShowSwapIncognitoRecipientInput({
+        incognitoMode: swapIncognitoMode,
+        providerSupportsRecipient: swapProviderSupportReceiveAddress,
+        swapType: swapTypeSwitch,
+      }),
+    [swapIncognitoMode, swapProviderSupportReceiveAddress, swapTypeSwitch],
+  );
+
+  const incognitoRecipientNetworkId =
+    toToken?.networkId ?? swapToAddressInfo.networkId;
+  const shouldValidateIncognitoRecipientInput = useMemo(
+    () =>
+      shouldEnableSwapIncognitoRecipientValidation({
+        hasFromToken: Boolean(fromToken),
+        hasToToken: Boolean(toToken),
+        isAddressInfoReady: swapToAddressInfo.isAddressInfoReady,
+        networkId: incognitoRecipientNetworkId,
+        providerSupportsRecipient: swapProviderSupportReceiveAddress,
+        visible: shouldShowIncognitoRecipientInput,
+      }),
     [
       fromToken,
-      swapIncognitoMode,
+      incognitoRecipientNetworkId,
+      shouldShowIncognitoRecipientInput,
       swapProviderSupportReceiveAddress,
-      swapTypeSwitch,
+      swapToAddressInfo.isAddressInfoReady,
       toToken,
     ],
   );
@@ -228,8 +243,9 @@ const SwapActionsState = ({
 
   const incognitoRecipientInput = useSwapIncognitoRecipientInput({
     visible: shouldShowIncognitoRecipientInput,
+    validationEnabled: shouldValidateIncognitoRecipientInput,
     clearRecipientAddressOnHide,
-    networkId: toToken?.networkId ?? swapToAddressInfo.networkId,
+    networkId: incognitoRecipientNetworkId,
     accountId:
       swapToAddressInfo.accountInfo?.account?.id ??
       swapToAddressInfo.activeAccount?.account?.id,
@@ -276,10 +292,12 @@ const SwapActionsState = ({
 
   const shouldBlockIncognitoRecipientAction =
     shouldBlockSwapActionForIncognitoRecipientInput({
-      enabled: incognitoRecipientInput.enabled,
       inputText: incognitoRecipientInput.inputText,
+      isConnectWalletAction: Boolean(swapActionState.noConnectWallet),
       loading: incognitoRecipientInput.loading,
       queryResult: incognitoRecipientInput.queryResult,
+      validationEnabled: incognitoRecipientInput.enabled,
+      visible: shouldShowIncognitoRecipientInput,
     });
 
   const isActionDisabled =
@@ -289,10 +307,6 @@ const SwapActionsState = ({
     shouldBlockIncognitoRecipientAction;
 
   const onActionHandlerBefore = useCallback(async () => {
-    if (shouldBlockIncognitoRecipientAction) {
-      return;
-    }
-
     if (swapActionState.noConnectWallet) {
       if (platformEnv.isWebDappMode) {
         navigation.pushModal(EModalRoutes.OnboardingModal, {
@@ -306,6 +320,9 @@ const SwapActionsState = ({
           },
         });
       }
+      return;
+    }
+    if (shouldBlockIncognitoRecipientAction) {
       return;
     }
     if (swapActionState.isRefreshQuote) {

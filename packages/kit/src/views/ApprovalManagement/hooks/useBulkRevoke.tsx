@@ -7,6 +7,7 @@ import {
   Badge,
   Dialog,
   SizableText,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -20,6 +21,10 @@ import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/appr
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import type { IAddressInfo } from '@onekeyhq/shared/types/address';
+import type {
+  IApproval,
+  IContractApproval,
+} from '@onekeyhq/shared/types/approval';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -75,6 +80,7 @@ function useBulkRevoke() {
       selectedTokens,
       tokenMap,
       contractMap,
+      approvals,
     }: {
       selectedTokens: Record<string, boolean>;
       tokenMap: Record<
@@ -85,70 +91,143 @@ function useBulkRevoke() {
         }
       >;
       contractMap: Record<string, IAddressInfo>;
+      approvals: IContractApproval[];
     }) => {
       setIsBuildingRevokeTxs(true);
-      const selectedTokensArray = Object.entries(selectedTokens)
-        .map(([key, value]) => {
-          const { accountId, networkId, contractAddress, tokenAddress } =
-            approvalUtils.parseSelectedTokenKey({
-              selectedTokenKey: key,
-            });
+      const approvalBySelectedTokenKey = new Map<
+        string,
+        {
+          contractApproval: IContractApproval;
+          approval: IApproval;
+        }
+      >();
+      approvals.forEach((contractApproval) => {
+        contractApproval.approvals.forEach((approval) => {
+          approvalBySelectedTokenKey.set(
+            approvalUtils.buildSelectedTokenKey({
+              accountId: contractApproval.accountId,
+              networkId: contractApproval.networkId,
+              contractAddress: contractApproval.contractAddress,
+              tokenAddress: approval.tokenAddress,
+              permit2Address: approval.permit2Address,
+            }),
+            { contractApproval, approval },
+          );
+        });
+      });
 
-          if (value) {
-            return {
-              accountId,
-              networkId,
-              contractAddress,
-              tokenAddress,
-            };
-          }
+      const selectedApprovalItems = Object.entries(selectedTokens)
+        .filter(([, value]) => value)
+        .map(([key]) => approvalBySelectedTokenKey.get(key));
 
-          return null;
-        })
-        .filter((item) => item !== null);
+      if (selectedApprovalItems.some((item) => !item)) {
+        setIsBuildingRevokeTxs(false);
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred_desc,
+          }),
+        });
+        return;
+      }
+      const validSelectedApprovalItems = selectedApprovalItems.filter(
+        (item): item is NonNullable<typeof item> => Boolean(item),
+      );
 
       const revokeInfos: (IApproveInfo & {
         accountId: string;
         networkId: string;
       })[] = [];
+      const unsignedTxs: (IUnsignedTxPro & IHasId)[] = [];
 
-      for (const item of selectedTokensArray) {
-        const { accountId, networkId, contractAddress, tokenAddress } = item;
-        const accountAddress =
-          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-            networkId,
-            accountId,
+      try {
+        for (const item of validSelectedApprovalItems) {
+          const { contractApproval, approval } = item;
+          const { accountId, networkId } = contractApproval;
+          const hasPermit2Metadata = approvalUtils.hasPermit2ApprovalMetadata({
+            approval,
           });
-        revokeInfos.push({
-          accountId,
-          networkId,
-          owner: accountAddress,
-          spender: contractAddress,
-          amount: '0',
-          tokenInfo:
+          const permit2Expiration = approval.permit2Address
+            ? approvalUtils.normalizePermit2ExpirationMs(approval.expirationMs)
+            : undefined;
+          const tokenInfo =
             tokenMap[
               approvalUtils.buildTokenMapKey({
                 networkId,
-                tokenAddress,
+                tokenAddress: approval.tokenAddress,
               })
-            ].info,
-        });
-      }
-
-      const unsignedTxs: (IUnsignedTxPro & IHasId)[] = [];
-
-      for (const revokeInfo of revokeInfos) {
-        const { accountId, networkId, owner, spender, amount, tokenInfo } =
-          revokeInfo;
-        const unsignedTx =
-          await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
-            networkId,
+            ]?.info;
+          if (!tokenInfo) {
+            setIsBuildingRevokeTxs(false);
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_an_error_occurred_desc,
+              }),
+            });
+            return;
+          }
+          if (
+            hasPermit2Metadata &&
+            (!approval.permit2Address || !permit2Expiration)
+          ) {
+            setIsBuildingRevokeTxs(false);
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.wallet_approval_permit2_data_invalid__msg,
+              }),
+            });
+            return;
+          }
+          const accountAddress =
+            await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+              networkId,
+              accountId,
+            });
+          revokeInfos.push({
             accountId,
-            approveInfo: { owner, spender, amount, tokenInfo },
-            withoutNonce: true,
-            withUuid: true,
+            networkId,
+            owner: accountAddress,
+            spender: approval.spenderAddress,
+            amount: '0',
+            tokenInfo,
+            permit2Info:
+              approval.permit2Address && permit2Expiration
+                ? {
+                    permit2Address: approval.permit2Address,
+                    expirationSeconds: permit2Expiration.expirationSeconds,
+                  }
+                : undefined,
           });
-        unsignedTxs.push(unsignedTx as IUnsignedTxPro & IHasId);
+        }
+
+        for (const revokeInfo of revokeInfos) {
+          const {
+            accountId,
+            networkId,
+            owner,
+            spender,
+            amount,
+            tokenInfo,
+            permit2Info,
+          } = revokeInfo;
+          const unsignedTx =
+            await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
+              networkId,
+              accountId,
+              approveInfo: {
+                owner,
+                spender,
+                amount,
+                tokenInfo,
+                permit2Info,
+              },
+              withoutNonce: true,
+              withUuid: true,
+            });
+          unsignedTxs.push(unsignedTx as IUnsignedTxPro & IHasId);
+        }
+      } catch (error) {
+        setIsBuildingRevokeTxs(false);
+        throw error;
       }
 
       setIsBuildingRevokeTxs(false);
