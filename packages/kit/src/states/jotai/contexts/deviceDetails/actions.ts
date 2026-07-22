@@ -121,6 +121,10 @@ async function buildDeviceMetaState(
   if (device.deviceType === EDeviceType.Pro2 && pro2Snapshot) {
     return buildPro2DeviceMetaState({
       isVerified,
+      lastKnownPassphraseEnabled:
+        typeof features.passphraseProtection === 'boolean'
+          ? features.passphraseProtection
+          : undefined,
       snapshot: pro2Snapshot,
     });
   }

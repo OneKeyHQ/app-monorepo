@@ -31,19 +31,25 @@ export function getPro2DeviceMetaStaticOverrides(
 
 export function buildPro2DeviceMetaState({
   isVerified,
+  lastKnownPassphraseEnabled,
   snapshot,
 }: {
   isVerified: boolean;
+  lastKnownPassphraseEnabled?: boolean;
   snapshot: IPro2DeviceManagementSnapshot;
 }): IDeviceMetaState {
   const { status, settings } = snapshot;
+  const passphraseEnabled =
+    status.unlocked === true && typeof status.passphrase_enabled === 'boolean'
+      ? status.passphrase_enabled
+      : (lastKnownPassphraseEnabled ?? false);
   return {
     isVerified,
     unlocked: Boolean(status.unlocked),
     initialized: Boolean(status.init_states),
     backupRequired: Boolean(status.backup_required),
     unlockedByAttachToPin: Boolean(status.unlocked_by_attach_to_pin),
-    passphraseEnabled: Boolean(status.passphrase_enabled),
+    passphraseEnabled,
     pinOnAppEnabled: Boolean(status.attach_to_pin_enabled),
     // cspell:disable-next-line
     autoLockDelayMs: settings?.autolock_delay_ms,

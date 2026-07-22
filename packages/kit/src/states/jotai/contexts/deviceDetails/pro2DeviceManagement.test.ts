@@ -80,6 +80,21 @@ describe('buildPro2DeviceMetaState', () => {
       isReady: true,
     });
   });
+
+  it('设备锁定时忽略不可信的 Passphrase 状态并沿用最后可信值', () => {
+    expect(
+      buildPro2DeviceMetaState({
+        isVerified: true,
+        lastKnownPassphraseEnabled: true,
+        snapshot: {
+          status: {
+            unlocked: false,
+            passphrase_enabled: false,
+          },
+        },
+      }).passphraseEnabled,
+    ).toBe(true);
+  });
 });
 
 describe('getPro2DeviceMetaStaticOverrides', () => {
