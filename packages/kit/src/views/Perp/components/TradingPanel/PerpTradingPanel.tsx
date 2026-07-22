@@ -29,6 +29,7 @@ import {
   usePerpsCustomSettingsAtom,
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useOrderConfirm } from '../../hooks';
@@ -189,6 +190,8 @@ const PerpTradingDisabledPlaceOrderButtonMemo = memo(
 );
 
 function PerpConnectWalletPromptCard() {
+  const intl = useIntl();
+
   return (
     <XStack
       testID="perp-connect-wallet-prompt-card"
@@ -214,7 +217,9 @@ function PerpConnectWalletPromptCard() {
         size="$bodySmMedium"
         color="$text"
       >
-        Connect your wallet to access Perps trading.
+        {intl.formatMessage({
+          id: ETranslations.connect_wallet_to_access_perps_trading__desc,
+        })}
       </SizableText>
     </XStack>
   );

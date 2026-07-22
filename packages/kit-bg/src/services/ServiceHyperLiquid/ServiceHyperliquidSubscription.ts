@@ -62,6 +62,7 @@ import { devSettingsPersistAtom } from '../../states/jotai/atoms';
 import {
   perpsAbstractionModeAtom,
   perpsActiveAccountAtom,
+  perpsActiveAccountStatusInfoAtom,
   perpsActiveAssetAtom,
   perpsActiveOrderBookOptionsAtom,
   perpsCandlesWebviewReloadHookAtom,
@@ -82,6 +83,10 @@ import {
   isStaleFastL2TargetError,
   shouldResetFastL2RecoveryAfterFrame,
 } from './utils/FastL2Book';
+import {
+  hasPositivePerpsBalance,
+  shouldRefreshPerpsActivationFromFundedState,
+} from './utils/perpsAccountStatusCheckUtils';
 import {
   SUBSCRIPTION_TYPE_INFO,
   calculateRequiredSubscriptionsMap,
@@ -252,7 +257,57 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _destroyingSubscriptionKeys = new Set<string>();
 
+  private _fundedActivationRefreshAddress: string | null = null;
+
   private _routeSubscriptionStateVersion = 0;
+
+  private async _refreshActivationFromFundedState({
+    eventAddress,
+    balanceValues,
+  }: {
+    eventAddress: string | null | undefined;
+    balanceValues: Array<string | null | undefined>;
+  }): Promise<void> {
+    const activeAccount = await perpsActiveAccountAtom.get();
+    const activeAddress = activeAccount?.accountAddress?.toLowerCase();
+
+    if (
+      this._fundedActivationRefreshAddress &&
+      this._fundedActivationRefreshAddress !== activeAddress
+    ) {
+      this._fundedActivationRefreshAddress = null;
+    }
+
+    const statusInfo = await perpsActiveAccountStatusInfoAtom.get();
+    const normalizedEventAddress = eventAddress?.toLowerCase();
+    const activeStatusInfo =
+      activeAddress &&
+      statusInfo?.accountAddress?.toLowerCase() === activeAddress
+        ? statusInfo
+        : undefined;
+    const shouldRefresh = shouldRefreshPerpsActivationFromFundedState({
+      activeAddress,
+      eventAddress: normalizedEventAddress,
+      activatedOk: activeStatusInfo?.details.activatedOk,
+      hasFundedBalance: hasPositivePerpsBalance(balanceValues),
+      refreshHandled:
+        this._fundedActivationRefreshAddress === normalizedEventAddress,
+    });
+
+    if (!shouldRefresh || !normalizedEventAddress) {
+      return;
+    }
+
+    this._fundedActivationRefreshAddress = normalizedEventAddress;
+    try {
+      await this.backgroundApi.serviceHyperliquid.checkPerpsAccountStatus();
+    } catch (error) {
+      console.error(
+        '[ServiceHyperliquidSubscription] Funded account status refresh failed:',
+        error,
+      );
+    }
+  }
 
   private _isSubscriptionSpecPending(
     spec: ISubscriptionSpec<ESubscriptionType>,
@@ -1367,6 +1422,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     params: ISubscriptionUpdateParams,
   ): void {
     if (params.currentUser !== undefined) {
+      if (
+        state.currentUser?.toLowerCase() !== params.currentUser?.toLowerCase()
+      ) {
+        this._fundedActivationRefreshAddress = null;
+      }
       state.currentUser = params.currentUser;
     }
     if (params.currentSymbol !== undefined) {
@@ -2116,6 +2176,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
       if (subscriptionType === ESubscriptionType.ALL_DEXS_CLEARINGHOUSE_STATE) {
         const stateData = data as IWsAllDexsClearinghouseState;
+        void this._refreshActivationFromFundedState({
+          eventAddress: stateData.user,
+          balanceValues: (stateData.clearinghouseStates ?? []).map(
+            ([, state]) => state?.marginSummary?.accountValue,
+          ),
+        });
         const statePair =
           stateData.clearinghouseStates?.find(
             ([name]) => name === '', // Hyperliquid perps is empty string
@@ -2191,8 +2257,15 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
 
       if (subscriptionType === ESubscriptionType.SPOT_STATE) {
+        const spotStateData = data as IWsSpotState;
+        void this._refreshActivationFromFundedState({
+          eventAddress: spotStateData.user,
+          balanceValues: (spotStateData.spotState?.balances ?? []).map(
+            (balance) => balance.total,
+          ),
+        });
         void this.backgroundApi.serviceHyperliquid.updateSpotBalances(
-          data as IWsSpotState,
+          spotStateData,
         );
         this._emitHyperliquidDataUpdate(subscriptionType, data);
         this._updateNetworkLiveness();

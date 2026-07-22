@@ -1,6 +1,8 @@
 import {
   buildPerpsAccountStatusCheckInitialDetails,
   canApplyPerpsNotActivatedZeroState,
+  hasPositivePerpsBalance,
+  shouldRefreshPerpsActivationFromFundedState,
 } from './perpsAccountStatusCheckUtils';
 
 describe('buildPerpsAccountStatusCheckInitialDetails', () => {
@@ -59,5 +61,46 @@ describe('canApplyPerpsNotActivatedZeroState', () => {
         activeAddress: '0xABC',
       }),
     ).toBe(true);
+  });
+});
+
+describe('hasPositivePerpsBalance', () => {
+  it('detects a funded balance across clearinghouse or spot values', () => {
+    expect(hasPositivePerpsBalance(['0', undefined, '5.99'])).toBe(true);
+  });
+
+  it('rejects empty, invalid, zero, and negative values', () => {
+    expect(hasPositivePerpsBalance([undefined, '', 'invalid', '0', '-1'])).toBe(
+      false,
+    );
+  });
+});
+
+describe('shouldRefreshPerpsActivationFromFundedState', () => {
+  const baseParams = {
+    activeAddress: '0xabc',
+    eventAddress: '0xABC',
+    activatedOk: false,
+    hasFundedBalance: true,
+    refreshHandled: false,
+  };
+
+  it('refreshes a still-unactivated account after a funded event', () => {
+    expect(shouldRefreshPerpsActivationFromFundedState(baseParams)).toBe(true);
+  });
+
+  it.each([
+    ['different account', { eventAddress: '0xdef' }],
+    ['activation already confirmed', { activatedOk: true }],
+    ['activation still unknown', { activatedOk: undefined }],
+    ['zero balance event', { hasFundedBalance: false }],
+    ['refresh already handled', { refreshHandled: true }],
+  ])('does not refresh for %s', (_, override) => {
+    expect(
+      shouldRefreshPerpsActivationFromFundedState({
+        ...baseParams,
+        ...override,
+      }),
+    ).toBe(false);
   });
 });
