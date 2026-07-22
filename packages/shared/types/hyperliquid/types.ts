@@ -343,7 +343,7 @@ export interface IPerpActivityCard {
   url: string;
 }
 
-export type IPerpAssetMetaAssetType = 'coingecko' | 'non_coingecko';
+export type IPerpAssetMetaAssetType = 'coingecko' | 'non_coingecko' | 'stock';
 
 export interface IPerpAssetMeta {
   assetId: string;
