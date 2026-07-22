@@ -21,6 +21,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useNetworkRestore } from '../../../hooks/useNetworkRestore';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
@@ -345,6 +346,14 @@ export function TradingViewPerpsV2(
     };
   }, [closeChartOrderDialog, setMounted]);
 
+  // Warm the background allMids cache before the chart's resolveSymbol asks
+  // for priceScale, so a cold start never waits on the REST fallback.
+  useEffect(() => {
+    void backgroundApiProxy.serviceHyperliquid
+      .getTradingviewMidPrice(symbol)
+      .catch(() => undefined);
+  }, [symbol]);
+
   const latestSymbolRef = useRef(symbol);
   latestSymbolRef.current = symbol;
   const prevSymbolRef = useRef(symbol);
@@ -367,14 +376,38 @@ export function TradingViewPerpsV2(
     [_webviewKey],
   );
   const urlSymbol = reloadOnSymbolChange ? symbol : staticUrlSymbol;
+
+  // Persisted scale rides on the URL so a TV build that reads it can skip the
+  // resolveSymbol bridge round-trip. Keyed by symbol so a reload-based
+  // (Android) symbol switch never reuses the previous coin's scale.
+  const { result: initialPriceScaleResult } = usePromiseResult(async () => {
+    // Always settle — an unsettled lookup would keep the WebView unmounted.
+    try {
+      const priceScale =
+        await backgroundApiProxy.serviceHyperliquid.getTradingviewDisplayPriceScale(
+          urlSymbol,
+        );
+      return { symbol: urlSymbol, priceScale: priceScale ?? null };
+    } catch {
+      return { symbol: urlSymbol, priceScale: null };
+    }
+  }, [urlSymbol]);
+  const isWebviewSrcReady = initialPriceScaleResult?.symbol === urlSymbol;
+  const initialPriceScale = isWebviewSrcReady
+    ? (initialPriceScaleResult?.priceScale ?? null)
+    : null;
+
   const additionalParams = useMemo(
     () => ({
       symbol: urlSymbol,
       type: 'perps' as const,
       storageNamespace: 'perps' as const,
       enablePerpsTradingUi: enablePerpsTradingUi ? '1' : '0',
+      ...(initialPriceScale !== null
+        ? { priceScale: String(initialPriceScale) }
+        : {}),
     }),
-    [enablePerpsTradingUi, urlSymbol],
+    [enablePerpsTradingUi, initialPriceScale, urlSymbol],
   );
 
   const { finalUrl: staticTradingViewUrl } = useTradingViewUrl({
@@ -646,32 +679,36 @@ export function TradingViewPerpsV2(
 
   return (
     <Stack position="relative" flex={1} {...stackStyle}>
-      <WebViewMemoized
-        key={_webviewKey}
-        src={staticTradingViewUrl}
-        containerProps={{ bg: '$bgApp' }}
-        containerStyle={tradingViewWebViewStyleProps.containerStyle}
-        style={tradingViewWebViewStyleProps.style}
-        customReceiveHandler={customReceiveHandler}
-        skipBackgroundBridge
-        onWebViewRef={onWebViewRef}
-        onLoadEnd={onLoadEnd}
-        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-        nativeInjectedJavaScriptBeforeContentLoaded={
-          platformEnv.isNativeAndroid
-            ? hideTradingViewBuiltInLoadingScript
-            : undefined
-        }
-        allowsBackForwardNavigationGestures={false}
-        displayProgressBar={false}
-        pullToRefreshEnabled={false}
-        scrollEnabled={false}
-        bounces={false}
-        overScrollMode="never"
-        showsHorizontalScrollIndicator={false}
-        showsVerticalScrollIndicator={false}
-        decelerationRate="normal"
-      />
+      {/* Mount only once the persisted-scale lookup settles so the src never
+          changes mid-flight and remounts the WebView. */}
+      {isWebviewSrcReady ? (
+        <WebViewMemoized
+          key={_webviewKey}
+          src={staticTradingViewUrl}
+          containerProps={{ bg: '$bgApp' }}
+          containerStyle={tradingViewWebViewStyleProps.containerStyle}
+          style={tradingViewWebViewStyleProps.style}
+          customReceiveHandler={customReceiveHandler}
+          skipBackgroundBridge
+          onWebViewRef={onWebViewRef}
+          onLoadEnd={onLoadEnd}
+          onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+          nativeInjectedJavaScriptBeforeContentLoaded={
+            platformEnv.isNativeAndroid
+              ? hideTradingViewBuiltInLoadingScript
+              : undefined
+          }
+          allowsBackForwardNavigationGestures={false}
+          displayProgressBar={false}
+          pullToRefreshEnabled={false}
+          scrollEnabled={false}
+          bounces={false}
+          overScrollMode="never"
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+          decelerationRate="normal"
+        />
+      ) : null}
 
       {showChartLoadingMask ? (
         <Stack

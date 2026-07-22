@@ -3902,6 +3902,58 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getTradingviewPriceScale({
+    symbol,
+  }: {
+    symbol: string;
+  }): Promise<{ priceScale: number | undefined }> {
+    if (!symbol) {
+      return { priceScale: undefined };
+    }
+
+    const cachedMid = hyperLiquidCache.allMids?.mids?.[symbol];
+    if (cachedMid) {
+      const priceScale = perpsUtils.calculateDisplayPriceScale(cachedMid);
+      void this.setTradingviewDisplayPriceScale({ symbol, priceScale }).catch(
+        () => undefined,
+      );
+      return { priceScale };
+    }
+
+    // Answer from the persisted scale instead of waiting for the REST
+    // fallback; the chart's resolveSymbol blocks first paint on this response.
+    const persisted = await this.getTradingviewDisplayPriceScale(symbol);
+    if (persisted !== undefined) {
+      this.refreshTradingviewPriceScaleOffCriticalPath(symbol);
+      return { priceScale: persisted };
+    }
+
+    const midValue = await this.getTradingviewMidPrice(symbol);
+    if (!midValue) {
+      return { priceScale: undefined };
+    }
+    const priceScale = perpsUtils.calculateDisplayPriceScale(midValue);
+    void this.setTradingviewDisplayPriceScale({ symbol, priceScale }).catch(
+      () => undefined,
+    );
+    return { priceScale };
+  }
+
+  private refreshTradingviewPriceScaleOffCriticalPath(symbol: string): void {
+    void this.getTradingviewMidPrice(symbol)
+      .then(async (midValue) => {
+        if (!midValue) {
+          return;
+        }
+        await this.setTradingviewDisplayPriceScale({
+          symbol,
+          priceScale: perpsUtils.calculateDisplayPriceScale(midValue),
+        });
+      })
+      .catch(() => undefined);
+  }
+
+  @backgroundMethod()
   async getPortfolioHistory({ address }: { address: string }) {
     const { infoClient } = hyperLiquidApiClients;
     return infoClient.portfolio({ user: address as IHex });
