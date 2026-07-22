@@ -142,6 +142,7 @@ function TokenListBlock({
           variant="tertiary"
           icon="SliderHorOutline"
           onPress={handleOnManageToken}
+          disabled={payload?.showLpTokensOnly}
           size="medium"
         />
       </XStack>

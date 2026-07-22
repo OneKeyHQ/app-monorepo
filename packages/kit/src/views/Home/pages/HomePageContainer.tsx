@@ -40,7 +40,6 @@ import {
   markCurrentHomeGenerationReady,
   useOnboardingLaunchSnapshot,
 } from '../../Onboarding/components/onboardingLaunchGate';
-import { KYTIntroOnMount } from '../../Setting/pages/Protection/KYTIntroDialog';
 import { BTCFreshAddressProvider } from '../components/BTCFreshAddressProvider';
 import { useHomeTokenListContextStoreInitData } from '../components/HomeTokenListProvider/HomeTokenListRootProvider';
 import { HomeStoreSourceControllers } from '../model/react/HomeStoreSourceControllers';
@@ -263,7 +262,6 @@ export function HomeLaunchGatedContent({
           <DAppConnectExtensionFloatingTrigger />
           <ExtOneKeyIdAuthOnMount />
           <NotificationRegisterDaily />
-          <KYTIntroOnMount />
           <BTCFreshAddressProvider />
         </>
       ) : null}

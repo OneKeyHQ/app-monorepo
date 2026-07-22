@@ -296,6 +296,41 @@ export interface IMarketTokenKLineResponse {
   total: number;
 }
 
+export interface IMarketWsPriceData {
+  o: number;
+  h: number;
+  l: number;
+  c: number;
+  eventType: 'ohlcv';
+  type: string;
+  unixTime: number;
+  v: number;
+  symbol: string;
+  address: string;
+  volUsd?: number;
+  confirm?: number;
+  dataSource?: string;
+}
+
+export type IMarketWsPriceUpdate = Pick<
+  IMarketWsPriceData,
+  'address' | 'c' | 'unixTime'
+> &
+  Partial<Omit<IMarketWsPriceData, 'address' | 'c' | 'unixTime'>>;
+
+interface IMarketWsDataUpdateBasePayload {
+  tokenAddress: string;
+  networkId?: string;
+  isSubscriptionAmbiguous?: boolean;
+  messageType?: string;
+  data: unknown;
+  originalData?: unknown;
+}
+
+export type IMarketWsDataUpdatePayload =
+  | (IMarketWsDataUpdateBasePayload & { channel: 'ohlcv' })
+  | (IMarketWsDataUpdateBasePayload & { channel: 'tokenTxs' });
+
 export interface IMarketTokenTransactionToken {
   symbol: string;
   amount: string;

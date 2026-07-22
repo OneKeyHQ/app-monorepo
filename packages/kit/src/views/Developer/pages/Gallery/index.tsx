@@ -3,10 +3,6 @@ import type { ComponentType } from 'react';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import { EGalleryRoutes } from '@onekeyhq/shared/src/routes';
 
-const AnchorGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Anchor'),
-);
 const ComponentsScreen = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components'),
 );
@@ -14,59 +10,10 @@ const AccountModelGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AccountModelGallery'),
 );
-const ActionListGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ActionList'),
-);
-const AlertGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Alert'),
-);
-const BadgeGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Badge'),
-);
-const BreadcrumbGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/BreadcrumbGallery'),
-);
-const BlurViewGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/BlurView'),
-);
-const ButtonGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Button'),
-);
-const CheckboxGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Checkbox'),
-);
-const ColorPickerGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ColorPicker'),
-);
-const DatePickerGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/DatePicker'),
-);
-const DialogGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Dialog'),
-);
 const DiscoveryBrowserGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/DiscoveryBrowserGallery'),
 );
-const DividerGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Divider'),
-);
-const EmptyGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Empty'),
-);
-
 const SendGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SendGallery'),
@@ -82,10 +29,6 @@ const QRWalletGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/QRWalletGallery'),
 );
 
-const FormGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Form'),
-);
 const HardwareGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Hardware'),
@@ -101,22 +44,6 @@ const TrezorMultiTransportGallery = LazyLoadPage(
 const ThirdPartyHardwareActionsGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ThirdPartyHardwareActions'),
-);
-const IconGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Icon'),
-);
-const IconButtonGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/IconButton'),
-);
-const ImageGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Image'),
-);
-const InputGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Input'),
 );
 const IpRequestGallery = LazyLoadPage(
   () =>
@@ -134,10 +61,6 @@ const JotaiGlobalGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/JotaiGlobalGallery'),
 );
-const LinearGradientGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LinearGradient'),
-);
 const LightweightChartStyleGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LightweightChartStyle'),
@@ -145,10 +68,6 @@ const LightweightChartStyleGallery = LazyLoadPage(
 const ListItemGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ListItem'),
-);
-const ListViewGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ListView'),
 );
 const AccountAvatarGallery = LazyLoadPage(
   () =>
@@ -162,34 +81,14 @@ const LocalDBGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LocalDBGallery'),
 );
-const LottieViewGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LottieView'),
-);
 
 const PasswordDemoGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PasswordDemo'),
 );
-const PopoverGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Popover'),
-);
-const ProgressGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Progress'),
-);
-const QRCodeGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/QRCode'),
-);
 const SecureQRToastGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SecureQRToast'),
-);
-const RadioGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Radio'),
 );
 const RefreshControlGallery = LazyLoadPage(
   () =>
@@ -203,77 +102,21 @@ const ScanQrCodeGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ScanQrCode'),
 );
-const ScrollViewGallery = LazyLoadPage(
+const SetupStepItemGallery = LazyLoadPage(
   () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ScrollView'),
-);
-const SectionListGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SectionList'),
-);
-const SegmentControlGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SegmentControl'),
-);
-const SelectGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Select'),
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SetupStepItem'),
 );
 const ShortcutGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Shortcut'),
 );
-const SkeletonGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Skeleton'),
-);
-const SliderGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Slider'),
-);
-const SegmentSliderGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SegmentSlider'),
-);
-const SortableListViewGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SortableListView'),
-);
-const SortableSectionListGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SortableSectionList'),
-);
 const SpotlightGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Spotlight'),
 );
-const SwipeableCellGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SwipeableCell'),
-);
-const SwitchGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Switch'),
-);
-const TableGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TableGallery/index'),
-);
 const NewTabsGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NewTabsGallery'),
-);
-const TextAreaGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TextArea'),
-);
-const ToastGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Toast'),
-);
-const TooltipGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Tooltip'),
 );
 const TypographyGallery = LazyLoadPage(
   () =>
@@ -292,11 +135,6 @@ const AddressInputGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AddressInput'),
 );
 
-const SwiperGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Swiper'),
-);
-
 const PortalGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Portal'),
@@ -305,11 +143,6 @@ const PortalGallery = LazyLoadPage(
 const AmountInputGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AmountInput'),
-);
-
-const NumberSizeableTextGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NumberSizeableTextGallery'),
 );
 
 const OrderBookGallery = LazyLoadPage(
@@ -330,16 +163,6 @@ const LoggerGallery = LazyLoadPage(
 const ChainSelectorGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ChainSelector'),
-);
-
-const MarkdownGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Markdown'),
-);
-
-const NetworkStatusBadgeGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NetworkStatusBadge'),
 );
 
 const NotificationGallery = LazyLoadPage(
@@ -421,15 +244,6 @@ const HyperlinkTextGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/HyperlinkTextGallery'),
 );
-const HapticsGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Haptics'),
-);
-
-const AccordionGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AccordionGallery'),
-);
 
 const AuthGallery = LazyLoadPage(
   () =>
@@ -446,24 +260,9 @@ const StorageGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/StorageGallery'),
 );
 
-const OTPInputGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/OTPInputGallery'),
-);
-
 const RichSizeableTextGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/RichSizeableText'),
-);
-
-const BannerGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Banner/Banner'),
-);
-
-const StepperGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Stepper'),
 );
 
 const ThemeColorsGallery = LazyLoadPage(
@@ -471,19 +270,9 @@ const ThemeColorsGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ThemeColors'),
 );
 
-const PaginationGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Pagination'),
-);
-
 const CountDownCalendarAlertGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CountDownCalendarAlert'),
-);
-
-const TriggerGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Trigger'),
 );
 
 const TutorialsListGallery = LazyLoadPage(
@@ -511,15 +300,6 @@ const CryptoGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CryptoGallery'),
 );
 
-const UnOrderedListGallery = LazyLoadPage(
-  () => import('./Components/stories/UnOrderedListGallery'),
-);
-
-const CarouselGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Carousel'),
-);
-
 const PlaygroundGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/playground/index'),
@@ -535,10 +315,6 @@ export const galleryScreenList: {
     component: TypographyGallery,
   },
   {
-    name: EGalleryRoutes.ComponentLottieView,
-    component: LottieViewGallery,
-  },
-  {
     name: EGalleryRoutes.ComponentPortal,
     component: PortalGallery,
   },
@@ -546,31 +322,18 @@ export const galleryScreenList: {
     name: EGalleryRoutes.ComponentToken,
     component: TokenGallery,
   },
-  { name: EGalleryRoutes.ComponentIcon, component: IconGallery },
-  { name: EGalleryRoutes.ComponentToast, component: ToastGallery },
   { name: EGalleryRoutes.ComponentShortcut, component: ShortcutGallery },
-  { name: EGalleryRoutes.ComponentSelect, component: SelectGallery },
-  { name: EGalleryRoutes.ComponentTooltip, component: TooltipGallery },
-  { name: EGalleryRoutes.ComponentTrigger, component: TriggerGallery },
   {
     name: EGalleryRoutes.ComponentTutorialsList,
     component: TutorialsListGallery,
   },
   { name: EGalleryRoutes.ComponentOrderedList, component: OrderedListGallery },
-  { name: EGalleryRoutes.ComponentBadge, component: BadgeGallery },
-  { name: EGalleryRoutes.ComponentBreadcrumb, component: BreadcrumbGallery },
-  { name: EGalleryRoutes.ComponentInput, component: InputGallery },
   { name: EGalleryRoutes.ComponentIpRequest, component: IpRequestGallery },
   {
     name: EGalleryRoutes.ComponentNetworkDoctor,
     component: NetworkDoctorGallery,
   },
-  { name: EGalleryRoutes.ComponentDatePicker, component: DatePickerGallery },
-  { name: EGalleryRoutes.ComponentDialog, component: DialogGallery },
-  { name: EGalleryRoutes.ComponentEmpty, component: EmptyGallery },
   { name: EGalleryRoutes.ComponentSend, component: SendGallery },
-  { name: EGalleryRoutes.ComponentRadio, component: RadioGallery },
-  { name: EGalleryRoutes.ComponentListView, component: ListViewGallery },
   {
     name: EGalleryRoutes.ComponentAccountAvatar,
     component: AccountAvatarGallery,
@@ -579,67 +342,27 @@ export const galleryScreenList: {
     name: EGalleryRoutes.ComponentWalletAvatar,
     component: WalletAvatarGallery,
   },
-  { name: EGalleryRoutes.ComponentSectionList, component: SectionListGallery },
-  { name: EGalleryRoutes.ComponentSwiper, component: SwiperGallery },
   {
     name: EGalleryRoutes.ComponentAmountInput,
     component: AmountInputGallery,
   },
   {
-    name: EGalleryRoutes.ComponentSortableListView,
-    component: SortableListViewGallery,
-  },
-  {
-    name: EGalleryRoutes.ComponentSwipeableCell,
-    component: SwipeableCellGallery,
-  },
-  {
     name: EGalleryRoutes.ComponentSpotlight,
     component: SpotlightGallery,
   },
-  {
-    name: EGalleryRoutes.ComponentSortableSectionList,
-    component: SortableSectionListGallery,
-  },
   { name: EGalleryRoutes.ComponentListItem, component: ListItemGallery },
-  { name: EGalleryRoutes.ComponentSkeleton, component: SkeletonGallery },
-  { name: EGalleryRoutes.ComponentCheckbox, component: CheckboxGallery },
-  { name: EGalleryRoutes.ComponentColorPicker, component: ColorPickerGallery },
-  { name: EGalleryRoutes.ComponentActionList, component: ActionListGallery },
-  { name: EGalleryRoutes.ComponentPopover, component: PopoverGallery },
-  { name: EGalleryRoutes.ComponentProgress, component: ProgressGallery },
   {
     name: EGalleryRoutes.ComponentPasswordDemo,
     component: PasswordDemoGallery,
   },
   {
-    name: EGalleryRoutes.ComponentIconButton,
-    component: IconButtonGallery,
+    name: EGalleryRoutes.ComponentSetupStepItem,
+    component: SetupStepItemGallery,
   },
-  {
-    name: EGalleryRoutes.ComponentNumberSizeableTextGallery,
-    component: NumberSizeableTextGallery,
-  },
-  { name: EGalleryRoutes.ComponentSwitch, component: SwitchGallery },
-  { name: EGalleryRoutes.ComponentTable, component: TableGallery },
-  { name: EGalleryRoutes.ComponentButton, component: ButtonGallery },
-  { name: EGalleryRoutes.ComponentTextArea, component: TextAreaGallery },
-  { name: EGalleryRoutes.ComponentSlider, component: SliderGallery },
-  {
-    name: EGalleryRoutes.ComponentSegmentSlider,
-    component: SegmentSliderGallery,
-  },
-  {
-    name: EGalleryRoutes.ComponentSegmentControl,
-    component: SegmentControlGallery,
-  },
-  { name: EGalleryRoutes.ComponentAlert, component: AlertGallery },
   {
     name: EGalleryRoutes.ComponentDiscoveryBrowser,
     component: DiscoveryBrowserGallery,
   },
-  { name: EGalleryRoutes.ComponentDivider, component: DividerGallery },
-  { name: EGalleryRoutes.ComponentScrollView, component: ScrollViewGallery },
   {
     name: EGalleryRoutes.ComponentJotaiContext,
     component: JotaiContextGallery,
@@ -652,16 +375,8 @@ export const galleryScreenList: {
     component: QRWalletGallery,
   },
   {
-    name: EGalleryRoutes.ComponentForm,
-    component: FormGallery,
-  },
-  {
     name: EGalleryRoutes.ComponentNewTabs,
     component: NewTabsGallery,
-  },
-  {
-    name: EGalleryRoutes.ComponentQRCode,
-    component: QRCodeGallery,
   },
   {
     name: EGalleryRoutes.ComponentSecureQRToast,
@@ -688,14 +403,6 @@ export const galleryScreenList: {
     component: RookieGuideGallery,
   },
   {
-    name: EGalleryRoutes.ComponentBlurView,
-    component: BlurViewGallery,
-  },
-  {
-    name: EGalleryRoutes.ComponentLinearGradientGallery,
-    component: LinearGradientGallery,
-  },
-  {
     name: EGalleryRoutes.ComponentLightweightChartStyle,
     component: LightweightChartStyleGallery,
   },
@@ -720,10 +427,6 @@ export const galleryScreenList: {
     component: ThirdPartyHardwareActionsGallery,
   },
   {
-    name: EGalleryRoutes.ComponentImage,
-    component: ImageGallery,
-  },
-  {
     name: EGalleryRoutes.ComponentAddressInput,
     component: AddressInputGallery,
   },
@@ -734,14 +437,6 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentChainSelector,
     component: ChainSelectorGallery,
-  },
-  {
-    name: EGalleryRoutes.ComponentMarkdown,
-    component: MarkdownGallery,
-  },
-  {
-    name: EGalleryRoutes.ComponentNetworkStatusBadge,
-    component: NetworkStatusBadgeGallery,
   },
   {
     name: EGalleryRoutes.ComponentNotification,
@@ -812,28 +507,8 @@ export const galleryScreenList: {
     component: HyperlinkTextGallery,
   },
   {
-    name: EGalleryRoutes.HapticsGallery,
-    component: HapticsGallery,
-  },
-  {
-    name: EGalleryRoutes.ComponentAccordion,
-    component: AccordionGallery,
-  },
-  {
-    name: EGalleryRoutes.ComponentOTPInput,
-    component: OTPInputGallery,
-  },
-  {
     name: EGalleryRoutes.ComponentRichSizeableText,
     component: RichSizeableTextGallery,
-  },
-  {
-    name: EGalleryRoutes.ComponentBanner,
-    component: BannerGallery,
-  },
-  {
-    name: EGalleryRoutes.ComponentStepper,
-    component: StepperGallery,
   },
   {
     name: EGalleryRoutes.CountDownCalendarAlert,
@@ -842,11 +517,6 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentThemeColors,
     component: ThemeColorsGallery,
-  },
-  { name: EGalleryRoutes.ComponentAnchor, component: AnchorGallery },
-  {
-    name: EGalleryRoutes.ComponentPagination,
-    component: PaginationGallery,
   },
   {
     name: EGalleryRoutes.ComponentRestart,
@@ -859,14 +529,6 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentCryptoGallery,
     component: CryptoGallery,
-  },
-  {
-    name: EGalleryRoutes.ComponentUnOrderedList,
-    component: UnOrderedListGallery,
-  },
-  {
-    name: EGalleryRoutes.ComponentCarousel,
-    component: CarouselGallery,
   },
   {
     name: EGalleryRoutes.ComponentPlayground,

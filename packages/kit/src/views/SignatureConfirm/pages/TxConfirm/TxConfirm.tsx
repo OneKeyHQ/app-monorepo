@@ -34,12 +34,20 @@ import { calculateTxExtraFee } from '@onekeyhq/shared/src/utils/feeUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
+import {
+  EParseTxComponentType,
+  type IDisplayComponentSimulation,
+} from '@onekeyhq/shared/types/signatureConfirm';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { getBorrowTxTitle } from '../../../Borrow/borrowUtils';
-import { DAppSiteMark } from '../../../DAppConnection/components/DAppRequestLayout';
+import {
+  DAppSiteMark,
+  shouldHideDAppSiteRiskStyle,
+} from '../../../DAppConnection/components/DAppRequestLayout';
 import { useRiskDetection } from '../../../DAppConnection/hooks/useRiskDetection';
 import DeFiActionInfo from '../../components/DeFiActionInfo';
+import { SecurityCheckCard } from '../../components/SecurityCheckCard';
 import { TxConfirmActions } from '../../components/SignatureConfirmActions';
 import { TxAdvancedSettings } from '../../components/SignatureConfirmAdvanced';
 import { TxConfirmAlert } from '../../components/SignatureConfirmAlert';
@@ -339,6 +347,39 @@ function TxConfirm() {
     return swapTx?.swapInfo;
   }, [unsignedTxs]);
 
+  const simulationComponents = useMemo(
+    () =>
+      (decodedTxs ?? [])
+        .flatMap((decodedTx) => decodedTx.txDisplay?.components ?? [])
+        .filter(
+          (component): component is IDisplayComponentSimulation =>
+            component.type === EParseTxComponentType.Simulation,
+        ),
+    [decodedTxs],
+  );
+
+  const visibleSimulationComponents = useMemo(
+    () =>
+      simulationComponents.filter((component) => component.assets.length > 0),
+    [simulationComponents],
+  );
+
+  // SecurityCheckCard owns every simulation slot on this page. Empty
+  // simulations carry no asset information and must not fall back to the old
+  // glowing card in TxConfirmDetails.
+  const shouldHideSimulationInDetails = simulationComponents.length > 0;
+
+  const securityCheckRequestKey = useMemo(
+    () =>
+      (reactiveUnsignedTxs ?? [])
+        .map(
+          (tx, index) =>
+            tx.uuid ?? `${tx.accountId ?? ''}:${tx.networkId ?? ''}:${index}`,
+        )
+        .join('|'),
+    [reactiveUnsignedTxs],
+  );
+
   const handleOnClose = (extra?: { flag?: string }) => {
     if (extra?.flag !== EDAppModalPageStatus.Confirmed) {
       dappApprove.reject();
@@ -424,9 +465,23 @@ function TxConfirm() {
           <DAppSiteMark
             origin={sourceInfo.origin}
             urlSecurityInfo={urlSecurityInfo}
+            hideRiskStyle={shouldHideDAppSiteRiskStyle(urlSecurityInfo)}
           />
         ) : null}
-        <TxConfirmDetails accountId={accountId} networkId={networkId} />
+        <SecurityCheckCard
+          kind="transaction"
+          requestKey={securityCheckRequestKey}
+          requestIdentity={reactiveUnsignedTxs}
+          origin={sourceInfo?.origin}
+          urlSecurityInfo={urlSecurityInfo}
+          decodedTxs={decodedTxs}
+          simulationComponents={visibleSimulationComponents}
+        />
+        <TxConfirmDetails
+          accountId={accountId}
+          networkId={networkId}
+          hideSimulation={shouldHideSimulationInDetails}
+        />
         <TxConfirmExtraInfo
           accountId={accountId}
           networkId={networkId}
@@ -446,6 +501,10 @@ function TxConfirm() {
     transferPayload,
     sourceInfo?.origin,
     urlSecurityInfo,
+    securityCheckRequestKey,
+    reactiveUnsignedTxs,
+    visibleSimulationComponents,
+    shouldHideSimulationInDetails,
     unsignedTxs,
     swapInfo,
     stakingInfo,

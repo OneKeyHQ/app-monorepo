@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 
 import type { IPopoverProps } from '../../actions';
+import type { IInputProps } from '../../forms/Input';
 import type { SheetProps } from '../../shared/tamagui';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -71,6 +72,7 @@ export interface IDatePickerTriggerProps {
   disabled?: boolean;
   onPress?: () => void;
   onClear?: () => void;
+  size?: IInputProps['size'];
 }
 
 export interface IDayCellProps {

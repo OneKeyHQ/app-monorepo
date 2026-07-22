@@ -11,6 +11,7 @@ import {
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
+  Alert,
   AnimatePresence,
   Button,
   Dialog,
@@ -473,6 +474,18 @@ function FinalizeWalletSetupPage({
                     'autoResetKeylessWalletPinAfterRestoreForSameEmailAccount error:',
                     autoResetError,
                   );
+                  // A swallowed failure here leaves the server share under
+                  // the old provider/PIN while the UI reports success —
+                  // an inconsistent keyless wallet state. Mirror the reason
+                  // into exported logs so it stays diagnosable in production
+                  // (the bg-side @toastIfError decorator already surfaces a
+                  // toast for this rejected background call).
+                  defaultLogger.wallet.keyless.dataCorruptedError({
+                    reason: `autoResetKeylessWalletPinAfterRestoreForSameEmailAccount failed: ${
+                      (autoResetError as Error | undefined)?.message ||
+                      String(autoResetError)
+                    }`,
+                  });
                 }
               })();
             }
@@ -1082,44 +1095,42 @@ function FinalizeWalletSetupPage({
           </YStack>
         ) : null}
         {setupError ? (
-          <YStack flex={1} justifyContent="center" alignItems="center" gap="$7">
-            <SizableText size="$heading5xl" fontWeight={600}>
-              {intl.formatMessage({
-                id: ETranslations.failed_to_create_wallet,
-              })}
-            </SizableText>
-            <SizableText
-              size="$bodyMd"
-              color="$textSubdued"
-              maxWidth={620}
-              pl="$3"
-              borderLeftWidth={1}
-              borderLeftColor="$borderSubdued"
-            >
-              {intl.formatMessage({
-                id: setupError.messageId,
-                defaultMessage: setupError.messageId,
-              })}
-            </SizableText>
-            <XStack gap="$2.5" mt="$4" maxWidth={420}>
-              <Button
-                testID={OnboardingTestIDs.finalizeSetupRetryBtn}
-                flex={1}
-                variant="primary"
-                size="large"
-                onPress={retrySetup}
-              >
-                {intl.formatMessage({ id: ETranslations.global_retry })}
-              </Button>
-              <Button
-                testID={OnboardingTestIDs.finalizeSetupExitBtn}
-                flex={1}
-                size="large"
-                onPress={closePage}
-              >
-                {intl.formatMessage({ id: ETranslations.global_exit })}
-              </Button>
-            </XStack>
+          <YStack flex={1} justifyContent="center" alignItems="center">
+            <YStack maxWidth={400} width="100%" minHeight={400} gap="$7">
+              <SizableText fontSize={48}>💆‍♀️</SizableText>
+              <SizableText size="$heading4xl" fontWeight={600}>
+                {intl.formatMessage({
+                  id: ETranslations.failed_to_create_wallet,
+                })}
+              </SizableText>
+              <Alert
+                icon="InfoCircleOutline"
+                type="info"
+                description={intl.formatMessage({
+                  id: setupError.messageId,
+                  defaultMessage: setupError.messageId,
+                })}
+              />
+              <XStack gap="$4" alignItems="center">
+                <Button
+                  testID={OnboardingTestIDs.finalizeSetupRetryBtn}
+                  flex={1}
+                  variant="primary"
+                  size="large"
+                  onPress={retrySetup}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_retry })}
+                </Button>
+                <Button
+                  testID={OnboardingTestIDs.finalizeSetupExitBtn}
+                  variant="tertiary"
+                  onPress={closePage}
+                  minWidth="$20"
+                >
+                  {intl.formatMessage({ id: ETranslations.global_exit })}
+                </Button>
+              </XStack>
+            </YStack>
           </YStack>
         ) : (
           <>

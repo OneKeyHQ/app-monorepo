@@ -90,6 +90,7 @@ export enum EAccountSelectorSceneName {
   addressInput = 'addressInput', // test Gallery AddressInput test
   market = 'market',
   rewardCenter = 'rewardCenter',
+  bulkExportHistory = 'bulkExportHistory',
 }
 
 export enum EAccountSelectorAutoSelectTriggerBy {
