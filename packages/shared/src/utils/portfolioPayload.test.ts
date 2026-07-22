@@ -5,10 +5,6 @@ import {
   buildPortfolioPayload,
   buildPortfolioPayloadHash,
 } from './portfolioPayload';
-import {
-  PORTFOLIO_TOKEN_FALLBACK_COLORS,
-  resolvePortfolioTokenColor,
-} from './portfolioTokenIcon';
 
 import type { ICurrencyItem } from '../../types/currency';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
@@ -48,53 +44,6 @@ function buildFiat(params: Partial<ITokenFiat>): ITokenFiat {
 }
 
 describe('buildPortfolioPayload', () => {
-  test('uses official colors and stable identity colors for unsupported tokens', () => {
-    const officialColors = {
-      BTC: 0xf7_93_1a,
-      ETH: 0xb8_c4_d6,
-      TRON: 0xff_06_0a,
-      SOL: 0x70_68_e8,
-      BNB: 0xf3_ba_2f,
-      USDT: 0x26_a1_7b,
-      USDC: 0x27_75_ca,
-    } as const;
-    for (const [iconName, color] of Object.entries(officialColors)) {
-      expect(
-        resolvePortfolioTokenColor({
-          contractAddress: '',
-          iconName: iconName as keyof typeof officialColors,
-          networkId: '',
-          symbol: iconName,
-        }),
-      ).toBe(color);
-    }
-
-    expect(
-      resolvePortfolioTokenColor({
-        contractAddress: '',
-        iconName: 'ETH',
-        networkId: 'evm--1',
-        symbol: 'ETH',
-      }),
-    ).toBe(0xb8_c4_d6);
-
-    const first = resolvePortfolioTokenColor({
-      contractAddress: '0xABCDEF',
-      iconName: null,
-      networkId: 'evm--137',
-      symbol: 'CUSTOM',
-    });
-    const sameIdentity = resolvePortfolioTokenColor({
-      contractAddress: '0xabcdef',
-      iconName: null,
-      networkId: 'evm--137',
-      symbol: 'custom',
-    });
-
-    expect(sameIdentity).toBe(first);
-    expect(PORTFOLIO_TOKEN_FALLBACK_COLORS).toContain(first);
-  });
-
   test('uses the UI token order and converts fiat values to the display currency', () => {
     const lowValueFirst = buildToken({
       $key: 'low',
@@ -161,7 +110,6 @@ describe('buildPortfolioPayload', () => {
     expect(Object.keys(payload.tokens[0]).toSorted()).toEqual(
       [
         'balance',
-        'color',
         'contractAddress',
         'fiatValue',
         'iconName',
@@ -232,7 +180,6 @@ describe('buildPortfolioPayload', () => {
       'USDT',
     ]);
     expect(payload.tokens[0]).toMatchObject({
-      color: 0xb8_c4_d6,
       contractAddress: '',
       isNative: true,
     });
@@ -240,10 +187,7 @@ describe('buildPortfolioPayload', () => {
       contractAddress: '0x0000000000000000000000000000000000000001',
       isNative: false,
     });
-    expect(PORTFOLIO_TOKEN_FALLBACK_COLORS).toContain(payload.tokens[1].color);
-    expect(payload.tokens[1].color).not.toBe(0x26_a1_7b);
     expect(payload.tokens[2]).toMatchObject({
-      color: 0x26_a1_7b,
       contractAddress: '0xdac17f958d2ee523a2206206994597c13d831ec7',
       isNative: false,
     });

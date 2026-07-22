@@ -126,7 +126,7 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
     ).toBe(0);
   });
 
-  test('builds server portfolio.json without trusted iconName and mock signed payload with iconName', () => {
+  test('builds portfolio.json without client-generated colors', () => {
     const payload: IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled] =
       {
         accountAddress: '0x1234567890abcdef',
@@ -192,7 +192,6 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
       };
       totalFiat: string;
       tokens: {
-        color: number;
         contractAddress: string;
         fiatValue: string;
         iconName: string | null;
@@ -215,7 +214,6 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
       totalFiat: '¥2,500.56',
       tokens: [
         {
-          color: 0xb8_c4_d6,
           contractAddress: '',
           fiatValue: '¥700.00',
           iconName: null,
@@ -232,7 +230,6 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
           portfolioPercentage: 27.71,
         },
         {
-          color: 0x26_a1_7b,
           contractAddress: '0xdac17f958d2ee523a2206206994597c13d831ec7',
           fiatValue: '¥686.00',
           iconName: null,
@@ -267,6 +264,8 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
     );
     expect(portfolio.tokens[0]).not.toHaveProperty('price');
     expect(portfolio.tokens[0]).not.toHaveProperty('change24h');
+    expect(portfolio.tokens[0]).not.toHaveProperty('color');
+    expect(mockPortfolioJson.tokens[0]).not.toHaveProperty('color');
     expect(artifacts.contentHash).toMatch(/^[\da-f]{64}$/);
 
     const view = new DataView(artifacts.mockArchiveBytes);

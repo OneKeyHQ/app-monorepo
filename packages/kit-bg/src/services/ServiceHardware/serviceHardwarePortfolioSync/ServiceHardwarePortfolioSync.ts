@@ -308,8 +308,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     });
 
     // The App only submits portfolio.json. The server validates, normalizes,
-    // recomputes iconName from its own token icon allowlist, packs and signs
-    // the production portfolio package, and returns it as base64.
+    // resolves trusted token metadata such as iconName and color, packs and
+    // signs the production portfolio package, and returns it as base64.
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.post<{
       data: { packageBase64: string };
