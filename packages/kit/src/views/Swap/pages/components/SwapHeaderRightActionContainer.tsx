@@ -39,6 +39,7 @@ import {
   useSwapActions,
   useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
+  useSwapQuoteActionLockAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapStockExecutionTokensAtom,
@@ -87,6 +88,7 @@ import {
   getSwapLimitOpenOrderCount,
 } from '../../utils/swapMarketHistory';
 import { SwapKLineContentWithProvider } from '../modal/SwapKLineContent';
+import { prefetchSwapKLineMetadata } from '../modal/swapKLineTokenUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import ProviderManageContainer from './ProviderManageContainer';
@@ -301,6 +303,7 @@ const SwapSettingsDialogContent = ({
   const [{ swapBatchApproveAndSwap }, setPersistSettings] =
     useSettingsPersistAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const { cleanQuoteInterval, closeQuoteEvent, resetQuoteAction } =
     useSwapActions().current;
   const keyboardHeight = useKeyboardHeight();
@@ -378,10 +381,15 @@ const SwapSettingsDialogContent = ({
   const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
   const handleProviderManagerSaved = useCallback(() => {
     cleanQuoteInterval();
-    closeQuoteEvent();
+    closeQuoteEvent(quoteActionLock.quoteRequestId);
     void resetQuoteAction();
     void dialogRef.current?.close();
-  }, [cleanQuoteInterval, closeQuoteEvent, resetQuoteAction]);
+  }, [
+    cleanQuoteInterval,
+    closeQuoteEvent,
+    quoteActionLock.quoteRequestId,
+    resetQuoteAction,
+  ]);
   return (
     <ScrollView
       mx="$-5"
@@ -832,6 +840,13 @@ const SwapHeaderRightActionContainer = ({
   const showKLineAsDialog =
     platformEnv.isNative || (platformEnv.isExtension && !gtLg);
   const kLineDialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
+  const onSwapKLinePressIn = useCallback(() => {
+    if (isKLineDisabled) {
+      return;
+    }
+
+    void prefetchSwapKLineMetadata([fromToken, toToken]);
+  }, [fromToken, isKLineDisabled, toToken]);
   const onOpenSwapKLineModal = useCallback(() => {
     if (isKLineDisabled) {
       return;
@@ -913,6 +928,7 @@ const SwapHeaderRightActionContainer = ({
         <HeaderIconButton
           testID={SwapTestIDs.kLineButton}
           icon="TradingViewCandlesOutline"
+          onPressIn={onSwapKLinePressIn}
           onPress={onOpenSwapKLineModal}
           disabled={isKLineDisabled}
           iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}

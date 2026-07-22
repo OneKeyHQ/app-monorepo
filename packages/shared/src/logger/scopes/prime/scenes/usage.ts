@@ -4,16 +4,38 @@ import type {
   ETranslateDisplayMode,
   ETranslateEngine,
 } from '@onekeyhq/shared/types/discovery';
-import type { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
+import type {
+  EKytRiskLevel,
+  IReceiveKytIntroEntryPoint,
+} from '@onekeyhq/shared/types/kyt';
 
 import { BaseScene } from '../../../base/baseScene';
-import { LogToServer } from '../../../base/decorators';
+import { LogToLocal, LogToServer } from '../../../base/decorators';
 
-import type { IPrimeAddressRiskCheckEntryPoint } from '../types';
+import type {
+  IExportHistoryAccountType,
+  IExportHistoryDownloadEntryPoint,
+  IExportHistoryRangeType,
+  IPrimeAddressRiskCheckEntryPoint,
+} from '../types';
 
 type IReceiveKytFeatureName = EPrimeFeatures.ReceiveRiskMonitoring;
 
 export class PrimeUsageScene extends BaseScene {
+  @LogToLocal({ level: 'error' })
+  public primeReceiveKytIntroFlowFailed(params: {
+    stage:
+      | 'purchaseClaim'
+      | 'eligibility'
+      | 'claimPresented'
+      | 'claimComplete'
+      | 'claimRelease'
+      | 'primeUserRefresh';
+    errorMessage: string;
+  }) {
+    return params;
+  }
+
   /**
    * 使用 OneKey Cloud
    * 触发时机: Prime 用户点击 OneKey Cloud 的开关时触发
@@ -110,7 +132,7 @@ export class PrimeUsageScene extends BaseScene {
   @LogToServer()
   public primeReceiveKytIntroShown(params: {
     featureName: IReceiveKytFeatureName;
-    entryPoint: 'homeAutoIntro';
+    entryPoint: IReceiveKytIntroEntryPoint;
     isPrimeActive: true;
   }) {
     return params;
@@ -122,9 +144,40 @@ export class PrimeUsageScene extends BaseScene {
   @LogToServer()
   public primeReceiveKytIntroAction(params: {
     featureName: IReceiveKytFeatureName;
-    entryPoint: 'homeAutoIntro';
+    entryPoint: IReceiveKytIntroEntryPoint;
     isPrimeActive: true;
     action: 'enable' | 'dismiss' | 'learnMore';
+  }) {
+    return params;
+  }
+
+  /**
+   * Export transaction history usage
+   * Triggered when a Prime user successfully creates an async export task.
+   */
+  @LogToServer()
+  public exportHistoryTaskCreateSuccess(params: {
+    networkCount: number;
+    networks: string[];
+    rangeType: IExportHistoryRangeType;
+    rangeDays: number;
+    excludeRisky: boolean;
+    accountType: IExportHistoryAccountType;
+  }) {
+    return params;
+  }
+
+  /**
+   * Export transaction history CSV delivery
+   * Triggered when an exported CSV is successfully saved (desktop/web/ext) or
+   * shared (native) on the device.
+   */
+  @LogToServer()
+  public exportHistoryCsvDownloadSuccess(params: {
+    entryPoint: IExportHistoryDownloadEntryPoint;
+    networkCount: number;
+    transactionCount: number;
+    isPartial: boolean;
   }) {
     return params;
   }
