@@ -19,6 +19,8 @@ import { buildBorrowMarketKey, useBorrowContext } from '../BorrowProvider';
 import { useBorrowMarkets } from '../hooks/useBorrowMarkets';
 import { useBorrowReserves } from '../hooks/useBorrowReserves';
 
+import { isCurrentBorrowReservesRequest } from './borrowDataGate.utils';
+
 const BORROW_POLLING_INTERVAL = 1 * 60 * 1000; // 1 minute
 const BORROW_STALE_TTL = BORROW_POLLING_INTERVAL;
 const BORROW_DERIVE_TYPE_REFRESH_DELAY_MS = 300;
@@ -135,6 +137,7 @@ export const BorrowDataGate = ({
   const prevFetchKeyRef = useRef<string | null>(null);
   const lastReservesUpdatedAtRef = useRef<number | null>(null);
   const reservesResultRef = useRef<IBorrowReserveItem | undefined>(undefined);
+  const reservesRequestIdRef = useRef(0);
   const forceRefreshCounterRef = useRef(0);
   const lastForceRefreshCounterRef = useRef(0);
   const wasActiveRef = useRef(isViewActive);
@@ -164,6 +167,7 @@ export const BorrowDataGate = ({
   // can let that rerun reuse the previous account's still-fresh TTL cache.
   if (prevFetchKeyRef.current !== fetchKey) {
     prevFetchKeyRef.current = fetchKey;
+    reservesRequestIdRef.current += 1;
     lastReservesUpdatedAtRef.current = null;
     reservesResultRef.current = undefined;
   }
@@ -209,12 +213,24 @@ export const BorrowDataGate = ({
         return reservesResultRef.current;
       }
       lastForceRefreshCounterRef.current = forceRefreshCounterRef.current;
+      const requestKey = fetchKey;
+      const requestId = (reservesRequestIdRef.current += 1);
       const result = await fetchReserves({
         provider: marketProvider,
         networkId: marketNetworkId,
         marketAddress,
         accountId,
       });
+      if (
+        !isCurrentBorrowReservesRequest({
+          requestKey,
+          currentKey: prevFetchKeyRef.current,
+          requestId,
+          currentRequestId: reservesRequestIdRef.current,
+        })
+      ) {
+        return reservesResultRef.current;
+      }
       reservesResultRef.current = result;
       lastReservesUpdatedAtRef.current = Date.now();
       return result;

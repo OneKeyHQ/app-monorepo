@@ -85,6 +85,7 @@ export const handleBorrowSuccess = async ({
   networkId,
   accountId,
   stakingInfo,
+  waitForFinalStatus,
   onSettleResult,
   onSuccess,
 }: {
@@ -93,6 +94,7 @@ export const handleBorrowSuccess = async ({
   networkId: string;
   accountId?: string;
   stakingInfo?: IStakingInfo;
+  waitForFinalStatus?: boolean;
   onSettleResult?: (
     result: IBorrowSettleResult,
   ) => boolean | void | Promise<boolean | void>;
@@ -104,7 +106,9 @@ export const handleBorrowSuccess = async ({
   const label = stakingInfo?.label;
   const shouldShowConfirmSheet =
     !!accountId &&
-    (label === EEarnLabels.Withdraw || label === EEarnLabels.Repay);
+    (waitForFinalStatus ||
+      label === EEarnLabels.Withdraw ||
+      label === EEarnLabels.Repay);
 
   if (orderId && latestTxId) {
     const addEarnOrderPromise = backgroundApiProxy.serviceStaking.addEarnOrder({
@@ -136,7 +140,10 @@ export const handleBorrowSuccess = async ({
         return;
       }
     }
-    if (finalStatus === EOnChainHistoryTxStatus.Failed) {
+    if (
+      finalStatus === EOnChainHistoryTxStatus.Failed ||
+      (waitForFinalStatus && finalStatus !== EOnChainHistoryTxStatus.Success)
+    ) {
       return;
     }
   }

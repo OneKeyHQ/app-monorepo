@@ -48,6 +48,10 @@ export function blockerSteps(items: IEModeNeedActionItem[]): IEModeStep[] {
   return items.map((it) => ({ ...it, key: `${it.kind}:${it.reserveAddress}` }));
 }
 
+export function shouldRepayAllForEModeStep(step: IEModeStep): boolean {
+  return step.kind === 'repay' && step.hfSafety !== true;
+}
+
 // Stable union by key. Keeps prior order so completed steps keep their slot
 // (and their ✓) after the live check stops returning them; brand-new blockers
 // append at the end. Existing uncompleted steps refresh from the latest check

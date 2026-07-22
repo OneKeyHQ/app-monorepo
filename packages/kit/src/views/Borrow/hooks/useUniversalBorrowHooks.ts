@@ -606,6 +606,7 @@ export function useUniversalBorrowSetEMode({
             networkId,
             accountId,
             stakingInfo: stakingInfoWithOrderId,
+            waitForFinalStatus: true,
             onSuccess,
           });
         },

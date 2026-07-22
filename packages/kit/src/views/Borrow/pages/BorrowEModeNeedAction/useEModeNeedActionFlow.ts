@@ -35,6 +35,7 @@ import {
   blockerSteps,
   reconcileStepState,
   resolveSettleOutcome,
+  shouldRepayAllForEModeStep,
   withSwitchStep,
 } from './needActionSteps';
 
@@ -522,12 +523,14 @@ export function useEModeNeedActionFlow({
       ) {
         return;
       }
-      const repayAll = !shouldDowngradeAaveNativeRepayAll({
-        action: 'repay',
-        networkId,
-        providerName: provider,
-        reserveAddress: step.reserveAddress,
-      });
+      const repayAll =
+        shouldRepayAllForEModeStep(step) &&
+        !shouldDowngradeAaveNativeRepayAll({
+          action: 'repay',
+          networkId,
+          providerName: provider,
+          reserveAddress: step.reserveAddress,
+        });
       setRepaySubmitting(true);
       try {
         const callbacks = bindStepSettlementCallbacks<ISendTxOnSuccessData[]>({

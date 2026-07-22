@@ -9,6 +9,7 @@ import {
   mergeSeen,
   reconcileStepState,
   resolveSettleOutcome,
+  shouldRepayAllForEModeStep,
   withSwitchStep,
 } from './needActionSteps';
 
@@ -35,6 +36,20 @@ describe('blockerSteps', () => {
       'repay:0xa',
       'removeCollateral:0xb',
     ]);
+  });
+});
+
+describe('shouldRepayAllForEModeStep', () => {
+  it('repays all only for a full-close repay blocker', () => {
+    const [fullClose] = blockerSteps([item('repay', '0xa')]);
+    const [healthFactorRepay] = blockerSteps([
+      { ...item('repay', '0xb'), hfSafety: true },
+    ]);
+    const [removeCollateral] = blockerSteps([item('removeCollateral', '0xc')]);
+
+    expect(shouldRepayAllForEModeStep(fullClose)).toBe(true);
+    expect(shouldRepayAllForEModeStep(healthFactorRepay)).toBe(false);
+    expect(shouldRepayAllForEModeStep(removeCollateral)).toBe(false);
   });
 });
 

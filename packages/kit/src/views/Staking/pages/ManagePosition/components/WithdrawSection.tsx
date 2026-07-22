@@ -1183,8 +1183,7 @@ export const WithdrawSection = ({
       return undefined;
     }
     return resolveBorrowRepayAllBalance({
-      selectedDebtBalance:
-        selectedAsset?.borrowed?.number ?? selectedAsset?.borrowed?.amount,
+      selectedDebtBalance: selectedAsset ? effectiveDebtBalance : undefined,
       protocolDebtBalance: protocolInfo?.debtBalance,
       reserveAddress: effectiveReserveAddress,
       tokenAddress: token?.address,
@@ -1193,12 +1192,12 @@ export const WithdrawSection = ({
     });
   }, [
     borrowAction,
+    effectiveDebtBalance,
     effectiveReserveAddress,
     effectiveTokenSymbol,
     freshBorrowReserves?.borrowed?.assets,
     protocolInfo?.debtBalance,
-    selectedAsset?.borrowed?.number,
-    selectedAsset?.borrowed?.amount,
+    selectedAsset,
     token?.address,
   ]);
 

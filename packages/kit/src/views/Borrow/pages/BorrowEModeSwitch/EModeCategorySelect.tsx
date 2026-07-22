@@ -60,6 +60,7 @@ export function EModeCategorySelect({
         label: row.displayLabel,
         value: row.eModeId,
         description: descriptions.get(row.eModeId) ?? '',
+        disabled: row.disabled,
       })),
     [descriptions, rows],
   );

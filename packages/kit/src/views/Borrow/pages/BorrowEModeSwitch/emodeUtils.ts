@@ -57,6 +57,7 @@ export interface IEModeRow {
   displayLabel: string; // humanized label for display
   ltv?: string;
   liquidationThreshold?: string;
+  disabled: boolean;
   canSwitch?: boolean;
   assets?: IBorrowEModeAsset[]; // category coverage; absent on the synthetic Off row
   selected: boolean;
@@ -78,6 +79,7 @@ export function buildEModeRows(
     // Off = the base market LTV (e-mode boosts on top of it). Seeds the hero's
     // "current" value when e-mode is off so it reads the real LTV, not "—".
     ltv: status.originalLtv,
+    disabled: false,
     selected: currentId === 0,
     isOff: true,
   };
@@ -87,6 +89,7 @@ export function buildEModeRows(
     displayLabel: normalizeEModeLabel(c.label),
     ltv: c.ltv,
     liquidationThreshold: c.liquidationThreshold,
+    disabled: c.disabled,
     canSwitch: c.canSwitch,
     assets: c.assets,
     selected: currentId === c.eModeId,
