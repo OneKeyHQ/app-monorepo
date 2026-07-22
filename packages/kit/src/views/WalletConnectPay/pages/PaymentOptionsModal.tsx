@@ -13,18 +13,18 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  EModalWalletConnectPayRoutes,
-  IModalWalletConnectPayParamList,
-} from '@onekeyhq/shared/src/routes';
+import { EModalWalletConnectPayRoutes } from '@onekeyhq/shared/src/routes';
+import type { IModalWalletConnectPayParamList } from '@onekeyhq/shared/src/routes';
 import type { IWcPayOption } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { ListItem } from '../../../components/ListItem';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { useWcPayActionExecutor } from '../hooks/useWcPayActionExecutor';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -74,8 +74,11 @@ function PaymentOptionsPage() {
       >
     >();
   const { paymentLink } = route.params;
+  const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const { executeActions } = useWcPayActionExecutor();
   const [selectedOptionId, setSelectedOptionId] = useState<string>('');
+  const [isPaying, setIsPaying] = useState(false);
 
   const accountId = activeAccount?.account?.id;
   const indexedAccountId = activeAccount?.indexedAccount?.id;
@@ -100,15 +103,72 @@ function PaymentOptionsPage() {
   const selectedOption: IWcPayOption | undefined =
     options.find((o) => o.id === selectedOptionId) ?? options[0];
 
-  const handlePay = useCallback(() => {
-    if (!result || !selectedOption) {
+  const handlePay = useCallback(async () => {
+    if (!result || !selectedOption || isPaying) {
       return;
     }
-    // TODO(WalletConnectPay): wire the signing executor (next stage)
-    Toast.message({
-      title: intl.formatMessage({ id: ETranslations.global_processing }),
-    });
-  }, [intl, result, selectedOption]);
+    setIsPaying(true);
+    try {
+      const { paymentId } = result;
+      const optionId = selectedOption.id;
+
+      // 1. compliance data collection must complete BEFORE fetching actions
+      if (selectedOption.collectData?.url) {
+        const collectData = selectedOption.collectData;
+        await new Promise<void>((resolve, reject) => {
+          navigation.push(EModalWalletConnectPayRoutes.DataCollection, {
+            collectData,
+            onComplete: () => resolve(),
+            onError: (error: string) => reject(new Error(error)),
+          });
+        });
+      }
+
+      // 2. fetch the ordered signing actions
+      const actions =
+        await backgroundApiProxy.serviceWalletConnectPay.getRequiredPaymentActions(
+          { paymentId, optionId },
+        );
+
+      // 3. sign sequentially; results order must match actions order
+      const signatures = await executeActions({
+        actions,
+        accountId,
+        indexedAccountId,
+      });
+
+      // 4. submit and show result
+      const confirmResult =
+        await backgroundApiProxy.serviceWalletConnectPay.confirmPayment({
+          paymentId,
+          optionId,
+          signatures,
+        });
+      navigation.push(EModalWalletConnectPayRoutes.PaymentResult, {
+        paymentId,
+        optionId,
+        signatures,
+        initialResult: confirmResult,
+      });
+    } catch (error) {
+      Toast.error({
+        title:
+          (error as Error | undefined)?.message ??
+          intl.formatMessage({ id: ETranslations.global_failed }),
+      });
+    } finally {
+      setIsPaying(false);
+    }
+  }, [
+    result,
+    selectedOption,
+    isPaying,
+    navigation,
+    executeActions,
+    accountId,
+    indexedAccountId,
+    intl,
+  ]);
 
   return (
     <Page scrollEnabled safeAreaEnabled>
@@ -172,12 +232,15 @@ function PaymentOptionsPage() {
         )}
       </Page.Body>
       <Page.Footer
-        onConfirm={handlePay}
+        onConfirm={() => {
+          void handlePay();
+        }}
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_continue,
         })}
         confirmButtonProps={{
-          disabled: !result || !selectedOption,
+          disabled: !result || !selectedOption || isPaying,
+          loading: isPaying,
         }}
         onCancelText={intl.formatMessage({ id: ETranslations.global_cancel })}
       />

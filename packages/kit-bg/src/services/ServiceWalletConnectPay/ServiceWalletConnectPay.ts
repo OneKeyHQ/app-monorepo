@@ -6,6 +6,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   WALLET_CONNECT_PAY_EIP155_CHAIN_REFS,
   validateWcPayLinkDomain,
@@ -16,6 +17,7 @@ import type {
   IWcPayOptionsResult,
 } from '@onekeyhq/shared/src/walletConnect/payTypes';
 
+import { vaultFactory } from '../../vaults/factory';
 import ServiceBase from '../ServiceBase';
 import walletConnectClients from '../ServiceWalletConnect/walletConnectClient';
 
@@ -155,6 +157,46 @@ class ServiceWalletConnectPay extends ServiceBase {
       signatures,
     });
     return result as IWcPayConfirmResult;
+  }
+
+  /**
+   * Wait until an EVM transaction is mined. Needed for the USDT/Permit2
+   * two-action flow: the approve transaction must be confirmed on-chain
+   * before the follow-up Permit2 typed data may be signed.
+   */
+  @backgroundMethod()
+  async waitForTxMined({
+    networkId,
+    accountId,
+    txid,
+    timeoutMs = 180_000,
+  }: {
+    networkId: string;
+    accountId: string;
+    txid: string;
+    timeoutMs?: number;
+  }): Promise<void> {
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const rpcUrl = await vault.getRpcUrl();
+    const { ClientEvm } =
+      await import('../../vaults/impls/evm/sdkEvm/ClientEvm');
+    const client = new ClientEvm(rpcUrl);
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const receipt = await client
+        .call<{ status?: string } | null>('eth_getTransactionReceipt', [txid])
+        .catch(() => null);
+      if (receipt) {
+        if (receipt.status && receipt.status !== '0x1') {
+          throw new OneKeyError('Transaction reverted on chain');
+        }
+        return;
+      }
+      if (Date.now() > deadline) {
+        throw new OneKeyError('Timed out waiting for transaction confirmation');
+      }
+      await timerUtils.wait(3000);
+    }
   }
 }
 
