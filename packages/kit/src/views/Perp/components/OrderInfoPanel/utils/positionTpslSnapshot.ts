@@ -41,6 +41,20 @@ export function buildPositionTpslScopeKey({
   ].join('|');
 }
 
+export function getPositionTpslScopeChangeErrorTitle({
+  initialScopeKey,
+  currentScopeKey,
+}: {
+  initialScopeKey: string;
+  currentScopeKey: string;
+}) {
+  if (initialScopeKey === currentScopeKey) {
+    return undefined;
+  }
+  // TODO: Replace this temporary English copy after the i18n key is available.
+  return 'Position changed. Please review and submit again.';
+}
+
 export function selectPositionTpslOrders(
   orders: IPerpsFrontendOrder[],
   coin: string,

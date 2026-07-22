@@ -22,7 +22,6 @@ import {
   usePerpsActiveOpenOrdersAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   type EModalPerpRoutes,
@@ -59,6 +58,7 @@ import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
 import {
   buildPositionTpslScopeKey,
   buildPositionTpslSubmission,
+  getPositionTpslScopeChangeErrorTitle,
   hasPositionTpslSubmission,
   selectPositionTpslOrders,
 } from './utils/positionTpslSnapshot';
@@ -495,8 +495,13 @@ const SetTpslForm = memo(
         setIsSubmitting(true);
 
         await hyperliquidActions.current.ensureTradingEnabled();
-        if (currentScopeKeyRef.current !== currentScopeKey) {
-          throw new OneKeyLocalError('Position TP/SL scope changed');
+        const scopeChangeErrorTitle = getPositionTpslScopeChangeErrorTitle({
+          initialScopeKey: currentScopeKeyRef.current,
+          currentScopeKey,
+        });
+        if (scopeChangeErrorTitle) {
+          Toast.error({ title: scopeChangeErrorTitle });
+          return;
         }
         const submission = buildPositionTpslSubmission({
           orders: { tpOrder, slOrder },

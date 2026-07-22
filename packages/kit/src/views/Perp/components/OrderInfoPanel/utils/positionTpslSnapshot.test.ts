@@ -4,6 +4,7 @@ import {
   buildPositionTpslScopeKey,
   buildPositionTpslSubmission,
   getPositionTpslDex,
+  getPositionTpslScopeChangeErrorTitle,
   hasPositionTpslSubmission,
   selectPositionTpslOrders,
 } from './positionTpslSnapshot';
@@ -74,6 +75,21 @@ describe('position TP/SL snapshot helpers', () => {
     expect(getPositionTpslDex('BTC')).toBe('');
     expect(getPositionTpslDex('xyz:NVDA')).toBe('xyz');
     expect(mainScope).not.toBe(subDexScope);
+  });
+
+  it('returns visible feedback only when the position scope changes', () => {
+    expect(
+      getPositionTpslScopeChangeErrorTitle({
+        initialScopeKey: 'account|BTC|1',
+        currentScopeKey: 'account|BTC|1',
+      }),
+    ).toBeUndefined();
+    expect(
+      getPositionTpslScopeChangeErrorTitle({
+        initialScopeKey: 'account|BTC|1',
+        currentScopeKey: 'account|BTC|2',
+      }),
+    ).toBe('Position changed. Please review and submit again.');
   });
 
   it('strips legs found in subscribed open orders and detects no-op', () => {
