@@ -1291,7 +1291,12 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
     emitSpy.mockRestore();
   });
 
-  function mockBindClient(service: any) {
+  function mockBindClient(
+    service: any,
+    {
+      tokenOwnerOnekeyUserId = 'user-l',
+    }: { tokenOwnerOnekeyUserId?: string } = {},
+  ) {
     const post = jest.fn(async () => ({
       data: {
         data: {
@@ -1303,8 +1308,19 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
         },
       },
     }));
-    service.getPrimeClient = jest.fn(async () => ({ post }));
-    return post;
+    // Token-pinned ownership probe: GET /prime/v1/account/profile with the
+    // captured legacy token in the explicit request-token header.
+    const get = jest.fn(async () => ({
+      data: {
+        data: {
+          onekeyAccount: {
+            onekeyUserId: tokenOwnerOnekeyUserId,
+          },
+        },
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ post, get }));
+    return { post, get };
   }
 
   it('aborts when the live login is not a legacy email session (stale legacy slot leftover)', async () => {
@@ -1312,7 +1328,7 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
     // re-cleaned later"), so a residual legacy token can coexist with a
     // live KeylessOAuth login. The bind must never consume that leftover.
     const { service, simpleDbPrime } = createService();
-    const post = mockBindClient(service);
+    const { post } = mockBindClient(service);
     simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
       EPrimeAuthSessionSource.KeylessOAuth,
     );
@@ -1334,7 +1350,7 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
     // concurrent surface (ext popup vs expand tab) re-logged the legacy
     // slot in as account M before the OAuth round-trip finished.
     const { service, simpleDbPrime } = createService();
-    const post = mockBindClient(service);
+    const { post } = mockBindClient(service);
     simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
       EPrimeAuthSessionSource.LegacyEmailSupabase,
     );
@@ -1357,7 +1373,7 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
 
   it('aborts when the login was cleared after the user consented', async () => {
     const { service, simpleDbPrime } = createService();
-    const post = mockBindClient(service);
+    const { post } = mockBindClient(service);
     simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
       EPrimeAuthSessionSource.LegacyEmailSupabase,
     );
@@ -1381,7 +1397,7 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
     // execution proceeds to the pre-existing keyless slot guard (which
     // aborts here on an empty slot).
     const { service, simpleDbPrime } = createService();
-    const post = mockBindClient(service);
+    const { post } = mockBindClient(service);
     simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
       EPrimeAuthSessionSource.LegacyEmailSupabase,
     );
@@ -1404,9 +1420,53 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
     expect(post).not.toHaveBeenCalled();
   });
 
+  it('aborts when the captured legacy token belongs to a different account (slot swapped by main runtime)', async () => {
+    // Split-runtime TOCTOU (Codex P1): the main runtime's email OTP
+    // verifyOtp persisted account M into the shared legacy slot without
+    // taking the bg loginMutex, and the bg atom still shows the consented
+    // account L because M's apiLogin commit is queued behind this bind.
+    // The token-pinned server ownership probe must catch the swap.
+    const { service, simpleDbPrime } = createService();
+    const { post, get } = mockBindClient(service, {
+      tokenOwnerOnekeyUserId: 'user-m',
+    });
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getSupabaseAuthToken.mockResolvedValue('legacy-token-m');
+    mockPrimePersistAtom.get.mockImplementation(async () => ({
+      isLoggedIn: true,
+      onekeyUserId: 'user-l',
+    }));
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValueOnce({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'oauth-a' }),
+    });
+
+    await expect(
+      service.apiBindLegacyOneKeyIdOAuth({
+        oauthAccessToken: buildFakeJwt({ sub: 'oauth-a' }),
+        expectedOnekeyUserId: 'user-l',
+      }),
+    ).rejects.toThrow(
+      'Legacy session account changed since the bind was confirmed',
+    );
+
+    // The probe must pin the captured token bytes, not the active session.
+    expect(get).toHaveBeenCalledWith(
+      '/prime/v1/account/profile',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'X-Onekey-Request-Token': 'legacy-token-m',
+        }),
+      }),
+    );
+    expect(post).not.toHaveBeenCalled();
+  });
+
   it('binds successfully when the consented account still holds the live legacy login', async () => {
     const { service, simpleDbPrime } = createService();
-    const post = mockBindClient(service);
+    const { post, get } = mockBindClient(service);
     simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
       EPrimeAuthSessionSource.LegacyEmailSupabase,
     );
@@ -1433,6 +1493,14 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
     });
 
     expect(result.onekeyAccount.onekeyUserId).toBe('user-l');
+    expect(get).toHaveBeenCalledWith(
+      '/prime/v1/account/profile',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'X-Onekey-Request-Token': 'legacy-token-l',
+        }),
+      }),
+    );
     expect(post).toHaveBeenCalledWith(
       '/prime/v1/account/identities/oauth/bind',
       expect.objectContaining({

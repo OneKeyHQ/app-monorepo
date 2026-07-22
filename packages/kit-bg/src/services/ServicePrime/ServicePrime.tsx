@@ -1299,6 +1299,40 @@ class ServicePrime extends ServiceBase {
         });
 
       const client = await this.getPrimeClient();
+
+      // Authoritative receiving-account check on the EXACT token bytes the
+      // bind POST below carries, pinned via the explicit request-token
+      // header (the request interceptor honors it and skips active-token
+      // injection). The local atom assertion above cannot vouch for the
+      // captured slot bytes on split-runtime targets: the main runtime
+      // persists legacy sessions (email OTP verifyOtp) straight into the
+      // shared slot without taking this bg loginMutex, and the bg atom only
+      // catches up when that login's apiLogin commit acquires it — so the
+      // slot can already hold another account's session while the atom
+      // still shows the consented one. Asking the server who owns the
+      // captured token closes that gap for any interleaving: a swap before
+      // the capture above is detected here; a swap after it is harmless
+      // because the POST sends the verified bytes, never a re-read.
+      const profileResult = await client.get<
+        IApiClientResponse<IOneKeyIdProfileResponse>
+      >('/prime/v1/account/profile', {
+        headers: {
+          'X-Onekey-Request-Token': legacyOneKeyIdAuthToken,
+        },
+      });
+      const tokenOwnerOnekeyUserId =
+        profileResult?.data?.data?.onekeyAccount?.onekeyUserId;
+      if (!tokenOwnerOnekeyUserId) {
+        throw new OneKeyLocalError(
+          'apiBindLegacyOneKeyIdOAuth ERROR: Unable to resolve legacy token owner',
+        );
+      }
+      if (tokenOwnerOnekeyUserId !== expectedOnekeyUserId) {
+        throw new OneKeyLocalError(
+          'apiBindLegacyOneKeyIdOAuth ERROR: Legacy session account changed since the bind was confirmed',
+        );
+      }
+
       let result: {
         data: IApiClientResponse<IOneKeyIdOAuthBindResponse>;
       };
