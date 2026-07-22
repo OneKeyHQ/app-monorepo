@@ -221,6 +221,7 @@ bypassable
 bytesize
 bytify
 cacheable
+caip
 caips
 calc
 camelcase
@@ -952,6 +953,7 @@ vtc
 wagmi
 Wagmi
 walletconnect
+walletkit
 wasm
 Wasm
 wasmd

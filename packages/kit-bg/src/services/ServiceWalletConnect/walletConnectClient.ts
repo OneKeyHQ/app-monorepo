@@ -11,6 +11,7 @@ import {
   WALLET_CONNECT_RELAY_URL,
   WALLET_CONNECT_V2_PROJECT_ID,
 } from '@onekeyhq/shared/src/walletConnect/constant';
+import { getWalletConnectPayConfig } from '@onekeyhq/shared/src/walletConnect/payConstant';
 import type {
   IWalletConnectSession,
   IWalletConnectSignClient,
@@ -83,6 +84,7 @@ async function getWalletSideClient(): Promise<IWalletConnectWeb3Wallet> {
       ...sharedOptions,
       core,
       metadata: WALLET_CONNECT_CLIENT_META,
+      payConfig: getWalletConnectPayConfig(),
     });
   }
   return web3Wallet;

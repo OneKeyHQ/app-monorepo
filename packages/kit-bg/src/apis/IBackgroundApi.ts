@@ -93,6 +93,7 @@ import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletBanner from '../services/ServiceWalletBanner';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
+import type ServiceWalletConnectPay from '../services/ServiceWalletConnectPay';
 import type ServiceWalletStatus from '../services/ServiceWalletStatus';
 import type ServiceWebviewPerp from '../services/ServiceWebviewPerp';
 import type { EAtomNames } from '../states/jotai/atomNames';
@@ -192,6 +193,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceDApp: ServiceDApp;
   serviceDappSide: ServiceDappSide;
   serviceWalletConnect: ServiceWalletConnect;
+  serviceWalletConnectPay: ServiceWalletConnectPay;
   serviceNotification: ServiceNotification;
   servicePrime: ServicePrime;
   servicePrimeCloudSync: ServicePrimeCloudSync;
