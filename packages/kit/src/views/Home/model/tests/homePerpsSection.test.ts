@@ -1,4 +1,3 @@
-import { adaptHomeLegacyPerpsSection } from '../compatibility/homeLegacyPerpsSectionAdapter';
 import { HomeSectionCoordinator } from '../sections/homeSectionCoordinator';
 import {
   buildHomePerpsCoverage,
@@ -435,74 +434,5 @@ describe('home Perps section authority', () => {
       kind: 'live',
       data: complete,
     });
-  });
-
-  it('adapts legacy semantic loading empty error and ready payload reference', () => {
-    const identity = createIdentity();
-    const coordinator = new HomeSectionCoordinator<IHomePerpsLegacyPayload>(
-      identity,
-    );
-
-    expect(adaptHomeLegacyPerpsSection({})).toEqual({
-      kind: 'loading',
-      viewState: 'loading',
-    });
-    expect(
-      adaptHomeLegacyPerpsSection({
-        resolution: coordinator.dispatch(
-          adaptHomePerpsSourceSnapshot({
-            identity,
-            snapshot: {
-              kind: 'complete',
-              requestSeq: 1,
-              coverageFingerprint: buildHomePerpsCoverage(1),
-              result: { kind: 'empty' },
-            },
-          }),
-        ),
-      }),
-    ).toEqual({ kind: 'empty', viewState: 'empty' });
-
-    const errorCoordinator =
-      new HomeSectionCoordinator<IHomePerpsLegacyPayload>(identity);
-    expect(
-      adaptHomeLegacyPerpsSection({
-        resolution: errorCoordinator.dispatch(
-          adaptHomePerpsSourceSnapshot({
-            identity,
-            snapshot: {
-              kind: 'error',
-              requestSeq: 1,
-              errorKind: 'transport',
-            },
-          }),
-        ),
-      }),
-    ).toEqual({ kind: 'error', refresh: 'failed', viewState: 'empty' });
-
-    const ready = payload('ready');
-    const readyState = adaptHomeLegacyPerpsSection({
-      resolution: coordinator.dispatch(
-        adaptHomePerpsSourceSnapshot({
-          identity,
-          snapshot: {
-            kind: 'complete',
-            requestSeq: 2,
-            coverageFingerprint: buildHomePerpsCoverage(2),
-            result: { kind: 'success', data: ready, rowIds: ['perps'] },
-          },
-        }),
-      ),
-    });
-
-    expect(readyState).toMatchObject({
-      kind: 'ready',
-      freshness: 'live',
-      refresh: 'idle',
-      viewState: 'ready',
-    });
-    if (readyState.kind === 'ready') {
-      expect(readyState.payload).toBe(ready);
-    }
   });
 });

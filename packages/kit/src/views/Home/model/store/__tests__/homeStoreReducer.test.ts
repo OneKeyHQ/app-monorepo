@@ -217,9 +217,9 @@ describe('Home Store reducer', () => {
       sectionId: 'defi',
       result: {
         kind: 'ready',
-        rowIds: ['row-b'],
+        rowIds: ['row-a'],
         freshness: 'live',
-        refresh: 'idle',
+        refresh: 'refreshing',
       },
     });
     expect(state.sections.defi.presentationRevision).toBe(2);

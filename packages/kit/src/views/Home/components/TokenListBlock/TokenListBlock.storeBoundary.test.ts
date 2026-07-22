@@ -10,6 +10,10 @@ describe('Home portfolio Store boundary', () => {
     path.join(__dirname, 'HomePortfolioStoreController.tsx'),
     'utf8',
   );
+  const allNetworkHookSource = fs.readFileSync(
+    path.join(__dirname, '../../../../hooks/useAllNetwork.ts'),
+    'utf8',
+  );
   const tokenListViewSource = fs.readFileSync(
     path.join(__dirname, '../../../../components/TokenListView/index.tsx'),
     'utf8',
@@ -33,7 +37,7 @@ describe('Home portfolio Store boundary', () => {
     );
     expect(controllerSource).toContain('walletTokenSnapshot');
     expect(controllerSource).toContain(
-      'EHomeBackgroundRecoveryRefreshDomain.legacyWalletTokens',
+      'EHomeBackgroundRecoveryRefreshDomain.portfolio',
     );
   });
 
@@ -45,10 +49,35 @@ describe('Home portfolio Store boundary', () => {
     expect(controllerSource).toContain(
       'pendingSingleNetworkReadyCompletionRef.current',
     );
-    expect(controllerSource).toContain('minimumValuationRevision');
+    expect(controllerSource).toContain(
+      'isHomePortfolioValuationReceiptApplied({',
+    );
+    expect(controllerSource).toContain('expected: pending.valuationReceipt');
     expect(controllerSource).toContain(
       'completeRequest: completeHomeSectionRequest',
     );
+  });
+
+  it('finalizes all-network data from the exact completed run', () => {
+    expect(controllerSource).toContain(
+      'await finalizeAllNetworksTokenListRef.current({',
+    );
+    expect(controllerSource).toContain('finishedResult: result ?? []');
+    expect(controllerSource).toContain('requestRound: runContext.requestRound');
+    expect(controllerSource).toContain(
+      'legacyAllNetworkOutcomeRef.current === outcome',
+    );
+    expect(controllerSource).not.toContain('result: allNetworksResult');
+    expect(controllerSource).not.toContain('allNetworkFinalizeRevision');
+    expect(allNetworkHookSource).toContain('resultForFinished = resp');
+    expect(allNetworkHookSource).toContain('result: resultForFinished');
+    expect(controllerSource).toContain(
+      'pendingAllNetworkReadyCompletionRef.current',
+    );
+    expect(controllerSource).toContain(
+      'const valuationReceipt = await commitAuthoritativeIngest(snapshot)',
+    );
+    expect(controllerSource).toContain('ownerKey: valuationReceipt.ownerKey');
   });
 
   it('prevents TokenListView Home mode from fetching network metadata', () => {

@@ -108,7 +108,7 @@ function HomeStoreDrivenWalletSurface({
 }) {
   const shell = useHomeShell();
   if (
-    (pageSurface.surface === 'native' || pageSurface.surface === 'legacy') &&
+    pageSurface.surface === 'react' &&
     shell.value.kind === 'backupRequired'
   ) {
     return (
@@ -128,7 +128,7 @@ function HomeStoreDrivenWalletSurface({
       />
     );
   }
-  if (pageSurface.surface === 'legacy' || pageSurface.surface === 'no-wallet') {
+  if (pageSurface.surface === 'react' || pageSurface.surface === 'no-wallet') {
     return (
       <HomePageView
         key={`${sceneName}-${pageSurface.walletId ?? pageSurface.surface}`}
@@ -201,7 +201,7 @@ export function HomeLaunchGatedContent({
     },
     surfaceHasRenderer:
       pageSurface.surface === 'native' ||
-      pageSurface.surface === 'legacy' ||
+      pageSurface.surface === 'react' ||
       pageSurface.surface === 'no-wallet',
   });
   useLayoutEffect(() => {

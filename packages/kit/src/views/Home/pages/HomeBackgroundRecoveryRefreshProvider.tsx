@@ -26,20 +26,18 @@ import {
   useActiveAccount,
   useIsAccountSelectorActiveAccountInitDone,
 } from '../../../states/jotai/contexts/accountSelector';
+import { useHomeNavigation } from '../../../states/jotai/contexts/home';
 
 import { resolveHomeWalletContentReadiness } from './homePageNoWalletContent';
 import { useHomeWalletList } from './HomeWalletListProvider';
 
 export const EHomeBackgroundRecoveryRefreshDomain = {
-  renderer: 'renderer',
-  legacyWalletTokens: 'legacy-wallet-tokens',
-  legacyPortfolioDeFiOverview: 'legacy-portfolio-defi-overview',
-  legacyHeaderPerpsWorth: 'legacy-header-perps-worth',
-  legacyBanner: 'legacy-banner',
-  legacyPerps: 'legacy-perps',
-  legacyDeFi: 'legacy-defi',
-  legacyNft: 'legacy-nft',
-  legacyHistory: 'legacy-history',
+  portfolio: 'portfolio',
+  banner: 'banner',
+  perps: 'perps',
+  defi: 'defi',
+  nft: 'nft',
+  history: 'history',
 } as const;
 
 export type IHomeBackgroundRecoveryRefreshDomain =
@@ -49,17 +47,6 @@ export type IHomeBackgroundRecoveryTabId =
   | 'portfolio'
   | 'perps'
   | 'defi'
-  | 'nft'
-  | 'history';
-
-export type INativeHomeBackgroundRecoveryRefreshSource =
-  | 'portfolio'
-  | 'default-token-map'
-  | 'defi'
-  | 'perps'
-  | 'banners'
-  | 'lp-tokens'
-  | 'supplemental'
   | 'nft'
   | 'history';
 
@@ -94,7 +81,7 @@ type IHomeBackgroundRecoveryRefreshRegistration = {
 type IHomeBackgroundRecoverySurfaceCommit = {
   ownerActivation: IHomeBackgroundRecoveryOwnerActivation;
   ownerKey: string;
-  rendererMounted: boolean;
+  surfaceHasRenderer: boolean;
   revision: number;
 };
 
@@ -102,7 +89,7 @@ type IHomeBackgroundRecoverySurfaceCommitWaiter = {
   isTransactionCurrent: () => boolean;
   ownerActivation: IHomeBackgroundRecoveryOwnerActivation;
   ownerKey: string;
-  resolve: (rendererCommitted: boolean) => void;
+  resolve: (surfaceCommitted: boolean) => void;
   revision: number;
   token: symbol;
 };
@@ -129,30 +116,6 @@ const homeBackgroundRecoveryOwner = {
   sceneName: EAccountSelectorSceneName.home,
   sceneUrl: '',
 };
-
-const HOME_BACKGROUND_RECOVERY_LOG_PREFIX = '[HomeBackgroundRecovery]';
-
-function stringifyHomeBackgroundRecoveryLogValue(value: unknown) {
-  try {
-    return JSON.stringify(value);
-  } catch (error) {
-    return JSON.stringify({
-      stringifyError: error instanceof Error ? error.message : String(error),
-    });
-  }
-}
-
-export function debugHomeBackgroundRecoveryLog(label: string, value?: unknown) {
-  if (process.env.NODE_ENV !== 'development') {
-    return;
-  }
-  const valueText =
-    value === undefined
-      ? ''
-      : ` ${stringifyHomeBackgroundRecoveryLogValue(value)}`;
-  // eslint-disable-next-line no-console
-  console.log(`${HOME_BACKGROUND_RECOVERY_LOG_PREFIX} ${label}${valueText}`);
-}
 
 function buildOwnerKey(owner: IHomeBackgroundRecoveryOwnerToken) {
   return [
@@ -190,58 +153,30 @@ export function isHomeBackgroundRecoveryTransactionCurrent({
   );
 }
 
-export function getLegacyHomeBackgroundRecoveryRefreshDomains(
+export function getHomeBackgroundRecoveryRefreshDomains(
   activeTabId: IHomeBackgroundRecoveryTabId | undefined,
 ): IHomeBackgroundRecoveryRefreshDomain[] {
   const domains: IHomeBackgroundRecoveryRefreshDomain[] = [
-    EHomeBackgroundRecoveryRefreshDomain.legacyWalletTokens,
-    EHomeBackgroundRecoveryRefreshDomain.legacyPortfolioDeFiOverview,
-    EHomeBackgroundRecoveryRefreshDomain.legacyHeaderPerpsWorth,
-    EHomeBackgroundRecoveryRefreshDomain.legacyBanner,
+    EHomeBackgroundRecoveryRefreshDomain.portfolio,
+    EHomeBackgroundRecoveryRefreshDomain.banner,
   ];
   switch (activeTabId) {
     case 'perps':
-      domains.push(EHomeBackgroundRecoveryRefreshDomain.legacyPerps);
+      domains.push(EHomeBackgroundRecoveryRefreshDomain.perps);
       break;
     case 'defi':
-      domains.push(EHomeBackgroundRecoveryRefreshDomain.legacyDeFi);
+      domains.push(EHomeBackgroundRecoveryRefreshDomain.defi);
       break;
     case 'nft':
-      domains.push(EHomeBackgroundRecoveryRefreshDomain.legacyNft);
+      domains.push(EHomeBackgroundRecoveryRefreshDomain.nft);
       break;
     case 'history':
-      domains.push(EHomeBackgroundRecoveryRefreshDomain.legacyHistory);
+      domains.push(EHomeBackgroundRecoveryRefreshDomain.history);
       break;
     default:
       break;
   }
   return domains;
-}
-
-export function getNativeHomeBackgroundRecoveryRefreshSources(
-  activeTabId: IHomeBackgroundRecoveryTabId,
-): INativeHomeBackgroundRecoveryRefreshSource[] {
-  const sources: INativeHomeBackgroundRecoveryRefreshSource[] = [
-    'portfolio',
-    'default-token-map',
-    'defi',
-    'perps',
-    'banners',
-  ];
-  switch (activeTabId) {
-    case 'portfolio':
-      sources.push('lp-tokens', 'supplemental');
-      break;
-    case 'nft':
-      sources.push('nft');
-      break;
-    case 'history':
-      sources.push('history');
-      break;
-    default:
-      break;
-  }
-  return sources;
 }
 
 export function createHomeBackgroundRecoveryRefreshRegistry({
@@ -266,14 +201,14 @@ export function createHomeBackgroundRecoveryRefreshRegistry({
     if (commit.revision < waiter.revision) {
       return false;
     }
-    const rendererCommitted =
+    const surfaceCommitted =
       commit.revision === waiter.revision &&
       commit.ownerKey === waiter.ownerKey &&
       commit.ownerActivation === waiter.ownerActivation &&
-      commit.rendererMounted &&
+      commit.surfaceHasRenderer &&
       waiter.isTransactionCurrent();
     surfaceCommitWaiters.delete(waiter.token);
-    waiter.resolve(rendererCommitted);
+    waiter.resolve(surfaceCommitted);
     return true;
   };
 
@@ -286,18 +221,18 @@ export function createHomeBackgroundRecoveryRefreshRegistry({
   const acknowledgeSurfaceCommit = ({
     owner,
     ownerActivation,
-    rendererMounted,
+    surfaceHasRenderer,
     revision,
   }: {
     owner: IHomeBackgroundRecoveryOwnerToken;
     ownerActivation: IHomeBackgroundRecoveryOwnerActivation;
-    rendererMounted: boolean;
+    surfaceHasRenderer: boolean;
     revision: number;
   }) => {
     const commit = {
       ownerActivation,
       ownerKey: buildOwnerKey(owner),
-      rendererMounted,
+      surfaceHasRenderer,
       revision,
     };
     if (!latestSurfaceCommit || latestSurfaceCommit.revision <= revision) {
@@ -435,6 +370,7 @@ export function createHomeBackgroundRecoveryRefreshRegistry({
 }
 
 export async function runHomeBackgroundRecoveryRefresh({
+  domains,
   isTransactionCurrent,
   owner,
   ownerActivation,
@@ -443,6 +379,7 @@ export async function runHomeBackgroundRecoveryRefresh({
   requestSurfaceCommit,
   registry,
 }: {
+  domains: readonly IHomeBackgroundRecoveryRefreshDomain[];
   isTransactionCurrent: () => boolean;
   owner: IHomeBackgroundRecoveryOwnerToken;
   ownerActivation: IHomeBackgroundRecoveryOwnerActivation;
@@ -451,47 +388,30 @@ export async function runHomeBackgroundRecoveryRefresh({
   requestSurfaceCommit: () => number;
   registry: IHomeBackgroundRecoveryRefreshRegistry;
 }) {
-  // Let the confirmed wallet owner register its renderer before the recovery
-  // transaction snapshots and runs the current Home callbacks.
-  debugHomeBackgroundRecoveryLog('wallet-barrier-start', {
-    reason: readySignal.reason,
-    sequence: readySignal.sequence,
-  });
-  let walletBarrierResult: 'fulfilled' | 'rejected' = 'fulfilled';
+  // Let the confirmed wallet owner commit its visible surface before recovery
+  // snapshots and runs the current Home callbacks.
   try {
     await refreshWalletListSilently();
   } catch {
-    walletBarrierResult = 'rejected';
     // A wallet-list failure must not block the remaining owner-scoped refreshes.
   }
   const currentAfterWalletBarrier = isTransactionCurrent();
-  debugHomeBackgroundRecoveryLog('wallet-barrier-settled', {
-    current: currentAfterWalletBarrier,
-    result: walletBarrierResult,
-    sequence: readySignal.sequence,
-  });
   if (!currentAfterWalletBarrier) {
     return;
   }
   const revision = requestSurfaceCommit();
-  const rendererCommitted = await registry.waitForSurfaceCommit({
+  const surfaceCommitted = await registry.waitForSurfaceCommit({
     isTransactionCurrent,
     owner,
     ownerActivation,
     revision,
   });
   const currentAfterSurfaceAck = isTransactionCurrent();
-  debugHomeBackgroundRecoveryLog('surface-ack', {
-    current: currentAfterSurfaceAck,
-    rendererCommitted,
-    revision,
-    sequence: readySignal.sequence,
-  });
-  if (!rendererCommitted || !currentAfterSurfaceAck) {
+  if (!surfaceCommitted || !currentAfterSurfaceAck) {
     return;
   }
   await registry.runTransaction({
-    domains: [EHomeBackgroundRecoveryRefreshDomain.renderer],
+    domains,
     isTransactionCurrent,
     owner,
     readySignal,
@@ -518,6 +438,16 @@ export function HomeBackgroundRecoveryRefreshProvider({
     refreshSilently,
     result: walletListResult,
   } = useHomeWalletList();
+  const homeNavigation = useHomeNavigation();
+  const refreshDomains = useMemo(
+    () =>
+      getHomeBackgroundRecoveryRefreshDomains(
+        homeNavigation.value.kind === 'ready'
+          ? homeNavigation.value.selectedTabId
+          : undefined,
+      ),
+    [homeNavigation.value],
+  );
   const [accountSelectorStorageInitDone] =
     useAccountSelectorStorageInitDoneAtom();
   const accountSelectorActiveAccountInitDone =
@@ -570,6 +500,7 @@ export function HomeBackgroundRecoveryRefreshProvider({
     ),
   );
   const recoveryCommitRevisionRef = useRef(0);
+  const committedRefreshDomainsRef = useRef(refreshDomains);
   const [recoveryCommitRevision, setRecoveryCommitRevision] = useState(0);
   const requestSurfaceCommit = useCallback(() => {
     recoveryCommitRevisionRef.current += 1;
@@ -588,12 +519,14 @@ export function HomeBackgroundRecoveryRefreshProvider({
       ownerComplete,
     };
     registry.cancelPendingSurfaceCommitWaiters();
+    committedRefreshDomainsRef.current = refreshDomains;
   }, [
     currentOwner,
     explicitNoWallet,
     ownerActivation,
     ownerComplete,
     registry,
+    refreshDomains,
   ]);
 
   useEffect(() => {
@@ -622,38 +555,17 @@ export function HomeBackgroundRecoveryRefreshProvider({
           return;
         }
         if (readySignal.reason === 'initial') {
-          debugHomeBackgroundRecoveryLog('completion', {
-            claimResult: 'ignored-initial',
-            explicitNoWallet: committedOwnerState.explicitNoWallet,
-            ownerComplete: committedOwnerState.ownerComplete,
-            reason: readySignal.reason,
-            sequence: readySignal.sequence,
-          });
           return;
         }
         if (
           !committedOwnerState.ownerComplete &&
           !committedOwnerState.explicitNoWallet
         ) {
-          debugHomeBackgroundRecoveryLog('completion', {
-            claimResult: 'deferred',
-            explicitNoWallet: committedOwnerState.explicitNoWallet,
-            ownerComplete: committedOwnerState.ownerComplete,
-            reason: readySignal.reason,
-            sequence: readySignal.sequence,
-          });
           return;
         }
         const claimed = claimAccountSelectorBackgroundRecovery({
           consumerId: 'home-background-recovery',
           owner: homeBackgroundRecoveryOwner,
-          sequence: readySignal.sequence,
-        });
-        debugHomeBackgroundRecoveryLog('completion', {
-          claimResult: claimed ? 'claimed' : 'already-claimed',
-          explicitNoWallet: committedOwnerState.explicitNoWallet,
-          ownerComplete: committedOwnerState.ownerComplete,
-          reason: readySignal.reason,
           sequence: readySignal.sequence,
         });
         if (!claimed) {
@@ -674,6 +586,7 @@ export function HomeBackgroundRecoveryRefreshProvider({
             transactionSequence: readySignal.sequence,
           });
         void runHomeBackgroundRecoveryRefresh({
+          domains: committedRefreshDomainsRef.current,
           isTransactionCurrent,
           owner,
           ownerActivation: transactionOwnerActivation,
@@ -777,12 +690,7 @@ export function useAcknowledgeHomeBackgroundRecoverySurfaceCommit({
     contextValue.registry.acknowledgeSurfaceCommit({
       owner,
       ownerActivation: contextValue.ownerActivation,
-      rendererMounted:
-        surfaceHasRenderer &&
-        contextValue.registry.hasRegistration({
-          domain: EHomeBackgroundRecoveryRefreshDomain.renderer,
-          owner,
-        }),
+      surfaceHasRenderer,
       revision: contextValue.recoveryCommitRevision,
     });
     // ownerKey intentionally represents the normalized owner identity.

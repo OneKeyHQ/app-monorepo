@@ -442,8 +442,50 @@ enum HomeContainerProtocolV2NeedSnapshotReason: String, Encodable, Equatable {
   case unsupportedProtocol
 }
 
+struct HomeContainerProtocolV2RenderPlan: Equatable {
+  let isFullSnapshot: Bool
+  let shouldBindHeader: Bool
+  let shouldReconcileNavigation: Bool
+  let sectionTabIds: Set<String>
+  let shouldApplySurface: Bool
+
+  static let fullSnapshot = HomeContainerProtocolV2RenderPlan(
+    isFullSnapshot: true,
+    shouldBindHeader: true,
+    shouldReconcileNavigation: true,
+    sectionTabIds: [],
+    shouldApplySurface: true
+  )
+
+  static func patch(changes: [HomeContainerProtocolV2Change]) -> Self {
+    var shouldBindHeader = false
+    var shouldReconcileNavigation = false
+    var sectionTabIds = Set<String>()
+    var shouldApplySurface = false
+    changes.forEach { change in
+      switch change {
+      case .replaceShell:
+        shouldBindHeader = true
+      case .replaceNavigation:
+        shouldReconcileNavigation = true
+      case .replaceSection(let tabId, _, _, _), .removeSection(let tabId, _):
+        sectionTabIds.insert(tabId)
+      case .replaceSurface:
+        shouldApplySurface = true
+      }
+    }
+    return HomeContainerProtocolV2RenderPlan(
+      isFullSnapshot: false,
+      shouldBindHeader: shouldBindHeader,
+      shouldReconcileNavigation: shouldReconcileNavigation,
+      sectionTabIds: sectionTabIds,
+      shouldApplySurface: shouldApplySurface
+    )
+  }
+}
+
 enum HomeContainerProtocolV2ApplyOutcome {
-  case applied(HomeContainerProtocolV2State)
+  case applied(HomeContainerProtocolV2State, HomeContainerProtocolV2RenderPlan)
   case duplicate(owner: HomeContainerProtocolV2Owner, revision: Int)
   case needSnapshot(
     owner: HomeContainerProtocolV2Owner?,
@@ -630,7 +672,8 @@ enum HomeContainerProtocolV2Transaction {
         owner: envelope.owner,
         revision: envelope.revision,
         snapshot: candidate
-      )
+      ),
+      .fullSnapshot
     )
   }
 
@@ -728,7 +771,8 @@ enum HomeContainerProtocolV2Transaction {
         owner: patch.owner,
         revision: patch.revision,
         snapshot: committedSnapshot
-      )
+      ),
+      .patch(changes: patch.changes)
     )
   }
 

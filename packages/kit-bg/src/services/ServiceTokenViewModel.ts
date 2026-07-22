@@ -174,6 +174,12 @@ export interface IIngestRoundParams {
   source?: string;
 }
 
+/** Exact valuation frame produced by one completed ingest. */
+export interface ITokenListIngestReceipt {
+  ownerKey: string;
+  valuationVersion: number;
+}
+
 /** Result of a PULL — the authoritative full frames for an owner. */
 export interface ITokenListFramesPullResult {
   ownerKey: string;
@@ -279,7 +285,9 @@ class ServiceTokenViewModel extends ServiceBase {
    * before any microtask; the UI calls it fire-and-forget).
    */
   @backgroundMethod()
-  async ingestRound(params: IIngestRoundParams): Promise<void> {
+  async ingestRound(
+    params: IIngestRoundParams,
+  ): Promise<ITokenListIngestReceipt | undefined> {
     const {
       ownerKey,
       orderedTokens,
@@ -406,6 +414,11 @@ class ServiceTokenViewModel extends ServiceBase {
         storeData,
       }));
     }
+
+    return {
+      ownerKey,
+      valuationVersion: framesNow.valuation.version,
+    };
   }
 
   /**

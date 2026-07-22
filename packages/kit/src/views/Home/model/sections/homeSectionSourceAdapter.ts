@@ -4,7 +4,33 @@ import type {
   IHomeSectionCoordinatorEvent,
   IHomeSectionSourceIdentity,
 } from './homeSectionCoordinator';
-import type { IScopedResourceState } from '../lifecycle/scopedResourceMachine';
+
+export type IScopedResourceState<T extends IHomeRuntimeJsonValue> =
+  | { status: 'idle'; requestSeq: 0 }
+  | { status: 'loading'; requestSeq: number }
+  | {
+      status: 'partial';
+      requestSeq: number;
+      data: T;
+      coverageFingerprint: string;
+    }
+  | {
+      status: 'success';
+      requestSeq: number;
+      data: T;
+      coverageFingerprint: string;
+    }
+  | { status: 'empty'; requestSeq: number; coverageFingerprint: string }
+  | {
+      status: 'error';
+      requestSeq: number;
+      errorKind:
+        | 'source'
+        | 'transport'
+        | 'schemaMismatch'
+        | 'runtimeUnavailable';
+    }
+  | { status: 'stopped'; requestSeq: number };
 
 function adaptHomeSectionSourceState<T extends IHomeRuntimeJsonValue>({
   getRowIds,

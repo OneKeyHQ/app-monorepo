@@ -6,6 +6,7 @@ import {
   useHomeResource,
   useHomeSessionState,
 } from '@onekeyhq/kit/src/states/jotai/contexts/home';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import {
   decodeHomeStoreSnapshot,
@@ -15,6 +16,7 @@ import {
 import {
   HOME_STORE_CACHE_TTL_MS,
   createCacheRecord,
+  mergeHomeStoreCacheRecords,
 } from '../store/homeStoreSnapshotRecord';
 
 import { useHomeStoreControllerActions } from './useHomeStoreControllerActions';
@@ -46,6 +48,10 @@ export function HomeStoreSnapshotController() {
   const loadGenerationRef = useRef(0);
   const hydratedSourceIdsRef = useRef(new Set<IHomeStoreSourceId>());
   const hydratedPreferenceRef = useRef(false);
+  const confirmedRecordsRef = useRef<{
+    ownerScopeKey?: string;
+    records: readonly IHomeCachedSourceRecord[];
+  }>({ records: [] });
   const [loadedSnapshot, setLoadedSnapshot] =
     useState<IHomeCachedSnapshotPayload>();
   const ownerToken = session.ownerToken;
@@ -68,27 +74,59 @@ export function HomeStoreSnapshotController() {
     const generation = loadGenerationRef.current;
     hydratedSourceIdsRef.current.clear();
     hydratedPreferenceRef.current = false;
+    confirmedRecordsRef.current = {
+      ownerScopeKey: ownerToken?.scopeKey,
+      records: [],
+    };
     setLoadedSnapshot(undefined);
     if (!ownerToken) {
       return;
     }
     const load = async () => {
-      const envelope =
-        await backgroundApiProxy.serviceBootstrap.loadHomeStoreCache(
-          getHomeStoreCacheKey(ownerToken.scopeKey),
-        );
-      if (generation !== loadGenerationRef.current) {
-        return;
+      try {
+        const envelope =
+          await backgroundApiProxy.serviceBootstrap.loadHomeStoreCache(
+            getHomeStoreCacheKey(ownerToken.scopeKey),
+          );
+        if (generation !== loadGenerationRef.current) {
+          return;
+        }
+        const snapshot = decodeHomeStoreSnapshot({
+          envelope,
+          expectedOwnerScopeKey: ownerToken.scopeKey,
+          now: Date.now(),
+        });
+        let outcome: 'accepted' | 'rejected' | 'empty' = 'empty';
+        if (snapshot) {
+          outcome = 'accepted';
+        } else if (envelope) {
+          outcome = 'rejected';
+        }
+        defaultLogger.wallet.homeUi.homeStoreCacheDecision({
+          operation: 'load',
+          outcome,
+          recordCount: snapshot?.records.length ?? 0,
+        });
+        if (snapshot) {
+          if (
+            confirmedRecordsRef.current.ownerScopeKey ===
+              snapshot.ownerScopeKey &&
+            confirmedRecordsRef.current.records.length === 0
+          ) {
+            confirmedRecordsRef.current = {
+              ownerScopeKey: snapshot.ownerScopeKey,
+              records: snapshot.records,
+            };
+          }
+          setLoadedSnapshot(snapshot);
+        }
+      } catch {
+        defaultLogger.wallet.homeUi.homeStoreCacheDecision({
+          operation: 'load',
+          outcome: 'failed',
+          recordCount: 0,
+        });
       }
-      const snapshot = decodeHomeStoreSnapshot({
-        envelope,
-        expectedOwnerScopeKey: ownerToken.scopeKey,
-        now: Date.now(),
-      });
-      if (!snapshot) {
-        return;
-      }
-      setLoadedSnapshot(snapshot);
     };
     void load();
     return () => {
@@ -137,6 +175,11 @@ export function HomeStoreSnapshotController() {
         ? loadedSnapshot.selectedTabPreference
         : undefined,
     });
+    defaultLogger.wallet.homeUi.homeStoreCacheDecision({
+      operation: 'hydrate',
+      outcome: 'accepted',
+      recordCount: records.length,
+    });
     records.forEach((record) =>
       hydratedSourceIdsRef.current.add(record.sourceId),
     );
@@ -151,7 +194,7 @@ export function HomeStoreSnapshotController() {
     }
     const timeout = setTimeout(() => {
       const now = Date.now();
-      const records = Object.entries(resources)
+      const liveRecords = Object.entries(resources)
         .map(([sourceId, slot]) =>
           createCacheRecord({
             now,
@@ -162,8 +205,22 @@ export function HomeStoreSnapshotController() {
         .filter(
           (record): record is IHomeCachedSourceRecord => record !== undefined,
         );
+      const records = mergeHomeStoreCacheRecords({
+        cachedRecords:
+          confirmedRecordsRef.current.ownerScopeKey === ownerToken.scopeKey
+            ? confirmedRecordsRef.current.records
+            : [],
+        liveRecords,
+        now,
+      });
       if (records.length === 0) {
         return;
+      }
+      if (liveRecords.length > 0) {
+        confirmedRecordsRef.current = {
+          ownerScopeKey: ownerToken.scopeKey,
+          records,
+        };
       }
       const envelope = encodeHomeStoreSnapshot({
         key: getHomeStoreCacheKey(ownerToken.scopeKey),
@@ -174,9 +231,22 @@ export function HomeStoreSnapshotController() {
         expiresAt: now + HOME_STORE_CACHE_TTL_MS,
       });
       if (envelope) {
-        void backgroundApiProxy.serviceBootstrap.persistHomeStoreCache(
-          envelope,
-        );
+        void backgroundApiProxy.serviceBootstrap
+          .persistHomeStoreCache(envelope)
+          .then(() => {
+            defaultLogger.wallet.homeUi.homeStoreCacheDecision({
+              operation: 'persist',
+              outcome: 'accepted',
+              recordCount: records.length,
+            });
+          })
+          .catch(() => {
+            defaultLogger.wallet.homeUi.homeStoreCacheDecision({
+              operation: 'persist',
+              outcome: 'failed',
+              recordCount: records.length,
+            });
+          });
       }
     }, HOME_STORE_CACHE_PERSIST_DEBOUNCE_MS);
     return () => clearTimeout(timeout);

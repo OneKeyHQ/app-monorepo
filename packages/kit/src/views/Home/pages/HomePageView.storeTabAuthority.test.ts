@@ -12,7 +12,10 @@ describe('HomePageView Store tab authority', () => {
       'homeWalletCapabilityTabModel.selectedTabId as EHomeWalletTab',
     );
     expect(source).toContain('activeTabId: selectedTabId');
-    expect(source).toContain('selectedTabIdRef.current');
+    expect(source).not.toContain('selectedTabIdRef');
+    expect(source).not.toContain('useRegisterHomeBackgroundRecoveryRefresh');
+    expect(source).not.toContain('EAppEventBusNames.RefreshTokenList');
+    expect(source).not.toContain('refreshByProvidedAccounts');
     expect(source).not.toContain('setActiveTabId');
     expect(source).not.toMatch(
       /useState<EHomeWalletTab\s*\|\s*undefined>\s*\(/,

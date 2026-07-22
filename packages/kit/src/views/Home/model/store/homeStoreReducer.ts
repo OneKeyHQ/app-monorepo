@@ -16,6 +16,7 @@ import {
 } from '../sections/banner/homeBannerStoreModel';
 import { projectHomeSemanticModel } from '../semantic/homeSemanticProjector';
 
+import { HOME_SECTION_ACTION_IDS } from './homeStoreCommandIds';
 import {
   createInitialHomeStoreResources,
   createInitialHomeStoreSection,
@@ -160,7 +161,9 @@ function navigationApplicabilitySignature(
 }
 
 function sectionCommandSignature(value: IHomeSectionSemanticModel): unknown {
-  return { kind: value.kind };
+  return value.kind === 'ready'
+    ? { kind: value.kind, rowIds: value.rowIds }
+    : { kind: value.kind };
 }
 
 function serializeSectionForResource(
@@ -571,12 +574,61 @@ function validateIntent(
         return 'intentTargetUnavailable';
       }
     }
+    return intent.type === 'headerActionInvoked' &&
+      (intent.actionId.startsWith('home.header.') ||
+        intent.actionId.startsWith('home.banner.'))
+      ? undefined
+      : 'intentTargetUnavailable';
+  }
+  const sectionId = intent.authority.sectionId;
+  if (
+    intent.authority.revision !==
+    state.sections[sectionId].sectionCommandRevision
+  ) {
+    return 'intentAuthorityExpired';
+  }
+  if (intent.type === 'sectionControlChanged') {
     return undefined;
   }
-  return intent.authority.revision ===
-    state.sections[intent.authority.sectionId].sectionCommandRevision
-    ? undefined
-    : 'intentAuthorityExpired';
+  if (
+    intent.type !== 'sectionActionInvoked' &&
+    intent.type !== 'sectionRefreshRequested'
+  ) {
+    return 'intentTargetUnavailable';
+  }
+  const allowedPrefixes: Record<typeof sectionId, readonly string[]> = {
+    portfolio: ['home.portfolio.', 'home.asset.'],
+    perps: ['home.perps.'],
+    defi: ['home.defi.'],
+    nft: ['home.nft.'],
+    history: ['home.history.'],
+    market: ['home.market.', 'home.widget.market.'],
+  };
+  if (
+    !allowedPrefixes[sectionId].some((prefix) =>
+      intent.actionId.startsWith(prefix),
+    )
+  ) {
+    return 'intentTargetUnavailable';
+  }
+  const rowTargetActionIds = new Set<string>([
+    HOME_SECTION_ACTION_IDS.openAsset,
+    HOME_SECTION_ACTION_IDS.openDeFiProtocol,
+    HOME_SECTION_ACTION_IDS.openHistory,
+    HOME_SECTION_ACTION_IDS.openMarket,
+    HOME_SECTION_ACTION_IDS.openNFT,
+  ]);
+  if (rowTargetActionIds.has(intent.actionId)) {
+    const section = state.sections[sectionId].value;
+    if (
+      !intent.itemId ||
+      section.kind !== 'ready' ||
+      !section.rowIds.includes(intent.itemId)
+    ) {
+      return 'intentTargetUnavailable';
+    }
+  }
+  return undefined;
 }
 
 export function reduceHomeStore(
@@ -910,15 +962,25 @@ export function reduceHomeStore(
         return rejectedTransition(state, 'ownerMismatch');
       }
       const next = createInitialHomeStoreSection(event.sectionId);
-      return equal(state.sections[event.sectionId], next)
-        ? emptyTransition()
-        : acceptedTransition(state, [
-            {
-              slice: 'section',
-              sectionId: event.sectionId,
-              operation: { kind: 'reset' },
-            },
-          ]);
+      const resource = state.resources[event.sectionId];
+      if (
+        equal(state.sections[event.sectionId], next) &&
+        resource.kind === 'idle'
+      ) {
+        return emptyTransition();
+      }
+      return acceptedTransition(state, [
+        {
+          slice: 'section',
+          sectionId: event.sectionId,
+          operation: { kind: 'reset' },
+        },
+        {
+          slice: 'resource',
+          sourceId: event.sectionId,
+          operation: { kind: 'reset' },
+        },
+      ]);
     }
     case 'sourceRequested': {
       const sourceId = sourceIdFromRuntimeSourceId(
@@ -991,9 +1053,7 @@ export function reduceHomeStore(
           });
         }
       }
-      return acceptedTransition(state, mutations, [
-        { kind: 'fetchSource', token: event.token },
-      ]);
+      return acceptedTransition(state, mutations);
     }
     case 'sourceResponded': {
       const sourceId = sourceIdFromRuntimeSourceId(
@@ -1001,6 +1061,21 @@ export function reduceHomeStore(
       );
       if (!sourceId) {
         return rejectedTransition(state, 'sourceMismatch');
+      }
+      if (
+        event.envelope.token.sessionId !==
+          state.session.ownerToken?.sessionId ||
+        event.envelope.token.sourceKey.scopeKey !==
+          state.session.ownerToken?.scopeKey
+      ) {
+        return rejectedTransition(state, 'sessionMismatch');
+      }
+      if (
+        state.runtime.producerInstanceId &&
+        event.envelope.token.producerInstanceId !==
+          state.runtime.producerInstanceId
+      ) {
+        return rejectedTransition(state, 'producerMismatch');
       }
       const current = state.resources[sourceId];
       if (!tokensMatch(current, event.envelope.token)) {

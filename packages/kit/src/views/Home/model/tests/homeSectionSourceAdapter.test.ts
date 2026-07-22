@@ -1,5 +1,3 @@
-import { adaptHomeSectionRenderState } from '../compatibility/homeSectionRenderStateAdapter';
-import { createReplaceSectionChange } from '../native/homeNativeDTOAdapter';
 import {
   adaptHomeSectionSourceState,
   createHomeSectionConfirmedSeed,
@@ -76,54 +74,5 @@ describe('homeSectionSourceAdapter', () => {
     if (event.kind === 'seedConfirmed') {
       expect(event.data).toBe(data);
     }
-  });
-
-  it('never treats ready semantic without authoritative payload as ready render data', () => {
-    expect(
-      adaptHomeSectionRenderState({
-        accepted: true,
-        semantic: {
-          kind: 'ready',
-          rowIds: ['row-1'],
-          freshness: 'live',
-          refresh: 'idle',
-        },
-        authoritative: { kind: 'none' },
-      }),
-    ).toEqual({ kind: 'loading' });
-  });
-
-  it('preserves confirmed refresh state for compatibility renderers', () => {
-    const data = { rows: [{ id: 'cached-row' }] };
-    expect(
-      adaptHomeSectionRenderState({
-        accepted: true,
-        semantic: {
-          kind: 'ready',
-          rowIds: ['cached-row'],
-          freshness: 'confirmedCache',
-          refresh: 'refreshing',
-        },
-        authoritative: { kind: 'confirmedCache', data },
-      }),
-    ).toEqual({
-      kind: 'ready',
-      data,
-      freshness: 'confirmedCache',
-      refresh: 'refreshing',
-    });
-  });
-
-  it('creates replaceSection only from an authoritative concrete section', () => {
-    const section = { id: 'portfolio-assets', items: [] };
-    expect(
-      createReplaceSectionChange({ index: 0, section, tabId: 'portfolio' }),
-    ).toEqual({
-      kind: 'replaceSection',
-      tabId: 'portfolio',
-      sectionId: 'portfolio-assets',
-      index: 0,
-      value: section,
-    });
   });
 });

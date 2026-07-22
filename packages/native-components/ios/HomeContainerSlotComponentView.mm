@@ -8,6 +8,10 @@ using namespace facebook::react;
 @implementation HomeContainerSlotComponentView {
   NSMutableArray<UIView<RCTComponentViewProtocol> *> *_mountedChildren;
   NSString *_slotKey;
+  NSString *_ownerScopeKey;
+  NSString *_ownerSessionId;
+  double _slotRevision;
+  double _producedByStoreCommitId;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -23,6 +27,10 @@ using namespace facebook::react;
     _props = defaultProps;
     _mountedChildren = [NSMutableArray new];
     _slotKey = @"";
+    _ownerScopeKey = @"";
+    _ownerSessionId = @"";
+    _slotRevision = -1;
+    _producedByStoreCommitId = -1;
     self.userInteractionEnabled = YES;
     self.clipsToBounds = YES;
   }
@@ -37,6 +45,26 @@ using namespace facebook::react;
 - (NSString *)slotKey
 {
   return _slotKey;
+}
+
+- (NSString *)ownerScopeKey
+{
+  return _ownerScopeKey;
+}
+
+- (NSString *)ownerSessionId
+{
+  return _ownerSessionId;
+}
+
+- (double)slotRevision
+{
+  return _slotRevision;
+}
+
+- (double)producedByStoreCommitId
+{
+  return _producedByStoreCommitId;
 }
 
 - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView
@@ -61,9 +89,26 @@ using namespace facebook::react;
   const auto &newProps =
       *std::static_pointer_cast<OneKeyHomeContainerSlotProps const>(props);
   NSString *nextKey = [NSString stringWithUTF8String:newProps.slotKey.c_str()];
-  if (![_slotKey isEqualToString:nextKey]) {
+  NSString *nextOwnerScopeKey =
+      [NSString stringWithUTF8String:newProps.ownerScopeKey.c_str()];
+  NSString *nextOwnerSessionId =
+      [NSString stringWithUTF8String:newProps.ownerSessionId.c_str()];
+  BOOL metadataChanged = ![_slotKey isEqualToString:nextKey] ||
+      ![_ownerScopeKey isEqualToString:nextOwnerScopeKey] ||
+      ![_ownerSessionId isEqualToString:nextOwnerSessionId] ||
+      _slotRevision != newProps.slotRevision ||
+      _producedByStoreCommitId != newProps.producedByStoreCommitId;
+  if (metadataChanged) {
     _slotKey = nextKey;
-    [self.superview setNeedsLayout];
+    _ownerScopeKey = nextOwnerScopeKey;
+    _ownerSessionId = nextOwnerSessionId;
+    _slotRevision = newProps.slotRevision;
+    _producedByStoreCommitId = newProps.producedByStoreCommitId;
+    UIView *ancestor = self.superview;
+    while (ancestor != nil) {
+      [ancestor setNeedsLayout];
+      ancestor = ancestor.superview;
+    }
   }
   [super updateProps:props oldProps:oldProps];
 }

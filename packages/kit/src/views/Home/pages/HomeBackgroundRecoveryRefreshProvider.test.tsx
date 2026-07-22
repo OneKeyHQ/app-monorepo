@@ -26,8 +26,7 @@ import {
   type IHomeBackgroundRecoveryOwnerToken,
   type IHomeBackgroundRecoveryRefreshContext,
   createHomeBackgroundRecoveryRefreshRegistry,
-  getLegacyHomeBackgroundRecoveryRefreshDomains,
-  getNativeHomeBackgroundRecoveryRefreshSources,
+  getHomeBackgroundRecoveryRefreshDomains,
   isHomeBackgroundRecoveryTransactionCurrent,
   runHomeBackgroundRecoveryRefresh,
   useAcknowledgeHomeBackgroundRecoverySurfaceCommit,
@@ -98,6 +97,12 @@ jest.mock('../../../states/jotai/contexts/accountSelector', () => ({
   useIsAccountSelectorActiveAccountInitDone: () => mockActiveAccountInitDone,
 }));
 
+jest.mock('../../../states/jotai/contexts/home', () => ({
+  useHomeNavigation: () => ({
+    value: { kind: 'ready', selectedTabId: 'portfolio' },
+  }),
+}));
+
 jest.mock('./HomeWalletListProvider', () => ({
   useHomeWalletList: () => ({
     pending: mockWalletListPending,
@@ -154,12 +159,12 @@ function createSurfaceCommitRequester({
   owner,
   ownerActivation,
   registry,
-  rendererMounted = true,
+  surfaceHasRenderer = true,
 }: {
   owner: IHomeBackgroundRecoveryOwnerToken;
   ownerActivation: IHomeBackgroundRecoveryOwnerActivation;
   registry: ReturnType<typeof createHomeBackgroundRecoveryRefreshRegistry>;
-  rendererMounted?: boolean;
+  surfaceHasRenderer?: boolean;
 }) {
   let revision = 0;
   return jest.fn(() => {
@@ -167,7 +172,7 @@ function createSurfaceCommitRequester({
     registry.acknowledgeSurfaceCommit({
       owner,
       ownerActivation,
-      rendererMounted,
+      surfaceHasRenderer,
       revision,
     });
     return revision;
@@ -179,26 +184,26 @@ function Probe() {
   useRegisterHomeBackgroundRecoveryRefresh({
     callback: ({ runDomains }) =>
       runDomains([
-        EHomeBackgroundRecoveryRefreshDomain.legacyWalletTokens,
-        EHomeBackgroundRecoveryRefreshDomain.legacyHeaderPerpsWorth,
-        EHomeBackgroundRecoveryRefreshDomain.legacyBanner,
+        EHomeBackgroundRecoveryRefreshDomain.portfolio,
+        EHomeBackgroundRecoveryRefreshDomain.perps,
+        EHomeBackgroundRecoveryRefreshDomain.banner,
       ]),
-    domain: EHomeBackgroundRecoveryRefreshDomain.renderer,
+    domain: EHomeBackgroundRecoveryRefreshDomain.history,
     owner,
   });
   useRegisterHomeBackgroundRecoveryRefresh({
     callback: mockWalletTokensRefresh,
-    domain: EHomeBackgroundRecoveryRefreshDomain.legacyWalletTokens,
+    domain: EHomeBackgroundRecoveryRefreshDomain.portfolio,
     owner,
   });
   useRegisterHomeBackgroundRecoveryRefresh({
     callback: mockThrowingRefresh,
-    domain: EHomeBackgroundRecoveryRefreshDomain.legacyHeaderPerpsWorth,
+    domain: EHomeBackgroundRecoveryRefreshDomain.perps,
     owner,
   });
   useRegisterHomeBackgroundRecoveryRefresh({
     callback: mockBannerRefresh,
-    domain: EHomeBackgroundRecoveryRefreshDomain.legacyBanner,
+    domain: EHomeBackgroundRecoveryRefreshDomain.banner,
     owner,
   });
   return null;
@@ -214,13 +219,13 @@ function CommittedSurface({ surfaceHasRenderer = true }) {
 
 let revealDeferredRenderer: (() => void) | undefined;
 function DeferredRendererSurface() {
-  const [rendererMounted, setRendererMounted] = useState(false);
-  revealDeferredRenderer = () => setRendererMounted(true);
+  const [surfaceHasRenderer, setSurfaceHasRenderer] = useState(false);
+  revealDeferredRenderer = () => setSurfaceHasRenderer(true);
   useAcknowledgeHomeBackgroundRecoverySurfaceCommit({
     owner: getMockOwner(),
-    surfaceHasRenderer: rendererMounted,
+    surfaceHasRenderer,
   });
-  return rendererMounted ? <Probe /> : null;
+  return surfaceHasRenderer ? <Probe /> : null;
 }
 
 function ConcurrentStableCallbackProbe() {
@@ -292,32 +297,32 @@ describe('Home background recovery refresh registry', () => {
     });
     const cleanupFirst = registry.register({
       callback: first,
-      domain: EHomeBackgroundRecoveryRefreshDomain.legacyWalletTokens,
+      domain: EHomeBackgroundRecoveryRefreshDomain.portfolio,
       owner: currentOwner,
     });
     registry.register({
       callback: replacement,
-      domain: EHomeBackgroundRecoveryRefreshDomain.legacyWalletTokens,
+      domain: EHomeBackgroundRecoveryRefreshDomain.portfolio,
       owner: currentOwner,
     });
     cleanupFirst();
     registry.register({
       callback: throwing,
-      domain: EHomeBackgroundRecoveryRefreshDomain.legacyBanner,
+      domain: EHomeBackgroundRecoveryRefreshDomain.banner,
       owner: currentOwner,
     });
     registry.register({
       callback: jest.fn(),
-      domain: EHomeBackgroundRecoveryRefreshDomain.legacyNft,
-      operationKey: EHomeBackgroundRecoveryRefreshDomain.legacyBanner,
+      domain: EHomeBackgroundRecoveryRefreshDomain.nft,
+      operationKey: EHomeBackgroundRecoveryRefreshDomain.banner,
       owner: currentOwner,
     });
 
     await registry.runTransaction({
       domains: [
-        EHomeBackgroundRecoveryRefreshDomain.legacyWalletTokens,
-        EHomeBackgroundRecoveryRefreshDomain.legacyBanner,
-        EHomeBackgroundRecoveryRefreshDomain.legacyNft,
+        EHomeBackgroundRecoveryRefreshDomain.portfolio,
+        EHomeBackgroundRecoveryRefreshDomain.banner,
+        EHomeBackgroundRecoveryRefreshDomain.nft,
       ],
       owner: currentOwner,
       readySignal: nextSignal('recovered'),
@@ -329,7 +334,7 @@ describe('Home background recovery refresh registry', () => {
 
     currentOwner = { ...currentOwner, accountId: 'account-2' };
     await registry.runTransaction({
-      domains: [EHomeBackgroundRecoveryRefreshDomain.legacyWalletTokens],
+      domains: [EHomeBackgroundRecoveryRefreshDomain.portfolio],
       owner: {
         accountId: 'account-1',
         networkId: 'network-1',
@@ -363,11 +368,12 @@ describe('Home background recovery refresh registry', () => {
     const refreshWalletListSilently = jest.fn(() => silentRefreshCompletion);
     const rendererRefresh = jest.fn(
       ({ runDomains }: IHomeBackgroundRecoveryRefreshContext) =>
-        runDomains([EHomeBackgroundRecoveryRefreshDomain.legacyWalletTokens]),
+        runDomains([EHomeBackgroundRecoveryRefreshDomain.portfolio]),
     );
     const walletTokensRefresh = jest.fn();
 
     const recoveryCompletion = runHomeBackgroundRecoveryRefresh({
+      domains: [EHomeBackgroundRecoveryRefreshDomain.history],
       isTransactionCurrent: () => true,
       owner,
       ownerActivation,
@@ -381,12 +387,12 @@ describe('Home background recovery refresh registry', () => {
 
     registry.register({
       callback: rendererRefresh,
-      domain: EHomeBackgroundRecoveryRefreshDomain.renderer,
+      domain: EHomeBackgroundRecoveryRefreshDomain.history,
       owner,
     });
     registry.register({
       callback: walletTokensRefresh,
-      domain: EHomeBackgroundRecoveryRefreshDomain.legacyWalletTokens,
+      domain: EHomeBackgroundRecoveryRefreshDomain.portfolio,
       owner,
     });
     resolveSilentRefresh();
@@ -396,6 +402,7 @@ describe('Home background recovery refresh registry', () => {
     expect(walletTokensRefresh).toHaveBeenCalledTimes(1);
 
     await runHomeBackgroundRecoveryRefresh({
+      domains: [EHomeBackgroundRecoveryRefreshDomain.history],
       isTransactionCurrent: () => true,
       owner,
       ownerActivation,
@@ -419,10 +426,11 @@ describe('Home background recovery refresh registry', () => {
       owner,
       ownerActivation,
       registry,
-      rendererMounted: false,
+      surfaceHasRenderer: false,
     });
 
     await runHomeBackgroundRecoveryRefresh({
+      domains: [EHomeBackgroundRecoveryRefreshDomain.history],
       isTransactionCurrent: () => true,
       owner,
       ownerActivation,
@@ -448,7 +456,7 @@ describe('Home background recovery refresh registry', () => {
     const rendererRefresh = jest.fn();
     registry.register({
       callback: rendererRefresh,
-      domain: EHomeBackgroundRecoveryRefreshDomain.renderer,
+      domain: EHomeBackgroundRecoveryRefreshDomain.history,
       owner,
     });
     let resolveNewer!: () => void;
@@ -477,6 +485,7 @@ describe('Home background recovery refresh registry', () => {
       return revision;
     });
     const olderCompletion = runHomeBackgroundRecoveryRefresh({
+      domains: [EHomeBackgroundRecoveryRefreshDomain.history],
       isTransactionCurrent: createGuard(olderSignal.sequence, ownerActivation),
       owner,
       ownerActivation,
@@ -497,12 +506,13 @@ describe('Home background recovery refresh registry', () => {
       registry.acknowledgeSurfaceCommit({
         owner,
         ownerActivation,
-        rendererMounted: true,
+        surfaceHasRenderer: true,
         revision,
       });
       return revision;
     });
     const newerCompletion = runHomeBackgroundRecoveryRefresh({
+      domains: [EHomeBackgroundRecoveryRefreshDomain.history],
       isTransactionCurrent: createGuard(newerSignal.sequence, ownerActivation),
       owner,
       ownerActivation,
@@ -545,21 +555,21 @@ describe('Home background recovery refresh registry', () => {
           markOlderRendererEntered();
           await olderRendererGate;
         }
-        await runDomains([EHomeBackgroundRecoveryRefreshDomain.legacyBanner]);
+        await runDomains([EHomeBackgroundRecoveryRefreshDomain.banner]);
       },
-      domain: EHomeBackgroundRecoveryRefreshDomain.renderer,
+      domain: EHomeBackgroundRecoveryRefreshDomain.history,
       owner,
     });
     registry.register({
       callback: leafRefresh,
-      domain: EHomeBackgroundRecoveryRefreshDomain.legacyBanner,
+      domain: EHomeBackgroundRecoveryRefreshDomain.banner,
       owner,
     });
 
     const olderSignal = nextSignal('recovered');
     latestSequence = olderSignal.sequence;
     const olderCompletion = registry.runTransaction({
-      domains: [EHomeBackgroundRecoveryRefreshDomain.renderer],
+      domains: [EHomeBackgroundRecoveryRefreshDomain.history],
       isTransactionCurrent: () =>
         isHomeBackgroundRecoveryTransactionCurrent({
           currentOwner: owner,
@@ -597,7 +607,7 @@ describe('Home background recovery refresh registry', () => {
     const rendererRefresh = jest.fn();
     registry.register({
       callback: rendererRefresh,
-      domain: EHomeBackgroundRecoveryRefreshDomain.renderer,
+      domain: EHomeBackgroundRecoveryRefreshDomain.history,
       owner: ownerA,
     });
     let resolveSilentRefresh!: () => void;
@@ -606,6 +616,7 @@ describe('Home background recovery refresh registry', () => {
     });
     const requestSurfaceCommit = jest.fn(() => 1);
     const recoveryCompletion = runHomeBackgroundRecoveryRefresh({
+      domains: [EHomeBackgroundRecoveryRefreshDomain.history],
       isTransactionCurrent: () =>
         isHomeBackgroundRecoveryTransactionCurrent({
           currentOwner,
@@ -668,7 +679,7 @@ describe('Home background recovery refresh registry', () => {
 
     expect(mockRefreshSilently).toHaveBeenCalledTimes(1);
     expect(mockWalletTokensRefresh).toHaveBeenCalledTimes(1);
-    expect(mockThrowingRefresh).toHaveBeenCalledTimes(1);
+    expect(mockThrowingRefresh).toHaveBeenCalledTimes(0);
     expect(mockBannerRefresh).toHaveBeenCalledTimes(1);
     act(() => renderer?.unmount());
   });
@@ -726,7 +737,7 @@ describe('Home background recovery refresh registry', () => {
 
     expect(mockRefreshSilently).toHaveBeenCalledTimes(2);
     expect(mockWalletTokensRefresh).toHaveBeenCalledTimes(1);
-    expect(mockThrowingRefresh).toHaveBeenCalledTimes(1);
+    expect(mockThrowingRefresh).toHaveBeenCalledTimes(0);
     expect(mockBannerRefresh).toHaveBeenCalledTimes(1);
     act(() => renderer?.unmount());
   });
@@ -781,7 +792,7 @@ describe('Home background recovery refresh registry', () => {
 
     expect(mockRefreshSilently).toHaveBeenCalledTimes(1);
     expect(mockWalletTokensRefresh).toHaveBeenCalledTimes(1);
-    expect(mockThrowingRefresh).toHaveBeenCalledTimes(1);
+    expect(mockThrowingRefresh).toHaveBeenCalledTimes(0);
     expect(mockBannerRefresh).toHaveBeenCalledTimes(1);
 
     act(() => renderer?.unmount());
@@ -818,7 +829,7 @@ describe('Home background recovery refresh registry', () => {
 
     expect(mockRefreshSilently).toHaveBeenCalledTimes(1);
     expect(mockWalletTokensRefresh).toHaveBeenCalledTimes(1);
-    expect(mockThrowingRefresh).toHaveBeenCalledTimes(1);
+    expect(mockThrowingRefresh).toHaveBeenCalledTimes(0);
     expect(mockBannerRefresh).toHaveBeenCalledTimes(1);
 
     act(() => renderer?.unmount());
@@ -837,7 +848,7 @@ describe('Home background recovery refresh registry', () => {
 
     expect(mockRefreshSilently).toHaveBeenCalledTimes(1);
     expect(mockWalletTokensRefresh).toHaveBeenCalledTimes(1);
-    expect(mockThrowingRefresh).toHaveBeenCalledTimes(1);
+    expect(mockThrowingRefresh).toHaveBeenCalledTimes(0);
     expect(mockBannerRefresh).toHaveBeenCalledTimes(1);
     act(() => renderer?.unmount());
   });
@@ -877,7 +888,7 @@ describe('Home background recovery refresh registry', () => {
 
     expect(mockRefreshSilently).toHaveBeenCalledTimes(1);
     expect(mockWalletTokensRefresh).toHaveBeenCalledTimes(1);
-    expect(mockThrowingRefresh).toHaveBeenCalledTimes(1);
+    expect(mockThrowingRefresh).toHaveBeenCalledTimes(0);
     expect(mockBannerRefresh).toHaveBeenCalledTimes(1);
 
     await act(async () => {
@@ -924,7 +935,7 @@ describe('Home background recovery refresh registry', () => {
 
     expect(mockRefreshSilently).toHaveBeenCalledTimes(1);
     expect(mockWalletTokensRefresh).toHaveBeenCalledTimes(1);
-    expect(mockThrowingRefresh).toHaveBeenCalledTimes(1);
+    expect(mockThrowingRefresh).toHaveBeenCalledTimes(0);
     expect(mockBannerRefresh).toHaveBeenCalledTimes(1);
 
     await act(async () => {
@@ -981,7 +992,7 @@ describe('Home background recovery refresh registry', () => {
     });
     expect(mockRefreshSilently).toHaveBeenCalledTimes(1);
     expect(mockWalletTokensRefresh).toHaveBeenCalledTimes(1);
-    expect(mockThrowingRefresh).toHaveBeenCalledTimes(1);
+    expect(mockThrowingRefresh).toHaveBeenCalledTimes(0);
     expect(mockBannerRefresh).toHaveBeenCalledTimes(1);
     act(() => renderer?.unmount());
   });
@@ -1004,36 +1015,15 @@ describe('Home background recovery refresh registry', () => {
     act(() => renderer?.unmount());
   });
 
-  it('selects exact Legacy and Native current-tab plans', () => {
-    expect(getLegacyHomeBackgroundRecoveryRefreshDomains('portfolio')).toEqual([
-      EHomeBackgroundRecoveryRefreshDomain.legacyWalletTokens,
-      EHomeBackgroundRecoveryRefreshDomain.legacyPortfolioDeFiOverview,
-      EHomeBackgroundRecoveryRefreshDomain.legacyHeaderPerpsWorth,
-      EHomeBackgroundRecoveryRefreshDomain.legacyBanner,
+  it('selects exact Store source domains for the current tab', () => {
+    expect(getHomeBackgroundRecoveryRefreshDomains('portfolio')).toEqual([
+      EHomeBackgroundRecoveryRefreshDomain.portfolio,
+      EHomeBackgroundRecoveryRefreshDomain.banner,
     ]);
-    expect(getLegacyHomeBackgroundRecoveryRefreshDomains('nft')).toEqual([
-      EHomeBackgroundRecoveryRefreshDomain.legacyWalletTokens,
-      EHomeBackgroundRecoveryRefreshDomain.legacyPortfolioDeFiOverview,
-      EHomeBackgroundRecoveryRefreshDomain.legacyHeaderPerpsWorth,
-      EHomeBackgroundRecoveryRefreshDomain.legacyBanner,
-      EHomeBackgroundRecoveryRefreshDomain.legacyNft,
-    ]);
-    expect(getNativeHomeBackgroundRecoveryRefreshSources('portfolio')).toEqual([
-      'portfolio',
-      'default-token-map',
-      'defi',
-      'perps',
-      'banners',
-      'lp-tokens',
-      'supplemental',
-    ]);
-    expect(getNativeHomeBackgroundRecoveryRefreshSources('history')).toEqual([
-      'portfolio',
-      'default-token-map',
-      'defi',
-      'perps',
-      'banners',
-      'history',
+    expect(getHomeBackgroundRecoveryRefreshDomains('nft')).toEqual([
+      EHomeBackgroundRecoveryRefreshDomain.portfolio,
+      EHomeBackgroundRecoveryRefreshDomain.banner,
+      EHomeBackgroundRecoveryRefreshDomain.nft,
     ]);
   });
 

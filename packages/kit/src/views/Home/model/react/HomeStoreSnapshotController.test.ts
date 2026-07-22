@@ -1,6 +1,9 @@
 import { getHomeSourceKeyIdentity } from '../core/homeIdentity';
 import { isHomeCachedRecordExactForToken } from '../store/homeStoreSnapshotCodec';
-import { createCacheRecord } from '../store/homeStoreSnapshotRecord';
+import {
+  createCacheRecord,
+  mergeHomeStoreCacheRecords,
+} from '../store/homeStoreSnapshotRecord';
 
 import type { IHomeStoreResourceSlot } from '../store/homeStoreTypes';
 
@@ -67,7 +70,7 @@ describe('HomeStoreSnapshotController cache admission', () => {
     expect(record && isHomeCachedRecordExactForToken(record, token)).toBe(true);
   });
 
-  it('rejects legacy or hydrated display state without a live request token', () => {
+  it('rejects tokenless or hydrated display state without a live request token', () => {
     expect(
       createCacheRecord({
         now: 100,
@@ -82,5 +85,37 @@ describe('HomeStoreSnapshotController cache admission', () => {
         sourceId: 'history',
       }),
     ).toBeUndefined();
+    expect(
+      createCacheRecord({
+        now: 100,
+        slot: { ...liveSlot, refresh: 'refreshing' },
+        sourceId: 'history',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('keeps unrefreshed cache records while replacing the live source atomically', () => {
+    const cachedHistory = createCacheRecord({
+      now: 100,
+      slot: liveSlot,
+      sourceId: 'history',
+    });
+    const liveHistory = createCacheRecord({
+      now: 200,
+      slot: { ...liveSlot, coverageFingerprint: '["new"]' },
+      sourceId: 'history',
+    });
+    const cachedPortfolio = {
+      ...cachedHistory!,
+      sourceId: 'portfolio' as const,
+    };
+
+    expect(
+      mergeHomeStoreCacheRecords({
+        cachedRecords: [cachedHistory!, cachedPortfolio],
+        liveRecords: [liveHistory!],
+        now: 250,
+      }),
+    ).toEqual([liveHistory, cachedPortfolio]);
   });
 });

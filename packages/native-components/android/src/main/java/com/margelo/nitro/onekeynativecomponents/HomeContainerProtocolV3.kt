@@ -28,6 +28,30 @@ internal data class HomeContainerProtocolV3State(
   val legacyState: HomeContainerProtocolV2State,
 )
 
+internal data class HomeContainerProtocolV3MountedSlotMetadata(
+  val slotId: String,
+  val owner: HomeContainerProtocolV2Owner,
+  val slotRevision: Long,
+  val producedByStoreCommitId: Long,
+) {
+  val isValid: Boolean
+    get() = slotId.isNotEmpty() &&
+      owner.isValid &&
+      slotRevision in 0..MAX_SAFE_INTEGER &&
+      producedByStoreCommitId in 0..MAX_SAFE_INTEGER
+}
+
+internal fun homeContainerProtocolV3AvailableSlotRevisions(
+  owner: HomeContainerProtocolV2Owner,
+  mountedSlots: List<HomeContainerProtocolV3MountedSlotMetadata>,
+): Map<String, Long> = mountedSlots
+  .filter { it.isValid && it.owner == owner }
+  .groupBy(HomeContainerProtocolV3MountedSlotMetadata::slotId)
+  .mapNotNull { (slotId, slots) ->
+    slots.singleOrNull()?.let { slotId to it.slotRevision }
+  }
+  .toMap()
+
 internal enum class HomeContainerProtocolV3NeedSnapshotReason {
   INVALID_INVARIANT,
   OWNER_MISMATCH,
@@ -133,13 +157,6 @@ internal object HomeContainerProtocolV3Transaction {
     }
     val baseRevision = root.safeRevision("baseTransportRevision")
     val transportRevision = root.safeRevision("transportRevision")
-    if (
-      transportRevision == current.transportRevision &&
-      baseRevision != null &&
-      baseRevision < transportRevision
-    ) {
-      return HomeContainerProtocolV3ApplyOutcome.Duplicate(current)
-    }
     val presentation = root.optJSONObject("presentationRevisions")
     val authority = root.optJSONObject("authorityRevisions")
     val requiredSlots = root.optJSONObject("requiredSlotRevisions")?.revisionMap()
@@ -165,6 +182,12 @@ internal object HomeContainerProtocolV3Transaction {
       )
     ) {
       return needSnapshot(HomeContainerProtocolV3NeedSnapshotReason.INVALID_INVARIANT)
+    }
+    if (
+      transportRevision == current.transportRevision &&
+      baseRevision < transportRevision
+    ) {
+      return HomeContainerProtocolV3ApplyOutcome.Duplicate(current)
     }
     if (
       baseRevision != current.transportRevision ||

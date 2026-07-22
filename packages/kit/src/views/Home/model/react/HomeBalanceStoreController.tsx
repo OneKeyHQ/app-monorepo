@@ -1,5 +1,10 @@
 import { useEffect, useRef } from 'react';
 
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useHomeFacts,
+  useHomeResource,
+} from '@onekeyhq/kit/src/states/jotai/contexts/home';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
@@ -10,27 +15,56 @@ import type { IHomeFacts } from '../facts/homeFacts';
 
 export function HomeBalanceStoreController() {
   const facts = useHomeBalanceFacts();
+  const storeFacts = useHomeFacts();
+  const {
+    activeAccount: { account, network, wallet },
+  } = useActiveAccount({ num: 0 });
+  const portfolioResource = useHomeResource('portfolio');
+  const deFiResource = useHomeResource('defi');
+  const perpsResource = useHomeResource('perps');
   const homeBalanceInputsKeyRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!facts?.balance) {
-      return;
+    const hasOwnerInput = Boolean(wallet?.id && account?.id && network?.id);
+    const ownerMatches = Boolean(
+      storeFacts &&
+      hasOwnerInput &&
+      storeFacts.owner.walletId === wallet?.id &&
+      storeFacts.owner.accountId === account?.id &&
+      (network?.isAllNetworks
+        ? storeFacts.owner.network.kind === 'allNetworks'
+        : storeFacts.owner.network.kind === 'singleNetwork' &&
+          storeFacts.owner.network.networkId === network?.id),
+    );
+    let guardReason:
+      | 'missingStoreFacts'
+      | 'missingOwnerInput'
+      | 'ownerMismatch'
+      | 'ready' = 'ready';
+    if (!storeFacts) {
+      guardReason = 'missingStoreFacts';
+    } else if (!hasOwnerInput) {
+      guardReason = 'missingOwnerInput';
+    } else if (!ownerMatches) {
+      guardReason = 'ownerMismatch';
+    }
+    let networkScope: 'allNetworks' | 'singleNetwork' | 'unknown' = 'unknown';
+    if (network?.isAllNetworks) {
+      networkScope = 'allNetworks';
+    } else if (network?.id) {
+      networkScope = 'singleNetwork';
     }
     const decision = {
-      networkScope:
-        facts.owner.network.kind === 'allNetworks'
-          ? ('allNetworks' as const)
-          : ('singleNetwork' as const),
-      requiredContributors: [...facts.balance.requiredContributors]
-        .toSorted()
-        .join(','),
-      portfolioResourceKind:
-        facts.balance.contributors.portfolio?.resource.kind ?? 'missing',
-      deFiResourceKind:
-        facts.balance.contributors.defi?.resource.kind ?? 'missing',
-      perpsResourceKind:
-        facts.balance.contributors.perps?.resource.kind ?? 'missing',
-      bannerAvailable: facts.balance.bannerAvailable,
-      capabilityReady: facts.capabilityInputs.ready,
+      networkScope,
+      factsAvailable: Boolean(facts?.balance),
+      guardReason,
+      requiredContributors: facts?.balance
+        ? [...facts.balance.requiredContributors].toSorted().join(',')
+        : '',
+      portfolioResourceKind: portfolioResource.kind,
+      deFiResourceKind: deFiResource.kind,
+      perpsResourceKind: perpsResource.kind,
+      bannerAvailable: facts?.balance?.bannerAvailable ?? false,
+      capabilityReady: storeFacts?.capabilityInputs.ready ?? false,
     } as const;
     const key = stringUtils.stableStringify(decision);
     if (homeBalanceInputsKeyRef.current === key) {
@@ -38,7 +72,17 @@ export function HomeBalanceStoreController() {
     }
     homeBalanceInputsKeyRef.current = key;
     defaultLogger.wallet.homeUi.homeBalanceInputs(decision);
-  }, [facts]);
+  }, [
+    account?.id,
+    deFiResource.kind,
+    facts,
+    network?.id,
+    network?.isAllNetworks,
+    perpsResource.kind,
+    portfolioResource.kind,
+    storeFacts,
+    wallet?.id,
+  ]);
   usePublishHomeBalanceFacts(facts);
   return null;
 }

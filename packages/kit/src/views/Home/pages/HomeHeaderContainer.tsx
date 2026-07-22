@@ -80,12 +80,17 @@ function BaseHomeHeaderContainer({
   } else if (homeBalanceState === 'zero') {
     walletActionFamily = 'zero';
   }
+  const balanceTextLength =
+    balancePresentation.correlated.kind === 'ready'
+      ? balancePresentation.correlated.balance.amount.length
+      : 0;
 
   const homeHeaderDecisionKeyRef = useRef<string | null>(null);
   useEffect(() => {
     const decision = {
       networkScope,
       balancePresentationKind: balancePresentation.correlated.kind,
+      balanceTextLength,
       balanceState: homeBalanceState,
       bannerResourceKind: bannerResource.kind,
       bannerPayloadParsed: Boolean(bannerPayload),
@@ -108,6 +113,7 @@ function BaseHomeHeaderContainer({
     defaultLogger.wallet.homeUi.homeHeaderDecision(decision);
   }, [
     balancePresentation.correlated.kind,
+    balanceTextLength,
     balancePresentation.correlated.showPositiveBanner,
     bannerPayload,
     bannerResource.kind,

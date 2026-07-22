@@ -1,15 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-
 import { isNativeHomeEnabled } from './nativeHomeFeatureFlag.native';
-import { NativeHomePageView } from './NativeHomePageView.native';
-import { HomePageView } from './pages/HomePageView';
-
-jest.mock('./pages/HomePageView', () => ({
-  HomePageView: jest.fn(() => null),
-}));
 
 function readSource(fileName: string) {
   return fs.readFileSync(
@@ -35,31 +27,61 @@ function listProductionSourceFiles(directory: string): string[] {
 }
 
 describe('Native Home runtime surface', () => {
-  it('returns only the shared HomePageView and forwards surface props', () => {
-    const onPressHide = jest.fn();
-    const sharedHomeElement = NativeHomePageView({
-      sceneName: EAccountSelectorSceneName.home,
-      onPressHide,
-    });
-
-    expect(sharedHomeElement.type).toBe(HomePageView);
-    expect(sharedHomeElement.props).toEqual({
-      sceneName: EAccountSelectorSceneName.home,
-      onPressHide,
-    });
-  });
-
-  it('keeps legacy NativeHomePage and HomeContainer out of the entry modules', () => {
+  it('injects the app-owned Native renderer through the kit provider boundary', () => {
     const nativeSurfaceSource = readSource('NativeHomePageView.native.tsx');
-    const featureFlagSource = readSource('nativeHomeFeatureFlag.native.ts');
-    const entrySource = `${nativeSurfaceSource}\n${featureFlagSource}`;
+    const providerSource = readSource('NativeHomeRendererProvider.tsx');
+    const mobileAppSource = readSource(
+      path.resolve(__dirname, '../../../../../apps/mobile/App.tsx'),
+    );
+    const mobileRendererSource = readSource(
+      path.resolve(
+        __dirname,
+        '../../../../../apps/mobile/src/home/MobileNativeHomeRenderer.tsx',
+      ),
+    );
+    const iosNativeSource = readSource(
+      path.resolve(
+        __dirname,
+        '../../../../native-components/ios/HomeContainerView.swift',
+      ),
+    );
+    const androidNativeSource = readSource(
+      path.resolve(
+        __dirname,
+        '../../../../native-components/android/src/main/java/com/margelo/nitro/onekeynativecomponents/HomeContainerView.kt',
+      ),
+    );
 
     expect(nativeSurfaceSource).toContain(
-      "import { HomePageView } from './pages/HomePageView';",
+      'const NativeRenderer = useNativeHomeRenderer();',
     );
-    expect(entrySource).not.toMatch(/from ['"]\.\/NativeHomePage['"]/);
-    expect(entrySource).not.toContain('@onekeyhq/native-components');
-    expect(entrySource).not.toContain('isHomeContainerAvailable');
+    expect(providerSource).not.toContain('@onekeyhq/native-components');
+    expect(mobileAppSource).toContain(
+      '<NativeHomeRendererProvider renderer={MobileNativeHomeRenderer}>',
+    );
+    expect(mobileRendererSource).toContain(
+      "from '@onekeyhq/native-components';",
+    );
+    expect(mobileRendererSource).toContain('<HomeContainer');
+    expect(mobileRendererSource).toContain("execution: 'controller'");
+    expect(mobileRendererSource).toContain('headerActionRow:');
+    expect(mobileRendererSource).toContain('<HomeTabSearchHeader />');
+    expect(mobileRendererSource).toContain('<WalletActions');
+    expect(mobileRendererSource).toContain('<NotBackedUpEmpty />');
+    expect(mobileRendererSource).toContain('contentStates:');
+    expect(mobileRendererSource).toContain('height: header.actionRowHeight');
+    expect(mobileRendererSource).toContain(
+      '[backupStateAuthority.slotId]: backupStateAuthority.slotRevision',
+    );
+    expect(iosNativeSource).toContain(
+      'let hasMountedSlot = mountedSlotKeys.contains("header.action-row")',
+    );
+    expect(androidNativeSource).toContain(
+      'val hasMountedSlot = mountedSlotKeys.contains("header.action-row")',
+    );
+    expect(mobileRendererSource).not.toMatch(
+      /backgroundApiProxy|maybeOpenPrivateSendHistoryDetail|serviceHistory/,
+    );
   });
 
   it('has no production Home module importing legacy NativeHomePage', () => {

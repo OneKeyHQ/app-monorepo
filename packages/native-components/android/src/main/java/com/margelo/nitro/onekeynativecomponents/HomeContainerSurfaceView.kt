@@ -116,10 +116,10 @@ internal class HomeContainerSurfaceView(context: Context) : FrameLayout(context)
   fun layoutManagedChildren() {
     connectEngineIfNeeded()
     val currentEngine = engine
-    currentEngine?.setMountedSlotKeys(
-      reactChildren
-        .filterIsInstance<HomeContainerSlotView>()
-        .mapTo(mutableSetOf()) { it.slotKey },
+    val mountedSlots = reactChildren.filterIsInstance<HomeContainerSlotView>()
+    currentEngine?.setMountedSlotMetadata(
+      keys = mountedSlots.mapTo(mutableSetOf()) { it.slotKey },
+      metadata = mountedSlots.mapNotNull(HomeContainerSlotView::mountedMetadata),
     )
     reactChildren.forEach { child ->
       if (child !is HomeContainerSlotView) {

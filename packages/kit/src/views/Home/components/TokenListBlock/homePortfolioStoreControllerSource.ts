@@ -1,3 +1,5 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import { normalizeHomeStoreJson } from '../../model/store/homeStoreJson';
 
 import type { IHomeSectionSourceRequestHandle } from '../../model/react/useHomeStoreSourcePublisher';
@@ -9,6 +11,42 @@ type IHomePortfolioRequestRound = {
   identityKey: string;
   sequence: number;
 };
+
+type IHomePortfolioValuationReceipt = {
+  ownerKey: string;
+  valuationVersion: number;
+};
+
+function requireHomePortfolioValuationReceipt({
+  ownerKey,
+  receipt,
+}: {
+  ownerKey: string;
+  receipt: IHomePortfolioValuationReceipt | undefined;
+}): IHomePortfolioValuationReceipt {
+  if (
+    receipt?.ownerKey !== ownerKey ||
+    !Number.isSafeInteger(receipt.valuationVersion) ||
+    receipt.valuationVersion < 0
+  ) {
+    throw new OneKeyLocalError('Invalid Home portfolio valuation receipt');
+  }
+  return receipt;
+}
+
+function isHomePortfolioValuationReceiptApplied({
+  applied,
+  expected,
+}: {
+  applied: IHomePortfolioValuationReceipt | undefined;
+  expected: IHomePortfolioValuationReceipt | undefined;
+}): boolean {
+  return (
+    !!expected &&
+    applied?.ownerKey === expected.ownerKey &&
+    applied.valuationVersion >= expected.valuationVersion
+  );
+}
 
 class HomePortfolioRequestLifecycle {
   private activeRound: IHomePortfolioRequestRound | undefined;
@@ -120,6 +158,8 @@ function buildHomePortfolioReadyResult(
 export {
   HomePortfolioRequestLifecycle,
   buildHomePortfolioReadyResult,
+  isHomePortfolioValuationReceiptApplied,
+  requireHomePortfolioValuationReceipt,
   reuseHomePortfolioPayload,
 };
-export type { IHomePortfolioRequestRound };
+export type { IHomePortfolioRequestRound, IHomePortfolioValuationReceipt };

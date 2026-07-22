@@ -84,8 +84,8 @@ function useHomeDeFiIntents() {
     [dispatchHomeIntent, facts, section.sectionCommandRevision],
   );
 
-  const refresh = useCallback(async () => {
-    dispatchControllerIntent({
+  const refresh = useCallback(() => {
+    return dispatchControllerIntent({
       type: 'sectionRefreshRequested',
       actionId: HOME_DEFI_ACTION_IDS.refresh,
     });

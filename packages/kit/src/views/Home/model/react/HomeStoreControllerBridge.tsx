@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { onNativeBackgroundThreadReady } from '@onekeyhq/shared/src/background/nativeBackgroundThreadReady';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IHomeRuntimeOwnerScope,
@@ -146,6 +147,24 @@ export function HomeStoreControllerBridge() {
   useEffect(() => {
     publishRef.current();
   }, [account, network?.impl, owner, wallet?.backuped, wallet?.type]);
+
+  useEffect(() => {
+    if (!(platformEnv.isNative || platformEnv.isExtension)) {
+      return;
+    }
+    let lastReadySequence = 0;
+    return onNativeBackgroundThreadReady((signal) => {
+      if (signal.sequence <= lastReadySequence) {
+        return;
+      }
+      lastReadySequence = signal.sequence;
+      if (signal.reason === 'restarted') {
+        coordinator.restartCurrent();
+        publishRef.current();
+      }
+      void coordinator.refreshHandshake();
+    });
+  }, [coordinator]);
 
   useEffect(
     () => () => {

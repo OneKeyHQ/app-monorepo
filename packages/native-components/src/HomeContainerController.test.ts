@@ -552,8 +552,176 @@ describe('HomeContainerController', () => {
         baseTransportRevision: 5,
         transportRevision: 6,
         changes: [],
+        requiredSlotRevisions: { 'header.balance': 1 },
       }),
       slots,
+    );
+  });
+
+  it('requires only the slot whose externally owned revision changed', () => {
+    const scheduled: (() => void)[] = [];
+    const target = buildTarget();
+    target.getCapabilities.mockReturnValue(protocolV3Capabilities);
+    const owner = { scopeKey: 'scope-1', sessionId: 'session-1' };
+    const sections = {
+      portfolio: 1,
+      perps: 1,
+      defi: 1,
+      nft: 1,
+      history: 1,
+      market: 1,
+    };
+    const initialSlots: IHomeContainerSlots = {
+      balance: { content: 'initial', height: 58 },
+      headerActionRow: { content: 'actions-1', height: 96 },
+    };
+    const controller = new HomeContainerController({
+      initialOwner: owner,
+      initialSnapshot: buildSnapshot(),
+      initialSlots,
+      initialProtocolV3Revisions: {
+        storeCommitId: 10,
+        presentationRevisions: {
+          shell: 1,
+          navigation: 1,
+          sections,
+        },
+        authorityRevisions: {
+          shellCommands: 1,
+          tabApplicability: 1,
+          sectionCommands: sections,
+        },
+        slotRevisions: {
+          'header.balance': 7,
+          'header.action-row': 4,
+        },
+      },
+      requireProtocolV3: true,
+      schedule: (flush) => scheduled.push(flush),
+    });
+
+    expect(controller.attach(target)).toBe(true);
+    expect(
+      controller.handleTransportResult({
+        kind: 'applied',
+        owner,
+        revision: 5,
+      }),
+    ).toBe(true);
+    controller.setProtocolV3RevisionState({
+      storeCommitId: 11,
+      presentationRevisions: {
+        shell: 1,
+        navigation: 1,
+        sections,
+      },
+      authorityRevisions: {
+        shellCommands: 1,
+        tabApplicability: 1,
+        sectionCommands: sections,
+      },
+      slotRevisions: {
+        'header.balance': 7,
+        'header.action-row': 5,
+      },
+    });
+    const nextSlots: IHomeContainerSlots = {
+      balance: { content: 'next', height: 58 },
+      headerActionRow: { content: 'actions-2', height: 96 },
+    };
+    controller.updateSlots(nextSlots);
+    scheduled.shift()?.();
+
+    expect(target.applyProtocolV3Patch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changes: [],
+        requiredSlotRevisions: { 'header.action-row': 5 },
+      }),
+      nextSlots,
+    );
+  });
+
+  it('does not require a removed action slot when backup state replaces it', () => {
+    const scheduled: (() => void)[] = [];
+    const target = buildTarget();
+    target.getCapabilities.mockReturnValue(protocolV3Capabilities);
+    const owner = { scopeKey: 'scope-1', sessionId: 'session-1' };
+    const sections = {
+      portfolio: 1,
+      perps: 1,
+      defi: 1,
+      nft: 1,
+      history: 1,
+      market: 1,
+    };
+    const initialSlots: IHomeContainerSlots = {
+      accountRow: { content: 'account' },
+      headerActionRow: { content: 'actions', height: 96 },
+    };
+    const controller = new HomeContainerController({
+      initialOwner: owner,
+      initialSnapshot: buildSnapshot(),
+      initialSlots,
+      initialProtocolV3Revisions: {
+        storeCommitId: 10,
+        presentationRevisions: {
+          shell: 1,
+          navigation: 1,
+          sections,
+        },
+        authorityRevisions: {
+          shellCommands: 1,
+          tabApplicability: 1,
+          sectionCommands: sections,
+        },
+        slotRevisions: {
+          'header.account-row': 1,
+          'header.action-row': 1,
+        },
+      },
+      requireProtocolV3: true,
+      schedule: (flush) => scheduled.push(flush),
+    });
+
+    expect(controller.attach(target)).toBe(true);
+    expect(
+      controller.handleTransportResult({
+        kind: 'applied',
+        owner,
+        revision: 5,
+      }),
+    ).toBe(true);
+    controller.setProtocolV3RevisionState({
+      storeCommitId: 11,
+      presentationRevisions: {
+        shell: 2,
+        navigation: 1,
+        sections,
+      },
+      authorityRevisions: {
+        shellCommands: 1,
+        tabApplicability: 1,
+        sectionCommands: sections,
+      },
+      slotRevisions: {
+        'header.account-row': 1,
+        'content.state.portfolio': 2,
+      },
+    });
+    const backupSlots: IHomeContainerSlots = {
+      accountRow: { content: 'account' },
+      contentStates: {
+        portfolio: { content: 'backup', height: 320 },
+      },
+    };
+    controller.updateSlots(backupSlots);
+    scheduled.shift()?.();
+
+    expect(target.applyProtocolV3Patch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requiredSlotRevisions: { 'content.state.portfolio': 2 },
+      }),
+      backupSlots,
     );
   });
 
@@ -1631,7 +1799,10 @@ describe('native HomeContainer loading action-row geometry', () => {
 
   it('keeps the Android loading slot mounted with zero-balance geometry', () => {
     expect(androidSource).toContain(
-      'header.actions.isEmpty() && header.actionLayout != "loading"',
+      'private fun updateActionRowVisibility(header: HomeContainerHeader? = null)',
+    );
+    expect(androidSource).toContain(
+      '!hasMountedSlot && currentHeader.actions.isEmpty() && currentHeader.actionLayout != "loading"',
     );
     expect(androidSource).toContain(
       'header.actionLayout != "zeroBalance" && header.actionLayout != "loading"',
@@ -1639,5 +1810,24 @@ describe('native HomeContainer loading action-row geometry', () => {
     expect(androidSource).toContain(
       'return (actionHeightDelta - 14).coerceAtLeast(0)',
     );
+  });
+});
+
+describe('native HomeContainer section command authority', () => {
+  const iosSource = fs.readFileSync(
+    path.join(__dirname, '../ios/HomeContainerView.swift'),
+    'utf8',
+  );
+  const androidSource = fs.readFileSync(
+    path.join(
+      __dirname,
+      '../android/src/main/java/com/margelo/nitro/onekeynativecomponents/HomeContainerView.kt',
+    ),
+    'utf8',
+  );
+
+  it('routes embedded Market rows through the Market command revision', () => {
+    expect(iosSource).toContain('actionId.hasPrefix("home.market.")');
+    expect(androidSource).toContain('actionId.startsWith("home.market.")');
   });
 });

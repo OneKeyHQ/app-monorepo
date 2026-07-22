@@ -74,7 +74,13 @@ import {
 
 import type { IApplyDeps } from './apply';
 
-type ITokenFrameKind = 'structure' | 'valuation' | 'risky';
+export type ITokenFrameKind = 'structure' | 'valuation' | 'risky';
+
+export interface ITokenFrameAppliedReceipt {
+  kind: ITokenFrameKind;
+  ownerKey: string;
+  version: number;
+}
 
 interface IStructurePush {
   ownerKey: string;
@@ -117,7 +123,7 @@ export function useTokenListCellsProducer(
   ownerKey: string,
   currencyId: string,
   storeName?: string,
-  onFrameApplied?: (kind: ITokenFrameKind) => void,
+  onFrameApplied?: (receipt: ITokenFrameAppliedReceipt) => void,
 ): void {
   const { store } = useTokenListContextData();
 
@@ -205,12 +211,12 @@ export function useTokenListCellsProducer(
         deregisterMountedStore(identity.resolvedStoreName, store);
       };
     },
-    onAfterApply: (kind) => {
+    onAfterApply: (receipt) => {
       // Persist the slim cold-start bundle on structure AND valuation applies
       // (debounced + single-writer): structure registers meta cells but the fiat
       // cells are filled by valuation, so a valuation-time persist captures a
       // NON-EMPTY compactFiat. Not on risky.
-      if (kind === 'risky' || !store || !identity) {
+      if (receipt.kind === 'risky' || !store || !identity) {
         return;
       }
       if (isPrimaryColdStartWriter(identity.resolvedStoreName, store)) {
@@ -220,7 +226,7 @@ export function useTokenListCellsProducer(
           getCurrency: () => currencyIdRef.current,
         });
       }
-      onFrameApplied?.(kind);
+      onFrameApplied?.(receipt);
     },
     kinds: [
       {

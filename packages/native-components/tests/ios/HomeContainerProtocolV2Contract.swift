@@ -42,16 +42,21 @@ enum HomeContainerProtocolV2Contract {
       HomeContainerProtocolV2PatchEnvelope.self,
       from: fixtureData("home-container-v2.patch.json")
     )
-    let patchedState = try appliedState(
-      HomeContainerProtocolV2Transaction.apply(
-        patch: patchEnvelope,
-        current: initialState
-      )
+    let patchOutcome = HomeContainerProtocolV2Transaction.apply(
+      patch: patchEnvelope,
+      current: initialState
     )
+    let patchedState = try appliedState(patchOutcome)
+    let renderPlan = try appliedRenderPlan(patchOutcome)
 
     try expect(patchedState.revision == 8)
     try expect(patchedState.snapshot.selectedTabId == "history")
     try expect(patchedState.snapshot.header.balance == "$101.00")
+    try expect(!renderPlan.isFullSnapshot)
+    try expect(renderPlan.shouldBindHeader)
+    try expect(renderPlan.shouldReconcileNavigation)
+    try expect(renderPlan.sectionTabIds == ["history"])
+    try expect(!renderPlan.shouldApplySurface)
     try expect(
       patchedState.snapshot.tabs
         .first(where: { $0.id == "portfolio" })?
@@ -511,10 +516,19 @@ enum HomeContainerProtocolV2Contract {
   private static func appliedState(
     _ outcome: HomeContainerProtocolV2ApplyOutcome
   ) throws -> HomeContainerProtocolV2State {
-    guard case .applied(let state) = outcome else {
+    guard case .applied(let state, _) = outcome else {
       throw ContractError.expectedApplied
     }
     return state
+  }
+
+  private static func appliedRenderPlan(
+    _ outcome: HomeContainerProtocolV2ApplyOutcome
+  ) throws -> HomeContainerProtocolV2RenderPlan {
+    guard case .applied(_, let renderPlan) = outcome else {
+      throw ContractError.expectedApplied
+    }
+    return renderPlan
   }
 
   private static func expectNeedSnapshot(

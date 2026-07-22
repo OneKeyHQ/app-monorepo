@@ -320,10 +320,12 @@ function useAllNetworkRequests<T, TRunContext = void>(params: {
   onFinished?: ({
     accountId,
     networkId,
+    result,
     runContext,
   }: {
     accountId?: string;
     networkId?: string;
+    result?: Array<T> | null;
     runContext?: TRunContext;
   }) => Promise<void>;
   onCacheChecked?: ({
@@ -566,6 +568,7 @@ function useAllNetworkRequests<T, TRunContext = void>(params: {
       let onStartedError: unknown;
       let onStartedRunContext: TRunContext | undefined;
       let onStartedTask: Promise<void> | undefined;
+      let resultForFinished: Array<T> | null | undefined;
 
       try {
         if (!allNetworkDataInit.current) {
@@ -920,6 +923,7 @@ function useAllNetworkRequests<T, TRunContext = void>(params: {
           reason: requestKind,
         });
 
+        resultForFinished = resp;
         return resp;
       } finally {
         isFetching.current = false;
@@ -942,6 +946,7 @@ function useAllNetworkRequests<T, TRunContext = void>(params: {
           await onFinished?.({
             accountId: currentAccountId,
             networkId: currentNetworkId,
+            result: resultForFinished,
             runContext: onStartedRunContext,
           });
         } catch (e) {

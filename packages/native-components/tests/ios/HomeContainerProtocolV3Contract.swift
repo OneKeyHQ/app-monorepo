@@ -36,8 +36,42 @@ enum HomeContainerProtocolV3Contract {
     try expect(next.snapshot.header.balance == "$101.00")
     try expect(next.authorityRevisions.tabApplicability == 3)
 
+    try verifyMountedSlotRevisionVector(owner: initial.identity.owner)
     try verifySlotAndTransportGaps(patch: patch, current: initial)
     try verifyIntentAuthority(current: next)
+  }
+
+  private static func verifyMountedSlotRevisionVector(
+    owner: HomeContainerProtocolV2Owner
+  ) throws {
+    let otherOwner = HomeContainerProtocolV2Owner(
+      scopeKey: owner.scopeKey,
+      sessionId: "other-session"
+    )
+    let revisions = homeContainerProtocolV3AvailableSlotRevisions(
+      owner: owner,
+      mountedSlots: [
+        HomeContainerProtocolV3MountedSlotMetadata(
+          slotId: "header.balance",
+          owner: owner,
+          slotRevision: 7,
+          producedByStoreCommitId: 9
+        ),
+        HomeContainerProtocolV3MountedSlotMetadata(
+          slotId: "header.action-row",
+          owner: otherOwner,
+          slotRevision: 11,
+          producedByStoreCommitId: 9
+        ),
+        HomeContainerProtocolV3MountedSlotMetadata(
+          slotId: "content.state.defi",
+          owner: owner,
+          slotRevision: -1,
+          producedByStoreCommitId: 9
+        ),
+      ]
+    )
+    try expect(revisions == ["header.balance": 7])
   }
 
   private static func verifySlotAndTransportGaps(
@@ -82,6 +116,31 @@ enum HomeContainerProtocolV3Contract {
         availableSlotRevisions: current.slotRevisions
       ),
       reason: .revisionGap
+    )
+
+    let regressingAuthority = HomeContainerProtocolV3AuthorityRevisions(
+      shellCommands: patch.authorityRevisions.shellCommands,
+      tabApplicability: current.authorityRevisions.tabApplicability - 1,
+      sectionCommands: patch.authorityRevisions.sectionCommands
+    )
+    let malformedDuplicate = HomeContainerProtocolV3PatchEnvelope(
+      kind: patch.kind,
+      protocolVersion: patch.protocolVersion,
+      identity: patch.identity,
+      baseTransportRevision: current.transportRevision - 1,
+      transportRevision: current.transportRevision,
+      presentationRevisions: patch.presentationRevisions,
+      authorityRevisions: regressingAuthority,
+      requiredSlotRevisions: [:],
+      changes: patch.changes
+    )
+    try expectNeedSnapshot(
+      HomeContainerProtocolV3Transaction.apply(
+        patch: malformedDuplicate,
+        current: current,
+        availableSlotRevisions: current.slotRevisions
+      ),
+      reason: .invalidInvariant
     )
   }
 
@@ -136,7 +195,7 @@ enum HomeContainerProtocolV3Contract {
   private static func applied(
     _ outcome: HomeContainerProtocolV3ApplyOutcome
   ) throws -> HomeContainerProtocolV3State {
-    guard case .applied(let state) = outcome else {
+    guard case .applied(let state, _) = outcome else {
       throw ContractError.expectedApplied
     }
     return state

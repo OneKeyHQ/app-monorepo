@@ -46,6 +46,7 @@ import { useIsDeFiEnabled } from './useIsDeFiEnabled';
 
 const MAX_PROTOCOLS_ON_SMALL_SCREEN = 6;
 const PROTOCOL_LIST_TOGGLE_PRESS_LOCK_MS = 600;
+const HEADER_REFRESH_TIMEOUT_MS = 15_000;
 
 function buildDeFiListOwnerKey({
   accountId,
@@ -142,7 +143,8 @@ function DeFiListBlock({
   const [isSliced, setIsSliced] = useDeFiListSlicedAtom();
   const { isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
-  const intents = useHomeDeFiIntents();
+  const { onPositionActionSucceeded, refresh: refreshDeFi } =
+    useHomeDeFiIntents();
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
@@ -178,13 +180,82 @@ function DeFiListBlock({
     accountId: account?.id,
     networkId: network?.id,
   });
+  const headerRefreshRef = useRef<{
+    ownerKey?: string;
+    requested: boolean;
+    seenRefreshing: boolean;
+    timeoutId?: ReturnType<typeof setTimeout>;
+  }>({ requested: false, seenRefreshing: false });
+  const resourceRefreshActive =
+    resource.kind === 'loading' ||
+    resource.kind === 'partial' ||
+    ((resource.kind === 'ready' || resource.kind === 'empty') &&
+      resource.refresh === 'refreshing');
 
   useEffect(() => {
-    if (!isHeaderRefreshing || refreshCacheOnly) {
+    const state = headerRefreshRef.current;
+    if (state.ownerKey !== currentOwnerKey) {
+      if (state.timeoutId) {
+        clearTimeout(state.timeoutId);
+      }
+      headerRefreshRef.current = {
+        ownerKey: currentOwnerKey,
+        requested: false,
+        seenRefreshing: false,
+      };
+    }
+    if (!isHeaderRefreshing) {
       return;
     }
-    void intents.refresh().finally(() => setIsHeaderRefreshing(false));
-  }, [intents, isHeaderRefreshing, refreshCacheOnly, setIsHeaderRefreshing]);
+    if (refreshCacheOnly) {
+      setIsHeaderRefreshing(false);
+      return;
+    }
+    const current = headerRefreshRef.current;
+    if (!current.requested) {
+      if (!refreshDeFi()) {
+        setIsHeaderRefreshing(false);
+        return;
+      }
+      current.requested = true;
+      current.timeoutId = setTimeout(() => {
+        headerRefreshRef.current.requested = false;
+        headerRefreshRef.current.seenRefreshing = false;
+        headerRefreshRef.current.timeoutId = undefined;
+        setIsHeaderRefreshing(false);
+      }, HEADER_REFRESH_TIMEOUT_MS);
+      return;
+    }
+    if (resourceRefreshActive) {
+      current.seenRefreshing = true;
+      return;
+    }
+    if (current.seenRefreshing) {
+      if (current.timeoutId) {
+        clearTimeout(current.timeoutId);
+      }
+      current.requested = false;
+      current.seenRefreshing = false;
+      current.timeoutId = undefined;
+      setIsHeaderRefreshing(false);
+    }
+  }, [
+    currentOwnerKey,
+    isHeaderRefreshing,
+    refreshDeFi,
+    refreshCacheOnly,
+    resourceRefreshActive,
+    setIsHeaderRefreshing,
+  ]);
+
+  useEffect(
+    () => () => {
+      if (headerRefreshRef.current.timeoutId) {
+        clearTimeout(headerRefreshRef.current.timeoutId);
+      }
+    },
+    [],
+  );
 
   const overviewCols = resolveOverviewCols({
     gtXl: media.gtXl,
@@ -338,7 +409,7 @@ function DeFiListBlock({
                     indexedAccountId={account?.indexedAccountId}
                     isAllNetworks={network?.isAllNetworks}
                     isLast={index === filteredProtocols.length - 1}
-                    onActionSuccess={intents.onPositionActionSucceeded}
+                    onActionSuccess={onPositionActionSucceeded}
                     protocol={protocol}
                     protocolInfo={protocolMap[protocolKey]}
                     protocolKey={protocolKey}

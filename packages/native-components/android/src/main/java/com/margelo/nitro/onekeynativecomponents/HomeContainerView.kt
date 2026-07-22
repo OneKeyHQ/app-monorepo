@@ -236,6 +236,8 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
   private var renderedProtocolV2State: HomeContainerProtocolV2State? = null
   private var protocolV3State: HomeContainerProtocolV3State? = null
   private var renderedProtocolV3State: HomeContainerProtocolV3State? = null
+  private var pendingProtocolV3PatchJson: String? = null
+  private var pendingProtocolV3PatchRetryScheduled = false
   private var lastNeedSnapshotResultKey: String? = null
   private var fallbackBackgroundColor = Color.WHITE
   private var selectedTabId = ""
@@ -245,6 +247,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
   private var collapseOffset = 0
   private var refreshPullOffset = 0
   private var mountedSlotKeys = emptySet<String>()
+  private var mountedSlotMetadata = emptyList<HomeContainerProtocolV3MountedSlotMetadata>()
   private val chromeTouchSlop = ViewConfiguration.get(context).scaledTouchSlop
   private var chromeGestureCandidate = false
   private var interceptingChromeVertical = false
@@ -300,6 +303,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
       if (disposed.get()) return@execute
       if (HomeContainerProtocolV3Transaction.isProtocolPayload(json, "snapshot")) {
         post {
+          pendingProtocolV3PatchJson = null
           handleProtocolV3Outcome(
             HomeContainerProtocolV3Transaction.applySnapshot(json),
           )
@@ -308,6 +312,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
       }
       if (HomeContainerProtocolV2Transaction.isProtocolPayload(json, "snapshot")) {
         post {
+          pendingProtocolV3PatchJson = null
           protocolV3State = null
           renderedProtocolV3State = null
           handleProtocolV2Outcome(
@@ -326,6 +331,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
           return@execute
         }
         post {
+          pendingProtocolV3PatchJson = null
           protocolV2State = null
           renderedProtocolV2State = null
           protocolV3State = null
@@ -418,18 +424,13 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
       if (disposed.get()) return@execute
       if (HomeContainerProtocolV3Transaction.isProtocolPayload(json, "patch")) {
         post {
-          handleProtocolV3Outcome(
-            HomeContainerProtocolV3Transaction.applyPatch(
-              json,
-              current = protocolV3State,
-              availableSlotRevisions = protocolV3State?.slotRevisions.orEmpty(),
-            ),
-          )
+          applyProtocolV3PatchOrDefer(json)
         }
         return@execute
       }
       if (HomeContainerProtocolV2Transaction.isProtocolPayload(json, "patch")) {
         post {
+          pendingProtocolV3PatchJson = null
           protocolV3State = null
           renderedProtocolV3State = null
           handleProtocolV2Outcome(
@@ -509,11 +510,52 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
   fun setMountedSlotKeys(keys: Set<String>) {
     if (mountedSlotKeys == keys) return
     mountedSlotKeys = keys
+    headerView.setMountedSlotKeys(keys)
     tabsView.setMountedSlotKeys(keys)
     adapter.pages().forEach { it.setMountedSlotKeys(keys) }
     updateSharedChromeLayout()
     requestLayout()
     onSlotLayoutChange?.invoke()
+  }
+
+  fun setMountedSlotMetadata(
+    keys: Set<String>,
+    metadata: List<HomeContainerProtocolV3MountedSlotMetadata>,
+  ) {
+    mountedSlotMetadata = metadata
+    setMountedSlotKeys(keys)
+    schedulePendingProtocolV3PatchRetry()
+  }
+
+  private fun availableProtocolV3SlotRevisions(): Map<String, Long> =
+    protocolV3State?.identity?.owner?.let { owner ->
+      homeContainerProtocolV3AvailableSlotRevisions(owner, mountedSlotMetadata)
+    }.orEmpty()
+
+  private fun applyProtocolV3PatchOrDefer(json: String) {
+    val outcome = HomeContainerProtocolV3Transaction.applyPatch(
+      json,
+      current = protocolV3State,
+      availableSlotRevisions = availableProtocolV3SlotRevisions(),
+    )
+    if (
+      outcome is HomeContainerProtocolV3ApplyOutcome.NeedSnapshot &&
+      outcome.reason == HomeContainerProtocolV3NeedSnapshotReason.SLOT_REVISION_GAP
+    ) {
+      pendingProtocolV3PatchJson = json
+      return
+    }
+    pendingProtocolV3PatchJson = null
+    handleProtocolV3Outcome(outcome)
+  }
+
+  private fun schedulePendingProtocolV3PatchRetry() {
+    if (pendingProtocolV3PatchJson == null || pendingProtocolV3PatchRetryScheduled) return
+    pendingProtocolV3PatchRetryScheduled = true
+    post {
+      pendingProtocolV3PatchRetryScheduled = false
+      pendingProtocolV3PatchJson?.let(::applyProtocolV3PatchOrDefer)
+    }
   }
 
   fun slotFrame(key: String): Rect? {
@@ -896,7 +938,10 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
   private fun emitAction(actionId: String, itemId: String, tabId: String) {
     if (protocolV3State != null) {
       val state = renderedProtocolV3State ?: return
-      val sectionId = if (actionId.startsWith("home.widget.market")) {
+      val sectionId = if (
+        actionId.startsWith("home.widget.market") ||
+        actionId.startsWith("home.market.")
+      ) {
         "market"
       } else {
         tabId
@@ -1916,6 +1961,8 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
   private val actionViews = mutableMapOf<String, HomeActionView>()
   private val balanceActionViews = mutableMapOf<String, TextView>()
   private val bannerViews = mutableMapOf<String, HomeBannerView>()
+  private var mountedSlotKeys = emptySet<String>()
+  private var header: HomeContainerHeader? = null
   private var bannersContentWidth = 0
   private var accountImageRequest: HomeContainerImageLoader.Request? = null
   private var networkImageRequest: HomeContainerImageLoader.Request? = null
@@ -1987,6 +2034,7 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
     header: HomeContainerHeader,
     theme: HomeContainerTheme,
   ) {
+    this.header = header
     setBackgroundColor(Color.TRANSPARENT)
     val primary = parseHomeContainerColor(theme.primaryTextColor, Color.BLACK)
     val secondary = parseHomeContainerColor(theme.secondaryTextColor, Color.DKGRAY)
@@ -2033,11 +2081,11 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
     updateBalanceActions(header.balanceActions, theme)
     updateActions(header.actions, theme)
     updateBanners(header.banners, theme)
+    updateNativeOwnershipVisibility()
     actionsScroll.layoutParams = actionsScroll.layoutParams.apply {
       height = dp(header.actionRowHeight.coerceAtLeast(0))
     }
-    actionsScroll.visibility =
-      if (header.actions.isEmpty() && header.actionLayout != "loading") GONE else VISIBLE
+    updateActionRowVisibility(header)
     bannersScroll.visibility = if (header.banners.isEmpty()) GONE else VISIBLE
     preferredHeight = dp(
       (if (header.banners.isEmpty()) 216 else 310) +
@@ -2059,6 +2107,26 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
     "header.balance" -> balanceButton
     "header.action-row" -> actionsScroll
     else -> null
+  }
+
+  fun setMountedSlotKeys(keys: Set<String>) {
+    if (mountedSlotKeys == keys) return
+    mountedSlotKeys = keys
+    updateNativeOwnershipVisibility()
+    updateActionRowVisibility()
+    requestLayout()
+    onSlotLayoutChange?.invoke()
+  }
+
+  private fun updateActionRowVisibility(header: HomeContainerHeader? = null) {
+    val currentHeader = header ?: this.header ?: return
+    val hasMountedSlot = mountedSlotKeys.contains("header.action-row")
+    actionsScroll.visibility =
+      if (!hasMountedSlot && currentHeader.actions.isEmpty() && currentHeader.actionLayout != "loading") {
+        GONE
+      } else {
+        VISIBLE
+      }
   }
 
   fun horizontalScrollTargetAt(windowX: Float, windowY: Float): View? =
@@ -2121,6 +2189,27 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
       }
     }
     actions.forEach { actionViews[it.id]?.bind(it, theme) }
+    updateNativeOwnershipVisibility()
+  }
+
+  private fun updateNativeOwnershipVisibility() {
+    val ownsAccountRow = !mountedSlotKeys.contains("header.account-row")
+    accountGroup.alpha = if (ownsAccountRow) 1f else 0f
+    accountGroup.isClickable = ownsAccountRow
+    copyButton.alpha = if (ownsAccountRow) 1f else 0f
+    copyButton.isClickable = ownsAccountRow
+    networkGroup.alpha = if (ownsAccountRow) 1f else 0f
+    networkGroup.isClickable = ownsAccountRow
+
+    val ownsBalance = !mountedSlotKeys.contains("header.balance")
+    balanceButton.alpha = if (ownsBalance) 1f else 0f
+    balanceButton.isClickable = ownsBalance
+
+    val ownsActionRow = !mountedSlotKeys.contains("header.action-row")
+    actionViews.values.forEach { view ->
+      view.alpha = if (ownsActionRow) 1f else 0f
+      view.isClickable = ownsActionRow
+    }
   }
 
   private fun updateBanners(banners: List<HomeContainerBanner>, theme: HomeContainerTheme) {

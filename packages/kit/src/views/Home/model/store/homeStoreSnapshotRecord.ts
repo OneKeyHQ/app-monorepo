@@ -22,6 +22,7 @@ function createCacheRecord({
   if (
     (slot.kind !== 'ready' && slot.kind !== 'empty') ||
     slot.freshness !== 'live' ||
+    slot.refresh !== 'idle' ||
     !slot.token
   ) {
     return undefined;
@@ -41,4 +42,28 @@ function createCacheRecord({
   };
 }
 
-export { HOME_STORE_CACHE_TTL_MS, createCacheRecord };
+function mergeHomeStoreCacheRecords({
+  cachedRecords,
+  liveRecords,
+  now,
+}: {
+  cachedRecords: readonly IHomeCachedSourceRecord[];
+  liveRecords: readonly IHomeCachedSourceRecord[];
+  now: number;
+}): IHomeCachedSourceRecord[] {
+  const recordsBySource = new Map(
+    cachedRecords
+      .filter((record) => record.expiresAt > now)
+      .map((record) => [record.sourceId, record]),
+  );
+  liveRecords.forEach((record) => {
+    recordsBySource.set(record.sourceId, record);
+  });
+  return Array.from(recordsBySource.values());
+}
+
+export {
+  HOME_STORE_CACHE_TTL_MS,
+  createCacheRecord,
+  mergeHomeStoreCacheRecords,
+};

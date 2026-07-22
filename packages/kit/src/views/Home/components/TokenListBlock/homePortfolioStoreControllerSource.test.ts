@@ -1,5 +1,7 @@
 import {
   HomePortfolioRequestLifecycle,
+  isHomePortfolioValuationReceiptApplied,
+  requireHomePortfolioValuationReceipt,
   reuseHomePortfolioPayload,
 } from './homePortfolioStoreControllerSource';
 
@@ -53,7 +55,7 @@ describe('HomePortfolioStoreController source', () => {
     })) as never;
     const completeRequest = jest.fn();
     const stale = lifecycle.begin({ beginRequest, identityKey: 'owner-a' });
-    const current = lifecycle.begin({ beginRequest, identityKey: 'owner-b' });
+    const current = lifecycle.begin({ beginRequest, identityKey: 'owner-a' });
 
     expect(
       lifecycle.complete({
@@ -73,6 +75,66 @@ describe('HomePortfolioStoreController source', () => {
     expect(completeRequest).toHaveBeenCalledWith(current.handle, {
       kind: 'empty',
     });
+  });
+
+  it('rejects a missing produced valuation receipt', () => {
+    expect(() =>
+      requireHomePortfolioValuationReceipt({
+        ownerKey: 'owner-a',
+        receipt: undefined,
+      }),
+    ).toThrow('Invalid Home portfolio valuation receipt');
+    expect(
+      isHomePortfolioValuationReceiptApplied({
+        applied: { ownerKey: 'owner-a', valuationVersion: 4 },
+        expected: undefined,
+      }),
+    ).toBe(false);
+  });
+
+  it('rejects a produced valuation receipt for another owner', () => {
+    expect(() =>
+      requireHomePortfolioValuationReceipt({
+        ownerKey: 'owner-a',
+        receipt: { ownerKey: 'owner-b', valuationVersion: 4 },
+      }),
+    ).toThrow('Invalid Home portfolio valuation receipt');
+  });
+
+  it('accepts and waits for the exact produced valuation receipt', () => {
+    const expected = { ownerKey: 'owner-a', valuationVersion: 4 };
+
+    expect(
+      requireHomePortfolioValuationReceipt({
+        ownerKey: 'owner-a',
+        receipt: expected,
+      }),
+    ).toBe(expected);
+
+    expect(
+      isHomePortfolioValuationReceiptApplied({
+        applied: { ownerKey: 'owner-b', valuationVersion: 4 },
+        expected,
+      }),
+    ).toBe(false);
+    expect(
+      isHomePortfolioValuationReceiptApplied({
+        applied: { ownerKey: 'owner-a', valuationVersion: 3 },
+        expected,
+      }),
+    ).toBe(false);
+    expect(
+      isHomePortfolioValuationReceiptApplied({
+        applied: { ownerKey: 'owner-a', valuationVersion: 4 },
+        expected,
+      }),
+    ).toBe(true);
+    expect(
+      isHomePortfolioValuationReceiptApplied({
+        applied: { ownerKey: 'owner-a', valuationVersion: 5 },
+        expected,
+      }),
+    ).toBe(true);
   });
 
   it('structurally shares an unchanged typed payload', () => {

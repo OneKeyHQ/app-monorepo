@@ -40,6 +40,7 @@ describe('Home Unified Store production boundary', () => {
       'HomeNFTStoreController',
       'HomeMarketStoreController',
       'HomeBannerStoreController',
+      'HomeStoreCommandController',
     ]) {
       expect(
         source.match(new RegExp(`<${controllerName}\\b`, 'g')),
