@@ -41,3 +41,31 @@ export function wcPayChainIdToNetworkId(caip2ChainId: string): string | null {
   }
   return null;
 }
+
+export const WALLET_CONNECT_PAY_TRUSTED_HOST = 'pay.walletconnect.com';
+
+/**
+ * Domain guard on top of the SDK's `isPaymentLink`: the SDK matches loosely
+ * (e.g. `pay.walletconnect.com.evil.com` and `evil.com/?pid=pay_x` pass),
+ * while the WalletConnect Pay docs require trusting only
+ * pay.walletconnect.com and *.pay.walletconnect.com. Non-URL forms
+ * (`wc:...?pay=`, bare `pay_...` ids) carry no host and pass through.
+ */
+export function validateWcPayLinkDomain(uri: string): boolean {
+  if (!/^https?:\/\//i.test(uri)) {
+    return true;
+  }
+  try {
+    const { protocol, hostname } = new URL(uri);
+    if (protocol !== 'https:') {
+      return false;
+    }
+    const host = hostname.toLowerCase();
+    return (
+      host === WALLET_CONNECT_PAY_TRUSTED_HOST ||
+      host.endsWith(`.${WALLET_CONNECT_PAY_TRUSTED_HOST}`)
+    );
+  } catch {
+    return false;
+  }
+}

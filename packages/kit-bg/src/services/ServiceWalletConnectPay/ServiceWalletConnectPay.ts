@@ -7,6 +7,7 @@ import {
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   WALLET_CONNECT_PAY_EIP155_CHAIN_REFS,
+  validateWcPayLinkDomain,
   wcPayChainIdToNetworkId,
 } from '@onekeyhq/shared/src/walletConnect/payConstant';
 import type {
@@ -37,7 +38,7 @@ class ServiceWalletConnectPay extends ServiceBase {
       return false;
     }
     try {
-      return isPaymentLink(uri);
+      return isPaymentLink(uri) && validateWcPayLinkDomain(uri);
     } catch {
       return false;
     }
