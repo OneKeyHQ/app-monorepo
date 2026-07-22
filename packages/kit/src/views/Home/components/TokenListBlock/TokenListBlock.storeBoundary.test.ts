@@ -37,6 +37,20 @@ describe('Home portfolio Store boundary', () => {
     );
   });
 
+  it('binds single-network responses to their request owner and explicit terminal', () => {
+    expect(controllerSource).toContain(
+      'requestOwnerKey === cellsIngestInputsRef.current.ownerKey',
+    );
+    expect(controllerSource).toContain('ownerKey: requestOwnerKey');
+    expect(controllerSource).toContain(
+      'pendingSingleNetworkReadyCompletionRef.current',
+    );
+    expect(controllerSource).toContain('minimumValuationRevision');
+    expect(controllerSource).toContain(
+      'completeRequest: completeHomeSectionRequest',
+    );
+  });
+
   it('prevents TokenListView Home mode from fetching network metadata', () => {
     expect(tokenListViewSource).toContain(
       'needNetworksMap && !props.enableCellSeam && !props.hostNetworksMap',

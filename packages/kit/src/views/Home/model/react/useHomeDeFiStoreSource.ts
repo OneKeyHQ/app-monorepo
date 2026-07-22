@@ -895,6 +895,7 @@ export function useHomeDeFiStoreSource({
     onRequestSettled: handleAllNetworkSettled,
     onStarted: handleAllNetworkStarted,
     onFinished: handleAllNetworkFinished,
+    runIdentityKey: deFiSourceIdentityKey,
   });
 
   useEffect(() => {

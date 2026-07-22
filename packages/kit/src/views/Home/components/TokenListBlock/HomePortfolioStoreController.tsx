@@ -62,7 +62,6 @@ import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entit
 import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
-  EJotaiContextStoreNames,
   useSettingsPersistAtom,
   useTokenSelectorFilterPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -152,6 +151,7 @@ import {
 } from './homePortfolioStoreControllerSource';
 import { useTokenListReactivePipeline } from './useTokenListReactivePipeline';
 
+import type { IHomePortfolioRequestRound } from './homePortfolioStoreControllerSource';
 import type { IHomeSpotLegacyPayload } from '../../model/sections/spot/homeSpotSourceAdapter';
 
 const networkIdsMap = getNetworkIdsMap();
@@ -242,6 +242,32 @@ type IActiveAccountTokenListRequestContext = {
   tokenSelectorFilterMode: ITokenSelectorFilterMode;
 };
 
+type ISingleNetworkPortfolioReadyCompletion = {
+  identityKey: string;
+  minimumValuationRevision: number;
+  ownerKey: string;
+  round: IHomePortfolioRequestRound;
+};
+
+function resolvePortfolioCompletionRound({
+  lifecycle,
+  requestRound,
+  beginRequest,
+}: {
+  lifecycle: HomePortfolioRequestLifecycle;
+  requestRound: IHomePortfolioRequestRound | undefined;
+  beginRequest: () => IHomePortfolioRequestRound | undefined;
+}): IHomePortfolioRequestRound | undefined {
+  const activeRound = lifecycle.getActiveRound();
+  if (requestRound && activeRound === requestRound) {
+    return requestRound;
+  }
+  if (activeRound || !requestRound) {
+    return undefined;
+  }
+  return beginRequest();
+}
+
 function buildTokenSelectorFilterMode(
   lpToken: boolean,
 ): ITokenSelectorFilterMode {
@@ -293,7 +319,15 @@ function HomePortfolioStoreController({
   const portfolioRequestLifecycleRef = useRef(
     new HomePortfolioRequestLifecycle(),
   );
-  const beginPortfolioStoreRequestRef = useRef<() => void>(() => undefined);
+  const beginPortfolioStoreRequestRef = useRef<
+    () => IHomePortfolioRequestRound | undefined
+  >(() => undefined);
+  const pendingSingleNetworkReadyCompletionRef = useRef<
+    ISingleNetworkPortfolioReadyCompletion | undefined
+  >(undefined);
+  const singleNetworkRequestSeqRef = useRef(0);
+  const [singleNetworkCompletionRevision, setSingleNetworkCompletionRevision] =
+    useState(0);
   const [legacySpotProducerInstanceId] = useState(
     createLegacyHomeSpotProducerInstanceId,
   );
@@ -361,9 +395,16 @@ function HomePortfolioStoreController({
   const [isLpTokenSwitchLoading, setIsLpTokenSwitchLoading] = useState(false);
   const [tokenListState] = useTokenListStateAtom();
   const [cellsSnapshotRevision, setCellsSnapshotRevision] = useState(0);
-  const handleTokenCellsFrameApplied = useCallback(() => {
-    setCellsSnapshotRevision((revision) => revision + 1);
-  }, []);
+  const cellsValuationRevisionRef = useRef(0);
+  const handleTokenCellsFrameApplied = useCallback(
+    (kind: 'structure' | 'valuation' | 'risky') => {
+      if (kind === 'valuation') {
+        cellsValuationRevisionRef.current += 1;
+      }
+      setCellsSnapshotRevision((revision) => revision + 1);
+    },
+    [],
+  );
   const [allNetworksState] = useAllNetworksStateStateAtom();
   const isAllNetworkEmptyAccount = Boolean(
     network?.isAllNetworks && allNetworksState.visibleCount === 0,
@@ -509,7 +550,41 @@ function HomePortfolioStoreController({
 
   const { run } = usePromiseResult(
     async () => {
-      let accountId = account?.id ?? '';
+      if (!network || network.isAllNetworks) {
+        return;
+      }
+      if (!mergeDeriveAddressData && !account) {
+        return;
+      }
+
+      const requestNetwork = network;
+      const requestAccountId = account?.id ?? '';
+      const requestIndexedAccountId = indexedAccount?.id ?? '';
+      const fetchAccountId = mergeDeriveAddressData
+        ? requestIndexedAccountId
+        : requestAccountId;
+      const requestContext: IActiveAccountTokenListRequestContext = {
+        accountId: requestAccountId,
+        indexedAccountId: requestIndexedAccountId,
+        networkId: requestNetwork.id,
+        mergeDeriveAddressData: !!mergeDeriveAddressData,
+        tokenSelectorFilterMode,
+      };
+      const requestOwnerKey = cellsIngestInputsRef.current.ownerKey;
+      const requestNonZeroInputs = {
+        ...cellsIngestInputsRef.current.nonZeroInputs,
+      };
+      let minimumValuationRevision = 0;
+      singleNetworkRequestSeqRef.current += 1;
+      const requestSeq = singleNetworkRequestSeqRef.current;
+      const requestRound = beginPortfolioStoreRequestRef.current();
+      const isLatestRequest = () =>
+        singleNetworkRequestSeqRef.current === requestSeq &&
+        requestOwnerKey === cellsIngestInputsRef.current.ownerKey &&
+        isSameActiveAccountTokenListRequestContext(
+          latestActiveAccountTokenListRequestContextRef.current,
+          requestContext,
+        );
       let tokenListRefreshEventStarted = false;
       const endTokenListRefreshEvent = () => {
         if (!tokenListRefreshEventStarted) {
@@ -518,36 +593,28 @@ function HomePortfolioStoreController({
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
           isRefreshing: false,
           type: EHomeTab.TOKENS,
-          accountId,
-          networkId: network?.id ?? '',
+          accountId: fetchAccountId,
+          networkId: requestNetwork.id,
         });
         tokenListRefreshEventStarted = false;
       };
       try {
-        if (!network) return;
-
-        if (!mergeDeriveAddressData) {
-          if (!account) return;
-        } else {
-          accountId = indexedAccount?.id ?? '';
-        }
-
-        if (network.isAllNetworks) return;
-
         legacySingleTerminalRef.current = undefined;
-        beginPortfolioStoreRequestRef.current();
 
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
           isRefreshing: true,
           type: EHomeTab.TOKENS,
-          accountId,
-          networkId: network.id,
+          accountId: fetchAccountId,
+          networkId: requestNetwork.id,
         });
         tokenListRefreshEventStarted = true;
 
         await backgroundApiProxy.serviceToken.abortFetchAccountTokens({
           excludedFlags: ['token-selector'],
         });
+        if (!isLatestRequest()) {
+          return;
+        }
 
         let r: IFetchAccountTokensResp = getEmptyTokenData();
 
@@ -555,25 +622,31 @@ function HomePortfolioStoreController({
           const { networkAccounts } =
             await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
               {
-                networkId: network.id,
-                indexedAccountId: indexedAccount?.id ?? '',
+                networkId: requestNetwork.id,
+                indexedAccountId: requestIndexedAccountId,
                 excludeEmptyAccount: true,
               },
             );
+          if (!isLatestRequest()) {
+            return;
+          }
 
           const resp = await Promise.all(
             networkAccounts.map((networkAccount) =>
               backgroundApiProxy.serviceToken.fetchAccountTokens({
                 accountId: networkAccount.account?.id ?? '',
                 mergeTokens: true,
-                networkId: network.id,
+                networkId: requestNetwork.id,
                 flag: 'home-token-list',
                 saveToLocal: true,
-                indexedAccountId: indexedAccount?.id,
+                indexedAccountId: requestIndexedAccountId,
                 ...walletTokenFilterParams,
               }),
             ),
           );
+          if (!isLatestRequest()) {
+            return;
+          }
 
           const {
             tokenList,
@@ -637,7 +710,7 @@ function HomePortfolioStoreController({
             });
 
             updateAccountWorth({
-              accountId,
+              accountId: fetchAccountId,
               initialized: true,
               worth: accountWorth,
               createAtNetworkWorth: '0',
@@ -646,14 +719,17 @@ function HomePortfolioStoreController({
           }
         } else {
           r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
-            accountId,
+            accountId: fetchAccountId,
             mergeTokens: true,
-            networkId: network.id,
+            networkId: requestNetwork.id,
             flag: 'home-token-list',
             saveToLocal: true,
-            indexedAccountId: indexedAccount?.id,
+            indexedAccountId: requestIndexedAccountId,
             ...walletTokenFilterParams,
           });
+          if (!isLatestRequest()) {
+            return;
+          }
 
           const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
 
@@ -664,12 +740,12 @@ function HomePortfolioStoreController({
             });
 
             updateAccountWorth({
-              accountId,
+              accountId: fetchAccountId,
               initialized: true,
               worth: {
                 [accountUtils.buildAccountValueKey({
-                  accountId,
-                  networkId: network.id,
+                  accountId: fetchAccountId,
+                  networkId: requestNetwork.id,
                 })]: accountWorth,
               },
               createAtNetworkWorth: accountWorth,
@@ -678,52 +754,37 @@ function HomePortfolioStoreController({
           }
         }
 
-        // TokenList cells Phase-2 BG `ingestRound` (design §5 step 2). Hand the
-        // SAME settled slices this single-network round just wrote to the atoms
-        // over to the BG view-model so it can build + push the BG frames the UI
-        // now consumes. Guarded by the always-on `ENABLE_BG_TOKEN_VIEW_MODEL`
-        // kill-switch. The single-network path has no aggregate tokens, so the
-        // nested aggregate map is empty. Owner key + hideZero inputs are read off
-        // a ref (assigned next to the cells consts) so this call needs no extra
-        // render deps.
         if (ENABLE_BG_TOKEN_VIEW_MODEL) {
-          void backgroundApiProxy.serviceTokenViewModel.ingestRound({
-            ownerKey: cellsIngestInputsRef.current.ownerKey,
-            orderedTokens: r.tokens.data,
-            smallBalanceTokens: r.smallBalanceTokens.data,
-            tokenListMap: {
-              ...r.tokens.map,
-              ...r.smallBalanceTokens.map,
-            },
-            aggregateTokensMap: {},
-            // Single-network rounds have no aggregate tokens — empty list-map.
-            ownedAggregateTokenListMap: {},
-            smallBalanceFiatValue: r.smallBalanceTokens.fiatValue ?? '0',
-            storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
-            keepDefault: cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
-            homeDefaultTokenMap:
-              cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
-            customTokens:
-              cellsIngestInputsRef.current.nonZeroInputs.customTokens,
-            // Risky slice (design §R0 #5) — already settled in scope on `r`.
-            // Carried so the BG VM can build the dedicated risky frame + merged
-            // raw list. Risk tokens are NOT in the home structure/valuation
-            // frames (those are risk-blind).
-            riskyTokens: r.riskTokens.data,
-            riskyMap: r.riskTokens.map,
-            // SETTLED owner identity for the `getRawTokenList` switch skeleton.
-            accountId: account?.id,
-            networkId: network?.id,
-            rawKeys: r.allTokens?.keys ?? '',
-            source: 'single',
-          });
+          minimumValuationRevision = cellsValuationRevisionRef.current + 1;
+          await backgroundApiProxy.serviceTokenViewModel.ingestRound(
+            buildHomeTokenListCacheIngestRound({
+              ownerKey: requestOwnerKey,
+              accountId: requestAccountId,
+              networkId: requestNetwork.id,
+              tokenList: r.tokens.data,
+              smallBalanceTokenList: r.smallBalanceTokens.data,
+              riskyTokenList: r.riskTokens.data,
+              tokenListMap: r.tokens.map,
+              smallBalanceTokenListMap: r.smallBalanceTokens.map,
+              riskyTokenListMap: r.riskTokens.map,
+              keepDefault: requestNonZeroInputs.keepDefault,
+              homeDefaultTokenMap: requestNonZeroInputs.homeDefaultTokenMap,
+              customTokens: requestNonZeroInputs.customTokens,
+              smallBalanceFiatValue: r.smallBalanceTokens.fiatValue ?? '0',
+              rawKeys: r.allTokens?.keys ?? '',
+              source: 'single',
+            }),
+          );
+          if (!isLatestRequest()) {
+            return;
+          }
         }
 
         if (r.allTokens) {
           const mergedTokens = r.allTokens.data;
           if (mergedTokens && mergedTokens.length) {
             void backgroundApiProxy.serviceToken.updateLocalTokens({
-              networkId: network.id,
+              networkId: requestNetwork.id,
               tokens: mergedTokens,
             });
           }
@@ -736,21 +797,52 @@ function HomePortfolioStoreController({
           initialized: true,
           isRefreshing: false,
         });
-        legacySingleTerminalRef.current = 'complete';
+        legacySingleTerminalRef.current = undefined;
+
+        const completionRound = resolvePortfolioCompletionRound({
+          lifecycle: portfolioRequestLifecycleRef.current,
+          requestRound,
+          beginRequest: beginPortfolioStoreRequestRef.current,
+        });
+        if (completionRound) {
+          pendingSingleNetworkReadyCompletionRef.current = {
+            identityKey: completionRound.identityKey,
+            minimumValuationRevision,
+            ownerKey: requestOwnerKey,
+            round: completionRound,
+          };
+          setSingleNetworkCompletionRevision((revision) => revision + 1);
+        }
 
         endTokenListRefreshEvent();
       } catch (e) {
         endTokenListRefreshEvent();
-        if (e instanceof CanceledError) {
-          legacySingleTerminalRef.current = 'partial';
-          console.log('fetchAccountTokens canceled');
-        } else {
+        if (isLatestRequest()) {
+          updateTokenListState({ initialized: true, isRefreshing: false });
+          updateAccountOverviewState({
+            initialized: true,
+            isRefreshing: false,
+          });
           legacySingleTerminalRef.current = 'error';
+          const completionRound = resolvePortfolioCompletionRound({
+            lifecycle: portfolioRequestLifecycleRef.current,
+            requestRound,
+            beginRequest: beginPortfolioStoreRequestRef.current,
+          });
+          portfolioRequestLifecycleRef.current.complete({
+            completeRequest: completeHomeSectionRequest,
+            result: { kind: 'error' },
+            round: completionRound,
+          });
+        }
+        if (!(e instanceof CanceledError)) {
           throw e;
         }
       } finally {
         endTokenListRefreshEvent();
-        setIsHeaderRefreshing(false);
+        if (isLatestRequest()) {
+          setIsHeaderRefreshing(false);
+        }
       }
     },
     [
@@ -764,6 +856,8 @@ function HomePortfolioStoreController({
       setIsHeaderRefreshing,
       syncTokenFilterToOverview,
       walletTokenFilterParams,
+      completeHomeSectionRequest,
+      tokenSelectorFilterMode,
     ],
     {
       overrideIsFocused: (isPageFocused) =>
@@ -1225,9 +1319,9 @@ function HomePortfolioStoreController({
   beginPortfolioStoreRequestRef.current = () => {
     if (!legacySpotIdentity || !legacySpotIdentityKey) {
       portfolioRequestLifecycleRef.current.invalidate();
-      return;
+      return undefined;
     }
-    portfolioRequestLifecycleRef.current.begin({
+    return portfolioRequestLifecycleRef.current.begin({
       beginRequest: () =>
         beginHomeSectionRequest({
           dataSchemaVersion: HOME_SPOT_DATA_SCHEMA_VERSION,
@@ -1254,6 +1348,7 @@ function HomePortfolioStoreController({
       return;
     }
     portfolioRequestLifecycleRef.current.invalidate();
+    pendingSingleNetworkReadyCompletionRef.current = undefined;
     legacySpotActiveIdentityKeyRef.current = legacySpotIdentityKey;
     legacySpotRequestSeqRef.current = 0;
     legacySingleTerminalRef.current = undefined;
@@ -1348,6 +1443,48 @@ function HomePortfolioStoreController({
     undefined,
     handleTokenCellsFrameApplied,
   );
+  useEffect(() => {
+    void cellsSnapshotRevision;
+    void singleNetworkCompletionRevision;
+    const pending = pendingSingleNetworkReadyCompletionRef.current;
+    if (!pending) {
+      return;
+    }
+    const activeRound = portfolioRequestLifecycleRef.current.getActiveRound();
+    if (
+      activeRound !== pending.round ||
+      legacySpotIdentityKey !== pending.identityKey ||
+      cellsOwnerKey !== pending.ownerKey
+    ) {
+      pendingSingleNetworkReadyCompletionRef.current = undefined;
+      return;
+    }
+    if (
+      cellsValuationRevisionRef.current < pending.minimumValuationRevision ||
+      legacySpotPayload.ownerKey !== pending.ownerKey ||
+      !tokenListState.initialized
+    ) {
+      return;
+    }
+    pendingSingleNetworkReadyCompletionRef.current = undefined;
+    publishLegacySpotEvidence({
+      kind: 'complete',
+      confirmedEmpty: legacySpotPayload.displayIds.length === 0,
+      coverageFingerprint: buildHomeSpotSingleCoverage(
+        legacySpotRequestSeqRef.current,
+      ),
+      data: legacySpotPayload,
+      rowIds: legacySpotPayload.displayIds,
+    });
+  }, [
+    cellsOwnerKey,
+    cellsSnapshotRevision,
+    legacySpotIdentityKey,
+    legacySpotPayload,
+    publishLegacySpotEvidence,
+    singleNetworkCompletionRevision,
+    tokenListState.initialized,
+  ]);
 
   const legacySpotRefreshing = showLpTokensOnly
     ? scopedLpTokenListState.isRefreshing
@@ -2602,8 +2739,6 @@ function HomePortfolioStoreController({
         return;
       }
 
-      beginPortfolioStoreRequestRef.current();
-
       let tokenList: IAccountToken[] = [];
       let smallBalanceTokenList: IAccountToken[] = [];
       let riskyTokenList: IAccountToken[] = [];
@@ -3096,7 +3231,6 @@ function HomePortfolioStoreController({
   // network. Driving the fetch from explicit params lets the always-visible
   // header worth (and the shared token-list atoms) update to the new network
   // without waiting for the user to return to this tab.
-  const explicitRefreshSeqRef = useRef(0);
   const refreshSingleNetworkTokenListByTarget = useCallback(
     async (target: {
       accountId: string;
@@ -3109,13 +3243,36 @@ function HomePortfolioStoreController({
       // that cannot be refreshed imperatively here; let it refresh on return.
       if (networkUtils.isAllNetwork({ networkId })) return;
 
-      explicitRefreshSeqRef.current += 1;
-      const seq = explicitRefreshSeqRef.current;
-      const isLatest = () => explicitRefreshSeqRef.current === seq;
+      const activeContext =
+        latestActiveAccountTokenListRequestContextRef.current;
+      if (
+        activeContext.accountId !== accountId ||
+        activeContext.networkId !== networkId
+      ) {
+        return;
+      }
+      const requestContext: IActiveAccountTokenListRequestContext = {
+        ...activeContext,
+        indexedAccountId: indexedAccountId ?? activeContext.indexedAccountId,
+      };
+      const requestOwnerKey = cellsIngestInputsRef.current.ownerKey;
+      const requestNonZeroInputs = {
+        ...cellsIngestInputsRef.current.nonZeroInputs,
+      };
+      let minimumValuationRevision = 0;
+      singleNetworkRequestSeqRef.current += 1;
+      const requestSeq = singleNetworkRequestSeqRef.current;
+      const isLatest = () =>
+        singleNetworkRequestSeqRef.current === requestSeq &&
+        requestOwnerKey === cellsIngestInputsRef.current.ownerKey &&
+        isSameActiveAccountTokenListRequestContext(
+          latestActiveAccountTokenListRequestContextRef.current,
+          requestContext,
+        );
 
       let emittedRefreshing = false;
+      let requestRound: IHomePortfolioRequestRound | undefined;
       try {
-        beginPortfolioStoreRequestRef.current();
         // Multi-derive (merge-derive) HD accounts need the parallel
         // per-derivation fetch that only `run` performs; the single-account
         // fast path below would apply partial data, so skip them. Others
@@ -3132,6 +3289,7 @@ function HomePortfolioStoreController({
           return;
         }
         if (!isLatest()) return;
+        requestRound = beginPortfolioStoreRequestRef.current();
 
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
           isRefreshing: true,
@@ -3177,6 +3335,30 @@ function HomePortfolioStoreController({
           merge: false,
         });
 
+        if (ENABLE_BG_TOKEN_VIEW_MODEL) {
+          minimumValuationRevision = cellsValuationRevisionRef.current + 1;
+          await backgroundApiProxy.serviceTokenViewModel.ingestRound(
+            buildHomeTokenListCacheIngestRound({
+              ownerKey: requestOwnerKey,
+              accountId,
+              networkId,
+              tokenList: r.tokens.data,
+              smallBalanceTokenList: r.smallBalanceTokens.data,
+              riskyTokenList: r.riskTokens.data,
+              tokenListMap: r.tokens.map,
+              smallBalanceTokenListMap: r.smallBalanceTokens.map,
+              riskyTokenListMap: r.riskTokens.map,
+              keepDefault: requestNonZeroInputs.keepDefault,
+              homeDefaultTokenMap: requestNonZeroInputs.homeDefaultTokenMap,
+              customTokens: requestNonZeroInputs.customTokens,
+              smallBalanceFiatValue: r.smallBalanceTokens.fiatValue ?? '0',
+              rawKeys: r.allTokens?.keys ?? '',
+              source: 'single',
+            }),
+          );
+          if (!isLatest()) return;
+        }
+
         if (r.allTokens) {
           // Keep the broader local token directory in sync, like `run` does;
           // `saveToLocal` only persists the per-account token cache.
@@ -3189,7 +3371,40 @@ function HomePortfolioStoreController({
           }
         }
         updateTokenListState({ initialized: true, isRefreshing: false });
+        legacySingleTerminalRef.current = undefined;
+        const completionRound = resolvePortfolioCompletionRound({
+          lifecycle: portfolioRequestLifecycleRef.current,
+          requestRound,
+          beginRequest: beginPortfolioStoreRequestRef.current,
+        });
+        if (completionRound) {
+          pendingSingleNetworkReadyCompletionRef.current = {
+            identityKey: completionRound.identityKey,
+            minimumValuationRevision,
+            ownerKey: requestOwnerKey,
+            round: completionRound,
+          };
+          setSingleNetworkCompletionRevision((revision) => revision + 1);
+        }
       } catch (e) {
+        if (isLatest()) {
+          updateTokenListState({ initialized: true, isRefreshing: false });
+          updateAccountOverviewState({
+            initialized: true,
+            isRefreshing: false,
+          });
+          legacySingleTerminalRef.current = 'error';
+          const completionRound = resolvePortfolioCompletionRound({
+            lifecycle: portfolioRequestLifecycleRef.current,
+            requestRound,
+            beginRequest: beginPortfolioStoreRequestRef.current,
+          });
+          portfolioRequestLifecycleRef.current.complete({
+            completeRequest: completeHomeSectionRequest,
+            result: { kind: 'error' },
+            round: completionRound,
+          });
+        }
         if (!(e instanceof CanceledError)) {
           throw e;
         }
@@ -3209,6 +3424,7 @@ function HomePortfolioStoreController({
       updateAccountOverviewState,
       updateAccountWorth,
       updateTokenListState,
+      completeHomeSectionRequest,
     ],
   );
 

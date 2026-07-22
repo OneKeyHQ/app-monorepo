@@ -1,5 +1,6 @@
 import {
   HOME_BANNER_ACTION_IDS,
+  readHomeBannerStorePayload,
   toHomeBannerStoreItem,
 } from '../../sections/banner/homeBannerStoreModel';
 import { createInitialHomeStoreState } from '../homeStoreInitialState';
@@ -109,6 +110,35 @@ function bannerIntent({
 }
 
 describe('Home Store banner command authority', () => {
+  it('normalizes optional runtime fields before strict Store validation', () => {
+    const item = toHomeBannerStoreItem({
+      _id: 'banner-a',
+      id: 'banner-a',
+      src: '',
+      title: 'Banner A',
+      rank: 1,
+      closeable: true,
+      closeForever: false,
+      useSystemBrowser: false,
+    } as unknown as Parameters<typeof toHomeBannerStoreItem>[0]);
+
+    expect(item).toEqual(
+      expect.objectContaining({
+        button: '',
+        description: '',
+        theme: 'light',
+      }),
+    );
+    expect(
+      readHomeBannerStorePayload({
+        banners: [item],
+        referralEligibility: null,
+        tronResource: null,
+        isBotWalletReceiveBlocked: false,
+      }),
+    ).toBeDefined();
+  });
+
   it('executes a caller-owned open only after Store validation', () => {
     const state = createBannerState();
     const accepted = dispatch(state, {

@@ -117,7 +117,7 @@ export async function runHomeBannerStoreRequest({
   });
 
   if (remoteResult.status === 'fulfilled') {
-    await api.updateLocalTopBanners(filteredBanners).catch(() => undefined);
+    await api.updateLocalTopBanners(remoteBanners).catch(() => undefined);
   }
 
   const referralEligibility =

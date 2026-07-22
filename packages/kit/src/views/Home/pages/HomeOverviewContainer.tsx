@@ -26,6 +26,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
@@ -282,6 +283,35 @@ function HomeOverviewContainer({
     balancePresentation,
     semanticDisplayAmount: semanticBalanceStringDisplay,
   });
+  let networkScope: 'allNetworks' | 'singleNetwork' | 'unknown' = 'unknown';
+  if (network) {
+    networkScope = network.isAllNetworks ? 'allNetworks' : 'singleNetwork';
+  }
+
+  const homeBalanceDecisionKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const decision = {
+      networkScope,
+      balancePresentationKind: balancePresentation?.kind ?? 'missing',
+      balanceState: balancePresentation?.balanceState ?? 'missing',
+      hasSemanticDisplayAmount: semanticBalanceStringDisplay !== undefined,
+      showSkeleton: balanceRenderDecision.showSkeleton,
+      isRefreshing: isLoading,
+    } as const;
+    const key = stringUtils.stableStringify(decision);
+    if (homeBalanceDecisionKeyRef.current === key) {
+      return;
+    }
+    homeBalanceDecisionKeyRef.current = key;
+    defaultLogger.wallet.homeUi.homeBalanceDecision(decision);
+  }, [
+    balancePresentation?.balanceState,
+    balancePresentation?.kind,
+    balanceRenderDecision.showSkeleton,
+    isLoading,
+    networkScope,
+    semanticBalanceStringDisplay,
+  ]);
 
   // Track when balance is first displayed
   const balanceReady =

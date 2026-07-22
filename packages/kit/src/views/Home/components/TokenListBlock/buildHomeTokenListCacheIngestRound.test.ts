@@ -93,4 +93,27 @@ describe('buildHomeTokenListCacheIngestRound', () => {
     expect(payload.rawKeys).toBe('__');
     expect(payload.source).toBe('singleEmptyCacheSeed');
   });
+
+  it('preserves live response scalar and raw keys for a single-network round', () => {
+    const small = makeToken('dust');
+    const payload = buildHomeTokenListCacheIngestRound({
+      ownerKey: 'acc__tron--0x2b6653dc',
+      accountId: 'acc',
+      networkId: 'tron--0x2b6653dc',
+      tokenList: [],
+      smallBalanceTokenList: [small],
+      riskyTokenList: [],
+      tokenListMap: {},
+      smallBalanceTokenListMap: {
+        dust: makeFiat('0.25'),
+      },
+      smallBalanceFiatValue: '0.30',
+      rawKeys: 'server-owned-raw-keys',
+      source: 'single',
+    });
+
+    expect(payload.smallBalanceFiatValue).toBe('0.30');
+    expect(payload.rawKeys).toBe('server-owned-raw-keys');
+    expect(payload.source).toBe('single');
+  });
 });

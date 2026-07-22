@@ -127,4 +127,60 @@ describe('Home banner Store source', () => {
       expect.objectContaining({ kind: 'success', data: payload }),
     );
   });
+
+  it('filters the current payload without replacing the shared cache with a network subset', async () => {
+    const networkABanner = {
+      _id: 'network-a',
+      id: 'network-a',
+      src: '',
+      title: 'Network A',
+      description: '',
+      button: '',
+      rank: 1,
+      closeable: true,
+      closeForever: false,
+      useSystemBrowser: false,
+      theme: 'light' as const,
+      position: 'home' as const,
+      networkIds: ['network-a'],
+    };
+    const networkBBanner = {
+      ...networkABanner,
+      _id: 'network-b',
+      id: 'network-b',
+      title: 'Network B',
+      networkIds: ['network-b'],
+    };
+    const remoteBanners = [networkABanner, networkBBanner];
+    const updateLocalTopBanners = jest.fn(async () => undefined);
+    const gateway = {
+      begin: jest.fn(() => ({
+        request: { ownerToken, sourceId: 'banner' as const },
+        token: { requestSeq: 1 },
+      })),
+      complete: jest.fn(),
+    } as unknown as IHomeBannerSourceGateway;
+
+    const payload = await runHomeBannerStoreRequest({
+      api: {
+        readLocal: async () => null,
+        fetchRemote: async () => remoteBanners,
+        fetchReferralEligibility: async () =>
+          Promise.reject(new Error('offline')),
+        fetchBotWalletDeactivated: async () => false,
+        updateLocalTopBanners,
+      },
+      createReferralBanner: () => null,
+      gateway,
+      hasBotWallet: false,
+      networkId: 'network-a',
+      ownerToken,
+      paramsFingerprint: 'owner-a-banner',
+      sessionDismissedIds: [],
+      tronResource: null,
+    });
+
+    expect(payload.banners.map((banner) => banner.id)).toEqual(['network-a']);
+    expect(updateLocalTopBanners).toHaveBeenCalledWith(remoteBanners);
+  });
 });

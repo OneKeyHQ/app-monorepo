@@ -83,4 +83,8 @@ describe('Home DeFi Store authority', () => {
     expect(rootController).toContain("navigation.value.tabs.includes('defi')");
     expect(rootController).toContain('refreshCacheOnly: false');
   });
+
+  it('keys all-network request reuse to the current Store owner session', () => {
+    expect(sourceController).toContain('runIdentityKey: deFiSourceIdentityKey');
+  });
 });
