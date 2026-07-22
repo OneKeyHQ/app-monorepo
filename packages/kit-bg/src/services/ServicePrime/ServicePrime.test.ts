@@ -137,6 +137,25 @@ const mockReadPersistedAccessTokenBySessionSourceStrict = jest.fn(
 const mockRevokeAuthSessionTokenOnServerBestEffort = jest.fn(
   async (_params: unknown) => undefined,
 );
+const mockClearSupabaseStorageCache = jest.fn();
+
+// bg-side keyless Supabase client used by the guarded slot persist
+// (persistKeylessOAuthSession). Default: setSession succeeds.
+const mockKeylessSetSession = jest.fn(
+  async (_tokens: unknown): Promise<unknown> => ({
+    data: { session: { access_token: 'persisted' } },
+    error: null,
+  }),
+);
+jest.mock('@onekeyhq/shared/src/utils/supabaseClientUtils', () => ({
+  getKeylessSupabaseClient: () => ({
+    client: {
+      auth: {
+        setSession: (tokens: unknown) => mockKeylessSetSession(tokens),
+      },
+    },
+  }),
+}));
 
 // Real retryable-error semantics, driven by a `$$retryable` marker on the
 // rejection so tests can simulate a failed local session refresh.
@@ -174,6 +193,7 @@ jest.mock('./primeAuthSessionAccess', () => ({
   revokeAuthSessionTokenOnServerBestEffort: (params: unknown) =>
     mockRevokeAuthSessionTokenOnServerBestEffort(params),
   clearSupabaseStorageLocalCache: jest.fn(),
+  clearSupabaseStorageCache: () => mockClearSupabaseStorageCache(),
 }));
 
 const {
@@ -1539,7 +1559,7 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
     );
   });
 
-  describe('assertLegacyOneKeyIdOAuthBindPreconditions (UI pre-persist guard)', () => {
+  describe('assertLegacyOneKeyIdOAuthBindPreconditions (persist/bind precondition guard)', () => {
     it('passes when the consented legacy login is live', async () => {
       const { service, simpleDbPrime } = createService();
       simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
@@ -1600,5 +1620,172 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
         EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
       );
     });
+  });
+});
+
+describe('ServicePrime.persistKeylessOAuthSession bg-owned slot write', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrimePersistAtom.get.mockImplementation(async () => ({}));
+  });
+
+  it('persists the session and clears the shared storage read cache', async () => {
+    const { service } = createService();
+
+    await service.persistKeylessOAuthSession({
+      accessToken: 'access-a',
+      refreshToken: 'refresh-a',
+    });
+
+    expect(mockKeylessSetSession).toHaveBeenCalledWith({
+      access_token: 'access-a',
+      refresh_token: 'refresh-a',
+    });
+    expect(mockClearSupabaseStorageCache).toHaveBeenCalled();
+  });
+
+  it('preserves the persist failure contract across the bridge (message, httpStatusCode, autoToast, server-logged marker)', async () => {
+    const { service } = createService();
+    mockKeylessSetSession.mockResolvedValueOnce({
+      data: { session: null },
+      error: { message: 'bad gateway', status: 502, code: 'gateway_error' },
+    });
+
+    const error: any = await service
+      .persistKeylessOAuthSession({
+        accessToken: 'access-a',
+        refreshToken: 'refresh-a',
+      })
+      .then(
+        () => undefined,
+        (e: unknown) => e,
+      );
+
+    expect(String(error?.message)).toContain(
+      'Failed to persist Keyless OAuth session: bad gateway status=502 code=gateway_error',
+    );
+    // Every field the main-side wrapper and cleanup guards consume must be
+    // on the serialization allowlist (toPlainErrorObject): httpStatusCode
+    // for transient-vs-definitive classification, autoToast for the global
+    // handler, and the dedup marker in `data` (ad-hoc $$ properties do NOT
+    // survive the bridge).
+    expect(error?.httpStatusCode).toBe(502);
+    expect(error?.autoToast).toBe(true);
+    expect(error?.data).toEqual({ onekeyIdFailureServerLogged: true });
+    expect(mockClearSupabaseStorageCache).not.toHaveBeenCalled();
+  });
+
+  it('keeps status 0 visible in the failure reason (masked transient responses)', async () => {
+    const { service } = createService();
+    mockKeylessSetSession.mockResolvedValueOnce({
+      data: { session: null },
+      error: { message: 'fetch failed', status: 0 },
+    });
+
+    await expect(
+      service.persistKeylessOAuthSession({
+        accessToken: 'access-a',
+        refreshToken: 'refresh-a',
+      }),
+    ).rejects.toThrow('status=0');
+  });
+
+  it('runs the legacy bind guard atomically with the write and aborts with the slot untouched', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+
+    const error: unknown = await service
+      .persistKeylessOAuthSession({
+        accessToken: 'access-a',
+        refreshToken: 'refresh-a',
+        legacyBindGuard: { expectedOnekeyUserId: 'user-l' },
+      })
+      .then(
+        () => undefined,
+        (e: unknown) => e,
+      );
+
+    expect((error as { className?: string }).className).toBe(
+      EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    );
+    expect(mockKeylessSetSession).not.toHaveBeenCalled();
+  });
+
+  it('writes the slot when the guarded preconditions hold', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    mockPrimePersistAtom.get.mockImplementation(async () => ({
+      isLoggedIn: true,
+      onekeyUserId: 'user-l',
+    }));
+
+    await service.persistKeylessOAuthSession({
+      accessToken: 'access-a',
+      refreshToken: 'refresh-a',
+      legacyBindGuard: { expectedOnekeyUserId: 'user-l' },
+    });
+
+    expect(mockKeylessSetSession).toHaveBeenCalled();
+  });
+
+  it('cannot interleave with a login commit: the guard observes a commit that finished first (check->write window closed)', async () => {
+    // The review scenario this method exists for: previously the
+    // precondition check passed OUTSIDE any shared lock, a concurrent
+    // KeylessOAuth login then fully committed, and the flow still overwrote
+    // the winner's slot session — atom/source pointing at the winner while
+    // the slot held the bind flow's OAuth credentials. Now the guard+write
+    // section queues behind the in-flight commit on loginMutex and, once it
+    // runs, observes the committed source and aborts with the slot
+    // untouched.
+    const { service, simpleDbPrime } = createService();
+    const sourceRef: { current: unknown } = {
+      current: EPrimeAuthSessionSource.LegacyEmailSupabase,
+    };
+    simpleDbPrime.getEffectiveAuthSessionSource.mockImplementation(
+      async () => sourceRef.current,
+    );
+    mockPrimePersistAtom.get.mockImplementation(async () => ({
+      isLoggedIn: true,
+      onekeyUserId: 'user-l',
+    }));
+
+    // Hold loginMutex, simulating a concurrent KeylessOAuth login commit in
+    // flight (all login/bind commits serialize on this mutex).
+    const lockAcquired = createDeferred();
+    const releaseLock = createDeferred();
+    const lockHolder = service.loginMutex.runExclusive(async () => {
+      lockAcquired.resolve();
+      await releaseLock.promise;
+    });
+    await lockAcquired.promise;
+
+    const persistPromise = service.persistKeylessOAuthSession({
+      accessToken: 'access-a',
+      refreshToken: 'refresh-a',
+      legacyBindGuard: { expectedOnekeyUserId: 'user-l' },
+    });
+    await flushAsync();
+    // The guarded write must be queued behind the in-flight commit — no
+    // check has run and no bytes have been written yet.
+    expect(mockKeylessSetSession).not.toHaveBeenCalled();
+
+    // The login commits KeylessOAuth before releasing the mutex.
+    sourceRef.current = EPrimeAuthSessionSource.KeylessOAuth;
+    releaseLock.resolve();
+    await lockHolder;
+
+    const error: unknown = await persistPromise.then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    expect((error as { className?: string }).className).toBe(
+      EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    );
+    // The winner's slot session was never overwritten.
+    expect(mockKeylessSetSession).not.toHaveBeenCalled();
   });
 });

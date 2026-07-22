@@ -109,17 +109,20 @@ export function useOneKeyIdLocalKeylessOAuth({
     async ({
       provider,
       missingTokenMessage,
-      beforePersistSession,
+      persistLegacyBindGuard,
     }: {
       provider: EOAuthSocialLoginProvider;
       missingTokenMessage: string;
-      // Host-supplied guard run right before the fresh OAuth session is
-      // persisted into the SINGLE shared keyless slot. A throw here must
-      // leave the slot untouched (nothing has been persisted yet), so hosts
-      // whose flow depends on state that can change during the user-paced
-      // OAuth round-trip (e.g. the legacy bind's login preconditions) can
-      // abort without clobbering a session a concurrent flow committed.
-      beforePersistSession?: () => Promise<void>;
+      // Host-supplied guard for persisting the fresh OAuth session into the
+      // SINGLE shared keyless slot: forwarded to the bg-owned persist
+      // (ServicePrime.persistKeylessOAuthSession), which re-asserts the
+      // legacy bind preconditions INSIDE the same loginMutex section that
+      // writes the slot. Hosts whose flow depends on state that can change
+      // during the user-paced OAuth round-trip (the legacy bind's login
+      // preconditions) thus abort atomically with the write — a guard
+      // failure always means the slot was left untouched, and no concurrent
+      // login commit can land between the check and the write.
+      persistLegacyBindGuard?: { expectedOnekeyUserId: string };
     }) => {
       let accessToken = '';
       let didUseOAuthSignIn = false;
@@ -173,10 +176,13 @@ export function useOneKeyIdLocalKeylessOAuth({
         // starting state can however be invalidated DURING the user-paced
         // OAuth round-trip by a concurrent surface (e.g. a KeylessOAuth
         // login committing into this shared slot); hosts with such a
-        // dependency re-assert it via beforePersistSession, whose throw
-        // keeps the slot untouched.
-        await beforePersistSession?.();
-        await persistKeylessOAuthSession({ accessToken, refreshToken });
+        // dependency pass persistLegacyBindGuard, which the bg-owned
+        // persist re-asserts atomically with the slot write.
+        await persistKeylessOAuthSession({
+          accessToken,
+          refreshToken,
+          legacyBindGuard: persistLegacyBindGuard,
+        });
       }
 
       return {
