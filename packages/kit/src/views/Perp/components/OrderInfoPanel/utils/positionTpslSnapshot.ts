@@ -55,6 +55,13 @@ export function getPositionTpslScopeChangeErrorTitle({
   return 'Position changed. Please review and submit again.';
 }
 
+export function captureInitialPositionTpslScopeKey(
+  initialScopeKey: string,
+  currentScopeKey: string,
+) {
+  return initialScopeKey || currentScopeKey;
+}
+
 export function selectPositionTpslOrders(
   orders: IPerpsFrontendOrder[],
   coin: string,

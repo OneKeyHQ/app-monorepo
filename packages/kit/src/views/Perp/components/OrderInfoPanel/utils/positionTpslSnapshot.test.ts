@@ -3,6 +3,7 @@ import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk
 import {
   buildPositionTpslScopeKey,
   buildPositionTpslSubmission,
+  captureInitialPositionTpslScopeKey,
   getPositionTpslDex,
   getPositionTpslScopeChangeErrorTitle,
   hasPositionTpslSubmission,
@@ -90,6 +91,19 @@ describe('position TP/SL snapshot helpers', () => {
         currentScopeKey: 'account|BTC|2',
       }),
     ).toBe('Position changed. Please review and submit again.');
+  });
+
+  it('captures the first non-empty position scope and keeps it stable', () => {
+    expect(captureInitialPositionTpslScopeKey('', '')).toBe('');
+
+    const initialScopeKey = captureInitialPositionTpslScopeKey(
+      '',
+      'account|BTC|1',
+    );
+    expect(initialScopeKey).toBe('account|BTC|1');
+    expect(
+      captureInitialPositionTpslScopeKey(initialScopeKey, 'account|BTC|2'),
+    ).toBe('account|BTC|1');
   });
 
   it('strips legs found in subscribed open orders and detects no-op', () => {

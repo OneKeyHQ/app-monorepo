@@ -58,6 +58,7 @@ import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
 import {
   buildPositionTpslScopeKey,
   buildPositionTpslSubmission,
+  captureInitialPositionTpslScopeKey,
   getPositionTpslScopeChangeErrorTitle,
   hasPositionTpslSubmission,
   selectPositionTpslOrders,
@@ -246,8 +247,13 @@ const SetTpslForm = memo(
         leverage,
       ],
     );
-    const currentScopeKeyRef = useRef(currentScopeKey);
-    currentScopeKeyRef.current = currentScopeKey;
+    const initialScopeKeyRef = useRef('');
+    initialScopeKeyRef.current = captureInitialPositionTpslScopeKey(
+      initialScopeKeyRef.current,
+      currentScopeKey,
+    );
+    const latestScopeKeyRef = useRef(currentScopeKey);
+    latestScopeKeyRef.current = currentScopeKey;
 
     const scopedOpenOrders = useMemo(() => {
       if (
@@ -496,8 +502,8 @@ const SetTpslForm = memo(
 
         await hyperliquidActions.current.ensureTradingEnabled();
         const scopeChangeErrorTitle = getPositionTpslScopeChangeErrorTitle({
-          initialScopeKey: currentScopeKeyRef.current,
-          currentScopeKey,
+          initialScopeKey: initialScopeKeyRef.current,
+          currentScopeKey: latestScopeKeyRef.current,
         });
         if (scopeChangeErrorTitle) {
           Toast.error({ title: scopeChangeErrorTitle });
@@ -651,7 +657,6 @@ const SetTpslForm = memo(
       isValidForm,
       intl,
       canSubmitForScopedAccount,
-      currentScopeKey,
       activeAccount?.accountAddress,
       tpOrder,
       slOrder,
