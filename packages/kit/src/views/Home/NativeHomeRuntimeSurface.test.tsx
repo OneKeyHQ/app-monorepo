@@ -30,6 +30,10 @@ describe('Native Home runtime surface', () => {
   it('injects the app-owned Native renderer through the kit provider boundary', () => {
     const nativeSurfaceSource = readSource('NativeHomePageView.native.tsx');
     const providerSource = readSource('NativeHomeRendererProvider.tsx');
+    const nativeReactLoaderSource = readSource(
+      'pages/HomePageViewLoader.native.tsx',
+    );
+    const reactLoaderSource = readSource('pages/HomePageViewLoader.tsx');
     const mobileAppSource = readSource(
       path.resolve(__dirname, '../../../../../apps/mobile/App.tsx'),
     );
@@ -55,9 +59,22 @@ describe('Native Home runtime surface', () => {
     expect(nativeSurfaceSource).toContain(
       'const NativeRenderer = useNativeHomeRenderer();',
     );
+    expect(nativeSurfaceSource).toContain("from './pages/HomePageViewLoader';");
+    expect(nativeReactLoaderSource).toMatch(
+      /import\(\s*['"]\.\/HomePageView['"]\s*\)/,
+    );
+    expect(reactLoaderSource).toContain(
+      "export { HomePageView } from './HomePageView';",
+    );
     expect(providerSource).not.toContain('@onekeyhq/native-components');
     expect(mobileAppSource).toContain(
       '<NativeHomeRendererProvider renderer={MobileNativeHomeRenderer}>',
+    );
+    expect(mobileAppSource).toMatch(
+      /import\(\s*['"]\.\/src\/home\/MobileNativeHomeRenderer['"]\s*\)/,
+    );
+    expect(mobileAppSource).not.toMatch(
+      /import\s+\{\s*MobileNativeHomeRenderer\s*\}\s+from/,
     );
     expect(mobileRendererSource).toContain(
       "from '@onekeyhq/native-components';",

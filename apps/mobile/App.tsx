@@ -1,9 +1,18 @@
-import { KitProvider, NativeHomeRendererProvider } from '@onekeyhq/kit';
+import {
+  type INativeHomeRenderer,
+  KitProvider,
+  NativeHomeRendererProvider,
+} from '@onekeyhq/kit';
 import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { withSentryHOC } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 
-import { MobileNativeHomeRenderer } from './src/home/MobileNativeHomeRenderer';
+const MobileNativeHomeRenderer: INativeHomeRenderer = LazyLoad(async () => {
+  const { MobileNativeHomeRenderer: Renderer } =
+    await import('./src/home/MobileNativeHomeRenderer');
+  return { default: Renderer };
+});
 
 const SentryKitProvider = withSentryHOC(
   KitProvider,

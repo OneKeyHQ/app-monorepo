@@ -22,7 +22,7 @@ describe('WalletBanner Store boundary', () => {
     const controller = readSource(
       '../../model/react/HomeBannerStoreController.tsx',
     );
-    const root = readSource('../../model/react/HomeStoreSourceControllers.tsx');
+    const root = readSource('../../model/react/HomeReadySourceControllers.tsx');
 
     expect(controller).toContain('beginHomeSourceRequest');
     expect(controller).toContain('fetchWalletBanner');

@@ -236,7 +236,7 @@ jest.mock('./EmptyWalletHomePage', () => ({
   EmptyWalletHomePage: mockCreateSurface('empty'),
 }));
 
-jest.mock('./HomePageView', () => ({
+jest.mock('./HomePageViewLoader', () => ({
   HomePageView: mockCreateSurface('react'),
 }));
 

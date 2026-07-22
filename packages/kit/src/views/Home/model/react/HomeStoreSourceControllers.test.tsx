@@ -200,14 +200,15 @@ describe('HomeStoreSourceControllers', () => {
     act(() => view.unmount());
   });
 
-  it('mounts wallet domain sources only for the Wallet Home scene', () => {
+  it('mounts wallet domain sources only for the Wallet Home scene', async () => {
     let view!: ReactTestRenderer;
-    act(() => {
+    await act(async () => {
       view = create(
         <HomeStoreSourceControllers enableWalletSources>
           {createElement('View', { testID: 'home-renderer' })}
         </HomeStoreSourceControllers>,
       );
+      await Promise.resolve();
     });
 
     expect(
@@ -252,7 +253,7 @@ describe('HomeStoreSourceControllers', () => {
     act(() => view.unmount());
   });
 
-  it('starts every wallet producer only after the runtime handshake is ready', () => {
+  it('starts every wallet producer only after the runtime handshake is ready', async () => {
     mockHomeRuntime = {
       topology: 'split',
       connection: 'waiting',
@@ -284,7 +285,10 @@ describe('HomeStoreSourceControllers', () => {
       producerInstanceId: 'producer-after-handshake',
       protocolVersion: 1,
     };
-    act(() => view.update(render()));
+    await act(async () => {
+      view.update(render());
+      await Promise.resolve();
+    });
 
     expect(
       view.root.findAllByProps({ testID: 'portfolio-controller' }),

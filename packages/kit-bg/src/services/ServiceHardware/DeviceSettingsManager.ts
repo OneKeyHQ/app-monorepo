@@ -1,4 +1,3 @@
-import { ResourceType, type Success } from '@onekeyfe/hd-transport';
 import { isNil } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
@@ -8,6 +7,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
+import { HARDWARE_RESOURCE_TYPE } from '@onekeyhq/shared/src/hardware/transportEnumValues';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import {
@@ -38,7 +38,10 @@ import type {
   DeviceUploadResourceParams,
   DeviceUploadResourceResponse,
 } from '@onekeyfe/hd-core';
+import type { ResourceType, Success } from '@onekeyfe/hd-transport';
 import type { Response as ThirdPartyResponse } from '@onekeyfe/hwk-adapter-core';
+
+const RESOURCE_TYPE_WALLPAPER: ResourceType = HARDWARE_RESOURCE_TYPE.WallPaper;
 
 export type ISetInputPinOnSoftwareParams = {
   walletId: string;
@@ -547,7 +550,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             connectId: compatibleConnectId,
           });
           const uploadResParams: DeviceUploadResourceParams = {
-            resType: ResourceType.WallPaper,
+            resType: RESOURCE_TYPE_WALLPAPER,
             suffix: 'jpeg',
             dataHex: finallyScreenHex,
             thumbnailDataHex: finallyThumbnailHex,

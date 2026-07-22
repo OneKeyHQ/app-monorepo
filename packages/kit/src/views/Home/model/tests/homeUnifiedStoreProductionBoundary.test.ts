@@ -30,7 +30,7 @@ describe('Home Unified Store production boundary', () => {
   );
 
   it('mounts each wallet source controller once at the scene root', () => {
-    const source = readHomeFile('model/react/HomeStoreSourceControllers.tsx');
+    const source = readHomeFile('model/react/HomeReadySourceControllers.tsx');
     for (const controllerName of [
       'HomePortfolioStoreController',
       'HomeAccountValuePersistenceController',
@@ -40,12 +40,16 @@ describe('Home Unified Store production boundary', () => {
       'HomeNFTStoreController',
       'HomeMarketStoreController',
       'HomeBannerStoreController',
-      'HomeStoreCommandController',
     ]) {
       expect(
         source.match(new RegExp(`<${controllerName}\\b`, 'g')),
       ).toHaveLength(1);
     }
+    const root = readHomeFile('model/react/HomeStoreSourceControllers.tsx');
+    expect(root.match(/<HomeStoreCommandController\b/g)).toHaveLength(1);
+    expect(root).toMatch(
+      /walletSourcesReady[\s\S]*<HomeReadySourceControllers/,
+    );
   });
 
   it('physically retires the Native-only business host and source hooks', () => {
