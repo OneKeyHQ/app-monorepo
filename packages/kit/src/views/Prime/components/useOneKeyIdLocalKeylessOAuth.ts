@@ -7,7 +7,9 @@ import { showKeylessWalletAccountMismatchError } from '@onekeyhq/kit/src/compone
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EOneKeyIdLoginWithLocalKeylessPrepareStatus,
   type IOneKeyIdLoginWithLocalKeylessPrepareResult,
@@ -132,19 +134,46 @@ export function useOneKeyIdLocalKeylessOAuth({
       if (shouldTryLocalKeylessSession) {
         try {
           const result =
-            await backgroundApiProxy.serviceKeylessWallet.continueOneKeyIdLoginWithLocalKeyless();
+            await backgroundApiProxy.serviceKeylessWallet.continueOneKeyIdLoginWithLocalKeyless(
+              // The migration path inside writes the shared keyless slot;
+              // its guarded persist re-asserts the legacy bind
+              // preconditions atomically with that write, same as the
+              // fresh-OAuth persist below.
+              { legacyBindGuard: persistLegacyBindGuard },
+            );
           accessToken = result.accessToken;
         } catch (error) {
-          // Dead/expired legacy blob -> fall back to a fresh OAuth
-          // round-trip below. But a user-initiated cancel (the legacy-blob
-          // migration's passcode prompt was dismissed) must settle the flow
-          // instead — a "Cancel" click must never escalate into opening the
-          // system browser. Both hosts skip toasts for cancel-style errors
+          // A user-initiated cancel (the legacy-blob migration's passcode
+          // prompt was dismissed) must settle the flow — a "Cancel" click
+          // must never escalate into opening the system browser. Both hosts
+          // skip toasts for cancel-style errors
           // (errorToastUtils.isUserCancelStyleError), so rethrowing is
           // silent there.
           if (errorToastUtils.isUserCancelStyleError(error)) {
             throw error;
           }
+          // The migration's guarded slot write failed the legacy bind
+          // preconditions: they are gone for good, so falling back to the
+          // fresh OAuth round-trip below would only fail the same guard
+          // again AFTER a pointless Google/Apple login. Propagate so the
+          // host aborts now (its cleanup exemption keys off this className
+          // and leaves the shared slot alone).
+          if (
+            errorUtils.isErrorByClassName({
+              error,
+              className:
+                EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+            })
+          ) {
+            throw error;
+          }
+          // Dead/expired legacy blob (or a slot-persist failure inside the
+          // migration) -> fall back to a fresh OAuth round-trip below. The
+          // bridged error may carry autoToast (the guarded persist's
+          // failure contract); cancel the scheduled toast — this path
+          // recovers, so surfacing the swallowed failure would read as a
+          // spurious error.
+          errorToastUtils.toastIfErrorDisable(error);
           accessToken = '';
         }
       }

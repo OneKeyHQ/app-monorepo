@@ -848,9 +848,9 @@ class ServicePrime extends ServiceBase {
     callerName: string;
   }) {
     // Force a fresh local read: the bg storage cache may still hold a
-    // pre-login empty probe (up to 30s). The guarded persist clears it after
-    // writing, but other slot writers (the bg legacy keyless migration)
-    // do not.
+    // pre-login empty probe (up to 30s). Every slot writer now clears it
+    // after writing (they all run the guarded persist core), so this is
+    // defense in depth for any cache fill between that clear and this read.
     clearSupabaseStorageLocalCache();
     const slot = await readPersistedAccessTokenBySessionSourceStrict(
       EPrimeAuthSessionSource.KeylessOAuth,
@@ -1278,12 +1278,15 @@ class ServicePrime extends ServiceBase {
 
   /**
    * Single bg-owned commit path for writing the shared Keyless OAuth session
-   * slot. Every main-runtime slot writer delegates here (see
-   * useSupabaseAuth.persistKeylessOAuthSession), so slot writes serialize on
+   * slot. Every slot writer converges here: main-runtime writers delegate
+   * through useSupabaseAuth.persistKeylessOAuthSession, and the bg legacy
+   * keyless migration nests its blob-exchange section inside
+   * runExclusiveInKeylessSlotCommitBoundary and calls the
+   * ...InsideCommitBoundary core. Slot writes therefore serialize on
    * loginMutex against every login/bind commit instead of racing them from
-   * an unlocked runtime — and the bg-local write also spares the post-persist
-   * bg slot reads their dependence on best-effort cross-runtime cache
-   * invalidation.
+   * an unlocked runtime — and the bg-local write also spares the
+   * post-persist bg slot reads their dependence on best-effort cross-runtime
+   * cache invalidation.
    *
    * legacyBindGuard closes the legacy bind's check->write window: the
    * precondition assertion and the slot write execute inside ONE loginMutex
@@ -1309,69 +1312,118 @@ class ServicePrime extends ServiceBase {
     // legacy login atomically with the slot write (see the method doc).
     legacyBindGuard?: { expectedOnekeyUserId: string };
   }): Promise<void> {
-    await this.loginMutex.runExclusive(async () => {
-      if (!accessToken || !refreshToken) {
-        throw new OneKeyLocalError(
-          'persistKeylessOAuthSession ERROR: Invalid session tokens',
-        );
-      }
-      if (legacyBindGuard) {
-        await this.assertLegacyOneKeyIdOAuthBindPreconditions({
-          expectedOnekeyUserId: legacyBindGuard.expectedOnekeyUserId,
-        });
-      }
-      const { data, error } =
-        await getKeylessSupabaseClient().client.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-      // setSession returns AuthErrors instead of throwing them. Swallowing
-      // one leaves the shared keyless session slot EMPTY while the caller
-      // continues as if the login stuck — apiOAuthLogin then commits on the
-      // server but the local commit cannot read the token back, surfacing
-      // only as a generic "unknown error" much later. Fail here with the
-      // underlying reason instead (setSession internally performs
-      // GET /auth/v1/user, so e.g. a gateway/WAF rejection of that endpoint
-      // shows up as its HTTP status).
-      if (error || !data?.session) {
-        // Check the type, not truthiness: AuthRetryableFetchError (produced
-        // when sessionPreservingSupabaseFetch masks an intercepted response)
-        // carries status 0, which a truthiness check would silently drop.
-        const statusPart =
-          typeof error?.status === 'number' ? ` status=${error.status}` : '';
-        const codePart = error?.code ? ` code=${error.code}` : '';
-        const reason = `Failed to persist Keyless OAuth session: ${
-          error?.message || 'no session returned'
-        }${statusPart}${codePart}`;
-        // Mirror into exported logs at the failure source — this covers paths
-        // where the error is later swallowed and never reaches the fallback
-        // toast (e.g. useKeylessWallet's apiOAuthLogin try/catch).
-        defaultLogger.prime.subscription.onekeyIdSessionPersistFailed({
-          reason,
-        });
-        // autoToast so callers WITHOUT their own catch/toast (e.g. the
-        // verify-PIN flow, whose onPress rethrows into a voided promise)
-        // still surface the failure via the global handler instead of dying
-        // silently; httpStatusCode kept for transient-vs-definitive
-        // classification. Both survive bridge serialization (see
-        // toPlainErrorObject); the server-logged dedup marker rides in
-        // `data` because ad-hoc `$$` properties do NOT cross the bridge —
-        // the main-side wrapper re-applies markOneKeyIdFailureServerLogged
-        // from it so the fallback toast skips its duplicate @LogToServer
-        // event.
-        throw new OneKeyLocalError({
-          message: reason,
-          autoToast: true,
-          httpStatusCode:
-            typeof error?.status === 'number' ? error.status : undefined,
-          data: { onekeyIdFailureServerLogged: true },
-        });
-      }
-      // The bg storage read cache may still hold a pre-persist probe; the
-      // clear (with its cross-runtime broadcast) makes both the bg slot
-      // guards and the main-runtime session projection re-read fresh bytes.
-      clearSupabaseStorageCache();
+    await this.runExclusiveInKeylessSlotCommitBoundary(async () => {
+      await this.persistKeylessOAuthSessionInsideCommitBoundary({
+        accessToken,
+        refreshToken,
+        legacyBindGuard,
+      });
     });
+  }
+
+  /**
+   * bg-internal entry to the keyless-slot commit boundary — the loginMutex
+   * section every login/bind commit serializes on. For bg slot writers that
+   * must COMPOSE the guarded slot write with their own inner serialization
+   * (e.g. the legacy keyless migration, whose blob-exchange section must
+   * stay atomic with its slot write). Lock order: loginMutex (this
+   * boundary, outer) -> caller's inner mutex — the same order the login/bind
+   * commits already establish by taking the legacy-blob exchange mutex
+   * (cleanupLocalKeylessOAuthTokens) inside their loginMutex sections.
+   * Never call from code that already holds loginMutex (non-reentrant).
+   */
+  async runExclusiveInKeylessSlotCommitBoundary<T>(
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    return this.loginMutex.runExclusive(fn);
+  }
+
+  /**
+   * Slot-write core of persistKeylessOAuthSession. bg-internal: the caller
+   * MUST already be inside runExclusiveInKeylessSlotCommitBoundary so the
+   * optional legacy-bind precondition assertion and the setSession write
+   * stay atomic against login/bind commits (see persistKeylessOAuthSession's
+   * doc for the interleaving analysis).
+   */
+  async persistKeylessOAuthSessionInsideCommitBoundary({
+    accessToken,
+    refreshToken,
+    legacyBindGuard,
+  }: {
+    accessToken: string;
+    refreshToken: string;
+    legacyBindGuard?: { expectedOnekeyUserId: string };
+  }): Promise<void> {
+    // Tripwire, not a lock: catches a caller that skipped the boundary
+    // (isLocked is also true when another section holds the mutex, but a
+    // boundary-skipping caller racing an active section is exactly the bug
+    // this guards against surfacing silently).
+    if (!this.loginMutex.isLocked()) {
+      throw new OneKeyLocalError(
+        'persistKeylessOAuthSessionInsideCommitBoundary ERROR: must run inside runExclusiveInKeylessSlotCommitBoundary',
+      );
+    }
+    if (!accessToken || !refreshToken) {
+      throw new OneKeyLocalError(
+        'persistKeylessOAuthSession ERROR: Invalid session tokens',
+      );
+    }
+    if (legacyBindGuard) {
+      await this.assertLegacyOneKeyIdOAuthBindPreconditions({
+        expectedOnekeyUserId: legacyBindGuard.expectedOnekeyUserId,
+      });
+    }
+    const { data, error } =
+      await getKeylessSupabaseClient().client.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+    // setSession returns AuthErrors instead of throwing them. Swallowing
+    // one leaves the shared keyless session slot EMPTY while the caller
+    // continues as if the login stuck — apiOAuthLogin then commits on the
+    // server but the local commit cannot read the token back, surfacing
+    // only as a generic "unknown error" much later. Fail here with the
+    // underlying reason instead (setSession internally performs
+    // GET /auth/v1/user, so e.g. a gateway/WAF rejection of that endpoint
+    // shows up as its HTTP status).
+    if (error || !data?.session) {
+      // Check the type, not truthiness: AuthRetryableFetchError (produced
+      // when sessionPreservingSupabaseFetch masks an intercepted response)
+      // carries status 0, which a truthiness check would silently drop.
+      const statusPart =
+        typeof error?.status === 'number' ? ` status=${error.status}` : '';
+      const codePart = error?.code ? ` code=${error.code}` : '';
+      const reason = `Failed to persist Keyless OAuth session: ${
+        error?.message || 'no session returned'
+      }${statusPart}${codePart}`;
+      // Mirror into exported logs at the failure source — this covers paths
+      // where the error is later swallowed and never reaches the fallback
+      // toast (e.g. useKeylessWallet's apiOAuthLogin try/catch).
+      defaultLogger.prime.subscription.onekeyIdSessionPersistFailed({
+        reason,
+      });
+      // autoToast so callers WITHOUT their own catch/toast (e.g. the
+      // verify-PIN flow, whose onPress rethrows into a voided promise)
+      // still surface the failure via the global handler instead of dying
+      // silently; httpStatusCode kept for transient-vs-definitive
+      // classification. Both survive bridge serialization (see
+      // toPlainErrorObject); the server-logged dedup marker rides in
+      // `data` because ad-hoc `$$` properties do NOT cross the bridge —
+      // the main-side wrapper re-applies markOneKeyIdFailureServerLogged
+      // from it so the fallback toast skips its duplicate @LogToServer
+      // event.
+      throw new OneKeyLocalError({
+        message: reason,
+        autoToast: true,
+        httpStatusCode:
+          typeof error?.status === 'number' ? error.status : undefined,
+        data: { onekeyIdFailureServerLogged: true },
+      });
+    }
+    // The bg storage read cache may still hold a pre-persist probe; the
+    // clear (with its cross-runtime broadcast) makes both the bg slot
+    // guards and the main-runtime session projection re-read fresh bytes.
+    clearSupabaseStorageCache();
   }
 
   @backgroundMethod()

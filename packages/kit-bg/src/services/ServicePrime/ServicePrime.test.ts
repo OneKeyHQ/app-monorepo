@@ -1789,3 +1789,60 @@ describe('ServicePrime.persistKeylessOAuthSession bg-owned slot write', () => {
     expect(mockKeylessSetSession).not.toHaveBeenCalled();
   });
 });
+
+describe('ServicePrime keyless slot commit boundary composition', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrimePersistAtom.get.mockImplementation(async () => ({}));
+  });
+
+  it('rejects a boundary-skipping caller before touching the slot (tripwire)', async () => {
+    // bg-internal contract: the core slot write may only run inside
+    // runExclusiveInKeylessSlotCommitBoundary. A caller that skips the
+    // boundary (like the pre-fix legacy keyless migration's direct
+    // setSession) must fail loudly instead of silently racing login commits.
+    const { service } = createService();
+
+    await expect(
+      service.persistKeylessOAuthSessionInsideCommitBoundary({
+        accessToken: 'access-a',
+        refreshToken: 'refresh-a',
+      }),
+    ).rejects.toThrow(
+      'must run inside runExclusiveInKeylessSlotCommitBoundary',
+    );
+
+    expect(mockKeylessSetSession).not.toHaveBeenCalled();
+  });
+
+  it('lets a composed bg writer nest its own section inside the boundary (migration shape)', async () => {
+    // Mirrors ServiceKeylessWallet.migrateLegacyKeylessOAuthSessionForLocalWallet:
+    // boundary (loginMutex, outer) -> caller's inner work -> guarded core
+    // write, all in one section.
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    mockPrimePersistAtom.get.mockImplementation(async () => ({
+      isLoggedIn: true,
+      onekeyUserId: 'user-l',
+    }));
+
+    const result = await service.runExclusiveInKeylessSlotCommitBoundary(
+      async () => {
+        await service.persistKeylessOAuthSessionInsideCommitBoundary({
+          accessToken: 'access-a',
+          refreshToken: 'refresh-a',
+          legacyBindGuard: { expectedOnekeyUserId: 'user-l' },
+        });
+        return 'migrated-token';
+      },
+    );
+
+    expect(result).toBe('migrated-token');
+    expect(mockKeylessSetSession).toHaveBeenCalledWith({
+      access_token: 'access-a',
+      refresh_token: 'refresh-a',
+    });
+  });
+});

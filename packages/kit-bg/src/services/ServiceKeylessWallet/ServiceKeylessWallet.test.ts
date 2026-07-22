@@ -259,6 +259,14 @@ function createService(params: { wallet?: any; password?: string } = {}) {
       })),
       isLoggedIn: jest.fn(async () => true),
       isOAuthProviderBoundToCurrentOneKeyId: jest.fn(async () => false),
+      // Pass-through commit boundary preserving the serial-execution shape;
+      // lock-order and guard behavior are asserted per test.
+      runExclusiveInKeylessSlotCommitBoundary: jest.fn(
+        async (fn: () => Promise<unknown>) => fn(),
+      ),
+      persistKeylessOAuthSessionInsideCommitBoundary: jest.fn(
+        async () => undefined,
+      ),
     },
     servicePassword: {
       getCachedPassword: jest.fn(async () => params.password ?? PASSWORD),
@@ -2088,6 +2096,8 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
 
   test('interactive migration re-checks blob presence inside the lock and returns null without any exchange when it is gone', async () => {
     const { serviceAny, wallet, backgroundApi } = createService();
+    const persistMock =
+      backgroundApi.servicePrime.persistKeylessOAuthSessionInsideCommitBoundary;
     // Blob exists at the cheap pre-prompt check, but is gone by the time the
     // exchange lock is acquired (the passive path consumed it and removed it
     // after a definitive GoTrue rejection while this call waited).
@@ -2124,11 +2134,13 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
       serviceAny.saveLegacyKeylessOAuthRefreshToken,
     ).not.toHaveBeenCalled();
     expect(serviceAny.removeLegacyKeylessOAuthTokens).not.toHaveBeenCalled();
-    expect(mockSupabaseSetSession).not.toHaveBeenCalled();
+    expect(persistMock).not.toHaveBeenCalled();
   });
 
   test('interactive migration queues behind the exchange lock and then consumes the freshly rotated blob token', async () => {
-    const { serviceAny, wallet } = createService();
+    const { serviceAny, wallet, backgroundApi } = createService();
+    const persistMock =
+      backgroundApi.servicePrime.persistKeylessOAuthSessionInsideCommitBoundary;
     serviceAny.hasLegacyKeylessOAuthRefreshToken = jest.fn(async () => true);
     // Simulates the passive path having already rotated the blob while it
     // held the lock: the in-lock re-read must pick up the rotated token,
@@ -2188,24 +2200,30 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
         }),
       }),
     );
-    // …persisted the newly rotated token before setSession, and removed the
-    // blob after the session was installed.
+    // …persisted the newly rotated token before the slot write, and removed
+    // the blob after the session was installed. The slot write itself must
+    // go through ServicePrime's guarded persist core (never a direct
+    // setSession on the shared keyless slot).
     expect(serviceAny.saveLegacyKeylessOAuthRefreshToken).toHaveBeenCalledWith({
       ownerId: OWNER_ID,
       refreshToken: 'interactively-rotated-refresh-token',
       password: PASSWORD,
     });
-    expect(mockSupabaseSetSession).toHaveBeenCalledWith({
-      access_token: TOKEN,
-      refresh_token: 'interactively-rotated-refresh-token',
+    expect(persistMock).toHaveBeenCalledWith({
+      accessToken: TOKEN,
+      refreshToken: 'interactively-rotated-refresh-token',
+      legacyBindGuard: undefined,
     });
+    expect(mockSupabaseSetSession).not.toHaveBeenCalled();
     expect(serviceAny.removeLegacyKeylessOAuthTokens).toHaveBeenCalledWith({
       ownerId: OWNER_ID,
     });
   });
 
   test('interactive migration persists the rotated token before wallet validation so a mismatch cannot strand the consumed token', async () => {
-    const { serviceAny, wallet } = createService();
+    const { serviceAny, wallet, backgroundApi } = createService();
+    const persistMock =
+      backgroundApi.servicePrime.persistKeylessOAuthSessionInsideCommitBoundary;
     serviceAny.hasLegacyKeylessOAuthRefreshToken = jest.fn(async () => true);
     serviceAny.getLegacyKeylessOAuthRefreshToken = jest.fn(
       async () => 'legacy-refresh-token',
@@ -2247,7 +2265,125 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
     });
     // A mismatched session must never be installed, and the blob must not
     // be removed.
-    expect(mockSupabaseSetSession).not.toHaveBeenCalled();
+    expect(persistMock).not.toHaveBeenCalled();
+    expect(serviceAny.removeLegacyKeylessOAuthTokens).not.toHaveBeenCalled();
+  });
+
+  test('interactive migration nests the exchange lock inside the ServicePrime commit boundary and threads the legacy bind guard', async () => {
+    // Lock order (loginMutex outer -> exchange mutex inner) is what closes
+    // the review scenario: a KeylessOAuth login committing during the
+    // password/network wait now serializes against this whole section, so
+    // the migration can never overwrite the winner's slot session — and the
+    // guarded persist re-asserts the bind preconditions atomically with the
+    // write.
+    const { serviceAny, wallet, backgroundApi } = createService();
+    serviceAny.hasLegacyKeylessOAuthRefreshToken = jest.fn(async () => true);
+    serviceAny.getLegacyKeylessOAuthRefreshToken = jest.fn(
+      async () => 'legacy-refresh-token',
+    );
+    serviceAny.saveLegacyKeylessOAuthRefreshToken = jest.fn(
+      async () => undefined,
+    );
+    serviceAny.removeLegacyKeylessOAuthTokens = jest.fn(async () => undefined);
+    serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
+      async () => undefined,
+    );
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        access_token: TOKEN,
+        refresh_token: 'rotated-refresh-token',
+      }),
+    } as any);
+    const boundaryMock =
+      backgroundApi.servicePrime.runExclusiveInKeylessSlotCommitBoundary;
+    const persistMock =
+      backgroundApi.servicePrime.persistKeylessOAuthSessionInsideCommitBoundary;
+    boundaryMock.mockImplementation(async (fn: () => Promise<unknown>) => {
+      // Boundary entered BEFORE the exchange lock (outer position).
+      expect(serviceAny.legacyKeylessOAuthTokenExchangeMutex.isLocked()).toBe(
+        false,
+      );
+      return fn();
+    });
+    persistMock.mockImplementation(async () => {
+      // Slot write runs with the exchange lock still held (inner position),
+      // i.e. inside boundary -> exchange -> persist.
+      expect(serviceAny.legacyKeylessOAuthTokenExchangeMutex.isLocked()).toBe(
+        true,
+      );
+    });
+
+    await expect(
+      serviceAny.migrateLegacyKeylessOAuthSessionForLocalWallet({
+        keylessWallet: wallet,
+        ownerId: OWNER_ID,
+        legacyBindGuard: { expectedOnekeyUserId: 'user-l' },
+      }),
+    ).resolves.toBe(TOKEN);
+
+    expect(boundaryMock).toHaveBeenCalledTimes(1);
+    expect(persistMock).toHaveBeenCalledWith({
+      accessToken: TOKEN,
+      refreshToken: 'rotated-refresh-token',
+      legacyBindGuard: { expectedOnekeyUserId: 'user-l' },
+    });
+    // The interactive prompt must never run inside the boundary: it fires
+    // before any lock is taken (unchanged behavior).
+    expect(
+      backgroundApi.servicePassword.promptPasswordVerify,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  test('interactive migration propagates a guarded-persist rejection and keeps the blob for retry', async () => {
+    // The guarded persist throws the typed state-changed error when a
+    // concurrent KeylessOAuth login already committed: the migration must
+    // NOT remove the legacy blob (the rotated token was already saved back,
+    // so a later attempt can retry) and must surface the typed error to the
+    // caller, whose UI aborts the bind without tearing the shared slot down.
+    const { serviceAny, wallet, backgroundApi } = createService();
+    serviceAny.hasLegacyKeylessOAuthRefreshToken = jest.fn(async () => true);
+    serviceAny.getLegacyKeylessOAuthRefreshToken = jest.fn(
+      async () => 'legacy-refresh-token',
+    );
+    serviceAny.saveLegacyKeylessOAuthRefreshToken = jest.fn(
+      async () => undefined,
+    );
+    serviceAny.removeLegacyKeylessOAuthTokens = jest.fn(async () => undefined);
+    serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
+      async () => undefined,
+    );
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        access_token: TOKEN,
+        refresh_token: 'rotated-refresh-token',
+      }),
+    } as any);
+    const stateChangedError = new Error(
+      'assertLegacyOneKeyIdOAuthBindPreconditions ERROR: Active login is not a legacy email session',
+    );
+    backgroundApi.servicePrime.persistKeylessOAuthSessionInsideCommitBoundary.mockRejectedValue(
+      stateChangedError,
+    );
+
+    await expect(
+      serviceAny.migrateLegacyKeylessOAuthSessionForLocalWallet({
+        keylessWallet: wallet,
+        ownerId: OWNER_ID,
+        legacyBindGuard: { expectedOnekeyUserId: 'user-l' },
+      }),
+    ).rejects.toBe(stateChangedError);
+
+    // Rotated token was saved back before the write attempt; the blob stays
+    // for a later retry.
+    expect(serviceAny.saveLegacyKeylessOAuthRefreshToken).toHaveBeenCalledWith({
+      ownerId: OWNER_ID,
+      refreshToken: 'rotated-refresh-token',
+      password: PASSWORD,
+    });
     expect(serviceAny.removeLegacyKeylessOAuthTokens).not.toHaveBeenCalled();
   });
 });

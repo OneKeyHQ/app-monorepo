@@ -3015,18 +3015,23 @@ class ServiceKeylessWallet extends ServiceBase {
   private async migrateLegacyKeylessOAuthSessionForLocalWallet(params: {
     keylessWallet: IDBWallet;
     ownerId: string;
+    // Threaded through from the legacy->OAuth bind flow: the slot write
+    // below re-asserts the consented legacy login atomically inside the
+    // keyless-slot commit boundary (see ServicePrime.persistKeylessOAuthSession).
+    legacyBindGuard?: { expectedOnekeyUserId: string };
   }): Promise<string | null> {
-    const { keylessWallet, ownerId } = params;
+    const { keylessWallet, ownerId, legacyBindGuard } = params;
     if (!(await this.hasLegacyKeylessOAuthRefreshToken({ ownerId }))) {
       return null;
     }
 
-    // Prompt for the password BEFORE taking the exchange lock — holding a
-    // mutex across an interactive prompt would stall the passive migration
-    // for as long as the dialog stays open. Note the prompt itself is what
-    // arms the race this lock exists for: a successful verify caches the
-    // password, which fires tryMigrateLocalExistingKeylessBackendShareToV2
-    // and thus the passive consumer of the same single-use blob token.
+    // Prompt for the password BEFORE taking any lock — holding a mutex
+    // across an interactive prompt would stall the passive migration (and,
+    // for the commit boundary, every login/bind commit) for as long as the
+    // dialog stays open. Note the prompt itself is what arms the race the
+    // exchange lock exists for: a successful verify caches the password,
+    // which fires tryMigrateLocalExistingKeylessBackendShareToV2 and thus
+    // the passive consumer of the same single-use blob token.
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerify();
 
@@ -3035,126 +3040,142 @@ class ServiceKeylessWallet extends ServiceBase {
     // path (which fast-yields), the interactive path queues: the user is
     // actively waiting, and after the passive path finishes the blob holds
     // its rotated — still valid — token, so this attempt still succeeds.
-    return this.legacyKeylessOAuthTokenExchangeMutex.runExclusive(async () => {
-      // Re-check INSIDE the lock and re-read the blob fresh: while this call
-      // waited, the passive migration may have consumed the stored token and
-      // saved a rotated one back (re-read picks it up), or removed the blob
-      // after a definitive GoTrue rejection (return null so callers fall
-      // back to a fresh OAuth login instead of replaying a dead token).
-      if (!(await this.hasLegacyKeylessOAuthRefreshToken({ ownerId }))) {
-        return null;
-      }
+    //
+    // The exchange section nests INSIDE ServicePrime's keyless-slot commit
+    // boundary (loginMutex) so the setSession write at the end is guarded
+    // and serialized against every login/bind commit — a KeylessOAuth login
+    // committing during the password/network wait can no longer have its
+    // slot session overwritten by this migration. Lock order: loginMutex
+    // (outer) -> legacyKeylessOAuthTokenExchangeMutex (inner) — the SAME
+    // order the login/bind commits establish via their post-commit
+    // cleanupLocalKeylessOAuthTokens; never invert it.
+    return this.backgroundApi.servicePrime.runExclusiveInKeylessSlotCommitBoundary(
+      async () =>
+        this.legacyKeylessOAuthTokenExchangeMutex.runExclusive(async () => {
+          // Re-check INSIDE the lock and re-read the blob fresh: while this call
+          // waited, the passive migration may have consumed the stored token and
+          // saved a rotated one back (re-read picks it up), or removed the blob
+          // after a definitive GoTrue rejection (return null so callers fall
+          // back to a fresh OAuth login instead of replaying a dead token).
+          if (!(await this.hasLegacyKeylessOAuthRefreshToken({ ownerId }))) {
+            return null;
+          }
 
-      let refreshToken: string | null = null;
-      try {
-        refreshToken = await this.getLegacyKeylessOAuthRefreshToken({
-          ownerId,
-          password,
-        });
-      } catch (error) {
-        if (this.isKeylessDataCorruptedError(error)) {
-          // The legacy blob can no longer be decrypted (e.g. it was left stale
-          // by a passcode change on an old build). It is unrecoverable and
-          // would fail again on every retry, so drop it and let callers fall
-          // back to a fresh OAuth login.
+          let refreshToken: string | null = null;
+          try {
+            refreshToken = await this.getLegacyKeylessOAuthRefreshToken({
+              ownerId,
+              password,
+            });
+          } catch (error) {
+            if (this.isKeylessDataCorruptedError(error)) {
+              // The legacy blob can no longer be decrypted (e.g. it was left stale
+              // by a passcode change on an old build). It is unrecoverable and
+              // would fail again on every retry, so drop it and let callers fall
+              // back to a fresh OAuth login.
+              await this.removeLegacyKeylessOAuthTokens({ ownerId });
+              return null;
+            }
+            throw error;
+          }
+          if (!refreshToken) {
+            return null;
+          }
+
+          const refreshUrl = `${KEYLESS_SUPABASE_PROJECT_URL}/auth/v1/token?grant_type=refresh_token`;
+          const response = await fetch(refreshUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              // oxlint-disable-next-line @cspell/spellchecker
+              apikey: KEYLESS_SUPABASE_PUBLIC_API_KEY,
+            },
+            body: JSON.stringify({
+              refresh_token: refreshToken,
+            }),
+          });
+          // Transient HTTP failures (auth server down / timeout / rate limited)
+          // keep the blob so a later attempt can retry the exchange.
+          if (
+            response.status >= 500 ||
+            response.status === 408 ||
+            response.status === 429
+          ) {
+            return null;
+          }
+          if (!response.ok) {
+            if (await this.isDefinitiveGoTrueRefreshTokenRejection(response)) {
+              // GoTrue definitively rejected the refresh token (revoked / expired /
+              // already rotated elsewhere). The blob is dead and would fail on
+              // every retry — drop it so prepareOneKeyIdLoginWithLocalKeyless stops
+              // steering to ContinueWithKeyless (passcode prompt + doomed exchange)
+              // and routes to a fresh OAuth login instead. Mirrors the passive
+              // migration path.
+              await this.removeLegacyKeylessOAuthTokens({ ownerId });
+              return null;
+            }
+            // Any other non-OK response (proxy / CDN challenge page, unparseable
+            // body) is not a GoTrue verdict on the token — keep the blob and treat
+            // it like the transient branch above.
+            return null;
+          }
+
+          const refreshResult = (await response.json()) as {
+            access_token?: string;
+            refresh_token?: string;
+          };
+          const accessToken = refreshResult?.access_token;
+          const nextRefreshToken = refreshResult?.refresh_token;
+
+          // Supabase rotates refresh tokens on use — the exchange above already
+          // consumed the stored single-use token, so persist the rotated one
+          // back IMMEDIATELY, before the wallet validation below (mirroring the
+          // passive refresh helper). The rotated token is an identity-equivalent
+          // replacement of what the blob already held, so this save must never
+          // be gated on a validation verdict: a mismatch result (e.g. a
+          // same-email wallet whose local provider was rewritten, or a transient
+          // hash failure classified as a mismatch) would otherwise strand the
+          // consumed token in the blob, and the next attempt's definitive GoTrue
+          // rejection would delete the credential for good. It also means that
+          // if setSession below throws, the blob still holds a usable token for
+          // the next attempt.
+          if (nextRefreshToken) {
+            await this.saveLegacyKeylessOAuthRefreshToken({
+              ownerId,
+              refreshToken: nextRefreshToken,
+              password,
+            });
+          }
+          if (!accessToken || !nextRefreshToken) {
+            return null;
+          }
+
+          const mismatchReason =
+            await this.validateKeylessAccessTokenMatchesLocalWallet({
+              keylessWallet,
+              token: accessToken,
+            });
+          if (mismatchReason) {
+            return null;
+          }
+
+          // Guarded slot write inside the commit boundary already held above:
+          // runs the legacy-bind precondition assertion (when threaded through)
+          // atomically with the setSession write, with the same error contract
+          // as every other keyless slot writer. Never call setSession on the
+          // shared keyless slot directly.
+          await this.backgroundApi.servicePrime.persistKeylessOAuthSessionInsideCommitBoundary(
+            {
+              accessToken,
+              refreshToken: nextRefreshToken,
+              legacyBindGuard,
+            },
+          );
+
           await this.removeLegacyKeylessOAuthTokens({ ownerId });
-          return null;
-        }
-        throw error;
-      }
-      if (!refreshToken) {
-        return null;
-      }
-
-      const refreshUrl = `${KEYLESS_SUPABASE_PROJECT_URL}/auth/v1/token?grant_type=refresh_token`;
-      const response = await fetch(refreshUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // oxlint-disable-next-line @cspell/spellchecker
-          apikey: KEYLESS_SUPABASE_PUBLIC_API_KEY,
-        },
-        body: JSON.stringify({
-          refresh_token: refreshToken,
+          return accessToken;
         }),
-      });
-      // Transient HTTP failures (auth server down / timeout / rate limited)
-      // keep the blob so a later attempt can retry the exchange.
-      if (
-        response.status >= 500 ||
-        response.status === 408 ||
-        response.status === 429
-      ) {
-        return null;
-      }
-      if (!response.ok) {
-        if (await this.isDefinitiveGoTrueRefreshTokenRejection(response)) {
-          // GoTrue definitively rejected the refresh token (revoked / expired /
-          // already rotated elsewhere). The blob is dead and would fail on
-          // every retry — drop it so prepareOneKeyIdLoginWithLocalKeyless stops
-          // steering to ContinueWithKeyless (passcode prompt + doomed exchange)
-          // and routes to a fresh OAuth login instead. Mirrors the passive
-          // migration path.
-          await this.removeLegacyKeylessOAuthTokens({ ownerId });
-          return null;
-        }
-        // Any other non-OK response (proxy / CDN challenge page, unparseable
-        // body) is not a GoTrue verdict on the token — keep the blob and treat
-        // it like the transient branch above.
-        return null;
-      }
-
-      const refreshResult = (await response.json()) as {
-        access_token?: string;
-        refresh_token?: string;
-      };
-      const accessToken = refreshResult?.access_token;
-      const nextRefreshToken = refreshResult?.refresh_token;
-
-      // Supabase rotates refresh tokens on use — the exchange above already
-      // consumed the stored single-use token, so persist the rotated one
-      // back IMMEDIATELY, before the wallet validation below (mirroring the
-      // passive refresh helper). The rotated token is an identity-equivalent
-      // replacement of what the blob already held, so this save must never
-      // be gated on a validation verdict: a mismatch result (e.g. a
-      // same-email wallet whose local provider was rewritten, or a transient
-      // hash failure classified as a mismatch) would otherwise strand the
-      // consumed token in the blob, and the next attempt's definitive GoTrue
-      // rejection would delete the credential for good. It also means that
-      // if setSession below throws, the blob still holds a usable token for
-      // the next attempt.
-      if (nextRefreshToken) {
-        await this.saveLegacyKeylessOAuthRefreshToken({
-          ownerId,
-          refreshToken: nextRefreshToken,
-          password,
-        });
-      }
-      if (!accessToken || !nextRefreshToken) {
-        return null;
-      }
-
-      const mismatchReason =
-        await this.validateKeylessAccessTokenMatchesLocalWallet({
-          keylessWallet,
-          token: accessToken,
-        });
-      if (mismatchReason) {
-        return null;
-      }
-
-      const setSessionResult =
-        await getKeylessSupabaseClient().client.auth.setSession({
-          access_token: accessToken,
-          refresh_token: nextRefreshToken,
-        });
-      if (setSessionResult.error) {
-        throw new OneKeyLocalError(setSessionResult.error.message);
-      }
-
-      await this.removeLegacyKeylessOAuthTokens({ ownerId });
-      return accessToken;
-    });
+    );
   }
 
   @backgroundMethod()
@@ -3224,7 +3245,14 @@ class ServiceKeylessWallet extends ServiceBase {
   }
 
   @backgroundMethod()
-  async continueOneKeyIdLoginWithLocalKeyless(): Promise<{
+  async continueOneKeyIdLoginWithLocalKeyless(params?: {
+    // Forwarded by the legacy->OAuth bind flow into the migration's guarded
+    // slot write. The session-reuse path above the migration performs no
+    // slot write, so the guard has nothing to protect there — the bind
+    // method itself re-asserts the preconditions inside its own loginMutex
+    // section.
+    legacyBindGuard?: { expectedOnekeyUserId: string };
+  }): Promise<{
     accessToken: string;
     provider: EOAuthSocialLoginProvider;
   }> {
@@ -3270,6 +3298,7 @@ class ServiceKeylessWallet extends ServiceBase {
       accessToken = await this.migrateLegacyKeylessOAuthSessionForLocalWallet({
         keylessWallet: context.keylessWallet,
         ownerId: context.ownerId,
+        legacyBindGuard: params?.legacyBindGuard,
       });
       if (!accessToken) {
         // TODO: i18n
