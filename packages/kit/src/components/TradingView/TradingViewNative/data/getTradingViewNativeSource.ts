@@ -29,19 +29,24 @@ export function getTradingViewNativeSourceKey(
   if (source.kind === 'hyperliquid') {
     return `hyperliquid:${source.environment}:${source.coin.trim()}`;
   }
-
-  return `${getTradingViewNativeMarketTokenKey(
+  const marketSourceKey = `${getTradingViewNativeMarketTokenKey(
     source,
   )}:${normalizeMarketSymbol(source.symbol)}`;
+  const normalizedFallbackCoinGeckoId = source.fallbackCoinGeckoId?.trim();
+  return normalizedFallbackCoinGeckoId
+    ? `${marketSourceKey}:coingecko:${normalizedFallbackCoinGeckoId}`
+    : marketSourceKey;
 }
 
 export function getTradingViewNativeSource({
+  fallbackCoinGeckoId,
   hyperliquidCoin,
   marketDataSource,
   networkId,
   symbol,
   tokenAddress,
 }: {
+  fallbackCoinGeckoId?: string;
   hyperliquidCoin: string;
   marketDataSource: 'polling' | 'websocket' | undefined;
   networkId: string;
@@ -57,11 +62,16 @@ export function getTradingViewNativeSource({
     };
   }
 
-  return {
+  const marketSource: Extract<ITradingViewNativeSource, { kind: 'market' }> = {
     kind: 'market',
     networkId,
     tokenAddress,
     symbol,
     realtime: marketDataSource === 'websocket' ? 'websocket' : 'disabled',
   };
+  const normalizedFallbackCoinGeckoId = fallbackCoinGeckoId?.trim();
+  if (normalizedFallbackCoinGeckoId) {
+    marketSource.fallbackCoinGeckoId = normalizedFallbackCoinGeckoId;
+  }
+  return marketSource;
 }
