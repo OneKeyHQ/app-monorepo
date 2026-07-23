@@ -1625,6 +1625,9 @@ export interface IEarnProvider {
 export type IEarnTransactionTip = {
   type: string;
   text: IEarnText;
+  // Optional second line rendered below `text` (e.g. Spark liquidity-request
+  // banner: title on `text`, subtitle on `description`).
+  description?: IEarnText;
   button?: IEarnActionIcon;
 };
 
