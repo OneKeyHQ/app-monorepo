@@ -586,30 +586,28 @@ export function UniversalWithdraw({
   // Open the explainer dialog for a `popup` tip button (e.g. Spark's "Detail"
   // on the liquidity-request info banner → "Why is a liquidity request
   // required?"). Content is fully server-driven via the popup button's data.
-  const handleShowTipPopup = useCallback(
-    (button?: IEarnActionIcon) => {
-      if (button?.type !== 'popup') {
-        return;
-      }
-      Dialog.show({
-        title: button.data.title?.text ?? button.text?.text ?? '',
-        renderContent: (
-          <ActionPopupContent
-            bulletList={button.data.bulletList}
-            items={button.data.items}
-            panel={button.data.panel}
-            description={button.data.description}
-            // Dialog already applies px="$5"; drop only the component's own
-            // horizontal padding so the body aligns with the dialog title
-            // (keep vertical padding for a comfortable title-to-body gap).
-            containerProps={{ px: '$0' }}
-          />
-        ),
-        showFooter: false,
-      });
-    },
-    [],
-  );
+  const handleShowTipPopup = useCallback((button?: IEarnActionIcon) => {
+    if (button?.type !== 'popup') {
+      return;
+    }
+    Dialog.show({
+      title: button.data.title?.text ?? button.text?.text ?? '',
+      renderContent: (
+        <ActionPopupContent
+          bulletList={button.data.bulletList}
+          items={button.data.items}
+          panel={button.data.panel}
+          description={button.data.description}
+          // Dialog's Content already applies px="$5" pb="$5"; drop the
+          // component's own horizontal + bottom padding to avoid doubling
+          // (align body with the dialog title, no extra bottom gap). Keep the
+          // top padding for a comfortable title-to-body gap.
+          containerProps={{ px: '$0', pb: '$0' }}
+        />
+      ),
+      showFooter: false,
+    });
+  }, []);
 
   // Alert action for a tip button: cancel-withdrawal keeps its existing
   // handler; a popup button opens the explainer dialog. Other/no button → no
