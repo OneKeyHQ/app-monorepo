@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -20,14 +20,12 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalWalletConnectPayRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalWalletConnectPayParamList } from '@onekeyhq/shared/src/routes';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   isWcPayTrustedUrl,
   wcPayChainIdToNetworkId,
 } from '@onekeyhq/shared/src/walletConnect/payConstant';
 import { EWcPayStatus } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type {
-  IWcPayAction,
   IWcPayConfirmResult,
   IWcPayOption,
 } from '@onekeyhq/shared/src/walletConnect/payTypes';
@@ -47,18 +45,6 @@ import {
 } from '../hooks/useWcPayActionExecutor';
 
 import type { RouteProp } from '@react-navigation/core';
-
-interface IWcPayActionProgressEntry {
-  // stableStringify of the action's walletRpc (chainId+method+params);
-  // proves a stored result still belongs to the same-index action when the
-  // server returns a recomputed action list on retry
-  fingerprint: string;
-  result: string;
-}
-
-function getWcPayActionFingerprint(action: IWcPayAction): string {
-  return stringUtils.stableStringify(action.walletRpc);
-}
 
 // option.account is CAIP-10 ("namespace:reference:address"); its chain part
 // maps to a wallet networkId so icons/names can be resolved locally instead
@@ -126,12 +112,6 @@ function PaymentOptionsPage() {
   const [selectedOptionId, setSelectedOptionId] = useState<string>('');
   const [isPaying, setIsPaying] = useState(false);
   const [loadError, setLoadError] = useState(false);
-  // per payment+option+account record of action results already produced by
-  // a partially failed attempt; a retry resumes from the first incomplete
-  // action instead of re-broadcasting transactions that are already on-chain
-  const completedActionsRef = useRef<
-    Record<string, IWcPayActionProgressEntry[]>
-  >({});
 
   const accountId = activeAccount?.account?.id;
   const indexedAccountId = activeAccount?.indexedAccount?.id;
@@ -199,11 +179,14 @@ function PaymentOptionsPage() {
     payStatus === EWcPayStatus.Failed ||
     payStatus === EWcPayStatus.Succeeded;
   // Single gate for starting a payment, shared by the Continue button and
-  // handlePay: the server must still report a payable state AND the local
-  // countdown must not have hit zero (the page may outlive expiresAt while
-  // the server status is stale).
+  // handlePay. Positive gate: only a server-reported requires_action status
+  // may enter the payment executor. A missing or non-actionable status
+  // (e.g. `processing` while options are still present) must NOT be payable,
+  // or an already-submitted payment could be fetched and broadcast again.
+  // The local countdown must also not have hit zero (the page may outlive
+  // expiresAt while the server status is stale).
   const isPaymentActionable =
-    Boolean(payResult) && !isPaymentInactive && !isExpiredLocally;
+    payStatus === EWcPayStatus.RequiresAction && !isExpiredLocally;
   const selectedOption: IWcPayOption | undefined =
     options.find((o) => o.id === selectedOptionId) ?? options[0];
 
@@ -261,45 +244,41 @@ function PaymentOptionsPage() {
         );
 
       // 3. sign sequentially; results order must match actions order.
-      // Progress is recorded action-by-action so that when a later action
-      // fails (or the user cancels) after an earlier tx already broadcast,
-      // retrying resumes from the first incomplete action instead of
-      // re-broadcasting the completed ones. The record is intentionally kept
-      // after success too: if the user somehow re-enters pay for the same
-      // payment+option, all actions are treated as done rather than re-sent.
-      // The key includes the signing account so results from one account are
-      // never replayed into an attempt made with another.
-      const progressKey = `${paymentId}:${optionId}:${
-        indexedAccountId ?? accountId ?? ''
-      }`;
-      // stored progress transfers to this attempt only while every recorded
-      // entry still matches the same-index action of the freshly fetched
-      // list; the server may recompute actions between attempts (e.g. drop
-      // an approve whose allowance is already satisfied), and replaying
-      // results purely by position would then submit wrong data silently
-      let storedProgress = completedActionsRef.current[progressKey] ?? [];
-      if (
-        storedProgress.some(
-          (entry, index) =>
-            !actions[index] ||
-            entry.fingerprint !== getWcPayActionFingerprint(actions[index]),
-        )
-      ) {
-        storedProgress = [];
-        delete completedActionsRef.current[progressKey];
-      }
+      // Progress is persisted in the background per payment+option+account
+      // as each action completes, so a retry — or a relaunch after the app
+      // was killed mid-flow (on native, main/bg are separate JS heaps and
+      // this page's state does not survive) — resumes from the first
+      // incomplete action instead of re-broadcasting transactions that are
+      // already on-chain. The background validates stored entries against
+      // the freshly fetched action list by fingerprint and clears the record
+      // only once the server reports a final payment state.
+      const progressAccountKey = indexedAccountId ?? accountId ?? '';
+      const completedResults =
+        await backgroundApiProxy.serviceWalletConnectPay.getStoredActionResults(
+          {
+            paymentId,
+            optionId,
+            accountKey: progressAccountKey,
+            actions,
+          },
+        );
       const signatures = await executeActions({
         actions,
         accountId,
         indexedAccountId,
-        completedResults: storedProgress.map((entry) => entry.result),
-        onActionComplete: ({ index, result: actionResult }) => {
-          const progress = completedActionsRef.current[progressKey] ?? [];
-          progress[index] = {
-            fingerprint: getWcPayActionFingerprint(actions[index]),
+        completedResults,
+        // awaited by the executor before the sequence continues, so a
+        // broadcast transaction is durably recorded before anything else
+        // can fail
+        onActionComplete: async ({ index, result: actionResult }) => {
+          await backgroundApiProxy.serviceWalletConnectPay.recordActionResult({
+            paymentId,
+            optionId,
+            accountKey: progressAccountKey,
+            action: actions[index],
+            index,
             result: actionResult,
-          };
-          completedActionsRef.current[progressKey] = progress;
+          });
         },
       });
 

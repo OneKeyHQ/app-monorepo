@@ -5,6 +5,7 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   WALLET_CONNECT_PAY_EIP155_CHAIN_REFS,
@@ -28,6 +29,12 @@ import {
   extractWcPayTypedDataMessage,
 } from './evmPayUtils';
 import { extractWcPaySolanaTransaction } from './solPayUtils';
+
+// canonical identity of an action used to match stored progress entries to
+// a freshly fetched action list across app restarts
+function getWcPayActionFingerprint(action: IWcPayAction): string {
+  return stringUtils.stableStringify(action.walletRpc);
+}
 
 /**
  * Validate the whole action list before it reaches the executor. Actions run
@@ -233,6 +240,87 @@ class ServiceWalletConnectPay extends ServiceBase {
   }
 
   /**
+   * Results of actions already completed by an earlier attempt of the same
+   * payment+option+account, validated against the freshly fetched action
+   * list. Progress lives in simpleDb rather than UI memory: on native the UI
+   * runtime can be reclaimed while a broadcast transaction is still
+   * confirming, and a resumed attempt must know the transaction was already
+   * sent. Stored entries transfer only while every one matches the
+   * same-index action of `actions` — the server may recompute the list
+   * between attempts (e.g. drop an approve whose allowance is already
+   * satisfied), and replaying results purely by position would then submit
+   * wrong data silently.
+   */
+  @backgroundMethod()
+  async getStoredActionResults({
+    paymentId,
+    optionId,
+    accountKey,
+    actions,
+  }: {
+    paymentId: string;
+    optionId: string;
+    accountKey: string;
+    actions: IWcPayAction[];
+  }): Promise<string[]> {
+    const record =
+      await this.backgroundApi.simpleDb.walletConnectPay.getProgress({
+        paymentId,
+        optionId,
+        accountKey,
+      });
+    if (!record?.entries?.length) {
+      return [];
+    }
+    const isMatching = record.entries.every(
+      (entry, index) =>
+        entry &&
+        actions[index] &&
+        entry.fingerprint === getWcPayActionFingerprint(actions[index]),
+    );
+    if (!isMatching) {
+      await this.backgroundApi.simpleDb.walletConnectPay.removeProgress({
+        paymentId,
+        optionId,
+        accountKey,
+      });
+      return [];
+    }
+    return record.entries.map((entry) => entry.result);
+  }
+
+  /**
+   * Persist one completed action result. The executor awaits this call
+   * before moving to the next action, so a broadcast transaction is durably
+   * recorded even if the app is killed immediately afterwards.
+   */
+  @backgroundMethod()
+  async recordActionResult({
+    paymentId,
+    optionId,
+    accountKey,
+    action,
+    index,
+    result,
+  }: {
+    paymentId: string;
+    optionId: string;
+    accountKey: string;
+    action: IWcPayAction;
+    index: number;
+    result: string;
+  }): Promise<void> {
+    await this.backgroundApi.simpleDb.walletConnectPay.saveActionResult({
+      paymentId,
+      optionId,
+      accountKey,
+      index,
+      fingerprint: getWcPayActionFingerprint(action),
+      result,
+    });
+  }
+
+  /**
    * Submit signatures for the selected option. Also used for status polling:
    * when the response is not final, call again after `pollInMs`.
    */
@@ -247,12 +335,25 @@ class ServiceWalletConnectPay extends ServiceBase {
     signatures: string[];
   }): Promise<IWcPayConfirmResult> {
     const pay = await this.getPayClient();
-    const result = await pay.confirmPayment({
+    const result = (await pay.confirmPayment({
       paymentId,
       optionId,
       signatures,
-    });
-    return result as IWcPayConfirmResult;
+    })) as IWcPayConfirmResult;
+    if (result.isFinal) {
+      // a final server state ends the payment's lifecycle: stored progress
+      // can never be resumed and must not linger where a future attempt of a
+      // different payment could be confused by it. Cleanup failure must not
+      // mask the confirm result itself.
+      try {
+        await this.backgroundApi.simpleDb.walletConnectPay.clearPaymentProgress(
+          { paymentId },
+        );
+      } catch (error) {
+        console.error('wcPay clearPaymentProgress failed', error);
+      }
+    }
+    return result;
   }
 
   /**

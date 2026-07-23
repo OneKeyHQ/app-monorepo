@@ -80,12 +80,17 @@ export function useWcPayActionExecutor() {
       // attempt of the same payment option; execution resumes after them so
       // an already-broadcast transaction is never sent twice. Callers must
       // guarantee these results still correspond one-to-one to the leading
-      // entries of `actions` (see the fingerprint check in
-      // PaymentOptionsModal) — the executor aligns purely by index.
+      // entries of `actions` (see the fingerprint validation in
+      // ServiceWalletConnectPay.getStoredActionResults) — the executor
+      // aligns purely by index.
       completedResults?: string[];
-      // reports each action result as soon as it exists, so the caller can
-      // persist progress even when a later action in the sequence rejects
-      onActionComplete?: (params: { index: number; result: string }) => void;
+      // reports each action result as soon as it exists and is AWAITED
+      // before the sequence continues, so the caller can durably persist
+      // progress even when a later action rejects or the app dies mid-flow
+      onActionComplete?: (params: {
+        index: number;
+        result: string;
+      }) => void | Promise<void>;
     }): Promise<string[]> => {
       const startIndex = Math.min(
         completedResults?.length ?? 0,
@@ -204,7 +209,7 @@ export function useWcPayActionExecutor() {
             // record the txid immediately: the tx is already on-chain, so a
             // failure in any later step (including the mined-wait below) must
             // not lose it, or a retry would broadcast a duplicate payment
-            onActionComplete?.({ index: i, result: txid });
+            await onActionComplete?.({ index: i, result: txid });
             // Permit2 flow: the approve must be mined before signing the
             // follow-up typed data
             if (i < actions.length - 1) {
@@ -244,7 +249,7 @@ export function useWcPayActionExecutor() {
               });
             });
             results.push(signature);
-            onActionComplete?.({ index: i, result: signature });
+            await onActionComplete?.({ index: i, result: signature });
             break;
           }
           case EWcPayActionMethod.PersonalSign: {
@@ -283,7 +288,7 @@ export function useWcPayActionExecutor() {
               });
             });
             results.push(signature);
-            onActionComplete?.({ index: i, result: signature });
+            await onActionComplete?.({ index: i, result: signature });
             break;
           }
           case EWcPayActionMethod.SolanaSignTransaction: {
@@ -338,7 +343,7 @@ export function useWcPayActionExecutor() {
             // confirmPayment expects the full signed transaction; sol
             // signedTx.rawTx is already base64, pass through unchanged
             results.push(rawTx);
-            onActionComplete?.({ index: i, result: rawTx });
+            await onActionComplete?.({ index: i, result: rawTx });
             break;
           }
           default:

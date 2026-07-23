@@ -9,22 +9,59 @@ import { OneKeyError } from '@onekeyhq/shared/src/errors';
  * already have broadcast a transaction.
  */
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Minimal structural requirements of an EIP-712 v4 payload on the signing
+ * path: hashing needs `types` carrying both the `EIP712Domain` and
+ * `primaryType` field lists, plus plain-object `domain` and `message`.
+ * Anything missing here would only fail later — at display, hash, or sign
+ * time — after a preceding action may already have broadcast a transaction.
+ */
+function isMinimalEip712TypedData(value: unknown): boolean {
+  if (!isPlainObject(value)) {
+    return false;
+  }
+  const { types, domain, message, primaryType } = value;
+  return (
+    isPlainObject(types) &&
+    isPlainObject(domain) &&
+    isPlainObject(message) &&
+    typeof primaryType === 'string' &&
+    primaryType.length > 0 &&
+    Array.isArray(types.EIP712Domain) &&
+    Array.isArray(types[primaryType])
+  );
+}
+
 /**
  * Extract the typed-data payload from `eth_signTypedData_v4` params.
  * Params are usually `[address, typedData]`; the typed data is the first
- * element that is a JSON-object string or a plain (non-array) object.
+ * element that actually parses to (or already is) an object with the minimal
+ * EIP-712 structure. String candidates are really parsed — a "{"-prefixed
+ * string that is not valid JSON must be rejected here, not midway through
+ * the signing sequence.
  */
 export function extractWcPayTypedDataMessage(parsed: unknown): string {
   const candidates = Array.isArray(parsed) ? parsed : [parsed];
-  const candidate = candidates.find(
-    (item) =>
-      (typeof item === 'string' && item.trim().startsWith('{')) ||
-      (typeof item === 'object' && item !== null && !Array.isArray(item)),
-  );
-  if (candidate === undefined) {
-    throw new OneKeyError('Invalid eth_signTypedData_v4 params');
+  for (const item of candidates) {
+    if (typeof item === 'string' && item.trim().startsWith('{')) {
+      let candidate: unknown;
+      try {
+        candidate = JSON.parse(item);
+      } catch {
+        candidate = undefined;
+      }
+      if (isMinimalEip712TypedData(candidate)) {
+        return item;
+      }
+    } else if (isMinimalEip712TypedData(item)) {
+      return JSON.stringify(item);
+    }
   }
-  return typeof candidate === 'string' ? candidate : JSON.stringify(candidate);
+  throw new OneKeyError('Invalid eth_signTypedData_v4 params');
 }
 
 /**

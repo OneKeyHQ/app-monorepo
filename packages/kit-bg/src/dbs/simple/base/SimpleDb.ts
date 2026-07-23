@@ -566,4 +566,13 @@ export class SimpleDb {
     Object.defineProperty(this, 'rookieGuide', { value });
     return value;
   }
+
+  get walletConnectPay() {
+    const SimpleDbEntityWalletConnectPay = (
+      require('../entity/SimpleDbEntityWalletConnectPay') as unknown as typeof import('../entity/SimpleDbEntityWalletConnectPay')
+    ).SimpleDbEntityWalletConnectPay;
+    const value = new SimpleDbEntityWalletConnectPay();
+    Object.defineProperty(this, 'walletConnectPay', { value });
+    return value;
+  }
 }
