@@ -4186,7 +4186,7 @@ class ServiceAccount extends ServiceBase {
         skipAddHDNextIndexedAccount,
         applyRestoreSyncPolicy,
       });
-    const result = isKeylessWallet
+    const { result, shouldRunKeylessPostCommitEffects } = isKeylessWallet
       ? await identityLifecycleMutex.runExclusive(async () => {
           if (await this.getKeylessWallet()) {
             throw new OneKeyLocalError('Keyless wallet already exists');
@@ -4202,39 +4202,54 @@ class ServiceAccount extends ServiceBase {
               sessionCommitId,
             });
           }
+          const shouldRunPostCommitEffects = Boolean(
+            created.wallet?.keylessDetailsInfo?.keylessOwnerId,
+          );
+          if (shouldRunPostCommitEffects) {
+            // Derive and persist keyless cloud sync credential from wallet seed
+            try {
+              const revealableSeed = await decryptRevealableSeed({
+                rs,
+                password,
+              });
+              const seedBuffer = bufferUtils.toBuffer(
+                revealableSeed.seed,
+                'hex',
+              );
+              const keylessWalletId = created.wallet.id;
+              const credential =
+                await keylessCloudSyncUtils.deriveKeylessCredential({
+                  seed: seedBuffer,
+                  keylessWalletId,
+                });
+              await keylessSyncCredentialStorage.saveCredential(credential);
+              this.backgroundApi.serviceKeylessCloudSync.setKeylessCloudSyncCredentialCache(
+                credential,
+              );
+            } catch (error) {
+              console.error(
+                '[ServiceAccount] Failed to derive and save keyless credential:',
+                error,
+              );
+            }
+
+            await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+            await this.backgroundApi.serviceKeylessCloudSync.setPersistedCurrentCloudSyncKeylessWalletId(
+              created.wallet.id,
+            );
+          }
           await this.backgroundApi.simpleDb.prime.bumpIdentityLifecycleRevision();
-          return created;
+          return {
+            result: created,
+            shouldRunKeylessPostCommitEffects: shouldRunPostCommitEffects,
+          };
         })
-      : await createWallet();
+      : {
+          result: await createWallet(),
+          shouldRunKeylessPostCommitEffects: false,
+        };
 
-    if (result.wallet?.keylessDetailsInfo?.keylessOwnerId) {
-      // Derive and persist keyless cloud sync credential from wallet seed
-      try {
-        const revealableSeed = await decryptRevealableSeed({
-          rs,
-          password,
-        });
-        const seedBuffer = bufferUtils.toBuffer(revealableSeed.seed, 'hex');
-        const keylessWalletId = result.wallet.id;
-        const credential = await keylessCloudSyncUtils.deriveKeylessCredential({
-          seed: seedBuffer,
-          keylessWalletId,
-        });
-        await keylessSyncCredentialStorage.saveCredential(credential);
-        this.backgroundApi.serviceKeylessCloudSync.setKeylessCloudSyncCredentialCache(
-          credential,
-        );
-      } catch (error) {
-        console.error(
-          '[ServiceAccount] Failed to derive and save keyless credential:',
-          error,
-        );
-      }
-
-      await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
-      await this.backgroundApi.serviceKeylessCloudSync.setPersistedCurrentCloudSyncKeylessWalletId(
-        result.wallet.id,
-      );
+    if (shouldRunKeylessPostCommitEffects) {
       void this.backgroundApi.servicePrimeCloudSync
         .syncNowKeyless({
           callerName: 'Keyless Wallet Login Success',

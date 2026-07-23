@@ -1325,6 +1325,30 @@ class ServicePrime extends ServiceBase {
     sessionTokenSub: string;
     walletId?: string;
   }> {
+    await identityLifecycleMutex.waitForUnlock();
+    return this.loginMutex.runExclusive(() =>
+      this.persistKeylessOAuthSessionUnderLifecycleLock({
+        accessToken,
+        refreshToken,
+        expectedWalletId,
+      }),
+    );
+  }
+
+  private async persistKeylessOAuthSessionUnderLifecycleLock({
+    accessToken,
+    refreshToken,
+    expectedWalletId,
+  }: {
+    accessToken: string;
+    refreshToken: string;
+    expectedWalletId?: string;
+  }): Promise<{
+    identityLifecycleRevision: number;
+    sessionCommitId: string;
+    sessionTokenSub: string;
+    walletId?: string;
+  }> {
     const operationId = `keylessSession:${stringUtils.generateUUID()}`;
     beginIdentityLifecycleReservation(operationId);
     try {
@@ -1556,12 +1580,10 @@ class ServicePrime extends ServiceBase {
     refreshToken: string;
     expectedWalletId: string;
   }): Promise<void> {
-    await this.loginMutex.runExclusive(async () => {
-      await this.persistKeylessOAuthSessionWithinLifecycle({
-        accessToken,
-        refreshToken,
-        expectedWalletId,
-      });
+    await this.persistKeylessOAuthSessionWithinLifecycle({
+      accessToken,
+      refreshToken,
+      expectedWalletId,
     });
   }
 
@@ -1620,7 +1642,7 @@ class ServicePrime extends ServiceBase {
       }
 
       await this.assertNoLocalKeylessWalletForFreshOAuthLogin();
-      await this.persistKeylessOAuthSessionWithinLifecycle({
+      await this.persistKeylessOAuthSessionUnderLifecycleLock({
         accessToken,
         refreshToken,
       });
@@ -1650,11 +1672,14 @@ class ServicePrime extends ServiceBase {
     identityLifecycleRevision: number;
     rollbackHandle: IKeylessOAuthSessionRollbackHandle;
   }> {
+    await identityLifecycleMutex.waitForUnlock();
     return this.loginMutex.runExclusive(async () => {
-      const persisted = await this.persistKeylessOAuthSessionWithinLifecycle({
-        accessToken,
-        refreshToken,
-      });
+      const persisted = await this.persistKeylessOAuthSessionUnderLifecycleLock(
+        {
+          accessToken,
+          refreshToken,
+        },
+      );
       const rollbackHandle =
         stringUtils.generateUUID() as IKeylessOAuthSessionRollbackHandle;
       const rollbackRecord: IKeylessOAuthSessionRollbackRecord = {

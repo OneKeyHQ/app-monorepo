@@ -16,10 +16,35 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
       descriptor,
 }));
 
+jest.mock('@onekeyhq/core/src/secret', () => {
+  const actual = jest.requireActual<typeof import('@onekeyhq/core/src/secret')>(
+    '@onekeyhq/core/src/secret',
+  );
+  return {
+    ...actual,
+    decryptRevealableSeed: jest.fn(),
+    ensureSensitiveTextEncoded: jest.fn(),
+  };
+});
+
+jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/utils/timerUtils')
+  >('@onekeyhq/shared/src/utils/timerUtils');
+  return {
+    __esModule: true,
+    default: {
+      ...actual.default,
+      wait: jest.fn(async () => undefined),
+    },
+  };
+});
+
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
     clearStoreCachedData: jest.fn(),
+    createHDWallet: jest.fn(),
     getAllWallets: jest.fn(),
     getWalletSafe: jest.fn(),
     removeWallet: jest.fn(),
@@ -36,10 +61,46 @@ jest.mock('../../dbs/simple/simpleDb', () => ({
   },
 }));
 
+jest.mock('../../states/jotai/atoms', () => {
+  const actual = jest.requireActual<typeof import('../../states/jotai/atoms')>(
+    '../../states/jotai/atoms',
+  );
+  return {
+    ...actual,
+    devSettingsPersistAtom: {
+      get: jest.fn(async () => ({ enabled: false, settings: {} })),
+      set: jest.fn(),
+    },
+  };
+});
+
+jest.mock('../ServiceKeylessWallet/utils/keylessSyncCredentialStorage', () => ({
+  __esModule: true,
+  default: {
+    saveCredential: jest.fn(),
+    getCredential: jest.fn(),
+    removeAllCredentials: jest.fn(),
+  },
+}));
+
+jest.mock('../ServicePrimeCloudSync/keylessCloudSyncUtils', () => ({
+  __esModule: true,
+  default: {
+    deriveKeylessCredential: jest.fn(),
+  },
+}));
+
+import { decryptRevealableSeed } from '@onekeyhq/core/src/secret';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 
 import localDb from '../../dbs/local/localDb';
 import simpleDb from '../../dbs/simple/simpleDb';
+import {
+  identityLifecycleMutex,
+  resetIdentityRecoveryStateForTest,
+} from '../ServiceIdentityExit/identityLifecycleMutex';
+import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
+import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
 import { createKeylessWalletRemovalCapability } from './keylessWalletRemovalCapability';
 import ServiceAccount from './ServiceAccount';
@@ -69,9 +130,128 @@ const keylessWallet = {
   },
 } as IDBWallet;
 
+function createDeferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return { promise, resolve };
+}
+
 describe('ServiceAccount Keyless removal phase', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    resetIdentityRecoveryStateForTest('ready');
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test('commits all authoritative Keyless creation resources inside the lifecycle critical section', async () => {
+    jest.mocked(localDb).createHDWallet.mockResolvedValue({
+      wallet: keylessWallet,
+      indexedAccount: undefined,
+    });
+    jest.mocked(decryptRevealableSeed).mockResolvedValue({
+      seed: '00',
+    } as never);
+    const credential = {
+      keylessWalletId: keylessWallet.id,
+      signingPrivateKey: 'signing-private-key',
+      signingPublicKey: 'signing-public-key',
+      encryptionKey: 'encryption-key',
+      pwdHash: 'keyless-pwd-hash',
+    };
+    const credentialSaveStarted = createDeferred();
+    const releaseCredentialSave = createDeferred();
+    let isCredentialSaveCompleted = false;
+    jest
+      .mocked(keylessCloudSyncUtils.deriveKeylessCredential)
+      .mockResolvedValue(credential);
+    jest
+      .mocked(keylessSyncCredentialStorage.saveCredential)
+      .mockImplementation(async () => {
+        credentialSaveStarted.resolve();
+        await releaseCredentialSave.promise;
+        isCredentialSaveCompleted = true;
+      });
+
+    const setKeylessSessionCommitId = jest.fn().mockResolvedValue(undefined);
+    const bumpIdentityLifecycleRevision = jest.fn().mockResolvedValue(1);
+    const setKeylessCloudSyncCredentialCache = jest.fn();
+    const clearCachedSyncCredential = jest.fn().mockResolvedValue(undefined);
+    const setPersistedCurrentCloudSyncKeylessWalletId = jest
+      .fn()
+      .mockResolvedValue(undefined);
+    const syncNowKeyless = jest.fn().mockResolvedValue(undefined);
+    const updateClientBasicAppInfoDebounced = jest
+      .fn()
+      .mockResolvedValue(undefined);
+    const service = new ServiceAccount({
+      backgroundApi: {
+        simpleDb: {
+          prime: {
+            getAuthSessionCommitId: jest
+              .fn()
+              .mockResolvedValue('session-commit-1'),
+            setKeylessSessionCommitId,
+            bumpIdentityLifecycleRevision,
+          },
+        },
+        serviceKeylessCloudSync: {
+          setKeylessCloudSyncCredentialCache,
+          setPersistedCurrentCloudSyncKeylessWalletId,
+        },
+        servicePrimeCloudSync: {
+          clearCachedSyncCredential,
+          syncNowKeyless,
+        },
+        serviceNotification: {
+          updateClientBasicAppInfoDebounced,
+        },
+        servicePrimeTransfer: {
+          isInTransferImportOrBackupRestoreFlow: jest
+            .fn()
+            .mockResolvedValue(true),
+        },
+      },
+    });
+    jest.spyOn(service, 'getKeylessWallet').mockResolvedValue(undefined);
+
+    const creation = service.createHDWalletWithRs({
+      rs: 'encrypted-revealable-seed',
+      password: 'encoded-password',
+      walletHash: '',
+      walletXfp: '',
+      isKeylessWallet: true,
+      keylessDetailsInfo: keylessWallet.keylessDetailsInfo,
+    });
+    await credentialSaveStarted.promise;
+
+    const competingIdentityMutation = identityLifecycleMutex.runExclusive(
+      async () => {
+        expect(isCredentialSaveCompleted).toBe(true);
+        expect(
+          setPersistedCurrentCloudSyncKeylessWalletId,
+        ).toHaveBeenCalledWith(keylessWallet.id);
+        expect(bumpIdentityLifecycleRevision).toHaveBeenCalledTimes(1);
+      },
+    );
+    releaseCredentialSave.resolve();
+    await Promise.all([creation, competingIdentityMutation]);
+
+    expect(setKeylessSessionCommitId).toHaveBeenCalledWith({
+      walletId: keylessWallet.id,
+      sessionCommitId: 'session-commit-1',
+    });
+    expect(setKeylessCloudSyncCredentialCache).toHaveBeenCalledWith(credential);
+    expect(setPersistedCurrentCloudSyncKeylessWalletId).toHaveBeenCalledWith(
+      keylessWallet.id,
+    );
+    expect(bumpIdentityLifecycleRevision).toHaveBeenCalledTimes(1);
+    expect(syncNowKeyless).toHaveBeenCalledTimes(1);
+    expect(updateClientBasicAppInfoDebounced).toHaveBeenCalledTimes(1);
   });
 
   test('returns after child cascade and parent-row deletion without running post-delete side effects', async () => {

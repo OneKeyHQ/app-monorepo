@@ -1563,13 +1563,19 @@ describe('ServicePrime.persistKeylessOAuthSession active OneKey ID guard', () =>
     });
     await mutationEntered;
 
-    const persistence = service.persistKeylessOAuthSession({
+    const persistence = (
+      service as unknown as {
+        persistKeylessOAuthSessionWithinLifecycle: (params: {
+          accessToken: string;
+          refreshToken: string;
+        }) => Promise<unknown>;
+      }
+    ).persistKeylessOAuthSessionWithinLifecycle({
       accessToken: buildFakeJwt({ sub: 'independent-keyless-user' }),
       refreshToken: 'refresh-independent',
     });
-    await Promise.resolve();
-    await Promise.resolve();
 
+    expect(getActiveIdentityLifecycleOperationId()).toBeUndefined();
     expect(
       simpleDbPrime.setKeylessOAuthSessionPersistenceJournal,
     ).not.toHaveBeenCalled();
