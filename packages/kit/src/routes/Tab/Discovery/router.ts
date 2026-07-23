@@ -24,6 +24,12 @@ const EarnProtocols = LazyLoadRootTabPage(
 const EarnProtocolDetails = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnProtocolDetails'),
 );
+const BorrowHome = LazyLoadRootTabPage(
+  () => import('../../../views/Borrow/pages/BorrowHomePage'),
+);
+const BorrowReserveDetails = LazyLoadRootTabPage(
+  () => import('../../../views/Borrow/pages/ReserveDetails'),
+);
 
 // Market pages for native platforms (Market is embedded in Discovery on mobile)
 const MarketDetailV2 = createMarketDetailV2Route();
@@ -50,9 +56,19 @@ export const discoveryRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: EarnProtocolDetails,
     headerShown: !platformEnv.isNative,
   },
-  // Market pages for native platforms (Market is embedded in Discovery on mobile)
+  // Borrow and Market pages live in the Discovery stack on native.
   ...(platformEnv.isNative
     ? [
+        {
+          name: ETabEarnRoutes.BorrowHome,
+          component: BorrowHome,
+          headerShown: true,
+        },
+        {
+          name: ETabEarnRoutes.BorrowReserveDetails,
+          component: BorrowReserveDetails,
+          headerShown: true,
+        },
         {
           name: ETabMarketRoutes.MarketDetailV2,
           component: MarketDetailV2,

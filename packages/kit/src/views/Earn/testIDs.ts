@@ -1,6 +1,7 @@
 export const EarnTestIDs = {
   // Main page
   earnPage: 'earn-page',
+  borrowEntryButton: 'earn-borrow-entry-button',
 
   // Tabs
   tabProtocols: 'earn-tab-protocols',

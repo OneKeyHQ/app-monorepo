@@ -20,6 +20,10 @@ import type { EManagePositionType } from '../Staking/pages/ManagePosition/hooks/
 import type { IntlShape } from 'react-intl';
 
 export const BorrowNavigation = {
+  pushToBorrowHome(navigation: IAppNavigation) {
+    void safePushToEarnRoute(navigation, ETabEarnRoutes.BorrowHome);
+  },
+
   // Navigate from deep link (when user clicks a borrow share link)
   async pushToBorrowReserveDetailsFromDeeplink(
     navigation: IAppNavigation,

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { useSharedValue } from 'react-native-reanimated';
+import { useIntl } from 'react-intl';
 
 import {
+  Button,
   HeaderScrollGestureWrapper,
   RefreshControl,
   XStack,
@@ -35,15 +36,14 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { useAppRoute } from '../../hooks/useAppRoute';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
 import { useEarnActions } from '../../states/jotai/contexts/earn';
+import { BorrowNavigation } from '../Borrow/borrowUtils';
 import { BorrowHome } from '../Borrow/pages/BorrowHome';
 import { isBorrowTag } from '../Staking/utils/utils';
 
 import { EarnBlockedOverview } from './components/EarnBlockedOverview';
-import { EarnBorrowPagerView } from './components/EarnBorrowPagerView';
 import { EarnHomeTabs } from './components/EarnHomeTabs';
 import { EarnMainTabs } from './components/EarnMainTabs';
 import { EarnPageContainer } from './components/EarnPageContainer';
-import { MarketSelector } from './components/MarketSelector';
 import { Overview } from './components/Overview';
 import { getEarnFocusState } from './EarnHome.utils';
 import { EarnProviderMirror } from './EarnProviderMirror';
@@ -55,6 +55,7 @@ import {
   useEarnPendingTxsSharedMeta,
   useStakingPendingTxsByInfo,
 } from './hooks/useStakingPendingTxs';
+import { EarnTestIDs } from './testIDs';
 
 import type { IEarnBorrowPagerViewRef } from './components/EarnBorrowPagerView';
 import type { IStakePendingTx } from './hooks/useStakingPendingTxs';
@@ -71,7 +72,6 @@ function BasicEarnHome({
   overrideDefaultTab,
   tabsRef,
   useSwipePager,
-  earnBorrowPagerRef,
 }: {
   showHeader?: boolean;
   showContent?: boolean;
@@ -82,6 +82,7 @@ function BasicEarnHome({
 }) {
   const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnHome>();
   const actions = useEarnActions();
+  const intl = useIntl();
 
   const { isFetchingBlockResult, refreshBlockResult, blockResult } =
     useBlockRegion();
@@ -311,7 +312,9 @@ function BasicEarnHome({
   const navigation = useAppNavigation();
 
   const defaultTab = overrideDefaultTab || route.params?.tab;
-  const defaultMode = route.params?.mode || 'earn';
+  const defaultMode = platformEnv.isNative
+    ? 'earn'
+    : route.params?.mode || 'earn';
   const isEarnMode = defaultMode === 'earn';
   const isBorrowMode = defaultMode === 'borrow';
   const isEarnContentActive =
@@ -323,10 +326,6 @@ function BasicEarnHome({
   defaultModeRef.current = defaultMode;
   const isAssetsTabActiveRef = useRef(isAssetsTabActive);
   isAssetsTabActiveRef.current = isAssetsTabActive;
-
-  const earnBorrowScrollPosition = useSharedValue(
-    defaultMode === 'borrow' ? 1 : 0,
-  );
 
   const handleModeChange = useCallback(
     (mode: 'earn' | 'borrow', switchType: IEarnModeSwitchType = 'tap') => {
@@ -360,6 +359,10 @@ function BasicEarnHome({
   }, [defaultMode, isEarnTabFocused, showContent]);
 
   useEffect(() => {
+    if (platformEnv.isNative) {
+      return undefined;
+    }
+
     const handleSwitchEarnMode = ({
       mode,
       switchType,
@@ -442,20 +445,19 @@ function BasicEarnHome({
 
   const handleHeaderHorizontalSwipe = useCallback(
     (direction: 'left' | 'right') => {
-      const currentMode = defaultModeRef.current;
-      if (direction === 'left' && currentMode === 'earn') {
-        handleModeChange('borrow', 'swipe');
-      } else if (direction === 'right' && currentMode === 'borrow') {
-        handleModeChange('earn', 'swipe');
-      } else if (direction === 'right' && currentMode === 'earn') {
+      if (direction === 'right') {
         appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
           tab: ETranslations.global_market,
           switchType: 'swipe',
         });
       }
     },
-    [handleModeChange],
+    [],
   );
+
+  const handleOpenBorrowHome = useCallback(() => {
+    BorrowNavigation.pushToBorrowHome(navigation);
+  }, [navigation]);
 
   const mobileContainerProps = useMemo(
     () => ({
@@ -469,13 +471,21 @@ function BasicEarnHome({
         >
           <YStack gap="$4" pt={24} pb={20} bg="$bgApp" pointerEvents="box-none">
             <YStack gap="$7.5">
-              <YStack px="$pagePadding">
+              <YStack px="$pagePadding" gap="$4">
                 <Overview
                   onRefresh={refreshEarnData}
                   isLoading={isOverviewRefreshing}
                   displayTotalFiatValue={displayTotalFiatValue}
                   displayEarnings24h={displayEarnings24h}
                 />
+                <Button
+                  testID={EarnTestIDs.borrowEntryButton}
+                  size="large"
+                  variant="secondary"
+                  onPress={handleOpenBorrowHome}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_borrow })}
+                </Button>
               </YStack>
             </YStack>
           </YStack>
@@ -489,6 +499,8 @@ function BasicEarnHome({
       displayTotalFiatValue,
       displayEarnings24h,
       handleHeaderHorizontalSwipe,
+      handleOpenBorrowHome,
+      intl,
     ],
   );
 
@@ -515,114 +527,34 @@ function BasicEarnHome({
   }
 
   if (platformEnv.isNative) {
-    // Phone with swipe pager: EarnBorrowPagerView replaces display:none/flex
-    if (useSwipePager) {
-      return (
-        <YStack flex={1}>
-          <MarketSelector
-            mode={defaultMode}
-            onModeChange={handleModeChange}
-            pageScrollPosition={earnBorrowScrollPosition}
-          />
-          <EarnBorrowPagerView
-            ref={earnBorrowPagerRef}
-            mode={defaultMode}
-            onModeChange={handleModeChange}
-            pageScrollPosition={earnBorrowScrollPosition}
-            earnContent={
-              <>
-                <EarnMainTabs
-                  faqList={faqList || []}
-                  isFaqLoading={isFaqLoading}
-                  defaultTab={defaultTab}
-                  portfolioData={portfolioData}
-                  containerProps={mobileContainerProps}
-                  tabsRef={tabsRef}
-                  nestedPager={useSwipePager}
-                  isActive={isEarnContentActive}
-                />
-                {showHeader && showContent ? (
-                  <YStack
-                    position="absolute"
-                    top={-20}
-                    left={0}
-                    bg="$bgApp"
-                    pt="$5"
-                    width="100%"
-                  >
-                    <TabPageHeader
-                      sceneName={EAccountSelectorSceneName.home}
-                      tabRoute={ETabRoutes.Earn}
-                    />
-                  </YStack>
-                ) : null}
-              </>
-            }
-            borrowContent={
-              <BorrowHome
-                isActive={isBorrowMode}
-                pendingTxs={borrowPendingTxs}
-                onRegisterBorrowRefresh={handleRegisterBorrowRefresh}
-                onBorrowNetworksChange={handleBorrowNetworksChange}
-              />
-            }
-          />
-        </YStack>
-      );
-    }
-
-    // Tablet / dual-screen: keep existing display:none/flex logic
-    const marketSelectorHeader = (
-      <MarketSelector mode={defaultMode} onModeChange={handleModeChange} />
-    );
-
     return (
       <YStack flex={1}>
-        <YStack
-          flex={1}
-          display={isEarnMode ? 'flex' : 'none'}
-          pointerEvents={isEarnMode ? 'auto' : 'none'}
-        >
-          <EarnMainTabs
-            faqList={faqList || []}
-            isFaqLoading={isFaqLoading}
-            defaultTab={defaultTab}
-            portfolioData={portfolioData}
-            containerProps={mobileContainerProps}
-            header={marketSelectorHeader}
-            tabsRef={tabsRef}
-            isActive={isEarnContentActive}
-          />
+        <EarnMainTabs
+          faqList={faqList || []}
+          isFaqLoading={isFaqLoading}
+          defaultTab={defaultTab}
+          portfolioData={portfolioData}
+          containerProps={mobileContainerProps}
+          tabsRef={tabsRef}
+          nestedPager={useSwipePager}
+          isActive={isEarnContentActive}
+        />
 
-          {showHeader && showContent && media.md ? (
-            <YStack
-              position="absolute"
-              top={-20}
-              left={0}
-              bg="$bgApp"
-              pt="$5"
-              width="100%"
-            >
-              <TabPageHeader
-                sceneName={EAccountSelectorSceneName.home}
-                tabRoute={ETabRoutes.Earn}
-              />
-            </YStack>
-          ) : null}
-        </YStack>
-        <YStack
-          flex={1}
-          display={isBorrowMode ? 'flex' : 'none'}
-          pointerEvents={isBorrowMode ? 'auto' : 'none'}
-        >
-          <BorrowHome
-            header={marketSelectorHeader}
-            isActive={isBorrowMode}
-            pendingTxs={borrowPendingTxs}
-            onRegisterBorrowRefresh={handleRegisterBorrowRefresh}
-            onBorrowNetworksChange={handleBorrowNetworksChange}
-          />
-        </YStack>
+        {showHeader && showContent && (useSwipePager || media.md) ? (
+          <YStack
+            position="absolute"
+            top={-20}
+            left={0}
+            bg="$bgApp"
+            pt="$5"
+            width="100%"
+          >
+            <TabPageHeader
+              sceneName={EAccountSelectorSceneName.home}
+              tabRoute={ETabRoutes.Earn}
+            />
+          </YStack>
+        ) : null}
       </YStack>
     );
   }
