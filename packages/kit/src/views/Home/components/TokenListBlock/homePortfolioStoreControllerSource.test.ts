@@ -6,6 +6,7 @@ import {
   filterHomePortfolioSmallBalanceTokens,
   isHomePortfolioValuationReceiptApplied,
   requireHomePortfolioValuationReceipt,
+  resolveHomePortfolioTerminalEvidence,
   reuseHomePortfolioPayload,
 } from './homePortfolioStoreControllerSource';
 
@@ -171,6 +172,33 @@ describe('HomePortfolioStoreController source', () => {
         expected,
       }),
     ).toBe(true);
+  });
+
+  it('keeps usable all-network rows when part of the fan-out fails', () => {
+    expect(
+      resolveHomePortfolioTerminalEvidence({
+        displayCount: 50,
+        terminal: 'error',
+      }),
+    ).toBe('confirmedCache');
+    expect(
+      resolveHomePortfolioTerminalEvidence({
+        displayCount: 4,
+        terminal: 'partial',
+      }),
+    ).toBe('confirmedCache');
+    expect(
+      resolveHomePortfolioTerminalEvidence({
+        displayCount: 0,
+        terminal: 'error',
+      }),
+    ).toBe('error');
+    expect(
+      resolveHomePortfolioTerminalEvidence({
+        displayCount: 0,
+        terminal: 'complete',
+      }),
+    ).toBe('complete');
   });
 
   it('structurally shares an unchanged typed payload', () => {

@@ -305,7 +305,11 @@ export function usePerpsHomePortfolio({
     usePromiseResult<IPerpsHomePortfolioSourceResult>(
       async () => {
         const requestScopeKey = currentAccountScopeKey;
-        if (!stableHomeFactsOwner || !homeFactsOwnerMatches) {
+        if (
+          !isSourceActive ||
+          !stableHomeFactsOwner ||
+          !homeFactsOwnerMatches
+        ) {
           return {
             address: '',
             scopeKey: requestScopeKey,
@@ -480,6 +484,7 @@ export function usePerpsHomePortfolio({
         deriveTypeRevision,
         homeFactsOwnerMatches,
         indexedAccountId,
+        isSourceActive,
         perpsRequestParamsFingerprint,
         perpsProducerInstanceId,
         stableHomeFactsOwner,
@@ -492,7 +497,9 @@ export function usePerpsHomePortfolio({
         // Poll at the active cadence, while the bg snapshot cache keeps real HL
         // network reads to active=15s / idle-or-empty=1m unless forced.
         pollingInterval: PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
-        overrideIsFocused: (isPageFocused) => isPageFocused && isSourceActive,
+        // Native Home owns its pager visibility. Capability activation is the
+        // source gate, and every supported list must prefetch before selection.
+        checkIsFocused: false,
       },
     );
   const depositRetryTimerRef = useRef<

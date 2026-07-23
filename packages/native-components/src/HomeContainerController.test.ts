@@ -606,6 +606,86 @@ describe('HomeContainerController', () => {
     );
   });
 
+  it('keeps externally owned v3 revisions monotonic across rapid commits', () => {
+    const scheduled: (() => void)[] = [];
+    const target = buildTarget();
+    target.getCapabilities.mockReturnValue(protocolV3Capabilities);
+    const owner = { scopeKey: 'scope-1', sessionId: 'session-1' };
+    const sections = {
+      portfolio: 4,
+      perps: 3,
+      defi: 3,
+      nft: 3,
+      history: 3,
+      market: 3,
+    };
+    const controller = new HomeContainerController({
+      initialOwner: owner,
+      initialSnapshot: buildSnapshot(),
+      initialProtocolV3Revisions: {
+        storeCommitId: 12,
+        presentationRevisions: {
+          shell: 5,
+          navigation: 4,
+          sections,
+        },
+        authorityRevisions: {
+          shellCommands: 3,
+          tabApplicability: 2,
+          sectionCommands: sections,
+        },
+      },
+      requireProtocolV3: true,
+      schedule: (flush) => scheduled.push(flush),
+    });
+
+    expect(controller.attach(target)).toBe(true);
+    expect(
+      controller.handleTransportResult({
+        kind: 'applied',
+        owner,
+        revision: 5,
+      }),
+    ).toBe(true);
+    controller.setProtocolV3RevisionState({
+      storeCommitId: 11,
+      presentationRevisions: {
+        shell: 4,
+        navigation: 3,
+        sections: { ...sections, portfolio: 5, history: 2 },
+      },
+      authorityRevisions: {
+        shellCommands: 2,
+        tabApplicability: 1,
+        sectionCommands: { ...sections, portfolio: 5, history: 2 },
+      },
+    });
+    controller.updateHeader({
+      accountName: 'Account 1',
+      balance: '$101',
+      actions: [],
+      banners: [],
+    });
+    scheduled.shift()?.();
+
+    expect(target.applyProtocolV3Patch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        identity: { ...owner, storeCommitId: 12 },
+        presentationRevisions: {
+          shell: 5,
+          navigation: 4,
+          sections: { ...sections, portfolio: 5 },
+        },
+        authorityRevisions: {
+          shellCommands: 3,
+          tabApplicability: 2,
+          sectionCommands: { ...sections, portfolio: 5 },
+        },
+      }),
+      undefined,
+    );
+  });
+
   it('requires only the slot whose externally owned revision changed', () => {
     const scheduled: (() => void)[] = [];
     const target = buildTarget();
@@ -1901,5 +1981,21 @@ describe('native HomeContainer section command authority', () => {
   it('routes embedded Market rows through the Market command revision', () => {
     expect(iosSource).toContain('actionId.hasPrefix("home.market.")');
     expect(androidSource).toContain('actionId.startsWith("home.market.")');
+  });
+});
+
+describe('Android HomeContainer value column geometry', () => {
+  const androidSource = fs.readFileSync(
+    path.join(
+      __dirname,
+      '../android/src/main/java/com/margelo/nitro/onekeynativecomponents/HomeContainerView.kt',
+    ),
+    'utf8',
+  );
+
+  it('measures the primary value from its content instead of the weighted row width', () => {
+    expect(androidSource).toContain(
+      'addView(value, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))',
+    );
   });
 });

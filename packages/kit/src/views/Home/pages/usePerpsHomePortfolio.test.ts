@@ -109,15 +109,19 @@ describe('Perps Home amount authority scope gates', () => {
     expect(source.match(/isPerpsHomeAsyncScopeCurrent\(/g)).toHaveLength(2);
   });
 
-  it('uses the polling focus gate as the only tab-refocus scheduler', () => {
+  it('prefetches native Home perps data while retaining the source activation gate', () => {
     const source = fs.readFileSync(
       path.join(__dirname, 'usePerpsHomePortfolio.ts'),
       'utf8',
     );
 
-    expect(source).toContain(
-      'overrideIsFocused: (isPageFocused) => isPageFocused && isSourceActive',
+    expect(source).toContain('checkIsFocused: false');
+    expect(source).toContain('!isSourceActive ||');
+    const requestDependencies = source.slice(
+      source.indexOf('accountId,\n        beginHomeSectionRequest'),
+      source.indexOf('],\n      {\n        // Account + derive type scoped'),
     );
+    expect(requestDependencies).toContain('isSourceActive,');
     expect(source).not.toContain('useTabIsRefreshingFocused');
     expect(source).not.toContain('focusRefreshNonceRef');
     expect(source).not.toContain('wasTabFocusedRef');

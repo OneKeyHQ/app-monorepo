@@ -90,7 +90,7 @@ internal class HomeContainerSlotView(context: Context) : FrameLayout(context) {
   override fun dispatchTouchEvent(event: MotionEvent): Boolean = super.dispatchTouchEvent(event)
 
   private fun notifyMetadataChanged() {
-    (parent as? HomeContainerSurfaceView)?.requestLayout()
+    (parent as? HomeContainerSurfaceView)?.onSlotMetadataChanged()
   }
 
   private fun Double.toExactLong(): Long? {

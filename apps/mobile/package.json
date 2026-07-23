@@ -197,7 +197,8 @@
   "expo": {
     "autolinking": {
       "android": {
-        "exclude": []
+        "exclude": [],
+        "buildFromSource": ["expo-image"]
       },
       "ios": {
         "exclude": []

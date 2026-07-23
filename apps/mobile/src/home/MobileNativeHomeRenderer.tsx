@@ -65,6 +65,7 @@ import type {
   IHomeStoreIntent,
 } from '@onekeyhq/kit/src/views/Home/model/store/homeStoreTypes';
 import type { INativeHomePageViewProps } from '@onekeyhq/kit/src/views/Home/NativeHomePageView.types';
+import { HomeOverviewContainer } from '@onekeyhq/kit/src/views/Home/pages/HomeOverviewContainer';
 import { HomePageView } from '@onekeyhq/kit/src/views/Home/pages/HomePageViewLoader';
 import { PerpsHomeHeaderSlot } from '@onekeyhq/kit/src/views/Home/pages/PerpsContainer';
 import { TabHeaderSettings } from '@onekeyhq/kit/src/views/Home/pages/TabHeaderSettings';
@@ -683,8 +684,7 @@ export function MobileNativeHomeRenderer({
                           id: ETranslations.global_bandwidth,
                         }),
                         value: `${tronAccountResource.result?.netAvailable?.toFixed() ?? '0'} / ${
-                          tronAccountResource.result?.netTotal?.toFixed() ??
-                          '0'
+                          tronAccountResource.result?.netTotal?.toFixed() ?? '0'
                         }`,
                         progress:
                           tronAccountResource.result?.netTotal?.isZero() ===
@@ -772,6 +772,21 @@ export function MobileNativeHomeRenderer({
     // identity only changes when the Home owner changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [owner?.scopeKey, owner?.sessionId],
+  );
+  const balanceAuthority = useMemo(
+    () =>
+      owner
+        ? {
+            owner,
+            producedByStoreCommitId: commitIdentity.storeCommitId,
+            slotId: 'header.balance' as IHomeContainerSlotKey,
+            slotRevision: shell.presentationRevision,
+          }
+        : undefined,
+    // The balance slot changes with the Shell slice while its React content
+    // continues to own hide-value interaction and number formatting.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [owner?.scopeKey, owner?.sessionId, shell.presentationRevision],
   );
   const actionRowAuthority = useMemo(
     () =>
@@ -995,6 +1010,16 @@ export function MobileNativeHomeRenderer({
           </XStack>
         ),
       },
+      balance: {
+        interaction: 'tap',
+        authority: balanceAuthority,
+        content: (
+          <HomeOverviewContainer
+            nativeSlot
+            balancePresentation={reactBalancePresentation.correlated}
+          />
+        ),
+      },
       headerActionRow: isBackupRequired
         ? undefined
         : {
@@ -1155,6 +1180,7 @@ export function MobileNativeHomeRenderer({
       accountRowAuthority,
       actionRowAuthority,
       backupStateAuthority,
+      balanceAuthority,
       footerAuthorities,
       header.actionRowHeight,
       historyAccessoryAuthority,
@@ -1234,7 +1260,6 @@ export function MobileNativeHomeRenderer({
       slots,
     ],
   );
-
   const controller = useMemo(
     () =>
       owner

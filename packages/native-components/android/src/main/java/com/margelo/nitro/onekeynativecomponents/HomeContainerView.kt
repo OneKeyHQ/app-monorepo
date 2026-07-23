@@ -34,7 +34,6 @@ import androidx.core.view.setPadding
 import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.viewpager2.widget.ViewPager2
@@ -123,6 +122,37 @@ internal fun homeContainerStatePosition(sections: List<HomeContainerSection>): I
     .flatMap { it.items.asSequence() }
     .indexOfFirst(HomeContainerItem::isHomeContainerStateItem)
 
+internal fun homeContainerShouldIgnoreProgrammaticPageSelection(
+  pendingTargetTabId: String?,
+  selectedPageTabId: String,
+): Boolean = pendingTargetTabId != null && pendingTargetTabId != selectedPageTabId
+
+internal fun homeContainerShouldAnimateTabSelection(
+  requestedAnimated: Boolean,
+  @Suppress("UNUSED_PARAMETER") isDirectTabPress: Boolean,
+): Boolean = requestedAnimated
+
+internal fun homeContainerShouldPreservePendingPageTransition(
+  pendingTargetTabId: String?,
+  requestedTabId: String,
+): Boolean = pendingTargetTabId == requestedTabId
+
+internal fun homeContainerShouldCompletePendingPageTransition(
+  pendingTargetTabId: String?,
+  currentTabId: String,
+  isIdle: Boolean,
+): Boolean = isIdle && pendingTargetTabId == currentTabId
+
+internal fun homeContainerShouldReconcileDeferredPageSelection(
+  requestedTabId: String,
+  selectedTabId: String,
+  requestedIndex: Int,
+  tabIdAtRequestedIndex: String?,
+): Boolean =
+  requestedIndex >= 0 &&
+    requestedTabId == selectedTabId &&
+    tabIdAtRequestedIndex == requestedTabId
+
 internal data class HomeContainerCompletedRender(
   val state: HomeContainerProtocolV2State,
   val acknowledgement: String,
@@ -206,7 +236,7 @@ internal class HomeContainerRenderCompletionCoordinator {
 
   private fun drainCompletedRenders(): List<HomeContainerCompletedRender> = buildList {
     while (pendingRenders.isNotEmpty()) {
-      val (revision, pending) = pendingRenders.firstEntry()
+      val (revision, pending) = pendingRenders.entries.first()
       val progress = pageProgressByTab[pending.requiredTabId] ?: break
       if (
         minOf(
@@ -246,7 +276,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
   private val parser = Executors.newSingleThreadExecutor()
   private val disposed = AtomicBoolean(false)
   private val pager = ViewPager2(context)
-  private val adapter = HomePagerAdapter()
+  private var adapter = HomePagerAdapter()
   private val headerView = HomeHeaderView(context)
   private val tabsView = HomeTabsView(context)
   private val renderCompletionCoordinator = HomeContainerRenderCompletionCoordinator()
@@ -261,6 +291,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
   private var lastNeedSnapshotResultKey: String? = null
   private var fallbackBackgroundColor = Color.WHITE
   private var selectedTabId = ""
+  private var pendingProgrammaticTabId: String? = null
   private var suppressPageCallback = false
   private var refreshEnabled = false
   private var headerHeight = 0
@@ -279,7 +310,12 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
   init {
     clipChildren = true
     pager.orientation = ViewPager2.ORIENTATION_HORIZONTAL
+    // The Store snapshot is the only owner of the selected Home tab. Restoring
+    // ViewPager2 state independently can leave currentItem pointing at one tab
+    // while its RecyclerView still displays a holder restored for another.
+    pager.isSaveEnabled = false
     pager.adapter = adapter
+    (pager.getChildAt(0) as? RecyclerView)?.isSaveEnabled = false
     pager.offscreenPageLimit = 5
     addView(pager, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
     addView(headerView, LayoutParams(LayoutParams.MATCH_PARENT, 0))
@@ -291,7 +327,14 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
       emitAction(actionId, itemId, selectedTabId)
     }
     tabsView.onSelect = { tabId ->
-      moveToTab(tabId, true, true)
+      moveToTab(
+        tabId,
+        homeContainerShouldAnimateTabSelection(
+          requestedAnimated = true,
+          isDirectTabPress = true,
+        ),
+        true,
+      )
     }
     headerView.onSlotLayoutChange = { onSlotLayoutChange?.invoke() }
     tabsView.onSlotLayoutChange = { onSlotLayoutChange?.invoke() }
@@ -299,6 +342,9 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
       override fun onPageSelected(position: Int) {
         if (suppressPageCallback) return
         val tab = adapter.tabAt(position) ?: return
+        if (homeContainerShouldIgnoreProgrammaticPageSelection(pendingProgrammaticTabId, tab.id)) {
+          return
+        }
         val source = adapter.pageForTab(selectedTabId)
         val target = adapter.pageForTab(tab.id)
         if (source != null && target != null) {
@@ -313,6 +359,26 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
           updateSharedChromePosition()
           emitTabSelection(tab.id)
           protocolV2State?.revision?.let(::awaitSelectedPageRender)
+        }
+      }
+
+      override fun onPageScrollStateChanged(state: Int) {
+        val currentTabId = adapter.tabAt(pager.currentItem)?.id ?: return
+        if (
+          homeContainerShouldCompletePendingPageTransition(
+            pendingProgrammaticTabId,
+            currentTabId,
+            state == ViewPager2.SCROLL_STATE_IDLE,
+          )
+        ) {
+          pendingProgrammaticTabId = null
+          val targetIndex = adapter.positionForTab(currentTabId)
+          if (targetIndex >= 0) {
+            // ViewPager2 can publish the target currentItem before its internal
+            // RecyclerView has physically settled there. Snap once at IDLE so
+            // the selected tab and rendered holder cannot diverge.
+            setPagerCurrentItem(targetIndex, false)
+          }
         }
       }
     })
@@ -702,7 +768,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
     updateSharedChromeLayout()
     suppressPageCallback = true
     try {
-      adapter.bind(next)
+      adapter.bind(next, forceMountedPageRebind = current != null)
       pager.offscreenPageLimit = next.inlineTabs().size.coerceAtLeast(1)
       val requestedTab = next.tabs.firstOrNull {
         it.id == next.selectedTabId && it.destination == HomeContainerTabDestination.INLINE
@@ -712,8 +778,16 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
         adapter.setSelectedTab(requestedTab.id)
         tabsView.setSelectedTab(requestedTab.id)
         val index = adapter.positionForTab(requestedTab.id)
-        if (index >= 0 && pager.currentItem != index) {
-          pager.setCurrentItem(index, false)
+        if (index >= 0) {
+          adapter.requestPageRender(requestedTab.id)
+          if (
+            !homeContainerShouldPreservePendingPageTransition(
+              pendingProgrammaticTabId,
+              requestedTab.id,
+            )
+          ) {
+            setPagerCurrentItem(index, false)
+          }
         }
       }
     } finally {
@@ -760,7 +834,11 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
     if (renderPlan.shouldReconcileNavigation || renderPlan.shouldApplySurface) {
       tabsView.bind(next.tabs, next.selectedTabId, next.theme)
     }
-    if (renderPlan.shouldBindHeader || renderPlan.shouldReconcileNavigation) {
+    if (
+      renderPlan.shouldBindHeader ||
+      renderPlan.shouldReconcileNavigation ||
+      renderPlan.shouldApplySurface
+    ) {
       updateSharedChromeLayout()
     }
 
@@ -790,8 +868,16 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
         adapter.setSelectedTab(requestedTab.id)
         tabsView.setSelectedTab(requestedTab.id)
         val index = adapter.positionForTab(requestedTab.id)
-        if (index >= 0 && pager.currentItem != index) {
-          pager.setCurrentItem(index, false)
+        if (index >= 0) {
+          adapter.requestPageRender(requestedTab.id)
+          if (
+            !homeContainerShouldPreservePendingPageTransition(
+              pendingProgrammaticTabId,
+              requestedTab.id,
+            )
+          ) {
+            setPagerCurrentItem(index, false)
+          }
         }
       } finally {
         suppressPageCallback = false
@@ -849,9 +935,59 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
     collapseOffset = target?.collapseOffset ?: 0
     refreshPullOffset = target?.refreshPullOffset ?: 0
     updateSharedChromePosition()
-    pager.setCurrentItem(index, animated)
+    pendingProgrammaticTabId = tabId.takeIf { pager.currentItem != index }
+    adapter.requestPageRender(tabId)
+    setPagerCurrentItem(index, animated)
     if (notify && didChangeTab) emitTabSelection(tabId)
     protocolV2State?.revision?.let(::awaitSelectedPageRender)
+  }
+
+  private fun setPagerCurrentItem(index: Int, animated: Boolean) {
+    if (animated) {
+      pager.setCurrentItem(index, true)
+      return
+    }
+    val requestedTabId = adapter.tabAt(index)?.id ?: return
+    pendingProgrammaticTabId = requestedTabId
+    val recycler = pager.getChildAt(0) as? RecyclerView
+    recycler?.stopScroll()
+    (recycler?.layoutManager as? LinearLayoutManager)
+      ?.scrollToPositionWithOffset(index, 0)
+    pager.setCurrentItem(index, false)
+    reconcileDeferredPagerSelection(requestedTabId, remainingPasses = 2)
+  }
+
+  private fun reconcileDeferredPagerSelection(
+    requestedTabId: String,
+    remainingPasses: Int,
+  ) {
+    pager.postOnAnimation {
+      if (disposed.get()) return@postOnAnimation
+      val requestedIndex = adapter.positionForTab(requestedTabId)
+      if (
+        !homeContainerShouldReconcileDeferredPageSelection(
+          requestedTabId = requestedTabId,
+          selectedTabId = selectedTabId,
+          requestedIndex = requestedIndex,
+          tabIdAtRequestedIndex = adapter.tabAt(requestedIndex)?.id,
+        )
+      ) {
+        return@postOnAnimation
+      }
+      val recycler = pager.getChildAt(0) as? RecyclerView
+      recycler?.stopScroll()
+      (recycler?.layoutManager as? LinearLayoutManager)
+        ?.scrollToPositionWithOffset(requestedIndex, 0)
+      pager.setCurrentItem(requestedIndex, false)
+      if (remainingPasses > 0) {
+        reconcileDeferredPagerSelection(
+          requestedTabId,
+          remainingPasses - 1,
+        )
+      } else if (pendingProgrammaticTabId == requestedTabId) {
+        pendingProgrammaticTabId = null
+      }
+    }
   }
 
   private fun handleProtocolV3Outcome(outcome: HomeContainerProtocolV3ApplyOutcome) {
@@ -862,6 +998,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
           renderCompletionCoordinator.reset()
           renderedProtocolV2State = null
           renderedProtocolV3State = null
+          resetViewportForOwnerChange()
         }
         protocolV3State = outcome.state
         protocolV2State = outcome.state.legacyState
@@ -922,6 +1059,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
         if (protocolV2State?.owner != outcome.state.owner) {
           renderCompletionCoordinator.reset()
           renderedProtocolV2State = null
+          resetViewportForOwnerChange()
         }
         protocolV2State = outcome.state
         lastNeedSnapshotResultKey = null
@@ -1125,7 +1263,10 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
       setHasStableIds(true)
     }
 
-    fun bind(next: HomeContainerSnapshot): Set<String> {
+    fun bind(
+      next: HomeContainerSnapshot,
+      forceMountedPageRebind: Boolean = false,
+    ): Set<String> {
       val isInitial = value == null
       val previousSnapshot = value
       val previousTabs = inlineTabs
@@ -1156,6 +1297,11 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
       } else {
         diff?.dispatchUpdatesTo(this)
       }
+      if (forceMountedPageRebind) {
+        nextTabs.forEach { tab ->
+          pages[tab.id]?.let { page -> bindPage(page, tab, next) }
+        }
+      }
       return changedTabIds
     }
 
@@ -1177,8 +1323,14 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
         nextTabs.any { it.id == tabId }
       }
       changedTabIds.forEach { tabId ->
-        val position = positionForTab(tabId)
-        if (position >= 0) notifyItemChanged(position)
+        val tab = nextTabs.firstOrNull { it.id == tabId } ?: return@forEach
+        val page = pages[tabId]
+        if (page != null) {
+          page.updateSections(tab.sections, next.theme, next.revision)
+        } else {
+          val position = positionForTab(tabId)
+          if (position >= 0) notifyItemChanged(position)
+        }
       }
       return changedTabIds
     }
@@ -1345,7 +1497,38 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
       topMargin = headerHeight
       tabsView.layoutParams = this
     }
+    headerView.requestLayout()
+    tabsView.requestLayout()
+    pager.requestLayout()
+    requestLayout()
+    layoutSharedChromeImmediately()
+    postOnAnimation {
+      // Protocol patches can arrive while the current traversal is laying out
+      // the old header. Re-request on the next frame so a banner-driven height
+      // change cannot be dropped by that in-flight traversal.
+      headerView.requestLayout()
+      tabsView.requestLayout()
+      pager.requestLayout()
+      requestLayout()
+      layoutSharedChromeImmediately()
+    }
     updateSharedChromePosition()
+  }
+
+  private fun layoutSharedChromeImmediately() {
+    val contentWidth = width.coerceAtLeast(0)
+    if (contentWidth <= 0 || headerHeight <= 0) return
+    headerView.measure(
+      MeasureSpec.makeMeasureSpec(contentWidth, MeasureSpec.EXACTLY),
+      MeasureSpec.makeMeasureSpec(headerHeight, MeasureSpec.EXACTLY),
+    )
+    headerView.layout(0, 0, contentWidth, headerHeight)
+    val tabsHeight = dp(TAB_HEIGHT_DP)
+    tabsView.measure(
+      MeasureSpec.makeMeasureSpec(contentWidth, MeasureSpec.EXACTLY),
+      MeasureSpec.makeMeasureSpec(tabsHeight, MeasureSpec.EXACTLY),
+    )
+    tabsView.layout(0, headerHeight, contentWidth, headerHeight + tabsHeight)
   }
 
   private fun updateSharedChromePosition() {
@@ -1355,8 +1538,21 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
     onSlotLayoutChange?.invoke()
   }
 
+  private fun resetViewportForOwnerChange() {
+    pendingProgrammaticTabId = null
+    collapseOffset = 0
+    refreshPullOffset = 0
+    val mountedPages = adapter.pages().toList()
+    pager.adapter = null
+    mountedPages.forEach(HomePageView::recycle)
+    adapter = HomePagerAdapter()
+    pager.adapter = adapter
+    updateSharedChromePosition()
+  }
+
   override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
     super.onLayout(changed, left, top, right, bottom)
+    layoutSharedChromeImmediately()
     onSlotLayoutChange?.invoke()
   }
 
@@ -1382,11 +1578,13 @@ private class HomePageView(context: Context) : FrameLayout(context) {
   var tabId: String = ""
     private set
 
-  private val refreshLayout = SwipeRefreshLayout(context)
-  private val recycler = RecyclerView(context)
+  private var refreshLayout = SwipeRefreshLayout(context)
+  private var recycler = RecyclerView(context)
   private val listAdapter = HomeListAdapter()
   private var topSpacerHeight = 0
   private var suppressCollapseCallback = false
+  private var userScrollActive = false
+  private var refreshEnabled = true
   private var lastRefreshPullOffset = 0
   private var latestRequestedRenderRevision = -1L
   private var scheduledPreDrawRevision = -1L
@@ -1402,58 +1600,22 @@ private class HomePageView(context: Context) : FrameLayout(context) {
     get() = recycler.top.coerceAtLeast(0)
 
   init {
-    recycler.layoutManager = LinearLayoutManager(context)
-    recycler.adapter = listAdapter
-    recycler.itemAnimator = DefaultItemAnimator().apply {
-      supportsChangeAnimations = false
-      addDuration = 180
-      removeDuration = 180
-      moveDuration = 180
-      changeDuration = 0
-    }
-    recycler.overScrollMode = View.OVER_SCROLL_ALWAYS
-    recycler.setPadding(0, 0, 0, dp(112))
-    recycler.clipToPadding = false
-    refreshLayout.addView(
-      recycler,
-      ViewGroup.LayoutParams(
-        ViewGroup.LayoutParams.MATCH_PARENT,
-        ViewGroup.LayoutParams.MATCH_PARENT,
-      ),
-    )
+    configureRecycler(recycler)
+    configureRefreshLayout(refreshLayout, recycler)
     addView(refreshLayout, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-
-    refreshLayout.setOnRefreshListener {
-      onRefresh?.invoke(this, tabId)
-    }
-    refreshLayout.viewTreeObserver.addOnPreDrawListener {
-      val nextOffset = refreshPullOffset
-      if (nextOffset != lastRefreshPullOffset) {
-        lastRefreshPullOffset = nextOffset
-        onRefreshPullOffsetChange?.invoke(this, nextOffset)
-        onSlotLayoutChange?.invoke()
-      }
-      true
-    }
     listAdapter.onAction = { actionId, itemId ->
       onAction?.invoke(actionId, itemId, tabId)
     }
-    listAdapter.onListCommitted = { committedRevision ->
-      latestRequestedRenderRevision = maxOf(
-        latestRequestedRenderRevision,
-        committedRevision,
-      )
-      onListContentCommitted?.invoke(this, latestRequestedRenderRevision)
-      scheduleRenderPreDraw(latestRequestedRenderRevision)
-      onSlotLayoutChange?.invoke()
-    }
-    recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-      override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-        if (!suppressCollapseCallback) {
-          onCollapseOffsetChange?.invoke(this@HomePageView, collapseOffset)
+    listAdapter.onListCommitted = { committedRevision, requiresRecyclerRecreation ->
+      if (requiresRecyclerRecreation) {
+        post {
+          recreateRecyclerForReadyContent()
+          commitListContent(committedRevision)
         }
+      } else {
+        commitListContent(committedRevision)
       }
-    })
+    }
   }
 
   fun bind(
@@ -1477,6 +1639,12 @@ private class HomePageView(context: Context) : FrameLayout(context) {
     latestRequestedRenderRevision = maxOf(latestRequestedRenderRevision, revision)
     setBackgroundColor(parseHomeContainerColor(theme.backgroundColor, Color.WHITE))
     listAdapter.updateSections(sections, theme, revision)
+    recycler.requestLayout()
+    (recycler.layoutManager as? LinearLayoutManager)?.requestLayout()
+    recycler.postOnAnimation {
+      recycler.requestLayout()
+      (recycler.layoutManager as? LinearLayoutManager)?.requestLayout()
+    }
   }
 
   fun updateTopSpacerHeight(height: Int, revision: Long) {
@@ -1513,6 +1681,7 @@ private class HomePageView(context: Context) : FrameLayout(context) {
   }
 
   fun setRefreshEnabled(enabled: Boolean) {
+    refreshEnabled = enabled
     refreshLayout.isEnabled = enabled
   }
 
@@ -1581,6 +1750,7 @@ private class HomePageView(context: Context) : FrameLayout(context) {
         preDrawListener = null
         val renderedRevision = scheduledPreDrawRevision
         scheduledPreDrawRevision = -1L
+        onSlotLayoutChange?.invoke()
         onRenderPreDraw?.invoke(this@HomePageView, renderedRevision)
         return true
       }
@@ -1588,6 +1758,126 @@ private class HomePageView(context: Context) : FrameLayout(context) {
     preDrawListener = listener
     viewTreeObserver.addOnPreDrawListener(listener)
     invalidate()
+  }
+
+  private fun configureRecycler(target: RecyclerView) {
+    target.layoutManager = LinearLayoutManager(context)
+    target.adapter = listAdapter
+    target.itemAnimator = DefaultItemAnimator().apply {
+      supportsChangeAnimations = false
+      addDuration = 180
+      removeDuration = 180
+      moveDuration = 180
+      changeDuration = 0
+    }
+    target.overScrollMode = View.OVER_SCROLL_ALWAYS
+    target.setPadding(0, 0, 0, dp(112))
+    target.clipToPadding = false
+    target.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+      onSlotLayoutChange?.invoke()
+    }
+    target.addOnChildAttachStateChangeListener(
+      object : RecyclerView.OnChildAttachStateChangeListener {
+        override fun onChildViewAttachedToWindow(view: View) {
+          target.post { onSlotLayoutChange?.invoke() }
+        }
+
+        override fun onChildViewDetachedFromWindow(view: View) {
+          target.post { onSlotLayoutChange?.invoke() }
+        }
+      },
+    )
+    target.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+      override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+        userScrollActive = newState != RecyclerView.SCROLL_STATE_IDLE
+      }
+
+      override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+        if (userScrollActive && !suppressCollapseCallback) {
+          onCollapseOffsetChange?.invoke(this@HomePageView, collapseOffset)
+        }
+      }
+    })
+  }
+
+  private fun commitListContent(committedRevision: Long) {
+    latestRequestedRenderRevision = maxOf(
+      latestRequestedRenderRevision,
+      committedRevision,
+    )
+    onListContentCommitted?.invoke(this, latestRequestedRenderRevision)
+    scheduleRenderPreDraw(latestRequestedRenderRevision)
+    scheduleSlotLayoutAfterListMutation()
+  }
+
+  private fun scheduleSlotLayoutAfterListMutation() {
+    onSlotLayoutChange?.invoke()
+    recycler.postOnAnimation {
+      onSlotLayoutChange?.invoke()
+      val animator = recycler.itemAnimator
+      if (animator == null) {
+        recycler.post { onSlotLayoutChange?.invoke() }
+      } else {
+        animator.isRunning {
+          recycler.post { onSlotLayoutChange?.invoke() }
+        }
+      }
+    }
+  }
+
+  private fun configureRefreshLayout(
+    target: SwipeRefreshLayout,
+    targetRecycler: RecyclerView,
+  ) {
+    target.addView(
+      targetRecycler,
+      ViewGroup.LayoutParams(
+        ViewGroup.LayoutParams.MATCH_PARENT,
+        ViewGroup.LayoutParams.MATCH_PARENT,
+      ),
+    )
+    target.isEnabled = refreshEnabled
+    target.setOnRefreshListener {
+      onRefresh?.invoke(this, tabId)
+    }
+    target.viewTreeObserver.addOnPreDrawListener {
+      val nextOffset = refreshPullOffset
+      if (nextOffset != lastRefreshPullOffset) {
+        lastRefreshPullOffset = nextOffset
+        onRefreshPullOffsetChange?.invoke(this, nextOffset)
+        onSlotLayoutChange?.invoke()
+      }
+      true
+    }
+  }
+
+  private fun recreateRecyclerForReadyContent() {
+    val previousRefreshLayout = refreshLayout
+    val previousRecycler = recycler
+    previousRefreshLayout.setOnRefreshListener(null)
+    previousRecycler.stopScroll()
+    previousRecycler.clearOnScrollListeners()
+    previousRecycler.adapter = null
+    removeView(previousRefreshLayout)
+
+    recycler = RecyclerView(context)
+    refreshLayout = SwipeRefreshLayout(context)
+    configureRecycler(recycler)
+    configureRefreshLayout(refreshLayout, recycler)
+    addView(
+      refreshLayout,
+      LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
+    )
+    recycler.scrollToPosition(0)
+    recycler.requestLayout()
+    refreshLayout.requestLayout()
+    requestLayout()
+    if (width > 0 && height > 0) {
+      val widthSpec = MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY)
+      val heightSpec = MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY)
+      refreshLayout.measure(widthSpec, heightSpec)
+      refreshLayout.layout(0, 0, width, height)
+    }
   }
 
   private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
@@ -1660,11 +1950,12 @@ internal fun resolveHomeContainerRowHeight(
   measuredContentHeight,
 )
 
-private class HomeListAdapter : ListAdapter<HomeListRow, RecyclerView.ViewHolder>(RowDiffCallback()) {
+private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
   var onAction: ((String, String) -> Unit)? = null
-  var onListCommitted: ((Long) -> Unit)? = null
+  var onListCommitted: ((Long, Boolean) -> Unit)? = null
   private var theme = HomeContainerTheme("#FFFFFF", "#F5F5F5", "#EEEEEE", "#111111", "#777777", "#3574F0", "#1F9D67", "#D64545")
   private var sections: List<HomeContainerSection> = emptyList()
+  private var rows: List<HomeListRow> = emptyList()
   private var tabId = ""
   private var topSpacerHeight = 0
   private var mountedSlotKeys = emptySet<String>()
@@ -1674,10 +1965,6 @@ private class HomeListAdapter : ListAdapter<HomeListRow, RecyclerView.ViewHolder
 
   val hasPendingCommit: Boolean
     get() = submissionGeneration != committedGeneration
-
-  init {
-    setHasStableIds(true)
-  }
 
   fun bind(
     tabId: String,
@@ -1723,30 +2010,52 @@ private class HomeListAdapter : ListAdapter<HomeListRow, RecyclerView.ViewHolder
   private fun submitRows(themeChanged: Boolean = false) {
     val generation = ++submissionGeneration
     val submittedRevision = revision
-    submitList(buildRows()) {
-      if (generation != submissionGeneration) return@submitList
-      committedGeneration = generation
-      if (themeChanged && itemCount > 0) {
-        notifyItemRangeChanged(0, itemCount, PAYLOAD_THEME)
-      }
-      onListCommitted?.invoke(submittedRevision)
+    val currentRows = rows
+    val currentHasLoadingRows = currentRows.any { it.item?.renderer == "loading" }
+    val nextRows = buildRows()
+    val transitionsFromLoading =
+      currentHasLoadingRows && nextRows.none { it.item?.renderer == "loading" }
+    val hydratesDeferredPortfolioSections =
+      tabId == "portfolio" &&
+        currentRows.none { it.item?.renderer == "marketTabs" } &&
+        nextRows.any { it.item?.renderer == "marketTabs" }
+    val requiresRecyclerRecreation =
+      transitionsFromLoading || hydratesDeferredPortfolioSections
+
+    if (requiresRecyclerRecreation) {
+      rows = nextRows
+      // Skeleton views continuously invalidate while shimmering. A full,
+      // synchronous rebind is required for loading-to-content and for the
+      // one-time deferred portfolio-section hydration. Normal user-driven
+      // content updates below still use DiffUtil animations.
+      notifyDataSetChanged()
+    } else {
+      val diff = DiffUtil.calculateDiff(RowDiffCallback(currentRows, nextRows))
+      rows = nextRows
+      diff.dispatchUpdatesTo(this)
     }
+
+    committedGeneration = generation
+    if (themeChanged && itemCount > 0 && !requiresRecyclerRecreation) {
+      notifyItemRangeChanged(0, itemCount, PAYLOAD_THEME)
+    }
+    onListCommitted?.invoke(submittedRevision, requiresRecyclerRecreation)
   }
 
   fun statePosition(): Int {
-    val position = currentList.indexOfFirst { row ->
+    val position = rows.indexOfFirst { row ->
       row.item?.renderer == "empty" || row.item?.renderer == "loading"
     }
     return if (position >= 0) position else RecyclerView.NO_POSITION
   }
 
   fun contentHeaderPosition(): Int {
-    val position = currentList.indexOfFirst { it.kind == VIEW_CONTENT_HEADER }
+    val position = rows.indexOfFirst { it.kind == VIEW_CONTENT_HEADER }
     return if (position >= 0) position else RecyclerView.NO_POSITION
   }
 
   fun footerSlotPosition(key: String): Int {
-    val position = currentList.indexOfFirst { row ->
+    val position = rows.indexOfFirst { row ->
       row.kind == VIEW_FOOTER_SLOT && row.slotKey == key
     }
     return if (position >= 0) position else RecyclerView.NO_POSITION
@@ -1859,9 +2168,9 @@ private class HomeListAdapter : ListAdapter<HomeListRow, RecyclerView.ViewHolder
       item = item,
     )
 
-  override fun getItemId(position: Int): Long = getItem(position).stableId.hashCode().toLong()
+  override fun getItemCount(): Int = rows.size
 
-  override fun getItemViewType(position: Int): Int = getItem(position).kind
+  override fun getItemViewType(position: Int): Int = rows[position].kind
 
   override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder =
     when (viewType) {
@@ -1877,7 +2186,7 @@ private class HomeListAdapter : ListAdapter<HomeListRow, RecyclerView.ViewHolder
     }
 
   override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-    val row = getItem(position)
+    val row = rows[position]
     when (holder) {
       is SpacerHolder -> {
         val height = when (row.kind) {
@@ -1993,12 +2302,19 @@ private class HomeListAdapter : ListAdapter<HomeListRow, RecyclerView.ViewHolder
     private val FOOTER_SLOT_IDS = listOf("upgrade", "support", "historyEnd")
   }
 
-  private class RowDiffCallback : DiffUtil.ItemCallback<HomeListRow>() {
-    override fun areItemsTheSame(oldItem: HomeListRow, newItem: HomeListRow): Boolean =
-      oldItem.stableId == newItem.stableId
+  private class RowDiffCallback(
+    private val oldRows: List<HomeListRow>,
+    private val newRows: List<HomeListRow>,
+  ) : DiffUtil.Callback() {
+    override fun getOldListSize(): Int = oldRows.size
 
-    override fun areContentsTheSame(oldItem: HomeListRow, newItem: HomeListRow): Boolean =
-      oldItem.contentKey == newItem.contentKey
+    override fun getNewListSize(): Int = newRows.size
+
+    override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean =
+      oldRows[oldItemPosition].stableId == newRows[newItemPosition].stableId
+
+    override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean =
+      oldRows[oldItemPosition].contentKey == newRows[newItemPosition].contentKey
   }
 }
 
@@ -2548,7 +2864,7 @@ private class HomeBannerView(context: Context) : FrameLayout(context) {
     val secondaryColor = parseHomeContainerColor(theme.secondaryTextColor, Color.DKGRAY)
     rows.take(2).forEachIndexed { index, row ->
       val line = LinearLayout(context).apply {
-        orientation = HORIZONTAL
+        orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
       }
       val ring = HomeResourceRingView(context).apply {
@@ -4543,7 +4859,7 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
       detail.gravity = Gravity.END
       value.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
       detail.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-      addView(value)
+      addView(value, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
       addView(detail, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
         topMargin = dp(3)
       })
@@ -4903,7 +5219,7 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
     imageRequest = null
     representedImageUrl = value
     iconImage.setImageDrawable(null)
-    iconImage.visibility = GONE
+    iconImage.visibility = INVISIBLE
     icon.visibility = VISIBLE
     if (value.isEmpty()) return
     imageRequest = HomeContainerImageLoader.load(context, value) { bitmap ->
@@ -4912,6 +5228,9 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
         iconImage.setImageBitmap(bitmap)
         iconImage.visibility = VISIBLE
         icon.visibility = GONE
+        iconImage.invalidate()
+        iconContainer.invalidate()
+        invalidate()
       }
     }
   }
@@ -4929,7 +5248,7 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
       representedBadgeImageUrl = value
     }
     target.setImageDrawable(null)
-    target.visibility = GONE
+    target.visibility = INVISIBLE
     if (value.isEmpty()) return
     val request = HomeContainerImageLoader.load(context, value) { bitmap ->
       val current = if (secondary) representedSecondaryImageUrl else representedBadgeImageUrl

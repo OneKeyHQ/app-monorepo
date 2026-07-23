@@ -709,6 +709,9 @@ export function useHomeNFTStoreSource({
     clearAllNetworkData,
     disabled: !enabled || !nftSourceIdentityKey,
     isNFTRequests: true,
+    // Store-backed Home sections prefetch independently from the visible tab.
+    // `useAllNetworkRequests` still blocks while the app is locked.
+    shouldAlwaysFetch: enabled,
     runIdentityKey: nftSourceIdentityKey,
     onRequestSettled: handleAllNetworkSettled,
     onStarted: handleAllNetworkStarted,
