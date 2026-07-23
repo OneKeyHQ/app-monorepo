@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   perpsActiveAccountAtom,
   useDevSettingsPersistAtom,
@@ -15,6 +14,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatUnifoldUsdAmount } from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
 import type {
+  IUnifoldActivationStatus,
   IUnifoldDepositAddressResult,
   IUnifoldDepositDestination,
   IUnifoldDepositExecution,
@@ -377,30 +377,83 @@ export function usePerpsUnifoldDepositSession({
   // Activation is HyperCore-only (the vendor endpoint is
   // /addresses/hypercore/activation), so it is skipped entirely for any other
   // destination — including the dev Arbitrum one.
-  const { result: activationStatus } = usePromiseResult(
-    async () => {
-      if (!enabled || !recipientAddress || !isHyperCoreDestination) {
-        return undefined;
-      }
+  //
+  // This is a compliance gate, not just the fee warning: contract v1.1 §2.4
+  // makes `isSanctioned` a MUST-block, which goes beyond the SDK (warn only).
+  // A failed lookup therefore must not fall through as a silent pass — it
+  // keeps the address gated (below) and retries every 5s until the screen
+  // actually answers.
+  const [activationStatus, setActivationStatus] = useState<
+    IUnifoldActivationStatus | undefined
+  >(undefined);
+  const [activationAttempt, setActivationAttempt] = useState(0);
+  const [activationLookupFailed, setActivationLookupFailed] = useState(false);
+  useEffect(() => {
+    if (!enabled || !recipientAddress || !isHyperCoreDestination) {
+      return;
+    }
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    void (async () => {
       try {
-        return await backgroundApiProxy.serviceUnifoldDeposit.getActivationStatus(
-          { recipientAddress },
-        );
-      } catch {
-        // Warning is best-effort; the sanction gate below stays undefined
-        // (non-blocking) on lookup failure, matching the SDK.
-        return undefined;
+        const status =
+          await backgroundApiProxy.serviceUnifoldDeposit.getActivationStatus({
+            recipientAddress,
+          });
+        if (!cancelled) {
+          setActivationStatus(status);
+          setActivationLookupFailed(false);
+        }
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        const errorType = toErrorType(error);
+        if (errorType !== 'network') {
+          // Terminal code (disabled / geo-blocked / unavailable): mirror the
+          // catalog effect and fail closed with the matching veto instead of
+          // retrying a request that will never start succeeding.
+          applyAddressState({ status: 'error', errorType });
+          return;
+        }
+        setActivationLookupFailed(true);
+        retryTimer = setTimeout(() => {
+          if (!cancelled) {
+            setActivationAttempt((n) => n + 1);
+          }
+        }, RETRY_INTERVAL_MS);
       }
-    },
-    [enabled, recipientAddress, isHyperCoreDestination],
-    {},
-  );
+    })();
+    return () => {
+      cancelled = true;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+      }
+    };
+  }, [
+    enabled,
+    recipientAddress,
+    isHyperCoreDestination,
+    activationAttempt,
+    applyAddressState,
+  ]);
 
   useEffect(() => {
     if (activationStatus?.isSanctioned) {
       applyAddressState({ status: 'error', errorType: 'sanctioned' });
     }
   }, [activationStatus?.isSanctioned, applyAddressState]);
+
+  // Fail-closed sanction gate: a HyperCore deposit address is neither shown
+  // nor copyable until the screen has answered NOT sanctioned. Keying on the
+  // verdict rather than "a response arrived" closes two holes: a null or
+  // partial payload cannot open the gate (`requestUnifold` passes the
+  // envelope's `data` through verbatim, and this API is known to return
+  // nullish data on code 0), and a sanctioned verdict blocks in the same
+  // render that receives it instead of one passive-effect pass later — which
+  // would otherwise paint the QR and its copy row for exactly one commit.
+  const activationGatePassed =
+    !isHyperCoreDestination || activationStatus?.isSanctioned === false;
 
   const showActivationWarning = Boolean(
     isHyperCoreDestination &&
@@ -611,14 +664,30 @@ export function usePerpsUnifoldDepositSession({
   }, [recipientForCleanup, finalizeSessionTracking]);
 
   const qrAddress = useMemo(() => {
-    if (addressState.status !== 'ready' || !selection) {
+    if (
+      addressState.status !== 'ready' ||
+      !selection ||
+      !activationGatePassed
+    ) {
       return null;
     }
     const wallet = addressState.result.wallets.find(
       (w) => w.chainType === selection.chain.chain_type,
     );
     return wallet?.address ?? null;
-  }, [addressState, selection]);
+  }, [addressState, selection, activationGatePassed]);
+
+  // The ready address is withheld while the screen is pending, so the QR keeps
+  // its skeleton rather than the terminal "No address available" plate: the
+  // address was created, only its eligibility is unconfirmed. Reusing the
+  // address-failure error state here would assert two false things at once,
+  // so the explanation rides on `activationRetrying` below instead — this is
+  // never a silent dead end. Derived, never written through
+  // `applyAddressState`, so a successful retry restores 'ready' on its own.
+  const gatedAddressState: IUnifoldAddressState =
+    addressState.status === 'ready' && !activationGatePassed
+      ? { status: 'loading' }
+      : addressState;
 
   // Only an execution that is still moving suppresses the waiting hint. A
   // finished deposit stays in the 60s lookback window for the rest of the
@@ -633,7 +702,7 @@ export function usePerpsUnifoldDepositSession({
     // own wallet rather than the perps account — callers keep their copy
     // neutral when this is false.
     isHyperCoreDestination,
-    addressState,
+    addressState: gatedAddressState,
     // Sticky: the support copy on the sanctioned screen quotes this ref, so it
     // must survive a veto that replaces the ready state.
     sessionId: sessionIdRef.current,
@@ -644,7 +713,15 @@ export function usePerpsUnifoldDepositSession({
     selectChain,
     qrAddress,
     sessionExecutions,
-    showWaitingUi: showWaitingUi && !hasInFlightExecution,
+    // Never claim to be watching for a deposit to an address the user has not
+    // been shown: the poll (and its tracking claim) intentionally starts on
+    // the raw ready state so money already in flight keeps being announced,
+    // but the hint belongs to a visible address. Keyed on the rendered address
+    // itself, which also covers a selected chain with no matching wallet.
+    showWaitingUi: showWaitingUi && !hasInFlightExecution && Boolean(qrAddress),
+    // The eligibility screen failed and is retrying every 5s: the address
+    // stays hidden, and the panel explains why instead of shimmering silently.
+    activationRetrying: activationLookupFailed && !activationGatePassed,
     activationFee: activationStatus?.activationFee ?? null,
     showActivationWarning,
   };

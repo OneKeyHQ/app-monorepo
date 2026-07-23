@@ -166,6 +166,14 @@ class ServiceBootstrap extends ServiceBase {
             ),
           ]
         : []),
+      // Resume Unifold deposit tracking from the runtime that owns it, not
+      // from the Perps page: persisted in-flight executions must keep polling
+      // after a restart even if the user never opens Perps again. The loop
+      // exits by itself when nothing is tracked, so an idle start costs one
+      // atom read and no network call.
+      timedDeferred('serviceUnifoldDeposit.resumeDepositTracking', () =>
+        this.backgroundApi.serviceUnifoldDeposit.unifoldDepositTrackingLoop(),
+      ),
       timedDeferred('serviceDevSetting.saveDevModeToSyncStorage', () =>
         this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage(),
       ),

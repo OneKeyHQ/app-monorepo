@@ -180,6 +180,7 @@ export function UnifoldTransferContent({
     showWaitingUi,
     activationFee,
     showActivationWarning,
+    activationRetrying,
   } = usePerpsUnifoldDepositSession({ enabled: true, expectedRecipient });
 
   const handleDismiss = useCallback((executionId: string) => {
@@ -295,6 +296,30 @@ export function UnifoldTransferContent({
               {addressState.message}
             </SizableText>
           ) : null}
+          <XStack alignItems="center" gap="$1.5">
+            <Icon
+              name="ClockTimeHistoryOutline"
+              size="$3"
+              color="$iconSubdued"
+            />
+            <SizableText size="$bodySm" color="$textSubdued">
+              Retrying automatically every 5 seconds...
+            </SizableText>
+          </XStack>
+        </YStack>
+      ) : null}
+
+      {/* The address exists but its eligibility screen has not answered yet,
+          so it stays hidden behind the QR skeleton. Says so rather than
+          shimmering silently — and never claims the address itself failed. */}
+      {activationRetrying ? (
+        <YStack bg="$bgCautionSubdued" borderRadius="$3" p="$3" gap="$1.5">
+          <XStack alignItems="center" gap="$1.5">
+            <Icon name="InfoCircleOutline" size="$4" color="$iconCaution" />
+            <SizableText size="$bodySmMedium" color="$textCaution">
+              Verifying deposit eligibility
+            </SizableText>
+          </XStack>
           <XStack alignItems="center" gap="$1.5">
             <Icon
               name="ClockTimeHistoryOutline"
