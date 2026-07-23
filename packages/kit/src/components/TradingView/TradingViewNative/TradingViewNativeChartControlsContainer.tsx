@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { type ReactNode, memo, useCallback } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -14,7 +14,10 @@ interface ITradingViewNativeChartControlsContainerProps {
   enableNativeChartSettings?: boolean;
   intervalConfig: ITradingViewChartControlsProps['intervalConfig'];
   layoutMode?: ITradingViewChartControlsProps['layoutMode'];
+  isFullscreen?: boolean;
+  fullscreenHeader?: ReactNode;
   onIntervalChange: ITradingViewChartControlsProps['onIntervalChange'];
+  onFullscreenChange?: (isFullscreen: boolean) => void;
 }
 
 export const TradingViewNativeChartControlsContainer = memo(
@@ -22,7 +25,10 @@ export const TradingViewNativeChartControlsContainer = memo(
     enableNativeChartSettings = false,
     intervalConfig,
     layoutMode = 'mobile',
+    isFullscreen = false,
+    fullscreenHeader,
     onIntervalChange,
+    onFullscreenChange,
   }: ITradingViewNativeChartControlsContainerProps) => {
     const intl = useIntl();
     const chartStyleTitle = intl.formatMessage({
@@ -33,6 +39,9 @@ export const TradingViewNativeChartControlsContainer = memo(
     const handleSettingsPress = useCallback(() => {
       showTradingViewChartSettingsDialog();
     }, []);
+    const handleFullscreenToggle = useCallback(() => {
+      onFullscreenChange?.(!isFullscreen);
+    }, [isFullscreen, onFullscreenChange]);
 
     return (
       <TradingViewChartControls
@@ -63,7 +72,8 @@ export const TradingViewNativeChartControlsContainer = memo(
         intervalControlMode={layoutMode === 'desktop' ? 'popover' : 'dialog'}
         layoutMode={layoutMode}
         chartTimezone="UTC"
-        isFullscreen={false}
+        isFullscreen={isFullscreen}
+        fullscreenHeader={fullscreenHeader}
         onIntervalChange={onIntervalChange}
         onIndicatorPress={noop}
         onShowIndicatorsDialog={noop}
@@ -71,6 +81,9 @@ export const TradingViewNativeChartControlsContainer = memo(
         onChartTypeToggle={noop}
         onPriceMarketCapModeChange={noop}
         onSettingsPress={handleSettingsPress}
+        onFullscreenToggle={
+          onFullscreenChange ? handleFullscreenToggle : undefined
+        }
       />
     );
   },
