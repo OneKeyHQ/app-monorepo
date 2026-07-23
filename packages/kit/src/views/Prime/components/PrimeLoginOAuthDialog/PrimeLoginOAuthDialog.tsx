@@ -426,6 +426,7 @@ function PrimeLoginOAuthDialog(props: {
             onCompletedReceipt: async (receipt) => {
               const continuation = receipt.startIndependentOneKeyIdOAuth;
               if (!continuation || continuation.provider !== provider) {
+                // TODO: i18n
                 throw new OneKeyLocalError(
                   'OAuth continuation after Keyless recovery is unavailable.',
                 );

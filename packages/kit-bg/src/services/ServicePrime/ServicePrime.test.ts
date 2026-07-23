@@ -1,5 +1,7 @@
 /* eslint-disable import/first, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-var-requires */
 
+import type { IKeylessOAuthSessionPersistenceJournal } from '../../dbs/simple/entity/SimpleDbEntityPrime';
+
 const mockPrimePersistAtom = {
   get: jest.fn(async () => ({})),
   set: jest.fn(async () => undefined),
@@ -214,6 +216,7 @@ const {
   stashRequestAuthTokenOfError,
   takeRequestAuthTokenOfError,
 } = require('@onekeyhq/shared/src/request/requestAuthTokenErrorStash');
+const stringUtils = require('@onekeyhq/shared/src/utils/stringUtils').default;
 const {
   EPrimeAuthSessionSource,
   EOneKeyIdAccountStatus,
@@ -251,7 +254,10 @@ function createService() {
     getKeylessOAuthSessionPersistenceJournal: jest.fn(
       async () => undefined as unknown,
     ),
-    setKeylessOAuthSessionPersistenceJournal: jest.fn(async () => undefined),
+    setKeylessOAuthSessionPersistenceJournal: jest.fn<
+      Promise<void>,
+      [IKeylessOAuthSessionPersistenceJournal]
+    >(async () => undefined),
     commitKeylessOAuthSessionPersistenceMetadata: jest.fn(async () => ({
       status: 'committed' as const,
       identityLifecycleRevision: 1,
@@ -1588,6 +1594,183 @@ describe('ServicePrime.persistKeylessOAuthSession active OneKey ID guard', () =>
     expect(
       simpleDbPrime.getKeylessOAuthSessionPersistenceJournal,
     ).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServicePrime provisional Keyless OAuth session rollback', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockReset();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
+    });
+    mockPersistKeylessAuthSession.mockImplementation(
+      async (params: unknown) => {
+        const { accessToken } = params as { accessToken: string };
+        mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+          status: 'ok',
+          accessToken,
+        });
+      },
+    );
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    resetIdentityRecoveryStateForTest('ready');
+  });
+
+  it('expires an unused rollback handle after five minutes', async () => {
+    jest.useFakeTimers();
+    const { service, simpleDbPrime } = createService();
+    const accessToken = buildFakeJwt({ sub: 'independent-keyless-user' });
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(1);
+
+    const { rollbackHandle } = await service.persistKeylessOAuthSession({
+      accessToken,
+      refreshToken: 'refresh-independent',
+    });
+    const persistenceJournal =
+      simpleDbPrime.setKeylessOAuthSessionPersistenceJournal.mock.calls[0][0];
+    simpleDbPrime.getAuthSessionCommitId.mockResolvedValue(
+      persistenceJournal.sessionCommitId,
+    );
+
+    jest.advanceTimersByTime(5 * 60 * 1000);
+
+    await expect(
+      service.rollbackProvisionalKeylessOAuthSession({ rollbackHandle }),
+    ).resolves.toEqual({ cleared: false });
+    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
+  });
+
+  it('uses a rollback handle once before expiry and cancels its timer', async () => {
+    jest.useFakeTimers();
+    const { service, simpleDbPrime } = createService();
+    const accessToken = buildFakeJwt({ sub: 'independent-keyless-user' });
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(1);
+
+    const { rollbackHandle } = await service.persistKeylessOAuthSession({
+      accessToken,
+      refreshToken: 'refresh-independent',
+    });
+    const persistenceJournal =
+      simpleDbPrime.setKeylessOAuthSessionPersistenceJournal.mock.calls[0][0];
+    simpleDbPrime.getAuthSessionCommitId.mockResolvedValue(
+      persistenceJournal.sessionCommitId,
+    );
+
+    jest.advanceTimersByTime(5 * 60 * 1000 - 1);
+
+    await expect(
+      service.rollbackProvisionalKeylessOAuthSession({ rollbackHandle }),
+    ).resolves.toEqual({ cleared: true });
+    expect(mockRemoveAuthSessionStorageBySessionSource).toHaveBeenCalledTimes(
+      1,
+    );
+
+    jest.advanceTimersByTime(1);
+
+    await expect(
+      service.rollbackProvisionalKeylessOAuthSession({ rollbackHandle }),
+    ).resolves.toEqual({ cleared: false });
+    expect(mockRemoveAuthSessionStorageBySessionSource).toHaveBeenCalledTimes(
+      1,
+    );
+  });
+
+  it('rejects an expired rollback handle when its timer is delayed', async () => {
+    jest.useFakeTimers();
+    const { service, simpleDbPrime } = createService();
+    const accessToken = buildFakeJwt({ sub: 'independent-keyless-user' });
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(1);
+
+    const { rollbackHandle } = await service.persistKeylessOAuthSession({
+      accessToken,
+      refreshToken: 'refresh-independent',
+    });
+    const persistenceJournal =
+      simpleDbPrime.setKeylessOAuthSessionPersistenceJournal.mock.calls[0][0];
+    simpleDbPrime.getAuthSessionCommitId.mockResolvedValue(
+      persistenceJournal.sessionCommitId,
+    );
+
+    jest.setSystemTime(Date.now() + 5 * 60 * 1000);
+
+    await expect(
+      service.rollbackProvisionalKeylessOAuthSession({ rollbackHandle }),
+    ).resolves.toEqual({ cleared: false });
+    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
+  });
+
+  it('does not let an old timer delete a newer record with the same handle', async () => {
+    jest.useFakeTimers();
+    const generateUUIDSpy = jest
+      .spyOn(stringUtils, 'generateUUID')
+      .mockReturnValueOnce('session-commit-1')
+      .mockReturnValueOnce('operation-1')
+      .mockReturnValueOnce('reused-rollback-handle')
+      .mockReturnValueOnce('session-commit-2')
+      .mockReturnValueOnce('operation-2')
+      .mockReturnValueOnce('reused-rollback-handle');
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(1);
+
+    try {
+      const firstPersist = await service.persistKeylessOAuthSession({
+        accessToken: buildFakeJwt({ sub: 'independent-keyless-user' }),
+        refreshToken: 'refresh-independent-1',
+      });
+      const firstJournal =
+        simpleDbPrime.setKeylessOAuthSessionPersistenceJournal.mock.calls[0][0];
+      simpleDbPrime.getAuthSessionCommitId.mockResolvedValue(
+        firstJournal.sessionCommitId,
+      );
+
+      jest.advanceTimersByTime(60 * 1000);
+
+      const secondPersist = await service.persistKeylessOAuthSession({
+        accessToken: buildFakeJwt({ sub: 'independent-keyless-user' }),
+        refreshToken: 'refresh-independent-2',
+      });
+      expect(secondPersist.rollbackHandle).toBe(firstPersist.rollbackHandle);
+      const secondJournal =
+        simpleDbPrime.setKeylessOAuthSessionPersistenceJournal.mock.calls[1][0];
+      simpleDbPrime.getAuthSessionCommitId.mockResolvedValue(
+        secondJournal.sessionCommitId,
+      );
+
+      jest.advanceTimersByTime(4 * 60 * 1000);
+
+      await expect(
+        service.rollbackProvisionalKeylessOAuthSession({
+          rollbackHandle: secondPersist.rollbackHandle,
+        }),
+      ).resolves.toEqual({ cleared: true });
+      expect(mockRemoveAuthSessionStorageBySessionSource).toHaveBeenCalledTimes(
+        1,
+      );
+    } finally {
+      generateUUIDSpy.mockRestore();
+    }
   });
 });
 

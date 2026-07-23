@@ -119,6 +119,8 @@ type IKeylessOAuthSessionRollbackRecord = {
   sessionCommitId: string;
   sessionTokenSub: string;
   walletId?: string;
+  expiresAt: number;
+  expiryTimer?: ReturnType<typeof setTimeout>;
 };
 
 type IKeylessOAuthJwtPayload = ISupabaseJWTPayload & {
@@ -157,6 +159,7 @@ const keylessOAuthSessionRollbackRegistry = new Map<
   IKeylessOAuthSessionRollbackHandle,
   IKeylessOAuthSessionRollbackRecord
 >();
+const KEYLESS_OAUTH_SESSION_ROLLBACK_TTL_MS = 5 * 60 * 1000;
 
 function getSanitizedAuthErrorLog(error: unknown): string {
   const safeError = error as {
@@ -1589,12 +1592,28 @@ class ServicePrime extends ServiceBase {
       });
       const rollbackHandle =
         stringUtils.generateUUID() as IKeylessOAuthSessionRollbackHandle;
-      keylessOAuthSessionRollbackRegistry.set(rollbackHandle, {
+      const rollbackRecord: IKeylessOAuthSessionRollbackRecord = {
         expectedIdentityLifecycleRevision: persisted.identityLifecycleRevision,
         sessionCommitId: persisted.sessionCommitId,
         sessionTokenSub: persisted.sessionTokenSub,
         walletId: persisted.walletId,
-      });
+        expiresAt: Date.now() + KEYLESS_OAUTH_SESSION_ROLLBACK_TTL_MS,
+      };
+      keylessOAuthSessionRollbackRegistry.set(rollbackHandle, rollbackRecord);
+      const expiryTimer = setTimeout(() => {
+        if (
+          keylessOAuthSessionRollbackRegistry.get(rollbackHandle) ===
+          rollbackRecord
+        ) {
+          keylessOAuthSessionRollbackRegistry.delete(rollbackHandle);
+        }
+      }, KEYLESS_OAUTH_SESSION_ROLLBACK_TTL_MS);
+      rollbackRecord.expiryTimer = expiryTimer;
+      (
+        expiryTimer as unknown as {
+          unref?: () => void;
+        }
+      ).unref?.();
       return {
         identityLifecycleRevision: persisted.identityLifecycleRevision,
         rollbackHandle,
@@ -1612,6 +1631,12 @@ class ServicePrime extends ServiceBase {
       const record = keylessOAuthSessionRollbackRegistry.get(rollbackHandle);
       keylessOAuthSessionRollbackRegistry.delete(rollbackHandle);
       if (!record) {
+        return { cleared: false };
+      }
+      if (record.expiryTimer) {
+        clearTimeout(record.expiryTimer);
+      }
+      if (record.expiresAt <= Date.now()) {
         return { cleared: false };
       }
 
