@@ -8,6 +8,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
@@ -23,6 +27,8 @@ import {
 import { createNativeBottomTabNavigator } from '../BottomTabs';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
+
+import { willTabFocusTransition } from './NavigationContainer';
 
 import type { ITabNavigatorProps, ITabSubNavigatorConfig } from './types';
 
@@ -129,6 +135,13 @@ export function TabStackNavigator<RouteName extends string>({
       appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
         from: EEnterWay.HomeTab,
       });
+    }
+    if (
+      (routeName === ETabRoutes.Perp ||
+        routeName === ETabRoutes.WebviewPerpTrade) &&
+      willTabFocusTransition(routeName)
+    ) {
+      setPerpPageEnterSource(EPerpPageEnterSource.TabBar);
     }
   }, []);
 

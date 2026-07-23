@@ -2046,16 +2046,17 @@ function EmptySizeSideButton({
         return;
       }
 
-      if (!isSpot) {
+      let hasLoggedDeferredClick = false;
+      if (!isSpot && shouldEnableTradingBeforeOrder) {
         logPerpTradeButtonClick({
           side,
           canTrade: Boolean(perpsAccountStatus.canTrade),
           activatedOk: perpsAccountStatus.details?.activatedOk,
-          validationState: 'invalid',
-          localInvalidReason: 'emptySize',
+          validationState: 'deferred',
           formData,
           symbol: activeTradeInstrument.coin,
         });
+        hasLoggedDeferredClick = true;
       }
 
       if (shouldEnableTradingBeforeOrder) {
@@ -2079,6 +2080,17 @@ function EmptySizeSideButton({
         shouldBlockPerpsTradingForMarketData(marketDataFreshness);
 
       if (shouldBlockForMarketData) {
+        if (!isSpot && !hasLoggedDeferredClick) {
+          logPerpTradeButtonClick({
+            side,
+            canTrade: Boolean(perpsAccountStatus.canTrade),
+            activatedOk: perpsAccountStatus.details?.activatedOk,
+            validationState: 'invalid',
+            localInvalidReason: 'marketDataUnavailable',
+            formData,
+            symbol: activeTradeInstrument.coin,
+          });
+        }
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.perp_offline,
@@ -2094,6 +2106,17 @@ function EmptySizeSideButton({
         formData.type === 'limit' &&
         (!formData.price || formData.price.trim() === '')
       ) {
+        if (!isSpot && !hasLoggedDeferredClick) {
+          logPerpTradeButtonClick({
+            side,
+            canTrade: Boolean(perpsAccountStatus.canTrade),
+            activatedOk: perpsAccountStatus.details?.activatedOk,
+            validationState: 'invalid',
+            localInvalidReason: 'missingLimitPrice',
+            formData,
+            symbol: activeTradeInstrument.coin,
+          });
+        }
         Toast.message({
           title: intl.formatMessage({
             id: ETranslations.perp_trade_price_place_holder,
@@ -2102,6 +2125,17 @@ function EmptySizeSideButton({
         return;
       }
 
+      if (!isSpot && !hasLoggedDeferredClick) {
+        logPerpTradeButtonClick({
+          side,
+          canTrade: Boolean(perpsAccountStatus.canTrade),
+          activatedOk: perpsAccountStatus.details?.activatedOk,
+          validationState: 'invalid',
+          localInvalidReason: 'emptySize',
+          formData,
+          symbol: activeTradeInstrument.coin,
+        });
+      }
       Toast.message({
         title: intl.formatMessage(
           { id: ETranslations.perp_size_least },

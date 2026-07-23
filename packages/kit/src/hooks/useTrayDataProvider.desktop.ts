@@ -6,6 +6,7 @@ import {
   resetAboveMainRoute,
   rootNavigationRef,
   switchTabAsync,
+  willTabFocusTransition,
 } from '@onekeyhq/components/src/layouts/Navigation/Navigator/NavigationContainer';
 import type {
   IDBAccount,
@@ -1106,7 +1107,9 @@ export function useTrayDataProvider() {
       if (action?.type === 'market-detail-v2') {
         if (action.perpsCoin) {
           const coin = action.perpsCoin;
-          setPerpPageEnterSource(EPerpPageEnterSource.DesktopTray);
+          if (willTabFocusTransition(ETabRoutes.Perp)) {
+            setPerpPageEnterSource(EPerpPageEnterSource.DesktopTray);
+          }
           void switchTabAsync(ETabRoutes.Perp).then(async () => {
             try {
               await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({

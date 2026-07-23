@@ -153,6 +153,10 @@ const hasOverlayAboveMain = (ref: typeof rootNavigationRef): boolean => {
   return topRoute?.name !== ERootRoutes.Main;
 };
 
+export const willTabFocusTransition = (route: ETabRoutes): boolean =>
+  hasOverlayAboveMain(rootNavigationRef) ||
+  getActiveTabFromRef(rootNavigationRef) !== route;
+
 /**
  * @deprecated
  * @description Prefer `switchTabAsync` for new code. This synchronous version
