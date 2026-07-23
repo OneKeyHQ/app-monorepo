@@ -4,6 +4,7 @@ import {
   buildPortfolioClaimSymbolMap,
   getPortfolioProtocolIdentityKey,
   resolvePortfolioClaimProtocolIdentity,
+  resolveUniquePortfolioClaimSourceIdentity,
 } from './portfolioClaimUtils';
 
 describe('buildPortfolioClaimSymbolMap', () => {
@@ -114,10 +115,16 @@ describe('resolvePortfolioClaimProtocolIdentity', () => {
   it('uses the server-derived Base Morpho claim identity', () => {
     expect(
       resolvePortfolioClaimProtocolIdentity({
+        isAirdrop: true,
         providerName: 'Morpho',
         assetSymbol: 'MORPHO',
         assetVault: '0x1401d1271c47648ac70cbcdfa3776d4a87ce006b',
         claimSymbol: 'USDC',
+        claimSymbolStatus: 'matched',
+        sourceIdentity: {
+          symbol: 'WRONG_SOURCE',
+          vault: 'wrong-source-vault',
+        },
       }),
     ).toEqual({
       symbol: 'USDC',
@@ -128,6 +135,7 @@ describe('resolvePortfolioClaimProtocolIdentity', () => {
   it('preserves the existing Ethereum Morpho claim request identity', () => {
     expect(
       resolvePortfolioClaimProtocolIdentity({
+        isAirdrop: true,
         providerName: 'Morpho',
         assetSymbol: 'MORPHO',
         assetVault: '0x974c8fbf4fd795f66b85b73ebc988a51f1a040a9',
@@ -142,6 +150,7 @@ describe('resolvePortfolioClaimProtocolIdentity', () => {
   it('keeps a normal Morpho asset symbol without a provider hardcode', () => {
     expect(
       resolvePortfolioClaimProtocolIdentity({
+        isAirdrop: false,
         providerName: 'Morpho',
         assetSymbol: 'USDT',
         assetVault: 'morpho-usdt-vault',
@@ -155,12 +164,15 @@ describe('resolvePortfolioClaimProtocolIdentity', () => {
   it('fails closed when the claim identity is ambiguous', () => {
     expect(
       resolvePortfolioClaimProtocolIdentity({
+        isAirdrop: true,
         providerName: 'Morpho',
         assetSymbol: 'MORPHO',
         assetVault: 'shared-vault',
         claimSymbolStatus: 'ambiguous',
-        stakedSymbol: 'USDC',
-        stakedVault: 'shared-vault',
+        sourceIdentity: {
+          symbol: 'USDC',
+          vault: 'shared-vault',
+        },
       }),
     ).toBeNull();
   });
@@ -168,13 +180,13 @@ describe('resolvePortfolioClaimProtocolIdentity', () => {
   it('preserves Pendle reward protocol identity', () => {
     expect(
       resolvePortfolioClaimProtocolIdentity({
+        isAirdrop: true,
         providerName: 'Pendle',
         assetSymbol: 'USDe',
         assetVault: 'pendle-reward-vault',
         claimSymbol: 'sUSDe',
         claimSymbolStatus: 'ambiguous',
-        stakedSymbol: 'sUSDe',
-        stakedVault: 'pendle-position-vault',
+        sourceIdentity: null,
       }),
     ).toEqual({
       symbol: 'USDe',
@@ -182,18 +194,96 @@ describe('resolvePortfolioClaimProtocolIdentity', () => {
     });
   });
 
-  it('keeps the source position identity for other providers', () => {
+  it('keeps a unique Lista source position identity', () => {
+    const sourceIdentity = resolveUniquePortfolioClaimSourceIdentity({
+      networkId: 'evm--56',
+      providerName: 'Lista',
+      candidates: [
+        {
+          networkId: 'evm--56',
+          providerName: 'Lista',
+          symbol: 'slisBNB',
+          vault: 'position-vault',
+        },
+        {
+          networkId: 'evm--56',
+          providerName: 'Lista',
+          symbol: 'slisBNB',
+          vault: 'POSITION-VAULT',
+        },
+        {
+          networkId: 'evm--56',
+          providerName: 'Lista',
+          symbol: '   ',
+          vault: 'invalid-position-vault',
+        },
+        {
+          networkId: 'evm--1',
+          providerName: 'Lista',
+          symbol: 'OTHER_NETWORK',
+          vault: 'other-vault',
+        },
+      ],
+    });
+
     expect(
       resolvePortfolioClaimProtocolIdentity({
+        isAirdrop: true,
         providerName: 'Lista',
         assetSymbol: 'LISTA',
         assetVault: 'reward-vault',
-        stakedSymbol: 'slisBNB',
-        stakedVault: 'position-vault',
+        claimSymbolStatus: 'unmatched',
+        sourceIdentity,
       }),
     ).toEqual({
       symbol: 'slisBNB',
       vault: 'position-vault',
     });
+  });
+
+  it('fails closed for unmatched airdrops with multiple source positions', () => {
+    const sourceIdentity = resolveUniquePortfolioClaimSourceIdentity({
+      networkId: 'evm--56',
+      providerName: 'Lista',
+      candidates: [
+        {
+          networkId: 'evm--56',
+          providerName: 'Lista',
+          symbol: 'slisBNB',
+          vault: 'first-position-vault',
+        },
+        {
+          networkId: 'evm--56',
+          providerName: 'Lista',
+          symbol: 'lisUSD',
+          vault: 'second-position-vault',
+        },
+      ],
+    });
+
+    expect(sourceIdentity).toBeNull();
+    expect(
+      resolvePortfolioClaimProtocolIdentity({
+        isAirdrop: true,
+        providerName: 'Lista',
+        assetSymbol: 'LISTA',
+        assetVault: 'reward-vault',
+        claimSymbolStatus: 'unmatched',
+        sourceIdentity,
+      }),
+    ).toBeNull();
+  });
+
+  it('fails closed for unmatched airdrops without a source position', () => {
+    expect(
+      resolvePortfolioClaimProtocolIdentity({
+        isAirdrop: true,
+        providerName: 'Morpho',
+        assetSymbol: 'MORPHO',
+        assetVault: 'reward-vault',
+        claimSymbolStatus: 'unmatched',
+        sourceIdentity: null,
+      }),
+    ).toBeNull();
   });
 });

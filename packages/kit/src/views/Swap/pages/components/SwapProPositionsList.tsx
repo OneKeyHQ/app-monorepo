@@ -21,8 +21,10 @@ import { useSwapProPositionsPnl } from '../../hooks/useSwapProPositionsPnl';
 import {
   buildStockPositionsMetadataScope,
   getStockPositionTokenIdentityKeys,
+  getStockPositionsMetadataViewState,
   getSwapPositionTokenIdentityKey,
-  shouldRenderStockPositionsSkeleton,
+  isStockPositionsMetadataResponseComplete,
+  shouldUseSwapProPositionsDisplaySeed,
 } from './SwapProPositionsList.utils';
 
 function SwapProPositionItemSkeleton() {
@@ -77,6 +79,18 @@ interface ISwapProPositionsListProps {
   hideSearch?: boolean;
 }
 
+type IStockPositionsMetadataResult =
+  | {
+      status: 'success';
+      scope: string;
+      tokenIdentityKeys: string[];
+    }
+  | {
+      status: 'error';
+      scope: string;
+      tokenIdentityKeys?: string[];
+    };
+
 const SwapProPositionsList = ({
   onTokenPress,
   onSearchClick,
@@ -89,8 +103,10 @@ const SwapProPositionsList = ({
   hideSearch,
 }: ISwapProPositionsListProps) => {
   const intl = useIntl();
-  const shouldUseCachedTokenList =
-    !!hasCachedTokenSnapshot && !isLiveTokenListForCurrentOwner;
+  const shouldUseCachedTokenList = shouldUseSwapProPositionsDisplaySeed({
+    hasCachedTokenSnapshot,
+    isLiveTokenListForCurrentOwner,
+  });
   let sourceTokenList: ISwapToken[] | undefined;
   if (shouldUseCachedTokenList) {
     sourceTokenList = cachedTokenList;
@@ -131,87 +147,97 @@ const SwapProPositionsList = ({
   // In the stock context, resolve which holdings are actually stocks by
   // querying the server market metadata (account-holding tokens do NOT carry
   // isStock, so the client-side field is unreliable here).
-  const { result: stockMetadataResult, isLoading: isStockMetadataLoading } =
-    usePromiseResult(
-      async () => {
-        if (!stockOnly) {
-          return undefined;
+  const {
+    result: stockMetadataResult,
+    isLoading: isStockMetadataLoading,
+    run: retryStockMetadata,
+  } = usePromiseResult<IStockPositionsMetadataResult | undefined>(
+    async () => {
+      if (!stockOnly) {
+        return undefined;
+      }
+      const request = stockMetadataRequestRef.current;
+      if (request.scope !== stockMetadataScope) {
+        return undefined;
+      }
+      if (!request.tokens.length) {
+        return {
+          status: 'success',
+          scope: request.scope,
+          tokenIdentityKeys: [] as string[],
+        };
+      }
+      try {
+        const response =
+          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
+            requestLocale: request.locale,
+            tokenAddressList: request.tokens.map((token) => ({
+              contractAddress: token.contractAddress ?? '',
+              chainId: token.networkId,
+              isNative: !!token.isNative,
+            })),
+          });
+        const list = response.list ?? [];
+        if (
+          !isStockPositionsMetadataResponseComplete({
+            marketItems: list,
+            tokens: request.tokens,
+          })
+        ) {
+          throw new OneKeyLocalError(
+            'Incomplete market metadata response for Stock positions',
+          );
         }
-        const request = stockMetadataRequestRef.current;
-        if (request.scope !== stockMetadataScope) {
-          return undefined;
-        }
-        if (!request.tokens.length) {
-          return {
-            scope: request.scope,
-            tokenIdentityKeys: [] as string[],
-            shouldPersist: false,
-          };
-        }
-        try {
-          const response =
-            await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
-              requestLocale: request.locale,
-              tokenAddressList: request.tokens.map((token) => ({
-                contractAddress: token.contractAddress ?? '',
-                chainId: token.networkId,
-                isNative: !!token.isNative,
-              })),
-            });
-          const list = response.list ?? [];
-          if (!request.tokens.every((_, index) => Boolean(list[index]))) {
-            throw new OneKeyLocalError(
-              'Incomplete market metadata response for Stock positions',
-            );
-          }
-          // response.list is index-aligned with tokenAddressList: keep only the
-          // holdings whose server entry has a truthy .stock field, and mark the
-          // selected row as Stock-owned before downstream swap handlers.
-          return {
-            scope: request.scope,
-            tokenIdentityKeys: getStockPositionTokenIdentityKeys({
-              marketItems: list,
-              tokens: request.tokens,
-            }),
-            shouldPersist: true,
-          };
-        } catch (error) {
-          console.error('swapStock__loadPositionMetadata error', error);
-          const lastGoodMetadata =
-            lastGoodStockMetadataRef.current?.scope === request.scope
-              ? lastGoodStockMetadataRef.current
-              : undefined;
-          return lastGoodMetadata
-            ? { ...lastGoodMetadata, shouldPersist: false }
+        // response.list is index-aligned with tokenAddressList: keep only the
+        // holdings whose server entry has a truthy .stock field, and mark the
+        // selected row as Stock-owned before downstream swap handlers.
+        return {
+          status: 'success',
+          scope: request.scope,
+          tokenIdentityKeys: getStockPositionTokenIdentityKeys({
+            marketItems: list,
+            tokens: request.tokens,
+          }),
+        };
+      } catch (error) {
+        console.error('swapStock__loadPositionMetadata error', error);
+        const lastGoodMetadata =
+          lastGoodStockMetadataRef.current?.scope === request.scope
+            ? lastGoodStockMetadataRef.current
             : undefined;
-        }
-      },
-      [stockMetadataScope, stockOnly],
-      {
-        initResult:
-          stockOnly && finallyTokenList.length === 0
-            ? {
-                scope: stockMetadataScope,
-                tokenIdentityKeys: [] as string[],
-                shouldPersist: false,
-              }
-            : undefined,
-        swrKey: stockMetadataScope
-          ? swrKeys.swapStockPositionsMetadata({
+        return {
+          status: 'error',
+          scope: request.scope,
+          tokenIdentityKeys: lastGoodMetadata?.tokenIdentityKeys,
+        };
+      }
+    },
+    [stockMetadataScope, stockOnly],
+    {
+      initResult:
+        stockOnly && finallyTokenList.length === 0
+          ? {
+              status: 'success' as const,
               scope: stockMetadataScope,
-            })
+              tokenIdentityKeys: [] as string[],
+            }
           : undefined,
-        watchLoading: true,
-        swrShouldPersist: (result) => result?.shouldPersist === true,
-      },
-    );
+      swrKey: stockMetadataScope
+        ? swrKeys.swapStockPositionsMetadata({
+            scope: `v2:${stockMetadataScope}`,
+          })
+        : undefined,
+      watchLoading: true,
+      swrShouldPersist: (result) => result?.status === 'success',
+    },
+  );
   const stockTokenIdentityKeys =
     stockMetadataResult?.scope === stockMetadataScope
       ? stockMetadataResult.tokenIdentityKeys
       : undefined;
   useEffect(() => {
     if (
-      stockMetadataResult?.shouldPersist &&
+      stockMetadataResult?.status === 'success' &&
       stockMetadataResult.scope === stockMetadataScope
     ) {
       lastGoodStockMetadataRef.current = {
@@ -221,15 +247,14 @@ const SwapProPositionsList = ({
     }
   }, [stockMetadataResult, stockMetadataScope]);
 
-  // The stock classification is undefined until the first batch resolves; treat that as a
-  // loading state (skeleton below) so the list never flashes "No results" while
-  // holdings are still being classified. usePromiseResult keeps the prior result
-  // across subsequent fetches and on failure, so a defined value is always the
-  // last good one.
-  const isStockListLoading = shouldRenderStockPositionsSkeleton({
+  const stockMetadataViewState = getStockPositionsMetadataViewState({
     isStockMetadataLoading,
+    metadataStatus:
+      stockMetadataResult?.scope === stockMetadataScope
+        ? stockMetadataResult.status
+        : undefined,
+    hasUsableMetadata: stockTokenIdentityKeys !== undefined,
     stockOnly: Boolean(stockOnly),
-    stockTokenListResolved: stockTokenIdentityKeys !== undefined,
   });
   const stockTokenIdentityKeySet = useMemo(
     () => new Set(stockTokenIdentityKeys ?? []),
@@ -255,9 +280,30 @@ const SwapProPositionsList = ({
     (hasPositionOwner &&
       !isLiveTokenListForCurrentOwner &&
       !hasCachedTokenSnapshot) ||
-    isStockListLoading
+    stockMetadataViewState === 'loading'
   ) {
     return <SwapProPositionsListSkeleton rowCount={stockOnly ? 3 : 2} />;
+  }
+  if (stockMetadataViewState === 'error') {
+    return (
+      <YStack>
+        <SwapProPositionListHeader />
+        <Empty
+          illustration="GlobeError"
+          title={intl.formatMessage({
+            id: ETranslations.global_network_error,
+          })}
+          buttonProps={{
+            children: intl.formatMessage({
+              id: ETranslations.global_retry,
+            }),
+            onPress: () => {
+              void retryStockMetadata();
+            },
+          }}
+        />
+      </YStack>
+    );
   }
   return (
     <YStack>
@@ -268,6 +314,7 @@ const SwapProPositionsList = ({
             key={`${item.networkId}-${item.contractAddress}`}
             token={item}
             onPress={onTokenPress}
+            disabled={shouldUseCachedTokenList}
             pnl={pnlMap.get(`${item.networkId}-${item.contractAddress}`)}
           />
         ))

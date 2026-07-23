@@ -20,7 +20,10 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { getGasAccountErrorEntry } from '@onekeyhq/kit/src/views/SignatureConfirm/constants/gasAccountErrorCodes';
 import { type ISwapReviewStepTexts } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
-import { checkSwapLatestBalanceSufficient } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
+import {
+  checkSwapLatestBalanceSufficient,
+  getSwapRequiredNativeBalanceAmount,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
 import type {
   ISwapReviewAdapter,
   ISwapReviewApproveBroadcastResult,
@@ -174,6 +177,33 @@ type ICheckSwapLatestBalanceSufficient = (params: {
 
 const checkLatestBalanceSufficient =
   checkSwapLatestBalanceSufficient as ICheckSwapLatestBalanceSufficient;
+
+export function parseMarketTokenBalance(balanceParsed?: string | null) {
+  if (balanceParsed === undefined || balanceParsed === null) {
+    return undefined;
+  }
+
+  const balance = new BigNumber(balanceParsed);
+  return balance.isFinite() && !balance.isNaN() && !balance.isNegative()
+    ? balance
+    : undefined;
+}
+
+export function isMarketUserCancelledError(error: unknown) {
+  const normalizedError = error as
+    | {
+        code?: number;
+        key?: string;
+        message?: string;
+      }
+    | undefined;
+
+  return (
+    normalizedError?.key === 'global.cancel' ||
+    normalizedError?.code === 803 ||
+    normalizedError?.message?.toLowerCase().includes('reject') === true
+  );
+}
 
 export function buildMarketReviewTokens({
   tradeType,
@@ -837,6 +867,45 @@ export function useSpeedSwapActions(props: {
     [intl],
   );
 
+  const assertLatestWrappedExecutionBalancesSufficient = useCallback(
+    async ({
+      snapshot,
+      gasInfos,
+    }: {
+      snapshot: IMarketReviewExecutionSnapshot;
+      gasInfos?: ISwapReviewGasInfoEntry[];
+    }) => {
+      const wrappedFromToken = snapshot.swapInfo.sender.token;
+      const fromAmount = snapshot.swapInfo.sender.amount;
+      const nativeBalanceRequirement = getSwapRequiredNativeBalanceAmount({
+        gasInfos,
+        networkId: snapshot.networkId,
+        fromToken: wrappedFromToken,
+        fromAmount,
+        otherFeeInfos: snapshot.quoteResult.fee?.otherFeeInfos,
+      });
+
+      if (!wrappedFromToken.isNative || !nativeBalanceRequirement) {
+        await assertLatestFromTokenBalanceSufficient({
+          token: wrappedFromToken,
+          amount: fromAmount,
+          accountAddress: snapshot.accountAddress,
+          accountId: snapshot.accountId,
+        });
+      }
+
+      if (nativeBalanceRequirement) {
+        await assertLatestFromTokenBalanceSufficient({
+          token: nativeBalanceRequirement.token,
+          amount: nativeBalanceRequirement.amount,
+          accountAddress: snapshot.accountAddress,
+          accountId: snapshot.accountId,
+        });
+      }
+    },
+    [assertLatestFromTokenBalanceSufficient],
+  );
+
   const buildSpeedSwapTxData = useCallback(
     async ({
       fromAmount,
@@ -1263,6 +1332,13 @@ export function useSpeedSwapActions(props: {
         netWorkFee = undefined;
       }
 
+      if (snapshot.kind === 'wrap') {
+        await assertLatestWrappedExecutionBalancesSufficient({
+          snapshot,
+          gasInfos: netWorkFee?.gasInfos,
+        });
+      }
+
       return {
         steps: nextReviewState.steps,
         preSwapData: {
@@ -1278,6 +1354,7 @@ export function useSpeedSwapActions(props: {
       };
     },
     [
+      assertLatestWrappedExecutionBalancesSufficient,
       buildMarketApproveUnsignedTxArr,
       buildReviewStepTexts,
       currencyMap,
@@ -1555,23 +1632,6 @@ export function useSpeedSwapActions(props: {
       isWrapped,
     ],
   );
-
-  const isUserCancelledError = useCallback((error: unknown) => {
-    const normalizedError = error as
-      | {
-          code?: number;
-          key?: string;
-          message?: string;
-        }
-      | undefined;
-
-    return (
-      normalizedError?.key === 'global.cancel' ||
-      normalizedError?.code === 803 ||
-      normalizedError?.code === -99_999 ||
-      normalizedError?.message?.toLowerCase().includes('reject') === true
-    );
-  }, []);
 
   const requireReviewExecutionSnapshot = useCallback(
     (kind?: IMarketReviewExecutionSnapshot['kind']) => {
@@ -2016,7 +2076,7 @@ export function useSpeedSwapActions(props: {
           ...prev,
           speedSwapApprovingLoading: false,
         }));
-        if (isUserCancelledError(error)) {
+        if (isMarketUserCancelledError(error)) {
           cancelMarketApproveTx();
           onCancel?.();
           return;
@@ -2028,7 +2088,6 @@ export function useSpeedSwapActions(props: {
       antiMEV,
       cancelMarketApproveTx,
       handleMarketApproveTxSuccess,
-      isUserCancelledError,
       setInAppNotificationAtom,
     ],
   );
@@ -2199,7 +2258,7 @@ export function useSpeedSwapActions(props: {
             status: ESwapEventAPIStatus.FAIL,
           });
         }
-        if (isUserCancelledError(error)) {
+        if (isMarketUserCancelledError(error)) {
           onCancel?.();
           return;
         }
@@ -2230,7 +2289,6 @@ export function useSpeedSwapActions(props: {
       cancelSpeedSwapBuildTx,
       handleMarketSwapBuildTxSuccess,
       intl,
-      isUserCancelledError,
       logMarketCreateOrder,
       openMarketFallbackTxConfirm,
       requireReviewExecutionSnapshot,
@@ -2250,6 +2308,11 @@ export function useSpeedSwapActions(props: {
       const snapshot = requireReviewExecutionSnapshot('wrap');
 
       try {
+        await assertLatestWrappedExecutionBalancesSufficient({
+          snapshot,
+          gasInfos,
+        });
+
         if (snapshot.shouldFallback) {
           setSpeedSwapBuildTxLoading(true);
 
@@ -2283,6 +2346,11 @@ export function useSpeedSwapActions(props: {
           gasInfos,
           networkFeeLevel,
           customPriorityFee,
+          validateFinalGasInfos: (finalGasInfos) =>
+            assertLatestWrappedExecutionBalancesSufficient({
+              snapshot,
+              gasInfos: finalGasInfos,
+            }),
         });
         const result = await handleMarketSwapBuildTxSuccess(data);
         if (result) {
@@ -2290,7 +2358,7 @@ export function useSpeedSwapActions(props: {
         }
       } catch (error) {
         cancelSpeedSwapBuildTx();
-        if (isUserCancelledError(error)) {
+        if (isMarketUserCancelledError(error)) {
           onCancel?.();
           return;
         }
@@ -2312,10 +2380,10 @@ export function useSpeedSwapActions(props: {
       }
     },
     [
+      assertLatestWrappedExecutionBalancesSufficient,
       cancelSpeedSwapBuildTx,
       handleMarketSwapBuildTxSuccess,
       intl,
-      isUserCancelledError,
       openMarketFallbackTxConfirm,
       requireReviewExecutionSnapshot,
     ],
@@ -2456,7 +2524,7 @@ export function useSpeedSwapActions(props: {
             status: ESwapEventAPIStatus.FAIL,
           });
         }
-        if (isUserCancelledError(error)) {
+        if (isMarketUserCancelledError(error)) {
           onCancel?.();
           return;
         }
@@ -2469,7 +2537,6 @@ export function useSpeedSwapActions(props: {
       assertLatestFromTokenBalanceSufficient,
       cancelSpeedSwapBuildTx,
       handleMarketSignedOrderSuccess,
-      isUserCancelledError,
       logMarketCreateOrder,
       requireReviewExecutionSnapshot,
       refreshMarketSigningQuoteResult,
@@ -2597,7 +2664,7 @@ export function useSpeedSwapActions(props: {
           ...prev,
           speedSwapApprovingLoading: false,
         }));
-        if (isUserCancelledError(error)) {
+        if (isMarketUserCancelledError(error)) {
           return;
         }
         throw error;
@@ -2608,7 +2675,6 @@ export function useSpeedSwapActions(props: {
       cancelMarketApproveTx,
       effectiveSpenderAddress,
       handleMarketApproveTxSuccess,
-      isUserCancelledError,
       netAccountRes.result?.addressDetail.address,
       netAccountRes.result?.id,
       openMarketFallbackTxConfirm,
@@ -2685,11 +2751,7 @@ export function useSpeedSwapActions(props: {
         }
 
         const balanceParsed = tokenDetail?.[0]?.balanceParsed;
-        setBalance(
-          balanceParsed === undefined
-            ? undefined
-            : new BigNumber(balanceParsed),
-        );
+        setBalance(parseMarketTokenBalance(balanceParsed));
       } catch (_e) {
         if (currentRequestId !== balanceRequestIdRef.current) {
           return;

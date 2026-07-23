@@ -6,6 +6,10 @@ import {
   EMPTY_SWAP_BALANCE_DISPLAY_CACHE,
   type ISwapBalanceDisplayCache,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceDisplayCacheUtils';
+import {
+  EMPTY_SWAP_PRO_POSITIONS_CACHE,
+  type ISwapProPositionsCache,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapProPositionsCacheUtils';
 import { isStockQuoteInputAmountMatched } from '@onekeyhq/kit/src/views/Swap/utils/swapStockTradeControl';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
@@ -765,16 +769,6 @@ export const {
   use: useSwapProSupportNetworksTokenListAtom,
 } = contextAtom<ISwapToken[]>([]);
 
-export const SWAP_PRO_POSITIONS_CACHE_MAX_OWNERS = 20;
-
-export type ISwapProPositionsCacheEntry = {
-  ownerKey: string;
-  networkIdsKey: string;
-  currencyId: string;
-  tokens: ISwapToken[];
-  updatedAt: number;
-};
-
 export function buildSwapProPositionsOwnerKey({
   accountId,
   networkIdsKey,
@@ -793,16 +787,11 @@ export function buildSwapProPositionsOwnerKey({
 export const {
   atom: swapProPositionsCacheAtom,
   use: useSwapProPositionsCacheAtom,
-} = contextAtom<{
-  byOwner: Record<string, ISwapProPositionsCacheEntry>;
-}>(
-  { byOwner: {} },
-  {
-    coldStartCache: true,
-    coldStartCacheKey:
-      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProPositionsCacheAtom,
-  },
-);
+} = contextAtom<ISwapProPositionsCache>(EMPTY_SWAP_PRO_POSITIONS_CACHE, {
+  coldStartCache: true,
+  coldStartCacheKey:
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProPositionsCacheAtom,
+});
 
 export const {
   atom: swapProPositionsCurrentOwnerKeyAtom,
@@ -823,6 +812,14 @@ export const {
   atom: swapProPositionsDataOwnerKeyAtom,
   use: useSwapProPositionsDataOwnerKeyAtom,
 } = contextAtom<string>('');
+
+export const { atom: swapProTokenBalanceRequestIdAtom } =
+  contextAtom<number>(0);
+
+export const {
+  atom: swapProTokenBalanceLoadingAtom,
+  use: useSwapProTokenBalanceLoadingAtom,
+} = contextAtom<boolean>(false);
 
 export const { atom: swapProTokenValueAtom, use: useSwapProTokenValueAtom } =
   contextAtom<string>('');

@@ -23,6 +23,16 @@ export function buildStockPositionsMetadataScope({
   ].join(':');
 }
 
+export function shouldUseSwapProPositionsDisplaySeed({
+  hasCachedTokenSnapshot,
+  isLiveTokenListForCurrentOwner,
+}: {
+  hasCachedTokenSnapshot?: boolean;
+  isLiveTokenListForCurrentOwner: boolean;
+}) {
+  return Boolean(hasCachedTokenSnapshot) && !isLiveTokenListForCurrentOwner;
+}
+
 export function getStockPositionTokenIdentityKeys({
   marketItems,
   tokens,
@@ -35,16 +45,38 @@ export function getStockPositionTokenIdentityKeys({
   );
 }
 
-export function shouldRenderStockPositionsSkeleton({
-  isStockMetadataLoading,
-  stockOnly,
-  stockTokenListResolved,
+export function isStockPositionsMetadataResponseComplete({
+  marketItems,
+  tokens,
 }: {
-  isStockMetadataLoading?: boolean;
-  stockOnly: boolean;
-  stockTokenListResolved: boolean;
+  marketItems: ({ stock?: unknown } | null | undefined)[];
+  tokens: ISwapToken[];
 }) {
   return (
-    stockOnly && !stockTokenListResolved && isStockMetadataLoading !== false
+    marketItems.length === tokens.length &&
+    tokens.every((_, index) => Boolean(marketItems[index]))
   );
+}
+
+export type IStockPositionsMetadataStatus = 'success' | 'error';
+export type IStockPositionsMetadataViewState = 'loading' | 'success' | 'error';
+
+export function getStockPositionsMetadataViewState({
+  isStockMetadataLoading,
+  metadataStatus,
+  hasUsableMetadata,
+  stockOnly,
+}: {
+  isStockMetadataLoading?: boolean;
+  metadataStatus?: IStockPositionsMetadataStatus;
+  hasUsableMetadata: boolean;
+  stockOnly: boolean;
+}): IStockPositionsMetadataViewState {
+  if (!stockOnly || hasUsableMetadata) {
+    return 'success';
+  }
+  if (isStockMetadataLoading !== false) {
+    return 'loading';
+  }
+  return metadataStatus === 'error' ? 'error' : 'loading';
 }

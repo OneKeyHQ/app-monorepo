@@ -3,7 +3,9 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   buildStockPositionsMetadataScope,
   getStockPositionTokenIdentityKeys,
-  shouldRenderStockPositionsSkeleton,
+  getStockPositionsMetadataViewState,
+  isStockPositionsMetadataResponseComplete,
+  shouldUseSwapProPositionsDisplaySeed,
 } from './SwapProPositionsList.utils';
 
 const ethToken = {
@@ -41,33 +43,76 @@ describe('SwapProPositionsList utils', () => {
     ).toEqual(['evm--1:0xabc']);
   });
 
-  it('shows the Stock positions skeleton before the first request settles', () => {
+  it('keeps a persisted positions snapshot display-only until live data owns the list', () => {
     expect(
-      shouldRenderStockPositionsSkeleton({
-        isStockMetadataLoading: true,
-        stockOnly: true,
-        stockTokenListResolved: false,
+      shouldUseSwapProPositionsDisplaySeed({
+        hasCachedTokenSnapshot: true,
+        isLiveTokenListForCurrentOwner: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldUseSwapProPositionsDisplaySeed({
+        hasCachedTokenSnapshot: true,
+        isLiveTokenListForCurrentOwner: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('rejects a partial metadata response instead of classifying missing assets as non-stock', () => {
+    expect(
+      isStockPositionsMetadataResponseComplete({
+        marketItems: [{ stock: {} }],
+        tokens: [ethToken, bnbToken],
+      }),
+    ).toBe(false);
+    expect(
+      isStockPositionsMetadataResponseComplete({
+        marketItems: [{ stock: {} }, {}],
+        tokens: [ethToken, bnbToken],
       }),
     ).toBe(true);
   });
 
-  it('stops the skeleton after the initial metadata request fails', () => {
+  it('shows loading before the first Stock metadata request settles', () => {
     expect(
-      shouldRenderStockPositionsSkeleton({
-        isStockMetadataLoading: false,
+      getStockPositionsMetadataViewState({
+        isStockMetadataLoading: true,
+        hasUsableMetadata: false,
         stockOnly: true,
-        stockTokenListResolved: false,
       }),
-    ).toBe(false);
+    ).toBe('loading');
+  });
+
+  it('shows an actionable error instead of No results after the initial request fails', () => {
+    expect(
+      getStockPositionsMetadataViewState({
+        isStockMetadataLoading: false,
+        metadataStatus: 'error',
+        hasUsableMetadata: false,
+        stockOnly: true,
+      }),
+    ).toBe('error');
   });
 
   it('keeps resolved Stock positions visible during refresh', () => {
     expect(
-      shouldRenderStockPositionsSkeleton({
+      getStockPositionsMetadataViewState({
         isStockMetadataLoading: true,
+        metadataStatus: 'success',
+        hasUsableMetadata: true,
         stockOnly: true,
-        stockTokenListResolved: true,
       }),
-    ).toBe(false);
+    ).toBe('success');
+  });
+
+  it('keeps same-scope last-good metadata visible after a refresh error', () => {
+    expect(
+      getStockPositionsMetadataViewState({
+        isStockMetadataLoading: false,
+        metadataStatus: 'error',
+        hasUsableMetadata: true,
+        stockOnly: true,
+      }),
+    ).toBe('success');
   });
 });
