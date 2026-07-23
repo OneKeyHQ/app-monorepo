@@ -128,6 +128,7 @@ import type {
   DeviceSupportFeaturesPayload,
   DeviceUploadResourceParams,
   Features,
+  GetDeviceStateParams,
   Response as HardwareResponse,
   IDeviceType,
   KnownDevice,
@@ -159,25 +160,10 @@ export type IDeviceGetStateOptions = Omit<
   IDeviceGetFeaturesOptions,
   'params'
 > & {
-  params?: CommonParams & {
-    scope?: 'runtime' | 'settings' | 'firmware';
+  params?: GetDeviceStateParams & {
     allowEmptyConnectId?: boolean;
   };
 };
-
-type IGetDeviceStateSdkParams = NonNullable<IDeviceGetStateOptions['params']>;
-
-function callSdkGetDeviceState(
-  sdk: CoreApi,
-  connectId: string | undefined,
-  params?: IGetDeviceStateSdkParams,
-) {
-  const getDeviceState = sdk.getDeviceState as unknown as (
-    sdkConnectId?: string,
-    sdkParams?: IGetDeviceStateSdkParams,
-  ) => ReturnType<CoreApi['getDeviceState']>;
-  return getDeviceState(connectId, params);
-}
 
 export type IDeviceManagementSnapshot = {
   state: IOneKeyDeviceState;
@@ -269,6 +255,8 @@ class ServiceHardware extends ServiceBase {
 
   private deviceStateSyncQueues = new Map<string, Promise<void>>();
 
+  private deviceProtocolByConnectId = new Map<string, 'V1' | 'V2'>();
+
   /** Coalesce concurrent device-management reads for the same connection. */
   private deviceManagementSnapshotInFlight = new Map<
     string,
@@ -297,6 +285,54 @@ class ServiceHardware extends ServiceBase {
       EAppEventBusNames.UpdateWalletAvatarByDeviceSerialNo,
       this.handleHardwareAvatarChanged,
     );
+  }
+
+  private rememberDeviceProtocol({
+    connectIds,
+    protocol,
+  }: {
+    connectIds: Array<string | null | undefined>;
+    protocol?: string | null;
+  }) {
+    if (protocol !== 'V1' && protocol !== 'V2') {
+      return;
+    }
+    for (const connectId of connectIds) {
+      if (connectId) {
+        this.deviceProtocolByConnectId.set(connectId, protocol);
+      }
+    }
+  }
+
+  private async getKnownDeviceProtocol(connectId?: string) {
+    if (!connectId) {
+      return undefined;
+    }
+    const cachedProtocol = this.deviceProtocolByConnectId.get(connectId);
+    if (cachedProtocol) {
+      return cachedProtocol;
+    }
+    try {
+      const device = await localDb.getDeviceByQuery({ connectId });
+      const protocol =
+        device?.deviceStateInfo?.protocol ?? device?.featuresInfo?.protocol;
+      this.rememberDeviceProtocol({
+        connectIds: [
+          connectId,
+          device?.connectId,
+          device?.usbConnectId,
+          device?.bleConnectId,
+        ],
+        protocol,
+      });
+      return protocol === 'V1' || protocol === 'V2' ? protocol : undefined;
+    } catch (error) {
+      serviceHardwareUtils.hardwareLog(
+        'restore device protocol from persistence failed',
+        error,
+      );
+      return undefined;
+    }
   }
 
   handleHardwareLabelChanged = cacheUtils.memoizee(
@@ -740,15 +776,35 @@ class ServiceHardware extends ServiceBase {
               }
               return;
             }
-            appEventBus.emit(
-              EAppEventBusNames.HardwareDeviceStateUpdate,
-              event,
-            );
+            if (
+              persistenceResult?.kind === 'ignored' &&
+              persistenceResult.reason === 'stale'
+            ) {
+              return;
+            }
+            this.rememberDeviceProtocol({
+              connectIds: [event.connectId, event.state.identity.serialNo],
+              protocol: event.state.protocol,
+            });
+            try {
+              appEventBus.emit(
+                EAppEventBusNames.HardwareDeviceStateUpdate,
+                event,
+              );
+            } catch (error) {
+              serviceHardwareUtils.hardwareLog(
+                'device state subscriber failed',
+                error,
+              );
+            }
           });
         this.deviceStateSyncQueues.set(queueKey, task);
-        await task;
-        if (this.deviceStateSyncQueues.get(queueKey) === task) {
-          this.deviceStateSyncQueues.delete(queueKey);
+        try {
+          await task;
+        } finally {
+          if (this.deviceStateSyncQueues.get(queueKey) === task) {
+            this.deviceStateSyncQueues.delete(queueKey);
+          }
         }
       });
 
@@ -781,6 +837,10 @@ class ServiceHardware extends ServiceBase {
           this.activeHardwareConnectIds.add(activeConnectId);
         }
         const { features } = message.device || {};
+        this.rememberDeviceProtocol({
+          connectIds: [activeConnectId, message.device?.uuid],
+          protocol: message.device?.state?.protocol ?? features?.protocol,
+        });
         const deviceId = features
           ? deviceUtils.getRawDeviceId({
               device: message.device as any,
@@ -831,6 +891,7 @@ class ServiceHardware extends ServiceBase {
         const activeConnectId = message.device?.connectId;
         if (activeConnectId) {
           this.activeHardwareConnectIds.delete(activeConnectId);
+          this.deviceProtocolByConnectId.delete(activeConnectId);
         }
       });
 
@@ -1367,8 +1428,11 @@ class ServiceHardware extends ServiceBase {
       connectId,
       hardwareCallContext,
     });
+    const snapshotKey = `${compatibleConnectId}:${
+      refreshInfo ? 'firmware-and-settings' : 'settings'
+    }`;
     const existingRequest =
-      this.deviceManagementSnapshotInFlight.get(compatibleConnectId);
+      this.deviceManagementSnapshotInFlight.get(snapshotKey);
     if (existingRequest) {
       return existingRequest;
     }
@@ -1400,16 +1464,13 @@ class ServiceHardware extends ServiceBase {
       }
       return { state };
     })();
-    this.deviceManagementSnapshotInFlight.set(compatibleConnectId, request);
+    this.deviceManagementSnapshotInFlight.set(snapshotKey, request);
 
     try {
       return await request;
     } finally {
-      if (
-        this.deviceManagementSnapshotInFlight.get(compatibleConnectId) ===
-        request
-      ) {
-        this.deviceManagementSnapshotInFlight.delete(compatibleConnectId);
+      if (this.deviceManagementSnapshotInFlight.get(snapshotKey) === request) {
+        this.deviceManagementSnapshotInFlight.delete(snapshotKey);
       }
     }
   }
@@ -1693,18 +1754,12 @@ class ServiceHardware extends ServiceBase {
       connectId,
       hardwareCallContext,
     });
-    const readParams =
-      Object.keys(sdkParams).length > 0 ? sdkParams : undefined;
-    const currentState = await convertDeviceResponse(
-      () => hardwareSDK?.getDeviceState(connectId as string, readParams),
-      { silentMode },
-    );
-    if (currentState.protocol === 'V1') {
-      const getFeaturesParams = {
-        ...sdkParams,
-        ...(detectBootloaderDevice ? { detectBootloaderDevice: true } : {}),
-      };
-      return convertDeviceResponse(
+    const getFeaturesParams = {
+      ...sdkParams,
+      ...(detectBootloaderDevice ? { detectBootloaderDevice: true } : {}),
+    };
+    const readV1Features = async () => {
+      const features = await convertDeviceResponse(
         () =>
           hardwareSDK?.getFeatures(
             connectId as string,
@@ -1714,6 +1769,27 @@ class ServiceHardware extends ServiceBase {
           ),
         { silentMode },
       );
+      this.rememberDeviceProtocol({
+        connectIds: [connectId],
+        protocol: 'V1',
+      });
+      return features;
+    };
+    if ((await this.getKnownDeviceProtocol(connectId)) === 'V1') {
+      return readV1Features();
+    }
+    const readParams =
+      Object.keys(sdkParams).length > 0 ? sdkParams : undefined;
+    const currentState = await convertDeviceResponse(
+      () => hardwareSDK?.getDeviceState(connectId as string, readParams),
+      { silentMode },
+    );
+    this.rememberDeviceProtocol({
+      connectIds: [connectId, currentState.identity.serialNo],
+      protocol: currentState.protocol,
+    });
+    if (currentState.protocol === 'V1') {
+      return readV1Features();
     }
     if (
       detectBootloaderDevice &&
@@ -1774,9 +1850,13 @@ class ServiceHardware extends ServiceBase {
       hardwareCallContext,
     });
     const state = await convertDeviceResponse(
-      () => callSdkGetDeviceState(hardwareSDK, connectId, normalizedSdkParams),
+      () => hardwareSDK.getDeviceState(connectId, normalizedSdkParams),
       { silentMode },
     );
+    this.rememberDeviceProtocol({
+      connectIds: [connectId, state.identity.serialNo],
+      protocol: state.protocol,
+    });
     return state;
   };
 

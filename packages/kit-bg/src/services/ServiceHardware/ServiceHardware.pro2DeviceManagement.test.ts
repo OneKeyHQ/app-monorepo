@@ -1,5 +1,6 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -172,6 +173,12 @@ describe('ServiceHardware.getDeviceState', () => {
     const { service, getDeviceState, getFeatures } = createService({
       unlocked: true,
     });
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    jest.mocked(localDb.getDeviceByQuery).mockResolvedValueOnce({
+      id: 'db-classic-device-1',
+      connectId: 'CLASSIC',
+      deviceStateInfo: { protocol: 'V1' },
+    } as never);
     getDeviceState.mockResolvedValue({
       success: true,
       payload: {
@@ -223,6 +230,7 @@ describe('ServiceHardware.getDeviceState', () => {
       onekey_se01_boot_hash: 'abcd',
     });
     expect(getFeatures).toHaveBeenCalledWith('CLASSIC', undefined);
+    expect(getDeviceState).not.toHaveBeenCalled();
   });
 
   it('projects romloader mode to both legacy bootloader flags', async () => {
@@ -290,6 +298,46 @@ describe('ServiceHardware.getDeviceManagementSnapshot', () => {
       params: undefined,
       hardwareCallContext: 'user_interaction_no_ble_dialog',
     });
+  });
+
+  it('does not coalesce settings and firmware refreshes for the same device', async () => {
+    const { service, state } = createService({ unlocked: true });
+    let resolveFirstSettings: ((value: typeof state) => void) | undefined;
+    let settingsCalls = 0;
+    const getDeviceState = jest.fn(
+      ({ params }: { params?: { scope?: string } }) => {
+        if (params?.scope === 'settings') {
+          settingsCalls += 1;
+          if (settingsCalls === 1) {
+            return new Promise<typeof state>((resolve) => {
+              resolveFirstSettings = resolve;
+            });
+          }
+        }
+        return Promise.resolve(state);
+      },
+    );
+    service.getDeviceState = getDeviceState as never;
+
+    const settingsRequest = service.getDeviceManagementSnapshot({
+      connectId: 'PRO2',
+    });
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    const firmwareRequest = service.getDeviceManagementSnapshot({
+      connectId: 'PRO2',
+      refreshInfo: true,
+    });
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+
+    expect(getDeviceState).toHaveBeenCalledWith(
+      expect.objectContaining({ params: { scope: 'firmware' } }),
+    );
+    resolveFirstSettings?.(state);
+    await Promise.all([settingsRequest, firmwareRequest]);
   });
 });
 
@@ -385,6 +433,110 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       EAppEventBusNames.HardwareDeviceStateUpdate,
       event,
     );
+  });
+
+  it('does not broadcast an event rejected as stale by persistence', async () => {
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    const updateDeviceStateMock = jest.mocked(localDb.updateDeviceState);
+    updateDeviceStateMock.mockReset();
+    updateDeviceStateMock.mockResolvedValueOnce({
+      kind: 'ignored',
+      reason: 'stale',
+    });
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    const emitMock = jest.mocked(appEventBus.emit);
+    emitMock.mockClear();
+    const listeners = new Map<
+      string,
+      (payload: unknown) => void | Promise<void>
+    >();
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    await service.registerSdkEvents({
+      on: jest.fn(
+        (event: string, listener: (payload: unknown) => void | Promise<void>) =>
+          listeners.set(event, listener),
+      ),
+    } as never);
+    const event = {
+      connectId: 'PRO2_USB',
+      revision: 1,
+      changedKeys: ['status.unlocked'],
+      source: 'device-status',
+      state: {
+        revision: 1,
+        updatedAt: 1,
+        protocol: 'V2',
+        identity: { serialNo: 'PRO2_SERIAL', deviceId: 'PRO2_DEVICE_ID' },
+      },
+    };
+
+    await listeners.get('state')?.(event);
+
+    expect(emitMock).not.toHaveBeenCalledWith(
+      EAppEventBusNames.HardwareDeviceStateUpdate,
+      event,
+    );
+    expect(
+      (
+        service as unknown as {
+          deviceProtocolByConnectId: Map<string, 'V1' | 'V2'>;
+        }
+      ).deviceProtocolByConnectId.has('PRO2_USB'),
+    ).toBe(false);
+  });
+
+  it('cleans the device event queue when an App subscriber throws', async () => {
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    jest.mocked(localDb.updateDeviceState).mockResolvedValueOnce({
+      kind: 'updated',
+      deviceDbId: 'db-device-1',
+      state: {} as never,
+    });
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    const emitMock = jest.mocked(appEventBus.emit);
+    emitMock.mockImplementationOnce(() => {
+      throw new OneKeyLocalError('Subscriber failed');
+    });
+    const listeners = new Map<
+      string,
+      (payload: unknown) => void | Promise<void>
+    >();
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    await service.registerSdkEvents({
+      on: jest.fn(
+        (event: string, listener: (payload: unknown) => void | Promise<void>) =>
+          listeners.set(event, listener),
+      ),
+    } as never);
+
+    await expect(
+      listeners.get('state')?.({
+        connectId: 'PRO2_USB',
+        revision: 2,
+        changedKeys: ['status.unlocked'],
+        source: 'device-status',
+        state: {
+          revision: 2,
+          updatedAt: 2,
+          protocol: 'V2',
+          identity: {
+            serialNo: 'PRO2_SERIAL',
+            deviceId: 'PRO2_DEVICE_ID',
+          },
+        },
+      }),
+    ).resolves.toBeUndefined();
+    expect(
+      (
+        service as unknown as {
+          deviceStateSyncQueues: Map<string, Promise<void>>;
+        }
+      ).deviceStateSyncQueues.size,
+    ).toBe(0);
   });
 
   it('deprecates the old wallet and suppresses a reset identity event', async () => {

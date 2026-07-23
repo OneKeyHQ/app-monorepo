@@ -111,6 +111,9 @@ export function mergeDeviceStateEvent({
   mergedState.revision = incomingState.revision;
   mergedState.updatedAt = incomingState.updatedAt;
   mergedState.protocol = incomingState.protocol;
+  if (incomingState.protocolVersion !== undefined) {
+    mergedState.protocolVersion = incomingState.protocolVersion;
+  }
   updateDisplayName(mergedState);
   return mergedState;
 }
@@ -166,7 +169,8 @@ export function projectLegacyDeviceFeaturesFromState(
     onekey_se04_boot_build_id: verification?.se04BootBuildId,
     onekey_device_type: identity.deviceType,
     protocol: state.protocol,
-    protocolVersion: state.protocol === 'V2' ? 2 : 1,
+    protocolVersion:
+      state.protocolVersion ?? (state.protocol === 'V1' ? 1 : null),
     deviceType: identity.deviceType,
     firmwareType: identity.firmwareType,
     model: identity.model,
