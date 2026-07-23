@@ -43,6 +43,7 @@ import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { isPerpsAccountAddressMatched } from '../../utils/accountScopedData';
 import { resolveTpSlTriggerPx } from '../../utils/resolveTpSlTriggerPx';
 import {
+  DEFAULT_TPSL_ROE_PERCENT,
   buildDefaultTpSlPercent,
   shouldSeedPositionTpSlLeg,
 } from '../../utils/tpslSeed';
@@ -66,6 +67,13 @@ import {
 
 import type { RouteProp } from '@react-navigation/core';
 import type { IntlShape } from 'react-intl';
+
+// The position TP/SL seed defaults each empty leg to a 10% ROE; a stable
+// reference lets TpslInput display "10" verbatim on the seeded price.
+const POSITION_TPSL_SEED_PERCENT = {
+  tp: DEFAULT_TPSL_ROE_PERCENT,
+  sl: DEFAULT_TPSL_ROE_PERCENT,
+};
 
 export interface ISetTpslParams {
   coin: string;
@@ -353,6 +361,7 @@ const SetTpslForm = memo(
         referencePrice: new BigNumber(entryPrice),
         side: isLongPosition ? 'long' : 'short',
         leverage,
+        szDecimals,
       });
       setFormData((previous) => {
         const shouldSeedTp = shouldSeedPositionTpSlLeg({
@@ -395,6 +404,7 @@ const SetTpslForm = memo(
       presetTpsl,
       presetTriggerPrice,
       slOrder,
+      szDecimals,
       tpOrder,
     ]);
 
@@ -739,6 +749,7 @@ const SetTpslForm = memo(
             side={isLongPosition ? 'long' : 'short'}
             szDecimals={szDecimals}
             leverage={leverage}
+            seedPercent={POSITION_TPSL_SEED_PERCENT}
             tpsl={{ tpPrice: formData.tpPrice, slPrice: formData.slPrice }}
             onChange={handleTpslChange}
             amount={

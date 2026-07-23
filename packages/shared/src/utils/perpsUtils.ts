@@ -586,7 +586,7 @@ function getHlPriceTick(
 
 function snapHlPriceToGrid(
   price: BigNumber.Value,
-  direction: 'up' | 'down',
+  direction: 'up' | 'down' | 'nearest',
   szDecimals: number,
   type: 'perp' | 'spot' = 'perp',
 ): BigNumber | null {
@@ -596,8 +596,12 @@ function snapHlPriceToGrid(
     return null;
   }
 
-  const roundingMode =
-    direction === 'up' ? BigNumber.ROUND_CEIL : BigNumber.ROUND_FLOOR;
+  let roundingMode: BigNumber.RoundingMode = BigNumber.ROUND_HALF_UP;
+  if (direction === 'up') {
+    roundingMode = BigNumber.ROUND_CEIL;
+  } else if (direction === 'down') {
+    roundingMode = BigNumber.ROUND_FLOOR;
+  }
   const snappedPrice = priceBN
     .dividedBy(tick)
     .integerValue(roundingMode)

@@ -20,6 +20,7 @@ import {
   calculateProfitLoss,
   formatPercentage,
   formatPriceToSignificantDigits,
+  snapHlPriceToGrid,
   validatePriceInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
@@ -98,6 +99,10 @@ interface ITpslInputProps {
   isMobile?: boolean;
   // Optional props for profit/loss calculation
   amount?: string | number;
+  // When a leg's price equals the price derived from this percent, show this
+  // percent verbatim instead of the value reverse-computed from the snapped
+  // price, so a seeded 10% default reads as "10" like manual percent entry.
+  seedPercent?: { tp?: string; sl?: string };
 }
 
 export const TpslInput = memo(
@@ -114,6 +119,7 @@ export const TpslInput = memo(
     hiddenSl = false,
     isMobile = false,
     amount,
+    seedPercent,
   }: ITpslInputProps) => {
     const referencePrice = useMemo(() => {
       return new BigNumber(price || 0);
@@ -188,20 +194,32 @@ export const TpslInput = memo(
           (side === 'long') === isTP
             ? new BigNumber(100).plus(adjustedPercent)
             : new BigNumber(100).minus(adjustedPercent);
-        return formatPriceToSignificantDigits(
-          referencePrice.multipliedBy(multiplier).dividedBy(100),
-          szDecimals,
-        );
+        const rawPrice = referencePrice.multipliedBy(multiplier).dividedBy(100);
+        // Snap to the nearest valid price so the typed percentage survives the
+        // round-trip instead of always truncating toward zero.
+        const snappedPrice =
+          snapHlPriceToGrid(rawPrice, 'nearest', szDecimals) ?? rawPrice;
+        return formatPriceToSignificantDigits(snappedPrice, szDecimals);
       },
       [referencePrice, side, szDecimals, leverage],
     );
 
     useEffect(() => {
+      // Keep the seeded percent (e.g. 10) as-is while the leg still sits on its
+      // seeded price; fall back to the reverse-computed percent once the user
+      // moves the price off that seed.
+      const resolveDisplayPercent = (priceValue: string, isTP: boolean) => {
+        const seed = isTP ? seedPercent?.tp : seedPercent?.sl;
+        if (seed && calculatePrice(seed, isTP) === priceValue) {
+          return seed;
+        }
+        return calculatePercent(priceValue, isTP);
+      };
       const newTpPercent = tpsl.tpPrice
-        ? calculatePercent(tpsl.tpPrice, true)
+        ? resolveDisplayPercent(tpsl.tpPrice, true)
         : '';
       const newSlPercent = tpsl.slPrice
-        ? calculatePercent(tpsl.slPrice, false)
+        ? resolveDisplayPercent(tpsl.slPrice, false)
         : '';
 
       setInternalState((prev) => {

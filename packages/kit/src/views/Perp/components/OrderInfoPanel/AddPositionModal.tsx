@@ -253,11 +253,13 @@ const AddPositionForm = memo(
 
         const latestPrice =
           orderType === 'market' ? latestAssetData.markPx : limitPrice;
+        const latestSzDecimals =
+          latestTargetData.targetAsset.universe?.szDecimals ?? 0;
         const latestValidation = validateAddPositionOrder({
           size: amount,
           price: latestPrice,
           maxSize: latestAssetData.maxTradeSzs[isBuy ? 0 : 1],
-          szDecimals: latestTargetData.targetAsset.universe?.szDecimals ?? 0,
+          szDecimals: latestSzDecimals,
         });
         if (latestValidation.error) {
           throw new OneKeyLocalError(
@@ -283,6 +285,7 @@ const AddPositionForm = memo(
           referencePrice: new BigNumber(latestPrice),
           side: isBuy ? 'long' : 'short',
           leverage: latestLeverage,
+          szDecimals: latestSzDecimals,
         });
 
         await actions.current.placeOrderByCoin({

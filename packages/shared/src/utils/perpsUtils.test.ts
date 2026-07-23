@@ -641,6 +641,18 @@ describe('HyperLiquid BBO price ticks', () => {
     expect(snapHlPriceToGrid('1.23456', 'up', 2)?.toFixed()).toBe('1.2346');
     expect(snapHlPriceToGrid('1.23456', 'down', 2)?.toFixed()).toBe('1.2345');
   });
+
+  test('snaps to the closest tick in nearest mode', () => {
+    expect(snapHlPriceToGrid('1.23456', 'nearest', 2)?.toFixed()).toBe(
+      '1.2346',
+    );
+    expect(snapHlPriceToGrid('1.23454', 'nearest', 2)?.toFixed()).toBe(
+      '1.2345',
+    );
+    expect(snapHlPriceToGrid('3.4739835', 'nearest', 1)?.toFixed()).toBe(
+      '3.474',
+    );
+  });
 });
 
 describe('formatPriceToSignificantDigits - HyperLiquid Price Formatting', () => {
