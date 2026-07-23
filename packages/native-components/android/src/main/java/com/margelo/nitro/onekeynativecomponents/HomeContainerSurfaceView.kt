@@ -1,9 +1,14 @@
 package com.margelo.nitro.onekeynativecomponents
 
 import android.content.Context
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import kotlin.math.roundToInt
+
+internal fun homeContainerCenteredSlotOffset(hostSize: Int, childSize: Int): Int =
+  ((hostSize - childSize).coerceAtLeast(0)) / 2
 
 internal class HomeContainerSurfaceView(context: Context) : FrameLayout(context) {
   private val reactChildren = mutableListOf<View>()
@@ -108,22 +113,46 @@ internal class HomeContainerSurfaceView(context: Context) : FrameLayout(context)
       ) {
         parkSlot(child)
       } else {
+        val isTabAccessory = child.slotKey.startsWith("tab.accessory.")
+        val childWidth = if (isTabAccessory) {
+          dp(TAB_ACCESSORY_SIZE_DP).coerceAtMost(host.width)
+        } else {
+          host.width
+        }
+        val childHeight = if (isTabAccessory) {
+          dp(TAB_ACCESSORY_SIZE_DP).coerceAtMost(host.height)
+        } else {
+          host.height
+        }
+        val layoutWidth =
+          if (isTabAccessory) childWidth else ViewGroup.LayoutParams.MATCH_PARENT
+        val layoutHeight =
+          if (isTabAccessory) childHeight else ViewGroup.LayoutParams.MATCH_PARENT
+        val layoutGravity = if (isTabAccessory) Gravity.CENTER else Gravity.NO_GRAVITY
         if (child.parent !== host) {
           (child.parent as? ViewGroup)?.removeView(child)
           host.addView(
             child,
-            ViewGroup.LayoutParams(
-              ViewGroup.LayoutParams.MATCH_PARENT,
-              ViewGroup.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams(
+              layoutWidth,
+              layoutHeight,
+              layoutGravity,
             ),
           )
         }
         child.visibility = VISIBLE
         child.measure(
-          MeasureSpec.makeMeasureSpec(host.width, MeasureSpec.EXACTLY),
-          MeasureSpec.makeMeasureSpec(host.height, MeasureSpec.EXACTLY),
+          MeasureSpec.makeMeasureSpec(childWidth, MeasureSpec.EXACTLY),
+          MeasureSpec.makeMeasureSpec(childHeight, MeasureSpec.EXACTLY),
         )
-        child.layout(0, 0, host.width, host.height)
+        val childLeft = homeContainerCenteredSlotOffset(host.width, childWidth)
+        val childTop = homeContainerCenteredSlotOffset(host.height, childHeight)
+        child.layout(
+          childLeft,
+          childTop,
+          childLeft + childWidth,
+          childTop + childHeight,
+        )
       }
     }
   }
@@ -158,5 +187,12 @@ internal class HomeContainerSurfaceView(context: Context) : FrameLayout(context)
       findEngine(view.getChildAt(index))?.let { return it }
     }
     return null
+  }
+
+  private fun dp(value: Int): Int =
+    (value * resources.displayMetrics.density).roundToInt()
+
+  companion object {
+    private const val TAB_ACCESSORY_SIZE_DP = 36
   }
 }

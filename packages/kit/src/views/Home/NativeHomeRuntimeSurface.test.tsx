@@ -126,6 +126,10 @@ describe('Native Home runtime surface', () => {
     expect(mobileRendererSource).toContain('contentHeaders:');
     expect(mobileRendererSource).toContain('contentFooters:');
     expect(mobileRendererSource).toContain('tabAccessories:');
+    expect(mobileRendererSource).toContain(
+      'interaction.sectionControls.portfolio',
+    );
+    expect(mobileRendererSource).toContain('value={displayedShowLpTokensOnly}');
     expect(mobileRendererSource).toContain('height: header.actionRowHeight');
     expect(mobileRendererSource).toContain(
       'slotRevisions: collectSlotRevisions(slots)',

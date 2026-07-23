@@ -7,6 +7,12 @@ import org.junit.Test
 
 class HomeContainerNavigationContractTest {
   @Test
+  fun `tab accessory is centered inside the compact tab host`() {
+    assertEquals(30, homeContainerCenteredSlotOffset(hostSize = 157, childSize = 97))
+    assertEquals(0, homeContainerCenteredSlotOffset(hostSize = 36, childSize = 48))
+  }
+
+  @Test
   fun `header collapse preserves the compact account region`() {
     assertEquals(
       290,

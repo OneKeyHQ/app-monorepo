@@ -29,6 +29,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import {
   useHomeCommitIdentity,
   useHomeFacts,
+  useHomeInteraction,
   useHomeNavigation,
   useHomeResource,
   useHomeSection,
@@ -56,6 +57,7 @@ import {
   readHomeBannerStorePayload,
 } from '@onekeyhq/kit/src/views/Home/model/sections/banner/homeBannerStoreModel';
 import { getHomeMarketTokenRowId } from '@onekeyhq/kit/src/views/Home/model/sections/market/homeMarketSourceAdapter';
+import { HOME_PORTFOLIO_SHOW_LP_TOKENS_CONTROL_ID } from '@onekeyhq/kit/src/views/Home/model/sections/spot/homePortfolioControls';
 import {
   HOME_SECTION_ACTION_IDS,
   HOME_SHELL_ACTION_IDS,
@@ -236,6 +238,7 @@ export function MobileNativeHomeRenderer({
   );
   const session = useHomeSessionState();
   const facts = useHomeFacts();
+  const interaction = useHomeInteraction();
   const shell = useHomeShell();
   const homeNavigation = useHomeNavigation();
   const commitIdentity = useHomeCommitIdentity();
@@ -284,6 +287,14 @@ export function MobileNativeHomeRenderer({
     walletId: wallet?.id ?? '',
   });
   const portfolioPayload = useHomeSectionPayload('portfolio');
+  const requestedShowLpTokensOnly =
+    interaction.sectionControls.portfolio?.[
+      HOME_PORTFOLIO_SHOW_LP_TOKENS_CONTROL_ID
+    ];
+  const displayedShowLpTokensOnly =
+    typeof requestedShowLpTokensOnly === 'boolean'
+      ? requestedShowLpTokensOnly
+      : (portfolioPayload?.showLpTokensOnly ?? false);
   const perpsPayload = useHomeSectionPayload('perps');
   const defiPayload = useHomeSectionPayload('defi');
   const nftPayload = useHomeSectionPayload('nft');
@@ -1066,7 +1077,7 @@ export function MobileNativeHomeRenderer({
               headerActions={
                 portfolioPayload?.showLpTokenFilterSwitch ? (
                   <TokenSelectorLpTokenSwitch
-                    value={portfolioPayload.showLpTokensOnly}
+                    value={displayedShowLpTokensOnly}
                     loading={portfolioPayload.isLpTokenSwitchLoading}
                     onChange={setShowLpTokensOnly}
                   />
@@ -1181,6 +1192,7 @@ export function MobileNativeHomeRenderer({
       actionRowAuthority,
       backupStateAuthority,
       balanceAuthority,
+      displayedShowLpTokensOnly,
       footerAuthorities,
       header.actionRowHeight,
       historyAccessoryAuthority,

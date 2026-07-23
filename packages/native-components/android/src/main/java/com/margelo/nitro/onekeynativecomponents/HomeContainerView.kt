@@ -1906,17 +1906,7 @@ private class HomePageView(context: Context) : FrameLayout(context) {
 
 }
 
-private class HomeContainerSlotHostView(context: Context) : FrameLayout(context) {
-  override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
-    super.onLayout(changed, left, top, right, bottom)
-    for (index in 0 until childCount) {
-      val child = getChildAt(index)
-      if (child is HomeContainerSlotView) {
-        child.layout(0, 0, width, height)
-      }
-    }
-  }
-}
+private class HomeContainerSlotHostView(context: Context) : FrameLayout(context)
 
 private data class HomeListRow(
   val kind: Int,
