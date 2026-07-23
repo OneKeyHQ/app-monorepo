@@ -42,15 +42,17 @@ export class WcPayUserCancelledError extends OneKeyLocalError {}
 function buildWcPaySourceInfo({
   method,
   params,
+  scope,
 }: {
   method: string;
   params: unknown;
+  scope: IDappSourceInfo['scope'];
 }): IDappSourceInfo {
   return {
     id: '',
     origin: `https://${WALLET_CONNECT_PAY_TRUSTED_HOST}`,
     hostname: WALLET_CONNECT_PAY_TRUSTED_HOST,
-    scope: 'ethereum',
+    scope,
     data: { method, params },
     isWalletConnectRequest: false,
   };
@@ -111,14 +113,63 @@ export function useWcPayActionExecutor() {
       actions,
       accountId,
       indexedAccountId,
+      completedResults,
+      onActionComplete,
     }: {
       actions: IWcPayAction[];
       accountId?: string;
       indexedAccountId?: string;
+      // results of actions already executed in a previous partially-failed
+      // attempt of the same payment option; execution resumes after them so
+      // an already-broadcast transaction is never sent twice
+      completedResults?: string[];
+      // reports each action result as soon as it exists, so the caller can
+      // persist progress even when a later action in the sequence rejects
+      onActionComplete?: (params: { index: number; result: string }) => void;
     }): Promise<string[]> => {
-      const results: string[] = [];
+      const startIndex = Math.min(
+        completedResults?.length ?? 0,
+        actions.length,
+      );
+      const results: string[] = (completedResults ?? []).slice(
+        0,
+        actions.length,
+      );
 
-      for (let i = 0; i < actions.length; i += 1) {
+      // resuming after a mid-sequence failure: if the last completed action
+      // broadcast a tx, re-verify it is mined before continuing so the
+      // Permit2 "approve mined before follow-up signing" ordering holds even
+      // when the original waitForTxMined was the step that failed
+      if (startIndex > 0 && startIndex < actions.length) {
+        const prevRpc = actions[startIndex - 1].walletRpc;
+        const prevTxid = results[startIndex - 1];
+        if (
+          prevRpc.method === EWcPayActionMethod.EthSendTransaction &&
+          prevTxid
+        ) {
+          const prevNetworkId = wcPayChainIdToNetworkId(prevRpc.chainId);
+          if (prevNetworkId) {
+            const prevDeriveType =
+              await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                { networkId: prevNetworkId },
+              );
+            const prevAccount =
+              await backgroundApiProxy.serviceAccount.getNetworkAccount({
+                accountId: indexedAccountId ? undefined : accountId,
+                indexedAccountId,
+                networkId: prevNetworkId,
+                deriveType: prevDeriveType,
+              });
+            await backgroundApiProxy.serviceWalletConnectPay.waitForTxMined({
+              networkId: prevNetworkId,
+              accountId: prevAccount.id,
+              txid: prevTxid,
+            });
+          }
+        }
+      }
+
+      for (let i = startIndex; i < actions.length; i += 1) {
         const { chainId, method, params } = actions[i].walletRpc;
         const networkId = wcPayChainIdToNetworkId(chainId);
         if (!networkId) {
@@ -168,6 +219,11 @@ export function useWcPayActionExecutor() {
                   // the gas params provided by WalletConnect Pay are hints;
                   // let the wallet estimate fees like a normal send
                   useFeeInTx: false,
+                  sourceInfo: buildWcPaySourceInfo({
+                    method,
+                    params: parsed,
+                    scope: 'ethereum',
+                  }),
                   onSuccess: (txs: ISendTxOnSuccessData[]) => {
                     const id = txs?.[0]?.signedTx?.txid;
                     if (id) {
@@ -185,6 +241,10 @@ export function useWcPayActionExecutor() {
               });
             });
             results.push(txid);
+            // record the txid immediately: the tx is already on-chain, so a
+            // failure in any later step (including the mined-wait below) must
+            // not lose it, or a retry would broadcast a duplicate payment
+            onActionComplete?.({ index: i, result: txid });
             // Permit2 flow: the approve must be mined before signing the
             // follow-up typed data
             if (i < actions.length - 1) {
@@ -209,7 +269,11 @@ export function useWcPayActionExecutor() {
                     message,
                     payload: [account.address, message],
                   },
-                  sourceInfo: buildWcPaySourceInfo({ method, params: parsed }),
+                  sourceInfo: buildWcPaySourceInfo({
+                    method,
+                    params: parsed,
+                    scope: 'ethereum',
+                  }),
                   onSuccess: (result: string) => resolve(result),
                   onFail: (error: Error) => reject(error),
                   onCancel: () =>
@@ -220,6 +284,7 @@ export function useWcPayActionExecutor() {
               });
             });
             results.push(signature);
+            onActionComplete?.({ index: i, result: signature });
             break;
           }
           case EWcPayActionMethod.PersonalSign: {
@@ -243,7 +308,11 @@ export function useWcPayActionExecutor() {
                     message,
                     payload: [message, account.address],
                   },
-                  sourceInfo: buildWcPaySourceInfo({ method, params: parsed }),
+                  sourceInfo: buildWcPaySourceInfo({
+                    method,
+                    params: parsed,
+                    scope: 'ethereum',
+                  }),
                   onSuccess: (result: string) => resolve(result),
                   onFail: (error: Error) => reject(error),
                   onCancel: () =>
@@ -254,6 +323,7 @@ export function useWcPayActionExecutor() {
               });
             });
             results.push(signature);
+            onActionComplete?.({ index: i, result: signature });
             break;
           }
           case EWcPayActionMethod.SolanaSignTransaction: {
@@ -282,6 +352,11 @@ export function useWcPayActionExecutor() {
                   // fee flow from rewriting it before signing (sol vault
                   // attaches a priority-fee instruction unless this is false)
                   feeInfoEditable: false,
+                  sourceInfo: buildWcPaySourceInfo({
+                    method,
+                    params: parsed,
+                    scope: 'solana',
+                  }),
                   onSuccess: (txs: ISendTxOnSuccessData[]) => {
                     const raw = txs?.[0]?.signedTx?.rawTx;
                     if (raw) {
@@ -303,6 +378,7 @@ export function useWcPayActionExecutor() {
             // confirmPayment expects the full signed transaction; sol
             // signedTx.rawTx is already base64, pass through unchanged
             results.push(rawTx);
+            onActionComplete?.({ index: i, result: rawTx });
             break;
           }
           default:

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -106,6 +106,10 @@ function PaymentOptionsPage() {
   const [selectedOptionId, setSelectedOptionId] = useState<string>('');
   const [isPaying, setIsPaying] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  // per payment+option record of action results already produced by a
+  // partially failed attempt; a retry resumes from the first incomplete
+  // action instead of re-broadcasting transactions that are already on-chain
+  const completedActionsRef = useRef<Record<string, string[]>>({});
 
   const accountId = activeAccount?.account?.id;
   const indexedAccountId = activeAccount?.indexedAccount?.id;
@@ -213,11 +217,24 @@ function PaymentOptionsPage() {
           { paymentId, optionId },
         );
 
-      // 3. sign sequentially; results order must match actions order
+      // 3. sign sequentially; results order must match actions order.
+      // Progress is recorded action-by-action so that when a later action
+      // fails (or the user cancels) after an earlier tx already broadcast,
+      // retrying resumes from the first incomplete action instead of
+      // re-broadcasting the completed ones. The record is intentionally kept
+      // after success too: if the user somehow re-enters pay for the same
+      // payment+option, all actions are treated as done rather than re-sent.
+      const progressKey = `${paymentId}:${optionId}`;
       const signatures = await executeActions({
         actions,
         accountId,
         indexedAccountId,
+        completedResults: completedActionsRef.current[progressKey],
+        onActionComplete: ({ index, result: actionResult }) => {
+          const progress = completedActionsRef.current[progressKey] ?? [];
+          progress[index] = actionResult;
+          completedActionsRef.current[progressKey] = progress;
+        },
       });
 
       // 4. submit and show result. The transaction may already be broadcast
