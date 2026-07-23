@@ -143,6 +143,16 @@ function useHomeHistoryStoreSource({
   const homeTokenListMap =
     portfolioPayload?.tokenListMap ?? EMPTY_HOME_HISTORY_TOKEN_MAP;
   const stableOwner = useStableHomeFactsOwner();
+  const stableOwnerToken = stableOwner?.ownerToken;
+  const stableOwnerTokenKey = useMemo(
+    () =>
+      stableOwnerToken
+        ? stringUtils.stableStringify(stableOwnerToken)
+        : undefined,
+    [stableOwnerToken],
+  );
+  const stableOwnerTokenRef = useRef(stableOwnerToken);
+  stableOwnerTokenRef.current = stableOwnerToken;
   const {
     beginHomeSectionRequest,
     completeHomeSectionRequest,
@@ -205,6 +215,13 @@ function useHomeHistoryStoreSource({
       walletId,
     ],
   );
+  const sourceTaskIdentityKey = useMemo(
+    () =>
+      identityKey && stableOwnerTokenKey
+        ? stringUtils.stableStringify({ identityKey, stableOwnerTokenKey })
+        : undefined,
+    [identityKey, stableOwnerTokenKey],
+  );
 
   const payloadRef = useRef<IHomeHistoryStorePayload>(
     createHomeHistoryStorePayload(),
@@ -214,6 +231,13 @@ function useHomeHistoryStoreSource({
   const isIndexerRef = useRef(false);
   const identityGenerationRef = useRef(0);
   const requestGenerationRef = useRef(0);
+  const firstPageLoadRef = useRef<
+    | {
+        identityKey: string;
+        promise: Promise<void>;
+      }
+    | undefined
+  >(undefined);
   const loadMoreInFlightRef = useRef(false);
   const loadMoreCountRef = useRef(0);
   const tabRefreshCountRef = useRef(0);
@@ -243,22 +267,18 @@ function useHomeHistoryStoreSource({
   );
 
   const beginGatewayRequest = useCallback(() => {
-    if (!stableOwner || !identityKey) {
+    const currentOwnerToken = stableOwnerTokenRef.current;
+    if (!currentOwnerToken || !identityKey) {
       throw new OneKeyLocalError('Home History source owner is unavailable');
     }
     return beginHomeSectionRequest({
       dataSchemaVersion: HOME_HISTORY_DATA_SCHEMA_VERSION,
-      ownerToken: stableOwner.ownerToken,
+      ownerToken: currentOwnerToken,
       paramsFingerprint: identityKey,
       quoteBasis: { currency: settings.currencyInfo.id },
       sectionId: 'history',
     });
-  }, [
-    beginHomeSectionRequest,
-    identityKey,
-    settings.currencyInfo.id,
-    stableOwner,
-  ]);
+  }, [beginHomeSectionRequest, identityKey, settings.currencyInfo.id]);
 
   const completeGatewayRequest = useCallback(
     (
@@ -432,50 +452,65 @@ function useHomeHistoryStoreSource({
 
   const loadFirstPage = useCallback(
     async ({ manual }: { manual: boolean }) => {
-      if (!sourceEnabled || !identityKey) {
+      if (!sourceEnabled || !identityKey || !sourceTaskIdentityKey) {
         return;
       }
-      requestGenerationRef.current += 1;
-      const requestGeneration = requestGenerationRef.current;
-      const identityGeneration = identityGenerationRef.current;
+      const currentTask = firstPageLoadRef.current;
+      if (currentTask?.identityKey === sourceTaskIdentityKey) {
+        return currentTask.promise;
+      }
+      const task = (async () => {
+        requestGenerationRef.current += 1;
+        const requestGeneration = requestGenerationRef.current;
+        const identityGeneration = identityGenerationRef.current;
+        try {
+          await runHomeHistoryStoreRequest({
+            gateway,
+            isCurrent: () =>
+              identityGenerationRef.current === identityGeneration &&
+              requestGenerationRef.current === requestGeneration,
+            load: () => fetchRemoteHistory({ manual }),
+            project: (response) => {
+              const nextData = reconcileHomeHistoryFirstPage({
+                current: payloadRef.current.data,
+                firstPage: response.txs,
+                previousFirstPage: firstPageRef.current,
+              });
+              firstPageRef.current = response.txs;
+              if (nextData.length === response.txs.length) {
+                pageRef.current = 1;
+                loadMoreCountRef.current = 0;
+              }
+              const payload = createHomeHistoryStorePayload({
+                addressMap: mergeHomeHistoryAddressMap(
+                  payloadRef.current.addressMap,
+                  response.addressMap,
+                ),
+                cursor: normalizeCursor(response.next),
+                data: nextData,
+                hasMore:
+                  !isAllNetworks && Boolean(response.hasMoreOnChainHistory),
+                tokenMap: tokenMapRef.current,
+              });
+              payloadRef.current = payload;
+              hasPublishedPayloadRef.current = true;
+              isIndexerRef.current = Boolean(response.isIndexer);
+              return payload;
+            },
+            afterSuccess: runPostFetchEffects,
+          });
+        } catch (error) {
+          logHomeHistorySourceFailure('firstPage', error);
+        }
+      })();
+      const taskEntry = { identityKey: sourceTaskIdentityKey, promise: task };
+      firstPageLoadRef.current = taskEntry;
       try {
-        await runHomeHistoryStoreRequest({
-          gateway,
-          isCurrent: () =>
-            identityGenerationRef.current === identityGeneration &&
-            requestGenerationRef.current === requestGeneration,
-          load: () => fetchRemoteHistory({ manual }),
-          project: (response) => {
-            const nextData = reconcileHomeHistoryFirstPage({
-              current: payloadRef.current.data,
-              firstPage: response.txs,
-              previousFirstPage: firstPageRef.current,
-            });
-            firstPageRef.current = response.txs;
-            if (nextData.length === response.txs.length) {
-              pageRef.current = 1;
-              loadMoreCountRef.current = 0;
-            }
-            const payload = createHomeHistoryStorePayload({
-              addressMap: mergeHomeHistoryAddressMap(
-                payloadRef.current.addressMap,
-                response.addressMap,
-              ),
-              cursor: normalizeCursor(response.next),
-              data: nextData,
-              hasMore:
-                !isAllNetworks && Boolean(response.hasMoreOnChainHistory),
-              tokenMap: tokenMapRef.current,
-            });
-            payloadRef.current = payload;
-            hasPublishedPayloadRef.current = true;
-            isIndexerRef.current = Boolean(response.isIndexer);
-            return payload;
-          },
-          afterSuccess: runPostFetchEffects,
-        });
-      } catch (error) {
-        logHomeHistorySourceFailure('firstPage', error);
+        await task;
+      } finally {
+        if (firstPageLoadRef.current === taskEntry) {
+          firstPageLoadRef.current = undefined;
+        }
       }
     },
     [
@@ -485,6 +520,7 @@ function useHomeHistoryStoreSource({
       isAllNetworks,
       runPostFetchEffects,
       sourceEnabled,
+      sourceTaskIdentityKey,
     ],
   );
 
@@ -547,6 +583,13 @@ function useHomeHistoryStoreSource({
     settings.isFilterLowValueHistoryEnabled,
     settings.isFilterScamHistoryEnabled,
   ]);
+  const localCacheSnapshotRef = useRef<
+    | {
+        identityKey: string;
+        value: Awaited<ReturnType<typeof loadLocalCache>>;
+      }
+    | undefined
+  >(undefined);
 
   const seedCacheThenLoad = useCallback(async () => {
     if (!sourceEnabled || !identityKey) {
@@ -555,7 +598,12 @@ function useHomeHistoryStoreSource({
     const identityGeneration = identityGenerationRef.current;
     const handle = gateway.begin();
     try {
-      const cache = await loadLocalCache();
+      const cachedSnapshot = localCacheSnapshotRef.current;
+      const cache =
+        cachedSnapshot?.identityKey === identityKey
+          ? cachedSnapshot.value
+          : await loadLocalCache();
+      localCacheSnapshotRef.current = { identityKey, value: cache };
       if (identityGenerationRef.current !== identityGeneration) {
         gateway.complete(handle, { kind: 'error' });
         return;
@@ -577,6 +625,8 @@ function useHomeHistoryStoreSource({
       await loadFirstPage({ manual: false });
     }
   }, [gateway, identityKey, loadFirstPage, loadLocalCache, sourceEnabled]);
+  const seedCacheThenLoadRef = useRef(seedCacheThenLoad);
+  seedCacheThenLoadRef.current = seedCacheThenLoad;
 
   const loadMore = useCallback(async () => {
     if (
@@ -678,6 +728,7 @@ function useHomeHistoryStoreSource({
   }, [gateway, sourceEnabled]);
 
   useEffect(() => {
+    const currentOwnerToken = stableOwnerTokenRef.current;
     identityGenerationRef.current += 1;
     requestGenerationRef.current += 1;
     loadMoreInFlightRef.current = false;
@@ -690,16 +741,16 @@ function useHomeHistoryStoreSource({
     });
     firstPageRef.current = [];
     stopPendingTokenRefresh();
-    if (!sourceEnabled || !identityKey || !stableOwner) {
-      if (stableOwner) {
+    if (!sourceEnabled || !identityKey || !currentOwnerToken) {
+      if (currentOwnerToken) {
         resetHomeSectionSource({
-          ownerToken: stableOwner.ownerToken,
+          ownerToken: currentOwnerToken,
           sectionId: 'history',
         });
       }
       return undefined;
     }
-    void seedCacheThenLoad();
+    void seedCacheThenLoadRef.current();
     return () => {
       identityGenerationRef.current += 1;
       requestGenerationRef.current += 1;
@@ -707,9 +758,8 @@ function useHomeHistoryStoreSource({
   }, [
     identityKey,
     resetHomeSectionSource,
-    seedCacheThenLoad,
     sourceEnabled,
-    stableOwner,
+    stableOwnerTokenKey,
     stopPendingTokenRefresh,
   ]);
 
@@ -849,10 +899,13 @@ export function HomeHistoryStoreController() {
   const enabled =
     navigation.value.kind === 'ready' &&
     navigation.value.tabs.includes('history');
+  const visible =
+    navigation.value.kind === 'ready' &&
+    navigation.value.selectedTabId === 'history';
   const {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
-  const source = useHomeHistoryStoreSource({ enabled, visible: enabled });
+  const source = useHomeHistoryStoreSource({ enabled, visible });
 
   useRegisterHomeBackgroundRecoveryRefresh({
     callback: source.refresh,

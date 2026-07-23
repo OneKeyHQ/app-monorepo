@@ -41,8 +41,10 @@ import type { IHomeCorrelatedBalancePresentation } from '../model/compatibility/
 
 function HomeOverviewContainer({
   balancePresentation,
+  nativeSlot = false,
 }: {
   balancePresentation?: IHomeCorrelatedBalancePresentation;
+  nativeSlot?: boolean;
 } = {}) {
   const num = 0;
   const { activeAccount } = useActiveAccount({ num });
@@ -200,8 +202,10 @@ function HomeOverviewContainer({
 
   return (
     <YStack
+      flex={nativeSlot ? 1 : undefined}
       gap="$2.5"
       alignItems="flex-start"
+      justifyContent={nativeSlot ? 'center' : undefined}
       testID={HomeTestIDs.walletOverview}
     >
       <YStack w="100%" gap="$2">
@@ -253,7 +257,7 @@ function HomeOverviewContainer({
           </XStack>
         )}
       </YStack>
-      {vaultSettings?.hasFrozenBalance ? (
+      {!nativeSlot && vaultSettings?.hasFrozenBalance ? (
         <Button
           testID="home-btn"
           onPress={handleBalanceDetailsOnPress}
@@ -266,7 +270,7 @@ function HomeOverviewContainer({
           })}
         </Button>
       ) : undefined}
-      {isWalletNotBackedUp && vaultSettings?.hasResource ? (
+      {!nativeSlot && isWalletNotBackedUp && vaultSettings?.hasResource ? (
         <Button
           testID="home-btn"
           onPress={handleResourceDetailsOnPress}

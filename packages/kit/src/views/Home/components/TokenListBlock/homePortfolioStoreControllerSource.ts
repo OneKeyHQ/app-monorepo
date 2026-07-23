@@ -2,10 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { isTokenSelectorDappToken } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
-import type {
-  IAccountToken,
-  ITokenFiat,
-} from '@onekeyhq/shared/types/token';
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { normalizeHomeStoreJson } from '../../model/store/homeStoreJson';
 
@@ -23,6 +20,8 @@ type IHomePortfolioValuationReceipt = {
   ownerKey: string;
   valuationVersion: number;
 };
+
+type IHomePortfolioTerminalEvidence = 'complete' | 'confirmedCache' | 'error';
 
 function requireHomePortfolioValuationReceipt({
   ownerKey,
@@ -53,6 +52,19 @@ function isHomePortfolioValuationReceiptApplied({
     applied?.ownerKey === expected.ownerKey &&
     applied.valuationVersion >= expected.valuationVersion
   );
+}
+
+function resolveHomePortfolioTerminalEvidence({
+  displayCount,
+  terminal,
+}: {
+  displayCount: number;
+  terminal: 'complete' | 'error' | 'partial';
+}): IHomePortfolioTerminalEvidence {
+  if (terminal === 'complete') {
+    return 'complete';
+  }
+  return displayCount > 0 ? 'confirmedCache' : 'error';
 }
 
 function filterHomePortfolioSmallBalanceTokens({
@@ -211,6 +223,11 @@ export {
   buildHomePortfolioReadyResult,
   isHomePortfolioValuationReceiptApplied,
   requireHomePortfolioValuationReceipt,
+  resolveHomePortfolioTerminalEvidence,
   reuseHomePortfolioPayload,
 };
-export type { IHomePortfolioRequestRound, IHomePortfolioValuationReceipt };
+export type {
+  IHomePortfolioRequestRound,
+  IHomePortfolioTerminalEvidence,
+  IHomePortfolioValuationReceipt,
+};

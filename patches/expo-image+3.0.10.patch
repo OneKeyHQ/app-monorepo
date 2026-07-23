@@ -77,45 +77,107 @@ index 00e8ca9..f872d02 100644
    }
  
 diff --git a/node_modules/expo-image/android/src/main/java/expo/modules/image/ExpoImageModule.kt b/node_modules/expo-image/android/src/main/java/expo/modules/image/ExpoImageModule.kt
-index f08807d..1123b3c 100644
+index f08807d..fa69d79 100644
 --- a/node_modules/expo-image/android/src/main/java/expo/modules/image/ExpoImageModule.kt
 +++ b/node_modules/expo-image/android/src/main/java/expo/modules/image/ExpoImageModule.kt
-@@ -41,7 +41,7 @@ import expo.modules.kotlin.modules.Module
+@@ -40,12 +40,40 @@ import expo.modules.kotlin.functions.Queues
+ import expo.modules.kotlin.modules.Module
  import expo.modules.kotlin.modules.ModuleDefinition
  import expo.modules.kotlin.sharedobjects.SharedRef
++import expo.modules.kotlin.sharedobjects.SharedRefTypeConverter
  import expo.modules.kotlin.types.Either
 -import expo.modules.kotlin.types.EitherOfThree
-+import expo.modules.kotlin.types.EitherOfFour
- import expo.modules.kotlin.types.toKClass
+-import expo.modules.kotlin.types.toKClass
  import kotlinx.coroutines.Dispatchers
  import kotlinx.coroutines.withContext
-@@ -219,7 +219,7 @@ class ExpoImageModule : Module() {
+ import java.net.URL
++import kotlin.reflect.typeOf
++
++private fun sourceMapFromDynamicMap(source: Map<*, *>): SourceMap {
++  val headers = (source["headers"] as? Map<*, *>)
++    ?.mapNotNull { (key, value) ->
++      val headerKey = key as? String ?: return@mapNotNull null
++      val headerValue = value as? String ?: return@mapNotNull null
++      headerKey to headerValue
++    }
++    ?.toMap()
++
++  return SourceMap(
++    uri = source["uri"] as? String,
++    width = (source["width"] as? Number)?.toInt() ?: 0,
++    height = (source["height"] as? Number)?.toInt() ?: 0,
++    scale = (source["scale"] as? Number)?.toDouble() ?: 1.0,
++    headers = headers,
++    cacheKey = source["cacheKey"] as? String
++  )
++}
++
++private fun sourceMapsFromDynamicValue(source: Any): List<SourceMap>? =
++  when (source) {
++    is Map<*, *> -> listOf(sourceMapFromDynamicMap(source))
++    is List<*> -> source.mapNotNull { item ->
++      (item as? Map<*, *>)?.let(::sourceMapFromDynamicMap)
++    }
++    else -> null
++  }
+ 
+ class ExpoImageModule : Module() {
+   override fun definition() = ModuleDefinition {
+@@ -219,27 +247,45 @@ class ExpoImageModule : Module() {
          "onDisplay"
        )
  
 -      Prop("source") { view: ExpoImageViewWrapper, sources: EitherOfThree<List<SourceMap>, SharedRef<Drawable>, SharedRef<Bitmap>>? ->
-+      Prop("source") { view: ExpoImageViewWrapper, sources: EitherOfFour<List<SourceMap>, SourceMap, SharedRef<Drawable>, SharedRef<Bitmap>>? ->
++      Prop("source") { view: ExpoImageViewWrapper, sources: Any? ->
          if (sources == null) {
            view.sources = emptyList()
            return@Prop
-@@ -230,6 +230,17 @@ class ExpoImageModule : Module() {
+         }
+ 
+-        if (sources.`is`(toKClass<List<SourceMap>>())) {
+-          view.sources = sources.get(toKClass<List<SourceMap>>())
++        // OneKey patch: Fabric can provide a one-element source array as DynamicFromMap.
++        // Decode raw Map/List values before resolving shared image references.
++        sourceMapsFromDynamicValue(sources)?.let {
++          view.sources = it
            return@Prop
          }
  
-+        // PATCHED: Handle single SourceMap passed as a map object instead of a list.
-+        // On the new architecture (Fabric), the bridge may serialize a single-element
-+        // source array as a plain map object (DynamicFromMap) instead of an array.
-+        // Without this handler, the EitherOfThree type converter throws TypeCastException,
-+        // which leaves the underlying folly::dynamic in an inconsistent state, leading to
-+        // SIGSEGV in folly::dynamic::destroy() when the app backgrounds under memory pressure.
-+        if (sources.`is`(toKClass<SourceMap>())) {
-+          view.sources = listOf(sources.get(toKClass<SourceMap>()))
+-        if (sources.`is`(toKClass<SharedRef<Drawable>>())) {
+-          val drawable = sources.get(toKClass<SharedRef<Drawable>>()).ref
+-          view.sources = listOf(DecodedSource(drawable))
++        val sourceId = (sources as? Number)?.toInt()
++          ?: throw TypeCastException("Unsupported ExpoImage source value: $sources")
++        val sharedDrawable = runCatching {
++          SharedRefTypeConverter<SharedRef<Drawable>>(
++            typeOf<SharedRef<Drawable>>()
++          ).convert(sourceId, appContext, forceConversion = true)?.ref
++        }.getOrNull()
++        if (sharedDrawable != null) {
++          view.sources = listOf(DecodedSource(sharedDrawable))
+           return@Prop
+         }
+ 
+-        val bitmap = sources.get(toKClass<SharedRef<Bitmap>>()).ref
++        val bitmap = runCatching {
++          SharedRefTypeConverter<SharedRef<Bitmap>>(
++            typeOf<SharedRef<Bitmap>>()
++          ).convert(sourceId, appContext, forceConversion = true).ref
++        }.getOrNull()
++        if (bitmap == null) {
++          // Fabric may replay a stale SharedRef while recycling a view. The
++          // next source prop will repopulate it, so ignore the released ref.
++          view.sources = emptyList()
 +          return@Prop
 +        }
-+
-         if (sources.`is`(toKClass<SharedRef<Drawable>>())) {
-           val drawable = sources.get(toKClass<SharedRef<Drawable>>()).ref
-           view.sources = listOf(DecodedSource(drawable))
+         val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+-        val drawable = BitmapDrawable(context.resources, bitmap)
+-        view.sources = listOf(DecodedSource(drawable))
++        val bitmapDrawable = BitmapDrawable(context.resources, bitmap)
++        view.sources = listOf(DecodedSource(bitmapDrawable))
+       }
+ 
+       Prop("contentFit") { view: ExpoImageViewWrapper, contentFit: ContentFit? ->
 diff --git a/node_modules/expo-image/build/index.d.ts b/node_modules/expo-image/build/index.d.ts
 index ce18dad..4043e77 100644
 --- a/node_modules/expo-image/build/index.d.ts

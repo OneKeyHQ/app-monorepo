@@ -165,6 +165,13 @@ export function useHomeDeFiStoreSource({
   const allNetworkGenerationRef = useRef(0);
   const allNetworkForceRefreshRef = useRef(false);
   const allNetworkConsumeForceRefreshQuotaRef = useRef(false);
+  const singleNetworkLoadRef = useRef<
+    | {
+        identityKey: string;
+        promise: Promise<void>;
+      }
+    | undefined
+  >(undefined);
   const accountId = account?.id;
   const indexedAccountId = account?.indexedAccountId;
   const networkId = network?.id;
@@ -478,83 +485,105 @@ export function useHomeDeFiStoreSource({
 
   const loadSingle = useCallback(
     async (forceRefresh: boolean | 'consumeQuota') => {
-      if (!fullSourceEnabled || !accountId || !networkId || isAllNetworks) {
+      if (
+        !fullSourceEnabled ||
+        !accountId ||
+        !networkId ||
+        isAllNetworks ||
+        !deFiSourceIdentityKey
+      ) {
         return;
       }
-      sourceRequestSeqRef.current += 1;
-      const requestId = sourceRequestSeqRef.current;
-      requestIdRef.current = requestId;
-      setIsRefreshing(true);
-      setErrorCode(undefined);
-      publishDeFiEvidence({
-        requestSeq: requestId,
-        evidence: { kind: 'loading' },
-      });
+      const currentTask = singleNetworkLoadRef.current;
+      if (currentTask?.identityKey === deFiSourceIdentityKey) {
+        return currentTask.promise;
+      }
+      const task = (async () => {
+        sourceRequestSeqRef.current += 1;
+        const requestId = sourceRequestSeqRef.current;
+        requestIdRef.current = requestId;
+        setIsRefreshing(true);
+        setErrorCode(undefined);
+        publishDeFiEvidence({
+          requestSeq: requestId,
+          evidence: { kind: 'loading' },
+        });
+        try {
+          const shouldForceRefresh =
+            forceRefresh === 'consumeQuota'
+              ? (
+                  await backgroundApiProxy.serviceDeFi.consumeManualDeFiForceRefreshQuota()
+                ).allowed
+              : forceRefresh;
+          const [response, nextSupportedActions] = await Promise.all([
+            backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
+              accountId,
+              indexedAccountId,
+              networkId,
+              saveToLocal: true,
+              excludeLowValueProtocols: true,
+              sourceCurrencyInfo,
+              targetCurrencyInfo,
+              isForceRefresh: shouldForceRefresh,
+            }),
+            loadSupportedActions(),
+          ]);
+          if (requestIdRef.current === requestId) {
+            setProtocols(response.protocols);
+            setProtocolMap(response.protocolMap);
+            setInitialized(true);
+            updateOverview({ overview: response.overview });
+            const payload = buildDeFiPayload({
+              nextProtocolMap: response.protocolMap,
+              nextProtocols: response.protocols,
+              nextSupportedActions,
+              overview: response.overview,
+            });
+            const rowIds = getHomeDeFiProtocolRowIds(payload);
+            publishDeFiEvidence({
+              requestSeq: requestId,
+              evidence: {
+                kind: 'complete',
+                confirmedEmpty: response.protocols.length === 0,
+                coverageFingerprint: buildHomeDeFiCoverage({
+                  requestSeq: requestId,
+                  rowCount: rowIds.length,
+                  source: 'singleNetwork',
+                }),
+                data: payload,
+                rowIds,
+              },
+            });
+          }
+        } catch {
+          if (requestIdRef.current === requestId) {
+            setErrorCode('defi_fetch_failed');
+            setInitialized(true);
+            publishDeFiEvidence({
+              requestSeq: requestId,
+              evidence: { kind: 'error', errorKind: 'source' },
+            });
+          }
+        } finally {
+          if (requestIdRef.current === requestId) {
+            setIsRefreshing(false);
+          }
+        }
+      })();
+      const taskEntry = { identityKey: deFiSourceIdentityKey, promise: task };
+      singleNetworkLoadRef.current = taskEntry;
       try {
-        const shouldForceRefresh =
-          forceRefresh === 'consumeQuota'
-            ? (
-                await backgroundApiProxy.serviceDeFi.consumeManualDeFiForceRefreshQuota()
-              ).allowed
-            : forceRefresh;
-        const [response, nextSupportedActions] = await Promise.all([
-          backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
-            accountId,
-            indexedAccountId,
-            networkId,
-            saveToLocal: true,
-            excludeLowValueProtocols: true,
-            sourceCurrencyInfo,
-            targetCurrencyInfo,
-            isForceRefresh: shouldForceRefresh,
-          }),
-          loadSupportedActions(),
-        ]);
-        if (requestIdRef.current === requestId) {
-          setProtocols(response.protocols);
-          setProtocolMap(response.protocolMap);
-          setInitialized(true);
-          updateOverview({ overview: response.overview });
-          const payload = buildDeFiPayload({
-            nextProtocolMap: response.protocolMap,
-            nextProtocols: response.protocols,
-            nextSupportedActions,
-            overview: response.overview,
-          });
-          const rowIds = getHomeDeFiProtocolRowIds(payload);
-          publishDeFiEvidence({
-            requestSeq: requestId,
-            evidence: {
-              kind: 'complete',
-              confirmedEmpty: response.protocols.length === 0,
-              coverageFingerprint: buildHomeDeFiCoverage({
-                requestSeq: requestId,
-                rowCount: rowIds.length,
-                source: 'singleNetwork',
-              }),
-              data: payload,
-              rowIds,
-            },
-          });
-        }
-      } catch {
-        if (requestIdRef.current === requestId) {
-          setErrorCode('defi_fetch_failed');
-          setInitialized(true);
-          publishDeFiEvidence({
-            requestSeq: requestId,
-            evidence: { kind: 'error', errorKind: 'source' },
-          });
-        }
+        await task;
       } finally {
-        if (requestIdRef.current === requestId) {
-          setIsRefreshing(false);
+        if (singleNetworkLoadRef.current === taskEntry) {
+          singleNetworkLoadRef.current = undefined;
         }
       }
     },
     [
       accountId,
       buildDeFiPayload,
+      deFiSourceIdentityKey,
       fullSourceEnabled,
       indexedAccountId,
       isAllNetworks,
@@ -900,6 +929,9 @@ export function useHomeDeFiStoreSource({
     clearAllNetworkData,
     disabled: !enabled,
     isDeFiRequests: true,
+    // Store-backed Home sections prefetch independently from the visible tab.
+    // `useAllNetworkRequests` still blocks while the app is locked.
+    shouldAlwaysFetch: enabled,
     onRequestSettled: handleAllNetworkSettled,
     onStarted: handleAllNetworkStarted,
     onFinished: handleAllNetworkFinished,

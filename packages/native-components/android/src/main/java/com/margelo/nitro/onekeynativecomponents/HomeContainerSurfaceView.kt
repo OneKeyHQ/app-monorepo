@@ -116,11 +116,7 @@ internal class HomeContainerSurfaceView(context: Context) : FrameLayout(context)
   fun layoutManagedChildren() {
     connectEngineIfNeeded()
     val currentEngine = engine
-    val mountedSlots = reactChildren.filterIsInstance<HomeContainerSlotView>()
-    currentEngine?.setMountedSlotMetadata(
-      keys = mountedSlots.mapTo(mutableSetOf()) { it.slotKey },
-      metadata = mountedSlots.mapNotNull(HomeContainerSlotView::mountedMetadata),
-    )
+    updateMountedSlotMetadata(currentEngine)
     reactChildren.forEach { child ->
       if (child !is HomeContainerSlotView) {
         child.visibility = VISIBLE
@@ -128,6 +124,12 @@ internal class HomeContainerSurfaceView(context: Context) : FrameLayout(context)
       }
     }
     layoutSlotChildren(currentEngine)
+  }
+
+  fun onSlotMetadataChanged() {
+    connectEngineIfNeeded()
+    updateMountedSlotMetadata(engine)
+    requestLayout()
   }
 
   override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
@@ -161,6 +163,14 @@ internal class HomeContainerSurfaceView(context: Context) : FrameLayout(context)
     if (isSlotLayoutScheduled) return
     isSlotLayoutScheduled = true
     post(slotLayoutRunnable)
+  }
+
+  private fun updateMountedSlotMetadata(currentEngine: HomeContainerView?) {
+    val mountedSlots = reactChildren.filterIsInstance<HomeContainerSlotView>()
+    currentEngine?.setMountedSlotMetadata(
+      keys = mountedSlots.mapTo(mutableSetOf()) { it.slotKey },
+      metadata = mountedSlots.mapNotNull(HomeContainerSlotView::mountedMetadata),
+    )
   }
 
   private fun findEngine(view: View): HomeContainerView? {

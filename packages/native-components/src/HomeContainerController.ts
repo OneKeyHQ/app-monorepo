@@ -235,6 +235,69 @@ function createProtocolV3RevisionState(): IHomeContainerControllerRevisionStateV
   };
 }
 
+function mergeProtocolV3RevisionState(
+  current: IHomeContainerControllerRevisionStateV3,
+  next: IHomeContainerControllerRevisionStateV3,
+): IHomeContainerControllerRevisionStateV3 {
+  const presentationSections = Object.fromEntries(
+    HOME_CONTAINER_SECTION_IDS.map((sectionId) => [
+      sectionId,
+      Math.max(
+        current.presentationRevisions.sections[sectionId],
+        next.presentationRevisions.sections[sectionId],
+      ),
+    ]),
+  ) as Record<IHomeContainerSectionId, number>;
+  const authoritySections = Object.fromEntries(
+    HOME_CONTAINER_SECTION_IDS.map((sectionId) => [
+      sectionId,
+      Math.max(
+        current.authorityRevisions.sectionCommands[sectionId],
+        next.authorityRevisions.sectionCommands[sectionId],
+      ),
+    ]),
+  ) as Record<IHomeContainerSectionId, number>;
+  const slotIds = new Set([
+    ...Object.keys(current.slotRevisions ?? {}),
+    ...Object.keys(next.slotRevisions ?? {}),
+  ]);
+  const slotRevisions = Object.fromEntries(
+    Array.from(slotIds).map((slotId) => [
+      slotId,
+      Math.max(
+        current.slotRevisions?.[slotId] ?? 0,
+        next.slotRevisions?.[slotId] ?? 0,
+      ),
+    ]),
+  );
+  return {
+    storeCommitId: Math.max(current.storeCommitId, next.storeCommitId),
+    presentationRevisions: {
+      shell: Math.max(
+        current.presentationRevisions.shell,
+        next.presentationRevisions.shell,
+      ),
+      navigation: Math.max(
+        current.presentationRevisions.navigation,
+        next.presentationRevisions.navigation,
+      ),
+      sections: presentationSections,
+    },
+    authorityRevisions: {
+      shellCommands: Math.max(
+        current.authorityRevisions.shellCommands,
+        next.authorityRevisions.shellCommands,
+      ),
+      tabApplicability: Math.max(
+        current.authorityRevisions.tabApplicability,
+        next.authorityRevisions.tabApplicability,
+      ),
+      sectionCommands: authoritySections,
+    },
+    slotRevisions,
+  };
+}
+
 function slotKeys(slots: IHomeContainerSlots): string[] {
   const keys: string[] = [];
   if (slots.accountRow) keys.push('header.account-row');
@@ -454,7 +517,10 @@ export class HomeContainerController {
     if (this.disposed) {
       return;
     }
-    this.protocolV3Revisions = revisionState;
+    this.protocolV3Revisions = mergeProtocolV3RevisionState(
+      this.protocolV3Revisions,
+      revisionState,
+    );
     this.protocolV3RevisionsAreExternal = true;
   }
 

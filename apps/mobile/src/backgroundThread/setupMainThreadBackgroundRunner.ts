@@ -127,7 +127,9 @@ function getAsyncStorageWriteArgSummary(
 
 const OBSERVER_RETRY_MS = 50;
 const MAX_OBSERVER_RETRY_COUNT = 600;
-const READY_TIMEOUT_MS = 10_000;
+// Metro may spend several minutes compiling the background bundle on the first
+// debug launch. Release bundles are embedded and retain the strict timeout.
+const READY_TIMEOUT_MS = platformEnv.isDev ? 5 * 60_000 : 10_000;
 const ASYNC_STORAGE_FORWARDER_RETRY_MS = 100;
 const ASYNC_STORAGE_FORWARDER_REQUEST_TIMEOUT_MS = 15_000;
 // Main AsyncStorage writes are serialized. Allow one same-boot retry after the
@@ -839,20 +841,23 @@ function dispatchQueuedCallsToRemote() {
     return;
   }
 
-  queuedFlushPromise = queuedCallsSnapshot
-    .reduce<Promise<void>>((promise, queuedCall) => {
-      return promise.finally(async () => {
-        try {
-          const result = await dispatchRemoteRequest(
-            queuedCall.request,
-            queuedCall.localFallback,
-          );
-          queuedCall.resolve(result);
-        } catch (error) {
-          queuedCall.reject(error);
-        }
-      });
-    }, Promise.resolve())
+  // Dispatch in queue order without serializing on each response. SharedRPC
+  // writes remain ordered, while independent startup reads can execute in the
+  // background runtime concurrently once it is ready.
+  queuedFlushPromise = Promise.all(
+    queuedCallsSnapshot.map(async (queuedCall) => {
+      try {
+        const result = await dispatchRemoteRequest(
+          queuedCall.request,
+          queuedCall.localFallback,
+        );
+        queuedCall.resolve(result);
+      } catch (error) {
+        queuedCall.reject(error);
+      }
+    }),
+  )
+    .then(() => undefined)
     .finally(() => {
       queuedFlushPromise = undefined;
     });

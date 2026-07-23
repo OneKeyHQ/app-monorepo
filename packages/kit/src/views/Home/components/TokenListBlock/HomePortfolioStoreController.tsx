@@ -153,6 +153,7 @@ import {
   filterHomePortfolioSmallBalanceTokens,
   isHomePortfolioValuationReceiptApplied,
   requireHomePortfolioValuationReceipt,
+  resolveHomePortfolioTerminalEvidence,
   reuseHomePortfolioPayload,
 } from './homePortfolioStoreControllerSource';
 import { useTokenListReactivePipeline } from './useTokenListReactivePipeline';
@@ -1146,12 +1147,15 @@ function HomePortfolioStoreController({
         ? homeFactsSnapshot?.owner.network.kind === 'allNetworks'
         : homeFactsSnapshot?.owner.network.kind === 'singleNetwork' &&
           homeFactsSnapshot.owner.network.networkId === network?.id);
-    if (!ownerMatches || !homeFactsSnapshot || !cellsOwnerKey || !network?.id) {
+    if (
+      !ownerMatches ||
+      !homeFactsSnapshot ||
+      !cellsOwnerKey ||
+      !network?.id ||
+      homeDefaultTokenMap === undefined
+    ) {
       return undefined;
     }
-    const enabledNetworkIds = network.isAllNetworks
-      ? (allNetworkAccounts ?? []).map((item) => item.networkId)
-      : [network.id];
     return createHomeSpotSourceIdentity({
       owner: homeFactsSnapshot.ownerToken,
       params: {
@@ -1159,9 +1163,10 @@ function HomePortfolioStoreController({
         defaultTokenRevision: stringUtils.stableStringify(
           homeDefaultTokenMap ?? {},
         ),
-        enabledNetworksRevision: stringUtils.stableStringify(
-          Array.from(new Set(enabledNetworkIds)).toSorted(),
-        ),
+        // Enabled accounts are request output, not source identity. Including
+        // them here restarts the complete all-network fan-out when the first
+        // round resolves its own account topology.
+        enabledNetworksRevision: 'active-account-topology',
         mergeDerive: Boolean(mergeDeriveAddressData),
         networkId: network.id,
         networkMode: network.isAllNetworks ? 'allNetworks' : 'singleNetwork',
@@ -1170,7 +1175,6 @@ function HomePortfolioStoreController({
       producerInstanceId: legacySpotProducerInstanceId,
     });
   }, [
-    allNetworkAccounts,
     cellsOwnerKey,
     homeDefaultTokenMap,
     homeFactsSnapshot,
@@ -1269,28 +1273,25 @@ function HomePortfolioStoreController({
     showLpTokensOnly,
     tokenListStore,
   ]);
-  const riskTokenSnapshot = useMemo(
-    () => {
-      if (riskyListFrame.ownerKey !== listStructure.ownerKey) {
-        return { tokenListMap: {}, tokens: [] };
-      }
-      return {
-        tokenListMap: riskyListFrame.riskyMap,
-        tokens: filterHomePortfolioRiskTokens({
-          hideZeroBalanceTokens: !!network?.isAllNetworks,
-          map: riskyListFrame.riskyMap,
-          tokens: riskyListFrame.riskyTokens,
-        }),
-      };
-    },
-    [
-      listStructure.ownerKey,
-      network?.isAllNetworks,
-      riskyListFrame.ownerKey,
-      riskyListFrame.riskyMap,
-      riskyListFrame.riskyTokens,
-    ],
-  );
+  const riskTokenSnapshot = useMemo(() => {
+    if (riskyListFrame.ownerKey !== listStructure.ownerKey) {
+      return { tokenListMap: {}, tokens: [] };
+    }
+    return {
+      tokenListMap: riskyListFrame.riskyMap,
+      tokens: filterHomePortfolioRiskTokens({
+        hideZeroBalanceTokens: !!network?.isAllNetworks,
+        map: riskyListFrame.riskyMap,
+        tokens: riskyListFrame.riskyTokens,
+      }),
+    };
+  }, [
+    listStructure.ownerKey,
+    network?.isAllNetworks,
+    riskyListFrame.ownerKey,
+    riskyListFrame.riskyMap,
+    riskyListFrame.riskyTokens,
+  ]);
   const {
     result: blockedRiskTokenCount = riskTokenSnapshot.tokens.length,
     run: refreshBlockedRiskTokenCount,
@@ -1740,7 +1741,11 @@ function HomePortfolioStoreController({
       return;
     }
     pendingAllNetworkReadyCompletionRef.current = undefined;
-    if (pending.terminal === 'complete') {
+    const terminalEvidence = resolveHomePortfolioTerminalEvidence({
+      displayCount: legacySpotPayload.displayIds.length,
+      terminal: pending.terminal,
+    });
+    if (terminalEvidence === 'complete') {
       publishLegacySpotEvidence({
         kind: 'complete',
         confirmedEmpty: legacySpotPayload.displayIds.length === 0,
@@ -1748,13 +1753,15 @@ function HomePortfolioStoreController({
         data: legacySpotPayload,
         rowIds: legacySpotPayload.displayIds,
       });
-    } else if (pending.terminal === 'error') {
-      publishLegacySpotEvidence({ kind: 'error', errorKind: 'source' });
-    } else {
+    } else if (terminalEvidence === 'confirmedCache') {
       publishLegacySpotEvidence({
-        kind: 'partial',
-        coverageFingerprint: pending.coverageFingerprint,
+        kind: 'confirmedCache',
+        data: legacySpotPayload,
+        rowIds: legacySpotPayload.displayIds,
+        refresh: 'idle',
       });
+    } else {
+      publishLegacySpotEvidence({ kind: 'error', errorKind: 'source' });
     }
   }, [
     allNetworkCompletionRevision,
@@ -2755,7 +2762,11 @@ function HomePortfolioStoreController({
     onCacheChecked: handleAllNetworkCacheChecked,
     onRequestSettled: handleAllNetworkRequestSettled,
     runIdentityKey: legacySpotIdentityKey,
-    shouldAlwaysFetch,
+    disabled: !legacySpotIdentityKey,
+    // The Store source is mounted independently from the legacy React page.
+    // Native Home owns tab visibility, so React Navigation focus must not
+    // prevent the all-network portfolio producer from warming the Store.
+    shouldAlwaysFetch: true,
   });
 
   const finalizeAllNetworksTokenList = useCallback(

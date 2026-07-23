@@ -113,6 +113,12 @@ describe('Native Home runtime surface', () => {
     expect(mobileRendererSource).toContain('<HomeContainer');
     expect(mobileRendererSource).toContain("execution: 'controller'");
     expect(mobileRendererSource).toContain('headerActionRow:');
+    expect(mobileRendererSource).toContain(
+      "slotId: 'header.balance' as IHomeContainerSlotKey",
+    );
+    expect(mobileRendererSource).toMatch(
+      /balance:\s*\{\s*interaction:\s*'tap',\s*authority:\s*balanceAuthority,\s*content:\s*\(\s*<HomeOverviewContainer\s+nativeSlot/,
+    );
     expect(mobileRendererSource).toContain('<HomeTabSearchHeader />');
     expect(mobileRendererSource).toContain('<WalletActions');
     expect(mobileRendererSource).toContain('<NotBackedUpEmpty />');
