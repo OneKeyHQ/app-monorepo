@@ -221,6 +221,13 @@ export type IDBCreateHwWalletParams = IDBCreateHwWalletParamsBase & {
   verifySeedMatchFn?: (
     matchedDevice: IDBDevice,
   ) => Promise<'match' | 'mismatch' | 'unknown'>;
+  /**
+   * Service-provided fallback when getExistingDevice finds nothing: resolve an
+   * existing device id to reuse (e.g. third-party same-mnemonic re-bind). The
+   * matching rule lives in the service layer; the DB layer only invokes this.
+   * Returns undefined to create a new device.
+   */
+  resolveReuseDeviceIdFn?: () => Promise<string | undefined>;
   fillingXfpByCallingSdk?: boolean;
   transportType?: EHardwareTransportType; // Transport type used for this connection
 };

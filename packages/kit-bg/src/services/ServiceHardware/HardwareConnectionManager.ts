@@ -1,6 +1,7 @@
 import { EDeviceType, ONEKEY_WEBUSB_FILTER } from '@onekeyfe/hd-shared';
 import axios from 'axios';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -157,6 +158,28 @@ export class HardwareConnectionManager {
     return this.detectWebUSBAvailability();
   }
 
+  // Trezor-scoped USB presence. detectUSBDeviceAvailability answers "is any
+  // OneKey USB device / Bridge device present", which can be true while a
+  // Trezor is BLE-only — routing its calls to the USB handle and burning a
+  // BLE connect timeout. Trezor never uses Bridge, so only WebUSB is checked.
+  async detectTrezorUSBDeviceAvailability(): Promise<boolean> {
+    if (!platformEnv.isSupportDesktopBle) return true;
+    try {
+      const usb = globalThis?.navigator?.usb;
+      if (!usb || typeof usb.getDevices !== 'function') return false;
+      const { TREZOR_WEBUSB_FILTERS } =
+        await import('@onekeyfe/hwk-trezor-connector-webusb');
+      const list = (await usb.getDevices()) || [];
+      return (Array.isArray(list) ? list : []).some((dev) =>
+        TREZOR_WEBUSB_FILTERS.some(
+          (f) => dev?.vendorId === f.vendorId && dev?.productId === f.productId,
+        ),
+      );
+    } catch {
+      return false;
+    }
+  }
+
   async detectBluetoothAvailability(
     hardwareCallContext?: IHardwareCallContext,
   ): Promise<boolean> {
@@ -307,18 +330,20 @@ export class HardwareConnectionManager {
       const forceTransportType =
         hardwareForceTransportAtomState.forceTransportType;
 
-      console.log('🔍 shouldSwitchTransportType called with:', {
-        hardwareCallContext,
-        forceTransportType,
-        operationId: hardwareForceTransportAtomState.operationId,
-      });
+      // [TrezorConnectIdTrace] The read side: what transport this resolves to.
+      // A stale forceTransportType here (webusb during a BLE session) is what
+      // makes getCompatibleConnectId return the deviceId instead of bleConnectId.
+      defaultLogger.hardware.sdkLog.log(
+        `[TrezorConnectIdTrace][shouldSwitchTransportType] ${JSON.stringify({
+          hardwareCallContext,
+          forceTransportType,
+          connectId,
+          actualTransportType: this.actualTransportType,
+        })}`,
+      );
 
       // If a specific transport type is forced (e.g., for onboarding), use it directly
       if (forceTransportType) {
-        console.log(
-          '🔒 Using forced transport type from atom:',
-          forceTransportType,
-        );
         const shouldSwitch = this.actualTransportType !== forceTransportType;
         return {
           shouldSwitch,

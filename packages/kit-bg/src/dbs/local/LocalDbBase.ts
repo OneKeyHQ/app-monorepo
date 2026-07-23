@@ -5713,7 +5713,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       features,
       isThirdParty: getVendorProfile(vendor)?.isThirdParty,
     });
-    const existingDevice = await this.getExistingDevice({
+    let existingDevice = await this.getExistingDevice({
       rawDeviceId,
       uuid: deviceUUID,
       connectId: device.connectId ?? undefined,
@@ -5721,6 +5721,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       verifySeedMatchFn: params.verifySeedMatchFn,
       vendor,
     });
+
+    // When device-identity matching finds nothing, let the service layer
+    // resolve a device to reuse (e.g. third-party same-mnemonic re-bind by
+    // XFP). Vendor-specific rules live in the service; the DB layer only
+    // invokes the injected callback and looks the device up.
+    if (!existingDevice && params.resolveReuseDeviceIdFn) {
+      const reuseDeviceId = await params.resolveReuseDeviceIdFn();
+      if (reuseDeviceId) {
+        const { devices } = await this.getAllDevices();
+        existingDevice = devices.find((d) => d.id === reuseDeviceId);
+      }
+    }
+
     const dbDeviceId = existingDevice?.id || accountUtils.buildDeviceDbId();
     const dbWalletId = accountUtils.buildHwWalletId({
       dbDeviceId,
@@ -5958,6 +5971,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       usbConnectId,
       bleConnectId,
     };
+    // [TrezorConnectIdTrace] What actually lands in the device record — the
+    // main `connectId` vs the split ble/usb ids. Confirms whether the main
+    // connectId is (wrongly) the deviceId while bleConnectId holds the address.
+    defaultLogger.hardware.sdkLog.log(
+      `[TrezorConnectIdTrace][addDbDevice] ${JSON.stringify({
+        transportType,
+        inputConnectId: connectId,
+        rawDeviceId,
+        writtenConnectId: deviceToAdd.connectId,
+        writtenBleConnectId: bleConnectId,
+        writtenUsbConnectId: usbConnectId,
+        compatibleConnectId,
+      })}`,
+    );
+
     // Refill on a clone so DB insert keeps runtime-only fields out.
     const deviceToAddHydrated: IDBDevice = { ...deviceToAdd };
     this.refillDeviceInfo({ device: deviceToAddHydrated });
@@ -8408,7 +8436,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           uuidInDb = item.featuresInfo ? getDeviceUUID(item.featuresInfo) : '';
         }
         const uuidInQuery = features ? getDeviceUUID(features) : '';
-        mergePredicate(!!uuidInDb && !!uuidInQuery && uuidInQuery === uuidInDb);
+        // Only constrain by UUID when BOTH sides are computable. getDeviceUUID
+        // reads OneKey-specific serial fields, so a third-party device (Trezor)
+        // yields an empty UUID — forcing this predicate false and rejecting a
+        // device that otherwise matches vendor + connectId + deviceId. When a
+        // UUID can't be computed, skip this check and let the other predicates
+        // decide. OneKey devices always have a UUID, so their matching is
+        // unchanged.
+        if (uuidInDb && uuidInQuery) {
+          mergePredicate(uuidInQuery === uuidInDb);
+        }
       }
       return predicate ?? false;
     });

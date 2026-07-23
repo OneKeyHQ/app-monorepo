@@ -531,6 +531,17 @@ export function useDeviceConnect({
         } else {
           forceTransportType = await getForceTransportType(tabValue);
         }
+        // [TrezorConnectIdTrace] The decision point that must set DesktopWebBle
+        // for a BLE onboarding. If tabValue is NOT bluetooth here while the
+        // device actually connects over BLE, forceTransportType stays webusb and
+        // poisons every downstream connectId resolution.
+        defaultLogger.hardware.sdkLog.log(
+          `[TrezorConnectIdTrace][useDeviceConnect.setForce] ${JSON.stringify({
+            tabValue,
+            computedForceTransportType: forceTransportType,
+            deviceConnectId: device.connectId,
+          })}`,
+        );
         if (forceTransportType) {
           await backgroundApiProxy.serviceHardware.setForceTransportType({
             forceTransportType,

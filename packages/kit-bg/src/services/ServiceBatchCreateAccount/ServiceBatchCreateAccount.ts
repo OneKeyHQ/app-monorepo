@@ -1103,6 +1103,25 @@ class ServiceBatchCreateAccount extends ServiceBase {
                 thirdPartyAllNetworkAdapter &&
                 thirdPartyAllNetworkGetAddress
               ) {
+                // [TrezorConnectIdTrace] dbDevice.connectId is already resolved
+                // by getWalletDeviceParams -> getCompatibleConnectId (now passing
+                // vendor, so a Trezor BLE session yields the bleConnectId here,
+                // not the deviceId). Logged to confirm the resolved value.
+                defaultLogger.hardware.sdkLog.log(
+                  `[TrezorConnectIdTrace][batchCreate.thirdPartyAllNetwork] ${JSON.stringify(
+                    {
+                      usedConnectId: deviceParams.dbDevice.connectId,
+                      dbDeviceId: deviceParams.dbDevice.deviceId,
+                      dbBleConnectId: (
+                        deviceParams.dbDevice as { bleConnectId?: string }
+                      ).bleConnectId,
+                      dbUsbConnectId: (
+                        deviceParams.dbDevice as { usbConnectId?: string }
+                      ).usbConnectId,
+                      vendor: thirdPartyAllNetworkAdapter.vendor,
+                    },
+                  )}`,
+                );
                 allNetworkGetAddressResponse =
                   await this.callThirdPartyAllNetworkGetAddress({
                     allNetworkGetAddress: thirdPartyAllNetworkGetAddress,
