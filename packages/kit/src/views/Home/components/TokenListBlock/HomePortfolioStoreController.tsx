@@ -1193,6 +1193,8 @@ function HomePortfolioStoreController({
         : undefined,
     [legacySpotIdentity],
   );
+  const legacySpotCacheParamsFingerprint =
+    legacySpotIdentity?.sourceKeyIdentity;
   const legacySpotDisplayIds = useMemo(
     () =>
       showLpTokensOnly
@@ -1546,7 +1548,10 @@ function HomePortfolioStoreController({
         beginHomeSectionRequest({
           dataSchemaVersion: HOME_SPOT_DATA_SCHEMA_VERSION,
           ownerToken: legacySpotIdentity.owner,
-          paramsFingerprint: legacySpotIdentityKey,
+          // Cache identity must survive runtime session and producer restarts.
+          // The full identity key remains the in-flight request guard, while
+          // sourceKeyIdentity contains only owner scope and business inputs.
+          paramsFingerprint: legacySpotCacheParamsFingerprint,
           quoteBasis: { currency: cellsCurrencyId },
           sectionId: 'portfolio',
         }),

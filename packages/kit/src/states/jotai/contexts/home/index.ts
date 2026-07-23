@@ -5,6 +5,7 @@ export {
   useHomeCapabilityInputs,
   useHomeCommitIdentity,
   useHomeConfirmedBalance,
+  useHomeContextStore,
   useHomeDiagnostics,
   useHomeEnvironmentInputs,
   useHomeFacts,

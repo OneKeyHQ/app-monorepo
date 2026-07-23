@@ -91,6 +91,43 @@ export class HomeUiScene extends BaseScene {
     return params;
   }
 
+  /**
+   * Diagnose the owner-partitioned, lazy Home display snapshot cache V2.
+   * Snapshot payloads and raw owner keys must never be included.
+   */
+  @LogToLocal({ level: 'info' })
+  public homeDisplaySnapshotCacheV2(params: {
+    stage:
+      | 'ownerReady'
+      | 'manifest'
+      | 'critical'
+      | 'visibleChunks'
+      | 'lazyChunk'
+      | 'initialHydrate'
+      | 'persist';
+    outcome:
+      | 'started'
+      | 'hit'
+      | 'partial'
+      | 'miss'
+      | 'accepted'
+      | 'empty'
+      | 'retrying'
+      | 'failed'
+      | 'stale';
+    partitionTag: string;
+    elapsedMs: number;
+    recordCount: number;
+    requestedSourceIds?: string;
+    loadedSourceIds?: string;
+    generation?: number;
+    criticalIncluded?: boolean;
+    cacheAgeMs?: number;
+    errorName?: string;
+  }) {
+    return params;
+  }
+
   @LogToLocal({ level: 'info' })
   public homeRendererDecision(params: {
     renderer: 'native' | 'react';

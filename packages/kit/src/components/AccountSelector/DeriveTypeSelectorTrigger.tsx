@@ -29,6 +29,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePrevious } from '../../hooks/usePrevious';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
+  EAccountSelectorActiveAccountReloadMode,
   useAccountSelectorStorageReadyAtom,
   useActiveAccount,
 } from '../../states/jotai/contexts/accountSelector';
@@ -192,6 +193,8 @@ export function DeriveTypeSelectorTrigger({
       items={options}
       onChange={async (type) => {
         await actions.current.updateSelectedAccountDeriveType({
+          activeAccountReloadMode:
+            EAccountSelectorActiveAccountReloadMode.Immediate,
           num,
           deriveType: type,
         });

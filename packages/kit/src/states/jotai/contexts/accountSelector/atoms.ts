@@ -53,6 +53,17 @@ export const defaultSelectedAccount: () => IAccountSelectorSelectedAccount =
     deriveType: undefined,
     focusedWallet: undefined,
   });
+
+export const getActiveAccountSelectionIdentity = (
+  selectedAccount: IAccountSelectorSelectedAccount | undefined,
+) => ({
+  deriveType: selectedAccount?.deriveType,
+  indexedAccountId: selectedAccount?.indexedAccountId,
+  networkId: selectedAccount?.networkId,
+  othersWalletAccountId: selectedAccount?.othersWalletAccountId,
+  walletId: selectedAccount?.walletId,
+});
+
 export type ISelectedAccountsAtomMap = Partial<{
   [num: number]: IAccountSelectorSelectedAccount;
 }>;
@@ -179,6 +190,46 @@ export const {
       CONTEXT_ATOM_COLD_START_CACHE_KEYS.accountSelectorUpdateMetaAtom,
   },
 );
+
+export enum EAccountSelectorActiveAccountReloadMode {
+  Coalesced = 'coalesced',
+  Immediate = 'immediate',
+}
+
+export type IAccountSelectorActiveAccountReloadReason =
+  | 'accountSelect'
+  | 'deriveTypeSelect'
+  | 'networkSelect';
+
+export enum EAccountSelectorActiveAccountReloadStatus {
+  Completed = 'completed',
+  Pending = 'pending',
+  Running = 'running',
+}
+
+export type IAccountSelectorActiveAccountReloadRequest = {
+  requestId: number;
+  reason: IAccountSelectorActiveAccountReloadReason;
+  selectionRevision: number;
+  selectedAccount: IAccountSelectorSelectedAccount;
+  status: EAccountSelectorActiveAccountReloadStatus;
+};
+
+// Process-local command state only. ActiveAccount remains the authoritative
+// owner source, and completed requests stay as tombstones to keep ids monotonic.
+export const {
+  atom: accountSelectorActiveAccountReloadRequestsAtom,
+  use: useAccountSelectorActiveAccountReloadRequestsAtom,
+} = contextAtom<
+  Partial<{
+    [num: number]: IAccountSelectorActiveAccountReloadRequest;
+  }>
+>({});
+
+export const {
+  atom: accountSelectorSelectionRevisionsAtom,
+  use: useAccountSelectorSelectionRevisionsAtom,
+} = contextAtom<Partial<{ [num: number]: number }>>({});
 
 export type IAccountSelectorSyncLoadingMeta = {
   isLoading: boolean;

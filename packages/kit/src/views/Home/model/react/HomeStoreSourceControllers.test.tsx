@@ -146,10 +146,10 @@ jest.mock('./HomeStoreCommandController', () => {
   };
 });
 
-jest.mock('./HomeStoreSnapshotController', () => {
+jest.mock('./HomeDisplaySnapshotController', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
-    HomeStoreSnapshotController: () =>
+    HomeDisplaySnapshotController: () =>
       React.createElement('View', { testID: 'snapshot-controller' }),
   };
 });
@@ -172,7 +172,7 @@ describe('HomeStoreSourceControllers', () => {
     };
   });
 
-  it('mounts only runtime and cache controllers outside Wallet Home', () => {
+  it('mounts only the runtime controller outside Wallet Home', () => {
     let view!: ReactTestRenderer;
     act(() => {
       view = create(<HomeStoreSourceControllers />);
@@ -189,7 +189,7 @@ describe('HomeStoreSourceControllers', () => {
     ).toHaveLength(0);
     expect(
       view.root.findAllByProps({ testID: 'snapshot-controller' }),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(
       view.root.findAllByProps({ testID: 'command-controller' }),
     ).toHaveLength(0);
@@ -219,6 +219,9 @@ describe('HomeStoreSourceControllers', () => {
     ).toHaveLength(1);
     expect(
       view.root.findAllByProps({ testID: 'command-controller' }),
+    ).toHaveLength(1);
+    expect(
+      view.root.findAllByProps({ testID: 'snapshot-controller' }),
     ).toHaveLength(1);
     expect(
       view.root.findAllByProps({ testID: 'perps-controller' }),

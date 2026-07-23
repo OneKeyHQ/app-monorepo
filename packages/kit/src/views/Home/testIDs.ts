@@ -31,6 +31,9 @@ export const HomeTestIDs = {
   stakingButton: 'home-staking-button',
   moreButton: 'home-more-button',
   addMoneyButton: 'home-add-money-button',
+  walletActionsSkeleton: 'home-wallet-actions-skeleton',
+  walletActionsSkeletonItem: (index: number) =>
+    `home-wallet-actions-skeleton-item-${index}`,
 
   // Wallet overview
   walletOverview: 'home-wallet-overview',

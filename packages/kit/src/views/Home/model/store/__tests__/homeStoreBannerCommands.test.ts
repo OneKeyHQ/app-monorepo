@@ -179,6 +179,41 @@ describe('Home Store banner command authority', () => {
     ]);
   });
 
+  it('never grants command authority to a cached Banner under a live Shell', () => {
+    const liveState = createBannerState();
+    const banner = liveState.resources.banner;
+    expect(banner.kind).toBe('ready');
+    if (banner.kind !== 'ready') {
+      return;
+    }
+    const state: IHomeStoreState = {
+      ...liveState,
+      resources: {
+        ...liveState.resources,
+        banner: {
+          ...banner,
+          freshness: 'confirmedCache',
+        },
+      },
+    };
+
+    const rejected = dispatch(state, {
+      type: 'intentReceived',
+      intent: bannerIntent({
+        actionId: HOME_BANNER_ACTION_IDS.open,
+        execution: 'caller',
+        intentId: 'open-cached-banner',
+      }),
+    });
+
+    expect(rejected.effects).toEqual([
+      expect.objectContaining({
+        kind: 'traceReject',
+        reason: 'intentTargetUnavailable',
+      }),
+    ]);
+  });
+
   it('queues, coalesces, and owner-validates controller-owned dismissals', () => {
     const state = createBannerState();
     const first = dispatch(state, {

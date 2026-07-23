@@ -90,6 +90,7 @@ export type IHomeStoreResourceSlot<TPayload extends IHomeRuntimeJsonValue> =
       token?: IHomeRuntimeRequestToken;
       data?: TPayload;
       coverageFingerprint: string;
+      confirmedCacheSourceKeyIdentity?: string;
       freshness: 'live' | 'confirmedCache';
       refresh: 'idle' | 'refreshing' | 'failed';
     }
@@ -97,6 +98,7 @@ export type IHomeStoreResourceSlot<TPayload extends IHomeRuntimeJsonValue> =
       kind: 'empty';
       token?: IHomeRuntimeRequestToken;
       coverageFingerprint: string;
+      confirmedCacheSourceKeyIdentity?: string;
       freshness: 'live' | 'confirmedCache';
       refresh: 'idle' | 'refreshing' | 'failed';
     }
@@ -178,6 +180,10 @@ export type IHomeStoreDiagnosticsState = {
 
 export type IHomeStoreCommitIdentity = {
   storeCommitId: number;
+  origin?: 'cacheHydrate' | 'storeEvent';
+  changedSourceIds?: readonly IHomeStoreSourceId[];
+  presentationChanged?: boolean;
+  ownerChanged?: boolean;
 };
 
 export type IHomeStoreState = {
@@ -316,6 +322,15 @@ export type IHomeStoreEvent =
       ownerScopeKey: string;
       sessionId: string;
       records: readonly IHomeCachedSourceRecord[];
+      selectedTabPreference?: IHomeTabId;
+    }
+  | {
+      type: 'displaySnapshotHydrated';
+      ownerScopeKey: string;
+      sessionId: string;
+      records: readonly IHomeCachedSourceRecord[];
+      shell?: IHomeShellSemanticModel;
+      navigation?: IHomeNavigationSemanticModel;
       selectedTabPreference?: IHomeTabId;
     }
   | { type: 'intentReceived'; intent: IHomeStoreIntent }

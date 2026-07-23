@@ -9,7 +9,7 @@ import {
 
 import { useIntl } from 'react-intl';
 
-import { Stack, XStack, useTheme } from '@onekeyhq/components';
+import { Skeleton, Stack, XStack, useTheme } from '@onekeyhq/components';
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorActiveAccount';
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerHome';
 import { AllNetworksManagerTrigger } from '@onekeyhq/kit/src/components/AccountSelector/AllNetworksManagerTrigger';
@@ -71,6 +71,7 @@ import { HomeOverviewContainer } from '@onekeyhq/kit/src/views/Home/pages/HomeOv
 import { HomePageView } from '@onekeyhq/kit/src/views/Home/pages/HomePageViewLoader';
 import { PerpsHomeHeaderSlot } from '@onekeyhq/kit/src/views/Home/pages/PerpsContainer';
 import { TabHeaderSettings } from '@onekeyhq/kit/src/views/Home/pages/TabHeaderSettings';
+import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
 import { usePrimeAvailable } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAvailable';
 import {
   useSettingsPersistAtom,
@@ -110,11 +111,13 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   type IHomeNativeExpandedState,
   type IHomeNativeMarketRecommendationState,
+  MOBILE_NATIVE_HOME_BANNER_SKELETON_ID,
   MOBILE_NATIVE_HOME_MARKET_ACTION_IDS,
   MOBILE_NATIVE_HOME_MARKET_CATEGORY_ACTION_PREFIX,
   MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS,
   buildMobileNativeHomeViewModelSections,
   getDeFiTotal,
+  resolveMobileNativeHomeBannerPresentation,
 } from './mobileNativeHomeViewModelAdapter';
 
 const TAB_ORDER: readonly IHomeContainerTabId[] = [
@@ -135,6 +138,33 @@ type IRefreshState = {
 
 const MOBILE_NATIVE_HOME_TRON_RESOURCE_ACTION_ID =
   'home.native.banner.openTronResource';
+const MOBILE_NATIVE_HOME_ACTION_SKELETON_COUNT = 4;
+
+function MobileNativeHomeActionRowSkeleton() {
+  return (
+    <XStack
+      flex={1}
+      width="100%"
+      height="100%"
+      gap="$2.5"
+      pointerEvents="none"
+      testID={HomeTestIDs.walletActionsSkeleton}
+    >
+      {Array.from({ length: MOBILE_NATIVE_HOME_ACTION_SKELETON_COUNT }).map(
+        (_, index) => (
+          <Stack
+            key={index}
+            flex={1}
+            height="100%"
+            testID={HomeTestIDs.walletActionsSkeletonItem(index)}
+          >
+            <Skeleton width="100%" height="100%" borderRadius="$4" />
+          </Stack>
+        ),
+      )}
+    </XStack>
+  );
+}
 
 function isTabId(value: string): value is IHomeContainerTabId {
   return TAB_ORDER.some((tabId) => tabId === value);
@@ -633,6 +663,19 @@ export function MobileNativeHomeRenderer({
     balancePresentation?.kind === 'funded' ||
     balancePresentation?.kind === 'fundedPendingTotal';
   const isBackupRequired = shell.value.kind === 'backupRequired';
+  const hasBannerContent = Boolean(
+    bannerPayload &&
+    (bannerPayload.banners.length > 0 || bannerPayload.tronResource),
+  );
+  const showPositiveBanner =
+    funded && balancePresentation?.banner.kind === 'positive';
+  const bannerPresentation = resolveMobileNativeHomeBannerPresentation({
+    balancePresentationKind: balancePresentation?.kind,
+    bannerResourceKind: bannerResource.kind,
+    hasBannerContent,
+    isBackupRequired,
+    showPositiveBanner,
+  });
   const header = useMemo<IHomeContainerHeader>(() => {
     const balance = balanceModel
       ? formatShellBalance({
@@ -642,8 +685,6 @@ export function MobileNativeHomeRenderer({
         })
       : '';
     const match = hideValue ? undefined : balance.match(/^(.*)([.,]\d+)$/);
-    const showBanners =
-      funded && balancePresentation?.banner.kind === 'positive';
     let actionLayout: IHomeContainerHeader['actionLayout'] = 'loading';
     if (balancePresentation?.kind === 'zero') {
       actionLayout = 'zeroBalance';
@@ -656,6 +697,70 @@ export function MobileNativeHomeRenderer({
     } else if (reactBalancePresentation.balanceState === 'zero') {
       actionRowHeight = 98;
     }
+    let banners: IHomeContainerHeader['banners'] = [];
+    if (bannerPresentation === 'loading') {
+      banners = [
+        {
+          id: MOBILE_NATIVE_HOME_BANNER_SKELETON_ID,
+          title: '',
+        },
+      ];
+    } else if (bannerPresentation === 'content') {
+      banners = [
+        ...(bannerPayload?.tronResource
+          ? [
+              {
+                id: 'home-tron-resource',
+                title: '',
+                actionId: MOBILE_NATIVE_HOME_TRON_RESOURCE_ACTION_ID,
+                resourceRows: [
+                  {
+                    label: intl.formatMessage({
+                      id: ETranslations.global_energy,
+                    }),
+                    value: `${tronAccountResource.result?.energyAvailable?.toFixed() ?? '0'} / ${
+                      tronAccountResource.result?.energyTotal?.toFixed() ?? '0'
+                    }`,
+                    progress:
+                      tronAccountResource.result?.energyTotal?.isZero() ===
+                      false
+                        ? tronAccountResource.result.energyAvailable
+                            .div(tronAccountResource.result.energyTotal)
+                            .times(100)
+                            .toNumber()
+                        : 0,
+                  },
+                  {
+                    label: intl.formatMessage({
+                      id: ETranslations.global_bandwidth,
+                    }),
+                    value: `${tronAccountResource.result?.netAvailable?.toFixed() ?? '0'} / ${
+                      tronAccountResource.result?.netTotal?.toFixed() ?? '0'
+                    }`,
+                    progress:
+                      tronAccountResource.result?.netTotal?.isZero() === false
+                        ? tronAccountResource.result.netAvailable
+                            .div(tronAccountResource.result.netTotal)
+                            .times(100)
+                            .toNumber()
+                        : 0,
+                  },
+                ],
+              },
+            ]
+          : []),
+        ...(bannerPayload?.banners ?? []).map((banner) => ({
+          id: banner.id,
+          title: banner.title,
+          subtitle: banner.description,
+          imageUrl: banner.src,
+          actionId: HOME_BANNER_ACTION_IDS.open,
+          dismissActionId: banner.closeable
+            ? HOME_BANNER_ACTION_IDS.dismiss
+            : undefined,
+        })),
+      ];
+    }
     return {
       accountName: '',
       balance: match?.[1] ?? balance,
@@ -664,77 +769,21 @@ export function MobileNativeHomeRenderer({
       actionRowHeight,
       actionLayout: isBackupRequired ? 'standard' : actionLayout,
       actions: [],
-      banners: showBanners
-        ? [
-            ...(bannerPayload?.tronResource
-              ? [
-                  {
-                    id: 'home-tron-resource',
-                    title: '',
-                    actionId: MOBILE_NATIVE_HOME_TRON_RESOURCE_ACTION_ID,
-                    resourceRows: [
-                      {
-                        label: intl.formatMessage({
-                          id: ETranslations.global_energy,
-                        }),
-                        value: `${tronAccountResource.result?.energyAvailable?.toFixed() ?? '0'} / ${
-                          tronAccountResource.result?.energyTotal?.toFixed() ??
-                          '0'
-                        }`,
-                        progress:
-                          tronAccountResource.result?.energyTotal?.isZero() ===
-                          false
-                            ? tronAccountResource.result.energyAvailable
-                                .div(tronAccountResource.result.energyTotal)
-                                .times(100)
-                                .toNumber()
-                            : 0,
-                      },
-                      {
-                        label: intl.formatMessage({
-                          id: ETranslations.global_bandwidth,
-                        }),
-                        value: `${tronAccountResource.result?.netAvailable?.toFixed() ?? '0'} / ${
-                          tronAccountResource.result?.netTotal?.toFixed() ?? '0'
-                        }`,
-                        progress:
-                          tronAccountResource.result?.netTotal?.isZero() ===
-                          false
-                            ? tronAccountResource.result.netAvailable
-                                .div(tronAccountResource.result.netTotal)
-                                .times(100)
-                                .toNumber()
-                            : 0,
-                      },
-                    ],
-                  },
-                ]
-              : []),
-            ...(bannerPayload?.banners ?? []).map((banner) => ({
-              id: banner.id,
-              title: banner.title,
-              subtitle: banner.description,
-              imageUrl: banner.src,
-              actionId: HOME_BANNER_ACTION_IDS.open,
-              dismissActionId: banner.closeable
-                ? HOME_BANNER_ACTION_IDS.dismiss
-                : undefined,
-            })),
-          ]
-        : [],
+      banners,
     };
   }, [
     balanceModel,
-    balancePresentation,
+    balancePresentation?.kind,
+    bannerPresentation,
     bannerPayload?.banners,
     bannerPayload?.tronResource,
-    funded,
     hideValue,
     intl,
     isBackupRequired,
     reactBalancePresentation.balanceState,
     tronAccountResource.result,
   ]);
+  const shouldShowActionRowSkeleton = header.actionLayout === 'loading';
 
   const selectedTabId = useMemo<IHomeContainerTabId>(() => {
     const requested =
@@ -1039,7 +1088,13 @@ export function MobileNativeHomeRenderer({
             height: header.actionRowHeight,
             content: (
               <HomeTokenListProviderMirror>
-                <WalletActions balancePresentation={reactBalancePresentation} />
+                {shouldShowActionRowSkeleton ? (
+                  <MobileNativeHomeActionRowSkeleton />
+                ) : (
+                  <WalletActions
+                    balancePresentation={reactBalancePresentation}
+                  />
+                )}
               </HomeTokenListProviderMirror>
             ),
           },
@@ -1212,6 +1267,7 @@ export function MobileNativeHomeRenderer({
       portfolioHeaderAuthority,
       portfolioPayload,
       reactBalancePresentation,
+      shouldShowActionRowSkeleton,
       setShowLpTokensOnly,
       shouldShowUpgrade,
       tabTitles,
@@ -1390,9 +1446,7 @@ export function MobileNativeHomeRenderer({
     const bannerCount = bannerPayload?.banners.length ?? 0;
     const hasTronResource = Boolean(bannerPayload?.tronResource);
     const shouldShowBanner =
-      funded &&
-      balancePresentation?.banner.kind === 'positive' &&
-      (bannerCount > 0 || hasTronResource);
+      bannerPresentation === 'content' && (bannerCount > 0 || hasTronResource);
     const decisionKey = stringUtils.stableStringify({
       accountRowAuthority,
       actionRowAuthority,
@@ -1479,6 +1533,7 @@ export function MobileNativeHomeRenderer({
     actionRowAuthority,
     backupStateAuthority,
     bannerPayload,
+    bannerPresentation,
     bannerResource.kind,
     facts?.owner.network.kind,
     funded,

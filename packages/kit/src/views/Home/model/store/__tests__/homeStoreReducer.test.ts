@@ -210,6 +210,278 @@ describe('Home Store reducer', () => {
     });
   });
 
+  it('hydrates a V2 cached Header during a loading balance round and lets live data replace it', () => {
+    const createBalance = (
+      status: 'error' | 'loading' | 'success',
+      amount?: string,
+    ) =>
+      adaptCurrentHomeBalanceFacts({
+        bannerAvailable: false,
+        contributors: [
+          {
+            amount,
+            coverageFingerprint:
+              status === 'success' ? 'portfolio-live' : undefined,
+            expectedSourceScopeKey: ownerToken.scopeKey,
+            id: 'portfolio',
+            included: true,
+            positiveEvidence: status === 'success',
+            sourceIdentity: 'portfolio-v1',
+            sourceScopeKey: ownerToken.scopeKey,
+            status,
+          },
+        ],
+        ownerToken,
+        quoteBasis: { currency: 'usd', pricingRevision: 'rates-1' },
+        requiredSetRevision: 'portfolio:v1',
+      });
+
+    const loadingBalance = createBalance('loading');
+    let state = dispatch(createOwnedState(), {
+      type: 'balanceChanged',
+      facts: { ...createBaseFacts(), balance: loadingBalance },
+      observedAt: 1,
+    });
+    state = dispatch(state, {
+      type: 'sectionSourceChanged',
+      ownerToken,
+      sectionId: 'portfolio',
+      result: {
+        kind: 'ready',
+        rowIds: ['cached-asset'],
+        freshness: 'live',
+        refresh: 'idle',
+      },
+    });
+    expect(state.balanceRound).toBe(loadingBalance);
+    expect(state.resources.portfolio).toMatchObject({
+      kind: 'ready',
+      freshness: 'live',
+    });
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: { kind: 'loading' },
+    });
+
+    state = dispatch(state, {
+      type: 'displaySnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [],
+      shell: {
+        kind: 'portfolio',
+        presentation: {
+          kind: 'funded',
+          header: {
+            kind: 'funded',
+            authority: 'confirmedCache',
+            balance: { amount: '42.50', currency: 'usd' },
+          },
+          actions: {
+            kind: 'funded',
+            items: ['send', 'receive', 'buySell', 'swap'],
+          },
+          banner: { kind: 'none' },
+          freshness: 'confirmedCache',
+          refresh: 'refreshing',
+        },
+      },
+    });
+    expect(state.balanceRound).toBe(loadingBalance);
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        kind: 'funded',
+        header: {
+          authority: 'confirmedCache',
+          balance: { amount: '42.50', currency: 'usd' },
+        },
+      },
+    });
+
+    state = dispatch(state, {
+      type: 'balanceChanged',
+      facts: { ...createBaseFacts(), balance: loadingBalance },
+      observedAt: 2,
+    });
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        kind: 'funded',
+        freshness: 'confirmedCache',
+        header: { balance: { amount: '42.50' } },
+      },
+    });
+
+    state = dispatch(state, {
+      type: 'factsChanged',
+      facts: createBaseFacts(),
+    });
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        kind: 'funded',
+        freshness: 'confirmedCache',
+        header: { balance: { amount: '42.50' } },
+      },
+    });
+
+    const failedBalance = createBalance('error');
+    state = dispatch(state, {
+      type: 'balanceChanged',
+      facts: { ...createBaseFacts(), balance: failedBalance },
+      observedAt: 3,
+    });
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        kind: 'funded',
+        freshness: 'confirmedCache',
+        refresh: 'failed',
+        header: { balance: { amount: '42.50' } },
+      },
+    });
+
+    const liveBalance = createBalance('success', '84.25');
+    state = dispatch(state, {
+      type: 'balanceChanged',
+      facts: { ...createBaseFacts(), balance: liveBalance },
+      observedAt: 4,
+    });
+    expect(state.balanceRound).toBe(liveBalance);
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        kind: 'funded',
+        freshness: 'live',
+        header: {
+          authority: 'live',
+          balance: { amount: '84.25', currency: 'usd' },
+        },
+      },
+    });
+
+    state = dispatch(state, {
+      type: 'displaySnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [],
+      shell: {
+        kind: 'portfolio',
+        presentation: {
+          kind: 'zero',
+          header: {
+            kind: 'zero',
+            balance: { amount: '0', currency: 'usd' },
+          },
+          actions: { kind: 'zero', items: ['receive'] },
+          banner: { kind: 'none' },
+          freshness: 'confirmedCache',
+          refresh: 'refreshing',
+        },
+      },
+    });
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        kind: 'funded',
+        freshness: 'live',
+        header: { balance: { amount: '84.25' } },
+      },
+    });
+  });
+
+  it('hydrates a failed V2 Header after an early live error but never over a hard owner state', () => {
+    const failedBalance = adaptCurrentHomeBalanceFacts({
+      bannerAvailable: false,
+      contributors: [
+        {
+          expectedSourceScopeKey: ownerToken.scopeKey,
+          id: 'portfolio',
+          included: true,
+          positiveEvidence: false,
+          sourceIdentity: 'portfolio-v1',
+          sourceScopeKey: ownerToken.scopeKey,
+          status: 'error',
+        },
+      ],
+      ownerToken,
+      quoteBasis: { currency: 'usd', pricingRevision: 'rates-1' },
+      requiredSetRevision: 'portfolio:v1',
+    });
+    const cachedShell = {
+      kind: 'portfolio' as const,
+      presentation: {
+        kind: 'funded' as const,
+        header: {
+          kind: 'funded' as const,
+          authority: 'confirmedCache' as const,
+          balance: { amount: '42.50', currency: 'usd' },
+        },
+        actions: {
+          kind: 'funded' as const,
+          items: ['send', 'receive', 'buySell', 'swap'] as const,
+        },
+        banner: { kind: 'none' as const },
+        freshness: 'confirmedCache' as const,
+        refresh: 'refreshing' as const,
+      },
+    };
+    let state = dispatch(createOwnedState(), {
+      type: 'balanceChanged',
+      facts: { ...createBaseFacts(), balance: failedBalance },
+      observedAt: 1,
+    });
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: { kind: 'unavailable' },
+    });
+
+    state = dispatch(state, {
+      type: 'displaySnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [],
+      shell: cachedShell,
+    });
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        kind: 'funded',
+        freshness: 'confirmedCache',
+        refresh: 'failed',
+        header: { balance: { amount: '42.50' } },
+      },
+    });
+
+    state = dispatch(state, {
+      type: 'factsChanged',
+      facts: {
+        ...createBaseFacts(),
+        wallet: {
+          ...createBaseFacts().wallet,
+          backupStatus: 'required',
+        },
+      },
+    });
+    expect(state.shell.value).toEqual({
+      kind: 'backupRequired',
+      commandId: 'backupWallet',
+    });
+
+    state = dispatch(state, {
+      type: 'displaySnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [],
+      shell: cachedShell,
+    });
+    expect(state.shell.value).toEqual({
+      kind: 'backupRequired',
+      commandId: 'backupWallet',
+    });
+  });
+
   it('does not expire command authority for display-only Section changes', () => {
     let state = createOwnedState();
     state = dispatch(state, {
@@ -339,6 +611,62 @@ describe('Home Store reducer', () => {
     });
     expect(rejected.effects).toEqual([
       expect.objectContaining({ reason: 'intentTargetUnavailable' }),
+    ]);
+  });
+
+  it('never grants handoff command authority to cached Navigation', () => {
+    const state = dispatch(createOwnedState(), {
+      type: 'displaySnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [],
+      navigation: {
+        kind: 'ready',
+        tabs: ['portfolio', 'perps'],
+        selectedTabId: 'portfolio',
+        destinations: {
+          portfolio: 'inline',
+          perps: 'web',
+        },
+        freshness: 'confirmedCache',
+        perpsDestination: 'web',
+        refresh: 'refreshing',
+        sections: {
+          portfolio: true,
+          perps: true,
+          defi: false,
+          nft: false,
+          history: false,
+          market: false,
+        },
+      },
+    });
+    expect(state.navigation.value).toMatchObject({
+      kind: 'ready',
+      freshness: 'confirmedCache',
+    });
+
+    const transition = reduceHomeStore(state, {
+      type: 'intentReceived',
+      intent: {
+        type: 'tabHandoffInvoked',
+        intentId: 'cached-navigation-handoff',
+        owner,
+        sessionId: ownerToken.sessionId,
+        tabId: 'perps',
+        actionId: 'home.perps.openWeb',
+        authority: {
+          kind: 'tabApplicability',
+          revision: state.navigation.tabApplicabilityRevision,
+        },
+      },
+    });
+
+    expect(transition.effects).toEqual([
+      expect.objectContaining({
+        kind: 'traceReject',
+        reason: 'intentTargetUnavailable',
+      }),
     ]);
   });
 
@@ -589,6 +917,195 @@ describe('Home Store reducer', () => {
     expect(hydrated.sections.defi.value).toMatchObject({
       kind: 'ready',
       rowIds: ['row-live'],
+      freshness: 'live',
+    });
+  });
+
+  it('hydrates a V2 owner snapshot before source requests and keeps it only for an exact request', () => {
+    const exactToken = createToken(1);
+    const cachedRecord = {
+      sourceId: 'defi' as const,
+      sourceKeyIdentity: getHomeSourceKeyIdentity(exactToken.sourceKey),
+      dataSchemaVersion: exactToken.sourceKey.dataSchemaVersion,
+      coverageFingerprint: '["cached"]',
+      quoteBasis: exactToken.sourceKey.quoteBasis ?? null,
+      confirmedAt: 1,
+      expiresAt: 2,
+      payload: {
+        section: {
+          kind: 'ready' as const,
+          rowIds: ['cached'],
+        },
+      },
+    };
+    let state = dispatch(createOwnedState(), {
+      type: 'displaySnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [cachedRecord],
+    });
+    expect(state.resources.defi).toMatchObject({
+      kind: 'ready',
+      token: undefined,
+      freshness: 'confirmedCache',
+      confirmedCacheSourceKeyIdentity: cachedRecord.sourceKeyIdentity,
+    });
+
+    state = dispatch(state, {
+      type: 'sectionReset',
+      ownerToken,
+      sectionId: 'defi',
+    });
+    expect(state.resources.defi).toMatchObject({
+      kind: 'ready',
+      token: undefined,
+      freshness: 'confirmedCache',
+      confirmedCacheSourceKeyIdentity: cachedRecord.sourceKeyIdentity,
+    });
+    expect(state.sections.defi.value).toMatchObject({
+      kind: 'ready',
+      rowIds: ['cached'],
+      freshness: 'confirmedCache',
+    });
+
+    state = dispatch(state, {
+      type: 'sourceRequested',
+      token: exactToken,
+    });
+    expect(state.resources.defi).toMatchObject({
+      kind: 'ready',
+      token: exactToken,
+      freshness: 'confirmedCache',
+      refresh: 'refreshing',
+    });
+
+    const mismatchedToken = {
+      ...createToken(2),
+      sourceKey: {
+        ...createToken(2).sourceKey,
+        paramsFingerprint: 'defi-b',
+      },
+    };
+    state = dispatch(state, {
+      type: 'sourceRequested',
+      token: mismatchedToken,
+    });
+    expect(state.resources.defi).toEqual({
+      kind: 'loading',
+      token: mismatchedToken,
+    });
+    expect(state.sections.defi.value).toEqual({
+      kind: 'loading',
+      placeholder: 'defi',
+    });
+  });
+
+  it('fails closed when a cached source loses its stable identity', () => {
+    const exactToken = createToken(1);
+    let state = dispatch(createOwnedState(), {
+      type: 'displaySnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [
+        {
+          sourceId: 'defi',
+          sourceKeyIdentity: getHomeSourceKeyIdentity(exactToken.sourceKey),
+          dataSchemaVersion: exactToken.sourceKey.dataSchemaVersion,
+          coverageFingerprint: '["cached"]',
+          quoteBasis: exactToken.sourceKey.quoteBasis ?? null,
+          confirmedAt: 1,
+          expiresAt: 2,
+          payload: {
+            section: {
+              kind: 'ready',
+              rowIds: ['cached'],
+            },
+          },
+        },
+      ],
+    });
+    const cached = state.resources.defi;
+    expect(cached.kind).toBe('ready');
+    if (cached.kind !== 'ready') {
+      return;
+    }
+    state = {
+      ...state,
+      resources: {
+        ...state.resources,
+        defi: {
+          ...cached,
+          confirmedCacheSourceKeyIdentity: undefined,
+        },
+      },
+    };
+
+    state = dispatch(state, {
+      type: 'sourceRequested',
+      token: exactToken,
+    });
+    expect(state.resources.defi).toEqual({
+      kind: 'loading',
+      token: exactToken,
+    });
+    expect(state.sections.defi.value).toEqual({
+      kind: 'loading',
+      placeholder: 'defi',
+    });
+  });
+
+  it('never lets a late V2 snapshot replace a live source result', () => {
+    const request = createToken(1);
+    let state = dispatch(createOwnedState(), {
+      type: 'sourceRequested',
+      token: request,
+    });
+    state = dispatch(state, {
+      type: 'sourceResponded',
+      envelope: {
+        token: request,
+        result: {
+          kind: 'success',
+          coverageFingerprint: '["live"]',
+          data: {
+            section: {
+              kind: 'ready',
+              rowIds: ['live'],
+            },
+          },
+        },
+      },
+    });
+    state = dispatch(state, {
+      type: 'displaySnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [
+        {
+          sourceId: 'defi',
+          sourceKeyIdentity: getHomeSourceKeyIdentity(request.sourceKey),
+          dataSchemaVersion: request.sourceKey.dataSchemaVersion,
+          coverageFingerprint: '["cached"]',
+          quoteBasis: null,
+          confirmedAt: 1,
+          expiresAt: 2,
+          payload: {
+            section: {
+              kind: 'ready',
+              rowIds: ['cached'],
+            },
+          },
+        },
+      ],
+    });
+    expect(state.resources.defi).toMatchObject({
+      kind: 'ready',
+      freshness: 'live',
+      coverageFingerprint: '["live"]',
+    });
+    expect(state.sections.defi.value).toMatchObject({
+      kind: 'ready',
+      rowIds: ['live'],
       freshness: 'live',
     });
   });

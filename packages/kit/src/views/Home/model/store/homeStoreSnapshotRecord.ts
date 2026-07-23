@@ -32,10 +32,12 @@ function createCacheRecord({
   now,
   slot,
   sourceId,
+  ttlMs = HOME_STORE_CACHE_TTL_MS,
 }: {
   now: number;
   slot: IHomeStoreResourceSlot<IHomeRuntimeJsonValue>;
   sourceId: IHomeStoreSourceId;
+  ttlMs?: number;
 }): IHomeCachedSourceRecord | undefined {
   if (
     (slot.kind !== 'ready' && slot.kind !== 'empty') ||
@@ -52,7 +54,7 @@ function createCacheRecord({
     coverageFingerprint: slot.coverageFingerprint,
     quoteBasis: slot.token.sourceKey.quoteBasis ?? null,
     confirmedAt: now,
-    expiresAt: now + HOME_STORE_CACHE_TTL_MS,
+    expiresAt: now + ttlMs,
     payload:
       slot.kind === 'ready' && slot.data
         ? slot.data

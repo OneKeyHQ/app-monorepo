@@ -53,6 +53,55 @@ import {
 const HYPER_EVM_LOGO_URI =
   'https://uni.onekey-asset.com/static/chain/hyper-evm.png';
 const VISIBLE_ROW_LIMIT = 6;
+const MOBILE_NATIVE_HOME_BANNER_SKELETON_ID = 'home-banner-loading';
+
+type IMobileNativeHomeBannerPresentation = 'content' | 'hidden' | 'loading';
+
+function resolveMobileNativeHomeBannerPresentation({
+  balancePresentationKind,
+  bannerResourceKind,
+  hasBannerContent,
+  isBackupRequired,
+  showPositiveBanner,
+}: {
+  balancePresentationKind:
+    | 'funded'
+    | 'fundedPendingTotal'
+    | 'loading'
+    | 'unavailable'
+    | 'zero'
+    | undefined;
+  bannerResourceKind:
+    | 'empty'
+    | 'error'
+    | 'idle'
+    | 'loading'
+    | 'partial'
+    | 'ready';
+  hasBannerContent: boolean;
+  isBackupRequired: boolean;
+  showPositiveBanner: boolean;
+}): IMobileNativeHomeBannerPresentation {
+  if (
+    isBackupRequired ||
+    balancePresentationKind === 'unavailable' ||
+    balancePresentationKind === 'zero'
+  ) {
+    return 'hidden';
+  }
+  if (showPositiveBanner && hasBannerContent) {
+    return 'content';
+  }
+  if (
+    hasBannerContent ||
+    bannerResourceKind === 'idle' ||
+    bannerResourceKind === 'loading' ||
+    bannerResourceKind === 'partial'
+  ) {
+    return 'loading';
+  }
+  return 'hidden';
+}
 
 const MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS = {
   openLowValueAssets: 'home.native.portfolio.assets.openLowValueAssets',
@@ -1166,10 +1215,12 @@ export function buildMobileNativeHomeViewModelSections({
 }
 
 export {
+  MOBILE_NATIVE_HOME_BANNER_SKELETON_ID,
   MOBILE_NATIVE_HOME_MARKET_CATEGORY_ACTION_PREFIX,
   MOBILE_NATIVE_HOME_MARKET_ACTION_IDS,
   MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS,
   getDeFiTotal,
+  resolveMobileNativeHomeBannerPresentation,
 };
 export type {
   IHomeNativeExpandedState,

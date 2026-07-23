@@ -2,7 +2,9 @@ import { memo, useEffect, useRef } from 'react';
 
 import {
   HeaderScrollGestureWrapper,
+  Skeleton,
   Stack,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -23,6 +25,50 @@ import { HomeTestIDs } from '../testIDs';
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
 export type IHomeHeaderContainerVariant = 'normal' | 'notBackedUp';
+
+const HOME_WALLET_ACTION_SKELETON_COUNT = 4;
+
+function HomeWalletActionsSkeleton() {
+  return (
+    <XStack
+      w="100%"
+      h={66}
+      gap="$2"
+      pointerEvents="none"
+      testID={HomeTestIDs.walletActionsSkeleton}
+      $gtSm={{
+        gap: '$3',
+        h: '$10',
+      }}
+    >
+      {Array.from({ length: HOME_WALLET_ACTION_SKELETON_COUNT }).map(
+        (_, index) => (
+          <Stack
+            key={index}
+            flex={1}
+            h={66}
+            testID={HomeTestIDs.walletActionsSkeletonItem(index)}
+            $gtSm={{
+              flex: undefined,
+              h: '$10',
+              w: 120,
+            }}
+          >
+            <Skeleton
+              h={66}
+              w="100%"
+              borderRadius="$4"
+              $gtSm={{
+                h: '$10',
+                borderRadius: '$full',
+              }}
+            />
+          </Stack>
+        ),
+      )}
+    </XStack>
+  );
+}
 
 function BaseHomeHeaderContainer({
   variant = 'normal',
@@ -188,7 +234,11 @@ function BaseHomeHeaderContainer({
         )}
         {isWalletNotBackedUp ? null : (
           <HeaderScrollGestureWrapper onRefresh={refreshAllSections}>
-            <WalletActions balancePresentation={balancePresentation} />
+            {balancePresentation.correlated.kind === 'loading' ? (
+              <HomeWalletActionsSkeleton />
+            ) : (
+              <WalletActions balancePresentation={balancePresentation} />
+            )}
           </HeaderScrollGestureWrapper>
         )}
       </Stack>

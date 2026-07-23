@@ -26,7 +26,11 @@ import {
 } from './actions';
 import {
   AccountSelectorJotaiProvider,
+  EAccountSelectorActiveAccountReloadMode,
+  EAccountSelectorActiveAccountReloadStatus,
   accountSelectorActiveAccountInitDoneAtom,
+  accountSelectorActiveAccountReloadRequestsAtom,
+  accountSelectorSelectionRevisionsAtom,
   accountSelectorStorageInitDoneAtom,
   accountSelectorStorageReadyAtom,
   accountSelectorUpdateMetaAtom,
@@ -477,6 +481,283 @@ describe('useAccountSelectorActions', () => {
     jest.restoreAllMocks();
   });
 
+  it('publishes an immediate reload request for an explicit network switch', async () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.updateSelectedAccountNetwork({
+        activeAccountReloadMode:
+          EAccountSelectorActiveAccountReloadMode.Immediate,
+        num: 0,
+        networkId: 'evm--1',
+      });
+    });
+
+    expect(
+      store.get(accountSelectorActiveAccountReloadRequestsAtom())[0],
+    ).toEqual({
+      requestId: 1,
+      reason: 'networkSelect',
+      selectionRevision: 1,
+      selectedAccount: expect.objectContaining({
+        networkId: 'evm--1',
+      }),
+      status: EAccountSelectorActiveAccountReloadStatus.Pending,
+    });
+  });
+
+  it('claims and completes an immediate request with compare-and-set semantics', async () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.updateSelectedAccountNetwork({
+        activeAccountReloadMode:
+          EAccountSelectorActiveAccountReloadMode.Immediate,
+        num: 0,
+        networkId: 'evm--1',
+      });
+    });
+
+    expect(
+      result.current.claimActiveAccountReloadRequest({
+        num: 0,
+        requestId: 1,
+      }),
+    ).toBe(true);
+    expect(
+      result.current.claimActiveAccountReloadRequest({
+        num: 0,
+        requestId: 1,
+      }),
+    ).toBe(false);
+    expect(
+      store.get(accountSelectorActiveAccountReloadRequestsAtom())[0]?.status,
+    ).toBe(EAccountSelectorActiveAccountReloadStatus.Running);
+
+    result.current.completeActiveAccountReloadRequest({
+      num: 0,
+      requestId: 1,
+    });
+    expect(
+      store.get(accountSelectorActiveAccountReloadRequestsAtom())[0]?.status,
+    ).toBe(EAccountSelectorActiveAccountReloadStatus.Completed);
+  });
+
+  it('keeps automatic network updates on the coalesced reload path', async () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.updateSelectedAccountNetwork({
+        num: 0,
+        networkId: 'evm--1',
+      });
+    });
+
+    expect(store.get(accountSelectorActiveAccountReloadRequestsAtom())[0]).toBe(
+      undefined,
+    );
+  });
+
+  it('does not publish an immediate reload request for a no-op selection', async () => {
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: {
+        ...defaultSelectedAccount(),
+        networkId: 'evm--1',
+      },
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.updateSelectedAccountNetwork({
+        activeAccountReloadMode:
+          EAccountSelectorActiveAccountReloadMode.Immediate,
+        num: 0,
+        networkId: 'evm--1',
+      });
+    });
+
+    expect(store.get(accountSelectorActiveAccountReloadRequestsAtom())[0]).toBe(
+      undefined,
+    );
+  });
+
+  it('does not advance the ActiveAccount revision for focused wallet browsing', async () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.updateSelectedAccountFocusedWallet({
+        num: 0,
+        focusedWallet: 'hd-2',
+      });
+    });
+
+    expect(store.get(accountSelectorSelectionRevisionsAtom())[0]).toBe(
+      undefined,
+    );
+  });
+
+  it('commits an in-flight owner reload when only focused wallet changes', async () => {
+    const buildDeferred = createDeferred<IBuildActiveAccountInfoResult>();
+    mockBuildActiveAccountInfoFromSelectedAccount.mockReturnValue(
+      buildDeferred.promise,
+    );
+    const selectedAccount = createHdSelectedAccount('hd-1--0');
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: selectedAccount,
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    const reloadPromise = result.current.reloadActiveAccountInfo({
+      num: 0,
+      selectedAccount,
+    });
+    await Promise.resolve();
+    await act(async () => {
+      await result.current.updateSelectedAccountFocusedWallet({
+        num: 0,
+        focusedWallet: 'hd-2',
+      });
+    });
+    buildDeferred.resolve({
+      activeAccount: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+      },
+    });
+
+    await expect(reloadPromise).resolves.toMatchObject({
+      status: 'committed',
+    });
+    expect(store.get(activeAccountsAtom())[0]?.ready).toBe(true);
+    expect(store.get(accountSelectorSelectionRevisionsAtom())[0]).toBe(
+      undefined,
+    );
+  });
+
+  it('drops a reload that is stale before entering the background builder', async () => {
+    const selectedAccount = createHdSelectedAccount('hd-1--0');
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: createHdSelectedAccount('hd-1--1'),
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await expect(
+      result.current.reloadActiveAccountInfo({
+        num: 0,
+        selectedAccount,
+      }),
+    ).resolves.toEqual({
+      status: 'stale',
+    });
+    expect(
+      mockBuildActiveAccountInfoFromSelectedAccount,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('drops a background result when the selection changes in flight', async () => {
+    const buildDeferred = createDeferred<IBuildActiveAccountInfoResult>();
+    mockBuildActiveAccountInfoFromSelectedAccount.mockReturnValue(
+      buildDeferred.promise,
+    );
+    const selectedAccount = createHdSelectedAccount('hd-1--0');
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: selectedAccount,
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    const reloadPromise = result.current.reloadActiveAccountInfo({
+      num: 0,
+      selectedAccount,
+    });
+    await Promise.resolve();
+    store.set(selectedAccountsAtom(), {
+      0: createHdSelectedAccount('hd-1--1'),
+    });
+    buildDeferred.resolve({
+      activeAccount: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+      },
+    });
+
+    await expect(reloadPromise).resolves.toEqual({
+      status: 'stale',
+    });
+    expect(store.get(activeAccountsAtom())[0]?.ready).toBe(false);
+  });
+
+  it('drops an ABA background result when selection returns to the same value', async () => {
+    const buildDeferred = createDeferred<IBuildActiveAccountInfoResult>();
+    mockBuildActiveAccountInfoFromSelectedAccount.mockReturnValue(
+      buildDeferred.promise,
+    );
+    const selectedAccount = createHdSelectedAccount('hd-1--0');
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: selectedAccount,
+    });
+    store.set(accountSelectorSelectionRevisionsAtom(), {
+      0: 1,
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    const reloadPromise = result.current.reloadActiveAccountInfo({
+      num: 0,
+      selectedAccount,
+      selectionRevision: 1,
+    });
+    await Promise.resolve();
+    store.set(selectedAccountsAtom(), {
+      0: createHdSelectedAccount('hd-1--1'),
+    });
+    store.set(accountSelectorSelectionRevisionsAtom(), {
+      0: 2,
+    });
+    store.set(selectedAccountsAtom(), {
+      0: selectedAccount,
+    });
+    store.set(accountSelectorSelectionRevisionsAtom(), {
+      0: 3,
+    });
+    buildDeferred.resolve({
+      activeAccount: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+      },
+    });
+
+    await expect(reloadPromise).resolves.toEqual({
+      status: 'stale',
+    });
+    expect(store.get(activeAccountsAtom())[0]?.ready).toBe(false);
+  });
+
   it('marks active account init done when reload finishes before storage init', async () => {
     const selectedAccountsMapDeferred = createDeferred<
       ISelectedAccountsMap | undefined
@@ -731,6 +1012,38 @@ describe('useAccountSelectorActions', () => {
         },
       });
     }
+
+    it('publishes an immediate reload request after account selection commits', async () => {
+      const { store, Wrapper } = createWrapper();
+      seedSelection(store, 'evm--1');
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.confirmAccountSelect({
+          activeAccountReloadMode:
+            EAccountSelectorActiveAccountReloadMode.Immediate,
+          indexedAccount: qrIndexedAccount,
+          othersWalletAccount: undefined,
+          num: 0,
+        });
+      });
+
+      expect(
+        store.get(accountSelectorActiveAccountReloadRequestsAtom())[0],
+      ).toEqual({
+        requestId: 1,
+        reason: 'accountSelect',
+        selectionRevision: 1,
+        selectedAccount: expect.objectContaining({
+          indexedAccountId: 'qr-1--0',
+          networkId: 'evm--1',
+          walletId: 'qr-1',
+        }),
+        status: EAccountSelectorActiveAccountReloadStatus.Pending,
+      });
+    });
 
     it('falls back to the first compatible chain when All Networks is a dead end for the target wallet', async () => {
       mockGetAllNetworksFallbackNetworkId.mockResolvedValue('btc--0');

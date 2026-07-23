@@ -12,12 +12,17 @@ import { HOME_PORTFOLIO_SHOW_LP_TOKENS_CONTROL_ID } from '../sections/spot/homeP
 import { HomePortfolioControlPersistenceController } from './HomePortfolioControlPersistenceController';
 import { HomeStoreCommandController } from './HomeStoreCommandController';
 import { HomeStoreControllerBridge } from './HomeStoreControllerBridge';
-import { HomeStoreSnapshotController } from './HomeStoreSnapshotController';
 
 const HomeReadySourceControllers = LazyLoad(async () => {
   const { HomeReadySourceControllers: Controllers } =
     await import('./HomeReadySourceControllers');
   return { default: Controllers };
+});
+
+const HomeDisplaySnapshotController = LazyLoad(async () => {
+  const { HomeDisplaySnapshotController: Controller } =
+    await import('./HomeDisplaySnapshotController');
+  return { default: Controller };
 });
 
 export function HomeStoreSourceControllers({
@@ -49,7 +54,7 @@ export function HomeStoreSourceControllers({
           />
         ) : null}
       </HomeTokenListProviderMirror>
-      <HomeStoreSnapshotController />
+      {enableWalletSources ? <HomeDisplaySnapshotController /> : null}
       {enableWalletSources ? <HomeStoreCommandController /> : null}
       {children}
     </>

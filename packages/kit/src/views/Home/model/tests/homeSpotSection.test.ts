@@ -65,6 +65,11 @@ describe('home Spot section authority', () => {
       params,
       producerInstanceId: 'producer-a',
     });
+    const restarted = createHomeSpotSourceIdentity({
+      owner: { ...owner, sessionId: 'session-b' },
+      params,
+      producerInstanceId: 'producer-b',
+    });
     const changed = createHomeSpotSourceIdentity({
       owner,
       params: { ...params, defaultTokenRevision: 'defaults-2' },
@@ -75,6 +80,7 @@ describe('home Spot section authority', () => {
       sourceId: 'portfolio',
       sourceRevision: 1,
     });
+    expect(first.sourceKeyIdentity).toBe(restarted.sourceKeyIdentity);
     expect(first.sourceKeyIdentity).not.toBe(changed.sourceKeyIdentity);
   });
 

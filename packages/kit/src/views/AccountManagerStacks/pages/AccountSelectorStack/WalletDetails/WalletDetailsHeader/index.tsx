@@ -16,6 +16,7 @@ import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import {
+  EAccountSelectorActiveAccountReloadMode,
   useAccountSelectorContextDataAtom,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -163,6 +164,8 @@ export function WalletDetailsHeader({
             }
             onSelect={async ({ deriveType }) => {
               await actions.current.updateSelectedAccountDeriveType({
+                activeAccountReloadMode:
+                  EAccountSelectorActiveAccountReloadMode.Immediate,
                 num,
                 deriveType,
               });

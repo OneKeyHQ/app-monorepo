@@ -9,7 +9,10 @@ import {
   EDecodedTxStatus,
 } from '@onekeyhq/shared/types/tx';
 
-import { buildMobileNativeHomeViewModelSections } from './mobileNativeHomeViewModelAdapter';
+import {
+  buildMobileNativeHomeViewModelSections,
+  resolveMobileNativeHomeBannerPresentation,
+} from './mobileNativeHomeViewModelAdapter';
 
 const presentation = {
   labels: {
@@ -47,6 +50,45 @@ const presentation = {
 };
 
 describe('mobileNativeHomeViewModelAdapter', () => {
+  it('reserves the banner band until its positive-content decision settles', () => {
+    expect(
+      resolveMobileNativeHomeBannerPresentation({
+        balancePresentationKind: undefined,
+        bannerResourceKind: 'loading',
+        hasBannerContent: false,
+        isBackupRequired: false,
+        showPositiveBanner: false,
+      }),
+    ).toBe('loading');
+    expect(
+      resolveMobileNativeHomeBannerPresentation({
+        balancePresentationKind: 'fundedPendingTotal',
+        bannerResourceKind: 'ready',
+        hasBannerContent: true,
+        isBackupRequired: false,
+        showPositiveBanner: true,
+      }),
+    ).toBe('content');
+    expect(
+      resolveMobileNativeHomeBannerPresentation({
+        balancePresentationKind: 'funded',
+        bannerResourceKind: 'ready',
+        hasBannerContent: false,
+        isBackupRequired: false,
+        showPositiveBanner: false,
+      }),
+    ).toBe('hidden');
+    expect(
+      resolveMobileNativeHomeBannerPresentation({
+        balancePresentationKind: 'zero',
+        bannerResourceKind: 'loading',
+        hasBannerContent: false,
+        isBackupRequired: false,
+        showPositiveBanner: false,
+      }),
+    ).toBe('hidden');
+  });
+
   it('maps semantic loading and hidden states without renderer-owned data', () => {
     expect(
       buildMobileNativeHomeViewModelSections({

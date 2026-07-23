@@ -48,6 +48,7 @@ import kotlin.math.roundToInt
 
 private const val HOME_CONTAINER_TAB_HEIGHT_DP = 60
 private const val HOME_CONTAINER_COMPACT_HEADER_HEIGHT_DP = 60
+private const val HOME_CONTAINER_BANNER_SKELETON_ID = "home-banner-loading"
 
 private fun HomeContainerTheme.skeletonGradientColors(): Array<String> {
   val background = parseHomeContainerColor(backgroundColor, Color.WHITE)
@@ -2988,6 +2989,7 @@ private class HomeBannerView(context: Context) : FrameLayout(context) {
   private val labels = LinearLayout(context)
   private val resourceStack = LinearLayout(context)
   private val dismiss = TextView(context)
+  private val skeleton = SkeletonNativeView(context)
   private var banner: HomeContainerBanner? = null
   private var imageRequest: HomeContainerImageLoader.Request? = null
   private var representedImageUrl: String? = null
@@ -3032,6 +3034,16 @@ private class HomeBannerView(context: Context) : FrameLayout(context) {
       banner?.dismissActionId?.takeIf { it.isNotEmpty() }?.let { onAction?.invoke(it) }
     }
     addView(dismiss, LayoutParams(dp(28), dp(28), Gravity.TOP or Gravity.END))
+    skeleton.apply {
+      background = GradientDrawable().apply {
+        cornerRadius = dp(16).toFloat()
+      }
+      clipToOutline = true
+      isClickable = false
+      isFocusable = false
+      importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+    }
+    addView(skeleton, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
     setOnClickListener {
       banner?.actionId?.takeIf { it.isNotEmpty() }?.let { onAction?.invoke(it) }
     }
@@ -3047,15 +3059,27 @@ private class HomeBannerView(context: Context) : FrameLayout(context) {
 
   fun bind(value: HomeContainerBanner, theme: HomeContainerTheme) {
     banner = value
+    val isLoading = value.id == HOME_CONTAINER_BANNER_SKELETON_ID
+    skeleton.visibility = if (isLoading) VISIBLE else GONE
+    if (isLoading) {
+      skeleton.applyHomeContainerSkeletonTheme(theme)
+    }
+    isClickable = !isLoading
+    isFocusable = !isLoading
+    importantForAccessibility =
+      if (isLoading) IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+      else IMPORTANT_FOR_ACCESSIBILITY_AUTO
     val isTronResourceBanner = value.id == "home-tron-resource"
-    labels.visibility = if (isTronResourceBanner) GONE else VISIBLE
-    resourceStack.visibility = if (isTronResourceBanner) VISIBLE else GONE
+    labels.visibility = if (isLoading || isTronResourceBanner) GONE else VISIBLE
+    resourceStack.visibility =
+      if (!isLoading && isTronResourceBanner) VISIBLE else GONE
     title.text = value.title
     title.setTextColor(parseHomeContainerColor(theme.primaryTextColor, Color.BLACK))
     subtitle.text = value.subtitle
     subtitle.visibility = if (value.subtitle.isEmpty()) GONE else VISIBLE
     subtitle.setTextColor(parseHomeContainerColor(theme.secondaryTextColor, Color.DKGRAY))
-    dismiss.visibility = if (value.dismissActionId.isEmpty()) GONE else VISIBLE
+    dismiss.visibility =
+      if (isLoading || value.dismissActionId.isEmpty()) GONE else VISIBLE
     dismiss.setTextColor(parseHomeContainerColor(theme.secondaryTextColor, Color.DKGRAY))
     background = GradientDrawable().apply {
       setColor(parseHomeContainerColor(theme.cardColor, Color.LTGRAY))
@@ -3071,7 +3095,10 @@ private class HomeBannerView(context: Context) : FrameLayout(context) {
       params.marginEnd = dp(14)
       labels.layoutParams = params
     }
-    if (isTronResourceBanner) {
+    if (isLoading) {
+      resourceStack.removeAllViews()
+      loadImage("")
+    } else if (isTronResourceBanner) {
       bindResourceRows(value.resourceRows, theme)
       loadImage("")
     } else {

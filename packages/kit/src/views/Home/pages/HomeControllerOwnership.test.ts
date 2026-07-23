@@ -12,7 +12,7 @@ const sourceControllerNames = [
   'HomePerpsStoreController',
   'HomePortfolioStoreController',
   'HomeStoreControllerBridge',
-  'HomeStoreSnapshotController',
+  'HomeDisplaySnapshotController',
 ];
 
 function readSource(relativePath: string) {

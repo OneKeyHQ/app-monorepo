@@ -209,8 +209,29 @@ function dispatchHomeStoreEvent(
   transition.patch.mutations.forEach((mutation) => {
     applyHomeMutation(set, mutation);
   });
+  const changedSourceIds = Array.from(
+    new Set(
+      transition.patch.mutations.flatMap((mutation) =>
+        mutation.slice === 'resource' ? [mutation.sourceId] : [],
+      ),
+    ),
+  );
+  const presentationChanged = transition.patch.mutations.some(
+    (mutation) =>
+      mutation.slice === 'interaction' ||
+      mutation.slice === 'shell' ||
+      mutation.slice === 'navigation',
+  );
   set(homeCommitIdentityState.atom(), {
     storeCommitId: current.commitIdentity.storeCommitId + 1,
+    origin:
+      event.type === 'displaySnapshotHydrated' ||
+      event.type === 'confirmedSnapshotHydrated'
+        ? 'cacheHydrate'
+        : 'storeEvent',
+    changedSourceIds,
+    presentationChanged,
+    ownerChanged: event.type === 'ownerChanged',
   });
   return transition.effects;
 }

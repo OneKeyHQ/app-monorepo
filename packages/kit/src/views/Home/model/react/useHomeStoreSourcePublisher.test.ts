@@ -1,3 +1,4 @@
+import { getHomeSourceKeyIdentity } from '../core/homeIdentity';
 import { createInitialHomeStoreState } from '../store/homeStoreInitialState';
 import {
   applyHomeStorePatchToState,
@@ -20,7 +21,13 @@ function applyEvent(state: IHomeStoreState, event: IHomeStoreEvent) {
   );
 }
 
-function createGatewayHarness() {
+function createGatewayHarness({
+  harnessOwnerToken = ownerToken,
+  producerInstanceId = 'producer-a',
+}: {
+  harnessOwnerToken?: typeof ownerToken;
+  producerInstanceId?: string;
+} = {}) {
   let state = applyEvent(createInitialHomeStoreState(), {
     type: 'ownerChanged',
     owner: {
@@ -28,7 +35,7 @@ function createGatewayHarness() {
       accountId: 'account-a',
       network: { kind: 'allNetworks' },
     },
-    ownerToken,
+    ownerToken: harnessOwnerToken,
     topology: 'single',
   });
   state = applyEvent(state, {
@@ -36,7 +43,7 @@ function createGatewayHarness() {
     runtime: {
       topology: 'single',
       connection: 'ready',
-      producerInstanceId: 'producer-a',
+      producerInstanceId,
       protocolVersion: 1,
     },
   });
@@ -150,6 +157,43 @@ describe('Home Store production source gateways', () => {
       kind: 'ready',
       token: handle.token,
     });
+  });
+
+  it('keeps a stable source identity across runtime session restarts', () => {
+    const firstOwnerToken = {
+      scopeKey: ownerToken.scopeKey,
+      sessionId: 'session-a',
+    };
+    const secondOwnerToken = {
+      scopeKey: ownerToken.scopeKey,
+      sessionId: 'session-b',
+    };
+    const first = createGatewayHarness({
+      harnessOwnerToken: firstOwnerToken,
+      producerInstanceId: 'producer-a',
+    }).gateway.begin({
+      ownerToken: firstOwnerToken,
+      sectionId: 'portfolio',
+      paramsFingerprint: 'stable-portfolio-business-identity',
+      quoteBasis: { currency: 'usd' },
+    });
+    const second = createGatewayHarness({
+      harnessOwnerToken: secondOwnerToken,
+      producerInstanceId: 'producer-b',
+    }).gateway.begin({
+      ownerToken: secondOwnerToken,
+      sectionId: 'portfolio',
+      paramsFingerprint: 'stable-portfolio-business-identity',
+      quoteBasis: { currency: 'usd' },
+    });
+
+    expect(first.token.sessionId).not.toBe(second.token.sessionId);
+    expect(first.token.producerInstanceId).not.toBe(
+      second.token.producerInstanceId,
+    );
+    expect(getHomeSourceKeyIdentity(first.token.sourceKey)).toBe(
+      getHomeSourceKeyIdentity(second.token.sourceKey),
+    );
   });
 
   it('keeps ready rows visible while an explicit refresh request is pending', () => {

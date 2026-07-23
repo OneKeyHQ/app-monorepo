@@ -47,6 +47,14 @@ export function useHomeStoreControllerActions() {
           ...payload,
         });
       },
+      hydrateHomeDisplaySnapshot: (
+        payload: IHomeControllerEventPayload<'displaySnapshotHydrated'>,
+      ) => {
+        actions.current.dispatchHomeEvent({
+          type: 'displaySnapshotHydrated',
+          ...payload,
+        });
+      },
       stopHomeStore: () => {
         actions.current.dispatchHomeEvent({ type: 'stopped' });
       },

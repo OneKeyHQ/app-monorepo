@@ -43,6 +43,15 @@ describe('Home portfolio Store boundary', () => {
     );
   });
 
+  it('keeps persisted portfolio identity independent of runtime sessions', () => {
+    expect(controllerSource).toContain(
+      'paramsFingerprint: legacySpotCacheParamsFingerprint',
+    );
+    expect(controllerSource).not.toContain(
+      'paramsFingerprint: legacySpotIdentityKey',
+    );
+  });
+
   it('binds single-network responses to their request owner and explicit terminal', () => {
     expect(controllerSource).toContain(
       'requestOwnerKey === cellsIngestInputsRef.current.ownerKey',

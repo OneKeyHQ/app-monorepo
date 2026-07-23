@@ -121,6 +121,27 @@ describe('Native Home runtime surface', () => {
     );
     expect(mobileRendererSource).toContain('<HomeTabSearchHeader />');
     expect(mobileRendererSource).toContain('<WalletActions');
+    expect(mobileRendererSource).toContain(
+      'function MobileNativeHomeActionRowSkeleton()',
+    );
+    expect(mobileRendererSource).toContain(
+      "const shouldShowActionRowSkeleton = header.actionLayout === 'loading';",
+    );
+    expect(mobileRendererSource).toContain(
+      'testID={HomeTestIDs.walletActionsSkeleton}',
+    );
+    expect(mobileViewModelAdapterSource).toContain(
+      "MOBILE_NATIVE_HOME_BANNER_SKELETON_ID = 'home-banner-loading'",
+    );
+    expect(mobileRendererSource).toContain(
+      'resolveMobileNativeHomeBannerPresentation({',
+    );
+    expect(iosNativeSource).toContain(
+      'bannerSkeletonId = "home-banner-loading"',
+    );
+    expect(androidNativeSource).toContain(
+      'HOME_CONTAINER_BANNER_SKELETON_ID = "home-banner-loading"',
+    );
     expect(mobileRendererSource).toContain('<NotBackedUpEmpty />');
     expect(mobileRendererSource).toContain('contentStates:');
     expect(mobileRendererSource).toContain('contentHeaders:');

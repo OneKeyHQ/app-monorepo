@@ -6,6 +6,7 @@ import {
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { aggregateHomeBalanceFacts } from '../balance/homeBalanceAggregation';
+import { getHomeSourceKeyIdentity } from '../core/homeIdentity';
 import { projectHomeNavigation } from '../navigation/homeNavigationProjector';
 import { projectHomeBalanceAuthority } from '../policies/homeBalanceAuthorityPolicy';
 import { projectHomeShell } from '../policies/homeShellPolicy';
@@ -25,6 +26,7 @@ import {
 import { isHomeCachedRecordExactForToken } from './homeStoreSnapshotCodec';
 
 import type {
+  IHomeCachedSourceRecord,
   IHomeStoreDiagnosticsState,
   IHomeStoreEffect,
   IHomeStoreEvent,
@@ -285,6 +287,57 @@ function advanceShell(
   };
 }
 
+function advanceShellPreservingConfirmedCache(
+  current: IHomeStoreShellSlice,
+  value: IHomeShellSemanticModel,
+): IHomeStoreShellSlice {
+  const currentPresentation =
+    current.value.kind === 'portfolio' ? current.value.presentation : undefined;
+  const nextPresentation =
+    value.kind === 'portfolio' ? value.presentation : undefined;
+  const currentHasConfirmedCache =
+    (currentPresentation?.kind === 'funded' ||
+      currentPresentation?.kind === 'zero') &&
+    currentPresentation.freshness === 'confirmedCache';
+  const nextStillAwaitsConfirmedTotal =
+    nextPresentation?.kind === 'loading' ||
+    nextPresentation?.kind === 'fundedPendingTotal';
+  if (currentHasConfirmedCache && nextStillAwaitsConfirmedTotal) {
+    // A live request may start before the V2 display snapshot is hydrated.
+    // Pending evidence must not erase an exact cached total while that request
+    // continues to own its balance round and can still replace the snapshot.
+    return current;
+  }
+  if (currentHasConfirmedCache && nextPresentation?.kind === 'unavailable') {
+    return advanceShell(current, {
+      kind: 'portfolio',
+      presentation: {
+        ...currentPresentation,
+        refresh: 'failed',
+      },
+    });
+  }
+  return advanceShell(current, value);
+}
+
+function markDisplaySnapshotRefreshFailed(
+  shell: IHomeShellSemanticModel,
+): IHomeShellSemanticModel {
+  if (
+    shell.kind !== 'portfolio' ||
+    (shell.presentation.kind !== 'funded' && shell.presentation.kind !== 'zero')
+  ) {
+    return shell;
+  }
+  return {
+    ...shell,
+    presentation: {
+      ...shell.presentation,
+      refresh: 'failed',
+    },
+  };
+}
+
 function advanceNavigation(
   current: IHomeStoreNavigationSlice,
   value: IHomeNavigationSemanticModel,
@@ -325,6 +378,85 @@ function advanceSection(
       current.sectionCommandRevision + (commandsChanged ? 1 : 0),
     value,
   };
+}
+
+function createConfirmedCacheMutations({
+  records,
+  state,
+}: {
+  records: readonly IHomeCachedSourceRecord[];
+  state: IHomeStoreState;
+}): IHomeStoreMutation[] {
+  const mutations: IHomeStoreMutation[] = [];
+  records.forEach((record) => {
+    const current = state.resources[record.sourceId];
+    const token = current.kind === 'idle' ? undefined : current.token;
+    const refresh = current.kind === 'error' ? 'failed' : 'refreshing';
+    const cachedPayload =
+      record.payload &&
+      typeof record.payload === 'object' &&
+      !Array.isArray(record.payload)
+        ? (record.payload as {
+            readonly [key: string]: IHomeRuntimeJsonValue;
+          })
+        : undefined;
+    const cachedSection = cachedPayload?.section;
+    const isCachedEmpty = Boolean(
+      cachedSection &&
+      typeof cachedSection === 'object' &&
+      !Array.isArray(cachedSection) &&
+      (cachedSection as { readonly kind?: IHomeRuntimeJsonValue }).kind ===
+        'empty',
+    );
+    mutations.push({
+      slice: 'resource',
+      sourceId: record.sourceId,
+      operation: {
+        kind: 'set',
+        value: isCachedEmpty
+          ? {
+              kind: 'empty',
+              token,
+              coverageFingerprint: record.coverageFingerprint,
+              confirmedCacheSourceKeyIdentity: record.sourceKeyIdentity,
+              freshness: 'confirmedCache',
+              refresh,
+            }
+          : {
+              kind: 'ready',
+              token,
+              data: record.payload,
+              coverageFingerprint: record.coverageFingerprint,
+              confirmedCacheSourceKeyIdentity: record.sourceKeyIdentity,
+              freshness: 'confirmedCache',
+              refresh,
+            },
+      },
+    });
+    if (isHomeSectionId(record.sourceId)) {
+      const sectionId = record.sourceId;
+      const cachedSectionValue = parseSectionPayload(
+        sectionId,
+        record.payload,
+        'confirmedCache',
+        refresh,
+      );
+      if (cachedSectionValue) {
+        mutations.push({
+          slice: 'section',
+          sectionId,
+          operation: {
+            kind: 'set',
+            value: advanceSection(
+              state.sections[sectionId],
+              cachedSectionValue,
+            ),
+          },
+        });
+      }
+    }
+  });
+  return mutations;
 }
 
 function resetOwnerScopedMutations(
@@ -506,6 +638,13 @@ function validateIntent(
     return 'ownerMismatch';
   }
   if (intent.authority.kind === 'tabApplicability') {
+    if (
+      intent.type === 'tabHandoffInvoked' &&
+      state.navigation.value.kind === 'ready' &&
+      state.navigation.value.freshness === 'confirmedCache'
+    ) {
+      return 'intentTargetUnavailable';
+    }
     return intent.authority.revision ===
       state.navigation.tabApplicabilityRevision
       ? undefined
@@ -519,14 +658,17 @@ function validateIntent(
       intent.type === 'headerActionInvoked' &&
       intent.actionId.startsWith('home.banner.')
     ) {
+      if (
+        state.resources.banner.kind !== 'ready' ||
+        state.resources.banner.freshness !== 'live'
+      ) {
+        return 'intentTargetUnavailable';
+      }
       const presentation =
         state.shell.value.kind === 'portfolio'
           ? state.shell.value.presentation
           : undefined;
-      const payload =
-        state.resources.banner.kind === 'ready'
-          ? readHomeBannerStorePayload(state.resources.banner.data)
-          : undefined;
+      const payload = readHomeBannerStorePayload(state.resources.banner.data);
       const item = payload?.banners.find(
         (candidate) => candidate.id === intent.itemId,
       );
@@ -554,6 +696,14 @@ function validateIntent(
         return 'intentTargetUnavailable';
       }
     }
+    if (
+      state.shell.value.kind === 'portfolio' &&
+      (state.shell.value.presentation.kind === 'funded' ||
+        state.shell.value.presentation.kind === 'zero') &&
+      state.shell.value.presentation.freshness === 'confirmedCache'
+    ) {
+      return 'intentTargetUnavailable';
+    }
     return intent.type === 'headerActionInvoked' &&
       (intent.actionId.startsWith('home.header.') ||
         intent.actionId.startsWith('home.banner.'))
@@ -561,6 +711,13 @@ function validateIntent(
       : 'intentTargetUnavailable';
   }
   const sectionId = intent.authority.sectionId;
+  const sectionResource = state.resources[sectionId];
+  if (
+    (sectionResource.kind === 'ready' || sectionResource.kind === 'empty') &&
+    sectionResource.freshness === 'confirmedCache'
+  ) {
+    return 'intentTargetUnavailable';
+  }
   if (
     intent.authority.revision !==
     state.sections[sectionId].sectionCommandRevision
@@ -671,7 +828,10 @@ export function reduceHomeStore(
         });
       }
       {
-        const nextShell = advanceShell(state.shell, semantic.shell);
+        const nextShell = advanceShellPreservingConfirmedCache(
+          state.shell,
+          semantic.shell,
+        );
         if (nextShell !== state.shell) {
           mutations.push({
             slice: 'shell',
@@ -736,7 +896,7 @@ export function reduceHomeStore(
         facts,
         portfolioPresentation: decision.presentation,
       });
-      const next = advanceShell(state.shell, shell);
+      const next = advanceShellPreservingConfirmedCache(state.shell, shell);
       const mutations: IHomeStoreMutation[] = [];
       if (!equal(state.balanceRound, balance)) {
         mutations.push({
@@ -943,6 +1103,16 @@ export function reduceHomeStore(
       const next = createInitialHomeStoreSection(event.sectionId);
       const resource = state.resources[event.sectionId];
       if (
+        (resource.kind === 'ready' || resource.kind === 'empty') &&
+        resource.freshness === 'confirmedCache'
+      ) {
+        // V2 can hydrate a visible source before its lazy producer has loaded
+        // stable business inputs. Keep that display-only value through the
+        // producer's setup reset; the first exact request will retain it, while
+        // a mismatched request still replaces it with loading.
+        return emptyTransition();
+      }
+      if (
         equal(state.sections[event.sectionId], next) &&
         resource.kind === 'idle'
       ) {
@@ -1005,7 +1175,12 @@ export function reduceHomeStore(
           ? TPayload
           : never
       >;
-      if (current.kind === 'ready' || current.kind === 'empty') {
+      const canPreserveCurrent =
+        (current.kind === 'ready' || current.kind === 'empty') &&
+        (current.freshness !== 'confirmedCache' ||
+          current.confirmedCacheSourceKeyIdentity ===
+            getHomeSourceKeyIdentity(event.token.sourceKey));
+      if (canPreserveCurrent) {
         next = { ...current, token: event.token, refresh: 'refreshing' };
       } else {
         next = { kind: 'loading', token: event.token };
@@ -1020,7 +1195,7 @@ export function reduceHomeStore(
       if (isHomeSectionId(sourceId)) {
         const currentSection = state.sections[sourceId];
         const sectionValue: IHomeSectionSemanticModel =
-          currentSection.value.kind === 'ready'
+          canPreserveCurrent && currentSection.value.kind === 'ready'
             ? { ...currentSection.value, refresh: 'refreshing' }
             : { kind: 'loading', placeholder: sourceId };
         const nextSection = advanceSection(currentSection, sectionValue);
@@ -1166,73 +1341,86 @@ export function reduceHomeStore(
       if (hasInvalidRecord) {
         return rejectedTransition(state, 'snapshotRejected');
       }
-      const mutations: IHomeStoreMutation[] = [];
-      event.records.forEach((record) => {
-        const current = state.resources[record.sourceId];
-        const token = current.kind === 'idle' ? undefined : current.token;
-        const refresh = current.kind === 'error' ? 'failed' : 'refreshing';
-        const cachedPayload =
-          record.payload &&
-          typeof record.payload === 'object' &&
-          !Array.isArray(record.payload)
-            ? (record.payload as {
-                readonly [key: string]: IHomeRuntimeJsonValue;
-              })
-            : undefined;
-        const cachedSection = cachedPayload?.section;
-        const isCachedEmpty = Boolean(
-          cachedSection &&
-          typeof cachedSection === 'object' &&
-          !Array.isArray(cachedSection) &&
-          (cachedSection as { readonly kind?: IHomeRuntimeJsonValue }).kind ===
-            'empty',
-        );
+      const mutations = createConfirmedCacheMutations({
+        records: event.records,
+        state,
+      });
+      if (
+        event.selectedTabPreference &&
+        state.interaction.preferredTabId !== event.selectedTabPreference
+      ) {
         mutations.push({
-          slice: 'resource',
-          sourceId: record.sourceId,
+          slice: 'interaction',
           operation: {
             kind: 'set',
-            value: isCachedEmpty
-              ? {
-                  kind: 'empty',
-                  token,
-                  coverageFingerprint: record.coverageFingerprint,
-                  freshness: 'confirmedCache',
-                  refresh,
-                }
-              : {
-                  kind: 'ready',
-                  token,
-                  data: record.payload,
-                  coverageFingerprint: record.coverageFingerprint,
-                  freshness: 'confirmedCache',
-                  refresh,
-                },
+            value: {
+              ...state.interaction,
+              preferredTabId: event.selectedTabPreference,
+            },
           },
         });
-        if (isHomeSectionId(record.sourceId)) {
-          const sectionId = record.sourceId;
-          const cachedSectionValue = parseSectionPayload(
-            sectionId,
-            record.payload,
-            'confirmedCache',
-            refresh,
-          );
-          if (cachedSectionValue) {
-            mutations.push({
-              slice: 'section',
-              sectionId,
-              operation: {
-                kind: 'set',
-                value: advanceSection(
-                  state.sections[sectionId],
-                  cachedSectionValue,
-                ),
-              },
-            });
-          }
+      }
+      return acceptedTransition(state, mutations);
+    }
+    case 'displaySnapshotHydrated': {
+      if (
+        state.session.ownerToken?.scopeKey !== event.ownerScopeKey ||
+        state.session.ownerToken.sessionId !== event.sessionId
+      ) {
+        return rejectedTransition(state, 'snapshotRejected');
+      }
+      const records = event.records.filter((record) => {
+        const current = state.resources[record.sourceId];
+        if (
+          current.kind === 'partial' ||
+          ((current.kind === 'ready' || current.kind === 'empty') &&
+            current.freshness === 'live')
+        ) {
+          return false;
         }
+        const token = current.kind === 'idle' ? undefined : current.token;
+        return !token || isHomeCachedRecordExactForToken(record, token);
       });
+      const mutations = createConfirmedCacheMutations({ records, state });
+      const currentShellCanUseCache =
+        state.shell.value.kind === 'loading' ||
+        (state.shell.value.kind === 'portfolio' &&
+          (state.shell.value.presentation.kind === 'loading' ||
+            state.shell.value.presentation.kind === 'fundedPendingTotal' ||
+            state.shell.value.presentation.kind === 'unavailable'));
+      if (event.shell && currentShellCanUseCache) {
+        const cachedShell =
+          state.shell.value.kind === 'portfolio' &&
+          state.shell.value.presentation.kind === 'unavailable'
+            ? markDisplaySnapshotRefreshFailed(event.shell)
+            : event.shell;
+        const shell = advanceShell(state.shell, cachedShell);
+        if (shell !== state.shell) {
+          mutations.push({
+            slice: 'shell',
+            operation: { kind: 'set', value: shell },
+          });
+        }
+      }
+      const capability = state.resources.capability;
+      const hasLiveCapability =
+        (capability.kind === 'ready' || capability.kind === 'empty') &&
+        capability.freshness === 'live';
+      if (event.navigation && !hasLiveCapability) {
+        const navigation = advanceNavigation(
+          state.navigation,
+          resolvePreferredTab(
+            event.navigation,
+            event.selectedTabPreference ?? state.interaction.preferredTabId,
+          ),
+        );
+        if (navigation !== state.navigation) {
+          mutations.push({
+            slice: 'navigation',
+            operation: { kind: 'set', value: navigation },
+          });
+        }
+      }
       if (
         event.selectedTabPreference &&
         state.interaction.preferredTabId !== event.selectedTabPreference

@@ -9,6 +9,7 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { EAccountSelectorActiveAccountReloadMode } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -87,6 +88,8 @@ export function UniversalSearchAddressItem({
       })
     ) {
       await accountSelectorActions.current.confirmAccountSelect({
+        activeAccountReloadMode:
+          EAccountSelectorActiveAccountReloadMode.Immediate,
         num: 0,
         indexedAccount: undefined,
         othersWalletAccount: item.payload.account,
@@ -94,6 +97,8 @@ export function UniversalSearchAddressItem({
       });
     } else {
       await accountSelectorActions.current.confirmAccountSelect({
+        activeAccountReloadMode:
+          EAccountSelectorActiveAccountReloadMode.Immediate,
         num: 0,
         indexedAccount: item.payload.indexedAccount,
         othersWalletAccount: undefined,

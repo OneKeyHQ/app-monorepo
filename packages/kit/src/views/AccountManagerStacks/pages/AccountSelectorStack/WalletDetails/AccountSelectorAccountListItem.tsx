@@ -11,7 +11,10 @@ import {
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  EAccountSelectorActiveAccountReloadMode,
+  useActiveAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type {
   IDBAccount,
@@ -424,6 +427,8 @@ export function AccountSelectorAccountListItem({
                   selectedAccount?.networkId;
               }
               await actions.current.confirmAccountSelect({
+                activeAccountReloadMode:
+                  EAccountSelectorActiveAccountReloadMode.Immediate,
                 num,
                 indexedAccount: undefined,
                 othersWalletAccount: account,
@@ -431,6 +436,8 @@ export function AccountSelectorAccountListItem({
               });
             } else if (focusedWalletInfo) {
               await actions.current.confirmAccountSelect({
+                activeAccountReloadMode:
+                  EAccountSelectorActiveAccountReloadMode.Immediate,
                 num,
                 indexedAccount,
                 othersWalletAccount: undefined,

@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { throttle } from 'lodash';
+import { isEqual, throttle } from 'lodash';
 
 import type { IDBExternalAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
@@ -18,8 +18,13 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
+  EAccountSelectorActiveAccountReloadStatus,
+  type IAccountSelectorActiveAccountReloadRequest,
+  getActiveAccountSelectionIdentity,
+  useAccountSelectorActiveAccountReloadRequestsAtom,
   useAccountSelectorContextDataAtom,
   useAccountSelectorSceneInfo,
+  useAccountSelectorSelectionRevisionsAtom,
   useAccountSelectorStorageReadyAtom,
   useAccountSelectorUpdateMetaAtom,
   useActiveAccount,
@@ -82,6 +87,13 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   updateMetaRef.current = updateMeta;
   const selectedAccountRef = useRef(selectedAccount);
   selectedAccountRef.current = selectedAccount;
+  const [activeAccountReloadRequests] =
+    useAccountSelectorActiveAccountReloadRequestsAtom();
+  const immediateActiveAccountReloadRequest = activeAccountReloadRequests[num];
+  const [selectionRevisions] = useAccountSelectorSelectionRevisionsAtom();
+  const selectionRevision = selectionRevisions[num] ?? 0;
+  const selectionRevisionRef = useRef(selectionRevision);
+  selectionRevisionRef.current = selectionRevision;
 
   const [, setContextData] = useAccountSelectorContextDataAtom();
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
@@ -126,41 +138,79 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
       selectedAccount.deriveType,
     ],
   );
-  const reloadActiveAccountInfo = useMemo(
+  const reloadActiveAccount = useCallback(
+    async (
+      activeSelectedAccount: IAccountSelectorSelectedAccount,
+      activeSelectionRevision: number,
+    ) => {
+      await actions.current.reloadActiveAccountInfo({
+        num,
+        selectedAccount: activeSelectedAccount,
+        selectionRevision: activeSelectionRevision,
+      });
+    },
+    [actions, num],
+  );
+  const executeCoalescedActiveAccountReload = useCallback(async () => {
+    if (!isReady) {
+      return;
+    }
+    try {
+      const isInTransferImportOrBackupRestoreFlow: boolean =
+        await backgroundApiProxy.servicePrimeTransfer.isInTransferImportOrBackupRestoreFlow();
+      if (isInTransferImportOrBackupRestoreFlow) {
+        return;
+      }
+      await reloadActiveAccount(
+        selectedAccountRef.current,
+        selectionRevisionRef.current,
+      );
+    } catch {
+      // ActiveAccount reload is a best-effort projection of selected account.
+    }
+  }, [isReady, reloadActiveAccount]);
+  const executeImmediateActiveAccountReload = useCallback(
+    async (request: IAccountSelectorActiveAccountReloadRequest) => {
+      if (!isReady) {
+        return;
+      }
+      try {
+        const isInTransferImportOrBackupRestoreFlow: boolean =
+          await backgroundApiProxy.servicePrimeTransfer.isInTransferImportOrBackupRestoreFlow();
+        if (isInTransferImportOrBackupRestoreFlow) {
+          return;
+        }
+      } catch {
+        return;
+      }
+      const claimed = actions.current.claimActiveAccountReloadRequest({
+        num,
+        requestId: request.requestId,
+      });
+      if (!claimed) {
+        return;
+      }
+      try {
+        await reloadActiveAccount(
+          request.selectedAccount,
+          request.selectionRevision,
+        );
+      } finally {
+        actions.current.completeActiveAccountReloadRequest({
+          num,
+          requestId: request.requestId,
+        });
+      }
+    },
+    [actions, isReady, num, reloadActiveAccount],
+  );
+  const coalescedActiveAccountReload = useMemo(
     () =>
-      throttle(
-        async () => {
-          if (!isReady) {
-            return;
-          }
-          const isInTransferImportOrBackupRestoreFlow: boolean =
-            await backgroundApiProxy.servicePrimeTransfer.isInTransferImportOrBackupRestoreFlow();
-          if (isInTransferImportOrBackupRestoreFlow) {
-            return;
-          }
-          const activeAccount = await actions.current.reloadActiveAccountInfo({
-            num,
-            selectedAccount: selectedAccountRef.current,
-          });
-          await actions.current.flushCurrentAccountSelectorColdStartSnapshot({
-            sceneName: sceneNameRef.current,
-            sceneUrl: sceneUrlRef.current,
-            includeActiveAccounts: true,
-          });
-          if (activeAccount.account && activeAccount.network?.id) {
-            void backgroundApiProxy.serviceAccount.saveAccountAddresses({
-              account: activeAccount.account,
-              networkId: activeAccount.network?.id,
-            });
-          }
-        },
-        150,
-        {
-          leading: false,
-          trailing: true,
-        },
-      ),
-    [actions, isReady, num],
+      throttle(() => executeCoalescedActiveAccountReload(), 150, {
+        leading: false,
+        trailing: true,
+      }),
+    [executeCoalescedActiveAccountReload],
   );
 
   const autoSaveToStorage = useCallback(async () => {
@@ -200,8 +250,40 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
 
   useEffect(() => {
     noopObject(activeAccountReloadDeps);
-    void reloadActiveAccountInfo();
-  }, [activeAccountReloadDeps, reloadActiveAccountInfo]);
+    if (
+      immediateActiveAccountReloadRequest &&
+      immediateActiveAccountReloadRequest.selectionRevision ===
+        selectionRevision &&
+      isEqual(
+        getActiveAccountSelectionIdentity(
+          immediateActiveAccountReloadRequest.selectedAccount,
+        ),
+        getActiveAccountSelectionIdentity(selectedAccountRef.current),
+      )
+    ) {
+      if (
+        immediateActiveAccountReloadRequest.status ===
+        EAccountSelectorActiveAccountReloadStatus.Pending
+      ) {
+        coalescedActiveAccountReload.cancel();
+        void executeImmediateActiveAccountReload(
+          immediateActiveAccountReloadRequest,
+        );
+        return;
+      }
+      coalescedActiveAccountReload.cancel();
+      return;
+    }
+    void coalescedActiveAccountReload();
+  }, [
+    activeAccountReloadDeps,
+    actions,
+    coalescedActiveAccountReload,
+    executeImmediateActiveAccountReload,
+    immediateActiveAccountReloadRequest,
+    num,
+    selectionRevision,
+  ]);
 
   useEffect(() => {
     const updateNetwork = (params: {
@@ -221,23 +303,36 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
       }
     };
     // const fn = () => null;
-    appEventBus.on(EAppEventBusNames.AccountUpdate, reloadActiveAccountInfo);
-    appEventBus.on(EAppEventBusNames.WalletUpdate, reloadActiveAccountInfo);
+    appEventBus.on(
+      EAppEventBusNames.AccountUpdate,
+      coalescedActiveAccountReload,
+    );
+    appEventBus.on(
+      EAppEventBusNames.WalletUpdate,
+      coalescedActiveAccountReload,
+    );
     appEventBus.on(
       EAppEventBusNames.AddedCustomNetwork,
-      reloadActiveAccountInfo,
+      coalescedActiveAccountReload,
     );
     appEventBus.on(EAppEventBusNames.DAppNetworkUpdate, updateNetwork);
     return () => {
-      appEventBus.off(EAppEventBusNames.AccountUpdate, reloadActiveAccountInfo);
-      appEventBus.off(EAppEventBusNames.WalletUpdate, reloadActiveAccountInfo);
+      appEventBus.off(
+        EAppEventBusNames.AccountUpdate,
+        coalescedActiveAccountReload,
+      );
+      appEventBus.off(
+        EAppEventBusNames.WalletUpdate,
+        coalescedActiveAccountReload,
+      );
       appEventBus.off(
         EAppEventBusNames.AddedCustomNetwork,
-        reloadActiveAccountInfo,
+        coalescedActiveAccountReload,
       );
       appEventBus.off(EAppEventBusNames.DAppNetworkUpdate, updateNetwork);
+      coalescedActiveAccountReload.cancel();
     };
-  }, [reloadActiveAccountInfo, actions]);
+  }, [coalescedActiveAccountReload, actions]);
 
   const syncHomeAndSwap = useCallback(
     (eventPayload: {

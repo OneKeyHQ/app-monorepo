@@ -27,8 +27,12 @@ jest.mock('@onekeyhq/components', () => {
       ),
     Stack: ({ children, ...props }: { children?: ReactNode }) =>
       React.createElement('View', props, children),
+    XStack: ({ children, ...props }: { children?: ReactNode }) =>
+      React.createElement('XStack', props, children),
     YStack: ({ children, ...props }: { children?: ReactNode }) =>
       React.createElement('YStack', props, children),
+    Skeleton: (props: Record<string, unknown>) =>
+      React.createElement('Skeleton', props),
   };
 });
 
@@ -227,6 +231,40 @@ describe('HomeHeaderContainer refresh ownership', () => {
       expect.objectContaining({ hidden: false }),
     );
     expect(view.root.findAllByProps({ minHeight: 292 }).length).toBeGreaterThan(
+      0,
+    );
+  });
+
+  it('fills the reserved action row while a funded balance is unresolved', () => {
+    mockBalancePresentation = {
+      balanceState: 'positive',
+      correlated: {
+        kind: 'loading',
+        balanceState: 'positive',
+        revision: 'revision-loading',
+        showPositiveBanner: false,
+      },
+    };
+
+    let view!: ReactTestRenderer;
+    act(() => {
+      view = create(<HomeHeaderContainer variant="normal" />);
+    });
+
+    expect(
+      view.root.findByProps({ testID: 'home-wallet-actions-skeleton' }).props.w,
+    ).toBe('100%');
+    for (let index = 0; index < 4; index += 1) {
+      expect(
+        view.root.findAllByProps({
+          testID: `home-wallet-actions-skeleton-item-${index}`,
+        }).length,
+      ).toBeGreaterThan(0);
+    }
+    expect(view.root.findAllByProps({ testID: 'wallet-actions' })).toHaveLength(
+      0,
+    );
+    expect(view.root.findAllByProps({ minHeight: 182 }).length).toBeGreaterThan(
       0,
     );
   });

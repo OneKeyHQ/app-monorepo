@@ -29,6 +29,7 @@ private enum HomeContainerMetrics {
   }
   static var marketTabsRowHeight: CGFloat { marketSegmentHeight + scaledHeight(16) }
   static let footerSlotIds = ["upgrade", "support", "historyEnd"]
+  static let bannerSkeletonId = "home-banner-loading"
 
   static func contentHeaderHeight(tabId: String) -> CGFloat? {
     switch tabId {
@@ -3852,6 +3853,7 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
   private let subtitleLabel = UILabel()
   private let resourceStack = UIStackView()
   private let dismissButton = HomeContainerHitSlopButton(type: .system)
+  private let skeletonView = SkeletonNativeView(frame: .zero)
   private var widthConstraint: NSLayoutConstraint!
   private var imageWidthConstraint: NSLayoutConstraint!
   private var labelsLeadingConstraint: NSLayoutConstraint!
@@ -3902,6 +3904,12 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
     dismissButton.addAction(UIAction { [weak self] _ in self?.onDismiss?() }, for: .touchUpInside)
     dismissButton.translatesAutoresizingMaskIntoConstraints = false
     addSubview(dismissButton)
+    skeletonView.isUserInteractionEnabled = false
+    skeletonView.accessibilityElementsHidden = true
+    skeletonView.layer.cornerRadius = 16
+    skeletonView.clipsToBounds = true
+    skeletonView.translatesAutoresizingMaskIntoConstraints = false
+    addSubview(skeletonView)
     let hoverGestureRecognizer = UIHoverGestureRecognizer(
       target: self,
       action: #selector(handleHover(_:))
@@ -3934,6 +3942,10 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
       dismissButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -3),
       dismissButton.widthAnchor.constraint(equalToConstant: 28),
       dismissButton.heightAnchor.constraint(equalToConstant: 28),
+      skeletonView.leadingAnchor.constraint(equalTo: leadingAnchor),
+      skeletonView.trailingAnchor.constraint(equalTo: trailingAnchor),
+      skeletonView.topAnchor.constraint(equalTo: topAnchor),
+      skeletonView.bottomAnchor.constraint(equalTo: bottomAnchor),
     ])
     apply(banner: banner, theme: theme)
   }
@@ -3943,6 +3955,13 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
   }
 
   func apply(banner: HomeContainerBanner, theme: HomeContainerTheme) {
+    let isLoading = banner.id == HomeContainerMetrics.bannerSkeletonId
+    skeletonView.isHidden = !isLoading
+    if isLoading {
+      skeletonView.applyHomeContainerSkeletonTheme(theme)
+    }
+    isAccessibilityElement = !isLoading
+    isUserInteractionEnabled = !isLoading
     normalBackgroundColor = UIColor(
       homeContainerColor: theme.cardColor,
       fallback: .secondarySystemBackground
@@ -3963,15 +3982,17 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
     titleLabel.text = banner.title
     subtitleLabel.text = banner.subtitle
     subtitleLabel.isHidden = banner.subtitle?.isEmpty != false
-    dismissButton.isHidden = banner.dismissActionId?.isEmpty != false
+    dismissButton.isHidden =
+      isLoading || banner.dismissActionId?.isEmpty != false
     let isTronResourceBanner = banner.id == "home-tron-resource"
     widthConstraint.constant = isTronResourceBanner ? 220 : 280
     imageWidthConstraint.constant = isTronResourceBanner ? 0 : 56
-    imageView.isHidden = isTronResourceBanner || banner.imageUrl?.isEmpty != false
+    imageView.isHidden =
+      isLoading || isTronResourceBanner || banner.imageUrl?.isEmpty != false
     labelsLeadingConstraint.isActive = !isTronResourceBanner
     labelsLeadingToLeadingConstraint.isActive = isTronResourceBanner
-    resourceStack.isHidden = !isTronResourceBanner
-    titleLabel.superview?.isHidden = isTronResourceBanner
+    resourceStack.isHidden = isLoading || !isTronResourceBanner
+    titleLabel.superview?.isHidden = isLoading || isTronResourceBanner
     if isTronResourceBanner {
       applyResourceRows(banner.resourceRows ?? [], theme: theme)
     } else {
@@ -3998,8 +4019,8 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
       homeContainerColor: theme.strongColor ?? theme.cardColor,
       fallback: .tertiarySystemBackground
     )
-    accessibilityLabel = banner.title
-    loadImage(isTronResourceBanner ? nil : banner.imageUrl)
+    accessibilityLabel = isLoading ? nil : banner.title
+    loadImage(isLoading || isTronResourceBanner ? nil : banner.imageUrl)
   }
 
   private func applyResourceRows(

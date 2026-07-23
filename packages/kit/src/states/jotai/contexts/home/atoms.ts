@@ -11,6 +11,7 @@ import type {
   IHomeStoreSourcePayloadMap,
   IHomeStoreState,
 } from '@onekeyhq/kit/src/views/Home/model/store/homeStoreTypes';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
@@ -169,6 +170,14 @@ export function useHomeCommitIdentity() {
 
 export function useHomeStoreConfig(): IHomeStoreContextConfig | undefined {
   return useContextData().config;
+}
+
+export function useHomeContextStore() {
+  const store = useContextData().store;
+  if (!store) {
+    throw new OneKeyLocalError('Home context store is not initialized');
+  }
+  return store;
 }
 
 export {

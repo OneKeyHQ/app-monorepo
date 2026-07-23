@@ -87,9 +87,13 @@ import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import { shouldKeepCurrentActiveAccountForIncompleteSelection } from './activeAccountInitGuard';
 import {
+  EAccountSelectorActiveAccountReloadMode,
+  EAccountSelectorActiveAccountReloadStatus,
   accountSelectorActiveAccountInitDoneAtom,
+  accountSelectorActiveAccountReloadRequestsAtom,
   accountSelectorContextDataAtom,
   accountSelectorEditModeAtom,
+  accountSelectorSelectionRevisionsAtom,
   accountSelectorStorageInitDoneAtom,
   accountSelectorStorageReadyAtom,
   accountSelectorSyncLoadingAtom,
@@ -98,11 +102,13 @@ import {
   contextAtomMethod,
   defaultActiveAccountInfo,
   defaultSelectedAccount,
+  getActiveAccountSelectionIdentity,
   selectedAccountsAtom,
 } from './atoms';
 
 import type {
   IAccountSelectorActiveAccountInfo,
+  IAccountSelectorActiveAccountReloadReason,
   IAccountSelectorAvailableNetworks,
   IAccountSelectorRouteParams,
   IAccountSelectorUpdateMeta,
@@ -198,7 +204,104 @@ export type IFinalizeWalletSetupCreateWalletResult = {
   };
 };
 
+export type IReloadActiveAccountInfoResult =
+  | {
+      status: 'committed' | 'keptCurrent';
+      activeAccount: IAccountSelectorActiveAccountInfo;
+    }
+  | {
+      status: 'stale';
+    };
+
 class AccountSelectorActions extends ContextJotaiActionsBase {
+  private setImmediateActiveAccountReloadRequest({
+    num,
+    reason,
+    selectionRevision,
+    selectedAccount,
+    set,
+  }: {
+    num: number;
+    reason: IAccountSelectorActiveAccountReloadReason;
+    selectionRevision: number;
+    selectedAccount: IAccountSelectorSelectedAccount;
+    set: IJotaiSetter;
+  }) {
+    set(accountSelectorActiveAccountReloadRequestsAtom(), (current) => ({
+      ...current,
+      [num]: {
+        requestId: (current[num]?.requestId ?? 0) + 1,
+        reason,
+        selectionRevision,
+        selectedAccount: cloneDeep(selectedAccount),
+        status: EAccountSelectorActiveAccountReloadStatus.Pending,
+      },
+    }));
+  }
+
+  claimActiveAccountReloadRequest = contextAtomMethod(
+    (
+      _,
+      set,
+      payload: {
+        num: number;
+        requestId: number;
+      },
+    ) => {
+      const { num, requestId } = payload;
+      let claimed = false;
+      set(accountSelectorActiveAccountReloadRequestsAtom(), (current) => {
+        const request = current[num];
+        if (
+          !request ||
+          request.requestId !== requestId ||
+          request.status !== EAccountSelectorActiveAccountReloadStatus.Pending
+        ) {
+          return current;
+        }
+        claimed = true;
+        return {
+          ...current,
+          [num]: {
+            ...request,
+            status: EAccountSelectorActiveAccountReloadStatus.Running,
+          },
+        };
+      });
+      return claimed;
+    },
+  );
+
+  completeActiveAccountReloadRequest = contextAtomMethod(
+    (
+      _,
+      set,
+      payload: {
+        num: number;
+        requestId: number;
+      },
+    ) => {
+      const { num, requestId } = payload;
+      set(accountSelectorActiveAccountReloadRequestsAtom(), (current) => {
+        const request = current[num];
+        if (
+          !request ||
+          request.requestId !== requestId ||
+          request.status !== EAccountSelectorActiveAccountReloadStatus.Running
+        ) {
+          return current;
+        }
+        return {
+          ...current,
+          [num]: {
+            ...request,
+            status: EAccountSelectorActiveAccountReloadStatus.Completed,
+          },
+        };
+      });
+    },
+  );
+
   refresh = contextAtomMethod((_, set, payload: { num: number }) => {
     const { num } = payload;
     this.setSelectedAccountsAtom(
@@ -220,13 +323,36 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     reason?: string,
   ) {
     // console.log('AccountSelectorAtomChanged  setSelectedAccountsAtom', reason);
+    let changedNums: number[] = [];
     set(selectedAccountsAtom(), (currentValue) => {
       const newValue = fn(currentValue);
       if (isEqual(currentValue, newValue)) {
         return currentValue;
       }
+      changedNums = Array.from(
+        new Set([...Object.keys(currentValue), ...Object.keys(newValue)]),
+      )
+        .map(Number)
+        .filter(
+          (num) =>
+            !isEqual(
+              getActiveAccountSelectionIdentity(currentValue[num]),
+              getActiveAccountSelectionIdentity(newValue[num]),
+            ),
+        );
       return newValue;
     });
+    if (changedNums.length > 0) {
+      set(accountSelectorSelectionRevisionsAtom(), (current) => {
+        const next = {
+          ...current,
+        };
+        changedNums.forEach((num) => {
+          next[num] = (current[num] ?? 0) + 1;
+        });
+        return next;
+      });
+    }
   }
 
   buildAccountSelectorColdStartScopeKey({
@@ -593,12 +719,17 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       set,
       payload: {
         num: number;
+        selectionRevision?: number;
         selectedAccount: IAccountSelectorSelectedAccount;
       },
-    ): Promise<IAccountSelectorActiveAccountInfo> =>
-      this.mutex.runExclusive(async () => {
+    ): Promise<IReloadActiveAccountInfoResult> => {
+      const { num, selectedAccount } = payload;
+      const expectedSelectionRevision =
+        payload.selectionRevision ??
+        get(accountSelectorSelectionRevisionsAtom())[num] ??
+        0;
+      return this.mutex.runExclusive(async () => {
         const { serviceAccountSelector } = backgroundApiProxy;
-        const { num, selectedAccount } = payload;
         // console.log('buildActiveAccountInfoFromSelectedAccount', {
         // selectedAccount,
         // });
@@ -610,6 +741,26 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             [num]: true,
           });
         };
+        const isCurrentSelection = () => {
+          if (
+            (get(accountSelectorSelectionRevisionsAtom())[num] ?? 0) !==
+            expectedSelectionRevision
+          ) {
+            return false;
+          }
+          const currentSelectedAccount =
+            this.getSelectedAccount.call(set, { num }) ||
+            defaultSelectedAccount();
+          return isEqual(
+            getActiveAccountSelectionIdentity(currentSelectedAccount),
+            getActiveAccountSelectionIdentity(selectedAccount),
+          );
+        };
+        if (!isCurrentSelection()) {
+          return {
+            status: 'stale',
+          };
+        }
         if (
           shouldKeepCurrentActiveAccountForIncompleteSelection({
             storageInitDone: get(accountSelectorStorageInitDoneAtom()),
@@ -618,7 +769,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           })
         ) {
           markActiveAccountInitDone();
-          return currentActiveAccount;
+          return {
+            status: 'keptCurrent',
+            activeAccount: currentActiveAccount,
+          };
         }
         let activeAccount: IAccountSelectorActiveAccountInfo | undefined;
         try {
@@ -639,16 +793,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         //   selectedAccount,
         //   activeAccount,
         // });
-        const currentSelectedAccount =
-          this.getSelectedAccount.call(set, { num }) ||
-          defaultSelectedAccount();
-        if (
-          !isEqual(
-            omitBy(currentSelectedAccount, isUndefined),
-            omitBy(selectedAccount, isUndefined),
-          )
-        ) {
-          return currentActiveAccount;
+        if (!isCurrentSelection()) {
+          return {
+            status: 'stale',
+          };
         }
         const newActiveAccounts = {
           ...get(activeAccountsAtom()),
@@ -656,9 +804,36 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         };
         set(activeAccountsAtom(), newActiveAccounts);
         markActiveAccountInitDone();
-        // contextAtom snapshot saving is now automatic via coldStartCache.
-        return activeAccount;
-      }),
+        const sceneInfo = get(accountSelectorContextDataAtom());
+        const selectedAccounts = get(selectedAccountsAtom());
+        const updateMeta = get(accountSelectorUpdateMetaAtom());
+        void this.flushAccountSelectorColdStartSnapshot({
+          sceneName: sceneInfo?.sceneName,
+          sceneUrl: sceneInfo?.sceneUrl,
+          selectedAccounts,
+          updateMeta,
+          activeAccounts: newActiveAccounts,
+        });
+        this.setRecentAccountSelectorSelectionCache({
+          sceneName: sceneInfo?.sceneName,
+          sceneUrl: sceneInfo?.sceneUrl,
+          num,
+          selectedAccountsMap: selectedAccounts,
+          updateMeta,
+        });
+        void this.flushRecentAccountSelectorSelectionCacheNowIfNeeded();
+        if (activeAccount.account && activeAccount.network?.id) {
+          void serviceAccount.saveAccountAddresses({
+            account: activeAccount.account,
+            networkId: activeAccount.network.id,
+          });
+        }
+        return {
+          status: 'committed',
+          activeAccount,
+        };
+      });
+    },
   );
 
   updateSelectedAccountFocusedWallet = contextAtomMethod(
@@ -1040,12 +1215,21 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       get,
       set,
       payload: {
+        activeAccountReloadMode?: EAccountSelectorActiveAccountReloadMode;
         num: number;
         networkId: string;
       },
     ) => {
-      const { num, networkId } = payload;
+      const { activeAccountReloadMode, num, networkId } = payload;
       await this.updateSelectedAccount.call(set, {
+        activeAccountReload:
+          activeAccountReloadMode ===
+          EAccountSelectorActiveAccountReloadMode.Immediate
+            ? {
+                mode: activeAccountReloadMode,
+                reason: 'networkSelect',
+              }
+            : undefined,
         num,
         builder: (v) => ({
           ...v,
@@ -1060,13 +1244,22 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       get,
       set,
       payload: {
+        activeAccountReloadMode?: EAccountSelectorActiveAccountReloadMode;
         updateMeta?: IAccountSelectorUpdateMeta;
         num: number;
         deriveType: IAccountDeriveTypes;
       },
     ) => {
-      const { num, deriveType, updateMeta } = payload;
+      const { activeAccountReloadMode, num, deriveType, updateMeta } = payload;
       await this.updateSelectedAccount.call(set, {
+        activeAccountReload:
+          activeAccountReloadMode ===
+          EAccountSelectorActiveAccountReloadMode.Immediate
+            ? {
+                mode: activeAccountReloadMode,
+                reason: 'deriveTypeSelect',
+              }
+            : undefined,
         updateMeta,
         num,
         builder: (v) => ({
@@ -1082,13 +1275,23 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       get,
       set,
       payload: {
+        activeAccountReloadMode?: EAccountSelectorActiveAccountReloadMode;
         num: number;
         walletId: string | undefined;
         indexedAccountId: string | undefined;
       },
     ) => {
-      const { num, walletId, indexedAccountId } = payload;
+      const { activeAccountReloadMode, num, walletId, indexedAccountId } =
+        payload;
       await this.updateSelectedAccount.call(set, {
+        activeAccountReload:
+          activeAccountReloadMode ===
+          EAccountSelectorActiveAccountReloadMode.Immediate
+            ? {
+                mode: activeAccountReloadMode,
+                reason: 'accountSelect',
+              }
+            : undefined,
         num,
         builder: (v) => ({
           ...v,
@@ -1138,6 +1341,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       get,
       set,
       payload: {
+        activeAccountReload?: {
+          mode: EAccountSelectorActiveAccountReloadMode;
+          reason: IAccountSelectorActiveAccountReloadReason;
+        };
         updateMeta?: IAccountSelectorUpdateMeta;
         num: number;
         builder: (
@@ -1150,7 +1357,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         // if (!contextData) {
         //   return;
         // }
-        const { num, builder, updateMeta } = payload;
+        const { activeAccountReload, num, builder, updateMeta } = payload;
         const oldSelectedAccount: IAccountSelectorSelectedAccount = cloneDeep(
           this.getSelectedAccount.call(set, { num }) ||
             defaultSelectedAccount(),
@@ -1305,6 +1512,19 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             updatedAt: Date.now(),
           },
         }));
+        if (
+          activeAccountReload?.mode ===
+          EAccountSelectorActiveAccountReloadMode.Immediate
+        ) {
+          this.setImmediateActiveAccountReloadRequest({
+            num,
+            reason: activeAccountReload.reason,
+            selectionRevision:
+              get(accountSelectorSelectionRevisionsAtom())[num] ?? 0,
+            selectedAccount: newSelectedAccount,
+            set,
+          });
+        }
       });
     },
   );
@@ -1346,6 +1566,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       get,
       set,
       params: {
+        activeAccountReloadMode?: EAccountSelectorActiveAccountReloadMode;
         indexedAccount: IDBIndexedAccount | undefined;
         othersWalletAccount: IDBAccount | undefined;
         num: number;
@@ -1354,6 +1575,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       },
     ) => {
       const {
+        activeAccountReloadMode,
         num,
         othersWalletAccount,
         indexedAccount,
@@ -1449,6 +1671,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       const shouldUseFastConfirm =
         !resolvedNetworkId ||
         resolvedNetworkId === oldSelectedAccount.networkId;
+      let didCommitFastConfirm = false;
 
       if (shouldUseFastConfirm) {
         if (platformEnv.isWebDappMode) {
@@ -1488,6 +1711,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             }),
             'confirmAccountSelect',
           );
+          didCommitFastConfirm = true;
           set(accountSelectorUpdateMetaAtom(), (v) => ({
             ...v,
             [num]: {
@@ -1498,6 +1722,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         }
       } else {
         await this.updateSelectedAccount.call(set, {
+          activeAccountReload:
+            activeAccountReloadMode ===
+            EAccountSelectorActiveAccountReloadMode.Immediate
+              ? {
+                  mode: activeAccountReloadMode,
+                  reason: 'accountSelect',
+                }
+              : undefined,
           num,
           builder: (v) => ({
             ...v,
@@ -1508,25 +1740,49 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           }),
         });
       }
+      if (
+        didCommitFastConfirm &&
+        activeAccountReloadMode ===
+          EAccountSelectorActiveAccountReloadMode.Immediate
+      ) {
+        this.setImmediateActiveAccountReloadRequest({
+          num,
+          reason: 'accountSelect',
+          selectionRevision:
+            get(accountSelectorSelectionRevisionsAtom())[num] ?? 0,
+          selectedAccount: newSelectedAccount,
+          set,
+        });
+      }
 
       const sceneInfo = get(accountSelectorContextDataAtom());
       const selectedAccount = this.getSelectedAccount.call(set, { num });
 
-      this.setRecentAccountSelectorSelectionCache({
-        sceneName: sceneInfo?.sceneName,
-        sceneUrl: sceneInfo?.sceneUrl,
-        num,
-        selectedAccountsMap: get(selectedAccountsAtom()),
-        updateMeta: get(accountSelectorUpdateMetaAtom()),
-      });
-      await this.flushRecentAccountSelectorSelectionCacheNowIfNeeded();
-
-      void this.flushCurrentAccountSelectorColdStartSnapshot
-        .call(set, {
+      if (
+        activeAccountReloadMode !==
+        EAccountSelectorActiveAccountReloadMode.Immediate
+      ) {
+        this.setRecentAccountSelectorSelectionCache({
           sceneName: sceneInfo?.sceneName,
           sceneUrl: sceneInfo?.sceneUrl,
-        })
-        .catch(() => undefined);
+          num,
+          selectedAccountsMap: get(selectedAccountsAtom()),
+          updateMeta: get(accountSelectorUpdateMetaAtom()),
+        });
+        await this.flushRecentAccountSelectorSelectionCacheNowIfNeeded();
+      }
+
+      if (
+        activeAccountReloadMode !==
+        EAccountSelectorActiveAccountReloadMode.Immediate
+      ) {
+        void this.flushCurrentAccountSelectorColdStartSnapshot
+          .call(set, {
+            sceneName: sceneInfo?.sceneName,
+            sceneUrl: sceneInfo?.sceneUrl,
+          })
+          .catch(() => undefined);
+      }
 
       if (sceneInfo?.sceneName) {
         void this.saveToStorage
@@ -3912,6 +4168,10 @@ export type IAccountSelectorActionsInstance = ReturnType<
 export function useAccountSelectorActions() {
   const actions = getAccountSelectorActions();
   const reloadActiveAccountInfo = actions.reloadActiveAccountInfo.use();
+  const claimActiveAccountReloadRequest =
+    actions.claimActiveAccountReloadRequest.use();
+  const completeActiveAccountReloadRequest =
+    actions.completeActiveAccountReloadRequest.use();
   const getSelectedAccount = actions.getSelectedAccount.use();
   const getActiveAccount = actions.getActiveAccount.use();
   const initFromStorage = actions.initFromStorage.use();
@@ -3964,6 +4224,8 @@ export function useAccountSelectorActions() {
 
   return useRef({
     reloadActiveAccountInfo,
+    claimActiveAccountReloadRequest,
+    completeActiveAccountReloadRequest,
     getSelectedAccount,
     getActiveAccount,
     refresh,
