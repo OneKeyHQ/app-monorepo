@@ -20,6 +20,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   MARKET_TOOLBAR_GAP_BOTTOM,
   MARKET_TOOLBAR_GAP_TOP,
+  MARKET_TOOLBAR_ITEM_HEIGHT,
   marketToolbarFrameProps,
 } from '../marketToolbarFrame';
 
@@ -89,8 +90,8 @@ export function MarketToolbarPill({
       gap="$1"
       minWidth={32}
       px={7}
-      py={5}
-      borderRadius="$full"
+      height={MARKET_TOOLBAR_ITEM_HEIGHT}
+      borderRadius="$2.5"
       bg={selected ? '$bgStrong' : undefined}
       hoverStyle={{ bg: selected ? '$bgStrongHover' : '$bgHover' }}
       pressStyle={{ bg: '$bgStrongActive' }}
@@ -184,9 +185,9 @@ function ClearTextButton({
 // (grayA4 over bgApp). Recompute if grayA4 changes.
 const CHIP_MASK_HEX_HOVER = { light: '#e8e8e8', dark: '#282828' };
 
-// Figma 25141-48129: 6px inset inside the bordered toolbar, so a 26px pill row
-// makes the box 40px tall (26 + 6*2 + 1px border each side).
-const TOOLBAR_PADDING = 6;
+// 4px inset, matching the category bars: a 30px control row keeps the box at
+// MARKET_TOOLBAR_HEIGHT (30 + 4*2 + 1px border each side).
+const TOOLBAR_PADDING = 4;
 
 // Remove hit-target + fade geometry. The overlays sit ON TOP of the value
 // text, so revealing the × never changes the chip width (no layout jitter).
@@ -231,9 +232,9 @@ function ConditionChipShell({
     <XStack
       alignItems="center"
       gap="$1"
-      height={26}
+      height={MARKET_TOOLBAR_ITEM_HEIGHT}
       px={CHIP_HORIZONTAL_PADDING}
-      borderRadius="$full"
+      borderRadius="$2.5"
       overflow="hidden"
       bg={showRemove ? '$bgStrongHover' : '$bgStrong'}
       userSelect="none"
@@ -563,7 +564,11 @@ export function MarketFilterChipsBar({
       >
         {/* Fixed row height so swapping quick chips <-> condition chips
             (different intrinsic pill heights) never shifts the table below. */}
-        <XStack alignItems="center" gap={10} height={26}>
+        <XStack
+          alignItems="center"
+          gap={10}
+          height={MARKET_TOOLBAR_ITEM_HEIGHT}
+        >
           <XStack gap="$0.5">
             {TIME_RANGE_OPTIONS.map((option) => (
               <MarketToolbarPill

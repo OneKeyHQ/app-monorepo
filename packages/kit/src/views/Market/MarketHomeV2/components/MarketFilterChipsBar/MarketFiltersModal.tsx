@@ -13,6 +13,8 @@ import {
 } from '@onekeyhq/components';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
+import { MARKET_TOOLBAR_ITEM_HEIGHT } from '../marketToolbarFrame';
+
 import {
   MARKET_FILTER_DIMENSIONS,
   MARKET_FILTER_GROUP_LABELS,
@@ -372,8 +374,8 @@ export function MarketFiltersTrigger({
       gap="$1"
       minWidth={32}
       px={7}
-      height={26}
-      borderRadius="$full"
+      height={MARKET_TOOLBAR_ITEM_HEIGHT}
+      borderRadius="$2.5"
       hoverStyle={{ bg: '$bgHover' }}
       pressStyle={{ bg: '$bgActive' }}
       userSelect="none"
