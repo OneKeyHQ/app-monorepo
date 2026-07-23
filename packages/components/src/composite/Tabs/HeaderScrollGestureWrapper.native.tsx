@@ -50,6 +50,7 @@ export function HeaderScrollGestureWrapper({
   const containerWidth = useSharedValue(0);
   const containerHeight = useSharedValue(0);
   const isGestureEnabled = useSharedValue(true);
+  const isVerticalPanPointerCountExceeded = useSharedValue(false);
   const hasNotifiedGestureActive = useSharedValue(false);
   const hasTriggeredRefreshHaptic = useSharedValue(false);
   const [measuredWidth, setMeasuredWidth] = useState(0);
@@ -131,9 +132,18 @@ export function HeaderScrollGestureWrapper({
       .failOffsetX(panFailOffsetX);
 
     if (verticalPanMaxPointers !== undefined) {
-      verticalPanGesture = verticalPanGesture.maxPointers(
-        verticalPanMaxPointers,
-      );
+      verticalPanGesture = verticalPanGesture
+        .maxPointers(verticalPanMaxPointers)
+        .onTouchesDown((event) => {
+          'worklet';
+
+          // maxPointers only rejects extra pointers before activation, so
+          // latch an active page pan off for the rest of a multi-touch gesture.
+          if (event.numberOfTouches > verticalPanMaxPointers) {
+            isVerticalPanPointerCountExceeded.value = true;
+            cancelAnimation(targetScrollY);
+          }
+        });
     }
 
     if (gestureHitSlop) {
@@ -162,7 +172,10 @@ export function HeaderScrollGestureWrapper({
       .onUpdate((e) => {
         'worklet';
 
-        if (!isGestureEnabled.value) {
+        if (
+          !isGestureEnabled.value ||
+          isVerticalPanPointerCountExceeded.value
+        ) {
           return;
         }
         targetScrollY.value = startScrollY.value - e.translationY * scrollScale;
@@ -181,7 +194,10 @@ export function HeaderScrollGestureWrapper({
       .onEnd((e) => {
         'worklet';
 
-        if (!isGestureEnabled.value) {
+        if (
+          !isGestureEnabled.value ||
+          isVerticalPanPointerCountExceeded.value
+        ) {
           return;
         }
         const wasAtTop = startScrollY.value <= contentInset;
@@ -201,6 +217,7 @@ export function HeaderScrollGestureWrapper({
           runOnJS(onGestureActiveChange)(false);
         }
         hasNotifiedGestureActive.value = false;
+        isVerticalPanPointerCountExceeded.value = false;
         isGestureEnabled.value = true;
       });
 
@@ -283,6 +300,7 @@ export function HeaderScrollGestureWrapper({
     containerWidth,
     measuredWidth,
     isGestureEnabled,
+    isVerticalPanPointerCountExceeded,
     hasNotifiedGestureActive,
     hasTriggeredRefreshHaptic,
     triggerRefreshHaptic,
