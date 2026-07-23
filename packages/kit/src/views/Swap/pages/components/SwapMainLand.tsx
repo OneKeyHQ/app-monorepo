@@ -1231,6 +1231,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     ) {
       return (
         <SwapStockDesktopContainer
+          pageType={pageType}
           storeName={storeName}
           onSelectToken={onSelectToken}
           onTokenPress={onTokenPress}
@@ -1261,6 +1262,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
       return (
         <SwapStockMobileContainer
+          pageType={pageType}
           storeName={storeName}
           onSelectToken={onSelectToken}
           onTokenPress={onTokenPress}
