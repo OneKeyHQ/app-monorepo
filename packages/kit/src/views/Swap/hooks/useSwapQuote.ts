@@ -841,87 +841,116 @@ export function useSwapQuote() {
     swapQuoteMixEventAction,
   ]);
 
+  const subscribeQuoteEvents = useCallback(() => {
+    appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+    appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+    appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
+    appEventBus.on(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
+    appEventBus.off(
+      EAppEventBusNames.SwapApprovingSuccess,
+      swapApprovingSuccessAction,
+    );
+    appEventBus.on(
+      EAppEventBusNames.SwapApprovingSuccess,
+      swapApprovingSuccessAction,
+    );
+  }, [quoteEventHandler, swapApprovingSuccessAction, swapQuoteMixEvent]);
+
+  const unsubscribeQuoteEvents = useCallback(() => {
+    appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+    appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
+    appEventBus.off(
+      EAppEventBusNames.SwapApprovingSuccess,
+      swapApprovingSuccessAction,
+    );
+  }, [quoteEventHandler, swapApprovingSuccessAction, swapQuoteMixEvent]);
+
+  const refreshPreservedInputQuoteOnFocus = useCallback(
+    (isHiddenModel = false) => {
+      if (isHiddenModel) {
+        return;
+      }
+      if (shouldPauseQuote) {
+        shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
+        return;
+      }
+      if (!shouldRefreshPreservedInputQuoteOnFocusRef.current) {
+        return;
+      }
+
+      shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
+      const quoteKind =
+        swapTabSwitchTypeRef.current === ESwapTabSwitchType.LIMIT &&
+        toTokenAmountRef.current.isInput &&
+        toTokenAmountRef.current.value
+          ? ESwapQuoteKind.BUY
+          : ESwapQuoteKind.SELL;
+      void quoteAction(
+        swapSlippageRef.current,
+        activeAccountRef.current?.address,
+        activeAccountRef.current?.accountInfo?.account?.id,
+        undefined,
+        undefined,
+        quoteKind,
+        undefined,
+        swapToAddressInfoRef.current.address,
+      );
+    },
+    [quoteAction, shouldPauseQuote],
+  );
+
+  const pauseQuoteOnFocusLoss = useCallback(() => {
+    const shouldPreserveUserInputAmount =
+      shouldPreserveSwapUserInputAmountOnAccountSwitch({
+        fromTokenAmount: fromTokenAmountRef.current,
+        toTokenAmount: toTokenAmountRef.current,
+      });
+    shouldRefreshPreservedInputQuoteOnFocusRef.current =
+      shouldPreserveUserInputAmount;
+    const quoteRequestId = swapQuoteActionLockRef.current.quoteRequestId;
+    if (quoteRequestId) {
+      closeQuoteEvent(quoteRequestId);
+    }
+    setSwapQuoteActionLock((value) => ({
+      ...value,
+      actionLock: false,
+    }));
+    setSwapQuoteFetching(false);
+
+    if (
+      swapQuoteFetchingRef.current ||
+      (swapQuoteEventTotalCountRef.current.count > 0 &&
+        swapQuoteResultListRef.current.length <
+          swapQuoteEventTotalCountRef.current.count)
+    ) {
+      setSwapQuoteEventTotalCount({
+        count: 0,
+      });
+      setSwapQuoteResultList([]);
+      if (!shouldPreserveUserInputAmount) {
+        setFromTokenAmount({ value: '', isInput: true });
+      }
+    }
+  }, [
+    closeQuoteEvent,
+    setFromTokenAmount,
+    setSwapQuoteActionLock,
+    setSwapQuoteEventTotalCount,
+    setSwapQuoteFetching,
+    setSwapQuoteResultList,
+  ]);
+
   const isModalPage = useIsOverlayPage();
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
       if (!isModalPage) {
         if (isFocus) {
-          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-          appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
-          appEventBus.on(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
-          appEventBus.off(
-            EAppEventBusNames.SwapApprovingSuccess,
-            swapApprovingSuccessAction,
-          );
-          appEventBus.on(
-            EAppEventBusNames.SwapApprovingSuccess,
-            swapApprovingSuccessAction,
-          );
-          if (
-            !isHiddenModel &&
-            shouldRefreshPreservedInputQuoteOnFocusRef.current &&
-            !shouldPauseQuote
-          ) {
-            shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
-            const quoteKind =
-              swapTabSwitchTypeRef.current === ESwapTabSwitchType.LIMIT &&
-              toTokenAmountRef.current.isInput &&
-              toTokenAmountRef.current.value
-                ? ESwapQuoteKind.BUY
-                : ESwapQuoteKind.SELL;
-            void quoteAction(
-              swapSlippageRef.current,
-              activeAccountRef.current?.address,
-              activeAccountRef.current?.accountInfo?.account?.id,
-              undefined,
-              undefined,
-              quoteKind,
-              undefined,
-              swapToAddressInfoRef.current.address,
-            );
-          } else if (!isHiddenModel && shouldPauseQuote) {
-            shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
-          }
+          subscribeQuoteEvents();
+          refreshPreservedInputQuoteOnFocus(isHiddenModel);
         } else {
-          const shouldPreserveUserInputAmount =
-            shouldPreserveSwapUserInputAmountOnAccountSwitch({
-              fromTokenAmount: fromTokenAmountRef.current,
-              toTokenAmount: toTokenAmountRef.current,
-            });
-          shouldRefreshPreservedInputQuoteOnFocusRef.current =
-            shouldPreserveUserInputAmount;
-          const quoteRequestId = swapQuoteActionLockRef.current.quoteRequestId;
-          if (quoteRequestId) {
-            closeQuoteEvent(quoteRequestId);
-          }
-          setSwapQuoteActionLock((value) => ({
-            ...value,
-            actionLock: false,
-          }));
-          setSwapQuoteFetching(false);
-
-          if (
-            swapQuoteFetchingRef.current ||
-            (swapQuoteEventTotalCountRef.current.count > 0 &&
-              swapQuoteResultListRef.current.length <
-                swapQuoteEventTotalCountRef.current.count)
-          ) {
-            setSwapQuoteEventTotalCount({
-              count: 0,
-            });
-            setSwapQuoteResultList([]);
-            if (!shouldPreserveUserInputAmount) {
-              setFromTokenAmount({ value: '', isInput: true });
-            }
-          }
-          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
-          appEventBus.off(
-            EAppEventBusNames.SwapApprovingSuccess,
-            swapApprovingSuccessAction,
-          );
+          pauseQuoteOnFocusLoss();
+          unsubscribeQuoteEvents();
         }
       }
     },
@@ -930,35 +959,23 @@ export function useSwapQuote() {
   useEffect(() => {
     if (isModalPage) {
       if (isFocused) {
-        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-        appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
-        appEventBus.on(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
-        appEventBus.off(
-          EAppEventBusNames.SwapApprovingSuccess,
-          swapApprovingSuccessAction,
-        );
-        appEventBus.on(
-          EAppEventBusNames.SwapApprovingSuccess,
-          swapApprovingSuccessAction,
-        );
+        subscribeQuoteEvents();
+        refreshPreservedInputQuoteOnFocus();
+      } else {
+        pauseQuoteOnFocusLoss();
       }
     }
     return () => {
       if (isModalPage) {
-        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
-        appEventBus.off(
-          EAppEventBusNames.SwapApprovingSuccess,
-          swapApprovingSuccessAction,
-        );
+        unsubscribeQuoteEvents();
       }
     };
   }, [
     isFocused,
     isModalPage,
-    quoteEventHandler,
-    swapApprovingSuccessAction,
-    swapQuoteMixEvent,
+    pauseQuoteOnFocusLoss,
+    refreshPreservedInputQuoteOnFocus,
+    subscribeQuoteEvents,
+    unsubscribeQuoteEvents,
   ]);
 }
