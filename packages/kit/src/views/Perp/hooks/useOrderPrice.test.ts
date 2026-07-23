@@ -13,7 +13,10 @@ let mockBbo: (HL.IWsBbo & { localReceivedAt?: number }) | null;
 let mockFormData: {
   type: 'market' | 'limit';
   price: string;
-  bboPriceMode?: { type: 'counterparty' | 'queue'; level: number } | null;
+  bboPriceMode?: {
+    type: 'counterparty' | 'queue';
+    offsetTicks: 0 | 5;
+  } | null;
   orderMode?: 'standard' | 'trigger' | 'scale' | 'twap';
   triggerOrderType?: undefined;
   triggerPrice?: string;
@@ -22,8 +25,13 @@ let mockFormData: {
   scaleUpperPrice?: string;
 };
 let mockMidPriceBN: BigNumber;
+let mockActiveTradeInstrument: {
+  mode: 'perp' | 'spot';
+  universe?: { szDecimals: number };
+};
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
+  useActiveTradeInstrumentAtom: () => [mockActiveTradeInstrument],
   useBboAtom: () => [mockBbo],
   useBboForOrderPrice: (enabled: boolean) => (enabled ? mockBbo : null),
   useTradingFormAtom: () => [mockFormData],
@@ -57,7 +65,7 @@ describe('calculateOrderPrice BBO freshness', () => {
     const result = calculateOrderPrice(
       'limit',
       '',
-      { type: 'counterparty', level: 1 },
+      { type: 'counterparty', offsetTicks: 0 },
       buildBbo(),
       new BigNumber(100.5),
       'long',
@@ -67,6 +75,7 @@ describe('calculateOrderPrice BBO freshness', () => {
       undefined,
       undefined,
       undefined,
+      4,
       now,
     );
 
@@ -75,11 +84,34 @@ describe('calculateOrderPrice BBO freshness', () => {
     expect(result.price.toFixed()).toBe('101');
   });
 
+  it('applies five valid price ticks to the BBO price', () => {
+    const result = calculateOrderPrice(
+      'limit',
+      '',
+      { type: 'counterparty', offsetTicks: 5 },
+      buildBbo(),
+      new BigNumber(100.5),
+      'long',
+      'standard',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      4,
+      now,
+    );
+
+    expect(result.error).toBeNull();
+    expect(result.isValid).toBe(true);
+    expect(result.price.toFixed()).toBe('101.05');
+  });
+
   it('rejects stale BBO prices even when the server timestamp is ahead', () => {
     const result = calculateOrderPrice(
       'limit',
       '',
-      { type: 'counterparty', level: 1 },
+      { type: 'counterparty', offsetTicks: 0 },
       buildBbo({
         time: now + 60_000,
         localReceivedAt: now - PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS - 1,
@@ -92,6 +124,7 @@ describe('calculateOrderPrice BBO freshness', () => {
       undefined,
       undefined,
       undefined,
+      4,
       now,
     );
 
@@ -116,6 +149,7 @@ describe('calculateOrderPrice scale reference price', () => {
       undefined,
       '10',
       '20',
+      undefined,
       now,
     );
 
@@ -138,6 +172,7 @@ describe('calculateOrderPrice scale reference price', () => {
       undefined,
       '20',
       '10',
+      undefined,
       now,
     );
 
@@ -160,6 +195,7 @@ describe('calculateOrderPrice scale reference price', () => {
       undefined,
       'bad',
       '20',
+      undefined,
       now,
     );
 
@@ -177,10 +213,14 @@ describe('useOrderPrice BBO freshness refresh', () => {
     mockFormData = {
       type: 'limit',
       price: '',
-      bboPriceMode: { type: 'counterparty', level: 1 },
+      bboPriceMode: { type: 'counterparty', offsetTicks: 0 },
       orderMode: 'standard',
     };
     mockMidPriceBN = new BigNumber(100.5);
+    mockActiveTradeInstrument = {
+      mode: 'perp',
+      universe: { szDecimals: 4 },
+    };
   });
 
   afterEach(() => {
@@ -201,6 +241,19 @@ describe('useOrderPrice BBO freshness refresh', () => {
     expect(result.current.error).toBe('bbo_unavailable');
     expect(result.current.isValid).toBe(false);
   });
+
+  it('ignores a stale BBO selection after switching to spot', () => {
+    mockActiveTradeInstrument = {
+      mode: 'spot',
+      universe: { szDecimals: 4 },
+    };
+    mockFormData.price = '99';
+
+    const { result } = renderHook(() => useOrderPrice('long'));
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.price.toFixed()).toBe('99');
+  });
 });
 
 describe('useOrderPrice scale mode', () => {
@@ -215,6 +268,10 @@ describe('useOrderPrice scale mode', () => {
       scaleUpperPrice: '30',
     };
     mockMidPriceBN = new BigNumber(100.5);
+    mockActiveTradeInstrument = {
+      mode: 'perp',
+      universe: { szDecimals: 4 },
+    };
   });
 
   it('returns the scale reference price from form state', () => {
