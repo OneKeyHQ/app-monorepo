@@ -1,5 +1,3 @@
-import { isPaymentLink } from '@reown/walletkit';
-
 import {
   backgroundClass,
   backgroundMethod,
@@ -46,6 +44,9 @@ class ServiceWalletConnectPay extends ServiceBase {
       return false;
     }
     try {
+      // walletkit (which bundles the whole @walletconnect/pay stack) must stay
+      // out of the background startup graph; load it on demand
+      const { isPaymentLink } = await import('@reown/walletkit');
       return isPaymentLink(uri) && validateWcPayLinkDomain(uri);
     } catch {
       return false;

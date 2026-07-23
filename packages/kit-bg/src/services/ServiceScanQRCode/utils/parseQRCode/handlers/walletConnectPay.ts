@@ -1,5 +1,3 @@
-import { isPaymentLink } from '@reown/walletkit';
-
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { validateWcPayLinkDomain } from '@onekeyhq/shared/src/walletConnect/payConstant';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
@@ -28,6 +26,9 @@ const walletConnectPay: IQRCodeHandler<IWalletConnectPayValue> = async (
   }
   let matched = false;
   try {
+    // walletkit (which bundles the whole @walletconnect/pay stack) must stay
+    // out of the background startup graph; load it on demand
+    const { isPaymentLink } = await import('@reown/walletkit');
     matched = isPaymentLink(value) && validateWcPayLinkDomain(value);
   } catch {
     matched = false;
