@@ -479,7 +479,10 @@ export interface IAppEventBusPayload {
     claimId?: string;
   };
   [EAppEventBusNames.PrimeExceedDeviceLimit]: undefined;
-  [EAppEventBusNames.PrimeDeviceLogout]: undefined;
+  [EAppEventBusNames.PrimeDeviceLogout]: {
+    operationId: string;
+    messageId: string;
+  };
   [EAppEventBusNames.PrimeMasterPasswordInvalid]: undefined;
   [EAppEventBusNames.PrimeTransferDataReceived]: {
     data: IPrimeTransferData;

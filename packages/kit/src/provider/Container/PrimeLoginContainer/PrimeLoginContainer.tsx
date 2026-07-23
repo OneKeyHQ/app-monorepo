@@ -10,6 +10,7 @@ import {
   usePrimeCloudSyncPersistAtom,
   usePrimeLoginDialogAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -27,6 +28,46 @@ import { PrimeMasterPasswordInvalidDialog } from '../../../views/Prime/component
 import { PrimeSetMasterPasswordHintDialog } from '../../../views/Prime/components/PrimeSetMasterPasswordHintDialog';
 
 let hasShownTimeErrorDialogInAppLifecycle = false;
+const presentedRemoteDeviceLogoutMessageIds = new Set<string>();
+
+async function presentRemoteDeviceLogout({
+  operationId,
+  messageId,
+}: {
+  operationId: string;
+  messageId: string;
+}): Promise<void> {
+  if (!presentedRemoteDeviceLogoutMessageIds.has(messageId)) {
+    presentedRemoteDeviceLogoutMessageIds.add(messageId);
+    try {
+      Dialog.show({
+        renderContent: <PrimeDeviceLogoutAlertDialog />,
+      });
+    } catch (error) {
+      presentedRemoteDeviceLogoutMessageIds.delete(messageId);
+      throw error;
+    }
+  }
+  await backgroundApiProxy.serviceIdentityExit.markRemoteOneKeyIdLogoutNotificationDelivered(
+    {
+      operationId,
+      messageId,
+      delivery: 'presentationHandled',
+    },
+  );
+}
+
+function presentRemoteDeviceLogoutBestEffort({
+  operationId,
+  messageId,
+}: {
+  operationId: string;
+  messageId: string;
+}): void {
+  void presentRemoteDeviceLogout({ operationId, messageId }).catch((error) => {
+    errorUtils.autoPrintErrorIgnore(error);
+  });
+}
 
 function isPrimeCloudSyncPageFocused() {
   return (
@@ -278,12 +319,18 @@ export function PrimeLoginContainer() {
   }, [navigation]);
 
   useEffect(() => {
-    const fn = () => {
-      Dialog.show({
-        renderContent: <PrimeDeviceLogoutAlertDialog />,
-      });
+    const fn = (payload: { operationId: string; messageId: string }) => {
+      presentRemoteDeviceLogoutBestEffort(payload);
     };
     appEventBus.on(EAppEventBusNames.PrimeDeviceLogout, fn);
+    void backgroundApiProxy.serviceIdentityExit
+      .getPendingRemoteOneKeyIdLogoutPresentations()
+      .then((presentations) => {
+        presentations.forEach(presentRemoteDeviceLogoutBestEffort);
+      })
+      .catch((error) => {
+        errorUtils.autoPrintErrorIgnore(error);
+      });
     return () => {
       appEventBus.off(EAppEventBusNames.PrimeDeviceLogout, fn);
     };

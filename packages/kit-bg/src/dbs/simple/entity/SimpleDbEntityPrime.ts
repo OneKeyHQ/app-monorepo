@@ -107,6 +107,12 @@ export type IIdentityExitJournalEntry = {
     oauthExpectedLifecycleRevision?: number;
     oauthHandoffConsumedAt?: number;
   };
+  remoteDeviceLogout?: {
+    messageId: string;
+    acknowledgedAt?: number;
+    presentationHandledAt?: number;
+    tombstoneExpiresAt?: number;
+  };
 };
 
 export type IKeylessOAuthSessionPersistenceJournal = {
@@ -406,13 +412,142 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   async setIdentityExitJournalEntry(
     entry: IIdentityExitJournalEntry,
   ): Promise<void> {
-    await this.setRawData((rawData) => ({
-      ...rawData,
-      identityExitOperationJournal: {
-        ...rawData?.identityExitOperationJournal,
-        [entry.operationId]: entry,
-      },
-    }));
+    await this.setRawData((rawData) => {
+      const existing =
+        rawData?.identityExitOperationJournal?.[entry.operationId];
+      const existingDelivery = existing?.remoteDeviceLogout;
+      const nextDelivery = entry.remoteDeviceLogout;
+      const mergedEntry =
+        existingDelivery &&
+        nextDelivery &&
+        existingDelivery.messageId === nextDelivery.messageId
+          ? {
+              ...entry,
+              remoteDeviceLogout: {
+                ...nextDelivery,
+                acknowledgedAt:
+                  existingDelivery.acknowledgedAt ??
+                  nextDelivery.acknowledgedAt,
+                presentationHandledAt:
+                  existingDelivery.presentationHandledAt ??
+                  nextDelivery.presentationHandledAt,
+                tombstoneExpiresAt:
+                  existingDelivery.tombstoneExpiresAt ??
+                  nextDelivery.tombstoneExpiresAt,
+              },
+            }
+          : entry;
+      return {
+        ...rawData,
+        identityExitOperationJournal: {
+          ...rawData?.identityExitOperationJournal,
+          [entry.operationId]: mergedEntry,
+        },
+      };
+    });
+  }
+
+  @backgroundMethod()
+  async ensureIdentityExitJournalEntry(
+    entry: IIdentityExitJournalEntry,
+  ): Promise<{ created: boolean; entry: IIdentityExitJournalEntry }> {
+    let result = {
+      created: false,
+      entry,
+    };
+    await this.setRawData((rawData) => {
+      const existingEntry =
+        rawData?.identityExitOperationJournal?.[entry.operationId];
+      if (existingEntry) {
+        result = {
+          created: false,
+          entry: existingEntry,
+        };
+        return { ...rawData };
+      }
+      result = {
+        created: true,
+        entry,
+      };
+      return {
+        ...rawData,
+        identityExitOperationJournal: {
+          ...rawData?.identityExitOperationJournal,
+          [entry.operationId]: entry,
+        },
+      };
+    });
+    return result;
+  }
+
+  @backgroundMethod()
+  async updateRemoteOneKeyIdLogoutJournalDelivery({
+    operationId,
+    messageId,
+    acknowledgedAt,
+    presentationHandledAt,
+    tombstoneExpiresAt,
+  }: {
+    operationId: string;
+    messageId: string;
+    acknowledgedAt?: number;
+    presentationHandledAt?: number;
+    tombstoneExpiresAt?: number;
+  }): Promise<IIdentityExitJournalEntry | undefined> {
+    let result: IIdentityExitJournalEntry | undefined;
+    await this.setRawData((rawData) => {
+      const entry = rawData?.identityExitOperationJournal?.[operationId];
+      if (entry?.remoteDeviceLogout?.messageId !== messageId) {
+        return { ...rawData };
+      }
+
+      const remoteDeviceLogout = {
+        ...entry.remoteDeviceLogout,
+      };
+      let changed = false;
+      if (
+        remoteDeviceLogout.acknowledgedAt === undefined &&
+        acknowledgedAt !== undefined
+      ) {
+        remoteDeviceLogout.acknowledgedAt = acknowledgedAt;
+        changed = true;
+      }
+      if (
+        entry.status === 'completed' &&
+        remoteDeviceLogout.presentationHandledAt === undefined &&
+        presentationHandledAt !== undefined
+      ) {
+        remoteDeviceLogout.presentationHandledAt = presentationHandledAt;
+        changed = true;
+      }
+      if (
+        remoteDeviceLogout.acknowledgedAt !== undefined &&
+        remoteDeviceLogout.presentationHandledAt !== undefined &&
+        remoteDeviceLogout.tombstoneExpiresAt === undefined &&
+        tombstoneExpiresAt !== undefined
+      ) {
+        remoteDeviceLogout.tombstoneExpiresAt = tombstoneExpiresAt;
+        changed = true;
+      }
+
+      if (!changed) {
+        result = entry;
+        return { ...rawData };
+      }
+      result = {
+        ...entry,
+        updatedAt: Math.max(Date.now(), entry.updatedAt + 1),
+        remoteDeviceLogout,
+      };
+      return {
+        ...rawData,
+        identityExitOperationJournal: {
+          ...rawData?.identityExitOperationJournal,
+          [operationId]: result,
+        },
+      };
+    });
+    return result;
   }
 
   async removeIdentityExitJournalEntry({

@@ -9,6 +9,10 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { ISupabaseJWTPayload } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -57,6 +61,7 @@ import type { IIdentityExitJournalEntry } from '../../dbs/simple/entity/SimpleDb
 
 const IDENTITY_EXIT_PLAN_TTL_MS = 5 * 60 * 1000;
 const IDENTITY_EXIT_OAUTH_HANDOFF_TTL_MS = 5 * 60 * 1000;
+const REMOTE_DEVICE_LOGOUT_TOMBSTONE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const IDENTITY_EXIT_RECOVERY_SWEEP_OPERATION_ID = 'identityExit:recoverySweep';
 
 type IReadyIdentityExitPlan = Extract<IIdentityExitPlan, { status: 'ready' }>;
@@ -320,6 +325,15 @@ class ServiceIdentityExit extends ServiceBase {
   ): void {
     this.identityExitJournalStorageOutcomeUnknownOperationIds.add(operationId);
     markIdentityRecoveryFailed(operationId);
+  }
+
+  private assertIdentityExitJournalStorageOutcomeKnown(): void {
+    if (this.identityExitJournalStorageOutcomeUnknownOperationIds.size > 0) {
+      // TODO: i18n
+      throw new OneKeyLocalError(
+        'Identity journal storage outcome is unknown. Restart the app before changing OneKey ID or Keyless state.',
+      );
+    }
   }
 
   private async persistIdentityExitJournalEntry(
@@ -1297,9 +1311,79 @@ class ServiceIdentityExit extends ServiceBase {
     }
   }
 
+  private scheduleRemoteDeviceLogoutJournalExpiryCleanup(
+    journal: IIdentityExitJournalEntry,
+  ): void {
+    const delivery = journal.remoteDeviceLogout;
+    if (
+      journal.status !== 'completed' ||
+      !delivery?.acknowledgedAt ||
+      !delivery.presentationHandledAt ||
+      !delivery.tombstoneExpiresAt
+    ) {
+      return;
+    }
+    const expiryTimer = setTimeout(
+      () => {
+        void this.cleanupExpiredRemoteDeviceLogoutJournal(journal);
+      },
+      Math.max(0, delivery.tombstoneExpiresAt - Date.now()),
+    );
+    (
+      expiryTimer as unknown as {
+        unref?: () => void;
+      }
+    ).unref?.();
+  }
+
+  private async cleanupExpiredRemoteDeviceLogoutJournal(
+    journal: IIdentityExitJournalEntry,
+  ): Promise<void> {
+    const expectedDelivery = journal.remoteDeviceLogout;
+    if (
+      !expectedDelivery?.tombstoneExpiresAt ||
+      expectedDelivery.tombstoneExpiresAt > Date.now()
+    ) {
+      return;
+    }
+    try {
+      const current = (
+        await this.backgroundApi.simpleDb.prime.getIdentityExitOperationJournal()
+      )[journal.operationId];
+      if (
+        current?.status === 'completed' &&
+        current.remoteDeviceLogout?.messageId === expectedDelivery.messageId &&
+        current.remoteDeviceLogout.acknowledgedAt &&
+        current.remoteDeviceLogout.presentationHandledAt &&
+        current.remoteDeviceLogout.tombstoneExpiresAt ===
+          expectedDelivery.tombstoneExpiresAt
+      ) {
+        await this.removeCompletedIdentityExitJournalEntry(current);
+        settledReceiptRegistry.delete(current.planId);
+      }
+    } catch {
+      // A later recovery sweep retries tombstone cleanup from durable state.
+    }
+  }
+
   private async retainLiveOAuthHandoffOrRemoveCompletedJournal(
     journal: IIdentityExitJournalEntry,
   ): Promise<boolean> {
+    if (journal.remoteDeviceLogout) {
+      const delivery = journal.remoteDeviceLogout;
+      if (
+        delivery.acknowledgedAt &&
+        delivery.presentationHandledAt &&
+        delivery.tombstoneExpiresAt &&
+        delivery.tombstoneExpiresAt <= Date.now()
+      ) {
+        await this.removeCompletedIdentityExitJournalEntryBestEffort(journal);
+        settledReceiptRegistry.delete(journal.planId);
+        return false;
+      }
+      this.scheduleRemoteDeviceLogoutJournalExpiryCleanup(journal);
+      return true;
+    }
     const record = this.buildOAuthHandoffRecordFromCompletedJournal(journal);
     if (record && !record.consumed && record.expiresAt > Date.now()) {
       this.scheduleOAuthHandoffJournalExpiryCleanup(record);
@@ -1312,9 +1396,11 @@ class ServiceIdentityExit extends ServiceBase {
   private async completeIdentityExitJournal({
     journal,
     committedLifecycleRevision,
+    oneKeyIdLoggedOut = journal.target.logoutOneKeyId,
   }: {
     journal: IIdentityExitJournalEntry;
     committedLifecycleRevision: number;
+    oneKeyIdLoggedOut?: boolean;
   }): Promise<IIdentityExitReceipt> {
     let oauthHandoffRecord: IIdentityExitOAuthHandoffRecord | undefined;
     if (journal.target.switchOAuthProvider && journal.keyless?.walletId) {
@@ -1343,7 +1429,7 @@ class ServiceIdentityExit extends ServiceBase {
       updatedAt: Date.now(),
       committedLifecycleRevision,
       completed: {
-        oneKeyIdLoggedOut: journal.target.logoutOneKeyId,
+        oneKeyIdLoggedOut,
         removedWalletId: journal.target.removeKeyless
           ? journal.keyless?.walletId
           : undefined,
@@ -1362,20 +1448,54 @@ class ServiceIdentityExit extends ServiceBase {
         'Identity exit journal completion did not produce a receipt.',
       );
     }
+    await this.markRemoteDeviceLogoutNoopPresentationHandled({
+      journal: completedJournal,
+      receipt,
+    });
     storeSettledIdentityExitReceipt({
       operationId: completedJournal.operationId,
       planId: completedJournal.planId,
       receipt,
       expiresAt: oauthHandoffRecord?.expiresAt,
     });
+    if (completedJournal.remoteDeviceLogout && receipt.oneKeyIdLoggedOut) {
+      appEventBus.emit(EAppEventBusNames.PrimeDeviceLogout, {
+        operationId: completedJournal.operationId,
+        messageId: completedJournal.remoteDeviceLogout.messageId,
+      });
+    }
     if (oauthHandoffRecord) {
       this.scheduleOAuthHandoffJournalExpiryCleanup(oauthHandoffRecord);
+    } else if (completedJournal.remoteDeviceLogout) {
+      this.scheduleRemoteDeviceLogoutJournalExpiryCleanup(completedJournal);
     } else {
       await this.removeCompletedIdentityExitJournalEntryBestEffort(
         completedJournal,
       );
     }
     return receipt;
+  }
+
+  private async markRemoteDeviceLogoutNoopPresentationHandled({
+    journal,
+    receipt,
+  }: {
+    journal: IIdentityExitJournalEntry;
+    receipt: IIdentityExitReceipt;
+  }): Promise<void> {
+    if (
+      receipt.status !== 'completed' ||
+      receipt.oneKeyIdLoggedOut ||
+      !journal.remoteDeviceLogout ||
+      journal.remoteDeviceLogout.presentationHandledAt
+    ) {
+      return;
+    }
+    await this.markRemoteOneKeyIdLogoutNotificationDelivered({
+      operationId: journal.operationId,
+      messageId: journal.remoteDeviceLogout.messageId,
+      delivery: 'presentationHandled',
+    });
   }
 
   private async cleanupRemovedKeylessWalletCredentials(
@@ -1638,6 +1758,13 @@ class ServiceIdentityExit extends ServiceBase {
             await this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision();
           if (revision !== journal.expectedLifecycleRevision) {
             if (journal.intentType === 'remoteOneKeyIdLogout') {
+              if (journal.remoteDeviceLogout) {
+                return this.completeIdentityExitJournal({
+                  journal,
+                  committedLifecycleRevision: revision,
+                  oneKeyIdLoggedOut: false,
+                });
+              }
               const removed =
                 await this.removeIdentityExitJournalEntryWithOutcomeCheck(
                   journal,
@@ -1684,6 +1811,15 @@ class ServiceIdentityExit extends ServiceBase {
             });
           if (localCommit.status !== 'committed' || !localCommit.revision) {
             if (journal.intentType === 'remoteOneKeyIdLogout') {
+              if (journal.remoteDeviceLogout) {
+                const currentRevision =
+                  await this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision();
+                return this.completeIdentityExitJournal({
+                  journal,
+                  committedLifecycleRevision: currentRevision,
+                  oneKeyIdLoggedOut: false,
+                });
+              }
               const removed =
                 await this.removeIdentityExitJournalEntryWithOutcomeCheck(
                   journal,
@@ -1725,12 +1861,7 @@ class ServiceIdentityExit extends ServiceBase {
     recoveredOperationCount: number;
     abandonedOperationCount: number;
   }> {
-    if (this.identityExitJournalStorageOutcomeUnknownOperationIds.size > 0) {
-      // TODO: i18n
-      throw new OneKeyLocalError(
-        'Identity journal storage outcome is unknown. Restart the app before changing OneKey ID or Keyless state.',
-      );
-    }
+    this.assertIdentityExitJournalStorageOutcomeKnown();
     await this.backgroundApi.servicePrime.recoverInterruptedKeylessOAuthSessionPersistence();
     return identityLifecycleMutex.runExclusiveForRecovery(async () => {
       markIdentityRecoveryPending(IDENTITY_EXIT_RECOVERY_SWEEP_OPERATION_ID);
@@ -1745,6 +1876,10 @@ class ServiceIdentityExit extends ServiceBase {
           if (entry.status === 'completed') {
             const receipt = this.buildReceiptFromCompletedJournal(entry);
             if (receipt?.status === 'completed') {
+              await this.markRemoteDeviceLogoutNoopPresentationHandled({
+                journal: entry,
+                receipt,
+              });
               storeSettledIdentityExitReceipt({
                 operationId: entry.operationId,
                 planId: entry.planId,
@@ -1758,6 +1893,10 @@ class ServiceIdentityExit extends ServiceBase {
             const receipt =
               await this.resumeIdentityExitJournalUnderLock(entry);
             if (receipt?.status === 'completed') {
+              await this.markRemoteDeviceLogoutNoopPresentationHandled({
+                journal: entry,
+                receipt,
+              });
               recoveredOperationCount += 1;
               markIdentityRecoveryReady(entry.operationId);
             } else if (receipt?.status === 'cancelled') {
@@ -1831,6 +1970,240 @@ class ServiceIdentityExit extends ServiceBase {
             }
           : undefined,
     };
+  }
+
+  private buildRemoteDeviceLogoutStageResult(
+    journal: IIdentityExitJournalEntry,
+    messageId: string,
+  ): {
+    operationId: string;
+    planId: IIdentityExitPlanId;
+    acknowledged: boolean;
+    presentationHandled: boolean;
+  } {
+    if (
+      journal.intentType !== 'remoteOneKeyIdLogout' ||
+      journal.remoteDeviceLogout?.messageId !== messageId
+    ) {
+      throw new OneKeyLocalError(
+        'Remote device logout message collided with another identity operation.',
+      );
+    }
+    return {
+      operationId: journal.operationId,
+      planId: journal.planId as IIdentityExitPlanId,
+      acknowledged: Boolean(journal.remoteDeviceLogout.acknowledgedAt),
+      presentationHandled: Boolean(
+        journal.remoteDeviceLogout.presentationHandledAt,
+      ),
+    };
+  }
+
+  @backgroundMethod()
+  async stageRemoteOneKeyIdLogoutNotification({
+    messageId,
+  }: {
+    messageId: string;
+  }): Promise<{
+    operationId: string;
+    planId: IIdentityExitPlanId;
+    acknowledged: boolean;
+    presentationHandled: boolean;
+  }> {
+    if (!messageId) {
+      throw new OneKeyLocalError(
+        'Remote device logout message ID is unavailable.',
+      );
+    }
+    this.assertIdentityExitJournalStorageOutcomeKnown();
+    await this.recoverInterruptedIdentityExitOperations();
+    this.assertIdentityExitJournalStorageOutcomeKnown();
+    const operationId = `remoteDeviceLogout:${messageId}`;
+    return identityLifecycleMutex.runExclusive(async () => {
+      this.assertIdentityExitJournalStorageOutcomeKnown();
+      const existing = (
+        await this.backgroundApi.simpleDb.prime.getIdentityExitOperationJournal()
+      )[operationId];
+      if (existing) {
+        if (existing.status === 'completed') {
+          const receipt = this.buildReceiptFromCompletedJournal(existing);
+          if (receipt?.status === 'completed') {
+            storeSettledIdentityExitReceipt({
+              operationId,
+              planId: existing.planId,
+              receipt,
+            });
+          }
+        } else {
+          markIdentityRecoveryPending(operationId);
+        }
+        return this.buildRemoteDeviceLogoutStageResult(existing, messageId);
+      }
+
+      const snapshot = await this.readAuthoritativeSnapshot();
+      const timestamp = Date.now();
+      const baseJournal =
+        snapshot.oneKeyId.type === 'loggedIn'
+          ? this.buildRemoteOneKeyIdLogoutJournal({
+              snapshot,
+              operationId,
+            })
+          : ({
+              operationId,
+              planId: `system:${operationId}`,
+              intentType: 'remoteOneKeyIdLogout',
+              status: 'completed',
+              startedAt: timestamp,
+              updatedAt: timestamp,
+              expectedLifecycleRevision: snapshot.lifecycleRevision,
+              committedLifecycleRevision: snapshot.lifecycleRevision,
+              target: {
+                logoutOneKeyId: false,
+                removeKeyless: false,
+                clearKeylessSession: false,
+              },
+              completed: {
+                oneKeyIdLoggedOut: false,
+              },
+            } satisfies IIdentityExitJournalEntry);
+      const journal: IIdentityExitJournalEntry = {
+        ...baseJournal,
+        remoteDeviceLogout: {
+          messageId,
+          presentationHandledAt:
+            baseJournal.status === 'completed' &&
+            !baseJournal.completed?.oneKeyIdLoggedOut
+              ? timestamp
+              : undefined,
+        },
+      };
+      markIdentityRecoveryPending(operationId);
+      let ensured: {
+        created: boolean;
+        entry: IIdentityExitJournalEntry;
+      };
+      try {
+        ensured =
+          await this.backgroundApi.simpleDb.prime.ensureIdentityExitJournalEntry(
+            journal,
+          );
+      } catch (error) {
+        this.markIdentityExitJournalStorageOutcomeUnknown(operationId);
+        throw error;
+      }
+      if (ensured.created) {
+        settledReceiptRegistry.delete(ensured.entry.planId);
+      }
+      if (ensured.entry.status === 'completed') {
+        const receipt = this.buildReceiptFromCompletedJournal(ensured.entry);
+        if (!receipt || receipt.status !== 'completed') {
+          this.markIdentityExitJournalStorageOutcomeUnknown(operationId);
+          throw new OneKeyLocalError(
+            'Remote device logout completion record is invalid.',
+          );
+        }
+        storeSettledIdentityExitReceipt({
+          operationId,
+          planId: ensured.entry.planId,
+          receipt,
+        });
+      }
+      return this.buildRemoteDeviceLogoutStageResult(ensured.entry, messageId);
+    });
+  }
+
+  @backgroundMethod()
+  async getPendingRemoteOneKeyIdLogoutNotifications(): Promise<
+    {
+      operationId: string;
+      planId: IIdentityExitPlanId;
+      messageId: string;
+      needsAcknowledgement: boolean;
+      needsPresentation: boolean;
+    }[]
+  > {
+    return identityLifecycleMutex.runExclusiveForRecovery(async () => {
+      this.assertIdentityExitJournalStorageOutcomeKnown();
+      const journal =
+        await this.backgroundApi.simpleDb.prime.getIdentityExitOperationJournal();
+      this.assertIdentityExitJournalStorageOutcomeKnown();
+      return Object.values(journal)
+        .filter((entry) => {
+          const delivery = entry.remoteDeviceLogout;
+          return Boolean(
+            delivery &&
+            (!delivery.acknowledgedAt || !delivery.presentationHandledAt),
+          );
+        })
+        .toSorted((a, b) => a.startedAt - b.startedAt)
+        .map((entry) => ({
+          operationId: entry.operationId,
+          planId: entry.planId as IIdentityExitPlanId,
+          messageId: entry.remoteDeviceLogout?.messageId || '',
+          needsAcknowledgement: !entry.remoteDeviceLogout?.acknowledgedAt,
+          needsPresentation: !entry.remoteDeviceLogout?.presentationHandledAt,
+        }));
+    });
+  }
+
+  @backgroundMethod()
+  async getPendingRemoteOneKeyIdLogoutPresentations(): Promise<
+    {
+      operationId: string;
+      messageId: string;
+    }[]
+  > {
+    await this.recoverInterruptedIdentityExitOperations();
+    return identityLifecycleMutex.runExclusive(async () => {
+      this.assertIdentityExitJournalStorageOutcomeKnown();
+      const journal =
+        await this.backgroundApi.simpleDb.prime.getIdentityExitOperationJournal();
+      this.assertIdentityExitJournalStorageOutcomeKnown();
+      return Object.values(journal)
+        .filter(
+          (entry) =>
+            entry.status === 'completed' &&
+            entry.completed?.oneKeyIdLoggedOut &&
+            entry.remoteDeviceLogout &&
+            !entry.remoteDeviceLogout.presentationHandledAt,
+        )
+        .toSorted((a, b) => a.startedAt - b.startedAt)
+        .map((entry) => ({
+          operationId: entry.operationId,
+          messageId: entry.remoteDeviceLogout?.messageId || '',
+        }));
+    });
+  }
+
+  @backgroundMethod()
+  async markRemoteOneKeyIdLogoutNotificationDelivered({
+    operationId,
+    messageId,
+    delivery,
+  }: {
+    operationId: string;
+    messageId: string;
+    delivery: 'acknowledged' | 'presentationHandled';
+  }): Promise<{ updated: boolean }> {
+    const timestamp = Date.now();
+    const entry =
+      await this.backgroundApi.simpleDb.prime.updateRemoteOneKeyIdLogoutJournalDelivery(
+        {
+          operationId,
+          messageId,
+          acknowledgedAt: delivery === 'acknowledged' ? timestamp : undefined,
+          presentationHandledAt:
+            delivery === 'presentationHandled' ? timestamp : undefined,
+          tombstoneExpiresAt: timestamp + REMOTE_DEVICE_LOGOUT_TOMBSTONE_TTL_MS,
+        },
+      );
+    if (!entry) {
+      return { updated: false };
+    }
+    if (entry.status === 'completed') {
+      this.scheduleRemoteDeviceLogoutJournalExpiryCleanup(entry);
+    }
+    return { updated: true };
   }
 
   @backgroundMethod()

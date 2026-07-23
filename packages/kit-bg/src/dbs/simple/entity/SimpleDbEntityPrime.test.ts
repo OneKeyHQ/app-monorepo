@@ -2,6 +2,7 @@ import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConst
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import {
+  type IIdentityExitJournalEntry,
   type ISimpleDBPrime,
   SimpleDbEntityPrime,
 } from './SimpleDbEntityPrime';
@@ -397,6 +398,179 @@ describe('SimpleDbEntityPrime session commit identity', () => {
 });
 
 describe('SimpleDbEntityPrime identity-exit journal', () => {
+  const createRemoteLogoutJournal = (): IIdentityExitJournalEntry => ({
+    operationId: 'remote-logout-operation',
+    planId: 'remote-logout-plan',
+    intentType: 'remoteOneKeyIdLogout',
+    status: 'executing',
+    startedAt: 1,
+    updatedAt: 1,
+    expectedLifecycleRevision: 3,
+    target: {
+      logoutOneKeyId: true,
+      removeKeyless: false,
+    },
+    remoteDeviceLogout: {
+      messageId: 'message-1',
+    },
+  });
+
+  test('inserts a journal once without regressing an advanced duplicate', async () => {
+    const entity = new SimpleDbEntityPrime();
+    const journal = createRemoteLogoutJournal();
+    let persisted: ISimpleDBPrime = {};
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await expect(
+      entity.ensureIdentityExitJournalEntry(journal),
+    ).resolves.toEqual({
+      created: true,
+      entry: journal,
+    });
+
+    const advancedJournal: IIdentityExitJournalEntry = {
+      ...journal,
+      status: 'localStateCommitted',
+      updatedAt: 10,
+      remoteDeviceLogout: {
+        messageId: 'message-1',
+        acknowledgedAt: 8,
+      },
+    };
+    persisted = {
+      ...persisted,
+      identityExitOperationJournal: {
+        ...persisted.identityExitOperationJournal,
+        [journal.operationId]: advancedJournal,
+      },
+    };
+
+    await expect(
+      entity.ensureIdentityExitJournalEntry(journal),
+    ).resolves.toEqual({
+      created: false,
+      entry: advancedJournal,
+    });
+    expect(
+      persisted.identityExitOperationJournal?.[journal.operationId],
+    ).toEqual(advancedJournal);
+
+    await entity.setIdentityExitJournalEntry({
+      ...journal,
+      status: 'completed',
+      updatedAt: 11,
+      completed: {
+        oneKeyIdLoggedOut: true,
+      },
+    });
+    expect(
+      persisted.identityExitOperationJournal?.[journal.operationId],
+    ).toMatchObject({
+      status: 'completed',
+      remoteDeviceLogout: {
+        messageId: 'message-1',
+        acknowledgedAt: 8,
+      },
+    });
+  });
+
+  test('gates remote delivery updates and preserves their first timestamps', async () => {
+    const entity = new SimpleDbEntityPrime();
+    const journal: IIdentityExitJournalEntry = {
+      ...createRemoteLogoutJournal(),
+      remoteDeviceLogout: {
+        messageId: 'message-1',
+        acknowledgedAt: 5,
+      },
+    };
+    let persisted: ISimpleDBPrime = {
+      identityExitOperationJournal: {
+        [journal.operationId]: journal,
+      },
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await expect(
+      entity.updateRemoteOneKeyIdLogoutJournalDelivery({
+        operationId: journal.operationId,
+        messageId: 'different-message',
+        acknowledgedAt: 6,
+      }),
+    ).resolves.toBeUndefined();
+    expect(
+      persisted.identityExitOperationJournal?.[journal.operationId],
+    ).toEqual(journal);
+
+    const executingResult =
+      await entity.updateRemoteOneKeyIdLogoutJournalDelivery({
+        operationId: journal.operationId,
+        messageId: 'message-1',
+        acknowledgedAt: 6,
+        presentationHandledAt: 7,
+        tombstoneExpiresAt: 8,
+      });
+    expect(executingResult?.remoteDeviceLogout).toEqual({
+      messageId: 'message-1',
+      acknowledgedAt: 5,
+    });
+    expect(executingResult?.updatedAt).toBe(journal.updatedAt);
+
+    const completedJournal: IIdentityExitJournalEntry = {
+      ...(executingResult as IIdentityExitJournalEntry),
+      status: 'completed',
+      updatedAt: 9,
+      completed: {
+        oneKeyIdLoggedOut: true,
+      },
+    };
+    persisted = {
+      ...persisted,
+      identityExitOperationJournal: {
+        ...persisted.identityExitOperationJournal,
+        [journal.operationId]: completedJournal,
+      },
+    };
+
+    const completedResult =
+      await entity.updateRemoteOneKeyIdLogoutJournalDelivery({
+        operationId: journal.operationId,
+        messageId: 'message-1',
+        acknowledgedAt: 10,
+        presentationHandledAt: 11,
+        tombstoneExpiresAt: 12,
+      });
+    expect(completedResult?.remoteDeviceLogout).toEqual({
+      messageId: 'message-1',
+      acknowledgedAt: 5,
+      presentationHandledAt: 11,
+      tombstoneExpiresAt: 12,
+    });
+    const completedUpdatedAt = completedResult?.updatedAt;
+
+    await expect(
+      entity.updateRemoteOneKeyIdLogoutJournalDelivery({
+        operationId: journal.operationId,
+        messageId: 'message-1',
+        acknowledgedAt: 13,
+        presentationHandledAt: 14,
+        tombstoneExpiresAt: 15,
+      }),
+    ).resolves.toEqual(completedResult);
+    expect(
+      persisted.identityExitOperationJournal?.[journal.operationId]?.updatedAt,
+    ).toBe(completedUpdatedAt);
+  });
+
   test('consumes an OAuth handoff once with a persisted compare-and-set', async () => {
     const entity = new SimpleDbEntityPrime();
     let persisted: Record<string, unknown> = {

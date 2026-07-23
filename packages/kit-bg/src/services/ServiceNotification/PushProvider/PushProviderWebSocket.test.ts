@@ -74,6 +74,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { ENotificationPushMessageAckAction } from '@onekeyhq/shared/types/notification';
+import type { IIdentityExitPlanId } from '@onekeyhq/shared/types/prime/identityExitTypes';
 import type { IPrimeDeviceLogoutInfo } from '@onekeyhq/shared/types/socket';
 import { EAppSocketEventNames } from '@onekeyhq/shared/types/socket';
 
@@ -84,8 +85,14 @@ import type { NotificationEventEmitter } from '../NotificationEventEmitter';
 
 type IAckNotificationMessage =
   IBackgroundApi['serviceNotification']['ackNotificationMessage'];
-type IReconcileRemoteOneKeyIdLogout =
-  IBackgroundApi['serviceIdentityExit']['reconcileRemoteOneKeyIdLogout'];
+type IStageRemoteOneKeyIdLogoutNotification =
+  IBackgroundApi['serviceIdentityExit']['stageRemoteOneKeyIdLogoutNotification'];
+type IExecuteIdentityExit =
+  IBackgroundApi['serviceIdentityExit']['executeIdentityExit'];
+type IMarkRemoteOneKeyIdLogoutNotificationDelivered =
+  IBackgroundApi['serviceIdentityExit']['markRemoteOneKeyIdLogoutNotificationDelivered'];
+type IGetPendingRemoteOneKeyIdLogoutNotifications =
+  IBackgroundApi['serviceIdentityExit']['getPendingRemoteOneKeyIdLogoutNotifications'];
 
 function createFixture() {
   const ackNotificationMessage = jest
@@ -94,16 +101,43 @@ function createFixture() {
       Parameters<IAckNotificationMessage>
     >()
     .mockResolvedValue(undefined);
-  const reconcileRemoteOneKeyIdLogout = jest.fn<
-    ReturnType<IReconcileRemoteOneKeyIdLogout>,
-    Parameters<IReconcileRemoteOneKeyIdLogout>
+  const stageRemoteOneKeyIdLogoutNotification = jest
+    .fn<
+      ReturnType<IStageRemoteOneKeyIdLogoutNotification>,
+      Parameters<IStageRemoteOneKeyIdLogoutNotification>
+    >()
+    .mockResolvedValue({
+      operationId: 'remoteDeviceLogout:logout-message-1',
+      planId:
+        'system:remoteDeviceLogout:logout-message-1' as IIdentityExitPlanId,
+      acknowledged: false,
+      presentationHandled: false,
+    });
+  const executeIdentityExit = jest.fn<
+    ReturnType<IExecuteIdentityExit>,
+    Parameters<IExecuteIdentityExit>
   >();
+  const markRemoteOneKeyIdLogoutNotificationDelivered = jest
+    .fn<
+      ReturnType<IMarkRemoteOneKeyIdLogoutNotificationDelivered>,
+      Parameters<IMarkRemoteOneKeyIdLogoutNotificationDelivered>
+    >()
+    .mockResolvedValue({ updated: true });
+  const getPendingRemoteOneKeyIdLogoutNotifications = jest
+    .fn<
+      ReturnType<IGetPendingRemoteOneKeyIdLogoutNotifications>,
+      Parameters<IGetPendingRemoteOneKeyIdLogoutNotifications>
+    >()
+    .mockResolvedValue([]);
   const backgroundApi = {
     serviceNotification: {
       ackNotificationMessage,
     },
     serviceIdentityExit: {
-      reconcileRemoteOneKeyIdLogout,
+      executeIdentityExit,
+      getPendingRemoteOneKeyIdLogoutNotifications,
+      markRemoteOneKeyIdLogoutNotificationDelivered,
+      stageRemoteOneKeyIdLogoutNotification,
     },
   } as unknown as IBackgroundApi;
   const eventEmitter = {
@@ -118,26 +152,35 @@ function createFixture() {
 
   return {
     ackNotificationMessage,
+    executeIdentityExit,
+    getPendingRemoteOneKeyIdLogoutNotifications,
+    markRemoteOneKeyIdLogoutNotificationDelivered,
     provider,
-    reconcileRemoteOneKeyIdLogout,
+    stageRemoteOneKeyIdLogoutNotification,
+  };
+}
+
+async function getSocketHandler<TPayload>(
+  event: string,
+): Promise<(payload: TPayload) => Promise<void>> {
+  await Promise.resolve();
+  const handler = mockSocketHandlers.get(event);
+  if (!handler) {
+    throw new OneKeyLocalError(
+      `WebSocket handler was not registered: ${event}`,
+    );
+  }
+  return async (payload) => {
+    await handler(payload);
   };
 }
 
 async function getPrimeDeviceLogoutHandler(): Promise<
   (payload: IPrimeDeviceLogoutInfo) => Promise<void>
 > {
-  await Promise.resolve();
-  const handler = mockSocketHandlers.get(
+  return getSocketHandler<IPrimeDeviceLogoutInfo>(
     EAppSocketEventNames.primeDeviceLogout,
   );
-  if (!handler) {
-    throw new OneKeyLocalError(
-      'Prime device logout WebSocket handler was not registered.',
-    );
-  }
-  return async (payload) => {
-    await handler(payload);
-  };
 }
 
 const logoutPayload: IPrimeDeviceLogoutInfo = {
@@ -156,56 +199,69 @@ describe('PushProviderWebSocket prime device logout', () => {
     });
   });
 
-  test('does not emit PrimeDeviceLogout when identity reconciliation rejects', async () => {
+  test('does not ACK when durable remote logout staging rejects', async () => {
+    const fixture = createFixture();
+    fixture.stageRemoteOneKeyIdLogoutNotification.mockRejectedValue(
+      new OneKeyLocalError('Remote logout journal could not be persisted'),
+    );
+    const handler = await getPrimeDeviceLogoutHandler();
+
+    await handler(logoutPayload);
+
+    expect(fixture.stageRemoteOneKeyIdLogoutNotification).toHaveBeenCalledWith({
+      messageId: logoutPayload.msgId,
+    });
+    expect(fixture.ackNotificationMessage).not.toHaveBeenCalled();
+    expect(fixture.executeIdentityExit).not.toHaveBeenCalled();
+    expect(mockAppEventEmit).not.toHaveBeenCalled();
+  });
+
+  test('ACKs only after durable staging and retains retry when execution rejects', async () => {
     const fixture = createFixture();
     const reconciliationError = new OneKeyLocalError(
       'Remote identity reconciliation failed',
     );
-    fixture.reconcileRemoteOneKeyIdLogout.mockRejectedValue(
-      reconciliationError,
-    );
+    fixture.executeIdentityExit.mockRejectedValue(reconciliationError);
     const handler = await getPrimeDeviceLogoutHandler();
 
     await handler(logoutPayload);
 
-    expect(fixture.reconcileRemoteOneKeyIdLogout).toHaveBeenCalledTimes(1);
+    expect(fixture.stageRemoteOneKeyIdLogoutNotification).toHaveBeenCalledTimes(
+      1,
+    );
     expect(fixture.ackNotificationMessage).toHaveBeenCalledTimes(1);
     expect(fixture.ackNotificationMessage).toHaveBeenCalledWith({
       msgId: logoutPayload.msgId,
       action: ENotificationPushMessageAckAction.arrived,
     });
-    expect(mockAppEventEmit).not.toHaveBeenCalledWith(
-      EAppEventBusNames.PrimeDeviceLogout,
-      undefined,
+    expect(fixture.executeIdentityExit).toHaveBeenCalledTimes(1);
+    expect(
+      fixture.stageRemoteOneKeyIdLogoutNotification.mock.invocationCallOrder[0],
+    ).toBeLessThan(fixture.ackNotificationMessage.mock.invocationCallOrder[0]);
+    expect(
+      fixture.ackNotificationMessage.mock.invocationCallOrder[0],
+    ).toBeLessThan(fixture.executeIdentityExit.mock.invocationCallOrder[0]);
+    expect(
+      fixture.markRemoteOneKeyIdLogoutNotificationDelivered,
+    ).toHaveBeenCalledWith({
+      operationId: 'remoteDeviceLogout:logout-message-1',
+      messageId: logoutPayload.msgId,
+      delivery: 'acknowledged',
+    });
+    expect(
+      fixture.markRemoteOneKeyIdLogoutNotificationDelivered,
+    ).not.toHaveBeenCalledWith(
+      expect.objectContaining({ delivery: 'presentationHandled' }),
     );
+    expect(mockAppEventEmit).not.toHaveBeenCalled();
   });
 
-  test('does not emit PrimeDeviceLogout when identity reconciliation is blocked', async () => {
+  test('continues local reconciliation when the server ACK fails', async () => {
     const fixture = createFixture();
-    fixture.reconcileRemoteOneKeyIdLogout.mockResolvedValue({
-      status: 'blocked',
-      code: 'STATE_CHANGED',
-      message: 'Identity state changed.',
-    });
-    const handler = await getPrimeDeviceLogoutHandler();
-
-    await handler(logoutPayload);
-
-    expect(fixture.reconcileRemoteOneKeyIdLogout).toHaveBeenCalledTimes(1);
-    expect(fixture.ackNotificationMessage).toHaveBeenCalledTimes(1);
-    expect(fixture.ackNotificationMessage).toHaveBeenCalledWith({
-      msgId: logoutPayload.msgId,
-      action: ENotificationPushMessageAckAction.arrived,
-    });
-    expect(mockAppEventEmit).not.toHaveBeenCalledWith(
-      EAppEventBusNames.PrimeDeviceLogout,
-      undefined,
+    fixture.ackNotificationMessage.mockRejectedValue(
+      new OneKeyLocalError('Notification ACK timed out'),
     );
-  });
-
-  test('emits PrimeDeviceLogout after identity reconciliation completes', async () => {
-    const fixture = createFixture();
-    fixture.reconcileRemoteOneKeyIdLogout.mockResolvedValue({
+    fixture.executeIdentityExit.mockResolvedValue({
       status: 'completed',
       oneKeyIdLoggedOut: true,
     });
@@ -213,7 +269,75 @@ describe('PushProviderWebSocket prime device logout', () => {
 
     await handler(logoutPayload);
 
-    expect(fixture.reconcileRemoteOneKeyIdLogout).toHaveBeenCalledTimes(1);
+    expect(fixture.executeIdentityExit).toHaveBeenCalledTimes(1);
+    expect(
+      fixture.markRemoteOneKeyIdLogoutNotificationDelivered,
+    ).not.toHaveBeenCalledWith(
+      expect.objectContaining({ delivery: 'acknowledged' }),
+    );
+    expect(mockAppEventEmit).toHaveBeenCalledWith(
+      EAppEventBusNames.PrimeDeviceLogout,
+      {
+        operationId: 'remoteDeviceLogout:logout-message-1',
+        messageId: logoutPayload.msgId,
+      },
+    );
+  });
+
+  test('continues local reconciliation when durable ACK metadata needs retry', async () => {
+    const fixture = createFixture();
+    fixture.markRemoteOneKeyIdLogoutNotificationDelivered.mockRejectedValueOnce(
+      new OneKeyLocalError('ACK metadata persistence failed'),
+    );
+    fixture.executeIdentityExit.mockResolvedValue({
+      status: 'completed',
+      oneKeyIdLoggedOut: true,
+    });
+    const handler = await getPrimeDeviceLogoutHandler();
+
+    await handler(logoutPayload);
+
+    expect(fixture.executeIdentityExit).toHaveBeenCalledTimes(1);
+    expect(mockAppEventEmit).toHaveBeenCalledWith(
+      EAppEventBusNames.PrimeDeviceLogout,
+      {
+        operationId: 'remoteDeviceLogout:logout-message-1',
+        messageId: logoutPayload.msgId,
+      },
+    );
+  });
+
+  test('settles presentation without a dialog when no OneKey ID was logged out', async () => {
+    const fixture = createFixture();
+    fixture.executeIdentityExit.mockResolvedValue({
+      status: 'completed',
+      oneKeyIdLoggedOut: false,
+    });
+    const handler = await getPrimeDeviceLogoutHandler();
+
+    await handler(logoutPayload);
+
+    expect(mockAppEventEmit).not.toHaveBeenCalled();
+    expect(
+      fixture.markRemoteOneKeyIdLogoutNotificationDelivered,
+    ).toHaveBeenCalledWith({
+      operationId: 'remoteDeviceLogout:logout-message-1',
+      messageId: logoutPayload.msgId,
+      delivery: 'presentationHandled',
+    });
+  });
+
+  test('emits PrimeDeviceLogout only after staged reconciliation completes', async () => {
+    const fixture = createFixture();
+    fixture.executeIdentityExit.mockResolvedValue({
+      status: 'completed',
+      oneKeyIdLoggedOut: true,
+    });
+    const handler = await getPrimeDeviceLogoutHandler();
+
+    await handler(logoutPayload);
+
+    expect(fixture.executeIdentityExit).toHaveBeenCalledTimes(1);
     expect(fixture.ackNotificationMessage).toHaveBeenCalledTimes(1);
     expect(fixture.ackNotificationMessage).toHaveBeenCalledWith({
       msgId: logoutPayload.msgId,
@@ -222,17 +346,64 @@ describe('PushProviderWebSocket prime device logout', () => {
     expect(mockAppEventEmit).toHaveBeenCalledTimes(1);
     expect(mockAppEventEmit).toHaveBeenCalledWith(
       EAppEventBusNames.PrimeDeviceLogout,
-      undefined,
+      {
+        operationId: 'remoteDeviceLogout:logout-message-1',
+        messageId: logoutPayload.msgId,
+      },
     );
     expect(
-      fixture.reconcileRemoteOneKeyIdLogout.mock.invocationCallOrder[0],
+      fixture.executeIdentityExit.mock.invocationCallOrder[0],
     ).toBeLessThan(mockAppEventEmit.mock.invocationCallOrder[0]);
+    expect(
+      fixture.markRemoteOneKeyIdLogoutNotificationDelivered,
+    ).not.toHaveBeenCalledWith(
+      expect.objectContaining({ delivery: 'presentationHandled' }),
+    );
     expect(mockConsoleLog).toHaveBeenCalledWith(
-      'WebSocket received primeDeviceLogout message',
+      'WebSocket reconciled primeDeviceLogout message',
       { msgId: logoutPayload.msgId },
     );
     expect(JSON.stringify(mockConsoleLog.mock.calls)).not.toContain(
       logoutPayload.emails[0],
+    );
+  });
+
+  test('retries a durable remote logout when the socket connects again', async () => {
+    const fixture = createFixture();
+    fixture.getPendingRemoteOneKeyIdLogoutNotifications.mockResolvedValue([
+      {
+        operationId: 'remoteDeviceLogout:pending-message',
+        planId:
+          'system:remoteDeviceLogout:pending-message' as IIdentityExitPlanId,
+        messageId: 'pending-message',
+        needsAcknowledgement: true,
+        needsPresentation: true,
+      },
+    ]);
+    fixture.executeIdentityExit.mockResolvedValue({
+      status: 'completed',
+      oneKeyIdLoggedOut: true,
+    });
+    const connectHandler = await getSocketHandler<void>('connect');
+
+    await connectHandler();
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+
+    expect(fixture.ackNotificationMessage).toHaveBeenCalledWith({
+      msgId: 'pending-message',
+      action: ENotificationPushMessageAckAction.arrived,
+    });
+    expect(fixture.executeIdentityExit).toHaveBeenCalledWith({
+      planId: 'system:remoteDeviceLogout:pending-message',
+    });
+    expect(mockAppEventEmit).toHaveBeenCalledWith(
+      EAppEventBusNames.PrimeDeviceLogout,
+      {
+        operationId: 'remoteDeviceLogout:pending-message',
+        messageId: 'pending-message',
+      },
     );
   });
 });

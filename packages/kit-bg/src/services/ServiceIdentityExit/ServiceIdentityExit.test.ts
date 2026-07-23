@@ -23,6 +23,10 @@ import {
   PasswordPromptDialogCancel,
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type {
   IIdentityExitOAuthHandoff,
   IIdentityExitPlan,
@@ -41,6 +45,8 @@ import {
 
 import {
   isIdentityRecoveryReady,
+  markIdentityRecoveryPending,
+  markIdentityRecoveryReady,
   resetIdentityRecoveryStateForTest,
   waitForIdentityMutationReady,
 } from './identityLifecycleMutex';
@@ -138,6 +144,63 @@ function createFixture({
       journalState[entry.operationId] = entry;
     },
   );
+  const ensureIdentityExitJournalEntry = jest.fn(
+    async (entry: IIdentityExitJournalEntry) => {
+      const existing = journalState[entry.operationId];
+      if (existing) {
+        return { created: false, entry: existing };
+      }
+      journalState[entry.operationId] = entry;
+      return { created: true, entry };
+    },
+  );
+  const updateRemoteOneKeyIdLogoutJournalDelivery = jest.fn(
+    async ({
+      operationId,
+      messageId,
+      acknowledgedAt,
+      presentationHandledAt,
+      tombstoneExpiresAt,
+    }: {
+      operationId: string;
+      messageId: string;
+      acknowledgedAt?: number;
+      presentationHandledAt?: number;
+      tombstoneExpiresAt?: number;
+    }) => {
+      const entry = journalState[operationId];
+      if (entry?.remoteDeviceLogout?.messageId !== messageId) {
+        return undefined;
+      }
+      const remoteDeviceLogout = {
+        ...entry.remoteDeviceLogout,
+        acknowledgedAt:
+          entry.remoteDeviceLogout.acknowledgedAt ?? acknowledgedAt,
+        presentationHandledAt:
+          entry.status === 'completed'
+            ? (entry.remoteDeviceLogout.presentationHandledAt ??
+              presentationHandledAt)
+            : entry.remoteDeviceLogout.presentationHandledAt,
+      };
+      const nextRemoteDeviceLogout =
+        remoteDeviceLogout.acknowledgedAt &&
+        remoteDeviceLogout.presentationHandledAt
+          ? {
+              ...remoteDeviceLogout,
+              tombstoneExpiresAt:
+                entry.remoteDeviceLogout.tombstoneExpiresAt ??
+                tombstoneExpiresAt,
+            }
+          : remoteDeviceLogout;
+      const updatedEntry = {
+        ...entry,
+        updatedAt: Date.now(),
+        remoteDeviceLogout: nextRemoteDeviceLogout,
+      };
+      journalState[operationId] = updatedEntry;
+      return updatedEntry;
+    },
+  );
   const removeIdentityExitJournalEntry = jest.fn(
     async ({
       operationId,
@@ -210,7 +273,9 @@ function createFixture({
         backfillAuthSessionCommitIdForMigration: jest
           .fn()
           .mockResolvedValue(undefined),
+        ensureIdentityExitJournalEntry,
         setIdentityExitJournalEntry,
+        updateRemoteOneKeyIdLogoutJournalDelivery,
         removeIdentityExitJournalEntry,
         getIdentityExitOperationJournal: jest.fn(async () => ({
           ...journalState,
@@ -260,6 +325,8 @@ function createFixture({
     deleteOneKeyIdAccountOnServer,
     clearAllIdentityAuthForExplicitOperation,
     setIdentityExitJournalEntry,
+    ensureIdentityExitJournalEntry,
+    updateRemoteOneKeyIdLogoutJournalDelivery,
     removeIdentityExitJournalEntry,
     journalState,
     consumeIdentityExitOAuthHandoff,
@@ -1386,6 +1453,454 @@ describe('ServiceIdentityExit', () => {
         keylessWalletSession: undefined,
       }),
     );
+  });
+
+  test('stages a WebSocket logout by message ID and retains its completed tombstone', async () => {
+    const fixture = createFixture({ wallet: null });
+
+    const staged = await fixture.service.stageRemoteOneKeyIdLogoutNotification({
+      messageId: 'device-logout-message',
+    });
+
+    expect(staged).toEqual({
+      operationId: 'remoteDeviceLogout:device-logout-message',
+      planId: 'system:remoteDeviceLogout:device-logout-message',
+      acknowledged: false,
+      presentationHandled: false,
+    });
+    expect(fixture.journalState[staged.operationId]).toMatchObject({
+      status: 'executing',
+      intentType: 'remoteOneKeyIdLogout',
+      expectedLifecycleRevision: 10,
+      oneKeyId: {
+        source: EPrimeAuthSessionSource.LegacyEmailSupabase,
+        sessionCommitId: 'email-session',
+        sessionTokenSub: 'email-sub',
+      },
+      remoteDeviceLogout: {
+        messageId: 'device-logout-message',
+      },
+    });
+
+    await expect(
+      fixture.service.executeIdentityExit({ planId: staged.planId }),
+    ).resolves.toMatchObject({
+      status: 'completed',
+      oneKeyIdLoggedOut: true,
+    });
+    expect(fixture.journalState[staged.operationId]).toMatchObject({
+      status: 'completed',
+      completed: {
+        oneKeyIdLoggedOut: true,
+      },
+      remoteDeviceLogout: {
+        messageId: 'device-logout-message',
+      },
+    });
+    await expect(
+      fixture.service.getPendingRemoteOneKeyIdLogoutNotifications(),
+    ).resolves.toEqual([
+      {
+        operationId: staged.operationId,
+        planId: staged.planId,
+        messageId: 'device-logout-message',
+        needsAcknowledgement: true,
+        needsPresentation: true,
+      },
+    ]);
+    await expect(
+      fixture.service.getPendingRemoteOneKeyIdLogoutPresentations(),
+    ).resolves.toEqual([
+      {
+        operationId: staged.operationId,
+        messageId: 'device-logout-message',
+      },
+    ]);
+
+    await fixture.service.markRemoteOneKeyIdLogoutNotificationDelivered({
+      operationId: staged.operationId,
+      messageId: 'device-logout-message',
+      delivery: 'acknowledged',
+    });
+    await fixture.service.markRemoteOneKeyIdLogoutNotificationDelivered({
+      operationId: staged.operationId,
+      messageId: 'device-logout-message',
+      delivery: 'presentationHandled',
+    });
+
+    await expect(
+      fixture.service.getPendingRemoteOneKeyIdLogoutNotifications(),
+    ).resolves.toEqual([]);
+    await expect(
+      fixture.service.getPendingRemoteOneKeyIdLogoutPresentations(),
+    ).resolves.toEqual([]);
+    expect(fixture.journalState[staged.operationId]).toMatchObject({
+      status: 'completed',
+      remoteDeviceLogout: {
+        messageId: 'device-logout-message',
+        acknowledgedAt: expect.any(Number),
+        presentationHandledAt: expect.any(Number),
+        tombstoneExpiresAt: expect.any(Number),
+      },
+    });
+    await expect(
+      fixture.service.stageRemoteOneKeyIdLogoutNotification({
+        messageId: 'device-logout-message',
+      }),
+    ).resolves.toMatchObject({
+      operationId: staged.operationId,
+      planId: staged.planId,
+      acknowledged: true,
+      presentationHandled: true,
+    });
+    expect(fixture.ensureIdentityExitJournalEntry).toHaveBeenCalledTimes(1);
+  });
+
+  test('recovers an executing remote logout before listing pending presentations', async () => {
+    const fixture = createFixture({ wallet: null });
+    const emitSpy = jest.spyOn(appEventBus, 'emit');
+    const staged = await fixture.service.stageRemoteOneKeyIdLogoutNotification({
+      messageId: 'presentation-bootstrap-message',
+    });
+
+    await expect(
+      fixture.service.getPendingRemoteOneKeyIdLogoutPresentations(),
+    ).resolves.toEqual([
+      {
+        operationId: staged.operationId,
+        messageId: 'presentation-bootstrap-message',
+      },
+    ]);
+    expect(fixture.commitIdentityExitLocalState).toHaveBeenCalledTimes(1);
+    expect(fixture.journalState[staged.operationId]).toMatchObject({
+      status: 'completed',
+      completed: {
+        oneKeyIdLoggedOut: true,
+      },
+    });
+    expect(emitSpy).toHaveBeenCalledWith(EAppEventBusNames.PrimeDeviceLogout, {
+      operationId: staged.operationId,
+      messageId: 'presentation-bootstrap-message',
+    });
+  });
+
+  test('stages an already-logged-out device notification as presentation handled', async () => {
+    const fixture = createFixture({ wallet: null });
+    fixture.backgroundApi.simpleDb.prime.getOneKeyIdAuthState.mockResolvedValue(
+      'loggedOut',
+    );
+    fixture.backgroundApi.simpleDb.prime.getAuthSessionSource.mockResolvedValue(
+      undefined,
+    );
+    fixture.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource.mockResolvedValue(
+      undefined,
+    );
+    jest.spyOn(primePersistAtom, 'get').mockResolvedValue({
+      ...primePersistAtomInitialValue,
+      isLoggedIn: false,
+      isLoggedInOnServer: false,
+    });
+
+    const staged = await fixture.service.stageRemoteOneKeyIdLogoutNotification({
+      messageId: 'already-logged-out-message',
+    });
+
+    expect(staged).toMatchObject({
+      acknowledged: false,
+      presentationHandled: true,
+    });
+    expect(fixture.journalState[staged.operationId]).toMatchObject({
+      status: 'completed',
+      completed: {
+        oneKeyIdLoggedOut: false,
+      },
+      remoteDeviceLogout: {
+        messageId: 'already-logged-out-message',
+        presentationHandledAt: expect.any(Number),
+      },
+    });
+  });
+
+  test('settles older identity work before staging a remote logout', async () => {
+    const pendingKeylessRemoval: IIdentityExitJournalEntry = {
+      operationId: 'pending-keyless-removal',
+      planId: 'pending-keyless-removal-plan',
+      intentType: 'removeKeyless',
+      status: 'walletRemoved',
+      startedAt: 1,
+      updatedAt: 2,
+      expectedLifecycleRevision: 10,
+      target: {
+        logoutOneKeyId: false,
+        removeKeyless: true,
+        clearKeylessSession: false,
+      },
+      oneKeyId: {
+        onekeyUserId: 'onekey-user-1',
+        source: EPrimeAuthSessionSource.LegacyEmailSupabase,
+        sessionCommitId: 'email-session',
+        sessionTokenSub: 'email-sub',
+      },
+      keyless: {
+        walletId: keylessWallet.id,
+        ownerId: 'owner-1',
+        provider: EOAuthSocialLoginProvider.Google,
+        socialUserIdHash: 'social-hash-1',
+        sessionCommitId: 'keyless-session',
+        sessionTokenSub: 'keyless-sub',
+      },
+    };
+    const fixture = createFixture({
+      wallet: null,
+      lifecycleRevisions: [10, 10, 11, 11, 11],
+      journalEntries: {
+        [pendingKeylessRemoval.operationId]: pendingKeylessRemoval,
+      },
+    });
+    fixture.backgroundApi.simpleDb.prime.getKeylessSessionCommitId.mockResolvedValue(
+      undefined,
+    );
+    fixture.commitIdentityExitLocalState
+      .mockResolvedValueOnce({ status: 'committed', revision: 11 })
+      .mockResolvedValueOnce({ status: 'committed', revision: 12 });
+
+    const staged = await fixture.service.stageRemoteOneKeyIdLogoutNotification({
+      messageId: 'logout-after-keyless-recovery',
+    });
+
+    expect(
+      fixture.journalState[pendingKeylessRemoval.operationId],
+    ).toBeUndefined();
+    expect(fixture.journalState[staged.operationId]).toMatchObject({
+      status: 'executing',
+      expectedLifecycleRevision: 11,
+    });
+    await expect(
+      fixture.service.executeIdentityExit({ planId: staged.planId }),
+    ).resolves.toMatchObject({
+      status: 'completed',
+      oneKeyIdLoggedOut: true,
+    });
+  });
+
+  test('does not stage while a competing identity recovery is pending', async () => {
+    const fixture = createFixture({ wallet: null });
+    const competingOperationId = 'competing-identity-operation';
+    jest
+      .spyOn(fixture.service, 'recoverInterruptedIdentityExitOperations')
+      .mockImplementationOnce(async () => {
+        markIdentityRecoveryPending(competingOperationId);
+        return {
+          recoveredOperationCount: 0,
+          abandonedOperationCount: 0,
+        };
+      });
+
+    let stageSettled = false;
+    const stagePromise = fixture.service
+      .stageRemoteOneKeyIdLogoutNotification({
+        messageId: 'logout-during-competing-recovery',
+      })
+      .finally(() => {
+        stageSettled = true;
+      });
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+
+    try {
+      expect(stageSettled).toBe(false);
+      expect(fixture.ensureIdentityExitJournalEntry).not.toHaveBeenCalled();
+    } finally {
+      markIdentityRecoveryReady(competingOperationId);
+    }
+    await expect(stagePromise).resolves.toMatchObject({
+      operationId: 'remoteDeviceLogout:logout-during-competing-recovery',
+    });
+  });
+
+  test('does not list presentations while a competing identity recovery is pending', async () => {
+    const completedRemoteLogout: IIdentityExitJournalEntry = {
+      operationId: 'remoteDeviceLogout:pending-presentation',
+      planId: 'system:remoteDeviceLogout:pending-presentation',
+      intentType: 'remoteOneKeyIdLogout',
+      status: 'completed',
+      startedAt: 1,
+      updatedAt: 2,
+      expectedLifecycleRevision: 10,
+      committedLifecycleRevision: 11,
+      target: {
+        logoutOneKeyId: true,
+        removeKeyless: false,
+        clearKeylessSession: false,
+      },
+      completed: {
+        oneKeyIdLoggedOut: true,
+      },
+      remoteDeviceLogout: {
+        messageId: 'pending-presentation',
+      },
+    };
+    const fixture = createFixture({
+      wallet: null,
+      journalEntries: {
+        [completedRemoteLogout.operationId]: completedRemoteLogout,
+      },
+    });
+    const competingOperationId = 'competing-presentation-operation';
+    jest
+      .spyOn(fixture.service, 'recoverInterruptedIdentityExitOperations')
+      .mockImplementationOnce(async () => {
+        markIdentityRecoveryPending(competingOperationId);
+        return {
+          recoveredOperationCount: 0,
+          abandonedOperationCount: 0,
+        };
+      });
+
+    let querySettled = false;
+    const queryPromise = fixture.service
+      .getPendingRemoteOneKeyIdLogoutPresentations()
+      .finally(() => {
+        querySettled = true;
+      });
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+
+    try {
+      expect(querySettled).toBe(false);
+    } finally {
+      markIdentityRecoveryReady(competingOperationId);
+    }
+    await expect(queryPromise).resolves.toEqual([
+      {
+        operationId: completedRemoteLogout.operationId,
+        messageId: 'pending-presentation',
+      },
+    ]);
+  });
+
+  test('never ACK-enables an optimistic WebSocket journal after its durable write rejects', async () => {
+    const fixture = createFixture({ wallet: null });
+    const storageError = new OneKeyLocalError(
+      'Remote logout journal storage write failed',
+    );
+    fixture.ensureIdentityExitJournalEntry.mockImplementationOnce(
+      async (entry) => {
+        fixture.journalState[entry.operationId] = entry;
+        throw storageError;
+      },
+    );
+
+    await expect(
+      fixture.service.stageRemoteOneKeyIdLogoutNotification({
+        messageId: 'ambiguous-device-logout',
+      }),
+    ).rejects.toBe(storageError);
+    await expect(
+      fixture.service.stageRemoteOneKeyIdLogoutNotification({
+        messageId: 'ambiguous-device-logout',
+      }),
+    ).rejects.toThrow('Identity journal storage outcome is unknown');
+    await expect(
+      fixture.service.getPendingRemoteOneKeyIdLogoutNotifications(),
+    ).rejects.toThrow('Identity journal storage outcome is unknown');
+    expect(fixture.ensureIdentityExitJournalEntry).toHaveBeenCalledTimes(1);
+  });
+
+  test('recovers a staged WebSocket logout after the first processing attempt fails', async () => {
+    const fixture = createFixture({ wallet: null });
+    const staged = await fixture.service.stageRemoteOneKeyIdLogoutNotification({
+      messageId: 'retry-device-logout',
+    });
+    const transientError = new OneKeyLocalError(
+      'Identity local commit is temporarily unavailable',
+    );
+    fixture.commitIdentityExitLocalState.mockRejectedValue(transientError);
+
+    await expect(
+      fixture.service.executeIdentityExit({ planId: staged.planId }),
+    ).rejects.toBe(transientError);
+    expect(fixture.journalState[staged.operationId]).toMatchObject({
+      status: 'executing',
+      remoteDeviceLogout: {
+        messageId: 'retry-device-logout',
+      },
+    });
+
+    resetIdentityExitRegistriesForTest();
+    resetIdentityRecoveryStateForTest('ready');
+    fixture.commitIdentityExitLocalState.mockResolvedValue({
+      status: 'committed',
+      revision: 11,
+    });
+    const restartedService = new ServiceIdentityExit({
+      backgroundApi: fixture.backgroundApi,
+    });
+
+    await expect(
+      restartedService.recoverInterruptedIdentityExitOperations(),
+    ).resolves.toEqual({
+      recoveredOperationCount: 1,
+      abandonedOperationCount: 0,
+    });
+    expect(fixture.journalState[staged.operationId]).toMatchObject({
+      status: 'completed',
+      completed: {
+        oneKeyIdLoggedOut: true,
+      },
+    });
+  });
+
+  test('settles a stale WebSocket logout without clearing a newer identity session', async () => {
+    const journal: IIdentityExitJournalEntry = {
+      operationId: 'remoteDeviceLogout:stale-message',
+      planId: 'system:remoteDeviceLogout:stale-message',
+      intentType: 'remoteOneKeyIdLogout',
+      status: 'executing',
+      startedAt: 1,
+      updatedAt: 2,
+      expectedLifecycleRevision: 10,
+      target: {
+        logoutOneKeyId: true,
+        removeKeyless: false,
+        clearKeylessSession: false,
+      },
+      oneKeyId: {
+        onekeyUserId: 'old-onekey-user',
+        source: EPrimeAuthSessionSource.LegacyEmailSupabase,
+        sessionCommitId: 'old-email-session',
+        sessionTokenSub: 'old-email-sub',
+      },
+      remoteDeviceLogout: {
+        messageId: 'stale-message',
+      },
+    };
+    const fixture = createFixture({
+      lifecycleRevisions: [11],
+      journalEntries: {
+        [journal.operationId]: journal,
+      },
+    });
+
+    await expect(
+      fixture.service.recoverInterruptedIdentityExitOperations(),
+    ).resolves.toEqual({
+      recoveredOperationCount: 1,
+      abandonedOperationCount: 0,
+    });
+    expect(fixture.commitIdentityExitLocalState).not.toHaveBeenCalled();
+    expect(fixture.journalState[journal.operationId]).toMatchObject({
+      status: 'completed',
+      completed: {
+        oneKeyIdLoggedOut: false,
+      },
+      remoteDeviceLogout: {
+        messageId: 'stale-message',
+        presentationHandledAt: expect.any(Number),
+      },
+    });
   });
 
   test('remote OneKey ID logout preserves an unknown-linkage Keyless association', async () => {
