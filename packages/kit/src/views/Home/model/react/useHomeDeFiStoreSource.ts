@@ -355,6 +355,15 @@ export function useHomeDeFiStoreSource({
         return resolution;
       }
       if (evidence.kind === 'partial') {
+        const handle = requestHandleBySeqRef.current.get(requestSeq);
+        const data = normalizeHomeStoreJson(evidence.data);
+        if (handle && data !== undefined) {
+          completeHomeSectionRequest(handle, {
+            kind: 'partial',
+            coverageFingerprint: evidence.coverageFingerprint,
+            data,
+          });
+        }
         applyAuthoritativeDeFiPayload(resolution);
         return resolution;
       }
@@ -669,10 +678,12 @@ export function useHomeDeFiStoreSource({
       );
       applyResponse(response);
       const payload = buildAllNetworkPayload();
+      updateOverview({ overview: payload.overview });
       publishDeFiEvidence({
         requestSeq: allNetworkSectionRequestSeqRef.current,
         evidence: {
           kind: 'partial',
+          data: payload,
           coverageFingerprint: `defi:allNetworks:${
             allNetworkSectionRequestSeqRef.current
           }:settled:${
@@ -689,6 +700,7 @@ export function useHomeDeFiStoreSource({
       isAllNetworkSourceCurrent,
       publishDeFiEvidence,
       refreshCacheOnly,
+      updateOverview,
     ],
   );
   const clearAllNetworkData = useCallback(() => {

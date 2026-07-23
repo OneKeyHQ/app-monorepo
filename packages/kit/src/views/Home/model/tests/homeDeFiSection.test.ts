@@ -276,6 +276,7 @@ describe('home DeFi section authority', () => {
             kind: 'partial',
             requestSeq: 3,
             coverageFingerprint: 'defi:singleNetwork:3:partial',
+            data: live,
           },
         }),
       ),

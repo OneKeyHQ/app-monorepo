@@ -46,7 +46,7 @@ function buildFacts({
 }
 
 describe('homeBalanceAggregation', () => {
-  it('publishes an exact total only after every required contributor completes', () => {
+  it('publishes an exact total after every required contributor completes', () => {
     expect(aggregateHomeBalanceFacts(buildFacts())).toMatchObject({
       kind: 'complete',
       aggregate: {
@@ -58,20 +58,28 @@ describe('homeBalanceAggregation', () => {
     });
     expect(
       aggregateHomeBalanceFacts(buildFacts({ defiStatus: 'loading' })),
-    ).toEqual({
-      kind: 'loading',
-      positiveEvidence: false,
+    ).toMatchObject({
+      kind: 'partial',
+      aggregate: {
+        amount: '10.25',
+        positiveEvidence: true,
+      },
       reason: 'sourcePending',
+      refresh: 'refreshing',
     });
   });
 
-  it('keeps a reliable partial positive signal without publishing its amount', () => {
+  it('adds reliable partial amounts without marking the total complete', () => {
     expect(
       aggregateHomeBalanceFacts(buildFacts({ portfolioStatus: 'partial' })),
-    ).toEqual({
-      kind: 'loading',
-      positiveEvidence: true,
+    ).toMatchObject({
+      kind: 'partial',
+      aggregate: {
+        amount: '13',
+        positiveEvidence: true,
+      },
       reason: 'sourcePending',
+      refresh: 'refreshing',
     });
   });
 
@@ -92,13 +100,17 @@ describe('homeBalanceAggregation', () => {
     });
   });
 
-  it('never converts a source error into zero', () => {
+  it('keeps valid contributions when an independent source fails', () => {
     expect(
       aggregateHomeBalanceFacts(buildFacts({ defiStatus: 'error' })),
-    ).toEqual({
-      kind: 'error',
-      positiveEvidence: false,
+    ).toMatchObject({
+      kind: 'partial',
+      aggregate: {
+        amount: '10.25',
+        positiveEvidence: true,
+      },
       reason: 'sourceError',
+      refresh: 'failed',
     });
   });
 

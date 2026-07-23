@@ -11,7 +11,11 @@ type IHomeDeFiEvidence =
       rowIds: readonly string[];
       refresh: 'idle' | 'refreshing';
     }
-  | { kind: 'partial'; coverageFingerprint: string }
+  | {
+      kind: 'partial';
+      coverageFingerprint: string;
+      data: IHomeDeFiLegacyPayload;
+    }
   | {
       kind: 'complete';
       confirmedEmpty: boolean;

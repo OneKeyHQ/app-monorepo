@@ -29,6 +29,31 @@ function complete(amount: string): IHomeBalanceAggregationResult {
   };
 }
 
+function partial({
+  amount,
+  positiveEvidence = amount !== '0',
+  refresh = 'refreshing',
+}: {
+  amount: string;
+  positiveEvidence?: boolean;
+  refresh?: 'refreshing' | 'failed';
+}): IHomeBalanceAggregationResult {
+  return {
+    kind: 'partial',
+    aggregate: {
+      amount,
+      coverageFingerprint: 'coverage-partial',
+      ownerScopeKey: 'owner-1',
+      positiveEvidence,
+      quoteBasis,
+      requiredSetRevision: 'required-v1',
+      sourceKeyIdentity: 'source-1',
+    },
+    reason: refresh === 'failed' ? 'sourceError' : 'sourcePending',
+    refresh,
+  };
+}
+
 describe('homeBalanceAuthorityPolicy', () => {
   it('does not fabricate zero while loading without an exact record', () => {
     expect(
@@ -86,6 +111,40 @@ describe('homeBalanceAuthorityPolicy', () => {
       kind: 'fundedPendingTotal',
       header: { kind: 'loading' },
       actions: { kind: 'funded' },
+    });
+  });
+
+  it('exposes a progressive amount without committing it as confirmed', () => {
+    const decision = projectHomeBalanceAuthority({
+      aggregation: partial({ amount: '10.25', refresh: 'failed' }),
+      bannerAvailable: true,
+      confirmedAt: 2,
+    });
+
+    expect(decision.cacheCommit).toBeUndefined();
+    expect(decision.presentation).toMatchObject({
+      kind: 'fundedPendingTotal',
+      header: {
+        balance: { amount: '10.25', currency: 'usd' },
+      },
+      actions: { kind: 'funded' },
+      refresh: 'failed',
+    });
+  });
+
+  it('keeps an exact cache until progressive data has a usable value', () => {
+    expect(
+      projectHomeBalanceAuthority({
+        aggregation: partial({ amount: '0', positiveEvidence: false }),
+        bannerAvailable: false,
+        confirmed,
+        confirmedAt: 2,
+      }).presentation,
+    ).toMatchObject({
+      kind: 'funded',
+      header: { balance: { amount: confirmed.amount } },
+      freshness: 'confirmedCache',
+      refresh: 'refreshing',
     });
   });
 

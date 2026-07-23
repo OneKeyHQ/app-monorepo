@@ -159,6 +159,42 @@ describe('Home Store production source gateways', () => {
     });
   });
 
+  it('publishes partial section payloads and completes the same request later', () => {
+    const harness = createGatewayHarness();
+    const handle = harness.gateway.begin({
+      ownerToken,
+      sectionId: 'defi',
+    });
+
+    harness.gateway.complete(handle, {
+      kind: 'partial',
+      coverageFingerprint: 'defi-partial-1',
+      data: { overview: { netWorth: 4 } },
+    });
+    expect(harness.getState().resources.defi).toMatchObject({
+      kind: 'partial',
+      token: handle.token,
+      data: {
+        payload: { overview: { netWorth: 4 } },
+      },
+    });
+
+    harness.gateway.complete(handle, {
+      kind: 'ready',
+      rowIds: ['protocol-a'],
+      data: { overview: { netWorth: 6 } },
+      freshness: 'live',
+      refresh: 'idle',
+    });
+    expect(harness.getState().resources.defi).toMatchObject({
+      kind: 'ready',
+      token: handle.token,
+      data: {
+        payload: { overview: { netWorth: 6 } },
+      },
+    });
+  });
+
   it('keeps a stable source identity across runtime session restarts', () => {
     const firstOwnerToken = {
       scopeKey: ownerToken.scopeKey,

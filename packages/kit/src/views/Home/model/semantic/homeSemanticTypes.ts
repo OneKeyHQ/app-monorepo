@@ -31,12 +31,14 @@ export type IHomePortfolioPresentation =
       header: { kind: 'loading' };
       actions: { kind: 'loading'; items: readonly [] };
       banner: { kind: 'none' };
+      refresh?: 'refreshing' | 'failed';
     }
   | {
       kind: 'fundedPendingTotal';
-      header: { kind: 'loading' };
+      header: { kind: 'loading'; balance?: IHomeMoneyViewModel };
       actions: { kind: 'funded'; items: readonly IHomeActionId[] };
       banner: { kind: 'positive' } | { kind: 'none' };
+      refresh?: 'refreshing' | 'failed';
     }
   | {
       kind: 'zero';

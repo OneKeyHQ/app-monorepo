@@ -97,4 +97,53 @@ describe('home shell React adapter', () => {
     });
     expect(zero.correlated?.revision).toEqual(expect.any(String));
   });
+
+  it('shows a progressive zero once the balance currency owner is ready', () => {
+    expect(
+      resolveHomeBalancePresentation({
+        fallbackCurrency: 'usd',
+        ownerToken: { scopeKey: 'owner-1', sessionId: 'session-1' },
+        shell: { kind: 'loading' },
+      }),
+    ).toMatchObject({
+      balanceState: 'unknown',
+      correlated: {
+        kind: 'ready',
+        balance: { amount: '0', currency: 'usd' },
+        balanceState: 'unknown',
+        showPositiveBanner: false,
+      },
+    });
+  });
+
+  it('exposes a progressive funded amount from the Store shell', () => {
+    expect(
+      resolveHomeBalancePresentation({
+        fallbackCurrency: 'usd',
+        shell: {
+          kind: 'portfolio',
+          presentation: {
+            kind: 'fundedPendingTotal',
+            header: {
+              kind: 'loading',
+              balance: { amount: '12.5', currency: 'usd' },
+            },
+            actions: {
+              kind: 'funded',
+              items: ['send', 'receive', 'buySell', 'swap'],
+            },
+            banner: { kind: 'none' },
+            refresh: 'refreshing',
+          },
+        },
+      }),
+    ).toMatchObject({
+      balanceState: 'positive',
+      correlated: {
+        kind: 'ready',
+        balance: { amount: '12.5', currency: 'usd' },
+        balanceState: 'positive',
+      },
+    });
+  });
 });

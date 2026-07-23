@@ -1,0 +1,595 @@
+diff --git a/node_modules/@onekeyfe/react-native-sni-connect/android/src/main/java/com/sniconnect/SniConnectModule.kt b/node_modules/@onekeyfe/react-native-sni-connect/android/src/main/java/com/sniconnect/SniConnectModule.kt
+index 265d61b..e031b7a 100644
+--- a/node_modules/@onekeyfe/react-native-sni-connect/android/src/main/java/com/sniconnect/SniConnectModule.kt
++++ b/node_modules/@onekeyfe/react-native-sni-connect/android/src/main/java/com/sniconnect/SniConnectModule.kt
+@@ -84,9 +84,12 @@ class SniConnectModule(reactContext: ReactApplicationContext) :
+     // A single dispatcher + connection pool shared across all cached clients so we
+     // don't spawn a thread pool / connection pool per (hostname, ip) pair.
+     private val sharedDispatcher = Dispatcher().apply {
+-      maxRequests = 64
+-      maxRequestsPerHost = 64
++      maxRequests = SniConnectValidation.MAX_ACTIVE_REQUESTS
++      // OneKey patch: Let OkHttp queue bursts for a destination instead of
++      // rejecting them in the custom fail-fast limiter.
++      maxRequestsPerHost = SniConnectValidation.MAX_ACTIVE_REQUESTS_PER_PAIR
+     }
++    private val sharedAdmissionLock = Any()
+     private val sharedConnectionPool = ConnectionPool()
+   }
+ 
+@@ -127,7 +130,8 @@ class SniConnectModule(reactContext: ReactApplicationContext) :
+   private val activeCalls = ConcurrentHashMap<String, Call>()
+   private val allActiveCalls = Collections.newSetFromMap(ConcurrentHashMap<Call, Boolean>())
+   private val activeCallsLock = Any()
+-  private val requestLimiter = SniConnectRequestLimiter()
++  // OneKey patch: The process-shared OkHttp Dispatcher now owns bounded request admission.
++  // private val requestLimiter = SniConnectRequestLimiter()
+ 
+   override fun getName(): String = NAME
+ 
+@@ -223,10 +227,12 @@ class SniConnectModule(reactContext: ReactApplicationContext) :
+ 
+   private fun performRequest(config: RequestConfig, promise: Promise) {
+     val startedAtMs = android.os.SystemClock.elapsedRealtime()
+-    var requestSlot: SniConnectRequestLimiter.Token? = null
++    // OneKey patch: OkHttp queues the Call and keeps queued calls cancellable.
++    // var requestSlot: SniConnectRequestLimiter.Token? = null
+     var registeredCall: Call? = null
+     try {
+-      requestSlot = requestLimiter.acquire(config.hostname, config.ip)
++      // OneKey patch: Admission happens in sharedDispatcher when call.enqueue runs.
++      // requestSlot = requestLimiter.acquire(config.hostname, config.ip)
+       val client = getOrCreateClient(config)
+       val request = buildRequest(config)
+       val call = client.newCall(request)
+@@ -254,10 +260,11 @@ class SniConnectModule(reactContext: ReactApplicationContext) :
+       // Guard against double-settling the promise (RN hard-crashes otherwise).
+       val settled = AtomicBoolean(false)
+ 
+-      call.enqueue(object : Callback {
++      val callback = object : Callback {
+         override fun onFailure(call: Call, e: IOException) {
+           unregisterCall(config.requestId, call)
+-          requestSlot?.release()
++          // OneKey patch: OkHttp releases the Dispatcher slot automatically.
++          // requestSlot?.release()
+           if (!settled.compareAndSet(false, true)) return
+ 
+           if (call.isCanceled()) {
+@@ -338,15 +345,18 @@ class SniConnectModule(reactContext: ReactApplicationContext) :
+             promise.reject("SNI_RESPONSE_FAILED", error.message, error)
+           } finally {
+             unregisterCall(config.requestId, call)
+-            requestSlot?.release()
++            // OneKey patch: OkHttp releases the Dispatcher slot automatically.
++            // requestSlot?.release()
+           }
+         }
+-      })
++      }
++      enqueueBounded(call, callback, config)
+     } catch (error: Exception) {
+       registeredCall?.let { call ->
+         unregisterCall(config.requestId, call)
+       }
+-      requestSlot?.release()
++      // OneKey patch: No custom admission token is retained.
++      // requestSlot?.release()
+       val code = if (error is SniConnectValidation.ValidationException) {
+         "SNI_RESOURCE_LIMIT"
+       } else {
+@@ -371,6 +381,27 @@ class SniConnectModule(reactContext: ReactApplicationContext) :
+     }
+   }
+ 
++  private fun enqueueBounded(call: Call, callback: Callback, config: RequestConfig) {
++    synchronized(sharedAdmissionLock) {
++      val pendingCount = sharedDispatcher.queuedCallsCount()
++      if (pendingCount >= SniConnectValidation.MAX_PENDING_REQUESTS) {
++        SniConnectLogger.warn(
++          SniConnectLogger.event(
++            "sni_resource_limit",
++            "activeCount" to sharedDispatcher.runningCallsCount(),
++            "pendingCount" to pendingCount,
++            "limit" to SniConnectValidation.MAX_PENDING_REQUESTS,
++            "reason" to "max_pending_requests",
++            "hostname" to config.hostname.lowercase(Locale.US),
++            "ipHash" to SniConnectLogger.shortHash(config.ip),
++          ),
++        )
++        throw SniConnectValidation.ValidationException("Too many pending SNI requests")
++      }
++      call.enqueue(callback)
++    }
++  }
++
+   private fun registerCall(requestId: String?, call: Call) {
+     val previousCall = synchronized(activeCallsLock) {
+       val previous = requestId?.let { activeCalls.put(it, call) }
+diff --git a/node_modules/@onekeyfe/react-native-sni-connect/android/src/main/java/com/sniconnect/SniConnectValidation.kt b/node_modules/@onekeyfe/react-native-sni-connect/android/src/main/java/com/sniconnect/SniConnectValidation.kt
+index 995b327..8c4badc 100644
+--- a/node_modules/@onekeyfe/react-native-sni-connect/android/src/main/java/com/sniconnect/SniConnectValidation.kt
++++ b/node_modules/@onekeyfe/react-native-sni-connect/android/src/main/java/com/sniconnect/SniConnectValidation.kt
+@@ -29,6 +29,7 @@ internal object SniConnectValidation {
+   const val MAX_TOTAL_HEADER_BYTES = 32 * 1024
+   const val MAX_ACTIVE_REQUESTS = 64
+   const val MAX_ACTIVE_REQUESTS_PER_PAIR = 16
++  const val MAX_PENDING_REQUESTS = 256
+ 
+   private val ALLOWED_METHODS =
+     setOf("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS")
+diff --git a/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnectClient.swift b/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnectClient.swift
+index f660eed..ec166e3 100644
+--- a/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnectClient.swift
++++ b/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnectClient.swift
+@@ -120,7 +120,9 @@ final class SniConnectClient {
+   private var activeTasksByToken: [UUID: Task<Response, Error>] = [:]
+   private var requestTokensById: [String: UUID] = [:]
+   private let tasksQueue = DispatchQueue(label: "com.onekey.sni.connect.tasks", attributes: .concurrent)
+-  private let requestLimiter = SniConnectRequestLimiter()
++  // OneKey patch: Share native request admission across isolated React Native runtimes.
++  // private let requestLimiter = SniConnectRequestLimiter()
++  private let requestLimiter = SniConnectRequestLimiter.shared
+ 
+   private struct SessionKey: Hashable {
+     let hostname: String
+@@ -616,9 +618,16 @@ final class SniConnectClient {
+ 
+     let requestSlot: SniConnectRequestLimiter.Token
+     do {
+-      requestSlot = try requestLimiter.acquire(hostname: config.hostname, ip: config.ip)
++      // OneKey patch: Include native queue wait in the request's wall-clock deadline.
++      // requestSlot = try requestLimiter.acquire(hostname: config.hostname, ip: config.ip)
++      let limiter = requestLimiter
++      requestSlot = try await SniConnectWallClockDeadline.run(
++        timeoutMilliseconds: config.effectiveTotalTimeout
++      ) {
++        try await limiter.acquire(hostname: config.hostname, ip: config.ip)
++      }
+     } catch {
+-      let sniError = SniConnectError.resourceLimit("\(error)")
++      let sniError = SniConnectError.from(error)
+       SniConnectLog.error(SniConnectLog.event("sni_request_result", [
+         ("result", "error"),
+         ("code", sniError.code),
+@@ -636,6 +645,14 @@ final class SniConnectClient {
+     defer {
+       requestSlot.release()
+     }
++    try Task.checkCancellation()
++
++    let queueWaitMilliseconds = SniConnectLog.elapsedMs(since: startedAt)
++    let remainingTimeoutMilliseconds =
++      config.effectiveTotalTimeout - Double(queueWaitMilliseconds)
++    guard remainingTimeoutMilliseconds > 0 else {
++      throw SniConnectError.requestTimeout
++    }
+ 
+     let url = try Self.buildURL(hostname: config.hostname, normalizedPath: normalizedPath)
+ 
+@@ -643,8 +660,9 @@ final class SniConnectClient {
+     mutableRequest.httpMethod = method
+ 
+     // Convert milliseconds to seconds for timeout values
+-    let totalTimeoutSeconds = config.effectiveTotalTimeout / 1000.0
+-    let connectTimeoutSeconds = config.effectiveConnectTimeout / 1000.0
++    let totalTimeoutSeconds = remainingTimeoutMilliseconds / 1000.0
++    let connectTimeoutSeconds =
++      min(config.effectiveConnectTimeout, remainingTimeoutMilliseconds) / 1000.0
+ 
+     // URLRequest.timeoutInterval is not a full request deadline. Keep it aligned
+     // with the caller timeout as a transport guard; the wall-clock deadline below
+@@ -674,12 +692,15 @@ final class SniConnectClient {
+       ("method", method),
+       ("timeoutMs", Int(config.effectiveTotalTimeout)),
+       ("connectTimeoutMs", Int(config.effectiveConnectTimeout)),
++      ("queueWaitMs", queueWaitMilliseconds),
+       ("headerCount", normalizedHeaders.count),
+       ("bodyBytes", config.body?.data(using: .utf8)?.count ?? 0),
+     ]))
+ 
+     do {
+-      return try await SniConnectWallClockDeadline.run(timeoutMilliseconds: config.effectiveTotalTimeout) {
++      return try await SniConnectWallClockDeadline.run(
++        timeoutMilliseconds: remainingTimeoutMilliseconds
++      ) {
+         let lease = try await self.sessionLease(for: config)
+         defer {
+           self.releaseSessionLease(lease)
+diff --git a/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnectValidation.swift b/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnectValidation.swift
+index 1070c23..a3d348e 100644
+--- a/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnectValidation.swift
++++ b/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnectValidation.swift
+@@ -32,6 +32,7 @@ enum SniConnectValidation {
+   static let maxTotalHeaderBytes = 32 * 1024
+   static let maxActiveRequests = 64
+   static let maxActiveRequestsPerPair = 16
++  static let maxPendingRequests = 256
+ 
+   /// HTTP methods the module is allowed to issue.
+   private static let allowedMethods: Set<String> = [
+@@ -301,8 +302,10 @@ enum SniConnectValidation {
+   }
+ }
+ 
+-final class SniConnectRequestLimiter {
+-  final class Token {
++final class SniConnectRequestLimiter: @unchecked Sendable {
++  static let shared = SniConnectRequestLimiter()
++
++  final class Token: @unchecked Sendable {
+     private weak var limiter: SniConnectRequestLimiter?
+     private let key: String
+     private let lock = NSLock()
+@@ -329,61 +332,213 @@ final class SniConnectRequestLimiter {
+     }
+   }
+ 
++  private final class CancellationState: @unchecked Sendable {
++    private let lock = NSLock()
++    private var cancelled = false
++
++    var isCancelled: Bool {
++      lock.lock()
++      defer { lock.unlock() }
++      return cancelled
++    }
++
++    func cancel() {
++      lock.lock()
++      cancelled = true
++      lock.unlock()
++    }
++  }
++
++  private struct PendingRequest {
++    let id: UUID
++    let key: String
++    let continuation: CheckedContinuation<Token, Error>
++  }
++
+   private let maxActiveRequests: Int
+   private let maxActiveRequestsPerPair: Int
++  private let maxPendingRequests: Int
+   private let queue = DispatchQueue(label: "com.onekey.sni.connect.request-limiter")
+   private var activeRequests = 0
+   private var activeRequestsByPair: [String: Int] = [:]
++  private var pendingRequests: [PendingRequest] = []
+ 
+   init(
+     maxActiveRequests: Int = SniConnectValidation.maxActiveRequests,
+-    maxActiveRequestsPerPair: Int = SniConnectValidation.maxActiveRequestsPerPair
++    maxActiveRequestsPerPair: Int = SniConnectValidation.maxActiveRequestsPerPair,
++    maxPendingRequests: Int = SniConnectValidation.maxPendingRequests
+   ) {
+     self.maxActiveRequests = maxActiveRequests
+     self.maxActiveRequestsPerPair = maxActiveRequestsPerPair
++    self.maxPendingRequests = maxPendingRequests
++  }
++
++  var pendingRequestCount: Int {
++    queue.sync {
++      pendingRequests.count
++    }
+   }
+ 
+-  func acquire(hostname: String, ip: String) throws -> Token {
++  // OneKey patch: Saturated requests must wait for a native transport slot
++  // instead of failing transiently with SNI_RESOURCE_LIMIT.
++  // func acquire(hostname: String, ip: String) throws -> Token {
++  //   let key = pairKey(hostname: hostname, ip: ip)
++  //   return try queue.sync {
++  //     if activeRequests >= maxActiveRequests {
++  //       SniConnectCoreDiagnostics.warn(SniConnectCoreDiagnostics.event("sni_resource_limit", [
++  //         ("activeCount", activeRequests),
++  //         ("pairCount", activeRequestsByPair[key] ?? 0),
++  //         ("limit", maxActiveRequests),
++  //         ("reason", "max_active_requests"),
++  //         ("hostname", hostname.lowercased()),
++  //         ("ipHash", SniConnectCoreDiagnostics.shortHash(ip)),
++  //       ]))
++  //       throw SniConnectValidation.ValidationError.resourceLimit("Too many active SNI requests")
++  //     }
++  //     let pairCount = activeRequestsByPair[key] ?? 0
++  //     if pairCount >= maxActiveRequestsPerPair {
++  //       SniConnectCoreDiagnostics.warn(SniConnectCoreDiagnostics.event("sni_resource_limit", [
++  //         ("activeCount", activeRequests),
++  //         ("pairCount", pairCount),
++  //         ("limit", maxActiveRequestsPerPair),
++  //         ("reason", "max_active_requests_per_pair"),
++  //         ("hostname", hostname.lowercased()),
++  //         ("ipHash", SniConnectCoreDiagnostics.shortHash(ip)),
++  //       ]))
++  //       throw SniConnectValidation.ValidationError.resourceLimit("Too many active SNI requests for destination")
++  //     }
++  //     activeRequests += 1
++  //     activeRequestsByPair[key] = pairCount + 1
++  //     return Token(limiter: self, key: key)
++  //   }
++  // }
++  func acquire(hostname: String, ip: String) async throws -> Token {
++    try Task.checkCancellation()
++
++    let id = UUID()
+     let key = pairKey(hostname: hostname, ip: ip)
+-    return try queue.sync {
+-      if activeRequests >= maxActiveRequests {
+-        SniConnectCoreDiagnostics.warn(SniConnectCoreDiagnostics.event("sni_resource_limit", [
+-          ("activeCount", activeRequests),
+-          ("pairCount", activeRequestsByPair[key] ?? 0),
+-          ("limit", maxActiveRequests),
+-          ("reason", "max_active_requests"),
+-          ("hostname", hostname.lowercased()),
+-          ("ipHash", SniConnectCoreDiagnostics.shortHash(ip)),
+-        ]))
+-        throw SniConnectValidation.ValidationError.resourceLimit("Too many active SNI requests")
+-      }
+-      let pairCount = activeRequestsByPair[key] ?? 0
+-      if pairCount >= maxActiveRequestsPerPair {
+-        SniConnectCoreDiagnostics.warn(SniConnectCoreDiagnostics.event("sni_resource_limit", [
+-          ("activeCount", activeRequests),
+-          ("pairCount", pairCount),
+-          ("limit", maxActiveRequestsPerPair),
+-          ("reason", "max_active_requests_per_pair"),
+-          ("hostname", hostname.lowercased()),
+-          ("ipHash", SniConnectCoreDiagnostics.shortHash(ip)),
+-        ]))
+-        throw SniConnectValidation.ValidationError.resourceLimit("Too many active SNI requests for destination")
++    let cancellationState = CancellationState()
++
++    return try await withTaskCancellationHandler {
++      try Task.checkCancellation()
++      return try await withCheckedThrowingContinuation { continuation in
++        var immediateToken: Token?
++        var immediateError: Error?
++
++        queue.sync {
++          if cancellationState.isCancelled {
++            immediateError = CancellationError()
++            return
++          }
++
++          if hasCapacity(for: key) {
++            retainSlot(for: key)
++            immediateToken = Token(limiter: self, key: key)
++            return
++          }
++
++          if pendingRequests.count >= maxPendingRequests {
++            SniConnectCoreDiagnostics.warn(SniConnectCoreDiagnostics.event("sni_resource_limit", [
++              ("activeCount", activeRequests),
++              ("pairCount", activeRequestsByPair[key] ?? 0),
++              ("pendingCount", pendingRequests.count),
++              ("limit", maxPendingRequests),
++              ("reason", "max_pending_requests"),
++              ("hostname", hostname.lowercased()),
++              ("ipHash", SniConnectCoreDiagnostics.shortHash(ip)),
++            ]))
++            immediateError = SniConnectValidation.ValidationError.resourceLimit(
++              "Too many pending SNI requests"
++            )
++            return
++          }
++
++          pendingRequests.append(PendingRequest(
++            id: id,
++            key: key,
++            continuation: continuation
++          ))
++        }
++
++        if let immediateToken {
++          continuation.resume(returning: immediateToken)
++        } else if let immediateError {
++          continuation.resume(throwing: immediateError)
++        }
+       }
+-      activeRequests += 1
+-      activeRequestsByPair[key] = pairCount + 1
+-      return Token(limiter: self, key: key)
++    } onCancel: {
++      cancellationState.cancel()
++      self.cancelPendingRequest(id: id)
+     }
+   }
+ 
++  // OneKey patch: Releasing a slot now transfers it directly to the oldest
++  // eligible waiter so different destinations do not block each other.
++  // private func release(key: String) {
++  //   queue.sync {
++  //     activeRequests = max(0, activeRequests - 1)
++  //     guard let pairCount = activeRequestsByPair[key] else { return }
++  //     if pairCount <= 1 {
++  //       activeRequestsByPair.removeValue(forKey: key)
++  //     } else {
++  //       activeRequestsByPair[key] = pairCount - 1
++  //     }
++  //   }
++  // }
+   private func release(key: String) {
++    var nextRequest: PendingRequest?
++
++    queue.sync {
++      releaseSlot(for: key)
++
++      guard activeRequests < maxActiveRequests,
++            let index = pendingRequests.firstIndex(where: { hasCapacity(for: $0.key) }) else {
++        return
++      }
++
++      nextRequest = pendingRequests.remove(at: index)
++      if let nextRequest {
++        retainSlot(for: nextRequest.key)
++      }
++    }
++
++    if let nextRequest {
++      nextRequest.continuation.resume(returning: Token(limiter: self, key: nextRequest.key))
++    }
++  }
++
++  private func cancelPendingRequest(id: UUID) {
++    var cancelledRequest: PendingRequest?
++
+     queue.sync {
+-      activeRequests = max(0, activeRequests - 1)
+-      guard let pairCount = activeRequestsByPair[key] else { return }
+-      if pairCount <= 1 {
+-        activeRequestsByPair.removeValue(forKey: key)
+-      } else {
+-        activeRequestsByPair[key] = pairCount - 1
++      guard let index = pendingRequests.firstIndex(where: { $0.id == id }) else {
++        return
+       }
++      cancelledRequest = pendingRequests.remove(at: index)
++    }
++
++    cancelledRequest?.continuation.resume(throwing: CancellationError())
++  }
++
++  private func hasCapacity(for key: String) -> Bool {
++    activeRequests < maxActiveRequests &&
++      (activeRequestsByPair[key] ?? 0) < maxActiveRequestsPerPair
++  }
++
++  private func retainSlot(for key: String) {
++    activeRequests += 1
++    activeRequestsByPair[key, default: 0] += 1
++  }
++
++  private func releaseSlot(for key: String) {
++    activeRequests = max(0, activeRequests - 1)
++    guard let pairCount = activeRequestsByPair[key] else {
++      return
++    }
++    if pairCount <= 1 {
++      activeRequestsByPair.removeValue(forKey: key)
++    } else {
++      activeRequestsByPair[key] = pairCount - 1
+     }
+   }
+ 
+diff --git a/node_modules/@onekeyfe/react-native-sni-connect/ios/Tests/SniConnectValidationTests/SniConnectValidationTests.swift b/node_modules/@onekeyfe/react-native-sni-connect/ios/Tests/SniConnectValidationTests/SniConnectValidationTests.swift
+index 6e3403c..7ca4ddb 100644
+--- a/node_modules/@onekeyfe/react-native-sni-connect/ios/Tests/SniConnectValidationTests/SniConnectValidationTests.swift
++++ b/node_modules/@onekeyfe/react-native-sni-connect/ios/Tests/SniConnectValidationTests/SniConnectValidationTests.swift
+@@ -195,24 +195,85 @@ final class SniConnectValidationTests: XCTestCase {
+     XCTAssertNoThrow(try SniConnectValidation.validateMethodBody(method: "OPTIONS", body: nil))
+   }
+ 
+-  func testRequestLimiterEnforcesGlobalAndPerDestinationLimits() throws {
++  func testRequestLimiterQueuesGlobalAndPerDestinationLimits() async throws {
+     let limiter = SniConnectRequestLimiter(maxActiveRequests: 2, maxActiveRequestsPerPair: 1)
+-    let firstToken = try limiter.acquire(hostname: "Example.com", ip: "93.184.216.34")
+-
+-    assertValidationFails {
+-      _ = try limiter.acquire(hostname: "example.com", ip: "93.184.216.34")
++    let firstToken = try await limiter.acquire(hostname: "Example.com", ip: "93.184.216.34")
++
++    // OneKey patch: This same-destination request now waits instead of throwing.
++    // assertValidationFails {
++    //   _ = try limiter.acquire(hostname: "example.com", ip: "93.184.216.34")
++    // }
++    let sameDestinationTask = Task {
++      try await limiter.acquire(hostname: "example.com", ip: "93.184.216.34")
+     }
+-
+-    let secondToken = try limiter.acquire(hostname: "example.com", ip: "93.184.216.35")
+-    assertValidationFails {
+-      _ = try limiter.acquire(hostname: "example.net", ip: "93.184.216.36")
++    await waitForPendingRequests(1, in: limiter)
++
++    let secondToken = try await limiter.acquire(hostname: "example.com", ip: "93.184.216.35")
++    // OneKey patch: This globally limited request also waits for a released slot.
++    // assertValidationFails {
++    //   _ = try limiter.acquire(hostname: "example.net", ip: "93.184.216.36")
++    // }
++    let globallyQueuedTask = Task {
++      try await limiter.acquire(hostname: "example.net", ip: "93.184.216.36")
+     }
++    await waitForPendingRequests(2, in: limiter)
+ 
+     firstToken.release()
+-    let replacementToken = try limiter.acquire(hostname: "example.com", ip: "93.184.216.34")
++    let replacementToken = try await sameDestinationTask.value
+     firstToken.release()
+     secondToken.release()
++    let globallyQueuedToken = try await globallyQueuedTask.value
+     replacementToken.release()
++    globallyQueuedToken.release()
++  }
++
++  func testRequestLimiterRejectsOnlyWhenPendingQueueIsFull() async throws {
++    let limiter = SniConnectRequestLimiter(
++      maxActiveRequests: 1,
++      maxActiveRequestsPerPair: 1,
++      maxPendingRequests: 1
++    )
++    let activeToken = try await limiter.acquire(
++      hostname: "example.com",
++      ip: "93.184.216.34"
++    )
++    let queuedTask = Task {
++      try await limiter.acquire(hostname: "example.net", ip: "93.184.216.35")
++    }
++    await waitForPendingRequests(1, in: limiter)
++
++    do {
++      _ = try await limiter.acquire(hostname: "example.org", ip: "93.184.216.36")
++      XCTFail("Expected the bounded pending queue to reject overflow")
++    } catch SniConnectValidation.ValidationError.resourceLimit(_) {
++      // Expected.
++    }
++
++    activeToken.release()
++    let queuedToken = try await queuedTask.value
++    queuedToken.release()
++  }
++
++  func testRequestLimiterRemovesCancelledWaiter() async throws {
++    let limiter = SniConnectRequestLimiter(maxActiveRequests: 1, maxActiveRequestsPerPair: 1)
++    let activeToken = try await limiter.acquire(
++      hostname: "example.com",
++      ip: "93.184.216.34"
++    )
++    let queuedTask = Task {
++      try await limiter.acquire(hostname: "example.com", ip: "93.184.216.34")
++    }
++    await waitForPendingRequests(1, in: limiter)
++
++    queuedTask.cancel()
++    do {
++      _ = try await queuedTask.value
++      XCTFail("Expected the queued acquisition to be cancelled")
++    } catch is CancellationError {
++      // Expected.
++    }
++    XCTAssertEqual(limiter.pendingRequestCount, 0)
++    activeToken.release()
+   }
+ 
+   func testResolverRegistryKeepsResolverClassUntilAllSessionsReleaseIt() throws {
+@@ -322,4 +383,23 @@ final class SniConnectValidationTests: XCTestCase {
+   private func assertValidationFails(_ block: () throws -> Void, file: StaticString = #filePath, line: UInt = #line) {
+     XCTAssertThrowsError(try block(), file: file, line: line)
+   }
++
++  private func waitForPendingRequests(
++    _ expectedCount: Int,
++    in limiter: SniConnectRequestLimiter,
++    file: StaticString = #filePath,
++    line: UInt = #line
++  ) async {
++    for _ in 0..<1_000 {
++      if limiter.pendingRequestCount == expectedCount {
++        return
++      }
++      await Task.yield()
++    }
++    XCTFail(
++      "Expected \(expectedCount) pending requests, got \(limiter.pendingRequestCount)",
++      file: file,
++      line: line
++    )
++  }
+ }

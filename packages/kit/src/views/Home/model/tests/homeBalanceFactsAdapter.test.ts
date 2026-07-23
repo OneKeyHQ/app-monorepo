@@ -109,6 +109,17 @@ describe('currentHomeBalanceFactsAdapter', () => {
     );
   });
 
+  it('can progressively display zero without waiting for quote rates', () => {
+    expect(
+      resolveHomeBalanceQuotedAmount({
+        currencyMap: {},
+        sourceCurrency: 'usd',
+        targetCurrency: 'cny',
+        value: '0',
+      }),
+    ).toMatchObject({ amount: '0' });
+  });
+
   it('does not relabel a previous network worth as the current single-network scope', () => {
     expect(
       selectHomePortfolioWorth({

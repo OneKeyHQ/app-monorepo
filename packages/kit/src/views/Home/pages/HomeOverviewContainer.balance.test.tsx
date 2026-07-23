@@ -4,7 +4,7 @@ import type { IHomeCorrelatedBalancePresentation } from '../model/compatibility/
 
 function readyPresentation(
   amount: string,
-  balanceState: 'zero' | 'positive',
+  balanceState: 'unknown' | 'zero' | 'positive',
 ): IHomeCorrelatedBalancePresentation {
   return {
     kind: 'ready',
@@ -35,6 +35,19 @@ describe('HomeOverviewContainer correlated balance presentation', () => {
     expect(
       resolveHomeOverviewBalanceRenderDecision({
         balancePresentation: readyPresentation('0', 'zero'),
+        semanticDisplayAmount: '0',
+      }),
+    ).toEqual({
+      amount: '0',
+      revision: 'revision-0',
+      showSkeleton: false,
+    });
+  });
+
+  it('renders the progressive zero without classifying the wallet as empty', () => {
+    expect(
+      resolveHomeOverviewBalanceRenderDecision({
+        balancePresentation: readyPresentation('0', 'unknown'),
         semanticDisplayAmount: '0',
       }),
     ).toEqual({

@@ -57,6 +57,7 @@ type IHomeDeFiSourceSnapshot =
       kind: 'partial';
       requestSeq: number;
       coverageFingerprint: string;
+      data: IHomeDeFiLegacyPayload;
     }
   | {
       kind: 'complete';
@@ -135,7 +136,12 @@ function adaptHomeDeFiSourceSnapshot({
         requestSeq: snapshot.requestSeq,
       });
     case 'partial':
-      return { ...identity, ...snapshot };
+      return {
+        ...identity,
+        kind: snapshot.kind,
+        requestSeq: snapshot.requestSeq,
+        coverageFingerprint: snapshot.coverageFingerprint,
+      };
     case 'complete':
       return { ...identity, ...snapshot };
     case 'error':

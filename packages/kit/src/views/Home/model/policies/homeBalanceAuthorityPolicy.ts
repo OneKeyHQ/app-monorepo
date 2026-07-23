@@ -54,6 +54,42 @@ function confirmedPresentation({
   };
 }
 
+function progressivePresentation({
+  aggregate,
+  bannerAvailable,
+  refresh,
+}: {
+  aggregate: Extract<
+    IHomeBalanceAggregationResult,
+    { kind: 'partial' }
+  >['aggregate'];
+  bannerAvailable: boolean;
+  refresh: 'refreshing' | 'failed';
+}): IHomePortfolioPresentation {
+  if (new BigNumber(aggregate.amount).isZero() && !aggregate.positiveEvidence) {
+    return {
+      kind: 'loading',
+      header: { kind: 'loading' },
+      actions: { kind: 'loading', items: [] },
+      banner: { kind: 'none' },
+      refresh,
+    };
+  }
+  return {
+    kind: 'fundedPendingTotal',
+    header: {
+      kind: 'loading',
+      balance: {
+        amount: aggregate.amount,
+        currency: aggregate.quoteBasis.currency,
+      },
+    },
+    actions: { kind: 'funded', items: fundedActions },
+    banner: bannerAvailable ? { kind: 'positive' } : { kind: 'none' },
+    refresh,
+  };
+}
+
 function projectHomeBalanceAuthority({
   aggregation,
   bannerAvailable,
@@ -92,6 +128,24 @@ function projectHomeBalanceAuthority({
         actions: { kind: 'loading', items: [] },
         banner: { kind: 'none' },
       },
+    };
+  }
+
+  if (aggregation.kind === 'partial') {
+    const progressive = progressivePresentation({
+      aggregate: aggregation.aggregate,
+      bannerAvailable,
+      refresh: aggregation.refresh,
+    });
+    if (progressive.kind !== 'loading' || !confirmed) {
+      return { presentation: progressive };
+    }
+    return {
+      presentation: confirmedPresentation({
+        bannerAvailable,
+        record: confirmed,
+        refresh: aggregation.refresh,
+      }),
     };
   }
 

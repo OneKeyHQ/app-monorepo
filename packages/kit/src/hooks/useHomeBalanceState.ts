@@ -29,6 +29,8 @@ export function useHomeBalancePresentation(): IHomeBalancePresentation {
   const facts = useHomeFacts();
   const shell = useHomeShell();
   return resolveHomeBalancePresentation({
+    fallbackCurrency:
+      facts?.balance?.quoteBasis.currency ?? facts?.environment.currency,
     ownerToken: facts?.ownerToken,
     shell: shell.value,
   });

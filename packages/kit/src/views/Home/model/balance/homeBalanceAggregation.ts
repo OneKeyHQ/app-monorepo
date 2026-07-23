@@ -16,6 +16,10 @@ type IHomeBalanceAggregationPendingReason =
   | 'missingContributor'
   | 'sourcePending';
 
+type IHomeBalanceAggregationProgressiveReason =
+  | IHomeBalanceAggregationPendingReason
+  | IHomeBalanceAggregationUnavailableReason;
+
 type IHomeBalanceAggregate = {
   amount: string;
   coverageFingerprint: string;
@@ -31,6 +35,12 @@ type IHomeBalanceAggregationResult =
       kind: 'loading';
       positiveEvidence: boolean;
       reason: IHomeBalanceAggregationPendingReason;
+    }
+  | {
+      kind: 'partial';
+      aggregate: IHomeBalanceAggregate;
+      reason: IHomeBalanceAggregationProgressiveReason;
+      refresh: 'refreshing' | 'failed';
     }
   | {
       kind: 'complete';
@@ -81,6 +91,28 @@ function uniqueSortedContributorIds(
   return unique.length === ids.length && unique.length > 0 ? unique : undefined;
 }
 
+function createAggregate({
+  coverage,
+  facts,
+  positiveEvidence,
+  total,
+}: {
+  coverage: readonly string[];
+  facts: IHomeBalanceFacts;
+  positiveEvidence: boolean;
+  total: BigNumber;
+}): IHomeBalanceAggregate {
+  return {
+    amount: total.toFixed(),
+    coverageFingerprint: coverage.join('|'),
+    ownerScopeKey: facts.ownerToken.scopeKey,
+    positiveEvidence: positiveEvidence || !total.isZero(),
+    quoteBasis: facts.quoteBasis,
+    requiredSetRevision: facts.requiredSetRevision,
+    sourceKeyIdentity: facts.sourceKeyIdentity,
+  };
+}
+
 function aggregateHomeBalanceFacts(
   facts: IHomeBalanceFacts,
 ): IHomeBalanceAggregationResult {
@@ -96,6 +128,7 @@ function aggregateHomeBalanceFacts(
   let positiveEvidence = false;
   let hasPending = false;
   let pendingReason: IHomeBalanceAggregationPendingReason = 'sourcePending';
+  let failureReason: IHomeBalanceAggregationUnavailableReason | undefined;
   let total = new BigNumber(0);
   const coverage: string[] = [];
 
@@ -115,46 +148,49 @@ function aggregateHomeBalanceFacts(
         hasPending = true;
       } else if (resource.kind === 'partial') {
         positiveEvidence ||= resource.data.positiveEvidence;
+        coverage.push(`${id}:${resource.coverageFingerprint}:partial`);
+        const amount = new BigNumber(resource.data.amount);
+        if (amount.isFinite()) {
+          total = total.plus(amount);
+        } else {
+          failureReason ??= 'invalidAmount';
+        }
         hasPending = true;
       } else if (resource.kind === 'error') {
-        return { kind: 'error', positiveEvidence, reason: 'sourceError' };
+        failureReason ??= 'sourceError';
       } else {
         coverage.push(`${id}:${resource.coverageFingerprint}`);
         if (resource.result.kind === 'success') {
           positiveEvidence ||= resource.result.data.positiveEvidence;
           const amount = new BigNumber(resource.result.data.amount);
           if (!amount.isFinite()) {
-            return {
-              kind: 'error',
-              positiveEvidence,
-              reason: 'invalidAmount',
-            };
+            failureReason ??= 'invalidAmount';
+          } else {
+            total = total.plus(amount);
           }
-          total = total.plus(amount);
         }
       }
     }
   }
 
-  if (hasPending) {
+  const aggregate = createAggregate({
+    coverage,
+    facts,
+    positiveEvidence,
+    total,
+  });
+  if (hasPending || failureReason) {
     return {
-      kind: 'loading',
-      positiveEvidence,
-      reason: pendingReason,
+      kind: 'partial',
+      aggregate,
+      reason: failureReason ?? pendingReason,
+      refresh: failureReason ? 'failed' : 'refreshing',
     };
   }
 
   return {
     kind: 'complete',
-    aggregate: {
-      amount: total.toFixed(),
-      coverageFingerprint: coverage.join('|'),
-      ownerScopeKey: facts.ownerToken.scopeKey,
-      positiveEvidence: positiveEvidence || total.isGreaterThan(0),
-      quoteBasis: facts.quoteBasis,
-      requiredSetRevision: facts.requiredSetRevision,
-      sourceKeyIdentity: facts.sourceKeyIdentity,
-    },
+    aggregate,
   };
 }
 

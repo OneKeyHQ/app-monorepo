@@ -155,7 +155,7 @@ describe('Home Store reducer', () => {
     expect(next.resources).toBe(state.resources);
   });
 
-  it('holds one confirmed Header amount while an incomplete round churns', () => {
+  it('shows an incomplete round without overwriting the confirmed cache', () => {
     let state = createOwnedState();
     const publishBalance = (
       amount: string,
@@ -201,9 +201,9 @@ describe('Home Store reducer', () => {
     expect(state.shell.value).toMatchObject({
       kind: 'portfolio',
       presentation: {
+        kind: 'fundedPendingTotal',
         header: {
-          authority: 'confirmedCache',
-          balance: { amount: '11.61' },
+          balance: { amount: '11.62' },
         },
         refresh: 'refreshing',
       },
@@ -434,7 +434,7 @@ describe('Home Store reducer', () => {
     });
     expect(state.shell.value).toMatchObject({
       kind: 'portfolio',
-      presentation: { kind: 'unavailable' },
+      presentation: { kind: 'loading', refresh: 'failed' },
     });
 
     state = dispatch(state, {

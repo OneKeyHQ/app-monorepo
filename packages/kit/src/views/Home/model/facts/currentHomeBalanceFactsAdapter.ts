@@ -145,6 +145,9 @@ function resolveHomeBalanceQuotedAmount({
   if (sourceCurrency === targetCurrency) {
     return { amount: amount.toFixed(), rateIdentity };
   }
+  if (amount.isZero()) {
+    return { amount: '0', rateIdentity };
+  }
   const sourceRate = new BigNumber(currencyMap[sourceCurrency]?.value ?? NaN);
   const targetRate = new BigNumber(currencyMap[targetCurrency]?.value ?? NaN);
   if (

@@ -278,6 +278,11 @@ export type IHomeStoreSectionSourceResult =
   | { kind: 'hidden'; reason: 'notApplicable' | 'capabilityNotReady' }
   | { kind: 'loading' }
   | {
+      kind: 'partial';
+      data: IHomeRuntimeJsonValue;
+      coverageFingerprint: string;
+    }
+  | {
       kind: 'ready';
       rowIds: readonly string[];
       data?: IHomeRuntimeJsonValue;

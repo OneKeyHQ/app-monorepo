@@ -35,7 +35,7 @@ type IHomeCorrelatedBalancePresentation =
   | {
       kind: 'ready';
       balance: IHomeMoneyViewModel;
-      balanceState: 'zero' | 'positive';
+      balanceState: 'unknown' | 'zero' | 'positive';
       revision: string;
       showPositiveBanner: boolean;
     };
@@ -79,7 +79,7 @@ function adaptHomeShellToReactHeader(
       balance:
         presentation.kind === 'funded'
           ? presentation.header.balance
-          : undefined,
+          : presentation.header.balance,
       balanceState: 'positive',
       showPositiveBanner: presentation.banner.kind === 'positive',
     };
@@ -92,14 +92,20 @@ function adaptHomeShellToReactHeader(
 }
 
 function resolveHomeBalancePresentation({
+  fallbackCurrency,
   ownerToken,
   shell,
 }: {
+  fallbackCurrency?: string;
   ownerToken?: IHomeRuntimeOwnerToken;
   shell: IHomeShellSemanticModel;
 }): IHomeBalancePresentation {
   const presentation = adaptHomeShellToReactHeader(shell);
-  const revision = stringUtils.stableStringify({ ownerToken, shell });
+  const revision = stringUtils.stableStringify({
+    fallbackCurrency,
+    ownerToken,
+    shell,
+  });
   if ('balance' in presentation && presentation.balance) {
     return {
       balanceState: presentation.balanceState,
@@ -114,6 +120,24 @@ function resolveHomeBalancePresentation({
   }
   const balanceState =
     presentation.balanceState === 'positive' ? 'positive' : 'unknown';
+  const canShowProgressiveZero =
+    Boolean(fallbackCurrency) &&
+    (shell.kind === 'loading' ||
+      (shell.kind === 'portfolio' &&
+        (shell.presentation.kind === 'loading' ||
+          shell.presentation.kind === 'fundedPendingTotal')));
+  if (canShowProgressiveZero && fallbackCurrency) {
+    return {
+      balanceState,
+      correlated: {
+        kind: 'ready',
+        balance: { amount: '0', currency: fallbackCurrency },
+        balanceState,
+        revision,
+        showPositiveBanner: presentation.showPositiveBanner,
+      },
+    };
+  }
   return {
     balanceState,
     correlated: {

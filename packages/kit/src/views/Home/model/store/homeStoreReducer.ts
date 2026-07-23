@@ -303,6 +303,15 @@ function advanceShellPreservingConfirmedCache(
     nextPresentation?.kind === 'loading' ||
     nextPresentation?.kind === 'fundedPendingTotal';
   if (currentHasConfirmedCache && nextStillAwaitsConfirmedTotal) {
+    if (nextPresentation?.refresh === 'failed') {
+      return advanceShell(current, {
+        kind: 'portfolio',
+        presentation: {
+          ...currentPresentation,
+          refresh: 'failed',
+        },
+      });
+    }
     // A live request may start before the V2 display snapshot is hydrated.
     // Pending evidence must not erase an exact cached total while that request
     // continues to own its balance round and can still replace the snapshot.
@@ -1389,9 +1398,14 @@ export function reduceHomeStore(
             state.shell.value.presentation.kind === 'fundedPendingTotal' ||
             state.shell.value.presentation.kind === 'unavailable'));
       if (event.shell && currentShellCanUseCache) {
+        const currentPresentation =
+          state.shell.value.kind === 'portfolio'
+            ? state.shell.value.presentation
+            : undefined;
         const cachedShell =
-          state.shell.value.kind === 'portfolio' &&
-          state.shell.value.presentation.kind === 'unavailable'
+          currentPresentation?.kind === 'unavailable' ||
+          (currentPresentation?.kind === 'loading' &&
+            currentPresentation.refresh === 'failed')
             ? markDisplaySnapshotRefreshFailed(event.shell)
             : event.shell;
         const shell = advanceShell(state.shell, cachedShell);

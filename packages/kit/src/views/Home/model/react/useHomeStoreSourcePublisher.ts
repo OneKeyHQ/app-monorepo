@@ -165,6 +165,15 @@ function createReadyEnvelopeData(
   };
 }
 
+function createPartialEnvelopeData(
+  result: Extract<IHomeStoreSectionSourceResult, { kind: 'partial' }>,
+): IHomeRuntimeJsonValue {
+  return {
+    payload: result.data,
+    section: { kind: 'loading' },
+  };
+}
+
 export function createHomeStoreSectionSourceGateway({
   clientInstanceId = createHomeSourceGatewayInstanceId('home-source-client'),
   dispatchHomeEvent,
@@ -236,9 +245,11 @@ export function createHomeStoreSectionSourceGateway({
       type: 'sourceResponded',
       envelope: { token, result },
     });
-    const { sourceIdentity } = getLifecycle(payload);
-    if (activeTokenBySource.get(sourceIdentity) === token) {
-      activeTokenBySource.delete(sourceIdentity);
+    if (result.kind !== 'partial') {
+      const { sourceIdentity } = getLifecycle(payload);
+      if (activeTokenBySource.get(sourceIdentity) === token) {
+        activeTokenBySource.delete(sourceIdentity);
+      }
     }
   };
 
@@ -247,6 +258,14 @@ export function createHomeStoreSectionSourceGateway({
     result: IHomeStoreSectionSourceResult,
   ) => {
     const payload = handle.payload;
+    if (result.kind === 'partial') {
+      respond(payload, handle.token, {
+        kind: 'partial',
+        data: createPartialEnvelopeData(result),
+        coverageFingerprint: result.coverageFingerprint,
+      });
+      return;
+    }
     if (result.kind === 'ready') {
       respond(payload, handle.token, {
         kind: 'success',
