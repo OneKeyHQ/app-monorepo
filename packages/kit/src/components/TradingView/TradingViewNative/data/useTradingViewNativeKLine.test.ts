@@ -15,14 +15,20 @@ import { useTradingViewNativeKLine } from './useTradingViewNativeKLine';
 
 import type {
   ITradingViewNativeDataProvider,
+  ITradingViewNativeHistoryPageInfo,
   ITradingViewNativeHistoryRequest,
+  ITradingViewNativeHistoryResponse,
   ITradingViewNativeRealtimeSubscriptionRequest,
 } from './tradingViewNativeDataProviderTypes';
 import type { ITradingViewNativeSource } from '../types';
 
 const mockFetchHistory = jest.fn<
-  Promise<IMarketTokenKLineResponse | null>,
+  Promise<ITradingViewNativeHistoryResponse | null>,
   [ITradingViewNativeHistoryRequest]
+>();
+const mockHasMoreHistory = jest.fn<
+  boolean,
+  [ITradingViewNativeHistoryPageInfo]
 >();
 const mockEnsure = jest.fn<Promise<void>, []>();
 const mockUnsubscribe = jest.fn<Promise<void>, []>();
@@ -163,6 +169,11 @@ describe('TradingViewNative K-line data state machine', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockFetchHistory.mockReset();
+    mockHasMoreHistory.mockImplementation(
+      ({ historySource, receivedPointCount }) =>
+        historySource !== 'fallback' &&
+        receivedPointCount >= mockHistoryBatchSize,
+    );
     mockHistoryBatchSize = 1;
     mockHistoryRequestCandleCount = 1;
     mockCurrentVisibility = true;
@@ -179,8 +190,7 @@ describe('TradingViewNative K-line data state machine', () => {
     });
     mockCreateTradingViewNativeDataProvider.mockImplementation((source) => ({
       getHistoryRequestCandleCount: () => mockHistoryRequestCandleCount,
-      hasMoreHistory: ({ receivedPointCount }) =>
-        receivedPointCount >= mockHistoryBatchSize,
+      hasMoreHistory: mockHasMoreHistory,
       isReady: true,
       key: buildProviderKey(source),
       supportsRealtime:
@@ -234,6 +244,29 @@ describe('TradingViewNative K-line data state machine', () => {
     await waitFor(() => expect(result.current.points).toHaveLength(298));
     act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
 
+    expect(mockFetchHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not paginate CoinGecko fallback data as Market history', async () => {
+    mockHistoryBatchSize = 1;
+    mockHistoryRequestCandleCount = 2000;
+    mockFetchHistory.mockResolvedValue({
+      ...buildResponse(100, 1_000_000),
+      historySource: 'fallback',
+    });
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(1));
+    expect(mockHasMoreHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        historySource: 'fallback',
+        receivedPointCount: 1,
+      }),
+    );
+
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
     expect(mockFetchHistory).toHaveBeenCalledTimes(1);
   });
 

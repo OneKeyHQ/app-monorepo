@@ -527,6 +527,7 @@ export function useTradingViewNativeKLine({
 
               pagination.earliestTimestamp = olderPoints[0].t;
               pagination.hasMore = historyProvider.hasMoreHistory({
+                historySource: data.historySource,
                 interval,
                 receivedPointCount: olderPoints.length,
               });
@@ -913,6 +914,7 @@ export function useTradingViewNativeKLine({
           ) {
             if (pagination.earliestTimestamp === undefined) {
               pagination.hasMore = historyProvider.hasMoreHistory({
+                historySource: data?.historySource,
                 interval: requestedInterval,
                 receivedPointCount: receivedHistoryPointCount,
               });

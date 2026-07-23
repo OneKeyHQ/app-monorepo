@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { useWindowDimensions } from 'react-native';
 
@@ -10,7 +10,6 @@ import {
   useSafeAreaInsets,
   useTabBarHeight,
 } from '@onekeyhq/components';
-import type { IDeferredPromise } from '@onekeyhq/components';
 import {
   TradingViewNative,
   getTradingViewNativeSource,
@@ -24,7 +23,6 @@ import { useMarketTradeNetwork, useMarketTradeNetworkId } from './tradeHook';
 
 interface ITokenPriceChartProps {
   coinGeckoId: string;
-  defer: IDeferredPromise<unknown>;
   token?: IMarketTokenDetail;
 }
 
@@ -55,11 +53,7 @@ function useChartLayout() {
   };
 }
 
-function BasicTokenPriceChart({
-  coinGeckoId,
-  defer,
-  token,
-}: ITokenPriceChartProps) {
+function BasicTokenPriceChart({ coinGeckoId, token }: ITokenPriceChartProps) {
   const { fillAvailableHeight, height, layoutMode } = useChartLayout();
   const marketNetwork = useMarketTradeNetwork(token ?? null);
   const networkId = useMarketTradeNetworkId(marketNetwork, token?.symbol ?? '');
@@ -75,10 +69,6 @@ function BasicTokenPriceChart({
       }),
     [coinGeckoId, marketNetwork?.tokenAddress, networkId, token?.symbol],
   );
-
-  useEffect(() => {
-    defer.resolve(null);
-  }, [defer]);
 
   return (
     <Stack

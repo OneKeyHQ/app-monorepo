@@ -12,11 +12,11 @@ import {
   View,
   XStack,
   YStack,
-  useDeferredPromise,
   useIsOverlayPage,
   useMedia,
 } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type { ITabMarketParamList } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -25,7 +25,7 @@ import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import { Currency } from '../../../components/Currency';
+import { Currency, useCurrency } from '../../../components/Currency';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -54,6 +54,7 @@ function TokenDetailHeader({
   token: IMarketTokenDetail;
 }) {
   const { gtMd: gtMdMedia } = useMedia();
+  const currencyInfo = useCurrency();
 
   const isModalPage = useIsOverlayPage();
 
@@ -88,7 +89,13 @@ function TokenDetailHeader({
           {name}
         </SizableText>
         <XStack ai="center" jc="space-between" pt="$2">
-          <Currency size="$heading3xl">{currentPrice}</Currency>
+          <Currency
+            sourceCurrency={currencyInfo.id}
+            targetCurrency={USD_CURRENCY_ID}
+            size="$heading3xl"
+          >
+            {currentPrice}
+          </Currency>
         </XStack>
         <PriceChangePercentage pt="$0.5" width="100%">
           {performance.priceChangePercentage24h}
@@ -246,17 +253,9 @@ function MarketDetail({
     );
   }, [coinGeckoId, gtMd, tokenDetail]);
 
-  const defer = useDeferredPromise();
-
   const tokenPriceChart = useMemo(
-    () => (
-      <TokenPriceChart
-        coinGeckoId={coinGeckoId}
-        defer={defer}
-        token={tokenDetail}
-      />
-    ),
-    [coinGeckoId, defer, tokenDetail],
+    () => <TokenPriceChart coinGeckoId={coinGeckoId} token={tokenDetail} />,
+    [coinGeckoId, tokenDetail],
   );
 
   return (
@@ -274,7 +273,6 @@ function MarketDetail({
               </ScrollView>
               <YStack flex={1}>
                 <TokenDetailTabs
-                  defer={defer}
                   token={tokenDetail}
                   coinGeckoId={coinGeckoId}
                   listHeaderComponent={tokenPriceChart}
@@ -284,7 +282,6 @@ function MarketDetail({
           </YStack>
         ) : (
           <TokenDetailTabs
-            defer={defer}
             isRefreshing={isRefreshing}
             onRefresh={onRefresh}
             token={tokenDetail}

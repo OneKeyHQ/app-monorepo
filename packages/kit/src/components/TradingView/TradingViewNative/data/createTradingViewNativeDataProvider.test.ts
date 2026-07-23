@@ -149,6 +149,9 @@ async function runMarketKLineDataFallback(
     throw new OneKeyLocalError('Expected a Market K-line fallback');
   }
   const fallbackData = await params.kLineDataFallback(request);
+  if (fallbackData?.points.length) {
+    params.onFallbackKLineData?.();
+  }
   if (primaryDataUnavailable && fallbackData?.points.length) {
     params.onPrimaryKLineDataUnavailable?.();
   }
@@ -276,6 +279,7 @@ describe('TradingViewNative data providers', () => {
         timeTo: 10_800,
       }),
     ).resolves.toEqual({
+      historySource: 'fallback',
       points: [{ o: 10, h: 10, l: 10, c: 10, v: 0, t: 7200 }],
       total: 1,
     });
@@ -329,6 +333,7 @@ describe('TradingViewNative data providers', () => {
         timeTo: 10_800,
       }),
     ).resolves.toEqual({
+      historySource: 'fallback',
       points: [{ o: 10, h: 10, l: 10, c: 10, v: 0, t: 7200 }],
       total: 1,
     });
@@ -483,6 +488,7 @@ describe('TradingViewNative data providers', () => {
         timeTo: 10_800,
       }),
     ).resolves.toEqual({
+      historySource: 'fallback',
       points: [{ o: 10, h: 10, l: 10, c: 10, v: 0, t: 7200 }],
       total: 1,
     });
@@ -558,10 +564,19 @@ describe('TradingViewNative data providers', () => {
     };
     const provider = createTradingViewNativeDataProvider(source);
 
-    await expect(provider.fetchHistory(request)).resolves.toEqual({
+    const fallbackResult = await provider.fetchHistory(request);
+    expect(fallbackResult).toEqual({
+      historySource: 'fallback',
       points: [{ o: 10, h: 10, l: 10, c: 10, v: 0, t: 7200 }],
       total: 1,
     });
+    expect(
+      provider.hasMoreHistory({
+        historySource: fallbackResult?.historySource,
+        interval: getInterval('60'),
+        receivedPointCount: 500,
+      }),
+    ).toBe(false);
     expect(provider.getHistoryRequestCandleCount(getInterval('60'))).toBe(2000);
 
     const nextProvider = createTradingViewNativeDataProvider(source);

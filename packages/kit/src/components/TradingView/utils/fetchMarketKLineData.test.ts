@@ -124,6 +124,7 @@ describe('fetchMarketKLineData', () => {
       points: [fallbackPoint],
       total: 1,
     });
+    const onFallbackKLineData = jest.fn();
 
     const result = await fetchMarketKLineData({
       tokenAddress: '',
@@ -132,6 +133,7 @@ describe('fetchMarketKLineData', () => {
       timeFrom: 0,
       timeTo: 200,
       kLineDataFallback: fallback,
+      onFallbackKLineData,
     });
 
     expect(fallback).toHaveBeenCalledWith({
@@ -145,5 +147,6 @@ describe('fetchMarketKLineData', () => {
       points: [fallbackPoint],
       total: 1,
     });
+    expect(onFallbackKLineData).toHaveBeenCalledTimes(1);
   });
 });

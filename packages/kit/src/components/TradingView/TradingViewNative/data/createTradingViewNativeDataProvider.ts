@@ -101,14 +101,17 @@ function createMarketDataProvider(
       primaryHistoryUnavailable
         ? getCoinGeckoHistoryRequestCandleCount(interval)
         : MARKET_HISTORY_REQUEST_CANDLE_COUNT,
-    hasMoreHistory: ({ receivedPointCount }) =>
-      !primaryHistoryUnavailable && receivedPointCount >= marketHistoryPageSize,
+    hasMoreHistory: ({ historySource, receivedPointCount }) =>
+      historySource !== 'fallback' &&
+      !primaryHistoryUnavailable &&
+      receivedPointCount >= marketHistoryPageSize,
     isReady: canUseMarketHistory || Boolean(normalizedFallbackCoinGeckoId),
     key: getTradingViewNativeSourceKey(source),
     supportsRealtime: source.realtime === 'websocket',
     fetchHistory: async (request) => {
       const { interval, signal, timeFrom, timeTo } = request;
-      return fetchMarketKLineData({
+      let usedFallback = false;
+      const data = await fetchMarketKLineData({
         tokenAddress: source.tokenAddress,
         networkId: source.networkId,
         interval: interval.label,
@@ -132,12 +135,18 @@ function createMarketDataProvider(
             timeTo: fallbackRequest.timeTo,
           });
         },
+        onFallbackKLineData: () => {
+          usedFallback = true;
+        },
         onPrimaryKLineDataUnavailable: () => {
           primaryHistoryUnavailable = true;
           cacheUnavailableMarketHistoryTokenKey(marketTokenKey);
         },
         primaryKLineDataUnavailable: primaryHistoryUnavailable,
       });
+      return data && usedFallback
+        ? { ...data, historySource: 'fallback' as const }
+        : data;
     },
     subscribeRealtime: async ({
       interval,
