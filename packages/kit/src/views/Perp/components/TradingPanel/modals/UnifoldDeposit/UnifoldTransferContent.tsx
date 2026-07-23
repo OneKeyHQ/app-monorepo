@@ -312,7 +312,7 @@ export function UnifoldTransferContent({
       {/* The address exists but its eligibility screen has not answered yet,
           so it stays hidden behind the QR skeleton. Says so rather than
           shimmering silently — and never claims the address itself failed. */}
-      {activationRetrying ? (
+      {activationRetrying && addressState.status !== 'error' ? (
         <YStack bg="$bgCautionSubdued" borderRadius="$3" p="$3" gap="$1.5">
           <XStack alignItems="center" gap="$1.5">
             <Icon name="InfoCircleOutline" size="$4" color="$iconCaution" />

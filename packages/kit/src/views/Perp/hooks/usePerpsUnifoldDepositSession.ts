@@ -49,6 +49,11 @@ const RETRY_INTERVAL_MS = 5000;
 // address is shown (code constant wins over the vendor docs' 10s).
 const WAITING_UI_DELAY_MS = 5000;
 const SESSION_LOOKBACK_MS = 60_000;
+// The eligibility lookup gates the address, so it retries — but bounded: a
+// non-transient failure (expired auth, WAF block) would otherwise retry, and
+// re-toast through the proxy's error handler, for as long as the modal stays
+// open. After this many attempts it fails closed into the terminal screen.
+const ACTIVATION_MAX_ATTEMPTS = 3;
 // Must stay well under the background loop's mute expiry so a long-lived modal
 // never lets the loop start announcing behind it. Renewal is wall-clock
 // checked from the 3s poll tick rather than run on its own timer: mobile
@@ -389,7 +394,15 @@ export function usePerpsUnifoldDepositSession({
   const [activationAttempt, setActivationAttempt] = useState(0);
   const [activationLookupFailed, setActivationLookupFailed] = useState(false);
   useEffect(() => {
-    if (!enabled || !recipientAddress || !isHyperCoreDestination) {
+    // A veto already ended this session (sanctioned, geo-blocked, catalog
+    // failure): the panel is on its terminal screen and can never become
+    // usable, so stop polling behind it — same guard the address effect uses.
+    if (
+      !enabled ||
+      !recipientAddress ||
+      !isHyperCoreDestination ||
+      vetoRef.current
+    ) {
       return;
     }
     let cancelled = false;
@@ -416,9 +429,16 @@ export function usePerpsUnifoldDepositSession({
           applyAddressState({ status: 'error', errorType });
           return;
         }
+        if (activationAttempt + 1 >= ACTIVATION_MAX_ATTEMPTS) {
+          // Out of attempts: fail closed into the terminal "temporarily
+          // unavailable" screen. Still never reveals the address, but stops
+          // promising a retry that keeps failing (and re-toasting) forever.
+          applyAddressState({ status: 'error', errorType: 'unavailable' });
+          return;
+        }
         setActivationLookupFailed(true);
         retryTimer = setTimeout(() => {
-          if (!cancelled) {
+          if (!cancelled && !vetoRef.current) {
             setActivationAttempt((n) => n + 1);
           }
         }, RETRY_INTERVAL_MS);
@@ -517,10 +537,6 @@ export function usePerpsUnifoldDepositSession({
       );
     };
     claim();
-
-    const waitingTimer = setTimeout(() => {
-      setShowWaitingUi(true);
-    }, WAITING_UI_DELAY_MS);
 
     let cancelled = false;
     const tick = async () => {
@@ -624,7 +640,6 @@ export function usePerpsUnifoldDepositSession({
     return () => {
       cancelled = true;
       clearInterval(timer);
-      clearTimeout(waitingTimer);
     };
   }, [enabled, recipientAddress, pollEnabled]);
 
@@ -688,6 +703,21 @@ export function usePerpsUnifoldDepositSession({
     addressState.status === 'ready' && !activationGatePassed
       ? { status: 'loading' }
       : addressState;
+
+  // Armed when the address actually becomes visible rather than when the poll
+  // starts: the hint is specified to appear 5s after the address is shown, and
+  // the sanction gate can hold the address back well past that.
+  useEffect(() => {
+    if (!qrAddress) {
+      return;
+    }
+    const waitingTimer = setTimeout(() => {
+      setShowWaitingUi(true);
+    }, WAITING_UI_DELAY_MS);
+    return () => {
+      clearTimeout(waitingTimer);
+    };
+  }, [qrAddress]);
 
   // Only an execution that is still moving suppresses the waiting hint. A
   // finished deposit stays in the 60s lookback window for the rest of the
