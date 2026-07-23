@@ -2,6 +2,7 @@ package com.margelo.nitro.onekeynativecomponents
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -145,6 +146,141 @@ class HomeContainerNavigationContractTest {
         selectedTabId = "portfolio",
         requestedIndex = 0,
         tabIdAtRequestedIndex = "history",
+      ),
+    )
+  }
+
+  @Test
+  fun `shared chrome keeps ownership until the pull direction is resolved`() {
+    assertFalse(
+      homeContainerShouldHonorChildDisallowIntercept(
+        childRequestsDisallow = true,
+        chromeGestureCandidate = true,
+      ),
+    )
+    assertTrue(
+      homeContainerShouldHonorChildDisallowIntercept(
+        childRequestsDisallow = true,
+        chromeGestureCandidate = false,
+      ),
+    )
+    assertFalse(
+      homeContainerShouldHonorChildDisallowIntercept(
+        childRequestsDisallow = false,
+        chromeGestureCandidate = true,
+      ),
+    )
+  }
+
+  @Test
+  fun `horizontal gestures remain owned by pager and header carousels`() {
+    assertTrue(
+      homeContainerGestureIsHorizontal(
+        distanceX = 32f,
+        distanceY = 8f,
+        touchSlop = 12,
+      ),
+    )
+    assertFalse(
+      homeContainerGestureIsHorizontal(
+        distanceX = 8f,
+        distanceY = 32f,
+        touchSlop = 12,
+      ),
+    )
+    assertFalse(
+      homeContainerGestureIsHorizontal(
+        distanceX = 8f,
+        distanceY = 2f,
+        touchSlop = 12,
+      ),
+    )
+  }
+
+  @Test
+  fun `upward gestures over shared chrome scroll the active page`() {
+    assertTrue(
+      homeContainerShouldRelayChromeVerticalGesture(
+        deltaY = -32f,
+        distanceX = 4f,
+        distanceY = 32f,
+        touchSlop = 12,
+        pageCanScrollUp = false,
+      ),
+    )
+  }
+
+  @Test
+  fun `downward chrome gestures scroll the page before refreshing at the top`() {
+    assertTrue(
+      homeContainerShouldRelayChromeVerticalGesture(
+        deltaY = 32f,
+        distanceX = 4f,
+        distanceY = 32f,
+        touchSlop = 12,
+        pageCanScrollUp = true,
+      ),
+    )
+    assertFalse(
+      homeContainerShouldRelayChromeVerticalGesture(
+        deltaY = 32f,
+        distanceX = 4f,
+        distanceY = 32f,
+        touchSlop = 12,
+        pageCanScrollUp = false,
+      ),
+    )
+  }
+
+  @Test
+  fun `chrome taps and unresolved gestures are not relayed to the page`() {
+    assertFalse(
+      homeContainerShouldRelayChromeVerticalGesture(
+        deltaY = -8f,
+        distanceX = 2f,
+        distanceY = 8f,
+        touchSlop = 12,
+        pageCanScrollUp = false,
+      ),
+    )
+    assertFalse(
+      homeContainerShouldRelayChromeVerticalGesture(
+        deltaY = -24f,
+        distanceX = 32f,
+        distanceY = 24f,
+        touchSlop = 12,
+        pageCanScrollUp = false,
+      ),
+    )
+  }
+
+  @Test
+  fun `tab switch aligns a page that is still inside the shared header spacer`() {
+    assertEquals(
+      640,
+      homeContainerTargetSynchronizedCollapseOffset(
+        currentOffset = 0,
+        requestedOffset = 640,
+        maximumHeaderOffset = 640,
+      ),
+    )
+    assertEquals(
+      640,
+      homeContainerTargetSynchronizedCollapseOffset(
+        currentOffset = 120,
+        requestedOffset = 900,
+        maximumHeaderOffset = 640,
+      ),
+    )
+  }
+
+  @Test
+  fun `tab switch preserves a page that has already scrolled into body content`() {
+    assertNull(
+      homeContainerTargetSynchronizedCollapseOffset(
+        currentOffset = 900,
+        requestedOffset = 320,
+        maximumHeaderOffset = 640,
       ),
     )
   }
