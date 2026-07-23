@@ -1720,6 +1720,13 @@ describe('iOS HomeContainer slot cell-kind updates', () => {
     );
     expect(source).toContain('self.refreshVisibleSlotHosts()');
   });
+
+  it('animates unified Store spot and perps Market row mutations', () => {
+    expect(source).toContain('id.hasPrefix("item:portfolio-market:spot:")');
+    expect(source).toContain('id.hasPrefix("item:portfolio-market:perps:")');
+    expect(source).toContain('beginUnifiedMarketMutationPin(source: page)');
+    expect(source).toContain('finishUnifiedMarketMutationPin(source: page)');
+  });
 });
 
 describe('iOS HomeContainer tab automation identifiers', () => {

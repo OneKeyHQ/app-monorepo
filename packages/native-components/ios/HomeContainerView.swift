@@ -777,6 +777,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   private var tabSelectionQueue = HomeContainerTabSelectionQueue()
   private var isCoordinatingNestedScroll = false
   private var isSynchronizingUnifiedVerticalPage = false
+  private var pinnedMarketMutationOuterContentOffsetY: CGFloat?
   private var verticalScrollOwner = VerticalScrollOwner.header
   private var isVerticalGestureActive = false
 
@@ -1476,6 +1477,14 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       guard let self, let page else { return }
       self.updateUnifiedVerticalContentSize(source: page)
     }
+    page.onMarketMutationPinChange = { [weak self, weak page] isPinned in
+      guard let self, let page else { return }
+      if isPinned {
+        self.beginUnifiedMarketMutationPin(source: page)
+      } else {
+        self.finishUnifiedMarketMutationPin(source: page)
+      }
+    }
     return page
   }
 
@@ -1534,6 +1543,9 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
 
   func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
     if scrollView === outerScrollView {
+      pinnedMarketMutationOuterContentOffsetY = nil
+      pages.first(where: { $0.tabId == selectedTabId })?
+        .cancelMarketMutationContentOffsetPin()
       if !usesUnifiedVerticalDriver,
          let page = pages.first(where: { $0.tabId == selectedTabId }) {
         beginVerticalGesture(source: page)
@@ -1656,10 +1668,23 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       pages.forEach { $0.layoutIfNeeded() }
       bodyRange = pages.map(\.maximumBodyContentOffset).max() ?? 0
     }
+    let requiredPinnedContentHeight = pinnedMarketMutationOuterContentOffsetY.map {
+      bounds.height + $0
+    } ?? 0
     outerScrollView.contentSize = CGSize(
       width: bounds.width,
-      height: bounds.height + maximumHeaderOffset + bodyRange
+      height: max(
+        bounds.height + maximumHeaderOffset + bodyRange,
+        requiredPinnedContentHeight
+      )
     )
+    if let pinnedOffsetY = pinnedMarketMutationOuterContentOffsetY {
+      if abs(outerScrollView.contentOffset.y - pinnedOffsetY) > 0.5 {
+        outerScrollView.contentOffset.y = pinnedOffsetY
+        updateSharedChromeLayout()
+      }
+      return
+    }
     let maximumOffset = max(0, outerScrollView.contentSize.height - outerScrollView.bounds.height)
     if pagerTransitionState == .idle,
        !outerScrollView.isTracking,
@@ -1669,6 +1694,30 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       outerScrollView.contentOffset.y = maximumOffset
       updateSharedChromeLayout()
     }
+  }
+
+  private func beginUnifiedMarketMutationPin(source: HomeContainerPageView) {
+    guard usesUnifiedVerticalDriver,
+          source.tabId == selectedTabId,
+          pinnedMarketMutationOuterContentOffsetY == nil,
+          !outerScrollView.isTracking,
+          !outerScrollView.isDragging,
+          !outerScrollView.isDecelerating else { return }
+    pinnedMarketMutationOuterContentOffsetY = outerScrollView.contentOffset.y
+  }
+
+  private func finishUnifiedMarketMutationPin(source: HomeContainerPageView) {
+    guard usesUnifiedVerticalDriver,
+          source.tabId == selectedTabId,
+          let pinnedOffsetY = pinnedMarketMutationOuterContentOffsetY else { return }
+    pinnedMarketMutationOuterContentOffsetY = nil
+    updateUnifiedVerticalContentSize(source: source)
+    let maximumOffset = max(
+      0,
+      outerScrollView.contentSize.height - outerScrollView.bounds.height
+    )
+    outerScrollView.contentOffset.y = min(pinnedOffsetY, maximumOffset)
+    updateSharedChromeLayout()
   }
 
   private func synchronizeUnifiedVerticalPage(
@@ -2145,6 +2194,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   var onEndDragging: ((HomeContainerPageView) -> Void)?
   var onSlotLayoutChange: (() -> Void)?
   var onContentSizeChange: (() -> Void)?
+  var onMarketMutationPinChange: ((Bool) -> Void)?
 
   private let tableView = HomeContainerNestedTableView(frame: .zero, style: .plain)
   private var rowsById: [String: HomeContainerRow] = [:]
@@ -2153,6 +2203,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   private var themeSignature = ""
   private var sections: [HomeContainerSection] = []
   private var suppressContentOffsetCallback = false
+  private var marketMutationContentOffsetPinDepth = 0
   private var pinnedMarketMutationContentOffsetY: CGFloat?
   private var mountedSlotKeys = Set<String>()
   private var visibleSlotHosts: [String: HomeContainerSlotHostView] = [:]
@@ -2379,11 +2430,12 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
       previousRows: previousRows,
       nextRows: rowsById
     )
-    if isMarketMutation,
-       !tableView.isTracking,
-       !tableView.isDragging,
-       !tableView.isDecelerating {
-      pinnedMarketMutationContentOffsetY = tableView.contentOffset.y
+    let pinsMarketMutationContentOffset = isMarketMutation &&
+      !tableView.isTracking &&
+      !tableView.isDragging &&
+      !tableView.isDecelerating
+    if pinsMarketMutationContentOffset {
+      beginMarketMutationContentOffsetPin()
     }
     dataSource.apply(
       nextSnapshot,
@@ -2407,6 +2459,9 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
         self.tableView.layoutIfNeeded()
         self.refreshVisibleSlotHosts()
         self.onSlotLayoutChange?()
+        if pinsMarketMutationContentOffset {
+          self.finishMarketMutationContentOffsetPin()
+        }
         completion?()
       }
     }
@@ -2429,11 +2484,9 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     }
     guard !structuralIds.isEmpty || hasFavoriteMutation,
           structuralIds.allSatisfy(isMarketMutationRowId) else { return false }
-    return changedIds.allSatisfy { id in
-      isMarketMutationRowId(id) ||
-        id == "section:portfolio-market" ||
-        id == "item:portfolio-market:market-tabs"
-    }
+    // Unified Store refreshes may reconfigure prices and Earn rows in the
+    // same snapshot. Only structural changes can affect the Market height.
+    return true
   }
 
   private func shouldAnimatePortfolioDeFiMutation(
@@ -2472,6 +2525,8 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
 
   private func isMarketMutationRowId(_ id: String) -> Bool {
     id.hasPrefix("item:portfolio-market:market:") ||
+      id.hasPrefix("item:portfolio-market:spot:") ||
+      id.hasPrefix("item:portfolio-market:perps:") ||
       id == "item:portfolio-market:market-tabs" ||
       id == "item:portfolio-market:market-show-more" ||
       id.hasPrefix("market-recommendations:portfolio-market:")
@@ -2495,6 +2550,29 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     suppressContentOffsetCallback = true
     tableView.contentOffset.y = offsetY
     suppressContentOffsetCallback = false
+  }
+
+  private func beginMarketMutationContentOffsetPin() {
+    marketMutationContentOffsetPinDepth += 1
+    guard marketMutationContentOffsetPinDepth == 1 else { return }
+    pinnedMarketMutationContentOffsetY = tableView.contentOffset.y
+    onMarketMutationPinChange?(true)
+  }
+
+  private func finishMarketMutationContentOffsetPin() {
+    guard marketMutationContentOffsetPinDepth > 0 else { return }
+    marketMutationContentOffsetPinDepth -= 1
+    guard marketMutationContentOffsetPinDepth == 0 else { return }
+    restorePinnedMarketMutationContentOffset()
+    pinnedMarketMutationContentOffsetY = nil
+    onMarketMutationPinChange?(false)
+  }
+
+  func cancelMarketMutationContentOffsetPin() {
+    guard marketMutationContentOffsetPinDepth > 0 else { return }
+    marketMutationContentOffsetPinDepth = 0
+    pinnedMarketMutationContentOffsetY = nil
+    onMarketMutationPinChange?(false)
   }
 
   private func refreshVisibleSlotHosts() {
@@ -2666,7 +2744,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     guard !suppressContentOffsetCallback else { return }
     if pinnedMarketMutationContentOffsetY != nil {
       if tableView.isTracking || tableView.isDragging || tableView.isDecelerating {
-        pinnedMarketMutationContentOffsetY = nil
+        cancelMarketMutationContentOffsetPin()
       } else {
         restorePinnedMarketMutationContentOffset()
         return
@@ -3373,10 +3451,12 @@ private final class HomeContainerHeaderView: UIView {
     copyButton.isUserInteractionEnabled = ownsAccountRow
     networkSelectorControl.alpha = ownsAccountRow ? 1 : 0
     networkSelectorControl.isUserInteractionEnabled = ownsAccountRow
+    accountSlotHost.isUserInteractionEnabled = !ownsAccountRow
 
     let ownsBalance = !mountedSlotKeys.contains("header.balance")
     balanceButton.alpha = ownsBalance ? 1 : 0
     balanceButton.isUserInteractionEnabled = ownsBalance
+    balanceSlotHost.isUserInteractionEnabled = !ownsBalance
     updateBalanceSkeleton()
 
     let ownsActionRow = !mountedSlotKeys.contains("header.action-row")
@@ -3384,6 +3464,7 @@ private final class HomeContainerHeaderView: UIView {
       control.alpha = ownsActionRow ? 1 : 0
       control.isUserInteractionEnabled = ownsActionRow
     }
+    actionRowSlotHost.isUserInteractionEnabled = !ownsActionRow
   }
 
   private func updateBalanceSkeleton() {
