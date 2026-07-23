@@ -1,15 +1,17 @@
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { TradingViewChartControls } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import type { ITradingViewChartControlsProps } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
+import { showTradingViewChartSettingsDialog } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const ACTIVE_INDICATOR_VALUES = new Set<string>();
 
 interface ITradingViewNativeChartControlsContainerProps {
+  enableNativeChartSettings?: boolean;
   intervalConfig: ITradingViewChartControlsProps['intervalConfig'];
   layoutMode?: ITradingViewChartControlsProps['layoutMode'];
   onIntervalChange: ITradingViewChartControlsProps['onIntervalChange'];
@@ -17,6 +19,7 @@ interface ITradingViewNativeChartControlsContainerProps {
 
 export const TradingViewNativeChartControlsContainer = memo(
   ({
+    enableNativeChartSettings = false,
     intervalConfig,
     layoutMode = 'mobile',
     onIntervalChange,
@@ -25,6 +28,11 @@ export const TradingViewNativeChartControlsContainer = memo(
     const chartStyleTitle = intl.formatMessage({
       id: ETranslations.market_chart_style,
     });
+    const settingsEnabled =
+      enableNativeChartSettings && layoutMode === 'desktop';
+    const handleSettingsPress = useCallback(() => {
+      showTradingViewChartSettingsDialog();
+    }, []);
 
     return (
       <TradingViewChartControls
@@ -46,7 +54,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         })}
         nextChartTypeLabel={chartStyleTitle}
         priceMarketCap={undefined}
-        settingsEnabled={false}
+        settingsEnabled={settingsEnabled}
         showChartTypeSelect={false}
         showChartTypeToggle={false}
         showIndicatorPopover={false}
@@ -62,7 +70,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         onChartTypeChange={noop}
         onChartTypeToggle={noop}
         onPriceMarketCapModeChange={noop}
-        onSettingsPress={noop}
+        onSettingsPress={handleSettingsPress}
       />
     );
   },

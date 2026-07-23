@@ -96,6 +96,7 @@ import {
   type ITradeSide,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
+import { buildDefaultTpSlPercent } from '../../../utils/tpslSeed';
 import { PerpsSlider } from '../../PerpsSlider';
 import { PerpIpRestrictionNotice } from '../components/PerpIpRestrictionNotice';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
@@ -511,7 +512,7 @@ function PerpTradingForm({
   const { universeByBaseName } = useSpotMetaMaps();
   const perpsPositions = usePerpsAccountScopedActivePositions();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
-  const isBBOActive = !!formData.bboPriceMode;
+  const isBBOActive = !isSpot && !!formData.bboPriceMode;
   const perpsSelectedDisplayName = useMemo(
     () => parseDexCoin(perpsSelectedSymbol.coin).displayName,
     [perpsSelectedSymbol.coin],
@@ -924,6 +925,12 @@ function PerpTradingForm({
       executionPrice: '',
     });
   }, [formData.orderMode, isSpot, updateForm]);
+
+  useEffect(() => {
+    if (isSpot && formData.bboPriceMode) {
+      updateForm({ bboPriceMode: null });
+    }
+  }, [formData.bboPriceMode, isSpot, updateForm]);
 
   // Reference Price: Get the effective trading price (limit price, market price, or trigger effective price)
   const [, referencePriceString] = useMemo(() => {
@@ -1510,16 +1517,31 @@ function PerpTradingForm({
 
   const handleTpslCheckboxChange = useCallback(
     (checked: ICheckedState) => {
-      updateForm({ hasTpsl: !!checked });
-
-      if (!checked) {
+      if (checked) {
         updateForm({
+          hasTpsl: true,
+          ...buildDefaultTpSlPercent({
+            tpType: formData.tpType,
+            tpValue: formData.tpValue,
+            slType: formData.slType,
+            slValue: formData.slValue,
+          }),
+        });
+      } else {
+        updateForm({
+          hasTpsl: false,
           tpTriggerPx: '',
           slTriggerPx: '',
         });
       }
     },
-    [updateForm],
+    [
+      formData.slType,
+      formData.slValue,
+      formData.tpType,
+      formData.tpValue,
+      updateForm,
+    ],
   );
 
   const handleTpValueChange = useCallback(
@@ -1555,7 +1577,7 @@ function PerpTradingForm({
       updateForm({ bboPriceMode: null });
     } else {
       updateForm({
-        bboPriceMode: { type: 'counterparty', level: 1 },
+        bboPriceMode: { type: 'counterparty', offsetTicks: 0 },
       });
     }
   }, [formData.bboPriceMode, updateForm]);
@@ -2162,7 +2184,7 @@ function PerpTradingForm({
               />
             </YStack>
           )}
-          {formData.type === 'limit' ? (
+          {formData.type === 'limit' && !isSpot ? (
             <Badge
               testID={PerpTestIDs.BBOToggleButton}
               borderRadius="$2"
