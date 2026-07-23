@@ -45,6 +45,8 @@ export function buildHomeTokenListCacheIngestRound({
   keepDefault,
   homeDefaultTokenMap,
   customTokens,
+  smallBalanceFiatValue,
+  rawKeys,
   source,
 }: {
   ownerKey: string;
@@ -59,17 +61,21 @@ export function buildHomeTokenListCacheIngestRound({
   keepDefault?: boolean;
   homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
   customTokens?: ICustomTokenItem[];
+  smallBalanceFiatValue?: string;
+  rawKeys?: string;
   source: IIngestRoundParams['source'];
 }): IIngestRoundParams {
   const visibleTokenListMap = {
     ...tokenListMap,
     ...smallBalanceTokenListMap,
   };
-  const rawKeys = [
-    buildTokenKeys(tokenList),
-    buildTokenKeys(smallBalanceTokenList),
-    buildTokenKeys(riskyTokenList),
-  ].join('_');
+  const resolvedRawKeys =
+    rawKeys ??
+    [
+      buildTokenKeys(tokenList),
+      buildTokenKeys(smallBalanceTokenList),
+      buildTokenKeys(riskyTokenList),
+    ].join('_');
 
   return {
     ownerKey,
@@ -78,10 +84,12 @@ export function buildHomeTokenListCacheIngestRound({
     tokenListMap: visibleTokenListMap,
     aggregateTokensMap: {},
     ownedAggregateTokenListMap: {},
-    smallBalanceFiatValue: sumFiatValueByTokens({
-      tokens: smallBalanceTokenList,
-      tokenListMap: visibleTokenListMap,
-    }),
+    smallBalanceFiatValue:
+      smallBalanceFiatValue ??
+      sumFiatValueByTokens({
+        tokens: smallBalanceTokenList,
+        tokenListMap: visibleTokenListMap,
+      }),
     storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
     keepDefault,
     homeDefaultTokenMap,
@@ -92,7 +100,7 @@ export function buildHomeTokenListCacheIngestRound({
     },
     accountId,
     networkId,
-    rawKeys,
+    rawKeys: resolvedRawKeys,
     source,
   };
 }

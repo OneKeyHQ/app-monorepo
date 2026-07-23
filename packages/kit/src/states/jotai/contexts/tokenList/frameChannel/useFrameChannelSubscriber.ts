@@ -36,6 +36,12 @@ export interface IFrameChannelKindSubscription<TKind extends string, TPull> {
   fromPull: (pull: TPull) => unknown | undefined;
 }
 
+export interface IFrameChannelAppliedFrame<TKind extends string> {
+  kind: TKind;
+  ownerKey: string;
+  version: number;
+}
+
 export interface IUseFrameChannelSubscriberParams<TKind extends string, TPull> {
   ownerKey: string;
   /** false to no-op (deps not ready, or an anonymous mount with no identity). */
@@ -48,7 +54,7 @@ export interface IUseFrameChannelSubscriberParams<TKind extends string, TPull> {
   /** domain setup on subscribe; return a teardown (e.g. registry deregister). */
   onSetup?: () => (() => void) | void;
   /** domain post-apply hook per kind (e.g. cold-start persist). */
-  onAfterApply?: (kind: TKind) => void;
+  onAfterApply?: (frame: IFrameChannelAppliedFrame<TKind>) => void;
   /** extra effect deps that should re-run the subscription (e.g. store). */
   extraDeps?: unknown[];
 }
@@ -92,11 +98,16 @@ export function useFrameChannelSubscriber<TKind extends string, TPull>(
         k: IFrameChannelKindSubscription<TKind, TPull>,
         framePayload: unknown,
       ): void => {
-        if (!gate.accept(k.kind, k.getVersion(framePayload))) {
+        const version = k.getVersion(framePayload);
+        if (!gate.accept(k.kind, version)) {
           return;
         }
         k.apply(framePayload);
-        p.onAfterApply?.(k.kind);
+        p.onAfterApply?.({
+          kind: k.kind,
+          ownerKey: k.getOwnerKey(framePayload),
+          version,
+        });
       };
 
       const handlers = p.kinds.map((k) => {

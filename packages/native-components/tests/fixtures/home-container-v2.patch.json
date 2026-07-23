@@ -1,0 +1,63 @@
+{
+  "kind": "patch",
+  "protocolVersion": 2,
+  "schemaVersion": 2,
+  "owner": {
+    "scopeKey": "wallet-1:account-1:all",
+    "sessionId": "session-1"
+  },
+  "baseRevision": 7,
+  "revision": 8,
+  "changes": [
+    {
+      "kind": "replaceShell",
+      "value": {
+        "accountName": "Account 1",
+        "balance": "$101.00",
+        "actions": [],
+        "banners": []
+      }
+    },
+    {
+      "kind": "replaceNavigation",
+      "value": {
+        "selectedTabId": "history",
+        "tabs": [
+          {
+            "id": "portfolio",
+            "title": "Spot",
+            "destination": "inline"
+          },
+          {
+            "id": "perps",
+            "title": "Perps",
+            "destination": "handoff",
+            "handoffCommandId": "home.perps.openWeb"
+          },
+          {
+            "id": "history",
+            "title": "History",
+            "destination": "inline"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "replaceSection",
+      "tabId": "history",
+      "sectionId": "history",
+      "index": 0,
+      "value": {
+        "id": "history",
+        "items": [
+          {
+            "id": "transfer-1",
+            "renderer": "history",
+            "title": "Receive",
+            "value": "+1 USDC"
+          }
+        ]
+      }
+    }
+  ]
+}

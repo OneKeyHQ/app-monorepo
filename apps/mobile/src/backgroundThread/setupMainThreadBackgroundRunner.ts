@@ -55,7 +55,10 @@ import {
   BACKGROUND_THREAD_READY_KEY,
   parseBackgroundThreadRuntimePayload,
 } from './runtimeReady';
-import { setBackgroundThreadReadyPayload } from './runtimeState';
+import {
+  classifyBackgroundThreadReadyReason,
+  setBackgroundThreadReadyPayload,
+} from './runtimeState';
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 
@@ -877,18 +880,19 @@ function handleRuntimeSignal() {
   }
 
   const previousBootId = currentBackgroundRuntimeBootId;
-  const bootIdChanged = Boolean(
-    previousBootId && previousBootId !== runtimePayload.bootId,
-  );
+  const readyReason = classifyBackgroundThreadReadyReason({
+    nextBootId: runtimePayload.bootId,
+    previousBootId,
+    transportState,
+  });
   currentBackgroundRuntimeBootId = runtimePayload.bootId;
 
   if (transportState === 'ready') {
-    if (bootIdChanged) {
+    if (readyReason === 'restarted') {
       const reason = `Background runtime restarted while transport ready: ${previousBootId} -> ${runtimePayload.bootId}`;
       transportLog(
         `background runtime bootId changed while transport ready: ${previousBootId} -> ${runtimePayload.bootId}`,
       );
-      setBackgroundThreadReadyPayload(runtimePayload);
       // The new bg runtime has already signaled ready, so keep the transport
       // ready for new calls. Old in-flight calls belonged to the previous bg
       // JS heap and cannot receive a reliable response anymore. Do not replay
@@ -896,6 +900,7 @@ function handleRuntimeSignal() {
       // are the special case that owns a request-status fence and retry loop.
       rejectQueuedCalls(reason);
       rejectPendingRemoteCalls(reason);
+      setBackgroundThreadReadyPayload(runtimePayload, 'restarted');
     }
     return;
   }
@@ -914,7 +919,7 @@ function handleRuntimeSignal() {
     `transport → ready at +${readyFromEntry}ms from JS entry (starting→ready: ${readyFromStarting}ms, observer retries: ${observerRetryCount})`,
   );
   clearReadyTimeoutTimer();
-  setBackgroundThreadReadyPayload(runtimePayload);
+  setBackgroundThreadReadyPayload(runtimePayload, readyReason);
   dispatchQueuedCallsToRemote();
 }
 

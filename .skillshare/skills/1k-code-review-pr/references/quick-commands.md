@@ -33,6 +33,9 @@ grep -r "from.*@onekeyhq/components" packages/kit-bg/src/ 2>/dev/null
 
 # shared importing from other onekey packages (FORBIDDEN)
 grep -r "from.*@onekeyhq/" packages/shared/src/ 2>/dev/null | grep -v "@onekeyhq/shared"
+
+# native-components importing business/UI packages (FORBIDDEN)
+grep -r "from.*@onekeyhq/\(components\|kit-bg\|kit\)" packages/native-components/src/ 2>/dev/null
 ```
 
 ## React Hooks

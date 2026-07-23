@@ -16,40 +16,27 @@ import {
   Tabs,
   XStack,
   YStack,
-  rootNavigationRef,
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import type { ISizableTextProps } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useHomeResource } from '@onekeyhq/kit/src/states/jotai/contexts/home';
 import {
   LeverageBadge,
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { useNavigateToMarketTab } from '@onekeyhq/kit/src/views/Market/hooks';
-import { useMarketPerpsTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import { getTradingButtonStyleValues } from '@onekeyhq/kit/src/views/Perp/utils/styleUtils';
 import {
-  perpsPendingInfoPanelTabAtom,
-  spotActiveAssetAtom,
-  tradingModeAtom,
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
-import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   type INumberFormatProps,
   numberFormat,
@@ -75,13 +62,18 @@ import {
   HOME_PERPS_GUIDE_URL,
   HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
 } from '../components/PopularTrading/constants';
-import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
+import { PullToRefresh } from '../components/PullToRefresh';
 import { RichBlock } from '../components/RichBlock';
 import { SupportHub } from '../components/SupportHub/SupportHub';
 import { Upgrade } from '../components/Upgrade/Upgrade';
+import {
+  useHomeFactsSnapshot,
+  useHomeSectionPayload,
+  useHomeSectionSnapshot,
+} from '../model/react/homeStoreHooks';
+import { useHomePerpsIntents } from '../model/react/useHomePerpsIntents';
+import { useHomeRefreshIntents } from '../model/react/useHomeRefreshIntents';
 import { HomeTestIDs } from '../testIDs';
-
-import { usePerpsHomePortfolio } from './usePerpsHomePortfolio';
 
 const HYPER_EVM_LOGO_URI =
   'https://uni.onekey-asset.com/static/chain/hyper-evm.png';
@@ -94,8 +86,6 @@ const HOT_MARKETS_DESKTOP_GRID: React.CSSProperties = {
   width: '100%',
 };
 const noop = () => undefined;
-type IPerpsTradeMode = 'perp' | 'spot';
-type IPerpsInfoPanelTab = 'Positions' | 'Balances';
 const VALUE_FORMATTER: INumberFormatProps['formatter'] = 'value';
 const VALUE_FORMATTER_OPTIONS: INumberFormatProps['formatterOptions'] = {
   currency: '$',
@@ -107,99 +97,8 @@ function isTradableSpotHolding(holding: IPerpsHomeHolding) {
   );
 }
 
-function useEnsureHomePerpsAccount() {
-  const {
-    activeAccount: { account, indexedAccount, wallet },
-  } = useActiveAccount({ num: 0 });
-
-  return useCallback(async () => {
-    if (!account?.id && !indexedAccount?.id) {
-      return undefined;
-    }
-    const deriveType =
-      await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-        networkId: PERPS_NETWORK_ID,
-      });
-    return backgroundApiProxy.serviceHyperliquid.changeActivePerpsAccount({
-      indexedAccountId: indexedAccount?.id ?? null,
-      accountId: account?.id ?? null,
-      walletId: wallet?.id ?? null,
-      deriveType: deriveType ?? 'default',
-    });
-  }, [account?.id, indexedAccount?.id, wallet?.id]);
-}
-
-// Jump into the Perps tab (optionally focusing a coin), mirroring UniversalSearchPerpItem.
 function useOpenPerpAsset() {
-  const navigation = useAppNavigation();
-  const ensureHomePerpsAccount = useEnsureHomePerpsAccount();
-  return useCallback(
-    (
-      coin?: string,
-      mode: IPerpsTradeMode = 'perp',
-      openMarket = true,
-      infoPanelTab?: IPerpsInfoPanelTab,
-    ) => {
-      void (async () => {
-        const activePerpsAccount = await ensureHomePerpsAccount();
-        if (!activePerpsAccount) {
-          return;
-        }
-        if (coin && !activePerpsAccount?.accountAddress) {
-          return;
-        }
-        try {
-          if (coin && mode === 'perp') {
-            await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
-              coin,
-            });
-            await tradingModeAtom.set('perp');
-          } else if (coin && mode === 'spot') {
-            await spotActiveAssetAtom.set({
-              coin,
-              assetId: undefined,
-              universe: undefined,
-            });
-            await tradingModeAtom.set('spot');
-          }
-        } catch {
-          return;
-        }
-        if (infoPanelTab) {
-          await perpsPendingInfoPanelTabAtom.set(infoPanelTab);
-        }
-        navigation.switchTab(ETabRoutes.Perp);
-        if (!coin) {
-          return;
-        }
-        try {
-          appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
-            mode,
-            coin,
-          });
-          if (infoPanelTab) {
-            setTimeout(() => {
-              appEventBus.emit(EAppEventBusNames.PerpSwitchInfoPanelTab, {
-                tab: infoPanelTab,
-              });
-            }, 0);
-          }
-        } catch {
-          return;
-        }
-        if (platformEnv.isNative && openMarket) {
-          // The Home navigator can't push into the Perp tab's stack, so go via the root.
-          setTimeout(() => {
-            rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-              screen: ETabRoutes.Perp,
-              params: { screen: EModalPerpRoutes.MobilePerpMarket },
-            });
-          }, 500);
-        }
-      })();
-    },
-    [ensureHomePerpsAccount, navigation],
-  );
+  return useHomePerpsIntents().openPerpAsset;
 }
 
 function PerpsUsd({
@@ -598,13 +497,14 @@ function PerpsEmptyRecommendSection() {
   const media = useMedia();
   const openPerp = useOpenPerpAsset();
   const navigateToMarketTab = useNavigateToMarketTab();
-  const { tokens, isLoading } = useMarketPerpsTokenList({
-    selectedCategoryId: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
-  });
+  const marketResource = useHomeResource('market');
+  const marketPayload = useHomeSectionPayload('market');
+  const isLoading =
+    marketResource.kind === 'idle' || marketResource.kind === 'loading';
 
   const displayTokens = useMemo(
-    () => tokens.slice(0, media.gtMd ? 6 : 5),
-    [media.gtMd, tokens],
+    () => marketPayload?.perpsHotRows.slice(0, media.gtMd ? 6 : 5) ?? [],
+    [marketPayload?.perpsHotRows, media.gtMd],
   );
 
   if (!isLoading && displayTokens.length === 0) {
@@ -679,10 +579,12 @@ function PerpsEmptyRecommendSection() {
         </XStack>
         {displayTokens.map((token) => (
           <XStack
-            key={token.name}
+            key={token.perpsCoin ?? token.name}
             hoverStyle={{ bg: '$bgHover' }}
             pressStyle={{ bg: '$bgActive' }}
-            onPress={() => openPerp(token.name, 'perp', false)}
+            onPress={() =>
+              openPerp(token.perpsCoin ?? token.name, 'perp', false)
+            }
             cursor="pointer"
             role="button"
             borderRadius="$3"
@@ -695,7 +597,7 @@ function PerpsEmptyRecommendSection() {
                 <Token
                   size="md"
                   borderRadius="$full"
-                  tokenImageUri={token.tokenImageUrl}
+                  tokenImageUri={token.logoUrl}
                   fallbackIcon="CryptoCoinOutline"
                 />
                 <YStack flex={1} minWidth={0}>
@@ -712,16 +614,18 @@ function PerpsEmptyRecommendSection() {
                       ellipsizeMode="tail"
                       userSelect="none"
                     >
-                      {token.displayName}
+                      {token.symbol || token.name}
                     </SizableText>
-                    <LeverageBadge leverage={token.maxLeverage} />
+                    {token.maxLeverage ? (
+                      <LeverageBadge leverage={token.maxLeverage} />
+                    ) : null}
                   </XStack>
-                  {token.subtitle ? (
-                    <SubtitleText subtitle={token.subtitle} />
+                  {token.perpsSubtitle ? (
+                    <SubtitleText subtitle={token.perpsSubtitle} />
                   ) : null}
                 </YStack>
               </XStack>
-              {token.markPrice ? (
+              {token.price ? (
                 <NumberSizeableText
                   numberOfLines={1}
                   size="$bodyLgMedium"
@@ -729,7 +633,7 @@ function PerpsEmptyRecommendSection() {
                   formatter="price"
                   formatterOptions={{ currency: '$' }}
                 >
-                  {token.markPrice}
+                  {token.price}
                 </NumberSizeableText>
               ) : (
                 <SizableText
@@ -740,7 +644,7 @@ function PerpsEmptyRecommendSection() {
                   --
                 </SizableText>
               )}
-              {token.change24hPercent === undefined ? (
+              {token.priceChange24h === undefined ? (
                 <SizableText
                   size="$bodyLgMedium"
                   color="$textSubdued"
@@ -754,14 +658,12 @@ function PerpsEmptyRecommendSection() {
                   size="$bodyLgMedium"
                   textAlign="right"
                   color={
-                    token.change24hPercent >= 0
-                      ? '$textSuccess'
-                      : '$textCritical'
+                    token.priceChange24h >= 0 ? '$textSuccess' : '$textCritical'
                   }
                   formatter="priceChange"
                   formatterOptions={{ showPlusMinusSigns: true }}
                 >
-                  {token.change24hPercent}
+                  {token.priceChange24h}
                 </NumberSizeableText>
               )}
               {token.volume24h ? (
@@ -790,19 +692,20 @@ function PerpsEmptyRecommendSection() {
       <YStack display="flex" $gtMd={{ display: 'none' }}>
         {displayTokens.map((token) => {
           const hasChange24hPercent =
-            token.change24hPercent !== undefined &&
-            token.change24hPercent !== null;
+            token.priceChange24h !== undefined && token.priceChange24h !== null;
           let change24hPercentColor = '$textSubdued';
           if (hasChange24hPercent) {
             change24hPercentColor =
-              token.change24hPercent >= 0 ? '$textSuccess' : '$textCritical';
+              token.priceChange24h >= 0 ? '$textSuccess' : '$textCritical';
           }
           return (
-            <Stack key={token.name}>
+            <Stack key={token.perpsCoin ?? token.name}>
               <XStack
                 hoverStyle={{ bg: '$bgHover' }}
                 pressStyle={{ bg: '$bgActive' }}
-                onPress={() => openPerp(token.name, 'perp', false)}
+                onPress={() =>
+                  openPerp(token.perpsCoin ?? token.name, 'perp', false)
+                }
                 cursor="pointer"
                 role="button"
                 borderRadius="$3"
@@ -816,7 +719,7 @@ function PerpsEmptyRecommendSection() {
                   <Token
                     size="md"
                     borderRadius="$full"
-                    tokenImageUri={token.tokenImageUrl}
+                    tokenImageUri={token.logoUrl}
                     fallbackIcon="CryptoCoinOutline"
                   />
                   <YStack flex={1} minWidth={0}>
@@ -833,13 +736,15 @@ function PerpsEmptyRecommendSection() {
                         ellipsizeMode="tail"
                         userSelect="none"
                       >
-                        {token.displayName}
+                        {token.symbol || token.name}
                       </SizableText>
-                      <LeverageBadge leverage={token.maxLeverage} />
+                      {token.maxLeverage ? (
+                        <LeverageBadge leverage={token.maxLeverage} />
+                      ) : null}
                     </XStack>
                     <XStack alignItems="center" gap="$1" minWidth={0}>
-                      {token.subtitle ? (
-                        <SubtitleText subtitle={token.subtitle} />
+                      {token.perpsSubtitle ? (
+                        <SubtitleText subtitle={token.perpsSubtitle} />
                       ) : null}
                       <NumberSizeableText
                         size="$bodyMd"
@@ -865,7 +770,7 @@ function PerpsEmptyRecommendSection() {
                     formatter="price"
                     formatterOptions={{ currency: '$' }}
                   >
-                    {token.markPrice ?? '-'}
+                    {token.price ?? '-'}
                   </NumberSizeableText>
                   <NumberSizeableText
                     size="$bodyMd"
@@ -873,7 +778,7 @@ function PerpsEmptyRecommendSection() {
                     formatter="priceChange"
                     formatterOptions={{ showPlusMinusSigns: true }}
                   >
-                    {token.change24hPercent ?? '-'}
+                    {token.priceChange24h ?? '-'}
                   </NumberSizeableText>
                 </YStack>
               </XStack>
@@ -926,24 +831,19 @@ function PerpsDepositButton({
 }) {
   const intl = useIntl();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
-  const ensureHomePerpsAccount = useEnsureHomePerpsAccount();
+  const { prepareDeposit } = useHomePerpsIntents();
   const buttonStyles = getTradingButtonStyleValues('long', isDepositDisabled);
 
   const handleDeposit = useCallback(async () => {
     if (!canDeposit || isDepositDisabled) {
       return;
     }
-    const activePerpsAccount = await ensureHomePerpsAccount();
+    const activePerpsAccount = await prepareDeposit();
     if (!activePerpsAccount?.accountId || !activePerpsAccount.accountAddress) {
       return;
     }
     await showDepositWithdrawModal('deposit');
-  }, [
-    canDeposit,
-    ensureHomePerpsAccount,
-    isDepositDisabled,
-    showDepositWithdrawModal,
-  ]);
+  }, [canDeposit, prepareDeposit, isDepositDisabled, showDepositWithdrawModal]);
 
   if (!canDeposit) {
     return null;
@@ -1057,6 +957,31 @@ function PerpsEmptyState({
   );
 }
 
+export function PerpsHomeStateSlot({
+  viewState,
+  canDeposit,
+  isDepositDisabled,
+}: {
+  viewState: 'loading' | 'empty';
+  canDeposit: boolean;
+  isDepositDisabled: boolean;
+}) {
+  return (
+    <YStack px="$5" py="$3" pb="$4" gap="$2">
+      {viewState === 'loading' ? <PerpsLoadingState /> : null}
+      {viewState === 'empty' ? (
+        <>
+          <PerpsEmptyState
+            canDeposit={canDeposit}
+            isDepositDisabled={isDepositDisabled}
+          />
+          <PerpsEmptyRecommendSection />
+        </>
+      ) : null}
+    </YStack>
+  );
+}
+
 function PerpsMobileHoldingRow({
   holding,
   hyperEvmLogoUri,
@@ -1158,6 +1083,122 @@ function PerpsMobileHoldingRow({
   );
 }
 
+function PerpsMobileSummaryTitle({
+  totalUsd,
+  isDegraded,
+  canDeposit,
+  isDepositDisabled,
+}: {
+  totalUsd: number;
+  isDegraded?: boolean;
+  canDeposit: boolean;
+  isDepositDisabled: boolean;
+}) {
+  const intl = useIntl();
+
+  return (
+    <XStack alignItems="center" justifyContent="space-between" gap="$4">
+      <XStack flex={1} minWidth={0} alignItems="center" gap="$1">
+        <SizableText size="$headingXl" color="$text" numberOfLines={1}>
+          {intl.formatMessage({ id: ETranslations.global_perp })}
+        </SizableText>
+        <SizableText size="$headingXl" color="$textSubdued">
+          ·
+        </SizableText>
+        <PerpsTotalUsd
+          value={totalUsd}
+          isDegraded={isDegraded}
+          size="$headingXl"
+          color="$textSubdued"
+          numberOfLines={1}
+        />
+      </XStack>
+      <PerpsDepositButton
+        testID={HomeTestIDs.perpsDepositButton}
+        canDeposit={canDeposit}
+        isDepositDisabled={isDepositDisabled}
+      />
+    </XStack>
+  );
+}
+
+function PerpsMobileColumnHeader() {
+  const intl = useIntl();
+  const media = useMedia();
+  const tooltipText = media.gtMd
+    ? undefined
+    : intl.formatMessage({
+        id: ETranslations.marketdex_un_pnl,
+      });
+  const tooltipTitle = media.gtMd
+    ? undefined
+    : intl.formatMessage({
+        id: ETranslations.marketdex_unrealized_pnl,
+      });
+
+  return (
+    <XStack alignItems="center" gap="$3" pt="$1.5">
+      <XStack flexGrow={1} flexBasis={0} alignItems="center" gap="$1">
+        <SizableText size="$bodyXs" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.global_name })}
+        </SizableText>
+        <SizableText size="$bodyXs" color="$textSubdued">
+          /
+        </SizableText>
+        <SizableText size="$bodyXs" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.global_balance })}
+        </SizableText>
+      </XStack>
+      <XStack
+        flexGrow={1}
+        flexBasis={0}
+        justifyContent="flex-end"
+        gap="$1"
+        alignItems="center"
+      >
+        <SizableText size="$bodyXs" color="$textSubdued">
+          {`${intl.formatMessage({ id: ETranslations.global_value })} / `}
+        </SizableText>
+        <DashText
+          size="$bodyXs"
+          color="$textSubdued"
+          dashThickness={0.5}
+          tooltip={tooltipText}
+          tooltipTitle={tooltipTitle}
+        >
+          {intl.formatMessage({
+            id: ETranslations.perp_position_pnl_mobile,
+          })}
+        </DashText>
+      </XStack>
+    </XStack>
+  );
+}
+
+export function PerpsHomeHeaderSlot({
+  totalUsd,
+  isDegraded,
+  canDeposit,
+  isDepositDisabled,
+}: {
+  totalUsd: number;
+  isDegraded?: boolean;
+  canDeposit: boolean;
+  isDepositDisabled: boolean;
+}) {
+  return (
+    <YStack flex={1} px="$5" gap="$3" py="$2">
+      <PerpsMobileSummaryTitle
+        totalUsd={totalUsd}
+        isDegraded={isDegraded}
+        canDeposit={canDeposit}
+        isDepositDisabled={isDepositDisabled}
+      />
+      <PerpsMobileColumnHeader />
+    </YStack>
+  );
+}
+
 function PerpsMobileHoldingsSummary({
   totalUsd,
   holdings,
@@ -1171,80 +1212,18 @@ function PerpsMobileHoldingsSummary({
   canDeposit: boolean;
   isDepositDisabled: boolean;
 }) {
-  const intl = useIntl();
-  const media = useMedia();
   const openPerp = useOpenPerpAsset();
-  const tooltipText = media.gtMd
-    ? undefined
-    : intl.formatMessage({
-        id: ETranslations.marketdex_un_pnl,
-      });
-  const tooltipTitle = media.gtMd
-    ? undefined
-    : intl.formatMessage({
-        id: ETranslations.marketdex_unrealized_pnl,
-      });
 
   return (
     <YStack display="flex" $gtMd={{ display: 'none' }} gap="$3" py="$2">
-      <XStack alignItems="center" justifyContent="space-between" gap="$4">
-        <XStack flex={1} minWidth={0} alignItems="center" gap="$1">
-          <SizableText size="$headingXl" color="$text" numberOfLines={1}>
-            {intl.formatMessage({ id: ETranslations.global_perp })}
-          </SizableText>
-          <SizableText size="$headingXl" color="$textSubdued">
-            ·
-          </SizableText>
-          <PerpsTotalUsd
-            value={totalUsd}
-            isDegraded={isDegraded}
-            size="$headingXl"
-            color="$textSubdued"
-            numberOfLines={1}
-          />
-        </XStack>
-        <PerpsDepositButton
-          testID={HomeTestIDs.perpsDepositButton}
-          canDeposit={canDeposit}
-          isDepositDisabled={isDepositDisabled}
-        />
-      </XStack>
+      <PerpsMobileSummaryTitle
+        totalUsd={totalUsd}
+        isDegraded={isDegraded}
+        canDeposit={canDeposit}
+        isDepositDisabled={isDepositDisabled}
+      />
       <YStack gap="$0.5">
-        <XStack alignItems="center" gap="$3" pt="$1.5">
-          <XStack flexGrow={1} flexBasis={0} alignItems="center" gap="$1">
-            <SizableText size="$bodyXs" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.global_name })}
-            </SizableText>
-            <SizableText size="$bodyXs" color="$textSubdued">
-              /
-            </SizableText>
-            <SizableText size="$bodyXs" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.global_balance })}
-            </SizableText>
-          </XStack>
-          <XStack
-            flexGrow={1}
-            flexBasis={0}
-            justifyContent="flex-end"
-            gap="$1"
-            alignItems="center"
-          >
-            <SizableText size="$bodyXs" color="$textSubdued">
-              {`${intl.formatMessage({ id: ETranslations.global_value })} / `}
-            </SizableText>
-            <DashText
-              size="$bodyXs"
-              color="$textSubdued"
-              dashThickness={0.5}
-              tooltip={tooltipText}
-              tooltipTitle={tooltipTitle}
-            >
-              {intl.formatMessage({
-                id: ETranslations.perp_position_pnl_mobile,
-              })}
-            </DashText>
-          </XStack>
-        </XStack>
+        <PerpsMobileColumnHeader />
         <YStack>
           {holdings.map((holding) => (
             <PerpsMobileHoldingRow
@@ -1586,8 +1565,26 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
 export function PerpsContainer() {
   const intl = useIntl();
   const tabBarHeight = useScrollContentTabBarOffset();
-  const { viewState, view, canDeposit, isDepositDisabled } =
-    usePerpsHomePortfolio();
+  const homeFactsSnapshot = useHomeFactsSnapshot();
+  const perpsSection = useHomeSectionSnapshot('perps');
+  const perpsResource = useHomeResource('perps');
+  const perpsPayload = useHomeSectionPayload('perps');
+  const { refreshSection, refreshingBySection } = useHomeRefreshIntents();
+  const view = perpsPayload?.view;
+  let viewState: 'ready' | 'loading' | 'empty' = 'loading';
+  if (perpsPayload) {
+    viewState = 'ready';
+  } else if (
+    perpsResource.kind === 'empty' ||
+    perpsSection.value.kind === 'empty' ||
+    perpsSection.value.kind === 'error'
+  ) {
+    viewState = 'empty';
+  }
+  const canDeposit = Boolean(perpsPayload?.address);
+  const isDepositDisabled = accountUtils.isWatchingAccount({
+    accountId: homeFactsSnapshot?.owner.accountId ?? '',
+  });
 
   return (
     <Stack flex={1}>
@@ -1597,7 +1594,10 @@ export function PerpsContainer() {
         nestedScrollEnabled={platformEnv.isNativeAndroid}
         refreshControl={
           !platformEnv.isNativeAndroid ? (
-            <PullToRefresh onRefresh={onHomePageRefresh} />
+            <PullToRefresh
+              onRefresh={() => refreshSection('perps')}
+              refreshing={refreshingBySection.perps}
+            />
           ) : undefined
         }
       >

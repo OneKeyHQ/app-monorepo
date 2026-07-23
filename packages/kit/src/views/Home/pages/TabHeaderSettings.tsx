@@ -195,7 +195,11 @@ function TxHistorySettingsContent({
   );
 }
 
-function TxHistorySettings() {
+function TxHistorySettings({
+  triggerIcon = 'SliderHorOutline',
+}: {
+  triggerIcon?: 'Filter1Outline' | 'SliderHorOutline';
+}) {
   const intl = useIntl();
   const [settings, setSettings] = useSettingsPersistAtom();
   const { isPrimeSubscriptionActive } = useOneKeyAuth();
@@ -275,7 +279,7 @@ function TxHistorySettings() {
               id: ETranslations.global_filter,
             })}
             variant="tertiary"
-            icon="SliderHorOutline"
+            icon={triggerIcon}
           />
         }
         renderContent={
@@ -299,7 +303,15 @@ function TxHistorySettings() {
   );
 }
 
-function BasicTabHeaderSettings({ focusedTab }: { focusedTab: string }) {
+function BasicTabHeaderSettings({
+  focusedTab,
+  historyIcon,
+  nativeSlot = false,
+}: {
+  focusedTab: string;
+  historyIcon?: 'Filter1Outline' | 'SliderHorOutline';
+  nativeSlot?: boolean;
+}) {
   const intl = useIntl();
   const historyName = useMemo(
     () =>
@@ -321,12 +333,26 @@ function BasicTabHeaderSettings({ focusedTab }: { focusedTab: string }) {
       case portfolioName:
         return <TokenListSettings />;
       case historyName:
-        return <TxHistorySettings />;
+        return <TxHistorySettings triggerIcon={historyIcon} />;
       default:
         return null;
     }
-  }, [portfolioName, focusedTab, historyName]);
-  return <XStack pr="$pagePadding">{content}</XStack>;
+  }, [portfolioName, focusedTab, historyIcon, historyName]);
+  return (
+    <XStack
+      pr={nativeSlot ? '$0' : '$pagePadding'}
+      {...(nativeSlot
+        ? {
+            alignItems: 'center' as const,
+            height: '100%',
+            justifyContent: 'center' as const,
+            width: '100%',
+          }
+        : {})}
+    >
+      {content}
+    </XStack>
+  );
 }
 
 export const TabHeaderSettings = memo(BasicTabHeaderSettings);

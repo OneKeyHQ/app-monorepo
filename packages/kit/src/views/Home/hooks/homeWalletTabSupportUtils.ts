@@ -29,20 +29,30 @@ export const HOME_WALLET_TAB_SUPPORT_INIT: IHomeWalletTabSupportState = {
   isPerpsSupported: false,
 };
 
-export function resolveHomeWalletTabSupport({
-  result,
-  scopeKey,
-  lastReadyResult,
+export function buildHomeWalletTabSupportScopeKey({
+  accountScopeId,
+  networkId,
+  isAllNetworks,
 }: {
-  result: IScopedHomeWalletTabSupportState | undefined;
-  scopeKey: string;
-  lastReadyResult: IScopedHomeWalletTabSupportState | undefined;
-}): IHomeWalletTabSupportState {
-  if (result?.scopeKey === scopeKey) {
-    return result;
-  }
+  accountScopeId: string;
+  networkId: string;
+  isAllNetworks: boolean;
+}) {
+  return [accountScopeId, networkId, isAllNetworks ? 'all' : 'single']
+    .map((part) => `${part.length}:${part}`)
+    .join('|');
+}
 
-  return lastReadyResult ?? HOME_WALLET_TAB_SUPPORT_INIT;
+export function resolveHomeWalletTabSupportAccountScopeId({
+  indexedAccountId,
+  accountId,
+  walletId,
+}: {
+  indexedAccountId?: string;
+  accountId?: string;
+  walletId?: string;
+}) {
+  return indexedAccountId || accountId || walletId || '';
 }
 
 export function hasDeFiSupportedEnabledNetwork({
@@ -68,28 +78,27 @@ export function hasDeFiSupportedEnabledNetwork({
 
 export function buildHomeWalletTabSupport({
   network,
-  allNetworks,
-  allNetworksState,
   deFiEnabledNetworksMap,
   perpDisabled,
+  isReady = true,
 }: {
   network?: IHomeWalletTabSupportNetwork | null;
-  allNetworks?: IHomeWalletTabSupportNetwork[];
-  allNetworksState?: IAllNetworksState;
   deFiEnabledNetworksMap: Record<string, boolean>;
   perpDisabled: boolean;
+  isReady?: boolean;
 }): IHomeWalletTabSupportState {
+  if (!isReady) {
+    return HOME_WALLET_TAB_SUPPORT_INIT;
+  }
+
   let isDeFiSupported = false;
 
   if (network?.id) {
     if (networkUtils.isAllNetwork({ networkId: network.id })) {
-      isDeFiSupported =
-        !!allNetworksState &&
-        hasDeFiSupportedEnabledNetwork({
-          allNetworks: allNetworks ?? [],
-          allNetworksState,
-          deFiEnabledNetworksMap,
-        });
+      // All Networks is an aggregate product surface. Keep DeFi available even
+      // while the enabled-network capability map is refreshing or temporarily
+      // incomplete; Perps still respects its independent global kill switch.
+      isDeFiSupported = true;
     } else {
       isDeFiSupported = !!deFiEnabledNetworksMap[network.id];
     }

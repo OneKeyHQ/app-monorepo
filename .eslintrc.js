@@ -461,7 +461,6 @@ module.exports = {
             patterns: [
               ...restrictedImportsPatterns,
               {
-                allowTypeImports: true,
                 group: [
                   '@onekeyhq/kit',
                   '@onekeyhq/kit-bg',
@@ -469,6 +468,38 @@ module.exports = {
                 ],
                 message:
                   'Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg and @onekeyhq/components in this folder',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: [
+        'packages/native-components/src/**/*.ts',
+        'packages/native-components/src/**/*.tsx',
+      ],
+      rules: {
+        '@typescript-eslint/no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              ...restrictedImportsPatterns,
+              {
+                allowTypeImports: true,
+                group: [
+                  'tamagui',
+                  '@onekeyhq/core',
+                  '@onekeyhq/core/**',
+                  '@onekeyhq/components',
+                  '@onekeyhq/components/**',
+                  '@onekeyhq/kit-bg',
+                  '@onekeyhq/kit-bg/**',
+                  '@onekeyhq/kit',
+                  '@onekeyhq/kit/**',
+                ],
+                message:
+                  'native-components is a low-level bridge and may depend only on shared plus third-party native peers',
               },
             ],
           },

@@ -1,0 +1,245 @@
+diff --git a/node_modules/@onekeyfe/react-native-skeleton/android/src/main/java/com/margelo/nitro/skeleton/Skeleton.kt b/node_modules/@onekeyfe/react-native-skeleton/android/src/main/java/com/margelo/nitro/skeleton/Skeleton.kt
+index 65604fa..bd10338 100644
+--- a/node_modules/@onekeyfe/react-native-skeleton/android/src/main/java/com/margelo/nitro/skeleton/Skeleton.kt
++++ b/node_modules/@onekeyfe/react-native-skeleton/android/src/main/java/com/margelo/nitro/skeleton/Skeleton.kt
+@@ -1,6 +1,7 @@
+ package com.margelo.nitro.skeleton
+
+ import android.animation.ValueAnimator
++import android.content.Context
+ import android.graphics.Canvas
+ import android.graphics.Color
+ import android.graphics.LinearGradient
+@@ -8,6 +9,7 @@ import android.graphics.Paint
+ import android.graphics.Shader
+ import android.view.View
+ import android.view.animation.LinearInterpolator
++import android.widget.FrameLayout
+ import com.facebook.proguard.annotations.DoNotStrip
+ import com.facebook.react.uimanager.ThemedReactContext
+ import androidx.core.graphics.toColorInt
+@@ -220,6 +222,9 @@ class HybridSkeleton(val context: ThemedReactContext) : HybridSkeletonSpec() {
+   }
+
+   override fun dispose() {
++    // OneKey patch: make final Fabric teardown idempotent before releasing HybridData.
++    if (isDisposed) return
++
+     // Mark as disposed to prevent any new operations
+     isDisposed = true
+
+@@ -230,3 +235,58 @@ class HybridSkeleton(val context: ThemedReactContext) : HybridSkeletonSpec() {
+     view.invalidate()
+   }
+ }
++
++// OneKey patch: expose the same native shimmer view to non-React native containers.
++class SkeletonNativeView(context: Context) : FrameLayout(context) {
++  private var skeleton: HybridSkeleton? = null
++  private var configuredSpeed: Double = 3.0
++  private var configuredGradientColors: Array<String>? = null
++
++  init {
++    isClickable = false
++    isFocusable = false
++    importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
++    clipChildren = true
++    attachSkeleton()
++  }
++
++  fun configure(shimmerSpeed: Double, shimmerGradientColors: Array<String>) {
++    configuredSpeed = shimmerSpeed
++    configuredGradientColors = shimmerGradientColors
++    skeleton?.shimmerSpeed = shimmerSpeed
++    skeleton?.shimmerGradientColors = shimmerGradientColors
++  }
++
++  override fun onAttachedToWindow() {
++    super.onAttachedToWindow()
++    if (skeleton == null) attachSkeleton()
++  }
++
++  override fun onDetachedFromWindow() {
++    releaseSkeleton()
++    super.onDetachedFromWindow()
++  }
++
++  override fun onSizeChanged(width: Int, height: Int, oldWidth: Int, oldHeight: Int) {
++    super.onSizeChanged(width, height, oldWidth, oldHeight)
++    skeleton?.afterUpdate()
++  }
++
++  private fun attachSkeleton() {
++    val reactContext = context as? ThemedReactContext ?: return
++    val nextSkeleton = HybridSkeleton(reactContext).apply {
++      shimmerSpeed = configuredSpeed
++      shimmerGradientColors = configuredGradientColors
++    }
++    addView(nextSkeleton.view, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
++    skeleton = nextSkeleton
++  }
++
++  private fun releaseSkeleton() {
++    val currentSkeleton = skeleton ?: return
++    removeView(currentSkeleton.view)
++    currentSkeleton.dispose()
++    currentSkeleton.destroyNativeState()
++    skeleton = null
++  }
++}
+diff --git a/node_modules/@onekeyfe/react-native-skeleton/ios/Skeleton.swift b/node_modules/@onekeyfe/react-native-skeleton/ios/Skeleton.swift
+index a55fbcc..67ea0f4 100644
+--- a/node_modules/@onekeyfe/react-native-skeleton/ios/Skeleton.swift
++++ b/node_modules/@onekeyfe/react-native-skeleton/ios/Skeleton.swift
+@@ -303,3 +303,51 @@ class HybridSkeleton : HybridSkeletonSpec {
+     return UIColor(red: r / 255.0, green: g / 255.0, blue: b / 255.0, alpha: 1)
+   }
+ }
++
++// OneKey patch: expose the same native shimmer view to non-React native containers.
++@objc public final class SkeletonNativeView: UIView {
++  private var skeleton: HybridSkeleton?
++  private var configuredSpeed: Double = 3
++  private var configuredGradientColors: [String]?
++
++  @objc public override init(frame: CGRect) {
++    super.init(frame: frame)
++    isUserInteractionEnabled = false
++    accessibilityElementsHidden = true
++    clipsToBounds = true
++    attachSkeleton()
++  }
++
++  required init?(coder: NSCoder) {
++    super.init(coder: coder)
++    isUserInteractionEnabled = false
++    accessibilityElementsHidden = true
++    clipsToBounds = true
++    attachSkeleton()
++  }
++
++  @objc public func configure(
++    shimmerSpeed: Double,
++    shimmerGradientColors: [String]
++  ) {
++    configuredSpeed = shimmerSpeed
++    configuredGradientColors = shimmerGradientColors
++    skeleton?.shimmerSpeed = shimmerSpeed
++    skeleton?.shimmerGradientColors = shimmerGradientColors
++  }
++
++  public override func layoutSubviews() {
++    super.layoutSubviews()
++    skeleton?.view.frame = bounds
++    skeleton?.afterUpdate()
++  }
++
++  private func attachSkeleton() {
++    let nextSkeleton = HybridSkeleton()
++    nextSkeleton.shimmerSpeed = configuredSpeed
++    nextSkeleton.shimmerGradientColors = configuredGradientColors
++    nextSkeleton.view.frame = bounds
++    addSubview(nextSkeleton.view)
++    skeleton = nextSkeleton
++  }
++}
+diff --git a/node_modules/@onekeyfe/react-native-skeleton/lib/nitrogen/generated/android/kotlin/com/margelo/nitro/skeleton/HybridSkeletonSpec.kt b/node_modules/@onekeyfe/react-native-skeleton/lib/nitrogen/generated/android/kotlin/com/margelo/nitro/skeleton/HybridSkeletonSpec.kt
+index ed28264..19f17b6 100644
+--- a/node_modules/@onekeyfe/react-native-skeleton/lib/nitrogen/generated/android/kotlin/com/margelo/nitro/skeleton/HybridSkeletonSpec.kt
++++ b/node_modules/@onekeyfe/react-native-skeleton/lib/nitrogen/generated/android/kotlin/com/margelo/nitro/skeleton/HybridSkeletonSpec.kt
+@@ -26,6 +26,7 @@ import com.margelo.nitro.views.HybridView
+ abstract class HybridSkeletonSpec: HybridView() {
+   @DoNotStrip
+   private var mHybridData: HybridData = initHybrid()
++  private var isNativeStateDestroyed: Boolean = false
+
+   init {
+     super.updateNative(mHybridData)
+@@ -33,9 +34,18 @@ abstract class HybridSkeletonSpec: HybridView() {
+
+   override fun updateNative(hybridData: HybridData) {
+     mHybridData = hybridData
++    isNativeStateDestroyed = false
+     super.updateNative(hybridData)
+   }
+
++  internal fun destroyNativeState() {
++    if (isNativeStateDestroyed) return
++
++    // OneKey patch: release fbjni's C++ holder when Fabric permanently drops the view.
++    isNativeStateDestroyed = true
++    mHybridData.resetNative()
++  }
++
+   // Default implementation of `HybridObject.toString()`
+   override fun toString(): String {
+     return "[HybridObject Skeleton]"
+diff --git a/node_modules/@onekeyfe/react-native-skeleton/lib/nitrogen/generated/android/kotlin/com/margelo/nitro/skeleton/views/HybridSkeletonManager.kt b/node_modules/@onekeyfe/react-native-skeleton/lib/nitrogen/generated/android/kotlin/com/margelo/nitro/skeleton/views/HybridSkeletonManager.kt
+index 994ac90..bb75573 100644
+--- a/node_modules/@onekeyfe/react-native-skeleton/lib/nitrogen/generated/android/kotlin/com/margelo/nitro/skeleton/views/HybridSkeletonManager.kt
++++ b/node_modules/@onekeyfe/react-native-skeleton/lib/nitrogen/generated/android/kotlin/com/margelo/nitro/skeleton/views/HybridSkeletonManager.kt
+@@ -32,8 +32,13 @@ open class HybridSkeletonManager: SimpleViewManager<View>() {
+   }
+
+   override fun onDropViewInstance(view: View) {
++    val hybridView = views.remove(view)
++    // OneKey patch: stop UI work before releasing both JNI global refs owned by Nitro.
++    hybridView?.dispose()
++    hybridView?.destroyNativeState()
+     super.onDropViewInstance(view)
+-    views.remove(view)
++    // OneKey patch: the retained HybridView is removed before teardown above.
++    // views.remove(view)
+   }
+
+   override fun updateState(view: View, props: ReactStylesDiffMap, stateWrapper: StateWrapper): Any? {
+diff --git a/node_modules/@onekeyfe/react-native-skeleton/nitrogen/generated/android/kotlin/com/margelo/nitro/skeleton/HybridSkeletonSpec.kt b/node_modules/@onekeyfe/react-native-skeleton/nitrogen/generated/android/kotlin/com/margelo/nitro/skeleton/HybridSkeletonSpec.kt
+index ed28264..19f17b6 100644
+--- a/node_modules/@onekeyfe/react-native-skeleton/nitrogen/generated/android/kotlin/com/margelo/nitro/skeleton/HybridSkeletonSpec.kt
++++ b/node_modules/@onekeyfe/react-native-skeleton/nitrogen/generated/android/kotlin/com/margelo/nitro/skeleton/HybridSkeletonSpec.kt
+@@ -26,6 +26,7 @@ import com.margelo.nitro.views.HybridView
+ abstract class HybridSkeletonSpec: HybridView() {
+   @DoNotStrip
+   private var mHybridData: HybridData = initHybrid()
++  private var isNativeStateDestroyed: Boolean = false
+
+   init {
+     super.updateNative(mHybridData)
+@@ -33,9 +34,18 @@ abstract class HybridSkeletonSpec: HybridView() {
+
+   override fun updateNative(hybridData: HybridData) {
+     mHybridData = hybridData
++    isNativeStateDestroyed = false
+     super.updateNative(hybridData)
+   }
+
++  internal fun destroyNativeState() {
++    if (isNativeStateDestroyed) return
++
++    // OneKey patch: release fbjni's C++ holder when Fabric permanently drops the view.
++    isNativeStateDestroyed = true
++    mHybridData.resetNative()
++  }
++
+   // Default implementation of `HybridObject.toString()`
+   override fun toString(): String {
+     return "[HybridObject Skeleton]"
+diff --git a/node_modules/@onekeyfe/react-native-skeleton/nitrogen/generated/android/kotlin/com/margelo/nitro/skeleton/views/HybridSkeletonManager.kt b/node_modules/@onekeyfe/react-native-skeleton/nitrogen/generated/android/kotlin/com/margelo/nitro/skeleton/views/HybridSkeletonManager.kt
+index 994ac90..bb75573 100644
+--- a/node_modules/@onekeyfe/react-native-skeleton/nitrogen/generated/android/kotlin/com/margelo/nitro/skeleton/views/HybridSkeletonManager.kt
++++ b/node_modules/@onekeyfe/react-native-skeleton/nitrogen/generated/android/kotlin/com/margelo/nitro/skeleton/views/HybridSkeletonManager.kt
+@@ -32,8 +32,13 @@ open class HybridSkeletonManager: SimpleViewManager<View>() {
+   }
+
+   override fun onDropViewInstance(view: View) {
++    val hybridView = views.remove(view)
++    // OneKey patch: stop UI work before releasing both JNI global refs owned by Nitro.
++    hybridView?.dispose()
++    hybridView?.destroyNativeState()
+     super.onDropViewInstance(view)
+-    views.remove(view)
++    // OneKey patch: the retained HybridView is removed before teardown above.
++    // views.remove(view)
+   }
+
+   override fun updateState(view: View, props: ReactStylesDiffMap, stateWrapper: StateWrapper): Any? {

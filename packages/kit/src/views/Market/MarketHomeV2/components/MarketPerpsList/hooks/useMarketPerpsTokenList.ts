@@ -25,6 +25,7 @@ export interface IMarketPerpsToken {
 
 interface IUseMarketPerpsTokenListParams {
   selectedCategoryId: string;
+  isActive?: boolean;
 }
 
 export function mapServerToken(
@@ -48,6 +49,7 @@ export function mapServerToken(
 
 export function useMarketPerpsTokenList({
   selectedCategoryId,
+  isActive = true,
 }: IUseMarketPerpsTokenListParams) {
   const requestCategoryId =
     selectedCategoryId || MARKET_PERPS_DEFAULT_CATEGORY_ID;
@@ -69,6 +71,7 @@ export function useMarketPerpsTokenList({
     },
     [requestCategoryId],
     {
+      overrideIsFocused: (isPageFocused) => isPageFocused && isActive,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
       watchLoading: true,
     },

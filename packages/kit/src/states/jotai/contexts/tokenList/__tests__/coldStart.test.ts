@@ -325,7 +325,7 @@ describe('fanOutSlimToApply — cold paint is provisional (B1 regression)', () =
   });
 });
 
-describe('hydrateCellsFromColdStart — currency gate (merge gate, spec §11.4)', () => {
+describe('hydrateCellsFromColdStart — provenance gates (merge gate, spec §11.4)', () => {
   const globalRef = globalThis as typeof globalThis & {
     __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
   };
@@ -344,6 +344,7 @@ describe('hydrateCellsFromColdStart — currency gate (merge gate, spec §11.4)'
       store: ctx,
       projection,
       deps,
+      expectedOwnerKey: OWNER_KEY,
       currentCurrency: 'usd',
     });
 
@@ -356,6 +357,28 @@ describe('hydrateCellsFromColdStart — currency gate (merge gate, spec §11.4)'
     expect(store.get(cell(ctx, 'a'))?.fiatValue).toBe('200');
   });
 
+  it('MISSES (no paint) when the stored owner differs from the expected owner', () => {
+    const { store, ctx, projection, deps } = setup();
+    globalRef.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      [SLIM_SCOPED_KEY]: buildSlimFixture('usd'),
+    };
+
+    const painted = hydrateCellsFromColdStart({
+      store: ctx,
+      projection,
+      deps,
+      expectedOwnerKey: 'acc2__net1',
+      currentCurrency: 'usd',
+    });
+
+    expect(painted).toBe(false);
+    expect(store.get(listStructureAtom()).orderedIds).toEqual([]);
+    expect(store.get(listStructureAtom()).ownerKey).toBe('');
+    expect(projection.cells.size).toBe(0);
+    expect(projection.metas.size).toBe(0);
+    expect(projection.aggSubCells.size).toBe(0);
+  });
+
   it('MISSES (no paint) when the stored currency mismatches the current currency', () => {
     const { store, ctx, projection, deps } = setup();
     globalRef.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
@@ -366,6 +389,7 @@ describe('hydrateCellsFromColdStart — currency gate (merge gate, spec §11.4)'
       store: ctx,
       projection,
       deps,
+      expectedOwnerKey: OWNER_KEY,
       currentCurrency: 'usd',
     });
 
@@ -381,6 +405,7 @@ describe('hydrateCellsFromColdStart — currency gate (merge gate, spec §11.4)'
       store: ctx,
       projection,
       deps,
+      expectedOwnerKey: OWNER_KEY,
       currentCurrency: 'usd',
     });
     expect(painted).toBe(false);

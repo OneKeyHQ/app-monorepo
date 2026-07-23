@@ -20,6 +20,7 @@ export enum EGalleryRoutes {
   ComponentLocalDB = 'component-LocalDB',
   ComponentLogger = 'component-Logger',
   ComponentNetworkDoctor = 'component-NetworkDoctor',
+  ComponentNetworkStatusBadge = 'component-NetworkStatusBadge',
   ComponentNavigation = 'component-Navigation',
   ComponentNotification = 'component-Notification',
   ComponentOrderBook = 'component-OrderBook',

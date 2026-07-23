@@ -18,7 +18,10 @@ import type { MutableRefObject } from 'react';
 
 import { act, renderHook } from '@testing-library/react';
 
-const mockIngestRound = jest.fn();
+const mockIngestRound = jest.fn(async (params: unknown) => ({
+  ownerKey: (params as { ownerKey: string }).ownerKey,
+  valuationVersion: 7,
+}));
 const mockGetVaultSettings = jest.fn(async () => ({
   mergeDeriveAssetsEnabled: false,
 }));
@@ -27,9 +30,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceTokenViewModel: {
-      ingestRound: (...args: unknown[]) => {
-        mockIngestRound(...args);
-      },
+      ingestRound: (...args: [unknown]) => mockIngestRound(...args),
     },
     serviceNetwork: {
       getVaultSettings: () => mockGetVaultSettings(),
@@ -344,7 +345,11 @@ describe('useTokenListReactivePipeline', () => {
 
     await act(async () => {
       const snap = await result.current.buildAuthoritativeSnapshot();
-      result.current.commitAuthoritativeIngest(snap);
+      const receipt = await result.current.commitAuthoritativeIngest(snap);
+      expect(receipt).toEqual({
+        ownerKey: 'acc1__evm--1',
+        valuationVersion: 7,
+      });
     });
     expect(mockIngestRound).toHaveBeenCalledTimes(1);
     expect(
@@ -377,7 +382,7 @@ describe('useTokenListReactivePipeline', () => {
       // authoritative commit lands first (bumps the epoch)
       await act(async () => {
         const snap = await result.current.buildAuthoritativeSnapshot();
-        result.current.commitAuthoritativeIngest(snap);
+        await result.current.commitAuthoritativeIngest(snap);
       });
       mockIngestRound.mockClear();
       // now let the throttled flush fire — it must abort (epoch superseded)
@@ -450,7 +455,7 @@ describe('useTokenListReactivePipeline', () => {
           generation: 1,
         });
         const snap = await result.current.buildAuthoritativeSnapshot();
-        result.current.commitAuthoritativeIngest(snap);
+        await result.current.commitAuthoritativeIngest(snap);
       });
       mockIngestRound.mockClear();
 

@@ -31,6 +31,45 @@ import { LegacyUniversalSearchInput } from './LegacyUniversalSearchInput';
 
 import type { SharedValue } from 'react-native-reanimated';
 
+// Keep the native Home surface aligned with the React-owned search row.
+export const HOME_HEADER_SEARCH_ROW_HEIGHT = 56;
+
+export function HomeTabSearchHeader({
+  headerPx = '$5',
+}: {
+  headerPx?: string;
+}) {
+  const { top } = useSafeAreaInsets();
+  const headerGlassActive = isLiquidGlassAvailable();
+
+  return (
+    <XStack
+      alignItems="center"
+      px={headerPx}
+      h={HOME_HEADER_SEARCH_ROW_HEIGHT}
+      gap={headerGlassActive ? '$3' : '$6'}
+      bg={platformEnv.isNativeAndroid ? '$bgApp' : undefined}
+      {...(top || platformEnv.isNativeAndroid ? { mt: top || '$2' } : {})}
+    >
+      <XStack flex={1}>
+        <LegacyUniversalSearchInput
+          size="medium"
+          glass
+          containerProps={{
+            width: '100%',
+            $gtLg: undefined,
+          }}
+        />
+      </XStack>
+      <HeaderUpdateButton />
+      <GlassButtonCapsule>
+        <HeaderNotificationIconButton testID="header-right-notification" />
+        <MoreActionButton />
+      </GlassButtonCapsule>
+    </XStack>
+  );
+}
+
 function HomeWalletConnectionRow({
   headerPx,
   selectedHeaderTab,
@@ -95,10 +134,6 @@ export function MDHeader({
   pageScrollPosition?: SharedValue<number>;
 }) {
   const { top } = useSafeAreaInsets();
-  // iOS 26 only: when the search bar + buttons render as Liquid Glass capsules,
-  // tighten the gap between them. Off iOS 26 this is false, so the row keeps its
-  // original "$6" spacing (no change on other platforms / iOS < 26).
-  const headerGlassActive = isLiquidGlassAvailable();
 
   const rightActions = useMemo(() => {
     return sceneName === EAccountSelectorSceneName.homeUrlAccount ? (
@@ -143,36 +178,7 @@ export function MDHeader({
         <>
           {isHomeTab ? (
             <>
-              {/* Row 1: Search bar + notification + more */}
-              <XStack
-                alignItems="center"
-                px={headerPx}
-                h={56}
-                gap={headerGlassActive ? '$3' : '$6'}
-                {...(top || platformEnv.isNativeAndroid
-                  ? { mt: top || '$2' }
-                  : {})}
-              >
-                <XStack flex={1}>
-                  <LegacyUniversalSearchInput
-                    size="medium"
-                    glass
-                    containerProps={{
-                      width: '100%',
-                      $gtLg: undefined,
-                    }}
-                  />
-                </XStack>
-                <HeaderUpdateButton />
-                {/* iOS 26: the notification + menu buttons share ONE Liquid
-                    Glass capsule (this in-page header hides the native nav bar,
-                    so they can't get the system bar-button glass). Off iOS 26
-                    this is a passthrough — the two buttons stay as before. */}
-                <GlassButtonCapsule>
-                  <HeaderNotificationIconButton testID="header-right-notification" />
-                  <MoreActionButton />
-                </GlassButtonCapsule>
-              </XStack>
+              <HomeTabSearchHeader headerPx={headerPx} />
               {/* Row 2: Wallet connection (account + network + address) */}
               <HomeWalletConnectionRow
                 headerPx={headerPx}

@@ -20,6 +20,7 @@ const WORKSPACE_PACKAGES = [
   ['@onekeyhq/components', 'packages/components'],
   ['@onekeyhq/core', 'packages/core'],
   ['@onekeyhq/kit-bg', 'packages/kit-bg'],
+  ['@onekeyhq/native-components', 'packages/native-components'],
   ['@onekeyhq/kit', 'packages/kit'],
   ['@onekeyhq/qr-wallet-sdk', 'packages/qr-wallet-sdk'],
 ];

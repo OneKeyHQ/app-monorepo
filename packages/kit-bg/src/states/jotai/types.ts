@@ -57,8 +57,8 @@ export type IJotaiWritableAtomPro<
   Args extends unknown[],
   Result,
 > = WritableAtom<Value, Args, Result> & IJotaiAtomProProps<Value>;
-export type IJotaiAtomSetWithoutProxy = {
+export type IJotaiAtomSetWithoutProxy<Value = any> = {
   $$isForceSetAtomWithoutProxy: true;
   name: string;
-  payload: any;
+  payload: Value;
 };

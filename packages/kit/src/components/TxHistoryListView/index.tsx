@@ -25,6 +25,7 @@ import {
   getHistoryTxDisplayStatus,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { getDisplayedActions } from '@onekeyhq/shared/src/utils/txActionUtils';
+import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type {
   IAccountHistoryTx,
   IHistoryListSectionGroup,
@@ -47,6 +48,7 @@ import { EmptySearch } from '../Empty';
 import { EmptyHistory } from '../Empty/EmptyHistory';
 import { HistoryLoadingView } from '../Loading';
 import { MAX_DISPLAYED_TRANSFERS } from '../TxAction/consts';
+import { TxActionAddressMapProvider } from '../TxAction/TxActionAddressContext';
 
 import { TxHistoryListItem } from './TxHistoryListItem';
 
@@ -122,6 +124,7 @@ function getTransferChangeLineCount(item: IAccountHistoryTx): number {
 }
 
 type IProps = {
+  addressMap?: Record<string, IAddressBadge>;
   data: IAccountHistoryTx[];
   tableLayout?: boolean;
   ListHeaderComponent?: ReactElement | null;
@@ -654,6 +657,16 @@ function BaseTxHistoryListView(props: IProps) {
   );
 }
 
-const TxHistoryListView = withBrowserProvider<IProps>(BaseTxHistoryListView);
+const BrowserProvidedTxHistoryListView = withBrowserProvider<IProps>(
+  BaseTxHistoryListView,
+);
+
+function TxHistoryListView(props: IProps) {
+  return (
+    <TxActionAddressMapProvider value={props.addressMap}>
+      <BrowserProvidedTxHistoryListView {...props} />
+    </TxActionAddressMapProvider>
+  );
+}
 
 export { TxHistoryListView };

@@ -35,7 +35,6 @@
     "app:web-embed:build": "yarn workspace @onekeyhq/web-embed build",
     "app:playground": "yarn workspace @onekeyhq/playground sb:dev",
     "app:native-bundle": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn workspace @onekeyhq/mobile native-bundle",
-    "app:split-bundle": "yarn workspace @onekeyhq/mobile split-bundle",
     "app:build-bundle": "yarn workspace @onekeyhq/mobile build-bundle",
     "app:build-bundle:ios": "yarn workspace @onekeyhq/mobile build-bundle:ios",
     "app:build-bundle:android": "yarn workspace @onekeyhq/mobile build-bundle:android",

@@ -1,0 +1,62 @@
+{
+  "name": "@onekeyhq/native-components",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Performance-critical native page containers for OneKey",
+  "main": "src/index.ts",
+  "source": "src/index.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "ios",
+    "android",
+    "nitrogen",
+    "nitro.json",
+    "OneKeyNativeComponents.podspec"
+  ],
+  "scripts": {
+    "codegen": "npx nitrogen@0.31.10",
+    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx"
+  },
+  "peerDependencies": {
+    "@onekeyfe/react-native-skeleton": "3.0.78",
+    "react": "*",
+    "react-native": "*",
+    "react-native-nitro-modules": "0.33.2"
+  },
+  "peerDependenciesMeta": {
+    "@onekeyfe/react-native-skeleton": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-native": {
+      "optional": true
+    },
+    "react-native-nitro-modules": {
+      "optional": true
+    }
+  },
+  "codegenConfig": {
+    "name": "OneKeyNativeComponentsSpec",
+    "type": "components",
+    "jsSrcsDir": "./src",
+    "android": {
+      "javaPackageName": "com.margelo.nitro.onekeynativecomponents"
+    },
+    "ios": {
+      "componentProvider": {
+        "OneKeyHomeContainerSurface": "HomeContainerSurfaceComponentView",
+        "OneKeyHomeContainerSlot": "HomeContainerSlotComponentView"
+      }
+    }
+  },
+  "license": "SEE https://github.com/OneKeyHQ/app-monorepo/blob/x/LICENSE.md"
+}

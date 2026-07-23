@@ -1,6 +1,5 @@
-import { ResourceType } from '@onekeyfe/hd-transport';
-
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
+import { HARDWARE_RESOURCE_TYPE } from '../hardware/transportEnumValues';
 
 import bufferUtils from './bufferUtils';
 
@@ -55,7 +54,8 @@ export async function generateUploadNFTParams({
   const nftMetaData = bufferUtils.bytesToHex(metadataBuf);
 
   const params: DeviceUploadResourceParams = {
-    resType: ResourceType.Nft,
+    resType:
+      HARDWARE_RESOURCE_TYPE.Nft as DeviceUploadResourceParams['resType'],
     suffix: 'jpg',
     dataHex: screenHex,
     thumbnailDataHex: thumbnailHex,

@@ -75,6 +75,7 @@ function NetworkListItem({ network }: { network: IServerNetworkMatch }) {
       }
       title={network.name}
       titleMatch={network.titleMatch}
+      nativePressableTestID={`select-item-${network.id}`}
       testID={`all-networks-manager-item-${network.id}`}
     >
       <XStack gap="$3" alignItems="center">

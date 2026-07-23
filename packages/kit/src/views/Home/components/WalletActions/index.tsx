@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
-import { Button, Dialog, SizableText, YStack } from '@onekeyhq/components';
+import { Button, Dialog, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   OptionCard,
@@ -12,7 +12,7 @@ import {
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
-import { useHomeBalanceState } from '@onekeyhq/kit/src/hooks/useHomeBalanceState';
+import type { IHomeBalancePresentation } from '@onekeyhq/kit/src/hooks/useHomeBalanceState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -44,6 +44,7 @@ import { WalletActionPerp } from './WalletActionPerp';
 import { WalletActionReceive } from './WalletActionReceive';
 import { WalletActionStaking } from './WalletActionStaking';
 import { WalletActionSwap } from './WalletActionSwap';
+import { ZeroBalanceWalletActions } from './ZeroBalanceWalletActions';
 
 import type { IActionCustomization, IWalletActionType } from './types';
 
@@ -418,14 +419,16 @@ function WalletActionSend({
   );
 }
 
-function WalletActions({ ...rest }: IXStackProps) {
-  const intl = useIntl();
+function WalletActions({
+  balancePresentation,
+  ...rest
+}: IXStackProps & { balancePresentation: IHomeBalancePresentation }) {
   const { config, getActionCustomization } = useWalletActionConfig();
-  const balanceState = useHomeBalanceState();
+  const { balanceState } = balancePresentation;
 
   // True cold-start with no cached balance: render nothing rather than guess
-  // a state. Sticky fallback in `useHomeBalanceState` keeps subsequent account
-  // switches from re-entering this branch.
+  // a state. The parent header passes one correlated semantic decision to the
+  // action row so balance, banner, height, and actions cannot disagree.
   if (balanceState === 'unknown') return null;
 
   const renderActionComponent = (actionType: IWalletActionType) => {
@@ -462,54 +465,25 @@ function WalletActions({ ...rest }: IXStackProps) {
     }
   };
 
-  const rawActionsLayout = {
-    justifyContent: 'flex-start',
-    gap: '$2.5',
-    $gtSm: {
-      flexDirection: 'row',
-      justifyContent: 'flex-start',
-      gap: '$2.5',
-    },
-  } as const;
-
   if (balanceState === 'positive') {
     return (
-      <RawActions {...rest} {...rawActionsLayout}>
+      <RawActions
+        {...rest}
+        justifyContent="flex-start"
+        gap="$2.5"
+        $gtSm={{
+          flexDirection: 'row',
+          justifyContent: 'flex-start',
+          gap: '$2.5',
+        }}
+      >
         {config.mainActions.map(renderActionComponent).filter(Boolean)}
         <WalletActionMore />
       </RawActions>
     );
   }
 
-  return (
-    <YStack {...rest} gap="$3">
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {intl.formatMessage({ id: ETranslations.add_money_to_get_started })}
-      </SizableText>
-      <RawActions {...rawActionsLayout}>
-        <WalletActionReceive
-          key="receive"
-          useSelector
-          variant="home_add_money"
-          renderTrigger={({ onPress, disabled }) => (
-            <Button
-              flex={1}
-              size="large"
-              variant="primary"
-              icon="PlusLargeOutline"
-              onPress={onPress}
-              disabled={disabled}
-              testID={HomeTestIDs.addMoneyButton}
-              $gtSm={{ flex: 0, alignSelf: 'flex-start', minWidth: 200 }}
-            >
-              {intl.formatMessage({ id: ETranslations.global_add_money })}
-            </Button>
-          )}
-        />
-        <WalletActionMore iconOnly />
-      </RawActions>
-    </YStack>
-  );
+  return <ZeroBalanceWalletActions {...rest} />;
 }
 
-export { WalletActions };
+export { WalletActions, ZeroBalanceWalletActions };

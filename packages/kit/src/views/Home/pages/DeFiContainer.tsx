@@ -36,12 +36,10 @@ import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   ProviderJotaiContextDeFiList,
-  useDeFiListProtocolMapAtom,
-  useDeFiListProtocolsAtom,
   useDeFiListSlicedAtom,
-  useDeFiListStateAtom,
 } from '../../../states/jotai/contexts/deFiList';
 import { ProviderJotaiContextHistoryList } from '../../../states/jotai/contexts/historyList';
+import { useHomeResource } from '../../../states/jotai/contexts/home';
 import {
   buildProtocolDisplayInfo,
   collectDeFiImageUrls,
@@ -60,10 +58,12 @@ import { buildPortfolioStats } from '../components/DeFiListBlock/DeFiPortfolioSt
 import { formatPortfolioTotal } from '../components/DeFiListBlock/formatPortfolioTotal';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
-import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
+import { PullToRefresh } from '../components/PullToRefresh';
 import { RichBlock } from '../components/RichBlock/RichBlock';
 import { SupportHub } from '../components/SupportHub';
 import { Upgrade } from '../components/Upgrade';
+import { useHomeSectionPayload } from '../model/react/homeStoreHooks';
+import { useHomeRefreshIntents } from '../model/react/useHomeRefreshIntents';
 import { STICKY_TOP_OFFSET } from '../types';
 
 import {
@@ -132,9 +132,25 @@ function DeFiContainer() {
   const isAllNetworks = Boolean(network?.isAllNetworks);
   const isDeFiEnabled = useIsDeFiEnabled(network?.id);
 
-  const [{ protocols }] = useDeFiListProtocolsAtom();
-  const [{ protocolMap }] = useDeFiListProtocolMapAtom();
-  const [{ isRefreshing, initialized }] = useDeFiListStateAtom();
+  const deFiResource = useHomeResource('defi');
+  const deFiPayload = useHomeSectionPayload('defi');
+  const protocols = useMemo(
+    () => deFiPayload?.protocols ?? [],
+    [deFiPayload?.protocols],
+  );
+  const protocolMap = useMemo(
+    () => deFiPayload?.protocolMap ?? {},
+    [deFiPayload?.protocolMap],
+  );
+  const initialized =
+    deFiResource.kind === 'ready' ||
+    deFiResource.kind === 'empty' ||
+    deFiResource.kind === 'error';
+  const isRefreshing =
+    deFiResource.kind === 'idle' ||
+    deFiResource.kind === 'loading' ||
+    ((deFiResource.kind === 'ready' || deFiResource.kind === 'empty') &&
+      deFiResource.refresh === 'refreshing');
   const [, setIsSliced] = useDeFiListSlicedAtom();
   const isOverviewLoading =
     !initialized || (isRefreshing && (protocols?.length ?? 0) === 0);
@@ -872,6 +888,7 @@ function DeFiContainer() {
 
 function DeFiContainerScrollable() {
   const tabBarOffset = useScrollContentTabBarOffset();
+  const { refreshSection, refreshingBySection } = useHomeRefreshIntents();
 
   return (
     <Stack flex={1}>
@@ -881,7 +898,10 @@ function DeFiContainerScrollable() {
         nestedScrollEnabled={platformEnv.isNativeAndroid}
         refreshControl={
           !platformEnv.isNativeAndroid ? (
-            <PullToRefresh onRefresh={onHomePageRefresh} />
+            <PullToRefresh
+              onRefresh={() => refreshSection('defi')}
+              refreshing={refreshingBySection.defi}
+            />
           ) : undefined
         }
       >

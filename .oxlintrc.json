@@ -502,6 +502,13 @@
                 "group": ["@onekeyhq/kit", "@onekeyhq/kit-bg"],
                 "message": "Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg in this folder",
                 "allowTypeImports": true
+              },
+              {
+                "group": [
+                  "@onekeyhq/native-components",
+                  "@onekeyhq/native-components/**"
+                ],
+                "message": "components may depend only on shared and must not import native-components"
               }
             ]
           }
@@ -534,6 +541,43 @@
                 "group": ["@onekeyhq/core", "@onekeyhq/core/**"],
                 "message": "shared layer must not value-import from core — only kit-bg may import core. Use import type for types.",
                 "allowTypeImports": true
+              },
+              {
+                "group": [
+                  "@onekeyhq/native-components",
+                  "@onekeyhq/native-components/**"
+                ],
+                "message": "shared is the lowest layer and must not import native-components"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      // packages/native-components - low-level native bridge, shared-only OneKey dependency
+      "files": [
+        "packages/native-components/src/**/*.ts",
+        "packages/native-components/src/**/*.tsx"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "tamagui",
+                  "@onekeyhq/core",
+                  "@onekeyhq/core/**",
+                  "@onekeyhq/components",
+                  "@onekeyhq/components/**",
+                  "@onekeyhq/kit-bg",
+                  "@onekeyhq/kit-bg/**",
+                  "@onekeyhq/kit",
+                  "@onekeyhq/kit/**"
+                ],
+                "message": "native-components is a low-level bridge and may depend only on shared plus third-party native peers"
               }
             ]
           }
@@ -557,6 +601,13 @@
                 "group": ["@onekeyhq/kit", "@onekeyhq/components"],
                 "message": "Please avoid using @onekeyhq/kit and @onekeyhq/components in this folder",
                 "allowTypeImports": true
+              },
+              {
+                "group": [
+                  "@onekeyhq/native-components",
+                  "@onekeyhq/native-components/**"
+                ],
+                "message": "kit-bg may depend only on shared and core and must not import native-components"
               }
             ]
           }
@@ -619,6 +670,13 @@
                 ],
                 "message": "Please avoid using tamagui, @onekeyhq/kit, @onekeyhq/kit-bg, @onekeyhq/components in this folder",
                 "allowTypeImports": true
+              },
+              {
+                "group": [
+                  "@onekeyhq/native-components",
+                  "@onekeyhq/native-components/**"
+                ],
+                "message": "core may depend only on shared and must not import native-components"
               }
             ]
           }

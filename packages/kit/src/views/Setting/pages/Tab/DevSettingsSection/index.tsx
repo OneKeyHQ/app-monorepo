@@ -1159,6 +1159,18 @@ const BaseDevSettingsSection = () => {
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
 
+                      {platformEnv.isNative ? (
+                        <SectionFieldItem
+                          icon="HomeDoorOutline"
+                          name="disableNativeHome"
+                          title="Disable Native Home"
+                          subtitle="Use the React Home renderer as a runtime fallback"
+                          searchKeywords="Native Home React fallback kill switch iOS Android"
+                        >
+                          <Switch size={ESwitchSize.small} />
+                        </SectionFieldItem>
+                      ) : null}
+
                       {platformEnv.isDesktop ? (
                         <SectionPressItem
                           icon="SpeedLowOutline"

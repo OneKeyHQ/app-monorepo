@@ -145,10 +145,15 @@ Run `git diff origin/x...HEAD --name-only` and match:
     ↓
 @onekeyhq/kit-bg     <- imports shared, core (NEVER components or kit)
     ↓
-@onekeyhq/kit        <- imports shared, components, kit-bg
+@onekeyhq/native-components <- imports shared only; NEVER components, kit-bg, kit
+    ↓
+@onekeyhq/kit        <- imports shared, components, native-components, kit-bg
     ↓
 apps/*               <- imports all
 ```
+
+`kit -> native-components` is allowed only for renderer/protocol integration.
+App-specific Native registration and platform bootstrap remain in `apps/mobile`.
 
 ```bash
 # Quick hierarchy violation check on changed files

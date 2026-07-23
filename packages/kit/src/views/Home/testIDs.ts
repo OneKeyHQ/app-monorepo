@@ -1,6 +1,10 @@
 export const HomeTestIDs = {
   // Page
   page: 'home-page',
+  emptyWalletPage: 'home-empty-wallet-page-not-backed-up',
+  emptyWalletScroll: 'home-empty-wallet-scroll-not-backed-up',
+  notBackedUpPrimaryBackup: 'home-not-backed-up-primary-backup',
+  notBackedUpMoreBackupOptions: 'home-not-backed-up-more-backup-options',
 
   // Header
   headerContainer: 'Wallet-Tab-Header', // preserve existing

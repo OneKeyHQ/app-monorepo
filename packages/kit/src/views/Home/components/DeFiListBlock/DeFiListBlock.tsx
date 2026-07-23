@@ -2,7 +2,6 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { useThrottledCallback } from 'use-debounce';
 
 import {
   Button,
@@ -14,55 +13,29 @@ import {
   useMedia,
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import { EmptyDeFi } from '@onekeyhq/kit/src/components/Empty';
-import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { runAfterTokensDone } from '@onekeyhq/kit/src/hooks/useRunAfterTokensDone';
-import {
-  useAccountDeFiOverviewAtom,
-  useAccountOverviewActions,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  useDeFiListActions,
-  useDeFiListProtocolMapAtom,
-  useDeFiListProtocolsAtom,
-  useDeFiListSlicedAtom,
-  useDeFiListStateAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
+import { useDeFiListSlicedAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
+import { useHomeResource } from '@onekeyhq/kit/src/states/jotai/contexts/home';
 import { buildProtocolDisplayInfo } from '@onekeyhq/kit/src/utils/defiPositionUtils';
-import type { IDeFiDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityDeFi';
 import {
-  useCurrencyPersistAtom,
   useSettingsPersistAtom,
   useSettingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  POLLING_DEBOUNCE_INTERVAL,
-  POLLING_INTERVAL_FOR_DEFI,
-} from '@onekeyhq/shared/src/consts/walletConsts';
-import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { EHomeTab } from '@onekeyhq/shared/types';
 import type {
   IDeFiProtocol,
+  IDeFiSupportedProtocolAction,
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
+import { useHomeDeFiIntents } from '../../model/react/homeDeFiIntents';
+import { useHomeSectionPayload } from '../../model/react/homeStoreHooks';
 import { RichBlock } from '../RichBlock/RichBlock';
 
-import {
-  deFiListLoadingReducer,
-  shouldShowDeFiEmptyState,
-} from './deFiListLoadingReducer';
+import { shouldShowDeFiEmptyState } from './deFiListLoadingReducer';
 import { DeFiListSkeleton } from './DeFiListSkeleton';
 import { getOverviewCollapsedProtocolLimit } from './DeFiOverviewPlanner';
 import { formatPortfolioTotal } from './formatPortfolioTotal';
@@ -73,18 +46,7 @@ import { useIsDeFiEnabled } from './useIsDeFiEnabled';
 
 const MAX_PROTOCOLS_ON_SMALL_SCREEN = 6;
 const PROTOCOL_LIST_TOGGLE_PRESS_LOCK_MS = 600;
-
-function buildSingleNetworkDeFiCacheKey({
-  accountId,
-  networkId,
-  accountAddress,
-}: {
-  accountId: string;
-  networkId: string;
-  accountAddress?: string;
-}) {
-  return `${accountId}:${networkId}:${accountAddress ?? ''}`;
-}
+const HEADER_REFRESH_TIMEOUT_MS = 15_000;
 
 function buildDeFiListOwnerKey({
   accountId,
@@ -93,8 +55,7 @@ function buildDeFiListOwnerKey({
   accountId?: string;
   networkId?: string;
 }) {
-  if (!accountId || !networkId) return undefined;
-  return `${accountId}:${networkId}`;
+  return accountId && networkId ? `${accountId}:${networkId}` : undefined;
 }
 
 function MobileProtocolDivider() {
@@ -108,11 +69,6 @@ function MobileProtocolDivider() {
 export type IDeFiListBlockProps = {
   refreshCacheOnly?: boolean;
   tableLayout?: boolean;
-  /**
-   * Desktop: when `true`, the internal "DeFi · $total" header row is not
-   * rendered — the parent mounts DeFiAllocationCard (which carries the total)
-   * alongside the overview grid instead.
-   */
   hideInternalTitle?: boolean;
   isDeFiEnabled?: boolean;
   registerProtocol?: (key: string, handle: IProtocolHandle | null) => void;
@@ -121,35 +77,37 @@ export type IDeFiListBlockProps = {
 
 const ProtocolListItem = memo(
   ({
-    isAllNetworks,
-    isLast,
-    protocol,
-    protocolKey,
     accountId,
     indexedAccountId,
-    registerProtocol,
-    tableLayout,
+    isAllNetworks,
+    isLast,
     onActionSuccess,
+    protocol,
+    protocolInfo,
+    protocolKey,
+    registerProtocol,
+    supportedActions,
+    tableLayout,
   }: {
-    isAllNetworks?: boolean;
-    isLast: boolean;
-    protocol: IDeFiProtocol;
-    protocolKey: string;
     accountId?: string;
     indexedAccountId?: string;
-    registerProtocol?: (key: string, handle: IProtocolHandle | null) => void;
-    tableLayout?: boolean;
+    isAllNetworks?: boolean;
+    isLast: boolean;
     onActionSuccess?: (
       params: IProtocolPositionActionSuccessParams,
     ) => void | Promise<void>;
+    protocol: IDeFiProtocol;
+    protocolInfo?: IProtocolSummary;
+    protocolKey: string;
+    registerProtocol?: (key: string, handle: IProtocolHandle | null) => void;
+    supportedActions: IDeFiSupportedProtocolAction[];
+    tableLayout?: boolean;
   }) => {
     const handleProtocolRef = useCallback(
-      (handle: IProtocolHandle | null) => {
-        registerProtocol?.(protocolKey, handle);
-      },
+      (handle: IProtocolHandle | null) =>
+        registerProtocol?.(protocolKey, handle),
       [protocolKey, registerProtocol],
     );
-
     return (
       <YStack key={`${protocol.networkId}-${protocol.protocol}`}>
         <Protocol
@@ -157,6 +115,8 @@ const ProtocolListItem = memo(
           accountId={accountId}
           indexedAccountId={indexedAccountId}
           protocol={protocol}
+          protocolInfo={protocolInfo}
+          supportedActions={supportedActions}
           tableLayout={tableLayout}
           isAllNetworks={isAllNetworks}
           onActionSuccess={onActionSuccess}
@@ -168,61 +128,6 @@ const ProtocolListItem = memo(
 );
 ProtocolListItem.displayName = 'ProtocolListItem';
 
-// Convert a DeFi overview's monetary fields from one fiat currency to another
-// using the two currencies' rate values. Returns only the converted numeric
-// fields so callers can spread them over the source overview, preserving its
-// other keys (e.g. `currency`).
-function convertDeFiOverviewValues(
-  overview: {
-    totalValue: number;
-    totalDebt: number;
-    totalReward: number;
-    netWorth: number;
-  },
-  sourceCurrencyValue: string,
-  targetCurrencyValue: string,
-) {
-  const convert = (value: number) =>
-    new BigNumber(value)
-      .div(sourceCurrencyValue)
-      .times(targetCurrencyValue)
-      .toNumber();
-  return {
-    totalValue: convert(overview.totalValue),
-    totalDebt: convert(overview.totalDebt),
-    totalReward: convert(overview.totalReward),
-    netWorth: convert(overview.netWorth),
-  };
-}
-
-function sortDeFiProtocolsByNetWorth({
-  protocols,
-  protocolMap,
-}: {
-  protocols: IDeFiProtocol[];
-  protocolMap: Record<string, IProtocolSummary>;
-}) {
-  return protocols.toSorted((a, b) =>
-    new BigNumber(
-      protocolMap[
-        defiUtils.buildProtocolMapKey({
-          protocol: b.protocol,
-          networkId: b.networkId,
-        })
-      ]?.netWorth ?? 0,
-    ).comparedTo(
-      new BigNumber(
-        protocolMap[
-          defiUtils.buildProtocolMapKey({
-            protocol: a.protocol,
-            networkId: a.networkId,
-          })
-        ]?.netWorth ?? 0,
-      ),
-    ),
-  );
-}
-
 function DeFiListBlock({
   refreshCacheOnly = false,
   tableLayout,
@@ -232,1535 +137,322 @@ function DeFiListBlock({
   onCollapseToProtocol,
 }: IDeFiListBlockProps) {
   const intl = useIntl();
-  const [settings] = useSettingsPersistAtom();
-  const [{ currencyMap }] = useCurrencyPersistAtom();
-
-  const sourceCurrencyInfo = useMemo(
-    () => currencyMap[settings.currencyInfo.id],
-    [settings.currencyInfo.id, currencyMap],
-  );
-  const targetCurrencyInfo = useMemo(() => currencyMap.usd, [currencyMap]);
-
-  const {
-    updateDeFiListProtocols,
-    updateDeFiListProtocolMap,
-    updateDeFiListState,
-    updateDeFiListSupportedActions,
-  } = useDeFiListActions().current;
-
-  const { updateAccountDeFiOverview, updateOverviewDeFiDataState } =
-    useAccountOverviewActions().current;
-
-  const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
-    useTabIsRefreshingFocused();
-
-  const [overview] = useAccountDeFiOverviewAtom();
-  const [{ isRefreshing, initialized, loadedOwnerKey }] =
-    useDeFiListStateAtom();
-  const [{ protocols }] = useDeFiListProtocolsAtom();
-  const [{ protocolMap }] = useDeFiListProtocolMapAtom();
-  const [settingsValue] = useSettingsValuePersistAtom();
   const media = useMedia();
-
-  const deFiRawDataRef = useRef<IDeFiDBStruct | undefined>(undefined);
-  const initializedRef = useRef(initialized);
-  const isRefreshingRef = useRef(isRefreshing);
-  initializedRef.current = initialized;
-  isRefreshingRef.current = isRefreshing;
-  const protocolsRef = useRef(protocols);
-  const protocolMapRef = useRef(protocolMap);
-  protocolsRef.current = protocols;
-  protocolMapRef.current = protocolMap;
-  const pendingRefreshRef = useRef<
-    | {
-        payload: IAppEventBusPayload[EAppEventBusNames.AccountDataUpdate];
-      }
-    | undefined
-  >(undefined);
-  const singleNetworkLocalCacheRef = useRef<{
-    cacheKey?: string;
-    hasCache: boolean;
-  }>({ hasCache: false });
-
+  const [settings] = useSettingsPersistAtom();
+  const [settingsValue] = useSettingsValuePersistAtom();
   const [isSliced, setIsSliced] = useDeFiListSlicedAtom();
-  const overviewCols = useMemo(
-    () =>
-      resolveOverviewCols({
-        gtXl: media.gtXl,
-        gtLg: media.gtLg,
-      }),
-    [media.gtXl, media.gtLg],
-  );
-  const maxProtocolsOnLargeScreen = useMemo(
-    () =>
-      getOverviewCollapsedProtocolLimit({
-        cols: overviewCols,
-        protocolCount: protocols.length,
-      }),
-    [overviewCols, protocols.length],
-  );
-  const overflowThreshold = tableLayout
-    ? maxProtocolsOnLargeScreen
-    : MAX_PROTOCOLS_ON_SMALL_SCREEN;
-  const isOverflow = protocols.length > overflowThreshold;
-
+  const { isHeaderRefreshing, setIsHeaderRefreshing } =
+    useTabIsRefreshingFocused();
+  const { onPositionActionSucceeded, refresh: refreshDeFi } =
+    useHomeDeFiIntents();
   const {
-    activeAccount: { account, network, wallet },
+    activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
-  const currentOwnerKey = useMemo(
-    () =>
-      buildDeFiListOwnerKey({
-        accountId: account?.id,
-        networkId: network?.id,
-      }),
-    [account?.id, network?.id],
-  );
-
-  const pendingManualForceRefreshIntentRef = useRef<
-    | {
-        ownerKey: string;
-      }
-    | undefined
-  >(undefined);
-  const allNetworkManualForceRefreshRef = useRef(false);
-  const prepareManualDeFiForceRefresh = useCallback(
-    (payload?: IAppEventBusPayload[EAppEventBusNames.AccountDataUpdate]) => {
-      if (!payload?.isManualRefresh || refreshCacheOnly || !currentOwnerKey) {
-        return;
-      }
-
-      pendingManualForceRefreshIntentRef.current = {
-        ownerKey: currentOwnerKey,
-      };
-    },
-    [currentOwnerKey, refreshCacheOnly],
-  );
-  const consumePendingManualForceRefreshIntent = useCallback(async () => {
-    const intent = pendingManualForceRefreshIntentRef.current;
-    if (!intent) {
-      return false;
-    }
-
-    pendingManualForceRefreshIntentRef.current = undefined;
-    if (!currentOwnerKey || intent.ownerKey !== currentOwnerKey) {
-      return false;
-    }
-
-    try {
-      const { allowed } =
-        await backgroundApiProxy.serviceDeFi.consumeManualDeFiForceRefreshQuota();
-      return allowed;
-    } catch (error) {
-      console.error(error);
-      return false;
-    }
-  }, [currentOwnerKey]);
-
+  const resource = useHomeResource('defi');
+  const payload = useHomeSectionPayload('defi');
   const computedIsDeFiEnabled = useIsDeFiEnabled(
     network?.id,
     isDeFiEnabledProp === undefined,
   );
   const isDeFiEnabled = isDeFiEnabledProp ?? computedIsDeFiEnabled;
-  const [isAllNetRequestsEnabled, setIsAllNetRequestsEnabled] =
-    useState<boolean>(false);
-
-  usePromiseResult(
-    async () => {
-      if (refreshCacheOnly || !isDeFiEnabled) {
-        updateDeFiListSupportedActions({ supportedActions: [] });
-        return;
-      }
-
-      try {
-        const supportedActions =
-          await backgroundApiProxy.serviceDeFi.fetchSupportedDeFiProtocols();
-        updateDeFiListSupportedActions({ supportedActions });
-      } catch (error) {
-        console.error(error);
-        updateDeFiListSupportedActions({ supportedActions: [] });
-      }
-    },
-    [refreshCacheOnly, isDeFiEnabled, updateDeFiListSupportedActions],
-    {
-      overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
-    },
+  const protocols = useMemo(
+    () => payload?.protocols ?? [],
+    [payload?.protocols],
   );
-
-  useEffect(() => {
-    const isAllNetworks = networkUtils.isAllNetwork({
-      networkId: network?.id,
-    });
-    if (!isAllNetworks) {
-      setIsAllNetRequestsEnabled(true);
-      return;
-    }
-
-    if (!isDeFiEnabled) {
-      setIsAllNetRequestsEnabled(false);
-      return;
-    }
-
-    if (!account?.id || !network?.id) {
-      setIsAllNetRequestsEnabled(false);
-      return;
-    }
-
-    setIsAllNetRequestsEnabled(false);
-    if (!initializedRef.current && !isRefreshingRef.current) {
-      updateDeFiListState({
-        initialized: false,
-        isRefreshing: true,
-      });
-    }
-    return runAfterTokensDone({
-      accountId: account?.id,
-      networkId: network?.id,
-      matchAccountId: true,
-      matchNetworkId: true,
-      fallbackDelayMs: POLLING_DEBOUNCE_INTERVAL * 2,
-      deferWhileRefreshing: true,
-      onRun: () => setIsAllNetRequestsEnabled(true),
-    });
-  }, [account?.id, network?.id, isDeFiEnabled, updateDeFiListState]);
-
-  const { run } = usePromiseResult(
-    async () => {
-      if (refreshCacheOnly) {
-        return;
-      }
-
-      if (!account || !network) {
-        return;
-      }
-
-      if (networkUtils.isAllNetwork({ networkId: network.id })) {
-        return;
-      }
-
-      const enabledNetworks =
-        await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
-
-      if (!enabledNetworks[network.id]) {
-        const emptyData = defiUtils.getEmptyDeFiData();
-        updateAccountDeFiOverview({
-          overview: emptyData.overview,
-          currency: settings.currencyInfo.id,
-          accountId: account.id,
-          networkId: network.id,
-          isReady: true,
-        });
-        updateDeFiListProtocols({
-          protocols: emptyData.protocols,
-        });
-        updateDeFiListProtocolMap({
-          protocolMap: emptyData.protocolMap,
-        });
-        updateDeFiListState({
-          initialized: true,
-          isRefreshing: false,
-          loadedOwnerKey: currentOwnerKey,
-        });
-        setIsHeaderRefreshing(false);
-        return;
-      }
-
-      await backgroundApiProxy.serviceDeFi.abortFetchAccountDeFiPositions();
-      updateDeFiListState({
-        isRefreshing: true,
-        loadedOwnerKey: undefined,
-      });
-
-      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
-        isRefreshing: true,
-        type: EHomeTab.DEFI,
-        accountId: account.id,
-        networkId: network.id,
-      });
-
-      try {
-        const cacheKey = buildSingleNetworkDeFiCacheKey({
-          accountId: account.id,
-          networkId: network.id,
-          accountAddress: account.address,
-        });
-        const shouldForceInitialRefresh =
-          singleNetworkLocalCacheRef.current.cacheKey !== cacheKey ||
-          !singleNetworkLocalCacheRef.current.hasCache;
-        const shouldForceManualRefresh =
-          await consumePendingManualForceRefreshIntent();
-        const resp =
-          await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
-            accountId: account.id,
-            indexedAccountId: account.indexedAccountId,
-            networkId: network.id,
-            accountAddress: account.address,
-            excludeLowValueProtocols: true,
-            sourceCurrencyInfo,
-            targetCurrencyInfo,
-            saveToLocal: true,
-            isForceRefresh:
-              shouldForceManualRefresh || shouldForceInitialRefresh,
-          });
-        if (singleNetworkLocalCacheRef.current.cacheKey === cacheKey) {
-          singleNetworkLocalCacheRef.current.hasCache = true;
-        }
-        updateAccountDeFiOverview({
-          currency: settings.currencyInfo.id,
-          accountId: account.id,
-          networkId: network.id,
-          overview: {
-            totalValue: resp.overview.totalValue ?? 0,
-            totalDebt: resp.overview.totalDebt ?? 0,
-            totalReward: resp.overview.totalReward ?? 0,
-            netWorth: resp.overview.netWorth ?? 0,
-          },
-          isReady: true,
-        });
-        updateDeFiListProtocols({
-          protocols: resp.protocols,
-        });
-        updateDeFiListProtocolMap({
-          protocolMap: resp.protocolMap,
-        });
-        updateDeFiListState({
-          initialized: true,
-          isRefreshing: false,
-          loadedOwnerKey: currentOwnerKey,
-        });
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setIsHeaderRefreshing(false);
-        updateDeFiListState(
-          deFiListLoadingReducer({
-            type: 'settled',
-            loadedOwnerKey: currentOwnerKey,
-          }),
-        );
-        appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
-          isRefreshing: false,
-          type: EHomeTab.DEFI,
-          accountId: account.id,
-          networkId: network.id,
-        });
-      }
-    },
-    [
-      account,
-      network,
-      refreshCacheOnly,
-      settings.currencyInfo.id,
-      updateAccountDeFiOverview,
-      updateDeFiListProtocols,
-      updateDeFiListProtocolMap,
-      updateDeFiListState,
-      currentOwnerKey,
-      sourceCurrencyInfo,
-      targetCurrencyInfo,
-      setIsHeaderRefreshing,
-      consumePendingManualForceRefreshIntent,
-    ],
-    {
-      overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
-      debounced: POLLING_DEBOUNCE_INTERVAL,
-      pollingInterval: POLLING_INTERVAL_FOR_DEFI,
-    },
+  const protocolMap = useMemo(
+    () => payload?.protocolMap ?? {},
+    [payload?.protocolMap],
   );
-
-  const deFiDataRef = useRef<{
-    overview: {
-      totalValue: number;
-      totalDebt: number;
-      totalReward: number;
-      netWorth: number;
-      chains: string[];
-      protocolCount: number;
-      positionCount: number;
-    };
-    protocols: IDeFiProtocol[];
-  }>(defiUtils.getEmptyDeFiData());
-
-  const updateAllNetworkData = useThrottledCallback(() => {
-    updateAccountDeFiOverview({
-      currency: settings.currencyInfo.id,
-      accountId: account?.id,
-      networkId: network?.id,
-      overview: deFiDataRef.current.overview,
-      merge: true,
-      isReady: true,
-    });
-    updateDeFiListProtocols({
-      protocols: deFiDataRef.current.protocols,
-      merge: true,
-    });
-    deFiDataRef.current = defiUtils.getEmptyDeFiData();
-    updateDeFiListState(
-      deFiListLoadingReducer({
-        type: 'settled',
-        loadedOwnerKey: currentOwnerKey,
-      }),
-    );
-  }, 1000);
-
-  const handleAllNetworkRequests = useCallback(
-    async ({
-      accountId,
-      networkId,
-      allNetworkDataInit,
-    }: {
-      accountId: string;
-      networkId: string;
-      allNetworkDataInit?: boolean;
-    }) => {
-      if (refreshCacheOnly) {
-        return;
-      }
-
-      const shouldForceInitialRefresh = !allNetworkDataInit;
-      const r = await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
-        accountId,
-        indexedAccountId: account?.indexedAccountId,
-        networkId,
-        isAllNetworks: true,
-        allNetworksAccountId: account?.id,
-        allNetworksNetworkId: network?.id,
-        saveToLocal: true,
-        excludeLowValueProtocols: true,
-        sourceCurrencyInfo,
-        targetCurrencyInfo,
-        isForceRefresh:
-          allNetworkManualForceRefreshRef.current || shouldForceInitialRefresh,
-      });
-
-      if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
-        deFiDataRef.current = {
-          overview: {
-            totalValue: new BigNumber(r.overview.totalValue ?? 0)
-              .plus(deFiDataRef.current.overview.totalValue)
-              .toNumber(),
-            totalDebt: new BigNumber(r.overview.totalDebt ?? 0)
-              .plus(deFiDataRef.current.overview.totalDebt)
-              .toNumber(),
-            totalReward: new BigNumber(r.overview.totalReward ?? 0)
-              .plus(deFiDataRef.current.overview.totalReward)
-              .toNumber(),
-            netWorth: new BigNumber(r.overview.netWorth ?? 0)
-              .plus(deFiDataRef.current.overview.netWorth)
-              .toNumber(),
-            chains: Array.from(
-              new Set([
-                ...deFiDataRef.current.overview.chains,
-                ...r.overview.chains,
-              ]),
-            ),
-            protocolCount:
-              deFiDataRef.current.overview.protocolCount +
-              r.overview.protocolCount,
-            positionCount:
-              deFiDataRef.current.overview.positionCount +
-              r.overview.positionCount,
-          },
-          protocols: [...deFiDataRef.current.protocols, ...r.protocols],
-        };
-        updateDeFiListProtocolMap({
-          protocolMap: r.protocolMap,
-          merge: true,
-        });
-        updateAllNetworkData();
-      }
-
-      return r;
-    },
-    [
-      account?.id,
-      account?.indexedAccountId,
-      network?.id,
-      updateAllNetworkData,
-      updateDeFiListProtocolMap,
-      sourceCurrencyInfo,
-      targetCurrencyInfo,
-      refreshCacheOnly,
-    ],
+  const supportedActions = useMemo(
+    () => payload?.supportedActions ?? [],
+    [payload?.supportedActions],
   );
-
-  const handleClearAllNetworkData = useCallback(() => {
-    updateDeFiListState({
-      isRefreshing: true,
-      loadedOwnerKey: undefined,
-    });
-    updateAccountDeFiOverview({
-      currency: settings.currencyInfo.id,
-      accountId: account?.id,
-      networkId: network?.id,
-      overview: {
-        totalValue: 0,
-        totalDebt: 0,
-        totalReward: 0,
-        netWorth: 0,
-        chains: [],
-        protocolCount: 0,
-        positionCount: 0,
-      },
-    });
-    updateDeFiListProtocols({
-      protocols: [],
-    });
-    updateDeFiListProtocolMap({
-      protocolMap: {},
-    });
-  }, [
-    account?.id,
-    network?.id,
-    settings.currencyInfo.id,
-    updateAccountDeFiOverview,
-    updateDeFiListProtocols,
-    updateDeFiListProtocolMap,
-    updateDeFiListState,
-  ]);
-
-  const handleAllNetworkRequestsStarted = useCallback(
-    async ({
-      accountId,
-      networkId,
-    }: {
-      accountId?: string;
-      networkId?: string;
-    }) => {
-      if (!refreshCacheOnly && accountId && networkId) {
-        await backgroundApiProxy.serviceDeFi.updateCurrentAccount({
-          accountId,
-          networkId,
-        });
-      }
-
-      deFiRawDataRef.current =
-        (await backgroundApiProxy.simpleDb.deFi.getRawData()) ?? undefined;
-
-      if (refreshCacheOnly) {
-        return;
-      }
-
-      allNetworkManualForceRefreshRef.current =
-        await consumePendingManualForceRefreshIntent();
-
-      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
-        isRefreshing: true,
-        type: EHomeTab.DEFI,
-        accountId: accountId ?? '',
-        networkId: networkId ?? '',
-      });
-      updateDeFiListState({
-        isRefreshing: true,
-        loadedOwnerKey: undefined,
-      });
-      updateOverviewDeFiDataState({
-        accountId: account?.id,
-        networkId: network?.id,
-        isReady: undefined,
-      });
-    },
-    [
-      account?.id,
-      network?.id,
-      refreshCacheOnly,
-      consumePendingManualForceRefreshIntent,
-      updateDeFiListState,
-      updateOverviewDeFiDataState,
-    ],
-  );
-
-  const handleAllNetworkCacheRequests = useCallback(
-    async ({
-      accountId,
-      networkId,
-      accountAddress,
-      xpub,
-    }: {
-      accountId: string;
-      networkId: string;
-      accountAddress: string;
-      xpub?: string;
-    }) => {
-      const localDeFiOverview =
-        await backgroundApiProxy.serviceDeFi.getAccountsLocalDeFiOverview({
-          accounts: [
-            {
-              accountId,
-              networkId,
-              accountAddress,
-              xpub,
-            },
-          ],
-          deFiRawData: deFiRawDataRef.current,
-        });
-
-      const rawOverview = localDeFiOverview?.[0]?.overview?.[networkId];
-
-      let convertedOverview = rawOverview;
-      if (rawOverview) {
-        if (rawOverview.currency !== settings.currencyInfo.id) {
-          const _sourceCurrencyInfo = currencyMap[rawOverview.currency];
-          const _targetCurrencyInfo = currencyMap[settings.currencyInfo.id];
-          convertedOverview = {
-            ...rawOverview,
-            ...convertDeFiOverviewValues(
-              rawOverview,
-              _sourceCurrencyInfo.value,
-              _targetCurrencyInfo.value,
-            ),
-          };
-        }
-      }
-
-      if (!convertedOverview) {
-        return undefined;
-      }
-
-      return {
-        overview: convertedOverview,
-      };
-    },
-    [currencyMap, settings.currencyInfo.id],
-  );
-
-  const handleAllNetworkCacheData = useCallback(
-    async ({
-      data,
-    }: {
-      data: {
-        overview: {
-          totalValue: number;
-          totalDebt: number;
-          totalReward: number;
-          netWorth: number;
-          currency: string;
-        };
-      }[];
-    }) => {
-      const tempOverview: {
-        totalValue: number;
-        totalDebt: number;
-        totalReward: number;
-        netWorth: number;
-      } = {
-        totalValue: 0,
-        totalDebt: 0,
-        totalReward: 0,
-        netWorth: 0,
-      };
-      for (const d of data) {
-        tempOverview.totalValue += d.overview.totalValue;
-        tempOverview.totalDebt += d.overview.totalDebt;
-        tempOverview.totalReward += d.overview.totalReward;
-        tempOverview.netWorth += d.overview.netWorth;
-      }
-      updateAccountDeFiOverview({
-        currency: settings.currencyInfo.id,
-        accountId: account?.id,
-        networkId: network?.id,
-        overview: tempOverview,
-        isReady: true,
-      });
-    },
-    [
-      account?.id,
-      network?.id,
-      settings.currencyInfo.id,
-      updateAccountDeFiOverview,
-    ],
-  );
-
-  const handleAllNetworkRequestsFinished = useCallback(
-    async ({
-      accountId,
-      networkId,
-    }: {
-      accountId?: string;
-      networkId?: string;
-    }) => {
-      allNetworkManualForceRefreshRef.current = false;
-      setIsHeaderRefreshing(false);
-
-      if (refreshCacheOnly) {
-        return;
-      }
-
-      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
-        isRefreshing: false,
-        type: EHomeTab.DEFI,
-        accountId: accountId ?? '',
-        networkId: networkId ?? '',
-      });
-
-      updateAllNetworkData.flush();
-
-      // `useAllNetworkRequests` fires `onFinished` even when `resp` is
-      // null (no positions), where the downstream `allNetworksResult`
-      // effect would otherwise skip clearing the loading flag pair.
-      updateDeFiListState(
-        deFiListLoadingReducer({
-          type: 'settled',
-          loadedOwnerKey: buildDeFiListOwnerKey({ accountId, networkId }),
-        }),
-      );
-    },
-    [
-      refreshCacheOnly,
-      setIsHeaderRefreshing,
-      updateAllNetworkData,
-      updateDeFiListState,
-    ],
-  );
-
-  const handleAllNetworkCacheChecked = useCallback(
-    ({
-      accountId,
-      networkId,
-      hasCache,
-    }: {
-      accountId?: string;
-      networkId?: string;
-      hasCache: boolean;
-    }) => {
-      updateOverviewDeFiDataState({
-        accountId,
-        networkId,
-        isReady: hasCache,
-      });
-    },
-    [updateOverviewDeFiDataState],
-  );
-
-  const {
-    run: runAllNetworkRequests,
-    result: allNetworksResult,
-    isEmptyAccount,
-  } = useAllNetworkRequests<
-    Awaited<
-      ReturnType<
-        typeof backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions
-      >
-    >
-  >({
+  const initialized =
+    resource.kind === 'ready' ||
+    resource.kind === 'empty' ||
+    resource.kind === 'error';
+  const isRefreshing =
+    resource.kind === 'idle' ||
+    resource.kind === 'loading' ||
+    ((resource.kind === 'ready' || resource.kind === 'empty') &&
+      resource.refresh === 'refreshing');
+  const currentOwnerKey = buildDeFiListOwnerKey({
     accountId: account?.id,
     networkId: network?.id,
-    walletId: wallet?.id,
-    isAllNetworks: network?.isAllNetworks,
-    onStarted: handleAllNetworkRequestsStarted,
-    onFinished: handleAllNetworkRequestsFinished,
-    onCacheChecked: handleAllNetworkCacheChecked,
-    allNetworkCacheRequests: handleAllNetworkCacheRequests,
-    allNetworkCacheData: handleAllNetworkCacheData,
-    allNetworkRequests: handleAllNetworkRequests,
-    clearAllNetworkData: handleClearAllNetworkData,
-    isDeFiRequests: true,
-    disabled: network?.isAllNetworks ? !isAllNetRequestsEnabled : false,
   });
-
-  const handleRefreshAllNetworkData = useCallback(() => {
-    void runAllNetworkRequests({
-      alwaysSetState: true,
-      skipAccountsCache: true,
-    });
-  }, [runAllNetworkRequests]);
-
-  const handleActionSuccess = useCallback(
-    async ({ accountId, networkId }: IProtocolPositionActionSuccessParams) => {
-      appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
-      await backgroundApiProxy.serviceDeFi.refreshAccountDeFiPositionsAfterAction(
-        {
-          accountId,
-          networkId,
-        },
-      );
-    },
-    [],
-  );
+  const headerRefreshRef = useRef<{
+    ownerKey?: string;
+    requested: boolean;
+    seenRefreshing: boolean;
+    timeoutId?: ReturnType<typeof setTimeout>;
+  }>({ requested: false, seenRefreshing: false });
+  const resourceRefreshActive =
+    resource.kind === 'loading' ||
+    resource.kind === 'partial' ||
+    ((resource.kind === 'ready' || resource.kind === 'empty') &&
+      resource.refresh === 'refreshing');
 
   useEffect(() => {
-    if (network?.isAllNetworks && isEmptyAccount) {
-      updateDeFiListState({
-        initialized: true,
-        isRefreshing: false,
-        loadedOwnerKey: currentOwnerKey,
-      });
-      updateAccountDeFiOverview({
-        currency: settings.currencyInfo.id,
-        accountId: account?.id,
-        networkId: network?.id,
-        overview: {
-          totalValue: 0,
-          totalDebt: 0,
-          netWorth: 0,
-          totalReward: 0,
-          chains: [],
-          protocolCount: 0,
-          positionCount: 0,
-        },
-        isReady: true,
-      });
-      updateDeFiListProtocols({
-        protocols: [],
-      });
-      updateDeFiListProtocolMap({
-        protocolMap: {},
-      });
-    }
-  }, [
-    account?.id,
-    network?.id,
-    isEmptyAccount,
-    network?.isAllNetworks,
-    currentOwnerKey,
-    updateDeFiListState,
-    updateAccountDeFiOverview,
-    updateDeFiListProtocols,
-    updateDeFiListProtocolMap,
-    settings.currencyInfo.id,
-  ]);
-
-  useEffect(() => {
-    const initDeFiData = async ({
-      accountId,
-      networkId,
-    }: {
-      accountId: string;
-      networkId: string;
-    }) => {
-      const cacheKey = buildSingleNetworkDeFiCacheKey({
-        accountId,
-        networkId,
-        accountAddress: account?.address,
-      });
-      singleNetworkLocalCacheRef.current = {
-        cacheKey,
-        hasCache: false,
+    const state = headerRefreshRef.current;
+    if (state.ownerKey !== currentOwnerKey) {
+      if (state.timeoutId) {
+        clearTimeout(state.timeoutId);
+      }
+      headerRefreshRef.current = {
+        ownerKey: currentOwnerKey,
+        requested: false,
+        seenRefreshing: false,
       };
-      updateOverviewDeFiDataState({
-        accountId,
-        networkId,
-        isReady: undefined,
-      });
-      void backgroundApiProxy.serviceDeFi.updateCurrentAccount({
-        networkId,
-        accountId,
-      });
-
-      if (networkUtils.isAllNetwork({ networkId })) {
-        return;
-      }
-
-      const localDeFiOverview = (
-        await backgroundApiProxy.serviceDeFi.getAccountsLocalDeFiOverview({
-          accounts: [
-            {
-              accountId,
-              networkId,
-              accountAddress: account?.address,
-            },
-          ],
-        })
-      )[0];
-
-      if (localDeFiOverview) {
-        const rawOverview = localDeFiOverview.overview[networkId];
-        if (singleNetworkLocalCacheRef.current.cacheKey === cacheKey) {
-          singleNetworkLocalCacheRef.current.hasCache = Boolean(rawOverview);
-        }
-        if (rawOverview) {
-          let convertedOverview = rawOverview;
-          if (rawOverview.currency !== settings.currencyInfo.id) {
-            const _sourceCurrencyInfo = currencyMap[rawOverview.currency];
-            const _targetCurrencyInfo = currencyMap[settings.currencyInfo.id];
-            convertedOverview = {
-              ...rawOverview,
-              ...convertDeFiOverviewValues(
-                rawOverview,
-                _sourceCurrencyInfo.value,
-                _targetCurrencyInfo.value,
-              ),
-            };
-          }
-          updateAccountDeFiOverview({
-            currency: settings.currencyInfo.id,
-            accountId,
-            networkId,
-            overview: convertedOverview,
-            isReady: true,
-          });
-        } else {
-          updateAccountDeFiOverview({
-            accountId,
-            networkId,
-            overview: {
-              totalValue: 0,
-              totalDebt: 0,
-              totalReward: 0,
-              netWorth: 0,
-            },
-            isReady: false,
-          });
-        }
-      } else {
-        updateAccountDeFiOverview({
-          accountId,
-          networkId,
-          overview: {
-            totalValue: 0,
-            totalDebt: 0,
-            totalReward: 0,
-            netWorth: 0,
-          },
-          isReady: false,
-        });
-      }
-    };
-    if (account?.id && network?.id) {
-      void initDeFiData({
-        accountId: account.id,
-        networkId: network.id,
-      });
     }
-  }, [
-    account?.id,
-    network?.id,
-    account?.address,
-    updateAccountDeFiOverview,
-    updateOverviewDeFiDataState,
-    settings.currencyInfo.id,
-    currencyMap,
-  ]);
-
-  // Imperatively hydrate the single-network DeFi overview (and its readiness)
-  // for an explicitly provided account/network. Mirrors the token list's
-  // off-tab refresh: when a network switch happens while the user is on another
-  // home tab (e.g. History), this block sits inside the frozen Portfolio tab so
-  // its `initDeFiData` effect won't re-run for the new network — leaving
-  // `overviewDeFiDataState` stuck on the previous network. The always-visible
-  // header gates the single-network worth on BOTH token and DeFi readiness, so
-  // without this the header falls back to a stale/zero placeholder until the
-  // user returns to the wallet tab. Driving it from explicit params lets the
-  // overview update to the new network's local cache while still frozen.
-  const explicitDeFiRefreshSeqRef = useRef(0);
-  const refreshSingleNetworkDeFiOverviewByTarget = useCallback(
-    async (target: { accountId: string; networkId: string }) => {
-      const { accountId, networkId } = target;
-      if (!accountId || !networkId) return;
-      // All-networks aggregation is driven by a separate closure-bound hook
-      // that cannot be refreshed imperatively here; let it refresh on return.
-      if (networkUtils.isAllNetwork({ networkId })) return;
-
-      const seq = (explicitDeFiRefreshSeqRef.current += 1);
-      const isLatest = () => explicitDeFiRefreshSeqRef.current === seq;
-
-      try {
-        // The DeFi local cache is keyed by the account's on-chain address, which
-        // differs per network. This block is frozen (inactive tab) so its own
-        // `account` closure still points at the previous network; resolve the
-        // target network's address explicitly instead of reusing the closure.
-        const targetAccount =
-          await backgroundApiProxy.serviceAccount.getAccount({
-            accountId,
-            networkId,
-          });
-        if (!isLatest()) return;
-
-        const localDeFiOverview = (
-          await backgroundApiProxy.serviceDeFi.getAccountsLocalDeFiOverview({
-            accounts: [
-              {
-                accountId,
-                networkId,
-                accountAddress: targetAccount?.address,
-              },
-            ],
-          })
-        )[0];
-        // A newer switch superseded this read; drop the stale body so it can't
-        // clobber the latest network's overview.
-        if (!isLatest()) return;
-
-        const rawOverview = localDeFiOverview?.overview?.[networkId];
-        if (rawOverview) {
-          let convertedOverview = rawOverview;
-          if (rawOverview.currency !== settings.currencyInfo.id) {
-            const _sourceCurrencyInfo = currencyMap[rawOverview.currency];
-            const _targetCurrencyInfo = currencyMap[settings.currencyInfo.id];
-            if (_sourceCurrencyInfo && _targetCurrencyInfo) {
-              convertedOverview = {
-                ...rawOverview,
-                ...convertDeFiOverviewValues(
-                  rawOverview,
-                  _sourceCurrencyInfo.value,
-                  _targetCurrencyInfo.value,
-                ),
-              };
-            }
-          }
-          updateAccountDeFiOverview({
-            currency: settings.currencyInfo.id,
-            accountId,
-            networkId,
-            overview: convertedOverview,
-            isReady: true,
-          });
-        } else {
-          updateAccountDeFiOverview({
-            accountId,
-            networkId,
-            overview: {
-              totalValue: 0,
-              totalDebt: 0,
-              totalReward: 0,
-              netWorth: 0,
-            },
-            isReady: false,
-          });
-        }
-      } catch {
-        // Best-effort cache hydration; the DeFi tab does a full network refresh
-        // on focus, so a transient failure here self-heals on tab return.
-      }
-    },
-    [settings.currencyInfo.id, currencyMap, updateAccountDeFiOverview],
-  );
-
-  useEffect(() => {
-    // Only the lightweight cache-only instance (mounted in the Portfolio tab)
-    // owns the always-visible header overview; the full DeFi-tab instance
-    // refreshes itself on focus, so it must not also react here.
-    if (!refreshCacheOnly) return;
-    const onRefreshByProvidedAccounts = (
-      params: IAppEventBusPayload[EAppEventBusNames.RefreshTokenList],
-    ) => {
-      if (!params?.refreshByProvidedAccounts) return;
-      const target = params?.accounts?.[0];
-      if (target) {
-        void refreshSingleNetworkDeFiOverviewByTarget(target);
-      }
-    };
-    appEventBus.on(
-      EAppEventBusNames.RefreshTokenList,
-      onRefreshByProvidedAccounts,
-    );
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.RefreshTokenList,
-        onRefreshByProvidedAccounts,
-      );
-    };
-  }, [refreshCacheOnly, refreshSingleNetworkDeFiOverviewByTarget]);
-
-  useEffect(() => {
-    if (refreshCacheOnly) {
+    if (!isHeaderRefreshing) {
       return;
     }
-
-    const refresh = (
-      payload?: IAppEventBusPayload[EAppEventBusNames.AccountDataUpdate],
-    ) => {
-      prepareManualDeFiForceRefresh(payload);
-      if (network?.isAllNetworks) {
-        void handleRefreshAllNetworkData();
-      } else {
-        void run();
-      }
-    };
-
-    const onRefresh = (
-      payload?: IAppEventBusPayload[EAppEventBusNames.AccountDataUpdate],
-    ) => {
-      if (isFocused) {
-        pendingRefreshRef.current = undefined;
-        void refresh(payload);
-      } else {
-        pendingRefreshRef.current = {
-          payload: payload?.isManualRefresh ? undefined : payload,
-        };
-      }
-    };
-
-    if (isFocused && pendingRefreshRef.current) {
-      const { payload } = pendingRefreshRef.current;
-      pendingRefreshRef.current = undefined;
-      void refresh(payload);
+    if (refreshCacheOnly) {
+      setIsHeaderRefreshing(false);
+      return;
     }
-
-    appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, onRefresh);
-    appEventBus.on(EAppEventBusNames.GlobalDeriveTypeUpdate, onRefresh);
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, onRefresh);
-    return () => {
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, onRefresh);
-      appEventBus.off(EAppEventBusNames.GlobalDeriveTypeUpdate, onRefresh);
-      appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, onRefresh);
-    };
-  }, [
-    isFocused,
-    network?.isAllNetworks,
-    handleRefreshAllNetworkData,
-    prepareManualDeFiForceRefresh,
-    refreshCacheOnly,
-    run,
-  ]);
-
-  useEffect(() => {
-    const onDeFiPositionRefreshed = (
-      payload: IAppEventBusPayload[EAppEventBusNames.DeFiPositionRefreshed],
-    ) => {
-      if (refreshCacheOnly) return;
-      if (!account?.id || !network?.id) return;
-
-      // Prefer indexedAccountId equality (robust for All Networks mode);
-      // fall back to a strict accountId match for accounts without an
-      // indexed id (imported / watching-only / external). A walletId-only
-      // compare is unsafe for those types because they all share a single
-      // wallet bucket (`imported`, `watching`, `external`) — distinct
-      // accounts inside the same bucket would otherwise leak each other's
-      // refreshed positions into the current view.
-      const currentIndexedId = account.indexedAccountId;
-      const payloadIndexedId = payload.indexedAccountId;
-      if (currentIndexedId && payloadIndexedId) {
-        if (currentIndexedId !== payloadIndexedId) return;
-      } else if (payload.accountId !== account.id) {
+    const current = headerRefreshRef.current;
+    if (!current.requested) {
+      if (!refreshDeFi()) {
+        setIsHeaderRefreshing(false);
         return;
       }
-
-      if (!network.isAllNetworks) {
-        if (
-          payload.accountId !== account.id ||
-          payload.networkId !== network.id
-        ) {
-          return;
-        }
-        updateAccountDeFiOverview({
-          currency: settings.currencyInfo.id,
-          accountId: account.id,
-          networkId: network.id,
-          overview: {
-            totalValue: payload.overview.totalValue,
-            totalDebt: payload.overview.totalDebt,
-            totalReward: payload.overview.totalReward,
-            netWorth: payload.overview.netWorth,
-          },
-          isReady: true,
-        });
-        updateDeFiListProtocols({ protocols: payload.protocols });
-        updateDeFiListProtocolMap({ protocolMap: payload.protocolMap });
-        updateDeFiListState({
-          initialized: true,
-          isRefreshing: false,
-          loadedOwnerKey: currentOwnerKey,
-        });
-        return;
+      current.requested = true;
+      current.timeoutId = setTimeout(() => {
+        headerRefreshRef.current.requested = false;
+        headerRefreshRef.current.seenRefreshing = false;
+        headerRefreshRef.current.timeoutId = undefined;
+        setIsHeaderRefreshing(false);
+      }, HEADER_REFRESH_TIMEOUT_MS);
+      return;
+    }
+    if (resourceRefreshActive) {
+      current.seenRefreshing = true;
+      return;
+    }
+    if (current.seenRefreshing) {
+      if (current.timeoutId) {
+        clearTimeout(current.timeoutId);
       }
-
-      // All Networks: drop this network's old entries and splice in the
-      // refreshed ones. Aggregated overview is recomputed from the merged
-      // protocolMap so the header total stays in sync.
-      const prefix = `${payload.networkId}-`;
-      const refreshedProtocols = protocolsRef.current
-        .filter((p) => p.networkId !== payload.networkId)
-        .concat(payload.protocols);
-
-      const nextProtocolMap: Record<string, IProtocolSummary> = {};
-      for (const [k, v] of Object.entries(protocolMapRef.current)) {
-        if (!k.startsWith(prefix)) nextProtocolMap[k] = v;
-      }
-      Object.assign(nextProtocolMap, payload.protocolMap);
-      const nextProtocols = sortDeFiProtocolsByNetWorth({
-        protocols: refreshedProtocols,
-        protocolMap: nextProtocolMap,
-      });
-
-      let totalValueBN = new BigNumber(0);
-      let totalDebtBN = new BigNumber(0);
-      let totalRewardBN = new BigNumber(0);
-      let netWorthBN = new BigNumber(0);
-      for (const s of Object.values(nextProtocolMap)) {
-        totalValueBN = totalValueBN.plus(s.totalValue ?? 0);
-        totalDebtBN = totalDebtBN.plus(s.totalDebt ?? 0);
-        totalRewardBN = totalRewardBN.plus(s.totalReward ?? 0);
-        netWorthBN = netWorthBN.plus(s.netWorth ?? 0);
-      }
-
-      updateDeFiListProtocols({ protocols: nextProtocols });
-      updateDeFiListProtocolMap({ protocolMap: nextProtocolMap });
-      updateAccountDeFiOverview({
-        currency: settings.currencyInfo.id,
-        accountId: account.id,
-        networkId: network.id,
-        overview: {
-          totalValue: totalValueBN.toNumber(),
-          totalDebt: totalDebtBN.toNumber(),
-          totalReward: totalRewardBN.toNumber(),
-          netWorth: netWorthBN.toNumber(),
-        },
-        isReady: true,
-      });
-      updateDeFiListState({
-        initialized: true,
-        isRefreshing: false,
-        loadedOwnerKey: currentOwnerKey,
-      });
-    };
-
-    appEventBus.on(
-      EAppEventBusNames.DeFiPositionRefreshed,
-      onDeFiPositionRefreshed,
-    );
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.DeFiPositionRefreshed,
-        onDeFiPositionRefreshed,
-      );
-    };
+      current.requested = false;
+      current.seenRefreshing = false;
+      current.timeoutId = undefined;
+      setIsHeaderRefreshing(false);
+    }
   }, [
-    account?.id,
-    account?.indexedAccountId,
-    network?.id,
-    network?.isAllNetworks,
     currentOwnerKey,
-    refreshCacheOnly,
-    settings.currencyInfo.id,
-    updateAccountDeFiOverview,
-    updateDeFiListProtocols,
-    updateDeFiListProtocolMap,
-    updateDeFiListState,
-  ]);
-
-  useEffect(() => {
-    if (allNetworksResult) {
-      if (refreshCacheOnly) {
-        return;
-      }
-
-      const tempOverview = {
-        totalValue: 0,
-        totalDebt: 0,
-        totalReward: 0,
-        netWorth: 0,
-        chains: [] as string[],
-        protocolCount: 0,
-        positionCount: 0,
-      };
-      const tempProtocols: IDeFiProtocol[] = [];
-      const tempProtocolMap: Record<string, IProtocolSummary> = {};
-      // merge all networks result
-      for (const r of allNetworksResult) {
-        tempOverview.totalValue = new BigNumber(tempOverview.totalValue)
-          .plus(r.overview.totalValue)
-          .toNumber();
-        tempOverview.totalDebt = new BigNumber(tempOverview.totalDebt)
-          .plus(r.overview.totalDebt)
-          .toNumber();
-        tempOverview.netWorth = new BigNumber(tempOverview.netWorth)
-          .plus(r.overview.netWorth)
-          .toNumber();
-        tempOverview.totalReward = new BigNumber(tempOverview.totalReward)
-          .plus(r.overview.totalReward)
-          .toNumber();
-        tempOverview.chains = Array.from(
-          new Set([...tempOverview.chains, ...r.overview.chains]),
-        );
-        tempOverview.protocolCount += r.overview.protocolCount;
-        tempOverview.positionCount += r.overview.positionCount;
-        tempProtocols.push(...r.protocols);
-        Object.assign(tempProtocolMap, r.protocolMap);
-      }
-      updateAccountDeFiOverview({
-        currency: settings.currencyInfo.id,
-        accountId: account?.id,
-        networkId: network?.id,
-        overview: tempOverview,
-        isReady: true,
-      });
-      updateDeFiListProtocols({
-        protocols: tempProtocols,
-      });
-      updateDeFiListProtocolMap({
-        protocolMap: tempProtocolMap,
-      });
-      updateDeFiListState({
-        initialized: true,
-        isRefreshing: false,
-        loadedOwnerKey: currentOwnerKey,
-      });
-    }
-  }, [
-    account?.id,
-    network?.id,
-    currentOwnerKey,
-    allNetworksResult,
-    updateAccountDeFiOverview,
-    updateDeFiListProtocols,
-    updateDeFiListProtocolMap,
-    updateDeFiListState,
-    settings.currencyInfo.id,
-    refreshCacheOnly,
-  ]);
-
-  useEffect(() => {
-    if (isHeaderRefreshing && !refreshCacheOnly) {
-      if (network?.isAllNetworks) {
-        handleRefreshAllNetworkData();
-      } else {
-        void run();
-      }
-    }
-  }, [
     isHeaderRefreshing,
+    refreshDeFi,
     refreshCacheOnly,
-    run,
-    handleRefreshAllNetworkData,
-    network?.isAllNetworks,
+    resourceRefreshActive,
+    setIsHeaderRefreshing,
   ]);
 
-  const filteredProtocols = useMemo(() => {
-    // Keep the mounted list in the same exposure order as the overview tiles,
-    // so every collapsed overview tile can scroll to an existing protocol row.
-    const sorted = buildDeFiOverviewCells(protocols, (protocol) => {
-      const key = defiUtils.buildProtocolMapKey({
-        protocol: protocol.protocol,
-        networkId: protocol.networkId,
-      });
-      const info = buildProtocolDisplayInfo({
-        protocol,
-        protocolInfo: protocolMap[key],
-      });
-      const nw = new BigNumber(info.netWorth);
-      return nw.isFinite() ? nw.toNumber() : 0;
-    }).map((e) => e.protocol);
-
-    if (isOverflow && isSliced) {
-      const limit = tableLayout
-        ? maxProtocolsOnLargeScreen
-        : MAX_PROTOCOLS_ON_SMALL_SCREEN;
-      return sorted.slice(0, limit);
-    }
-    return sorted;
-  }, [
-    protocols,
-    protocolMap,
-    isOverflow,
-    isSliced,
-    tableLayout,
-    maxProtocolsOnLargeScreen,
-  ]);
-
-  const protocolListLockUntilRef = useRef(0);
-  const protocolListUnlockTimerRef = useRef<ReturnType<
-    typeof setTimeout
-  > | null>(null);
-  const [isProtocolListInteractionLocked, setIsProtocolListInteractionLocked] =
-    useState(false);
-
-  const isProtocolListLocked = useCallback(
-    () => protocolListLockUntilRef.current > Date.now(),
+  useEffect(
+    () => () => {
+      if (headerRefreshRef.current.timeoutId) {
+        clearTimeout(headerRefreshRef.current.timeoutId);
+      }
+    },
     [],
   );
-  const lockProtocolListInteractions = useCallback(() => {
+
+  const overviewCols = resolveOverviewCols({
+    gtXl: media.gtXl,
+    gtLg: media.gtLg,
+  });
+  const maxProtocolsOnLargeScreen = getOverviewCollapsedProtocolLimit({
+    cols: overviewCols,
+    protocolCount: protocols.length,
+  });
+  const overflowThreshold = tableLayout
+    ? maxProtocolsOnLargeScreen
+    : MAX_PROTOCOLS_ON_SMALL_SCREEN;
+  const isOverflow = protocols.length > overflowThreshold;
+  const netWorth = useMemo(
+    () =>
+      Object.values(protocolMap)
+        .reduce(
+          (total, protocol) => total.plus(protocol.netWorth ?? 0),
+          new BigNumber(0),
+        )
+        .toNumber(),
+    [protocolMap],
+  );
+  const filteredProtocols = useMemo(() => {
+    const sorted = buildDeFiOverviewCells(protocols, (protocol) => {
+      const protocolInfo =
+        protocolMap[
+          defiUtils.buildProtocolMapKey({
+            networkId: protocol.networkId,
+            protocol: protocol.protocol,
+          })
+        ];
+      const value = new BigNumber(
+        buildProtocolDisplayInfo({ protocol, protocolInfo }).netWorth,
+      );
+      return value.isFinite() ? value.toNumber() : 0;
+    }).map((cell) => cell.protocol);
+    return isOverflow && isSliced ? sorted.slice(0, overflowThreshold) : sorted;
+  }, [isOverflow, isSliced, overflowThreshold, protocolMap, protocols]);
+
+  const protocolListLockUntilRef = useRef(0);
+  const protocolListUnlockTimerRef = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
+  const [isProtocolListInteractionLocked, setIsProtocolListInteractionLocked] =
+    useState(false);
+  useEffect(
+    () => () => {
+      if (protocolListUnlockTimerRef.current) {
+        clearTimeout(protocolListUnlockTimerRef.current);
+      }
+    },
+    [],
+  );
+  const handleToggleSliced = useCallback(() => {
+    if (protocolListLockUntilRef.current > Date.now()) {
+      return;
+    }
+    const targetProtocol = isSliced
+      ? undefined
+      : filteredProtocols[
+          Math.min(overflowThreshold, filteredProtocols.length) - 1
+        ];
     protocolListLockUntilRef.current =
       Date.now() + PROTOCOL_LIST_TOGGLE_PRESS_LOCK_MS;
     setIsProtocolListInteractionLocked(true);
-
     if (protocolListUnlockTimerRef.current) {
       clearTimeout(protocolListUnlockTimerRef.current);
     }
     protocolListUnlockTimerRef.current = setTimeout(() => {
-      protocolListUnlockTimerRef.current = null;
       setIsProtocolListInteractionLocked(false);
     }, PROTOCOL_LIST_TOGGLE_PRESS_LOCK_MS);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (protocolListUnlockTimerRef.current) {
-        clearTimeout(protocolListUnlockTimerRef.current);
-      }
-    };
-  }, []);
-
-  const getCollapsedBottomProtocol = useCallback(() => {
-    const limit = Math.min(overflowThreshold, filteredProtocols.length);
-    return filteredProtocols[limit - 1];
-  }, [filteredProtocols, overflowThreshold]);
-
-  const handleToggleSliced = useCallback(() => {
-    if (isProtocolListLocked()) return;
-    const targetProtocol = isSliced ? undefined : getCollapsedBottomProtocol();
-    lockProtocolListInteractions();
     setIsSliced(!isSliced);
     if (targetProtocol) {
       onCollapseToProtocol?.(targetProtocol);
     }
   }, [
+    filteredProtocols,
     isSliced,
-    getCollapsedBottomProtocol,
-    isProtocolListLocked,
-    lockProtocolListInteractions,
     onCollapseToProtocol,
+    overflowThreshold,
     setIsSliced,
   ]);
 
-  const renderSubTitle = useCallback(() => {
-    if (!initialized && isRefreshing) {
-      // w=120 widens the preset's default 103 px to better approximate
-      // a typical "$XX,XXX.XX" measurement; same width as DeFiContainer
-      // for one canonical loading shape across both surfaces.
-      return <Skeleton.HeadingXl w={120} />;
-    }
+  if (refreshCacheOnly || !isDeFiEnabled) {
+    return null;
+  }
 
-    return (
+  const subtitle =
+    !initialized && isRefreshing ? (
+      <Skeleton.HeadingXl w={120} />
+    ) : (
       <SizableText
         size="$headingXl"
         color={tableLayout ? '$textSubdued' : '$text'}
       >
         {formatPortfolioTotal(
-          Number(overview.netWorth) || 0,
+          netWorth,
           settings.currencyInfo.symbol,
           settingsValue.hideValue,
         )}
       </SizableText>
     );
-  }, [
-    settings.currencyInfo.symbol,
-    settingsValue.hideValue,
-    overview.netWorth,
-    initialized,
-    isRefreshing,
-    tableLayout,
-  ]);
-  const renderContent = useCallback(() => {
-    return (
-      <>
-        <YStack
-          gap={tableLayout ? '$5' : '$0'}
-          pt={tableLayout ? '$0' : '$1'}
-          flex={1}
-          pointerEvents={isProtocolListInteractionLocked ? 'none' : undefined}
-        >
-          {filteredProtocols.map((protocol, index) => {
-            const protocolKey = defiUtils.buildProtocolMapKey({
-              protocol: protocol.protocol,
-              networkId: protocol.networkId,
-            });
-            return (
-              <ProtocolListItem
-                key={`${protocol.networkId}-${protocol.protocol}`}
-                isAllNetworks={network?.isAllNetworks}
-                isLast={index === filteredProtocols.length - 1}
-                protocol={protocol}
-                protocolKey={protocolKey}
-                accountId={account?.id}
-                indexedAccountId={account?.indexedAccountId}
-                registerProtocol={registerProtocol}
-                tableLayout={tableLayout}
-                onActionSuccess={handleActionSuccess}
-              />
-            );
-          })}
-        </YStack>
-        {isOverflow ? (
-          <XStack
-            alignItems="center"
-            justifyContent="center"
-            pt="$4"
-            px="$pagePadding"
-          >
-            <Button
-              testID="home-render-content-btn"
-              size="small"
-              variant="secondary"
-              disabled={isProtocolListInteractionLocked}
-              onPress={handleToggleSliced}
-              $md={
-                {
-                  flexGrow: 1,
-                  flexBasis: 0,
-                  size: 'medium',
-                  borderRadius: '$full',
-                } as any
-              }
-            >
-              {isSliced
-                ? intl.formatMessage({ id: ETranslations.global_show_more })
-                : intl.formatMessage({ id: ETranslations.global_show_less })}
-            </Button>
-          </XStack>
-        ) : null}
-      </>
-    );
-  }, [
-    filteredProtocols,
-    account?.id,
-    account?.indexedAccountId,
-    tableLayout,
-    network?.isAllNetworks,
-    intl,
-    isOverflow,
-    isSliced,
-    isProtocolListInteractionLocked,
-    handleToggleSliced,
-    handleActionSuccess,
-    registerProtocol,
-  ]);
-  const shouldShowEmptyDeFi = shouldShowDeFiEmptyState({
+  const shouldShowEmpty = shouldShowDeFiEmptyState({
     protocolsLength: protocols.length,
     initialized,
     isRefreshing,
     ownerKey: currentOwnerKey,
-    loadedOwnerKey,
+    loadedOwnerKey: initialized ? currentOwnerKey : undefined,
   });
-
-  if (refreshCacheOnly) {
-    return null;
-  }
-
-  if (!isDeFiEnabled) {
-    return null;
-  }
-
-  if (protocols.length === 0) {
-    return (
-      <RichBlock
-        withTitleSeparator
-        title={
-          hideInternalTitle
-            ? undefined
-            : intl.formatMessage({ id: ETranslations.global_earn })
-        }
-        subTitle={hideInternalTitle ? undefined : renderSubTitle()}
-        subTitleProps={tableLayout ? undefined : { color: '$text' }}
-        headerContainerProps={{ px: '$pagePadding' }}
-        // Match the loaded branch's content inset so the loading-state
-        // skeleton sits in the same column as the eventual cards.
-        contentContainerProps={tableLayout ? { px: '$pagePadding' } : undefined}
-        plainContentContainer
-        content={
-          shouldShowEmptyDeFi ? (
-            <EmptyDeFi tableLayout={tableLayout} />
-          ) : (
-            <DeFiListSkeleton tableLayout={tableLayout} />
-          )
-        }
-      />
-    );
-  }
+  const title = hideInternalTitle
+    ? undefined
+    : intl.formatMessage({ id: ETranslations.global_earn });
+  const emptyContent = shouldShowEmpty ? (
+    <EmptyDeFi tableLayout={tableLayout} />
+  ) : (
+    <DeFiListSkeleton tableLayout={tableLayout} />
+  );
 
   return (
     <RichBlock
       withTitleSeparator
-      title={
-        hideInternalTitle
-          ? undefined
-          : intl.formatMessage({ id: ETranslations.global_earn })
-      }
-      subTitle={hideInternalTitle ? undefined : renderSubTitle()}
+      title={title}
+      subTitle={hideInternalTitle ? undefined : subtitle}
       subTitleProps={tableLayout ? undefined : { color: '$text' }}
       headerContainerProps={{ px: '$pagePadding' }}
       contentContainerProps={tableLayout ? { px: '$pagePadding' } : undefined}
-      content={renderContent()}
       plainContentContainer
+      content={
+        protocols.length === 0 ? (
+          emptyContent
+        ) : (
+          <>
+            <YStack
+              gap={tableLayout ? '$5' : '$0'}
+              pt={tableLayout ? '$0' : '$1'}
+              flex={1}
+              pointerEvents={
+                isProtocolListInteractionLocked ? 'none' : undefined
+              }
+            >
+              {filteredProtocols.map((protocol, index) => {
+                const protocolKey = defiUtils.buildProtocolMapKey({
+                  networkId: protocol.networkId,
+                  protocol: protocol.protocol,
+                });
+                return (
+                  <ProtocolListItem
+                    key={protocolKey}
+                    accountId={account?.id}
+                    indexedAccountId={account?.indexedAccountId}
+                    isAllNetworks={network?.isAllNetworks}
+                    isLast={index === filteredProtocols.length - 1}
+                    onActionSuccess={onPositionActionSucceeded}
+                    protocol={protocol}
+                    protocolInfo={protocolMap[protocolKey]}
+                    protocolKey={protocolKey}
+                    registerProtocol={registerProtocol}
+                    supportedActions={supportedActions}
+                    tableLayout={tableLayout}
+                  />
+                );
+              })}
+            </YStack>
+            {isOverflow ? (
+              <XStack
+                alignItems="center"
+                justifyContent="center"
+                pt="$4"
+                px="$pagePadding"
+              >
+                <Button
+                  testID="home-render-content-btn"
+                  size="small"
+                  variant="secondary"
+                  disabled={isProtocolListInteractionLocked}
+                  onPress={handleToggleSliced}
+                  $md={
+                    {
+                      flexGrow: 1,
+                      flexBasis: 0,
+                      size: 'medium',
+                      borderRadius: '$full',
+                    } as never
+                  }
+                >
+                  {intl.formatMessage({
+                    id: isSliced
+                      ? ETranslations.global_show_more
+                      : ETranslations.global_show_less,
+                  })}
+                </Button>
+              </XStack>
+            ) : null}
+          </>
+        )
+      }
     />
   );
 }

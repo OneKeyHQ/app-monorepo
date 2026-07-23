@@ -1,29 +1,36 @@
-import { memo, useEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 
 import {
   HeaderScrollGestureWrapper,
   Stack,
   YStack,
 } from '@onekeyhq/components';
-import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IHomePageViewedState } from '@onekeyhq/shared/src/logger/scopes/account/scenes/wallet';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import { useHomeBalanceState } from '../../../hooks/useHomeBalanceState';
-import { useWalletTopBannersAtom } from '../../../states/jotai/contexts/accountOverview';
+import { useHomeBalancePresentation } from '../../../hooks/useHomeBalanceState';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { useHomeResource } from '../../../states/jotai/contexts/home';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import { onHomePageRefresh } from '../components/PullToRefresh';
 import { WalletActions } from '../components/WalletActions';
 import WalletBanner from '../components/WalletBanner';
+import { useHomeRefreshIntents } from '../model/react/useHomeRefreshIntents';
+import { readHomeBannerStorePayload } from '../model/sections/banner/homeBannerStoreModel';
 import { HomeTestIDs } from '../testIDs';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
-function BaseHomeHeaderContainer() {
+export type IHomeHeaderContainerVariant = 'normal' | 'notBackedUp';
+
+function BaseHomeHeaderContainer({
+  variant = 'normal',
+}: {
+  variant?: IHomeHeaderContainerVariant;
+}) {
   const {
-    activeAccount: { wallet, account, network, vaultSettings },
+    activeAccount: { network, wallet },
   } = useActiveAccount({
     num: 0,
   });
@@ -32,28 +39,30 @@ function BaseHomeHeaderContainer() {
   // matches what the banner will actually display. WalletBanner returns null
   // when there's no banner content (no banners and no Tron-resource card);
   // otherwise the banner band is ~110pt and the header settles at 292pt.
-  const [{ banners }] = useWalletTopBannersAtom();
-  const hasTronCard = Boolean(
-    vaultSettings?.hasResource && account?.id && network?.id,
+  const bannerResource = useHomeResource('banner');
+  const bannerPayload =
+    bannerResource.kind === 'ready'
+      ? readHomeBannerStorePayload(bannerResource.data)
+      : undefined;
+  const hasWalletBannerContent = Boolean(
+    bannerPayload &&
+    (bannerPayload.banners.length > 0 || bannerPayload.tronResource),
   );
-  const hasWalletBannerContent = banners.length > 0 || hasTronCard;
 
-  const isWalletNotBackedUp = useMemo(() => {
-    if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
-      return true;
-    }
-    return false;
-  }, [wallet]);
+  const isWalletNotBackedUp = variant === 'notBackedUp';
+  const { refreshAllSections } = useHomeRefreshIntents();
 
   // Banner only renders once we have actual banner content AND the balance is
   // confirmed positive. Treating 'unknown' as hidden avoids the show→hide
   // flicker that previously occurred when the page mounted with the banner
   // visible and then collapsed once the first balance fetch came back zero.
-  const homeBalanceState = useHomeBalanceState();
+  const balancePresentation = useHomeBalancePresentation();
+  const homeBalanceState = balancePresentation.balanceState;
   const shouldShowBanner =
     !isWalletNotBackedUp &&
-    hasWalletBannerContent &&
-    homeBalanceState === 'positive';
+    (balancePresentation.correlated
+      ? balancePresentation.correlated.showPositiveBanner
+      : hasWalletBannerContent && homeBalanceState === 'positive');
 
   // Reserve the taller native header (292pt) only when the banner band will
   // actually render; otherwise collapse to the shorter layout so we don't
@@ -62,6 +71,61 @@ function BaseHomeHeaderContainer() {
   if (platformEnv.isNative && !isWalletNotBackedUp) {
     nativeMinHeight = shouldShowBanner ? 292 : 182;
   }
+  let networkScope: 'allNetworks' | 'singleNetwork' | 'unknown' = 'unknown';
+  if (network) {
+    networkScope = network.isAllNetworks ? 'allNetworks' : 'singleNetwork';
+  }
+  let walletActionFamily: 'loading' | 'zero' | 'funded' = 'loading';
+  if (homeBalanceState === 'positive') {
+    walletActionFamily = 'funded';
+  } else if (homeBalanceState === 'zero') {
+    walletActionFamily = 'zero';
+  }
+  const balanceTextLength =
+    balancePresentation.correlated.kind === 'ready'
+      ? balancePresentation.correlated.balance.amount.length
+      : 0;
+
+  const homeHeaderDecisionKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const decision = {
+      networkScope,
+      balancePresentationKind: balancePresentation.correlated.kind,
+      balanceTextLength,
+      balanceState: homeBalanceState,
+      bannerResourceKind: bannerResource.kind,
+      bannerPayloadParsed: Boolean(bannerPayload),
+      bannerCount: bannerPayload?.banners.length ?? 0,
+      hasTronResource: Boolean(bannerPayload?.tronResource),
+      hasWalletBannerContent,
+      showPositiveBanner: balancePresentation.correlated.showPositiveBanner,
+      shouldShowBanner,
+      walletActionFamily,
+      shouldShowWalletActions:
+        !isWalletNotBackedUp && homeBalanceState !== 'unknown',
+      isWalletNotBackedUp,
+      nativeMinHeight,
+    } as const;
+    const key = stringUtils.stableStringify(decision);
+    if (homeHeaderDecisionKeyRef.current === key) {
+      return;
+    }
+    homeHeaderDecisionKeyRef.current = key;
+    defaultLogger.wallet.homeUi.homeHeaderDecision(decision);
+  }, [
+    balancePresentation.correlated.kind,
+    balanceTextLength,
+    balancePresentation.correlated.showPositiveBanner,
+    bannerPayload,
+    bannerResource.kind,
+    hasWalletBannerContent,
+    homeBalanceState,
+    isWalletNotBackedUp,
+    nativeMinHeight,
+    networkScope,
+    shouldShowBanner,
+    walletActionFamily,
+  ]);
 
   // Funnel denominator for backup / receive completion rates: log once per
   // (walletId, state) tuple seen this session. Skip `unknown` so we don't
@@ -107,40 +171,39 @@ function BaseHomeHeaderContainer() {
         bg="$bgApp"
         pointerEvents="box-none"
       >
-        <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
+        {isWalletNotBackedUp ? (
           <Stack gap="$2.5">
-            <HomeOverviewContainer />
+            <HomeOverviewContainer
+              balancePresentation={balancePresentation.correlated}
+            />
           </Stack>
-        </HeaderScrollGestureWrapper>
+        ) : (
+          <HeaderScrollGestureWrapper onRefresh={refreshAllSections}>
+            <Stack gap="$2.5">
+              <HomeOverviewContainer
+                balancePresentation={balancePresentation.correlated}
+              />
+            </Stack>
+          </HeaderScrollGestureWrapper>
+        )}
         {isWalletNotBackedUp ? null : (
-          <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
-            <WalletActions />
+          <HeaderScrollGestureWrapper onRefresh={refreshAllSections}>
+            <WalletActions balancePresentation={balancePresentation} />
           </HeaderScrollGestureWrapper>
         )}
       </Stack>
-      {/* Always mount so initLocalBanners + remote fetch effects run.
-          Without this, gating on `shouldShowBanner` (which requires
-          banners.length > 0) creates a deadlock — banner data is only
-          written to the atom from WalletBanner's own useEffect, so the
-          atom would stay empty and the banner would never appear after
-          a fresh install + first import. The visual hide on
-          zero-balance / not-backed-up still works via the `hidden`
-          prop. */}
-      <WalletBanner hidden={!shouldShowBanner} />
+      {/* Keep the read-only renderer mounted so Store updates do not reset its
+          scroll position. The root controller owns all banner source work. */}
+      {isWalletNotBackedUp ? null : <WalletBanner hidden={!shouldShowBanner} />}
     </YStack>
   );
 }
 
-// The provider mirror must wrap the component (not live inside its return):
-// `useHomeBalanceState` reads tokenList context atoms, so the hook call in
-// `BaseHomeHeaderContainer`'s body has to sit inside the provider.
-// Note: on the URL-account page (which reuses HomePageView) the token list is
-// written to the separate urlAccountHomeTokenList store, not this mirror's
-// homeTokenList store — the hook's owner-stamp guard absorbs the mismatch and
-// the holdings override simply stays inactive there (worth-only behavior).
-export const HomeHeaderContainer = memo(() => (
-  <HomeTokenListProviderMirror>
-    <BaseHomeHeaderContainer />
-  </HomeTokenListProviderMirror>
-));
+export const HomeHeaderContainer = memo(
+  ({ variant = 'normal' }: { variant?: IHomeHeaderContainerVariant }) => (
+    <HomeTokenListProviderMirror>
+      <BaseHomeHeaderContainer variant={variant} />
+    </HomeTokenListProviderMirror>
+  ),
+);
 HomeHeaderContainer.displayName = 'HomeHeaderContainer';
