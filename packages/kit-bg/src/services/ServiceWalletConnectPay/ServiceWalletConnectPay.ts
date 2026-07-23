@@ -6,6 +6,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   WALLET_CONNECT_PAY_EIP155_CHAIN_REFS,
@@ -17,7 +18,6 @@ import type {
   IWcPayOptionsResult,
 } from '@onekeyhq/shared/src/walletConnect/payTypes';
 
-import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 import { vaultFactory } from '../../vaults/factory';
 import ServiceBase from '../ServiceBase';
 import walletConnectClients from '../ServiceWalletConnect/walletConnectClient';
@@ -37,19 +37,12 @@ class ServiceWalletConnectPay extends ServiceBase {
   }
 
   @backgroundMethod()
-  async isPayFeatureEnabled(): Promise<boolean> {
-    const devSettings = await devSettingsPersistAtom.get();
-    return Boolean(
-      devSettings.enabled && devSettings.settings?.enableWalletConnectPay,
-    );
-  }
-
-  @backgroundMethod()
   async isPaymentLink({ uri }: { uri: string }): Promise<boolean> {
     if (!uri || typeof uri !== 'string') {
       return false;
     }
-    if (!(await this.isPayFeatureEnabled())) {
+    // Pay on extension is deferred (MV3 wasm CSP)
+    if (platformEnv.isExtension) {
       return false;
     }
     try {

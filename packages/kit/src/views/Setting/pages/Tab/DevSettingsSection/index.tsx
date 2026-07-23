@@ -890,15 +890,6 @@ const BaseDevSettingsSection = () => {
                       />
 
                       <SectionFieldItem
-                        icon="WalletOutline"
-                        name="enableWalletConnectPay"
-                        title="启用 WalletConnect Pay"
-                        subtitle="识别支付链接（扫码/深链）并启用支付流程"
-                      >
-                        <Switch size={ESwitchSize.small} />
-                      </SectionFieldItem>
-
-                      <SectionFieldItem
                         icon="ServerOutline"
                         name="enableTestEndpoint"
                         title="启用 OneKey 测试网络节点"

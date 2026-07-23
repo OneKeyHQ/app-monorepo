@@ -1,5 +1,6 @@
 import { isPaymentLink } from '@reown/walletkit';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { validateWcPayLinkDomain } from '@onekeyhq/shared/src/walletConnect/payConstant';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
@@ -16,19 +17,14 @@ restricted to the pay.walletconnect.com host. Must be registered BEFORE the
 */
 const walletConnectPay: IQRCodeHandler<IWalletConnectPayValue> = async (
   value,
-  options,
 ) => {
   if (!value || typeof value !== 'string') {
     return null;
   }
-  // feature-gated in the app runtime; unit tests exercise the matching
-  // logic without a backgroundApi
-  if (options?.backgroundApi) {
-    const enabled =
-      await options.backgroundApi.serviceWalletConnectPay.isPayFeatureEnabled();
-    if (!enabled) {
-      return null;
-    }
+  // Pay on extension is deferred (MV3 wasm CSP); let payment links fall
+  // through to the regular handlers there.
+  if (platformEnv.isExtension) {
+    return null;
   }
   let matched = false;
   try {
