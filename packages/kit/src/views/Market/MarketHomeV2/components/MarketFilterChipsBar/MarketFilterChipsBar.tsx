@@ -178,6 +178,10 @@ function ClearTextButton({
 // (grayA4 over bgApp). Recompute if grayA4 changes.
 const CHIP_MASK_HEX_HOVER = { light: '#e8e8e8', dark: '#282828' };
 
+// Figma 25141-48129: 6px inset inside the bordered toolbar, so a 26px pill row
+// makes the box 40px tall (26 + 6*2 + 1px border each side).
+const TOOLBAR_PADDING = 6;
+
 // Remove hit-target + fade geometry. The overlays sit ON TOP of the value
 // text, so revealing the × never changes the chip width (no layout jitter).
 // The gradient keeps a solid plateau over the right ~55% so the × always sits
@@ -541,131 +545,138 @@ export function MarketFilterChipsBar({
   };
 
   return (
-    <XStack
-      alignItems="center"
-      justifyContent="space-between"
-      pt="$3"
-      pb={10}
-      height={48}
-      // The sticky-portal container pads 16px while the tab-bar controls above
-      // pad 20px; this extra 4px keeps the Filters pill right-aligned with the
-      // network selector above it.
-      pr="$1"
-    >
-      {/* Fixed row height so swapping quick chips <-> condition chips
-          (different intrinsic pill heights) never shifts the table below. */}
-      <XStack alignItems="center" gap={10} height={26}>
-        <XStack gap="$0.5">
-          {TIME_RANGE_OPTIONS.map((option) => (
-            <MarketToolbarPill
-              key={option}
-              label={option}
-              selected={option === timeRange}
-              onPress={() => onTimeRangeChange(option)}
-              testID={`market-filter-time-range-${option}`}
-            />
-          ))}
-        </XStack>
-        <Divider vertical h="$4" />
-        {isExpanded ? (
-          <XStack
-            alignItems="center"
-            px="$0.5"
-            gap="$0.5"
-            // Subtle fade + slide as the quick chips morph into condition pills
-            // (app-idiomatic "quick" spring, opacity/transform only).
-            animation="quick"
-            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-            enterStyle={{ opacity: 0, x: -4 }}
-          >
-            {/* Group anchor: the matched chip's icon, or a generic filter
-                glyph once the conditions no longer spell out a chip. */}
-            <XStack p="$1" alignItems="center">
-              <Icon
-                name={activeChip?.icon ?? 'Filter1Outline'}
-                size="$4"
-                color="$iconSubdued"
-              />
-            </XStack>
-            <XStack gap="$0.5" alignItems="center">
-              <SortConditionChip
-                sortState={sortState}
-                isOpen={openPopover === 'sort'}
-                onOpenChange={(open) =>
-                  setOpenPopover(open ? 'sort' : undefined)
-                }
-                onSelectDirection={(direction) => {
-                  defaultLogger.dex.list.dexFilterChip({
-                    action: 'conditionChange',
-                    field: 'sort',
-                    value: direction,
-                  });
-                  setSortState((prev) => ({ ...prev, sortType: direction }));
-                  setOpenPopover(undefined);
-                }}
-                onRemove={() => {
-                  defaultLogger.dex.list.dexFilterChip({
-                    action: 'conditionRemove',
-                    field: 'sort',
-                  });
-                  setSortState({});
-                  setOpenPopover(undefined);
-                }}
-              />
-              {conditionEntries.map(([dimensionId, optionId]) => (
-                <FilterConditionChip
-                  key={dimensionId}
-                  dimensionId={dimensionId}
-                  optionId={optionId}
-                  isOpen={openPopover === dimensionId}
-                  onOpenChange={(open) =>
-                    setOpenPopover(open ? dimensionId : undefined)
-                  }
-                  onSelectOption={(nextOptionId) => {
-                    defaultLogger.dex.list.dexFilterChip({
-                      action: 'conditionChange',
-                      field: dimensionId,
-                      value: nextOptionId,
-                    });
-                    applyConditions({
-                      ...filterState.conditions,
-                      [dimensionId]: nextOptionId,
-                    });
-                    setOpenPopover(undefined);
-                  }}
-                  onRemove={() => removeDimension(dimensionId)}
-                />
-              ))}
-            </XStack>
-            <XStack alignItems="center">
-              <SmallRoundIconButton
-                icon="CrossedSmallOutline"
-                onPress={() => {
-                  defaultLogger.dex.list.dexFilterChip({ action: 'clearAll' });
-                  applyConditions({});
-                }}
-                testID="market-filter-chips-clear-all"
-              />
-            </XStack>
-          </XStack>
-        ) : (
-          <XStack
-            gap="$0.5"
-            animation="quick"
-            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-            enterStyle={{ opacity: 0, x: -4 }}
-          >
-            {MARKET_FILTER_CHIPS.map((chip) => (
-              <QuickChip
-                key={chip.id}
-                chip={chip}
-                onPress={() => handleQuickChipPress(chip)}
+    // Figma 25141-48128: the trending controls sit in the same bordered
+    // toolbar the Favorites/Stocks/Perps sub-category bars use. 12px above
+    // (the sticky-portal wrapper supplies the 12px below), 6px inner padding,
+    // so the block measures 64px top-to-bottom like the design.
+    <Stack pt="$3">
+      <XStack
+        alignItems="center"
+        justifyContent="space-between"
+        p={TOOLBAR_PADDING}
+        borderWidth={1}
+        borderColor="$neutral4"
+        borderRadius="$3"
+        maxWidth="100%"
+        overflow="hidden"
+      >
+        {/* Fixed row height so swapping quick chips <-> condition chips
+            (different intrinsic pill heights) never shifts the table below. */}
+        <XStack alignItems="center" gap={10} height={26}>
+          <XStack gap="$0.5">
+            {TIME_RANGE_OPTIONS.map((option) => (
+              <MarketToolbarPill
+                key={option}
+                label={option}
+                selected={option === timeRange}
+                onPress={() => onTimeRangeChange(option)}
+                testID={`market-filter-time-range-${option}`}
               />
             ))}
           </XStack>
-        )}
+          <Divider vertical h="$4" />
+          {isExpanded ? (
+            <XStack
+              alignItems="center"
+              px="$0.5"
+              gap="$0.5"
+              // Subtle fade + slide as the quick chips morph into condition pills
+              // (app-idiomatic "quick" spring, opacity/transform only).
+              animation="quick"
+              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+              enterStyle={{ opacity: 0, x: -4 }}
+            >
+              {/* Group anchor: the matched chip's icon, or a generic filter
+                glyph once the conditions no longer spell out a chip. */}
+              <XStack p="$1" alignItems="center">
+                <Icon
+                  name={activeChip?.icon ?? 'Filter1Outline'}
+                  size="$4"
+                  color="$iconSubdued"
+                />
+              </XStack>
+              <XStack gap="$0.5" alignItems="center">
+                <SortConditionChip
+                  sortState={sortState}
+                  isOpen={openPopover === 'sort'}
+                  onOpenChange={(open) =>
+                    setOpenPopover(open ? 'sort' : undefined)
+                  }
+                  onSelectDirection={(direction) => {
+                    defaultLogger.dex.list.dexFilterChip({
+                      action: 'conditionChange',
+                      field: 'sort',
+                      value: direction,
+                    });
+                    setSortState((prev) => ({ ...prev, sortType: direction }));
+                    setOpenPopover(undefined);
+                  }}
+                  onRemove={() => {
+                    defaultLogger.dex.list.dexFilterChip({
+                      action: 'conditionRemove',
+                      field: 'sort',
+                    });
+                    setSortState({});
+                    setOpenPopover(undefined);
+                  }}
+                />
+                {conditionEntries.map(([dimensionId, optionId]) => (
+                  <FilterConditionChip
+                    key={dimensionId}
+                    dimensionId={dimensionId}
+                    optionId={optionId}
+                    isOpen={openPopover === dimensionId}
+                    onOpenChange={(open) =>
+                      setOpenPopover(open ? dimensionId : undefined)
+                    }
+                    onSelectOption={(nextOptionId) => {
+                      defaultLogger.dex.list.dexFilterChip({
+                        action: 'conditionChange',
+                        field: dimensionId,
+                        value: nextOptionId,
+                      });
+                      applyConditions({
+                        ...filterState.conditions,
+                        [dimensionId]: nextOptionId,
+                      });
+                      setOpenPopover(undefined);
+                    }}
+                    onRemove={() => removeDimension(dimensionId)}
+                  />
+                ))}
+              </XStack>
+              <XStack alignItems="center">
+                <SmallRoundIconButton
+                  icon="CrossedSmallOutline"
+                  onPress={() => {
+                    defaultLogger.dex.list.dexFilterChip({
+                      action: 'clearAll',
+                    });
+                    applyConditions({});
+                  }}
+                  testID="market-filter-chips-clear-all"
+                />
+              </XStack>
+            </XStack>
+          ) : (
+            <XStack
+              gap="$0.5"
+              animation="quick"
+              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+              enterStyle={{ opacity: 0, x: -4 }}
+            >
+              {MARKET_FILTER_CHIPS.map((chip) => (
+                <QuickChip
+                  key={chip.id}
+                  chip={chip}
+                  onPress={() => handleQuickChipPress(chip)}
+                />
+              ))}
+            </XStack>
+          )}
+        </XStack>
+        {filtersTrigger}
       </XStack>
-      {filtersTrigger}
-    </XStack>
+    </Stack>
   );
 }

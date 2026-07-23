@@ -381,7 +381,6 @@ export function MarketFiltersTrigger({
       role="button"
       testID="market-filters-modal-trigger"
     >
-      <Icon name="Filter1Outline" size="$4" color="$iconSubdued" />
       <SizableText size="$bodySmMedium" color="$textSubdued">
         Filters
       </SizableText>
