@@ -1,7 +1,9 @@
 import { buildBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import type { IBorrowEModeStatus } from '@onekeyhq/shared/types/staking';
 
 // Pure predicates for the Borrow collateral/borrowable controls.
-// Client trusts backend flags — no local HF math, no provider branches.
+// Client composes server-owned flags without duplicating health-factor math.
 
 // Assets to Borrow visibility: undefined ⇒ show (missing data must not hide assets).
 export function isBorrowAssetVisible(asset: {
@@ -42,6 +44,49 @@ export function getCollateralSwitchState({
       pendingSetCollateral ||
       (usageAsCollateral === false && canBeCollateral !== true),
   };
+}
+
+export function getActiveEModeCollateralEligibility({
+  eModeStatus,
+  networkId,
+  reserveAddress,
+}: {
+  eModeStatus: IBorrowEModeStatus | null | undefined;
+  networkId: string | undefined;
+  reserveAddress: string;
+}): boolean | undefined {
+  if (!eModeStatus) {
+    return undefined;
+  }
+  if (eModeStatus.eModeId === 0) {
+    return true;
+  }
+  if (!networkId) {
+    return undefined;
+  }
+
+  const activeCategory = eModeStatus.categories.find(
+    (category) => category.eModeId === eModeStatus.eModeId,
+  );
+  if (!activeCategory) {
+    return undefined;
+  }
+
+  const normalizedReserveAddress = earnUtils.normalizeBorrowAddress({
+    networkId,
+    address: reserveAddress,
+  });
+  const categoryAsset = activeCategory.assets.find(
+    (asset) =>
+      earnUtils.normalizeBorrowAddress({
+        networkId,
+        address: asset.reserveAddress,
+      }) === normalizedReserveAddress,
+  );
+
+  // Treat assets outside the category's collateral capability as LTV-zero.
+  // The chain may enforce this through category-specific LTV-zero settings.
+  return categoryAsset?.boostedLTV === true;
 }
 
 export function shouldReleaseCollateralSubmission({

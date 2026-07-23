@@ -233,9 +233,11 @@ function showCollateralConfirmDialog(params: {
 export function CollateralSwitchCell({
   item,
   eModeId,
+  isCollateralUnavailableInEMode,
 }: {
   item: ISuppliedAsset;
   eModeId?: number;
+  isCollateralUnavailableInEMode?: boolean;
 }) {
   const intl = useIntl();
   const { market, earnAccount, pendingTxs, refreshAllBorrowData } =
@@ -298,6 +300,7 @@ export function CollateralSwitchCell({
   const confirmationScopeKey = JSON.stringify({
     operationScopeKey,
     eModeId: eModeId ?? null,
+    isCollateralUnavailableInEMode: isCollateralUnavailableInEMode === true,
   });
   const renderedConfirmationScope = useMemo(
     () => ({ key: confirmationScopeKey }),
@@ -309,6 +312,8 @@ export function CollateralSwitchCell({
     : false;
   const requiresEModeId =
     market?.provider.toLowerCase() === EBorrowProviderEnum.Aave;
+  const canEnableCollateral =
+    item.canBeCollateral === true && !isCollateralUnavailableInEMode;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -445,7 +450,7 @@ export function CollateralSwitchCell({
 
   const { render, value, disabled } = getCollateralSwitchState({
     usageAsCollateral: effectiveUsageAsCollateral,
-    canBeCollateral: item.canBeCollateral,
+    canBeCollateral: canEnableCollateral,
     submitting: submittingTarget !== null,
     pendingSetCollateral,
   });
@@ -463,7 +468,10 @@ export function CollateralSwitchCell({
     confirmingRef.current = true;
     const target = !(effectiveUsageAsCollateral === true);
     const targetEModeId = target ? eModeId : undefined;
-    if (target && requiresEModeId && targetEModeId === undefined) {
+    if (
+      target &&
+      (!canEnableCollateral || (requiresEModeId && targetEModeId === undefined))
+    ) {
       confirmingRef.current = false;
       return;
     }
@@ -611,6 +619,7 @@ export function CollateralSwitchCell({
     })();
   }, [
     accountId,
+    canEnableCollateral,
     eModeId,
     intl,
     item.reserveAddress,

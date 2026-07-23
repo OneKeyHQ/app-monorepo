@@ -1,13 +1,102 @@
+import type { IBorrowEModeStatus } from '@onekeyhq/shared/types/staking';
+
 import {
   COLLATERAL_SETTLEMENT_FAST_REFRESH_ATTEMPTS,
   COLLATERAL_SETTLEMENT_MAX_REFRESH_ATTEMPTS,
   collateralBadgeVariant,
+  getActiveEModeCollateralEligibility,
   getCollateralSettlementRefreshDecision,
   getCollateralSwitchState,
   hasPendingSetCollateral,
   isBorrowAssetVisible,
   shouldReleaseCollateralSubmission,
 } from './collateralControls.utils';
+
+const eModeStatus: IBorrowEModeStatus = {
+  eModeId: 1,
+  originalLtv: '78.63',
+  categories: [
+    {
+      eModeId: 1,
+      label: 'Stablecoins',
+      ltv: '90',
+      disabled: false,
+      assets: [
+        {
+          reserveAddress: '0xAbC',
+          token: {
+            decimals: 6,
+            name: 'USD Coin',
+            symbol: 'USDC',
+            address: '0xAbC',
+            isNative: false,
+            networkId: 'evm--1',
+          },
+          boostedLTV: true,
+          borrowable: true,
+        },
+        {
+          reserveAddress: '0xDeF',
+          token: {
+            decimals: 18,
+            name: 'Dai Stablecoin',
+            symbol: 'DAI',
+            address: '0xDeF',
+            isNative: false,
+            networkId: 'evm--1',
+          },
+          boostedLTV: false,
+          borrowable: true,
+        },
+      ],
+    },
+  ],
+};
+
+describe('getActiveEModeCollateralEligibility', () => {
+  it('allows reserve-level collateral flags while eMode is off', () => {
+    expect(
+      getActiveEModeCollateralEligibility({
+        eModeStatus: { ...eModeStatus, eModeId: 0 },
+        networkId: 'evm--1',
+        reserveAddress: '0xMissing',
+      }),
+    ).toBe(true);
+  });
+
+  it('matches an included reserve using network-aware normalization', () => {
+    expect(
+      getActiveEModeCollateralEligibility({
+        eModeStatus,
+        networkId: 'evm--1',
+        reserveAddress: '0xaBc',
+      }),
+    ).toBe(true);
+  });
+
+  it.each([
+    ['the category collateral flag is false', '0xdef'],
+    ['the reserve is absent from the category', '0xMissing'],
+  ])('rejects collateral when %s', (_title, reserveAddress) => {
+    expect(
+      getActiveEModeCollateralEligibility({
+        eModeStatus,
+        networkId: 'evm--1',
+        reserveAddress,
+      }),
+    ).toBe(false);
+  });
+
+  it('returns unknown when the active category is missing', () => {
+    expect(
+      getActiveEModeCollateralEligibility({
+        eModeStatus: { ...eModeStatus, eModeId: 2 },
+        networkId: 'evm--1',
+        reserveAddress: '0xabc',
+      }),
+    ).toBeUndefined();
+  });
+});
 
 describe('isBorrowAssetVisible', () => {
   it('shows when canBeBorrowed is true', () => {

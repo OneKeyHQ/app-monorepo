@@ -16,15 +16,29 @@ import type {
   IEarnText,
 } from '@onekeyhq/shared/types/staking';
 
-import {
-  resolveLtvAccentColor,
-  shouldShowCurrentHealthFactorSkeleton,
-} from './emodeUtils';
+import { shouldShowCurrentHealthFactorSkeleton } from './emodeUtils';
 
 type IImpactData = {
   current?: { title?: IEarnText };
   latest?: { title?: IEarnText };
 };
+
+function maskUntrustedProjection(data?: IImpactData): IImpactData {
+  if (!data) {
+    return {};
+  }
+
+  return {
+    current: data.current,
+    latest: data.latest
+      ? {
+          title: {
+            text: '—',
+          },
+        }
+      : undefined,
+  };
+}
 
 function ImpactValue({
   label,
@@ -94,26 +108,9 @@ export function EModeImpactSection({
     return null;
   }
 
-  const ltvAccent = resolveLtvAccentColor(
-    check?.maxLtv?.current?.title,
-    check?.maxLtv?.latest?.title,
-  );
-  const targetMaxLtv: IImpactData = check?.maxLtv
-    ? {
-        ...check.maxLtv,
-        latest: check.maxLtv.latest
-          ? {
-              ...check.maxLtv.latest,
-              title: check.maxLtv.latest.title
-                ? {
-                    ...check.maxLtv.latest.title,
-                    color: ltvAccent ?? check.maxLtv.latest.title.color,
-                  }
-                : undefined,
-            }
-          : undefined,
-      }
-    : {};
+  // The switch-check response does not expose enough reserve-level inputs to
+  // verify its account projection, so keep the current value and mask latest.
+  const targetMaxLtv = maskUntrustedProjection(check?.maxLtv);
   const maxLtv: IImpactData = isCurrent
     ? {
         current: {
@@ -123,7 +120,7 @@ export function EModeImpactSection({
     : targetMaxLtv;
   const healthFactor: IImpactData = isCurrent
     ? { current: { title: currentHealthFactor ?? { text: '—' } } }
-    : (check?.healthFactor ?? {});
+    : maskUntrustedProjection(check?.healthFactor);
   const atRisk = check?.healthFactor?.latest?.title?.color === '$textCritical';
 
   return (

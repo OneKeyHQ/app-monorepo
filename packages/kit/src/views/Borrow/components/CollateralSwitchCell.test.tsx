@@ -327,7 +327,11 @@ describe('CollateralSwitchCell settlement guard', () => {
       isLoading: false,
     });
     const view = render(
-      <CollateralSwitchCell item={createSuppliedAsset(true)} eModeId={1} />,
+      <CollateralSwitchCell
+        item={createSuppliedAsset(true)}
+        eModeId={1}
+        isCollateralUnavailableInEMode
+      />,
     );
 
     await submitToggle(view);
@@ -338,6 +342,25 @@ describe('CollateralSwitchCell settlement guard', () => {
     };
     expect(request.useAsCollateral).toBe(false);
     expect(request).not.toHaveProperty('eModeId');
+  });
+
+  it('does not open a confirmation for collateral excluded from active eMode', async () => {
+    const view = render(
+      <CollateralSwitchCell
+        item={createSuppliedAsset(false)}
+        eModeId={1}
+        isCollateralUnavailableInEMode
+      />,
+    );
+
+    expect(getSwitch(view).props.disabled).toBe(true);
+    await act(async () => {
+      const { onChange } = getSwitch(view).props as { onChange: () => void };
+      onChange();
+      await flushMicrotasks();
+    });
+    expect(componentsMock.dialogShow).not.toHaveBeenCalled();
+    expect(setCollateralMocks.setCollateral).not.toHaveBeenCalled();
   });
 
   it('allows a successful preview that omits optional collateral eligibility', async () => {

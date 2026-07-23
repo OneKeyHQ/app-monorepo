@@ -50,6 +50,8 @@ jest.mock(
 
 import { render } from '@testing-library/react-native';
 
+import type { IBorrowEModeSwitchCheck } from '@onekeyhq/shared/types/staking';
+
 import { EModeImpactSection } from './EModeImpactSection';
 
 describe('EModeImpactSection', () => {
@@ -68,5 +70,47 @@ describe('EModeImpactSection', () => {
     const output = JSON.stringify(view.toJSON());
     expect(output).toContain('81.55%');
     expect(output).not.toContain('90%');
+  });
+
+  it('masks unverified target metrics while preserving risk alerts', () => {
+    const check: IBorrowEModeSwitchCheck = {
+      canSwitch: true,
+      reasons: [],
+      disableCollateralAssets: [],
+      repayAssets: [],
+      additionalRepayAssets: [],
+      collateral: {},
+      debt: {},
+      maxLtv: {
+        current: { title: { text: '78.63%' } },
+        latest: { title: { text: '90.00%' } },
+      },
+      healthFactor: {
+        current: { title: { text: '22.39' } },
+        latest: {
+          title: { text: '24.18', color: '$textCritical' },
+        },
+      },
+    };
+    const view = render(
+      <EModeImpactSection
+        isCurrent={false}
+        check={check}
+        isChecking={false}
+        currentHealthFactorLoading={false}
+      />,
+    );
+
+    const output = JSON.stringify(view.toJSON());
+    expect(output).toContain('78.63%');
+    expect(output).toContain('22.39');
+    expect(output).toContain('—');
+    expect(
+      view.UNSAFE_root.findAll(
+        (node) => node.props.title === 'defi_emode_risk_near_liquidation',
+      ),
+    ).toHaveLength(1);
+    expect(output).not.toContain('90.00%');
+    expect(output).not.toContain('24.18');
   });
 });

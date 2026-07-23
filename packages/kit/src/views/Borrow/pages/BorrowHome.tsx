@@ -110,9 +110,7 @@ const BorrowHomeContent = memo(
             eModeAccountId,
           ),
       });
-    const activeEModeId = isEModeStatusLoading
-      ? undefined
-      : eModeStatus?.eModeId;
+    const resolvedEModeStatus = isEModeStatusLoading ? undefined : eModeStatus;
     const alerts = useMemo(
       () => [...(reserves.data?.alerts ?? []), ...(healthFactorAlerts ?? [])],
       [reserves.data?.alerts, healthFactorAlerts],
@@ -206,7 +204,7 @@ const BorrowHomeContent = memo(
             // Desktop layout - two equal-width columns with independent vertical flow
             <XStack gap="$5" ai="flex-start">
               <YStack flex={1} flexShrink={0} flexBasis={0} gap="$5">
-                <SuppliedCard eModeId={activeEModeId} />
+                <SuppliedCard eModeStatus={resolvedEModeStatus} />
                 <SupplyCard />
               </YStack>
               <YStack flex={1} flexShrink={0} flexBasis={0} gap="$5">
@@ -248,7 +246,7 @@ const BorrowHomeContent = memo(
                     pointerEvents: 'none' as const,
                   })}
                 >
-                  <SuppliedCard eModeId={activeEModeId} />
+                  <SuppliedCard eModeStatus={resolvedEModeStatus} />
                   <SupplyCard />
                 </YStack>
                 <YStack

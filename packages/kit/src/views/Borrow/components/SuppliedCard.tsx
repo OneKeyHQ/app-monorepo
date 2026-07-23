@@ -5,7 +5,10 @@ import { useIntl } from 'react-intl';
 import { XStack, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
+import type {
+  IBorrowEModeStatus,
+  IBorrowReserveItem,
+} from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnTooltip';
@@ -29,9 +32,14 @@ import {
   BorrowTableList,
 } from './BorrowTableList';
 import { Card } from './Card';
+import { getActiveEModeCollateralEligibility } from './collateralControls.utils';
 import { CollateralSwitchCell } from './CollateralSwitchCell';
 
 type ISuppliedAsset = IBorrowReserveItem['supplied']['assets'][number];
+type ISuppliedAssetRow = ISuppliedAsset & {
+  eModeId?: number;
+  isCollateralUnavailableInEMode: boolean;
+};
 
 const SuppliedHeader = ({
   data,
@@ -75,7 +83,11 @@ const SuppliedHeader = ({
   );
 };
 
-export const SuppliedCard = ({ eModeId }: { eModeId?: number }) => {
+export const SuppliedCard = ({
+  eModeStatus,
+}: {
+  eModeStatus?: IBorrowEModeStatus | null;
+}) => {
   const { reserves, market, borrowDataStatus, earnAccount } =
     useBorrowContext();
   const intl = useIntl();
@@ -84,6 +96,7 @@ export const SuppliedCard = ({ eModeId }: { eModeId?: number }) => {
   const accountId = earnAccount.data?.account?.id || '';
   const walletId = earnAccount.data?.walletId || '';
   const indexedAccountId = earnAccount.data?.account?.indexedAccountId;
+  const eModeId = eModeStatus?.eModeId;
 
   const handleManageWithdraw = useCallback(
     (item: ISuppliedAsset) => {
@@ -144,8 +157,26 @@ export const SuppliedCard = ({ eModeId }: { eModeId?: number }) => {
         assets: reserves.data?.supplied?.assets,
         networkId: market?.networkId,
         providerName: market?.provider,
-      }).filter((asset) => hasPositiveBorrowBalance(asset.suppliedAmount)),
-    [market?.networkId, market?.provider, reserves.data?.supplied?.assets],
+      })
+        .filter((asset) => hasPositiveBorrowBalance(asset.suppliedAmount))
+        .map<ISuppliedAssetRow>((asset) => ({
+          ...asset,
+          eModeId,
+          isCollateralUnavailableInEMode:
+            eModeId !== undefined &&
+            getActiveEModeCollateralEligibility({
+              eModeStatus,
+              networkId: market?.networkId,
+              reserveAddress: asset.reserveAddress,
+            }) !== true,
+        })),
+    [
+      eModeId,
+      eModeStatus,
+      market?.networkId,
+      market?.provider,
+      reserves.data?.supplied?.assets,
+    ],
   );
 
   // Field presence gates the UI: no usageAsCollateral anywhere ⇒ provider
@@ -181,7 +212,7 @@ export const SuppliedCard = ({ eModeId }: { eModeId?: number }) => {
       {
         label: labels.assetSupplied,
         key: 'asset',
-        render: (item: ISuppliedAsset) => (
+        render: (item: ISuppliedAssetRow) => (
           <AssetWithAmountField
             token={item.token}
             amountLabel={{ text: labels.suppliedWithColon }}
@@ -205,15 +236,21 @@ export const SuppliedCard = ({ eModeId }: { eModeId?: number }) => {
               label: labels.collateral,
               align: 'flex-end' as const,
               key: 'collateral',
-              render: (item: ISuppliedAsset) => (
-                <CollateralSwitchCell item={item} eModeId={eModeId} />
+              render: (item: ISuppliedAssetRow) => (
+                <CollateralSwitchCell
+                  item={item}
+                  eModeId={item.eModeId}
+                  isCollateralUnavailableInEMode={
+                    item.isCollateralUnavailableInEMode
+                  }
+                />
               ),
               flex: 0.8,
             },
           ]
         : []),
     ],
-    [eModeId, labels, showCollateralColumn],
+    [labels, showCollateralColumn],
   );
 
   // Desktop columns - all columns
@@ -222,7 +259,7 @@ export const SuppliedCard = ({ eModeId }: { eModeId?: number }) => {
       {
         label: labels.asset,
         key: 'asset',
-        render: (item: ISuppliedAsset) => (
+        render: (item: ISuppliedAssetRow) => (
           <AssetField
             token={item.token}
             platformBonusApy={item.platformBonusApy}
@@ -234,7 +271,7 @@ export const SuppliedCard = ({ eModeId }: { eModeId?: number }) => {
         label: labels.supplied,
         align: 'flex-end' as const,
         key: 'supplied',
-        render: (item: ISuppliedAsset) => (
+        render: (item: ISuppliedAssetRow) => (
           <AmountField
             title={item.suppliedAmount.title}
             description={item.suppliedAmount.description}
@@ -256,8 +293,14 @@ export const SuppliedCard = ({ eModeId }: { eModeId?: number }) => {
               label: labels.collateral,
               align: 'center' as const,
               key: 'collateral',
-              render: (item: ISuppliedAsset) => (
-                <CollateralSwitchCell item={item} eModeId={eModeId} />
+              render: (item: ISuppliedAssetRow) => (
+                <CollateralSwitchCell
+                  item={item}
+                  eModeId={item.eModeId}
+                  isCollateralUnavailableInEMode={
+                    item.isCollateralUnavailableInEMode
+                  }
+                />
               ),
               flex: 1,
             },
@@ -285,7 +328,6 @@ export const SuppliedCard = ({ eModeId }: { eModeId?: number }) => {
     [
       handleManageWithdraw,
       accountId,
-      eModeId,
       walletId,
       indexedAccountId,
       labels,
@@ -312,7 +354,7 @@ export const SuppliedCard = ({ eModeId }: { eModeId?: number }) => {
         ) : null
       }
     >
-      <BorrowTableList<ISuppliedAsset>
+      <BorrowTableList<ISuppliedAssetRow>
         data={suppliedAssets}
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
