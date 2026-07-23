@@ -58,6 +58,8 @@ export function DataCollectionView({
         source={{ uri: url }}
         onMessage={handleMessage}
         javaScriptEnabled
+        // the hosted form requires DOM storage; Android defaults it to off
+        domStorageEnabled
         // keep navigation inside the trusted WalletConnect Pay host
         onShouldStartLoadWithRequest={(request: WebViewNavigation) =>
           isTrustedPayUrl(request.url)
