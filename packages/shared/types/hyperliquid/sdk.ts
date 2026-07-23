@@ -152,6 +152,7 @@ export type IBook = HL.L2BookWsEvent & {
   nSigFigs?: number | null;
   mantissa?: number | null;
 };
+export type IL2BookResponse = HL.L2BookResponse;
 export type IBookLevel = IBook['levels'][number][number];
 export type IFill = HL.UserFillsResponse[number];
 
