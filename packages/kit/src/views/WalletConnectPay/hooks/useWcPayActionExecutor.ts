@@ -121,7 +121,10 @@ export function useWcPayActionExecutor() {
       indexedAccountId?: string;
       // results of actions already executed in a previous partially-failed
       // attempt of the same payment option; execution resumes after them so
-      // an already-broadcast transaction is never sent twice
+      // an already-broadcast transaction is never sent twice. Callers must
+      // guarantee these results still correspond one-to-one to the leading
+      // entries of `actions` (see the fingerprint check in
+      // PaymentOptionsModal) — the executor aligns purely by index.
       completedResults?: string[];
       // reports each action result as soon as it exists, so the caller can
       // persist progress even when a later action in the sequence rejects

@@ -20,12 +20,14 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalWalletConnectPayRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalWalletConnectPayParamList } from '@onekeyhq/shared/src/routes';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   isWcPayTrustedUrl,
   wcPayChainIdToNetworkId,
 } from '@onekeyhq/shared/src/walletConnect/payConstant';
 import { EWcPayStatus } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type {
+  IWcPayAction,
   IWcPayConfirmResult,
   IWcPayOption,
 } from '@onekeyhq/shared/src/walletConnect/payTypes';
@@ -45,6 +47,18 @@ import {
 } from '../hooks/useWcPayActionExecutor';
 
 import type { RouteProp } from '@react-navigation/core';
+
+interface IWcPayActionProgressEntry {
+  // stableStringify of the action's walletRpc (chainId+method+params);
+  // proves a stored result still belongs to the same-index action when the
+  // server returns a recomputed action list on retry
+  fingerprint: string;
+  result: string;
+}
+
+function getWcPayActionFingerprint(action: IWcPayAction): string {
+  return stringUtils.stableStringify(action.walletRpc);
+}
 
 // option.account is CAIP-10 ("namespace:reference:address"); its chain part
 // maps to a wallet networkId so icons/names can be resolved locally instead
@@ -106,10 +120,12 @@ function PaymentOptionsPage() {
   const [selectedOptionId, setSelectedOptionId] = useState<string>('');
   const [isPaying, setIsPaying] = useState(false);
   const [loadError, setLoadError] = useState(false);
-  // per payment+option record of action results already produced by a
-  // partially failed attempt; a retry resumes from the first incomplete
+  // per payment+option+account record of action results already produced by
+  // a partially failed attempt; a retry resumes from the first incomplete
   // action instead of re-broadcasting transactions that are already on-chain
-  const completedActionsRef = useRef<Record<string, string[]>>({});
+  const completedActionsRef = useRef<
+    Record<string, IWcPayActionProgressEntry[]>
+  >({});
 
   const accountId = activeAccount?.account?.id;
   const indexedAccountId = activeAccount?.indexedAccount?.id;
@@ -224,15 +240,38 @@ function PaymentOptionsPage() {
       // re-broadcasting the completed ones. The record is intentionally kept
       // after success too: if the user somehow re-enters pay for the same
       // payment+option, all actions are treated as done rather than re-sent.
-      const progressKey = `${paymentId}:${optionId}`;
+      // The key includes the signing account so results from one account are
+      // never replayed into an attempt made with another.
+      const progressKey = `${paymentId}:${optionId}:${
+        indexedAccountId ?? accountId ?? ''
+      }`;
+      // stored progress transfers to this attempt only while every recorded
+      // entry still matches the same-index action of the freshly fetched
+      // list; the server may recompute actions between attempts (e.g. drop
+      // an approve whose allowance is already satisfied), and replaying
+      // results purely by position would then submit wrong data silently
+      let storedProgress = completedActionsRef.current[progressKey] ?? [];
+      if (
+        storedProgress.some(
+          (entry, index) =>
+            !actions[index] ||
+            entry.fingerprint !== getWcPayActionFingerprint(actions[index]),
+        )
+      ) {
+        storedProgress = [];
+        delete completedActionsRef.current[progressKey];
+      }
       const signatures = await executeActions({
         actions,
         accountId,
         indexedAccountId,
-        completedResults: completedActionsRef.current[progressKey],
+        completedResults: storedProgress.map((entry) => entry.result),
         onActionComplete: ({ index, result: actionResult }) => {
           const progress = completedActionsRef.current[progressKey] ?? [];
-          progress[index] = actionResult;
+          progress[index] = {
+            fingerprint: getWcPayActionFingerprint(actions[index]),
+            result: actionResult,
+          };
           completedActionsRef.current[progressKey] = progress;
         },
       });
