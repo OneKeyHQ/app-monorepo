@@ -73,6 +73,12 @@ describe('extractWcPaySolanaTransaction', () => {
     expect(() => extractWcPaySolanaTransaction(null)).toThrow();
     expect(() => extractWcPaySolanaTransaction([{ tx: 'AQID' }])).toThrow();
   });
+
+  it('falls through invalid candidates to the first valid one', () => {
+    expect(extractWcPaySolanaTransaction([{ transaction: '' }, 'AQID'])).toBe(
+      'AQID',
+    );
+  });
 });
 
 describe('wcPaySolanaTxToEncodedTx', () => {
@@ -85,5 +91,25 @@ describe('wcPaySolanaTxToEncodedTx', () => {
 
   it('throws on an empty payload', () => {
     expect(() => wcPaySolanaTxToEncodedTx('')).toThrow();
+  });
+
+  it('rejects oversized payloads before encoding', () => {
+    const big = Buffer.alloc(4097, 1).toString('base64');
+    expect(() => wcPaySolanaTxToEncodedTx(big)).toThrow();
+    // boundary: exactly 4096 bytes is still accepted
+    const max = Buffer.alloc(4096, 1).toString('base64');
+    expect(() => wcPaySolanaTxToEncodedTx(max)).not.toThrow();
+  });
+
+  it('throws on garbage base64 that decodes to nothing', () => {
+    expect(() => wcPaySolanaTxToEncodedTx('!!!!')).toThrow();
+  });
+
+  it('matches a known bs58 vector', () => {
+    expect(
+      wcPaySolanaTxToEncodedTx(
+        Buffer.from([1, 2, 3, 255, 0, 42]).toString('base64'),
+      ),
+    ).toBe('W7N4mUM');
   });
 });

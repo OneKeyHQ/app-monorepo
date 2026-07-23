@@ -2,6 +2,9 @@ import bs58 from 'bs58';
 
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 
+// generous multiple of Solana's 1232-byte packet limit
+const WC_PAY_SOLANA_TX_MAX_BYTES = 4096;
+
 /**
  * Extract the base64-encoded transaction from `solana_signTransaction`
  * action params. The Pay server sends `[{ transaction }]`; the unwrapped
@@ -34,6 +37,12 @@ export function wcPaySolanaTxToEncodedTx(txBase64: string): string {
   const bytes = Buffer.from(txBase64, 'base64');
   if (bytes.length === 0) {
     throw new OneKeyError('Invalid Solana transaction payload');
+  }
+  // Solana wire transactions are capped at 1232 bytes (PACKET_DATA_SIZE);
+  // bs58 encoding is O(n^2), so reject oversized payloads before encoding
+  // to keep a hostile server from freezing the UI thread.
+  if (bytes.length > WC_PAY_SOLANA_TX_MAX_BYTES) {
+    throw new OneKeyError('Solana transaction payload too large');
   }
   return bs58.encode(bytes);
 }
