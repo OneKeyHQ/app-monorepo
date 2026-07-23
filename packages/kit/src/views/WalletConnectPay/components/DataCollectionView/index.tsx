@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import { Stack } from '@onekeyhq/components';
-import { WALLET_CONNECT_PAY_TRUSTED_HOST } from '@onekeyhq/shared/src/walletConnect/payConstant';
+import { isWcPayTrustedHost } from '@onekeyhq/shared/src/walletConnect/payConstant';
 
 import type { IDataCollectionViewProps } from './types';
 
@@ -19,11 +19,7 @@ export function DataCollectionView({
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       try {
-        const originHost = new URL(event.origin).hostname.toLowerCase();
-        if (
-          originHost !== WALLET_CONNECT_PAY_TRUSTED_HOST &&
-          !originHost.endsWith(`.${WALLET_CONNECT_PAY_TRUSTED_HOST}`)
-        ) {
+        if (!isWcPayTrustedHost(new URL(event.origin).hostname)) {
           return;
         }
         const data =

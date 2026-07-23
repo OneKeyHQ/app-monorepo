@@ -3,25 +3,11 @@ import { useRef } from 'react';
 import { WebView } from 'react-native-webview';
 
 import { Stack } from '@onekeyhq/components';
-import { WALLET_CONNECT_PAY_TRUSTED_HOST } from '@onekeyhq/shared/src/walletConnect/payConstant';
+import { isWcPayTrustedUrl } from '@onekeyhq/shared/src/walletConnect/payConstant';
 
 import type { IDataCollectionViewProps } from './types';
-import type {
-  WebViewMessageEvent,
-  WebViewNavigation,
-} from 'react-native-webview';
-
-function isTrustedPayUrl(url: string): boolean {
-  try {
-    const host = new URL(url).hostname.toLowerCase();
-    return (
-      host === WALLET_CONNECT_PAY_TRUSTED_HOST ||
-      host.endsWith(`.${WALLET_CONNECT_PAY_TRUSTED_HOST}`)
-    );
-  } catch {
-    return false;
-  }
-}
+import type { WebViewMessageEvent } from 'react-native-webview';
+import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 
 /**
  * Native variant: the hosted compliance form runs in a WebView and reports
@@ -60,9 +46,11 @@ export function DataCollectionView({
         javaScriptEnabled
         // the hosted form requires DOM storage; Android defaults it to off
         domStorageEnabled
-        // keep navigation inside the trusted WalletConnect Pay host
-        onShouldStartLoadWithRequest={(request: WebViewNavigation) =>
-          isTrustedPayUrl(request.url)
+        // keep top-frame navigation inside the trusted WalletConnect Pay
+        // host; iOS also reports loads of embedded frames here, which the
+        // page's own CSP (frame-src) governs, so let those through
+        onShouldStartLoadWithRequest={(request: ShouldStartLoadRequest) =>
+          !request.isTopFrame || isWcPayTrustedUrl(request.url)
         }
       />
     </Stack>

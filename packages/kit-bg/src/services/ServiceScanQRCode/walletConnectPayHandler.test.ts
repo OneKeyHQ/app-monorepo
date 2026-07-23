@@ -75,4 +75,22 @@ describe('walletConnectPay QR handler', () => {
     );
     expect(result.type).toEqual(EQRCodeHandlerType.ETHEREUM);
   });
+
+  it('accepts a bare pay_ id', async () => {
+    expect(await parse('pay_a1b2c3')).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.WALLET_CONNECT_PAY,
+      }),
+    );
+  });
+
+  it('rejects arbitrary text that merely contains a pay marker', async () => {
+    // the SDK's isPaymentLink substring-matches pay_ / pay. / pay=
+    const orderText = await parse('ORDER_PAY_2024');
+    expect(orderText.type).not.toEqual(EQRCodeHandlerType.WALLET_CONNECT_PAY);
+    const sentence = await parse('please pay. thanks');
+    expect(sentence.type).not.toEqual(EQRCodeHandlerType.WALLET_CONNECT_PAY);
+    const kvText = await parse('amount pay=100');
+    expect(kvText.type).not.toEqual(EQRCodeHandlerType.WALLET_CONNECT_PAY);
+  });
 });

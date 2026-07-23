@@ -34,9 +34,18 @@ export const WALLET_CONNECT_PAY_EIP155_CHAIN_REFS: string[] = [
   '42220', // Celo
 ];
 
+/**
+ * Maps a CAIP-2 chain id to a OneKey networkId, restricted to the vetted
+ * WALLET_CONNECT_PAY_EIP155_CHAIN_REFS list so that server-returned actions
+ * on any other chain are rejected before signing.
+ */
 export function wcPayChainIdToNetworkId(caip2ChainId: string): string | null {
   const [namespace, reference] = caip2ChainId.split(':');
-  if (namespace === 'eip155' && reference) {
+  if (
+    namespace === 'eip155' &&
+    reference &&
+    WALLET_CONNECT_PAY_EIP155_CHAIN_REFS.includes(reference)
+  ) {
     return `evm--${reference}`;
   }
   return null;
@@ -44,28 +53,39 @@ export function wcPayChainIdToNetworkId(caip2ChainId: string): string | null {
 
 export const WALLET_CONNECT_PAY_TRUSTED_HOST = 'pay.walletconnect.com';
 
+export function isWcPayTrustedHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return (
+    host === WALLET_CONNECT_PAY_TRUSTED_HOST ||
+    host.endsWith(`.${WALLET_CONNECT_PAY_TRUSTED_HOST}`)
+  );
+}
+
 /**
- * Domain guard on top of the SDK's `isPaymentLink`: the SDK matches loosely
- * (e.g. `pay.walletconnect.com.evil.com` and `evil.com/?pid=pay_x` pass),
- * while the WalletConnect Pay docs require trusting only
- * pay.walletconnect.com and *.pay.walletconnect.com. Non-URL forms
- * (`wc:...?pay=`, bare `pay_...` ids) carry no host and pass through.
+ * Strict check for URLs that will actually be LOADED (webview/iframe):
+ * https only, trusted host only. Unlike validateWcPayLinkDomain there is no
+ * pass-through for non-URL strings, so schemes like javascript: are rejected.
  */
-export function validateWcPayLinkDomain(uri: string): boolean {
-  if (!/^https?:\/\//i.test(uri)) {
-    return true;
-  }
+export function isWcPayTrustedUrl(url: string): boolean {
   try {
-    const { protocol, hostname } = new URL(uri);
-    if (protocol !== 'https:') {
-      return false;
-    }
-    const host = hostname.toLowerCase();
-    return (
-      host === WALLET_CONNECT_PAY_TRUSTED_HOST ||
-      host.endsWith(`.${WALLET_CONNECT_PAY_TRUSTED_HOST}`)
-    );
+    const { protocol, hostname } = new URL(url);
+    return protocol === 'https:' && isWcPayTrustedHost(hostname);
   } catch {
     return false;
   }
+}
+
+/**
+ * Domain guard on top of the SDK's `isPaymentLink`, which only does substring
+ * matching (`pay.` / `pay=` / `pay_`) so e.g. `pay.walletconnect.com.evil.com`,
+ * `evil.com/?pid=pay_x` and arbitrary text like `ORDER_PAY_2024` all pass it.
+ * URL forms must be https on pay.walletconnect.com (or a subdomain); non-URL
+ * forms carry no host, so only the known shapes are accepted: `wc:` URIs
+ * (the SDK already required a pay marker) and bare `pay_...` ids.
+ */
+export function validateWcPayLinkDomain(uri: string): boolean {
+  if (!/^https?:\/\//i.test(uri)) {
+    return uri.startsWith('wc:') || /^pay_[\w-]+$/i.test(uri);
+  }
+  return isWcPayTrustedUrl(uri);
 }
