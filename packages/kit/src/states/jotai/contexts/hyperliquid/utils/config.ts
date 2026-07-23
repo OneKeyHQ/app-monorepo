@@ -8,6 +8,16 @@ import type { IToastConfig } from './types';
 
 const t = (id: ETranslations) => () => appLocale.intl.formatMessage({ id });
 
+export const getPerpsOrderChangedMessage = t(
+  ETranslations.order_changed_try_again__msg,
+);
+export const getPerpsOrderNoLongerEligibleForChaseMessage = t(
+  ETranslations.order_no_longer_eligible_for_chase__msg,
+);
+export const getPerpsTokenInfoNotFoundMessage = t(
+  ETranslations.perp_token_info_not_found__msg,
+);
+
 export const ERROR_PATTERNS: Record<EErrorType, string[]> = {
   [EErrorType.INVALID_AGENT]: ['User or API Wallet', 'does not exist'],
 };
