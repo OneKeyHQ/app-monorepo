@@ -21,7 +21,6 @@ export function getWalletConnectPayConfig(): { appId: string } {
  * https://docs.walletconnect.com/payments/token-and-chain-coverage).
  * Entries are eip155 chain references; each maps to OneKey networkId
  * `evm--{ref}`. Networks not present in the wallet are filtered at runtime.
- * Solana is planned for a later phase.
  */
 export const WALLET_CONNECT_PAY_EIP155_CHAIN_REFS: string[] = [
   '1', // Ethereum
@@ -35,18 +34,33 @@ export const WALLET_CONNECT_PAY_EIP155_CHAIN_REFS: string[] = [
 ];
 
 /**
+ * Solana chains accepted by WalletConnect Pay, keyed by CAIP-2 reference
+ * (first 32 base58 chars of the genesis hash, per the same coverage doc)
+ * mapped to the OneKey networkId. Pay uses only this CAIP-30 form; the
+ * deprecated `4sGjMW…` mainnet id is deliberately not accepted.
+ */
+export const WALLET_CONNECT_PAY_SOLANA_CHAINS: Record<string, string> = {
+  '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': 'sol--101',
+};
+
+/**
  * Maps a CAIP-2 chain id to a OneKey networkId, restricted to the vetted
- * WALLET_CONNECT_PAY_EIP155_CHAIN_REFS list so that server-returned actions
- * on any other chain are rejected before signing.
+ * chain whitelists so that server-returned actions on any other chain are
+ * rejected before signing.
  */
 export function wcPayChainIdToNetworkId(caip2ChainId: string): string | null {
   const [namespace, reference] = caip2ChainId.split(':');
+  if (!reference) {
+    return null;
+  }
   if (
     namespace === 'eip155' &&
-    reference &&
     WALLET_CONNECT_PAY_EIP155_CHAIN_REFS.includes(reference)
   ) {
     return `evm--${reference}`;
+  }
+  if (namespace === 'solana') {
+    return WALLET_CONNECT_PAY_SOLANA_CHAINS[reference] ?? null;
   }
   return null;
 }
