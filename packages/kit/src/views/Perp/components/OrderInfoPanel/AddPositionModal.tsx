@@ -30,6 +30,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   formatPriceToSignificantDigits,
   parseDexCoin,
+  resolveTradingSize,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 import type {
@@ -47,6 +48,7 @@ import {
   PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
 } from '../PerpDialogLayout';
+import { PerpsSlider } from '../PerpsSlider';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { PriceInput } from '../TradingPanel/inputs/PriceInput';
 import { SizeInput } from '../TradingPanel/inputs/SizeInput';
@@ -94,6 +96,10 @@ const AddPositionForm = memo(
 
     const [orderType, setOrderType] = useState<IAddPositionOrderType>('market');
     const [amount, setAmount] = useState('');
+    const [sizeInputMode, setSizeInputMode] = useState<EPerpsSizeInputMode>(
+      EPerpsSizeInputMode.MANUAL,
+    );
+    const [sizePercent, setSizePercent] = useState(0);
     const [limitPrice, setLimitPrice] = useState('');
     const [hasTpsl, setHasTpsl] = useState(false);
     const [tpType, setTpType] = useState<'price' | 'percentage'>('price');
@@ -204,6 +210,41 @@ const AddPositionForm = memo(
       szDecimals !== undefined &&
       isAddPositionAssetDataScoped({ data: assetData, coin, accountAddress }),
     );
+    const resolvedSize = useMemo(
+      () =>
+        resolveTradingSize({
+          sizeInputMode,
+          manualSize: amount,
+          sizePercent,
+          side: isBuy ? 'long' : 'short',
+          maxSize,
+          szDecimals,
+        }),
+      [amount, isBuy, maxSize, sizeInputMode, sizePercent, szDecimals],
+    );
+
+    const handleManualSizeChange = useCallback((value: string) => {
+      setAmount(value);
+      setSizeInputMode(EPerpsSizeInputMode.MANUAL);
+      setSizePercent(0);
+    }, []);
+
+    const handleSliderPercentChange = useCallback((value: number) => {
+      const percent = Number.isFinite(value) ? value : 0;
+      setSizeInputMode(EPerpsSizeInputMode.SLIDER);
+      setSizePercent(Math.max(0, Math.min(100, percent)));
+      setAmount('');
+    }, []);
+
+    const switchToManual = useCallback(() => {
+      if (sizeInputMode !== EPerpsSizeInputMode.SLIDER) {
+        return;
+      }
+      setSizeInputMode(EPerpsSizeInputMode.MANUAL);
+      setSizePercent(0);
+      setAmount('');
+    }, [sizeInputMode]);
+
     // Size problems keep the button pressable and surface a toast on press,
     // matching the main trading panel instead of silently disabling it.
     const showValidationToast = useCallback(
@@ -282,7 +323,7 @@ const AddPositionForm = memo(
         return;
       }
       const localValidation = validateAddPositionOrder({
-        size: amount,
+        size: resolvedSize,
         price: effectivePrice,
         maxSize,
         szDecimals: szDecimals ?? 0,
@@ -320,10 +361,21 @@ const AddPositionForm = memo(
           orderType === 'market' ? latestAssetData.markPx : limitPrice;
         const latestSzDecimals =
           latestTargetData.targetAsset.universe?.szDecimals ?? 0;
+        const latestMaxSize = latestAssetData.maxTradeSzs[isBuy ? 0 : 1];
+        // Re-resolve slider sizes against the refreshed max so a 100% drag
+        // cannot fall out of range while the dialog was open.
+        const latestSize = resolveTradingSize({
+          sizeInputMode,
+          manualSize: amount,
+          sizePercent,
+          side: isBuy ? 'long' : 'short',
+          maxSize: latestMaxSize,
+          szDecimals: latestSzDecimals,
+        });
         const latestValidation = validateAddPositionOrder({
-          size: amount,
+          size: latestSize,
           price: latestPrice,
-          maxSize: latestAssetData.maxTradeSzs[isBuy ? 0 : 1],
+          maxSize: latestMaxSize,
           szDecimals: latestSzDecimals,
         });
         if (latestValidation.error) {
@@ -391,7 +443,10 @@ const AddPositionForm = memo(
       maxSize,
       onClose,
       orderType,
+      resolvedSize,
       showValidationToast,
+      sizeInputMode,
+      sizePercent,
       slType,
       slValue,
       szDecimals,
@@ -487,12 +542,24 @@ const AddPositionForm = memo(
           isAssetCtxReady={isTargetAssetReady}
           symbol={displayName}
           value={amount}
-          onChange={setAmount}
-          sizeInputMode={EPerpsSizeInputMode.MANUAL}
-          sliderPercent={0}
+          onChange={handleManualSizeChange}
+          sizeInputMode={sizeInputMode}
+          sliderPercent={sizePercent}
+          onRequestManualMode={switchToManual}
           leverage={leverage}
           allowMarginInput
           ifOnDialog
+        />
+        <PerpsSlider
+          min={0}
+          max={100}
+          value={sizeInputMode === EPerpsSizeInputMode.SLIDER ? sizePercent : 0}
+          onChange={handleSliderPercentChange}
+          disabled={isSubmitting || !isTargetAssetReady}
+          segments={4}
+          snapTapToSegment
+          showBubble={false}
+          sliderHeight={4}
         />
         <Checkbox
           testID="perp-add-position-tpsl-checkbox"
