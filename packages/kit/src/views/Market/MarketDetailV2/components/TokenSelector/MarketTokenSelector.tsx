@@ -20,6 +20,7 @@ import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import type { IMarketCategoryItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
+import { MarketTestIDs } from '@onekeyhq/kit/src/views/Market/testIDs';
 import { useSwapProTokenSearch } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapPro';
 import { useMarketTokenSelectorConfigAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -291,6 +292,7 @@ function BaseMarketTokenSelector() {
         renderTrigger={
           // eslint-disable-next-line props-checker/validator -- Popover injects the trigger press handler.
           <XStack
+            testID={MarketTestIDs.tokenSelectorTrigger}
             gap="$2"
             alignItems="center"
             cursor="pointer"

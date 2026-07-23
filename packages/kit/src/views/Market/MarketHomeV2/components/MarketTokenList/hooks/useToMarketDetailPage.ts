@@ -10,7 +10,12 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
-import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
+import {
+  prefetchMarketDetailV2FirstScreenKLine,
+  prefetchMarketDetailV2FirstScreenTransactions,
+  preloadMarketDetailV2Page,
+  prepareMarketDetailV2KlineSource,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { buildMarketTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -24,6 +29,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import type { IMarketToken as IMarketHomeToken } from '../MarketTokenData';
 
@@ -32,6 +38,25 @@ interface IMarketToken extends Partial<IMarketHomeToken> {
   networkId: string;
   symbol: string;
   isNative?: boolean;
+}
+
+function buildMarketDetailRouteParams(
+  item: IMarketToken,
+  options?: IUseToDetailPageOptions,
+) {
+  const shortCode = networkUtils.getNetworkShortCode({
+    networkId: item.networkId,
+  });
+
+  return {
+    tokenAddress: item.tokenAddress,
+    network: shortCode || item.networkId,
+    isNative: item.isNative,
+    from: options?.from,
+    ...(typeof options?.showFavoriteButton === 'boolean'
+      ? { showFavoriteButton: options.showFavoriteButton }
+      : undefined),
+  };
 }
 
 interface IUseToDetailPageOptions {
@@ -59,34 +84,62 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
   const media = useMedia();
   const preloadLayout =
     media.gtLg && !platformEnv.isNative ? 'desktop' : 'mobile';
+  const {
+    switchToMarketTabFirst,
+    from: enterFrom,
+    showFavoriteButton,
+  } = options ?? {};
 
   useEffect(() => {
     void preloadMarketDetailV2Page();
   }, []);
 
-  const preparePreviewTokenDetail = useCallback(
-    (item: IMarketToken) => {
+  const startTokenDetailRequest = useCallback(
+    (
+      item: IMarketToken,
+      { includeTransactions = true }: { includeTransactions?: boolean } = {},
+    ) => {
+      prepareMarketDetailV2KlineSource({
+        tokenAddress: item.tokenAddress,
+        networkId: item.networkId,
+      });
       const previewAddress = item.address ?? item.tokenAddress;
+      let tokenDetailPreview: IMarketTokenDetailPreview | undefined;
 
       if (
-        (!previewAddress && !item.isNative) ||
-        !item.name ||
-        typeof item.decimals !== 'number'
+        (previewAddress || item.isNative) &&
+        item.name &&
+        typeof item.decimals === 'number'
       ) {
-        tokenDetailActions.current.clearTokenDetail();
-        return;
+        tokenDetailPreview = buildMarketTokenDetailPreview({
+          ...(item as IMarketHomeToken),
+          address: previewAddress,
+          networkId: item.networkId,
+          symbol: item.symbol,
+          isNative: item.isNative,
+        });
+
+        prewarmMarketTokenImages(tokenDetailPreview);
       }
 
-      const tokenDetailPreview = buildMarketTokenDetailPreview({
-        ...(item as IMarketHomeToken),
-        address: previewAddress,
+      void tokenDetailActions.current.changeActiveToken({
+        tokenAddress: item.tokenAddress,
         networkId: item.networkId,
-        symbol: item.symbol,
-        isNative: item.isNative,
+        historyStartTime: item.firstTradeTime,
+        isNative: item.isNative ?? false,
+        tokenDetailPreview,
       });
-
-      prewarmMarketTokenImages(tokenDetailPreview);
-      tokenDetailActions.current.prepareTokenDetailPreview(tokenDetailPreview);
+      void prefetchMarketDetailV2FirstScreenKLine({
+        tokenAddress: item.tokenAddress,
+        networkId: item.networkId,
+        historyStartTime: item.firstTradeTime,
+      }).catch(() => undefined);
+      if (includeTransactions) {
+        void prefetchMarketDetailV2FirstScreenTransactions({
+          tokenAddress: item.tokenAddress,
+          networkId: item.networkId,
+        }).catch(() => undefined);
+      }
     },
     [tokenDetailActions],
   );
@@ -98,19 +151,10 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         includeHeavyModules: true,
         layout: preloadLayout,
       });
-      const shortCode = networkUtils.getNetworkShortCode({
-        networkId: item.networkId,
+      const params = buildMarketDetailRouteParams(item, {
+        from: enterFrom,
+        showFavoriteButton,
       });
-
-      const params = {
-        tokenAddress: item.tokenAddress,
-        network: shortCode || item.networkId,
-        isNative: item.isNative,
-        from: options?.from,
-        ...(typeof options?.showFavoriteButton === 'boolean'
-          ? { showFavoriteButton: options.showFavoriteButton }
-          : undefined),
-      };
 
       // Check if in extension popup/side panel
       if (
@@ -129,8 +173,8 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           from: params.from || enterSource,
         });
         closeExtensionPopupAfterExpandTabOpen();
-      } else if (options?.switchToMarketTabFirst) {
-        preparePreviewTokenDetail(item);
+      } else if (switchToMarketTabFirst) {
+        startTokenDetailRequest(item);
 
         const targetTab = platformEnv.isNative
           ? ETabRoutes.Discovery
@@ -164,7 +208,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           }, 500);
         }
       } else {
-        preparePreviewTokenDetail(item);
+        startTokenDetailRequest(item);
 
         // Clean existing token detail pages in tablet split view mode before pushing new one
         if (splitViewType !== ESplitViewType.UNKNOWN) {
@@ -183,10 +227,10 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
     },
     [
       navigation,
-      preparePreviewTokenDetail,
-      options?.switchToMarketTabFirst,
-      options?.from,
-      options?.showFavoriteButton,
+      startTokenDetailRequest,
+      switchToMarketTabFirst,
+      enterFrom,
+      showFavoriteButton,
       preloadLayout,
       splitViewType,
     ],

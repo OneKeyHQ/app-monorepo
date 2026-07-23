@@ -1,9 +1,11 @@
 export * from './components/tradingViewV2/TradingViewV2';
+export { prefetchTradingViewV2FirstScreenData } from './components/tradingViewV2/hooks/useTradingViewV2';
 export type { ITradingViewV2KLineDataFallback } from './components/tradingViewV2/hooks/useTradingViewV2';
 export type {
   ITradingViewKLineDataReadyData,
   ITradingViewKLineLoadErrorData,
   ITradingViewKLinePeriodChangeData,
+  ITradingViewFirstPaintReadyData,
   ITradingViewPriceUpdateData,
 } from './types';
 export {

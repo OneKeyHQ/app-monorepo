@@ -18,6 +18,9 @@ export const MarketTestIDs = {
   // Token detail
   detailPage: 'market-detail-page',
   detailChart: 'market-detail-chart',
+  detailChartError: 'market-detail-chart-error',
+  detailChartLoading: 'market-detail-chart-loading',
+  detailChartRetry: 'market-detail-chart-retry',
   detailBuyButton: 'market-detail-buy-button',
   detailSwapButton: 'market-detail-swap-button',
   detailAbout: 'market-detail-about',
@@ -42,6 +45,8 @@ export const MarketTestIDs = {
     'market-liquidity-pool-expand-token-amounts-btn',
 
   // Token selector row
+  tokenSelectorTrigger: 'market-token-selector-trigger',
+  tokenSelectorRow: (symbol: string) => `market-token-selector-row-${symbol}`,
   tokenSelectorRowStarBtn: 'market-token-selector-row-star-btn',
 
   // List row trade actions (MarketListTradeButton)

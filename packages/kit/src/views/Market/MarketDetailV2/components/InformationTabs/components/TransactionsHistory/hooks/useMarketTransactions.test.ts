@@ -2,7 +2,10 @@
 
 import { act, renderHook } from '@testing-library/react';
 
-import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketTokenTransaction,
+  IMarketTokenTransactionsResponse,
+} from '@onekeyhq/shared/types/marketV2';
 
 import { createMockTransaction } from '../__tests__/fixtures';
 
@@ -34,6 +37,8 @@ type IMockUsePromiseResult = (
 const mockUsePromiseResult: jest.MockedFunction<IMockUsePromiseResult> =
   jest.fn();
 const mockFetchTransactions = jest.fn();
+const mockFetchMarketTransactionsFirstPageWithCache = jest.fn();
+const mockGetCachedMarketTransactionsFirstPage = jest.fn();
 const mockThrottledTransactionsUpdates: IThrottledTransactionsUpdate[] = [];
 
 jest.mock('use-debounce', () => {
@@ -90,6 +95,32 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   },
 }));
 
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketTransactionsFirstPageCache',
+  () => ({
+    MARKET_TRANSACTIONS_FIRST_PAGE_SIZE: 20,
+    buildMarketTransactionsFirstPageRequestKey: ({
+      tokenAddress,
+      networkId,
+    }: {
+      tokenAddress: string;
+      networkId: string;
+    }) => `${networkId}:${tokenAddress}`,
+    fetchMarketTransactionsFirstPageWithCache: (
+      ...args: unknown[]
+    ): Promise<IMarketTokenTransactionsResponse> =>
+      mockFetchMarketTransactionsFirstPageWithCache(
+        ...args,
+      ) as Promise<IMarketTokenTransactionsResponse>,
+    getCachedMarketTransactionsFirstPage: (
+      ...args: unknown[]
+    ): IMarketTokenTransactionsResponse | undefined =>
+      mockGetCachedMarketTransactionsFirstPage(...args) as
+        | IMarketTokenTransactionsResponse
+        | undefined,
+  }),
+);
+
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
@@ -119,6 +150,9 @@ describe('useMarketTransactions', () => {
     platformEnv.isNative = false;
     platformEnv.isNativeAndroid = false;
     mockFetchTransactions.mockReset();
+    mockFetchMarketTransactionsFirstPageWithCache.mockReset();
+    mockGetCachedMarketTransactionsFirstPage.mockReset();
+    mockGetCachedMarketTransactionsFirstPage.mockReturnValue(undefined);
     mockUsePromiseResult.mockReset();
     mockThrottledTransactionsUpdates.length = 0;
     getMockMarketService().fetchMarketTokenTransactions.mockReset();
@@ -131,6 +165,71 @@ describe('useMarketTransactions', () => {
       isLoading: false,
       run: mockFetchTransactions,
     });
+  });
+
+  it('uses the prefetched first-page request once, then fetches fresh data', async () => {
+    const prefetchedResponse = {
+      list: [createMockTransaction('prefetched-1')],
+      cursor: 'cursor-1',
+    };
+    const refreshedResponse = {
+      list: [createMockTransaction('refreshed-1')],
+    };
+    mockFetchMarketTransactionsFirstPageWithCache.mockResolvedValue(
+      prefetchedResponse,
+    );
+    getMockMarketService().fetchMarketTokenTransactions.mockResolvedValue(
+      refreshedResponse,
+    );
+
+    renderHook(() =>
+      useMarketTransactions({
+        tokenAddress: '0xabc',
+        networkId: 'evm--1',
+        normalMode: false,
+      }),
+    );
+
+    const requestFirstPage = mockUsePromiseResult.mock.calls[0]?.[0] as
+      | (() => Promise<unknown>)
+      | undefined;
+    await expect(requestFirstPage?.()).resolves.toEqual(prefetchedResponse);
+    await expect(requestFirstPage?.()).resolves.toEqual(refreshedResponse);
+
+    expect(mockFetchMarketTransactionsFirstPageWithCache).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(
+      getMockMarketService().fetchMarketTokenTransactions,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders a completed navigation prefetch without an empty first frame', () => {
+    const prefetchedResponse = {
+      list: [createMockTransaction('prefetched-1')],
+      cursor: 'cursor-1',
+    };
+    mockGetCachedMarketTransactionsFirstPage.mockReturnValue(
+      prefetchedResponse,
+    );
+    mockUsePromiseResult.mockReturnValue({
+      result: prefetchedResponse,
+      isLoading: true,
+      run: mockFetchTransactions,
+    });
+
+    const { result } = renderHook(() =>
+      useMarketTransactions({
+        tokenAddress: '0xabc',
+        networkId: 'evm--1',
+        normalMode: false,
+      }),
+    );
+
+    expect(result.current.transactions.map((tx) => tx.hash)).toEqual([
+      'prefetched-1',
+    ]);
+    expect(result.current.hasMore).toBe(true);
   });
 
   it('cancels queued throttled writes before flushing buffered transactions', () => {

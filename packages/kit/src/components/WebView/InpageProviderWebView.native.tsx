@@ -45,7 +45,10 @@ const injectedMetaJavaScript = `
 const defaultOnMessage = (_event: any) => {};
 
 type INativeInpageProviderWebViewProps = IInpageProviderWebViewProps &
-  Pick<WebViewProps, 'containerStyle' | 'style'>;
+  Pick<
+    WebViewProps,
+    'cacheEnabled' | 'containerStyle' | 'style' | 'useSharedProcessPool'
+  >;
 
 const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
   (
@@ -57,6 +60,8 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
       onShouldStartLoadWithRequest,
       nativeWebviewSource,
       nativeInjectedJavaScriptBeforeContentLoaded,
+      cacheEnabled,
+      useSharedProcessPool,
       style,
       containerStyle: webViewContainerStyle,
       isSpinnerLoading,
@@ -204,6 +209,8 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
         {progressLoading}
 
         <NativeWebView
+          cacheEnabled={cacheEnabled ?? false}
+          useSharedProcessPool={useSharedProcessPool}
           pullToRefreshEnabled={pullToRefreshEnabled}
           scalesPageToFit={!isDesktopMode}
           webviewDebuggingEnabled={webviewDebuggingEnabled}

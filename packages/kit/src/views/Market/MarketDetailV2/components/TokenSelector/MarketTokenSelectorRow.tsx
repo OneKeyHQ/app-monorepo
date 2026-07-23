@@ -35,6 +35,7 @@ import {
   COLUMN_WIDTH_PRICE,
   COLUMN_WIDTH_TURNOVER,
 } from './constants';
+import { useMarketTokenSelectorRowPrefetch } from './useMarketTokenSelectorRowPrefetch';
 
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import type { GestureResponderEvent } from 'react-native';
@@ -51,6 +52,8 @@ const PRICE_LARGE_THRESHOLD = 1_000_000;
 const MarketTokenSelectorRow = memo(
   ({ item, networkId, onPress, showAddress }: IMarketTokenSelectorRowProps) => {
     const { copyText } = useClipboard();
+    const { cancelHoverPrefetch, handleHoverIn, handlePressIn } =
+      useMarketTokenSelectorRowPrefetch(item);
 
     const prewarmTokenImages = useCallback(() => {
       prewarmMarketTokenImages(item);
@@ -115,9 +118,11 @@ const MarketTokenSelectorRow = memo(
 
     return (
       <XStack
+        testID={MarketTestIDs.tokenSelectorRow(item.symbol)}
         onPress={handlePress}
-        onPressIn={prewarmTokenImages}
-        onHoverIn={prewarmTokenImages}
+        onPressIn={handlePressIn}
+        onHoverIn={handleHoverIn}
+        onHoverOut={cancelHoverPrefetch}
         hoverStyle={{ bg: '$bgHover' }}
         px="$4"
         py="$3"

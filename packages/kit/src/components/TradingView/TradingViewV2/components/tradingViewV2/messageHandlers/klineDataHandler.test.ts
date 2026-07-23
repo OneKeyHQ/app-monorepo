@@ -52,6 +52,7 @@ function buildHistoryMessage({
 
 function buildContext() {
   const sendMessageViaInjectedScript = jest.fn();
+  const webViewLoadGeneration = { current: 1 };
   const webRef = {
     current: {
       sendMessageViaInjectedScript,
@@ -61,6 +62,7 @@ function buildContext() {
     tokenAddress: '0x123',
     networkId: 'evm--1',
     webRef,
+    webViewLoadGeneration,
     onKLineLoadError: jest.fn(),
     onKLineDataReady: jest.fn(),
   };
@@ -68,6 +70,7 @@ function buildContext() {
   return {
     context,
     sendMessageViaInjectedScript,
+    webViewLoadGeneration,
   };
 }
 
@@ -115,7 +118,32 @@ describe('handleKLineDataRequest', () => {
     expect(context.onKLineLoadError).toHaveBeenCalledWith({
       status: 'empty',
       period: '1m',
+      requestRange: {
+        from: 1000,
+        to: 2000,
+        countBack: 17,
+        firstDataRequest: true,
+      },
     });
+    expect(context.onKLineDataReady).not.toHaveBeenCalled();
+  });
+
+  it('drops a K-line response after the WebView document reloads', async () => {
+    mockFetchTradingViewV2DataWithSlicing.mockResolvedValueOnce({
+      points: [{ t: 1000, o: 1, h: 1, l: 1, c: 1, v: 1 }],
+      total: 1,
+    });
+    const { context, sendMessageViaInjectedScript, webViewLoadGeneration } =
+      buildContext();
+
+    const request = handleKLineDataRequest({
+      data: buildHistoryMessage({ firstDataRequest: true }),
+      context,
+    });
+    webViewLoadGeneration.current += 1;
+    await request;
+
+    expect(sendMessageViaInjectedScript).not.toHaveBeenCalled();
     expect(context.onKLineDataReady).not.toHaveBeenCalled();
   });
 });

@@ -20,6 +20,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
+import { MarketTradingViewLoading } from '../components/MarketTradingView/MarketTradingViewLoading';
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import { SwapPanel } from '../components/SwapPanel/SwapPanel';
 import { TokenActivityOverview } from '../components/TokenActivityOverview/TokenActivityOverview';
@@ -79,7 +80,7 @@ function ModuleLoadingFallback({ minHeight }: { minHeight?: number }) {
 }
 
 const chartLoadingFallback = (
-  <ModuleLoadingFallback minHeight={MARKET_DETAIL_LAYOUT.chartHeight} />
+  <MarketTradingViewLoading minHeight={MARKET_DETAIL_LAYOUT.chartHeight} />
 );
 
 const infoTabsLoadingFallback = (
@@ -157,6 +158,7 @@ export function DesktopLayout({
     tokenAddress,
     networkId,
     tokenDetail,
+    tokenDetailPreview,
     isNative,
     websocketConfig,
     isStockToken,
@@ -219,6 +221,7 @@ export function DesktopLayout({
     tokenAddress,
     networkId,
     tokenDetail,
+    tokenDetailPreview,
     isNative,
     websocketConfig,
   });
@@ -233,6 +236,9 @@ export function DesktopLayout({
         tokenAddress={marketTradingViewParams.tokenAddress}
         networkId={marketTradingViewParams.networkId}
         tokenSymbol={marketTradingViewParams.tokenSymbol}
+        decimal={marketTradingViewParams.decimal}
+        marketPrice={marketTradingViewParams.marketPrice}
+        historyStartTime={marketTradingViewParams.historyStartTime}
         isNative={marketTradingViewParams.isNative}
         dataSource={marketTradingViewParams.dataSource}
         onTouchScroll={handleTradingViewTouchScroll}

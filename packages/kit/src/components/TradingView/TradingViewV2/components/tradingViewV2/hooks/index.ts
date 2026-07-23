@@ -2,6 +2,14 @@ export { useAutoKLineUpdate } from './useAutoKLineUpdate';
 export { useAutoTokenDetailUpdate } from './useAutoTokenDetailUpdate';
 export { useHyperLiquidKlineSource } from './useHyperLiquidKlineSource';
 export {
+  buildMarketTradingViewUrl,
+  useMarketTradingViewFrameIdentity,
+  useMarketSymbolSync,
+} from './useMarketSymbolSync';
+export {
+  cancelTradingViewV2FirstScreenPrefetchData,
+  getTradingViewV2FirstScreenPrefetchPromise,
+  prefetchTradingViewV2FirstScreenData,
   fetchTradingViewV2Data,
   fetchTradingViewV2DataWithSlicing,
 } from './useTradingViewV2';

@@ -1,17 +1,43 @@
-import { type ReactNode, memo, useCallback } from 'react';
+import {
+  type ReactNode,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { AnimatePresence, Empty, Stack } from '@onekeyhq/components';
 import {
   TRADING_VIEW_DISABLED_FEATURES,
   TradingViewV2,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import type {
   ITradingViewDisabledFeature,
+  ITradingViewFirstPaintReadyData,
+  ITradingViewKLineDataReadyData,
+  ITradingViewKLinePeriodChangeData,
   ITradingViewPriceUpdateData,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { MarketTestIDs } from '../../../testIDs';
+import {
+  type IMarketTradingViewResolutionNamespace,
+  getMarketTradingViewSessionPreference,
+  hydrateMarketTradingViewPreferences,
+  isMarketTradingViewPreferencesHydrated,
+  saveMarketTradingViewFirstScreenRequestPreference,
+  saveMarketTradingViewResolutionPreference,
+  updateMarketTradingViewSessionResolution,
+} from '../../utils/marketTradingViewResolutionPreference';
 import { useNetworkAccountAddress } from '../InformationTabs/hooks/useNetworkAccountAddress';
+
+import { MarketTradingViewLoading } from './MarketTradingViewLoading';
 
 const MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES: readonly ITradingViewDisabledFeature[] =
   [
@@ -22,6 +48,35 @@ const MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES: readonly ITradingViewDisabl
     TRADING_VIEW_DISABLED_FEATURES.LAYOUT_TOGGLE,
     TRADING_VIEW_DISABLED_FEATURES.DRAWING_TOOLBAR,
   ];
+
+function MarketNativeChartErrorPlaceholder({
+  onRetry,
+}: {
+  onRetry: () => void;
+}) {
+  const intl = useIntl();
+  return (
+    <Empty
+      testID={MarketTestIDs.detailChartError}
+      position="absolute"
+      top={0}
+      right={0}
+      bottom={0}
+      left={0}
+      bg="$bgApp"
+      icon="CloudOffOutline"
+      title={intl.formatMessage({ id: ETranslations.global_network_error })}
+      description={intl.formatMessage({
+        id: ETranslations.global_unknown_error_retry_message,
+      })}
+      buttonProps={{
+        testID: MarketTestIDs.detailChartRetry,
+        children: intl.formatMessage({ id: ETranslations.global_retry }),
+        onPress: onRetry,
+      }}
+    />
+  );
+}
 
 function normalizeChartRealtimePrice(
   price: ITradingViewPriceUpdateData['price'],
@@ -48,8 +103,21 @@ function normalizeChartUpdateTimestamp(
   return timestamp < 10_000_000_000 ? timestamp * 1000 : timestamp;
 }
 
-function normalizeTokenAddress(address: string | undefined) {
-  return address?.trim().toLowerCase() ?? '';
+function normalizeTokenAddress(address: string | undefined, networkId: string) {
+  return (
+    normalizeTokenContractAddress({
+      networkId,
+      contractAddress: address?.trim(),
+    }) ?? ''
+  );
+}
+
+function getResolutionNamespace(
+  storageNamespace: string | undefined,
+): IMarketTradingViewResolutionNamespace {
+  return storageNamespace === 'market-hyperliquid'
+    ? 'market-hyperliquid'
+    : 'market';
 }
 
 function isChartPriceUpdateForCurrentToken({
@@ -65,8 +133,11 @@ function isChartPriceUpdateForCurrentToken({
     return false;
   }
 
-  const currentTokenAddress = normalizeTokenAddress(tokenAddress);
-  const updateTokenAddress = normalizeTokenAddress(data.tokenAddress);
+  const currentTokenAddress = normalizeTokenAddress(tokenAddress, networkId);
+  const updateTokenAddress = normalizeTokenAddress(
+    data.tokenAddress,
+    networkId,
+  );
 
   return currentTokenAddress
     ? updateTokenAddress === currentTokenAddress
@@ -78,9 +149,11 @@ export interface IMarketTradingViewProps {
   networkId: string;
   tokenSymbol?: string;
   decimal?: number;
+  marketPrice?: string | number;
+  historyStartTime?: number;
   onPanesCountChange?: (count: number) => void;
   isNative?: boolean;
-  dataSource: 'websocket' | 'polling';
+  dataSource?: 'websocket' | 'polling';
   pageWidth?: number;
   nativeChartTypeControlMode?: 'toggle' | 'select';
   nativeIndicatorControlMode?: 'dialog' | 'popover';
@@ -98,12 +171,28 @@ export interface IMarketTradingViewProps {
   maxNativeSubIndicatorCount?: number;
 }
 
-export const MarketTradingView = memo(
+export interface IMarketTradingViewPriceUpdate {
+  tokenAddress: string;
+  networkId: string;
+  price: string;
+  lastUpdated: number;
+}
+
+export interface IMarketTradingViewViewProps extends IMarketTradingViewProps {
+  accountAddress?: string;
+  isActive?: boolean;
+  isVisibilityManagedExternally?: boolean;
+  onApplyChartPriceUpdate?: (update: IMarketTradingViewPriceUpdate) => void;
+}
+
+export const MarketTradingViewView = memo(
   ({
     tokenAddress,
     networkId,
     tokenSymbol = '',
     decimal = 8,
+    marketPrice,
+    historyStartTime,
     dataSource,
     pageWidth,
     nativeChartTypeControlMode,
@@ -120,9 +209,61 @@ export const MarketTradingView = memo(
     onInteractionOverlayOpenChange,
     onNativeSubIndicatorCountChange,
     maxNativeSubIndicatorCount,
-  }: IMarketTradingViewProps) => {
-    const { accountAddress } = useNetworkAccountAddress(networkId);
-    const tokenDetailActions = useTokenDetailActions();
+    accountAddress,
+    isActive = true,
+    isVisibilityManagedExternally = false,
+    onApplyChartPriceUpdate,
+  }: IMarketTradingViewViewProps) => {
+    const initialKLineResolutions = useMemo(
+      () => ({
+        market: getMarketTradingViewSessionPreference({
+          tokenAddress,
+          networkId,
+          namespace: 'market',
+        }).resolution,
+        marketHyperLiquid: getMarketTradingViewSessionPreference({
+          tokenAddress,
+          networkId,
+          namespace: 'market-hyperliquid',
+        }).resolution,
+      }),
+      [networkId, tokenAddress],
+    );
+    const chartIdentity = `${networkId}:${tokenAddress}:${tokenSymbol}`;
+    const [readyChartIdentity, setReadyChartIdentity] = useState<string>();
+    const [failedChartIdentity, setFailedChartIdentity] = useState<string>();
+    const [chartRetryRevision, setChartRetryRevision] = useState(0);
+
+    const handleFirstPaintReady = useCallback(
+      (data: ITradingViewFirstPaintReadyData) => {
+        if (data.networkId && data.networkId !== networkId) {
+          return;
+        }
+        if (
+          data.tokenAddress &&
+          normalizeTokenAddress(data.tokenAddress, networkId) !==
+            normalizeTokenAddress(tokenAddress, networkId)
+        ) {
+          return;
+        }
+        if (data.status === 'failed') {
+          setFailedChartIdentity(chartIdentity);
+          return;
+        }
+        setFailedChartIdentity(undefined);
+        setReadyChartIdentity(chartIdentity);
+      },
+      [chartIdentity, networkId, tokenAddress],
+    );
+    const handleChartLoadStart = useCallback(() => {
+      setReadyChartIdentity(undefined);
+      setFailedChartIdentity(undefined);
+    }, []);
+    const handleChartRetry = useCallback(() => {
+      setReadyChartIdentity(undefined);
+      setFailedChartIdentity(undefined);
+      setChartRetryRevision((revision) => revision + 1);
+    }, []);
 
     const handlePriceUpdate = useCallback(
       (data: ITradingViewPriceUpdateData) => {
@@ -145,46 +286,148 @@ export const MarketTradingView = memo(
           return;
         }
 
-        tokenDetailActions.current.applyChartPriceUpdate({
-          tokenAddress: data.tokenAddress,
-          networkId: data.networkId,
+        onApplyChartPriceUpdate?.({
+          tokenAddress,
+          networkId,
           price: realtimePrice,
           lastUpdated: normalizeChartUpdateTimestamp(data.timestamp),
         });
       },
-      [networkId, tokenAddress, tokenDetailActions],
+      [networkId, onApplyChartPriceUpdate, tokenAddress],
     );
+    const handleKLineDataReady = useCallback(
+      (data: ITradingViewKLineDataReadyData) => {
+        const namespace = getResolutionNamespace(data.storageNamespace);
+        if (data.requestRange) {
+          void saveMarketTradingViewFirstScreenRequestPreference({
+            resolution: data.period,
+            ...data.requestRange,
+            namespace,
+          });
+        }
+      },
+      [],
+    );
+    const handleKLinePeriodChange = useCallback(
+      (data: ITradingViewKLinePeriodChangeData) => {
+        const namespace = getResolutionNamespace(data.storageNamespace);
+        void saveMarketTradingViewResolutionPreference(
+          data.toPeriod,
+          namespace,
+        );
+        updateMarketTradingViewSessionResolution({
+          tokenAddress,
+          networkId,
+          resolution: data.toPeriod,
+          namespace,
+        });
+      },
+      [networkId, tokenAddress],
+    );
+    let chartOverlay: ReactNode = null;
+    if (failedChartIdentity === chartIdentity) {
+      chartOverlay = (
+        <MarketNativeChartErrorPlaceholder
+          key={`${chartIdentity}:error`}
+          onRetry={handleChartRetry}
+        />
+      );
+    } else if (readyChartIdentity !== chartIdentity) {
+      chartOverlay = <MarketTradingViewLoading key={chartIdentity} overlay />;
+    }
 
     return (
-      <TradingViewV2
-        testID={MarketTestIDs.detailChart}
-        symbol={tokenSymbol}
-        tokenAddress={tokenAddress}
-        networkId={networkId}
-        decimal={decimal}
-        dataSource={dataSource}
-        accountAddress={accountAddress}
-        w={pageWidth}
-        onTouchScroll={onTouchScroll}
-        onIndicatorsDialogOpenChange={onIndicatorsDialogOpenChange}
-        onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
-        onNativeSubIndicatorCountChange={onNativeSubIndicatorCountChange}
-        maxNativeSubIndicatorCount={maxNativeSubIndicatorCount}
-        onPriceUpdate={handlePriceUpdate}
-        disabledFeatures={MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES}
-        enableNativeChartControls
-        nativeChartTypeControlMode={nativeChartTypeControlMode}
-        nativeIndicatorControlMode={nativeIndicatorControlMode}
-        nativeIntervalControlMode={nativeIntervalControlMode}
-        nativePriceMarketCapControlMode={nativePriceMarketCapControlMode}
-        nativeControlsLayoutMode={nativeControlsLayoutMode}
-        isNativeChartFullscreen={isNativeChartFullscreen}
-        showNativeIndicatorQuickBar={showNativeIndicatorQuickBar}
-        onNativeChartFullscreenChange={onNativeChartFullscreenChange}
-        onNativeIndicatorQuickBarChange={onNativeIndicatorQuickBarChange}
-      />
+      <Stack position="relative" flex={1}>
+        <TradingViewV2
+          key={chartRetryRevision}
+          testID={MarketTestIDs.detailChart}
+          symbol={tokenSymbol}
+          tokenAddress={tokenAddress}
+          networkId={networkId}
+          enabled={isActive}
+          isVisibilityManagedExternally={isVisibilityManagedExternally}
+          decimal={decimal}
+          marketPrice={marketPrice}
+          initialKLineResolution={initialKLineResolutions.market}
+          initialHyperLiquidKLineResolution={
+            initialKLineResolutions.marketHyperLiquid
+          }
+          historyStartTime={historyStartTime}
+          dataSource={dataSource}
+          accountAddress={accountAddress}
+          w={pageWidth}
+          onTouchScroll={onTouchScroll}
+          onIndicatorsDialogOpenChange={onIndicatorsDialogOpenChange}
+          onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
+          onNativeSubIndicatorCountChange={onNativeSubIndicatorCountChange}
+          maxNativeSubIndicatorCount={maxNativeSubIndicatorCount}
+          onPriceUpdate={handlePriceUpdate}
+          onKLineDataReady={handleKLineDataReady}
+          onKLinePeriodChange={handleKLinePeriodChange}
+          onFirstPaintReady={handleFirstPaintReady}
+          onLoadStart={handleChartLoadStart}
+          disabledFeatures={MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES}
+          enableNativeChartControls
+          nativeChartTypeControlMode={nativeChartTypeControlMode}
+          nativeIndicatorControlMode={nativeIndicatorControlMode}
+          nativeIntervalControlMode={nativeIntervalControlMode}
+          nativePriceMarketCapControlMode={nativePriceMarketCapControlMode}
+          nativeControlsLayoutMode={nativeControlsLayoutMode}
+          isNativeChartFullscreen={isNativeChartFullscreen}
+          showNativeIndicatorQuickBar={showNativeIndicatorQuickBar}
+          onNativeChartFullscreenChange={onNativeChartFullscreenChange}
+          onNativeIndicatorQuickBarChange={onNativeIndicatorQuickBarChange}
+        />
+        <AnimatePresence initial={false}>{chartOverlay}</AnimatePresence>
+      </Stack>
     );
   },
 );
+
+MarketTradingViewView.displayName = 'MarketTradingViewView';
+
+export const MarketTradingView = memo((props: IMarketTradingViewProps) => {
+  const [arePreferencesHydrated, setArePreferencesHydrated] = useState(
+    isMarketTradingViewPreferencesHydrated,
+  );
+  const { accountAddress } = useNetworkAccountAddress(props.networkId);
+  const tokenDetailActions = useTokenDetailActions();
+  useEffect(() => {
+    if (arePreferencesHydrated) {
+      return undefined;
+    }
+    let cancelled = false;
+    void hydrateMarketTradingViewPreferences().then(() => {
+      if (!cancelled) {
+        setArePreferencesHydrated(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [arePreferencesHydrated]);
+  const handleApplyChartPriceUpdate = useCallback(
+    (update: IMarketTradingViewPriceUpdate) => {
+      tokenDetailActions.current.applyChartPriceUpdate(update);
+    },
+    [tokenDetailActions],
+  );
+
+  if (!arePreferencesHydrated) {
+    return (
+      <Stack position="relative" flex={1}>
+        <MarketTradingViewLoading overlay />
+      </Stack>
+    );
+  }
+
+  return (
+    <MarketTradingViewView
+      {...props}
+      accountAddress={accountAddress}
+      onApplyChartPriceUpdate={handleApplyChartPriceUpdate}
+    />
+  );
+});
 
 MarketTradingView.displayName = 'MarketTradingView';

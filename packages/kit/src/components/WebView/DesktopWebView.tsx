@@ -116,6 +116,7 @@ const DesktopWebView = forwardRef(
       onDidFailLoad,
       onPageTitleUpdated,
       onPageFaviconUpdated,
+      onLoadStart,
       onLoadEnd,
       // @ts-expect-error
       onNewWindow,
@@ -194,6 +195,24 @@ const DesktopWebView = forwardRef(
         }
       }
     }, [isDomReady]);
+
+    const isCurrentDocumentReady = useCallback(() => {
+      const webview = webviewRef.current;
+      if (!webview) {
+        return false;
+      }
+      if (isDomReadyRef.current) {
+        return true;
+      }
+      if (lastMainFrameLoadErrorRef.current) {
+        return false;
+      }
+      try {
+        return Boolean(webview.getURL()) && webview.isLoading?.() === false;
+      } catch {
+        return false;
+      }
+    }, []);
 
     useEffect(() => {
       if (disableBridge || preloadJsUrlError || resolvedPreloadJsUrl) {
@@ -302,6 +321,11 @@ const DesktopWebView = forwardRef(
             setDesktopLoadErrorCode(undefined);
             updateIsDomReady(false);
             startLoadTimeout();
+            onLoadStart?.(
+              event as unknown as Parameters<
+                NonNullable<IInpageProviderWebViewProps['onLoadStart']>
+              >[0],
+            );
           }
           checkGoogleOauth(url);
           checkEraseElectronFeature(url);
@@ -311,6 +335,7 @@ const DesktopWebView = forwardRef(
         const didFinishLoad = (e: any) => {
           clearLoadTimeout();
           if (!lastMainFrameLoadErrorRef.current) {
+            updateIsDomReady(true);
             setDesktopLoadError(false);
             setDesktopLoadErrorCode(undefined);
           }
@@ -364,6 +389,17 @@ const DesktopWebView = forwardRef(
 
         webview.addEventListener('dom-ready', handleDomReady);
 
+        // A local document can finish loading before React attaches these
+        // listeners. Reconcile with Electron's current state so bridge
+        // messages do not remain queued after a missed one-shot event.
+        if (
+          !lastMainFrameLoadErrorRef.current &&
+          webview.getURL() &&
+          webview.isLoading?.() === false
+        ) {
+          updateIsDomReady(true);
+        }
+
         return () => {
           clearLoadTimeout();
           webview.removeEventListener('did-start-loading', onDidStartLoading);
@@ -408,6 +444,7 @@ const DesktopWebView = forwardRef(
       onPageFaviconUpdated,
       onPageTitleUpdated,
       onDidStartNavigation,
+      onLoadStart,
       onLoadEnd,
       onShouldStartLoadWithRequest,
     ]);
@@ -458,7 +495,8 @@ const DesktopWebView = forwardRef(
           },
           sendMessageViaInjectedScript: (message: unknown) => {
             const script = createMessageInjectedScript(message);
-            if (!isDomReadyRef.current || !webviewRef.current) {
+            const webview = webviewRef.current;
+            if (!webview || !isCurrentDocumentReady()) {
               pendingScriptsRef.current.push(script);
               if (pendingScriptsRef.current.length > 50) {
                 console.warn(
@@ -468,15 +506,13 @@ const DesktopWebView = forwardRef(
               }
               return;
             }
-            if (webviewRef.current) {
-              try {
-                webviewRef.current.executeJavaScript(script);
-              } catch (error) {
-                console.error(
-                  'DesktopWebView: failed to execute script',
-                  error,
-                );
-              }
+            if (!isDomReadyRef.current) {
+              updateIsDomReady(true);
+            }
+            try {
+              webview.executeJavaScript(script);
+            } catch (error) {
+              console.error('DesktopWebView: failed to execute script', error);
             }
           },
         };
@@ -485,7 +521,7 @@ const DesktopWebView = forwardRef(
       },
       // dom-ready is read via isDomReadyRef so a parent holding an old
       // wrapper still delivers.
-      [isWebviewReady, jsBridgeHost],
+      [isCurrentDocumentReady, isWebviewReady, jsBridgeHost, updateIsDomReady],
     );
 
     const initWebviewByRef = useCallback(

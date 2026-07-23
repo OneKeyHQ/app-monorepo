@@ -1,37 +1,96 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks/useMarketBasicConfig';
+import {
+  fetchMarketBasicConfigForPlatform,
+  getLastMarketBasicConfigForPlatform,
+} from '@onekeyhq/kit/src/views/Market/hooks/useMarketBasicConfig/fetchMarketBasicConfigForPlatform';
 
-export interface IHyperLiquidKlineSourceResult {
-  isHyperLiquidSource: boolean;
-  symbol: string | undefined;
-  isLoading: boolean;
-}
+import {
+  getPreparedHyperLiquidKlineSource,
+  prepareHyperLiquidKlineSource,
+  resolveHyperLiquidKlineSource,
+} from './hyperLiquidKlineSource';
+
+import type { IHyperLiquidKlineSourceResult } from './hyperLiquidKlineSource';
 
 export function useHyperLiquidKlineSource(
   networkId: string,
   tokenAddress: string,
 ): IHyperLiquidKlineSourceResult {
-  const { basicConfig, isLoading } = useMarketBasicConfig();
-
-  return useMemo(() => {
-    if (isLoading || !basicConfig?.HyperLiquidKlineSourceTokens) {
-      return {
-        isHyperLiquidSource: false,
-        symbol: undefined,
-        isLoading: true,
-      };
+  const identityKey = `${networkId}:${tokenAddress}`;
+  const immediateResult = useMemo(() => {
+    const preparedResult = getPreparedHyperLiquidKlineSource({
+      networkId,
+      tokenAddress,
+    });
+    if (preparedResult) {
+      return preparedResult;
     }
 
-    const match = basicConfig.HyperLiquidKlineSourceTokens.find(
-      (token) =>
-        token.networkId === networkId && token.tokenAddress === tokenAddress,
+    const lastBasicConfig = getLastMarketBasicConfigForPlatform();
+    return lastBasicConfig
+      ? resolveHyperLiquidKlineSource({
+          basicConfig: lastBasicConfig.data,
+          isLoading: false,
+          networkId,
+          tokenAddress,
+        })
+      : undefined;
+  }, [networkId, tokenAddress]);
+  const [asyncResult, setAsyncResult] = useState<{
+    identityKey: string;
+    result: IHyperLiquidKlineSourceResult;
+  }>();
+
+  useEffect(() => {
+    if (immediateResult) {
+      return;
+    }
+
+    let isActive = true;
+    void fetchMarketBasicConfigForPlatform().then(
+      (response) => {
+        if (!isActive) {
+          return;
+        }
+        setAsyncResult({
+          identityKey,
+          result: prepareHyperLiquidKlineSource({
+            basicConfig: response.data,
+            networkId,
+            tokenAddress,
+          }),
+        });
+      },
+      () => {
+        if (!isActive) {
+          return;
+        }
+        setAsyncResult({
+          identityKey,
+          result: {
+            isHyperLiquidSource: false,
+            symbol: undefined,
+            isLoading: false,
+          },
+        });
+      },
     );
 
-    return {
-      isHyperLiquidSource: !!match,
-      symbol: match?.symbol,
-      isLoading: false,
+    return () => {
+      isActive = false;
     };
-  }, [basicConfig, isLoading, networkId, tokenAddress]);
+  }, [identityKey, immediateResult, networkId, tokenAddress]);
+
+  if (immediateResult) {
+    return immediateResult;
+  }
+  if (asyncResult?.identityKey === identityKey) {
+    return asyncResult.result;
+  }
+  return {
+    isHyperLiquidSource: false,
+    symbol: undefined,
+    isLoading: true,
+  };
 }

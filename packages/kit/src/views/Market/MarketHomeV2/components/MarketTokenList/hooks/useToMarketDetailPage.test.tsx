@@ -2,9 +2,16 @@
 import { act, renderHook } from '@testing-library/react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useToDetailPage } from './useToMarketDetailPage';
+
+const mockNavigation = {
+  push: jest.fn(),
+  switchTab: jest.fn(),
+};
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -47,16 +54,26 @@ jest.mock('@onekeyhq/components', () => ({
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
-  default: jest.fn(() => ({
-    push: jest.fn(),
-    switchTab: jest.fn(),
-  })),
+  default: jest.fn(),
 }));
+
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload',
+  () => ({
+    prefetchMarketDetailV2FirstScreenKLine: jest.fn(() => Promise.resolve()),
+    prefetchMarketDetailV2FirstScreenTransactions: jest.fn(() =>
+      Promise.resolve(),
+    ),
+    preloadMarketDetailV2Page: jest.fn(() => Promise.resolve()),
+    prepareMarketDetailV2KlineSource: jest.fn(),
+  }),
+);
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
   useTokenDetailActions: jest.fn(() => ({
     current: {
       clearTokenDetail: jest.fn(),
+      changeActiveToken: jest.fn(),
     },
   })),
 }));
@@ -87,6 +104,15 @@ describe('useToDetailPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    const mutablePlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+      isExtensionUiSidePanel: boolean;
+      isNative: boolean;
+    };
+    mutablePlatformEnv.isExtensionUiPopup = true;
+    mutablePlatformEnv.isExtensionUiSidePanel = false;
+    mutablePlatformEnv.isNative = false;
+    jest.mocked(useAppNavigation).mockReturnValue(mockNavigation as never);
     openExtensionMarketTokenDetailMock = jest.spyOn(
       backgroundApiProxy.serviceApp,
       'openExtensionMarketTokenDetail',
@@ -138,5 +164,31 @@ describe('useToDetailPage', () => {
     });
 
     expect(globalThis.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('pushes the native detail route after the shell preload resolves', async () => {
+    const mutablePlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+      isNative: boolean;
+    };
+    mutablePlatformEnv.isExtensionUiPopup = false;
+    mutablePlatformEnv.isNative = true;
+    const { result } = renderHook(() => useToDetailPage());
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '0xabc',
+        networkId: 'evm--1',
+        symbol: 'ABC',
+        isNative: false,
+      });
+    });
+
+    expect(mockNavigation.push).toHaveBeenCalledWith('MarketDetailV2', {
+      tokenAddress: '0xabc',
+      network: 'eth',
+      isNative: false,
+      from: undefined,
+    });
   });
 });

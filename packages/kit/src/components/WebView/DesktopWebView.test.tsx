@@ -152,4 +152,27 @@ describe('DesktopWebView', () => {
     ).toBe(true);
     expect(getPreloadJsContent).toHaveBeenCalledTimes(2);
   });
+
+  it('reports a new main-frame document through onLoadStart', async () => {
+    const onLoadStart = jest.fn();
+    render(
+      <DesktopWebView
+        data-testid="desktop-webview"
+        src="https://app.uniswap.org"
+        receiveHandler={jest.fn()}
+        onLoadStart={onLoadStart}
+      />,
+    );
+    const webview = await screen.findByTestId('desktop-webview');
+    const event = Object.assign(new Event('did-start-navigation'), {
+      isMainFrame: true,
+      url: 'https://app.uniswap.org',
+    });
+
+    act(() => {
+      webview.dispatchEvent(event);
+    });
+
+    expect(onLoadStart).toHaveBeenCalledWith(event);
+  });
 });

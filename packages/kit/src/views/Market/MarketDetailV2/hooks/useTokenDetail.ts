@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 
 import {
   useIsNativeAtom,
@@ -16,6 +16,14 @@ import type {
   IMarketTokenDetailPreview,
   IMarketTokenDetailWebsocket,
 } from '@onekeyhq/shared/types/marketV2';
+
+import {
+  buildMarketTradingViewBootstrap,
+  isSameMarketTradingViewBootstrap,
+  normalizeChartTokenAddress,
+} from '../utils/marketTradingViewBootstrap';
+
+import type { IMarketTradingViewBootstrap } from '../utils/marketTradingViewBootstrap';
 
 interface IUseTokenDetailResult {
   tokenDetail?: IMarketTokenDetail;
@@ -46,8 +54,11 @@ export function useTokenDetail(): IUseTokenDetailResult {
   );
 
   const isStockToken = useMemo(
-    () => !!tokenDetail?.stock?.underlyingAssetTicker,
-    [tokenDetail?.stock?.underlyingAssetTicker],
+    () =>
+      Boolean(
+        (tokenDetail ?? tokenDetailPreview)?.stock?.underlyingAssetTicker,
+      ),
+    [tokenDetail, tokenDetailPreview],
   );
 
   return {
@@ -68,6 +79,7 @@ type IUseMarketTradingViewParamsOptions = {
   tokenAddress: string;
   networkId: string;
   tokenDetail?: IMarketTokenDetail;
+  tokenDetailPreview?: IMarketTokenDetailPreview;
   isNative: boolean;
   websocketConfig?: IMarketTokenDetailWebsocket;
 };
@@ -76,29 +88,58 @@ export function useMarketTradingViewParams({
   tokenAddress,
   networkId,
   tokenDetail,
+  tokenDetailPreview,
   isNative,
   websocketConfig,
 }: IUseMarketTradingViewParamsOptions) {
+  const chartIdentity = `${networkId}:${normalizeChartTokenAddress(
+    tokenAddress,
+    networkId,
+  )}:${isNative ? 'native' : 'token'}`;
+  const chartBootstrapRef = useRef<{
+    identity: string;
+    value?: IMarketTradingViewBootstrap;
+  } | null>(null);
+  const nextChartBootstrap = buildMarketTradingViewBootstrap({
+    tokenAddress,
+    networkId,
+    tokenDetail,
+    tokenDetailPreview,
+    isNative,
+  });
+
+  if (chartBootstrapRef.current?.identity !== chartIdentity) {
+    chartBootstrapRef.current = {
+      identity: chartIdentity,
+      value: nextChartBootstrap,
+    };
+  } else if (
+    nextChartBootstrap &&
+    !isSameMarketTradingViewBootstrap(
+      chartBootstrapRef.current.value,
+      nextChartBootstrap,
+    )
+  ) {
+    chartBootstrapRef.current.value = nextChartBootstrap;
+  }
+
+  const chartBootstrap = chartBootstrapRef.current.value;
+
   return useMemo(() => {
-    if (!tokenDetail?.symbol || !networkId) {
+    if (!chartBootstrap) {
       return undefined;
     }
 
+    let dataSource: 'websocket' | 'polling' | undefined;
+    if (websocketConfig?.kline) {
+      dataSource = 'websocket';
+    } else if (tokenDetail) {
+      dataSource = 'polling';
+    }
+
     return {
-      tokenAddress: tokenDetail.address || tokenAddress,
-      networkId,
-      tokenSymbol: tokenDetail.symbol,
-      isNative,
-      dataSource: websocketConfig?.kline
-        ? ('websocket' as const)
-        : ('polling' as const),
+      ...chartBootstrap,
+      dataSource,
     };
-  }, [
-    isNative,
-    networkId,
-    tokenAddress,
-    tokenDetail?.address,
-    tokenDetail?.symbol,
-    websocketConfig?.kline,
-  ]);
+  }, [chartBootstrap, tokenDetail, websocketConfig?.kline]);
 }

@@ -125,6 +125,7 @@ export type IElectronWebView = {
   getURL: () => string;
   getTitle: () => string;
   getWebContentsId: () => number;
+  isLoading?: () => boolean;
   src: string;
   addEventListener: (name: string, callback: unknown) => void;
   removeEventListener: (name: string, callback: unknown) => void;

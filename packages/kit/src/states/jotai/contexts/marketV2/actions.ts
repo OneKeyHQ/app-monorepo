@@ -37,6 +37,7 @@ import {
   tokenDetailPreviewAtom,
   tokenDetailWebsocketAtom,
 } from './atoms';
+import { fetchMarketTokenDetailWithCache } from './marketTokenDetailInFlightRequest';
 
 export const homeResettingFlags: Record<string, number> = {};
 
@@ -241,13 +242,30 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         tokenAddress: string;
         networkId: string;
         isNative: boolean;
+        historyStartTime?: number;
         tokenDetailPreview?: IMarketTokenDetailPreview;
       },
     ) => {
-      const { tokenAddress, networkId, isNative, tokenDetailPreview } = payload;
+      const {
+        tokenAddress,
+        networkId,
+        isNative,
+        historyStartTime,
+        tokenDetailPreview,
+      } = payload;
       const nextPreview =
-        tokenDetailPreview?.address === tokenAddress &&
-        tokenDetailPreview.networkId === networkId
+        tokenDetailPreview?.networkId === networkId &&
+        ((isNative && !tokenAddress) ||
+          equalTokenNoCaseSensitive({
+            token1: {
+              networkId,
+              contractAddress: tokenAddress,
+            },
+            token2: {
+              networkId,
+              contractAddress: tokenDetailPreview.address,
+            },
+          }))
           ? tokenDetailPreview
           : undefined;
       // Set atom values directly — `this.xxx.call(set)` doesn't work
@@ -263,11 +281,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       let isStale = false;
       try {
         set(tokenDetailLoadingAtom(), true);
-        const response =
-          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
-            tokenAddress,
-            networkId,
-          );
+        const response = await fetchMarketTokenDetailWithCache({
+          tokenAddress,
+          networkId,
+        });
 
         // Stale check: discard if user already switched to a different token
         const currentAddress = get(tokenAddressAtom());
@@ -288,7 +305,20 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           set(perpsInfoAtom(), undefined);
           return;
         }
-        set(tokenDetailAtom(), responseData.data.token);
+        const tokenData = responseData.data.token;
+        const resolvedHistoryStartTime =
+          tokenData.firstTradeTime ??
+          nextPreview?.firstTradeTime ??
+          historyStartTime;
+        set(
+          tokenDetailAtom(),
+          resolvedHistoryStartTime === undefined
+            ? tokenData
+            : {
+                ...tokenData,
+                firstTradeTime: resolvedHistoryStartTime,
+              },
+        );
         set(tokenDetailPreviewAtom(), undefined);
         set(tokenDetailWebsocketAtom(), responseData.data.websocket);
         set(perpsInfoAtom(), responseData.data.perpsInfo);
@@ -340,11 +370,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       try {
         set(tokenDetailLoadingAtom(), true);
 
-        const response =
-          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
-            tokenAddress,
-            networkId,
-          );
+        const response = await fetchMarketTokenDetailWithCache({
+          tokenAddress,
+          networkId,
+        });
 
         // Stale check first: discard if user already switched to a different
         // token via changeActiveToken during this async fetch. Must run before
@@ -410,14 +439,24 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           Number.isFinite(chartPriceUpdatedAt) &&
           Date.now() - chartPriceUpdatedAt < CHART_PRICE_FRESHNESS_MS;
 
+        const resolvedHistoryStartTime =
+          tokenData.firstTradeTime ??
+          (isSameToken ? currentTokenDetail.firstTradeTime : undefined);
+        const tokenDataWithHistoryStart =
+          resolvedHistoryStartTime === undefined
+            ? tokenData
+            : {
+                ...tokenData,
+                firstTradeTime: resolvedHistoryStartTime,
+              };
         const finalTokenData = hasFreshKLinePrice
           ? {
-              ...tokenData,
+              ...tokenDataWithHistoryStart,
               price: currentTokenDetail.price,
               lastUpdated: currentTokenDetail.lastUpdated,
               chartPriceUpdatedAt,
             }
-          : tokenData;
+          : tokenDataWithHistoryStart;
 
         set(tokenDetailAtom(), finalTokenData);
         set(tokenDetailPreviewAtom(), undefined);

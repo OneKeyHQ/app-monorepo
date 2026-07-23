@@ -93,7 +93,9 @@ export function TransactionsHistoryBase({
   scrollEnabled = true,
   isTabFocused = true,
 }: ITransactionsHistoryBaseProps) {
-  const { websocketConfig, isNative } = useTokenDetail();
+  const { websocketConfig, isNative, tokenDetail, tokenDetailPreview } =
+    useTokenDetail();
+  const tokenSymbol = tokenDetail?.symbol ?? tokenDetailPreview?.symbol;
   const isVisible = useRouteIsFocused();
   const { gtXl } = useMedia();
   const [, setRealtimePauseState] = useMarketTransactionsRealtimePauseAtom();
@@ -333,13 +335,19 @@ export function TransactionsHistoryBase({
           <TransactionItemNormal
             item={item}
             networkId={networkId}
+            tokenAddress={tokenAddress}
+            tokenSymbol={tokenSymbol}
             index={index}
           />
         ) : (
-          <TransactionItemSmall item={item} />
+          <TransactionItemSmall
+            item={item}
+            tokenAddress={tokenAddress}
+            tokenSymbol={tokenSymbol}
+          />
         );
       },
-      [networkId, gtXl],
+      [gtXl, networkId, tokenAddress, tokenSymbol],
     );
 
   const keyExtractor = useCallback(
@@ -427,6 +435,7 @@ export function TransactionsHistoryBase({
 export function TransactionsHistory(props: ITransactionsHistoryProps) {
   const intl = useIntl();
   const focusedTab = useFocusedTab();
+  const { networkId, tokenAddress } = props;
   const transactionsTabName = useMemo(() => {
     return intl.formatMessage({
       id: ETranslations.dexmarket_details_transactions,
@@ -435,6 +444,7 @@ export function TransactionsHistory(props: ITransactionsHistoryProps) {
 
   return (
     <TransactionsHistoryBase
+      key={`${networkId}-${tokenAddress}`}
       {...props}
       isTabFocused={focusedTab === transactionsTabName}
     />

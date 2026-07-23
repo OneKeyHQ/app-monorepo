@@ -17,9 +17,15 @@ import { useTransactionsLayoutSmall } from './useTransactionsLayoutSmall';
 
 interface ITransactionItemSmallProps {
   item: IMarketTokenTransaction;
+  tokenAddress: string;
+  tokenSymbol?: string;
 }
 
-function TransactionItemSmallBase({ item }: ITransactionItemSmallProps) {
+function TransactionItemSmallBase({
+  item,
+  tokenAddress,
+  tokenSymbol,
+}: ITransactionItemSmallProps) {
   const { styles } = useTransactionsLayoutSmall();
   const {
     baseToken,
@@ -30,7 +36,7 @@ function TransactionItemSmallBase({ item }: ITransactionItemSmallProps) {
     typeText,
     price,
     value,
-  } = useTransactionItemData({ item });
+  } = useTransactionItemData({ item, tokenAddress, tokenSymbol });
 
   return (
     <XStack py="$2.5" px="$5" alignItems="center">

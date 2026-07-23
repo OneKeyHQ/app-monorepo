@@ -71,6 +71,8 @@ describe('fetchTradingViewV2DataWithSlicing', () => {
     const result = await fetchTradingViewV2DataWithSlicing({
       tokenAddress: '0x123',
       networkId: 'evm--1',
+      kLineProvider: 'onekey',
+      kLineProviderSymbol: undefined,
       interval: '1m',
       timeFrom: 1000,
       timeTo: 1120,
@@ -78,11 +80,12 @@ describe('fetchTradingViewV2DataWithSlicing', () => {
 
     expect(mockSliceRequest).toHaveBeenCalledWith('1m', 1000, 1120, {
       isNativeToken: false,
-      minTimeSpanSeconds: 172_800,
     });
     expect(mockFetchMarketTokenKline).toHaveBeenNthCalledWith(1, {
       tokenAddress: '0x123',
       networkId: 'evm--1',
+      provider: 'onekey',
+      providerSymbol: undefined,
       interval: '1m',
       timeFrom: 900,
       timeTo: 1060,
@@ -91,6 +94,8 @@ describe('fetchTradingViewV2DataWithSlicing', () => {
     expect(mockFetchMarketTokenKline).toHaveBeenNthCalledWith(2, {
       tokenAddress: '0x123',
       networkId: 'evm--1',
+      provider: 'onekey',
+      providerSymbol: undefined,
       interval: '1m',
       timeFrom: 1060,
       timeTo: 1120,

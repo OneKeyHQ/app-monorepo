@@ -24,7 +24,9 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { calculateDisplayPriceScale } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import {
@@ -42,9 +44,13 @@ import {
 } from '../TradingViewNativeChartControls';
 
 import {
+  buildMarketTradingViewUrl,
+  getTradingViewV2FirstScreenPrefetchPromise,
   useAutoKLineUpdate,
   useAutoTokenDetailUpdate,
   useHyperLiquidKlineSource,
+  useMarketSymbolSync,
+  useMarketTradingViewFrameIdentity,
   useTradingViewV2WebSocket,
 } from './hooks';
 import {
@@ -53,11 +59,16 @@ import {
   normalizeTradingViewKLineInterval,
   useTradingViewMessageHandler,
 } from './messageHandlers';
+import { captureTradingViewRequestTarget } from './messageHandlers/tradingViewRequestTarget';
+import { TRADING_VIEW_NATIVE_MINIMAL_BRIDGE_SCRIPT } from './nativeTradingViewBridge';
 
 import type { ITradingViewV2KLineDataFallback } from './hooks/useTradingViewV2';
 import type { IMarksTimeRange } from './messageHandlers';
 import type {
   ICustomReceiveHandlerData,
+  ITradingViewChartReadyData,
+  ITradingViewFirstPaintReadyData,
+  ITradingViewHistoryReadyData,
   ITradingViewIntervalConfigData,
   ITradingViewKLineDataReadyData,
   ITradingViewKLineLoadErrorData,
@@ -69,6 +80,7 @@ import type {
 } from '../../types';
 import type { WebViewProps } from 'react-native-webview';
 import type {
+  WebViewErrorEvent,
   WebViewNavigation,
   WebViewNavigationEvent,
 } from 'react-native-webview/lib/WebViewTypes';
@@ -94,6 +106,26 @@ const TRADINGVIEW_CALENDAR_PANEL_SUBMIT_MESSAGE =
   'TRADINGVIEW_CALENDAR_PANEL_SUBMIT';
 const TRADINGVIEW_UNDO_MESSAGE = 'TRADINGVIEW_UNDO';
 const TRADINGVIEW_REDO_MESSAGE = 'TRADINGVIEW_REDO';
+const KLINE_BOOTSTRAP_PROTOCOL_VERSION = 1;
+
+function buildKLineHistoryReadyKey({
+  networkId,
+  tokenAddress,
+  symbol,
+  resolution,
+}: {
+  networkId: string;
+  tokenAddress: string;
+  symbol: string;
+  resolution: string;
+}) {
+  return [
+    networkId.trim(),
+    tokenAddress.trim(),
+    symbol.trim(),
+    normalizeTradingViewKLineInterval(resolution),
+  ].join(':');
+}
 
 function formatMockEmptyKLineIntervals(
   intervals: ITradingViewKLineMockEmptyInterval[] | undefined,
@@ -108,10 +140,16 @@ interface IBaseTradingViewV2Props {
   symbol: string;
   tokenAddress?: string;
   networkId?: string;
+  historyStartTime?: number;
+  initialKLineResolution?: string;
+  initialHyperLiquidKLineResolution?: string;
   decimal: number;
+  marketPrice?: string | number;
   onPanesCountChange?: (count: number) => void;
   dataSource?: 'websocket' | 'polling';
   accountAddress?: string;
+  enabled?: boolean;
+  isVisibilityManagedExternally?: boolean;
   onTouchScroll?: (deltaY: number) => void;
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
   onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
@@ -140,28 +178,79 @@ interface IBaseTradingViewV2Props {
   onKLineDataReady?: (data: ITradingViewKLineDataReadyData) => void;
   onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
   onKLinePeriodChange?: (data: ITradingViewKLinePeriodChangeData) => void;
+  onChartReady?: (data: ITradingViewChartReadyData) => void;
+  onFirstPaintReady?: (data: ITradingViewFirstPaintReadyData) => void;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
 
 export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
+  const {
+    tokenAddress: kLineSourceTokenAddress = '',
+    networkId: kLineSourceNetworkId = '',
+    symbol: displaySymbol,
+    initialKLineResolution: initialKLineResolutionProp,
+    initialHyperLiquidKLineResolution: initialHyperLiquidKLineResolutionProp,
+  } = props;
+  const {
+    isHyperLiquidSource,
+    symbol: hyperLiquidSymbol,
+    isLoading: isKLineSourceLoading,
+  } = useHyperLiquidKlineSource(kLineSourceNetworkId, kLineSourceTokenAddress);
+  const useHyperLiquid = Boolean(isHyperLiquidSource && hyperLiquidSymbol);
+  const kLineProvider = useHyperLiquid ? 'hyperliquid' : 'onekey';
+  const kLineProviderSymbol = useHyperLiquid ? hyperLiquidSymbol : undefined;
+  const chartSymbol = useHyperLiquid
+    ? (hyperLiquidSymbol ?? displaySymbol)
+    : displaySymbol;
+  const requestedInitialResolution = useHyperLiquid
+    ? (initialHyperLiquidKLineResolutionProp ?? initialKLineResolutionProp)
+    : initialKLineResolutionProp;
   const webRef = useRef<IWebViewRef | null>(null);
+  const webViewLoadGeneration = useRef(0);
   const marksTimeRange = useRef<IMarksTimeRange | null>(null);
-  const currentKLineResolution = useRef(DEFAULT_TRADING_VIEW_KLINE_RESOLUTION);
-  const [activeKLineResolution, setActiveKLineResolution] = useState(
-    DEFAULT_TRADING_VIEW_KLINE_RESOLUTION,
+  const pendingLegacyHistoryReadyKeyRef = useRef<string | null>(null);
+  const firstPaintTrackingRef = useRef({
+    identity: '',
+    startedAt: Date.now(),
+    hasTracked: false,
+    requestIds: new Set<string>(),
+  });
+  const bootstrapKLineResolution = normalizeTradingViewKLineInterval(
+    requestedInitialResolution ?? DEFAULT_TRADING_VIEW_KLINE_RESOLUTION,
   );
+  const currentKLineResolution = useRef(bootstrapKLineResolution);
+  const [activeKLineResolution, setActiveKLineResolution] = useState(
+    bootstrapKLineResolution,
+  );
+  const [firstHistoryReadyKey, setFirstHistoryReadyKey] = useState<
+    string | null
+  >(null);
   const [intervalConfig, setIntervalConfig] =
     useState<ITradingViewIntervalConfigData | null>(null);
   const [nativeChartControlsConfig, setNativeChartControlsConfig] =
     useState<ITradingViewNativeChartControlsConfigData | null>(null);
+  const [isMarketSymbolSyncSupported, setIsMarketSymbolSyncSupported] =
+    useState<boolean | undefined>();
+  const [
+    isMarketAppKlineTransportSupported,
+    setIsMarketAppKlineTransportSupported,
+  ] = useState<boolean | undefined>();
+  const [isIntervalAckSupported, setIsIntervalAckSupported] = useState<
+    boolean | undefined
+  >();
+  const [isHistoryReadyAckSupported, setIsHistoryReadyAckSupported] = useState<
+    boolean | undefined
+  >();
+  const isHistoryReadyAckSupportedRef = useRef(isHistoryReadyAckSupported);
+  isHistoryReadyAckSupportedRef.current = isHistoryReadyAckSupported;
   const nativeIndicatorState = useNativeIndicatorActiveValues(
     nativeChartControlsConfig?.indicators,
   );
   const theme = useThemeVariant();
   const themeColors = useTheme();
   const tradingViewBackgroundColor = themeColors.bgApp.val;
-  const isVisible = useRouteIsFocused();
+  const isRouteFocused = useRouteIsFocused();
   const [devSettings] = useDevSettingsPersistAtom();
   const [
     mockEmptyKLineBadgePositionIndex,
@@ -171,11 +260,15 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const {
     tokenAddress = '',
     networkId = '',
+    historyStartTime,
     symbol,
     decimal,
+    marketPrice,
     onPanesCountChange,
     dataSource,
     accountAddress,
+    enabled = true,
+    isVisibilityManagedExternally = false,
     onTouchScroll,
     onIndicatorsDialogOpenChange,
     onInteractionOverlayOpenChange,
@@ -203,9 +296,20 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onKLineDataReady,
     onKLineLoadError,
     onKLinePeriodChange,
+    onChartReady,
+    onFirstPaintReady,
     onLoadStart,
+    onLoadEnd,
     ...stackStyle
   } = props;
+  const isVisible =
+    enabled && (isVisibilityManagedExternally || isRouteFocused);
+  const isDataRequestEnabledRef = useRef(isVisible);
+  isDataRequestEnabledRef.current = isVisible;
+  const isDataRequestEnabled = useCallback(
+    () => isDataRequestEnabledRef.current,
+    [],
+  );
   const enableNativeChartControls = Boolean(enableNativeChartControlsProp);
   const enableNativeIntervalSelector =
     enableNativeIntervalSelectorProp || enableNativeChartControls;
@@ -264,6 +368,18 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     },
     [],
   );
+  useEffect(() => {
+    if (isKLineSourceLoading) {
+      return;
+    }
+    currentKLineResolution.current = bootstrapKLineResolution;
+    setActiveKLineResolution(bootstrapKLineResolution);
+  }, [
+    bootstrapKLineResolution,
+    isKLineSourceLoading,
+    kLineSourceNetworkId,
+    kLineSourceTokenAddress,
+  ]);
   const handleIntervalConfigChange = useCallback(
     (data: ITradingViewIntervalConfigData) => {
       setIntervalConfig(data);
@@ -421,16 +537,195 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     });
   }, []);
 
+  const initialHyperLiquidPriceScale = useMemo(() => {
+    if (!useHyperLiquid || marketPrice === undefined) {
+      return undefined;
+    }
+    const priceScale = calculateDisplayPriceScale(marketPrice);
+    return Number.isFinite(priceScale) && priceScale > 0
+      ? priceScale
+      : undefined;
+  }, [marketPrice, useHyperLiquid]);
+  const finalStorageNamespace =
+    storageNamespace?.trim() ||
+    (useHyperLiquid ? 'market-hyperliquid' : 'market');
+  const initialResolutionForFrame = requestedInitialResolution
+    ? normalizeTradingViewKLineInterval(requestedInitialResolution)
+    : undefined;
+  const currentHistoryReadyKey = buildKLineHistoryReadyKey({
+    networkId,
+    tokenAddress,
+    symbol: chartSymbol,
+    resolution: activeKLineResolution,
+  });
+  const firstPaintMetricIdentity = [
+    networkId,
+    tokenAddress,
+    chartSymbol,
+    kLineProvider,
+  ].join(':');
+  const currentDataRequestIdentityRef = useRef(firstPaintMetricIdentity);
+  currentDataRequestIdentityRef.current = firstPaintMetricIdentity;
+  if (firstPaintTrackingRef.current.identity !== firstPaintMetricIdentity) {
+    firstPaintTrackingRef.current.identity = firstPaintMetricIdentity;
+    firstPaintTrackingRef.current.startedAt = Date.now();
+    firstPaintTrackingRef.current.hasTracked = false;
+    firstPaintTrackingRef.current.requestIds.clear();
+  }
+  const isKLineHistoryReady = firstHistoryReadyKey === currentHistoryReadyKey;
+  useEffect(() => {
+    if (
+      isHistoryReadyAckSupported === false &&
+      pendingLegacyHistoryReadyKeyRef.current === currentHistoryReadyKey
+    ) {
+      setFirstHistoryReadyKey(currentHistoryReadyKey);
+    }
+  }, [currentHistoryReadyKey, isHistoryReadyAckSupported]);
+  const handleKLineDataReady = useCallback(
+    (data: ITradingViewKLineDataReadyData) => {
+      if (data.requestRange?.firstDataRequest) {
+        const readyKey = buildKLineHistoryReadyKey({
+          networkId,
+          tokenAddress,
+          symbol: chartSymbol,
+          resolution: data.period,
+        });
+        pendingLegacyHistoryReadyKeyRef.current = readyKey;
+        if (isHistoryReadyAckSupportedRef.current === false) {
+          setFirstHistoryReadyKey(readyKey);
+        }
+      }
+      onKLineDataReady?.({ ...data, storageNamespace: finalStorageNamespace });
+    },
+    [
+      chartSymbol,
+      finalStorageNamespace,
+      networkId,
+      onKLineDataReady,
+      tokenAddress,
+    ],
+  );
+  const handleKLineLoadError = useCallback(
+    (data: ITradingViewKLineLoadErrorData) => {
+      if (
+        data.requestRange?.firstDataRequest &&
+        (data.status === 'empty' || data.status === 'failed')
+      ) {
+        const readyKey = buildKLineHistoryReadyKey({
+          networkId,
+          tokenAddress,
+          symbol: chartSymbol,
+          resolution: data.period,
+        });
+        pendingLegacyHistoryReadyKeyRef.current = readyKey;
+        if (isHistoryReadyAckSupportedRef.current === false) {
+          setFirstHistoryReadyKey(readyKey);
+        }
+      }
+      onKLineLoadError?.({ ...data, storageNamespace: finalStorageNamespace });
+    },
+    [
+      chartSymbol,
+      finalStorageNamespace,
+      networkId,
+      onKLineLoadError,
+      tokenAddress,
+    ],
+  );
+  const handleHistoryReady = useCallback(
+    (data: ITradingViewHistoryReadyData) => {
+      if (!data.firstDataRequest) {
+        return;
+      }
+
+      const readyKey = buildKLineHistoryReadyKey({
+        networkId: data.networkId || networkId,
+        tokenAddress: data.tokenAddress || tokenAddress,
+        symbol: data.symbol || chartSymbol,
+        resolution: data.resolution,
+      });
+      if (readyKey === currentHistoryReadyKey) {
+        setFirstHistoryReadyKey(readyKey);
+      }
+    },
+    [chartSymbol, currentHistoryReadyKey, networkId, tokenAddress],
+  );
+  const handleFirstPaintReady = useCallback(
+    (data: ITradingViewFirstPaintReadyData) => {
+      const tracking = firstPaintTrackingRef.current;
+      if (
+        tracking.requestIds.has(data.requestId) ||
+        tracking.identity !== firstPaintMetricIdentity
+      ) {
+        return;
+      }
+
+      tracking.requestIds.add(data.requestId);
+      if (tracking.requestIds.size > 100) {
+        const oldestRequestId = tracking.requestIds.values().next().value;
+        if (typeof oldestRequestId === 'string') {
+          tracking.requestIds.delete(oldestRequestId);
+        }
+      }
+      if (!tracking.hasTracked) {
+        tracking.hasTracked = true;
+        defaultLogger.dex.tradingView.dexTVFirstPaint({
+          durationMs: Math.max(0, Date.now() - tracking.startedAt),
+          tvInterval: normalizeTradingViewKLineInterval(data.resolution),
+          status: data.status,
+          source: data.source,
+          returnedCount: Math.max(0, Math.floor(data.returnedCount)),
+          appPlatform: String(platformEnv.appPlatform ?? 'unknown'),
+        });
+      }
+      onFirstPaintReady?.(data);
+    },
+    [firstPaintMetricIdentity, onFirstPaintReady],
+  );
+  const handleKLinePeriodChange = useCallback(
+    (data: ITradingViewKLinePeriodChangeData) => {
+      onKLinePeriodChange?.({
+        ...data,
+        storageNamespace: finalStorageNamespace,
+      });
+    },
+    [finalStorageNamespace, onKLinePeriodChange],
+  );
+  const handleIntervalConfigMessage = useCallback(
+    (data: ITradingViewIntervalConfigData) => {
+      const previousPeriod = normalizeTradingViewKLineInterval(
+        currentKLineResolution.current,
+      );
+      handleIntervalConfigChange(data);
+      if (isIntervalAckSupported === true && data.persist === true) {
+        handleKLinePeriodChange({
+          fromPeriod: previousPeriod,
+          toPeriod: normalizeTradingViewKLineInterval(data.activeInterval),
+        });
+      }
+    },
+    [
+      handleIntervalConfigChange,
+      handleKLinePeriodChange,
+      isIntervalAckSupported,
+    ],
+  );
+
   const { customReceiveHandler } = useTradingViewMessageHandler({
     tokenAddress,
     networkId,
+    kLineProvider,
+    kLineProviderSymbol,
+    historyStartTime,
     webRef,
     onPanesCountChange,
     accountAddress,
-    tokenSymbol: symbol,
+    tokenSymbol: chartSymbol,
     marksTimeRange,
+    webViewLoadGeneration,
     currentKLineResolution,
     onCurrentKLineResolutionChange: handleCurrentKLineResolutionChange,
+    isDataRequestEnabled,
     onTouchScroll,
     onIndicatorsDialogOpenChange,
     onInteractionOverlayOpenChange,
@@ -440,21 +735,27 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     primaryKLineDataUnavailable,
     onPrimaryKLineDataUnavailable,
     onPriceUpdate,
-    onIntervalConfigChange: enableNativeIntervalSelector
-      ? handleIntervalConfigChange
-      : undefined,
+    onIntervalConfigChange: handleIntervalConfigMessage,
     onNativeChartControlsConfigChange: enableNativeChartControls
       ? handleNativeChartControlsConfigChange
       : undefined,
-    onKLineDataReady,
-    onKLineLoadError,
-    onKLinePeriodChange,
+    onKLineDataReady: handleKLineDataReady,
+    onKLineLoadError: handleKLineLoadError,
+    onKLinePeriodChange:
+      onKLinePeriodChange && isIntervalAckSupported === false
+        ? handleKLinePeriodChange
+        : undefined,
+    onMarketSymbolSyncSupportChange: setIsMarketSymbolSyncSupported,
+    onMarketAppKlineTransportSupportChange:
+      setIsMarketAppKlineTransportSupported,
+    onIntervalAckSupportChange: setIsIntervalAckSupported,
+    onHistoryReadyAckSupportChange: setIsHistoryReadyAckSupported,
+    onChartReady,
+    onHistoryReady: handleHistoryReady,
+    onFirstPaintReady: handleFirstPaintReady,
+    isKLineHistoryReady,
   });
 
-  const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
-    useHyperLiquidKlineSource(networkId, tokenAddress);
-  const useHyperLiquid = Boolean(isHyperLiquidSource && hyperLiquidSymbol);
-  const chartSymbol = useHyperLiquid ? (hyperLiquidSymbol ?? symbol) : symbol;
   const effectiveDataSource =
     dataSource === 'websocket' && !tokenAddress ? 'polling' : dataSource;
   const mockEmptyKLineEnabled =
@@ -468,38 +769,72 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     [mockEmptyKLineIntervals],
   );
 
-  const additionalParams = useMemo(() => {
-    const finalStorageNamespace =
-      storageNamespace?.trim() ||
-      (useHyperLiquid ? 'market-hyperliquid' : 'market');
-
-    return {
-      decimal: decimal?.toString(),
-      networkId,
-      address: tokenAddress,
+  const marketSymbolIdentity = useMemo(
+    () => ({
       symbol: chartSymbol,
+      tokenAddress,
+      networkId,
+      decimal,
+      initialHyperLiquidPriceScale,
+    }),
+    [
+      chartSymbol,
+      decimal,
+      initialHyperLiquidPriceScale,
+      networkId,
+      tokenAddress,
+    ],
+  );
+  const staticAdditionalParams = useMemo(() => {
+    return {
       type: 'market',
       storageNamespace: finalStorageNamespace,
+      ...(initialResolutionForFrame
+        ? { initialResolution: initialResolutionForFrame }
+        : {}),
+      initialHistoryBootstrap: '1',
+      marketSymbolSync: '1',
       ...(enableNativeIntervalSelector ? { nativeIntervalSelector: '1' } : {}),
       ...(enableNativeChartControls ? { nativeChartControls: '1' } : {}),
       ...(useHyperLiquid ? { scene: 'market-hyperliquid' } : {}),
+      ...(useHyperLiquid ? { marketKlineTransport: 'app-v2' } : {}),
     };
   }, [
-    chartSymbol,
-    decimal,
     enableNativeChartControls,
     enableNativeIntervalSelector,
-    networkId,
-    storageNamespace,
-    tokenAddress,
+    finalStorageNamespace,
+    initialResolutionForFrame,
     useHyperLiquid,
   ]);
 
-  const { finalUrl: tradingViewUrlWithParams, timezone: tradingViewTimezone } =
+  const { finalUrl: staticTradingViewUrl, timezone: tradingViewTimezone } =
     useTradingViewUrl({
-      additionalParams,
+      additionalParams: staticAdditionalParams,
       disabledFeatures,
     });
+  const {
+    staticTradingViewUrl: iframeStaticTradingViewUrl,
+    identity: iframeIdentity,
+  } = useMarketTradingViewFrameIdentity({
+    staticTradingViewUrl,
+    identity: marketSymbolIdentity,
+    symbolSyncSupport: isMarketSymbolSyncSupported,
+  });
+  const tradingViewUrlWithParams = useMemo(
+    () =>
+      buildMarketTradingViewUrl({
+        baseUrl: iframeStaticTradingViewUrl,
+        identity: iframeIdentity,
+      }),
+    [iframeIdentity, iframeStaticTradingViewUrl],
+  );
+
+  useMarketSymbolSync({
+    webRef,
+    identity: marketSymbolIdentity,
+    frameIdentity: iframeIdentity,
+    enabled: isVisible && isMarketSymbolSyncSupported === true,
+  });
   const tradingViewWebViewStyleProps = useMemo(
     () => ({
       containerStyle: { backgroundColor: tradingViewBackgroundColor },
@@ -508,19 +843,40 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     [tradingViewBackgroundColor],
   );
 
-  // OneKey realtime hooks only apply to app-served market candles.
-  useAutoKLineUpdate({
+  const canUseAppKLineRealtime =
+    isVisible &&
+    isKLineHistoryReady &&
+    !isKLineSourceLoading &&
+    (!useHyperLiquid || isMarketAppKlineTransportSupported === true) &&
+    !mockEmptyKLineEnabled &&
+    !forceEmptyKLineData;
+  const shouldUseWebSocketKLine =
+    canUseAppKLineRealtime &&
+    !useHyperLiquid &&
+    effectiveDataSource === 'websocket';
+
+  useTradingViewV2WebSocket({
     tokenAddress,
     networkId,
     webRef,
+    enabled: shouldUseWebSocketKLine,
+    chartType: activeKLineResolution,
     symbol: chartSymbol,
+  });
+
+  // App-served market candles use the same provider for history and realtime.
+  useAutoKLineUpdate({
+    tokenAddress,
+    networkId,
+    kLineProvider,
+    kLineProviderSymbol,
+    webRef,
+    symbol: chartSymbol,
+    resolution: activeKLineResolution,
     enabled:
-      isVisible &&
-      effectiveDataSource !== 'websocket' &&
-      !isHyperLiquidSource &&
-      !mockEmptyKLineEnabled &&
-      !forceEmptyKLineData &&
-      !primaryKLineDataUnavailable,
+      canUseAppKLineRealtime &&
+      !primaryKLineDataUnavailable &&
+      (useHyperLiquid || effectiveDataSource === 'polling'),
     autoHandleError: emptyKLineDataOnError ? false : undefined,
   });
 
@@ -531,23 +887,22 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     enabled: isVisible,
   });
 
-  useTradingViewV2WebSocket({
-    tokenAddress,
-    networkId,
-    webRef,
-    enabled:
-      isVisible &&
-      effectiveDataSource === 'websocket' &&
-      !isHyperLiquidSource &&
-      !mockEmptyKLineEnabled &&
-      !forceEmptyKLineData,
-    chartType: activeKLineResolution,
-    symbol: chartSymbol,
-  });
-
-  // Load marks on page enter and refresh when swap transaction succeeds
   useEffect(() => {
-    if (!isVisible || !accountAddress || !tokenAddress || !networkId) return;
+    marksTimeRange.current = null;
+  }, [accountAddress, networkId, tokenAddress]);
+
+  // Initial marks are loaded by the first history response. Swap refreshes are
+  // enabled only after that response so they cannot compete with first paint.
+  useEffect(() => {
+    if (
+      !isVisible ||
+      !isKLineHistoryReady ||
+      !accountAddress ||
+      !tokenAddress ||
+      !networkId
+    ) {
+      return;
+    }
     if (forceEmptyKLineData) return;
 
     const refreshMarks = () => {
@@ -568,11 +923,13 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         symbol: chartSymbol,
         resolution: currentKLineResolution.current,
         webRef,
+        webViewLoadGeneration,
+        isRequestCurrent: () =>
+          isDataRequestEnabledRef.current &&
+          currentDataRequestIdentityRef.current === firstPaintMetricIdentity,
       });
     };
 
-    // Reset time range when token/account changes, then load marks
-    marksTimeRange.current = null;
     refreshMarks();
 
     const handleSwapSuccess = (payload: {
@@ -622,6 +979,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     };
   }, [
     isVisible,
+    isKLineHistoryReady,
     accountAddress,
     tokenAddress,
     networkId,
@@ -629,7 +987,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     mockEmptyKLineEnabled,
     mockEmptyKLineIntervals,
     forceEmptyKLineData,
+    firstPaintMetricIdentity,
     webRef,
+    webViewLoadGeneration,
   ]);
 
   const onShouldStartLoadWithRequest = useCallback(
@@ -652,12 +1012,127 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
 
   const handleLoadStart = useCallback(
     (event: WebViewNavigationEvent) => {
+      webViewLoadGeneration.current += 1;
+      firstPaintTrackingRef.current.startedAt = Date.now();
+      firstPaintTrackingRef.current.hasTracked = false;
+      firstPaintTrackingRef.current.requestIds.clear();
+      setIsMarketSymbolSyncSupported(undefined);
+      setIsMarketAppKlineTransportSupported(undefined);
+      setIsIntervalAckSupported(undefined);
+      setIsHistoryReadyAckSupported(undefined);
+      pendingLegacyHistoryReadyKeyRef.current = null;
+      setFirstHistoryReadyKey(null);
       setIntervalConfig(null);
       setNativeChartControlsConfig(null);
       resetInteractionLocks();
       onLoadStart?.(event);
     },
-    [onLoadStart, resetInteractionLocks],
+    [onLoadStart, resetInteractionLocks, webViewLoadGeneration],
+  );
+
+  const deliverInitialHistoryBootstrap = useCallback(
+    (ref: IWebViewRef) => {
+      const requestTarget = captureTradingViewRequestTarget({
+        webRef,
+        webViewLoadGeneration,
+        isRequestCurrent: () =>
+          isDataRequestEnabledRef.current &&
+          currentDataRequestIdentityRef.current === firstPaintMetricIdentity,
+      });
+      const identity = {
+        symbol: chartSymbol,
+        tokenAddress,
+        networkId,
+        decimal: decimal.toString(),
+      };
+      const bootstrapIdPrefix = [
+        networkId,
+        tokenAddress,
+        bootstrapKLineResolution,
+      ].join(':');
+      const sendUnavailable = (reason: string) => {
+        if (requestTarget.requestWebView !== ref) {
+          return;
+        }
+        requestTarget.sendMessage({
+          type: 'KLINE_BOOTSTRAP_UNAVAILABLE',
+          payload: {
+            protocolVersion: KLINE_BOOTSTRAP_PROTOCOL_VERSION,
+            bootstrapId: `${bootstrapIdPrefix}:unavailable`,
+            identity,
+            resolution: bootstrapKLineResolution,
+            reason,
+          },
+        });
+      };
+
+      if (
+        forceEmptyKLineData ||
+        mockEmptyKLineEnabled ||
+        primaryKLineDataUnavailable ||
+        kLineDataFallback
+      ) {
+        sendUnavailable('prefetch-disabled');
+        return;
+      }
+
+      const prefetchPromise = getTradingViewV2FirstScreenPrefetchPromise({
+        tokenAddress,
+        networkId,
+        interval: bootstrapKLineResolution,
+        kLineProvider,
+        kLineProviderSymbol,
+      });
+      if (!prefetchPromise) {
+        sendUnavailable('prefetch-not-started');
+        return;
+      }
+
+      void prefetchPromise.then(
+        (result) => {
+          if (!requestTarget.isCurrent()) {
+            return;
+          }
+          if (!result || (!result.points.length && !result.historyExhausted)) {
+            sendUnavailable('prefetch-empty');
+            return;
+          }
+          requestTarget.sendMessage({
+            type: 'KLINE_BOOTSTRAP',
+            payload: {
+              protocolVersion: KLINE_BOOTSTRAP_PROTOCOL_VERSION,
+              bootstrapId: `${bootstrapIdPrefix}:${result.requestedTimeTo}`,
+              identity,
+              resolution: result.interval,
+              coveredRange: {
+                fromInclusive: result.coveredTimeFrom,
+                toExclusive: result.coveredTimeTo,
+              },
+              historyExhausted: result.historyExhausted,
+              points: result.points,
+              historyMeta: result.historyMeta,
+            },
+          });
+        },
+        () => sendUnavailable('prefetch-failed'),
+      );
+    },
+    [
+      bootstrapKLineResolution,
+      chartSymbol,
+      decimal,
+      firstPaintMetricIdentity,
+      forceEmptyKLineData,
+      kLineDataFallback,
+      kLineProvider,
+      kLineProviderSymbol,
+      mockEmptyKLineEnabled,
+      networkId,
+      primaryKLineDataUnavailable,
+      tokenAddress,
+      webRef,
+      webViewLoadGeneration,
+    ],
   );
 
   const handleWebViewRef = useCallback(
@@ -666,8 +1141,21 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         resetInteractionLocks();
       }
       webRef.current = ref;
+      if (ref) {
+        deliverInitialHistoryBootstrap(ref);
+      }
     },
-    [resetInteractionLocks, webRef],
+    [deliverInitialHistoryBootstrap, resetInteractionLocks, webRef],
+  );
+
+  const handleLoadEnd = useCallback(
+    (event: WebViewNavigationEvent | WebViewErrorEvent) => {
+      if (webRef.current) {
+        deliverInitialHistoryBootstrap(webRef.current);
+      }
+      onLoadEnd?.(event);
+    },
+    [deliverInitialHistoryBootstrap, onLoadEnd, webRef],
   );
 
   const nativeIndicatorQuickBar = useMemo(() => {
@@ -737,9 +1225,19 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           const receiveData = data as ICustomReceiveHandlerData;
           await customReceiveHandler(receiveData);
         }}
+        useInjectedNativeCode={platformEnv.isNative ? false : undefined}
+        nativeInjectedJavaScriptBeforeContentLoaded={
+          platformEnv.isNative
+            ? TRADING_VIEW_NATIVE_MINIMAL_BRIDGE_SCRIPT
+            : undefined
+        }
+        skipBackgroundBridge={platformEnv.isNative}
+        cacheEnabled={platformEnv.isNative ? true : undefined}
+        useSharedProcessPool={platformEnv.isNative ? true : undefined}
         onWebViewRef={handleWebViewRef}
         allowsBackForwardNavigationGestures={false}
         onLoadStart={handleLoadStart}
+        onLoadEnd={handleLoadEnd}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         displayProgressBar={false}
         pullToRefreshEnabled={false}
@@ -755,6 +1253,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     [
       customReceiveHandler,
       handleLoadStart,
+      handleLoadEnd,
       handleWebViewRef,
       onShouldStartLoadWithRequest,
       theme,
@@ -795,7 +1294,13 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       ) : null}
 
       <Stack position="relative" flex={1}>
-        {webView}
+        {/* Source discovery controls the datafeed, but must not delay native
+            WebView construction for the common OneKey source path. */}
+        {platformEnv.isNative || !isKLineSourceLoading ? (
+          webView
+        ) : (
+          <Stack flex={1} bg="$bgApp" />
+        )}
 
         {mockEmptyKLineEnabled ? (
           <Stack

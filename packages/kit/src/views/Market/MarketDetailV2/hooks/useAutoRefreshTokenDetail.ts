@@ -10,6 +10,7 @@ interface IUseMarketDetailDataProps {
   tokenAddress: string;
   networkId: string;
   isNative: boolean;
+  enabled?: boolean;
 }
 
 function toFiniteNumber(value?: string | number) {
@@ -19,6 +20,7 @@ function toFiniteNumber(value?: string | number) {
 }
 
 export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
+  const enabled = data.enabled ?? true;
   const { current: tokenDetailActions } = useTokenDetailActions();
   const currencyInfo = useCurrency();
   const { tokenDetail, networkId } = useTokenDetail();
@@ -108,7 +110,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
 
   return usePromiseResult(
     async () => {
-      if (!currencyInfo.id) {
+      if (!enabled || !currencyInfo.id) {
         return;
       }
       // Only fetch token detail data; atom identity is set synchronously above
@@ -117,14 +119,19 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
         data.networkId,
       );
     },
-    [currencyInfo.id, data.tokenAddress, data.networkId, tokenDetailActions],
+    [
+      currencyInfo.id,
+      enabled,
+      data.tokenAddress,
+      data.networkId,
+      tokenDetailActions,
+    ],
     {
-      pollingInterval: 6000, // Changed from 5000 to 6000 to avoid race condition with K-line updates
+      pollingInterval: enabled ? 6000 : undefined,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
-      // Disable focus check to allow data fetching when navigating from Modal to Tab
-      // This is needed because when navigating from MarketBannerDetail (Modal) to MarketDetailV2 (Tab),
-      // the Modal may still be in the navigation stack, causing isFocused to return false
+      // The caller owns focus gating through `enabled` so placeholder screens
+      // do not start either an initial request or a polling loop.
       checkIsFocused: false,
     },
   );

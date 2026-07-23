@@ -19,6 +19,8 @@ import { useTransactionsLayoutNormal } from './useTransactionsLayoutNormal';
 interface ITransactionItemNormalProps {
   item: IMarketTokenTransaction;
   networkId: string;
+  tokenAddress: string;
+  tokenSymbol?: string;
   index: number;
 }
 
@@ -26,6 +28,8 @@ function TransactionItemNormalBase({
   item,
   index,
   networkId,
+  tokenAddress,
+  tokenSymbol,
 }: ITransactionItemNormalProps) {
   const { styles, isSmallScreen } = useTransactionsLayoutNormal();
   const {
@@ -37,7 +41,7 @@ function TransactionItemNormalBase({
     typeText,
     price,
     value,
-  } = useTransactionItemData({ item });
+  } = useTransactionItemData({ item, tokenAddress, tokenSymbol });
 
   return (
     <XStack

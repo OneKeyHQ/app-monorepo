@@ -51,6 +51,7 @@ export interface IMarketTokenDetail {
   price?: string;
   priceConverted?: string;
   chartPriceUpdatedAt?: number;
+  firstTradeTime?: number | string;
   priceChange1mPercent?: string;
   priceChange5mPercent?: string;
   priceChange30mPercent?: string;
@@ -144,6 +145,7 @@ export interface IMarketTokenDetailPreview {
   tokenImageUris?: string[];
   communityRecognized?: boolean;
   stock?: IMarketStockInfo;
+  firstTradeTime?: number;
   selectedAt: number;
 }
 
@@ -300,9 +302,23 @@ export interface IMarketTokenKLineDataPoint {
   t: number; // timestamp
 }
 
+export type IMarketKLineProvider = 'onekey' | 'hyperliquid';
+
+export interface IMarketTokenKLineHistoryMeta {
+  noData: boolean;
+  isPartial?: boolean;
+  cancelled?: boolean;
+  error?: string;
+  requestedCount?: number;
+  returnedCount?: number;
+  coveredFrom?: number;
+  coveredTo?: number;
+}
+
 export interface IMarketTokenKLineResponse {
   points: IMarketTokenKLineDataPoint[];
   total: number;
+  historyMeta?: IMarketTokenKLineHistoryMeta;
 }
 
 export interface IMarketTokenTransactionToken {
@@ -662,10 +678,15 @@ export interface IMarketBannerListResponse {
   data: IMarketBannerItem[];
 }
 
-export interface IMarketBannerTokenListItem extends IMarketTokenListItem {
+export type IMarketBannerTokenListItem = Omit<
+  IMarketTokenListItem,
+  'decimals' | 'holders'
+> & {
+  decimals: number | string;
+  holders?: number | string;
   isNative?: boolean;
   tokenAge?: string;
-}
+};
 
 export interface IMarketBannerTokenListResponse {
   list: IMarketBannerTokenListItem[];

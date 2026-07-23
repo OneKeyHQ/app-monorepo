@@ -86,6 +86,7 @@ import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
+import { NativePersistentMarketTradingViewHost } from '../views/Market/MarketDetailV2/components/NativePersistentMarketTradingView/NativePersistentMarketTradingViewHost';
 
 import { preloadComponentsOnIdle } from './preloadComponents';
 import { useExtensionMarketTokenDetailHashNavigation } from './useExtensionMarketTokenDetailHashNavigation';
@@ -441,10 +442,14 @@ export const useFetchCurrencyList = () => {
 export const useFetchMarketBasicConfig = () => {
   useEffect(() => {
     const fetchMarketBasicConfig = () => {
-      void backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig();
+      void import('../views/Market/hooks/useMarketBasicConfig/fetchMarketBasicConfigForPlatform')
+        .then(({ fetchMarketBasicConfigForPlatform }) =>
+          fetchMarketBasicConfigForPlatform(),
+        )
+        .catch(noop);
     };
     if (platformEnv.isWeb) {
-      const timer = setTimeout(fetchMarketBasicConfig, 6000);
+      const timer = setTimeout(fetchMarketBasicConfig, 1500);
       return () => clearTimeout(timer);
     }
     fetchMarketBasicConfig();
@@ -1041,6 +1046,7 @@ export function Bootstrap() {
           UpdateReminder/hooks.tsx#useAppUpdateInfo. */}
       <AppUpdateForeground />
       <SplitViewPrompt />
+      <NativePersistentMarketTradingViewHost />
       {platformEnv.isDesktopMac ? <DesktopTrayDataProvider /> : null}
     </>
   );
