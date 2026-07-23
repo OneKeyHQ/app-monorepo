@@ -249,10 +249,12 @@ function storeIdentityExitPlan(storedPlan: IStoredIdentityExitPlan): void {
 }
 
 function storeSettledIdentityExitReceipt({
+  operationId,
   planId,
   receipt,
   expiresAt,
 }: {
+  operationId: string;
   planId: string;
   receipt: Extract<IIdentityExitReceipt, { status: 'completed' }>;
   expiresAt?: number;
@@ -279,6 +281,9 @@ function storeSettledIdentityExitReceipt({
       unref?: () => void;
     }
   ).unref?.();
+  // A settled receipt is only created after the completed journal is durable.
+  // Keep the recovery barrier aligned with the authoritative outcome.
+  markIdentityRecoveryReady(operationId);
 }
 
 function getSettledIdentityExitReceipt(
@@ -473,12 +478,7 @@ class ServiceIdentityExit extends ServiceBase {
           };
           await this.persistIdentityExitJournalEntry(journal);
           const removed =
-            await this.backgroundApi.simpleDb.prime.removeIdentityExitJournalEntry(
-              {
-                operationId,
-                expectedUpdatedAt: journal.updatedAt,
-              },
-            );
+            await this.removeIdentityExitJournalEntryWithOutcomeCheck(journal);
           if (!removed) {
             throw new OneKeyLocalError(
               'The rejected account deletion journal changed unexpectedly.',
@@ -1209,19 +1209,51 @@ class ServiceIdentityExit extends ServiceBase {
     journal: IIdentityExitJournalEntry,
   ): Promise<void> {
     const removed =
-      await this.backgroundApi.simpleDb.prime.removeIdentityExitJournalEntry({
-        operationId: journal.operationId,
-        expectedUpdatedAt: journal.updatedAt,
-      });
+      await this.removeIdentityExitJournalEntryWithOutcomeCheck(journal);
     if (!removed) {
-      const currentJournal =
-        await this.backgroundApi.simpleDb.prime.getIdentityExitOperationJournal();
-      if (!currentJournal[journal.operationId]) {
-        return;
-      }
       throw new OneKeyLocalError(
         'The completed identity exit journal changed before cleanup.',
       );
+    }
+  }
+
+  private async removeIdentityExitJournalEntryWithOutcomeCheck(
+    journal: IIdentityExitJournalEntry,
+  ): Promise<boolean> {
+    try {
+      const removed =
+        await this.backgroundApi.simpleDb.prime.removeIdentityExitJournalEntry({
+          operationId: journal.operationId,
+          expectedUpdatedAt: journal.updatedAt,
+        });
+      if (removed) {
+        return true;
+      }
+      const currentJournal =
+        await this.backgroundApi.simpleDb.prime.getIdentityExitOperationJournal();
+      return !currentJournal[journal.operationId];
+    } catch (error) {
+      try {
+        const currentJournal =
+          await this.backgroundApi.simpleDb.prime.getIdentityExitOperationJournal();
+        if (!currentJournal[journal.operationId]) {
+          return true;
+        }
+      } catch {
+        // Preserve the original deletion error when its outcome cannot be read.
+      }
+      throw error;
+    }
+  }
+
+  private async removeCompletedIdentityExitJournalEntryBestEffort(
+    journal: IIdentityExitJournalEntry,
+  ): Promise<void> {
+    try {
+      await this.removeCompletedIdentityExitJournalEntry(journal);
+    } catch {
+      // The completed journal is recovery metadata after the identity outcome
+      // has committed. A later recovery sweep can retry this housekeeping.
     }
   }
 
@@ -1273,7 +1305,7 @@ class ServiceIdentityExit extends ServiceBase {
       this.scheduleOAuthHandoffJournalExpiryCleanup(record);
       return true;
     }
-    await this.removeCompletedIdentityExitJournalEntry(journal);
+    await this.removeCompletedIdentityExitJournalEntryBestEffort(journal);
     return false;
   }
 
@@ -1331,6 +1363,7 @@ class ServiceIdentityExit extends ServiceBase {
       );
     }
     storeSettledIdentityExitReceipt({
+      operationId: completedJournal.operationId,
       planId: completedJournal.planId,
       receipt,
       expiresAt: oauthHandoffRecord?.expiresAt,
@@ -1338,7 +1371,9 @@ class ServiceIdentityExit extends ServiceBase {
     if (oauthHandoffRecord) {
       this.scheduleOAuthHandoffJournalExpiryCleanup(oauthHandoffRecord);
     } else {
-      await this.removeCompletedIdentityExitJournalEntry(completedJournal);
+      await this.removeCompletedIdentityExitJournalEntryBestEffort(
+        completedJournal,
+      );
     }
     return receipt;
   }
@@ -1505,12 +1540,7 @@ class ServiceIdentityExit extends ServiceBase {
         journal.status === 'serverDeleteRejected'
       ) {
         const removed =
-          await this.backgroundApi.simpleDb.prime.removeIdentityExitJournalEntry(
-            {
-              operationId: journal.operationId,
-              expectedUpdatedAt: journal.updatedAt,
-            },
-          );
+          await this.removeIdentityExitJournalEntryWithOutcomeCheck(journal);
         return removed ? { status: 'cancelled' } : undefined;
       }
 
@@ -1575,12 +1605,7 @@ class ServiceIdentityExit extends ServiceBase {
           // present parent wallet means its destructive DB removal did not
           // start, so a fresh user-confirmed plan must authorize it again.
           const removed =
-            await this.backgroundApi.simpleDb.prime.removeIdentityExitJournalEntry(
-              {
-                operationId: journal.operationId,
-                expectedUpdatedAt: journal.updatedAt,
-              },
-            );
+            await this.removeIdentityExitJournalEntryWithOutcomeCheck(journal);
           return removed ? { status: 'cancelled' } : undefined;
         }
         if (wallet) {
@@ -1614,11 +1639,8 @@ class ServiceIdentityExit extends ServiceBase {
           if (revision !== journal.expectedLifecycleRevision) {
             if (journal.intentType === 'remoteOneKeyIdLogout') {
               const removed =
-                await this.backgroundApi.simpleDb.prime.removeIdentityExitJournalEntry(
-                  {
-                    operationId: journal.operationId,
-                    expectedUpdatedAt: journal.updatedAt,
-                  },
+                await this.removeIdentityExitJournalEntryWithOutcomeCheck(
+                  journal,
                 );
               return removed ? { status: 'cancelled' } : undefined;
             }
@@ -1663,11 +1685,8 @@ class ServiceIdentityExit extends ServiceBase {
           if (localCommit.status !== 'committed' || !localCommit.revision) {
             if (journal.intentType === 'remoteOneKeyIdLogout') {
               const removed =
-                await this.backgroundApi.simpleDb.prime.removeIdentityExitJournalEntry(
-                  {
-                    operationId: journal.operationId,
-                    expectedUpdatedAt: journal.updatedAt,
-                  },
+                await this.removeIdentityExitJournalEntryWithOutcomeCheck(
+                  journal,
                 );
               return removed ? { status: 'cancelled' } : undefined;
             }
@@ -1727,6 +1746,7 @@ class ServiceIdentityExit extends ServiceBase {
             const receipt = this.buildReceiptFromCompletedJournal(entry);
             if (receipt?.status === 'completed') {
               storeSettledIdentityExitReceipt({
+                operationId: entry.operationId,
                 planId: entry.planId,
                 receipt,
                 expiresAt: receipt.startIndependentOneKeyIdOAuth?.expiresAt,
@@ -2656,6 +2676,7 @@ class ServiceIdentityExit extends ServiceBase {
       .catch(async (error: unknown) => {
         const completedReceipt = getSettledIdentityExitReceipt(planId);
         if (completedReceipt) {
+          markIdentityRecoveryReady(storedPlan.operationId);
           return completedReceipt;
         }
         if (

@@ -40,6 +40,7 @@ import {
 } from '../ServicePrime/primeAuthSessionAccess';
 
 import {
+  isIdentityRecoveryReady,
   resetIdentityRecoveryStateForTest,
   waitForIdentityMutationReady,
 } from './identityLifecycleMutex';
@@ -403,6 +404,32 @@ describe('ServiceIdentityExit', () => {
         keylessSession: undefined,
       }),
     );
+  });
+
+  test('settles the recovery barrier when completed-journal cleanup fails after the receipt is stored', async () => {
+    const fixture = createFixture();
+    const plan = await fixture.service.prepareIdentityExit({
+      type: 'logoutOneKeyId',
+      scene: 'profile',
+    });
+    expectReadyPlan(plan);
+    fixture.removeIdentityExitJournalEntry.mockImplementationOnce(
+      async ({ operationId }) => {
+        delete fixture.journalState[operationId];
+        throw new OneKeyLocalError('Completed journal cleanup failed');
+      },
+    );
+
+    await expect(
+      fixture.service.executeIdentityExit({ planId: plan.planId }),
+    ).resolves.toMatchObject({
+      status: 'completed',
+      oneKeyIdLoggedOut: true,
+    });
+
+    expect(fixture.commitIdentityExitLocalState).toHaveBeenCalledTimes(1);
+    expect(fixture.journalState).toEqual({});
+    expect(isIdentityRecoveryReady()).toBe(true);
   });
 
   test('does not recover destructively from the current cache when the initial journal write rejects', async () => {
@@ -1179,6 +1206,72 @@ describe('ServiceIdentityExit', () => {
     },
   );
 
+  test('settles rejected account-deletion recovery when terminal journal deletion rejects after deleting', async () => {
+    const journal: IIdentityExitJournalEntry = {
+      operationId: 'recover-server-delete-rejected-delete-then-reject',
+      planId: 'recover-server-delete-rejected-delete-then-reject',
+      intentType: 'deleteOneKeyIdAccount',
+      status: 'serverDeleteRejected',
+      startedAt: 1,
+      updatedAt: 2,
+      expectedLifecycleRevision: 10,
+      target: {
+        logoutOneKeyId: true,
+        removeKeyless: false,
+        clearKeylessSession: true,
+        clearAllIdentityAuth: true,
+      },
+    };
+    const fixture = createFixture({
+      journalEntries: { [journal.operationId]: journal },
+    });
+    fixture.removeIdentityExitJournalEntry.mockImplementationOnce(
+      async ({ operationId }) => {
+        delete fixture.journalState[operationId];
+        throw new OneKeyLocalError(
+          'Rejected account-deletion journal removal failed',
+        );
+      },
+    );
+
+    const recoveryResult = await fixture.service
+      .recoverInterruptedIdentityExitOperations()
+      .then(
+        (value) => ({ status: 'resolved' as const, value }),
+        (error: unknown) => ({
+          status: 'rejected' as const,
+          message: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    const readinessResult = await waitForIdentityMutationReady().then(
+      () => ({ status: 'resolved' as const }),
+      (error: unknown) => ({
+        status: 'rejected' as const,
+        message: error instanceof Error ? error.message : String(error),
+      }),
+    );
+
+    expect({
+      recoveryResult,
+      readinessResult,
+      recoveryReady: isIdentityRecoveryReady(),
+    }).toEqual({
+      recoveryResult: {
+        status: 'resolved',
+        value: {
+          recoveredOperationCount: 0,
+          abandonedOperationCount: 1,
+        },
+      },
+      readinessResult: { status: 'resolved' },
+      recoveryReady: true,
+    });
+    expect(
+      fixture.clearAllIdentityAuthForExplicitOperation,
+    ).not.toHaveBeenCalled();
+    expect(fixture.journalState).toEqual({});
+  });
+
   test('recovers serverDeleteOutcomeUnknown by clearing authorized local auth', async () => {
     const journal: IIdentityExitJournalEntry = {
       operationId: 'recover-server-delete-outcome-unknown',
@@ -1659,6 +1752,65 @@ describe('ServiceIdentityExit', () => {
     });
     expect(fixture.commitIdentityExitLocalState).not.toHaveBeenCalled();
     expect(fixture.journalState[journal.operationId]).toBeUndefined();
+  });
+
+  test('keeps startup recovery ready when completed-journal cleanup fails', async () => {
+    const planId = 'completed-plan-with-cleanup-failure' as IIdentityExitPlanId;
+    const journal: IIdentityExitJournalEntry = {
+      operationId: 'completed-operation-with-cleanup-failure',
+      planId,
+      intentType: 'logoutOneKeyId',
+      status: 'completed',
+      startedAt: 1,
+      updatedAt: 2,
+      expectedLifecycleRevision: 10,
+      committedLifecycleRevision: 11,
+      target: { logoutOneKeyId: true, removeKeyless: false },
+      completed: { oneKeyIdLoggedOut: true },
+    };
+    const fixture = createFixture({
+      journalEntries: { [journal.operationId]: journal },
+    });
+    fixture.removeIdentityExitJournalEntry.mockRejectedValueOnce(
+      new OneKeyLocalError('Completed journal cleanup failed during recovery'),
+    );
+
+    const recoveryResult = await fixture.service
+      .recoverInterruptedIdentityExitOperations()
+      .then(
+        (value) => ({ status: 'resolved' as const, value }),
+        (error: unknown) => ({
+          status: 'rejected' as const,
+          message: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    const receipt = await fixture.service.executeIdentityExit({ planId });
+
+    expect({
+      recoveryResult,
+      receipt: {
+        status: receipt.status,
+        oneKeyIdLoggedOut:
+          receipt.status === 'completed'
+            ? receipt.oneKeyIdLoggedOut
+            : undefined,
+      },
+      recoveryReady: isIdentityRecoveryReady(),
+    }).toEqual({
+      recoveryResult: {
+        status: 'resolved',
+        value: {
+          recoveredOperationCount: 0,
+          abandonedOperationCount: 0,
+        },
+      },
+      receipt: {
+        status: 'completed',
+        oneKeyIdLoggedOut: true,
+      },
+      recoveryReady: true,
+    });
+    expect(fixture.journalState[journal.operationId]).toEqual(journal);
   });
 
   test('removes an expired OAuth handoff journal without replaying its continuation', async () => {
