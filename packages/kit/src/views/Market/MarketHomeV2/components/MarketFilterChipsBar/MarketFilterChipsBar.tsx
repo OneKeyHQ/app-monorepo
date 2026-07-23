@@ -583,11 +583,20 @@ export function MarketFilterChipsBar({
           <Divider vertical h="$4" />
           {isExpanded ? (
             <XStack
+              // Distinct keys on the two branches: without them React reuses
+              // one XStack fiber across the ternary, and an animated Tamagui
+              // stack runs different hooks than a plain one — reusing it
+              // crashes with a hook-order mismatch.
+              key="expanded"
               alignItems="center"
               px="$0.5"
               gap="$0.5"
-              // Subtle fade + slide as the quick chips morph into condition pills
-              // (app-idiomatic "quick" spring, opacity/transform only).
+              // Subtle fade + slide as a quick chip expands into its condition
+              // pills. enterStyle fires on mount, and this branch only mounts
+              // when a chip is applied — so the motion marks that expansion and
+              // nothing else. Deliberately not mirrored on the quick-chip
+              // branch: that one also mounts on first paint, which would play
+              // the animation as a page-load flourish.
               animation="quick"
               animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
               enterStyle={{ opacity: 0, x: -4 }}
@@ -665,12 +674,7 @@ export function MarketFilterChipsBar({
               </XStack>
             </XStack>
           ) : (
-            <XStack
-              gap="$0.5"
-              animation="quick"
-              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-              enterStyle={{ opacity: 0, x: -4 }}
-            >
+            <XStack key="quick" gap="$0.5">
               {MARKET_FILTER_CHIPS.map((chip) => (
                 <QuickChip
                   key={chip.id}
