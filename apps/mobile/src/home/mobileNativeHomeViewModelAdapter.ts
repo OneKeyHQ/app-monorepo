@@ -397,6 +397,7 @@ function buildPortfolioAssetSections({
                 id: 'portfolio-assets-low-value',
                 renderer: 'asset' as const,
                 title: `${smallBalanceTokens.length} ${labels.lowValueAssets}`,
+                displayHeight: 56,
                 value: formatCurrency(
                   payload?.smallBalanceFiatValue ??
                     sumTokenFiatValue({
@@ -407,7 +408,7 @@ function buildPortfolioAssetSections({
                   locale,
                 ),
                 leadingIcon: 'lowValue' as const,
-                showChevron: true,
+                titleAccessoryIcon: 'question' as const,
                 actionId:
                   MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS.openLowValueAssets,
               },
@@ -418,17 +419,11 @@ function buildPortfolioAssetSections({
               {
                 id: 'portfolio-assets-risk',
                 renderer: 'asset' as const,
-                title: labels.riskAssets(riskTokens.length),
-                value: formatCurrency(
-                  sumTokenFiatValue({
-                    tokens: riskTokens,
-                    map: payload?.riskMap ?? {},
-                  }),
-                  currency,
-                  locale,
+                title: labels.riskAssets(
+                  payload?.blockedRiskTokenCount ?? riskTokens.length,
                 ),
+                displayHeight: 56,
                 leadingIcon: 'risk' as const,
-                showChevron: true,
                 actionId:
                   MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS.openRiskAssets,
               },
@@ -447,7 +442,7 @@ function buildPortfolioAssetSections({
             renderer: 'addToken',
             title: labels.addTokenInstruction,
             buttonTitle: labels.addTokenLabel,
-            showChevron: true,
+            displayHeight: 52,
             actionId:
               MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS.openManageToken,
           },

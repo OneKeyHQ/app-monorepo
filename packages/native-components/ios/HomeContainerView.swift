@@ -117,6 +117,108 @@ private extension UIView {
 }
 
 private enum HomeContainerIcons {
+  static let lowValueSolid: UIImage = {
+    let renderer = UIGraphicsImageRenderer(size: CGSize(width: 40, height: 40))
+    return renderer.image { context in
+      context.cgContext.translateBy(x: 8, y: 8)
+      UIColor.black.setFill()
+
+      let topRing = UIBezierPath(ovalIn: CGRect(x: 8.25, y: 2, width: 7.5, height: 7.5))
+      topRing.append(UIBezierPath(ovalIn: CGRect(x: 10.25, y: 4, width: 3.5, height: 3.5)))
+      topRing.usesEvenOddFillRule = true
+      topRing.fill()
+
+      UIBezierPath(ovalIn: CGRect(x: 2, y: 8.25, width: 7.5, height: 7.5)).fill()
+      UIBezierPath(ovalIn: CGRect(x: 14.5, y: 8.25, width: 7.5, height: 7.5)).fill()
+      UIBezierPath(ovalIn: CGRect(x: 8.25, y: 14.5, width: 7.5, height: 7.5)).fill()
+    }.withRenderingMode(.alwaysTemplate)
+  }()
+
+  static let riskSolid: UIImage = {
+    let renderer = UIGraphicsImageRenderer(size: CGSize(width: 40, height: 40))
+    return renderer.image { context in
+      context.cgContext.translateBy(x: 8, y: 8)
+      UIColor.black.setFill()
+
+      let path = UIBezierPath()
+      path.move(to: CGPoint(x: 23.256, y: 20))
+      path.addLine(to: CGPoint(x: 0.742, y: 20))
+      path.addLine(to: CGPoint(x: 12, y: 1.041))
+      path.close()
+      path.move(to: CGPoint(x: 11, y: 15))
+      path.addLine(to: CGPoint(x: 11, y: 17))
+      path.addLine(to: CGPoint(x: 13, y: 17))
+      path.addLine(to: CGPoint(x: 13, y: 15))
+      path.close()
+      path.move(to: CGPoint(x: 11, y: 9))
+      path.addLine(to: CGPoint(x: 11, y: 14))
+      path.addLine(to: CGPoint(x: 13, y: 14))
+      path.addLine(to: CGPoint(x: 13, y: 9))
+      path.close()
+      path.usesEvenOddFillRule = true
+      path.fill()
+    }.withRenderingMode(.alwaysTemplate)
+  }()
+
+  static let questionmarkOutline: UIImage = {
+    let size: CGFloat = 20
+    let scale = size / 24
+    let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
+    return renderer.image { context in
+      context.cgContext.scaleBy(x: scale, y: scale)
+      UIColor.black.setFill()
+
+      let question = UIBezierPath()
+      question.move(to: CGPoint(x: 13, y: 17.01))
+      question.addLine(to: CGPoint(x: 11, y: 17.01))
+      question.addLine(to: CGPoint(x: 11, y: 15))
+      question.addLine(to: CGPoint(x: 13, y: 15))
+      question.close()
+      question.move(to: CGPoint(x: 15, y: 11))
+      question.addLine(to: CGPoint(x: 13, y: 12.499))
+      question.addLine(to: CGPoint(x: 13, y: 14))
+      question.addLine(to: CGPoint(x: 11, y: 14))
+      question.addLine(to: CGPoint(x: 11, y: 11.5))
+      question.addLine(to: CGPoint(x: 13, y: 10))
+      question.addLine(to: CGPoint(x: 13, y: 9))
+      question.addLine(to: CGPoint(x: 11, y: 9))
+      question.addLine(to: CGPoint(x: 11, y: 10))
+      question.addLine(to: CGPoint(x: 9, y: 10))
+      question.addLine(to: CGPoint(x: 9, y: 7))
+      question.addLine(to: CGPoint(x: 15, y: 7))
+      question.close()
+      question.fill()
+
+      let ring = UIBezierPath(ovalIn: CGRect(x: 2, y: 2, width: 20, height: 20))
+      ring.append(UIBezierPath(ovalIn: CGRect(x: 4, y: 4, width: 16, height: 16)))
+      ring.usesEvenOddFillRule = true
+      ring.fill()
+    }.withRenderingMode(.alwaysTemplate)
+  }()
+
+  static let arrowRightOutline: UIImage = {
+    let size: CGFloat = 20
+    let scale = size / 24
+    let path = UIBezierPath()
+    path.move(to: CGPoint(x: 21.414, y: 12))
+    path.addLine(to: CGPoint(x: 14, y: 19.414))
+    path.addLine(to: CGPoint(x: 12.586, y: 18))
+    path.addLine(to: CGPoint(x: 17.586, y: 13))
+    path.addLine(to: CGPoint(x: 3, y: 13))
+    path.addLine(to: CGPoint(x: 3, y: 11))
+    path.addLine(to: CGPoint(x: 17.586, y: 11))
+    path.addLine(to: CGPoint(x: 12.586, y: 6))
+    path.addLine(to: CGPoint(x: 14, y: 4.586))
+    path.close()
+
+    let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
+    return renderer.image { context in
+      context.cgContext.scaleBy(x: scale, y: scale)
+      UIColor.black.setFill()
+      path.fill()
+    }.withRenderingMode(.alwaysTemplate)
+  }()
+
   static let gasSolid: UIImage = {
     let size: CGFloat = 20
     let scale = size / 24
@@ -2491,8 +2593,11 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
       case "defi": return HomeContainerMetrics.scaledHeight(64)
       case "marketTabs": return HomeContainerMetrics.marketTabsRowHeight
       case "showMore": return HomeContainerMetrics.scaledHeight(48)
-      case "asset": return HomeContainerMetrics.scaledHeight(60)
-      case "addToken", "earn", "market": return HomeContainerMetrics.scaledHeight(56)
+      case "asset":
+        return item.displayHeight ?? HomeContainerMetrics.scaledHeight(60)
+      case "addToken":
+        return item.displayHeight ?? HomeContainerMetrics.scaledHeight(56)
+      case "earn", "market": return HomeContainerMetrics.scaledHeight(56)
       case "supportAction": return HomeContainerMetrics.scaledHeight(76)
       case "upgrade": return HomeContainerMetrics.scaledHeight(96)
       case "empty", "loading": return item.displayHeight ?? HomeContainerMetrics.emptyRowHeight
@@ -5520,6 +5625,8 @@ private final class HomeContainerItemCell: UITableViewCell {
   private var badgeContainerHeightConstraint: NSLayoutConstraint?
   private var badgeImageWidthConstraint: NSLayoutConstraint?
   private var badgeImageHeightConstraint: NSLayoutConstraint?
+  private var titleAccessoryWidthConstraint: NSLayoutConstraint?
+  private var titleAccessoryHeightConstraint: NSLayoutConstraint?
   private var titleMaxWidthConstraint: NSLayoutConstraint?
   private var subtitleMaxWidthConstraint: NSLayoutConstraint?
   private var centerButtonTopConstraint: NSLayoutConstraint?
@@ -5702,6 +5809,12 @@ private final class HomeContainerItemCell: UITableViewCell {
     let badgeContainerHeightConstraint = badgeContainerView.heightAnchor.constraint(equalToConstant: 20)
     let badgeImageWidthConstraint = badgeImageView.widthAnchor.constraint(equalToConstant: 16)
     let badgeImageHeightConstraint = badgeImageView.heightAnchor.constraint(equalToConstant: 16)
+    let titleAccessoryWidthConstraint = titleAccessoryImageView.widthAnchor.constraint(
+      equalToConstant: 14
+    )
+    let titleAccessoryHeightConstraint = titleAccessoryImageView.heightAnchor.constraint(
+      equalToConstant: 14
+    )
     let titleMaxWidthConstraint = titleLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 128)
     let subtitleMaxWidthConstraint = subtitleLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 66)
     let centerButtonTopConstraint = centerButton.topAnchor.constraint(
@@ -5727,6 +5840,8 @@ private final class HomeContainerItemCell: UITableViewCell {
     self.badgeContainerHeightConstraint = badgeContainerHeightConstraint
     self.badgeImageWidthConstraint = badgeImageWidthConstraint
     self.badgeImageHeightConstraint = badgeImageHeightConstraint
+    self.titleAccessoryWidthConstraint = titleAccessoryWidthConstraint
+    self.titleAccessoryHeightConstraint = titleAccessoryHeightConstraint
     self.titleMaxWidthConstraint = titleMaxWidthConstraint
     self.subtitleMaxWidthConstraint = subtitleMaxWidthConstraint
     self.centerButtonTopConstraint = centerButtonTopConstraint
@@ -5753,8 +5868,8 @@ private final class HomeContainerItemCell: UITableViewCell {
       secondaryIconImageView.bottomAnchor.constraint(equalTo: iconContainer.bottomAnchor),
       secondaryIconWidthConstraint,
       secondaryIconHeightConstraint,
-      titleAccessoryImageView.widthAnchor.constraint(equalToConstant: 14),
-      titleAccessoryImageView.heightAnchor.constraint(equalToConstant: 14),
+      titleAccessoryWidthConstraint,
+      titleAccessoryHeightConstraint,
       recognizedImageView.widthAnchor.constraint(equalToConstant: 16),
       recognizedImageView.heightAnchor.constraint(equalToConstant: 16),
       iconLabel.leadingAnchor.constraint(equalTo: iconContainer.leadingAnchor),
@@ -6049,6 +6164,15 @@ private final class HomeContainerItemCell: UITableViewCell {
     if usesPairedHistoryIcons {
       iconContainer.backgroundColor = .clear
     }
+    let usesLegacyHiddenAssetArtwork =
+      item.leadingIcon == "lowValue" || item.leadingIcon == "risk"
+    if usesLegacyHiddenAssetArtwork {
+      iconContainer.backgroundColor = UIColor(
+        homeContainerColor: theme.strongColor ?? theme.cardColor,
+        fallback: .secondarySystemBackground
+      )
+      iconContainer.layer.cornerRadius = 20
+    }
     iconContainer.layer.masksToBounds = !usesPairedHistoryIcons
     switch item.leadingIcon {
     case "star": iconLabel.text = "★"
@@ -6060,7 +6184,7 @@ private final class HomeContainerItemCell: UITableViewCell {
     case "risk": iconLabel.text = "▲"
     default: iconLabel.text = String(item.title.prefix(1)).uppercased()
     }
-    if item.leadingIcon == "lowValue" || item.leadingIcon == "risk" {
+    if usesLegacyHiddenAssetArtwork {
       imageTask?.cancel()
       imageTask = nil
       representedImageSignature = nil
@@ -6071,11 +6195,9 @@ private final class HomeContainerItemCell: UITableViewCell {
         homeContainerColor: theme.subduedIconColor ?? theme.secondaryTextColor,
         fallback: .secondaryLabel
       )
-      iconImageView.image = UIImage(
-        systemName: item.leadingIcon == "risk"
-          ? "exclamationmark.triangle.fill"
-          : "circle.grid.2x2.fill"
-      )
+      iconImageView.image = item.leadingIcon == "risk"
+        ? HomeContainerIcons.riskSolid
+        : HomeContainerIcons.lowValueSolid
       iconLabel.isHidden = true
     } else {
       if usesSymbolicIcon {
@@ -6099,12 +6221,21 @@ private final class HomeContainerItemCell: UITableViewCell {
     loadAuxiliaryImage(item.secondaryImageUrl, kind: .secondary)
     loadAuxiliaryImage(item.badgeImageUrl, kind: .badge)
     loadAuxiliaryImage(item.titleAccessoryImageUrl, kind: .titleAccessory)
-    if item.titleAccessoryIcon == "gas" {
+    let usesQuestionmarkAccessory = item.titleAccessoryIcon == "question"
+    titleAccessoryWidthConstraint?.constant = usesQuestionmarkAccessory ? 20 : 14
+    titleAccessoryHeightConstraint?.constant = usesQuestionmarkAccessory ? 20 : 14
+    (titleAccessoryImageView.superview as? UIStackView)?.setCustomSpacing(
+      usesQuestionmarkAccessory ? 12 : 4,
+      after: titleLabel
+    )
+    if item.titleAccessoryIcon == "gas" || usesQuestionmarkAccessory {
       titleAccessoryImageTask?.cancel()
       titleAccessoryImageTask = nil
       representedTitleAccessoryImageURL = nil
       titleAccessoryImageView.contentMode = .scaleAspectFit
-      titleAccessoryImageView.image = HomeContainerIcons.gasSolid
+      titleAccessoryImageView.image = usesQuestionmarkAccessory
+        ? HomeContainerIcons.questionmarkOutline
+        : HomeContainerIcons.gasSolid
       titleAccessoryImageView.tintColor = UIColor(
         homeContainerColor: theme.subduedIconColor ?? theme.secondaryTextColor,
         fallback: .secondaryLabel
@@ -6132,6 +6263,8 @@ private final class HomeContainerItemCell: UITableViewCell {
       titleAccessoryImageView.image == nil && item.titleAccessoryIcon == nil
     recognizedImageView.isHidden = item.communityRecognized != true
     let isLoading = item.renderer == "loading"
+    iconImageView.isHidden = false
+    titleLabel.isHidden = false
     chevronLabel.isHidden = isLoading || item.showChevron != true
     rightTrailingConstraint?.constant = !isLoading && item.showChevron == true ? -42 : -20
     if isLoading {
@@ -6192,7 +6325,9 @@ private final class HomeContainerItemCell: UITableViewCell {
       iconLabel.textColor = .black
     }
 
-    let usesRoobertTypography = ["market", "perps", "defi", "history"].contains(item.renderer)
+    let usesRoobertTypography =
+      usesLegacyHiddenAssetArtwork ||
+      ["market", "perps", "defi", "history"].contains(item.renderer)
     titleLabel.font = usesRoobertTypography
       ? HomeContainerTypography.medium(16)
       : HomeContainerTypography.system(16, weight: .medium)
@@ -6206,6 +6341,27 @@ private final class HomeContainerItemCell: UITableViewCell {
     detailLabel.font = usesRoobertTypography
       ? HomeContainerTypography.regular(14)
       : HomeContainerTypography.system(14)
+    if usesLegacyHiddenAssetArtwork {
+      let paragraphStyle = NSMutableParagraphStyle()
+      paragraphStyle.minimumLineHeight = 24
+      paragraphStyle.maximumLineHeight = 24
+      titleLabel.attributedText = NSAttributedString(
+        string: item.title,
+        attributes: [
+          .font: titleLabel.font as Any,
+          .paragraphStyle: paragraphStyle,
+        ]
+      )
+      if let value = item.value {
+        valueLabel.attributedText = NSAttributedString(
+          string: value,
+          attributes: [
+            .font: valueLabel.font as Any,
+            .paragraphStyle: paragraphStyle,
+          ]
+        )
+      }
+    }
     if item.renderer == "market" || item.renderer == "perps" {
       detailLabel.textColor = UIColor(
         homeContainerColor: item.accentColor ?? theme.secondaryTextColor,
@@ -6267,15 +6423,20 @@ private final class HomeContainerItemCell: UITableViewCell {
       )
     } else if item.renderer == "addToken" {
       centerButton.text = nil
-      centerButton.font = HomeContainerTypography.system(14)
+      centerButton.font = HomeContainerTypography.regular(14)
       centerButton.layer.cornerRadius = 0
       centerButton.textAlignment = .center
       centerButton.backgroundColor = .clear
-      let instruction = "\(item.title)  "
-      let action = "\(item.buttonTitle ?? "")  →"
+      let font = HomeContainerTypography.regular(14)
+      let paragraphStyle = NSMutableParagraphStyle()
+      paragraphStyle.minimumLineHeight = 20
+      paragraphStyle.maximumLineHeight = 20
+      paragraphStyle.alignment = .center
       let text = NSMutableAttributedString(
-        string: instruction,
+        string: "\(item.title)  ",
         attributes: [
+          .font: font,
+          .paragraphStyle: paragraphStyle,
           .foregroundColor: UIColor(
             homeContainerColor: theme.secondaryTextColor,
             fallback: .tertiaryLabel
@@ -6283,14 +6444,26 @@ private final class HomeContainerItemCell: UITableViewCell {
         ]
       )
       text.append(NSAttributedString(
-        string: action,
+        string: "\(item.buttonTitle ?? "")  ",
         attributes: [
+          .font: font,
+          .paragraphStyle: paragraphStyle,
           .foregroundColor: UIColor(
             homeContainerColor: theme.subduedIconColor ?? theme.secondaryTextColor,
             fallback: .secondaryLabel
           )
         ]
       ))
+      let arrow = NSTextAttachment()
+      arrow.image = HomeContainerIcons.arrowRightOutline.withTintColor(
+        UIColor(
+          homeContainerColor: theme.subduedIconColor ?? theme.secondaryTextColor,
+          fallback: .secondaryLabel
+        ),
+        renderingMode: .alwaysOriginal
+      )
+      arrow.bounds = CGRect(x: 0, y: -4, width: 18, height: 18)
+      text.append(NSAttributedString(attachment: arrow))
       centerButton.attributedText = text
     } else {
       centerButton.attributedText = nil

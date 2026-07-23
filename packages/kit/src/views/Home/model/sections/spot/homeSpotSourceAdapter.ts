@@ -51,6 +51,7 @@ type IHomeSpotLegacyPayload = {
   accountTokensWorthCurrency?: string;
   aggregateTokenListMap: Record<string, { tokens: IAccountToken[] }>;
   allAggregateTokenMap: Record<string, { tokens: IAccountToken[] }>;
+  blockedRiskTokenCount?: number;
   displayIds: readonly string[];
   generation: number;
   homeDefaultTokenMap: Record<string, IHomeDefaultToken>;

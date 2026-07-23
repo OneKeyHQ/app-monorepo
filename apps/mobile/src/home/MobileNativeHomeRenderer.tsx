@@ -266,6 +266,7 @@ export function MobileNativeHomeRenderer({
   const {
     activeAccount: {
       account,
+      deriveInfo,
       deriveType,
       indexedAccount,
       isOthersWallet,
@@ -1545,6 +1546,14 @@ export function MobileNativeHomeRenderer({
       screen: EModalAssetListRoutes.TokenList,
       params: {
         title: intl.formatMessage({ id: ETranslations.low_value_assets }),
+        helpText: [
+          intl.formatMessage({
+            id: ETranslations.low_value_assets_desc_out_of_range,
+          }),
+          intl.formatMessage({
+            id: ETranslations.low_value_assets_desc,
+          }),
+        ],
         accountId: account.id,
         networkId: network.id,
         walletId: wallet.id,
@@ -1555,6 +1564,7 @@ export function MobileNativeHomeRenderer({
           map: portfolioPayload.smallBalanceMap ?? {},
         },
         deriveType,
+        deriveInfo,
         hideValue,
         isAllNetworks: network.isAllNetworks,
         aggregateTokensListMap: portfolioPayload.aggregateTokenListMap,
@@ -1566,6 +1576,7 @@ export function MobileNativeHomeRenderer({
     });
   }, [
     account,
+    deriveInfo,
     deriveType,
     hideValue,
     indexedAccount?.id,
@@ -1593,6 +1604,7 @@ export function MobileNativeHomeRenderer({
           map: portfolioPayload.riskMap ?? {},
         },
         deriveType,
+        deriveInfo,
         isAllNetworks: network.isAllNetworks,
         hideValue,
         accountAddress: account.address,
@@ -1600,6 +1612,7 @@ export function MobileNativeHomeRenderer({
     });
   }, [
     account,
+    deriveInfo,
     deriveType,
     hideValue,
     navigation,

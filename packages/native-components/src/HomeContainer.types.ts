@@ -167,7 +167,7 @@ export interface IHomeContainerItem {
   imageUrls?: string[];
   secondaryImageUrl?: string;
   titleAccessoryImageUrl?: string;
-  titleAccessoryIcon?: 'gas';
+  titleAccessoryIcon?: 'gas' | 'question';
   badge?: string;
   badges?: string[];
   badgeImageUrl?: string;
