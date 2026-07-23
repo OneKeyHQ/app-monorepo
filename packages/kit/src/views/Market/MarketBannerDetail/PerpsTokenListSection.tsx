@@ -120,7 +120,7 @@ export function PerpsTokenListSection({
     );
   }, [isLoading, intl]);
 
-  if (platformEnv.isNative && !gtMd) {
+  if (!gtMd) {
     return (
       <BannerDetailTokenFlatList
         data={mobileTokens}
