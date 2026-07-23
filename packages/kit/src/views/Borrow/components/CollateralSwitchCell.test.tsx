@@ -321,9 +321,9 @@ describe('CollateralSwitchCell settlement guard', () => {
     );
   });
 
-  it('omits eModeId when disabling collateral', async () => {
+  it('ignores collateral eligibility and omits eModeId when disabling', async () => {
     promiseResultMock.mockReturnValue({
-      result: { liquidationRisk: false },
+      result: { canBeCollateral: false, liquidationRisk: false },
       isLoading: false,
     });
     const view = render(
@@ -380,7 +380,7 @@ describe('CollateralSwitchCell settlement guard', () => {
       { canBeCollateral: true, liquidationRisk: true },
       false,
       false,
-      false,
+      true,
     ],
   ])(
     'blocks confirmation when %s',
@@ -428,6 +428,9 @@ describe('CollateralSwitchCell settlement guard', () => {
           typeof node.props.onConfirm === 'function',
       );
       expect(footer).toBeDefined();
+      if (isLoading === undefined) {
+        expect(footer?.props.confirmButtonProps?.loading).toBe(true);
+      }
       const onConfirm = footer?.props.onConfirm as
         | (() => Promise<void>)
         | undefined;
