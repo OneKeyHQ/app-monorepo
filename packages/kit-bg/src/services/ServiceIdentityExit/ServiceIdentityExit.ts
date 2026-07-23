@@ -2210,38 +2210,15 @@ class ServiceIdentityExit extends ServiceBase {
     messageId: string;
     claimId: string;
   }): Promise<{ updated: boolean }> {
-    const timestamp = Date.now();
-    let entry: IIdentityExitJournalEntry | undefined;
-    try {
-      entry =
-        await this.backgroundApi.simpleDb.prime.completeRemoteOneKeyIdLogoutPresentation(
-          {
-            operationId,
-            messageId,
-            claimId,
-            presentationHandledAt: timestamp,
-            tombstoneExpiresAt:
-              timestamp + REMOTE_DEVICE_LOGOUT_TOMBSTONE_TTL_MS,
-          },
-        );
-    } catch (error) {
-      try {
-        const current = (
-          await this.backgroundApi.simpleDb.prime.getIdentityExitOperationJournal()
-        )[operationId];
-        if (
-          current?.remoteDeviceLogout?.messageId === messageId &&
-          current.remoteDeviceLogout.presentationHandledClaimId === claimId
-        ) {
-          entry = current;
-        }
-      } catch {
-        // Preserve the original write error when reconciliation cannot read.
-      }
-      if (!entry) {
-        throw error;
-      }
-    }
+    const { completeRemoteOneKeyIdLogoutPresentation } =
+      await import('./remoteOneKeyIdLogoutPresentation');
+    const entry = await completeRemoteOneKeyIdLogoutPresentation({
+      primeDb: this.backgroundApi.simpleDb.prime,
+      operationId,
+      messageId,
+      claimId,
+      tombstoneTtlMs: REMOTE_DEVICE_LOGOUT_TOMBSTONE_TTL_MS,
+    });
     if (!entry) {
       return { updated: false };
     }
