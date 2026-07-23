@@ -21,7 +21,10 @@ import {
   usePerpsAllMidsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { IPerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAccountAtom,
+  usePerpsTradingPreferencesAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -50,11 +53,13 @@ import { SizeInput } from '../TradingPanel/inputs/SizeInput';
 import { TpSlFormInput } from '../TradingPanel/inputs/TpSlFormInput';
 
 import {
+  buildAddPositionMinimumAmountLabel,
   isAddPositionAssetDataScoped,
   isAddPositionScopeValid,
   validateAddPositionOrder,
 } from './utils/addPosition';
 
+import type { IAddPositionValidationError } from './utils/addPosition';
 import type { IntlShape } from 'react-intl';
 type IAddPositionOrderType = 'market' | 'limit';
 
@@ -73,6 +78,8 @@ const AddPositionForm = memo(
     const intl = useIntl();
     const actions = useHyperliquidActions();
     const [activeAccount] = usePerpsActiveAccountAtom();
+    const [tradingPreferences] = usePerpsTradingPreferencesAtom();
+    const sizeInputUnit = tradingPreferences.sizeInputUnit ?? 'usd';
     const [allMids] = usePerpsAllMidsAtom();
     const activePositions = usePerpsAccountScopedActivePositions();
     const currentPosition = useMemo(
@@ -197,14 +204,50 @@ const AddPositionForm = memo(
       szDecimals !== undefined &&
       isAddPositionAssetDataScoped({ data: assetData, coin, accountAddress }),
     );
-    const validation = validateAddPositionOrder({
-      size: amount,
-      price: effectivePrice,
-      maxSize,
-      szDecimals: szDecimals ?? 0,
-    });
-    const isFormValid = Boolean(
-      isScopeValid && isTargetAssetReady && !validation.error,
+    // Size problems keep the button pressable and surface a toast on press,
+    // matching the main trading panel instead of silently disabling it.
+    const showValidationToast = useCallback(
+      ({
+        error,
+        price,
+        decimals,
+      }: {
+        error: IAddPositionValidationError;
+        price: string;
+        decimals: number;
+      }) => {
+        if (error === 'invalidPrice') {
+          Toast.message({
+            title: intl.formatMessage({
+              id: ETranslations.perp_trade_price_place_holder,
+            }),
+          });
+          return;
+        }
+        if (error === 'insufficientMargin') {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.perp_insufficient_margin__title,
+            }),
+          });
+          return;
+        }
+        Toast.message({
+          title: intl.formatMessage(
+            { id: ETranslations.perp_size_least },
+            {
+              amount: buildAddPositionMinimumAmountLabel({
+                price,
+                szDecimals: decimals,
+                sizeInputUnit,
+                leverage,
+                symbol: displayName,
+              }),
+            },
+          ),
+        });
+      },
+      [displayName, intl, leverage, sizeInputUnit],
     );
 
     const handleTpslCheckboxChange = useCallback(
@@ -227,7 +270,29 @@ const AddPositionForm = memo(
     );
 
     const handleSubmit = useCallback(async () => {
-      if (!isFormValid || isSubmitting) {
+      if (isSubmitting || !isTargetAssetReady) {
+        return;
+      }
+      if (!isScopeValid) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.position_or_account_changed__msg,
+          }),
+        });
+        return;
+      }
+      const localValidation = validateAddPositionOrder({
+        size: amount,
+        price: effectivePrice,
+        maxSize,
+        szDecimals: szDecimals ?? 0,
+      });
+      if (localValidation.error) {
+        showValidationToast({
+          error: localValidation.error,
+          price: effectivePrice,
+          decimals: szDecimals ?? 0,
+        });
         return;
       }
       setIsSubmitting(true);
@@ -262,16 +327,12 @@ const AddPositionForm = memo(
           szDecimals: latestSzDecimals,
         });
         if (latestValidation.error) {
-          throw new OneKeyLocalError(
-            latestValidation.error === 'minimumOrder'
-              ? intl.formatMessage(
-                  { id: ETranslations.perp_order_size_small },
-                  { amount: '$10' },
-                )
-              : intl.formatMessage({
-                  id: ETranslations.position_increase_amount_unavailable__msg,
-                }),
-          );
+          showValidationToast({
+            error: latestValidation.error,
+            price: latestPrice,
+            decimals: latestSzDecimals,
+          });
+          return;
         }
 
         const latestPosition = currentPositionRef.current;
@@ -317,18 +378,23 @@ const AddPositionForm = memo(
       actions,
       amount,
       coin,
+      effectivePrice,
       fetchTargetAssetData,
       hasTpsl,
       intl,
       isBuy,
-      isFormValid,
+      isScopeValid,
       isSubmitting,
+      isTargetAssetReady,
       limitPrice,
       leverage,
+      maxSize,
       onClose,
       orderType,
+      showValidationToast,
       slType,
       slValue,
+      szDecimals,
       tpType,
       tpValue,
     ]);
@@ -471,22 +537,12 @@ const AddPositionForm = memo(
             />
           </YStack>
         ) : null}
-        <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_trading_adjust_margin_max,
-            })}
-          </SizableText>
-          <SizableText size="$bodySmMedium">
-            {maxSize} {displayName}
-          </SizableText>
-        </XStack>
         <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
           <Button
             testID={PerpTestIDs.AddPositionConfirmButton}
             size={PERP_DIALOG_BUTTON_SIZE}
             variant="primary"
-            disabled={!isFormValid || isSubmitting}
+            disabled={isSubmitting || !isTargetAssetReady}
             loading={isSubmitting}
             onPress={handleSubmit}
           >
