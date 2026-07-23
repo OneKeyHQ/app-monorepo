@@ -170,6 +170,7 @@ export enum EAppEventBusNames {
   HyperliquidDataUpdate = 'HyperliquidDataUpdate',
   HyperliquidConnectionChange = 'HyperliquidConnectionChange',
   PerpsWebSocketRecovered = 'PerpsWebSocketRecovered',
+  PerpsTvPriceScaleRefreshed = 'PerpsTvPriceScaleRefreshed',
   PerpSwitchActiveInstrument = 'PerpSwitchActiveInstrument',
   PerpSwitchInfoPanelTab = 'PerpSwitchInfoPanelTab',
   BtcFreshAddressUpdated = 'BtcFreshAddressUpdated',
