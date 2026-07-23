@@ -3505,6 +3505,10 @@ class ServiceAccount extends ServiceBase {
       await this.backgroundApi.serviceHardware.getCompatibleConnectId({
         connectId,
         featuresDeviceId: dbDevice.deviceId,
+        // Without the vendor the lookup defaults to OneKey and misses a
+        // third-party device row, so a Trezor main connectId (deviceId) leaks
+        // raw into the BLE session and hangs on the noble connect timeout.
+        vendor: dbDevice.vendor,
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
 
@@ -3686,6 +3690,10 @@ class ServiceAccount extends ServiceBase {
         : await this.backgroundApi.serviceHardware.getCompatibleConnectId({
             connectId: params.device.connectId ?? '',
             featuresDeviceId: params.device.deviceId ?? '',
+            // Third-party rows are invisible to the default (OneKey) lookup;
+            // without this a Trezor arriving with its main connectId (e.g. the
+            // hidden-wallet path passes the DB record) keeps the raw deviceId.
+            vendor,
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           });
 
