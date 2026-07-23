@@ -64,7 +64,7 @@ function makeDeps(overrides: { sdk?: Partial<CoreApi> } = {}): {
 } {
   const device = makeDevice();
   const sdk = {
-    refreshDeviceState: jest.fn(async () =>
+    getDeviceState: jest.fn(async () =>
       makeSuccess({ status: { unlocked: true } }),
     ),
     deviceUnlock: jest.fn(async () => makeSuccess({})),

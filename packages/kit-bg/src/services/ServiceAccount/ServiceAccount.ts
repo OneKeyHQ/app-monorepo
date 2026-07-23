@@ -3673,23 +3673,12 @@ class ServiceAccount extends ServiceBase {
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           });
 
-    const deviceId = deviceUtils.getRawDeviceId({
+    let deviceId = deviceUtils.getRawDeviceId({
       device: params.device,
       features,
       isThirdParty: vendorProfile?.isThirdParty,
     });
 
-    let xfp: string | undefined;
-    if (fillingXfpByCallingSdk && !isMockedStandardHwWallet) {
-      xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({
-        connectId: compatibleConnectId,
-        deviceId,
-        passphraseState,
-        throwError: true,
-        withUserInteraction: true,
-        vendor,
-      });
-    }
     const deviceState = await resolveDeviceStateForHwWalletCreate({
       existingState: params.deviceState,
       isThirdParty: Boolean(vendorProfile?.isThirdParty),
@@ -3703,6 +3692,10 @@ class ServiceAccount extends ServiceBase {
           error,
         ),
     });
+    const liveDeviceId = deviceState?.identity.deviceId;
+    if (!vendorProfile?.isThirdParty && liveDeviceId) {
+      deviceId = liveDeviceId;
+    }
     // Refresh DB info when compatibility lookup resolves to another connectId.
     // Skip empty connectId: getDeviceByQuery would otherwise match by vendor
     // alone and swap in another device of the same vendor.
@@ -3718,6 +3711,22 @@ class ServiceAccount extends ServiceBase {
       if (refreshedDevice) {
         params.device = refreshedDevice;
       }
+    }
+    if (!vendorProfile?.isThirdParty && liveDeviceId) {
+      params.device = { ...params.device, deviceId: liveDeviceId };
+      params.features = { ...params.features, deviceId: liveDeviceId };
+    }
+
+    let xfp: string | undefined;
+    if (fillingXfpByCallingSdk && !isMockedStandardHwWallet) {
+      xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({
+        connectId: compatibleConnectId,
+        deviceId,
+        passphraseState,
+        throwError: true,
+        withUserInteraction: true,
+        vendor,
+      });
     }
     const result = await localDb.createHwWallet({
       ...params,

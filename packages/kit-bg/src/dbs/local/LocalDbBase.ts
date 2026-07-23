@@ -86,6 +86,11 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  hasDeviceStateIdentityMismatch,
+  mergeDeviceStateEvent,
+  projectLegacyDeviceFeaturesFromState,
+} from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -210,6 +215,23 @@ export function sanitizeDeviceStateForPersistence(
   delete (persistedState as unknown as { session?: unknown }).session;
   return persistedState;
 }
+
+export type IUpdateDeviceStateResult =
+  | {
+      kind: 'updated';
+      deviceDbId: string;
+      state: IOneKeyDeviceState;
+    }
+  | {
+      kind: 'identity-mismatch';
+      deviceDbId: string;
+      currentDeviceId: string;
+      incomingDeviceId: string;
+    }
+  | {
+      kind: 'ignored';
+      reason: 'device-not-found' | 'stale';
+    };
 
 const LOCAL_PASSWORD_KDF_LAZY_UPGRADE_CREDENTIAL_BATCH_SIZE = 3;
 const LOCAL_SECRET_ENVELOPE_CREDENTIAL_MIGRATION_BATCH_SIZE = 3;
@@ -5005,7 +5027,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     revision: number;
     source: string;
     state: IOneKeyDeviceState;
-  }) {
+  }): Promise<IUpdateDeviceStateResult> {
     const { devices } = await this.getAllDevices();
     const oneKeyDevices = devices.filter(
       (item) =>
@@ -5013,15 +5035,28 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     );
     const serialNo = state.identity.serialNo;
     const deviceId = state.identity.deviceId;
-    let device = serialNo
-      ? oneKeyDevices.find((item) => item.uuid === serialNo)
-      : undefined;
+    const getPersistedDeviceId = (item: IDBDevice) =>
+      item.deviceStateInfo?.identity.deviceId || item.deviceId;
+    const serialCandidates = serialNo
+      ? oneKeyDevices.filter((item) => item.uuid === serialNo)
+      : [];
+    let device =
+      serialNo && deviceId
+        ? serialCandidates.find(
+            (item) => getPersistedDeviceId(item) === deviceId,
+          )
+        : undefined;
     if (!device && deviceId) {
       device = oneKeyDevices.find(
         (item) =>
-          item.deviceId === deviceId &&
+          getPersistedDeviceId(item) === deviceId &&
           (!serialNo || !item.uuid || item.uuid === serialNo),
       );
+    }
+    if (!device && serialCandidates.length > 0) {
+      device = [...serialCandidates].toSorted(
+        (left, right) => right.updatedAt - left.updatedAt,
+      )[0];
     }
     if (!device) {
       const normalizedConnectId = connectId?.toLowerCase();
@@ -5037,8 +5072,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         : undefined;
     }
     if (!device) {
-      return;
+      return { kind: 'ignored' as const, reason: 'device-not-found' as const };
     }
+    let updateResult: IUpdateDeviceStateResult = {
+      kind: 'ignored',
+      reason: 'stale',
+    };
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
         tx,
@@ -5048,6 +5087,22 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           const currentState = item.deviceState
             ? (JSON.parse(item.deviceState) as IOneKeyDeviceState)
             : undefined;
+          const currentDeviceId =
+            currentState?.identity.deviceId || item.deviceId;
+          if (
+            hasDeviceStateIdentityMismatch({
+              currentDeviceId,
+              incomingDeviceId: state.identity.deviceId,
+            })
+          ) {
+            updateResult = {
+              kind: 'identity-mismatch',
+              deviceDbId: item.id,
+              currentDeviceId: currentDeviceId as string,
+              incomingDeviceId: state.identity.deviceId as string,
+            };
+            return item;
+          }
           if (
             currentState &&
             (state.updatedAt < currentState.updatedAt ||
@@ -5056,61 +5111,46 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           ) {
             return item;
           }
-          const persistedState = currentState
-            ? structuredClone(currentState)
-            : sanitizeDeviceStateForPersistence(state);
-          if (currentState) {
-            for (const changedKey of changedKeys) {
-              const isNonPersistedKey =
-                changedKey === 'identity.displayName' ||
-                changedKey === 'raw' ||
-                changedKey === 'session';
-              if (!isNonPersistedKey) {
-                if (changedKey === '*') {
-                  Object.assign(persistedState, structuredClone(state));
-                  break;
-                }
-                const [section, field] = changedKey.split('.');
-                if (field) {
-                  const targetSection = persistedState[
-                    section as keyof IOneKeyDeviceState
-                  ] as unknown as Record<string, unknown>;
-                  const incomingSection = state[
-                    section as keyof IOneKeyDeviceState
-                  ] as unknown as Record<string, unknown>;
-                  if (targetSection && incomingSection) {
-                    targetSection[field] = structuredClone(
-                      incomingSection[field],
-                    );
-                  }
-                } else if (section in state) {
-                  (persistedState as unknown as Record<string, unknown>)[
-                    section
-                  ] = structuredClone(
-                    (state as unknown as Record<string, unknown>)[section],
-                  );
-                }
-              }
-            }
-            persistedState.revision = state.revision;
-            persistedState.updatedAt = state.updatedAt;
-          }
-          persistedState.identity.displayName =
-            persistedState.identity.label ||
-            persistedState.identity.bleName ||
-            deviceUtils.getDefaultDeviceLabel(
-              persistedState.identity.deviceType,
-            ) ||
-            persistedState.identity.model ||
-            `OneKey ${persistedState.identity.deviceType.toUpperCase()}`;
-          delete (persistedState as unknown as { raw?: unknown }).raw;
-          delete (persistedState as unknown as { session?: unknown }).session;
+          const persistedState = mergeDeviceStateEvent({
+            currentState,
+            incomingState: state,
+            changedKeys,
+          });
+          const currentFeatures = JSON.parse(item.features || '{}') as Record<
+            string,
+            unknown
+          >;
+          const appFeatureParams = Object.fromEntries(
+            Object.entries(currentFeatures).filter(([key]) =>
+              key.startsWith('$app_'),
+            ),
+          );
           item.deviceState = stringUtils.stableStringify(persistedState);
           item.name = persistedState.identity.displayName;
+          item.updatedAt = Math.max(item.updatedAt, persistedState.updatedAt);
+          if (persistedState.identity.deviceId) {
+            item.deviceId = persistedState.identity.deviceId;
+          }
+          if (persistedState.identity.serialNo) {
+            item.uuid = persistedState.identity.serialNo;
+          }
+          if (persistedState.identity.deviceType !== EDeviceType.Unknown) {
+            item.deviceType = persistedState.identity.deviceType;
+          }
+          item.features = stringUtils.stableStringify({
+            ...projectLegacyDeviceFeaturesFromState(persistedState),
+            ...appFeatureParams,
+          });
+          updateResult = {
+            kind: 'updated',
+            deviceDbId: item.id,
+            state: persistedState,
+          };
           return item;
         },
       });
     });
+    return updateResult;
   }
 
   async updateThirdPartyDeviceFeatures({

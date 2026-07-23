@@ -228,8 +228,13 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
       if (vendorProfile.isThirdParty) {
         return false;
       }
+      const currentState = resolveDeviceState({
+        persistedState: data?.device?.deviceStateInfo,
+        snapshot: get(deviceStateSnapshotAtom()),
+      });
       const snapshot = getDeviceStateSnapshotFromEvent({
         device: data?.device,
+        currentState,
         event,
       });
       if (!snapshot) {
@@ -249,8 +254,8 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
       set,
       incomingWalletId?: string,
       options?: {
-        refreshPro2Info?: boolean;
-        skipPro2Snapshot?: boolean;
+        refreshFirmwareInfo?: boolean;
+        skipDeviceStateSnapshot?: boolean;
       },
     ) => {
       const walletId = incomingWalletId ?? get(currentWalletIdAtom());
@@ -279,22 +284,25 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
         }
         set(currentWalletIdAtom(), walletId);
         set(walletWithDeviceStateAtom(), data);
+        const vendorProfile = getVendorProfile(
+          data?.device?.vendor ?? EHardwareVendor.onekey,
+        );
         if (
-          data?.device?.deviceType === EDeviceType.Pro2 &&
-          data.device.connectId &&
-          !options?.skipPro2Snapshot
+          data?.device?.connectId &&
+          !vendorProfile.isThirdParty &&
+          !options?.skipDeviceStateSnapshot
         ) {
           const snapshot = await backgroundApiProxy.serviceHardware
-            .getPro2DeviceManagementSnapshot({
+            .getDeviceManagementSnapshot({
               connectId: data.device.connectId,
-              refreshInfo: options?.refreshPro2Info,
+              refreshInfo: options?.refreshFirmwareInfo,
             })
             .catch(() => undefined);
           if (get(currentWalletIdAtom()) !== walletId) {
             return data;
           }
           set(deviceStateSnapshotAtom(), snapshot);
-        } else if (data?.device?.deviceType !== EDeviceType.Pro2) {
+        } else if (!vendorProfile.isThirdParty) {
           set(
             deviceStateSnapshotAtom(),
             data?.device?.deviceStateInfo

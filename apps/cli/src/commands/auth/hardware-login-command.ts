@@ -182,10 +182,8 @@ export async function executeHardwareLoginCommand({
   // 通过统一设备状态读取身份和动态状态。
   const sdk = await ensureSDKReady();
   const getDeviceState = async () => {
-    const deviceStateResult = await sdk.refreshDeviceState(connectId, {
-      scope: 'runtime',
-    });
-    return unwrapSDKResult(deviceStateResult, 'refreshDeviceState') as {
+    const deviceStateResult = await sdk.getDeviceState(connectId);
+    return unwrapSDKResult(deviceStateResult, 'getDeviceState') as {
       identity: {
         label?: string | null;
         deviceType?: string;

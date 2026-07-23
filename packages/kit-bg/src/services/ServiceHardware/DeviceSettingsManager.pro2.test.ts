@@ -198,13 +198,13 @@ describe('DeviceSettingsManager Pro2 adapter', () => {
       success: true as const,
       payload: { message: 'Success' },
     }));
-    const refreshDeviceState = jest.fn(async () => ({
+    const getDeviceState = jest.fn(async () => ({
       success: true as const,
       payload: { status: { passphraseProtection: true } },
     }));
     const manager = buildManager(buildDevice(EDeviceType.Pro2), {
       deviceSettingsPageShow,
-      refreshDeviceState,
+      getDeviceState,
     } as unknown as CoreApi);
 
     await manager.setPassphraseEnabled({
@@ -216,9 +216,7 @@ describe('DeviceSettingsManager Pro2 adapter', () => {
       page: 'DevicePassphrase',
       fieldName: 'passphrase_enable',
     });
-    expect(refreshDeviceState).toHaveBeenCalledWith('PRO2_CONNECT_ID', {
-      scope: 'runtime',
-    });
+    expect(getDeviceState).toHaveBeenCalledWith('PRO2_CONNECT_ID');
   });
 
   test('decodes the compressed Pro2 wallpaper in background before upload', async () => {

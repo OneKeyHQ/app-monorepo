@@ -290,4 +290,194 @@ describe('LocalDb DeviceState persistence', () => {
       'Renamed second device',
     );
   });
+
+  it('synchronizes canonical identity into legacy device fields and features', async () => {
+    const current = createState({
+      revision: 1,
+      updatedAt: 100,
+      label: 'My Pro 2',
+      language: 'en-US',
+      serialNo: 'SERIAL-A',
+      deviceId: null,
+    });
+    const incoming = createState({
+      revision: 2,
+      updatedAt: 200,
+      label: 'My Pro 2',
+      language: 'en-US',
+      serialNo: 'SERIAL-A',
+      deviceId: 'LIVE_DEVICE_ID',
+    });
+    const db = new DeviceStateTestLocalDb(current);
+    db.devices[0].features = JSON.stringify({
+      deviceId: 'STALE_DEVICE_ID',
+      $app_firmware_type: 'universal',
+    });
+
+    await db.updateDeviceState({
+      connectId: 'ABC-DEF',
+      state: incoming,
+      revision: incoming.revision,
+      source: 'device-status',
+      changedKeys: ['identity.deviceId'],
+    });
+
+    const features = JSON.parse(db.device.features);
+    expect(db.device.deviceId).toBe('LIVE_DEVICE_ID');
+    expect(db.device.uuid).toBe('SERIAL-A');
+    expect(db.device.deviceType).toBe(EDeviceType.Pro2);
+    expect(features.deviceId).toBe('LIVE_DEVICE_ID');
+    expect(features.device_id).toBe('LIVE_DEVICE_ID');
+    expect(features.$app_firmware_type).toBe('universal');
+  });
+
+  it('matches the exact seed identity when one serial has multiple device records', async () => {
+    const oldState = createState({
+      revision: 5,
+      updatedAt: 100,
+      label: 'Old wallet',
+      language: 'en-US',
+      serialNo: 'SERIAL-A',
+      deviceId: 'OLD_DEVICE_ID',
+    });
+    const currentState = createState({
+      revision: 2,
+      updatedAt: 150,
+      label: 'Current wallet',
+      language: 'en-US',
+      serialNo: 'SERIAL-A',
+      deviceId: 'CURRENT_DEVICE_ID',
+    });
+    const incoming = createState({
+      revision: 3,
+      updatedAt: 200,
+      label: 'Renamed current wallet',
+      language: 'en-US',
+      serialNo: 'SERIAL-A',
+      deviceId: 'CURRENT_DEVICE_ID',
+    });
+    const db = new DeviceStateTestLocalDb(oldState);
+    db.devices[0].uuid = 'SERIAL-A';
+    db.devices[0].deviceId = 'OLD_DEVICE_ID';
+    db.devices.push({
+      ...db.devices[0],
+      id: 'device-db-2',
+      name: currentState.identity.displayName,
+      deviceId: 'CURRENT_DEVICE_ID',
+      deviceState: JSON.stringify(currentState),
+      updatedAt: 2,
+    });
+
+    await expect(
+      db.updateDeviceState({
+        connectId: 'ABC-DEF',
+        state: incoming,
+        revision: incoming.revision,
+        source: 'apply-settings',
+        changedKeys: ['identity.label', 'identity.displayName'],
+      }),
+    ).resolves.toMatchObject({
+      kind: 'updated',
+      deviceDbId: 'device-db-2',
+    });
+
+    expect(JSON.parse(db.devices[0].deviceState || '{}').identity.label).toBe(
+      'Old wallet',
+    );
+    expect(JSON.parse(db.devices[1].deviceState || '{}').identity.label).toBe(
+      'Renamed current wallet',
+    );
+  });
+
+  it('compares a new reset identity with the latest record for the same serial', async () => {
+    const oldState = createState({
+      revision: 5,
+      updatedAt: 100,
+      label: 'Old wallet',
+      language: 'en-US',
+      serialNo: 'SERIAL-A',
+      deviceId: 'OLD_DEVICE_ID',
+    });
+    const currentState = createState({
+      revision: 2,
+      updatedAt: 150,
+      label: 'Current wallet',
+      language: 'en-US',
+      serialNo: 'SERIAL-A',
+      deviceId: 'CURRENT_DEVICE_ID',
+    });
+    const resetState = createState({
+      revision: 1,
+      updatedAt: 200,
+      label: 'Reset again',
+      language: 'en-US',
+      serialNo: 'SERIAL-A',
+      deviceId: 'NEXT_DEVICE_ID',
+    });
+    const db = new DeviceStateTestLocalDb(oldState);
+    db.devices[0].uuid = 'SERIAL-A';
+    db.devices[0].deviceId = 'OLD_DEVICE_ID';
+    db.devices.push({
+      ...db.devices[0],
+      id: 'device-db-2',
+      name: currentState.identity.displayName,
+      deviceId: 'CURRENT_DEVICE_ID',
+      deviceState: JSON.stringify(currentState),
+      updatedAt: 2,
+    });
+
+    await expect(
+      db.updateDeviceState({
+        connectId: 'ABC-DEF',
+        state: resetState,
+        revision: resetState.revision,
+        source: 'device-status',
+        changedKeys: ['identity.deviceId'],
+      }),
+    ).resolves.toMatchObject({
+      kind: 'identity-mismatch',
+      deviceDbId: 'device-db-2',
+      currentDeviceId: 'CURRENT_DEVICE_ID',
+      incomingDeviceId: 'NEXT_DEVICE_ID',
+    });
+  });
+
+  it('isolates a reset identity instead of overwriting the wallet bound to the serial', async () => {
+    const current = createState({
+      revision: 8,
+      updatedAt: 100,
+      label: 'Original wallet',
+      language: 'en-US',
+      serialNo: 'SERIAL-A',
+      deviceId: 'OLD_DEVICE_ID',
+    });
+    const incoming = createState({
+      revision: 9,
+      updatedAt: 200,
+      label: 'Reset wallet',
+      language: 'ja-JP',
+      serialNo: 'SERIAL-A',
+      deviceId: 'NEW_DEVICE_ID',
+    });
+    const db = new DeviceStateTestLocalDb(current);
+    db.devices[0].uuid = 'SERIAL-A';
+    db.devices[0].deviceId = 'OLD_DEVICE_ID';
+
+    await expect(
+      db.updateDeviceState({
+        connectId: 'ABC-DEF',
+        state: incoming,
+        revision: incoming.revision,
+        source: 'device-status',
+        changedKeys: ['identity.deviceId', 'status.unlocked'],
+      }),
+    ).resolves.toMatchObject({
+      kind: 'identity-mismatch',
+      deviceDbId: 'device-db-1',
+      currentDeviceId: 'OLD_DEVICE_ID',
+      incomingDeviceId: 'NEW_DEVICE_ID',
+    });
+
+    expect(JSON.parse(db.device.deviceState || '{}')).toEqual(current);
+  });
 });

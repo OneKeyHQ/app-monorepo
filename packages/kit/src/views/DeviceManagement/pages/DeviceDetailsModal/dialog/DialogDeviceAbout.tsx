@@ -119,10 +119,10 @@ function DialogDeviceSpecsContent({ data }: { data: IHwQrWalletWithDevice }) {
       const state = vendorProfile.isThirdParty
         ? undefined
         : await backgroundApiProxy.serviceHardware
-            .refreshDeviceState({
+            .getDeviceState({
               connectId: device.connectId,
               params: {
-                scope: 'basic',
+                scope: 'firmware',
               },
               silentMode: true,
             })

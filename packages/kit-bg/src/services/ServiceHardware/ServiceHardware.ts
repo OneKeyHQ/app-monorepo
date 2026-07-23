@@ -26,6 +26,7 @@ import {
   checkBLEPermissions,
   checkBLEState,
 } from '@onekeyhq/shared/src/hardware/blePermissions';
+import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import {
   CoreSDKLoader,
   getHardwareSDKInstance,
@@ -131,7 +132,6 @@ import type {
   IDeviceType,
   KnownDevice,
   OnekeyFeatures,
-  RefreshDeviceStateParams,
   SearchDevice,
   UiEvent,
 } from '@onekeyfe/hd-core';
@@ -160,20 +160,26 @@ export type IDeviceGetStateOptions = Omit<
   'params'
 > & {
   params?: CommonParams & {
+    scope?: 'runtime' | 'settings' | 'firmware';
     allowEmptyConnectId?: boolean;
   };
 };
 
-export type IDeviceRefreshStateOptions = Omit<
-  IDeviceGetFeaturesOptions,
-  'params'
-> & {
-  params: RefreshDeviceStateParams & {
-    allowEmptyConnectId?: boolean;
-  };
-};
+type IGetDeviceStateSdkParams = NonNullable<IDeviceGetStateOptions['params']>;
 
-export type IPro2DeviceManagementSnapshot = {
+function callSdkGetDeviceState(
+  sdk: CoreApi,
+  connectId: string | undefined,
+  params?: IGetDeviceStateSdkParams,
+) {
+  const getDeviceState = sdk.getDeviceState as unknown as (
+    sdkConnectId?: string,
+    sdkParams?: IGetDeviceStateSdkParams,
+  ) => ReturnType<CoreApi['getDeviceState']>;
+  return getDeviceState(connectId, params);
+}
+
+export type IDeviceManagementSnapshot = {
   state: IOneKeyDeviceState;
 };
 
@@ -235,88 +241,6 @@ function buildOnekeyFeaturesFromState(
   };
 }
 
-/**
- * App 内部旧流程仍消费 Features 形状；OneKey 设备的真实数据源始终是 DeviceState。
- * 该投影只作为 App 兼容层，不重新引入 SDK 的 Protocol V2 getFeatures 接口。
- */
-function buildLegacyAppFeaturesFromState(
-  state: IOneKeyDeviceState,
-): IOneKeyDeviceFeatures {
-  const { identity, status, settings, versions } = state;
-  const isLoaderMode = isOneKeyLoaderMode(status.mode);
-  const oneKeyFeatures = buildOnekeyFeaturesFromState(
-    state,
-  ) as unknown as Partial<IOneKeyDeviceFeatures>;
-
-  return {
-    ...oneKeyFeatures,
-    onekey_device_type: identity.deviceType,
-    protocol: state.protocol,
-    protocolVersion: state.protocol === 'V2' ? 2 : 1,
-    deviceType: identity.deviceType,
-    firmwareType: identity.firmwareType,
-    model: identity.model,
-    vendor: identity.vendor,
-    deviceId: identity.deviceId,
-    serialNo: identity.serialNo,
-    label: identity.label,
-    bleName: identity.bleName,
-    capabilities: state.capabilities,
-    mode: status.mode,
-    initialized: status.initialized,
-    bootloaderMode: isLoaderMode,
-    unlocked: status.unlocked,
-    firmwarePresent: status.firmwarePresent,
-    passphraseProtection: status.passphraseProtection,
-    pinProtection: status.pinProtection,
-    backupRequired: status.backupRequired,
-    noBackup: status.noBackup,
-    unfinishedBackup: status.unfinishedBackup,
-    recoveryMode: status.recoveryMode,
-    language: settings.language,
-    bleEnabled: settings.bleEnabled,
-    sdCardPresent: settings.sdCardPresent,
-    sdProtection: settings.sdProtection,
-    wipeCodeProtection: settings.wipeCodeProtection,
-    passphraseAlwaysOnDevice: settings.passphraseAlwaysOnDevice,
-    attachToPinEnabled: status.attachToPinEnabled,
-    safetyChecks: settings.safetyChecks,
-    autoLockDelayMs: settings.autoLockDelayMs,
-    autoShutdownDelayMs: settings.autoShutdownDelayMs,
-    displayRotation: settings.displayRotation,
-    experimentalFeatures: settings.experimentalFeatures,
-    wallpaperPath: settings.wallpaperPath,
-    brightness: settings.brightness,
-    animationEnabled: settings.animationEnabled,
-    tapToWake: settings.tapToWake,
-    hapticFeedback: settings.hapticFeedback,
-    deviceNameDisplayEnabled: settings.deviceNameDisplayEnabled,
-    airgapMode: settings.airgapMode,
-    fidoEnabled: settings.fidoEnabled,
-    usbLockEnabled: settings.usbLockEnabled,
-    randomKeypad: settings.randomKeypad,
-    firmwareVersion: versions.firmware,
-    bootloaderVersion: versions.bootloader,
-    boardVersion: versions.board,
-    bleVersion: versions.ble,
-    se01Version: versions.se01,
-    se02Version: versions.se02,
-    se03Version: versions.se03,
-    se04Version: versions.se04,
-    se01BootVersion: versions.se01Boot,
-    se02BootVersion: versions.se02Boot,
-    se03BootVersion: versions.se03Boot,
-    se04BootVersion: versions.se04Boot,
-    verify: state.verification,
-    sessionId: null,
-    unlockedAttachPin: status.unlockedAttachPin ?? undefined,
-    device_id: identity.deviceId ?? undefined,
-    bootloader_mode: isLoaderMode,
-    passphrase_protection: status.passphraseProtection ?? undefined,
-    pin_protection: status.pinProtection ?? undefined,
-  };
-}
-
 type IHandleLinuxWebUsbAccessDeniedErrorParams = {
   error?: unknown;
 };
@@ -345,10 +269,10 @@ class ServiceHardware extends ServiceBase {
 
   private deviceStateSyncQueues = new Map<string, Promise<void>>();
 
-  /** 合并同一连接并发发起的设备管理读取，避免硬件请求互相争用。 */
-  private pro2DeviceManagementSnapshotInFlight = new Map<
+  /** Coalesce concurrent device-management reads for the same connection. */
+  private deviceManagementSnapshotInFlight = new Map<
     string,
-    Promise<IPro2DeviceManagementSnapshot>
+    Promise<IDeviceManagementSnapshot>
   >();
 
   private bridgeAvailabilityChecked = false;
@@ -792,13 +716,29 @@ class ServiceHardware extends ServiceBase {
         const task = (previous ?? Promise.resolve())
           .catch(() => undefined)
           .then(async () => {
+            let persistenceResult:
+              | Awaited<ReturnType<typeof localDb.updateDeviceState>>
+              | undefined;
             try {
-              await localDb.updateDeviceState(event);
+              persistenceResult = await localDb.updateDeviceState(event);
             } catch (error) {
               serviceHardwareUtils.hardwareLog(
                 'device state persistence failed',
                 error,
               );
+            }
+            if (persistenceResult?.kind === 'identity-mismatch') {
+              try {
+                await this.deprecateWalletsForResetDevice(
+                  persistenceResult.deviceDbId,
+                );
+              } catch (error) {
+                serviceHardwareUtils.hardwareLog(
+                  'device reset wallet isolation failed',
+                  error,
+                );
+              }
+              return;
             }
             appEventBus.emit(
               EAppEventBusNames.HardwareDeviceStateUpdate,
@@ -949,6 +889,34 @@ class ServiceHardware extends ServiceBase {
           }
         },
       );
+    }
+  }
+
+  private async deprecateWalletsForResetDevice(deviceDbId: string) {
+    const allHwWallets =
+      await this.backgroundApi.serviceAccount.getAllHwQrWalletWithDevice({
+        filterHiddenWallet: false,
+        filterQrWallet: true,
+      });
+    const willUpdateDeprecateMap: Record<string, boolean> = {};
+    for (const walletWithDevice of Object.values(allHwWallets)) {
+      const { wallet, device } = walletWithDevice;
+      if (
+        wallet?.id &&
+        (wallet.associatedDevice === deviceDbId || device?.id === deviceDbId)
+      ) {
+        willUpdateDeprecateMap[wallet.id] = true;
+      }
+    }
+    if (Object.keys(willUpdateDeprecateMap).length === 0) {
+      return;
+    }
+    const updated =
+      await this.backgroundApi.serviceAccount.updateWalletsDeprecatedState({
+        willUpdateDeprecateMap,
+      });
+    if (updated) {
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     }
   }
 
@@ -1386,22 +1354,13 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async invalidatePro2DeviceManagementInfo({
-    connectId,
-  }: {
-    connectId?: string;
-  } = {}) {
-    void connectId;
-  }
-
-  @backgroundMethod()
-  async getPro2DeviceManagementSnapshot({
+  async getDeviceManagementSnapshot({
     connectId,
     refreshInfo = false,
   }: {
     connectId: string;
     refreshInfo?: boolean;
-  }): Promise<IPro2DeviceManagementSnapshot> {
+  }): Promise<IDeviceManagementSnapshot> {
     const hardwareCallContext =
       EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG;
     const compatibleConnectId = await this.getCompatibleConnectId({
@@ -1409,46 +1368,48 @@ class ServiceHardware extends ServiceBase {
       hardwareCallContext,
     });
     const existingRequest =
-      this.pro2DeviceManagementSnapshotInFlight.get(compatibleConnectId);
+      this.deviceManagementSnapshotInFlight.get(compatibleConnectId);
     if (existingRequest) {
       return existingRequest;
     }
 
     const request = (async () => {
-      let state = refreshInfo
-        ? await this.refreshDeviceState({
-            connectId: compatibleConnectId,
-            params: { scope: 'firmware' },
-            hardwareCallContext,
-          })
-        : await this.getDeviceState({
-            connectId: compatibleConnectId,
-            hardwareCallContext,
-          });
+      let state: IOneKeyDeviceState;
       try {
-        state = await this.refreshDeviceState({
+        state = await this.getDeviceState({
           connectId: compatibleConnectId,
-          params: { scope: 'settings' },
+          params: { scope: refreshInfo ? 'firmware' : 'settings' },
           hardwareCallContext,
         });
+        if (refreshInfo) {
+          state = await this.getDeviceState({
+            connectId: compatibleConnectId,
+            params: { scope: 'settings' },
+            hardwareCallContext,
+          });
+        }
       } catch (error) {
         serviceHardwareUtils.hardwareLog(
           'device settings snapshot unavailable',
           error,
         );
+        state = await this.getDeviceState({
+          connectId: compatibleConnectId,
+          hardwareCallContext,
+        });
       }
       return { state };
     })();
-    this.pro2DeviceManagementSnapshotInFlight.set(compatibleConnectId, request);
+    this.deviceManagementSnapshotInFlight.set(compatibleConnectId, request);
 
     try {
       return await request;
     } finally {
       if (
-        this.pro2DeviceManagementSnapshotInFlight.get(compatibleConnectId) ===
+        this.deviceManagementSnapshotInFlight.get(compatibleConnectId) ===
         request
       ) {
-        this.pro2DeviceManagementSnapshotInFlight.delete(compatibleConnectId);
+        this.deviceManagementSnapshotInFlight.delete(compatibleConnectId);
       }
     }
   }
@@ -1754,18 +1715,13 @@ class ServiceHardware extends ServiceBase {
         { silentMode },
       );
     }
-    const state = await convertDeviceResponse(
-      () =>
-        hardwareSDK?.refreshDeviceState(connectId as string, {
-          ...sdkParams,
-          scope: 'basic',
-        }),
-      { silentMode },
-    );
-    if (detectBootloaderDevice && isOneKeyLoaderMode(state.status.mode)) {
+    if (
+      detectBootloaderDevice &&
+      isOneKeyLoaderMode(currentState.status.mode)
+    ) {
       throw new deviceErrors.DeviceDetectInBootloaderMode();
     }
-    return buildLegacyAppFeaturesFromState(state);
+    return projectLegacyDeviceFeaturesFromState(currentState);
   };
 
   _getFeaturesWithTimeout = makeTimeoutPromise({
@@ -1818,7 +1774,7 @@ class ServiceHardware extends ServiceBase {
       hardwareCallContext,
     });
     const state = await convertDeviceResponse(
-      () => hardwareSDK?.getDeviceState(connectId, normalizedSdkParams),
+      () => callSdkGetDeviceState(hardwareSDK, connectId, normalizedSdkParams),
       { silentMode },
     );
     return state;
@@ -1849,59 +1805,6 @@ class ServiceHardware extends ServiceBase {
         })
       : options.connectId;
     return this._getDeviceStateWithMutex({
-      ...options,
-      connectId: compatibleConnectId,
-      hardwareCallContext,
-    });
-  }
-
-  _refreshDeviceStateLowLevel = async (options: IDeviceRefreshStateOptions) => {
-    const { connectId, params, silentMode, hardwareCallContext } = options;
-    const { allowEmptyConnectId, ...sdkParams } = params;
-    serviceHardwareUtils.hardwareLog(
-      `call refreshDeviceState(${sdkParams.scope})`,
-      connectId,
-    );
-    if (!allowEmptyConnectId && !connectId) {
-      throw new OneKeyLocalError(
-        'hardware refreshDeviceState ERROR: connectId is undefined',
-      );
-    }
-    const hardwareSDK = await this.getSDKInstance({
-      connectId,
-      hardwareCallContext,
-    });
-    return convertDeviceResponse(
-      () => hardwareSDK?.refreshDeviceState(connectId as string, sdkParams),
-      { silentMode },
-    );
-  };
-
-  _refreshDeviceStateWithTimeout = makeTimeoutPromise({
-    asyncFunc: this._refreshDeviceStateLowLevel,
-    timeout: timerUtils.getTimeDurationMs({ seconds: 60 }),
-    timeoutRejectError: new deviceErrors.DeviceMethodCallTimeout(),
-  });
-
-  _refreshDeviceStateWithMutex = async (
-    options: IDeviceRefreshStateOptions,
-  ): Promise<IOneKeyDeviceState> =>
-    this.getFeaturesMutex.runExclusive(async () =>
-      this._refreshDeviceStateWithTimeout(options),
-    );
-
-  @backgroundMethod()
-  async refreshDeviceState(options: IDeviceRefreshStateOptions) {
-    const hardwareCallContext =
-      options.hardwareCallContext ??
-      EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG;
-    const compatibleConnectId = options.connectId
-      ? await this.getCompatibleConnectId({
-          connectId: options.connectId,
-          hardwareCallContext,
-        })
-      : options.connectId;
-    return this._refreshDeviceStateWithMutex({
       ...options,
       connectId: compatibleConnectId,
       hardwareCallContext,
@@ -2318,7 +2221,7 @@ class ServiceHardware extends ServiceBase {
       connectId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
-    const state = await this.refreshDeviceState({
+    const state = await this.getDeviceState({
       connectId: compatibleConnectId,
       params: { scope: 'firmware' },
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,

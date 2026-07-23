@@ -30,7 +30,7 @@ export async function resolveHardwarePassphraseEnabled({
   }
 
   const refreshedState =
-    await backgroundApiProxy.serviceHardware.refreshDeviceState({
+    await backgroundApiProxy.serviceHardware.getDeviceState({
       connectId: device.connectId ?? '',
       params: { scope: 'settings' },
     });

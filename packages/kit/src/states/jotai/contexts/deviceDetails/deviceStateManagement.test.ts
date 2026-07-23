@@ -13,6 +13,7 @@ describe('getDeviceStateSnapshotFromEvent', () => {
         identity: {
           deviceType,
           serialNo: `${deviceType}_SERIAL`,
+          label: `Renamed ${deviceType}`,
           displayName: `Renamed ${deviceType}`,
         },
       };
@@ -52,6 +53,87 @@ describe('getDeviceStateSnapshotFromEvent', () => {
         event: {
           connectId: 'REUSED',
           state: { identity: { serialNo: 'SERIAL-OTHER' } },
+        },
+      } as never),
+    ).toBeUndefined();
+  });
+
+  it('merges only changed fields and preserves trusted runtime state', () => {
+    const currentState = {
+      revision: 3,
+      updatedAt: 300,
+      identity: {
+        deviceId: 'DEVICE_ID',
+        serialNo: 'SERIAL',
+        label: 'Desk wallet',
+        bleName: 'Pro2 6136',
+        displayName: 'Desk wallet',
+      },
+      status: { mode: 'normal', unlocked: false },
+      settings: { language: 'en-US' },
+      versions: { firmware: '1.0.0' },
+    };
+    const snapshot = getDeviceStateSnapshotFromEvent({
+      device: {
+        connectId: 'PRO2_USB',
+        uuid: 'SERIAL',
+        deviceId: 'DEVICE_ID',
+      },
+      currentState,
+      event: {
+        connectId: 'PRO2_USB',
+        revision: 4,
+        changedKeys: ['identity.bleName'],
+        state: {
+          ...currentState,
+          revision: 4,
+          updatedAt: 400,
+          identity: {
+            ...currentState.identity,
+            deviceId: null,
+            label: null,
+            bleName: 'Pro2 9999',
+            displayName: 'Pro2 9999',
+          },
+          status: { mode: 'normal', unlocked: null },
+          settings: { language: null },
+        },
+      },
+    } as never);
+
+    expect(snapshot?.state.identity).toMatchObject({
+      deviceId: 'DEVICE_ID',
+      label: 'Desk wallet',
+      bleName: 'Pro2 9999',
+      displayName: 'Desk wallet',
+    });
+    expect(snapshot?.state.status.unlocked).toBe(false);
+    expect(snapshot?.state.settings.language).toBe('en-US');
+  });
+
+  it('rejects a new wallet identity even when the physical serial still matches', () => {
+    expect(
+      getDeviceStateSnapshotFromEvent({
+        device: {
+          connectId: 'PRO2_USB',
+          uuid: 'SERIAL',
+          deviceId: 'OLD_DEVICE_ID',
+        },
+        currentState: {
+          identity: {
+            serialNo: 'SERIAL',
+            deviceId: 'OLD_DEVICE_ID',
+          },
+        },
+        event: {
+          connectId: 'PRO2_USB',
+          changedKeys: ['identity.deviceId'],
+          state: {
+            identity: {
+              serialNo: 'SERIAL',
+              deviceId: 'NEW_DEVICE_ID',
+            },
+          },
         },
       } as never),
     ).toBeUndefined();

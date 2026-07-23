@@ -1,3 +1,4 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyDeviceState } from '@onekeyhq/shared/types/device';
 
 export async function resolveDeviceStateForHwWalletCreate({
@@ -15,13 +16,19 @@ export async function resolveDeviceStateForHwWalletCreate({
   getDeviceState: (connectId: string) => Promise<IOneKeyDeviceState>;
   onError?: (error: unknown) => void;
 }) {
-  if (existingState || isThirdParty || isMocked || !connectId) {
+  if (isThirdParty || isMocked || !connectId) {
     return existingState;
   }
   try {
-    return await getDeviceState(connectId);
+    const state = await getDeviceState(connectId);
+    if (state.status.mode === 'normal' && !state.identity.deviceId) {
+      throw new OneKeyLocalError(
+        'Unable to resolve live hardware device identity',
+      );
+    }
+    return state;
   } catch (error) {
     onError?.(error);
-    return undefined;
+    throw error;
   }
 }

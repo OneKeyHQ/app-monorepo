@@ -11,7 +11,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceHardware: {
-      refreshDeviceState: jest.fn(),
+      getDeviceState: jest.fn(),
     },
   },
 }));
@@ -36,7 +36,7 @@ describe('resolveHardwarePassphraseEnabled', () => {
   });
 
   it('使用刷新后的 Pro2 settings 状态判断 Passphrase 已开启', async () => {
-    serviceHardwareMock.refreshDeviceState.mockResolvedValue({
+    serviceHardwareMock.getDeviceState.mockResolvedValue({
       status: { passphraseProtection: true },
     } as never);
 
@@ -50,7 +50,7 @@ describe('resolveHardwarePassphraseEnabled', () => {
       }),
     ).resolves.toBe(true);
 
-    expect(serviceHardwareMock.refreshDeviceState.mock.calls).toEqual([
+    expect(serviceHardwareMock.getDeviceState.mock.calls).toEqual([
       [
         {
           connectId: 'PRO2_CONNECT_ID',
@@ -61,7 +61,7 @@ describe('resolveHardwarePassphraseEnabled', () => {
   });
 
   it('刷新后仍无法确认 Pro2 Passphrase 状态时抛错', async () => {
-    serviceHardwareMock.refreshDeviceState.mockResolvedValue({
+    serviceHardwareMock.getDeviceState.mockResolvedValue({
       status: { passphraseProtection: null },
     } as never);
 

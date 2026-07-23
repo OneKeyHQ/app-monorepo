@@ -28,6 +28,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
     HardwareDeviceStateUpdate: 'HardwareDeviceStateUpdate',
     SyncDeviceLabelToWalletName: 'SyncDeviceLabelToWalletName',
+    WalletUpdate: 'WalletUpdate',
   },
   appEventBus: {
     on: jest.fn(),
@@ -106,10 +107,6 @@ const createService = ({
     success: true,
     payload: { protocol: 'V1', label: 'SDK legacy projection' },
   });
-  const refreshDeviceState = jest.fn().mockResolvedValue({
-    success: true,
-    payload: state,
-  });
   const deviceSettingsPageShow = jest.fn().mockResolvedValue({
     success: true,
     payload: { message: 'Success' },
@@ -121,7 +118,6 @@ const createService = ({
   service.getSDKInstance = jest.fn().mockResolvedValue({
     getDeviceState,
     getFeatures,
-    refreshDeviceState,
     deviceSettingsPageShow,
   } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
 
@@ -129,14 +125,13 @@ const createService = ({
     service,
     getDeviceState,
     getFeatures,
-    refreshDeviceState,
     deviceSettingsPageShow,
     state,
   };
 };
 
 describe('ServiceHardware.getDeviceState', () => {
-  it('queries the canonical SDK state without implicit status refresh', async () => {
+  it('queries the live canonical SDK state', async () => {
     const { service, getDeviceState, state } = createService({
       unlocked: false,
     });
@@ -148,21 +143,21 @@ describe('ServiceHardware.getDeviceState', () => {
     expect(getDeviceState).toHaveBeenCalledWith('PRO2_USB', undefined);
   });
 
-  it('refreshes the canonical state through a semantic scope', async () => {
-    const { service, refreshDeviceState } = createService({ unlocked: false });
+  it('forwards a semantic scope through the same state API', async () => {
+    const { service, getDeviceState } = createService({ unlocked: false });
 
-    await service.refreshDeviceState({
+    await service.getDeviceState({
       connectId: 'PRO2',
       params: { scope: 'firmware' },
     });
 
-    expect(refreshDeviceState).toHaveBeenCalledWith('PRO2_USB', {
+    expect(getDeviceState).toHaveBeenCalledWith('PRO2_USB', {
       scope: 'firmware',
     });
   });
 
   it('projects legacy App features from DeviceState without calling SDK getFeatures', async () => {
-    const { service, refreshDeviceState } = createService({ unlocked: true });
+    const { service, getDeviceState } = createService({ unlocked: true });
 
     await expect(
       service.getFeaturesWithoutCache({ connectId: 'PRO2' }),
@@ -170,14 +165,13 @@ describe('ServiceHardware.getDeviceState', () => {
       deviceId: 'PRO2_DEVICE_ID',
       label: 'OneKey Pro 2',
     });
-    expect(refreshDeviceState).toHaveBeenCalledWith('PRO2', {
-      scope: 'basic',
-    });
+    expect(getDeviceState).toHaveBeenCalledWith('PRO2', undefined);
   });
 
   it('delegates Protocol V1 compatibility projection to the SDK', async () => {
-    const { service, getDeviceState, getFeatures, refreshDeviceState } =
-      createService({ unlocked: true });
+    const { service, getDeviceState, getFeatures } = createService({
+      unlocked: true,
+    });
     getDeviceState.mockResolvedValue({
       success: true,
       payload: {
@@ -229,7 +223,6 @@ describe('ServiceHardware.getDeviceState', () => {
       onekey_se01_boot_hash: 'abcd',
     });
     expect(getFeatures).toHaveBeenCalledWith('CLASSIC', undefined);
-    expect(refreshDeviceState).not.toHaveBeenCalled();
   });
 
   it('projects romloader mode to both legacy bootloader flags', async () => {
@@ -255,21 +248,21 @@ describe('ServiceHardware.getDeviceState', () => {
   });
 });
 
-describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
+describe('ServiceHardware.getDeviceManagementSnapshot', () => {
   it('refreshes readable settings on the initial device-details load', async () => {
-    const { service, getDeviceState, refreshDeviceState } = createService({
+    const { service, getDeviceState } = createService({
       unlocked: true,
     });
 
-    await service.getPro2DeviceManagementSnapshot({ connectId: 'PRO2' });
+    await service.getDeviceManagementSnapshot({ connectId: 'PRO2' });
 
-    expect(getDeviceState).toHaveBeenNthCalledWith(1, 'PRO2_USB', undefined);
-    expect(refreshDeviceState).toHaveBeenCalledWith('PRO2_USB', {
+    expect(getDeviceState).toHaveBeenCalledTimes(1);
+    expect(getDeviceState).toHaveBeenCalledWith('PRO2_USB', {
       scope: 'settings',
     });
   });
 
-  it('keeps the base snapshot when locked settings cannot be refreshed', async () => {
+  it('falls back to live runtime when settings cannot be read', async () => {
     const { service } = createService({ unlocked: false });
     const baseState = {
       protocol: 'V2',
@@ -278,24 +271,23 @@ describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
       settings: {},
       versions: {},
     };
-    const getDeviceState = jest.fn().mockResolvedValue(baseState);
-    const refreshDeviceState = jest
+    const getDeviceState = jest
       .fn()
-      .mockRejectedValue(new Error('Device locked'));
+      .mockRejectedValueOnce(new Error('Settings unavailable'))
+      .mockResolvedValueOnce(baseState);
     service.getDeviceState = getDeviceState;
-    service.refreshDeviceState = refreshDeviceState;
 
     await expect(
-      service.getPro2DeviceManagementSnapshot({ connectId: 'PRO2' }),
+      service.getDeviceManagementSnapshot({ connectId: 'PRO2' }),
     ).resolves.toEqual({ state: baseState });
     expect(getDeviceState).toHaveBeenNthCalledWith(1, {
       connectId: 'PRO2_USB',
-      params: undefined,
+      params: { scope: 'settings' },
       hardwareCallContext: 'user_interaction_no_ble_dialog',
     });
-    expect(refreshDeviceState).toHaveBeenCalledWith({
+    expect(getDeviceState).toHaveBeenNthCalledWith(2, {
       connectId: 'PRO2_USB',
-      params: { scope: 'settings' },
+      params: undefined,
       hardwareCallContext: 'user_interaction_no_ble_dialog',
     });
   });
@@ -395,6 +387,75 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     );
   });
 
+  it('deprecates the old wallet and suppresses a reset identity event', async () => {
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mocks do not depend on this binding.
+    const updateDeviceStateMock = jest.mocked(localDb.updateDeviceState);
+    updateDeviceStateMock.mockReset();
+    updateDeviceStateMock.mockResolvedValueOnce({
+      kind: 'identity-mismatch',
+      deviceDbId: 'db-device-1',
+      currentDeviceId: 'OLD_DEVICE_ID',
+      incomingDeviceId: 'NEW_DEVICE_ID',
+    } as never);
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mocks do not depend on this binding.
+    const emitMock = jest.mocked(appEventBus.emit);
+    emitMock.mockClear();
+    const listeners = new Map<
+      string,
+      (payload: unknown) => void | Promise<void>
+    >();
+    const updateWalletsDeprecatedState = jest.fn().mockResolvedValue(true);
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceAccount: {
+          getAllHwQrWalletWithDevice: jest.fn().mockResolvedValue({
+            'hw-wallet-1': {
+              wallet: {
+                id: 'hw-wallet-1',
+                associatedDevice: 'db-device-1',
+              },
+              device: { id: 'db-device-1' },
+            },
+          }),
+          updateWalletsDeprecatedState,
+        },
+      } as unknown as IBackgroundApi,
+    });
+    await service.registerSdkEvents({
+      on: jest.fn(
+        (event: string, listener: (payload: unknown) => void | Promise<void>) =>
+          listeners.set(event, listener),
+      ),
+    } as never);
+    const event = {
+      connectId: 'PRO2_USB',
+      revision: 4,
+      changedKeys: ['identity.deviceId'],
+      state: {
+        revision: 4,
+        updatedAt: 4,
+        identity: {
+          serialNo: 'PRO2_SERIAL',
+          deviceId: 'NEW_DEVICE_ID',
+        },
+      },
+    };
+
+    await listeners.get('state')?.(event);
+
+    expect(updateWalletsDeprecatedState).toHaveBeenCalledWith({
+      willUpdateDeprecateMap: { 'hw-wallet-1': true },
+    });
+    expect(emitMock).toHaveBeenCalledWith(
+      EAppEventBusNames.WalletUpdate,
+      undefined,
+    );
+    expect(emitMock).not.toHaveBeenCalledWith(
+      EAppEventBusNames.HardwareDeviceStateUpdate,
+      event,
+    );
+  });
+
   it('serializes state persistence in SDK event order', async () => {
     // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
     const updateDeviceStateMock = jest.mocked(localDb.updateDeviceState);
@@ -412,10 +473,15 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
           listeners.set(event, listener),
       ),
     };
-    let resolveFirst: (() => void) | undefined;
+    let resolveFirst:
+      | ((value: { kind: 'ignored'; reason: 'device-not-found' }) => void)
+      | undefined;
     updateDeviceStateMock.mockImplementationOnce(
       () =>
-        new Promise<void>((resolve) => {
+        new Promise<{
+          kind: 'ignored';
+          reason: 'device-not-found';
+        }>((resolve) => {
           resolveFirst = resolve;
         }),
     );
@@ -456,7 +522,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       EAppEventBusNames.HardwareDeviceStateUpdate,
       expect.anything(),
     );
-    resolveFirst?.();
+    resolveFirst?.({ kind: 'ignored', reason: 'device-not-found' });
     await Promise.all([first, second]);
     // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
     expect(localDb.updateDeviceState).toHaveBeenCalledTimes(2);

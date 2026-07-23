@@ -1,3 +1,7 @@
+import {
+  hasDeviceStateIdentityMismatch,
+  mergeDeviceStateEvent,
+} from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import type { IOneKeyDeviceState } from '@onekeyhq/shared/types/device';
 
 import type { IDeviceMetaState } from './atoms';
@@ -9,6 +13,7 @@ export type IDeviceStateSnapshot = {
 
 export function getDeviceStateSnapshotFromEvent({
   device,
+  currentState,
   event,
 }: {
   device?: {
@@ -18,8 +23,28 @@ export function getDeviceStateSnapshotFromEvent({
     deviceId?: string;
     uuid?: string;
   };
+  currentState?: IOneKeyDeviceState;
   event: DeviceStateEvent;
 }): IDeviceStateSnapshot | undefined {
+  if (
+    currentState &&
+    typeof currentState.updatedAt === 'number' &&
+    typeof event.state.updatedAt === 'number' &&
+    (event.state.updatedAt < currentState.updatedAt ||
+      (event.state.updatedAt === currentState.updatedAt &&
+        event.state.revision <= currentState.revision))
+  ) {
+    return undefined;
+  }
+  const currentDeviceId = currentState?.identity.deviceId ?? device?.deviceId;
+  if (
+    hasDeviceStateIdentityMismatch({
+      currentDeviceId,
+      incomingDeviceId: event.state.identity.deviceId,
+    })
+  ) {
+    return undefined;
+  }
   const normalizedEventConnectId = event.connectId?.toLowerCase();
   const matchesConnectId = Boolean(
     normalizedEventConnectId &&
@@ -36,14 +61,37 @@ export function getDeviceStateSnapshotFromEvent({
     device?.deviceId === event.state.identity.deviceId,
   );
   if (event.state.identity.serialNo && device?.uuid) {
-    return matchesSerialNo ? { state: event.state } : undefined;
+    return matchesSerialNo
+      ? {
+          state: mergeDeviceStateEvent({
+            currentState,
+            incomingState: event.state,
+            changedKeys: event.changedKeys ?? ['*'],
+          }),
+        }
+      : undefined;
   }
   if (event.state.identity.deviceId && device?.deviceId) {
-    return matchesDeviceId ? { state: event.state } : undefined;
+    return matchesDeviceId
+      ? {
+          state: mergeDeviceStateEvent({
+            currentState,
+            incomingState: event.state,
+            changedKeys: event.changedKeys ?? ['*'],
+          }),
+        }
+      : undefined;
   }
-  return matchesConnectId || matchesSerialNo || matchesDeviceId
-    ? { state: event.state }
-    : undefined;
+  if (!matchesConnectId && !matchesSerialNo && !matchesDeviceId) {
+    return undefined;
+  }
+  return {
+    state: mergeDeviceStateEvent({
+      currentState,
+      incomingState: event.state,
+      changedKeys: event.changedKeys ?? ['*'],
+    }),
+  };
 }
 
 export function resolveDeviceState({
@@ -61,7 +109,7 @@ export function canEditPro2DeviceWideSettings({
 }: {
   unlocked: boolean;
 }) {
-  // Pro 2 的公开设置支持在锁定状态下读取和修改。
+  // Pro 2 device-wide settings remain available while the wallet is locked.
   return true;
 }
 

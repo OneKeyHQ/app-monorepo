@@ -123,7 +123,7 @@ function DeviceDetailsModalV2Cmp({
       await syncRelevantDeviceStateEvent({
         event,
         applyEvent: applyDeviceStateEvent,
-        refresh: () => refresh(walletId, { skipPro2Snapshot: true }),
+        refresh: () => refresh(walletId, { skipDeviceStateSnapshot: true }),
       });
     },
     [applyDeviceStateEvent, refresh, walletId],
@@ -131,7 +131,7 @@ function DeviceDetailsModalV2Cmp({
 
   const refreshLegacyFeatures = useCallback(async () => {
     if (!walletId) return;
-    await refresh(walletId, { skipPro2Snapshot: true });
+    await refresh(walletId, { skipDeviceStateSnapshot: true });
   }, [refresh, walletId]);
 
   useFocusEffect(
@@ -142,7 +142,7 @@ function DeviceDetailsModalV2Cmp({
 
   useEffect(() => {
     const refreshAfterFirmwareUpdate = async () => {
-      await refresh(walletId, { refreshPro2Info: true });
+      await refresh(walletId, { refreshFirmwareInfo: true });
     };
     appEventBus.on(EAppEventBusNames.WalletUpdate, refreshCurrentDevice);
     appEventBus.on(
