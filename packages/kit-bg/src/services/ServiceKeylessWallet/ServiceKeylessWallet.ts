@@ -3083,27 +3083,17 @@ class ServiceKeylessWallet extends ServiceBase {
       return null;
     }
 
-    // Prompt for the password BEFORE taking the exchange lock — holding a
-    // mutex across an interactive prompt would stall the passive migration
-    // for as long as the dialog stays open. Note the prompt itself is what
-    // arms the race this lock exists for: a successful verify caches the
-    // password, which fires tryMigrateLocalExistingKeylessBackendShareToV2
-    // and thus the passive consumer of the same single-use blob token.
+    // Verify before locking because password caching may start the competing
+    // passive migration that consumes the same single-use token.
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerify();
 
-    // Serialize the decrypt → refresh-grant exchange → rotated-blob save with
-    // every other legacy-blob consumer. The identity session commit happens
-    // only AFTER this lock is released: identity exit uses the canonical
-    // identity-lifecycle → legacy-blob lock order, so acquiring lifecycle
-    // while holding this lock would create an ABBA deadlock.
+    // Preserve the lifecycle → legacy-token lock order by committing the
+    // identity session only after this token exchange lock is released.
     const refreshedSession =
       await this.legacyKeylessOAuthTokenExchangeMutex.runExclusive(async () => {
-        // Re-check INSIDE the lock and re-read the blob fresh: while this call
-        // waited, the passive migration may have consumed the stored token and
-        // saved a rotated one back (re-read picks it up), or removed the blob
-        // after a definitive GoTrue rejection (return null so callers fall
-        // back to a fresh OAuth login instead of replaying a dead token).
+        // Re-read under the lock because a competing migration may have
+        // rotated or removed the token while this call waited.
         if (!(await this.hasLegacyKeylessOAuthRefreshToken({ ownerId }))) {
           return null;
         }
@@ -3116,10 +3106,8 @@ class ServiceKeylessWallet extends ServiceBase {
           });
         } catch (error) {
           if (this.isKeylessDataCorruptedError(error)) {
-            // The legacy blob can no longer be decrypted (e.g. it was left stale
-            // by a passcode change on an old build). It is unrecoverable and
-            // would fail again on every retry, so drop it and let callers fall
-            // back to a fresh OAuth login.
+            // A legacy token that cannot be decrypted must not trap every
+            // future login attempt in the migration path.
             await this.removeLegacyKeylessOAuthTokens({ ownerId });
             return null;
           }
@@ -3141,8 +3129,7 @@ class ServiceKeylessWallet extends ServiceBase {
             refresh_token: refreshToken,
           }),
         });
-        // Transient HTTP failures (auth server down / timeout / rate limited)
-        // keep the blob so a later attempt can retry the exchange.
+        // Keep the token after transient failures so migration can retry.
         if (
           response.status >= 500 ||
           response.status === 408 ||
@@ -3152,18 +3139,12 @@ class ServiceKeylessWallet extends ServiceBase {
         }
         if (!response.ok) {
           if (await this.isDefinitiveGoTrueRefreshTokenRejection(response)) {
-            // GoTrue definitively rejected the refresh token (revoked / expired /
-            // already rotated elsewhere). The blob is dead and would fail on
-            // every retry — drop it so prepareOneKeyIdLoginWithLocalKeyless stops
-            // steering to ContinueWithKeyless (passcode prompt + doomed exchange)
-            // and routes to a fresh OAuth login instead. Mirrors the passive
-            // migration path.
+            // Drop definitively rejected tokens so the next attempt can use a
+            // fresh OAuth login instead of repeating a doomed migration.
             await this.removeLegacyKeylessOAuthTokens({ ownerId });
             return null;
           }
-          // Any other non-OK response (proxy / CDN challenge page, unparseable
-          // body) is not a GoTrue verdict on the token — keep the blob and treat
-          // it like the transient branch above.
+          // An unknown non-OK response is not proof that the token is invalid.
           return null;
         }
 
@@ -3174,18 +3155,8 @@ class ServiceKeylessWallet extends ServiceBase {
         const accessToken = refreshResult?.access_token;
         const nextRefreshToken = refreshResult?.refresh_token;
 
-        // Supabase rotates refresh tokens on use — the exchange above already
-        // consumed the stored single-use token, so persist the rotated one
-        // back IMMEDIATELY, before the wallet validation below (mirroring the
-        // passive refresh helper). The rotated token is an identity-equivalent
-        // replacement of what the blob already held, so this save must never
-        // be gated on a validation verdict: a mismatch result (e.g. a
-        // same-email wallet whose local provider was rewritten, or a transient
-        // hash failure classified as a mismatch) would otherwise strand the
-        // consumed token in the blob, and the next attempt's definitive GoTrue
-        // rejection would delete the credential for good. It also means that
-        // if setSession below throws, the blob still holds a usable token for
-        // the next attempt.
+        // Persist the rotated single-use token before validation so a mismatch
+        // or later session failure cannot strand a consumed credential.
         if (nextRefreshToken) {
           await this.saveLegacyKeylessOAuthRefreshToken({
             ownerId,
@@ -3213,9 +3184,8 @@ class ServiceKeylessWallet extends ServiceBase {
       return null;
     }
 
-    // This lifecycle commit rechecks expectedWalletId and the token/wallet
-    // identity before writing. If removal won after the legacy lock was
-    // released, it fails closed and cannot resurrect the deleted session.
+    // The lifecycle commit rechecks wallet identity and cannot resurrect a
+    // wallet removed after the token lock was released.
     await this.backgroundApi.servicePrime.persistMigratedKeylessOAuthSessionForWallet(
       {
         accessToken: refreshedSession.accessToken,
@@ -3224,9 +3194,8 @@ class ServiceKeylessWallet extends ServiceBase {
       },
     );
 
-    // Compare-and-delete only the rotated blob this attempt installed. A
-    // concurrent restore or retry may have replaced it while lifecycle commit
-    // was waiting; never delete that newer credential.
+    // Delete only this attempt's rotated token, preserving any concurrent
+    // replacement.
     try {
       await this.legacyKeylessOAuthTokenExchangeMutex.runExclusive(async () => {
         const currentRefreshToken =
