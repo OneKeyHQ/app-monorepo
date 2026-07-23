@@ -3866,6 +3866,12 @@ export default class ServiceHyperliquid extends ServiceBase {
     );
   }
 
+  // Concurrent callers (mount prefetch + priceScale fallback/refresh) share
+  // one REST allMids request instead of issuing duplicates.
+  private allMidsInflightRequest: Promise<
+    Awaited<ReturnType<typeof hyperLiquidApiClients.infoClient.allMids>>
+  > | null = null;
+
   @backgroundMethod()
   async getTradingviewMidPrice(symbol: string): Promise<string | undefined> {
     if (!symbol) {
@@ -3885,8 +3891,13 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
 
     try {
-      const { infoClient } = hyperLiquidApiClients;
-      const allMids = await infoClient.allMids();
+      if (!this.allMidsInflightRequest) {
+        const { infoClient } = hyperLiquidApiClients;
+        this.allMidsInflightRequest = infoClient.allMids().finally(() => {
+          this.allMidsInflightRequest = null;
+        });
+      }
+      const allMids = await this.allMidsInflightRequest;
       hyperLiquidCache.allMids = {
         mids: allMids,
       };
