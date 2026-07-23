@@ -48,7 +48,7 @@ export function showPrivateSendGuideDialog({ intl }: { intl: IntlShape }) {
           w="100%"
           h={160}
           borderRadius="$3"
-          source={require('@onekeyhq/kit/assets/private_send_guide.png')}
+          source={require('@onekeyhq/kit/assets/private_send_guide.webp')}
           resizeMode="cover"
         />
         <PrivateSendGuideFeature icon="BrokenLink2Outline">

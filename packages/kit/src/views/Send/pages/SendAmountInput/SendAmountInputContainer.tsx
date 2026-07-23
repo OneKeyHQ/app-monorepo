@@ -1028,8 +1028,7 @@ function SendAmountInputContainer() {
   const hasOpenedPrivateSendGuideRef = useRef(false);
   const trackedPrivateSendQuoteKeysRef = useRef(new Set<string>());
   const trackedPrivateSendValueDropQuoteKeysRef = useRef(new Set<string>());
-  const shouldUsePrivateSendQuoteCollapse =
-    sendMode === ESendMode.PRIVATE && !media.gtMd;
+  const shouldUsePrivateSendQuoteCollapse = sendMode === ESendMode.PRIVATE;
   const [
     isPrivateSendQuoteDetailsExpanded,
     setIsPrivateSendQuoteDetailsExpanded,
@@ -2291,10 +2290,12 @@ function SendAmountInputContainer() {
 
   const handleAmountInputFocus = useCallback(() => {
     setIsAmountInputFocused(true);
-    if (shouldUsePrivateSendQuoteCollapse) {
+    // Auto-collapse quote details only on small screens where vertical space
+    // is limited; large screens keep the expanded state while typing.
+    if (shouldUsePrivateSendQuoteCollapse && !media.gtMd) {
       setIsPrivateSendQuoteDetailsExpanded(false);
     }
-  }, [shouldUsePrivateSendQuoteCollapse]);
+  }, [media.gtMd, shouldUsePrivateSendQuoteCollapse]);
 
   const handleAmountInputBlur = useCallback(() => {
     setIsAmountInputFocused(false);
@@ -3968,16 +3969,9 @@ function SendAmountInputContainer() {
   const renderPrivateSendQuoteCard = useMemo(() => {
     if (sendMode !== ESendMode.PRIVATE) return null;
     const showPrivateSendQuoteSkeleton = isPrivateSendQuoteRefreshing;
-    const isPrivateSendQuoteDetailsVisible =
-      !shouldUsePrivateSendQuoteCollapse || isPrivateSendQuoteDetailsExpanded;
-    const privateSendQuoteSummaryRowMinHeight =
-      shouldUsePrivateSendQuoteCollapse ? 48 : 56;
-    const privateSendQuoteDetailRowHeight = shouldUsePrivateSendQuoteCollapse
-      ? 28
-      : 36;
-    const privateSendQuoteBalanceRowHeight = shouldUsePrivateSendQuoteCollapse
-      ? 48
-      : 56;
+    const privateSendQuoteSummaryRowMinHeight = 48;
+    const privateSendQuoteDetailRowHeight = 28;
+    const privateSendQuoteBalanceRowHeight = 48;
     const toTokenSymbol =
       privateSendQuote?.toTokenInfo.symbol ?? privateSendToken?.symbol ?? '';
     const toAmount = privateSendQuote?.toAmount ?? '0';
@@ -4005,7 +3999,6 @@ function SendAmountInputContainer() {
       estimatedTime: privateSendQuote?.estimatedTime,
     });
     const handleTogglePrivateSendQuoteDetails = () => {
-      if (!shouldUsePrivateSendQuoteCollapse) return;
       if (!isPrivateSendQuoteDetailsExpanded) {
         void (async () => {
           await dismissAmountInputKeyboardBeforeOverlayOpen();
@@ -4097,57 +4090,34 @@ function SendAmountInputContainer() {
             gap="$1"
             flexShrink={1}
             minWidth={0}
-            px={shouldUsePrivateSendQuoteCollapse ? '$1' : undefined}
-            py={shouldUsePrivateSendQuoteCollapse ? '$1' : undefined}
-            mr={shouldUsePrivateSendQuoteCollapse ? '$-1' : undefined}
-            borderRadius={shouldUsePrivateSendQuoteCollapse ? '$2' : undefined}
-            borderCurve={
-              shouldUsePrivateSendQuoteCollapse ? 'continuous' : undefined
-            }
-            userSelect={shouldUsePrivateSendQuoteCollapse ? 'none' : undefined}
-            hitSlop={
-              shouldUsePrivateSendQuoteCollapse ? NATIVE_HIT_SLOP : undefined
-            }
-            role={shouldUsePrivateSendQuoteCollapse ? 'button' : undefined}
-            aria-expanded={
-              shouldUsePrivateSendQuoteCollapse
-                ? isPrivateSendQuoteDetailsExpanded
-                : undefined
-            }
-            focusable={shouldUsePrivateSendQuoteCollapse || undefined}
-            cursor={shouldUsePrivateSendQuoteCollapse ? 'pointer' : undefined}
-            hoverStyle={
-              shouldUsePrivateSendQuoteCollapse ? { bg: '$bgHover' } : undefined
-            }
-            pressStyle={
-              shouldUsePrivateSendQuoteCollapse
-                ? { bg: '$bgActive' }
-                : undefined
-            }
-            focusVisibleStyle={
-              shouldUsePrivateSendQuoteCollapse
-                ? {
-                    outlineColor: '$focusRing',
-                    outlineWidth: 2,
-                    outlineStyle: 'solid',
-                    outlineOffset: 1,
-                  }
-                : undefined
-            }
-            onPress={
-              shouldUsePrivateSendQuoteCollapse
-                ? handleTogglePrivateSendQuoteDetails
-                : undefined
-            }
-            {...(shouldUsePrivateSendQuoteCollapse &&
-              !platformEnv.isNative && {
-                onKeyDown: (event: KeyboardEvent) => {
-                  if (event.key !== 'Enter' && event.key !== ' ') return;
-                  event.preventDefault();
-                  event.stopPropagation();
-                  handleTogglePrivateSendQuoteDetails();
-                },
-              })}
+            px="$1"
+            py="$1"
+            mr="$-1"
+            borderRadius="$2"
+            borderCurve="continuous"
+            userSelect="none"
+            hitSlop={NATIVE_HIT_SLOP}
+            role="button"
+            aria-expanded={isPrivateSendQuoteDetailsExpanded}
+            focusable
+            cursor="pointer"
+            hoverStyle={{ bg: '$bgHover' }}
+            pressStyle={{ bg: '$bgActive' }}
+            focusVisibleStyle={{
+              outlineColor: '$focusRing',
+              outlineWidth: 2,
+              outlineStyle: 'solid',
+              outlineOffset: 1,
+            }}
+            onPress={handleTogglePrivateSendQuoteDetails}
+            {...(!platformEnv.isNative && {
+              onKeyDown: (event: KeyboardEvent) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                event.stopPropagation();
+                handleTogglePrivateSendQuoteDetails();
+              },
+            })}
           >
             {showPrivateSendQuoteSkeleton ? (
               <Skeleton h="$4" w="$24" />
@@ -4187,36 +4157,30 @@ function SendAmountInputContainer() {
                 ) : null}
               </YStack>
             )}
-            {shouldUsePrivateSendQuoteCollapse ? (
+            <Stack
+              w="$5"
+              h="$5"
+              alignItems="center"
+              justifyContent="center"
+              borderRadius="$full"
+            >
               <Stack
-                w="$5"
-                h="$5"
-                alignItems="center"
-                justifyContent="center"
-                borderRadius="$full"
+                animation="quick"
+                rotate={isPrivateSendQuoteDetailsExpanded ? '0deg' : '-90deg'}
+                transformOrigin="center"
               >
-                <Stack
-                  animation="quick"
-                  rotate={isPrivateSendQuoteDetailsExpanded ? '0deg' : '-90deg'}
-                  transformOrigin="center"
-                >
-                  <Icon
-                    name="ChevronDownSmallOutline"
-                    size="$4"
-                    color="$iconSubdued"
-                  />
-                </Stack>
+                <Icon
+                  name="ChevronDownSmallOutline"
+                  size="$4"
+                  color="$iconSubdued"
+                />
               </Stack>
-            ) : null}
+            </Stack>
           </XStack>
         </XStack>
-        {shouldUsePrivateSendQuoteCollapse ? (
-          <HeightTransition hide={!isPrivateSendQuoteDetailsVisible}>
-            {renderPrivateSendQuoteDetails}
-          </HeightTransition>
-        ) : (
-          renderPrivateSendQuoteDetails
-        )}
+        <HeightTransition hide={!isPrivateSendQuoteDetailsExpanded}>
+          {renderPrivateSendQuoteDetails}
+        </HeightTransition>
         {showPrivateSendBalanceRow ? (
           <>
             <Stack h="$px" bg="$borderSubdued" my="$2" />
@@ -4249,7 +4213,6 @@ function SendAmountInputContainer() {
     renderPrivateSendProviderContent,
     refreshPrivateSendQuote,
     sendMode,
-    shouldUsePrivateSendQuoteCollapse,
     canFetchPrivateSendQuote,
   ]);
 

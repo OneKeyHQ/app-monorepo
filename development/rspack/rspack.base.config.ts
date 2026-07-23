@@ -532,7 +532,7 @@ export function createBaseConfig({
           },
         },
         {
-          test: [/\.bmp$/, /\.gif$/, /\.jpe?g$/, /\.png$/, /\.svg$/],
+          test: [/\.bmp$/, /\.gif$/, /\.jpe?g$/, /\.png$/, /\.svg$/, /\.webp$/],
           type: 'asset',
           parser: { dataUrlCondition: { maxSize: 1000 } },
         },
