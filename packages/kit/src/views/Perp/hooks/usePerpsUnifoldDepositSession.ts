@@ -50,7 +50,10 @@ const RETRY_INTERVAL_MS = 5000;
 const WAITING_UI_DELAY_MS = 5000;
 const SESSION_LOOKBACK_MS = 60_000;
 // Must stay well under the background loop's mute expiry so a long-lived modal
-// never lets the loop start announcing behind it.
+// never lets the loop start announcing behind it. Renewal is wall-clock
+// checked from the 3s poll tick rather than run on its own timer: mobile
+// suspends JS timers in the background while the mute keeps aging on the wall
+// clock, so the claim must be re-issued within seconds of foreground resume.
 const TRACKING_CLAIM_RENEW_INTERVAL_MS = 60_000;
 
 // Production destination: HyperCore Perp USDC.
@@ -414,6 +417,17 @@ export function usePerpsUnifoldDepositSession({
   // (possibly already-terminal) execution.
   const primedRef = useRef(false);
   const tickBusyRef = useRef(false);
+  // Outcomes this session announced itself; reported at unmount so the bg
+  // loop never announces them a second time.
+  const announcedRef = useRef(new Set<string>());
+  // In-flight executions already registered with the bg tracker (muted), so a
+  // hard-killed session (popup closed, app killed) leaves nothing behind that
+  // only React state knew about.
+  const bgTrackedRef = useRef(new Set<string>());
+  const lastClaimAtRef = useRef(0);
+  // Gates the unmount handoff: a session that never claimed tracking (address
+  // never became ready) has nothing to hand back.
+  const claimedRef = useRef(false);
   // Held in a ref so a locale change never restarts the poll.
   const intl = useIntl();
   const intlRef = useRef(intl);
@@ -425,22 +439,31 @@ export function usePerpsUnifoldDepositSession({
   if (addressState.status === 'ready' && !pollEnabled) {
     setPollEnabled(true);
   }
+  const sessionIdRef = useRef<string | null>(null);
+  if (addressState.status === 'ready') {
+    sessionIdRef.current = addressState.result.sessionId;
+  }
   useEffect(() => {
     if (!enabled || !recipientAddress || !pollEnabled) {
       return;
     }
-    // This live session takes over announcements for the recipient, so the bg
-    // tracking loop stays quiet and terminal transitions are not double
-    // toasted. The claim expires on its own, so it is renewed while mounted:
-    // that is what lets the bg loop recover if this session dies without
-    // running its unmount handler.
+    // This live session takes over announcements for the recipient (and arms
+    // the recipient watch), so the bg tracking loop stays quiet and terminal
+    // transitions are not double toasted. The claim expires on its own and is
+    // renewed from the poll tick below: that is what lets the bg loop recover
+    // if this session dies without running its unmount handler.
     const claim = () => {
-      void backgroundApiProxy.serviceUnifoldDeposit.claimTrackedExecutions({
-        recipientAddress,
-      });
+      claimedRef.current = true;
+      lastClaimAtRef.current = Date.now();
+      void backgroundApiProxy.serviceUnifoldDeposit.claimDepositSessionTracking(
+        {
+          recipientAddress,
+          sessionId: sessionIdRef.current,
+          sessionStart: sessionStartRef.current,
+        },
+      );
     };
     claim();
-    const claimTimer = setInterval(claim, TRACKING_CLAIM_RENEW_INTERVAL_MS);
 
     const waitingTimer = setTimeout(() => {
       setShowWaitingUi(true);
@@ -448,6 +471,17 @@ export function usePerpsUnifoldDepositSession({
 
     let cancelled = false;
     const tick = async () => {
+      // Renewal must not sit behind the busy gate: a poll request left
+      // hanging across a mobile suspension keeps tickBusyRef true well past
+      // resume, and starving the claim past the bg loop's one-round unmute
+      // grace would let it announce behind this live session. claim() is
+      // fire-and-forget and needs no serialization with the poll body.
+      if (
+        Date.now() - lastClaimAtRef.current >=
+        TRACKING_CLAIM_RENEW_INTERVAL_MS
+      ) {
+        claim();
+      }
       if (tickBusyRef.current) {
         return;
       }
@@ -462,6 +496,29 @@ export function usePerpsUnifoldDepositSession({
           return;
         }
         setSessionExecutions(items);
+        // Register every in-flight execution with the bg tracker the moment
+        // it is first seen (muted): waiting for the unmount handoff would
+        // lose it entirely if this session hard-dies (popup closed, app
+        // killed) before the cleanup runs.
+        const unregistered = items.filter(
+          (item) =>
+            !item.terminal && !bgTrackedRef.current.has(item.executionId),
+        );
+        if (unregistered.length) {
+          unregistered.forEach((item) =>
+            bgTrackedRef.current.add(item.executionId),
+          );
+          void backgroundApiProxy.serviceUnifoldDeposit.trackLiveSessionExecutions(
+            {
+              recipientAddress,
+              sessionId: sessionIdRef.current,
+              executions: unregistered.map((item) => ({
+                executionId: item.executionId,
+                lastStatus: item.status,
+              })),
+            },
+          );
+        }
         const priming = !primedRef.current;
         primedRef.current = true;
         // Announce transitions oldest → newest so multi-deposit sessions play
@@ -470,22 +527,35 @@ export function usePerpsUnifoldDepositSession({
           const seenStatus = seenRef.current.get(item.executionId);
           if (seenStatus !== item.status) {
             seenRef.current.set(item.executionId, item.status);
-            if (!priming && item.terminal && item.status === 'succeeded') {
-              // Same key as the background loop's toast: one event must not
-              // be announced in two different languages depending on whether
-              // the modal happened to be open.
-              Toast.success({
-                title: intlRef.current.formatMessage({
-                  id: ETranslations.perp_deposit_success_title,
-                }),
-                message: formatUnifoldUsdAmount(
-                  item.destinationAmountUsd ?? item.sourceAmountUsd,
-                ),
-              });
-              void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
+            if (!priming && item.terminal) {
+              // This session is announcing the outcome (success toast below;
+              // failed/refunded via the status cards), so its tracked entry
+              // is settled right now — at unmount it would be unmuted and the
+              // bg loop would announce it a second time.
+              announcedRef.current.add(item.executionId);
+              void backgroundApiProxy.serviceUnifoldDeposit.settleAnnouncedExecution(
+                {
+                  recipientAddress,
+                  executionId: item.executionId,
+                },
+              );
+              if (item.status === 'succeeded') {
+                // Same key as the background loop's toast: one event must not
+                // be announced in two different languages depending on whether
+                // the modal happened to be open.
+                Toast.success({
+                  title: intlRef.current.formatMessage({
+                    id: ETranslations.perp_deposit_success_title,
+                  }),
+                  message: formatUnifoldUsdAmount(
+                    item.destinationAmountUsd ?? item.sourceAmountUsd,
+                  ),
+                });
+                void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
+              }
+              // failed/refunded render via the status cards; no extra toast
+              // (contract §1: never invent failure copy).
             }
-            // failed/refunded and progress states render via the status cards;
-            // no extra toast (contract §1: never invent failure copy).
           }
         }
       } catch {
@@ -501,41 +571,44 @@ export function usePerpsUnifoldDepositSession({
     return () => {
       cancelled = true;
       clearInterval(timer);
-      clearInterval(claimTimer);
       clearTimeout(waitingTimer);
     };
   }, [enabled, recipientAddress, pollEnabled]);
 
-  // ── Hand off in-flight executions to the bg tracking loop on unmount ──
+  // ── Hand tracking back to the bg loop on unmount ──
+  // Runs for every session that claimed tracking, even with nothing in
+  // flight: it must lift the mute and re-arm the recipient watch so a deposit
+  // paid right before closing — one the vendor API has not surfaced yet — is
+  // still discovered and announced by the bg loop.
   const sessionExecutionsRef = useRef(sessionExecutions);
   sessionExecutionsRef.current = sessionExecutions;
-  const sessionIdRef = useRef<string | null>(null);
-  if (addressState.status === 'ready') {
-    sessionIdRef.current = addressState.result.sessionId;
-  }
   const recipientForCleanup = recipientAddress;
+  const finalizeSessionTracking = useCallback(() => {
+    if (!recipientForCleanup || !claimedRef.current) {
+      return;
+    }
+    const inFlight = sessionExecutionsRef.current.filter(
+      (item) => !item.terminal,
+    );
+    void backgroundApiProxy.serviceUnifoldDeposit.finalizeDepositSessionTracking(
+      {
+        recipientAddress: recipientForCleanup,
+        sessionId: sessionIdRef.current,
+        sessionStart: sessionStartRef.current,
+        announcedExecutionIds: Array.from(announcedRef.current),
+        executions: inFlight.map((item) => ({
+          executionId: item.executionId,
+          lastStatus: item.status,
+        })),
+      },
+    );
+  }, [recipientForCleanup]);
   useEffect(() => {
     if (!recipientForCleanup) {
       return;
     }
-    return () => {
-      const inFlight = sessionExecutionsRef.current.filter(
-        (item) => !item.terminal,
-      );
-      if (inFlight.length) {
-        void backgroundApiProxy.serviceUnifoldDeposit.trackExecutionsAfterModalClose(
-          {
-            recipientAddress: recipientForCleanup,
-            sessionId: sessionIdRef.current,
-            executions: inFlight.map((item) => ({
-              executionId: item.executionId,
-              lastStatus: item.status,
-            })),
-          },
-        );
-      }
-    };
-  }, [recipientForCleanup]);
+    return finalizeSessionTracking;
+  }, [recipientForCleanup, finalizeSessionTracking]);
 
   const qrAddress = useMemo(() => {
     if (addressState.status !== 'ready' || !selection) {

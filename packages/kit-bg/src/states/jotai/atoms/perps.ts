@@ -976,14 +976,38 @@ export interface IPerpsUnifoldTrackedExecution {
   mutedAt?: number | null;
 }
 
+// Recipient-level discovery window armed while a deposit session is open and
+// kept for a grace period after it ends: a deposit paid right before the modal
+// closed may only surface in the vendor API minutes later, when no
+// executionId-level entry exists yet for the bg loop to poll.
+export interface IPerpsUnifoldRecipientWatch {
+  recipientAddress: string;
+  sessionId: string | null;
+  // Lower bound (ms epoch) for discovery, matching the session poll's `since`:
+  // executions older than the earliest session window are never resurrected.
+  sessionStart: number;
+  // Outcomes already announced (by a session or by the bg loop itself), so
+  // discovery can never announce them a second time.
+  knownExecutionIds: string[];
+  watchedAt: number;
+  // Same semantics as the tracked-execution mute: a live session owns the
+  // announcements for this recipient while it keeps renewing the claim.
+  mutedAt?: number | null;
+}
+
 export const {
   target: perpsUnifoldDepositTrackingAtom,
   use: usePerpsUnifoldDepositTrackingAtom,
-} = globalAtom<{ items: IPerpsUnifoldTrackedExecution[] }>({
+} = globalAtom<{
+  items: IPerpsUnifoldTrackedExecution[];
+  // Optional: absent in values persisted before watches existed.
+  watches?: IPerpsUnifoldRecipientWatch[];
+}>({
   name: EAtomNames.perpsUnifoldDepositTrackingAtom,
   persist: true,
   initialValue: {
     items: [],
+    watches: [],
   },
 });
 
