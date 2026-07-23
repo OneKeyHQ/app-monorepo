@@ -11,7 +11,9 @@ import {
 
 import {
   type IHomeMarketSourceApi,
+  buildHomeMarketCachedCategoryPayload,
   loadHomeMarketPayload,
+  prefetchHomeMarketCategoryRows,
 } from './HomeMarketStoreController';
 
 import type { IHomeSectionSourceRequestHandle } from './useHomeStoreSourcePublisher';
@@ -83,6 +85,83 @@ const payload: IHomePopularTradingPayload = {
 };
 
 describe('HomeMarketStoreController', () => {
+  it('publishes a prefetched category immediately while its live refresh runs', () => {
+    const cachedStock = {
+      ...payload.rows[0],
+      contractAddress: '0xstock',
+      symbol: 'STOCK',
+    };
+    const cachedPayload = buildHomeMarketCachedCategoryPayload({
+      currentPayload: {
+        ...payload,
+        categories: [
+          { id: 'favorites', name: 'Favorites' },
+          { id: 'trending', name: 'Trending' },
+          { id: 'stocks', name: 'Stocks' },
+        ],
+        resolvedCategoryId: 'trending',
+        selectedCategoryId: 'trending',
+      },
+      prefetchedRowsByRequestKey: {
+        'stocks:5000': [cachedStock],
+      },
+      selectedCategoryId: 'stocks',
+    });
+
+    expect(cachedPayload).toMatchObject({
+      resolvedCategoryId: 'stocks',
+      rows: [cachedStock],
+      selectedCategoryId: 'stocks',
+    });
+  });
+
+  it('prefetches every supplied Market category into the shared cache', async () => {
+    const fetchSpotCategoryTokens = jest.fn(
+      async ({ categoryId }: { categoryId: string }) => ({
+        list: [
+          {
+            address: `0x${categoryId}`,
+            isNative: false,
+            name: categoryId,
+            networkId: 'evm--1',
+            price: '1',
+            priceChange24hPercent: '2',
+            symbol: categoryId.toUpperCase(),
+            volume24h: '3',
+          },
+        ],
+      }),
+    );
+    const api = {
+      fetchSpotCategoryTokens,
+    } as unknown as IHomeMarketSourceApi;
+    const cache =
+      createHomeMarketCategoryTokensCache<
+        IHomePopularTradingPayload['rows'][number]
+      >();
+
+    await prefetchHomeMarketCategoryRows({
+      api,
+      cache,
+      categoryIds: ['trending', 'stocks'],
+      minLiquidity: 5000,
+    });
+
+    expect(fetchSpotCategoryTokens).toHaveBeenCalledTimes(2);
+    expect(
+      cache.getTokens({
+        minLiquidity: 5000,
+        selectedMarketCategoryId: 'trending',
+      }),
+    ).toEqual([expect.objectContaining({ symbol: 'TRENDING' })]);
+    expect(
+      cache.getTokens({
+        minLiquidity: 5000,
+        selectedMarketCategoryId: 'stocks',
+      }),
+    ).toEqual([expect.objectContaining({ symbol: 'STOCKS' })]);
+  });
+
   it('opens the Store request before the real source load and completes the same handle', async () => {
     const order: string[] = [];
     const completions: {

@@ -48,7 +48,10 @@ import {
 import { HOME_MARKET_SELECTED_CATEGORY_CONTROL_ID } from '../sections/market/homeMarketControls';
 import { HOME_MARKET_DATA_SCHEMA_VERSION } from '../sections/market/homeMarketSourceAdapter';
 
-import { useStableHomeFactsOwner } from './homeStoreHooks';
+import {
+  useHomeSectionPayload,
+  useStableHomeFactsOwner,
+} from './homeStoreHooks';
 import { useHomeStoreSourcePublisher } from './useHomeStoreSourcePublisher';
 
 import type { IMarketCategoryItem } from '../../../Market/MarketHomeV2/types';
@@ -107,6 +110,11 @@ type IHomeMarketSourceApi = typeof homeMarketSourceApi;
 type IHomeMarketCategoryCache = ReturnType<
   typeof createHomeMarketCategoryTokensCache<IFavoriteTokenDisplay>
 >;
+type IHomeMarketControllerCache = {
+  cache: IHomeMarketCategoryCache;
+  ownerKey?: string;
+  payloadByCategoryId: Map<string, IHomePopularTradingPayload>;
+};
 
 function buildHomeMarketCategories({
   config,
@@ -179,6 +187,139 @@ async function fetchHomeMarketCategoryRows({
     .map(mapMarketTokenToDisplay)
     .filter((item): item is IFavoriteTokenDisplay => item !== null)
     .slice(0, HOME_MARKET_CATEGORY_REQUEST_LIMIT);
+}
+
+async function fetchAndCacheHomeMarketCategoryRows({
+  api,
+  cache,
+  categoryId,
+  minLiquidity,
+}: {
+  api: IHomeMarketSourceApi;
+  cache: IHomeMarketCategoryCache;
+  categoryId: string;
+  minLiquidity: number;
+}): Promise<IFavoriteTokenDisplay[]> {
+  const requestId = cache.beginRequest({
+    categoryIds: [categoryId],
+    minLiquidity,
+  });
+  const rows = await fetchHomeMarketCategoryRows({
+    api,
+    categoryId,
+    minLiquidity,
+  });
+  cache.commitCategory({
+    categoryId,
+    minLiquidity,
+    requestId,
+    tokens: rows,
+  });
+  return (
+    cache.getTokens({
+      minLiquidity,
+      selectedMarketCategoryId: categoryId,
+    }) ?? []
+  );
+}
+
+async function prefetchHomeMarketCategoryRows({
+  api,
+  cache,
+  categoryIds,
+  minLiquidity,
+}: {
+  api: IHomeMarketSourceApi;
+  cache: IHomeMarketCategoryCache;
+  categoryIds: string[];
+  minLiquidity: number;
+}): Promise<void> {
+  await Promise.allSettled(
+    categoryIds.map((categoryId) =>
+      fetchAndCacheHomeMarketCategoryRows({
+        api,
+        cache,
+        categoryId,
+        minLiquidity,
+      }),
+    ),
+  );
+}
+
+function getCachedHomeMarketCategoryRows({
+  categoryId,
+  prefetchedRowsByRequestKey,
+}: {
+  categoryId: string;
+  prefetchedRowsByRequestKey: Readonly<
+    Record<string, readonly IFavoriteTokenDisplay[]>
+  >;
+}): IFavoriteTokenDisplay[] | undefined {
+  const requestKeyPrefix = `${categoryId}:`;
+  const entry = Object.entries(prefetchedRowsByRequestKey).find(
+    ([requestKey]) => requestKey.startsWith(requestKeyPrefix),
+  );
+  return entry ? [...entry[1]] : undefined;
+}
+
+function buildHomeMarketCachedCategoryPayload({
+  cachedCategoryPayload,
+  currentPayload,
+  prefetchedRowsByRequestKey,
+  selectedCategoryId,
+}: {
+  cachedCategoryPayload?: IHomePopularTradingPayload;
+  currentPayload?: IHomePopularTradingPayload;
+  prefetchedRowsByRequestKey: Readonly<
+    Record<string, readonly IFavoriteTokenDisplay[]>
+  >;
+  selectedCategoryId: string;
+}): IHomePopularTradingPayload | undefined {
+  if (
+    !currentPayload ||
+    currentPayload.resolvedCategoryId === selectedCategoryId ||
+    !currentPayload.categories.some(
+      (category) => category.id === selectedCategoryId,
+    )
+  ) {
+    return undefined;
+  }
+
+  if (selectedCategoryId === FAVORITES_CATEGORY_ID) {
+    if (
+      !cachedCategoryPayload ||
+      cachedCategoryPayload.watchListContentKey !==
+        currentPayload.watchListContentKey
+    ) {
+      return undefined;
+    }
+    return {
+      ...currentPayload,
+      favoriteMode: cachedCategoryPayload.favoriteMode,
+      prefetchedRowsByRequestKey,
+      resolvedCategoryId: selectedCategoryId,
+      rows: cachedCategoryPayload.rows,
+      selectedCategoryId,
+      totalFavorites: cachedCategoryPayload.totalFavorites,
+      watchListContentKey: cachedCategoryPayload.watchListContentKey,
+      watchListItems: cachedCategoryPayload.watchListItems,
+    };
+  }
+
+  const rows = getCachedHomeMarketCategoryRows({
+    categoryId: selectedCategoryId,
+    prefetchedRowsByRequestKey,
+  });
+  if (!rows) {
+    return undefined;
+  }
+  return {
+    ...currentPayload,
+    prefetchedRowsByRequestKey,
+    resolvedCategoryId: selectedCategoryId,
+    rows,
+    selectedCategoryId,
+  };
 }
 
 function mapFavoritePerpsToken({
@@ -366,34 +507,33 @@ async function loadHomeMarketPayload({
       ? undefined
       : resolvedCategoryId || DEFAULT_MARKET_CATEGORY_ID;
   const minLiquidity = config.minLiquidity || 5000;
-  const fetchCategoryRows = async (categoryId: string) => {
-    const requestId = cache.beginRequest({
-      categoryIds: [categoryId],
-      minLiquidity,
-    });
-    const categoryRows = await fetchHomeMarketCategoryRows({
-      api,
-      categoryId,
-      minLiquidity,
-    });
-    cache.commitCategory({
-      categoryId,
-      minLiquidity,
-      requestId,
-      tokens: categoryRows,
-    });
-    return (
-      cache.getTokens({
-        minLiquidity,
-        selectedMarketCategoryId: categoryId,
-      }) ?? []
-    );
-  };
   const hasPerpsHotCategory = categories.some(
     (category) => category.id === HOME_PERPS_HOT_CATEGORY_ID,
   );
+  const prefetchCategoryIds = categories
+    .map((category) => category.id)
+    .filter((categoryId) => categoryId !== FAVORITES_CATEGORY_ID);
+  const foregroundCategoryIds = new Set(
+    [
+      selectedMarketCategoryId,
+      hasPerpsHotCategory ? HOME_PERPS_HOT_CATEGORY_ID : undefined,
+    ].filter((categoryId): categoryId is string => Boolean(categoryId)),
+  );
+  void prefetchHomeMarketCategoryRows({
+    api,
+    cache,
+    categoryIds: prefetchCategoryIds.filter(
+      (categoryId) => !foregroundCategoryIds.has(categoryId),
+    ),
+    minLiquidity,
+  });
   const rowsPromise = selectedMarketCategoryId
-    ? fetchCategoryRows(selectedMarketCategoryId)
+    ? fetchAndCacheHomeMarketCategoryRows({
+        api,
+        cache,
+        categoryId: selectedMarketCategoryId,
+        minLiquidity,
+      })
     : fetchHomeMarketFavoriteRows({
         api,
         config,
@@ -402,7 +542,12 @@ async function loadHomeMarketPayload({
   const independentPerpsHotRowsPromise =
     hasPerpsHotCategory &&
     selectedMarketCategoryId !== HOME_PERPS_HOT_CATEGORY_ID
-      ? fetchCategoryRows(HOME_PERPS_HOT_CATEGORY_ID)
+      ? fetchAndCacheHomeMarketCategoryRows({
+          api,
+          cache,
+          categoryId: HOME_PERPS_HOT_CATEGORY_ID,
+          minLiquidity,
+        })
       : Promise.resolve<IFavoriteTokenDisplay[]>([]);
   const [rows, independentPerpsHotRows, earnRows] = await Promise.all([
     rowsPromise,
@@ -413,9 +558,6 @@ async function loadHomeMarketPayload({
     selectedMarketCategoryId === HOME_PERPS_HOT_CATEGORY_ID
       ? rows
       : independentPerpsHotRows;
-  const prefetchCategoryIds = categories
-    .map((category) => category.id)
-    .filter((categoryId) => categoryId !== FAVORITES_CATEGORY_ID);
   return {
     categories,
     earnRows,
@@ -436,6 +578,9 @@ export function HomeMarketStoreController() {
   const intl = useIntl();
   const stableOwner = useStableHomeFactsOwner();
   const interaction = useHomeInteraction();
+  const currentMarketPayload = useHomeSectionPayload('market');
+  const currentMarketPayloadRef = useRef(currentMarketPayload);
+  currentMarketPayloadRef.current = currentMarketPayload;
   const { beginHomeSectionRequest, completeHomeSectionRequest } =
     useHomeStoreSourcePublisher();
   const selectedCategoryId = getSelectedHomeMarketCategory(
@@ -447,18 +592,25 @@ export function HomeMarketStoreController() {
   const ownerKey = stableOwner
     ? `${stableOwner.ownerToken.scopeKey}:${stableOwner.ownerToken.sessionId}`
     : undefined;
-  const cacheRef = useRef<{
-    cache: IHomeMarketCategoryCache;
-    ownerKey?: string;
-  }>({
+  const cacheRef = useRef<IHomeMarketControllerCache>({
     cache: createHomeMarketCategoryTokensCache<IFavoriteTokenDisplay>(),
+    payloadByCategoryId: new Map(),
   });
   if (cacheRef.current.ownerKey !== ownerKey) {
     cacheRef.current = {
       cache: createHomeMarketCategoryTokensCache<IFavoriteTokenDisplay>(),
       ownerKey,
+      payloadByCategoryId: new Map(),
     };
   }
+  useEffect(() => {
+    if (currentMarketPayload) {
+      cacheRef.current.payloadByCategoryId.set(
+        currentMarketPayload.resolvedCategoryId,
+        currentMarketPayload,
+      );
+    }
+  }, [currentMarketPayload]);
   const favoritesLabel = intl.formatMessage({
     id: ETranslations.global_favorites,
   });
@@ -467,6 +619,37 @@ export function HomeMarketStoreController() {
     async () => {
       if (!stableOwner) {
         return;
+      }
+      const controllerCache = cacheRef.current;
+      const prefetchedRowsByRequestKey = controllerCache.cache.getSnapshot();
+      const cachedPayload = buildHomeMarketCachedCategoryPayload({
+        cachedCategoryPayload:
+          controllerCache.payloadByCategoryId.get(selectedCategoryId),
+        currentPayload: currentMarketPayloadRef.current,
+        prefetchedRowsByRequestKey,
+        selectedCategoryId,
+      });
+      if (cachedPayload) {
+        await runHomeMarketStoreRequest({
+          gateway: {
+            begin: () =>
+              beginHomeSectionRequest({
+                dataSchemaVersion: HOME_MARKET_DATA_SCHEMA_VERSION,
+                ownerToken: stableOwner.ownerToken,
+                paramsFingerprint: stringUtils.stableStringify({
+                  selectedCategoryId,
+                }),
+                quoteBasis: { currency: USD_CURRENCY_ID },
+                sectionId: 'market',
+              }),
+            complete: completeHomeSectionRequest,
+          },
+          load: async () => cachedPayload,
+        });
+        controllerCache.payloadByCategoryId.set(
+          cachedPayload.resolvedCategoryId,
+          cachedPayload,
+        );
       }
       await runHomeMarketStoreRequest({
         gateway: {
@@ -482,13 +665,19 @@ export function HomeMarketStoreController() {
             }),
           complete: completeHomeSectionRequest,
         },
-        load: async () =>
-          loadHomeMarketPayload({
-            cache: cacheRef.current.cache,
+        load: async () => {
+          const payload = await loadHomeMarketPayload({
+            cache: controllerCache.cache,
             favoritesLabel,
             perpsLabel,
             selectedCategoryId,
-          }),
+          });
+          controllerCache.payloadByCategoryId.set(
+            payload.resolvedCategoryId,
+            payload,
+          );
+          return payload;
+        },
       });
     },
     [
@@ -520,5 +709,10 @@ export function HomeMarketStoreController() {
   return null;
 }
 
-export { buildHomeMarketCategories, loadHomeMarketPayload };
+export {
+  buildHomeMarketCachedCategoryPayload,
+  buildHomeMarketCategories,
+  loadHomeMarketPayload,
+  prefetchHomeMarketCategoryRows,
+};
 export type { IHomeMarketSourceApi };
