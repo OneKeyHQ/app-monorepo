@@ -201,6 +201,105 @@ function createFixture({
       return updatedEntry;
     },
   );
+  const tryClaimRemoteOneKeyIdLogoutPresentation = jest.fn(
+    async ({
+      operationId,
+      messageId,
+      claimId,
+      expiresAt,
+      now,
+    }: {
+      operationId: string;
+      messageId: string;
+      claimId: string;
+      expiresAt: number;
+      now: number;
+    }) => {
+      const entry = journalState[operationId];
+      const delivery = entry?.remoteDeviceLogout;
+      if (
+        entry?.status !== 'completed' ||
+        !entry.completed?.oneKeyIdLoggedOut ||
+        delivery?.messageId !== messageId
+      ) {
+        return { status: 'unavailable' as const };
+      }
+      if (delivery.presentationHandledAt) {
+        return { status: 'handled' as const };
+      }
+      if (
+        delivery.presentationClaim &&
+        delivery.presentationClaim.expiresAt > now
+      ) {
+        return {
+          status: 'claimedByOther' as const,
+          retryAfterMs: delivery.presentationClaim.expiresAt - now,
+        };
+      }
+      journalState[operationId] = {
+        ...entry,
+        remoteDeviceLogout: {
+          ...delivery,
+          presentationClaim: {
+            claimId,
+            expiresAt,
+          },
+        },
+      };
+      return {
+        status: 'claimed' as const,
+        claimId,
+        expiresAt,
+      };
+    },
+  );
+  const completeRemoteOneKeyIdLogoutPresentation = jest.fn(
+    async ({
+      operationId,
+      messageId,
+      claimId,
+      presentationHandledAt,
+      tombstoneExpiresAt,
+    }: {
+      operationId: string;
+      messageId: string;
+      claimId: string;
+      presentationHandledAt: number;
+      tombstoneExpiresAt: number;
+    }) => {
+      const entry = journalState[operationId];
+      const delivery = entry?.remoteDeviceLogout;
+      if (
+        entry?.status !== 'completed' ||
+        !entry.completed?.oneKeyIdLoggedOut ||
+        delivery?.messageId !== messageId
+      ) {
+        return undefined;
+      }
+      if (delivery.presentationHandledAt) {
+        return delivery.presentationHandledClaimId === claimId
+          ? entry
+          : undefined;
+      }
+      if (delivery.presentationClaim?.claimId !== claimId) {
+        return undefined;
+      }
+      const updatedEntry: IIdentityExitJournalEntry = {
+        ...entry,
+        remoteDeviceLogout: {
+          ...delivery,
+          presentationHandledAt,
+          presentationHandledClaimId: claimId,
+          presentationClaim: undefined,
+          tombstoneExpiresAt: delivery.acknowledgedAt
+            ? tombstoneExpiresAt
+            : undefined,
+        },
+      };
+      journalState[operationId] = updatedEntry;
+      return updatedEntry;
+    },
+  );
   const removeIdentityExitJournalEntry = jest.fn(
     async ({
       operationId,
@@ -276,6 +375,8 @@ function createFixture({
         ensureIdentityExitJournalEntry,
         setIdentityExitJournalEntry,
         updateRemoteOneKeyIdLogoutJournalDelivery,
+        tryClaimRemoteOneKeyIdLogoutPresentation,
+        completeRemoteOneKeyIdLogoutPresentation,
         removeIdentityExitJournalEntry,
         getIdentityExitOperationJournal: jest.fn(async () => ({
           ...journalState,
@@ -327,6 +428,8 @@ function createFixture({
     setIdentityExitJournalEntry,
     ensureIdentityExitJournalEntry,
     updateRemoteOneKeyIdLogoutJournalDelivery,
+    tryClaimRemoteOneKeyIdLogoutPresentation,
+    completeRemoteOneKeyIdLogoutPresentation,
     removeIdentityExitJournalEntry,
     journalState,
     consumeIdentityExitOAuthHandoff,
@@ -1554,6 +1657,118 @@ describe('ServiceIdentityExit', () => {
       presentationHandled: true,
     });
     expect(fixture.ensureIdentityExitJournalEntry).toHaveBeenCalledTimes(1);
+  });
+
+  test('coordinates remote logout presentation ownership through a BG lease', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(5000);
+    const fixture = createFixture({ wallet: null });
+    const staged = await fixture.service.stageRemoteOneKeyIdLogoutNotification({
+      messageId: 'presentation-lease-message',
+    });
+    await fixture.service.executeIdentityExit({ planId: staged.planId });
+    await fixture.service.markRemoteOneKeyIdLogoutNotificationDelivered({
+      operationId: staged.operationId,
+      messageId: 'presentation-lease-message',
+      delivery: 'acknowledged',
+    });
+
+    const firstClaim =
+      await fixture.service.tryClaimRemoteOneKeyIdLogoutPresentation({
+        operationId: staged.operationId,
+        messageId: 'presentation-lease-message',
+      });
+    expect(firstClaim).toMatchObject({
+      status: 'claimed',
+      expiresAt: 35_000,
+    });
+    if (firstClaim.status !== 'claimed') {
+      throw new OneKeyLocalError('Expected the first foreground to claim');
+    }
+    await expect(
+      fixture.service.tryClaimRemoteOneKeyIdLogoutPresentation({
+        operationId: staged.operationId,
+        messageId: 'presentation-lease-message',
+      }),
+    ).resolves.toEqual({
+      status: 'claimedByOther',
+      retryAfterMs: 30_000,
+    });
+
+    await expect(
+      fixture.service.completeRemoteOneKeyIdLogoutPresentation({
+        operationId: staged.operationId,
+        messageId: 'presentation-lease-message',
+        claimId: firstClaim.claimId,
+      }),
+    ).resolves.toEqual({ updated: true });
+    expect(fixture.journalState[staged.operationId]).toMatchObject({
+      remoteDeviceLogout: {
+        messageId: 'presentation-lease-message',
+        presentationHandledAt: 5000,
+        tombstoneExpiresAt: 604_805_000,
+      },
+    });
+    expect(
+      fixture.journalState[staged.operationId].remoteDeviceLogout
+        ?.presentationClaim,
+    ).toBeUndefined();
+    await expect(
+      fixture.service.tryClaimRemoteOneKeyIdLogoutPresentation({
+        operationId: staged.operationId,
+        messageId: 'presentation-lease-message',
+      }),
+    ).resolves.toEqual({ status: 'handled' });
+  });
+
+  test('reconciles an ambiguous presentation completion write', async () => {
+    const fixture = createFixture({ wallet: null });
+    const staged = await fixture.service.stageRemoteOneKeyIdLogoutNotification({
+      messageId: 'ambiguous-presentation-message',
+    });
+    await fixture.service.executeIdentityExit({ planId: staged.planId });
+    const claim =
+      await fixture.service.tryClaimRemoteOneKeyIdLogoutPresentation({
+        operationId: staged.operationId,
+        messageId: 'ambiguous-presentation-message',
+      });
+    if (claim.status !== 'claimed') {
+      throw new OneKeyLocalError('Expected the foreground to claim');
+    }
+    const storageError = new OneKeyLocalError(
+      'Presentation completion response was lost',
+    );
+    fixture.completeRemoteOneKeyIdLogoutPresentation.mockImplementationOnce(
+      async ({
+        operationId,
+        claimId,
+        presentationHandledAt,
+      }: {
+        operationId: string;
+        claimId: string;
+        presentationHandledAt: number;
+      }) => {
+        const entry = fixture.journalState[operationId];
+        fixture.journalState[operationId] = {
+          ...entry,
+          remoteDeviceLogout: {
+            ...entry.remoteDeviceLogout,
+            messageId: 'ambiguous-presentation-message',
+            presentationHandledAt,
+            presentationHandledClaimId: claimId,
+            presentationClaim: undefined,
+          },
+        };
+        throw storageError;
+      },
+    );
+
+    await expect(
+      fixture.service.completeRemoteOneKeyIdLogoutPresentation({
+        operationId: staged.operationId,
+        messageId: 'ambiguous-presentation-message',
+        claimId: claim.claimId,
+      }),
+    ).resolves.toEqual({ updated: true });
   });
 
   test('recovers an executing remote logout before listing pending presentations', async () => {

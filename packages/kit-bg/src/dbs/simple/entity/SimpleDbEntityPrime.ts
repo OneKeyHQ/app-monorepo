@@ -111,9 +111,28 @@ export type IIdentityExitJournalEntry = {
     messageId: string;
     acknowledgedAt?: number;
     presentationHandledAt?: number;
+    presentationHandledClaimId?: string;
+    presentationClaim?: {
+      claimId: string;
+      expiresAt: number;
+    };
     tombstoneExpiresAt?: number;
   };
 };
+
+export type IRemoteOneKeyIdLogoutPresentationClaimResult =
+  | {
+      status: 'claimed';
+      claimId: string;
+      expiresAt: number;
+    }
+  | {
+      status: 'claimedByOther';
+      retryAfterMs: number;
+    }
+  | {
+      status: 'handled' | 'unavailable';
+    };
 
 export type IKeylessOAuthSessionPersistenceJournal = {
   operationId: string;
@@ -431,6 +450,15 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
                 presentationHandledAt:
                   existingDelivery.presentationHandledAt ??
                   nextDelivery.presentationHandledAt,
+                presentationHandledClaimId:
+                  existingDelivery.presentationHandledClaimId ??
+                  nextDelivery.presentationHandledClaimId,
+                presentationClaim:
+                  existingDelivery.presentationHandledAt ||
+                  nextDelivery.presentationHandledAt
+                    ? undefined
+                    : (existingDelivery.presentationClaim ??
+                      nextDelivery.presentationClaim),
                 tombstoneExpiresAt:
                   existingDelivery.tombstoneExpiresAt ??
                   nextDelivery.tombstoneExpiresAt,
@@ -518,6 +546,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
         presentationHandledAt !== undefined
       ) {
         remoteDeviceLogout.presentationHandledAt = presentationHandledAt;
+        remoteDeviceLogout.presentationClaim = undefined;
         changed = true;
       }
       if (
@@ -538,6 +567,132 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
         ...entry,
         updatedAt: Math.max(Date.now(), entry.updatedAt + 1),
         remoteDeviceLogout,
+      };
+      return {
+        ...rawData,
+        identityExitOperationJournal: {
+          ...rawData?.identityExitOperationJournal,
+          [operationId]: result,
+        },
+      };
+    });
+    return result;
+  }
+
+  async tryClaimRemoteOneKeyIdLogoutPresentation({
+    operationId,
+    messageId,
+    claimId,
+    expiresAt,
+    now,
+  }: {
+    operationId: string;
+    messageId: string;
+    claimId: string;
+    expiresAt: number;
+    now: number;
+  }): Promise<IRemoteOneKeyIdLogoutPresentationClaimResult> {
+    let result: IRemoteOneKeyIdLogoutPresentationClaimResult = {
+      status: 'unavailable',
+    };
+    await this.setRawData((rawData) => {
+      const entry = rawData?.identityExitOperationJournal?.[operationId];
+      const delivery = entry?.remoteDeviceLogout;
+      if (
+        entry?.status !== 'completed' ||
+        !entry.completed?.oneKeyIdLoggedOut ||
+        delivery?.messageId !== messageId
+      ) {
+        return { ...rawData };
+      }
+      if (delivery.presentationHandledAt) {
+        result = { status: 'handled' };
+        return { ...rawData };
+      }
+      if (
+        delivery.presentationClaim &&
+        delivery.presentationClaim.expiresAt > now
+      ) {
+        result = {
+          status: 'claimedByOther',
+          retryAfterMs: delivery.presentationClaim.expiresAt - now,
+        };
+        return { ...rawData };
+      }
+
+      const nextEntry: IIdentityExitJournalEntry = {
+        ...entry,
+        updatedAt: Math.max(now, entry.updatedAt + 1),
+        remoteDeviceLogout: {
+          ...delivery,
+          presentationClaim: {
+            claimId,
+            expiresAt,
+          },
+        },
+      };
+      result = {
+        status: 'claimed',
+        claimId,
+        expiresAt,
+      };
+      return {
+        ...rawData,
+        identityExitOperationJournal: {
+          ...rawData?.identityExitOperationJournal,
+          [operationId]: nextEntry,
+        },
+      };
+    });
+    return result;
+  }
+
+  async completeRemoteOneKeyIdLogoutPresentation({
+    operationId,
+    messageId,
+    claimId,
+    presentationHandledAt,
+    tombstoneExpiresAt,
+  }: {
+    operationId: string;
+    messageId: string;
+    claimId: string;
+    presentationHandledAt: number;
+    tombstoneExpiresAt: number;
+  }): Promise<IIdentityExitJournalEntry | undefined> {
+    let result: IIdentityExitJournalEntry | undefined;
+    await this.setRawData((rawData) => {
+      const entry = rawData?.identityExitOperationJournal?.[operationId];
+      const delivery = entry?.remoteDeviceLogout;
+      if (
+        entry?.status !== 'completed' ||
+        !entry.completed?.oneKeyIdLoggedOut ||
+        delivery?.messageId !== messageId
+      ) {
+        return { ...rawData };
+      }
+      if (delivery.presentationHandledAt) {
+        if (delivery.presentationHandledClaimId === claimId) {
+          result = entry;
+        }
+        return { ...rawData };
+      }
+      if (delivery.presentationClaim?.claimId !== claimId) {
+        return { ...rawData };
+      }
+
+      result = {
+        ...entry,
+        updatedAt: Math.max(presentationHandledAt, entry.updatedAt + 1),
+        remoteDeviceLogout: {
+          ...delivery,
+          presentationHandledAt,
+          presentationHandledClaimId: claimId,
+          presentationClaim: undefined,
+          tombstoneExpiresAt: delivery.acknowledgedAt
+            ? (delivery.tombstoneExpiresAt ?? tombstoneExpiresAt)
+            : delivery.tombstoneExpiresAt,
+        },
       };
       return {
         ...rawData,

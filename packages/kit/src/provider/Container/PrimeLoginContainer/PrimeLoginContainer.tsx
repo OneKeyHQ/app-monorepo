@@ -21,53 +21,14 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { PrimeDeviceLogoutAlertDialog } from '../../../views/Prime/components/PrimeDeviceLogoutAlertDialog';
 import { PrimeForgetMasterPasswordDialog } from '../../../views/Prime/components/PrimeForgetMasterPasswordDialog';
 import { PrimeLoginPasswordDialog } from '../../../views/Prime/components/PrimeLoginPasswordDialog';
 import { PrimeMasterPasswordInvalidDialog } from '../../../views/Prime/components/PrimeMasterPasswordInvalidDialog';
 import { PrimeSetMasterPasswordHintDialog } from '../../../views/Prime/components/PrimeSetMasterPasswordHintDialog';
 
+import { presentRemoteOneKeyIdLogoutBestEffort } from './remoteOneKeyIdLogoutPresentation';
+
 let hasShownTimeErrorDialogInAppLifecycle = false;
-const presentedRemoteDeviceLogoutMessageIds = new Set<string>();
-
-async function presentRemoteDeviceLogout({
-  operationId,
-  messageId,
-}: {
-  operationId: string;
-  messageId: string;
-}): Promise<void> {
-  if (!presentedRemoteDeviceLogoutMessageIds.has(messageId)) {
-    presentedRemoteDeviceLogoutMessageIds.add(messageId);
-    try {
-      Dialog.show({
-        renderContent: <PrimeDeviceLogoutAlertDialog />,
-      });
-    } catch (error) {
-      presentedRemoteDeviceLogoutMessageIds.delete(messageId);
-      throw error;
-    }
-  }
-  await backgroundApiProxy.serviceIdentityExit.markRemoteOneKeyIdLogoutNotificationDelivered(
-    {
-      operationId,
-      messageId,
-      delivery: 'presentationHandled',
-    },
-  );
-}
-
-function presentRemoteDeviceLogoutBestEffort({
-  operationId,
-  messageId,
-}: {
-  operationId: string;
-  messageId: string;
-}): void {
-  void presentRemoteDeviceLogout({ operationId, messageId }).catch((error) => {
-    errorUtils.autoPrintErrorIgnore(error);
-  });
-}
 
 function isPrimeCloudSyncPageFocused() {
   return (
@@ -320,13 +281,13 @@ export function PrimeLoginContainer() {
 
   useEffect(() => {
     const fn = (payload: { operationId: string; messageId: string }) => {
-      presentRemoteDeviceLogoutBestEffort(payload);
+      presentRemoteOneKeyIdLogoutBestEffort(payload);
     };
     appEventBus.on(EAppEventBusNames.PrimeDeviceLogout, fn);
     void backgroundApiProxy.serviceIdentityExit
       .getPendingRemoteOneKeyIdLogoutPresentations()
       .then((presentations) => {
-        presentations.forEach(presentRemoteDeviceLogoutBestEffort);
+        presentations.forEach(presentRemoteOneKeyIdLogoutBestEffort);
       })
       .catch((error) => {
         errorUtils.autoPrintErrorIgnore(error);

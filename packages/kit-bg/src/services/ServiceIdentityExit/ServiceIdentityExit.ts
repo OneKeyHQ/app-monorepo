@@ -57,10 +57,14 @@ import {
   markIdentityRecoveryReady,
 } from './identityLifecycleMutex';
 
-import type { IIdentityExitJournalEntry } from '../../dbs/simple/entity/SimpleDbEntityPrime';
+import type {
+  IIdentityExitJournalEntry,
+  IRemoteOneKeyIdLogoutPresentationClaimResult,
+} from '../../dbs/simple/entity/SimpleDbEntityPrime';
 
 const IDENTITY_EXIT_PLAN_TTL_MS = 5 * 60 * 1000;
 const IDENTITY_EXIT_OAUTH_HANDOFF_TTL_MS = 5 * 60 * 1000;
+const REMOTE_DEVICE_LOGOUT_PRESENTATION_LEASE_TTL_MS = 30 * 1000;
 const REMOTE_DEVICE_LOGOUT_TOMBSTONE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const IDENTITY_EXIT_RECOVERY_SWEEP_OPERATION_ID = 'identityExit:recoverySweep';
 
@@ -2173,6 +2177,76 @@ class ServiceIdentityExit extends ServiceBase {
           messageId: entry.remoteDeviceLogout?.messageId || '',
         }));
     });
+  }
+
+  @backgroundMethod()
+  async tryClaimRemoteOneKeyIdLogoutPresentation({
+    operationId,
+    messageId,
+  }: {
+    operationId: string;
+    messageId: string;
+  }): Promise<IRemoteOneKeyIdLogoutPresentationClaimResult> {
+    const now = Date.now();
+    const claimId = stringUtils.generateUUID();
+    return this.backgroundApi.simpleDb.prime.tryClaimRemoteOneKeyIdLogoutPresentation(
+      {
+        operationId,
+        messageId,
+        claimId,
+        expiresAt: now + REMOTE_DEVICE_LOGOUT_PRESENTATION_LEASE_TTL_MS,
+        now,
+      },
+    );
+  }
+
+  @backgroundMethod()
+  async completeRemoteOneKeyIdLogoutPresentation({
+    operationId,
+    messageId,
+    claimId,
+  }: {
+    operationId: string;
+    messageId: string;
+    claimId: string;
+  }): Promise<{ updated: boolean }> {
+    const timestamp = Date.now();
+    let entry: IIdentityExitJournalEntry | undefined;
+    try {
+      entry =
+        await this.backgroundApi.simpleDb.prime.completeRemoteOneKeyIdLogoutPresentation(
+          {
+            operationId,
+            messageId,
+            claimId,
+            presentationHandledAt: timestamp,
+            tombstoneExpiresAt:
+              timestamp + REMOTE_DEVICE_LOGOUT_TOMBSTONE_TTL_MS,
+          },
+        );
+    } catch (error) {
+      try {
+        const current = (
+          await this.backgroundApi.simpleDb.prime.getIdentityExitOperationJournal()
+        )[operationId];
+        if (
+          current?.remoteDeviceLogout?.messageId === messageId &&
+          current.remoteDeviceLogout.presentationHandledClaimId === claimId
+        ) {
+          entry = current;
+        }
+      } catch {
+        // Preserve the original write error when reconciliation cannot read.
+      }
+      if (!entry) {
+        throw error;
+      }
+    }
+    if (!entry) {
+      return { updated: false };
+    }
+    this.scheduleRemoteDeviceLogoutJournalExpiryCleanup(entry);
+    return { updated: true };
   }
 
   @backgroundMethod()

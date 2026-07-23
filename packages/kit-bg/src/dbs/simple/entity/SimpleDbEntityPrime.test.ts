@@ -571,6 +571,176 @@ describe('SimpleDbEntityPrime identity-exit journal', () => {
     ).toBe(completedUpdatedAt);
   });
 
+  test('atomically leases and completes a remote logout presentation', async () => {
+    const entity = new SimpleDbEntityPrime();
+    const journal: IIdentityExitJournalEntry = {
+      ...createRemoteLogoutJournal(),
+      status: 'completed',
+      completed: {
+        oneKeyIdLoggedOut: true,
+      },
+      remoteDeviceLogout: {
+        messageId: 'message-1',
+        acknowledgedAt: 5,
+      },
+    };
+    let persisted: ISimpleDBPrime = {
+      identityExitOperationJournal: {
+        [journal.operationId]: journal,
+      },
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await expect(
+      entity.tryClaimRemoteOneKeyIdLogoutPresentation({
+        operationId: journal.operationId,
+        messageId: 'message-1',
+        claimId: 'claim-a',
+        expiresAt: 200,
+        now: 100,
+      }),
+    ).resolves.toEqual({
+      status: 'claimed',
+      claimId: 'claim-a',
+      expiresAt: 200,
+    });
+    await expect(
+      entity.tryClaimRemoteOneKeyIdLogoutPresentation({
+        operationId: journal.operationId,
+        messageId: 'message-1',
+        claimId: 'claim-b',
+        expiresAt: 250,
+        now: 150,
+      }),
+    ).resolves.toEqual({
+      status: 'claimedByOther',
+      retryAfterMs: 50,
+    });
+    await expect(
+      entity.completeRemoteOneKeyIdLogoutPresentation({
+        operationId: journal.operationId,
+        messageId: 'message-1',
+        claimId: 'claim-b',
+        presentationHandledAt: 175,
+        tombstoneExpiresAt: 900,
+      }),
+    ).resolves.toBeUndefined();
+
+    await expect(
+      entity.tryClaimRemoteOneKeyIdLogoutPresentation({
+        operationId: journal.operationId,
+        messageId: 'message-1',
+        claimId: 'claim-b',
+        expiresAt: 300,
+        now: 201,
+      }),
+    ).resolves.toEqual({
+      status: 'claimed',
+      claimId: 'claim-b',
+      expiresAt: 300,
+    });
+
+    await expect(
+      entity.completeRemoteOneKeyIdLogoutPresentation({
+        operationId: journal.operationId,
+        messageId: 'message-1',
+        claimId: 'claim-b',
+        presentationHandledAt: 200,
+        tombstoneExpiresAt: 900,
+      }),
+    ).resolves.toMatchObject({
+      remoteDeviceLogout: {
+        messageId: 'message-1',
+        acknowledgedAt: 5,
+        presentationHandledAt: 200,
+        tombstoneExpiresAt: 900,
+      },
+    });
+    expect(
+      persisted.identityExitOperationJournal?.[journal.operationId]
+        ?.remoteDeviceLogout?.presentationClaim,
+    ).toBeUndefined();
+    await expect(
+      entity.completeRemoteOneKeyIdLogoutPresentation({
+        operationId: journal.operationId,
+        messageId: 'message-1',
+        claimId: 'claim-b',
+        presentationHandledAt: 250,
+        tombstoneExpiresAt: 950,
+      }),
+    ).resolves.toMatchObject({
+      remoteDeviceLogout: {
+        presentationHandledAt: 200,
+        presentationHandledClaimId: 'claim-b',
+        tombstoneExpiresAt: 900,
+      },
+    });
+    await expect(
+      entity.tryClaimRemoteOneKeyIdLogoutPresentation({
+        operationId: journal.operationId,
+        messageId: 'message-1',
+        claimId: 'claim-c',
+        expiresAt: 400,
+        now: 210,
+      }),
+    ).resolves.toEqual({ status: 'handled' });
+  });
+
+  test('lets a new foreground replace an expired presentation lease', async () => {
+    const entity = new SimpleDbEntityPrime();
+    const journal: IIdentityExitJournalEntry = {
+      ...createRemoteLogoutJournal(),
+      status: 'completed',
+      completed: {
+        oneKeyIdLoggedOut: true,
+      },
+      remoteDeviceLogout: {
+        messageId: 'message-1',
+        presentationClaim: {
+          claimId: 'expired-claim',
+          expiresAt: 100,
+        },
+      },
+    };
+    let persisted: ISimpleDBPrime = {
+      identityExitOperationJournal: {
+        [journal.operationId]: journal,
+      },
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await expect(
+      entity.tryClaimRemoteOneKeyIdLogoutPresentation({
+        operationId: journal.operationId,
+        messageId: 'message-1',
+        claimId: 'replacement-claim',
+        expiresAt: 250,
+        now: 150,
+      }),
+    ).resolves.toEqual({
+      status: 'claimed',
+      claimId: 'replacement-claim',
+      expiresAt: 250,
+    });
+    expect(
+      persisted.identityExitOperationJournal?.[journal.operationId]
+        ?.remoteDeviceLogout?.presentationClaim,
+    ).toEqual({
+      claimId: 'replacement-claim',
+      expiresAt: 250,
+    });
+  });
+
   test('consumes an OAuth handoff once with a persisted compare-and-set', async () => {
     const entity = new SimpleDbEntityPrime();
     let persisted: Record<string, unknown> = {
