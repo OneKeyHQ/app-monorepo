@@ -2107,11 +2107,19 @@ export type IEarnPortfolioAsset = IEarnInvestmentItemV2['assets'][number] & {
   };
 };
 
+export type IEarnPortfolioClaimSymbolStatus =
+  | 'matched'
+  | 'ambiguous'
+  | 'unmatched';
+
 export type IEarnPortfolioAirdropAsset =
   IEarnAirdropInvestmentItemV2['assets'][number] & {
     // Metadata containing protocol and network information for this airdrop asset
     metadata: {
-      protocol: IEarnAirdropInvestmentItemV2['protocol'];
+      protocol: IEarnAirdropInvestmentItemV2['protocol'] & {
+        claimSymbol?: string;
+        claimSymbolStatus?: IEarnPortfolioClaimSymbolStatus;
+      };
       network: IEarnAirdropInvestmentItemV2['network'];
     };
   };

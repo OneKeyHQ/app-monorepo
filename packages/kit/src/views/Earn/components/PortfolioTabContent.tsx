@@ -27,7 +27,6 @@ import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableLi
 import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { MorphoUSDCVaultAddress } from '@onekeyhq/shared/src/consts/addresses';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
@@ -51,6 +50,12 @@ import { EarnNavigation } from '../earnUtils';
 import { usePortfolioAction } from '../hooks/usePortfolioAction';
 import { useStakingPendingTxsByInfo } from '../hooks/useStakingPendingTxs';
 import { EarnTestIDs } from '../testIDs';
+import {
+  type IPortfolioClaimProtocolIdentity,
+  type IPortfolioClaimSourceCandidate,
+  resolvePortfolioClaimProtocolIdentity,
+  resolveUniquePortfolioClaimSourceIdentity,
+} from '../utils/portfolioClaimUtils';
 
 import type {
   IRefreshOptions,
@@ -137,17 +142,15 @@ const usePortfolioPendingTxs = () => useContext(PortfolioPendingTxsContext);
 const WrappedActionButtonCmp = ({
   asset,
   reward,
-  stakedSymbol,
+  claimSourceIdentity,
   rewardSymbol,
-  stakedVault,
 }: {
   asset:
     | IEarnPortfolioInvestment['assets'][number]
     | IEarnPortfolioInvestment['airdropAssets'][number];
   reward: IWrappedActionReward;
-  stakedSymbol?: string;
+  claimSourceIdentity?: IPortfolioClaimProtocolIdentity | null;
   rewardSymbol?: string;
-  stakedVault?: string;
 }) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
@@ -161,33 +164,38 @@ const WrappedActionButtonCmp = ({
   const isMorphoProvider = earnUtils.isMorphoProvider({
     providerName,
   });
-  const isPendleProvider = earnUtils.isPendleProvider({
+  const isAirdrop = 'airdropAssets' in asset;
+  const claimIdentity = resolvePortfolioClaimProtocolIdentity({
+    isAirdrop,
     providerName,
+    assetSymbol: asset.token.info.symbol,
+    assetVault: asset.metadata.protocol.vault,
+    claimSymbol: isAirdrop ? asset.metadata.protocol.claimSymbol : undefined,
+    claimSymbolStatus: isAirdrop
+      ? asset.metadata.protocol.claimSymbolStatus
+      : undefined,
+    sourceIdentity: claimSourceIdentity,
   });
+  const isClaimIdentityUnavailable = claimIdentity === null;
+  const symbolForConfig = claimIdentity?.symbol || '';
+  const vaultForConfig = claimIdentity?.vault;
+  const stakedSymbolForRefresh = isAirdrop
+    ? claimSourceIdentity?.symbol || claimIdentity?.symbol
+    : undefined;
 
-  // Default airdrop claims reuse the source position's symbol/vault, but some
-  // providers expose rewards as their own backend asset (for example Pendle's
-  // Ethena unstake claim), so we normalize those separately below.
-  let symbolForConfig = stakedSymbol || asset.token.info.symbol;
-  let vaultForConfig = stakedVault || asset.metadata.protocol.vault;
-  if (isMorphoProvider) {
-    symbolForConfig = 'USDC';
-    vaultForConfig = MorphoUSDCVaultAddress;
-  } else if (isPendleProvider) {
-    // Pendle Ethena-unstake rewards have their own protocol identity on the
-    // backend, so don't reuse the original staked position's symbol/vault.
-    symbolForConfig = asset.token.info.symbol;
-    vaultForConfig = asset.metadata.protocol.vault;
-  }
-
-  const stakeTag = buildLocalTxStatusSyncId({
-    providerName: asset.metadata.protocol.providerDetail.code,
-    tokenSymbol: symbolForConfig,
-    protocolVault: vaultForConfig,
-  });
+  const stakeTag = claimIdentity
+    ? buildLocalTxStatusSyncId({
+        providerName: asset.metadata.protocol.providerDetail.code,
+        tokenSymbol: symbolForConfig,
+        protocolVault: vaultForConfig,
+      })
+    : undefined;
 
   const pendingTxsFilter = useCallback(
     (tx: IStakePendingTx) => {
+      if (!stakeTag) {
+        return false;
+      }
       return (
         [EEarnLabels.Claim].includes(tx.stakingInfo.label) &&
         tx.stakingInfo.tags?.includes(stakeTag)
@@ -223,6 +231,10 @@ const WrappedActionButtonCmp = ({
   });
 
   const onPress = useCallback(() => {
+    if (isClaimIdentityUnavailable) {
+      return;
+    }
+
     // Only Morpho reward claims need the backend reward token selector.
     const rewardTokenAddress =
       isMorphoProvider &&
@@ -240,7 +252,7 @@ const WrappedActionButtonCmp = ({
       rewardTokenAddress,
       claimRequestType,
       indexedAccountId: indexedAccount?.id,
-      stakedSymbol,
+      stakedSymbol: stakedSymbolForRefresh,
       rewardSymbol,
     });
   }, [
@@ -249,12 +261,14 @@ const WrappedActionButtonCmp = ({
     asset,
     isMorphoProvider,
     indexedAccount?.id,
-    stakedSymbol,
+    stakedSymbolForRefresh,
     rewardSymbol,
+    isClaimIdentityUnavailable,
   ]);
   const isDesktopLayout = useIsDesktopLayout();
 
-  const buttonDisabled = getRewardButtonDisabled(reward.button);
+  const buttonDisabled =
+    isClaimIdentityUnavailable || getRewardButtonDisabled(reward.button);
   const buttonText = getRewardButtonText(reward.button);
 
   if (!buttonText) {
@@ -617,13 +631,11 @@ const buildRewardPairs = (items: IAirdropRewardItem[]) => {
 
 const ProtocolAirdrop = ({
   airdropAssets,
-  stakedSymbol,
-  stakedVault,
+  claimSourceCandidates,
   isPendle,
 }: {
   airdropAssets: IEarnPortfolioAirdropAsset[];
-  stakedSymbol?: string;
-  stakedVault?: string;
+  claimSourceCandidates: IPortfolioClaimSourceCandidate[];
   isPendle?: boolean;
 }) => {
   const intl = useIntl();
@@ -660,6 +672,13 @@ const ProtocolAirdrop = ({
       </SizableText>
       <YStack w="100%" gap="$4">
         {rows.map(({ key, pair, group }) => {
+          const claimSourceIdentity = resolveUniquePortfolioClaimSourceIdentity(
+            {
+              networkId: group.metadata.network.networkId,
+              providerName: group.metadata.protocol.providerDetail.code,
+              candidates: claimSourceCandidates,
+            },
+          );
           const primaryTitle = pair.primary?.title;
           const primaryDescription = pair.primary?.description;
           const hasSecondary = Boolean(pair.secondary);
@@ -673,8 +692,7 @@ const ProtocolAirdrop = ({
             <WrappedActionButton
               asset={group}
               reward={actionReward}
-              stakedSymbol={stakedSymbol}
-              stakedVault={stakedVault}
+              claimSourceIdentity={claimSourceIdentity}
               rewardSymbol={group.token.info.symbol}
             />
           ) : null;
@@ -1133,8 +1151,12 @@ const PortfolioItemComponent = ({
         ) : null}
         <ProtocolAirdrop
           airdropAssets={portfolioItem.airdropAssets}
-          stakedSymbol={portfolioItem.assets[0]?.token.info.symbol}
-          stakedVault={portfolioItem.assets[0]?.metadata.protocol.vault}
+          claimSourceCandidates={portfolioItem.assets.map((asset) => ({
+            networkId: asset.metadata.network.networkId,
+            providerName: asset.metadata.protocol.providerDetail.code,
+            symbol: asset.token.info.symbol,
+            vault: asset.metadata.protocol.vault,
+          }))}
           isPendle={isPendle}
         />
       </YStack>

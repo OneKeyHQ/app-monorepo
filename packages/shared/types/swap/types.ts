@@ -152,6 +152,7 @@ export interface IMarketPresetTokenContext {
 export interface ISwapInitParams {
   importFromToken?: ISwapToken;
   importToToken?: ISwapToken;
+  importAccountKey?: string;
   importNetworkId?: string;
   swapTabSwitchType?: ESwapTabSwitchType;
   fromAmount?: string;
@@ -250,6 +251,7 @@ export interface IFetchTokensParams {
   accountId?: string;
   onlyAccountTokens?: boolean;
   isAllNetworkFetchAccountTokens?: boolean;
+  throwOnError?: boolean;
   lpToken?: boolean;
   currency?: string;
 }

@@ -3,6 +3,8 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import BigNumber from 'bignumber.js';
 
+import type { ISwapReviewGasInfoEntry } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
+import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -20,6 +22,8 @@ import {
 import {
   buildMarketReviewTokens,
   buildMarketSwapHistoryItem,
+  isMarketUserCancelledError,
+  parseMarketTokenBalance,
   useSpeedSwapActions,
 } from './useSpeedSwapActions';
 import { ESwapDirection } from './useTradeType';
@@ -49,6 +53,12 @@ type IUsePaymentTokenPriceMock = (
   currencyId?: string,
 ) => IUsePaymentTokenPriceResult;
 
+type IMarketDirectSendValidationParams = {
+  validateFinalGasInfos?: (
+    gasInfos: ISwapReviewGasInfoEntry[],
+  ) => Promise<void>;
+};
+
 const mockFetchSwapTokenDetails: jest.MockedFunction<
   (params: IFetchSwapTokenDetailsParams) => Promise<ISwapToken[]>
 > = jest.fn();
@@ -63,6 +73,9 @@ const mockNetAccountRun = jest.fn();
 const mockMarketDeriveInfoRun = jest.fn();
 const mockUsePaymentTokenPrice: jest.MockedFunction<IUsePaymentTokenPriceMock> =
   jest.fn();
+const mockSendMarketDirectUnsignedTxs: jest.MockedFunction<
+  (params: IMarketDirectSendValidationParams) => Promise<[]>
+> = jest.fn();
 
 let mockUsePromiseResultCallCount = 0;
 let mockPaymentTokenPriceCache: Record<string, BigNumber> = {};
@@ -188,6 +201,17 @@ jest.mock('./usePaymentTokenPrice', () => ({
     mockUsePaymentTokenPrice(paymentToken, networkId, currencyId),
 }));
 
+jest.mock('./marketDirectSendTx', () => {
+  const actual = jest.requireActual<typeof import('./marketDirectSendTx')>(
+    './marketDirectSendTx',
+  );
+  return {
+    ...actual,
+    sendMarketDirectUnsignedTxs: (params: IMarketDirectSendValidationParams) =>
+      mockSendMarketDirectUnsignedTxs(params),
+  };
+});
+
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason?: unknown) => void;
@@ -236,6 +260,22 @@ const btcToken: ISwapToken = {
   contractAddress: '0xbtc',
   symbol: 'BTC',
   decimals: 8,
+  isNative: false,
+};
+
+const ethToken: ISwapToken = {
+  networkId: 'evm--1',
+  contractAddress: '',
+  symbol: 'ETH',
+  decimals: 18,
+  isNative: true,
+};
+
+const wethToken: ISwapToken = {
+  networkId: 'evm--1',
+  contractAddress: '0xweth',
+  symbol: 'WETH',
+  decimals: 18,
   isNative: false,
 };
 
@@ -298,6 +338,38 @@ function createHookProps({
   };
 }
 
+describe('parseMarketTokenBalance', () => {
+  it.each([null, '', 'NaN', 'Infinity', '-Infinity', 'invalid', '-1'])(
+    'keeps invalid balance %p unknown',
+    (balanceParsed) => {
+      expect(parseMarketTokenBalance(balanceParsed)).toBeUndefined();
+    },
+  );
+
+  it('preserves a valid zero balance', () => {
+    expect(parseMarketTokenBalance('0')?.isZero()).toBe(true);
+  });
+});
+
+describe('isMarketUserCancelledError', () => {
+  it('does not treat default internal errors as user cancellation', () => {
+    expect(isMarketUserCancelledError(new OneKeyError('account error'))).toBe(
+      false,
+    );
+    expect(
+      isMarketUserCancelledError(new OneKeyLocalError('insufficient balance')),
+    ).toBe(false);
+  });
+
+  it.each([
+    { key: 'global.cancel' },
+    { code: 803 },
+    { message: 'User rejected the request' },
+  ])('accepts an explicit cancellation signal %#', (error) => {
+    expect(isMarketUserCancelledError(error)).toBe(true);
+  });
+});
+
 describe('useSpeedSwapActions', () => {
   beforeEach(() => {
     mockFetchSwapTokenDetails.mockReset();
@@ -307,6 +379,8 @@ describe('useSpeedSwapActions', () => {
     mockNetAccountRun.mockReset();
     mockMarketDeriveInfoRun.mockReset();
     mockUsePaymentTokenPrice.mockReset();
+    mockSendMarketDirectUnsignedTxs.mockReset();
+    mockSendMarketDirectUnsignedTxs.mockResolvedValue([]);
     mockUsePromiseResultCallCount = 0;
     mockPaymentTokenPriceCache = {};
     mockInAppNotificationAtomState = {};
@@ -446,6 +520,301 @@ describe('useSpeedSwapActions', () => {
     });
   });
 
+  it('clears a previous token balance while the next balance is loading', async () => {
+    const nextBalanceRequest = createDeferred<ISwapToken[]>();
+
+    mockFetchSwapTokenDetails.mockImplementation(
+      ({ accountId, contractAddress }: IFetchSwapTokenDetailsParams) => {
+        if (!accountId) {
+          return Promise.resolve([]);
+        }
+        if (contractAddress === usdtToken.contractAddress) {
+          return nextBalanceRequest.promise;
+        }
+        return Promise.resolve(
+          createTokenDetail({
+            networkId: usdcToken.networkId,
+            contractAddress: usdcToken.contractAddress,
+            symbol: usdcToken.symbol,
+            decimals: usdcToken.decimals,
+            balanceParsed: '100',
+          }),
+        );
+      },
+    );
+
+    const { result, rerender } = renderHook(
+      ({ tradeToken }: { tradeToken: ISwapTokenBase }) =>
+        useSpeedSwapActions(
+          createHookProps({
+            marketToken: { ...btcToken, price: '100000' },
+            tradeToken: { ...tradeToken, price: '1' },
+          }),
+        ),
+      { initialProps: { tradeToken: usdcToken } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.balance?.toFixed()).toBe('100');
+    });
+
+    rerender({ tradeToken: usdtToken });
+
+    await waitFor(() => {
+      expect(result.current.balanceToken.symbol).toBe('USDT');
+      expect(result.current.fetchBalanceLoading).toBe(true);
+      expect(result.current.balance).toBeUndefined();
+    });
+
+    await act(async () => {
+      nextBalanceRequest.resolve(
+        createTokenDetail({
+          networkId: usdtToken.networkId,
+          contractAddress: usdtToken.contractAddress,
+          symbol: usdtToken.symbol,
+          decimals: usdtToken.decimals,
+          balanceParsed: '250',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(result.current.balance?.toFixed()).toBe('250');
+      expect(result.current.fetchBalanceLoading).toBe(false);
+    });
+  });
+
+  it('keeps the balance unknown when the balance request fails', async () => {
+    mockFetchSwapTokenDetails.mockImplementation(({ accountId }) =>
+      accountId
+        ? Promise.reject(new Error('balance request failed'))
+        : Promise.resolve([]),
+    );
+
+    const { result } = renderHook(() => useSpeedSwapActions(createHookProps()));
+
+    await waitFor(() => {
+      expect(result.current.fetchBalanceLoading).toBe(false);
+      expect(result.current.balance).toBeUndefined();
+      expect(mockFetchSwapTokenDetails).toHaveBeenCalledWith(
+        expect.objectContaining({ accountId: 'net-account-1' }),
+      );
+    });
+  });
+
+  it('preserves a successfully fetched zero balance', async () => {
+    mockFetchSwapTokenDetails.mockImplementation(({ accountId }) =>
+      Promise.resolve(
+        accountId ? createTokenDetail({ balanceParsed: '0' }) : [],
+      ),
+    );
+
+    const { result } = renderHook(() => useSpeedSwapActions(createHookProps()));
+
+    await waitFor(() => {
+      expect(result.current.fetchBalanceLoading).toBe(false);
+      expect(result.current.balance?.isZero()).toBe(true);
+    });
+  });
+
+  it('checks the latest balance before creating a wrapped review snapshot', async () => {
+    mockFetchSwapTokenDetails.mockImplementation(({ accountId }) =>
+      Promise.resolve(
+        accountId ? createTokenDetail({ balanceParsed: '0.5' }) : [],
+      ),
+    );
+
+    const { result } = renderHook(() =>
+      useSpeedSwapActions(
+        createHookProps({
+          marketToken: wethToken,
+          tradeToken: ethToken,
+        }),
+      ),
+    );
+
+    await waitFor(() => {
+      expect(result.current.fetchBalanceLoading).toBe(false);
+    });
+
+    await expect(
+      result.current.prepareMarketSwapReview({
+        fromAmount: '1',
+        fromToken: ethToken,
+        toToken: wethToken,
+        isWrap: true,
+      }),
+    ).rejects.toThrow('insufficient_balance_title');
+  });
+
+  it('checks the latest balance again before sending a wrapped transaction', async () => {
+    let latestBalance = '2';
+    mockFetchSwapTokenDetails.mockImplementation(({ accountId }) =>
+      Promise.resolve(
+        accountId ? createTokenDetail({ balanceParsed: latestBalance }) : [],
+      ),
+    );
+
+    const { result } = renderHook(() =>
+      useSpeedSwapActions(
+        createHookProps({
+          marketToken: wethToken,
+          tradeToken: ethToken,
+        }),
+      ),
+    );
+
+    await waitFor(() => {
+      expect(result.current.fetchBalanceLoading).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.prepareMarketSwapReview({
+        fromAmount: '1',
+        fromToken: ethToken,
+        toToken: wethToken,
+        isWrap: true,
+      });
+    });
+
+    latestBalance = '0.5';
+
+    await expect(result.current.sendMarketWrappedTx()).rejects.toThrow(
+      'insufficient_balance_title',
+    );
+  });
+
+  it('checks rebuilt amount plus gas before signing a wrapped transaction', async () => {
+    let latestBalance = '2';
+    mockFetchSwapTokenDetails.mockImplementation(({ accountId }) =>
+      Promise.resolve(
+        accountId ? createTokenDetail({ balanceParsed: latestBalance }) : [],
+      ),
+    );
+    mockSendMarketDirectUnsignedTxs.mockImplementation(async (params) => {
+      await params.validateFinalGasInfos?.([
+        {
+          encodeTx: { data: '0xfinal-wrap' } as never,
+          gasInfo: {
+            common: {
+              feeDecimals: 9,
+              feeSymbol: 'Gwei',
+              nativeDecimals: 18,
+              nativeSymbol: 'ETH',
+            },
+            gas: {
+              gasLimit: '21000',
+              gasPrice: '10000',
+            },
+          },
+        },
+      ]);
+      return [];
+    });
+
+    const { result } = renderHook(() =>
+      useSpeedSwapActions(
+        createHookProps({
+          marketToken: wethToken,
+          tradeToken: ethToken,
+        }),
+      ),
+    );
+
+    await waitFor(() => {
+      expect(result.current.fetchBalanceLoading).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.prepareMarketSwapReview({
+        fromAmount: '1',
+        fromToken: ethToken,
+        toToken: wethToken,
+        isWrap: true,
+      });
+    });
+
+    latestBalance = '1.1';
+
+    await expect(result.current.sendMarketWrappedTx()).rejects.toThrow(
+      'insufficient_balance_title',
+    );
+    expect(mockSendMarketDirectUnsignedTxs).toHaveBeenCalledWith(
+      expect.objectContaining({
+        validateFinalGasInfos: expect.any(Function),
+      }),
+    );
+  });
+
+  it('checks the wrapped token and rebuilt native gas before signing an unwrap', async () => {
+    mockFetchSwapTokenDetails.mockImplementation(
+      ({ accountId, contractAddress }) => {
+        if (!accountId) {
+          return Promise.resolve([]);
+        }
+        return Promise.resolve(
+          createTokenDetail({
+            contractAddress: contractAddress ?? '',
+            isNative: !contractAddress,
+            symbol: contractAddress ? 'WETH' : 'ETH',
+            balanceParsed: contractAddress ? '2' : '0.1',
+          }),
+        );
+      },
+    );
+    mockSendMarketDirectUnsignedTxs.mockImplementation(async (params) => {
+      await params.validateFinalGasInfos?.([
+        {
+          encodeTx: { data: '0xfinal-unwrap' } as never,
+          gasInfo: {
+            common: {
+              feeDecimals: 9,
+              feeSymbol: 'Gwei',
+              nativeDecimals: 18,
+              nativeSymbol: 'ETH',
+            },
+            gas: {
+              gasLimit: '21000',
+              gasPrice: '10000',
+            },
+          },
+        },
+      ]);
+      return [];
+    });
+
+    const { result } = renderHook(() =>
+      useSpeedSwapActions(
+        createHookProps({
+          marketToken: ethToken,
+          tradeToken: wethToken,
+        }),
+      ),
+    );
+
+    await waitFor(() => {
+      expect(result.current.fetchBalanceLoading).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.prepareMarketSwapReview({
+        fromAmount: '1',
+        fromToken: wethToken,
+        toToken: ethToken,
+        isWrap: true,
+      });
+    });
+
+    await expect(result.current.sendMarketWrappedTx()).rejects.toThrow(
+      'insufficient_balance_title',
+    );
+    expect(
+      mockFetchSwapTokenDetails.mock.calls.some(
+        ([params]) => params.accountId && !params.contractAddress,
+      ),
+    ).toBe(true);
+  });
+
   it('waits for the matching network account before refreshing the current token balance', async () => {
     mockFetchSwapTokenDetails.mockResolvedValue(
       createTokenDetail({
@@ -498,7 +867,7 @@ describe('useSpeedSwapActions', () => {
       expect(result.current.balanceToken.networkId).toBe(
         tonUsdtToken.networkId,
       );
-      expect(result.current.balance?.toFixed()).toBe('0');
+      expect(result.current.balance).toBeUndefined();
     });
 
     mockNetAccountPromiseResult = {
@@ -527,6 +896,7 @@ describe('useSpeedSwapActions', () => {
           contractAddress: tonUsdtToken.contractAddress,
         }),
       );
+      expect(result.current.balance?.toFixed()).toBe('100');
     });
   });
 
