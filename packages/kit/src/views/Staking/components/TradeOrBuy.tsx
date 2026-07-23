@@ -15,6 +15,14 @@ import ActionBuy from '../../AssetDetails/pages/TokenDetails/ActionBuy';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { useHandleSwap } from '../hooks/useHandleSwap';
 
+// Default-disabled swap capability. Used both as the pre-resolve state (so an
+// unsupported network never flashes an enabled Trade button) and as the
+// error-degrade fallback.
+const defaultSwapConfig = {
+  isSupportSwap: false,
+  isSupportCrossChain: false,
+};
+
 function BasicTradeOrBuy({
   token,
   accountId,
@@ -37,16 +45,28 @@ function BasicTradeOrBuy({
     await handleSwap({ token, networkId });
   }, [handleSwap, token, networkId]);
 
-  // Whether swap is available on this network. Some networks (e.g. Katana) are
+  // Whether trade is available on this network. Some networks (e.g. Katana) are
   // not swap-supported yet, so the "Trade" button must not route to an empty
-  // swap page. Treat the button as disabled until the backend confirms support
-  // (default-disabled while resolving) so an unsupported network never flashes
-  // an enabled state before settling to disabled.
-  const { result: swapSupport } = usePromiseResult(
+  // swap page. Earn's Trade flow is cross-chain by design (e.g. BTC/APT import
+  // ETH-mainnet tokens), so — like Borrow's BorrowSwapOrBridge — a network
+  // counts as usable when EITHER same-chain swap OR cross-chain is supported.
+  // Default-disabled while resolving (no enabled→disabled flash for unsupported
+  // networks); on request failure `undefinedResultIfError` degrades to the
+  // default (disabled) without throwing, and revalidateOnFocus/Reconnect retries
+  // so a transient network error doesn't leave the button permanently disabled.
+  const { result: swapConfig = defaultSwapConfig } = usePromiseResult(
     () => backgroundApiProxy.serviceSwap.checkSupportSwap({ networkId }),
     [networkId],
+    {
+      initResult: defaultSwapConfig,
+      undefinedResultIfError: true,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+    },
   );
-  const isSwapUnsupported = swapSupport?.isSupportSwap !== true;
+  const isSwapUnsupported = !(
+    swapConfig.isSupportSwap || swapConfig.isSupportCrossChain
+  );
 
   const isHiddenComponent = networkId === networkIdsMap.cosmoshub;
 
