@@ -60,6 +60,7 @@ interface IInputHelper {
 }
 
 interface ITradingFormInputProps {
+  testID?: string;
   value: string;
   onChange: (value: string) => void;
   label: string;
@@ -81,6 +82,7 @@ interface ITradingFormInputProps {
 
 export const TradingFormInput = memo(
   ({
+    testID,
     value,
     onChange,
     label,
@@ -176,7 +178,7 @@ export const TradingFormInput = memo(
           }
         >
           <Input
-            testID="perp-input"
+            testID={testID ?? 'perp-input'}
             flex={1}
             h={platformEnv.isNativeAndroid ? 40 : 36}
             size="small"
@@ -247,7 +249,7 @@ export const TradingFormInput = memo(
       >
         <YStack>
           <Input
-            testID="perp-input"
+            testID={testID ?? 'perp-input'}
             h={32}
             placeholder={placeholder}
             textAlign="right"
