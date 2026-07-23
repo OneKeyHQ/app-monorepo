@@ -1,5 +1,9 @@
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
+
 import {
   HomePortfolioRequestLifecycle,
+  filterHomePortfolioRiskTokens,
+  filterHomePortfolioSmallBalanceTokens,
   isHomePortfolioValuationReceiptApplied,
   requireHomePortfolioValuationReceipt,
   reuseHomePortfolioPayload,
@@ -39,6 +43,34 @@ function createPayload(
 }
 
 describe('HomePortfolioStoreController source', () => {
+  it('matches the legacy footer filters for hidden asset groups', () => {
+    const funded = { $key: 'funded' } as IAccountToken;
+    const zeroBalance = { $key: 'zero' } as IAccountToken;
+    const dapp = {
+      $key: 'dapp',
+      dappName: 'Aave',
+    } as IAccountToken;
+
+    expect(
+      filterHomePortfolioSmallBalanceTokens({
+        hideDappTokens: true,
+        hideZeroBalanceTokens: true,
+        nonZeroIds: [funded.$key, dapp.$key],
+        tokens: [funded, zeroBalance, dapp],
+      }),
+    ).toEqual([funded]);
+    expect(
+      filterHomePortfolioRiskTokens({
+        hideZeroBalanceTokens: true,
+        map: {
+          [funded.$key]: { balance: '0.000000000000000001' },
+          [zeroBalance.$key]: { balance: '0' },
+        },
+        tokens: [funded, zeroBalance],
+      }),
+    ).toEqual([funded]);
+  });
+
   it('begins exactly one request per real source round', () => {
     const lifecycle = new HomePortfolioRequestLifecycle();
     const beginRequest = jest.fn(() => ({
@@ -179,6 +211,12 @@ describe('HomePortfolioStoreController source', () => {
       reuseHomePortfolioPayload(
         previous,
         createPayload({ smallBalanceFiatValue: '2' }),
+      ),
+    ).not.toBe(previous);
+    expect(
+      reuseHomePortfolioPayload(
+        previous,
+        createPayload({ blockedRiskTokenCount: 2 }),
       ),
     ).not.toBe(previous);
   });

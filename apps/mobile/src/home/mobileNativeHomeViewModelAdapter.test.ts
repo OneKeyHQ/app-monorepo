@@ -200,11 +200,13 @@ describe('mobileNativeHomeViewModelAdapter', () => {
       items: [
         expect.objectContaining({
           buttonTitle: 'Add token',
+          displayHeight: 52,
           renderer: 'addToken',
           title: "Can't find your token?",
         }),
       ],
     });
+    expect(sections.at(-2)?.items[0]).not.toHaveProperty('showChevron');
     expect(sections.at(-1)).toMatchObject({
       id: 'portfolio-assets-toggle',
       items: [
@@ -242,6 +244,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
           accountTokensWorthCurrency: 'USD',
           aggregateTokenListMap: {},
           allAggregateTokenMap: {},
+          blockedRiskTokenCount: 6,
           displayIds: [visible.$key, lowValue.$key],
           generation: 1,
           homeDefaultTokenMap: {},
@@ -299,23 +302,28 @@ describe('mobileNativeHomeViewModelAdapter', () => {
     });
 
     expect(sections[0]?.items.map((item) => item.title)).toEqual(['VISIBLE']);
-    expect(
-      sections.find((section) => section.id === 'portfolio-assets-hidden-groups')
-        ?.items,
-    ).toEqual([
+    const hiddenAssetItems = sections.find(
+      (section) => section.id === 'portfolio-assets-hidden-groups',
+    )?.items;
+    expect(hiddenAssetItems).toEqual([
       expect.objectContaining({
         actionId: 'home.native.portfolio.assets.openLowValueAssets',
+        displayHeight: 56,
         leadingIcon: 'lowValue',
         title: '1 Low-value assets',
+        titleAccessoryIcon: 'question',
         value: '$2.00',
       }),
       expect.objectContaining({
         actionId: 'home.native.portfolio.assets.openRiskAssets',
+        displayHeight: 56,
         leadingIcon: 'risk',
-        title: '1 Collapsed risk assets',
-        value: '$1.00',
+        title: '6 Collapsed risk assets',
       }),
     ]);
+    expect(hiddenAssetItems?.[0]).not.toHaveProperty('showChevron');
+    expect(hiddenAssetItems?.[1]).not.toHaveProperty('showChevron');
+    expect(hiddenAssetItems?.[1]).not.toHaveProperty('value');
   });
 
   it('keeps Market and Earn presentation data in the portfolio ViewModel', () => {

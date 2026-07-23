@@ -1,4 +1,11 @@
+import BigNumber from 'bignumber.js';
+
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { isTokenSelectorDappToken } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
+import type {
+  IAccountToken,
+  ITokenFiat,
+} from '@onekeyhq/shared/types/token';
 
 import { normalizeHomeStoreJson } from '../../model/store/homeStoreJson';
 
@@ -45,6 +52,42 @@ function isHomePortfolioValuationReceiptApplied({
     !!expected &&
     applied?.ownerKey === expected.ownerKey &&
     applied.valuationVersion >= expected.valuationVersion
+  );
+}
+
+function filterHomePortfolioSmallBalanceTokens({
+  hideDappTokens,
+  hideZeroBalanceTokens,
+  nonZeroIds,
+  tokens,
+}: {
+  hideDappTokens: boolean;
+  hideZeroBalanceTokens: boolean;
+  nonZeroIds: readonly string[];
+  tokens: IAccountToken[];
+}): IAccountToken[] {
+  const nonZeroIdSet = new Set(nonZeroIds);
+  return tokens.filter(
+    (token) =>
+      (!hideZeroBalanceTokens || nonZeroIdSet.has(token.$key)) &&
+      (!hideDappTokens || !isTokenSelectorDappToken(token)),
+  );
+}
+
+function filterHomePortfolioRiskTokens({
+  hideZeroBalanceTokens,
+  map,
+  tokens,
+}: {
+  hideZeroBalanceTokens: boolean;
+  map: Record<string, Pick<ITokenFiat, 'balance'>>;
+  tokens: IAccountToken[];
+}): IAccountToken[] {
+  if (!hideZeroBalanceTokens) {
+    return tokens;
+  }
+  return tokens.filter((token) =>
+    new BigNumber(map[token.$key]?.balance ?? 0).gt(0),
   );
 }
 
@@ -117,6 +160,7 @@ function reuseHomePortfolioPayload(
     previous.accountTokensWorthCurrency === next.accountTokensWorthCurrency &&
     previous.aggregateTokenListMap === next.aggregateTokenListMap &&
     previous.allAggregateTokenMap === next.allAggregateTokenMap &&
+    previous.blockedRiskTokenCount === next.blockedRiskTokenCount &&
     areIdsEqual(previous.displayIds, next.displayIds) &&
     previous.generation === next.generation &&
     previous.homeDefaultTokenMap === next.homeDefaultTokenMap &&
@@ -161,6 +205,8 @@ function buildHomePortfolioReadyResult(
 }
 
 export {
+  filterHomePortfolioRiskTokens,
+  filterHomePortfolioSmallBalanceTokens,
   HomePortfolioRequestLifecycle,
   buildHomePortfolioReadyResult,
   isHomePortfolioValuationReceiptApplied,

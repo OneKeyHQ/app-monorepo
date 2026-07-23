@@ -9,7 +9,7 @@ import {
 
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
-import { isEmpty, isNil, uniqBy } from 'lodash';
+import { groupBy, isEmpty, isNil, keyBy, mapValues, uniqBy } from 'lodash';
 
 import {
   onVisibilityStateChange,
@@ -149,6 +149,8 @@ import { buildHomeTokenListCacheIngestRound } from './buildHomeTokenListCacheIng
 import {
   HomePortfolioRequestLifecycle,
   buildHomePortfolioReadyResult,
+  filterHomePortfolioRiskTokens,
+  filterHomePortfolioSmallBalanceTokens,
   isHomePortfolioValuationReceiptApplied,
   requireHomePortfolioValuationReceipt,
   reuseHomePortfolioPayload,
@@ -1248,29 +1250,90 @@ function HomePortfolioStoreController({
         tokenListMap[key] = tokenFiat;
       }
     }
-    return { tokenListMap, tokens };
+    return {
+      tokenListMap,
+      tokens: filterHomePortfolioSmallBalanceTokens({
+        hideDappTokens: !showLpTokensOnly,
+        hideZeroBalanceTokens: !!network?.isAllNetworks,
+        nonZeroIds: listStructure.nonZeroIds,
+        tokens,
+      }),
+    };
   }, [
     cellsSnapshotRevision,
     listStructure.generation,
+    listStructure.nonZeroIds,
     listStructure.ownerKey,
     listStructure.smallBalanceIds,
+    network?.isAllNetworks,
+    showLpTokensOnly,
     tokenListStore,
   ]);
   const riskTokenSnapshot = useMemo(
-    () =>
-      riskyListFrame.ownerKey === listStructure.ownerKey
-        ? {
-            tokenListMap: riskyListFrame.riskyMap,
-            tokens: riskyListFrame.riskyTokens,
-          }
-        : { tokenListMap: {}, tokens: [] },
+    () => {
+      if (riskyListFrame.ownerKey !== listStructure.ownerKey) {
+        return { tokenListMap: {}, tokens: [] };
+      }
+      return {
+        tokenListMap: riskyListFrame.riskyMap,
+        tokens: filterHomePortfolioRiskTokens({
+          hideZeroBalanceTokens: !!network?.isAllNetworks,
+          map: riskyListFrame.riskyMap,
+          tokens: riskyListFrame.riskyTokens,
+        }),
+      };
+    },
     [
       listStructure.ownerKey,
+      network?.isAllNetworks,
       riskyListFrame.ownerKey,
       riskyListFrame.riskyMap,
       riskyListFrame.riskyTokens,
     ],
   );
+  const {
+    result: blockedRiskTokenCount = riskTokenSnapshot.tokens.length,
+    run: refreshBlockedRiskTokenCount,
+  } = usePromiseResult(
+    async () => {
+      if (!network) {
+        return riskTokenSnapshot.tokens.length;
+      }
+      const [unblockedTokensMap, blockedTokensMap, customTokens] =
+        await Promise.all([
+          backgroundApiProxy.serviceToken.getUnblockedTokensMap({
+            networkId: network.id,
+          }),
+          backgroundApiProxy.serviceToken.getBlockedTokensMap({
+            networkId: network.id,
+          }),
+          backgroundApiProxy.serviceCustomToken.getAllCustomTokens(),
+        ]);
+      const customTokensMap = mapValues(
+        groupBy(customTokens, 'networkId'),
+        (tokenArray) => keyBy(tokenArray, 'address'),
+      );
+      return riskTokenSnapshot.tokens.filter((token) => {
+        const tokenNetworkId = token.networkId ?? network.id;
+        return (
+          blockedTokensMap?.[tokenNetworkId]?.[token.address] ||
+          (!unblockedTokensMap?.[tokenNetworkId]?.[token.address] &&
+            !customTokensMap?.[tokenNetworkId]?.[token.address])
+        );
+      }).length;
+    },
+    [network, riskTokenSnapshot.tokens],
+    { initResult: 0 },
+  );
+  useEffect(() => {
+    const refresh = () => {
+      void refreshBlockedRiskTokenCount();
+    };
+    appEventBus.on(EAppEventBusNames.RefreshTokenList, refresh);
+    return () => {
+      appEventBus.off(EAppEventBusNames.RefreshTokenList, refresh);
+    };
+  }, [refreshBlockedRiskTokenCount]);
   const tapTokenMap = useMemo(() => {
     void cellsSnapshotRevision;
     void listStructure.generation;
@@ -1310,6 +1373,7 @@ function HomePortfolioStoreController({
         ? EMPTY_AGGREGATE_TOKEN_MAP
         : listStructure.ownedAggregateTokenListMap,
       allAggregateTokenMap: allAggregateTokenMap ?? EMPTY_AGGREGATE_TOKEN_MAP,
+      blockedRiskTokenCount,
       displayIds: legacySpotDisplayIds,
       generation: listStructure.generation,
       homeDefaultTokenMap: homeDefaultTokenMap ?? EMPTY_HOME_DEFAULT_TOKEN_MAP,
@@ -1346,6 +1410,7 @@ function HomePortfolioStoreController({
       accountTokensValue,
       accountTokensWorth.currency,
       allAggregateTokenMap,
+      blockedRiskTokenCount,
       cellsOwnerKey,
       homeDefaultTokenMap,
       homeNetworksMap,
@@ -1387,6 +1452,17 @@ function HomePortfolioStoreController({
   >(undefined);
   const legacySpotRequestSeqRef = useRef(0);
   const legacySpotActiveIdentityKeyRef = useRef<string | undefined>(undefined);
+  const legacySpotHasPublishedReadyRef = useRef(false);
+  const lastObservedRiskFrameRef = useRef<
+    | {
+        blockedRiskTokenCount: number;
+        identityKey: string;
+        ownerKey: string;
+        riskMap: Record<string, ITokenFiat>;
+        riskTokens: IAccountToken[];
+      }
+    | undefined
+  >(undefined);
   const publishLegacySpotEvidence = useCallback(
     (
       evidence: Parameters<
@@ -1428,7 +1504,7 @@ function HomePortfolioStoreController({
       ) {
         beginPortfolioStoreRequestRef.current();
       }
-      portfolioRequestLifecycleRef.current.complete({
+      const completed = portfolioRequestLifecycleRef.current.complete({
         completeRequest: completeHomeSectionRequest,
         result:
           evidence.kind === 'error'
@@ -1436,13 +1512,27 @@ function HomePortfolioStoreController({
             : buildHomePortfolioReadyResult(legacySpotPayload),
         round: portfolioRequestLifecycleRef.current.getActiveRound(),
       });
+      if (completed && evidence.kind !== 'error') {
+        legacySpotHasPublishedReadyRef.current = true;
+        lastObservedRiskFrameRef.current = {
+          blockedRiskTokenCount,
+          identityKey: legacySpotIdentityKey,
+          ownerKey: riskyListFrame.ownerKey,
+          riskMap: riskyListFrame.riskyMap,
+          riskTokens: riskyListFrame.riskyTokens,
+        };
+      }
     },
     [
+      blockedRiskTokenCount,
       cellsOwnerKey,
       completeHomeSectionRequest,
       legacySpotIdentity,
       legacySpotIdentityKey,
       legacySpotPayload,
+      riskyListFrame.ownerKey,
+      riskyListFrame.riskyMap,
+      riskyListFrame.riskyTokens,
     ],
   );
   beginPortfolioStoreRequestRef.current = () => {
@@ -1465,6 +1555,8 @@ function HomePortfolioStoreController({
   useEffect(() => {
     if (!legacySpotIdentity || !legacySpotIdentityKey) {
       legacySpotActiveIdentityKeyRef.current = undefined;
+      legacySpotHasPublishedReadyRef.current = false;
+      lastObservedRiskFrameRef.current = undefined;
       if (homeFactsSnapshot) {
         resetHomeSectionSource({
           ownerToken: homeFactsSnapshot.ownerToken,
@@ -1477,6 +1569,8 @@ function HomePortfolioStoreController({
       return;
     }
     portfolioRequestLifecycleRef.current.invalidate();
+    legacySpotHasPublishedReadyRef.current = false;
+    lastObservedRiskFrameRef.current = undefined;
     pendingSingleNetworkReadyCompletionRef.current = undefined;
     legacySpotActiveIdentityKeyRef.current = legacySpotIdentityKey;
     legacySpotRequestSeqRef.current = 0;
@@ -1670,6 +1764,58 @@ function HomePortfolioStoreController({
     legacySpotPayload,
     publishLegacySpotEvidence,
     tokenListState.initialized,
+  ]);
+
+  useEffect(() => {
+    if (!legacySpotIdentityKey) {
+      lastObservedRiskFrameRef.current = undefined;
+      return;
+    }
+    const nextRiskFrame = {
+      blockedRiskTokenCount,
+      identityKey: legacySpotIdentityKey,
+      ownerKey: riskyListFrame.ownerKey,
+      riskMap: riskyListFrame.riskyMap,
+      riskTokens: riskyListFrame.riskyTokens,
+    };
+    const previousRiskFrame = lastObservedRiskFrameRef.current;
+    lastObservedRiskFrameRef.current = nextRiskFrame;
+    if (
+      (previousRiskFrame &&
+        previousRiskFrame.identityKey === nextRiskFrame.identityKey &&
+        previousRiskFrame.blockedRiskTokenCount ===
+          nextRiskFrame.blockedRiskTokenCount &&
+        previousRiskFrame.ownerKey === nextRiskFrame.ownerKey &&
+        previousRiskFrame.riskMap === nextRiskFrame.riskMap &&
+        previousRiskFrame.riskTokens === nextRiskFrame.riskTokens) ||
+      !legacySpotHasPublishedReadyRef.current ||
+      portfolioRequestLifecycleRef.current.getActiveRound() ||
+      riskyListFrame.ownerKey !== cellsOwnerKey ||
+      legacySpotPayload.ownerKey !== cellsOwnerKey
+    ) {
+      return;
+    }
+    legacySpotRequestSeqRef.current += 1;
+    const round = beginPortfolioStoreRequestRef.current();
+    if (!round) {
+      return;
+    }
+    publishLegacySpotEvidence({
+      kind: 'complete',
+      confirmedEmpty: legacySpotPayload.displayIds.length === 0,
+      coverageFingerprint: `risk:${legacySpotRequestSeqRef.current}:complete`,
+      data: legacySpotPayload,
+      rowIds: legacySpotPayload.displayIds,
+    });
+  }, [
+    blockedRiskTokenCount,
+    cellsOwnerKey,
+    legacySpotIdentityKey,
+    legacySpotPayload,
+    publishLegacySpotEvidence,
+    riskyListFrame.ownerKey,
+    riskyListFrame.riskyMap,
+    riskyListFrame.riskyTokens,
   ]);
 
   const legacySpotRefreshing = showLpTokensOnly
