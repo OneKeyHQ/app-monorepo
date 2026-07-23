@@ -323,7 +323,7 @@ function WithdrawPathDialogContent({
   );
 }
 
-const EARN_ALERT_TYPES: IAlertType[] = [
+const EARN_ALERT_TYPES = new Set<IAlertType>([
   'info',
   'warning',
   'critical',
@@ -331,14 +331,14 @@ const EARN_ALERT_TYPES: IAlertType[] = [
   'default',
   'danger',
   'caution',
-];
+]);
 
 // Server-driven tip/alert color: map the string `type` (EAlertType, e.g.
 // Spark's info banner for a liquidity request vs warning for the blocked range)
 // onto the Alert component's IAlertType. Falls back to 'warning' for legacy tips
 // that don't set a type.
 function resolveEarnAlertType(type?: string): IAlertType {
-  return EARN_ALERT_TYPES.includes(type as IAlertType)
+  return EARN_ALERT_TYPES.has(type as IAlertType)
     ? (type as IAlertType)
     : 'warning';
 }
@@ -599,6 +599,10 @@ export function UniversalWithdraw({
             items={button.data.items}
             panel={button.data.panel}
             description={button.data.description}
+            // Dialog already applies px="$5"; drop only the component's own
+            // horizontal padding so the body aligns with the dialog title
+            // (keep vertical padding for a comfortable title-to-body gap).
+            containerProps={{ px: '$0' }}
           />
         ),
         showFooter: false,
