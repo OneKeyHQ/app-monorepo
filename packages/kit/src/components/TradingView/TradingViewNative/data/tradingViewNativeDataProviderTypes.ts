@@ -25,8 +25,13 @@ export interface ITradingViewNativeRealtimeSubscriptionRequest {
 }
 
 export interface ITradingViewNativeHistoryPageInfo {
+  historySource?: 'fallback';
   interval: ITradingViewNativeKLineInterval;
   receivedPointCount: number;
+}
+
+export interface ITradingViewNativeHistoryResponse extends IMarketTokenKLineResponse {
+  historySource?: 'fallback';
 }
 
 export interface ITradingViewNativeDataProvider {
@@ -39,7 +44,7 @@ export interface ITradingViewNativeDataProvider {
   supportsRealtime: boolean;
   fetchHistory: (
     request: ITradingViewNativeHistoryRequest,
-  ) => Promise<IMarketTokenKLineResponse | null>;
+  ) => Promise<ITradingViewNativeHistoryResponse | null>;
   subscribeRealtime: (
     request: ITradingViewNativeRealtimeSubscriptionRequest,
   ) => Promise<ITradingViewNativeRealtimeSubscription | null>;

@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { memo, useEffect, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,7 +12,6 @@ import {
   useMedia,
   useSplitSubView,
 } from '@onekeyhq/components';
-import type { IDeferredPromise } from '@onekeyhq/components';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -26,39 +25,30 @@ import { TokenPriceChart } from './TokenPriceChart';
 /**
  * Renders a tabbed interface displaying detailed information about a market token, including price chart, overview, pools, and related links.
  *
- * Tabs and their content are dynamically configured based on the presence of token data and the current layout mode. Supports pull-to-refresh, deferred mounting, and adapts layout for modal and non-modal contexts.
+ * Tabs and their content are dynamically configured based on the presence of token data and the current layout mode. Supports pull-to-refresh and adapts layout for modal and non-modal contexts.
  *
  * @param token - Market token detail object to display information for
  * @param listHeaderComponent - Optional React element rendered above the tab content
  * @param isRefreshing - Indicates if a refresh operation is in progress
  * @param onRefresh - Callback triggered when a refresh is requested
- * @param defer - Deferred promise resolved after initial mount for asynchronous control
  * @param coinGeckoId - CoinGecko API identifier for the token
  * @returns A React element rendering the token detail tabs
  */
 function BasicTokenDetailTabs({
   token,
   listHeaderComponent,
-  defer,
   coinGeckoId,
 }: {
   token?: IMarketTokenDetail;
   listHeaderComponent?: ReactElement;
   onRefresh?: () => void;
   isRefreshing?: boolean;
-  defer: IDeferredPromise<unknown>;
   coinGeckoId: string;
 }) {
   const intl = useIntl();
   const isModalPage = useIsOverlayPage();
   const { md: mdMedia, gtMd: gtMdMedia } = useMedia();
   const md = isModalPage ? true : mdMedia;
-
-  useEffect(() => {
-    setTimeout(() => {
-      defer.resolve(null);
-    }, 100);
-  }, [defer]);
 
   const tabConfigs = useMemo(
     () =>
@@ -71,15 +61,7 @@ function BasicTokenDetailTabs({
               // eslint-disable-next-line react/no-unstable-nested-components
               page: (
                 <Stack flex={1}>
-                  <TokenPriceChart
-                    fallbackToChart={!!token?.fallbackToChart}
-                    tvPlatform={token?.tvPlatform}
-                    isFetching={!token}
-                    tickers={token?.tickers}
-                    coinGeckoId={coinGeckoId}
-                    defer={defer}
-                    symbol={token?.symbol}
-                  />
+                  <TokenPriceChart coinGeckoId={coinGeckoId} token={token} />
                 </Stack>
               ),
             }
@@ -113,7 +95,7 @@ function BasicTokenDetailTabs({
           page: <MarketDetailLinks token={token} />,
         },
       ].filter(Boolean),
-    [coinGeckoId, defer, intl, md, token],
+    [coinGeckoId, intl, md, token],
   );
 
   const pageWidth = useTabContainerWidth();
