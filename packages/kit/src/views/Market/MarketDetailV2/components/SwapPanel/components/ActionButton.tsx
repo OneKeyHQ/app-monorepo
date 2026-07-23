@@ -33,7 +33,7 @@ import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { usePaymentTokenPrice } from '../hooks/usePaymentTokenPrice';
 import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
 
-import { shouldJumpFromMarketToSwap } from './ActionButton.utils';
+import { resolveMarketTradeActionState } from './ActionButton.utils';
 
 import type { IToken } from '../types';
 import type { GestureResponderEvent } from 'react-native';
@@ -254,13 +254,13 @@ export function ActionButton({
   const noAccount =
     !activeAccount?.indexedAccount?.id && !activeAccount?.account?.id;
 
-  const shouldJumpToSwap = shouldJumpFromMarketToSwap({
+  const { shouldJumpToSwap, shouldDisable } = resolveMarketTradeActionState({
     supportSpeedSwap,
     isAccountNetworkSupported,
+    isBalanceAvailable: balance !== undefined,
     isInsufficientBalance,
     isWrapped,
   });
-  const shouldDisable = isInsufficientBalance && !shouldJumpToSwap;
   const displayAmountFormatted = numberFormat(displayAmount, tokenFormatter);
 
   let buttonText = `${actionText} ${displayAmountFormatted} `;
@@ -274,7 +274,7 @@ export function ActionButton({
     });
   }
 
-  if (shouldDisable) {
+  if (shouldDisable && isInsufficientBalance) {
     buttonText = intl.formatMessage({
       id: ETranslations.swap_page_button_insufficient_balance,
     });

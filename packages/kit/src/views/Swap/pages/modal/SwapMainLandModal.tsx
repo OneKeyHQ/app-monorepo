@@ -26,6 +26,7 @@ const SwapMainLandModalPage = () => {
   const route =
     useRoute<RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapMainLand>>();
   const {
+    importAccountKey,
     importFromToken,
     importNetworkId,
     importToToken,
@@ -74,6 +75,7 @@ const SwapMainLandModalPage = () => {
       <SwapMainLandWithPageType
         pageType={EPageType.modal}
         swapInitParams={{
+          importAccountKey,
           importFromToken,
           importNetworkId,
           importToToken,

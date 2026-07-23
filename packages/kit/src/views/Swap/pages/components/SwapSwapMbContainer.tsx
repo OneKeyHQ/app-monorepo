@@ -59,6 +59,7 @@ interface ISwapSwapMbContainerProps {
   fromTokenAmountValue: string;
   swapRecentTokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
   supportNetworksList: ISwapNetwork[];
+  supportNetworksReady: boolean;
 }
 
 const SwapSwapMbContainer = ({
@@ -82,6 +83,7 @@ const SwapSwapMbContainer = ({
   fromTokenAmountValue,
   swapRecentTokenPairs,
   supportNetworksList,
+  supportNetworksReady,
 }: ISwapSwapMbContainerProps) => {
   const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
@@ -158,6 +160,7 @@ const SwapSwapMbContainer = ({
             onOpenOrdersClick={onOpenOrdersClick}
             onSearchClick={onSearchClickCallback}
             supportNetworksList={supportNetworksList}
+            supportNetworksReady={supportNetworksReady}
           />
         ) : null}
       </YStack>

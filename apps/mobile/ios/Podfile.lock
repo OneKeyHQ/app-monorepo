@@ -727,8 +727,8 @@ PODS:
     - SocketRocket
     - Yoga
   - PromisesObjC (2.4.0)
-  - PurchasesHybridCommon (14.2.0):
-    - RevenueCat (= 5.32.0)
+  - PurchasesHybridCommon (18.21.0):
+    - RevenueCat (= 5.80.3)
   - QuickCrypto (1.1.5):
     - boost
     - DoubleConversion
@@ -4100,7 +4100,7 @@ PODS:
     - Yoga
   - RealmJS (20.2.0):
     - React
-  - RevenueCat (5.32.0)
+  - RevenueCat (5.80.3)
   - RNDateTimePicker (8.4.4):
     - boost
     - DoubleConversion
@@ -4309,8 +4309,8 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - RNPurchases (8.11.9):
-    - PurchasesHybridCommon (= 14.2.0)
+  - RNPurchases (10.4.3):
+    - PurchasesHybridCommon (= 18.21.0)
     - React-Core
   - RNReanimated (4.2.1):
     - boost
@@ -5500,7 +5500,7 @@ SPEC CHECKSUMS:
   PerpDepthBar: ea764fd9ca6dde336b3b6ca292e783e2b9c66c69
   Ping: fa822267f2829fc55b444fe503ce3022463d875e
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
-  PurchasesHybridCommon: f1650b33e9a1dd04d5e8a40dfe757f39e63f935c
+  PurchasesHybridCommon: 097af88db3cb39b415bef2f3140e6b3324899756
   QuickCrypto: fbb50daf9313753153af0e4f67a9f14ec1a26979
   RCT-Folly: b29feb752b08042c62badaef7d453f3bb5e6ae23
   RCTDeprecation: 5eb1d2eeff5fb91151e8a8eef45b6c7658b6c897
@@ -5599,7 +5599,7 @@ SPEC CHECKSUMS:
   ReactNativeSplashScreen: 0bc82cdce113b2f60366b3d0f2a495ff86e13022
   ReactNativeZipArchive: bb4a2b338281c0166bee97142bf59ef9cd124c62
   RealmJS: 1c37c6bdfe060f4caa0f9175aa0eedb962622ee1
-  RevenueCat: 7e1d0768fb287c9983173c9b28e39ccbeeb828a9
+  RevenueCat: 72d1e14966339bf38c41d9b2841ef64c8fd79646
   RNDateTimePicker: cda4c045beca864cebb3209ef9cc4094f974864c
   RNGestureHandler: e37bdb684df1ac17c7e1d8f71a3311b2793c186b
   RNGoogleSignin: 628d629e8dca39fc4ab70e30cf55bb3fc284f518
@@ -5607,7 +5607,7 @@ SPEC CHECKSUMS:
   RNJuiceboxSdk: a2e85ef9d73eac5547cc89d0a4b7b0f6e798d253
   RNNotifee: 5e3b271e8ea7456a36eec994085543c9adca9168
   RNPermissions: d0f185d461a25bb0f75fdd58c855ba0988fe18ab
-  RNPurchases: 4c820359d90fab9c83ffd3ef5471d59db72e2ed1
+  RNPurchases: 33dbce0054a0833a8c20c8d6244e971dfedaa0c3
   RNReanimated: 464375ff2caa801358547c44eca894ff0bf68e74
   RNScreens: afaf526a9c804c3b4503f950cf3e67ed81e29ada
   RNSentry: a20c5194cc6d7902683276f399a6eb5206fb9f05
