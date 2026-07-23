@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IActionListItemProps } from '@onekeyhq/components';
 import {
-  ActionList,
   Divider,
   Icon,
   Page,
@@ -52,6 +52,7 @@ import {
   isEModePendingGuardActive,
 } from '../BorrowEModeSwitch/emodeUtils';
 
+import { EModeGetFundsAction } from './EModeGetFundsAction';
 import { formatBalanceDisplay } from './needActionBalances';
 import {
   type ICompactStepStatus,
@@ -118,7 +119,8 @@ function StepRow({
   walletBalance,
   categoryLabel,
   approveSubStatus,
-  onGetFunds,
+  getFundsActionItems,
+  onGetFundsPress,
 }: {
   step: IEModeStep;
   stepNumber: number;
@@ -131,7 +133,8 @@ function StepRow({
   walletBalance?: string; // display-trimmed, e.g. "5.234567"
   categoryLabel: string;
   approveSubStatus: IEModeApproveSubStatus;
-  onGetFunds: (step: IEModeStep) => void;
+  getFundsActionItems: (step: IEModeStep) => IActionListItemProps[] | undefined;
+  onGetFundsPress: () => void;
 }) {
   const intl = useIntl();
 
@@ -228,6 +231,7 @@ function StepRow({
 
   const underfunded =
     status === 'active' && step.kind === 'repay' && !!shortfallText;
+  const getFundsItems = underfunded ? getFundsActionItems(step) : undefined;
 
   return (
     <XStack gap="$3" p="$3.5" ai="flex-start">
@@ -260,23 +264,12 @@ function StepRow({
               {auxiliaryLine}
             </SizableText>
           ) : null}
-          {underfunded ? (
-            <XStack
-              alignSelf="flex-start"
-              ai="center"
-              cursor="pointer"
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              onPress={() => onGetFunds(step)}
-              hoverStyle={{ opacity: 0.8 }}
-              pressStyle={{ opacity: 0.6 }}
-            >
-              <SizableText size="$bodyMdMedium" color="$textInfo">
-                {intl.formatMessage(
-                  { id: ETranslations.defi_emode_get_symbol__action },
-                  { symbol: step.symbol ?? '' },
-                )}
-              </SizableText>
-            </XStack>
+          {getFundsItems?.length ? (
+            <EModeGetFundsAction
+              symbol={step.symbol ?? ''}
+              items={getFundsItems}
+              onPress={onGetFundsPress}
+            />
           ) : null}
         </YStack>
         {amountText ? (
@@ -439,14 +432,11 @@ function BorrowEModeNeedActionView() {
   const activeUnderfundedRepay =
     activeStep?.kind === 'repay' && activeShortfall ? activeStep : null;
 
-  const onGetFunds = useCallback(
-    (step: IEModeStep) => {
+  const getFundsActionItems = useCallback(
+    (step: IEModeStep): IActionListItemProps[] | undefined => {
       if (step.kind !== 'repay' || step.reserveAddress === undefined) {
-        return;
+        return undefined;
       }
-      // User-initiated divergence, same rule as Manage positions: never let a
-      // focus recheck on return auto-pop a signature sheet.
-      disarm();
       const asset =
         displayCheck?.repayAssets?.find(
           (a) => a.reserveAddress === step.reserveAddress,
@@ -456,60 +446,55 @@ function BorrowEModeNeedActionView() {
         );
       const token = buildBorrowTokenFromAsset({ asset, networkId });
       if (!token) {
-        return;
+        return undefined;
       }
-      ActionList.show({
-        title: intl.formatMessage(
-          { id: ETranslations.defi_emode_get_symbol__action },
-          { symbol: step.symbol ?? '' },
-        ),
-        items: [
-          {
-            label: intl.formatMessage({ id: ETranslations.global_swap }),
-            icon: 'SwitchHorOutline',
-            onPress: () => {
-              const importToToken: ISwapToken = {
-                contractAddress: token.address,
-                symbol: token.symbol,
+
+      return [
+        {
+          label: intl.formatMessage({ id: ETranslations.global_swap }),
+          icon: 'SwitchHorOutline',
+          onPress: () => {
+            const importToToken: ISwapToken = {
+              contractAddress: token.address,
+              symbol: token.symbol,
+              networkId,
+              isNative: !!token.isNative,
+              decimals: token.decimals,
+              name: token.name,
+              logoURI: token.logoURI,
+            };
+            navigation.pushModal(EModalRoutes.SwapModal, {
+              screen: EModalSwapRoutes.SwapMainLand,
+              params: {
+                importNetworkId: networkId,
+                importToToken,
+                swapTabSwitchType: ESwapTabSwitchType.SWAP,
+                swapSource: ESwapSource.EARN,
+              },
+            });
+          },
+        },
+        {
+          label: intl.formatMessage({ id: ETranslations.global_receive }),
+          icon: 'ArrowBottomOutline',
+          onPress: () => {
+            navigation.pushModal(EModalRoutes.ReceiveModal, {
+              screen: EModalReceiveRoutes.ReceiveToken,
+              params: {
                 networkId,
-                isNative: !!token.isNative,
-                decimals: token.decimals,
-                name: token.name,
-                logoURI: token.logoURI,
-              };
-              navigation.pushModal(EModalRoutes.SwapModal, {
-                screen: EModalSwapRoutes.SwapMainLand,
-                params: {
-                  importNetworkId: networkId,
-                  importToToken,
-                  swapTabSwitchType: ESwapTabSwitchType.SWAP,
-                  swapSource: ESwapSource.EARN,
-                },
-              });
-            },
-          },
-          {
-            label: intl.formatMessage({ id: ETranslations.global_receive }),
-            icon: 'ArrowBottomOutline',
-            onPress: () => {
-              navigation.pushModal(EModalRoutes.ReceiveModal, {
-                screen: EModalReceiveRoutes.ReceiveToken,
-                params: {
-                  networkId,
+                accountId,
+                walletId: accountUtils.getWalletIdFromAccountId({
                   accountId,
-                  walletId: accountUtils.getWalletIdFromAccountId({
-                    accountId,
-                  }),
-                  token,
-                  disableSelector: true,
-                },
-              });
-            },
+                }),
+                token,
+                disableSelector: true,
+              },
+            });
           },
-        ],
-      });
+        },
+      ];
     },
-    [disarm, displayCheck, intl, navigation, networkId, accountId],
+    [displayCheck, intl, navigation, networkId, accountId],
   );
 
   let activeActionLabel = '';
@@ -606,7 +591,10 @@ function BorrowEModeNeedActionView() {
                     }
                     categoryLabel={categoryLabel}
                     approveSubStatus={approveSubStatus}
-                    onGetFunds={onGetFunds}
+                    getFundsActionItems={getFundsActionItems}
+                    // User-initiated divergence, same rule as Manage positions:
+                    // never let a focus recheck on return auto-pop a signature sheet.
+                    onGetFundsPress={disarm}
                   />
                   {index < steps.length - 1 ? <Divider /> : null}
                 </YStack>
