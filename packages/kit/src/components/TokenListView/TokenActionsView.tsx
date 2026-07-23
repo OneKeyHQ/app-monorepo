@@ -1,19 +1,21 @@
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Button, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
-import { sortTokensCommon } from '@onekeyhq/shared/src/utils/tokenUtils';
-import { getSwapBridgeDefaultToToken } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
+import {
+  buildTokenListMapKey,
+  equalTokenNoCaseSensitive,
+  sortTokensCommon,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapSource,
   ESwapTabSwitchType,
-  type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
@@ -21,8 +23,18 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../hooks/useAccountData';
 import { useUserWalletProfile } from '../../hooks/useUserWalletProfile';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
+import { useAggregateSubTokenFiat } from '../../states/jotai/contexts/tokenList/cells/useAggregateSubTokenFiatMap';
 
+import {
+  buildTokenActionSwapFromToken,
+  findTokenActionAggregateKey,
+  getResolvedTokenActionToken,
+  getTokenActionSameNetworkSwapToToken,
+  getTokenActionSwapToToken,
+  isResolvedTokenActionReady,
+} from './TokenActionsView.utils';
 import { useTokenListViewContext } from './TokenListViewContext';
+import { useTokenBalanceParsed } from './useTokenFiatField';
 
 import type { XStackProps } from 'tamagui';
 
@@ -44,13 +56,78 @@ function TokenActionsView(props: IProps) {
   // deleted; the wrapper threads the visible map + the owned aggregate sub-token
   // list-map through context instead.
   const tokenListMap = contextTokenListMap ?? EMPTY_FIAT_MAP;
+  const aggregateTokens = ownedAggregateTokenListMap?.[token.$key]?.tokens;
 
   const [activeToken, setActiveToken] = useState<IAccountToken>(token);
-
-  const { network, deriveType } = useAccountData({
-    accountId: activeToken.accountId,
-    networkId: activeToken.networkId,
+  const resolvedActiveToken = getResolvedTokenActionToken({
+    token,
+    activeToken,
+    aggregateTokens,
   });
+  const accountDataToken = resolvedActiveToken ?? token;
+
+  const { account, network, deriveType } = useAccountData({
+    accountId: accountDataToken.accountId,
+    networkId: accountDataToken.networkId,
+  });
+  const isTokenActionReady = isResolvedTokenActionReady({
+    token,
+    resolvedToken: resolvedActiveToken,
+    resolvedAccountId: account?.id,
+    resolvedNetworkId: network?.id,
+  });
+  const networkId =
+    resolvedActiveToken?.networkId ?? activeAccount?.network?.id ?? '';
+  const accountAddress = account?.addressDetail?.address;
+  const fromTokenBalance = useTokenBalanceParsed(
+    resolvedActiveToken?.$key ?? '',
+  );
+  const aggregateFromTokenFiat = useAggregateSubTokenFiat(
+    token.isAggregateToken ? token.$key : '',
+    resolvedActiveToken?.networkId,
+  );
+  const fromTokenBalanceSeed =
+    aggregateFromTokenFiat?.balanceParsed ?? fromTokenBalance;
+  const sameNetworkToToken = useMemo(() => {
+    if (!resolvedActiveToken || !networkId) {
+      return undefined;
+    }
+    return getTokenActionSameNetworkSwapToToken({
+      fromToken: buildTokenActionSwapFromToken({
+        token: resolvedActiveToken,
+        networkId,
+        networkLogoURI: network?.logoURI ?? activeAccount?.network?.logoURI,
+      }),
+    });
+  }, [
+    activeAccount?.network?.logoURI,
+    network?.logoURI,
+    networkId,
+    resolvedActiveToken,
+  ]);
+  const sameNetworkToTokenKey =
+    sameNetworkToToken && accountAddress
+      ? buildTokenListMapKey({
+          networkId: sameNetworkToToken.networkId,
+          accountAddress,
+          tokenAddress: sameNetworkToToken.contractAddress ?? '',
+        })
+      : '';
+  const sameNetworkToTokenBalance = useTokenBalanceParsed(
+    sameNetworkToTokenKey,
+  );
+  const sameNetworkToTokenAggregateKey = useMemo(
+    () =>
+      findTokenActionAggregateKey({
+        ownedAggregateTokenListMap,
+        targetToken: sameNetworkToToken,
+      }),
+    [ownedAggregateTokenListMap, sameNetworkToToken],
+  );
+  const sameNetworkToTokenAggregateFiat = useAggregateSubTokenFiat(
+    sameNetworkToTokenAggregateKey ?? '',
+    sameNetworkToToken?.networkId,
+  );
 
   useEffect(() => {
     let isStale = false;
@@ -62,7 +139,6 @@ function TokenActionsView(props: IProps) {
         return;
       }
 
-      const aggregateTokens = ownedAggregateTokenListMap?.[token.$key]?.tokens;
       if (!aggregateTokens?.length) {
         if (!isStale) {
           setActiveToken(token);
@@ -113,45 +189,58 @@ function TokenActionsView(props: IProps) {
     return () => {
       isStale = true;
     };
-  }, [token, ownedAggregateTokenListMap, tokenListMap]);
+  }, [aggregateTokens, token, tokenListMap]);
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const navigation = useAppNavigation();
 
   const handleTokenOnSwap = useCallback(() => {
     void (async () => {
-      const networkId =
-        activeToken.networkId ?? activeAccount?.network?.id ?? '';
-      const isBtcNativeToken =
-        networkId === getNetworkIdsMap().btc &&
-        activeToken.isNative &&
-        activeToken.symbol?.toUpperCase() === 'BTC' &&
-        !activeToken.address;
-      const importFromToken: ISwapToken | undefined = !isBtcNativeToken
-        ? {
-            contractAddress: activeToken.address,
-            symbol: activeToken.symbol,
-            networkId,
-            isNative: activeToken.isNative,
-            decimals: activeToken.decimals,
-            name: activeToken.name,
-            logoURI: activeToken.logoURI,
-            networkLogoURI: network?.logoURI ?? activeAccount?.network?.logoURI,
-          }
-        : undefined;
-      let importToToken: ISwapToken | undefined;
-      if (networkId && importFromToken) {
+      if (!resolvedActiveToken || !isTokenActionReady) {
+        return;
+      }
+
+      const importAccountKey =
+        buildSwapSelectedTokensColdStartAccountKey(activeAccount);
+      const importFromToken = buildTokenActionSwapFromToken({
+        accountAddress,
+        balanceParsed: fromTokenBalanceSeed,
+        token: resolvedActiveToken,
+        networkId,
+        networkLogoURI: network?.logoURI ?? activeAccount?.network?.logoURI,
+      });
+      let importToToken = getTokenActionSwapToToken({
+        fromToken: importFromToken,
+      });
+      if (networkId && !importToToken) {
         try {
-          const { isSupportSwap, isSupportCrossChain } =
+          const swapSupport =
             await backgroundApiProxy.serviceSwap.checkSupportSwap({
               networkId,
             });
-          if (!isSupportSwap && isSupportCrossChain) {
-            importToToken = getSwapBridgeDefaultToToken(importFromToken);
-          }
+          importToToken = getTokenActionSwapToToken({
+            fromToken: importFromToken,
+            swapSupport,
+          });
         } catch {
           // Keep the existing Swap fallback if capability refresh fails.
         }
+      }
+      if (
+        importToToken &&
+        sameNetworkToToken &&
+        equalTokenNoCaseSensitive({
+          token1: importToToken,
+          token2: sameNetworkToToken,
+        })
+      ) {
+        importToToken = {
+          ...importToToken,
+          accountAddress,
+          balanceParsed:
+            sameNetworkToTokenAggregateFiat?.balanceParsed ??
+            sameNetworkToTokenBalance,
+        };
       }
 
       defaultLogger.wallet.walletActions.actionTrade({
@@ -165,6 +254,7 @@ function TokenActionsView(props: IProps) {
         screen: EModalSwapRoutes.SwapMainLand,
         params: {
           importNetworkId: networkId,
+          importAccountKey,
           importFromToken,
           importToToken,
           importDeriveType: deriveType,
@@ -175,11 +265,18 @@ function TokenActionsView(props: IProps) {
     })();
   }, [
     activeAccount,
-    activeToken,
+    accountAddress,
+    fromTokenBalanceSeed,
     isSoftwareWalletOnlyUser,
     navigation,
     network,
     deriveType,
+    isTokenActionReady,
+    networkId,
+    resolvedActiveToken,
+    sameNetworkToToken,
+    sameNetworkToTokenAggregateFiat?.balanceParsed,
+    sameNetworkToTokenBalance,
   ]);
 
   if (!token) {
@@ -194,6 +291,7 @@ function TokenActionsView(props: IProps) {
         variant="secondary"
         cursor="pointer"
         onPress={handleTokenOnSwap}
+        disabled={!isTokenActionReady}
       >
         {intl.formatMessage({ id: ETranslations.global_swap })}
       </Button>

@@ -133,7 +133,11 @@ import {
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
-import { normalizeSwapTokenListCurrency } from './ServiceSwap.utils';
+import {
+  buildPerpDepositOrderStatusRequestParams,
+  buildSwapRequestErrorToastPayload,
+  normalizeSwapTokenListCurrency,
+} from './ServiceSwap.utils';
 import { buildSpeedSwapTxParams } from './utils/buildSpeedSwapTxParams';
 import { getSwapHistoryStateTxIdParam } from './utils/swapHistoryStateUtils';
 import {
@@ -681,6 +685,7 @@ export default class ServiceSwap extends ServiceBase {
     accountId,
     onlyAccountTokens,
     isAllNetworkFetchAccountTokens,
+    throwOnError,
     protocol,
     lpToken,
     currency,
@@ -793,6 +798,9 @@ export default class ServiceSwap extends ServiceBase {
           title: error?.message,
           message: error?.requestId,
         });
+        if (throwOnError) {
+          throw e;
+        }
         return [];
       }
     }
@@ -1379,12 +1387,23 @@ export default class ServiceSwap extends ServiceBase {
     if (!list.length) {
       return [];
     }
-    const client = await this.getRawDataClient(EServiceEndpointEnum.Swap);
-    const response = await client.post<
-      IFetchResponse<ICheckStableCoinsListItem[]>
-    >('/swap/v1/check-stable-coins-list', list);
-    return response.data?.data ?? [];
+    return this.checkStableCoinsListMemo(list);
   }
+
+  private checkStableCoinsListMemo = memoizee(
+    async (list: ICheckStableCoinsListParamsItem[]) => {
+      const client = await this.getRawDataClient(EServiceEndpointEnum.Swap);
+      const response = await client.post<
+        IFetchResponse<ICheckStableCoinsListItem[]>
+      >('/swap/v1/check-stable-coins-list', list);
+      return response.data?.data ?? [];
+    },
+    {
+      max: 100,
+      maxAge: timerUtils.getTimeDurationMs({ hour: 12 }),
+      promise: true,
+    },
+  );
 
   @backgroundMethod()
   async checkSupportSwap({ networkId }: { networkId: string }) {
@@ -3360,11 +3379,9 @@ export default class ServiceSwap extends ServiceBase {
           data?: unknown;
         };
       };
-      void this.backgroundApi.serviceApp.showToast({
-        method: 'error',
-        title: error?.message ?? 'Request failed',
-        message: error?.requestId,
-      });
+      void this.backgroundApi.serviceApp.showToast(
+        buildSwapRequestErrorToastPayload(error),
+      );
       return undefined;
     }
   }
@@ -3465,6 +3482,7 @@ export default class ServiceSwap extends ServiceBase {
     isArbUSDCToken: boolean;
     toPerpDepositTokenAddress?: string;
     receivingAddress: string;
+    orderId?: string;
   }) {
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
@@ -3472,13 +3490,7 @@ export default class ServiceSwap extends ServiceBase {
       const { data } = await client.get<
         IFetchResponse<IFetchSwapTxHistoryStatusResponse>
       >('/swap/v1/perp-deposit-order-status', {
-        params: {
-          networkId: params.networkId,
-          txId: params.txId,
-          isArbUSDCToken: params.isArbUSDCToken,
-          toPerpDepositTokenAddress: params.toPerpDepositTokenAddress,
-          receivedAddress: params.receivingAddress,
-        },
+        params: buildPerpDepositOrderStatusRequestParams(params),
       });
       if (data?.data) {
         const now = Date.now();
@@ -3618,6 +3630,7 @@ export default class ServiceSwap extends ServiceBase {
             isArbUSDCToken,
             toPerpDepositTokenAddress: HYPERLIQUID_DEPOSIT_ADDRESS,
             receivingAddress: receivingAddressInfo.addressDetail.address,
+            orderId: item.orderId,
           });
         }),
       );

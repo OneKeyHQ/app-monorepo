@@ -24,6 +24,7 @@ import SwapAlertContainer from './SwapAlertContainer';
 import SwapProTabListContainer from './SwapProTabListContainer';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
+import { SwapQuoteStockMarketStatusAlert } from './SwapQuoteStockMarketStatusAlert';
 import SwapTipsContainer from './SwapTipsContainer';
 
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
@@ -58,6 +59,7 @@ interface ISwapSwapMbContainerProps {
   fromTokenAmountValue: string;
   swapRecentTokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
   supportNetworksList: ISwapNetwork[];
+  supportNetworksReady: boolean;
 }
 
 const SwapSwapMbContainer = ({
@@ -81,6 +83,7 @@ const SwapSwapMbContainer = ({
   fromTokenAmountValue,
   swapRecentTokenPairs,
   supportNetworksList,
+  supportNetworksReady,
 }: ISwapSwapMbContainerProps) => {
   const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
@@ -139,6 +142,7 @@ const SwapSwapMbContainer = ({
           onOpenProviderList={onOpenProviderList}
           quoteResult={quoteResult}
         />
+        <SwapQuoteStockMarketStatusAlert />
         {alerts.states.length > 0 &&
         !quoteLoading &&
         !quoteEventFetching &&
@@ -156,6 +160,7 @@ const SwapSwapMbContainer = ({
             onOpenOrdersClick={onOpenOrdersClick}
             onSearchClick={onSearchClickCallback}
             supportNetworksList={supportNetworksList}
+            supportNetworksReady={supportNetworksReady}
           />
         ) : null}
       </YStack>

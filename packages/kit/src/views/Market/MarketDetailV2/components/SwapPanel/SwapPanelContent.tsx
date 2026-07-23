@@ -45,13 +45,14 @@ export type ISwapPanelContentProps = {
   slippageAutoValue?: number;
   supportSpeedSwap: {
     enabled?: boolean;
+    isAccountNetworkSupported: boolean;
     warningMessage?: string;
     actionToken?: ISwapToken;
     actionOtherToken?: ISwapToken;
     onlySupportCrossChain?: boolean;
   };
   defaultTokens: IToken[];
-  balance: BigNumber;
+  balance?: BigNumber;
   balanceToken?: IToken;
   onSwap: () => void;
   onWrappedSwap: () => void;
@@ -156,6 +157,10 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   }, [tradeType, paymentAmount, sellAmount]);
 
   const handleBalanceClick = useCallback(() => {
+    if (!balance) {
+      return;
+    }
+
     const reserveGas = swapNativeTokenReserveGas.find(
       (item) => item.networkId === balanceToken?.networkId,
     )?.reserveGas;
@@ -344,6 +349,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
 
       <ActionButton
         supportSpeedSwap={!!supportSpeedSwap?.enabled}
+        isAccountNetworkSupported={supportSpeedSwap.isAccountNetworkSupported}
         onlySupportCrossChain={!!supportSpeedSwap?.onlySupportCrossChain}
         loading={isLoading}
         actionToken={supportSpeedSwap?.actionToken}

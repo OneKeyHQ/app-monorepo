@@ -53,6 +53,7 @@ import {
 } from '../../PerpDialogLayout';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
+import { formatBboModeLabel } from '../selectors/bboDisplay';
 
 import type { IEnableTradingWithDepositFallbackResult } from '../../../hooks/useEnableTradingWithDepositFallback';
 import type { IntlShape } from 'react-intl';
@@ -348,7 +349,7 @@ function OrderConfirmContent({
   ]);
 
   const priceDisplay = useMemo(() => {
-    if (formData.type === 'market' || !formData.price) {
+    if (formData.type === 'market') {
       return (
         <SizableText size="$bodyMdMedium">
           {intl.formatMessage({
@@ -359,7 +360,7 @@ function OrderConfirmContent({
     }
 
     if (formData.bboPriceMode) {
-      const { type } = formData.bboPriceMode;
+      const { offsetTicks, type } = formData.bboPriceMode;
       const modeName = intl.formatMessage({
         id:
           type === 'counterparty'
@@ -369,8 +370,20 @@ function OrderConfirmContent({
 
       return (
         <YStack alignItems="flex-end" gap="$1">
-          <SizableText size="$bodyMdMedium">{modeName}</SizableText>
+          <SizableText size="$bodyMdMedium">
+            {formatBboModeLabel(modeName, offsetTicks)}
+          </SizableText>
         </YStack>
+      );
+    }
+
+    if (!formData.price) {
+      return (
+        <SizableText size="$bodyMdMedium">
+          {intl.formatMessage({
+            id: ETranslations.perp_trade_market,
+          })}
+        </SizableText>
       );
     }
 

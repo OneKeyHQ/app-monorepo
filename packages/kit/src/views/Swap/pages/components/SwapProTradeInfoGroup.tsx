@@ -66,12 +66,20 @@ const SwapProTradeInfoGroup = ({
     });
   }, [navigation, inputToken, activeAccount]);
 
-  const { result: enableAddressTypeSelector } = usePromiseResult(async () => {
-    const result = await backgroundApiProxy.serviceNetwork.getVaultSettings({
-      networkId: inputToken?.networkId ?? '',
-    });
-    return result?.mergeDeriveAssetsEnabled;
-  }, [inputToken?.networkId]);
+  const inputTokenNetworkId = inputToken?.networkId;
+  const { result: enableAddressTypeSelector } = usePromiseResult(
+    async () => {
+      if (!inputTokenNetworkId) {
+        return false;
+      }
+      const result = await backgroundApiProxy.serviceNetwork.getVaultSettings({
+        networkId: inputTokenNetworkId,
+      });
+      return result?.mergeDeriveAssetsEnabled;
+    },
+    [inputTokenNetworkId],
+    { initResult: false },
+  );
 
   const balanceValue = useMemo(() => {
     const balanceBN = new BigNumber(inputToken?.balanceParsed ?? '0');

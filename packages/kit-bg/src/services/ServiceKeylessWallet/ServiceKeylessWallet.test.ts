@@ -160,9 +160,15 @@ const {
 const { KeylessDataCorruptedError, OneKeyLocalError } =
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   require('@onekeyhq/shared/src/errors');
-const { EOneKeyIdLoginWithLocalKeylessPrepareStatus } =
+const {
+  EKeylessCreateWithOneKeyIdPrepareStatus,
+  EOneKeyIdLoginWithLocalKeylessPrepareStatus,
+} =
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   require('@onekeyhq/shared/src/keylessWallet/keylessWalletTypes');
+const { EPrimeAuthSessionSource } =
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  require('@onekeyhq/shared/types/prime/primeTypes');
 
 const localDb =
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -238,8 +244,21 @@ function createKeylessWallet(overrides: Record<string, unknown> = {}) {
 function createService(params: { wallet?: any; password?: string } = {}) {
   const wallet = 'wallet' in params ? params.wallet : createKeylessWallet();
   const backgroundApi: any = {
+    simpleDb: {
+      prime: {
+        getEffectiveAuthSessionSource: jest.fn(async () => undefined),
+        getKeylessSupabaseAuthToken: jest.fn(async () => ''),
+      },
+    },
     serviceAccount: {
       getKeylessWallet: jest.fn(async () => wallet),
+    },
+    servicePrime: {
+      getLocalUserInfo: jest.fn(async () => ({
+        displayEmail: 'legacy@example.com',
+      })),
+      isLoggedIn: jest.fn(async () => true),
+      isOAuthProviderBoundToCurrentOneKeyId: jest.fn(async () => false),
     },
     servicePassword: {
       getCachedPassword: jest.fn(async () => params.password ?? PASSWORD),
@@ -2483,5 +2502,93 @@ describe('ServiceKeylessWallet.prepareOneKeyIdLoginWithLocalKeyless', () => {
       status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NeedOAuthLogin,
       provider: EOAuthSocialLoginProvider.Google,
     });
+  });
+
+  test('propagates a transient wallet-read failure instead of reporting NoLocalKeyless', async () => {
+    // A transient serviceAccount.getKeylessWallet() failure is UNKNOWN state,
+    // not "no wallet". prepare must NOT swallow it into a status: the passive
+    // upgrade-bind gate (checkAndMarkShouldShowLocalKeylessUpgradeBindPrompt)
+    // relies on the throw to skip its 24h throttle and retry, and reporting
+    // NoLocalKeyless would let loginOneKeyId's full-logout branch clear the
+    // shared keyless session slot + legacy OAuth blobs. Only the login UI
+    // degrades a thrown result to a session-preserving one.
+    const { service, backgroundApi } = createService();
+    const readError = new OneKeyLocalError('transient wallet read failure');
+    backgroundApi.serviceAccount.getKeylessWallet = jest.fn(async () => {
+      throw readError;
+    });
+    await expect(service.prepareOneKeyIdLoginWithLocalKeyless()).rejects.toBe(
+      readError,
+    );
+  });
+
+  test('returns NoLocalKeyless when getKeylessWallet resolves undefined (genuine no wallet)', async () => {
+    // A resolved `undefined` wallet is a definitive no-wallet verdict and must
+    // still map to NoLocalKeyless (nothing to preserve on logout).
+    const { service } = createService({ wallet: undefined });
+    await expect(
+      service.prepareOneKeyIdLoginWithLocalKeyless(),
+    ).resolves.toEqual({
+      status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NoLocalKeyless,
+    });
+  });
+});
+
+describe('ServiceKeylessWallet.prepareKeylessCreateWithOneKeyId', () => {
+  test('requests a silent legacy OAuth reauthentication when the selected provider is already bound', async () => {
+    const { service, backgroundApi } = createService({ wallet: undefined });
+    backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    backgroundApi.servicePrime.isOAuthProviderBoundToCurrentOneKeyId.mockResolvedValue(
+      true,
+    );
+
+    await expect(
+      service.prepareKeylessCreateWithOneKeyId({
+        signInProvider: EOAuthSocialLoginProvider.Google,
+      }),
+    ).resolves.toEqual({
+      status: EKeylessCreateWithOneKeyIdPrepareStatus.NeedLegacyOAuthReauth,
+      displayEmail: 'legacy@example.com',
+    });
+    expect(
+      backgroundApi.servicePrime.isOAuthProviderBoundToCurrentOneKeyId,
+    ).toHaveBeenCalledWith({
+      provider: EOAuthSocialLoginProvider.Google,
+    });
+  });
+
+  test('keeps the add-sign-in dialog when the selected provider is not bound', async () => {
+    const { service, backgroundApi } = createService({ wallet: undefined });
+    backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+
+    await expect(
+      service.prepareKeylessCreateWithOneKeyId({
+        signInProvider: EOAuthSocialLoginProvider.Apple,
+      }),
+    ).resolves.toEqual({
+      status: EKeylessCreateWithOneKeyIdPrepareStatus.NeedLegacyOAuthBind,
+      displayEmail: 'legacy@example.com',
+    });
+  });
+
+  test('does not run the profile precheck when OneKey ID is logged out', async () => {
+    const { service, backgroundApi } = createService({ wallet: undefined });
+    backgroundApi.servicePrime.isLoggedIn.mockResolvedValue(false);
+
+    await expect(
+      service.prepareKeylessCreateWithOneKeyId({
+        signInProvider: EOAuthSocialLoginProvider.Google,
+      }),
+    ).resolves.toEqual({
+      status: EKeylessCreateWithOneKeyIdPrepareStatus.NeedOneKeyIdOAuthLogin,
+      displayEmail: 'legacy@example.com',
+    });
+    expect(
+      backgroundApi.servicePrime.isOAuthProviderBoundToCurrentOneKeyId,
+    ).not.toHaveBeenCalled();
   });
 });

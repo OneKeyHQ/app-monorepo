@@ -45,6 +45,7 @@ import {
   spotAssetCtxsMapAtom,
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
+  usePerpsActiveAccountAtom,
   usePerpsFavoritesOrderPersistAtom,
   useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -386,6 +387,7 @@ function BasePerpTokenSelectorContent({
   onLoadingChange: (isLoading: boolean) => void;
 }) {
   const intl = useIntl();
+  const [activePerpsAccount] = usePerpsActiveAccountAtom();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { searchQuery, setSearchQuery, refreshAllAssets } =
     usePerpTokenSelector();
@@ -500,10 +502,11 @@ function BasePerpTokenSelectorContent({
       defaultLogger.perp.tokenSelector.perpTokenSelectorCategoryTabClick({
         tab,
         previousTab: displayActiveTab,
+        walletType: activePerpsAccount.walletType ?? 'unknown',
       });
       updateActiveTab(tab);
     },
-    [displayActiveTab, updateActiveTab],
+    [activePerpsAccount.walletType, displayActiveTab, updateActiveTab],
   );
   const setPrimaryTab = useCallback(
     (tab: string) => {
@@ -513,10 +516,11 @@ function BasePerpTokenSelectorContent({
       defaultLogger.perp.tokenSelector.perpTokenSelectorPrimaryTabClick({
         tab,
         previousTab: displayPrimaryTab,
+        walletType: activePerpsAccount.walletType ?? 'unknown',
       });
       updateActiveTab(tab);
     },
-    [displayPrimaryTab, updateActiveTab],
+    [activePerpsAccount.walletType, displayPrimaryTab, updateActiveTab],
   );
 
   const handleSelectToken = useCallback(
@@ -533,6 +537,7 @@ function BasePerpTokenSelectorContent({
           tradeMode: isSpotToken ? 'spot' : 'perp',
           sortField,
           sortDirection,
+          walletType: activePerpsAccount.walletType ?? 'unknown',
         });
         if (isSpotToken) {
           const universe = spotUniverses.find((u) => u.name === symbol);
@@ -558,6 +563,7 @@ function BasePerpTokenSelectorContent({
       }
     },
     [
+      activePerpsAccount.walletType,
       closePopover,
       actions,
       displayActiveTab,
@@ -1338,6 +1344,7 @@ const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
 
 function BasePerpTokenSelector() {
   const intl = useIntl();
+  const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const actions = useHyperliquidActions();
   const [isOpen, setIsOpen] = useState(false);
   const isOpeningRef = useRef(false);
@@ -1400,6 +1407,7 @@ function BasePerpTokenSelector() {
           defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
             currentToken: baseName,
             tradeMode: mode === 'spot' ? 'spot' : 'perp',
+            walletType: activePerpsAccount.walletType ?? 'unknown',
           });
           setIsOpen(true);
         }}
@@ -1470,6 +1478,7 @@ function BasePerpTokenSelector() {
       />
     ),
     [
+      activePerpsAccount.walletType,
       isOpen,
       isLoading,
       triggerLabel,
@@ -1574,6 +1583,7 @@ const BasePerpTokenSelectorMobileView = memo(
 BasePerpTokenSelectorMobileView.displayName = 'BasePerpTokenSelectorMobileView';
 function BasePerpTokenSelectorMobile() {
   const navigation = useAppNavigation();
+  const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const prewarmTokenSelectorImages = usePrewarmPerpsTokenSelectorImages();
   const isOpeningRef = useRef(false);
   // Only low-frequency fields here (coin/displayName/mode change on coin
@@ -1602,11 +1612,18 @@ function BasePerpTokenSelectorMobile() {
     defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
       currentToken: coin,
       tradeMode: mode === 'spot' ? 'spot' : 'perp',
+      walletType: activePerpsAccount.walletType ?? 'unknown',
     });
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
     });
-  }, [coin, mode, navigation, prewarmTokenSelectorImages]);
+  }, [
+    activePerpsAccount.walletType,
+    coin,
+    mode,
+    navigation,
+    prewarmTokenSelectorImages,
+  ]);
 
   return (
     <BasePerpTokenSelectorMobileView

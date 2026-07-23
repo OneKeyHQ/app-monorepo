@@ -8,6 +8,7 @@ export enum EPerpsSubscriptionCategory {
 export enum ESubscriptionType {
   ALL_MIDS = 'allMids',
   L2_BOOK = 'l2Book',
+  L2 = 'l2',
   ACTIVE_ASSET_CTX = 'activeAssetCtx',
   ACTIVE_ASSET_DATA = 'activeAssetData',
   WEB_DATA2 = 'webData2',
@@ -100,6 +101,19 @@ export interface IOrderOpenParams {
   reduceOnly?: boolean;
 }
 
+export interface IPlaceOrderByCoinParams {
+  coin: string;
+  expectedAccountAddress: string;
+  isBuy: boolean;
+  size: string;
+  price: string;
+  orderType: 'market' | 'limit';
+  tif?: ITIF;
+  tpTriggerPx?: string;
+  slTriggerPx?: string;
+  slippage?: number;
+}
+
 export interface IOrderCloseParams {
   assetId: number;
   isBuy: boolean;
@@ -128,12 +142,19 @@ export interface IModifyOrderParams {
   sz: string;
   price: string;
   reduceOnly?: boolean;
-  orderType?:
+  orderType:
     | { limit: { tif: ITIF } }
     | { trigger: { isMarket: boolean; triggerPx: string; tpsl: 'tp' | 'sl' } };
+  cloid?: IHex | null;
   // Position TP/SL orders rest with sz "0"; allow it through size formatting on modify.
   allowZeroSize?: boolean;
+  // Hyperliquid otherwise treats executable GTC modifications as ALO.
+  alwaysPlace?: true;
 }
+
+export type IOrderAmendKind =
+  | { kind: 'limit'; tif: ITIF }
+  | { kind: 'trigger'; isMarket: boolean; tpsl: 'tp' | 'sl' };
 
 export interface IWithdrawParams extends IWithdraw3Request {
   userAccountId: string;
@@ -172,6 +193,7 @@ export interface IAgentApprovalRequest {
 
 export interface IPositionTpslOrderParams {
   assetId: number;
+  expectedAccountAddress: string;
   positionSize: string;
   isBuy: boolean;
   tpTriggerPx?: string;

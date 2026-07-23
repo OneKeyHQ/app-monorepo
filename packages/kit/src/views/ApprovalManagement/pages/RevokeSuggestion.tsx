@@ -245,12 +245,14 @@ function RevokeSuggestion() {
       selectedTokens,
       tokenMap,
       contractMap,
+      approvals,
     });
   }, [
     navigationToBulkRevokeProcess,
     selectedTokens,
     tokenMap,
     contractMap,
+    approvals,
     inactiveNumber,
     riskyNumber,
     selectedCount,

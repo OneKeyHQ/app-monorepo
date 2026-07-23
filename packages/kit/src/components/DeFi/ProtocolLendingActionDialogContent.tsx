@@ -1392,6 +1392,9 @@ function ProtocolLendingActionBorrowContent({
                 tags,
               }
             : undefined,
+          // Same as withdraw: close the repay input dialog before navigating
+          // to the tx confirm page, so dialogs don't stack (OK-58105).
+          onBeforeNavigate: closeActionDialogBeforeConfirm,
           onSuccess: (data) => {
             releaseSubmitGuardOnce();
             void onSuccess?.({ accountId, networkId, data });
@@ -1420,6 +1423,12 @@ function ProtocolLendingActionBorrowContent({
               tags,
             }
           : undefined,
+        // Close the withdraw input dialog before navigating to the tx confirm
+        // page, so the confirm page / "transaction submitted" dialog doesn't
+        // stack on top of a lingering input dialog (OK-58105). onSettleResult
+        // fires only after the confirm succeeds — too late; onBeforeNavigate
+        // runs right before navigationToTxConfirm ("close first, then open").
+        onBeforeNavigate: closeActionDialogBeforeConfirm,
         onSuccess: (data) => {
           releaseSubmitGuardOnce();
           void onSuccess?.({ accountId, networkId, data });

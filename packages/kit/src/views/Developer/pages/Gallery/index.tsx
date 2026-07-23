@@ -102,6 +102,10 @@ const ScanQrCodeGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ScanQrCode'),
 );
+const SetupStepItemGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SetupStepItem'),
+);
 const ShortcutGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Shortcut'),
@@ -350,6 +354,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentPasswordDemo,
     component: PasswordDemoGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentSetupStepItem,
+    component: SetupStepItemGallery,
   },
   {
     name: EGalleryRoutes.ComponentDiscoveryBrowser,
