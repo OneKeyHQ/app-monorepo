@@ -1,87 +1,59 @@
-# App Architecture
+# Earn / DeFi Architecture
 
-## Canonical Flow
+## Flow And Surface Ownership
 
-Map every DeFi change through:
+Trace the affected path without assuming one component owns the whole flow:
 
-`host/route -> home -> list/detail -> operation modal -> transaction sequence -> pending refresh -> history -> cross-surface handoff`
+`entry/route -> data owner -> detail/position -> operation -> status -> refresh`
 
-Each step has a different state owner. Most regressions happen when a later step reads assumptions from an earlier step instead of preserving its own contract.
+| Surface                       | Primary responsibility                                                        |
+| ----------------------------- | ----------------------------------------------------------------------------- |
+| Earn home/list/detail         | Catalog, portfolio, provider/network/vault identity, detail navigation        |
+| Staking operation             | Stake, withdraw, claim, redeem, quote, approval, permit, cooldown             |
+| Borrow                        | Market/reserve, collateral, debt, health factor, supply/withdraw/borrow/repay |
+| DeFi Portfolio / AssetDetails | Position display, supported action resolution, modal route params             |
+| Background services           | Transaction building, order/status sync, account-scoped refresh, persistence  |
+| Discovery                     | Native Earn host and external protocol websites                               |
+| Swap                          | Quote/review/build/send/history after a DeFi funding handoff starts quoting   |
 
-## Surface Map
+Entry surfaces own navigation params and analytics source, not the downstream
+data or execution state. Preserve provider, network, token/symbol, vault or
+market, account, indexed account, action, and return target across handoffs.
 
-- Earn home owns overview, portfolio, recommended assets, protocol tabs, and Borrow embedding.
-- Earn list/detail owns provider, network, symbol, vault, category, chart, and share/deep-link round trip.
-- Staking operation pages own stake, withdraw, claim, quote, approval, permit, wrap, cooldown, and sign/send flows.
-- Borrow home/detail owns market, reserve, account, supplied/debt state, health factor, and collateral actions.
-- Borrow operation pages own supply, withdraw, borrow, repay, and repay-with-collateral flows.
-- Pending/history owns staking tags, labels, filters, refresh scope, and completion behavior.
-- Discovery hosts native Earn. Desktop/web use the Earn tab route.
+## Platform Hosts
 
-## Entry Ownership Matrix
+- Native Earn lives under the Discovery host. Validate a fresh open, repeated
+  entry, detail push, modal/bottom-sheet behavior, and return to Earn home.
+- Desktop and web use the Earn route/tab. Extension, desktop, and web can use
+  dialog hosts where the current surface supports them.
+- AssetDetails is its own modal stack. Pass required account identity through
+  typed route params or the protocol payload; do not depend on Home-only
+  providers unless that stack proves it mounts the matching mirror.
 
-Use this before deciding whether a new requirement is Earn, Borrow, DeFi
-Portfolio, Discovery, or Swap-owned.
+## Runtime Ownership
 
-| Entry | Source owner | DeFi owner after entry | Common validation |
-| --- | --- | --- | --- |
-| Desktop/web Earn tab | `Tab/Earn` route stack | Earn home/list/detail providers | tab restore, route params, active tab and refresh owner |
-| Native Earn | Discovery tab host plus `safePushToEarnRoute` | Earn sub-mode inside Discovery, not the desktop Earn stack | fresh native open, no stack accumulation, EarnHome special case |
-| Home Earn card/list | `EarnListView` and Home host | `safePushToEarnRoute` target route and Earn data owner | Home -> Earn, active/inactive fetch gating |
-| Share/deep link | Earn navigation helpers | detail/list route params: provider, network, symbol, vault | app restart/deep-link round trip |
-| DeFi Portfolio row/action | Home/Portfolio or AssetDetails modal | portfolio action button/dialog, supported actions, build transaction | account/indexed-account survives modal route |
-| Borrow embedded from Earn | Earn home tab plus Borrow providers | Borrow market/reserve/detail/operation owner | health factor, reserve identity, borrow layout by platform |
-| Swap-assisted funding | DeFi source route | DeFi owns source/risk/prefill; Swap owns quote/review/build/send | return refresh target plus Swap handoff proof |
+On iOS, Android, and browser extension, `main` and `bg` are isolated JavaScript
+runtimes. They initialize independently and exchange serialized copies.
+Native storage or other native singletons may be process-shared, but the
+background service/entity remains the sole writer for its data.
 
-## Reuse Earn/Borrow Or Create New Surface
+Desktop and web run App `main` and `bg` code in one JavaScript runtime/thread.
+Service and persistence ownership still matters, but do not invent split-heap
+deserialization or independent-JS-runtime races there.
 
-Choose the smallest surface that preserves operation semantics:
+For a cross-runtime or persisted change, name:
 
-- Use Earn when the protocol is yield/staking/vault-like and operations are stake, withdraw, claim, redeem, or maturity-driven variants.
-- Use Borrow when the protocol is lending/borrowing with collateral, debt, reserves, health factor, or liquidation risk.
-- Use Staking shared operation stack when the flow can be represented by existing operation components plus typed adapters.
-- Use a new DeFi surface only when the operation model, risk model, and navigation cannot be represented by Earn/Borrow without making those surfaces misleading.
-- Use Trade/Swap handoff when the action is funding, route conversion, or swap-assisted repayment rather than a DeFi position operation.
-- Use Discovery/browser handoff when the App is only launching a protocol surface and not owning execution.
+1. target platform and runtime scope
+2. native/process resource owner
+3. data copied across proxy or events
+4. independent readiness/order where applicable
+5. identity used to reject stale results
 
-## Protocol Extension Styles
+## External DApp Boundary
 
-### ABI-Backed
-
-The App owns typed contract-call parameters and must define:
-
-- chain/network and account requirements
-- contract address source and validation
-- read functions and cache invalidation
-- write function params and token amount units
-- approval, permit, wrap, or setup transaction needs
-- pending tags and history label
-- unsupported states by network, token, or account type
-
-### Native Or Provider-Backed
-
-The App delegates protocol-specific execution to a provider or chain-specific service, but still owns:
-
-- route params and provider identity
-- native token and address semantics
-- setup/business transaction sequence
-- disabled/loading/error states
-- pending/history identity
-- refresh scope and completion polling
-
-### Swap-Assisted
-
-Swap-assisted DeFi flows must define where DeFi ownership ends and Swap ownership begins. Once Swap quote starts, Swap owns execution state.
-
-## Cross-Surface Handoff
-
-Every handoff must preserve:
-
-- network id
-- provider
-- symbol/token/vault/reserve/market
-- account and indexed account
-- operation type
-- return route or success refresh target
-
-Handoff validation requires a fresh app/tab path, not only in-page navigation.
+Opening a protocol website is a Discovery/browser action. Until the website
+sends a chain RPC that enters the DApp confirmation path, do not create an
+internal DeFi action, build request, pending row, order, or portfolio refresh.
+On split-runtime targets, Discovery/WebView and confirmation routing stay in
+`main`; the DApp service runs in `bg`, and only a serialized RPC crosses the
+boundary.
