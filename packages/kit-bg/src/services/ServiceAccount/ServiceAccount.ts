@@ -3449,6 +3449,15 @@ class ServiceAccount extends ServiceBase {
 
     // Ensure connectId is compatible for the current transport type
     if (dbDevice.connectId) {
+      // [TrezorConnectIdTrace] Confirm this path runs and what vendor it passes.
+      defaultLogger.hardware.sdkLog.log(
+        `[TrezorConnectIdTrace][getWalletDeviceParams] ${JSON.stringify({
+          connectId: dbDevice.connectId,
+          vendor: dbDevice.vendor,
+          bleConnectId: (dbDevice as { bleConnectId?: string }).bleConnectId,
+          hardwareCallContext,
+        })}`,
+      );
       try {
         dbDevice.connectId =
           await this.backgroundApi.serviceHardware.getCompatibleConnectId({
@@ -3456,6 +3465,10 @@ class ServiceAccount extends ServiceBase {
             featuresDeviceId: dbDevice.deviceId,
             features: dbDevice.featuresInfo,
             hardwareCallContext,
+            // We hold the record here, so pass its vendor: lets the resolver find
+            // a third-party device and pick its transport-correct connectId
+            // (Trezor BLE session -> bleConnectId instead of the deviceId).
+            vendor: dbDevice.vendor,
           });
       } catch (error) {
         // If getCompatibleConnectId fails, use the original connectId
@@ -3558,6 +3571,10 @@ class ServiceAccount extends ServiceBase {
       await this.backgroundApi.serviceHardware.getCompatibleConnectId({
         connectId,
         featuresDeviceId: dbDevice.deviceId,
+        // Without the vendor the lookup defaults to OneKey and misses a
+        // third-party device row, so a Trezor main connectId (deviceId) leaks
+        // raw into the BLE session and hangs on the noble connect timeout.
+        vendor: dbDevice.vendor,
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
 
@@ -3739,6 +3756,10 @@ class ServiceAccount extends ServiceBase {
         : await this.backgroundApi.serviceHardware.getCompatibleConnectId({
             connectId: params.device.connectId ?? '',
             featuresDeviceId: params.device.deviceId ?? '',
+            // Third-party rows are invisible to the default (OneKey) lookup;
+            // without this a Trezor arriving with its main connectId (e.g. the
+            // hidden-wallet path passes the DB record) keeps the raw deviceId.
+            vendor,
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           });
 
@@ -3796,6 +3817,22 @@ class ServiceAccount extends ServiceBase {
                 this.backgroundApi,
                 matchedDevice,
                 compatibleConnectId,
+              )
+          : undefined,
+      // Third-party standard wallet: when device-identity matching misses
+      // (e.g. a wiped Trezor whose device_id changed), re-bind the old wallet
+      // by seed (XFP) instead of duplicating. Rule lives in the service.
+      resolveReuseDeviceIdFn:
+        vendorProfile?.isThirdParty && !passphraseState
+          ? async () =>
+              this.backgroundApi.serviceThirdPartyHardware.resolveRebindDeviceId(
+                {
+                  xfp,
+                  vendor,
+                  deviceType: await deviceUtils.getDeviceTypeFromFeatures({
+                    features,
+                  }),
+                },
               )
           : undefined,
       transportType,

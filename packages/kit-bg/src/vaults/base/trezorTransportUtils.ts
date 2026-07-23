@@ -4,7 +4,10 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import {
+  EHardwareCallContext,
+  EHardwareVendor,
+} from '@onekeyhq/shared/types/device';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice } from '../../dbs/local/types';
@@ -19,6 +22,13 @@ export type IRequestTrezorBleConnectId = (params: {
 
 export type ICallTrezorWithBleFallbackOptions = {
   requestBleConnectId?: IRequestTrezorBleConnectId;
+  // Resolve the transport-correct connectId for the first attempt via the
+  // single authority (getCompatibleConnectId): bleConnectId in a BLE session,
+  // the primary (USB) connectId otherwise. Without it the first attempt is
+  // USB-first, which in a BLE session hangs on the noble connect timeout.
+  resolvePrimaryConnectId?: (
+    dbDevice: IDBDevice,
+  ) => Promise<string | undefined>;
 };
 
 type ITrezorTransportFailurePayload = {
@@ -29,10 +39,14 @@ function isTrezorTransportDownFailure(
   payload?: ITrezorTransportFailurePayload,
 ): boolean {
   const code = payload?.code;
+  // BleConnectFailed: the BLE link never came up (noble connect timeout) —
+  // transport-down by definition; without it the recovery ladder is dead in
+  // BLE sessions.
   return (
     code === HardwareErrorCode.DeviceDisconnected ||
     code === HardwareErrorCode.DeviceNotFound ||
-    code === HardwareErrorCode.TransportError
+    code === HardwareErrorCode.TransportError ||
+    code === HardwareErrorCode.BleConnectFailed
   );
 }
 
@@ -63,6 +77,13 @@ export function buildTrezorBleFallbackOptions(
           device: dbDevice,
         },
       ),
+    resolvePrimaryConnectId: async (dbDevice) =>
+      backgroundApi.serviceHardware.getCompatibleConnectId({
+        connectId: dbDevice.connectId,
+        featuresDeviceId: dbDevice.deviceId,
+        vendor: dbDevice.vendor,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      }),
   };
 }
 
@@ -94,7 +115,21 @@ export async function callTrezorWithBleFallback<T>(
   fn: (connectId: string) => Promise<Response<T>>,
   options?: ICallTrezorWithBleFallbackOptions,
 ): Promise<Response<T>> {
-  const primaryConnectId = dbDevice.usbConnectId || dbDevice.connectId;
+  // Transport-correct first attempt: getCompatibleConnectId picks bleConnectId
+  // in a BLE session and the primary (USB) connectId otherwise — the USB handle
+  // (deviceId) is unresolvable over BLE and hangs until the noble connect
+  // timeout. Resolver failure must not block the call; keep USB-first then.
+  let primaryConnectId = dbDevice.usbConnectId || dbDevice.connectId;
+  if (options?.resolvePrimaryConnectId) {
+    try {
+      const resolved = await options.resolvePrimaryConnectId(dbDevice);
+      if (resolved) {
+        primaryConnectId = resolved;
+      }
+    } catch {
+      // noop
+    }
+  }
   let result = await fn(primaryConnectId);
   if (result.success) return result;
 
