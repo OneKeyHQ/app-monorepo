@@ -2,6 +2,7 @@
 import { useWindowDimensions } from 'react-native';
 
 import {
+  Button,
   Dialog,
   Icon,
   SizableText,
@@ -21,6 +22,9 @@ import { UnifoldTrackerContent } from './UnifoldTrackerContent';
 import { UnifoldTransferContent } from './UnifoldTransferContent';
 
 const DESKTOP_DIALOG_MAX_HEIGHT = 'calc(100vh - 64px)';
+const DEPOSIT_MENU_DIALOG_WIDTH = 400;
+const DESKTOP_DIALOG_WIDTH = 440;
+const DESKTOP_DIALOG_MAX_WIDTH = 'calc(100vw - 32px)';
 // The dialog panel clamps its own height but never scrolls, so the body has to
 // be told how much room is left: 64px panel inset + 70px dialog header + 20px
 // content padding.
@@ -47,6 +51,7 @@ function DesktopTransferBody({
     <UnifoldTransferContent
       expectedRecipient={expectedRecipient}
       bodyMaxHeight={bodyMaxHeight}
+      useDialogHeader
     />
   );
 }
@@ -61,6 +66,7 @@ function DesktopTrackerBody({
     <UnifoldTrackerContent
       recipientAddress={expectedRecipient}
       listHeight={bodyMaxHeight}
+      useDialogHeader
     />
   );
 }
@@ -68,12 +74,14 @@ function DesktopTrackerBody({
 export type IUnifoldDepositMenuAction = 'onekey' | 'transfer' | 'tracker';
 
 function MenuActionRow({
+  testID,
   icon,
   title,
   subtitle,
   hint,
   onPress,
 }: {
+  testID: string;
   icon: Parameters<typeof Icon>[0]['name'];
   title: string;
   subtitle: string;
@@ -81,32 +89,56 @@ function MenuActionRow({
   onPress: () => void;
 }) {
   return (
-    <XStack
-      minHeight="$13"
+    <Button
+      testID={testID}
+      variant="tertiary"
+      childrenAsText={false}
+      alignSelf="stretch"
+      height="auto"
+      minHeight="$14"
       borderRadius="$3"
-      px="$3"
-      py="$2.5"
-      alignItems="center"
-      gap="$2.5"
+      mx="$-2"
+      px="$2"
+      py="$3"
       cursor="pointer"
       hoverStyle={{ bg: '$bgHover' }}
       pressStyle={{ bg: '$bgActive' }}
       onPress={onPress}
     >
-      <Stack width="$7" alignItems="center">
-        <Icon name={icon} color="$icon" size="$5" />
-      </Stack>
-      <YStack flex={1} minWidth={0}>
-        <SizableText size="$bodySmMedium" color="$text" numberOfLines={1}>
-          {title}
-        </SizableText>
-        <SizableText size="$bodyXs" color="$textSubdued" numberOfLines={1}>
-          {subtitle}
-        </SizableText>
-      </YStack>
-      {hint}
-      <Icon name="ChevronRightSmallOutline" color="$iconSubdued" size="$4" />
-    </XStack>
+      <XStack flex={1} alignSelf="stretch" alignItems="center" gap="$2.5">
+        <Stack width="$7" alignItems="flex-start">
+          <Icon name={icon} color="$icon" size="$5" />
+        </Stack>
+        <YStack flex={1} minWidth={0} alignItems="flex-start">
+          <SizableText
+            width="100%"
+            size="$bodyMdMedium"
+            color="$text"
+            textAlign="left"
+            numberOfLines={1}
+          >
+            {title}
+          </SizableText>
+          <SizableText
+            width="100%"
+            size="$bodySm"
+            color="$textSubdued"
+            textAlign="left"
+            numberOfLines={1}
+          >
+            {subtitle}
+          </SizableText>
+        </YStack>
+        <XStack alignItems="center" gap="$1">
+          {hint}
+          <Icon
+            name="ChevronRightSmallOutline"
+            color="$iconSubdued"
+            size="$4"
+          />
+        </XStack>
+      </XStack>
+    </Button>
   );
 }
 
@@ -168,9 +200,14 @@ export function showPerpsUnifoldDepositMenuDialog({
   holder.instance = Dialog.show({
     title: 'Deposit',
     showFooter: false,
+    floatingPanelProps: {
+      width: DEPOSIT_MENU_DIALOG_WIDTH,
+      maxWidth: DESKTOP_DIALOG_MAX_WIDTH,
+    },
     renderContent: (
       <YStack gap="$1" pb="$4" width="100%">
         <MenuActionRow
+          testID="perps-deposit-menu-connected-wallet"
           icon="WalletCryptoOutline"
           title="Connected Wallet"
           subtitle="Min $5 • Instant"
@@ -179,6 +216,7 @@ export function showPerpsUnifoldDepositMenuDialog({
           }}
         />
         <MenuActionRow
+          testID="perps-deposit-menu-transfer-crypto"
           icon="QrCodeOutline"
           title="Transfer Crypto"
           // Never "No limit": below-minimum deposits have no refund endpoint
@@ -191,6 +229,7 @@ export function showPerpsUnifoldDepositMenuDialog({
           }}
         />
         <MenuActionRow
+          testID="perps-deposit-menu-tracker"
           icon="ClockTimeHistoryOutline"
           title="Deposit Tracker"
           subtitle="Track your deposit progress"
@@ -218,9 +257,10 @@ export function showUnifoldTransferDialog({
   dialogInTab.show({
     title: 'Transfer Crypto',
     showFooter: false,
-    // Match the SDK: clicking the backdrop does not close the deposit flow.
-    dismissOnOverlayPress: false,
+    dismissOnOverlayPress: true,
     floatingPanelProps: {
+      width: DESKTOP_DIALOG_WIDTH,
+      maxWidth: DESKTOP_DIALOG_MAX_WIDTH,
       maxHeight: DESKTOP_DIALOG_MAX_HEIGHT,
     },
     renderContent: (
@@ -239,7 +279,10 @@ export function showUnifoldTrackerDialog({
   dialogInTab.show({
     title: 'Deposit Tracker',
     showFooter: false,
+    dismissOnOverlayPress: true,
     floatingPanelProps: {
+      width: DESKTOP_DIALOG_WIDTH,
+      maxWidth: DESKTOP_DIALOG_MAX_WIDTH,
       maxHeight: DESKTOP_DIALOG_MAX_HEIGHT,
     },
     renderContent: <DesktopTrackerBody expectedRecipient={expectedRecipient} />,

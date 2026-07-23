@@ -1,11 +1,12 @@
 // cspell: words unifold Unifold
 import { useCallback, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import {
+  Dialog,
   Divider,
   Empty,
   Icon,
-  NATIVE_HIT_SLOP,
   ScrollView,
   SizableText,
   Skeleton,
@@ -44,6 +45,7 @@ import {
 } from './unifoldFormat';
 
 const TRACKER_POLL_INTERVAL_MS = 3000;
+const DESKTOP_TRACKER_BODY_HEIGHT = 550;
 
 function isProcessing(execution: IUnifoldDepositExecution): boolean {
   return !execution.terminal;
@@ -86,10 +88,46 @@ function detailStatusDotColor(
 }
 
 function shortenHash(hash: string): string {
-  if (hash.length <= 18) {
+  if (hash.length <= 14) {
     return hash;
   }
-  return `${hash.slice(0, 12)}...${hash.slice(-4)}`;
+  return `${hash.slice(0, 8)}...${hash.slice(-4)}`;
+}
+
+function ExecutionTokenBadge({
+  execution,
+  compact = false,
+}: {
+  execution: IUnifoldDepositExecution;
+  compact?: boolean;
+}) {
+  if (isProcessing(execution)) {
+    return <Spinner size="small" scale={compact ? 0.65 : 1} />;
+  }
+  return (
+    <Stack
+      w={compact ? '$4' : '$5'}
+      h={compact ? '$4' : '$5'}
+      bg={
+        execution.status === 'succeeded'
+          ? '$bgSuccessStrong'
+          : '$bgCautionStrong'
+      }
+      borderRadius="$full"
+      alignItems="center"
+      justifyContent="center"
+    >
+      <Icon
+        name={
+          execution.status === 'succeeded'
+            ? 'CheckLargeOutline'
+            : 'ErrorOutline'
+        }
+        size={compact ? '$2.5' : '$3.5'}
+        color="$iconOnColor"
+      />
+    </Stack>
+  );
 }
 
 // Exported so the dev gallery can render fixture rows without any network.
@@ -102,51 +140,31 @@ export function UnifoldExecutionRow({
 }) {
   return (
     <XStack
+      testID={`perps-unifold-tracker-row-${execution.executionId}`}
       p="$3"
       alignItems="center"
       gap="$3"
-      bg="$bgSubdued"
+      bg="$bgStrong"
       borderRadius="$3"
       cursor="pointer"
-      hoverStyle={{ bg: '$bgHover' }}
-      pressStyle={{ bg: '$bgActive' }}
+      hoverStyle={{ bg: '$bgStrongHover' }}
+      pressStyle={{ bg: '$bgStrongActive' }}
       onPress={onPress}
     >
-      <Stack>
-        <Token
-          size="md"
-          tokenImageUri={normalizeUnifoldIconUrl(
-            execution.destinationTokenIconUrl,
-          )}
-        />
-        <Stack position="absolute" right={-2} bottom={-2}>
-          {isProcessing(execution) ? (
-            <Spinner size="small" />
-          ) : (
-            <Stack
-              bg={
-                execution.status === 'succeeded'
-                  ? '$bgSuccessStrong'
-                  : '$bgCautionStrong'
-              }
-              borderRadius="$full"
-              p="$0.5"
-            >
-              <Icon
-                name={
-                  execution.status === 'succeeded'
-                    ? 'CheckLargeOutline'
-                    : 'ErrorOutline'
-                }
-                size="$2.5"
-                color="$iconOnColor"
-              />
-            </Stack>
-          )}
-        </Stack>
-      </Stack>
+      <Token
+        size="md"
+        tokenImageUri={normalizeUnifoldIconUrl(
+          execution.destinationTokenIconUrl,
+        )}
+        cornerBadge={<ExecutionTokenBadge execution={execution} compact />}
+      />
       <YStack flex={1} minWidth={0}>
-        <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
+        <SizableText
+          size="$bodyMdMedium"
+          color="$text"
+          fontWeight="600"
+          numberOfLines={1}
+        >
           {rowTitle(execution)}
         </SizableText>
         <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
@@ -184,6 +202,12 @@ function DetailInfoRow({
       gap="$3"
       alignItems="center"
       justifyContent="space-between"
+      role={onCopy ? 'button' : undefined}
+      cursor={onCopy ? 'pointer' : undefined}
+      userSelect={onCopy ? 'none' : undefined}
+      hoverStyle={onCopy ? { bg: '$bgHover' } : undefined}
+      pressStyle={onCopy ? { bg: '$bgActive' } : undefined}
+      onPress={onCopy}
     >
       <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
         {label}
@@ -199,21 +223,50 @@ function DetailInfoRow({
           {value}
         </SizableText>
         {onCopy ? (
-          <Stack
-            role="button"
-            p="$1"
-            m="$-1"
-            borderRadius="$2"
-            cursor="pointer"
-            userSelect="none"
-            hitSlop={NATIVE_HIT_SLOP}
-            hoverStyle={{ bg: '$bgHover' }}
-            pressStyle={{ bg: '$bgActive' }}
-            onPress={onCopy}
-          >
+          <Stack p="$1" m="$-1">
             <Icon name="Copy3Outline" size="$3.5" color="$iconSubdued" />
           </Stack>
         ) : null}
+      </XStack>
+    </XStack>
+  );
+}
+
+function DetailLinkRow({
+  label,
+  value,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  onPress: () => void;
+}) {
+  return (
+    <XStack
+      px="$4"
+      py="$3"
+      gap="$3"
+      alignItems="center"
+      justifyContent="space-between"
+      cursor="pointer"
+      hoverStyle={{ bg: '$bgHover' }}
+      pressStyle={{ bg: '$bgActive' }}
+      onPress={onPress}
+    >
+      <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+        {label}
+      </SizableText>
+      <XStack alignItems="center" gap="$1.5" flexShrink={1} minWidth={0}>
+        <SizableText
+          size="$bodyMdMedium"
+          color="$text"
+          numberOfLines={1}
+          flexShrink={1}
+          minWidth={0}
+        >
+          {value}
+        </SizableText>
+        <Icon name="OpenOutline" size="$3.5" color="$iconSubdued" />
       </XStack>
     </XStack>
   );
@@ -229,7 +282,6 @@ export function UnifoldExecutionDetail({
   // passes nothing — in that case the ETA row is omitted rather than guessed.
   estimatedProcessingTimeSeconds?: number;
 }) {
-  const [moreExpanded, setMoreExpanded] = useState(false);
   const { copyText } = useClipboard();
   const processing = isProcessing(execution);
   const [devSettings] = useDevSettingsPersistAtom();
@@ -237,62 +289,26 @@ export function UnifoldExecutionDetail({
   const destinationLabel = isUnifoldHyperCoreDestination(destination)
     ? 'HyperCore'
     : 'Arbitrum';
-  const hasDepositTx = Boolean(
-    execution.explorerUrl && execution.transactionHash,
-  );
-  const hasCompletionTx = Boolean(
-    execution.status === 'succeeded' &&
-    execution.destinationExplorerUrl &&
-    execution.destinationTransactionHashes[0],
-  );
-  const hasMoreDetails = hasDepositTx || hasCompletionTx;
-
   return (
-    <YStack px="$2">
+    <YStack testID={`perps-unifold-execution-detail-${execution.executionId}`}>
       <YStack alignItems="center" py="$6" gap="$2">
-        <Stack>
-          <Token
-            size="xl"
-            tokenImageUri={normalizeUnifoldIconUrl(
-              execution.destinationTokenIconUrl,
-            )}
-          />
-          <Stack position="absolute" right={-4} bottom={-4}>
-            {processing ? (
-              <Spinner size="small" />
-            ) : (
-              <Stack
-                bg={
-                  execution.status === 'succeeded'
-                    ? '$bgSuccessStrong'
-                    : '$bgCautionStrong'
-                }
-                borderRadius="$full"
-                p="$1"
-                borderWidth={3}
-                borderColor="$bgApp"
-              >
-                <Icon
-                  name={
-                    execution.status === 'succeeded'
-                      ? 'CheckLargeOutline'
-                      : 'ErrorOutline'
-                  }
-                  size="$3.5"
-                  color="$iconOnColor"
-                />
-              </Stack>
-            )}
-          </Stack>
-        </Stack>
+        <Token
+          size="xxl"
+          tokenImageUri={normalizeUnifoldIconUrl(
+            execution.destinationTokenIconUrl,
+          )}
+          cornerBadge={<ExecutionTokenBadge execution={execution} />}
+        />
         <XStack alignItems="center" gap="$1.5">
-          <Stack
-            w="$2"
-            h="$2"
-            borderRadius="$full"
-            bg={detailStatusDotColor(execution)}
-          />
-          <SizableText size="$bodyLgMedium" color="$text">
+          {execution.status === 'succeeded' ? null : (
+            <Stack
+              w="$2"
+              h="$2"
+              borderRadius="$full"
+              bg={detailStatusDotColor(execution)}
+            />
+          )}
+          <SizableText size="$headingMd" color="$text">
             {detailStatusText(execution)}
           </SizableText>
         </XStack>
@@ -321,175 +337,103 @@ export function UnifoldExecutionDetail({
         </XStack>
       ) : null}
 
-      {/* Built as one pre-filtered array: tamagui's separator skips a `null`
-          child without emitting its divider, so a conditional row rendered
-          inline would silently drop the divider next to it. */}
-      <YStack
-        bg="$bgSubdued"
-        borderRadius="$3"
-        overflow="hidden"
-        separator={<Divider mx="$4" />}
-      >
-        {[
+      <YStack gap="$3">
+        <YStack bg="$bgStrong" borderRadius="$3" overflow="hidden">
           <DetailInfoRow
-            key="amount-sent"
             label="Amount Sent"
             value={formatUnifoldTokenAmount({
               baseUnit: execution.sourceAmountBaseUnit,
               decimals: execution.sourceTokenDecimals,
               currency: execution.sourceCurrency,
             })}
-          />,
+          />
+          <Divider borderColor="$bgSubdued" />
           <DetailInfoRow
-            key="amount-received"
             label="Amount Received"
             value={formatUnifoldTokenAmount({
               baseUnit: execution.destinationAmountBaseUnit,
               decimals: execution.destinationTokenDecimals,
               currency: execution.destinationCurrency,
             })}
-          />,
+          />
+          <Divider borderColor="$bgSubdued" />
           <DetailInfoRow
-            key="usd-value"
             label="USD Value"
             value={formatUnifoldUsd(
               execution.destinationAmountUsd ?? execution.sourceAmountUsd,
             )}
-          />,
-          // An estimate is shown only when the vendor actually gave one for
-          // the chain in play. `delayed` is excluded outright: the vendor has
-          // told us this deposit is already past its normal window, so any ETA
-          // here would contradict the status the cards render right next to it
-          // ("Processing, taking longer than usual") and talk a user out of
-          // contacting support about money that is genuinely stuck.
-          ...(processing &&
+          />
+          {processing &&
           execution.status !== 'delayed' &&
           typeof estimatedProcessingTimeSeconds === 'number' &&
-          estimatedProcessingTimeSeconds > 0
-            ? [
-                <DetailInfoRow
-                  key="eta"
-                  label="Estimated delivery time"
-                  value={formatUnifoldProcessingTime(
-                    estimatedProcessingTimeSeconds,
-                  )}
-                />,
-              ]
-            : []),
+          estimatedProcessingTimeSeconds > 0 ? (
+            <>
+              <Divider borderColor="$bgSubdued" />
+              <DetailInfoRow
+                label="Estimated delivery time"
+                value={formatUnifoldProcessingTime(
+                  estimatedProcessingTimeSeconds,
+                )}
+              />
+            </>
+          ) : null}
+        </YStack>
+
+        <YStack bg="$bgStrong" borderRadius="$3" overflow="hidden">
           <DetailInfoRow
-            key="source-network"
             label="Source Network"
             value={formatUnifoldChainName({
               chainType: execution.sourceChainType,
               chainId: execution.sourceChainId,
             })}
-          />,
-          // Executions do not carry the destination triplet, so this reflects
-          // the destination the app is configured for. In production that is
-          // always HyperCore; dev builds may route to a plain chain.
-          <DetailInfoRow
-            key="destination-network"
-            label="Destination Network"
-            value={destinationLabel}
-          />,
-          // Always present: this is the id support asks for, and the caution
-          // banner above is what sends the user here.
-          <DetailInfoRow
-            key="reference"
-            label="Reference"
-            value={execution.executionId}
-            onCopy={() => copyText(execution.executionId)}
-          />,
-        ]}
-      </YStack>
-
-      {/* Every explorer field is nullable by contract, so the toggle only
-          appears when it has something to reveal. */}
-      {hasMoreDetails ? (
-        <XStack
-          px="$1"
-          py="$3"
-          alignItems="center"
-          justifyContent="space-between"
-          cursor="pointer"
-          onPress={() => setMoreExpanded((v) => !v)}
-        >
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {moreExpanded ? 'See less' : 'See more details'}
-          </SizableText>
-          <Icon
-            name={
-              moreExpanded
-                ? 'ChevronTopSmallOutline'
-                : 'ChevronDownSmallOutline'
-            }
-            size="$3.5"
-            color="$iconSubdued"
           />
-        </XStack>
-      ) : null}
+          <Divider borderColor="$bgSubdued" />
+          {/* Executions do not carry the destination triplet, so this reflects
+              the destination the app is configured for. In production that is
+              always HyperCore; dev builds may route to a plain chain. */}
+          <DetailInfoRow label="Destination Network" value={destinationLabel} />
+        </YStack>
 
-      {hasMoreDetails && moreExpanded ? (
-        <YStack
-          bg="$bgSubdued"
-          borderRadius="$3"
-          overflow="hidden"
-          separator={<Divider mx="$4" />}
-        >
+        <YStack bg="$bgStrong" borderRadius="$3" overflow="hidden">
+          {/* Always present: this is the id support asks for, and the caution
+              banner above is what sends the user here. */}
+          <DetailInfoRow
+            label="Reference"
+            value={shortenHash(execution.executionId)}
+            onCopy={() => copyText(execution.executionId)}
+          />
           {execution.explorerUrl && execution.transactionHash ? (
-            <XStack
-              px="$4"
-              py="$3"
-              alignItems="center"
-              justifyContent="space-between"
-              cursor="pointer"
-              hoverStyle={{ bg: '$bgHover' }}
-              onPress={() => {
-                if (execution.explorerUrl) {
-                  openUrlExternal(execution.explorerUrl);
-                }
-              }}
-            >
-              <SizableText size="$bodyMd" color="$textSubdued">
-                Deposit Tx
-              </SizableText>
-              <XStack alignItems="center" gap="$1.5">
-                <SizableText size="$bodyMdMedium" color="$text">
-                  {shortenHash(execution.transactionHash)}
-                </SizableText>
-                <Icon name="OpenOutline" size="$3.5" color="$iconSubdued" />
-              </XStack>
-            </XStack>
+            <>
+              <Divider borderColor="$bgSubdued" />
+              <DetailLinkRow
+                label="Deposit Tx"
+                value={shortenHash(execution.transactionHash)}
+                onPress={() => {
+                  if (execution.explorerUrl) {
+                    openUrlExternal(execution.explorerUrl);
+                  }
+                }}
+              />
+            </>
           ) : null}
           {execution.status === 'succeeded' &&
           execution.destinationExplorerUrl &&
           execution.destinationTransactionHashes[0] ? (
-            <XStack
-              px="$4"
-              py="$3"
-              alignItems="center"
-              justifyContent="space-between"
-              cursor="pointer"
-              hoverStyle={{ bg: '$bgHover' }}
-              onPress={() => {
-                if (execution.destinationExplorerUrl) {
-                  openUrlExternal(execution.destinationExplorerUrl);
-                }
-              }}
-            >
-              <SizableText size="$bodyMd" color="$textSubdued">
-                Completion Tx
-              </SizableText>
-              <XStack alignItems="center" gap="$1.5">
-                <SizableText size="$bodyMdMedium" color="$text">
-                  {shortenHash(execution.destinationTransactionHashes[0])}
-                </SizableText>
-                <Icon name="OpenOutline" size="$3.5" color="$iconSubdued" />
-              </XStack>
-            </XStack>
+            <>
+              <Divider borderColor="$bgSubdued" />
+              <DetailLinkRow
+                label="Completion Tx"
+                value={shortenHash(execution.destinationTransactionHashes[0])}
+                onPress={() => {
+                  if (execution.destinationExplorerUrl) {
+                    openUrlExternal(execution.destinationExplorerUrl);
+                  }
+                }}
+              />
+            </>
           ) : null}
         </YStack>
-      ) : null}
+      </YStack>
     </YStack>
   );
 }
@@ -497,9 +441,11 @@ export function UnifoldExecutionDetail({
 export function UnifoldTrackerContent({
   recipientAddress,
   listHeight,
+  useDialogHeader = false,
 }: {
   recipientAddress: string | null;
   listHeight?: number;
+  useDialogHeader?: boolean;
 }) {
   // Security MUST-2 applies to the tracker too: the queried recipient must be
   // the currently active perps account at open time. The incoming prop (which
@@ -574,8 +520,45 @@ export function UnifoldTrackerContent({
     platformEnv.isNativeAndroid && Boolean(detailSelection),
   );
 
-  if (!safeRecipient || accountChanged) {
+  const withDialogHeader = (body: ReactNode) => {
+    if (!useDialogHeader) {
+      return body;
+    }
+    const dialogBody = (
+      <Stack
+        height={Math.min(
+          listHeight ?? DESKTOP_TRACKER_BODY_HEIGHT,
+          DESKTOP_TRACKER_BODY_HEIGHT,
+        )}
+        minHeight={0}
+      >
+        {body}
+      </Stack>
+    );
     return (
+      <>
+        {detailSelection ? (
+          <Dialog.Header>
+            <XStack
+              alignItems="center"
+              gap="$2"
+              cursor="pointer"
+              onPress={() => setDetailSelection(null)}
+            >
+              <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
+              <Dialog.Title>Deposit Details</Dialog.Title>
+            </XStack>
+          </Dialog.Header>
+        ) : (
+          <Dialog.Header title="Deposit Tracker" />
+        )}
+        {dialogBody}
+      </>
+    );
+  };
+
+  if (!safeRecipient || accountChanged) {
+    return withDialogHeader(
       <YStack py="$8">
         <Empty
           icon="ErrorOutline"
@@ -586,7 +569,7 @@ export function UnifoldTrackerContent({
               : 'Account address mismatch. Reopen from the deposit menu.'
           }
         />
-      </YStack>
+      </YStack>,
     );
   }
 
@@ -594,84 +577,97 @@ export function UnifoldTrackerContent({
     const liveExecution =
       executions?.find((e) => e.executionId === detailSelection.executionId) ??
       detailSelection.snapshot;
-    return (
+    return withDialogHeader(
       // Bounded like the list branch: the dialog panel clamps its height but
       // does not scroll, so a tall detail would render outside it.
-      <ScrollView maxHeight={listHeight ?? 460}>
+      <ScrollView
+        flex={useDialogHeader ? 1 : undefined}
+        maxHeight={listHeight ?? 460}
+      >
         <YStack>
-          <XStack
-            px="$2"
-            pb="$2"
-            alignItems="center"
-            gap="$1"
-            cursor="pointer"
-            onPress={() => setDetailSelection(null)}
-          >
-            <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
-            <SizableText size="$bodyMdMedium" color="$text">
-              Deposit Details
-            </SizableText>
-          </XStack>
+          {useDialogHeader ? null : (
+            <XStack
+              pb="$2"
+              alignItems="center"
+              gap="$1"
+              cursor="pointer"
+              onPress={() => setDetailSelection(null)}
+            >
+              <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
+              <SizableText size="$bodyMdMedium" color="$text">
+                Deposit Details
+              </SizableText>
+            </XStack>
+          )}
           <UnifoldExecutionDetail execution={liveExecution} />
         </YStack>
-      </ScrollView>
+      </ScrollView>,
     );
   }
 
   if (executions === undefined && loadFailed) {
-    return (
+    return withDialogHeader(
       <YStack py="$8">
         <Empty
           icon="ErrorOutline"
           title="Couldn't load deposit history"
           description="Check your connection — this keeps retrying automatically."
         />
-      </YStack>
+      </YStack>,
     );
   }
 
   // usePromiseResult defers the first run: `executions === undefined` means
   // "not loaded yet" — render the skeleton, never flash the empty state.
   if (executions === undefined) {
-    return (
+    return withDialogHeader(
       // Geometry matches the loaded list exactly, so resolving the first poll
       // does not shift the rows sideways or upwards.
-      <YStack gap="$3" width="100%" pb="$4">
-        {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} width="100%" height={60} radius={12} />
-        ))}
-      </YStack>
+      <YStack flex={useDialogHeader ? 1 : undefined} minHeight={0}>
+        <YStack gap="$3" width="100%" flex={1}>
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} width="100%" height={60} radius={12} />
+          ))}
+        </YStack>
+      </YStack>,
     );
   }
 
   if (!executions.length) {
-    return (
-      <YStack py="$8" alignItems="center" gap="$2">
-        <Empty
-          icon="ClockTimeHistoryOutline"
-          title="No deposits yet"
-          description="Your deposit history will appear here"
-        />
-      </YStack>
+    return withDialogHeader(
+      <YStack flex={useDialogHeader ? 1 : undefined} minHeight={0}>
+        <YStack flex={1} py="$8" alignItems="center" gap="$2">
+          <Empty
+            icon="ClockTimeHistoryOutline"
+            title="No deposits yet"
+            description="Your deposit history will appear here"
+          />
+        </YStack>
+      </YStack>,
     );
   }
 
-  return (
-    <ScrollView maxHeight={listHeight ?? 460}>
-      <YStack gap="$3" pb="$4">
-        {executions.map((execution) => (
-          <UnifoldExecutionRow
-            key={execution.executionId}
-            execution={execution}
-            onPress={() =>
-              setDetailSelection({
-                executionId: execution.executionId,
-                snapshot: execution,
-              })
-            }
-          />
-        ))}
-      </YStack>
-    </ScrollView>
+  return withDialogHeader(
+    <YStack flex={useDialogHeader ? 1 : undefined} minHeight={0}>
+      <ScrollView
+        flex={useDialogHeader ? 1 : undefined}
+        maxHeight={listHeight ?? 460}
+      >
+        <YStack gap="$3" pb="$4">
+          {executions.map((execution) => (
+            <UnifoldExecutionRow
+              key={execution.executionId}
+              execution={execution}
+              onPress={() =>
+                setDetailSelection({
+                  executionId: execution.executionId,
+                  snapshot: execution,
+                })
+              }
+            />
+          ))}
+        </YStack>
+      </ScrollView>
+    </YStack>,
   );
 }

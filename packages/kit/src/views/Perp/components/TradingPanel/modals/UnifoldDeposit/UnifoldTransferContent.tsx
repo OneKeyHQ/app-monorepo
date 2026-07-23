@@ -2,22 +2,23 @@
 import { useCallback, useState } from 'react';
 
 import {
+  Dialog,
   Empty,
   Icon,
-  NATIVE_HIT_SLOP,
   Page,
   ScrollView,
   SizableText,
-  Spinner,
   Stack,
   XStack,
   YStack,
-  useClipboard,
 } from '@onekeyhq/components';
+import {
+  UNIFOLD_ARBITRUM_USDC_SYMBOL,
+  UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL,
+} from '@onekeyhq/kit/src/views/Perp/consts/unifold';
 import { usePerpsUnifoldDepositSession } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
 import type { IUnifoldDepositErrorType } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IUnifoldDepositExecution } from '@onekeyhq/shared/types/unifoldDeposit';
 
 import { UnifoldDepositQRCard } from './UnifoldDepositQRCard';
@@ -26,49 +27,28 @@ import { formatUnifoldProcessingTime, formatUnifoldUsd } from './unifoldFormat';
 import { UnifoldSourceSelector } from './UnifoldSourceSelector';
 import { UnifoldExecutionDetail } from './UnifoldTrackerContent';
 
-const UNIFOLD_TERMS_URL = 'https://unifold.io/terms';
-const UNIFOLD_HELP_URL = 'https://unifold.io/support';
-
-function DetailRow({
-  icon,
-  label,
-  value,
-  onCopy,
-}: {
-  icon: Parameters<typeof Icon>[0]['name'];
-  label: string;
-  value: string;
-  onCopy?: () => void;
-}) {
+function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <XStack alignItems="center" gap="$2">
-      <Stack borderRadius="$full" p="$1" bg="$bgInfoSubdued">
-        <Icon name={icon} size="$3" color="$iconInfo" />
-      </Stack>
-      <SizableText size="$bodySm" color="$textSubdued">
+    <XStack
+      px="$4"
+      py="$2"
+      alignItems="center"
+      justifyContent="space-between"
+      gap="$3"
+    >
+      <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
         {label}
       </SizableText>
-      <SizableText size="$bodySmMedium" color="$text" flex={1} minWidth={0}>
+      <SizableText
+        size="$bodyMdMedium"
+        color="$text"
+        flex={1}
+        minWidth={0}
+        textAlign="right"
+        numberOfLines={1}
+      >
         {value}
       </SizableText>
-      {onCopy ? (
-        // Icon drops press handlers, so the affordance needs a real pressable
-        // wrapper — and a touch target bigger than the 14pt glyph.
-        <Stack
-          role="button"
-          p="$1"
-          m="$-1"
-          borderRadius="$2"
-          cursor="pointer"
-          userSelect="none"
-          hitSlop={NATIVE_HIT_SLOP}
-          hoverStyle={{ bg: '$bgHover' }}
-          pressStyle={{ bg: '$bgActive' }}
-          onPress={onCopy}
-        >
-          <Icon name="Copy3Outline" size="$3.5" color="$iconSubdued" />
-        </Stack>
-      ) : null}
     </XStack>
   );
 }
@@ -150,6 +130,7 @@ export function UnifoldTransferContent({
   onPressExecution,
   bodyMaxHeight,
   statusCardsPlacement = 'overlay',
+  useDialogHeader = false,
 }: {
   expectedRecipient: string | null | undefined;
   onPressExecution?: (execution: IUnifoldDepositExecution) => void;
@@ -158,18 +139,18 @@ export function UnifoldTransferContent({
   // mode floats them over the panel. Only a host that owns a <Page> may ask
   // for the footer, so this must stay a prop rather than a platform check.
   statusCardsPlacement?: 'overlay' | 'pageFooter';
+  useDialogHeader?: boolean;
 }) {
-  const { copyText } = useClipboard();
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [dismissedExecutionIds, setDismissedExecutionIds] = useState<string[]>(
     [],
   );
-  const [statusCardsHeight, setStatusCardsHeight] = useState(0);
   const [detailExecutionId, setDetailExecutionId] = useState<string | null>(
     null,
   );
   const {
     recipientAddress,
+    isHyperCoreDestination,
     addressState,
     sessionId,
     supportedAssets,
@@ -179,7 +160,6 @@ export function UnifoldTransferContent({
     selectChain,
     qrAddress,
     sessionExecutions,
-    showWaitingUi,
     activationFee,
     showActivationWarning,
     activationRetrying,
@@ -192,16 +172,17 @@ export function UnifoldTransferContent({
   }, []);
 
   const chain = selection?.chain;
+  const receiveTokenLabel = isHyperCoreDestination
+    ? `${UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL} on HyperCore`
+    : `${UNIFOLD_ARBITRUM_USDC_SYMBOL} on Arbitrum`;
   const inPageFooter = statusCardsPlacement === 'pageFooter';
   const visibleExecutions = sessionExecutions.filter(
     (item) => !dismissedExecutionIds.includes(item.executionId),
   );
-  // onLayout does not fire when the overlay unmounts, so the last measured
-  // height has to be discarded explicitly once nothing is visible.
-  const cardsReserve =
-    inPageFooter || !visibleExecutions.length ? undefined : statusCardsHeight;
+  const showStatusCards =
+    visibleExecutions.length > 0 && detailExecutionId === null;
 
-  const statusCards = visibleExecutions.length ? (
+  const statusCards = showStatusCards ? (
     <UnifoldExecutionStatusCards
       executions={visibleExecutions}
       sessionId={sessionId}
@@ -211,18 +192,37 @@ export function UnifoldTransferContent({
         onPressExecution?.(execution);
       }}
       onDismiss={handleDismiss}
-      onHeightChange={setStatusCardsHeight}
       floating={!inPageFooter}
     />
   ) : null;
+
+  let dialogHeader: React.ReactNode = null;
+  if (useDialogHeader) {
+    dialogHeader = detailExecutionId ? (
+      <Dialog.Header>
+        <XStack
+          alignItems="center"
+          gap="$2"
+          cursor="pointer"
+          onPress={() => setDetailExecutionId(null)}
+        >
+          <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
+          <Dialog.Title>Deposit Details</Dialog.Title>
+        </XStack>
+      </Dialog.Header>
+    ) : (
+      <Dialog.Header title="Transfer Crypto" />
+    );
+  }
 
   // Cards stay mounted in every branch below: a veto or an open detail must
   // never hide deposits that are still moving.
   const withStatusCards = (body: React.ReactNode) => (
     <>
-      <Stack>
+      {dialogHeader}
+      <Stack pb={inPageFooter ? undefined : '$3'}>
         <BodyFrame maxHeight={bodyMaxHeight}>
-          <Stack pb={cardsReserve}>{body}</Stack>
+          <Stack>{body}</Stack>
         </BodyFrame>
         {inPageFooter ? null : statusCards}
       </Stack>
@@ -254,19 +254,20 @@ export function UnifoldTransferContent({
   if (detailExecution) {
     return withStatusCards(
       <YStack>
-        <XStack
-          px="$2"
-          pb="$2"
-          alignItems="center"
-          gap="$1"
-          cursor="pointer"
-          onPress={() => setDetailExecutionId(null)}
-        >
-          <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
-          <SizableText size="$bodyMdMedium" color="$text">
-            Deposit Details
-          </SizableText>
-        </XStack>
+        {useDialogHeader ? null : (
+          <XStack
+            pb="$2"
+            alignItems="center"
+            gap="$1"
+            cursor="pointer"
+            onPress={() => setDetailExecutionId(null)}
+          >
+            <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
+            <SizableText size="$bodyMdMedium" color="$text">
+              Deposit Details
+            </SizableText>
+          </XStack>
+        )}
         {/* Derived from the live poll result by id, so the detail keeps
             updating instead of freezing at the moment it was opened. */}
         {/* The estimate belongs to the SELECTED chain, but this execution may
@@ -360,65 +361,86 @@ export function UnifoldTransferContent({
       />
 
       <YStack
-        px="$2.5"
-        bg="$bgSubdued"
+        bg="$bgStrong"
         borderRadius="$3"
-        borderWidth="$px"
-        borderColor="$borderSubdued"
+        overflow="hidden"
+        role="button"
+        cursor="pointer"
+        userSelect="none"
+        hoverStyle={{ bg: '$bgStrongHover' }}
+        pressStyle={{ bg: '$bgStrongActive' }}
+        onPress={() => setDetailsExpanded((value) => !value)}
+        accessibilityState={{ expanded: detailsExpanded }}
+        focusable
+        focusVisibleStyle={{
+          outlineWidth: 2,
+          outlineColor: '$focusRing',
+          outlineOffset: -2,
+          outlineStyle: 'solid',
+        }}
       >
         <XStack
-          py="$2.5"
+          px="$4"
+          py="$2"
           alignItems="center"
           justifyContent="space-between"
-          cursor="pointer"
-          onPress={() => setDetailsExpanded((v) => !v)}
+          gap="$3"
         >
-          <DetailRow
-            icon="ClockTimeHistoryOutline"
-            label="Processing time:"
-            value={formatUnifoldProcessingTime(
-              chain?.estimated_processing_time,
-            )}
-          />
-          <Icon
-            name={
-              detailsExpanded
-                ? 'ChevronTopSmallOutline'
-                : 'ChevronDownSmallOutline'
-            }
-            size="$4"
-            color="$iconSubdued"
-          />
+          <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+            Receive token
+          </SizableText>
+          <XStack alignItems="center" gap="$1.5" flexShrink={1} minWidth={0}>
+            <SizableText
+              size="$bodyMdMedium"
+              color="$text"
+              numberOfLines={1}
+              flexShrink={1}
+              minWidth={0}
+            >
+              {receiveTokenLabel}
+            </SizableText>
+            <Icon
+              name={
+                detailsExpanded
+                  ? 'ChevronTopSmallOutline'
+                  : 'ChevronDownSmallOutline'
+              }
+              size="$4"
+              color="$iconSubdued"
+            />
+          </XStack>
         </XStack>
         {detailsExpanded ? (
-          <YStack pb="$3" gap="$2.5">
+          <>
             <DetailRow
-              icon="ShieldCheckDoneOutline"
-              label="Max slippage:"
+              label="Processing time"
+              value={formatUnifoldProcessingTime(
+                chain?.estimated_processing_time,
+              )}
+            />
+            <DetailRow
+              label="Max slippage"
               value={`Auto • ${(chain?.max_slippage_percent ?? 0.25).toFixed(
                 2,
               )}%`}
             />
             <DetailRow
-              icon="DollarOutline"
-              label="Price impact:"
+              label="Price impact"
               value={`${(chain?.estimated_price_impact_percent ?? 0).toFixed(
                 2,
               )}%`}
             />
             {recipientAddress ? (
               <DetailRow
-                icon="WalletCryptoOutline"
-                label="Recipient address:"
+                label="Perps account"
                 value={accountUtils.shortenAddress({
                   address: recipientAddress,
                   leadingLength: 8,
                   trailingLength: 6,
                 })}
-                onCopy={() => copyText(recipientAddress)}
               />
             ) : null}
-          </YStack>
+          </>
         ) : null}
       </YStack>
 
@@ -444,40 +466,6 @@ export function UnifoldTransferContent({
           </SizableText>
         </XStack>
       ) : null}
-
-      <XStack alignItems="center" justifyContent="space-between">
-        <XStack alignItems="center" gap="$1.5">
-          {showWaitingUi ? (
-            <>
-              <Spinner size="small" />
-              <SizableText size="$bodySm" color="$textSubdued">
-                Checking for deposit
-              </SizableText>
-            </>
-          ) : null}
-        </XStack>
-        <XStack alignItems="center" gap="$1">
-          <SizableText
-            size="$bodySm"
-            color="$textInfo"
-            cursor="pointer"
-            onPress={() => openUrlExternal(UNIFOLD_TERMS_URL)}
-          >
-            Terms
-          </SizableText>
-          <SizableText size="$bodySm" color="$textSubdued">
-            |
-          </SizableText>
-          <SizableText
-            size="$bodySm"
-            color="$textInfo"
-            cursor="pointer"
-            onPress={() => openUrlExternal(UNIFOLD_HELP_URL)}
-          >
-            Help
-          </SizableText>
-        </XStack>
-      </XStack>
     </YStack>,
   );
 }

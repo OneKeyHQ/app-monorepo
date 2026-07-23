@@ -2,6 +2,7 @@
 import { useState } from 'react';
 
 import {
+  Button,
   Icon,
   Popover,
   ScrollView,
@@ -19,25 +20,29 @@ import type {
 
 import { normalizeUnifoldIconUrl } from './unifoldFormat';
 
-// Two side-by-side dropdowns replicating the SDK double_input variant:
-// "Selected token" and "Selected chain $N min". Options render icon + name
-// (+ right-aligned minimum on chain rows), so both dropdowns use Popover with
-// self-drawn rows — the stock Select has no trailing-text slot.
+const SELECTOR_POPOVER_WIDTH = 400;
+const SELECTOR_POPOVER_MAX_HEIGHT = 360;
 
 function SelectorTrigger({
+  testID,
   iconUri,
   label,
   loading,
   disabled,
+  onPress,
 }: {
+  testID: string;
   iconUri?: string;
   label?: string;
   loading: boolean;
   disabled?: boolean;
+  onPress: () => void;
 }) {
   return (
     <XStack
-      h="$10"
+      testID={testID}
+      role="button"
+      height="$10"
       px="$2.5"
       alignItems="center"
       gap="$2"
@@ -46,6 +51,23 @@ function SelectorTrigger({
       borderWidth="$px"
       borderColor="$borderSubdued"
       opacity={disabled ? 0.6 : 1}
+      disabled={disabled}
+      cursor={disabled ? 'default' : 'pointer'}
+      hoverStyle={
+        disabled
+          ? undefined
+          : {
+              bg: '$bgStrongHover',
+            }
+      }
+      pressStyle={
+        disabled
+          ? undefined
+          : {
+              bg: '$bgStrongActive',
+            }
+      }
+      onPress={onPress}
     >
       {loading ? (
         <SizableText size="$bodySm" color="$textSubdued">
@@ -76,45 +98,67 @@ function SelectorTrigger({
 }
 
 function OptionRow({
+  testID,
   iconUri,
   label,
+  description,
   selected,
-  trailing,
   onPress,
 }: {
+  testID: string;
   iconUri?: string;
   label: string;
+  description?: string;
   selected: boolean;
-  trailing?: string;
   onPress: () => void;
 }) {
   return (
-    <XStack
-      px="$2"
+    <Button
+      testID={testID}
+      variant="tertiary"
+      childrenAsText={false}
+      width="100%"
+      height="auto"
+      minHeight="$13"
+      px="$2.5"
       py="$1.5"
+      m="$0"
       alignItems="center"
-      gap="$2"
+      justifyContent="flex-start"
+      gap="$2.5"
       borderRadius="$2"
-      cursor="pointer"
-      hoverStyle={{ bg: '$bgHover' }}
-      pressStyle={{ bg: '$bgActive' }}
       onPress={onPress}
     >
-      <Stack w="$4" alignItems="center">
-        {selected ? (
-          <Icon name="CheckLargeOutline" size="$4" color="$icon" />
-        ) : null}
-      </Stack>
-      <Token size="xs" tokenImageUri={normalizeUnifoldIconUrl(iconUri)} />
-      <SizableText size="$bodySm" color="$text" flex={1} numberOfLines={1}>
-        {label}
-      </SizableText>
-      {trailing ? (
-        <SizableText size="$bodySm" color="$textCaution">
-          {trailing}
+      <Token size="md" tokenImageUri={normalizeUnifoldIconUrl(iconUri)} />
+      <YStack flex={1} minWidth={0} alignItems="flex-start" gap="$0.5">
+        <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
+          {label}
         </SizableText>
-      ) : null}
-    </XStack>
+        {description ? (
+          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+            {description}
+          </SizableText>
+        ) : null}
+      </YStack>
+      {selected ? (
+        <Icon name="CheckRadioSolid" size="$5" color="$iconActive" />
+      ) : (
+        <Stack width="$5" />
+      )}
+    </Button>
+  );
+}
+
+function SelectorOptions({ children }: { children: React.ReactNode }) {
+  return (
+    <ScrollView
+      maxHeight={SELECTOR_POPOVER_MAX_HEIGHT}
+      showsVerticalScrollIndicator={false}
+    >
+      <YStack p="$2" gap="$1">
+        {children}
+      </YStack>
+    </ScrollView>
   );
 }
 
@@ -144,29 +188,37 @@ export function UnifoldSourceSelector({
 
   return (
     <XStack gap="$2.5">
-      <YStack flex={1} minWidth={0}>
+      <YStack flex={1} flexBasis={0} minWidth={0}>
         <SizableText size="$bodySm" color="$textSubdued" mb="$2">
           Selected token
         </SizableText>
         <Popover
           title="Select token"
+          placement="bottom-start"
           open={tokenOpen}
           onOpenChange={(next) => setTokenOpen(next && canSelectToken)}
+          floatingPanelProps={{ width: SELECTOR_POPOVER_WIDTH }}
           renderTrigger={
             <SelectorTrigger
+              testID="perps-unifold-token-selector"
               iconUri={selection?.asset.icon_url}
               label={selection?.asset.symbol}
               loading={loading || !selection}
               disabled={!canSelectToken}
+              onPress={() => setTokenOpen(true)}
             />
           }
           renderContent={
-            <ScrollView maxHeight={300} p="$1">
+            <SelectorOptions>
               {usableAssets.map((asset) => (
                 <OptionRow
                   key={asset.symbol}
+                  testID={`perps-unifold-token-option-${asset.symbol}`}
                   iconUri={asset.icon_url}
                   label={asset.symbol}
+                  description={`${asset.chains.length} ${
+                    asset.chains.length === 1 ? 'network' : 'networks'
+                  }`}
                   selected={asset.symbol === selection?.asset.symbol}
                   onPress={() => {
                     onSelectToken(asset);
@@ -174,47 +226,65 @@ export function UnifoldSourceSelector({
                   }}
                 />
               ))}
-            </ScrollView>
+            </SelectorOptions>
           }
         />
       </YStack>
-      <YStack flex={1} minWidth={0}>
-        <XStack mb="$2" gap="$1" alignItems="center">
+      <YStack flex={1} flexBasis={0} minWidth={0}>
+        <XStack
+          width="100%"
+          mb="$2"
+          gap="$2"
+          alignItems="center"
+          justifyContent="space-between"
+        >
           <SizableText size="$bodySm" color="$textSubdued">
             Selected chain
           </SizableText>
-          <SizableText size="$bodySmMedium" color="$textCaution">
+          <SizableText
+            size="$bodySmMedium"
+            color="$textCaution"
+            textAlign="right"
+            flexShrink={0}
+          >
             {`$${minUsd} min`}
           </SizableText>
         </XStack>
         <Popover
-          title="Select chain"
+          title="Select network"
+          placement="bottom-end"
           open={chainOpen}
           onOpenChange={(next) => setChainOpen(next && canSelectChain)}
+          floatingPanelProps={{ width: SELECTOR_POPOVER_WIDTH }}
           renderTrigger={
             <SelectorTrigger
+              testID="perps-unifold-network-selector"
               iconUri={selection?.chain.icon_url}
               label={selection?.chain.chain_name}
               loading={loading || !selection}
               disabled={!canSelectChain}
+              onPress={() => setChainOpen(true)}
             />
           }
           renderContent={
-            <ScrollView maxHeight={300} p="$1">
+            <SelectorOptions>
               {chainOptions.map((chain) => (
                 <OptionRow
                   key={`${chain.chain_type}-${chain.chain_id}`}
+                  testID={`perps-unifold-network-option-${chain.chain_type}-${chain.chain_id}`}
                   iconUri={chain.icon_url}
                   label={chain.chain_name}
                   selected={chain.chain_id === selection?.chain.chain_id}
-                  trailing={`$${chain.minimum_deposit_amount_usd ?? 3}`}
+                  description={`Minimum deposit $${
+                    chain.minimum_deposit_amount_usd ?? 3
+                  }`}
                   onPress={() => {
                     onSelectChain(chain);
                     setChainOpen(false);
                   }}
                 />
               ))}
-            </ScrollView>
+            </SelectorOptions>
           }
         />
       </YStack>
