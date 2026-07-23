@@ -18,9 +18,12 @@ export const TradingViewNativeContainer = memo(
     source,
     enableNativeChartSettings,
     nativeControlsLayoutMode,
+    isNativeChartFullscreen,
+    nativeChartFullscreenHeader,
     onDataStateChange,
     onIntervalChange,
     onNativeSubIndicatorCountChange,
+    onNativeChartFullscreenChange,
     onPriceUpdate,
   }: ITradingViewNativeProps) => {
     const intl = useIntl();
@@ -115,7 +118,10 @@ export const TradingViewNativeContainer = memo(
           enableNativeChartSettings={enableNativeChartSettings}
           intervalConfig={intervalConfig}
           layoutMode={nativeControlsLayoutMode}
+          isFullscreen={isNativeChartFullscreen}
+          fullscreenHeader={nativeChartFullscreenHeader}
           onIntervalChange={handleChartIntervalChange}
+          onFullscreenChange={onNativeChartFullscreenChange}
         />
         <Stack flex={1} position="relative">
           <TradingViewNativeChart
