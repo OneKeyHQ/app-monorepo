@@ -79,9 +79,12 @@ export function useEModeSwitch({
             marketAddress,
             targetEModeId: eModeId,
           });
+        const nextCheck = resp.code === 0 ? resp.data : null;
         if (mountedRef.current && checkSeqRef.current === seq) {
-          setCheck(resp.code === 0 ? resp.data : null);
+          setCheck(nextCheck);
+          return nextCheck;
         }
+        return null;
       } catch (error) {
         if (mountedRef.current && checkSeqRef.current === seq) {
           setCheck(null);
@@ -92,6 +95,7 @@ export function useEModeSwitch({
                 : intl.formatMessage({ id: ETranslations.global_failed }),
           });
         }
+        return null;
       } finally {
         if (mountedRef.current && checkSeqRef.current === seq) {
           setIsChecking(false);

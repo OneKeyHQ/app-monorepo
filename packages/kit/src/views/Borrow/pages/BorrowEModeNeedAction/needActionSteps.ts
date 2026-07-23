@@ -1,4 +1,5 @@
 /* cspell:ignore EMODE */
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type { IEarnText } from '@onekeyhq/shared/types/staking';
 
@@ -8,9 +9,10 @@ export type IEModeStepKind = 'repay' | 'removeCollateral' | 'switch';
 
 export interface IEModeStep {
   kind: IEModeStepKind;
-  key: string; // stable identity: `${kind}:${reserveAddress}` or 'switch'
+  key: string; // stable identity: `${kind}:${canonicalReserveAddress}` or 'switch'
   reserveAddress?: string;
   symbol?: string;
+  decimals?: number;
   logoURI?: string;
   amount?: IEarnText;
   amountFiat?: IEarnText;
@@ -44,8 +46,24 @@ export function bindStepSettlementCallbacks<T>({
 // The terminal step: switching e-mode itself. Not a blocker asset.
 export const EMODE_SWITCH_STEP: IEModeStep = { kind: 'switch', key: 'switch' };
 
-export function blockerSteps(items: IEModeNeedActionItem[]): IEModeStep[] {
-  return items.map((it) => ({ ...it, key: `${it.kind}:${it.reserveAddress}` }));
+export function blockerSteps(
+  items: IEModeNeedActionItem[],
+  networkId: string,
+): IEModeStep[] {
+  const stepsByKey = new Map<string, IEModeStep>();
+  items.forEach((item) => {
+    const key = `${item.kind}:${earnUtils.normalizeBorrowAddress({
+      networkId,
+      address: item.reserveAddress,
+    })}`;
+    // Keep one logical blocker per canonical identity. First-wins also retains
+    // the full-close repay row, which buildNeedActionItems orders before the
+    // weaker health-factor-only repay bucket for the same reserve.
+    if (!stepsByKey.has(key)) {
+      stepsByKey.set(key, { ...item, key });
+    }
+  });
+  return Array.from(stepsByKey.values());
 }
 
 export function shouldRepayAllForEModeStep(step: IEModeStep): boolean {

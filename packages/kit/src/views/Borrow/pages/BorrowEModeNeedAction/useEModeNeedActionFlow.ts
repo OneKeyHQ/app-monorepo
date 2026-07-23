@@ -6,10 +6,7 @@ import BigNumber from 'bignumber.js';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getLastSignedTxid } from '@onekeyhq/kit/src/components/DeFi/DeFiActionTxConfirmResult';
 import { waitForTxFinalStatus } from '@onekeyhq/kit/src/utils/waitForTxFinalStatus';
-import {
-  buildBorrowTokenFromAsset,
-  shouldDowngradeAaveNativeRepayAll,
-} from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
+import { buildBorrowTokenFromAsset } from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
 import { useBorrowApproval } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/hooks/useBorrowApproval';
 import type { IBorrowApproveTarget } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/types';
 import {
@@ -26,7 +23,17 @@ import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
-import { balanceLookupAddress, repayShortfall } from './needActionBalances';
+import {
+  type IEModeApprovalRepayContext,
+  createApprovalRepayContext,
+  resolveApprovedRepayStep,
+  resolveRepayApprovalScope,
+} from './approvalRepayScope';
+import {
+  balanceLookupAddress,
+  hasSufficientRepayFunding,
+  repayShortfall,
+} from './needActionBalances';
 import {
   type IEModeStep,
   type IEModeStepState,
@@ -55,6 +62,7 @@ export type IEModeApproveSubStatus =
 // waitForTxFinalStatus's 24×5s budget.
 const UNLOCK_POLL_MAX_ATTEMPTS = 24;
 const UNLOCK_POLL_INTERVAL_MS = 5000;
+const SETTLEMENT_RECOVERY_POLL_MAX_ATTEMPTS = 24;
 
 interface IEModePendingSettlement {
   id: number;
@@ -98,7 +106,11 @@ export function useEModeNeedActionFlow({
     networkId,
     accountId,
   });
-  const setEMode = useUniversalBorrowSetEMode({ networkId, accountId });
+  const setEMode = useUniversalBorrowSetEMode({
+    networkId,
+    accountId,
+    waitForFinalStatus: false,
+  });
 
   const [stepState, setStepState] = useState<IEModeStepState>(() => ({
     seen: [],
@@ -121,6 +133,10 @@ export function useEModeNeedActionFlow({
   // state — replacing the old dismissible pending sheet that could be closed
   // into a false "failed".
   const [submittedKey, setSubmittedKey] = useState<string | null>(null);
+  const [settlementRecoveryExhausted, setSettlementRecoveryExhausted] =
+    useState(false);
+  const [approvalRepayContext, setApprovalRepayContext] =
+    useState<IEModeApprovalRepayContext | null>(null);
 
   // Reconcile blockers as fresh checks arrive. This preserves completed rows,
   // refreshes active step payloads, advances after routed secondary clears, and
@@ -128,7 +144,7 @@ export function useEModeNeedActionFlow({
   useEffect(() => {
     if (check) {
       setHasCheckedOnce(true);
-      const current = blockerSteps(buildNeedActionItems(check));
+      const current = blockerSteps(buildNeedActionItems(check), networkId);
       const hasStructuredBlockerBuckets =
         Array.isArray(check.repayAssets) ||
         Array.isArray(check.additionalRepayAssets) ||
@@ -140,7 +156,7 @@ export function useEModeNeedActionFlow({
         }),
       );
     }
-  }, [check]);
+  }, [check, networkId]);
 
   const steps = withSwitchStep(stepState.seen);
   const stepIndex = activeStepIndex(steps, stepState.completed);
@@ -149,15 +165,16 @@ export function useEModeNeedActionFlow({
   // Wallet balances for the repay steps' funding tokens (lowercased address →
   // balanceParsed). Refetched whenever a fresh check lands (entry, focus
   // return, post-step recheck, unlock poll), so warnings track reality.
-  // Progressive enhancement: unknown balances (fetch pending/failed) never
-  // warn and never block.
+  // Unknown passive balances never show a false warning. The final submit
+  // preflight below still fails closed on an unknown fresh balance.
   const [fundingBalances, setFundingBalances] = useState<
     Record<string, string>
   >({});
   // First-load gate for the active repay step's funding balance: block the
-  // footer while it is unknown-and-loading (so no tappable Approve appears before
-  // we know the user can fund it), but a failed fetch clears this — never a
-  // permanent "checking balance" deadlock.
+  // footer while it is unknown-and-loading (so no tappable Approve appears
+  // before we know the user can fund it). A failed passive fetch clears this
+  // loading state; submit retries the read and fails closed if it is still
+  // unavailable, avoiding a permanent "checking balance" deadlock.
   const [balancesLoading, setBalancesLoading] = useState(false);
   const balanceSeqRef = useRef(0);
   const balanceRequestPendingRef = useRef(false);
@@ -287,17 +304,31 @@ export function useEModeNeedActionFlow({
   const launchedKeyRef = useRef<string | null>(null);
   const busyRef = useRef(false);
   const unlockPollAttemptsRef = useRef(0);
+  const settlementRecoveryAttemptsRef = useRef(0);
   const settlementSeqRef = useRef(0);
   const settlingIdRef = useRef<number | null>(null);
   const submittedStepRef = useRef<IEModeStep | null>(null);
   const pendingSettlementRef = useRef<IEModePendingSettlement | null>(null);
-  const approvalRepayStepRef = useRef<IEModeStep | null>(null);
+  const approvalRepayContextRef = useRef<IEModeApprovalRepayContext | null>(
+    null,
+  );
+  const approvalContinuationRef = useRef(false);
   const refreshSeqRef = useRef(0);
   const refreshAbortRef = useRef<AbortController | undefined>(undefined);
 
   const disarm = useCallback(() => {
     autoAdvanceRef.current = false;
   }, []);
+
+  const updateApprovalRepayContext = useCallback(
+    (context: IEModeApprovalRepayContext | null) => {
+      approvalRepayContextRef.current = context;
+      if (mountedRef.current) {
+        setApprovalRepayContext(context);
+      }
+    },
+    [],
+  );
 
   // Aborts the in-flight confirmation poll if the screen unmounts mid-settle, so
   // a backgrounded poll never resolves onto a torn-down hook.
@@ -306,6 +337,8 @@ export function useEModeNeedActionFlow({
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      approvalRepayContextRef.current = null;
+      approvalContinuationRef.current = false;
       refreshSeqRef.current += 1;
       refreshAbortRef.current?.abort();
       settleAbortRef.current?.abort();
@@ -340,7 +373,9 @@ export function useEModeNeedActionFlow({
         setSubmittedKey((current) =>
           current === pending.step.key ? null : current,
         );
+        setSettlementRecoveryExhausted(false);
       }
+      settlementRecoveryAttemptsRef.current = 0;
       return true;
     },
     [],
@@ -447,6 +482,8 @@ export function useEModeNeedActionFlow({
       settlingIdRef.current = pending.id;
       // Each confirmed step grants a fresh unlock-poll budget.
       unlockPollAttemptsRef.current = 0;
+      settlementRecoveryAttemptsRef.current = 0;
+      setSettlementRecoveryExhausted(false);
       settleAbortRef.current?.abort();
       settleAbortRef.current = controller;
       try {
@@ -511,11 +548,72 @@ export function useEModeNeedActionFlow({
     [disarm, finishSettlingUi, releaseSettlementLock],
   );
 
+  const fetchFreshRepayFundingBalance = useCallback(
+    async ({
+      launched,
+      step,
+    }: {
+      launched: IEModeApprovalRepayContext;
+      step: IEModeStep;
+    }) => {
+      const fundingToken = buildBorrowTokenFromAsset({
+        asset: launched.asset,
+        networkId,
+      });
+      const fundingTokenAddress = fundingToken?.address;
+      if (
+        fundingTokenAddress === undefined ||
+        (!fundingToken?.isNative && !fundingTokenAddress)
+      ) {
+        return undefined;
+      }
+      const expectedAddress = earnUtils.normalizeBorrowAddress({
+        networkId,
+        address: fundingTokenAddress,
+      });
+      const details = await backgroundApiProxy.serviceToken.fetchTokensDetails({
+        accountId,
+        networkId,
+        contractList: [fundingTokenAddress],
+      });
+      const detail = details.find(
+        (item) =>
+          earnUtils.normalizeBorrowAddress({
+            networkId,
+            address: item.info?.address ?? '',
+          }) === expectedAddress,
+      );
+      const balanceParsed = detail?.balanceParsed;
+      if (
+        balanceParsed === undefined ||
+        !new BigNumber(balanceParsed).isFinite()
+      ) {
+        return undefined;
+      }
+      const lookupAddress = balanceLookupAddress({ step });
+      if (mountedRef.current && lookupAddress !== null) {
+        setFundingBalances((current) => ({
+          ...current,
+          [lookupAddress]: balanceParsed,
+        }));
+      }
+      return balanceParsed;
+    },
+    [accountId, networkId],
+  );
+
   // Single-tx repay (no approvesInfo → never enters the batch branch that hung
-  // on web). Keeps the native repay-all downgrade and owns its own try/catch
-  // because the approve engine also calls it after an allowance delay.
+  // on web). The business build is gated by a fresh balance read after the
+  // authoritative blocker check, so a full-close never sends MaxUint when the
+  // wallet only equals (or has fallen below) the latest debt snapshot.
   const fireRepay = useCallback(
-    async (step: IEModeStep) => {
+    async ({
+      launched,
+      step,
+    }: {
+      launched: IEModeApprovalRepayContext;
+      step: IEModeStep;
+    }) => {
       if (
         !mountedRef.current ||
         step?.kind !== 'repay' ||
@@ -523,14 +621,30 @@ export function useEModeNeedActionFlow({
       ) {
         return;
       }
-      const repayAll =
-        shouldRepayAllForEModeStep(step) &&
-        !shouldDowngradeAaveNativeRepayAll({
-          action: 'repay',
-          networkId,
-          providerName: provider,
-          reserveAddress: step.reserveAddress,
-        });
+      let freshBalance: string | undefined;
+      try {
+        freshBalance = await fetchFreshRepayFundingBalance({ launched, step });
+      } catch {
+        // The funding preflight failed. Treat it as retryable and never build.
+      }
+      if (!mountedRef.current) {
+        return;
+      }
+      if (freshBalance === undefined) {
+        setFailedKey(step.key);
+        disarm();
+        return;
+      }
+      if (
+        !hasSufficientRepayFunding({
+          step,
+          balanceParsed: freshBalance,
+        })
+      ) {
+        disarm();
+        return;
+      }
+      const repayAll = shouldRepayAllForEModeStep(step);
       setRepaySubmitting(true);
       try {
         const callbacks = bindStepSettlementCallbacks<ISendTxOnSuccessData[]>({
@@ -563,7 +677,7 @@ export function useEModeNeedActionFlow({
     },
     [
       repay,
-      networkId,
+      fetchFreshRepayFundingBalance,
       provider,
       marketAddress,
       stakingInfo,
@@ -573,41 +687,65 @@ export function useEModeNeedActionFlow({
     ],
   );
 
+  const fireAuthoritativeRepay = useCallback(
+    async (launched: IEModeApprovalRepayContext) => {
+      if (!mountedRef.current) {
+        return;
+      }
+      approvalContinuationRef.current = true;
+      try {
+        const latestCheck = await runCheck(targetEModeId);
+        if (
+          !mountedRef.current ||
+          approvalRepayContextRef.current !== launched
+        ) {
+          return;
+        }
+        const authoritative = resolveApprovedRepayStep({
+          launched,
+          latestCheck,
+          networkId,
+        });
+        if (!authoritative) {
+          disarm();
+          return;
+        }
+        await fireRepay({ launched, step: authoritative });
+      } finally {
+        approvalContinuationRef.current = false;
+        if (approvalRepayContextRef.current === launched) {
+          updateApprovalRepayContext(null);
+        }
+      }
+    },
+    [
+      disarm,
+      fireRepay,
+      networkId,
+      runCheck,
+      targetEModeId,
+      updateApprovalRepayContext,
+    ],
+  );
+
   const fireApprovedRepay = useCallback(async () => {
-    const launched = approvalRepayStepRef.current;
-    approvalRepayStepRef.current = null;
-    if (!mountedRef.current) {
+    const launched = approvalRepayContextRef.current;
+    if (!mountedRef.current || !launched) {
       return;
     }
-    const authoritative = activeRef.current;
-    const authoritativeCheck = checkRef.current;
-    const blockerStillExists = blockerSteps(
-      buildNeedActionItems(authoritativeCheck),
-    ).some((step) => step.key === launched?.key);
-    if (
-      launched?.kind === 'repay' &&
-      authoritative?.kind === 'repay' &&
-      authoritative.key === launched.key &&
-      blockerStillExists
-    ) {
-      await fireRepay(authoritative);
-    }
-  }, [fireRepay]);
+    await fireAuthoritativeRepay(launched);
+  }, [fireAuthoritativeRepay]);
 
   // Repay approval engine (single instance; the target follows the active repay
   // step and is undefined otherwise → engine inert). It brings its own polling,
   // USDT reset-to-zero, and error handling; it is not modified here.
-  const repayAsset =
-    activeStep?.kind === 'repay'
-      ? (check?.repayAssets?.find(
-          (a) => a.reserveAddress === activeStep.reserveAddress,
-        ) ??
-        check?.additionalRepayAssets?.find(
-          (a) => a.reserveAddress === activeStep.reserveAddress,
-        ))
-      : undefined;
+  const repayApprovalScope = resolveRepayApprovalScope({
+    launched: approvalRepayContext,
+    activeStep,
+    check,
+  });
   const repayToken = buildBorrowTokenFromAsset({
-    asset: repayAsset,
+    asset: repayApprovalScope?.asset,
     networkId,
   });
   const approveTarget: IBorrowApproveTarget | undefined =
@@ -623,25 +761,48 @@ export function useEModeNeedActionFlow({
   // the engine's amount>0 short-circuit to 'idle' and stall the chain. '1' is
   // decision-only.
   const engineAmount =
-    activeStep?.amountValue && new BigNumber(activeStep.amountValue).gt(0)
-      ? activeStep.amountValue
+    repayApprovalScope?.step.amountValue &&
+    new BigNumber(repayApprovalScope.step.amountValue).gt(0)
+      ? repayApprovalScope.step.amountValue
       : '1';
   const approval = useBorrowApproval({
     action: 'repay',
     amountValue: engineAmount,
-    repayAll: true, // ERC20 always max-approve; native has no approveTarget
+    repayAll: repayApprovalScope
+      ? shouldRepayAllForEModeStep(repayApprovalScope.step)
+      : false,
     approveType: EApproveType.Legacy,
     approveTarget,
     stakingInfo: stakingInfo('repay'),
     onApprovedSubmit: fireApprovedRepay,
   });
 
+  // Approval terminals that do not call onApprovedSubmit (cancel, failure,
+  // USDT reset soft-stop, or precheck failure) release the captured request.
+  // During onApprovedSubmit, the continuation owns cleanup after its fresh
+  // blocker check, so this effect must not clear the scope underneath it.
+  useEffect(() => {
+    if (
+      approvalRepayContext &&
+      !prechecking &&
+      !approval.approving &&
+      !approvalContinuationRef.current
+    ) {
+      updateApprovalRepayContext(null);
+    }
+  }, [
+    approval.approving,
+    approvalRepayContext,
+    prechecking,
+    updateApprovalRepayContext,
+  ]);
+
   const isBusy =
     prechecking ||
     approval.approving ||
     repaySubmitting ||
     isSettling ||
-    !!submittedKey;
+    (!!submittedKey && !settlementRecoveryExhausted);
 
   let approveSubStatus: IEModeApproveSubStatus = null;
   if (approval.approving) {
@@ -670,7 +831,15 @@ export function useEModeNeedActionFlow({
         if (step.kind === 'repay') {
           // The approval engine may submit much later. Bind it now to this
           // launched row rather than whichever row is active at callback time.
-          approvalRepayStepRef.current = step;
+          const nextApprovalContext = createApprovalRepayContext({
+            step,
+            check: checkRef.current,
+          });
+          if (!nextApprovalContext) {
+            disarm();
+            return;
+          }
+          updateApprovalRepayContext(nextApprovalContext);
           // ensureReadyToSubmit fetches fresh allowance: true → submit now;
           // false → the engine is driving its own approve / USDT-reset sheet,
           // or a precheck error already toasted (isBusy falls back to false and
@@ -679,8 +848,7 @@ export function useEModeNeedActionFlow({
           if (!ready) {
             return;
           }
-          approvalRepayStepRef.current = null;
-          await fireRepay(step);
+          await fireAuthoritativeRepay(nextApprovalContext);
         } else if (
           step.kind === 'removeCollateral' &&
           step.reserveAddress !== undefined
@@ -736,7 +904,7 @@ export function useEModeNeedActionFlow({
     [
       check,
       approval,
-      fireRepay,
+      fireAuthoritativeRepay,
       setCollateral,
       setEMode,
       provider,
@@ -746,6 +914,7 @@ export function useEModeNeedActionFlow({
       onStepSuccess,
       onStepFail,
       disarm,
+      updateApprovalRepayContext,
     ],
   );
 
@@ -818,10 +987,18 @@ export function useEModeNeedActionFlow({
   }, [accountId, networkId, targetEModeId, applySettlementStatus, runCheck]);
 
   // A bounded initial status poll may finish before the chain/indexer does.
-  // Keep the exact submitted tx recoverable while this screen stays mounted;
-  // route remounts are covered by the serialized stakingInfo pending tag.
+  // Continue exact-tx recovery only for a second bounded budget. Exhaustion
+  // keeps the submitted lock (so Retry can only recheck, never rebroadcast),
+  // while exposing the existing footer retry path instead of polling forever.
   useEffect(() => {
     if (!submittedKey || isSettling || !pendingSettlementRef.current?.txid) {
+      return;
+    }
+    if (
+      settlementRecoveryAttemptsRef.current >=
+      SETTLEMENT_RECOVERY_POLL_MAX_ATTEMPTS
+    ) {
+      setSettlementRecoveryExhausted(true);
       return;
     }
     let disposed = false;
@@ -831,13 +1008,21 @@ export function useEModeNeedActionFlow({
       if (!pending) {
         return;
       }
+      settlementRecoveryAttemptsRef.current += 1;
       try {
         await refresh();
       } catch {
-        // Best-effort; the next tick and route-level pending tracker retry.
+        // Best-effort within the bounded budget; focus and Retry can recheck.
       } finally {
         if (!disposed && pendingSettlementRef.current === pending) {
-          timer = setTimeout(() => void poll(), UNLOCK_POLL_INTERVAL_MS);
+          if (
+            settlementRecoveryAttemptsRef.current >=
+            SETTLEMENT_RECOVERY_POLL_MAX_ATTEMPTS
+          ) {
+            setSettlementRecoveryExhausted(true);
+          } else {
+            timer = setTimeout(() => void poll(), UNLOCK_POLL_INTERVAL_MS);
+          }
         }
       }
     };
@@ -952,7 +1137,10 @@ export function useEModeNeedActionFlow({
     submittedKey,
     run,
     disarm,
-    check,
+    // Reuse the page's existing check-error Retry footer after automatic
+    // settlement recovery is exhausted. `refresh` still checks the exact txid
+    // first, and the submitted ref remains locked, so this cannot resend.
+    check: settlementRecoveryExhausted ? null : check,
     isChecking,
     hasCheckedOnce,
     runCheck,

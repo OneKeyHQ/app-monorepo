@@ -376,9 +376,12 @@ function BorrowEModeNeedActionView() {
   const {
     pendingCount,
     isLoading: pendingHistoryLoading,
+    isPendingHistoryVerified,
     refreshPending,
   } = useStakingPendingTxsByInfo({
     networkIds: [networkId],
+    accountId,
+    indexedAccountId,
     tagMatcher: pendingTagMatcher,
     onRefresh: refresh,
     onRefreshDelayMs: 3000,
@@ -414,6 +417,7 @@ function BorrowEModeNeedActionView() {
 
   const pendingGuardActive = isEModePendingGuardActive({
     pendingHistoryLoading,
+    isPendingHistoryVerified,
     pendingCount,
     focusRevalidating: focusRevalidating || focusActivationPending,
   });
@@ -539,6 +543,10 @@ function BorrowEModeNeedActionView() {
   }
   const canRetryCheck =
     isFocused && !focusRevalidating && !isChecking && !check;
+  // A retry only rechecks the exact submitted tx and switch state; it never
+  // broadcasts. Keep that recovery path available even while serialized
+  // history still reports the original transaction as pending.
+  const pendingGuardBlocksAction = pendingGuardActive && !canRetryCheck;
 
   return (
     <Page scrollEnabled>
@@ -636,10 +644,10 @@ function BorrowEModeNeedActionView() {
         }
         confirmButtonProps={{
           testID: BorrowTestIDs.eModeNeedActionConfirmBtn,
-          loading: isBusy || pendingGuardActive || isChecking,
+          loading: isBusy || pendingGuardBlocksAction || isChecking,
           disabled:
             isBusy ||
-            pendingGuardActive ||
+            pendingGuardBlocksAction ||
             (!canRetryCheck &&
               (!check ||
                 checkingActiveBalance ||

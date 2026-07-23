@@ -20,6 +20,8 @@ import { EBorrowDataStatus } from './borrowDataStatus';
 
 import type { ISwapConfig } from './components/BorrowTableList';
 
+export { buildBorrowMarketKey } from './borrowMarketKey';
+
 // Unified async data type for all requests
 export type IAsyncData<T> = {
   data: T;
@@ -44,15 +46,6 @@ const defaultAsyncData = <T,>(data: T): IAsyncData<T> => ({
   loading: false,
   refresh: () => Promise.resolve(),
 });
-
-export const buildBorrowMarketKey = (
-  market?: Pick<IBorrowMarketItem, 'provider' | 'networkId' | 'marketAddress'>,
-) =>
-  [
-    market?.provider?.toLowerCase() ?? '',
-    market?.networkId ?? '',
-    market?.marketAddress?.toLowerCase() ?? '',
-  ].join(':');
 
 type IBorrowContextValue = {
   // Market (sync data)

@@ -7,14 +7,21 @@ import {
   SizableText,
   Stack,
   Switch,
+  Toast,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  getLastSignedTxid,
+  showDeFiActionTxConfirmDialog,
+} from '@onekeyhq/kit/src/components/DeFi/DeFiActionTxConfirmResult';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { waitForTxFinalStatus } from '@onekeyhq/kit/src/utils/waitForTxFinalStatus';
 import { buildBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import {
   EBorrowProviderEnum,
   EEarnLabels,
@@ -26,6 +33,9 @@ import { useUniversalBorrowSetCollateral } from '../hooks/useUniversalBorrowHook
 import { BorrowTestIDs } from '../testIDs';
 
 import {
+  COLLATERAL_SETTLEMENT_FAST_REFRESH_ATTEMPTS,
+  COLLATERAL_SETTLEMENT_MAX_REFRESH_ATTEMPTS,
+  getCollateralSettlementRefreshDecision,
   getCollateralSwitchState,
   hasPendingSetCollateral,
   shouldReleaseCollateralSubmission,
@@ -33,9 +43,15 @@ import {
 import { HealthFactorInfo } from './ManagePosition/modules/InfoDisplaySection/HealthFactorInfo';
 
 type ISuppliedAsset = IBorrowReserveItem['supplied']['assets'][number];
+type ICollateralSettlementStatus = 'idle' | 'confirming' | 'success';
 
 const COLLATERAL_SETTLEMENT_REFRESH_DELAY = timerUtils.getTimeDurationMs({
   seconds: 3,
+});
+// Keep the switch fail-closed when the reserve indexer lags a finalized tx,
+// while reducing request pressure after the initial reconciliation window.
+const COLLATERAL_SETTLEMENT_SLOW_REFRESH_DELAY = timerUtils.getTimeDurationMs({
+  seconds: 15,
 });
 
 function CollateralConfirmDialogContent({
@@ -194,15 +210,60 @@ export function CollateralSwitchCell({
   const [submittingTarget, setSubmittingTarget] = useState<boolean | null>(
     null,
   );
+  const [settlementStatus, setSettlementStatus] =
+    useState<ICollateralSettlementStatus>('idle');
+  // Once the chain confirms success, retain the target as the displayed state
+  // if the reserve indexer remains stale. This prevents a second identical tx
+  // without keeping the control permanently locked.
+  const [optimisticUsageAsCollateral, setOptimisticUsageAsCollateral] =
+    useState<boolean | null>(null);
   // Synchronous guard: block a second confirm dialog from opening before the
   // modal overlay mounts (sub-frame double-tap) — prevents duplicate signing.
   const confirmingRef = useRef(false);
-  const sawPendingSubmissionRef = useRef(false);
+  const submittingTargetRef = useRef<boolean | null>(null);
+  const settlementRefreshAttemptsRef = useRef(0);
+  const settlementWarningShownRef = useRef(false);
+  const settlementControllerRef = useRef<AbortController | undefined>(
+    undefined,
+  );
+  const mountedRef = useRef(true);
+  const usageAsCollateralRef = useRef(item.usageAsCollateral);
+  usageAsCollateralRef.current = item.usageAsCollateral;
   const pendingSetCollateral = market
     ? hasPendingSetCollateral({ pendingTxs, provider: market.provider })
     : false;
   const requiresEModeId =
     market?.provider.toLowerCase() === EBorrowProviderEnum.Aave;
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      settlementControllerRef.current?.abort();
+    };
+  }, []);
+
+  const releaseLocalSubmission = useCallback(() => {
+    settlementControllerRef.current?.abort();
+    settlementControllerRef.current = undefined;
+    submittingTargetRef.current = null;
+    settlementRefreshAttemptsRef.current = 0;
+    settlementWarningShownRef.current = false;
+    setSettlementStatus('idle');
+    setSubmittingTarget(null);
+  }, []);
+
+  const showSettlementWarning = useCallback(() => {
+    if (settlementWarningShownRef.current) {
+      return;
+    }
+    settlementWarningShownRef.current = true;
+    Toast.warning({
+      title: intl.formatMessage({
+        id: ETranslations.earn_pending_transactions_data_out_of_sync,
+      }),
+    });
+  }, [intl]);
 
   useEffect(() => {
     if (
@@ -211,42 +272,66 @@ export function CollateralSwitchCell({
         targetUsageAsCollateral: submittingTarget,
       })
     ) {
-      setSubmittingTarget(null);
+      setOptimisticUsageAsCollateral(null);
+      releaseLocalSubmission();
     }
-  }, [item.usageAsCollateral, submittingTarget]);
+  }, [item.usageAsCollateral, releaseLocalSubmission, submittingTarget]);
+
+  useEffect(() => {
+    if (
+      optimisticUsageAsCollateral !== null &&
+      item.usageAsCollateral === optimisticUsageAsCollateral
+    ) {
+      setOptimisticUsageAsCollateral(null);
+    }
+  }, [item.usageAsCollateral, optimisticUsageAsCollateral]);
 
   useEffect(() => {
     if (submittingTarget === null) {
-      sawPendingSubmissionRef.current = false;
+      settlementRefreshAttemptsRef.current = 0;
+      settlementWarningShownRef.current = false;
       return;
     }
-    if (pendingSetCollateral) {
-      sawPendingSubmissionRef.current = true;
-      return;
-    }
-    if (!sawPendingSubmissionRef.current) {
+    if (pendingSetCollateral || settlementStatus !== 'success') {
       return;
     }
     let disposed = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const scheduleRefresh = () => {
-      timer = setTimeout(() => {
-        void refreshAllBorrowData()
-          .then(() => {
-            if (disposed) {
-              return;
-            }
-            sawPendingSubmissionRef.current = false;
-            setSubmittingTarget((current) =>
-              current === submittingTarget ? null : current,
-            );
-          })
-          .catch(() => {
-            if (!disposed) {
+      const decision = getCollateralSettlementRefreshDecision({
+        usageAsCollateral: usageAsCollateralRef.current,
+        targetUsageAsCollateral: submittingTarget,
+        completedRefreshAttempts: settlementRefreshAttemptsRef.current,
+        fastRefreshAttempts: COLLATERAL_SETTLEMENT_FAST_REFRESH_ATTEMPTS,
+        maxRefreshAttempts: COLLATERAL_SETTLEMENT_MAX_REFRESH_ATTEMPTS,
+      });
+      if (decision === 'settled') {
+        setOptimisticUsageAsCollateral(null);
+        releaseLocalSubmission();
+        return;
+      }
+      if (decision === 'exhausted') {
+        showSettlementWarning();
+        releaseLocalSubmission();
+        return;
+      }
+      if (decision === 'retry-slow') {
+        showSettlementWarning();
+      }
+      timer = setTimeout(
+        () => {
+          void refreshAllBorrowData()
+            .catch(() => undefined)
+            .then(() => {
+              if (disposed) return;
+              settlementRefreshAttemptsRef.current += 1;
               scheduleRefresh();
-            }
-          });
-      }, COLLATERAL_SETTLEMENT_REFRESH_DELAY);
+            });
+        },
+        decision === 'retry-slow'
+          ? COLLATERAL_SETTLEMENT_SLOW_REFRESH_DELAY
+          : COLLATERAL_SETTLEMENT_REFRESH_DELAY,
+      );
     };
     scheduleRefresh();
     return () => {
@@ -255,10 +340,20 @@ export function CollateralSwitchCell({
         clearTimeout(timer);
       }
     };
-  }, [pendingSetCollateral, refreshAllBorrowData, submittingTarget]);
+  }, [
+    pendingSetCollateral,
+    refreshAllBorrowData,
+    releaseLocalSubmission,
+    settlementStatus,
+    showSettlementWarning,
+    submittingTarget,
+  ]);
+
+  const effectiveUsageAsCollateral =
+    optimisticUsageAsCollateral ?? item.usageAsCollateral;
 
   const { render, value, disabled } = getCollateralSwitchState({
-    usageAsCollateral: item.usageAsCollateral,
+    usageAsCollateral: effectiveUsageAsCollateral,
     canBeCollateral: item.canBeCollateral,
     submitting: submittingTarget !== null,
     pendingSetCollateral,
@@ -268,7 +363,7 @@ export function CollateralSwitchCell({
     if (!market || !accountId) return;
     if (confirmingRef.current) return;
     confirmingRef.current = true;
-    const target = !(item.usageAsCollateral === true);
+    const target = !(effectiveUsageAsCollateral === true);
     const targetEModeId = target ? eModeId : undefined;
     if (target && requiresEModeId && targetEModeId === undefined) {
       confirmingRef.current = false;
@@ -296,6 +391,12 @@ export function CollateralSwitchCell({
         confirmingRef.current = false;
       }
       if (!confirmed) return;
+      settlementControllerRef.current?.abort();
+      settlementControllerRef.current = undefined;
+      settlementRefreshAttemptsRef.current = 0;
+      settlementWarningShownRef.current = false;
+      submittingTargetRef.current = target;
+      setSettlementStatus('confirming');
       setSubmittingTarget(target);
       try {
         await setCollateral({
@@ -318,18 +419,69 @@ export function CollateralSwitchCell({
               }),
             ],
           },
-          onSuccess: () => {
-            // The refreshed data flips the switch — no optimistic flip.
-            // A failed refresh must not unlock a broadcast transaction.
-            void refreshAllBorrowData().catch(() => undefined);
+          onSuccess: (data) => {
+            void (async () => {
+              const txid = getLastSignedTxid(data);
+              let finalStatus = await showDeFiActionTxConfirmDialog({
+                accountId,
+                networkId: market.networkId,
+                data,
+              });
+              if (
+                !mountedRef.current ||
+                submittingTargetRef.current !== target
+              ) {
+                return;
+              }
+              if (finalStatus === undefined && txid) {
+                const controller = new AbortController();
+                settlementControllerRef.current?.abort();
+                settlementControllerRef.current = controller;
+                finalStatus = await waitForTxFinalStatus({
+                  accountId,
+                  networkId: market.networkId,
+                  txid,
+                  signal: controller.signal,
+                });
+                if (settlementControllerRef.current === controller) {
+                  settlementControllerRef.current = undefined;
+                }
+              }
+              if (
+                !mountedRef.current ||
+                submittingTargetRef.current !== target
+              ) {
+                return;
+              }
+              settlementRefreshAttemptsRef.current = 0;
+              if (finalStatus === EOnChainHistoryTxStatus.Failed) {
+                releaseLocalSubmission();
+                return;
+              }
+              if (finalStatus === EOnChainHistoryTxStatus.Success) {
+                setOptimisticUsageAsCollateral(target);
+                setSettlementStatus('success');
+                // Fresh reserves, not the broadcast callback, finalize the
+                // server-owned position state.
+                void refreshAllBorrowData().catch(() => undefined);
+                return;
+              }
+              showSettlementWarning();
+              void refreshAllBorrowData().catch(() => undefined);
+              releaseLocalSubmission();
+            })();
           },
-          onFail: () => setSubmittingTarget(null),
-          onCancel: () => setSubmittingTarget(null),
+          onFail: () => {
+            releaseLocalSubmission();
+          },
+          onCancel: () => {
+            releaseLocalSubmission();
+          },
         });
       } catch {
         // Build/tx errors are already surfaced by the API interceptor toast;
         // rethrowing inside a void IIFE would only be an unhandled rejection.
-        setSubmittingTarget(null);
+        releaseLocalSubmission();
       }
     })();
   }, [
@@ -338,11 +490,13 @@ export function CollateralSwitchCell({
     intl,
     item.reserveAddress,
     item.token.symbol,
-    item.usageAsCollateral,
+    effectiveUsageAsCollateral,
     market,
     refreshAllBorrowData,
+    releaseLocalSubmission,
     requiresEModeId,
     setCollateral,
+    showSettlementWarning,
   ]);
 
   if (!render || !market || !accountId) return null;

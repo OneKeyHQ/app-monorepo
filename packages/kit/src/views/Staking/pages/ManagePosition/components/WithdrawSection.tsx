@@ -62,6 +62,11 @@ import {
 } from '../../../utils/utils';
 import { buildManagePageApproveInfo } from '../hooks/useManagePage.utils';
 
+import {
+  resolveBorrowManageApproveType,
+  resolveBorrowManageTokenInfo,
+} from './WithdrawSection.utils';
+
 import type { IManagePositionFooterAction } from './ManagePositionContent';
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 
@@ -243,6 +248,16 @@ export const WithdrawSection = ({
         : undefined,
     [selectedBorrowManagePageData],
   );
+  const effectiveBorrowTokenInfo = useMemo(
+    () =>
+      resolveBorrowManageTokenInfo({
+        action: borrowAction,
+        hasSelectedAsset: !!selectedAsset,
+        selectedManagePageData: selectedBorrowManagePageData,
+        fallbackTokenInfo: tokenInfo,
+      }),
+    [borrowAction, selectedAsset, selectedBorrowManagePageData, tokenInfo],
+  );
   const effectiveBorrowApproveInfo = useMemo(() => {
     if (selectedBorrowManagePageType) {
       return selectedBorrowManagePageApproveInfo;
@@ -380,23 +395,27 @@ export const WithdrawSection = ({
   const backendApproveType = hasWithdrawApprove
     ? EApproveType.Legacy
     : effectiveBorrowApproveInfo?.approveType;
-  const effectiveApproveType = useMemo(
-    () =>
-      earnUtils.resolveEarnApproveType({
-        providerName,
-        networkId,
-        tokenIsNative: approvalToken?.isNative,
-        approveSpenderAddress,
-        backendApproveType,
-      }),
-    [
-      approvalToken?.isNative,
+  const effectiveApproveType = useMemo(() => {
+    const resolvedApproveType = earnUtils.resolveEarnApproveType({
+      providerName,
+      networkId,
+      tokenIsNative: approvalToken?.isNative,
       approveSpenderAddress,
       backendApproveType,
-      networkId,
-      providerName,
-    ],
-  );
+    });
+    return resolveBorrowManageApproveType({
+      isBorrowTokenApproval: !!useBorrowApi && borrowTokenApproveNeeded,
+      approveType: resolvedApproveType,
+    });
+  }, [
+    approvalToken?.isNative,
+    approveSpenderAddress,
+    backendApproveType,
+    borrowTokenApproveNeeded,
+    networkId,
+    providerName,
+    useBorrowApi,
+  ]);
 
   const { result: initialAllowanceResult } = usePromiseResult(
     async () => {
@@ -861,10 +880,13 @@ export const WithdrawSection = ({
       selectedRepayWalletBalance.missingWalletBalance,
     ],
   );
+  const isMissingSelectedBorrowTokenInfo =
+    !!selectedAsset && !effectiveBorrowTokenInfo;
   const isBorrowRepayInputDisabled =
     isDisabled ||
     unsupportedAaveNativeReserve ||
     !isSelectedBorrowAssetValid ||
+    isMissingSelectedBorrowTokenInfo ||
     (!!selectedAsset &&
       !!selectedBorrowManagePageType &&
       !!selectedBorrowManagePageLoading) ||
@@ -1340,7 +1362,11 @@ export const WithdrawSection = ({
           accountId={accountId}
           networkId={networkId}
           providerName={providerName}
-          price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
+          price={
+            effectiveBorrowTokenInfo?.price
+              ? String(effectiveBorrowTokenInfo.price)
+              : '0'
+          }
           decimals={effectiveDecimals}
           balance={effectiveBalance}
           maxBalance={effectiveMaxBalance}
@@ -1349,7 +1375,7 @@ export const WithdrawSection = ({
           tokenImageUri={effectiveTokenImageUri}
           onWalletConfirm={onBorrowConfirm}
           onRepayWithCollateralConfirm={onBorrowRepayWithCollateralConfirm}
-          tokenInfo={tokenInfo}
+          tokenInfo={effectiveBorrowTokenInfo}
           isDisabled={isBorrowRepayInputDisabled}
           approveType={effectiveApproveType}
           currentAllowance={initialAllowanceResult?.allowanceParsed}
@@ -1385,14 +1411,18 @@ export const WithdrawSection = ({
           networkId={networkId}
           providerName={providerName}
           action={borrowApiCtx.borrowApiParams.action as 'withdraw' | 'repay'}
-          price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
+          price={
+            effectiveBorrowTokenInfo?.price
+              ? String(effectiveBorrowTokenInfo.price)
+              : '0'
+          }
           decimals={effectiveDecimals}
           balance={effectiveBalance}
           maxBalance={effectiveMaxBalance}
           tokenSymbol={effectiveTokenSymbol}
           tokenImageUri={effectiveTokenImageUri}
           onConfirm={onBorrowConfirm}
-          tokenInfo={tokenInfo}
+          tokenInfo={effectiveBorrowTokenInfo}
           isDisabled={isBorrowRepayInputDisabled}
           approveType={effectiveApproveType}
           currentAllowance={initialAllowanceResult?.allowanceParsed}

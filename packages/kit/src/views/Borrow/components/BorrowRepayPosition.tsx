@@ -49,6 +49,7 @@ import { BorrowInfoItem } from './BorrowInfoItem';
 import {
   appendBorrowRepaySetupState,
   buildBorrowRepayPositionKey,
+  buildBorrowRepayWithCollateralConfirmationParams,
   getBorrowRepayProgressStep,
   getEffectiveBorrowRepayNeedsSetupLut,
   hasPositiveDebtBalance,
@@ -581,6 +582,7 @@ function RepayWithCollateralForm({
     async (
       value: string,
       collateralReserveAddress: string,
+      repayAll: boolean,
       currentSlippageBps: number,
       requestKey: string,
     ) => {
@@ -591,17 +593,17 @@ function RepayWithCollateralForm({
       try {
         const resp =
           await backgroundApiProxy.serviceStaking.getBorrowTransactionConfirmation(
-            {
+            buildBorrowRepayWithCollateralConfirmationParams({
               accountId,
               networkId,
               provider: providerName,
               marketAddress: borrowMarketAddress,
               reserveAddress: borrowReserveAddress,
-              action: 'repayWithCollateral',
               amount: value,
               collateralReserveAddress,
+              repayAll,
               slippageBps: currentSlippageBps,
-            },
+            }),
           );
         if (repayRequestKeyRef.current === requestKey) {
           setTransactionConfirmation(resp);
@@ -627,6 +629,7 @@ function RepayWithCollateralForm({
     void debouncedFetchConfirmation(
       normalizedAmount,
       selectedCollateral.reserveAddress,
+      isRepayAll,
       slippageBps,
       repayRequestKey,
     );
@@ -635,6 +638,7 @@ function RepayWithCollateralForm({
     };
   }, [
     debouncedFetchConfirmation,
+    isRepayAll,
     normalizedAmount,
     repayRequestKey,
     selectedCollateral,

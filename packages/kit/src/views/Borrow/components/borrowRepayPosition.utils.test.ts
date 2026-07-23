@@ -3,6 +3,7 @@ import { EStakeProgressStep } from '@onekeyhq/kit/src/views/Staking/components/S
 import {
   appendBorrowRepaySetupState,
   buildBorrowRepayPositionKey,
+  buildBorrowRepayWithCollateralConfirmationParams,
   getBorrowBalanceAmount,
   getBorrowRepayProgressStep,
   getEffectiveBorrowRepayNeedsSetupLut,
@@ -57,6 +58,30 @@ describe('borrowRepayPosition utils', () => {
       }),
     ).toBe('1:collateral-reserve:0:50:ready');
   });
+
+  it.each([true, false])(
+    'forwards repayAll=%s to collateral-repay confirmation',
+    (repayAll) => {
+      expect(
+        buildBorrowRepayWithCollateralConfirmationParams({
+          accountId: 'account-1',
+          networkId: 'evm--1',
+          provider: 'aave',
+          marketAddress: '0xmarket',
+          reserveAddress: '0xdebt',
+          amount: '1',
+          collateralReserveAddress: '0xcollateral',
+          repayAll,
+          slippageBps: 50,
+        }),
+      ).toEqual(
+        expect.objectContaining({
+          action: 'repayWithCollateral',
+          repayAll,
+        }),
+      );
+    },
+  );
 
   it('advances progress from setup to repay for the same input key', () => {
     const progressKey = buildBorrowRepayPositionKey({

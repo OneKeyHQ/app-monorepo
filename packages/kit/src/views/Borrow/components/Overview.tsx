@@ -189,11 +189,19 @@ export const Overview = ({
     }
     BorrowNavigation.pushToBorrowEModeSwitch(navigation, {
       accountId: earnAccountId,
+      indexedAccountId: earnAccountData?.account?.indexedAccountId,
       networkId,
       provider,
       marketAddress,
     });
-  }, [navigation, networkId, provider, marketAddress, earnAccountId]);
+  }, [
+    earnAccountData?.account?.indexedAccountId,
+    earnAccountId,
+    marketAddress,
+    navigation,
+    networkId,
+    provider,
+  ]);
 
   useEffect(() => {
     onHealthFactorAlertsChange?.(healthFactorAlerts);

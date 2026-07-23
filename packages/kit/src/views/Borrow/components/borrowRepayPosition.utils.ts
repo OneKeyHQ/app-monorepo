@@ -317,6 +317,23 @@ export function isBorrowRepayAllAmount({
   return amountBN.gt(0) && debtBalanceBN.gt(0) && amountBN.gte(debtBalanceBN);
 }
 
+export function buildBorrowRepayWithCollateralConfirmationParams(params: {
+  accountId: string;
+  networkId: string;
+  provider: string;
+  marketAddress: string;
+  reserveAddress: string;
+  amount: string;
+  collateralReserveAddress: string;
+  repayAll: boolean;
+  slippageBps: number;
+}) {
+  return {
+    ...params,
+    action: 'repayWithCollateral' as const,
+  };
+}
+
 export function buildBorrowRepayPositionKey({
   amount,
   collateralReserveAddress,

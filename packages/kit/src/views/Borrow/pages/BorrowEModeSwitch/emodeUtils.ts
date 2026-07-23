@@ -29,15 +29,20 @@ export function isEModeBorrowActionTag({
 
 export function isEModePendingGuardActive({
   pendingHistoryLoading,
+  isPendingHistoryVerified,
   pendingCount,
   focusRevalidating = false,
 }: {
   pendingHistoryLoading: boolean | undefined;
+  isPendingHistoryVerified: boolean;
   pendingCount: number;
   focusRevalidating?: boolean;
 }): boolean {
   return (
-    pendingHistoryLoading !== false || pendingCount > 0 || focusRevalidating
+    pendingHistoryLoading !== false ||
+    !isPendingHistoryVerified ||
+    pendingCount > 0 ||
+    focusRevalidating
   );
 }
 
@@ -248,6 +253,7 @@ export interface IEModeNeedActionItem {
   kind: 'repay' | 'removeCollateral';
   reserveAddress: string;
   symbol: string;
+  decimals?: number;
   logoURI?: string;
   amount?: IEarnText; // server-formatted token amount, e.g. "0.002107"
   amountFiat?: IEarnText; // server-formatted fiat value, e.g. "< $0.01"
@@ -271,6 +277,7 @@ export function buildNeedActionItems(
     kind: 'repay',
     reserveAddress: a.reserveAddress,
     symbol: a.token.symbol,
+    decimals: a.token.decimals,
     logoURI: a.token.logoURI,
     amount: a.borrowed?.title,
     amountFiat: a.borrowed?.description,

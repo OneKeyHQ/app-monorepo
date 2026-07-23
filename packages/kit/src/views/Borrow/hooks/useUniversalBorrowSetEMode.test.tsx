@@ -132,4 +132,33 @@ describe('useUniversalBorrowSetEMode', () => {
       expect(onSuccess).toHaveBeenCalledTimes(shouldSucceed ? 1 : 0);
     },
   );
+
+  it('lets a caller own final-status settlement without changing the default', async () => {
+    const onSuccess = jest.fn();
+    const { result } = renderHook(() =>
+      useUniversalBorrowSetEMode({
+        networkId: 'evm--1',
+        accountId: 'hd-1--m/44',
+        waitForFinalStatus: false,
+      }),
+    );
+
+    await act(async () => {
+      await result.current({
+        provider: 'aave',
+        marketAddress: '0xmarket',
+        eModeId: 1,
+        stakingInfo: {
+          label: EEarnLabels.Borrow,
+          protocol: 'aave',
+          tags: [EEarnLabels.Borrow],
+        },
+        onSuccess,
+      });
+    });
+
+    expect(confirmDialogMock).not.toHaveBeenCalled();
+    expect(backgroundMock.serviceStaking.addEarnOrder).toHaveBeenCalledTimes(1);
+    expect(onSuccess).toHaveBeenCalledWith(successData);
+  });
 });

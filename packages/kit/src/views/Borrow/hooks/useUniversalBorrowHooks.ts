@@ -558,9 +558,11 @@ export function useUniversalBorrowClaim({
 export function useUniversalBorrowSetEMode({
   networkId,
   accountId,
+  waitForFinalStatus = true,
 }: {
   networkId: string;
   accountId: string;
+  waitForFinalStatus?: boolean;
 }) {
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId,
@@ -606,7 +608,7 @@ export function useUniversalBorrowSetEMode({
             networkId,
             accountId,
             stakingInfo: stakingInfoWithOrderId,
-            waitForFinalStatus: true,
+            waitForFinalStatus,
             onSuccess,
           });
         },
@@ -614,7 +616,7 @@ export function useUniversalBorrowSetEMode({
         onCancel,
       });
     },
-    [accountId, networkId, navigationToTxConfirm],
+    [accountId, networkId, navigationToTxConfirm, waitForFinalStatus],
   );
 }
 

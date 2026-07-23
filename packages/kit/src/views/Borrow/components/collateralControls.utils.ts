@@ -57,6 +57,44 @@ export function shouldReleaseCollateralSubmission({
   );
 }
 
+export const COLLATERAL_SETTLEMENT_FAST_REFRESH_ATTEMPTS = 5;
+export const COLLATERAL_SETTLEMENT_MAX_REFRESH_ATTEMPTS = 8;
+
+export type ICollateralSettlementRefreshDecision =
+  | 'idle'
+  | 'settled'
+  | 'retry'
+  | 'retry-slow'
+  | 'exhausted';
+
+export function getCollateralSettlementRefreshDecision({
+  usageAsCollateral,
+  targetUsageAsCollateral,
+  completedRefreshAttempts,
+  fastRefreshAttempts = COLLATERAL_SETTLEMENT_FAST_REFRESH_ATTEMPTS,
+  maxRefreshAttempts = COLLATERAL_SETTLEMENT_MAX_REFRESH_ATTEMPTS,
+}: {
+  usageAsCollateral?: boolean;
+  targetUsageAsCollateral: boolean | null;
+  completedRefreshAttempts: number;
+  fastRefreshAttempts?: number;
+  maxRefreshAttempts?: number;
+}): ICollateralSettlementRefreshDecision {
+  if (targetUsageAsCollateral === null) {
+    return 'idle';
+  }
+  if (usageAsCollateral === targetUsageAsCollateral) {
+    return 'settled';
+  }
+  if (completedRefreshAttempts >= maxRefreshAttempts) {
+    return 'exhausted';
+  }
+  if (completedRefreshAttempts >= fastRefreshAttempts) {
+    return 'retry-slow';
+  }
+  return 'retry';
+}
+
 // buildBorrowTag carries provider+action only (no reserve identity), so this
 // check is provider-scoped by construction: any pending setCollateral tx
 // disables ALL of that provider's switches until data refreshes.

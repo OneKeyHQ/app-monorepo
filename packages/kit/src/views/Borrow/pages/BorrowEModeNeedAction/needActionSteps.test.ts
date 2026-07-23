@@ -5,7 +5,7 @@ import {
   EMODE_SWITCH_STEP,
   activeStepIndex,
   bindStepSettlementCallbacks,
-  blockerSteps,
+  blockerSteps as buildBlockerSteps,
   mergeSeen,
   reconcileStepState,
   resolveSettleOutcome,
@@ -14,6 +14,12 @@ import {
 } from './needActionSteps';
 
 import type { IEModeNeedActionItem } from '../BorrowEModeSwitch/emodeUtils';
+
+const EVM_NETWORK_ID = 'evm--1';
+const SOLANA_NETWORK_ID = 'sol--101';
+
+const blockerSteps = (items: IEModeNeedActionItem[]) =>
+  buildBlockerSteps(items, EVM_NETWORK_ID);
 
 const item = (
   kind: 'repay' | 'removeCollateral',
@@ -36,6 +42,44 @@ describe('blockerSteps', () => {
       'repay:0xa',
       'removeCollateral:0xb',
     ]);
+  });
+
+  it('uses one EVM identity across checksum casing changes', () => {
+    const [first] = buildBlockerSteps(
+      [item('repay', '0xAbCd')],
+      EVM_NETWORK_ID,
+    );
+    const [second] = buildBlockerSteps(
+      [item('repay', '0xaBcD')],
+      EVM_NETWORK_ID,
+    );
+
+    expect(first.key).toBe('repay:0xabcd');
+    expect(second.key).toBe(first.key);
+  });
+
+  it('deduplicates checksum variants in the same EVM payload', () => {
+    const steps = buildBlockerSteps(
+      [item('repay', '0xAbCd'), item('repay', '0xaBcD')],
+      EVM_NETWORK_ID,
+    );
+
+    expect(steps).toHaveLength(1);
+    expect(steps[0].key).toBe('repay:0xabcd');
+    expect(steps[0].reserveAddress).toBe('0xAbCd');
+  });
+
+  it('preserves case-sensitive reserve identity outside EVM networks', () => {
+    const [first] = buildBlockerSteps(
+      [item('repay', '7u3HeHxY')],
+      SOLANA_NETWORK_ID,
+    );
+    const [second] = buildBlockerSteps(
+      [item('repay', '7u3heHxY')],
+      SOLANA_NETWORK_ID,
+    );
+
+    expect(first.key).not.toBe(second.key);
   });
 });
 

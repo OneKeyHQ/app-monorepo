@@ -1,5 +1,8 @@
 import {
+  COLLATERAL_SETTLEMENT_FAST_REFRESH_ATTEMPTS,
+  COLLATERAL_SETTLEMENT_MAX_REFRESH_ATTEMPTS,
   collateralBadgeVariant,
+  getCollateralSettlementRefreshDecision,
   getCollateralSwitchState,
   hasPendingSetCollateral,
   isBorrowAssetVisible,
@@ -176,5 +179,66 @@ describe('shouldReleaseCollateralSubmission', () => {
         targetUsageAsCollateral: true,
       }),
     ).toBe(false);
+  });
+});
+
+describe('getCollateralSettlementRefreshDecision', () => {
+  it('stays idle without a local submission', () => {
+    expect(
+      getCollateralSettlementRefreshDecision({
+        usageAsCollateral: false,
+        targetUsageAsCollateral: null,
+        completedRefreshAttempts: 0,
+      }),
+    ).toBe('idle');
+  });
+
+  it('settles as soon as refreshed reserves contain the target state', () => {
+    expect(
+      getCollateralSettlementRefreshDecision({
+        usageAsCollateral: true,
+        targetUsageAsCollateral: true,
+        completedRefreshAttempts: 1,
+      }),
+    ).toBe('settled');
+  });
+
+  it('keeps retrying while refreshed reserves remain stale', () => {
+    expect(
+      getCollateralSettlementRefreshDecision({
+        usageAsCollateral: false,
+        targetUsageAsCollateral: true,
+        completedRefreshAttempts:
+          COLLATERAL_SETTLEMENT_FAST_REFRESH_ATTEMPTS - 1,
+      }),
+    ).toBe('retry');
+  });
+
+  it('switches to slow retries before the bounded reconciliation limit', () => {
+    expect(
+      getCollateralSettlementRefreshDecision({
+        usageAsCollateral: false,
+        targetUsageAsCollateral: true,
+        completedRefreshAttempts: COLLATERAL_SETTLEMENT_FAST_REFRESH_ATTEMPTS,
+      }),
+    ).toBe('retry-slow');
+    expect(
+      getCollateralSettlementRefreshDecision({
+        usageAsCollateral: false,
+        targetUsageAsCollateral: true,
+        completedRefreshAttempts:
+          COLLATERAL_SETTLEMENT_MAX_REFRESH_ATTEMPTS - 1,
+      }),
+    ).toBe('retry-slow');
+  });
+
+  it('stops automatic refreshes after the bounded reconciliation limit', () => {
+    expect(
+      getCollateralSettlementRefreshDecision({
+        usageAsCollateral: false,
+        targetUsageAsCollateral: true,
+        completedRefreshAttempts: COLLATERAL_SETTLEMENT_MAX_REFRESH_ATTEMPTS,
+      }),
+    ).toBe('exhausted');
   });
 });

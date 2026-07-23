@@ -31,6 +31,7 @@ import {
   isBorrowTokenApprovalEnabled,
   isBorrowTokenApprovalRequired,
   resolveBorrowApprovalActionStep,
+  resolveBorrowApprovalType,
 } from '../borrowApproval.utils';
 
 import type {
@@ -123,6 +124,7 @@ export function useBorrowApproval({
   onApprovedSubmit: () => Promise<void>;
 }): IManagePositionApproval {
   const intl = useIntl();
+  const effectiveApproveType = resolveBorrowApprovalType(approveType);
   const [approving, setApproving] = useState(false);
   const mountedRef = useRef(false);
   const allowanceAbortRef = useRef<AbortController | undefined>(undefined);
@@ -130,7 +132,7 @@ export function useBorrowApproval({
     action,
     amountValue,
     repayAll,
-    approveType,
+    effectiveApproveType,
     approveTarget?.accountId,
     approveTarget?.networkId,
     approveTarget?.spenderAddress,
@@ -268,10 +270,10 @@ export function useBorrowApproval({
     () =>
       isBorrowTokenApprovalEnabled({
         action,
-        approveType,
+        approveType: effectiveApproveType,
         approveTarget,
       }),
-    [action, approveTarget, approveType],
+    [action, approveTarget, effectiveApproveType],
   );
   const delegationApprovalEnabled = useMemo(
     () =>
@@ -293,7 +295,7 @@ export function useBorrowApproval({
     tokenAddress: approveTarget?.token?.address ?? '',
     spenderAddress: approveTarget?.spenderAddress ?? '',
     initialValue: currentAllowance,
-    approveType,
+    approveType: effectiveApproveType,
   });
 
   const fetchTokenAllowanceParsed = useCallback(async () => {
@@ -875,7 +877,7 @@ export function useBorrowApproval({
   ]);
 
   return {
-    approveType,
+    approveType: effectiveApproveType,
     approving,
     loadingAllowance: !!loadingAllowance,
     shouldApprove,

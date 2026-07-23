@@ -73,14 +73,17 @@ function BorrowEModeSwitchView() {
     enabled: !!accountId,
   });
   const currentEModeId = eModeStatus?.eModeId ?? null;
-  const { healthFactorData, isLoading: currentHealthFactorLoading } =
-    useBorrowHealthFactor({
-      networkId,
-      provider,
-      marketAddress,
-      accountId,
-      enabled: !!accountId,
-    });
+  const {
+    healthFactorData,
+    isLoading: currentHealthFactorLoading,
+    refresh: refreshHealthFactor,
+  } = useBorrowHealthFactor({
+    networkId,
+    provider,
+    marketAddress,
+    accountId,
+    enabled: !!accountId,
+  });
   const rows = useMemo(
     () =>
       buildEModeRows(
@@ -130,9 +133,10 @@ function BorrowEModeSwitchView() {
     const selectedTarget = retainedTargetRef.current;
     await Promise.all([
       refresh(),
+      refreshHealthFactor(),
       selectedTarget === null ? Promise.resolve() : runCheck(selectedTarget),
     ]);
-  }, [refresh, runCheck]);
+  }, [refresh, refreshHealthFactor, runCheck]);
   const pendingTagMatcher = useCallback(
     (tag: string) =>
       isEModeBorrowActionTag({
@@ -145,9 +149,12 @@ function BorrowEModeSwitchView() {
   const {
     pendingCount,
     isLoading: pendingHistoryLoading,
+    isPendingHistoryVerified,
     refreshPending,
   } = useStakingPendingTxsByInfo({
     networkIds: [networkId],
+    accountId,
+    indexedAccountId,
     tagMatcher: pendingTagMatcher,
     onRefresh: refreshManagementState,
     onRefreshDelayMs: 3000,
@@ -181,6 +188,7 @@ function BorrowEModeSwitchView() {
   }, [accountId, isFocused, refreshManagementState, refreshPending]);
   const pendingGuardActive = isEModePendingGuardActive({
     pendingHistoryLoading,
+    isPendingHistoryVerified,
     pendingCount,
     focusRevalidating: focusRevalidating || focusActivationPending,
   });
@@ -365,10 +373,10 @@ function BorrowEModeSwitchView() {
               onChange={onSelectCategory}
             />
             <EModeImpactSection
-              row={selectedRow}
               isCurrent={viewState === 'current'}
               check={viewState === 'current' ? null : check}
               isChecking={viewState === 'checking'}
+              currentMaxLtv={eModeStatus?.originalLtv}
               currentHealthFactor={healthFactorData?.healthFactor?.text}
               currentHealthFactorLoading={!!currentHealthFactorLoading}
             />

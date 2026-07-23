@@ -4,7 +4,33 @@ import type {
   IBorrowEModeSwitchCheck,
 } from '@onekeyhq/shared/types/staking';
 
-import { buildEModeRows, buildNeedActionItems } from './emodeUtils';
+import {
+  buildEModeRows,
+  buildNeedActionItems,
+  isEModePendingGuardActive,
+} from './emodeUtils';
+
+describe('isEModePendingGuardActive', () => {
+  it('fails closed when pending history finished loading but is unverified', () => {
+    expect(
+      isEModePendingGuardActive({
+        pendingHistoryLoading: false,
+        isPendingHistoryVerified: false,
+        pendingCount: 0,
+      }),
+    ).toBe(true);
+  });
+
+  it('unlocks only after pending history is verified empty', () => {
+    expect(
+      isEModePendingGuardActive({
+        pendingHistoryLoading: false,
+        isPendingHistoryVerified: true,
+        pendingCount: 0,
+      }),
+    ).toBe(false);
+  });
+});
 
 describe('buildEModeRows', () => {
   it('preserves backend-disabled categories while keeping Off available', () => {

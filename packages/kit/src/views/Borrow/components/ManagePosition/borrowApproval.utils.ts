@@ -10,6 +10,12 @@ import type {
 
 const borrowMaxApprovalAllowanceThreshold = new BigNumber(2).pow(128);
 
+export function resolveBorrowApprovalType(approveType?: EApproveType) {
+  return approveType === EApproveType.Permit
+    ? EApproveType.Legacy
+    : approveType;
+}
+
 export function isBorrowTokenApprovalEnabled({
   action,
   approveType,

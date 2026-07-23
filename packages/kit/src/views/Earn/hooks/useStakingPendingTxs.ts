@@ -13,6 +13,8 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { useEarnAtom } from '../../../states/jotai/contexts/earn';
 import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
 
+import { resolveStakingPendingTxAccountOwnership } from './stakingPendingTxAccountOwnership';
+
 export type IStakePendingTx = IAccountHistoryTx &
   Required<Pick<IAccountHistoryTx, 'stakingInfo'>>;
 
@@ -20,6 +22,24 @@ type INetworkAccountMeta = {
   accountId: string;
   accountAddress: string;
   xpub?: string;
+};
+
+type IFilteredPendingTxsResult = {
+  filteredTxs: IStakePendingTx[];
+  isPendingHistoryVerified: boolean;
+  pendingHistoryFailedNetworkIds: string[];
+};
+
+const UNVERIFIED_PENDING_TXS_RESULT: IFilteredPendingTxsResult = {
+  filteredTxs: [],
+  isPendingHistoryVerified: false,
+  pendingHistoryFailedNetworkIds: [],
+};
+
+const VERIFIED_EMPTY_PENDING_TXS_RESULT: IFilteredPendingTxsResult = {
+  filteredTxs: [],
+  isPendingHistoryVerified: true,
+  pendingHistoryFailedNetworkIds: [],
 };
 
 // Precomputed inputs from a co-located parent (e.g. EarnHome) so two
@@ -149,6 +169,8 @@ export const useStakingPendingTxsByInfo = ({
   tagMatcher,
   onRefreshDelayMs = 0,
   precomputed,
+  accountId: explicitAccountId,
+  indexedAccountId: explicitIndexedAccountId,
 }: {
   filter?: (tx: IStakePendingTx) => boolean;
   onRefresh?: () => void | Promise<void>;
@@ -156,14 +178,19 @@ export const useStakingPendingTxsByInfo = ({
   tagMatcher?: (tag: string) => boolean;
   onRefreshDelayMs?: number;
   precomputed?: IStakingPendingTxsPrecomputed;
+  accountId?: string;
+  indexedAccountId?: string;
 }) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
-  const accountId = account?.id;
-  const currentNetworkId = activeAccount.network?.id;
+  const activeAccountId = account?.id;
+  const activeIndexedAccountId = indexedAccount?.id;
+  const activeNetworkId = activeAccount.network?.id;
   const [{ availableAssetsByType = {} }] = useEarnAtom();
   const shouldUseEarnAssets = !tagMatcher;
-  const lastFilteredTxsRef = useRef<IStakePendingTx[]>([]);
+  const lastVerifiedPendingTxsByTargetRef = useRef<
+    Map<string, IAccountHistoryTx[]>
+  >(new Map());
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const [isCompletionRevalidating, setIsCompletionRevalidating] =
@@ -287,12 +314,28 @@ export const useStakingPendingTxsByInfo = ({
     ? explicitNetworkIds
     : derivedNetworkIds;
 
-  // Resolve network-specific accountIds for the active indexed account.
+  const {
+    accountId,
+    indexedAccountId,
+    currentNetworkId,
+    hasExplicitOwnership,
+  } = resolveStakingPendingTxAccountOwnership({
+    activeAccountId,
+    activeIndexedAccountId,
+    activeNetworkId,
+    accountId: explicitAccountId,
+    indexedAccountId: explicitIndexedAccountId,
+    networkIds: effectiveNetworkIds,
+  });
+
+  // Resolve network-specific accountIds for the selected account owner.
   // Short-circuit to the parent-precomputed union map when present —
   // EarnHome's earn + borrow hook instances share one resolution this way.
   const networkAccountResult = usePromiseResult<Record<string, string>>(
     async () => {
-      const sharedMap = precomputed?.networkAccountMap;
+      const sharedMap = hasExplicitOwnership
+        ? undefined
+        : precomputed?.networkAccountMap;
       if (sharedMap) {
         const subset: Record<string, string> = {};
         for (const networkId of effectiveNetworkIds) {
@@ -338,7 +381,7 @@ export const useStakingPendingTxsByInfo = ({
         map[currentNetworkId] = accountId;
       }
 
-      if (!indexedAccount?.id || effectiveNetworkIds.length === 0) {
+      if (!indexedAccountId || effectiveNetworkIds.length === 0) {
         return map;
       }
 
@@ -346,7 +389,7 @@ export const useStakingPendingTxsByInfo = ({
         const accounts =
           await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
             {
-              indexedAccountId: indexedAccount.id,
+              indexedAccountId,
               networkIds: effectiveNetworkIds,
             },
           );
@@ -369,7 +412,7 @@ export const useStakingPendingTxsByInfo = ({
                 await backgroundApiProxy.serviceStaking.getEarnAccount({
                   accountId: map[netId],
                   networkId: netId,
-                  indexedAccountId: indexedAccount.id,
+                  indexedAccountId,
                   btcOnlyTaproot: true,
                 });
               if (earnAccount?.accountId) {
@@ -387,8 +430,9 @@ export const useStakingPendingTxsByInfo = ({
     [
       accountId,
       currentNetworkId,
-      indexedAccount?.id,
+      indexedAccountId,
       effectiveNetworkIds,
+      hasExplicitOwnership,
       precomputed?.networkAccountMap,
     ],
     { initResult: {}, watchLoading: true },
@@ -446,7 +490,9 @@ export const useStakingPendingTxsByInfo = ({
       // hook instances (EarnHome's earn + borrow) share one batch RPC.
       // We still derive the per-instance `meta` map keyed by accountId
       // so downstream pendingTx fetch picks the right account per network.
-      const sharedMeta = precomputed?.accountMetaByNetwork;
+      const sharedMeta = hasExplicitOwnership
+        ? undefined
+        : precomputed?.accountMetaByNetwork;
       const missingPairs: Array<{ accountId: string; networkId: string }> = [];
       const meta: Record<string, INetworkAccountMeta> = {};
 
@@ -460,28 +506,36 @@ export const useStakingPendingTxsByInfo = ({
       }
 
       if (missingPairs.length > 0) {
-        const batchResult =
-          await backgroundApiProxy.serviceAccount.getAccountMetaForNetworksBatch(
-            { pairs: missingPairs },
-          );
-        for (const {
-          accountId: accountForNetwork,
-          networkId,
-        } of missingPairs) {
-          const entry = batchResult[networkId];
-          if (entry) {
-            meta[networkId] = {
-              accountId: accountForNetwork,
-              accountAddress: entry.accountAddress,
-              xpub: entry.xpub,
-            };
+        try {
+          const batchResult =
+            await backgroundApiProxy.serviceAccount.getAccountMetaForNetworksBatch(
+              { pairs: missingPairs },
+            );
+          for (const {
+            accountId: accountForNetwork,
+            networkId,
+          } of missingPairs) {
+            const entry = batchResult[networkId];
+            if (entry) {
+              meta[networkId] = {
+                accountId: accountForNetwork,
+                accountAddress: entry.accountAddress,
+                xpub: entry.xpub,
+              };
+            }
           }
+        } catch {
+          // Missing entries remain explicit unverified networks downstream.
         }
       }
 
       return meta;
     },
-    [networkAccountMap, precomputed?.accountMetaByNetwork],
+    [
+      networkAccountMap,
+      hasExplicitOwnership,
+      precomputed?.accountMetaByNetwork,
+    ],
     {
       initResult: {} as Record<string, INetworkAccountMeta>,
       watchLoading: true,
@@ -491,98 +545,137 @@ export const useStakingPendingTxsByInfo = ({
     accountMetaResult;
 
   // Fetch pending transactions based on stake tags or tag matcher
-  const fetchFilteredPendingTxs = useCallback(async (): Promise<
-    IStakePendingTx[]
-  > => {
-    if (effectiveNetworkIds.length === 0) {
-      return [];
-    }
+  const fetchFilteredPendingTxs =
+    useCallback(async (): Promise<IFilteredPendingTxsResult> => {
+      if (effectiveNetworkIds.length === 0) {
+        return VERIFIED_EMPTY_PENDING_TXS_RESULT;
+      }
 
-    if (!tagMatcher && Object.keys(stakeTagsByNetwork).length === 0) {
-      return [];
-    }
+      if (!tagMatcher && Object.keys(stakeTagsByNetwork).length === 0) {
+        return VERIFIED_EMPTY_PENDING_TXS_RESULT;
+      }
 
-    const targetsWithAccount = Object.entries(accountMetaByNetwork).filter(
-      ([networkId]) => {
-        if (!effectiveNetworkIds.includes(networkId)) {
+      const expectedNetworkIds = effectiveNetworkIds.filter((networkId) => {
+        if (!networkAccountMap[networkId]) {
           return false;
         }
         if (tagMatcher) {
           return true;
         }
-        return stakeTagsByNetwork[networkId]?.size;
-      },
-    );
-    if (targetsWithAccount.length === 0) {
-      return [];
-    }
-
-    const txsForTargets = await Promise.all(
-      targetsWithAccount.map(async ([networkId, meta]) => {
-        try {
-          const pendingTxs =
-            await backgroundApiProxy.serviceHistory.getAccountLocalHistoryPendingTxs(
-              {
-                networkId,
-                accountAddress: meta.accountAddress,
-                xpub: meta.xpub,
-              },
-            );
-
-          const matchedTxs = pendingTxs.filter((tx): tx is IStakePendingTx => {
-            if (!tx.stakingInfo) return false;
-            const tags = tx.stakingInfo.tags ?? [];
-            if (tags.length === 0) return false;
-            if (tagMatcher) {
-              return tags.some((tag) => tagMatcher(tag));
-            }
-            const stakeTags = stakeTagsByNetwork[networkId];
-            if (!stakeTags?.size) return false;
-            return tags.some((tag) => stakeTags.has(tag));
-          });
-
-          return {
-            ok: true,
-            txs: matchedTxs,
-          };
-        } catch {
-          return {
-            ok: false,
-            txs: [] as IStakePendingTx[],
-          };
+        return Boolean(stakeTagsByNetwork[networkId]?.size);
+      });
+      if (expectedNetworkIds.length === 0) {
+        return VERIFIED_EMPTY_PENDING_TXS_RESULT;
+      }
+      const missingAccountMetaNetworkIds = expectedNetworkIds.filter(
+        (networkId) => !accountMetaByNetwork[networkId],
+      );
+      const targetsWithAccount: Array<[string, INetworkAccountMeta]> = [];
+      expectedNetworkIds.forEach((networkId) => {
+        const meta = accountMetaByNetwork[networkId];
+        if (meta) {
+          targetsWithAccount.push([networkId, meta]);
         }
-      }),
-    );
+      });
 
-    const okResults = txsForTargets.filter((result) => result.ok);
-    if (okResults.length === 0) {
-      return lastFilteredTxsRef.current;
-    }
+      const txsForTargets = await Promise.all(
+        targetsWithAccount.map(async ([networkId, meta]) => {
+          const targetKey = [
+            networkId,
+            meta.accountId,
+            meta.accountAddress,
+            meta.xpub ?? '',
+          ].join('|');
+          try {
+            const pendingTxs =
+              await backgroundApiProxy.serviceHistory.getAccountLocalHistoryPendingTxs(
+                {
+                  networkId,
+                  accountAddress: meta.accountAddress,
+                  xpub: meta.xpub,
+                },
+              );
 
-    const allTxs: IStakePendingTx[] = okResults.flatMap((result) => result.txs);
+            return {
+              networkId,
+              targetKey,
+              ok: true as const,
+              pendingTxs,
+            };
+          } catch {
+            return {
+              networkId,
+              targetKey,
+              ok: false as const,
+            };
+          }
+        }),
+      );
 
-    // Apply custom filter if provided
-    const nextTxs = filter ? allTxs.filter(filter) : allTxs;
-    lastFilteredTxsRef.current = nextTxs;
+      const failedNetworkIds = [
+        ...new Set([
+          ...missingAccountMetaNetworkIds,
+          ...txsForTargets
+            .filter((result) => !result.ok)
+            .map((result) => result.networkId),
+        ]),
+      ].toSorted();
+      const allTxs = txsForTargets.flatMap((result) => {
+        const pendingTxs = result.ok
+          ? result.pendingTxs
+          : (lastVerifiedPendingTxsByTargetRef.current.get(result.targetKey) ??
+            []);
+        if (result.ok) {
+          lastVerifiedPendingTxsByTargetRef.current.set(
+            result.targetKey,
+            result.pendingTxs,
+          );
+        }
 
-    return nextTxs;
-  }, [
-    accountMetaByNetwork,
-    effectiveNetworkIds,
-    filter,
-    stakeTagsByNetwork,
-    tagMatcher,
-  ]);
+        return pendingTxs.filter((tx): tx is IStakePendingTx => {
+          if (!tx.stakingInfo) return false;
+          const tags = tx.stakingInfo.tags ?? [];
+          if (tags.length === 0) return false;
+          if (tagMatcher) {
+            return tags.some((tag) => tagMatcher(tag));
+          }
+          const stakeTags = stakeTagsByNetwork[result.networkId];
+          if (!stakeTags?.size) return false;
+          return tags.some((tag) => stakeTags.has(tag));
+        });
+      });
+
+      // Apply custom filter if provided
+      const nextTxs = filter ? allTxs.filter(filter) : allTxs;
+
+      return {
+        filteredTxs: nextTxs,
+        isPendingHistoryVerified: failedNetworkIds.length === 0,
+        pendingHistoryFailedNetworkIds: failedNetworkIds,
+      };
+    }, [
+      accountMetaByNetwork,
+      effectiveNetworkIds,
+      filter,
+      networkAccountMap,
+      stakeTagsByNetwork,
+      tagMatcher,
+    ]);
 
   const {
-    result: filteredTxs,
+    result: pendingTxsResult,
     run: refreshPendingTxs,
     isLoading: filteredTxsLoading,
   } = usePromiseResult(fetchFilteredPendingTxs, [fetchFilteredPendingTxs], {
-    initResult: [],
+    initResult: UNVERIFIED_PENDING_TXS_RESULT,
     revalidateOnFocus: true,
     watchLoading: true,
   });
+  const {
+    filteredTxs,
+    isPendingHistoryVerified,
+    pendingHistoryFailedNetworkIds,
+  } = pendingTxsResult;
 
   const isPending = filteredTxs.length > 0;
   const prevIsPending = usePrevious(isPending);
@@ -691,6 +784,8 @@ export const useStakingPendingTxsByInfo = ({
   return {
     filteredTxs,
     pendingCount: filteredTxs.length,
+    isPendingHistoryVerified,
+    pendingHistoryFailedNetworkIds,
     isLoading:
       networkAccountMapLoading !== false ||
       accountMetaLoading !== false ||

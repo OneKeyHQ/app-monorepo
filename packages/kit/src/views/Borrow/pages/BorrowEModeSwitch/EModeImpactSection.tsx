@@ -17,7 +17,6 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import {
-  type IEModeRow,
   resolveLtvAccentColor,
   shouldShowCurrentHealthFactorSkeleton,
 } from './emodeUtils';
@@ -67,17 +66,17 @@ function ImpactValue({
 }
 
 export function EModeImpactSection({
-  row,
   isCurrent,
   check,
   isChecking,
+  currentMaxLtv,
   currentHealthFactor,
   currentHealthFactorLoading,
 }: {
-  row: IEModeRow;
   isCurrent: boolean;
   check: IBorrowEModeSwitchCheck | null;
   isChecking: boolean;
+  currentMaxLtv?: string;
   currentHealthFactor?: IEarnText;
   currentHealthFactorLoading: boolean;
 }) {
@@ -116,7 +115,11 @@ export function EModeImpactSection({
       }
     : {};
   const maxLtv: IImpactData = isCurrent
-    ? { current: { title: { text: row.ltv ? `${row.ltv}%` : '—' } } }
+    ? {
+        current: {
+          title: { text: currentMaxLtv ? `${currentMaxLtv}%` : '—' },
+        },
+      }
     : targetMaxLtv;
   const healthFactor: IImpactData = isCurrent
     ? { current: { title: currentHealthFactor ?? { text: '—' } } }
