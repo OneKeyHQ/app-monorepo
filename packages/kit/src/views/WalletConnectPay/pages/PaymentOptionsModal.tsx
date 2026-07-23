@@ -15,6 +15,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalWalletConnectPayRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalWalletConnectPayParamList } from '@onekeyhq/shared/src/routes';
+import { EWcPayStatus } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type { IWcPayOption } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -100,6 +101,13 @@ function PaymentOptionsPage() {
 
   const countdown = useExpiryCountdown(result?.info?.expiresAt);
   const options = result?.options ?? [];
+  const payStatus = result?.info?.status;
+  // A payment in a final state can no longer be paid regardless of balances.
+  const isPaymentInactive =
+    payStatus === EWcPayStatus.Cancelled ||
+    payStatus === EWcPayStatus.Expired ||
+    payStatus === EWcPayStatus.Failed ||
+    payStatus === EWcPayStatus.Succeeded;
   const selectedOption: IWcPayOption | undefined =
     options.find((o) => o.id === selectedOptionId) ?? options[0];
 
@@ -112,9 +120,13 @@ function PaymentOptionsPage() {
       const { paymentId } = result;
       const optionId = selectedOption.id;
 
-      // 1. compliance data collection must complete BEFORE fetching actions
-      if (selectedOption.collectData?.url) {
-        const collectData = selectedOption.collectData;
+      // 1. compliance data collection must complete BEFORE fetching actions.
+      // Prefer per-option collectData; fall back to the legacy top-level field
+      // so merchants still on the old response shape are not skipped.
+      const collectData = selectedOption.collectData?.url
+        ? selectedOption.collectData
+        : result.collectData;
+      if (collectData?.url) {
         await new Promise<void>((resolve, reject) => {
           navigation.push(EModalWalletConnectPayRoutes.DataCollection, {
             collectData,
@@ -221,9 +233,20 @@ function PaymentOptionsPage() {
                 </ListItem>
               ))}
               {options.length === 0 ? (
-                <Stack alignItems="center" py="$8">
-                  <SizableText size="$bodyLg" color="$textSubdued">
-                    {intl.formatMessage({ id: ETranslations.global_failed })}
+                <Stack alignItems="center" py="$8" gap="$1">
+                  <SizableText size="$bodyLgMedium">
+                    {isPaymentInactive
+                      ? 'Payment unavailable'
+                      : 'No payment options available'}
+                  </SizableText>
+                  <SizableText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    textAlign="center"
+                  >
+                    {isPaymentInactive
+                      ? `This payment is ${payStatus ?? 'closed'} and can no longer be paid.`
+                      : 'No supported asset has enough balance to cover this payment. Top up a supported stablecoin (plus gas) and try again.'}
                   </SizableText>
                 </Stack>
               ) : null}
