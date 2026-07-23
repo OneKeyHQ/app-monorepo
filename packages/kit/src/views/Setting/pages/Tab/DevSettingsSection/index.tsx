@@ -199,6 +199,9 @@ const DevSettingsAccordionTrigger = ({
         <XStack alignItems="center" gap="$1">
           {onTogglePin ? (
             <IconButton
+              // Accordion.Trigger renders a native <button> on web; render the
+              // pin control as a span to avoid invalid nested buttons.
+              tag="span"
               icon={pinned ? 'StarSolid' : 'StarOutline'}
               size="small"
               variant="tertiary"
@@ -891,7 +894,9 @@ const BaseDevSettingsSection = () => {
                         name="enableWalletConnectPay"
                         title="启用 WalletConnect Pay"
                         subtitle="识别支付链接（扫码/深链）并启用支付流程"
-                      />
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
 
                       <SectionFieldItem
                         icon="ServerOutline"
