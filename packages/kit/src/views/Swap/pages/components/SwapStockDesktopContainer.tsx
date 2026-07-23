@@ -5,7 +5,7 @@ import { useTheme } from '@tamagui/core';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
+import type { EPageType, IPageNavigationProp } from '@onekeyhq/components';
 import {
   Button,
   Divider,
@@ -172,10 +172,12 @@ import {
   SwapStockTradeProvider,
   useSwapStockTradeContext,
 } from './SwapStockTradeProvider';
+import SwapTipsContainer from './SwapTipsContainer';
 
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 
 interface ISwapStockDesktopContainerProps {
+  pageType?: EPageType;
   headerContent?: ReactNode;
   storeName: EJotaiContextStoreNames;
   onSelectToken: (type: ESwapDirectionType) => void;
@@ -2215,6 +2217,7 @@ function useSwapStockRecentTokenPairs() {
 }
 
 function SwapStockDesktopContent({
+  pageType,
   headerContent,
   storeName,
   onSelectToken,
@@ -2294,6 +2297,7 @@ function SwapStockDesktopContent({
 
   return (
     <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+      <SwapTipsContainer pageType={pageType} />
       <YStack
         width="100%"
         alignItems="center"
@@ -2466,6 +2470,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
       contentContainerStyle={{ paddingBottom: tabBarHeight }}
       bottomOffset={bottomOffset}
     >
+      <SwapTipsContainer pageType={props.pageType} />
       <YStack
         testID={SwapTestIDs.stockMobileContainer}
         // pt $1 + the header pill's py $1 puts the stock symbol at the same
