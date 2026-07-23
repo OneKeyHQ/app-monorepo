@@ -1566,8 +1566,11 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
 
   func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
     if scrollView === outerScrollView {
-      if !usesUnifiedVerticalDriver,
-         let page = pages.first(where: { $0.tabId == selectedTabId }) {
+      if usesUnifiedVerticalDriver {
+        if !decelerate {
+          settleUnifiedVerticalOffsetIfNeeded()
+        }
+      } else if let page = pages.first(where: { $0.tabId == selectedTabId }) {
         endVerticalGesture(source: page)
       }
       return
@@ -1578,6 +1581,10 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   }
 
   func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+    if scrollView === outerScrollView {
+      settleUnifiedVerticalOffsetIfNeeded()
+      return
+    }
     if scrollView === pager {
       finishPaging(notify: pendingPagerNotify)
     }
@@ -1694,6 +1701,12 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       outerScrollView.contentOffset.y = maximumOffset
       updateSharedChromeLayout()
     }
+  }
+
+  private func settleUnifiedVerticalOffsetIfNeeded() {
+    guard usesUnifiedVerticalDriver,
+          let page = pages.first(where: { $0.tabId == selectedTabId }) else { return }
+    updateUnifiedVerticalContentSize(source: page)
   }
 
   private func beginUnifiedMarketMutationPin(source: HomeContainerPageView) {
@@ -2592,9 +2605,10 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   }
 
   func setBodyContentOffset(_ value: CGFloat) {
-    guard abs(tableView.contentOffset.y - value) > 0.5 else { return }
+    let clampedValue = max(0, min(value, maximumBodyContentOffset))
+    guard abs(tableView.contentOffset.y - clampedValue) > 0.5 else { return }
     suppressContentOffsetCallback = true
-    tableView.contentOffset.y = value
+    tableView.contentOffset.y = clampedValue
     suppressContentOffsetCallback = false
   }
 

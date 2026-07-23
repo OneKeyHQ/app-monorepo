@@ -1809,6 +1809,29 @@ describe('iOS HomeContainer slot cell-kind updates', () => {
   });
 });
 
+describe('iOS HomeContainer unified vertical scroll range', () => {
+  const source = fs.readFileSync(
+    path.join(__dirname, '../ios/HomeContainerView.swift'),
+    'utf8',
+  );
+
+  it('clamps the rendered body offset during outer rubber-band overscroll', () => {
+    expect(source).toMatch(
+      /func setBodyContentOffset\(_ value: CGFloat\) \{[\s\S]*?let clampedValue = max\(0, min\(value, maximumBodyContentOffset\)\)[\s\S]*?tableView\.contentOffset\.y = clampedValue/,
+    );
+  });
+
+  it('settles the unified outer range after dragging and deceleration', () => {
+    expect(source).toContain('settleUnifiedVerticalOffsetIfNeeded()');
+    expect(source).toMatch(
+      /scrollViewDidEndDragging[\s\S]*?if !decelerate \{[\s\S]*?settleUnifiedVerticalOffsetIfNeeded\(\)/,
+    );
+    expect(source).toMatch(
+      /scrollViewDidEndDecelerating[\s\S]*?scrollView === outerScrollView[\s\S]*?settleUnifiedVerticalOffsetIfNeeded\(\)/,
+    );
+  });
+});
+
 describe('iOS HomeContainer tab automation identifiers', () => {
   const source = fs.readFileSync(
     path.join(__dirname, '../ios/HomeContainerView.swift'),
