@@ -8,6 +8,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   WALLET_CONNECT_PAY_EIP155_CHAIN_REFS,
+  WALLET_CONNECT_PAY_SOLANA_CHAINS,
   validateWcPayLinkDomain,
   wcPayChainIdToNetworkId,
 } from '@onekeyhq/shared/src/walletConnect/payConstant';
@@ -54,12 +55,12 @@ class ServiceWalletConnectPay extends ServiceBase {
   }
 
   /**
-   * Build the CAIP-10 account list to offer for a payment: the account's EVM
-   * address on every WalletConnect-Pay-supported chain that exists in the
-   * wallet. EVM addresses are identical across eip155 chains, so a single
-   * address resolution covers all of them. The active account may live on a
-   * non-EVM network, so the EVM account is resolved through the indexed
-   * account when available.
+   * Build the CAIP-10 account list to offer for a payment: the EVM address on
+   * every Pay-supported eip155 chain plus the Solana address, restricted to
+   * networks that exist in the wallet. EVM addresses are identical across
+   * eip155 chains, so a single resolution covers all of them. The active
+   * account may not cover every impl (e.g. a single-chain imported key), so
+   * each impl resolves independently and only fully-empty results throw.
    */
   private async buildPayAccounts({
     accountId,
@@ -69,35 +70,58 @@ class ServiceWalletConnectPay extends ServiceBase {
     indexedAccountId?: string;
   }): Promise<string[]> {
     const { serviceAccount, serviceNetwork } = this.backgroundApi;
-    const ethNetworkId = getNetworkIdsMap().eth;
+
     // honour the user's global derive type (e.g. Ledger Live) so the offered
     // address matches the account shown in the wallet
-    const deriveType = await serviceNetwork.getGlobalDeriveTypeOfNetwork({
-      networkId: ethNetworkId,
-    });
-    const evmAccount = await serviceAccount.getNetworkAccount({
-      accountId: indexedAccountId ? undefined : accountId,
-      indexedAccountId,
-      networkId: ethNetworkId,
-      deriveType,
-    });
-    const address = evmAccount?.address;
-    if (!address) {
-      throw new OneKeyError('EVM account address not found');
-    }
-    const chainRefs: string[] = [];
-    for (const ref of WALLET_CONNECT_PAY_EIP155_CHAIN_REFS) {
-      const network = await serviceNetwork.getNetworkSafe({
-        networkId: `evm--${ref}`,
-      });
-      if (network) {
-        chainRefs.push(ref);
+    const resolveAddress = async (
+      networkId: string,
+    ): Promise<string | null> => {
+      try {
+        const deriveType = await serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId,
+        });
+        const account = await serviceAccount.getNetworkAccount({
+          accountId: indexedAccountId ? undefined : accountId,
+          indexedAccountId,
+          networkId,
+          deriveType,
+        });
+        return account?.address || null;
+      } catch {
+        return null;
+      }
+    };
+
+    const accounts: string[] = [];
+
+    const evmAddress = await resolveAddress(getNetworkIdsMap().eth);
+    if (evmAddress) {
+      for (const ref of WALLET_CONNECT_PAY_EIP155_CHAIN_REFS) {
+        const network = await serviceNetwork.getNetworkSafe({
+          networkId: `evm--${ref}`,
+        });
+        if (network) {
+          accounts.push(`eip155:${ref}:${evmAddress}`);
+        }
       }
     }
-    if (chainRefs.length === 0) {
+
+    for (const [ref, networkId] of Object.entries(
+      WALLET_CONNECT_PAY_SOLANA_CHAINS,
+    )) {
+      const network = await serviceNetwork.getNetworkSafe({ networkId });
+      if (network) {
+        const solAddress = await resolveAddress(networkId);
+        if (solAddress) {
+          accounts.push(`solana:${ref}:${solAddress}`);
+        }
+      }
+    }
+
+    if (accounts.length === 0) {
       throw new OneKeyError('No supported networks for WalletConnect Pay');
     }
-    return chainRefs.map((ref) => `eip155:${ref}:${address}`);
+    return accounts;
   }
 
   @backgroundMethod()
