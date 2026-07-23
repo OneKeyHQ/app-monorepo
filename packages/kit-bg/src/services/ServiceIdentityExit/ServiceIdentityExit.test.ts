@@ -19,8 +19,10 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import {
   OneKeyLocalError,
+  OneKeyServerApiError,
   PasswordPromptDialogCancel,
 } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type {
   IIdentityExitOAuthHandoff,
   IIdentityExitPlan,
@@ -37,8 +39,13 @@ import {
   revokeAuthSessionTokenOnServerBestEffort,
 } from '../ServicePrime/primeAuthSessionAccess';
 
-import { resetIdentityRecoveryStateForTest } from './identityLifecycleMutex';
-import ServiceIdentityExit from './ServiceIdentityExit';
+import {
+  resetIdentityRecoveryStateForTest,
+  waitForIdentityMutationReady,
+} from './identityLifecycleMutex';
+import ServiceIdentityExit, {
+  resetIdentityExitRegistriesForTest,
+} from './ServiceIdentityExit';
 
 import type { IDBWallet } from '../../dbs/local/types';
 import type { IIdentityExitJournalEntry } from '../../dbs/simple/entity/SimpleDbEntityPrime';
@@ -146,7 +153,7 @@ function createFixture({
       return true;
     },
   );
-  const markIdentityExitOAuthHandoffConsumed = jest.fn(
+  const consumeIdentityExitOAuthHandoff = jest.fn(
     async ({
       operationId,
       handoff,
@@ -159,18 +166,18 @@ function createFixture({
       const entry = journalState[operationId];
       if (
         entry?.status !== 'completed' ||
-        entry.completed?.oauthHandoff !== handoff ||
-        entry.completed.oauthHandoffConsumedAt
+        entry.completed?.oauthHandoff !== handoff
       ) {
         return false;
       }
-      journalState[operationId] = {
-        ...entry,
-        completed: {
-          ...entry.completed,
-          oauthHandoffConsumedAt: consumedAt,
-        },
-      };
+      delete journalState[operationId];
+      if (
+        entry.completed.oauthHandoffConsumedAt ||
+        !entry.completed.oauthHandoffExpiresAt ||
+        entry.completed.oauthHandoffExpiresAt <= consumedAt
+      ) {
+        return false;
+      }
       return true;
     },
   );
@@ -207,7 +214,7 @@ function createFixture({
         getIdentityExitOperationJournal: jest.fn(async () => ({
           ...journalState,
         })),
-        markIdentityExitOAuthHandoffConsumed,
+        consumeIdentityExitOAuthHandoff,
       },
     },
     serviceAccount: {
@@ -232,6 +239,9 @@ function createFixture({
       logoutPrimeServerSessionBestEffort,
       deleteOneKeyIdAccountOnServer,
       clearAllIdentityAuthForExplicitOperation,
+      recoverInterruptedKeylessOAuthSessionPersistence: jest
+        .fn()
+        .mockResolvedValue({ recovered: false, abandoned: false }),
     },
   };
   const service = new ServiceIdentityExit({ backgroundApi });
@@ -251,7 +261,7 @@ function createFixture({
     setIdentityExitJournalEntry,
     removeIdentityExitJournalEntry,
     journalState,
-    markIdentityExitOAuthHandoffConsumed,
+    consumeIdentityExitOAuthHandoff,
   };
 }
 
@@ -267,6 +277,7 @@ function expectReadyPlan(
 describe('ServiceIdentityExit', () => {
   beforeEach(() => {
     resetIdentityRecoveryStateForTest('ready');
+    resetIdentityExitRegistriesForTest();
     jest.clearAllMocks();
     jest.spyOn(primePersistAtom, 'get').mockResolvedValue({
       ...primePersistAtomInitialValue,
@@ -282,6 +293,41 @@ describe('ServiceIdentityExit', () => {
           : keylessToken,
     }));
     mockRevokeSupabaseSession.mockResolvedValue(undefined);
+  });
+
+  test('a successful full recovery clears a failed bootstrap barrier', async () => {
+    resetIdentityRecoveryStateForTest('failed');
+    const fixture = createFixture();
+
+    await expect(
+      fixture.service.recoverInterruptedIdentityExitOperations(),
+    ).resolves.toEqual({
+      recoveredOperationCount: 0,
+      abandonedOperationCount: 0,
+    });
+    await expect(waitForIdentityMutationReady()).resolves.toBeUndefined();
+    expect(
+      fixture.backgroundApi.servicePrime
+        .recoverInterruptedKeylessOAuthSessionPersistence,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  test('a failed Keyless persistence recovery keeps the bootstrap barrier failed', async () => {
+    resetIdentityRecoveryStateForTest('failed');
+    const fixture = createFixture();
+    const recoveryError = new OneKeyLocalError(
+      'Keyless persistence recovery failed',
+    );
+    fixture.backgroundApi.servicePrime.recoverInterruptedKeylessOAuthSessionPersistence.mockRejectedValue(
+      recoveryError,
+    );
+
+    await expect(
+      fixture.service.recoverInterruptedIdentityExitOperations(),
+    ).rejects.toBe(recoveryError);
+    await expect(waitForIdentityMutationReady()).rejects.toThrow(
+      'Identity recovery did not complete',
+    );
   });
 
   afterEach(() => {
@@ -591,6 +637,12 @@ describe('ServiceIdentityExit', () => {
         acknowledgement: 'keylessWalletRemoval',
       }),
     ).resolves.toMatchObject({ status: 'blocked', code: 'STATE_CHANGED' });
+    await expect(
+      fixture.service.executeIdentityExit({
+        planId: plan.planId,
+        acknowledgement: 'keylessWalletRemoval',
+      }),
+    ).resolves.toMatchObject({ status: 'blocked', code: 'STATE_CHANGED' });
     expect(fixture.promptPasswordVerifyByWallet).toHaveBeenCalledTimes(1);
     expect(fixture.removeKeylessWalletWithCapability).not.toHaveBeenCalled();
     expect(fixture.commitIdentityExitLocalState).not.toHaveBeenCalled();
@@ -615,9 +667,82 @@ describe('ServiceIdentityExit', () => {
         acknowledgement: 'keylessWalletRemoval',
       }),
     ).resolves.toEqual({ status: 'cancelled' });
+    await expect(
+      fixture.service.executeIdentityExit({
+        planId: plan.planId,
+        acknowledgement: 'keylessWalletRemoval',
+      }),
+    ).resolves.toMatchObject({ status: 'blocked', code: 'STATE_CHANGED' });
+    expect(fixture.promptPasswordVerifyByWallet).toHaveBeenCalledTimes(1);
     expect(fixture.removeKeylessWalletWithCapability).not.toHaveBeenCalled();
     expect(fixture.commitIdentityExitLocalState).not.toHaveBeenCalled();
     expect(fixture.setIdentityExitJournalEntry).not.toHaveBeenCalled();
+  });
+
+  test('evicts an unexecuted identity exit plan at its TTL', async () => {
+    jest.useFakeTimers();
+    try {
+      const fixture = createFixture();
+      const plan = await fixture.service.prepareIdentityExit({
+        type: 'removeKeyless',
+        expectedWalletId: keylessWallet.id,
+        scene: 'accountSelector',
+      });
+      expectReadyPlan(plan);
+
+      jest.advanceTimersByTime(5 * 60 * 1000);
+
+      await expect(
+        fixture.service.executeIdentityExit({
+          planId: plan.planId,
+          acknowledgement: 'keylessWalletRemoval',
+        }),
+      ).resolves.toMatchObject({ status: 'blocked', code: 'STATE_CHANGED' });
+      expect(fixture.promptPasswordVerifyByWallet).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('evicts an executing identity exit plan from the registry at its TTL', async () => {
+    jest.useFakeTimers();
+    try {
+      const fixture = createFixture();
+      let resolvePassword: ((value: { password: string }) => void) | undefined;
+      fixture.promptPasswordVerifyByWallet.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolvePassword = resolve;
+          }),
+      );
+      const plan = await fixture.service.prepareIdentityExit({
+        type: 'removeKeyless',
+        expectedWalletId: keylessWallet.id,
+        scene: 'accountSelector',
+      });
+      expectReadyPlan(plan);
+      const firstExecution = fixture.service.executeIdentityExit({
+        planId: plan.planId,
+        acknowledgement: 'keylessWalletRemoval',
+      });
+      await Promise.resolve();
+
+      jest.advanceTimersByTime(5 * 60 * 1000);
+
+      await expect(
+        fixture.service.executeIdentityExit({
+          planId: plan.planId,
+          acknowledgement: 'keylessWalletRemoval',
+        }),
+      ).resolves.toMatchObject({ status: 'blocked', code: 'STATE_CHANGED' });
+      resolvePassword?.({ password: 'encoded-password' });
+      await expect(firstExecution).resolves.toMatchObject({
+        status: 'completed',
+        removedWalletId: keylessWallet.id,
+      });
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   test('malformed Keyless provider is blocked with the exact field error', async () => {
@@ -634,7 +759,7 @@ describe('ServiceIdentityExit', () => {
       fixture.service.prepareIdentityExit({
         type: 'removeKeyless',
         expectedWalletId: keylessWallet.id,
-        scene: 'accountSelector',
+        scene: 'oneKeyIdLogin',
       }),
     ).resolves.toEqual({
       status: 'blocked',
@@ -643,7 +768,7 @@ describe('ServiceIdentityExit', () => {
     });
   });
 
-  test('removes malformed Keyless through the confirmed coordinator and preserves independent Email OneKey ID', async () => {
+  test('routes malformed account-selector removal through recovery and preserves independent Email OneKey ID', async () => {
     const malformedWallet = {
       ...keylessWallet,
       keylessDetailsInfo: {
@@ -654,15 +779,13 @@ describe('ServiceIdentityExit', () => {
     const fixture = createFixture({ wallet: malformedWallet });
 
     const plan = await fixture.service.prepareIdentityExit({
-      type: 'recoverMalformedKeyless',
+      type: 'removeKeyless',
       expectedWalletId: malformedWallet.id,
-      nextProvider: EOAuthSocialLoginProvider.Apple,
-      scene: 'keylessOnboarding',
+      scene: 'accountSelector',
     });
     expectReadyPlan(plan);
     expect(plan.presentation).toEqual({
       type: 'recoverMalformedKeyless',
-      nextProvider: EOAuthSocialLoginProvider.Apple,
       oneKeyIdWillBeLoggedOut: false,
     });
 
@@ -675,7 +798,9 @@ describe('ServiceIdentityExit', () => {
       status: 'completed',
       oneKeyIdLoggedOut: false,
       removedWalletId: malformedWallet.id,
+      startIndependentOneKeyIdOAuth: undefined,
     });
+    expect(fixture.promptPasswordVerifyByWallet).toHaveBeenCalledTimes(1);
     expect(
       fixture.removeMalformedKeylessWalletWithCapability,
     ).toHaveBeenCalledTimes(1);
@@ -692,6 +817,26 @@ describe('ServiceIdentityExit', () => {
         walletId: malformedWallet.id,
         sessionCommitId: 'keyless-session',
       },
+    });
+  });
+
+  test('routes a broad identity-managed wallet with an invalid isKeyless flag to recovery', async () => {
+    const malformedWallet = {
+      ...keylessWallet,
+      isKeyless: false,
+    } as IDBWallet;
+    const fixture = createFixture({ wallet: malformedWallet });
+
+    const plan = await fixture.service.prepareIdentityExit({
+      type: 'removeKeyless',
+      expectedWalletId: malformedWallet.id,
+      scene: 'accountSelector',
+    });
+
+    expectReadyPlan(plan);
+    expect(plan.presentation).toEqual({
+      type: 'recoverMalformedKeyless',
+      oneKeyIdWillBeLoggedOut: false,
     });
   });
 
@@ -872,7 +1017,10 @@ describe('ServiceIdentityExit', () => {
 
   test('clears local auth without claiming success when the server deletion outcome is unknown', async () => {
     const fixture = createFixture();
-    const networkError = new Error('delete request disconnected');
+    const networkError = Object.assign(
+      new Error('delete request disconnected'),
+      { className: EOneKeyErrorClassNames.AxiosNetworkError },
+    );
     fixture.deleteOneKeyIdAccountOnServer.mockRejectedValue(networkError);
 
     await expect(
@@ -893,12 +1041,107 @@ describe('ServiceIdentityExit', () => {
       callerName: 'accountDeletion',
       expectedIdentityLifecycleRevision: 10,
     });
-    expect(Object.values(fixture.journalState)).toEqual([
-      expect.objectContaining({
-        status: 'completed',
-        serverDeleteOutcome: 'unknown',
+    expect(fixture.journalState).toEqual({});
+  });
+
+  test('treats a timeout without a server response as an unknown deletion outcome', async () => {
+    const fixture = createFixture();
+    fixture.deleteOneKeyIdAccountOnServer.mockRejectedValue(
+      Object.assign(new Error('request timed out'), {
+        code: 'ECONNABORTED',
       }),
-    ]);
+    );
+
+    await expect(
+      fixture.service.deleteOneKeyIdAccount({
+        uuid: 'delete-request-1',
+        emailOTP: '123456',
+      }),
+    ).resolves.toMatchObject({
+      serverOutcome: 'unknown',
+      localStateCleared: true,
+    });
+    expect(
+      fixture.clearAllIdentityAuthForExplicitOperation,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  test('does not treat a timeout code with an HTTP response as ambiguous', async () => {
+    const fixture = createFixture();
+    const serverError = Object.assign(new Error('gateway timeout'), {
+      code: 'ECONNABORTED',
+      httpStatusCode: 504,
+      response: { status: 504 },
+    });
+    fixture.deleteOneKeyIdAccountOnServer.mockRejectedValue(serverError);
+
+    await expect(
+      fixture.service.deleteOneKeyIdAccount({
+        uuid: 'delete-request-1',
+        emailOTP: '123456',
+      }),
+    ).rejects.toBe(serverError);
+    expect(
+      fixture.clearAllIdentityAuthForExplicitOperation,
+    ).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    new OneKeyServerApiError({
+      message: 'Invalid verification code',
+      code: 40_001,
+      httpStatusCode: 200,
+    }),
+    new OneKeyServerApiError({
+      message: 'Server error',
+      code: 500,
+      httpStatusCode: 500,
+    }),
+    new OneKeyLocalError('Unclassified account deletion failure'),
+  ])(
+    'preserves local identity when account deletion is definitively rejected',
+    async (serverError) => {
+      const fixture = createFixture();
+      fixture.deleteOneKeyIdAccountOnServer.mockRejectedValue(serverError);
+
+      await expect(
+        fixture.service.deleteOneKeyIdAccount({
+          uuid: 'delete-request-1',
+          emailOTP: '123456',
+        }),
+      ).rejects.toBe(serverError);
+
+      expect(
+        fixture.clearAllIdentityAuthForExplicitOperation,
+      ).not.toHaveBeenCalled();
+      expect(fixture.journalState).toEqual({});
+      expect(
+        fixture.setIdentityExitJournalEntry.mock.calls.map(
+          ([entry]) => entry.status,
+        ),
+      ).toContain('serverDeleteRejected');
+    },
+  );
+
+  test('preserves local identity when the server returns a rejected result', async () => {
+    const fixture = createFixture();
+    fixture.deleteOneKeyIdAccountOnServer.mockResolvedValue({ ok: false });
+
+    await expect(
+      fixture.service.deleteOneKeyIdAccount({
+        uuid: 'delete-request-1',
+        emailOTP: '123456',
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      oneKeyIdLoggedOut: false,
+      serverOutcome: 'rejected',
+      localStateCleared: false,
+    });
+    expect(
+      fixture.clearAllIdentityAuthForExplicitOperation,
+    ).not.toHaveBeenCalled();
+    expect(fixture.journalState).toEqual({});
   });
 
   test.each(['serverDeletePrepared', 'serverDeleteRejected'] as const)(
@@ -968,12 +1211,7 @@ describe('ServiceIdentityExit', () => {
       callerName: 'accountDeletion',
       expectedIdentityLifecycleRevision: 10,
     });
-    expect(fixture.journalState[journal.operationId]).toEqual(
-      expect.objectContaining({
-        status: 'completed',
-        serverDeleteOutcome: 'unknown',
-      }),
-    );
+    expect(fixture.journalState[journal.operationId]).toBeUndefined();
   });
 
   test('recovers local cleanup only from a confirmed serverDeleted phase', async () => {
@@ -1005,7 +1243,7 @@ describe('ServiceIdentityExit', () => {
     expect(
       fixture.clearAllIdentityAuthForExplicitOperation,
     ).toHaveBeenCalledTimes(1);
-    expect(fixture.journalState[journal.operationId].status).toBe('completed');
+    expect(fixture.journalState[journal.operationId]).toBeUndefined();
   });
 
   test('durably stages invalid-token reconciliation before lifecycle cleanup', async () => {
@@ -1167,6 +1405,9 @@ describe('ServiceIdentityExit', () => {
     fixture.backgroundApi.serviceAccount.getKeylessWallet.mockResolvedValue(
       undefined,
     );
+    fixture.backgroundApi.serviceAccount.getIdentityManagedKeylessWalletCandidate.mockResolvedValue(
+      undefined,
+    );
 
     await expect(
       fixture.service.recoverInterruptedIdentityExitOperations(),
@@ -1177,14 +1418,7 @@ describe('ServiceIdentityExit', () => {
     expect(fixture.promptPasswordVerifyByWallet).not.toHaveBeenCalled();
     expect(fixture.removeKeylessWalletWithCapability).not.toHaveBeenCalled();
     expect(fixture.commitIdentityExitLocalState).toHaveBeenCalledTimes(1);
-    expect(fixture.journalState[journal.operationId]).toMatchObject({
-      status: 'completed',
-      committedLifecycleRevision: 11,
-      completed: {
-        oneKeyIdLoggedOut: false,
-        removedWalletId: keylessWallet.id,
-      },
-    });
+    expect(fixture.journalState[journal.operationId]).toBeUndefined();
   });
 
   test('recovery preserves OneKey ID session for an unknown-linkage Keyless removal', async () => {
@@ -1302,7 +1536,7 @@ describe('ServiceIdentityExit', () => {
         .invocationCallOrder[0],
     );
     expect(fixture.removeKeylessWalletWithCapability).not.toHaveBeenCalled();
-    expect(fixture.journalState[journal.operationId].status).toBe('completed');
+    expect(fixture.journalState[journal.operationId]).toBeUndefined();
   });
 
   test('does not roll back a completed exit when post-delete side effects fail', async () => {
@@ -1331,7 +1565,7 @@ describe('ServiceIdentityExit', () => {
       Object.values(fixture.journalState).find(
         (entry) => entry.planId === plan.planId,
       ),
-    ).toMatchObject({ status: 'completed' });
+    ).toBeUndefined();
   });
 
   test('recovers critical owner credentials after the wallet row was removed', async () => {
@@ -1339,10 +1573,9 @@ describe('ServiceIdentityExit', () => {
     fixture.cleanupKeylessWalletCredentialStorage
       .mockRejectedValueOnce(new Error('Credential storage unavailable'))
       .mockResolvedValueOnce(undefined);
-    fixture.backgroundApi.serviceAccount.getKeylessWallet
-      .mockResolvedValueOnce(keylessWallet)
-      .mockResolvedValueOnce(keylessWallet)
-      .mockResolvedValue(undefined);
+    fixture.backgroundApi.serviceAccount.getKeylessWallet.mockResolvedValue(
+      undefined,
+    );
     const plan = await fixture.service.prepareIdentityExit({
       type: 'removeKeyless',
       expectedWalletId: keylessWallet.id,
@@ -1425,6 +1658,99 @@ describe('ServiceIdentityExit', () => {
       oneKeyIdLoggedOut: true,
     });
     expect(fixture.commitIdentityExitLocalState).not.toHaveBeenCalled();
+    expect(fixture.journalState[journal.operationId]).toBeUndefined();
+  });
+
+  test('removes an expired OAuth handoff journal without replaying its continuation', async () => {
+    const planId = 'expired-handoff-plan' as IIdentityExitPlanId;
+    const journal: IIdentityExitJournalEntry = {
+      operationId: 'expired-handoff-operation',
+      planId,
+      intentType: 'switchOAuth',
+      status: 'completed',
+      startedAt: 1,
+      updatedAt: 2,
+      expectedLifecycleRevision: 10,
+      committedLifecycleRevision: 11,
+      target: {
+        logoutOneKeyId: false,
+        removeKeyless: true,
+        switchOAuthProvider: EOAuthSocialLoginProvider.Apple,
+      },
+      keyless: {
+        walletId: keylessWallet.id,
+      },
+      completed: {
+        oneKeyIdLoggedOut: false,
+        removedWalletId: keylessWallet.id,
+        oauthHandoff: 'expired-handoff',
+        oauthProvider: EOAuthSocialLoginProvider.Apple,
+        oauthHandoffExpiresAt: Date.now() - 1,
+        oauthExpectedLifecycleRevision: 11,
+      },
+    };
+    const fixture = createFixture({
+      journalEntries: { [journal.operationId]: journal },
+    });
+
+    await fixture.service.recoverInterruptedIdentityExitOperations();
+
+    expect(fixture.journalState[journal.operationId]).toBeUndefined();
+    await expect(
+      fixture.service.executeIdentityExit({ planId }),
+    ).resolves.toEqual({
+      status: 'completed',
+      oneKeyIdLoggedOut: false,
+      removedWalletId: keylessWallet.id,
+      startIndependentOneKeyIdOAuth: undefined,
+    });
+  });
+
+  test('actively removes a live OAuth handoff journal when its TTL expires', async () => {
+    jest.useFakeTimers();
+    try {
+      const fixture = createFixture();
+      fixture.backgroundApi.simpleDb.prime.getOneKeyIdAuthState.mockResolvedValue(
+        'loggedOut',
+      );
+      fixture.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource.mockResolvedValue(
+        undefined,
+      );
+      jest.spyOn(primePersistAtom, 'get').mockResolvedValue({
+        ...primePersistAtomInitialValue,
+        isLoggedIn: false,
+        isLoggedInOnServer: false,
+      });
+      const plan = await fixture.service.prepareIdentityExit({
+        type: 'switchOAuth',
+        expectedWalletId: keylessWallet.id,
+        nextProvider: EOAuthSocialLoginProvider.Apple,
+        scene: 'oneKeyIdLogin',
+      });
+      expectReadyPlan(plan);
+
+      await expect(
+        fixture.service.executeIdentityExit({
+          planId: plan.planId,
+          acknowledgement: 'keylessWalletRemoval',
+        }),
+      ).resolves.toMatchObject({
+        status: 'completed',
+        startIndependentOneKeyIdOAuth: {
+          provider: EOAuthSocialLoginProvider.Apple,
+        },
+      });
+      expect(Object.values(fixture.journalState)).toHaveLength(1);
+
+      jest.advanceTimersByTime(5 * 60 * 1000);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(fixture.journalState).toEqual({});
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   test('persists a single OAuth handoff when recovering localStateCommitted', async () => {
@@ -1470,7 +1796,7 @@ describe('ServiceIdentityExit', () => {
     });
   });
 
-  test('a consumed OAuth handoff stays consumed in the persisted journal', async () => {
+  test('consuming an OAuth handoff atomically removes its persisted journal', async () => {
     const handoff = 'persisted-one-time-handoff' as IIdentityExitOAuthHandoff;
     const journal: IIdentityExitJournalEntry = {
       operationId: 'handoff-operation',
@@ -1517,6 +1843,9 @@ describe('ServiceIdentityExit', () => {
     fixture.backgroundApi.serviceAccount.getKeylessWallet.mockResolvedValue(
       undefined,
     );
+    fixture.backgroundApi.serviceAccount.getIdentityManagedKeylessWalletCandidate.mockResolvedValue(
+      undefined,
+    );
     jest.spyOn(primePersistAtom, 'get').mockResolvedValue({
       ...primePersistAtomInitialValue,
       isLoggedIn: false,
@@ -1524,6 +1853,7 @@ describe('ServiceIdentityExit', () => {
     });
     mockReadSession.mockResolvedValue({ status: 'empty' });
 
+    await fixture.service.recoverInterruptedIdentityExitOperations();
     await fixture.service.consumeOAuthHandoffForLogin({
       handoff,
       provider: EOAuthSocialLoginProvider.Apple,
@@ -1535,9 +1865,85 @@ describe('ServiceIdentityExit', () => {
         handoff,
         provider: EOAuthSocialLoginProvider.Apple,
       }),
-    ).rejects.toThrow('invalid or expired');
-    expect(fixture.markIdentityExitOAuthHandoffConsumed).toHaveBeenCalledTimes(
-      1,
+    ).rejects.toThrow('was not found');
+    expect(fixture.consumeIdentityExitOAuthHandoff).toHaveBeenCalledTimes(1);
+    expect(fixture.journalState).toEqual({});
+    await expect(
+      fixture.service.executeIdentityExit({
+        planId: journal.planId as IIdentityExitPlanId,
+      }),
+    ).resolves.toMatchObject({
+      status: 'blocked',
+      code: 'STATE_CHANGED',
+    });
+  });
+
+  test('fails closed when OAuth handoff consumption has an unknown storage outcome', async () => {
+    const handoff = 'uncertain-consume-handoff' as IIdentityExitOAuthHandoff;
+    const journal: IIdentityExitJournalEntry = {
+      operationId: 'uncertain-consume-operation',
+      planId: 'uncertain-consume-plan',
+      intentType: 'switchOAuth',
+      status: 'completed',
+      startedAt: 1,
+      updatedAt: 2,
+      expectedLifecycleRevision: 10,
+      committedLifecycleRevision: 11,
+      target: {
+        logoutOneKeyId: false,
+        removeKeyless: true,
+        switchOAuthProvider: EOAuthSocialLoginProvider.Apple,
+      },
+      keyless: {
+        walletId: keylessWallet.id,
+      },
+      completed: {
+        oneKeyIdLoggedOut: false,
+        removedWalletId: keylessWallet.id,
+        oauthHandoff: handoff,
+        oauthProvider: EOAuthSocialLoginProvider.Apple,
+        oauthHandoffExpiresAt: Date.now() + 60_000,
+        oauthExpectedLifecycleRevision: 11,
+      },
+    };
+    const fixture = createFixture({
+      lifecycleRevisions: [11],
+      journalEntries: { [journal.operationId]: journal },
+    });
+    fixture.backgroundApi.simpleDb.prime.getOneKeyIdAuthState.mockResolvedValue(
+      'loggedOut',
     );
+    fixture.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource.mockResolvedValue(
+      undefined,
+    );
+    fixture.backgroundApi.serviceAccount.getIdentityManagedKeylessWalletCandidate.mockResolvedValue(
+      undefined,
+    );
+    jest.spyOn(primePersistAtom, 'get').mockResolvedValue({
+      ...primePersistAtomInitialValue,
+      isLoggedIn: false,
+      isLoggedInOnServer: false,
+    });
+    mockReadSession.mockResolvedValue({ status: 'empty' });
+    await fixture.service.recoverInterruptedIdentityExitOperations();
+    const storageError = new OneKeyLocalError(
+      'Handoff consume storage write failed',
+    );
+    fixture.consumeIdentityExitOAuthHandoff.mockImplementationOnce(async () => {
+      delete fixture.journalState[journal.operationId];
+      throw storageError;
+    });
+
+    await expect(
+      fixture.service.consumeOAuthHandoffForLogin({
+        handoff,
+        provider: EOAuthSocialLoginProvider.Apple,
+      }),
+    ).rejects.toBe(storageError);
+    await expect(
+      fixture.service.executeIdentityExit({
+        planId: journal.planId as IIdentityExitPlanId,
+      }),
+    ).rejects.toThrow('Identity journal storage outcome is unknown');
   });
 });

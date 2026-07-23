@@ -6,9 +6,11 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type { ISupabaseJWTPayload } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
   IExecuteIdentityExitParams,
@@ -67,7 +69,6 @@ type IStoredStandardIdentityExitPlan = {
   target: IIdentityExitExecutionTarget;
   operationId: string;
   executionPromise?: Promise<IIdentityExitReceipt>;
-  receipt?: IIdentityExitReceipt;
 };
 
 type IMalformedKeylessRecoveryIntent = Extract<
@@ -98,7 +99,6 @@ type IStoredMalformedKeylessRecoveryPlan = {
   target: IIdentityExitExecutionTarget;
   operationId: string;
   executionPromise?: Promise<IIdentityExitReceipt>;
-  receipt?: IIdentityExitReceipt;
 };
 
 type IStoredIdentityExitPlan =
@@ -107,12 +107,18 @@ type IStoredIdentityExitPlan =
 
 type IIdentityExitOAuthHandoffRecord = {
   operationId: string;
+  planId: string;
   handoff: IIdentityExitOAuthHandoff;
   provider: EOAuthSocialLoginProvider;
   expectedLifecycleRevision: number;
   removedWalletId: string;
   expiresAt: number;
   consumed: boolean;
+};
+
+type ISettledIdentityExitReceiptRecord = {
+  receipt: Extract<IIdentityExitReceipt, { status: 'completed' }>;
+  expiresAt: number;
 };
 
 const IDENTITY_EXIT_SNAPSHOT_ERROR_CODE = Symbol(
@@ -185,12 +191,131 @@ function getJournalWalletSessionCommitId(
 }
 
 const planRegistry = new Map<string, IStoredIdentityExitPlan>();
-const oauthHandoffRegistry = new Map<string, IIdentityExitOAuthHandoffRecord>();
+const settledReceiptRegistry = new Map<
+  string,
+  ISettledIdentityExitReceiptRecord
+>();
+
+const ACCOUNT_DELETION_TRANSPORT_ERROR_CODES = new Set([
+  'ECONNABORTED',
+  'ETIMEDOUT',
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'ENETUNREACH',
+  'EHOSTUNREACH',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'ERR_NETWORK',
+]);
+
+function isAccountDeletionTransportOutcomeUnknown(error: unknown): boolean {
+  const candidate = error as
+    | {
+        className?: string;
+        code?: string | number;
+        httpStatusCode?: number;
+        response?: unknown;
+      }
+    | undefined;
+  if (candidate?.response || typeof candidate?.httpStatusCode === 'number') {
+    return false;
+  }
+  if (candidate?.className === EOneKeyErrorClassNames.AxiosNetworkError) {
+    return true;
+  }
+  return (
+    typeof candidate?.code === 'string' &&
+    ACCOUNT_DELETION_TRANSPORT_ERROR_CODES.has(candidate.code)
+  );
+}
+
+function storeIdentityExitPlan(storedPlan: IStoredIdentityExitPlan): void {
+  const { planId, expiresAt } = storedPlan.publicPlan;
+  planRegistry.set(planId, storedPlan);
+  const expiryTimer = setTimeout(
+    () => {
+      const currentPlan = planRegistry.get(planId);
+      if (currentPlan && currentPlan.publicPlan.expiresAt <= Date.now()) {
+        planRegistry.delete(planId);
+      }
+    },
+    Math.max(0, expiresAt - Date.now()),
+  );
+  (
+    expiryTimer as unknown as {
+      unref?: () => void;
+    }
+  ).unref?.();
+}
+
+function storeSettledIdentityExitReceipt({
+  planId,
+  receipt,
+  expiresAt,
+}: {
+  planId: string;
+  receipt: Extract<IIdentityExitReceipt, { status: 'completed' }>;
+  expiresAt?: number;
+}): void {
+  const record = {
+    receipt,
+    expiresAt:
+      expiresAt ??
+      receipt.startIndependentOneKeyIdOAuth?.expiresAt ??
+      Date.now() + IDENTITY_EXIT_PLAN_TTL_MS,
+  };
+  settledReceiptRegistry.set(planId, record);
+  const expiryTimer = setTimeout(
+    () => {
+      const currentReceipt = settledReceiptRegistry.get(planId);
+      if (currentReceipt && currentReceipt.expiresAt <= Date.now()) {
+        settledReceiptRegistry.delete(planId);
+      }
+    },
+    Math.max(0, record.expiresAt - Date.now()),
+  );
+  (
+    expiryTimer as unknown as {
+      unref?: () => void;
+    }
+  ).unref?.();
+}
+
+function getSettledIdentityExitReceipt(
+  planId: string,
+): Extract<IIdentityExitReceipt, { status: 'completed' }> | undefined {
+  const record = settledReceiptRegistry.get(planId);
+  if (!record) {
+    return undefined;
+  }
+  if (record.expiresAt <= Date.now()) {
+    settledReceiptRegistry.delete(planId);
+    return undefined;
+  }
+  return record.receipt;
+}
+
+export function resetIdentityExitRegistriesForTest(): void {
+  if (!platformEnv.isJest) {
+    throw new OneKeyLocalError(
+      'Identity exit registries can only be reset in tests.',
+    );
+  }
+  planRegistry.clear();
+  settledReceiptRegistry.clear();
+}
 
 @backgroundClass()
 class ServiceIdentityExit extends ServiceBase {
   private readonly identityExitJournalStorageOutcomeUnknownOperationIds =
     new Set<string>();
+
+  private markIdentityExitJournalStorageOutcomeUnknown(
+    operationId: string,
+  ): void {
+    this.identityExitJournalStorageOutcomeUnknownOperationIds.add(operationId);
+    markIdentityRecoveryFailed(operationId);
+  }
 
   private async persistIdentityExitJournalEntry(
     entry: IIdentityExitJournalEntry,
@@ -203,10 +328,7 @@ class ServiceIdentityExit extends ServiceBase {
       // A rejected storage write may still have reached the durable backend.
       // Do not recover from SimpleDB's optimistic in-memory cache in this
       // runtime; startup must reload the durable journal before proceeding.
-      this.identityExitJournalStorageOutcomeUnknownOperationIds.add(
-        entry.operationId,
-      );
-      markIdentityRecoveryFailed(entry.operationId);
+      this.markIdentityExitJournalStorageOutcomeUnknown(entry.operationId);
       throw error;
     }
   }
@@ -341,21 +463,7 @@ class ServiceIdentityExit extends ServiceBase {
         await this.persistIdentityExitJournalEntry(journal);
         let serverResult: { ok?: boolean } | undefined;
         let serverOutcome: 'confirmed' | 'rejected' | 'unknown' = 'confirmed';
-        try {
-          serverResult =
-            await this.backgroundApi.servicePrime.deleteOneKeyIdAccountOnServer(
-              {
-                uuid,
-                emailOTP,
-              },
-            );
-        } catch {
-          // The server outcome cannot be inferred from a transport error.
-          // The user already authorized account deletion, so finish the
-          // explicit local auth cleanup without reporting server success.
-          serverOutcome = 'unknown';
-        }
-        if (serverOutcome !== 'unknown' && !serverResult?.ok) {
+        const settleServerRejection = async () => {
           serverOutcome = 'rejected';
           journal = {
             ...journal,
@@ -378,6 +486,28 @@ class ServiceIdentityExit extends ServiceBase {
           }
           markIdentityRecoveryReady(operationId);
           didSettleRecoveryBarrier = true;
+        };
+        try {
+          serverResult =
+            await this.backgroundApi.servicePrime.deleteOneKeyIdAccountOnServer(
+              {
+                uuid,
+                emailOTP,
+              },
+            );
+        } catch (error) {
+          if (isAccountDeletionTransportOutcomeUnknown(error)) {
+            // A transport interruption cannot prove whether the request
+            // reached the server, so finish the authorized local cleanup
+            // without claiming that server deletion succeeded.
+            serverOutcome = 'unknown';
+          } else {
+            await settleServerRejection();
+            throw error;
+          }
+        }
+        if (serverOutcome !== 'unknown' && !serverResult?.ok) {
+          await settleServerRejection();
           return {
             ok: false,
             oneKeyIdLoggedOut: false,
@@ -566,7 +696,7 @@ class ServiceIdentityExit extends ServiceBase {
         this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
         primePersistAtom.get(),
         this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource(),
-        this.backgroundApi.serviceAccount.getKeylessWallet(),
+        this.backgroundApi.serviceAccount.getIdentityManagedKeylessWalletCandidate(),
       ]);
 
     const oneKeyId = await this.buildOneKeyIdSnapshot({
@@ -577,6 +707,13 @@ class ServiceIdentityExit extends ServiceBase {
 
     let keyless: IIdentityExitSnapshot['keyless'] = { type: 'absent' };
     if (wallet) {
+      const malformedDataError = getMalformedKeylessWalletDataError(wallet);
+      if (malformedDataError) {
+        throw createIdentityExitSnapshotError(
+          'KEYLESS_DATA_MALFORMED',
+          malformedDataError,
+        );
+      }
       const ownerId = wallet.keylessDetailsInfo?.keylessOwnerId;
       const provider = wallet.keylessDetailsInfo?.keylessProvider;
       const socialUserIdHash = wallet.keylessDetailsInfo?.socialUserIdHash;
@@ -851,7 +988,7 @@ class ServiceIdentityExit extends ServiceBase {
       },
       confirmation: { type: 'keylessRemovalAcknowledgement' },
     };
-    planRegistry.set(planId, {
+    storeIdentityExitPlan({
       kind: 'malformedKeylessRecovery',
       publicPlan,
       intent,
@@ -872,7 +1009,25 @@ class ServiceIdentityExit extends ServiceBase {
         if (intent.type === 'recoverMalformedKeyless') {
           return this.prepareMalformedKeylessRecoveryUnderLock(intent);
         }
-        const snapshot = await this.readAuthoritativeSnapshot();
+        let snapshot: IIdentityExitSnapshot;
+        try {
+          snapshot = await this.readAuthoritativeSnapshot();
+        } catch (error) {
+          if (
+            intent.type === 'removeKeyless' &&
+            intent.scene === 'accountSelector' &&
+            isIdentityExitSnapshotError(error) &&
+            error[IDENTITY_EXIT_SNAPSHOT_ERROR_CODE] ===
+              'KEYLESS_DATA_MALFORMED'
+          ) {
+            return this.prepareMalformedKeylessRecoveryUnderLock({
+              type: 'recoverMalformedKeyless',
+              expectedWalletId: intent.expectedWalletId,
+              scene: 'accountSelector',
+            });
+          }
+          throw error;
+        }
         const policy = evaluateIdentityExitPolicy({ intent, snapshot });
         if (policy.status === 'blocked') {
           return policy;
@@ -885,7 +1040,7 @@ class ServiceIdentityExit extends ServiceBase {
           presentation: policy.presentation,
           confirmation: policy.confirmation,
         };
-        planRegistry.set(planId, {
+        storeIdentityExitPlan({
           kind: 'standard',
           publicPlan,
           intent,
@@ -998,11 +1153,19 @@ class ServiceIdentityExit extends ServiceBase {
     if (journal.status !== 'completed' || !journal.completed) {
       return undefined;
     }
+    const hasLiveOAuthHandoff = Boolean(
+      journal.completed.oauthHandoff &&
+      journal.completed.oauthProvider &&
+      journal.completed.oauthHandoffExpiresAt &&
+      journal.completed.oauthHandoffExpiresAt > Date.now() &&
+      !journal.completed.oauthHandoffConsumedAt,
+    );
     return {
       status: 'completed',
       oneKeyIdLoggedOut: journal.completed.oneKeyIdLoggedOut,
       removedWalletId: journal.completed.removedWalletId,
       startIndependentOneKeyIdOAuth:
+        hasLiveOAuthHandoff &&
         journal.completed.oauthHandoff &&
         journal.completed.oauthProvider &&
         journal.completed.oauthHandoffExpiresAt
@@ -1014,6 +1177,104 @@ class ServiceIdentityExit extends ServiceBase {
             }
           : undefined,
     };
+  }
+
+  private buildOAuthHandoffRecordFromCompletedJournal(
+    journal: IIdentityExitJournalEntry,
+  ): IIdentityExitOAuthHandoffRecord | undefined {
+    if (
+      journal.status !== 'completed' ||
+      !journal.completed?.oauthHandoff ||
+      !journal.completed.oauthProvider ||
+      !journal.completed.oauthHandoffExpiresAt ||
+      journal.completed.oauthExpectedLifecycleRevision === undefined ||
+      !journal.keyless?.walletId
+    ) {
+      return undefined;
+    }
+    return {
+      operationId: journal.operationId,
+      planId: journal.planId,
+      handoff: journal.completed.oauthHandoff as IIdentityExitOAuthHandoff,
+      provider: journal.completed.oauthProvider,
+      expectedLifecycleRevision:
+        journal.completed.oauthExpectedLifecycleRevision,
+      removedWalletId: journal.keyless.walletId,
+      expiresAt: journal.completed.oauthHandoffExpiresAt,
+      consumed: Boolean(journal.completed.oauthHandoffConsumedAt),
+    };
+  }
+
+  private async removeCompletedIdentityExitJournalEntry(
+    journal: IIdentityExitJournalEntry,
+  ): Promise<void> {
+    const removed =
+      await this.backgroundApi.simpleDb.prime.removeIdentityExitJournalEntry({
+        operationId: journal.operationId,
+        expectedUpdatedAt: journal.updatedAt,
+      });
+    if (!removed) {
+      const currentJournal =
+        await this.backgroundApi.simpleDb.prime.getIdentityExitOperationJournal();
+      if (!currentJournal[journal.operationId]) {
+        return;
+      }
+      throw new OneKeyLocalError(
+        'The completed identity exit journal changed before cleanup.',
+      );
+    }
+  }
+
+  private scheduleOAuthHandoffJournalExpiryCleanup(
+    record: IIdentityExitOAuthHandoffRecord,
+  ): void {
+    const expiryTimer = setTimeout(
+      () => {
+        void this.cleanupExpiredOAuthHandoffJournal(record);
+      },
+      Math.max(0, record.expiresAt - Date.now()),
+    );
+    (
+      expiryTimer as unknown as {
+        unref?: () => void;
+      }
+    ).unref?.();
+  }
+
+  private async cleanupExpiredOAuthHandoffJournal(
+    record: IIdentityExitOAuthHandoffRecord,
+  ): Promise<void> {
+    if (record.expiresAt > Date.now()) {
+      return;
+    }
+    settledReceiptRegistry.delete(record.planId);
+    try {
+      const journal =
+        await this.backgroundApi.simpleDb.prime.getIdentityExitOperationJournal();
+      const entry = journal[record.operationId];
+      if (
+        entry?.status === 'completed' &&
+        entry.completed?.oauthHandoff === record.handoff &&
+        entry.completed.oauthHandoffExpiresAt === record.expiresAt
+      ) {
+        await this.removeCompletedIdentityExitJournalEntry(entry);
+      }
+    } catch {
+      // Startup recovery provides the durable fallback when timer cleanup
+      // cannot reach storage, including after a suspended BG runtime resumes.
+    }
+  }
+
+  private async retainLiveOAuthHandoffOrRemoveCompletedJournal(
+    journal: IIdentityExitJournalEntry,
+  ): Promise<boolean> {
+    const record = this.buildOAuthHandoffRecordFromCompletedJournal(journal);
+    if (record && !record.consumed && record.expiresAt > Date.now()) {
+      this.scheduleOAuthHandoffJournalExpiryCleanup(record);
+      return true;
+    }
+    await this.removeCompletedIdentityExitJournalEntry(journal);
+    return false;
   }
 
   private async completeIdentityExitJournal({
@@ -1032,6 +1293,7 @@ class ServiceIdentityExit extends ServiceBase {
         (stringUtils.generateUUID() as IIdentityExitOAuthHandoff);
       oauthHandoffRecord = {
         operationId: journal.operationId,
+        planId: journal.planId,
         handoff,
         provider: journal.target.switchOAuthProvider,
         expectedLifecycleRevision: committedLifecycleRevision,
@@ -1062,14 +1324,21 @@ class ServiceIdentityExit extends ServiceBase {
       },
     };
     await this.persistIdentityExitJournalEntry(completedJournal);
-    if (oauthHandoffRecord) {
-      oauthHandoffRegistry.set(oauthHandoffRecord.handoff, oauthHandoffRecord);
-    }
     const receipt = this.buildReceiptFromCompletedJournal(completedJournal);
-    if (!receipt) {
+    if (!receipt || receipt.status !== 'completed') {
       throw new OneKeyLocalError(
         'Identity exit journal completion did not produce a receipt.',
       );
+    }
+    storeSettledIdentityExitReceipt({
+      planId: completedJournal.planId,
+      receipt,
+      expiresAt: oauthHandoffRecord?.expiresAt,
+    });
+    if (oauthHandoffRecord) {
+      this.scheduleOAuthHandoffJournalExpiryCleanup(oauthHandoffRecord);
+    } else {
+      await this.removeCompletedIdentityExitJournalEntry(completedJournal);
     }
     return receipt;
   }
@@ -1443,6 +1712,7 @@ class ServiceIdentityExit extends ServiceBase {
         'Identity journal storage outcome is unknown. Restart the app before changing OneKey ID or Keyless state.',
       );
     }
+    await this.backgroundApi.servicePrime.recoverInterruptedKeylessOAuthSessionPersistence();
     return identityLifecycleMutex.runExclusiveForRecovery(async () => {
       markIdentityRecoveryPending(IDENTITY_EXIT_RECOVERY_SWEEP_OPERATION_ID);
       try {
@@ -1454,6 +1724,15 @@ class ServiceIdentityExit extends ServiceBase {
         for (const entry of entries) {
           markIdentityRecoveryPending(entry.operationId);
           if (entry.status === 'completed') {
+            const receipt = this.buildReceiptFromCompletedJournal(entry);
+            if (receipt?.status === 'completed') {
+              storeSettledIdentityExitReceipt({
+                planId: entry.planId,
+                receipt,
+                expiresAt: receipt.startIndependentOneKeyIdOAuth?.expiresAt,
+              });
+            }
+            await this.retainLiveOAuthHandoffOrRemoveCompletedJournal(entry);
             markIdentityRecoveryReady(entry.operationId);
           } else {
             const receipt =
@@ -1473,6 +1752,7 @@ class ServiceIdentityExit extends ServiceBase {
           }
         }
         markIdentityRecoveryReady(IDENTITY_EXIT_RECOVERY_SWEEP_OPERATION_ID);
+        markIdentityRecoveryReady();
         return { recoveredOperationCount, abandonedOperationCount };
       } catch (error) {
         markIdentityRecoveryFailed(IDENTITY_EXIT_RECOVERY_SWEEP_OPERATION_ID);
@@ -2332,15 +2612,14 @@ class ServiceIdentityExit extends ServiceBase {
     planId,
     acknowledgement,
   }: IExecuteIdentityExitParams): Promise<IIdentityExitReceipt> {
+    const settledReceipt = getSettledIdentityExitReceipt(planId);
+    if (settledReceipt) {
+      return settledReceipt;
+    }
     const storedPlan = planRegistry.get(planId);
     if (!storedPlan) {
       await this.recoverInterruptedIdentityExitOperations();
-      const journal = Object.values(
-        await this.backgroundApi.simpleDb.prime.getIdentityExitOperationJournal(),
-      ).find((entry) => entry.planId === planId);
-      const recoveredReceipt = journal
-        ? this.buildReceiptFromCompletedJournal(journal)
-        : undefined;
+      const recoveredReceipt = getSettledIdentityExitReceipt(planId);
       if (recoveredReceipt) {
         return recoveredReceipt;
       }
@@ -2351,13 +2630,11 @@ class ServiceIdentityExit extends ServiceBase {
         message: 'The identity exit plan expired. Please try again.',
       };
     }
-    if (storedPlan.receipt) {
-      return storedPlan.receipt;
-    }
     if (storedPlan.executionPromise) {
       return storedPlan.executionPromise;
     }
     if (storedPlan.publicPlan.expiresAt <= Date.now()) {
+      planRegistry.delete(planId);
       return {
         status: 'blocked',
         code: 'STATE_CHANGED',
@@ -2376,38 +2653,43 @@ class ServiceIdentityExit extends ServiceBase {
       );
     }
     const executionPromise = this.runIdentityExit(storedPlan)
-      .then((receipt) => {
-        storedPlan.receipt = receipt;
-        return receipt;
-      })
       .catch(async (error: unknown) => {
+        const completedReceipt = getSettledIdentityExitReceipt(planId);
+        if (completedReceipt) {
+          return completedReceipt;
+        }
         if (
           this.identityExitJournalStorageOutcomeUnknownOperationIds.has(
             storedPlan.operationId,
           )
         ) {
-          storedPlan.executionPromise = undefined;
           throw error;
         }
-        try {
-          await this.recoverInterruptedIdentityExitOperations();
-          const journal = Object.values(
-            await this.backgroundApi.simpleDb.prime.getIdentityExitOperationJournal(),
-          ).find((entry) => entry.planId === planId);
-          const recoveredReceipt = journal
-            ? this.buildReceiptFromCompletedJournal(journal)
-            : undefined;
-          if (recoveredReceipt) {
-            storedPlan.receipt = recoveredReceipt;
-            return recoveredReceipt;
-          }
-        } finally {
-          if (!storedPlan.receipt) {
-            storedPlan.executionPromise = undefined;
-          }
+        await this.recoverInterruptedIdentityExitOperations();
+        const recoveredReceipt = getSettledIdentityExitReceipt(planId);
+        if (recoveredReceipt) {
+          return recoveredReceipt;
         }
         throw error;
-      });
+      })
+      .then(
+        (receipt) => {
+          if (planRegistry.get(planId) === storedPlan) {
+            planRegistry.delete(planId);
+          }
+          return receipt;
+        },
+        (error: unknown) => {
+          if (planRegistry.get(planId) === storedPlan) {
+            if (storedPlan.publicPlan.expiresAt <= Date.now()) {
+              planRegistry.delete(planId);
+            } else {
+              storedPlan.executionPromise = undefined;
+            }
+          }
+          throw error;
+        },
+      );
     storedPlan.executionPromise = executionPromise;
     return storedPlan.executionPromise;
   }
@@ -2420,26 +2702,20 @@ class ServiceIdentityExit extends ServiceBase {
     const completedEntry = Object.values(journal).find(
       (entry) => entry.completed?.oauthHandoff === handoff,
     );
-    if (
-      !completedEntry?.completed?.oauthProvider ||
-      !completedEntry.completed.oauthHandoffExpiresAt ||
-      completedEntry.completed.oauthExpectedLifecycleRevision === undefined ||
-      !completedEntry.keyless?.walletId
-    ) {
+    if (!completedEntry) {
       return undefined;
     }
-    const restored: IIdentityExitOAuthHandoffRecord = {
-      operationId: completedEntry.operationId,
-      handoff,
-      provider: completedEntry.completed.oauthProvider,
-      expectedLifecycleRevision:
-        completedEntry.completed.oauthExpectedLifecycleRevision,
-      removedWalletId: completedEntry.keyless.walletId,
-      expiresAt: completedEntry.completed.oauthHandoffExpiresAt,
-      consumed: Boolean(completedEntry.completed.oauthHandoffConsumedAt),
-    };
-    oauthHandoffRegistry.set(handoff, restored);
-    return restored;
+    const record =
+      this.buildOAuthHandoffRecordFromCompletedJournal(completedEntry);
+    if (!record || record.consumed || record.expiresAt <= Date.now()) {
+      if (record) {
+        settledReceiptRegistry.delete(record.planId);
+      }
+      await this.removeCompletedIdentityExitJournalEntry(completedEntry);
+      return undefined;
+    }
+    this.scheduleOAuthHandoffJournalExpiryCleanup(record);
+    return record;
   }
 
   private async assertOAuthHandoffState({
@@ -2514,14 +2790,22 @@ class ServiceIdentityExit extends ServiceBase {
     }
     await this.assertOAuthHandoffState({ record, provider });
     const consumedAt = Date.now();
-    const persisted =
-      await this.backgroundApi.simpleDb.prime.markIdentityExitOAuthHandoffConsumed(
-        {
-          operationId: record.operationId,
-          handoff: record.handoff,
-          consumedAt,
-        },
-      );
+    let persisted: boolean;
+    try {
+      persisted =
+        await this.backgroundApi.simpleDb.prime.consumeIdentityExitOAuthHandoff(
+          {
+            operationId: record.operationId,
+            handoff: record.handoff,
+            consumedAt,
+          },
+        );
+    } catch (error) {
+      settledReceiptRegistry.delete(record.planId);
+      this.markIdentityExitJournalStorageOutcomeUnknown(record.operationId);
+      throw error;
+    }
+    settledReceiptRegistry.delete(record.planId);
     if (!persisted) {
       // TODO: i18n
       throw new OneKeyLocalError(

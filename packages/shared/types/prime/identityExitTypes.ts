@@ -35,6 +35,12 @@ export type IIdentityExitIntent =
   | {
       type: 'recoverMalformedKeyless';
       expectedWalletId: string;
+      scene: 'accountSelector';
+      nextProvider?: never;
+    }
+  | {
+      type: 'recoverMalformedKeyless';
+      expectedWalletId: string;
       nextProvider: EOAuthSocialLoginProvider;
       scene: 'oneKeyIdLogin' | 'keylessOnboarding';
     };
@@ -76,7 +82,7 @@ export type IIdentityExitPlan =
           }
         | {
             type: 'recoverMalformedKeyless';
-            nextProvider: EOAuthSocialLoginProvider;
+            nextProvider?: EOAuthSocialLoginProvider;
             oneKeyIdWillBeLoggedOut: boolean;
           };
       confirmation:

@@ -9,6 +9,7 @@ import {
   createKeylessWalletRemovalCapability,
   createMalformedKeylessWalletRemovalCapability,
   getMalformedKeylessWalletFingerprint,
+  isIdentityManagedKeylessWallet,
 } from './keylessWalletRemovalCapability';
 
 import type { IDBWallet } from '../../dbs/local/types';
@@ -85,6 +86,32 @@ describe('Keyless wallet removal capability', () => {
         }),
       ),
     ).not.toThrow();
+  });
+
+  test('recognizes persisted Keyless fields even when isKeyless is invalid', () => {
+    expect(
+      isIdentityManagedKeylessWallet(
+        buildWallet({
+          isKeyless: false,
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      isIdentityManagedKeylessWallet(
+        buildWallet({
+          isKeyless: undefined,
+          keylessDetails: undefined,
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      isIdentityManagedKeylessWallet(
+        buildWallet({
+          id: 'hd-bot--hd-keyless-parent-1--0',
+          isKeyless: false,
+        }),
+      ),
+    ).toBe(false);
   });
 
   test('rejects a plain object forged across an RPC boundary', () => {

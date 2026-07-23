@@ -441,7 +441,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   }
 
   @backgroundMethod()
-  async markIdentityExitOAuthHandoffConsumed({
+  async consumeIdentityExitOAuthHandoff({
     operationId,
     handoff,
     consumedAt,
@@ -455,25 +455,28 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       const entry = rawData?.identityExitOperationJournal?.[operationId];
       if (
         entry?.status !== 'completed' ||
-        entry.completed?.oauthHandoff !== handoff ||
-        entry.completed.oauthHandoffConsumedAt
+        entry.completed?.oauthHandoff !== handoff
       ) {
         return { ...rawData };
+      }
+      const nextJournal = {
+        ...rawData?.identityExitOperationJournal,
+      };
+      delete nextJournal[operationId];
+      if (
+        entry.completed.oauthHandoffConsumedAt ||
+        !entry.completed.oauthHandoffExpiresAt ||
+        entry.completed.oauthHandoffExpiresAt <= consumedAt
+      ) {
+        return {
+          ...rawData,
+          identityExitOperationJournal: nextJournal,
+        };
       }
       consumed = true;
       return {
         ...rawData,
-        identityExitOperationJournal: {
-          ...rawData?.identityExitOperationJournal,
-          [operationId]: {
-            ...entry,
-            updatedAt: consumedAt,
-            completed: {
-              ...entry.completed,
-              oauthHandoffConsumedAt: consumedAt,
-            },
-          },
-        },
+        identityExitOperationJournal: nextJournal,
       };
     });
     return consumed;

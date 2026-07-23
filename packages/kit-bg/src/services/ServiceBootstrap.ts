@@ -52,11 +52,6 @@ class ServiceBootstrap extends ServiceBase {
     const criticalStart = Date.now();
     await this.timed('localDb.readyDb', () => localDb.readyDb);
     try {
-      await this.timed(
-        'servicePrime.recoverInterruptedKeylessOAuthSessionPersistence',
-        () =>
-          this.backgroundApi.servicePrime.recoverInterruptedKeylessOAuthSessionPersistence(),
-      );
       await this.timed('serviceIdentityExit.recoverInterruptedOperations', () =>
         this.backgroundApi.serviceIdentityExit.recoverInterruptedIdentityExitOperations(),
       );

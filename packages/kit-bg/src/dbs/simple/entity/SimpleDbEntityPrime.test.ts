@@ -433,25 +433,21 @@ describe('SimpleDbEntityPrime identity-exit journal', () => {
     }) as never);
 
     await expect(
-      entity.markIdentityExitOAuthHandoffConsumed({
+      entity.consumeIdentityExitOAuthHandoff({
         operationId: 'operation',
         handoff: 'handoff',
         consumedAt: 5,
       }),
     ).resolves.toBe(true);
     await expect(
-      entity.markIdentityExitOAuthHandoffConsumed({
+      entity.consumeIdentityExitOAuthHandoff({
         operationId: 'operation',
         handoff: 'handoff',
         consumedAt: 6,
       }),
     ).resolves.toBe(false);
     expect(persisted).toMatchObject({
-      identityExitOperationJournal: {
-        operation: {
-          completed: { oauthHandoffConsumedAt: 5 },
-        },
-      },
+      identityExitOperationJournal: {},
     });
   });
 });

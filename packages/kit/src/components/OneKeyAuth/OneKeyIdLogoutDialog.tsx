@@ -58,16 +58,20 @@ function getOneKeyIdLogoutDialogContent({
 }): IOneKeyIdLogoutDialogContentConfig {
   const { presentation } = plan;
   if (presentation.type === 'recoverMalformedKeyless') {
-    const nextProviderName = getOAuthSocialLoginProviderName(
-      presentation.nextProvider,
-    );
+    const nextProviderName = presentation.nextProvider
+      ? getOAuthSocialLoginProviderName(presentation.nextProvider)
+      : undefined;
     return {
       icon: 'ErrorOutline',
       tone: 'destructive',
       // TODO: i18n
       title: 'Remove Unavailable Keyless Wallet?',
       // TODO: i18n
-      description: `The local Keyless wallet data cannot be read correctly. To continue with ${nextProviderName}, first remove this Keyless wallet from this device. You can restore it later with its original account and PIN.${
+      description: `The local Keyless wallet data cannot be read correctly. ${
+        nextProviderName
+          ? `To continue with ${nextProviderName}, first remove this Keyless wallet from this device.`
+          : 'Remove this Keyless wallet from this device to continue.'
+      } You can restore it later with its original account and PIN.${
         presentation.oneKeyIdWillBeLoggedOut
           ? ' The OneKey ID session backed by this Keyless wallet will also be logged out.'
           : ''
