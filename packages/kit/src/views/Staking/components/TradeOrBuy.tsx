@@ -8,6 +8,8 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import ActionBuy from '../../AssetDetails/pages/TokenDetails/ActionBuy';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
@@ -35,6 +37,17 @@ function BasicTradeOrBuy({
     await handleSwap({ token, networkId });
   }, [handleSwap, token, networkId]);
 
+  // Whether swap is available on this network. Some networks (e.g. Katana) are
+  // not swap-supported yet, so the "Trade" button must not route to an empty
+  // swap page. Treat the button as disabled until the backend confirms support
+  // (default-disabled while resolving) so an unsupported network never flashes
+  // an enabled state before settling to disabled.
+  const { result: swapSupport } = usePromiseResult(
+    () => backgroundApiProxy.serviceSwap.checkSupportSwap({ networkId }),
+    [networkId],
+  );
+  const isSwapUnsupported = swapSupport?.isSupportSwap !== true;
+
   const isHiddenComponent = networkId === networkIdsMap.cosmoshub;
 
   if (isHiddenComponent) {
@@ -53,6 +66,7 @@ function BasicTradeOrBuy({
         <Button
           size="small"
           onPress={handleOnSwap}
+          disabled={isSwapUnsupported}
           testID="staking-is-hidden-component-btn"
         >
           {intl.formatMessage({ id: ETranslations.global_trade })}
