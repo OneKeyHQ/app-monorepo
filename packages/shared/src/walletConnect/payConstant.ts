@@ -59,8 +59,14 @@ export function wcPayChainIdToNetworkId(caip2ChainId: string): string | null {
   ) {
     return `evm--${reference}`;
   }
-  if (namespace === 'solana') {
-    return WALLET_CONNECT_PAY_SOLANA_CHAINS[reference] ?? null;
+  if (
+    namespace === 'solana' &&
+    Object.prototype.hasOwnProperty.call(
+      WALLET_CONNECT_PAY_SOLANA_CHAINS,
+      reference,
+    )
+  ) {
+    return WALLET_CONNECT_PAY_SOLANA_CHAINS[reference];
   }
   return null;
 }

@@ -20,6 +20,10 @@ describe('wcPayChainIdToNetworkId solana', () => {
     expect(
       wcPayChainIdToNetworkId('solana:4sGjMW1sUnHzSxGspuhpqLDx6wiyjNtZ'),
     ).toBeNull();
+    // prototype-chain keys must not leak through the whitelist lookup
+    expect(wcPayChainIdToNetworkId('solana:__proto__')).toBeNull();
+    expect(wcPayChainIdToNetworkId('solana:constructor')).toBeNull();
+    expect(wcPayChainIdToNetworkId('solana:toString')).toBeNull();
   });
 
   it('rejects a solana chain id with no reference', () => {
