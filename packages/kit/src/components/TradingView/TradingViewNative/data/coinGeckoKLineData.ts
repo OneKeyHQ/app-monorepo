@@ -73,14 +73,16 @@ export function clearCoinGeckoKLineDataCache() {
 }
 
 export function createCoinGeckoKLineDataFetcher({
-  networkId,
-  tokenAddress,
-  tokenKey,
-}: {
-  networkId: string;
-  tokenAddress: string;
-  tokenKey: string;
-}) {
+  ...source
+}:
+  | {
+      coinGeckoId: string;
+    }
+  | {
+      networkId: string;
+      tokenAddress: string;
+      tokenKey: string;
+    }) {
   const chartDataRequests = new Map<string, Promise<IMarketTokenChart>>();
 
   return async ({
@@ -93,11 +95,10 @@ export function createCoinGeckoKLineDataFetcher({
       return null;
     }
 
-    const coinGeckoId = await resolveCoinGeckoId({
-      networkId,
-      tokenAddress,
-      tokenKey,
-    });
+    const coinGeckoId =
+      'coinGeckoId' in source
+        ? source.coinGeckoId.trim()
+        : await resolveCoinGeckoId(source);
     if (signal.aborted || !coinGeckoId) {
       return null;
     }

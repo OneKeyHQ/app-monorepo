@@ -13,6 +13,9 @@ import { TradingViewNativeContainer } from './TradingViewNativeContainer';
 import type { ITradingViewNativeDataState } from './types';
 
 const mockHandleRetry = jest.fn();
+const mockTradingViewNativeChartControlsContainer = jest.fn<null, [unknown]>(
+  () => null,
+);
 let mockDataProviderKey = 'market:evm--1:0xabc:TOKEN';
 let mockDataState: ITradingViewNativeDataState;
 let mockPoints: IMarketTokenKLineDataPoint[];
@@ -81,7 +84,8 @@ jest.mock('./TradingViewNativeChart', () => ({
 }));
 
 jest.mock('./TradingViewNativeChartControlsContainer', () => ({
-  TradingViewNativeChartControlsContainer: () => null,
+  TradingViewNativeChartControlsContainer: (props: unknown) =>
+    mockTradingViewNativeChartControlsContainer(props),
 }));
 
 describe('TradingViewNativeContainer', () => {
@@ -117,6 +121,34 @@ describe('TradingViewNativeContainer', () => {
     expect(screen.getByTestId('chart-error')).toBeTruthy();
     fireEvent.click(screen.getByTestId('chart-retry'));
     expect(mockHandleRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('forwards controlled fullscreen props to chart controls', () => {
+    const handleFullscreenChange = jest.fn();
+    const fullscreenHeader = <div>Token info</div>;
+
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+        isNativeChartFullscreen
+        nativeChartFullscreenHeader={fullscreenHeader}
+        onNativeChartFullscreenChange={handleFullscreenChange}
+      />,
+    );
+
+    expect(mockTradingViewNativeChartControlsContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isFullscreen: true,
+        fullscreenHeader,
+        onFullscreenChange: handleFullscreenChange,
+      }),
+    );
   });
 
   it('reports the same latest close rendered by the chart for history and realtime updates', () => {
