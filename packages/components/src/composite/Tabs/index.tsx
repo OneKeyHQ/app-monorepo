@@ -26,6 +26,7 @@ export const Tabs = {
 
 export type { ITabContainerRef, ITabContainerProps } from './Container';
 export type { ITabBarVariant, ITabBarItemProps } from './TabBar';
+export { TAB_BAR_ITEM_HEIGHT } from './TabBar';
 export type { IGetWebRowHeight, IWebRowHeightInfo } from './List';
 export * from './hooks';
 

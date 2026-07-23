@@ -47,6 +47,8 @@ import type { SharedValue } from 'react-native-reanimated';
 type IItemLayout = { x: number; width: number };
 type IReadonlySharedValue<T> = { readonly value: T };
 
+export const TAB_BAR_ITEM_HEIGHT = 44;
+
 const TAB_HOVER_STYLE = { bg: '$bgHover' } as const;
 const TAB_PRESS_STYLE = { bg: '$bgActive' } as const;
 const TAB_LIST_VIEW_STYLE = { flexShrink: 1 } as const;
@@ -284,7 +286,7 @@ export function TabBarItem({
   return (
     <YStack
       testID={testID}
-      h={44}
+      h={TAB_BAR_ITEM_HEIGHT}
       // minWidth={52}
       ai="center"
       jc="center"
@@ -367,7 +369,7 @@ function AnimatedTabBarItem({
 
   return (
     <YStack
-      h={44}
+      h={TAB_BAR_ITEM_HEIGHT}
       ai="center"
       jc="center"
       ml="$pagePadding"

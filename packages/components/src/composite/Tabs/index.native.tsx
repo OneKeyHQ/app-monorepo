@@ -72,6 +72,7 @@ export const Tabs = {
   DraggableFlatList: TabsDraggableFlatList,
 };
 
+export { TAB_BAR_ITEM_HEIGHT } from './TabBar';
 export * from './hooks';
 export { startViewTransition } from './utils';
 export { CollapsibleTabContext } from './CollapsibleTabContext';
