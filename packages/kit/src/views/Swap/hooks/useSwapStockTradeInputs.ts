@@ -8,6 +8,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import {
   useSwapAlertsAtom,
   useSwapFromTokenAmountAtom,
+  useSwapStockBalanceDisplayCacheAtom,
   useSwapStockSelectedFromTokenBalanceAtom,
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -22,6 +23,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EProtocolOfExchange,
@@ -29,6 +31,10 @@ import {
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import {
+  resolveSwapBalanceDisplayCacheEntry,
+  updateSwapBalanceDisplayCache,
+} from '../utils/swapBalanceDisplayCacheUtils';
 import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
 
 import {
@@ -37,6 +43,7 @@ import {
   isStockPayTokenReadyForTradeInput,
   resolveStockBalanceSeed,
   resolveStockBalanceSnapshot,
+  resolveStockBalanceViewState,
   shouldRenderStockTradeInputSkeleton,
 } from './swapStockChannelUtils';
 import {
@@ -78,11 +85,15 @@ function useStockInputTokenBalance({
   token?: ISwapToken;
 }) {
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const [balanceDisplayCache, setBalanceDisplayCache] =
+    useSwapStockBalanceDisplayCacheAtom();
   const [refreshKey, setRefreshKey] = useState(0);
   const lastValidBalanceStateRef = useRef<IStockBalanceSnapshot | undefined>(
     undefined,
   );
   const tokenScope = getStockInputTokenIdentityKey(token);
+  const balanceAccountKey =
+    buildSwapSelectedTokensColdStartAccountKey(activeAccount);
   const hasActiveAccount = Boolean(
     activeAccount?.indexedAccount?.id || activeAccount?.account?.id,
   );
@@ -90,15 +101,13 @@ function useStockInputTokenBalance({
   const accountNetworkReady = Boolean(
     !hasActiveAccount || activeAccount?.ready,
   );
-  const balanceOwnerScope = `${tokenScope}:${
-    activeAccount?.indexedAccount?.id ?? ''
-  }:${activeAccount?.account?.id ?? ''}`;
+  const balanceOwnerScope = `${tokenScope}:${balanceAccountKey ?? ''}`;
   const shouldFetchNetworkAccount = Boolean(
     enabled && tokenNetworkId && hasActiveAccount && accountNetworkReady,
   );
-  const networkAccountScope = `${shouldFetchNetworkAccount ? '1' : '0'}:${
-    tokenNetworkId
-  }:${activeAccount?.indexedAccount?.id ?? ''}:${
+  const networkAccountScope = `${
+    shouldFetchNetworkAccount ? '1' : '0'
+  }:${tokenNetworkId}:${activeAccount?.indexedAccount?.id ?? ''}:${
     activeAccount?.account?.id ?? ''
   }`;
   const { result: networkAccountState, isLoading: networkAccountLoading } =
@@ -164,9 +173,9 @@ function useStockInputTokenBalance({
     networkAccountAddress: networkAccount?.address,
     token,
   });
-  const balanceScope = `${tokenScope}:${networkAccountReady ? 'ready' : 'pending'}:${
-    networkAccount?.id ?? ''
-  }:${networkAccount?.address ?? ''}:${refreshKey}`;
+  const balanceScope = `${tokenScope}:${
+    networkAccountReady ? 'ready' : 'pending'
+  }:${networkAccount?.id ?? ''}:${networkAccount?.address ?? ''}:${refreshKey}`;
   const shouldWaitForNetworkAccount =
     Boolean(
       enabled && tokenNetworkId && hasActiveAccount && !accountNetworkReady,
@@ -178,13 +187,15 @@ function useStockInputTokenBalance({
         return {
           scope: balanceScope,
           balance: undefined as string | undefined,
+          hasAuthoritativeBalance: false,
           tokenDetail: undefined as ISwapToken | undefined,
         };
       }
       if (!networkAccount) {
         return {
           scope: balanceScope,
-          balance: hasActiveAccount ? '0' : (seededBalance ?? '0'),
+          balance: hasActiveAccount ? undefined : (seededBalance ?? '0'),
+          hasAuthoritativeBalance: false,
           tokenDetail: token,
         };
       }
@@ -200,6 +211,7 @@ function useStockInputTokenBalance({
       return {
         scope: balanceScope,
         balance: details?.[0]?.balanceParsed ?? seededBalance ?? '0',
+        hasAuthoritativeBalance: details?.[0]?.balanceParsed !== undefined,
         tokenDetail: markStockUsdPriceCurrency(details?.[0]),
       };
     },
@@ -216,6 +228,7 @@ function useStockInputTokenBalance({
       initResult: {
         scope: '',
         balance: undefined as string | undefined,
+        hasAuthoritativeBalance: false,
         tokenDetail: undefined as ISwapToken | undefined,
       },
       watchLoading: enabled,
@@ -252,8 +265,8 @@ function useStockInputTokenBalance({
     };
   }, [enabled, token]);
 
-  const balanceReady =
-    detailState.scope === balanceScope && detailState.balance !== undefined;
+  const detailResolved = detailState.scope === balanceScope;
+  const balanceReady = detailResolved && detailState.balance !== undefined;
   const balanceState = resolveStockBalanceSnapshot({
     authoritativeBalance: balanceReady ? detailState.balance : undefined,
     authoritativeTokenDetail: balanceReady
@@ -267,19 +280,57 @@ function useStockInputTokenBalance({
   if (balanceState) {
     lastValidBalanceStateRef.current = balanceState;
   }
-  const balance = balanceState?.balance;
-  const tokenDetail = balanceState?.tokenDetail;
+  const cachedDisplayBalance = resolveSwapBalanceDisplayCacheEntry({
+    accountAddress: networkAccount?.address,
+    accountKey: balanceAccountKey,
+    cache: balanceDisplayCache,
+    token,
+  })?.balance;
+  const balanceViewState = resolveStockBalanceViewState({
+    balanceSnapshot: balanceState,
+    cachedDisplayBalance,
+  });
+
+  useEffect(() => {
+    if (
+      !detailResolved ||
+      !detailState.hasAuthoritativeBalance ||
+      detailState.balance === undefined ||
+      !networkAccount?.address ||
+      !token
+    ) {
+      return;
+    }
+    setBalanceDisplayCache((cache) =>
+      updateSwapBalanceDisplayCache({
+        accountAddress: networkAccount.address,
+        accountKey: balanceAccountKey,
+        balance: detailState.balance,
+        cache,
+        token,
+      }),
+    );
+  }, [
+    balanceAccountKey,
+    detailResolved,
+    detailState.balance,
+    detailState.hasAuthoritativeBalance,
+    networkAccount?.address,
+    setBalanceDisplayCache,
+    token,
+  ]);
 
   return {
-    balance,
-    tokenDetail,
+    balance: balanceViewState.balance,
+    displayBalance: balanceViewState.displayBalance,
+    tokenDetail: balanceViewState.tokenDetail,
     loading: isStockBalanceInitializing({
-      balance,
+      balance: balanceViewState.displayBalance,
       requestPending:
         enabled &&
         Boolean(
           token &&
-          (!balanceReady ||
+          (!detailResolved ||
             networkAccountLoading ||
             shouldWaitForNetworkAccount ||
             detailLoading),
@@ -497,22 +548,16 @@ export function useSwapStockAmountInputState({
     enabled: inputTokenReady,
     token: inputToken,
   });
-  const resolvedInputTokenBalance =
-    stockInputTokenBalance.balance ?? inputToken?.balanceParsed ?? '0';
+  const resolvedInputTokenBalance = stockInputTokenBalance.balance ?? '0';
   const displayBalance = useMemo(() => {
-    if (stockInputTokenBalance.balance !== undefined) {
-      return stockInputTokenBalance.balance;
+    if (stockInputTokenBalance.displayBalance !== undefined) {
+      return stockInputTokenBalance.displayBalance;
     }
     if (isBuySide && fromTokenBalance) {
       return fromTokenBalance;
     }
-    return inputToken?.balanceParsed ?? '0';
-  }, [
-    fromTokenBalance,
-    inputToken?.balanceParsed,
-    isBuySide,
-    stockInputTokenBalance.balance,
-  ]);
+    return '0';
+  }, [fromTokenBalance, isBuySide, stockInputTokenBalance.displayBalance]);
   const inputTokenNetworkLogoURI =
     inputToken?.networkLogoURI ?? getNetworkLogoURI(inputToken?.networkId);
   const inputTokenPrice =
@@ -579,20 +624,33 @@ export function useSwapStockAmountInputState({
     [inputToken, setFromTokenAmount, setSwapAlerts],
   );
   const onBalanceMaxPress = useCallback(() => {
-    setInputAmount(new BigNumber(displayBalance ?? '0'));
-  }, [displayBalance, setInputAmount]);
+    if (stockInputTokenBalance.balance === undefined) {
+      return;
+    }
+    setInputAmount(new BigNumber(resolvedInputTokenBalance));
+  }, [
+    resolvedInputTokenBalance,
+    setInputAmount,
+    stockInputTokenBalance.balance,
+  ]);
   const onSelectPercentageStage = useCallback(
     (stage: number) => {
-      const balanceBN = new BigNumber(displayBalance ?? '0');
+      if (stockInputTokenBalance.balance === undefined) {
+        return;
+      }
+      const balanceBN = new BigNumber(resolvedInputTokenBalance);
       setInputAmount(balanceBN.multipliedBy(stage / 100));
     },
-    [displayBalance, setInputAmount],
+    [resolvedInputTokenBalance, setInputAmount, stockInputTokenBalance.balance],
   );
   const hasBalanceError = useMemo(() => {
     if (!isBuySide || !inputToken) {
       return false;
     }
-    const balanceBN = new BigNumber(displayBalance ?? '0');
+    if (stockInputTokenBalance.balance === undefined) {
+      return false;
+    }
+    const balanceBN = new BigNumber(resolvedInputTokenBalance);
     const amountBN = new BigNumber(fromTokenAmount.value ?? '0');
     if (
       balanceBN.isNaN() ||
@@ -603,10 +661,16 @@ export function useSwapStockAmountInputState({
       return false;
     }
     return amountBN.gt(balanceBN);
-  }, [displayBalance, fromTokenAmount.value, inputToken, isBuySide]);
+  }, [
+    fromTokenAmount.value,
+    inputToken,
+    isBuySide,
+    resolvedInputTokenBalance,
+    stockInputTokenBalance.balance,
+  ]);
 
   useEffect(() => {
-    if (!inputTokenReady || stockInputTokenBalance.loading) {
+    if (!inputTokenReady || stockInputTokenBalance.balance === undefined) {
       return;
     }
     if (fromTokenBalance === resolvedInputTokenBalance) {
@@ -618,7 +682,7 @@ export function useSwapStockAmountInputState({
     inputTokenReady,
     resolvedInputTokenBalance,
     setFromTokenBalance,
-    stockInputTokenBalance.loading,
+    stockInputTokenBalance.balance,
   ]);
 
   return {

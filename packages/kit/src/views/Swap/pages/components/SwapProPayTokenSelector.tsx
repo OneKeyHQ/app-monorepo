@@ -30,6 +30,7 @@ interface ISwapProPayTokenSelectorProps {
   defaultTokens: ISwapTokenBase[];
   defaultLimitTokens: ISwapTokenBase[];
   cleanInputAmount: () => void;
+  configReady: boolean;
 }
 
 // Explicit counterparty-token row styled like the order-type selector, so the
@@ -41,6 +42,7 @@ const SwapProPayTokenSelector = ({
   defaultTokens,
   defaultLimitTokens,
   cleanInputAmount,
+  configReady,
 }: ISwapProPayTokenSelectorProps) => {
   const intl = useIntl();
   const [swapProDirection] = useSwapProDirectionAtom();
@@ -159,8 +161,12 @@ const SwapProPayTokenSelector = ({
     ],
   );
 
-  // Hidden on single-token networks (no switch entry per requirement).
-  if (defaultTokensFromType.length <= 1) {
+  const hasSelectableTokens = defaultTokensFromType.length > 1;
+
+  // Keep the real row mounted while config is resolving so the panel geometry
+  // does not change when the counterparty list arrives. Once resolved,
+  // single-token networks still hide the switch entry per requirement.
+  if (configReady && !hasSelectableTokens) {
     return null;
   }
 
@@ -176,7 +182,7 @@ const SwapProPayTokenSelector = ({
         alignItems="center"
         gap="$2"
         userSelect="none"
-        onPress={() => setIsPopoverOpen(true)}
+        onPress={hasSelectableTokens ? () => setIsPopoverOpen(true) : undefined}
         hoverStyle={{ bg: '$bgStrongHover' }}
         pressStyle={{ bg: '$bgStrongActive' }}
       >
@@ -196,23 +202,25 @@ const SwapProPayTokenSelector = ({
       </XStack>
       {/* The popover renders a zero-height trigger; absolute-position it so
           it does not consume the panel column gap as an invisible sibling. */}
-      <Stack position="absolute">
-        <TokenSelectorPopover
-          currentSelectToken={swapProSelectToken}
-          isOpen={isPopoverOpen}
-          onOpenChange={setIsPopoverOpen}
-          tokens={defaultTokensFromType as IToken[]}
-          onTokenPress={handleTokenSelect}
-          onTradePress={() => {
-            setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
-          }}
-          disabledOnSwitchToTrade
-          isTokenDisabled={isTokenDisabled}
-          // Keep the server-config order (native coin first, then stable
-          // coins) so the list doesn't reshuffle once balances load in.
-          sortTokensByValue={false}
-        />
-      </Stack>
+      {hasSelectableTokens ? (
+        <Stack position="absolute">
+          <TokenSelectorPopover
+            currentSelectToken={swapProSelectToken}
+            isOpen={isPopoverOpen}
+            onOpenChange={setIsPopoverOpen}
+            tokens={defaultTokensFromType as IToken[]}
+            onTokenPress={handleTokenSelect}
+            onTradePress={() => {
+              setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
+            }}
+            disabledOnSwitchToTrade
+            isTokenDisabled={isTokenDisabled}
+            // Keep the server-config order (native coin first, then stable
+            // coins) so the list doesn't reshuffle once balances load in.
+            sortTokensByValue={false}
+          />
+        </Stack>
+      ) : null}
     </>
   );
 };

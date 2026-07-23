@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIntervals';
 
 export type ITradingViewNativeHyperliquidEnvironment = 'mainnet' | 'testnet';
@@ -10,6 +12,7 @@ export type ITradingViewNativeSource =
     }
   | {
       kind: 'market';
+      fallbackCoinGeckoId?: string;
       networkId: string;
       tokenAddress: string;
       symbol: string;
@@ -47,8 +50,11 @@ export interface ITradingViewNativeProps {
   source: ITradingViewNativeSource;
   enableNativeChartSettings?: boolean;
   nativeControlsLayoutMode?: 'mobile' | 'desktop';
+  isNativeChartFullscreen?: boolean;
+  nativeChartFullscreenHeader?: ReactNode;
   onDataStateChange?: (state: ITradingViewNativeDataState) => void;
   onIntervalChange?: (data: ITradingViewNativeIntervalChangeData) => void;
   onNativeSubIndicatorCountChange?: (count: number | null) => void;
+  onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
   onPriceUpdate?: (data: ITradingViewNativePriceUpdateData) => void;
 }

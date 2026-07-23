@@ -10,7 +10,7 @@ import type { IToken } from '../types';
 import type BigNumber from 'bignumber.js';
 
 interface ISwapPanelTopProps {
-  balance: BigNumber;
+  balance?: BigNumber;
   enableAddressTypeSelector: boolean;
   activeAccount: IAccountSelectorActiveAccountInfo;
   balanceToken?: IToken;

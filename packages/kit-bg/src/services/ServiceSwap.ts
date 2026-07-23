@@ -685,6 +685,7 @@ export default class ServiceSwap extends ServiceBase {
     accountId,
     onlyAccountTokens,
     isAllNetworkFetchAccountTokens,
+    throwOnError,
     protocol,
     lpToken,
     currency,
@@ -797,6 +798,9 @@ export default class ServiceSwap extends ServiceBase {
           title: error?.message,
           message: error?.requestId,
         });
+        if (throwOnError) {
+          throw e;
+        }
         return [];
       }
     }

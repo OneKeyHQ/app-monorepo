@@ -258,6 +258,8 @@ export function useTradingViewNativeKLine({
   const hyperliquidCoin = source.kind === 'hyperliquid' ? source.coin : '';
   const hyperliquidEnvironment =
     source.kind === 'hyperliquid' ? source.environment : 'mainnet';
+  const marketFallbackCoinGeckoId =
+    source.kind === 'market' ? source.fallbackCoinGeckoId : undefined;
   const marketNetworkId = source.kind === 'market' ? source.networkId : '';
   const marketTokenAddress =
     source.kind === 'market' ? source.tokenAddress : '';
@@ -272,9 +274,9 @@ export function useTradingViewNativeKLine({
         environment: hyperliquidEnvironment,
       });
     }
-
     return createTradingViewNativeDataProvider({
       kind: 'market',
+      fallbackCoinGeckoId: marketFallbackCoinGeckoId,
       networkId: marketNetworkId,
       tokenAddress: marketTokenAddress,
       symbol: marketSymbol,
@@ -283,6 +285,7 @@ export function useTradingViewNativeKLine({
   }, [
     hyperliquidCoin,
     hyperliquidEnvironment,
+    marketFallbackCoinGeckoId,
     marketNetworkId,
     marketSymbol,
     marketTokenAddress,
@@ -298,6 +301,7 @@ export function useTradingViewNativeKLine({
 
     return createTradingViewNativeDataProvider({
       kind: 'market',
+      fallbackCoinGeckoId: marketFallbackCoinGeckoId,
       networkId: marketNetworkId,
       tokenAddress: marketTokenAddress,
       symbol: marketSymbol,
@@ -305,6 +309,7 @@ export function useTradingViewNativeKLine({
     });
   }, [
     historyProvider,
+    marketFallbackCoinGeckoId,
     marketNetworkId,
     marketRealtime,
     marketSymbol,
@@ -522,6 +527,7 @@ export function useTradingViewNativeKLine({
 
               pagination.earliestTimestamp = olderPoints[0].t;
               pagination.hasMore = historyProvider.hasMoreHistory({
+                historySource: data.historySource,
                 interval,
                 receivedPointCount: olderPoints.length,
               });
@@ -908,6 +914,7 @@ export function useTradingViewNativeKLine({
           ) {
             if (pagination.earliestTimestamp === undefined) {
               pagination.hasMore = historyProvider.hasMoreHistory({
+                historySource: data?.historySource,
                 interval: requestedInterval,
                 receivedPointCount: receivedHistoryPointCount,
               });
