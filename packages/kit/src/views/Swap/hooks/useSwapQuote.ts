@@ -50,7 +50,6 @@ import {
   useSwapShouldRefreshQuoteAtom,
   useSwapSlippageDialogOpeningAtom,
   useSwapStockExecutionTokenSyncIdAtom,
-  useSwapToAnotherAccountAddressAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
@@ -66,6 +65,48 @@ import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapProInputToken, useSwapProToToken } from './useSwapPro';
 import { useSwapSlippagePercentageModeInfo } from './useSwapState';
 
+export function isSwapQuoteTabEffectivelyVisible({
+  isFocus,
+  isHiddenModel,
+}: {
+  isFocus: boolean;
+  isHiddenModel: boolean;
+}) {
+  return isFocus && !isHiddenModel;
+}
+
+export function handleSwapQuoteTabVisibilityChange({
+  isFocus,
+  isHiddenModel,
+  setQuoteVisible,
+  subscribeQuoteEvents,
+  refreshPreservedInputQuote,
+  pauseQuote,
+  unsubscribeQuoteEvents,
+}: {
+  isFocus: boolean;
+  isHiddenModel: boolean;
+  setQuoteVisible: (isVisible: boolean) => void;
+  subscribeQuoteEvents: () => void;
+  refreshPreservedInputQuote: () => void;
+  pauseQuote: () => void;
+  unsubscribeQuoteEvents: () => void;
+}) {
+  const isQuoteVisible = isSwapQuoteTabEffectivelyVisible({
+    isFocus,
+    isHiddenModel,
+  });
+  setQuoteVisible(isQuoteVisible);
+  if (isQuoteVisible) {
+    subscribeQuoteEvents();
+    refreshPreservedInputQuote();
+  } else {
+    pauseQuote();
+    unsubscribeQuoteEvents();
+  }
+  return isQuoteVisible;
+}
+
 /**
  * React hook that manages fetching, updating, and synchronizing swap quotes for a decentralized exchange interface.
  *
@@ -80,10 +121,10 @@ export function useSwapQuote() {
     closeQuoteEvent,
     swapTypeSwitchAction,
   } = useSwapActions().current;
-  const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
+  const [swapQuoteActionLock, setSwapQuoteActionLock] =
+    useSwapQuoteActionLockAtom();
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const [swapToAnotherAccountAddress] = useSwapToAnotherAccountAddressAtom();
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
   const [swapStockExecutionTokenSyncId] =
     useSwapStockExecutionTokenSyncIdAtom();
@@ -206,10 +247,43 @@ export function useSwapQuote() {
     toTokenRef.current = toToken;
   }
   const isFocused = useIsFocused();
-  const isFocusRef = useRef(isFocused);
-  if (isFocusRef.current !== isFocused) {
-    isFocusRef.current = isFocused;
+  const isModalPage = useIsOverlayPage();
+  const isQuoteVisibleRef = useRef(isFocused);
+  if (isModalPage || !isFocused) {
+    isQuoteVisibleRef.current = isFocused;
   }
+
+  // Automatic quote effects are paused while this route is hidden. Remember
+  // quote identity changes so the visible Swap surface refreshes once on return.
+  useEffect(() => {
+    if (
+      !isQuoteVisibleRef.current &&
+      shouldPreserveSwapUserInputAmountOnAccountSwitch({
+        fromTokenAmount,
+        toTokenAmount,
+      })
+    ) {
+      shouldRefreshPreservedInputQuoteOnFocusRef.current = true;
+    }
+  }, [
+    fromToken?.contractAddress,
+    fromToken?.networkId,
+    fromTokenAmount,
+    slippageItem.key,
+    slippageItem.value,
+    swapAddressInfo.accountInfo?.account?.id,
+    swapAddressInfo.accountInfo?.deriveType,
+    swapAddressInfo.address,
+    swapAddressInfo.networkId,
+    swapStockExecutionTokenSyncId,
+    swapTabSwitchType,
+    swapToAddressInfo.address,
+    swapToAddressInfo.networkId,
+    toToken?.contractAddress,
+    toToken?.networkId,
+    toTokenAmount,
+  ]);
+
   const activeAccountRef = useRef<
     ReturnType<typeof useSwapAddressInfo> | undefined
   >(undefined);
@@ -241,7 +315,11 @@ export function useSwapQuote() {
     fromTokenAmount.value !== fromAmountDebounce.value;
 
   useEffect(() => {
-    if (swapTabSwitchType !== ESwapTabSwitchType.STOCK) {
+    if (
+      !isFocused ||
+      !isQuoteVisibleRef.current ||
+      swapTabSwitchType !== ESwapTabSwitchType.STOCK
+    ) {
       return;
     }
     if (isStockFromAmountDebouncing && !swapQuoteFetching) {
@@ -252,6 +330,7 @@ export function useSwapQuote() {
     }
   }, [
     fromTokenAmount.value,
+    isFocused,
     isStockFromAmountDebouncing,
     setSwapQuoteFetching,
     swapQuoteFetching,
@@ -262,7 +341,7 @@ export function useSwapQuote() {
     if (swapTabSwitchType !== ESwapTabSwitchType.STOCK) {
       return;
     }
-    if (!isFocused) {
+    if (!isFocused || !isQuoteVisibleRef.current) {
       setSwapQuoteFetching(false);
       return;
     }
@@ -302,7 +381,7 @@ export function useSwapQuote() {
   }, [toToken?.decimals, toAmountDebounce, setToTokenAmount]);
 
   useEffect(() => {
-    if (!isFocusRef.current) return;
+    if (!isQuoteVisibleRef.current) return;
     if (shouldPauseQuote) return;
     if (!fromTokenAmount.value && fromTokenAmount.isInput) {
       void quoteAction(
@@ -319,7 +398,7 @@ export function useSwapQuote() {
   }, [fromTokenAmount, quoteAction, shouldPauseQuote]);
 
   useEffect(() => {
-    if (!isFocusRef.current) return;
+    if (!isQuoteVisibleRef.current) return;
     if (shouldPauseQuote) return;
     if (
       !toTokenAmount.value &&
@@ -340,6 +419,9 @@ export function useSwapQuote() {
   }, [toTokenAmount, quoteAction, shouldPauseQuote]);
 
   useEffect(() => {
+    if (!isQuoteVisibleRef.current) {
+      return;
+    }
     if (shouldPauseQuote) {
       return;
     }
@@ -388,6 +470,10 @@ export function useSwapQuote() {
       return;
     }
 
+    if (!isQuoteVisibleRef.current) {
+      return;
+    }
+
     const keyChanged = prevKey !== slippageItem.key;
     const customValueChanged =
       slippageItem.key === ESwapSlippageSegmentKey.CUSTOM &&
@@ -418,21 +504,10 @@ export function useSwapQuote() {
   ]);
 
   useEffect(() => {
+    if (!isQuoteVisibleRef.current) {
+      return;
+    }
     if (shouldPauseQuote) {
-      return;
-    }
-    if (
-      !isFocusRef.current &&
-      swapToAddressInfo.address ===
-        swapQuoteActionLockRef.current?.receivingAddress
-    ) {
-      return;
-    }
-    if (
-      !isFocusRef.current &&
-      !swapToAnotherAccountAddress?.address &&
-      settingsAtomRef.current.swapToAnotherAccountSwitchOn
-    ) {
       return;
     }
     if (
@@ -493,9 +568,10 @@ export function useSwapQuote() {
       swapToAddressInfoRef.current.address,
     );
   }, [
-    swapToAnotherAccountAddress?.address,
     cleanQuoteInterval,
     quoteAction,
+    swapAddressInfo.accountInfo?.account?.id,
+    swapAddressInfo.accountInfo?.deriveType,
     swapAddressInfo.address,
     swapAddressInfo.networkId,
     swapToAddressInfo.address,
@@ -510,6 +586,9 @@ export function useSwapQuote() {
   ]);
 
   useEffect(() => {
+    if (!isQuoteVisibleRef.current) {
+      return;
+    }
     if (shouldPauseQuote) {
       return;
     }
@@ -542,21 +621,10 @@ export function useSwapQuote() {
   );
 
   useEffect(() => {
+    if (!isQuoteVisibleRef.current) {
+      return;
+    }
     if (shouldPauseQuote) {
-      return;
-    }
-    if (
-      !isFocusRef.current &&
-      swapToAddressInfo.address ===
-        swapQuoteActionLockRef.current?.receivingAddress
-    ) {
-      return;
-    }
-    if (
-      !isFocusRef.current &&
-      !swapToAnotherAccountAddress?.address &&
-      settingsAtomRef.current.swapToAnotherAccountSwitchOn
-    ) {
       return;
     }
     if (swapTabSwitchTypeRef.current !== ESwapTabSwitchType.LIMIT) {
@@ -620,9 +688,10 @@ export function useSwapQuote() {
       swapToAddressInfoRef.current.address,
     );
   }, [
-    swapToAnotherAccountAddress?.address,
     cleanQuoteInterval,
     quoteAction,
+    swapAddressInfo.accountInfo?.account?.id,
+    swapAddressInfo.accountInfo?.deriveType,
     swapAddressInfo.address,
     swapAddressInfo.networkId,
     swapToAddressInfo.address,
@@ -634,41 +703,6 @@ export function useSwapQuote() {
     toAmountDebounce,
     shouldPauseQuote,
   ]);
-
-  // Due to the changes in derived types causing address changes, this is not in the swap tab.
-  useEffect(() => {
-    if (shouldPauseQuote) {
-      return;
-    }
-    if (isFocusRef.current) return;
-    if (
-      fromToken?.networkId !== activeAccountRef.current?.networkId ||
-      equalTokenNoCaseSensitive({
-        token1: {
-          networkId: fromToken?.networkId,
-          contractAddress: fromToken?.contractAddress,
-        },
-        token2: {
-          networkId: toToken?.networkId,
-          contractAddress: toToken?.contractAddress,
-        },
-      })
-    ) {
-      return;
-    }
-    alignmentDecimal();
-    void quoteAction(
-      swapSlippageRef.current,
-      activeAccountRef.current?.address,
-      activeAccountRef.current?.accountInfo?.account?.id,
-      undefined,
-      undefined,
-      ESwapQuoteKind.SELL,
-      undefined,
-      swapToAddressInfoRef.current.address,
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [swapAddressInfo.accountInfo?.deriveType, shouldPauseQuote]);
 
   const swapApprovingSuccessAction = useCallback(
     async (data: {
@@ -854,92 +888,116 @@ export function useSwapQuote() {
     swapQuoteMixEventAction,
   ]);
 
-  const isModalPage = useIsOverlayPage();
+  const subscribeQuoteEvents = useCallback(() => {
+    appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+    appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+    appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
+    appEventBus.on(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
+    appEventBus.off(
+      EAppEventBusNames.SwapApprovingSuccess,
+      swapApprovingSuccessAction,
+    );
+    appEventBus.on(
+      EAppEventBusNames.SwapApprovingSuccess,
+      swapApprovingSuccessAction,
+    );
+  }, [quoteEventHandler, swapApprovingSuccessAction, swapQuoteMixEvent]);
+
+  const unsubscribeQuoteEvents = useCallback(() => {
+    appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+    appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
+    appEventBus.off(
+      EAppEventBusNames.SwapApprovingSuccess,
+      swapApprovingSuccessAction,
+    );
+  }, [quoteEventHandler, swapApprovingSuccessAction, swapQuoteMixEvent]);
+
+  const refreshPreservedInputQuoteOnFocus = useCallback(() => {
+    if (shouldPauseQuote) {
+      shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
+      return;
+    }
+    if (!shouldRefreshPreservedInputQuoteOnFocusRef.current) {
+      return;
+    }
+
+    shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
+    const quoteKind =
+      swapTabSwitchTypeRef.current === ESwapTabSwitchType.LIMIT &&
+      toTokenAmountRef.current.isInput &&
+      toTokenAmountRef.current.value
+        ? ESwapQuoteKind.BUY
+        : ESwapQuoteKind.SELL;
+    void quoteAction(
+      swapSlippageRef.current,
+      activeAccountRef.current?.address,
+      activeAccountRef.current?.accountInfo?.account?.id,
+      undefined,
+      undefined,
+      quoteKind,
+      undefined,
+      swapToAddressInfoRef.current.address,
+    );
+  }, [quoteAction, shouldPauseQuote]);
+
+  const pauseQuoteOnFocusLoss = useCallback(() => {
+    cleanQuoteInterval();
+    const shouldPreserveUserInputAmount =
+      shouldPreserveSwapUserInputAmountOnAccountSwitch({
+        fromTokenAmount: fromTokenAmountRef.current,
+        toTokenAmount: toTokenAmountRef.current,
+      });
+    shouldRefreshPreservedInputQuoteOnFocusRef.current =
+      shouldPreserveUserInputAmount;
+    const quoteRequestId = swapQuoteActionLockRef.current.quoteRequestId;
+    if (quoteRequestId) {
+      closeQuoteEvent(quoteRequestId);
+    }
+    setSwapQuoteActionLock((value) => ({
+      ...value,
+      actionLock: false,
+    }));
+    setSwapQuoteFetching(false);
+
+    if (
+      swapQuoteFetchingRef.current ||
+      (swapQuoteEventTotalCountRef.current.count > 0 &&
+        swapQuoteResultListRef.current.length <
+          swapQuoteEventTotalCountRef.current.count)
+    ) {
+      setSwapQuoteEventTotalCount({
+        count: 0,
+      });
+      setSwapQuoteResultList([]);
+      if (!shouldPreserveUserInputAmount) {
+        setFromTokenAmount({ value: '', isInput: true });
+      }
+    }
+  }, [
+    cleanQuoteInterval,
+    closeQuoteEvent,
+    setFromTokenAmount,
+    setSwapQuoteActionLock,
+    setSwapQuoteEventTotalCount,
+    setSwapQuoteFetching,
+    setSwapQuoteResultList,
+  ]);
+
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
       if (!isModalPage) {
-        if (isFocus) {
-          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-          appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
-          appEventBus.on(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
-          appEventBus.off(
-            EAppEventBusNames.SwapApprovingSuccess,
-            swapApprovingSuccessAction,
-          );
-          appEventBus.on(
-            EAppEventBusNames.SwapApprovingSuccess,
-            swapApprovingSuccessAction,
-          );
-          if (
-            shouldRefreshPreservedInputQuoteOnFocusRef.current &&
-            !shouldPauseQuote
-          ) {
-            shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
-            const quoteKind =
-              swapTabSwitchTypeRef.current === ESwapTabSwitchType.LIMIT &&
-              toTokenAmountRef.current.isInput &&
-              toTokenAmountRef.current.value
-                ? ESwapQuoteKind.BUY
-                : ESwapQuoteKind.SELL;
-            void quoteAction(
-              swapSlippageRef.current,
-              activeAccountRef.current?.address,
-              activeAccountRef.current?.accountInfo?.account?.id,
-              undefined,
-              undefined,
-              quoteKind,
-              undefined,
-              swapToAddressInfoRef.current.address,
-            );
-          } else if (shouldPauseQuote) {
-            shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
-          }
-        } else if (isHiddenModel) {
-          if (
-            swapQuoteFetchingRef.current ||
-            (swapQuoteEventTotalCountRef.current.count > 0 &&
-              swapQuoteResultListRef.current.length <
-                swapQuoteEventTotalCountRef.current.count)
-          ) {
-            // reset tab quote data when swap modal is open and tab quote data is fetching
-            const shouldPreserveUserInputAmount =
-              shouldPreserveSwapUserInputAmountOnAccountSwitch({
-                fromTokenAmount: fromTokenAmountRef.current,
-                toTokenAmount: toTokenAmountRef.current,
-              });
-            closeQuoteEvent(swapQuoteActionLockRef.current.quoteRequestId);
-            setSwapQuoteEventTotalCount({
-              count: 0,
-            });
-            setSwapQuoteResultList([]);
-            if (!shouldPreserveUserInputAmount) {
-              setFromTokenAmount({ value: '', isInput: true });
-            } else {
-              shouldRefreshPreservedInputQuoteOnFocusRef.current = true;
-            }
-          }
-          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
-          appEventBus.off(
-            EAppEventBusNames.SwapApprovingSuccess,
-            swapApprovingSuccessAction,
-          );
-        } else {
-          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-          appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
-          appEventBus.on(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
-          appEventBus.off(
-            EAppEventBusNames.SwapApprovingSuccess,
-            swapApprovingSuccessAction,
-          );
-          appEventBus.on(
-            EAppEventBusNames.SwapApprovingSuccess,
-            swapApprovingSuccessAction,
-          );
-        }
+        handleSwapQuoteTabVisibilityChange({
+          isFocus,
+          isHiddenModel,
+          setQuoteVisible: (isVisible) => {
+            isQuoteVisibleRef.current = isVisible;
+          },
+          subscribeQuoteEvents,
+          refreshPreservedInputQuote: refreshPreservedInputQuoteOnFocus,
+          pauseQuote: pauseQuoteOnFocusLoss,
+          unsubscribeQuoteEvents,
+        });
       }
     },
   );
@@ -947,35 +1005,23 @@ export function useSwapQuote() {
   useEffect(() => {
     if (isModalPage) {
       if (isFocused) {
-        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-        appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
-        appEventBus.on(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
-        appEventBus.off(
-          EAppEventBusNames.SwapApprovingSuccess,
-          swapApprovingSuccessAction,
-        );
-        appEventBus.on(
-          EAppEventBusNames.SwapApprovingSuccess,
-          swapApprovingSuccessAction,
-        );
+        subscribeQuoteEvents();
+        refreshPreservedInputQuoteOnFocus();
+      } else {
+        pauseQuoteOnFocusLoss();
       }
     }
     return () => {
       if (isModalPage) {
-        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
-        appEventBus.off(
-          EAppEventBusNames.SwapApprovingSuccess,
-          swapApprovingSuccessAction,
-        );
+        unsubscribeQuoteEvents();
       }
     };
   }, [
     isFocused,
     isModalPage,
-    quoteEventHandler,
-    swapApprovingSuccessAction,
-    swapQuoteMixEvent,
+    pauseQuoteOnFocusLoss,
+    refreshPreservedInputQuoteOnFocus,
+    subscribeQuoteEvents,
+    unsubscribeQuoteEvents,
   ]);
 }

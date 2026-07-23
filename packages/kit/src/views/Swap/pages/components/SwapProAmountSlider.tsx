@@ -20,7 +20,7 @@ const SwapProAmountSlider = ({
   onSlideComplete,
 }: ISwapProAmountSliderProps) => {
   return (
-    <XStack px="$1">
+    <XStack testID="swap-pro-amount-slider" px="$1">
       <SegmentSlider
         value={value}
         min={0}

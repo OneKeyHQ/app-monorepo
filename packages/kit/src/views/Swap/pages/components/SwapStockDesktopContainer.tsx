@@ -1934,10 +1934,12 @@ function StockPriceChart({
 function StockMobilePositionsSection({
   onTokenPress,
   supportNetworksList,
+  supportNetworksReady,
   storeName,
 }: {
   onTokenPress?: (token: ISwapToken) => void;
   supportNetworksList: (IMarketBasicConfigNetwork | ISwapNetwork)[];
+  supportNetworksReady: boolean;
   storeName: EJotaiContextStoreNames;
 }) {
   const intl = useIntl();
@@ -1947,8 +1949,15 @@ function StockMobilePositionsSection({
   const [swapFromToken] = useSwapSelectFromTokenAtom();
   const [swapToToken] = useSwapSelectToTokenAtom();
   const { selectStockSwapToken } = stockChannel;
-  const { cachedPositionTokenList, hasCachedPositionTokenList } =
-    useSwapProSupportNetworksTokenList(supportNetworksList);
+  const {
+    cachedPositionTokenList,
+    hasCachedPositionSnapshot,
+    hasPositionOwner,
+    isLiveTokenListForCurrentOwner,
+  } = useSwapProSupportNetworksTokenList(
+    supportNetworksList,
+    supportNetworksReady,
+  );
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
     defaultNetworkId: stockChannel.stockNetworkId || undefined,
     storeName,
@@ -2039,7 +2048,9 @@ function StockMobilePositionsSection({
             onSearchClick={handleOpenStockTokenSelector}
             filterToken={filterToken}
             cachedTokenList={cachedPositionTokenList}
-            hasCachedTokenList={hasCachedPositionTokenList}
+            hasPositionOwner={hasPositionOwner}
+            hasCachedTokenSnapshot={hasCachedPositionSnapshot}
+            isLiveTokenListForCurrentOwner={isLiveTokenListForCurrentOwner}
             stockOnly
             hideSearch
           />
@@ -2497,6 +2508,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
             <StockMobilePositionsSection
               onTokenPress={props.onTokenPress}
               supportNetworksList={props.supportNetworksList}
+              supportNetworksReady={!props.fetchLoading}
               storeName={props.storeName}
             />
           </YStack>

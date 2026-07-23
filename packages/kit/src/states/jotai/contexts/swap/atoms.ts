@@ -2,6 +2,14 @@ import BigNumber from 'bignumber.js';
 
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
+import {
+  EMPTY_SWAP_BALANCE_DISPLAY_CACHE,
+  type ISwapBalanceDisplayCache,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceDisplayCacheUtils';
+import {
+  EMPTY_SWAP_PRO_POSITIONS_CACHE,
+  type ISwapProPositionsCache,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapProPositionsCacheUtils';
 import { isStockQuoteInputAmountMatched } from '@onekeyhq/kit/src/views/Swap/utils/swapStockTradeControl';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
@@ -26,29 +34,27 @@ import {
   swapProTimeRangeItems,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
+  type ESwapDirectionType,
   ESwapNetworkFeeLevel,
   ESwapProTradeType,
+  type ESwapQuoteKind,
+  type ESwapRateDifferenceUnit,
+  type ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
+  type IFetchQuoteResult,
+  type ISwapAlertState,
+  type ISwapAutoSlippageSuggestedValue,
+  type ISwapLimitPriceInfo,
+  type ISwapNativeTokenReserveGas,
+  type ISwapNetwork,
+  type ISwapPreSwapData,
+  type ISwapStep,
+  type ISwapTips,
+  type ISwapToken,
+  type ISwapTokenCatch,
+  type ISwapTokenMetadata,
   LIMIT_PRICE_DEFAULT_DECIMALS,
   defaultLimitExpirationTime,
-} from '@onekeyhq/shared/types/swap/types';
-import type {
-  ESwapDirectionType,
-  ESwapQuoteKind,
-  ESwapRateDifferenceUnit,
-  ESwapSlippageSegmentKey,
-  IFetchQuoteResult,
-  ISwapAlertState,
-  ISwapAutoSlippageSuggestedValue,
-  ISwapLimitPriceInfo,
-  ISwapNativeTokenReserveGas,
-  ISwapNetwork,
-  ISwapPreSwapData,
-  ISwapStep,
-  ISwapTips,
-  ISwapToken,
-  ISwapTokenCatch,
-  ISwapTokenMetadata,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
@@ -234,6 +240,28 @@ export const {
       CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockPayTokenPreferenceAtom,
   },
 );
+
+export const {
+  atom: swapBalanceDisplayCacheAtom,
+  use: useSwapBalanceDisplayCacheAtom,
+} = contextAtom<ISwapBalanceDisplayCache>(EMPTY_SWAP_BALANCE_DISPLAY_CACHE, {
+  // Last-good, owner-scoped balance values are for first-frame display only.
+  // Quote, Max, review, build, and send continue to use live balance state.
+  coldStartCache: true,
+  coldStartCacheKey:
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapBalanceDisplayCacheAtom,
+});
+
+export const {
+  atom: swapStockBalanceDisplayCacheAtom,
+  use: useSwapStockBalanceDisplayCacheAtom,
+} = contextAtom<ISwapBalanceDisplayCache>(EMPTY_SWAP_BALANCE_DISPLAY_CACHE, {
+  // Stock keeps its own display cache so channel transitions can never replace
+  // the ordinary Swap first-frame balance.
+  coldStartCache: true,
+  coldStartCacheKey:
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockBalanceDisplayCacheAtom,
+});
 
 export const {
   atom: swapInitialSelectedTokensSyncedAtom,
@@ -450,8 +478,8 @@ export const {
   atom: swapSelectTokenDetailFetchingAtom,
   use: useSwapSelectTokenDetailFetchingAtom,
 } = contextAtom<Record<ESwapDirectionType, boolean>>({
-  'from': false,
-  'to': false,
+  from: false,
+  to: false,
 });
 
 export const {
@@ -741,45 +769,56 @@ export const {
   use: useSwapProSupportNetworksTokenListAtom,
 } = contextAtom<ISwapToken[]>([]);
 
-export const SWAP_PRO_POSITIONS_CACHE_MAX_OWNERS = 20;
-
-export type ISwapProPositionsCacheEntry = {
-  ownerKey: string;
-  networkIdsKey: string;
-  tokens: ISwapToken[];
-  updatedAt: number;
-};
-
 export function buildSwapProPositionsOwnerKey({
   accountId,
   networkIdsKey,
+  currencyId,
 }: {
   accountId?: string;
   networkIdsKey: string;
+  currencyId: string;
 }) {
-  if (!accountId || !networkIdsKey) {
+  if (!accountId || !networkIdsKey || !currencyId) {
     return '';
   }
-  return `${accountId}__${networkIdsKey}`;
+  return `${accountId}__${networkIdsKey}__${currencyId.toLowerCase()}`;
 }
 
 export const {
   atom: swapProPositionsCacheAtom,
   use: useSwapProPositionsCacheAtom,
-} = contextAtom<{
-  byOwner: Record<string, ISwapProPositionsCacheEntry>;
-}>(
-  { byOwner: {} },
-  {
-    coldStartCache: true,
-    coldStartCacheKey:
-      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProPositionsCacheAtom,
-  },
-);
+} = contextAtom<ISwapProPositionsCache>(EMPTY_SWAP_PRO_POSITIONS_CACHE, {
+  coldStartCache: true,
+  coldStartCacheKey:
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProPositionsCacheAtom,
+});
 
 export const {
-  atom: swapProSupportNetworksTokenListLoadingAtom,
-  use: useSwapProSupportNetworksTokenListLoadingAtom,
+  atom: swapProPositionsCurrentOwnerKeyAtom,
+  use: useSwapProPositionsCurrentOwnerKeyAtom,
+} = contextAtom<string>('');
+
+export const {
+  atom: swapProPositionsRequestIdAtom,
+  use: useSwapProPositionsRequestIdAtom,
+} = contextAtom<number>(0);
+
+export const {
+  atom: swapProPositionsRequestIdsAtom,
+  use: useSwapProPositionsRequestIdsAtom,
+} = contextAtom<Record<string, number>>({});
+
+export const {
+  atom: swapProPositionsDataOwnerKeyAtom,
+  use: useSwapProPositionsDataOwnerKeyAtom,
+} = contextAtom<string>('');
+
+export const { atom: swapProTokenBalanceRequestIdAtom } =
+  contextAtom<number>(0);
+
+export const {
+  atom: swapProTokenBalanceLoadingAtom,
+  use: useSwapProTokenBalanceLoadingAtom,
 } = contextAtom<boolean>(false);
 
 export const { atom: swapProTokenValueAtom, use: useSwapProTokenValueAtom } =

@@ -195,7 +195,7 @@ describe('swapProAmountSliderUtils', () => {
       ).toBe('0.0000025');
     });
 
-    it('returns undefined for zero percent or empty balance', () => {
+    it('returns an empty amount for zero percent and zero for an empty balance', () => {
       expect(
         calcSwapProSliderAmount({
           percent: 0,
@@ -209,7 +209,7 @@ describe('swapProAmountSliderUtils', () => {
           availableBalance: new BigNumber(0),
           decimals: 18,
         }),
-      ).toBeUndefined();
+      ).toBe('0');
     });
   });
 });

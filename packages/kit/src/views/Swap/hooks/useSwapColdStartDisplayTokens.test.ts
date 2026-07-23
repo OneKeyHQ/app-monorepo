@@ -5,6 +5,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  getSwapBalanceDisplayEntryFromGlobalSnapshot,
   getSwapColdStartDisplayTokensFromGlobalSnapshot,
   getSwapDefaultSelectedTokensFromGlobalHomeSnapshot,
   getSwapStockColdStartDisplayTokenFromGlobalSnapshot,
@@ -84,6 +85,75 @@ describe('getSwapColdStartDisplayTokensFromGlobalSnapshot', () => {
         symbol: 'USDC',
       }),
     });
+  });
+
+  it('restores an owner-scoped balance directly from the boot snapshot', () => {
+    const accountKey = 'wallet-1|indexed-account-1|default';
+    setGlobalSnapshot({
+      [scopedKey(
+        ACCOUNT_SELECTOR_HOME_SCOPE_KEY,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom,
+      )]: {
+        0: buildHomeSelectedAccount('evm--1'),
+      },
+      [scopedKey(
+        SWAP_STORE_SCOPE_KEY,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+      )]: {
+        accountKey,
+        networkId: 'evm--1',
+        swapType: ESwapTabSwitchType.SWAP,
+        updatedAt: 1,
+      } satisfies ISwapSelectedTokensColdStartContext,
+      [scopedKey(
+        SWAP_STORE_SCOPE_KEY,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
+      )]: {
+        networkId: 'evm--1',
+        contractAddress: '',
+        isNative: true,
+        symbol: 'ETH',
+      } satisfies Partial<ISwapToken>,
+      [scopedKey(
+        SWAP_STORE_SCOPE_KEY,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapBalanceDisplayCacheAtom,
+      )]: {
+        version: 1,
+        entries: [
+          {
+            accountAddress: '0xAccount',
+            accountKey,
+            balance: '0.24',
+            contractAddress: '',
+            isNative: true,
+            networkId: 'evm--1',
+            updatedAt: 1,
+          },
+        ],
+      },
+    });
+
+    const token = {
+      networkId: 'evm--1',
+      contractAddress: '',
+      isNative: true,
+      symbol: 'ETH',
+    } as ISwapToken;
+    expect(
+      getSwapBalanceDisplayEntryFromGlobalSnapshot({ token })?.balance,
+    ).toBe('0.24');
+    expect(
+      getSwapBalanceDisplayEntryFromGlobalSnapshot({
+        currentAccountKey: 'wallet-1|indexed-account-1|',
+        token,
+      })?.balance,
+    ).toBe('0.24');
+    expect(
+      getSwapBalanceDisplayEntryFromGlobalSnapshot({
+        currentAccountKey: 'wallet-2|indexed-account-2|default',
+        token,
+      }),
+    ).toBeUndefined();
   });
 
   it('exposes all-networks home defaults for provider cold-start bootstrap', () => {
