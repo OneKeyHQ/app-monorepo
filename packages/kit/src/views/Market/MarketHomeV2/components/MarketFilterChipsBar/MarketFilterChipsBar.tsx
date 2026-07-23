@@ -546,10 +546,12 @@ export function MarketFilterChipsBar({
 
   return (
     // Figma 25141-48128: the trending controls sit in the same bordered
-    // toolbar the Favorites/Stocks/Perps sub-category bars use. 12px above
-    // (the sticky-portal wrapper supplies the 12px below), 6px inner padding,
-    // so the block measures 64px top-to-bottom like the design.
-    <Stack pt="$3">
+    // toolbar the Favorites/Stocks/Perps sub-category bars use.
+    // Spacing is split with two containers outside this one: the sticky-header
+    // portal target adds 8px above (DESKTOP_STICKY_HEADER_TOP_GAP, shared by
+    // every tab) and the portal wrapper adds 12px below. Pairing those with
+    // 4px here lands the effective gaps at 12px above / 20px below the box.
+    <Stack pt="$1" pb="$2">
       <XStack
         alignItems="center"
         justifyContent="space-between"
