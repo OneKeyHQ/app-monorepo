@@ -293,13 +293,10 @@ function PaymentOptionsPage() {
               {options.length === 0 ? (
                 <Stack alignItems="center" py="$8" gap="$1">
                   <SizableText size="$bodyLgMedium">
+                    {/* copy pending product i18n keys */}
                     {isPaymentInactive
-                      ? intl.formatMessage({
-                          id: ETranslations.global_not_available,
-                        })
-                      : intl.formatMessage({
-                          id: ETranslations.global_no_results,
-                        })}
+                      ? 'Payment unavailable'
+                      : 'No payment options available'}
                   </SizableText>
                   <SizableText
                     size="$bodyMd"
