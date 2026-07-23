@@ -36,6 +36,10 @@ import {
   swapInitialSelectedTokensSyncedAtom,
   swapLastNonLimitSelectedTokensAtom,
   swapNetworks,
+  swapProPositionsCacheAtom,
+  swapProPositionsCurrentOwnerKeyAtom,
+  swapProPositionsDataOwnerKeyAtom,
+  swapProSupportNetworksTokenListAtom,
   swapQuoteActionLockAtom,
   swapQuoteCurrentEventProviderKeysAtom,
   swapQuoteCurrentEventReceivedCountAtom,
@@ -55,6 +59,7 @@ import {
   swapStockSelectedTokenAtom,
   swapToTokenAmountAtom,
   swapTypeSwitchAtom,
+  useSwapBalanceDisplayCacheAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
@@ -326,11 +331,13 @@ describe('useSwapActions', () => {
     const { result } = renderHook(
       () => {
         const actions = useSwapActions().current;
+        const [balanceDisplayCache] = useSwapBalanceDisplayCacheAtom();
         const [fromToken] = useSwapSelectFromTokenAtom();
         const [balance] = useSwapSelectedFromTokenBalanceAtom();
 
         return {
           actions,
+          balanceDisplayCache,
           fromToken,
           balance,
         };
@@ -358,6 +365,68 @@ describe('useSwapActions', () => {
     expect(result.current.fromToken?.price).toBe('3000');
     expect(result.current.fromToken?.currency).toBe('usd');
     expect(result.current.balance).toBe('1.23');
+    expect(result.current.balanceDisplayCache.entries[0]).toMatchObject({
+      accountAddress: '0xabc',
+      balance: '1.23',
+      contractAddress: '',
+      isNative: true,
+      networkId: 'evm--1',
+    });
+  });
+
+  it('does not persist an error fallback as a display balance', async () => {
+    mockFetchSwapTokenDetails.mockRejectedValue(new Error('network error'));
+
+    const { result } = renderHook(
+      () => {
+        const actions = useSwapActions().current;
+        const [balanceDisplayCache] = useSwapBalanceDisplayCacheAtom();
+        const [balance] = useSwapSelectedFromTokenBalanceAtom();
+        return {
+          actions,
+          balance,
+          balanceDisplayCache,
+        };
+      },
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    await act(async () => {
+      await result.current.actions.loadSwapSelectTokenDetail(
+        ESwapDirectionType.FROM,
+        fromAddressInfo,
+      );
+    });
+
+    expect(result.current.balance).toBe('0.0');
+    expect(result.current.balanceDisplayCache.entries).toEqual([]);
+  });
+
+  it('does not let the ordinary Swap balance loader run for Stock tokens', async () => {
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapSelectFromTokenAtom(), {
+        ...ethToken,
+        symbol: 'USDT',
+        balanceParsed: '2.2279',
+      });
+      storeInstance.set(swapSelectedFromTokenBalanceAtom(), '0.01001');
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.loadSwapSelectTokenDetail(
+        ESwapDirectionType.FROM,
+        fromAddressInfo,
+      );
+    });
+
+    expect(mockFetchSwapTokenDetails).not.toHaveBeenCalled();
+    expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('0.01001');
   });
 
   it('keeps the latest Stock execution token sync when network sorting resolves out of order', async () => {
@@ -2195,5 +2264,67 @@ describe('useSwapActions', () => {
     expect(store.get(swapAlertsAtom()).states).toEqual([
       { noConnectWallet: true },
     ]);
+  });
+
+  it('updates position balances only for the active owner and keeps its cache coherent', async () => {
+    const ownerA = 'account-a__evm--1__usd';
+    const ownerB = 'account-b__evm--56__usd';
+    const updatedAt = 123;
+    const { store, Wrapper } = createWrapperWithStore();
+    store.set(swapProPositionsCurrentOwnerKeyAtom(), ownerA);
+    store.set(swapProPositionsDataOwnerKeyAtom(), ownerA);
+    store.set(swapProSupportNetworksTokenListAtom(), [
+      { ...ethToken, balanceParsed: '1' },
+    ]);
+    store.set(swapProPositionsCacheAtom(), {
+      byOwner: {
+        [ownerA]: {
+          ownerKey: ownerA,
+          networkIdsKey: 'evm--1',
+          currencyId: 'usd',
+          tokens: [{ ...ethToken, balanceParsed: '1' }],
+          updatedAt,
+        },
+      },
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    act(() => {
+      result.current.updateSwapProPositionTokenBalances({
+        positionOwnerKey: ownerA,
+        tokens: [{ ...ethToken, balanceParsed: '2' }],
+      });
+    });
+
+    expect(
+      store.get(swapProSupportNetworksTokenListAtom())[0]?.balanceParsed,
+    ).toBe('2');
+    expect(
+      store.get(swapProPositionsCacheAtom()).byOwner[ownerA]?.tokens[0]
+        ?.balanceParsed,
+    ).toBe('2');
+    expect(
+      store.get(swapProPositionsCacheAtom()).byOwner[ownerA]?.updatedAt,
+    ).toBe(updatedAt);
+
+    act(() => {
+      store.set(swapProPositionsCurrentOwnerKeyAtom(), ownerB);
+      store.set(swapProPositionsDataOwnerKeyAtom(), ownerB);
+      store.set(swapProSupportNetworksTokenListAtom(), [bnbToken]);
+      result.current.updateSwapProPositionTokenBalances({
+        positionOwnerKey: ownerA,
+        tokens: [{ ...ethToken, balanceParsed: '3' }],
+      });
+    });
+
+    expect(store.get(swapProSupportNetworksTokenListAtom())).toEqual([
+      bnbToken,
+    ]);
+    expect(
+      store.get(swapProPositionsCacheAtom()).byOwner[ownerA]?.tokens[0]
+        ?.balanceParsed,
+    ).toBe('2');
   });
 });

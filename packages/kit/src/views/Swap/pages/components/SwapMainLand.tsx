@@ -1174,7 +1174,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     ],
   );
 
-  const { networkList: SwapProSupportNetworksList } = useSwapProInit();
+  const {
+    networkList: SwapProSupportNetworksList,
+    supportNetworksReady: swapProSupportNetworksReady,
+  } = useSwapProInit();
   const [swapNetworks] = useSwapNetworksAtom();
 
   // Filter and sort networks, then stabilize reference to prevent unnecessary re-renders
@@ -1334,6 +1337,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         fromTokenAmountValue={fromTokenAmount.value}
         swapRecentTokenPairs={swapRecentTokenPairs}
         supportNetworksList={swapBridgeSupportNetworksFilterAllNet}
+        supportNetworksReady={!fetchLoading}
       />
     );
   }, [
@@ -1452,6 +1456,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
               onProMarketDetail={onProMarketDetail}
               onTokenPress={onTokenPress}
               supportNetworksList={SwapProSupportNetworksList}
+              supportNetworksReady={swapProSupportNetworksReady}
               marketPresetSettings={
                 swapProMarketPresetTokenContext
                   ? swapProMarketPresetSettings
@@ -1459,6 +1464,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
               }
               config={{
                 isLoading,
+                speedConfigReady,
                 speedConfig,
                 balanceLoading,
                 isMEV,
@@ -1481,6 +1487,7 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
     swapInitParams?.swapSource === ESwapSource.WALLET_HOME_TOKEN_LIST &&
     Boolean(swapInitParams?.importNetworkId)
       ? {
+          accountKey: swapInitParams?.importAccountKey,
           fromToken: swapInitParams?.importFromToken,
           toToken: swapInitParams?.importToToken,
           swapType:
