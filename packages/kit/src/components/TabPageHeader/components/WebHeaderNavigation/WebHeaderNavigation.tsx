@@ -171,7 +171,10 @@ function useWebHeaderNavigation({
         return;
       }
 
-      if (tabKey === ETabRoutes.Perp) {
+      if (
+        tabKey === ETabRoutes.Perp ||
+        tabKey === ETabRoutes.WebviewPerpTrade
+      ) {
         setPerpPageEnterSource(EPerpPageEnterSource.TabBar);
       }
       if (tabKey) {

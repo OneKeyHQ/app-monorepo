@@ -28,6 +28,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalAssetDetailRoutes,
@@ -1102,6 +1106,7 @@ export function useTrayDataProvider() {
       if (action?.type === 'market-detail-v2') {
         if (action.perpsCoin) {
           const coin = action.perpsCoin;
+          setPerpPageEnterSource(EPerpPageEnterSource.DesktopTray);
           void switchTabAsync(ETabRoutes.Perp).then(async () => {
             try {
               await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
