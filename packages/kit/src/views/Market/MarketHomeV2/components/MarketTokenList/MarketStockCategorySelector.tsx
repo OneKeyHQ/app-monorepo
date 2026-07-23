@@ -14,6 +14,12 @@ import {
   CategoryFilterItem,
   CategoryFilterItemWithLayout,
 } from '../CategoryFilterItem';
+import {
+  MARKET_TOOLBAR_GAP_BOTTOM,
+  MARKET_TOOLBAR_GAP_TOP,
+  MARKET_TOOLBAR_ITEM_HEIGHT,
+  marketToolbarFrameProps,
+} from '../marketToolbarFrame';
 
 import type { IMarketCategoryItem } from '../../types';
 
@@ -51,13 +57,9 @@ function MarketStockCategorySelectorImpl({
         position="relative"
         p="$1"
         gap="$1"
-        mt="$3"
-        mb="$2"
-        maxWidth="100%"
-        overflow="hidden"
-        borderWidth={1}
-        borderColor="$neutral4"
-        borderRadius="$3"
+        mt={MARKET_TOOLBAR_GAP_TOP}
+        mb={MARKET_TOOLBAR_GAP_BOTTOM}
+        {...marketToolbarFrameProps}
       >
         <XStack flex={1} position="relative">
           <ScrollView
@@ -72,6 +74,7 @@ function MarketStockCategorySelectorImpl({
             <XStack gap="$0.5">
               {categories.map((category) => (
                 <CategoryFilterItem
+                  height={MARKET_TOOLBAR_ITEM_HEIGHT}
                   key={category.id}
                   name={category.name}
                   isSelected={category.id === selectedCategoryId}

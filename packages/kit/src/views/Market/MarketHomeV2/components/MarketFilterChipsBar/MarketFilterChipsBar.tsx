@@ -18,6 +18,12 @@ import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import {
+  MARKET_TOOLBAR_GAP_BOTTOM,
+  MARKET_TOOLBAR_GAP_TOP,
+  marketToolbarFrameProps,
+} from '../marketToolbarFrame';
+
+import {
   MARKET_FILTER_CHIPS,
   MARKET_FILTER_DIMENSION_MAP,
   findActiveMarketFilterChip,
@@ -546,21 +552,14 @@ export function MarketFilterChipsBar({
 
   return (
     // Figma 25141-48128: the trending controls sit in the same bordered
-    // toolbar the Favorites/Stocks/Perps sub-category bars use.
-    // Spacing is split with two containers outside this one: the sticky-header
-    // portal target adds 8px above (DESKTOP_STICKY_HEADER_TOP_GAP, shared by
-    // every tab) and the portal wrapper adds 12px below. Pairing those with
-    // 4px here lands the effective gaps at 12px above / 20px below the box.
-    <Stack pt="$1" pb="$2">
+    // toolbar the Favorites/Stocks/Perps sub-category bars use, sharing their
+    // frame geometry so all four tabs line up (see marketToolbarFrame).
+    <Stack pt={MARKET_TOOLBAR_GAP_TOP} pb={MARKET_TOOLBAR_GAP_BOTTOM}>
       <XStack
         alignItems="center"
         justifyContent="space-between"
         p={TOOLBAR_PADDING}
-        borderWidth={1}
-        borderColor="$neutral4"
-        borderRadius="$3"
-        maxWidth="100%"
-        overflow="hidden"
+        {...marketToolbarFrameProps}
       >
         {/* Fixed row height so swapping quick chips <-> condition chips
             (different intrinsic pill heights) never shifts the table below. */}
