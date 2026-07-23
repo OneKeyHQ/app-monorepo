@@ -68,11 +68,17 @@ class ServiceWalletConnectPay extends ServiceBase {
     indexedAccountId?: string;
   }): Promise<string[]> {
     const { serviceAccount, serviceNetwork } = this.backgroundApi;
+    const ethNetworkId = getNetworkIdsMap().eth;
+    // honour the user's global derive type (e.g. Ledger Live) so the offered
+    // address matches the account shown in the wallet
+    const deriveType = await serviceNetwork.getGlobalDeriveTypeOfNetwork({
+      networkId: ethNetworkId,
+    });
     const evmAccount = await serviceAccount.getNetworkAccount({
       accountId: indexedAccountId ? undefined : accountId,
       indexedAccountId,
-      networkId: getNetworkIdsMap().eth,
-      deriveType: 'default',
+      networkId: ethNetworkId,
+      deriveType,
     });
     const address = evmAccount?.address;
     if (!address) {

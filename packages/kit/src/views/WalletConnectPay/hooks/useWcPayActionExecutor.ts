@@ -6,6 +6,7 @@ import {
   EModalRoutes,
   EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { autoFixPersonalSignMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { wcPayChainIdToNetworkId } from '@onekeyhq/shared/src/walletConnect/payConstant';
 import {
@@ -20,6 +21,10 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 
 // small pause so a finished confirm modal fully dismisses before the next one
 const MODAL_TRANSITION_MS = 300;
+
+// User-intent cancellation (dismissed a confirm modal or the collect form);
+// callers should end the flow silently instead of surfacing an error toast.
+export class WcPayUserCancelledError extends OneKeyLocalError {}
 
 function extractTypedDataMessage(parsed: unknown): string {
   if (Array.isArray(parsed)) {
@@ -91,12 +96,18 @@ export function useWcPayActionExecutor() {
             `Unsupported WalletConnect Pay chain: ${chainId}`,
           );
         }
+        // honour the user's global derive type so the signing account matches
+        // the address offered in buildPayAccounts
+        const deriveType =
+          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId,
+          });
         const account =
           await backgroundApiProxy.serviceAccount.getNetworkAccount({
             accountId: indexedAccountId ? undefined : accountId,
             indexedAccountId,
             networkId,
-            deriveType: 'default',
+            deriveType,
           });
         const parsed = JSON.parse(params) as unknown;
 
@@ -137,7 +148,9 @@ export function useWcPayActionExecutor() {
                   },
                   onFail: (error: Error) => reject(error),
                   onCancel: () =>
-                    reject(new OneKeyLocalError('User canceled payment')),
+                    reject(
+                      new WcPayUserCancelledError('User canceled payment'),
+                    ),
                 },
               });
             });
@@ -170,7 +183,9 @@ export function useWcPayActionExecutor() {
                   onSuccess: (result: string) => resolve(result),
                   onFail: (error: Error) => reject(error),
                   onCancel: () =>
-                    reject(new OneKeyLocalError('User canceled payment')),
+                    reject(
+                      new WcPayUserCancelledError('User canceled payment'),
+                    ),
                 },
               });
             });
@@ -178,9 +193,14 @@ export function useWcPayActionExecutor() {
             break;
           }
           case EWcPayActionMethod.PersonalSign: {
-            const message = extractPersonalSignMessage({
-              parsed,
-              accountAddress: account.address,
+            // normalize un-prefixed hex payloads like every other
+            // personal_sign entry point, so the signed bytes match the
+            // counterparty's expectation
+            const message = autoFixPersonalSignMessage({
+              message: extractPersonalSignMessage({
+                parsed,
+                accountAddress: account.address,
+              }),
             });
             const signature = await new Promise<string>((resolve, reject) => {
               navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
@@ -197,7 +217,9 @@ export function useWcPayActionExecutor() {
                   onSuccess: (result: string) => resolve(result),
                   onFail: (error: Error) => reject(error),
                   onCancel: () =>
-                    reject(new OneKeyLocalError('User canceled payment')),
+                    reject(
+                      new WcPayUserCancelledError('User canceled payment'),
+                    ),
                 },
               });
             });
