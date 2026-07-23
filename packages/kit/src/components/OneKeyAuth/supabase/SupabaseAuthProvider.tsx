@@ -196,13 +196,14 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
         if (cancelled) {
           return;
         }
-        const { getSupabaseClient, getKeylessSupabaseClient } =
-          await import('@onekeyhq/shared/src/utils/supabaseClientUtils');
+        const {
+          getSupabaseClient,
+          getKeylessSupabaseClient,
+          isSupabaseTokenRefreshRuntime,
+        } = await import('@onekeyhq/shared/src/utils/supabaseClientUtils');
         if (cancelled) {
           return;
         }
-        const legacyClient = getSupabaseClient().client;
-        const keylessClient = getKeylessSupabaseClient().client;
         logSupabaseAuthProvider('fetchSession start');
         setIsLoading(true);
         // Resolve the source before clearing isLoading so an OAuth-backed
@@ -218,21 +219,26 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
         }
         setLegacySession(nextLegacySession);
         setKeylessSession(nextKeylessSession);
-        // Auth state events only fire from THIS runtime's client. Bg-owned
-        // writes are picked up by the projection refresh effects/events; token
-        // refreshes do not change the identity represented by this context.
-        const legacySubscription = legacyClient.auth.onAuthStateChange(
-          (_event, nextSession) => {
-            setLegacySession(nextSession);
-          },
-        ).data.subscription;
-        unsubscribes.push(() => legacySubscription.unsubscribe());
-        const keylessSubscription = keylessClient.auth.onAuthStateChange(
-          (_event, nextSession) => {
-            setKeylessSession(nextSession);
-          },
-        ).data.subscription;
-        unsubscribes.push(() => keylessSubscription.unsubscribe());
+        if (isSupabaseTokenRefreshRuntime()) {
+          const legacyClient = getSupabaseClient().client;
+          const keylessClient = getKeylessSupabaseClient().client;
+          // Only the runtime that owns token refresh has an authoritative
+          // auth-js memory session. A Main runtime uses persistSession:false,
+          // whose INITIAL_SESSION=null would erase the projection just read
+          // from BG-owned shared storage.
+          const legacySubscription = legacyClient.auth.onAuthStateChange(
+            (_event, nextSession) => {
+              setLegacySession(nextSession);
+            },
+          ).data.subscription;
+          unsubscribes.push(() => legacySubscription.unsubscribe());
+          const keylessSubscription = keylessClient.auth.onAuthStateChange(
+            (_event, nextSession) => {
+              setKeylessSession(nextSession);
+            },
+          ).data.subscription;
+          unsubscribes.push(() => keylessSubscription.unsubscribe());
+        }
       } finally {
         logSupabaseAuthProvider('fetchSession done');
         if (!cancelled) {
