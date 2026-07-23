@@ -30,8 +30,9 @@ export function extractWcPaySolanaTransaction(parsed: unknown): string {
  * WalletConnect Pay carries Solana transactions as base64 while the sol
  * vault only parses bs58 encodedTx (`parseToNativeTx` default), so the
  * payload must be transcoded before entering the sign-only confirm flow.
- * Garbage input still fails later at native-tx parse; only emptiness is
- * checked here to avoid dragging @solana/web3.js into the UI bundle.
+ * Garbage input still fails later at native-tx parse; only emptiness and
+ * a size cap are checked here to avoid dragging @solana/web3.js into the
+ * UI bundle.
  */
 export function wcPaySolanaTxToEncodedTx(txBase64: string): string {
   const bytes = Buffer.from(txBase64, 'base64');
