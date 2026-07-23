@@ -58,13 +58,6 @@ export type TPerpTradePriceMode =
   | 'bboCounterparty'
   | 'bboQueue';
 
-export type TPerpTradeLeverageBucket =
-  | '1x'
-  | '2-5x'
-  | '6-10x'
-  | '11-20x'
-  | '21x+';
-
 export interface IPerpTradeButtonClickParams {
   side: 'long' | 'short';
   isTradingEnabled: boolean;
@@ -77,7 +70,7 @@ export interface IPerpTradeButtonClickParams {
   reduceOnly?: boolean;
   hasTpsl?: boolean;
   tif?: string;
-  leverageBucket?: TPerpTradeLeverageBucket;
+  leverage?: number;
   orderValue?: number;
 }
 

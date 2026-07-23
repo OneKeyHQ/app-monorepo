@@ -55,7 +55,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   TPerpLocalInvalidReason,
-  TPerpTradeLeverageBucket,
   TPerpTradeOrderType,
   TPerpTradePriceMode,
   TPerpTradeValidationState,
@@ -363,19 +362,6 @@ function getPerpTradeTif(
   return undefined;
 }
 
-function getPerpTradeLeverageBucket(
-  leverage: number | undefined,
-): TPerpTradeLeverageBucket | undefined {
-  if (!leverage || !Number.isFinite(leverage) || leverage <= 0) {
-    return undefined;
-  }
-  if (leverage <= 1) return '1x';
-  if (leverage <= 5) return '2-5x';
-  if (leverage <= 10) return '6-10x';
-  if (leverage <= 20) return '11-20x';
-  return '21x+';
-}
-
 function logPerpTradeButtonClick({
   side,
   canTrade,
@@ -409,7 +395,10 @@ function logPerpTradeButtonClick({
     reduceOnly: getPerpTradeReduceOnly(formData),
     hasTpsl: formData.orderMode === 'standard' ? formData.hasTpsl : undefined,
     tif: getPerpTradeTif(formData),
-    leverageBucket: getPerpTradeLeverageBucket(leverage),
+    leverage:
+      typeof leverage === 'number' && Number.isFinite(leverage) && leverage > 0
+        ? leverage
+        : undefined,
     orderValue:
       orderValue?.isFinite() && orderValue.gt(0)
         ? orderValue.toNumber()
