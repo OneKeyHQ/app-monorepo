@@ -87,7 +87,11 @@ class ServiceWalletConnectPay extends ServiceBase {
           deriveType,
         });
         return account?.address || null;
-      } catch {
+      } catch (error) {
+        // expected for impls the account cannot derive (single-chain imported
+        // keys); logged because the same path also swallows real failures
+        // (e.g. transient db errors) that would otherwise vanish silently
+        console.error('wcPay buildPayAccounts skip network', networkId, error);
         return null;
       }
     };
