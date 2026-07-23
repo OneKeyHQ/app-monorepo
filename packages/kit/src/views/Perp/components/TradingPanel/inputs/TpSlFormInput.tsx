@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -48,7 +48,6 @@ export const TpSlFormInput = memo(
     isMobile = false,
   }: ITpSlFormInputProps) => {
     const intl = useIntl();
-    const [internalValue, setInternalValue] = useState(value);
 
     const priceBN = useMemo(
       () => new BigNumber(referencePrice),
@@ -71,7 +70,6 @@ export const TpSlFormInput = memo(
 
     const handleChange = useCallback(
       (text: string) => {
-        setInternalValue(text);
         onChange(text);
       },
       [onChange],
@@ -99,7 +97,6 @@ export const TpSlFormInput = memo(
         onTypeChange(mode);
 
         // Clear value when switching modes
-        setInternalValue('');
         onChange('');
       },
       [inputType, hasValidPrice, onTypeChange, onChange],
@@ -154,7 +151,7 @@ export const TpSlFormInput = memo(
                 })
           }
           label={label}
-          value={internalValue}
+          value={value}
           onChange={handleChange}
           validator={validator}
           error={error}
@@ -169,7 +166,7 @@ export const TpSlFormInput = memo(
     return (
       <TradingFormInput
         label={label}
-        value={internalValue}
+        value={value}
         onChange={handleChange}
         validator={validator}
         error={error}

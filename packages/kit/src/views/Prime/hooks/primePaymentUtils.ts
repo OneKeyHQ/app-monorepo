@@ -180,11 +180,13 @@ function trackPrimeSubscriptionSuccess({
   });
 }
 
-// RevenueCat React Native SDK returns prices in micros on Android, in major
-// units on iOS — normalize to major units here.
-function normalizeNativePrice(rawPrice: number): number {
-  if (!platformEnv.isNativeAndroid) return rawPrice;
-  return new BigNumber(rawPrice || 0).div(1_000_000).toNumber();
+function normalizeNativePrice(
+  rawPrice: number,
+  priceUnit: 'major' | 'micros',
+): number {
+  return priceUnit === 'micros'
+    ? new BigNumber(rawPrice || 0).div(1_000_000).toNumber()
+    : rawPrice;
 }
 
 function extractWebPaywallPrice(paywallPackage: {

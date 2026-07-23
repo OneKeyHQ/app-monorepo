@@ -255,6 +255,7 @@ export function DesktopLayout({
         <TradingViewNative
           testID={MarketTestIDs.detailChart}
           source={tradingViewNativeSource}
+          enableNativeChartSettings
           nativeControlsLayoutMode="desktop"
         />
       ) : null;
