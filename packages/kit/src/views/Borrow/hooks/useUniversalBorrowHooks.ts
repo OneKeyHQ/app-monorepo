@@ -662,7 +662,7 @@ export function useUniversalBorrowSetCollateral({
             marketAddress,
             reserveAddress,
             useAsCollateral,
-            eModeId,
+            ...(useAsCollateral && eModeId !== undefined ? { eModeId } : {}),
           },
         );
       const stakingInfoWithOrderId = attachBorrowOrderId({
@@ -679,6 +679,9 @@ export function useUniversalBorrowSetCollateral({
             networkId,
             accountId,
             stakingInfo: stakingInfoWithOrderId,
+            // Order tracking is auxiliary after broadcast. Collateral state
+            // reconciliation must continue even if that request is unavailable.
+            ignoreOrderTrackingError: true,
             onSuccess,
           });
         },

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -76,10 +83,9 @@ function CollateralConfirmDialogContent({
   onConfirm: () => Promise<void>;
 }) {
   const intl = useIntl();
-  // Server-side HF preview. Any fetch failure (e.g. code 70018 "confirmation
-  // unavailable", which ships disableAutoToast) degrades to the static copy —
-  // never block the flow on a missing preview; the build endpoint's own risk
-  // guard (70105) is the second net.
+  // The live preview is authoritative for enabling collateral. Fail closed
+  // while it is loading or unavailable so stale reserve data cannot submit an
+  // asset that the server no longer accepts as collateral.
   const { result: confirmation, isLoading } = usePromiseResult(
     async () => {
       try {
@@ -114,6 +120,17 @@ function CollateralConfirmDialogContent({
 
   const healthFactor = confirmation?.healthFactor;
   const liquidationRisk = confirmation?.liquidationRisk === true;
+  const collateralUnavailable =
+    useAsCollateral && !isLoading && confirmation?.canBeCollateral !== true;
+  const confirmDisabled = isLoading || liquidationRisk || collateralUnavailable;
+  const handleConfirm = useCallback(async () => {
+    // The button state is not a security boundary. Re-check the latest
+    // authoritative preview in case an imperative caller invokes confirm.
+    if (confirmDisabled) {
+      return;
+    }
+    await onConfirm();
+  }, [confirmDisabled, onConfirm]);
 
   return (
     <YStack gap="$5">
@@ -140,15 +157,22 @@ function CollateralConfirmDialogContent({
           })}
         </SizableText>
       ) : null}
+      {collateralUnavailable ? (
+        <SizableText size="$bodyMd" color="$textCritical">
+          {intl.formatMessage({
+            id: ETranslations.defi_action_unavailable__msg,
+          })}
+        </SizableText>
+      ) : null}
       <Dialog.Footer
         showCancelButton
-        onConfirm={onConfirm}
+        onConfirm={handleConfirm}
         onConfirmText={intl.formatMessage({ id: ETranslations.global_confirm })}
         onCancelText={intl.formatMessage({ id: ETranslations.global_cancel })}
         confirmButtonProps={{
           testID: BorrowTestIDs.collateralConfirmBtn,
           loading: isLoading,
-          disabled: isLoading || liquidationRisk,
+          disabled: confirmDisabled,
         }}
       />
     </YStack>
@@ -169,16 +193,29 @@ function showCollateralConfirmDialog(params: {
   const { title, ...contentProps } = params;
   return new Promise((resolve) => {
     let confirmed = false;
+    let settled = false;
+    const settle = (value: boolean) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(value);
+    };
     const dialog = Dialog.show({
       title,
       showFooter: false,
-      onClose: () => resolve(confirmed),
+      onClose: () => settle(confirmed),
       renderContent: (
         <CollateralConfirmDialogContent
           {...contentProps}
           onConfirm={async () => {
             confirmed = true;
-            await dialog.close();
+            try {
+              await dialog.close();
+            } catch {
+              confirmed = false;
+              settle(false);
+            }
           }}
         />
       ),
@@ -199,7 +236,8 @@ export function CollateralSwitchCell({
   const intl = useIntl();
   const { market, earnAccount, pendingTxs, refreshAllBorrowData } =
     useBorrowContext();
-  const accountId = earnAccount.data?.account?.id || '';
+  const accountId =
+    earnAccount.data?.accountId ?? earnAccount.data?.account?.id ?? '';
   const setCollateral = useUniversalBorrowSetCollateral({
     networkId: market?.networkId || '',
     accountId,
@@ -229,6 +267,39 @@ export function CollateralSwitchCell({
   const mountedRef = useRef(true);
   const usageAsCollateralRef = useRef(item.usageAsCollateral);
   usageAsCollateralRef.current = item.usageAsCollateral;
+  const normalizedMarketAddress = market
+    ? earnUtils.normalizeBorrowAddress({
+        networkId: market.networkId,
+        address: market.marketAddress,
+      })
+    : '';
+  const normalizedReserveAddress = market
+    ? earnUtils.normalizeBorrowAddress({
+        networkId: market.networkId,
+        address: item.reserveAddress,
+      })
+    : item.reserveAddress;
+  const operationScopeKey = JSON.stringify({
+    networkId: market?.networkId ?? '',
+    accountId,
+    provider: market?.provider.toLowerCase() ?? '',
+    marketAddress: normalizedMarketAddress,
+    reserveAddress: normalizedReserveAddress,
+  });
+  const renderedOperationScope = useMemo(
+    () => ({ key: operationScopeKey }),
+    [operationScopeKey],
+  );
+  const operationScopeRef = useRef(renderedOperationScope);
+  const confirmationScopeKey = JSON.stringify({
+    operationScopeKey,
+    eModeId: eModeId ?? null,
+  });
+  const renderedConfirmationScope = useMemo(
+    () => ({ key: confirmationScopeKey }),
+    [confirmationScopeKey],
+  );
+  const confirmationScopeRef = useRef(renderedConfirmationScope);
   const pendingSetCollateral = market
     ? hasPendingSetCollateral({ pendingTxs, provider: market.provider })
     : false;
@@ -252,6 +323,22 @@ export function CollateralSwitchCell({
     setSettlementStatus('idle');
     setSubmittingTarget(null);
   }, []);
+
+  useLayoutEffect(() => {
+    const operationScopeChanged =
+      operationScopeRef.current !== renderedOperationScope;
+    operationScopeRef.current = renderedOperationScope;
+    confirmationScopeRef.current = renderedConfirmationScope;
+    if (!operationScopeChanged) {
+      return;
+    }
+    setOptimisticUsageAsCollateral(null);
+    releaseLocalSubmission();
+  }, [
+    releaseLocalSubmission,
+    renderedConfirmationScope,
+    renderedOperationScope,
+  ]);
 
   const showSettlementWarning = useCallback(() => {
     if (settlementWarningShownRef.current) {
@@ -361,6 +448,13 @@ export function CollateralSwitchCell({
 
   const handleToggle = useCallback(() => {
     if (!market || !accountId) return;
+    if (
+      !mountedRef.current ||
+      operationScopeRef.current !== renderedOperationScope ||
+      confirmationScopeRef.current !== renderedConfirmationScope
+    ) {
+      return;
+    }
     if (confirmingRef.current) return;
     confirmingRef.current = true;
     const target = !(effectiveUsageAsCollateral === true);
@@ -384,13 +478,20 @@ export function CollateralSwitchCell({
           reserveAddress: item.reserveAddress,
           accountId,
           useAsCollateral: target,
-          eModeId: targetEModeId,
+          ...(targetEModeId !== undefined ? { eModeId: targetEModeId } : {}),
           symbol: item.token.symbol,
         });
       } finally {
         confirmingRef.current = false;
       }
-      if (!confirmed) return;
+      if (
+        !confirmed ||
+        !mountedRef.current ||
+        operationScopeRef.current !== renderedOperationScope ||
+        confirmationScopeRef.current !== renderedConfirmationScope
+      ) {
+        return;
+      }
       settlementControllerRef.current?.abort();
       settlementControllerRef.current = undefined;
       settlementRefreshAttemptsRef.current = 0;
@@ -398,13 +499,17 @@ export function CollateralSwitchCell({
       submittingTargetRef.current = target;
       setSettlementStatus('confirming');
       setSubmittingTarget(target);
+      const isCurrentSubmission = () =>
+        mountedRef.current &&
+        operationScopeRef.current === renderedOperationScope &&
+        submittingTargetRef.current === target;
       try {
         await setCollateral({
           provider: market.provider,
           marketAddress: market.marketAddress,
           reserveAddress: item.reserveAddress,
           useAsCollateral: target,
-          eModeId: targetEModeId,
+          ...(targetEModeId !== undefined ? { eModeId: targetEModeId } : {}),
           stakingInfo: {
             label: EEarnLabels.Borrow,
             protocol: earnUtils.getEarnProviderName({
@@ -422,15 +527,21 @@ export function CollateralSwitchCell({
           onSuccess: (data) => {
             void (async () => {
               const txid = getLastSignedTxid(data);
-              let finalStatus = await showDeFiActionTxConfirmDialog({
-                accountId,
-                networkId: market.networkId,
-                data,
-              });
-              if (
-                !mountedRef.current ||
-                submittingTargetRef.current !== target
-              ) {
+              let finalStatus: Awaited<
+                ReturnType<typeof showDeFiActionTxConfirmDialog>
+              >;
+              try {
+                finalStatus = await showDeFiActionTxConfirmDialog({
+                  accountId,
+                  networkId: market.networkId,
+                  data,
+                });
+              } catch {
+                // A result-sheet failure does not change the broadcast state.
+                // Fall through to the exact-tx status lookup before unlocking.
+                finalStatus = undefined;
+              }
+              if (!isCurrentSubmission()) {
                 return;
               }
               if (finalStatus === undefined && txid) {
@@ -447,10 +558,7 @@ export function CollateralSwitchCell({
                   settlementControllerRef.current = undefined;
                 }
               }
-              if (
-                !mountedRef.current ||
-                submittingTargetRef.current !== target
-              ) {
+              if (!isCurrentSubmission()) {
                 return;
               }
               settlementRefreshAttemptsRef.current = 0;
@@ -469,19 +577,32 @@ export function CollateralSwitchCell({
               showSettlementWarning();
               void refreshAllBorrowData().catch(() => undefined);
               releaseLocalSubmission();
-            })();
+            })().catch(() => {
+              if (!isCurrentSubmission()) {
+                return;
+              }
+              showSettlementWarning();
+              void refreshAllBorrowData().catch(() => undefined);
+              releaseLocalSubmission();
+            });
           },
           onFail: () => {
-            releaseLocalSubmission();
+            if (isCurrentSubmission()) {
+              releaseLocalSubmission();
+            }
           },
           onCancel: () => {
-            releaseLocalSubmission();
+            if (isCurrentSubmission()) {
+              releaseLocalSubmission();
+            }
           },
         });
       } catch {
         // Build/tx errors are already surfaced by the API interceptor toast;
         // rethrowing inside a void IIFE would only be an unhandled rejection.
-        releaseLocalSubmission();
+        if (isCurrentSubmission()) {
+          releaseLocalSubmission();
+        }
       }
     })();
   }, [
@@ -494,6 +615,8 @@ export function CollateralSwitchCell({
     market,
     refreshAllBorrowData,
     releaseLocalSubmission,
+    renderedConfirmationScope,
+    renderedOperationScope,
     requiresEModeId,
     setCollateral,
     showSettlementWarning,

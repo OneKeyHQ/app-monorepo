@@ -865,7 +865,6 @@ export function useEModeNeedActionFlow({
             marketAddress,
             reserveAddress: step.reserveAddress,
             useAsCollateral: false,
-            eModeId: targetEModeId,
             stakingInfo: stakingInfo('setCollateral'),
             ...callbacks,
             onCancel: disarm,

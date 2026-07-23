@@ -86,6 +86,7 @@ export const handleBorrowSuccess = async ({
   accountId,
   stakingInfo,
   waitForFinalStatus,
+  ignoreOrderTrackingError,
   onSettleResult,
   onSuccess,
 }: {
@@ -95,6 +96,7 @@ export const handleBorrowSuccess = async ({
   accountId?: string;
   stakingInfo?: IStakingInfo;
   waitForFinalStatus?: boolean;
+  ignoreOrderTrackingError?: boolean;
   onSettleResult?: (
     result: IBorrowSettleResult,
   ) => boolean | void | Promise<boolean | void>;
@@ -118,7 +120,7 @@ export const handleBorrowSuccess = async ({
       status: data[data.length - 1]?.decodedTx.status,
       ...getEarnOrderTrackingInfo(stakingInfo),
     });
-    if (shouldShowConfirmSheet) {
+    if (shouldShowConfirmSheet || ignoreOrderTrackingError) {
       void addEarnOrderPromise.catch(() => undefined);
     } else {
       await addEarnOrderPromise;

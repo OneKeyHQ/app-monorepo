@@ -443,6 +443,49 @@ describe('useEModeNeedActionFlow approval continuation', () => {
     expect(universalMock.repay).not.toHaveBeenCalled();
   });
 
+  it('omits eModeId when disabling a collateral blocker', async () => {
+    switchMock.check = {
+      ...createCheck([]),
+      canSwitch: false,
+      disableCollateralAssets: [createAsset()],
+    };
+    const { result } = renderFlow();
+
+    await waitFor(() => {
+      expect(result.current.activeStep?.key).toBe('removeCollateral:0xreserve');
+    });
+    act(() => result.current.run());
+
+    await waitFor(() => {
+      expect(universalMock.setCollateral).toHaveBeenCalledTimes(1);
+    });
+    const payload = universalMock.setCollateral.mock.calls[0][0] as Record<
+      string,
+      unknown
+    >;
+    expect(Object.keys(payload).toSorted()).toEqual([
+      'marketAddress',
+      'onCancel',
+      'onFail',
+      'onSuccess',
+      'provider',
+      'reserveAddress',
+      'stakingInfo',
+      'useAsCollateral',
+    ]);
+    expect(payload).toEqual({
+      provider: 'aave',
+      marketAddress: '0xMarket',
+      reserveAddress: '0xReserve',
+      useAsCollateral: false,
+      stakingInfo: expect.any(Object),
+      onSuccess: expect.any(Function),
+      onFail: expect.any(Function),
+      onCancel: expect.any(Function),
+    });
+    expect(payload).not.toHaveProperty('eModeId');
+  });
+
   it('ignores a stale approval callback after cancel or unmount', async () => {
     const { result, rerender, unmount } = renderFlow();
     await waitFor(() => {
