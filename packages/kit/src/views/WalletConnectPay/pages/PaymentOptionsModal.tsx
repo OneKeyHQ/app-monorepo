@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   Page,
   SizableText,
   Spinner,
@@ -12,9 +13,11 @@ import {
   Toast,
   YStack,
 } from '@onekeyhq/components';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalWalletConnectPayRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalWalletConnectPayParamList } from '@onekeyhq/shared/src/routes';
+import { isWcPayTrustedUrl } from '@onekeyhq/shared/src/walletConnect/payConstant';
 import { EWcPayStatus } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type { IWcPayOption } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -25,7 +28,10 @@ import { ListItem } from '../../../components/ListItem';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { useWcPayActionExecutor } from '../hooks/useWcPayActionExecutor';
+import {
+  WcPayUserCancelledError,
+  useWcPayActionExecutor,
+} from '../hooks/useWcPayActionExecutor';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -80,20 +86,31 @@ function PaymentOptionsPage() {
   const { executeActions } = useWcPayActionExecutor();
   const [selectedOptionId, setSelectedOptionId] = useState<string>('');
   const [isPaying, setIsPaying] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const accountId = activeAccount?.account?.id;
   const indexedAccountId = activeAccount?.indexedAccount?.id;
 
-  const { result, isLoading } = usePromiseResult(
+  const { result, isLoading, run } = usePromiseResult(
     async () => {
       if (!accountId && !indexedAccountId) {
         return undefined;
       }
-      return backgroundApiProxy.serviceWalletConnectPay.getPaymentOptions({
-        paymentLink,
-        accountId,
-        indexedAccountId,
-      });
+      // usePromiseResult swallows rejections, which would leave the page on
+      // an endless spinner; track failures explicitly to render an error state
+      try {
+        setLoadError(false);
+        return await backgroundApiProxy.serviceWalletConnectPay.getPaymentOptions(
+          {
+            paymentLink,
+            accountId,
+            indexedAccountId,
+          },
+        );
+      } catch {
+        setLoadError(true);
+        return undefined;
+      }
     },
     [paymentLink, accountId, indexedAccountId],
     { watchLoading: true },
@@ -123,15 +140,27 @@ function PaymentOptionsPage() {
       // 1. compliance data collection must complete BEFORE fetching actions.
       // Prefer per-option collectData; fall back to the legacy top-level field
       // so merchants still on the old response shape are not skipped.
+      // Only the hosted-url flow is supported; fields-only collectData (no
+      // url) proceeds without collection and relies on server-side validation
+      // (native field rendering is a later phase).
       const collectData = selectedOption.collectData?.url
         ? selectedOption.collectData
         : result.collectData;
       if (collectData?.url) {
+        // the form URL comes from the server response; never load an
+        // untrusted host into the webview/iframe presented as WC Pay
+        if (!isWcPayTrustedUrl(collectData.url)) {
+          throw new OneKeyLocalError(
+            'Untrusted WalletConnect Pay data collection URL',
+          );
+        }
         await new Promise<void>((resolve, reject) => {
           navigation.push(EModalWalletConnectPayRoutes.DataCollection, {
             collectData,
             onComplete: () => resolve(),
-            onError: (error: string) => reject(new Error(error)),
+            onError: (error: string) => reject(new OneKeyLocalError(error)),
+            onCancel: () =>
+              reject(new WcPayUserCancelledError('User canceled payment')),
           });
         });
       }
@@ -163,11 +192,15 @@ function PaymentOptionsPage() {
         initialResult: confirmResult,
       });
     } catch (error) {
-      Toast.error({
-        title:
-          (error as Error | undefined)?.message ??
-          intl.formatMessage({ id: ETranslations.global_failed }),
-      });
+      // user-intent cancellation (dismissed a confirm modal or the collect
+      // form) ends the flow silently
+      if (!(error instanceof WcPayUserCancelledError)) {
+        Toast.error({
+          title:
+            (error as Error | undefined)?.message ??
+            intl.formatMessage({ id: ETranslations.global_failed }),
+        });
+      }
     } finally {
       setIsPaying(false);
     }
@@ -186,11 +219,36 @@ function PaymentOptionsPage() {
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header title="WalletConnect Pay" />
       <Page.Body>
-        {isLoading || !result ? (
+        {!isLoading && loadError ? (
+          <Stack
+            flex={1}
+            alignItems="center"
+            justifyContent="center"
+            py="$10"
+            gap="$3"
+          >
+            <SizableText size="$bodyLgMedium">
+              {intl.formatMessage({
+                id: ETranslations.global_an_error_occurred,
+              })}
+            </SizableText>
+            <Button
+              testID="wc-pay-options-retry"
+              size="small"
+              onPress={() => {
+                void run();
+              }}
+            >
+              {intl.formatMessage({ id: ETranslations.global_retry })}
+            </Button>
+          </Stack>
+        ) : null}
+        {!loadError && (isLoading || !result) ? (
           <Stack flex={1} alignItems="center" justifyContent="center" py="$10">
             <Spinner size="large" />
           </Stack>
-        ) : (
+        ) : null}
+        {!loadError && !isLoading && result ? (
           <YStack px="$5" gap="$4">
             <YStack alignItems="center" gap="$1" py="$4">
               <SizableText size="$headingXl">
@@ -236,8 +294,12 @@ function PaymentOptionsPage() {
                 <Stack alignItems="center" py="$8" gap="$1">
                   <SizableText size="$bodyLgMedium">
                     {isPaymentInactive
-                      ? 'Payment unavailable'
-                      : 'No payment options available'}
+                      ? intl.formatMessage({
+                          id: ETranslations.global_not_available,
+                        })
+                      : intl.formatMessage({
+                          id: ETranslations.global_no_results,
+                        })}
                   </SizableText>
                   <SizableText
                     size="$bodyMd"
@@ -252,7 +314,7 @@ function PaymentOptionsPage() {
               ) : null}
             </YStack>
           </YStack>
-        )}
+        ) : null}
       </Page.Body>
       <Page.Footer
         onConfirm={() => {

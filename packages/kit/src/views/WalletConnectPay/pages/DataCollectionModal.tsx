@@ -7,6 +7,7 @@ import type {
   EModalWalletConnectPayRoutes,
   IModalWalletConnectPayParamList,
 } from '@onekeyhq/shared/src/routes';
+import { isWcPayTrustedUrl } from '@onekeyhq/shared/src/walletConnect/payConstant';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
@@ -22,14 +23,16 @@ export default function DataCollectionModal() {
         EModalWalletConnectPayRoutes.DataCollection
       >
     >();
-  const { collectData, onComplete, onError } = route.params;
+  const { collectData, onComplete, onError, onCancel } = route.params;
   const navigation = useAppNavigation();
   const themeVariant = useThemeVariant();
   const finishedRef = useRef(false);
 
   const formUrl = useMemo(() => {
     const base = collectData.url ?? '';
-    if (!base) {
+    // defense in depth: the caller already validated the host, but never
+    // load an untrusted URL into the form container
+    if (!base || !isWcPayTrustedUrl(base)) {
       return '';
     }
     const separator = base.includes('?') ? '&' : '?';
@@ -56,9 +59,10 @@ export default function DataCollectionModal() {
   return (
     <Page
       onClose={() => {
-        // closing mid-form counts as an error so the flow does not hang
+        // closing mid-form ends the flow so it does not hang; it is a
+        // user-intent cancellation, not an error
         if (!finishedRef.current) {
-          onError('cancelled');
+          onCancel();
         }
       }}
     >

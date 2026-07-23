@@ -41,6 +41,9 @@ export default function PaymentResultModal() {
     >();
   const { paymentId, optionId, signatures, initialResult } = route.params;
   const [result, setResult] = useState<IWcPayConfirmResult>(initialResult);
+  // polling gave up without a final status; the payment may still settle
+  // later, so don't fake a Failed status — just let the user leave
+  const [pollExhausted, setPollExhausted] = useState(false);
 
   useEffect(() => {
     if (result.isFinal) {
@@ -51,7 +54,11 @@ export default function PaymentResultModal() {
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     const poll = async () => {
-      if (cancelled || pollCount >= MAX_POLL_COUNT) {
+      if (cancelled) {
+        return;
+      }
+      if (pollCount >= MAX_POLL_COUNT) {
+        setPollExhausted(true);
         return;
       }
       pollCount += 1;
@@ -142,7 +149,7 @@ export default function PaymentResultModal() {
           navigation.popStack();
         }}
         onConfirmText={intl.formatMessage({ id: ETranslations.global_done })}
-        confirmButtonProps={{ disabled: !result.isFinal }}
+        confirmButtonProps={{ disabled: !result.isFinal && !pollExhausted }}
       />
     </Page>
   );
