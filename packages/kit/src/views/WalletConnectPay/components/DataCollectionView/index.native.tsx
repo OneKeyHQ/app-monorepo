@@ -1,8 +1,8 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 
 import { WebView } from 'react-native-webview';
 
-import { Stack } from '@onekeyhq/components';
+import { Spinner, Stack } from '@onekeyhq/components';
 import { isWcPayTrustedUrl } from '@onekeyhq/shared/src/walletConnect/payConstant';
 
 import type { IDataCollectionViewProps } from './types';
@@ -19,6 +19,9 @@ export function DataCollectionView({
   onError,
 }: IDataCollectionViewProps) {
   const completedRef = useRef(false);
+  // the hosted form can take seconds to load; keep a spinner over the empty
+  // webview so the page never looks blank/frozen
+  const [isFormLoaded, setIsFormLoaded] = useState(false);
 
   const handleMessage = (event: WebViewMessageEvent) => {
     // mirror the web variant's origin check: the RN webview bridge is visible
@@ -58,7 +61,23 @@ export function DataCollectionView({
         onShouldStartLoadWithRequest={(request: ShouldStartLoadRequest) =>
           !request.isTopFrame || isWcPayTrustedUrl(request.url)
         }
+        onLoadEnd={() => setIsFormLoaded(true)}
       />
+      {!isFormLoaded ? (
+        <Stack
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          alignItems="center"
+          justifyContent="center"
+          bg="$bgApp"
+          pointerEvents="none"
+        >
+          <Spinner size="large" />
+        </Stack>
+      ) : null}
     </Stack>
   );
 }

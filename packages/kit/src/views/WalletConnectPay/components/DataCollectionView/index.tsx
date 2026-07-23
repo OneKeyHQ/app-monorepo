@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { Stack } from '@onekeyhq/components';
+import { Spinner, Stack } from '@onekeyhq/components';
 import { isWcPayTrustedHost } from '@onekeyhq/shared/src/walletConnect/payConstant';
 
 import type { IDataCollectionViewProps } from './types';
@@ -15,6 +15,9 @@ export function DataCollectionView({
   onError,
 }: IDataCollectionViewProps) {
   const completedRef = useRef(false);
+  // the hosted form can take seconds to load; keep a spinner over the empty
+  // iframe so the page never looks blank/frozen
+  const [isFormLoaded, setIsFormLoaded] = useState(false);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -51,7 +54,23 @@ export function DataCollectionView({
           border: 'none',
         }}
         sandbox="allow-scripts allow-forms allow-same-origin"
+        onLoad={() => setIsFormLoaded(true)}
       />
+      {!isFormLoaded ? (
+        <Stack
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          alignItems="center"
+          justifyContent="center"
+          bg="$bgApp"
+          pointerEvents="none"
+        >
+          <Spinner size="large" />
+        </Stack>
+      ) : null}
     </Stack>
   );
 }
