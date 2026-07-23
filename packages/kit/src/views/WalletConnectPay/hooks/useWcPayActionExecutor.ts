@@ -8,11 +8,15 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { autoFixPersonalSignMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { wcPayChainIdToNetworkId } from '@onekeyhq/shared/src/walletConnect/payConstant';
+import {
+  WALLET_CONNECT_PAY_TRUSTED_HOST,
+  wcPayChainIdToNetworkId,
+} from '@onekeyhq/shared/src/walletConnect/payConstant';
 import {
   EWcPayActionMethod,
   type IWcPayAction,
 } from '@onekeyhq/shared/src/walletConnect/payTypes';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
@@ -25,6 +29,28 @@ const MODAL_TRANSITION_MS = 300;
 // User-intent cancellation (dismissed a confirm modal or the collect form);
 // callers should end the flow silently instead of surfacing an error toast.
 export class WcPayUserCancelledError extends OneKeyLocalError {}
+
+// Sign requests come from the WalletConnect Pay server / merchant, not from
+// the wallet itself, so present them through the regular external-sign
+// confirmation path (site mark + risk detection) instead of
+// walletInternalSign. The empty id keeps useDappApproveAction a no-op — the
+// flow settles via onSuccess/onFail/onCancel callbacks.
+function buildWcPaySourceInfo({
+  method,
+  params,
+}: {
+  method: string;
+  params: unknown;
+}): IDappSourceInfo {
+  return {
+    id: '',
+    origin: `https://${WALLET_CONNECT_PAY_TRUSTED_HOST}`,
+    hostname: WALLET_CONNECT_PAY_TRUSTED_HOST,
+    scope: 'ethereum',
+    data: { method, params },
+    isWalletConnectRequest: false,
+  };
+}
 
 function extractTypedDataMessage(parsed: unknown): string {
   if (Array.isArray(parsed)) {
@@ -179,7 +205,7 @@ export function useWcPayActionExecutor() {
                     message,
                     payload: [account.address, message],
                   },
-                  walletInternalSign: true,
+                  sourceInfo: buildWcPaySourceInfo({ method, params: parsed }),
                   onSuccess: (result: string) => resolve(result),
                   onFail: (error: Error) => reject(error),
                   onCancel: () =>
@@ -213,7 +239,7 @@ export function useWcPayActionExecutor() {
                     message,
                     payload: [message, account.address],
                   },
-                  walletInternalSign: true,
+                  sourceInfo: buildWcPaySourceInfo({ method, params: parsed }),
                   onSuccess: (result: string) => resolve(result),
                   onFail: (error: Error) => reject(error),
                   onCancel: () =>

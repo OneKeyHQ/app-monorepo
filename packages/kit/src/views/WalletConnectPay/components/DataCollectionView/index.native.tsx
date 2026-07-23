@@ -21,6 +21,12 @@ export function DataCollectionView({
   const completedRef = useRef(false);
 
   const handleMessage = (event: WebViewMessageEvent) => {
+    // mirror the web variant's origin check: the RN webview bridge is visible
+    // to every frame in the page, so ignore messages not sent from a trusted
+    // WalletConnect Pay URL (e.g. embedded third-party iframes)
+    if (!isWcPayTrustedUrl(event.nativeEvent.url ?? '')) {
+      return;
+    }
     try {
       const data = JSON.parse(event.nativeEvent.data) as {
         type?: string;

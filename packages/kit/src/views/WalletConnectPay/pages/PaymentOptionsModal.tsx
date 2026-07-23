@@ -19,7 +19,10 @@ import { EModalWalletConnectPayRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalWalletConnectPayParamList } from '@onekeyhq/shared/src/routes';
 import { isWcPayTrustedUrl } from '@onekeyhq/shared/src/walletConnect/payConstant';
 import { EWcPayStatus } from '@onekeyhq/shared/src/walletConnect/payTypes';
-import type { IWcPayOption } from '@onekeyhq/shared/src/walletConnect/payTypes';
+import type {
+  IWcPayConfirmResult,
+  IWcPayOption,
+} from '@onekeyhq/shared/src/walletConnect/payTypes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -140,13 +143,17 @@ function PaymentOptionsPage() {
       // 1. compliance data collection must complete BEFORE fetching actions.
       // Prefer per-option collectData; fall back to the legacy top-level field
       // so merchants still on the old response shape are not skipped.
-      // Only the hosted-url flow is supported; fields-only collectData (no
-      // url) proceeds without collection and relies on server-side validation
-      // (native field rendering is a later phase).
-      const collectData = selectedOption.collectData?.url
-        ? selectedOption.collectData
-        : result.collectData;
-      if (collectData?.url) {
+      const collectData = selectedOption.collectData ?? result.collectData;
+      if (collectData) {
+        // Only the hosted-url flow is supported (native field rendering is a
+        // later phase). When collection is required but no hosted form is
+        // available, abort instead of silently skipping compliance data and
+        // proceeding to signing.
+        if (!collectData.url) {
+          throw new OneKeyLocalError(
+            'WalletConnect Pay data collection form is unavailable',
+          );
+        }
         // the form URL comes from the server response; never load an
         // untrusted host into the webview/iframe presented as WC Pay
         if (!isWcPayTrustedUrl(collectData.url)) {
@@ -178,13 +185,22 @@ function PaymentOptionsPage() {
         indexedAccountId,
       });
 
-      // 4. submit and show result
-      const confirmResult =
-        await backgroundApiProxy.serviceWalletConnectPay.confirmPayment({
-          paymentId,
-          optionId,
-          signatures,
-        });
+      // 4. submit and show result. The transaction may already be broadcast
+      // by this point, so a confirmPayment failure must NOT drop the
+      // signatures back on the options page (retrying there would sign and
+      // broadcast a second payment). Hand the same signatures to the result
+      // page, whose polling keeps re-submitting confirmPayment.
+      let confirmResult: IWcPayConfirmResult;
+      try {
+        confirmResult =
+          await backgroundApiProxy.serviceWalletConnectPay.confirmPayment({
+            paymentId,
+            optionId,
+            signatures,
+          });
+      } catch {
+        confirmResult = { status: EWcPayStatus.Processing, isFinal: false };
+      }
       navigation.push(EModalWalletConnectPayRoutes.PaymentResult, {
         paymentId,
         optionId,
