@@ -1,6 +1,10 @@
+import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
-import { SimpleDbEntityPrime } from './SimpleDbEntityPrime';
+import {
+  type ISimpleDBPrime,
+  SimpleDbEntityPrime,
+} from './SimpleDbEntityPrime';
 
 jest.mock(
   '@onekeyhq/shared/src/storage/instance/supabaseStorageInstance',
@@ -20,6 +24,21 @@ jest.mock('@onekeyhq/shared/src/utils/supabaseClientUtils', () => ({
 }));
 
 describe('SimpleDbEntityPrime.getEffectiveAuthSessionSource', () => {
+  test('does not resurrect a legacy slot after an explicit logout', async () => {
+    const entity = new SimpleDbEntityPrime();
+    jest.spyOn(entity, 'getRawData').mockResolvedValue({
+      oneKeyIdAuthState: 'loggedOut',
+    });
+    const legacyProbe = jest
+      .spyOn(entity, 'getSupabaseAuthToken')
+      .mockResolvedValue('stale-legacy-token');
+
+    await expect(
+      entity.getEffectiveAuthSessionSource(),
+    ).resolves.toBeUndefined();
+    expect(legacyProbe).not.toHaveBeenCalled();
+  });
+
   test('returns the persisted source without probing tokens', async () => {
     const entity = new SimpleDbEntityPrime();
     jest
@@ -158,8 +177,287 @@ describe('SimpleDbEntityPrime.authStateGeneration', () => {
   });
 });
 
-describe('SimpleDbEntityPrime.hasShownLocalKeylessUpgradeBindPrompt', () => {
-  test('treats a recent shownAt as throttled', async () => {
+describe('SimpleDbEntityPrime.identityLifecycleRevision', () => {
+  test('defaults to 0 for persisted data created before the revision existed', async () => {
+    const entity = new SimpleDbEntityPrime();
+    jest.spyOn(entity, 'getRawData').mockResolvedValue({});
+
+    await expect(entity.getIdentityLifecycleRevision()).resolves.toBe(0);
+  });
+
+  test('atomically increments and returns the persisted revision', async () => {
+    const entity = new SimpleDbEntityPrime();
+    let persisted: Record<string, unknown> = {
+      authStateGeneration: 3,
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: Record<string, unknown>) => Record<string, unknown>,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await expect(entity.bumpIdentityLifecycleRevision()).resolves.toBe(1);
+    await expect(entity.bumpIdentityLifecycleRevision()).resolves.toBe(2);
+    expect(persisted).toEqual({
+      authStateGeneration: 3,
+      identityLifecycleRevision: 2,
+    });
+  });
+});
+
+describe('SimpleDbEntityPrime Keyless OAuth session persistence journal', () => {
+  test('atomically commits both session markers, revision, and journal removal', async () => {
+    const entity = new SimpleDbEntityPrime();
+    let persisted: ISimpleDBPrime = {
+      identityLifecycleRevision: 5,
+      authSessionCommitIdBySource: {
+        [EPrimeAuthSessionSource.KeylessOAuth]: 'old-session',
+      },
+      keylessSessionCommitIdByWalletId: {
+        'wallet-1': 'old-wallet-session',
+      },
+      keylessOAuthSessionPersistenceJournal: {
+        operationId: 'operation-1',
+        status: 'prepared',
+        startedAt: 1,
+        updatedAt: 1,
+        expectedLifecycleRevision: 5,
+        sessionCommitId: 'new-session',
+        sessionTokenSub: 'subject-1',
+        supabaseSessionId: 'supabase-session-new',
+        walletId: 'wallet-1',
+        previousSessionCommitId: 'old-session',
+        previousWalletSessionCommitId: 'old-wallet-session',
+      },
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await expect(
+      entity.commitKeylessOAuthSessionPersistenceMetadata({
+        operationId: 'operation-1',
+        persistedSessionIdentity: {
+          sessionTokenSub: 'subject-1',
+          supabaseSessionId: 'supabase-session-new',
+        },
+      }),
+    ).resolves.toEqual({
+      status: 'committed',
+      identityLifecycleRevision: 6,
+    });
+    expect(persisted.identityLifecycleRevision).toBe(6);
+    expect(
+      persisted.authSessionCommitIdBySource?.[
+        EPrimeAuthSessionSource.KeylessOAuth
+      ],
+    ).toBe('new-session');
+    expect(persisted.keylessSessionCommitIdByWalletId?.['wallet-1']).toBe(
+      'new-session',
+    );
+    expect(persisted.keylessOAuthSessionPersistenceJournal).toBeUndefined();
+  });
+
+  test('performs zero metadata writes when the lifecycle revision changed', async () => {
+    const entity = new SimpleDbEntityPrime();
+    const journal = {
+      operationId: 'operation-1',
+      status: 'prepared' as const,
+      startedAt: 1,
+      updatedAt: 1,
+      expectedLifecycleRevision: 5,
+      sessionCommitId: 'new-session',
+      sessionTokenSub: 'subject-1',
+      supabaseSessionId: 'supabase-session-new',
+    };
+    let persisted: ISimpleDBPrime = {
+      identityLifecycleRevision: 6,
+      keylessOAuthSessionPersistenceJournal: journal,
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await expect(
+      entity.commitKeylessOAuthSessionPersistenceMetadata({
+        operationId: 'operation-1',
+        persistedSessionIdentity: {
+          sessionTokenSub: 'subject-1',
+          supabaseSessionId: 'supabase-session-new',
+        },
+      }),
+    ).resolves.toEqual({ status: 'stateChanged' });
+    expect(persisted.identityLifecycleRevision).toBe(6);
+    expect(persisted.authSessionCommitIdBySource).toBeUndefined();
+    expect(persisted.keylessOAuthSessionPersistenceJournal).toEqual(journal);
+  });
+
+  test('performs zero metadata writes for an older session of the same subject', async () => {
+    const entity = new SimpleDbEntityPrime();
+    const journal = {
+      operationId: 'operation-1',
+      status: 'prepared' as const,
+      startedAt: 1,
+      updatedAt: 1,
+      expectedLifecycleRevision: 5,
+      sessionCommitId: 'new-session',
+      sessionTokenSub: 'subject-1',
+      supabaseSessionId: 'supabase-session-new',
+    };
+    let persisted: ISimpleDBPrime = {
+      identityLifecycleRevision: 5,
+      keylessOAuthSessionPersistenceJournal: journal,
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await expect(
+      entity.commitKeylessOAuthSessionPersistenceMetadata({
+        operationId: 'operation-1',
+        persistedSessionIdentity: {
+          sessionTokenSub: 'subject-1',
+          supabaseSessionId: 'supabase-session-old',
+        },
+      }),
+    ).resolves.toEqual({ status: 'sessionIdentityChanged' });
+    expect(persisted.identityLifecycleRevision).toBe(5);
+    expect(persisted.authSessionCommitIdBySource).toBeUndefined();
+    expect(persisted.keylessOAuthSessionPersistenceJournal).toEqual(journal);
+  });
+});
+
+describe('SimpleDbEntityPrime session commit identity', () => {
+  test('commits the source, explicit login state, and session identity together', async () => {
+    const entity = new SimpleDbEntityPrime();
+    let persisted: Record<string, unknown> = { authStateGeneration: 4 };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: Record<string, unknown>) => Record<string, unknown>,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await entity.setAuthSessionSourceWithCommitId({
+      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+      sessionCommitId: 'session-1',
+    });
+
+    expect(persisted).toMatchObject({
+      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+      oneKeyIdAuthState: 'loggedIn',
+      authStateGeneration: 5,
+      authSessionCommitIdBySource: {
+        [EPrimeAuthSessionSource.KeylessOAuth]: 'session-1',
+      },
+    });
+  });
+
+  test('explicit logout clears only the active source commit identity', async () => {
+    const entity = new SimpleDbEntityPrime();
+    let persisted: Record<string, unknown> = {
+      authSessionSource: EPrimeAuthSessionSource.LegacyEmailSupabase,
+      oneKeyIdAuthState: 'loggedIn',
+      authSessionCommitIdBySource: {
+        [EPrimeAuthSessionSource.LegacyEmailSupabase]: 'email-session',
+        [EPrimeAuthSessionSource.KeylessOAuth]: 'keyless-session',
+      },
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: Record<string, unknown>) => Record<string, unknown>,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await entity.clearAuthTokens();
+
+    expect(persisted).toMatchObject({
+      oneKeyIdAuthState: 'loggedOut',
+      authSessionCommitIdBySource: {
+        [EPrimeAuthSessionSource.KeylessOAuth]: 'keyless-session',
+      },
+    });
+    expect(
+      (persisted.authSessionCommitIdBySource as Record<string, string>)[
+        EPrimeAuthSessionSource.LegacyEmailSupabase
+      ],
+    ).toBeUndefined();
+  });
+});
+
+describe('SimpleDbEntityPrime identity-exit journal', () => {
+  test('consumes an OAuth handoff once with a persisted compare-and-set', async () => {
+    const entity = new SimpleDbEntityPrime();
+    let persisted: Record<string, unknown> = {
+      identityExitOperationJournal: {
+        operation: {
+          operationId: 'operation',
+          planId: 'plan',
+          intentType: 'switchOAuth',
+          status: 'completed',
+          startedAt: 1,
+          updatedAt: 2,
+          expectedLifecycleRevision: 3,
+          committedLifecycleRevision: 4,
+          target: {
+            logoutOneKeyId: false,
+            removeKeyless: true,
+            switchOAuthProvider: EOAuthSocialLoginProvider.Apple,
+          },
+          completed: {
+            oneKeyIdLoggedOut: false,
+            oauthHandoff: 'handoff',
+            oauthProvider: EOAuthSocialLoginProvider.Apple,
+            oauthHandoffExpiresAt: 10,
+            oauthExpectedLifecycleRevision: 4,
+          },
+        },
+      },
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: Record<string, unknown>) => Record<string, unknown>,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await expect(
+      entity.markIdentityExitOAuthHandoffConsumed({
+        operationId: 'operation',
+        handoff: 'handoff',
+        consumedAt: 5,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      entity.markIdentityExitOAuthHandoffConsumed({
+        operationId: 'operation',
+        handoff: 'handoff',
+        consumedAt: 6,
+      }),
+    ).resolves.toBe(false);
+    expect(persisted).toMatchObject({
+      identityExitOperationJournal: {
+        operation: {
+          completed: { oauthHandoffConsumedAt: 5 },
+        },
+      },
+    });
+  });
+});
+
+describe('SimpleDbEntityPrime.hasShownOneKeyIdOAuthBindPrompt', () => {
+  test('treats any persisted shownAt as already shown', async () => {
     const entity = new SimpleDbEntityPrime();
     jest.spyOn(entity, 'getRawData').mockResolvedValue({
       localKeylessUpgradeBindPromptShownAtByUserId: {
@@ -168,13 +466,13 @@ describe('SimpleDbEntityPrime.hasShownLocalKeylessUpgradeBindPrompt', () => {
     });
 
     await expect(
-      entity.hasShownLocalKeylessUpgradeBindPrompt({
+      entity.hasShownOneKeyIdOAuthBindPrompt({
         onekeyUserId: 'user-1',
       }),
     ).resolves.toBe(true);
   });
 
-  test('treats a future shownAt (clock skew) as not throttled', async () => {
+  test('treats a future shownAt as already shown despite clock skew', async () => {
     const entity = new SimpleDbEntityPrime();
     jest.spyOn(entity, 'getRawData').mockResolvedValue({
       localKeylessUpgradeBindPromptShownAtByUserId: {
@@ -183,9 +481,24 @@ describe('SimpleDbEntityPrime.hasShownLocalKeylessUpgradeBindPrompt', () => {
     });
 
     await expect(
-      entity.hasShownLocalKeylessUpgradeBindPrompt({
+      entity.hasShownOneKeyIdOAuthBindPrompt({
         onekeyUserId: 'user-1',
       }),
-    ).resolves.toBe(false);
+    ).resolves.toBe(true);
+  });
+
+  test('treats a timestamp older than the former 24-hour window as already shown', async () => {
+    const entity = new SimpleDbEntityPrime();
+    jest.spyOn(entity, 'getRawData').mockResolvedValue({
+      localKeylessUpgradeBindPromptShownAtByUserId: {
+        'user-1': Date.now() - 48 * 60 * 60 * 1000,
+      },
+    });
+
+    await expect(
+      entity.hasShownOneKeyIdOAuthBindPrompt({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toBe(true);
   });
 });

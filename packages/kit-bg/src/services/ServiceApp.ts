@@ -293,8 +293,7 @@ class ServiceApp extends ServiceBase {
     defaultLogger.prime.subscription.onekeyIdLogout({
       reason: 'ServiceApp.resetApp',
     });
-    // logout supabase is called in UI hooks
-    void this.backgroundApi.servicePrime.apiLogout();
+    await this.backgroundApi.serviceIdentityExit.prepareIdentityAuthForAppReset();
 
     defaultLogger.setting.page.clearDataStep('servicePrime-apiLogout');
     void this.backgroundApi.serviceNotification.unregisterClient();

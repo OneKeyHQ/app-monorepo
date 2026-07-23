@@ -2,15 +2,12 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList } from '@onekeyhq/components';
-import {
-  EOneKeyIdLogoutDialogSource,
-  useShowOneKeyIdLogoutDialog,
-} from '@onekeyhq/kit/src/components/OneKeyAuth/OneKeyIdLogoutDialog';
-import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { ActionList, Toast } from '@onekeyhq/components';
+import { useIdentityExitFlow } from '@onekeyhq/kit/src/components/OneKeyAuth/useIdentityExitFlow';
 import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -32,8 +29,7 @@ export function WalletRemoveButton({
 }) {
   const intl = useIntl();
   const { config } = useAccountSelectorContextData();
-  const { isLoggedIn: isOneKeyIdLoggedIn } = useOneKeyAuth();
-  const showOneKeyIdLogoutDialog = useShowOneKeyIdLogoutDialog();
+  const { run: runIdentityExit } = useIdentityExitFlow();
 
   const label = useMemo(() => {
     if (platformEnv.isWebDappMode) {
@@ -77,14 +73,24 @@ export function WalletRemoveButton({
       onClose={onClose}
       onPress={() => {
         if (wallet?.isKeyless) {
-          void showOneKeyIdLogoutDialog({
-            source: EOneKeyIdLogoutDialogSource.KeylessWallet,
-            keylessWallet: wallet,
-            config,
-            isRemoveToMocked,
-            isOneKeyIdLoggedIn: Boolean(isOneKeyIdLoggedIn),
-            confirmButtonTestID: AccountManagerTestIDs.walletRemoveConfirm,
-          });
+          void runIdentityExit(
+            {
+              type: 'removeKeyless',
+              expectedWalletId: wallet.id,
+              scene: 'accountSelector',
+            },
+            {
+              confirmButtonTestID: AccountManagerTestIDs.walletRemoveConfirm,
+              onCompletedReceipt: () => {
+                defaultLogger.account.wallet.deleteWallet();
+                Toast.success({
+                  title: intl.formatMessage({
+                    id: ETranslations.feedback_change_saved,
+                  }),
+                });
+              },
+            },
+          );
           return;
         }
 

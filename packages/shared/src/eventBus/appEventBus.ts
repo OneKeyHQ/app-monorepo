@@ -466,6 +466,10 @@ export interface IAppEventBusPayload {
     authSessionSource: EPrimeAuthSessionSource;
     callerName: string;
   };
+  [EAppEventBusNames.IdentityLifecycleCommitted]: {
+    revision: number;
+    oneKeyIdState: 'loggedIn' | 'loggedOut';
+  };
   [EAppEventBusNames.PrimeSubscriptionPurchaseSuccess]: {
     // UI-local event: use emitToSelf so multiple Extension surfaces cannot race
     // to show the same post-purchase dialog.

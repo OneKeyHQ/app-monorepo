@@ -1,20 +1,27 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import {
-  clearAllSupabaseAuthSessions,
   clearAuthSessionBySessionSource,
   clearSupabaseStorageCache,
   getAuthTokenBySessionSource,
 } from '../../../services/ServicePrime/primeAuthSessionAccess';
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
-const LOCAL_KEYLESS_UPGRADE_BIND_PROMPT_INTERVAL_MS = 24 * 60 * 60 * 1000;
-
 export interface ISimpleDBPrime {
   // Deprecated token copy. Supabase/OAuth session storage is the source of truth.
   authToken?: string;
   authSessionSource?: EPrimeAuthSessionSource;
+  oneKeyIdAuthState?: 'loggedIn' | 'loggedOut';
+  authSessionCommitIdBySource?: Partial<
+    Record<EPrimeAuthSessionSource, string>
+  >;
+  keylessSessionCommitIdByWalletId?: Record<string, string>;
+  identityExitOperationJournal?: Record<string, IIdentityExitJournalEntry>;
+  keylessOAuthSessionPersistenceJournal?: IKeylessOAuthSessionPersistenceJournal;
   // Monotonic auth-state commit epoch, bumped on every setAuthSessionSource
   // write (login commits, bind switches). Destructive cleanups that decide
   // on a pre-await snapshot (keyless session teardown, bg->main
@@ -28,14 +35,102 @@ export interface ISimpleDBPrime {
   // its lockless write advance the epoch would let it defeat an in-flight
   // invalid-token teardown of that same session.
   authStateGeneration?: number;
-  // Per-user throttle timestamp for the local-keyless upgrade bind prompt.
-  // Written by ServicePrime.checkAndMarkShouldShowLocalKeylessUpgradeBindPrompt
-  // for every completed check outcome (dialog about to show, bind not
-  // required, or no local keyless wallet) — not only when the dialog is
-  // actually displayed — so the expensive check pipeline runs at most once
-  // per throttle window.
+  // Monotonic revision for the complete local identity lifecycle. Unlike
+  // authStateGeneration, this also advances for Keyless wallet/session
+  // mutations coordinated by background services.
+  identityLifecycleRevision?: number;
+  // Per-user marker for the optional OAuth sign-in-method reminder. The
+  // historical field name is retained for persisted-data compatibility;
+  // any finite timestamp now means the reminder has been consumed forever.
   localKeylessUpgradeBindPromptShownAtByUserId?: Record<string, number>;
 }
+
+export type IIdentityExitJournalEntry = {
+  operationId: string;
+  planId: string;
+  intentType:
+    | 'logoutOneKeyId'
+    | 'switchOneKeyIdAccount'
+    | 'removeKeyless'
+    | 'switchOAuth'
+    | 'recoverMalformedKeyless'
+    | 'remoteOneKeyIdLogout'
+    | 'missingOneKeyIdSessionReconciliation'
+    | 'invalidKeylessSessionReconciliation'
+    | 'deleteOneKeyIdAccount'
+    | 'appReset';
+  status:
+    | 'executing'
+    | 'serverDeletePrepared'
+    | 'serverDeletePending'
+    | 'serverDeleteOutcomeUnknown'
+    | 'serverDeleteRejected'
+    | 'serverDeleted'
+    | 'walletRemoved'
+    | 'localStateCommitted'
+    | 'completed';
+  startedAt: number;
+  updatedAt: number;
+  expectedLifecycleRevision: number;
+  committedLifecycleRevision?: number;
+  serverDeleteOutcome?: 'confirmed' | 'rejected' | 'unknown';
+  target: {
+    logoutOneKeyId: boolean;
+    removeKeyless: boolean;
+    clearKeylessSession?: boolean;
+    clearAllIdentityAuth?: boolean;
+    switchOAuthProvider?: EOAuthSocialLoginProvider;
+    allowUnknownKeylessSessionIdentity?: boolean;
+  };
+  oneKeyId?: {
+    onekeyUserId: string;
+    source: EPrimeAuthSessionSource;
+    sessionCommitId: string;
+    sessionTokenSub?: string;
+  };
+  keyless?: {
+    walletId: string;
+    ownerId?: string;
+    provider?: EOAuthSocialLoginProvider;
+    socialUserIdHash?: string;
+    malformedDataError?: string;
+    sessionCommitId?: string;
+    sessionTokenSub?: string;
+    walletSessionCommitId?: string | null;
+  };
+  completed?: {
+    oneKeyIdLoggedOut: boolean;
+    removedWalletId?: string;
+    oauthHandoff?: string;
+    oauthProvider?: EOAuthSocialLoginProvider;
+    oauthHandoffExpiresAt?: number;
+    oauthExpectedLifecycleRevision?: number;
+    oauthHandoffConsumedAt?: number;
+  };
+};
+
+export type IKeylessOAuthSessionPersistenceJournal = {
+  operationId: string;
+  status: 'prepared';
+  startedAt: number;
+  updatedAt: number;
+  expectedLifecycleRevision: number;
+  sessionCommitId: string;
+  sessionTokenSub: string;
+  // Supabase `session_id` is a non-secret logical-session identifier: token
+  // refreshes preserve it, while a new sign-in for the same subject changes
+  // it. Recovery needs both fields so an older same-account slot cannot be
+  // mistaken for the session whose setSession was recorded.
+  supabaseSessionId: string;
+  walletId?: string;
+  previousSessionCommitId?: string;
+  previousWalletSessionCommitId?: string;
+};
+
+export type IKeylessOAuthSessionIdentity = Pick<
+  IKeylessOAuthSessionPersistenceJournal,
+  'sessionTokenSub' | 'supabaseSessionId'
+>;
 
 /**
  * Persisted Prime/OneKey ID markers (authSessionSource, throttle
@@ -99,6 +194,10 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   async getEffectiveAuthSessionSource(): Promise<
     EPrimeAuthSessionSource | undefined
   > {
+    const rawData = await this.getRawData();
+    if (rawData?.oneKeyIdAuthState === 'loggedOut') {
+      return undefined;
+    }
     const persistedSource = await this.getAuthSessionSource();
     if (persistedSource) {
       return persistedSource;
@@ -135,17 +234,33 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
    *   invalid-token teardown's window falsely mark the epoch as changed and
    *   skip the gated session-slot removal + server revocation.
    */
-  private async persistMigratedLegacyAuthSessionSourceIfUnset(): Promise<EPrimeAuthSessionSource> {
+  private async persistMigratedLegacyAuthSessionSourceIfUnset(): Promise<
+    EPrimeAuthSessionSource | undefined
+  > {
     const persisted = await this.setRawData((rawData) => {
+      if (rawData?.oneKeyIdAuthState === 'loggedOut') {
+        return rawData;
+      }
       if (rawData?.authSessionSource) {
         return rawData;
       }
       return {
         ...rawData,
         authSessionSource: EPrimeAuthSessionSource.LegacyEmailSupabase,
+        oneKeyIdAuthState: 'loggedIn' as const,
+        authSessionCommitIdBySource: {
+          ...rawData?.authSessionCommitIdBySource,
+          [EPrimeAuthSessionSource.LegacyEmailSupabase]:
+            rawData?.authSessionCommitIdBySource?.[
+              EPrimeAuthSessionSource.LegacyEmailSupabase
+            ] || stringUtils.generateUUID(),
+        },
       };
     });
     clearSupabaseStorageCache();
+    if (persisted?.oneKeyIdAuthState === 'loggedOut') {
+      return undefined;
+    }
     return (
       persisted?.authSessionSource ??
       EPrimeAuthSessionSource.LegacyEmailSupabase
@@ -163,15 +278,388 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   }
 
   @backgroundMethod()
-  async setAuthSessionSource(authSessionSource: EPrimeAuthSessionSource) {
+  async getIdentityLifecycleRevision(): Promise<number> {
+    const rawData = await this.getRawData();
+    return rawData?.identityLifecycleRevision ?? 0;
+  }
+
+  @backgroundMethod()
+  async bumpIdentityLifecycleRevision(): Promise<number> {
+    const rawData = await this.setRawData((data) => ({
+      ...data,
+      identityLifecycleRevision: (data?.identityLifecycleRevision ?? 0) + 1,
+    }));
+    return rawData.identityLifecycleRevision ?? 0;
+  }
+
+  async getKeylessOAuthSessionPersistenceJournal(): Promise<
+    IKeylessOAuthSessionPersistenceJournal | undefined
+  > {
+    const rawData = await this.getRawData();
+    return rawData?.keylessOAuthSessionPersistenceJournal;
+  }
+
+  async setKeylessOAuthSessionPersistenceJournal(
+    journal: IKeylessOAuthSessionPersistenceJournal,
+  ): Promise<void> {
+    await this.setRawData((rawData) => ({
+      ...rawData,
+      keylessOAuthSessionPersistenceJournal: journal,
+    }));
+  }
+
+  async commitKeylessOAuthSessionPersistenceMetadata({
+    operationId,
+    persistedSessionIdentity,
+  }: {
+    operationId: string;
+    persistedSessionIdentity: IKeylessOAuthSessionIdentity;
+  }): Promise<
+    | { status: 'committed'; identityLifecycleRevision: number }
+    | { status: 'sessionIdentityChanged' | 'stateChanged' }
+  > {
+    let result:
+      | { status: 'committed'; identityLifecycleRevision: number }
+      | { status: 'sessionIdentityChanged' | 'stateChanged' } = {
+      status: 'stateChanged',
+    };
+    await this.setRawData((rawData) => {
+      const journal = rawData?.keylessOAuthSessionPersistenceJournal;
+      if (!journal || journal.operationId !== operationId) {
+        return { ...rawData };
+      }
+      if (
+        journal.sessionTokenSub !== persistedSessionIdentity.sessionTokenSub ||
+        journal.supabaseSessionId !== persistedSessionIdentity.supabaseSessionId
+      ) {
+        result = { status: 'sessionIdentityChanged' };
+        return { ...rawData };
+      }
+      const currentRevision = rawData?.identityLifecycleRevision ?? 0;
+      const currentSessionCommitId =
+        rawData?.authSessionCommitIdBySource?.[
+          EPrimeAuthSessionSource.KeylessOAuth
+        ];
+      const currentWalletSessionCommitId = journal.walletId
+        ? rawData?.keylessSessionCommitIdByWalletId?.[journal.walletId]
+        : undefined;
+      if (
+        currentRevision !== journal.expectedLifecycleRevision ||
+        currentSessionCommitId !== journal.previousSessionCommitId ||
+        currentWalletSessionCommitId !== journal.previousWalletSessionCommitId
+      ) {
+        return { ...rawData };
+      }
+
+      const identityLifecycleRevision = currentRevision + 1;
+      result = { status: 'committed', identityLifecycleRevision };
+      return {
+        ...rawData,
+        authSessionCommitIdBySource: {
+          ...rawData?.authSessionCommitIdBySource,
+          [EPrimeAuthSessionSource.KeylessOAuth]: journal.sessionCommitId,
+        },
+        keylessSessionCommitIdByWalletId: journal.walletId
+          ? {
+              ...rawData?.keylessSessionCommitIdByWalletId,
+              [journal.walletId]: journal.sessionCommitId,
+            }
+          : rawData?.keylessSessionCommitIdByWalletId,
+        identityLifecycleRevision,
+        keylessOAuthSessionPersistenceJournal: undefined,
+      };
+    });
+    return result;
+  }
+
+  async removeKeylessOAuthSessionPersistenceJournal({
+    operationId,
+  }: {
+    operationId: string;
+  }): Promise<boolean> {
+    let removed = false;
+    await this.setRawData((rawData) => {
+      if (
+        rawData?.keylessOAuthSessionPersistenceJournal?.operationId !==
+        operationId
+      ) {
+        return { ...rawData };
+      }
+      removed = true;
+      return {
+        ...rawData,
+        keylessOAuthSessionPersistenceJournal: undefined,
+      };
+    });
+    return removed;
+  }
+
+  @backgroundMethod()
+  async getIdentityExitOperationJournal(): Promise<
+    Record<string, IIdentityExitJournalEntry>
+  > {
+    const rawData = await this.getRawData();
+    return { ...rawData?.identityExitOperationJournal };
+  }
+
+  @backgroundMethod()
+  async setIdentityExitJournalEntry(
+    entry: IIdentityExitJournalEntry,
+  ): Promise<void> {
+    await this.setRawData((rawData) => ({
+      ...rawData,
+      identityExitOperationJournal: {
+        ...rawData?.identityExitOperationJournal,
+        [entry.operationId]: entry,
+      },
+    }));
+  }
+
+  async removeIdentityExitJournalEntry({
+    operationId,
+    expectedUpdatedAt,
+  }: {
+    operationId: string;
+    expectedUpdatedAt: number;
+  }): Promise<boolean> {
+    let removed = false;
+    await this.setRawData((rawData) => {
+      const journal = rawData?.identityExitOperationJournal;
+      const entry = journal?.[operationId];
+      if (!entry || entry.updatedAt !== expectedUpdatedAt) {
+        return { ...rawData };
+      }
+      const nextJournal = { ...journal };
+      delete nextJournal[operationId];
+      removed = true;
+      return {
+        ...rawData,
+        identityExitOperationJournal: nextJournal,
+      };
+    });
+    return removed;
+  }
+
+  @backgroundMethod()
+  async markIdentityExitOAuthHandoffConsumed({
+    operationId,
+    handoff,
+    consumedAt,
+  }: {
+    operationId: string;
+    handoff: string;
+    consumedAt: number;
+  }): Promise<boolean> {
+    let consumed = false;
+    await this.setRawData((rawData) => {
+      const entry = rawData?.identityExitOperationJournal?.[operationId];
+      if (
+        entry?.status !== 'completed' ||
+        entry.completed?.oauthHandoff !== handoff ||
+        entry.completed.oauthHandoffConsumedAt
+      ) {
+        return { ...rawData };
+      }
+      consumed = true;
+      return {
+        ...rawData,
+        identityExitOperationJournal: {
+          ...rawData?.identityExitOperationJournal,
+          [operationId]: {
+            ...entry,
+            updatedAt: consumedAt,
+            completed: {
+              ...entry.completed,
+              oauthHandoffConsumedAt: consumedAt,
+            },
+          },
+        },
+      };
+    });
+    return consumed;
+  }
+
+  @backgroundMethod()
+  async getOneKeyIdAuthState(): Promise<'loggedIn' | 'loggedOut' | undefined> {
+    const rawData = await this.getRawData();
+    return rawData?.oneKeyIdAuthState;
+  }
+
+  @backgroundMethod()
+  async getAuthSessionCommitId(
+    authSessionSource: EPrimeAuthSessionSource,
+  ): Promise<string | undefined> {
+    const rawData = await this.getRawData();
+    return rawData?.authSessionCommitIdBySource?.[authSessionSource];
+  }
+
+  async backfillAuthSessionCommitIdForMigration({
+    authSessionSource,
+    expectedActiveAuthSessionSource,
+    preferredSessionCommitId,
+  }: {
+    authSessionSource: EPrimeAuthSessionSource;
+    expectedActiveAuthSessionSource: EPrimeAuthSessionSource | undefined;
+    preferredSessionCommitId?: string;
+  }): Promise<string | undefined> {
+    const generatedCommitId =
+      preferredSessionCommitId || stringUtils.generateUUID();
+    let resolvedCommitId: string | undefined;
+    await this.setRawData((rawData) => {
+      if (rawData?.authSessionSource !== expectedActiveAuthSessionSource) {
+        return { ...rawData };
+      }
+      const existingCommitId =
+        rawData?.authSessionCommitIdBySource?.[authSessionSource];
+      if (existingCommitId) {
+        resolvedCommitId = existingCommitId;
+        return { ...rawData };
+      }
+      resolvedCommitId = generatedCommitId;
+      return {
+        ...rawData,
+        authSessionCommitIdBySource: {
+          ...rawData?.authSessionCommitIdBySource,
+          [authSessionSource]: generatedCommitId,
+        },
+      };
+    });
+    return resolvedCommitId;
+  }
+
+  @backgroundMethod()
+  async setAuthSessionCommitId({
+    authSessionSource,
+    sessionCommitId,
+  }: {
+    authSessionSource: EPrimeAuthSessionSource;
+    sessionCommitId: string;
+  }): Promise<void> {
+    if (!sessionCommitId) {
+      throw new OneKeyLocalError('sessionCommitId is required');
+    }
+    await this.setRawData((rawData) => ({
+      ...rawData,
+      authSessionCommitIdBySource: {
+        ...rawData?.authSessionCommitIdBySource,
+        [authSessionSource]: sessionCommitId,
+      },
+    }));
+  }
+
+  @backgroundMethod()
+  async clearAuthSessionCommitIdIfMatches({
+    authSessionSource,
+    expectedSessionCommitId,
+  }: {
+    authSessionSource: EPrimeAuthSessionSource;
+    expectedSessionCommitId: string;
+  }): Promise<boolean> {
+    let cleared = false;
+    await this.setRawData((rawData) => {
+      if (
+        rawData?.authSessionCommitIdBySource?.[authSessionSource] !==
+        expectedSessionCommitId
+      ) {
+        return { ...rawData };
+      }
+      const authSessionCommitIdBySource = {
+        ...rawData.authSessionCommitIdBySource,
+      };
+      delete authSessionCommitIdBySource[authSessionSource];
+      cleared = true;
+      return { ...rawData, authSessionCommitIdBySource };
+    });
+    return cleared;
+  }
+
+  @backgroundMethod()
+  async getKeylessSessionCommitId({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<string | undefined> {
+    const rawData = await this.getRawData();
+    return rawData?.keylessSessionCommitIdByWalletId?.[walletId];
+  }
+
+  @backgroundMethod()
+  async setKeylessSessionCommitId({
+    walletId,
+    sessionCommitId,
+  }: {
+    walletId: string;
+    sessionCommitId: string;
+  }): Promise<void> {
+    if (!walletId || !sessionCommitId) {
+      throw new OneKeyLocalError('walletId and sessionCommitId are required');
+    }
+    await this.setRawData((rawData) => ({
+      ...rawData,
+      keylessSessionCommitIdByWalletId: {
+        ...rawData?.keylessSessionCommitIdByWalletId,
+        [walletId]: sessionCommitId,
+      },
+    }));
+  }
+
+  @backgroundMethod()
+  async clearKeylessSessionCommitIdIfMatches({
+    walletId,
+    expectedSessionCommitId,
+  }: {
+    walletId: string;
+    expectedSessionCommitId?: string;
+  }): Promise<boolean> {
+    let cleared = false;
+    await this.setRawData((rawData) => {
+      const current = rawData?.keylessSessionCommitIdByWalletId?.[walletId];
+      if (
+        !current ||
+        (expectedSessionCommitId && current !== expectedSessionCommitId)
+      ) {
+        return { ...rawData };
+      }
+      const keylessSessionCommitIdByWalletId = {
+        ...rawData.keylessSessionCommitIdByWalletId,
+      };
+      delete keylessSessionCommitIdByWalletId[walletId];
+      cleared = true;
+      return { ...rawData, keylessSessionCommitIdByWalletId };
+    });
+    return cleared;
+  }
+
+  @backgroundMethod()
+  async setAuthSessionSourceWithCommitId({
+    authSessionSource,
+    sessionCommitId,
+  }: {
+    authSessionSource: EPrimeAuthSessionSource;
+    sessionCommitId: string;
+  }): Promise<void> {
+    if (!sessionCommitId) {
+      throw new OneKeyLocalError('sessionCommitId is required');
+    }
     await this.setRawData((rawData) => ({
       ...rawData,
       authSessionSource,
-      // Every source commit advances the generation so pre-await snapshots
-      // held by in-flight destructive cleanups become detectably stale.
+      oneKeyIdAuthState: 'loggedIn' as const,
+      authSessionCommitIdBySource: {
+        ...rawData?.authSessionCommitIdBySource,
+        [authSessionSource]: sessionCommitId,
+      },
       authStateGeneration: (rawData?.authStateGeneration ?? 0) + 1,
     }));
     clearSupabaseStorageCache();
+  }
+
+  @backgroundMethod()
+  async setAuthSessionSource(authSessionSource: EPrimeAuthSessionSource) {
+    await this.setAuthSessionSourceWithCommitId({
+      authSessionSource,
+      sessionCommitId: stringUtils.generateUUID(),
+    });
   }
 
   @backgroundMethod()
@@ -185,18 +673,54 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     clearSupabaseStorageCache();
   }
 
-  @backgroundMethod()
   async clearAuthTokens() {
-    await this.setRawData((rawData) => ({
-      ...rawData,
-      authToken: '',
-      authSessionSource: undefined,
-    }));
+    await this.setRawData((rawData) => {
+      const authSessionCommitIdBySource = {
+        ...rawData?.authSessionCommitIdBySource,
+      };
+      if (rawData?.authSessionSource) {
+        delete authSessionCommitIdBySource[rawData.authSessionSource];
+      }
+      return {
+        ...rawData,
+        authToken: '',
+        authSessionSource: undefined,
+        oneKeyIdAuthState: 'loggedOut' as const,
+        authSessionCommitIdBySource,
+      };
+    });
     clearSupabaseStorageCache();
   }
 
+  async clearAllIdentityAuthMetadataAndBumpRevision(): Promise<number> {
+    const next = await this.setRawData((rawData) => ({
+      ...rawData,
+      authToken: '',
+      authSessionSource: undefined,
+      oneKeyIdAuthState: 'loggedOut' as const,
+      authSessionCommitIdBySource: {},
+      keylessSessionCommitIdByWalletId: {},
+      keylessOAuthSessionPersistenceJournal: undefined,
+      identityLifecycleRevision: (rawData?.identityLifecycleRevision ?? 0) + 1,
+    }));
+    clearSupabaseStorageCache();
+    return next?.identityLifecycleRevision ?? 1;
+  }
+
+  async isAllIdentityAuthMetadataCleared(): Promise<boolean> {
+    const rawData = await this.getRawData();
+    return Boolean(
+      rawData?.authSessionSource === undefined &&
+      rawData?.oneKeyIdAuthState === 'loggedOut' &&
+      Object.keys(rawData?.authSessionCommitIdBySource || {}).length === 0 &&
+      Object.keys(rawData?.keylessSessionCommitIdByWalletId || {}).length ===
+        0 &&
+      rawData?.keylessOAuthSessionPersistenceJournal === undefined,
+    );
+  }
+
   @backgroundMethod()
-  async hasShownLocalKeylessUpgradeBindPrompt({
+  async hasShownOneKeyIdOAuthBindPrompt({
     onekeyUserId,
   }: {
     onekeyUserId: string;
@@ -210,18 +734,11 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     if (typeof shownAt !== 'number' || !Number.isFinite(shownAt)) {
       return false;
     }
-    const elapsed = Date.now() - shownAt;
-    // A future shownAt (device clock was ahead, then corrected) yields a
-    // negative elapsed; treat it as not throttled instead of extending the
-    // throttle past the future timestamp.
-    if (elapsed < 0) {
-      return false;
-    }
-    return elapsed < LOCAL_KEYLESS_UPGRADE_BIND_PROMPT_INTERVAL_MS;
+    return true;
   }
 
   @backgroundMethod()
-  async markLocalKeylessUpgradeBindPromptShown({
+  async markOneKeyIdOAuthBindPromptShown({
     onekeyUserId,
   }: {
     onekeyUserId: string;
@@ -238,21 +755,9 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     }));
   }
 
-  @backgroundMethod()
   async clearLegacyAuthSession() {
     await clearAuthSessionBySessionSource(
       EPrimeAuthSessionSource.LegacyEmailSupabase,
     );
-  }
-
-  @backgroundMethod()
-  async clearKeylessAuthSession() {
-    await clearAuthSessionBySessionSource(EPrimeAuthSessionSource.KeylessOAuth);
-  }
-
-  @backgroundMethod()
-  async clearLocalAuthSession() {
-    await this.clearAuthTokens();
-    await clearAllSupabaseAuthSessions();
   }
 }

@@ -163,7 +163,7 @@ export class PushProviderWebSocket extends PushProviderBase {
 
     this.socket.on(
       EAppSocketEventNames.primeDeviceLogout,
-      (payload: IPrimeDeviceLogoutInfo) => {
+      async (payload: IPrimeDeviceLogoutInfo) => {
         void this.backgroundApi.serviceNotification.ackNotificationMessage({
           msgId: payload.msgId,
           action: ENotificationPushMessageAckAction.arrived,
@@ -172,6 +172,15 @@ export class PushProviderWebSocket extends PushProviderBase {
           reason:
             'WebSocket: DEVICE_LOGOUT, EAppSocketEventNames.primeDeviceLogout',
         });
+        try {
+          await this.backgroundApi.serviceIdentityExit.reconcileRemoteOneKeyIdLogout();
+        } catch (error) {
+          defaultLogger.prime.subscription.onekeyIdLogout({
+            reason: `WebSocket: remote OneKey ID logout reconciliation failed: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          });
+        }
         appEventBus.emit(EAppEventBusNames.PrimeDeviceLogout, undefined);
         defaultLogger.notification.websocket.consoleLog(
           'WebSocket 收到 primeDeviceLogout 消息:',

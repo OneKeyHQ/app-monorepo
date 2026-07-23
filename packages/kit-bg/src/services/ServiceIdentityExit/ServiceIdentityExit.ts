@@ -1,0 +1,2535 @@
+import { isEqual } from 'lodash';
+
+import {
+  backgroundClass,
+  backgroundMethod,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import type { ISupabaseJWTPayload } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import type {
+  IExecuteIdentityExitParams,
+  IIdentityExitIntent,
+  IIdentityExitOAuthHandoff,
+  IIdentityExitPlan,
+  IIdentityExitPlanId,
+  IIdentityExitReceipt,
+} from '@onekeyhq/shared/types/prime/identityExitTypes';
+import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
+
+import { primePersistAtom } from '../../states/jotai/atoms/prime';
+import {
+  type IKeylessWalletRemovalIdentity,
+  type IMalformedKeylessWalletFingerprint,
+  createKeylessWalletRemovalCapability,
+  createMalformedKeylessWalletRemovalCapability,
+  getMalformedKeylessWalletDataError,
+  getMalformedKeylessWalletFingerprint,
+} from '../ServiceAccount/keylessWalletRemovalCapability';
+import ServiceBase from '../ServiceBase';
+import {
+  readPersistedAccessTokenBySessionSourceStrict,
+  revokeAuthSessionTokenOnServerBestEffort,
+} from '../ServicePrime/primeAuthSessionAccess';
+
+import {
+  type IIdentityExitExecutionTarget,
+  type IIdentityExitSnapshot,
+  evaluateIdentityExitPolicy,
+  getIdentityLinkage,
+} from './identityExitPolicy';
+import {
+  beginIdentityExitReservation,
+  endIdentityExitReservation,
+  identityLifecycleMutex,
+  markIdentityRecoveryFailed,
+  markIdentityRecoveryPending,
+  markIdentityRecoveryReady,
+} from './identityLifecycleMutex';
+
+import type { IIdentityExitJournalEntry } from '../../dbs/simple/entity/SimpleDbEntityPrime';
+
+const IDENTITY_EXIT_PLAN_TTL_MS = 5 * 60 * 1000;
+const IDENTITY_EXIT_OAUTH_HANDOFF_TTL_MS = 5 * 60 * 1000;
+const IDENTITY_EXIT_RECOVERY_SWEEP_OPERATION_ID = 'identityExit:recoverySweep';
+
+type IReadyIdentityExitPlan = Extract<IIdentityExitPlan, { status: 'ready' }>;
+
+type IStoredStandardIdentityExitPlan = {
+  kind: 'standard';
+  publicPlan: IReadyIdentityExitPlan;
+  intent: IIdentityExitIntent;
+  snapshot: IIdentityExitSnapshot;
+  target: IIdentityExitExecutionTarget;
+  operationId: string;
+  executionPromise?: Promise<IIdentityExitReceipt>;
+  receipt?: IIdentityExitReceipt;
+};
+
+type IMalformedKeylessRecoveryIntent = Extract<
+  IIdentityExitIntent,
+  { type: 'recoverMalformedKeyless' }
+>;
+
+type IMalformedKeylessRecoverySnapshot = {
+  lifecycleRevision: number;
+  oneKeyId: IIdentityExitSnapshot['oneKeyId'];
+  keyless: {
+    fingerprint: IMalformedKeylessWalletFingerprint;
+    errorMessage: string;
+    ownerId?: string;
+    provider?: EOAuthSocialLoginProvider;
+    socialUserIdHash?: string;
+    sessionCommitId?: string;
+    sessionTokenSub?: string;
+    walletSessionCommitId?: string;
+  };
+};
+
+type IStoredMalformedKeylessRecoveryPlan = {
+  kind: 'malformedKeylessRecovery';
+  publicPlan: IReadyIdentityExitPlan;
+  intent: IMalformedKeylessRecoveryIntent;
+  snapshot: IMalformedKeylessRecoverySnapshot;
+  target: IIdentityExitExecutionTarget;
+  operationId: string;
+  executionPromise?: Promise<IIdentityExitReceipt>;
+  receipt?: IIdentityExitReceipt;
+};
+
+type IStoredIdentityExitPlan =
+  | IStoredStandardIdentityExitPlan
+  | IStoredMalformedKeylessRecoveryPlan;
+
+type IIdentityExitOAuthHandoffRecord = {
+  operationId: string;
+  handoff: IIdentityExitOAuthHandoff;
+  provider: EOAuthSocialLoginProvider;
+  expectedLifecycleRevision: number;
+  removedWalletId: string;
+  expiresAt: number;
+  consumed: boolean;
+};
+
+const IDENTITY_EXIT_SNAPSHOT_ERROR_CODE = Symbol(
+  'identityExitSnapshotErrorCode',
+);
+
+type IIdentityExitSnapshotErrorCode = Extract<
+  IIdentityExitPlan,
+  { status: 'blocked' }
+>['code'];
+
+type IIdentityExitSnapshotError = OneKeyLocalError & {
+  [IDENTITY_EXIT_SNAPSHOT_ERROR_CODE]: IIdentityExitSnapshotErrorCode;
+};
+
+function createIdentityExitSnapshotError(
+  code: IIdentityExitSnapshotErrorCode,
+  message: string,
+): IIdentityExitSnapshotError {
+  return Object.assign(new OneKeyLocalError(message), {
+    [IDENTITY_EXIT_SNAPSHOT_ERROR_CODE]: code,
+  });
+}
+
+function isIdentityExitSnapshotError(
+  error: unknown,
+): error is IIdentityExitSnapshotError {
+  return (
+    error instanceof OneKeyLocalError &&
+    IDENTITY_EXIT_SNAPSHOT_ERROR_CODE in error
+  );
+}
+
+function decodeSessionTokenSub(accessToken: string, field: string): string {
+  const tokenSub =
+    (stringUtils.decodeJWT(accessToken) as ISupabaseJWTPayload | null)?.sub ||
+    '';
+  if (!tokenSub) {
+    // TODO: i18n
+    throw createIdentityExitSnapshotError(
+      'STATE_INCONSISTENT',
+      `${field} token subject is unavailable.`,
+    );
+  }
+  return tokenSub;
+}
+
+function getComparableSnapshot(snapshot: IIdentityExitSnapshot) {
+  return {
+    ...snapshot,
+    oneKeyId:
+      snapshot.oneKeyId.type === 'loggedIn'
+        ? { ...snapshot.oneKeyId, accessToken: undefined }
+        : snapshot.oneKeyId,
+  };
+}
+
+function shouldClearKeylessSession(
+  target: IIdentityExitExecutionTarget | IIdentityExitJournalEntry['target'],
+): boolean {
+  return target.clearKeylessSession ?? target.removeKeyless;
+}
+
+function getJournalWalletSessionCommitId(
+  keyless: NonNullable<IIdentityExitJournalEntry['keyless']>,
+): string | undefined {
+  return 'walletSessionCommitId' in keyless
+    ? (keyless.walletSessionCommitId ?? undefined)
+    : keyless.sessionCommitId;
+}
+
+const planRegistry = new Map<string, IStoredIdentityExitPlan>();
+const oauthHandoffRegistry = new Map<string, IIdentityExitOAuthHandoffRecord>();
+
+@backgroundClass()
+class ServiceIdentityExit extends ServiceBase {
+  private readonly identityExitJournalStorageOutcomeUnknownOperationIds =
+    new Set<string>();
+
+  private async persistIdentityExitJournalEntry(
+    entry: IIdentityExitJournalEntry,
+  ): Promise<void> {
+    try {
+      await this.backgroundApi.simpleDb.prime.setIdentityExitJournalEntry(
+        entry,
+      );
+    } catch (error) {
+      // A rejected storage write may still have reached the durable backend.
+      // Do not recover from SimpleDB's optimistic in-memory cache in this
+      // runtime; startup must reload the durable journal before proceeding.
+      this.identityExitJournalStorageOutcomeUnknownOperationIds.add(
+        entry.operationId,
+      );
+      markIdentityRecoveryFailed(entry.operationId);
+      throw error;
+    }
+  }
+
+  private async clearAllIdentityAuthForExplicitOperation(
+    callerName: 'accountDeletion' | 'appReset',
+  ): Promise<{ oneKeyIdLoggedOut: boolean }> {
+    await this.recoverInterruptedIdentityExitOperations();
+    return identityLifecycleMutex.runExclusive(async () => {
+      const operationId = `${callerName}:${stringUtils.generateUUID()}`;
+      beginIdentityExitReservation(operationId);
+      let didStartRecoveryBarrier = false;
+      try {
+        const [user, expectedIdentityLifecycleRevision] = await Promise.all([
+          primePersistAtom.get(),
+          this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision(),
+        ]);
+        let journal: IIdentityExitJournalEntry = {
+          operationId,
+          planId: operationId,
+          intentType: 'appReset',
+          status: 'executing',
+          startedAt: Date.now(),
+          updatedAt: Date.now(),
+          expectedLifecycleRevision: expectedIdentityLifecycleRevision,
+          target: {
+            logoutOneKeyId: true,
+            removeKeyless: false,
+            clearKeylessSession: true,
+            clearAllIdentityAuth: true,
+          },
+        };
+        markIdentityRecoveryPending(operationId);
+        didStartRecoveryBarrier = true;
+        await this.persistIdentityExitJournalEntry(journal);
+        const result =
+          await this.backgroundApi.servicePrime.clearAllIdentityAuthForExplicitOperation(
+            { callerName, expectedIdentityLifecycleRevision },
+          );
+        if (result.status !== 'committed' || !result.revision) {
+          throw new OneKeyLocalError(
+            'Identity state changed before explicit auth cleanup could commit.',
+          );
+        }
+        journal = {
+          ...journal,
+          status: 'localStateCommitted',
+          updatedAt: Date.now(),
+          committedLifecycleRevision: result.revision,
+        };
+        await this.persistIdentityExitJournalEntry(journal);
+        await this.completeIdentityExitJournal({
+          journal,
+          committedLifecycleRevision: result.revision,
+        });
+        markIdentityRecoveryReady(operationId);
+        return {
+          oneKeyIdLoggedOut: Boolean(
+            user.isLoggedIn && user.isLoggedInOnServer,
+          ),
+        };
+      } catch (error) {
+        if (didStartRecoveryBarrier) {
+          markIdentityRecoveryFailed(operationId);
+        }
+        throw error;
+      } finally {
+        endIdentityExitReservation(operationId);
+      }
+    });
+  }
+
+  @backgroundMethod()
+  async prepareIdentityAuthForAppReset(): Promise<void> {
+    await this.clearAllIdentityAuthForExplicitOperation('appReset');
+  }
+
+  @backgroundMethod()
+  async deleteOneKeyIdAccount({
+    uuid,
+    emailOTP,
+  }: {
+    uuid: string;
+    emailOTP: string;
+  }): Promise<{
+    ok: boolean;
+    oneKeyIdLoggedOut: boolean;
+    serverOutcome: 'confirmed' | 'rejected' | 'unknown';
+    localStateCleared: boolean;
+  }> {
+    await this.recoverInterruptedIdentityExitOperations();
+    return identityLifecycleMutex.runExclusive(async () => {
+      const operationId = `accountDeletion:${stringUtils.generateUUID()}`;
+      beginIdentityExitReservation(operationId);
+      let didStartRecoveryBarrier = false;
+      let didSettleRecoveryBarrier = false;
+      try {
+        const [user, expectedLifecycleRevision] = await Promise.all([
+          primePersistAtom.get(),
+          this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision(),
+        ]);
+        if (!user.isLoggedIn || !user.isLoggedInOnServer) {
+          throw new OneKeyLocalError(
+            'OneKey ID must be logged in before deleting the account.',
+          );
+        }
+        const startedAt = Date.now();
+        let journal: IIdentityExitJournalEntry = {
+          operationId,
+          planId: operationId,
+          intentType: 'deleteOneKeyIdAccount',
+          status: 'serverDeletePrepared',
+          startedAt,
+          updatedAt: startedAt,
+          expectedLifecycleRevision,
+          target: {
+            logoutOneKeyId: true,
+            removeKeyless: false,
+            clearKeylessSession: true,
+            clearAllIdentityAuth: true,
+          },
+        };
+        markIdentityRecoveryPending(operationId);
+        didStartRecoveryBarrier = true;
+        await this.persistIdentityExitJournalEntry(journal);
+        journal = {
+          ...journal,
+          status: 'serverDeleteOutcomeUnknown',
+          serverDeleteOutcome: 'unknown',
+          updatedAt: Date.now(),
+        };
+        await this.persistIdentityExitJournalEntry(journal);
+        let serverResult: { ok?: boolean } | undefined;
+        let serverOutcome: 'confirmed' | 'rejected' | 'unknown' = 'confirmed';
+        try {
+          serverResult =
+            await this.backgroundApi.servicePrime.deleteOneKeyIdAccountOnServer(
+              {
+                uuid,
+                emailOTP,
+              },
+            );
+        } catch {
+          // The server outcome cannot be inferred from a transport error.
+          // The user already authorized account deletion, so finish the
+          // explicit local auth cleanup without reporting server success.
+          serverOutcome = 'unknown';
+        }
+        if (serverOutcome !== 'unknown' && !serverResult?.ok) {
+          serverOutcome = 'rejected';
+          journal = {
+            ...journal,
+            status: 'serverDeleteRejected',
+            serverDeleteOutcome: serverOutcome,
+            updatedAt: Date.now(),
+          };
+          await this.persistIdentityExitJournalEntry(journal);
+          const removed =
+            await this.backgroundApi.simpleDb.prime.removeIdentityExitJournalEntry(
+              {
+                operationId,
+                expectedUpdatedAt: journal.updatedAt,
+              },
+            );
+          if (!removed) {
+            throw new OneKeyLocalError(
+              'The rejected account deletion journal changed unexpectedly.',
+            );
+          }
+          markIdentityRecoveryReady(operationId);
+          didSettleRecoveryBarrier = true;
+          return {
+            ok: false,
+            oneKeyIdLoggedOut: false,
+            serverOutcome,
+            localStateCleared: false,
+          };
+        }
+
+        if (serverOutcome === 'confirmed') {
+          journal = {
+            ...journal,
+            status: 'serverDeleted',
+            serverDeleteOutcome: serverOutcome,
+            updatedAt: Date.now(),
+          };
+          await this.persistIdentityExitJournalEntry(journal);
+        }
+        const localCommit =
+          await this.backgroundApi.servicePrime.clearAllIdentityAuthForExplicitOperation(
+            {
+              callerName: 'accountDeletion',
+              expectedIdentityLifecycleRevision: expectedLifecycleRevision,
+            },
+          );
+        if (localCommit.status !== 'committed' || !localCommit.revision) {
+          throw new OneKeyLocalError(
+            'The account was deleted, but local identity cleanup is pending recovery.',
+          );
+        }
+        journal = {
+          ...journal,
+          status: 'localStateCommitted',
+          updatedAt: Date.now(),
+          committedLifecycleRevision: localCommit.revision,
+        };
+        await this.persistIdentityExitJournalEntry(journal);
+        await this.completeIdentityExitJournal({
+          journal,
+          committedLifecycleRevision: localCommit.revision,
+        });
+        markIdentityRecoveryReady(operationId);
+        didSettleRecoveryBarrier = true;
+        return {
+          ok: serverOutcome === 'confirmed',
+          oneKeyIdLoggedOut: true,
+          serverOutcome,
+          localStateCleared: true,
+        };
+      } catch (error) {
+        if (didStartRecoveryBarrier && !didSettleRecoveryBarrier) {
+          markIdentityRecoveryFailed(operationId);
+        }
+        throw error;
+      } finally {
+        endIdentityExitReservation(operationId);
+      }
+    });
+  }
+
+  private async readSessionIdentity(
+    source: EPrimeAuthSessionSource,
+    field: string,
+    expectedActiveAuthSessionSource: EPrimeAuthSessionSource | undefined,
+  ): Promise<{
+    accessToken: string;
+    sessionTokenSub: string;
+    sessionCommitId: string;
+  }> {
+    const slot = await readPersistedAccessTokenBySessionSourceStrict(source);
+    if (slot.status !== 'ok') {
+      // TODO: i18n
+      throw createIdentityExitSnapshotError(
+        'STATE_INCONSISTENT',
+        `${field} session slot is ${slot.status}.`,
+      );
+    }
+    const sessionTokenSub = decodeSessionTokenSub(slot.accessToken, field);
+    let persistedSessionCommitId =
+      await this.backgroundApi.simpleDb.prime.getAuthSessionCommitId(source);
+    persistedSessionCommitId ??=
+      await this.backgroundApi.simpleDb.prime.backfillAuthSessionCommitIdForMigration(
+        {
+          authSessionSource: source,
+          expectedActiveAuthSessionSource,
+        },
+      );
+    if (!persistedSessionCommitId) {
+      // TODO: i18n
+      throw createIdentityExitSnapshotError(
+        'STATE_INCONSISTENT',
+        `${field} session commit identity is unavailable.`,
+      );
+    }
+    return {
+      accessToken: slot.accessToken,
+      sessionTokenSub,
+      sessionCommitId: persistedSessionCommitId,
+    };
+  }
+
+  private async buildOneKeyIdSnapshot({
+    oneKeyIdAuthState,
+    primeUser,
+    source,
+    tolerateUnavailableKeylessSession = false,
+  }: {
+    oneKeyIdAuthState: 'loggedIn' | 'loggedOut' | undefined;
+    primeUser: Awaited<ReturnType<typeof primePersistAtom.get>>;
+    source: EPrimeAuthSessionSource | undefined;
+    tolerateUnavailableKeylessSession?: boolean;
+  }): Promise<IIdentityExitSnapshot['oneKeyId']> {
+    if (primeUser.isLoggedIn !== primeUser.isLoggedInOnServer) {
+      throw createIdentityExitSnapshotError(
+        'STATE_INCONSISTENT',
+        'OneKey ID local and server login projections are inconsistent.',
+      );
+    }
+
+    if (primeUser.isLoggedIn && primeUser.isLoggedInOnServer) {
+      if (!source || oneKeyIdAuthState === 'loggedOut') {
+        throw createIdentityExitSnapshotError(
+          'STATE_INCONSISTENT',
+          'OneKey ID is logged in but its local auth source is unavailable.',
+        );
+      }
+      if (!primeUser.onekeyUserId) {
+        throw createIdentityExitSnapshotError(
+          'STATE_INCONSISTENT',
+          'OneKey ID onekeyUserId is unavailable.',
+        );
+      }
+      let identity: Awaited<
+        ReturnType<ServiceIdentityExit['readSessionIdentity']>
+      >;
+      try {
+        identity = await this.readSessionIdentity(source, 'OneKey ID', source);
+      } catch (error) {
+        if (
+          !tolerateUnavailableKeylessSession ||
+          source !== EPrimeAuthSessionSource.KeylessOAuth
+        ) {
+          throw error;
+        }
+        const [slot, sessionCommitId] = await Promise.all([
+          readPersistedAccessTokenBySessionSourceStrict(source),
+          this.backgroundApi.simpleDb.prime.getAuthSessionCommitId(source),
+        ]);
+        let sessionTokenSub: string | undefined;
+        if (slot.status === 'ok') {
+          try {
+            sessionTokenSub = decodeSessionTokenSub(
+              slot.accessToken,
+              'OneKey ID',
+            );
+          } catch {
+            sessionTokenSub = undefined;
+          }
+        }
+        identity = {
+          accessToken: slot.status === 'ok' ? slot.accessToken : '',
+          sessionCommitId: sessionCommitId || '',
+          sessionTokenSub: sessionTokenSub || '',
+        };
+      }
+      return {
+        type: 'loggedIn',
+        onekeyUserId: primeUser.onekeyUserId,
+        source,
+        ...identity,
+      };
+    }
+
+    if (source || oneKeyIdAuthState === 'loggedIn') {
+      throw createIdentityExitSnapshotError(
+        'STATE_INCONSISTENT',
+        'OneKey ID is logged out but an active auth source is still set.',
+      );
+    }
+    return { type: 'loggedOut' };
+  }
+
+  private async readAuthoritativeSnapshot(): Promise<IIdentityExitSnapshot> {
+    const [lifecycleRevision, oneKeyIdAuthState, primeUser, source, wallet] =
+      await Promise.all([
+        this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision(),
+        this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
+        primePersistAtom.get(),
+        this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource(),
+        this.backgroundApi.serviceAccount.getKeylessWallet(),
+      ]);
+
+    const oneKeyId = await this.buildOneKeyIdSnapshot({
+      oneKeyIdAuthState,
+      primeUser,
+      source,
+    });
+
+    let keyless: IIdentityExitSnapshot['keyless'] = { type: 'absent' };
+    if (wallet) {
+      const ownerId = wallet.keylessDetailsInfo?.keylessOwnerId;
+      const provider = wallet.keylessDetailsInfo?.keylessProvider;
+      const socialUserIdHash = wallet.keylessDetailsInfo?.socialUserIdHash;
+      // TODO: i18n
+      if (!ownerId) {
+        throw createIdentityExitSnapshotError(
+          'KEYLESS_DATA_MALFORMED',
+          'Keyless wallet keylessDetailsInfo.keylessOwnerId is missing.',
+        );
+      }
+      // TODO: i18n
+      if (!provider) {
+        throw createIdentityExitSnapshotError(
+          'KEYLESS_DATA_MALFORMED',
+          'Keyless wallet keylessDetailsInfo.keylessProvider is missing.',
+        );
+      }
+      if (
+        provider !== EOAuthSocialLoginProvider.Google &&
+        provider !== EOAuthSocialLoginProvider.Apple
+      ) {
+        // TODO: i18n
+        throw createIdentityExitSnapshotError(
+          'KEYLESS_DATA_MALFORMED',
+          `Keyless wallet keylessDetailsInfo.keylessProvider is invalid: ${String(
+            provider,
+          )}.`,
+        );
+      }
+      // TODO: i18n
+      if (!socialUserIdHash) {
+        throw createIdentityExitSnapshotError(
+          'KEYLESS_DATA_MALFORMED',
+          'Keyless wallet keylessDetailsInfo.socialUserIdHash is missing.',
+        );
+      }
+
+      const [
+        keylessSlot,
+        persistedSourceSessionCommitId,
+        walletSessionCommitId,
+      ] = await Promise.all([
+        readPersistedAccessTokenBySessionSourceStrict(
+          EPrimeAuthSessionSource.KeylessOAuth,
+        ),
+        this.backgroundApi.simpleDb.prime.getAuthSessionCommitId(
+          EPrimeAuthSessionSource.KeylessOAuth,
+        ),
+        this.backgroundApi.simpleDb.prime.getKeylessSessionCommitId({
+          walletId: wallet.id,
+        }),
+      ]);
+      let sessionCommitId: string | undefined;
+      let sessionTokenSub: string | undefined;
+      let sessionIdentityStatus: 'verified' | 'unknown' = 'verified';
+      let sessionIdentityError: string | undefined;
+      const markSessionIdentityUnknown = (message: string) => {
+        sessionIdentityStatus = 'unknown';
+        sessionIdentityError ??= message;
+      };
+      if (keylessSlot.status === 'corrupt') {
+        // TODO: i18n
+        markSessionIdentityUnknown('Keyless OAuth session slot is corrupt.');
+        sessionCommitId = persistedSourceSessionCommitId;
+      } else if (keylessSlot.status === 'ok') {
+        try {
+          sessionTokenSub = decodeSessionTokenSub(
+            keylessSlot.accessToken,
+            'Keyless OAuth',
+          );
+        } catch (error) {
+          markSessionIdentityUnknown(
+            error instanceof Error && error.message
+              ? error.message
+              : 'Keyless OAuth token subject is unavailable.',
+          );
+        }
+        if (sessionTokenSub) {
+          try {
+            const validation =
+              await this.backgroundApi.serviceKeylessWallet.validateTokenMatchesKeylessWallet(
+                {
+                  token: keylessSlot.accessToken,
+                  skipFixProvider: true,
+                },
+              );
+            if (!validation.isValid) {
+              // TODO: i18n
+              markSessionIdentityUnknown(
+                'The Keyless OAuth session does not match the local Keyless wallet.',
+              );
+            }
+          } catch (error) {
+            markSessionIdentityUnknown(
+              error instanceof Error && error.message
+                ? error.message
+                : 'The Keyless OAuth session identity could not be verified.',
+            );
+          }
+        }
+        let sourceSessionCommitId = persistedSourceSessionCommitId;
+        if (sessionIdentityStatus === 'verified') {
+          sourceSessionCommitId ??=
+            await this.backgroundApi.simpleDb.prime.backfillAuthSessionCommitIdForMigration(
+              {
+                authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+                expectedActiveAuthSessionSource: source,
+                preferredSessionCommitId: walletSessionCommitId,
+              },
+            );
+          if (!sourceSessionCommitId) {
+            // TODO: i18n
+            markSessionIdentityUnknown(
+              'Keyless OAuth session commit identity is unavailable.',
+            );
+          }
+        }
+        sessionCommitId = sourceSessionCommitId;
+        if (
+          walletSessionCommitId &&
+          walletSessionCommitId !== sessionCommitId
+        ) {
+          // TODO: i18n
+          markSessionIdentityUnknown(
+            'The Keyless wallet session commit identity is inconsistent.',
+          );
+        }
+      } else {
+        if (
+          persistedSourceSessionCommitId &&
+          walletSessionCommitId &&
+          persistedSourceSessionCommitId !== walletSessionCommitId
+        ) {
+          // TODO: i18n
+          markSessionIdentityUnknown(
+            'The empty Keyless session has inconsistent persisted commit identities.',
+          );
+        }
+        sessionCommitId =
+          persistedSourceSessionCommitId || walletSessionCommitId;
+      }
+
+      keyless = {
+        type: 'present',
+        walletId: wallet.id,
+        ownerId,
+        provider,
+        socialUserIdHash,
+        sessionCommitId,
+        sessionTokenSub,
+        walletSessionCommitId,
+        sessionIdentityStatus,
+        sessionIdentityError,
+      };
+    }
+
+    return { lifecycleRevision, oneKeyId, keyless };
+  }
+
+  private async readMalformedKeylessRecoverySnapshot(): Promise<IMalformedKeylessRecoverySnapshot> {
+    const [lifecycleRevision, oneKeyIdAuthState, primeUser, source, wallet] =
+      await Promise.all([
+        this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision(),
+        this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
+        primePersistAtom.get(),
+        this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource(),
+        this.backgroundApi.serviceAccount.getIdentityManagedKeylessWalletCandidate(),
+      ]);
+    if (!wallet) {
+      throw createIdentityExitSnapshotError(
+        'INTENT_NOT_APPLICABLE',
+        'The local Keyless wallet is no longer available.',
+      );
+    }
+    const errorMessage = getMalformedKeylessWalletDataError(wallet);
+    if (!errorMessage) {
+      throw createIdentityExitSnapshotError(
+        'INTENT_NOT_APPLICABLE',
+        'The local Keyless wallet data is no longer malformed.',
+      );
+    }
+    const oneKeyId = await this.buildOneKeyIdSnapshot({
+      oneKeyIdAuthState,
+      primeUser,
+      source,
+      tolerateUnavailableKeylessSession: true,
+    });
+    const fingerprint = getMalformedKeylessWalletFingerprint(wallet);
+    const [slot, sessionCommitId, walletSessionCommitId] = await Promise.all([
+      readPersistedAccessTokenBySessionSourceStrict(
+        EPrimeAuthSessionSource.KeylessOAuth,
+      ),
+      this.backgroundApi.simpleDb.prime.getAuthSessionCommitId(
+        EPrimeAuthSessionSource.KeylessOAuth,
+      ),
+      this.backgroundApi.simpleDb.prime.getKeylessSessionCommitId({
+        walletId: wallet.id,
+      }),
+    ]);
+    let sessionTokenSub: string | undefined;
+    if (slot.status === 'ok') {
+      try {
+        sessionTokenSub = decodeSessionTokenSub(
+          slot.accessToken,
+          'Keyless OAuth',
+        );
+      } catch {
+        sessionTokenSub = undefined;
+      }
+    }
+    const provider =
+      fingerprint.keylessProvider === EOAuthSocialLoginProvider.Google ||
+      fingerprint.keylessProvider === EOAuthSocialLoginProvider.Apple
+        ? fingerprint.keylessProvider
+        : undefined;
+    return {
+      lifecycleRevision,
+      oneKeyId,
+      keyless: {
+        fingerprint,
+        errorMessage,
+        ownerId: fingerprint.keylessOwnerId || undefined,
+        provider,
+        socialUserIdHash: fingerprint.socialUserIdHash || undefined,
+        sessionCommitId,
+        sessionTokenSub,
+        walletSessionCommitId,
+      },
+    };
+  }
+
+  private async prepareMalformedKeylessRecoveryUnderLock(
+    intent: IMalformedKeylessRecoveryIntent,
+  ): Promise<IIdentityExitPlan> {
+    const snapshot = await this.readMalformedKeylessRecoverySnapshot();
+    if (snapshot.keyless.fingerprint.walletId !== intent.expectedWalletId) {
+      throw createIdentityExitSnapshotError(
+        'STATE_INCONSISTENT',
+        `Keyless wallet changed: expected ${intent.expectedWalletId}, received ${snapshot.keyless.fingerprint.walletId}.`,
+      );
+    }
+    if (
+      intent.scene === 'oneKeyIdLogin' &&
+      snapshot.oneKeyId.type === 'loggedIn'
+    ) {
+      throw createIdentityExitSnapshotError(
+        'STATE_INCONSISTENT',
+        'OneKey ID became logged in before Keyless recovery started.',
+      );
+    }
+    const shouldLogoutOneKeyId =
+      snapshot.oneKeyId.type === 'loggedIn' &&
+      snapshot.oneKeyId.source === EPrimeAuthSessionSource.KeylessOAuth;
+    const target: IIdentityExitExecutionTarget = {
+      logoutOneKeyId: shouldLogoutOneKeyId,
+      removeKeyless: true,
+      clearKeylessSession: true,
+      allowUnknownKeylessSessionIdentity: true,
+      ...(intent.scene === 'oneKeyIdLogin'
+        ? { switchOAuthProvider: intent.nextProvider }
+        : {}),
+    };
+    const planId = stringUtils.generateUUID() as IIdentityExitPlanId;
+    const publicPlan: IReadyIdentityExitPlan = {
+      status: 'ready',
+      planId,
+      expiresAt: Date.now() + IDENTITY_EXIT_PLAN_TTL_MS,
+      presentation: {
+        type: 'recoverMalformedKeyless',
+        nextProvider: intent.nextProvider,
+        oneKeyIdWillBeLoggedOut: shouldLogoutOneKeyId,
+      },
+      confirmation: { type: 'keylessRemovalAcknowledgement' },
+    };
+    planRegistry.set(planId, {
+      kind: 'malformedKeylessRecovery',
+      publicPlan,
+      intent,
+      snapshot,
+      target,
+      operationId: stringUtils.generateUUID(),
+    });
+    return publicPlan;
+  }
+
+  @backgroundMethod()
+  async prepareIdentityExit(
+    intent: IIdentityExitIntent,
+  ): Promise<IIdentityExitPlan> {
+    try {
+      await this.recoverInterruptedIdentityExitOperations();
+      return await identityLifecycleMutex.runExclusive(async () => {
+        if (intent.type === 'recoverMalformedKeyless') {
+          return this.prepareMalformedKeylessRecoveryUnderLock(intent);
+        }
+        const snapshot = await this.readAuthoritativeSnapshot();
+        const policy = evaluateIdentityExitPolicy({ intent, snapshot });
+        if (policy.status === 'blocked') {
+          return policy;
+        }
+        const planId = stringUtils.generateUUID() as IIdentityExitPlanId;
+        const publicPlan: IReadyIdentityExitPlan = {
+          status: 'ready',
+          planId,
+          expiresAt: Date.now() + IDENTITY_EXIT_PLAN_TTL_MS,
+          presentation: policy.presentation,
+          confirmation: policy.confirmation,
+        };
+        planRegistry.set(planId, {
+          kind: 'standard',
+          publicPlan,
+          intent,
+          snapshot,
+          target: policy.target,
+          operationId: stringUtils.generateUUID(),
+        });
+        return publicPlan;
+      });
+    } catch (error) {
+      if (isIdentityExitSnapshotError(error)) {
+        return {
+          status: 'blocked',
+          code: error[IDENTITY_EXIT_SNAPSHOT_ERROR_CODE],
+          message: error.message,
+        };
+      }
+      // TODO: i18n
+      const fallbackMessage = 'Identity state is unavailable.';
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : fallbackMessage;
+      return { status: 'blocked', code: 'STATE_UNAVAILABLE', message };
+    }
+  }
+
+  private buildJournalEntry({
+    storedPlan,
+    snapshot,
+  }: {
+    storedPlan: IStoredStandardIdentityExitPlan;
+    snapshot: IIdentityExitSnapshot;
+  }): IIdentityExitJournalEntry {
+    return {
+      operationId: storedPlan.operationId,
+      planId: storedPlan.publicPlan.planId,
+      intentType: storedPlan.intent.type,
+      status: 'executing',
+      startedAt: Date.now(),
+      updatedAt: Date.now(),
+      expectedLifecycleRevision: snapshot.lifecycleRevision,
+      target: storedPlan.target,
+      oneKeyId:
+        snapshot.oneKeyId.type === 'loggedIn'
+          ? {
+              onekeyUserId: snapshot.oneKeyId.onekeyUserId,
+              source: snapshot.oneKeyId.source,
+              sessionCommitId: snapshot.oneKeyId.sessionCommitId,
+              sessionTokenSub: snapshot.oneKeyId.sessionTokenSub,
+            }
+          : undefined,
+      keyless:
+        snapshot.keyless.type === 'present'
+          ? {
+              walletId: snapshot.keyless.walletId,
+              ownerId: snapshot.keyless.ownerId,
+              provider: snapshot.keyless.provider,
+              socialUserIdHash: snapshot.keyless.socialUserIdHash,
+              sessionCommitId: snapshot.keyless.sessionCommitId,
+              sessionTokenSub: snapshot.keyless.sessionTokenSub,
+              walletSessionCommitId:
+                snapshot.keyless.walletSessionCommitId ?? null,
+            }
+          : undefined,
+    };
+  }
+
+  private buildMalformedKeylessRecoveryJournal({
+    storedPlan,
+    snapshot,
+  }: {
+    storedPlan: IStoredMalformedKeylessRecoveryPlan;
+    snapshot: IMalformedKeylessRecoverySnapshot;
+  }): IIdentityExitJournalEntry {
+    return {
+      operationId: storedPlan.operationId,
+      planId: storedPlan.publicPlan.planId,
+      intentType: storedPlan.intent.type,
+      status: 'executing',
+      startedAt: Date.now(),
+      updatedAt: Date.now(),
+      expectedLifecycleRevision: snapshot.lifecycleRevision,
+      target: storedPlan.target,
+      oneKeyId:
+        snapshot.oneKeyId.type === 'loggedIn'
+          ? {
+              onekeyUserId: snapshot.oneKeyId.onekeyUserId,
+              source: snapshot.oneKeyId.source,
+              sessionCommitId: snapshot.oneKeyId.sessionCommitId,
+              sessionTokenSub: snapshot.oneKeyId.sessionTokenSub || undefined,
+            }
+          : undefined,
+      keyless: {
+        walletId: snapshot.keyless.fingerprint.walletId,
+        ownerId: snapshot.keyless.ownerId,
+        provider: snapshot.keyless.provider,
+        socialUserIdHash: snapshot.keyless.socialUserIdHash,
+        malformedDataError: snapshot.keyless.errorMessage,
+        sessionCommitId: snapshot.keyless.sessionCommitId,
+        sessionTokenSub: snapshot.keyless.sessionTokenSub,
+        walletSessionCommitId: snapshot.keyless.walletSessionCommitId ?? null,
+      },
+    };
+  }
+
+  private buildReceiptFromCompletedJournal(
+    journal: IIdentityExitJournalEntry,
+  ): IIdentityExitReceipt | undefined {
+    if (journal.status !== 'completed' || !journal.completed) {
+      return undefined;
+    }
+    return {
+      status: 'completed',
+      oneKeyIdLoggedOut: journal.completed.oneKeyIdLoggedOut,
+      removedWalletId: journal.completed.removedWalletId,
+      startIndependentOneKeyIdOAuth:
+        journal.completed.oauthHandoff &&
+        journal.completed.oauthProvider &&
+        journal.completed.oauthHandoffExpiresAt
+          ? {
+              provider: journal.completed.oauthProvider,
+              handoff: journal.completed
+                .oauthHandoff as IIdentityExitOAuthHandoff,
+              expiresAt: journal.completed.oauthHandoffExpiresAt,
+            }
+          : undefined,
+    };
+  }
+
+  private async completeIdentityExitJournal({
+    journal,
+    committedLifecycleRevision,
+  }: {
+    journal: IIdentityExitJournalEntry;
+    committedLifecycleRevision: number;
+  }): Promise<IIdentityExitReceipt> {
+    let oauthHandoffRecord: IIdentityExitOAuthHandoffRecord | undefined;
+    if (journal.target.switchOAuthProvider && journal.keyless?.walletId) {
+      const handoff =
+        (journal.completed?.oauthHandoff as
+          | IIdentityExitOAuthHandoff
+          | undefined) ||
+        (stringUtils.generateUUID() as IIdentityExitOAuthHandoff);
+      oauthHandoffRecord = {
+        operationId: journal.operationId,
+        handoff,
+        provider: journal.target.switchOAuthProvider,
+        expectedLifecycleRevision: committedLifecycleRevision,
+        removedWalletId: journal.keyless.walletId,
+        expiresAt:
+          journal.completed?.oauthHandoffExpiresAt ||
+          Date.now() + IDENTITY_EXIT_OAUTH_HANDOFF_TTL_MS,
+        consumed: Boolean(journal.completed?.oauthHandoffConsumedAt),
+      };
+    }
+
+    const completedJournal: IIdentityExitJournalEntry = {
+      ...journal,
+      status: 'completed',
+      updatedAt: Date.now(),
+      committedLifecycleRevision,
+      completed: {
+        oneKeyIdLoggedOut: journal.target.logoutOneKeyId,
+        removedWalletId: journal.target.removeKeyless
+          ? journal.keyless?.walletId
+          : undefined,
+        oauthHandoff: oauthHandoffRecord?.handoff,
+        oauthProvider: oauthHandoffRecord?.provider,
+        oauthHandoffExpiresAt: oauthHandoffRecord?.expiresAt,
+        oauthExpectedLifecycleRevision:
+          oauthHandoffRecord?.expectedLifecycleRevision,
+        oauthHandoffConsumedAt: journal.completed?.oauthHandoffConsumedAt,
+      },
+    };
+    await this.persistIdentityExitJournalEntry(completedJournal);
+    if (oauthHandoffRecord) {
+      oauthHandoffRegistry.set(oauthHandoffRecord.handoff, oauthHandoffRecord);
+    }
+    const receipt = this.buildReceiptFromCompletedJournal(completedJournal);
+    if (!receipt) {
+      throw new OneKeyLocalError(
+        'Identity exit journal completion did not produce a receipt.',
+      );
+    }
+    return receipt;
+  }
+
+  private async cleanupRemovedKeylessWalletCredentials(
+    journal: IIdentityExitJournalEntry,
+  ): Promise<void> {
+    if (!journal.target.removeKeyless || !journal.keyless) {
+      return;
+    }
+    await this.backgroundApi.serviceAccount.cleanupChildBotWalletsForRemovedKeylessParent(
+      { walletId: journal.keyless.walletId },
+    );
+    if (journal.keyless.ownerId) {
+      await this.backgroundApi.serviceKeylessWallet.cleanupKeylessWalletCredentialStorage(
+        { ownerId: journal.keyless.ownerId },
+      );
+    }
+  }
+
+  private async finalizeRemovedKeylessWalletSideEffectsBestEffort(
+    journal: IIdentityExitJournalEntry,
+  ): Promise<void> {
+    if (!journal.target.removeKeyless || !journal.keyless) {
+      return;
+    }
+    try {
+      await this.backgroundApi.serviceAccount.finalizeRemovedKeylessWalletSideEffects(
+        { walletId: journal.keyless.walletId },
+      );
+    } catch (error) {
+      errorUtils.autoPrintErrorIgnore(error);
+    }
+  }
+
+  private async getKeylessWalletForJournalRecovery(
+    journal: IIdentityExitJournalEntry,
+  ) {
+    if (journal.intentType === 'recoverMalformedKeyless') {
+      return this.backgroundApi.serviceAccount.getIdentityManagedKeylessWalletCandidate();
+    }
+    return this.backgroundApi.serviceAccount.getKeylessWallet();
+  }
+
+  private async isJournalLocalCommitApplied(
+    journal: IIdentityExitJournalEntry,
+  ): Promise<number | undefined> {
+    const committedLifecycleRevision =
+      journal.committedLifecycleRevision ??
+      journal.expectedLifecycleRevision + 1;
+    const [revision, source, authState, primeUser, wallet] = await Promise.all([
+      this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision(),
+      this.backgroundApi.simpleDb.prime.getAuthSessionSource(),
+      this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
+      primePersistAtom.get(),
+      this.getKeylessWalletForJournalRecovery(journal),
+    ]);
+    if (revision !== committedLifecycleRevision) {
+      return undefined;
+    }
+
+    if (journal.target.logoutOneKeyId && journal.oneKeyId) {
+      const [sessionCommitId, slot] = await Promise.all([
+        this.backgroundApi.simpleDb.prime.getAuthSessionCommitId(
+          journal.oneKeyId.source,
+        ),
+        readPersistedAccessTokenBySessionSourceStrict(journal.oneKeyId.source),
+      ]);
+      if (
+        source ||
+        authState !== 'loggedOut' ||
+        primeUser.isLoggedIn ||
+        primeUser.isLoggedInOnServer ||
+        sessionCommitId ||
+        slot.status !== 'empty'
+      ) {
+        return undefined;
+      }
+    } else if (journal.oneKeyId) {
+      const sessionCommitId =
+        await this.backgroundApi.simpleDb.prime.getAuthSessionCommitId(
+          journal.oneKeyId.source,
+        );
+      if (
+        source !== journal.oneKeyId.source ||
+        authState === 'loggedOut' ||
+        !primeUser.isLoggedIn ||
+        !primeUser.isLoggedInOnServer ||
+        primeUser.onekeyUserId !== journal.oneKeyId.onekeyUserId ||
+        sessionCommitId !== journal.oneKeyId.sessionCommitId
+      ) {
+        return undefined;
+      }
+    }
+
+    if (journal.target.removeKeyless && journal.keyless) {
+      const walletSessionCommitId =
+        await this.backgroundApi.simpleDb.prime.getKeylessSessionCommitId({
+          walletId: journal.keyless.walletId,
+        });
+      if (wallet || walletSessionCommitId) {
+        return undefined;
+      }
+      if (shouldClearKeylessSession(journal.target)) {
+        const [sessionCommitId, slot] = await Promise.all([
+          this.backgroundApi.simpleDb.prime.getAuthSessionCommitId(
+            EPrimeAuthSessionSource.KeylessOAuth,
+          ),
+          readPersistedAccessTokenBySessionSourceStrict(
+            EPrimeAuthSessionSource.KeylessOAuth,
+          ),
+        ]);
+        if (sessionCommitId || slot.status !== 'empty') {
+          return undefined;
+        }
+      }
+    } else if (journal.target.clearKeylessSession && journal.keyless) {
+      const [sessionCommitId, walletSessionCommitId, slot] = await Promise.all([
+        this.backgroundApi.simpleDb.prime.getAuthSessionCommitId(
+          EPrimeAuthSessionSource.KeylessOAuth,
+        ),
+        this.backgroundApi.simpleDb.prime.getKeylessSessionCommitId({
+          walletId: journal.keyless.walletId,
+        }),
+        readPersistedAccessTokenBySessionSourceStrict(
+          EPrimeAuthSessionSource.KeylessOAuth,
+        ),
+      ]);
+      if (
+        !wallet ||
+        wallet.id !== journal.keyless.walletId ||
+        wallet.keylessDetailsInfo?.keylessOwnerId !== journal.keyless.ownerId ||
+        wallet.keylessDetailsInfo?.keylessProvider !==
+          journal.keyless.provider ||
+        wallet.keylessDetailsInfo?.socialUserIdHash !==
+          journal.keyless.socialUserIdHash ||
+        sessionCommitId ||
+        walletSessionCommitId ||
+        slot.status !== 'empty'
+      ) {
+        return undefined;
+      }
+    }
+    return committedLifecycleRevision;
+  }
+
+  private async resumeIdentityExitJournalUnderLock(
+    entry: IIdentityExitJournalEntry,
+  ): Promise<IIdentityExitReceipt | undefined> {
+    let journal = entry;
+    const existingReceipt = this.buildReceiptFromCompletedJournal(journal);
+    if (existingReceipt) {
+      return existingReceipt;
+    }
+
+    beginIdentityExitReservation(journal.operationId);
+    try {
+      // A transport interruption cannot prove whether account deletion
+      // reached the server. The explicit user intent still authorizes local
+      // auth cleanup, but the completed journal retains an unknown outcome so
+      // no caller can present it as confirmed server deletion.
+      if (
+        journal.status === 'serverDeletePrepared' ||
+        journal.status === 'serverDeleteRejected'
+      ) {
+        const removed =
+          await this.backgroundApi.simpleDb.prime.removeIdentityExitJournalEntry(
+            {
+              operationId: journal.operationId,
+              expectedUpdatedAt: journal.updatedAt,
+            },
+          );
+        return removed ? { status: 'cancelled' } : undefined;
+      }
+
+      if (
+        (journal.status === 'serverDeletePending' ||
+          journal.status === 'serverDeleteOutcomeUnknown') &&
+        !journal.serverDeleteOutcome
+      ) {
+        journal = { ...journal, serverDeleteOutcome: 'unknown' };
+      } else if (
+        journal.status === 'serverDeleted' &&
+        !journal.serverDeleteOutcome
+      ) {
+        journal = { ...journal, serverDeleteOutcome: 'confirmed' };
+      }
+
+      if (journal.target.clearAllIdentityAuth) {
+        if (
+          journal.status === 'serverDeleted' ||
+          journal.status === 'serverDeletePending' ||
+          journal.status === 'serverDeleteOutcomeUnknown' ||
+          journal.status === 'executing'
+        ) {
+          const localCommit =
+            await this.backgroundApi.servicePrime.clearAllIdentityAuthForExplicitOperation(
+              {
+                callerName:
+                  journal.intentType === 'appReset'
+                    ? 'appReset'
+                    : 'accountDeletion',
+                expectedIdentityLifecycleRevision:
+                  journal.expectedLifecycleRevision,
+              },
+            );
+          if (localCommit.status !== 'committed' || !localCommit.revision) {
+            return undefined;
+          }
+          journal = {
+            ...journal,
+            status: 'localStateCommitted',
+            updatedAt: Date.now(),
+            committedLifecycleRevision: localCommit.revision,
+          };
+          await this.persistIdentityExitJournalEntry(journal);
+        }
+        if (journal.status === 'localStateCommitted') {
+          const committedLifecycleRevision =
+            journal.committedLifecycleRevision ??
+            journal.expectedLifecycleRevision + 1;
+          return this.completeIdentityExitJournal({
+            journal,
+            committedLifecycleRevision,
+          });
+        }
+        return undefined;
+      }
+
+      if (journal.status === 'executing' && journal.target.removeKeyless) {
+        const wallet = await this.getKeylessWalletForJournalRecovery(journal);
+        if (wallet?.id === journal.keyless?.walletId) {
+          // The in-memory password capability never survives restart. A
+          // present parent wallet means its destructive DB removal did not
+          // start, so a fresh user-confirmed plan must authorize it again.
+          const removed =
+            await this.backgroundApi.simpleDb.prime.removeIdentityExitJournalEntry(
+              {
+                operationId: journal.operationId,
+                expectedUpdatedAt: journal.updatedAt,
+              },
+            );
+          return removed ? { status: 'cancelled' } : undefined;
+        }
+        if (wallet) {
+          return undefined;
+        }
+        journal = {
+          ...journal,
+          status: 'walletRemoved',
+          updatedAt: Date.now(),
+        };
+        await this.persistIdentityExitJournalEntry(journal);
+      }
+
+      if (
+        journal.status === 'executing' ||
+        journal.status === 'walletRemoved'
+      ) {
+        if (journal.target.removeKeyless) {
+          const wallet = await this.getKeylessWalletForJournalRecovery(journal);
+          if (wallet) {
+            return undefined;
+          }
+          await this.cleanupRemovedKeylessWalletCredentials(journal);
+        }
+
+        let committedLifecycleRevision =
+          await this.isJournalLocalCommitApplied(journal);
+        if (!committedLifecycleRevision) {
+          const revision =
+            await this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision();
+          if (revision !== journal.expectedLifecycleRevision) {
+            if (journal.intentType === 'remoteOneKeyIdLogout') {
+              const removed =
+                await this.backgroundApi.simpleDb.prime.removeIdentityExitJournalEntry(
+                  {
+                    operationId: journal.operationId,
+                    expectedUpdatedAt: journal.updatedAt,
+                  },
+                );
+              return removed ? { status: 'cancelled' } : undefined;
+            }
+            return undefined;
+          }
+          const localCommit =
+            await this.backgroundApi.servicePrime.commitIdentityExitLocalState({
+              expectedIdentityLifecycleRevision:
+                journal.expectedLifecycleRevision,
+              oneKeyId:
+                journal.target.logoutOneKeyId && journal.oneKeyId
+                  ? journal.oneKeyId
+                  : undefined,
+              keylessSession:
+                shouldClearKeylessSession(journal.target) &&
+                (journal.keyless ||
+                  journal.oneKeyId?.source ===
+                    EPrimeAuthSessionSource.KeylessOAuth)
+                  ? {
+                      sessionCommitId:
+                        journal.keyless?.sessionCommitId ??
+                        journal.oneKeyId?.sessionCommitId,
+                      sessionTokenSub:
+                        journal.keyless?.sessionTokenSub ??
+                        journal.oneKeyId?.sessionTokenSub,
+                      allowUnknownIdentity:
+                        journal.target.allowUnknownKeylessSessionIdentity,
+                    }
+                  : undefined,
+              keylessWalletSession:
+                (journal.target.removeKeyless ||
+                  shouldClearKeylessSession(journal.target)) &&
+                journal.keyless
+                  ? {
+                      walletId: journal.keyless.walletId,
+                      sessionCommitId: getJournalWalletSessionCommitId(
+                        journal.keyless,
+                      ),
+                    }
+                  : undefined,
+            });
+          if (localCommit.status !== 'committed' || !localCommit.revision) {
+            if (journal.intentType === 'remoteOneKeyIdLogout') {
+              const removed =
+                await this.backgroundApi.simpleDb.prime.removeIdentityExitJournalEntry(
+                  {
+                    operationId: journal.operationId,
+                    expectedUpdatedAt: journal.updatedAt,
+                  },
+                );
+              return removed ? { status: 'cancelled' } : undefined;
+            }
+            return undefined;
+          }
+          committedLifecycleRevision = localCommit.revision;
+        }
+        journal = {
+          ...journal,
+          status: 'localStateCommitted',
+          updatedAt: Date.now(),
+          committedLifecycleRevision,
+        };
+        await this.persistIdentityExitJournalEntry(journal);
+      }
+
+      if (journal.status === 'localStateCommitted') {
+        const committedLifecycleRevision =
+          journal.committedLifecycleRevision ??
+          journal.expectedLifecycleRevision + 1;
+        const receipt = await this.completeIdentityExitJournal({
+          journal,
+          committedLifecycleRevision,
+        });
+        await this.finalizeRemovedKeylessWalletSideEffectsBestEffort(journal);
+        return receipt;
+      }
+      return undefined;
+    } finally {
+      endIdentityExitReservation(journal.operationId);
+    }
+  }
+
+  @backgroundMethod()
+  async recoverInterruptedIdentityExitOperations(): Promise<{
+    recoveredOperationCount: number;
+    abandonedOperationCount: number;
+  }> {
+    if (this.identityExitJournalStorageOutcomeUnknownOperationIds.size > 0) {
+      // TODO: i18n
+      throw new OneKeyLocalError(
+        'Identity journal storage outcome is unknown. Restart the app before changing OneKey ID or Keyless state.',
+      );
+    }
+    return identityLifecycleMutex.runExclusiveForRecovery(async () => {
+      markIdentityRecoveryPending(IDENTITY_EXIT_RECOVERY_SWEEP_OPERATION_ID);
+      try {
+        const entries = Object.values(
+          await this.backgroundApi.simpleDb.prime.getIdentityExitOperationJournal(),
+        ).toSorted((a, b) => a.startedAt - b.startedAt);
+        let recoveredOperationCount = 0;
+        let abandonedOperationCount = 0;
+        for (const entry of entries) {
+          markIdentityRecoveryPending(entry.operationId);
+          if (entry.status === 'completed') {
+            markIdentityRecoveryReady(entry.operationId);
+          } else {
+            const receipt =
+              await this.resumeIdentityExitJournalUnderLock(entry);
+            if (receipt?.status === 'completed') {
+              recoveredOperationCount += 1;
+              markIdentityRecoveryReady(entry.operationId);
+            } else if (receipt?.status === 'cancelled') {
+              abandonedOperationCount += 1;
+              markIdentityRecoveryReady(entry.operationId);
+            } else if (!receipt) {
+              markIdentityRecoveryFailed(entry.operationId);
+              throw new OneKeyLocalError(
+                'An interrupted identity operation could not be recovered safely.',
+              );
+            }
+          }
+        }
+        markIdentityRecoveryReady(IDENTITY_EXIT_RECOVERY_SWEEP_OPERATION_ID);
+        return { recoveredOperationCount, abandonedOperationCount };
+      } catch (error) {
+        markIdentityRecoveryFailed(IDENTITY_EXIT_RECOVERY_SWEEP_OPERATION_ID);
+        throw error;
+      }
+    });
+  }
+
+  private buildRemoteOneKeyIdLogoutJournal({
+    snapshot,
+    operationId,
+  }: {
+    snapshot: IIdentityExitSnapshot;
+    operationId: string;
+  }): IIdentityExitJournalEntry {
+    if (snapshot.oneKeyId.type !== 'loggedIn') {
+      throw new OneKeyLocalError(
+        'Cannot build a remote OneKey ID logout journal while logged out.',
+      );
+    }
+    const timestamp = Date.now();
+    const clearsKeylessSession =
+      snapshot.oneKeyId.source === EPrimeAuthSessionSource.KeylessOAuth &&
+      (snapshot.keyless.type === 'absent' ||
+        getIdentityLinkage(snapshot) === 'linked');
+    return {
+      operationId,
+      planId: `system:${operationId}`,
+      intentType: 'remoteOneKeyIdLogout',
+      status: 'executing',
+      startedAt: timestamp,
+      updatedAt: timestamp,
+      expectedLifecycleRevision: snapshot.lifecycleRevision,
+      target: {
+        logoutOneKeyId: true,
+        removeKeyless: false,
+        clearKeylessSession: clearsKeylessSession,
+      },
+      oneKeyId: {
+        onekeyUserId: snapshot.oneKeyId.onekeyUserId,
+        source: snapshot.oneKeyId.source,
+        sessionCommitId: snapshot.oneKeyId.sessionCommitId,
+        sessionTokenSub: snapshot.oneKeyId.sessionTokenSub,
+      },
+      keyless:
+        snapshot.keyless.type === 'present'
+          ? {
+              walletId: snapshot.keyless.walletId,
+              ownerId: snapshot.keyless.ownerId,
+              provider: snapshot.keyless.provider,
+              socialUserIdHash: snapshot.keyless.socialUserIdHash,
+              sessionCommitId: snapshot.keyless.sessionCommitId,
+              sessionTokenSub: snapshot.keyless.sessionTokenSub,
+              walletSessionCommitId:
+                snapshot.keyless.walletSessionCommitId ?? null,
+            }
+          : undefined,
+    };
+  }
+
+  @backgroundMethod()
+  async stageRemoteOneKeyIdLogoutReconciliation({
+    expectedAccessToken,
+  }: {
+    expectedAccessToken: string;
+  }): Promise<
+    | { staged: false }
+    | {
+        staged: true;
+        operationId: string;
+        planId: IIdentityExitPlanId;
+      }
+  > {
+    if (!expectedAccessToken) {
+      return { staged: false };
+    }
+    const snapshot = await this.readAuthoritativeSnapshot();
+    if (
+      snapshot.oneKeyId.type === 'loggedOut' ||
+      snapshot.oneKeyId.accessToken !== expectedAccessToken
+    ) {
+      return { staged: false };
+    }
+    const operationId = `invalidToken:${snapshot.oneKeyId.source}:${snapshot.oneKeyId.sessionCommitId}`;
+    const journal = this.buildRemoteOneKeyIdLogoutJournal({
+      snapshot,
+      operationId,
+    });
+    markIdentityRecoveryPending(operationId);
+    try {
+      await this.persistIdentityExitJournalEntry(journal);
+    } catch (error) {
+      markIdentityRecoveryFailed(operationId);
+      throw error;
+    }
+    return {
+      staged: true,
+      operationId,
+      planId: journal.planId as IIdentityExitPlanId,
+    };
+  }
+
+  /**
+   * Durable repair for a logged-in OneKey ID whose active session slot is
+   * definitively empty. This is BG-internal: UI/profile effects may observe
+   * the projection, but they cannot directly clear auth metadata or atoms.
+   */
+  async reconcileMissingOneKeyIdSession({
+    callerName,
+  }: {
+    callerName: string;
+  }): Promise<{ cleared: boolean }> {
+    await this.recoverInterruptedIdentityExitOperations();
+    return identityLifecycleMutex.runExclusive(async () => {
+      const operationId = `missingOneKeyIdSession:${stringUtils.generateUUID()}`;
+      beginIdentityExitReservation(operationId);
+      let didStartRecoveryBarrier = false;
+      try {
+        const [
+          lifecycleRevision,
+          source,
+          oneKeyIdAuthState,
+          primeUser,
+          wallet,
+        ] = await Promise.all([
+          this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision(),
+          this.backgroundApi.simpleDb.prime.getAuthSessionSource(),
+          this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
+          primePersistAtom.get(),
+          this.backgroundApi.serviceAccount.getKeylessWallet(),
+        ]);
+        const isLoggedIn = Boolean(
+          primeUser.isLoggedIn && primeUser.isLoggedInOnServer,
+        );
+        if (!isLoggedIn && oneKeyIdAuthState === 'loggedOut' && !source) {
+          return { cleared: false };
+        }
+        if (
+          primeUser.isLoggedIn !== primeUser.isLoggedInOnServer ||
+          !isLoggedIn ||
+          oneKeyIdAuthState !== 'loggedIn' ||
+          !source ||
+          !primeUser.onekeyUserId
+        ) {
+          throw new OneKeyLocalError(
+            `${callerName}: OneKey ID projection is inconsistent while reconciling an empty session slot.`,
+          );
+        }
+        const slot =
+          await readPersistedAccessTokenBySessionSourceStrict(source);
+        if (slot.status === 'ok') {
+          return { cleared: false };
+        }
+        if (slot.status !== 'empty') {
+          throw new OneKeyLocalError(
+            `${callerName}: OneKey ID session slot is ${slot.status}; automatic reconciliation is unsafe.`,
+          );
+        }
+        const sessionCommitId =
+          await this.backgroundApi.simpleDb.prime.getAuthSessionCommitId(
+            source,
+          );
+        if (!sessionCommitId) {
+          throw new OneKeyLocalError(
+            `${callerName}: OneKey ID session commit identity is unavailable.`,
+          );
+        }
+
+        let keyless: IIdentityExitJournalEntry['keyless'];
+        if (source === EPrimeAuthSessionSource.KeylessOAuth && wallet) {
+          const ownerId = wallet.keylessDetailsInfo?.keylessOwnerId;
+          const provider = wallet.keylessDetailsInfo?.keylessProvider;
+          const socialUserIdHash = wallet.keylessDetailsInfo?.socialUserIdHash;
+          if (!ownerId || !provider || !socialUserIdHash) {
+            throw new OneKeyLocalError(
+              `${callerName}: Keyless wallet identity fields are unavailable.`,
+            );
+          }
+          const walletSessionCommitId =
+            await this.backgroundApi.simpleDb.prime.getKeylessSessionCommitId({
+              walletId: wallet.id,
+            });
+          if (
+            walletSessionCommitId &&
+            walletSessionCommitId !== sessionCommitId
+          ) {
+            throw new OneKeyLocalError(
+              `${callerName}: Keyless wallet and session commit identities are inconsistent.`,
+            );
+          }
+          keyless = {
+            walletId: wallet.id,
+            ownerId,
+            provider,
+            socialUserIdHash,
+            sessionCommitId,
+            walletSessionCommitId: walletSessionCommitId ?? null,
+          };
+        }
+
+        let journal: IIdentityExitJournalEntry = {
+          operationId,
+          planId: operationId,
+          intentType: 'missingOneKeyIdSessionReconciliation',
+          status: 'executing',
+          startedAt: Date.now(),
+          updatedAt: Date.now(),
+          expectedLifecycleRevision: lifecycleRevision,
+          target: {
+            logoutOneKeyId: true,
+            removeKeyless: false,
+            clearKeylessSession:
+              source === EPrimeAuthSessionSource.KeylessOAuth,
+          },
+          oneKeyId: {
+            onekeyUserId: primeUser.onekeyUserId,
+            source,
+            sessionCommitId,
+          },
+          keyless,
+        };
+        markIdentityRecoveryPending(operationId);
+        didStartRecoveryBarrier = true;
+        await this.persistIdentityExitJournalEntry(journal);
+        const localCommit =
+          await this.backgroundApi.servicePrime.commitIdentityExitLocalState({
+            expectedIdentityLifecycleRevision: lifecycleRevision,
+            oneKeyId: journal.oneKeyId,
+            keylessSession:
+              source === EPrimeAuthSessionSource.KeylessOAuth
+                ? { sessionCommitId }
+                : undefined,
+            keylessWalletSession: keyless
+              ? {
+                  walletId: keyless.walletId,
+                  sessionCommitId: getJournalWalletSessionCommitId(keyless),
+                }
+              : undefined,
+          });
+        if (localCommit.status !== 'committed' || !localCommit.revision) {
+          throw new OneKeyLocalError(
+            `${callerName}: Identity state changed during empty-session reconciliation.`,
+          );
+        }
+        journal = {
+          ...journal,
+          status: 'localStateCommitted',
+          updatedAt: Date.now(),
+          committedLifecycleRevision: localCommit.revision,
+        };
+        await this.persistIdentityExitJournalEntry(journal);
+        await this.completeIdentityExitJournal({
+          journal,
+          committedLifecycleRevision: localCommit.revision,
+        });
+        markIdentityRecoveryReady(operationId);
+        return { cleared: true };
+      } catch (error) {
+        if (didStartRecoveryBarrier) {
+          markIdentityRecoveryFailed(operationId);
+        }
+        throw error;
+      } finally {
+        endIdentityExitReservation(operationId);
+      }
+    });
+  }
+
+  @backgroundMethod()
+  async reconcileRemoteOneKeyIdLogout({
+    expectedAccessToken,
+  }: {
+    expectedAccessToken?: string;
+  } = {}): Promise<IIdentityExitReceipt> {
+    await this.recoverInterruptedIdentityExitOperations();
+    return identityLifecycleMutex.runExclusive(async () => {
+      const snapshot = await this.readAuthoritativeSnapshot();
+      if (snapshot.oneKeyId.type === 'loggedOut') {
+        return { status: 'completed', oneKeyIdLoggedOut: false };
+      }
+      if (
+        expectedAccessToken &&
+        snapshot.oneKeyId.accessToken !== expectedAccessToken
+      ) {
+        return {
+          status: 'blocked',
+          code: 'STATE_CHANGED',
+          message:
+            'The invalid-token response no longer matches the active OneKey ID session.',
+        };
+      }
+
+      const operationId = stringUtils.generateUUID();
+      beginIdentityExitReservation(operationId);
+      let didStartRecoveryBarrier = false;
+      try {
+        let journal = this.buildRemoteOneKeyIdLogoutJournal({
+          snapshot,
+          operationId,
+        });
+        const clearsKeylessSession = shouldClearKeylessSession(journal.target);
+        markIdentityRecoveryPending(operationId);
+        didStartRecoveryBarrier = true;
+        await this.persistIdentityExitJournalEntry(journal);
+
+        const localCommit =
+          await this.backgroundApi.servicePrime.commitIdentityExitLocalState({
+            expectedIdentityLifecycleRevision: snapshot.lifecycleRevision,
+            oneKeyId: journal.oneKeyId,
+            keylessSession: clearsKeylessSession
+              ? {
+                  sessionCommitId:
+                    journal.keyless?.sessionCommitId ??
+                    journal.oneKeyId?.sessionCommitId,
+                  sessionTokenSub:
+                    journal.keyless?.sessionTokenSub ??
+                    journal.oneKeyId?.sessionTokenSub,
+                }
+              : undefined,
+            keylessWalletSession:
+              clearsKeylessSession && journal.keyless
+                ? {
+                    walletId: journal.keyless.walletId,
+                    sessionCommitId: getJournalWalletSessionCommitId(
+                      journal.keyless,
+                    ),
+                  }
+                : undefined,
+          });
+        if (localCommit.status !== 'committed' || !localCommit.revision) {
+          throw new OneKeyLocalError(
+            'Identity state changed during remote logout reconciliation.',
+          );
+        }
+        journal = {
+          ...journal,
+          status: 'localStateCommitted',
+          updatedAt: Date.now(),
+          committedLifecycleRevision: localCommit.revision,
+        };
+        await this.persistIdentityExitJournalEntry(journal);
+        const receipt = await this.completeIdentityExitJournal({
+          journal,
+          committedLifecycleRevision: localCommit.revision,
+        });
+        markIdentityRecoveryReady(operationId);
+        return receipt;
+      } catch (error) {
+        if (didStartRecoveryBarrier) {
+          markIdentityRecoveryFailed(operationId);
+        }
+        throw error;
+      } finally {
+        endIdentityExitReservation(operationId);
+      }
+    });
+  }
+
+  @backgroundMethod()
+  async reconcileInvalidKeylessSessionForLocalWallet(): Promise<{
+    cleared: boolean;
+  }> {
+    await this.recoverInterruptedIdentityExitOperations();
+    return identityLifecycleMutex.runExclusive(async () => {
+      const operationId = `invalidKeylessSession:${stringUtils.generateUUID()}`;
+      beginIdentityExitReservation(operationId);
+      let didStartRecoveryBarrier = false;
+      try {
+        const wallet =
+          await this.backgroundApi.serviceAccount.getKeylessWallet();
+        if (!wallet) {
+          return { cleared: false };
+        }
+        const slot = await readPersistedAccessTokenBySessionSourceStrict(
+          EPrimeAuthSessionSource.KeylessOAuth,
+        );
+        if (slot.status === 'empty') {
+          return { cleared: false };
+        }
+        if (slot.status !== 'ok') {
+          throw new OneKeyLocalError(
+            `Keyless OAuth session slot is ${slot.status}; exact reconciliation is unavailable.`,
+          );
+        }
+        const validation =
+          await this.backgroundApi.serviceKeylessWallet.validateTokenMatchesKeylessWallet(
+            {
+              token: slot.accessToken,
+              skipFixProvider: true,
+            },
+          );
+        if (validation.isValid) {
+          return { cleared: false };
+        }
+
+        const [
+          lifecycleRevision,
+          persistedSessionCommitId,
+          walletSessionCommitId,
+          source,
+          oneKeyIdAuthState,
+          primeUser,
+        ] = await Promise.all([
+          this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision(),
+          this.backgroundApi.simpleDb.prime.getAuthSessionCommitId(
+            EPrimeAuthSessionSource.KeylessOAuth,
+          ),
+          this.backgroundApi.simpleDb.prime.getKeylessSessionCommitId({
+            walletId: wallet.id,
+          }),
+          this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource(),
+          this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
+          primePersistAtom.get(),
+        ]);
+        if (primeUser.isLoggedIn !== primeUser.isLoggedInOnServer) {
+          throw new OneKeyLocalError(
+            'OneKey ID local and server login projections are inconsistent during Keyless session reconciliation.',
+          );
+        }
+        const isOneKeyIdLoggedIn = Boolean(
+          primeUser.isLoggedIn && primeUser.isLoggedInOnServer,
+        );
+        if (
+          (isOneKeyIdLoggedIn &&
+            (!source || oneKeyIdAuthState === 'loggedOut')) ||
+          (!isOneKeyIdLoggedIn &&
+            (source !== undefined || oneKeyIdAuthState === 'loggedIn'))
+        ) {
+          throw new OneKeyLocalError(
+            'OneKey ID auth source is unavailable or inconsistent during Keyless session reconciliation.',
+          );
+        }
+        if (
+          persistedSessionCommitId &&
+          walletSessionCommitId &&
+          persistedSessionCommitId !== walletSessionCommitId
+        ) {
+          throw new OneKeyLocalError(
+            'Keyless OAuth session commit identities are inconsistent during reconciliation.',
+          );
+        }
+        let sessionCommitId = persistedSessionCommitId;
+        sessionCommitId ??=
+          await this.backgroundApi.simpleDb.prime.backfillAuthSessionCommitIdForMigration(
+            {
+              authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+              expectedActiveAuthSessionSource: source,
+              preferredSessionCommitId: walletSessionCommitId,
+            },
+          );
+        if (!sessionCommitId) {
+          throw new OneKeyLocalError(
+            'Keyless OAuth session commit identity is unavailable.',
+          );
+        }
+        const sessionTokenSub = decodeSessionTokenSub(
+          slot.accessToken,
+          'Keyless OAuth',
+        );
+        const shouldLogoutOneKeyId =
+          isOneKeyIdLoggedIn && source === EPrimeAuthSessionSource.KeylessOAuth;
+        const onekeyUserId = primeUser.onekeyUserId;
+        if (shouldLogoutOneKeyId && !onekeyUserId) {
+          throw new OneKeyLocalError(
+            'OneKey ID onekeyUserId is unavailable during Keyless session reconciliation.',
+          );
+        }
+        const reconciledOneKeyId: IIdentityExitJournalEntry['oneKeyId'] =
+          shouldLogoutOneKeyId && onekeyUserId
+            ? {
+                onekeyUserId,
+                source: EPrimeAuthSessionSource.KeylessOAuth,
+                sessionCommitId,
+                sessionTokenSub,
+              }
+            : undefined;
+        const ownerId = wallet.keylessDetailsInfo?.keylessOwnerId;
+        const provider = wallet.keylessDetailsInfo?.keylessProvider;
+        const socialUserIdHash = wallet.keylessDetailsInfo?.socialUserIdHash;
+        if (!ownerId || !provider || !socialUserIdHash) {
+          throw new OneKeyLocalError(
+            'Keyless wallet identity fields are unavailable during session reconciliation.',
+          );
+        }
+        let journal: IIdentityExitJournalEntry = {
+          operationId,
+          planId: operationId,
+          intentType: 'invalidKeylessSessionReconciliation',
+          status: 'executing',
+          startedAt: Date.now(),
+          updatedAt: Date.now(),
+          expectedLifecycleRevision: lifecycleRevision,
+          target: {
+            logoutOneKeyId: shouldLogoutOneKeyId,
+            removeKeyless: false,
+            clearKeylessSession: true,
+          },
+          oneKeyId: reconciledOneKeyId,
+          keyless: {
+            walletId: wallet.id,
+            ownerId,
+            provider,
+            socialUserIdHash,
+            sessionCommitId,
+            sessionTokenSub,
+            walletSessionCommitId: walletSessionCommitId ?? null,
+          },
+        };
+        markIdentityRecoveryPending(operationId);
+        didStartRecoveryBarrier = true;
+        await this.persistIdentityExitJournalEntry(journal);
+        const result =
+          await this.backgroundApi.servicePrime.commitIdentityExitLocalState({
+            expectedIdentityLifecycleRevision: lifecycleRevision,
+            oneKeyId: reconciledOneKeyId,
+            keylessSession: { sessionCommitId, sessionTokenSub },
+            keylessWalletSession: {
+              walletId: wallet.id,
+              sessionCommitId: walletSessionCommitId,
+            },
+          });
+        if (result.status !== 'committed') {
+          throw new OneKeyLocalError(
+            'Identity state changed during Keyless session reconciliation.',
+          );
+        }
+        if (!result.revision) {
+          throw new OneKeyLocalError(
+            'Keyless session reconciliation committed without a lifecycle revision.',
+          );
+        }
+        journal = {
+          ...journal,
+          status: 'localStateCommitted',
+          updatedAt: Date.now(),
+          committedLifecycleRevision: result.revision,
+        };
+        await this.persistIdentityExitJournalEntry(journal);
+        await this.completeIdentityExitJournal({
+          journal,
+          committedLifecycleRevision: result.revision,
+        });
+        markIdentityRecoveryReady(operationId);
+        return { cleared: true };
+      } catch (error) {
+        if (didStartRecoveryBarrier) {
+          markIdentityRecoveryFailed(operationId);
+        }
+        throw error;
+      } finally {
+        endIdentityExitReservation(operationId);
+      }
+    });
+  }
+
+  private async runMalformedKeylessRecovery(
+    storedPlan: IStoredMalformedKeylessRecoveryPlan,
+  ): Promise<IIdentityExitReceipt> {
+    const walletId = storedPlan.snapshot.keyless.fingerprint.walletId;
+    try {
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
+        walletId,
+        reason: EReasonForNeedPassword.Security,
+      });
+    } catch (error) {
+      if (errorToastUtils.isUserCancelStyleError(error)) {
+        return { status: 'cancelled' };
+      }
+      throw error;
+    }
+
+    return identityLifecycleMutex.runExclusive(async () => {
+      beginIdentityExitReservation(storedPlan.operationId);
+      try {
+        const snapshot = await this.readMalformedKeylessRecoverySnapshot();
+        const comparableSnapshot = {
+          ...snapshot,
+          oneKeyId:
+            snapshot.oneKeyId.type === 'loggedIn'
+              ? { ...snapshot.oneKeyId, accessToken: undefined }
+              : snapshot.oneKeyId,
+        };
+        const comparableStoredSnapshot = {
+          ...storedPlan.snapshot,
+          oneKeyId:
+            storedPlan.snapshot.oneKeyId.type === 'loggedIn'
+              ? {
+                  ...storedPlan.snapshot.oneKeyId,
+                  accessToken: undefined,
+                }
+              : storedPlan.snapshot.oneKeyId,
+        };
+        if (!isEqual(comparableSnapshot, comparableStoredSnapshot)) {
+          return {
+            status: 'blocked',
+            code: 'STATE_CHANGED',
+            // TODO: i18n
+            message: 'Identity state changed. Please reopen and try again.',
+          };
+        }
+
+        let journal = this.buildMalformedKeylessRecoveryJournal({
+          storedPlan,
+          snapshot,
+        });
+        markIdentityRecoveryPending(storedPlan.operationId);
+        await this.persistIdentityExitJournalEntry(journal);
+
+        const expectedFingerprint = snapshot.keyless.fingerprint;
+        const capability = createMalformedKeylessWalletRemovalCapability({
+          expectedFingerprint,
+          operationId: storedPlan.operationId,
+          lifecycleRevision: snapshot.lifecycleRevision,
+        });
+        await this.backgroundApi.serviceAccount.removeMalformedKeylessWalletWithCapability(
+          {
+            capability,
+            expectedFingerprint,
+            operationId: storedPlan.operationId,
+            lifecycleRevision: snapshot.lifecycleRevision,
+          },
+        );
+        journal = {
+          ...journal,
+          status: 'walletRemoved',
+          updatedAt: Date.now(),
+        };
+        await this.persistIdentityExitJournalEntry(journal);
+
+        if (
+          storedPlan.target.logoutOneKeyId &&
+          snapshot.oneKeyId.type === 'loggedIn' &&
+          snapshot.oneKeyId.accessToken
+        ) {
+          await Promise.all([
+            this.backgroundApi.servicePrime.logoutPrimeServerSessionBestEffort({
+              accessToken: snapshot.oneKeyId.accessToken,
+              callerName: 'ServiceIdentityExit.runMalformedKeylessRecovery',
+            }),
+            revokeAuthSessionTokenOnServerBestEffort({
+              authSessionSource: snapshot.oneKeyId.source,
+              accessToken: snapshot.oneKeyId.accessToken,
+            }),
+          ]);
+        }
+
+        await this.cleanupRemovedKeylessWalletCredentials(journal);
+        const localCommit =
+          await this.backgroundApi.servicePrime.commitIdentityExitLocalState({
+            expectedIdentityLifecycleRevision: snapshot.lifecycleRevision,
+            oneKeyId:
+              storedPlan.target.logoutOneKeyId &&
+              snapshot.oneKeyId.type === 'loggedIn'
+                ? {
+                    onekeyUserId: snapshot.oneKeyId.onekeyUserId,
+                    source: snapshot.oneKeyId.source,
+                    sessionCommitId: snapshot.oneKeyId.sessionCommitId,
+                    sessionTokenSub:
+                      snapshot.oneKeyId.sessionTokenSub || undefined,
+                  }
+                : undefined,
+            keylessSession: {
+              sessionCommitId: snapshot.keyless.sessionCommitId,
+              sessionTokenSub: snapshot.keyless.sessionTokenSub,
+              allowUnknownIdentity: true,
+            },
+            keylessWalletSession: {
+              walletId,
+              sessionCommitId: snapshot.keyless.walletSessionCommitId,
+            },
+          });
+        if (localCommit.status !== 'committed' || !localCommit.revision) {
+          throw new OneKeyLocalError(
+            'Identity state changed after the malformed Keyless wallet was removed. Recovery is required.',
+          );
+        }
+        journal = {
+          ...journal,
+          status: 'localStateCommitted',
+          updatedAt: Date.now(),
+          committedLifecycleRevision: localCommit.revision,
+        };
+        await this.persistIdentityExitJournalEntry(journal);
+        const receipt = await this.completeIdentityExitJournal({
+          journal,
+          committedLifecycleRevision: localCommit.revision,
+        });
+        await this.finalizeRemovedKeylessWalletSideEffectsBestEffort(journal);
+        markIdentityRecoveryReady(storedPlan.operationId);
+        return receipt;
+      } finally {
+        endIdentityExitReservation(storedPlan.operationId);
+      }
+    });
+  }
+
+  private async runIdentityExit(
+    storedPlan: IStoredIdentityExitPlan,
+  ): Promise<IIdentityExitReceipt> {
+    if (storedPlan.kind === 'malformedKeylessRecovery') {
+      return this.runMalformedKeylessRecovery(storedPlan);
+    }
+    if (storedPlan.target.removeKeyless) {
+      const walletId =
+        storedPlan.snapshot.keyless.type === 'present'
+          ? storedPlan.snapshot.keyless.walletId
+          : '';
+      try {
+        await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
+          walletId,
+          reason: EReasonForNeedPassword.Security,
+        });
+      } catch (error) {
+        if (errorToastUtils.isUserCancelStyleError(error)) {
+          return { status: 'cancelled' };
+        }
+        throw error;
+      }
+    }
+
+    return identityLifecycleMutex.runExclusive(async () => {
+      beginIdentityExitReservation(storedPlan.operationId);
+      try {
+        const snapshot = await this.readAuthoritativeSnapshot();
+        if (
+          !isEqual(
+            getComparableSnapshot(snapshot),
+            getComparableSnapshot(storedPlan.snapshot),
+          )
+        ) {
+          return {
+            status: 'blocked',
+            code: 'STATE_CHANGED',
+            // TODO: i18n
+            message: 'Identity state changed. Please reopen and try again.',
+          };
+        }
+
+        let journal = this.buildJournalEntry({ storedPlan, snapshot });
+        markIdentityRecoveryPending(storedPlan.operationId);
+        await this.persistIdentityExitJournalEntry(journal);
+
+        if (storedPlan.target.removeKeyless) {
+          if (snapshot.keyless.type !== 'present') {
+            return {
+              status: 'blocked',
+              code: 'STATE_CHANGED',
+              // TODO: i18n
+              message: 'The expected Keyless wallet is no longer available.',
+            };
+          }
+          const expectedIdentity: IKeylessWalletRemovalIdentity = {
+            walletId: snapshot.keyless.walletId,
+            keylessOwnerId: snapshot.keyless.ownerId,
+            keylessProvider: snapshot.keyless.provider,
+            socialUserIdHash: snapshot.keyless.socialUserIdHash,
+          };
+          const capability = createKeylessWalletRemovalCapability({
+            expectedIdentity,
+            operationId: storedPlan.operationId,
+            lifecycleRevision: snapshot.lifecycleRevision,
+          });
+          await this.backgroundApi.serviceAccount.removeKeylessWalletWithCapability(
+            {
+              capability,
+              expectedIdentity,
+              operationId: storedPlan.operationId,
+              lifecycleRevision: snapshot.lifecycleRevision,
+            },
+          );
+          journal = {
+            ...journal,
+            status: 'walletRemoved',
+            updatedAt: Date.now(),
+          };
+          await this.persistIdentityExitJournalEntry(journal);
+        }
+
+        if (
+          storedPlan.target.logoutOneKeyId &&
+          snapshot.oneKeyId.type === 'loggedIn'
+        ) {
+          await Promise.all([
+            this.backgroundApi.servicePrime.logoutPrimeServerSessionBestEffort({
+              accessToken: snapshot.oneKeyId.accessToken,
+              callerName: 'ServiceIdentityExit.executeIdentityExit',
+            }),
+            revokeAuthSessionTokenOnServerBestEffort({
+              authSessionSource: snapshot.oneKeyId.source,
+              accessToken: snapshot.oneKeyId.accessToken,
+            }),
+          ]);
+        }
+
+        await this.cleanupRemovedKeylessWalletCredentials(journal);
+
+        const localCommit =
+          await this.backgroundApi.servicePrime.commitIdentityExitLocalState({
+            expectedIdentityLifecycleRevision: snapshot.lifecycleRevision,
+            oneKeyId:
+              storedPlan.target.logoutOneKeyId &&
+              snapshot.oneKeyId.type === 'loggedIn'
+                ? {
+                    onekeyUserId: snapshot.oneKeyId.onekeyUserId,
+                    source: snapshot.oneKeyId.source,
+                    sessionCommitId: snapshot.oneKeyId.sessionCommitId,
+                    sessionTokenSub: snapshot.oneKeyId.sessionTokenSub,
+                  }
+                : undefined,
+            keylessSession:
+              shouldClearKeylessSession(storedPlan.target) &&
+              snapshot.keyless.type === 'present'
+                ? {
+                    sessionCommitId: snapshot.keyless.sessionCommitId,
+                    sessionTokenSub: snapshot.keyless.sessionTokenSub,
+                  }
+                : undefined,
+            keylessWalletSession:
+              (storedPlan.target.removeKeyless ||
+                shouldClearKeylessSession(storedPlan.target)) &&
+              snapshot.keyless.type === 'present'
+                ? {
+                    walletId: snapshot.keyless.walletId,
+                    sessionCommitId: snapshot.keyless.walletSessionCommitId,
+                  }
+                : undefined,
+          });
+        if (localCommit.status !== 'committed' || !localCommit.revision) {
+          // TODO: i18n
+          throw new OneKeyLocalError(
+            'Identity state changed after the operation started. Recovery is required.',
+          );
+        }
+
+        journal = {
+          ...journal,
+          status: 'localStateCommitted',
+          updatedAt: Date.now(),
+          committedLifecycleRevision: localCommit.revision,
+        };
+        await this.persistIdentityExitJournalEntry(journal);
+        const receipt = await this.completeIdentityExitJournal({
+          journal,
+          committedLifecycleRevision: localCommit.revision,
+        });
+        await this.finalizeRemovedKeylessWalletSideEffectsBestEffort(journal);
+        markIdentityRecoveryReady(storedPlan.operationId);
+        return receipt;
+      } finally {
+        endIdentityExitReservation(storedPlan.operationId);
+      }
+    });
+  }
+
+  @backgroundMethod()
+  async executeIdentityExit({
+    planId,
+    acknowledgement,
+  }: IExecuteIdentityExitParams): Promise<IIdentityExitReceipt> {
+    const storedPlan = planRegistry.get(planId);
+    if (!storedPlan) {
+      await this.recoverInterruptedIdentityExitOperations();
+      const journal = Object.values(
+        await this.backgroundApi.simpleDb.prime.getIdentityExitOperationJournal(),
+      ).find((entry) => entry.planId === planId);
+      const recoveredReceipt = journal
+        ? this.buildReceiptFromCompletedJournal(journal)
+        : undefined;
+      if (recoveredReceipt) {
+        return recoveredReceipt;
+      }
+      return {
+        status: 'blocked',
+        code: 'STATE_CHANGED',
+        // TODO: i18n
+        message: 'The identity exit plan expired. Please try again.',
+      };
+    }
+    if (storedPlan.receipt) {
+      return storedPlan.receipt;
+    }
+    if (storedPlan.executionPromise) {
+      return storedPlan.executionPromise;
+    }
+    if (storedPlan.publicPlan.expiresAt <= Date.now()) {
+      return {
+        status: 'blocked',
+        code: 'STATE_CHANGED',
+        // TODO: i18n
+        message: 'The identity exit plan expired. Please try again.',
+      };
+    }
+    if (
+      storedPlan.publicPlan.confirmation.type ===
+        'keylessRemovalAcknowledgement' &&
+      acknowledgement !== 'keylessWalletRemoval'
+    ) {
+      // TODO: i18n
+      throw new OneKeyLocalError(
+        'Keyless wallet removal acknowledgement is required.',
+      );
+    }
+    const executionPromise = this.runIdentityExit(storedPlan)
+      .then((receipt) => {
+        storedPlan.receipt = receipt;
+        return receipt;
+      })
+      .catch(async (error: unknown) => {
+        if (
+          this.identityExitJournalStorageOutcomeUnknownOperationIds.has(
+            storedPlan.operationId,
+          )
+        ) {
+          storedPlan.executionPromise = undefined;
+          throw error;
+        }
+        try {
+          await this.recoverInterruptedIdentityExitOperations();
+          const journal = Object.values(
+            await this.backgroundApi.simpleDb.prime.getIdentityExitOperationJournal(),
+          ).find((entry) => entry.planId === planId);
+          const recoveredReceipt = journal
+            ? this.buildReceiptFromCompletedJournal(journal)
+            : undefined;
+          if (recoveredReceipt) {
+            storedPlan.receipt = recoveredReceipt;
+            return recoveredReceipt;
+          }
+        } finally {
+          if (!storedPlan.receipt) {
+            storedPlan.executionPromise = undefined;
+          }
+        }
+        throw error;
+      });
+    storedPlan.executionPromise = executionPromise;
+    return storedPlan.executionPromise;
+  }
+
+  private async getOAuthHandoffRecord(
+    handoff: IIdentityExitOAuthHandoff,
+  ): Promise<IIdentityExitOAuthHandoffRecord | undefined> {
+    const journal =
+      await this.backgroundApi.simpleDb.prime.getIdentityExitOperationJournal();
+    const completedEntry = Object.values(journal).find(
+      (entry) => entry.completed?.oauthHandoff === handoff,
+    );
+    if (
+      !completedEntry?.completed?.oauthProvider ||
+      !completedEntry.completed.oauthHandoffExpiresAt ||
+      completedEntry.completed.oauthExpectedLifecycleRevision === undefined ||
+      !completedEntry.keyless?.walletId
+    ) {
+      return undefined;
+    }
+    const restored: IIdentityExitOAuthHandoffRecord = {
+      operationId: completedEntry.operationId,
+      handoff,
+      provider: completedEntry.completed.oauthProvider,
+      expectedLifecycleRevision:
+        completedEntry.completed.oauthExpectedLifecycleRevision,
+      removedWalletId: completedEntry.keyless.walletId,
+      expiresAt: completedEntry.completed.oauthHandoffExpiresAt,
+      consumed: Boolean(completedEntry.completed.oauthHandoffConsumedAt),
+    };
+    oauthHandoffRegistry.set(handoff, restored);
+    return restored;
+  }
+
+  private async assertOAuthHandoffState({
+    record,
+    provider,
+  }: {
+    record: IIdentityExitOAuthHandoffRecord;
+    provider: EOAuthSocialLoginProvider;
+  }): Promise<void> {
+    if (
+      record.consumed ||
+      record.expiresAt <= Date.now() ||
+      record.provider !== provider
+    ) {
+      // TODO: i18n
+      throw new OneKeyLocalError(
+        'The OAuth provider-switch handoff is invalid or expired.',
+      );
+    }
+    const snapshot = await this.readAuthoritativeSnapshot();
+    const keylessSessionSlot =
+      await readPersistedAccessTokenBySessionSourceStrict(
+        EPrimeAuthSessionSource.KeylessOAuth,
+      );
+    if (
+      snapshot.lifecycleRevision !== record.expectedLifecycleRevision ||
+      snapshot.oneKeyId.type !== 'loggedOut' ||
+      snapshot.keyless.type !== 'absent' ||
+      keylessSessionSlot.status !== 'empty'
+    ) {
+      // TODO: i18n
+      throw new OneKeyLocalError(
+        'Identity state changed before OAuth could continue.',
+      );
+    }
+  }
+
+  @backgroundMethod()
+  async validateOAuthHandoffBeforeLaunch({
+    handoff,
+    provider,
+  }: {
+    handoff: IIdentityExitOAuthHandoff;
+    provider: EOAuthSocialLoginProvider;
+  }): Promise<{ valid: true }> {
+    return identityLifecycleMutex.runExclusive(async () => {
+      const record = await this.getOAuthHandoffRecord(handoff);
+      if (!record) {
+        // TODO: i18n
+        throw new OneKeyLocalError(
+          'The OAuth provider-switch handoff was not found.',
+        );
+      }
+      await this.assertOAuthHandoffState({ record, provider });
+      return { valid: true as const };
+    });
+  }
+
+  async consumeOAuthHandoffForLogin({
+    handoff,
+    provider,
+  }: {
+    handoff: IIdentityExitOAuthHandoff;
+    provider: EOAuthSocialLoginProvider;
+  }): Promise<void> {
+    const record = await this.getOAuthHandoffRecord(handoff);
+    if (!record) {
+      // TODO: i18n
+      throw new OneKeyLocalError(
+        'The OAuth provider-switch handoff was not found.',
+      );
+    }
+    await this.assertOAuthHandoffState({ record, provider });
+    const consumedAt = Date.now();
+    const persisted =
+      await this.backgroundApi.simpleDb.prime.markIdentityExitOAuthHandoffConsumed(
+        {
+          operationId: record.operationId,
+          handoff: record.handoff,
+          consumedAt,
+        },
+      );
+    if (!persisted) {
+      // TODO: i18n
+      throw new OneKeyLocalError(
+        'The OAuth provider-switch handoff was already consumed.',
+      );
+    }
+    record.consumed = true;
+  }
+}
+
+export default ServiceIdentityExit;
