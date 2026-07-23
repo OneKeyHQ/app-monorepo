@@ -62,4 +62,27 @@ describe('TradingViewNative source resolver', () => {
       'market:evm--1:0xabc:ETH',
     );
   });
+
+  it('keeps a CoinGecko fallback hint inside the Market source', () => {
+    const source = getTradingViewNativeSource({
+      fallbackCoinGeckoId: ' bitcoin ',
+      hyperliquidCoin: '',
+      marketDataSource: 'polling',
+      networkId: 'btc--0',
+      symbol: 'BTC',
+      tokenAddress: '',
+    });
+
+    expect(source).toEqual({
+      kind: 'market',
+      fallbackCoinGeckoId: 'bitcoin',
+      networkId: 'btc--0',
+      tokenAddress: '',
+      symbol: 'BTC',
+      realtime: 'disabled',
+    });
+    expect(getTradingViewNativeSourceKey(source)).toBe(
+      'market:btc--0::BTC:coingecko:bitcoin',
+    );
+  });
 });
