@@ -67,7 +67,9 @@ import {
 } from '../../states/jotai/atoms/prime';
 import ServiceBase from '../ServiceBase';
 import {
-  getActiveIdentityExitOperationId,
+  beginIdentityLifecycleReservation,
+  endIdentityLifecycleReservation,
+  getActiveIdentityLifecycleOperationId,
   identityLifecycleMutex,
   isIdentityRecoveryReady,
   markIdentityRecoveryFailed,
@@ -89,6 +91,7 @@ import {
 import type {
   IKeylessOAuthSessionIdentity,
   IKeylessOAuthSessionPersistenceJournal,
+  IKeylessOAuthSessionPersistenceJournalPreparation,
 } from '../../dbs/simple/entity/SimpleDbEntityPrime';
 import type {
   IPrimeLoginDialogAtomData,
@@ -535,7 +538,7 @@ class ServicePrime extends ServiceBase {
     skip: boolean;
     authSessionSource: EPrimeAuthSessionSource | undefined;
   }> {
-    if (getActiveIdentityExitOperationId()) {
+    if (getActiveIdentityLifecycleOperationId()) {
       return { skip: true, authSessionSource: undefined };
     }
     const authSessionSource =
@@ -594,7 +597,7 @@ class ServicePrime extends ServiceBase {
     authStateGeneration?: number;
     identityLifecycleRevision?: number;
   }> {
-    if (getActiveIdentityExitOperationId()) {
+    if (getActiveIdentityLifecycleOperationId()) {
       return { cleared: false };
     }
     if (!isIdentityRecoveryReady()) {
@@ -1160,6 +1163,39 @@ class ServicePrime extends ServiceBase {
     }
   }
 
+  private async removeExactKeylessOAuthSessionForJournal(
+    journal: IKeylessOAuthSessionPersistenceJournal,
+  ): Promise<void> {
+    await runExclusiveOnAuthSessionSlot(
+      EPrimeAuthSessionSource.KeylessOAuth,
+      async () => {
+        clearSupabaseStorageLocalCache();
+        const currentSlot = await readPersistedAccessTokenBySessionSourceStrict(
+          EPrimeAuthSessionSource.KeylessOAuth,
+        );
+        if (currentSlot.status !== 'ok') {
+          return;
+        }
+        const currentIdentity = readKeylessOAuthSessionIdentity(
+          currentSlot.accessToken,
+        );
+        if (
+          currentIdentity.status !== 'ok' ||
+          currentIdentity.identity.sessionTokenSub !==
+            journal.sessionTokenSub ||
+          currentIdentity.identity.supabaseSessionId !==
+            journal.supabaseSessionId
+        ) {
+          return;
+        }
+        await removeAuthSessionStorageBySessionSource(
+          EPrimeAuthSessionSource.KeylessOAuth,
+        );
+        clearSupabaseStorageLocalCache();
+      },
+    );
+  }
+
   private async recoverKeylessOAuthSessionPersistenceJournalUnderLifecycle(): Promise<{
     recovered: boolean;
     abandoned: boolean;
@@ -1213,8 +1249,22 @@ class ServicePrime extends ServiceBase {
         {
           operationId: journal.operationId,
           persistedSessionIdentity: persistedSessionIdentity.identity,
+          allowRevisionRebase: true,
         },
       );
+    if (commit.status === 'stateChanged') {
+      await this.removeExactKeylessOAuthSessionForJournal(journal);
+      const removed =
+        await this.backgroundApi.simpleDb.prime.removeKeylessOAuthSessionPersistenceJournal(
+          { operationId: journal.operationId },
+        );
+      if (!removed) {
+        throw new OneKeyLocalError(
+          'Keyless OAuth session persistence journal changed during conflict recovery.',
+        );
+      }
+      return { recovered: false, abandoned: true };
+    }
     if (commit.status !== 'committed') {
       throw new OneKeyLocalError(
         'Keyless OAuth session persistence metadata changed before recovery could commit.',
@@ -1269,6 +1319,36 @@ class ServicePrime extends ServiceBase {
     accessToken: string;
     refreshToken: string;
     expectedWalletId?: string;
+  }): Promise<{
+    identityLifecycleRevision: number;
+    sessionCommitId: string;
+    sessionTokenSub: string;
+    walletId?: string;
+  }> {
+    const operationId = `keylessSession:${stringUtils.generateUUID()}`;
+    beginIdentityLifecycleReservation(operationId);
+    try {
+      return await this.persistKeylessOAuthSessionWithinReservation({
+        accessToken,
+        refreshToken,
+        expectedWalletId,
+        operationId,
+      });
+    } finally {
+      endIdentityLifecycleReservation(operationId);
+    }
+  }
+
+  private async persistKeylessOAuthSessionWithinReservation({
+    accessToken,
+    refreshToken,
+    expectedWalletId,
+    operationId,
+  }: {
+    accessToken: string;
+    refreshToken: string;
+    expectedWalletId?: string;
+    operationId: string;
   }): Promise<{
     identityLifecycleRevision: number;
     sessionCommitId: string;
@@ -1368,47 +1448,32 @@ class ServicePrime extends ServiceBase {
     }
 
     const sessionCommitId = stringUtils.generateUUID();
-    const [
-      expectedLifecycleRevision,
-      previousSessionCommitId,
-      previousWalletSessionCommitId,
-    ] = await Promise.all([
-      this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision(),
-      this.backgroundApi.simpleDb.prime.getAuthSessionCommitId(
-        EPrimeAuthSessionSource.KeylessOAuth,
-      ),
-      keylessWallet
-        ? this.backgroundApi.simpleDb.prime.getKeylessSessionCommitId({
-            walletId: keylessWallet.id,
-          })
-        : Promise.resolve(undefined),
-    ]);
     const now = Date.now();
-    const persistenceJournal: IKeylessOAuthSessionPersistenceJournal = {
-      operationId: `keylessSession:${stringUtils.generateUUID()}`,
-      status: 'prepared',
-      startedAt: now,
-      updatedAt: now,
-      expectedLifecycleRevision,
-      sessionCommitId,
-      sessionTokenSub,
-      supabaseSessionId,
-      walletId: keylessWallet?.id,
-      previousSessionCommitId,
-      previousWalletSessionCommitId,
-    };
+    const persistencePreparation: IKeylessOAuthSessionPersistenceJournalPreparation =
+      {
+        operationId,
+        status: 'prepared',
+        startedAt: now,
+        updatedAt: now,
+        sessionCommitId,
+        sessionTokenSub,
+        supabaseSessionId,
+        walletId: keylessWallet?.id,
+      };
 
-    markIdentityRecoveryPending(persistenceJournal.operationId);
+    markIdentityRecoveryPending(operationId);
+    let persistenceJournal: IKeylessOAuthSessionPersistenceJournal;
     try {
-      await this.backgroundApi.simpleDb.prime.setKeylessOAuthSessionPersistenceJournal(
-        persistenceJournal,
-      );
+      persistenceJournal =
+        await this.backgroundApi.simpleDb.prime.setKeylessOAuthSessionPersistenceJournal(
+          persistencePreparation,
+        );
     } catch (error) {
       // A rejected storage write has an ambiguous durable outcome. The
       // SimpleDB cache is not authoritative after that failure, so keep the
       // identity gate closed until startup reloads and recovers persisted
       // state.
-      markIdentityRecoveryFailed(persistenceJournal.operationId);
+      markIdentityRecoveryFailed(operationId);
       throw error;
     }
 

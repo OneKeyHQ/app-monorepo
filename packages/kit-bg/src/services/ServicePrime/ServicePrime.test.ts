@@ -1,6 +1,10 @@
 /* eslint-disable import/first, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-var-requires */
 
-import type { IKeylessOAuthSessionPersistenceJournal } from '../../dbs/simple/entity/SimpleDbEntityPrime';
+import type {
+  IKeylessOAuthSessionPersistenceJournal,
+  IKeylessOAuthSessionPersistenceJournalPreparation,
+  SimpleDbEntityPrime,
+} from '../../dbs/simple/entity/SimpleDbEntityPrime';
 
 const mockPrimePersistAtom = {
   get: jest.fn(async () => ({})),
@@ -225,6 +229,8 @@ const {
 } = require('@onekeyhq/shared/types/prime/primeTypes');
 
 const {
+  getActiveIdentityLifecycleOperationId,
+  identityLifecycleMutex,
   isIdentityRecoveryReady,
   resetIdentityRecoveryStateForTest,
 } = require('../ServiceIdentityExit/identityLifecycleMutex');
@@ -255,11 +261,21 @@ function createService() {
       async () => undefined as unknown,
     ),
     setKeylessOAuthSessionPersistenceJournal: jest.fn<
-      Promise<void>,
-      [IKeylessOAuthSessionPersistenceJournal]
-    >(async () => undefined),
-    commitKeylessOAuthSessionPersistenceMetadata: jest.fn(async () => ({
-      status: 'committed' as const,
+      Promise<IKeylessOAuthSessionPersistenceJournal>,
+      [IKeylessOAuthSessionPersistenceJournalPreparation]
+    >(async (preparation) => ({
+      ...preparation,
+      expectedLifecycleRevision: 0,
+    })),
+    commitKeylessOAuthSessionPersistenceMetadata: jest.fn<
+      ReturnType<
+        SimpleDbEntityPrime['commitKeylessOAuthSessionPersistenceMetadata']
+      >,
+      Parameters<
+        SimpleDbEntityPrime['commitKeylessOAuthSessionPersistenceMetadata']
+      >
+    >(async () => ({
+      status: 'committed',
       identityLifecycleRevision: 1,
     })),
     removeKeylessOAuthSessionPersistenceJournal: jest.fn(async () => true),
@@ -1527,6 +1543,72 @@ describe('ServicePrime.persistKeylessOAuthSession active OneKey ID guard', () =>
     );
   });
 
+  it('waits for an active identity mutation before reserving and journaling persistence', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    let releaseMutation: (() => void) | undefined;
+    let markMutationEntered: (() => void) | undefined;
+    const mutationEntered = new Promise<void>((resolve) => {
+      markMutationEntered = resolve;
+    });
+    const mutationRelease = new Promise<void>((resolve) => {
+      releaseMutation = resolve;
+    });
+    const activeMutation = identityLifecycleMutex.runExclusive(async () => {
+      markMutationEntered?.();
+      await mutationRelease;
+    });
+    await mutationEntered;
+
+    const persistence = service.persistKeylessOAuthSession({
+      accessToken: buildFakeJwt({ sub: 'independent-keyless-user' }),
+      refreshToken: 'refresh-independent',
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(
+      simpleDbPrime.setKeylessOAuthSessionPersistenceJournal,
+    ).not.toHaveBeenCalled();
+    releaseMutation?.();
+    await activeMutation;
+    await persistence;
+    expect(
+      simpleDbPrime.setKeylessOAuthSessionPersistenceJournal,
+    ).toHaveBeenCalledTimes(1);
+    expect(getActiveIdentityLifecycleOperationId()).toBeUndefined();
+  });
+
+  it('keeps the lifecycle reservation active through the session-slot write', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    mockPersistKeylessAuthSession.mockImplementationOnce(
+      async (params: unknown) => {
+        expect(getActiveIdentityLifecycleOperationId()).toMatch(
+          /^keylessSession:/,
+        );
+        const { accessToken } = params as { accessToken: string };
+        mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+          status: 'ok',
+          accessToken,
+        });
+      },
+    );
+
+    await service.persistKeylessOAuthSession({
+      accessToken: buildFakeJwt({ sub: 'independent-keyless-user' }),
+      refreshToken: 'refresh-independent',
+    });
+
+    expect(getActiveIdentityLifecycleOperationId()).toBeUndefined();
+  });
+
   it('fails closed before journaling when the token session_id claim is missing', async () => {
     const { service, simpleDbPrime } = createService();
     simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
@@ -1815,7 +1897,42 @@ describe('ServicePrime Keyless OAuth persistence recovery', () => {
         sessionTokenSub: 'user-a',
         supabaseSessionId: 'supabase-session:user-a',
       },
+      allowRevisionRebase: true,
     });
+  });
+
+  it('abandons a conflicted journal and removes only its exact persisted session', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getKeylessOAuthSessionPersistenceJournal.mockResolvedValue({
+      operationId: 'operation-1',
+      status: 'prepared',
+      startedAt: 1,
+      updatedAt: 1,
+      expectedLifecycleRevision: 5,
+      sessionCommitId: 'commit-1',
+      sessionTokenSub: 'user-a',
+      supabaseSessionId: 'supabase-session:user-a',
+    });
+    simpleDbPrime.commitKeylessOAuthSessionPersistenceMetadata.mockResolvedValue(
+      {
+        status: 'stateChanged',
+      },
+    );
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'user-a' }),
+    });
+
+    await expect(
+      service.recoverInterruptedKeylessOAuthSessionPersistence(),
+    ).resolves.toEqual({ recovered: false, abandoned: true });
+    expect(mockRemoveAuthSessionStorageBySessionSource).toHaveBeenCalledWith(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    expect(
+      simpleDbPrime.removeKeylessOAuthSessionPersistenceJournal,
+    ).toHaveBeenCalledWith({ operationId: 'operation-1' });
+    expect(isIdentityRecoveryReady()).toBe(true);
   });
 
   it('abandons only the journal when a different session won the slot', async () => {

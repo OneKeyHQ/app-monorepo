@@ -159,18 +159,34 @@ export const identityLifecycleMutex = {
   },
 };
 
-let activeIdentityExitOperationId: string | undefined;
+let activeIdentityLifecycleOperationId: string | undefined;
 
-export function beginIdentityExitReservation(operationId: string): void {
-  activeIdentityExitOperationId = operationId;
+export function beginIdentityLifecycleReservation(operationId: string): void {
+  if (
+    activeIdentityLifecycleOperationId &&
+    activeIdentityLifecycleOperationId !== operationId
+  ) {
+    throw new OneKeyLocalError(
+      `Identity lifecycle operation ${activeIdentityLifecycleOperationId} is already reserved.`,
+    );
+  }
+  activeIdentityLifecycleOperationId = operationId;
 }
 
-export function endIdentityExitReservation(operationId: string): void {
-  if (activeIdentityExitOperationId === operationId) {
-    activeIdentityExitOperationId = undefined;
+export function endIdentityLifecycleReservation(operationId: string): void {
+  if (activeIdentityLifecycleOperationId === operationId) {
+    activeIdentityLifecycleOperationId = undefined;
   }
 }
 
-export function getActiveIdentityExitOperationId(): string | undefined {
-  return activeIdentityExitOperationId;
+export function getActiveIdentityLifecycleOperationId(): string | undefined {
+  return activeIdentityLifecycleOperationId;
+}
+
+export function beginIdentityExitReservation(operationId: string): void {
+  beginIdentityLifecycleReservation(operationId);
+}
+
+export function endIdentityExitReservation(operationId: string): void {
+  endIdentityLifecycleReservation(operationId);
 }

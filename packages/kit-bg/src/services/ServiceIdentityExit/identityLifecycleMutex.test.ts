@@ -1,4 +1,7 @@
 import {
+  beginIdentityLifecycleReservation,
+  endIdentityLifecycleReservation,
+  getActiveIdentityLifecycleOperationId,
   identityLifecycleMutex,
   markIdentityRecoveryFailed,
   markIdentityRecoveryPending,
@@ -74,5 +77,15 @@ describe('identityLifecycleMutex recovery gate', () => {
 
     markIdentityRecoveryReady('test:operation-b');
     await expect(result).resolves.toBe('done');
+  });
+
+  test('does not replace an active lifecycle reservation', () => {
+    beginIdentityLifecycleReservation('operation-a');
+    expect(() => beginIdentityLifecycleReservation('operation-b')).toThrow(
+      'operation-a is already reserved',
+    );
+    expect(getActiveIdentityLifecycleOperationId()).toBe('operation-a');
+    endIdentityLifecycleReservation('operation-a');
+    expect(getActiveIdentityLifecycleOperationId()).toBeUndefined();
   });
 });

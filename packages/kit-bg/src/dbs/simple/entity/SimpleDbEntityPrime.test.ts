@@ -208,6 +208,62 @@ describe('SimpleDbEntityPrime.identityLifecycleRevision', () => {
 });
 
 describe('SimpleDbEntityPrime Keyless OAuth session persistence journal', () => {
+  test('atomically captures the lifecycle revision and session markers when reserving persistence', async () => {
+    const entity = new SimpleDbEntityPrime();
+    let persisted: ISimpleDBPrime = {
+      identityLifecycleRevision: 5,
+      authSessionCommitIdBySource: {
+        [EPrimeAuthSessionSource.KeylessOAuth]: 'old-session',
+      },
+      keylessSessionCommitIdByWalletId: {
+        'wallet-1': 'old-wallet-session',
+      },
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await expect(
+      entity.setKeylessOAuthSessionPersistenceJournal({
+        operationId: 'operation-1',
+        status: 'prepared',
+        startedAt: 1,
+        updatedAt: 1,
+        sessionCommitId: 'new-session',
+        sessionTokenSub: 'subject-1',
+        supabaseSessionId: 'supabase-session-new',
+        walletId: 'wallet-1',
+      }),
+    ).resolves.toMatchObject({
+      expectedLifecycleRevision: 5,
+      previousSessionCommitId: 'old-session',
+      previousWalletSessionCommitId: 'old-wallet-session',
+    });
+    expect(persisted.keylessOAuthSessionPersistenceJournal).toMatchObject({
+      operationId: 'operation-1',
+      expectedLifecycleRevision: 5,
+      previousSessionCommitId: 'old-session',
+      previousWalletSessionCommitId: 'old-wallet-session',
+    });
+
+    await expect(
+      entity.setKeylessOAuthSessionPersistenceJournal({
+        operationId: 'operation-2',
+        status: 'prepared',
+        startedAt: 2,
+        updatedAt: 2,
+        sessionCommitId: 'other-session',
+        sessionTokenSub: 'subject-2',
+        supabaseSessionId: 'supabase-session-other',
+      }),
+    ).rejects.toThrow(
+      'A Keyless OAuth session persistence operation is already pending.',
+    );
+  });
+
   test('atomically commits both session markers, revision, and journal removal', async () => {
     const entity = new SimpleDbEntityPrime();
     let persisted: ISimpleDBPrime = {
@@ -263,7 +319,7 @@ describe('SimpleDbEntityPrime Keyless OAuth session persistence journal', () => 
     expect(persisted.keylessOAuthSessionPersistenceJournal).toBeUndefined();
   });
 
-  test('performs zero metadata writes when the lifecycle revision changed', async () => {
+  test('rebases a revision-only conflict only when recovery explicitly opts in', async () => {
     const entity = new SimpleDbEntityPrime();
     const journal = {
       operationId: 'operation-1',
@@ -294,9 +350,76 @@ describe('SimpleDbEntityPrime Keyless OAuth session persistence journal', () => 
           supabaseSessionId: 'supabase-session-new',
         },
       }),
-    ).resolves.toEqual({ status: 'stateChanged' });
+    ).resolves.toEqual({ status: 'revisionChanged' });
     expect(persisted.identityLifecycleRevision).toBe(6);
     expect(persisted.authSessionCommitIdBySource).toBeUndefined();
+    expect(persisted.keylessOAuthSessionPersistenceJournal).toEqual(journal);
+
+    await expect(
+      entity.commitKeylessOAuthSessionPersistenceMetadata({
+        operationId: 'operation-1',
+        persistedSessionIdentity: {
+          sessionTokenSub: 'subject-1',
+          supabaseSessionId: 'supabase-session-new',
+        },
+        allowRevisionRebase: true,
+      }),
+    ).resolves.toEqual({
+      status: 'committed',
+      identityLifecycleRevision: 7,
+    });
+    expect(persisted.identityLifecycleRevision).toBe(7);
+    expect(
+      persisted.authSessionCommitIdBySource?.[
+        EPrimeAuthSessionSource.KeylessOAuth
+      ],
+    ).toBe('new-session');
+    expect(persisted.keylessOAuthSessionPersistenceJournal).toBeUndefined();
+  });
+
+  test('does not rebase when the session commit identity changed', async () => {
+    const entity = new SimpleDbEntityPrime();
+    const journal = {
+      operationId: 'operation-1',
+      status: 'prepared' as const,
+      startedAt: 1,
+      updatedAt: 1,
+      expectedLifecycleRevision: 5,
+      sessionCommitId: 'new-session',
+      sessionTokenSub: 'subject-1',
+      supabaseSessionId: 'supabase-session-new',
+      previousSessionCommitId: 'old-session',
+    };
+    let persisted: ISimpleDBPrime = {
+      identityLifecycleRevision: 6,
+      authSessionCommitIdBySource: {
+        [EPrimeAuthSessionSource.KeylessOAuth]: 'competing-session',
+      },
+      keylessOAuthSessionPersistenceJournal: journal,
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await expect(
+      entity.commitKeylessOAuthSessionPersistenceMetadata({
+        operationId: 'operation-1',
+        persistedSessionIdentity: {
+          sessionTokenSub: 'subject-1',
+          supabaseSessionId: 'supabase-session-new',
+        },
+        allowRevisionRebase: true,
+      }),
+    ).resolves.toEqual({ status: 'stateChanged' });
+    expect(persisted.identityLifecycleRevision).toBe(6);
+    expect(
+      persisted.authSessionCommitIdBySource?.[
+        EPrimeAuthSessionSource.KeylessOAuth
+      ],
+    ).toBe('competing-session');
     expect(persisted.keylessOAuthSessionPersistenceJournal).toEqual(journal);
   });
 

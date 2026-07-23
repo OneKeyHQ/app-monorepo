@@ -176,6 +176,13 @@ export type IKeylessOAuthSessionPersistenceJournal = {
   previousWalletSessionCommitId?: string;
 };
 
+export type IKeylessOAuthSessionPersistenceJournalPreparation = Omit<
+  IKeylessOAuthSessionPersistenceJournal,
+  | 'expectedLifecycleRevision'
+  | 'previousSessionCommitId'
+  | 'previousWalletSessionCommitId'
+>;
+
 export type IKeylessOAuthSessionIdentity = Pick<
   IKeylessOAuthSessionPersistenceJournal,
   'sessionTokenSub' | 'supabaseSessionId'
@@ -349,76 +356,34 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   }
 
   async setKeylessOAuthSessionPersistenceJournal(
-    journal: IKeylessOAuthSessionPersistenceJournal,
-  ): Promise<void> {
-    await this.setRawData((rawData) => ({
-      ...rawData,
-      keylessOAuthSessionPersistenceJournal: journal,
-    }));
+    preparation: IKeylessOAuthSessionPersistenceJournalPreparation,
+  ): Promise<IKeylessOAuthSessionPersistenceJournal> {
+    const { setKeylessOAuthSessionPersistenceJournal } =
+      await import('./keylessOAuthSessionPersistenceJournal');
+    return setKeylessOAuthSessionPersistenceJournal(this, preparation);
   }
 
   async commitKeylessOAuthSessionPersistenceMetadata({
     operationId,
     persistedSessionIdentity,
+    allowRevisionRebase = false,
   }: {
     operationId: string;
     persistedSessionIdentity: IKeylessOAuthSessionIdentity;
+    allowRevisionRebase?: boolean;
   }): Promise<
     | { status: 'committed'; identityLifecycleRevision: number }
-    | { status: 'sessionIdentityChanged' | 'stateChanged' }
+    | {
+        status: 'revisionChanged' | 'sessionIdentityChanged' | 'stateChanged';
+      }
   > {
-    let result:
-      | { status: 'committed'; identityLifecycleRevision: number }
-      | { status: 'sessionIdentityChanged' | 'stateChanged' } = {
-      status: 'stateChanged',
-    };
-    await this.setRawData((rawData) => {
-      const journal = rawData?.keylessOAuthSessionPersistenceJournal;
-      if (!journal || journal.operationId !== operationId) {
-        return { ...rawData };
-      }
-      if (
-        journal.sessionTokenSub !== persistedSessionIdentity.sessionTokenSub ||
-        journal.supabaseSessionId !== persistedSessionIdentity.supabaseSessionId
-      ) {
-        result = { status: 'sessionIdentityChanged' };
-        return { ...rawData };
-      }
-      const currentRevision = rawData?.identityLifecycleRevision ?? 0;
-      const currentSessionCommitId =
-        rawData?.authSessionCommitIdBySource?.[
-          EPrimeAuthSessionSource.KeylessOAuth
-        ];
-      const currentWalletSessionCommitId = journal.walletId
-        ? rawData?.keylessSessionCommitIdByWalletId?.[journal.walletId]
-        : undefined;
-      if (
-        currentRevision !== journal.expectedLifecycleRevision ||
-        currentSessionCommitId !== journal.previousSessionCommitId ||
-        currentWalletSessionCommitId !== journal.previousWalletSessionCommitId
-      ) {
-        return { ...rawData };
-      }
-
-      const identityLifecycleRevision = currentRevision + 1;
-      result = { status: 'committed', identityLifecycleRevision };
-      return {
-        ...rawData,
-        authSessionCommitIdBySource: {
-          ...rawData?.authSessionCommitIdBySource,
-          [EPrimeAuthSessionSource.KeylessOAuth]: journal.sessionCommitId,
-        },
-        keylessSessionCommitIdByWalletId: journal.walletId
-          ? {
-              ...rawData?.keylessSessionCommitIdByWalletId,
-              [journal.walletId]: journal.sessionCommitId,
-            }
-          : rawData?.keylessSessionCommitIdByWalletId,
-        identityLifecycleRevision,
-        keylessOAuthSessionPersistenceJournal: undefined,
-      };
+    const { commitKeylessOAuthSessionPersistenceMetadata } =
+      await import('./keylessOAuthSessionPersistenceJournal');
+    return commitKeylessOAuthSessionPersistenceMetadata(this, {
+      operationId,
+      persistedSessionIdentity,
+      allowRevisionRebase,
     });
-    return result;
   }
 
   async removeKeylessOAuthSessionPersistenceJournal({
@@ -426,21 +391,9 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   }: {
     operationId: string;
   }): Promise<boolean> {
-    let removed = false;
-    await this.setRawData((rawData) => {
-      if (
-        rawData?.keylessOAuthSessionPersistenceJournal?.operationId !==
-        operationId
-      ) {
-        return { ...rawData };
-      }
-      removed = true;
-      return {
-        ...rawData,
-        keylessOAuthSessionPersistenceJournal: undefined,
-      };
-    });
-    return removed;
+    const { removeKeylessOAuthSessionPersistenceJournal } =
+      await import('./keylessOAuthSessionPersistenceJournal');
+    return removeKeylessOAuthSessionPersistenceJournal(this, { operationId });
   }
 
   @backgroundMethod()
