@@ -278,6 +278,10 @@ export function useWcPayActionExecutor() {
                   // WalletConnect Pay submits the signed transaction itself;
                   // the wallet must sign only and never broadcast
                   signOnly: true,
+                  // the Pay server fixed the fee inside the tx blob; block the
+                  // fee flow from rewriting it before signing (sol vault
+                  // attaches a priority-fee instruction unless this is false)
+                  feeInfoEditable: false,
                   onSuccess: (txs: ISendTxOnSuccessData[]) => {
                     const raw = txs?.[0]?.signedTx?.rawTx;
                     if (raw) {
