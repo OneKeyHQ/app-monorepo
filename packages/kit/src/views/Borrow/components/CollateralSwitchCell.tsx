@@ -83,9 +83,9 @@ function CollateralConfirmDialogContent({
   onConfirm: () => Promise<void>;
 }) {
   const intl = useIntl();
-  // The live preview is authoritative for enabling collateral. Fail closed
-  // while it is loading or unavailable so stale reserve data cannot submit an
-  // asset that the server no longer accepts as collateral.
+  // The live preview is authoritative for both collateral transitions. A
+  // successful response may omit canBeCollateral, so only an explicit false
+  // rejects enablement; a missing response still fails closed.
   const { result: confirmation, isLoading } = usePromiseResult(
     async () => {
       try {
@@ -120,9 +120,13 @@ function CollateralConfirmDialogContent({
 
   const healthFactor = confirmation?.healthFactor;
   const liquidationRisk = confirmation?.liquidationRisk === true;
+  const previewPending = isLoading !== false;
+  const previewUnavailable = isLoading === false && confirmation === undefined;
   const collateralUnavailable =
-    useAsCollateral && !isLoading && confirmation?.canBeCollateral !== true;
-  const confirmDisabled = isLoading || liquidationRisk || collateralUnavailable;
+    useAsCollateral && confirmation?.canBeCollateral === false;
+  const actionUnavailable = previewUnavailable || collateralUnavailable;
+  const confirmDisabled =
+    previewPending || liquidationRisk || actionUnavailable;
   const handleConfirm = useCallback(async () => {
     // The button state is not a security boundary. Re-check the latest
     // authoritative preview in case an imperative caller invokes confirm.
@@ -157,7 +161,7 @@ function CollateralConfirmDialogContent({
           })}
         </SizableText>
       ) : null}
-      {collateralUnavailable ? (
+      {actionUnavailable ? (
         <SizableText size="$bodyMd" color="$textCritical">
           {intl.formatMessage({
             id: ETranslations.defi_action_unavailable__msg,
@@ -171,7 +175,7 @@ function CollateralConfirmDialogContent({
         onCancelText={intl.formatMessage({ id: ETranslations.global_cancel })}
         confirmButtonProps={{
           testID: BorrowTestIDs.collateralConfirmBtn,
-          loading: isLoading,
+          loading: previewPending,
           disabled: confirmDisabled,
         }}
       />

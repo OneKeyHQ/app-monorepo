@@ -340,24 +340,57 @@ describe('CollateralSwitchCell settlement guard', () => {
     expect(request).not.toHaveProperty('eModeId');
   });
 
+  it('allows a successful preview that omits optional collateral eligibility', async () => {
+    promiseResultMock.mockReturnValue({
+      result: {
+        healthFactor: {
+          current: { title: { text: '22.39' } },
+          latest: { title: { text: '24.18' } },
+        },
+      },
+      isLoading: false,
+    });
+    const view = render(
+      <CollateralSwitchCell item={createSuppliedAsset(false)} eModeId={0} />,
+    );
+
+    await submitToggle(view);
+  });
+
   it.each([
     [
       'the live preview rejects collateral eligibility',
       { canBeCollateral: false },
       false,
       true,
+      false,
     ],
-    ['the live preview is unavailable', undefined, false, true],
-    ['the live preview is loading', { canBeCollateral: true }, true, false],
+    ['the live preview is unavailable', undefined, false, true, false],
+    ['the live preview has not started', undefined, undefined, false, false],
+    ['the disable preview is unavailable', undefined, false, true, true],
+    [
+      'the live preview is loading',
+      { canBeCollateral: true },
+      true,
+      false,
+      false,
+    ],
     [
       'the live preview reports liquidation risk',
       { canBeCollateral: true, liquidationRisk: true },
       false,
       false,
+      false,
     ],
   ])(
     'blocks confirmation when %s',
-    async (_title, confirmation, isLoading, showsUnavailable) => {
+    async (
+      _title,
+      confirmation,
+      isLoading,
+      showsUnavailable,
+      usageAsCollateral,
+    ) => {
       promiseResultMock.mockReturnValue({
         result: confirmation,
         isLoading,
@@ -371,7 +404,10 @@ describe('CollateralSwitchCell settlement guard', () => {
         },
       );
       const view = render(
-        <CollateralSwitchCell item={createSuppliedAsset(false)} eModeId={1} />,
+        <CollateralSwitchCell
+          item={createSuppliedAsset(usageAsCollateral)}
+          eModeId={1}
+        />,
       );
 
       await act(async () => {
