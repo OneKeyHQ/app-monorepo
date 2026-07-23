@@ -96,12 +96,18 @@ function useExpiryCountdown(expiresAt: number | undefined) {
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
   }, [expiresAt]);
+  // expiresAt is optional in the payment info; without it there is no local
+  // expiry signal and the server-reported status remains the only gate
+  const isExpiredLocally = remainingSec !== undefined && remainingSec <= 0;
   if (remainingSec === undefined) {
-    return undefined;
+    return { countdown: undefined, isExpiredLocally };
   }
   const m = Math.floor(remainingSec / 60);
   const s = remainingSec % 60;
-  return `${m}:${String(s).padStart(2, '0')}`;
+  return {
+    countdown: `${m}:${String(s).padStart(2, '0')}`,
+    isExpiredLocally,
+  };
 }
 
 function PaymentOptionsPage() {
@@ -169,12 +175,21 @@ function PaymentOptionsPage() {
       }
     },
     [paymentLink, accountId, indexedAccountId],
-    { watchLoading: true },
+    {
+      watchLoading: true,
+      // an account switch re-runs this request; the stale result must not
+      // survive into the loading window, or Continue could hand options
+      // resolved for the previous account to the executor signing with the
+      // new one
+      undefinedResultIfReRun: true,
+    },
   );
 
   const payResult = result?.pay;
   const networkMap = result?.networkMap;
-  const countdown = useExpiryCountdown(payResult?.info?.expiresAt);
+  const { countdown, isExpiredLocally } = useExpiryCountdown(
+    payResult?.info?.expiresAt,
+  );
   const options = payResult?.options ?? [];
   const payStatus = payResult?.info?.status;
   // A payment in a final state can no longer be paid regardless of balances.
@@ -183,11 +198,23 @@ function PaymentOptionsPage() {
     payStatus === EWcPayStatus.Expired ||
     payStatus === EWcPayStatus.Failed ||
     payStatus === EWcPayStatus.Succeeded;
+  // Single gate for starting a payment, shared by the Continue button and
+  // handlePay: the server must still report a payable state AND the local
+  // countdown must not have hit zero (the page may outlive expiresAt while
+  // the server status is stale).
+  const isPaymentActionable =
+    Boolean(payResult) && !isPaymentInactive && !isExpiredLocally;
   const selectedOption: IWcPayOption | undefined =
     options.find((o) => o.id === selectedOptionId) ?? options[0];
 
   const handlePay = useCallback(async () => {
-    if (!payResult || !selectedOption || isPaying) {
+    if (
+      !payResult ||
+      !selectedOption ||
+      isPaying ||
+      isLoading ||
+      !isPaymentActionable
+    ) {
       return;
     }
     setIsPaying(true);
@@ -315,6 +342,8 @@ function PaymentOptionsPage() {
     payResult,
     selectedOption,
     isPaying,
+    isLoading,
+    isPaymentActionable,
     navigation,
     executeActions,
     accountId,
@@ -472,7 +501,8 @@ function PaymentOptionsPage() {
           id: ETranslations.global_continue,
         })}
         confirmButtonProps={{
-          disabled: !payResult || !selectedOption || isPaying,
+          disabled:
+            !isPaymentActionable || !selectedOption || isPaying || !!isLoading,
           loading: isPaying,
         }}
         onCancelText={intl.formatMessage({ id: ETranslations.global_cancel })}

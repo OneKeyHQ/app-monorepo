@@ -12,7 +12,9 @@ import {
   validateWcPayLinkDomain,
   wcPayChainIdToNetworkId,
 } from '@onekeyhq/shared/src/walletConnect/payConstant';
+import { EWcPayActionMethod } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type {
+  IWcPayAction,
   IWcPayConfirmResult,
   IWcPayOptionsResult,
 } from '@onekeyhq/shared/src/walletConnect/payTypes';
@@ -20,6 +22,73 @@ import type {
 import { vaultFactory } from '../../vaults/factory';
 import ServiceBase from '../ServiceBase';
 import walletConnectClients from '../ServiceWalletConnect/walletConnectClient';
+
+import { extractWcPaySolanaTransaction } from './solPayUtils';
+
+/**
+ * Validate the whole action list before it reaches the executor. Actions run
+ * sequentially and the leading ones may broadcast transactions, so a defect
+ * in a later action (unknown chain/method, unparseable JSON params, wrong
+ * param shape) must fail the flow here — before any signing starts — instead
+ * of midway through, where the payment would be stranded partially completed.
+ */
+function validateWcPayActions(actions: IWcPayAction[]) {
+  for (const action of actions) {
+    const { chainId, method, params } = action.walletRpc;
+    const targetNetworkId = wcPayChainIdToNetworkId(chainId);
+    if (!targetNetworkId) {
+      throw new OneKeyError(`Unsupported WalletConnect Pay chain: ${chainId}`);
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(params);
+    } catch {
+      throw new OneKeyError(
+        `Invalid WalletConnect Pay action params: ${method}`,
+      );
+    }
+    // minimal per-method shape checks mirroring what the executor extracts
+    switch (method) {
+      case EWcPayActionMethod.EthSendTransaction: {
+        const tx = Array.isArray(parsed) ? parsed[0] : parsed;
+        if (typeof tx !== 'object' || tx === null || Array.isArray(tx)) {
+          throw new OneKeyError('Invalid eth_sendTransaction params');
+        }
+        break;
+      }
+      case EWcPayActionMethod.EthSignTypedDataV4: {
+        const candidates = Array.isArray(parsed) ? parsed : [parsed];
+        const hasTypedData = candidates.some(
+          (item) =>
+            (typeof item === 'string' && item.trim().startsWith('{')) ||
+            (typeof item === 'object' && item !== null && !Array.isArray(item)),
+        );
+        if (!hasTypedData) {
+          throw new OneKeyError('Invalid eth_signTypedData_v4 params');
+        }
+        break;
+      }
+      case EWcPayActionMethod.PersonalSign: {
+        const hasMessage =
+          typeof parsed === 'string' ||
+          (Array.isArray(parsed) && typeof parsed[0] === 'string');
+        if (!hasMessage) {
+          throw new OneKeyError('Invalid personal_sign params');
+        }
+        break;
+      }
+      case EWcPayActionMethod.SolanaSignTransaction: {
+        // throws when no transaction payload can be extracted
+        extractWcPaySolanaTransaction(parsed);
+        break;
+      }
+      default:
+        throw new OneKeyError(
+          `Unsupported WalletConnect Pay method: ${method}`,
+        );
+    }
+  }
+}
 
 @backgroundClass()
 class ServiceWalletConnectPay extends ServiceBase {
@@ -164,15 +233,7 @@ class ServiceWalletConnectPay extends ServiceBase {
       paymentId,
       optionId,
     });
-    // Reject unknown chains up-front so the flow fails before any signing
-    for (const action of actions) {
-      const targetNetworkId = wcPayChainIdToNetworkId(action.walletRpc.chainId);
-      if (!targetNetworkId) {
-        throw new OneKeyError(
-          `Unsupported WalletConnect Pay chain: ${action.walletRpc.chainId}`,
-        );
-      }
-    }
+    validateWcPayActions(actions);
     return actions;
   }
 
