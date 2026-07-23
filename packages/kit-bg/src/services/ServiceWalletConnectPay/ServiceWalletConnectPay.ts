@@ -23,6 +23,10 @@ import { vaultFactory } from '../../vaults/factory';
 import ServiceBase from '../ServiceBase';
 import walletConnectClients from '../ServiceWalletConnect/walletConnectClient';
 
+import {
+  extractWcPayPersonalSignMessage,
+  extractWcPayTypedDataMessage,
+} from './evmPayUtils';
 import { extractWcPaySolanaTransaction } from './solPayUtils';
 
 /**
@@ -57,24 +61,15 @@ function validateWcPayActions(actions: IWcPayAction[]) {
         break;
       }
       case EWcPayActionMethod.EthSignTypedDataV4: {
-        const candidates = Array.isArray(parsed) ? parsed : [parsed];
-        const hasTypedData = candidates.some(
-          (item) =>
-            (typeof item === 'string' && item.trim().startsWith('{')) ||
-            (typeof item === 'object' && item !== null && !Array.isArray(item)),
-        );
-        if (!hasTypedData) {
-          throw new OneKeyError('Invalid eth_signTypedData_v4 params');
-        }
+        // throws when no typed-data payload can be extracted; the executor
+        // calls the exact same function, so passing here guarantees the
+        // executor resolves the same payload later
+        extractWcPayTypedDataMessage(parsed);
         break;
       }
       case EWcPayActionMethod.PersonalSign: {
-        const hasMessage =
-          typeof parsed === 'string' ||
-          (Array.isArray(parsed) && typeof parsed[0] === 'string');
-        if (!hasMessage) {
-          throw new OneKeyError('Invalid personal_sign params');
-        }
+        // throws when no message can be extracted (same function as executor)
+        extractWcPayPersonalSignMessage({ parsed });
         break;
       }
       case EWcPayActionMethod.SolanaSignTransaction: {

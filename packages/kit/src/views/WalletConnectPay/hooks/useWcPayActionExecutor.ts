@@ -2,6 +2,10 @@ import { useCallback } from 'react';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
+  extractWcPayPersonalSignMessage,
+  extractWcPayTypedDataMessage,
+} from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/evmPayUtils';
+import {
   extractWcPaySolanaTransaction,
   wcPaySolanaTxToEncodedTx,
 } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/solPayUtils';
@@ -56,53 +60,6 @@ function buildWcPaySourceInfo({
     data: { method, params },
     isWalletConnectRequest: false,
   };
-}
-
-function extractTypedDataMessage(parsed: unknown): string {
-  if (Array.isArray(parsed)) {
-    // params are usually [address, typedData]; find the non-address element
-    const candidate = parsed.find(
-      (item) =>
-        (typeof item === 'string' && item.trim().startsWith('{')) ||
-        (typeof item === 'object' && item !== null),
-    );
-    if (candidate) {
-      return typeof candidate === 'string'
-        ? candidate
-        : JSON.stringify(candidate);
-    }
-  }
-  if (typeof parsed === 'string') {
-    return parsed;
-  }
-  return JSON.stringify(parsed);
-}
-
-function extractPersonalSignMessage({
-  parsed,
-  accountAddress,
-}: {
-  parsed: unknown;
-  accountAddress: string;
-}): string {
-  if (Array.isArray(parsed)) {
-    // convention is [message, address], but some senders flip the order
-    const [first, second] = parsed as string[];
-    if (
-      typeof first === 'string' &&
-      first.toLowerCase() === accountAddress.toLowerCase() &&
-      typeof second === 'string'
-    ) {
-      return second;
-    }
-    if (typeof first === 'string') {
-      return first;
-    }
-  }
-  if (typeof parsed === 'string') {
-    return parsed;
-  }
-  throw new OneKeyLocalError('Invalid personal_sign params');
 }
 
 export function useWcPayActionExecutor() {
@@ -260,7 +217,7 @@ export function useWcPayActionExecutor() {
             break;
           }
           case EWcPayActionMethod.EthSignTypedDataV4: {
-            const message = extractTypedDataMessage(parsed);
+            const message = extractWcPayTypedDataMessage(parsed);
             const signature = await new Promise<string>((resolve, reject) => {
               navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
                 screen: EModalSignatureConfirmRoutes.MessageConfirm,
@@ -295,7 +252,7 @@ export function useWcPayActionExecutor() {
             // personal_sign entry point, so the signed bytes match the
             // counterparty's expectation
             const message = autoFixPersonalSignMessage({
-              message: extractPersonalSignMessage({
+              message: extractWcPayPersonalSignMessage({
                 parsed,
                 accountAddress: account.address,
               }),
