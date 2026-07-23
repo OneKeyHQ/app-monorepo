@@ -2,9 +2,11 @@ import {
   createHomeDisplaySnapshotDescriptor,
   decodeHomeDisplaySnapshotCritical,
   decodeHomeDisplaySnapshotManifest,
+  decodeHomeDisplaySnapshotRoute,
   decodeHomeDisplaySnapshotSourceChunk,
   encodeHomeDisplaySnapshotCritical,
   encodeHomeDisplaySnapshotManifest,
+  encodeHomeDisplaySnapshotRoute,
   encodeHomeDisplaySnapshotSourceChunk,
 } from './homeDisplaySnapshotCodec';
 import {
@@ -12,18 +14,14 @@ import {
   getHomeDisplaySnapshotPartitionId,
   getHomeDisplaySnapshotPartitionTag,
 } from './homeDisplaySnapshotKeys';
-import {
-  HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION,
-  HOME_DISPLAY_SNAPSHOT_TTL_MS,
-} from './homeDisplaySnapshotTypes';
+import { HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION } from './homeDisplaySnapshotTypes';
 
 const ownerScopeKey = 'wallet-a:account-a:network-eth';
 const partitionId = getHomeDisplaySnapshotPartitionId(ownerScopeKey);
 const now = 1000;
-const expiresAt = now + HOME_DISPLAY_SNAPSHOT_TTL_MS;
 
 describe('Home display snapshot V2 codec', () => {
-  it('uses a deterministic opaque partition id and validates critical TTL', () => {
+  it('uses a deterministic opaque partition id and admits legacy expired display state', () => {
     expect(partitionId).toHaveLength(64);
     expect(partitionId).not.toContain(ownerScopeKey);
     expect(getHomeDisplaySnapshotPartitionId(ownerScopeKey)).toBe(partitionId);
@@ -41,7 +39,6 @@ describe('Home display snapshot V2 codec', () => {
       schemaVersion: HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION,
       ownerScopeKey,
       createdAt: now,
-      expiresAt,
       shell: {
         kind: 'portfolio',
         presentation: {
@@ -58,26 +55,44 @@ describe('Home display snapshot V2 codec', () => {
       },
       selectedTabPreference: 'portfolio',
     });
+    const legacyExpiredRaw = JSON.stringify({
+      ...JSON.parse(raw ?? '{}'),
+      expiresAt: now - 1,
+    });
     expect(
       decodeHomeDisplaySnapshotCritical({
-        raw,
+        raw: legacyExpiredRaw,
         expectedOwnerScopeKey: ownerScopeKey,
-        now,
       }),
     ).toMatchObject({
       ownerScopeKey,
       selectedTabPreference: 'portfolio',
     });
+    const legacyRouteRaw = JSON.stringify({
+      ...JSON.parse(
+        encodeHomeDisplaySnapshotRoute({
+          schemaVersion: HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION,
+          ownerScopeKey,
+          partitionId,
+          currentGeneration: 1,
+          updatedAt: now,
+        }),
+      ),
+      expiresAt: now - 1,
+    });
     expect(
-      decodeHomeDisplaySnapshotCritical({
-        raw,
+      decodeHomeDisplaySnapshotRoute({
+        raw: legacyRouteRaw,
         expectedOwnerScopeKey: ownerScopeKey,
-        now: expiresAt,
+        expectedPartitionId: partitionId,
       }),
-    ).toBeUndefined();
+    ).toMatchObject({
+      currentGeneration: 1,
+      ownerScopeKey,
+    });
   });
 
-  it('encodes and admits one independently loadable source chunk', () => {
+  it('encodes one independently loadable source chunk without time expiry', () => {
     const key = getHomeDisplaySnapshotChunkKey(partitionId, 1, 'portfolio');
     const record = {
       sourceId: 'portfolio' as const,
@@ -86,7 +101,7 @@ describe('Home display snapshot V2 codec', () => {
       coverageFingerprint: '["asset-a"]',
       quoteBasis: null,
       confirmedAt: now,
-      expiresAt,
+      expiresAt: now + 1,
       payload: {
         section: {
           kind: 'ready' as const,
@@ -99,22 +114,21 @@ describe('Home display snapshot V2 codec', () => {
       ownerScopeKey,
       record,
       createdAt: now,
-      expiresAt,
+    });
+    const decoded = decodeHomeDisplaySnapshotSourceChunk({
+      raw,
+      expectedOwnerScopeKey: ownerScopeKey,
+      expectedSourceId: 'portfolio',
+    });
+    expect(decoded).toMatchObject({
+      ...record,
+      expiresAt: Number.MAX_SAFE_INTEGER,
     });
     expect(
       decodeHomeDisplaySnapshotSourceChunk({
         raw,
         expectedOwnerScopeKey: ownerScopeKey,
-        expectedSourceId: 'portfolio',
-        now,
-      }),
-    ).toEqual(record);
-    expect(
-      decodeHomeDisplaySnapshotSourceChunk({
-        raw,
-        expectedOwnerScopeKey: ownerScopeKey,
         expectedSourceId: 'history',
-        now,
       }),
     ).toBeUndefined();
   });
@@ -128,12 +142,10 @@ describe('Home display snapshot V2 codec', () => {
       partitionId,
       generation: 3,
       createdAt: now,
-      expiresAt,
       chunks: {
         critical: createHomeDisplaySnapshotDescriptor({
           chunkId: 'critical',
           contentSignature: 'critical',
-          expiresAt,
           generation: 3,
           partitionId,
           raw: criticalRaw,
@@ -142,7 +154,6 @@ describe('Home display snapshot V2 codec', () => {
         portfolio: createHomeDisplaySnapshotDescriptor({
           chunkId: 'portfolio',
           contentSignature: 'portfolio',
-          expiresAt,
           generation: 1,
           partitionId,
           raw: portfolioRaw,
@@ -155,7 +166,6 @@ describe('Home display snapshot V2 codec', () => {
       expectedOwnerScopeKey: ownerScopeKey,
       expectedPartitionId: partitionId,
       expectedGeneration: 3,
-      now,
     });
     expect(manifest?.chunks.critical?.key).toContain('/3/critical');
     expect(manifest?.chunks.portfolio?.key).toContain('/1/portfolio');

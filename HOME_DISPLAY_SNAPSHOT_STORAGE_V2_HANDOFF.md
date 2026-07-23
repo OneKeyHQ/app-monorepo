@@ -170,7 +170,7 @@ not placed in physical keys; SHA-256 produces the partition ID.
 Current limits:
 
 ```text
-snapshot TTL:          30 minutes
+time expiry:           none
 source chunk:          1 MiB
 critical chunk:        128 KiB
 storage record:        2 MiB
@@ -180,6 +180,10 @@ retained owner routes: 16
 
 The route index is only for bounded retention and eviction. Startup does not
 walk it. A known owner goes directly to its hashed route key.
+
+Snapshot age never blocks display hydration. `createdAt` is retained for
+observability only; owner LRU, schema admission, structural validation, and
+byte limits bound the cache.
 
 ## 6. Lazy read path
 
@@ -208,6 +212,13 @@ sequenceDiagram
 Hydration acceptance is owner- and session-exact. Source records must also
 match an active request token when one already exists. A late cache response
 cannot overwrite a ready live result.
+
+The cache and live paths start independently after owner/runtime readiness.
+V2 hydration does not suppress, delay, or deduplicate business requests.
+Applicable live producers may therefore begin before the async snapshot read
+finishes; cached display state remains visible until accepted live results
+replace it. Lazy sections continue to follow their existing enablement and
+visibility rules.
 
 The cache restores no request sequence, producer instance, session authority,
 commands, signing state, transaction state, or authentication state.
@@ -411,7 +422,7 @@ Interpretation:
 
 - `manifest miss`: this owner has no valid V2 route/manifest;
 - `critical miss`: the manifest exists but its critical descriptor/value is
-  absent, expired, malformed, or size-mismatched;
+  absent, malformed, or size-mismatched;
 - `visibleChunks partial`: only some requested visible chunks were accepted;
 - `initialHydrate accepted`: cached display state was actually injected;
 - `stale`: the account/network owner changed while the async read was in
@@ -444,10 +455,10 @@ Covered cases include:
 - lazy backend creation;
 - native marker-last commits and explicit MMKV trim;
 - IndexedDB transactional commits;
-- malformed, expired, owner-mismatched, generation-mismatched, and oversized
-  records;
+- malformed, owner-mismatched, generation-mismatched, and oversized records;
+- legacy V2 records remain readable after their old expiry timestamp;
 - manifest fallback to the previous generation;
-- store hydration before requests;
+- cache/live races with live-result precedence;
 - exact cache/request matching;
 - cache never replacing live data;
 - immediate explicit reload versus trailing automatic reload;
@@ -478,7 +489,7 @@ Reasonable later follow-ups, if product metrics justify them:
    marks;
 2. reuse the generic storage for another page with a different namespace and
    page-specific codec;
-3. tune TTL, route count, and chunk limits from production size telemetry;
+3. tune route count and chunk limits from production size telemetry;
 4. optimize ActiveAccount owner readiness separately if end-to-end chain
    switching still feels slow after cache hydration.
 

@@ -137,7 +137,6 @@ export function HomeDisplaySnapshotController() {
         try {
           const context = await loadHomeDisplaySnapshotManifest({
             ownerScopeKey: candidateOwnerToken.scopeKey,
-            now: getNow(),
           });
           if (!isCurrent()) {
             defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
@@ -163,7 +162,6 @@ export function HomeDisplaySnapshotController() {
           }
           const records = await loadHomeDisplaySnapshotSourceRecords({
             context,
-            now: getNow(),
             sourceIds: [sourceId],
           });
           if (!isCurrent()) {
@@ -227,7 +225,6 @@ export function HomeDisplaySnapshotController() {
       try {
         const context = await loadHomeDisplaySnapshotManifest({
           ownerScopeKey: ownerToken.scopeKey,
-          now: getNow(),
         });
         if (!isCurrent()) {
           defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
@@ -269,7 +266,6 @@ export function HomeDisplaySnapshotController() {
         const criticalStartedAt = getNow();
         const critical = await loadHomeDisplaySnapshotCritical({
           context,
-          now: getNow(),
         });
         if (!isCurrent()) {
           defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
@@ -314,7 +310,6 @@ export function HomeDisplaySnapshotController() {
         );
         const records = await loadHomeDisplaySnapshotSourceRecords({
           context,
-          now: getNow(),
           sourceIds: visibleSourceIds,
         });
         if (!isCurrent()) {

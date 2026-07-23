@@ -2,7 +2,6 @@ import { createInitialHomeStoreState } from '../store/homeStoreInitialState';
 
 import { HomeDisplaySnapshotPersistQueue } from './homeDisplaySnapshotPersistQueue';
 import { homeDisplaySnapshotStorage } from './homeDisplaySnapshotRepository';
-import { HOME_DISPLAY_SNAPSHOT_TTL_MS } from './homeDisplaySnapshotTypes';
 
 import type { IHomeStoreState } from '../store/homeStoreTypes';
 
@@ -386,7 +385,7 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     );
   });
 
-  it('refreshes an unchanged Header TTL only from live state', async () => {
+  it('does not rewrite unchanged display state as time passes', async () => {
     const nowSpy = jest.spyOn(Date, 'now');
     const startedAt = 1_000_000;
     nowSpy.mockReturnValue(startedAt);
@@ -399,12 +398,9 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
       presentationChanged: true,
     });
     await queue.flushNow();
-    const firstCritical = mockStorage.commit.mock.calls[0][0].entries.find(
-      ({ key }) => key.endsWith('/critical'),
-    );
-    expect(firstCritical).toBeDefined();
+    expect(mockStorage.commit.mock.calls).toHaveLength(1);
 
-    nowSpy.mockReturnValue(startedAt + HOME_DISPLAY_SNAPSHOT_TTL_MS - 1000);
+    nowSpy.mockReturnValue(startedAt + 365 * 24 * 60 * 60 * 1000);
     queue.enqueue(fundedState, {
       storeCommitId: 2,
       origin: 'storeEvent',
@@ -413,20 +409,7 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     await queue.flushNow();
     nowSpy.mockRestore();
 
-    expect(mockStorage.commit.mock.calls).toHaveLength(2);
-    const secondCritical = mockStorage.commit.mock.calls[1][0].entries.find(
-      ({ key }) => key.endsWith('/critical'),
-    );
-    expect(secondCritical?.key).not.toBe(firstCritical?.key);
-    const value = JSON.parse(secondCritical?.value ?? '{}') as {
-      expiresAt?: number;
-    };
-    expect(value.expiresAt).toBe(
-      startedAt +
-        HOME_DISPLAY_SNAPSHOT_TTL_MS -
-        1000 +
-        HOME_DISPLAY_SNAPSHOT_TTL_MS,
-    );
+    expect(mockStorage.commit.mock.calls).toHaveLength(1);
   });
 
   it('removes a confirmed Header when a hard owner state replaces it', async () => {

@@ -31,10 +31,8 @@ const homeDisplaySnapshotStorage = createDisplaySnapshotStorage({
 });
 
 export async function loadHomeDisplaySnapshotManifest({
-  now,
   ownerScopeKey,
 }: {
-  now: number;
   ownerScopeKey: string;
 }): Promise<ILoadedHomeDisplaySnapshotManifest | undefined> {
   const partitionId = getHomeDisplaySnapshotPartitionId(ownerScopeKey);
@@ -44,7 +42,6 @@ export async function loadHomeDisplaySnapshotManifest({
     raw: routeRaw,
     expectedOwnerScopeKey: ownerScopeKey,
     expectedPartitionId: partitionId,
-    now,
   });
   if (!route || !routeRaw) {
     return undefined;
@@ -63,7 +60,6 @@ export async function loadHomeDisplaySnapshotManifest({
       expectedOwnerScopeKey: ownerScopeKey,
       expectedPartitionId: partitionId,
       expectedGeneration: generation,
-      now,
     });
     if (manifest) {
       return { routeRaw, route, manifest };
@@ -74,13 +70,11 @@ export async function loadHomeDisplaySnapshotManifest({
 
 export async function loadHomeDisplaySnapshotCritical({
   context,
-  now,
 }: {
   context: ILoadedHomeDisplaySnapshotManifest;
-  now: number;
 }): Promise<IHomeDisplaySnapshotCritical | undefined> {
   const descriptor = context.manifest.chunks.critical;
-  if (!descriptor || descriptor.expiresAt <= now) {
+  if (!descriptor) {
     return undefined;
   }
   const raw = await homeDisplaySnapshotStorage.read(descriptor.key);
@@ -90,24 +84,19 @@ export async function loadHomeDisplaySnapshotCritical({
   return decodeHomeDisplaySnapshotCritical({
     raw,
     expectedOwnerScopeKey: context.route.ownerScopeKey,
-    now,
   });
 }
 
 export async function loadHomeDisplaySnapshotSourceRecords({
   context,
-  now,
   sourceIds,
 }: {
   context: ILoadedHomeDisplaySnapshotManifest;
-  now: number;
   sourceIds: readonly IHomeStoreSourceId[];
 }) {
   const descriptors = sourceIds.flatMap((sourceId) => {
     const descriptor = context.manifest.chunks[sourceId];
-    return descriptor && descriptor.expiresAt > now
-      ? [{ descriptor, sourceId }]
-      : [];
+    return descriptor ? [{ descriptor, sourceId }] : [];
   });
   const records: IHomeCachedSourceRecord[] = [];
   for (
@@ -131,7 +120,6 @@ export async function loadHomeDisplaySnapshotSourceRecords({
         raw,
         expectedOwnerScopeKey: context.route.ownerScopeKey,
         expectedSourceId: sourceId,
-        now,
       });
       if (record) {
         records.push(record);

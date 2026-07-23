@@ -32,6 +32,8 @@ import type {
 } from '../semantic/homeSemanticTypes';
 import type { IHomeCachedSourceRecord } from '../store/homeStoreTypes';
 
+const HOME_DISPLAY_SNAPSHOT_NO_EXPIRY_AT = Number.MAX_SAFE_INTEGER;
+
 function getByteLength(value: string): number {
   return new TextEncoder().encode(value).length;
 }
@@ -152,11 +154,9 @@ export function encodeHomeDisplaySnapshotCritical(
 
 export function decodeHomeDisplaySnapshotCritical({
   expectedOwnerScopeKey,
-  now,
   raw,
 }: {
   expectedOwnerScopeKey: string;
-  now: number;
   raw: string | undefined;
 }): IHomeDisplaySnapshotCritical | undefined {
   if (!raw || getByteLength(raw) > HOME_DISPLAY_SNAPSHOT_MAX_CRITICAL_BYTES) {
@@ -168,8 +168,6 @@ export function decodeHomeDisplaySnapshotCritical({
       value.schemaVersion !== HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION ||
       value.ownerScopeKey !== expectedOwnerScopeKey ||
       !Number.isSafeInteger(value.createdAt) ||
-      !Number.isSafeInteger(value.expiresAt) ||
-      Number(value.expiresAt) <= now ||
       (value.shell !== undefined && !isHomeShellSemanticModel(value.shell)) ||
       (value.navigation !== undefined &&
         !isHomeNavigationSemanticModel(value.navigation)) ||
@@ -189,20 +187,25 @@ export function encodeHomeDisplaySnapshotSourceChunk({
   ownerScopeKey,
   record,
   createdAt,
-  expiresAt,
 }: {
   key: string;
   ownerScopeKey: string;
   record: IHomeCachedSourceRecord;
   createdAt: number;
-  expiresAt: number;
 }): string | undefined {
+  // The shared Home cache envelope still requires an expiry field. V2 display
+  // snapshots are instead bounded by owner LRU and size limits, so persist a
+  // non-expiring record and ignore legacy expiry timestamps when reading.
+  const persistentRecord: IHomeCachedSourceRecord = {
+    ...record,
+    expiresAt: HOME_DISPLAY_SNAPSHOT_NO_EXPIRY_AT,
+  };
   const envelope = encodeHomeStoreSnapshot({
     key,
     ownerScopeKey,
-    records: [record],
+    records: [persistentRecord],
     createdAt,
-    expiresAt,
+    expiresAt: HOME_DISPLAY_SNAPSHOT_NO_EXPIRY_AT,
   });
   if (!envelope) {
     return undefined;
@@ -216,12 +219,10 @@ export function encodeHomeDisplaySnapshotSourceChunk({
 export function decodeHomeDisplaySnapshotSourceChunk({
   expectedOwnerScopeKey,
   expectedSourceId,
-  now,
   raw,
 }: {
   expectedOwnerScopeKey: string;
   expectedSourceId: IHomeCachedSourceRecord['sourceId'];
-  now: number;
   raw: string | undefined;
 }): IHomeCachedSourceRecord | undefined {
   if (!raw || getByteLength(raw) > HOME_DISPLAY_SNAPSHOT_MAX_CHUNK_BYTES) {
@@ -231,7 +232,7 @@ export function decodeHomeDisplaySnapshotSourceChunk({
     const snapshot = decodeHomeStoreSnapshot({
       envelope: JSON.parse(raw),
       expectedOwnerScopeKey,
-      now,
+      now: 0,
     });
     const record = snapshot?.records[0];
     return snapshot?.records.length === 1 &&
@@ -252,12 +253,10 @@ export function encodeHomeDisplaySnapshotRoute(
 export function decodeHomeDisplaySnapshotRoute({
   expectedOwnerScopeKey,
   expectedPartitionId,
-  now,
   raw,
 }: {
   expectedOwnerScopeKey: string;
   expectedPartitionId: string;
-  now: number;
   raw: string | undefined;
 }): IHomeDisplaySnapshotRoute | undefined {
   if (!raw || getByteLength(raw) > 16 * 1024) {
@@ -274,9 +273,7 @@ export function decodeHomeDisplaySnapshotRoute({
       (value.previousGeneration !== undefined &&
         (!Number.isSafeInteger(value.previousGeneration) ||
           Number(value.previousGeneration) <= 0)) ||
-      !Number.isSafeInteger(value.updatedAt) ||
-      !Number.isSafeInteger(value.expiresAt) ||
-      Number(value.expiresAt) <= now
+      !Number.isSafeInteger(value.updatedAt)
     ) {
       return undefined;
     }
@@ -310,9 +307,7 @@ function isChunkDescriptor({
     Number(descriptor.byteLength) <= HOME_DISPLAY_SNAPSHOT_MAX_CHUNK_BYTES &&
     typeof descriptor.contentSignature === 'string' &&
     descriptor.contentSignature.length > 0 &&
-    Number.isSafeInteger(descriptor.updatedAt) &&
-    Number.isSafeInteger(descriptor.expiresAt) &&
-    Number(descriptor.expiresAt) > 0
+    Number.isSafeInteger(descriptor.updatedAt)
   );
 }
 
@@ -326,13 +321,11 @@ export function decodeHomeDisplaySnapshotManifest({
   expectedGeneration,
   expectedOwnerScopeKey,
   expectedPartitionId,
-  now,
   raw,
 }: {
   expectedGeneration: number;
   expectedOwnerScopeKey: string;
   expectedPartitionId: string;
-  now: number;
   raw: string | undefined;
 }): IHomeDisplaySnapshotManifest | undefined {
   if (!raw || getByteLength(raw) > 64 * 1024) {
@@ -346,8 +339,6 @@ export function decodeHomeDisplaySnapshotManifest({
       value.partitionId !== expectedPartitionId ||
       value.generation !== expectedGeneration ||
       !Number.isSafeInteger(value.createdAt) ||
-      !Number.isSafeInteger(value.expiresAt) ||
-      Number(value.expiresAt) <= now ||
       !isObject(value.chunks)
     ) {
       return undefined;
@@ -409,7 +400,6 @@ export function decodeHomeDisplaySnapshotRouteIndex(
 export function createHomeDisplaySnapshotDescriptor({
   chunkId,
   contentSignature,
-  expiresAt,
   generation,
   partitionId,
   raw,
@@ -417,7 +407,6 @@ export function createHomeDisplaySnapshotDescriptor({
 }: {
   chunkId: IHomeDisplaySnapshotChunkId;
   contentSignature: string;
-  expiresAt: number;
   generation: number;
   partitionId: string;
   raw: string;
@@ -429,7 +418,6 @@ export function createHomeDisplaySnapshotDescriptor({
     byteLength: getByteLength(raw),
     contentSignature,
     updatedAt,
-    expiresAt,
   };
 }
 

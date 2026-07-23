@@ -35,7 +35,6 @@ import { homeDisplaySnapshotStorage } from './homeDisplaySnapshotRepository';
 import {
   HOME_DISPLAY_SNAPSHOT_MAX_ROUTES,
   HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION,
-  HOME_DISPLAY_SNAPSHOT_TTL_MS,
 } from './homeDisplaySnapshotTypes';
 
 import type {
@@ -53,7 +52,6 @@ import type {
 
 const PERSIST_DEBOUNCE_MS = 1000;
 const PERSIST_MAX_WAIT_MS = 5000;
-const TTL_REFRESH_WINDOW_MS = HOME_DISPLAY_SNAPSHOT_TTL_MS / 4;
 
 type IHomeDisplaySnapshotPersistJob = {
   ownerScopeKey: string;
@@ -101,24 +99,16 @@ function isLiveSnapshotShell(shell: IHomeShellSemanticModel): boolean {
 function shouldReplaceDescriptor({
   contentSignature,
   descriptor,
-  now,
 }: {
   contentSignature: string;
   descriptor: IHomeDisplaySnapshotChunkDescriptor | undefined;
-  now: number;
 }): boolean {
-  return (
-    !descriptor ||
-    descriptor.contentSignature !== contentSignature ||
-    descriptor.expiresAt <= now + TTL_REFRESH_WINDOW_MS
-  );
+  return !descriptor || descriptor.contentSignature !== contentSignature;
 }
 
 async function readManifestForRoute({
-  now,
   route,
 }: {
-  now: number;
   route: IHomeDisplaySnapshotRoute | undefined;
 }): Promise<IHomeDisplaySnapshotManifest | undefined> {
   if (!route) {
@@ -135,7 +125,6 @@ async function readManifestForRoute({
     expectedOwnerScopeKey: route.ownerScopeKey,
     expectedPartitionId: route.partitionId,
     expectedGeneration: route.currentGeneration,
-    now,
   });
 }
 
@@ -162,7 +151,6 @@ async function collectPartitionKeys(partitionId: string): Promise<string[]> {
     raw: routeRaw,
     expectedOwnerScopeKey: ownerScopeKey,
     expectedPartitionId: partitionId,
-    now: 0,
   });
   if (!route) {
     return [routeKey];
@@ -184,7 +172,6 @@ async function collectPartitionKeys(partitionId: string): Promise<string[]> {
       expectedOwnerScopeKey: ownerScopeKey,
       expectedPartitionId: partitionId,
       expectedGeneration: generation,
-      now: 0,
     });
     Object.values(manifest?.chunks ?? {}).forEach((descriptor) => {
       if (descriptor) {
@@ -217,7 +204,6 @@ async function collectRetiredGenerationKeys({
     expectedOwnerScopeKey: route.ownerScopeKey,
     expectedPartitionId: route.partitionId,
     expectedGeneration: route.previousGeneration,
-    now: 0,
   });
   const referencedKeys = new Set<string>();
   [currentManifest, nextManifest].forEach((manifest) => {
@@ -240,7 +226,6 @@ async function persistHomeDisplaySnapshotOnce(
 ): Promise<void> {
   const startedAt = Date.now();
   const now = Date.now();
-  const expiresAt = now + HOME_DISPLAY_SNAPSHOT_TTL_MS;
   const partitionId = getHomeDisplaySnapshotPartitionId(job.ownerScopeKey);
   const routeKey = getHomeDisplaySnapshotRouteKey(partitionId);
   const currentRouteRaw = await homeDisplaySnapshotStorage.read(routeKey);
@@ -248,21 +233,13 @@ async function persistHomeDisplaySnapshotOnce(
     raw: currentRouteRaw,
     expectedOwnerScopeKey: job.ownerScopeKey,
     expectedPartitionId: partitionId,
-    now,
   });
   const currentManifest = await readManifestForRoute({
-    now,
     route: currentRoute,
   });
   const nextGeneration = (currentRoute?.currentGeneration ?? 0) + 1;
   const chunks: IMutableChunkMap = { ...currentManifest?.chunks };
   const cleanupKeys = new Set<string>();
-  Object.entries(chunks).forEach(([chunkId, descriptor]) => {
-    if (descriptor && descriptor.expiresAt <= now) {
-      cleanupKeys.add(descriptor.key);
-      delete chunks[chunkId as IHomeDisplaySnapshotChunkId];
-    }
-  });
   const entries: IDisplaySnapshotWriteEntry[] = [];
 
   const currentShell = job.state.shell.value;
@@ -272,7 +249,7 @@ async function persistHomeDisplaySnapshotOnce(
   // A pending projection means that live aggregation has not produced a new
   // total. Keep the immutable last-known-good critical chunk instead of
   // replacing it with a navigation-only snapshot. Confirmed-cache state also
-  // keeps the original descriptor so unrelated writes cannot extend its TTL.
+  // keeps the original descriptor during unrelated writes.
   const shouldPreserveCritical =
     Boolean(chunks.critical) &&
     !isHardBlockedShell(currentShell) &&
@@ -302,7 +279,6 @@ async function persistHomeDisplaySnapshotOnce(
         shouldReplaceDescriptor({
           descriptor: chunks.critical,
           contentSignature,
-          now,
         })
       ) {
         const key = getHomeDisplaySnapshotChunkKey(
@@ -314,7 +290,6 @@ async function persistHomeDisplaySnapshotOnce(
           schemaVersion: HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION,
           ownerScopeKey: job.ownerScopeKey,
           createdAt: now,
-          expiresAt,
           shell,
           navigation,
           selectedTabPreference,
@@ -327,7 +302,6 @@ async function persistHomeDisplaySnapshotOnce(
           chunks.critical = createHomeDisplaySnapshotDescriptor({
             chunkId: 'critical',
             contentSignature,
-            expiresAt,
             generation: nextGeneration,
             partitionId,
             raw,
@@ -349,7 +323,6 @@ async function persistHomeDisplaySnapshotOnce(
       now,
       sourceId,
       slot: job.state.resources[sourceId],
-      ttlMs: HOME_DISPLAY_SNAPSHOT_TTL_MS,
     });
     if (!record) {
       return;
@@ -364,7 +337,6 @@ async function persistHomeDisplaySnapshotOnce(
       !shouldReplaceDescriptor({
         descriptor: chunks[sourceId],
         contentSignature,
-        now,
       })
     ) {
       return;
@@ -379,7 +351,6 @@ async function persistHomeDisplaySnapshotOnce(
       ownerScopeKey: job.ownerScopeKey,
       record,
       createdAt: now,
-      expiresAt,
     });
     if (raw) {
       if (chunks[sourceId]) {
@@ -389,7 +360,6 @@ async function persistHomeDisplaySnapshotOnce(
       chunks[sourceId] = createHomeDisplaySnapshotDescriptor({
         chunkId: sourceId,
         contentSignature,
-        expiresAt,
         generation: nextGeneration,
         partitionId,
         raw,
@@ -411,7 +381,6 @@ async function persistHomeDisplaySnapshotOnce(
     partitionId,
     generation: nextGeneration,
     createdAt: now,
-    expiresAt,
     chunks,
   };
   const manifestKey = getHomeDisplaySnapshotManifestKey(
@@ -452,7 +421,6 @@ async function persistHomeDisplaySnapshotOnce(
     currentGeneration: nextGeneration,
     previousGeneration: currentManifest?.generation,
     updatedAt: now,
-    expiresAt,
   };
   const retiredGenerationKeys = await collectRetiredGenerationKeys({
     currentManifest,

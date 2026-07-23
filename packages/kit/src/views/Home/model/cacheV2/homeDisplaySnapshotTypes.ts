@@ -10,7 +10,6 @@ import type {
 
 export const HOME_DISPLAY_SNAPSHOT_ARCHITECTURE_VERSION = 2 as const;
 export const HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION = 1 as const;
-export const HOME_DISPLAY_SNAPSHOT_TTL_MS = 30 * 60 * 1000;
 export const HOME_DISPLAY_SNAPSHOT_MAX_CHUNK_BYTES = 1024 * 1024;
 export const HOME_DISPLAY_SNAPSHOT_MAX_CRITICAL_BYTES = 128 * 1024;
 export const HOME_DISPLAY_SNAPSHOT_MAX_ROUTES = 16;
@@ -23,7 +22,6 @@ export type IHomeDisplaySnapshotChunkDescriptor = {
   byteLength: number;
   contentSignature: string;
   updatedAt: number;
-  expiresAt: number;
 };
 
 export type IHomeDisplaySnapshotRoute = {
@@ -33,7 +31,6 @@ export type IHomeDisplaySnapshotRoute = {
   currentGeneration: number;
   previousGeneration?: number;
   updatedAt: number;
-  expiresAt: number;
 };
 
 export type IHomeDisplaySnapshotManifest = {
@@ -42,7 +39,6 @@ export type IHomeDisplaySnapshotManifest = {
   partitionId: string;
   generation: number;
   createdAt: number;
-  expiresAt: number;
   chunks: Readonly<
     Partial<
       Record<IHomeDisplaySnapshotChunkId, IHomeDisplaySnapshotChunkDescriptor>
@@ -54,7 +50,6 @@ export type IHomeDisplaySnapshotCritical = {
   schemaVersion: typeof HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION;
   ownerScopeKey: string;
   createdAt: number;
-  expiresAt: number;
   shell?: IHomeShellSemanticModel;
   navigation?: IHomeNavigationSemanticModel;
   selectedTabPreference?: IHomeTabId;
