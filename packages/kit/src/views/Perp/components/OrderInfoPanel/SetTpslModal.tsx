@@ -504,6 +504,9 @@ const SetTpslForm = memo(
         const scopeChangeErrorTitle = getPositionTpslScopeChangeErrorTitle({
           initialScopeKey: initialScopeKeyRef.current,
           currentScopeKey: latestScopeKeyRef.current,
+          errorTitle: intl.formatMessage({
+            id: ETranslations.position_changed_review_submit_again__msg,
+          }),
         });
         if (scopeChangeErrorTitle) {
           Toast.error({ title: scopeChangeErrorTitle });
