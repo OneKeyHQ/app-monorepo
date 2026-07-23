@@ -161,11 +161,23 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
     recipientAddress: string;
     sourceAddress?: string;
   }): Promise<IUnifoldActivationStatus> {
-    return this.requestUnifold<IUnifoldActivationStatus>({
+    const data = await this.requestUnifold<IUnifoldActivationStatus | null>({
       method: 'get',
       url: '/wallet/v1/perp/unifold/activation-status',
       params: { ...params },
     });
+    // `isSanctioned` drives a fail-closed compliance gate, so an unusable
+    // payload must never reach the caller as "screened and clear". A code-0
+    // response carrying null or partial data is surfaced as a failed lookup
+    // and retried like a transport error, rather than resolving into a
+    // verdict that can never open the gate and never retries.
+    if (typeof data?.isSanctioned !== 'boolean') {
+      throw new OneKeyError({
+        message: 'Unifold activation status unavailable',
+        autoToast: false,
+      });
+    }
+    return data;
   }
 
   // Called when a deposit-modal session (re)starts polling for a recipient and
@@ -413,6 +425,14 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
     if (this.trackingLoopTimer) {
       clearTimeout(this.trackingLoopTimer);
       this.trackingLoopTimer = null;
+    }
+    // Nothing tracked: return before touching the atom. This iteration runs on
+    // every cold start (the bg bootstrap resume), and a user who has never
+    // made a Unifold deposit must not pay two persisted writes — plus their
+    // bg→UI broadcasts — for an empty snapshot.
+    const snapshot = await perpsUnifoldDepositTrackingAtom.get();
+    if (!snapshot.items.length && !snapshot.watches?.length) {
+      return;
     }
     const now = Date.now();
     const resumedAfterGap =
