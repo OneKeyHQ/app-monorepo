@@ -12,7 +12,7 @@ internal class HomeContainerSlotView(context: Context) : FrameLayout(context) {
     set(value) {
       if (field == value) return
       field = value
-      (parent as? HomeContainerSurfaceView)?.requestLayout()
+      findSurface()?.requestLayout()
     }
 
   var ownerScopeKey: String = ""
@@ -90,7 +90,16 @@ internal class HomeContainerSlotView(context: Context) : FrameLayout(context) {
   override fun dispatchTouchEvent(event: MotionEvent): Boolean = super.dispatchTouchEvent(event)
 
   private fun notifyMetadataChanged() {
-    (parent as? HomeContainerSurfaceView)?.onSlotMetadataChanged()
+    findSurface()?.onSlotMetadataChanged()
+  }
+
+  private fun findSurface(): HomeContainerSurfaceView? {
+    var ancestor = parent
+    while (ancestor is View) {
+      if (ancestor is HomeContainerSurfaceView) return ancestor
+      ancestor = ancestor.parent
+    }
+    return null
   }
 
   private fun Double.toExactLong(): Long? {

@@ -46,6 +46,9 @@ import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt
 
+private const val HOME_CONTAINER_TAB_HEIGHT_DP = 60
+private const val HOME_CONTAINER_COMPACT_HEADER_HEIGHT_DP = 60
+
 private fun HomeContainerTheme.skeletonGradientColors(): Array<String> {
   val background = parseHomeContainerColor(backgroundColor, Color.WHITE)
   val red = Color.red(background) / 255.0
@@ -142,6 +145,11 @@ internal fun homeContainerShouldCompletePendingPageTransition(
   currentTabId: String,
   isIdle: Boolean,
 ): Boolean = isIdle && pendingTargetTabId == currentTabId
+
+internal fun homeContainerMaximumHeaderOffset(
+  headerHeight: Int,
+  compactHeaderHeight: Int,
+): Int = (headerHeight - compactHeaderHeight).coerceAtLeast(0)
 
 internal fun homeContainerShouldReconcileDeferredPageSelection(
   requestedTabId: String,
@@ -305,7 +313,6 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
   private var chromeDownX = 0f
   private var chromeDownY = 0f
   private var chromeDownEvent: MotionEvent? = null
-  private var externalHorizontalTarget: View? = null
 
   init {
     clipChildren = true
@@ -319,7 +326,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
     pager.offscreenPageLimit = 5
     addView(pager, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
     addView(headerView, LayoutParams(LayoutParams.MATCH_PARENT, 0))
-    addView(tabsView, LayoutParams(LayoutParams.MATCH_PARENT, dp(TAB_HEIGHT_DP)))
+    addView(tabsView, LayoutParams(LayoutParams.MATCH_PARENT, dp(HOME_CONTAINER_TAB_HEIGHT_DP)))
     headerView.onAction = { actionId, itemId ->
       emitAction(actionId, itemId, selectedTabId)
     }
@@ -551,48 +558,6 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
     post { moveToTab(tabId, animated, false) }
   }
 
-  fun dispatchExternalTouchEvent(event: MotionEvent, horizontal: Boolean): Boolean {
-    val forwardedEvent = MotionEvent.obtain(event)
-    return try {
-      if (horizontal) {
-        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
-          val rootLocation = IntArray(2)
-          getLocationInWindow(rootLocation)
-          val windowX = rootLocation[0] + event.x
-          val windowY = rootLocation[1] + event.y
-          externalHorizontalTarget =
-            headerView.horizontalScrollTargetAt(windowX, windowY)
-              ?: tabsView.horizontalScrollTargetAt(windowX, windowY)
-              ?: pager
-        }
-        val target = externalHorizontalTarget ?: pager
-        val sourceLocation = IntArray(2)
-        val targetLocation = IntArray(2)
-        getLocationInWindow(sourceLocation)
-        target.getLocationInWindow(targetLocation)
-        forwardedEvent.offsetLocation(
-          (sourceLocation[0] - targetLocation[0]).toFloat(),
-          (sourceLocation[1] - targetLocation[1]).toFloat(),
-        )
-        val handled = target.dispatchTouchEvent(forwardedEvent)
-        if (event.actionMasked == MotionEvent.ACTION_CANCEL ||
-          event.actionMasked == MotionEvent.ACTION_UP
-        ) {
-          externalHorizontalTarget = null
-        }
-        handled
-      } else {
-        val sourceLocation = IntArray(2)
-        getLocationInWindow(sourceLocation)
-        adapter.pageForTab(selectedTabId)
-          ?.dispatchExternalTouchEvent(forwardedEvent, sourceLocation)
-          ?: dispatchTouchEvent(forwardedEvent)
-      }
-    } finally {
-      forwardedEvent.recycle()
-    }
-  }
-
   fun setMountedSlotKeys(keys: Set<String>) {
     if (mountedSlotKeys == keys) return
     mountedSlotKeys = keys
@@ -672,6 +637,23 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
     )
   }
 
+  fun slotHostView(key: String): ViewGroup? {
+    val statePrefix = "content.state."
+    val contentHeaderPrefix = "content.header."
+    val footerPrefix = "content.footer.$selectedTabId."
+    return when {
+      key.startsWith(statePrefix) && key.removePrefix(statePrefix) == selectedTabId ->
+        adapter.pageForTab(selectedTabId)?.stateSlotTarget()
+      key.startsWith(contentHeaderPrefix) && key.removePrefix(contentHeaderPrefix) == selectedTabId ->
+        adapter.pageForTab(selectedTabId)?.contentHeaderSlotTarget()
+      key.startsWith(footerPrefix) ->
+        adapter.pageForTab(selectedTabId)?.footerSlotTarget(key)
+      key.startsWith("header.") -> headerView.slotHostView(key)
+      key.startsWith("tab.") -> tabsView.slotHostView(key)
+      else -> null
+    }
+  }
+
   fun setFallbackBackgroundColor(value: String) {
     val color = parseHomeContainerColor(value, Color.WHITE)
     post {
@@ -714,7 +696,6 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
   fun dispose() {
     if (disposed.compareAndSet(false, true)) {
       resetChromeGesture()
-      externalHorizontalTarget = null
       parser.shutdownNow()
       val mountedPages = adapter.pages().toList()
       pager.adapter = null
@@ -794,7 +775,10 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
       suppressPageCallback = false
     }
     if (headerHeightChanged) {
-      adapter.updateTopSpacerHeight(headerHeight + dp(TAB_HEIGHT_DP), next.revision)
+      adapter.updateTopSpacerHeight(
+        headerHeight + dp(HOME_CONTAINER_TAB_HEIGHT_DP),
+        next.revision,
+      )
     }
     awaitSelectedPageRender(next.revision)
   }
@@ -808,7 +792,10 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
       headerView.bind(header, next.theme)
       headerHeight = headerView.preferredHeight
       if (previousHeaderHeight != headerHeight) {
-        adapter.updateTopSpacerHeight(headerHeight + dp(TAB_HEIGHT_DP), next.revision)
+        adapter.updateTopSpacerHeight(
+          headerHeight + dp(HOME_CONTAINER_TAB_HEIGHT_DP),
+          next.revision,
+        )
       }
       updateSharedChromeLayout()
     }
@@ -854,7 +841,10 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
     }
 
     if (headerHeightChanged) {
-      adapter.updateTopSpacerHeight(headerHeight + dp(TAB_HEIGHT_DP), next.revision)
+      adapter.updateTopSpacerHeight(
+        headerHeight + dp(HOME_CONTAINER_TAB_HEIGHT_DP),
+        next.revision,
+      )
     }
 
     if (renderPlan.shouldReconcileNavigation) {
@@ -1479,7 +1469,12 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
         ).forEach(::completeProtocolV2Render)
       }
       renderCompletionCoordinator.registerPage(tab.id, page.renderInstanceId)
-      page.bind(tab, next.theme, headerHeight + dp(TAB_HEIGHT_DP), next.revision)
+      page.bind(
+        tab,
+        next.theme,
+        headerHeight + dp(HOME_CONTAINER_TAB_HEIGHT_DP),
+        next.revision,
+      )
       page.setRefreshEnabled(refreshEnabled)
       page.setMountedSlotKeys(mountedSlotKeys)
     }
@@ -1493,7 +1488,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
       headerView.layoutParams = this
     }
     (tabsView.layoutParams as LayoutParams).apply {
-      height = dp(TAB_HEIGHT_DP)
+      height = dp(HOME_CONTAINER_TAB_HEIGHT_DP)
       topMargin = headerHeight
       tabsView.layoutParams = this
     }
@@ -1523,7 +1518,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
       MeasureSpec.makeMeasureSpec(headerHeight, MeasureSpec.EXACTLY),
     )
     headerView.layout(0, 0, contentWidth, headerHeight)
-    val tabsHeight = dp(TAB_HEIGHT_DP)
+    val tabsHeight = dp(HOME_CONTAINER_TAB_HEIGHT_DP)
     tabsView.measure(
       MeasureSpec.makeMeasureSpec(contentWidth, MeasureSpec.EXACTLY),
       MeasureSpec.makeMeasureSpec(tabsHeight, MeasureSpec.EXACTLY),
@@ -1532,7 +1527,12 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
   }
 
   private fun updateSharedChromePosition() {
-    val boundedOffset = collapseOffset.coerceIn(0, headerHeight)
+    val maximumHeaderOffset = homeContainerMaximumHeaderOffset(
+      headerHeight,
+      dp(HOME_CONTAINER_COMPACT_HEADER_HEIGHT_DP),
+    )
+    val boundedOffset = collapseOffset.coerceIn(0, maximumHeaderOffset)
+    headerView.setPinnedOffset(boundedOffset)
     headerView.translationY = (-boundedOffset + refreshPullOffset).toFloat()
     tabsView.translationY = (-boundedOffset + refreshPullOffset).toFloat()
     onSlotLayoutChange?.invoke()
@@ -1560,7 +1560,6 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
 
   companion object {
     private const val SCHEMA_VERSION = HOME_CONTAINER_BUSINESS_SCHEMA_VERSION
-    private const val TAB_HEIGHT_DP = 52
   }
 }
 
@@ -1592,8 +1591,15 @@ private class HomePageView(context: Context) : FrameLayout(context) {
 
   val collapseOffset: Int
     get() {
-      val headerHeight = (topSpacerHeight - dp(TAB_HEIGHT_DP)).coerceAtLeast(0)
-      return min(currentScrollOffset(), headerHeight)
+      val headerHeight =
+        (topSpacerHeight - dp(HOME_CONTAINER_TAB_HEIGHT_DP)).coerceAtLeast(0)
+      return min(
+        currentScrollOffset(),
+        homeContainerMaximumHeaderOffset(
+          headerHeight,
+          dp(HOME_CONTAINER_COMPACT_HEADER_HEIGHT_DP),
+        ),
+      )
     }
 
   val refreshPullOffset: Int
@@ -1608,8 +1614,9 @@ private class HomePageView(context: Context) : FrameLayout(context) {
     }
     listAdapter.onListCommitted = { committedRevision, requiresRecyclerRecreation ->
       if (requiresRecyclerRecreation) {
+        val layoutState = recycler.layoutManager?.onSaveInstanceState()
         post {
-          recreateRecyclerForReadyContent()
+          recreateRecyclerForReadyContent(layoutState)
           commitListContent(committedRevision)
         }
       } else {
@@ -1665,10 +1672,15 @@ private class HomePageView(context: Context) : FrameLayout(context) {
   }
 
   fun synchronizeCollapseOffset(offset: Int) {
-    val headerHeight = (topSpacerHeight - dp(TAB_HEIGHT_DP)).coerceAtLeast(0)
+    val headerHeight =
+      (topSpacerHeight - dp(HOME_CONTAINER_TAB_HEIGHT_DP)).coerceAtLeast(0)
+    val maximumHeaderOffset = homeContainerMaximumHeaderOffset(
+      headerHeight,
+      dp(HOME_CONTAINER_COMPACT_HEADER_HEIGHT_DP),
+    )
     val verticalOffset = currentScrollOffset()
-    if (verticalOffset > headerHeight) return
-    val target = offset.coerceIn(0, headerHeight)
+    if (verticalOffset > maximumHeaderOffset) return
+    val target = offset.coerceIn(0, maximumHeaderOffset)
     val delta = target - verticalOffset
     if (abs(delta) <= 1) return
     suppressCollapseCallback = true
@@ -1713,22 +1725,28 @@ private class HomePageView(context: Context) : FrameLayout(context) {
     return refreshLayout.dispatchTouchEvent(event)
   }
 
-  fun stateSlotTarget(): View? {
+  fun stateSlotTarget(): ViewGroup? {
     val position = listAdapter.statePosition()
     if (position == RecyclerView.NO_POSITION) return null
-    return recycler.findViewHolderForAdapterPosition(position)?.itemView
+    return (
+      recycler.findViewHolderForAdapterPosition(position) as? HomeListAdapter.SlotHolder
+      )?.host
   }
 
-  fun contentHeaderSlotTarget(): View? {
+  fun contentHeaderSlotTarget(): ViewGroup? {
     val position = listAdapter.contentHeaderPosition()
     if (position == RecyclerView.NO_POSITION) return null
-    return recycler.findViewHolderForAdapterPosition(position)?.itemView
+    return (
+      recycler.findViewHolderForAdapterPosition(position) as? HomeListAdapter.SlotHolder
+      )?.host
   }
 
-  fun footerSlotTarget(key: String): View? {
+  fun footerSlotTarget(key: String): ViewGroup? {
     val position = listAdapter.footerSlotPosition(key)
     if (position == RecyclerView.NO_POSITION) return null
-    return recycler.findViewHolderForAdapterPosition(position)?.itemView
+    return (
+      recycler.findViewHolderForAdapterPosition(position) as? HomeListAdapter.SlotHolder
+      )?.host
   }
 
   private fun currentScrollOffset(): Int {
@@ -1851,7 +1869,7 @@ private class HomePageView(context: Context) : FrameLayout(context) {
     }
   }
 
-  private fun recreateRecyclerForReadyContent() {
+  private fun recreateRecyclerForReadyContent(layoutState: android.os.Parcelable?) {
     val previousRefreshLayout = refreshLayout
     val previousRecycler = recycler
     previousRefreshLayout.setOnRefreshListener(null)
@@ -1868,7 +1886,11 @@ private class HomePageView(context: Context) : FrameLayout(context) {
       refreshLayout,
       LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
     )
-    recycler.scrollToPosition(0)
+    if (layoutState == null) {
+      recycler.scrollToPosition(0)
+    } else {
+      recycler.layoutManager?.onRestoreInstanceState(layoutState)
+    }
     recycler.requestLayout()
     refreshLayout.requestLayout()
     requestLayout()
@@ -1882,8 +1904,17 @@ private class HomePageView(context: Context) : FrameLayout(context) {
 
   private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
-  companion object {
-    private const val TAB_HEIGHT_DP = 52
+}
+
+private class HomeContainerSlotHostView(context: Context) : FrameLayout(context) {
+  override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+    super.onLayout(changed, left, top, right, bottom)
+    for (index in 0 until childCount) {
+      val child = getChildAt(index)
+      if (child is HomeContainerSlotView) {
+        child.layout(0, 0, width, height)
+      }
+    }
   }
 }
 
@@ -2019,15 +2050,36 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
       tabId == "portfolio" &&
         currentRows.none { it.item?.renderer == "marketTabs" } &&
         nextRows.any { it.item?.renderer == "marketTabs" }
+    val structureChanged =
+      currentRows.map { row -> row.kind to row.stableId } !=
+        nextRows.map { row -> row.kind to row.stableId }
+    val currentRowsByStableId = currentRows.associateBy(HomeListRow::stableId)
+    val interactiveContentChanged = nextRows.any { nextRow ->
+      val currentItem = currentRowsByStableId[nextRow.stableId]?.item
+      val nextItem = nextRow.item
+      when (nextItem?.renderer) {
+        "showMore" -> currentItem?.title != nextItem.title
+        "market" ->
+          currentItem?.favorite != nextItem.favorite ||
+            currentItem?.favoriteLabel != nextItem.favoriteLabel
+        "marketTabs" -> currentItem?.segments != nextItem.segments
+        else -> false
+      }
+    }
     val requiresRecyclerRecreation =
-      transitionsFromLoading || hydratesDeferredPortfolioSections
+      transitionsFromLoading ||
+        hydratesDeferredPortfolioSections ||
+        structureChanged ||
+        interactiveContentChanged
 
     if (requiresRecyclerRecreation) {
       rows = nextRows
       // Skeleton views continuously invalidate while shimmering. A full,
       // synchronous rebind is required for loading-to-content and for the
-      // one-time deferred portfolio-section hydration. Normal user-driven
-      // content updates below still use DiffUtil animations.
+      // one-time deferred portfolio-section hydration. Recreate the recycler
+      // when row structure or interactive state changes so moved action rows
+      // cannot retain a stale holder.
+      // Ordinary content updates below still use DiffUtil animations.
       notifyDataSetChanged()
     } else {
       val diff = DiffUtil.calculateDiff(RowDiffCallback(currentRows, nextRows))
@@ -2036,7 +2088,11 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
     }
 
     committedGeneration = generation
-    if (themeChanged && itemCount > 0 && !requiresRecyclerRecreation) {
+    if (
+      themeChanged &&
+      itemCount > 0 &&
+      !requiresRecyclerRecreation
+    ) {
       notifyItemRangeChanged(0, itemCount, PAYLOAD_THEME)
     }
     onListCommitted?.invoke(submittedRevision, requiresRecyclerRecreation)
@@ -2073,6 +2129,7 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
             VIEW_CONTENT_HEADER,
             "content-header:$tabId",
             "content-header:$tabId",
+            slotKey = "content.header.$tabId",
           ),
         )
       }
@@ -2156,17 +2213,26 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
       }
     }
 
-  private fun itemRow(sectionId: String, item: HomeContainerItem): HomeListRow =
-    HomeListRow(
+  private fun itemRow(sectionId: String, item: HomeContainerItem): HomeListRow {
+    val stateSlotKey = "content.state.$tabId"
+    val usesStateSlot =
+      item.isHomeContainerStateItem() && mountedSlotKeys.contains(stateSlotKey)
+    return HomeListRow(
       kind = when (item.renderer) {
         "market" -> VIEW_MARKET_ITEM
         "marketTabs" -> VIEW_MARKET_TABS
-        else -> VIEW_ITEM
+        else -> if (usesStateSlot) VIEW_STATE_SLOT else VIEW_ITEM
       },
-      stableId = "item:$sectionId:${item.id}",
+      stableId = if (usesStateSlot) {
+        "state-slot:$sectionId:${item.id}"
+      } else {
+        "item:$sectionId:${item.id}"
+      },
       contentKey = homeContainerItemContentKey(item),
       item = item,
+      slotKey = if (usesStateSlot) stateSlotKey else "",
     )
+  }
 
   override fun getItemCount(): Int = rows.size
 
@@ -2182,6 +2248,8 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
       VIEW_MARKET_TABS -> MarketTabsHolder(HomeMarketSegmentsView(parent.context))
       VIEW_MARKET_RECOMMENDATIONS ->
         MarketRecommendationsHolder(HomeMarketRecommendationRowView(parent.context))
+      VIEW_CONTENT_HEADER, VIEW_FOOTER_SLOT, VIEW_STATE_SLOT ->
+        SlotHolder(HomeContainerSlotHostView(parent.context))
       else -> SpacerHolder(View(parent.context))
     }
 
@@ -2189,16 +2257,28 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
     val row = rows[position]
     when (holder) {
       is SpacerHolder -> {
-        val height = when (row.kind) {
-          VIEW_CONTENT_HEADER -> holder.itemView.dp(contentHeaderHeight(tabId))
-          VIEW_FOOTER_SLOT -> holder.itemView.dp(footerSlotHeight(row.slotKey))
-          else -> topSpacerHeight
-        }
         holder.itemView.layoutParams = RecyclerView.LayoutParams(
+          ViewGroup.LayoutParams.MATCH_PARENT,
+          topSpacerHeight,
+        )
+        holder.itemView.setBackgroundColor(parseHomeContainerColor(theme.backgroundColor, Color.WHITE))
+      }
+      is SlotHolder -> {
+        val height = when (row.kind) {
+          VIEW_CONTENT_HEADER -> holder.host.dp(contentHeaderHeight(tabId))
+          VIEW_FOOTER_SLOT -> holder.host.dp(footerSlotHeight(row.slotKey))
+          VIEW_STATE_SLOT -> holder.host.dp(
+            row.item?.displayHeight?.takeIf { it > 0 } ?: 320,
+          )
+          else -> 0
+        }
+        holder.host.layoutParams = RecyclerView.LayoutParams(
           ViewGroup.LayoutParams.MATCH_PARENT,
           height,
         )
-        holder.itemView.setBackgroundColor(parseHomeContainerColor(theme.backgroundColor, Color.WHITE))
+        holder.host.setBackgroundColor(
+          parseHomeContainerColor(theme.backgroundColor, Color.WHITE),
+        )
       }
       is SectionHolder -> {
         val isHistory = row.stableId.startsWith("section:history:")
@@ -2208,10 +2288,7 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
       }
       is ItemHolder -> {
         val item = row.item ?: return
-        holder.view.bind(item, theme)
-        holder.view.setOnClickListener {
-          if (item.actionId.isNotEmpty()) onAction?.invoke(item.actionId, item.id)
-        }
+        holder.view.bind(item, theme, onAction)
         val loadMoreActionId = sections.firstOrNull { section ->
           section.actionId.endsWith(".loadMore") && section.items.lastOrNull()?.id == item.id
         }?.actionId
@@ -2277,6 +2354,7 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
   }
 
   private class SpacerHolder(view: View) : RecyclerView.ViewHolder(view)
+  class SlotHolder(val host: HomeContainerSlotHostView) : RecyclerView.ViewHolder(host)
   private class SectionHolder(val view: HomeSectionTitleView) : RecyclerView.ViewHolder(view)
   private class ItemHolder(val view: HomeItemView) : RecyclerView.ViewHolder(view)
   private class GridHolder(val view: HomeNftGridRowView) : RecyclerView.ViewHolder(view)
@@ -2298,6 +2376,7 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
     private const val VIEW_MARKET_ITEM = 7
     private const val VIEW_MARKET_TABS = 8
     private const val VIEW_MARKET_RECOMMENDATIONS = 9
+    private const val VIEW_STATE_SLOT = 10
     private const val PAYLOAD_THEME = "theme"
     private val FOOTER_SLOT_IDS = listOf("upgrade", "support", "historyEnd")
   }
@@ -2332,14 +2411,17 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
   private val networkButton = text("", 15f, Typeface.BOLD, "#111111")
   private val networkGroup = LinearLayout(context)
   private val accountRow = LinearLayout(context)
-  private val balanceContainer = FrameLayout(context)
+  private val accountRowHost = HomeContainerSlotHostView(context)
+  private val balanceContainer = HomeContainerSlotHostView(context)
   private val balanceButton = text("", 48f, Typeface.NORMAL, "#111111")
   private var balanceSkeletonView: SkeletonNativeView? = null
   private val balanceActionsContent = LinearLayout(context)
   private val actionsScroll = AxisLockHorizontalScrollView(context)
+  private val actionRowHost = HomeContainerSlotHostView(context)
   private val actionsContent = LinearLayout(context)
   private val bannersScroll = AxisLockHorizontalScrollView(context)
   private val bannersContent = LinearLayout(context)
+  private val compactBackdropPaint = Paint(Paint.ANTI_ALIAS_FLAG)
   private val actionViews = mutableMapOf<String, HomeActionView>()
   private val balanceActionViews = mutableMapOf<String, TextView>()
   private val bannerViews = mutableMapOf<String, HomeBannerView>()
@@ -2354,9 +2436,11 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
   private var representedNetworkSecondaryImageUrl: String? = null
   private var balanceIsLoading = false
   private var currentTheme: HomeContainerTheme? = null
+  private var pinnedOffset = 0
+
   init {
     orientation = VERTICAL
-    setPadding(dp(16))
+    setPadding(dp(20), dp(16), dp(20), 0)
     accountButton.maxLines = 1
     networkButton.maxLines = 1
     accountGroup.apply {
@@ -2387,31 +2471,47 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
       addView(copyButton, LinearLayout.LayoutParams(dp(36), dp(32)))
       addView(networkGroup, LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, dp(32)))
     }
-    addView(accountRow, row(32))
+    accountRowHost.addView(
+      accountRow,
+      FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
+    )
+    addView(accountRowHost, row(32))
     balanceContainer.addView(
       balanceButton,
       FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
     )
-    addView(balanceContainer, row(64))
+    addView(balanceContainer, row(58).apply {
+      topMargin = dp(10)
+    })
     balanceActionsContent.orientation = HORIZONTAL
     balanceActionsContent.gravity = Gravity.CENTER_VERTICAL
-    addView(balanceActionsContent, row(32))
+    addView(balanceActionsContent, row(28).apply {
+      topMargin = dp(26)
+    })
     actionsContent.orientation = HORIZONTAL
     actionsContent.setPadding(0, 0, dp(10), 0)
     actionsScroll.addView(
       actionsContent,
-      ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(72)),
+      ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT),
     )
     actionsScroll.setOnScrollChangeListener { _, _, _, _, _ ->
       onSlotLayoutChange?.invoke()
     }
-    addView(actionsScroll, row(82))
+    actionRowHost.addView(
+      actionsScroll,
+      FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
+    )
+    addView(actionRowHost, row(62).apply {
+      topMargin = dp(26)
+    })
     bannersContent.orientation = HORIZONTAL
     bannersScroll.addView(
       bannersContent,
-      ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(84)),
+      ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(88)),
     )
-    addView(bannersScroll, row(94))
+    addView(bannersScroll, row(88).apply {
+      topMargin = dp(21)
+    })
     accountGroup.alpha = 0f
     copyButton.alpha = 0f
     networkGroup.alpha = 0f
@@ -2424,7 +2524,9 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
   ) {
     this.header = header
     currentTheme = theme
-    setBackgroundColor(Color.TRANSPARENT)
+    val backgroundColor = parseHomeContainerColor(theme.backgroundColor, Color.WHITE)
+    setBackgroundColor(backgroundColor)
+    compactBackdropPaint.color = backgroundColor
     val primary = parseHomeContainerColor(theme.primaryTextColor, Color.BLACK)
     val secondary = parseHomeContainerColor(theme.secondaryTextColor, Color.DKGRAY)
     accountButton.text = "${header.accountName} ⌄"
@@ -2473,14 +2575,17 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
     updateActions(header.actions, theme)
     updateBanners(header.banners, theme)
     updateNativeOwnershipVisibility()
-    actionsScroll.layoutParams = actionsScroll.layoutParams.apply {
+    actionRowHost.layoutParams = actionRowHost.layoutParams.apply {
       height = dp(header.actionRowHeight.coerceAtLeast(0))
+      (this as? LinearLayout.LayoutParams)?.topMargin =
+        dp(if (header.balanceActions.isEmpty()) 26 else 10)
     }
     updateActionRowVisibility(header)
     bannersScroll.visibility = if (header.banners.isEmpty()) GONE else VISIBLE
     preferredHeight = dp(
       (if (header.banners.isEmpty()) 216 else 310) +
         (if (header.balanceActions.isEmpty()) 0 else 38) +
+        40 +
         preferredHeightAdjustment(header),
     )
   }
@@ -2494,10 +2599,48 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
   }
 
   fun slotTarget(key: String): View? = when (key) {
-    "header.account-row" -> accountRow
-    "header.balance" -> balanceButton
-    "header.action-row" -> actionsScroll
+    "header.account-row" -> accountRowHost
+    "header.balance" -> balanceContainer
+    "header.action-row" -> actionRowHost
     else -> null
+  }
+
+  fun slotHostView(key: String): ViewGroup? = when (key) {
+    "header.account-row" -> accountRowHost
+    "header.balance" -> balanceContainer
+    "header.action-row" -> actionRowHost.takeIf { it.visibility == VISIBLE }
+    else -> null
+  }
+
+  fun setPinnedOffset(offset: Int) {
+    val nextOffset = offset.coerceAtLeast(0)
+    if (nextOffset == pinnedOffset) return
+    pinnedOffset = nextOffset
+    accountRowHost.translationY = nextOffset.toFloat()
+    invalidate()
+    onSlotLayoutChange?.invoke()
+  }
+
+  override fun dispatchDraw(canvas: Canvas) {
+    if (accountRowHost.visibility == VISIBLE) {
+      val compactBottom =
+        (accountRowHost.bottom + accountRowHost.translationY).coerceAtMost(height.toFloat())
+      canvas.drawRect(0f, 0f, width.toFloat(), compactBottom, compactBackdropPaint)
+    }
+    super.dispatchDraw(canvas)
+  }
+
+  override fun drawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean {
+    if (accountRowHost.visibility != VISIBLE || child === accountRowHost) {
+      return super.drawChild(canvas, child, drawingTime)
+    }
+    val compactBottom =
+      (accountRowHost.bottom + accountRowHost.translationY).coerceAtMost(height.toFloat())
+    val saveCount = canvas.save()
+    canvas.clipRect(0f, compactBottom, width.toFloat(), height.toFloat())
+    val result = super.drawChild(canvas, child, drawingTime)
+    canvas.restoreToCount(saveCount)
+    return result
   }
 
   fun setMountedSlotKeys(keys: Set<String>) {
@@ -2512,26 +2655,12 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
   private fun updateActionRowVisibility(header: HomeContainerHeader? = null) {
     val currentHeader = header ?: this.header ?: return
     val hasMountedSlot = mountedSlotKeys.contains("header.action-row")
-    actionsScroll.visibility =
+    actionRowHost.visibility =
       if (!hasMountedSlot && currentHeader.actions.isEmpty() && currentHeader.actionLayout != "loading") {
         GONE
       } else {
         VISIBLE
       }
-  }
-
-  fun horizontalScrollTargetAt(windowX: Float, windowY: Float): View? =
-    listOf(bannersScroll).firstOrNull { scrollView ->
-      scrollView.visibility == VISIBLE &&
-        (scrollView.canScrollHorizontally(-1) || scrollView.canScrollHorizontally(1)) &&
-        scrollView.containsWindowPoint(windowX, windowY)
-    }
-
-  private fun View.containsWindowPoint(windowX: Float, windowY: Float): Boolean {
-    val location = IntArray(2)
-    getLocationInWindow(location)
-    return windowX >= location[0] && windowX <= location[0] + width &&
-      windowY >= location[1] && windowY <= location[1] + height
   }
 
   private fun updateBalanceActions(
@@ -2574,7 +2703,7 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
           isClickable = false
         }
         actionViews[action.id] = view
-        actionsContent.addView(view, LinearLayout.LayoutParams(dp(82), dp(72)).apply {
+        actionsContent.addView(view, LinearLayout.LayoutParams(dp(82), dp(62)).apply {
           marginEnd = dp(10)
         })
       }
@@ -2995,6 +3124,7 @@ private class HomeTabsView(context: Context) : FrameLayout(context) {
   private val scroll = AxisLockHorizontalScrollView(context)
   private val content = LinearLayout(context)
   private val toolbar = TextView(context)
+  private val toolbarSlotHost = HomeContainerSlotHostView(context)
   private val buttons = mutableMapOf<String, TextView>()
   private var renderedTabs = emptyList<HomeContainerTab>()
   private var tabsById = emptyMap<String, HomeContainerTab>()
@@ -3029,7 +3159,11 @@ private class HomeTabsView(context: Context) : FrameLayout(context) {
         onAction?.invoke(action.actionId, action.id)
       }
     }
-    addView(toolbar, LayoutParams(dp(44), LayoutParams.MATCH_PARENT, Gravity.END))
+    toolbarSlotHost.addView(
+      toolbar,
+      FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
+    )
+    addView(toolbarSlotHost, LayoutParams(dp(44), LayoutParams.MATCH_PARENT, Gravity.END))
   }
 
   fun bind(tabs: List<HomeContainerTab>, selectedTabId: String, theme: HomeContainerTheme) {
@@ -3072,7 +3206,7 @@ private class HomeTabsView(context: Context) : FrameLayout(context) {
       }
       requestLayout()
       content.post {
-        val contentHeight = height.takeIf { it > 0 } ?: dp(52)
+        val contentHeight = height.takeIf { it > 0 } ?: dp(HOME_CONTAINER_TAB_HEIGHT_DP)
         content.measure(
           MeasureSpec.makeMeasureSpec(contentWidth, MeasureSpec.EXACTLY),
           MeasureSpec.makeMeasureSpec(contentHeight, MeasureSpec.EXACTLY),
@@ -3116,25 +3250,21 @@ private class HomeTabsView(context: Context) : FrameLayout(context) {
     return if (
       key.startsWith(accessoryPrefix) &&
       key.removePrefix(accessoryPrefix) == selectedTabId &&
-      toolbar.visibility == VISIBLE
+      toolbarSlotHost.visibility == VISIBLE
     ) {
-      toolbar
+      toolbarSlotHost
     } else {
       null
     }
   }
 
-  fun horizontalScrollTargetAt(windowX: Float, windowY: Float): View? =
-    scroll.takeIf { scrollView ->
-      (scrollView.canScrollHorizontally(-1) || scrollView.canScrollHorizontally(1)) &&
-        scrollView.containsWindowPoint(windowX, windowY)
+  fun slotHostView(key: String): ViewGroup? {
+    val accessoryPrefix = "tab.accessory."
+    return toolbarSlotHost.takeIf {
+      key.startsWith(accessoryPrefix) &&
+        key.removePrefix(accessoryPrefix) == selectedTabId &&
+        it.visibility == VISIBLE
     }
-
-  private fun View.containsWindowPoint(windowX: Float, windowY: Float): Boolean {
-    val location = IntArray(2)
-    getLocationInWindow(location)
-    return windowX >= location[0] && windowX <= location[0] + width &&
-      windowY >= location[1] && windowY <= location[1] + height
   }
 
   private fun updateColors() {
@@ -3152,7 +3282,7 @@ private class HomeTabsView(context: Context) : FrameLayout(context) {
   private fun updateToolbar() {
     val value = theme ?: return
     val accessoryKey = "tab.accessory.$selectedTabId"
-    toolbar.visibility = if (
+    toolbarSlotHost.visibility = if (
       tabsById[selectedTabId]?.toolbarAction != null || mountedSlotKeys.contains(accessoryKey)
     ) VISIBLE else GONE
     toolbar.setTextColor(parseHomeContainerColor(value.secondaryTextColor, Color.DKGRAY))
@@ -3274,7 +3404,10 @@ private class HomeHorizontalCardView(context: Context) : LinearLayout(context) {
     addView(labels, LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
   }
 
-  fun bind(item: HomeContainerItem, theme: HomeContainerTheme) {
+  fun bind(
+    item: HomeContainerItem,
+    theme: HomeContainerTheme,
+  ) {
     alpha = if (item.renderer == "empty" || item.renderer == "loading") 0f else 1f
     val isSupportPromo = item.renderer == "supportPromo"
     title.text = if (
@@ -3441,7 +3574,10 @@ private class HomeNftCardView(context: Context) : LinearLayout(context) {
     )
   }
 
-  fun bind(item: HomeContainerItem, theme: HomeContainerTheme) {
+  fun bind(
+    item: HomeContainerItem,
+    theme: HomeContainerTheme,
+  ) {
     setBackgroundColor(parseHomeContainerColor(theme.backgroundColor, Color.WHITE))
     image.background = roundedBackground(
       parseHomeContainerColor(theme.cardColor, Color.LTGRAY),
@@ -3758,7 +3894,7 @@ private class HomeMarketItemView(context: Context) : FrameLayout(context) {
     addView(highlight)
 
     favoriteButton.scaleType = ImageView.ScaleType.CENTER
-    favoriteButton.setPadding(dp(4), dp(4), dp(4), dp(4))
+    favoriteButton.setPadding(dp(14), dp(14), dp(14), dp(14))
     favoriteButton.isClickable = true
     favoriteButton.isFocusable = true
     addView(favoriteButton)
@@ -3864,6 +4000,18 @@ private class HomeMarketItemView(context: Context) : FrameLayout(context) {
     showsFavorite = item.favoriteActionId.isNotEmpty()
     favoriteButton.visibility = if (showsFavorite) VISIBLE else GONE
     favoriteButton.contentDescription = item.favoriteLabel
+    favoriteButton.background = homeContainerInteractiveBackground(
+      normalColor = Color.TRANSPARENT,
+      hoverColor = parseHomeContainerColor(
+        theme.hoverColor.ifEmpty { theme.activeColor.ifEmpty { theme.cardColor } },
+        Color.TRANSPARENT,
+      ),
+      activeColor = parseHomeContainerColor(
+        theme.activeColor.ifEmpty { theme.hoverColor.ifEmpty { theme.cardColor } },
+        Color.LTGRAY,
+      ),
+      radius = dp(24).toFloat(),
+    )
     favoriteButton.setOnClickListener {
       if (item.favoriteActionId.isNotEmpty()) {
         onAction?.invoke(item.favoriteActionId, item.id)
@@ -4017,7 +4165,7 @@ private class HomeMarketItemView(context: Context) : FrameLayout(context) {
       measuredTextHeight + dp(12),
     )
     measureExact(highlight, (width - dp(16)).coerceAtLeast(0), height)
-    measureExact(favoriteButton, dp(28), dp(28))
+    measureExact(favoriteButton, dp(48), dp(48))
     measureExact(iconContainer, dp(32), dp(32))
     measureExact(iconImage, dp(32), dp(32))
     measureExact(badgeContainer, dp(20), dp(20))
@@ -4044,7 +4192,7 @@ private class HomeMarketItemView(context: Context) : FrameLayout(context) {
     val width = rightEdge - leftEdge
     val height = bottom - top
     placeLogical(highlight, 8, 0, width - dp(16), height, width)
-    placeLogical(favoriteButton, 20, (height - dp(28)) / 2, dp(28), dp(28), width)
+    placeLogical(favoriteButton, 10, (height - dp(48)) / 2, dp(48), dp(48), width)
     val iconStart = if (showsFavorite) 56 else 20
     val iconTop = (height - dp(32)) / 2
     placeLogical(iconContainer, iconStart, iconTop, dp(32), dp(32), width)
@@ -4883,7 +5031,11 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
     layoutParams = RecyclerView.LayoutParams(LayoutParams.MATCH_PARENT, dp(68))
   }
 
-  fun bind(item: HomeContainerItem, theme: HomeContainerTheme) {
+  fun bind(
+    item: HomeContainerItem,
+    theme: HomeContainerTheme,
+    onAction: ((String, String) -> Unit)?,
+  ) {
     val isLoading = item.renderer == "loading"
     alpha = 1f
     setBackgroundColor(parseHomeContainerColor(theme.backgroundColor, Color.WHITE))
@@ -4982,6 +5134,22 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
         item.renderer == "showMore" ||
         item.renderer == "marketTabs" ||
         item.renderer == "empty"
+    setOnClickListener {
+      item.actionId.takeIf { it.isNotEmpty() }?.let { actionId ->
+        onAction?.invoke(actionId, item.id)
+      }
+    }
+    centerPill.isClickable = isCentered && item.actionId.isNotEmpty()
+    centerPill.isFocusable = centerPill.isClickable
+    centerPill.setOnClickListener(
+      if (centerPill.isClickable) {
+        View.OnClickListener {
+          onAction?.invoke(item.actionId, item.id)
+        }
+      } else {
+        null
+      },
+    )
     iconContainer.visibility = if (isCentered) GONE else VISIBLE
     left.visibility = if (isCentered) GONE else VISIBLE
     right.visibility = if (isCentered) GONE else VISIBLE
@@ -5136,6 +5304,8 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
     secondaryIconImage.visibility = GONE
     badgeImage.visibility = GONE
     icon.visibility = VISIBLE
+    centerPill.setOnClickListener(null)
+    setOnClickListener(null)
     clearSkeletonViews()
   }
 

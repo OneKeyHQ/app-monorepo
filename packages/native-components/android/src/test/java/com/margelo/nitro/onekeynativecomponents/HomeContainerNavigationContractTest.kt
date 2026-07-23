@@ -1,10 +1,29 @@
 package com.margelo.nitro.onekeynativecomponents
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HomeContainerNavigationContractTest {
+  @Test
+  fun `header collapse preserves the compact account region`() {
+    assertEquals(
+      290,
+      homeContainerMaximumHeaderOffset(
+        headerHeight = 350,
+        compactHeaderHeight = 60,
+      ),
+    )
+    assertEquals(
+      0,
+      homeContainerMaximumHeaderOffset(
+        headerHeight = 48,
+        compactHeaderHeight = 60,
+      ),
+    )
+  }
+
   @Test
   fun `programmatic paging ignores intermediate page callbacks`() {
     assertTrue(
