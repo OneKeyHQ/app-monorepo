@@ -139,20 +139,45 @@ internal class HomeContainerSurfaceView(context: Context) : FrameLayout(context)
               layoutGravity,
             ),
           )
+        } else {
+          val currentLayoutParams = child.layoutParams as? FrameLayout.LayoutParams
+          if (
+            currentLayoutParams == null ||
+            currentLayoutParams.width != layoutWidth ||
+            currentLayoutParams.height != layoutHeight ||
+            currentLayoutParams.gravity != layoutGravity
+          ) {
+            child.layoutParams = FrameLayout.LayoutParams(
+              layoutWidth,
+              layoutHeight,
+              layoutGravity,
+            )
+          }
         }
-        child.visibility = VISIBLE
-        child.measure(
-          MeasureSpec.makeMeasureSpec(childWidth, MeasureSpec.EXACTLY),
-          MeasureSpec.makeMeasureSpec(childHeight, MeasureSpec.EXACTLY),
-        )
         val childLeft = homeContainerCenteredSlotOffset(host.width, childWidth)
         val childTop = homeContainerCenteredSlotOffset(host.height, childHeight)
-        child.layout(
-          childLeft,
-          childTop,
-          childLeft + childWidth,
-          childTop + childHeight,
-        )
+        val childRight = childLeft + childWidth
+        val childBottom = childTop + childHeight
+        val needsMeasure =
+          child.isLayoutRequested ||
+            child.measuredWidth != childWidth ||
+            child.measuredHeight != childHeight
+        if (child.visibility != VISIBLE) child.visibility = VISIBLE
+        if (needsMeasure) {
+          child.measure(
+            MeasureSpec.makeMeasureSpec(childWidth, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(childHeight, MeasureSpec.EXACTLY),
+          )
+        }
+        if (
+          needsMeasure ||
+          child.left != childLeft ||
+          child.top != childTop ||
+          child.right != childRight ||
+          child.bottom != childBottom
+        ) {
+          child.layout(childLeft, childTop, childRight, childBottom)
+        }
       }
     }
   }
@@ -162,8 +187,10 @@ internal class HomeContainerSurfaceView(context: Context) : FrameLayout(context)
       (slot.parent as? ViewGroup)?.removeView(slot)
       slotParkingView.addView(slot)
     }
-    slot.visibility = GONE
-    slot.layout(0, 0, 0, 0)
+    if (slot.visibility != GONE) slot.visibility = GONE
+    if (slot.left != 0 || slot.top != 0 || slot.right != 0 || slot.bottom != 0) {
+      slot.layout(0, 0, 0, 0)
+    }
   }
 
   private fun scheduleSlotLayout() {

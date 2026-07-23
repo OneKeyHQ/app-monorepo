@@ -32,6 +32,28 @@ class HomeContainerNavigationContractTest {
   }
 
   @Test
+  fun `collapse updates are dispatched only when the bounded offset changes`() {
+    assertTrue(
+      homeContainerShouldDispatchCollapseOffset(
+        previousOffset = null,
+        nextOffset = 0,
+      ),
+    )
+    assertTrue(
+      homeContainerShouldDispatchCollapseOffset(
+        previousOffset = 120,
+        nextOffset = 121,
+      ),
+    )
+    assertFalse(
+      homeContainerShouldDispatchCollapseOffset(
+        previousOffset = 640,
+        nextOffset = 640,
+      ),
+    )
+  }
+
+  @Test
   fun `programmatic paging ignores intermediate page callbacks`() {
     assertTrue(
       homeContainerShouldIgnoreProgrammaticPageSelection(

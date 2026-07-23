@@ -151,6 +151,11 @@ internal fun homeContainerMaximumHeaderOffset(
   compactHeaderHeight: Int,
 ): Int = (headerHeight - compactHeaderHeight).coerceAtLeast(0)
 
+internal fun homeContainerShouldDispatchCollapseOffset(
+  previousOffset: Int?,
+  nextOffset: Int,
+): Boolean = previousOffset != nextOffset
+
 internal fun homeContainerShouldReconcileDeferredPageSelection(
   requestedTabId: String,
   selectedTabId: String,
@@ -338,6 +343,7 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
   private var refreshEnabled = false
   private var headerHeight = 0
   private var collapseOffset = 0
+  private var appliedSharedChromeOffset: Int? = null
   private var mountedSlotKeys = emptySet<String>()
   private var mountedSlotMetadata = emptyList<HomeContainerProtocolV3MountedSlotMetadata>()
   private val chromeTouchSlop = ViewConfiguration.get(context).scaledTouchSlop
@@ -1559,9 +1565,6 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
         if (sourcePage.tabId == selectedTabId) {
           collapseOffset = offset
           updateSharedChromePosition()
-          pages.values.filter { it !== sourcePage }.forEach {
-            it.synchronizeCollapseOffset(offset)
-          }
         }
       }
       page.onListContentCommitted = { sourcePage, revision ->
@@ -1642,10 +1645,11 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       dp(HOME_CONTAINER_COMPACT_HEADER_HEIGHT_DP),
     )
     val boundedOffset = collapseOffset.coerceIn(0, maximumHeaderOffset)
+    if (appliedSharedChromeOffset == boundedOffset) return
+    appliedSharedChromeOffset = boundedOffset
     headerView.setPinnedOffset(boundedOffset)
     headerView.translationY = -boundedOffset.toFloat()
     tabsView.translationY = -boundedOffset.toFloat()
-    onSlotLayoutChange?.invoke()
   }
 
   private fun resetViewportForOwnerChange() {
@@ -1692,6 +1696,7 @@ private class HomePageView(context: Context) : FrameLayout(context) {
   private var suppressCollapseCallback = false
   private var userScrollActive = false
   private var pendingSynchronizedCollapseOffset: Int? = null
+  private var lastDispatchedCollapseOffset: Int? = null
   private var latestRequestedRenderRevision = -1L
   private var scheduledPreDrawRevision = -1L
   private var preDrawListener: android.view.ViewTreeObserver.OnPreDrawListener? = null
@@ -1738,6 +1743,7 @@ private class HomePageView(context: Context) : FrameLayout(context) {
     latestRequestedRenderRevision = maxOf(latestRequestedRenderRevision, revision)
     setBackgroundColor(parseHomeContainerColor(theme.backgroundColor, Color.WHITE))
     this.topSpacerHeight = topSpacerHeight
+    lastDispatchedCollapseOffset = null
     listAdapter.bind(tab.id, tab.sections, theme, topSpacerHeight, revision)
   }
 
@@ -1760,6 +1766,7 @@ private class HomePageView(context: Context) : FrameLayout(context) {
   fun updateTopSpacerHeight(height: Int, revision: Long) {
     latestRequestedRenderRevision = maxOf(latestRequestedRenderRevision, revision)
     topSpacerHeight = height
+    lastDispatchedCollapseOffset = null
     listAdapter.updateTopSpacerHeight(height, revision)
   }
 
@@ -1788,9 +1795,12 @@ private class HomePageView(context: Context) : FrameLayout(context) {
       maximumHeaderOffset = maximumHeaderOffset,
     ) ?: run {
       pendingSynchronizedCollapseOffset = null
-      return collapseOffset
+      val currentCollapseOffset = collapseOffset
+      lastDispatchedCollapseOffset = currentCollapseOffset
+      return currentCollapseOffset
     }
     pendingSynchronizedCollapseOffset = target
+    lastDispatchedCollapseOffset = target
     applyPendingSynchronizedCollapseOffset()
     return target
   }
@@ -1914,7 +1924,16 @@ private class HomePageView(context: Context) : FrameLayout(context) {
 
       override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
         if (userScrollActive && !suppressCollapseCallback) {
-          onCollapseOffsetChange?.invoke(this@HomePageView, collapseOffset)
+          val nextCollapseOffset = collapseOffset
+          if (
+            homeContainerShouldDispatchCollapseOffset(
+              lastDispatchedCollapseOffset,
+              nextCollapseOffset,
+            )
+          ) {
+            lastDispatchedCollapseOffset = nextCollapseOffset
+            onCollapseOffsetChange?.invoke(this@HomePageView, nextCollapseOffset)
+          }
         }
       }
     })
@@ -2693,7 +2712,6 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
     pinnedOffset = nextOffset
     accountRowHost.translationY = nextOffset.toFloat()
     invalidate()
-    onSlotLayoutChange?.invoke()
   }
 
   override fun dispatchDraw(canvas: Canvas) {
