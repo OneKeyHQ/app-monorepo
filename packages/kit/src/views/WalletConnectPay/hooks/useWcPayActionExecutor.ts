@@ -1,6 +1,10 @@
 import { useCallback } from 'react';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import {
+  extractWcPaySolanaTransaction,
+  wcPaySolanaTxToEncodedTx,
+} from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/solPayUtils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EModalRoutes,
@@ -250,6 +254,51 @@ export function useWcPayActionExecutor() {
               });
             });
             results.push(signature);
+            break;
+          }
+          case EWcPayActionMethod.SolanaSignTransaction: {
+            const encodedTx = wcPaySolanaTxToEncodedTx(
+              extractWcPaySolanaTransaction(parsed),
+            );
+            const unsignedTx =
+              await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx(
+                {
+                  networkId,
+                  accountId: account.id,
+                  encodedTx,
+                },
+              );
+            const rawTx = await new Promise<string>((resolve, reject) => {
+              navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+                screen: EModalSignatureConfirmRoutes.TxConfirm,
+                params: {
+                  networkId,
+                  accountId: account.id,
+                  unsignedTxs: [unsignedTx],
+                  // WalletConnect Pay submits the signed transaction itself;
+                  // the wallet must sign only and never broadcast
+                  signOnly: true,
+                  onSuccess: (txs: ISendTxOnSuccessData[]) => {
+                    const raw = txs?.[0]?.signedTx?.rawTx;
+                    if (raw) {
+                      resolve(raw);
+                    } else {
+                      reject(
+                        new OneKeyLocalError('Missing signed transaction'),
+                      );
+                    }
+                  },
+                  onFail: (error: Error) => reject(error),
+                  onCancel: () =>
+                    reject(
+                      new WcPayUserCancelledError('User canceled payment'),
+                    ),
+                },
+              });
+            });
+            // confirmPayment expects the full signed transaction; sol
+            // signedTx.rawTx is already base64, pass through unchanged
+            results.push(rawTx);
             break;
           }
           default:
