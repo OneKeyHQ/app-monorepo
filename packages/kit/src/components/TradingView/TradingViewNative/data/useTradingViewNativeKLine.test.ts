@@ -9,8 +9,8 @@ import type {
   IMarketTokenKLineResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
-import { createTradingViewNativeDataProvider } from './createTradingViewNativeDataProvider';
 import { getTradingViewNativeSourceKey } from './getTradingViewNativeSource';
+import { createTradingViewNativeDataProvider } from './providers/createTradingViewNativeDataProvider';
 import { useTradingViewNativeKLine } from './useTradingViewNativeKLine';
 
 import type {
@@ -19,7 +19,7 @@ import type {
   ITradingViewNativeHistoryRequest,
   ITradingViewNativeHistoryResponse,
   ITradingViewNativeRealtimeSubscriptionRequest,
-} from './tradingViewNativeDataProviderTypes';
+} from './providers/types';
 import type { ITradingViewNativeSource } from '../types';
 
 const mockFetchHistory = jest.fn<
@@ -62,7 +62,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 
-jest.mock('./createTradingViewNativeDataProvider', () => ({
+jest.mock('./providers/createTradingViewNativeDataProvider', () => ({
   createTradingViewNativeDataProvider: jest.fn(),
 }));
 
