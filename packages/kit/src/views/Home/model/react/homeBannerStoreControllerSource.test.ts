@@ -1,3 +1,5 @@
+import { buildHomeBannerCoverageFingerprint } from '../sections/banner/homeBannerStoreModel';
+
 import { runHomeBannerStoreRequest } from './homeBannerStoreControllerSource';
 
 import type { IHomeBannerSourceGateway } from './homeBannerStoreControllerSource';
@@ -125,7 +127,14 @@ describe('Home banner Store source', () => {
     expect(payload?.banners.map((banner) => banner.id)).toEqual(['local-a']);
     expect(complete).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ kind: 'success', data: payload }),
+      expect.objectContaining({
+        kind: 'success',
+        data: payload,
+        coverageFingerprint: buildHomeBannerCoverageFingerprint({
+          bannerIds: ['local-a'],
+          hasTronResource: false,
+        }),
+      }),
     );
   });
 

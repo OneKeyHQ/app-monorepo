@@ -56,6 +56,23 @@ const VISIBLE_ROW_LIMIT = 6;
 const MOBILE_NATIVE_HOME_BANNER_SKELETON_ID = 'home-banner-loading';
 
 type IMobileNativeHomeBannerPresentation = 'content' | 'hidden' | 'loading';
+type IMobileNativeHomeActionLayout = 'loading' | 'standard' | 'zeroBalance';
+
+function resolveMobileNativeHomeActionLayout({
+  actionPresentationKind,
+  isBackupRequired,
+}: {
+  actionPresentationKind: 'funded' | 'loading' | 'zero' | undefined;
+  isBackupRequired: boolean;
+}): IMobileNativeHomeActionLayout {
+  if (isBackupRequired || actionPresentationKind === 'funded') {
+    return 'standard';
+  }
+  if (actionPresentationKind === 'zero') {
+    return 'zeroBalance';
+  }
+  return 'loading';
+}
 
 function resolveMobileNativeHomeBannerPresentation({
   balancePresentationKind,
@@ -1220,6 +1237,7 @@ export {
   MOBILE_NATIVE_HOME_MARKET_ACTION_IDS,
   MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS,
   getDeFiTotal,
+  resolveMobileNativeHomeActionLayout,
   resolveMobileNativeHomeBannerPresentation,
 };
 export type {

@@ -11,6 +11,7 @@ import {
 
 import {
   buildMobileNativeHomeViewModelSections,
+  resolveMobileNativeHomeActionLayout,
   resolveMobileNativeHomeBannerPresentation,
 } from './mobileNativeHomeViewModelAdapter';
 
@@ -50,6 +51,33 @@ const presentation = {
 };
 
 describe('mobileNativeHomeViewModelAdapter', () => {
+  it('shows funded actions before the final balance total settles', () => {
+    expect(
+      resolveMobileNativeHomeActionLayout({
+        actionPresentationKind: 'funded',
+        isBackupRequired: false,
+      }),
+    ).toBe('standard');
+    expect(
+      resolveMobileNativeHomeActionLayout({
+        actionPresentationKind: 'zero',
+        isBackupRequired: false,
+      }),
+    ).toBe('zeroBalance');
+    expect(
+      resolveMobileNativeHomeActionLayout({
+        actionPresentationKind: 'loading',
+        isBackupRequired: false,
+      }),
+    ).toBe('loading');
+    expect(
+      resolveMobileNativeHomeActionLayout({
+        actionPresentationKind: undefined,
+        isBackupRequired: true,
+      }),
+    ).toBe('standard');
+  });
+
   it('reserves the banner band until its positive-content decision settles', () => {
     expect(
       resolveMobileNativeHomeBannerPresentation({

@@ -1,5 +1,6 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import type { IHomeRuntimeJsonValue } from '@onekeyhq/shared/src/types/homeRuntime';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { ENotificationPushMessageMode } from '@onekeyhq/shared/types/notification';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
@@ -57,6 +58,19 @@ export type IHomeBannerActionId =
   (typeof HOME_BANNER_ACTION_IDS)[keyof typeof HOME_BANNER_ACTION_IDS];
 
 export const HOME_PERPS_REFERRAL_BANNER_ID = 'local-perps-referral';
+
+export function buildHomeBannerCoverageFingerprint({
+  bannerIds,
+  hasTronResource,
+}: {
+  bannerIds: readonly string[];
+  hasTronResource: boolean;
+}): string {
+  return stringUtils.stableStringify({
+    bannerIds,
+    hasTronResource,
+  });
+}
 
 export function toHomeBannerStoreItem(
   banner: IWalletBanner,

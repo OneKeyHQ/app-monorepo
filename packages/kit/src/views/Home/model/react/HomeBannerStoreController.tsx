@@ -33,6 +33,7 @@ import {
 import {
   HOME_BANNER_ACTION_IDS,
   HOME_PERPS_REFERRAL_BANNER_ID,
+  buildHomeBannerCoverageFingerprint,
   readHomeBannerStorePayload,
 } from '../sections/banner/homeBannerStoreModel';
 
@@ -297,9 +298,10 @@ export function HomeBannerStoreController() {
         completeHomeSourceRequest(handle, {
           kind: 'success',
           data: nextPayload,
-          coverageFingerprint: stringUtils.stableStringify(
-            nextPayload.banners.map((banner) => banner.id),
-          ),
+          coverageFingerprint: buildHomeBannerCoverageFingerprint({
+            bannerIds: nextPayload.banners.map((banner) => banner.id),
+            hasTronResource: Boolean(nextPayload.tronResource),
+          }),
         });
       } catch (error) {
         completeHomeSourceRequest(handle, {

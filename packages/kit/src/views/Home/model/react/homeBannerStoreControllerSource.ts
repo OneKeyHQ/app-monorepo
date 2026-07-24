@@ -1,8 +1,8 @@
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
 import {
   HOME_PERPS_REFERRAL_BANNER_ID,
+  buildHomeBannerCoverageFingerprint,
   toHomeBannerStoreItem,
 } from '../sections/banner/homeBannerStoreModel';
 
@@ -148,7 +148,7 @@ export async function runHomeBannerStoreRequest({
   gateway.complete(handle, {
     kind: 'success',
     data: payload,
-    coverageFingerprint: stringUtils.stableStringify({
+    coverageFingerprint: buildHomeBannerCoverageFingerprint({
       bannerIds: payload.banners.map((banner) => banner.id),
       hasTronResource: Boolean(payload.tronResource),
     }),

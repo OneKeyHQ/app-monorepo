@@ -12,6 +12,7 @@ import {
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { getHomeSourceKeyIdentity } from '../core/homeIdentity';
+import { buildHomeBannerCoverageFingerprint } from '../sections/banner/homeBannerStoreModel';
 
 import { HOME_STORE_SOURCE_IDS } from './homeStoreTypes';
 
@@ -125,7 +126,11 @@ function hasConsistentSectionCoverage(
     });
     return (
       bannerIds.every((bannerId) => typeof bannerId === 'string') &&
-      record.coverageFingerprint === stringUtils.stableStringify(bannerIds)
+      record.coverageFingerprint ===
+        buildHomeBannerCoverageFingerprint({
+          bannerIds: bannerIds as string[],
+          hasTronResource: Boolean(payload.tronResource),
+        })
     );
   }
   const section = payload.section;

@@ -1,3 +1,5 @@
+import { buildHomeBannerCoverageFingerprint } from '../sections/banner/homeBannerStoreModel';
+
 import {
   createHomeDisplaySnapshotDescriptor,
   decodeHomeDisplaySnapshotCritical,
@@ -129,6 +131,64 @@ describe('Home display snapshot V2 codec', () => {
         raw,
         expectedOwnerScopeKey: ownerScopeKey,
         expectedSourceId: 'history',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('round-trips a banner chunk with its Tron-resource coverage', () => {
+    const key = getHomeDisplaySnapshotChunkKey(partitionId, 1, 'banner');
+    const payload = {
+      banners: [{ id: 'banner-a' }],
+      referralEligibility: null,
+      tronResource: {
+        accountId: 'account-a',
+        networkId: 'network-tron',
+      },
+      isBotWalletReceiveBlocked: false,
+    };
+    const record = {
+      sourceId: 'banner' as const,
+      sourceKeyIdentity: 'banner-source',
+      dataSchemaVersion: 1,
+      coverageFingerprint: buildHomeBannerCoverageFingerprint({
+        bannerIds: ['banner-a'],
+        hasTronResource: true,
+      }),
+      quoteBasis: null,
+      confirmedAt: now,
+      expiresAt: now + 1,
+      payload,
+    };
+    const raw = encodeHomeDisplaySnapshotSourceChunk({
+      key,
+      ownerScopeKey,
+      record,
+      createdAt: now,
+    });
+
+    expect(raw).toBeDefined();
+    expect(
+      decodeHomeDisplaySnapshotSourceChunk({
+        raw,
+        expectedOwnerScopeKey: ownerScopeKey,
+        expectedSourceId: 'banner',
+      }),
+    ).toMatchObject({
+      ...record,
+      expiresAt: Number.MAX_SAFE_INTEGER,
+    });
+    expect(
+      encodeHomeDisplaySnapshotSourceChunk({
+        key,
+        ownerScopeKey,
+        record: {
+          ...record,
+          coverageFingerprint: buildHomeBannerCoverageFingerprint({
+            bannerIds: ['banner-a'],
+            hasTronResource: false,
+          }),
+        },
+        createdAt: now,
       }),
     ).toBeUndefined();
   });

@@ -117,6 +117,7 @@ import {
   MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS,
   buildMobileNativeHomeViewModelSections,
   getDeFiTotal,
+  resolveMobileNativeHomeActionLayout,
   resolveMobileNativeHomeBannerPresentation,
 } from './mobileNativeHomeViewModelAdapter';
 
@@ -685,12 +686,10 @@ export function MobileNativeHomeRenderer({
         })
       : '';
     const match = hideValue ? undefined : balance.match(/^(.*)([.,]\d+)$/);
-    let actionLayout: IHomeContainerHeader['actionLayout'] = 'loading';
-    if (balancePresentation?.kind === 'zero') {
-      actionLayout = 'zeroBalance';
-    } else if (balanceModel) {
-      actionLayout = 'standard';
-    }
+    const actionLayout = resolveMobileNativeHomeActionLayout({
+      actionPresentationKind: balancePresentation?.actions.kind,
+      isBackupRequired,
+    });
     let actionRowHeight = 62;
     if (isBackupRequired) {
       actionRowHeight = 0;
@@ -767,13 +766,13 @@ export function MobileNativeHomeRenderer({
       balanceSecondary: match?.[2],
       balanceActionId: balanceModel ? HOME_SHELL_ACTION_IDS.balance : undefined,
       actionRowHeight,
-      actionLayout: isBackupRequired ? 'standard' : actionLayout,
+      actionLayout,
       actions: [],
       banners,
     };
   }, [
     balanceModel,
-    balancePresentation?.kind,
+    balancePresentation?.actions.kind,
     bannerPresentation,
     bannerPayload?.banners,
     bannerPayload?.tronResource,
