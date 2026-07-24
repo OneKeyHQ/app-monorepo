@@ -1,6 +1,7 @@
 export enum ETabEarnRoutes {
   EarnHome = 'EarnHome',
   BorrowHome = 'BorrowHome',
+  EarnPositions = 'EarnPositions',
   EarnProtocols = 'EarnProtocols',
   EarnProtocolDetails = 'EarnProtocolDetails',
   EarnProtocolDetailsShare = 'EarnProtocolDetailsShare',
@@ -16,6 +17,7 @@ export type ITabEarnParamList = {
         mode?: 'earn' | 'borrow';
       };
   [ETabEarnRoutes.BorrowHome]: undefined;
+  [ETabEarnRoutes.EarnPositions]: undefined;
   [ETabEarnRoutes.EarnProtocols]: {
     symbol: string;
     filterNetworkId?: string;

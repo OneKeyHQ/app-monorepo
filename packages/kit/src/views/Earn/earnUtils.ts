@@ -178,6 +178,7 @@ export async function safePushToEarnRoute(
 ) {
   const shouldSwitchToEarnMode =
     route === ETabEarnRoutes.EarnHome ||
+    route === ETabEarnRoutes.EarnPositions ||
     route === ETabEarnRoutes.EarnProtocols ||
     route === ETabEarnRoutes.EarnProtocolDetails ||
     route === ETabEarnRoutes.EarnProtocolDetailsShare;
@@ -349,6 +350,10 @@ export async function safePushToEarnRoute(
 }
 
 export const EarnNavigation = {
+  pushToEarnPositions(navigation: IAppNavigation) {
+    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnPositions);
+  },
+
   // navigate from deep link (compatible with old format)
   async pushDetailPageFromDeeplink(
     navigation: IAppNavigation,

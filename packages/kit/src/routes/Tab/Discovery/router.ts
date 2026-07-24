@@ -27,6 +27,9 @@ const EarnProtocolDetails = LazyLoadRootTabPage(
 const BorrowHome = LazyLoadRootTabPage(
   () => import('../../../views/Borrow/pages/BorrowHomePage'),
 );
+const EarnPositions = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnPositions'),
+);
 const BorrowReserveDetails = LazyLoadRootTabPage(
   () => import('../../../views/Borrow/pages/ReserveDetails'),
 );
@@ -62,6 +65,11 @@ export const discoveryRouters: ITabSubNavigatorConfig<any, any>[] = [
         {
           name: ETabEarnRoutes.BorrowHome,
           component: BorrowHome,
+          headerShown: true,
+        },
+        {
+          name: ETabEarnRoutes.EarnPositions,
+          component: EarnPositions,
           headerShown: true,
         },
         {

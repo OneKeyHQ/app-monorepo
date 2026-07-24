@@ -1,16 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  HeaderScrollGestureWrapper,
-  RefreshControl,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { RefreshControl, XStack, YStack, useMedia } from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -43,10 +35,12 @@ import { isBorrowTag } from '../Staking/utils/utils';
 import { EarnBlockedOverview } from './components/EarnBlockedOverview';
 import { EarnHomeTabs } from './components/EarnHomeTabs';
 import { EarnMainTabs } from './components/EarnMainTabs';
+import { EarnMobileHomeContent } from './components/EarnMobileHomeContent';
 import { EarnPageContainer } from './components/EarnPageContainer';
 import { Overview } from './components/Overview';
 import { getEarnFocusState } from './EarnHome.utils';
 import { EarnProviderMirror } from './EarnProviderMirror';
+import { EarnNavigation } from './earnUtils';
 import { useBlockRegion } from './hooks/useBlockRegion';
 import { useEarnHideSmallAssets } from './hooks/useEarnHideSmallAssets';
 import { useEarnPortfolio } from './hooks/useEarnPortfolio';
@@ -55,7 +49,6 @@ import {
   useEarnPendingTxsSharedMeta,
   useStakingPendingTxsByInfo,
 } from './hooks/useStakingPendingTxs';
-import { EarnTestIDs } from './testIDs';
 
 import type { IEarnBorrowPagerViewRef } from './components/EarnBorrowPagerView';
 import type { IStakePendingTx } from './hooks/useStakingPendingTxs';
@@ -82,7 +75,6 @@ function BasicEarnHome({
 }) {
   const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnHome>();
   const actions = useEarnActions();
-  const intl = useIntl();
 
   const { isFetchingBlockResult, refreshBlockResult, blockResult } =
     useBlockRegion();
@@ -94,6 +86,24 @@ function BasicEarnHome({
   const wasFocusedRef = useRef(false);
   const wasHiddenByModalRef = useRef(false);
   const shouldLogEnterEarnRef = useRef(false);
+
+  useEffect(() => {
+    if (!platformEnv.isNative || !tabsRef) {
+      return undefined;
+    }
+
+    tabsRef.current = {
+      jumpToTab: () => undefined,
+      setIndex: () => undefined,
+      getFocusedTab: () => 'assets',
+      getCurrentIndex: () => 0,
+      syncCurrentPage: () => undefined,
+    };
+
+    return () => {
+      tabsRef.current = null;
+    };
+  }, [tabsRef]);
   // On native, Discovery hosts Earn as a sub-tab, so isEarnDataActive is
   // true whenever the Discovery top-level tab is focused — even when the
   // user is on the Browser or Market sub-tab. Also gate on showContent so
@@ -186,6 +196,7 @@ function BasicEarnHome({
 
     const results = await Promise.all(
       types.map(async (type) => {
+        actions.current.setLoadingState(`availableAssets-${type}`, true);
         try {
           const assets =
             await backgroundApiProxy.serviceStaking.getAvailableAssets({
@@ -200,6 +211,8 @@ function BasicEarnHome({
             type,
             assets: [],
           };
+        } finally {
+          actions.current.setLoadingState(`availableAssets-${type}`, false);
         }
       }),
     );
@@ -217,7 +230,7 @@ function BasicEarnHome({
 
       try {
         await backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
-        await prefetchEarnAvailableAssets();
+        await Promise.all([prefetchEarnAvailableAssets(), refetchFAQ()]);
         actions.current.triggerRefresh();
         await refreshEarnDataRaw();
       } finally {
@@ -226,7 +239,7 @@ function BasicEarnHome({
         }
       }
     },
-    [actions, prefetchEarnAvailableAssets, refreshEarnDataRaw],
+    [actions, prefetchEarnAvailableAssets, refetchFAQ, refreshEarnDataRaw],
   );
 
   const pendingTxsFilter = useCallback((tx: IStakePendingTx) => {
@@ -459,50 +472,9 @@ function BasicEarnHome({
     BorrowNavigation.pushToBorrowHome(navigation);
   }, [navigation]);
 
-  const mobileContainerProps = useMemo(
-    () => ({
-      contentContainerStyle: {
-        display: showContent ? undefined : 'none',
-      },
-      allowHeaderOverscroll: true,
-      renderHeader: () => (
-        <HeaderScrollGestureWrapper
-          onHorizontalSwipe={handleHeaderHorizontalSwipe}
-        >
-          <YStack gap="$4" pt={24} pb={20} bg="$bgApp" pointerEvents="box-none">
-            <YStack gap="$7.5">
-              <YStack px="$pagePadding" gap="$4">
-                <Overview
-                  onRefresh={refreshEarnData}
-                  isLoading={isOverviewRefreshing}
-                  displayTotalFiatValue={displayTotalFiatValue}
-                  displayEarnings24h={displayEarnings24h}
-                />
-                <Button
-                  testID={EarnTestIDs.borrowEntryButton}
-                  size="large"
-                  variant="secondary"
-                  onPress={handleOpenBorrowHome}
-                >
-                  {intl.formatMessage({ id: ETranslations.global_borrow })}
-                </Button>
-              </YStack>
-            </YStack>
-          </YStack>
-        </HeaderScrollGestureWrapper>
-      ),
-    }),
-    [
-      showContent,
-      refreshEarnData,
-      isOverviewRefreshing,
-      displayTotalFiatValue,
-      displayEarnings24h,
-      handleHeaderHorizontalSwipe,
-      handleOpenBorrowHome,
-      intl,
-    ],
-  );
+  const handleOpenPortfolio = useCallback(() => {
+    EarnNavigation.pushToEarnPositions(navigation);
+  }, [navigation]);
 
   // const [tabPageHeight, setTabPageHeight] = useState(
   //   platformEnv.isNativeIOS ? 143 : 92,
@@ -529,15 +501,18 @@ function BasicEarnHome({
   if (platformEnv.isNative) {
     return (
       <YStack flex={1}>
-        <EarnMainTabs
+        <EarnMobileHomeContent
           faqList={faqList || []}
           isFaqLoading={isFaqLoading}
-          defaultTab={defaultTab}
-          portfolioData={portfolioData}
-          containerProps={mobileContainerProps}
-          tabsRef={tabsRef}
-          nestedPager={useSwipePager}
           isActive={isEarnContentActive}
+          showContent={showContent !== false}
+          isRefreshing={isOverviewRefreshing}
+          displayTotalFiatValue={displayTotalFiatValue}
+          displayEarnings24h={displayEarnings24h}
+          onRefresh={refreshEarnData}
+          onOpenBorrow={handleOpenBorrowHome}
+          onOpenPortfolio={handleOpenPortfolio}
+          onHeaderHorizontalSwipe={handleHeaderHorizontalSwipe}
         />
 
         {showHeader && showContent && (useSwipePager || media.md) ? (

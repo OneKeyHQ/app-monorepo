@@ -14,10 +14,19 @@ export const EarnTestIDs = {
 
   // Portfolio
   portfolioOverview: 'earn-portfolio-overview',
+  portfolioEntry: 'earn-portfolio-entry',
   portfolioItem: (name: string) => `earn-portfolio-item-${name}`,
 
   // Available assets
   assetItem: (symbol: string) => `earn-asset-${symbol}`,
+  flatAssetItem: (category: string, symbol: string) =>
+    `earn-flat-asset-${category}-${symbol}`,
+  flatAssetCategoryEntry: (category: string) =>
+    `earn-flat-asset-category-entry-${category}`,
+  flatAssetCategoryDialog: (category: string) =>
+    `earn-flat-asset-category-dialog-${category}`,
+  flatAssetDialogItem: (category: string, symbol: string) =>
+    `earn-flat-asset-dialog-${category}-${symbol}`,
   assetSearchInput: 'earn-asset-search-input',
   marketSelector: 'earn-market-selector',
 

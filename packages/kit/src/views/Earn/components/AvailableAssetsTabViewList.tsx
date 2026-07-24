@@ -23,19 +23,18 @@ import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar/N
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useEarnActions,
   useEarnAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
-import { EarnNavigation, parseFormattedLiquidityValue } from '../earnUtils';
+import { parseFormattedLiquidityValue } from '../earnUtils';
+import { useNavigateToEarnAsset } from '../hooks/useNavigateToEarnAsset';
 import { EarnTestIDs } from '../testIDs';
 
 import { AprText } from './AprText';
@@ -62,10 +61,7 @@ export function AvailableAssetsTabViewList({
     useState<IEarnSortDirection>('desc');
   const media = useMedia();
   const navigation = useAppNavigation();
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const accountId = activeAccount.account?.id;
-  const accountReady = activeAccount.ready;
-  const activeNetworkId = activeAccount.network?.id;
+  const navigateToAsset = useNavigateToEarnAsset();
   const shouldApplyNetworkFilter = media.gtMd && selectedNetworkIds.length > 0;
 
   const tabData = useMemo(
@@ -347,75 +343,6 @@ export function AvailableAssetsTabViewList({
 
     return baseColumns;
   }, [intl, isFixedRateTab]);
-
-  // Navigate to asset detail or protocol list, reused by both table and search dialog
-  const navigateToAsset = useCallback(
-    async (
-      asset: IEarnAvailableAsset,
-      categoryType?: EAvailableAssetsTypeEnum,
-    ) => {
-      defaultLogger.staking.page.selectAsset({ tokenSymbol: asset.symbol });
-
-      const defaultCategory =
-        categoryType === EAvailableAssetsTypeEnum.SimpleEarn ||
-        categoryType === EAvailableAssetsTypeEnum.FixedRate
-          ? (categoryType as 'simpleEarn' | 'fixedRate')
-          : undefined;
-      const navigateToProtocolList = () => {
-        EarnNavigation.pushToEarnProtocols(navigation, {
-          symbol: asset.symbol,
-          filterNetworkId: undefined,
-          logoURI: asset.logoURI
-            ? encodeURIComponent(asset.logoURI)
-            : undefined,
-          defaultCategory,
-        });
-      };
-
-      // When current tab has only 1 protocol, check total across ALL categories.
-      // A token like USDe may have 1 FixedRate protocol but multiple SimpleEarn
-      // protocols — the user should still see the list page in that case.
-      if (asset.protocols.length === 1) {
-        const accountNetworkId =
-          activeNetworkId ?? asset.protocols[0]?.networkId;
-        const canQueryWithAccount =
-          accountReady && Boolean(accountId) && Boolean(accountNetworkId);
-        if (!canQueryWithAccount) {
-          navigateToProtocolList();
-          return;
-        }
-
-        let totalProtocols = 1;
-        try {
-          const allProtocols =
-            await backgroundApiProxy.serviceStaking.getProtocolList({
-              symbol: asset.symbol,
-              accountId,
-              networkId: accountNetworkId,
-              includeWithdrawOnly: true,
-            });
-          totalProtocols = allProtocols?.length ?? 1;
-        } catch {
-          // Fallback: use current tab's count
-        }
-
-        if (totalProtocols <= 1) {
-          const protocol = asset.protocols[0];
-          await EarnNavigation.pushToEarnProtocolDetails(navigation, {
-            networkId: protocol.networkId,
-            symbol: asset.symbol,
-            provider: protocol.provider,
-            vault: protocol.vault,
-          });
-          return;
-        }
-      }
-
-      // Multiple protocols across categories → go to protocol list page
-      navigateToProtocolList();
-    },
-    [navigation, accountId, accountReady, activeNetworkId],
-  );
 
   // Handle row press in the main table
   const handleRowPress = useCallback(
