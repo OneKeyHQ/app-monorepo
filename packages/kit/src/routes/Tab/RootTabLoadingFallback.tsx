@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import { Page, Spinner, Stack, useMedia } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -20,16 +22,18 @@ type IRootTabLoadingFallbackProps = {
   tabRoute: ETabRoutes;
   sceneName?: EAccountSelectorSceneName;
   enabledNum?: number[];
+  mobileContentFallback?: ReactNode;
 };
 
 export function RootTabLoadingFallback({
   tabRoute,
   sceneName = EAccountSelectorSceneName.home,
   enabledNum = DEFAULT_ENABLED_NUM,
+  mobileContentFallback,
 }: IRootTabLoadingFallbackProps) {
   const media = useMedia();
 
-  if (platformEnv.isNative || media.md) {
+  if (platformEnv.isNative || (media.md && !mobileContentFallback)) {
     return (
       <>
         <Page.Header headerShown={false} />
@@ -47,7 +51,11 @@ export function RootTabLoadingFallback({
       enabledNum={enabledNum}
     >
       <TabPageHeader sceneName={sceneName} tabRoute={tabRoute} />
-      <LoadingSpinner />
+      {media.md && mobileContentFallback ? (
+        mobileContentFallback
+      ) : (
+        <LoadingSpinner />
+      )}
     </AccountSelectorProviderMirror>
   );
 }
