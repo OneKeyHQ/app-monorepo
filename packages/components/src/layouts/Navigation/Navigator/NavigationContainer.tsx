@@ -153,9 +153,12 @@ const hasOverlayAboveMain = (ref: typeof rootNavigationRef): boolean => {
   return topRoute?.name !== ERootRoutes.Main;
 };
 
-export const willTabFocusTransition = (route: ETabRoutes): boolean =>
-  hasOverlayAboveMain(rootNavigationRef) ||
-  getActiveTabFromRef(rootNavigationRef) !== route;
+export const willTabFocusTransition = (
+  route: ETabRoutes,
+  navigationRef: typeof rootNavigationRef = rootNavigationRef,
+): boolean =>
+  hasOverlayAboveMain(navigationRef) ||
+  getActiveTabFromRef(navigationRef) !== route;
 
 /**
  * @deprecated

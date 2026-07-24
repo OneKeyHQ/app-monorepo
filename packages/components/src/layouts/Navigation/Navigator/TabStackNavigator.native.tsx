@@ -20,6 +20,7 @@ import { useSettingConfig } from '../../../hocs/Provider/hooks/useProviderValue'
 import {
   ESplitViewType,
   useIsSplitView,
+  useSplitMainView,
   useSplitViewType,
   useTheme,
   useThemeName,
@@ -28,7 +29,11 @@ import { createNativeBottomTabNavigator } from '../BottomTabs';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
-import { willTabFocusTransition } from './NavigationContainer';
+import {
+  rootNavigationRef,
+  tabletMainViewNavigationRef,
+  willTabFocusTransition,
+} from './NavigationContainer';
 
 import type { ITabNavigatorProps, ITabSubNavigatorConfig } from './types';
 
@@ -108,6 +113,7 @@ export function TabStackNavigator<RouteName extends string>({
   const intl = useIntl();
   const theme = useTheme();
   const { hapticFeedbackEnabled } = useSettingConfig();
+  const isSplitMainView = useSplitMainView();
   // Subscribe to theme name so OS dark/light switch triggers re-render —
   // `theme.*.val` reads are non-reactive on native.
   useThemeName();
@@ -125,25 +131,31 @@ export function TabStackNavigator<RouteName extends string>({
   }, []);
 
   // Handle tab press events for logging and event bus notifications
-  const handleTabPress = useCallback((routeName: string) => {
-    if (routeName === ETabRoutes.Swap) {
-      defaultLogger.swap.enterSwap.enterSwap({
-        enterFrom: ESwapSource.TAB,
-      });
-    }
-    if (routeName === ETabRoutes.Market) {
-      appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
-        from: EEnterWay.HomeTab,
-      });
-    }
-    if (
-      (routeName === ETabRoutes.Perp ||
-        routeName === ETabRoutes.WebviewPerpTrade) &&
-      willTabFocusTransition(routeName)
-    ) {
-      setPerpPageEnterSource(EPerpPageEnterSource.TabBar);
-    }
-  }, []);
+  const handleTabPress = useCallback(
+    (routeName: string) => {
+      if (routeName === ETabRoutes.Swap) {
+        defaultLogger.swap.enterSwap.enterSwap({
+          enterFrom: ESwapSource.TAB,
+        });
+      }
+      if (routeName === ETabRoutes.Market) {
+        appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
+          from: EEnterWay.HomeTab,
+        });
+      }
+      if (
+        (routeName === ETabRoutes.Perp ||
+          routeName === ETabRoutes.WebviewPerpTrade) &&
+        willTabFocusTransition(
+          routeName,
+          isSplitMainView ? tabletMainViewNavigationRef : rootNavigationRef,
+        )
+      ) {
+        setPerpPageEnterSource(EPerpPageEnterSource.TabBar);
+      }
+    },
+    [isSplitMainView],
+  );
 
   const tabScreens = useMemo(() => {
     const screens = config
