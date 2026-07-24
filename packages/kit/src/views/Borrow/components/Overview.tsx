@@ -11,7 +11,6 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Divider,
-  Icon,
   IconButton,
   SizableText,
   Skeleton,
@@ -98,10 +97,15 @@ export const Overview = ({
   showBottomSpacing = true,
   isActive = true,
   onHealthFactorAlertsChange,
+  onBorrowHistoryActionChange,
 }: {
   showBottomSpacing?: boolean;
   isActive?: boolean;
   onHealthFactorAlertsChange?: (alerts?: IBorrowAlert[]) => void;
+  onBorrowHistoryActionChange?: (
+    handler: (() => void) | null,
+    visible: boolean,
+  ) => void;
 }) => {
   const { reserves, market, earnAccount, pendingTxs, setRefreshAllBorrowData } =
     useBorrowContext();
@@ -331,6 +335,26 @@ export const Overview = ({
   ]);
 
   const { gtMd } = useMedia();
+  const showMobileHeaderHistoryAction =
+    !gtMd && (pendingCount > 0 || !reserves.data?.overview?.history?.disabled);
+
+  useEffect(() => {
+    if (!onBorrowHistoryActionChange) {
+      return undefined;
+    }
+
+    onBorrowHistoryActionChange(
+      showMobileHeaderHistoryAction ? handleHistoryPress : null,
+      showMobileHeaderHistoryAction,
+    );
+    return () => {
+      onBorrowHistoryActionChange(null, false);
+    };
+  }, [
+    handleHistoryPress,
+    onBorrowHistoryActionChange,
+    showMobileHeaderHistoryAction,
+  ]);
 
   // Mobile layout
   if (!gtMd) {
@@ -380,32 +404,6 @@ export const Overview = ({
               </SizableText>
             )}
           </YStack>
-          <XStack ai="center" gap="$3" pr="$2.5">
-            {pendingCount > 0 ? (
-              <PendingIndicator
-                num={pendingCount}
-                onPress={handleHistoryPress}
-              />
-            ) : null}
-            {!reserves.data?.overview?.history?.disabled &&
-            pendingCount === 0 ? (
-              <XStack
-                ai="center"
-                gap="$1"
-                cursor="pointer"
-                onPress={handleHistoryPress}
-              >
-                <Icon
-                  name="ClockTimeHistoryOutline"
-                  size="$4"
-                  color="$iconSubdued"
-                />
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {historyLabel}
-                </SizableText>
-              </XStack>
-            ) : null}
-          </XStack>
         </XStack>
 
         {/* Grid: Health factor + Platform bonus + Claimable rewards */}

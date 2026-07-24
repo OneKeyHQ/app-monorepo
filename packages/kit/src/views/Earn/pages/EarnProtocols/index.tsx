@@ -35,6 +35,7 @@ import type {
   ITabEarnParamList,
 } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { normalizeToEarnProvider } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
@@ -42,9 +43,17 @@ import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { AprText } from '../../components/AprText';
+import { EarnMobileSortControl } from '../../components/EarnMobileSortControl';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
+import { NetworkFilterControl } from '../../components/NetworkFilterControl';
 import { EarnNavigation, parseFormattedLiquidityValue } from '../../earnUtils';
+import { EarnTestIDs } from '../../testIDs';
+import {
+  filterAndSortProtocols,
+  getProtocolNetworkData,
+} from '../../utils/protocolListUtils';
 
+import type { IEarnSortOption } from '../../components/EarnMobileSortControl';
 import type { RouteProp } from '@react-navigation/core';
 
 type IEarnSortDirection = 'asc' | 'desc';
@@ -139,6 +148,12 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   const [sortDirection, setSortDirection] = useState<IEarnSortDirection>(
     isInitialFixedRateCategory ? 'asc' : 'desc',
   );
+  const [selectedNetworkIds, setSelectedNetworkIds] = useState<string[]>(() =>
+    filterNetworkId &&
+    !networkUtils.isAllNetwork({ networkId: filterNetworkId })
+      ? [filterNetworkId]
+      : [],
+  );
   const [isLoading, setIsLoading] = useState(true);
   const accountId = activeAccount.account?.id;
   const accountNetworkId = filterNetworkId ?? activeAccount.network?.id;
@@ -163,6 +178,15 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     setSortDirection('desc');
   }, [selectedCategory]);
 
+  useEffect(() => {
+    setSelectedNetworkIds(
+      filterNetworkId &&
+        !networkUtils.isAllNetwork({ networkId: filterNetworkId })
+        ? [filterNetworkId]
+        : [],
+    );
+  }, [filterNetworkId]);
+
   const fetchProtocolData = useCallback(async () => {
     if (!activeAccount.ready) {
       return;
@@ -179,7 +203,6 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         symbol,
         accountId,
         networkId: accountNetworkId,
-        filterNetworkId,
         includeWithdrawOnly: true,
       });
 
@@ -189,13 +212,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     } finally {
       setIsLoading(false);
     }
-  }, [
-    symbol,
-    accountId,
-    accountNetworkId,
-    filterNetworkId,
-    activeAccount.ready,
-  ]);
+  }, [symbol, accountId, accountNetworkId, activeAccount.ready]);
 
   useEffect(() => {
     void fetchProtocolData();
@@ -288,6 +305,74 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         : category === EProtocolCategory.SimpleEarn;
     });
   }, [isFixedRateCategory, protocolData]);
+
+  const { availableNetworkIds, networkAssetCounts } = useMemo(
+    () => getProtocolNetworkData(protocolDisplayData),
+    [protocolDisplayData],
+  );
+
+  const networkFilteredProtocolData = useMemo(() => {
+    if (selectedNetworkIds.length === 0) {
+      return protocolDisplayData;
+    }
+    const selectedNetworkIdSet = new Set(selectedNetworkIds);
+    return protocolDisplayData.filter((item) =>
+      selectedNetworkIdSet.has(item.network.networkId),
+    );
+  }, [protocolDisplayData, selectedNetworkIds]);
+
+  const mobileProtocolData = useMemo(() => {
+    if (isFixedRateCategory || isDesktopLayout) {
+      return networkFilteredProtocolData;
+    }
+    return filterAndSortProtocols({
+      items: protocolDisplayData,
+      selectedNetworkIds,
+      sortKey: sortKey === 'tvl' ? 'tvl' : 'yield',
+      sortDirection,
+    });
+  }, [
+    isDesktopLayout,
+    isFixedRateCategory,
+    networkFilteredProtocolData,
+    protocolDisplayData,
+    selectedNetworkIds,
+    sortDirection,
+    sortKey,
+  ]);
+
+  const mobileSortOptions = useMemo<IEarnSortOption[]>(() => {
+    const tvlLabel = intl.formatMessage({ id: ETranslations.earn_tvl });
+    const yieldLabel = intl.formatMessage({
+      id: ETranslations.defi_apr_apy,
+    });
+    return [
+      {
+        label: `${tvlLabel} ↓`,
+        triggerLabel: tvlLabel,
+        value: 'tvl',
+        direction: 'desc',
+      },
+      {
+        label: `${tvlLabel} ↑`,
+        triggerLabel: tvlLabel,
+        value: 'tvl',
+        direction: 'asc',
+      },
+      {
+        label: `${yieldLabel} ↓`,
+        triggerLabel: yieldLabel,
+        value: 'yield',
+        direction: 'desc',
+      },
+      {
+        label: `${yieldLabel} ↑`,
+        triggerLabel: yieldLabel,
+        value: 'yield',
+        direction: 'asc',
+      },
+    ];
+  }, [intl]);
 
   const columns: ITableColumn<IStakeProtocolListItem>[] = useMemo(() => {
     const getMaturityDisplay = (item: IStakeProtocolListItem) => {
@@ -681,24 +766,79 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
 
     return (
       <YStack>
+        {!isDesktopLayout ? (
+          <XStack
+            px="$pagePadding"
+            h="$8"
+            py="$2"
+            ai="center"
+            jc="space-between"
+            gap="$3"
+          >
+            <XStack flex={1} minWidth={0}>
+              <NetworkFilterControl
+                testID={EarnTestIDs.protocolNetworkFilter}
+                variant="compact"
+                availableNetworkIds={availableNetworkIds}
+                selectedNetworkIds={selectedNetworkIds}
+                networkAssetCounts={networkAssetCounts}
+                onSelectionChange={setSelectedNetworkIds}
+              />
+            </XStack>
+            {!isFixedRateCategory ? (
+              <EarnMobileSortControl
+                compact
+                testID={EarnTestIDs.protocolSort}
+                sortKey={sortKey}
+                sortDirection={sortDirection}
+                options={mobileSortOptions}
+                getOptionTestID={(option) =>
+                  EarnTestIDs.protocolSortOption(
+                    option.value,
+                    option.direction ?? 'desc',
+                  )
+                }
+                onSortChange={handleSortChange}
+              />
+            ) : null}
+          </XStack>
+        ) : null}
         {categoryTabs}
         <TableList<IStakeProtocolListItem>
           key={selectedCategory}
-          data={protocolDisplayData}
+          data={mobileProtocolData}
           columns={columns}
-          sortKey={sortKey}
-          sortDirection={sortDirection}
-          onSortChange={handleSortChange}
+          withHeader={isDesktopLayout}
+          sortKey={isDesktopLayout || isFixedRateCategory ? sortKey : undefined}
+          sortDirection={
+            isDesktopLayout || isFixedRateCategory ? sortDirection : undefined
+          }
+          onSortChange={
+            isDesktopLayout || isFixedRateCategory
+              ? handleSortChange
+              : undefined
+          }
           onPressRow={handleProtocolPress}
           enableDrillIn={isDesktopLayout}
           isLoading={isLoading}
+          ListEmptyComponent={
+            selectedNetworkIds.length > 0 ? (
+              <Empty
+                px="$pagePadding"
+                icon="SearchOutline"
+                title={intl.formatMessage({
+                  id: ETranslations.global_search_no_results_title,
+                })}
+              />
+            ) : undefined
+          }
         />
       </YStack>
     );
   }, [
     isLoading,
     protocolData,
-    protocolDisplayData,
+    mobileProtocolData,
     categoryTabs,
     sortKey,
     sortDirection,
@@ -707,8 +847,13 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     selectedCategory,
     handleProtocolPress,
     isDesktopLayout,
+    isFixedRateCategory,
     intl,
     fetchProtocolData,
+    availableNetworkIds,
+    selectedNetworkIds,
+    networkAssetCounts,
+    mobileSortOptions,
   ]);
 
   const tabBarHeight = useScrollContentTabBarOffset();

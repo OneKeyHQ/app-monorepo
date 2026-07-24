@@ -3,7 +3,6 @@ import { memo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   HeaderScrollGestureWrapper,
   RefreshControl,
   ScrollView,
@@ -12,15 +11,18 @@ import {
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-import { EarnTestIDs } from '../testIDs';
+import type { IEarnPageBannerListItem } from '@onekeyhq/shared/types/earn';
 
 import { AvailableAssetsFlatList } from './AvailableAssetsFlatList';
+import { EarnHomeBanner } from './EarnHomeBanner';
+import { EarnHomeShortcuts } from './EarnHomeShortcuts';
 import { FAQContent } from './FAQContent';
 import { Overview } from './Overview';
 import { Recommended } from './Recommended';
 
 function EarnMobileHomeContentComponent({
+  bannerList,
+  isBannerLoading,
   faqList,
   isFaqLoading,
   isActive,
@@ -33,6 +35,8 @@ function EarnMobileHomeContentComponent({
   onOpenPortfolio,
   onHeaderHorizontalSwipe,
 }: {
+  bannerList: IEarnPageBannerListItem[];
+  isBannerLoading: boolean;
   faqList: Array<{ question: string; answer: string }>;
   isFaqLoading: boolean;
   isActive: boolean;
@@ -60,8 +64,8 @@ function EarnMobileHomeContentComponent({
       }
     >
       <HeaderScrollGestureWrapper onHorizontalSwipe={onHeaderHorizontalSwipe}>
-        <YStack pt={24} pb="$5" bg="$bgApp" pointerEvents="box-none">
-          <YStack px="$pagePadding" gap="$4">
+        <YStack pt={24} bg="$bgApp" pointerEvents="box-none">
+          <YStack px="$pagePadding" pb={26}>
             <Overview
               onRefresh={onRefresh}
               isLoading={isRefreshing}
@@ -69,19 +73,13 @@ function EarnMobileHomeContentComponent({
               displayEarnings24h={displayEarnings24h}
               onPressTotalValue={onOpenPortfolio}
             />
-            <Button
-              testID={EarnTestIDs.borrowEntryButton}
-              size="large"
-              variant="secondary"
-              onPress={onOpenBorrow}
-            >
-              {intl.formatMessage({ id: ETranslations.global_borrow })}
-            </Button>
           </YStack>
+          <EarnHomeShortcuts onOpenLoans={onOpenBorrow} />
+          <EarnHomeBanner banners={bannerList} isLoading={isBannerLoading} />
         </YStack>
       </HeaderScrollGestureWrapper>
 
-      <YStack gap="$8" pt="$6">
+      <YStack gap="$8">
         <Recommended isActive={isActive} />
         <AvailableAssetsFlatList />
         <YStack px="$pagePadding" gap="$2">

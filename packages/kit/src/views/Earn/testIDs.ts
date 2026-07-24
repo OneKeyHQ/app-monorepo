@@ -2,6 +2,7 @@ export const EarnTestIDs = {
   // Main page
   earnPage: 'earn-page',
   borrowEntryButton: 'earn-borrow-entry-button',
+  homeShortcut: (name: string) => `earn-home-shortcut-${name}`,
 
   // Tabs
   tabProtocols: 'earn-tab-protocols',
@@ -11,6 +12,10 @@ export const EarnTestIDs = {
   // Protocol list
   protocolItem: (name: string) => `earn-protocol-${name}`,
   protocolStakeButton: (name: string) => `earn-protocol-stake-${name}`,
+  protocolNetworkFilter: 'earn-protocol-network-filter',
+  protocolSort: 'earn-protocol-sort',
+  protocolSortOption: (key: string, direction: string) =>
+    `earn-protocol-sort-${key}-${direction}`,
 
   // Portfolio
   portfolioOverview: 'earn-portfolio-overview',
@@ -27,12 +32,6 @@ export const EarnTestIDs = {
     `earn-flat-asset-category-dialog-${category}`,
   flatAssetDialogItem: (category: string, symbol: string) =>
     `earn-flat-asset-dialog-${category}-${symbol}`,
-  flatAssetDialogNetworkFilter: (category: string) =>
-    `earn-flat-asset-dialog-network-filter-${category}`,
-  flatAssetDialogSort: (category: string) =>
-    `earn-flat-asset-dialog-sort-${category}`,
-  flatAssetDialogSortOption: (category: string, sortKey: string) =>
-    `earn-flat-asset-dialog-sort-${category}-${sortKey}`,
   assetSearchInput: 'earn-asset-search-input',
   marketSelector: 'earn-market-selector',
 
@@ -45,6 +44,8 @@ export const EarnTestIDs = {
 
   // Banner
   banner: 'earn-banner',
+  bannerItem: (bannerId: string) => `earn-banner-${bannerId}`,
+  bannerButton: (bannerId: string) => `earn-banner-button-${bannerId}`,
 
   // FAQ
   faqSection: 'earn-faq-section',
@@ -61,5 +62,6 @@ export const EarnTestIDs = {
 
   // Network filter
   networkFilterResetButton: 'earn-network-filter-reset-button',
+  networkFilterAllCheckbox: 'earn-network-filter-checkbox-all',
   networkFilterCheckbox: (id: string) => `earn-network-filter-checkbox-${id}`,
 } as const;

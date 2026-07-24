@@ -74,6 +74,7 @@ function NetworkFilterControl({
   }, [onSelectionChange]);
 
   const hasActiveFilter = selectedNetworkIds.length > 0;
+  const isAllNetworksSelected = !hasActiveFilter;
   const isCompact = variant === 'compact';
   const singleSelectedNetworkId =
     selectedNetworkIds.length === 1 ? selectedNetworkIds[0] : undefined;
@@ -126,6 +127,7 @@ function NetworkFilterControl({
           testID={testID}
           ai="center"
           gap={isCompact ? '$1' : '$2'}
+          hitSlop={isCompact ? 8 : undefined}
           cursor="pointer"
           userSelect="none"
         >
@@ -165,6 +167,27 @@ function NetworkFilterControl({
             ) : null}
           </XStack>
           <YStack mt="$2.5">
+            <XStack
+              py="$2"
+              gap="$2"
+              ai="center"
+              onPress={handleReset}
+              cursor="pointer"
+            >
+              <Checkbox
+                testID={EarnTestIDs.networkFilterAllCheckbox}
+                value={isAllNetworksSelected}
+                onChange={handleReset}
+                containerProps={{ py: '$0', flexShrink: 0 }}
+                shouldStopPropagation
+              />
+              <Icon name="GlobusOutline" size="$5" color="$iconSubdued" />
+              <SizableText size="$bodyLgMedium" flex={1}>
+                {intl.formatMessage({
+                  id: ETranslations.global_all_networks,
+                })}
+              </SizableText>
+            </XStack>
             {sortedNetworks?.map((network) => {
               const isSelected = selectedNetworkIds.includes(network.id);
               const count = networkAssetCounts[network.id] ?? 0;

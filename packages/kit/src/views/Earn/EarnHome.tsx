@@ -27,6 +27,7 @@ import { TabPageHeader } from '../../components/TabPageHeader';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useAppRoute } from '../../hooks/useAppRoute';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useEarnActions } from '../../states/jotai/contexts/earn';
 import { BorrowNavigation } from '../Borrow/borrowUtils';
 import { BorrowHome } from '../Borrow/pages/BorrowHome';
@@ -86,6 +87,29 @@ function BasicEarnHome({
   const wasFocusedRef = useRef(false);
   const wasHiddenByModalRef = useRef(false);
   const shouldLogEnterEarnRef = useRef(false);
+  const {
+    result: earnPageBannerList,
+    isLoading: isEarnPageBannerLoading,
+    run: refetchEarnPageBannerList,
+  } = usePromiseResult(
+    async () => {
+      if (!platformEnv.isNative || showContent === false) {
+        return [];
+      }
+      try {
+        return await backgroundApiProxy.serviceStaking.getEarnPageBannerList();
+      } catch {
+        return [];
+      }
+    },
+    [showContent],
+    {
+      initResult: [],
+      watchLoading: true,
+      undefinedResultIfError: false,
+      revalidateOnFocus: true,
+    },
+  );
 
   useEffect(() => {
     if (!platformEnv.isNative || !tabsRef) {
@@ -230,7 +254,11 @@ function BasicEarnHome({
 
       try {
         await backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
-        await Promise.all([prefetchEarnAvailableAssets(), refetchFAQ()]);
+        await Promise.all([
+          prefetchEarnAvailableAssets(),
+          refetchFAQ(),
+          refetchEarnPageBannerList(),
+        ]);
         actions.current.triggerRefresh();
         await refreshEarnDataRaw();
       } finally {
@@ -239,7 +267,13 @@ function BasicEarnHome({
         }
       }
     },
-    [actions, prefetchEarnAvailableAssets, refetchFAQ, refreshEarnDataRaw],
+    [
+      actions,
+      prefetchEarnAvailableAssets,
+      refetchEarnPageBannerList,
+      refetchFAQ,
+      refreshEarnDataRaw,
+    ],
   );
 
   const pendingTxsFilter = useCallback((tx: IStakePendingTx) => {
@@ -502,6 +536,8 @@ function BasicEarnHome({
     return (
       <YStack flex={1}>
         <EarnMobileHomeContent
+          bannerList={earnPageBannerList}
+          isBannerLoading={!!isEarnPageBannerLoading}
           faqList={faqList || []}
           isFaqLoading={isFaqLoading}
           isActive={isEarnContentActive}

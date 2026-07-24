@@ -186,3 +186,14 @@ export interface IEarnAvailableAssetV2 {
   ptAddress?: string;
   enableBatch?: boolean;
 }
+
+export interface IEarnPageBannerListItem {
+  bannerId: string;
+  backgroundImage: string;
+  icon: string;
+  title: string;
+  subtitle: string;
+  button: string;
+  href: string;
+  hrefType: string;
+}
