@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
+  Button,
   DebugRenderTracker,
+  Icon,
   SizableText,
   Tabs,
   XStack,
@@ -35,6 +37,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
+import { useShowUnifoldDepositTracker } from '../../hooks/useShowDepositWithdrawModal';
 import { isHyperLiquidUnifiedAccountMode } from '../../utils';
 import { getPerpsAccountScopedListData } from '../../utils/accountScopedData';
 
@@ -181,6 +184,37 @@ function PerpOrderInfoPanel() {
   const initialTabName =
     tradeRouteViewState.infoPanelTab === 'Balances' ? 'Balances' : 'Positions';
   const [activeTab, setActiveTab] = useState(initialTabName);
+  const { isUnifoldDepositTrackerAvailable, showUnifoldDepositTracker } =
+    useShowUnifoldDepositTracker();
+
+  const handleShowUnifoldDepositTracker = useCallback(() => {
+    void showUnifoldDepositTracker();
+  }, [showUnifoldDepositTracker]);
+
+  const renderTabBarToolbar = useCallback(
+    ({ focusedTab }: { focusedTab: string }) =>
+      focusedTab === 'Account' && isUnifoldDepositTrackerAvailable ? (
+        <Button
+          testID="perps-account-history-deposit-tracker"
+          size="small"
+          variant="secondary"
+          childrenAsText={false}
+          borderRadius="$full"
+          h={28}
+          mr="$3"
+          onPress={handleShowUnifoldDepositTracker}
+        >
+          <Icon
+            name="ClockTimeHistoryOutline"
+            size="$4"
+            mr="$1.5"
+            color="$icon"
+          />
+          <SizableText size="$bodySmMedium">Crypto Deposits</SizableText>
+        </Button>
+      ) : null,
+    [handleShowUnifoldDepositTracker, isUnifoldDepositTrackerAvailable],
+  );
 
   useEffect(() => {
     if (!pendingInfoPanelTab) {
@@ -234,6 +268,7 @@ function PerpOrderInfoPanel() {
               onPress={onPress}
             />
           )}
+          renderToolbar={renderTabBarToolbar}
           containerStyle={{
             borderRadius: 0,
             margin: 0,

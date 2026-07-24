@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
   Button,
+  type IPageNavigationProp,
   Page,
   SizableText,
   Stack,
@@ -16,13 +17,14 @@ import { PageHeader } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NotificationEnableAlert } from '@onekeyhq/kit/src/components/NotificationEnableAlert';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
+import {
   EModalPerpRoutes,
-  IModalPerpParamList,
-  IPerpHistoryTab,
+  type IModalPerpParamList,
+  type IPerpHistoryTab,
 } from '@onekeyhq/shared/src/routes/perp';
 
 import { usePerpTradesHistoryViewAllUrl } from '../../hooks/usePerpOrderInfoPanel';
+import { useUnifoldDepositTrackerAvailability } from '../../hooks/useShowDepositWithdrawModal';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
@@ -89,6 +91,7 @@ function TabHeader({
 
 export function PerpTradersHistoryListModal() {
   const intl = useIntl();
+  const navigation = useNavigation<IPageNavigationProp<IModalPerpParamList>>();
   const route =
     useRoute<
       RouteProp<IModalPerpParamList, EModalPerpRoutes.PerpTradersHistoryList>
@@ -96,6 +99,17 @@ export function PerpTradersHistoryListModal() {
   const initialTab = route.params?.initialTab ?? 'Trades';
   const { onViewAllUrl } = usePerpTradesHistoryViewAllUrl();
   const [activeTab, setActiveTab] = useState<ITabName>(initialTab);
+  const { isUnifoldDepositTrackerAvailable, safeRecipient } =
+    useUnifoldDepositTrackerAvailability();
+
+  const handleViewCryptoDeposits = useCallback(() => {
+    if (!safeRecipient) {
+      return;
+    }
+    navigation.push(EModalPerpRoutes.MobileUnifoldDepositTracker, {
+      expectedRecipient: safeRecipient,
+    });
+  }, [navigation, safeRecipient]);
 
   useEffect(() => {
     if (activeTab === 'Account') {
@@ -104,22 +118,40 @@ export function PerpTradersHistoryListModal() {
   }, [activeTab]);
 
   const headerRight = useCallback(() => {
-    if (activeTab !== 'Trades') {
-      return null;
+    if (activeTab === 'Account' && isUnifoldDepositTrackerAvailable) {
+      return (
+        <Button
+          onPress={handleViewCryptoDeposits}
+          variant="tertiary"
+          size="small"
+          testID="perps-mobile-account-history-crypto-deposits"
+        >
+          Crypto Deposits
+        </Button>
+      );
     }
-    return (
-      <Button
-        onPress={onViewAllUrl}
-        variant="tertiary"
-        size="small"
-        testID="perp-header-right-btn"
-      >
-        {intl.formatMessage({
-          id: ETranslations.global_view_more,
-        })}
-      </Button>
-    );
-  }, [activeTab, intl, onViewAllUrl]);
+    if (activeTab === 'Trades') {
+      return (
+        <Button
+          onPress={onViewAllUrl}
+          variant="tertiary"
+          size="small"
+          testID="perp-header-right-btn"
+        >
+          {intl.formatMessage({
+            id: ETranslations.global_view_more,
+          })}
+        </Button>
+      );
+    }
+    return null;
+  }, [
+    activeTab,
+    handleViewCryptoDeposits,
+    intl,
+    isUnifoldDepositTrackerAvailable,
+    onViewAllUrl,
+  ]);
 
   return (
     <Page>

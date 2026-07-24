@@ -2,6 +2,7 @@
 import { useCallback, useState } from 'react';
 
 import {
+  DashText,
   Dialog,
   Empty,
   Icon,
@@ -11,13 +12,16 @@ import {
   Stack,
   XStack,
   YStack,
+  useBackHandler,
 } from '@onekeyhq/components';
 import {
+  UNIFOLD_ARBITRUM_CHAIN_ID,
   UNIFOLD_ARBITRUM_USDC_SYMBOL,
-  UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL,
 } from '@onekeyhq/kit/src/views/Perp/consts/unifold';
 import { usePerpsUnifoldDepositSession } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
 import type { IUnifoldDepositErrorType } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
+import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IUnifoldDepositExecution } from '@onekeyhq/shared/types/unifoldDeposit';
 
@@ -27,7 +31,21 @@ import { formatUnifoldProcessingTime, formatUnifoldUsd } from './unifoldFormat';
 import { UnifoldSourceSelector } from './UnifoldSourceSelector';
 import { UnifoldExecutionDetail } from './UnifoldTrackerContent';
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+// HyperCore uses the same Hyperliquid brand mark as the preset HyperEVM
+// network, while dev's plain-chain destination keeps its own chain icon.
+const HYPERLIQUID_NETWORK_ICON_URI = getPresetNetworks().find(
+  (network) => network.shortcode === 'hyperevm',
+)?.logoURI;
+
+function DetailRow({
+  label,
+  value,
+  tooltip,
+}: {
+  label: string;
+  value: string;
+  tooltip?: string;
+}) {
   return (
     <XStack
       px="$4"
@@ -36,9 +54,24 @@ function DetailRow({ label, value }: { label: string; value: string }) {
       justifyContent="space-between"
       gap="$3"
     >
-      <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
-        {label}
-      </SizableText>
+      {tooltip ? (
+        <DashText
+          size="$bodyMd"
+          color="$textSubdued"
+          dashColor="$textDisabled"
+          dashThickness={0.5}
+          flexShrink={0}
+          tooltip={tooltip}
+          tooltipTitle={label}
+          tooltipPlacement="bottom-start"
+        >
+          {label}
+        </DashText>
+      ) : (
+        <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+          {label}
+        </SizableText>
+      )}
       <SizableText
         size="$bodyMdMedium"
         color="$text"
@@ -131,6 +164,9 @@ export function UnifoldTransferContent({
   bodyMaxHeight,
   statusCardsPlacement = 'overlay',
   useDialogHeader = false,
+  useExternalHeader = false,
+  detailExecutionId: controlledDetailExecutionId,
+  onDetailExecutionIdChange,
 }: {
   expectedRecipient: string | null | undefined;
   onPressExecution?: (execution: IUnifoldDepositExecution) => void;
@@ -140,14 +176,16 @@ export function UnifoldTransferContent({
   // for the footer, so this must stay a prop rather than a platform check.
   statusCardsPlacement?: 'overlay' | 'pageFooter';
   useDialogHeader?: boolean;
+  useExternalHeader?: boolean;
+  detailExecutionId?: string | null;
+  onDetailExecutionIdChange?: (executionId: string | null) => void;
 }) {
-  const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [dismissedExecutionIds, setDismissedExecutionIds] = useState<string[]>(
     [],
   );
-  const [detailExecutionId, setDetailExecutionId] = useState<string | null>(
-    null,
-  );
+  const [internalDetailExecutionId, setInternalDetailExecutionId] = useState<
+    string | null
+  >(null);
   const {
     recipientAddress,
     isHyperCoreDestination,
@@ -171,10 +209,41 @@ export function UnifoldTransferContent({
     );
   }, []);
 
+  const detailExecutionId =
+    controlledDetailExecutionId === undefined
+      ? internalDetailExecutionId
+      : controlledDetailExecutionId;
+  const setDetailExecutionId = useCallback(
+    (executionId: string | null) => {
+      if (controlledDetailExecutionId === undefined) {
+        setInternalDetailExecutionId(executionId);
+      }
+      onDetailExecutionIdChange?.(executionId);
+    },
+    [controlledDetailExecutionId, onDetailExecutionIdChange],
+  );
+
+  useBackHandler(
+    useCallback(() => {
+      setDetailExecutionId(null);
+      return true;
+    }, [setDetailExecutionId]),
+    platformEnv.isNativeAndroid && Boolean(detailExecutionId),
+  );
+
   const chain = selection?.chain;
-  const receiveTokenLabel = isHyperCoreDestination
-    ? `${UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL} on HyperCore`
-    : `${UNIFOLD_ARBITRUM_USDC_SYMBOL} on Arbitrum`;
+  const receiveAsset = supportedAssets?.find(
+    (asset) =>
+      asset.symbol.toUpperCase() === UNIFOLD_ARBITRUM_USDC_SYMBOL.toUpperCase(),
+  );
+  const receiveNetwork = isHyperCoreDestination
+    ? undefined
+    : receiveAsset?.chains.find(
+        (item) => item.chain_id === UNIFOLD_ARBITRUM_CHAIN_ID,
+      );
+  const receiveNetworkIconUri = isHyperCoreDestination
+    ? HYPERLIQUID_NETWORK_ICON_URI
+    : receiveNetwork?.icon_url;
   const inPageFooter = statusCardsPlacement === 'pageFooter';
   const visibleExecutions = sessionExecutions.filter(
     (item) => !dismissedExecutionIds.includes(item.executionId),
@@ -228,7 +297,7 @@ export function UnifoldTransferContent({
       </Stack>
       {inPageFooter && statusCards ? (
         <Page.Footer>
-          <Stack px="$4" pb="$2">
+          <Stack px="$4" pb="$6">
             {statusCards}
           </Stack>
         </Page.Footer>
@@ -254,7 +323,7 @@ export function UnifoldTransferContent({
   if (detailExecution) {
     return withStatusCards(
       <YStack>
-        {useDialogHeader ? null : (
+        {useDialogHeader || useExternalHeader ? null : (
           <XStack
             pb="$2"
             alignItems="center"
@@ -351,6 +420,11 @@ export function UnifoldTransferContent({
       <UnifoldDepositQRCard
         address={qrAddress}
         chainIconUri={chain?.icon_url}
+        sourceTokenSymbol={selection?.asset.symbol}
+        sourceTokenIconUri={selection?.asset.icon_url}
+        receiveTokenSymbol={UNIFOLD_ARBITRUM_USDC_SYMBOL}
+        receiveTokenIconUri={receiveAsset?.icon_url}
+        receiveNetworkIconUri={receiveNetworkIconUri}
         // The QR needs both the address and a chain selection. Scoped to
         // 'ready' so a genuine address failure still shows its terminal
         // message instead of shimmering forever.
@@ -360,87 +434,29 @@ export function UnifoldTransferContent({
         }
       />
 
-      <YStack
-        bg="$bgStrong"
-        borderRadius="$3"
-        overflow="hidden"
-        role="button"
-        cursor="pointer"
-        userSelect="none"
-        hoverStyle={{ bg: '$bgStrongHover' }}
-        pressStyle={{ bg: '$bgStrongActive' }}
-        onPress={() => setDetailsExpanded((value) => !value)}
-        accessibilityState={{ expanded: detailsExpanded }}
-        focusable
-        focusVisibleStyle={{
-          outlineWidth: 2,
-          outlineColor: '$focusRing',
-          outlineOffset: -2,
-          outlineStyle: 'solid',
-        }}
-      >
-        <XStack
-          px="$4"
-          py="$2"
-          alignItems="center"
-          justifyContent="space-between"
-          gap="$3"
-        >
-          <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
-            Receive token
-          </SizableText>
-          <XStack alignItems="center" gap="$1.5" flexShrink={1} minWidth={0}>
-            <SizableText
-              size="$bodyMdMedium"
-              color="$text"
-              numberOfLines={1}
-              flexShrink={1}
-              minWidth={0}
-            >
-              {receiveTokenLabel}
-            </SizableText>
-            <Icon
-              name={
-                detailsExpanded
-                  ? 'ChevronTopSmallOutline'
-                  : 'ChevronDownSmallOutline'
-              }
-              size="$4"
-              color="$iconSubdued"
-            />
-          </XStack>
-        </XStack>
-        {detailsExpanded ? (
-          <>
-            <DetailRow
-              label="Processing time"
-              value={formatUnifoldProcessingTime(
-                chain?.estimated_processing_time,
-              )}
-            />
-            <DetailRow
-              label="Max slippage"
-              value={`Auto • ${(chain?.max_slippage_percent ?? 0.25).toFixed(
-                2,
-              )}%`}
-            />
-            <DetailRow
-              label="Price impact"
-              value={`${(chain?.estimated_price_impact_percent ?? 0).toFixed(
-                2,
-              )}%`}
-            />
-            {recipientAddress ? (
-              <DetailRow
-                label="Perps account"
-                value={accountUtils.shortenAddress({
-                  address: recipientAddress,
-                  leadingLength: 8,
-                  trailingLength: 6,
-                })}
-              />
-            ) : null}
-          </>
+      <YStack bg="$bgStrong" borderRadius="$3" py="$2" overflow="hidden">
+        <DetailRow
+          label="Processing time"
+          value={formatUnifoldProcessingTime(chain?.estimated_processing_time)}
+        />
+        <DetailRow
+          label="Max slippage"
+          value={`Auto • ${(chain?.max_slippage_percent ?? 0.25).toFixed(2)}%`}
+        />
+        <DetailRow
+          label="Price impact"
+          value={`${(chain?.estimated_price_impact_percent ?? 0).toFixed(2)}%`}
+          tooltip="Estimated difference between the quoted and executed conversion price. It can change with trade size and available liquidity."
+        />
+        {recipientAddress ? (
+          <DetailRow
+            label="Perps account"
+            value={accountUtils.shortenAddress({
+              address: recipientAddress,
+              leadingLength: 8,
+              trailingLength: 6,
+            })}
+          />
         ) : null}
       </YStack>
 

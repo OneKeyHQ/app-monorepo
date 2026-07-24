@@ -18,6 +18,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WalletConnectionForWeb } from '@onekeyhq/kit/src/components/TabPageHeader/components/WalletConnectionGroup';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import { useShowPortfolio } from '@onekeyhq/kit/src/views/Perp/hooks/useShowPortfolio';
 import {
   getPerpsAccountDisplaySnapshotEntry,
@@ -111,6 +112,8 @@ function DepositButton() {
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
   const { showPortfolio } = useShowPortfolio();
+  const { showDepositWithdrawModal, isDepositDisabled } =
+    useShowDepositWithdrawModal();
   const lastAccountValueRef = useRef<
     | {
         accountKey: string;
@@ -217,6 +220,20 @@ function DepositButton() {
   } else if (isEmptyAccount) {
     badgeVariant = 'deposit';
   }
+  const handlePress = useCallback(() => {
+    if (isEmptyAccount) {
+      if (!isDepositDisabled) {
+        void showDepositWithdrawModal('deposit');
+      }
+      return;
+    }
+    void showPortfolio();
+  }, [
+    isDepositDisabled,
+    isEmptyAccount,
+    showDepositWithdrawModal,
+    showPortfolio,
+  ]);
 
   useEffect(() => {
     tracePerpsMobileLayout('header.depositBadge.state', {
@@ -284,7 +301,7 @@ function DepositButton() {
       size="medium"
       variant={isEmptyAccount ? 'primary' : 'secondary'}
       testID={PerpTestIDs.PortfolioButton}
-      onPress={showPortfolio}
+      onPress={handlePress}
       alignItems="center"
       justifyContent="center"
       flexDirection="row"

@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import {
+  Button,
   Dialog,
   Divider,
   Empty,
@@ -130,6 +131,47 @@ function ExecutionTokenBadge({
   );
 }
 
+function TrackerIntroCard({ onDepositPress }: { onDepositPress?: () => void }) {
+  return (
+    <XStack
+      p="$3"
+      gap="$2.5"
+      alignItems="center"
+      bg="$bgStrong"
+      borderRadius="$3"
+    >
+      <Stack
+        w="$4"
+        h="$4"
+        flexShrink={0}
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Icon name="InfoCircleOutline" size="$4" color="$iconSubdued" />
+      </Stack>
+      <YStack flex={1} gap="$0.5">
+        <SizableText size="$bodySmMedium" color="$text">
+          Transfer Crypto activity
+        </SizableText>
+        <SizableText size="$bodySm" color="$textSubdued">
+          Track deposits that are processing, completed, or need attention.
+        </SizableText>
+      </YStack>
+      {onDepositPress ? (
+        <Button
+          testID="perps-unifold-tracker-deposit"
+          size="small"
+          variant="primary"
+          flexShrink={0}
+          onPress={onDepositPress}
+        >
+          Deposit
+        </Button>
+      ) : null}
+    </XStack>
+  );
+}
+
 // Exported so the dev gallery can render fixture rows without any network.
 export function UnifoldExecutionRow({
   execution,
@@ -144,11 +186,15 @@ export function UnifoldExecutionRow({
       p="$3"
       alignItems="center"
       gap="$3"
-      bg="$bgStrong"
+      bg={platformEnv.isNative ? '$bgSubdued' : '$bgStrong'}
       borderRadius="$3"
       cursor="pointer"
-      hoverStyle={{ bg: '$bgStrongHover' }}
-      pressStyle={{ bg: '$bgStrongActive' }}
+      hoverStyle={{
+        bg: platformEnv.isNative ? '$bgHover' : '$bgStrongHover',
+      }}
+      pressStyle={{
+        bg: platformEnv.isNative ? '$bgActive' : '$bgStrongActive',
+      }}
       onPress={onPress}
     >
       <Token
@@ -442,10 +488,20 @@ export function UnifoldTrackerContent({
   recipientAddress,
   listHeight,
   useDialogHeader = false,
+  useExternalHeader = false,
+  fillAvailableHeight = false,
+  detailExecutionId: controlledDetailExecutionId,
+  onDetailExecutionIdChange,
+  onDepositPress,
 }: {
   recipientAddress: string | null;
   listHeight?: number;
   useDialogHeader?: boolean;
+  useExternalHeader?: boolean;
+  fillAvailableHeight?: boolean;
+  detailExecutionId?: string | null;
+  onDetailExecutionIdChange?: (executionId: string | null) => void;
+  onDepositPress?: () => void;
 }) {
   // Security MUST-2 applies to the tracker too: the queried recipient must be
   // the currently active perps account at open time. The incoming prop (which
@@ -476,10 +532,30 @@ export function UnifoldTrackerContent({
   // Track the selected row by id and re-derive it from the freshest poll
   // result, so an in-progress execution keeps updating inside the detail view
   // instead of freezing at the moment it was tapped.
-  const [detailSelection, setDetailSelection] = useState<{
+  const [internalDetailSelection, setInternalDetailSelection] = useState<{
     executionId: string;
     snapshot: IUnifoldDepositExecution;
   } | null>(null);
+  const detailExecutionId =
+    controlledDetailExecutionId === undefined
+      ? (internalDetailSelection?.executionId ?? null)
+      : controlledDetailExecutionId;
+  const closeDetail = useCallback(() => {
+    if (controlledDetailExecutionId === undefined) {
+      setInternalDetailSelection(null);
+    }
+    onDetailExecutionIdChange?.(null);
+  }, [controlledDetailExecutionId, onDetailExecutionIdChange]);
+  const openDetail = useCallback(
+    (execution: IUnifoldDepositExecution) => {
+      setInternalDetailSelection({
+        executionId: execution.executionId,
+        snapshot: execution,
+      });
+      onDetailExecutionIdChange?.(execution.executionId);
+    },
+    [onDetailExecutionIdChange],
+  );
 
   // Full history: no `since` param (newest first, up to 100 rows). The 3s
   // poll matches the contract; the server throttles upstream QPS.
@@ -514,10 +590,10 @@ export function UnifoldTrackerContent({
   // dismissed by drag, not by a back event.
   useBackHandler(
     useCallback(() => {
-      setDetailSelection(null);
+      closeDetail();
       return true;
-    }, []),
-    platformEnv.isNativeAndroid && Boolean(detailSelection),
+    }, [closeDetail]),
+    platformEnv.isNativeAndroid && Boolean(detailExecutionId),
   );
 
   const withDialogHeader = (body: ReactNode) => {
@@ -537,20 +613,20 @@ export function UnifoldTrackerContent({
     );
     return (
       <>
-        {detailSelection ? (
+        {detailExecutionId ? (
           <Dialog.Header>
             <XStack
               alignItems="center"
               gap="$2"
               cursor="pointer"
-              onPress={() => setDetailSelection(null)}
+              onPress={closeDetail}
             >
               <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
               <Dialog.Title>Deposit Details</Dialog.Title>
             </XStack>
           </Dialog.Header>
         ) : (
-          <Dialog.Header title="Deposit Tracker" />
+          <Dialog.Header title="Crypto Deposits" />
         )}
         {dialogBody}
       </>
@@ -573,25 +649,38 @@ export function UnifoldTrackerContent({
     );
   }
 
-  if (detailSelection) {
+  if (detailExecutionId) {
     const liveExecution =
-      executions?.find((e) => e.executionId === detailSelection.executionId) ??
-      detailSelection.snapshot;
+      executions?.find((e) => e.executionId === detailExecutionId) ??
+      (internalDetailSelection?.executionId === detailExecutionId
+        ? internalDetailSelection.snapshot
+        : undefined);
+    if (!liveExecution) {
+      return withDialogHeader(
+        <YStack py="$8">
+          <Empty
+            icon="ErrorOutline"
+            title="Deposit details unavailable"
+            description="Return to the tracker and try again."
+          />
+        </YStack>,
+      );
+    }
     return withDialogHeader(
       // Bounded like the list branch: the dialog panel clamps its height but
       // does not scroll, so a tall detail would render outside it.
       <ScrollView
-        flex={useDialogHeader ? 1 : undefined}
-        maxHeight={listHeight ?? 460}
+        flex={useDialogHeader || fillAvailableHeight ? 1 : undefined}
+        maxHeight={fillAvailableHeight ? undefined : (listHeight ?? 460)}
       >
         <YStack>
-          {useDialogHeader ? null : (
+          {useDialogHeader || useExternalHeader ? null : (
             <XStack
               pb="$2"
               alignItems="center"
               gap="$1"
               cursor="pointer"
-              onPress={() => setDetailSelection(null)}
+              onPress={closeDetail}
             >
               <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
               <SizableText size="$bodyMdMedium" color="$text">
@@ -623,8 +712,12 @@ export function UnifoldTrackerContent({
     return withDialogHeader(
       // Geometry matches the loaded list exactly, so resolving the first poll
       // does not shift the rows sideways or upwards.
-      <YStack flex={useDialogHeader ? 1 : undefined} minHeight={0}>
+      <YStack
+        flex={useDialogHeader || fillAvailableHeight ? 1 : undefined}
+        minHeight={0}
+      >
         <YStack gap="$3" width="100%" flex={1}>
+          <TrackerIntroCard onDepositPress={onDepositPress} />
           {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} width="100%" height={60} radius={12} />
           ))}
@@ -635,35 +728,40 @@ export function UnifoldTrackerContent({
 
   if (!executions.length) {
     return withDialogHeader(
-      <YStack flex={useDialogHeader ? 1 : undefined} minHeight={0}>
-        <YStack flex={1} py="$8" alignItems="center" gap="$2">
-          <Empty
-            icon="ClockTimeHistoryOutline"
-            title="No deposits yet"
-            description="Your deposit history will appear here"
-          />
+      <YStack
+        flex={useDialogHeader || fillAvailableHeight ? 1 : undefined}
+        minHeight={0}
+      >
+        <YStack flex={1} gap="$3">
+          <TrackerIntroCard onDepositPress={onDepositPress} />
+          <YStack flex={1} py="$8" alignItems="center" gap="$2">
+            <Empty
+              icon="ClockTimeHistoryOutline"
+              title="No deposits yet"
+              description="Your deposit history will appear here"
+            />
+          </YStack>
         </YStack>
       </YStack>,
     );
   }
 
   return withDialogHeader(
-    <YStack flex={useDialogHeader ? 1 : undefined} minHeight={0}>
+    <YStack
+      flex={useDialogHeader || fillAvailableHeight ? 1 : undefined}
+      minHeight={0}
+    >
       <ScrollView
-        flex={useDialogHeader ? 1 : undefined}
-        maxHeight={listHeight ?? 460}
+        flex={useDialogHeader || fillAvailableHeight ? 1 : undefined}
+        maxHeight={fillAvailableHeight ? undefined : (listHeight ?? 460)}
       >
         <YStack gap="$3" pb="$4">
+          <TrackerIntroCard onDepositPress={onDepositPress} />
           {executions.map((execution) => (
             <UnifoldExecutionRow
               key={execution.executionId}
               execution={execution}
-              onPress={() =>
-                setDetailSelection({
-                  executionId: execution.executionId,
-                  snapshot: execution,
-                })
-              }
+              onPress={() => openDetail(execution)}
             />
           ))}
         </YStack>

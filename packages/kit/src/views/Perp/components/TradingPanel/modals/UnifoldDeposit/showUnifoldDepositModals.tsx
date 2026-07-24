@@ -15,7 +15,11 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { resolveUnifoldDepositDestination } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useDevSettingsPersistAtom,
+  usePerpsDepositTokensAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { normalizeUnifoldIconUrl } from './unifoldFormat';
 import { UnifoldTrackerContent } from './UnifoldTrackerContent';
@@ -58,8 +62,10 @@ function DesktopTransferBody({
 
 function DesktopTrackerBody({
   expectedRecipient,
+  onDepositPress,
 }: {
   expectedRecipient: string;
+  onDepositPress: () => void;
 }) {
   const bodyMaxHeight = useDesktopDialogBodyMaxHeight();
   return (
@@ -67,6 +73,7 @@ function DesktopTrackerBody({
       recipientAddress={expectedRecipient}
       listHeight={bodyMaxHeight}
       useDialogHeader
+      onDepositPress={onDepositPress}
     />
   );
 }
@@ -142,9 +149,74 @@ function MenuActionRow({
   );
 }
 
-// Overlapping source-chain icons on the Transfer Crypto row, sourced from the
-// wallet-service supported-assets catalog (replaces the old SDK project-config
-// logos — no vendor SDK, no pk_ in the client).
+function DepositNetworkHintLogos({
+  logoUris,
+}: {
+  logoUris: (string | undefined)[];
+}) {
+  const tokens = Array.from(
+    new Set(logoUris.filter((uri): uri is string => Boolean(uri))),
+  ).map((tokenImageUri) => ({ tokenImageUri }));
+  if (!tokens.length) {
+    return null;
+  }
+  const visibleTokens = tokens.slice(0, 6);
+  const remainingCount = tokens.length - visibleTokens.length;
+  return (
+    <XStack alignItems="center">
+      {visibleTokens.map((token, index) => (
+        <Token
+          key={token.tokenImageUri}
+          size="xxs"
+          tokenImageUri={token.tokenImageUri}
+          w="$4.5"
+          h="$4.5"
+          borderWidth="$px"
+          borderColor="$bgApp"
+          {...(index === 0 ? undefined : { ml: '$-1' })}
+        />
+      ))}
+      {remainingCount > 0 ? (
+        <SizableText size="$bodyXs" color="$textSubdued" ml="$1">
+          +{remainingCount}
+        </SizableText>
+      ) : null}
+    </XStack>
+  );
+}
+
+function isBitcoinIdentity(...values: (string | undefined)[]) {
+  const identity = values.filter(Boolean).join(' ').toLowerCase();
+  return (
+    identity.includes('bitcoin') || identity.split(/[^a-z0-9]+/).includes('btc')
+  );
+}
+
+function prioritizeBitcoin<T>(
+  items: T[],
+  matchesBitcoin: (item: T) => boolean,
+) {
+  return [
+    ...items.filter(matchesBitcoin),
+    ...items.filter((item) => !matchesBitcoin(item)),
+  ];
+}
+
+function ConnectedWalletHintLogos() {
+  const [{ serverTokens, tokens }] = usePerpsDepositTokensAtom();
+  const configuredTokens = serverTokens ?? Object.values(tokens).flat();
+  const orderedTokens = prioritizeBitcoin(configuredTokens, (token) =>
+    isBitcoinIdentity(token.networkId, token.symbol, token.name),
+  );
+  return (
+    <DepositNetworkHintLogos
+      logoUris={orderedTokens.map((token) => token.networkLogoURI)}
+    />
+  );
+}
+
+// Source-chain icons on the Transfer Crypto row, sourced from the wallet
+// service supported-assets catalog (no vendor SDK or client-side project key).
 function TransferChainHintLogos() {
   const [devSettings] = useDevSettingsPersistAtom();
   const destination = resolveUnifoldDepositDestination(devSettings);
@@ -154,39 +226,32 @@ function TransferChainHintLogos() {
     [destination],
     { watchLoading: false },
   );
-  const logos = Array.from(
-    new Set(
-      (result ?? [])
-        .flatMap((asset) => asset.chains ?? [])
-        .map((chain) => chain.icon_url)
-        .filter(Boolean),
+  const sourceChains = (result ?? []).flatMap((asset) =>
+    (asset.chains ?? []).map((chain) => ({ asset, chain })),
+  );
+  const orderedChains = prioritizeBitcoin(sourceChains, ({ asset, chain }) =>
+    isBitcoinIdentity(
+      asset.symbol,
+      asset.name,
+      chain.chain_type,
+      chain.chain_name,
     ),
-  ).slice(0, 4);
-  if (!logos.length) {
-    return null;
-  }
+  );
   return (
-    <XStack alignItems="center">
-      {logos.map((uri, index) => (
-        <Token
-          key={uri}
-          size="xxs"
-          tokenImageUri={normalizeUnifoldIconUrl(uri)}
-          w="$4.5"
-          h="$4.5"
-          borderWidth="$px"
-          borderColor="$bgApp"
-          {...(index === 0 ? undefined : { ml: '$-1' })}
-        />
-      ))}
-    </XStack>
+    <DepositNetworkHintLogos
+      logoUris={orderedChains.map(({ chain }) =>
+        normalizeUnifoldIconUrl(chain.icon_url),
+      )}
+    />
   );
 }
 
 export function showPerpsUnifoldDepositMenuDialog({
   onAction,
+  showTrackerAction = true,
 }: {
   onAction: (action: IUnifoldDepositMenuAction) => void;
+  showTrackerAction?: boolean;
 }) {
   // The menu must be fully closed before the next dialog opens: opening the
   // in-tab transfer/tracker dialog while the menu is still closing leaves the
@@ -204,13 +269,19 @@ export function showPerpsUnifoldDepositMenuDialog({
       width: DEPOSIT_MENU_DIALOG_WIDTH,
       maxWidth: DESKTOP_DIALOG_MAX_WIDTH,
     },
+    contentContainerProps: platformEnv.isNative ? { pb: 0 } : undefined,
     renderContent: (
-      <YStack gap="$1" pb="$4" width="100%">
+      <YStack
+        gap="$1"
+        pb={platformEnv.isNative ? '$1' : undefined}
+        width="100%"
+      >
         <MenuActionRow
           testID="perps-deposit-menu-connected-wallet"
           icon="WalletCryptoOutline"
-          title="Connected Wallet"
+          title="Wallet"
           subtitle="Min $5 • Instant"
+          hint={<ConnectedWalletHintLogos />}
           onPress={() => {
             void closeThenRun('onekey');
           }}
@@ -228,15 +299,17 @@ export function showPerpsUnifoldDepositMenuDialog({
             void closeThenRun('transfer');
           }}
         />
-        <MenuActionRow
-          testID="perps-deposit-menu-tracker"
-          icon="ClockTimeHistoryOutline"
-          title="Deposit Tracker"
-          subtitle="Track your deposit progress"
-          onPress={() => {
-            void closeThenRun('tracker');
-          }}
-        />
+        {showTrackerAction ? (
+          <MenuActionRow
+            testID="perps-deposit-menu-tracker"
+            icon="ClockTimeHistoryOutline"
+            title="Crypto Deposits"
+            subtitle="Track your deposit progress"
+            onPress={() => {
+              void closeThenRun('tracker');
+            }}
+          />
+        ) : null}
       </YStack>
     ),
   });
@@ -276,8 +349,16 @@ export function showUnifoldTrackerDialog({
   dialogInTab: IDialogInTab;
   expectedRecipient: string;
 }) {
-  dialogInTab.show({
-    title: 'Deposit Tracker',
+  const holder: { instance?: IDialogInstance } = {};
+  const handleDepositPress = async () => {
+    await holder.instance?.close();
+    showUnifoldTransferDialog({
+      dialogInTab,
+      expectedRecipient,
+    });
+  };
+  holder.instance = dialogInTab.show({
+    title: 'Crypto Deposits',
     showFooter: false,
     dismissOnOverlayPress: true,
     floatingPanelProps: {
@@ -285,6 +366,14 @@ export function showUnifoldTrackerDialog({
       maxWidth: DESKTOP_DIALOG_MAX_WIDTH,
       maxHeight: DESKTOP_DIALOG_MAX_HEIGHT,
     },
-    renderContent: <DesktopTrackerBody expectedRecipient={expectedRecipient} />,
+    renderContent: (
+      <DesktopTrackerBody
+        expectedRecipient={expectedRecipient}
+        onDepositPress={() => {
+          void handleDepositPress();
+        }}
+      />
+    ),
   });
+  return holder.instance;
 }

@@ -8,8 +8,10 @@ import {
   perpsActiveAccountAtom,
   perpsCommonConfigPersistAtom,
   usePerpsActiveAccountAtom,
+  usePerpsCommonConfigPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -19,6 +21,75 @@ import { loadPerpsUnifoldDepositModals } from '../utils/preloadPerpsUnifoldDepos
 import { getSafeUnifoldRecipient } from '../utils/unifoldRecipient';
 
 type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
+
+function isUnifoldDepositFeatureEnabled(remoteEnabled: boolean | undefined) {
+  return remoteEnabled === true;
+}
+
+export function useUnifoldDepositTrackerAvailability() {
+  const [activeAccount] = usePerpsActiveAccountAtom();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
+  const safeRecipient = useMemo(
+    () =>
+      getSafeUnifoldRecipient({
+        recipient: activeAccount.accountAddress,
+        activeAccountAddress: activeAccount.accountAddress,
+      }),
+    [activeAccount.accountAddress],
+  );
+  const isUnifoldDepositTrackerAvailable =
+    isUnifoldDepositFeatureEnabled(perpConfigCommon?.unifoldDepositEnabled) &&
+    Boolean(safeRecipient);
+
+  return {
+    isUnifoldDepositTrackerAvailable,
+    safeRecipient,
+  };
+}
+
+export function useShowUnifoldDepositTracker() {
+  const dialogInTab = useInTabDialog();
+  const {
+    isUnifoldDepositTrackerAvailable: isAvailableForActiveAccount,
+    safeRecipient,
+  } = useUnifoldDepositTrackerAvailability();
+  const isUnifoldDepositTrackerAvailable =
+    !platformEnv.isNative && isAvailableForActiveAccount;
+
+  const showUnifoldDepositTracker = useCallback(async () => {
+    if (platformEnv.isNative) {
+      return;
+    }
+    const { perpConfigCommon: latestPerpConfigCommon } =
+      await perpsCommonConfigPersistAtom.get();
+    const latestActiveAccount = jotaiDefaultStore.get(
+      perpsActiveAccountAtom.atom(),
+    );
+    const latestSafeRecipient = getSafeUnifoldRecipient({
+      recipient: latestActiveAccount.accountAddress,
+      activeAccountAddress: latestActiveAccount.accountAddress,
+    });
+    if (
+      !isUnifoldDepositFeatureEnabled(
+        latestPerpConfigCommon?.unifoldDepositEnabled,
+      ) ||
+      !latestSafeRecipient
+    ) {
+      return;
+    }
+    const { showUnifoldTrackerDialog } = await loadPerpsUnifoldDepositModals();
+    showUnifoldTrackerDialog({
+      dialogInTab,
+      expectedRecipient: latestSafeRecipient,
+    });
+  }, [dialogInTab]);
+
+  return {
+    isUnifoldDepositTrackerAvailable,
+    safeRecipient,
+    showUnifoldDepositTracker,
+  };
+}
 
 export function useShowDepositWithdrawModal() {
   const intl = useIntl();
@@ -77,9 +148,6 @@ export function useShowDepositWithdrawModal() {
         return;
       }
 
-      // Unifold entry gating: fail-closed remote switch (explicit true only)
-      // + a valid active perps account address. Anything else falls back to
-      // the original deposit form.
       // Persisted atoms must be read through the async accessor: the raw
       // store read can still hold the pre-hydration value.
       const { perpConfigCommon } = await perpsCommonConfigPersistAtom.get();
@@ -90,7 +158,10 @@ export function useShowDepositWithdrawModal() {
         recipient: selectedAccount.accountAddress,
         activeAccountAddress: selectedAccount.accountAddress,
       });
-      if (perpConfigCommon?.unifoldDepositEnabled !== true || !safeRecipient) {
+      const isUnifoldDepositEnabled = isUnifoldDepositFeatureEnabled(
+        perpConfigCommon?.unifoldDepositEnabled,
+      );
+      if (!isUnifoldDepositEnabled || !safeRecipient) {
         await openDepositWithdrawForm(actionType);
         return;
       }
@@ -101,6 +172,7 @@ export function useShowDepositWithdrawModal() {
         showUnifoldTrackerDialog,
       } = await loadPerpsUnifoldDepositModals();
       showPerpsUnifoldDepositMenuDialog({
+        showTrackerAction: !gtMd && !platformEnv.isNative,
         onAction: (action) => {
           if (action === 'onekey') {
             void openDepositWithdrawForm('deposit');

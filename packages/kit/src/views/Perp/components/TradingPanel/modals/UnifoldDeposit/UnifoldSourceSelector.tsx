@@ -3,6 +3,8 @@ import { useState } from 'react';
 
 import {
   Button,
+  DashText,
+  Dialog,
   Icon,
   Popover,
   ScrollView,
@@ -10,9 +12,12 @@ import {
   Stack,
   XStack,
   YStack,
+  useInPageDialog,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { deferHeavyWorkUntilUIIdle } from '@onekeyhq/kit/src/utils/deferHeavyWork';
 import type { IUnifoldSourceSelection } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IUnifoldSupportedAsset,
   IUnifoldSupportedAssetChain,
@@ -120,7 +125,7 @@ function OptionRow({
       width="100%"
       height="auto"
       minHeight="$13"
-      px="$2.5"
+      px={platformEnv.isNative ? '$0' : '$2.5'}
       py="$1.5"
       m="$0"
       alignItems="center"
@@ -155,11 +160,30 @@ function SelectorOptions({ children }: { children: React.ReactNode }) {
       maxHeight={SELECTOR_POPOVER_MAX_HEIGHT}
       showsVerticalScrollIndicator={false}
     >
-      <YStack p="$2" gap="$1">
+      <YStack px={platformEnv.isNative ? '$0' : '$2'} py="$2" gap="$1">
         {children}
       </YStack>
     </ScrollView>
   );
+}
+
+function showSelectorDialog({
+  title,
+  content,
+  dialog,
+}: {
+  title: string;
+  content: React.ReactNode;
+  dialog: ReturnType<typeof useInPageDialog>;
+}) {
+  const DialogInstance = platformEnv.isNativeAndroid ? Dialog : dialog;
+
+  return DialogInstance.show({
+    title,
+    renderContent: content,
+    contentContainerProps: platformEnv.isNative ? { pb: 0 } : undefined,
+    showFooter: false,
+  });
 }
 
 export function UnifoldSourceSelector({
@@ -177,6 +201,7 @@ export function UnifoldSourceSelector({
 }) {
   const [tokenOpen, setTokenOpen] = useState(false);
   const [chainOpen, setChainOpen] = useState(false);
+  const dialog = useInPageDialog();
 
   const usableAssets = (assets ?? []).filter((a) => (a.chains ?? []).length);
   const chainOptions = selection?.asset.chains ?? [];
@@ -186,29 +211,26 @@ export function UnifoldSourceSelector({
   const canSelectToken = usableAssets.length > 0;
   const canSelectChain = chainOptions.length > 0;
 
-  return (
-    <XStack gap="$2.5">
-      <YStack flex={1} flexBasis={0} minWidth={0}>
-        <SizableText size="$bodySm" color="$textSubdued" mb="$2">
-          Selected token
-        </SizableText>
-        <Popover
-          title="Select token"
-          placement="bottom-start"
-          open={tokenOpen}
-          onOpenChange={(next) => setTokenOpen(next && canSelectToken)}
-          floatingPanelProps={{ width: SELECTOR_POPOVER_WIDTH }}
-          renderTrigger={
-            <SelectorTrigger
-              testID="perps-unifold-token-selector"
-              iconUri={selection?.asset.icon_url}
-              label={selection?.asset.symbol}
-              loading={loading || !selection}
-              disabled={!canSelectToken}
-              onPress={() => setTokenOpen(true)}
-            />
-          }
-          renderContent={
+  const tokenTrigger = (
+    <SelectorTrigger
+      testID="perps-unifold-token-selector"
+      iconUri={selection?.asset.icon_url}
+      label={selection?.asset.symbol}
+      loading={loading || !selection}
+      disabled={!canSelectToken}
+      onPress={() => {
+        if (!canSelectToken) {
+          return;
+        }
+        if (!platformEnv.isNative) {
+          setTokenOpen(true);
+          return;
+        }
+
+        const dialogInstance = showSelectorDialog({
+          title: 'Select token',
+          dialog,
+          content: (
             <SelectorOptions>
               {usableAssets.map((asset) => (
                 <OptionRow
@@ -221,52 +243,43 @@ export function UnifoldSourceSelector({
                   }`}
                   selected={asset.symbol === selection?.asset.symbol}
                   onPress={() => {
-                    onSelectToken(asset);
-                    setTokenOpen(false);
+                    void (async () => {
+                      await dialogInstance.close();
+                      await deferHeavyWorkUntilUIIdle({
+                        minFrames: platformEnv.isNative ? 3 : 1,
+                      });
+                      onSelectToken(asset);
+                    })();
                   }}
                 />
               ))}
             </SelectorOptions>
-          }
-        />
-      </YStack>
-      <YStack flex={1} flexBasis={0} minWidth={0}>
-        <XStack
-          width="100%"
-          mb="$2"
-          gap="$2"
-          alignItems="center"
-          justifyContent="space-between"
-        >
-          <SizableText size="$bodySm" color="$textSubdued">
-            Selected chain
-          </SizableText>
-          <SizableText
-            size="$bodySmMedium"
-            color="$textCaution"
-            textAlign="right"
-            flexShrink={0}
-          >
-            {`$${minUsd} min`}
-          </SizableText>
-        </XStack>
-        <Popover
-          title="Select network"
-          placement="bottom-end"
-          open={chainOpen}
-          onOpenChange={(next) => setChainOpen(next && canSelectChain)}
-          floatingPanelProps={{ width: SELECTOR_POPOVER_WIDTH }}
-          renderTrigger={
-            <SelectorTrigger
-              testID="perps-unifold-network-selector"
-              iconUri={selection?.chain.icon_url}
-              label={selection?.chain.chain_name}
-              loading={loading || !selection}
-              disabled={!canSelectChain}
-              onPress={() => setChainOpen(true)}
-            />
-          }
-          renderContent={
+          ),
+        });
+      }}
+    />
+  );
+
+  const chainTrigger = (
+    <SelectorTrigger
+      testID="perps-unifold-network-selector"
+      iconUri={selection?.chain.icon_url}
+      label={selection?.chain.chain_name}
+      loading={loading || !selection}
+      disabled={!canSelectChain}
+      onPress={() => {
+        if (!canSelectChain) {
+          return;
+        }
+        if (!platformEnv.isNative) {
+          setChainOpen(true);
+          return;
+        }
+
+        const dialogInstance = showSelectorDialog({
+          title: 'Select network',
+          dialog,
+          content: (
             <SelectorOptions>
               {chainOptions.map((chain) => (
                 <OptionRow
@@ -279,14 +292,119 @@ export function UnifoldSourceSelector({
                     chain.minimum_deposit_amount_usd ?? 3
                   }`}
                   onPress={() => {
-                    onSelectChain(chain);
-                    setChainOpen(false);
+                    void (async () => {
+                      await dialogInstance.close();
+                      await deferHeavyWorkUntilUIIdle({
+                        minFrames: platformEnv.isNative ? 3 : 1,
+                      });
+                      onSelectChain(chain);
+                    })();
                   }}
                 />
               ))}
             </SelectorOptions>
-          }
-        />
+          ),
+        });
+      }}
+    />
+  );
+
+  return (
+    <XStack gap="$2.5">
+      <YStack flex={1} flexBasis={0} minWidth={0}>
+        <SizableText size="$bodySm" color="$textSubdued" mb="$2">
+          Selected token
+        </SizableText>
+        {platformEnv.isNative ? (
+          tokenTrigger
+        ) : (
+          <Popover
+            title="Select token"
+            placement="bottom-start"
+            open={tokenOpen}
+            onOpenChange={(next) => setTokenOpen(next && canSelectToken)}
+            floatingPanelProps={{ width: SELECTOR_POPOVER_WIDTH }}
+            renderTrigger={tokenTrigger}
+            renderContent={
+              <SelectorOptions>
+                {usableAssets.map((asset) => (
+                  <OptionRow
+                    key={asset.symbol}
+                    testID={`perps-unifold-token-option-${asset.symbol}`}
+                    iconUri={asset.icon_url}
+                    label={asset.symbol}
+                    description={`${asset.chains.length} ${
+                      asset.chains.length === 1 ? 'network' : 'networks'
+                    }`}
+                    selected={asset.symbol === selection?.asset.symbol}
+                    onPress={() => {
+                      onSelectToken(asset);
+                      setTokenOpen(false);
+                    }}
+                  />
+                ))}
+              </SelectorOptions>
+            }
+          />
+        )}
+      </YStack>
+      <YStack flex={1} flexBasis={0} minWidth={0}>
+        <XStack
+          width="100%"
+          mb="$2"
+          gap="$2"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <SizableText size="$bodySm" color="$textSubdued">
+            Selected chain
+          </SizableText>
+          <DashText
+            size="$bodySmMedium"
+            color="$textCaution"
+            dashColor="$borderCaution"
+            dashThickness={0.5}
+            textAlign="right"
+            flexShrink={0}
+            tooltip="Minimum deposit amount required for the selected network."
+            tooltipTitle="Minimum deposit"
+            tooltipPlacement="bottom-end"
+          >
+            {`$${minUsd} min`}
+          </DashText>
+        </XStack>
+        {platformEnv.isNative ? (
+          chainTrigger
+        ) : (
+          <Popover
+            title="Select network"
+            placement="bottom-end"
+            open={chainOpen}
+            onOpenChange={(next) => setChainOpen(next && canSelectChain)}
+            floatingPanelProps={{ width: SELECTOR_POPOVER_WIDTH }}
+            renderTrigger={chainTrigger}
+            renderContent={
+              <SelectorOptions>
+                {chainOptions.map((chain) => (
+                  <OptionRow
+                    key={`${chain.chain_type}-${chain.chain_id}`}
+                    testID={`perps-unifold-network-option-${chain.chain_type}-${chain.chain_id}`}
+                    iconUri={chain.icon_url}
+                    label={chain.chain_name}
+                    selected={chain.chain_id === selection?.chain.chain_id}
+                    description={`Minimum deposit $${
+                      chain.minimum_deposit_amount_usd ?? 3
+                    }`}
+                    onPress={() => {
+                      onSelectChain(chain);
+                      setChainOpen(false);
+                    }}
+                  />
+                ))}
+              </SelectorOptions>
+            }
+          />
+        )}
       </YStack>
     </XStack>
   );

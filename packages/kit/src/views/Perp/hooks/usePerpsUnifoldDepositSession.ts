@@ -1,9 +1,6 @@
 // cspell: words unifold Unifold hypercore Hypercore
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   perpsActiveAccountAtom,
@@ -11,7 +8,6 @@ import {
   usePerpsActiveAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   formatUnifoldUsdAmount,
@@ -535,8 +531,8 @@ export function usePerpsUnifoldDepositSession({
   // (possibly already-terminal) execution.
   const primedRef = useRef(false);
   const tickBusyRef = useRef(false);
-  // Outcomes this session announced itself; reported at unmount so the bg
-  // loop never announces them a second time.
+  // Terminal outcomes handled by this session; reported at unmount so the bg
+  // loop does not process them a second time.
   const announcedRef = useRef(new Set<string>());
   // In-flight executions already registered with the bg tracker (muted), so a
   // hard-killed session (popup closed, app killed) leaves nothing behind that
@@ -546,10 +542,6 @@ export function usePerpsUnifoldDepositSession({
   // Gates the unmount handoff: a session that never claimed tracking (address
   // never became ready) has nothing to hand back.
   const claimedRef = useRef(false);
-  // Held in a ref so a locale change never restarts the poll.
-  const intl = useIntl();
-  const intlRef = useRef(intl);
-  intlRef.current = intl;
   // The poll starts once the address is ready and then stays up for the rest
   // of the session. A veto that lands later (sanction, catalog error) must not
   // tear down tracking while money is already in flight.
@@ -642,10 +634,9 @@ export function usePerpsUnifoldDepositSession({
           if (seenStatus !== item.status) {
             seenRef.current.set(item.executionId, item.status);
             if (!priming && item.terminal) {
-              // This session is announcing the outcome (success toast below;
-              // failed/refunded via the status cards), so its tracked entry
-              // is settled right now — at unmount it would be unmuted and the
-              // bg loop would announce it a second time.
+              // This session handles the terminal outcome via the status
+              // cards, so settle its tracked entry before unmount hands
+              // tracking back to the background loop.
               announcedRef.current.add(item.executionId);
               void backgroundApiProxy.serviceUnifoldDeposit.settleAnnouncedExecution(
                 {
@@ -654,21 +645,8 @@ export function usePerpsUnifoldDepositSession({
                 },
               );
               if (item.status === 'succeeded') {
-                // Same key as the background loop's toast: one event must not
-                // be announced in two different languages depending on whether
-                // the modal happened to be open.
-                Toast.success({
-                  title: intlRef.current.formatMessage({
-                    id: ETranslations.perp_deposit_success_title,
-                  }),
-                  message: formatUnifoldUsdAmount(
-                    item.destinationAmountUsd ?? item.sourceAmountUsd,
-                  ),
-                });
                 void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
               }
-              // failed/refunded render via the status cards; no extra toast
-              // (contract §1: never invent failure copy).
             }
           }
         }

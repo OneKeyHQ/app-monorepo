@@ -269,26 +269,22 @@ const MOBILE_BODY_WIDTH = 343;
 // visually identical to UnifoldTransferContent's real ones.
 function ProcessingTimeRowStub() {
   return (
-    <YStack
-      px="$2.5"
-      bg="$bgSubdued"
-      borderRadius="$3"
-      borderWidth="$px"
-      borderColor="$borderSubdued"
-    >
-      <XStack py="$2.5" alignItems="center" justifyContent="space-between">
-        <XStack alignItems="center" gap="$2">
-          <Stack borderRadius="$full" p="$1" bg="$bgInfoSubdued">
-            <Icon name="ClockTimeHistoryOutline" size="$3" color="$iconInfo" />
-          </Stack>
-          <SizableText size="$bodySm" color="$textSubdued">
-            Processing time:
-          </SizableText>
+    <YStack>
+      <XStack
+        minHeight="$12"
+        alignItems="center"
+        justifyContent="space-between"
+        gap="$3"
+      >
+        <SizableText size="$bodySm" color="$textSubdued">
+          Deposit details
+        </SizableText>
+        <XStack alignItems="center" gap="$1.5">
           <SizableText size="$bodySmMedium" color="$text">
             {'< 1 min'}
           </SizableText>
+          <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
         </XStack>
-        <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
       </XStack>
     </YStack>
   );
@@ -300,23 +296,24 @@ function TermsRowStub({ waiting }: { waiting?: boolean }) {
       <XStack alignItems="center" gap="$1.5">
         {waiting ? (
           <>
-            <Spinner size="small" />
+            <Spinner size="small" scale={0.65} />
             <SizableText size="$bodySm" color="$textSubdued">
               Checking for deposit
             </SizableText>
           </>
         ) : null}
       </XStack>
-      <XStack alignItems="center" gap="$1">
-        <SizableText size="$bodySm" color="$textInfo">
-          Terms
-        </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued">
-          |
-        </SizableText>
-        <SizableText size="$bodySm" color="$textInfo">
-          Help
-        </SizableText>
+      <XStack alignItems="center" gap="$1.5">
+        <Button size="small" variant="tertiary" childrenAsText={false} px="$2">
+          <SizableText size="$bodySm" color="$textInfo">
+            Terms
+          </SizableText>
+        </Button>
+        <Button size="small" variant="tertiary" childrenAsText={false} px="$2">
+          <SizableText size="$bodySm" color="$textInfo">
+            Help
+          </SizableText>
+        </Button>
       </XStack>
     </XStack>
   );
