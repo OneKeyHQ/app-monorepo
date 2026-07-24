@@ -1,7 +1,8 @@
 import type { ICandle } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { getTradingViewNativeKLineInterval } from '../../tradingViewNativeIntervals';
+
 import { normalizeHyperliquidCandle } from './hyperliquidCandleUtils';
-import { getTradingViewNativeKLineInterval } from './tradingViewNativeIntervals';
 
 function buildCandle(overrides: Partial<ICandle> = {}): ICandle {
   return {

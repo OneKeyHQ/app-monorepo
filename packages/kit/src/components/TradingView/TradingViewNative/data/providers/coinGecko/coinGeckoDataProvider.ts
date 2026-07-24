@@ -5,9 +5,10 @@ import type { IMarketTokenKLineResponse } from '@onekeyhq/shared/types/marketV2'
 import {
   convertCoinGeckoChartToKLineResponse,
   getCoinGeckoChartDaysForInterval,
+  getCoinGeckoHistoryRequestCandleCount,
 } from './coinGeckoKLineUtils';
 
-import type { ITradingViewNativeHistoryRequest } from './tradingViewNativeDataProviderTypes';
+import type { ITradingViewNativeHistoryDataProvider } from '../types';
 
 const COINGECKO_ID_CACHE_MAX_SIZE = 100;
 
@@ -67,12 +68,12 @@ async function resolveCoinGeckoId({
   }
 }
 
-export function clearCoinGeckoKLineDataCache() {
+export function clearTradingViewNativeCoinGeckoDataProviderCache() {
   coinGeckoIdCache.clear();
   coinGeckoIdRequests.clear();
 }
 
-export function createCoinGeckoKLineDataFetcher({
+export function createTradingViewNativeCoinGeckoDataProvider({
   ...source
 }:
   | {
@@ -82,53 +83,57 @@ export function createCoinGeckoKLineDataFetcher({
       networkId: string;
       tokenAddress: string;
       tokenKey: string;
-    }) {
+    }): ITradingViewNativeHistoryDataProvider {
   const chartDataRequests = new Map<string, Promise<IMarketTokenChart>>();
 
-  return async ({
-    interval,
-    signal,
-    timeFrom,
-    timeTo,
-  }: ITradingViewNativeHistoryRequest): Promise<IMarketTokenKLineResponse | null> => {
-    if (signal.aborted) {
-      return null;
-    }
-
-    const coinGeckoId =
-      'coinGeckoId' in source
-        ? source.coinGeckoId.trim()
-        : await resolveCoinGeckoId(source);
-    if (signal.aborted || !coinGeckoId) {
-      return null;
-    }
-
-    const days = getCoinGeckoChartDaysForInterval(interval);
-    const chartDataRequestKey = `${coinGeckoId}:${days}`;
-    let chartDataPromise = chartDataRequests.get(chartDataRequestKey);
-    if (!chartDataPromise) {
-      chartDataPromise = backgroundApiProxy.serviceMarket.fetchTokenChart(
-        coinGeckoId,
-        days,
-        { requestCurrency: 'usd' },
-      );
-      chartDataRequests.set(chartDataRequestKey, chartDataPromise);
-    }
-
-    const chartData = await chartDataPromise.finally(() => {
-      if (chartDataRequests.get(chartDataRequestKey) === chartDataPromise) {
-        chartDataRequests.delete(chartDataRequestKey);
-      }
-    });
-    if (signal.aborted) {
-      return null;
-    }
-
-    return convertCoinGeckoChartToKLineResponse({
-      chartData,
-      intervalSeconds: interval.seconds,
+  return {
+    getHistoryRequestCandleCount: getCoinGeckoHistoryRequestCandleCount,
+    hasMoreHistory: () => false,
+    fetchHistory: async ({
+      interval,
+      signal,
       timeFrom,
       timeTo,
-    });
+    }): Promise<IMarketTokenKLineResponse | null> => {
+      if (signal.aborted) {
+        return null;
+      }
+
+      const coinGeckoId =
+        'coinGeckoId' in source
+          ? source.coinGeckoId.trim()
+          : await resolveCoinGeckoId(source);
+      if (signal.aborted || !coinGeckoId) {
+        return null;
+      }
+
+      const days = getCoinGeckoChartDaysForInterval(interval);
+      const chartDataRequestKey = `${coinGeckoId}:${days}`;
+      let chartDataPromise = chartDataRequests.get(chartDataRequestKey);
+      if (!chartDataPromise) {
+        chartDataPromise = backgroundApiProxy.serviceMarket.fetchTokenChart(
+          coinGeckoId,
+          days,
+          { requestCurrency: 'usd' },
+        );
+        chartDataRequests.set(chartDataRequestKey, chartDataPromise);
+      }
+
+      const chartData = await chartDataPromise.finally(() => {
+        if (chartDataRequests.get(chartDataRequestKey) === chartDataPromise) {
+          chartDataRequests.delete(chartDataRequestKey);
+        }
+      });
+      if (signal.aborted) {
+        return null;
+      }
+
+      return convertCoinGeckoChartToKLineResponse({
+        chartData,
+        intervalSeconds: interval.seconds,
+        timeFrom,
+        timeTo,
+      });
+    },
   };
 }
