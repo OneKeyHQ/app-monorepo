@@ -1,5 +1,11 @@
 /* eslint-disable import/first */
 
+jest.mock('react-intl', () => ({
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }) => id,
+  }),
+}));
+
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   const serviceStaking = {
     getBorrowTransactionConfirmation: jest.fn(),
