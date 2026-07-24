@@ -356,6 +356,74 @@ function PrimeInfiniPaymentSkeleton() {
   );
 }
 
+function PrimeInfiniPaymentCompletionStatus({
+  hasError = false,
+  onRetry,
+}: {
+  hasError?: boolean;
+  onRetry?: () => void;
+}) {
+  const intl = useIntl();
+  return (
+    <>
+      <YStack
+        testID="prime-infini-payment-completion"
+        flex={1}
+        minHeight="$48"
+        gap="$4"
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Stack
+          w="$16"
+          h="$16"
+          borderRadius="$full"
+          bg="$bgSuccessSubdued"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Icon name="CheckRadioSolid" size="$10" color="$iconSuccess" />
+        </Stack>
+        <YStack gap="$2" alignItems="center">
+          <SizableText size="$headingMd" textAlign="center">
+            {intl.formatMessage({
+              id: ETranslations.prime_payment_successful,
+            })}
+          </SizableText>
+          {hasError ? (
+            <Alert
+              testID="prime-infini-payment-completion-error"
+              type="critical"
+              title={intl.formatMessage({
+                id: ETranslations.global_failed,
+              })}
+            />
+          ) : (
+            <XStack gap="$2" alignItems="center">
+              <Spinner size="small" />
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                textAlign="center"
+              >
+                {intl.formatMessage({ id: ETranslations.global_processing })}
+              </SizableText>
+            </XStack>
+          )}
+        </YStack>
+      </YStack>
+      <PrimeInfiniPaymentFooter
+        showCancelButton={false}
+        showConfirmButton={hasError}
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_retry,
+        })}
+        onConfirm={onRetry}
+      />
+    </>
+  );
+}
+
 function PrimeInfiniPaymentUnavailableSelection({
   errorTitle,
   isRetrying,
@@ -3255,18 +3323,7 @@ function PrimeInfiniWalletPaymentContent({
   };
 
   if (!shouldRenderPrimeInfiniPaymentSelection({ phase })) {
-    return (
-      <YStack gap="$4" alignItems="center">
-        <Spinner size="large" />
-        <SizableText size="$bodyLg" textAlign="center" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.global_processing })}
-        </SizableText>
-        <PrimeInfiniPaymentFooter
-          showCancelButton={false}
-          showConfirmButton={false}
-        />
-      </YStack>
-    );
+    return <PrimeInfiniPaymentCompletionStatus />;
   }
 
   return (
@@ -3412,6 +3469,14 @@ function PrimeInfiniWalletPaymentRoot({
   ] = useState('');
   const [isStartingForcedReplacement, setIsStartingForcedReplacement] =
     useState(false);
+  const [
+    failedCompletionFinalizationPaymentId,
+    setFailedCompletionFinalizationPaymentId,
+  ] = useState('');
+  const [
+    completionFinalizationRetryNonce,
+    setCompletionFinalizationRetryNonce,
+  ] = useState(0);
   const initialAccountSyncPromiseRef = useRef<Promise<void> | undefined>(
     undefined,
   );
@@ -3723,6 +3788,7 @@ function PrimeInfiniWalletPaymentRoot({
       return;
     }
     completedPaymentHandledRef.current = completedPaymentId;
+    setFailedCompletionFinalizationPaymentId('');
     onExitPreventedChange(true);
     logPrimeInfiniPaymentFlow({
       stage: 'purchaseCompletion',
@@ -3761,8 +3827,8 @@ function PrimeInfiniWalletPaymentRoot({
         reason: 'completedPaymentRestored',
       });
     })().catch((error) => {
-      completedPaymentHandledRef.current = '';
       onExitPreventedChange(false);
+      setFailedCompletionFinalizationPaymentId(completedPaymentId);
       logPrimeInfiniPaymentFlow({
         stage: 'purchaseCompletion',
         status: 'failed',
@@ -3786,7 +3852,17 @@ function PrimeInfiniWalletPaymentRoot({
     result?.completedPaymentId,
     plan,
     selectedSubscriptionPeriod,
+    completionFinalizationRetryNonce,
   ]);
+  const handleRetryCompletionFinalization = useCallback(() => {
+    const completedPaymentId = result?.completedPaymentId;
+    if (!completedPaymentId) {
+      return;
+    }
+    completedPaymentHandledRef.current = '';
+    setFailedCompletionFinalizationPaymentId('');
+    setCompletionFinalizationRetryNonce((current) => current + 1);
+  }, [result?.completedPaymentId]);
 
   const selectedAsset = useMemo(
     () =>
@@ -4086,15 +4162,12 @@ function PrimeInfiniWalletPaymentRoot({
     }
     if (result.completedPaymentId) {
       return (
-        <>
-          <YStack alignItems="center" py="$6">
-            <Spinner size="large" />
-          </YStack>
-          <PrimeInfiniPaymentFooter
-            showCancelButton={false}
-            showConfirmButton={false}
-          />
-        </>
+        <PrimeInfiniPaymentCompletionStatus
+          hasError={
+            failedCompletionFinalizationPaymentId === result.completedPaymentId
+          }
+          onRetry={handleRetryCompletionFinalization}
+        />
       );
     }
     if (existingPaymentChoiceSession) {
