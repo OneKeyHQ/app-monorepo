@@ -1,6 +1,8 @@
 // cspell: words unifold Unifold hypercore Hypercore
 import { useCallback, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   DashText,
   Dialog,
@@ -21,6 +23,7 @@ import {
 import { usePerpsUnifoldDepositSession } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
 import type { IUnifoldDepositErrorType } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IUnifoldDepositExecution } from '@onekeyhq/shared/types/unifoldDeposit';
@@ -89,12 +92,11 @@ function DetailRow({
 function ErrorState({
   errorType,
   sessionId,
-  message,
 }: {
   errorType: IUnifoldDepositErrorType;
   sessionId: string | null;
-  message?: string;
 }) {
+  const intl = useIntl();
   const copy: Record<
     IUnifoldDepositErrorType,
     { icon: Parameters<typeof Empty>[0]['icon']; title: string; body: string }
@@ -103,35 +105,53 @@ function ErrorState({
       icon: 'ErrorOutline',
       // Covers both entry-time mismatch and an account switch made while this
       // panel was open, so it must not claim the address is merely stale.
-      title: 'Deposit unavailable',
-      body: 'The active account no longer matches this deposit address. Close and reopen the deposit window.',
+      title: intl.formatMessage({
+        id: ETranslations.feedback_address_mismatch,
+      }),
+      body: intl.formatMessage({
+        id: ETranslations.active_trading_account_changed__msg,
+      }),
     },
     disabled: {
       icon: 'ErrorOutline',
-      title: 'Deposit unavailable',
-      body: 'This deposit method is temporarily unavailable. Please use another method.',
+      title: intl.formatMessage({ id: ETranslations.provider_unavailable }),
+      body: intl.formatMessage({
+        id: ETranslations.global_unknown_error_retry_message,
+      }),
     },
     geoBlocked: {
       icon: 'LocationMapOutline',
-      title: 'Not available in your region',
-      body: 'This deposit method is not available from your current location.',
+      title: intl.formatMessage({ id: ETranslations.provider_unavailable }),
+      body: intl.formatMessage({ id: ETranslations.description_403 }),
     },
     unavailable: {
       icon: 'ErrorOutline',
-      title: 'Deposit unavailable',
-      body: 'This deposit method is temporarily unavailable. Please try again later or use another method.',
+      title: intl.formatMessage({ id: ETranslations.provider_unavailable }),
+      body: intl.formatMessage({
+        id: ETranslations.global_unknown_error_retry_message,
+      }),
     },
     sanctioned: {
       icon: 'ErrorOutline',
-      title: 'Unable to receive funds',
+      title: intl.formatMessage({ id: ETranslations.provider_unavailable }),
       body: sessionId
-        ? `Please contact support. Ref ${sessionId}`
-        : 'Please contact support.',
+        ? intl.formatMessage(
+            {
+              id: ETranslations.perp_unifold_contact_support_ref__desc,
+            },
+            { ref: sessionId },
+          )
+        : intl.formatMessage({ id: ETranslations.swap_ch_status_hold }),
     },
     network: {
       icon: 'ErrorOutline',
-      title: 'Failed to create deposit address',
-      body: message || 'Retrying automatically every 5 seconds...',
+      title: intl.formatMessage({
+        id: ETranslations.perp_unifold_failed_create_address__title,
+      }),
+      body: intl.formatMessage(
+        { id: ETranslations.perp_unifold_retry_automatically__desc },
+        { seconds: 5 },
+      ),
     },
   };
   const item = copy[errorType];
@@ -180,6 +200,7 @@ export function UnifoldTransferContent({
   detailExecutionId?: string | null;
   onDetailExecutionIdChange?: (executionId: string | null) => void;
 }) {
+  const intl = useIntl();
   const [dismissedExecutionIds, setDismissedExecutionIds] = useState<string[]>(
     [],
   );
@@ -276,11 +297,19 @@ export function UnifoldTransferContent({
           onPress={() => setDetailExecutionId(null)}
         >
           <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
-          <Dialog.Title>Deposit Details</Dialog.Title>
+          <Dialog.Title>
+            {intl.formatMessage({
+              id: ETranslations.perp_unifold_deposit_details__title,
+            })}
+          </Dialog.Title>
         </XStack>
       </Dialog.Header>
     ) : (
-      <Dialog.Header title="Transfer Crypto" />
+      <Dialog.Header
+        title={intl.formatMessage({
+          id: ETranslations.perp_unifold_transfer_crypto__title,
+        })}
+      />
     );
   }
 
@@ -308,11 +337,7 @@ export function UnifoldTransferContent({
   if (addressState.status === 'error' && addressState.errorType !== 'network') {
     return withStatusCards(
       <YStack py="$8">
-        <ErrorState
-          errorType={addressState.errorType}
-          sessionId={sessionId}
-          message={addressState.message}
-        />
+        <ErrorState errorType={addressState.errorType} sessionId={sessionId} />
       </YStack>,
     );
   }
@@ -333,7 +358,9 @@ export function UnifoldTransferContent({
           >
             <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
             <SizableText size="$bodyMdMedium" color="$text">
-              Deposit Details
+              {intl.formatMessage({
+                id: ETranslations.perp_unifold_deposit_details__title,
+              })}
             </SizableText>
           </XStack>
         )}
@@ -372,14 +399,11 @@ export function UnifoldTransferContent({
           <XStack alignItems="center" gap="$1.5">
             <Icon name="InfoCircleOutline" size="$4" color="$iconCritical" />
             <SizableText size="$bodySmMedium" color="$textCritical">
-              Failed to create deposit address
+              {intl.formatMessage({
+                id: ETranslations.perp_unifold_failed_create_address__title,
+              })}
             </SizableText>
           </XStack>
-          {addressState.message ? (
-            <SizableText size="$bodySm" color="$textSubdued">
-              {addressState.message}
-            </SizableText>
-          ) : null}
           <XStack alignItems="center" gap="$1.5">
             <Icon
               name="ClockTimeHistoryOutline"
@@ -387,7 +411,12 @@ export function UnifoldTransferContent({
               color="$iconSubdued"
             />
             <SizableText size="$bodySm" color="$textSubdued">
-              Retrying automatically every 5 seconds...
+              {intl.formatMessage(
+                {
+                  id: ETranslations.perp_unifold_retry_automatically__desc,
+                },
+                { seconds: 5 },
+              )}
             </SizableText>
           </XStack>
         </YStack>
@@ -401,7 +430,9 @@ export function UnifoldTransferContent({
           <XStack alignItems="center" gap="$1.5">
             <Icon name="InfoCircleOutline" size="$4" color="$iconCaution" />
             <SizableText size="$bodySmMedium" color="$textCaution">
-              Verifying deposit eligibility
+              {intl.formatMessage({
+                id: ETranslations.perp_unifold_verifying_eligibility__title,
+              })}
             </SizableText>
           </XStack>
           <XStack alignItems="center" gap="$1.5">
@@ -411,7 +442,12 @@ export function UnifoldTransferContent({
               color="$iconSubdued"
             />
             <SizableText size="$bodySm" color="$textSubdued">
-              Retrying automatically every 5 seconds...
+              {intl.formatMessage(
+                {
+                  id: ETranslations.perp_unifold_retry_automatically__desc,
+                },
+                { seconds: 5 },
+              )}
             </SizableText>
           </XStack>
         </YStack>
@@ -434,23 +470,69 @@ export function UnifoldTransferContent({
         }
       />
 
-      <YStack bg="$bgStrong" borderRadius="$3" py="$2" overflow="hidden">
+      {showActivationWarning ? (
+        <XStack
+          testID="perps-unifold-activation-warning"
+          bg="$bgInfoSubdued"
+          borderRadius="$3"
+          p="$3"
+          gap="$2"
+          alignItems="center"
+        >
+          <Icon name="InfoCircleOutline" size="$4" color="$iconInfo" />
+          <SizableText size="$bodySm" color="$textInfo" flex={1}>
+            {activationFee
+              ? intl.formatMessage(
+                  {
+                    id: ETranslations.perp_unifold_account_activation_fee__desc,
+                  },
+                  { amount: formatUnifoldUsd(activationFee) },
+                )
+              : intl.formatMessage({
+                  id: ETranslations.perp_unifold_account_activation_fee_unknown__desc,
+                })}
+          </SizableText>
+        </XStack>
+      ) : null}
+
+      <YStack
+        testID="perps-unifold-processing-details"
+        bg="$bgStrong"
+        borderRadius="$3"
+        py="$2"
+        overflow="hidden"
+      >
         <DetailRow
-          label="Processing time"
-          value={formatUnifoldProcessingTime(chain?.estimated_processing_time)}
+          label={intl.formatMessage({
+            id: ETranslations.perp_unifold_processing_time__title,
+          })}
+          value={formatUnifoldProcessingTime(
+            chain?.estimated_processing_time,
+            intl,
+          )}
         />
         <DetailRow
-          label="Max slippage"
-          value={`Auto • ${(chain?.max_slippage_percent ?? 0.25).toFixed(2)}%`}
+          label={intl.formatMessage({
+            id: ETranslations.perp_unifold_max_slippage__title,
+          })}
+          value={`${intl.formatMessage({
+            id: ETranslations.global_auto,
+          })} • ${(chain?.max_slippage_percent ?? 0.25).toFixed(2)}%`}
         />
         <DetailRow
-          label="Price impact"
+          label={intl.formatMessage({
+            id: ETranslations.perp_unifold_price_impact__title,
+          })}
           value={`${(chain?.estimated_price_impact_percent ?? 0).toFixed(2)}%`}
-          tooltip="Estimated difference between the quoted and executed conversion price. It can change with trade size and available liquidity."
+          tooltip={intl.formatMessage({
+            id: ETranslations.perp_unifold_price_impact__desc,
+          })}
         />
         {recipientAddress ? (
           <DetailRow
-            label="Perps account"
+            label={intl.formatMessage({
+              id: ETranslations.perp_unifold_account__title,
+            })}
             value={accountUtils.shortenAddress({
               address: recipientAddress,
               leadingLength: 8,
@@ -459,29 +541,6 @@ export function UnifoldTransferContent({
           />
         ) : null}
       </YStack>
-
-      {showActivationWarning ? (
-        <XStack
-          bg="$bgCautionSubdued"
-          borderWidth="$px"
-          borderColor="$borderCautionSubdued"
-          borderRadius="$3"
-          p="$3"
-          gap="$2"
-          alignItems="center"
-        >
-          <Icon name="ErrorOutline" size="$4" color="$iconCaution" />
-          <SizableText size="$bodySm" color="$textCaution" flex={1}>
-            {activationFee
-              ? // Formatted like every other amount: the vendor sends a raw
-                // decimal string, so "1" must not surface as "~$1".
-                `~${formatUnifoldUsd(
-                  activationFee,
-                )} fee is required to activate a new HyperCore account.`
-              : 'A one-time fee is required to activate a new HyperCore account.'}
-          </SizableText>
-        </XStack>
-      ) : null}
     </YStack>,
   );
 }

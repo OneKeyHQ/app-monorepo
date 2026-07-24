@@ -176,6 +176,7 @@ function TabBarItem({
 }
 
 function PerpOrderInfoPanel() {
+  const intl = useIntl();
   const tabsRef = useRef<ITabContainerRef | null>(null);
   const actions = useHyperliquidActions();
   const [tradeRouteViewState] = useTradeRouteViewStateAtom();
@@ -210,10 +211,14 @@ function PerpOrderInfoPanel() {
             mr="$1.5"
             color="$icon"
           />
-          <SizableText size="$bodySmMedium">Crypto Deposits</SizableText>
+          <SizableText size="$bodySmMedium">
+            {intl.formatMessage({
+              id: ETranslations.perp_unifold_crypto_deposits__title,
+            })}
+          </SizableText>
         </Button>
       ) : null,
-    [handleShowUnifoldDepositTracker, isUnifoldDepositTrackerAvailable],
+    [handleShowUnifoldDepositTracker, intl, isUnifoldDepositTrackerAvailable],
   );
 
   useEffect(() => {

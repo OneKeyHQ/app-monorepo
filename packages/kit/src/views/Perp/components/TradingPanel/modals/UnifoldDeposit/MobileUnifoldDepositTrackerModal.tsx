@@ -2,12 +2,14 @@
 import { useCallback, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 
 import {
   type IPageNavigationProp,
   NavBackButton,
   Page,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalPerpRoutes,
   type IModalPerpParamList,
@@ -20,6 +22,7 @@ import { UnifoldTrackerContent } from './UnifoldTrackerContent';
 import type { RouteProp } from '@react-navigation/core';
 
 export default function MobileUnifoldDepositTrackerModal() {
+  const intl = useIntl();
   const navigation = useNavigation<IPageNavigationProp<IModalPerpParamList>>();
   const [detailExecutionId, setDetailExecutionId] = useState<string | null>(
     null,
@@ -52,11 +55,17 @@ export default function MobileUnifoldDepositTrackerModal() {
     <Page safeAreaEnabled>
       {detailExecutionId ? (
         <Page.Header
-          title="Deposit Details"
+          title={intl.formatMessage({
+            id: ETranslations.perp_unifold_deposit_details__title,
+          })}
           headerLeft={renderDetailHeaderLeft}
         />
       ) : (
-        <Page.Header title="Crypto Deposits" />
+        <Page.Header
+          title={intl.formatMessage({
+            id: ETranslations.perp_unifold_crypto_deposits__title,
+          })}
+        />
       )}
       <Page.Body
         px="$4"

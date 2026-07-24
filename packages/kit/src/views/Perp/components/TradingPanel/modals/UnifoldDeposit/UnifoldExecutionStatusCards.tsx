@@ -1,4 +1,6 @@
 // cspell: words unifold Unifold
+import { useIntl } from 'react-intl';
+
 import {
   Icon,
   IconButton,
@@ -9,6 +11,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IUnifoldDepositExecution } from '@onekeyhq/shared/types/unifoldDeposit';
 
 import {
@@ -20,6 +23,7 @@ import {
   shortenUnifoldRef,
 } from './unifoldFormat';
 
+import type { IntlShape } from 'react-intl';
 import type { LayoutChangeEvent } from 'react-native';
 
 // Per-execution status cards pinned to the bottom of the deposit modal while
@@ -58,29 +62,35 @@ function StatusBadge({ execution }: { execution: IUnifoldDepositExecution }) {
   return <Spinner size="small" scale={0.65} />;
 }
 
-function statusTitle(execution: IUnifoldDepositExecution): string {
+function statusTitleId(execution: IUnifoldDepositExecution): ETranslations {
   if (execution.status === 'succeeded') {
-    return 'Deposit completed';
+    return ETranslations.perp_unifold_deposit_completed__title;
   }
   if (isUnifoldExecutionFailed(execution)) {
-    return 'Deposit needs attention';
+    return ETranslations.perp_unifold_deposit_needs_attention__title;
   }
-  return 'Deposit processing';
+  return ETranslations.perp_unifold_deposit_processing__title;
 }
 
 function statusSubtitle(
   execution: IUnifoldDepositExecution,
   sessionId: string | null,
+  intl: IntlShape,
 ): string {
   if (isUnifoldExecutionFailed(execution)) {
     // The card subtitle is a single narrow line, so the ref is shortened here;
     // the full value stays copyable in the execution detail.
     return sessionId
-      ? `Contact support · Ref ${shortenUnifoldRef(sessionId)}`
-      : 'Contact support';
+      ? intl.formatMessage(
+          { id: ETranslations.perp_unifold_contact_support_ref__desc },
+          { ref: shortenUnifoldRef(sessionId) },
+        )
+      : intl.formatMessage({ id: ETranslations.swap_ch_status_hold });
   }
   if (execution.status === 'delayed') {
-    return 'Processing, taking longer than usual';
+    return intl.formatMessage({
+      id: ETranslations.perp_unifold_processing_delayed__desc,
+    });
   }
   return formatUnifoldExecutionDate(execution.createdAt);
 }
@@ -111,6 +121,7 @@ export function UnifoldExecutionStatusCards({
   onHeightChange?: (height: number) => void;
   floating?: boolean;
 }) {
+  const intl = useIntl();
   if (!executions.length) {
     return null;
   }
@@ -161,10 +172,10 @@ export function UnifoldExecutionStatusCards({
           />
           <YStack flex={1} minWidth={0}>
             <SizableText size="$bodySmMedium" color="$text" numberOfLines={1}>
-              {statusTitle(execution)}
+              {intl.formatMessage({ id: statusTitleId(execution) })}
             </SizableText>
             <SizableText size="$bodyXs" color="$textSubdued" numberOfLines={1}>
-              {statusSubtitle(execution, sessionId)}
+              {statusSubtitle(execution, sessionId, intl)}
             </SizableText>
           </YStack>
           <YStack alignItems="flex-end" flexShrink={0}>
@@ -188,9 +199,15 @@ export function UnifoldExecutionStatusCards({
                 color="$textSubdued"
                 numberOfLines={1}
               >
-                {`Est. ${formatUnifoldProcessingTime(
-                  estimatedProcessingTimeSeconds,
-                )}`}
+                {intl.formatMessage(
+                  { id: ETranslations.perp_unifold_estimated_time__value },
+                  {
+                    time: formatUnifoldProcessingTime(
+                      estimatedProcessingTimeSeconds,
+                      intl,
+                    ),
+                  },
+                )}
               </SizableText>
             ) : null}
           </YStack>

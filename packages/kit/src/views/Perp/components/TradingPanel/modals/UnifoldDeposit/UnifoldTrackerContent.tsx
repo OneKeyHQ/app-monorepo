@@ -2,6 +2,8 @@
 import { useCallback, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Dialog,
@@ -32,6 +34,7 @@ import {
   usePerpsActiveAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IUnifoldDepositExecution } from '@onekeyhq/shared/types/unifoldDeposit';
@@ -54,24 +57,24 @@ function isProcessing(execution: IUnifoldDepositExecution): boolean {
 
 // Contract discipline: delayed is never rendered as failure; failed/refunded
 // point at support instead of an invented reason.
-function rowTitle(execution: IUnifoldDepositExecution): string {
+function rowTitleId(execution: IUnifoldDepositExecution): ETranslations {
   if (execution.status === 'succeeded') {
-    return 'Deposit completed';
+    return ETranslations.perp_unifold_deposit_completed__title;
   }
   if (execution.terminal) {
-    return 'Deposit needs attention';
+    return ETranslations.perp_unifold_deposit_needs_attention__title;
   }
-  return 'Deposit processing';
+  return ETranslations.perp_unifold_deposit_processing__title;
 }
 
-function detailStatusText(execution: IUnifoldDepositExecution): string {
+function detailStatusId(execution: IUnifoldDepositExecution): ETranslations {
   if (execution.status === 'succeeded') {
-    return 'Completed';
+    return ETranslations.perp_status_comlete;
   }
   if (execution.terminal) {
-    return 'Needs attention';
+    return ETranslations.perp_unifold_needs_attention__title;
   }
-  return 'Processing';
+  return ETranslations.global_processing;
 }
 
 // Processing (including delayed) must read as neutral progress, never as the
@@ -132,6 +135,7 @@ function ExecutionTokenBadge({
 }
 
 function TrackerIntroCard({ onDepositPress }: { onDepositPress?: () => void }) {
+  const intl = useIntl();
   return (
     <XStack
       p="$3"
@@ -151,10 +155,14 @@ function TrackerIntroCard({ onDepositPress }: { onDepositPress?: () => void }) {
       </Stack>
       <YStack flex={1} gap="$0.5">
         <SizableText size="$bodySmMedium" color="$text">
-          Transfer Crypto activity
+          {intl.formatMessage({
+            id: ETranslations.perp_unifold_activity__title,
+          })}
         </SizableText>
         <SizableText size="$bodySm" color="$textSubdued">
-          Track deposits that are processing, completed, or need attention.
+          {intl.formatMessage({
+            id: ETranslations.perp_unifold_activity__desc,
+          })}
         </SizableText>
       </YStack>
       {onDepositPress ? (
@@ -165,7 +173,9 @@ function TrackerIntroCard({ onDepositPress }: { onDepositPress?: () => void }) {
           flexShrink={0}
           onPress={onDepositPress}
         >
-          Deposit
+          {intl.formatMessage({
+            id: ETranslations.perp_trade_deposit,
+          })}
         </Button>
       ) : null}
     </XStack>
@@ -180,6 +190,7 @@ export function UnifoldExecutionRow({
   execution: IUnifoldDepositExecution;
   onPress: () => void;
 }) {
+  const intl = useIntl();
   return (
     <XStack
       testID={`perps-unifold-tracker-row-${execution.executionId}`}
@@ -211,7 +222,7 @@ export function UnifoldExecutionRow({
           fontWeight="600"
           numberOfLines={1}
         >
-          {rowTitle(execution)}
+          {intl.formatMessage({ id: rowTitleId(execution) })}
         </SizableText>
         <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
           {formatUnifoldExecutionDate(execution.createdAt)}
@@ -328,6 +339,7 @@ export function UnifoldExecutionDetail({
   // passes nothing — in that case the ETA row is omitted rather than guessed.
   estimatedProcessingTimeSeconds?: number;
 }) {
+  const intl = useIntl();
   const { copyText } = useClipboard();
   const processing = isProcessing(execution);
   const [devSettings] = useDevSettingsPersistAtom();
@@ -355,7 +367,7 @@ export function UnifoldExecutionDetail({
             />
           )}
           <SizableText size="$headingMd" color="$text">
-            {detailStatusText(execution)}
+            {intl.formatMessage({ id: detailStatusId(execution) })}
           </SizableText>
         </XStack>
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -386,7 +398,9 @@ export function UnifoldExecutionDetail({
       <YStack gap="$3">
         <YStack bg="$bgStrong" borderRadius="$3" overflow="hidden">
           <DetailInfoRow
-            label="Amount Sent"
+            label={intl.formatMessage({
+              id: ETranslations.perp_unifold_amount_sent__title,
+            })}
             value={formatUnifoldTokenAmount({
               baseUnit: execution.sourceAmountBaseUnit,
               decimals: execution.sourceTokenDecimals,
@@ -395,7 +409,9 @@ export function UnifoldExecutionDetail({
           />
           <Divider borderColor="$bgSubdued" />
           <DetailInfoRow
-            label="Amount Received"
+            label={intl.formatMessage({
+              id: ETranslations.perp_unifold_amount_received__title,
+            })}
             value={formatUnifoldTokenAmount({
               baseUnit: execution.destinationAmountBaseUnit,
               decimals: execution.destinationTokenDecimals,
@@ -404,7 +420,9 @@ export function UnifoldExecutionDetail({
           />
           <Divider borderColor="$bgSubdued" />
           <DetailInfoRow
-            label="USD Value"
+            label={intl.formatMessage({
+              id: ETranslations.perp_unifold_usd_value__title,
+            })}
             value={formatUnifoldUsd(
               execution.destinationAmountUsd ?? execution.sourceAmountUsd,
             )}
@@ -416,9 +434,12 @@ export function UnifoldExecutionDetail({
             <>
               <Divider borderColor="$bgSubdued" />
               <DetailInfoRow
-                label="Estimated delivery time"
+                label={intl.formatMessage({
+                  id: ETranslations.perp_unifold_estimated_delivery_time__title,
+                })}
                 value={formatUnifoldProcessingTime(
                   estimatedProcessingTimeSeconds,
+                  intl,
                 )}
               />
             </>
@@ -427,7 +448,9 @@ export function UnifoldExecutionDetail({
 
         <YStack bg="$bgStrong" borderRadius="$3" overflow="hidden">
           <DetailInfoRow
-            label="Source Network"
+            label={intl.formatMessage({
+              id: ETranslations.perp_unifold_source_network__title,
+            })}
             value={formatUnifoldChainName({
               chainType: execution.sourceChainType,
               chainId: execution.sourceChainId,
@@ -437,14 +460,21 @@ export function UnifoldExecutionDetail({
           {/* Executions do not carry the destination triplet, so this reflects
               the destination the app is configured for. In production that is
               always HyperCore; dev builds may route to a plain chain. */}
-          <DetailInfoRow label="Destination Network" value={destinationLabel} />
+          <DetailInfoRow
+            label={intl.formatMessage({
+              id: ETranslations.perp_unifold_destination_network__title,
+            })}
+            value={destinationLabel}
+          />
         </YStack>
 
         <YStack bg="$bgStrong" borderRadius="$3" overflow="hidden">
           {/* Always present: this is the id support asks for, and the caution
               banner above is what sends the user here. */}
           <DetailInfoRow
-            label="Reference"
+            label={intl.formatMessage({
+              id: ETranslations.perp_unifold_reference__title,
+            })}
             value={shortenHash(execution.executionId)}
             onCopy={() => copyText(execution.executionId)}
           />
@@ -452,7 +482,9 @@ export function UnifoldExecutionDetail({
             <>
               <Divider borderColor="$bgSubdued" />
               <DetailLinkRow
-                label="Deposit Tx"
+                label={intl.formatMessage({
+                  id: ETranslations.perp_unifold_deposit_tx__title,
+                })}
                 value={shortenHash(execution.transactionHash)}
                 onPress={() => {
                   if (execution.explorerUrl) {
@@ -468,7 +500,9 @@ export function UnifoldExecutionDetail({
             <>
               <Divider borderColor="$bgSubdued" />
               <DetailLinkRow
-                label="Completion Tx"
+                label={intl.formatMessage({
+                  id: ETranslations.perp_unifold_completion_tx__title,
+                })}
                 value={shortenHash(execution.destinationTransactionHashes[0])}
                 onPress={() => {
                   if (execution.destinationExplorerUrl) {
@@ -503,6 +537,7 @@ export function UnifoldTrackerContent({
   onDetailExecutionIdChange?: (executionId: string | null) => void;
   onDepositPress?: () => void;
 }) {
+  const intl = useIntl();
   // Security MUST-2 applies to the tracker too: the queried recipient must be
   // the currently active perps account at open time. The incoming prop (which
   // may originate from a route param) is cross-checked against the live atom
@@ -622,11 +657,19 @@ export function UnifoldTrackerContent({
               onPress={closeDetail}
             >
               <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
-              <Dialog.Title>Deposit Details</Dialog.Title>
+              <Dialog.Title>
+                {intl.formatMessage({
+                  id: ETranslations.perp_unifold_deposit_details__title,
+                })}
+              </Dialog.Title>
             </XStack>
           </Dialog.Header>
         ) : (
-          <Dialog.Header title="Crypto Deposits" />
+          <Dialog.Header
+            title={intl.formatMessage({
+              id: ETranslations.perp_unifold_crypto_deposits__title,
+            })}
+          />
         )}
         {dialogBody}
       </>
@@ -638,11 +681,17 @@ export function UnifoldTrackerContent({
       <YStack py="$8">
         <Empty
           icon="ErrorOutline"
-          title="Deposit history unavailable"
+          title={intl.formatMessage({
+            id: ETranslations.perp_unifold_details_unavailable__title,
+          })}
           description={
             accountChanged
-              ? 'The active account changed. Reopen from the deposit menu to see its history.'
-              : 'Account address mismatch. Reopen from the deposit menu.'
+              ? intl.formatMessage({
+                  id: ETranslations.active_trading_account_changed__msg,
+                })
+              : intl.formatMessage({
+                  id: ETranslations.feedback_address_mismatch,
+                })
           }
         />
       </YStack>,
@@ -660,8 +709,12 @@ export function UnifoldTrackerContent({
         <YStack py="$8">
           <Empty
             icon="ErrorOutline"
-            title="Deposit details unavailable"
-            description="Return to the tracker and try again."
+            title={intl.formatMessage({
+              id: ETranslations.perp_unifold_details_unavailable__title,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.perp_unifold_return_tracker_try_again__desc,
+            })}
           />
         </YStack>,
       );
@@ -684,7 +737,9 @@ export function UnifoldTrackerContent({
             >
               <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
               <SizableText size="$bodyMdMedium" color="$text">
-                Deposit Details
+                {intl.formatMessage({
+                  id: ETranslations.perp_unifold_deposit_details__title,
+                })}
               </SizableText>
             </XStack>
           )}
@@ -699,8 +754,12 @@ export function UnifoldTrackerContent({
       <YStack py="$8">
         <Empty
           icon="ErrorOutline"
-          title="Couldn't load deposit history"
-          description="Check your connection — this keeps retrying automatically."
+          title={intl.formatMessage({
+            id: ETranslations.global_network_error,
+          })}
+          description={intl.formatMessage({
+            id: ETranslations.perp_unifold_connection_retrying__desc,
+          })}
         />
       </YStack>,
     );
@@ -737,8 +796,12 @@ export function UnifoldTrackerContent({
           <YStack flex={1} py="$8" alignItems="center" gap="$2">
             <Empty
               icon="ClockTimeHistoryOutline"
-              title="No deposits yet"
-              description="Your deposit history will appear here"
+              title={intl.formatMessage({
+                id: ETranslations.perp_unifold_no_deposits__title,
+              })}
+              description={intl.formatMessage({
+                id: ETranslations.perp_unifold_history_appears_here__desc,
+              })}
             />
           </YStack>
         </YStack>

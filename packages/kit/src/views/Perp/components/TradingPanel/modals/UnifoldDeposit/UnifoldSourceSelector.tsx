@@ -1,6 +1,8 @@
 // cspell: words unifold Unifold
 import { useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   DashText,
@@ -17,6 +19,7 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { deferHeavyWorkUntilUIIdle } from '@onekeyhq/kit/src/utils/deferHeavyWork';
 import type { IUnifoldSourceSelection } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IUnifoldSupportedAsset,
@@ -43,6 +46,7 @@ function SelectorTrigger({
   disabled?: boolean;
   onPress: () => void;
 }) {
+  const intl = useIntl();
   return (
     <XStack
       testID={testID}
@@ -76,7 +80,9 @@ function SelectorTrigger({
     >
       {loading ? (
         <SizableText size="$bodySm" color="$textSubdued">
-          Loading...
+          {intl.formatMessage({
+            id: ETranslations.perp_token_selector_loading,
+          })}
         </SizableText>
       ) : (
         <>
@@ -199,6 +205,7 @@ export function UnifoldSourceSelector({
   onSelectToken: (asset: IUnifoldSupportedAsset) => void;
   onSelectChain: (chain: IUnifoldSupportedAssetChain) => void;
 }) {
+  const intl = useIntl();
   const [tokenOpen, setTokenOpen] = useState(false);
   const [chainOpen, setChainOpen] = useState(false);
   const dialog = useInPageDialog();
@@ -228,7 +235,9 @@ export function UnifoldSourceSelector({
         }
 
         const dialogInstance = showSelectorDialog({
-          title: 'Select token',
+          title: intl.formatMessage({
+            id: ETranslations.token_selector_title,
+          }),
           dialog,
           content: (
             <SelectorOptions>
@@ -238,9 +247,16 @@ export function UnifoldSourceSelector({
                   testID={`perps-unifold-token-option-${asset.symbol}`}
                   iconUri={asset.icon_url}
                   label={asset.symbol}
-                  description={`${asset.chains.length} ${
-                    asset.chains.length === 1 ? 'network' : 'networks'
-                  }`}
+                  description={
+                    asset.chains.length === 1
+                      ? `1 ${intl.formatMessage({
+                          id: ETranslations.global_network,
+                        })}`
+                      : intl.formatMessage(
+                          { id: ETranslations.global_count_networks },
+                          { count: asset.chains.length },
+                        )
+                  }
                   selected={asset.symbol === selection?.asset.symbol}
                   onPress={() => {
                     void (async () => {
@@ -277,7 +293,9 @@ export function UnifoldSourceSelector({
         }
 
         const dialogInstance = showSelectorDialog({
-          title: 'Select network',
+          title: intl.formatMessage({
+            id: ETranslations.global_select_network,
+          }),
           dialog,
           content: (
             <SelectorOptions>
@@ -288,9 +306,9 @@ export function UnifoldSourceSelector({
                   iconUri={chain.icon_url}
                   label={chain.chain_name}
                   selected={chain.chain_id === selection?.chain.chain_id}
-                  description={`Minimum deposit $${
-                    chain.minimum_deposit_amount_usd ?? 3
-                  }`}
+                  description={`${intl.formatMessage({
+                    id: ETranslations.perp_unifold_minimum_deposit__title,
+                  })} $${chain.minimum_deposit_amount_usd ?? 3}`}
                   onPress={() => {
                     void (async () => {
                       await dialogInstance.close();
@@ -313,13 +331,17 @@ export function UnifoldSourceSelector({
     <XStack gap="$2.5">
       <YStack flex={1} flexBasis={0} minWidth={0}>
         <SizableText size="$bodySm" color="$textSubdued" mb="$2">
-          Selected token
+          {intl.formatMessage({
+            id: ETranslations.perp_unifold_selected_token__title,
+          })}
         </SizableText>
         {platformEnv.isNative ? (
           tokenTrigger
         ) : (
           <Popover
-            title="Select token"
+            title={intl.formatMessage({
+              id: ETranslations.token_selector_title,
+            })}
             placement="bottom-start"
             open={tokenOpen}
             onOpenChange={(next) => setTokenOpen(next && canSelectToken)}
@@ -333,9 +355,16 @@ export function UnifoldSourceSelector({
                     testID={`perps-unifold-token-option-${asset.symbol}`}
                     iconUri={asset.icon_url}
                     label={asset.symbol}
-                    description={`${asset.chains.length} ${
-                      asset.chains.length === 1 ? 'network' : 'networks'
-                    }`}
+                    description={
+                      asset.chains.length === 1
+                        ? `1 ${intl.formatMessage({
+                            id: ETranslations.global_network,
+                          })}`
+                        : intl.formatMessage(
+                            { id: ETranslations.global_count_networks },
+                            { count: asset.chains.length },
+                          )
+                    }
                     selected={asset.symbol === selection?.asset.symbol}
                     onPress={() => {
                       onSelectToken(asset);
@@ -357,7 +386,9 @@ export function UnifoldSourceSelector({
           justifyContent="space-between"
         >
           <SizableText size="$bodySm" color="$textSubdued">
-            Selected chain
+            {intl.formatMessage({
+              id: ETranslations.perp_unifold_selected_chain__title,
+            })}
           </SizableText>
           <DashText
             size="$bodySmMedium"
@@ -366,18 +397,29 @@ export function UnifoldSourceSelector({
             dashThickness={0.5}
             textAlign="right"
             flexShrink={0}
-            tooltip="Minimum deposit amount required for the selected network."
-            tooltipTitle="Minimum deposit"
+            tooltip={intl.formatMessage({
+              id: ETranslations.perp_unifold_minimum_deposit_network__desc,
+            })}
+            tooltipTitle={intl.formatMessage({
+              id: ETranslations.perp_unifold_minimum_deposit__title,
+            })}
             tooltipPlacement="bottom-end"
           >
-            {`$${minUsd} min`}
+            {intl.formatMessage(
+              {
+                id: ETranslations.perp_unifold_minimum_deposit_short__value,
+              },
+              { amount: `$${minUsd}` },
+            )}
           </DashText>
         </XStack>
         {platformEnv.isNative ? (
           chainTrigger
         ) : (
           <Popover
-            title="Select network"
+            title={intl.formatMessage({
+              id: ETranslations.global_select_network,
+            })}
             placement="bottom-end"
             open={chainOpen}
             onOpenChange={(next) => setChainOpen(next && canSelectChain)}
@@ -392,9 +434,9 @@ export function UnifoldSourceSelector({
                     iconUri={chain.icon_url}
                     label={chain.chain_name}
                     selected={chain.chain_id === selection?.chain.chain_id}
-                    description={`Minimum deposit $${
-                      chain.minimum_deposit_amount_usd ?? 3
-                    }`}
+                    description={`${intl.formatMessage({
+                      id: ETranslations.perp_unifold_minimum_deposit__title,
+                    })} $${chain.minimum_deposit_amount_usd ?? 3}`}
                     onPress={() => {
                       onSelectChain(chain);
                       setChainOpen(false);

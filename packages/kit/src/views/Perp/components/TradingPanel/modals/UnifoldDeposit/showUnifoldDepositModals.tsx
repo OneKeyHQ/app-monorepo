@@ -19,11 +19,14 @@ import {
   useDevSettingsPersistAtom,
   usePerpsDepositTokensAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { normalizeUnifoldIconUrl } from './unifoldFormat';
 import { UnifoldTrackerContent } from './UnifoldTrackerContent';
 import { UnifoldTransferContent } from './UnifoldTransferContent';
+
+import type { IntlShape } from 'react-intl';
 
 const DESKTOP_DIALOG_MAX_HEIGHT = 'calc(100vh - 64px)';
 const DEPOSIT_MENU_DIALOG_WIDTH = 400;
@@ -249,9 +252,11 @@ function TransferChainHintLogos() {
 export function showPerpsUnifoldDepositMenuDialog({
   onAction,
   showTrackerAction = true,
+  intl,
 }: {
   onAction: (action: IUnifoldDepositMenuAction) => void;
   showTrackerAction?: boolean;
+  intl: IntlShape;
 }) {
   // The menu must be fully closed before the next dialog opens: opening the
   // in-tab transfer/tracker dialog while the menu is still closing leaves the
@@ -263,7 +268,9 @@ export function showPerpsUnifoldDepositMenuDialog({
     onAction(action);
   };
   holder.instance = Dialog.show({
-    title: 'Deposit',
+    title: intl.formatMessage({
+      id: ETranslations.perp_trade_deposit,
+    }),
     showFooter: false,
     floatingPanelProps: {
       width: DEPOSIT_MENU_DIALOG_WIDTH,
@@ -279,8 +286,17 @@ export function showPerpsUnifoldDepositMenuDialog({
         <MenuActionRow
           testID="perps-deposit-menu-connected-wallet"
           icon="WalletCryptoOutline"
-          title="Wallet"
-          subtitle="Min $5 • Instant"
+          title={intl.formatMessage({
+            id: ETranslations.perp_unifold_wallet_deposit__title,
+          })}
+          subtitle={intl.formatMessage(
+            {
+              id: ETranslations.perp_unifold_wallet_deposit_summary__desc,
+            },
+            {
+              amount: '$5',
+            },
+          )}
           hint={<ConnectedWalletHintLogos />}
           onPress={() => {
             void closeThenRun('onekey');
@@ -289,11 +305,15 @@ export function showPerpsUnifoldDepositMenuDialog({
         <MenuActionRow
           testID="perps-deposit-menu-transfer-crypto"
           icon="QrCodeOutline"
-          title="Transfer Crypto"
+          title={intl.formatMessage({
+            id: ETranslations.perp_unifold_transfer_crypto__title,
+          })}
           // Never "No limit": below-minimum deposits have no refund endpoint
           // (contract §4-5), and the minimum is per-chain, so it can only be
           // stated on the next screen once a chain is selected.
-          subtitle="Minimum varies by chain • Instant"
+          subtitle={intl.formatMessage({
+            id: ETranslations.perp_unifold_network_minimum_instant__desc,
+          })}
           hint={<TransferChainHintLogos />}
           onPress={() => {
             void closeThenRun('transfer');
@@ -303,8 +323,12 @@ export function showPerpsUnifoldDepositMenuDialog({
           <MenuActionRow
             testID="perps-deposit-menu-tracker"
             icon="ClockTimeHistoryOutline"
-            title="Crypto Deposits"
-            subtitle="Track your deposit progress"
+            title={intl.formatMessage({
+              id: ETranslations.perp_unifold_crypto_deposits__title,
+            })}
+            subtitle={intl.formatMessage({
+              id: ETranslations.perp_unifold_track_progress__desc,
+            })}
             onPress={() => {
               void closeThenRun('tracker');
             }}
@@ -321,14 +345,18 @@ type IDialogInTab = ReturnType<typeof useInTabDialog>;
 export function showUnifoldTransferDialog({
   dialogInTab,
   expectedRecipient,
+  intl,
 }: {
   dialogInTab: IDialogInTab;
   expectedRecipient: string;
+  intl: IntlShape;
 }) {
   // The whole UnifoldDeposit module already sits behind the deposit-entry
   // lazy chunk (preloadPerpsUnifoldDeposit), so static imports are fine here.
   dialogInTab.show({
-    title: 'Transfer Crypto',
+    title: intl.formatMessage({
+      id: ETranslations.perp_unifold_transfer_crypto__title,
+    }),
     showFooter: false,
     dismissOnOverlayPress: true,
     floatingPanelProps: {
@@ -345,9 +373,11 @@ export function showUnifoldTransferDialog({
 export function showUnifoldTrackerDialog({
   dialogInTab,
   expectedRecipient,
+  intl,
 }: {
   dialogInTab: IDialogInTab;
   expectedRecipient: string;
+  intl: IntlShape;
 }) {
   const holder: { instance?: IDialogInstance } = {};
   const handleDepositPress = async () => {
@@ -355,10 +385,13 @@ export function showUnifoldTrackerDialog({
     showUnifoldTransferDialog({
       dialogInTab,
       expectedRecipient,
+      intl,
     });
   };
   holder.instance = dialogInTab.show({
-    title: 'Crypto Deposits',
+    title: intl.formatMessage({
+      id: ETranslations.perp_unifold_crypto_deposits__title,
+    }),
     showFooter: false,
     dismissOnOverlayPress: true,
     floatingPanelProps: {

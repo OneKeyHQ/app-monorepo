@@ -1,4 +1,6 @@
 // cspell: words unifold Unifold
+import { useIntl } from 'react-intl';
+
 import {
   DashText,
   Icon,
@@ -12,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import { HighlightAddress } from '@onekeyhq/kit/src/components/HighlightAddress';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { normalizeUnifoldIconUrl } from './unifoldFormat';
@@ -43,6 +46,7 @@ export function UnifoldDepositQRCard({
   receiveTokenIconUri?: string;
   receiveNetworkIconUri?: string;
 }) {
+  const intl = useIntl();
   const { copyText } = useClipboard();
   const showConversionRoute = Boolean(
     (address || loading) && sourceTokenSymbol && receiveTokenSymbol,
@@ -51,7 +55,7 @@ export function UnifoldDepositQRCard({
   return (
     <YStack
       testID="perps-unifold-deposit-qr-card"
-      py="$3"
+      pt="$3"
       alignItems="center"
       gap="$6"
     >
@@ -74,7 +78,9 @@ export function UnifoldDepositQRCard({
             <Icon name="InfoCircleOutline" size="$5" color="$iconInfo" />
           </Stack>
           <SizableText size="$bodyMdMedium" color="$text">
-            Address unavailable
+            {intl.formatMessage({
+              id: ETranslations.perp_unifold_address_unavailable__title,
+            })}
           </SizableText>
           <SizableText
             size="$bodySm"
@@ -82,7 +88,9 @@ export function UnifoldDepositQRCard({
             textAlign="center"
             maxWidth="$48"
           >
-            Choose another token or network to continue.
+            {intl.formatMessage({
+              id: ETranslations.perp_unifold_choose_another_asset_network__desc,
+            })}
           </SizableText>
         </YStack>
       ) : null}
@@ -125,7 +133,9 @@ export function UnifoldDepositQRCard({
             />
             <YStack minWidth={0}>
               <SizableText size="$bodyXs" color="$textSubdued">
-                You send
+                {intl.formatMessage({
+                  id: ETranslations.perp_unifold_you_send__title,
+                })}
               </SizableText>
               <SizableText size="$bodySmMedium" color="$text" numberOfLines={1}>
                 {sourceTokenSymbol}
@@ -146,7 +156,9 @@ export function UnifoldDepositQRCard({
             />
             <YStack minWidth={0}>
               <SizableText size="$bodyXs" color="$textSubdued">
-                You receive
+                {intl.formatMessage({
+                  id: ETranslations.swap_review_you_receive,
+                })}
               </SizableText>
               <SizableText size="$bodySmMedium" color="$text" numberOfLines={1}>
                 {receiveTokenSymbol}
@@ -173,11 +185,17 @@ export function UnifoldDepositQRCard({
                 color="$textSubdued"
                 dashColor="$textDisabled"
                 dashThickness={0.5}
-                tooltip="Send the selected token on the selected network to this address. It will be converted to USDC and deposited into your Perps account."
-                tooltipTitle="Deposit address"
+                tooltip={intl.formatMessage({
+                  id: ETranslations.perp_unifold_deposit_address_conversion__desc,
+                })}
+                tooltipTitle={intl.formatMessage({
+                  id: ETranslations.perp_unifold_your_deposit_address__title,
+                })}
                 tooltipPlacement="bottom-start"
               >
-                Your deposit address
+                {intl.formatMessage({
+                  id: ETranslations.perp_unifold_your_deposit_address__title,
+                })}
               </DashText>
             </XStack>
             <XStack alignItems="center" gap="$2" flexShrink={0}>
@@ -192,7 +210,9 @@ export function UnifoldDepositQRCard({
                 pressStyle={{ color: '$textInfoStrong' }}
                 onPress={() => openUrlExternal(UNIFOLD_TERMS_URL)}
               >
-                Terms
+                {intl.formatMessage({
+                  id: ETranslations.perp_unifold_terms__action,
+                })}
               </SizableText>
               <SizableText
                 testID="perps-unifold-help"
@@ -205,7 +225,9 @@ export function UnifoldDepositQRCard({
                 pressStyle={{ color: '$textInfoStrong' }}
                 onPress={() => openUrlExternal(UNIFOLD_HELP_URL)}
               >
-                Help
+                {intl.formatMessage({
+                  id: ETranslations.menu_help,
+                })}
               </SizableText>
             </XStack>
           </XStack>

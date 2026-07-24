@@ -48,6 +48,7 @@ export function useUnifoldDepositTrackerAvailability() {
 }
 
 export function useShowUnifoldDepositTracker() {
+  const intl = useIntl();
   const dialogInTab = useInTabDialog();
   const {
     isUnifoldDepositTrackerAvailable: isAvailableForActiveAccount,
@@ -81,8 +82,9 @@ export function useShowUnifoldDepositTracker() {
     showUnifoldTrackerDialog({
       dialogInTab,
       expectedRecipient: latestSafeRecipient,
+      intl,
     });
-  }, [dialogInTab]);
+  }, [dialogInTab, intl]);
 
   return {
     isUnifoldDepositTrackerAvailable,
@@ -172,7 +174,8 @@ export function useShowDepositWithdrawModal() {
         showUnifoldTrackerDialog,
       } = await loadPerpsUnifoldDepositModals();
       showPerpsUnifoldDepositMenuDialog({
-        showTrackerAction: !gtMd && !platformEnv.isNative,
+        intl,
+        showTrackerAction: false,
         onAction: (action) => {
           if (action === 'onekey') {
             void openDepositWithdrawForm('deposit');
@@ -183,11 +186,13 @@ export function useShowDepositWithdrawModal() {
               showUnifoldTransferDialog({
                 dialogInTab,
                 expectedRecipient: safeRecipient,
+                intl,
               });
             } else {
               showUnifoldTrackerDialog({
                 dialogInTab,
                 expectedRecipient: safeRecipient,
+                intl,
               });
             }
             return;
@@ -207,6 +212,7 @@ export function useShowDepositWithdrawModal() {
       openDepositWithdrawForm,
       gtMd,
       dialogInTab,
+      intl,
       navigation,
     ],
   );

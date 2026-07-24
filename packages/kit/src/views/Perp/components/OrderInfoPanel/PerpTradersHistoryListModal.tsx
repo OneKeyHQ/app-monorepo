@@ -126,7 +126,9 @@ export function PerpTradersHistoryListModal() {
           size="small"
           testID="perps-mobile-account-history-crypto-deposits"
         >
-          Crypto Deposits
+          {intl.formatMessage({
+            id: ETranslations.perp_unifold_crypto_deposits__title,
+          })}
         </Button>
       );
     }

@@ -269,7 +269,7 @@ const MOBILE_BODY_WIDTH = 343;
 // visually identical to UnifoldTransferContent's real ones.
 function ProcessingTimeRowStub() {
   return (
-    <YStack>
+    <YStack testID="perps-unifold-processing-details">
       <XStack
         minHeight="$12"
         alignItems="center"
@@ -322,17 +322,17 @@ function TermsRowStub({ waiting }: { waiting?: boolean }) {
 function ActivationWarningStub() {
   return (
     <XStack
-      bg="$bgCautionSubdued"
-      borderWidth="$px"
-      borderColor="$borderCautionSubdued"
+      testID="perps-unifold-activation-warning"
+      bg="$bgInfoSubdued"
       borderRadius="$3"
       p="$3"
       gap="$2"
       alignItems="center"
     >
-      <Icon name="ErrorOutline" size="$4" color="$iconCaution" />
-      <SizableText size="$bodySm" color="$textCaution" flex={1}>
-        ~$1 fee is required to activate a new HyperCore account.
+      <Icon name="InfoCircleOutline" size="$4" color="$iconInfo" />
+      <SizableText size="$bodySm" color="$textInfo" flex={1}>
+        Activating a new Perps account costs approximately $1. Charged by
+        Hyperliquid.
       </SizableText>
     </XStack>
   );
@@ -384,6 +384,7 @@ function PanelFrame({
           chainIconUri={ARB_ICON}
           loading={Boolean(qrLoading)}
         />
+        {activationWarning ? <ActivationWarningStub /> : null}
         <ProcessingTimeRowStub />
         {expanded ? (
           <YStack gap="$2.5" px="$2.5">
@@ -398,7 +399,6 @@ function PanelFrame({
             </SizableText>
           </YStack>
         ) : null}
-        {activationWarning ? <ActivationWarningStub /> : null}
         <TermsRowStub waiting={!executions.length} />
       </YStack>
     </Stack>

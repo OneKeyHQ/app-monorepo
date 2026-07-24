@@ -2,8 +2,10 @@
 import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 
 import { NavBackButton, Page } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalPerpRoutes,
   IModalPerpParamList,
@@ -16,6 +18,7 @@ import { UnifoldTransferContent } from './UnifoldTransferContent';
 import type { RouteProp } from '@react-navigation/core';
 
 export default function MobileUnifoldDepositTransferModal() {
+  const intl = useIntl();
   const [detailExecutionId, setDetailExecutionId] = useState<string | null>(
     null,
   );
@@ -38,11 +41,17 @@ export default function MobileUnifoldDepositTransferModal() {
     <Page scrollEnabled safeAreaEnabled>
       {detailExecutionId ? (
         <Page.Header
-          title="Deposit Details"
+          title={intl.formatMessage({
+            id: ETranslations.perp_unifold_deposit_details__title,
+          })}
           headerLeft={renderDetailHeaderLeft}
         />
       ) : (
-        <Page.Header title="Transfer Crypto" />
+        <Page.Header
+          title={intl.formatMessage({
+            id: ETranslations.perp_unifold_transfer_crypto__title,
+          })}
+        />
       )}
       <Page.Body px="$4" {...PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS}>
         {/* The page scrolls, so an absolute overlay would ride the content
