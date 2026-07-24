@@ -115,6 +115,7 @@ export function useHomeNFTStoreSource({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorCode, setErrorCode] = useState<string>();
   const requestIdRef = useRef(0);
+  const renderedOwnerScopeRef = useRef<string | undefined>(undefined);
   const singleRequestOwnerKeyRef = useRef<string | undefined>(undefined);
   const allNetworkGenerationRef = useRef(0);
   const allNetworkManualRef = useRef(false);
@@ -709,9 +710,7 @@ export function useHomeNFTStoreSource({
     clearAllNetworkData,
     disabled: !enabled || !nftSourceIdentityKey,
     isNFTRequests: true,
-    // Store-backed Home sections prefetch independently from the visible tab.
-    // `useAllNetworkRequests` still blocks while the app is locked.
-    shouldAlwaysFetch: enabled,
+    shouldAlwaysFetch: enabled && visible,
     runIdentityKey: nftSourceIdentityKey,
     onRequestSettled: handleAllNetworkSettled,
     onStarted: handleAllNetworkStarted,
@@ -721,13 +720,20 @@ export function useHomeNFTStoreSource({
   useEffect(() => {
     requestIdRef.current += 1;
     allNetworkGenerationRef.current = 0;
-    allNetworkResponsesRef.current.clear();
-    allNetworkRequestHandleRef.current = undefined;
-    singleRequestOwnerKeyRef.current = undefined;
-    setData([]);
-    setInitialized(false);
-    setErrorCode(undefined);
-    if (!enabled || !accountId || !networkId || !walletId) {
+    const ownerScope =
+      accountId && networkId && walletId
+        ? `${walletId}:${accountId}:${networkId}`
+        : undefined;
+    if (renderedOwnerScopeRef.current !== ownerScope) {
+      renderedOwnerScopeRef.current = ownerScope;
+      allNetworkResponsesRef.current.clear();
+      allNetworkRequestHandleRef.current = undefined;
+      singleRequestOwnerKeyRef.current = undefined;
+      setData([]);
+      setInitialized(false);
+      setErrorCode(undefined);
+    }
+    if (!enabled || !visible || !accountId || !networkId || !walletId) {
       return;
     }
     if (isAllNetworks) {
@@ -785,6 +791,7 @@ export function useHomeNFTStoreSource({
     networkId,
     nftSourceIdentityKey,
     resolveNFTEvidence,
+    visible,
     walletId,
   ]);
 

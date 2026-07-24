@@ -28,6 +28,14 @@ type IHomeNFTLegacyPayload = {
   data: IAccountNFT[];
 };
 
+const HOME_NFT_SNAPSHOT_KEYS = [
+  'data',
+] as const satisfies readonly (keyof IHomeNFTLegacyPayload)[];
+
+function createHomeNFTSnapshotDefaults(): IHomeNFTLegacyPayload {
+  return { data: [] };
+}
+
 type IHomeNFTSourceSnapshot =
   | { kind: 'loading'; requestSeq: number }
   | {
@@ -128,8 +136,10 @@ function adaptHomeNFTSourceSnapshot({
 
 export {
   HOME_NFT_DATA_SCHEMA_VERSION,
+  HOME_NFT_SNAPSHOT_KEYS,
   HOME_NFT_SOURCE_REVISION,
   adaptHomeNFTSourceSnapshot,
+  createHomeNFTSnapshotDefaults,
   createHomeNFTSourceIdentity,
   getHomeNFTItemRowId,
   getHomeNFTRowIds,

@@ -1148,7 +1148,7 @@ describe('Home Store reducer', () => {
     });
   });
 
-  it('hydrates a V2 owner snapshot before source requests and keeps it only for an exact request', () => {
+  it('keeps a V3 owner snapshot visible until a mismatched live source replaces it', () => {
     const exactToken = createToken(1);
     const cachedRecord = {
       sourceId: 'defi' as const,
@@ -1217,17 +1217,49 @@ describe('Home Store reducer', () => {
       type: 'sourceRequested',
       token: mismatchedToken,
     });
-    expect(state.resources.defi).toEqual({
-      kind: 'loading',
+    expect(state.resources.defi).toMatchObject({
+      kind: 'ready',
       token: mismatchedToken,
+      freshness: 'confirmedCache',
+      coverageFingerprint: '["cached"]',
+      refresh: 'refreshing',
     });
-    expect(state.sections.defi.value).toEqual({
-      kind: 'loading',
-      placeholder: 'defi',
+    expect(state.sections.defi.value).toMatchObject({
+      kind: 'ready',
+      rowIds: ['cached'],
+      freshness: 'confirmedCache',
+      refresh: 'refreshing',
+    });
+
+    state = dispatch(state, {
+      type: 'sourceResponded',
+      envelope: {
+        token: mismatchedToken,
+        result: {
+          kind: 'success',
+          coverageFingerprint: '["live-b"]',
+          data: {
+            section: {
+              kind: 'ready',
+              rowIds: ['live-b'],
+            },
+          },
+        },
+      },
+    });
+    expect(state.resources.defi).toMatchObject({
+      kind: 'ready',
+      freshness: 'live',
+      coverageFingerprint: '["live-b"]',
+    });
+    expect(state.sections.defi.value).toMatchObject({
+      kind: 'ready',
+      rowIds: ['live-b'],
+      freshness: 'live',
     });
   });
 
-  it('fails closed when a cached source loses its stable identity', () => {
+  it('keeps a same-owner cached source while its live identity is established', () => {
     const exactToken = createToken(1);
     let state = dispatch(createOwnedState(), {
       type: 'displaySnapshotHydrated',
@@ -1271,17 +1303,19 @@ describe('Home Store reducer', () => {
       type: 'sourceRequested',
       token: exactToken,
     });
-    expect(state.resources.defi).toEqual({
-      kind: 'loading',
+    expect(state.resources.defi).toMatchObject({
+      kind: 'ready',
       token: exactToken,
+      freshness: 'confirmedCache',
+      refresh: 'refreshing',
     });
-    expect(state.sections.defi.value).toEqual({
-      kind: 'loading',
-      placeholder: 'defi',
+    expect(state.sections.defi.value).toMatchObject({
+      kind: 'ready',
+      rowIds: ['cached'],
     });
   });
 
-  it('never lets a late V2 snapshot replace a live source result', () => {
+  it('never lets a late V3 snapshot replace a live source result', () => {
     const request = createToken(1);
     let state = dispatch(createOwnedState(), {
       type: 'sourceRequested',

@@ -163,6 +163,7 @@ describe('HomeHistoryStoreController', () => {
     expect(controllerSource).toContain('pendingSectionCommands.find');
     expect(controllerSource).toContain('tokenMap: tokenMapRef.current');
     expect(controllerSource).toContain("useHomeSectionPayload('portfolio')");
+    expect(controllerSource).toContain('!visible ||');
     expect(controllerSource).not.toContain('useHomeTokenListSnapshot');
   });
 });

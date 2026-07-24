@@ -30,8 +30,9 @@ describe('HomePerpsStoreController ownership', () => {
 
     expect(source).toContain('const navigation = useHomeNavigation()');
     expect(source).toContain(
-      'const { refresh } = usePerpsHomePortfolio({ isSourceActive })',
+      'isSourceActive: isSourceApplicable && fetchActive',
     );
+    expect(source).toContain("navigation.value.selectedTabId === 'perps'");
     expect(source).toContain('useRegisterHomeBackgroundRecoveryRefresh({');
     expect(source).toContain(
       'domain: EHomeBackgroundRecoveryRefreshDomain.perps',

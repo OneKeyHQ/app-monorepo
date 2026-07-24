@@ -327,7 +327,6 @@ export type IHomeStoreEvent =
       ownerScopeKey: string;
       sessionId: string;
       records: readonly IHomeCachedSourceRecord[];
-      selectedTabPreference?: IHomeTabId;
     }
   | {
       type: 'displaySnapshotHydrated';
@@ -336,7 +335,6 @@ export type IHomeStoreEvent =
       records: readonly IHomeCachedSourceRecord[];
       shell?: IHomeShellSemanticModel;
       navigation?: IHomeNavigationSemanticModel;
-      selectedTabPreference?: IHomeTabId;
     }
   | { type: 'intentReceived'; intent: IHomeStoreIntent }
   | {
@@ -436,5 +434,4 @@ export type IHomeCachedSnapshotPayload = {
   codecVersion: number;
   ownerScopeKey: string;
   records: readonly IHomeCachedSourceRecord[];
-  selectedTabPreference?: IHomeTabId;
 };

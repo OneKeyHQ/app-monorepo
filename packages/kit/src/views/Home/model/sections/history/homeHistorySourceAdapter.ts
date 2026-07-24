@@ -44,6 +44,26 @@ type IHomeHistoryStorePayload = IHomeHistoryLegacyPayload & {
   tokenMap: Record<string, ITokenFiat>;
 };
 
+const HOME_HISTORY_SNAPSHOT_KEYS = [
+  'addressMap',
+  'cursor',
+  'data',
+  'hasMore',
+  'tokenMap',
+] as const satisfies readonly (keyof IHomeHistoryStorePayload)[];
+
+function createHomeHistorySnapshotDefaults(): IHomeHistoryStorePayload {
+  return {
+    addressMap: {},
+    cursor: null,
+    data: [],
+    hasMore: false,
+    isLoadingMore: false,
+    refresh: 'refreshing',
+    tokenMap: {},
+  };
+}
+
 type IHomeHistorySourceSnapshot =
   | { kind: 'loading'; requestSeq: number }
   | {
@@ -142,8 +162,10 @@ function adaptHomeHistorySourceSnapshot({
 
 export {
   HOME_HISTORY_DATA_SCHEMA_VERSION,
+  HOME_HISTORY_SNAPSHOT_KEYS,
   HOME_HISTORY_SOURCE_REVISION,
   adaptHomeHistorySourceSnapshot,
+  createHomeHistorySnapshotDefaults,
   createHomeHistorySourceIdentity,
   getHomeHistoryRowIds,
 };

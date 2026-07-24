@@ -28,6 +28,7 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { safePushToEarnRoute } from '../../../Earn/earnUtils';
 import { maybeOpenPrivateSendHistoryDetail } from '../../../Swap/utils/privateSendHistory';
+import { buildHomeOwnerScopeKey } from '../core/homeIdentity';
 import {
   HOME_BANNER_ACTION_IDS,
   fromHomeBannerStoreItem,
@@ -77,6 +78,17 @@ export function HomeStoreCommandController() {
   const {
     activeAccount: { account, indexedAccount, network, wallet },
   } = useActiveAccount({ num: 0 });
+  const activeOwnerScopeKeyRef = useRef<string | undefined>(undefined);
+  activeOwnerScopeKeyRef.current =
+    wallet?.id && account?.id && network?.id
+      ? buildHomeOwnerScopeKey({
+          walletId: wallet.id,
+          accountId: account.id,
+          network: network.isAllNetworks
+            ? { kind: 'allNetworks' }
+            : { kind: 'singleNetwork', networkId: network.id },
+        })
+      : undefined;
   const [settings] = useSettingsPersistAtom();
   const { handleBannerOnPress } = useWalletBanner({ account, network, wallet });
   const portfolioPayload = useHomeSectionPayload('portfolio');
@@ -98,6 +110,7 @@ export function HomeStoreCommandController() {
       const current = stableOwnerRef.current;
       return Boolean(
         current &&
+        current.ownerToken.scopeKey === activeOwnerScopeKeyRef.current &&
         current.ownerToken.sessionId === command.sessionId &&
         stringUtils.stableStringify(current.owner) ===
           stringUtils.stableStringify(command.owner),

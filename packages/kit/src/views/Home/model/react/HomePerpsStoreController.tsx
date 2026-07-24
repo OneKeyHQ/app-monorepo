@@ -22,11 +22,16 @@ export function HomePerpsStoreController() {
   const interaction = useHomeInteraction();
   const { markHomeSectionCommandHandled } = useHomeStoreControllerActions();
   const processingCommandIdsRef = useRef(new Set<string>());
-  const isSourceActive = isHomePerpsSourceActive(navigation.value);
+  const isSourceApplicable = isHomePerpsSourceActive(navigation.value);
+  const fetchActive =
+    navigation.value.kind === 'ready' &&
+    navigation.value.selectedTabId === 'perps';
   const {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
-  const { refresh } = usePerpsHomePortfolio({ isSourceActive });
+  const { refresh } = usePerpsHomePortfolio({
+    isSourceActive: isSourceApplicable && fetchActive,
+  });
 
   useEffect(() => {
     const command = interaction.pendingSectionCommands.find(

@@ -223,8 +223,9 @@ describe('HomeMarketStoreController', () => {
       'fetchMarketPerpsTokenList({ category })',
     );
     expect(controllerSource).toContain(
-      'pollingInterval: HOME_MARKET_POLLING_INTERVAL',
+      'pollingInterval: fetchActive ? HOME_MARKET_POLLING_INTERVAL : undefined',
     );
+    expect(controllerSource).toContain('revalidateOnFocus: fetchActive');
     expect(controllerSource).toContain('RefreshMarketWatchList');
     expect(rendererSource).not.toContain('backgroundApiProxy');
     expect(rendererSource).not.toContain('useHomeStoreSourcePublisher');

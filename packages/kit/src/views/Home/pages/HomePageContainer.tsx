@@ -32,6 +32,8 @@ import {
 import {
   ProviderJotaiContextHome,
   useHomeDisplaySnapshotLoadState,
+  useHomeNavigation,
+  useHomeSection,
   useHomeSessionState,
   useHomeShell,
 } from '../../../states/jotai/contexts/home';
@@ -161,6 +163,13 @@ export function HomeLaunchGatedContent({
   const launchSnapshot = useOnboardingLaunchSnapshot();
   const homeSession = useHomeSessionState();
   const displaySnapshotLoadState = useHomeDisplaySnapshotLoadState();
+  const homeShell = useHomeShell();
+  const homeNavigation = useHomeNavigation();
+  const selectedHomeTabId =
+    homeNavigation.value.kind === 'ready'
+      ? homeNavigation.value.selectedTabId
+      : 'portfolio';
+  const selectedHomeSection = useHomeSection(selectedHomeTabId);
   const [accountSelectorStorageInitDone] =
     useAccountSelectorStorageInitDoneAtom();
   const accountSelectorActiveAccountInitDone =
@@ -202,6 +211,23 @@ export function HomeLaunchGatedContent({
     activeOwnerMatchesHomeSession &&
     ownerDisplaySnapshotReady,
   );
+  const portfolioShellReady =
+    homeShell.value.kind === 'portfolio' &&
+    (homeShell.value.presentation.kind === 'funded' ||
+      homeShell.value.presentation.kind === 'zero' ||
+      homeShell.value.presentation.kind === 'unavailable');
+  const selectedSectionReady =
+    selectedHomeSection.value.kind === 'ready' ||
+    selectedHomeSection.value.kind === 'empty' ||
+    selectedHomeSection.value.kind === 'error';
+  const liveWalletOwnerReady = Boolean(
+    activeOwnerMatchesHomeSession &&
+    (homeShell.value.kind === 'backupRequired' ||
+      homeShell.value.kind === 'missingNetworkAccount' ||
+      (portfolioShellReady &&
+        homeNavigation.value.kind === 'ready' &&
+        selectedSectionReady)),
+  );
   const walletContentReadiness = resolveHomeWalletContentReadiness({
     walletListPending,
     wallets: walletListResult?.wallets,
@@ -210,6 +236,8 @@ export function HomeLaunchGatedContent({
     accountSelectorActiveAccountInitDone,
     activeAccountReady,
     cachedWalletOwnerReady,
+    confirmedWalletDisplayReady:
+      ownerDisplaySnapshotReady || liveWalletOwnerReady,
     activeWalletUnavailable,
     activeWalletId: wallet?.id,
   });

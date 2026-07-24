@@ -1,3 +1,5 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import { createInitialHomeStoreState } from '../store/homeStoreInitialState';
 
 import { HomeDisplaySnapshotPersistQueue } from './homeDisplaySnapshotPersistQueue';
@@ -51,6 +53,7 @@ function createCacheableState(ownerScopeKey: string): IHomeStoreState {
         kind: 'ready',
         token,
         data: {
+          payload: {},
           section: {
             kind: 'ready',
             rowIds: ['asset-a'],
@@ -100,15 +103,28 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     mockStorage.read.mockClear();
     mockStorage.commit.mockClear();
     mockStorage.remove.mockClear();
+    mockStorage.clearNamespace.mockClear();
     mockStorage.compact.mockClear();
     mockStorage.read.mockImplementation(async (key) => mockValues.get(key));
     mockStorage.commit.mockImplementation(async (input) => {
+      if (
+        input.expectedCommitMarker &&
+        mockValues.get(input.expectedCommitMarker.key) !==
+          input.expectedCommitMarker.value
+      ) {
+        throw new OneKeyLocalError(
+          'Display snapshot commit marker changed before commit',
+        );
+      }
       input.entries.forEach(({ key, value }) => mockValues.set(key, value));
       mockValues.set(input.commitMarker.key, input.commitMarker.value);
       input.removeKeys?.forEach((key) => mockValues.delete(key));
     });
     mockStorage.remove.mockImplementation(async (keys) => {
       keys.forEach((key) => mockValues.delete(key));
+    });
+    mockStorage.clearNamespace.mockImplementation(async () => {
+      mockValues.clear();
     });
   });
 
@@ -128,7 +144,10 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     expect(
       commit.entries.some((entry) => entry.key.endsWith('/portfolio')),
     ).toBe(true);
-    expect(commit.commitMarker.key).toMatch(/^route\//);
+    expect(commit.commitMarker.key).toBe('index/routes');
+    expect(commit.entries.some((entry) => entry.key.startsWith('route/'))).toBe(
+      true,
+    );
   });
 
   it('keeps content signatures bounded instead of duplicating chunk payloads in the manifest', async () => {
@@ -154,6 +173,61 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     expect(manifest.chunks?.portfolio?.contentSignature).toHaveLength(64);
   });
 
+  it('does not write a new generation when only the selected tab changes', async () => {
+    const queue = new HomeDisplaySnapshotPersistQueue();
+    const state = withFundedShell(createCacheableState('owner-a'));
+    const withNavigation = {
+      ...state,
+      navigation: {
+        ...state.navigation,
+        value: {
+          kind: 'ready' as const,
+          tabs: ['portfolio', 'defi'] as const,
+          destinations: { portfolio: 'inline', defi: 'inline' } as const,
+          perpsDestination: 'unavailable' as const,
+          sections: {
+            portfolio: true,
+            perps: false,
+            defi: true,
+            nft: false,
+            history: false,
+            market: false,
+          },
+          selectedTabId: 'portfolio' as const,
+          freshness: 'live' as const,
+          refresh: 'idle' as const,
+        },
+      },
+    };
+    queue.enqueue(withNavigation, {
+      storeCommitId: 1,
+      origin: 'storeEvent',
+      presentationChanged: true,
+    });
+    await queue.flushNow();
+
+    queue.enqueue(
+      {
+        ...withNavigation,
+        navigation: {
+          ...withNavigation.navigation,
+          value: {
+            ...withNavigation.navigation.value,
+            selectedTabId: 'defi',
+          },
+        },
+      },
+      {
+        storeCommitId: 2,
+        origin: 'storeEvent',
+        presentationChanged: true,
+      },
+    );
+    await queue.flushNow();
+
+    expect(mockStorage.commit.mock.calls).toHaveLength(1);
+  });
+
   it('keeps pending owner partitions independent and skips hydrate echo writes', async () => {
     const queue = new HomeDisplaySnapshotPersistQueue();
     queue.enqueue(createCacheableState('owner-a'), {
@@ -173,10 +247,37 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     });
     await queue.flushNow();
     expect(mockStorage.commit.mock.calls).toHaveLength(2);
-    const routeKeys = mockStorage.commit.mock.calls.map(
-      ([commit]) => commit.commitMarker.key,
+    const routeKeys = mockStorage.commit.mock.calls.flatMap(([commit]) =>
+      commit.entries
+        .filter(({ key }) => key.startsWith('route/'))
+        .map(({ key }) => key),
     );
     expect(new Set(routeKeys).size).toBe(2);
+  });
+
+  it('retries concurrent owner writes against the shared route index', async () => {
+    const firstQueue = new HomeDisplaySnapshotPersistQueue();
+    const secondQueue = new HomeDisplaySnapshotPersistQueue();
+    firstQueue.enqueue(createCacheableState('owner-a'), {
+      storeCommitId: 1,
+      origin: 'storeEvent',
+      changedSourceIds: ['portfolio'],
+    });
+    secondQueue.enqueue(createCacheableState('owner-b'), {
+      storeCommitId: 1,
+      origin: 'storeEvent',
+      changedSourceIds: ['portfolio'],
+    });
+
+    await Promise.all([firstQueue.flushNow(), secondQueue.flushNow()]);
+
+    const routeIndex = JSON.parse(mockValues.get('index/routes') ?? '{}') as {
+      routes?: { partitionId: string }[];
+    };
+    expect(routeIndex.routes).toHaveLength(2);
+    expect(
+      Array.from(mockValues.keys()).filter((key) => key.startsWith('route/')),
+    ).toHaveLength(2);
   });
 
   it('compacts only when a lifecycle boundary requests it', async () => {
@@ -189,6 +290,46 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     await queue.flushAndCompact();
     expect(mockStorage.commit.mock.calls).toHaveLength(1);
     expect(mockStorage.compact.mock.calls).toHaveLength(1);
+  });
+
+  it('waits for an in-flight write before clearing and suspending the queue', async () => {
+    let releaseCommit: (() => void) | undefined;
+    let markCommitStarted: (() => void) | undefined;
+    const commitBlocked = new Promise<void>((resolve) => {
+      releaseCommit = resolve;
+    });
+    const commitStarted = new Promise<void>((resolve) => {
+      markCommitStarted = resolve;
+    });
+    mockStorage.commit.mockImplementationOnce(async (input) => {
+      markCommitStarted?.();
+      await commitBlocked;
+      input.entries.forEach(({ key, value }) => mockValues.set(key, value));
+      mockValues.set(input.commitMarker.key, input.commitMarker.value);
+    });
+    const queue = new HomeDisplaySnapshotPersistQueue();
+    const state = createCacheableState('owner-a');
+    queue.enqueue(state, {
+      storeCommitId: 1,
+      origin: 'storeEvent',
+      changedSourceIds: ['portfolio'],
+    });
+    const flush = queue.flushNow();
+    await commitStarted;
+    const clear = queue.suspendAndClear();
+    expect(mockStorage.clearNamespace.mock.calls).toHaveLength(0);
+    releaseCommit?.();
+    await Promise.all([flush, clear]);
+    expect(mockStorage.clearNamespace.mock.calls).toHaveLength(1);
+    expect(mockValues.size).toBe(0);
+
+    queue.enqueue(state, {
+      storeCommitId: 2,
+      origin: 'storeEvent',
+      changedSourceIds: ['portfolio'],
+    });
+    await queue.flushNow();
+    expect(mockStorage.commit.mock.calls).toHaveLength(1);
   });
 
   it('defers commits observed during a physical write to the next window', async () => {
@@ -334,6 +475,7 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
           portfolio: {
             ...portfolio,
             data: {
+              payload: {},
               section: {
                 kind: 'ready',
                 rowIds: ['asset-b'],
@@ -380,9 +522,7 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     expect(
       secondCommit.entries.some(({ key }) => key.endsWith('/critical')),
     ).toBe(false);
-    expect(mockStorage.remove.mock.calls.flat(2)).not.toContain(
-      firstCriticalKey,
-    );
+    expect(secondCommit.removeKeys ?? []).not.toContain(firstCriticalKey);
   });
 
   it('does not rewrite unchanged display state as time passes', async () => {
@@ -449,7 +589,7 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
       chunks?: { critical?: unknown };
     };
     expect(manifest.chunks?.critical).toBeUndefined();
-    expect(mockStorage.remove.mock.calls.flat(2)).toContain(firstCriticalKey);
+    expect(secondCommit.removeKeys ?? []).toContain(firstCriticalKey);
   });
 
   it('removes a superseded chunk even after its original manifest retires', async () => {
@@ -502,6 +642,7 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
         portfolio: {
           ...portfolio,
           data: {
+            payload: {},
             section: {
               kind: 'ready',
               rowIds: ['asset-b'],
@@ -518,7 +659,11 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     });
     await queue.flushNow();
 
-    expect(mockStorage.remove.mock.calls.flat(2)).toContain(firstChunkKey);
+    const finalCommit =
+      mockStorage.commit.mock.calls[
+        mockStorage.commit.mock.calls.length - 1
+      ][0];
+    expect(finalCommit.removeKeys ?? []).toContain(firstChunkKey);
     expect(mockValues.has(firstChunkKey ?? '')).toBe(false);
   });
 });

@@ -3,10 +3,7 @@ import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 import type { IDisplaySnapshotWriteEntry } from '@onekeyhq/shared/src/storage/DisplaySnapshotStorage';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import {
-  createCacheRecord,
-  getHomeStoreCacheContentSignature,
-} from '../store/homeStoreSnapshotRecord';
+import { createCacheRecord } from '../store/homeStoreSnapshotRecord';
 import { HOME_STORE_SOURCE_IDS } from '../store/homeStoreTypes';
 
 import {
@@ -266,13 +263,11 @@ async function persistHomeDisplaySnapshotOnce(
     const navigation = projectHomeDisplaySnapshotNavigation(
       job.state.navigation.value,
     );
-    const selectedTabPreference = job.state.interaction.preferredTabId;
-    if (shell || navigation || selectedTabPreference) {
+    if (shell || navigation) {
       const contentSignature = getHomeDisplaySnapshotContentSignature(
         stringUtils.stableStringify({
           shell,
           navigation,
-          selectedTabPreference,
         }),
       );
       if (
@@ -292,7 +287,6 @@ async function persistHomeDisplaySnapshotOnce(
           createdAt: now,
           shell,
           navigation,
-          selectedTabPreference,
         });
         if (raw) {
           if (chunks.critical) {
@@ -327,12 +321,23 @@ async function persistHomeDisplaySnapshotOnce(
     if (!record) {
       return;
     }
-    const contentSignature = getHomeDisplaySnapshotContentSignature(
-      getHomeStoreCacheContentSignature({
-        records: [record],
-        selectedTabPreference: undefined,
-      }),
+    const key = getHomeDisplaySnapshotChunkKey(
+      partitionId,
+      nextGeneration,
+      sourceId,
     );
+    const raw = encodeHomeDisplaySnapshotSourceChunk({
+      ownerScopeKey: job.ownerScopeKey,
+      record,
+    });
+    if (!raw) {
+      if (chunks[sourceId]) {
+        cleanupKeys.add(chunks[sourceId].key);
+        delete chunks[sourceId];
+      }
+      return;
+    }
+    const contentSignature = getHomeDisplaySnapshotContentSignature(raw);
     if (
       !shouldReplaceDescriptor({
         descriptor: chunks[sourceId],
@@ -341,31 +346,18 @@ async function persistHomeDisplaySnapshotOnce(
     ) {
       return;
     }
-    const key = getHomeDisplaySnapshotChunkKey(
-      partitionId,
-      nextGeneration,
-      sourceId,
-    );
-    const raw = encodeHomeDisplaySnapshotSourceChunk({
-      key,
-      ownerScopeKey: job.ownerScopeKey,
-      record,
-      createdAt: now,
-    });
-    if (raw) {
-      if (chunks[sourceId]) {
-        cleanupKeys.add(chunks[sourceId].key);
-      }
-      entries.push({ key, value: raw });
-      chunks[sourceId] = createHomeDisplaySnapshotDescriptor({
-        chunkId: sourceId,
-        contentSignature,
-        generation: nextGeneration,
-        partitionId,
-        raw,
-        updatedAt: now,
-      });
+    if (chunks[sourceId]) {
+      cleanupKeys.add(chunks[sourceId].key);
     }
+    entries.push({ key, value: raw });
+    chunks[sourceId] = createHomeDisplaySnapshotDescriptor({
+      chunkId: sourceId,
+      contentSignature,
+      generation: nextGeneration,
+      partitionId,
+      raw,
+      updatedAt: now,
+    });
   });
 
   const chunksChanged =
@@ -406,14 +398,6 @@ async function persistHomeDisplaySnapshotOnce(
     HOME_DISPLAY_SNAPSHOT_MAX_ROUTES,
   );
   const evictedRoutes = sortedRoutes.slice(HOME_DISPLAY_SNAPSHOT_MAX_ROUTES);
-  entries.push({
-    key: HOME_DISPLAY_SNAPSHOT_ROUTE_INDEX_KEY,
-    value: encodeHomeDisplaySnapshotRouteIndex({
-      schemaVersion: HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION,
-      routes: retainedRoutes,
-    }),
-  });
-
   const nextRoute: IHomeDisplaySnapshotRoute = {
     schemaVersion: HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION,
     ownerScopeKey: job.ownerScopeKey,
@@ -433,21 +417,26 @@ async function persistHomeDisplaySnapshotOnce(
   );
   evictedKeyGroups.flat().forEach((key) => cleanupKeys.add(key));
 
+  entries.push({
+    key: routeKey,
+    value: encodeHomeDisplaySnapshotRoute(nextRoute),
+  });
   await homeDisplaySnapshotStorage.commit({
     entries,
     commitMarker: {
-      key: routeKey,
-      value: encodeHomeDisplaySnapshotRoute(nextRoute),
+      key: HOME_DISPLAY_SNAPSHOT_ROUTE_INDEX_KEY,
+      value: encodeHomeDisplaySnapshotRouteIndex({
+        schemaVersion: HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION,
+        routes: retainedRoutes,
+      }),
     },
     expectedCommitMarker: {
-      key: routeKey,
-      value: currentRouteRaw,
+      key: HOME_DISPLAY_SNAPSHOT_ROUTE_INDEX_KEY,
+      value: routeIndexRaw,
     },
+    removeKeys: Array.from(cleanupKeys),
   });
-  if (cleanupKeys.size > 0) {
-    await homeDisplaySnapshotStorage.remove(Array.from(cleanupKeys));
-  }
-  perfMark('Home:v2Cache:physicalWrite', {
+  perfMark('Home:v3Cache:physicalWrite', {
     chunkCount: entries.length - 2,
   });
   const writtenSourceIds = entries
@@ -500,16 +489,21 @@ export class HomeDisplaySnapshotPersistQueue {
 
   private inFlight: Promise<void> | undefined;
 
+  private suspended = false;
+
   enqueue(
     state: IHomeStoreState,
     commitIdentity: IHomeStoreCommitIdentity,
   ): void {
     const ownerScopeKey = state.session.ownerToken?.scopeKey;
-    if (
-      !ownerScopeKey ||
-      commitIdentity.origin === 'cacheHydrate' ||
-      commitIdentity.ownerChanged
-    ) {
+    if (this.suspended) {
+      return;
+    }
+    if (commitIdentity.ownerChanged) {
+      this.cancelPending();
+      return;
+    }
+    if (!ownerScopeKey || commitIdentity.origin === 'cacheHydrate') {
       return;
     }
     const existing = this.pendingJobs.get(ownerScopeKey);
@@ -551,6 +545,9 @@ export class HomeDisplaySnapshotPersistQueue {
   }
 
   async flushAndCompact(): Promise<void> {
+    if (this.suspended) {
+      return;
+    }
     await this.flushNow();
     // Capture one trailing batch that may have arrived while the first large
     // serialization was in flight. Lifecycle transitions normally stop live
@@ -561,8 +558,23 @@ export class HomeDisplaySnapshotPersistQueue {
     await homeDisplaySnapshotStorage.compact();
   }
 
+  async suspendAndClear(): Promise<void> {
+    this.suspended = true;
+    this.cancelPending();
+    await this.inFlight?.catch(() => undefined);
+    await homeDisplaySnapshotStorage.clearNamespace();
+  }
+
+  private cancelPending(): void {
+    this.pendingJobs.clear();
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = undefined;
+    }
+  }
+
   private schedule(resetDebounce = false): void {
-    if (this.inFlight || this.pendingJobs.size === 0) {
+    if (this.suspended || this.inFlight || this.pendingJobs.size === 0) {
       return;
     }
     if (this.timer) {
@@ -589,6 +601,10 @@ export class HomeDisplaySnapshotPersistQueue {
   }
 
   private async drain(): Promise<void> {
+    if (this.suspended) {
+      this.pendingJobs.clear();
+      return;
+    }
     // Drain one captured batch only. Store commits that arrive while a large
     // snapshot is being serialized must go through the next debounce window;
     // otherwise a live price stream can turn this loop into continuous writes.
@@ -613,4 +629,11 @@ export class HomeDisplaySnapshotPersistQueue {
       }
     }
   }
+}
+
+export const homeDisplaySnapshotPersistQueue =
+  new HomeDisplaySnapshotPersistQueue();
+
+export async function resetHomeDisplaySnapshotCache(): Promise<void> {
+  await homeDisplaySnapshotPersistQueue.suspendAndClear();
 }

@@ -93,6 +93,33 @@ export function useHomeStoreControllerActions() {
           ...payload,
         });
       },
+      publishPreparedHomeDisplaySnapshot: ({
+        displaySnapshot,
+        ownerScopeKey,
+        sessionId,
+      }: {
+        displaySnapshot?: IPreparedHomeDisplaySnapshot;
+        ownerScopeKey: string;
+        sessionId: string;
+      }) => {
+        actions.current.dispatchHomeEventsAtomically({
+          displaySnapshotLoadState: {
+            ownerScopeKey,
+            sessionId,
+            status: displaySnapshot ? 'hit' : 'miss',
+          },
+          events: displaySnapshot
+            ? [
+                {
+                  type: 'displaySnapshotHydrated',
+                  ownerScopeKey,
+                  sessionId,
+                  ...displaySnapshot,
+                },
+              ]
+            : [],
+        });
+      },
       stopHomeStore: () => {
         actions.current.dispatchHomeEvent({ type: 'stopped' });
       },

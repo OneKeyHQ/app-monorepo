@@ -81,6 +81,7 @@ describe('Native Home runtime surface', () => {
     expect(nativeReactLoaderSource).toMatch(
       /import\(\s*['"]\.\/HomePageView['"]\s*\)/,
     );
+    expect(nativeReactLoaderSource).toContain('HomeLaunchSkeleton');
     expect(reactLoaderSource).toContain(
       "export { HomePageView } from './HomePageView';",
     );
@@ -94,6 +95,7 @@ describe('Native Home runtime surface', () => {
     expect(mobileAppSource).toMatch(
       /import\(\s*['"]@onekeyhq\/kit\/src\/views\/Home\/pages\/HomePageView['"]\s*\)/,
     );
+    expect(mobileAppSource).toContain('HomeLaunchSkeleton');
     expect(mobileAppSource).not.toMatch(
       /import\s+\{\s*HomePageView\s*\}\s+from/,
     );

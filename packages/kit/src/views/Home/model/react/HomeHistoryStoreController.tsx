@@ -750,7 +750,6 @@ function useHomeHistoryStoreSource({
       }
       return undefined;
     }
-    void seedCacheThenLoadRef.current();
     return () => {
       identityGenerationRef.current += 1;
       requestGenerationRef.current += 1;
@@ -762,6 +761,18 @@ function useHomeHistoryStoreSource({
     stableOwnerTokenKey,
     stopPendingTokenRefresh,
   ]);
+
+  useEffect(() => {
+    if (
+      !sourceEnabled ||
+      !visible ||
+      !identityKey ||
+      !stableOwnerTokenRef.current
+    ) {
+      return;
+    }
+    void seedCacheThenLoadRef.current();
+  }, [identityKey, sourceEnabled, stableOwnerTokenKey, visible]);
 
   useEffect(
     () => () => {

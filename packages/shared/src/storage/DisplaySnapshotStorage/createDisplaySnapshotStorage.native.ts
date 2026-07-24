@@ -2,69 +2,83 @@ import { createMMKV } from 'react-native-mmkv';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import { createDisplaySnapshotStorageCore } from './createDisplaySnapshotStorageCore';
+import {
+  validateDisplaySnapshotCommit,
+  validateDisplaySnapshotKey,
+  validateDisplaySnapshotKeys,
+  validateDisplaySnapshotStorageConfig,
+  validateDisplaySnapshotValue,
+} from './displaySnapshotStorageValidation';
 
 import type {
-  IDisplaySnapshotStorage,
-  IDisplaySnapshotStorageBackend,
   IDisplaySnapshotStorageConfig,
+  IDisplaySnapshotStorageSync,
 } from './types';
 
-function createNativeBackend(
+export function createDisplaySnapshotStorage(
   config: IDisplaySnapshotStorageConfig,
-): IDisplaySnapshotStorageBackend {
-  const storage = createMMKV({
-    id: `onekey-display-snapshot-${config.namespace}`,
-  });
+): IDisplaySnapshotStorageSync {
+  validateDisplaySnapshotStorageConfig(config);
+  let storage: ReturnType<typeof createMMKV> | undefined;
+  const getStorage = () => {
+    storage ??= createMMKV({
+      id: `onekey-display-snapshot-${config.namespace}`,
+    });
+    return storage;
+  };
 
   return {
-    async read(key) {
-      return storage.getString(key);
+    read(key) {
+      validateDisplaySnapshotKey(key);
+      const value = getStorage().getString(key);
+      if (value !== undefined) {
+        validateDisplaySnapshotValue(value, config);
+      }
+      return value;
     },
-    async readMany(keys) {
+    readMany(keys) {
+      validateDisplaySnapshotKeys(keys, config);
       const result = new Map<string, string>();
       keys.forEach((key) => {
-        const value = storage.getString(key);
+        const value = getStorage().getString(key);
         if (value !== undefined) {
+          validateDisplaySnapshotValue(value, config);
           result.set(key, value);
         }
       });
       return result;
     },
-    async commit(input) {
+    commit(input) {
+      validateDisplaySnapshotCommit(input, config);
       if (input.expectedCommitMarker) {
-        const current = storage.getString(input.expectedCommitMarker.key);
+        const current = getStorage().getString(input.expectedCommitMarker.key);
         if (current !== input.expectedCommitMarker.value) {
           throw new OneKeyLocalError(
             'Display snapshot commit marker changed before commit',
           );
         }
       }
-      input.entries.forEach(({ key, value }) => storage.set(key, value));
+      input.entries.forEach(({ key, value }) => getStorage().set(key, value));
       // MMKV has no multi-key transaction. The marker is deliberately last so
       // readers never discover an incomplete generation after a process kill.
-      storage.set(input.commitMarker.key, input.commitMarker.value);
-      input.removeKeys?.forEach((key) => storage.remove(key));
+      getStorage().set(input.commitMarker.key, input.commitMarker.value);
+      input.removeKeys?.forEach((key) => getStorage().remove(key));
     },
-    async remove(keys) {
-      keys.forEach((key) => storage.remove(key));
+    remove(keys) {
+      validateDisplaySnapshotKeys(keys, {
+        ...config,
+        maxReadBatchSize: Number.MAX_SAFE_INTEGER,
+      });
+      keys.forEach((key) => getStorage().remove(key));
     },
-    async clearNamespace() {
-      storage.clearAll();
+    clearNamespace() {
+      getStorage().clearAll();
     },
-    async compact() {
+    compact() {
       // Removing MMKV keys does not shrink its mmap file. Call trim only from
       // an explicit lifecycle/idle boundary so compaction cannot block normal
       // snapshot reads and writes on the UI runtime.
-      storage.trim();
+      getStorage().trim();
     },
   };
-}
-
-export function createDisplaySnapshotStorage(
-  config: IDisplaySnapshotStorageConfig,
-): IDisplaySnapshotStorage {
-  return createDisplaySnapshotStorageCore(config, async () =>
-    createNativeBackend(config),
-  );
 }

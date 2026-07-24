@@ -30,6 +30,26 @@ type IHomePerpsLegacyPayload = {
   view: IPerpsHomeView;
 };
 
+const HOME_PERPS_SNAPSHOT_KEYS = [
+  'address',
+  'scopeKey',
+  'view',
+] as const satisfies readonly (keyof IHomePerpsLegacyPayload)[];
+
+function createHomePerpsSnapshotDefaults(): IHomePerpsLegacyPayload {
+  return {
+    address: '',
+    scopeKey: '',
+    view: {
+      accountValueUsd: 0,
+      holdings: [],
+      isDegraded: false,
+      isEmpty: true,
+      positions: [],
+    },
+  };
+}
+
 type IHomePerpsSourceSnapshot =
   | { kind: 'loading'; requestSeq: number }
   | {
@@ -122,8 +142,10 @@ function adaptHomePerpsSourceSnapshot({
 
 export {
   HOME_PERPS_DATA_SCHEMA_VERSION,
+  HOME_PERPS_SNAPSHOT_KEYS,
   HOME_PERPS_SOURCE_REVISION,
   adaptHomePerpsSourceSnapshot,
+  createHomePerpsSnapshotDefaults,
   createHomePerpsSourceIdentity,
 };
 export type {

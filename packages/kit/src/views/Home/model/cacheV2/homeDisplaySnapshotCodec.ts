@@ -1,11 +1,11 @@
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import {
-  decodeHomeStoreSnapshot,
-  encodeHomeStoreSnapshot,
-} from '../store/homeStoreSnapshotCodec';
 import { HOME_STORE_SOURCE_IDS } from '../store/homeStoreTypes';
 
+import {
+  projectHomeDisplaySnapshotRecord,
+  restoreHomeDisplaySnapshotRecord,
+} from './homeDisplaySnapshotData';
 import {
   getHomeDisplaySnapshotChunkKey,
   getHomeDisplaySnapshotManifestKey,
@@ -22,15 +22,22 @@ import type {
   IHomeDisplaySnapshotChunkId,
   IHomeDisplaySnapshotCritical,
   IHomeDisplaySnapshotManifest,
+  IHomeDisplaySnapshotPersistedCritical,
+  IHomeDisplaySnapshotPersistedNavigation,
+  IHomeDisplaySnapshotPersistedShell,
   IHomeDisplaySnapshotRoute,
   IHomeDisplaySnapshotRouteIndex,
+  IHomeDisplaySnapshotSourceChunk,
 } from './homeDisplaySnapshotTypes';
 import type {
   IHomeNavigationSemanticModel,
   IHomeShellSemanticModel,
   IHomeTabId,
 } from '../semantic/homeSemanticTypes';
-import type { IHomeCachedSourceRecord } from '../store/homeStoreTypes';
+import type {
+  IHomeCachedSourceRecord,
+  IHomeStoreSourceId,
+} from '../store/homeStoreTypes';
 
 const HOME_DISPLAY_SNAPSHOT_NO_EXPIRY_AT = Number.MAX_SAFE_INTEGER;
 
@@ -61,45 +68,128 @@ function isHomeDisplaySnapshotChunkId(
   );
 }
 
-function isHomeShellSemanticModel(
-  value: unknown,
-): value is IHomeShellSemanticModel {
-  if (!isObject(value)) {
-    return false;
-  }
-  return (
-    value.kind === 'loading' ||
-    value.kind === 'backupRequired' ||
-    value.kind === 'missingNetworkAccount' ||
-    (value.kind === 'portfolio' && isObject(value.presentation))
-  );
-}
-
-function isHomeNavigationSemanticModel(
-  value: unknown,
-): value is IHomeNavigationSemanticModel {
-  if (!isObject(value)) {
-    return false;
-  }
-  if (value.kind === 'hidden') {
-    return true;
-  }
-  return (
-    value.kind === 'ready' &&
-    Array.isArray(value.tabs) &&
-    value.tabs.length > 0 &&
-    value.tabs.every(isHomeTabId) &&
-    isHomeTabId(value.selectedTabId)
-  );
-}
-
 export function projectHomeDisplaySnapshotShell(
   shell: IHomeShellSemanticModel,
-): IHomeShellSemanticModel | undefined {
+): IHomeDisplaySnapshotPersistedShell | undefined {
   if (shell.kind !== 'portfolio') {
     return undefined;
   }
   const presentation = shell.presentation;
+  if (presentation.kind === 'funded') {
+    return {
+      kind: 'portfolio',
+      presentation: {
+        kind: presentation.kind,
+        header: {
+          kind: presentation.header.kind,
+          balance: presentation.header.balance,
+        },
+        actions: presentation.actions,
+        banner: presentation.banner,
+      },
+    };
+  }
+  if (presentation.kind === 'zero') {
+    return {
+      kind: 'portfolio',
+      presentation: {
+        kind: presentation.kind,
+        header: presentation.header,
+        actions: presentation.actions,
+        banner: presentation.banner,
+      },
+    };
+  }
+  return undefined;
+}
+
+export function projectHomeDisplaySnapshotNavigation(
+  navigation: IHomeNavigationSemanticModel,
+): IHomeDisplaySnapshotPersistedNavigation | undefined {
+  if (navigation.kind !== 'ready') {
+    return undefined;
+  }
+  if (navigation.destinations) {
+    return {
+      kind: navigation.kind,
+      tabs: navigation.tabs,
+      destinations: navigation.destinations,
+      perpsDestination: navigation.perpsDestination,
+      sections: navigation.sections,
+    };
+  }
+  return {
+    kind: navigation.kind,
+    tabs: navigation.tabs,
+  };
+}
+
+export function encodeHomeDisplaySnapshotCritical(
+  value: IHomeDisplaySnapshotPersistedCritical,
+): string | undefined {
+  const encoded = stringUtils.stableStringify(value);
+  return getByteLength(encoded) <= HOME_DISPLAY_SNAPSHOT_MAX_CRITICAL_BYTES
+    ? encoded
+    : undefined;
+}
+
+export function decodeHomeDisplaySnapshotCritical({
+  expectedOwnerScopeKey,
+  raw,
+}: {
+  expectedOwnerScopeKey: string;
+  raw: string | undefined;
+}): IHomeDisplaySnapshotCritical | undefined {
+  if (!raw || getByteLength(raw) > HOME_DISPLAY_SNAPSHOT_MAX_CRITICAL_BYTES) {
+    return undefined;
+  }
+  try {
+    const value = JSON.parse(
+      raw,
+    ) as Partial<IHomeDisplaySnapshotPersistedCritical>;
+    if (
+      value.schemaVersion !== HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION ||
+      value.ownerScopeKey !== expectedOwnerScopeKey ||
+      typeof value.createdAt !== 'number' ||
+      !Number.isSafeInteger(value.createdAt)
+    ) {
+      return undefined;
+    }
+    const shell = restoreHomeDisplaySnapshotShell(value.shell);
+    const navigation = restoreHomeDisplaySnapshotNavigation(value.navigation);
+    if (
+      (value.shell !== undefined && !shell) ||
+      (value.navigation !== undefined && !navigation)
+    ) {
+      return undefined;
+    }
+    return {
+      schemaVersion: value.schemaVersion,
+      ownerScopeKey: value.ownerScopeKey,
+      createdAt: value.createdAt,
+      shell,
+      navigation,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function restoreHomeDisplaySnapshotShell(
+  value: unknown,
+): IHomeShellSemanticModel | undefined {
+  if (
+    !isObject(value) ||
+    value.kind !== 'portfolio' ||
+    !isObject(value.presentation) ||
+    !isObject(value.presentation.header) ||
+    !isObject(value.presentation.actions) ||
+    !isObject(value.presentation.banner)
+  ) {
+    return undefined;
+  }
+  const presentation =
+    value.presentation as IHomeDisplaySnapshotPersistedShell['presentation'];
   if (presentation.kind === 'funded') {
     return {
       kind: 'portfolio',
@@ -127,93 +217,105 @@ export function projectHomeDisplaySnapshotShell(
   return undefined;
 }
 
-export function projectHomeDisplaySnapshotNavigation(
-  navigation: IHomeNavigationSemanticModel,
+function restoreHomeDisplaySnapshotNavigation(
+  value: unknown,
 ): IHomeNavigationSemanticModel | undefined {
-  if (navigation.kind !== 'ready') {
+  if (
+    !isObject(value) ||
+    value.kind !== 'ready' ||
+    !Array.isArray(value.tabs) ||
+    value.tabs.length === 0 ||
+    !value.tabs.every(isHomeTabId)
+  ) {
     return undefined;
   }
-  if (navigation.destinations) {
+  const tabs = value.tabs as [IHomeTabId, ...IHomeTabId[]];
+  const selectedTabId = tabs.includes('portfolio') ? 'portfolio' : tabs[0];
+  if (
+    isObject(value.destinations) &&
+    typeof value.perpsDestination === 'string' &&
+    isObject(value.sections)
+  ) {
+    const navigation =
+      value as unknown as IHomeDisplaySnapshotPersistedNavigation;
     return {
-      ...navigation,
+      kind: 'ready',
+      tabs,
+      selectedTabId,
+      destinations: navigation.destinations ?? {},
       freshness: 'confirmedCache',
+      perpsDestination: navigation.perpsDestination as NonNullable<
+        typeof navigation.perpsDestination
+      >,
       refresh: 'refreshing',
+      sections: navigation.sections as NonNullable<typeof navigation.sections>,
     };
   }
-  return navigation;
-}
-
-export function encodeHomeDisplaySnapshotCritical(
-  value: IHomeDisplaySnapshotCritical,
-): string | undefined {
-  const encoded = stringUtils.stableStringify(value);
-  return getByteLength(encoded) <= HOME_DISPLAY_SNAPSHOT_MAX_CRITICAL_BYTES
-    ? encoded
-    : undefined;
-}
-
-export function decodeHomeDisplaySnapshotCritical({
-  expectedOwnerScopeKey,
-  raw,
-}: {
-  expectedOwnerScopeKey: string;
-  raw: string | undefined;
-}): IHomeDisplaySnapshotCritical | undefined {
-  if (!raw || getByteLength(raw) > HOME_DISPLAY_SNAPSHOT_MAX_CRITICAL_BYTES) {
-    return undefined;
-  }
-  try {
-    const value = JSON.parse(raw) as Partial<IHomeDisplaySnapshotCritical>;
-    if (
-      value.schemaVersion !== HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION ||
-      value.ownerScopeKey !== expectedOwnerScopeKey ||
-      !Number.isSafeInteger(value.createdAt) ||
-      (value.shell !== undefined && !isHomeShellSemanticModel(value.shell)) ||
-      (value.navigation !== undefined &&
-        !isHomeNavigationSemanticModel(value.navigation)) ||
-      (value.selectedTabPreference !== undefined &&
-        !isHomeTabId(value.selectedTabPreference))
-    ) {
-      return undefined;
-    }
-    return value as IHomeDisplaySnapshotCritical;
-  } catch {
-    return undefined;
-  }
+  return {
+    kind: 'ready',
+    tabs,
+    selectedTabId,
+  };
 }
 
 export function encodeHomeDisplaySnapshotSourceChunk({
-  key,
   ownerScopeKey,
   record,
-  createdAt,
 }: {
-  key: string;
   ownerScopeKey: string;
   record: IHomeCachedSourceRecord;
-  createdAt: number;
 }): string | undefined {
-  // The shared Home cache envelope still requires an expiry field. V2 display
-  // snapshots are instead bounded by owner LRU and size limits, so persist a
-  // non-expiring record and ignore legacy expiry timestamps when reading.
-  const persistentRecord: IHomeCachedSourceRecord = {
-    ...record,
-    expiresAt: HOME_DISPLAY_SNAPSHOT_NO_EXPIRY_AT,
-  };
-  const envelope = encodeHomeStoreSnapshot({
-    key,
-    ownerScopeKey,
-    records: [persistentRecord],
-    createdAt,
-    expiresAt: HOME_DISPLAY_SNAPSHOT_NO_EXPIRY_AT,
-  });
-  if (!envelope) {
+  const projectedRecord = projectHomeDisplaySnapshotRecord(record);
+  if (!projectedRecord) {
     return undefined;
   }
-  const encoded = stringUtils.stableStringify(envelope);
+  const chunk: IHomeDisplaySnapshotSourceChunk = {
+    schemaVersion: HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION,
+    ownerScopeKey,
+    record: {
+      ...projectedRecord,
+      confirmedAt: 0,
+      expiresAt: HOME_DISPLAY_SNAPSHOT_NO_EXPIRY_AT,
+    },
+  };
+  const encoded = stringUtils.stableStringify(chunk);
   return getByteLength(encoded) <= HOME_DISPLAY_SNAPSHOT_MAX_CHUNK_BYTES
     ? encoded
     : undefined;
+}
+
+function readPersistedSourceRecord(
+  value: unknown,
+): IHomeCachedSourceRecord | undefined {
+  if (!isObject(value)) {
+    return undefined;
+  }
+  const record = value as Partial<IHomeCachedSourceRecord>;
+  if (
+    !HOME_STORE_SOURCE_IDS.some((sourceId) => sourceId === record.sourceId) ||
+    typeof record.sourceKeyIdentity !== 'string' ||
+    typeof record.dataSchemaVersion !== 'number' ||
+    !Number.isSafeInteger(record.dataSchemaVersion) ||
+    typeof record.coverageFingerprint !== 'string' ||
+    typeof record.confirmedAt !== 'number' ||
+    !Number.isSafeInteger(record.confirmedAt) ||
+    !isObject(record.payload)
+  ) {
+    return undefined;
+  }
+  return {
+    sourceId: record.sourceId as IHomeStoreSourceId,
+    sourceKeyIdentity: record.sourceKeyIdentity,
+    dataSchemaVersion: record.dataSchemaVersion,
+    coverageFingerprint: record.coverageFingerprint,
+    quoteBasis:
+      record.quoteBasis && isObject(record.quoteBasis)
+        ? (record.quoteBasis as IHomeCachedSourceRecord['quoteBasis'])
+        : null,
+    confirmedAt: record.confirmedAt,
+    expiresAt: HOME_DISPLAY_SNAPSHOT_NO_EXPIRY_AT,
+    payload: record.payload as IHomeCachedSourceRecord['payload'],
+  };
 }
 
 export function decodeHomeDisplaySnapshotSourceChunk({
@@ -229,15 +331,16 @@ export function decodeHomeDisplaySnapshotSourceChunk({
     return undefined;
   }
   try {
-    const snapshot = decodeHomeStoreSnapshot({
-      envelope: JSON.parse(raw),
-      expectedOwnerScopeKey,
-      now: 0,
-    });
-    const record = snapshot?.records[0];
-    return snapshot?.records.length === 1 &&
-      record?.sourceId === expectedSourceId
-      ? record
+    const chunk = JSON.parse(raw) as Partial<IHomeDisplaySnapshotSourceChunk>;
+    if (
+      chunk.schemaVersion !== HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION ||
+      chunk.ownerScopeKey !== expectedOwnerScopeKey
+    ) {
+      return undefined;
+    }
+    const record = readPersistedSourceRecord(chunk.record);
+    return record?.sourceId === expectedSourceId
+      ? restoreHomeDisplaySnapshotRecord(record)
       : undefined;
   } catch {
     return undefined;

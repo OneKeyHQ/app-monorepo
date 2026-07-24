@@ -44,6 +44,29 @@ type IHomeDeFiLegacyPayload = {
   supportedActions: IDeFiSupportedProtocolAction[];
 };
 
+const HOME_DEFI_SNAPSHOT_KEYS = [
+  'currency',
+  'overview',
+  'protocolMap',
+  'protocols',
+  'supportedActions',
+] as const satisfies readonly (keyof IHomeDeFiLegacyPayload)[];
+
+function createHomeDeFiSnapshotDefaults(): IHomeDeFiLegacyPayload {
+  return {
+    currency: '',
+    overview: {
+      totalValue: 0,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 0,
+    },
+    protocolMap: {},
+    protocols: [],
+    supportedActions: [],
+  };
+}
+
 type IHomeDeFiSourceSnapshot =
   | { kind: 'loading'; requestSeq: number }
   | {
@@ -153,8 +176,10 @@ function adaptHomeDeFiSourceSnapshot({
 
 export {
   HOME_DEFI_DATA_SCHEMA_VERSION,
+  HOME_DEFI_SNAPSHOT_KEYS,
   HOME_DEFI_SOURCE_REVISION,
   adaptHomeDeFiSourceSnapshot,
+  createHomeDeFiSnapshotDefaults,
   createHomeDeFiSourceIdentity,
   getHomeDeFiProtocolRowIds,
 };

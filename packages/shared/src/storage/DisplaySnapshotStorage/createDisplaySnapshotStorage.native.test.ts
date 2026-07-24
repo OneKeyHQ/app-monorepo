@@ -66,22 +66,26 @@ describe('DisplaySnapshotStorage MMKV backend', () => {
     mockCreateMMKV.mockClear();
   });
 
-  it('creates one dedicated instance lazily and publishes the marker last', async () => {
+  it('creates one dedicated instance lazily and publishes the marker last synchronously', () => {
     const storage = createDisplaySnapshotStorage({
       namespace: 'home-native-test',
       maxRecordBytes: 128,
       maxReadBatchSize: 4,
     });
     expect(mockCreateMMKV).not.toHaveBeenCalled();
-    await storage.commit({
-      entries: [
-        { key: 'chunk/a', value: 'a' },
-        { key: 'manifest/a', value: 'manifest' },
-      ],
-      commitMarker: { key: 'route/a', value: 'generation-1' },
-      expectedCommitMarker: { key: 'route/a', value: undefined },
-      removeKeys: ['manifest/retired'],
-    });
+    expect(
+      storage.commit({
+        entries: [
+          { key: 'chunk/a', value: 'a' },
+          { key: 'manifest/a', value: 'manifest' },
+        ],
+        commitMarker: { key: 'route/a', value: 'generation-1' },
+        expectedCommitMarker: { key: 'route/a', value: undefined },
+        removeKeys: ['manifest/retired'],
+      }),
+    ).toBeUndefined();
+    expect(storage.read('route/a')).toBe('generation-1');
+    expect(storage.readMany(['chunk/a'])).toEqual(new Map([['chunk/a', 'a']]));
     expect(mockCreateMMKV).toHaveBeenCalledWith({
       id: 'onekey-display-snapshot-home-native-test',
     });
@@ -91,21 +95,23 @@ describe('DisplaySnapshotStorage MMKV backend', () => {
       'set:manifest/a',
       'set:route/a',
       'remove:manifest/retired',
+      'get:route/a',
+      'get:chunk/a',
     ]);
   });
 
-  it('does not write data when its route marker expectation is stale', async () => {
+  it('does not write data when its route marker expectation is stale', () => {
     const storage = createDisplaySnapshotStorage({
       namespace: 'home-native-cas-test',
       maxRecordBytes: 128,
       maxReadBatchSize: 4,
     });
-    await storage.commit({
+    storage.commit({
       entries: [{ key: 'chunk/a', value: 'old' }],
       commitMarker: { key: 'route/a', value: 'generation-1' },
     });
     getMockState().operations.length = 0;
-    await expect(
+    expect(() =>
       storage.commit({
         entries: [{ key: 'chunk/a', value: 'new' }],
         commitMarker: { key: 'route/a', value: 'generation-2' },
@@ -114,21 +120,21 @@ describe('DisplaySnapshotStorage MMKV backend', () => {
           value: 'stale-generation',
         },
       }),
-    ).rejects.toThrow('marker changed');
+    ).toThrow('marker changed');
     expect(getMockState().operations).toEqual(['get:route/a']);
     expect(getMockState().values.get('chunk/a')).toBe('old');
     expect(getMockState().values.get('route/a')).toBe('generation-1');
   });
 
-  it('trims only when compaction is requested explicitly', async () => {
+  it('trims only when compaction is requested explicitly', () => {
     const storage = createDisplaySnapshotStorage({
       namespace: 'home-native-trim-test',
       maxRecordBytes: 128,
       maxReadBatchSize: 4,
     });
-    await storage.remove(['chunk/retired']);
+    storage.remove(['chunk/retired']);
     expect(getMockState().operations).toEqual(['remove:chunk/retired']);
-    await storage.compact();
+    storage.compact();
     expect(getMockState().operations).toEqual(['remove:chunk/retired', 'trim']);
   });
 });

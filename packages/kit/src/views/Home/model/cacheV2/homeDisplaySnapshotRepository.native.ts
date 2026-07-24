@@ -1,4 +1,4 @@
-import { createDisplaySnapshotStorage } from '@onekeyhq/shared/src/storage/DisplaySnapshotStorage';
+import { createDisplaySnapshotStorage } from '@onekeyhq/shared/src/storage/DisplaySnapshotStorage/createDisplaySnapshotStorage.native';
 
 import {
   decodeHomeDisplaySnapshotCritical,
@@ -30,14 +30,14 @@ const homeDisplaySnapshotStorage = createDisplaySnapshotStorage({
   maxReadBatchSize: HOME_DISPLAY_SNAPSHOT_READ_BATCH_SIZE,
 });
 
-export async function loadHomeDisplaySnapshotManifest({
+export function loadHomeDisplaySnapshotManifest({
   ownerScopeKey,
 }: {
   ownerScopeKey: string;
-}): Promise<ILoadedHomeDisplaySnapshotManifest | undefined> {
+}): ILoadedHomeDisplaySnapshotManifest | undefined {
   const partitionId = getHomeDisplaySnapshotPartitionId(ownerScopeKey);
   const routeKey = getHomeDisplaySnapshotRouteKey(partitionId);
-  const routeRaw = await homeDisplaySnapshotStorage.read(routeKey);
+  const routeRaw = homeDisplaySnapshotStorage.read(routeKey);
   const route = decodeHomeDisplaySnapshotRoute({
     raw: routeRaw,
     expectedOwnerScopeKey: ownerScopeKey,
@@ -52,7 +52,7 @@ export async function loadHomeDisplaySnapshotManifest({
     ...(route.previousGeneration ? [route.previousGeneration] : []),
   ];
   for (const generation of generations) {
-    const manifestRaw = await homeDisplaySnapshotStorage.read(
+    const manifestRaw = homeDisplaySnapshotStorage.read(
       getHomeDisplaySnapshotManifestKey(partitionId, generation),
     );
     const manifest = decodeHomeDisplaySnapshotManifest({
@@ -68,16 +68,16 @@ export async function loadHomeDisplaySnapshotManifest({
   return undefined;
 }
 
-export async function loadHomeDisplaySnapshotCritical({
+export function loadHomeDisplaySnapshotCritical({
   context,
 }: {
   context: ILoadedHomeDisplaySnapshotManifest;
-}): Promise<IHomeDisplaySnapshotCritical | undefined> {
+}): IHomeDisplaySnapshotCritical | undefined {
   const descriptor = context.manifest.chunks.critical;
   if (!descriptor) {
     return undefined;
   }
-  const raw = await homeDisplaySnapshotStorage.read(descriptor.key);
+  const raw = homeDisplaySnapshotStorage.read(descriptor.key);
   if (!raw || getByteLength(raw) !== descriptor.byteLength) {
     return undefined;
   }
@@ -87,13 +87,13 @@ export async function loadHomeDisplaySnapshotCritical({
   });
 }
 
-export async function loadHomeDisplaySnapshotSourceRecords({
+export function loadHomeDisplaySnapshotSourceRecords({
   context,
   sourceIds,
 }: {
   context: ILoadedHomeDisplaySnapshotManifest;
   sourceIds: readonly IHomeStoreSourceId[];
-}) {
+}): IHomeCachedSourceRecord[] {
   const descriptors = sourceIds.flatMap((sourceId) => {
     const descriptor = context.manifest.chunks[sourceId];
     return descriptor ? [{ descriptor, sourceId }] : [];
@@ -108,7 +108,7 @@ export async function loadHomeDisplaySnapshotSourceRecords({
       offset,
       offset + HOME_DISPLAY_SNAPSHOT_READ_BATCH_SIZE,
     );
-    const values = await homeDisplaySnapshotStorage.readMany(
+    const values = homeDisplaySnapshotStorage.readMany(
       batch.map(({ descriptor }) => descriptor.key),
     );
     batch.forEach(({ descriptor, sourceId }) => {

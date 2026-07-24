@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
-  useHomeInteraction,
   useHomeResource,
   useHomeSessionState,
 } from '@onekeyhq/kit/src/states/jotai/contexts/home';
@@ -36,7 +35,6 @@ function getHomeStoreCacheKey(ownerScopeKey: string): string {
 
 export function HomeStoreSnapshotController() {
   const session = useHomeSessionState();
-  const interaction = useHomeInteraction();
   const capability = useHomeResource('capability');
   const banner = useHomeResource('banner');
   const portfolio = useHomeResource('portfolio');
@@ -49,7 +47,6 @@ export function HomeStoreSnapshotController() {
   const loadGenerationRef = useRef(0);
   const lastPersistedSignatureRef = useRef<string | undefined>(undefined);
   const hydratedSourceIdsRef = useRef(new Set<IHomeStoreSourceId>());
-  const hydratedPreferenceRef = useRef(false);
   const confirmedRecordsRef = useRef<{
     ownerScopeKey?: string;
     records: readonly IHomeCachedSourceRecord[];
@@ -75,7 +72,6 @@ export function HomeStoreSnapshotController() {
     loadGenerationRef.current += 1;
     const generation = loadGenerationRef.current;
     hydratedSourceIdsRef.current.clear();
-    hydratedPreferenceRef.current = false;
     lastPersistedSignatureRef.current = undefined;
     confirmedRecordsRef.current = {
       ownerScopeKey: ownerToken?.scopeKey,
@@ -170,19 +166,13 @@ export function HomeStoreSnapshotController() {
         isHomeCachedRecordExactForToken(record, current.token),
       );
     });
-    const shouldHydratePreference =
-      !hydratedPreferenceRef.current &&
-      loadedSnapshot.selectedTabPreference !== undefined;
-    if (records.length === 0 && !shouldHydratePreference) {
+    if (records.length === 0) {
       return;
     }
     hydrateHomeConfirmedSnapshot({
       ownerScopeKey: ownerToken.scopeKey,
       sessionId: ownerToken.sessionId,
       records,
-      selectedTabPreference: shouldHydratePreference
-        ? loadedSnapshot.selectedTabPreference
-        : undefined,
     });
     defaultLogger.wallet.homeUi.homeStoreCacheDecision({
       operation: 'hydrate',
@@ -192,9 +182,6 @@ export function HomeStoreSnapshotController() {
     records.forEach((record) =>
       hydratedSourceIdsRef.current.add(record.sourceId),
     );
-    if (shouldHydratePreference) {
-      hydratedPreferenceRef.current = true;
-    }
   }, [hydrateHomeConfirmedSnapshot, loadedSnapshot, ownerToken, resources]);
 
   useEffect(() => {
@@ -233,7 +220,6 @@ export function HomeStoreSnapshotController() {
       }
       const contentSignature = getHomeStoreCacheContentSignature({
         records,
-        selectedTabPreference: interaction.preferredTabId,
       });
       if (contentSignature === lastPersistedSignatureRef.current) {
         return;
@@ -242,7 +228,6 @@ export function HomeStoreSnapshotController() {
         key: getHomeStoreCacheKey(ownerToken.scopeKey),
         ownerScopeKey: ownerToken.scopeKey,
         records,
-        selectedTabPreference: interaction.preferredTabId,
         createdAt: now,
         expiresAt: now + HOME_STORE_CACHE_TTL_MS,
       });
@@ -270,7 +255,7 @@ export function HomeStoreSnapshotController() {
       }
     }, HOME_STORE_CACHE_PERSIST_DEBOUNCE_MS);
     return () => clearTimeout(timeout);
-  }, [interaction.preferredTabId, ownerToken, resources]);
+  }, [ownerToken, resources]);
 
   return null;
 }

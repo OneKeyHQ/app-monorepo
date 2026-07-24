@@ -224,7 +224,7 @@ describe('useHomeNFTStoreSource', () => {
     });
 
     const view = renderHook(() =>
-      useHomeNFTStoreSource({ enabled: true, visible: false }),
+      useHomeNFTStoreSource({ enabled: true, visible: true }),
     );
 
     await waitFor(() => expect(publisher.complete).toHaveBeenCalledTimes(1));
@@ -264,12 +264,30 @@ describe('useHomeNFTStoreSource', () => {
     });
 
     const view = renderHook(() =>
-      useHomeNFTStoreSource({ enabled: true, visible: false }),
+      useHomeNFTStoreSource({ enabled: true, visible: true }),
     );
 
     await waitFor(() => expect(publisher.complete).toHaveBeenCalledTimes(1));
     expect(background.getAccountLocalNFTs).toHaveBeenCalledTimes(1);
     expect(background.fetchAccountNFTs).toHaveBeenCalledTimes(1);
+
+    view.unmount();
+  });
+
+  it('keeps the source applicable without fetching while the NFT tab is inactive', async () => {
+    const background = testGlobal.__homeNFTBackgroundControl;
+    const publisher = testGlobal.__homeNFTPublisherControl;
+
+    const view = renderHook(() =>
+      useHomeNFTStoreSource({ enabled: true, visible: false }),
+    );
+
+    await act(async () => Promise.resolve());
+
+    expect(publisher.begin).not.toHaveBeenCalled();
+    expect(publisher.complete).not.toHaveBeenCalled();
+    expect(background.getAccountLocalNFTs).not.toHaveBeenCalled();
+    expect(background.fetchAccountNFTs).not.toHaveBeenCalled();
 
     view.unmount();
   });

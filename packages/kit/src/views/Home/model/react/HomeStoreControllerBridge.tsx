@@ -29,8 +29,17 @@ async function loadPreparedOwnerWithinBudget(
 ): Promise<IPreparedHomeDisplaySnapshot | undefined> {
   let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
+    let preparedOwner:
+      | IPreparedHomeDisplaySnapshot
+      | Promise<IPreparedHomeDisplaySnapshot | undefined>
+      | undefined;
+    try {
+      preparedOwner = loadPreparedHomeDisplaySnapshot({ ownerScopeKey });
+    } catch {
+      return undefined;
+    }
     return await Promise.race([
-      loadPreparedHomeDisplaySnapshot({ ownerScopeKey }).catch(() => undefined),
+      Promise.resolve(preparedOwner).catch(() => undefined),
       new Promise<undefined>((resolve) => {
         timeout = setTimeout(
           () => resolve(undefined),

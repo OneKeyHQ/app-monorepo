@@ -184,6 +184,29 @@ describe('resolveHomeWalletContentReadiness', () => {
       }),
     ).toBe('wallet');
   });
+
+  it('keeps the launch surface pending until confirmed wallet display data is ready', () => {
+    expect(
+      resolveHomeWalletContentReadiness({
+        ...readySignals,
+        walletListPending: false,
+        wallets: [{ id: 'wallet-ready' }],
+        hasNoUsableWallet: false,
+        activeWalletId: 'wallet-ready',
+        confirmedWalletDisplayReady: false,
+      }),
+    ).toBe('pending');
+    expect(
+      resolveHomeWalletContentReadiness({
+        ...readySignals,
+        walletListPending: false,
+        wallets: [{ id: 'wallet-ready' }],
+        hasNoUsableWallet: false,
+        activeWalletId: 'wallet-ready',
+        confirmedWalletDisplayReady: true,
+      }),
+    ).toBe('wallet');
+  });
 });
 
 describe('isWalletListResolvedNoWallet', () => {

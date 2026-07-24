@@ -6,7 +6,6 @@ import {
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { aggregateHomeBalanceFacts } from '../balance/homeBalanceAggregation';
-import { getHomeSourceKeyIdentity } from '../core/homeIdentity';
 import { projectHomeNavigation } from '../navigation/homeNavigationProjector';
 import { projectHomeBalanceAuthority } from '../policies/homeBalanceAuthorityPolicy';
 import { projectHomeShell } from '../policies/homeShellPolicy';
@@ -1095,10 +1094,10 @@ export function reduceHomeStore(
         (resource.kind === 'ready' || resource.kind === 'empty') &&
         resource.freshness === 'confirmedCache'
       ) {
-        // V2 can hydrate a visible source before its lazy producer has loaded
+        // V3 can hydrate a visible source before its lazy producer has loaded
         // stable business inputs. Keep that display-only value through the
         // producer's setup reset; the first exact request will retain it, while
-        // a mismatched request still replaces it with loading.
+        // a mismatched request keeps it until live data can replace it.
         return emptyTransition();
       }
       if (
@@ -1165,10 +1164,7 @@ export function reduceHomeStore(
           : never
       >;
       const canPreserveCurrent =
-        (current.kind === 'ready' || current.kind === 'empty') &&
-        (current.freshness !== 'confirmedCache' ||
-          current.confirmedCacheSourceKeyIdentity ===
-            getHomeSourceKeyIdentity(event.token.sourceKey));
+        current.kind === 'ready' || current.kind === 'empty';
       if (canPreserveCurrent) {
         next = { ...current, token: event.token, refresh: 'refreshing' };
       } else {
@@ -1334,21 +1330,6 @@ export function reduceHomeStore(
         records: event.records,
         state,
       });
-      if (
-        event.selectedTabPreference &&
-        state.interaction.preferredTabId !== event.selectedTabPreference
-      ) {
-        mutations.push({
-          slice: 'interaction',
-          operation: {
-            kind: 'set',
-            value: {
-              ...state.interaction,
-              preferredTabId: event.selectedTabPreference,
-            },
-          },
-        });
-      }
       return acceptedTransition(state, mutations);
     }
     case 'displaySnapshotHydrated': {
@@ -1403,10 +1384,7 @@ export function reduceHomeStore(
       if (event.navigation && !hasLiveCapability) {
         const navigation = advanceNavigation(
           state.navigation,
-          resolvePreferredTab(
-            event.navigation,
-            event.selectedTabPreference ?? state.interaction.preferredTabId,
-          ),
+          event.navigation,
         );
         if (navigation !== state.navigation) {
           mutations.push({
@@ -1414,21 +1392,6 @@ export function reduceHomeStore(
             operation: { kind: 'set', value: navigation },
           });
         }
-      }
-      if (
-        event.selectedTabPreference &&
-        state.interaction.preferredTabId !== event.selectedTabPreference
-      ) {
-        mutations.push({
-          slice: 'interaction',
-          operation: {
-            kind: 'set',
-            value: {
-              ...state.interaction,
-              preferredTabId: event.selectedTabPreference,
-            },
-          },
-        });
       }
       return acceptedTransition(state, mutations);
     }

@@ -95,10 +95,13 @@ describe('Home Unified Store production boundary', () => {
     );
   });
 
-  it('hydrates Header, Banner, and the visible section without a shared paint barrier', () => {
+  it('hydrates a complete visible snapshot before revealing the launch surface', () => {
     const root = readHomeFile('model/react/HomeStoreSourceControllers.tsx');
-    const source = readHomeFile(
-      'model/react/HomeDisplaySnapshotController.tsx',
+    const sharedSource = readHomeFile(
+      'model/react/HomeDisplaySnapshotController.shared.tsx',
+    );
+    const nativeSource = readHomeFile(
+      'model/react/HomeDisplaySnapshotController.native.tsx',
     );
     expect(root).toContain(
       "import { HomeDisplaySnapshotController } from './HomeDisplaySnapshotController';",
@@ -106,22 +109,30 @@ describe('Home Unified Store production boundary', () => {
     expect(root).not.toMatch(
       /LazyLoad[\s\S]*import\('\.\/HomeDisplaySnapshotController'\)/,
     );
-    expect(source).toContain('useLayoutEffect(() => {');
-    expect(source).toContain('await yieldToHomeRenderer()');
-    expect(source).toContain('const bannerLoad = loadSourceChunk({');
-    expect(source).toContain('const selectedLoad = loadSourceChunk({');
-    expect(source).toContain("sourceId: 'banner'");
-    expect(source).toContain('sourceId: selectedSourceId');
-    expect(source).toContain('sourceIds: [sourceId]');
-    expect(source).not.toContain(
+    expect(sharedSource).toContain('useLayoutEffect(() => {');
+    expect(sharedSource).not.toContain('yieldToHomeRenderer');
+    expect(sharedSource).toContain('const bannerLoad = loadSourceChunk({');
+    expect(sharedSource).toContain('const selectedLoad = loadSourceChunk({');
+    expect(sharedSource).toContain("sourceId: 'banner'");
+    expect(sharedSource).toContain('sourceId: selectedSourceId');
+    expect(sharedSource).toContain('sourceIds: [sourceId]');
+    expect(sharedSource).toContain('publishLoadStatus(initialDisplayReady ?');
+    expect(sharedSource).not.toContain(
       'const bannerRecordCount = await loadSourceChunk({\n' +
         '          candidateOwnerToken: ownerToken,\n' +
         '          context,\n' +
         "          sourceId: 'banner'",
     );
-    expect(source).not.toContain(
+    expect(sharedSource).not.toContain(
       "new Set<IHomeStoreSourceId>(['banner', selectedSourceId])",
     );
+    expect(nativeSource).toContain(
+      'const displaySnapshot = loadPreparedHomeDisplaySnapshot({',
+    );
+    expect(nativeSource).not.toMatch(
+      /await loadPreparedHomeDisplaySnapshot|void loadPreparedHomeDisplaySnapshot/,
+    );
+    expect(nativeSource).toContain('publishPreparedHomeDisplaySnapshot({');
   });
 
   it('derives every Header balance contributor from the Home Store', () => {

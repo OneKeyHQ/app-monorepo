@@ -47,6 +47,22 @@ export type IHomeBannerStorePayload = {
   readonly isBotWalletReceiveBlocked: boolean;
 };
 
+export const HOME_BANNER_SNAPSHOT_KEYS = [
+  'banners',
+  'referralEligibility',
+  'tronResource',
+  'isBotWalletReceiveBlocked',
+] as const satisfies readonly (keyof IHomeBannerStorePayload)[];
+
+export function createHomeBannerSnapshotDefaults(): IHomeBannerStorePayload {
+  return {
+    banners: [],
+    referralEligibility: null,
+    tronResource: null,
+    isBotWalletReceiveBlocked: false,
+  };
+}
+
 export const HOME_BANNER_ACTION_IDS = {
   bindReferral: 'home.banner.referralBind',
   dismiss: 'home.banner.dismiss',

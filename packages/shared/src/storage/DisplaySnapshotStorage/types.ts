@@ -30,6 +30,15 @@ export interface IDisplaySnapshotStorage {
   compact(): Promise<void>;
 }
 
+export interface IDisplaySnapshotStorageSync {
+  read(key: string): string | undefined;
+  readMany(keys: readonly string[]): ReadonlyMap<string, string>;
+  commit(input: IDisplaySnapshotCommit): void;
+  remove(keys: readonly string[]): void;
+  clearNamespace(): void;
+  compact(): void;
+}
+
 export interface IDisplaySnapshotStorageBackend {
   read(key: string): Promise<string | undefined>;
   readMany(keys: readonly string[]): Promise<ReadonlyMap<string, string>>;

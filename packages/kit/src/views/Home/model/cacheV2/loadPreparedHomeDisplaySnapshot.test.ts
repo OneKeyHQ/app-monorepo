@@ -9,6 +9,7 @@ import type {
   IHomeDisplaySnapshotCritical,
   ILoadedHomeDisplaySnapshotManifest,
 } from './homeDisplaySnapshotTypes';
+import type { IHomeCachedSourceRecord } from '../store/homeStoreTypes';
 
 jest.mock('./homeDisplaySnapshotRepository', () => ({
   loadHomeDisplaySnapshotCritical: jest.fn(),
@@ -52,7 +53,6 @@ describe('loadPreparedHomeDisplaySnapshot', () => {
       createdAt: 1,
       ownerScopeKey: 'owner-b',
       schemaVersion: 1,
-      selectedTabPreference: 'defi',
       shell: { kind: 'backupRequired', commandId: 'backupWallet' },
     } satisfies IHomeDisplaySnapshotCritical;
     mockLoadCritical.mockResolvedValue(critical);
@@ -62,12 +62,47 @@ describe('loadPreparedHomeDisplaySnapshot', () => {
     ).resolves.toEqual({
       navigation: undefined,
       records: [],
-      selectedTabPreference: 'defi',
       shell: critical.shell,
     });
     expect(mockLoadSourceRecords).toHaveBeenCalledWith({
       context,
-      sourceIds: ['banner', 'defi'],
+      sourceIds: ['banner', 'portfolio'],
+    });
+  });
+
+  it('requires the selected portfolio section before accepting a cache hit', async () => {
+    const critical = {
+      createdAt: 1,
+      ownerScopeKey: 'owner-c',
+      schemaVersion: 1,
+      shell: {
+        kind: 'portfolio',
+        presentation: {
+          kind: 'zero',
+          header: {
+            kind: 'zero',
+            balance: { amount: '0', currency: 'USD' },
+          },
+          actions: { kind: 'zero', items: [] },
+          banner: { kind: 'none' },
+        },
+      },
+    } satisfies IHomeDisplaySnapshotCritical;
+    mockLoadCritical.mockResolvedValue(critical);
+
+    await expect(
+      loadPreparedHomeDisplaySnapshot({ ownerScopeKey: 'owner-c' }),
+    ).resolves.toBeUndefined();
+
+    const portfolioRecord = {
+      sourceId: 'portfolio',
+    } as IHomeCachedSourceRecord;
+    mockLoadSourceRecords.mockResolvedValue([portfolioRecord]);
+    await expect(
+      loadPreparedHomeDisplaySnapshot({ ownerScopeKey: 'owner-c' }),
+    ).resolves.toMatchObject({
+      records: [portfolioRecord],
+      shell: critical.shell,
     });
   });
 });

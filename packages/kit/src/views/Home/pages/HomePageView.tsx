@@ -870,13 +870,10 @@ export function HomePageView({
           pagerTabConfigs.map((tab) => (
             <Tabs.Tab key={tab.name} name={tab.name}>
               <FreezeInactiveHomeTab tabName={tab.name}>
-                {platformEnv.isNative ||
-                tab.id === EHomeWalletTab.Perps ||
-                selectedTabId === tab.id ||
-                mountedHomeTabIds.has(tab.id) ? (
+                {selectedTabId === tab.id || mountedHomeTabIds.has(tab.id) ? (
                   tab.component
                 ) : (
-                  <Stack flex={1} />
+                  <HomeWalletCapabilityPendingContent />
                 )}
               </FreezeInactiveHomeTab>
             </Tabs.Tab>

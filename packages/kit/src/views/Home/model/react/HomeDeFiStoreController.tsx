@@ -45,10 +45,13 @@ export function HomeDeFiStoreController() {
   const processingCommandIdsRef = useRef(new Set<string>());
   const enabled =
     navigation.value.kind === 'ready' && navigation.value.tabs.includes('defi');
+  const fetchActive =
+    navigation.value.kind === 'ready' &&
+    navigation.value.selectedTabId === 'defi';
   const source = useHomeDeFiStoreSource({
     enabled,
     refreshCacheOnly: false,
-    visible: enabled,
+    visible: fetchActive,
   });
   const refresh = source.refresh;
 

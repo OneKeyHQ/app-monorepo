@@ -49,6 +49,7 @@ import { HOME_MARKET_SELECTED_CATEGORY_CONTROL_ID } from '../sections/market/hom
 import { HOME_MARKET_DATA_SCHEMA_VERSION } from '../sections/market/homeMarketSourceAdapter';
 
 import {
+  useHomeNavigationSnapshot,
   useHomeSectionPayload,
   useStableHomeFactsOwner,
 } from './homeStoreHooks';
@@ -578,6 +579,10 @@ export function HomeMarketStoreController() {
   const intl = useIntl();
   const stableOwner = useStableHomeFactsOwner();
   const interaction = useHomeInteraction();
+  const navigation = useHomeNavigationSnapshot();
+  const fetchActive =
+    navigation.value.kind === 'ready' &&
+    navigation.value.selectedTabId === 'perps';
   const currentMarketPayload = useHomeSectionPayload('market');
   const currentMarketPayloadRef = useRef(currentMarketPayload);
   currentMarketPayloadRef.current = currentMarketPayload;
@@ -617,7 +622,7 @@ export function HomeMarketStoreController() {
   const perpsLabel = intl.formatMessage({ id: ETranslations.global_perp });
   const { run: refreshMarket } = usePromiseResult(
     async () => {
-      if (!stableOwner) {
+      if (!fetchActive || !stableOwner) {
         return;
       }
       const controllerCache = cacheRef.current;
@@ -684,19 +689,23 @@ export function HomeMarketStoreController() {
       favoritesLabel,
       beginHomeSectionRequest,
       completeHomeSectionRequest,
+      fetchActive,
       perpsLabel,
       selectedCategoryId,
       stableOwner,
     ],
     {
-      pollingInterval: HOME_MARKET_POLLING_INTERVAL,
-      revalidateOnFocus: true,
-      revalidateOnReconnect: true,
+      pollingInterval: fetchActive ? HOME_MARKET_POLLING_INTERVAL : undefined,
+      revalidateOnFocus: fetchActive,
+      revalidateOnReconnect: fetchActive,
       watchLoading: true,
     },
   );
 
   useEffect(() => {
+    if (!fetchActive) {
+      return undefined;
+    }
     const refresh = () => {
       void refreshMarket();
     };
@@ -704,7 +713,7 @@ export function HomeMarketStoreController() {
     return () => {
       appEventBus.off(EAppEventBusNames.RefreshMarketWatchList, refresh);
     };
-  }, [refreshMarket]);
+  }, [fetchActive, refreshMarket]);
 
   return null;
 }

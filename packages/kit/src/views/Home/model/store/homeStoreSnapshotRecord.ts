@@ -14,17 +14,12 @@ const HOME_STORE_CACHE_TTL_MS = 5 * 60 * 1000;
 
 function getHomeStoreCacheContentSignature({
   records,
-  selectedTabPreference,
-}: Pick<
-  IHomeCachedSnapshotPayload,
-  'records' | 'selectedTabPreference'
->): string {
+}: Pick<IHomeCachedSnapshotPayload, 'records'>): string {
   return stringUtils.stableStringify({
     records: records.map(
       ({ confirmedAt: _confirmedAt, expiresAt: _expiresAt, ...record }) =>
         record,
     ),
-    selectedTabPreference,
   });
 }
 

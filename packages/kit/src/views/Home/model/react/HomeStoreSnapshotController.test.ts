@@ -135,23 +135,10 @@ describe('HomeStoreSnapshotController cache admission', () => {
     expect(
       getHomeStoreCacheContentSignature({
         records: [first!],
-        selectedTabPreference: 'history',
       }),
     ).toBe(
       getHomeStoreCacheContentSignature({
         records: [second!],
-        selectedTabPreference: 'history',
-      }),
-    );
-    expect(
-      getHomeStoreCacheContentSignature({
-        records: [second!],
-        selectedTabPreference: 'portfolio',
-      }),
-    ).not.toBe(
-      getHomeStoreCacheContentSignature({
-        records: [second!],
-        selectedTabPreference: 'history',
       }),
     );
   });

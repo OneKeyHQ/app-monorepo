@@ -2,26 +2,26 @@ import {
   loadHomeDisplaySnapshotCritical,
   loadHomeDisplaySnapshotManifest,
   loadHomeDisplaySnapshotSourceRecords,
-} from './homeDisplaySnapshotRepository';
+} from './homeDisplaySnapshotRepository.native';
 
 import type { IPreparedHomeDisplaySnapshot } from './loadPreparedHomeDisplaySnapshot.types';
 
 export type { IPreparedHomeDisplaySnapshot } from './loadPreparedHomeDisplaySnapshot.types';
 
-export async function loadPreparedHomeDisplaySnapshot({
+export function loadPreparedHomeDisplaySnapshot({
   ownerScopeKey,
 }: {
   ownerScopeKey: string;
-}): Promise<IPreparedHomeDisplaySnapshot | undefined> {
-  const context = await loadHomeDisplaySnapshotManifest({ ownerScopeKey });
+}): IPreparedHomeDisplaySnapshot | undefined {
+  const context = loadHomeDisplaySnapshotManifest({ ownerScopeKey });
   if (!context) {
     return undefined;
   }
-  const critical = await loadHomeDisplaySnapshotCritical({ context });
+  const critical = loadHomeDisplaySnapshotCritical({ context });
   if (!critical?.shell || critical.shell.kind === 'loading') {
     return undefined;
   }
-  const records = await loadHomeDisplaySnapshotSourceRecords({
+  const records = loadHomeDisplaySnapshotSourceRecords({
     context,
     sourceIds: ['banner', 'portfolio'],
   });
@@ -32,8 +32,8 @@ export async function loadPreparedHomeDisplaySnapshot({
     return undefined;
   }
   return {
-    navigation: critical?.navigation,
+    navigation: critical.navigation,
     records,
-    shell: critical?.shell,
+    shell: critical.shell,
   };
 }

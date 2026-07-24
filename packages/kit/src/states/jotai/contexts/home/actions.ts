@@ -248,10 +248,7 @@ function dispatchHomeStoreEventsAtomically(
     ),
   );
   const presentationChanged = mutations.some(
-    (mutation) =>
-      mutation.slice === 'interaction' ||
-      mutation.slice === 'shell' ||
-      mutation.slice === 'navigation',
+    (mutation) => mutation.slice === 'shell' || mutation.slice === 'navigation',
   );
   const cacheHydrated = events.some(
     (event) =>

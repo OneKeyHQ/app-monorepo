@@ -149,12 +149,18 @@ jest.mock('../../../states/jotai/contexts/home', () => ({
     mockHomeProviderStore = store;
     return children;
   },
-  useHomeShell: () => ({ value: { kind: mockHomeShellKind } }),
+  useHomeShell: () => ({
+    value:
+      mockHomeShellKind === 'portfolio'
+        ? { kind: 'portfolio', presentation: { kind: 'funded' } }
+        : { kind: mockHomeShellKind },
+  }),
   useHomeSessionState: () => mockHomeSession,
   useHomeDisplaySnapshotLoadState: () => mockDisplaySnapshotLoadState,
   useHomeNavigation: () => ({
     value: { kind: 'ready', selectedTabId: 'portfolio' },
   }),
+  useHomeSection: () => ({ value: { kind: 'ready' } }),
 }));
 
 jest.mock('../../../states/jotai/contexts/accountSelector', () => ({

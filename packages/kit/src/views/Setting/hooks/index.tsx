@@ -13,6 +13,7 @@ import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { resetHomeDisplaySnapshotCache } from '../../Home/model/cacheV2/homeDisplaySnapshotPersistQueue';
 import { SettingTestIDs } from '../testIDs';
 
 export { useLanguageSelector } from './useLanguageSelector';
@@ -54,6 +55,7 @@ export function useResetApp(
       } catch (error) {
         console.error('failed to logoutSupabase', error);
       }
+      await resetHomeDisplaySnapshotCache();
       await backgroundApiProxy.serviceApp.resetApp();
     } catch (e) {
       console.error('failed to reset app with error', e);

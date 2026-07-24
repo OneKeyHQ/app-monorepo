@@ -12,7 +12,6 @@ import {
   encodeHomeDisplaySnapshotSourceChunk,
 } from './homeDisplaySnapshotCodec';
 import {
-  getHomeDisplaySnapshotChunkKey,
   getHomeDisplaySnapshotPartitionId,
   getHomeDisplaySnapshotPartitionTag,
 } from './homeDisplaySnapshotKeys';
@@ -22,8 +21,8 @@ const ownerScopeKey = 'wallet-a:account-a:network-eth';
 const partitionId = getHomeDisplaySnapshotPartitionId(ownerScopeKey);
 const now = 1000;
 
-describe('Home display snapshot V2 codec', () => {
-  it('uses a deterministic opaque partition id and admits legacy expired display state', () => {
+describe('Home display snapshot V3 codec', () => {
+  it('uses a deterministic opaque partition id and restores runtime defaults', () => {
     expect(partitionId).toHaveLength(64);
     expect(partitionId).not.toContain(ownerScopeKey);
     expect(getHomeDisplaySnapshotPartitionId(ownerScopeKey)).toBe(partitionId);
@@ -51,11 +50,12 @@ describe('Home display snapshot V2 codec', () => {
           },
           actions: { kind: 'zero', items: ['receive'] },
           banner: { kind: 'none' },
-          freshness: 'confirmedCache',
-          refresh: 'refreshing',
         },
       },
-      selectedTabPreference: 'portfolio',
+      navigation: {
+        kind: 'ready',
+        tabs: ['portfolio', 'defi'],
+      },
     });
     const legacyExpiredRaw = JSON.stringify({
       ...JSON.parse(raw ?? '{}'),
@@ -68,7 +68,17 @@ describe('Home display snapshot V2 codec', () => {
       }),
     ).toMatchObject({
       ownerScopeKey,
-      selectedTabPreference: 'portfolio',
+      navigation: {
+        selectedTabId: 'portfolio',
+      },
+      shell: {
+        kind: 'portfolio',
+        presentation: {
+          kind: 'zero',
+          freshness: 'confirmedCache',
+          refresh: 'refreshing',
+        },
+      },
     });
     const legacyRouteRaw = JSON.stringify({
       ...JSON.parse(
@@ -95,7 +105,15 @@ describe('Home display snapshot V2 codec', () => {
   });
 
   it('encodes one independently loadable source chunk without time expiry', () => {
-    const key = getHomeDisplaySnapshotChunkKey(partitionId, 1, 'portfolio');
+    const portfolioPayload = {
+      displayIds: ['asset-a'],
+      isLpTokenSwitchLoading: true,
+      ownerKey: 'owner-a',
+      scopedLpTokenListState: {
+        initialized: false,
+        isRefreshing: true,
+      },
+    };
     const record = {
       sourceId: 'portfolio' as const,
       sourceKeyIdentity: 'portfolio-source',
@@ -105,6 +123,7 @@ describe('Home display snapshot V2 codec', () => {
       confirmedAt: now,
       expiresAt: now + 1,
       payload: {
+        payload: portfolioPayload,
         section: {
           kind: 'ready' as const,
           rowIds: ['asset-a'],
@@ -112,10 +131,8 @@ describe('Home display snapshot V2 codec', () => {
       },
     };
     const raw = encodeHomeDisplaySnapshotSourceChunk({
-      key,
       ownerScopeKey,
       record,
-      createdAt: now,
     });
     const decoded = decodeHomeDisplaySnapshotSourceChunk({
       raw,
@@ -124,8 +141,21 @@ describe('Home display snapshot V2 codec', () => {
     });
     expect(decoded).toMatchObject({
       ...record,
+      confirmedAt: 0,
       expiresAt: Number.MAX_SAFE_INTEGER,
+      payload: {
+        payload: {
+          isLpTokenSwitchLoading: false,
+          ownerKey: 'owner-a',
+          scopedLpTokenListState: {
+            initialized: true,
+            isRefreshing: false,
+          },
+        },
+      },
     });
+    expect(raw).not.toContain('isLpTokenSwitchLoading');
+    expect(raw).not.toContain('scopedLpTokenListState');
     expect(
       decodeHomeDisplaySnapshotSourceChunk({
         raw,
@@ -135,8 +165,54 @@ describe('Home display snapshot V2 codec', () => {
     ).toBeUndefined();
   });
 
-  it('round-trips a banner chunk with its Tron-resource coverage', () => {
-    const key = getHomeDisplaySnapshotChunkKey(partitionId, 1, 'banner');
+  it('restores History interaction fields from defaults instead of disk', () => {
+    const record = {
+      sourceId: 'history' as const,
+      sourceKeyIdentity: 'history-source',
+      dataSchemaVersion: 2,
+      coverageFingerprint: '[]',
+      quoteBasis: null,
+      confirmedAt: now,
+      expiresAt: now + 1,
+      payload: {
+        payload: {
+          addressMap: {},
+          cursor: null,
+          data: [],
+          hasMore: false,
+          isLoadingMore: true,
+          refresh: 'failed',
+          tokenMap: {},
+        },
+        section: {
+          kind: 'ready' as const,
+          rowIds: [],
+        },
+      },
+    };
+    const raw = encodeHomeDisplaySnapshotSourceChunk({
+      ownerScopeKey,
+      record,
+    });
+    const decoded = decodeHomeDisplaySnapshotSourceChunk({
+      raw,
+      expectedOwnerScopeKey: ownerScopeKey,
+      expectedSourceId: 'history',
+    });
+
+    expect(raw).not.toContain('isLoadingMore');
+    expect(raw).not.toContain('"refresh"');
+    expect(decoded).toMatchObject({
+      payload: {
+        payload: {
+          isLoadingMore: false,
+          refresh: 'refreshing',
+        },
+      },
+    });
+  });
+
+  it('round-trips allowlisted banner data without a source-specific validator', () => {
     const payload = {
       banners: [{ id: 'banner-a' }],
       referralEligibility: null,
@@ -160,10 +236,8 @@ describe('Home display snapshot V2 codec', () => {
       payload,
     };
     const raw = encodeHomeDisplaySnapshotSourceChunk({
-      key,
       ownerScopeKey,
       record,
-      createdAt: now,
     });
 
     expect(raw).toBeDefined();
@@ -175,11 +249,11 @@ describe('Home display snapshot V2 codec', () => {
       }),
     ).toMatchObject({
       ...record,
+      confirmedAt: 0,
       expiresAt: Number.MAX_SAFE_INTEGER,
     });
     expect(
       encodeHomeDisplaySnapshotSourceChunk({
-        key,
         ownerScopeKey,
         record: {
           ...record,
@@ -188,9 +262,8 @@ describe('Home display snapshot V2 codec', () => {
             hasTronResource: false,
           }),
         },
-        createdAt: now,
       }),
-    ).toBeUndefined();
+    ).toBeDefined();
   });
 
   it('allows an incremental manifest to reference unchanged older chunks', () => {

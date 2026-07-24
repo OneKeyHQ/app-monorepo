@@ -4,5 +4,6 @@ export type {
   IDisplaySnapshotCommitMarkerExpectation,
   IDisplaySnapshotStorage,
   IDisplaySnapshotStorageConfig,
+  IDisplaySnapshotStorageSync,
   IDisplaySnapshotWriteEntry,
 } from './types';

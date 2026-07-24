@@ -941,9 +941,7 @@ export function useHomeDeFiStoreSource({
     clearAllNetworkData,
     disabled: !enabled,
     isDeFiRequests: true,
-    // Store-backed Home sections prefetch independently from the visible tab.
-    // `useAllNetworkRequests` still blocks while the app is locked.
-    shouldAlwaysFetch: enabled,
+    shouldAlwaysFetch: fullSourceEnabled && visible,
     onRequestSettled: handleAllNetworkSettled,
     onStarted: handleAllNetworkStarted,
     onFinished: handleAllNetworkFinished,
@@ -1133,7 +1131,13 @@ export function useHomeDeFiStoreSource({
       setInitialized(false);
       setErrorCode(undefined);
     }
-    if (!fullSourceEnabled || !accountId || !networkId || !walletId) {
+    if (
+      !fullSourceEnabled ||
+      !visible ||
+      !accountId ||
+      !networkId ||
+      !walletId
+    ) {
       return;
     }
     if (!isAllNetworks) {
@@ -1145,6 +1149,7 @@ export function useHomeDeFiStoreSource({
     isAllNetworks,
     loadSingle,
     networkId,
+    visible,
     walletId,
   ]);
 

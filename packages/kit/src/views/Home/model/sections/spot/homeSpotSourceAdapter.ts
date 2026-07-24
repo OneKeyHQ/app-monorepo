@@ -81,6 +81,70 @@ type IHomeSpotLegacyPayload = {
   tokens: IAccountToken[];
 };
 
+const HOME_SPOT_SNAPSHOT_KEYS = [
+  'accountTokensValue',
+  'accountTokensWorthCurrency',
+  'aggregateTokenListMap',
+  'allAggregateTokenMap',
+  'blockedRiskTokenCount',
+  'displayIds',
+  'generation',
+  'homeDefaultTokenMap',
+  'isAllNetworkEmptyAccount',
+  'mergeDeriveAddressData',
+  'networksMap',
+  'ownerKey',
+  'riskMap',
+  'riskTokens',
+  'showLpTokenFilterSwitch',
+  'showLpTokensOnly',
+  'smallBalanceFiatValue',
+  'smallBalanceMap',
+  'smallBalanceTokens',
+  'scopedLpTokenList',
+  'scopedLpTokenListMap',
+  'tapTokenMap',
+  'tokenListMap',
+  'tokens',
+] as const satisfies readonly (keyof IHomeSpotLegacyPayload)[];
+
+function createHomeSpotSnapshotDefaults(): IHomeSpotLegacyPayload {
+  return {
+    accountTokensValue: '0',
+    accountTokensWorthCurrency: '',
+    aggregateTokenListMap: {},
+    allAggregateTokenMap: {},
+    blockedRiskTokenCount: 0,
+    displayIds: [],
+    generation: 0,
+    homeDefaultTokenMap: {},
+    isAllNetworkEmptyAccount: false,
+    isLpTokenSwitchLoading: false,
+    mergeDeriveAddressData: false,
+    networksMap: {},
+    ownerKey: '',
+    riskMap: {},
+    riskTokens: [],
+    showLpTokenFilterSwitch: false,
+    showLpTokensOnly: false,
+    smallBalanceFiatValue: '0',
+    smallBalanceMap: {},
+    smallBalanceTokens: [],
+    scopedLpTokenList: {
+      keys: '',
+      tokens: [],
+    },
+    scopedLpTokenListMap: {},
+    scopedLpTokenListState: {
+      initialized: true,
+      isRefreshing: false,
+    },
+    tapTokenMap: {},
+    tokenListMap: {},
+    tokens: [],
+  };
+}
+
 type IHomeSpotSourceSnapshot<T> =
   | { kind: 'loading'; requestSeq: number }
   | {
@@ -169,8 +233,10 @@ function adaptHomeSpotSourceSnapshot<T>({
 
 export {
   HOME_SPOT_DATA_SCHEMA_VERSION,
+  HOME_SPOT_SNAPSHOT_KEYS,
   HOME_SPOT_SOURCE_REVISION,
   adaptHomeSpotSourceSnapshot,
+  createHomeSpotSnapshotDefaults,
   createHomeSpotSourceIdentity,
 };
 export type {

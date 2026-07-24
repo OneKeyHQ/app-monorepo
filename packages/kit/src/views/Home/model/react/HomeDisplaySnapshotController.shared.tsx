@@ -1,0 +1,458 @@
+import { useEffect, useLayoutEffect, useRef } from 'react';
+
+import {
+  useHomeContextStore,
+  useHomeSessionState,
+} from '@onekeyhq/kit/src/states/jotai/contexts/home';
+import { readHomeStoreState } from '@onekeyhq/kit/src/states/jotai/contexts/home/actions';
+import {
+  homeCommitIdentityState,
+  homeDisplaySnapshotLoadState,
+} from '@onekeyhq/kit/src/states/jotai/contexts/home/atoms';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { perfMark } from '@onekeyhq/shared/src/performance/mark';
+import { registerColdStartFlushTrigger } from '@onekeyhq/shared/src/storage/coldStartFlushTrigger';
+import type { IHomeRuntimeOwnerToken } from '@onekeyhq/shared/src/types/homeRuntime';
+
+import { getHomeDisplaySnapshotPartitionTag } from '../cacheV2/homeDisplaySnapshotKeys';
+import { homeDisplaySnapshotPersistQueue } from '../cacheV2/homeDisplaySnapshotPersistQueue';
+import {
+  loadHomeDisplaySnapshotCritical,
+  loadHomeDisplaySnapshotManifest,
+  loadHomeDisplaySnapshotSourceRecords,
+} from '../cacheV2/homeDisplaySnapshotRepository';
+
+import { useHomeStoreControllerActions } from './useHomeStoreControllerActions';
+
+import type { ILoadedHomeDisplaySnapshotManifest } from '../cacheV2/homeDisplaySnapshotTypes';
+import type { IHomeStoreSourceId } from '../store/homeStoreTypes';
+
+function getNow(): number {
+  return Date.now();
+}
+
+function getElapsed(startedAt: number): number {
+  return Date.now() - startedAt;
+}
+
+function getErrorName(error: unknown): string {
+  return error instanceof Error ? error.name : 'UnknownError';
+}
+
+function getSourceIdsText(sourceIds: readonly IHomeStoreSourceId[]): string {
+  return [...sourceIds].toSorted().join(',');
+}
+
+/**
+ * Home display snapshot cache V3.
+ *
+ * V3 stores only explicitly selected business fields. It waits for
+ * ActiveAccount to confirm the owner, then exact-reads the critical, Banner,
+ * and Portfolio chunks. Other source snapshots stay on disk until requested.
+ *
+ * Cached values are re-creatable display snapshots, never runtime authority.
+ * They cannot restore request tokens, producer sessions, commands, signing,
+ * transactions, or authentication state.
+ */
+export function HomeDisplaySnapshotControllerShared() {
+  const session = useHomeSessionState();
+  const store = useHomeContextStore();
+  const { hydrateHomeDisplaySnapshot } = useHomeStoreControllerActions();
+  const loadSequenceRef = useRef(0);
+  const loadedChunksRef = useRef(new Set<string>());
+  const inFlightChunksRef = useRef(new Map<string, Promise<number>>());
+  const ensureSourceRef = useRef<
+    (
+      ownerToken: IHomeRuntimeOwnerToken,
+      sourceId: IHomeStoreSourceId,
+    ) => Promise<void>
+  >(async () => undefined);
+  const ownerToken = session.ownerToken;
+
+  useLayoutEffect(() => {
+    loadSequenceRef.current += 1;
+    const loadSequence = loadSequenceRef.current;
+    loadedChunksRef.current.clear();
+    inFlightChunksRef.current.clear();
+    ensureSourceRef.current = async () => undefined;
+    if (!ownerToken) {
+      store.set(homeDisplaySnapshotLoadState.atom(), { status: 'idle' });
+      return;
+    }
+    const existingLoadState = store.get(homeDisplaySnapshotLoadState.atom());
+    const preparedSnapshotAlreadyLoaded =
+      existingLoadState.status === 'hit' &&
+      existingLoadState.ownerScopeKey === ownerToken.scopeKey &&
+      existingLoadState.sessionId === ownerToken.sessionId;
+    if (!preparedSnapshotAlreadyLoaded) {
+      store.set(homeDisplaySnapshotLoadState.atom(), {
+        ownerScopeKey: ownerToken.scopeKey,
+        sessionId: ownerToken.sessionId,
+        status: 'loading',
+      });
+    }
+    const partitionTag = getHomeDisplaySnapshotPartitionTag(
+      ownerToken.scopeKey,
+    );
+    defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+      stage: 'ownerReady',
+      outcome: 'started',
+      partitionTag,
+      elapsedMs: 0,
+      recordCount: 0,
+    });
+
+    const isCurrent = () =>
+      loadSequenceRef.current === loadSequence &&
+      readHomeStoreState(store.get).session.ownerToken?.scopeKey ===
+        ownerToken.scopeKey &&
+      readHomeStoreState(store.get).session.ownerToken?.sessionId ===
+        ownerToken.sessionId;
+    const publishLoadStatus = (status: 'hit' | 'miss') => {
+      if (!isCurrent()) {
+        return;
+      }
+      const currentLoadState = store.get(homeDisplaySnapshotLoadState.atom());
+      if (
+        currentLoadState.status === 'loading' &&
+        (currentLoadState.ownerScopeKey !== ownerToken.scopeKey ||
+          currentLoadState.sessionId !== ownerToken.sessionId)
+      ) {
+        return;
+      }
+      store.set(homeDisplaySnapshotLoadState.atom(), {
+        ownerScopeKey: ownerToken.scopeKey,
+        sessionId: ownerToken.sessionId,
+        status,
+      });
+    };
+
+    const loadSourceChunk = async ({
+      candidateOwnerToken,
+      context,
+      sourceId,
+      stage,
+    }: {
+      candidateOwnerToken: IHomeRuntimeOwnerToken;
+      context?: ILoadedHomeDisplaySnapshotManifest;
+      sourceId: IHomeStoreSourceId;
+      stage: 'lazyChunk' | 'visibleChunks';
+    }): Promise<number> => {
+      if (
+        candidateOwnerToken.scopeKey !== ownerToken.scopeKey ||
+        candidateOwnerToken.sessionId !== ownerToken.sessionId ||
+        !isCurrent()
+      ) {
+        return 0;
+      }
+      const requestKey = `${candidateOwnerToken.scopeKey}:${sourceId}`;
+      if (loadedChunksRef.current.has(requestKey)) {
+        return 0;
+      }
+      const existing = inFlightChunksRef.current.get(requestKey);
+      if (existing) {
+        return existing;
+      }
+      const task = (async () => {
+        const startedAt = getNow();
+        try {
+          const resolvedContext =
+            context ??
+            (await loadHomeDisplaySnapshotManifest({
+              ownerScopeKey: candidateOwnerToken.scopeKey,
+            }));
+          if (!isCurrent()) {
+            defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+              stage,
+              outcome: 'stale',
+              partitionTag,
+              elapsedMs: getElapsed(startedAt),
+              recordCount: 0,
+              requestedSourceIds: sourceId,
+            });
+            return 0;
+          }
+          if (!resolvedContext) {
+            defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+              stage,
+              outcome: 'miss',
+              partitionTag,
+              elapsedMs: getElapsed(startedAt),
+              recordCount: 0,
+              requestedSourceIds: sourceId,
+            });
+            return 0;
+          }
+          const records = await loadHomeDisplaySnapshotSourceRecords({
+            context: resolvedContext,
+            sourceIds: [sourceId],
+          });
+          if (!isCurrent()) {
+            defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+              stage,
+              outcome: 'stale',
+              partitionTag,
+              elapsedMs: getElapsed(startedAt),
+              recordCount: 0,
+              requestedSourceIds: sourceId,
+              generation: resolvedContext.manifest.generation,
+            });
+            return 0;
+          }
+          loadedChunksRef.current.add(requestKey);
+          if (records.length > 0) {
+            hydrateHomeDisplaySnapshot({
+              ownerScopeKey: candidateOwnerToken.scopeKey,
+              sessionId: candidateOwnerToken.sessionId,
+              records,
+            });
+            perfMark('Home:v3Cache:sectionHydrated', {
+              sourceId,
+              recordCount: records.length,
+            });
+          }
+          defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+            stage,
+            outcome: records.length > 0 ? 'hit' : 'miss',
+            partitionTag,
+            elapsedMs: getElapsed(startedAt),
+            recordCount: records.length,
+            requestedSourceIds: sourceId,
+            loadedSourceIds: getSourceIdsText(
+              records.map((record) => record.sourceId),
+            ),
+            generation: resolvedContext.manifest.generation,
+          });
+          return records.length;
+        } catch (error) {
+          if (!isCurrent()) {
+            return 0;
+          }
+          defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+            stage,
+            outcome: 'failed',
+            partitionTag,
+            elapsedMs: getElapsed(startedAt),
+            recordCount: 0,
+            requestedSourceIds: sourceId,
+            errorName: getErrorName(error),
+          });
+          return 0;
+        }
+      })().finally(() => {
+        inFlightChunksRef.current.delete(requestKey);
+      });
+      inFlightChunksRef.current.set(requestKey, task);
+      return task;
+    };
+
+    const ensureSource = async (
+      candidateOwnerToken: IHomeRuntimeOwnerToken,
+      sourceId: IHomeStoreSourceId,
+    ) => {
+      await loadSourceChunk({
+        candidateOwnerToken,
+        sourceId,
+        stage: 'lazyChunk',
+      });
+    };
+
+    if (preparedSnapshotAlreadyLoaded) {
+      loadedChunksRef.current.add(`${ownerToken.scopeKey}:banner`);
+      loadedChunksRef.current.add(`${ownerToken.scopeKey}:portfolio`);
+      ensureSourceRef.current = ensureSource;
+      return () => {
+        loadSequenceRef.current += 1;
+        ensureSourceRef.current = async () => undefined;
+      };
+    }
+
+    const loadInitialSnapshot = async () => {
+      const startedAt = getNow();
+      perfMark('Home:v3Cache:loadStart');
+      try {
+        const context = await loadHomeDisplaySnapshotManifest({
+          ownerScopeKey: ownerToken.scopeKey,
+        });
+        if (!isCurrent()) {
+          defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+            stage: 'manifest',
+            outcome: 'stale',
+            partitionTag,
+            elapsedMs: getElapsed(startedAt),
+            recordCount: 0,
+          });
+          return;
+        }
+        if (!context) {
+          defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+            stage: 'manifest',
+            outcome: 'miss',
+            partitionTag,
+            elapsedMs: getElapsed(startedAt),
+            recordCount: 0,
+          });
+          perfMark('Home:v3Cache:miss', {
+            elapsedMs: getElapsed(startedAt),
+          });
+          publishLoadStatus('miss');
+          return;
+        }
+        const manifestSourceIds = Object.keys(context.manifest.chunks).filter(
+          (chunkId): chunkId is IHomeStoreSourceId => chunkId !== 'critical',
+        );
+        defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+          stage: 'manifest',
+          outcome: 'hit',
+          partitionTag,
+          elapsedMs: getElapsed(startedAt),
+          recordCount: manifestSourceIds.length,
+          loadedSourceIds: getSourceIdsText(manifestSourceIds),
+          generation: context.manifest.generation,
+          criticalIncluded: Boolean(context.manifest.chunks.critical),
+          cacheAgeMs: Math.max(0, getNow() - context.manifest.createdAt),
+        });
+        const criticalStartedAt = getNow();
+        const critical = await loadHomeDisplaySnapshotCritical({
+          context,
+        });
+        const criticalDisplayReady = Boolean(
+          critical?.shell && critical.shell.kind !== 'loading',
+        );
+        if (!isCurrent()) {
+          defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+            stage: 'critical',
+            outcome: 'stale',
+            partitionTag,
+            elapsedMs: getElapsed(criticalStartedAt),
+            recordCount: 0,
+            generation: context.manifest.generation,
+          });
+          return;
+        }
+        if (critical) {
+          hydrateHomeDisplaySnapshot({
+            ownerScopeKey: ownerToken.scopeKey,
+            sessionId: ownerToken.sessionId,
+            records: [],
+            shell: critical.shell,
+            navigation: critical.navigation,
+          });
+          perfMark('Home:v3Cache:criticalHydrated', {
+            elapsedMs: getElapsed(criticalStartedAt),
+          });
+        }
+        defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+          stage: 'critical',
+          outcome: criticalDisplayReady ? 'hit' : 'miss',
+          partitionTag,
+          elapsedMs: getElapsed(criticalStartedAt),
+          recordCount: 0,
+          generation: context.manifest.generation,
+          criticalIncluded: Boolean(critical),
+        });
+
+        ensureSourceRef.current = ensureSource;
+        const selectedSourceId = 'portfolio';
+        const bannerLoad = loadSourceChunk({
+          candidateOwnerToken: ownerToken,
+          context,
+          sourceId: 'banner',
+          stage: 'visibleChunks',
+        });
+
+        const selectedLoad = loadSourceChunk({
+          candidateOwnerToken: ownerToken,
+          context,
+          sourceId: selectedSourceId,
+          stage: 'visibleChunks',
+        });
+
+        const [bannerRecordCount, selectedRecordCount] = await Promise.all([
+          bannerLoad,
+          selectedLoad,
+        ]);
+        const selectedSourceReady =
+          critical?.shell?.kind !== 'portfolio' || selectedRecordCount > 0;
+        const initialDisplayReady = criticalDisplayReady && selectedSourceReady;
+        const loadedSourceIds: IHomeStoreSourceId[] = [];
+        if (bannerRecordCount > 0) {
+          loadedSourceIds.push('banner');
+        }
+        if (selectedRecordCount > 0) {
+          loadedSourceIds.push(selectedSourceId);
+        }
+        defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+          stage: 'initialHydrate',
+          outcome:
+            initialDisplayReady || loadedSourceIds.length > 0
+              ? 'accepted'
+              : 'empty',
+          partitionTag,
+          elapsedMs: getElapsed(startedAt),
+          recordCount: loadedSourceIds.length,
+          loadedSourceIds: getSourceIdsText(loadedSourceIds),
+          generation: context.manifest.generation,
+          criticalIncluded: Boolean(critical),
+        });
+        perfMark('Home:v3Cache:initialHydrated', {
+          elapsedMs: getElapsed(startedAt),
+          recordCount: loadedSourceIds.length,
+        });
+        publishLoadStatus(initialDisplayReady ? 'hit' : 'miss');
+      } catch (error) {
+        if (!isCurrent()) {
+          return;
+        }
+        defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+          stage: 'initialHydrate',
+          outcome: 'failed',
+          partitionTag,
+          elapsedMs: getElapsed(startedAt),
+          recordCount: 0,
+          errorName: getErrorName(error),
+        });
+        perfMark('Home:v3Cache:failed', {
+          elapsedMs: getElapsed(startedAt),
+        });
+        publishLoadStatus('miss');
+      } finally {
+        if (isCurrent()) {
+          ensureSourceRef.current = ensureSource;
+        }
+      }
+    };
+    void loadInitialSnapshot();
+
+    return () => {
+      loadSequenceRef.current += 1;
+      ensureSourceRef.current = async () => undefined;
+    };
+  }, [hydrateHomeDisplaySnapshot, ownerToken, store]);
+
+  useEffect(() => {
+    const onCommit = () => {
+      const state = readHomeStoreState(store.get);
+      const commitIdentity = store.get(homeCommitIdentityState.atom());
+      homeDisplaySnapshotPersistQueue.enqueue(state, commitIdentity);
+      const preferredTabId = state.interaction.preferredTabId;
+      const activeOwnerToken = state.session.ownerToken;
+      if (preferredTabId && activeOwnerToken) {
+        void ensureSourceRef.current(activeOwnerToken, preferredTabId);
+      }
+    };
+    const unsubscribe = store.sub(homeCommitIdentityState.atom(), onCommit);
+    return () => {
+      unsubscribe();
+      void homeDisplaySnapshotPersistQueue.flushNow();
+    };
+  }, [store]);
+
+  useEffect(() => {
+    return registerColdStartFlushTrigger(() =>
+      homeDisplaySnapshotPersistQueue.flushAndCompact(),
+    );
+  }, []);
+
+  return null;
+}

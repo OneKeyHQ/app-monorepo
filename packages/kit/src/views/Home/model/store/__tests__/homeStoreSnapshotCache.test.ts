@@ -43,7 +43,6 @@ describe('Home Store snapshot cache codec', () => {
       key: 'home-store-owner-a',
       ownerScopeKey: 'owner-a',
       records: [record()],
-      selectedTabPreference: 'defi',
       createdAt,
       expiresAt,
     });
@@ -56,7 +55,6 @@ describe('Home Store snapshot cache codec', () => {
       }),
     ).toMatchObject({
       ownerScopeKey: 'owner-a',
-      selectedTabPreference: 'defi',
       records: [{ sourceId: 'defi' }],
     });
   });

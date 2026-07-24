@@ -21,7 +21,6 @@ import type {
   IHomeCachedSourceRecord,
   IHomeStoreSourceId,
 } from './homeStoreTypes';
-import type { IHomeTabId } from '../semantic/homeSemanticTypes';
 
 export const HOME_STORE_CACHE_CODEC_VERSION = 2 as const;
 export const HOME_STORE_CACHE_MAX_RECORDS = 8;
@@ -70,16 +69,6 @@ function countRows(value: IHomeRuntimeJsonValue): number {
 
 function isHomeStoreSourceId(value: unknown): value is IHomeStoreSourceId {
   return HOME_STORE_SOURCE_IDS.some((sourceId) => sourceId === value);
-}
-
-function isHomeTabId(value: unknown): value is IHomeTabId {
-  return (
-    value === 'portfolio' ||
-    value === 'perps' ||
-    value === 'defi' ||
-    value === 'nft' ||
-    value === 'history'
-  );
 }
 
 function isQuoteBasis(value: unknown): value is IHomeRuntimeQuoteBasis | null {
@@ -202,14 +191,12 @@ export function encodeHomeStoreSnapshot({
   key,
   ownerScopeKey,
   records,
-  selectedTabPreference,
   createdAt,
   expiresAt,
 }: {
   key: string;
   ownerScopeKey: string;
   records: readonly IHomeCachedSourceRecord[];
-  selectedTabPreference?: IHomeTabId;
   createdAt: number;
   expiresAt: number;
 }): IHomeOpaqueCacheEnvelope | undefined {
@@ -229,7 +216,6 @@ export function encodeHomeStoreSnapshot({
     codecVersion: HOME_STORE_CACHE_CODEC_VERSION,
     ownerScopeKey,
     records,
-    selectedTabPreference,
   };
   const encodedPayload = stringUtils.stableStringify(payload);
   if (
@@ -278,9 +264,7 @@ export function decodeHomeStoreSnapshot({
         value.records.map(
           (record) => (record as Partial<IHomeCachedSourceRecord>).sourceId,
         ),
-      ).size !== value.records.length ||
-      (value.selectedTabPreference !== undefined &&
-        !isHomeTabId(value.selectedTabPreference))
+      ).size !== value.records.length
     ) {
       return undefined;
     }
@@ -294,7 +278,6 @@ export function decodeHomeStoreSnapshot({
       codecVersion: HOME_STORE_CACHE_CODEC_VERSION,
       ownerScopeKey: expectedOwnerScopeKey,
       records,
-      selectedTabPreference: value.selectedTabPreference,
     };
   } catch {
     return undefined;
