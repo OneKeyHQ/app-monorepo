@@ -76,6 +76,74 @@ class HomeContainerNavigationContractTest {
   }
 
   @Test
+  fun `gesture paging remains pending until the selected page settles`() {
+    assertEquals(
+      "defi",
+      homeContainerPendingPageTransition(
+        pendingTargetTabId = null,
+        selectedPageTabId = "defi",
+        isIdle = false,
+        isProgrammatic = false,
+      ),
+    )
+    assertEquals(
+      "portfolio",
+      homeContainerPendingPageTransition(
+        pendingTargetTabId = "defi",
+        selectedPageTabId = "portfolio",
+        isIdle = false,
+        isProgrammatic = false,
+      ),
+    )
+    assertEquals(
+      "history",
+      homeContainerPendingPageTransition(
+        pendingTargetTabId = "history",
+        selectedPageTabId = "defi",
+        isIdle = true,
+        isProgrammatic = true,
+      ),
+    )
+    assertNull(
+      homeContainerPendingPageTransition(
+        pendingTargetTabId = null,
+        selectedPageTabId = "portfolio",
+        isIdle = true,
+        isProgrammatic = false,
+      ),
+    )
+  }
+
+  @Test
+  fun `pending page owns navigation while Store snapshots catch up`() {
+    assertEquals(
+      "defi",
+      homeContainerNavigationTabId(
+        pendingTargetTabId = "defi",
+        requestedTabId = "portfolio",
+        inlineTabIds = listOf("portfolio", "defi", "history"),
+      ),
+    )
+    assertEquals(
+      "portfolio",
+      homeContainerNavigationTabId(
+        pendingTargetTabId = "nft",
+        requestedTabId = "portfolio",
+        inlineTabIds = listOf("portfolio", "defi", "history"),
+      ),
+    )
+    assertEquals(
+      "portfolio",
+      homeContainerNavigationTabId(
+        pendingTargetTabId = null,
+        requestedTabId = "handoff",
+        inlineTabIds = listOf("portfolio", "defi", "history"),
+        fallbackTabId = "portfolio",
+      ),
+    )
+  }
+
+  @Test
   fun `requested page transitions preserve their animation preference`() {
     assertTrue(
       homeContainerShouldAnimateTabSelection(

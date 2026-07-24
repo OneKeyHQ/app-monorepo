@@ -144,6 +144,13 @@ describe('Native Home runtime surface', () => {
     );
     expect(mobileRendererSource).toContain('<NotBackedUpEmpty />');
     expect(mobileRendererSource).toContain('contentStates:');
+    expect(mobileRendererSource).toContain(
+      "slotId: 'content.state.defi' as IHomeContainerSlotKey",
+    );
+    expect(mobileRendererSource).toMatch(
+      /platformEnv\.isNativeAndroid\s*&&\s*defiSection\.value\.kind === 'empty'/,
+    );
+    expect(mobileRendererSource).toContain('<EmptyDeFi tableLayout />');
     expect(mobileRendererSource).toContain('contentHeaders:');
     expect(mobileRendererSource).toContain('contentFooters:');
     expect(mobileRendererSource).toContain('tabAccessories:');

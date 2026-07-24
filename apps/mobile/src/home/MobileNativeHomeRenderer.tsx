@@ -14,7 +14,7 @@ import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/A
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerHome';
 import { AllNetworksManagerTrigger } from '@onekeyhq/kit/src/components/AccountSelector/AllNetworksManagerTrigger';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
-import { EmptyNFT } from '@onekeyhq/kit/src/components/Empty';
+import { EmptyDeFi, EmptyNFT } from '@onekeyhq/kit/src/components/Empty';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import {
   showResourceDetailsDialog,
@@ -100,6 +100,7 @@ import {
 } from '@onekeyhq/native-components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalAssetListRoutes,
   EModalRoutes,
@@ -935,6 +936,24 @@ export function MobileNativeHomeRenderer({
       owner?.sessionId,
     ],
   );
+  const deFiStateAuthority = useMemo(
+    () =>
+      owner && platformEnv.isNativeAndroid && defiSection.value.kind === 'empty'
+        ? {
+            owner,
+            producedByStoreCommitId: commitIdentity.storeCommitId,
+            slotId: 'content.state.defi' as IHomeContainerSlotKey,
+            slotRevision: defiSection.presentationRevision,
+          }
+        : undefined,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      defiSection.presentationRevision,
+      defiSection.value.kind,
+      owner?.scopeKey,
+      owner?.sessionId,
+    ],
+  );
   const portfolioAccessoryAuthority = useMemo(
     () =>
       owner
@@ -1118,6 +1137,16 @@ export function MobileNativeHomeRenderer({
               },
             }
           : {}),
+        ...(deFiStateAuthority
+          ? {
+              defi: {
+                interaction: 'tap' as const,
+                authority: deFiStateAuthority,
+                content: <EmptyDeFi tableLayout />,
+                height: 360,
+              },
+            }
+          : {}),
       },
       contentHeaders: {
         portfolio: {
@@ -1247,6 +1276,7 @@ export function MobileNativeHomeRenderer({
       backupStateAuthority,
       balanceAuthority,
       displayedShowLpTokensOnly,
+      deFiStateAuthority,
       footerAuthorities,
       header.actionRowHeight,
       historyAccessoryAuthority,

@@ -131,6 +131,17 @@ internal fun homeContainerShouldIgnoreProgrammaticPageSelection(
   selectedPageTabId: String,
 ): Boolean = pendingTargetTabId != null && pendingTargetTabId != selectedPageTabId
 
+internal fun homeContainerPendingPageTransition(
+  pendingTargetTabId: String?,
+  selectedPageTabId: String,
+  isIdle: Boolean,
+  isProgrammatic: Boolean,
+): String? = when {
+  isProgrammatic -> pendingTargetTabId ?: selectedPageTabId
+  !isIdle -> selectedPageTabId
+  else -> null
+}
+
 internal fun homeContainerShouldAnimateTabSelection(
   requestedAnimated: Boolean,
   @Suppress("UNUSED_PARAMETER") isDirectTabPress: Boolean,
@@ -140,6 +151,18 @@ internal fun homeContainerShouldPreservePendingPageTransition(
   pendingTargetTabId: String?,
   requestedTabId: String,
 ): Boolean = pendingTargetTabId == requestedTabId
+
+internal fun homeContainerNavigationTabId(
+  pendingTargetTabId: String?,
+  requestedTabId: String?,
+  inlineTabIds: Collection<String>,
+  fallbackTabId: String? = null,
+): String? = when {
+  pendingTargetTabId != null && pendingTargetTabId in inlineTabIds -> pendingTargetTabId
+  requestedTabId != null && requestedTabId in inlineTabIds -> requestedTabId
+  fallbackTabId != null && fallbackTabId in inlineTabIds -> fallbackTabId
+  else -> null
+}
 
 internal fun homeContainerShouldCompletePendingPageTransition(
   pendingTargetTabId: String?,
@@ -339,7 +362,9 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
   private var lastNeedSnapshotResultKey: String? = null
   private var fallbackBackgroundColor = Color.WHITE
   private var selectedTabId = ""
-  private var pendingProgrammaticTabId: String? = null
+  private var pendingPagerTabId: String? = null
+  private var pendingPagerSelectionIsProgrammatic = false
+  private var pagerScrollState = ViewPager2.SCROLL_STATE_IDLE
   private var suppressPageCallback = false
   private var refreshEnabled = false
   private var headerHeight = 0
@@ -426,9 +451,21 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       override fun onPageSelected(position: Int) {
         if (suppressPageCallback) return
         val tab = adapter.tabAt(position) ?: return
-        if (homeContainerShouldIgnoreProgrammaticPageSelection(pendingProgrammaticTabId, tab.id)) {
+        if (
+          pendingPagerSelectionIsProgrammatic &&
+          homeContainerShouldIgnoreProgrammaticPageSelection(pendingPagerTabId, tab.id)
+        ) {
           return
         }
+        // ViewPager2 reports the selected page before its RecyclerView has
+        // physically settled. Keep both gesture and programmatic transitions
+        // pending so a Store navigation patch cannot stop the pager mid-page.
+        pendingPagerTabId = homeContainerPendingPageTransition(
+          pendingPagerTabId,
+          tab.id,
+          pagerScrollState == ViewPager2.SCROLL_STATE_IDLE,
+          pendingPagerSelectionIsProgrammatic,
+        )
         if (selectedTabId != tab.id) {
           val source = adapter.pageForTab(selectedTabId)
           val target = adapter.pageForTab(tab.id)
@@ -449,15 +486,20 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       }
 
       override fun onPageScrollStateChanged(state: Int) {
+        pagerScrollState = state
+        if (state == ViewPager2.SCROLL_STATE_DRAGGING) {
+          pendingPagerSelectionIsProgrammatic = false
+        }
         val currentTabId = adapter.tabAt(pager.currentItem)?.id ?: return
         if (
           homeContainerShouldCompletePendingPageTransition(
-            pendingProgrammaticTabId,
+            pendingPagerTabId,
             currentTabId,
             state == ViewPager2.SCROLL_STATE_IDLE,
           )
         ) {
-          pendingProgrammaticTabId = null
+          pendingPagerTabId = null
+          pendingPagerSelectionIsProgrammatic = false
           val targetIndex = adapter.positionForTab(currentTabId)
           if (targetIndex >= 0) {
             // ViewPager2 can publish the target currentItem before its internal
@@ -882,21 +924,32 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
     suppressPageCallback = true
     try {
       adapter.bind(next, forceMountedPageRebind = current != null)
-      pager.offscreenPageLimit = next.inlineTabs().size.coerceAtLeast(1)
-      val requestedTab = next.tabs.firstOrNull {
-        it.id == next.selectedTabId && it.destination == HomeContainerTabDestination.INLINE
-      } ?: if (allowsMissingSelectedTabFallback) next.inlineTabs().firstOrNull() else null
-      if (requestedTab != null) {
-        selectedTabId = requestedTab.id
-        adapter.setSelectedTab(requestedTab.id)
-        tabsView.setSelectedTab(requestedTab.id)
-        val index = adapter.positionForTab(requestedTab.id)
+      val inlineTabs = next.inlineTabs()
+      pager.offscreenPageLimit = inlineTabs.size.coerceAtLeast(1)
+      val navigationTabId = homeContainerNavigationTabId(
+        pendingTargetTabId = pendingPagerTabId,
+        requestedTabId = next.selectedTabId,
+        inlineTabIds = inlineTabs.map { it.id },
+        fallbackTabId = inlineTabs.firstOrNull()?.id.takeIf {
+          allowsMissingSelectedTabFallback
+        },
+      )
+      if (pendingPagerTabId != null && navigationTabId != pendingPagerTabId) {
+        pendingPagerTabId = null
+        pendingPagerSelectionIsProgrammatic = false
+      }
+      val navigationTab = inlineTabs.firstOrNull { it.id == navigationTabId }
+      if (navigationTab != null) {
+        selectedTabId = navigationTab.id
+        adapter.setSelectedTab(navigationTab.id)
+        tabsView.setSelectedTab(navigationTab.id)
+        val index = adapter.positionForTab(navigationTab.id)
         if (index >= 0) {
-          adapter.requestPageRender(requestedTab.id)
+          adapter.requestPageRender(navigationTab.id)
           if (
             !homeContainerShouldPreservePendingPageTransition(
-              pendingProgrammaticTabId,
-              requestedTab.id,
+              pendingPagerTabId,
+              navigationTab.id,
             )
           ) {
             setPagerCurrentItem(index, false)
@@ -982,20 +1035,28 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
     if (renderPlan.shouldReconcileNavigation) {
       suppressPageCallback = true
       try {
-        pager.offscreenPageLimit = next.inlineTabs().size.coerceAtLeast(1)
-        val requestedTab = next.tabs.firstOrNull {
-          it.id == next.selectedTabId && it.destination == HomeContainerTabDestination.INLINE
-        } ?: return
-        selectedTabId = requestedTab.id
-        adapter.setSelectedTab(requestedTab.id)
-        tabsView.setSelectedTab(requestedTab.id)
-        val index = adapter.positionForTab(requestedTab.id)
+        val inlineTabs = next.inlineTabs()
+        pager.offscreenPageLimit = inlineTabs.size.coerceAtLeast(1)
+        val navigationTabId = homeContainerNavigationTabId(
+          pendingTargetTabId = pendingPagerTabId,
+          requestedTabId = next.selectedTabId,
+          inlineTabIds = inlineTabs.map { it.id },
+        )
+        if (pendingPagerTabId != null && navigationTabId != pendingPagerTabId) {
+          pendingPagerTabId = null
+          pendingPagerSelectionIsProgrammatic = false
+        }
+        val navigationTab = inlineTabs.firstOrNull { it.id == navigationTabId } ?: return
+        selectedTabId = navigationTab.id
+        adapter.setSelectedTab(navigationTab.id)
+        tabsView.setSelectedTab(navigationTab.id)
+        val index = adapter.positionForTab(navigationTab.id)
         if (index >= 0) {
-          adapter.requestPageRender(requestedTab.id)
+          adapter.requestPageRender(navigationTab.id)
           if (
             !homeContainerShouldPreservePendingPageTransition(
-              pendingProgrammaticTabId,
-              requestedTab.id,
+              pendingPagerTabId,
+              navigationTab.id,
             )
           ) {
             setPagerCurrentItem(index, false)
@@ -1059,7 +1120,8 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
     tabsView.setSelectedTab(tabId)
     collapseOffset = synchronizedCollapseOffset
     updateSharedChromePosition()
-    pendingProgrammaticTabId = tabId.takeIf { pager.currentItem != index }
+    pendingPagerTabId = tabId.takeIf { pager.currentItem != index }
+    pendingPagerSelectionIsProgrammatic = pendingPagerTabId != null
     adapter.requestPageRender(tabId)
     setPagerCurrentItem(index, animated)
     if (notify && didChangeTab) emitTabSelection(tabId)
@@ -1072,7 +1134,8 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       return
     }
     val requestedTabId = adapter.tabAt(index)?.id ?: return
-    pendingProgrammaticTabId = requestedTabId
+    pendingPagerTabId = requestedTabId
+    pendingPagerSelectionIsProgrammatic = true
     val recycler = pager.getChildAt(0) as? RecyclerView
     recycler?.stopScroll()
     (recycler?.layoutManager as? LinearLayoutManager)
@@ -1108,8 +1171,9 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
           requestedTabId,
           remainingPasses - 1,
         )
-      } else if (pendingProgrammaticTabId == requestedTabId) {
-        pendingProgrammaticTabId = null
+      } else if (pendingPagerTabId == requestedTabId) {
+        pendingPagerTabId = null
+        pendingPagerSelectionIsProgrammatic = false
       }
     }
   }
@@ -1654,7 +1718,8 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
   }
 
   private fun resetViewportForOwnerChange() {
-    pendingProgrammaticTabId = null
+    pendingPagerTabId = null
+    pendingPagerSelectionIsProgrammatic = false
     collapseOffset = 0
     activeRefreshRequestId = null
     isRefreshing = false
