@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, Input, Portal } from '@onekeyhq/components';
 import type { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
-import { useOneKeyAuthMethods } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -37,7 +36,6 @@ export function useResetApp(
 ) {
   const { inAppStateLock = false, silentReset = false } = params || {};
   const intl = useIntl();
-  const { logoutWithPurchasesSdk: logoutOnekeyID } = useOneKeyAuthMethods();
 
   const doReset = useCallback(async () => {
     // reset app
@@ -45,14 +43,6 @@ export function useResetApp(
       // disable setInterval on ext popup
       if (platformEnv.isExtensionUiPopup) {
         resetUtils.startResetting();
-      }
-      try {
-        defaultLogger.prime.subscription.onekeyIdLogout({
-          reason: 'useResetApp.doReset',
-        });
-        await logoutOnekeyID();
-      } catch (error) {
-        console.error('failed to logoutSupabase', error);
       }
       await backgroundApiProxy.serviceApp.resetApp();
     } catch (e) {
@@ -63,7 +53,7 @@ export function useResetApp(
         resetUtils.endResetting();
       }
     }
-  }, [logoutOnekeyID]);
+  }, []);
 
   return useCallback(async () => {
     await timerUtils.wait(50);

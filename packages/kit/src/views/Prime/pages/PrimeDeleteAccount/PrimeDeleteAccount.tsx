@@ -24,7 +24,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 export default function PrimeDeleteAccount() {
-  const { logoutWithPurchasesSdk, user, sendEmailOTP } = useOneKeyAuth();
+  const { user, sendEmailOTP } = useOneKeyAuth();
   const navigation = useAppNavigation();
   const intl = useIntl();
 
@@ -67,10 +67,38 @@ export default function PrimeDeleteAccount() {
       scene: EPrimeEmailOTPScene.DeleteOneKeyId,
       onConfirm: async ({ code, uuid }) => {
         const deleteResult =
-          await backgroundApiProxy.servicePrime.apiDeleteAccount({
+          await backgroundApiProxy.serviceIdentityExit.deleteOneKeyIdAccount({
             uuid,
             emailOTP: code,
           });
+
+        if (
+          deleteResult.serverOutcome === 'unknown' &&
+          deleteResult.localStateCleared
+        ) {
+          defaultLogger.prime.subscription.onekeyIdLogout({
+            reason: 'PrimeDeleteAccount: server outcome unknown',
+          });
+          defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+            reason: 'PrimeDeleteAccount: server outcome unknown',
+          });
+          navigation.popStack();
+          Dialog.show({
+            dismissOnOverlayPress: false,
+            disableDrag: true,
+            icon: 'ErrorOutline',
+            tone: 'warning',
+            // TODO: i18n
+            title: 'Account deletion could not be confirmed',
+            // TODO: i18n
+            description:
+              "You have been signed out on this device, but we couldn't confirm that your account was deleted on the server. Sign in again later to check the account.",
+            showCancelButton: false,
+            // TODO: i18n
+            onConfirmText: 'Done',
+          });
+          return;
+        }
 
         if (!deleteResult?.ok) {
           Toast.error({
@@ -81,34 +109,12 @@ export default function PrimeDeleteAccount() {
           return;
         }
 
-        try {
-          // logout supabase sdk
-          defaultLogger.prime.subscription.onekeyIdLogout({
-            reason: 'PrimeDeleteAccount: handleDeleteAccount',
-          });
-          // INTENTIONAL: do NOT pass `preserveLocalKeylessAuth` here.
-          // Confirmed account-deletion semantics:
-          // - Local Keyless wallet and its mnemonic data stay on the device
-          //   (this logout clears credentials only, never calls removeWallet).
-          // - ALL local OAuth credentials are cleared (keyless Supabase
-          //   session + legacy per-owner refresh tokens), so Verify PIN /
-          //   Reset PIN require a fresh Google/Apple OAuth afterwards.
-          // - Server contract: deleting the OneKey ID account must NOT
-          //   cascade-delete the keyless server backend share, which is what
-          //   keeps the wallet recoverable after re-OAuth.
-          // Do not "fix" this by preserving keyless auth — the credential
-          // wipe on account deletion is deliberate.
-          await logoutWithPurchasesSdk();
-        } catch (error) {
-          console.error('logout error', error);
-        }
-
+        defaultLogger.prime.subscription.onekeyIdLogout({
+          reason: 'PrimeDeleteAccount: handleDeleteAccount',
+        });
         defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
           reason: 'PrimeDeleteAccount',
         });
-        //  logout atom states
-        await backgroundApiProxy.servicePrime.setPrimePersistAtomNotLoggedIn();
-
         navigation.popStack();
         Dialog.show({
           dismissOnOverlayPress: false,
@@ -192,7 +198,7 @@ export default function PrimeDeleteAccount() {
     //     }),
     //   });
     // }
-  }, [intl, logoutWithPurchasesSdk, navigation, sendEmailOTP]);
+  }, [intl, navigation, sendEmailOTP]);
 
   const [checked, changeChecked] = useState(false);
 

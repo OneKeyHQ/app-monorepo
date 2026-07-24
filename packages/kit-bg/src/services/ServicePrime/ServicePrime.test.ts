@@ -1,5 +1,11 @@
 /* eslint-disable import/first, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-var-requires */
 
+import type {
+  IKeylessOAuthSessionPersistenceJournal,
+  IKeylessOAuthSessionPersistenceJournalPreparation,
+  SimpleDbEntityPrime,
+} from '../../dbs/simple/entity/SimpleDbEntityPrime';
+
 const mockPrimePersistAtom = {
   get: jest.fn(async () => ({})),
   set: jest.fn(async () => undefined),
@@ -137,10 +143,27 @@ const mockReadPersistedAccessTokenBySessionSourceStrict = jest.fn(
 const mockRevokeAuthSessionTokenOnServerBestEffort = jest.fn(
   async (_params: unknown) => undefined,
 );
+const mockPersistKeylessAuthSession = jest.fn(
+  async (_params: unknown) => undefined,
+);
+const mockClearAllSupabaseAuthSessions = jest.fn(async () => undefined);
+const mockVerifyEmailOtp = jest.fn();
+
+jest.mock('@onekeyhq/shared/src/utils/supabaseClientUtils', () => ({
+  getSupabaseClient: () => ({
+    client: {
+      auth: {
+        verifyOtp: mockVerifyEmailOtp,
+      },
+    },
+  }),
+}));
 
 // Real retryable-error semantics, driven by a `$$retryable` marker on the
 // rejection so tests can simulate a failed local session refresh.
 jest.mock('./primeAuthSessionAccess', () => ({
+  allowAuthSessionStorageWritesBySessionSource: jest.fn(),
+  clearAllSupabaseAuthSessions: () => mockClearAllSupabaseAuthSessions(),
   readAuthTokenAllowingRetryableAuthError: async (
     read: () => Promise<string>,
   ) => {
@@ -173,6 +196,8 @@ jest.mock('./primeAuthSessionAccess', () => ({
     mockReadPersistedAccessTokenBySessionSourceStrict(source),
   revokeAuthSessionTokenOnServerBestEffort: (params: unknown) =>
     mockRevokeAuthSessionTokenOnServerBestEffort(params),
+  persistKeylessAuthSession: (params: unknown) =>
+    mockPersistKeylessAuthSession(params),
   clearSupabaseStorageLocalCache: jest.fn(),
 }));
 
@@ -195,12 +220,20 @@ const {
   stashRequestAuthTokenOfError,
   takeRequestAuthTokenOfError,
 } = require('@onekeyhq/shared/src/request/requestAuthTokenErrorStash');
+const stringUtils = require('@onekeyhq/shared/src/utils/stringUtils').default;
 const {
   EPrimeAuthSessionSource,
   EOneKeyIdAccountStatus,
   EOneKeyIdIdentityType,
   EOneKeyIdOAuthProvider,
 } = require('@onekeyhq/shared/types/prime/primeTypes');
+
+const {
+  getActiveIdentityLifecycleOperationId,
+  identityLifecycleMutex,
+  isIdentityRecoveryReady,
+  resetIdentityRecoveryStateForTest,
+} = require('../ServiceIdentityExit/identityLifecycleMutex');
 
 const ServicePrime = require('./ServicePrime').default;
 
@@ -209,17 +242,59 @@ const REQUEST_TOKEN = 'request-token';
 function createService() {
   const simpleDbPrime = {
     getAuthSessionSource: jest.fn(async () => undefined as unknown),
+    getAuthSessionCommitId: jest.fn(
+      async () => undefined as string | undefined,
+    ),
+    getKeylessSessionCommitId: jest.fn(
+      async () => undefined as string | undefined,
+    ),
     getAuthStateGeneration: jest.fn(async () => 0),
+    getIdentityLifecycleRevision: jest.fn(async () => 0),
+    getOneKeyIdAuthState: jest.fn(
+      async (): Promise<'loggedIn' | 'loggedOut' | undefined> => 'loggedOut',
+    ),
     getActiveAuthToken: jest.fn(async () => ''),
     getSupabaseAuthToken: jest.fn(async () => ''),
     getKeylessSupabaseAuthToken: jest.fn(async () => ''),
     getEffectiveAuthSessionSource: jest.fn(async () => undefined as unknown),
+    getKeylessOAuthSessionPersistenceJournal: jest.fn(
+      async () => undefined as unknown,
+    ),
+    setKeylessOAuthSessionPersistenceJournal: jest.fn<
+      Promise<IKeylessOAuthSessionPersistenceJournal>,
+      [IKeylessOAuthSessionPersistenceJournalPreparation]
+    >(async (preparation) => ({
+      ...preparation,
+      expectedLifecycleRevision: 0,
+    })),
+    commitKeylessOAuthSessionPersistenceMetadata: jest.fn<
+      ReturnType<
+        SimpleDbEntityPrime['commitKeylessOAuthSessionPersistenceMetadata']
+      >,
+      Parameters<
+        SimpleDbEntityPrime['commitKeylessOAuthSessionPersistenceMetadata']
+      >
+    >(async () => ({
+      status: 'committed',
+      identityLifecycleRevision: 1,
+    })),
+    removeKeylessOAuthSessionPersistenceJournal: jest.fn(async () => true),
     setAuthSessionSource: jest.fn(async () => undefined),
+    setAuthSessionSourceWithCommitId: jest.fn(async () => undefined),
+    setAuthSessionCommitId: jest.fn(async () => undefined),
+    setKeylessSessionCommitId: jest.fn(async () => undefined),
+    bumpIdentityLifecycleRevision: jest.fn(async () => 1),
     clearCachedAuthToken: jest.fn(async () => undefined),
     clearAuthTokens: jest.fn(async () => undefined),
+    clearAuthSessionCommitIdIfMatches: jest.fn(async () => true),
+    clearKeylessSessionCommitIdIfMatches: jest.fn(async () => true),
     clearKeylessAuthSession: jest.fn(async () => undefined),
     clearLegacyAuthSession: jest.fn(async () => undefined),
     clearLocalAuthSession: jest.fn(async () => undefined),
+    isAllIdentityAuthMetadataCleared: jest.fn(async () => false),
+    clearAllIdentityAuthMetadataAndBumpRevision: jest.fn(async () => 1),
+    hasShownOneKeyIdOAuthBindPrompt: jest.fn(async () => false),
+    markOneKeyIdOAuthBindPromptShown: jest.fn(async () => undefined),
   };
   const backgroundApi: any = {
     simpleDb: {
@@ -234,8 +309,32 @@ function createService() {
     serviceReferralCode: {
       updateMyReferralCode: jest.fn(async () => undefined),
     },
+    servicePrimeCloudSync: {
+      showAlertDialogIfServerPasswordNotSet: jest.fn(async () => undefined),
+      showAlertDialogIfServerPasswordChanged: jest.fn(async () => undefined),
+    },
+    serviceAccount: {
+      getKeylessWallet: jest.fn(async () => undefined),
+    },
     serviceKeylessWallet: {
       cleanupLocalKeylessOAuthTokens: jest.fn(async () => undefined),
+      validateTokenMatchesKeylessWallet: jest.fn(async () => ({
+        isValid: true,
+      })),
+    },
+    serviceIdentityExit: {
+      reconcileMissingOneKeyIdSession: jest.fn(async () => ({
+        cleared: true,
+      })),
+      stageRemoteOneKeyIdLogoutReconciliation: jest.fn(async () => ({
+        staged: true as const,
+        operationId: 'invalid-token-operation',
+        planId: 'system:invalid-token-operation',
+      })),
+      executeIdentityExit: jest.fn(async () => ({
+        status: 'completed' as const,
+        oneKeyIdLoggedOut: true,
+      })),
     },
   };
   const service = new ServicePrime({ backgroundApi });
@@ -262,11 +361,148 @@ async function flushAsync(rounds = 10) {
   }
 }
 
+describe('ServicePrime.clearAllIdentityAuthForExplicitOperation', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('does not commit local cleanup when legacy Keyless token deletion fails', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(7);
+    const cleanupError = new OneKeyLocalError(
+      'Legacy Keyless token deletion failed',
+    );
+    backgroundApi.serviceKeylessWallet.cleanupLocalKeylessOAuthTokens.mockRejectedValue(
+      cleanupError,
+    );
+
+    await expect(
+      service.clearAllIdentityAuthForExplicitOperation({
+        callerName: 'accountDeletion',
+        expectedIdentityLifecycleRevision: 7,
+      }),
+    ).rejects.toBe(cleanupError);
+
+    expect(mockClearAllSupabaseAuthSessions).toHaveBeenCalledTimes(1);
+    expect(
+      simpleDbPrime.clearAllIdentityAuthMetadataAndBumpRevision,
+    ).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServicePrime.commitIdentityExitLocalState', () => {
+  let emitSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    emitSpy = jest.spyOn(appEventBus, 'emit');
+  });
+
+  afterEach(() => {
+    emitSpy.mockRestore();
+  });
+
+  it('clears only the wallet association when auth-session cleanup is omitted', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(7);
+    simpleDbPrime.bumpIdentityLifecycleRevision.mockResolvedValue(8);
+    simpleDbPrime.getKeylessSessionCommitId.mockResolvedValue(
+      'wallet-session-2',
+    );
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+    });
+
+    await expect(
+      service.commitIdentityExitLocalState({
+        expectedIdentityLifecycleRevision: 7,
+        keylessWalletSession: {
+          walletId: 'hd-keyless-1',
+          sessionCommitId: 'wallet-session-2',
+        },
+      }),
+    ).resolves.toEqual({ status: 'committed', revision: 8 });
+
+    expect(
+      simpleDbPrime.clearKeylessSessionCommitIdIfMatches,
+    ).toHaveBeenCalledWith({
+      walletId: 'hd-keyless-1',
+      expectedSessionCommitId: 'wallet-session-2',
+    });
+    expect(simpleDbPrime.getAuthSessionCommitId).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.clearAuthSessionCommitIdIfMatches,
+    ).not.toHaveBeenCalled();
+    expect(
+      mockReadPersistedAccessTokenBySessionSourceStrict,
+    ).not.toHaveBeenCalled();
+    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
+    expect(emitSpy).not.toHaveBeenCalledWith(
+      EAppEventBusNames.KeylessAuthSessionCleared,
+      undefined,
+    );
+  });
+
+  it('clears an unreadable Keyless session only for an authorized malformed-wallet recovery', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(7);
+    simpleDbPrime.bumpIdentityLifecycleRevision.mockResolvedValue(8);
+    simpleDbPrime.getAuthSessionCommitId.mockResolvedValue(undefined);
+    simpleDbPrime.getKeylessSessionCommitId.mockResolvedValue(undefined);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'corrupt',
+    });
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: false,
+      isLoggedInOnServer: false,
+    });
+
+    await expect(
+      service.commitIdentityExitLocalState({
+        expectedIdentityLifecycleRevision: 7,
+        keylessSession: {
+          allowUnknownIdentity: true,
+        },
+        keylessWalletSession: {
+          walletId: 'hd-keyless-1',
+        },
+      }),
+    ).resolves.toEqual({ status: 'committed', revision: 8 });
+    expect(mockRemoveAuthSessionStorageBySessionSource).toHaveBeenCalledWith(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+  });
+
+  it('refuses to clear an unreadable Keyless session without malformed-wallet authorization', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(7);
+    simpleDbPrime.getAuthSessionCommitId.mockResolvedValue(undefined);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'corrupt',
+    });
+
+    await expect(
+      service.commitIdentityExitLocalState({
+        expectedIdentityLifecycleRevision: 7,
+        keylessSession: {},
+      }),
+    ).resolves.toEqual({ status: 'stateChanged' });
+    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
+  });
+});
+
 describe('ServicePrime invalid-token handling', () => {
   let emitSpy: jest.SpyInstance;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPrimePersistAtom.get.mockResolvedValue({});
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockReset();
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'user-a' }),
+    });
     emitSpy = jest.spyOn(appEventBus, 'emit').mockImplementation(() => true);
   });
 
@@ -301,9 +537,9 @@ describe('ServicePrime invalid-token handling', () => {
       );
     });
 
-    it('keeps full handling for unmarked errors (HTTP-200 body-code path)', async () => {
-      const { service, simpleDbPrime } = createService();
-      simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+    it('defers unmarked HTTP-200 body-code errors to the identity coordinator', async () => {
+      const { service, backgroundApi, simpleDbPrime } = createService();
+      simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
         EPrimeAuthSessionSource.KeylessOAuth,
       );
       simpleDbPrime.getActiveAuthToken.mockResolvedValue(REQUEST_TOKEN);
@@ -322,25 +558,24 @@ describe('ServicePrime invalid-token handling', () => {
         }),
       ).rejects.toBe(error);
 
-      expect(simpleDbPrime.clearAuthTokens).toHaveBeenCalled();
-      // The per-source sweep runs through the generation-gated slot-queue
-      // deletion, targeting only the keyless realm.
-      expect(mockRemoveAuthSessionStorageBySessionSource).toHaveBeenCalledWith(
-        EPrimeAuthSessionSource.KeylessOAuth,
-      );
-      expect(mockRevokeAuthSessionTokenOnServerBestEffort).toHaveBeenCalledWith(
-        {
-          authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
-          accessToken: 'persisted-access-token',
-        },
-      );
+      expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
+      await flushAsync();
+      expect(
+        backgroundApi.serviceIdentityExit
+          .stageRemoteOneKeyIdLogoutReconciliation,
+      ).toHaveBeenCalledWith({
+        expectedAccessToken: REQUEST_TOKEN,
+      });
+      expect(
+        backgroundApi.serviceIdentityExit.executeIdentityExit,
+      ).toHaveBeenCalledWith({
+        planId: 'system:invalid-token-operation',
+      });
       expect(emitSpy).toHaveBeenCalledWith(
         EAppEventBusNames.PrimeLoginInvalidToken,
         {
           authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
           clearedByBackground: true,
-          // In-lock generation snapshot: lets main-runtime handlers detect
-          // a login that commits during bg->main event propagation.
           authStateGeneration: 0,
         },
       );
@@ -451,10 +686,10 @@ describe('ServicePrime invalid-token handling', () => {
     });
   });
 
-  describe('D4: handlePrimeLoginInvalidToken in-lock guard re-check', () => {
-    it('clears when guards hold across the lock (happy path)', async () => {
+  describe('D4: handlePrimeLoginInvalidToken coordinator handoff', () => {
+    it('returns promptly and lets the coordinator perform the authoritative cleanup', async () => {
       const { service, backgroundApi, simpleDbPrime } = createService();
-      simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
         EPrimeAuthSessionSource.KeylessOAuth,
       );
       simpleDbPrime.getActiveAuthToken.mockResolvedValue(REQUEST_TOKEN);
@@ -466,157 +701,51 @@ describe('ServicePrime invalid-token handling', () => {
       });
 
       expect(result).toEqual({
-        cleared: true,
+        cleared: false,
         authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
         authStateGeneration: 0,
       });
-      expect(simpleDbPrime.clearAuthTokens).toHaveBeenCalled();
-      expect(mockRemoveAuthSessionStorageBySessionSource).toHaveBeenCalledWith(
-        EPrimeAuthSessionSource.KeylessOAuth,
-      );
-      expect(mockRevokeAuthSessionTokenOnServerBestEffort).toHaveBeenCalledWith(
+      expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
+      await flushAsync();
+      expect(
+        backgroundApi.serviceIdentityExit
+          .stageRemoteOneKeyIdLogoutReconciliation,
+      ).toHaveBeenCalledWith({ expectedAccessToken: REQUEST_TOKEN });
+      expect(
+        backgroundApi.serviceIdentityExit.executeIdentityExit,
+      ).toHaveBeenCalledWith({
+        planId: 'system:invalid-token-operation',
+      });
+      expect(emitSpy).toHaveBeenCalledWith(
+        EAppEventBusNames.PrimeLoginInvalidToken,
         {
           authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
-          accessToken: 'persisted-access-token',
+          clearedByBackground: true,
+          authStateGeneration: 0,
         },
       );
-      expect(mockPrimePersistAtom.set).toHaveBeenCalled();
-      expect(
-        backgroundApi.serviceMasterPassword.clearLocalMasterPassword,
-      ).toHaveBeenCalled();
     });
 
-    it('skips the post-lock per-source session sweep when a login commits after the in-lock clear', async () => {
-      const { service, simpleDbPrime } = createService();
-      simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+    it('does not deadlock the interceptor while a login lifecycle commit is active', async () => {
+      const { service, backgroundApi, simpleDbPrime } = createService();
+      simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
         EPrimeAuthSessionSource.KeylessOAuth,
       );
       simpleDbPrime.getActiveAuthToken.mockResolvedValue(REQUEST_TOKEN);
-      // In-lock snapshot reads 0; a same-source OAuth login fully commits
-      // right after the lock releases, bumping the generation to 1 — the
-      // sweep would otherwise delete the fresh login's session while its
-      // atom/source stay logged-in (the commit fail-safe already passed).
-      simpleDbPrime.getAuthStateGeneration
-        .mockResolvedValueOnce(0)
-        .mockResolvedValueOnce(1);
-
-      const result = await service.handlePrimeLoginInvalidToken({
-        requestAuthToken: REQUEST_TOKEN,
-        errorCode: 90_002,
-        errorMessage: 'invalid',
-      });
-
-      // The guarded simpleDb+atom clear already committed in-lock…
-      expect(result.cleared).toBe(true);
-      expect(simpleDbPrime.clearAuthTokens).toHaveBeenCalled();
-      // …but the stale per-source session sweep must be skipped: neither
-      // the storage removal nor the SDK sign-out may run.
-      expect(
-        mockRemoveAuthSessionStorageBySessionSource,
-      ).not.toHaveBeenCalled();
-      expect(
-        mockRevokeAuthSessionTokenOnServerBestEffort,
-      ).not.toHaveBeenCalled();
-    });
-
-    it('skips clearing when the active token changed while waiting for the lock (concurrent re-login committed)', async () => {
-      const { service, simpleDbPrime } = createService();
-      simpleDbPrime.getAuthSessionSource.mockResolvedValue(
-        EPrimeAuthSessionSource.KeylessOAuth,
-      );
-      let activeToken = REQUEST_TOKEN;
-      simpleDbPrime.getActiveAuthToken.mockImplementation(
-        async () => activeToken,
+      backgroundApi.serviceIdentityExit.executeIdentityExit.mockImplementation(
+        async () => {
+          await service.loginMutex.waitForUnlock();
+          return { status: 'completed', oneKeyIdLoggedOut: true };
+        },
       );
 
-      // Hold authStateWriteMutex, simulating a login commit in progress.
       const lockAcquired = createDeferred();
       const releaseLock = createDeferred();
-      const lockHolder = service.authStateWriteMutex.runExclusive(async () => {
+      const lockHolder = service.loginMutex.runExclusive(async () => {
         lockAcquired.resolve();
         await releaseLock.promise;
       });
       await lockAcquired.promise;
-
-      const resultPromise = service.handlePrimeLoginInvalidToken({
-        requestAuthToken: REQUEST_TOKEN,
-        errorCode: 90_002,
-        errorMessage: 'invalid',
-      });
-      // Let the entry-time guards (which pass: token still matches) finish
-      // and the handler block on the mutex.
-      await flushAsync();
-
-      // The "login" commits a fresh token before releasing the lock.
-      activeToken = 'fresh-token-after-relogin';
-      releaseLock.resolve();
-      await lockHolder;
-
-      const result = await resultPromise;
-      expect(result.cleared).toBe(false);
-      expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
-      expect(
-        mockRemoveAuthSessionStorageBySessionSource,
-      ).not.toHaveBeenCalled();
-      expect(
-        mockRevokeAuthSessionTokenOnServerBestEffort,
-      ).not.toHaveBeenCalled();
-      expect(mockPrimePersistAtom.set).not.toHaveBeenCalled();
-    });
-
-    it('skips clearing when the auth session source changed while waiting for the lock', async () => {
-      const { service, simpleDbPrime } = createService();
-      // Entry-time: no persisted source, no token anywhere -> guards pass
-      // (legacy fallback would be cleared).
-      const sourceRef: { current: unknown } = { current: undefined };
-      simpleDbPrime.getAuthSessionSource.mockImplementation(
-        async () => sourceRef.current,
-      );
-      simpleDbPrime.getActiveAuthToken.mockResolvedValue('');
-      simpleDbPrime.getSupabaseAuthToken.mockResolvedValue('');
-
-      const lockAcquired = createDeferred();
-      const releaseLock = createDeferred();
-      const lockHolder = service.authStateWriteMutex.runExclusive(async () => {
-        lockAcquired.resolve();
-        await releaseLock.promise;
-      });
-      await lockAcquired.promise;
-
-      const resultPromise = service.handlePrimeLoginInvalidToken({
-        requestAuthToken: REQUEST_TOKEN,
-        errorCode: 90_003,
-        errorMessage: 'invalid',
-      });
-      await flushAsync();
-
-      // A concurrent login commits a KeylessOAuth source (its token read
-      // still returns '' here, keeping the token guards pass-through, so
-      // only the source-changed re-check can catch this).
-      sourceRef.current = EPrimeAuthSessionSource.KeylessOAuth;
-      releaseLock.resolve();
-      await lockHolder;
-
-      const result = await resultPromise;
-      expect(result.cleared).toBe(false);
-      expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
-      expect(mockPrimePersistAtom.set).not.toHaveBeenCalled();
-    });
-
-    it('preserves the retryable-error skip inside the lock', async () => {
-      const { service, simpleDbPrime } = createService();
-      simpleDbPrime.getAuthSessionSource.mockResolvedValue(
-        EPrimeAuthSessionSource.LegacyEmailSupabase,
-      );
-      // Entry-time read succeeds, in-lock read hits a retryable refresh
-      // failure -> the clear must be skipped.
-      simpleDbPrime.getActiveAuthToken
-        .mockResolvedValueOnce(REQUEST_TOKEN)
-        .mockImplementationOnce(async () => {
-          const error: any = new Error('fetch failed');
-          error.$$retryable = true;
-          throw error;
-        });
 
       const result = await service.handlePrimeLoginInvalidToken({
         requestAuthToken: REQUEST_TOKEN,
@@ -625,13 +754,28 @@ describe('ServicePrime invalid-token handling', () => {
       });
 
       expect(result.cleared).toBe(false);
-      expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
-      expect(mockPrimePersistAtom.set).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.serviceIdentityExit
+          .stageRemoteOneKeyIdLogoutReconciliation,
+      ).toHaveBeenCalledWith({ expectedAccessToken: REQUEST_TOKEN });
+      expect(emitSpy).not.toHaveBeenCalledWith(
+        EAppEventBusNames.PrimeLoginInvalidToken,
+        expect.anything(),
+      );
+
+      releaseLock.resolve();
+      await lockHolder;
+      await flushAsync();
+      expect(
+        backgroundApi.serviceIdentityExit.executeIdentityExit,
+      ).toHaveBeenCalledWith({
+        planId: 'system:invalid-token-operation',
+      });
     });
 
     it('preserves the no-request-token skip (entry-time)', async () => {
       const { service, simpleDbPrime } = createService();
-      simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
         EPrimeAuthSessionSource.KeylessOAuth,
       );
       simpleDbPrime.getActiveAuthToken.mockResolvedValue(REQUEST_TOKEN);
@@ -647,7 +791,7 @@ describe('ServicePrime invalid-token handling', () => {
 
     it('preserves the stale-token skip (entry-time)', async () => {
       const { service, simpleDbPrime } = createService();
-      simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
         EPrimeAuthSessionSource.KeylessOAuth,
       );
       simpleDbPrime.getActiveAuthToken.mockResolvedValue('another-token');
@@ -661,6 +805,24 @@ describe('ServicePrime invalid-token handling', () => {
       expect(result.cleared).toBe(false);
       expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
     });
+
+    it('fails closed when the active auth source is unavailable', async () => {
+      const { service, backgroundApi, simpleDbPrime } = createService();
+      simpleDbPrime.getActiveAuthToken.mockResolvedValue(REQUEST_TOKEN);
+
+      await expect(
+        service.handlePrimeLoginInvalidToken({
+          requestAuthToken: REQUEST_TOKEN,
+          errorCode: 90_002,
+          errorMessage: 'invalid',
+        }),
+      ).rejects.toThrow('authSessionSource is unavailable');
+
+      expect(
+        backgroundApi.serviceIdentityExit
+          .stageRemoteOneKeyIdLogoutReconciliation,
+      ).not.toHaveBeenCalled();
+    });
   });
 });
 
@@ -669,209 +831,18 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
     jest.clearAllMocks();
   });
 
-  it('clears tokens and resets the atom when no active token exists (entry + in-lock)', async () => {
-    const { service, simpleDbPrime } = createService();
-    simpleDbPrime.getActiveAuthToken.mockResolvedValue('');
-    const atomResetSpy = jest
-      .spyOn(service, 'setPrimePersistAtomNotLoggedIn')
-      .mockResolvedValue(undefined);
+  it('delegates missing-session cleanup to the durable identity coordinator', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
 
     const result = await service.clearOneKeyIdAuthStateIfNoActiveToken({
       callerName: 'test',
     });
 
     expect(result.cleared).toBe(true);
-    expect(simpleDbPrime.clearAuthTokens).toHaveBeenCalled();
-    expect(atomResetSpy).toHaveBeenCalled();
-  });
-
-  it('skips clearing when a login commit lands between the entry read and the in-lock re-read', async () => {
-    const { service, simpleDbPrime } = createService();
-    // Entry-time read observes no token, but a concurrent OAuth login
-    // commits before the lock is acquired — the in-lock re-read must see it
-    // and abort, otherwise the just-committed authSessionSource would be
-    // wiped (a wiped KeylessOAuth source is never re-inferred).
-    simpleDbPrime.getActiveAuthToken
-      .mockResolvedValueOnce('')
-      .mockResolvedValueOnce('fresh-login-token');
-    const atomResetSpy = jest
-      .spyOn(service, 'setPrimePersistAtomNotLoggedIn')
-      .mockResolvedValue(undefined);
-
-    const result = await service.clearOneKeyIdAuthStateIfNoActiveToken({
-      callerName: 'test',
-    });
-
-    expect(result.cleared).toBe(false);
+    expect(
+      backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession,
+    ).toHaveBeenCalledWith({ callerName: 'test' });
     expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
-    expect(atomResetSpy).not.toHaveBeenCalled();
-  });
-
-  it('skips clearing when the token read fails with a retryable auth error', async () => {
-    const { service, simpleDbPrime } = createService();
-    const retryableError: Error & { $$retryable?: boolean } = new Error(
-      'transient refresh failure',
-    );
-    retryableError.$$retryable = true;
-    simpleDbPrime.getActiveAuthToken.mockRejectedValue(retryableError);
-    const atomResetSpy = jest
-      .spyOn(service, 'setPrimePersistAtomNotLoggedIn')
-      .mockResolvedValue(undefined);
-
-    const result = await service.clearOneKeyIdAuthStateIfNoActiveToken({
-      callerName: 'test',
-    });
-
-    expect(result.cleared).toBe(false);
-    expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
-    expect(atomResetSpy).not.toHaveBeenCalled();
-  });
-});
-
-describe('ServicePrime.clearAuthSessionIfGenerationStillMatches', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('removes storage under the lock then revokes the snapshotted token on the server when the generation matches', async () => {
-    const { service, simpleDbPrime } = createService();
-    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
-
-    const result = await service.clearAuthSessionIfGenerationStillMatches({
-      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
-      expectedAuthStateGeneration: 3,
-      callerName: 'test',
-    });
-
-    expect(result).toEqual({ cleared: true });
-    expect(mockRemoveAuthSessionStorageBySessionSource).toHaveBeenCalledWith(
-      EPrimeAuthSessionSource.KeylessOAuth,
-    );
-    expect(mockRevokeAuthSessionTokenOnServerBestEffort).toHaveBeenCalledWith({
-      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
-      accessToken: 'persisted-access-token',
-    });
-  });
-
-  it('skips removal and server revocation when a login committed after the snapshot', async () => {
-    const { service, simpleDbPrime } = createService();
-    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
-
-    const result = await service.clearAuthSessionIfGenerationStillMatches({
-      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
-      expectedAuthStateGeneration: 3,
-      callerName: 'test',
-    });
-
-    expect(result).toEqual({ cleared: false, generationChanged: true });
-    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
-    expect(mockRevokeAuthSessionTokenOnServerBestEffort).not.toHaveBeenCalled();
-  });
-
-  it('validates the generation atomically with commits (waits for authStateWriteMutex)', async () => {
-    const { service, simpleDbPrime } = createService();
-    const generationRef = { current: 3 };
-    simpleDbPrime.getAuthStateGeneration.mockImplementation(
-      async () => generationRef.current,
-    );
-
-    // Hold authStateWriteMutex, simulating a login commit in progress.
-    const lockAcquired = createDeferred();
-    const releaseLock = createDeferred();
-    const lockHolder = service.authStateWriteMutex.runExclusive(async () => {
-      lockAcquired.resolve();
-      await releaseLock.promise;
-    });
-    await lockAcquired.promise;
-
-    const resultPromise = service.clearAuthSessionIfGenerationStillMatches({
-      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
-      expectedAuthStateGeneration: 3,
-      callerName: 'test',
-    });
-    await flushAsync();
-    // Nothing may have been deleted while the commit holds the mutex.
-    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
-
-    // The commit bumps the generation before releasing the lock — the
-    // deletion must then observe it and skip.
-    generationRef.current = 4;
-    releaseLock.resolve();
-    await lockHolder;
-
-    const result = await resultPromise;
-    expect(result).toEqual({ cleared: false, generationChanged: true });
-    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
-    expect(mockRevokeAuthSessionTokenOnServerBestEffort).not.toHaveBeenCalled();
-  });
-});
-
-describe('ServicePrime.clearOneKeyIdAuthStateIfSourceStillKeylessOAuth', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('clears when the source is still KeylessOAuth and the generation is unchanged', async () => {
-    const { service, simpleDbPrime } = createService();
-    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
-      EPrimeAuthSessionSource.KeylessOAuth,
-    );
-    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
-    const atomResetSpy = jest
-      .spyOn(service, 'setPrimePersistAtomNotLoggedIn')
-      .mockResolvedValue(undefined);
-
-    const result =
-      await service.clearOneKeyIdAuthStateIfSourceStillKeylessOAuth({
-        callerName: 'test',
-        expectedAuthStateGeneration: 3,
-      });
-
-    expect(result).toEqual({ cleared: true });
-    expect(simpleDbPrime.clearAuthTokens).toHaveBeenCalled();
-    expect(atomResetSpy).toHaveBeenCalled();
-  });
-
-  it('skips with generationChanged when a login committed after the caller snapshot', async () => {
-    const { service, simpleDbPrime } = createService();
-    // The fresh login re-committed KeylessOAuth, so a source-only recheck
-    // would still match and wipe it — only the generation exposes the race.
-    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
-      EPrimeAuthSessionSource.KeylessOAuth,
-    );
-    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
-    const atomResetSpy = jest
-      .spyOn(service, 'setPrimePersistAtomNotLoggedIn')
-      .mockResolvedValue(undefined);
-
-    const result =
-      await service.clearOneKeyIdAuthStateIfSourceStillKeylessOAuth({
-        callerName: 'test',
-        expectedAuthStateGeneration: 3,
-      });
-
-    expect(result).toEqual({ cleared: false, generationChanged: true });
-    expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
-    expect(atomResetSpy).not.toHaveBeenCalled();
-  });
-
-  it('keeps the source-only guard when no generation snapshot is provided', async () => {
-    const { service, simpleDbPrime } = createService();
-    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
-      EPrimeAuthSessionSource.LegacyEmailSupabase,
-    );
-    const atomResetSpy = jest
-      .spyOn(service, 'setPrimePersistAtomNotLoggedIn')
-      .mockResolvedValue(undefined);
-
-    const result =
-      await service.clearOneKeyIdAuthStateIfSourceStillKeylessOAuth({
-        callerName: 'test',
-      });
-
-    expect(result).toEqual({ cleared: false });
-    expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
-    expect(atomResetSpy).not.toHaveBeenCalled();
   });
 });
 
@@ -893,7 +864,7 @@ describe('ServicePrime.apiLogin invalid-token clear guard', () => {
     return invalidTokenError;
   }
 
-  it('clears tokens on a confirmed invalid-token rejection when no other realm committed', async () => {
+  it('preserves the authoritative session state for deferred reconciliation', async () => {
     const { service, simpleDbPrime } = createService();
     mockLoginRejection(service);
     simpleDbPrime.getAuthSessionSource.mockResolvedValue(undefined);
@@ -902,10 +873,10 @@ describe('ServicePrime.apiLogin invalid-token clear guard', () => {
       service.apiLogin({ accessToken: REQUEST_TOKEN }),
     ).rejects.toThrow('invalid token');
 
-    expect(simpleDbPrime.clearAuthTokens).toHaveBeenCalled();
+    expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
   });
 
-  it('skips clearing when the persisted source belongs to another realm (KeylessOAuth)', async () => {
+  it('does not clear a concurrently committed KeylessOAuth source', async () => {
     const { service, simpleDbPrime } = createService();
     mockLoginRejection(service);
     // A KeylessOAuth login committed concurrently (or this call replayed a
@@ -938,6 +909,53 @@ describe('ServicePrime.apiLogin invalid-token clear guard', () => {
   });
 });
 
+describe('ServicePrime.apiEmailOtpLogin serialization', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('rejects a queued stale Email login after another surface commits first', async () => {
+    const { service, simpleDbPrime } = createService();
+    let isLoggedIn = false;
+    mockPrimePersistAtom.get.mockImplementation(async () =>
+      isLoggedIn
+        ? {
+            isLoggedIn: true,
+            isLoggedInOnServer: true,
+            onekeyUserId: 'first-user',
+          }
+        : {},
+    );
+    simpleDbPrime.getEffectiveAuthSessionSource.mockImplementation(async () =>
+      isLoggedIn ? EPrimeAuthSessionSource.LegacyEmailSupabase : undefined,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockImplementation(async () =>
+      isLoggedIn ? 'loggedIn' : 'loggedOut',
+    );
+    mockVerifyEmailOtp.mockResolvedValue({
+      data: { session: { access_token: 'first-email-token' } },
+      error: null,
+    });
+    service.apiLoginWithPersistedLegacySession = jest.fn(async () => {
+      isLoggedIn = true;
+    });
+
+    const firstLogin = service.apiEmailOtpLogin({
+      email: 'first@example.com',
+      otp: '111111',
+    });
+    const queuedLogin = service.apiEmailOtpLogin({
+      email: 'second@example.com',
+      otp: '222222',
+    });
+
+    await expect(firstLogin).resolves.toEqual({ success: true });
+    await expect(queuedLogin).rejects.toThrow('already logged in');
+    expect(mockVerifyEmailOtp).toHaveBeenCalledTimes(1);
+    expect(service.apiLoginWithPersistedLegacySession).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('ServicePrime.commitAuthSessionSourceAndPrimeAtom', () => {
   let emitSpy: jest.SpyInstance;
 
@@ -963,8 +981,10 @@ describe('ServicePrime.commitAuthSessionSourceAndPrimeAtom', () => {
       updatePrimeAtom,
     });
 
-    expect(simpleDbPrime.setAuthSessionSource).toHaveBeenCalledWith(
-      EPrimeAuthSessionSource.KeylessOAuth,
+    expect(simpleDbPrime.setAuthSessionSourceWithCommitId).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+      }),
     );
     // Lock policy: the in-lock slot check must be the strict LOCAL
     // persisted-bytes read of the committed source, never a network-capable
@@ -1031,7 +1051,7 @@ describe('ServicePrime.commitAuthSessionSourceAndPrimeAtom', () => {
       }),
     ).rejects.toBe(transientError);
 
-    expect(simpleDbPrime.setAuthSessionSource).toHaveBeenCalled();
+    expect(simpleDbPrime.setAuthSessionSourceWithCommitId).toHaveBeenCalled();
     expect(simpleDbPrime.clearAuthTokens).toHaveBeenCalled();
     expect(atomResetSpy).toHaveBeenCalled();
     expect(emitSpy).not.toHaveBeenCalledWith(
@@ -1062,10 +1082,131 @@ describe('ServicePrime.commitAuthSessionSourceAndPrimeAtom', () => {
   });
 });
 
+describe('ServicePrime apiFetchPrimeUserInfo lifecycle commit guard', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockReset();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'user-a',
+      primeSubscription: undefined,
+    });
+  });
+
+  it('discards an old response when lifecycle revision changes before the atom commit', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getAuthSessionCommitId.mockResolvedValue('commit-a');
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('active-token-a');
+    simpleDbPrime.getIdentityLifecycleRevision
+      .mockResolvedValueOnce(7)
+      .mockResolvedValueOnce(8);
+    service.callApiFetchPrimeUserInfo = jest.fn(async () => ({
+      userId: 'user-a',
+      isPrime: false,
+    }));
+    const updateSpy = jest
+      .spyOn(service, 'updatePrimeAtomByServerUserInfo')
+      .mockResolvedValue({ primeSubscription: undefined });
+
+    const result = await (service as any)._fetchPrimeUserInfo();
+
+    expect(updateSpy).not.toHaveBeenCalled();
+    expect(result.serverUserInfo).toBeUndefined();
+    expect(result.userInfo.onekeyUserId).toBe('user-a');
+  });
+});
+
+describe('ServicePrime.checkAndMarkShouldShowOneKeyIdOAuthBindPrompt', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('does not check or mark an account that was already reminded', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.hasShownOneKeyIdOAuthBindPrompt.mockResolvedValue(true);
+    const bindRequiredSpy = jest.spyOn(
+      service,
+      'isLegacyOneKeyIdOAuthBindRequired',
+    );
+
+    await expect(
+      service.checkAndMarkShouldShowOneKeyIdOAuthBindPrompt({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toBe(false);
+
+    expect(bindRequiredSpy).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.markOneKeyIdOAuthBindPromptShown,
+    ).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])(
+    'marks the reminder decision once when bindRequired=%s',
+    async (bindRequired) => {
+      const { service, simpleDbPrime } = createService();
+      jest
+        .spyOn(service, 'isLegacyOneKeyIdOAuthBindRequired')
+        .mockResolvedValue(bindRequired);
+
+      await expect(
+        service.checkAndMarkShouldShowOneKeyIdOAuthBindPrompt({
+          onekeyUserId: 'user-1',
+        }),
+      ).resolves.toBe(bindRequired);
+
+      expect(
+        simpleDbPrime.markOneKeyIdOAuthBindPromptShown,
+      ).toHaveBeenCalledWith({ onekeyUserId: 'user-1' });
+    },
+  );
+
+  it('does not consume the reminder when the profile check fails', async () => {
+    const { service, simpleDbPrime } = createService();
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    jest
+      .spyOn(service, 'isLegacyOneKeyIdOAuthBindRequired')
+      .mockRejectedValue(new Error('network failed'));
+
+    await expect(
+      service.checkAndMarkShouldShowOneKeyIdOAuthBindPrompt({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toBe(false);
+
+    expect(
+      simpleDbPrime.markOneKeyIdOAuthBindPromptShown,
+    ).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+  });
+});
+
 // Build an unsigned JWT-shaped token whose payload decodes to the given
 // claims — enough for the identity guard, which reads claims only and never
 // verifies signatures.
 function buildFakeJwt(payload: Record<string, unknown>): string {
+  const normalizedPayload = Object.prototype.hasOwnProperty.call(
+    payload,
+    'session_id',
+  )
+    ? payload
+    : {
+        ...payload,
+        session_id:
+          typeof payload.sub === 'string'
+            ? `supabase-session:${payload.sub}`
+            : undefined,
+      };
   const encodeBase64Url = (obj: Record<string, unknown>) =>
     Buffer.from(JSON.stringify(obj))
       .toString('base64')
@@ -1073,7 +1214,7 @@ function buildFakeJwt(payload: Record<string, unknown>): string {
       .replace(/\//g, '_')
       .replace(/=+$/, '');
   return `${encodeBase64Url({ alg: 'none', typ: 'JWT' })}.${encodeBase64Url(
-    payload,
+    normalizedPayload,
   )}.fake-signature`;
 }
 
@@ -1148,6 +1289,12 @@ describe('ServicePrime.apiOAuthLogin keyless slot identity guard', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPrimePersistAtom.get.mockResolvedValue({});
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockReset();
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'user-a' }),
+    });
     emitSpy = jest.spyOn(appEventBus, 'emit').mockImplementation(() => true);
   });
 
@@ -1275,5 +1422,874 @@ describe('ServicePrime.apiOAuthLogin keyless slot identity guard', () => {
     ).rejects.toThrow('session token payload is not decodable');
 
     expect(post).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServicePrime.persistKeylessOAuthSession active OneKey ID guard', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockReset();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
+    });
+    mockPersistKeylessAuthSession.mockImplementation(
+      async (params: unknown) => {
+        const { accessToken } = params as { accessToken: string };
+        mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+          status: 'ok',
+          accessToken,
+        });
+      },
+    );
+  });
+
+  afterEach(() => {
+    resetIdentityRecoveryStateForTest('ready');
+  });
+
+  it('rejects a different account before replacing a KeylessOAuth-backed OneKey ID slot', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValueOnce({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'user-a' }),
+    });
+
+    const persistence = service.persistKeylessOAuthSession({
+      accessToken: buildFakeJwt({ sub: 'user-b' }),
+      refreshToken: 'refresh-b',
+    });
+
+    await expect(persistence).rejects.toBeInstanceOf(
+      OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
+    );
+    expect(mockPersistKeylessAuthSession).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.setKeylessOAuthSessionPersistenceJournal,
+    ).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.commitKeylessOAuthSessionPersistenceMetadata,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('allows token rotation for the same KeylessOAuth-backed OneKey ID identity', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValueOnce({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'user-a', iat: 1 }),
+    });
+    const nextAccessToken = buildFakeJwt({ sub: 'user-a', iat: 2 });
+
+    await service.persistKeylessOAuthSession({
+      accessToken: nextAccessToken,
+      refreshToken: 'refresh-a',
+    });
+
+    expect(mockPersistKeylessAuthSession).toHaveBeenCalledWith({
+      accessToken: nextAccessToken,
+      refreshToken: 'refresh-a',
+    });
+    expect(
+      simpleDbPrime.setKeylessOAuthSessionPersistenceJournal,
+    ).toHaveBeenCalled();
+    expect(
+      simpleDbPrime.commitKeylessOAuthSessionPersistenceMetadata,
+    ).toHaveBeenCalled();
+  });
+
+  it('allows an independent Keyless session beside an Email OneKey ID', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    const accessToken = buildFakeJwt({ sub: 'independent-keyless-user' });
+
+    await service.persistKeylessOAuthSession({
+      accessToken,
+      refreshToken: 'refresh-independent',
+    });
+
+    expect(mockPersistKeylessAuthSession).toHaveBeenCalledWith({
+      accessToken,
+      refreshToken: 'refresh-independent',
+    });
+    expect(
+      simpleDbPrime.setKeylessOAuthSessionPersistenceJournal,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionTokenSub: 'independent-keyless-user',
+        supabaseSessionId: 'supabase-session:independent-keyless-user',
+      }),
+    );
+    expect(
+      simpleDbPrime.commitKeylessOAuthSessionPersistenceMetadata,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        persistedSessionIdentity: {
+          sessionTokenSub: 'independent-keyless-user',
+          supabaseSessionId: 'supabase-session:independent-keyless-user',
+        },
+      }),
+    );
+  });
+
+  it('waits for an active identity mutation before reserving and journaling persistence', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    let releaseMutation: (() => void) | undefined;
+    let markMutationEntered: (() => void) | undefined;
+    const mutationEntered = new Promise<void>((resolve) => {
+      markMutationEntered = resolve;
+    });
+    const mutationRelease = new Promise<void>((resolve) => {
+      releaseMutation = resolve;
+    });
+    const activeMutation = identityLifecycleMutex.runExclusive(async () => {
+      markMutationEntered?.();
+      await mutationRelease;
+    });
+    await mutationEntered;
+
+    const persistence = (
+      service as unknown as {
+        persistKeylessOAuthSessionWithinLifecycle: (params: {
+          accessToken: string;
+          refreshToken: string;
+        }) => Promise<unknown>;
+      }
+    ).persistKeylessOAuthSessionWithinLifecycle({
+      accessToken: buildFakeJwt({ sub: 'independent-keyless-user' }),
+      refreshToken: 'refresh-independent',
+    });
+
+    expect(getActiveIdentityLifecycleOperationId()).toBeUndefined();
+    expect(
+      simpleDbPrime.setKeylessOAuthSessionPersistenceJournal,
+    ).not.toHaveBeenCalled();
+    releaseMutation?.();
+    await activeMutation;
+    await persistence;
+    expect(
+      simpleDbPrime.setKeylessOAuthSessionPersistenceJournal,
+    ).toHaveBeenCalledTimes(1);
+    expect(getActiveIdentityLifecycleOperationId()).toBeUndefined();
+  });
+
+  it('keeps the lifecycle reservation active through the session-slot write', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    mockPersistKeylessAuthSession.mockImplementationOnce(
+      async (params: unknown) => {
+        expect(getActiveIdentityLifecycleOperationId()).toMatch(
+          /^keylessSession:/,
+        );
+        const { accessToken } = params as { accessToken: string };
+        mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+          status: 'ok',
+          accessToken,
+        });
+      },
+    );
+
+    await service.persistKeylessOAuthSession({
+      accessToken: buildFakeJwt({ sub: 'independent-keyless-user' }),
+      refreshToken: 'refresh-independent',
+    });
+
+    expect(getActiveIdentityLifecycleOperationId()).toBeUndefined();
+  });
+
+  it('fails closed before journaling when the token session_id claim is missing', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+
+    await expect(
+      service.persistKeylessOAuthSession({
+        accessToken: buildFakeJwt({
+          sub: 'independent-keyless-user',
+          session_id: undefined,
+        }),
+        refreshToken: 'refresh-independent',
+      }),
+    ).rejects.toThrow('token session_id claim is missing');
+
+    expect(
+      simpleDbPrime.setKeylessOAuthSessionPersistenceJournal,
+    ).not.toHaveBeenCalled();
+    expect(mockPersistKeylessAuthSession).not.toHaveBeenCalled();
+  });
+
+  it('keeps the identity gate closed when the journal storage write rejects', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    const storageError = new Error('journal storage write failed');
+    simpleDbPrime.setKeylessOAuthSessionPersistenceJournal.mockRejectedValue(
+      storageError,
+    );
+
+    await expect(
+      service.persistKeylessOAuthSession({
+        accessToken: buildFakeJwt({ sub: 'independent-keyless-user' }),
+        refreshToken: 'refresh-independent',
+      }),
+    ).rejects.toBe(storageError);
+
+    expect(isIdentityRecoveryReady()).toBe(false);
+    expect(mockPersistKeylessAuthSession).not.toHaveBeenCalled();
+  });
+
+  it('does not trust the current cache when the metadata commit write rejects', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    const storageError = new Error('metadata storage write failed');
+    simpleDbPrime.commitKeylessOAuthSessionPersistenceMetadata.mockRejectedValue(
+      storageError,
+    );
+
+    await expect(
+      service.persistKeylessOAuthSession({
+        accessToken: buildFakeJwt({ sub: 'independent-keyless-user' }),
+        refreshToken: 'refresh-independent',
+      }),
+    ).rejects.toBe(storageError);
+
+    expect(isIdentityRecoveryReady()).toBe(false);
+    expect(
+      simpleDbPrime.getKeylessOAuthSessionPersistenceJournal,
+    ).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServicePrime provisional Keyless OAuth session rollback', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockReset();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
+    });
+    mockPersistKeylessAuthSession.mockImplementation(
+      async (params: unknown) => {
+        const { accessToken } = params as { accessToken: string };
+        mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+          status: 'ok',
+          accessToken,
+        });
+      },
+    );
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    resetIdentityRecoveryStateForTest('ready');
+  });
+
+  it('expires an unused rollback handle after five minutes', async () => {
+    jest.useFakeTimers();
+    const { service, simpleDbPrime } = createService();
+    const accessToken = buildFakeJwt({ sub: 'independent-keyless-user' });
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(1);
+
+    const { rollbackHandle } = await service.persistKeylessOAuthSession({
+      accessToken,
+      refreshToken: 'refresh-independent',
+    });
+    const persistenceJournal =
+      simpleDbPrime.setKeylessOAuthSessionPersistenceJournal.mock.calls[0][0];
+    simpleDbPrime.getAuthSessionCommitId.mockResolvedValue(
+      persistenceJournal.sessionCommitId,
+    );
+
+    jest.advanceTimersByTime(5 * 60 * 1000);
+
+    await expect(
+      service.rollbackProvisionalKeylessOAuthSession({ rollbackHandle }),
+    ).resolves.toEqual({ cleared: false });
+    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
+  });
+
+  it('uses a rollback handle once before expiry and cancels its timer', async () => {
+    jest.useFakeTimers();
+    const { service, simpleDbPrime } = createService();
+    const accessToken = buildFakeJwt({ sub: 'independent-keyless-user' });
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(1);
+
+    const { rollbackHandle } = await service.persistKeylessOAuthSession({
+      accessToken,
+      refreshToken: 'refresh-independent',
+    });
+    const persistenceJournal =
+      simpleDbPrime.setKeylessOAuthSessionPersistenceJournal.mock.calls[0][0];
+    simpleDbPrime.getAuthSessionCommitId.mockResolvedValue(
+      persistenceJournal.sessionCommitId,
+    );
+
+    jest.advanceTimersByTime(5 * 60 * 1000 - 1);
+
+    await expect(
+      service.rollbackProvisionalKeylessOAuthSession({ rollbackHandle }),
+    ).resolves.toEqual({ cleared: true });
+    expect(mockRemoveAuthSessionStorageBySessionSource).toHaveBeenCalledTimes(
+      1,
+    );
+
+    jest.advanceTimersByTime(1);
+
+    await expect(
+      service.rollbackProvisionalKeylessOAuthSession({ rollbackHandle }),
+    ).resolves.toEqual({ cleared: false });
+    expect(mockRemoveAuthSessionStorageBySessionSource).toHaveBeenCalledTimes(
+      1,
+    );
+  });
+
+  it('rejects an expired rollback handle when its timer is delayed', async () => {
+    jest.useFakeTimers();
+    const { service, simpleDbPrime } = createService();
+    const accessToken = buildFakeJwt({ sub: 'independent-keyless-user' });
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(1);
+
+    const { rollbackHandle } = await service.persistKeylessOAuthSession({
+      accessToken,
+      refreshToken: 'refresh-independent',
+    });
+    const persistenceJournal =
+      simpleDbPrime.setKeylessOAuthSessionPersistenceJournal.mock.calls[0][0];
+    simpleDbPrime.getAuthSessionCommitId.mockResolvedValue(
+      persistenceJournal.sessionCommitId,
+    );
+
+    jest.setSystemTime(Date.now() + 5 * 60 * 1000);
+
+    await expect(
+      service.rollbackProvisionalKeylessOAuthSession({ rollbackHandle }),
+    ).resolves.toEqual({ cleared: false });
+    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
+  });
+
+  it('does not let an old timer delete a newer record with the same handle', async () => {
+    jest.useFakeTimers();
+    const generateUUIDSpy = jest
+      .spyOn(stringUtils, 'generateUUID')
+      .mockReturnValueOnce('session-commit-1')
+      .mockReturnValueOnce('operation-1')
+      .mockReturnValueOnce('reused-rollback-handle')
+      .mockReturnValueOnce('session-commit-2')
+      .mockReturnValueOnce('operation-2')
+      .mockReturnValueOnce('reused-rollback-handle');
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(1);
+
+    try {
+      const firstPersist = await service.persistKeylessOAuthSession({
+        accessToken: buildFakeJwt({ sub: 'independent-keyless-user' }),
+        refreshToken: 'refresh-independent-1',
+      });
+      const firstJournal =
+        simpleDbPrime.setKeylessOAuthSessionPersistenceJournal.mock.calls[0][0];
+      simpleDbPrime.getAuthSessionCommitId.mockResolvedValue(
+        firstJournal.sessionCommitId,
+      );
+
+      jest.advanceTimersByTime(60 * 1000);
+
+      const secondPersist = await service.persistKeylessOAuthSession({
+        accessToken: buildFakeJwt({ sub: 'independent-keyless-user' }),
+        refreshToken: 'refresh-independent-2',
+      });
+      expect(secondPersist.rollbackHandle).toBe(firstPersist.rollbackHandle);
+      const secondJournal =
+        simpleDbPrime.setKeylessOAuthSessionPersistenceJournal.mock.calls[1][0];
+      simpleDbPrime.getAuthSessionCommitId.mockResolvedValue(
+        secondJournal.sessionCommitId,
+      );
+
+      jest.advanceTimersByTime(4 * 60 * 1000);
+
+      await expect(
+        service.rollbackProvisionalKeylessOAuthSession({
+          rollbackHandle: secondPersist.rollbackHandle,
+        }),
+      ).resolves.toEqual({ cleared: true });
+      expect(mockRemoveAuthSessionStorageBySessionSource).toHaveBeenCalledTimes(
+        1,
+      );
+    } finally {
+      generateUUIDSpy.mockRestore();
+    }
+  });
+});
+
+describe('ServicePrime Keyless OAuth persistence recovery', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrimePersistAtom.get.mockResolvedValue({});
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockReset();
+  });
+
+  it('finishes atomic metadata when the exact journaled session is persisted', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getKeylessOAuthSessionPersistenceJournal.mockResolvedValue({
+      operationId: 'operation-1',
+      status: 'prepared',
+      startedAt: 1,
+      updatedAt: 1,
+      expectedLifecycleRevision: 5,
+      sessionCommitId: 'commit-1',
+      sessionTokenSub: 'user-a',
+      supabaseSessionId: 'supabase-session:user-a',
+    });
+    simpleDbPrime.commitKeylessOAuthSessionPersistenceMetadata.mockResolvedValue(
+      {
+        status: 'committed',
+        identityLifecycleRevision: 6,
+      },
+    );
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'user-a' }),
+    });
+
+    await expect(
+      service.recoverInterruptedKeylessOAuthSessionPersistence(),
+    ).resolves.toEqual({ recovered: true, abandoned: false });
+    expect(
+      simpleDbPrime.commitKeylessOAuthSessionPersistenceMetadata,
+    ).toHaveBeenCalledWith({
+      operationId: 'operation-1',
+      persistedSessionIdentity: {
+        sessionTokenSub: 'user-a',
+        supabaseSessionId: 'supabase-session:user-a',
+      },
+      allowRevisionRebase: true,
+    });
+  });
+
+  it('abandons a conflicted journal and removes only its exact persisted session', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getKeylessOAuthSessionPersistenceJournal.mockResolvedValue({
+      operationId: 'operation-1',
+      status: 'prepared',
+      startedAt: 1,
+      updatedAt: 1,
+      expectedLifecycleRevision: 5,
+      sessionCommitId: 'commit-1',
+      sessionTokenSub: 'user-a',
+      supabaseSessionId: 'supabase-session:user-a',
+    });
+    simpleDbPrime.commitKeylessOAuthSessionPersistenceMetadata.mockResolvedValue(
+      {
+        status: 'stateChanged',
+      },
+    );
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'user-a' }),
+    });
+
+    await expect(
+      service.recoverInterruptedKeylessOAuthSessionPersistence(),
+    ).resolves.toEqual({ recovered: false, abandoned: true });
+    expect(mockRemoveAuthSessionStorageBySessionSource).toHaveBeenCalledWith(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    expect(
+      simpleDbPrime.removeKeylessOAuthSessionPersistenceJournal,
+    ).toHaveBeenCalledWith({ operationId: 'operation-1' });
+    expect(isIdentityRecoveryReady()).toBe(true);
+  });
+
+  it('abandons only the journal when a different session won the slot', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getKeylessOAuthSessionPersistenceJournal.mockResolvedValue({
+      operationId: 'operation-1',
+      status: 'prepared',
+      startedAt: 1,
+      updatedAt: 1,
+      expectedLifecycleRevision: 5,
+      sessionCommitId: 'commit-1',
+      sessionTokenSub: 'user-a',
+      supabaseSessionId: 'supabase-session:user-a',
+    });
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'user-b' }),
+    });
+
+    await expect(
+      service.recoverInterruptedKeylessOAuthSessionPersistence(),
+    ).resolves.toEqual({ recovered: false, abandoned: true });
+    expect(
+      simpleDbPrime.removeKeylessOAuthSessionPersistenceJournal,
+    ).toHaveBeenCalledWith({ operationId: 'operation-1' });
+    expect(
+      simpleDbPrime.commitKeylessOAuthSessionPersistenceMetadata,
+    ).not.toHaveBeenCalled();
+    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
+  });
+
+  it('abandons a crash-before-setSession journal when the old slot has the same subject', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getKeylessOAuthSessionPersistenceJournal.mockResolvedValue({
+      operationId: 'operation-1',
+      status: 'prepared',
+      startedAt: 1,
+      updatedAt: 1,
+      expectedLifecycleRevision: 5,
+      sessionCommitId: 'commit-new',
+      sessionTokenSub: 'user-a',
+      supabaseSessionId: 'supabase-session-new',
+    });
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: buildFakeJwt({
+        sub: 'user-a',
+        session_id: 'supabase-session-old',
+      }),
+    });
+
+    await expect(
+      service.recoverInterruptedKeylessOAuthSessionPersistence(),
+    ).resolves.toEqual({ recovered: false, abandoned: true });
+    expect(
+      simpleDbPrime.removeKeylessOAuthSessionPersistenceJournal,
+    ).toHaveBeenCalledWith({ operationId: 'operation-1' });
+    expect(
+      simpleDbPrime.commitKeylessOAuthSessionPersistenceMetadata,
+    ).not.toHaveBeenCalled();
+    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
+  });
+
+  it('abandons recovery when the persisted slot has no session_id claim', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getKeylessOAuthSessionPersistenceJournal.mockResolvedValue({
+      operationId: 'operation-1',
+      status: 'prepared',
+      startedAt: 1,
+      updatedAt: 1,
+      expectedLifecycleRevision: 5,
+      sessionCommitId: 'commit-new',
+      sessionTokenSub: 'user-a',
+      supabaseSessionId: 'supabase-session-new',
+    });
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'user-a', session_id: undefined }),
+    });
+
+    await expect(
+      service.recoverInterruptedKeylessOAuthSessionPersistence(),
+    ).resolves.toEqual({ recovered: false, abandoned: true });
+    expect(
+      simpleDbPrime.commitKeylessOAuthSessionPersistenceMetadata,
+    ).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServicePrime.apiOAuthLoginWithFreshSessionForLoggedOutState', () => {
+  let emitSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrimePersistAtom.get.mockResolvedValue({});
+    mockPersistKeylessAuthSession.mockImplementation(
+      async (params: unknown) => {
+        const { accessToken } = params as { accessToken: string };
+        mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+          status: 'ok',
+          accessToken,
+        });
+      },
+    );
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockReset();
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: buildFakeJwt({
+        sub: 'user-a',
+        session_id: 'supabase-session-old',
+      }),
+    });
+    emitSpy = jest.spyOn(appEventBus, 'emit').mockImplementation(() => true);
+  });
+
+  afterEach(() => {
+    emitSpy.mockRestore();
+  });
+
+  function mockFreshOAuthLoginClient({
+    service,
+    post,
+  }: {
+    service: any;
+    post: jest.Mock;
+  }) {
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+  }
+
+  it('rechecks the logged-out precondition after waiting for loginMutex', async () => {
+    const { service, simpleDbPrime } = createService();
+    let isAnotherLoginCommitted = false;
+    mockPrimePersistAtom.get.mockImplementation(async () =>
+      isAnotherLoginCommitted
+        ? { isLoggedIn: true, isLoggedInOnServer: true }
+        : {},
+    );
+    simpleDbPrime.getActiveAuthToken.mockImplementation(async () =>
+      isAnotherLoginCommitted ? 'current-login-token' : '',
+    );
+    const lockAcquired = createDeferred();
+    const releaseLock = createDeferred();
+    const lockHolder = service.loginMutex.runExclusive(async () => {
+      lockAcquired.resolve();
+      await releaseLock.promise;
+    });
+    await lockAcquired.promise;
+
+    const loginPromise = service.apiOAuthLoginWithFreshSessionForLoggedOutState(
+      {
+        accessToken: buildFakeJwt({ sub: 'user-a' }),
+        refreshToken: 'refresh-a',
+      },
+    );
+    await flushAsync(1);
+    expect(mockPersistKeylessAuthSession).not.toHaveBeenCalled();
+
+    isAnotherLoginCommitted = true;
+    releaseLock.resolve();
+    await lockHolder;
+
+    await expect(loginPromise).rejects.toThrow('login state changed');
+    expect(mockPersistKeylessAuthSession).not.toHaveBeenCalled();
+  });
+
+  it('does not persist or post when a local Keyless wallet already exists', async () => {
+    const { service, backgroundApi } = createService();
+    const post = jest.fn();
+    mockFreshOAuthLoginClient({ service, post });
+    backgroundApi.serviceAccount.getKeylessWallet.mockResolvedValue({
+      id: 'local-keyless-wallet',
+    });
+
+    await expect(
+      service.apiOAuthLoginWithFreshSessionForLoggedOutState({
+        accessToken: buildFakeJwt({ sub: 'user-a' }),
+        refreshToken: 'refresh-a',
+      }),
+    ).rejects.toThrow('local Keyless wallet now exists');
+
+    expect(mockPersistKeylessAuthSession).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
+  });
+
+  it('keeps the session without posting when a Keyless wallet appears during persistence', async () => {
+    const { service, backgroundApi } = createService();
+    const accessToken = buildFakeJwt({ sub: 'user-a' });
+    const post = jest.fn();
+    mockFreshOAuthLoginClient({ service, post });
+    backgroundApi.serviceAccount.getKeylessWallet
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({ id: 'local-keyless-wallet' });
+    await expect(
+      service.apiOAuthLoginWithFreshSessionForLoggedOutState({
+        accessToken,
+        refreshToken: 'refresh-a',
+      }),
+    ).rejects.toThrow('local Keyless wallet now exists');
+
+    expect(mockPersistKeylessAuthSession).toHaveBeenCalledWith({
+      accessToken,
+      refreshToken: 'refresh-a',
+    });
+    expect(post).not.toHaveBeenCalled();
+    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
+    expect(mockRevokeAuthSessionTokenOnServerBestEffort).not.toHaveBeenCalled();
+    expect(backgroundApi.serviceAccount.getKeylessWallet).toHaveBeenCalledTimes(
+      3,
+    );
+  });
+
+  it('preserves the session slot when setSession fails transiently', async () => {
+    const { service } = createService();
+    const post = jest.fn();
+    mockFreshOAuthLoginClient({ service, post });
+    const setSessionError = new OneKeyLocalError({
+      message: 'setSession temporarily unavailable',
+      httpStatusCode: 503,
+    });
+    mockPersistKeylessAuthSession.mockRejectedValueOnce(setSessionError);
+
+    await expect(
+      service.apiOAuthLoginWithFreshSessionForLoggedOutState({
+        accessToken: buildFakeJwt({ sub: 'user-a' }),
+        refreshToken: 'refresh-a',
+      }),
+    ).rejects.toBe(setSessionError);
+
+    expect(post).not.toHaveBeenCalled();
+    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
+    expect(mockRevokeAuthSessionTokenOnServerBestEffort).not.toHaveBeenCalled();
+  });
+
+  it('persists and commits the fresh session under the serialized login flow', async () => {
+    const { service } = createService();
+    const accessToken = buildFakeJwt({ sub: 'user-a' });
+    const post = jest.fn(async () => ({
+      data: {
+        data: {
+          userId: 'user-a',
+          onekeyAccount: {
+            onekeyUserId: 'user-a',
+            normalizedEmail: 'a@example.com',
+            displayEmail: 'a@example.com',
+          },
+        },
+      },
+    }));
+    mockFreshOAuthLoginClient({ service, post });
+
+    await service.apiOAuthLoginWithFreshSessionForLoggedOutState({
+      accessToken,
+      refreshToken: 'refresh-a',
+    });
+
+    expect(mockPersistKeylessAuthSession).toHaveBeenCalledWith({
+      accessToken,
+      refreshToken: 'refresh-a',
+    });
+    expect(post).toHaveBeenCalled();
+  });
+
+  it('keeps the uncommitted session and logged-out state after a definitive POST failure', async () => {
+    const { service, simpleDbPrime } = createService();
+    const accessToken = buildFakeJwt({ sub: 'user-a' });
+    const loginError = Object.assign(new Error('rejected'), {
+      httpStatusCode: 401,
+    });
+    const post = jest.fn(async () => Promise.reject(loginError));
+    mockFreshOAuthLoginClient({ service, post });
+    await expect(
+      service.apiOAuthLoginWithFreshSessionForLoggedOutState({
+        accessToken,
+        refreshToken: 'refresh-a',
+      }),
+    ).rejects.toBe(loginError);
+
+    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
+    expect(mockRevokeAuthSessionTokenOnServerBestEffort).not.toHaveBeenCalled();
+    expect(simpleDbPrime.setAuthSessionSource).not.toHaveBeenCalled();
+    expect(mockPrimePersistAtom.set).not.toHaveBeenCalled();
+    expect(emitSpy).not.toHaveBeenCalledWith(
+      EAppEventBusNames.KeylessAuthSessionCleared,
+      undefined,
+    );
+  });
+
+  it('does not clear a replacement session after a slot-replacement failure', async () => {
+    const { service } = createService();
+    const attemptedToken = buildFakeJwt({ sub: 'user-a', iat: 1 });
+    const replacementToken = buildFakeJwt({ sub: 'user-a', iat: 2 });
+    const loginError = Object.assign(new Error('rejected'), {
+      httpStatusCode: 401,
+    });
+    const post = jest.fn(async () => Promise.reject(loginError));
+    mockFreshOAuthLoginClient({ service, post });
+    mockReadPersistedAccessTokenBySessionSourceStrict
+      .mockResolvedValueOnce({ status: 'ok', accessToken: attemptedToken })
+      .mockResolvedValueOnce({ status: 'ok', accessToken: replacementToken });
+
+    await expect(
+      service.apiOAuthLoginWithFreshSessionForLoggedOutState({
+        accessToken: attemptedToken,
+        refreshToken: 'refresh-a',
+      }),
+    ).rejects.toBe(loginError);
+
+    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
+    expect(mockRevokeAuthSessionTokenOnServerBestEffort).not.toHaveBeenCalled();
+    expect(emitSpy).not.toHaveBeenCalledWith(
+      EAppEventBusNames.KeylessAuthSessionCleared,
+      undefined,
+    );
+  });
+
+  it.each([
+    {
+      name: 'transient failure',
+      error: Object.assign(new Error('temporary'), { httpStatusCode: 500 }),
+      slotToken: buildFakeJwt({ sub: 'user-a' }),
+    },
+    {
+      name: 'slot replacement',
+      error: undefined,
+      slotToken: buildFakeJwt({ sub: 'user-b' }),
+    },
+  ])('preserves the session on $name', async ({ error, slotToken }) => {
+    const { service } = createService();
+    const attemptedToken = buildFakeJwt({ sub: 'user-a' });
+    const post = jest.fn(async () => {
+      if (error) {
+        throw error;
+      }
+      return { data: { data: undefined } };
+    });
+    mockFreshOAuthLoginClient({ service, post });
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: slotToken,
+    });
+
+    await expect(
+      service.apiOAuthLoginWithFreshSessionForLoggedOutState({
+        accessToken: attemptedToken,
+        refreshToken: 'refresh-a',
+      }),
+    ).rejects.toBeDefined();
+
+    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
+    expect(mockRevokeAuthSessionTokenOnServerBestEffort).not.toHaveBeenCalled();
   });
 });

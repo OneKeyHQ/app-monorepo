@@ -62,7 +62,10 @@ function ExtOneKeyIdAuthOnMountCmp() {
             // on platforms that never run this flow.
             const { showOneKeyIdLegacyOAuthBindDialog } =
               await import('../../views/Prime/components/OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind');
-            await showOneKeyIdLegacyOAuthBindDialog();
+            await showOneKeyIdLegacyOAuthBindDialog({
+              type: 'check-required',
+              provider: flowInfo.provider,
+            });
           }
         } catch (error) {
           if (error instanceof PrimeLoginDialogCancelError) {
