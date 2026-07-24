@@ -102,6 +102,8 @@ function getExploreTabName(tab: ETranslations): IExploreTabName {
 }
 
 const styles = StyleSheet.create({
+  // iOS WKWebViews must stay in the native layout tree. In nested layouts,
+  // display:none can reload the page even though React keeps it mounted.
   webPageLayer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 3,
@@ -109,6 +111,14 @@ const styles = StyleSheet.create({
   webPageRootLayer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 3,
+  },
+  iosWebPageRootLayerVisible: {
+    opacity: 1,
+    zIndex: 3,
+  },
+  iosWebPageRootLayerHidden: {
+    opacity: 0,
+    zIndex: 0,
   },
   webPageRootToolbar: {
     position: 'absolute',
@@ -518,6 +528,16 @@ function MobileBrowser() {
 
   const displayBottomBar = !showDiscoveryPage;
   const shouldShowRootWebPageLayer = useOuterPager && isBrowserWebPageVisible;
+  const browserDashboardContent = (
+    <View
+      style={{
+        display: showDiscoveryPage ? 'flex' : 'none',
+        flex: showDiscoveryPage ? 1 : undefined,
+      }}
+    >
+      <DashboardContent onScroll={handleScroll} />
+    </View>
+  );
 
   return (
     <Page fullPage>
@@ -574,37 +594,35 @@ function MobileBrowser() {
               browserContent={
                 <Stack flex={1} zIndex={3}>
                   <Stack flex={1}>
-                    <View
-                      style={{
-                        display: showDiscoveryPage ? 'flex' : 'none',
-                        flex: showDiscoveryPage ? 1 : undefined,
-                      }}
-                    >
-                      <DashboardContent onScroll={handleScroll} />
-                    </View>
+                    {browserDashboardContent}
+                    {platformEnv.isNativeAndroid ? (
+                      <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
+                    ) : null}
                   </Stack>
                 </Stack>
               }
             />
-            {/* Keep the native WebView full-height while the toolbar reveals or
-                covers its bottom edge. Resizing the WebView during a scroll
+            {/* Keep native WebViews full-height while the toolbar reveals or
+                covers their bottom edge. Resizing a WebView during scroll
                 changes its viewport and causes a visible jump. */}
-            <View
-              collapsable={false}
-              pointerEvents={shouldShowRootWebPageLayer ? 'auto' : 'none'}
-              accessibilityElementsHidden={!shouldShowRootWebPageLayer}
-              importantForAccessibility={
-                shouldShowRootWebPageLayer ? 'auto' : 'no-hide-descendants'
-              }
-              style={[
-                styles.webPageRootLayer,
-                {
-                  display: shouldShowRootWebPageLayer ? 'flex' : 'none',
-                },
-              ]}
-            >
-              {content}
-            </View>
+            {platformEnv.isNativeIOS ? (
+              <View
+                collapsable={false}
+                pointerEvents={shouldShowRootWebPageLayer ? 'auto' : 'none'}
+                accessibilityElementsHidden={!shouldShowRootWebPageLayer}
+                importantForAccessibility={
+                  shouldShowRootWebPageLayer ? 'auto' : 'no-hide-descendants'
+                }
+                style={[
+                  styles.webPageRootLayer,
+                  shouldShowRootWebPageLayer
+                    ? styles.iosWebPageRootLayerVisible
+                    : styles.iosWebPageRootLayerHidden,
+                ]}
+              >
+                {content}
+              </View>
+            ) : null}
             <Freeze freeze={!displayBottomBar}>
               <Animated.View
                 pointerEvents={shouldShowRootWebPageLayer ? 'auto' : 'none'}
