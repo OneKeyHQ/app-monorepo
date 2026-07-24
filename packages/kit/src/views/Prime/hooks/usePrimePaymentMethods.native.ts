@@ -3,8 +3,10 @@ import { useCallback, useEffect, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import PurchasesReactNative, {
+  type CustomerInfo,
   INTRO_ELIGIBILITY_STATUS,
   LOG_LEVEL,
+  type PurchasesPackage,
 } from 'react-native-purchases';
 
 import { Dialog, Toast } from '@onekeyhq/components';
@@ -31,17 +33,16 @@ import {
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
 import primePaymentUtils from './primePaymentUtils';
+import {
+  configureRevenueCat,
+  getRevenueCatRecurringPriceUnit,
+} from './revenueCatNativeCompatibility.native';
 
 import type {
   IPackage,
   ISubscriptionPeriod,
   IUsePrimePayment,
 } from './usePrimePaymentTypes';
-import type {
-  CustomerInfo,
-  PurchasesPackage,
-} from '@revenuecat/purchases-typescript-internal';
-
 void (async () => {
   if (process.env.NODE_ENV !== 'production') {
     await PurchasesReactNative.setLogLevel(LOG_LEVEL.VERBOSE);
@@ -108,10 +109,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       // The native setupPurchases runs synchronously on main thread via TurboModule,
       // and performs heavy JSON decoding of cached CustomerInfo causing 5s+ AppHang.
       requestIdleCallback(() => {
-        PurchasesReactNative.configure({
-          apiKey,
-          // useAmazon: true
-        });
+        configureRevenueCat({ apiKey });
         setIsPaymentReady(true);
       });
     })();
@@ -216,14 +214,17 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     const availablePackages = offerings.current?.availablePackages || [];
     const iosIntroEligibleProductIds =
       await getIOSIntroEligibleProductIds(availablePackages);
+    const recurringPriceUnit = getRevenueCatRecurringPriceUnit();
 
     availablePackages.forEach((p) => {
       const { subscriptionPeriod } = p.product;
       const pricePerYear = primePaymentUtils.normalizeNativePrice(
         p.product.pricePerYear || 0,
+        recurringPriceUnit,
       );
       const pricePerMonth = primePaymentUtils.normalizeNativePrice(
         p.product.pricePerMonth || 0,
+        recurringPriceUnit,
       );
 
       const currencyCode = p.product.currencyCode || '';
@@ -334,7 +335,10 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
             subscriptionPeriod === 'P1Y'
               ? offering.product.pricePerYear
               : offering.product.pricePerMonth;
-          const amount = primePaymentUtils.normalizeNativePrice(rawPrice || 0);
+          const amount = primePaymentUtils.normalizeNativePrice(
+            rawPrice || 0,
+            getRevenueCatRecurringPriceUnit(),
+          );
 
           primePaymentUtils.trackPrimeSubscriptionSuccess({
             amount,

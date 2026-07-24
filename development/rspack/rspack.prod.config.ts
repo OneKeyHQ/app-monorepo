@@ -37,7 +37,7 @@ export function createProductionConfig({
 }: IProdConfigOptions): RspackOptions {
   const isExt = platform === developmentConsts.platforms.ext;
   const isWeb = platform === developmentConsts.platforms.web;
-  const shouldDropConsole = dropConsole ?? isWeb;
+  const shouldDropConsole = dropConsole ?? false;
   const rootPath = isExt
     ? path.join(basePath, 'build', getOutputFolder())
     : path.join(basePath, 'web-build');
@@ -70,8 +70,8 @@ export function createProductionConfig({
         new rspack.SwcJsMinimizerRspackPlugin({
           minimizerOptions: {
             compress: {
-              // Preserve the platform's webpack production behavior. Extension
-              // console output remains enabled unless explicitly overridden.
+              // Preserve dependency runtime logging; first-party console calls
+              // are stripped earlier by the scoped Babel rule.
               drop_console: shouldDropConsole,
             },
             mangle: {

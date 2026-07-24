@@ -1629,6 +1629,9 @@ export interface IEarnProvider {
 export type IEarnTransactionTip = {
   type: string;
   text: IEarnText;
+  // Optional second line rendered below `text` (e.g. Spark liquidity-request
+  // banner: title on `text`, subtitle on `description`).
+  description?: IEarnText;
   button?: IEarnActionIcon;
 };
 
@@ -2113,11 +2116,19 @@ export type IEarnPortfolioAsset = IEarnInvestmentItemV2['assets'][number] & {
   };
 };
 
+export type IEarnPortfolioClaimSymbolStatus =
+  | 'matched'
+  | 'ambiguous'
+  | 'unmatched';
+
 export type IEarnPortfolioAirdropAsset =
   IEarnAirdropInvestmentItemV2['assets'][number] & {
     // Metadata containing protocol and network information for this airdrop asset
     metadata: {
-      protocol: IEarnAirdropInvestmentItemV2['protocol'];
+      protocol: IEarnAirdropInvestmentItemV2['protocol'] & {
+        claimSymbol?: string;
+        claimSymbolStatus?: IEarnPortfolioClaimSymbolStatus;
+      };
       network: IEarnAirdropInvestmentItemV2['network'];
     };
   };
