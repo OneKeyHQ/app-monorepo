@@ -1,7 +1,10 @@
 import {
   assertUnifoldEchoMatches,
+  filterUnifoldExecutionsByRecipient,
   formatUnifoldTokenAmountValue,
   formatUnifoldUsdAmount,
+  parseUnifoldExecutionCreatedAtMs,
+  pickUnifoldDepositWallet,
 } from './unifoldDepositUtils';
 
 describe('formatUnifoldUsdAmount', () => {
@@ -112,5 +115,118 @@ describe('formatUnifoldTokenAmountValue', () => {
     expect(fmt('0', 6)).toBe('0');
     expect(fmt(null, 6)).toBeNull();
     expect(fmt('3300000', null)).toBeNull();
+  });
+});
+
+describe('parseUnifoldExecutionCreatedAtMs', () => {
+  it('accepts every format the contract leaves open', () => {
+    // Date string (what the API returns today).
+    expect(parseUnifoldExecutionCreatedAtMs('2026-07-22T08:13:37.181Z')).toBe(
+      Date.parse('2026-07-22T08:13:37.181Z'),
+    );
+    // Epoch seconds and epoch milliseconds, both as strings.
+    expect(parseUnifoldExecutionCreatedAtMs('1753248000')).toBe(
+      1_753_248_000_000,
+    );
+    expect(parseUnifoldExecutionCreatedAtMs('1753248000000')).toBe(
+      1_753_248_000_000,
+    );
+  });
+
+  it('returns null when the value cannot bound anything', () => {
+    // Callers must fail safe on null: never announce, never render a date.
+    expect(parseUnifoldExecutionCreatedAtMs(null)).toBeNull();
+    expect(parseUnifoldExecutionCreatedAtMs(undefined)).toBeNull();
+    expect(parseUnifoldExecutionCreatedAtMs('')).toBeNull();
+    expect(parseUnifoldExecutionCreatedAtMs('not-a-date')).toBeNull();
+    expect(parseUnifoldExecutionCreatedAtMs('0')).toBeNull();
+    expect(parseUnifoldExecutionCreatedAtMs('-1')).toBeNull();
+  });
+});
+
+describe('filterUnifoldExecutionsByRecipient', () => {
+  const RECIPIENT = '0x8dE690000000000000000000000000003c8eb0aa';
+  const row = (recipientAddress: string | null, executionId: string) => ({
+    recipientAddress,
+    executionId,
+  });
+
+  it('drops executions credited to a different recipient', () => {
+    // The response is not bound to the query parameter, so a mixed-up or
+    // rewritten payload must never reach the toast/render path.
+    const kept = filterUnifoldExecutionsByRecipient(
+      [
+        row(RECIPIENT, 'mine'),
+        row('0xdeadbeef00000000000000000000000000000000', 'someone-else'),
+      ],
+      RECIPIENT,
+    );
+    expect(kept.map((e) => e.executionId)).toEqual(['mine']);
+  });
+
+  it('compares case-insensitively', () => {
+    const kept = filterUnifoldExecutionsByRecipient(
+      [row(RECIPIENT.toUpperCase(), 'mine')],
+      RECIPIENT.toLowerCase(),
+    );
+    expect(kept).toHaveLength(1);
+  });
+
+  it('keeps null-recipient rows, which claim nothing', () => {
+    // recipientAddress is a nullable vendor passthrough; dropping these would
+    // hide the user's own in-flight deposits.
+    const kept = filterUnifoldExecutionsByRecipient(
+      [row(null, 'passthrough')],
+      RECIPIENT,
+    );
+    expect(kept).toHaveLength(1);
+  });
+});
+
+describe('pickUnifoldDepositWallet', () => {
+  const wallet = (chainType: string, address: string, isPrimary = false) => ({
+    chainType,
+    address,
+    isPrimary,
+  });
+
+  it('prefers the vendor primary over array order', () => {
+    const picked = pickUnifoldDepositWallet(
+      [
+        wallet('ethereum', '0xsecondary'),
+        wallet('ethereum', '0xprimary', true),
+      ],
+      'ethereum',
+    );
+    expect(picked?.address).toBe('0xprimary');
+  });
+
+  it('matches chain type case-insensitively across the two endpoints', () => {
+    const picked = pickUnifoldDepositWallet(
+      [wallet('Ethereum', '0xevm')],
+      'ethereum',
+    );
+    expect(picked?.address).toBe('0xevm');
+  });
+
+  it('falls back to the first match when no primary is flagged', () => {
+    const picked = pickUnifoldDepositWallet(
+      [wallet('solana', '0xsol'), wallet('solana', '0xsol2')],
+      'solana',
+    );
+    expect(picked?.address).toBe('0xsol');
+  });
+
+  it('returns null rather than an unrelated chain wallet', () => {
+    // A selected chain with no matching wallet must render "No address
+    // available", never an address for a different chain family.
+    expect(
+      pickUnifoldDepositWallet([wallet('ethereum', '0xevm')], 'solana'),
+    ).toBeNull();
+    expect(pickUnifoldDepositWallet([], 'ethereum')).toBeNull();
+    expect(pickUnifoldDepositWallet(undefined, 'ethereum')).toBeNull();
+    expect(
+      pickUnifoldDepositWallet([wallet('ethereum', '0xevm')], null),
+    ).toBeNull();
   });
 });

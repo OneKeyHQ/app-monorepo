@@ -181,7 +181,10 @@ export function showPerpsUnifoldDepositMenuDialog({
         <MenuActionRow
           icon="QrCodeOutline"
           title="Transfer Crypto"
-          subtitle="No limit • Instant"
+          // Never "No limit": below-minimum deposits have no refund endpoint
+          // (contract §4-5), and the minimum is per-chain, so it can only be
+          // stated on the next screen once a chain is selected.
+          subtitle="Minimum varies by chain • Instant"
           hint={<TransferChainHintLogos />}
           onPress={() => {
             void closeThenRun('transfer');

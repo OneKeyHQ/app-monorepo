@@ -108,3 +108,10 @@ export interface IUnifoldActivationStatus {
 // Wallet-service error codes for this feature (contract v1.1 §2.6).
 export const UNIFOLD_ERROR_CODE_FEATURE_DISABLED = 14_101;
 export const UNIFOLD_ERROR_CODE_GEO_BLOCKED = 14_102;
+
+// Client-side code, never sent by the server: the background service rejected
+// a deposit-address request whose recipient is not the active perps account.
+// Carried as a `code` so the UI can fail closed on it instead of treating an
+// un-coded throw as a transient network error and retrying it forever. Kept
+// far outside the wallet-service range so it can never collide with one.
+export const UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH = 914_101;

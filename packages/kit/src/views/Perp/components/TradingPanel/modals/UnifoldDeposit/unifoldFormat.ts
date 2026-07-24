@@ -1,7 +1,10 @@
 // cspell: words unifold Unifold
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import { formatUnifoldTokenAmountValue } from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
+import {
+  formatUnifoldTokenAmountValue,
+  parseUnifoldExecutionCreatedAtMs,
+} from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
 import type { IUnifoldDepositExecution } from '@onekeyhq/shared/types/unifoldDeposit';
 
 // `terminal` covers succeeded as well, so it can never stand in for "went
@@ -111,14 +114,19 @@ export function formatUnifoldChainName({
   return chainType || '—';
 }
 
+// Shares the bg loop's parser: `createdAt` has no pinned format (epoch
+// seconds, epoch ms, or a date string), and `new Date('1753248000')` is an
+// Invalid Date. Parsing it differently here would have shown a dash on every
+// row while the bg discovery window read the same field correctly.
 export function formatUnifoldExecutionDate(
   createdAt: string | null | undefined,
 ): string {
-  if (!createdAt) {
+  const parsedMs = parseUnifoldExecutionCreatedAtMs(createdAt);
+  if (parsedMs === null) {
     return '—';
   }
   try {
-    return formatDate(new Date(createdAt));
+    return formatDate(new Date(parsedMs));
   } catch {
     return '—';
   }

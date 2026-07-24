@@ -189,7 +189,16 @@ export function UnifoldExecutionStatusCards({
                 execution.destinationAmountUsd ?? execution.sourceAmountUsd,
               )}
             </SizableText>
-            {!execution.terminal ? (
+            {/* Only when the vendor actually gave an estimate for the chain in
+                play, and never for `delayed`: that status means the deposit is
+                already past its normal window, so an optimistic ETA here would
+                contradict the "taking longer than usual" subtitle rendered a
+                few pixels to the left. Without the guard a missing estimate
+                rendered a confident "Est. < 1 min" for every pending deposit. */}
+            {!execution.terminal &&
+            execution.status !== 'delayed' &&
+            typeof estimatedProcessingTimeSeconds === 'number' &&
+            estimatedProcessingTimeSeconds > 0 ? (
               <SizableText
                 size="$bodySm"
                 color="$textInverseSubdued"
