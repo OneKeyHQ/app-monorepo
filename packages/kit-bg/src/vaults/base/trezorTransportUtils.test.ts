@@ -154,6 +154,51 @@ describe('callTrezorWithBleFallback', () => {
     expect(requestBleConnectId).not.toHaveBeenCalled();
   });
 
+  it('does not rebind a bonded device that is merely locked (GATT unreachable)', async () => {
+    const lockedFailure = {
+      success: false as const,
+      payload: {
+        code: HardwareErrorCode.BleConnectFailed,
+        error:
+          'Trezor BLE connect failed: X (Device is unreachable while discovering services)',
+      },
+    };
+    const fn = jest.fn(async () => lockedFailure);
+    const requestBleConnectId = jest.fn(async () => 'BLE_CONNECT_ID');
+
+    await expect(
+      callTrezorWithBleFallback(dbDevice, fn, { requestBleConnectId }),
+    ).resolves.toBe(lockedFailure);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(requestBleConnectId).not.toHaveBeenCalled();
+  });
+
+  it('still rebinds when BleConnectFailed is a dead/rotated address (link never came up)', async () => {
+    const fn = jest
+      .fn()
+      .mockResolvedValueOnce({
+        success: false,
+        payload: {
+          code: HardwareErrorCode.BleConnectFailed,
+          error:
+            'Trezor BLE connect failed: X (connect timed out after 31000ms)',
+        },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        payload: { address: '0x1234' },
+      });
+    const requestBleConnectId = jest.fn(async () => 'BLE_CONNECT_ID');
+
+    const result = await callTrezorWithBleFallback(dbDevice, fn, {
+      requestBleConnectId,
+    });
+
+    expect(result).toEqual({ success: true, payload: { address: '0x1234' } });
+    expect(fn).toHaveBeenCalledTimes(2);
+    expect(requestBleConnectId).toHaveBeenCalled();
+  });
+
   it('requests BLE binding from SDK-recognized display model names', async () => {
     const safe7DisplayNameOnlyDevice = {
       ...dbDevice,

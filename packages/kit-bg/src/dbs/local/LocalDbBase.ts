@@ -5722,16 +5722,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       vendor,
     });
 
-    // When device-identity matching finds nothing, let the service layer
-    // resolve a device to reuse (e.g. third-party same-mnemonic re-bind by
-    // XFP). Vendor-specific rules live in the service; the DB layer only
-    // invokes the injected callback and looks the device up.
-    if (!existingDevice && params.resolveReuseDeviceIdFn) {
-      const reuseDeviceId = await params.resolveReuseDeviceIdFn();
-      if (reuseDeviceId) {
-        const { devices } = await this.getAllDevices();
-        existingDevice = devices.find((d) => d.id === reuseDeviceId);
-      }
+    // When identity matching finds nothing, let the upper layer point at an
+    // existing device row to reuse (e.g. third-party same-mnemonic re-bind by
+    // XFP). The rule lives in the caller; the DB layer just passes the identity
+    // context it already computed and takes back the row to reuse.
+    if (!existingDevice && params.resolveReuseDeviceFn) {
+      existingDevice = await params.resolveReuseDeviceFn({
+        vendor,
+        features,
+        rawDeviceId,
+        deviceUUID,
+      });
     }
 
     const dbDeviceId = existingDevice?.id || accountUtils.buildDeviceDbId();

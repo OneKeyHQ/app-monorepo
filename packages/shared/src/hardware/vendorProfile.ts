@@ -47,6 +47,12 @@ export interface IHardwareVendorProfile {
   /** Whether a connectId can be used to identify an existing device.
    *  BLE: persistent (MAC/UUID). USB: ephemeral, won't match anything anyway. */
   canMatchDeviceByConnectId(connectId: string): boolean;
+  /**
+   * On identity miss, whether a seed (XFP) match reuses the existing device row
+   * instead of duplicating. Single gate for the seed-rebind hook — set per
+   * vendor here, no scattered `vendor === x` checks.
+   */
+  treatsSameSeedAsSameDevice: boolean;
 }
 
 const onekeyProfile: IHardwareVendorProfile = {
@@ -71,6 +77,7 @@ const onekeyProfile: IHardwareVendorProfile = {
   addAccountDefaultNetworkMode: 'onekeyDefault',
   // OneKey always has device_id, so this path isn't used
   canMatchDeviceByConnectId: () => true,
+  treatsSameSeedAsSameDevice: false,
 };
 
 const ledgerProfile: IHardwareVendorProfile = {
@@ -95,6 +102,8 @@ const ledgerProfile: IHardwareVendorProfile = {
   addAccountDefaultNetworkMode: 'ledgerAppAware',
   // BLE: DMK transport path (MAC/UUID), persistent. USB: ephemeral UUID, never matches.
   canMatchDeviceByConnectId: (connectId) => Boolean(connectId),
+  // Two same-seed Ledgers are distinct devices; never merge them by seed.
+  treatsSameSeedAsSameDevice: false,
 };
 
 // Trezor THP (Safe 7) — the only Trezor firmware we currently support. PIN
@@ -130,6 +139,8 @@ const trezorProfile: IHardwareVendorProfile = {
   supportsHiddenWalletCreation: true,
   addAccountDefaultNetworkMode: 'onekeyDefault',
   canMatchDeviceByConnectId: (connectId) => Boolean(connectId),
+  // A wipe changes device_id; the re-flashed same-seed device re-binds its wallet.
+  treatsSameSeedAsSameDevice: true,
 };
 
 const vendorProfiles: Record<EHardwareVendor, IHardwareVendorProfile> = {

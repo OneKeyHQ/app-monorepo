@@ -3753,21 +3753,19 @@ class ServiceAccount extends ServiceBase {
                 compatibleConnectId,
               )
           : undefined,
-      // Third-party standard wallet: when device-identity matching misses
-      // (e.g. a wiped Trezor whose device_id changed), re-bind the old wallet
-      // by seed (XFP) instead of duplicating. Rule lives in the service.
-      resolveReuseDeviceIdFn:
-        vendorProfile?.isThirdParty && !passphraseState
-          ? async () =>
-              this.backgroundApi.serviceThirdPartyHardware.resolveRebindDeviceId(
-                {
-                  xfp,
-                  vendor,
-                  deviceType: await deviceUtils.getDeviceTypeFromFeatures({
-                    features,
-                  }),
-                },
-              )
+      // Seed-rebind on identity miss, gated by vendor capability (Trezor only
+      // today; Ledger/OneKey opt out via profile). xfp is closed over (SDK-
+      // derived, absent from the DB layer); the rest comes from the hook ctx.
+      resolveReuseDeviceFn:
+        vendorProfile?.treatsSameSeedAsSameDevice && !passphraseState
+          ? async (ctx) =>
+              this.backgroundApi.serviceThirdPartyHardware.resolveRebindDevice({
+                xfp,
+                vendor: ctx.vendor,
+                deviceType: await deviceUtils.getDeviceTypeFromFeatures({
+                  features: ctx.features,
+                }),
+              })
           : undefined,
       transportType,
     });

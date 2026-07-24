@@ -33,20 +33,39 @@ export type ICallTrezorWithBleFallbackOptions = {
 
 type ITrezorTransportFailurePayload = {
   code?: unknown;
+  // SDK failure text; used to tell a locked device from a dead address, since
+  // both surface as the same BleConnectFailed code.
+  error?: unknown;
 };
+
+// A locked/busy device answers the BLE link but fails GATT service discovery;
+// the SDK reports BleConnectFailed with "unreachable while discovering
+// services". The device is bonded and in range — just locked — so re-binding
+// can't help and only pops a pointless pairing dialog. This is distinct from a
+// dead/rotated address, which fails BEFORE the link comes up. Heuristic on the
+// SDK message for now; a dedicated sub-code would be sturdier.
+function isTrezorDeviceUnresponsiveFailure(
+  payload?: ITrezorTransportFailurePayload,
+): boolean {
+  const text =
+    typeof payload?.error === 'string' ? payload.error.toLowerCase() : '';
+  return text.includes('unreachable while discovering services');
+}
 
 function isTrezorTransportDownFailure(
   payload?: ITrezorTransportFailurePayload,
 ): boolean {
   const code = payload?.code;
-  // BleConnectFailed: the BLE link never came up (noble connect timeout) —
-  // transport-down by definition; without it the recovery ladder is dead in
-  // BLE sessions.
+  // BleConnectFailed spans two cases: a dead/rotated address (link never came
+  // up → rebind helps) and a locked device (link up, GATT unreachable → rebind
+  // is wrong, it just needs unlocking). Only the former is transport-down.
+  if (code === HardwareErrorCode.BleConnectFailed) {
+    return !isTrezorDeviceUnresponsiveFailure(payload);
+  }
   return (
     code === HardwareErrorCode.DeviceDisconnected ||
     code === HardwareErrorCode.DeviceNotFound ||
-    code === HardwareErrorCode.TransportError ||
-    code === HardwareErrorCode.BleConnectFailed
+    code === HardwareErrorCode.TransportError
   );
 }
 

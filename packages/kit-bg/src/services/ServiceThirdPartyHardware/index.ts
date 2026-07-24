@@ -635,16 +635,21 @@ class ServiceThirdPartyHardware extends ServiceBase {
    * matching finds nothing (e.g. a Trezor was wiped and its device_id changed),
    * resolve the existing device to reuse by seed (XFP) + model, so the old
    * (possibly deprecated) wallet is reused instead of creating a duplicate.
-   * Injected into createHwWallet via resolveReuseDeviceIdFn. Returns the device
-   * id to reuse, or undefined to create a new device.
+   * Wired into createHwWallet as the resolveReuseDeviceFn hook. Returns the
+   * device row to reuse, or undefined to create a new device.
    */
-  async resolveRebindDeviceId(params: {
+  async resolveRebindDevice(params: {
     xfp: string | undefined;
     vendor: EHardwareVendor | undefined;
     deviceType: IDBDevice['deviceType'];
-  }): Promise<string | undefined> {
+  }): Promise<IDBDevice | undefined> {
     const { xfp, vendor, deviceType } = params;
-    if (!xfp || !vendor || !getVendorProfile(vendor)?.isThirdParty) {
+    // Gated by vendor capability, not a hardcoded vendor (see vendorProfile).
+    if (
+      !xfp ||
+      !vendor ||
+      !getVendorProfile(vendor)?.treatsSameSeedAsSameDevice
+    ) {
       return undefined;
     }
     const db = this.backgroundApi.localDb;
@@ -658,7 +663,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
       devices,
       vendor,
       deviceType,
-    })?.id;
+    });
   }
 
   /**
