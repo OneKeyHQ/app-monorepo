@@ -3,7 +3,7 @@ import type {
   IMarketTokenKLineResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
-import type { ITradingViewNativeKLineInterval } from './tradingViewNativeIntervals';
+import type { ITradingViewNativeKLineInterval } from '../tradingViewNativeIntervals';
 
 export interface ITradingViewNativeHistoryRequest {
   interval: ITradingViewNativeKLineInterval;
@@ -34,17 +34,20 @@ export interface ITradingViewNativeHistoryResponse extends IMarketTokenKLineResp
   historySource?: 'fallback';
 }
 
-export interface ITradingViewNativeDataProvider {
+export interface ITradingViewNativeHistoryDataProvider {
   getHistoryRequestCandleCount: (
     interval: ITradingViewNativeKLineInterval,
   ) => number;
   hasMoreHistory: (page: ITradingViewNativeHistoryPageInfo) => boolean;
-  isReady: boolean;
-  key: string;
-  supportsRealtime: boolean;
   fetchHistory: (
     request: ITradingViewNativeHistoryRequest,
   ) => Promise<ITradingViewNativeHistoryResponse | null>;
+}
+
+export interface ITradingViewNativeDataProvider extends ITradingViewNativeHistoryDataProvider {
+  isReady: boolean;
+  key: string;
+  supportsRealtime: boolean;
   subscribeRealtime: (
     request: ITradingViewNativeRealtimeSubscriptionRequest,
   ) => Promise<ITradingViewNativeRealtimeSubscription | null>;

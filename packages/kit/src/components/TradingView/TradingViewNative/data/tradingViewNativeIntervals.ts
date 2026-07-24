@@ -1,4 +1,4 @@
-import type { IHyperliquidCandleInterval } from './hyperliquidCandleUtils';
+import type { IHyperliquidCandleInterval } from './providers/hyperliquid/hyperliquidCandleUtils';
 import type { ITradingViewIntervalOption } from '../../TradingViewChartControls/types';
 
 export type ITradingViewNativeChartInterval =

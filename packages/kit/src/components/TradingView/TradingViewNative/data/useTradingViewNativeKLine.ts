@@ -8,7 +8,7 @@ import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
-import { createTradingViewNativeDataProvider } from './createTradingViewNativeDataProvider';
+import { createTradingViewNativeDataProvider } from './providers/createTradingViewNativeDataProvider';
 import { logTradingViewNativeDataError } from './tradingViewNativeDataLogger';
 import {
   DEFAULT_TRADING_VIEW_NATIVE_KLINE_INTERVAL,
@@ -16,7 +16,7 @@ import {
   getTradingViewNativeKLineInterval,
 } from './tradingViewNativeIntervals';
 
-import type { ITradingViewNativeRealtimeSubscription } from './tradingViewNativeDataProviderTypes';
+import type { ITradingViewNativeRealtimeSubscription } from './providers/types';
 import type { ITradingViewNativeChartInterval } from './tradingViewNativeIntervals';
 import type {
   ITradingViewNativeDataState,
