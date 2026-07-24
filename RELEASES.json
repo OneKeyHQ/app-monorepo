@@ -34,5 +34,21 @@
       "#12561"
     ],
     "notes": "Use Hyperliquid Fast L2 order book subscriptions (#12477); recognize Robinhood wrapped token pair (#12561); add configurable haptic feedback (#12549); pass Perps deposit order ID to status request (#12541); unify security checks and transaction preview (#12471); support Permit2 approvals and revocation (#12473); backport device capability tiers for v6.5.0 (#12475); resolve five release 6.5.0 issues (#12506); adjust native browser header spacing (#12516); prevent false DApp WebView timeout (#12509); refine Perps locale labels (#12519)"
+  },
+  {
+    "seq": 3,
+    "commit": "5d1872fb0684b9605f29e723b9feb527745fd082",
+    "date": "2026-07-24T09:43:18Z",
+    "prs": [
+      "#12528",
+      "#12576",
+      "#12578",
+      "#12581",
+      "#12594",
+      "#12595",
+      "#12603",
+      "#12609"
+    ],
+    "notes": "Add stock market data to Perps (#12528); sync mnemonic word count after paste (#12576); add device timezone analytics properties (#12578); preserve browser WebViews across tab switches (#12581); prevent browser toolbar scroll jump (#12594); deduplicate all-network worth summing and trust PancakeSwap Permit2 (#12595); stabilize market loading fallback (#12603); add Perps conversion funnel analytics (#12609)"
   }
 ]

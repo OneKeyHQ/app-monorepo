@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { Freeze } from 'react-freeze';
 import { StyleSheet, View } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 
@@ -17,8 +18,17 @@ import {
 import { captureViewRefs } from '../../utils/explorerUtils';
 
 const styles = StyleSheet.create({
+  // Opacity preserves the iOS WKWebView instance when switching tabs.
   webPageLayer: {
     ...StyleSheet.absoluteFillObject,
+  },
+  iosWebPageLayerVisible: {
+    opacity: 1,
+    zIndex: 1,
+  },
+  iosWebPageLayerHidden: {
+    opacity: 0,
+    zIndex: 0,
   },
 });
 
@@ -103,6 +113,37 @@ function MobileBrowserContent({
     if (!keepAlive || !shouldMountWebView) {
       return null;
     }
+    const webView = (
+      <ViewShot ref={initCaptureViewRef} style={{ flex: 1 }}>
+        <Stack
+          flex={1}
+          mt="$3"
+          // https://github.com/gre/react-native-view-shot/issues/7
+          collapsable={platformEnv.isNativeAndroid ? false : undefined}
+          bg={platformEnv.isNativeAndroid ? '$bgApp' : undefined}
+        >
+          <WebContent
+            id={tab.id}
+            url={webViewInitialUrl}
+            siteMode={tab.siteMode}
+            isCurrent={isCurrent}
+            setBackEnabled={setBackEnabled}
+            setForwardEnabled={setForwardEnabled}
+            onScroll={onScroll}
+            customReceiveHandler={customReceiveHandler}
+          />
+        </Stack>
+      </ViewShot>
+    );
+
+    if (platformEnv.isNativeAndroid) {
+      return (
+        <Freeze key={tab.id} freeze={!isActive}>
+          {webView}
+        </Freeze>
+      );
+    }
+
     return (
       <View
         key={tab.id}
@@ -110,28 +151,14 @@ function MobileBrowserContent({
         pointerEvents={isActive ? 'auto' : 'none'}
         accessibilityElementsHidden={!isActive}
         importantForAccessibility={isActive ? 'auto' : 'no-hide-descendants'}
-        style={[styles.webPageLayer, { display: isActive ? 'flex' : 'none' }]}
+        style={[
+          styles.webPageLayer,
+          isActive
+            ? styles.iosWebPageLayerVisible
+            : styles.iosWebPageLayerHidden,
+        ]}
       >
-        <ViewShot ref={initCaptureViewRef} style={{ flex: 1 }}>
-          <Stack
-            flex={1}
-            mt="$3"
-            // https://github.com/gre/react-native-view-shot/issues/7
-            collapsable={platformEnv.isNativeAndroid ? false : undefined}
-            bg={platformEnv.isNativeAndroid ? '$bgApp' : undefined}
-          >
-            <WebContent
-              id={tab.id}
-              url={webViewInitialUrl}
-              siteMode={tab.siteMode}
-              isCurrent={isCurrent}
-              setBackEnabled={setBackEnabled}
-              setForwardEnabled={setForwardEnabled}
-              onScroll={onScroll}
-              customReceiveHandler={customReceiveHandler}
-            />
-          </Stack>
-        </ViewShot>
+        {webView}
       </View>
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
