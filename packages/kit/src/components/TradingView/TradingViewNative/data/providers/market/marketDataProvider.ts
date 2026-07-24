@@ -11,30 +11,24 @@ import {
 import type { IMarketWsDataUpdatePayload } from '@onekeyhq/shared/types/marketV2';
 
 import {
-  clearCoinGeckoKLineDataCache,
-  createCoinGeckoKLineDataFetcher,
-} from './coinGeckoKLineData';
-import { getCoinGeckoHistoryRequestCandleCount } from './coinGeckoKLineUtils';
-import {
   getTradingViewNativeMarketTokenKey,
   getTradingViewNativeSourceKey,
-} from './getTradingViewNativeSource';
-import { logTradingViewNativeDataError } from './tradingViewNativeDataLogger';
-import { tradingViewNativeHyperliquidGateway } from './tradingViewNativeHyperliquidGateway';
+} from '../../getTradingViewNativeSource';
+import { logTradingViewNativeDataError } from '../../tradingViewNativeDataLogger';
 
+import type { ITradingViewNativeSource } from '../../../types';
 import type {
   ITradingViewNativeDataProvider,
+  ITradingViewNativeHistoryDataProvider,
   ITradingViewNativeRealtimeSubscription,
   ITradingViewNativeRealtimeSubscriptionRequest,
-} from './tradingViewNativeDataProviderTypes';
-import type { ITradingViewNativeSource } from '../types';
+} from '../types';
 
 const MARKET_WS_CURRENCY = 'usd';
 const MARKET_CONTRACT_HISTORY_PAGE_SIZE = 299;
 const MARKET_NATIVE_HISTORY_PAGE_SIZE = 200;
 const MARKET_HISTORY_REQUEST_CANDLE_COUNT = 2000;
 const MARKET_HISTORY_SOURCE_CACHE_MAX_SIZE = 100;
-const HYPERLIQUID_HISTORY_BATCH_SIZE = 5000;
 
 // This main-runtime cache survives chart remounts and resets with the UI runtime.
 const unavailableMarketHistoryTokenKeys = new Set<string>();
@@ -57,29 +51,23 @@ function cacheUnavailableMarketHistoryTokenKey(tokenKey: string) {
   }
 }
 
-export function clearTradingViewNativeDataProviderCache() {
+export function clearTradingViewNativeMarketDataProviderCache() {
   unavailableMarketHistoryTokenKeys.clear();
-  clearCoinGeckoKLineDataCache();
 }
 
 function normalizeMarketWsSymbol(symbol: string) {
   return symbol.trim().toUpperCase();
 }
 
-function createMarketDataProvider(
-  source: Extract<ITradingViewNativeSource, { kind: 'market' }>,
-): ITradingViewNativeDataProvider {
+export function createTradingViewNativeMarketDataProvider({
+  fallbackHistoryProvider,
+  source,
+}: {
+  fallbackHistoryProvider: ITradingViewNativeHistoryDataProvider;
+  source: Extract<ITradingViewNativeSource, { kind: 'market' }>;
+}): ITradingViewNativeDataProvider {
   const marketTokenKey = getTradingViewNativeMarketTokenKey(source);
   const normalizedFallbackCoinGeckoId = source.fallbackCoinGeckoId?.trim();
-  const fetchCoinGeckoHistory = createCoinGeckoKLineDataFetcher(
-    normalizedFallbackCoinGeckoId
-      ? { coinGeckoId: normalizedFallbackCoinGeckoId }
-      : {
-          networkId: source.networkId,
-          tokenAddress: source.tokenAddress,
-          tokenKey: marketTokenKey,
-        },
-  );
   const canUseMarketHistory = Boolean(
     source.networkId && (source.tokenAddress || source.symbol),
   );
@@ -99,12 +87,13 @@ function createMarketDataProvider(
   return {
     getHistoryRequestCandleCount: (interval) =>
       primaryHistoryUnavailable
-        ? getCoinGeckoHistoryRequestCandleCount(interval)
+        ? fallbackHistoryProvider.getHistoryRequestCandleCount(interval)
         : MARKET_HISTORY_REQUEST_CANDLE_COUNT,
-    hasMoreHistory: ({ historySource, receivedPointCount }) =>
-      historySource !== 'fallback' &&
-      !primaryHistoryUnavailable &&
-      receivedPointCount >= marketHistoryPageSize,
+    hasMoreHistory: (page) =>
+      page.historySource === 'fallback'
+        ? fallbackHistoryProvider.hasMoreHistory(page)
+        : !primaryHistoryUnavailable &&
+          page.receivedPointCount >= marketHistoryPageSize,
     isReady: canUseMarketHistory || Boolean(normalizedFallbackCoinGeckoId),
     key: getTradingViewNativeSourceKey(source),
     supportsRealtime: source.realtime === 'websocket',
@@ -122,16 +111,16 @@ function createMarketDataProvider(
           timeFrom: number;
           timeTo: number;
         }) => {
-          const coinGeckoTimeFrom = Math.max(
+          const fallbackTimeFrom = Math.max(
             fallbackRequest.timeTo -
               interval.seconds *
-                getCoinGeckoHistoryRequestCandleCount(interval),
+                fallbackHistoryProvider.getHistoryRequestCandleCount(interval),
             0,
           );
-          return fetchCoinGeckoHistory({
+          return fallbackHistoryProvider.fetchHistory({
             interval,
             signal,
-            timeFrom: Math.min(fallbackRequest.timeFrom, coinGeckoTimeFrom),
+            timeFrom: Math.min(fallbackRequest.timeFrom, fallbackTimeFrom),
             timeTo: fallbackRequest.timeTo,
           });
         },
@@ -289,45 +278,4 @@ function createMarketDataProvider(
       };
     },
   };
-}
-
-function createHyperliquidDataProvider(
-  source: Extract<ITradingViewNativeSource, { kind: 'hyperliquid' }>,
-): ITradingViewNativeDataProvider {
-  return {
-    getHistoryRequestCandleCount: () => HYPERLIQUID_HISTORY_BATCH_SIZE,
-    hasMoreHistory: ({ receivedPointCount }) =>
-      receivedPointCount >= HYPERLIQUID_HISTORY_BATCH_SIZE,
-    isReady: Boolean(source.coin),
-    key: getTradingViewNativeSourceKey(source),
-    supportsRealtime: true,
-    fetchHistory: ({ interval, signal, timeFrom, timeTo }) =>
-      tradingViewNativeHyperliquidGateway.fetchCandles({
-        coin: source.coin,
-        environment: source.environment,
-        interval: interval.hyperliquidValue,
-        signal,
-        timeFrom,
-        timeTo,
-      }),
-    subscribeRealtime: ({ interval, onPoint, signal, subscriberId }) =>
-      signal.aborted
-        ? Promise.resolve(null)
-        : tradingViewNativeHyperliquidGateway.subscribeCandle({
-            coin: source.coin,
-            environment: source.environment,
-            interval: interval.hyperliquidValue,
-            listener: onPoint,
-            subscriberId,
-          }),
-  };
-}
-
-export function createTradingViewNativeDataProvider(
-  source: ITradingViewNativeSource,
-): ITradingViewNativeDataProvider {
-  if (source.kind === 'hyperliquid') {
-    return createHyperliquidDataProvider(source);
-  }
-  return createMarketDataProvider(source);
 }

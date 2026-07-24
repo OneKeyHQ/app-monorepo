@@ -18,7 +18,7 @@ import type {
 import { normalizeHyperliquidCandle } from './hyperliquidCandleUtils';
 
 import type { IHyperliquidCandleInterval } from './hyperliquidCandleUtils';
-import type { ITradingViewNativeHyperliquidEnvironment } from '../types';
+import type { ITradingViewNativeHyperliquidEnvironment } from '../../../types';
 
 type IHyperliquidCandleListener = (point: IMarketTokenKLineDataPoint) => void;
 
