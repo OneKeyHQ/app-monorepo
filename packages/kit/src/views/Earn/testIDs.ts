@@ -27,6 +27,12 @@ export const EarnTestIDs = {
     `earn-flat-asset-category-dialog-${category}`,
   flatAssetDialogItem: (category: string, symbol: string) =>
     `earn-flat-asset-dialog-${category}-${symbol}`,
+  flatAssetDialogNetworkFilter: (category: string) =>
+    `earn-flat-asset-dialog-network-filter-${category}`,
+  flatAssetDialogSort: (category: string) =>
+    `earn-flat-asset-dialog-sort-${category}`,
+  flatAssetDialogSortOption: (category: string, sortKey: string) =>
+    `earn-flat-asset-dialog-sort-${category}-${sortKey}`,
   assetSearchInput: 'earn-asset-search-input',
   marketSelector: 'earn-market-selector',
 

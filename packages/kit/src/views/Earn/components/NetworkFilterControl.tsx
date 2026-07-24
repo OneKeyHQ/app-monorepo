@@ -23,6 +23,8 @@ interface INetworkFilterControlProps {
   selectedNetworkIds: string[];
   networkAssetCounts: Record<string, number>;
   onSelectionChange: (networkIds: string[]) => void;
+  testID?: string;
+  variant?: 'default' | 'compact';
 }
 
 function NetworkFilterControl({
@@ -30,6 +32,8 @@ function NetworkFilterControl({
   selectedNetworkIds,
   networkAssetCounts,
   onSelectionChange,
+  testID,
+  variant = 'default',
 }: INetworkFilterControlProps) {
   const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
@@ -70,6 +74,29 @@ function NetworkFilterControl({
   }, [onSelectionChange]);
 
   const hasActiveFilter = selectedNetworkIds.length > 0;
+  const isCompact = variant === 'compact';
+  const singleSelectedNetworkId =
+    selectedNetworkIds.length === 1 ? selectedNetworkIds[0] : undefined;
+  let compactLeadingIcon;
+  if (isCompact) {
+    if (singleSelectedNetworkId) {
+      compactLeadingIcon = (
+        <NetworkAvatar networkId={singleSelectedNetworkId} size="$4" />
+      );
+    } else {
+      compactLeadingIcon = (
+        <Icon name="GlobusOutline" size="$4" color="$iconSubdued" />
+      );
+    }
+  }
+  let buttonTextSize: '$bodySmMedium' | '$bodyMdMedium' | '$bodyMd' = '$bodyMd';
+  let buttonTextColor: '$textSubdued' | '$text' = '$textSubdued';
+  if (isCompact) {
+    buttonTextSize = '$bodySmMedium';
+  } else if (hasActiveFilter) {
+    buttonTextSize = '$bodyMdMedium';
+    buttonTextColor = '$text';
+  }
 
   const buttonLabel = useMemo(() => {
     if (selectedNetworkIds.length === 0) {
@@ -95,16 +122,24 @@ function NetworkFilterControl({
       open={isOpen}
       onOpenChange={setIsOpen}
       renderTrigger={
-        <XStack ai="center" gap="$2" cursor="pointer">
+        <XStack
+          testID={testID}
+          ai="center"
+          gap={isCompact ? '$1' : '$2'}
+          cursor="pointer"
+          userSelect="none"
+        >
+          {compactLeadingIcon}
           <SizableText
-            size={hasActiveFilter ? '$bodyMdMedium' : '$bodyMd'}
-            color={hasActiveFilter ? '$text' : '$textSubdued'}
+            size={buttonTextSize}
+            color={buttonTextColor}
+            numberOfLines={1}
           >
             {buttonLabel}
           </SizableText>
           <Icon
             name={isOpen ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'}
-            size="$4.5"
+            size={isCompact ? '$4' : '$4.5'}
             color="$iconSubdued"
           />
         </XStack>

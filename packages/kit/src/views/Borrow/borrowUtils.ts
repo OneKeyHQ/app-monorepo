@@ -9,6 +9,7 @@ import {
   EModalRoutes,
   EModalStakingRoutes,
   ETabEarnRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
@@ -21,7 +22,15 @@ import type { IntlShape } from 'react-intl';
 
 export const BorrowNavigation = {
   pushToBorrowHome(navigation: IAppNavigation) {
-    void safePushToEarnRoute(navigation, ETabEarnRoutes.BorrowHome);
+    if (platformEnv.isNative) {
+      void safePushToEarnRoute(navigation, ETabEarnRoutes.BorrowHome);
+      return;
+    }
+
+    navigation.navigate(ETabRoutes.Earn, {
+      screen: ETabEarnRoutes.EarnHome,
+      params: { mode: 'borrow' },
+    });
   },
 
   // Navigate from deep link (when user clicks a borrow share link)

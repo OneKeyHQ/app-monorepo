@@ -1,8 +1,9 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  ActionList,
   Badge,
   Dialog,
   Icon,
@@ -12,6 +13,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IActionListItemProps } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
@@ -24,12 +26,99 @@ import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { useNavigateToEarnAsset } from '../hooks/useNavigateToEarnAsset';
 import { EarnTestIDs } from '../testIDs';
+import {
+  filterAndSortAvailableAssets,
+  getAvailableAssetNetworkData,
+} from '../utils/availableAssetsUtils';
 
 import { AprText } from './AprText';
 import { buildEarnAvailableAssetCategoryTabs } from './earnCategoryTabs';
+import { NetworkFilterControl } from './NetworkFilterControl';
+
+import type { IEarnAvailableAssetSortKey } from '../utils/availableAssetsUtils';
 
 const MAX_INLINE_ASSETS = 4;
 const AVAILABLE_ASSETS_DIALOG_MAX_HEIGHT = 512;
+
+function AvailableAssetsDialogSortControl({
+  categoryType,
+  sortKey,
+  onSortChange,
+}: {
+  categoryType: EAvailableAssetsTypeEnum;
+  sortKey: IEarnAvailableAssetSortKey;
+  onSortChange: (sortKey: IEarnAvailableAssetSortKey) => void;
+}) {
+  const intl = useIntl();
+  const isFixedRate = categoryType === EAvailableAssetsTypeEnum.FixedRate;
+  const options = useMemo(
+    () => [
+      {
+        label: intl.formatMessage({
+          id: ETranslations.defi_yield_high_to_low,
+        }),
+        triggerLabel: intl.formatMessage({
+          id: ETranslations.defi_apr_apy,
+        }),
+        value: 'yield' as const,
+      },
+      ...(isFixedRate
+        ? [
+            {
+              label: intl.formatMessage({
+                id: ETranslations.defi_liquidity_high_to_low,
+              }),
+              triggerLabel: intl.formatMessage({
+                id: ETranslations.earn_tvl,
+              }),
+              value: 'liquidity' as const,
+            },
+          ]
+        : []),
+    ],
+    [intl, isFixedRate],
+  );
+  const selectedOption =
+    options.find((option) => option.value === sortKey) ?? options[0];
+
+  const handlePress = useCallback(() => {
+    ActionList.show({
+      title: intl.formatMessage({ id: ETranslations.market_sort_by }),
+      items: options.map<IActionListItemProps>((option) => ({
+        testID: EarnTestIDs.flatAssetDialogSortOption(
+          categoryType,
+          option.value,
+        ),
+        label: option.label,
+        extra:
+          option.value === sortKey ? (
+            <Icon name="CheckRadioSolid" size="$5" color="$icon" />
+          ) : undefined,
+        onPress: () => onSortChange(option.value),
+      })),
+    });
+  }, [categoryType, intl, onSortChange, options, sortKey]);
+
+  return (
+    <XStack
+      testID={EarnTestIDs.flatAssetDialogSort(categoryType)}
+      role="button"
+      ai="center"
+      gap="$1"
+      flexShrink={0}
+      cursor="pointer"
+      userSelect="none"
+      pressStyle={{ opacity: 0.5 }}
+      onPress={handlePress}
+    >
+      <Icon name="FilterSortOutline" size="$3" color="$iconSubdued" />
+      <SizableText size="$bodySmMedium" color="$textSubdued" numberOfLines={1}>
+        {selectedOption.triggerLabel}
+      </SizableText>
+      <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
+    </XStack>
+  );
+}
 
 function AvailableAssetsSectionSkeleton() {
   return (
@@ -118,24 +207,62 @@ function AvailableAssetsDialogContent({
   totalLiquidityLabel: string;
   onAssetPress: (asset: IEarnAvailableAsset) => void;
 }) {
+  const [selectedNetworkIds, setSelectedNetworkIds] = useState<string[]>([]);
+  const [sortKey, setSortKey] = useState<IEarnAvailableAssetSortKey>('yield');
+  const { availableNetworkIds, networkAssetCounts } = useMemo(
+    () => getAvailableAssetNetworkData(assets),
+    [assets],
+  );
+  const visibleAssets = useMemo(
+    () =>
+      filterAndSortAvailableAssets({
+        assets,
+        selectedNetworkIds,
+        sortKey,
+      }),
+    [assets, selectedNetworkIds, sortKey],
+  );
+
   return (
-    <ScrollView
-      maxHeight={AVAILABLE_ASSETS_DIALOG_MAX_HEIGHT}
-      nestedScrollEnabled
-    >
-      <YStack>
-        {assets.map((asset) => (
-          <AvailableAssetItem
-            key={`${categoryType}-${asset.symbol}`}
-            asset={asset}
-            categoryType={categoryType}
-            totalLiquidityLabel={totalLiquidityLabel}
-            testID={EarnTestIDs.flatAssetDialogItem(categoryType, asset.symbol)}
-            onPress={() => onAssetPress(asset)}
+    <YStack>
+      <XStack px="$5" py="$2" ai="center" jc="space-between" gap="$3">
+        <XStack flex={1} minWidth={0}>
+          <NetworkFilterControl
+            testID={EarnTestIDs.flatAssetDialogNetworkFilter(categoryType)}
+            variant="compact"
+            availableNetworkIds={availableNetworkIds}
+            selectedNetworkIds={selectedNetworkIds}
+            networkAssetCounts={networkAssetCounts}
+            onSelectionChange={setSelectedNetworkIds}
           />
-        ))}
-      </YStack>
-    </ScrollView>
+        </XStack>
+        <AvailableAssetsDialogSortControl
+          categoryType={categoryType}
+          sortKey={sortKey}
+          onSortChange={setSortKey}
+        />
+      </XStack>
+      <ScrollView
+        maxHeight={AVAILABLE_ASSETS_DIALOG_MAX_HEIGHT}
+        nestedScrollEnabled
+      >
+        <YStack>
+          {visibleAssets.map((asset) => (
+            <AvailableAssetItem
+              key={`${categoryType}-${asset.symbol}`}
+              asset={asset}
+              categoryType={categoryType}
+              totalLiquidityLabel={totalLiquidityLabel}
+              testID={EarnTestIDs.flatAssetDialogItem(
+                categoryType,
+                asset.symbol,
+              )}
+              onPress={() => onAssetPress(asset)}
+            />
+          ))}
+        </YStack>
+      </ScrollView>
+    </YStack>
   );
 }
 
@@ -177,6 +304,7 @@ function AvailableAssetsFlatListComponent() {
         title,
         testID: EarnTestIDs.flatAssetCategoryDialog(categoryType),
         showFooter: false,
+        estimatedContentHeight: AVAILABLE_ASSETS_DIALOG_MAX_HEIGHT,
         contentContainerProps: {
           px: '$0',
           pb: '$5',

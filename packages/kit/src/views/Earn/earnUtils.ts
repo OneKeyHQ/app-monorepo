@@ -19,7 +19,11 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { shouldResetEarnRouteStackBeforePush } from './utils/earnNavigationPolicy';
+
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
+
+export { parseFormattedLiquidityValue } from './utils/availableAssetsUtils';
 
 type IEarnHomeParams = NonNullable<ITabEarnParamList[ETabEarnRoutes.EarnHome]>;
 type IEarnHomeTab = NonNullable<IEarnHomeParams['tab']>;
@@ -143,34 +147,6 @@ export const EarnNetworkUtils = {
   },
 };
 
-const liquidityUnitMultiplierMap: Record<string, number> = {
-  k: 10 ** 3,
-  m: 10 ** 6,
-  b: 10 ** 9,
-  t: 10 ** 12,
-};
-
-export function parseFormattedLiquidityValue(value?: string): number {
-  if (!value) {
-    return 0;
-  }
-
-  const match = value.replace(/,/g, '').match(/(-?\d+(?:\.\d+)?)([kmbt])?/i);
-  if (!match) {
-    return 0;
-  }
-
-  const parsedValue = Number(match[1]);
-  if (!Number.isFinite(parsedValue)) {
-    return 0;
-  }
-
-  const unit = match[2]?.toLowerCase();
-  const multiplier = unit ? (liquidityUnitMultiplierMap[unit] ?? 1) : 1;
-
-  return parsedValue * multiplier;
-}
-
 export async function safePushToEarnRoute(
   navigation: IAppNavigation,
   route: ETabEarnRoutes,
@@ -233,12 +209,17 @@ export async function safePushToEarnRoute(
       // tab bar to drop the selectedPage update.
       const { topRoute, tabState } = preQueryState;
 
-      // Prevent route stack accumulation when navigating between earn
-      // pages repeatedly (e.g. search → detail → positions → search).
-      // Pop to the base route first so the stack never grows beyond
-      // depth 2 (base + one earn page). Without this, 2-3 cycles
-      // cause iOS to freeze (OK-51746).
-      if (tabState && tabState.routes.length > 1 && topRoute?.name !== route) {
+      // Preserve valid parent-child paths so Back returns to the immediate
+      // source page, while resetting sibling transitions to keep the native
+      // stack bounded and retain the OK-51746 freeze protection.
+      if (
+        tabState &&
+        shouldResetEarnRouteStackBeforePush({
+          routeCount: tabState.routes.length,
+          currentRoute: topRoute?.name,
+          targetRoute: route,
+        })
+      ) {
         dispatchToTargetStack({
           action: StackActions.popToTop(),
           rootNavigation,
@@ -296,11 +277,15 @@ export async function safePushToEarnRoute(
   const topRoute = targetStack?.topRoute;
 
   if (targetKey) {
-    // Prevent route stack accumulation (OK-51746)
+    // Preserve valid parent-child paths while preventing sibling route
+    // accumulation (OK-51746).
     if (
       targetStack?.tabState &&
-      targetStack.tabState.routes.length > 1 &&
-      topRoute?.name !== route
+      shouldResetEarnRouteStackBeforePush({
+        routeCount: targetStack.tabState.routes.length,
+        currentRoute: topRoute?.name,
+        targetRoute: route,
+      })
     ) {
       dispatchToTargetStack({
         action: StackActions.popToTop(),
