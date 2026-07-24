@@ -95,8 +95,9 @@ describe('Home Unified Store production boundary', () => {
     );
   });
 
-  it('hydrates a complete visible snapshot before revealing the launch surface', () => {
+  it('hydrates an owner-scoped snapshot without gating the launch renderer', () => {
     const root = readHomeFile('model/react/HomeStoreSourceControllers.tsx');
+    const pageContainerSource = readHomeFile('pages/HomePageContainer.tsx');
     const sharedSource = readHomeFile(
       'model/react/HomeDisplaySnapshotController.shared.tsx',
     );
@@ -133,6 +134,10 @@ describe('Home Unified Store production boundary', () => {
       /await loadPreparedHomeDisplaySnapshot|void loadPreparedHomeDisplaySnapshot/,
     );
     expect(nativeSource).toContain('publishPreparedHomeDisplaySnapshot({');
+    expect(pageContainerSource).not.toContain('walletRendererReady');
+    expect(pageContainerSource).not.toContain(
+      'nativeDisplaySnapshotLoadSettled',
+    );
   });
 
   it('derives every Header balance contributor from the Home Store', () => {

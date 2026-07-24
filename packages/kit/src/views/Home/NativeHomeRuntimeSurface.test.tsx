@@ -113,6 +113,7 @@ describe('Native Home runtime surface', () => {
       "from '@onekeyhq/kit/src/views/Home/pages/HomePageView';",
     );
     expect(mobileRendererSource).toContain('<HomeContainer');
+    expect(mobileRendererSource).not.toContain('nativeSurfaceRevealed');
     expect(mobileRendererSource).toContain("execution: 'controller'");
     expect(mobileRendererSource).toContain(
       'const HOME_REFRESH_FEEDBACK_DURATION_MS = 1200;',

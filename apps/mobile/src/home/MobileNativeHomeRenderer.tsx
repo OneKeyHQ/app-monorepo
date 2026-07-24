@@ -245,15 +245,11 @@ export function MobileNativeHomeRenderer({
   const nativeCapabilitiesRef = useRef<IHomeContainerCapabilities | undefined>(
     undefined,
   );
-  const nativeRevealFrameRef = useRef<number | undefined>(undefined);
   const homeNativeDecisionKeyRef = useRef<string | undefined>(undefined);
   const homeNativeContentDecisionKeyRef = useRef<string | undefined>(undefined);
   const [nativeUnavailable, setNativeUnavailable] = useState(
     () => !isHomeContainerAvailable(),
   );
-  // Visibility belongs to the mounted native host. Owner replacements remain
-  // visible while the transport atomically commits the next owner.
-  const [nativeSurfaceRevealed, setNativeSurfaceRevealed] = useState(false);
   const [expandedSections, setExpandedSections] =
     useState<IHomeNativeExpandedState>({
       defi: false,
@@ -1426,15 +1422,6 @@ export function MobileNativeHomeRenderer({
     }
   }, [disposeNativeSession, nativeUnavailable]);
 
-  useEffect(
-    () => () => {
-      if (nativeRevealFrameRef.current !== undefined) {
-        cancelAnimationFrame(nativeRevealFrameRef.current);
-      }
-    },
-    [],
-  );
-
   useLayoutEffect(() => {
     const target = nativeRef.current;
     if (!target || !controller || nativeUnavailable) {
@@ -2011,17 +1998,6 @@ export function MobileNativeHomeRenderer({
         return;
       }
       attachedTargetRef.current = target;
-      if (nativeRevealFrameRef.current !== undefined) {
-        cancelAnimationFrame(nativeRevealFrameRef.current);
-      }
-      // Let the native host and its mounted React slots finish layout before
-      // revealing this mounted surface for the first time.
-      nativeRevealFrameRef.current = requestAnimationFrame(() => {
-        nativeRevealFrameRef.current = requestAnimationFrame(() => {
-          nativeRevealFrameRef.current = undefined;
-          setNativeSurfaceRevealed(true);
-        });
-      });
     },
     [controller, nativeUnavailable],
   );
@@ -2056,16 +2032,7 @@ export function MobileNativeHomeRenderer({
   }
 
   return (
-    <Stack
-      flex={1}
-      bg="$bgApp"
-      opacity={nativeSurfaceRevealed ? 1 : 0}
-      pointerEvents={nativeSurfaceRevealed ? 'auto' : 'none'}
-      accessibilityElementsHidden={!nativeSurfaceRevealed}
-      importantForAccessibility={
-        nativeSurfaceRevealed ? 'auto' : 'no-hide-descendants'
-      }
-    >
+    <Stack flex={1} bg="$bgApp">
       <HomeTabSearchHeader />
       <HomeContainer
         ref={nativeRef}

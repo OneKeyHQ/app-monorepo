@@ -31,7 +31,6 @@ export function resolveHomeWalletPageSurface({
   activeWallet,
   walletListWallet,
   nativeHomeEnabled,
-  walletRendererReady,
   previous,
   retainPreviousOwnerWhilePending = false,
 }: {
@@ -41,7 +40,6 @@ export function resolveHomeWalletPageSurface({
   activeWallet: IHomeWalletPageSurfaceWallet | undefined;
   walletListWallet: IHomeWalletPageSurfaceWallet | undefined;
   nativeHomeEnabled: boolean;
-  walletRendererReady: boolean;
   previous?: IHomeWalletPageSurfaceState;
   retainPreviousOwnerWhilePending?: boolean;
 }): IHomeWalletPageSurfaceState {
@@ -69,9 +67,6 @@ export function resolveHomeWalletPageSurface({
   }
   if (walletContentReadiness === 'no-wallet') {
     return { surface: 'no-wallet' };
-  }
-  if (!walletRendererReady) {
-    return pending();
   }
   if (
     walletContentReadiness === 'cached-wallet' ||

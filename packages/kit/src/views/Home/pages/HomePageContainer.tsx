@@ -141,7 +141,7 @@ function HomeStoreDrivenWalletSurface({
       />
     );
   }
-  return platformEnv.isNative ? null : <HomeLaunchSkeleton />;
+  return <HomeLaunchSkeleton />;
 }
 
 export function HomeLaunchGatedContent({
@@ -212,16 +212,6 @@ export function HomeLaunchGatedContent({
     !activeWalletUnavailable &&
     activeOwnerMatchesHomeSession,
   );
-  const nativeDisplaySnapshotLoadSettled = Boolean(
-    homeSession.ownerToken &&
-    displaySnapshotLoadState.status !== 'idle' &&
-    displaySnapshotLoadState.status !== 'loading' &&
-    displaySnapshotLoadState.ownerScopeKey ===
-      homeSession.ownerToken.scopeKey &&
-    displaySnapshotLoadState.sessionId === homeSession.ownerToken.sessionId,
-  );
-  const walletRendererReady =
-    !nativeHomeEnabled || nativeDisplaySnapshotLoadSettled;
   const walletContentReadiness = resolveHomeWalletContentReadiness({
     walletListPending,
     wallets: walletListResult?.wallets,
@@ -249,7 +239,6 @@ export function HomeLaunchGatedContent({
     activeWallet: wallet,
     walletListWallet,
     nativeHomeEnabled,
-    walletRendererReady,
     previous: previousPageSurfaceRef.current,
     retainPreviousOwnerWhilePending: Boolean(
       homeSession.ownerToken && !activeOwnerMatchesHomeSession,

@@ -15,7 +15,6 @@ function resolve(
     activeWallet: matchingHdWallet,
     walletListWallet: matchingHdWallet,
     nativeHomeEnabled: true,
-    walletRendererReady: true,
     ...overrides,
   });
 }
@@ -49,12 +48,6 @@ describe('resolveHomeWalletPageSurface', () => {
         walletListWallet: undefined,
       }),
     ).toEqual({ surface: 'no-wallet' });
-  });
-
-  it('keeps wallet content pending until the selected renderer is ready', () => {
-    expect(resolve({ walletRendererReady: false })).toEqual(
-      expect.objectContaining({ surface: 'pending' }),
-    );
   });
 
   it('does not use backup status as an entry-surface authority', () => {

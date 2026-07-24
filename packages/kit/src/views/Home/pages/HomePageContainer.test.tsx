@@ -387,6 +387,21 @@ afterAll(() => {
 });
 
 describe('HomeLaunchGatedContent surface ownership', () => {
+  it('renders a launch skeleton while the Native owner is unresolved', () => {
+    let view!: ReactTestRenderer;
+    act(() => {
+      view = create(renderOwner());
+    });
+
+    expect(
+      view.root.findAllByProps({ testID: 'home-launch-skeleton' }),
+    ).toHaveLength(1);
+    expect(view.root.findAllByProps({ testID: 'surface-native' })).toHaveLength(
+      0,
+    );
+    act(() => view.unmount());
+  });
+
   it('uses the local launch decision on non-native Home without waiting for BG', () => {
     mockTestGlobal.__homePageContainerIsNative = false;
     mockLaunchSnapshot.decision = 'unknown';
@@ -519,7 +534,7 @@ describe('HomeLaunchGatedContent surface ownership', () => {
     act(() => view.unmount());
   });
 
-  it('mounts no native fallback while the synchronous display cache loads', () => {
+  it('keeps the Native renderer mounted while its display cache hydrates', () => {
     const backedUp = hdWallet(true);
     setWalletState({ activeWallet: backedUp, pending: true });
     mockDisplaySnapshotLoadState = {
@@ -533,12 +548,10 @@ describe('HomeLaunchGatedContent surface ownership', () => {
       view = create(renderOwner());
     });
 
-    expect(
-      view.root.findAllByProps({ testID: 'home-launch-skeleton' }),
-    ).toHaveLength(0);
     expect(view.root.findAllByProps({ testID: 'surface-native' })).toHaveLength(
-      0,
+      1,
     );
+    expect(mockSurfaceLifecycle.native).toEqual({ mounts: 1, unmounts: 0 });
 
     mockDisplaySnapshotLoadState = {
       ownerScopeKey: 'scope-hd-1',
@@ -546,12 +559,10 @@ describe('HomeLaunchGatedContent surface ownership', () => {
       status: 'loading',
     };
     act(() => view.update(renderOwner()));
-    expect(
-      view.root.findAllByProps({ testID: 'home-launch-skeleton' }),
-    ).toHaveLength(0);
     expect(view.root.findAllByProps({ testID: 'surface-native' })).toHaveLength(
-      0,
+      1,
     );
+    expect(mockSurfaceLifecycle.native).toEqual({ mounts: 1, unmounts: 0 });
 
     mockDisplaySnapshotLoadState = {
       ownerScopeKey: 'scope-hd-1',
