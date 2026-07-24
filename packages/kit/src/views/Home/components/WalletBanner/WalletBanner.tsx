@@ -521,7 +521,7 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
   const intl = useIntl();
   const bannerResource = useHomeResource('banner');
   const payload =
-    bannerResource.kind === 'ready'
+    bannerResource.kind === 'ready' || bannerResource.kind === 'partial'
       ? readHomeBannerStorePayload(bannerResource.data)
       : undefined;
   const banners = useMemo(

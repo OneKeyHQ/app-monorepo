@@ -98,7 +98,7 @@ export function HomeBannerStoreController() {
   const processingCommandIdsRef = useRef(new Set<string>());
 
   const resourcePayload =
-    bannerResource.kind === 'ready'
+    bannerResource.kind === 'ready' || bannerResource.kind === 'partial'
       ? readHomeBannerStorePayload(bannerResource.data)
       : undefined;
   useEffect(() => {

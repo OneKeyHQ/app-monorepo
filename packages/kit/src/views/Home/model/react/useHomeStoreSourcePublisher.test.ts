@@ -1,4 +1,5 @@
 import { getHomeSourceKeyIdentity } from '../core/homeIdentity';
+import { toHomeBannerStoreItem } from '../sections/banner/homeBannerStoreModel';
 import { createInitialHomeStoreState } from '../store/homeStoreInitialState';
 import {
   applyHomeStorePatchToState,
@@ -97,6 +98,75 @@ describe('Home Store production source gateways', () => {
     expect(harness.getState().resources.banner).toMatchObject({
       kind: 'ready',
       data: payload,
+      token: handle.token,
+    });
+  });
+
+  it('promotes a local partial banner to live data on the same request', () => {
+    const harness = createGatewayHarness();
+    const handle = harness.sourceGateway.begin({
+      ownerToken,
+      sourceId: 'banner',
+    });
+    const localPayload = {
+      banners: [
+        toHomeBannerStoreItem({
+          _id: 'local-banner',
+          id: 'local-banner',
+          src: '',
+          title: 'Local banner',
+          description: '',
+          button: '',
+          rank: 1,
+          closeable: true,
+          closeForever: false,
+          useSystemBrowser: false,
+          theme: 'light',
+        }),
+      ],
+      referralEligibility: null,
+      tronResource: null,
+      isBotWalletReceiveBlocked: false,
+    } as const;
+    harness.sourceGateway.complete(handle, {
+      kind: 'partial',
+      data: localPayload,
+      coverageFingerprint: 'banner-local',
+    });
+    expect(harness.getState().resources.banner).toMatchObject({
+      kind: 'partial',
+      data: localPayload,
+      token: handle.token,
+    });
+
+    const remotePayload = {
+      ...localPayload,
+      banners: [
+        toHomeBannerStoreItem({
+          _id: 'remote-banner',
+          id: 'remote-banner',
+          src: '',
+          title: 'Remote banner',
+          description: '',
+          button: '',
+          rank: 1,
+          closeable: true,
+          closeForever: false,
+          useSystemBrowser: false,
+          theme: 'light',
+        }),
+      ],
+    } as const;
+    harness.sourceGateway.complete(handle, {
+      kind: 'success',
+      data: remotePayload,
+      coverageFingerprint: 'banner-remote',
+    });
+    expect(harness.getState().resources.banner).toMatchObject({
+      kind: 'ready',
+      data: remotePayload,
+      freshness: 'live',
+      refresh: 'idle',
       token: handle.token,
     });
   });

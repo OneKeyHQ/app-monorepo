@@ -87,7 +87,7 @@ function BaseHomeHeaderContainer({
   // otherwise the banner band is ~110pt and the header settles at 292pt.
   const bannerResource = useHomeResource('banner');
   const bannerPayload =
-    bannerResource.kind === 'ready'
+    bannerResource.kind === 'ready' || bannerResource.kind === 'partial'
       ? readHomeBannerStorePayload(bannerResource.data)
       : undefined;
   const hasWalletBannerContent = Boolean(

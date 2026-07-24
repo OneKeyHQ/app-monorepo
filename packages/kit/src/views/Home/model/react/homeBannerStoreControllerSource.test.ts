@@ -138,6 +138,85 @@ describe('Home banner Store source', () => {
     );
   });
 
+  it('publishes the local banner snapshot before the remote refresh settles', async () => {
+    const complete = jest.fn();
+    const localBanner = {
+      _id: 'local-a',
+      id: 'local-a',
+      src: '',
+      title: 'Local',
+      description: '',
+      button: '',
+      rank: 1,
+      closeable: true,
+      closeForever: false,
+      useSystemBrowser: false,
+      theme: 'light' as const,
+      position: 'home' as const,
+    };
+    let resolveRemote!: (banners: (typeof localBanner)[]) => void;
+    let markRemoteStarted!: () => void;
+    const remoteResult = new Promise<(typeof localBanner)[]>((resolve) => {
+      resolveRemote = resolve;
+    });
+    const remoteStarted = new Promise<void>((resolve) => {
+      markRemoteStarted = resolve;
+    });
+    const gateway = {
+      begin: jest.fn(() => ({
+        request: { ownerToken, sourceId: 'banner' as const },
+        token: { requestSeq: 1 },
+      })),
+      complete,
+    } as unknown as IHomeBannerSourceGateway;
+
+    const request = runHomeBannerStoreRequest({
+      api: {
+        readLocal: async () => ({ topBanners: [localBanner] }),
+        fetchRemote: () => {
+          markRemoteStarted();
+          return remoteResult;
+        },
+        fetchReferralEligibility: async () => ({
+          shouldShow: false,
+          resolvedAccountId: '',
+          resolvedAddress: '',
+          reason: null,
+        }),
+        fetchBotWalletDeactivated: async () => false,
+        updateLocalTopBanners: async () => undefined,
+      },
+      createReferralBanner: () => null,
+      gateway,
+      hasBotWallet: false,
+      networkId: 'network-a',
+      ownerToken,
+      paramsFingerprint: 'owner-a-banner',
+      sessionDismissedIds: [],
+      tronResource: null,
+    });
+
+    await remoteStarted;
+    expect(complete).toHaveBeenCalledTimes(1);
+    expect(complete).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        kind: 'partial',
+        data: expect.objectContaining({
+          banners: [expect.objectContaining({ id: 'local-a' })],
+        }),
+      }),
+    );
+
+    resolveRemote([]);
+    await request;
+    expect(complete).toHaveBeenCalledTimes(2);
+    expect(complete).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ kind: 'success' }),
+    );
+  });
+
   it('filters the current payload without replacing the shared cache with a network subset', async () => {
     const networkABanner = {
       _id: 'network-a',

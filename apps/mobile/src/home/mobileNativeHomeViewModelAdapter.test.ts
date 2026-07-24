@@ -78,7 +78,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
     ).toBe('standard');
   });
 
-  it('reserves the banner band until its positive-content decision settles', () => {
+  it('renders the banner independently from unresolved balance content', () => {
     expect(
       resolveMobileNativeHomeBannerPresentation({
         balancePresentationKind: undefined,
@@ -88,6 +88,15 @@ describe('mobileNativeHomeViewModelAdapter', () => {
         showPositiveBanner: false,
       }),
     ).toBe('loading');
+    expect(
+      resolveMobileNativeHomeBannerPresentation({
+        balancePresentationKind: 'loading',
+        bannerResourceKind: 'partial',
+        hasBannerContent: true,
+        isBackupRequired: false,
+        showPositiveBanner: false,
+      }),
+    ).toBe('hidden');
     expect(
       resolveMobileNativeHomeBannerPresentation({
         balancePresentationKind: 'fundedPendingTotal',

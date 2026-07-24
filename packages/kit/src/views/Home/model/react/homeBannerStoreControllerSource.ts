@@ -27,6 +27,11 @@ export type IHomeBannerSourceGateway = {
           data: IHomeBannerStorePayload;
           coverageFingerprint: string;
         }
+      | {
+          kind: 'partial';
+          data: IHomeBannerStorePayload;
+          coverageFingerprint: string;
+        }
       | { kind: 'error'; errorKind: 'source' },
   ) => void;
 };
@@ -76,6 +81,51 @@ function filterHomeBanners({
   });
 }
 
+function buildHomeBannerPayload({
+  banners,
+  botWalletReceiveBlocked,
+  closedForever,
+  createReferralBanner,
+  networkId,
+  referralEligibility,
+  tronResource,
+}: {
+  banners: IWalletBanner[];
+  botWalletReceiveBlocked: boolean;
+  closedForever: Record<string, boolean>;
+  createReferralBanner: (
+    eligibility: IHomeBannerReferralEligibility,
+  ) => IWalletBanner | null;
+  networkId: string;
+  referralEligibility: IHomeBannerReferralEligibility | null;
+  tronResource: IHomeBannerStorePayload['tronResource'];
+}): IHomeBannerStorePayload {
+  const filteredBanners = filterHomeBanners({
+    banners,
+    closedForever,
+    networkId,
+  });
+  const referralBanner = referralEligibility
+    ? createReferralBanner(referralEligibility)
+    : null;
+  const visibleBanners = referralBanner
+    ? [referralBanner, ...filteredBanners]
+    : filteredBanners;
+  return {
+    banners: visibleBanners.map(toHomeBannerStoreItem),
+    referralEligibility,
+    tronResource,
+    isBotWalletReceiveBlocked: botWalletReceiveBlocked,
+  };
+}
+
+function getHomeBannerCoverageFingerprint(payload: IHomeBannerStorePayload) {
+  return buildHomeBannerCoverageFingerprint({
+    bannerIds: payload.banners.map((banner) => banner.id),
+    hasTronResource: Boolean(payload.tronResource),
+  });
+}
+
 export async function runHomeBannerStoreRequest({
   api,
   createReferralBanner,
@@ -95,9 +145,34 @@ export async function runHomeBannerStoreRequest({
     sourceId: 'banner',
   });
 
-  const [localResult, remoteResult, referralResult, botStatusResult] =
+  const [localResult] = await Promise.allSettled([api.readLocal()]);
+  const local = localResult.status === 'fulfilled' ? localResult.value : null;
+  const closedForever = {
+    ...local?.closedForever,
+    ...Object.fromEntries(sessionDismissedIds.map((id) => [id, true])),
+  };
+
+  // The shared wallet-banner cache is sufficient for a safe early paint on
+  // normal wallets. Bot wallets still wait for their receive-block status.
+  if (!hasBotWallet && Array.isArray(local?.topBanners)) {
+    const localPayload = buildHomeBannerPayload({
+      banners: local.topBanners,
+      botWalletReceiveBlocked: false,
+      closedForever,
+      createReferralBanner,
+      networkId,
+      referralEligibility: null,
+      tronResource,
+    });
+    gateway.complete(handle, {
+      kind: 'partial',
+      data: localPayload,
+      coverageFingerprint: getHomeBannerCoverageFingerprint(localPayload),
+    });
+  }
+
+  const [remoteResult, referralResult, botStatusResult] =
     await Promise.allSettled([
-      api.readLocal(),
       api.fetchRemote(),
       api.fetchReferralEligibility(),
       hasBotWallet ? api.fetchBotWalletDeactivated() : Promise.resolve(false),
@@ -108,20 +183,10 @@ export async function runHomeBannerStoreRequest({
     return undefined;
   }
 
-  const local = localResult.status === 'fulfilled' ? localResult.value : null;
-  const closedForever = {
-    ...local?.closedForever,
-    ...Object.fromEntries(sessionDismissedIds.map((id) => [id, true])),
-  };
   const remoteBanners =
     remoteResult.status === 'fulfilled'
       ? remoteResult.value
       : (local?.topBanners ?? []);
-  const filteredBanners = filterHomeBanners({
-    banners: remoteBanners,
-    closedForever,
-    networkId,
-  });
 
   if (remoteResult.status === 'fulfilled') {
     await api.updateLocalTopBanners(remoteBanners).catch(() => undefined);
@@ -129,29 +194,23 @@ export async function runHomeBannerStoreRequest({
 
   const referralEligibility =
     referralResult.status === 'fulfilled' ? referralResult.value : null;
-  const referralBanner = referralEligibility
-    ? createReferralBanner(referralEligibility)
-    : null;
-  const banners = referralBanner
-    ? [referralBanner, ...filteredBanners]
-    : filteredBanners;
-  const payload: IHomeBannerStorePayload = {
-    banners: banners.map(toHomeBannerStoreItem),
-    referralEligibility,
-    tronResource,
-    isBotWalletReceiveBlocked:
+  const payload = buildHomeBannerPayload({
+    banners: remoteBanners,
+    botWalletReceiveBlocked:
       hasBotWallet &&
       botStatusResult.status === 'fulfilled' &&
       botStatusResult.value,
-  };
+    closedForever,
+    createReferralBanner,
+    networkId,
+    referralEligibility,
+    tronResource,
+  });
 
   gateway.complete(handle, {
     kind: 'success',
     data: payload,
-    coverageFingerprint: buildHomeBannerCoverageFingerprint({
-      bannerIds: payload.banners.map((banner) => banner.id),
-      hasTronResource: Boolean(payload.tronResource),
-    }),
+    coverageFingerprint: getHomeBannerCoverageFingerprint(payload),
   });
   return payload;
 }

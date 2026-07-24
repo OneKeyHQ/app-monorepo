@@ -95,6 +95,27 @@ describe('Home Unified Store production boundary', () => {
     );
   });
 
+  it('hydrates Header, Banner, and the visible section without a shared paint barrier', () => {
+    const source = readHomeFile(
+      'model/react/HomeDisplaySnapshotController.tsx',
+    );
+    expect(source).toContain('await yieldToHomeRenderer()');
+    expect(source).toContain('const bannerLoad = loadSourceChunk({');
+    expect(source).toContain('const selectedLoad = loadSourceChunk({');
+    expect(source).toContain("sourceId: 'banner'");
+    expect(source).toContain('sourceId: selectedSourceId');
+    expect(source).toContain('sourceIds: [sourceId]');
+    expect(source).not.toContain(
+      'const bannerRecordCount = await loadSourceChunk({\n' +
+        '          candidateOwnerToken: ownerToken,\n' +
+        '          context,\n' +
+        "          sourceId: 'banner'",
+    );
+    expect(source).not.toContain(
+      "new Set<IHomeStoreSourceId>(['banner', selectedSourceId])",
+    );
+  });
+
   it('derives every Header balance contributor from the Home Store', () => {
     const source = readHomeFile('model/react/useHomeBalanceFacts.ts');
     for (const sourceId of ['portfolio', 'perps', 'defi']) {

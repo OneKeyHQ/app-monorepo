@@ -87,7 +87,7 @@ export function HomeStoreCommandController() {
   const marketPayload = useHomeSectionPayload('market');
   const bannerResource = useHomeResource('banner');
   const bannerPayload =
-    bannerResource.kind === 'ready'
+    bannerResource.kind === 'ready' || bannerResource.kind === 'partial'
       ? readHomeBannerStorePayload(bannerResource.data)
       : undefined;
 

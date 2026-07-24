@@ -41,7 +41,7 @@ function useHomeBalanceFacts(): IHomeFacts | undefined {
   const deFiResource = useHomeResource('defi');
   const bannerResource = useHomeResource('banner');
   const bannerPayload =
-    bannerResource.kind === 'ready'
+    bannerResource.kind === 'ready' || bannerResource.kind === 'partial'
       ? readHomeBannerStorePayload(bannerResource.data)
       : undefined;
   const portfolioPayload = useHomeSectionPayload('portfolio');

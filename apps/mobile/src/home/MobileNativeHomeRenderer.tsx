@@ -332,7 +332,7 @@ export function MobileNativeHomeRenderer({
   const historyPayload = useHomeSectionPayload('history');
   const marketPayload = useHomeSectionPayload('market');
   const bannerPayload =
-    bannerResource.kind === 'ready'
+    bannerResource.kind === 'ready' || bannerResource.kind === 'partial'
       ? readHomeBannerStorePayload(bannerResource.data)
       : undefined;
   const tronResource = bannerPayload?.tronResource;

@@ -110,10 +110,17 @@ function resolveMobileNativeHomeBannerPresentation({
     return 'content';
   }
   if (
+    bannerResourceKind === 'ready' ||
+    bannerResourceKind === 'partial' ||
+    bannerResourceKind === 'empty' ||
+    bannerResourceKind === 'error'
+  ) {
+    return 'hidden';
+  }
+  if (
     hasBannerContent ||
     bannerResourceKind === 'idle' ||
-    bannerResourceKind === 'loading' ||
-    bannerResourceKind === 'partial'
+    bannerResourceKind === 'loading'
   ) {
     return 'loading';
   }

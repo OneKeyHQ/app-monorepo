@@ -24,6 +24,7 @@ import {
 
 import { useHomeStoreControllerActions } from './useHomeStoreControllerActions';
 
+import type { ILoadedHomeDisplaySnapshotManifest } from '../cacheV2/homeDisplaySnapshotTypes';
 import type { IHomeStoreSourceId } from '../store/homeStoreTypes';
 
 const homeDisplaySnapshotPersistQueue = new HomeDisplaySnapshotPersistQueue();
@@ -44,20 +45,10 @@ function getSourceIdsText(sourceIds: readonly IHomeStoreSourceId[]): string {
   return [...sourceIds].toSorted().join(',');
 }
 
-function getChunkLoadOutcome({
-  loadedCount,
-  requestedCount,
-}: {
-  loadedCount: number;
-  requestedCount: number;
-}): 'hit' | 'partial' | 'miss' {
-  if (loadedCount === 0) {
-    return 'miss';
-  }
-  if (loadedCount === requestedCount) {
-    return 'hit';
-  }
-  return 'partial';
+function yieldToHomeRenderer(): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, 0);
+  });
 }
 
 /**
@@ -78,7 +69,7 @@ export function HomeDisplaySnapshotController() {
   const { hydrateHomeDisplaySnapshot } = useHomeStoreControllerActions();
   const loadSequenceRef = useRef(0);
   const loadedChunksRef = useRef(new Set<string>());
-  const inFlightChunksRef = useRef(new Map<string, Promise<void>>());
+  const inFlightChunksRef = useRef(new Map<string, Promise<number>>());
   const ensureSourceRef = useRef<
     (
       ownerToken: IHomeRuntimeOwnerToken,
@@ -92,6 +83,7 @@ export function HomeDisplaySnapshotController() {
     const loadSequence = loadSequenceRef.current;
     loadedChunksRef.current.clear();
     inFlightChunksRef.current.clear();
+    ensureSourceRef.current = async () => undefined;
     if (!ownerToken) {
       return;
     }
@@ -113,20 +105,27 @@ export function HomeDisplaySnapshotController() {
       readHomeStoreState(store.get).session.ownerToken?.sessionId ===
         ownerToken.sessionId;
 
-    const ensureSource = async (
-      candidateOwnerToken: IHomeRuntimeOwnerToken,
-      sourceId: IHomeStoreSourceId,
-    ) => {
+    const loadSourceChunk = async ({
+      candidateOwnerToken,
+      context,
+      sourceId,
+      stage,
+    }: {
+      candidateOwnerToken: IHomeRuntimeOwnerToken;
+      context?: ILoadedHomeDisplaySnapshotManifest;
+      sourceId: IHomeStoreSourceId;
+      stage: 'lazyChunk' | 'visibleChunks';
+    }): Promise<number> => {
       if (
         candidateOwnerToken.scopeKey !== ownerToken.scopeKey ||
         candidateOwnerToken.sessionId !== ownerToken.sessionId ||
         !isCurrent()
       ) {
-        return;
+        return 0;
       }
       const requestKey = `${candidateOwnerToken.scopeKey}:${sourceId}`;
       if (loadedChunksRef.current.has(requestKey)) {
-        return;
+        return 0;
       }
       const existing = inFlightChunksRef.current.get(requestKey);
       if (existing) {
@@ -135,46 +134,48 @@ export function HomeDisplaySnapshotController() {
       const task = (async () => {
         const startedAt = getNow();
         try {
-          const context = await loadHomeDisplaySnapshotManifest({
-            ownerScopeKey: candidateOwnerToken.scopeKey,
-          });
+          const resolvedContext =
+            context ??
+            (await loadHomeDisplaySnapshotManifest({
+              ownerScopeKey: candidateOwnerToken.scopeKey,
+            }));
           if (!isCurrent()) {
             defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
-              stage: 'lazyChunk',
+              stage,
               outcome: 'stale',
               partitionTag,
               elapsedMs: getElapsed(startedAt),
               recordCount: 0,
               requestedSourceIds: sourceId,
             });
-            return;
+            return 0;
           }
-          if (!context) {
+          if (!resolvedContext) {
             defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
-              stage: 'lazyChunk',
+              stage,
               outcome: 'miss',
               partitionTag,
               elapsedMs: getElapsed(startedAt),
               recordCount: 0,
               requestedSourceIds: sourceId,
             });
-            return;
+            return 0;
           }
           const records = await loadHomeDisplaySnapshotSourceRecords({
-            context,
+            context: resolvedContext,
             sourceIds: [sourceId],
           });
           if (!isCurrent()) {
             defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
-              stage: 'lazyChunk',
+              stage,
               outcome: 'stale',
               partitionTag,
               elapsedMs: getElapsed(startedAt),
               recordCount: 0,
               requestedSourceIds: sourceId,
-              generation: context.manifest.generation,
+              generation: resolvedContext.manifest.generation,
             });
-            return;
+            return 0;
           }
           loadedChunksRef.current.add(requestKey);
           if (records.length > 0) {
@@ -189,7 +190,7 @@ export function HomeDisplaySnapshotController() {
             });
           }
           defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
-            stage: 'lazyChunk',
+            stage,
             outcome: records.length > 0 ? 'hit' : 'miss',
             partitionTag,
             elapsedMs: getElapsed(startedAt),
@@ -198,11 +199,15 @@ export function HomeDisplaySnapshotController() {
             loadedSourceIds: getSourceIdsText(
               records.map((record) => record.sourceId),
             ),
-            generation: context.manifest.generation,
+            generation: resolvedContext.manifest.generation,
           });
+          return records.length;
         } catch (error) {
+          if (!isCurrent()) {
+            return 0;
+          }
           defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
-            stage: 'lazyChunk',
+            stage,
             outcome: 'failed',
             partitionTag,
             elapsedMs: getElapsed(startedAt),
@@ -210,6 +215,7 @@ export function HomeDisplaySnapshotController() {
             requestedSourceIds: sourceId,
             errorName: getErrorName(error),
           });
+          return 0;
         }
       })().finally(() => {
         inFlightChunksRef.current.delete(requestKey);
@@ -217,7 +223,17 @@ export function HomeDisplaySnapshotController() {
       inFlightChunksRef.current.set(requestKey, task);
       return task;
     };
-    ensureSourceRef.current = ensureSource;
+
+    const ensureSource = async (
+      candidateOwnerToken: IHomeRuntimeOwnerToken,
+      sourceId: IHomeStoreSourceId,
+    ) => {
+      await loadSourceChunk({
+        candidateOwnerToken,
+        sourceId,
+        stage: 'lazyChunk',
+      });
+    };
 
     const loadInitialSnapshot = async () => {
       const startedAt = getNow();
@@ -301,67 +317,63 @@ export function HomeDisplaySnapshotController() {
           criticalIncluded: Boolean(critical),
         });
 
+        // Let the confirmed Header and action policy commit before any larger
+        // section chunk is read and decoded on the main JS runtime.
+        await yieldToHomeRenderer();
+        if (!isCurrent()) {
+          return;
+        }
+
+        ensureSourceRef.current = ensureSource;
         const selectedSourceId =
           critical?.selectedTabPreference ??
           store.get(homeInteractionState.atom()).preferredTabId ??
           'portfolio';
-        const visibleSourceIds = Array.from(
-          new Set<IHomeStoreSourceId>(['banner', selectedSourceId]),
-        );
-        const records = await loadHomeDisplaySnapshotSourceRecords({
+        const bannerLoad = loadSourceChunk({
+          candidateOwnerToken: ownerToken,
           context,
-          sourceIds: visibleSourceIds,
+          sourceId: 'banner',
+          stage: 'visibleChunks',
         });
+
+        // Start the visible section on the next paint turn without waiting for
+        // Banner I/O. Each source hydrates as soon as its own read completes.
+        await yieldToHomeRenderer();
         if (!isCurrent()) {
-          defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
-            stage: 'visibleChunks',
-            outcome: 'stale',
-            partitionTag,
-            elapsedMs: getElapsed(startedAt),
-            recordCount: 0,
-            requestedSourceIds: getSourceIdsText(visibleSourceIds),
-            generation: context.manifest.generation,
-          });
           return;
         }
-        visibleSourceIds.forEach((sourceId) =>
-          loadedChunksRef.current.add(`${ownerToken.scopeKey}:${sourceId}`),
-        );
-        if (records.length > 0) {
-          hydrateHomeDisplaySnapshot({
-            ownerScopeKey: ownerToken.scopeKey,
-            sessionId: ownerToken.sessionId,
-            records,
-          });
-        }
-        const loadedSourceIds = records.map((record) => record.sourceId);
-        const visibleOutcome = getChunkLoadOutcome({
-          loadedCount: loadedSourceIds.length,
-          requestedCount: visibleSourceIds.length,
-        });
-        defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+        const selectedLoad = loadSourceChunk({
+          candidateOwnerToken: ownerToken,
+          context,
+          sourceId: selectedSourceId,
           stage: 'visibleChunks',
-          outcome: visibleOutcome,
-          partitionTag,
-          elapsedMs: getElapsed(startedAt),
-          recordCount: records.length,
-          requestedSourceIds: getSourceIdsText(visibleSourceIds),
-          loadedSourceIds: getSourceIdsText(loadedSourceIds),
-          generation: context.manifest.generation,
         });
+
+        const [bannerRecordCount, selectedRecordCount] = await Promise.all([
+          bannerLoad,
+          selectedLoad,
+        ]);
+        const loadedSourceIds: IHomeStoreSourceId[] = [];
+        if (bannerRecordCount > 0) {
+          loadedSourceIds.push('banner');
+        }
+        if (selectedRecordCount > 0) {
+          loadedSourceIds.push(selectedSourceId);
+        }
         defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
           stage: 'initialHydrate',
-          outcome: critical || records.length > 0 ? 'accepted' : 'empty',
+          outcome:
+            critical || loadedSourceIds.length > 0 ? 'accepted' : 'empty',
           partitionTag,
           elapsedMs: getElapsed(startedAt),
-          recordCount: records.length,
+          recordCount: loadedSourceIds.length,
           loadedSourceIds: getSourceIdsText(loadedSourceIds),
           generation: context.manifest.generation,
           criticalIncluded: Boolean(critical),
         });
         perfMark('Home:v2Cache:initialHydrated', {
           elapsedMs: getElapsed(startedAt),
-          recordCount: records.length,
+          recordCount: loadedSourceIds.length,
         });
       } catch (error) {
         if (!isCurrent()) {
@@ -378,6 +390,10 @@ export function HomeDisplaySnapshotController() {
         perfMark('Home:v2Cache:failed', {
           elapsedMs: getElapsed(startedAt),
         });
+      } finally {
+        if (isCurrent()) {
+          ensureSourceRef.current = ensureSource;
+        }
       }
     };
     void loadInitialSnapshot();
