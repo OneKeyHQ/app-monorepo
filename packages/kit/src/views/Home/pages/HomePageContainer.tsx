@@ -236,6 +236,7 @@ export function HomeLaunchGatedContent({
   const portfolioShellReady =
     homeShell.value.kind === 'portfolio' &&
     (homeShell.value.presentation.kind === 'funded' ||
+      homeShell.value.presentation.kind === 'fundedPendingTotal' ||
       homeShell.value.presentation.kind === 'zero' ||
       homeShell.value.presentation.kind === 'unavailable');
   const selectedSectionReady =

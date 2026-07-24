@@ -44,6 +44,7 @@ let mockRootControllerMounts = 0;
 const mockSceneStore = {};
 let mockHomeProviderStore: unknown;
 let mockHomeShellKind: 'loading' | 'backupRequired' | 'portfolio' = 'loading';
+let mockHomePresentationKind: 'funded' | 'fundedPendingTotal' = 'funded';
 let mockHomeSession: {
   owner?: {
     accountId: string;
@@ -152,7 +153,10 @@ jest.mock('../../../states/jotai/contexts/home', () => ({
   useHomeShell: () => ({
     value:
       mockHomeShellKind === 'portfolio'
-        ? { kind: 'portfolio', presentation: { kind: 'funded' } }
+        ? {
+            kind: 'portfolio',
+            presentation: { kind: mockHomePresentationKind },
+          }
         : { kind: mockHomeShellKind },
   }),
   useHomeSessionState: () => mockHomeSession,
@@ -346,6 +350,7 @@ beforeEach(() => {
   mockRootControllerMounts = 0;
   mockHomeProviderStore = undefined;
   mockHomeShellKind = 'loading';
+  mockHomePresentationKind = 'funded';
   mockHomeSession = {};
   mockDisplaySnapshotLoadState = { status: 'idle' };
   mockTestGlobal.__homePageContainerIsNative = true;
@@ -407,6 +412,31 @@ describe('HomeLaunchGatedContent surface ownership', () => {
       1,
     );
     expect(mockSurfaceLifecycle.native.mounts).toBe(0);
+    act(() => view.unmount());
+  });
+
+  it('reveals live Home while the funded balance total is still pending', () => {
+    mockTestGlobal.__homePageContainerIsNative = false;
+    const backedUp = hdWallet(true);
+    setWalletState({ activeWallet: backedUp, walletListWallet: backedUp });
+    mockHomePresentationKind = 'fundedPendingTotal';
+    mockDisplaySnapshotLoadState = {
+      ownerScopeKey: 'scope-hd-1',
+      sessionId: 'session-hd-1',
+      status: 'miss',
+    };
+
+    let view!: ReactTestRenderer;
+    act(() => {
+      view = create(renderOwner(false));
+    });
+
+    expect(view.root.findAllByProps({ testID: 'surface-react' })).toHaveLength(
+      1,
+    );
+    expect(
+      view.root.findAllByProps({ testID: 'home-launch-skeleton' }),
+    ).toHaveLength(0);
     act(() => view.unmount());
   });
 
