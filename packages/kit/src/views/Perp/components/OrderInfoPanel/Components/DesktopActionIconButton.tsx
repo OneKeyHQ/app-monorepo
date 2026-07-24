@@ -36,6 +36,7 @@ export const DesktopActionIconButton = memo(
         hoverStyle={{ bg: 'transparent' }}
         pressStyle={{ bg: 'transparent' }}
         onPress={onPress}
+        cursor="pointer"
         hotKey
       />
     );

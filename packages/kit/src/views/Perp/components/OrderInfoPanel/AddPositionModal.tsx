@@ -13,6 +13,7 @@ import {
   Toast,
   XStack,
   YStack,
+  getFontSize,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -53,8 +54,8 @@ import {
   isAddPositionScopeValid,
   validateAddPositionOrder,
 } from './utils/addPosition';
-import { ADD_POSITION_LABEL } from './utils/positionActionPresentation';
 
+import type { IntlShape } from 'react-intl';
 type IAddPositionOrderType = 'market' | 'limit';
 
 export interface IAddPositionParams {
@@ -117,7 +118,11 @@ const AddPositionForm = memo(
         symbolMeta.coin !== coin ||
         symbolMeta.universe?.szDecimals === undefined
       ) {
-        throw new OneKeyLocalError('The target market data scope changed');
+        throw new OneKeyLocalError(
+          intl.formatMessage({
+            id: ETranslations.target_market_data_changed__msg,
+          }),
+        );
       }
       return {
         data,
@@ -128,7 +133,7 @@ const AddPositionForm = memo(
           margin: symbolMeta.marginTable,
         } satisfies IPerpsActiveAssetAtom,
       };
-    }, [accountAddress, coin]);
+    }, [accountAddress, coin, intl]);
 
     useEffect(() => {
       requestIdRef.current += 1;
@@ -239,7 +244,11 @@ const AddPositionForm = memo(
             currentPosition: currentPositionRef.current,
           })
         ) {
-          throw new OneKeyLocalError('The position or active account changed');
+          throw new OneKeyLocalError(
+            intl.formatMessage({
+              id: ETranslations.position_or_account_changed__msg,
+            }),
+          );
         }
 
         const latestPrice =
@@ -257,7 +266,9 @@ const AddPositionForm = memo(
                   { id: ETranslations.perp_order_size_small },
                   { amount: '$10' },
                 )
-              : 'The position increase amount is no longer available',
+              : intl.formatMessage({
+                  id: ETranslations.position_increase_amount_unavailable__msg,
+                }),
           );
         }
 
@@ -421,7 +432,13 @@ const AddPositionForm = memo(
           label={intl.formatMessage({
             id: ETranslations.perp_position_tp_sl,
           })}
+          labelProps={{
+            fontSize: getFontSize('$bodyMd'),
+            color: '$textSubdued',
+          }}
           containerProps={{ alignItems: 'center' }}
+          width="$4"
+          height="$4"
         />
         {hasTpsl ? (
           <YStack gap="$2">
@@ -470,7 +487,9 @@ const AddPositionForm = memo(
             loading={isSubmitting}
             onPress={handleSubmit}
           >
-            {ADD_POSITION_LABEL}
+            {intl.formatMessage({
+              id: ETranslations.perp_confirm_order_action,
+            })}
           </Button>
         </TradingGuardWrapper>
       </YStack>
@@ -484,9 +503,14 @@ export function showAddPositionDialog({
   coin,
   isBuy,
   accountAddress,
-}: IAddPositionParams) {
+  intl,
+}: IAddPositionParams & {
+  intl: IntlShape;
+}) {
   const dialogInstance = Dialog.show({
-    title: ADD_POSITION_LABEL,
+    title: intl.formatMessage({
+      id: ETranslations.add_position__title,
+    }),
     disableDrag: true,
     renderContent: (
       <PerpsAccountSelectorProviderMirror>

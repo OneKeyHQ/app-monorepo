@@ -14,6 +14,11 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  type ISwapBalanceDisplayCache,
+  areSwapBalanceDisplayAccountKeysEquivalent,
+  resolveSwapBalanceDisplayCacheEntry,
+} from '../utils/swapBalanceDisplayCacheUtils';
+import {
   buildSwapDefaultLimitSelectedTokens,
   buildSwapDefaultSelectedTokensFromHomeAccount,
 } from '../utils/swapColdStartTokenCacheUtils';
@@ -192,6 +197,99 @@ export function getSwapStockColdStartDisplayTokenFromGlobalSnapshot() {
     }
   }
 
+  return undefined;
+}
+
+function getSwapBalanceDisplayAccountKeyFromSnapshot({
+  snapshot,
+  tokenNetworkId,
+}: {
+  snapshot: Record<string, unknown>;
+  tokenNetworkId: string;
+}) {
+  const cachedContext = getSnapshotValue<ISwapSelectedTokensColdStartContext>({
+    snapshot,
+    coldStartScopeKey: SWAP_STORE_SCOPE_KEY,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+  });
+  if (cachedContext?.accountKey && cachedContext.networkId === tokenNetworkId) {
+    return cachedContext.accountKey;
+  }
+
+  const homeSelectedAccount = getSelectedAccountFromSnapshot({
+    snapshot,
+    coldStartScopeKey: ACCOUNT_SELECTOR_HOME_SCOPE_KEY,
+  });
+  const homeAccountKey = buildSelectedAccountKey(homeSelectedAccount);
+  if (
+    homeAccountKey &&
+    (homeSelectedAccount?.networkId === tokenNetworkId ||
+      isSwapColdStartAllNetworkContextNetworkId(homeSelectedAccount?.networkId))
+  ) {
+    return homeAccountKey;
+  }
+
+  const swapSelectedAccount = getSelectedAccountFromSnapshot({
+    snapshot,
+    coldStartScopeKey: ACCOUNT_SELECTOR_SWAP_SCOPE_KEY,
+  });
+  const swapAccountKey = buildSelectedAccountKey(swapSelectedAccount);
+  if (
+    swapAccountKey &&
+    swapSelectedAccount?.networkId === tokenNetworkId &&
+    (!homeAccountKey || homeAccountKey === swapAccountKey)
+  ) {
+    return swapAccountKey;
+  }
+  return undefined;
+}
+
+export function getSwapBalanceDisplayEntryFromGlobalSnapshot({
+  accountAddress,
+  currentAccountKey,
+  token,
+}: {
+  accountAddress?: string;
+  currentAccountKey?: string;
+  token?: ISwapToken;
+}) {
+  if (!token?.networkId) {
+    return undefined;
+  }
+  for (const snapshot of getColdStartSnapshotCandidatesFromGlobal()) {
+    const normalizedSnapshot = normalizeSwapColdStartCacheSnapshot({
+      ...snapshot,
+    });
+    const snapshotAccountKey = getSwapBalanceDisplayAccountKeyFromSnapshot({
+      snapshot: normalizedSnapshot,
+      tokenNetworkId: token.networkId,
+    });
+    if (
+      snapshotAccountKey &&
+      (!currentAccountKey ||
+        areSwapBalanceDisplayAccountKeysEquivalent(
+          currentAccountKey,
+          snapshotAccountKey,
+        ))
+    ) {
+      const cache = getSnapshotValue<ISwapBalanceDisplayCache>({
+        snapshot: normalizedSnapshot,
+        coldStartScopeKey: SWAP_STORE_SCOPE_KEY,
+        coldStartCacheKey:
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapBalanceDisplayCacheAtom,
+      });
+      const entry = resolveSwapBalanceDisplayCacheEntry({
+        accountAddress,
+        accountKey: currentAccountKey ?? snapshotAccountKey,
+        cache: cache ?? undefined,
+        token,
+      });
+      if (entry) {
+        return entry;
+      }
+    }
+  }
   return undefined;
 }
 

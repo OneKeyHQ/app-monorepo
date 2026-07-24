@@ -56,8 +56,6 @@ const priceFormatter: INumberFormatProps = {
   },
 };
 
-const CHASE_ORDER_LABEL = 'Chase';
-
 interface IOpenOrdersRowProps {
   order: IPerpsFrontendOrder;
   cellMinWidth: number;
@@ -308,7 +306,11 @@ const OpenOrdersRow = memo(
                   onPress={handleChaseOrder}
                   childrenAsText={false}
                 >
-                  <SizableText size="$bodySm">{CHASE_ORDER_LABEL}</SizableText>
+                  <SizableText size="$bodySm">
+                    {intl.formatMessage({
+                      id: ETranslations.chase__action,
+                    })}
+                  </SizableText>
                 </Button>
               ) : null}
               <Button
@@ -623,7 +625,9 @@ const OpenOrdersRow = memo(
                     }
                     size="$bodySmMedium"
                   >
-                    {CHASE_ORDER_LABEL}
+                    {intl.formatMessage({
+                      id: ETranslations.chase__action,
+                    })}
                   </SizableText>
                 </XStack>
               ) : null}

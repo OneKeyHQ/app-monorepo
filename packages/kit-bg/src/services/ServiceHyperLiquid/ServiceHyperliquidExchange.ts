@@ -1604,7 +1604,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         params.expectedAccountAddress.toLowerCase()
     ) {
       throw new OneKeyLocalError(
-        'The active trading account changed before position increase',
+        appLocale.intl.formatMessage({
+          id: ETranslations.active_trading_account_changed__msg,
+        }),
       );
     }
     const symbolMeta =
@@ -1612,11 +1614,17 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         coin: normalizePerpsCoin(params.coin),
       });
     if (!symbolMeta) {
-      throw new OneKeyLocalError(`Unknown coin: ${params.coin}`);
+      throw new OneKeyLocalError(
+        appLocale.intl.formatMessage({
+          id: ETranslations.perp_token_info_not_found__msg,
+        }),
+      );
     }
     if (symbolMeta.isSpot) {
       throw new OneKeyLocalError(
-        `Position increase is not available for spot asset: ${params.coin}`,
+        appLocale.intl.formatMessage({
+          id: ETranslations.add_position_perpetuals_only__msg,
+        }),
       );
     }
 
@@ -1715,7 +1723,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           params.expectedAccountAddress.toLowerCase()
       ) {
         throw new OneKeyLocalError(
-          'The active trading account changed before setting position TP/SL',
+          appLocale.intl.formatMessage({
+            id: ETranslations.active_trading_account_changed__msg,
+          }),
         );
       }
       const {

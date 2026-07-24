@@ -544,6 +544,10 @@ export interface IAppEventBusPayload {
     data: unknown;
   };
   [EAppEventBusNames.PerpsWebSocketRecovered]: undefined;
+  [EAppEventBusNames.PerpsTvPriceScaleRefreshed]: {
+    symbol: string;
+    priceScale: number;
+  };
   [EAppEventBusNames.PerpSwitchActiveInstrument]: {
     mode: 'perp' | 'spot';
     coin: string;
