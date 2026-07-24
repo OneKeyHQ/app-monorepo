@@ -10,8 +10,16 @@ import type {
 
 // Security MUST-1 (contract v1.1 §4): the deposit-address echo must match the
 // request field-by-field (addresses compared case-insensitively). Any mismatch
-// throws so the address is never rendered. This is the client half of the
-// anti-MITM check; the server performs the same check against the vendor.
+// throws so the address is never rendered.
+//
+// Scope, precisely: this detects a server that answered about a DIFFERENT
+// request — cross-user response mix-ups, cache-key collisions, a silently
+// downgraded destination. It is NOT an anti-MITM control: the echo travels in
+// the same response body as the deposit address, so anyone able to rewrite one
+// can rewrite the other. Nor can it ever cover `depositAddress`/`wallets[]` —
+// an echo only authenticates values the client independently knows, and a
+// freshly minted escrow address is not one of them. Binding that address
+// requires an out-of-band signature (see docs), not a wider echo.
 // Vendor USD amounts arrive as raw decimal strings with full precision
 // ("3.29960100000000000000"). Amount discipline (contract §4-3): parse with
 // BigNumber, never Number, and never render null as 0 — display only.
@@ -76,6 +84,63 @@ export function formatUnifoldTokenAmountValue({
     return amount.isNegative() ? '>-0.00000001' : '<0.00000001';
   }
   return small.toFormat(GROUPED_FORMAT);
+}
+
+// createdAt is a nullable vendor passthrough with no pinned format: accept
+// epoch seconds, epoch ms, or a date string. null means "cannot bound" and
+// callers must fail safe (skip, never announce; render an em dash, never a
+// wrong date). Shared so the bg discovery window and the UI timestamp can
+// never disagree about what a given payload means.
+export function parseUnifoldExecutionCreatedAtMs(
+  createdAt: string | null | undefined,
+): number | null {
+  if (!createdAt) {
+    return null;
+  }
+  const numeric = Number(createdAt);
+  if (Number.isFinite(numeric)) {
+    // A numeric value is an epoch, full stop. Falling through to Date.parse
+    // here would read '0' as the year 2000 and '-1' as year -1 — a confidently
+    // wrong timestamp where the contract says we cannot bound the value.
+    if (numeric <= 0) {
+      return null;
+    }
+    return numeric >= 1e12 ? numeric : numeric * 1000;
+  }
+  const parsed = Date.parse(createdAt);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+// The executions query is keyed on recipientAddress, but nothing binds the
+// response to it. Consumers render these rows and toast "deposit completed"
+// off them, so an execution that positively claims a different recipient — a
+// server-side filter regression, a response mix-up, a rewritten response —
+// must never reach them. `recipientAddress` is a nullable passthrough: a null
+// row carries no claim to contradict and is kept.
+export function filterUnifoldExecutionsByRecipient<
+  T extends { recipientAddress: string | null },
+>(executions: T[], recipientAddress: string): T[] {
+  const recipient = recipientAddress.toLowerCase();
+  return executions.filter(
+    (execution) =>
+      !execution.recipientAddress ||
+      execution.recipientAddress.toLowerCase() === recipient,
+  );
+}
+
+// Picks the wallet the user is told to pay for a given source chain family.
+// Case-insensitive because the two sides come from different endpoints (the
+// catalog and the address response) with no casing pinned between them, and
+// `isPrimary` wins because array order is not a contract.
+export function pickUnifoldDepositWallet<
+  T extends { chainType: string; address: string; isPrimary: boolean },
+>(wallets: T[] | null | undefined, chainType: string | null | undefined) {
+  if (!wallets?.length || !chainType) {
+    return null;
+  }
+  const wanted = chainType.toLowerCase();
+  const matches = wallets.filter((w) => w?.chainType?.toLowerCase() === wanted);
+  return matches.find((w) => w.isPrimary) ?? matches[0] ?? null;
 }
 
 export function assertUnifoldEchoMatches(

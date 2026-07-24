@@ -88,8 +88,10 @@ function ErrorState({
   > = {
     accountMismatch: {
       icon: 'ErrorOutline',
+      // Covers both entry-time mismatch and an account switch made while this
+      // panel was open, so it must not claim the address is merely stale.
       title: 'Deposit unavailable',
-      body: 'Account address mismatch. Reopen the deposit window and try again.',
+      body: 'The active account no longer matches this deposit address. Close and reopen the deposit window.',
     },
     disabled: {
       icon: 'ErrorOutline',
@@ -267,7 +269,19 @@ export function UnifoldTransferContent({
         </XStack>
         {/* Derived from the live poll result by id, so the detail keeps
             updating instead of freezing at the moment it was opened. */}
-        <UnifoldExecutionDetail execution={detailExecution} />
+        {/* The estimate belongs to the SELECTED chain, but this execution may
+            have been paid on a different one (the user can switch the source
+            dropdown after depositing). Pass it only when the two provably
+            match — otherwise the row is omitted rather than quoting one
+            chain's timing for another chain's deposit. */}
+        <UnifoldExecutionDetail
+          execution={detailExecution}
+          estimatedProcessingTimeSeconds={
+            chain && detailExecution.sourceChainId === chain.chain_id
+              ? chain.estimated_processing_time
+              : undefined
+          }
+        />
       </YStack>,
     );
   }

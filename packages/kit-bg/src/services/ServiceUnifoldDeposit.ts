@@ -8,10 +8,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   assertUnifoldEchoMatches,
+  filterUnifoldExecutionsByRecipient,
   formatUnifoldUsdAmount,
+  parseUnifoldExecutionCreatedAtMs,
 } from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
+import { UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH } from '@onekeyhq/shared/types/unifoldDeposit';
 import type {
   IUnifoldActivationStatus,
   IUnifoldDepositAddressParams,
@@ -22,7 +25,10 @@ import type {
   IUnifoldSupportedAsset,
 } from '@onekeyhq/shared/types/unifoldDeposit';
 
-import { perpsUnifoldDepositTrackingAtom } from '../states/jotai/atoms';
+import {
+  perpsActiveAccountAtom,
+  perpsUnifoldDepositTrackingAtom,
+} from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
@@ -48,21 +54,6 @@ const TRACKING_WATCH_RESUME_GRACE_MS = 60 * 1000;
 // Iteration gaps beyond this mean the runtime slept or restarted — the normal
 // cadence is TRACKING_LOOP_INTERVAL_MS.
 const TRACKING_RESUME_GAP_MS = TRACKING_LOOP_INTERVAL_MS * 6;
-
-// createdAt is a nullable vendor passthrough with no pinned format: accept
-// epoch seconds, epoch ms, or a date string. null means "cannot bound" and
-// callers must fail safe (skip, never announce).
-function parseExecutionCreatedAtMs(createdAt: string | null): number | null {
-  if (!createdAt) {
-    return null;
-  }
-  const numeric = Number(createdAt);
-  if (Number.isFinite(numeric) && numeric > 0) {
-    return numeric >= 1e12 ? numeric : numeric * 1000;
-  }
-  const parsed = Date.parse(createdAt);
-  return Number.isNaN(parsed) ? null : parsed;
-}
 
 @backgroundClass()
 export default class ServiceUnifoldDeposit extends ServiceBase {
@@ -128,10 +119,36 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
     return data?.data ?? [];
   }
 
+  // Security MUST-2, background half. The kit-side guard cross-checks the
+  // recipient against the active-account atom, but every @backgroundMethod is
+  // an IPC surface: a UI-side bug or an injected call can hand us any address.
+  // bg owns `perpsActiveAccountAtom` (ServiceHyperliquid writes it), so on
+  // split-runtime targets this is an independent source rather than a re-read
+  // of the value the caller derived from.
+  //
+  // Positive mismatch only: the atom is not persisted, so a bg restart leaves
+  // it null while the UI stays alive. null means "cannot verify", not
+  // "different" — rejecting it would brick deposits until the user re-enters
+  // Perps, which is a worse failure than the one this guard closes.
+  private async assertRecipientIsActivePerpsAccount(recipientAddress: string) {
+    const { accountAddress } = await perpsActiveAccountAtom.get();
+    if (
+      accountAddress &&
+      accountAddress.toLowerCase() !== recipientAddress.toLowerCase()
+    ) {
+      throw new OneKeyError({
+        message: 'Unifold recipient is not the active perps account',
+        code: UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH,
+        autoToast: false,
+      });
+    }
+  }
+
   @backgroundMethod()
   async createDepositAddress(
     params: IUnifoldDepositAddressParams,
   ): Promise<IUnifoldDepositAddressResult> {
+    await this.assertRecipientIsActivePerpsAccount(params.recipientAddress);
     const result = await this.requestUnifold<IUnifoldDepositAddressResult>({
       method: 'post',
       url: '/wallet/v1/perp/unifold/deposit-address',
@@ -151,7 +168,14 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
       url: '/wallet/v1/perp/unifold/deposit-executions',
       params: { ...params },
     });
-    return data ?? [];
+    // Enforced here, at the single choke point every consumer goes through:
+    // the session poll, the tracker history and the bg announce loop all call
+    // this method, so none of them can render — or toast "deposit completed"
+    // for — an execution credited to somebody else.
+    return filterUnifoldExecutionsByRecipient(
+      data ?? [],
+      params.recipientAddress,
+    );
   }
 
   // Only meaningful for the HyperCore destination (chainId 1337); the server
@@ -451,17 +475,20 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
     // loop starts announcing behind it.
     const justUnmutedExecutionIds = new Set<string>();
     const justUnmutedWatchRecipients = new Set<string>();
-    await perpsUnifoldDepositTrackingAtom.set((prev) => ({
-      items: prev.items.map((item) => {
+    await perpsUnifoldDepositTrackingAtom.set((prev) => {
+      let changed = false;
+      const items = prev.items.map((item) => {
         if (item.mutedAt && now - item.mutedAt >= TRACKING_MUTE_MAX_AGE_MS) {
           justUnmutedExecutionIds.add(item.executionId);
+          changed = true;
           return { ...item, mutedAt: null };
         }
         return item;
-      }),
-      watches: (prev.watches ?? []).map((w) => {
+      });
+      const watches = (prev.watches ?? []).map((w) => {
         if (w.mutedAt && now - w.mutedAt >= TRACKING_MUTE_MAX_AGE_MS) {
           justUnmutedWatchRecipients.add(w.recipientAddress.toLowerCase());
+          changed = true;
           // The session stopped renewing — it died or was suspended — so the
           // discovery window restarts from here. watchedAt kept aging on the
           // wall clock during a mobile suspension, and without this reset a
@@ -473,6 +500,7 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
           !w.mutedAt &&
           now - w.watchedAt >= TRACKING_WATCH_MAX_AGE_MS
         ) {
+          changed = true;
           // The window elapsed while the runtime slept or was dead (an
           // unmuted watch is armed at modal close, and mobile suspension /
           // app kill stops the loop while the wall clock keeps running): a
@@ -486,8 +514,13 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
           };
         }
         return w;
-      }),
-    }));
+      });
+      // Nothing expired is the steady state. A fresh object every tick would
+      // persist the atom and broadcast to the UI runtime 6x/minute for as long
+      // as anything is tracked — up to the full 48h window — for no state
+      // change at all.
+      return changed ? { items, watches } : prev;
+    });
     const { items, watches = [] } = await perpsUnifoldDepositTrackingAtom.get();
     const liveItems = items.filter(
       (item) =>
@@ -590,7 +623,9 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
             // Unbounded query: only executions provably inside the watch
             // window are discoverable. A null/unparseable createdAt is
             // skipped — never resurrect an ancient execution as new.
-            const createdAtMs = parseExecutionCreatedAtMs(execution.createdAt);
+            const createdAtMs = parseUnifoldExecutionCreatedAtMs(
+              execution.createdAt,
+            );
             return createdAtMs !== null && createdAtMs >= watch.sessionStart;
           };
           // Oldest → newest, mirroring the session's playback order.
@@ -703,7 +738,19 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
           };
         });
       approvedAnnouncements = approved;
-      return { items: [...keptItems, ...addedItems], watches: nextWatches };
+      // Same no-op guard as the mute pass above: with nothing settled, added
+      // or aged out — the steady state while a deposit is simply still
+      // pending — this tick must not persist and broadcast an identical
+      // snapshot.
+      const prevWatches = prev.watches ?? [];
+      const changed =
+        addedItems.length > 0 ||
+        keptItems.length !== prev.items.length ||
+        nextWatches.length !== prevWatches.length ||
+        nextWatches.some((w, index) => w !== prevWatches[index]);
+      return changed
+        ? { items: [...keptItems, ...addedItems], watches: nextWatches }
+        : prev;
     });
     for (const candidate of approvedAnnouncements) {
       this.showTerminalToast(candidate.execution, candidate.sessionId);

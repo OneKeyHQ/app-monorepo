@@ -27,6 +27,7 @@ import { getSafeUnifoldRecipient } from '@onekeyhq/kit/src/views/Perp/utils/unif
 import {
   perpsActiveAccountAtom,
   useDevSettingsPersistAtom,
+  usePerpsActiveAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -220,8 +221,13 @@ function DetailInfoRow({
 
 export function UnifoldExecutionDetail({
   execution,
+  estimatedProcessingTimeSeconds,
 }: {
   execution: IUnifoldDepositExecution;
+  // Comes from the selected chain's catalog entry, so it only exists inside a
+  // deposit session. The tracker renders history with no chain selection and
+  // passes nothing — in that case the ETA row is omitted rather than guessed.
+  estimatedProcessingTimeSeconds?: number;
 }) {
   const [moreExpanded, setMoreExpanded] = useState(false);
   const { copyText } = useClipboard();
@@ -350,12 +356,23 @@ export function UnifoldExecutionDetail({
               execution.destinationAmountUsd ?? execution.sourceAmountUsd,
             )}
           />,
-          ...(processing
+          // An estimate is shown only when the vendor actually gave one for
+          // the chain in play. `delayed` is excluded outright: the vendor has
+          // told us this deposit is already past its normal window, so any ETA
+          // here would contradict the status the cards render right next to it
+          // ("Processing, taking longer than usual") and talk a user out of
+          // contacting support about money that is genuinely stuck.
+          ...(processing &&
+          execution.status !== 'delayed' &&
+          typeof estimatedProcessingTimeSeconds === 'number' &&
+          estimatedProcessingTimeSeconds > 0
             ? [
                 <DetailInfoRow
                   key="eta"
                   label="Estimated delivery time"
-                  value={formatUnifoldProcessingTime(null)}
+                  value={formatUnifoldProcessingTime(
+                    estimatedProcessingTimeSeconds,
+                  )}
                 />,
               ]
             : []),
@@ -498,6 +515,18 @@ export function UnifoldTrackerContent({
   }
   const safeRecipient = safeRecipientRef.current ?? null;
 
+  // The frozen recipient must also stop being queried once the active perps
+  // account moves under an open tracker, or this keeps polling and rendering
+  // the PREVIOUS account's deposit history. Positive mismatch only: a null
+  // address is the transient state while a switch is in flight.
+  const [activePerpsAccount] = usePerpsActiveAccountAtom();
+  const liveAccountAddress = activePerpsAccount.accountAddress;
+  const accountChanged = Boolean(
+    safeRecipient &&
+    liveAccountAddress &&
+    liveAccountAddress.toLowerCase() !== safeRecipient.toLowerCase(),
+  );
+
   // Track the selected row by id and re-derive it from the freshest poll
   // result, so an in-progress execution keeps updating inside the detail view
   // instead of freezing at the moment it was tapped.
@@ -514,7 +543,7 @@ export function UnifoldTrackerContent({
   const [loadFailed, setLoadFailed] = useState(false);
   const { result: executions } = usePromiseResult(
     async () => {
-      if (!safeRecipient) {
+      if (!safeRecipient || accountChanged) {
         return [];
       }
       try {
@@ -529,7 +558,7 @@ export function UnifoldTrackerContent({
         throw error;
       }
     },
-    [safeRecipient],
+    [safeRecipient, accountChanged],
     { watchLoading: true, pollingInterval: TRACKER_POLL_INTERVAL_MS },
   );
 
@@ -545,13 +574,17 @@ export function UnifoldTrackerContent({
     platformEnv.isNativeAndroid && Boolean(detailSelection),
   );
 
-  if (!safeRecipient) {
+  if (!safeRecipient || accountChanged) {
     return (
       <YStack py="$8">
         <Empty
           icon="ErrorOutline"
           title="Deposit history unavailable"
-          description="Account address mismatch. Reopen from the deposit menu."
+          description={
+            accountChanged
+              ? 'The active account changed. Reopen from the deposit menu to see its history.'
+              : 'Account address mismatch. Reopen from the deposit menu.'
+          }
         />
       </YStack>
     );

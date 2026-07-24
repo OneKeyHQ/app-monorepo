@@ -8,11 +8,15 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import {
   perpsActiveAccountAtom,
   useDevSettingsPersistAtom,
+  usePerpsActiveAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { formatUnifoldUsdAmount } from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
+import {
+  formatUnifoldUsdAmount,
+  pickUnifoldDepositWallet,
+} from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
 import type {
   IUnifoldActivationStatus,
   IUnifoldDepositAddressResult,
@@ -25,6 +29,7 @@ import type {
 import {
   UNIFOLD_ERROR_CODE_FEATURE_DISABLED,
   UNIFOLD_ERROR_CODE_GEO_BLOCKED,
+  UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH,
 } from '@onekeyhq/shared/types/unifoldDeposit';
 
 import {
@@ -141,6 +146,12 @@ function readErrorCode(error: unknown): number | undefined {
 
 function toErrorType(error: unknown): IUnifoldDepositErrorType {
   const code = readErrorCode(error);
+  if (code === UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH) {
+    // The bg guard rejected the recipient. Retrying cannot change that, so
+    // this must land on the terminal (veto) screen rather than the 5s
+    // "retrying automatically" loop that un-coded throws fall into.
+    return 'accountMismatch';
+  }
   if (code === UNIFOLD_ERROR_CODE_FEATURE_DISABLED) {
     return 'disabled';
   }
@@ -240,6 +251,40 @@ export function usePerpsUnifoldDepositSession({
       return next;
     });
   }, []);
+
+  // Security MUST-2, live half. The recipient is frozen for the session, but
+  // the active perps account can still move underneath it — NOT via an in-app
+  // switch (the modal/backdrop covers the account panel on every surface), but
+  // via an external/connected wallet emitting accountsChanged: that rewrites an
+  // external account's address in place under a stable account row (OK-56744),
+  // a push event this modal's z-order cannot block. It reaches perpsActiveAccountAtom
+  // wherever the Perp tab that hosts PerpsGlobalEffects stays live under the
+  // modal — the in-tab desktop dialog (a Portal, never a route) and the iOS
+  // pushModal (freezeOnBlur is off on iOS). On Android / narrow web the tab is
+  // frozen while the modal is up, so the atom cannot change there and this
+  // simply never fires — a harmless no-op, not the case it defends.
+  // Without it the panel would keep showing an address that credits the
+  // PREVIOUS account — and still toast "deposit completed" for it — with no
+  // visible cue, since the vendor address never changes.
+  //
+  // Positive mismatch only: a null address is the transient state while a
+  // switch is in flight, not evidence of a different account, and this veto is
+  // sticky by design (it can never be undone).
+  //
+  // Deliberately does NOT stop the executions poll: money already in flight
+  // for the original recipient must still be tracked and handed to the bg loop
+  // at unmount. Only the address stops being shown.
+  const [activePerpsAccount] = usePerpsActiveAccountAtom();
+  const liveAccountAddress = activePerpsAccount.accountAddress;
+  useEffect(() => {
+    if (
+      recipientAddress &&
+      liveAccountAddress &&
+      liveAccountAddress.toLowerCase() !== recipientAddress.toLowerCase()
+    ) {
+      applyAddressState({ status: 'error', errorType: 'accountMismatch' });
+    }
+  }, [liveAccountAddress, recipientAddress, applyAddressState]);
 
   const [selection, setSelection] = useState<IUnifoldSourceSelection | null>(
     null,
@@ -686,8 +731,9 @@ export function usePerpsUnifoldDepositSession({
     ) {
       return null;
     }
-    const wallet = addressState.result.wallets.find(
-      (w) => w.chainType === selection.chain.chain_type,
+    const wallet = pickUnifoldDepositWallet(
+      addressState.result.wallets,
+      selection.chain.chain_type,
     );
     return wallet?.address ?? null;
   }, [addressState, selection, activationGatePassed]);
