@@ -129,14 +129,7 @@ const TAB_ORDER: readonly IHomeContainerTabId[] = [
   'nft',
   'history',
 ];
-
-type IRefreshState = {
-  sections: Map<
-    IHomeContainerTabId,
-    { completed: boolean; seenRefreshing: boolean }
-  >;
-  timeoutId: ReturnType<typeof setTimeout>;
-};
+const HOME_REFRESH_FEEDBACK_DURATION_MS = 1200;
 
 const MOBILE_NATIVE_HOME_TRON_RESOURCE_ACTION_ID =
   'home.native.banner.openTronResource';
@@ -286,10 +279,6 @@ export function MobileNativeHomeRenderer({
   const marketSection = useHomeSection('market');
   const bannerResource = useHomeResource('banner');
   const portfolioResource = useHomeResource('portfolio');
-  const perpsResource = useHomeResource('perps');
-  const defiResource = useHomeResource('defi');
-  const nftResource = useHomeResource('nft');
-  const historyResource = useHomeResource('history');
   const reactBalancePresentation = useHomeBalancePresentation();
   const [settings] = useSettingsPersistAtom();
   const [{ hideValue }] = useSettingsValuePersistAtom();
@@ -1377,15 +1366,17 @@ export function MobileNativeHomeRenderer({
   );
   const previousSnapshotRef = useRef(snapshot);
   const attachedTargetRef = useRef<IHomeContainerRef | undefined>(undefined);
-  const pendingRefreshesRef = useRef(new Map<string, IRefreshState>());
+  const refreshFeedbackTimersRef = useRef(
+    new Map<string, ReturnType<typeof setTimeout>>(),
+  );
 
   const disposeNativeSession = useCallback(() => {
     const target = attachedTargetRef.current ?? nativeRef.current ?? undefined;
-    pendingRefreshesRef.current.forEach((pending, requestId) => {
-      clearTimeout(pending.timeoutId);
+    refreshFeedbackTimersRef.current.forEach((timeoutId, requestId) => {
+      clearTimeout(timeoutId);
       target?.completeRefresh(requestId);
     });
-    pendingRefreshesRef.current.clear();
+    refreshFeedbackTimersRef.current.clear();
     controller?.detach(target);
     controller?.dispose();
     attachedTargetRef.current = undefined;
@@ -1760,10 +1751,7 @@ export function MobileNativeHomeRenderer({
         nativeRef.current?.completeRefresh(requestId);
         return;
       }
-      const sections = new Map<
-        IHomeContainerTabId,
-        { completed: boolean; seenRefreshing: boolean }
-      >();
+      let didStartRefresh = false;
       tabs.forEach((tab) => {
         const sectionId = tab.id;
         const effects = dispatchHomeIntent({
@@ -1784,63 +1772,21 @@ export function MobileNativeHomeRenderer({
           sessionId: facts.ownerToken.sessionId,
         });
         if (didAcceptIntent(effects)) {
-          sections.set(sectionId, {
-            completed: false,
-            seenRefreshing: false,
-          });
+          didStartRefresh = true;
         }
       });
-      if (sections.size === 0) {
+      if (!didStartRefresh) {
         nativeRef.current?.completeRefresh(requestId);
         return;
       }
       const timeoutId = setTimeout(() => {
         nativeRef.current?.completeRefresh(requestId);
-        pendingRefreshesRef.current.delete(requestId);
-      }, 15_000);
-      pendingRefreshesRef.current.set(requestId, {
-        sections,
-        timeoutId,
-      });
+        refreshFeedbackTimersRef.current.delete(requestId);
+      }, HOME_REFRESH_FEEDBACK_DURATION_MS);
+      refreshFeedbackTimersRef.current.set(requestId, timeoutId);
     },
     [dispatchHomeIntent, facts, revisionState, tabs],
   );
-
-  useEffect(() => {
-    const resources = {
-      portfolio: portfolioResource,
-      perps: perpsResource,
-      defi: defiResource,
-      nft: nftResource,
-      history: historyResource,
-    };
-    pendingRefreshesRef.current.forEach((pending, requestId) => {
-      pending.sections.forEach((state, sectionId) => {
-        const resource = resources[sectionId];
-        const refreshing =
-          resource.kind === 'loading' ||
-          resource.kind === 'partial' ||
-          ((resource.kind === 'ready' || resource.kind === 'empty') &&
-            resource.refresh === 'refreshing');
-        if (refreshing) {
-          state.seenRefreshing = true;
-        } else if (state.seenRefreshing) {
-          state.completed = true;
-        }
-      });
-      if ([...pending.sections.values()].every((state) => state.completed)) {
-        clearTimeout(pending.timeoutId);
-        nativeRef.current?.completeRefresh(requestId);
-        pendingRefreshesRef.current.delete(requestId);
-      }
-    });
-  }, [
-    defiResource,
-    historyResource,
-    nftResource,
-    perpsResource,
-    portfolioResource,
-  ]);
 
   const handleIntent = useCallback(
     (value: string) => {

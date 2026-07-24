@@ -114,6 +114,14 @@ describe('Native Home runtime surface', () => {
     );
     expect(mobileRendererSource).toContain('<HomeContainer');
     expect(mobileRendererSource).toContain("execution: 'controller'");
+    expect(mobileRendererSource).toContain(
+      'const HOME_REFRESH_FEEDBACK_DURATION_MS = 1200;',
+    );
+    expect(mobileRendererSource).toContain(
+      '}, HOME_REFRESH_FEEDBACK_DURATION_MS);',
+    );
+    expect(mobileRendererSource).not.toContain('seenRefreshing');
+    expect(mobileRendererSource).not.toContain('15_000');
     expect(mobileRendererSource).toContain('headerActionRow:');
     expect(mobileRendererSource).toContain(
       "slotId: 'header.balance' as IHomeContainerSlotKey",
