@@ -29,6 +29,9 @@ const OneKeyIdProfileEdit = LazyLoadPage(
   () => import('../pages/OneKeyId/ProfileEditPage'),
 );
 const PrimeMyOrders = LazyLoadPage(() => import('../pages/PrimeMyOrders'));
+const PrimeInfiniPayment = LazyLoadPage(
+  () => import('../pages/PrimeInfiniPayment'),
+);
 const PrimeInfiniSubscription = LazyLoadPage(
   () => import('../pages/PrimeInfiniSubscription'),
 );
@@ -90,6 +93,10 @@ export const PrimeRouter: IModalFlowNavigatorConfig<
   {
     name: EPrimePages.PrimeMyOrders,
     component: PrimeMyOrders,
+  },
+  {
+    name: EPrimePages.PrimeInfiniPayment,
+    component: PrimeInfiniPayment,
   },
   {
     name: EPrimePages.PrimeInfiniSubscription,

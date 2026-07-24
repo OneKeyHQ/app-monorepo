@@ -1,11 +1,13 @@
 /* cspell:ignore Infini */
 import { type AuthResponse } from '@supabase/supabase-js';
 import { Semaphore } from 'async-mutex';
+import BigNumber from 'bignumber.js';
 import { chunk, cloneDeep, isString } from 'lodash';
 
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import {
   backgroundMethod,
+  backgroundMethodForDev,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
@@ -53,6 +55,11 @@ import type {
   IOneKeyIdOAuthLoginResponse,
   IOneKeyIdProfileResponse,
   IPrimeDeviceInfo,
+  IPrimeInfiniPayment,
+  IPrimeInfiniPaymentCreateParams,
+  IPrimeInfiniPaymentOption,
+  IPrimeInfiniPaymentPreBroadcastSnapshot,
+  IPrimeInfiniPurchaseStatusSnapshot,
   IPrimeInfiniSubscription,
   IPrimeInfiniSubscriptionPlan,
   IPrimeServerUserInfo,
@@ -111,6 +118,83 @@ type IOneKeyIdOAuthBindErrorData = {
 type IPrimeServerUserInfoWithProfile = IPrimeServerUserInfo & {
   onekeyAccount?: IOneKeyIdAccount;
 };
+
+function getInfiniPlanParam(plan: IPrimeInfiniSubscriptionPlan) {
+  return plan === 'yearly' ? 'annual' : 'monthly';
+}
+
+type IPrimeInfiniPaymentApiResponse = {
+  paymentId?: unknown;
+  address?: unknown;
+  chain?: unknown;
+  token?: unknown;
+  amountDue?: unknown;
+  payAmount?: unknown;
+  payCurrency?: unknown;
+  expiresAt?: unknown;
+  status?: unknown;
+  infiniStatus?: unknown;
+  amountConfirmed?: unknown;
+  amountConfirming?: unknown;
+};
+
+function validateInfiniPaymentResponse(
+  payment: IPrimeInfiniPaymentApiResponse | undefined,
+  expectedPaymentId?: string,
+): IPrimeInfiniPayment {
+  const rawAmountDue =
+    payment?.amountDue === undefined ? payment?.payAmount : payment.amountDue;
+  const amountDue = new BigNumber(isString(rawAmountDue) ? rawAmountDue : '');
+  const amountFieldsMatch =
+    payment?.amountDue === undefined ||
+    payment.payAmount === undefined ||
+    (isString(payment.amountDue) &&
+      isString(payment.payAmount) &&
+      new BigNumber(payment.amountDue).eq(payment.payAmount));
+  if (
+    !payment ||
+    !isString(payment.paymentId) ||
+    !payment.paymentId ||
+    !isString(payment.address) ||
+    !payment.address ||
+    !isString(payment.chain) ||
+    !payment.chain ||
+    !isString(payment.token) ||
+    !payment.token ||
+    !isString(rawAmountDue) ||
+    !rawAmountDue ||
+    !amountDue.isFinite() ||
+    !amountDue.gt(0) ||
+    !amountFieldsMatch ||
+    typeof payment.expiresAt !== 'number' ||
+    !Number.isFinite(payment.expiresAt) ||
+    (payment.payCurrency !== undefined &&
+      (!isString(payment.payCurrency) ||
+        payment.payCurrency.trim().toUpperCase() !==
+          payment.token.trim().toUpperCase())) ||
+    (payment.status !== undefined && !isString(payment.status)) ||
+    (payment.infiniStatus !== undefined && !isString(payment.infiniStatus)) ||
+    (payment.amountConfirmed !== undefined &&
+      !isString(payment.amountConfirmed)) ||
+    (payment.amountConfirming !== undefined &&
+      !isString(payment.amountConfirming)) ||
+    (expectedPaymentId !== undefined && payment.paymentId !== expectedPaymentId)
+  ) {
+    throw new OneKeyLocalError('Invalid Infini payment response');
+  }
+  return {
+    paymentId: payment.paymentId,
+    address: payment.address,
+    chain: payment.chain,
+    token: payment.token,
+    amountDue: rawAmountDue,
+    expiresAt: payment.expiresAt,
+    status: payment.status,
+    infiniStatus: payment.infiniStatus,
+    amountConfirmed: payment.amountConfirmed,
+    amountConfirming: payment.amountConfirming,
+  };
+}
 
 type ICompleteOneKeyIdProfileResponse = IPrimeServerUserInfo & {
   onekeyAccount: IOneKeyIdAccount;
@@ -207,6 +291,13 @@ async function withIdentityNetworkTimeout<T>(
   }
 }
 
+type IPrimeInfiniPurchaseAuthSnapshot = {
+  expectedOneKeyUserId: string;
+  requestAuthToken: string;
+  authSessionSource: EPrimeAuthSessionSource;
+  authStateGeneration: number;
+};
+
 class ServicePrime extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -214,6 +305,92 @@ class ServicePrime extends ServiceBase {
 
   async getPrimeClient() {
     return this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
+  }
+
+  private createInfiniPurchaseUserChangedError() {
+    return new OneKeyLocalError({
+      message: 'Prime purchase user changed',
+      autoToast: false,
+    });
+  }
+
+  private async captureInfiniPurchaseAuthSnapshot(
+    expectedOneKeyUserId: string,
+  ): Promise<IPrimeInfiniPurchaseAuthSnapshot> {
+    const initialUserInfo = await primePersistAtom.get();
+    if (
+      !expectedOneKeyUserId ||
+      !initialUserInfo.isLoggedIn ||
+      initialUserInfo.onekeyUserId !== expectedOneKeyUserId
+    ) {
+      throw this.createInfiniPurchaseUserChangedError();
+    }
+
+    await this.loginMutex.waitForUnlock();
+    const requestAuthToken =
+      await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
+    if (!requestAuthToken) {
+      throw this.createInfiniPurchaseUserChangedError();
+    }
+
+    return this.authStateWriteMutex.runExclusive(async () => {
+      const currentUserInfo = await primePersistAtom.get();
+      const authSessionSource =
+        await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+      const authStateGeneration =
+        await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
+      if (
+        !currentUserInfo.isLoggedIn ||
+        currentUserInfo.onekeyUserId !== expectedOneKeyUserId ||
+        !authSessionSource
+      ) {
+        throw this.createInfiniPurchaseUserChangedError();
+      }
+      const persistedSession =
+        await readPersistedAccessTokenBySessionSourceStrict(authSessionSource);
+      if (
+        persistedSession.status !== 'ok' ||
+        persistedSession.accessToken !== requestAuthToken
+      ) {
+        throw this.createInfiniPurchaseUserChangedError();
+      }
+      return {
+        expectedOneKeyUserId,
+        requestAuthToken,
+        authSessionSource,
+        authStateGeneration,
+      };
+    });
+  }
+
+  private async assertInfiniPurchaseAuthSnapshot(
+    snapshot: IPrimeInfiniPurchaseAuthSnapshot,
+  ) {
+    await this.authStateWriteMutex.runExclusive(async () => {
+      const currentUserInfo = await primePersistAtom.get();
+      const authSessionSource =
+        await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+      const authStateGeneration =
+        await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
+      if (
+        !currentUserInfo.isLoggedIn ||
+        currentUserInfo.onekeyUserId !== snapshot.expectedOneKeyUserId ||
+        authSessionSource !== snapshot.authSessionSource ||
+        authStateGeneration !== snapshot.authStateGeneration
+      ) {
+        throw this.createInfiniPurchaseUserChangedError();
+      }
+    });
+  }
+
+  private getInfiniPurchaseRequestConfig(
+    snapshot: IPrimeInfiniPurchaseAuthSnapshot,
+  ) {
+    return {
+      headers: {
+        'X-Onekey-Request-Token': snapshot.requestAuthToken,
+      },
+    };
   }
 
   private async cleanupLegacyKeylessSessionStorageBestEffort({
@@ -2419,7 +2596,6 @@ class ServicePrime extends ServiceBase {
 
   @backgroundMethod()
   async callApiFetchPrimeUserInfo(): Promise<IPrimeServerUserInfoWithProfile> {
-    const client = await this.getPrimeClient();
     // Snapshot the token AND pin it as the explicit request header (the
     // ServiceBase interceptor respects a pre-set header). Without pinning,
     // the interceptor would re-read the active token at send time, so a
@@ -2433,6 +2609,17 @@ class ServicePrime extends ServiceBase {
     // evaluateInvalidTokenClearGuards.
     const requestAuthToken =
       await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
+    return this.callApiFetchPrimeUserInfoWithRequestToken({
+      requestAuthToken,
+    });
+  }
+
+  private async callApiFetchPrimeUserInfoWithRequestToken({
+    requestAuthToken,
+  }: {
+    requestAuthToken: string;
+  }): Promise<IPrimeServerUserInfoWithProfile> {
+    const client = await this.getPrimeClient();
     const requestConfig: Parameters<typeof client.get>[1] & {
       autoHandleError?: boolean;
     } = {
@@ -2526,6 +2713,20 @@ class ServicePrime extends ServiceBase {
     return result?.data?.data;
   }
 
+  private buildPrimeSubscriptionInfo(
+    serverUserInfo: IPrimeServerUserInfo,
+  ): IPrimeSubscriptionInfo | undefined {
+    if (!serverUserInfo.isPrime) {
+      return undefined;
+    }
+    return {
+      isActive: true,
+      expiresAt: serverUserInfo.primeExpiredAt,
+      willRenew: serverUserInfo.willRenew,
+      subscriptions: serverUserInfo.subscriptions,
+    };
+  }
+
   async updatePrimeAtomByServerUserInfo({
     serverUserInfo,
   }: {
@@ -2539,17 +2740,7 @@ class ServicePrime extends ServiceBase {
       reason: `updatePrimeAtomByServerUserInfo: before update, atom isPrime=${beforeValue.primeSubscription?.isActive}, atom userId=${beforeValue.onekeyUserId}, server isPrime=${serverUserInfo?.isPrime}, server userId=${serverUserId}`,
     });
 
-    let primeSubscription: IPrimeSubscriptionInfo | undefined;
-    if (serverUserInfo.isPrime) {
-      primeSubscription = {
-        isActive: true,
-        expiresAt: serverUserInfo.primeExpiredAt,
-        willRenew: serverUserInfo.willRenew,
-        subscriptions: serverUserInfo.subscriptions,
-      };
-    } else {
-      primeSubscription = undefined;
-    }
+    const primeSubscription = this.buildPrimeSubscriptionInfo(serverUserInfo);
 
     const serverManagementUrl =
       serverUserInfo.subscriptions?.[0]?.managementUrl;
@@ -2758,11 +2949,18 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
-  async apiFetchPrimeUserInfo(): Promise<{
+  async apiFetchPrimeUserInfo({
+    forceRefresh = false,
+  }: {
+    forceRefresh?: boolean;
+  } = {}): Promise<{
     userInfo: IPrimeUserInfo;
     serverUserInfo: IPrimeServerUserInfo | undefined;
     primeSubscription: IPrimeSubscriptionInfo | undefined;
   }> {
+    if (forceRefresh) {
+      this.clearPrimeUserInfoCache();
+    }
     // Deduped: concurrent calls share a single in-flight request, and calls
     // arriving within a short TTL reuse the previous result. See
     // _fetchPrimeUserInfoWithCache for the TTL and invalidation contract.
@@ -3461,56 +3659,380 @@ class ServicePrime extends ServiceBase {
   @toastIfError()
   async apiGetInfiniCheckoutUrl({
     plan,
+    expectedOneKeyUserId,
   }: {
     plan: IPrimeInfiniSubscriptionPlan;
+    expectedOneKeyUserId: string;
   }): Promise<{ checkoutUrl: string }> {
+    const authSnapshot =
+      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
     const client = await this.getPrimeClient();
     // The checkout API's wire enum uses 'annual' for the yearly plan, while
     // the app models it as 'yearly' everywhere else (IPrimeInfiniSubscriptionPlan);
     // convert only at this boundary, mirroring normalizeInfiniSubscriptionPlan
     // which maps 'annual' back to 'yearly' on the read path.
-    const planParam = plan === 'yearly' ? 'annual' : 'monthly';
+    const planParam = getInfiniPlanParam(plan);
     // NOTE: response schema pending backend confirmation, assumed { checkoutUrl }
     const result = await client.post<
       IApiClientResponse<{ checkoutUrl: string }>
-    >('/prime/v1/infini/checkout', {
-      plan: planParam,
-    });
+    >(
+      '/prime/v1/infini/checkout',
+      {
+        plan: planParam,
+      },
+      this.getInfiniPurchaseRequestConfig(authSnapshot),
+    );
+    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
     return result?.data?.data;
   }
 
   @backgroundMethod()
-  async apiGetInfiniSubscription(): Promise<
-    IPrimeInfiniSubscription | undefined
-  > {
+  async apiGetInfiniPaymentOptions(): Promise<IPrimeInfiniPaymentOption[]> {
+    const client = await this.getPrimeClient();
+    const result = await client.get<IApiClientResponse<{ chains?: unknown }>>(
+      '/prime/v1/infini/payment/options',
+    );
+    const chains = result?.data?.data?.chains;
+    if (!Array.isArray(chains)) {
+      return [];
+    }
+    return chains.flatMap((value): IPrimeInfiniPaymentOption[] => {
+      if (!value || typeof value !== 'object') {
+        return [];
+      }
+      const option = value as Record<string, unknown>;
+      if (
+        !isString(option.chain) ||
+        !option.chain.trim() ||
+        !isString(option.networkId) ||
+        !option.networkId.trim() ||
+        !Array.isArray(option.tokens)
+      ) {
+        return [];
+      }
+      const tokens = option.tokens.flatMap((tokenValue) => {
+        if (!tokenValue || typeof tokenValue !== 'object') {
+          return [];
+        }
+        const token = tokenValue as Record<string, unknown>;
+        if (
+          !isString(token.symbol) ||
+          !token.symbol.trim() ||
+          !isString(token.contract) ||
+          !token.contract.trim()
+        ) {
+          return [];
+        }
+        return [
+          {
+            symbol: token.symbol.trim().toUpperCase(),
+            contract: token.contract.trim(),
+          },
+        ];
+      });
+      if (!tokens.length) {
+        return [];
+      }
+      return [
+        {
+          chain: option.chain.trim().toUpperCase(),
+          networkId: option.networkId.trim(),
+          tokens,
+        },
+      ];
+    });
+  }
+
+  @backgroundMethod()
+  async apiCreateInfiniPayment({
+    plan,
+    chain,
+    token,
+    expectedOneKeyUserId,
+  }: IPrimeInfiniPaymentCreateParams): Promise<IPrimeInfiniPayment> {
+    const authSnapshot =
+      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+    const client = await this.getPrimeClient();
+    const result = await client.post<
+      IApiClientResponse<IPrimeInfiniPaymentApiResponse>
+    >(
+      '/prime/v1/infini/payment',
+      {
+        plan: getInfiniPlanParam(plan),
+        chain,
+        token,
+      },
+      this.getInfiniPurchaseRequestConfig(authSnapshot),
+    );
+    let payment = result?.data?.data;
+    if (
+      payment &&
+      isString(payment.paymentId) &&
+      payment.paymentId &&
+      (!isString(payment.address) || !payment.address)
+    ) {
+      const paymentId = payment.paymentId;
+      const queryResult = await client.get<
+        IApiClientResponse<IPrimeInfiniPaymentApiResponse>
+      >('/prime/v1/infini/payment', {
+        params: {
+          paymentId,
+        },
+        ...this.getInfiniPurchaseRequestConfig(authSnapshot),
+      });
+      payment = queryResult?.data?.data;
+      const validatedPayment = validateInfiniPaymentResponse(
+        payment,
+        paymentId,
+      );
+      await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+      return validatedPayment;
+    }
+    const validatedPayment = validateInfiniPaymentResponse(payment);
+    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+    return validatedPayment;
+  }
+
+  @backgroundMethod()
+  async apiGetInfiniPayment({
+    paymentId,
+    expectedOneKeyUserId,
+  }: {
+    paymentId: string;
+    expectedOneKeyUserId: string;
+  }): Promise<IPrimeInfiniPayment> {
+    const authSnapshot =
+      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+    const client = await this.getPrimeClient();
+    const result = await client.get<
+      IApiClientResponse<IPrimeInfiniPaymentApiResponse>
+    >('/prime/v1/infini/payment', {
+      params: {
+        paymentId,
+      },
+      ...this.getInfiniPurchaseRequestConfig(authSnapshot),
+    });
+    const payment = validateInfiniPaymentResponse(
+      result?.data?.data,
+      paymentId,
+    );
+    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+    return payment;
+  }
+
+  @backgroundMethod()
+  async apiGetInfiniPaymentPreBroadcastSnapshot({
+    paymentId,
+    expectedOneKeyUserId,
+  }: {
+    paymentId: string;
+    expectedOneKeyUserId: string;
+  }): Promise<IPrimeInfiniPaymentPreBroadcastSnapshot> {
+    const authSnapshot =
+      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+    const client = await this.getPrimeClient();
+    const [paymentResult, serverUserInfo, infiniResult] = await Promise.all([
+      client.get<IApiClientResponse<IPrimeInfiniPaymentApiResponse>>(
+        '/prime/v1/infini/payment',
+        {
+          params: {
+            paymentId,
+          },
+          ...this.getInfiniPurchaseRequestConfig(authSnapshot),
+        },
+      ),
+      this.callApiFetchPrimeUserInfoWithRequestToken({
+        requestAuthToken: authSnapshot.requestAuthToken,
+      }),
+      client.get<IApiClientResponse<IPrimeInfiniSubscription | undefined>>(
+        '/prime/v1/infini/subscription',
+        this.getInfiniPurchaseRequestConfig(authSnapshot),
+      ),
+    ]);
+    if (serverUserInfo.userId !== expectedOneKeyUserId) {
+      throw this.createInfiniPurchaseUserChangedError();
+    }
+    const payment = validateInfiniPaymentResponse(
+      paymentResult?.data?.data,
+      paymentId,
+    );
+    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+    return {
+      payment,
+      purchaseStatusSnapshot: {
+        onekeyUserId: expectedOneKeyUserId,
+        primeSubscription: this.buildPrimeSubscriptionInfo(serverUserInfo),
+        infiniSubscription: infiniResult?.data?.data ?? undefined,
+      },
+    };
+  }
+
+  @backgroundMethod()
+  async apiGetInfiniPurchaseStatusSnapshot({
+    expectedOneKeyUserId,
+  }: {
+    expectedOneKeyUserId: string;
+  }): Promise<IPrimeInfiniPurchaseStatusSnapshot> {
+    const authSnapshot =
+      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+    const client = await this.getPrimeClient();
+    const [serverUserInfo, infiniResult] = await Promise.all([
+      this.callApiFetchPrimeUserInfoWithRequestToken({
+        requestAuthToken: authSnapshot.requestAuthToken,
+      }),
+      client.get<IApiClientResponse<IPrimeInfiniSubscription | undefined>>(
+        '/prime/v1/infini/subscription',
+        this.getInfiniPurchaseRequestConfig(authSnapshot),
+      ),
+    ]);
+    if (serverUserInfo.userId !== expectedOneKeyUserId) {
+      throw this.createInfiniPurchaseUserChangedError();
+    }
+    const infiniSubscription = infiniResult?.data?.data ?? undefined;
+    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+    return {
+      onekeyUserId: expectedOneKeyUserId,
+      primeSubscription: this.buildPrimeSubscriptionInfo(serverUserInfo),
+      infiniSubscription,
+    };
+  }
+
+  @backgroundMethod()
+  async apiGetInfiniSubscription({
+    expectedOneKeyUserId,
+  }: {
+    expectedOneKeyUserId: string;
+  }): Promise<IPrimeInfiniSubscription | undefined> {
+    const authSnapshot =
+      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
     const client = await this.getPrimeClient();
     // NOTE: response schema pending backend confirmation (see IPrimeInfiniSubscription)
     const result = await client.get<
       IApiClientResponse<IPrimeInfiniSubscription | undefined>
-    >('/prime/v1/infini/subscription');
-    return result?.data?.data ?? undefined;
+    >(
+      '/prime/v1/infini/subscription',
+      this.getInfiniPurchaseRequestConfig(authSnapshot),
+    );
+    const subscription = result?.data?.data ?? undefined;
+    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+    return subscription;
   }
 
   @backgroundMethod()
   @toastIfError()
   async apiCancelInfiniSubscription({
     note,
+    expectedOneKeyUserId,
   }: {
     note?: string;
-  } = {}): Promise<void> {
+    expectedOneKeyUserId: string;
+  }): Promise<void> {
+    const createUserChangedError = () =>
+      new OneKeyLocalError({
+        message: 'Prime subscription user changed',
+        autoToast: false,
+      });
+    const initialUserInfo = await primePersistAtom.get();
+    if (
+      !expectedOneKeyUserId ||
+      !initialUserInfo.isLoggedIn ||
+      initialUserInfo.onekeyUserId !== expectedOneKeyUserId
+    ) {
+      throw createUserChangedError();
+    }
+
+    await this.loginMutex.waitForUnlock();
+    const requestAuthToken =
+      await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
+    if (!requestAuthToken) {
+      throw createUserChangedError();
+    }
+
+    const sessionSnapshot = await this.authStateWriteMutex.runExclusive(
+      async () => {
+        const currentUserInfo = await primePersistAtom.get();
+        const authSessionSource =
+          await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+        const authStateGeneration =
+          await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
+        if (
+          !currentUserInfo.isLoggedIn ||
+          currentUserInfo.onekeyUserId !== expectedOneKeyUserId ||
+          !authSessionSource
+        ) {
+          throw createUserChangedError();
+        }
+        // Bind the SDK token read to the persisted slot while auth commits
+        // are excluded, covering an A -> B -> A switch between the reads.
+        const persistedSession =
+          await readPersistedAccessTokenBySessionSourceStrict(
+            authSessionSource,
+          );
+        if (
+          persistedSession.status !== 'ok' ||
+          persistedSession.accessToken !== requestAuthToken
+        ) {
+          throw createUserChangedError();
+        }
+        return { authSessionSource, authStateGeneration };
+      },
+    );
+
     const client = await this.getPrimeClient();
     // note is an optional cancel reason, max 200 chars enforced by the server
-    await client.post('/prime/v1/infini/subscription/cancel', {
-      note,
+    await client.post(
+      '/prime/v1/infini/subscription/cancel',
+      { note },
+      {
+        // Pin the request to the session validated above. The interceptor
+        // must not substitute a different user's token during an account switch.
+        headers: {
+          'X-Onekey-Request-Token': requestAuthToken,
+        },
+      },
+    );
+
+    await this.authStateWriteMutex.runExclusive(async () => {
+      const currentUserInfo = await primePersistAtom.get();
+      const authSessionSource =
+        await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+      const authStateGeneration =
+        await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
+      if (
+        !currentUserInfo.isLoggedIn ||
+        currentUserInfo.onekeyUserId !== expectedOneKeyUserId ||
+        authSessionSource !== sessionSnapshot.authSessionSource ||
+        authStateGeneration !== sessionSnapshot.authStateGeneration
+      ) {
+        throw createUserChangedError();
+      }
     });
   }
 
+  @backgroundMethodForDev()
+  @toastIfError()
+  async apiResetInfiniSubscription(): Promise<void> {
+    const client = await this.getPrimeClient();
+    await client.post('/prime/v1/infini/test/reset');
+  }
+
   @backgroundMethod()
-  async apiSyncInfiniWebhook(): Promise<void> {
+  async apiSyncInfiniWebhook({
+    expectedOneKeyUserId,
+  }: {
+    expectedOneKeyUserId: string;
+  }): Promise<void> {
+    const authSnapshot =
+      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
     const client = await this.getPrimeClient();
     // Ask the server to proactively sync the latest Infini payment state,
     // used as a nudge right after the user returns from the checkout page
-    await client.post('/prime/v1/infini/webhook/sync');
+    await client.post(
+      '/prime/v1/infini/webhook/sync',
+      undefined,
+      this.getInfiniPurchaseRequestConfig(authSnapshot),
+    );
+    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
   }
 
   @backgroundMethod()

@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -22,10 +23,14 @@ const PrimePurchaseDialog = LazyLoadPage(
   true,
 );
 
-export function usePrimeRequirements() {
+export function usePrimeRequirements({
+  onPurchase,
+}: {
+  onPurchase?: () => void | Promise<void>;
+} = {}) {
   const { user, loginOneKeyId } = useOneKeyAuth();
 
-  const { purchase } = usePrimePurchaseCallback();
+  const { purchase } = usePrimePurchaseCallback({ onPurchase });
 
   const intl = useIntl();
   const ensureOneKeyIDLoggedIn = useCallback(
@@ -97,11 +102,11 @@ export function usePrimeRequirements() {
               featureName,
             });
           } else {
-            const purchaseDialog = Dialog.show({
+            const _purchaseDialog = Dialog.show({
               renderContent: (
                 <PrimePurchaseDialog
                   onPurchase={() => {
-                    void purchaseDialog.close();
+                    return _purchaseDialog.close();
                   }}
                   featureName={featureName}
                 />

@@ -175,6 +175,7 @@ const NS = {
   historyTxDetail: 'historyTxDetail',
   marketHomeTokenList: 'marketHomeTokenList',
   tokenSelectorView: 'tokenSelectorView',
+  specifiedTokenSelectorView: 'specifiedTokenSelectorView',
   swapHistoryPreviewList: 'swapHistoryPreviewList',
   swapStockChart: 'swapStockChart',
   swapStockTokenDetail: 'swapStockTokenDetail',
@@ -453,6 +454,25 @@ export const swrKeys = {
       activeNetworkId ?? '',
       isAllNetworks ? '1' : '0',
       mergeDeriveAddressData ? '1' : '0',
+    ].join(':'),
+  specifiedTokenSelectorView: ({
+    accountId,
+    networkId,
+    indexedAccountId,
+    targetsKey,
+  }: {
+    accountId: string;
+    networkId: string;
+    indexedAccountId?: string;
+    targetsKey: string;
+  }) =>
+    [
+      NS.specifiedTokenSelectorView,
+      'v1',
+      accountId,
+      networkId,
+      indexedAccountId ?? '',
+      targetsKey,
     ].join(':'),
   swapStockTokenDetail: ({ tokenScope }: { tokenScope: string }) =>
     [NS.swapStockTokenDetail, 'v1', tokenScope].join(':'),

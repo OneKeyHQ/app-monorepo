@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 /* eslint-disable import/first, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-var-requires */
 
 import type {
@@ -351,6 +352,1010 @@ function createDeferred<T = void>() {
   });
   return { promise, resolve, reject };
 }
+
+describe('ServicePrime.apiFetchPrimeUserInfo', () => {
+  it('bypasses the short-TTL cache when fresh server truth is required', async () => {
+    const { service } = createService();
+    const fetchWithCache = Object.assign(
+      jest.fn(async () => ({
+        userInfo: {},
+        serverUserInfo: undefined,
+        primeSubscription: undefined,
+      })),
+      { clear: jest.fn() },
+    );
+    service._fetchPrimeUserInfoWithCache = fetchWithCache;
+
+    await service.apiFetchPrimeUserInfo({ forceRefresh: true });
+
+    expect(fetchWithCache.clear).toHaveBeenCalledTimes(1);
+    expect(fetchWithCache).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ServicePrime.apiResetInfiniSubscription', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('posts to the Infini test reset endpoint without a request body', async () => {
+    const { service } = createService();
+    const post = jest.fn(async () => undefined);
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+
+    await service.apiResetInfiniSubscription();
+
+    expect(post).toHaveBeenCalledWith('/prime/v1/infini/test/reset');
+  });
+});
+
+describe('ServicePrime.apiCancelInfiniSubscription', () => {
+  const userA = {
+    isLoggedIn: true,
+    onekeyUserId: 'user-a',
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrimePersistAtom.get.mockResolvedValue(userA);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'token-a',
+    });
+  });
+
+  afterEach(() => {
+    mockPrimePersistAtom.get.mockImplementation(async () => ({}));
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'persisted-access-token',
+    });
+  });
+
+  it('pins the validated session token on the cancel request', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
+    const post = jest.fn(async () => undefined);
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+
+    await service.apiCancelInfiniSubscription({
+      note: 'No longer needed',
+      expectedOneKeyUserId: 'user-a',
+    });
+
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/infini/subscription/cancel',
+      { note: 'No longer needed' },
+      {
+        headers: {
+          'X-Onekey-Request-Token': 'token-a',
+        },
+      },
+    );
+  });
+
+  it('rejects before reading auth state when the expected user is not current', async () => {
+    const { service, simpleDbPrime } = createService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-b',
+    });
+    const post = jest.fn(async () => undefined);
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+
+    await expect(
+      service.apiCancelInfiniSubscription({
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toThrow('Prime subscription user changed');
+
+    expect(simpleDbPrime.getActiveAuthToken).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('rejects a captured token that no longer matches the persisted session', async () => {
+    const { service, simpleDbPrime } = createService();
+    mockPrimePersistAtom.get.mockResolvedValue(userA);
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-b');
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'token-a',
+    });
+    const post = jest.fn(async () => undefined);
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+
+    await expect(
+      service.apiCancelInfiniSubscription({
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toThrow('Prime subscription user changed');
+
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('rejects a completed request when the user changes while it is in flight', async () => {
+    const { service, simpleDbPrime } = createService();
+    let currentUser = userA;
+    let authStateGeneration = 3;
+    let activeToken = 'token-a';
+    mockPrimePersistAtom.get.mockImplementation(async () => currentUser);
+    simpleDbPrime.getActiveAuthToken.mockImplementation(
+      async () => activeToken,
+    );
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockImplementation(
+      async () => authStateGeneration,
+    );
+    const postStarted = createDeferred();
+    const postResponse = createDeferred();
+    const post = jest.fn(async () => {
+      postStarted.resolve();
+      await postResponse.promise;
+    });
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+
+    const cancelPromise = service.apiCancelInfiniSubscription({
+      expectedOneKeyUserId: 'user-a',
+    });
+    const cancelResult = cancelPromise.then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    await postStarted.promise;
+    currentUser = { isLoggedIn: true, onekeyUserId: 'user-b' };
+    authStateGeneration = 4;
+    activeToken = 'token-b';
+    postResponse.resolve();
+
+    await expect(cancelResult).resolves.toEqual(
+      expect.objectContaining({
+        message: 'Prime subscription user changed',
+      }),
+    );
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/infini/subscription/cancel',
+      { note: undefined },
+      {
+        headers: {
+          'X-Onekey-Request-Token': 'token-a',
+        },
+      },
+    );
+  });
+});
+
+describe('ServicePrime Infini payment APIs', () => {
+  const userA = {
+    isLoggedIn: true,
+    onekeyUserId: 'user-a',
+  };
+  const payment = {
+    paymentId: 'prime-payment-id',
+    address: '0x1234',
+    chain: 'ETHEREUM',
+    token: 'USDC',
+    amountDue: '29.99',
+    expiresAt: 1_800_000_000_000,
+    status: 'pending',
+    infiniStatus: 'created',
+    amountConfirmed: '0',
+    amountConfirming: '0',
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrimePersistAtom.get.mockResolvedValue(userA);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'token-a',
+    });
+  });
+
+  afterEach(() => {
+    mockPrimePersistAtom.get.mockImplementation(async () => ({}));
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'persisted-access-token',
+    });
+  });
+
+  function createInfiniService() {
+    const result = createService();
+    result.simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
+    result.simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    result.simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
+    return result;
+  }
+
+  it('loads supported payment options', async () => {
+    const { service } = createInfiniService();
+    const get = jest.fn(async () => ({
+      data: {
+        data: {
+          chains: [
+            {
+              chain: ' ethereum ',
+              networkId: 'evm--1',
+              tokens: [
+                {
+                  symbol: ' usdt ',
+                  contract: ' 0xdac17f958d2ee523a2206206994597c13d831ec7 ',
+                },
+                {
+                  symbol: 'USDC',
+                  contract: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+                },
+              ],
+            },
+          ],
+        },
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    await expect(service.apiGetInfiniPaymentOptions()).resolves.toEqual([
+      {
+        chain: 'ETHEREUM',
+        networkId: 'evm--1',
+        tokens: [
+          {
+            symbol: 'USDT',
+            contract: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+          },
+          {
+            symbol: 'USDC',
+            contract: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+          },
+        ],
+      },
+    ]);
+    expect(get).toHaveBeenCalledWith('/prime/v1/infini/payment/options');
+  });
+
+  it('drops malformed payment options at the service boundary', async () => {
+    const { service } = createInfiniService();
+    const get = jest.fn(async () => ({
+      data: {
+        data: {
+          chains: [
+            {
+              chain: 'ETHEREUM',
+              networkId: 'evm--1',
+              tokens: [
+                {
+                  symbol: 'USDC',
+                  contract: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+                },
+                { symbol: 'USDT', contract: '' },
+                123,
+              ],
+            },
+            {
+              chain: '',
+              networkId: 'evm--1',
+              tokens: [{ symbol: 'USDT', contract: '0x1234' }],
+            },
+            {
+              chain: 'TRON',
+              tokens: [{ symbol: 'USDT', contract: 'TR7NHq' }],
+            },
+            { chain: 'TRON', tokens: 'USDT' },
+          ],
+        },
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    await expect(service.apiGetInfiniPaymentOptions()).resolves.toEqual([
+      {
+        chain: 'ETHEREUM',
+        networkId: 'evm--1',
+        tokens: [
+          {
+            symbol: 'USDC',
+            contract: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('creates a yearly payment with the annual wire plan', async () => {
+    const { service } = createInfiniService();
+    const post = jest.fn(async () => ({ data: { data: payment } }));
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+
+    await expect(
+      service.apiCreateInfiniPayment({
+        plan: 'yearly',
+        chain: 'ETHEREUM',
+        token: 'USDC',
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).resolves.toEqual(payment);
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/infini/payment',
+      {
+        plan: 'annual',
+        chain: 'ETHEREUM',
+        token: 'USDC',
+      },
+      {
+        headers: {
+          'X-Onekey-Request-Token': 'token-a',
+        },
+      },
+    );
+  });
+
+  it('normalizes the create response payAmount wire field', async () => {
+    const { service } = createInfiniService();
+    const createResponse = {
+      paymentId: 'prime_69bc3e15-e1f7-4789-af76-e3583d40b314',
+      address: '0x0cb9eb1954AFDfFe2c4bf25Fca9e3fFa37114D8C',
+      chain: 'ETHEREUM',
+      token: 'USDT',
+      payAmount: '0.2',
+      payCurrency: 'USDT',
+      amountUsd: '0.2',
+      tokenPriceUsdc: '0',
+      expiresAt: 1_784_630_652_000,
+    };
+    const post = jest.fn(async () => ({ data: { data: createResponse } }));
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+
+    await expect(
+      service.apiCreateInfiniPayment({
+        plan: 'monthly',
+        chain: 'ETHEREUM',
+        token: 'USDT',
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).resolves.toEqual({
+      paymentId: createResponse.paymentId,
+      address: createResponse.address,
+      chain: createResponse.chain,
+      token: createResponse.token,
+      amountDue: createResponse.payAmount,
+      expiresAt: createResponse.expiresAt,
+    });
+  });
+
+  it('rejects a create response whose payCurrency differs from token', async () => {
+    const { service } = createInfiniService();
+    const post = jest.fn(async () => ({
+      data: {
+        data: {
+          ...payment,
+          amountDue: undefined,
+          payAmount: payment.amountDue,
+          payCurrency: 'USDT',
+        },
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+
+    await expect(
+      service.apiCreateInfiniPayment({
+        plan: 'monthly',
+        chain: 'ETHEREUM',
+        token: 'USDC',
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toThrow('Invalid Infini payment response');
+  });
+
+  it('rejects conflicting amountDue and payAmount fields', async () => {
+    const { service } = createInfiniService();
+    const post = jest.fn(async () => ({
+      data: {
+        data: {
+          ...payment,
+          payAmount: '30',
+          payCurrency: payment.token,
+        },
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+
+    await expect(
+      service.apiCreateInfiniPayment({
+        plan: 'monthly',
+        chain: 'ETHEREUM',
+        token: 'USDC',
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toThrow('Invalid Infini payment response');
+  });
+
+  it('queries a payment by paymentId', async () => {
+    const { service } = createInfiniService();
+    const get = jest.fn(async () => ({ data: { data: payment } }));
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    await expect(
+      service.apiGetInfiniPayment({
+        paymentId: payment.paymentId,
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).resolves.toEqual(payment);
+    expect(get).toHaveBeenCalledWith('/prime/v1/infini/payment', {
+      params: { paymentId: payment.paymentId },
+      headers: {
+        'X-Onekey-Request-Token': 'token-a',
+      },
+    });
+  });
+
+  it('rejects a payment query response with a different paymentId', async () => {
+    const { service } = createInfiniService();
+    const get = jest.fn(async () => ({
+      data: { data: { ...payment, paymentId: 'different-payment-id' } },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    await expect(
+      service.apiGetInfiniPayment({
+        paymentId: payment.paymentId,
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toThrow('Invalid Infini payment response');
+  });
+
+  it('hydrates a paymentId-only create response from the query endpoint', async () => {
+    const { service } = createInfiniService();
+    const post = jest.fn(async () => ({
+      data: { data: { paymentId: payment.paymentId } },
+    }));
+    const get = jest.fn(async () => ({ data: { data: payment } }));
+    service.getPrimeClient = jest.fn(async () => ({ get, post }));
+
+    await expect(
+      service.apiCreateInfiniPayment({
+        plan: 'monthly',
+        chain: 'ETHEREUM',
+        token: 'USDC',
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).resolves.toEqual(payment);
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/infini/payment',
+      {
+        plan: 'monthly',
+        chain: 'ETHEREUM',
+        token: 'USDC',
+      },
+      {
+        headers: {
+          'X-Onekey-Request-Token': 'token-a',
+        },
+      },
+    );
+    expect(get).toHaveBeenCalledWith('/prime/v1/infini/payment', {
+      params: { paymentId: payment.paymentId },
+      headers: {
+        'X-Onekey-Request-Token': 'token-a',
+      },
+    });
+  });
+
+  it('rejects a malformed payment response', async () => {
+    const { service } = createInfiniService();
+    const post = jest.fn(async () => ({
+      data: { data: { ...payment, paymentId: '' } },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+
+    await expect(
+      service.apiCreateInfiniPayment({
+        plan: 'monthly',
+        chain: 'ETHEREUM',
+        token: 'USDC',
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toThrow('Invalid Infini payment response');
+  });
+
+  it('rejects malformed optional payment progress fields', async () => {
+    const { service } = createInfiniService();
+    const get = jest.fn(async () => ({
+      data: {
+        data: {
+          ...payment,
+          status: 1,
+          amountConfirming: null,
+        },
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    await expect(
+      service.apiGetInfiniPayment({
+        paymentId: payment.paymentId,
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toThrow('Invalid Infini payment response');
+  });
+
+  it('rejects a non-positive payment amount', async () => {
+    const { service } = createInfiniService();
+    const post = jest.fn(async () => ({
+      data: { data: { ...payment, amountDue: '0' } },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+
+    await expect(
+      service.apiCreateInfiniPayment({
+        plan: 'monthly',
+        chain: 'ETHEREUM',
+        token: 'USDC',
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toThrow('Invalid Infini payment response');
+  });
+
+  it('pins the validated session token on hosted checkout creation', async () => {
+    const { service } = createInfiniService();
+    const post = jest.fn(async () => ({
+      data: {
+        data: {
+          checkoutUrl: 'https://example.com/checkout',
+        },
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+
+    await expect(
+      service.apiGetInfiniCheckoutUrl({
+        plan: 'monthly',
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).resolves.toEqual({
+      checkoutUrl: 'https://example.com/checkout',
+    });
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/infini/checkout',
+      {
+        plan: 'monthly',
+      },
+      {
+        headers: {
+          'X-Onekey-Request-Token': 'token-a',
+        },
+      },
+    );
+  });
+
+  it('pins the validated session token on subscription lookup', async () => {
+    const { service } = createInfiniService();
+    const subscription = {
+      subscriptionId: 'infini-subscription-id',
+      status: 'active',
+      plan: 'monthly',
+      currentPeriodEnd: 1_800_000_000_000,
+    };
+    const get = jest.fn(async () => ({
+      data: {
+        data: subscription,
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    await expect(
+      service.apiGetInfiniSubscription({
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).resolves.toEqual(subscription);
+    expect(get).toHaveBeenCalledWith('/prime/v1/infini/subscription', {
+      headers: {
+        'X-Onekey-Request-Token': 'token-a',
+      },
+    });
+  });
+
+  it('pins the validated session token on webhook sync', async () => {
+    const { service } = createInfiniService();
+    const post = jest.fn(async () => undefined);
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+
+    await service.apiSyncInfiniWebhook({
+      expectedOneKeyUserId: 'user-a',
+    });
+
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/infini/webhook/sync',
+      undefined,
+      {
+        headers: {
+          'X-Onekey-Request-Token': 'token-a',
+        },
+      },
+    );
+  });
+
+  it('rejects webhook sync before the request for a different user', async () => {
+    const { service } = createInfiniService();
+    const post = jest.fn(async () => undefined);
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+
+    await expect(
+      service.apiSyncInfiniWebhook({
+        expectedOneKeyUserId: 'user-b',
+      }),
+    ).rejects.toThrow('Prime purchase user changed');
+
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('returns an auth-bound purchase status snapshot from one pinned token', async () => {
+    const { service } = createInfiniService();
+    const subscription = {
+      subscriptionId: 'infini-subscription-id',
+      status: 'active',
+      plan: 'monthly',
+      currentPeriodEnd: 1_800_000_000_000,
+    };
+    const serverUserInfo = {
+      userId: 'user-a',
+      isPrime: true,
+      primeExpiredAt: 1_800_000_000_000,
+      willRenew: true,
+      subscriptions: [{ id: 'prime-subscription-id', channel: 'infini' }],
+    };
+    const get = jest.fn(async (url: string) => {
+      if (url === '/prime/v1/account/profile') {
+        return { data: { code: 0, data: {} } };
+      }
+      if (url === '/prime/v1/user/info') {
+        return { data: { code: 0, data: serverUserInfo } };
+      }
+      return { data: { data: subscription } };
+    });
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    await expect(
+      service.apiGetInfiniPurchaseStatusSnapshot({
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).resolves.toEqual({
+      onekeyUserId: 'user-a',
+      primeSubscription: {
+        isActive: true,
+        expiresAt: serverUserInfo.primeExpiredAt,
+        willRenew: true,
+        subscriptions: serverUserInfo.subscriptions,
+      },
+      infiniSubscription: subscription,
+    });
+    expect(get).toHaveBeenCalledWith('/prime/v1/account/profile', {
+      autoHandleError: false,
+      headers: {
+        'X-Onekey-Request-Token': 'token-a',
+      },
+    });
+    expect(get).toHaveBeenCalledWith('/prime/v1/user/info', {
+      autoHandleError: false,
+      headers: {
+        'X-Onekey-Request-Token': 'token-a',
+      },
+    });
+    expect(get).toHaveBeenCalledWith('/prime/v1/infini/subscription', {
+      headers: {
+        'X-Onekey-Request-Token': 'token-a',
+      },
+    });
+  });
+
+  it('returns payment and purchase status from one pre-broadcast auth snapshot', async () => {
+    const { service } = createInfiniService();
+    const subscription = {
+      subscriptionId: 'infini-subscription-id',
+      status: 'active',
+      plan: 'monthly',
+      currentPeriodEnd: 1_800_000_000_000,
+    };
+    const serverUserInfo = {
+      userId: 'user-a',
+      isPrime: false,
+      primeExpiredAt: 0,
+    };
+    const get = jest.fn(async (url: string) => {
+      if (url === '/prime/v1/account/profile') {
+        return { data: { code: 0, data: {} } };
+      }
+      if (url === '/prime/v1/user/info') {
+        return { data: { code: 0, data: serverUserInfo } };
+      }
+      if (url === '/prime/v1/infini/payment') {
+        return { data: { data: payment } };
+      }
+      return { data: { data: subscription } };
+    });
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    await expect(
+      service.apiGetInfiniPaymentPreBroadcastSnapshot({
+        paymentId: payment.paymentId,
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).resolves.toEqual({
+      payment,
+      purchaseStatusSnapshot: {
+        onekeyUserId: 'user-a',
+        primeSubscription: undefined,
+        infiniSubscription: subscription,
+      },
+    });
+    const pinnedRequestConfig = {
+      headers: {
+        'X-Onekey-Request-Token': 'token-a',
+      },
+    };
+    expect(get).toHaveBeenCalledWith('/prime/v1/infini/payment', {
+      params: { paymentId: payment.paymentId },
+      ...pinnedRequestConfig,
+    });
+    expect(get).toHaveBeenCalledWith(
+      '/prime/v1/infini/subscription',
+      pinnedRequestConfig,
+    );
+    expect(get).toHaveBeenCalledWith('/prime/v1/account/profile', {
+      autoHandleError: false,
+      ...pinnedRequestConfig,
+    });
+    expect(get).toHaveBeenCalledWith('/prime/v1/user/info', {
+      autoHandleError: false,
+      ...pinnedRequestConfig,
+    });
+  });
+
+  it('rejects a pre-broadcast snapshot after an auth-session ABA change', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    const paymentRequestStarted = createDeferred();
+    const paymentResponse = createDeferred<{
+      data: { data: typeof payment };
+    }>();
+    const get = jest.fn((url: string) => {
+      if (url === '/prime/v1/account/profile') {
+        return Promise.resolve({ data: { code: 0, data: {} } });
+      }
+      if (url === '/prime/v1/user/info') {
+        return Promise.resolve({
+          data: {
+            code: 0,
+            data: {
+              userId: 'user-a',
+              isPrime: false,
+              primeExpiredAt: 0,
+            },
+          },
+        });
+      }
+      if (url === '/prime/v1/infini/subscription') {
+        return Promise.resolve({ data: { data: undefined } });
+      }
+      paymentRequestStarted.resolve();
+      return paymentResponse.promise;
+    });
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    const snapshotPromise = service.apiGetInfiniPaymentPreBroadcastSnapshot({
+      paymentId: payment.paymentId,
+      expectedOneKeyUserId: 'user-a',
+    });
+    await paymentRequestStarted.promise;
+    mockPrimePersistAtom.get.mockResolvedValue(userA);
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(5);
+    paymentResponse.resolve({ data: { data: payment } });
+
+    await expect(snapshotPromise).rejects.toThrow(
+      'Prime purchase user changed',
+    );
+  });
+
+  it('rejects a create response after an auth-session ABA change', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    const postStarted = createDeferred();
+    const deferred = createDeferred<{ data: { data: typeof payment } }>();
+    const post = jest.fn(() => {
+      postStarted.resolve();
+      return deferred.promise;
+    });
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+
+    const createPromise = service.apiCreateInfiniPayment({
+      plan: 'monthly',
+      chain: 'ETHEREUM',
+      token: 'USDC',
+      expectedOneKeyUserId: 'user-a',
+    });
+    await postStarted.promise;
+    expect(post).toHaveBeenCalledTimes(1);
+
+    // The visible user returns to A, but the auth generation proves that an
+    // A -> B -> A session replacement happened while the request was running.
+    mockPrimePersistAtom.get.mockResolvedValue(userA);
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(5);
+    deferred.resolve({ data: { data: payment } });
+
+    await expect(createPromise).rejects.toThrow('Prime purchase user changed');
+  });
+
+  it('rejects a checkout response after an auth-session ABA change', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    const postStarted = createDeferred();
+    const deferred = createDeferred<{
+      data: { data: { checkoutUrl: string } };
+    }>();
+    const post = jest.fn(() => {
+      postStarted.resolve();
+      return deferred.promise;
+    });
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+
+    const checkoutPromise = service.apiGetInfiniCheckoutUrl({
+      plan: 'monthly',
+      expectedOneKeyUserId: 'user-a',
+    });
+    await postStarted.promise;
+
+    mockPrimePersistAtom.get.mockResolvedValue(userA);
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(5);
+    deferred.resolve({
+      data: {
+        data: {
+          checkoutUrl: 'https://example.com/checkout',
+        },
+      },
+    });
+
+    await expect(checkoutPromise).rejects.toThrow(
+      'Prime purchase user changed',
+    );
+  });
+
+  it('rejects a subscription response after an auth-session ABA change', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    const getStarted = createDeferred();
+    const deferred = createDeferred<{
+      data: {
+        data: {
+          subscriptionId: string;
+          status: string;
+          plan: string;
+          currentPeriodEnd: number;
+        };
+      };
+    }>();
+    const get = jest.fn(() => {
+      getStarted.resolve();
+      return deferred.promise;
+    });
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    const subscriptionPromise = service.apiGetInfiniSubscription({
+      expectedOneKeyUserId: 'user-a',
+    });
+    await getStarted.promise;
+
+    mockPrimePersistAtom.get.mockResolvedValue(userA);
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(5);
+    deferred.resolve({
+      data: {
+        data: {
+          subscriptionId: 'infini-subscription-id',
+          status: 'active',
+          plan: 'monthly',
+          currentPeriodEnd: 1_800_000_000_000,
+        },
+      },
+    });
+
+    await expect(subscriptionPromise).rejects.toThrow(
+      'Prime purchase user changed',
+    );
+  });
+
+  it('rejects webhook sync after an auth-session ABA change', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    const postStarted = createDeferred();
+    const postResponse = createDeferred<void>();
+    const post = jest.fn(async () => {
+      postStarted.resolve();
+      await postResponse.promise;
+    });
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+
+    const syncPromise = service.apiSyncInfiniWebhook({
+      expectedOneKeyUserId: 'user-a',
+    });
+    await postStarted.promise;
+
+    mockPrimePersistAtom.get.mockResolvedValue(userA);
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(5);
+    postResponse.resolve();
+
+    await expect(syncPromise).rejects.toThrow('Prime purchase user changed');
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/infini/webhook/sync',
+      undefined,
+      {
+        headers: {
+          'X-Onekey-Request-Token': 'token-a',
+        },
+      },
+    );
+  });
+
+  it('rejects a purchase status snapshot after an auth-session ABA change', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    const subscriptionRequestStarted = createDeferred();
+    const subscriptionResponse = createDeferred<{
+      data: {
+        data: {
+          subscriptionId: string;
+          status: string;
+          plan: string;
+          currentPeriodEnd: number;
+        };
+      };
+    }>();
+    const get = jest.fn((url: string) => {
+      if (url === '/prime/v1/account/profile') {
+        return Promise.resolve({ data: { code: 0, data: {} } });
+      }
+      if (url === '/prime/v1/user/info') {
+        return Promise.resolve({
+          data: {
+            code: 0,
+            data: {
+              userId: 'user-a',
+              isPrime: false,
+              primeExpiredAt: 0,
+            },
+          },
+        });
+      }
+      subscriptionRequestStarted.resolve();
+      return subscriptionResponse.promise;
+    });
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    const snapshotPromise = service.apiGetInfiniPurchaseStatusSnapshot({
+      expectedOneKeyUserId: 'user-a',
+    });
+    await subscriptionRequestStarted.promise;
+
+    mockPrimePersistAtom.get.mockResolvedValue(userA);
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(5);
+    subscriptionResponse.resolve({
+      data: {
+        data: {
+          subscriptionId: 'infini-subscription-id',
+          status: 'active',
+          plan: 'monthly',
+          currentPeriodEnd: 1_800_000_000_000,
+        },
+      },
+    });
+
+    await expect(snapshotPromise).rejects.toThrow(
+      'Prime purchase user changed',
+    );
+  });
+});
 
 async function flushAsync(rounds = 10) {
   for (let i = 0; i < rounds; i += 1) {

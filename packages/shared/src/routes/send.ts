@@ -12,6 +12,7 @@ import type { ITokenSelectorParamList } from './assetSelector';
 import type { INetworkAccount } from '../../types/account';
 import type { EDeriveAddressActionType } from '../../types/address';
 import type { IAccountHistoryTx } from '../../types/history';
+import type { IPrimeInfiniBeforeBroadcastAction } from '../../types/prime/primeTypes';
 import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
 
 export enum EModalSendRoutes {
@@ -90,6 +91,9 @@ export type IModalSendParamList = {
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;
+    onBeforeSend?: () => void | Promise<void>;
+    broadcastDeadline?: number;
+    beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
     transferPayload?: ITransferPayload;
   };
   [EModalSendRoutes.SendReplaceTx]: {

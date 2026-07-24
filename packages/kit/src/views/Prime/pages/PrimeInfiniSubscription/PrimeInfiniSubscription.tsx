@@ -26,6 +26,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -199,6 +200,7 @@ export default function PrimeInfiniSubscription() {
   );
 
   const primeExpiresAt = primeUserInfo.primeSubscription?.expiresAt;
+  const currentOneKeyUserId = primeUserInfo.onekeyUserId;
 
   const { result, run } = usePromiseResult(
     async () => {
@@ -208,17 +210,35 @@ export default function PrimeInfiniSubscription() {
       // push), and the Infini details shown on this page must refetch to
       // reflect the new billing period instead of staying stale
       noopObject(primeExpiresAt);
+      noopObject(currentOneKeyUserId);
+      if (!currentOneKeyUserId) {
+        return {
+          onekeyUserId: currentOneKeyUserId,
+          subscription: undefined,
+          hasError: true,
+        };
+      }
       try {
         const subscription =
-          await backgroundApiProxy.servicePrime.apiGetInfiniSubscription();
-        return { subscription, hasError: false };
+          await backgroundApiProxy.servicePrime.apiGetInfiniSubscription({
+            expectedOneKeyUserId: currentOneKeyUserId,
+          });
+        return {
+          onekeyUserId: currentOneKeyUserId,
+          subscription,
+          hasError: false,
+        };
       } catch {
         // Fold the error into the result: usePromiseResult clears the result
         // on throw, and the page needs an explicit retry state
-        return { subscription: undefined, hasError: true };
+        return {
+          onekeyUserId: currentOneKeyUserId,
+          subscription: undefined,
+          hasError: true,
+        };
       }
     },
-    [primeExpiresAt],
+    [currentOneKeyUserId, primeExpiresAt],
     // Debounced so the renew flow's overlapping triggers (waiting-dialog
     // onClose refresh, the atom expiry bump, and the focus refetch) collapse
     // into a single apiGetInfiniSubscription call instead of firing several
@@ -227,7 +247,12 @@ export default function PrimeInfiniSubscription() {
     // page into a full spinner.
     { debounced: 300 },
   );
-  const subscription = result?.subscription;
+  const isResultForCurrentUser = Boolean(
+    currentOneKeyUserId && result?.onekeyUserId === currentOneKeyUserId,
+  );
+  const subscription = isResultForCurrentUser
+    ? result?.subscription
+    : undefined;
 
   const refreshSubscription = useCallback(() => {
     void run();
@@ -239,6 +264,10 @@ export default function PrimeInfiniSubscription() {
   // dependency array is needed.
   const handleRenewNow = useDebouncedCallback(
     async (currentSubscription: IPrimeInfiniSubscription) => {
+      const purchaseUserId = currentOneKeyUserId;
+      if (!purchaseUserId || result?.onekeyUserId !== purchaseUserId) {
+        return;
+      }
       // Normalized defensively: the raw server enum is unconfirmed
       // (integration plan §11-3) and must not misclassify the plan
       const plan = normalizeInfiniSubscriptionPlan(currentSubscription.plan);
@@ -267,12 +296,25 @@ export default function PrimeInfiniSubscription() {
         // the app was backgrounded) would leave the snapshot low and make the
         // dialog's first poll report success before any payment. On fetch
         // failure fall back to the snapshot, never worse than trusting it.
-        const baselinePrimeSubscription = await backgroundApiProxy.servicePrime
+        const freshPrimeUserInfo = await backgroundApiProxy.servicePrime
           .apiFetchPrimeUserInfo()
-          .then((userInfo) => userInfo.primeSubscription)
-          .catch(() => primeUserInfo.primeSubscription);
+          .catch(() => undefined);
+        const currentUser =
+          await backgroundApiProxy.servicePrime.getLocalUserInfo();
+        if (
+          !currentUser.isLoggedIn ||
+          currentUser.onekeyUserId !== purchaseUserId ||
+          (freshPrimeUserInfo &&
+            freshPrimeUserInfo.userInfo.onekeyUserId !== purchaseUserId)
+        ) {
+          return;
+        }
+        const baselinePrimeSubscription =
+          freshPrimeUserInfo?.primeSubscription ??
+          primeUserInfo.primeSubscription;
         showPrimeInfiniWaitingDialog({
           plan,
+          onekeyUserId: purchaseUserId,
           checkoutUrl: latestInvoiceUrl,
           // The waiting dialog compares the account-level merged expiry
           // (primeSubscription.expiresAt) against this baseline, so the
@@ -298,11 +340,11 @@ export default function PrimeInfiniSubscription() {
       // picker defaults to yearly (PrimePurchaseDialog's own 'P1Y' default)
       // regardless of the user's current plan, to nudge the annual option on
       // renewal.
-      const purchaseDialog = Dialog.show({
+      const _purchaseDialog = Dialog.show({
         renderContent: (
           <PrimePurchaseDialog
             onPurchase={() => {
-              void purchaseDialog.close();
+              return _purchaseDialog.close();
             }}
           />
         ),
@@ -315,6 +357,10 @@ export default function PrimeInfiniSubscription() {
 
   const handleCancelRenewal = useCallback(
     (currentSubscription: IPrimeInfiniSubscription) => {
+      const purchaseUserId = currentOneKeyUserId;
+      if (!purchaseUserId || result?.onekeyUserId !== purchaseUserId) {
+        return;
+      }
       const periodEndText = currentSubscription.currentPeriodEnd
         ? formatPeriodDate(currentSubscription.currentPeriodEnd)
         : undefined;
@@ -331,9 +377,31 @@ export default function PrimeInfiniSubscription() {
           <CancelRenewalDialogContent
             submitRef={submitRef}
             onCancelRenewal={async (note) => {
+              const currentUser =
+                await backgroundApiProxy.servicePrime.getLocalUserInfo();
+              if (
+                !currentUser.isLoggedIn ||
+                currentUser.onekeyUserId !== purchaseUserId
+              ) {
+                throw new OneKeyLocalError({
+                  message: 'Prime subscription user changed',
+                  autoToast: false,
+                });
+              }
               await backgroundApiProxy.servicePrime.apiCancelInfiniSubscription(
-                { note },
+                { note, expectedOneKeyUserId: purchaseUserId },
               );
+              const currentUserAfterCancel =
+                await backgroundApiProxy.servicePrime.getLocalUserInfo();
+              if (
+                !currentUserAfterCancel.isLoggedIn ||
+                currentUserAfterCancel.onekeyUserId !== purchaseUserId
+              ) {
+                throw new OneKeyLocalError({
+                  message: 'Prime subscription user changed',
+                  autoToast: false,
+                });
+              }
               Toast.success({
                 // TODO: i18n pending translation key
                 title: 'Renewal canceled',
@@ -353,7 +421,7 @@ export default function PrimeInfiniSubscription() {
         },
       });
     },
-    [refreshSubscription],
+    [currentOneKeyUserId, refreshSubscription, result?.onekeyUserId],
   );
 
   const renderSubscriptionDetail = useCallback(
@@ -473,7 +541,7 @@ export default function PrimeInfiniSubscription() {
     // Later refreshes (renew onClose, expiry bumps) keep the current content
     // visible and update in place, so the page never flashes back to a
     // full-page spinner while re-fetching.
-    if (result === undefined) {
+    if (result === undefined || !isResultForCurrentUser) {
       return (
         <Stack flex={1} alignItems="center" justifyContent="center">
           <Spinner size="large" />

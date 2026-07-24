@@ -10,6 +10,57 @@ import { LogToLocal, LogToServer } from '../../../base/decorators';
 // 'stripe' = RevenueCat web billing (Stripe), 'crypto' = Infini crypto checkout
 export type IPrimePaymentMethod = 'iap' | 'stripe' | 'crypto';
 
+export type IPrimeCryptoPaymentStage =
+  | 'paymentMethod'
+  | 'walletPaymentPage'
+  | 'paymentContext'
+  | 'paymentSession'
+  | 'paymentCreation'
+  | 'paymentReplacement'
+  | 'assetSelection'
+  | 'accountSelection'
+  | 'paymentPreflight'
+  | 'sendConfirmation'
+  | 'broadcast'
+  | 'paymentPolling'
+  | 'externalCheckout'
+  | 'purchaseCompletion';
+
+export type IPrimeCryptoPaymentStatus =
+  | 'started'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled'
+  | 'blocked'
+  | 'pending'
+  | 'expired'
+  | 'selected'
+  | 'restored'
+  | 'refreshed'
+  | 'recovered';
+
+export type IPrimeCryptoPaymentFlowParams = {
+  stage: IPrimeCryptoPaymentStage;
+  status: IPrimeCryptoPaymentStatus;
+  subscriptionPeriod?: ISubscriptionPeriod;
+  featureName?: EPrimeFeatures;
+  plan?: 'monthly' | 'yearly';
+  checkoutType?: 'internalWallet' | 'externalWallet';
+  paymentId?: string;
+  networkId?: string;
+  tokenSymbol?: string;
+  amountDue?: string;
+  reason?: string;
+  sendStarted?: boolean;
+  isRetry?: boolean;
+  durationMs?: number;
+  retryCount?: number;
+  errorName?: string;
+  errorCode?: string;
+  requestId?: string;
+  httpStatusCode?: number;
+};
+
 export class PrimeSubscriptionScene extends BaseScene {
   /**
    * Prime feature entry click
@@ -126,6 +177,12 @@ export class PrimeSubscriptionScene extends BaseScene {
       currency,
       paymentMethod,
     };
+  }
+
+  @LogToLocal({ level: 'info' })
+  @LogToServer()
+  public primeCryptoPaymentFlow(params: IPrimeCryptoPaymentFlowParams) {
+    return params;
   }
 
   /**

@@ -130,6 +130,7 @@ function isSceneCanPersist({
     [
       EAccountSelectorSceneName.discover,
       EAccountSelectorSceneName.addressInput,
+      EAccountSelectorSceneName.primePayment,
       EAccountSelectorSceneName.rewardCenter,
     ].includes(sceneName)
   ) {
@@ -145,7 +146,10 @@ function isSceneCanAutoSelect({
 }): boolean {
   if (
     sceneName &&
-    [EAccountSelectorSceneName.addressInput].includes(sceneName)
+    [
+      EAccountSelectorSceneName.addressInput,
+      EAccountSelectorSceneName.primePayment,
+    ].includes(sceneName)
   ) {
     return false;
   }
@@ -174,6 +178,7 @@ function isSceneAutoSaveToGlobalDeriveType({
     [
       EAccountSelectorSceneName.discover,
       EAccountSelectorSceneName.addressInput,
+      EAccountSelectorSceneName.primePayment,
     ].includes(sceneName)
   ) {
     return false;

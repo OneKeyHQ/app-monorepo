@@ -10,9 +10,19 @@ const forbiddenRemoteCode = [
   'https://browser.sentry-cdn.com',
   'https://svelte-stripe-js.vercel.app',
   'https://maps.googleapis.com/maps/api/js',
-  'https://js.stripe.com/v3/',
   '/js/telegram-login.js',
 ];
+const stripeV3BaseUrl = 'https://js.stripe.com/v3/';
+const stripeV3SourcePath = path.resolve(
+  __dirname,
+  '../../../packages/shared/src/modules3rdParty/stripe-v3/index.js',
+);
+const stripeV3RuntimeStartMarker = 'stripe-js-v3:';
+const stripeV3RuntimeMarker = 'webpackChunkStripeJSouter';
+const stripeV3FrameBaseMarker = 'DANGEROUS_BREAKS_ORIGIN_CHECKING_baseUrl';
+const stripeV3SourcePublicPathPattern =
+  /(\.p\s*=\s*)(["'])https:\/\/js\.stripe\.com\/v3\/\2/g;
+const stripeV3FramePathPattern = /elements-inner-payment-[a-f0-9]+\.html/g;
 
 function getBrowser() {
   const browserArg = process.argv.find((arg) => arg.startsWith('--browser='));
@@ -84,6 +94,92 @@ function assertHtmlReferences(outputRoot, htmlFiles) {
   }
 }
 
+function countOccurrences(source, value) {
+  return source.split(value).length - 1;
+}
+
+function assertStripeV3Runtime(files, jsFiles) {
+  const stripeV3RuntimeCandidates = [];
+  for (const jsFile of jsFiles) {
+    const source = fs.readFileSync(jsFile, 'utf8');
+    const isStripeV3Runtime =
+      source.includes(stripeV3RuntimeStartMarker) &&
+      source.includes(stripeV3RuntimeMarker);
+    if (source.includes(stripeV3BaseUrl) && !isStripeV3Runtime) {
+      throw new Error(`Unexpected Stripe v3 remote URL in ${jsFile}`);
+    }
+    if (isStripeV3Runtime) {
+      stripeV3RuntimeCandidates.push({ jsFile, source });
+    }
+  }
+
+  if (stripeV3RuntimeCandidates.length !== 1) {
+    throw new Error(
+      `Expected one vendored Stripe v3 runtime, found ${stripeV3RuntimeCandidates.length}.`,
+    );
+  }
+
+  const [{ jsFile, source }] = stripeV3RuntimeCandidates;
+  const runtimeStartIndex = source.indexOf(stripeV3RuntimeStartMarker);
+  const runtimeEndIndex = source.indexOf(
+    stripeV3RuntimeMarker,
+    runtimeStartIndex,
+  );
+  const runtimeSource = source.slice(runtimeStartIndex, runtimeEndIndex);
+  const publicPaths = [
+    ...runtimeSource.matchAll(/\.p\s*=\s*(["'])(.*?)\1/g),
+  ].map((match) => match[2]);
+  if (publicPaths.length !== 1 || publicPaths[0] !== '') {
+    throw new Error(`Stripe v3 webpack public path must be empty in ${jsFile}`);
+  }
+
+  const frameBaseMarkerIndex = source.indexOf(stripeV3FrameBaseMarker);
+  if (frameBaseMarkerIndex < 0) {
+    throw new Error(`Missing Stripe v3 frame URL helper in ${jsFile}`);
+  }
+  const frameBaseSource = source.slice(
+    frameBaseMarkerIndex,
+    frameBaseMarkerIndex + 1000,
+  );
+  if (!frameBaseSource.includes(stripeV3BaseUrl)) {
+    throw new Error(
+      `Stripe v3 frame URL helper lost its remote base in ${jsFile}`,
+    );
+  }
+
+  const framePaths = [...new Set(source.match(stripeV3FramePathPattern) || [])];
+  if (framePaths.length === 0) {
+    throw new Error(`Missing Stripe v3 payment iframe path in ${jsFile}`);
+  }
+  const emittedFileNames = new Set(files.map((file) => path.basename(file)));
+  const locallyEmittedFrame = framePaths.find((framePath) =>
+    emittedFileNames.has(framePath),
+  );
+  if (locallyEmittedFrame) {
+    throw new Error(
+      `Stripe v3 payment iframe must remain remote: ${locallyEmittedFrame}`,
+    );
+  }
+
+  const stripeV3Source = fs.readFileSync(stripeV3SourcePath, 'utf8');
+  const sourcePublicPathMatches =
+    stripeV3Source.match(stripeV3SourcePublicPathPattern) || [];
+  if (sourcePublicPathMatches.length !== 1) {
+    throw new Error(
+      `Expected one Stripe v3 source public path, found ${sourcePublicPathMatches.length}.`,
+    );
+  }
+  const expectedBaseUrlCount =
+    countOccurrences(stripeV3Source, stripeV3BaseUrl) -
+    sourcePublicPathMatches.length;
+  const emittedBaseUrlCount = countOccurrences(source, stripeV3BaseUrl);
+  if (emittedBaseUrlCount !== expectedBaseUrlCount) {
+    throw new Error(
+      `Stripe v3 URL replacement count mismatch in ${jsFile}: ${emittedBaseUrlCount} !== ${expectedBaseUrlCount}`,
+    );
+  }
+}
+
 function readBudget(name, fallback) {
   const value = process.env[name];
   return value ? Number(value) : fallback;
@@ -108,6 +204,7 @@ function main() {
   const jsFiles = files.filter((file) => file.endsWith('.js'));
   const htmlFiles = files.filter((file) => file.endsWith('.html'));
   assertHtmlReferences(outputRoot, htmlFiles);
+  assertStripeV3Runtime(files, jsFiles);
 
   const backgroundPath = path.join(outputRoot, 'background.bundle.js');
   const contentScriptPath = path.join(outputRoot, 'content-script.bundle.js');

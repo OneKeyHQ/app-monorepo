@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -483,7 +484,14 @@ export function PrimeFeatureIntroContent({
   const navigateToBulkSend = useNavigateToBulkSend();
   const showBulkSendModeDialog = useBulkSendModeDialog();
   const navigateToApprovalList = useNavigateToApprovalList();
-  const { ensurePrimeSubscriptionActive } = usePrimeRequirements();
+  const handlePurchaseStart = useCallback(async () => {
+    if (mode === 'dialog') {
+      await onClose?.();
+    }
+  }, [mode, onClose]);
+  const { ensurePrimeSubscriptionActive } = usePrimeRequirements({
+    onPurchase: handlePurchaseStart,
+  });
 
   const features = PRIME_FEATURE_INTROS;
 

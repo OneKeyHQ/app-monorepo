@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
@@ -259,19 +260,16 @@ export default function PrimeDashboard({
       };
     }
 
-    setIsSubscribeLazyLoading(true);
-    setTimeout(() => {
+    try {
+      setIsSubscribeLazyLoading(true);
+      await ensurePrimeSubscriptionActive({
+        skipDialogConfirm: true,
+        selectedSubscriptionPeriod,
+        featureName: fromFeature,
+      });
+    } finally {
       setIsSubscribeLazyLoading(false);
-    }, 2000);
-
-    // await ensureOneKeyIDLoggedIn({
-    //   skipDialogConfirm: true,
-    // });
-    await ensurePrimeSubscriptionActive({
-      skipDialogConfirm: true,
-      selectedSubscriptionPeriod,
-      featureName: fromFeature,
-    });
+    }
   }, [
     ensurePrimeSubscriptionActive,
     selectedSubscriptionPeriod,
