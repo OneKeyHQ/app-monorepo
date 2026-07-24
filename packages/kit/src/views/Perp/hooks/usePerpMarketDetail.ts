@@ -15,6 +15,7 @@ import type {
   IPerpsAssetMetaMap,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
+import type { IMarketStockDetail } from '@onekeyhq/shared/types/marketV2';
 
 export type IPerpFundingHistoryRange = '24h' | '7d' | '30d';
 
@@ -24,6 +25,7 @@ export type IPerpResolvedMarketDetail = {
   assetType?: IPerpAssetMetaAssetType;
   localizedMessage?: string;
   detail?: IMarketTokenDetail;
+  stockDetail?: IMarketStockDetail;
 };
 
 function addPerpAssetMetaLookupCandidate(
@@ -87,7 +89,7 @@ function resolvePerpAssetMeta({
   return undefined;
 }
 
-async function resolvePerpMarketDetail({
+export async function resolvePerpMarketDetail({
   coin,
   displayName,
 }: {
@@ -113,12 +115,22 @@ async function resolvePerpMarketDetail({
 
   const localizedMessage =
     resolvedAssetMeta.meta.localizedMessage || resolvedAssetMeta.meta.message;
-  // Legacy cached configs only have assetId, so only explicit non-CoinGecko skips fetching.
-  const shouldFetchMarketDetail =
-    resolvedAssetMeta.meta.assetType !== 'non_coingecko';
   let detail: IMarketTokenDetail | undefined;
+  let stockDetail: IMarketStockDetail | undefined;
 
-  if (shouldFetchMarketDetail) {
+  if (resolvedAssetMeta.meta.assetType === 'stock') {
+    try {
+      stockDetail =
+        await backgroundApiProxy.serviceMarketV2.fetchMarketStockByTicker(
+          resolvedAssetMeta.meta.assetId,
+        );
+    } catch (error) {
+      if (!localizedMessage) {
+        throw error;
+      }
+    }
+  } else if (resolvedAssetMeta.meta.assetType !== 'non_coingecko') {
+    // Legacy cached configs only have assetId, so they continue using CoinGecko.
     try {
       detail = await backgroundApiProxy.serviceMarket.fetchMarketTokenDetail(
         resolvedAssetMeta.meta.assetId,
@@ -136,6 +148,7 @@ async function resolvePerpMarketDetail({
     assetType: resolvedAssetMeta.meta.assetType,
     localizedMessage,
     detail,
+    stockDetail,
   };
 }
 
