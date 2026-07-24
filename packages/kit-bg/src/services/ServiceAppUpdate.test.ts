@@ -2470,18 +2470,19 @@ describe('ServiceAppUpdate state transitions', () => {
       },
     );
 
-    // OCDS §5.11 end-to-end: a download that GAVE UP (persisted attempt budget
-    // exhausted → DownloadGaveUpError → downloadPackageFailed) must NOT suppress
-    // a future update. When a newer version arrives, the failed status recovers
-    // to notify (the user is re-prompted) AND the new target starts a fresh
-    // budget. This pins the guarantee that the give-up reuses the recoverable
-    // downloadPackageFailed status, not a special terminal state, and that a
-    // stale per-target give-up never blocks a newer version's download.
+    // OCDS §5.11 end-to-end: a download that GAVE UP (service-instance attempt
+    // budget exhausted → DownloadGaveUpError → downloadPackageFailed) must NOT
+    // suppress a future update. When a newer version arrives, the failed status
+    // recovers to notify (the user is re-prompted) AND the new target starts a
+    // fresh budget. This pins the guarantee that the give-up reuses the
+    // recoverable downloadPackageFailed status, not a special terminal state,
+    // and that a stale per-target give-up never blocks a newer version's
+    // download.
     test('a prior give-up does not suppress a NEWER version: failed→notify + fresh budget for the new target', async () => {
       const OLD_KEY = `${ATTEMPTED_VERSION}:appShell`;
       const NEW_KEY = `${NEWER_VERSION}:appShell`;
 
-      // (a) Reproduce the give-up's persisted effects for the OLD target:
+      // (a) Reproduce the give-up state for the OLD target:
       //     exhaust the per-target attempt budget (8 recorded attempts)…
       for (let i = 1; i <= 8; i += 1) {
         // eslint-disable-next-line no-await-in-loop

@@ -87,11 +87,11 @@ const FAILED_RECOVERY_IGNORE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 d
 // by an earlier bundle; it is never read or written by the gate.
 const DOWNLOAD_ATTEMPT_BUDGET_STORAGE_KEY =
   'onekey_app_update_download_attempt_budget';
-// Persisted give-up threshold. Distinct from updateRetry's in-memory
-// per-invocation cap: this counts total attempts across relaunches. There is
-// intentionally NO wall-clock deadline — idle time (app closed) must not
-// abandon a still-resumable partial; see evaluateDownloadBudget.
-const DOWNLOAD_PERSISTED_MAX_ATTEMPTS = 8;
+// Service-instance give-up threshold. Distinct from updateRetry's
+// per-invocation cap: this counts attempts across retry-loop invocations within
+// one bg service instance. A cold restart creates a fresh budget. There is no
+// wall-clock deadline because idle time must not abandon a resumable partial.
+const DOWNLOAD_INSTANCE_MAX_ATTEMPTS = 8;
 
 interface IDownloadAttemptBudgetRecord {
   targetKey: string;
@@ -104,8 +104,8 @@ export interface IDownloadAttemptBudgetResult {
   targetKey: string;
   attemptCount: number;
   firstAttemptAt: number;
-  // True once the persisted attempt count is exhausted: the caller must stop
-  // retrying and surface a terminal outcome.
+  // True once the service-instance attempt count is exhausted: the caller must
+  // stop retrying and surface a terminal outcome.
   givenUp: boolean;
   // Populated when givenUp, for the terminal reason.
   reason?: 'maxAttempts';
@@ -866,8 +866,8 @@ class ServiceAppUpdate extends ServiceBase {
     // recordDownloadAttempt runs before the native operation. Let attempt 8
     // run; entry checks (and attempt 9) then see an exhausted budget.
     const attemptsExceeded = options?.allowRecordedAttempt
-      ? record.attemptCount > DOWNLOAD_PERSISTED_MAX_ATTEMPTS
-      : record.attemptCount >= DOWNLOAD_PERSISTED_MAX_ATTEMPTS;
+      ? record.attemptCount > DOWNLOAD_INSTANCE_MAX_ATTEMPTS
+      : record.attemptCount >= DOWNLOAD_INSTANCE_MAX_ATTEMPTS;
     return {
       targetKey: record.targetKey,
       attemptCount: record.attemptCount,

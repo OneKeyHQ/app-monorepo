@@ -44,7 +44,7 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
     updateLastDialogShownAt: jest.fn(),
     setCurrentUpdateAttemptId: jest.fn(),
     pruneStaleArtifacts: jest.fn().mockResolvedValue(undefined),
-    // OCDS §5.11 persisted-budget hooks (now wired into downloadPackage).
+    // OCDS §5.11 attempt-budget hooks wired into downloadPackage.
     getDownloadAttemptBudget: jest.fn().mockResolvedValue({ givenUp: false }),
     recordDownloadAttempt: jest.fn().mockResolvedValue({ givenUp: false }),
     resetDownloadAttemptBudget: jest.fn().mockResolvedValue(undefined),
@@ -386,8 +386,8 @@ function resetAllMocks() {
   svc.verifyPackageFailed.mockResolvedValue(undefined);
   svc.readyToInstall.mockResolvedValue(undefined);
   svc.updateDownloadedEvent.mockResolvedValue(undefined);
-  // OCDS §5.11 persisted-budget hooks: default to a fresh (non-exhausted)
-  // budget so download tests proceed; give-up cases override per-test.
+  // OCDS §5.11 attempt-budget hooks default to a fresh budget so download
+  // tests proceed; give-up cases override per test.
   svc.getDownloadAttemptBudget.mockResolvedValue({ givenUp: false });
   svc.recordDownloadAttempt.mockResolvedValue({ givenUp: false });
   svc.resetDownloadAttemptBudget.mockResolvedValue(undefined);
@@ -653,10 +653,10 @@ describe('runDownloadWithRetry', () => {
   });
 
   // -----------------------------------------------------------------------
-  // OCDS v1.1 §5.11 — persisted cross-restart budget + terminal outcomes.
-  // The budget hooks model ServiceAppUpdate's persisted MMKV counter.
+  // OCDS v1.1 §5.11 — service-instance budget and terminal outcomes.
+  // The hooks model ServiceAppUpdate's in-memory counter.
   // -----------------------------------------------------------------------
-  test('entry guard: already-exhausted persisted budget is terminal without any attempt', async () => {
+  test('entry guard: an exhausted service-instance budget is terminal without any attempt', async () => {
     const op = jest.fn().mockResolvedValue('ok');
     const options: IDownloadRetryOptions = {
       getBudget: jest
@@ -674,14 +674,14 @@ describe('runDownloadWithRetry', () => {
     expect(options.recordAttempt).not.toHaveBeenCalled();
   });
 
-  test('records each attempt and goes terminal when the persisted counter trips', async () => {
+  test('records each attempt and goes terminal when the service-instance counter trips', async () => {
     const op = jest.fn().mockRejectedValue(new Error('NSURLErrorDomain -1009'));
     let calls = 0;
     const options: IDownloadRetryOptions = {
       getBudget: jest.fn().mockResolvedValue({ givenUp: false }),
       recordAttempt: jest.fn().mockImplementation(() => {
         calls += 1;
-        // Trip the persisted budget on the 3rd recorded attempt.
+        // Trip the service-instance budget on the 3rd recorded attempt.
         return Promise.resolve(
           calls >= 3
             ? { givenUp: true, reason: 'deadline' }
@@ -703,7 +703,7 @@ describe('runDownloadWithRetry', () => {
     expect(options.recordAttempt).toHaveBeenCalledTimes(3);
   });
 
-  test('success resets the persisted budget', async () => {
+  test('success resets the service-instance budget', async () => {
     const op = jest.fn().mockResolvedValue('ok');
     const resetBudget = jest.fn().mockResolvedValue(undefined);
     const options: IDownloadRetryOptions = {
@@ -1210,13 +1210,13 @@ describe('useDownloadPackage', () => {
       expect(svc.downloadASC).toHaveBeenCalled();
     });
 
-    test('OCDS §5.11: an exhausted persisted budget gives up without re-downloading (wired)', async () => {
+    test('OCDS §5.11: an exhausted service-instance budget gives up without re-downloading', async () => {
       svc.getUpdateInfo.mockResolvedValue({
         latestVersion: '2.0.0',
         downloadUrl: 'https://example.com/app.zip',
         updateStrategy: EUpdateStrategy.manual,
       });
-      // The persisted cross-restart budget for this target is already spent.
+      // The current bg service instance has spent this target's budget.
       svc.getDownloadAttemptBudget.mockResolvedValue({
         givenUp: true,
         reason: 'maxAttempts',
@@ -1227,13 +1227,13 @@ describe('useDownloadPackage', () => {
         await result.current.downloadPackage();
       });
 
-      // Wired: the entry-guard consulted ServiceAppUpdate's persisted budget for
-      // this target (key = `${appVersion}:${bundleVersion ?? fileType}`).
+      // The entry guard consults ServiceAppUpdate's budget for this target
+      // (key = `${appVersion}:${bundleVersion ?? fileType}`).
       expect(svc.getDownloadAttemptBudget).toHaveBeenCalledWith({
         targetKey: expect.stringMatching(/^2\.0\.0:/),
       });
-      // Terminal give-up: the native download is NEVER invoked (no re-download
-      // on this relaunch), and the failure surfaces as a DownloadGaveUpError.
+      // Terminal give-up for this service instance: the native download is not
+      // invoked, and the failure surfaces as a DownloadGaveUpError.
       expect(appUpd.downloadPackage).not.toHaveBeenCalled();
       const failArg = (svc.downloadPackageFailed as jest.Mock).mock
         .calls[0]?.[0];
