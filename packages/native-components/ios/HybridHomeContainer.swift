@@ -31,7 +31,7 @@ final class HybridHomeContainer: HybridHomeContainerSpec {
   var initialSnapshotJson: String = "" {
     didSet {
       guard !initialSnapshotJson.isEmpty else { return }
-      containerView.submitSnapshot(initialSnapshotJson)
+      containerView.submitInitialSnapshot(initialSnapshotJson)
     }
   }
 

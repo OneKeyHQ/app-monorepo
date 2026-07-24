@@ -279,8 +279,9 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
     const nativeRef = useRef<HomeContainerNativeView | null>(null);
     const [acknowledgedSlotBundle, setAcknowledgedSlotBundle] =
       useState<IHomeContainerSlotBundle>();
-    const [safeFallbackSlotBundle, setSafeFallbackSlotBundle] =
-      useState<IHomeContainerSlotBundle>();
+    const [safeFallbackSlotBundle, setSafeFallbackSlotBundle] = useState<
+      IHomeContainerSlotBundle | undefined
+    >(() => slotBundle);
     const [submittedSlotAuthority, setSubmittedSlotAuthority] =
       useState<ISubmittedSlotAuthority>();
     const [protocolV3SlotStagingEnabled, setProtocolV3SlotStagingEnabled] =
@@ -292,6 +293,9 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
     const submittedTransportRef = useRef<
       ISubmittedTransportIdentity | undefined
     >(undefined);
+    const initialSnapshotJsonRef = useRef(
+      snapshot ? serializeHomeContainerPayload(snapshot) : '',
+    );
     const snapshotRef = useRef(snapshot);
     snapshotRef.current = snapshot;
     const slotBundleRef = useRef(slotBundle);
@@ -726,7 +730,7 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
     return (
       <HomeContainerSurface style={style} testID={testID}>
         <HomeContainerHost
-          initialSnapshotJson=""
+          initialSnapshotJson={initialSnapshotJsonRef.current}
           backgroundColor={resolvedBackgroundColor}
           debugOverlayEnabled={debugOverlayEnabled}
           style={styles.engine}

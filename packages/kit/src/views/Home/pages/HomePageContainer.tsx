@@ -143,7 +143,7 @@ function HomeStoreDrivenWalletSurface({
       />
     );
   }
-  return <HomeLaunchSkeleton />;
+  return platformEnv.isNative ? null : <HomeLaunchSkeleton />;
 }
 
 export function HomeLaunchGatedContent({
@@ -211,6 +211,28 @@ export function HomeLaunchGatedContent({
     activeOwnerMatchesHomeSession &&
     ownerDisplaySnapshotReady,
   );
+  const nativeDisplaySnapshotLoadSettled = Boolean(
+    platformEnv.isNative &&
+    homeSession.ownerToken &&
+    displaySnapshotLoadState.status !== 'idle' &&
+    displaySnapshotLoadState.status !== 'loading' &&
+    displaySnapshotLoadState.ownerScopeKey ===
+      homeSession.ownerToken.scopeKey &&
+    displaySnapshotLoadState.sessionId === homeSession.ownerToken.sessionId,
+  );
+  const nativeWalletOwnerReady = Boolean(
+    platformEnv.isNative &&
+    nativeHomeEnabled &&
+    nativeDisplaySnapshotLoadSettled &&
+    activeAccountReady &&
+    wallet?.id &&
+    wallet.type &&
+    account?.id &&
+    network?.id &&
+    !hasNoUsableWallet &&
+    !activeWalletUnavailable &&
+    activeOwnerMatchesHomeSession,
+  );
   const portfolioShellReady =
     homeShell.value.kind === 'portfolio' &&
     (homeShell.value.presentation.kind === 'funded' ||
@@ -235,9 +257,11 @@ export function HomeLaunchGatedContent({
     accountSelectorStorageInitDone,
     accountSelectorActiveAccountInitDone,
     activeAccountReady,
-    cachedWalletOwnerReady,
+    cachedWalletOwnerReady: cachedWalletOwnerReady || nativeWalletOwnerReady,
     confirmedWalletDisplayReady:
-      ownerDisplaySnapshotReady || liveWalletOwnerReady,
+      nativeWalletOwnerReady ||
+      ownerDisplaySnapshotReady ||
+      liveWalletOwnerReady,
     activeWalletUnavailable,
     activeWalletId: wallet?.id,
   });

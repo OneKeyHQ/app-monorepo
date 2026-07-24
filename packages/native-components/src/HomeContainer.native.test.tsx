@@ -78,6 +78,7 @@ const mockNativeView = {
 let mockHostProps:
   | {
       hybridRef?: (view: typeof mockNativeView) => void;
+      initialSnapshotJson?: string;
       onTransportResult?: (resultJson: string) => void;
     }
   | undefined;
@@ -261,6 +262,30 @@ describe('Native HomeContainer protocol v2 slot fallback', () => {
     mockProtocolV3SnapshotSlotPropsAtSubmission = undefined;
     mockProtocolV3PatchSlotPropsAtSubmission = undefined;
     mockHostProps = undefined;
+  });
+
+  it('submits the initial snapshot and slots with the first native mount', () => {
+    const initialSlots: IHomeContainerSlots = {
+      balance: {
+        content: 'initial-balance',
+      },
+    };
+    const snapshot = buildSnapshot(ownerA, 0);
+    let view!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      view = TestRenderer.create(
+        <HomeContainer
+          snapshot={snapshot}
+          slotBundle={buildBundle(ownerA, 0, initialSlots)}
+        />,
+      );
+    });
+
+    expect(JSON.parse(mockHostProps?.initialSnapshotJson ?? '')).toEqual(
+      snapshot,
+    );
+    expect(rendererHasText(view, 'initial-balance')).toBe(true);
+    act(() => view.unmount());
   });
 
   it('keeps the first submitted loading slots visible across an unacknowledged full resync', () => {

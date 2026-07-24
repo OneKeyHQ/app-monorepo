@@ -756,6 +756,8 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   private let decoder = JSONDecoder()
   private let encoder = JSONEncoder()
   private let lifecycleLock = NSLock()
+  private var pendingInitialSnapshot: HomeContainerSnapshot?
+  private var initialSnapshotApplyScheduled = false
   private var snapshot: HomeContainerSnapshot?
   private var protocolV2State: HomeContainerProtocolV2State?
   private var protocolV3State: HomeContainerProtocolV3State?
@@ -850,6 +852,11 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     NotificationCenter.default.removeObserver(self)
   }
 
+  override func didMoveToWindow() {
+    super.didMoveToWindow()
+    schedulePendingInitialSnapshot()
+  }
+
   @objc private func contentSizeCategoryDidChange() {
     headerView.contentSizeCategoryDidChange()
     headerHeight = headerView.preferredHeight
@@ -898,6 +905,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       )
     }
     updateSharedChromeLayout()
+    schedulePendingInitialSnapshot()
 
     guard pagerTransitionState == .idle,
           let index = pages.firstIndex(where: { $0.tabId == selectedTabId }) else {
@@ -1020,6 +1028,65 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
           self.reportError(code: "snapshot_decode_failed", message: error.localizedDescription)
         }
       }
+    }
+  }
+
+  func submitInitialSnapshot(_ json: String) {
+    do {
+      let next = try JSONDecoder().decode(
+        HomeContainerSnapshot.self,
+        from: Data(json.utf8)
+      )
+      guard next.schemaVersion == homeContainerBusinessSchemaVersion else {
+        reportError(
+          code: "unsupported_schema",
+          message: "HomeContainer schema \(next.schemaVersion) is not supported"
+        )
+        return
+      }
+      guard homeContainerValidatesBusinessInvariants(next) else {
+        reportError(
+          code: "invalid_snapshot",
+          message: "HomeContainer snapshot violates business invariants"
+        )
+        return
+      }
+      pendingInitialSnapshot = next
+      schedulePendingInitialSnapshot()
+      setNeedsLayout()
+    } catch {
+      reportError(code: "snapshot_decode_failed", message: error.localizedDescription)
+    }
+  }
+
+  private func schedulePendingInitialSnapshot() {
+    guard pendingInitialSnapshot != nil,
+          window != nil,
+          bounds.width > 0,
+          bounds.height > 0,
+          !initialSnapshotApplyScheduled else {
+      return
+    }
+    initialSnapshotApplyScheduled = true
+    DispatchQueue.main.async { [weak self] in
+      guard let self else { return }
+      self.initialSnapshotApplyScheduled = false
+      guard self.window != nil,
+            self.bounds.width > 0,
+            self.bounds.height > 0,
+            let next = self.pendingInitialSnapshot else {
+        return
+      }
+      self.pendingInitialSnapshot = nil
+      self.protocolV2State = nil
+      self.protocolV3State = nil
+      self.pendingProtocolV3Patch = nil
+      self.lastNeedSnapshotResultKey = nil
+      self.applySnapshot(
+        next,
+        allowsMissingSelectedTabFallback: true,
+        enforcesMonotonicRevision: true
+      )
     }
   }
 

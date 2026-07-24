@@ -81,7 +81,7 @@ describe('Native Home runtime surface', () => {
     expect(nativeReactLoaderSource).toMatch(
       /import\(\s*['"]\.\/HomePageView['"]\s*\)/,
     );
-    expect(nativeReactLoaderSource).toContain('HomeLaunchSkeleton');
+    expect(nativeReactLoaderSource).not.toContain('HomeLaunchSkeleton');
     expect(reactLoaderSource).toContain(
       "export { HomePageView } from './HomePageView';",
     );
@@ -89,19 +89,19 @@ describe('Native Home runtime surface', () => {
     expect(mobileAppSource).toContain(
       '<NativeHomeRendererProvider renderer={MobileNativeHomeRenderer}>',
     );
-    expect(mobileAppSource).toMatch(
-      /import\(\s*['"]\.\/src\/home\/MobileNativeHomeRenderer['"]\s*\)/,
+    expect(mobileAppSource).toContain(
+      "from './src/home/MobileNativeHomeRenderer';",
     );
     expect(mobileAppSource).toMatch(
       /import\(\s*['"]@onekeyhq\/kit\/src\/views\/Home\/pages\/HomePageView['"]\s*\)/,
     );
-    expect(mobileAppSource).toContain('HomeLaunchSkeleton');
+    expect(mobileAppSource).not.toContain('HomeLaunchSkeleton');
     expect(mobileAppSource).not.toMatch(
       /import\s+\{\s*HomePageView\s*\}\s+from/,
     );
     expect(mobileAppSource).toContain('class MobileNativeHomeRendererBoundary');
     expect(mobileAppSource).not.toMatch(
-      /import\s+\{\s*MobileNativeHomeRenderer\s*\}\s+from/,
+      /import\(\s*['"]\.\/src\/home\/MobileNativeHomeRenderer['"]\s*\)/,
     );
     expect(mobileRendererSource).toContain(
       "from '@onekeyhq/native-components';",

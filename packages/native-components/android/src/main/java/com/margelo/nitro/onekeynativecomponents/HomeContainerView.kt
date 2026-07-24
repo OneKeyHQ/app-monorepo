@@ -352,6 +352,8 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
   private val tabsView = HomeTabsView(context)
   private val renderCompletionCoordinator = HomeContainerRenderCompletionCoordinator()
   private var activeRefreshRequestId: String? = null
+  private var pendingInitialSnapshot: HomeContainerSnapshot? = null
+  private var initialSnapshotApplyScheduled = false
   private var snapshot: HomeContainerSnapshot? = null
   private var protocolV2State: HomeContainerProtocolV2State? = null
   private var renderedProtocolV2State: HomeContainerProtocolV2State? = null
@@ -557,6 +559,54 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       } catch (error: Exception) {
         reportError("snapshot_decode_failed", error.message ?: error.javaClass.simpleName)
       }
+    }
+  }
+
+  fun submitInitialSnapshot(json: String) {
+    if (disposed.get()) return
+    try {
+      val next = HomeContainerJson.parseSnapshot(json)
+      if (next.schemaVersion != SCHEMA_VERSION) {
+        reportError(
+          "unsupported_schema",
+          "HomeContainer schema ${next.schemaVersion} is not supported",
+        )
+        return
+      }
+      pendingInitialSnapshot = next
+      schedulePendingInitialSnapshot()
+      requestLayout()
+    } catch (error: Exception) {
+      reportError("snapshot_decode_failed", error.message ?: error.javaClass.simpleName)
+    }
+  }
+
+  private fun schedulePendingInitialSnapshot() {
+    if (
+      pendingInitialSnapshot == null ||
+      !isAttachedToWindow ||
+      width <= 0 ||
+      height <= 0 ||
+      initialSnapshotApplyScheduled
+    ) {
+      return
+    }
+    initialSnapshotApplyScheduled = true
+    post {
+      initialSnapshotApplyScheduled = false
+      if (disposed.get() || !isAttachedToWindow || width <= 0 || height <= 0) {
+        return@post
+      }
+      val next = pendingInitialSnapshot ?: return@post
+      pendingInitialSnapshot = null
+      pendingProtocolV3PatchJson = null
+      protocolV2State = null
+      renderedProtocolV2State = null
+      protocolV3State = null
+      renderedProtocolV3State = null
+      renderCompletionCoordinator.reset()
+      lastNeedSnapshotResultKey = null
+      applySnapshot(next)
     }
   }
 
@@ -1734,7 +1784,13 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
   override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
     super.onLayout(changed, left, top, right, bottom)
     layoutSharedChromeImmediately()
+    schedulePendingInitialSnapshot()
     onSlotLayoutChange?.invoke()
+  }
+
+  override fun onAttachedToWindow() {
+    super.onAttachedToWindow()
+    schedulePendingInitialSnapshot()
   }
 
   private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()

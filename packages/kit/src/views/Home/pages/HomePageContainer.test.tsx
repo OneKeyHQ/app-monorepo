@@ -440,7 +440,7 @@ describe('HomeLaunchGatedContent surface ownership', () => {
     act(() => view.unmount());
   });
 
-  it('shows the skeleton until the exact owner display cache is loaded', () => {
+  it('mounts no native fallback while the synchronous display cache loads', () => {
     const backedUp = hdWallet(true);
     setWalletState({ activeWallet: backedUp, pending: true });
     mockDisplaySnapshotLoadState = {
@@ -456,7 +456,7 @@ describe('HomeLaunchGatedContent surface ownership', () => {
 
     expect(
       view.root.findAllByProps({ testID: 'home-launch-skeleton' }),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(view.root.findAllByProps({ testID: 'surface-native' })).toHaveLength(
       0,
     );
@@ -469,7 +469,10 @@ describe('HomeLaunchGatedContent surface ownership', () => {
     act(() => view.update(renderOwner()));
     expect(
       view.root.findAllByProps({ testID: 'home-launch-skeleton' }),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
+    expect(view.root.findAllByProps({ testID: 'surface-native' })).toHaveLength(
+      0,
+    );
 
     mockDisplaySnapshotLoadState = {
       ownerScopeKey: 'scope-hd-1',
@@ -481,6 +484,7 @@ describe('HomeLaunchGatedContent surface ownership', () => {
     expect(view.root.findAllByProps({ testID: 'surface-native' })).toHaveLength(
       1,
     );
+    expect(mockSurfaceLifecycle.native).toEqual({ mounts: 1, unmounts: 0 });
     act(() => view.unmount());
   });
 

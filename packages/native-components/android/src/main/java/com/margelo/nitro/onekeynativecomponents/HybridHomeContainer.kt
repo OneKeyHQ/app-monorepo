@@ -32,7 +32,7 @@ class HybridHomeContainer(context: ThemedReactContext) : HybridHomeContainerSpec
   override var initialSnapshotJson: String = ""
     set(value) {
       field = value
-      if (value.isNotEmpty()) containerView.submitSnapshot(value)
+      if (value.isNotEmpty()) containerView.submitInitialSnapshot(value)
     }
 
   override var backgroundColor: String = "#FFFFFF"

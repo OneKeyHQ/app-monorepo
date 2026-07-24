@@ -252,11 +252,13 @@ export function MobileNativeHomeRenderer({
   const nativeCapabilitiesRef = useRef<IHomeContainerCapabilities | undefined>(
     undefined,
   );
+  const nativeRevealFrameRef = useRef<number | undefined>(undefined);
   const homeNativeDecisionKeyRef = useRef<string | undefined>(undefined);
   const homeNativeContentDecisionKeyRef = useRef<string | undefined>(undefined);
   const [nativeUnavailable, setNativeUnavailable] = useState(
     () => !isHomeContainerAvailable(),
   );
+  const [readyOwner, setReadyOwner] = useState<IHomeContainerOwner>();
   const [expandedSections, setExpandedSections] =
     useState<IHomeNativeExpandedState>({
       defi: false,
@@ -396,6 +398,12 @@ export function MobileNativeHomeRenderer({
       sessionId: session.ownerToken.sessionId,
     };
   }, [session.ownerToken]);
+  const nativeSurfaceReady = Boolean(
+    owner &&
+    readyOwner &&
+    readyOwner.scopeKey === owner.scopeKey &&
+    readyOwner.sessionId === owner.sessionId,
+  );
 
   const nativeTheme = useMemo<IHomeContainerTheme>(
     () => ({
@@ -1432,6 +1440,15 @@ export function MobileNativeHomeRenderer({
     }
   }, [disposeNativeSession, nativeUnavailable]);
 
+  useEffect(
+    () => () => {
+      if (nativeRevealFrameRef.current !== undefined) {
+        cancelAnimationFrame(nativeRevealFrameRef.current);
+      }
+    },
+    [],
+  );
+
   useLayoutEffect(() => {
     const target = nativeRef.current;
     if (!target || !controller || nativeUnavailable) {
@@ -2053,8 +2070,19 @@ export function MobileNativeHomeRenderer({
         return;
       }
       attachedTargetRef.current = target;
+      if (nativeRevealFrameRef.current !== undefined) {
+        cancelAnimationFrame(nativeRevealFrameRef.current);
+      }
+      // Let the native host and its mounted React slots finish layout before
+      // the owner-scoped surface becomes visible.
+      nativeRevealFrameRef.current = requestAnimationFrame(() => {
+        nativeRevealFrameRef.current = requestAnimationFrame(() => {
+          nativeRevealFrameRef.current = undefined;
+          setReadyOwner(owner);
+        });
+      });
     },
-    [controller, nativeUnavailable],
+    [controller, nativeUnavailable, owner],
   );
   const handleTransportResult = useCallback(
     (value: string) => {
@@ -2087,10 +2115,20 @@ export function MobileNativeHomeRenderer({
   }
 
   return (
-    <Stack flex={1} bg="$bgApp">
+    <Stack
+      flex={1}
+      bg="$bgApp"
+      opacity={nativeSurfaceReady ? 1 : 0}
+      pointerEvents={nativeSurfaceReady ? 'auto' : 'none'}
+      accessibilityElementsHidden={!nativeSurfaceReady}
+      importantForAccessibility={
+        nativeSurfaceReady ? 'auto' : 'no-hide-descendants'
+      }
+    >
       <HomeTabSearchHeader />
       <HomeContainer
         ref={nativeRef}
+        snapshot={snapshot}
         style={{ flex: 1 }}
         slotBundle={slotBundle}
         testID="NativeHomeContainer"
