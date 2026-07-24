@@ -280,6 +280,19 @@ function PaymentOptionsPage() {
             result: actionResult,
           });
         },
+        // a recorded transaction reverted on chain: discard it (and anything
+        // after it) so the next attempt re-executes the action instead of
+        // resuming a txid that can never confirm
+        onActionInvalidated: async ({ index }) => {
+          await backgroundApiProxy.serviceWalletConnectPay.discardActionResultsFrom(
+            {
+              paymentId,
+              optionId,
+              accountKey: progressAccountKey,
+              fromIndex: index,
+            },
+          );
+        },
       });
 
       // 4. submit and show result. The transaction may already be broadcast

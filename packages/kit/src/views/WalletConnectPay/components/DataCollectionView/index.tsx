@@ -15,13 +15,35 @@ export function DataCollectionView({
   onError,
 }: IDataCollectionViewProps) {
   const completedRef = useRef(false);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   // the hosted form can take seconds to load; keep a spinner over the empty
   // iframe so the page never looks blank/frozen
   const [isFormLoaded, setIsFormLoaded] = useState(false);
 
   useEffect(() => {
+    // bind acceptance to the exact origin the iframe was loaded from, not
+    // just any trusted hostname
+    let expectedOrigin: string | null = null;
+    try {
+      expectedOrigin = new URL(url).origin;
+    } catch {
+      expectedOrigin = null;
+    }
     const handleMessage = (event: MessageEvent) => {
       try {
+        // a completion message must come from the window of the iframe this
+        // view is presenting — another WC Pay window/frame that merely shares
+        // a trusted hostname must not be able to finish this form
+        if (
+          !expectedOrigin ||
+          event.origin !== expectedOrigin ||
+          !event.source ||
+          event.source !== iframeRef.current?.contentWindow
+        ) {
+          return;
+        }
+        // defense-in-depth: the loaded url is validated before mount, so its
+        // origin's hostname is expected to always pass this check
         if (!isWcPayTrustedHost(new URL(event.origin).hostname)) {
           return;
         }
@@ -40,11 +62,12 @@ export function DataCollectionView({
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [onComplete, onError]);
+  }, [url, onComplete, onError]);
 
   return (
     <Stack flex={1}>
       <iframe
+        ref={iframeRef}
         src={url}
         title="WalletConnect Pay"
         style={{

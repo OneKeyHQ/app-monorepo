@@ -129,9 +129,12 @@ export function DataCollectionView({
         injectedJavaScript={bridgeNonceWrapperScript}
         // keep top-frame navigation inside the trusted WalletConnect Pay
         // host; iOS also reports loads of embedded frames here, which the
-        // page's own CSP (frame-src) governs, so let those through
+        // page's own CSP (frame-src) governs, so let those through. Only an
+        // explicit isTopFrame === false may skip the check: Android's
+        // shouldOverrideUrlLoading events omit isTopFrame entirely, so
+        // undefined must be validated as a top-frame navigation
         onShouldStartLoadWithRequest={(request: ShouldStartLoadRequest) =>
-          !request.isTopFrame || isWcPayTrustedUrl(request.url)
+          request.isTopFrame === false || isWcPayTrustedUrl(request.url)
         }
         onLoadEnd={() => setIsFormLoaded(true)}
       />

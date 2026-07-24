@@ -242,7 +242,8 @@ class ServiceWalletConnectPay extends ServiceBase {
   /**
    * Results of actions already completed by an earlier attempt of the same
    * payment+option+account, validated against the freshly fetched action
-   * list. Progress lives in simpleDb rather than UI memory: on native the UI
+   * list. Progress lives in the background (index in simpleDb, sensitive
+   * payload in secureStorage) rather than UI memory: on native the UI
    * runtime can be reclaimed while a broadcast transaction is still
    * confirming, and a resumed attempt must know the transaction was already
    * sent. Stored entries transfer only while every one matches the
@@ -321,6 +322,31 @@ class ServiceWalletConnectPay extends ServiceBase {
   }
 
   /**
+   * Drop stored results from `fromIndex` on. Used when a recorded
+   * transaction is later found reverted on chain: its txid can never be
+   * resumed, so keeping it would deadlock the payment option until TTL.
+   */
+  @backgroundMethod()
+  async discardActionResultsFrom({
+    paymentId,
+    optionId,
+    accountKey,
+    fromIndex,
+  }: {
+    paymentId: string;
+    optionId: string;
+    accountKey: string;
+    fromIndex: number;
+  }): Promise<void> {
+    await this.backgroundApi.simpleDb.walletConnectPay.truncateActionResults({
+      paymentId,
+      optionId,
+      accountKey,
+      fromIndex,
+    });
+  }
+
+  /**
    * Submit signatures for the selected option. Also used for status polling:
    * when the response is not final, call again after `pollInMs`.
    */
@@ -360,6 +386,11 @@ class ServiceWalletConnectPay extends ServiceBase {
    * Wait until an EVM transaction is mined. Needed for the USDT/Permit2
    * two-action flow: the approve transaction must be confirmed on-chain
    * before the follow-up Permit2 typed data may be signed.
+   *
+   * A definitively reverted receipt is reported via the return value (not a
+   * thrown error) so callers can tell it apart from timeout/RPC uncertainty
+   * — reverted txids must be discarded from stored progress while uncertain
+   * ones must be kept to avoid re-broadcasting.
    */
   @backgroundMethod()
   async waitForTxMined({
@@ -372,7 +403,7 @@ class ServiceWalletConnectPay extends ServiceBase {
     accountId: string;
     txid: string;
     timeoutMs?: number;
-  }): Promise<void> {
+  }): Promise<{ isReverted: boolean }> {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const rpcUrl = await vault.getRpcUrl();
     const { ClientEvm } =
@@ -384,10 +415,7 @@ class ServiceWalletConnectPay extends ServiceBase {
         .call<{ status?: string } | null>('eth_getTransactionReceipt', [txid])
         .catch(() => null);
       if (receipt) {
-        if (receipt.status && receipt.status !== '0x1') {
-          throw new OneKeyError('Transaction reverted on chain');
-        }
-        return;
+        return { isReverted: !!receipt.status && receipt.status !== '0x1' };
       }
       if (Date.now() > deadline) {
         throw new OneKeyError('Timed out waiting for transaction confirmation');

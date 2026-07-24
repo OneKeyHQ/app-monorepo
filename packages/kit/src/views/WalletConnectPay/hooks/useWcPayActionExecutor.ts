@@ -72,6 +72,7 @@ export function useWcPayActionExecutor() {
       indexedAccountId,
       completedResults,
       onActionComplete,
+      onActionInvalidated,
     }: {
       actions: IWcPayAction[];
       accountId?: string;
@@ -91,6 +92,11 @@ export function useWcPayActionExecutor() {
         index: number;
         result: string;
       }) => void | Promise<void>;
+      // called when a previously recorded result turns out permanently
+      // unusable (the recorded transaction reverted on chain); the caller
+      // must discard stored progress from `index` on so the next attempt
+      // re-executes the action instead of resuming a dead txid
+      onActionInvalidated?: (params: { index: number }) => void | Promise<void>;
     }): Promise<string[]> => {
       const startIndex = Math.min(
         completedResults?.length ?? 0,
@@ -125,11 +131,19 @@ export function useWcPayActionExecutor() {
                 networkId: prevNetworkId,
                 deriveType: prevDeriveType,
               });
-            await backgroundApiProxy.serviceWalletConnectPay.waitForTxMined({
-              networkId: prevNetworkId,
-              accountId: prevAccount.id,
-              txid: prevTxid,
-            });
+            const { isReverted } =
+              await backgroundApiProxy.serviceWalletConnectPay.waitForTxMined({
+                networkId: prevNetworkId,
+                accountId: prevAccount.id,
+                txid: prevTxid,
+              });
+            if (isReverted) {
+              // the recorded txid can never confirm; drop it from stored
+              // progress so the next attempt re-executes this action instead
+              // of waiting on a dead transaction until the TTL expires
+              await onActionInvalidated?.({ index: startIndex - 1 });
+              throw new OneKeyLocalError('Transaction reverted on chain');
+            }
           }
         }
       }
@@ -213,11 +227,22 @@ export function useWcPayActionExecutor() {
             // Permit2 flow: the approve must be mined before signing the
             // follow-up typed data
             if (i < actions.length - 1) {
-              await backgroundApiProxy.serviceWalletConnectPay.waitForTxMined({
-                networkId,
-                accountId: account.id,
-                txid,
-              });
+              const { isReverted } =
+                await backgroundApiProxy.serviceWalletConnectPay.waitForTxMined(
+                  {
+                    networkId,
+                    accountId: account.id,
+                    txid,
+                  },
+                );
+              if (isReverted) {
+                // a reverted tx is a terminal failure of this action: the
+                // recorded txid must not be resumed on retry. Timeout/RPC
+                // uncertainty (thrown above) keeps the txid so a retry never
+                // re-broadcasts a possibly-mined payment.
+                await onActionInvalidated?.({ index: i });
+                throw new OneKeyLocalError('Transaction reverted on chain');
+              }
             }
             break;
           }
