@@ -144,6 +144,9 @@ function assertStripeV3Runtime(files, jsFiles) {
     frameBaseMarkerIndex,
     frameBaseMarkerIndex + 1000,
   );
+  // This scans emitted JavaScript source for the expected Stripe frame helper,
+  // not an untrusted URL that will be parsed or navigated to.
+  // codeql[js/incomplete-url-substring-sanitization]
   if (!frameBaseSource.includes(stripeV3BaseUrl)) {
     throw new Error(
       `Stripe v3 frame URL helper lost its remote base in ${jsFile}`,
