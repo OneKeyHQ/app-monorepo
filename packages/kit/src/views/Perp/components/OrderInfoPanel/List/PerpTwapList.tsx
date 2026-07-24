@@ -1757,6 +1757,7 @@ function PerpTwapList({
           activeTab={activeTab}
           onChange={setActiveTab}
           variant={isMobile ? 'pill' : 'underline'}
+          leftInset={isMobile ? '$5' : undefined}
         />
       ) : null}
       {activeTab === 'active' ? (

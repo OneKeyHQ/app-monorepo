@@ -4,7 +4,11 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Divider,
   type IDebugRenderTrackerProps,
+  Skeleton,
+  XStack,
+  YStack,
   useUpdateEffect,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -43,6 +47,56 @@ import { getPerpFillDirectionType } from '../utils';
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
 const TRADES_HISTORY_PAGE_SIZE = 20;
+
+function MobileTradesHistoryLoadingSkeleton() {
+  return (
+    <YStack>
+      {[0, 1, 2, 3].map((index) => (
+        <YStack
+          key={index}
+          mx="$5"
+          my="$2"
+          bg="$bgSubdued"
+          borderRadius="$3"
+          overflow="hidden"
+        >
+          <XStack
+            px="$3"
+            py="$3"
+            justifyContent="space-between"
+            alignItems="center"
+          >
+            <YStack gap="$1">
+              <XStack gap="$2" alignItems="center">
+                <Skeleton w="$12" h="$3.5" />
+                <Skeleton w="$8" h="$3" />
+              </XStack>
+              <Skeleton w="$28" h="$3" />
+            </YStack>
+            <YStack gap="$1" alignItems="flex-end">
+              <Skeleton w="$12" h="$3" />
+              <Skeleton w="$14" h="$3" />
+            </YStack>
+          </XStack>
+          <Divider borderColor="$borderSubdued" />
+          <XStack px="$3" py="$3" width="100%">
+            {[0, 1, 2, 3].map((columnIndex) => (
+              <YStack
+                key={columnIndex}
+                flex={1}
+                gap="$1"
+                alignItems={columnIndex === 3 ? 'flex-end' : 'flex-start'}
+              >
+                <Skeleton w="$8" h="$2.5" />
+                <Skeleton w="$10" h="$3" />
+              </YStack>
+            ))}
+          </XStack>
+        </YStack>
+      ))}
+    </YStack>
+  );
+}
 
 type IFillWithOid = IFill & {
   oid?: number;
@@ -422,6 +476,9 @@ function PerpTradesHistoryList({
       pageSize={TRADES_HISTORY_PAGE_SIZE}
       paginationToBottom={isMobile}
       listLoading={isLoading}
+      mobileLoadingComponent={
+        isMobile ? <MobileTradesHistoryLoadingSkeleton /> : undefined
+      }
       onViewAll={
         !isMobile && nonTwapTrades.length > TRADES_HISTORY_PAGE_SIZE
           ? onViewAllUrl
