@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import { useHomeStoreInternalActions } from '@onekeyhq/kit/src/states/jotai/contexts/home/actions';
 
+import type { IPreparedHomeDisplaySnapshot } from '../cacheV2/loadPreparedHomeDisplaySnapshot';
 import type { IHomeStoreEvent } from '../store/homeStoreTypes';
 
 type IHomeControllerEventPayload<TType extends IHomeStoreEvent['type']> = Omit<
@@ -37,6 +38,43 @@ export function useHomeStoreControllerActions() {
         actions.current.dispatchHomeEvent({
           type: 'factsChanged',
           ...payload,
+        });
+      },
+      publishPreparedHomeOwner: ({
+        displaySnapshot,
+        facts,
+        owner,
+        runtime,
+      }: {
+        displaySnapshot?: IPreparedHomeDisplaySnapshot;
+        facts?: IHomeControllerEventPayload<'factsChanged'>;
+        owner: IHomeControllerEventPayload<'ownerChanged'>;
+        runtime: IHomeControllerEventPayload<'runtimeChanged'>;
+      }) => {
+        const ownerToken = owner.ownerToken;
+        actions.current.dispatchHomeEventsAtomically({
+          displaySnapshotLoadState: ownerToken
+            ? {
+                ownerScopeKey: ownerToken.scopeKey,
+                sessionId: ownerToken.sessionId,
+                status: displaySnapshot ? 'hit' : 'miss',
+              }
+            : { status: 'idle' },
+          events: [
+            { type: 'ownerChanged', ...owner },
+            { type: 'runtimeChanged', ...runtime },
+            ...(facts ? [{ type: 'factsChanged' as const, ...facts }] : []),
+            ...(displaySnapshot && ownerToken
+              ? [
+                  {
+                    type: 'displaySnapshotHydrated' as const,
+                    ownerScopeKey: ownerToken.scopeKey,
+                    sessionId: ownerToken.sessionId,
+                    ...displaySnapshot,
+                  },
+                ]
+              : []),
+          ],
         });
       },
       hydrateHomeConfirmedSnapshot: (

@@ -121,6 +121,49 @@ describe('resolveHomeWalletContentReadiness', () => {
     ).toBe('pending');
   });
 
+  it('reveals a complete cold-start wallet owner while process init is pending', () => {
+    expect(
+      resolveHomeWalletContentReadiness({
+        ...readySignals,
+        accountSelectorStorageInitDone: false,
+        accountSelectorActiveAccountInitDone: false,
+        walletListPending: true,
+        wallets: undefined,
+        hasNoUsableWallet: false,
+        activeWalletId: 'wallet-cached',
+        cachedWalletOwnerReady: true,
+      }),
+    ).toBe('cached-wallet');
+  });
+
+  it('keeps a loaded owner cache eligible after process init finishes first', () => {
+    expect(
+      resolveHomeWalletContentReadiness({
+        ...readySignals,
+        walletListPending: true,
+        wallets: undefined,
+        hasNoUsableWallet: false,
+        activeWalletId: 'wallet-cached',
+        cachedWalletOwnerReady: true,
+      }),
+    ).toBe('cached-wallet');
+  });
+
+  it('rejects a cached owner once the wallet list proves it is stale', () => {
+    expect(
+      resolveHomeWalletContentReadiness({
+        ...readySignals,
+        accountSelectorStorageInitDone: false,
+        accountSelectorActiveAccountInitDone: false,
+        walletListPending: false,
+        wallets: [{ id: 'wallet-current' }],
+        hasNoUsableWallet: false,
+        activeWalletId: 'wallet-cached',
+        cachedWalletOwnerReady: true,
+      }),
+    ).toBe('pending');
+  });
+
   it('waits until the active wallet belongs to the settled wallet generation', () => {
     expect(
       resolveHomeWalletContentReadiness({

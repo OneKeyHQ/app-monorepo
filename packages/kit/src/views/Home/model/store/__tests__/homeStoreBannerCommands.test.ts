@@ -179,7 +179,7 @@ describe('Home Store banner command authority', () => {
     ]);
   });
 
-  it('never grants command authority to a cached Banner under a live Shell', () => {
+  it('executes a valid command from a cached Banner', () => {
     const liveState = createBannerState();
     const banner = liveState.resources.banner;
     expect(banner.kind).toBe('ready');
@@ -197,7 +197,7 @@ describe('Home Store banner command authority', () => {
       },
     };
 
-    const rejected = dispatch(state, {
+    const accepted = dispatch(state, {
       type: 'intentReceived',
       intent: bannerIntent({
         actionId: HOME_BANNER_ACTION_IDS.open,
@@ -206,11 +206,11 @@ describe('Home Store banner command authority', () => {
       }),
     });
 
-    expect(rejected.effects).toEqual([
-      expect.objectContaining({
-        kind: 'traceReject',
-        reason: 'intentTargetUnavailable',
-      }),
+    expect(accepted.effects).toEqual([
+      {
+        kind: 'executeCommand',
+        intent: expect.objectContaining({ intentId: 'open-cached-banner' }),
+      },
     ]);
   });
 

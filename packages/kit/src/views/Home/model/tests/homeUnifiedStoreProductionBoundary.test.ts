@@ -96,9 +96,17 @@ describe('Home Unified Store production boundary', () => {
   });
 
   it('hydrates Header, Banner, and the visible section without a shared paint barrier', () => {
+    const root = readHomeFile('model/react/HomeStoreSourceControllers.tsx');
     const source = readHomeFile(
       'model/react/HomeDisplaySnapshotController.tsx',
     );
+    expect(root).toContain(
+      "import { HomeDisplaySnapshotController } from './HomeDisplaySnapshotController';",
+    );
+    expect(root).not.toMatch(
+      /LazyLoad[\s\S]*import\('\.\/HomeDisplaySnapshotController'\)/,
+    );
+    expect(source).toContain('useLayoutEffect(() => {');
     expect(source).toContain('await yieldToHomeRenderer()');
     expect(source).toContain('const bannerLoad = loadSourceChunk({');
     expect(source).toContain('const selectedLoad = loadSourceChunk({');

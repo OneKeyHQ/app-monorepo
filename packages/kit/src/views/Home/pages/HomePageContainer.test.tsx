@@ -27,6 +27,7 @@ let mockActiveAccount: {
   ready: boolean;
   wallet?: IMockWallet;
   account?: { id: string };
+  network?: { id: string };
 };
 let mockWalletList: {
   pending: boolean;
@@ -43,6 +44,23 @@ let mockRootControllerMounts = 0;
 const mockSceneStore = {};
 let mockHomeProviderStore: unknown;
 let mockHomeShellKind: 'loading' | 'backupRequired' | 'portfolio' = 'loading';
+let mockHomeSession: {
+  owner?: {
+    accountId: string;
+    network:
+      | { kind: 'allNetworks' }
+      | { kind: 'singleNetwork'; networkId: string };
+    walletId: string;
+  };
+  ownerToken?: { scopeKey: string; sessionId: string };
+};
+let mockDisplaySnapshotLoadState:
+  | { status: 'idle' }
+  | {
+      ownerScopeKey: string;
+      sessionId: string;
+      status: 'loading' | 'hit' | 'miss';
+    };
 const mockTestGlobal = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean;
   __homePageContainerIsNative?: boolean;
@@ -132,6 +150,8 @@ jest.mock('../../../states/jotai/contexts/home', () => ({
     return children;
   },
   useHomeShell: () => ({ value: { kind: mockHomeShellKind } }),
+  useHomeSessionState: () => mockHomeSession,
+  useHomeDisplaySnapshotLoadState: () => mockDisplaySnapshotLoadState,
   useHomeNavigation: () => ({
     value: { kind: 'ready', selectedTabId: 'portfolio' },
   }),
@@ -156,27 +176,6 @@ jest.mock('../../Notifications/components/NotificationRegisterDaily', () => ({
 }));
 
 jest.mock('../../Onboarding/components/onboardingLaunchGate', () => ({
-  isMainHomeReadyToReveal: ({
-    launchDecision,
-    accountSelectorStorageInitDone,
-    accountSelectorActiveAccountInitDone,
-    activeAccountReady,
-    walletListReady,
-    activeWalletReady,
-  }: {
-    launchDecision: string;
-    accountSelectorStorageInitDone: boolean;
-    accountSelectorActiveAccountInitDone: boolean;
-    activeAccountReady: boolean;
-    walletListReady: boolean;
-    activeWalletReady: boolean;
-  }) =>
-    launchDecision === 'main' &&
-    accountSelectorStorageInitDone &&
-    accountSelectorActiveAccountInitDone &&
-    activeAccountReady &&
-    walletListReady &&
-    activeWalletReady,
   markCurrentHomeGenerationReady: jest.fn(),
   useOnboardingLaunchSnapshot: () => mockLaunchSnapshot,
 }));
@@ -240,6 +239,14 @@ jest.mock('./HomePageViewLoader', () => ({
   HomePageView: mockCreateSurface('react'),
 }));
 
+jest.mock('./HomeLaunchSkeleton', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    HomeLaunchSkeleton: () =>
+      React.createElement('View', { testID: 'home-launch-skeleton' }),
+  };
+});
+
 jest.mock('./HomeWalletListProvider', () => ({
   HomeWalletListProvider: ({ children }: { children?: ReactNode }) => children,
   useHomeWalletList: () => mockWalletList,
@@ -264,6 +271,7 @@ function setWalletState({
     ready: true,
     wallet: activeWallet,
     account: activeWallet ? { id: `account-${activeWallet.id}` } : undefined,
+    network: activeWallet ? { id: 'evm--1' } : undefined,
   };
   mockWalletList = {
     pending,
@@ -271,6 +279,27 @@ function setWalletState({
       ? undefined
       : { wallets: walletListWallet ? [walletListWallet] : [] },
   };
+  if (activeWallet) {
+    const accountId = `account-${activeWallet.id}`;
+    const scopeKey = `scope-${activeWallet.id}`;
+    const sessionId = `session-${activeWallet.id}`;
+    mockHomeSession = {
+      owner: {
+        accountId,
+        network: { kind: 'singleNetwork', networkId: 'evm--1' },
+        walletId: activeWallet.id,
+      },
+      ownerToken: { scopeKey, sessionId },
+    };
+    mockDisplaySnapshotLoadState = {
+      ownerScopeKey: scopeKey,
+      sessionId,
+      status: 'hit',
+    };
+  } else {
+    mockHomeSession = {};
+    mockDisplaySnapshotLoadState = { status: 'idle' };
+  }
   if (activeWallet?.type === 'hd' && activeWallet.backuped === false) {
     mockHomeShellKind = 'backupRequired';
   } else if (activeWallet) {
@@ -311,6 +340,8 @@ beforeEach(() => {
   mockRootControllerMounts = 0;
   mockHomeProviderStore = undefined;
   mockHomeShellKind = 'loading';
+  mockHomeSession = {};
+  mockDisplaySnapshotLoadState = { status: 'idle' };
   mockTestGlobal.__homePageContainerIsNative = true;
 });
 
@@ -345,7 +376,7 @@ afterAll(() => {
 });
 
 describe('HomeLaunchGatedContent surface ownership', () => {
-  it('does not gate non-native legacy Home on the native launch decision', () => {
+  it('uses the local launch decision on non-native Home without waiting for BG', () => {
     mockTestGlobal.__homePageContainerIsNative = false;
     mockLaunchSnapshot.decision = 'unknown';
     const backedUp = hdWallet(true);
@@ -356,10 +387,94 @@ describe('HomeLaunchGatedContent surface ownership', () => {
       view = create(renderOwner(false));
     });
 
+    expect(
+      view.root.findAllByProps({ testID: 'home-launch-skeleton' }),
+    ).toHaveLength(1);
+    expect(view.root.findAllByProps({ testID: 'surface-react' })).toHaveLength(
+      0,
+    );
+
+    mockLaunchSnapshot.decision = 'main';
+    act(() => view.update(renderOwner(false)));
+
     expect(view.root.findAllByProps({ testID: 'surface-react' })).toHaveLength(
       1,
     );
     expect(mockSurfaceLifecycle.native.mounts).toBe(0);
+    act(() => view.unmount());
+  });
+
+  it('reveals an interactive cached cold-start surface before BG validation', () => {
+    const backedUp = hdWallet(true);
+    setWalletState({ activeWallet: backedUp, pending: true });
+    mockAccountSelectorStorageInitDone = false;
+    mockActiveAccountInitDone = false;
+
+    let view!: ReactTestRenderer;
+    act(() => {
+      view = create(renderOwner());
+    });
+
+    expect(view.root.findAllByProps({ testID: 'surface-native' })).toHaveLength(
+      1,
+    );
+    expect(
+      view.root.findAllByProps({ opacity: 1, pointerEvents: 'auto' }).length,
+    ).toBeGreaterThan(0);
+
+    mockAccountSelectorStorageInitDone = true;
+    mockActiveAccountInitDone = true;
+    setWalletState({ activeWallet: backedUp, walletListWallet: backedUp });
+    act(() => view.update(renderOwner()));
+
+    expect(mockSurfaceLifecycle.native).toEqual({ mounts: 1, unmounts: 0 });
+    expect(
+      view.root.findAllByProps({ opacity: 1, pointerEvents: 'auto' }).length,
+    ).toBeGreaterThan(0);
+    act(() => view.unmount());
+  });
+
+  it('shows the skeleton until the exact owner display cache is loaded', () => {
+    const backedUp = hdWallet(true);
+    setWalletState({ activeWallet: backedUp, pending: true });
+    mockDisplaySnapshotLoadState = {
+      ownerScopeKey: 'scope-hd-1',
+      sessionId: 'stale-session',
+      status: 'hit',
+    };
+
+    let view!: ReactTestRenderer;
+    act(() => {
+      view = create(renderOwner());
+    });
+
+    expect(
+      view.root.findAllByProps({ testID: 'home-launch-skeleton' }),
+    ).toHaveLength(1);
+    expect(view.root.findAllByProps({ testID: 'surface-native' })).toHaveLength(
+      0,
+    );
+
+    mockDisplaySnapshotLoadState = {
+      ownerScopeKey: 'scope-hd-1',
+      sessionId: 'session-hd-1',
+      status: 'loading',
+    };
+    act(() => view.update(renderOwner()));
+    expect(
+      view.root.findAllByProps({ testID: 'home-launch-skeleton' }),
+    ).toHaveLength(1);
+
+    mockDisplaySnapshotLoadState = {
+      ownerScopeKey: 'scope-hd-1',
+      sessionId: 'session-hd-1',
+      status: 'hit',
+    };
+    act(() => view.update(renderOwner()));
+
+    expect(view.root.findAllByProps({ testID: 'surface-native' })).toHaveLength(
+      1,
+    );
     act(() => view.unmount());
   });
 
@@ -392,6 +507,7 @@ describe('HomeLaunchGatedContent surface ownership', () => {
       ready: true,
       wallet: unbacked,
       account: { id: 'account-hd-1' },
+      network: { id: 'evm--1' },
     };
     mockWalletList = {
       pending: true,
@@ -416,7 +532,7 @@ describe('HomeLaunchGatedContent surface ownership', () => {
     );
   });
 
-  it('unmounts the old Native page immediately when a new wallet scope is pending', () => {
+  it('keeps the old Native page until a replacement wallet surface is ready', () => {
     const unbacked = hdWallet(false);
     setWalletState({ activeWallet: unbacked, walletListWallet: unbacked });
     let view!: ReactTestRenderer;
@@ -427,15 +543,60 @@ describe('HomeLaunchGatedContent surface ownership', () => {
       1,
     );
 
+    const previousHomeSession = mockHomeSession;
     setWalletState({ activeWallet: hdWallet(false, 'hd-2'), pending: true });
+    mockHomeSession = previousHomeSession;
+    mockDisplaySnapshotLoadState = {
+      ownerScopeKey: 'scope-hd-2',
+      sessionId: 'session-hd-2',
+      status: 'loading',
+    };
     act(() => view.update(renderOwner()));
-    expect(mockSurfaceLifecycle.native).toEqual({ mounts: 1, unmounts: 1 });
+    expect(mockSurfaceLifecycle.native).toEqual({ mounts: 1, unmounts: 0 });
     expect(view.root.findAllByProps({ testID: 'surface-native' })).toHaveLength(
-      0,
+      1,
     );
     expect(view.root.findAllByProps({ testID: 'surface-react' })).toHaveLength(
       0,
     );
+    expect(
+      view.root.findAllByProps({ opacity: 1, pointerEvents: 'auto' }).length,
+    ).toBeGreaterThan(0);
+
+    const replacement = hdWallet(false, 'hd-2');
+    setWalletState({
+      activeWallet: replacement,
+      walletListWallet: replacement,
+    });
+    act(() => view.update(renderOwner()));
+    expect(mockSurfaceLifecycle.native).toEqual({ mounts: 2, unmounts: 1 });
+    expect(view.root.findAllByProps({ testID: 'surface-native' })).toHaveLength(
+      1,
+    );
+  });
+
+  it('keeps a same-owner renderer interactive during session replacement', () => {
+    const backedUp = hdWallet(true);
+    setWalletState({ activeWallet: backedUp, walletListWallet: backedUp });
+    let view!: ReactTestRenderer;
+    act(() => {
+      view = create(renderOwner());
+    });
+
+    mockDisplaySnapshotLoadState = {
+      ownerScopeKey: 'scope-hd-1',
+      sessionId: 'replacement-session',
+      status: 'loading',
+    };
+    act(() => view.update(renderOwner()));
+
+    expect(view.root.findAllByProps({ testID: 'surface-native' })).toHaveLength(
+      1,
+    );
+    expect(
+      view.root.findAllByProps({ opacity: 1, pointerEvents: 'auto' }).length,
+    ).toBeGreaterThan(0);
+    act(() => view.unmount());
   });
 
   it.each([
@@ -462,16 +623,13 @@ describe('HomeLaunchGatedContent surface ownership', () => {
         view.root.findAllByProps({ testID: `surface-${surface}` }),
       ).toHaveLength(1);
 
-      mockActiveAccount = {
-        ...mockActiveAccount,
-        account: { id: 'account-next' },
-      };
+      mockActiveAccount.ready = false;
       act(() => view.update(renderOwner(nativeHomeEnabled)));
 
-      expect(mockSurfaceLifecycle[surface]).toEqual({ mounts: 1, unmounts: 1 });
+      expect(mockSurfaceLifecycle[surface]).toEqual({ mounts: 1, unmounts: 0 });
       expect(
         view.root.findAllByProps({ testID: `surface-${surface}` }),
-      ).toHaveLength(0);
+      ).toHaveLength(1);
       act(() => view.unmount());
     },
   );

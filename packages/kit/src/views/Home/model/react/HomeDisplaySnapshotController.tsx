@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import {
   useHomeContextStore,
@@ -7,6 +7,7 @@ import {
 import { readHomeStoreState } from '@onekeyhq/kit/src/states/jotai/contexts/home/actions';
 import {
   homeCommitIdentityState,
+  homeDisplaySnapshotLoadState,
   homeInteractionState,
 } from '@onekeyhq/kit/src/states/jotai/contexts/home/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -78,14 +79,27 @@ export function HomeDisplaySnapshotController() {
   >(async () => undefined);
   const ownerToken = session.ownerToken;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     loadSequenceRef.current += 1;
     const loadSequence = loadSequenceRef.current;
     loadedChunksRef.current.clear();
     inFlightChunksRef.current.clear();
     ensureSourceRef.current = async () => undefined;
     if (!ownerToken) {
+      store.set(homeDisplaySnapshotLoadState.atom(), { status: 'idle' });
       return;
+    }
+    const existingLoadState = store.get(homeDisplaySnapshotLoadState.atom());
+    const preparedSnapshotAlreadyLoaded =
+      existingLoadState.status === 'hit' &&
+      existingLoadState.ownerScopeKey === ownerToken.scopeKey &&
+      existingLoadState.sessionId === ownerToken.sessionId;
+    if (!preparedSnapshotAlreadyLoaded) {
+      store.set(homeDisplaySnapshotLoadState.atom(), {
+        ownerScopeKey: ownerToken.scopeKey,
+        sessionId: ownerToken.sessionId,
+        status: 'loading',
+      });
     }
     const partitionTag = getHomeDisplaySnapshotPartitionTag(
       ownerToken.scopeKey,
@@ -104,6 +118,24 @@ export function HomeDisplaySnapshotController() {
         ownerToken.scopeKey &&
       readHomeStoreState(store.get).session.ownerToken?.sessionId ===
         ownerToken.sessionId;
+    const publishLoadStatus = (status: 'hit' | 'miss') => {
+      if (!isCurrent()) {
+        return;
+      }
+      const currentLoadState = store.get(homeDisplaySnapshotLoadState.atom());
+      if (
+        currentLoadState.status === 'loading' &&
+        (currentLoadState.ownerScopeKey !== ownerToken.scopeKey ||
+          currentLoadState.sessionId !== ownerToken.sessionId)
+      ) {
+        return;
+      }
+      store.set(homeDisplaySnapshotLoadState.atom(), {
+        ownerScopeKey: ownerToken.scopeKey,
+        sessionId: ownerToken.sessionId,
+        status,
+      });
+    };
 
     const loadSourceChunk = async ({
       candidateOwnerToken,
@@ -263,6 +295,7 @@ export function HomeDisplaySnapshotController() {
           perfMark('Home:v2Cache:miss', {
             elapsedMs: getElapsed(startedAt),
           });
+          publishLoadStatus('miss');
           return;
         }
         const manifestSourceIds = Object.keys(context.manifest.chunks).filter(
@@ -283,6 +316,9 @@ export function HomeDisplaySnapshotController() {
         const critical = await loadHomeDisplaySnapshotCritical({
           context,
         });
+        const criticalDisplayReady = Boolean(
+          critical?.shell && critical.shell.kind !== 'loading',
+        );
         if (!isCurrent()) {
           defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
             stage: 'critical',
@@ -306,10 +342,13 @@ export function HomeDisplaySnapshotController() {
           perfMark('Home:v2Cache:criticalHydrated', {
             elapsedMs: getElapsed(criticalStartedAt),
           });
+          if (criticalDisplayReady) {
+            publishLoadStatus('hit');
+          }
         }
         defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
           stage: 'critical',
-          outcome: critical ? 'hit' : 'miss',
+          outcome: criticalDisplayReady ? 'hit' : 'miss',
           partitionTag,
           elapsedMs: getElapsed(criticalStartedAt),
           recordCount: 0,
@@ -363,7 +402,9 @@ export function HomeDisplaySnapshotController() {
         defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
           stage: 'initialHydrate',
           outcome:
-            critical || loadedSourceIds.length > 0 ? 'accepted' : 'empty',
+            criticalDisplayReady || loadedSourceIds.length > 0
+              ? 'accepted'
+              : 'empty',
           partitionTag,
           elapsedMs: getElapsed(startedAt),
           recordCount: loadedSourceIds.length,
@@ -375,6 +416,7 @@ export function HomeDisplaySnapshotController() {
           elapsedMs: getElapsed(startedAt),
           recordCount: loadedSourceIds.length,
         });
+        publishLoadStatus(criticalDisplayReady ? 'hit' : 'miss');
       } catch (error) {
         if (!isCurrent()) {
           return;
@@ -390,6 +432,7 @@ export function HomeDisplaySnapshotController() {
         perfMark('Home:v2Cache:failed', {
           elapsedMs: getElapsed(startedAt),
         });
+        publishLoadStatus('miss');
       } finally {
         if (isCurrent()) {
           ensureSourceRef.current = ensureSource;

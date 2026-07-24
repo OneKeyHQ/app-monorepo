@@ -82,6 +82,18 @@ const homeMarketSectionState = contextAtom(initialSections.market);
 const homeDiagnosticsState = contextAtom(initial.diagnostics);
 const homeCommitIdentityState = contextAtom(initial.commitIdentity);
 
+export type IHomeDisplaySnapshotLoadState =
+  | { status: 'idle' }
+  | {
+      ownerScopeKey: string;
+      sessionId: string;
+      status: 'loading' | 'hit' | 'miss';
+    };
+
+const homeDisplaySnapshotLoadState = contextAtom<IHomeDisplaySnapshotLoadState>(
+  { status: 'idle' },
+);
+
 const resourceStates = {
   capability: homeCapabilityResourceState,
   banner: homeBannerResourceState,
@@ -168,6 +180,10 @@ export function useHomeCommitIdentity() {
   return homeCommitIdentityState.use()[0];
 }
 
+export function useHomeDisplaySnapshotLoadState() {
+  return homeDisplaySnapshotLoadState.use()[0];
+}
+
 export function useHomeStoreConfig(): IHomeStoreContextConfig | undefined {
   return useContextData().config;
 }
@@ -188,6 +204,7 @@ export {
   homeCommitIdentityState,
   homeConfirmedBalanceState,
   homeDiagnosticsState,
+  homeDisplaySnapshotLoadState,
   homeEnvironmentInputsState,
   homeFactsState,
   homeInteractionState,

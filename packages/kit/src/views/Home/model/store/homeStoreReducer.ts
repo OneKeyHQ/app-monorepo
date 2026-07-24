@@ -17,7 +17,10 @@ import {
 } from '../sections/banner/homeBannerStoreModel';
 import { projectHomeSemanticModel } from '../semantic/homeSemanticProjector';
 
-import { HOME_SECTION_ACTION_IDS } from './homeStoreCommandIds';
+import {
+  HOME_SECTION_ACTION_IDS,
+  HOME_SHELL_ACTION_IDS,
+} from './homeStoreCommandIds';
 import {
   createInitialHomeStoreResources,
   createInitialHomeStoreSection,
@@ -647,13 +650,6 @@ function validateIntent(
     return 'ownerMismatch';
   }
   if (intent.authority.kind === 'tabApplicability') {
-    if (
-      intent.type === 'tabHandoffInvoked' &&
-      state.navigation.value.kind === 'ready' &&
-      state.navigation.value.freshness === 'confirmedCache'
-    ) {
-      return 'intentTargetUnavailable';
-    }
     return intent.authority.revision ===
       state.navigation.tabApplicabilityRevision
       ? undefined
@@ -667,10 +663,7 @@ function validateIntent(
       intent.type === 'headerActionInvoked' &&
       intent.actionId.startsWith('home.banner.')
     ) {
-      if (
-        state.resources.banner.kind !== 'ready' ||
-        state.resources.banner.freshness !== 'live'
-      ) {
+      if (state.resources.banner.kind !== 'ready') {
         return 'intentTargetUnavailable';
       }
       const presentation =
@@ -705,28 +698,15 @@ function validateIntent(
         return 'intentTargetUnavailable';
       }
     }
-    if (
-      state.shell.value.kind === 'portfolio' &&
-      (state.shell.value.presentation.kind === 'funded' ||
-        state.shell.value.presentation.kind === 'zero') &&
-      state.shell.value.presentation.freshness === 'confirmedCache'
-    ) {
+    if (intent.type !== 'headerActionInvoked') {
       return 'intentTargetUnavailable';
     }
-    return intent.type === 'headerActionInvoked' &&
-      (intent.actionId.startsWith('home.header.') ||
-        intent.actionId.startsWith('home.banner.'))
+    return intent.actionId === HOME_SHELL_ACTION_IDS.balance ||
+      intent.actionId.startsWith('home.banner.')
       ? undefined
       : 'intentTargetUnavailable';
   }
   const sectionId = intent.authority.sectionId;
-  const sectionResource = state.resources[sectionId];
-  if (
-    (sectionResource.kind === 'ready' || sectionResource.kind === 'empty') &&
-    sectionResource.freshness === 'confirmedCache'
-  ) {
-    return 'intentTargetUnavailable';
-  }
   if (
     intent.authority.revision !==
     state.sections[sectionId].sectionCommandRevision

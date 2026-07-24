@@ -70,6 +70,7 @@ import {
   EOnboardingPages,
 } from '@onekeyhq/shared/src/routes';
 import { coldStartCacheStorage } from '@onekeyhq/shared/src/storage/instance/syncStorageInstance';
+import { appLaunchStateStorage } from '@onekeyhq/shared/src/storage/launchStateStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -1953,6 +1954,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           ]);
         }
 
+        appLaunchStateStorage.markOnboardingCompleted();
         appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
           step: EFinalizeWalletSetupSteps.Ready,
         });
@@ -2648,6 +2650,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           timerUtils.wait(1000),
         ]);
 
+        appLaunchStateStorage.markOnboardingCompleted();
         appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
           step: EFinalizeWalletSetupSteps.Ready,
         });

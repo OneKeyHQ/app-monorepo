@@ -291,7 +291,7 @@ describe('onboardingLaunchGate', () => {
       retryDelays: [10],
       onAuthoritativeStart: jest.fn(),
       onAuthoritativeVerdict,
-      onMaintenanceMain: jest.fn().mockResolvedValue(undefined),
+      onMaintenanceVerdict: jest.fn().mockResolvedValue(undefined),
     });
 
     await coordinator.startAuthoritative();
@@ -319,7 +319,7 @@ describe('onboardingLaunchGate', () => {
       onAuthoritativeVerdict: async () => {
         order.push('launch-terminal');
       },
-      onMaintenanceMain: async () => {
+      onMaintenanceVerdict: async () => {
         order.push('maintenance-main');
       },
     });
@@ -365,7 +365,7 @@ describe('onboardingLaunchGate', () => {
           commits.push(`new-${request.token}`);
         }
       },
-      onMaintenanceMain: jest.fn().mockResolvedValue(undefined),
+      onMaintenanceVerdict: jest.fn().mockResolvedValue(undefined),
     });
 
     const oldLaunch = coordinator.startAuthoritative();

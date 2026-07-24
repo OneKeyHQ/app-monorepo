@@ -25,6 +25,7 @@ import {
 import appStorage, {
   storageHub,
 } from '@onekeyhq/shared/src/storage/appStorage';
+import { appLaunchStateStorage } from '@onekeyhq/shared/src/storage/launchStateStorage';
 import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
@@ -44,6 +45,8 @@ import ServiceBase from './ServiceBase';
 import { biologyAuthUtils } from './ServicePassword/biologyAuthUtils';
 
 import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
+
+let extensionStorageClearRequestSequence = 0;
 
 @backgroundClass()
 class ServiceApp extends ServiceBase {
@@ -250,9 +253,6 @@ class ServiceApp extends ServiceBase {
         } catch {
           console.error('window.sessionStorage.clear() error');
         }
-      } else if (platformEnv.isExtensionBackground) {
-        appEventBus.emit(EAppEventBusNames.ClearStorageOnExtension, undefined);
-        await timerUtils.wait(1200);
       }
 
       if (platformEnv.isExtension) {
@@ -288,6 +288,45 @@ class ServiceApp extends ServiceBase {
     }
   }
 
+  private async clearExtensionForegroundStorage() {
+    extensionStorageClearRequestSequence += 1;
+    const requestId = `${appEventBus.nodeId}:${Date.now()}:${extensionStorageClearRequestSequence}`;
+    await new Promise<void>((resolve, reject) => {
+      const timeoutRef: {
+        current?: ReturnType<typeof setTimeout>;
+      } = {};
+      const handleDone = (payload: { requestId: string }) => {
+        if (payload.requestId !== requestId) {
+          return;
+        }
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+        appEventBus.off(
+          EAppEventBusNames.ClearStorageOnExtensionDone,
+          handleDone,
+        );
+        resolve();
+      };
+      const timeout = setTimeout(() => {
+        appEventBus.off(
+          EAppEventBusNames.ClearStorageOnExtensionDone,
+          handleDone,
+        );
+        reject(
+          new OneKeyLocalError(
+            'Extension foreground storage clear was not acknowledged.',
+          ),
+        );
+      }, 10_000);
+      timeoutRef.current = timeout;
+      appEventBus.on(EAppEventBusNames.ClearStorageOnExtensionDone, handleDone);
+      appEventBus.emit(EAppEventBusNames.ClearStorageOnExtension, {
+        requestId,
+      });
+    });
+  }
+
   @backgroundMethod()
   async resetApp() {
     defaultLogger.prime.subscription.onekeyIdLogout({
@@ -320,6 +359,10 @@ class ServiceApp extends ServiceBase {
       resetUtils.endResetting();
       defaultLogger.setting.page.clearDataStep('endResetting');
     }
+    if (platformEnv.isExtensionBackground) {
+      await this.clearExtensionForegroundStorage();
+    }
+    appLaunchStateStorage.markOnboardingPending();
 
     if (!platformEnv.isNative && (platformEnv.isWeb || platformEnv.isDesktop)) {
       // reset route/href

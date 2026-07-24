@@ -17,6 +17,9 @@ type IProbe = {
   dispatch?: ReturnType<
     typeof useHomeStoreInternalActions
   >['current']['dispatchHomeEvent'];
+  dispatchBatch?: ReturnType<
+    typeof useHomeStoreInternalActions
+  >['current']['dispatchHomeEventsAtomically'];
   read?: ReturnType<
     typeof useHomeStoreInternalActions
   >['current']['readHomeStoreSnapshot'];
@@ -35,6 +38,7 @@ function Probe({ probe }: { probe: IProbe }) {
   probe.commit = commit;
   useLayoutEffect(() => {
     probe.dispatch = actions.dispatchHomeEvent;
+    probe.dispatchBatch = actions.dispatchHomeEventsAtomically;
     probe.read = actions.readHomeStoreSnapshot;
     probe.snapshots.push(actions.readHomeStoreSnapshot());
   }, [actions, commit, probe, session]);
@@ -78,6 +82,77 @@ describe('Home Store atomic dispatcher', () => {
     });
     expect(probe.read?.().commitIdentity.storeCommitId).toBe(1);
     expect(probe.read?.().session.ownerToken?.sessionId).toBe('session-a');
+  });
+
+  it('publishes a replacement owner and prepared display cache in one commit', () => {
+    const probe: IProbe = { renders: 0, snapshots: [] };
+    render(
+      <Scene sceneId="wallet-home">
+        <Probe probe={probe} />
+      </Scene>,
+    );
+    act(() => {
+      probe.dispatchBatch?.({
+        displaySnapshotLoadState: {
+          ownerScopeKey: 'owner-b',
+          sessionId: 'session-b',
+          status: 'hit',
+        },
+        events: [
+          {
+            type: 'ownerChanged',
+            owner: {
+              walletId: 'wallet-b',
+              accountId: 'account-b',
+              network: { kind: 'allNetworks' },
+            },
+            ownerToken: { scopeKey: 'owner-b', sessionId: 'session-b' },
+            topology: 'split',
+          },
+          {
+            type: 'displaySnapshotHydrated',
+            ownerScopeKey: 'owner-b',
+            sessionId: 'session-b',
+            records: [],
+            shell: {
+              kind: 'portfolio',
+              presentation: {
+                kind: 'funded',
+                header: {
+                  kind: 'funded',
+                  authority: 'confirmedCache',
+                  balance: { amount: '42.50', currency: 'usd' },
+                },
+                actions: {
+                  kind: 'funded',
+                  items: ['send', 'receive', 'buySell', 'swap'],
+                },
+                banner: { kind: 'none' },
+                freshness: 'confirmedCache',
+                refresh: 'refreshing',
+              },
+            },
+          },
+        ],
+      });
+    });
+
+    const snapshot = probe.read?.();
+    expect(snapshot?.commitIdentity.storeCommitId).toBe(1);
+    expect(snapshot?.commitIdentity).toMatchObject({
+      origin: 'cacheHydrate',
+      ownerChanged: true,
+    });
+    expect(snapshot?.session.ownerToken).toEqual({
+      scopeKey: 'owner-b',
+      sessionId: 'session-b',
+    });
+    expect(snapshot?.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        header: { balance: { amount: '42.50', currency: 'usd' } },
+      },
+    });
   });
 
   it('preserves the same Store session and commit across parent rerenders', () => {

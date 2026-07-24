@@ -133,6 +133,7 @@ function runExecutableProbe(probe: IHomeBehaviorOracleProbe) {
           walletListWallet: wallet,
         }),
       ).toEqual({
+        authority: 'confirmed',
         surface: 'native',
         walletId: 'wallet-fixture-unbacked',
       });

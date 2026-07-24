@@ -7,6 +7,7 @@ import {
 } from '@onekeyhq/kit';
 import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
 import type { INativeHomePageViewProps } from '@onekeyhq/kit/src/views/Home/NativeHomePageView.types';
+import { HomeLaunchSkeleton } from '@onekeyhq/kit/src/views/Home/pages/HomeLaunchSkeleton';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { withSentryHOC } from '@onekeyhq/shared/src/modules3rdParty/sentry';
@@ -14,17 +15,25 @@ import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 
 import { useMobileHomeRendererMode } from './src/home/mobileHomeRendererDevSwitch';
 
-const LazyMobileNativeHomeRenderer: INativeHomeRenderer = LazyLoad(async () => {
-  const { MobileNativeHomeRenderer: Renderer } =
-    await import('./src/home/MobileNativeHomeRenderer');
-  return { default: Renderer };
-});
+const LazyMobileNativeHomeRenderer: INativeHomeRenderer = LazyLoad(
+  async () => {
+    const { MobileNativeHomeRenderer: Renderer } =
+      await import('./src/home/MobileNativeHomeRenderer');
+    return { default: Renderer };
+  },
+  undefined,
+  <HomeLaunchSkeleton />,
+);
 
-const LazyReactHomePageView: INativeHomeRenderer = LazyLoad(async () => {
-  const { HomePageView } =
-    await import('@onekeyhq/kit/src/views/Home/pages/HomePageView');
-  return { default: HomePageView };
-});
+const LazyReactHomePageView: INativeHomeRenderer = LazyLoad(
+  async () => {
+    const { HomePageView } =
+      await import('@onekeyhq/kit/src/views/Home/pages/HomePageView');
+    return { default: HomePageView };
+  },
+  undefined,
+  <HomeLaunchSkeleton />,
+);
 
 class MobileNativeHomeRendererBoundary extends PureComponent<
   PropsWithChildren<INativeHomePageViewProps>,

@@ -31,12 +31,13 @@ import {
 } from '../../../states/jotai/contexts/accountSelector';
 import {
   ProviderJotaiContextHome,
+  useHomeDisplaySnapshotLoadState,
+  useHomeSessionState,
   useHomeShell,
 } from '../../../states/jotai/contexts/home';
 import { useJotaiContextRootStore } from '../../../states/jotai/utils/useJotaiContextRootStore';
 import { NotificationRegisterDaily } from '../../Notifications/components/NotificationRegisterDaily';
 import {
-  isMainHomeReadyToReveal,
   markCurrentHomeGenerationReady,
   useOnboardingLaunchSnapshot,
 } from '../../Onboarding/components/onboardingLaunchGate';
@@ -51,6 +52,7 @@ import {
   HomeBackgroundRecoveryRefreshProvider,
   useAcknowledgeHomeBackgroundRecoverySurfaceCommit,
 } from './HomeBackgroundRecoveryRefreshProvider';
+import { HomeLaunchSkeleton } from './HomeLaunchSkeleton';
 import { shouldMountHomeForegroundEffects } from './homeLaunchVisibility';
 import { resolveHomeWalletContentReadiness } from './homePageNoWalletContent';
 import { HomePageView } from './HomePageViewLoader';
@@ -139,7 +141,7 @@ function HomeStoreDrivenWalletSurface({
       />
     );
   }
-  return null;
+  return <HomeLaunchSkeleton />;
 }
 
 export function HomeLaunchGatedContent({
@@ -157,14 +159,49 @@ export function HomeLaunchGatedContent({
   const { result: walletListResult, pending: walletListPending } =
     useHomeWalletList();
   const launchSnapshot = useOnboardingLaunchSnapshot();
+  const homeSession = useHomeSessionState();
+  const displaySnapshotLoadState = useHomeDisplaySnapshotLoadState();
   const [accountSelectorStorageInitDone] =
     useAccountSelectorStorageInitDoneAtom();
   const accountSelectorActiveAccountInitDone =
     useIsAccountSelectorActiveAccountInitDone(0);
+  const previousPageSurfaceRef = useRef<
+    IHomeWalletPageSurfaceState | undefined
+  >(undefined);
   const hasNoUsableWallet = accountUtils.hasNoUsableWallet({
     wallet,
     account,
   });
+  const activeWalletUnavailable =
+    accountUtils.isWalletDeprecatedOrMocked(wallet);
+  const activeOwnerMatchesHomeSession = Boolean(
+    homeSession.ownerToken &&
+    homeSession.owner &&
+    homeSession.owner.walletId === wallet?.id &&
+    homeSession.owner.accountId === account?.id &&
+    (homeSession.owner.network.kind === 'allNetworks'
+      ? network?.isAllNetworks
+      : !network?.isAllNetworks &&
+        homeSession.owner.network.networkId === network?.id),
+  );
+  const ownerDisplaySnapshotReady = Boolean(
+    displaySnapshotLoadState.status === 'hit' &&
+    homeSession.ownerToken &&
+    displaySnapshotLoadState.ownerScopeKey ===
+      homeSession.ownerToken.scopeKey &&
+    displaySnapshotLoadState.sessionId === homeSession.ownerToken.sessionId,
+  );
+  const cachedWalletOwnerReady = Boolean(
+    activeAccountReady &&
+    wallet?.id &&
+    wallet.type &&
+    account?.id &&
+    network?.id &&
+    !hasNoUsableWallet &&
+    !activeWalletUnavailable &&
+    activeOwnerMatchesHomeSession &&
+    ownerDisplaySnapshotReady,
+  );
   const walletContentReadiness = resolveHomeWalletContentReadiness({
     walletListPending,
     wallets: walletListResult?.wallets,
@@ -172,20 +209,18 @@ export function HomeLaunchGatedContent({
     accountSelectorStorageInitDone,
     accountSelectorActiveAccountInitDone,
     activeAccountReady,
-    activeWalletUnavailable: accountUtils.isWalletDeprecatedOrMocked(wallet),
+    cachedWalletOwnerReady,
+    activeWalletUnavailable,
     activeWalletId: wallet?.id,
   });
   const walletListWallet = walletListResult?.wallets.find(
     (item) => item.id === wallet?.id,
   );
-  const shouldGateHome = platformEnv.isNative;
-  // Non-native runtimes do not initialize the native onboarding launch gate.
+  const shouldGateHome =
+    !platformEnv.isWebDappMode && !platformEnv.isExtensionUiSidePanel;
   const surfaceLaunchDecision = shouldGateHome
     ? launchSnapshot.decision
     : 'main';
-  const previousPageSurfaceRef = useRef<
-    IHomeWalletPageSurfaceState | undefined
-  >(undefined);
   const pageSurface = resolveHomeWalletPageSurface({
     launchDecision: surfaceLaunchDecision,
     walletContentReadiness,
@@ -194,6 +229,9 @@ export function HomeLaunchGatedContent({
     walletListWallet,
     nativeHomeEnabled,
     previous: previousPageSurfaceRef.current,
+    retainPreviousOwnerWhilePending: Boolean(
+      homeSession.ownerToken && !activeOwnerMatchesHomeSession,
+    ),
   });
   useAcknowledgeHomeBackgroundRecoverySurfaceCommit({
     owner: {
@@ -209,26 +247,12 @@ export function HomeLaunchGatedContent({
   useLayoutEffect(() => {
     previousPageSurfaceRef.current = pageSurface;
   }, [pageSurface]);
-  const mainHomeReady = isMainHomeReadyToReveal({
-    launchDecision: launchSnapshot.decision,
-    accountSelectorStorageInitDone,
-    accountSelectorActiveAccountInitDone,
-    activeAccountReady,
-    walletListReady: !walletListPending,
-    activeWalletReady: pageSurface.surface !== 'pending',
-  });
-  const currentGenerationReady =
-    launchSnapshot.readyHomeGeneration >= launchSnapshot.requiredHomeGeneration;
-  const isHomeVisible =
-    !shouldGateHome ||
-    (launchSnapshot.decision === 'main' &&
-      (currentGenerationReady || mainHomeReady));
-
+  const isHomeVisible = !shouldGateHome || launchSnapshot.decision === 'main';
   useEffect(() => {
-    if (shouldGateHome && mainHomeReady) {
+    if (shouldGateHome && isHomeVisible) {
       markCurrentHomeGenerationReady(launchSnapshot.requiredHomeGeneration);
     }
-  }, [launchSnapshot.requiredHomeGeneration, mainHomeReady, shouldGateHome]);
+  }, [isHomeVisible, launchSnapshot.requiredHomeGeneration, shouldGateHome]);
 
   return (
     <>
@@ -257,7 +281,9 @@ export function HomeLaunchGatedContent({
           </>
         ) : null}
       </Stack>
-      {shouldMountHomeForegroundEffects({ isHomeVisible }) ? (
+      {shouldMountHomeForegroundEffects({
+        isHomeVisible: isHomeVisible && pageSurface.surface !== 'pending',
+      }) ? (
         <>
           <DAppConnectExtensionFloatingTrigger />
           <ExtOneKeyIdAuthOnMount />

@@ -7,6 +7,7 @@ export {
   useHomeConfirmedBalance,
   useHomeContextStore,
   useHomeDiagnostics,
+  useHomeDisplaySnapshotLoadState,
   useHomeEnvironmentInputs,
   useHomeFacts,
   useHomeInteraction,

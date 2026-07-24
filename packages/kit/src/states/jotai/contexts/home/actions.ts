@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/kit/src/views/Home/model/store/homeStoreReducer';
 import type {
   IHomeSetOrReset,
+  IHomeStoreEffect,
   IHomeStoreEvent,
   IHomeStoreIntent,
   IHomeStoreMutation,
@@ -31,6 +32,7 @@ import {
   homeCommitIdentityState,
   homeConfirmedBalanceState,
   homeDiagnosticsState,
+  homeDisplaySnapshotLoadState,
   homeEnvironmentInputsState,
   homeFactsState,
   homeInteractionState,
@@ -43,6 +45,8 @@ import {
   resourceStates,
   sectionStates,
 } from './atoms';
+
+import type { IHomeDisplaySnapshotLoadState } from './atoms';
 
 function readHomeStoreState(get: IJotaiGetter): IHomeStoreState {
   return {
@@ -201,43 +205,78 @@ function dispatchHomeStoreEvent(
   set: IJotaiSetter,
   event: IHomeStoreEvent,
 ) {
+  return dispatchHomeStoreEventsAtomically(get, set, {
+    events: [event],
+  });
+}
+
+function dispatchHomeStoreEventsAtomically(
+  get: IJotaiGetter,
+  set: IJotaiSetter,
+  {
+    displaySnapshotLoadState,
+    events,
+  }: {
+    displaySnapshotLoadState?: IHomeDisplaySnapshotLoadState;
+    events: readonly IHomeStoreEvent[];
+  },
+) {
   const current = readHomeStoreState(get);
-  const transition = reduceHomeStore(current, event);
-  if (transition.patch.mutations.length === 0) {
-    return transition.effects;
+  let next = current;
+  const effects: IHomeStoreEffect[] = [];
+  const mutations: IHomeStoreMutation[] = [];
+  events.forEach((event) => {
+    const transition = reduceHomeStore(next, event);
+    effects.push(...transition.effects);
+    mutations.push(...transition.patch.mutations);
+    next = applyHomeStorePatchToState(next, transition.patch.mutations);
+  });
+  if (mutations.length === 0) {
+    if (displaySnapshotLoadState) {
+      set(homeDisplaySnapshotLoadState.atom(), displaySnapshotLoadState);
+    }
+    return effects;
   }
-  transition.patch.mutations.forEach((mutation) => {
+  mutations.forEach((mutation) => {
     applyHomeMutation(set, mutation);
   });
   const changedSourceIds = Array.from(
     new Set(
-      transition.patch.mutations.flatMap((mutation) =>
+      mutations.flatMap((mutation) =>
         mutation.slice === 'resource' ? [mutation.sourceId] : [],
       ),
     ),
   );
-  const presentationChanged = transition.patch.mutations.some(
+  const presentationChanged = mutations.some(
     (mutation) =>
       mutation.slice === 'interaction' ||
       mutation.slice === 'shell' ||
       mutation.slice === 'navigation',
   );
+  const cacheHydrated = events.some(
+    (event) =>
+      event.type === 'displaySnapshotHydrated' ||
+      event.type === 'confirmedSnapshotHydrated',
+  );
   set(homeCommitIdentityState.atom(), {
     storeCommitId: current.commitIdentity.storeCommitId + 1,
-    origin:
-      event.type === 'displaySnapshotHydrated' ||
-      event.type === 'confirmedSnapshotHydrated'
-        ? 'cacheHydrate'
-        : 'storeEvent',
+    origin: cacheHydrated ? 'cacheHydrate' : 'storeEvent',
     changedSourceIds,
     presentationChanged,
-    ownerChanged: event.type === 'ownerChanged',
+    ownerChanged: events.some((event) => event.type === 'ownerChanged'),
   });
-  return transition.effects;
+  if (displaySnapshotLoadState) {
+    set(homeDisplaySnapshotLoadState.atom(), displaySnapshotLoadState);
+  }
+  return effects;
 }
 
 class ContextJotaiActionsHome extends ContextJotaiActionsBase {
   dispatchHomeEvent = contextAtomMethod(dispatchHomeStoreEvent);
+
+  dispatchHomeEventsAtomically = contextAtomMethod(
+    dispatchHomeStoreEventsAtomically,
+  );
 
   readHomeStoreSnapshot = contextAtomMethod((get) => readHomeStoreState(get));
 
@@ -254,8 +293,14 @@ const createActions = memoFn(() => new ContextJotaiActionsHome());
 export function useHomeStoreInternalActions() {
   const actions = createActions();
   const dispatchHomeEvent = actions.dispatchHomeEvent.use();
+  const dispatchHomeEventsAtomically =
+    actions.dispatchHomeEventsAtomically.use();
   const readHomeStoreSnapshot = actions.readHomeStoreSnapshot.use();
-  return useRef({ dispatchHomeEvent, readHomeStoreSnapshot });
+  return useRef({
+    dispatchHomeEvent,
+    dispatchHomeEventsAtomically,
+    readHomeStoreSnapshot,
+  });
 }
 
 export function useHomeStoreIntentActions() {

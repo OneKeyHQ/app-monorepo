@@ -1,4 +1,11 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,7 +14,6 @@ import {
   Checkbox,
   Dialog,
   YStack,
-  rootNavigationRef,
   useOnRouterChange,
 } from '@onekeyhq/components';
 import {
@@ -21,18 +27,18 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  appLaunchStateStorage,
+  reconcileAppInstallation,
+} from '@onekeyhq/shared/src/storage/launchStateStorage';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useV4MigrationActions } from '../pages/V4Migration/hooks/useV4MigrationActions';
 
 import {
-  type ILaunchForeground,
-  classifyLaunchForeground,
+  type INavigationStateLike,
   createOnboardingLaunchRequestCoordinator,
-  getOnboardingLaunchDecision,
-  resetOnboardingLaunchGate,
-  resolveOnboardingLaunchDecision,
   setOnboardingLaunchDecision,
   syncOnboardingLaunchForegroundFromNavigationState,
 } from './onboardingLaunchGate';
@@ -94,51 +100,57 @@ function DowngradeWarningDialogContent({
   );
 }
 
-type INavigationStateLike = Parameters<typeof classifyLaunchForeground>[0];
-
 function OnboardingOnMountCmp() {
   const toOnBoardingPage = useToOnBoardingPage();
   const v4migrationActions = useV4MigrationActions();
-  const navigationStateRef = useRef<INavigationStateLike>(undefined);
   const nativeV4MigrationCheckedRef = useRef(false);
   const nativeV4MigrationRouteRef = useRef(false);
-  const foregroundWaitersRef = useRef(
-    new Set<{
-      foreground: ILaunchForeground;
-      resolve: (matched: boolean) => void;
-    }>(),
-  );
   const [v4migrationPersistData, setV4MigrationPersistAtom] =
     useV4migrationPersistAtom();
   const downgradeWarningConfirmed =
     v4migrationPersistData?.downgradeWarningConfirmed;
   const downgradeWarningConfirmedRef = useRef(downgradeWarningConfirmed);
   downgradeWarningConfirmedRef.current = downgradeWarningConfirmed;
+  const localLaunchDecisionResolvedRef = useRef(false);
+  const shouldOpenOnboarding =
+    !platformEnv.isWebDappMode && !platformEnv.isExtensionUiSidePanel;
 
-  const handleRouterChange = useCallback((state: INavigationStateLike) => {
-    navigationStateRef.current = state;
-    const foreground = platformEnv.isNative
-      ? syncOnboardingLaunchForegroundFromNavigationState(state)
-      : classifyLaunchForeground(state);
-    foregroundWaitersRef.current.forEach((waiter) => {
-      if (waiter.foreground === foreground) {
-        foregroundWaitersRef.current.delete(waiter);
-        waiter.resolve(true);
-      }
-    });
-  }, []);
-  useOnRouterChange(handleRouterChange);
-
-  const waitForForeground = useCallback((foreground: ILaunchForeground) => {
-    const currentState =
-      navigationStateRef.current ?? rootNavigationRef.current?.getRootState();
-    if (classifyLaunchForeground(currentState) === foreground) {
-      return Promise.resolve(true);
+  useLayoutEffect(() => {
+    if (localLaunchDecisionResolvedRef.current) {
+      return;
     }
-    return new Promise<boolean>((resolve) => {
-      foregroundWaitersRef.current.add({ foreground, resolve });
-    });
-  }, []);
+    if (!shouldOpenOnboarding) {
+      localLaunchDecisionResolvedRef.current = true;
+      setOnboardingLaunchDecision('main');
+      return;
+    }
+    const launchStatus = appLaunchStateStorage.getStatus();
+    if (launchStatus === 'completed') {
+      localLaunchDecisionResolvedRef.current = true;
+      setOnboardingLaunchDecision('main');
+      return;
+    }
+    if (launchStatus === 'onboardingPending') {
+      localLaunchDecisionResolvedRef.current = true;
+      setOnboardingLaunchDecision('onboarding');
+      void toOnBoardingPage();
+      return;
+    }
+    if (!platformEnv.isNative || platformEnv.isNativeIOS) {
+      localLaunchDecisionResolvedRef.current = true;
+      setOnboardingLaunchDecision('main');
+    }
+  }, [shouldOpenOnboarding, toOnBoardingPage]);
+
+  const handleRouterChange = useCallback(
+    (state: INavigationStateLike | undefined) => {
+      if (platformEnv.isNative) {
+        syncOnboardingLaunchForegroundFromNavigationState(state);
+      }
+    },
+    [],
+  );
+  useOnRouterChange(handleRouterChange);
 
   const migrateBaseSettings = useCallback(async () => {
     const shouldMigrateFromV4: boolean =
@@ -199,13 +211,20 @@ function OnboardingOnMountCmp() {
       }
       const { isOnboardingDone } =
         await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
+      if (isOnboardingDone) {
+        nativeV4MigrationRouteRef.current = false;
+        appLaunchStateStorage.markOnboardingCompleted();
+        setOnboardingLaunchDecision('main');
+        return;
+      }
+      if (nativeV4MigrationRouteRef.current) {
+        return;
+      }
       // Dapp mode auto onboarding conflicts with URL account landing pages.
-      if (
-        !isOnboardingDone &&
-        !platformEnv.isWebDappMode &&
-        !platformEnv.isExtensionUiSidePanel
-      ) {
-        void toOnBoardingPage();
+      if (!platformEnv.isWebDappMode && !platformEnv.isExtensionUiSidePanel) {
+        appLaunchStateStorage.markOnboardingPending();
+        await toOnBoardingPage();
+        setOnboardingLaunchDecision('onboarding');
       }
     },
     [
@@ -271,20 +290,94 @@ function OnboardingOnMountCmp() {
   }, [v4migrationActions]);
 
   useEffect(() => {
-    const foregroundWaiters = foregroundWaitersRef.current;
+    let disposed = false;
+    let maintenanceTimer: ReturnType<typeof setTimeout> | undefined;
+    const resolveLocalLaunch = async () => {
+      const installation = await reconcileAppInstallation();
+      if (disposed) {
+        return false;
+      }
+      const launchStatus = appLaunchStateStorage.getStatus();
+      if (
+        installation.classification === 'freshInstall' &&
+        shouldOpenOnboarding
+      ) {
+        appLaunchStateStorage.markOnboardingPending(
+          installation.installationTime,
+        );
+        localLaunchDecisionResolvedRef.current = true;
+        setOnboardingLaunchDecision('onboarding');
+        void toOnBoardingPage();
+        return false;
+      }
+      if (launchStatus === 'onboardingPending') {
+        return true;
+      }
+      if (launchStatus === 'completed') {
+        setOnboardingLaunchDecision('main');
+        return true;
+      }
+      localLaunchDecisionResolvedRef.current = true;
+      setOnboardingLaunchDecision('main');
+      return true;
+    };
+
     if (!platformEnv.isNative) {
-      void checkStateOnMount();
+      void resolveLocalLaunch().then((shouldValidate) => {
+        if (!disposed && shouldValidate) {
+          maintenanceTimer = setTimeout(() => {
+            void checkStateOnMount();
+          }, 0);
+        }
+      });
       const handleWalletClear = () => {
         void checkOnboardingStateForOtherPlatforms({
           checkingV4Migration: false,
         });
       };
+      const handleWalletUpdate = () => {
+        void checkOnboardingStateForOtherPlatforms({
+          checkingV4Migration: false,
+        });
+      };
       appEventBus.on(EAppEventBusNames.WalletClear, handleWalletClear);
+      appEventBus.on(EAppEventBusNames.WalletUpdate, handleWalletUpdate);
       return () => {
+        disposed = true;
+        if (maintenanceTimer) {
+          clearTimeout(maintenanceTimer);
+        }
         appEventBus.off(EAppEventBusNames.WalletClear, handleWalletClear);
+        appEventBus.off(EAppEventBusNames.WalletUpdate, handleWalletUpdate);
       };
     }
 
+    const applyMaintenanceVerdict = async (
+      isOnboardingDone: boolean,
+      request: { isCurrent: () => boolean },
+    ) => {
+      if (!request.isCurrent()) {
+        return;
+      }
+      if (isOnboardingDone) {
+        nativeV4MigrationRouteRef.current = false;
+        appLaunchStateStorage.markOnboardingCompleted();
+        setOnboardingLaunchDecision('main');
+        return;
+      }
+      if (nativeV4MigrationRouteRef.current) {
+        return;
+      }
+      if (!shouldOpenOnboarding) {
+        setOnboardingLaunchDecision('main');
+        return;
+      }
+      appLaunchStateStorage.markOnboardingPending();
+      await toOnBoardingPage();
+      if (request.isCurrent()) {
+        setOnboardingLaunchDecision('onboarding');
+      }
+    };
     const coordinator = createOnboardingLaunchRequestCoordinator({
       readVerdict: async () => {
         if (!nativeV4MigrationCheckedRef.current) {
@@ -307,56 +400,20 @@ function OnboardingOnMountCmp() {
           await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
         return isOnboardingDone;
       },
-      onAuthoritativeStart: resetOnboardingLaunchGate,
-      onAuthoritativeVerdict: async (isOnboardingDone, request) => {
-        if (!request.isCurrent()) {
-          return;
-        }
-        if (!isOnboardingDone && nativeV4MigrationRouteRef.current) {
-          const didReachOnboarding = await waitForForeground('onboarding');
-          if (!request.isCurrent()) {
-            return;
-          }
-          nativeV4MigrationRouteRef.current = false;
-          if (didReachOnboarding && request.isCurrent()) {
-            setOnboardingLaunchDecision('onboarding');
-          }
-          return;
-        }
-        const decision = await resolveOnboardingLaunchDecision({
-          isOnboardingDone,
-          shouldOpenOnboarding:
-            !platformEnv.isWebDappMode && !platformEnv.isExtensionUiSidePanel,
-          openOnboarding: async () => {
-            if (!request.isCurrent()) {
-              return;
-            }
-            await toOnBoardingPage();
-          },
-        });
-        if (!request.isCurrent()) {
-          return;
-        }
-        if (decision === 'onboarding') {
-          const didReachOnboarding = await waitForForeground('onboarding');
-          if (!request.isCurrent() || !didReachOnboarding) {
-            return;
-          }
-        }
-        if (request.isCurrent()) {
-          setOnboardingLaunchDecision(decision);
-        }
-      },
-      onMaintenanceMain: async (request) => {
-        if (request.isCurrent() && getOnboardingLaunchDecision() !== 'main') {
-          setOnboardingLaunchDecision('main');
-        }
-      },
+      onAuthoritativeStart: () => undefined,
+      onAuthoritativeVerdict: applyMaintenanceVerdict,
+      onMaintenanceVerdict: applyMaintenanceVerdict,
     });
 
-    void coordinator.startAuthoritative();
+    void resolveLocalLaunch().then((shouldValidate) => {
+      if (!disposed && shouldValidate) {
+        maintenanceTimer = setTimeout(() => {
+          void coordinator.enqueueMaintenance();
+        }, 0);
+      }
+    });
     const handleWalletClear = () => {
-      void coordinator.startAuthoritative();
+      void coordinator.enqueueMaintenance();
     };
     const handleWalletUpdate = () => {
       void coordinator.enqueueMaintenance();
@@ -364,9 +421,11 @@ function OnboardingOnMountCmp() {
     appEventBus.on(EAppEventBusNames.WalletClear, handleWalletClear);
     appEventBus.on(EAppEventBusNames.WalletUpdate, handleWalletUpdate);
     return () => {
+      disposed = true;
+      if (maintenanceTimer) {
+        clearTimeout(maintenanceTimer);
+      }
       coordinator.dispose();
-      foregroundWaiters.forEach((waiter) => waiter.resolve(false));
-      foregroundWaiters.clear();
       appEventBus.off(EAppEventBusNames.WalletClear, handleWalletClear);
       appEventBus.off(EAppEventBusNames.WalletUpdate, handleWalletUpdate);
     };
@@ -374,9 +433,9 @@ function OnboardingOnMountCmp() {
     checkOnboardingStateForOtherPlatforms,
     checkStateOnMount,
     migrateBaseSettings,
+    shouldOpenOnboarding,
     toOnBoardingPage,
     v4migrationActions,
-    waitForForeground,
   ]);
 
   return null;

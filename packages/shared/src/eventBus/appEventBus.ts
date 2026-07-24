@@ -517,7 +517,12 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.MarketWatchlistOnlyChanged]: {
     showWatchlistOnly: boolean;
   };
-  [EAppEventBusNames.ClearStorageOnExtension]: undefined;
+  [EAppEventBusNames.ClearStorageOnExtension]: {
+    requestId: string;
+  };
+  [EAppEventBusNames.ClearStorageOnExtensionDone]: {
+    requestId: string;
+  };
   [EAppEventBusNames.SupabaseStorageCacheCleared]: {
     sourceId: string;
   };

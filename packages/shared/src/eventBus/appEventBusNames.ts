@@ -142,6 +142,7 @@ export enum EAppEventBusNames {
   // HttpServerRequest = 'HttpServerRequest',
   AddressBookUpdate = 'AddressBookUpdate',
   ClearStorageOnExtension = 'ClearStorageOnExtension',
+  ClearStorageOnExtensionDone = 'ClearStorageOnExtensionDone',
   SupabaseStorageCacheCleared = 'SupabaseStorageCacheCleared',
   MarketWSDataUpdate = 'MarketWSDataUpdate',
   MarketWatchlistOnlyChanged = 'MarketWatchlistOnlyChanged',

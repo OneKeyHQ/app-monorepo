@@ -1,6 +1,10 @@
 import { getHomeSourceKeyIdentity } from '../../core/homeIdentity';
 import { adaptCurrentHomeBalanceFacts } from '../../facts/currentHomeBalanceFactsAdapter';
 import { createIdleHomeSourceFacts } from '../../facts/homeFacts';
+import {
+  HOME_SECTION_ACTION_IDS,
+  HOME_SHELL_ACTION_IDS,
+} from '../homeStoreCommandIds';
 import { createInitialHomeStoreState } from '../homeStoreInitialState';
 import {
   applyHomeStorePatchToState,
@@ -545,6 +549,227 @@ describe('Home Store reducer', () => {
     expect(transition.effects).toEqual([]);
   });
 
+  it('accepts valid Header commands from a cached Shell', () => {
+    const state = dispatch(createOwnedState(), {
+      type: 'displaySnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [],
+      shell: {
+        kind: 'portfolio',
+        presentation: {
+          kind: 'funded',
+          header: {
+            kind: 'funded',
+            authority: 'confirmedCache',
+            balance: { amount: '42.50', currency: 'usd' },
+          },
+          actions: {
+            kind: 'funded',
+            items: ['send', 'receive', 'buySell', 'swap'],
+          },
+          banner: { kind: 'none' },
+          freshness: 'confirmedCache',
+          refresh: 'refreshing',
+        },
+      },
+    });
+
+    const transition = reduceHomeStore(state, {
+      type: 'intentReceived',
+      intent: {
+        type: 'headerActionInvoked',
+        actionId: HOME_SHELL_ACTION_IDS.balance,
+        authority: {
+          kind: 'shellCommands',
+          revision: state.shell.shellCommandRevision,
+        },
+        execution: 'caller',
+        intentId: 'cached-balance',
+        owner,
+        sessionId: ownerToken.sessionId,
+      },
+    });
+
+    expect(transition.effects).toEqual([
+      {
+        kind: 'executeCommand',
+        intent: expect.objectContaining({ intentId: 'cached-balance' }),
+      },
+    ]);
+
+    const invalid = reduceHomeStore(state, {
+      type: 'intentReceived',
+      intent: {
+        type: 'headerActionInvoked',
+        actionId: 'home.header.unknown',
+        authority: {
+          kind: 'shellCommands',
+          revision: state.shell.shellCommandRevision,
+        },
+        execution: 'caller',
+        intentId: 'cached-header-unknown',
+        owner,
+        sessionId: ownerToken.sessionId,
+      },
+    });
+    expect(invalid.effects).toEqual([
+      expect.objectContaining({
+        kind: 'traceReject',
+        reason: 'intentTargetUnavailable',
+      }),
+    ]);
+  });
+
+  it('accepts valid actions, refreshes, and controls from a cached Section', () => {
+    const token = createToken(1);
+    let state = dispatch(createOwnedState(), {
+      type: 'displaySnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [
+        {
+          sourceId: 'defi',
+          sourceKeyIdentity: getHomeSourceKeyIdentity(token.sourceKey),
+          dataSchemaVersion: token.sourceKey.dataSchemaVersion,
+          coverageFingerprint: 'cached-defi',
+          quoteBasis: token.sourceKey.quoteBasis ?? null,
+          confirmedAt: 1,
+          expiresAt: 2,
+          payload: {
+            section: {
+              kind: 'ready',
+              rowIds: ['defi-row'],
+            },
+          },
+        },
+      ],
+    });
+    expect(state.sections.defi.value).toMatchObject({
+      kind: 'ready',
+      freshness: 'confirmedCache',
+    });
+
+    const action = reduceHomeStore(state, {
+      type: 'intentReceived',
+      intent: {
+        type: 'sectionActionInvoked',
+        actionId: HOME_SECTION_ACTION_IDS.openDeFiProtocol,
+        authority: {
+          kind: 'sectionCommands',
+          revision: state.sections.defi.sectionCommandRevision,
+          sectionId: 'defi',
+        },
+        execution: 'caller',
+        intentId: 'cached-defi-open',
+        itemId: 'defi-row',
+        owner,
+        sectionId: 'defi',
+        sessionId: ownerToken.sessionId,
+      },
+    });
+    expect(action.effects).toEqual([
+      {
+        kind: 'executeCommand',
+        intent: expect.objectContaining({ intentId: 'cached-defi-open' }),
+      },
+    ]);
+    state = applyHomeStorePatchToState(state, action.patch.mutations);
+
+    const refresh = reduceHomeStore(state, {
+      type: 'intentReceived',
+      intent: {
+        type: 'sectionRefreshRequested',
+        actionId: 'home.defi.refresh',
+        authority: {
+          kind: 'sectionCommands',
+          revision: state.sections.defi.sectionCommandRevision,
+          sectionId: 'defi',
+        },
+        execution: 'controller',
+        intentId: 'cached-defi-refresh',
+        owner,
+        sectionId: 'defi',
+        sessionId: ownerToken.sessionId,
+      },
+    });
+    state = applyHomeStorePatchToState(state, refresh.patch.mutations);
+    expect(state.interaction.pendingSectionCommands).toEqual([
+      expect.objectContaining({ intentId: 'cached-defi-refresh' }),
+    ]);
+
+    const control = reduceHomeStore(state, {
+      type: 'intentReceived',
+      intent: {
+        type: 'sectionControlChanged',
+        authority: {
+          kind: 'sectionCommands',
+          revision: state.sections.defi.sectionCommandRevision,
+          sectionId: 'defi',
+        },
+        controlId: 'home.defi.filter',
+        intentId: 'cached-defi-control',
+        owner,
+        sectionId: 'defi',
+        sessionId: ownerToken.sessionId,
+        value: 'all',
+      },
+    });
+    state = applyHomeStorePatchToState(state, control.patch.mutations);
+    expect(state.interaction.sectionControls.defi).toEqual({
+      'home.defi.filter': 'all',
+    });
+
+    const missingTarget = reduceHomeStore(state, {
+      type: 'intentReceived',
+      intent: {
+        type: 'sectionActionInvoked',
+        actionId: HOME_SECTION_ACTION_IDS.openDeFiProtocol,
+        authority: {
+          kind: 'sectionCommands',
+          revision: state.sections.defi.sectionCommandRevision,
+          sectionId: 'defi',
+        },
+        execution: 'caller',
+        intentId: 'cached-defi-missing',
+        itemId: 'missing-row',
+        owner,
+        sectionId: 'defi',
+        sessionId: ownerToken.sessionId,
+      },
+    });
+    expect(missingTarget.effects).toEqual([
+      expect.objectContaining({
+        kind: 'traceReject',
+        reason: 'intentTargetUnavailable',
+      }),
+    ]);
+
+    const expiredAuthority = reduceHomeStore(state, {
+      type: 'intentReceived',
+      intent: {
+        type: 'sectionControlChanged',
+        authority: {
+          kind: 'sectionCommands',
+          revision: state.sections.defi.sectionCommandRevision - 1,
+          sectionId: 'defi',
+        },
+        controlId: 'home.defi.filter',
+        intentId: 'cached-defi-stale-control',
+        owner,
+        sectionId: 'defi',
+        sessionId: ownerToken.sessionId,
+        value: 'protocol',
+      },
+    });
+    expect(expiredAuthority.effects).toEqual([
+      expect.objectContaining({
+        kind: 'traceReject',
+        reason: 'intentAuthorityExpired',
+      }),
+    ]);
+  });
+
   it('accepts rapid tab intents against one applicability revision', () => {
     let state = withCapability(createOwnedState(), 'inline');
     const authorityRevision = state.navigation.tabApplicabilityRevision;
@@ -614,7 +839,7 @@ describe('Home Store reducer', () => {
     ]);
   });
 
-  it('never grants handoff command authority to cached Navigation', () => {
+  it('executes an applicable handoff command from cached Navigation', () => {
     const state = dispatch(createOwnedState(), {
       type: 'displaySnapshotHydrated',
       ownerScopeKey: ownerToken.scopeKey,
@@ -663,10 +888,12 @@ describe('Home Store reducer', () => {
     });
 
     expect(transition.effects).toEqual([
-      expect.objectContaining({
-        kind: 'traceReject',
-        reason: 'intentTargetUnavailable',
-      }),
+      {
+        kind: 'executeCommand',
+        intent: expect.objectContaining({
+          intentId: 'cached-navigation-handoff',
+        }),
+      },
     ]);
   });
 

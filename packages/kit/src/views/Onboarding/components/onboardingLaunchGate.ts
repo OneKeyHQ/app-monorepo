@@ -17,7 +17,7 @@ export type IOnboardingLaunchSnapshot = {
 };
 
 type ILaunchDecisionListener = () => void;
-type INavigationStateLike = {
+export type INavigationStateLike = {
   index?: number;
   routes?: Array<{
     name?: string;
@@ -231,7 +231,10 @@ type IRequestCoordinatorOptions = {
     isOnboardingDone: boolean,
     request: IAuthoritativeRequestContext,
   ) => Promise<void>;
-  onMaintenanceMain: (request: IAuthoritativeRequestContext) => Promise<void>;
+  onMaintenanceVerdict: (
+    isOnboardingDone: boolean,
+    request: IAuthoritativeRequestContext,
+  ) => Promise<void>;
   wait?: (milliseconds: number) => Promise<void>;
   retryDelays?: number[];
 };
@@ -245,7 +248,7 @@ export function createOnboardingLaunchRequestCoordinator({
   readVerdict,
   onAuthoritativeStart,
   onAuthoritativeVerdict,
-  onMaintenanceMain,
+  onMaintenanceVerdict,
   wait = (milliseconds) =>
     new Promise<void>((resolve) => {
       setTimeout(resolve, milliseconds);
@@ -323,8 +326,10 @@ export function createOnboardingLaunchRequestCoordinator({
       }
       const token = authoritativeToken;
       const verdict = await readWithRetry(token);
-      if (verdict && isCurrent(token)) {
-        await runHandlerWithRetry(token, onMaintenanceMain);
+      if (verdict !== undefined && isCurrent(token)) {
+        await runHandlerWithRetry(token, (request) =>
+          onMaintenanceVerdict(verdict, request),
+        );
       }
     });
     return maintenanceQueue;

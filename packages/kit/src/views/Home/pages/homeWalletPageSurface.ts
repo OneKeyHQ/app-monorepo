@@ -9,6 +9,7 @@ export type IHomeWalletPageSurface =
 
 export type IHomeWalletPageSurfaceState = {
   accountId?: string;
+  authority?: 'cached' | 'confirmed';
   surface: IHomeWalletPageSurface;
   walletId?: string;
 };
@@ -31,6 +32,7 @@ export function resolveHomeWalletPageSurface({
   walletListWallet,
   nativeHomeEnabled,
   previous,
+  retainPreviousOwnerWhilePending = false,
 }: {
   launchDecision: IOnboardingLaunchDecision;
   walletContentReadiness: IHomeWalletContentReadiness;
@@ -39,6 +41,7 @@ export function resolveHomeWalletPageSurface({
   walletListWallet: IHomeWalletPageSurfaceWallet | undefined;
   nativeHomeEnabled: boolean;
   previous?: IHomeWalletPageSurfaceState;
+  retainPreviousOwnerWhilePending?: boolean;
 }): IHomeWalletPageSurfaceState {
   const activeWalletId = activeWallet?.id;
   const activeOwner = {
@@ -46,20 +49,13 @@ export function resolveHomeWalletPageSurface({
     walletId: activeWalletId,
   };
   const pending = (): IHomeWalletPageSurfaceState => {
-    const walletIdentityConfirmed =
-      Boolean(activeWalletId) &&
-      activeWalletId === walletListWallet?.id &&
-      Boolean(activeWallet?.type) &&
-      activeWallet?.type === walletListWallet?.type;
-    const sameOwner =
-      Boolean(previous) &&
+    const previousMatchesActiveOwner =
       previous?.walletId === activeWalletId &&
       previous?.accountId === activeAccountId;
-    const normalSurface = resolveNormalWalletSurface(nativeHomeEnabled);
     if (
-      walletIdentityConfirmed &&
-      sameOwner &&
-      previous?.surface === normalSurface
+      previous &&
+      previous.surface !== 'pending' &&
+      (previousMatchesActiveOwner || retainPreviousOwnerWhilePending)
     ) {
       return previous;
     }
@@ -71,6 +67,16 @@ export function resolveHomeWalletPageSurface({
   }
   if (walletContentReadiness === 'no-wallet') {
     return { surface: 'no-wallet' };
+  }
+  if (walletContentReadiness === 'cached-wallet') {
+    if (!activeAccountId || !activeWalletId || !activeWallet?.type) {
+      return pending();
+    }
+    return {
+      surface: resolveNormalWalletSurface(nativeHomeEnabled),
+      authority: 'cached',
+      ...activeOwner,
+    };
   }
   if (walletContentReadiness !== 'wallet') {
     return pending();
@@ -86,6 +92,7 @@ export function resolveHomeWalletPageSurface({
 
   return {
     surface: resolveNormalWalletSurface(nativeHomeEnabled),
+    authority: 'confirmed',
     ...activeOwner,
   };
 }

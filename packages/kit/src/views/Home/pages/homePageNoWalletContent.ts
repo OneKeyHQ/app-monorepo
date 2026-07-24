@@ -6,7 +6,11 @@ type IWalletListItemForNoWalletCheck =
     }
   | undefined;
 
-export type IHomeWalletContentReadiness = 'pending' | 'wallet' | 'no-wallet';
+export type IHomeWalletContentReadiness =
+  | 'pending'
+  | 'cached-wallet'
+  | 'wallet'
+  | 'no-wallet';
 
 export function isWalletListResolvedNoWallet({
   wallets,
@@ -59,6 +63,7 @@ export function resolveHomeWalletContentReadiness({
   accountSelectorStorageInitDone,
   accountSelectorActiveAccountInitDone,
   activeAccountReady,
+  cachedWalletOwnerReady,
   activeWalletUnavailable,
   activeWalletId,
 }: {
@@ -68,9 +73,27 @@ export function resolveHomeWalletContentReadiness({
   accountSelectorStorageInitDone: boolean;
   accountSelectorActiveAccountInitDone: boolean;
   activeAccountReady: boolean;
+  cachedWalletOwnerReady?: boolean;
   activeWalletUnavailable?: boolean;
   activeWalletId?: string;
 }): IHomeWalletContentReadiness {
+  const walletListWalletIds = wallets?.flatMap((wallet) =>
+    wallet && 'id' in wallet && typeof wallet.id === 'string'
+      ? [wallet.id]
+      : [],
+  );
+  const walletListRejectsCachedOwner =
+    !!activeWalletId &&
+    !!walletListWalletIds &&
+    !walletListWalletIds.includes(activeWalletId);
+  const canRenderCachedWallet =
+    !!cachedWalletOwnerReady &&
+    activeAccountReady &&
+    !hasNoUsableWallet &&
+    !activeWalletUnavailable &&
+    !!activeWalletId &&
+    !walletListRejectsCachedOwner;
+
   if (
     walletListPending ||
     !wallets ||
@@ -78,14 +101,9 @@ export function resolveHomeWalletContentReadiness({
     !accountSelectorActiveAccountInitDone ||
     !activeAccountReady
   ) {
-    return 'pending';
+    return canRenderCachedWallet ? 'cached-wallet' : 'pending';
   }
 
-  const walletListWalletIds = wallets.flatMap((wallet) =>
-    wallet && 'id' in wallet && typeof wallet.id === 'string'
-      ? [wallet.id]
-      : [],
-  );
   const walletListResolvedNoWallet = isWalletListResolvedNoWallet({ wallets });
   if (
     shouldShowNoWalletContent({
@@ -104,7 +122,7 @@ export function resolveHomeWalletContentReadiness({
   if (
     !hasNoUsableWallet &&
     !!activeWalletId &&
-    walletListWalletIds.includes(activeWalletId)
+    (walletListWalletIds ?? []).includes(activeWalletId)
   ) {
     return 'wallet';
   }
