@@ -93,7 +93,7 @@ export function EModeAssetsTable({ row }: { row: IEModeRow }) {
         ),
       },
       {
-        key: 'collateral',
+        key: 'boostLtv',
         flex: '0 1 auto',
         minWidth: 76,
         maxWidth: 104,
@@ -101,7 +101,7 @@ export function EModeAssetsTable({ row }: { row: IEModeRow }) {
         renderHeader: () => (
           <CapabilityHeader
             label={intl.formatMessage({
-              id: ETranslations.defi_collateral,
+              id: ETranslations.defi_max_ltv,
             })}
             tooltip={intl.formatMessage({
               id: ETranslations.defi_emode_collateral_capability__tooltip,
@@ -111,26 +111,27 @@ export function EModeAssetsTable({ row }: { row: IEModeRow }) {
         render: (asset) => (
           <CapabilityBadge
             available={asset.boostedLTV}
-            accessibilityLabel={intl.formatMessage(
-              {
+            accessibilityLabel={[
+              asset.token.symbol,
+              intl.formatMessage({ id: ETranslations.defi_max_ltv }),
+              intl.formatMessage({
                 id: asset.boostedLTV
-                  ? ETranslations.defi_emode_can_collateral__a11y
-                  : ETranslations.defi_emode_cannot_collateral__a11y,
-              },
-              { symbol: asset.token.symbol },
-            )}
+                  ? ETranslations.global_available
+                  : ETranslations.global_not_available,
+              }),
+            ].join(', ')}
           />
         ),
       },
       {
-        key: 'borrow',
+        key: 'borrowable',
         flex: '0 1 auto',
         minWidth: 76,
         maxWidth: 104,
         align: 'center',
         renderHeader: () => (
           <CapabilityHeader
-            label={intl.formatMessage({ id: ETranslations.global_borrow })}
+            label={intl.formatMessage({ id: ETranslations.defi_borrowable })}
             tooltip={intl.formatMessage({
               id: ETranslations.defi_emode_borrow_capability__tooltip,
             })}

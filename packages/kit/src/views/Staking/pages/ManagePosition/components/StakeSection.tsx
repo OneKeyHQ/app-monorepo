@@ -17,6 +17,7 @@ import {
   type IManagePositionConfirmParams,
   ManagePosition,
 } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
+import { buildBorrowTokenApproveTarget } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/borrowApproval.utils';
 import {
   useUniversalBorrowBorrow,
   useUniversalBorrowSupply,
@@ -469,50 +470,51 @@ export const StakeSection = ({
     }
   }, [estimateFeeUTXO]);
 
-  const { result, isLoading: _isLoading = true } = usePromiseResult(
-    async () => {
-      if (
-        !hasRequiredData ||
-        !effectiveApproveType ||
-        !approveSpenderAddress ||
-        effectiveStakeTokenInfo?.token?.isNative
-      ) {
-        return undefined;
-      }
-      // While a protocol switch is in flight (confirm button force-loading),
-      // networkId is already the new chain but token/spender still come from
-      // the previous protocol's stale data — skip to avoid a mismatched
-      // allowance request. Re-runs automatically once fresh data lands.
-      if (footerActionOverride?.loading) {
-        return undefined;
-      }
-      const { allowanceParsed } =
-        await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
-          accountId,
-          networkId,
-          spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
-            approveType: effectiveApproveType,
-            approveSpenderAddress,
-          }),
-          tokenAddress: effectiveStakeTokenInfo?.token.address || '',
-        });
+  const { result: initialAllowanceResult, isLoading: _isLoading = true } =
+    usePromiseResult(
+      async () => {
+        if (
+          !hasRequiredData ||
+          !effectiveApproveType ||
+          !approveSpenderAddress ||
+          effectiveStakeTokenInfo?.token?.isNative
+        ) {
+          return undefined;
+        }
+        // While a protocol switch is in flight (confirm button force-loading),
+        // networkId is already the new chain but token/spender still come from
+        // the previous protocol's stale data — skip to avoid a mismatched
+        // allowance request. Re-runs automatically once fresh data lands.
+        if (footerActionOverride?.loading) {
+          return undefined;
+        }
+        const { allowanceParsed } =
+          await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
+            accountId,
+            networkId,
+            spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+              approveType: effectiveApproveType,
+              approveSpenderAddress,
+            }),
+            tokenAddress: effectiveStakeTokenInfo?.token.address || '',
+          });
 
-      return { allowanceParsed };
-    },
-    [
-      hasRequiredData,
-      accountId,
-      networkId,
-      approveSpenderAddress,
-      effectiveApproveType,
-      effectiveStakeTokenInfo?.token?.isNative,
-      effectiveStakeTokenInfo?.token.address,
-      footerActionOverride?.loading,
-    ],
-    {
-      watchLoading: true,
-    },
-  );
+        return { allowanceParsed };
+      },
+      [
+        hasRequiredData,
+        accountId,
+        networkId,
+        approveSpenderAddress,
+        effectiveApproveType,
+        effectiveStakeTokenInfo?.token?.isNative,
+        effectiveStakeTokenInfo?.token.address,
+        footerActionOverride?.loading,
+      ],
+      {
+        watchLoading: true,
+      },
+    );
 
   const handleStake = useUniversalStake({ accountId, networkId });
   const handleBorrowSupply = useUniversalBorrowSupply({ accountId, networkId });
@@ -535,53 +537,23 @@ export const StakeSection = ({
   }, [networkId, protocolInfo?.approveAsset, tokenInfo?.token]);
 
   const borrowSupplyApproveTarget = useMemo(() => {
-    if (
-      !useBorrowApi ||
-      borrowAction !== 'supply' ||
-      !protocolInfo?.approve?.approveTarget ||
-      !borrowSupplyApproveToken ||
-      borrowSupplyApproveToken.isNative
-    ) {
+    if (!useBorrowApi || borrowAction !== 'supply') {
       return undefined;
     }
-    return {
+    return buildBorrowTokenApproveTarget({
       accountId,
       networkId,
-      spenderAddress: protocolInfo.approve.approveTarget,
+      spenderAddress: approveSpenderAddress,
       token: borrowSupplyApproveToken,
-    };
+    });
   }, [
     accountId,
+    approveSpenderAddress,
     borrowAction,
     borrowSupplyApproveToken,
     networkId,
-    protocolInfo?.approve?.approveTarget,
     useBorrowApi,
   ]);
-
-  const { result: borrowSupplyAllowanceResult } = usePromiseResult(
-    async () => {
-      if (!borrowSupplyApproveTarget) {
-        return undefined;
-      }
-      const { allowanceParsed } =
-        await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
-          accountId,
-          networkId,
-          spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
-            approveType: EApproveType.Legacy,
-            approveSpenderAddress: borrowSupplyApproveTarget.spenderAddress,
-          }),
-          tokenAddress: borrowSupplyApproveTarget.token.address,
-        });
-
-      return { allowanceParsed };
-    },
-    [accountId, borrowSupplyApproveTarget, networkId],
-    {
-      watchLoading: true,
-    },
-  );
 
   const onConfirm = useCallback(
     async ({
@@ -873,7 +845,7 @@ export const StakeSection = ({
           approveTarget={borrowSupplyApproveTarget}
           currentAllowance={
             borrowApiCtx.borrowApiParams.action === 'supply'
-              ? (borrowSupplyAllowanceResult?.allowanceParsed ??
+              ? (initialAllowanceResult?.allowanceParsed ??
                 protocolInfo?.approve?.allowance)
               : undefined
           }
@@ -914,7 +886,7 @@ export const StakeSection = ({
           providerName={protocolInfo?.provider}
           onConfirm={onConfirm}
           approveType={effectiveApproveType}
-          currentAllowance={result?.allowanceParsed}
+          currentAllowance={initialAllowanceResult?.allowanceParsed}
           minTransactionFee={protocolInfo?.minTransactionFee}
           estimateFeeUTXO={estimateFeeUTXO}
           onFeeRateChange={onFeeRateChange}

@@ -150,7 +150,6 @@ function BorrowEModeSwitchView() {
     pendingCount,
     isLoading: pendingHistoryLoading,
     isPendingHistoryVerified,
-    refreshPending,
   } = useStakingPendingTxsByInfo({
     networkIds: [networkId],
     accountId,
@@ -159,38 +158,22 @@ function BorrowEModeSwitchView() {
     onRefresh: refreshManagementState,
     onRefreshDelayMs: 3000,
   });
-  const [focusRevalidating, setFocusRevalidating] = useState(isFocused);
   const previousIsFocused = usePrevious(isFocused);
   const focusActivationPending = isEModeFocusActivationPending({
     isFocused,
     previousIsFocused,
   });
   useEffect(() => {
-    if (!isFocused || !accountId) {
+    if (!focusActivationPending || selection.userSelection === null) {
       return;
     }
-    let disposed = false;
-    setFocusRevalidating(true);
-    void (async () => {
-      try {
-        await Promise.all([refreshPending(), refreshManagementState()]);
-      } catch {
-        // Best-effort revalidation; each data hook preserves its last result.
-      } finally {
-        if (!disposed) {
-          setFocusRevalidating(false);
-        }
-      }
-    })();
-    return () => {
-      disposed = true;
-    };
-  }, [accountId, isFocused, refreshManagementState, refreshPending]);
+    void runCheck(selection.userSelection);
+  }, [focusActivationPending, runCheck, selection.userSelection]);
   const pendingGuardActive = isEModePendingGuardActive({
     pendingHistoryLoading,
     isPendingHistoryVerified,
     pendingCount,
-    focusRevalidating: focusRevalidating || focusActivationPending,
+    focusRevalidating: focusActivationPending,
   });
 
   useEffect(() => {

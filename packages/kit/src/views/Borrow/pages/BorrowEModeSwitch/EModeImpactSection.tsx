@@ -23,23 +23,6 @@ type IImpactData = {
   latest?: { title?: IEarnText };
 };
 
-function maskUntrustedProjection(data?: IImpactData): IImpactData {
-  if (!data) {
-    return {};
-  }
-
-  return {
-    current: data.current,
-    latest: data.latest
-      ? {
-          title: {
-            text: '—',
-          },
-        }
-      : undefined,
-  };
-}
-
 function ImpactValue({
   label,
   data,
@@ -108,19 +91,16 @@ export function EModeImpactSection({
     return null;
   }
 
-  // The switch-check response does not expose enough reserve-level inputs to
-  // verify its account projection, so keep the current value and mask latest.
-  const targetMaxLtv = maskUntrustedProjection(check?.maxLtv);
   const maxLtv: IImpactData = isCurrent
     ? {
         current: {
           title: { text: currentMaxLtv ? `${currentMaxLtv}%` : '—' },
         },
       }
-    : targetMaxLtv;
+    : (check?.maxLtv ?? {});
   const healthFactor: IImpactData = isCurrent
     ? { current: { title: currentHealthFactor ?? { text: '—' } } }
-    : maskUntrustedProjection(check?.healthFactor);
+    : (check?.healthFactor ?? {});
   const atRisk = check?.healthFactor?.latest?.title?.color === '$textCritical';
 
   return (

@@ -72,7 +72,7 @@ describe('EModeImpactSection', () => {
     expect(output).not.toContain('90%');
   });
 
-  it('masks unverified target metrics while preserving risk alerts', () => {
+  it('shows the authoritative target metrics and preserves risk alerts', () => {
     const check: IBorrowEModeSwitchCheck = {
       canSwitch: true,
       reasons: [],
@@ -104,13 +104,12 @@ describe('EModeImpactSection', () => {
     const output = JSON.stringify(view.toJSON());
     expect(output).toContain('78.63%');
     expect(output).toContain('22.39');
-    expect(output).toContain('—');
+    expect(output).toContain('90.00%');
+    expect(output).toContain('24.18');
     expect(
       view.UNSAFE_root.findAll(
         (node) => node.props.title === 'defi_emode_risk_near_liquidation',
       ),
     ).toHaveLength(1);
-    expect(output).not.toContain('90.00%');
-    expect(output).not.toContain('24.18');
   });
 });
