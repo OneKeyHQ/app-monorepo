@@ -6,6 +6,8 @@ import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble
 import { dialog } from 'electron';
 import logger from 'electron-log/main';
 
+import { ElectronTranslations, i18nText } from '../i18n';
+
 import {
   ensureDevicePaired,
   isBlePairAvailable,
@@ -81,17 +83,18 @@ export function createTrezorBlePairingIpcMain(
     // get here, so this dialog gates nothing — it only lets the user perform the
     // numeric comparison. It must therefore not read as "click OK first": the
     // ceremony is waiting on the DEVICE confirmation, and any time spent here is
-    // time spent inside the pairing window.
+    // time spent inside the pairing window. Copy is localized via the shared
+    // main-process i18n (i18nText) so it follows the app language instead of the
+    // previous hardcoded English; keys are reused from the RN side.
     const shownAt = Date.now();
     logger.info(`[TrezorBLE] pin dialog shown (pin=${pin})`);
     void dialog
       .showMessageBox(browserWindow, {
         type: 'info',
-        title: 'Trezor Bluetooth',
-        message: `Confirm on the Trezor NOW — check this code matches the device screen:\n\n${pin}`,
-        detail:
-          'Press confirm on the device first. This window is informational; closing it does not affect pairing.',
-        buttons: ['OK'],
+        title: i18nText(ElectronTranslations.transfer_pair_code),
+        message: pin,
+        detail: i18nText(ElectronTranslations.global_confirm_on_device),
+        buttons: [i18nText(ElectronTranslations.global_confirm)],
         noLink: true,
       })
       .then(() => {

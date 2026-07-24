@@ -222,12 +222,21 @@ export type IDBCreateHwWalletParams = IDBCreateHwWalletParamsBase & {
     matchedDevice: IDBDevice,
   ) => Promise<'match' | 'mismatch' | 'unknown'>;
   /**
-   * Service-provided fallback when getExistingDevice finds nothing: resolve an
-   * existing device id to reuse (e.g. third-party same-mnemonic re-bind). The
-   * matching rule lives in the service layer; the DB layer only invokes this.
-   * Returns undefined to create a new device.
+   * Generic reuse hook: when identity matching (getExistingDevice) finds no
+   * device, the upper layer may point at an existing device row to reuse
+   * instead of creating a new one — e.g. a wiped Trezor whose device_id changed
+   * but whose seed (XFP) still maps to the old wallet. The DB layer owns none of
+   * the rule; it hands the caller the identity context it already computed and
+   * takes back the device to reuse (or undefined to create a new one). Returning
+   * a row from this store keeps the reuse contract vendor-agnostic and reusable
+   * for any future "matched nothing, but this is the same physical device" case.
    */
-  resolveReuseDeviceIdFn?: () => Promise<string | undefined>;
+  resolveReuseDeviceFn?: (ctx: {
+    vendor: EHardwareVendor | undefined;
+    features: IOneKeyDeviceFeatures;
+    rawDeviceId: string;
+    deviceUUID: string;
+  }) => Promise<IDBDevice | undefined>;
   fillingXfpByCallingSdk?: boolean;
   transportType?: EHardwareTransportType; // Transport type used for this connection
 };
