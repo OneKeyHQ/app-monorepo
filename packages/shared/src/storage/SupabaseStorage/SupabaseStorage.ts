@@ -64,6 +64,65 @@ export class SupabaseStorage {
   // production desktop keep using OS secure storage unchanged.
   private readonly sealedValueCodec: ISupabaseSealedValueCodec;
 
+  private readonly writeControlByKey = new Map<
+    string,
+    { epoch: number; blocked: boolean }
+  >();
+
+  private readonly inFlightWritesByKey = new Map<
+    string,
+    Set<Promise<unknown>>
+  >();
+
+  async blockWritesForKey(key: string): Promise<void> {
+    const prefixedKey = withPrefixedKey(key);
+    const current = this.writeControlByKey.get(prefixedKey);
+    this.writeControlByKey.set(prefixedKey, {
+      epoch: (current?.epoch ?? 0) + 1,
+      blocked: true,
+    });
+    const inFlight = Array.from(
+      this.inFlightWritesByKey.get(prefixedKey) || [],
+    );
+    if (inFlight.length) {
+      await Promise.allSettled(inFlight);
+    }
+  }
+
+  allowWritesForKey(key: string): void {
+    const prefixedKey = withPrefixedKey(key);
+    const current = this.writeControlByKey.get(prefixedKey);
+    this.writeControlByKey.set(prefixedKey, {
+      epoch: (current?.epoch ?? 0) + 1,
+      blocked: false,
+    });
+  }
+
+  private captureWriteEpoch(prefixedKey: string): number | undefined {
+    const control = this.writeControlByKey.get(prefixedKey);
+    return control?.blocked ? undefined : (control?.epoch ?? 0);
+  }
+
+  private isWriteEpochCurrent(prefixedKey: string, epoch: number): boolean {
+    const control = this.writeControlByKey.get(prefixedKey);
+    return !control?.blocked && (control?.epoch ?? 0) === epoch;
+  }
+
+  private trackInFlightWrite<T>(
+    prefixedKey: string,
+    writePromise: Promise<T>,
+  ): Promise<T> {
+    const writes =
+      this.inFlightWritesByKey.get(prefixedKey) || new Set<Promise<unknown>>();
+    writes.add(writePromise);
+    this.inFlightWritesByKey.set(prefixedKey, writes);
+    void writePromise.then(
+      () => writes.delete(writePromise),
+      () => writes.delete(writePromise),
+    );
+    return writePromise;
+  }
+
   private readonly getItemWithCache = cacheUtils.memoizee(
     async (key: string) => {
       // eslint-disable-next-line no-param-reassign
@@ -117,6 +176,10 @@ export class SupabaseStorage {
     if (platformEnv.runtimeRole === ERuntimeRole.Main) {
       return;
     }
+    const writeEpoch = this.captureWriteEpoch(prefixedKey);
+    if (writeEpoch === undefined) {
+      return;
+    }
     void (async () => {
       const sealedValue = await this.sealedValueCodec.sealValue({
         key: prefixedKey,
@@ -135,7 +198,13 @@ export class SupabaseStorage {
       if ((await appStorage.getItem(prefixedKey)) !== plainValue) {
         return;
       }
-      await appStorage.setItem(prefixedKey, sealedValue);
+      if (!this.isWriteEpochCurrent(prefixedKey, writeEpoch)) {
+        return;
+      }
+      await this.trackInFlightWrite(
+        prefixedKey,
+        appStorage.setItem(prefixedKey, sealedValue),
+      );
       // No cache clear: the logical value is unchanged, only its at-rest
       // encoding.
     })().catch(() => {
@@ -160,10 +229,20 @@ export class SupabaseStorage {
   async setItem(key: string, value: string) {
     // eslint-disable-next-line no-param-reassign
     key = withPrefixedKey(key);
+    const writeEpoch = this.captureWriteEpoch(key);
+    if (writeEpoch === undefined) {
+      return;
+    }
     this.clearCache({ syncRemote: false });
 
     if (await shouldUseSecureStorage()) {
-      const result = await secureStorageInstance.setSecureItem(key, value);
+      if (!this.isWriteEpochCurrent(key, writeEpoch)) {
+        return;
+      }
+      const result = await this.trackInFlightWrite(
+        key,
+        secureStorageInstance.setSecureItem(key, value),
+      );
       this.clearCache();
       return result;
     }
@@ -176,7 +255,13 @@ export class SupabaseStorage {
     // setItem (the old token is already consumed server-side), trading a
     // short plaintext-at-rest window for a guaranteed forced re-login.
     const sealedValue = await this.sealedValueCodec.sealValue({ key, value });
-    const result = await appStorage.setItem(key, sealedValue ?? value);
+    if (!this.isWriteEpochCurrent(key, writeEpoch)) {
+      return;
+    }
+    const result = await this.trackInFlightWrite(
+      key,
+      appStorage.setItem(key, sealedValue ?? value),
+    );
     this.clearCache();
     if (sealedValue === null) {
       // Shrink the plaintext window: retry sealing right away instead of

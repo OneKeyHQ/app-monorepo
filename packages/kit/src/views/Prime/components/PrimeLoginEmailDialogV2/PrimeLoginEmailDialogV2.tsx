@@ -11,18 +11,14 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { showOneKeyIdLegacyOAuthBindDialogAfterLegacyEmailOtpLogin } from '../OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
+import { showOneKeyIdLegacyOAuthBindDialog } from '../OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
 import {
   showOneKeyIdLoginFailedToast,
   showOneKeyIdLoginSuccessToast,
@@ -31,12 +27,13 @@ import { DevTestAccountSelector } from '../PrimeDevUtils/DevTestAccountSelector'
 import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 
 function PrimeLoginEmailDialogV2(props: {
-  onComplete: () => void;
+  onComplete: () => Promise<void>;
   onLoginSuccess?: () => void | Promise<void>;
   title?: string;
   description?: string;
   onConfirm?: (code: string) => void;
   onCancel?: () => void | Promise<void>;
+  initialSignUpMode?: boolean;
 }) {
   const {
     onComplete,
@@ -45,6 +42,7 @@ function PrimeLoginEmailDialogV2(props: {
     description,
     onConfirm,
     onCancel,
+    initialSignUpMode,
   } = props;
 
   const [devSettings] = useDevSettingsPersistAtom();
@@ -55,15 +53,13 @@ function PrimeLoginEmailDialogV2(props: {
   // const isReady = false;
   const {
     isReady,
-    getAccessToken,
     useLoginWithEmail,
     // user
   } = useOneKeyAuth();
   const { sendCode, loginWithCode } = useLoginWithEmail();
 
   const intl = useIntl();
-  const [isSignUpMode, setIsSignUpMode] = useState(false);
-  const [showEmailSignUpEntry, setShowEmailSignUpEntry] = useState(false);
+  const [isSignUpMode, setIsSignUpMode] = useState(Boolean(initialSignUpMode));
 
   const form = useForm<{ email: string }>({
     defaultValues: { email: lastOneKeyIdLoginEmail || '' },
@@ -85,8 +81,7 @@ function PrimeLoginEmailDialogV2(props: {
       );
 
       try {
-        onComplete?.();
-        await timerUtils.wait(550);
+        await onComplete();
         const dialog = Dialog.show({
           onCancel,
           onClose: async (extra) => {
@@ -109,22 +104,16 @@ function PrimeLoginEmailDialogV2(props: {
                 let isDialogClosed = false;
                 let isOneKeyIdLoginCommitted = false;
                 try {
-                  const token = await getAccessToken();
-                  if (!token) {
-                    // TODO: i18n
-                    throw new OneKeyLocalError(
-                      'OneKey ID login failed: access token not found',
-                    );
-                  }
-                  await backgroundApiProxy.servicePrime.apiLogin({
-                    accessToken: token,
-                  });
+                  // loginWithCode has already completed the BG-authoritative
+                  // OTP verification, session persistence, and Prime commit.
                   isOneKeyIdLoginCommitted = true;
                   showOneKeyIdLoginSuccessToast(intl);
                   await dialog.close({ flag: 'loginSuccess' });
                   isDialogClosed = true;
                   await onLoginSuccess?.();
-                  await showOneKeyIdLegacyOAuthBindDialogAfterLegacyEmailOtpLogin();
+                  await showOneKeyIdLegacyOAuthBindDialog({
+                    type: 'post-email-login',
+                  });
                 } catch (error) {
                   if (!isOneKeyIdLoginCommitted) {
                     showOneKeyIdLoginFailedToast({ error, intl });
@@ -146,7 +135,6 @@ function PrimeLoginEmailDialogV2(props: {
     },
     [
       form,
-      getAccessToken,
       intl,
       loginWithCode,
       onComplete,
@@ -167,19 +155,13 @@ function PrimeLoginEmailDialogV2(props: {
         })}
     </Dialog.Title>
   );
-  const showSignUpEntry = !title && (showEmailSignUpEntry || isSignUpMode);
+  const showSignUpEntry = !title;
 
   return (
     <Stack>
       <Dialog.Header>
         <Dialog.Icon icon="EmailOutline" />
-        {title ? (
-          titleContent
-        ) : (
-          <MultipleClickStack onPress={() => setShowEmailSignUpEntry(true)}>
-            {titleContent}
-          </MultipleClickStack>
-        )}
+        {titleContent}
         <Dialog.Description>
           {description ||
             intl.formatMessage({

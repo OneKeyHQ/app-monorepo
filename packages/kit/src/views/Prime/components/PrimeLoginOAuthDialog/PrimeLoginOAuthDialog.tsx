@@ -3,11 +3,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Accordion,
   Button,
   Dialog,
-  IconButton,
+  Icon,
   SizableText,
   Stack,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -16,34 +18,47 @@ import {
   redirectOneKeyIdAuthToExtExpandTab,
   shouldRunOneKeyIdAuthInExtExpandTab,
 } from '@onekeyhq/kit/src/components/OneKeyAuth/extOneKeyIdAuthExpandTab';
-import {
-  EOneKeyIdLogoutDialogSource,
-  useShowOneKeyIdLogoutDialog,
-} from '@onekeyhq/kit/src/components/OneKeyAuth/OneKeyIdLogoutDialog';
+import { useIdentityExitFlow } from '@onekeyhq/kit/src/components/OneKeyAuth/useIdentityExitFlow';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import {
   EExtOneKeyIdAuthFlow,
   EOAuthSocialLoginProvider,
 } from '@onekeyhq/shared/src/consts/authConsts';
-import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  OneKeyLocalError,
+  PrimeLoginDialogCancelError,
+} from '@onekeyhq/shared/src/errors';
 import type { IOneKeyIdLoginWithLocalKeylessPrepareResult } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
+import {
+  ELocalKeylessWalletOAuthState,
+  EOneKeyIdLoginWithLocalKeylessPrepareStatus,
+} from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
+import { shouldClearKeylessOAuthSessionAfterError } from '@onekeyhq/shared/src/utils/keylessOAuthSessionUtils';
+import type {
+  IIdentityExitOAuthHandoff,
+  IKeylessOAuthSessionRollbackHandle,
+} from '@onekeyhq/shared/types/prime/identityExitTypes';
 
 import {
   showOneKeyIdLoginFailedToast,
   showOneKeyIdLoginSuccessToast,
 } from '../oneKeyIdLoginToastUtils';
-import { useOneKeyIdLocalKeylessOAuth } from '../useOneKeyIdLocalKeylessOAuth';
+import {
+  type IOneKeyIdLocalKeylessOAuthContext,
+  useOneKeyIdLocalKeylessOAuth,
+} from '../useOneKeyIdLocalKeylessOAuth';
 
+import {
+  type IOneKeyIdLoginMethod,
+  getOneKeyIdLoginMethodGroups,
+} from './oneKeyIdLoginMethods';
 function PrimeLoginOAuthDialog(props: {
-  onComplete: () => void;
+  onComplete: () => Promise<void>;
   onLoginSuccess?: () => void | Promise<void>;
   onCancel?: () => void | Promise<void>;
   localKeylessLoginPrepareResult?: IOneKeyIdLoginWithLocalKeylessPrepareResult;
+  localKeylessLoginPrepareErrorMessage?: string;
   toOneKeyIdPageOnLoginSuccess?: boolean;
 }) {
   const {
@@ -51,40 +66,44 @@ function PrimeLoginOAuthDialog(props: {
     onLoginSuccess,
     onCancel,
     localKeylessLoginPrepareResult,
+    localKeylessLoginPrepareErrorMessage,
     toOneKeyIdPageOnLoginSuccess,
   } = props;
   const intl = useIntl();
-  const { loginOneKeyIdWithLegacyEmail, supabaseSignOut } = useOneKeyAuth();
-  const showOneKeyIdLogoutDialog = useShowOneKeyIdLogoutDialog();
+  const { loginOneKeyIdWithLegacyEmail } = useOneKeyAuth();
+  const { run: runIdentityExit } = useIdentityExitFlow();
   const [loggingInProvider, setLoggingInProvider] =
     useState<EOAuthSocialLoginProvider | null>(null);
+  const [isEmailLoginStarting, setIsEmailLoginStarting] = useState(false);
   const [isSignUpMode, setIsSignUpMode] = useState(false);
-  const [isLegacyEmailConfirmMode, setIsLegacyEmailConfirmMode] =
-    useState(false);
   const [showKeylessLogoutAction, setShowKeylessLogoutAction] = useState(false);
   const loggingInProviderRef = useRef<EOAuthSocialLoginProvider | null>(null);
+  const isEmailLoginStartingRef = useRef(false);
   loggingInProviderRef.current = loggingInProvider;
   const handleAccountMismatch = useCallback(() => {
     setShowKeylessLogoutAction(true);
   }, []);
   const {
     localKeylessProvider,
+    localKeylessWalletId,
     localKeylessProviderName,
     isLocalKeylessOAuthMode,
-    shouldShowProvider,
     getOAuthAccessToken,
-    clearOAuthSignInTempSession,
+    getFreshOAuthTokensForRegularLogin,
+    rollbackProvisionalOAuthSession,
   } = useOneKeyIdLocalKeylessOAuth({
     localKeylessLoginPrepareResult,
     onAccountMismatch: handleAccountMismatch,
     forceAccountMismatchToast: true,
   });
-  const shouldShowGoogleButton = shouldShowProvider(
-    EOAuthSocialLoginProvider.Google,
-  );
-  const shouldShowAppleButton = shouldShowProvider(
-    EOAuthSocialLoginProvider.Apple,
-  );
+  const loginMethodGroups = getOneKeyIdLoginMethodGroups({
+    isLocalKeylessOAuthMode,
+    isLocalKeylessDataUnavailable:
+      localKeylessLoginPrepareResult?.status ===
+      EOneKeyIdLoginWithLocalKeylessPrepareStatus.LocalKeylessDataUnavailable,
+    localKeylessProvider,
+  });
+  const isLoginBusy = Boolean(loggingInProvider) || isEmailLoginStarting;
 
   // Fallback guard: the showOneKeyIdLoginDialog funnel already redirects the
   // ext action popup to the expand tab, but this dialog can also be rendered
@@ -106,7 +125,7 @@ function PrimeLoginOAuthDialog(props: {
         flow: EExtOneKeyIdAuthFlow.Login,
         toOneKeyIdPageOnLoginSuccess,
       });
-      onComplete?.();
+      await onComplete();
       void onCancel?.();
     })();
   }, [
@@ -116,122 +135,391 @@ function PrimeLoginOAuthDialog(props: {
     toOneKeyIdPageOnLoginSuccess,
   ]);
 
-  const handleSocialLogin = useCallback(
-    async (provider: EOAuthSocialLoginProvider) => {
-      if (loggingInProviderRef.current) {
-        return;
-      }
-      loggingInProviderRef.current = provider;
+  const performOAuthLogin = useCallback(
+    async ({
+      provider,
+      useRegularOAuthLogin,
+      closeDialogOnSuccess,
+      identityExitOAuthHandoff,
+      localKeylessContext,
+    }: {
+      provider: EOAuthSocialLoginProvider;
+      useRegularOAuthLogin: boolean;
+      closeDialogOnSuccess: boolean;
+      identityExitOAuthHandoff?: IIdentityExitOAuthHandoff;
+      localKeylessContext?: IOneKeyIdLocalKeylessOAuthContext;
+    }) => {
       let isOneKeyIdLoginCommitted = false;
       let didUseOAuthSignIn = false;
+      let rollbackHandle: IKeylessOAuthSessionRollbackHandle | undefined;
       try {
-        setShowKeylessLogoutAction(false);
-        setLoggingInProvider(provider);
-        const result = await getOAuthAccessToken({
-          provider,
-          // TODO: i18n
-          missingTokenMessage: 'OAuth login failed: access token not found',
-        });
-        didUseOAuthSignIn = result.didUseOAuthSignIn;
-        try {
-          await backgroundApiProxy.servicePrime.apiOAuthLogin({
-            accessToken: result.accessToken,
+        let accessToken = '';
+        let refreshToken = '';
+        if (useRegularOAuthLogin) {
+          const result = await getFreshOAuthTokensForRegularLogin({
+            provider,
+            // TODO: i18n
+            missingTokenMessage: 'OAuth login failed: access token not found',
           });
+          accessToken = result.accessToken;
+          refreshToken = result.refreshToken;
+        } else {
+          const result = await getOAuthAccessToken({
+            provider,
+            // TODO: i18n
+            missingTokenMessage: 'OAuth login failed: access token not found',
+            localKeylessContext,
+          });
+          accessToken = result.accessToken;
+          didUseOAuthSignIn = result.didUseOAuthSignIn;
+          rollbackHandle = result.rollbackHandle;
+        }
+        try {
+          if (useRegularOAuthLogin) {
+            await backgroundApiProxy.servicePrime.apiOAuthLoginWithFreshSessionForLoggedOutState(
+              {
+                accessToken,
+                refreshToken,
+                ...(identityExitOAuthHandoff
+                  ? { identityExitOAuthHandoff, provider }
+                  : {}),
+              },
+            );
+          } else {
+            await backgroundApiProxy.servicePrime.apiOAuthLogin({
+              accessToken,
+            });
+          }
           isOneKeyIdLoginCommitted = true;
         } catch (error) {
-          // Only tear the session down on definitive rejections: a transient
-          // network failure (timeout / 5xx) says nothing about the
-          // just-validated session, and keeping it lets the retry skip a
-          // fresh Google/Apple OAuth round-trip (same policy as
-          // startKeylessCreateWithOAuthProvider).
           if (
-            !isTransientNetworkLikeError(error) &&
-            // Slot-replaced is definitive for THIS flow, but the shared
-            // keyless slot now holds ANOTHER account's valid session —
-            // tearing it down would fail the winning login too.
-            !errorUtils.isErrorByClassName({
-              error,
-              className:
-                EOneKeyErrorClassNames.OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
-            })
+            !useRegularOAuthLogin &&
+            shouldClearKeylessOAuthSessionAfterError(error)
           ) {
-            if (didUseOAuthSignIn && isLocalKeylessOAuthMode) {
-              await clearOAuthSignInTempSession();
-            } else if (didUseOAuthSignIn) {
-              await supabaseSignOut();
-              await backgroundApiProxy.simpleDb.prime.clearLocalAuthSession();
+            if (didUseOAuthSignIn && rollbackHandle) {
+              await rollbackProvisionalOAuthSession({ rollbackHandle });
             }
           }
           throw error;
         }
         showOneKeyIdLoginSuccessToast(intl);
-        onComplete?.();
+        if (closeDialogOnSuccess) {
+          await onComplete();
+        }
         await onLoginSuccess?.();
       } catch (error) {
         if (!isOneKeyIdLoginCommitted) {
           showOneKeyIdLoginFailedToast({ error, intl });
         }
         throw error;
+      }
+    },
+    [
+      getFreshOAuthTokensForRegularLogin,
+      getOAuthAccessToken,
+      intl,
+      onComplete,
+      onLoginSuccess,
+      rollbackProvisionalOAuthSession,
+    ],
+  );
+
+  const handleSocialLogin = useCallback(
+    async (provider: EOAuthSocialLoginProvider) => {
+      if (loggingInProviderRef.current || isEmailLoginStartingRef.current) {
+        return;
+      }
+      loggingInProviderRef.current = provider;
+      try {
+        setShowKeylessLogoutAction(false);
+        setLoggingInProvider(provider);
+        await performOAuthLogin({
+          provider,
+          useRegularOAuthLogin: false,
+          closeDialogOnSuccess: true,
+        });
       } finally {
         loggingInProviderRef.current = null;
         setLoggingInProvider(null);
       }
     },
+    [performOAuthLogin],
+  );
+
+  const handleSwitchOAuthProvider = useCallback(
+    async (
+      provider: EOAuthSocialLoginProvider,
+      options?: {
+        expectedWalletId?: string;
+        reuseBusyLock?: boolean;
+      },
+    ) => {
+      const expectedWalletId =
+        options?.expectedWalletId ?? localKeylessWalletId;
+      if (
+        (loggingInProviderRef.current && !options?.reuseBusyLock) ||
+        isEmailLoginStartingRef.current ||
+        !expectedWalletId
+      ) {
+        return;
+      }
+      loggingInProviderRef.current = provider;
+      let didCloseDialogForNextStep = false;
+      let didCompleteOAuthContinuation = false;
+      try {
+        setShowKeylessLogoutAction(false);
+        setLoggingInProvider(provider);
+        const result = await runIdentityExit(
+          {
+            type: 'switchOAuth',
+            expectedWalletId,
+            nextProvider: provider,
+            scene: 'oneKeyIdLogin',
+          },
+          {
+            confirmButtonTestID:
+              'prime-login-switch-oauth-logout-keyless-wallet-confirm-btn',
+            beforePresentReadyPlan: async () => {
+              try {
+                await onComplete();
+                didCloseDialogForNextStep = true;
+              } catch (error) {
+                await onCancel?.();
+                throw error;
+              }
+            },
+            onCompletedReceipt: async (receipt) => {
+              const continuation = receipt.startIndependentOneKeyIdOAuth;
+              if (!continuation || continuation.provider !== provider) {
+                // TODO: i18n
+                throw new OneKeyLocalError(
+                  'OAuth provider-switch continuation is unavailable.',
+                );
+              }
+              await backgroundApiProxy.serviceIdentityExit.validateOAuthHandoffBeforeLaunch(
+                {
+                  handoff: continuation.handoff,
+                  provider,
+                },
+              );
+              await performOAuthLogin({
+                provider,
+                useRegularOAuthLogin: true,
+                closeDialogOnSuccess: false,
+                identityExitOAuthHandoff: continuation.handoff,
+              });
+              didCompleteOAuthContinuation = true;
+            },
+          },
+        );
+        if (
+          didCloseDialogForNextStep &&
+          (result.status !== 'completed' || !didCompleteOAuthContinuation)
+        ) {
+          await onCancel?.();
+        }
+      } finally {
+        loggingInProviderRef.current = null;
+        if (!didCloseDialogForNextStep) {
+          setLoggingInProvider(null);
+        }
+      }
+    },
     [
-      clearOAuthSignInTempSession,
-      getOAuthAccessToken,
-      intl,
-      isLocalKeylessOAuthMode,
+      localKeylessWalletId,
+      onCancel,
       onComplete,
-      onLoginSuccess,
-      supabaseSignOut,
+      performOAuthLogin,
+      runIdentityExit,
+    ],
+  );
+
+  const handleMalformedKeylessOAuth = useCallback(
+    async (provider: EOAuthSocialLoginProvider) => {
+      if (loggingInProviderRef.current || isEmailLoginStartingRef.current) {
+        return;
+      }
+      loggingInProviderRef.current = provider;
+      setShowKeylessLogoutAction(false);
+      setLoggingInProvider(provider);
+
+      let inspection;
+      try {
+        inspection =
+          await backgroundApiProxy.serviceKeylessWallet.inspectLocalKeylessWalletForOAuth();
+      } catch (error) {
+        Toast.error({
+          // TODO: i18n
+          title: 'Unable to read Keyless wallet data',
+          message:
+            (error instanceof Error && error.message) ||
+            localKeylessLoginPrepareResult?.errorMessage ||
+            localKeylessLoginPrepareErrorMessage ||
+            'Unknown Keyless wallet data read error',
+        });
+        loggingInProviderRef.current = null;
+        setLoggingInProvider(null);
+        return;
+      }
+
+      if (inspection.status === ELocalKeylessWalletOAuthState.Absent) {
+        try {
+          await performOAuthLogin({
+            provider,
+            useRegularOAuthLogin: true,
+            closeDialogOnSuccess: true,
+          });
+        } finally {
+          loggingInProviderRef.current = null;
+          setLoggingInProvider(null);
+        }
+        return;
+      }
+
+      if (inspection.status === ELocalKeylessWalletOAuthState.Ready) {
+        if (inspection.provider !== provider) {
+          await handleSwitchOAuthProvider(provider, {
+            expectedWalletId: inspection.walletId,
+            reuseBusyLock: true,
+          });
+          return;
+        }
+        try {
+          await performOAuthLogin({
+            provider,
+            useRegularOAuthLogin: false,
+            closeDialogOnSuccess: true,
+            localKeylessContext: {
+              provider: inspection.provider,
+              walletId: inspection.walletId,
+            },
+          });
+        } finally {
+          loggingInProviderRef.current = null;
+          setLoggingInProvider(null);
+        }
+        return;
+      }
+
+      let didCloseDialogForNextStep = false;
+      let didCompleteOAuthContinuation = false;
+      try {
+        const result = await runIdentityExit(
+          {
+            type: 'recoverMalformedKeyless',
+            expectedWalletId: inspection.walletId,
+            nextProvider: provider,
+            scene: 'oneKeyIdLogin',
+          },
+          {
+            confirmButtonTestID:
+              'prime-login-recover-keyless-wallet-confirm-btn',
+            beforePresentReadyPlan: async () => {
+              try {
+                await onComplete();
+                didCloseDialogForNextStep = true;
+              } catch (error) {
+                await onCancel?.();
+                throw error;
+              }
+            },
+            onCompletedReceipt: async (receipt) => {
+              const continuation = receipt.startIndependentOneKeyIdOAuth;
+              if (!continuation || continuation.provider !== provider) {
+                // TODO: i18n
+                throw new OneKeyLocalError(
+                  'OAuth continuation after Keyless recovery is unavailable.',
+                );
+              }
+              await backgroundApiProxy.serviceIdentityExit.validateOAuthHandoffBeforeLaunch(
+                { handoff: continuation.handoff, provider },
+              );
+              await performOAuthLogin({
+                provider,
+                useRegularOAuthLogin: true,
+                closeDialogOnSuccess: false,
+                identityExitOAuthHandoff: continuation.handoff,
+              });
+              didCompleteOAuthContinuation = true;
+            },
+          },
+        );
+        if (
+          didCloseDialogForNextStep &&
+          (result.status !== 'completed' || !didCompleteOAuthContinuation)
+        ) {
+          await onCancel?.();
+        }
+      } finally {
+        loggingInProviderRef.current = null;
+        if (!didCloseDialogForNextStep) {
+          setLoggingInProvider(null);
+        }
+      }
+    },
+    [
+      handleSwitchOAuthProvider,
+      localKeylessLoginPrepareResult?.errorMessage,
+      localKeylessLoginPrepareErrorMessage,
+      onCancel,
+      onComplete,
+      performOAuthLogin,
+      runIdentityExit,
     ],
   );
 
   const handleLogoutKeylessWallet = useCallback(async () => {
-    if (loggingInProviderRef.current) {
+    if (
+      loggingInProviderRef.current ||
+      isEmailLoginStartingRef.current ||
+      !localKeylessWalletId
+    ) {
       return;
     }
-    const keylessWallet =
-      await backgroundApiProxy.serviceAccount.getKeylessWallet();
-    if (!keylessWallet) {
-      return;
+    let didCloseDialogForNextStep = false;
+    await runIdentityExit(
+      {
+        type: 'removeKeyless',
+        expectedWalletId: localKeylessWalletId,
+        scene: 'oneKeyIdLogin',
+      },
+      {
+        beforePresentReadyPlan: async () => {
+          try {
+            await onComplete();
+            didCloseDialogForNextStep = true;
+          } catch (error) {
+            await onCancel?.();
+            throw error;
+          }
+        },
+      },
+    );
+    if (didCloseDialogForNextStep) {
+      await onCancel?.();
     }
-
-    onComplete?.();
-    await timerUtils.wait(300);
-    void showOneKeyIdLogoutDialog({
-      source: EOneKeyIdLogoutDialogSource.KeylessWallet,
-      keylessWallet,
-      isOneKeyIdLoggedIn: false,
-    });
-    void onCancel?.();
-  }, [onCancel, onComplete, showOneKeyIdLogoutDialog]);
-
-  const handleProviderButtonPress = useCallback(
-    (provider: EOAuthSocialLoginProvider) => {
-      void handleSocialLogin(provider);
-    },
-    [handleSocialLogin],
-  );
+  }, [localKeylessWalletId, onCancel, onComplete, runIdentityExit]);
 
   const toggleAuthMode = useCallback(() => {
-    if (loggingInProviderRef.current) {
+    if (loggingInProviderRef.current || isEmailLoginStartingRef.current) {
       return;
     }
     setIsSignUpMode((prev) => !prev);
   }, []);
 
-  const handleLegacyEmailLogin = useCallback(async () => {
-    if (loggingInProviderRef.current) {
+  const handleEmailLogin = useCallback(async () => {
+    if (loggingInProviderRef.current || isEmailLoginStartingRef.current) {
       return;
     }
+    isEmailLoginStartingRef.current = true;
+    setIsEmailLoginStarting(true);
     let isOneKeyIdLoginCommitted = false;
+    let didCloseDialogForNextStep = false;
     try {
-      onComplete?.();
-      await timerUtils.wait(300);
+      await onComplete();
+      didCloseDialogForNextStep = true;
       await loginOneKeyIdWithLegacyEmail({
-        preserveLocalKeylessAuth: isLocalKeylessOAuthMode,
+        isSignUpMode,
       });
       isOneKeyIdLoginCommitted = true;
       await onLoginSuccess?.();
@@ -251,59 +539,80 @@ function PrimeLoginOAuthDialog(props: {
         showOneKeyIdLoginFailedToast({ error, intl });
       }
       await onCancel?.();
+    } finally {
+      isEmailLoginStartingRef.current = false;
+      if (!didCloseDialogForNextStep) {
+        setIsEmailLoginStarting(false);
+      }
     }
   }, [
     intl,
-    isLocalKeylessOAuthMode,
     loginOneKeyIdWithLegacyEmail,
     onCancel,
     onComplete,
     onLoginSuccess,
+    isSignUpMode,
   ]);
 
-  const showLegacyEmailLoginConfirm = useCallback(() => {
-    if (loggingInProviderRef.current) {
-      return;
+  const renderLoginMethod = (method: IOneKeyIdLoginMethod) => {
+    if (method.type === 'email') {
+      return (
+        <Button
+          key="email"
+          size="large"
+          icon="EmailOutline"
+          testID="prime-login-email-btn"
+          disabled={isLoginBusy}
+          loading={isEmailLoginStarting}
+          onPress={() => void handleEmailLogin()}
+        >
+          {/* TODO: i18n (add a dedicated Continue with Email action) */}
+          {intl.formatMessage(
+            { id: ETranslations.continue_with_social_platform },
+            { platform: 'Email' },
+          )}
+        </Button>
+      );
     }
-    setIsLegacyEmailConfirmMode(true);
-  }, []);
 
-  const hideLegacyEmailLoginConfirm = useCallback(() => {
-    setIsLegacyEmailConfirmMode(false);
-  }, []);
+    const providerName =
+      method.provider === EOAuthSocialLoginProvider.Google ? 'Google' : 'Apple';
+    const handleOAuthPress = () => {
+      if (method.requiresMalformedKeylessRecovery) {
+        void handleMalformedKeylessOAuth(method.provider);
+        return;
+      }
+      if (method.requiresKeylessLogout) {
+        void handleSwitchOAuthProvider(method.provider);
+        return;
+      }
+      void handleSocialLogin(method.provider);
+    };
+    return (
+      <Button
+        key={method.provider}
+        size="large"
+        icon={
+          method.provider === EOAuthSocialLoginProvider.Google
+            ? 'GoogleIllus'
+            : 'AppleBrand'
+        }
+        testID={`prime-login-oauth-${method.provider}-btn`}
+        disabled={isLoginBusy}
+        loading={loggingInProvider === method.provider}
+        onPress={handleOAuthPress}
+      >
+        {intl.formatMessage(
+          { id: ETranslations.continue_with_social_platform },
+          { platform: providerName },
+        )}
+      </Button>
+    );
+  };
 
   if (shouldRedirectToExtExpandTab) {
     // Render nothing while the expand-tab handoff closes this dialog.
     return null;
-  }
-
-  if (isLegacyEmailConfirmMode) {
-    return (
-      <Stack>
-        <Dialog.Header>
-          <Dialog.Icon icon="InfoCircleOutline" />
-          {/* TODO: i18n */}
-          <Dialog.Title>Use Email Sign-In?</Dialog.Title>
-          {/* TODO: i18n */}
-          <Dialog.Description>
-            Email sign-in is only available for existing OneKey ID accounts that
-            previously used email login. It can't be used to create a new OneKey
-            ID.
-          </Dialog.Description>
-        </Dialog.Header>
-        <Dialog.Footer
-          showCancelButton
-          onCancelText={intl.formatMessage({
-            id: ETranslations.global_cancel,
-          })}
-          onConfirmText={intl.formatMessage({
-            id: ETranslations.global_continue,
-          })}
-          onCancel={hideLegacyEmailLoginConfirm}
-          onConfirm={handleLegacyEmailLogin}
-        />
-      </Stack>
-    );
   }
 
   return (
@@ -324,46 +633,72 @@ function PrimeLoginOAuthDialog(props: {
         </Dialog.Description>
       </Dialog.Header>
       <YStack gap="$3">
-        {shouldShowGoogleButton ? (
-          <Button
-            size="large"
-            icon="GoogleIllus"
-            testID="prime-login-oauth-google-btn"
-            disabled={Boolean(loggingInProvider)}
-            loading={loggingInProvider === EOAuthSocialLoginProvider.Google}
-            onPress={() =>
-              handleProviderButtonPress(EOAuthSocialLoginProvider.Google)
-            }
-          >
-            {intl.formatMessage(
-              { id: ETranslations.continue_with_social_platform },
-              { platform: 'Google' },
-            )}
-          </Button>
-        ) : null}
-        {shouldShowAppleButton ? (
-          <Button
-            size="large"
-            icon="AppleBrand"
-            testID="prime-login-oauth-apple-btn"
-            disabled={Boolean(loggingInProvider)}
-            loading={loggingInProvider === EOAuthSocialLoginProvider.Apple}
-            onPress={() =>
-              handleProviderButtonPress(EOAuthSocialLoginProvider.Apple)
-            }
-          >
-            {intl.formatMessage(
-              { id: ETranslations.continue_with_social_platform },
-              { platform: 'Apple' },
-            )}
-          </Button>
-        ) : null}
+        {loginMethodGroups.primary.map(renderLoginMethod)}
         {isLocalKeylessOAuthMode && localKeylessProvider ? (
           <SizableText size="$bodySm" color="$textSubdued" ta="center">
             {/* TODO: i18n (use a {provider} placeholder) */}
             {`Use the ${localKeylessProviderName} account linked to your Keyless wallet.`}
           </SizableText>
         ) : null}
+        <Accordion type="single" collapsible defaultValue="">
+          <Accordion.Item value="more-login-methods">
+            <Accordion.Trigger
+              unstyled
+              testID="prime-login-more-methods-trigger"
+              disabled={isLoginBusy}
+              alignSelf="center"
+              minHeight={44}
+              px="$1"
+              py="$2"
+              borderWidth={0}
+              bg="$transparent"
+              flexDirection="row"
+              alignItems="center"
+              justifyContent="center"
+              gap="$1"
+              cursor="pointer"
+              hoverStyle={{ opacity: 0.8 }}
+              pressStyle={{ opacity: 0.7 }}
+              focusVisibleStyle={{
+                outlineColor: '$focusRing',
+                outlineStyle: 'solid',
+                outlineWidth: 2,
+              }}
+            >
+              {({ open }: { open: boolean }) => (
+                <>
+                  <SizableText
+                    size="$bodyMdMedium"
+                    color="$textSubdued"
+                    textAlign="center"
+                  >
+                    {/* TODO: i18n */}
+                    More Sign-In Methods
+                  </SizableText>
+                  <Stack animation="quick" rotate={open ? '180deg' : '0deg'}>
+                    <Icon
+                      name="ChevronDownSmallOutline"
+                      size="$4"
+                      color="$iconSubdued"
+                    />
+                  </Stack>
+                </>
+              )}
+            </Accordion.Trigger>
+            <Accordion.HeightAnimator animation="quick" overflow="hidden">
+              <Accordion.Content
+                unstyled
+                testID="prime-login-more-methods-content"
+                p={0}
+                pt="$3"
+              >
+                <YStack gap="$3">
+                  {loginMethodGroups.more.map(renderLoginMethod)}
+                </YStack>
+              </Accordion.Content>
+            </Accordion.HeightAnimator>
+          </Accordion.Item>
+        </Accordion>
         {showKeylessLogoutAction && isLocalKeylessOAuthMode ? (
           <YStack gap="$2" ai="center">
             <SizableText size="$bodySm" color="$textSubdued" ta="center">
@@ -376,7 +711,7 @@ function PrimeLoginOAuthDialog(props: {
               variant="secondary"
               icon="LogoutOutline"
               testID="prime-login-oauth-logout-keyless-wallet-btn"
-              disabled={Boolean(loggingInProvider)}
+              disabled={isLoginBusy}
               onPress={handleLogoutKeylessWallet}
             >
               {intl.formatMessage({
@@ -416,19 +751,6 @@ function PrimeLoginOAuthDialog(props: {
                       id: ETranslations.prime_onekeyid_signup,
                     })}
               </SizableText>
-              {isSignUpMode ? null : (
-                <IconButton
-                  size="small"
-                  variant="tertiary"
-                  icon="InfoCircleOutline"
-                  iconSize="$4"
-                  // TODO: i18n
-                  title="Email sign-in"
-                  testID="prime-login-oauth-email-help-btn"
-                  ml="$1"
-                  onPress={showLegacyEmailLoginConfirm}
-                />
-              )}
             </XStack>
           </YStack>
         }

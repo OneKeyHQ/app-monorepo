@@ -47,6 +47,7 @@ import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/Serv
 import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/ServiceHyperliquidReferral';
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
 import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
+import type ServiceIdentityExit from '../services/ServiceIdentityExit/ServiceIdentityExit';
 import type ServiceInternalSignAndVerify from '../services/ServiceInternalSignAndVerify';
 import type ServiceIpTable from '../services/ServiceIpTable';
 import type ServiceKeylessCloudSync from '../services/ServiceKeylessCloudSync';
@@ -271,6 +272,10 @@ class BackgroundApiProxy
 
   get serviceNotification(): ServiceNotification {
     return this.getProxyService<ServiceNotification>('serviceNotification');
+  }
+
+  get serviceIdentityExit(): ServiceIdentityExit {
+    return this.getProxyService<ServiceIdentityExit>('serviceIdentityExit');
   }
 
   get servicePrime(): ServicePrime {
