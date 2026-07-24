@@ -105,6 +105,9 @@ function assertStripeV3Runtime(files, jsFiles) {
     const isStripeV3Runtime =
       source.includes(stripeV3RuntimeStartMarker) &&
       source.includes(stripeV3RuntimeMarker);
+    // This scans emitted JavaScript source for an exact forbidden literal,
+    // not an untrusted URL that will be parsed or navigated to.
+    // codeql[js/incomplete-url-substring-sanitization]
     if (source.includes(stripeV3BaseUrl) && !isStripeV3Runtime) {
       throw new Error(`Unexpected Stripe v3 remote URL in ${jsFile}`);
     }
