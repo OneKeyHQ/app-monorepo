@@ -258,7 +258,9 @@ export function MobileNativeHomeRenderer({
   const [nativeUnavailable, setNativeUnavailable] = useState(
     () => !isHomeContainerAvailable(),
   );
-  const [readyOwner, setReadyOwner] = useState<IHomeContainerOwner>();
+  // Visibility belongs to the mounted native host. Owner replacements remain
+  // visible while the transport atomically commits the next owner.
+  const [nativeSurfaceRevealed, setNativeSurfaceRevealed] = useState(false);
   const [expandedSections, setExpandedSections] =
     useState<IHomeNativeExpandedState>({
       defi: false,
@@ -398,13 +400,6 @@ export function MobileNativeHomeRenderer({
       sessionId: session.ownerToken.sessionId,
     };
   }, [session.ownerToken]);
-  const nativeSurfaceReady = Boolean(
-    owner &&
-    readyOwner &&
-    readyOwner.scopeKey === owner.scopeKey &&
-    readyOwner.sessionId === owner.sessionId,
-  );
-
   const nativeTheme = useMemo<IHomeContainerTheme>(
     () => ({
       backgroundColor: theme.bgApp.val,
@@ -2074,15 +2069,15 @@ export function MobileNativeHomeRenderer({
         cancelAnimationFrame(nativeRevealFrameRef.current);
       }
       // Let the native host and its mounted React slots finish layout before
-      // the owner-scoped surface becomes visible.
+      // revealing this mounted surface for the first time.
       nativeRevealFrameRef.current = requestAnimationFrame(() => {
         nativeRevealFrameRef.current = requestAnimationFrame(() => {
           nativeRevealFrameRef.current = undefined;
-          setReadyOwner(owner);
+          setNativeSurfaceRevealed(true);
         });
       });
     },
-    [controller, nativeUnavailable, owner],
+    [controller, nativeUnavailable],
   );
   const handleTransportResult = useCallback(
     (value: string) => {
@@ -2118,11 +2113,11 @@ export function MobileNativeHomeRenderer({
     <Stack
       flex={1}
       bg="$bgApp"
-      opacity={nativeSurfaceReady ? 1 : 0}
-      pointerEvents={nativeSurfaceReady ? 'auto' : 'none'}
-      accessibilityElementsHidden={!nativeSurfaceReady}
+      opacity={nativeSurfaceRevealed ? 1 : 0}
+      pointerEvents={nativeSurfaceRevealed ? 'auto' : 'none'}
+      accessibilityElementsHidden={!nativeSurfaceRevealed}
       importantForAccessibility={
-        nativeSurfaceReady ? 'auto' : 'no-hide-descendants'
+        nativeSurfaceRevealed ? 'auto' : 'no-hide-descendants'
       }
     >
       <HomeTabSearchHeader />
