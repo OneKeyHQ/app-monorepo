@@ -595,9 +595,6 @@ const BaseDevSettingsSection = () => {
   const handleLegacyOneKeyIdEmailLogin = useCallback(() => {
     void loginOneKeyIdWithLegacyEmail({
       toOneKeyIdPageOnLoginSuccess: true,
-      // A dev tool must never wipe the shared keyless session slot — it may
-      // hold the wallet's only local credential.
-      preserveLocalKeylessAuth: true,
     });
   }, [loginOneKeyIdWithLegacyEmail]);
 
@@ -2316,9 +2313,9 @@ const BaseDevSettingsSection = () => {
 
                       <SectionPressItem
                         icon="EmailOutline"
-                        title="Legacy OneKeyID Email Login"
-                        subtitle="旧版本 Email/OTP 登录入口"
-                        searchKeywords="OneKeyID Legacy Email OTP Login 旧版本 登录"
+                        title="OneKey ID Email Login"
+                        subtitle="Email/OTP 注册和登录入口"
+                        searchKeywords="OneKey ID Email OTP 注册 登录"
                         onPress={handleLegacyOneKeyIdEmailLogin}
                       />
 

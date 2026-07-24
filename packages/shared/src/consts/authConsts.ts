@@ -128,6 +128,7 @@ export const EXTENSION_OAUTH_USE_PKCE_FLOW = true;
 // flow to auto-resume on mount.
 export const EXT_ONEKEY_ID_AUTH_FLOW_PARAM = 'oneKeyIdAuthFlow';
 export const EXT_ONEKEY_ID_AUTH_TO_PAGE_PARAM = 'oneKeyIdAuthToPageOnSuccess';
+export const EXT_ONEKEY_ID_AUTH_PROVIDER_PARAM = 'oneKeyIdAuthProvider';
 
 export enum EExtOneKeyIdAuthFlow {
   Login = 'login',

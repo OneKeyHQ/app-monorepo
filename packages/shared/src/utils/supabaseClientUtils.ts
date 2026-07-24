@@ -344,7 +344,10 @@ export function getSupabaseClient() {
           // Only the bg/standalone runtime refreshes tokens; see
           // isSupabaseTokenRefreshRuntime for the rotation-race rationale.
           autoRefreshToken: isSupabaseTokenRefreshRuntime(),
-          persistSession: true,
+          // Main/UI runtimes never persist or refresh sessions. They read the
+          // BG-owned storage projection directly; keeping auth-js read-only
+          // also removes its constructor-time expired-session write race.
+          persistSession: isSupabaseTokenRefreshRuntime(),
           detectSessionInUrl: false,
           flowType: 'pkce', // Use PKCE flow for better security - tokens are never exposed in URL
         },
@@ -372,7 +375,7 @@ export function getKeylessSupabaseClient() {
           // Only the bg/standalone runtime refreshes tokens; see
           // isSupabaseTokenRefreshRuntime for the rotation-race rationale.
           autoRefreshToken: isSupabaseTokenRefreshRuntime(),
-          persistSession: true,
+          persistSession: isSupabaseTokenRefreshRuntime(),
           detectSessionInUrl: false,
           flowType: 'pkce',
         },

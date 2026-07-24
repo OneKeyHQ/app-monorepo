@@ -4,21 +4,20 @@ import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { markOneKeyIdFailureServerLogged } from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IKeylessOAuthSessionRollbackHandle } from '@onekeyhq/shared/types/prime/identityExitTypes';
 
 import { OAuthPopup } from '../OAuthPopup';
 import { ensureOneKeyOAuthState } from '../oauthUtils';
 
 import { useSupabaseAuthContext } from './SupabaseAuthContext';
 
-import type { AuthResponse, SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type ISupabaseClientUtils =
   typeof import('@onekeyhq/shared/src/utils/supabaseClientUtils');
@@ -47,22 +46,12 @@ const getSupabaseClient = async () =>
 const createTemporarySupabaseClient = async () =>
   (await loadSupabaseClientUtils()).createTemporarySupabaseClient();
 
-const getKeylessSupabaseClient = async () =>
-  (await loadSupabaseClientUtils()).getKeylessSupabaseClient();
-
 export type IOAuthSignInResult = {
   success: boolean;
   session?: {
     accessToken: string;
     refreshToken: string;
   };
-};
-
-export type IOAuthSignInOptions = {
-  // Whether to persist the session to storage and set it in Supabase client
-  // When false (default): Only return tokens in memory, don't call setSession
-  // When true: Call setSession to persist and enable auto-refresh
-  persistSession?: boolean;
 };
 
 export function useSupabaseAuth() {
@@ -92,52 +81,14 @@ export function useSupabaseAuth() {
     }: {
       accessToken: string;
       refreshToken: string;
-    }): Promise<void> => {
-      const { data, error } = await (
-        await getKeylessSupabaseClient()
-      ).client.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
+    }): Promise<{
+      identityLifecycleRevision: number;
+      rollbackHandle: IKeylessOAuthSessionRollbackHandle;
+    }> => {
+      return backgroundApiProxy.servicePrime.persistKeylessOAuthSession({
+        accessToken,
+        refreshToken,
       });
-      // setSession returns AuthErrors instead of throwing them. Swallowing
-      // one leaves the shared keyless session slot EMPTY while the caller
-      // continues as if the login stuck — apiOAuthLogin then commits on the
-      // server but the local commit cannot read the token back, surfacing
-      // only as a generic "unknown error" much later. Fail here with the
-      // underlying reason instead (setSession internally performs
-      // GET /auth/v1/user, so e.g. a gateway/WAF rejection of that endpoint
-      // shows up as its HTTP status).
-      if (error || !data?.session) {
-        // Check the type, not truthiness: AuthRetryableFetchError (produced
-        // when sessionPreservingSupabaseFetch masks an intercepted response)
-        // carries status 0, which a truthiness check would silently drop.
-        const statusPart =
-          typeof error?.status === 'number' ? ` status=${error.status}` : '';
-        const codePart = error?.code ? ` code=${error.code}` : '';
-        const reason = `Failed to persist Keyless OAuth session: ${
-          error?.message || 'no session returned'
-        }${statusPart}${codePart}`;
-        // Mirror into exported logs at the failure source — this covers paths
-        // where the error is later swallowed and never reaches the fallback
-        // toast (e.g. useKeylessWallet's apiOAuthLogin try/catch).
-        defaultLogger.prime.subscription.onekeyIdSessionPersistFailed({
-          reason,
-        });
-        // autoToast so callers WITHOUT their own catch/toast (e.g. the
-        // verify-PIN flow, whose onPress rethrows into a voided promise) still
-        // surface the failure via the global handler instead of dying
-        // silently; httpStatusCode kept for transient-vs-definitive
-        // classification. Mark it server-logged so the fallback toast does not
-        // emit a duplicate @LogToServer event for the same failure.
-        const persistError = new OneKeyLocalError({
-          message: reason,
-          autoToast: true,
-          httpStatusCode:
-            typeof error?.status === 'number' ? error.status : undefined,
-        });
-        markOneKeyIdFailureServerLogged(persistError);
-        throw persistError;
-      }
     },
     [],
   );
@@ -145,7 +96,6 @@ export function useSupabaseAuth() {
   const performOAuthSignIn = useCallback(
     async (
       provider: EOAuthSocialLoginProvider,
-      options?: IOAuthSignInOptions,
     ): Promise<IOAuthSignInResult> => {
       // Last-resort guard: Chrome destroys the action popup on focus loss,
       // so the launchWebAuthFlow window opened below would silently kill
@@ -158,28 +108,7 @@ export function useSupabaseAuth() {
           'OAuth sign-in cannot run in the extension popup. Please continue in the expanded view.',
         );
       }
-      const { persistSession } = options ?? {};
       const clientTemp: SupabaseClient = await createTemporarySupabaseClient();
-
-      const handleOAuthSessionPersistence = async ({
-        accessToken,
-        refreshToken,
-      }: {
-        accessToken: string;
-        refreshToken: string;
-      }): Promise<void> => {
-        if (persistSession) {
-          // Persist session to Supabase client storage
-          await persistKeylessOAuthSession({ accessToken, refreshToken });
-
-          // Login to Prime service
-          // if (loginToPrime) {
-          //   await backgroundApiProxy.servicePrime.apiLogin({
-          //     accessToken,
-          //   });
-          // }
-        }
-      };
 
       // Get platform-specific redirect URL
       // Note: Some platforms return Promise<string> (e.g., desktop needs to start server)
@@ -253,19 +182,18 @@ export function useSupabaseAuth() {
         authUrl,
         redirectTo,
         client: clientTemp,
-        handleSessionPersistence: handleOAuthSessionPersistence,
+        handleSessionPersistence: async () => undefined,
       });
     },
-    [enableKeylessDebugInfo, persistKeylessOAuthSession],
+    [enableKeylessDebugInfo],
   );
 
   const signInWithSocialLogin = useCallback(
     async (
       provider: EOAuthSocialLoginProvider,
-      options?: IOAuthSignInOptions,
     ): Promise<IOAuthSignInResult> => {
       return errorToastUtils.withErrorAutoToast(async () => {
-        const oauthResult = await performOAuthSignIn(provider, options);
+        const oauthResult = await performOAuthSignIn(provider);
         return oauthResult;
       });
     },
@@ -281,29 +209,10 @@ export function useSupabaseAuth() {
       ).client.auth.signInWithOtp({
         email,
         options: {
-          // Email sign-in is a legacy fallback for EXISTING accounts only —
-          // the OAuth-first policy (and the fallback dialog copy) forbids
-          // creating a new OneKey ID via email. Maps to `create_user` in the
-          // GoTrue /otp request; the server-side signup closure is the
-          // authoritative control, this keeps the client consistent with it
-          // and fails at send-code time instead of after the OTP round-trip.
-          shouldCreateUser: false,
+          shouldCreateUser: true,
         },
       });
       if (res.error && res.error.message) {
-        // With shouldCreateUser=false (or sign-up disabled server-side),
-        // GoTrue rejects unknown emails with the sign-up-not-allowed
-        // rejection (error code `otp_disabled`) — surface it as
-        // account-not-found guidance instead of the raw GoTrue message.
-        if (
-          (res.error as { code?: string }).code === 'otp_disabled' ||
-          res.error.message.includes('Signups not allowed')
-        ) {
-          // TODO: i18n
-          throw new OneKeyLocalError(
-            'No OneKey ID uses this email. Email sign-in is only available for existing accounts — use Google or Apple to create a new OneKey ID.',
-          );
-        }
         // For security purposes, you can only request this after 48 seconds.
         if (
           res.error.message?.includes(
@@ -333,96 +242,10 @@ export function useSupabaseAuth() {
   );
 
   const verifyOtp = useCallback(
-    async ({ email, otp }: { email: string; otp: string }) => {
-      let res: AuthResponse | undefined;
-      const isPrivyEmail = email.endsWith('@privy.io');
-      // Special handling for privy.io emails
-      if (isPrivyEmail) {
-        let phoneOtpData:
-          | {
-              phone: string;
-              otp: string;
-            }
-          | undefined;
-        try {
-          phoneOtpData = await backgroundApiProxy.servicePrime.apiFetchPhoneOtp(
-            {
-              email,
-              otp,
-            },
-          );
-        } catch (error) {
-          console.error('Error fetching phone OTP:', error);
-        }
-
-        if (phoneOtpData?.phone && phoneOtpData?.otp) {
-          res = await (
-            await getSupabaseClient()
-          ).client.auth.verifyOtp({
-            phone: phoneOtpData.phone,
-            token: phoneOtpData.otp,
-            type: 'sms',
-          });
-        }
-      }
-
-      if (!res) {
-        // Default email OTP verification
-        res = await (
-          await getSupabaseClient()
-        ).client.auth.verifyOtp({
-          email,
-          token: otp,
-          type: 'email',
-        });
-      }
-
-      if (res.error && res.error.message) {
-        throw new OneKeyLocalError(res.error.message);
-      }
-      return res;
-    },
+    async ({ email, otp }: { email: string; otp: string }) =>
+      backgroundApiProxy.servicePrime.apiEmailOtpLogin({ email, otp }),
     [],
   );
-
-  // ============ Session Management Methods ============
-
-  const legacySignOut = useCallback(async () => {
-    const res = await (
-      await getSupabaseClient()
-    ).client.auth.signOut({
-      scope: 'local',
-    });
-    if (res.error) {
-      console.error('Error signing out legacy auth:', res.error);
-    }
-    return res;
-  }, []);
-
-  const signOut = useCallback(async () => {
-    const res = await legacySignOut();
-    const keylessRes = await (
-      await getKeylessSupabaseClient()
-    ).client.auth.signOut({
-      scope: 'local',
-    });
-    if (keylessRes.error) {
-      console.error('Error signing out keyless auth:', keylessRes.error);
-    }
-    return res;
-  }, [legacySignOut]);
-
-  const keylessSignOut = useCallback(async () => {
-    const keylessRes = await (
-      await getKeylessSupabaseClient()
-    ).client.auth.signOut({
-      scope: 'local',
-    });
-    if (keylessRes.error) {
-      console.error('Error signing out keyless auth:', keylessRes.error);
-    }
-    return keylessRes;
-  }, []);
 
   // INTERACTIVE-FLOW READ ONLY (e.g. capturing the token right after an OTP
   // sign-in, dev/debug panels). NEVER use for steady-state token reads: this
@@ -519,9 +342,6 @@ export function useSupabaseAuth() {
 
   return useMemo(
     () => ({
-      signOut,
-      legacySignOut,
-      keylessSignOut,
       signInWithOtp,
       signInWithSocialLogin,
       performOAuthSignIn,
@@ -537,9 +357,6 @@ export function useSupabaseAuth() {
       isLoggedIn,
     }),
     [
-      signOut,
-      legacySignOut,
-      keylessSignOut,
       signInWithOtp,
       signInWithSocialLogin,
       performOAuthSignIn,
