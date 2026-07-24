@@ -440,6 +440,55 @@ describe('HomeLaunchGatedContent surface ownership', () => {
     act(() => view.unmount());
   });
 
+  it('reveals React Home while Store display data and the wallet list are pending', () => {
+    mockTestGlobal.__homePageContainerIsNative = false;
+    const backedUp = hdWallet(true);
+    setWalletState({ activeWallet: backedUp, pending: true });
+    mockHomeShellKind = 'loading';
+    mockDisplaySnapshotLoadState = {
+      ownerScopeKey: 'scope-hd-1',
+      sessionId: 'session-hd-1',
+      status: 'miss',
+    };
+
+    let view!: ReactTestRenderer;
+    act(() => {
+      view = create(renderOwner(false));
+    });
+
+    expect(view.root.findAllByProps({ testID: 'surface-react' })).toHaveLength(
+      1,
+    );
+    expect(
+      view.root.findAllByProps({ testID: 'home-launch-skeleton' }),
+    ).toHaveLength(0);
+    act(() => view.unmount());
+  });
+
+  it('uses the same React Home readiness contract on native fallback', () => {
+    const backedUp = hdWallet(true);
+    setWalletState({ activeWallet: backedUp, pending: true });
+    mockHomeShellKind = 'loading';
+    mockDisplaySnapshotLoadState = {
+      ownerScopeKey: 'scope-hd-1',
+      sessionId: 'session-hd-1',
+      status: 'loading',
+    };
+
+    let view!: ReactTestRenderer;
+    act(() => {
+      view = create(renderOwner(false));
+    });
+
+    expect(view.root.findAllByProps({ testID: 'surface-react' })).toHaveLength(
+      1,
+    );
+    expect(view.root.findAllByProps({ testID: 'surface-native' })).toHaveLength(
+      0,
+    );
+    act(() => view.unmount());
+  });
+
   it('reveals an interactive cached cold-start surface before BG validation', () => {
     const backedUp = hdWallet(true);
     setWalletState({ activeWallet: backedUp, pending: true });

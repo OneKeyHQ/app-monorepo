@@ -9,7 +9,7 @@ export type IHomeWalletPageSurface =
 
 export type IHomeWalletPageSurfaceState = {
   accountId?: string;
-  authority?: 'cached' | 'confirmed';
+  authority?: 'active' | 'cached' | 'confirmed';
   surface: IHomeWalletPageSurface;
   walletId?: string;
 };
@@ -31,6 +31,7 @@ export function resolveHomeWalletPageSurface({
   activeWallet,
   walletListWallet,
   nativeHomeEnabled,
+  walletRendererReady,
   previous,
   retainPreviousOwnerWhilePending = false,
 }: {
@@ -40,6 +41,7 @@ export function resolveHomeWalletPageSurface({
   activeWallet: IHomeWalletPageSurfaceWallet | undefined;
   walletListWallet: IHomeWalletPageSurfaceWallet | undefined;
   nativeHomeEnabled: boolean;
+  walletRendererReady: boolean;
   previous?: IHomeWalletPageSurfaceState;
   retainPreviousOwnerWhilePending?: boolean;
 }): IHomeWalletPageSurfaceState {
@@ -68,13 +70,20 @@ export function resolveHomeWalletPageSurface({
   if (walletContentReadiness === 'no-wallet') {
     return { surface: 'no-wallet' };
   }
-  if (walletContentReadiness === 'cached-wallet') {
+  if (!walletRendererReady) {
+    return pending();
+  }
+  if (
+    walletContentReadiness === 'cached-wallet' ||
+    walletContentReadiness === 'active-wallet'
+  ) {
     if (!activeAccountId || !activeWalletId || !activeWallet?.type) {
       return pending();
     }
     return {
       surface: resolveNormalWalletSurface(nativeHomeEnabled),
-      authority: 'cached',
+      authority:
+        walletContentReadiness === 'cached-wallet' ? 'cached' : 'active',
       ...activeOwner,
     };
   }

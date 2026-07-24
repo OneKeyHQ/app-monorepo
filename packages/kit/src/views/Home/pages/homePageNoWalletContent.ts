@@ -9,6 +9,7 @@ type IWalletListItemForNoWalletCheck =
 export type IHomeWalletContentReadiness =
   | 'pending'
   | 'cached-wallet'
+  | 'active-wallet'
   | 'wallet'
   | 'no-wallet';
 
@@ -64,7 +65,7 @@ export function resolveHomeWalletContentReadiness({
   accountSelectorActiveAccountInitDone,
   activeAccountReady,
   cachedWalletOwnerReady,
-  confirmedWalletDisplayReady = true,
+  activeWalletOwnerReady,
   activeWalletUnavailable,
   activeWalletId,
 }: {
@@ -75,7 +76,7 @@ export function resolveHomeWalletContentReadiness({
   accountSelectorActiveAccountInitDone: boolean;
   activeAccountReady: boolean;
   cachedWalletOwnerReady?: boolean;
-  confirmedWalletDisplayReady?: boolean;
+  activeWalletOwnerReady?: boolean;
   activeWalletUnavailable?: boolean;
   activeWalletId?: string;
 }): IHomeWalletContentReadiness {
@@ -84,7 +85,7 @@ export function resolveHomeWalletContentReadiness({
       ? [wallet.id]
       : [],
   );
-  const walletListRejectsCachedOwner =
+  const walletListRejectsActiveOwner =
     !!activeWalletId &&
     !!walletListWalletIds &&
     !walletListWalletIds.includes(activeWalletId);
@@ -94,7 +95,14 @@ export function resolveHomeWalletContentReadiness({
     !hasNoUsableWallet &&
     !activeWalletUnavailable &&
     !!activeWalletId &&
-    !walletListRejectsCachedOwner;
+    !walletListRejectsActiveOwner;
+  const canRenderActiveWallet =
+    !!activeWalletOwnerReady &&
+    activeAccountReady &&
+    !hasNoUsableWallet &&
+    !activeWalletUnavailable &&
+    !!activeWalletId &&
+    !walletListRejectsActiveOwner;
 
   if (
     walletListPending ||
@@ -103,7 +111,10 @@ export function resolveHomeWalletContentReadiness({
     !accountSelectorActiveAccountInitDone ||
     !activeAccountReady
   ) {
-    return canRenderCachedWallet ? 'cached-wallet' : 'pending';
+    if (canRenderCachedWallet) {
+      return 'cached-wallet';
+    }
+    return canRenderActiveWallet ? 'active-wallet' : 'pending';
   }
 
   const walletListResolvedNoWallet = isWalletListResolvedNoWallet({ wallets });
@@ -126,7 +137,7 @@ export function resolveHomeWalletContentReadiness({
     !!activeWalletId &&
     (walletListWalletIds ?? []).includes(activeWalletId)
   ) {
-    return confirmedWalletDisplayReady ? 'wallet' : 'pending';
+    return canRenderActiveWallet ? 'wallet' : 'pending';
   }
   return 'pending';
 }

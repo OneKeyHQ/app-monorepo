@@ -129,6 +129,7 @@ function runExecutableProbe(probe: IHomeBehaviorOracleProbe) {
           activeWallet: wallet,
           launchDecision: 'main',
           nativeHomeEnabled: true,
+          walletRendererReady: true,
           walletContentReadiness: 'wallet',
           walletListWallet: wallet,
         }),

@@ -32,8 +32,6 @@ import {
 import {
   ProviderJotaiContextHome,
   useHomeDisplaySnapshotLoadState,
-  useHomeNavigation,
-  useHomeSection,
   useHomeSessionState,
   useHomeShell,
 } from '../../../states/jotai/contexts/home';
@@ -163,13 +161,6 @@ export function HomeLaunchGatedContent({
   const launchSnapshot = useOnboardingLaunchSnapshot();
   const homeSession = useHomeSessionState();
   const displaySnapshotLoadState = useHomeDisplaySnapshotLoadState();
-  const homeShell = useHomeShell();
-  const homeNavigation = useHomeNavigation();
-  const selectedHomeTabId =
-    homeNavigation.value.kind === 'ready'
-      ? homeNavigation.value.selectedTabId
-      : 'portfolio';
-  const selectedHomeSection = useHomeSection(selectedHomeTabId);
   const [accountSelectorStorageInitDone] =
     useAccountSelectorStorageInitDoneAtom();
   const accountSelectorActiveAccountInitDone =
@@ -211,19 +202,7 @@ export function HomeLaunchGatedContent({
     activeOwnerMatchesHomeSession &&
     ownerDisplaySnapshotReady,
   );
-  const nativeDisplaySnapshotLoadSettled = Boolean(
-    platformEnv.isNative &&
-    homeSession.ownerToken &&
-    displaySnapshotLoadState.status !== 'idle' &&
-    displaySnapshotLoadState.status !== 'loading' &&
-    displaySnapshotLoadState.ownerScopeKey ===
-      homeSession.ownerToken.scopeKey &&
-    displaySnapshotLoadState.sessionId === homeSession.ownerToken.sessionId,
-  );
-  const nativeWalletOwnerReady = Boolean(
-    platformEnv.isNative &&
-    nativeHomeEnabled &&
-    nativeDisplaySnapshotLoadSettled &&
+  const completeActiveWalletOwner = Boolean(
     activeAccountReady &&
     wallet?.id &&
     wallet.type &&
@@ -233,24 +212,16 @@ export function HomeLaunchGatedContent({
     !activeWalletUnavailable &&
     activeOwnerMatchesHomeSession,
   );
-  const portfolioShellReady =
-    homeShell.value.kind === 'portfolio' &&
-    (homeShell.value.presentation.kind === 'funded' ||
-      homeShell.value.presentation.kind === 'fundedPendingTotal' ||
-      homeShell.value.presentation.kind === 'zero' ||
-      homeShell.value.presentation.kind === 'unavailable');
-  const selectedSectionReady =
-    selectedHomeSection.value.kind === 'ready' ||
-    selectedHomeSection.value.kind === 'empty' ||
-    selectedHomeSection.value.kind === 'error';
-  const liveWalletOwnerReady = Boolean(
-    activeOwnerMatchesHomeSession &&
-    (homeShell.value.kind === 'backupRequired' ||
-      homeShell.value.kind === 'missingNetworkAccount' ||
-      (portfolioShellReady &&
-        homeNavigation.value.kind === 'ready' &&
-        selectedSectionReady)),
+  const nativeDisplaySnapshotLoadSettled = Boolean(
+    homeSession.ownerToken &&
+    displaySnapshotLoadState.status !== 'idle' &&
+    displaySnapshotLoadState.status !== 'loading' &&
+    displaySnapshotLoadState.ownerScopeKey ===
+      homeSession.ownerToken.scopeKey &&
+    displaySnapshotLoadState.sessionId === homeSession.ownerToken.sessionId,
   );
+  const walletRendererReady =
+    !nativeHomeEnabled || nativeDisplaySnapshotLoadSettled;
   const walletContentReadiness = resolveHomeWalletContentReadiness({
     walletListPending,
     wallets: walletListResult?.wallets,
@@ -258,11 +229,8 @@ export function HomeLaunchGatedContent({
     accountSelectorStorageInitDone,
     accountSelectorActiveAccountInitDone,
     activeAccountReady,
-    cachedWalletOwnerReady: cachedWalletOwnerReady || nativeWalletOwnerReady,
-    confirmedWalletDisplayReady:
-      nativeWalletOwnerReady ||
-      ownerDisplaySnapshotReady ||
-      liveWalletOwnerReady,
+    cachedWalletOwnerReady,
+    activeWalletOwnerReady: completeActiveWalletOwner,
     activeWalletUnavailable,
     activeWalletId: wallet?.id,
   });
@@ -281,6 +249,7 @@ export function HomeLaunchGatedContent({
     activeWallet: wallet,
     walletListWallet,
     nativeHomeEnabled,
+    walletRendererReady,
     previous: previousPageSurfaceRef.current,
     retainPreviousOwnerWhilePending: Boolean(
       homeSession.ownerToken && !activeOwnerMatchesHomeSession,

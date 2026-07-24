@@ -15,6 +15,7 @@ function resolve(
     activeWallet: matchingHdWallet,
     walletListWallet: matchingHdWallet,
     nativeHomeEnabled: true,
+    walletRendererReady: true,
     ...overrides,
   });
 }
@@ -48,6 +49,12 @@ describe('resolveHomeWalletPageSurface', () => {
         walletListWallet: undefined,
       }),
     ).toEqual({ surface: 'no-wallet' });
+  });
+
+  it('keeps wallet content pending until the selected renderer is ready', () => {
+    expect(resolve({ walletRendererReady: false })).toEqual(
+      expect.objectContaining({ surface: 'pending' }),
+    );
   });
 
   it('does not use backup status as an entry-surface authority', () => {
@@ -86,6 +93,21 @@ describe('resolveHomeWalletPageSurface', () => {
     ).toEqual({
       accountId: 'account-1',
       authority: 'cached',
+      surface: 'native',
+      walletId: 'hd-1',
+    });
+  });
+
+  it('mounts an active owner without a wallet-list result', () => {
+    expect(
+      resolve({
+        activeAccountId: 'account-1',
+        walletContentReadiness: 'active-wallet',
+        walletListWallet: undefined,
+      }),
+    ).toEqual({
+      accountId: 'account-1',
+      authority: 'active',
       surface: 'native',
       walletId: 'hd-1',
     });

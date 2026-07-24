@@ -108,6 +108,7 @@ describe('resolveHomeWalletContentReadiness', () => {
     accountSelectorStorageInitDone: true,
     accountSelectorActiveAccountInitDone: true,
     activeAccountReady: true,
+    activeWalletOwnerReady: true,
   };
 
   it('keeps wallet undefined plus a pending wallet list pending', () => {
@@ -149,6 +150,32 @@ describe('resolveHomeWalletContentReadiness', () => {
     ).toBe('cached-wallet');
   });
 
+  it('reveals an active owner while the wallet list is pending', () => {
+    expect(
+      resolveHomeWalletContentReadiness({
+        ...readySignals,
+        walletListPending: true,
+        wallets: undefined,
+        hasNoUsableWallet: false,
+        activeWalletId: 'wallet-live',
+        activeWalletOwnerReady: true,
+      }),
+    ).toBe('active-wallet');
+  });
+
+  it('rejects an active owner once the wallet list proves it is stale', () => {
+    expect(
+      resolveHomeWalletContentReadiness({
+        ...readySignals,
+        walletListPending: false,
+        wallets: [{ id: 'wallet-current' }],
+        hasNoUsableWallet: false,
+        activeWalletId: 'wallet-stale',
+        activeWalletOwnerReady: true,
+      }),
+    ).toBe('pending');
+  });
+
   it('rejects a cached owner once the wallet list proves it is stale', () => {
     expect(
       resolveHomeWalletContentReadiness({
@@ -185,7 +212,7 @@ describe('resolveHomeWalletContentReadiness', () => {
     ).toBe('wallet');
   });
 
-  it('keeps the launch surface pending until confirmed wallet display data is ready', () => {
+  it('keeps the launch surface pending until the active owner identity is ready', () => {
     expect(
       resolveHomeWalletContentReadiness({
         ...readySignals,
@@ -193,7 +220,7 @@ describe('resolveHomeWalletContentReadiness', () => {
         wallets: [{ id: 'wallet-ready' }],
         hasNoUsableWallet: false,
         activeWalletId: 'wallet-ready',
-        confirmedWalletDisplayReady: false,
+        activeWalletOwnerReady: false,
       }),
     ).toBe('pending');
     expect(
@@ -203,7 +230,7 @@ describe('resolveHomeWalletContentReadiness', () => {
         wallets: [{ id: 'wallet-ready' }],
         hasNoUsableWallet: false,
         activeWalletId: 'wallet-ready',
-        confirmedWalletDisplayReady: true,
+        activeWalletOwnerReady: true,
       }),
     ).toBe('wallet');
   });
