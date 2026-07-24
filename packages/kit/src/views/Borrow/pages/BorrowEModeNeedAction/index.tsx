@@ -47,6 +47,7 @@ import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/Di
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { useEarnAccount } from '../../../Staking/hooks/useEarnAccount';
 import {
+  E_MODE_PENDING_GUARD_ACTIONS,
   isEModeBorrowActionTag,
   isEModeFocusActivationPending,
   isEModePendingGuardActive,
@@ -362,7 +363,7 @@ function BorrowEModeNeedActionView() {
       isEModeBorrowActionTag({
         tag,
         provider,
-        actions: ['repay', 'setCollateral', 'setEMode'],
+        actions: E_MODE_PENDING_GUARD_ACTIONS,
       }),
     [provider],
   );

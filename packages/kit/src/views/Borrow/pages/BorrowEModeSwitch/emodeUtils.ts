@@ -15,6 +15,12 @@ export type IEModeBorrowAction = Extract<
   'repay' | 'setCollateral' | 'setEMode'
 >;
 
+export const E_MODE_PENDING_GUARD_ACTIONS = [
+  'repay',
+  'setCollateral',
+  'setEMode',
+] as const satisfies readonly IEModeBorrowAction[];
+
 export function isEModeBorrowActionTag({
   tag,
   provider,
@@ -22,7 +28,7 @@ export function isEModeBorrowActionTag({
 }: {
   tag: string;
   provider: string;
-  actions: IEModeBorrowAction[];
+  actions: readonly IEModeBorrowAction[];
 }): boolean {
   return actions.some((action) => tag === buildBorrowTag({ provider, action }));
 }

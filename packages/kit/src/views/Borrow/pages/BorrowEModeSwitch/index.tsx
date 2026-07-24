@@ -32,6 +32,7 @@ import { EModeAssetsTable } from './EModeAssetsTable';
 import { EModeCategorySelect } from './EModeCategorySelect';
 import { EModeImpactSection } from './EModeImpactSection';
 import {
+  E_MODE_PENDING_GUARD_ACTIONS,
   buildEModeRows,
   buildNeedActionItems,
   isEModeBorrowActionTag,
@@ -142,7 +143,7 @@ function BorrowEModeSwitchView() {
       isEModeBorrowActionTag({
         tag,
         provider,
-        actions: ['setEMode'],
+        actions: E_MODE_PENDING_GUARD_ACTIONS,
       }),
     [provider],
   );

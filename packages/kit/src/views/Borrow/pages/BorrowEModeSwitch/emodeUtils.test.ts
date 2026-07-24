@@ -1,3 +1,4 @@
+import { buildBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import type {
   IBorrowEModeBlockerAsset,
   IBorrowEModeStatus,
@@ -5,10 +6,41 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import {
+  E_MODE_PENDING_GUARD_ACTIONS,
   buildEModeRows,
   buildNeedActionItems,
+  isEModeBorrowActionTag,
   isEModePendingGuardActive,
 } from './emodeUtils';
+
+describe('isEModeBorrowActionTag', () => {
+  it('matches every transaction that can invalidate an E-Mode switch check', () => {
+    const provider = 'aave';
+
+    expect(E_MODE_PENDING_GUARD_ACTIONS).toEqual([
+      'repay',
+      'setCollateral',
+      'setEMode',
+    ]);
+    E_MODE_PENDING_GUARD_ACTIONS.forEach((action) => {
+      expect(
+        isEModeBorrowActionTag({
+          tag: buildBorrowTag({ provider, action }),
+          provider,
+          actions: E_MODE_PENDING_GUARD_ACTIONS,
+        }),
+      ).toBe(true);
+    });
+
+    expect(
+      isEModeBorrowActionTag({
+        tag: buildBorrowTag({ provider, action: 'borrow' }),
+        provider,
+        actions: E_MODE_PENDING_GUARD_ACTIONS,
+      }),
+    ).toBe(false);
+  });
+});
 
 describe('isEModePendingGuardActive', () => {
   it('fails closed when pending history finished loading but is unverified', () => {
