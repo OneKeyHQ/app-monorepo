@@ -343,9 +343,8 @@ function TradingHoursContent({
           <TradingHoursTimeline
             segments={tradingHours.segments}
             nowRatio={tradingHours.nowRatio}
-            activeSessionKey={
-              typeof activeRow === 'string' ? undefined : activeRow
-            }
+            // `dimmed` narrowing guarantees activeRow is a session key here
+            activeSessionKey={activeRow}
             dimmed={dimmed}
           />
           <Stack h={16}>
