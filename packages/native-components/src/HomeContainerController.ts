@@ -511,6 +511,14 @@ export class HomeContainerController {
     return this.protocolVersion;
   }
 
+  getInitialProtocolV3Snapshot(): IHomeContainerSnapshotEnvelopeV3 {
+    return this.createProtocolV3SnapshotEnvelope(
+      this.snapshot,
+      this.revision + 1,
+      this.currentSlots,
+    );
+  }
+
   setProtocolV3RevisionState(
     revisionState: IHomeContainerControllerRevisionStateV3,
   ): void {
@@ -1121,27 +1129,11 @@ export class HomeContainerController {
     this.armInFlightDeadline(inFlight);
 
     if (sendsFullSnapshot) {
-      const envelope: IHomeContainerSnapshotEnvelopeV3 = {
-        kind: 'snapshot',
-        protocolVersion: HOME_CONTAINER_PROTOCOL_V3_VERSION,
-        identity: {
-          ...this.owner,
-          storeCommitId: revisionState.storeCommitId,
-        },
-        transportRevision: this.revision,
-        presentationRevisions: revisionState.presentationRevisions,
-        authorityRevisions: revisionState.authorityRevisions,
-        slotRevisions: pickSlotRevisions(
-          revisionState.slotRevisions ?? {},
-          new Set(slotKeys(inFlight.slots ?? {})),
-        ),
-        payload: {
-          selectedTabId: sentSnapshot.selectedTabId,
-          header: sentSnapshot.header,
-          tabs: sentSnapshot.tabs,
-          theme: sentSnapshot.theme,
-        },
-      };
+      const envelope = this.createProtocolV3SnapshotEnvelope(
+        sentSnapshot,
+        this.revision,
+        inFlight.slots,
+      );
       target.setProtocolV3Snapshot?.(envelope, inFlight.slots);
       if (isRecovery) {
         this.emitDiagnostic({
@@ -1173,6 +1165,35 @@ export class HomeContainerController {
       target.applyProtocolV3Patch?.(patch, inFlight.slots);
     }
     return true;
+  }
+
+  private createProtocolV3SnapshotEnvelope(
+    snapshot: IHomeContainerSnapshot,
+    transportRevision: number,
+    slots: IHomeContainerSlots | undefined,
+  ): IHomeContainerSnapshotEnvelopeV3 {
+    const revisionState = this.protocolV3Revisions;
+    return {
+      kind: 'snapshot',
+      protocolVersion: HOME_CONTAINER_PROTOCOL_V3_VERSION,
+      identity: {
+        ...this.owner,
+        storeCommitId: revisionState.storeCommitId,
+      },
+      transportRevision,
+      presentationRevisions: revisionState.presentationRevisions,
+      authorityRevisions: revisionState.authorityRevisions,
+      slotRevisions: pickSlotRevisions(
+        revisionState.slotRevisions ?? {},
+        new Set(slotKeys(slots ?? {})),
+      ),
+      payload: {
+        selectedTabId: snapshot.selectedTabId,
+        header: snapshot.header,
+        tabs: snapshot.tabs,
+        theme: snapshot.theme,
+      },
+    };
   }
 
   private armInFlightDeadline(

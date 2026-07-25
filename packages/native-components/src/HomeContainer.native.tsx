@@ -3,7 +3,6 @@ import {
   type PropsWithChildren,
   forwardRef,
   useCallback,
-  useEffect,
   useImperativeHandle,
   useLayoutEffect,
   useMemo,
@@ -259,7 +258,7 @@ export function isHomeContainerAvailable(): boolean {
 const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
   (
     {
-      snapshot,
+      initialSnapshot,
       slots,
       slotBundle,
       style,
@@ -293,26 +292,12 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
     const submittedTransportRef = useRef<
       ISubmittedTransportIdentity | undefined
     >(undefined);
+    const initialSnapshotRef = useRef(initialSnapshot);
     const initialSnapshotJsonRef = useRef(
-      snapshot ? serializeHomeContainerPayload(snapshot) : '',
+      initialSnapshot ? serializeHomeContainerPayload(initialSnapshot) : '',
     );
-    const snapshotRef = useRef(snapshot);
-    snapshotRef.current = snapshot;
     const slotBundleRef = useRef(slotBundle);
     slotBundleRef.current = slotBundle;
-
-    const pushSnapshot = useCallback(() => {
-      const nextSnapshot = snapshotRef.current;
-      if (nextSnapshot) {
-        nativeRef.current?.setSnapshot(
-          serializeHomeContainerPayload(nextSnapshot),
-        );
-      }
-    }, []);
-
-    useEffect(() => {
-      pushSnapshot();
-    }, [pushSnapshot, snapshot]);
 
     useLayoutEffect(() => {
       if (!pendingProtocolV3Transport || !nativeRef.current) {
@@ -566,24 +551,20 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
           : undefined,
       [hasOnTransportResult, stableOnTransportResult],
     );
-    const stableHybridRef = useCallback(
-      (nextRef: HomeContainerNativeView) => {
-        nativeRef.current = nextRef;
-        pushSnapshot();
-        const capabilities = parseCapabilities(nextRef.getCapabilities());
-        if (capabilities) {
-          // Nitro publishes the hybrid ref during the native commit, before
-          // React publishes this wrapper's imperative ref to its parent.
-          // Defer readiness until both sides of the ref bridge are committed.
-          void Promise.resolve().then(() => {
-            if (nativeRef.current === nextRef) {
-              onReadyRef.current?.(capabilities);
-            }
-          });
-        }
-      },
-      [pushSnapshot],
-    );
+    const stableHybridRef = useCallback((nextRef: HomeContainerNativeView) => {
+      nativeRef.current = nextRef;
+      const capabilities = parseCapabilities(nextRef.getCapabilities());
+      if (capabilities) {
+        // Nitro publishes the hybrid ref during the native commit, before
+        // React publishes this wrapper's imperative ref to its parent.
+        // Defer readiness until both sides of the ref bridge are committed.
+        void Promise.resolve().then(() => {
+          if (nativeRef.current === nextRef) {
+            onReadyRef.current?.(capabilities);
+          }
+        });
+      }
+    }, []);
     const hybridRefCallback = useMemo(
       () => nitroCallback(stableHybridRef),
       [stableHybridRef],
@@ -616,7 +597,8 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
       ownersMatch(authoritativeSlotBundle.owner, submittedSlotAuthority.owner),
     );
     const resolvedBackgroundColor = resolveHomeContainerBackgroundColor({
-      snapshotBackgroundColor: snapshot?.theme.backgroundColor,
+      snapshotBackgroundColor:
+        initialSnapshotRef.current?.payload.theme.backgroundColor,
       slotBackgroundColor:
         authoritativeSlotBundle?.slots.backgroundColor ??
         slots?.backgroundColor,
@@ -751,12 +733,7 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
 NativeHomeContainer.displayName = 'NativeHomeContainer';
 
 export const HomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
-  (props, ref) => {
-    if (!isHomeContainerAvailable()) {
-      return props.fallback ?? null;
-    }
-    return <NativeHomeContainer {...props} ref={ref} />;
-  },
+  (props, ref) => <NativeHomeContainer {...props} ref={ref} />,
 );
 
 HomeContainer.displayName = 'HomeContainer';

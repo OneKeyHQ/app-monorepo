@@ -368,11 +368,10 @@ export interface IHomeContainerSlotBundle {
 }
 
 export interface IHomeContainerProps {
-  snapshot?: IHomeContainerSnapshot;
+  initialSnapshot?: IHomeContainerSnapshotEnvelopeV3;
   slots?: IHomeContainerSlots;
   slotBundle?: IHomeContainerSlotBundle;
   style?: StyleProp<ViewStyle>;
-  fallback?: ReactNode;
   testID?: string;
   debugOverlayEnabled?: boolean;
   onReady?: (capabilities: IHomeContainerCapabilities) => void;

@@ -1,14 +1,10 @@
-import { type PropsWithChildren, PureComponent } from 'react';
-
 import {
   type INativeHomeRenderer,
   KitProvider,
   NativeHomeRendererProvider,
 } from '@onekeyhq/kit';
 import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
-import type { INativeHomePageViewProps } from '@onekeyhq/kit/src/views/Home/NativeHomePageView.types';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { withSentryHOC } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 
@@ -21,45 +17,12 @@ const LazyReactHomePageView: INativeHomeRenderer = LazyLoad(async () => {
   return { default: HomePageView };
 });
 
-class MobileNativeHomeRendererBoundary extends PureComponent<
-  PropsWithChildren<INativeHomePageViewProps>,
-  { failed: boolean }
-> {
-  override state = { failed: false };
-
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-
-  override componentDidCatch(error: Error) {
-    defaultLogger.app.error.log(
-      `[NativeHome] renderer load failed: ${error.message}`,
-    );
-  }
-
-  override render() {
-    if (this.state.failed) {
-      return (
-        <LazyReactHomePageView
-          sceneName={this.props.sceneName}
-          onPressHide={this.props.onPressHide}
-        />
-      );
-    }
-    return this.props.children;
-  }
-}
-
 const MobileNativeHomeRenderer: INativeHomeRenderer = (props) => {
   const rendererMode = useMobileHomeRendererMode();
   if (rendererMode === 'react') {
     return <LazyReactHomePageView {...props} />;
   }
-  return (
-    <MobileNativeHomeRendererBoundary {...props}>
-      <MobileNativeHomeRendererImplementation {...props} />
-    </MobileNativeHomeRendererBoundary>
-  );
+  return <MobileNativeHomeRendererImplementation {...props} />;
 };
 
 const SentryKitProvider = withSentryHOC(

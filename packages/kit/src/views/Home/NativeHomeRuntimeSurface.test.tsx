@@ -77,7 +77,12 @@ describe('Native Home runtime surface', () => {
     expect(nativeSurfaceSource).toContain(
       'const NativeRenderer = useNativeHomeRenderer();',
     );
-    expect(nativeSurfaceSource).toContain("from './pages/HomePageViewLoader';");
+    expect(nativeSurfaceSource).not.toContain(
+      "from './pages/HomePageViewLoader';",
+    );
+    expect(nativeSurfaceSource).toContain(
+      "throw new OneKeyLocalError('Native Home renderer is not registered');",
+    );
     expect(nativeReactLoaderSource).toMatch(
       /import\(\s*['"]\.\/HomePageView['"]\s*\)/,
     );
@@ -99,20 +104,25 @@ describe('Native Home runtime surface', () => {
     expect(mobileAppSource).not.toMatch(
       /import\s+\{\s*HomePageView\s*\}\s+from/,
     );
-    expect(mobileAppSource).toContain('class MobileNativeHomeRendererBoundary');
+    expect(mobileAppSource).not.toContain(
+      'class MobileNativeHomeRendererBoundary',
+    );
     expect(mobileAppSource).not.toMatch(
       /import\(\s*['"]\.\/src\/home\/MobileNativeHomeRenderer['"]\s*\)/,
     );
     expect(mobileRendererSource).toContain(
       "from '@onekeyhq/native-components';",
     );
-    expect(mobileRendererSource).toContain(
+    expect(mobileRendererSource).not.toContain(
       "from '@onekeyhq/kit/src/views/Home/pages/HomePageViewLoader';",
     );
     expect(mobileRendererSource).not.toContain(
       "from '@onekeyhq/kit/src/views/Home/pages/HomePageView';",
     );
     expect(mobileRendererSource).toContain('<HomeContainer');
+    expect(mobileRendererSource).toContain('initialSnapshot={initialSnapshot}');
+    expect(mobileRendererSource).not.toContain('nativeUnavailable');
+    expect(mobileRendererSource).not.toContain('fallback=');
     expect(mobileRendererSource).not.toContain('nativeSurfaceRevealed');
     expect(mobileRendererSource).toContain("execution: 'controller'");
     expect(mobileRendererSource).toContain(

@@ -10,7 +10,7 @@ export function isHomeContainerAvailable(): boolean {
 }
 
 export const HomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
-  ({ fallback = null }, _ref) => fallback,
+  (_props, _ref) => null,
 );
 
 HomeContainer.displayName = 'HomeContainer';

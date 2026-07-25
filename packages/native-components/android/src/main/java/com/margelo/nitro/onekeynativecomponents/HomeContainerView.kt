@@ -352,7 +352,7 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
   private val tabsView = HomeTabsView(context)
   private val renderCompletionCoordinator = HomeContainerRenderCompletionCoordinator()
   private var activeRefreshRequestId: String? = null
-  private var pendingInitialSnapshot: HomeContainerSnapshot? = null
+  private var pendingInitialSnapshotJson: String? = null
   private var initialSnapshotApplyScheduled = false
   private var snapshot: HomeContainerSnapshot? = null
   private var protocolV2State: HomeContainerProtocolV2State? = null
@@ -564,26 +564,21 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
 
   fun submitInitialSnapshot(json: String) {
     if (disposed.get()) return
-    try {
-      val next = HomeContainerJson.parseSnapshot(json)
-      if (next.schemaVersion != SCHEMA_VERSION) {
-        reportError(
-          "unsupported_schema",
-          "HomeContainer schema ${next.schemaVersion} is not supported",
-        )
-        return
-      }
-      pendingInitialSnapshot = next
-      schedulePendingInitialSnapshot()
-      requestLayout()
-    } catch (error: Exception) {
-      reportError("snapshot_decode_failed", error.message ?: error.javaClass.simpleName)
+    if (!HomeContainerProtocolV3Transaction.isProtocolPayload(json, "snapshot")) {
+      reportError(
+        "unsupported_protocol",
+        "HomeContainer initial snapshot must use protocol v3",
+      )
+      return
     }
+    pendingInitialSnapshotJson = json
+    schedulePendingInitialSnapshot()
+    requestLayout()
   }
 
   private fun schedulePendingInitialSnapshot() {
     if (
-      pendingInitialSnapshot == null ||
+      pendingInitialSnapshotJson == null ||
       !isAttachedToWindow ||
       width <= 0 ||
       height <= 0 ||
@@ -597,16 +592,10 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       if (disposed.get() || !isAttachedToWindow || width <= 0 || height <= 0) {
         return@post
       }
-      val next = pendingInitialSnapshot ?: return@post
-      pendingInitialSnapshot = null
+      val json = pendingInitialSnapshotJson ?: return@post
+      pendingInitialSnapshotJson = null
       pendingProtocolV3PatchJson = null
-      protocolV2State = null
-      renderedProtocolV2State = null
-      protocolV3State = null
-      renderedProtocolV3State = null
-      renderCompletionCoordinator.reset()
-      lastNeedSnapshotResultKey = null
-      applySnapshot(next)
+      handleProtocolV3Outcome(HomeContainerProtocolV3Transaction.applySnapshot(json))
     }
   }
 

@@ -264,27 +264,41 @@ describe('Native HomeContainer protocol v2 slot fallback', () => {
     mockHostProps = undefined;
   });
 
-  it('submits the initial snapshot and slots with the first native mount', () => {
+  it('submits one protocol v3 snapshot with the first native mount', () => {
     const initialSlots: IHomeContainerSlots = {
       balance: {
         content: 'initial-balance',
       },
     };
-    const snapshot = buildSnapshot(ownerA, 0);
+    const initialSnapshot = buildProtocolV3Snapshot(ownerA, 1, 1, {});
     let view!: TestRenderer.ReactTestRenderer;
     act(() => {
       view = TestRenderer.create(
         <HomeContainer
-          snapshot={snapshot}
+          initialSnapshot={initialSnapshot}
           slotBundle={buildBundle(ownerA, 0, initialSlots)}
         />,
       );
     });
 
     expect(JSON.parse(mockHostProps?.initialSnapshotJson ?? '')).toEqual(
-      snapshot,
+      initialSnapshot,
     );
     expect(rendererHasText(view, 'initial-balance')).toBe(true);
+
+    act(() => {
+      view.update(
+        <HomeContainer
+          initialSnapshot={buildProtocolV3Snapshot(ownerA, 2, 2, {})}
+          slotBundle={buildBundle(ownerA, 1, initialSlots)}
+        />,
+      );
+    });
+
+    expect(JSON.parse(mockHostProps?.initialSnapshotJson ?? '')).toEqual(
+      initialSnapshot,
+    );
+    expect(mockNativeView.setSnapshot).not.toHaveBeenCalled();
     act(() => view.unmount());
   });
 

@@ -756,7 +756,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   private let decoder = JSONDecoder()
   private let encoder = JSONEncoder()
   private let lifecycleLock = NSLock()
-  private var pendingInitialSnapshot: HomeContainerSnapshot?
+  private var pendingInitialSnapshot: HomeContainerProtocolV3SnapshotEnvelope?
   private var initialSnapshotApplyScheduled = false
   private var snapshot: HomeContainerSnapshot?
   private var protocolV2State: HomeContainerProtocolV2State?
@@ -1036,23 +1036,9 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   func submitInitialSnapshot(_ json: String) {
     do {
       let next = try JSONDecoder().decode(
-        HomeContainerSnapshot.self,
+        HomeContainerProtocolV3SnapshotEnvelope.self,
         from: Data(json.utf8)
       )
-      guard next.schemaVersion == homeContainerBusinessSchemaVersion else {
-        reportError(
-          code: "unsupported_schema",
-          message: "HomeContainer schema \(next.schemaVersion) is not supported"
-        )
-        return
-      }
-      guard homeContainerValidatesBusinessInvariants(next) else {
-        reportError(
-          code: "invalid_snapshot",
-          message: "HomeContainer snapshot violates business invariants"
-        )
-        return
-      }
       pendingInitialSnapshot = next
       schedulePendingInitialSnapshot()
       setNeedsLayout()
@@ -1080,14 +1066,9 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
         return
       }
       self.pendingInitialSnapshot = nil
-      self.protocolV2State = nil
-      self.protocolV3State = nil
       self.pendingProtocolV3Patch = nil
-      self.lastNeedSnapshotResultKey = nil
-      self.applySnapshot(
-        next,
-        allowsMissingSelectedTabFallback: true,
-        enforcesMonotonicRevision: true
+      self.handleProtocolV3Outcome(
+        HomeContainerProtocolV3Transaction.apply(snapshot: next)
       )
     }
   }

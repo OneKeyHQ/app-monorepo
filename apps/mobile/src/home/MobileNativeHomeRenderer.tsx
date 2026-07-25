@@ -68,7 +68,6 @@ import type {
 } from '@onekeyhq/kit/src/views/Home/model/store/homeStoreTypes';
 import type { INativeHomePageViewProps } from '@onekeyhq/kit/src/views/Home/NativeHomePageView.types';
 import { HomeOverviewContainer } from '@onekeyhq/kit/src/views/Home/pages/HomeOverviewContainer';
-import { HomePageView } from '@onekeyhq/kit/src/views/Home/pages/HomePageViewLoader';
 import { PerpsHomeHeaderSlot } from '@onekeyhq/kit/src/views/Home/pages/PerpsContainer';
 import { TabHeaderSettings } from '@onekeyhq/kit/src/views/Home/pages/TabHeaderSettings';
 import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
@@ -94,7 +93,6 @@ import {
   type IHomeContainerTab,
   type IHomeContainerTabId,
   type IHomeContainerTheme,
-  isHomeContainerAvailable,
   parseHomeContainerIntentV3,
   parseHomeContainerTransportResult,
 } from '@onekeyhq/native-components';
@@ -234,10 +232,7 @@ function collectSlotRevisions(
   return revisions;
 }
 
-export function MobileNativeHomeRenderer({
-  onPressHide,
-  sceneName,
-}: INativeHomePageViewProps) {
+export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
   const intl = useIntl();
   const theme = useTheme();
   const navigation = useAppNavigation();
@@ -247,9 +242,6 @@ export function MobileNativeHomeRenderer({
   );
   const homeNativeDecisionKeyRef = useRef<string | undefined>(undefined);
   const homeNativeContentDecisionKeyRef = useRef<string | undefined>(undefined);
-  const [nativeUnavailable, setNativeUnavailable] = useState(
-    () => !isHomeContainerAvailable(),
-  );
   const [expandedSections, setExpandedSections] =
     useState<IHomeNativeExpandedState>({
       defi: false,
@@ -1360,6 +1352,10 @@ export function MobileNativeHomeRenderer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [owner?.scopeKey, owner?.sessionId],
   );
+  const initialSnapshot = useMemo(
+    () => controller?.getInitialProtocolV3Snapshot(),
+    [controller],
+  );
   const previousSnapshotRef = useRef(snapshot);
   const attachedTargetRef = useRef<IHomeContainerRef | undefined>(undefined);
   const refreshFeedbackTimersRef = useRef(
@@ -1380,7 +1376,7 @@ export function MobileNativeHomeRenderer({
   }, [controller]);
 
   useLayoutEffect(() => {
-    if (!controller || nativeUnavailable) {
+    if (!controller) {
       return;
     }
     const previous = previousSnapshotRef.current;
@@ -1412,19 +1408,13 @@ export function MobileNativeHomeRenderer({
     }
     controller.updateSlots(slots);
     previousSnapshotRef.current = snapshot;
-  }, [controller, nativeUnavailable, revisionState, slots, snapshot]);
+  }, [controller, revisionState, slots, snapshot]);
 
   useLayoutEffect(() => () => disposeNativeSession(), [disposeNativeSession]);
 
-  useEffect(() => {
-    if (nativeUnavailable) {
-      disposeNativeSession();
-    }
-  }, [disposeNativeSession, nativeUnavailable]);
-
   useLayoutEffect(() => {
     const target = nativeRef.current;
-    if (!target || !controller || nativeUnavailable) {
+    if (!target || !controller) {
       return;
     }
     // The native view outlives an owner-scoped controller, so an owner switch
@@ -1435,12 +1425,14 @@ export function MobileNativeHomeRenderer({
       return;
     }
     if (!controller.attach(target, capabilities)) {
-      setNativeUnavailable(true);
+      defaultLogger.app.error.log(
+        '[NativeHome] controller attach failed after owner change',
+      );
       return;
     }
     nativeCapabilitiesRef.current = capabilities;
     attachedTargetRef.current = target;
-  }, [controller, nativeUnavailable]);
+  }, [controller]);
 
   useEffect(() => {
     const value = homeNavigation.value;
@@ -1480,7 +1472,6 @@ export function MobileNativeHomeRenderer({
       headerBalance: header.balance,
       headerBalanceSecondary: header.balanceSecondary,
       isBackupRequired,
-      nativeUnavailable,
       networkScope,
       portfolioResource,
       shouldShowBanner,
@@ -1491,8 +1482,8 @@ export function MobileNativeHomeRenderer({
     }
     homeNativeDecisionKeyRef.current = decisionKey;
     defaultLogger.wallet.homeUi.homeRendererDecision({
-      renderer: nativeUnavailable ? 'react' : 'native',
-      reason: nativeUnavailable ? 'capabilityUnavailable' : 'platformDefault',
+      renderer: 'native',
+      reason: 'platformDefault',
       navigationKind: value.kind,
       selectedTab: value.kind === 'ready' ? value.selectedTabId : '',
       visibleTabs: value.kind === 'ready' ? value.tabs.join(',') : '',
@@ -1560,7 +1551,6 @@ export function MobileNativeHomeRenderer({
     header.balanceSecondary,
     homeNavigation.value,
     isBackupRequired,
-    nativeUnavailable,
     portfolioResource,
     shell.value.kind,
   ]);
@@ -1990,16 +1980,18 @@ export function MobileNativeHomeRenderer({
     (capabilities: IHomeContainerCapabilities) => {
       const target = nativeRef.current;
       nativeCapabilitiesRef.current = capabilities;
-      if (!target || !controller || nativeUnavailable) {
+      if (!target || !controller) {
         return;
       }
       if (!controller.attach(target, capabilities)) {
-        setNativeUnavailable(true);
+        defaultLogger.app.error.log(
+          '[NativeHome] controller attach failed during native readiness',
+        );
         return;
       }
       attachedTargetRef.current = target;
     },
-    [controller, nativeUnavailable],
+    [controller],
   );
   const handleTransportResult = useCallback(
     (value: string) => {
@@ -2020,15 +2012,19 @@ export function MobileNativeHomeRenderer({
           revision: result.revision,
         });
       }
-      if (!nativeUnavailable) {
-        controller?.handleTransportResult(value);
-      }
+      controller?.handleTransportResult(value);
     },
-    [controller, nativeUnavailable],
+    [controller],
   );
 
-  if (nativeUnavailable || !owner || !controller) {
-    return <HomePageView sceneName={sceneName} onPressHide={onPressHide} />;
+  const handleRenderError = useCallback((code: string, message: string) => {
+    defaultLogger.app.error.log(
+      `[NativeHome] render failed: code=${code}, message=${message}`,
+    );
+  }, []);
+
+  if (!owner || !controller || !initialSnapshot) {
+    return null;
   }
 
   return (
@@ -2036,17 +2032,14 @@ export function MobileNativeHomeRenderer({
       <HomeTabSearchHeader />
       <HomeContainer
         ref={nativeRef}
-        snapshot={snapshot}
+        initialSnapshot={initialSnapshot}
         style={{ flex: 1 }}
         slotBundle={slotBundle}
         testID="NativeHomeContainer"
-        fallback={
-          <HomePageView sceneName={sceneName} onPressHide={onPressHide} />
-        }
         onReady={handleReady}
         onIntent={handleIntent}
         onTransportResult={handleTransportResult}
-        onRenderError={() => setNativeUnavailable(true)}
+        onRenderError={handleRenderError}
       />
     </Stack>
   );
