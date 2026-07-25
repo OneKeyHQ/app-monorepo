@@ -34,6 +34,7 @@ import { normalizeUnifoldIconUrl } from './unifoldFormat';
 const SELECTOR_POPOVER_WIDTH = 400;
 const SELECTOR_POPOVER_MAX_HEIGHT = 360;
 const TOKEN_CONTRACT_TOOLTIP_WIDTH = 360;
+const DASH_LABEL_HEIGHT_PADDING = platformEnv.isNative ? '$px' : '$0.5';
 
 function SelectorTrigger({
   testID,
@@ -456,7 +457,7 @@ export function UnifoldSourceSelector({
       <YStack flex={1} flexBasis={0} minWidth={0}>
         <XStack
           width="100%"
-          mb="$2"
+          mb="$1.5"
           gap="$2"
           alignItems="center"
           justifyContent="space-between"
@@ -466,6 +467,7 @@ export function UnifoldSourceSelector({
             color="$textSubdued"
             numberOfLines={1}
             flexShrink={1}
+            pb={DASH_LABEL_HEIGHT_PADDING}
           >
             {intl.formatMessage({
               id: ETranslations.perp_unifold_selected_token__title,
@@ -518,12 +520,16 @@ export function UnifoldSourceSelector({
       <YStack flex={1} flexBasis={0} minWidth={0}>
         <XStack
           width="100%"
-          mb="$2"
+          mb="$1.5"
           gap="$2"
           alignItems="center"
           justifyContent="space-between"
         >
-          <SizableText size="$bodySm" color="$textSubdued">
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            pb={DASH_LABEL_HEIGHT_PADDING}
+          >
             {intl.formatMessage({
               id: ETranslations.perp_unifold_selected_chain__title,
             })}
