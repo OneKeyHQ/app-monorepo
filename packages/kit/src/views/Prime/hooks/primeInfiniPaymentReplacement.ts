@@ -17,6 +17,7 @@ import type {
 
 import {
   getPrimeInfiniPaymentOutcome,
+  hasPrimeInfiniPaymentProgress,
   isPrimeInfiniPaymentForAsset,
   isPrimeInfiniPaymentReplaceable,
 } from './primeInfiniPaymentUtils';
@@ -227,7 +228,7 @@ export async function resolvePrimeInfiniPaymentAccountRebind({
   if (
     !isPrimeInfiniPaymentReplaceable({
       payment: paymentWithDurableProgress,
-      sendStarted,
+      sendStarted: sendStarted || hasPrimeInfiniPaymentProgress(currentPayment),
     })
   ) {
     const persistedSession = await persistTrackedPayment(
@@ -385,7 +386,7 @@ export async function resolvePrimeInfiniPaymentReplacement({
   if (
     !isPrimeInfiniPaymentReplaceable({
       payment: paymentWithDurableProgress,
-      sendStarted,
+      sendStarted: sendStarted || hasPrimeInfiniPaymentProgress(currentPayment),
     })
   ) {
     const persistedSession = await persistTrackedPayment(

@@ -240,14 +240,54 @@ describe('usePrimeInfiniPaymentPolling', () => {
     unmount();
   });
 
-  it('keeps observed payment progress across a regressing query response', async () => {
+  it('clears a confirming amount when a later query explicitly returns zero', async () => {
     const payment = buildPayment('payment-a');
     servicePrime.apiGetInfiniPayment
       .mockResolvedValueOnce({
         ...payment,
         amountConfirming: '0.01',
       })
-      .mockResolvedValue(payment);
+      .mockResolvedValue({
+        ...payment,
+        amountConfirming: '0',
+      });
+
+    const { result, unmount } = renderHook(() =>
+      usePrimeInfiniPaymentPolling({
+        payment,
+        asset,
+        baseline,
+        enabled: true,
+        onSuccess: jest.fn(),
+        onTerminal: jest.fn(),
+        pollIntervalMs: 60_000,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.latestPayment?.amountConfirming).toBe('0.01');
+    });
+    act(() => {
+      result.current.refresh();
+    });
+    await waitFor(() => {
+      expect(servicePrime.apiGetInfiniPayment).toHaveBeenCalledTimes(2);
+      expect(result.current.latestPayment?.amountConfirming).toBe('0');
+    });
+    unmount();
+  });
+
+  it('keeps a confirming amount when a later query omits the field', async () => {
+    const payment = buildPayment('payment-a');
+    servicePrime.apiGetInfiniPayment
+      .mockResolvedValueOnce({
+        ...payment,
+        amountConfirming: '0.01',
+      })
+      .mockResolvedValueOnce({
+        ...payment,
+        amountConfirming: undefined,
+      });
 
     const { result, unmount } = renderHook(() =>
       usePrimeInfiniPaymentPolling({
@@ -270,6 +310,46 @@ describe('usePrimeInfiniPaymentPolling', () => {
     await waitFor(() => {
       expect(servicePrime.apiGetInfiniPayment).toHaveBeenCalledTimes(2);
       expect(result.current.latestPayment?.amountConfirming).toBe('0.01');
+    });
+    unmount();
+  });
+
+  it('moves a confirming amount into confirmed funds without double counting', async () => {
+    const payment = buildPayment('payment-a');
+    servicePrime.apiGetInfiniPayment
+      .mockResolvedValueOnce({
+        ...payment,
+        amountConfirming: '0.01',
+      })
+      .mockResolvedValueOnce({
+        ...payment,
+        amountConfirmed: '0.01',
+        amountConfirming: '0',
+      });
+
+    const { result, unmount } = renderHook(() =>
+      usePrimeInfiniPaymentPolling({
+        payment,
+        asset,
+        baseline,
+        enabled: true,
+        onSuccess: jest.fn(),
+        onTerminal: jest.fn(),
+        pollIntervalMs: 60_000,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.latestPayment?.amountConfirming).toBe('0.01');
+    });
+    act(() => {
+      result.current.refresh();
+    });
+    await waitFor(() => {
+      expect(result.current.latestPayment).toMatchObject({
+        amountConfirmed: '0.01',
+        amountConfirming: '0',
+      });
     });
     unmount();
   });
@@ -422,6 +502,48 @@ describe('usePrimeInfiniPaymentPolling', () => {
     });
     expect(servicePrime.apiGetInfiniPayment).toHaveBeenCalledTimes(1);
     expect(onTerminal).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it('terminates after confirming funds clear on a locally expired invoice', async () => {
+    const payment = {
+      ...buildPayment('payment-a'),
+      expiresAt: Date.now() - 1,
+    };
+    const onTerminal = jest.fn();
+    servicePrime.apiGetInfiniPayment
+      .mockResolvedValueOnce({
+        ...payment,
+        amountConfirming: '0.01',
+      })
+      .mockResolvedValueOnce({
+        ...payment,
+        amountConfirming: '0',
+      });
+
+    const { result, unmount } = renderHook(() =>
+      usePrimeInfiniPaymentPolling({
+        payment,
+        asset,
+        baseline,
+        enabled: true,
+        onSuccess: jest.fn(),
+        onTerminal,
+        pollIntervalMs: 60_000,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.outcome).toBe('pending');
+    });
+    act(() => {
+      result.current.refresh();
+    });
+    await waitFor(() => {
+      expect(onTerminal).toHaveBeenCalledWith('expired');
+    });
+    expect(result.current.latestPayment?.amountConfirming).toBe('0');
+    expect(result.current.outcome).toBe('expired');
     unmount();
   });
 

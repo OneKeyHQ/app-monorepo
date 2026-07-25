@@ -131,7 +131,11 @@ export async function resolvePrimeInfiniPaymentRestore({
   const hasPaymentProgress = hasPrimeInfiniPaymentProgress(
     paymentWithDurableProgress,
   );
-  if (!paymentOptionsLoaded && !session.sendStarted && !hasPaymentProgress) {
+  const shouldTrackPayment =
+    session.sendStarted ||
+    hasPrimeInfiniPaymentProgress(session.payment) ||
+    hasPaymentProgress;
+  if (!paymentOptionsLoaded && !shouldTrackPayment) {
     throw new OneKeyLocalError(
       'Infini payment options are unavailable during restore',
     );
@@ -148,7 +152,7 @@ export async function resolvePrimeInfiniPaymentRestore({
     shouldReplacePayment &&
     isPrimeInfiniPaymentReplaceable({
       payment: paymentWithDurableProgress,
-      sendStarted: session.sendStarted || hasPaymentProgress,
+      sendStarted: shouldTrackPayment,
     })
   ) {
     if (await discardPaymentSession(session.paymentCacheKey)) {
@@ -162,11 +166,7 @@ export async function resolvePrimeInfiniPaymentRestore({
     );
   }
 
-  if (
-    (!routeMatches || !assetIsStillSupported) &&
-    !session.sendStarted &&
-    !hasPaymentProgress
-  ) {
+  if ((!routeMatches || !assetIsStillSupported) && !shouldTrackPayment) {
     throw new OneKeyLocalError('Infini payment context changed during restore');
   }
 
@@ -174,7 +174,7 @@ export async function resolvePrimeInfiniPaymentRestore({
     ...session,
     asset: supportedAsset ?? session.asset,
     payment: paymentWithDurableProgress,
-    sendStarted: session.sendStarted || hasPaymentProgress,
+    sendStarted: shouldTrackPayment,
   });
   return {
     type: 'restore',

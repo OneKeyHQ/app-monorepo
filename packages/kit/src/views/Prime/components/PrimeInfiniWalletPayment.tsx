@@ -91,6 +91,7 @@ import { resolvePrimeInfiniPaymentRestore } from '../hooks/primeInfiniPaymentRes
 import { startPrimeInfiniPaymentSendExitRecovery } from '../hooks/primeInfiniPaymentSendExitRecovery';
 import { createPrimeInfiniPaymentSessionQueue } from '../hooks/primeInfiniPaymentSessionQueue';
 import {
+  buildPrimeInfiniPaymentTransferIntent,
   canChangePrimeInfiniPaymentSelection,
   getCanonicalPrimeInfiniPaymentAsset,
   getPrimeInfiniPaymentAssets,
@@ -2510,20 +2511,17 @@ function PrimeInfiniWalletPaymentContent({
         }),
         sendStarted: false,
       });
+      const { transferInfo, transferPayload } =
+        buildPrimeInfiniPaymentTransferIntent({
+          accountId,
+          accountAddress,
+          asset: capturedAsset,
+          payment: paymentForSend,
+          tokenInfo: freshBalanceDetail.info,
+        });
       await signatureConfirm.navigationToTxConfirm({
-        transfersInfo: [
-          {
-            from: accountAddress,
-            to: paymentForSend.address,
-            amount: paymentForSend.amountDue,
-            tokenInfo: {
-              ...freshBalanceDetail.info,
-              accountId,
-              networkId: capturedAsset.networkId,
-              address: capturedAsset.contractAddress,
-            },
-          },
-        ],
+        transfersInfo: [transferInfo],
+        transferPayload,
         isInternalTransfer: true,
         gasAccountScenario: 'send',
         broadcastDeadline: paymentForSend.expiresAt,

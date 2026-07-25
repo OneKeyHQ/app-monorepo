@@ -211,7 +211,7 @@ describe('resolvePrimeInfiniPaymentRestore', () => {
     });
   });
 
-  it('never unlocks a cached payment after server progress temporarily regresses', async () => {
+  it('clears settled confirming progress without unlocking the cached payment', async () => {
     const discardPaymentSession = jest.fn(async () => true);
 
     await expect(
@@ -234,7 +234,7 @@ describe('resolvePrimeInfiniPaymentRestore', () => {
       type: 'restore',
       session: {
         payment: {
-          amountConfirming: '0.01',
+          amountConfirming: '0',
         },
         sendStarted: true,
       },

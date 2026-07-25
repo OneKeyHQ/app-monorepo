@@ -4,6 +4,7 @@ import { cloneDeep, isNil } from 'lodash';
 import pLimit from 'p-limit';
 import pRetry from 'p-retry';
 
+import type { IEncodedTxTron } from '@onekeyhq/core/src/chains/tron/types';
 import type {
   IEncodedTx,
   IUnsignedMessage,
@@ -449,6 +450,16 @@ class ServiceSend extends ServiceBase {
           }
         };
         if (signedTx.encodedTx === null) {
+          throw new OneKeyLocalError({
+            message: 'Infini payment transaction cannot be verified',
+            autoToast: false,
+          });
+        }
+        const hasExpectedNativeTransactionShape =
+          !networkUtils.isTronNetworkByNetworkId(networkId) ||
+          (signedTx.encodedTx as IEncodedTxTron).raw_data?.contract?.length ===
+            1;
+        if (!hasExpectedNativeTransactionShape) {
           throw new OneKeyLocalError({
             message: 'Infini payment transaction cannot be verified',
             autoToast: false,

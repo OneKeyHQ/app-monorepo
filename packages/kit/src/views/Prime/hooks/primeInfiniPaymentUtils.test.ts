@@ -3,6 +3,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getPrimeInfiniPaymentAssetKey } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
 
 import {
+  buildPrimeInfiniPaymentTransferIntent,
   canChangePrimeInfiniPaymentSelection,
   getCanonicalPrimeInfiniPaymentAsset,
   getPrimeInfiniPaymentAssets,
@@ -45,6 +46,59 @@ const buildInfiniSubscription = (currentPeriodEnd: number) => ({
 });
 
 describe('primeInfiniPaymentUtils', () => {
+  it('builds an explicit non-EVM transfer intent from the displayed payment', () => {
+    const asset = {
+      key: 'tron-usdt',
+      chain: 'TRON',
+      token: 'USDT',
+      networkId: networkIdsMap.trx,
+      contractAddress: 'TTokenContract',
+    };
+    const tronPayment = {
+      ...payment,
+      address: 'TPaymentRecipient',
+      chain: asset.chain,
+      token: asset.token,
+    };
+    const { transferInfo, transferPayload } =
+      buildPrimeInfiniPaymentTransferIntent({
+        accountId: 'hd-1--0',
+        accountAddress: 'TPayer',
+        asset,
+        payment: tronPayment,
+        tokenInfo: {
+          decimals: 6,
+          name: 'Tether USD',
+          symbol: 'USDT',
+          address: 'stale-address',
+          isNative: false,
+        },
+      });
+
+    expect(transferInfo).toEqual({
+      from: 'TPayer',
+      to: 'TPaymentRecipient',
+      amount: payment.amountDue,
+      tokenInfo: {
+        accountId: 'hd-1--0',
+        networkId: networkIdsMap.trx,
+        decimals: 6,
+        name: 'Tether USD',
+        symbol: 'USDT',
+        address: asset.contractAddress,
+        isNative: false,
+      },
+    });
+    expect(transferPayload).toEqual({
+      amountToSend: payment.amountDue,
+      isMaxSend: false,
+      isNFT: false,
+      originalRecipient: 'TPaymentRecipient',
+      tokenInfo: transferInfo.tokenInfo,
+    });
+    expect(transferPayload.tokenInfo).toBe(transferInfo.tokenInfo);
+  });
+
   it.each([
     [61_000, '01:00', 61, false],
     [3_661_000, '01:01:00', 3661, false],

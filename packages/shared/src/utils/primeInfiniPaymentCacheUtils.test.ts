@@ -217,4 +217,59 @@ describe('mergePrimeInfiniPaymentProgressSnapshot', () => {
       amountConfirmed: payment.amountDue,
     });
   });
+
+  test('lets an explicitly cleared confirming amount settle to zero', () => {
+    const merged = mergePrimeInfiniPaymentProgressSnapshot({
+      previous: {
+        ...payment,
+        amountConfirmed: '0',
+        amountConfirming: '0.01',
+      },
+      latest: {
+        ...payment,
+        amountConfirmed: '0',
+        amountConfirming: '0',
+      },
+    });
+
+    expect(merged).toMatchObject({
+      amountConfirmed: '0',
+      amountConfirming: '0',
+    });
+  });
+
+  test('keeps the last confirming amount when a snapshot omits the field', () => {
+    const merged = mergePrimeInfiniPaymentProgressSnapshot({
+      previous: {
+        ...payment,
+        amountConfirmed: '0',
+        amountConfirming: '0.01',
+      },
+      latest: {
+        ...payment,
+        amountConfirmed: '0',
+      },
+    });
+
+    expect(merged.amountConfirming).toBe('0.01');
+  });
+
+  test('subtracts newly confirmed funds from an omitted confirming amount', () => {
+    const merged = mergePrimeInfiniPaymentProgressSnapshot({
+      previous: {
+        ...payment,
+        amountConfirmed: '0.01',
+        amountConfirming: '0.02',
+      },
+      latest: {
+        ...payment,
+        amountConfirmed: '0.03',
+      },
+    });
+
+    expect(merged).toMatchObject({
+      amountConfirmed: '0.03',
+      amountConfirming: '0',
+    });
+  });
 });

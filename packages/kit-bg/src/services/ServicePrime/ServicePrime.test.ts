@@ -911,7 +911,8 @@ describe('ServicePrime Infini payment APIs', () => {
     const post = jest.fn(async () => ({
       data: {
         data: {
-          checkoutUrl: 'https://example.com/checkout',
+          checkoutUrl:
+            '  HTTPS://CHECKOUT.INFINI.MONEY:443/subscription/session?plan=monthly  ',
         },
       },
     }));
@@ -923,7 +924,8 @@ describe('ServicePrime Infini payment APIs', () => {
         expectedOneKeyUserId: 'user-a',
       }),
     ).resolves.toEqual({
-      checkoutUrl: 'https://example.com/checkout',
+      checkoutUrl:
+        'https://checkout.infini.money/subscription/session?plan=monthly',
     });
     expect(post).toHaveBeenCalledWith(
       '/prime/v1/infini/checkout',
@@ -936,6 +938,47 @@ describe('ServicePrime Infini payment APIs', () => {
         },
       },
     );
+  });
+
+  it.each([
+    ['non-string', undefined],
+    ['malformed', 'not a URL'],
+    ['javascript scheme', ['java', 'script:', 'alert(1)'].join('')],
+    ['HTTP scheme', 'http://checkout.infini.money/subscription/session'],
+    [
+      'credentials',
+      'https://user:password@checkout.infini.money/subscription/session',
+    ],
+    ['localhost', 'https://localhost/subscription/session'],
+    ['localhost subdomain', 'https://api.localhost/subscription/session'],
+    ['private IPv4', 'https://192.168.1.1/subscription/session'],
+    ['private IPv6', 'https://[fc00::1]/subscription/session'],
+    ['untrusted host', 'https://attacker.example/subscription/session'],
+    [
+      'suffix-forged host',
+      'https://checkout.infini.money.attacker.example/subscription/session',
+    ],
+    [
+      'prefix-forged host',
+      'https://checkout-infini.money/subscription/session',
+    ],
+  ])('rejects a hosted checkout URL with %s', async (_label, checkoutUrl) => {
+    const { service } = createInfiniService();
+    const post = jest.fn(async () => ({
+      data: {
+        data: {
+          checkoutUrl,
+        },
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+
+    await expect(
+      service.apiGetInfiniCheckoutUrl({
+        plan: 'monthly',
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toThrow('Invalid Infini checkout URL');
   });
 
   it('pins the validated session token on subscription lookup', async () => {
@@ -1240,7 +1283,7 @@ describe('ServicePrime Infini payment APIs', () => {
     deferred.resolve({
       data: {
         data: {
-          checkoutUrl: 'https://example.com/checkout',
+          checkoutUrl: 'https://checkout.infini.money/checkout',
         },
       },
     });

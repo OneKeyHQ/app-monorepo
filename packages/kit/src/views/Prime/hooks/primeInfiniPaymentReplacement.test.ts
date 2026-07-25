@@ -194,7 +194,7 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
     expect(discardPaymentSession).not.toHaveBeenCalled();
   });
 
-  it('never replaces after previously observed progress temporarily regresses', async () => {
+  it('tracks a settled confirming amount without unlocking replacement', async () => {
     const progressedPayment = {
       ...payment,
       amountConfirming: '0.01',
@@ -214,7 +214,7 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
       }),
     ).resolves.toEqual({
       type: 'track',
-      payment: progressedPayment,
+      payment,
     });
     expect(discardPaymentSession).not.toHaveBeenCalled();
   });

@@ -62,6 +62,37 @@ function getMaximumPaymentProgressAmount(
   return firstAmount.gte(secondAmount) ? first : second;
 }
 
+function getCurrentPaymentConfirmingAmount({
+  previous,
+  latest,
+  amountConfirmed,
+}: {
+  previous: IPrimeInfiniPayment;
+  latest: IPrimeInfiniPayment;
+  amountConfirmed: string | undefined;
+}) {
+  if (latest.amountConfirming !== undefined) {
+    return latest.amountConfirming;
+  }
+  const previousConfirming = getPositiveAmount(previous.amountConfirming);
+  if (!previousConfirming) {
+    return latest.amountConfirming;
+  }
+  const previousConfirmed =
+    getPositiveAmount(previous.amountConfirmed) ?? new BigNumber(0);
+  const currentConfirmed =
+    getPositiveAmount(amountConfirmed) ?? new BigNumber(0);
+  const newlyConfirmed = currentConfirmed.minus(previousConfirmed);
+  if (!newlyConfirmed.gt(0)) {
+    return previous.amountConfirming;
+  }
+  const remainingConfirming = BigNumber.maximum(
+    previousConfirming.minus(newlyConfirmed),
+    0,
+  );
+  return remainingConfirming.toFixed();
+}
+
 function normalizeNetworkAddress({
   networkId,
   address,
@@ -432,20 +463,22 @@ export function mergePrimeInfiniPaymentProgressSnapshot({
       isPrimeInfiniPaymentExplicitlyExpiredSnapshot(previous) ||
       isPrimeInfiniPaymentExplicitlySuccessfulSnapshot(previous) ||
       isPrimeInfiniPaymentFullyConfirmedSnapshot(previous));
+  const amountConfirmed = getMaximumPaymentProgressAmount(
+    previous.amountConfirmed,
+    latest.amountConfirmed,
+  );
   return {
     ...latest,
     status: preservePreviousTerminalStatus ? previous.status : latest.status,
     infiniStatus: preservePreviousTerminalStatus
       ? previous.infiniStatus
       : latest.infiniStatus,
-    amountConfirmed: getMaximumPaymentProgressAmount(
-      previous.amountConfirmed,
-      latest.amountConfirmed,
-    ),
-    amountConfirming: getMaximumPaymentProgressAmount(
-      previous.amountConfirming,
-      latest.amountConfirming,
-    ),
+    amountConfirmed,
+    amountConfirming: getCurrentPaymentConfirmingAmount({
+      previous,
+      latest,
+      amountConfirmed,
+    }),
   };
 }
 

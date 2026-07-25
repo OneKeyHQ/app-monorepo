@@ -1245,7 +1245,7 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     );
   });
 
-  test('never lets persisted payment progress or its replacement lock regress', async () => {
+  test('lets confirming progress settle without regressing the replacement lock', async () => {
     const entity = new SimpleDbEntityPrime();
     const existingSession = {
       ...session,
@@ -1286,7 +1286,7 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     ).resolves.toEqual(
       expect.objectContaining({
         payment: expect.objectContaining({
-          amountConfirming: '0.01',
+          amountConfirming: '0',
         }),
         sendStarted: true,
       }),

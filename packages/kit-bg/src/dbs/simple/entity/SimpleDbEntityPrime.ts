@@ -1230,7 +1230,10 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
         sendStarted: Boolean(
           session.sendStarted ||
           hasPrimeInfiniPaymentProgressSnapshot(nextPayment) ||
-          (isCurrentSessionValid && currentSession?.sendStarted),
+          (isCurrentSessionValid &&
+            currentSession &&
+            (currentSession.sendStarted ||
+              hasPrimeInfiniPaymentProgressSnapshot(currentSession.payment))),
         ),
         updatedAt: Date.now(),
       };

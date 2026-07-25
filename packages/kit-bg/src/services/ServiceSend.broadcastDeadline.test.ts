@@ -94,6 +94,8 @@ jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
 }));
 
 // eslint-disable-next-line import-js/order, import/first
+import type { IEncodedTxTron } from '@onekeyhq/core/src/chains/tron/types';
+// eslint-disable-next-line import-js/order, import/first
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 // eslint-disable-next-line import-js/order, import/first
 import { InvoiceExpiredError } from '@onekeyhq/shared/src/errors';
@@ -105,6 +107,8 @@ import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/p
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 // eslint-disable-next-line import-js/order, import/first
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
+// eslint-disable-next-line import-js/order, import/first
+import type { ITransferPayload } from '../vaults/types';
 // eslint-disable-next-line import-js/order, import/first
 import { vaultFactory } from '../vaults/factory';
 // eslint-disable-next-line import-js/order, import/first
@@ -171,6 +175,23 @@ const decodedTx = {
   ],
   outputActions: [],
 } as unknown as IDecodedTx;
+
+function buildTronEncodedTx(contractCount: number): IEncodedTxTron {
+  return {
+    raw_data: {
+      contract: Array.from({ length: contractCount }, () => ({
+        type: 'TriggerSmartContract',
+        parameter: {
+          value: {
+            owner_address: 'TPayer',
+            contract_address: 'TTokenContract',
+            data: 'a9059cbb',
+          },
+        },
+      })),
+    },
+  } as unknown as IEncodedTxTron;
+}
 
 function makeService() {
   const vault = {
@@ -246,6 +267,7 @@ function signAndSend(
     broadcastDeadline?: number;
     beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
     gasAccountUiState?: IGasAccountUiState;
+    transferPayload?: ITransferPayload;
   } = {},
 ) {
   return service.signAndSendTransaction({
@@ -371,6 +393,155 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
     expect(mark.mock.invocationCallOrder[0]).toBeLessThan(
       vault.broadcastTransaction.mock.invocationCallOrder[0],
     );
+  });
+
+  test('rejects a signed TRON Infini transaction with multiple native contracts', async () => {
+    const { service, vault } = makeService();
+    const backgroundApi = service.backgroundApi as unknown as {
+      simpleDb: {
+        prime: {
+          markInfiniPendingPaymentSessionSendStarted: jest.Mock;
+        };
+      };
+    };
+    vault.signTransaction.mockResolvedValueOnce({
+      ...signedTx,
+      encodedTx: buildTronEncodedTx(2),
+    });
+
+    await expect(
+      service.signAndSendTransaction({
+        accountId,
+        networkId: 'tron--0x2b6653dc',
+        unsignedTx,
+        signOnly: false,
+        beforeBroadcastAction: {
+          ...beforeBroadcastAction,
+          paymentCacheKey: {
+            ...paymentCacheKey,
+            networkId: 'tron--0x2b6653dc',
+          },
+        },
+      }),
+    ).rejects.toThrow('transaction cannot be verified');
+    expect(vault.buildDecodedTx).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+    ).not.toHaveBeenCalled();
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
+  test('accepts a single-contract TRON Infini transaction with explicit transfer intent', async () => {
+    const tronNetworkId = 'tron--0x2b6653dc';
+    const tronAccountAddress = 'TPayer';
+    const tronRecipientAddress = 'TPaymentRecipient';
+    const tronContractAddress = 'TTokenContract';
+    const tronPaymentCacheKey = {
+      ...paymentCacheKey,
+      networkId: tronNetworkId,
+      contractAddress: tronContractAddress,
+      payerAddress: tronAccountAddress,
+    };
+    const tronBeforeBroadcastAction: IPrimeInfiniBeforeBroadcastAction = {
+      type: 'primeInfiniPayment',
+      paymentCacheKey: tronPaymentCacheKey,
+    };
+    const tronPayment = {
+      ...latestPayment,
+      address: tronRecipientAddress,
+      chain: 'TRON',
+      token: 'USDT',
+    };
+    const transferPayload: ITransferPayload = {
+      amountToSend: tronPayment.amountDue,
+      isMaxSend: false,
+      isNFT: false,
+      originalRecipient: tronRecipientAddress,
+      tokenInfo: {
+        decimals: 6,
+        name: 'Tether USD',
+        symbol: 'USDT',
+        address: tronContractAddress,
+        isNative: false,
+        accountId,
+        networkId: tronNetworkId,
+      },
+    };
+    const { service, vault } = makeService();
+    const backgroundApi = service.backgroundApi as unknown as {
+      serviceAccount: {
+        getAccountAddressForApi: jest.Mock;
+      };
+      servicePrime: {
+        apiGetInfiniPaymentPreBroadcastSnapshot: jest.Mock;
+      };
+      simpleDb: {
+        prime: {
+          markInfiniPendingPaymentSessionSendStarted: jest.Mock;
+        };
+      };
+    };
+    const tronEncodedTx = buildTronEncodedTx(1);
+    backgroundApi.serviceAccount.getAccountAddressForApi.mockResolvedValueOnce(
+      tronAccountAddress,
+    );
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValueOnce(
+      {
+        payment: tronPayment,
+        purchaseStatusSnapshot,
+      },
+    );
+    vault.signTransaction.mockResolvedValueOnce({
+      ...signedTx,
+      encodedTx: tronEncodedTx,
+    });
+    vault.buildDecodedTx.mockResolvedValueOnce({
+      ...decodedTx,
+      networkId: tronNetworkId,
+      signer: tronAccountAddress,
+      actions: [
+        {
+          type: EDecodedTxActionType.ASSET_TRANSFER,
+          assetTransfer: {
+            from: tronAccountAddress,
+            to: tronRecipientAddress,
+            sends: [
+              {
+                from: tronAccountAddress,
+                to: tronRecipientAddress,
+                amount: tronPayment.amountDue,
+                tokenIdOnNetwork: tronContractAddress,
+                isNative: false,
+                isNFT: false,
+              },
+            ],
+            receives: [],
+          },
+        },
+      ],
+    } as unknown as IDecodedTx);
+
+    await expect(
+      service.signAndSendTransaction({
+        accountId,
+        networkId: tronNetworkId,
+        unsignedTx: {
+          ...unsignedTx,
+          encodedTx: tronEncodedTx,
+        },
+        signOnly: false,
+        beforeBroadcastAction: tronBeforeBroadcastAction,
+        transferPayload,
+      }),
+    ).resolves.toMatchObject({ txid: '0xtxid' });
+    expect(vault.buildDecodedTx).toHaveBeenCalledWith({
+      unsignedTx: expect.objectContaining({ encodedTx: tronEncodedTx }),
+      transferPayload,
+    });
+    expect(
+      backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+    ).toHaveBeenCalledTimes(1);
+    expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
   });
 
   test.each([

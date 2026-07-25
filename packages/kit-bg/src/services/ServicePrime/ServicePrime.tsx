@@ -42,6 +42,7 @@ import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/sr
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { getSupabaseClient } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import { ETranslateEngine } from '@onekeyhq/shared/types/discovery';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -121,6 +122,30 @@ type IPrimeServerUserInfoWithProfile = IPrimeServerUserInfo & {
 
 function getInfiniPlanParam(plan: IPrimeInfiniSubscriptionPlan) {
   return plan === 'yearly' ? 'annual' : 'monthly';
+}
+
+const INFINI_CHECKOUT_HOSTNAMES = new Set(['checkout.infini.money']);
+
+function validateInfiniCheckoutUrl(checkoutUrl: unknown): string {
+  if (!isString(checkoutUrl)) {
+    throw new OneKeyLocalError('Invalid Infini checkout URL');
+  }
+
+  const trimmedUrl = checkoutUrl.trim();
+  if (!isAllowedWebViewUrl(trimmedUrl)) {
+    throw new OneKeyLocalError('Invalid Infini checkout URL');
+  }
+
+  const parsedUrl = new URL(trimmedUrl);
+  const normalizedHostname = parsedUrl.hostname
+    .toLowerCase()
+    .replace(/\.+$/u, '');
+  if (!INFINI_CHECKOUT_HOSTNAMES.has(normalizedHostname)) {
+    throw new OneKeyLocalError('Invalid Infini checkout URL');
+  }
+
+  parsedUrl.hostname = normalizedHostname;
+  return parsedUrl.toString();
 }
 
 function normalizeInfiniSubscriptionResponse(
@@ -3684,9 +3709,10 @@ class ServicePrime extends ServiceBase {
     // convert only at this boundary, mirroring normalizeInfiniSubscriptionPlan
     // which maps 'annual' back to 'yearly' on the read path.
     const planParam = getInfiniPlanParam(plan);
-    // NOTE: response schema pending backend confirmation, assumed { checkoutUrl }
+    // Infini's hosted-checkout contract currently uses checkout.infini.money.
+    // Keep additional hosts explicit so suffix lookalikes cannot pass validation.
     const result = await client.post<
-      IApiClientResponse<{ checkoutUrl: string }>
+      IApiClientResponse<{ checkoutUrl?: unknown }>
     >(
       '/prime/v1/infini/checkout',
       {
@@ -3695,7 +3721,9 @@ class ServicePrime extends ServiceBase {
       this.getInfiniPurchaseRequestConfig(authSnapshot),
     );
     await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
-    return result?.data?.data;
+    return {
+      checkoutUrl: validateInfiniCheckoutUrl(result?.data?.data?.checkoutUrl),
+    };
   }
 
   @backgroundMethod()

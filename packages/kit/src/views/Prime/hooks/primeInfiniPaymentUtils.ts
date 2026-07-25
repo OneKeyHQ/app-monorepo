@@ -1,6 +1,10 @@
 /* cspell:ignore Infini infini */
 import BigNumber from 'bignumber.js';
 
+import type {
+  ITransferInfo,
+  ITransferPayload,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { getListedNetworkMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   getPrimeInfiniPaymentAssetKey,
@@ -20,6 +24,7 @@ import type {
   IPrimeInfiniSubscription,
   IPrimeSubscriptionInfo,
 } from '@onekeyhq/shared/types/prime/primeTypes';
+import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 
 export type { IPrimeInfiniPaymentAsset };
 
@@ -195,6 +200,45 @@ export function isPrimeInfiniBalanceSufficient({
     amountDueValue.gt(0) &&
     balanceValue.gte(amountDueValue)
   );
+}
+
+export function buildPrimeInfiniPaymentTransferIntent({
+  accountId,
+  accountAddress,
+  asset,
+  payment,
+  tokenInfo,
+}: {
+  accountId: string;
+  accountAddress: string;
+  asset: IPrimeInfiniPaymentAsset;
+  payment: IPrimeInfiniPayment;
+  tokenInfo: IFetchTokenDetailItem['info'];
+}): {
+  transferInfo: ITransferInfo;
+  transferPayload: ITransferPayload;
+} {
+  const paymentTokenInfo = {
+    ...tokenInfo,
+    accountId,
+    networkId: asset.networkId,
+    address: asset.contractAddress,
+  };
+  return {
+    transferInfo: {
+      from: accountAddress,
+      to: payment.address,
+      amount: payment.amountDue,
+      tokenInfo: paymentTokenInfo,
+    },
+    transferPayload: {
+      amountToSend: payment.amountDue,
+      isMaxSend: false,
+      isNFT: false,
+      originalRecipient: payment.address,
+      tokenInfo: paymentTokenInfo,
+    },
+  };
 }
 
 export function getPrimeInfiniPaymentCountdown({
