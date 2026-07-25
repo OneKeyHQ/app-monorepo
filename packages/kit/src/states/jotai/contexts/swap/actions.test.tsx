@@ -16,6 +16,10 @@ import { settingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { globalJotaiStorageReadyHandler } from '@onekeyhq/kit-bg/src/states/jotai/jotaiStorage';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import {
+  swapQuoteIntervalMaxCount,
+  swapRefreshInterval,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchQuoteResult,
   IFetchQuotesParams,
@@ -46,6 +50,7 @@ import {
   swapProSupportNetworksTokenListAtom,
   swapProTokenBalanceLoadingAtom,
   swapQuoteActionLockAtom,
+  swapQuoteAutoRefreshTimerAtom,
   swapQuoteCurrentEventProviderKeysAtom,
   swapQuoteCurrentEventReceivedCountAtom,
   swapQuoteCurrentSelectAtom,
@@ -53,6 +58,7 @@ import {
   swapQuoteEventErrorAtom,
   swapQuoteEventTotalCountAtom,
   swapQuoteFetchingAtom,
+  swapQuoteIntervalCountAtom,
   swapQuoteListAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
@@ -1465,6 +1471,410 @@ describe('useSwapActions', () => {
     expect(mockCancelFetchQuoteEvents).toHaveBeenCalledWith(
       firstQuoteRequestId,
     );
+  });
+
+  it('rearms automatic quote refresh from quote events without remounting the UI', async () => {
+    jest.useFakeTimers();
+    try {
+      const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+        storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+        storeInstance.set(swapSelectFromTokenAtom(), ethToken);
+        storeInstance.set(swapSelectToTokenAtom(), bnbToken);
+        storeInstance.set(swapFromTokenAmountAtom(), {
+          value: '1',
+          isInput: true,
+        });
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+      const quoteParams: IFetchQuotesParams = {
+        autoSlippage: true,
+        fromNetworkId: ethToken.networkId,
+        fromTokenAddress: ethToken.contractAddress,
+        fromTokenAmount: '1',
+        protocol: EProtocolOfExchange.SWAP,
+        slippagePercentage: 0.5,
+        toNetworkId: bnbToken.networkId,
+        toTokenAddress: bnbToken.contractAddress,
+      };
+
+      await act(async () => {
+        await result.current.quoteAction(
+          { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+          '0xabc',
+          evmAccount.id,
+          undefined,
+          undefined,
+          ESwapQuoteKind.SELL,
+        );
+        await Promise.resolve();
+      });
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+
+      const publishActionableQuote = (round: number) => {
+        const quoteRequestId = store.get(
+          swapQuoteActionLockAtom(),
+        ).quoteRequestId;
+        result.current.quoteEventHandler({
+          event: {
+            data: JSON.stringify({
+              data: [
+                {
+                  eventId: `refresh-event-${round}`,
+                  fromAmount: '1',
+                  fromTokenInfo: ethToken,
+                  info: {
+                    provider: 'refresh-provider',
+                    providerName: 'Refresh Provider',
+                  },
+                  kind: ESwapQuoteKind.SELL,
+                  protocol: EProtocolOfExchange.SWAP,
+                  quoteId: `refresh-quote-${round}`,
+                  toAmount: `${round + 1}`,
+                  toTokenInfo: bnbToken,
+                },
+              ],
+            }),
+          } as ISwapQuoteEvent,
+          type: 'message',
+          accountId: evmAccount.id,
+          params: {
+            ...quoteParams,
+            userAddress: '0xabc',
+          },
+          quoteRequestId: quoteRequestId ?? '',
+          tokenPairs: {
+            fromToken: ethToken,
+            toToken: bnbToken,
+          },
+        });
+      };
+
+      for (let round = 0; round < swapQuoteIntervalMaxCount; round += 1) {
+        act(() => {
+          publishActionableQuote(round);
+        });
+        expect(store.get(swapQuoteFetchingAtom())).toBe(false);
+
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(swapRefreshInterval);
+        });
+
+        expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(round + 2);
+        expect(store.get(swapQuoteIntervalCountAtom())).toBe(round + 1);
+        expect(store.get(swapShouldRefreshQuoteAtom())).toBe(false);
+      }
+
+      act(() => {
+        publishActionableQuote(swapQuoteIntervalMaxCount);
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(swapRefreshInterval);
+      });
+
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(
+        swapQuoteIntervalMaxCount + 1,
+      );
+      expect(store.get(swapQuoteIntervalCountAtom())).toBe(
+        swapQuoteIntervalMaxCount,
+      );
+      expect(store.get(swapShouldRefreshQuoteAtom())).toBe(true);
+      expect(store.get(swapQuoteActionLockAtom()).actionLock).toBe(false);
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+  });
+
+  it.each([
+    {
+      fromToken: ethToken,
+      protocol: ESwapTabSwitchType.SWAP,
+      quoteProtocol: EProtocolOfExchange.SWAP,
+      supportsAutoRefresh: true,
+      toToken: bnbToken,
+    },
+    {
+      fromToken: usdcToken,
+      protocol: ESwapTabSwitchType.STOCK,
+      quoteProtocol: EProtocolOfExchange.STOCK,
+      supportsAutoRefresh: true,
+      toToken: stockTokenA,
+    },
+    {
+      fromToken: usdcToken,
+      protocol: ESwapTabSwitchType.LIMIT,
+      quoteProtocol: EProtocolOfExchange.LIMIT,
+      supportsAutoRefresh: false,
+      toToken: usdtToken,
+    },
+    {
+      fromToken: ethToken,
+      protocol: ESwapTabSwitchType.PRIVATE_SEND,
+      quoteProtocol: EProtocolOfExchange.PRIVATE_SEND,
+      supportsAutoRefresh: false,
+      toToken: bnbToken,
+    },
+  ])(
+    'applies the quote-event refresh policy for $protocol quotes',
+    async ({
+      fromToken,
+      protocol,
+      quoteProtocol,
+      supportsAutoRefresh,
+      toToken,
+    }) => {
+      jest.useFakeTimers();
+      try {
+        const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+          storeInstance.set(swapTypeSwitchAtom(), protocol);
+          storeInstance.set(swapSelectFromTokenAtom(), fromToken);
+          storeInstance.set(swapSelectToTokenAtom(), toToken);
+          storeInstance.set(swapFromTokenAmountAtom(), {
+            value: '1',
+            isInput: true,
+          });
+          if (protocol === ESwapTabSwitchType.STOCK) {
+            storeInstance.set(swapStockExecutionTokenSyncIdAtom(), 1);
+            storeInstance.set(swapStockExecutionTokensAtom(), {
+              syncId: 1,
+              fromToken,
+              toToken,
+            });
+          }
+        });
+        const { result } = renderHook(() => useSwapActions().current, {
+          wrapper: Wrapper,
+        });
+
+        await act(async () => {
+          await result.current.quoteAction(
+            { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+            '0xabc',
+            evmAccount.id,
+            undefined,
+            undefined,
+            ESwapQuoteKind.SELL,
+          );
+          await Promise.resolve();
+        });
+        expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+        expect(store.get(swapQuoteFetchingAtom())).toBe(true);
+
+        const quoteRequestId = store.get(
+          swapQuoteActionLockAtom(),
+        ).quoteRequestId;
+        const eventParams: IFetchQuotesParams = {
+          autoSlippage: true,
+          fromNetworkId: fromToken.networkId,
+          fromTokenAddress: fromToken.contractAddress,
+          fromTokenAmount: '1',
+          protocol: quoteProtocol,
+          slippagePercentage: 0.5,
+          toNetworkId: toToken.networkId,
+          toTokenAddress: toToken.contractAddress,
+          userAddress: '0xabc',
+        };
+        act(() => {
+          result.current.quoteEventHandler({
+            event: {
+              data: JSON.stringify({
+                eventId: `${protocol}-event`,
+                totalQuoteCount: 1,
+              }),
+            } as ISwapQuoteEvent,
+            type: 'message',
+            accountId: evmAccount.id,
+            params: eventParams,
+            quoteRequestId: quoteRequestId ?? '',
+            tokenPairs: {
+              fromToken,
+              toToken,
+            },
+          });
+        });
+        act(() => {
+          result.current.quoteEventHandler({
+            event: {
+              data: JSON.stringify({
+                data: [
+                  {
+                    eventId: `${protocol}-event`,
+                    fromAmount: '1',
+                    fromTokenInfo: fromToken,
+                    info: {
+                      provider: `${protocol}-provider`,
+                      providerName: `${protocol} Provider`,
+                    },
+                    kind: ESwapQuoteKind.SELL,
+                    protocol: quoteProtocol,
+                    quoteId: `${protocol}-quote`,
+                    toAmount: '2',
+                    toTokenInfo: toToken,
+                  },
+                ],
+              }),
+            } as ISwapQuoteEvent,
+            type: 'message',
+            accountId: evmAccount.id,
+            params: eventParams,
+            quoteRequestId: quoteRequestId ?? '',
+            tokenPairs: {
+              fromToken,
+              toToken,
+            },
+          });
+        });
+        expect(store.get(swapQuoteListAtom())).toHaveLength(1);
+        expect(store.get(swapQuoteFetchingAtom())).toBe(false);
+        if (supportsAutoRefresh) {
+          expect(store.get(swapQuoteAutoRefreshTimerAtom())).toBeDefined();
+        } else {
+          expect(store.get(swapQuoteAutoRefreshTimerAtom())).toBeUndefined();
+        }
+
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(swapRefreshInterval);
+        });
+
+        expect(store.get(swapQuoteIntervalCountAtom())).toBe(
+          supportsAutoRefresh ? 1 : 0,
+        );
+        expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(
+          supportsAutoRefresh ? 2 : 1,
+        );
+        if (supportsAutoRefresh) {
+          expect(mockFetchQuotesEvents).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+              fromToken,
+              protocol,
+              toToken,
+            }),
+          );
+        }
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    },
+  );
+
+  it('keeps automatic refresh timers isolated between Swap context stores', async () => {
+    jest.useFakeTimers();
+    try {
+      const setupStore = (
+        storeInstance: ReturnType<typeof createStore>,
+        quoteRequestId: string,
+      ) => {
+        storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+        storeInstance.set(swapSelectFromTokenAtom(), ethToken);
+        storeInstance.set(swapSelectToTokenAtom(), bnbToken);
+        storeInstance.set(swapFromTokenAmountAtom(), {
+          value: '1',
+          isInput: true,
+        });
+        storeInstance.set(swapQuoteFetchingAtom(), true);
+        storeInstance.set(swapQuoteActionLockAtom(), {
+          actionLock: true,
+          fromToken: ethToken,
+          fromTokenAmount: '1',
+          kind: ESwapQuoteKind.SELL,
+          quoteRequestId,
+          toToken: bnbToken,
+          toTokenAmount: '',
+          type: ESwapTabSwitchType.SWAP,
+        });
+      };
+      const first = createWrapperWithStore((storeInstance) =>
+        setupStore(storeInstance, 'first-store-request'),
+      );
+      const second = createWrapperWithStore((storeInstance) =>
+        setupStore(storeInstance, 'second-store-request'),
+      );
+      const firstHook = renderHook(() => useSwapActions().current, {
+        wrapper: first.Wrapper,
+      });
+      const secondHook = renderHook(() => useSwapActions().current, {
+        wrapper: second.Wrapper,
+      });
+      const params: IFetchQuotesParams = {
+        autoSlippage: true,
+        fromNetworkId: ethToken.networkId,
+        fromTokenAddress: ethToken.contractAddress,
+        fromTokenAmount: '1',
+        protocol: EProtocolOfExchange.SWAP,
+        slippagePercentage: 0.5,
+        toNetworkId: bnbToken.networkId,
+        toTokenAddress: bnbToken.contractAddress,
+      };
+      const publishQuote = (
+        quoteRequestId: string,
+        eventId: string,
+        quoteEventHandler: ReturnType<
+          typeof useSwapActions
+        >['current']['quoteEventHandler'],
+      ) => {
+        quoteEventHandler({
+          event: {
+            data: JSON.stringify({
+              data: [
+                {
+                  eventId,
+                  fromAmount: '1',
+                  fromTokenInfo: ethToken,
+                  info: {
+                    provider: 'store-provider',
+                    providerName: 'Store Provider',
+                  },
+                  kind: ESwapQuoteKind.SELL,
+                  protocol: EProtocolOfExchange.SWAP,
+                  quoteId: `${eventId}-quote`,
+                  toAmount: '2',
+                  toTokenInfo: bnbToken,
+                },
+              ],
+            }),
+          } as ISwapQuoteEvent,
+          type: 'message',
+          params,
+          quoteRequestId,
+          tokenPairs: {
+            fromToken: ethToken,
+            toToken: bnbToken,
+          },
+        });
+      };
+
+      act(() => {
+        publishQuote(
+          'first-store-request',
+          'first-store-event',
+          firstHook.result.current.quoteEventHandler,
+        );
+        publishQuote(
+          'second-store-request',
+          'second-store-event',
+          secondHook.result.current.quoteEventHandler,
+        );
+      });
+      expect(first.store.get(swapQuoteAutoRefreshTimerAtom())).toBeDefined();
+      expect(second.store.get(swapQuoteAutoRefreshTimerAtom())).toBeDefined();
+
+      act(() => {
+        secondHook.result.current.cleanQuoteInterval();
+      });
+      expect(first.store.get(swapQuoteAutoRefreshTimerAtom())).toBeDefined();
+      expect(second.store.get(swapQuoteAutoRefreshTimerAtom())).toBeUndefined();
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(swapRefreshInterval);
+      });
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
   });
 
   it('does not let delayed work from a replaced quote session start events', async () => {

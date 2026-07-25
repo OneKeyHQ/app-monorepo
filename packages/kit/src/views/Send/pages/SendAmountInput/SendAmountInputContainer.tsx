@@ -4081,7 +4081,6 @@ function SendAmountInputContainer() {
               isRefreshQuote={isPrivateSendQuoteRefreshing}
               isLoading={isPrivateSendQuoteRefreshing}
               isFocused={isRouteFocused}
-              autoRefresh={false}
             />
           </XStack>
           <XStack

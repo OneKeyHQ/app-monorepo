@@ -38,7 +38,6 @@ import {
   useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
   useSwapQuoteCurrentSelectAtom,
-  useSwapQuoteIntervalCountAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
@@ -48,10 +47,6 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import {
-  ESwapQuoteRefreshAction,
-  resolveSwapQuoteRefreshAction,
-} from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/MarketWatchListProviderMirrorV2';
 import {
@@ -82,7 +77,6 @@ import {
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { swapQuoteIntervalMaxCount } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchLimitOrderRes,
   IFetchQuoteResult,
@@ -182,15 +176,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
   const [fromTokenAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
-  const [swapQuoteIntervalCount, setSwapQuoteIntervalCount] =
-    useSwapQuoteIntervalCountAtom();
-  const {
-    selectFromToken,
-    selectToToken,
-    quoteAction,
-    cleanQuoteInterval,
-    requireManualQuoteRefresh,
-  } = useSwapActions().current;
+  const { selectFromToken, selectToToken, quoteAction, cleanQuoteInterval } =
+    useSwapActions().current;
   const [swapFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
@@ -554,55 +541,24 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     });
   }, [navigation, storeName]);
 
-  const refreshAction = useCallback(
-    (manual?: boolean) => {
-      if (manual) {
-        void quoteAction(
-          swapSlippageRef.current,
-          swapFromAddressInfo?.address,
-          swapFromAddressInfo?.accountInfo?.account?.id,
-          undefined,
-          undefined,
-          quoteResult?.kind ?? ESwapQuoteKind.SELL,
-          undefined,
-          toAddressInfo?.address,
-        );
-      } else {
-        const refreshTransition = resolveSwapQuoteRefreshAction({
-          automaticRefreshCount: swapQuoteIntervalCount,
-          maxAutomaticRefreshCount: swapQuoteIntervalMaxCount,
-        });
-        if (
-          refreshTransition.action ===
-          ESwapQuoteRefreshAction.RequireManualRefresh
-        ) {
-          void requireManualQuoteRefresh();
-          return;
-        }
-        setSwapQuoteIntervalCount(refreshTransition.nextAutomaticRefreshCount);
-        void quoteAction(
-          swapSlippageRef.current,
-          swapFromAddressInfo?.address,
-          swapFromAddressInfo?.accountInfo?.account?.id,
-          undefined,
-          true,
-          quoteResult?.kind ?? ESwapQuoteKind.SELL,
-          undefined,
-          toAddressInfo?.address,
-        );
-      }
-    },
-    [
-      quoteAction,
-      requireManualQuoteRefresh,
+  const refreshAction = useCallback(() => {
+    void quoteAction(
+      swapSlippageRef.current,
       swapFromAddressInfo?.address,
       swapFromAddressInfo?.accountInfo?.account?.id,
-      swapQuoteIntervalCount,
-      quoteResult?.kind,
-      setSwapQuoteIntervalCount,
+      undefined,
+      undefined,
+      quoteResult?.kind ?? ESwapQuoteKind.SELL,
+      undefined,
       toAddressInfo?.address,
-    ],
-  );
+    );
+  }, [
+    quoteAction,
+    swapFromAddressInfo?.address,
+    swapFromAddressInfo?.accountInfo?.account?.id,
+    quoteResult?.kind,
+    toAddressInfo?.address,
+  ]);
 
   const reserveGasFormatter: INumberFormatProps = useMemo(() => {
     return {
