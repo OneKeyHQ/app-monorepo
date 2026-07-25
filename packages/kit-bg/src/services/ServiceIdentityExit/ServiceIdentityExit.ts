@@ -3087,6 +3087,15 @@ class ServiceIdentityExit extends ServiceBase {
       };
     }
     if (
+      storedPlan.target.removeKeyless &&
+      storedPlan.publicPlan.confirmation.type !==
+        'keylessRemovalAcknowledgement'
+    ) {
+      throw new OneKeyLocalError(
+        'Keyless wallet removal plans require an acknowledgement confirmation.',
+      );
+    }
+    if (
       storedPlan.publicPlan.confirmation.type ===
         'keylessRemovalAcknowledgement' &&
       acknowledgement !== 'keylessWalletRemoval'
