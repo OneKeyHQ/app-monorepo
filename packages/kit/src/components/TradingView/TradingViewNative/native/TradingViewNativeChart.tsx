@@ -67,6 +67,7 @@ import {
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING as PRICE_AXIS_LABEL_RIGHT_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT as PRICE_AXIS_TICK_COUNT,
   TRADING_VIEW_NATIVE_PRICE_AXIS_WIDTH as PRICE_AXIS_WIDTH,
+  TRADING_VIEW_NATIVE_PRICE_EXTREMA_FONT_SIZE as PRICE_EXTREMA_FONT_SIZE,
   TRADING_VIEW_NATIVE_PRICE_LEGEND_TOP as PRICE_LEGEND_TOP,
   TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT as TIME_AXIS_HEIGHT,
@@ -88,6 +89,7 @@ import {
   getTradingViewNativeCurrentPriceLayout,
   getTradingViewNativeMaxVolume,
   getTradingViewNativePriceAtY,
+  getTradingViewNativePriceExtremumHorizontalLayout,
   getTradingViewNativePriceTransform,
   getTradingViewNativePriceY,
   getTradingViewNativeTimeAxisLayout,
@@ -110,6 +112,7 @@ import {
   getTradingViewNativeGestureStartOffsetAfterDataUpdate,
   getTradingViewNativeMaxPanOffset,
   getTradingViewNativePointIndexAtX,
+  getTradingViewNativePriceExtrema,
   getTradingViewNativePriceRange,
   getTradingViewNativeViewportOffsetTransition,
   getTradingViewNativeVisiblePointRange,
@@ -118,6 +121,7 @@ import {
 
 const PRICE_AXIS_FONT_SIZE = 12;
 const PRICE_AXIS_TEXT_BASELINE_OFFSET = PRICE_AXIS_FONT_SIZE / 2 - 1;
+const PRICE_EXTREMA_TEXT_BASELINE_OFFSET = PRICE_EXTREMA_FONT_SIZE / 2 - 1;
 const PRICE_AXIS_TICK_PROGRESS = Array.from(
   { length: PRICE_AXIS_TICK_COUNT },
   (_, index) => index / (PRICE_AXIS_TICK_COUNT - 1),
@@ -548,6 +552,96 @@ function TradingViewNativePriceTick({
         PRICE_AXIS_TEXT_BASELINE_OFFSET
       }
     />
+  );
+}
+
+function TradingViewNativePriceExtremum({
+  chartOpacity,
+  color,
+  font,
+  maxPrice,
+  minPrice,
+  panOffset,
+  pointCount,
+  pointIndex,
+  price,
+  priceAxisX,
+  priceChartHeight,
+  width,
+  zoomScale,
+}: {
+  chartOpacity: number;
+  color: string;
+  font: SkFont;
+  maxPrice: SharedValue<number>;
+  minPrice: SharedValue<number>;
+  panOffset: SharedValue<number>;
+  pointCount: number;
+  pointIndex: number;
+  price: number;
+  priceAxisX: number;
+  priceChartHeight: number;
+  width: number;
+  zoomScale: SharedValue<number>;
+}) {
+  const text = formatTradingViewNativePriceTick(price);
+  const textWidth = font.measureText(text).width;
+  const layout = useDerivedValue(() => {
+    const anchorX = getTradingViewNativeCandleX({
+      candleGap: NATIVE_CANDLE_GAP,
+      index: pointIndex,
+      offset: panOffset.value,
+      pointCount,
+      priceAxisX,
+      zoomScale: zoomScale.value,
+    });
+    const horizontalLayout = getTradingViewNativePriceExtremumHorizontalLayout({
+      anchorX,
+      canvasWidth: width,
+      textWidth,
+    });
+    const y = getTradingViewNativePriceY(price, {
+      maxPrice: maxPrice.value,
+      priceChartHeight,
+      priceRange: maxPrice.value - minPrice.value,
+    });
+
+    return {
+      anchorX,
+      ...horizontalLayout,
+      y,
+    };
+  });
+  const lineStart = useDerivedValue(() => ({
+    x: layout.value.anchorX,
+    y: layout.value.y,
+  }));
+  const lineEnd = useDerivedValue(() => ({
+    x: layout.value.lineEndX,
+    y: layout.value.y,
+  }));
+  const textX = useDerivedValue(() => layout.value.textX);
+  const textY = useDerivedValue(
+    () => layout.value.y + PRICE_EXTREMA_TEXT_BASELINE_OFFSET,
+  );
+  const opacity = useDerivedValue(() => {
+    const hasVisiblePriceRange =
+      Number.isFinite(maxPrice.value) &&
+      Number.isFinite(minPrice.value) &&
+      maxPrice.value >= minPrice.value;
+    const halfCandleWidth =
+      (TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH * zoomScale.value) / 2;
+    const isPointVisible =
+      layout.value.anchorX >= CHART_HORIZONTAL_PADDING - halfCandleWidth &&
+      layout.value.anchorX <= priceAxisX + halfCandleWidth;
+    return hasVisiblePriceRange && isPointVisible ? chartOpacity : 0;
+  });
+
+  return (
+    <Group opacity={opacity}>
+      <Line color={color} p1={lineStart} p2={lineEnd} strokeWidth={1} />
+      <Text color={color} font={font} text={text} x={textX} y={textY} />
+    </Group>
   );
 }
 
@@ -1113,6 +1207,14 @@ export const TradingViewNativeChart = memo(
         visiblePointRange,
       ],
     );
+    const visiblePriceExtrema = useMemo(
+      () =>
+        getTradingViewNativePriceExtrema({
+          ...visiblePointRange,
+          points,
+        }),
+      [points, visiblePointRange],
+    );
     const defaultPriceTransform = useMemo(() => {
       if (!chartPictureData || !defaultVisiblePriceRange) {
         return { scaleY: 1, translateY: 0 };
@@ -1637,6 +1739,40 @@ export const TradingViewNativeChart = memo(
                   </Group>
                 </Group>
               </Group>
+              {visiblePriceExtrema ? (
+                <>
+                  <TradingViewNativePriceExtremum
+                    chartOpacity={chartOpacity}
+                    color={axisText}
+                    font={legendFont}
+                    maxPrice={visibleMaxPrice}
+                    minPrice={visibleMinPrice}
+                    panOffset={panOffset}
+                    pointCount={pointCount}
+                    pointIndex={visiblePriceExtrema.high.index}
+                    price={visiblePriceExtrema.high.price}
+                    priceAxisX={priceAxisX}
+                    priceChartHeight={chartPictureData.priceChartHeight}
+                    width={chartSize.width}
+                    zoomScale={zoomScale}
+                  />
+                  <TradingViewNativePriceExtremum
+                    chartOpacity={chartOpacity}
+                    color={axisText}
+                    font={legendFont}
+                    maxPrice={visibleMaxPrice}
+                    minPrice={visibleMinPrice}
+                    panOffset={panOffset}
+                    pointCount={pointCount}
+                    pointIndex={visiblePriceExtrema.low.index}
+                    price={visiblePriceExtrema.low.price}
+                    priceAxisX={priceAxisX}
+                    priceChartHeight={chartPictureData.priceChartHeight}
+                    width={chartSize.width}
+                    zoomScale={zoomScale}
+                  />
+                </>
+              ) : null}
               <TradingViewNativeCrosshair
                 chartOpacity={chartOpacity}
                 color={axisText}

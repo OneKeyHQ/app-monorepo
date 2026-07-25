@@ -17,6 +17,16 @@ export interface ITradingViewNativePriceRange {
   minPrice: number;
 }
 
+export interface ITradingViewNativePriceExtremum {
+  index: number;
+  price: number;
+}
+
+export interface ITradingViewNativePriceExtrema {
+  high: ITradingViewNativePriceExtremum;
+  low: ITradingViewNativePriceExtremum;
+}
+
 export interface ITradingViewNativeDataUpdateMetadata {
   appendedPointCount: number;
   latestTimestamp: number | undefined;
@@ -353,6 +363,50 @@ export function getTradingViewNativePointIndexAtX({
   const index = pointCount - distanceFromNewest - 1;
 
   return index >= 0 && index < pointCount ? index : null;
+}
+
+export function getTradingViewNativePriceExtrema({
+  endIndex,
+  points,
+  startIndex,
+}: ITradingViewNativeVisiblePointRange & {
+  points: IMarketTokenKLineDataPoint[];
+}): ITradingViewNativePriceExtrema | null {
+  'worklet';
+
+  const clampedStartIndex = Math.min(
+    Math.max(Math.floor(startIndex), 0),
+    points.length,
+  );
+  const clampedEndIndex = Math.min(
+    Math.max(Math.floor(endIndex), clampedStartIndex),
+    points.length,
+  );
+  let highIndex = -1;
+  let highPrice = Number.NEGATIVE_INFINITY;
+  let lowIndex = -1;
+  let lowPrice = Number.POSITIVE_INFINITY;
+
+  for (let index = clampedStartIndex; index < clampedEndIndex; index += 1) {
+    const point = points[index];
+    if (Number.isFinite(point.l) && Number.isFinite(point.h)) {
+      if (point.h > highPrice) {
+        highIndex = index;
+        highPrice = point.h;
+      }
+      if (point.l < lowPrice) {
+        lowIndex = index;
+        lowPrice = point.l;
+      }
+    }
+  }
+
+  return highIndex >= 0 && lowIndex >= 0
+    ? {
+        high: { index: highIndex, price: highPrice },
+        low: { index: lowIndex, price: lowPrice },
+      }
+    : null;
 }
 
 export function getTradingViewNativePriceRange({
