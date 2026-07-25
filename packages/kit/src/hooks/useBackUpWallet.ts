@@ -1,11 +1,7 @@
 import { useCallback } from 'react';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import {
-  EModalKeyTagRoutes,
-  EModalRoutes,
-  ERootRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { ensureSensitiveTextEncoded } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
@@ -16,7 +12,10 @@ import { useCloudBackup } from '../views/Onboardingv2/hooks/useCloudBackup';
 
 import { useAccountData } from './useAccountData';
 import useAppNavigation from './useAppNavigation';
-import { navigateToBackupWalletReminderPage } from './usePageNavigation';
+import {
+  navigateToBackupWalletReminderPage,
+  navigateToKeyTagBackupDotMapPage,
+} from './usePageNavigation';
 
 function useBackUpWallet({ walletId }: { walletId: string }) {
   const { wallet } = useAccountData({ walletId });
@@ -60,17 +59,14 @@ function useBackUpWallet({ walletId }: { walletId: string }) {
           reason: EReasonForNeedPassword.Security,
         });
       if (encodedText) ensureSensitiveTextEncoded(encodedText);
-      navigation.pushModal(EModalRoutes.KeyTagModal, {
-        screen: EModalKeyTagRoutes.BackupDotMap,
-        params: {
-          wallet,
-          encodedText,
-          title: wallet.name,
-        },
+      navigateToKeyTagBackupDotMapPage({
+        wallet,
+        encodedText,
+        title: wallet.name,
       });
       defaultLogger.account.wallet.backupWallet('keyTag');
     }
-  }, [navigation, wallet]);
+  }, [wallet]);
 
   const handleBackUpByCloud = useCallback(async () => {
     defaultLogger.account.wallet.backupWallet('cloud');

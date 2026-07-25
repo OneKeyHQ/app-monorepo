@@ -102,6 +102,14 @@ export class PageScene extends BaseScene {
     return { isSuccess };
   }
 
+  // Fired when the checksum-review terminal state hands off to the generic
+  // phrase-import page, so the keyTag funnel keeps attribution.
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public keyTagImportFallbackToText() {
+    return {};
+  }
+
   @LogToLocal({ level: 'info' })
   public clearDataStep(stepName: string) {
     return { stepName };

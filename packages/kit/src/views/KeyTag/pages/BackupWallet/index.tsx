@@ -14,22 +14,23 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletListView } from '@onekeyhq/kit/src/components/WalletListView';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import {
+  navigateToKeyTagBackupDotMapPage,
+  navigateToKeyTagEnterPhrasePage,
+} from '@onekeyhq/kit/src/hooks/usePageNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { shouldShowMnemonicBackupEntryForWallet } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalKeyTagRoutes } from '@onekeyhq/shared/src/routes';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { KeyTagTestIDs } from '../../testIDs';
 
 const ListFooterComponent = ({ walletCount }: { walletCount: number }) => {
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const onPress = useCallback(() => {
-    navigation.push(EModalKeyTagRoutes.BackupRecoveryPhrase);
-  }, [navigation]);
+    navigateToKeyTagEnterPhrasePage();
+  }, []);
   return (
     <YStack>
       {walletCount ? (
@@ -64,7 +65,6 @@ const ListFooterComponent = ({ walletCount }: { walletCount: number }) => {
 
 const BackupWallet = () => {
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const walletList = usePromiseResult(async () => {
     const { wallets } = await backgroundApiProxy.serviceAccount.getWallets();
     const hdWalletList = wallets.filter((wallet) =>
@@ -75,21 +75,18 @@ const BackupWallet = () => {
     );
     return hdWalletList;
   }, []).result;
-  const onPick = useCallback(
-    async (item: IDBWallet) => {
-      const { mnemonic: encodedText } =
-        await backgroundApiProxy.serviceAccount.getHDAccountMnemonic({
-          walletId: item.id,
-          reason: EReasonForNeedPassword.Security,
-        });
-      navigation.push(EModalKeyTagRoutes.BackupDotMap, {
-        wallet: item,
-        encodedText,
-        title: item.name,
+  const onPick = useCallback(async (item: IDBWallet) => {
+    const { mnemonic: encodedText } =
+      await backgroundApiProxy.serviceAccount.getHDAccountMnemonic({
+        walletId: item.id,
+        reason: EReasonForNeedPassword.Security,
       });
-    },
-    [navigation],
-  );
+    navigateToKeyTagBackupDotMapPage({
+      wallet: item,
+      encodedText,
+      title: item.name,
+    });
+  }, []);
   return (
     <Page>
       <Page.Header

@@ -23,7 +23,6 @@ import {
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { ListItem } from '../../../components/ListItem';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -116,12 +115,8 @@ function CreateOrImportWallet() {
     });
   }, [navigation, isSoftwareWalletOnlyUser]);
 
-  const handleImportKeyTag = useCallback(async () => {
-    await backgroundApiProxy.servicePassword.promptPasswordVerify();
-    // V2 ImportKeyTag page exists but the V1 modal flow is the production path.
-    navigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.ImportKeyTag,
-    });
+  const handleImportKeyTag = useCallback(() => {
+    navigation.push(EOnboardingPagesV2.ImportKeyTag);
     defaultLogger.account.wallet.addWalletStarted({
       addMethod: 'ImportWallet',
       details: { importType: 'keyTag' },

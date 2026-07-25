@@ -1564,3 +1564,9 @@ navigations
 
 # OpenType tabular-figures feature tag
 tnum
+EXCLUDEFROMCAPTURE
+
+# KeyTag punch/verify domain terms
+mistap
+mispunch
+mispunched

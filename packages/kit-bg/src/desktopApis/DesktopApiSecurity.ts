@@ -50,6 +50,20 @@ class DesktopApiSecurity {
     }
   }
 
+  // Blanks the window in screenshots/recordings/screen shares while sensitive
+  // content (e.g. a recovery phrase) is on screen. macOS uses
+  // NSWindowSharingNone; Windows needs 10 2004+ (WDA_EXCLUDEFROMCAPTURE);
+  // Linux Electron is a documented no-op.
+  async setContentProtection(enabled: boolean): Promise<void> {
+    try {
+      const win =
+        globalThis.$desktopMainAppFunctions?.getSafelyBrowserWindow?.();
+      win?.setContentProtection(enabled);
+    } catch (error) {
+      logger.error('[SET_CONTENT_PROTECTION] Error:', error);
+    }
+  }
+
   async promptTouchID(
     msg: string,
   ): Promise<{ success: boolean; error?: string; isSupport: boolean }> {

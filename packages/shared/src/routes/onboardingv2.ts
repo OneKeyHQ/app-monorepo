@@ -1,4 +1,7 @@
-import type { IKeylessWalletDetailsInfo } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBWallet,
+  IKeylessWalletDetailsInfo,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 import type { EConnectDeviceChannel } from '../../types/connectDevice';
 import type {
@@ -47,6 +50,10 @@ export enum EOnboardingPagesV2 {
   ConnectWalletSelectNetworks = 'ConnectWalletSelectNetworks',
   ConnectExternalWallet = 'ConnectExternalWallet',
   ImportKeyTag = 'ImportKeyTag',
+  // The KeyTag "view dots to back up" and "enter phrase" content pages live in
+  // the onboarding page stack; the hub + wallet selector stay in KeyTagModal.
+  KeyTagBackupDotMap = 'KeyTagBackupDotMap',
+  KeyTagEnterPhrase = 'KeyTagEnterPhrase',
   OneKeyIDLogin = 'OneKeyIDLogin',
   CreatePin = 'CreatePin',
   ConfirmPin = 'ConfirmPin',
@@ -135,6 +142,12 @@ export type IOnboardingParamListV2 = {
     title: string;
   };
   [EOnboardingPagesV2.ImportKeyTag]: undefined;
+  [EOnboardingPagesV2.KeyTagBackupDotMap]: {
+    wallet?: IDBWallet;
+    encodedText: string;
+    title: string;
+  };
+  [EOnboardingPagesV2.KeyTagEnterPhrase]: undefined;
   [EOnboardingPagesV2.OneKeyIDLogin]: {
     mode: EOnboardingV2OneKeyIDLoginMode;
     provider?: EOAuthSocialLoginProvider;
