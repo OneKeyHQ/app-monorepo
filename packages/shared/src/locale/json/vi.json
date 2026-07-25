@@ -3121,7 +3121,7 @@
   "perp_unifold_source_network__title": "Mạng nguồn",
   "perp_unifold_terms__action": "Điều khoản",
   "perp_unifold_third_party_conversion_fee__title": "Phí chuyển đổi của bên thứ ba",
-  "perp_unifold_token_contract__title": "Hợp đồng token",
+  "perp_unifold_token_contract__title": "Hợp đồng",
   "perp_unifold_token_contract_warning__desc": "Địa chỉ hợp đồng token không phải là địa chỉ nạp tiền của bạn. Gửi tiền đến địa chỉ này có thể khiến bạn mất tài sản. Hãy đảm bảo thông tin này khớp với {token} bạn muốn nạp.",
   "perp_unifold_track_progress__desc": "Theo dõi tiến trình gửi tiền của bạn",
   "perp_unifold_transfer_crypto__title": "Chuyển tiền mã hóa",

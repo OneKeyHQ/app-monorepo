@@ -3121,7 +3121,7 @@
   "perp_unifold_source_network__title": "Вихідна мережа",
   "perp_unifold_terms__action": "Умови",
   "perp_unifold_third_party_conversion_fee__title": "Комісія стороннього сервісу за конвертацію",
-  "perp_unifold_token_contract__title": "Контракт токена",
+  "perp_unifold_token_contract__title": "Контракт",
   "perp_unifold_token_contract_warning__desc": "Адреса контракту токена — не ваша адреса для депозиту. Надсилання коштів на неї може призвести до втрати активів. Переконайтеся, що ця інформація відповідає токену {token}, який ви хочете внести.",
   "perp_unifold_track_progress__desc": "Відстежуйте статус депозиту",
   "perp_unifold_transfer_crypto__title": "Переказати криптовалюту",

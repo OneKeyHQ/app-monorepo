@@ -3121,7 +3121,7 @@
   "perp_unifold_source_network__title": "送信元ネットワーク",
   "perp_unifold_terms__action": "規約",
   "perp_unifold_third_party_conversion_fee__title": "第三者サービスの交換手数料",
-  "perp_unifold_token_contract__title": "トークンコントラクト",
+  "perp_unifold_token_contract__title": "コントラクト",
   "perp_unifold_token_contract_warning__desc": "トークンコントラクトアドレスは入金アドレスではありません。このアドレスに資金を送ると、資産を失う可能性があります。入金する {token} とこの情報が一致していることを確認してください。",
   "perp_unifold_track_progress__desc": "入金の進捗を追跡",
   "perp_unifold_transfer_crypto__title": "暗号資産を送金",

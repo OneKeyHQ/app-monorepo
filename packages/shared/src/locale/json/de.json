@@ -3121,7 +3121,7 @@
   "perp_unifold_source_network__title": "Quellnetzwerk",
   "perp_unifold_terms__action": "Bedingungen",
   "perp_unifold_third_party_conversion_fee__title": "Umtauschgebühr des Drittanbieters",
-  "perp_unifold_token_contract__title": "Token-Contract",
+  "perp_unifold_token_contract__title": "Vertrag",
   "perp_unifold_token_contract_warning__desc": "Die Token-Contract-Adresse ist nicht deine Einzahlungsadresse. Wenn du Geld dorthin sendest, kann dies zum Verlust deiner Vermögenswerte führen. Stelle sicher, dass diese Angaben mit dem {token} übereinstimmen, das du einzahlen möchtest.",
   "perp_unifold_track_progress__desc": "Verfolge den Fortschritt deiner Einzahlung",
   "perp_unifold_transfer_crypto__title": "Krypto übertragen",

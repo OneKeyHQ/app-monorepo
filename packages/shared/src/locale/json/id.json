@@ -3121,7 +3121,7 @@
   "perp_unifold_source_network__title": "Jaringan sumber",
   "perp_unifold_terms__action": "Ketentuan",
   "perp_unifold_third_party_conversion_fee__title": "Biaya konversi pihak ketiga",
-  "perp_unifold_token_contract__title": "Kontrak token",
+  "perp_unifold_token_contract__title": "Kontrak",
   "perp_unifold_token_contract_warning__desc": "Alamat kontrak token bukan alamat deposit Anda. Mengirim dana ke alamat tersebut dapat menyebabkan kehilangan aset. Pastikan informasi ini sesuai dengan {token} yang ingin Anda depositkan.",
   "perp_unifold_track_progress__desc": "Lacak progres deposit Anda",
   "perp_unifold_transfer_crypto__title": "Transfer Kripto",

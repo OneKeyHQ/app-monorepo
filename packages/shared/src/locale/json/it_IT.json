@@ -3121,7 +3121,7 @@
   "perp_unifold_source_network__title": "Rete di origine",
   "perp_unifold_terms__action": "Termini",
   "perp_unifold_third_party_conversion_fee__title": "Commissione di conversione di terze parti",
-  "perp_unifold_token_contract__title": "Contratto del token",
+  "perp_unifold_token_contract__title": "Contratto",
   "perp_unifold_token_contract_warning__desc": "L’indirizzo del contratto del token non è il tuo indirizzo di deposito. L’invio di fondi a questo indirizzo può causare la perdita degli asset. Assicurati che queste informazioni corrispondano al {token} che vuoi depositare.",
   "perp_unifold_track_progress__desc": "Monitora l’avanzamento del deposito",
   "perp_unifold_transfer_crypto__title": "Trasferisci crypto",

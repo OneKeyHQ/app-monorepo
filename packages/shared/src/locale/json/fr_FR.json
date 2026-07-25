@@ -3121,7 +3121,7 @@
   "perp_unifold_source_network__title": "Réseau source",
   "perp_unifold_terms__action": "Conditions",
   "perp_unifold_third_party_conversion_fee__title": "Frais de conversion du prestataire tiers",
-  "perp_unifold_token_contract__title": "Contrat du jeton",
+  "perp_unifold_token_contract__title": "Contrat",
   "perp_unifold_token_contract_warning__desc": "L’adresse du contrat du jeton n’est pas votre adresse de dépôt. L’envoi de fonds à cette adresse peut entraîner une perte d’actifs. Vérifiez que ces informations correspondent au {token} que vous souhaitez déposer.",
   "perp_unifold_track_progress__desc": "Suivez la progression de votre dépôt",
   "perp_unifold_transfer_crypto__title": "Transférer des cryptos",

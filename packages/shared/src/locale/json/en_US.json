@@ -3121,7 +3121,7 @@
   "perp_unifold_source_network__title": "Source Network",
   "perp_unifold_terms__action": "Terms",
   "perp_unifold_third_party_conversion_fee__title": "Third-party conversion fee",
-  "perp_unifold_token_contract__title": "Token contract",
+  "perp_unifold_token_contract__title": "Contract",
   "perp_unifold_token_contract_warning__desc": "The token contract address is not your deposit address. Sending funds to it may result in asset loss. Make sure this information matches the {token} you want to deposit.",
   "perp_unifold_track_progress__desc": "Track your deposit progress",
   "perp_unifold_transfer_crypto__title": "Transfer Crypto",

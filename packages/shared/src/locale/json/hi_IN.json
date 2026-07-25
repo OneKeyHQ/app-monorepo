@@ -3121,7 +3121,7 @@
   "perp_unifold_source_network__title": "स्रोत नेटवर्क",
   "perp_unifold_terms__action": "शर्तें",
   "perp_unifold_third_party_conversion_fee__title": "तृतीय-पक्ष रूपांतरण शुल्क",
-  "perp_unifold_token_contract__title": "टोकन कॉन्ट्रैक्ट",
+  "perp_unifold_token_contract__title": "कॉन्ट्रैक्ट",
   "perp_unifold_token_contract_warning__desc": "टोकन कॉन्ट्रैक्ट का पता आपका जमा पता नहीं है। इस पते पर धन भेजने से संपत्ति का नुकसान हो सकता है। सुनिश्चित करें कि यह जानकारी उस {token} से मेल खाती है जिसे आप जमा करना चाहते हैं।",
   "perp_unifold_track_progress__desc": "अपने डिपॉज़िट की प्रगति ट्रैक करें",
   "perp_unifold_transfer_crypto__title": "क्रिप्टो ट्रांसफ़र करें",

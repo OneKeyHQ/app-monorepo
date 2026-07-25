@@ -3121,7 +3121,7 @@
   "perp_unifold_source_network__title": "Red de origen",
   "perp_unifold_terms__action": "Términos",
   "perp_unifold_third_party_conversion_fee__title": "Comisión de conversión de terceros",
-  "perp_unifold_token_contract__title": "Contrato del token",
+  "perp_unifold_token_contract__title": "Contrato",
   "perp_unifold_token_contract_warning__desc": "La dirección del contrato del token no es tu dirección de depósito. Enviar fondos allí puede provocar la pérdida de activos. Asegúrate de que esta información coincida con el {token} que quieres depositar.",
   "perp_unifold_track_progress__desc": "Sigue el progreso de tu depósito",
   "perp_unifold_transfer_crypto__title": "Transferir cripto",

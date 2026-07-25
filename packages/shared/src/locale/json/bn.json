@@ -3121,7 +3121,7 @@
   "perp_unifold_source_network__title": "উৎস নেটওয়ার্ক",
   "perp_unifold_terms__action": "শর্তাবলি",
   "perp_unifold_third_party_conversion_fee__title": "তৃতীয় পক্ষের রূপান্তর ফি",
-  "perp_unifold_token_contract__title": "টোকেন কন্ট্র্যাক্ট",
+  "perp_unifold_token_contract__title": "কন্ট্র্যাক্ট",
   "perp_unifold_token_contract_warning__desc": "টোকেন কন্ট্র্যাক্টের ঠিকানাটি আপনার ডিপোজিট ঠিকানা নয়। সেখানে অর্থ পাঠালে সম্পদ হারাতে পারেন। এই তথ্যটি আপনি যে {token} ডিপোজিট করতে চান তার সঙ্গে মেলে কি না নিশ্চিত করুন।",
   "perp_unifold_track_progress__desc": "আপনার ডিপোজিটের অগ্রগতি ট্র্যাক করুন",
   "perp_unifold_transfer_crypto__title": "ক্রিপ্টো ট্রান্সফার",

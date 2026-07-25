@@ -3121,7 +3121,7 @@
   "perp_unifold_source_network__title": "เครือข่ายต้นทาง",
   "perp_unifold_terms__action": "ข้อกำหนด",
   "perp_unifold_third_party_conversion_fee__title": "ค่าธรรมเนียมการแปลงโดยบุคคลที่สาม",
-  "perp_unifold_token_contract__title": "สัญญาโทเค็น",
+  "perp_unifold_token_contract__title": "สัญญา",
   "perp_unifold_token_contract_warning__desc": "ที่อยู่สัญญาโทเค็นไม่ใช่ที่อยู่ฝากเงินของคุณ การส่งเงินไปยังที่อยู่นี้อาจทำให้สูญเสียสินทรัพย์ โปรดตรวจสอบว่าข้อมูลนี้ตรงกับ {token} ที่คุณต้องการฝาก",
   "perp_unifold_track_progress__desc": "ติดตามความคืบหน้าการฝากของคุณ",
   "perp_unifold_transfer_crypto__title": "โอนคริปโต",

@@ -3121,7 +3121,7 @@
   "perp_unifold_source_network__title": "소스 네트워크",
   "perp_unifold_terms__action": "약관",
   "perp_unifold_third_party_conversion_fee__title": "제3자 환전 수수료",
-  "perp_unifold_token_contract__title": "토큰 컨트랙트",
+  "perp_unifold_token_contract__title": "컨트랙트",
   "perp_unifold_token_contract_warning__desc": "토큰 컨트랙트 주소는 입금 주소가 아닙니다. 이 주소로 자금을 보내면 자산을 잃을 수 있습니다. 이 정보가 입금하려는 {token}과 일치하는지 확인하세요.",
   "perp_unifold_track_progress__desc": "입금 진행 상황 추적",
   "perp_unifold_transfer_crypto__title": "암호화폐 전송",
