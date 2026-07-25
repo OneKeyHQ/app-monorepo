@@ -22,6 +22,8 @@ const stripeV3RuntimeMarker = 'webpackChunkStripeJSouter';
 const stripeV3FrameBaseMarker = 'DANGEROUS_BREAKS_ORIGIN_CHECKING_baseUrl';
 const stripeV3SourcePublicPathPattern =
   /(\.p\s*=\s*)(["'])https:\/\/js\.stripe\.com\/v3\/\2/g;
+const stripeV3FrameBaseFallbackPattern =
+  /\|\|(["'])https:\/\/js\.stripe\.com\/v3\/\1/g;
 const stripeV3FramePathPattern = /elements-inner-payment-[a-f0-9]+\.html/g;
 
 function getBrowser() {
@@ -144,12 +146,11 @@ function assertStripeV3Runtime(files, jsFiles) {
     frameBaseMarkerIndex,
     frameBaseMarkerIndex + 1000,
   );
-  // This scans emitted JavaScript source for the expected Stripe frame helper,
-  // not an untrusted URL that will be parsed or navigated to.
-  // codeql[js/incomplete-url-substring-sanitization]
-  if (!frameBaseSource.includes(stripeV3BaseUrl)) {
+  const frameBaseFallbackMatches =
+    frameBaseSource.match(stripeV3FrameBaseFallbackPattern) || [];
+  if (frameBaseFallbackMatches.length !== 1) {
     throw new Error(
-      `Stripe v3 frame URL helper lost its remote base in ${jsFile}`,
+      `Expected one exact Stripe v3 frame URL fallback in ${jsFile}, found ${frameBaseFallbackMatches.length}`,
     );
   }
 
