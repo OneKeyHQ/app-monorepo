@@ -8242,9 +8242,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
    * Resolve which existing device record (if any) a connecting device maps to.
    *
    * OneKey (HD) and third-party vendors are dispatched separately on purpose:
-   * OneKey must stay reachable even if third-party resolution is broken, so its
-   * branch never enters third-party code, and third-party failures degrade to
-   * "no match" (create a new device) instead of failing wallet creation.
+   * only the third-party path can run vendor reseed recovery, so OneKey stays
+   * reachable no matter what that recovery does.
    */
   async getExistingDevice(
     params: IResolveExistingDeviceParams,
@@ -8253,16 +8252,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (!profile.isThirdParty) {
       return this._resolveExistingOneKeyDevice(params);
     }
-    try {
-      return await this._resolveExistingThirdPartyDevice(params, profile);
-    } catch (error) {
-      defaultLogger.hardware.sdkLog.log(
-        `[getExistingDevice] third-party resolution failed, treating as no match: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-      return undefined;
-    }
+    return this._resolveExistingThirdPartyDevice(params, profile);
   }
 
   /** OneKey (HD): identity match only — it never runs reseed recovery. */
@@ -8281,14 +8271,29 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     params: IResolveExistingDeviceParams,
     profile: IHardwareVendorProfile,
   ): Promise<IDBDevice | undefined> {
+    // Identity matching keeps the same failure semantics as OneKey: a DB read
+    // failure must surface, never be mistaken for "no such device" — that would
+    // silently create a duplicate device record.
     const matched = await this._matchExistingDeviceRecord(params);
     if (matched) {
       return matched;
     }
-    if (profile.reseedRecovery === 'xfp' && params.resolveReuseDeviceFn) {
-      return params.resolveReuseDeviceFn();
+    if (profile.reseedRecovery !== 'xfp' || !params.resolveReuseDeviceFn) {
+      return undefined;
     }
-    return undefined;
+    // Only the vendor recovery is contained. It is the part that reaches out to
+    // third-party services, and it runs after the device is already known to be
+    // unmatched, so failing it costs nothing beyond creating a new device.
+    try {
+      return await params.resolveReuseDeviceFn();
+    } catch (error) {
+      defaultLogger.hardware.sdkLog.log(
+        `[getExistingDevice] reseed recovery failed, treating as no match: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return undefined;
+    }
   }
 
   private async _matchExistingDeviceRecord({
