@@ -87,7 +87,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import {
+  type IHardwareVendorProfile,
+  getVendorProfile,
+} from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -714,6 +717,20 @@ export type IIndexedAccountsCreationPreparedData = {
   // indexedAccountId -> cloud sync item id (deterministic key), used to filter
   // pre-built sync items down to the accounts that survive the in-tx recheck
   syncItemIdByIndexedAccountId: Record<string, string>;
+};
+
+type IResolveExistingDeviceParams = {
+  rawDeviceId: string;
+  uuid: string;
+  connectId?: string;
+  getFirstEvmAddressFn?: () => Promise<string | null>;
+  verifySeedMatchFn?: (
+    matchedDevice: IDBDevice,
+  ) => Promise<'match' | 'mismatch' | 'unknown'>;
+  // Vendor-declared reseed recovery, invoked only on the third-party path when
+  // identity matching misses. OneKey never reaches it.
+  resolveReuseDeviceFn?: () => Promise<IDBDevice | undefined>;
+  vendor?: EHardwareVendor;
 };
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
@@ -5713,27 +5730,26 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       features,
       isThirdParty: getVendorProfile(vendor)?.isThirdParty,
     });
-    let existingDevice = await this.getExistingDevice({
+    const resolveReuseDeviceFn = params.resolveReuseDeviceFn;
+    const existingDevice = await this.getExistingDevice({
       rawDeviceId,
       uuid: deviceUUID,
       connectId: device.connectId ?? undefined,
       getFirstEvmAddressFn: params.getFirstEvmAddressFn,
       verifySeedMatchFn: params.verifySeedMatchFn,
+      // Reseed recovery is applied inside the third-party resolution path; the
+      // caller owns the rule, this layer only supplies the identity context.
+      resolveReuseDeviceFn: resolveReuseDeviceFn
+        ? () =>
+            resolveReuseDeviceFn({
+              vendor,
+              features,
+              rawDeviceId,
+              deviceUUID,
+            })
+        : undefined,
       vendor,
     });
-
-    // When identity matching finds nothing, let the upper layer point at an
-    // existing device row to reuse (e.g. third-party same-mnemonic re-bind by
-    // XFP). The rule lives in the caller; the DB layer just passes the identity
-    // context it already computed and takes back the row to reuse.
-    if (!existingDevice && params.resolveReuseDeviceFn) {
-      existingDevice = await params.resolveReuseDeviceFn({
-        vendor,
-        features,
-        rawDeviceId,
-        deviceUUID,
-      });
-    }
 
     const dbDeviceId = existingDevice?.id || accountUtils.buildDeviceDbId();
     const dbWalletId = accountUtils.buildHwWalletId({
@@ -8230,22 +8246,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
    * branch never enters third-party code, and third-party failures degrade to
    * "no match" (create a new device) instead of failing wallet creation.
    */
-  async getExistingDevice(params: {
-    rawDeviceId: string;
-    uuid: string;
-    connectId?: string;
-    getFirstEvmAddressFn?: () => Promise<string | null>;
-    verifySeedMatchFn?: (
-      matchedDevice: IDBDevice,
-    ) => Promise<'match' | 'mismatch' | 'unknown'>;
-    vendor?: EHardwareVendor;
-  }): Promise<IDBDevice | undefined> {
+  async getExistingDevice(
+    params: IResolveExistingDeviceParams,
+  ): Promise<IDBDevice | undefined> {
     const profile = getVendorProfile(params.vendor ?? EHardwareVendor.onekey);
     if (!profile.isThirdParty) {
-      return this._resolveExistingDevice(params);
+      return this._resolveExistingOneKeyDevice(params);
     }
     try {
-      return await this._resolveExistingDevice(params);
+      return await this._resolveExistingThirdPartyDevice(params, profile);
     } catch (error) {
       defaultLogger.hardware.sdkLog.log(
         `[getExistingDevice] third-party resolution failed, treating as no match: ${
@@ -8256,7 +8265,33 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
-  private async _resolveExistingDevice({
+  /** OneKey (HD): identity match only — it never runs reseed recovery. */
+  private async _resolveExistingOneKeyDevice(
+    params: IResolveExistingDeviceParams,
+  ): Promise<IDBDevice | undefined> {
+    return this._matchExistingDeviceRecord(params);
+  }
+
+  /**
+   * Third-party (Trezor / Ledger): identity match, then the vendor's declared
+   * reseed recovery when the match misses (e.g. a wiped Trezor whose device id
+   * changed but whose seed still maps to the old wallet).
+   */
+  private async _resolveExistingThirdPartyDevice(
+    params: IResolveExistingDeviceParams,
+    profile: IHardwareVendorProfile,
+  ): Promise<IDBDevice | undefined> {
+    const matched = await this._matchExistingDeviceRecord(params);
+    if (matched) {
+      return matched;
+    }
+    if (profile.reseedRecovery === 'xfp' && params.resolveReuseDeviceFn) {
+      return params.resolveReuseDeviceFn();
+    }
+    return undefined;
+  }
+
+  private async _matchExistingDeviceRecord({
     // required: After resetting, the device will be considered as a new one.
     //      use the getSameDeviceByUUIDEvenIfReset() method if you want to find the same device even if it is reset.
     rawDeviceId,

@@ -6,6 +6,8 @@ export type IHardwareVendorAddAccountDefaultNetworkMode =
   | 'onekeyDefault'
   | 'ledgerAppAware';
 
+export type IHardwareVendorReseedRecovery = 'none' | 'xfp';
+
 export interface IHardwareVendorProfile {
   vendor: EHardwareVendor;
   /** Whether this is a third-party (non-OneKey) vendor */
@@ -48,11 +50,14 @@ export interface IHardwareVendorProfile {
    *  BLE: persistent (MAC/UUID). USB: ephemeral, won't match anything anyway. */
   canMatchDeviceByConnectId(connectId: string): boolean;
   /**
-   * On identity miss, whether a seed (XFP) match reuses the existing device row
-   * instead of duplicating. Single gate for the seed-rebind hook — set per
-   * vendor here, no scattered `vendor === x` checks.
+   * How to recover the existing device record when identity matching misses —
+   * e.g. a wipe changed the device id, but the seed is the same physical device.
+   * Declared per vendor so resolution stays capability-driven: a new vendor opts
+   * in here instead of adding a `vendor === x` branch to the resolver.
+   *  - 'none': no recovery, a miss creates a new device
+   *  - 'xfp': match the seed fingerprint of an existing wallet (Trezor)
    */
-  treatsSameSeedAsSameDevice: boolean;
+  reseedRecovery: IHardwareVendorReseedRecovery;
 }
 
 const onekeyProfile: IHardwareVendorProfile = {
@@ -77,7 +82,8 @@ const onekeyProfile: IHardwareVendorProfile = {
   addAccountDefaultNetworkMode: 'onekeyDefault',
   // OneKey always has device_id, so this path isn't used
   canMatchDeviceByConnectId: () => true,
-  treatsSameSeedAsSameDevice: false,
+  // OneKey resolves on its own isolated path and never uses this.
+  reseedRecovery: 'none',
 };
 
 const ledgerProfile: IHardwareVendorProfile = {
@@ -103,7 +109,7 @@ const ledgerProfile: IHardwareVendorProfile = {
   // BLE: DMK transport path (MAC/UUID), persistent. USB: ephemeral UUID, never matches.
   canMatchDeviceByConnectId: (connectId) => Boolean(connectId),
   // Two same-seed Ledgers are distinct devices; never merge them by seed.
-  treatsSameSeedAsSameDevice: false,
+  reseedRecovery: 'none',
 };
 
 // Trezor THP (Safe 7) — the only Trezor firmware we currently support. PIN
@@ -140,7 +146,7 @@ const trezorProfile: IHardwareVendorProfile = {
   addAccountDefaultNetworkMode: 'onekeyDefault',
   canMatchDeviceByConnectId: (connectId) => Boolean(connectId),
   // A wipe changes device_id; the re-flashed same-seed device re-binds its wallet.
-  treatsSameSeedAsSameDevice: true,
+  reseedRecovery: 'xfp',
 };
 
 const vendorProfiles: Record<EHardwareVendor, IHardwareVendorProfile> = {

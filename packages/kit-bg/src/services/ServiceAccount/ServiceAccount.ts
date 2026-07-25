@@ -3757,7 +3757,7 @@ class ServiceAccount extends ServiceBase {
       // today; Ledger/OneKey opt out via profile). xfp is closed over (SDK-
       // derived, absent from the DB layer); the rest comes from the hook ctx.
       resolveReuseDeviceFn:
-        vendorProfile?.treatsSameSeedAsSameDevice && !passphraseState
+        vendorProfile?.reseedRecovery === 'xfp' && !passphraseState
           ? async (ctx) =>
               this.backgroundApi.serviceThirdPartyHardware.resolveRebindDevice({
                 xfp,
