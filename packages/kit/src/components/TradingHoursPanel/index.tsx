@@ -94,9 +94,11 @@ const ROW_META: Array<{
 function LiquidityIndicator({
   level,
   isActive,
+  dense,
 }: {
   level: ILiquidityLevel;
   isActive: boolean;
+  dense?: boolean;
 }) {
   const intl = useIntl();
   const filled = LIQUIDITY_FILLED_BARS[level];
@@ -111,7 +113,7 @@ function LiquidityIndicator({
           <Stack
             key={i}
             w={3}
-            h={10}
+            h={dense ? 8 : 10}
             borderRadius={1}
             bg={i < filled ? filledColor : '$neutral5'}
           />
@@ -171,35 +173,52 @@ function SessionRow({
   title,
   isActive,
   liquidity,
+  dense,
   children,
 }: {
   icon: IKeyOfIcons;
   title: string;
   isActive: boolean;
   liquidity: ILiquidityLevel;
+  dense?: boolean;
   children: ReactNode;
 }) {
   const intl = useIntl();
   return (
     <XStack
-      gap="$2.5"
-      px="$3"
-      py="$2.5"
-      borderRadius="$3"
+      gap={dense ? '$2' : '$2.5'}
+      px={dense ? '$2.5' : '$3'}
+      py={dense ? '$2' : '$2.5'}
+      borderRadius={dense ? 10 : '$3'}
       bg={isActive ? '$bgSuccess' : undefined}
       alignItems="flex-start"
       w="100%"
     >
-      <Stack w="$5" h="$6" alignItems="center" justifyContent="center">
-        <Icon name={icon} size="$5" color="$icon" />
+      <Stack
+        w={dense ? '$4' : '$5'}
+        h={dense ? '$5' : '$6'}
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Icon name={icon} size={dense ? '$4' : '$5'} color="$icon" />
       </Stack>
       <YStack gap="$0.5" flex={1}>
         <XStack alignItems="center" justifyContent="space-between">
           <XStack gap="$1.5" alignItems="center">
-            <SizableText size="$bodyLgMedium">{title}</SizableText>
+            <SizableText size={dense ? '$bodyMdMedium' : '$bodyLgMedium'}>
+              {title}
+            </SizableText>
             {isActive ? (
-              <Stack bg="$iconSuccess" borderRadius="$full" px="$1.5" py="$0.5">
-                <SizableText size="$bodySmMedium" color="$textInverse">
+              <Stack
+                bg="$iconSuccess"
+                borderRadius="$full"
+                px={dense ? '$1' : '$1.5'}
+                py={dense ? 1 : '$0.5'}
+              >
+                <SizableText
+                  size={dense ? '$bodyXsMedium' : '$bodySmMedium'}
+                  color="$textInverse"
+                >
                   {intl.formatMessage({
                     id: ETranslations.trading_hours_regular_market_now,
                   })}
@@ -207,7 +226,11 @@ function SessionRow({
               </Stack>
             ) : null}
           </XStack>
-          <LiquidityIndicator level={liquidity} isActive={isActive} />
+          <LiquidityIndicator
+            level={liquidity}
+            isActive={isActive}
+            dense={dense}
+          />
         </XStack>
         {children}
       </YStack>
@@ -215,14 +238,24 @@ function SessionRow({
   );
 }
 
-function TradingHoursTitle() {
+function TradingHoursTitle({ dense }: { dense?: boolean }) {
   const intl = useIntl();
   return (
-    <XStack gap="$2" alignItems="center">
-      <SizableText size="$headingXl">
+    <XStack
+      gap="$2"
+      alignItems="center"
+      justifyContent={dense ? 'space-between' : 'flex-start'}
+      flex={dense ? 1 : undefined}
+    >
+      <SizableText size={dense ? '$headingMd' : '$headingXl'}>
         {intl.formatMessage({ id: ETranslations.trading_hours_title })}
       </SizableText>
-      <Stack bg="$bgStrong" borderRadius={6} px="$2" py={3}>
+      <Stack
+        bg="$bgStrong"
+        borderRadius={dense ? '$1' : 6}
+        px={dense ? '$1.5' : '$2'}
+        py={dense ? 2 : 3}
+      >
         <SizableText size="$bodySm" color="$textSubdued">
           {getDeviceUtcOffsetLabel()}
         </SizableText>
@@ -234,14 +267,19 @@ function TradingHoursTitle() {
 function TradingHoursContent({
   stock,
   showInlineHeader,
+  dense,
 }: {
   stock: IMarketStockInfo;
   // The desktop floating popover has no header of its own, so the panel
   // renders one inline; the mobile dialog brings its own header instead.
   showInlineHeader?: boolean;
+  // Desktop popover uses the design's compact density (one type size down)
+  dense?: boolean;
 }) {
   const intl = useIntl();
   const marketStatus = useUSMarketStatus();
+  const pagePx = dense ? '$4' : '$5';
+  const detailTextSize = dense ? '$bodySm' : '$bodyMd';
 
   // Re-anchor all clock-derived values every minute while the panel is open.
   const [now, setNow] = useState(() => new Date());
@@ -287,69 +325,72 @@ function TradingHoursContent({
   }, [intl, tradingHours]);
 
   return (
-    <YStack pb="$5" testID="trading-hours-panel">
+    <YStack pb={dense ? '$4' : '$5'} testID="trading-hours-panel">
       {showInlineHeader ? (
-        <YStack px="$5" pt="$5">
-          <TradingHoursTitle />
+        <YStack px={pagePx} pt={dense ? '$3.5' : '$5'}>
+          <TradingHoursTitle dense={dense} />
         </YStack>
       ) : null}
-      <YStack px="$5" pt="$1">
-        <SizableText size="$bodyMd" color="$textSubdued">
+      <YStack px={pagePx} pt="$1">
+        <SizableText size={detailTextSize} color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.trading_hours_description })}
         </SizableText>
       </YStack>
 
-      <YStack px="$5" pt="$4" pb="$1" gap="$1.5">
-        <TradingHoursTimeline
-          segments={tradingHours.segments}
-          nowRatio={tradingHours.nowRatio}
-          activeSessionKey={
-            typeof activeRow === 'string' ? undefined : activeRow
-          }
-          dimmed={dimmed}
-        />
-        <Stack h={16}>
-          {tradingHours.segments.map((segment) => {
-            const leftRatio =
-              (segment.startInstant - tradingHours.cycleStartInstant) /
-              (tradingHours.cycleEndInstant - tradingHours.cycleStartInstant);
-            return (
-              <SizableText
-                key={segment.key}
-                position="absolute"
-                left={`${leftRatio * 100}%`}
-                size="$bodySm"
-                color="$textDisabled"
-              >
-                {formatInstantAsLocalHHmm(segment.startInstant)}
-              </SizableText>
-            );
-          })}
-          <SizableText
-            position="absolute"
-            right={0}
-            size="$bodySm"
-            color="$textDisabled"
-          >
-            {formatInstantAsLocalHHmm(tradingHours.cycleEndInstant - 60_000)}
-          </SizableText>
-        </Stack>
-      </YStack>
+      {/* The whole timeline is meaningless while closed/halted — hide it. */}
+      {dimmed ? null : (
+        <YStack px={pagePx} pt={dense ? '$3' : '$4'} pb="$1" gap="$1.5">
+          <TradingHoursTimeline
+            segments={tradingHours.segments}
+            nowRatio={tradingHours.nowRatio}
+            activeSessionKey={
+              typeof activeRow === 'string' ? undefined : activeRow
+            }
+            dimmed={dimmed}
+          />
+          <Stack h={16}>
+            {tradingHours.segments.map((segment) => {
+              const leftRatio =
+                (segment.startInstant - tradingHours.cycleStartInstant) /
+                (tradingHours.cycleEndInstant - tradingHours.cycleStartInstant);
+              return (
+                <SizableText
+                  key={segment.key}
+                  position="absolute"
+                  left={`${leftRatio * 100}%`}
+                  size="$bodySm"
+                  color="$textDisabled"
+                >
+                  {formatInstantAsLocalHHmm(segment.startInstant)}
+                </SizableText>
+              );
+            })}
+            <SizableText
+              position="absolute"
+              right={0}
+              size="$bodySm"
+              color="$textDisabled"
+            >
+              {formatInstantAsLocalHHmm(tradingHours.cycleEndInstant - 60_000)}
+            </SizableText>
+          </Stack>
+        </YStack>
+      )}
 
-      <YStack px="$2" pt="$1">
+      <YStack px={dense ? '$1.5' : '$2'} pt="$1">
         {ROW_META.map(({ row, icon, titleId, liquidity }) => {
           const isActive = row === activeRow;
           const title = intl.formatMessage({ id: titleId });
           let detail: ReactNode;
           if (row === 'closed') {
             detail = (
-              <SizableText size="$bodyMd" color="$textDisabled">
+              <SizableText size={detailTextSize} color="$textDisabled">
                 {weekendSpanText}
               </SizableText>
             );
           } else if (row === 'halts') {
             detail = (
-              <SizableText size="$bodyMd" color="$textDisabled">
+              <SizableText size={detailTextSize} color="$textDisabled">
                 {intl.formatMessage({
                   id: ETranslations.trading_hours_trading_halts_description,
                 })}
@@ -358,7 +399,7 @@ function TradingHoursContent({
           } else {
             const segment = segmentByKey.get(row);
             detail = (
-              <SizableText size="$bodyMd" color="$textSubdued">
+              <SizableText size={detailTextSize} color="$textSubdued">
                 {segment ? formatSegmentLocalRange(segment) : ''}
               </SizableText>
             );
@@ -370,6 +411,7 @@ function TradingHoursContent({
               title={title}
               isActive={isActive}
               liquidity={liquidity}
+              dense={dense}
             >
               {detail}
             </SessionRow>
@@ -377,7 +419,7 @@ function TradingHoursContent({
         })}
       </YStack>
 
-      <YStack px="$5" pt="$2">
+      <YStack px={pagePx} pt="$2">
         <SizableText size="$bodySm" color="$textDisabled">
           {intl.formatMessage({ id: ETranslations.trading_hours_risk_notice })}
         </SizableText>
@@ -461,7 +503,9 @@ export function TradingHoursTrigger({
     <Popover
       title={<TradingHoursTitle />}
       renderTrigger={renderTrigger}
-      renderContent={<TradingHoursContent stock={stock} showInlineHeader />}
+      renderContent={
+        <TradingHoursContent stock={stock} showInlineHeader dense />
+      }
       floatingPanelProps={{ w: 360 }}
     />
   );
