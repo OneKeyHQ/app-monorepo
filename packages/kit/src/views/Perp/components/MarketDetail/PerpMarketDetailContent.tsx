@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/components';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useStockSecurityStats } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useStockSecurityStats';
 import { PerpTestIDs } from '@onekeyhq/kit/src/views/Perp/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -289,28 +290,24 @@ function DetailInfoTable({
           justifyContent="space-between"
           gap="$4"
         >
-          {item.tooltip ? (
-            <Tooltip
-              placement="top"
-              renderTrigger={
-                <SizableText
-                  size="$bodyMd"
-                  color="$textSubdued"
-                  cursor="help"
-                  flex={1}
-                >
-                  {item.label}
-                </SizableText>
-              }
-              renderContent={
-                <SizableText size="$bodySm">{item.tooltip}</SizableText>
-              }
-            />
-          ) : (
-            <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
-              {item.label}
-            </SizableText>
-          )}
+          <XStack flex={1} minWidth={0}>
+            {item.tooltip ? (
+              <DashText
+                size="$bodyMd"
+                color="$textSubdued"
+                dashColor="$borderStrong"
+                dashThickness={0.5}
+                tooltip={item.tooltip}
+                tooltipTitle={item.label}
+              >
+                {item.label}
+              </DashText>
+            ) : (
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {item.label}
+              </SizableText>
+            )}
+          </XStack>
           <YStack flex={1} alignItems="flex-end" minWidth={0} gap="$0.5">
             <SizableText
               size="$bodyMdMedium"
@@ -691,16 +688,25 @@ export function PerpMarketDetailContent({
     | undefined;
 
   const marketDetail = resolvedMarketDetail.result?.detail;
+  const stockDetail = resolvedMarketDetail.result?.stockDetail;
   const localizedDescription = resolvedMarketDetail.result?.localizedMessage;
+  const {
+    assetAnalysisRows: stockAssetAnalysisRows,
+    tradingActivityRows: stockTradingActivityRows,
+    descriptionRows: stockDescriptionRows,
+  } = useStockSecurityStats(stockDetail?.stock);
   const marketDetailReferenceNote = intl.formatMessage({
     id: ETranslations.perp_market_info_reference_note__desc,
   });
 
   const aboutText = useMemo(
     () =>
-      sanitizeDescriptionText(localizedDescription || marketDetail?.about) ||
-      '',
-    [localizedDescription, marketDetail?.about],
+      sanitizeDescriptionText(
+        localizedDescription ||
+          stockDetail?.introduction ||
+          marketDetail?.about,
+      ) || '',
+    [localizedDescription, marketDetail?.about, stockDetail?.introduction],
   );
 
   const fundingHistoryItems = useMemo(
@@ -834,7 +840,9 @@ export function PerpMarketDetailContent({
 
   const renderInfoCombined = () => {
     const isInitialLoading = resolvedMarketDetail.isLoading;
-    const hasMarketInfoContent = Boolean(marketDetail || aboutText);
+    const hasMarketInfoContent = Boolean(
+      marketDetail || stockDetail || aboutText,
+    );
     const showRawSourceNote = Boolean(
       marketDetail?.about && !localizedDescription,
     );
@@ -1007,6 +1015,14 @@ export function PerpMarketDetailContent({
 
     const showDescriptionToggle = aboutText.length > 320;
     const hasAnyLinks = linkRows.some((item) => item.items.length > 0);
+    const stockAssetReferenceRows = [
+      ...stockDescriptionRows,
+      ...stockAssetAnalysisRows.flat(),
+    ];
+    const stockTradingReferenceRows = stockTradingActivityRows.flat();
+    const hasStockTradingActivity = stockTradingReferenceRows.some(
+      (item) => Boolean(item.value) && item.value !== '--',
+    );
     const renderReferenceNote = () => (
       <SizableText
         size="$bodyXs"
@@ -1032,14 +1048,52 @@ export function PerpMarketDetailContent({
             }
           />
           <SizableText size="$headingLg">
-            {displayName || marketDetail?.symbol?.toUpperCase() || coin || '--'}
+            {displayName ||
+              stockDetail?.ticker ||
+              marketDetail?.symbol?.toUpperCase() ||
+              coin ||
+              '--'}
           </SizableText>
-          {marketDetail?.name ? (
+          {stockDetail?.name || marketDetail?.name ? (
             <SizableText size="$bodyLg" color="$textSubdued">
-              {marketDetail.name}
+              {stockDetail?.name || marketDetail?.name}
             </SizableText>
           ) : null}
         </XStack>
+
+        {stockDetail ? (
+          <XStack
+            flexWrap="wrap"
+            gap="$6"
+            alignItems="flex-start"
+            $gtMd={{ flexWrap: 'nowrap', gap: '$16' } as any}
+          >
+            <YStack flex={1} flexBasis={0} minWidth={0} width="100%" gap="$2.5">
+              <SizableText size="$headingSm">
+                {intl.formatMessage({
+                  id: ETranslations.dexmarket_stock_asset_analysis,
+                })}
+              </SizableText>
+              <DetailInfoTable rows={stockAssetReferenceRows} />
+            </YStack>
+
+            <YStack flex={1} flexBasis={0} minWidth={0} width="100%" gap="$2.5">
+              {hasStockTradingActivity ? (
+                <SizableText size="$headingSm">
+                  {intl.formatMessage({
+                    id: ETranslations.dexmarket_stock_trading_activity,
+                  })}
+                </SizableText>
+              ) : null}
+              <YStack gap="$3">
+                {hasStockTradingActivity ? (
+                  <DetailInfoTable rows={stockTradingReferenceRows} />
+                ) : null}
+                {renderReferenceNote()}
+              </YStack>
+            </YStack>
+          </XStack>
+        ) : null}
 
         {marketDetail ? (
           <XStack
@@ -1153,7 +1207,7 @@ export function PerpMarketDetailContent({
                 />
               </XStack>
             ) : null}
-            {hasAnyLinks ? null : renderReferenceNote()}
+            {hasAnyLinks || stockDetail ? null : renderReferenceNote()}
           </YStack>
         ) : null}
       </YStack>

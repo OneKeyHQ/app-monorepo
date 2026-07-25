@@ -28,7 +28,7 @@ export default function PageTrackerContainer() {
         defaultLogger.app.page.pageView(ETabHomeRoutes.TabHome);
       } else {
         const page = getActiveRoute(state as IState);
-        // Perp has its own pageView with source tracking (perp.common.pageView)
+        // Perp has its own page view event with source tracking.
         if (page && page.name !== ETabRoutes.Perp) {
           defaultLogger.app.page.pageView(page.name);
         }
