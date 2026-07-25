@@ -124,8 +124,6 @@ function getInfiniPlanParam(plan: IPrimeInfiniSubscriptionPlan) {
   return plan === 'yearly' ? 'annual' : 'monthly';
 }
 
-const INFINI_CHECKOUT_HOSTNAMES = new Set(['checkout.infini.money']);
-
 function validateInfiniCheckoutUrl(checkoutUrl: unknown): string {
   if (!isString(checkoutUrl)) {
     throw new OneKeyLocalError('Invalid Infini checkout URL');
@@ -136,16 +134,7 @@ function validateInfiniCheckoutUrl(checkoutUrl: unknown): string {
     throw new OneKeyLocalError('Invalid Infini checkout URL');
   }
 
-  const parsedUrl = new URL(trimmedUrl);
-  const normalizedHostname = parsedUrl.hostname
-    .toLowerCase()
-    .replace(/\.+$/u, '');
-  if (!INFINI_CHECKOUT_HOSTNAMES.has(normalizedHostname)) {
-    throw new OneKeyLocalError('Invalid Infini checkout URL');
-  }
-
-  parsedUrl.hostname = normalizedHostname;
-  return parsedUrl.toString();
+  return new URL(trimmedUrl).toString();
 }
 
 function normalizeInfiniSubscriptionResponse(

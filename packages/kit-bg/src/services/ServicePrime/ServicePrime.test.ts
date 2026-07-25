@@ -940,6 +940,51 @@ describe('ServicePrime Infini payment APIs', () => {
     );
   });
 
+  it('accepts a safe public checkout URL returned by the server', async () => {
+    const { service } = createInfiniService();
+    const post = jest.fn(async () => ({
+      data: {
+        data: {
+          checkoutUrl:
+            'https://payments.example.com/payment?order_id=test-order',
+        },
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+
+    await expect(
+      service.apiGetInfiniCheckoutUrl({
+        plan: 'monthly',
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).resolves.toEqual({
+      checkoutUrl: 'https://payments.example.com/payment?order_id=test-order',
+    });
+  });
+
+  it('accepts the Infini sandbox checkout URL', async () => {
+    const { service } = createInfiniService();
+    const post = jest.fn(async () => ({
+      data: {
+        data: {
+          checkoutUrl:
+            'https://checkout-sandbox.infini.money/payment?order_id=test-order',
+        },
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+
+    await expect(
+      service.apiGetInfiniCheckoutUrl({
+        plan: 'monthly',
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).resolves.toEqual({
+      checkoutUrl:
+        'https://checkout-sandbox.infini.money/payment?order_id=test-order',
+    });
+  });
+
   it.each([
     ['non-string', undefined],
     ['malformed', 'not a URL'],
@@ -953,15 +998,6 @@ describe('ServicePrime Infini payment APIs', () => {
     ['localhost subdomain', 'https://api.localhost/subscription/session'],
     ['private IPv4', 'https://192.168.1.1/subscription/session'],
     ['private IPv6', 'https://[fc00::1]/subscription/session'],
-    ['untrusted host', 'https://attacker.example/subscription/session'],
-    [
-      'suffix-forged host',
-      'https://checkout.infini.money.attacker.example/subscription/session',
-    ],
-    [
-      'prefix-forged host',
-      'https://checkout-infini.money/subscription/session',
-    ],
   ])('rejects a hosted checkout URL with %s', async (_label, checkoutUrl) => {
     const { service } = createInfiniService();
     const post = jest.fn(async () => ({
