@@ -238,24 +238,16 @@ function SessionRow({
   );
 }
 
-function TradingHoursTitle({ dense }: { dense?: boolean }) {
+// Same title treatment on every surface (headingXl with the TZ chip right
+// next to it) — only the list density differs between desktop and mobile.
+function TradingHoursTitle() {
   const intl = useIntl();
   return (
-    <XStack
-      gap="$2"
-      alignItems="center"
-      justifyContent={dense ? 'space-between' : 'flex-start'}
-      flex={dense ? 1 : undefined}
-    >
-      <SizableText size={dense ? '$headingMd' : '$headingXl'}>
+    <XStack gap="$2" alignItems="center">
+      <SizableText size="$headingXl">
         {intl.formatMessage({ id: ETranslations.trading_hours_title })}
       </SizableText>
-      <Stack
-        bg="$bgStrong"
-        borderRadius={dense ? '$1' : 6}
-        px={dense ? '$1.5' : '$2'}
-        py={dense ? 2 : 3}
-      >
+      <Stack bg="$bgStrong" borderRadius={6} px="$2" py={3}>
         <SizableText size="$bodySm" color="$textSubdued">
           {getDeviceUtcOffsetLabel()}
         </SizableText>
@@ -327,8 +319,8 @@ function TradingHoursContent({
   return (
     <YStack pb={dense ? '$4' : '$5'} testID="trading-hours-panel">
       {showInlineHeader ? (
-        <YStack px={pagePx} pt={dense ? '$3.5' : '$5'}>
-          <TradingHoursTitle dense={dense} />
+        <YStack px={pagePx} pt={dense ? '$4' : '$5'}>
+          <TradingHoursTitle />
         </YStack>
       ) : null}
       <YStack px={pagePx} pt="$1">
