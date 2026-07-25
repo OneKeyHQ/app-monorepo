@@ -469,10 +469,24 @@ function showTradingHoursDialog(stock: IMarketStockInfo) {
   });
 }
 
+function getNodeRect(node: unknown): DOMRect | null {
+  if (
+    node &&
+    typeof (node as HTMLElement).getBoundingClientRect === 'function'
+  ) {
+    const rect = (node as HTMLElement).getBoundingClientRect();
+    return rect.width > 0 ? rect : null;
+  }
+  return null;
+}
+
 /**
- * Desktop hover-card behavior: hovering the badge opens the popover, moving
- * the pointer into the panel keeps it open, leaving both closes it after a
- * short grace period (so the pointer can cross the trigger→panel gap).
+ * Desktop hover-card behavior: hovering the badge opens the popover; it stays
+ * open while the pointer is inside the badge or the panel and closes shortly
+ * after the pointer leaves both. Closing is driven by GEOMETRY (a global
+ * mousemove hit-test against both rects) instead of enter/leave events —
+ * opening the popover remounts nodes under a stationary cursor, and the
+ * resulting synthetic leave/enter storm made event-based closing flicker.
  * Clicking the badge still works via the Popover's own trigger press.
  */
 function TradingHoursHoverPopover({
@@ -483,46 +497,63 @@ function TradingHoursHoverPopover({
   renderTrigger: ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const triggerRef = useRef<unknown>(null);
+  const contentRef = useRef<unknown>(null);
 
-  const clearCloseTimer = useCallback(() => {
-    if (closeTimerRef.current) {
-      clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
+  // Opening is idempotent — repeated hover-in events are harmless.
+  const handleHoverIn = useCallback(() => setIsOpen(true), []);
+
+  useEffect(() => {
+    if (!isOpen || typeof document === 'undefined') {
+      return;
     }
-  }, []);
-  useEffect(() => clearCloseTimer, [clearCloseTimer]);
-
-  const handleHoverIn = useCallback(() => {
-    clearCloseTimer();
-    setIsOpen(true);
-  }, [clearCloseTimer]);
-
-  const handleHoverOut = useCallback(() => {
-    clearCloseTimer();
-    closeTimerRef.current = setTimeout(() => setIsOpen(false), 200);
-  }, [clearCloseTimer]);
-
-  const handleOpenChange = useCallback(
-    (open: boolean) => {
-      clearCloseTimer();
-      setIsOpen(open);
-    },
-    [clearCloseTimer],
-  );
+    // Bridges the trigger→panel offset gap and forgives 1px jitters.
+    const HOVER_MARGIN = 12;
+    let closeTimer: ReturnType<typeof setTimeout> | null = null;
+    const isInside = (ref: { current: unknown }, x: number, y: number) => {
+      const rect = getNodeRect(ref.current);
+      return (
+        !!rect &&
+        x >= rect.left - HOVER_MARGIN &&
+        x <= rect.right + HOVER_MARGIN &&
+        y >= rect.top - HOVER_MARGIN &&
+        y <= rect.bottom + HOVER_MARGIN
+      );
+    };
+    const handleMove = (e: MouseEvent) => {
+      const inside =
+        isInside(triggerRef, e.clientX, e.clientY) ||
+        isInside(contentRef, e.clientX, e.clientY);
+      if (inside) {
+        if (closeTimer) {
+          clearTimeout(closeTimer);
+          closeTimer = null;
+        }
+      } else if (!closeTimer) {
+        closeTimer = setTimeout(() => setIsOpen(false), 200);
+      }
+    };
+    document.addEventListener('mousemove', handleMove);
+    return () => {
+      document.removeEventListener('mousemove', handleMove);
+      if (closeTimer) {
+        clearTimeout(closeTimer);
+      }
+    };
+  }, [isOpen]);
 
   return (
     <Popover
       open={isOpen}
-      onOpenChange={handleOpenChange}
+      onOpenChange={setIsOpen}
       title={<TradingHoursTitle />}
       renderTrigger={
-        <Stack onHoverIn={handleHoverIn} onHoverOut={handleHoverOut}>
+        <Stack {...({ ref: triggerRef } as object)} onHoverIn={handleHoverIn}>
           {renderTrigger}
         </Stack>
       }
       renderContent={
-        <Stack onHoverIn={handleHoverIn} onHoverOut={handleHoverOut}>
+        <Stack {...({ ref: contentRef } as object)}>
           <TradingHoursContent stock={stock} showInlineHeader dense />
         </Stack>
       }
