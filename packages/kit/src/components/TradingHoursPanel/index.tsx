@@ -4,12 +4,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Dialog,
   Icon,
+  IconButton,
   Popover,
   SizableText,
   Stack,
   XStack,
   YStack,
+  useDialogInstance,
   useMedia,
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
@@ -228,13 +231,17 @@ function TradingHoursTitle() {
   );
 }
 
-function TradingHoursContent({ stock }: { stock: IMarketStockInfo }) {
+function TradingHoursContent({
+  stock,
+  showInlineHeader,
+}: {
+  stock: IMarketStockInfo;
+  // The desktop floating popover has no header of its own, so the panel
+  // renders one inline; the mobile dialog brings its own header instead.
+  showInlineHeader?: boolean;
+}) {
   const intl = useIntl();
-  const media = useMedia();
   const marketStatus = useUSMarketStatus();
-  // The Popover only renders `title` in its sheet form (native, or web below
-  // md). The desktop floating panel has no header, so we render one here.
-  const showInlineHeader = !platformEnv.isNative && media.gtMd;
 
   // Re-anchor all clock-derived values every minute while the panel is open.
   const [now, setNow] = useState(() => new Date());
@@ -379,23 +386,82 @@ function TradingHoursContent({ stock }: { stock: IMarketStockInfo }) {
   );
 }
 
+function TradingHoursDialogHeader() {
+  const dialogInstance = useDialogInstance();
+  return (
+    <XStack
+      px="$5"
+      pt="$5"
+      pb="$1"
+      alignItems="center"
+      justifyContent="space-between"
+    >
+      <TradingHoursTitle />
+      <IconButton
+        icon="CrossedSmallOutline"
+        size="small"
+        variant="tertiary"
+        onPress={() => {
+          void dialogInstance.close();
+        }}
+        testID="trading-hours-dialog-close"
+      />
+    </XStack>
+  );
+}
+
+function showTradingHoursDialog(stock: IMarketStockInfo) {
+  Dialog.show({
+    showHeader: false,
+    showFooter: false,
+    contentContainerProps: { px: '$0', pb: '$0' },
+    renderContent: (
+      <YStack>
+        <TradingHoursDialogHeader />
+        <TradingHoursContent stock={stock} />
+      </YStack>
+    ),
+  });
+}
+
 /**
- * Trading-hours info panel (OK-58043): desktop popover / mobile bottom sheet.
+ * Trading-hours info panel (OK-58043): a floating popover on wide screens and
+ * an edge-to-edge bottom-sheet dialog on native/small screens (the Popover's
+ * own sheet form is an inset floating card, which does not match the design).
  * Wrap a trigger (usually the stock market-status chip) and it handles the
  * rest — session math, timezone conversion and refresh are all internal.
  */
-export function TradingHoursPopover({
+export function TradingHoursTrigger({
   stock,
   renderTrigger,
 }: {
   stock: IMarketStockInfo;
   renderTrigger: ReactNode;
 }) {
+  const media = useMedia();
+  const useSheetDialog = platformEnv.isNative || media.md;
+
+  if (useSheetDialog) {
+    return (
+      <Stack
+        cursor="pointer"
+        onPress={(e) => {
+          // The chip often sits inside a pressable header row (which opens the
+          // token selector) — keep this tap to ourselves.
+          e.stopPropagation();
+          showTradingHoursDialog(stock);
+        }}
+      >
+        {renderTrigger}
+      </Stack>
+    );
+  }
+
   return (
     <Popover
       title={<TradingHoursTitle />}
       renderTrigger={renderTrigger}
-      renderContent={<TradingHoursContent stock={stock} />}
+      renderContent={<TradingHoursContent stock={stock} showInlineHeader />}
       floatingPanelProps={{ w: 360 }}
     />
   );
