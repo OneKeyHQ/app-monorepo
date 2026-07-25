@@ -26,16 +26,10 @@ const handlePress = (e: GestureResponderEvent) => {
 interface ITokenTagsPopoverProps {
   communityRecognized?: boolean;
   stock?: IMarketStockInfo;
-  /** Show subtitle & stock status badges in trigger. Defaults to false. */
+  /** Show the subtitle badge in trigger. Defaults to false. */
   showAllInTrigger?: boolean;
   /** Hide community badge from trigger (shown separately e.g. in header). */
   hideCommunityInTrigger?: boolean;
-  /**
-   * Hide the stock status badge from the trigger so the caller can render it
-   * as a sibling wrapped in TradingHoursTrigger (the badge press then opens
-   * the trading-hours panel instead of this tags popover).
-   */
-  hideStockStatusInTrigger?: boolean;
   /** Custom trigger element. Overrides default trigger rendering. */
   customTrigger?: ReactNode;
   /** Disable truncation for subtitle badge. Defaults to false. */
@@ -47,7 +41,6 @@ function TokenTagsPopover({
   stock,
   showAllInTrigger = false,
   hideCommunityInTrigger = false,
-  hideStockStatusInTrigger = false,
   customTrigger,
   noTruncateSubtitle = false,
 }: ITokenTagsPopoverProps) {
@@ -64,8 +57,7 @@ function TokenTagsPopover({
     !!customTrigger ||
     hasStockSource ||
     (communityRecognized && !hideCommunityInTrigger) ||
-    (showAllInTrigger &&
-      (hasSubtitle || (hasStockStatus && !hideStockStatusInTrigger)));
+    (showAllInTrigger && hasSubtitle);
 
   const stockLabelId = useMemo(() => {
     if (!stock?.source) return undefined;
@@ -97,9 +89,6 @@ function TokenTagsPopover({
           subtitle={stock.subtitle ?? ''}
           noTruncate={noTruncateSubtitle}
         />
-      ) : null}
-      {showAllInTrigger && hasStockStatus && !hideStockStatusInTrigger ? (
-        <StockIsOpenBadge stock={stock} />
       ) : null}
     </XStack>
   );

@@ -7,7 +7,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
-import { TradingHoursTrigger } from '@onekeyhq/kit/src/components/TradingHoursPanel';
 import {
   BaseMarketTokenPrice,
   MarketTokenPrice,
@@ -15,7 +14,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
-import { StockIsOpenBadge } from '../../../components/PerpsBadges';
+import { StockMarketStatusBadge } from '../../../components/PerpsBadges';
 import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
 import { useBtcMetadataContext } from '../../hooks/BtcMetadataContext';
 import { useMarketDetailDisplayData } from '../../hooks/useMarketDetailDisplayData';
@@ -240,14 +239,8 @@ export function InformationPanel() {
             showAllInTrigger
             hideCommunityInTrigger
             noTruncateSubtitle
-            hideStockStatusInTrigger
           />
-          {stock ? (
-            <TradingHoursTrigger
-              stock={stock}
-              renderTrigger={<StockIsOpenBadge stock={stock} disableTooltip />}
-            />
-          ) : null}
+          <StockMarketStatusBadge stock={stock} />
         </XStack>
       </YStack>
 

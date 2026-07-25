@@ -11,10 +11,8 @@ import { usePromiseResult } from './usePromiseResult';
  */
 export function useUSMarketStatus({
   enabled = true,
-  pollingSeconds = 60,
 }: {
   enabled?: boolean;
-  pollingSeconds?: number;
 } = {}): IFetchUSMarketStatusResult | undefined {
   const { result } = usePromiseResult(
     async () => {
@@ -25,9 +23,9 @@ export function useUSMarketStatus({
     },
     [enabled],
     {
-      pollingInterval: timerUtils.getTimeDurationMs({
-        seconds: pollingSeconds,
-      }),
+      pollingInterval: enabled
+        ? timerUtils.getTimeDurationMs({ seconds: 60 })
+        : undefined,
       revalidateOnFocus: true,
     },
   );

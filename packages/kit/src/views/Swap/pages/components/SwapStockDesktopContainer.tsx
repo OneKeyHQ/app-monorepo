@@ -38,7 +38,6 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { TradingHoursTrigger } from '@onekeyhq/kit/src/components/TradingHoursPanel';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
@@ -56,7 +55,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { BaseMarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import {
-  StockIsOpenBadge,
+  StockMarketStatusBadge,
   StockSourceLogo,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
@@ -1492,12 +1491,7 @@ function StockMarketTokenHeader({
         </SizableText>
       ) : null}
       <StockSourceLogo stock={stock} />
-      {stock ? (
-        <TradingHoursTrigger
-          stock={stock}
-          renderTrigger={<StockIsOpenBadge stock={stock} disableTooltip />}
-        />
-      ) : null}
+      <StockMarketStatusBadge stock={stock} />
     </XStack>
   );
   const tokenInfoContent = (

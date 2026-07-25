@@ -8,7 +8,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { TradingHoursTrigger } from '@onekeyhq/kit/src/components/TradingHoursPanel';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapProSelectTokenAtom,
@@ -18,7 +17,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import {
-  StockIsOpenBadge,
+  StockMarketStatusBadge,
   StockSourceLogo,
 } from '../../../Market/components/PerpsBadges';
 
@@ -111,12 +110,7 @@ const SwapProTokenSelector = ({
               </SizableText>
             ) : null}
             <StockSourceLogo stock={selectedTokenStock} />
-            <TradingHoursTrigger
-              stock={selectedTokenStock}
-              renderTrigger={
-                <StockIsOpenBadge stock={selectedTokenStock} disableTooltip />
-              }
-            />
+            <StockMarketStatusBadge stock={selectedTokenStock} />
           </XStack>
         ) : null}
       </YStack>

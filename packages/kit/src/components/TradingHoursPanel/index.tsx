@@ -16,6 +16,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
+import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 import { useUSMarketStatus } from '@onekeyhq/kit/src/hooks/useUSMarketStatus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -124,22 +125,22 @@ function LiquidityIndicator({
   );
 }
 
+// Only rendered while a session is active — the closed/halted states hide the
+// whole timeline instead of dimming it.
 function TradingHoursTimeline({
   segments,
   nowRatio,
   activeSessionKey,
-  dimmed,
 }: {
   segments: Array<{ key: EUSMarketSessionKey; ratio: number }>;
   nowRatio: number;
-  activeSessionKey: EUSMarketSessionKey | undefined;
-  dimmed: boolean;
+  activeSessionKey: EUSMarketSessionKey;
 }) {
   return (
     <Stack h={12} justifyContent="center">
       <XStack gap={2} alignItems="center">
         {segments.map((segment) => {
-          const isActive = !dimmed && segment.key === activeSessionKey;
+          const isActive = segment.key === activeSessionKey;
           return (
             <Stack
               key={segment.key}
@@ -152,19 +153,17 @@ function TradingHoursTimeline({
           );
         })}
       </XStack>
-      {dimmed ? null : (
-        <Stack
-          position="absolute"
-          left={`${nowRatio * 100}%`}
-          ml={-6}
-          w={12}
-          h={12}
-          borderRadius="$full"
-          bg="$bg"
-          borderWidth={2}
-          borderColor="$iconSuccess"
-        />
-      )}
+      <Stack
+        position="absolute"
+        left={`${nowRatio * 100}%`}
+        ml={-6}
+        w={12}
+        h={12}
+        borderRadius="$full"
+        bg="$bg"
+        borderWidth={2}
+        borderColor="$iconSuccess"
+      />
     </Stack>
   );
 }
@@ -276,13 +275,10 @@ function TradingHoursContent({
 
   // Re-anchor all clock-derived values every minute while the panel is open.
   const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const timer = setInterval(
-      () => setNow(new Date()),
-      timerUtils.getTimeDurationMs({ minute: 1 }),
-    );
-    return () => clearInterval(timer);
-  }, []);
+  useInterval(
+    () => setNow(new Date()),
+    timerUtils.getTimeDurationMs({ minute: 1 }),
+  );
 
   const tradingHours = useMemo(() => getUSMarketTradingHours(now), [now]);
 
@@ -297,12 +293,6 @@ function TradingHoursContent({
   // 7×24 instrument while the market is closed: the subtitle switches to the
   // dedicated 24/7 copy, which also makes the generic risk notice redundant.
   const isClosedTradable = activeRow === 'closed' && stock.isOpen === true;
-
-  const segmentByKey = useMemo(
-    () =>
-      new Map(tradingHours.segments.map((segment) => [segment.key, segment])),
-    [tradingHours],
-  );
 
   const weekendSpanText = useMemo(() => {
     const formatWeekendBoundary = (instant: number) =>
@@ -346,7 +336,6 @@ function TradingHoursContent({
             nowRatio={tradingHours.nowRatio}
             // `dimmed` narrowing guarantees activeRow is a session key here
             activeSessionKey={activeRow}
-            dimmed={dimmed}
           />
           <Stack h={16}>
             {tradingHours.segments.map((segment) => {
@@ -397,7 +386,7 @@ function TradingHoursContent({
               </SizableText>
             );
           } else {
-            const segment = segmentByKey.get(row);
+            const segment = tradingHours.segments.find((s) => s.key === row);
             detail = (
               <SizableText size={detailTextSize} color="$textSubdued">
                 {segment ? formatSegmentLocalRange(segment) : ''}
@@ -521,10 +510,16 @@ function TradingHoursHoverPopover({
         y <= rect.bottom + HOVER_MARGIN
       );
     };
-    const handleMove = (e: MouseEvent) => {
+    // Coalesce hit-testing to one rect read per frame — mousemove can fire
+    // hundreds of times per second and getBoundingClientRect forces layout.
+    let frame: number | null = null;
+    let lastX = 0;
+    let lastY = 0;
+    const hitTest = () => {
+      frame = null;
       const inside =
-        isInside(triggerRef, e.clientX, e.clientY) ||
-        isInside(contentRef, e.clientX, e.clientY);
+        isInside(triggerRef, lastX, lastY) ||
+        isInside(contentRef, lastX, lastY);
       if (inside) {
         if (closeTimer) {
           clearTimeout(closeTimer);
@@ -534,9 +529,19 @@ function TradingHoursHoverPopover({
         closeTimer = setTimeout(() => setIsOpen(false), 200);
       }
     };
+    const handleMove = (e: MouseEvent) => {
+      lastX = e.clientX;
+      lastY = e.clientY;
+      if (frame === null) {
+        frame = requestAnimationFrame(hitTest);
+      }
+    };
     document.addEventListener('mousemove', handleMove);
     return () => {
       document.removeEventListener('mousemove', handleMove);
+      if (frame !== null) {
+        cancelAnimationFrame(frame);
+      }
       if (closeTimer) {
         clearTimeout(closeTimer);
       }

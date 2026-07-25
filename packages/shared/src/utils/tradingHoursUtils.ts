@@ -369,13 +369,23 @@ export enum EUSMarketStatusVariant {
 }
 
 /**
+ * Sources treated as Ondo-issued. Some Ondo stocks report a legacy
+ * 'coingecko' source — keep this the single source of truth (kit's
+ * `isOndoStockSource` delegates here).
+ */
+const ONDO_US_MARKET_STOCK_SOURCES = new Set(['ondo', 'coingecko']);
+
+/**
  * Only Ondo-issued stock tokens follow the US-session trading model this
  * feature describes (OK-58043). xStocks and other providers run 7×24 with no
  * open/closed distinction, so they keep the legacy open/closed badge and get
  * no trading-hours entry.
  */
-export function isOndoUSMarketStock(source: string | undefined): boolean {
-  return source?.toLowerCase() === 'ondo';
+export function isOndoUSMarketStock(
+  source: string | undefined | null,
+): boolean {
+  const normalized = source?.trim().toLowerCase();
+  return !!normalized && ONDO_US_MARKET_STOCK_SOURCES.has(normalized);
 }
 
 /**

@@ -13,6 +13,7 @@ import {
 import type { IColorTokens, IKeyOfIcons } from '@onekeyhq/components';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import type { ITooltipRef } from '@onekeyhq/components/src/actions/Tooltip';
+import { TradingHoursTrigger } from '@onekeyhq/kit/src/components/TradingHoursPanel';
 import { useUSMarketStatus } from '@onekeyhq/kit/src/hooks/useUSMarketStatus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -253,12 +254,18 @@ const StockIsOpenBadge = memo(
         isOndoUSMarketStock(source) && isOpen === true && isPaused !== true,
     });
 
-    const variant = resolveUSMarketStatusVariant({
-      source,
-      isOpen,
-      isPaused,
-      status: marketStatus,
-    });
+    // The offline fallback path runs Intl-heavy clock math — don't redo it on
+    // unrelated parent re-renders.
+    const variant = useMemo(
+      () =>
+        resolveUSMarketStatusVariant({
+          source,
+          isOpen,
+          isPaused,
+          status: marketStatus,
+        }),
+      [source, isOpen, isPaused, marketStatus],
+    );
 
     if (!variant) {
       return null;
@@ -297,6 +304,27 @@ const StockIsOpenBadge = memo(
 );
 StockIsOpenBadge.displayName = 'StockIsOpenBadge';
 
+/**
+ * Standard entry composition used by every trading-hours surface: the status
+ * chip wired to open the panel (hover popover on desktop, bottom-sheet dialog
+ * on native/small screens). Renders nothing for tokens without a stock;
+ * non-Ondo issuers render no chip (see StockIsOpenBadge).
+ */
+const StockMarketStatusBadge = memo(
+  ({ stock }: { stock?: IMarketStockInfo }) => {
+    if (!stock) {
+      return null;
+    }
+    return (
+      <TradingHoursTrigger
+        stock={stock}
+        renderTrigger={<StockIsOpenBadge stock={stock} disableTooltip />}
+      />
+    );
+  },
+);
+StockMarketStatusBadge.displayName = 'StockMarketStatusBadge';
+
 const StockSourceLogo = memo(
   ({ stock }: { stock: IMarketStockInfo | undefined }) => {
     if (!stock?.sourceLogoUri) {
@@ -331,6 +359,7 @@ StockSourceLogo.displayName = 'StockSourceLogo';
 export {
   LeverageBadge,
   StockIsOpenBadge,
+  StockMarketStatusBadge,
   StockSourceLogo,
   SubtitleBadge,
   SubtitleText,
