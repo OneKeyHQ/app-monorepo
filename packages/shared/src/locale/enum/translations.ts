@@ -4462,6 +4462,8 @@ export enum ETranslations {
   trade_stock_reopen_eta_perps = 'trade_stock.reopen_eta_perps',
   trade_stock_wait_for_reopen = 'trade_stock.wait_for_reopen',
   trade_stock_wait_reopens_in_perps = 'trade_stock.wait_reopens_in_perps',
+  trading_hours_closed_tradable = 'trading_hours.closed_tradable',
+  trading_hours_closed_tradable_description = 'trading_hours.closed_tradable_description',
   trading_hours_description = 'trading_hours.description',
   trading_hours_market_closed = 'trading_hours.market_closed',
   trading_hours_market_closed_time = 'trading_hours.market_closed_time',
