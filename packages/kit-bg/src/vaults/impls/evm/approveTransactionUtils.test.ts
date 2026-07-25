@@ -82,6 +82,39 @@ describe('approval transaction utils', () => {
     ).toBeUndefined();
   });
 
+  test('resolves the PancakeSwap Permit2 deployment on trusted networks', () => {
+    // The server-side approvals whitelist returns Uniswap AND PancakeSwap
+    // Permit2 contracts; only trusting Uniswap blocked PancakeSwap Permit2
+    // revocations at _assertPermit2ApproveInfo.
+    const pancakePermit2Address = '0x31c2f6fcff4f8759b3bd5bf0e1084a055615c768';
+    const networkIdsMap = getNetworkIdsMap();
+    const supportedNetworkIds = [
+      networkIdsMap.eth,
+      networkIdsMap.bsc,
+      networkIdsMap.polygon,
+      networkIdsMap.arbitrum,
+      networkIdsMap.avalanche,
+      networkIdsMap.optimism,
+      networkIdsMap.base,
+    ];
+
+    for (const networkId of supportedNetworkIds) {
+      expect(
+        resolveTrustedPermit2Address({
+          networkId,
+          permit2Address: pancakePermit2Address,
+        }),
+      ).toBe('0x31c2F6fcFf4F8759b3Bd5Bf0e1084A055615c768');
+    }
+
+    expect(
+      resolveTrustedPermit2Address({
+        networkId: networkIdsMap.zksyncera,
+        permit2Address: pancakePermit2Address,
+      }),
+    ).toBeUndefined();
+  });
+
   test('encodes the on-chain Permit2 revoke example', () => {
     expect(buildPermit2Tx()).toEqual({
       from: owner,
