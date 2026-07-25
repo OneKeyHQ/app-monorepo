@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -23,16 +23,81 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { AssetDetailsTestIDs } from '../../testIDs';
 
 import { useTokenDetailsContext } from './TokenDetailsContext';
+import {
+  buildTokenDetailsMarketNavigationTarget,
+  isTokenDetailsMarketMetadataForToken,
+} from './tokenDetailsMarketNavigation';
 
-function TokenDetailsFooter(props: { networkId: string }) {
-  const { networkId } = props;
+function TokenDetailsFooter(props: {
+  isNative?: boolean;
+  networkId: string;
+  networkName?: string;
+  symbol?: string;
+  tokenAddress?: string;
+  tokenImageUri?: string;
+}) {
+  const {
+    isNative,
+    networkId,
+    networkName,
+    symbol,
+    tokenAddress,
+    tokenImageUri,
+  } = props;
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const { tokenMetadata } = useTokenDetailsContext();
   const navigation = useAppNavigation();
 
+  const marketNavigationTarget = useMemo(
+    () =>
+      buildTokenDetailsMarketNavigationTarget({
+        isNative,
+        networkId,
+        networkName,
+        symbol,
+        tokenAddress,
+        tokenImageUri,
+        tokenMetadata,
+      }),
+    [
+      isNative,
+      networkId,
+      networkName,
+      symbol,
+      tokenAddress,
+      tokenImageUri,
+      tokenMetadata,
+    ],
+  );
+  const matchedTokenMetadata = isTokenDetailsMarketMetadataForToken({
+    networkId,
+    tokenAddress,
+    tokenMetadata,
+  })
+    ? tokenMetadata
+    : undefined;
+
+  const handleMarketPress = useCallback(() => {
+    if (marketNavigationTarget?.type === 'detail') {
+      navigation.push(EModalAssetDetailRoutes.MarketDetail, {
+        token: marketNavigationTarget.token,
+      });
+    } else if (marketNavigationTarget?.type === 'chart') {
+      navigation.push(EModalAssetDetailRoutes.MarketChart, {
+        networkId: marketNavigationTarget.networkId,
+        networkName: marketNavigationTarget.networkName,
+        symbol: marketNavigationTarget.symbol,
+        tokenAddress: marketNavigationTarget.tokenAddress,
+        tokenImageUri: marketNavigationTarget.tokenImageUri,
+      });
+    }
+  }, [marketNavigationTarget, navigation]);
+
   const priceChangeColor = useMemo(() => {
-    const priceChangeBN = new BigNumber(tokenMetadata?.priceChange24h ?? 0);
+    const priceChangeBN = new BigNumber(
+      matchedTokenMetadata?.priceChange24h ?? 0,
+    );
     if (priceChangeBN.isGreaterThan(0)) {
       return '$textSuccess';
     }
@@ -40,15 +105,15 @@ function TokenDetailsFooter(props: { networkId: string }) {
       return '$textCritical';
     }
     return '$textSubdued';
-  }, [tokenMetadata?.priceChange24h]);
+  }, [matchedTokenMetadata?.priceChange24h]);
 
   if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
     return null;
   }
 
   if (
-    new BigNumber(tokenMetadata?.priceChange24h ?? 0).isZero() &&
-    new BigNumber(tokenMetadata?.price ?? 0).isZero()
+    new BigNumber(matchedTokenMetadata?.priceChange24h ?? 0).isZero() &&
+    new BigNumber(matchedTokenMetadata?.price ?? 0).isZero()
   ) {
     return null;
   }
@@ -65,26 +130,20 @@ function TokenDetailsFooter(props: { networkId: string }) {
         borderTopWidth={StyleSheet.hairlineWidth}
         borderTopColor="$borderSubdued"
         userSelect="none"
-        onPress={() => {
-          if (tokenMetadata?.coingeckoId) {
-            navigation.push(EModalAssetDetailRoutes.MarketDetail, {
-              token: tokenMetadata.coingeckoId,
-            });
-          }
-        }}
-        {...(tokenMetadata?.coingeckoId ? listItemPressStyle : null)}
+        onPress={marketNavigationTarget ? handleMarketPress : undefined}
+        {...(marketNavigationTarget ? listItemPressStyle : null)}
       >
         <SizableText flex={1} size="$bodyMd">
           {intl.formatMessage({ id: ETranslations.global_market })}
         </SizableText>
-        {tokenMetadata ? (
+        {matchedTokenMetadata ? (
           <XStack alignItems="center" gap="$2">
             <Currency
               size="$bodyMd"
               formatter="price"
-              sourceCurrency={tokenMetadata?.currency}
+              sourceCurrency={matchedTokenMetadata.currency}
             >
-              {tokenMetadata?.price}
+              {matchedTokenMetadata.price}
             </Currency>
             <NumberSizeableText
               size="$bodyMd"
@@ -94,9 +153,9 @@ function TokenDetailsFooter(props: { networkId: string }) {
               }}
               color={priceChangeColor}
             >
-              {tokenMetadata?.priceChange24h}
+              {matchedTokenMetadata.priceChange24h}
             </NumberSizeableText>
-            {tokenMetadata.coingeckoId ? (
+            {marketNavigationTarget ? (
               <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
             ) : null}
           </XStack>
