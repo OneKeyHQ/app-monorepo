@@ -4467,7 +4467,7 @@
   "trading_hours.pre_market": "Pre-market",
   "trading_hours.regular_market": "Regular market",
   "trading_hours.regular_market_now": "Now",
-  "trading_hours.risk_notice": "Other providers/assets may operate 24/7, trading outside outside market hours carries high price volatility",
+  "trading_hours.risk_notice": "Other providers/assets may operate 24/7, trading outside market hours carries high price volatility",
   "trading_hours.title": "Trading hours",
   "trading_hours.trading_halts": "Trading halts",
   "trading_hours.trading_halts_description": "Trading in the underlying stock is temporarily paused. Token prices may be highly volatile",

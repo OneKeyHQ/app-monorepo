@@ -4458,7 +4458,7 @@
   "trade_stock.wait_for_reopen": "等待市场重新开放",
   "trade_stock.wait_reopens_in_perps": "等待市场重新开放，您仍然可以交易其永续合约",
   "trading_hours.closed_tradable": "休市 · 可交易",
-  "trading_hours.closed_tradable_description": "该资产全天候交易，非交易时段价格可能波动较大。流动性随美国市场时段而变化。",
+  "trading_hours.closed_tradable_description": "该资产支持 24/7 全天候交易，非交易时段价格可能波动较大，流动性随美国市场时段而有所不同。",
   "trading_hours.description": "流动性随美国市场时段的变化而有所不同。",
   "trading_hours.market_closed": "市场休市",
   "trading_hours.market_closed_time": "周末（{start} – {end}）和美国市场假期",
