@@ -770,6 +770,15 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
     sessionId: string | null,
   ) {
     if (execution.status === 'succeeded') {
+      void this.backgroundApi.serviceApp.showToast({
+        method: 'success',
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.perp_deposit_success_title,
+        }),
+        message: formatUnifoldUsdAmount(
+          execution.destinationAmountUsd ?? execution.sourceAmountUsd,
+        ),
+      });
       void this.backgroundApi.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
       return;
     }

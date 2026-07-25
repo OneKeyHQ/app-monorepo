@@ -24,6 +24,7 @@ import {
 import { usePerpsUnifoldDepositSession } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
 import type { IUnifoldDepositErrorType } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import { UNIFOLD_THIRD_PARTY_CONVERSION_FEE_PERCENT } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IUnifoldDepositExecution } from '@onekeyhq/shared/types/unifoldDeposit';
@@ -43,7 +44,9 @@ import { UnifoldExecutionDetail } from './UnifoldTrackerContent';
 const HYPERLIQUID_NETWORK_ICON_URI = getPresetNetworks().find(
   (network) => network.shortcode === 'hyperevm',
 )?.logoURI;
-const THIRD_PARTY_CONVERSION_FEE = '0.25%';
+const THIRD_PARTY_CONVERSION_FEE = `${UNIFOLD_THIRD_PARTY_CONVERSION_FEE_PERCENT.toFixed(
+  2,
+)}%`;
 
 function DetailRow({
   label,
