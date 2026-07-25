@@ -47,7 +47,9 @@ describe('LocalDbBase.getExistingDevice failure semantics', () => {
     ).rejects.toThrow('db read failed');
   });
 
-  it('contains a reseed recovery failure and reports no match', async () => {
+  it('surfaces a reseed recovery failure instead of duplicating the wallet', async () => {
+    // Recovery exists to stop a re-seeded device from duplicating its wallet,
+    // so a swallowed failure would create the very duplicate it prevents.
     const resolveReuseDeviceFn = jest
       .fn()
       .mockRejectedValue(new Error('recovery failed'));
@@ -57,7 +59,7 @@ describe('LocalDbBase.getExistingDevice failure semantics', () => {
 
     await expect(
       db.getExistingDevice({ ...trezorParams, resolveReuseDeviceFn }),
-    ).resolves.toBeUndefined();
+    ).rejects.toThrow('recovery failed');
     expect(resolveReuseDeviceFn).toHaveBeenCalledTimes(1);
   });
 

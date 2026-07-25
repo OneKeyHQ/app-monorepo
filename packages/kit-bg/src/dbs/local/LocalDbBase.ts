@@ -8271,29 +8271,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     params: IResolveExistingDeviceParams,
     profile: IHardwareVendorProfile,
   ): Promise<IDBDevice | undefined> {
-    // Identity matching keeps the same failure semantics as OneKey: a DB read
-    // failure must surface, never be mistaken for "no such device" — that would
-    // silently create a duplicate device record.
     const matched = await this._matchExistingDeviceRecord(params);
     if (matched) {
       return matched;
     }
-    if (profile.reseedRecovery !== 'xfp' || !params.resolveReuseDeviceFn) {
+    if (profile.reseedRecovery === 'none' || !params.resolveReuseDeviceFn) {
       return undefined;
     }
-    // Only the vendor recovery is contained. It is the part that reaches out to
-    // third-party services, and it runs after the device is already known to be
-    // unmatched, so failing it costs nothing beyond creating a new device.
-    try {
-      return await params.resolveReuseDeviceFn();
-    } catch (error) {
-      defaultLogger.hardware.sdkLog.log(
-        `[getExistingDevice] reseed recovery failed, treating as no match: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-      return undefined;
-    }
+    // Errors deliberately propagate: recovery exists to stop a re-seeded device
+    // from duplicating its wallet, so treating a failure as "no match" would
+    // produce the very duplicate it prevents. Fail loudly and let the user retry.
+    return params.resolveReuseDeviceFn();
   }
 
   private async _matchExistingDeviceRecord({
