@@ -26,6 +26,7 @@ import {
   formatSegmentLocalRange,
   getDeviceUtcOffsetLabel,
   getUSMarketTradingHours,
+  isOndoUSMarketStock,
   resolveUSTradingHoursActiveRow,
 } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IUSTradingHoursRow } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
@@ -325,7 +326,14 @@ function TradingHoursContent({
       ) : null}
       <YStack px={pagePx} pt="$1">
         <SizableText size={detailTextSize} color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.trading_hours_description })}
+          {intl.formatMessage({
+            // 7×24 instrument while the market is closed → dedicated copy
+            // explaining that it still trades with higher volatility.
+            id:
+              activeRow === 'closed' && stock.isOpen === true
+                ? ETranslations.trading_hours_closed_tradable_description
+                : ETranslations.trading_hours_description,
+          })}
         </SizableText>
       </YStack>
 
@@ -474,6 +482,12 @@ export function TradingHoursTrigger({
 }) {
   const media = useMedia();
   const useSheetDialog = platformEnv.isNative || media.md;
+
+  // Trading hours only apply to Ondo's US-session model — other issuers
+  // (xStocks etc.) run 7×24, so their badge stays a plain, non-tappable one.
+  if (!isOndoUSMarketStock(stock.source)) {
+    return <>{renderTrigger}</>;
+  }
 
   if (useSheetDialog) {
     return (

@@ -621,6 +621,7 @@ onboard
 onboarding
 Onchain
 oncomplete
+ondo
 onekey
 onekeyall
 onekeyfe

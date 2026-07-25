@@ -354,38 +354,61 @@ export function usMarketSessionKeyFromBackendSession(
   }
 }
 
-/** Display status of a tokenized stock: the four US sessions plus closed/halted. */
+/**
+ * Display status of a tokenized stock: the four US sessions, closed/halted,
+ * and "closed but tradable" for 7×24 Ondo instruments during market closure.
+ */
 export enum EUSMarketStatusVariant {
   PreMarket = 'preMarket',
   Open = 'open',
   PostMarket = 'postMarket',
   Overnight = 'overnight',
   Closed = 'closed',
+  ClosedTradable = 'closedTradable',
   Halted = 'halted',
 }
 
 /**
- * Single source of truth for a stock token's displayed market status
- * (status badge and trading-hours panel must agree).
+ * Only Ondo-issued stock tokens follow the US-session trading model this
+ * feature describes (OK-58043). xStocks and other providers run 7×24 with no
+ * open/closed distinction, so they keep the legacy open/closed badge and get
+ * no trading-hours entry.
+ */
+export function isOndoUSMarketStock(source: string | undefined): boolean {
+  return source?.toLowerCase() === 'ondo';
+}
+
+/**
+ * Single source of truth for a stock token's displayed market status.
+ * Returns undefined for non-Ondo issuers (callers fall back to the legacy
+ * two-state badge) and for tokens without stock signals.
  *
  * Signal priority:
  *   1. per-stock halt (`isPaused`) — overlays everything;
  *   2. per-stock `isOpen === false` — the instrument's own window is closed;
  *   3. market-wide session refines HOW it is open. A tradable instrument
- *      (`isOpen === true`) with session CLOSED/unavailable still shows Open —
- *      that is the 7×24 provider case (e.g. xStocks on weekends).
+ *      (`isOpen === true`) while the US market is closed is the special
+ *      7×24-Ondo case → ClosedTradable ("Closed · Tradable").
  *
- * Returns undefined when the token has no stock market signals at all.
+ * When the market-status API is unavailable, falls back to pure clock math:
+ * weekends are detectable locally, holidays are not.
  */
 export function resolveUSMarketStatusVariant({
+  source,
   isOpen,
   isPaused,
   status,
+  now = new Date(),
 }: {
+  source?: string;
   isOpen?: boolean;
   isPaused?: boolean;
   status?: IFetchUSMarketStatusResult;
+  now?: Date;
 }): EUSMarketStatusVariant | undefined {
+  if (!isOndoUSMarketStock(source)) {
+    return undefined;
+  }
   if (isPaused === true) {
     return EUSMarketStatusVariant.Halted;
   }
@@ -395,20 +418,35 @@ export function resolveUSMarketStatusVariant({
   if (isOpen === false) {
     return EUSMarketStatusVariant.Closed;
   }
-  const sessionKey = usMarketSessionKeyFromBackendSession(
-    status?.unavailable ? undefined : status?.session,
-  );
-  switch (sessionKey) {
-    case EUSMarketSessionKey.PreMarket:
-      return EUSMarketStatusVariant.PreMarket;
-    case EUSMarketSessionKey.PostMarket:
-      return EUSMarketStatusVariant.PostMarket;
-    case EUSMarketSessionKey.Overnight:
-      return EUSMarketStatusVariant.Overnight;
-    case EUSMarketSessionKey.Regular:
-    default:
-      return EUSMarketStatusVariant.Open;
+  const sessionKeyToVariant = (key: EUSMarketSessionKey) => {
+    switch (key) {
+      case EUSMarketSessionKey.PreMarket:
+        return EUSMarketStatusVariant.PreMarket;
+      case EUSMarketSessionKey.PostMarket:
+        return EUSMarketStatusVariant.PostMarket;
+      case EUSMarketSessionKey.Overnight:
+        return EUSMarketStatusVariant.Overnight;
+      case EUSMarketSessionKey.Regular:
+      default:
+        return EUSMarketStatusVariant.Open;
+    }
+  };
+  if (status && !status.unavailable) {
+    if (!status.open || status.session === 'CLOSED') {
+      return EUSMarketStatusVariant.ClosedTradable;
+    }
+    const sessionKey = usMarketSessionKeyFromBackendSession(status.session);
+    return sessionKeyToVariant(sessionKey ?? EUSMarketSessionKey.Regular);
   }
+  const tradingHours = getUSMarketTradingHours(now);
+  const nowMs = now.getTime();
+  if (
+    nowMs >= tradingHours.weekendStartInstant &&
+    nowMs < tradingHours.weekendEndInstant
+  ) {
+    return EUSMarketStatusVariant.ClosedTradable;
+  }
+  return sessionKeyToVariant(tradingHours.currentSessionKey);
 }
 
 /** Rows of the trading-hours panel: the four sessions plus closed/halts. */

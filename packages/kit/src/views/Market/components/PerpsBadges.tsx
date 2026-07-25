@@ -18,6 +18,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EUSMarketStatusVariant,
+  isOndoUSMarketStock,
   resolveUSMarketStatusVariant,
 } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
@@ -214,6 +215,12 @@ const STOCK_MARKET_STATUS_CHIPS: Record<
     bg: '$bgStrong',
     color: '$textSubdued',
   },
+  [EUSMarketStatusVariant.ClosedTradable]: {
+    icon: 'ClockSnoozeOutline',
+    titleId: ETranslations.trading_hours_closed_tradable,
+    bg: '$bgStrong',
+    color: '$textSubdued',
+  },
   [EUSMarketStatusVariant.Halted]: {
     icon: 'PauseOutline',
     titleId: ETranslations.market_status_halted,
@@ -223,10 +230,13 @@ const STOCK_MARKET_STATUS_CHIPS: Record<
 };
 
 /**
- * Six-state market status chip for tokenized stocks (see OK-58043): the four
- * US sessions plus Closed/Halted. Pass `disableTooltip` when the chip is used
- * as a popover trigger (e.g. the trading-hours panel) — the wrapping trigger
- * owns the press, so the hover tooltip must not compete with it.
+ * Market status chip for tokenized stocks (see OK-58043). Ondo tokens follow
+ * the US-session model and get the multi-state chip (sessions, closed, halted,
+ * "Closed · Tradable" for 7×24 instruments); other issuers (e.g. xStocks run
+ * 7×24 with no open/closed distinction) keep the legacy two-state badge.
+ * Pass `disableTooltip` when the chip is used as a popover trigger (e.g. the
+ * trading-hours panel) — the wrapping trigger owns the press, so the hover
+ * tooltip must not compete with it.
  */
 const StockIsOpenBadge = memo(
   ({
@@ -237,34 +247,65 @@ const StockIsOpenBadge = memo(
     disableTooltip?: boolean;
   }) => {
     const intl = useIntl();
-    const { isOpen, isPaused, description } = stock;
-    // Session data only refines an instrument that is currently tradable.
+    const { source, isOpen, isPaused, description } = stock;
     const marketStatus = useUSMarketStatus({
-      enabled: isOpen === true && isPaused !== true,
+      enabled:
+        isOndoUSMarketStock(source) && isOpen === true && isPaused !== true,
     });
 
     const variant = resolveUSMarketStatusVariant({
+      source,
       isOpen,
       isPaused,
       status: marketStatus,
     });
-    if (!variant) {
+
+    if (!variant && isOpen === undefined) {
       return null;
     }
-    const chip = STOCK_MARKET_STATUS_CHIPS[variant];
 
-    const badge = (
+    const badge = variant ? (
       <XStack
         borderRadius="$1"
-        bg={chip.bg}
+        bg={STOCK_MARKET_STATUS_CHIPS[variant].bg}
         justifyContent="center"
         alignItems="center"
         gap={3}
         px="$1"
       >
-        <Icon name={chip.icon} size="$3" color={chip.color} />
-        <SizableText fontSize={10} color={chip.color} lineHeight={16}>
-          {intl.formatMessage({ id: chip.titleId })}
+        <Icon
+          name={STOCK_MARKET_STATUS_CHIPS[variant].icon}
+          size="$3"
+          color={STOCK_MARKET_STATUS_CHIPS[variant].color}
+        />
+        <SizableText
+          fontSize={10}
+          color={STOCK_MARKET_STATUS_CHIPS[variant].color}
+          lineHeight={16}
+        >
+          {intl.formatMessage({
+            id: STOCK_MARKET_STATUS_CHIPS[variant].titleId,
+          })}
+        </SizableText>
+      </XStack>
+    ) : (
+      <XStack
+        borderRadius="$1"
+        bg={isOpen ? '$bgSuccess' : '$bgCaution'}
+        justifyContent="center"
+        alignItems="center"
+        px="$1.5"
+      >
+        <SizableText
+          fontSize={10}
+          color={isOpen ? '$textSuccess' : '$textCaution'}
+          lineHeight={16}
+        >
+          {intl.formatMessage({
+            id: isOpen
+              ? ETranslations.dexmarket_stock_status_open
+              : ETranslations.dexmarket_stock_status_closed,
+          })}
         </SizableText>
       </XStack>
     );
