@@ -38,6 +38,7 @@ import { usePrimeSubscriptionPackages } from '../../hooks/usePrimeSubscriptionPa
 import { PrimeBenefitsList } from './PrimeBenefitsList';
 import { PrimeDebugPanel } from './PrimeDebugPanel';
 import { PrimeLottieAnimation } from './PrimeLottieAnimation';
+import { runPrimeSubscribeWithMinimumLoadingDuration } from './primeSubscribeLoadingUtils';
 import { PrimeTermsAndPrivacy } from './PrimeTermsAndPrivacy';
 import { PrimeUserInfo } from './PrimeUserInfo';
 
@@ -262,11 +263,13 @@ export default function PrimeDashboard({
 
     try {
       setIsSubscribeLazyLoading(true);
-      await ensurePrimeSubscriptionActive({
-        skipDialogConfirm: true,
-        selectedSubscriptionPeriod,
-        featureName: fromFeature,
-      });
+      await runPrimeSubscribeWithMinimumLoadingDuration(() =>
+        ensurePrimeSubscriptionActive({
+          skipDialogConfirm: true,
+          selectedSubscriptionPeriod,
+          featureName: fromFeature,
+        }),
+      );
     } finally {
       setIsSubscribeLazyLoading(false);
     }
