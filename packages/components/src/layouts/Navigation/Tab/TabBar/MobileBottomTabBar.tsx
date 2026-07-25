@@ -80,7 +80,11 @@ export default function MobileBottomTabBar({
         });
       }
 
-      if (route.name === ETabRoutes.Perp && !isActive) {
+      if (
+        (route.name === ETabRoutes.Perp ||
+          route.name === ETabRoutes.WebviewPerpTrade) &&
+        !isActive
+      ) {
         setPerpPageEnterSource(EPerpPageEnterSource.TabBar);
       }
 
