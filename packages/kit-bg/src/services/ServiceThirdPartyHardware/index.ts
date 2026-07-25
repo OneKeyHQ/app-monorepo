@@ -645,11 +645,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
   }): Promise<IDBDevice | undefined> {
     const { xfp, vendor, vendorModel } = params;
     // Gated by vendor capability, not a hardcoded vendor (see vendorProfile).
-    if (
-      !xfp ||
-      !vendor ||
-      !getVendorProfile(vendor)?.treatsSameSeedAsSameDevice
-    ) {
+    if (!xfp || !vendor || getVendorProfile(vendor)?.reseedRecovery !== 'xfp') {
       return undefined;
     }
     const db = this.backgroundApi.localDb;
