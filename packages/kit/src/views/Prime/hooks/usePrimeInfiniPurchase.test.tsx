@@ -18,6 +18,8 @@ const mockIsLoggedIn = jest.fn<Promise<boolean>, []>();
 const mockApiGetInfiniPurchaseStatusSnapshot = jest.fn();
 const mockApiGetInfiniCheckoutUrl = jest.fn();
 const mockGetPrimeInfiniExternalCheckoutGuard = jest.fn();
+const mockOpenUrlExternal = jest.fn();
+const mockShowPrimeInfiniWaitingDialog = jest.fn();
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -72,12 +74,13 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
   __esModule: true,
   default: {
-    openUrlExternal: jest.fn(),
+    openUrlExternal: (...args: unknown[]) => mockOpenUrlExternal(...args),
   },
 }));
 
 jest.mock('../components/PrimeInfiniWaitingDialog', () => ({
-  showPrimeInfiniWaitingDialog: jest.fn(),
+  showPrimeInfiniWaitingDialog: (...args: unknown[]) =>
+    mockShowPrimeInfiniWaitingDialog(...args),
 }));
 
 jest.mock('./primeInfiniExternalCheckoutGuard', () => ({
@@ -185,6 +188,47 @@ describe('usePrimeInfiniPurchase internal wallet route', () => {
 
     expect(didOpenCheckout).toBe(false);
     expect(mockApiGetInfiniCheckoutUrl).not.toHaveBeenCalled();
+  });
+
+  it('shows the waiting dialog after closing the payment modal and before opening external checkout', async () => {
+    mockIsLoggedIn.mockResolvedValue(true);
+    mockGetPrimeInfiniExternalCheckoutGuard.mockResolvedValue({
+      isLoggedIn: true,
+      hasPendingPayment: false,
+      onekeyUserId: 'user-1',
+    });
+    mockApiGetInfiniPurchaseStatusSnapshot.mockResolvedValue({
+      onekeyUserId: 'user-1',
+      primeSubscription: {
+        isActive: false,
+      },
+    });
+    mockApiGetInfiniCheckoutUrl.mockResolvedValue({
+      checkoutUrl: 'https://checkout.example.com/payment',
+    });
+    const callOrder: string[] = [];
+    const beforeOpenCheckout = jest.fn(async () => {
+      callOrder.push('close');
+    });
+    mockShowPrimeInfiniWaitingDialog.mockImplementation(() => {
+      callOrder.push('waiting');
+    });
+    mockOpenUrlExternal.mockImplementation(() => {
+      callOrder.push('open');
+    });
+    const { result } = renderHook(() => usePrimeInfiniPurchase());
+
+    await act(async () => {
+      await result.current.purchaseByExternalCheckout({
+        selectedSubscriptionPeriod: 'P1M',
+        beforeOpenCheckout,
+      });
+    });
+
+    expect(beforeOpenCheckout).toHaveBeenCalledTimes(1);
+    expect(mockShowPrimeInfiniWaitingDialog).toHaveBeenCalledTimes(1);
+    expect(mockOpenUrlExternal).toHaveBeenCalledTimes(1);
+    expect(callOrder).toEqual(['close', 'waiting', 'open']);
   });
 
   it('deduplicates concurrent attempts while login verification is pending', async () => {

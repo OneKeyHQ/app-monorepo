@@ -128,6 +128,7 @@ import type { ISubscriptionPeriod } from '../hooks/usePrimePaymentTypes';
 
 const ACCOUNT_SELECTOR_ENABLED_NUM = [0];
 const MIN_PAYMENT_VALIDITY_BEFORE_SEND_MS = 30_000;
+const PRIME_PAYMENT_MODAL_CLOSE_DELAY_MS = 300;
 const PRIME_PAYMENT_BUTTON_NUMERIC_STYLE = getFontVariantStyle([
   'tabular-nums',
 ]);
@@ -184,7 +185,10 @@ type IPayWithExternalWallet = (params: {
   selectedSubscriptionPeriod: ISubscriptionPeriod;
   featureName?: EPrimeFeatures;
   beforeCheckout?: () => Promise<boolean>;
+  beforeOpenCheckout?: () => Promise<void>;
 }) => Promise<boolean>;
+
+type ICloseExternalCheckoutConfirmation = () => void | Promise<void>;
 
 type IPrimeInfiniPaymentFooterProps = {
   showCancelButton?: boolean;
@@ -2959,30 +2963,34 @@ function PrimeInfiniWalletPaymentContent({
     selectedSubscriptionPeriod,
   ]);
 
-  const proceedWithExternalCheckout = useCallback(() => {
-    if (submitInFlightRef.current || sendStartedRef.current) {
-      return;
-    }
-    const currentPayment = paymentRef.current;
-    if (
-      currentPayment &&
-      !isPrimeInfiniPaymentReplaceable({
-        payment: currentPayment,
-        sendStarted: sendStartedRef.current,
-      })
-    ) {
-      return;
-    }
-    submitInFlightRef.current = true;
-    onExitPreventedChange(true);
-    setPhase('creating');
-    const attemptGeneration = asyncAttemptGenerationRef.current + 1;
-    asyncAttemptGenerationRef.current = attemptGeneration;
-    const isAttemptOwned = () =>
-      mountedRef.current &&
-      asyncAttemptGenerationRef.current === attemptGeneration &&
-      isPurchaseUserCurrentRef.current;
-    void (async () => {
+  const proceedWithExternalCheckout = useCallback(
+    async (
+      closeExternalCheckoutConfirmation: ICloseExternalCheckoutConfirmation,
+    ) => {
+      if (submitInFlightRef.current || sendStartedRef.current) {
+        await closeExternalCheckoutConfirmation();
+        return;
+      }
+      const currentPayment = paymentRef.current;
+      if (
+        currentPayment &&
+        !isPrimeInfiniPaymentReplaceable({
+          payment: currentPayment,
+          sendStarted: sendStartedRef.current,
+        })
+      ) {
+        await closeExternalCheckoutConfirmation();
+        return;
+      }
+      submitInFlightRef.current = true;
+      onExitPreventedChange(true);
+      setPhase('creating');
+      const attemptGeneration = asyncAttemptGenerationRef.current + 1;
+      asyncAttemptGenerationRef.current = attemptGeneration;
+      const isAttemptOwned = () =>
+        mountedRef.current &&
+        asyncAttemptGenerationRef.current === attemptGeneration &&
+        isPurchaseUserCurrentRef.current;
       let discardedPreparedPayment = false;
       let externalCheckoutAbortedForTracking = false;
       let reloadedPaymentSession = false;
@@ -3046,11 +3054,29 @@ function PrimeInfiniWalletPaymentContent({
             discardedPreparedPayment = true;
             return true;
           },
+          beforeOpenCheckout: async () => {
+            // Commit the exit-guard update without starting either close
+            // animation. Both overlays can then close in the same frame.
+            onExitPreventedChange(false);
+            await timerUtils.setTimeoutPromised();
+            const closeConfirmationPromise = Promise.resolve(
+              closeExternalCheckoutConfirmation(),
+            );
+            onClose();
+            await Promise.all([
+              closeConfirmationPromise,
+              // The shared page-modal close transition lasts 250 ms.
+              timerUtils.setTimeoutPromised(
+                undefined,
+                PRIME_PAYMENT_MODAL_CLOSE_DELAY_MS,
+              ),
+            ]);
+          },
         });
         if (didOpenCheckout) {
-          onClose();
           return;
         }
+        await closeExternalCheckoutConfirmation();
         if (externalCheckoutAbortedForTracking || reloadedPaymentSession) {
           return;
         }
@@ -3072,6 +3098,7 @@ function PrimeInfiniWalletPaymentContent({
           setPhase('selecting');
         }
       } catch (error) {
+        await closeExternalCheckoutConfirmation();
         errorToastUtils.toastIfError(error);
         errorToastUtils.showToastOfError(error);
         if (isAttemptOwned()) {
@@ -3090,19 +3117,20 @@ function PrimeInfiniWalletPaymentContent({
           }
         }
       }
-    })();
-  }, [
-    baseline.onekeyUserId,
-    discardPaymentSessionForSelectionChange,
-    featureName,
-    onClose,
-    onExitPreventedChange,
-    onPayWithExternalWallet,
-    onReloadPaymentSession,
-    persistPaymentSession,
-    selectedAsset,
-    selectedSubscriptionPeriod,
-  ]);
+    },
+    [
+      baseline.onekeyUserId,
+      discardPaymentSessionForSelectionChange,
+      featureName,
+      onClose,
+      onExitPreventedChange,
+      onPayWithExternalWallet,
+      onReloadPaymentSession,
+      persistPaymentSession,
+      selectedAsset,
+      selectedSubscriptionPeriod,
+    ],
+  );
 
   const handleExternalCheckout = useCallback(() => {
     logPrimeInfiniPaymentFlow({
@@ -3131,8 +3159,8 @@ function PrimeInfiniWalletPaymentContent({
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_continue,
       }),
-      onConfirm: () => {
-        proceedWithExternalCheckout();
+      onConfirm: async ({ close }) => {
+        await proceedWithExternalCheckout(close);
       },
     });
   }, [

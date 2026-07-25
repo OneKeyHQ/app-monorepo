@@ -379,11 +379,8 @@ function PrimeInfiniWaitingDialogContent({
         Open checkout page
       </Button>
       <Dialog.Footer
-        showCancelButton
+        showCancelButton={false}
         showConfirmButton
-        onCancelText={intl.formatMessage({
-          id: ETranslations.global_later,
-        })}
         // TODO: i18n pending translation key
         onConfirmText="I’ve completed payment"
         onConfirm={async ({ preventClose }) => {

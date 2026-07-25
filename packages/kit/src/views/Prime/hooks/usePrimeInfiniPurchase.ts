@@ -17,6 +17,7 @@ import type {
   IPrimeParamList,
 } from '@onekeyhq/shared/src/routes/prime';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeInfiniSubscriptionPlan } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { showPrimeInfiniWaitingDialog } from '../components/PrimeInfiniWaitingDialog';
@@ -31,6 +32,7 @@ import type { ISubscriptionPeriod } from './usePrimePaymentTypes';
 // another internal or external attempt cannot claim the same user in between.
 let isExternalCheckoutInFlight = false;
 let isWalletPaymentPageOpening = false;
+const PRIME_WAITING_DIALOG_OPEN_DELAY_MS = 300;
 
 export function isPrimeInfiniExternalCheckoutInFlight() {
   return isExternalCheckoutInFlight;
@@ -56,10 +58,12 @@ export function usePrimeInfiniPurchase() {
       selectedSubscriptionPeriod,
       featureName,
       beforeCheckout,
+      beforeOpenCheckout,
     }: {
       selectedSubscriptionPeriod: ISubscriptionPeriod;
       featureName?: EPrimeFeatures;
       beforeCheckout?: () => Promise<boolean>;
+      beforeOpenCheckout?: () => Promise<void>;
     }) => {
       const plan: IPrimeInfiniSubscriptionPlan =
         selectedSubscriptionPeriod === 'P1Y' ? 'yearly' : 'monthly';
@@ -228,13 +232,10 @@ export function usePrimeInfiniPurchase() {
           });
         }
 
-        // Open the hosted checkout in the external system browser on all
-        // supported platforms (see integration plan §8): Binance Pay and
-        // wallet-app deep links are unreliable inside the in-app browser
-        openUrlUtils.openUrlExternal(checkoutUrl, { useSystemBrowser: true });
+        await beforeOpenCheckout?.();
 
         // checkoutUrl is passed down so the waiting dialog can offer an
-        // "Open checkout page" affordance: on web the window.open above runs
+        // "Open checkout page" affordance: on web window.open runs
         // after async gaps and may be blocked by the popup blocker
         showPrimeInfiniWaitingDialog({
           plan,
@@ -242,6 +243,17 @@ export function usePrimeInfiniPurchase() {
           featureName,
           checkoutUrl,
         });
+        // Keep the waiting state visible before handing control to the system
+        // browser. The shared modal transition takes 250 ms.
+        await timerUtils.setTimeoutPromised(
+          undefined,
+          PRIME_WAITING_DIALOG_OPEN_DELAY_MS,
+        );
+
+        // Open the hosted checkout in the external system browser on all
+        // supported platforms (see integration plan §8): Binance Pay and
+        // wallet-app deep links are unreliable inside the in-app browser
+        openUrlUtils.openUrlExternal(checkoutUrl, { useSystemBrowser: true });
         logPrimeInfiniPaymentFlow({
           stage: 'externalCheckout',
           status: 'succeeded',
