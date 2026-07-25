@@ -330,15 +330,6 @@ function TokenDetailsHeaderContent({
 
         const data = tokensDetails?.[0];
 
-        // Chart price-line surface cannot render '--'; coerce to 0. Header
-        // price/balance render '--' via TokenDetailsBalanceHero below.
-        updateTokenMetadata({
-          price: data?.price ?? 0,
-          priceChange24h: data?.price24h ?? 0,
-          coingeckoId: data?.info?.coingeckoId ?? '',
-          currency: data?.currency,
-        });
-
         if (!data) {
           tokenDetailsCache.delete(tokenDetailsCacheKey);
           return undefined;
@@ -357,7 +348,6 @@ function TokenDetailsHeaderContent({
         accountId,
         networkId,
         tokenInfo.address,
-        updateTokenMetadata,
         updateTokenDetails,
         tokenDetailsCacheKey,
       ],
@@ -367,21 +357,25 @@ function TokenDetailsHeaderContent({
   const tokenDetails = tokenDetailsResult ?? cachedTokenDetails;
 
   useEffect(() => {
-    if (!cachedTokenDetails || tokenDetailsResult) {
+    if (!tokenDetails || (isTabView && !focusParam)) {
       return;
     }
 
-    // Cached-only path: same '--' coercion rationale as the fetch path above.
     updateTokenMetadata({
-      price: cachedTokenDetails.price ?? 0,
-      priceChange24h: cachedTokenDetails.price24h ?? 0,
+      price: tokenDetails.price ?? 0,
+      priceChange24h: tokenDetails.price24h ?? 0,
       coingeckoId:
-        cachedTokenDetails.info?.coingeckoId ?? tokenInfo.coingeckoId ?? '',
-      currency: cachedTokenDetails.currency,
+        tokenDetails.info?.coingeckoId ?? tokenInfo.coingeckoId ?? '',
+      networkId,
+      tokenAddress: tokenInfo.address,
+      currency: tokenDetails.currency,
     });
   }, [
-    cachedTokenDetails,
-    tokenDetailsResult,
+    focusParam,
+    isTabView,
+    networkId,
+    tokenDetails,
+    tokenInfo.address,
     tokenInfo.coingeckoId,
     updateTokenMetadata,
   ]);
