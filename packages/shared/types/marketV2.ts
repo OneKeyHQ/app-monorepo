@@ -202,6 +202,15 @@ export interface IMarketStockInfo {
   underlyingAssetName?: string;
 }
 
+export interface IMarketStockDetail {
+  ticker: string;
+  name: string;
+  logoUrl?: string;
+  introduction?: string;
+  underlyingUpdatedAt?: string;
+  stock: IMarketStockInfo;
+}
+
 export interface IMarketTokenListItem extends IMarketTokenHistoricalPriceFields {
   address: string;
   logoUrl?: string;
