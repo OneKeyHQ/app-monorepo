@@ -7,6 +7,10 @@ import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import localDb from '../dbs/local/localDb';
 
 import ServiceBase from './ServiceBase';
+import {
+  markIdentityRecoveryFailed,
+  markIdentityRecoveryReady,
+} from './ServiceIdentityExit/identityLifecycleMutex';
 import { scheduleWalletProfileAnalyticsChecks } from './walletProfileAnalyticsScheduler';
 
 @backgroundClass()
@@ -47,6 +51,18 @@ class ServiceBootstrap extends ServiceBase {
     defaultLogger.app.bootstrap.initCriticalStart();
     const criticalStart = Date.now();
     await this.timed('localDb.readyDb', () => localDb.readyDb);
+    try {
+      await this.timed('serviceIdentityExit.recoverInterruptedOperations', () =>
+        this.backgroundApi.serviceIdentityExit.recoverInterruptedIdentityExitOperations(),
+      );
+      markIdentityRecoveryReady();
+    } catch (_error) {
+      markIdentityRecoveryFailed();
+      defaultLogger.app.bootstrap.initCriticalStep(
+        'identityRecovery (FAILED)',
+        0,
+      );
+    }
     try {
       await this.timed('initSystemLocale', () =>
         this.backgroundApi.serviceSetting.initSystemLocale(),

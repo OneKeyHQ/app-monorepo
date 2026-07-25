@@ -1,11 +1,12 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { getTradingViewNativeKLineInterval } from '../../tradingViewNativeIntervals';
+
 import {
   convertCoinGeckoChartToKLineResponse,
   getCoinGeckoChartDaysForInterval,
   getCoinGeckoHistoryRequestCandleCount,
 } from './coinGeckoKLineUtils';
-import { getTradingViewNativeKLineInterval } from './tradingViewNativeIntervals';
 
 function getInterval(value: string) {
   const interval = getTradingViewNativeKLineInterval(value);

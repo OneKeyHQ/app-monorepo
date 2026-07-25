@@ -252,6 +252,7 @@ function createService(params: { wallet?: any; password?: string } = {}) {
     },
     serviceAccount: {
       getKeylessWallet: jest.fn(async () => wallet),
+      getIdentityManagedKeylessWalletCandidate: jest.fn(async () => wallet),
     },
     servicePrime: {
       getLocalUserInfo: jest.fn(async () => ({
@@ -259,6 +260,9 @@ function createService(params: { wallet?: any; password?: string } = {}) {
       })),
       isLoggedIn: jest.fn(async () => true),
       isOAuthProviderBoundToCurrentOneKeyId: jest.fn(async () => false),
+      persistMigratedKeylessOAuthSessionForWallet: jest.fn(
+        async () => undefined,
+      ),
     },
     servicePassword: {
       getCachedPassword: jest.fn(async () => params.password ?? PASSWORD),
@@ -2076,6 +2080,29 @@ describe('ServiceKeylessWallet legacy keyless OAuth token passcode handling', ()
   });
 });
 
+describe('ServiceKeylessWallet Keyless removal cleanup boundaries', () => {
+  beforeEach(() => {
+    jest.restoreAllMocks();
+    jest.clearAllMocks();
+  });
+
+  test('credential-only cleanup does not clear the shared auth session or OneKey ID state', async () => {
+    const { serviceAny } = createService();
+    serviceAny.removeLegacyKeylessOAuthTokens = jest.fn(async () => undefined);
+
+    await serviceAny.cleanupKeylessWalletCredentialStorage({
+      ownerId: OWNER_ID,
+    });
+
+    expect(
+      keylessMnemonicPasswordStorage.removeMnemonicPasswordFromStorage,
+    ).toHaveBeenCalledWith({ ownerId: OWNER_ID });
+    expect(serviceAny.removeLegacyKeylessOAuthTokens).toHaveBeenCalledWith({
+      ownerId: OWNER_ID,
+    });
+  });
+});
+
 describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization', () => {
   beforeEach(() => {
     jest.restoreAllMocks();
@@ -2124,18 +2151,28 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
       serviceAny.saveLegacyKeylessOAuthRefreshToken,
     ).not.toHaveBeenCalled();
     expect(serviceAny.removeLegacyKeylessOAuthTokens).not.toHaveBeenCalled();
-    expect(mockSupabaseSetSession).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.servicePrime.persistMigratedKeylessOAuthSessionForWallet,
+    ).not.toHaveBeenCalled();
   });
 
   test('interactive migration queues behind the exchange lock and then consumes the freshly rotated blob token', async () => {
-    const { serviceAny, wallet } = createService();
+    const { serviceAny, wallet, backgroundApi } = createService();
+    backgroundApi.servicePrime.persistMigratedKeylessOAuthSessionForWallet.mockImplementation(
+      async () => {
+        expect(serviceAny.legacyKeylessOAuthTokenExchangeMutex.isLocked()).toBe(
+          false,
+        );
+      },
+    );
     serviceAny.hasLegacyKeylessOAuthRefreshToken = jest.fn(async () => true);
     // Simulates the passive path having already rotated the blob while it
     // held the lock: the in-lock re-read must pick up the rotated token,
     // not a stale pre-lock copy.
-    serviceAny.getLegacyKeylessOAuthRefreshToken = jest.fn(
-      async () => 'passively-rotated-refresh-token',
-    );
+    serviceAny.getLegacyKeylessOAuthRefreshToken = jest
+      .fn()
+      .mockResolvedValueOnce('passively-rotated-refresh-token')
+      .mockResolvedValueOnce('interactively-rotated-refresh-token');
     serviceAny.saveLegacyKeylessOAuthRefreshToken = jest.fn(
       async () => undefined,
     );
@@ -2195,9 +2232,12 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
       refreshToken: 'interactively-rotated-refresh-token',
       password: PASSWORD,
     });
-    expect(mockSupabaseSetSession).toHaveBeenCalledWith({
-      access_token: TOKEN,
-      refresh_token: 'interactively-rotated-refresh-token',
+    expect(
+      backgroundApi.servicePrime.persistMigratedKeylessOAuthSessionForWallet,
+    ).toHaveBeenCalledWith({
+      accessToken: TOKEN,
+      refreshToken: 'interactively-rotated-refresh-token',
+      expectedWalletId: WALLET_ID,
     });
     expect(serviceAny.removeLegacyKeylessOAuthTokens).toHaveBeenCalledWith({
       ownerId: OWNER_ID,
@@ -2205,7 +2245,7 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
   });
 
   test('interactive migration persists the rotated token before wallet validation so a mismatch cannot strand the consumed token', async () => {
-    const { serviceAny, wallet } = createService();
+    const { serviceAny, wallet, backgroundApi } = createService();
     serviceAny.hasLegacyKeylessOAuthRefreshToken = jest.fn(async () => true);
     serviceAny.getLegacyKeylessOAuthRefreshToken = jest.fn(
       async () => 'legacy-refresh-token',
@@ -2247,7 +2287,9 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
     });
     // A mismatched session must never be installed, and the blob must not
     // be removed.
-    expect(mockSupabaseSetSession).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.servicePrime.persistMigratedKeylessOAuthSessionForWallet,
+    ).not.toHaveBeenCalled();
     expect(serviceAny.removeLegacyKeylessOAuthTokens).not.toHaveBeenCalled();
   });
 });
@@ -2465,6 +2507,7 @@ describe('ServiceKeylessWallet.prepareOneKeyIdLoginWithLocalKeyless', () => {
     ).resolves.toEqual({
       status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.ContinueWithKeyless,
       provider: EOAuthSocialLoginProvider.Google,
+      walletId: WALLET_ID,
     });
   });
 
@@ -2485,6 +2528,7 @@ describe('ServiceKeylessWallet.prepareOneKeyIdLoginWithLocalKeyless', () => {
     ).resolves.toEqual({
       status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NeedOAuthLogin,
       provider: EOAuthSocialLoginProvider.Google,
+      walletId: WALLET_ID,
     });
   });
 
@@ -2501,6 +2545,7 @@ describe('ServiceKeylessWallet.prepareOneKeyIdLoginWithLocalKeyless', () => {
     ).resolves.toEqual({
       status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NeedOAuthLogin,
       provider: EOAuthSocialLoginProvider.Google,
+      walletId: WALLET_ID,
     });
   });
 
@@ -2514,9 +2559,10 @@ describe('ServiceKeylessWallet.prepareOneKeyIdLoginWithLocalKeyless', () => {
     // degrades a thrown result to a session-preserving one.
     const { service, backgroundApi } = createService();
     const readError = new OneKeyLocalError('transient wallet read failure');
-    backgroundApi.serviceAccount.getKeylessWallet = jest.fn(async () => {
-      throw readError;
-    });
+    backgroundApi.serviceAccount.getIdentityManagedKeylessWalletCandidate =
+      jest.fn(async () => {
+        throw readError;
+      });
     await expect(service.prepareOneKeyIdLoginWithLocalKeyless()).rejects.toBe(
       readError,
     );
@@ -2532,9 +2578,131 @@ describe('ServiceKeylessWallet.prepareOneKeyIdLoginWithLocalKeyless', () => {
       status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NoLocalKeyless,
     });
   });
+
+  test('returns a recoverable data error when the wallet keylessOwnerId is missing', async () => {
+    const { service, serviceAny } = createService({
+      wallet: createKeylessWallet({
+        keylessDetailsInfo: {
+          keylessProvider: EOAuthSocialLoginProvider.Google,
+          socialUserIdHash: SOCIAL_USER_ID_HASH,
+        },
+      }),
+    });
+    serviceAny.getActiveKeylessOAuthAccessTokenMatchingLocalWallet = jest.fn();
+
+    await expect(
+      service.prepareOneKeyIdLoginWithLocalKeyless(),
+    ).resolves.toEqual({
+      status:
+        EOneKeyIdLoginWithLocalKeylessPrepareStatus.LocalKeylessDataUnavailable,
+      walletId: WALLET_ID,
+      errorMessage:
+        'Keyless wallet keylessDetailsInfo.keylessOwnerId is missing.',
+    });
+    expect(
+      serviceAny.getActiveKeylessOAuthAccessTokenMatchingLocalWallet,
+    ).not.toHaveBeenCalled();
+  });
+
+  test('returns a recoverable data error when the wallet keylessProvider is missing', async () => {
+    const { service, serviceAny } = createService({
+      wallet: createKeylessWallet({
+        keylessDetailsInfo: {
+          keylessOwnerId: OWNER_ID,
+          socialUserIdHash: SOCIAL_USER_ID_HASH,
+        },
+      }),
+    });
+    serviceAny.getActiveKeylessOAuthAccessTokenMatchingLocalWallet = jest.fn();
+
+    await expect(
+      service.prepareOneKeyIdLoginWithLocalKeyless(),
+    ).resolves.toEqual({
+      status:
+        EOneKeyIdLoginWithLocalKeylessPrepareStatus.LocalKeylessDataUnavailable,
+      walletId: WALLET_ID,
+      errorMessage:
+        'Keyless wallet keylessDetailsInfo.keylessProvider is missing.',
+    });
+    expect(
+      serviceAny.getActiveKeylessOAuthAccessTokenMatchingLocalWallet,
+    ).not.toHaveBeenCalled();
+  });
+
+  test('returns a recoverable data error when the wallet keylessProvider is invalid', async () => {
+    const { service, serviceAny } = createService({
+      wallet: createKeylessWallet({
+        keylessDetailsInfo: {
+          keylessOwnerId: OWNER_ID,
+          keylessProvider: 'github',
+          socialUserIdHash: SOCIAL_USER_ID_HASH,
+        },
+      }),
+    });
+    serviceAny.getActiveKeylessOAuthAccessTokenMatchingLocalWallet = jest.fn();
+
+    await expect(
+      service.prepareOneKeyIdLoginWithLocalKeyless(),
+    ).resolves.toEqual({
+      status:
+        EOneKeyIdLoginWithLocalKeylessPrepareStatus.LocalKeylessDataUnavailable,
+      walletId: WALLET_ID,
+      errorMessage:
+        'Keyless wallet keylessDetailsInfo.keylessProvider is invalid: github.',
+    });
+    expect(
+      serviceAny.getActiveKeylessOAuthAccessTokenMatchingLocalWallet,
+    ).not.toHaveBeenCalled();
+  });
+
+  test('returns a recoverable data error when socialUserIdHash is missing', async () => {
+    const { service } = createService({
+      wallet: createKeylessWallet({
+        keylessDetailsInfo: {
+          keylessOwnerId: OWNER_ID,
+          keylessProvider: EOAuthSocialLoginProvider.Google,
+        },
+      }),
+    });
+
+    await expect(
+      service.prepareOneKeyIdLoginWithLocalKeyless(),
+    ).resolves.toEqual({
+      status:
+        EOneKeyIdLoginWithLocalKeylessPrepareStatus.LocalKeylessDataUnavailable,
+      walletId: WALLET_ID,
+      errorMessage:
+        'Keyless wallet keylessDetailsInfo.socialUserIdHash is missing.',
+    });
+  });
 });
 
 describe('ServiceKeylessWallet.prepareKeylessCreateWithOneKeyId', () => {
+  test('routes malformed local Keyless through explicit recovery before OAuth', async () => {
+    const { service, backgroundApi } = createService({
+      wallet: createKeylessWallet({
+        keylessDetailsInfo: {
+          keylessOwnerId: OWNER_ID,
+          keylessProvider: undefined,
+          socialUserIdHash: SOCIAL_USER_ID_HASH,
+        },
+      }),
+    });
+
+    await expect(
+      service.prepareKeylessCreateWithOneKeyId({
+        signInProvider: EOAuthSocialLoginProvider.Apple,
+      }),
+    ).resolves.toEqual({
+      status:
+        EKeylessCreateWithOneKeyIdPrepareStatus.LocalKeylessDataUnavailable,
+      walletId: WALLET_ID,
+      errorMessage:
+        'Keyless wallet keylessDetailsInfo.keylessProvider is missing.',
+    });
+    expect(backgroundApi.servicePrime.isLoggedIn).not.toHaveBeenCalled();
+  });
+
   test('requests a silent legacy OAuth reauthentication when the selected provider is already bound', async () => {
     const { service, backgroundApi } = createService({ wallet: undefined });
     backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource.mockResolvedValue(

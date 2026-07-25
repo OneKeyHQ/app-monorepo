@@ -1,45 +1,44 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { ICheckedState } from '@onekeyhq/components';
-import { Checkbox, Dialog, Toast } from '@onekeyhq/components';
+import { Checkbox, Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import type { IAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
-import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
+import { getOAuthSocialLoginProviderName } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
+import type {
+  IIdentityExitPlan,
+  IIdentityExitReceipt,
+} from '@onekeyhq/shared/types/prime/identityExitTypes';
 
-import { classifyOneKeyIdLogoutKeylessHandling } from './oneKeyIdLogoutClassification';
 import {
   ONEKEY_ID_ASSOCIATED_KEYLESS_LOGOUT_DESCRIPTION,
   ONEKEY_ID_ASSOCIATED_KEYLESS_LOGOUT_TITLE,
 } from './oneKeyIdLogoutConsts';
-import { useOneKeyAuthMethods } from './useOneKeyAuth';
 
 import type { IntlShape } from 'react-intl';
 
-export enum EOneKeyIdLogoutDialogSource {
-  OneKeyId = 'oneKeyId',
-  KeylessWallet = 'keylessWallet',
-}
+type IReadyIdentityExitPlan = Extract<IIdentityExitPlan, { status: 'ready' }>;
+
+export type IOneKeyIdLogoutDialogResult =
+  | {
+      status: 'completed';
+      receipt: Extract<IIdentityExitReceipt, { status: 'completed' }>;
+    }
+  | {
+      status: 'cancelled';
+      reason: 'dismissed' | 'alreadyShowing';
+    }
+  | {
+      status: 'blocked';
+      message: string;
+    };
 
 type IOneKeyIdLogoutDialogOptions = {
-  source: EOneKeyIdLogoutDialogSource;
-  config?: IAccountSelectorContextData;
-  keylessWallet?: IDBWallet;
-  isOneKeyIdLoggedIn?: boolean;
-  isRemoveToMocked?: boolean;
-  reason?: string;
-  onBeforeLogout?: () => void | Promise<void>;
-  onSuccess?: () => void | Promise<void>;
-  onConfirmRemove?: () => void;
+  plan: IReadyIdentityExitPlan;
   confirmButtonTestID?: string;
+  beforeExecute?: () => void | Promise<void>;
 };
 
 type IOneKeyIdLogoutDialogContentConfig = {
@@ -52,38 +51,68 @@ type IOneKeyIdLogoutDialogContentConfig = {
 
 function getOneKeyIdLogoutDialogContent({
   intl,
-  source,
-  keylessWallet,
-  shouldLinkKeylessOneKeyIdLogout,
+  plan,
 }: {
   intl: IntlShape;
-  source: EOneKeyIdLogoutDialogSource;
-  keylessWallet?: IDBWallet;
-  shouldLinkKeylessOneKeyIdLogout: boolean;
+  plan: IReadyIdentityExitPlan;
 }): IOneKeyIdLogoutDialogContentConfig {
-  const hasKeylessWallet = Boolean(keylessWallet);
-
-  if (shouldLinkKeylessOneKeyIdLogout) {
+  const { presentation } = plan;
+  if (presentation.type === 'recoverMalformedKeyless') {
+    const nextProviderName = presentation.nextProvider
+      ? getOAuthSocialLoginProviderName(presentation.nextProvider)
+      : undefined;
     return {
-      icon: 'ErrorOutline' as const,
-      tone: 'destructive' as const,
-      title: ONEKEY_ID_ASSOCIATED_KEYLESS_LOGOUT_TITLE,
-      description: `${ONEKEY_ID_ASSOCIATED_KEYLESS_LOGOUT_DESCRIPTION}\n\n${intl.formatMessage(
-        {
-          id: ETranslations.log_out_wallet_desc,
-        },
-      )}`,
-      confirmText:
-        source === EOneKeyIdLogoutDialogSource.KeylessWallet
-          ? intl.formatMessage({ id: ETranslations.global_logout })
-          : intl.formatMessage({ id: ETranslations.prime_log_out }),
+      icon: 'ErrorOutline',
+      tone: 'destructive',
+      // TODO: i18n
+      title: 'Remove Unavailable Keyless Wallet?',
+      // TODO: i18n
+      description: `The local Keyless wallet data cannot be read correctly. ${
+        nextProviderName
+          ? `To continue with ${nextProviderName}, first remove this Keyless wallet from this device.`
+          : 'Remove this Keyless wallet from this device to continue.'
+      } You can restore it later with its original account and PIN.${
+        presentation.oneKeyIdWillBeLoggedOut
+          ? ' The OneKey ID session backed by this Keyless wallet will also be logged out.'
+          : ''
+      }`,
+      confirmText: intl.formatMessage({ id: ETranslations.global_logout }),
+    };
+  }
+  if (presentation.type === 'switchOAuthProvider') {
+    const currentProviderName = getOAuthSocialLoginProviderName(
+      presentation.currentProvider,
+    );
+    const nextProviderName = getOAuthSocialLoginProviderName(
+      presentation.nextProvider,
+    );
+    return {
+      icon: 'ErrorOutline',
+      tone: 'destructive',
+      // TODO: i18n (use a complete message with provider placeholders)
+      title: `Switch to ${nextProviderName} Sign-In?`,
+      // TODO: i18n (use a complete message with provider placeholders)
+      description: `You're currently using ${currentProviderName} Keyless. Continuing with ${nextProviderName} will log out and remove this Keyless wallet from this device. To restore it, you'll need access to your ${currentProviderName} account and your PIN.`,
+      confirmText: intl.formatMessage({ id: ETranslations.global_logout }),
     };
   }
 
-  if (hasKeylessWallet) {
+  if (presentation.type === 'linkedOneKeyIdAndKeyless') {
     return {
-      icon: 'ErrorOutline' as const,
-      tone: 'destructive' as const,
+      icon: 'ErrorOutline',
+      tone: 'destructive',
+      title: ONEKEY_ID_ASSOCIATED_KEYLESS_LOGOUT_TITLE,
+      description: `${ONEKEY_ID_ASSOCIATED_KEYLESS_LOGOUT_DESCRIPTION}\n\n${intl.formatMessage(
+        { id: ETranslations.log_out_wallet_desc },
+      )}`,
+      confirmText: intl.formatMessage({ id: ETranslations.global_logout }),
+    };
+  }
+
+  if (presentation.type === 'keylessOnly') {
+    return {
+      icon: 'ErrorOutline',
+      tone: 'destructive',
       title: intl.formatMessage({ id: ETranslations.log_out_wallet }),
       description: intl.formatMessage({
         id: ETranslations.log_out_wallet_desc,
@@ -93,10 +122,8 @@ function getOneKeyIdLogoutDialogContent({
   }
 
   return {
-    icon: 'InfoCircleOutline' as const,
-    title: intl.formatMessage({
-      id: ETranslations.prime_onekeyid_log_out,
-    }),
+    icon: 'InfoCircleOutline',
+    title: intl.formatMessage({ id: ETranslations.prime_onekeyid_log_out }),
     description: intl.formatMessage({
       id: ETranslations.prime_onekeyid_log_out_description,
     }),
@@ -104,44 +131,52 @@ function getOneKeyIdLogoutDialogContent({
   };
 }
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  // TODO: i18n
+  return String(error || 'Identity exit failed.');
+}
+
 function OneKeyIdLogoutDialogContent({
-  source,
-  keylessWallet,
-  isRemoveToMocked,
+  plan,
   confirmText,
-  logoutWithPurchasesSdk,
-  reason,
-  onBeforeLogout,
-  onSuccess,
-  onConfirmRemove,
   confirmButtonTestID,
-  shouldLogoutOneKeyId,
-  preserveLocalKeylessAuthOnOneKeyIdLogout,
-}: IOneKeyIdLogoutDialogOptions & {
+  beforeExecute,
+  onExecutionStarted,
+  onCancel,
+  onResult,
+}: {
+  plan: IReadyIdentityExitPlan;
   confirmText: string;
-  logoutWithPurchasesSdk: (params?: {
-    preserveLocalKeylessAuth?: boolean;
-  }) => Promise<void>;
-  shouldLogoutOneKeyId: boolean;
-  preserveLocalKeylessAuthOnOneKeyIdLogout: boolean;
+  confirmButtonTestID?: string;
+  beforeExecute?: () => void | Promise<void>;
+  onExecutionStarted: () => void;
+  onCancel: () => void;
+  onResult: (
+    result: Exclude<IOneKeyIdLogoutDialogResult, { status: 'cancelled' }>,
+    close: (extra?: { flag?: string }) => Promise<void> | void,
+  ) => Promise<void>;
 }) {
   const intl = useIntl();
-  const actions = useAccountSelectorActions();
-  const [value, setValue] = useState(false);
-  const hasKeylessWallet = Boolean(keylessWallet);
-  const isFromKeylessWallet =
-    source === EOneKeyIdLogoutDialogSource.KeylessWallet;
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
+  const executionStartedRef = useRef(false);
+  const requiresAcknowledgement =
+    plan.confirmation.type === 'keylessRemovalAcknowledgement';
 
   const handleChange = useCallback((checked: ICheckedState) => {
-    setValue(!!checked);
+    setAcknowledged(Boolean(checked));
   }, []);
 
   return (
     <>
-      {hasKeylessWallet ? (
+      {requiresAcknowledgement ? (
         <Checkbox
           testID="account-manager-is-confirm-disabled-checkbox"
-          value={value}
+          value={acknowledged}
+          disabled={isExecuting}
           onChange={handleChange}
           label={intl.formatMessage({
             id: ETranslations.log_out_wallet_checkbox_label,
@@ -151,52 +186,53 @@ function OneKeyIdLogoutDialogContent({
       <Dialog.Footer
         showCancelButton
         onConfirmText={confirmText}
+        cancelButtonProps={{ disabled: isExecuting }}
         confirmButtonProps={{
-          disabled: hasKeylessWallet && !value,
+          disabled: isExecuting || (requiresAcknowledgement && !acknowledged),
           testID: confirmButtonTestID,
-          ...(hasKeylessWallet ? { variant: 'destructive' as const } : {}),
+          ...(requiresAcknowledgement
+            ? { variant: 'destructive' as const }
+            : {}),
         }}
-        onConfirm={async () => {
-          if (keylessWallet) {
-            await backgroundApiProxy.servicePassword.promptPasswordVerify({
-              reason: EReasonForNeedPassword.Security,
-            });
+        onCancel={() => {
+          if (!executionStartedRef.current) {
+            onCancel();
           }
-
-          // The OneKey ID logout must run before the keyless wallet removal:
-          // removeWallet triggers cleanupKeylessWalletStorage, which clears
-          // the active auth token apiLogout needs to revoke the server-side
-          // session. Destructive keyless storage cleanup stays inside
-          // removeWallet so it only happens after the DB removal succeeds.
-          if (shouldLogoutOneKeyId) {
-            await onBeforeLogout?.();
-            if (reason) {
-              defaultLogger.prime.subscription.onekeyIdLogout({
-                reason,
+        }}
+        onConfirm={async ({ preventClose, close }) => {
+          preventClose();
+          if (executionStartedRef.current) {
+            return;
+          }
+          executionStartedRef.current = true;
+          onExecutionStarted();
+          setIsExecuting(true);
+          try {
+            await beforeExecute?.();
+            const receipt =
+              await backgroundApiProxy.serviceIdentityExit.executeIdentityExit({
+                planId: plan.planId,
+                acknowledgement: requiresAcknowledgement
+                  ? 'keylessWalletRemoval'
+                  : undefined,
               });
+            if (receipt.status === 'completed') {
+              await onResult({ status: 'completed', receipt }, close);
+              return;
             }
-            await logoutWithPurchasesSdk({
-              preserveLocalKeylessAuth:
-                preserveLocalKeylessAuthOnOneKeyIdLogout,
-            });
-            await onSuccess?.();
-          }
-
-          if (keylessWallet) {
-            await actions.current.removeWallet({
-              walletId: keylessWallet.id,
-              isRemoveToMocked,
-            });
-          }
-
-          if (isFromKeylessWallet) {
-            defaultLogger.account.wallet.deleteWallet();
-            onConfirmRemove?.();
-            Toast.success({
-              title: intl.formatMessage({
-                id: ETranslations.feedback_change_saved,
-              }),
-            });
+            if (receipt.status === 'cancelled') {
+              onCancel();
+              return;
+            }
+            await onResult(
+              { status: 'blocked', message: receipt.message },
+              close,
+            );
+          } catch (error) {
+            await onResult(
+              { status: 'blocked', message: getErrorMessage(error) },
+              close,
+            );
           }
         }}
       />
@@ -204,141 +240,101 @@ function OneKeyIdLogoutDialogContent({
   );
 }
 
-// Prevent stacking duplicate logout dialogs when the logout entry is tapped
-// again while the pre-show bridge calls below are still awaiting (mirrors the
-// isPinReminderDialogShowing pattern). Held from entry until the dialog is
-// closed on any path (confirm close, cancel, dismiss).
 let isOneKeyIdLogoutDialogShowing = false;
 
 export function useShowOneKeyIdLogoutDialog() {
   const intl = useIntl();
-  const { logoutWithPurchasesSdk, user } = useOneKeyAuthMethods();
-  const isUserOneKeyIdLoggedIn = Boolean(
-    user?.isLoggedIn && user?.isLoggedInOnServer,
-  );
 
   return useCallback(
-    async (options: IOneKeyIdLogoutDialogOptions) => {
+    async ({
+      plan,
+      confirmButtonTestID,
+      beforeExecute,
+    }: IOneKeyIdLogoutDialogOptions): Promise<IOneKeyIdLogoutDialogResult> => {
       if (isOneKeyIdLogoutDialogShowing) {
-        return;
+        return { status: 'cancelled', reason: 'alreadyShowing' };
       }
       isOneKeyIdLogoutDialogShowing = true;
+      const content = getOneKeyIdLogoutDialogContent({ intl, plan });
+
       try {
-        let keylessWallet = options.keylessWallet;
-        // A transient getKeylessWallet() read failure is UNKNOWN state, not a
-        // confirmed "no wallet". Collapsing it into keylessWallet=undefined
-        // would flip preserveLocalKeylessAuthOnOneKeyIdLogout to false and run
-        // the destructive OneKey ID logout, which clears the shared keyless
-        // session slot and deletes every keyless wallet's legacy OAuth refresh
-        // blob (the silent-migration / re-login credential) over a momentary
-        // read error. Track the failure so the classification below can
-        // default to the wallet-preserving branch, mirroring the
-        // unknown-source and not-logged-in fallbacks.
-        let keylessWalletReadFailed = false;
+        return await new Promise<IOneKeyIdLogoutDialogResult>((resolve) => {
+          let isSettled = false;
+          let pendingBusinessResult:
+            | Exclude<IOneKeyIdLogoutDialogResult, { status: 'cancelled' }>
+            | undefined;
+          let executionStarted = false;
+          const dialogInstanceRef: {
+            current?: ReturnType<typeof Dialog.show>;
+          } = {};
+          const settleOnce = (result: IOneKeyIdLogoutDialogResult) => {
+            if (!isSettled) {
+              isSettled = true;
+              resolve(result);
+            }
+          };
+          const closeWithResult = async (
+            result: Exclude<
+              IOneKeyIdLogoutDialogResult,
+              { status: 'cancelled' }
+            >,
+            close: (extra?: { flag?: string }) => Promise<void> | void,
+          ) => {
+            pendingBusinessResult = result;
+            try {
+              await close({ flag: result.status });
+            } finally {
+              settleOnce(result);
+            }
+          };
+          const cancelAndClose = async () => {
+            if (pendingBusinessResult) {
+              return;
+            }
+            try {
+              await dialogInstanceRef.current?.close({ flag: 'cancelled' });
+            } finally {
+              settleOnce({ status: 'cancelled', reason: 'dismissed' });
+            }
+          };
 
-        if (options.source === EOneKeyIdLogoutDialogSource.OneKeyId) {
-          try {
-            keylessWallet =
-              await backgroundApiProxy.serviceAccount.getKeylessWallet();
-          } catch {
-            // Fall back to the OneKey ID only logout dialog, preserving the
-            // local keyless auth (see keylessWalletReadFailed usage below).
-            keylessWalletReadFailed = true;
-          }
-        }
-
-        const isOneKeyIdLoggedIn =
-          options.isOneKeyIdLoggedIn ?? isUserOneKeyIdLoggedIn;
-        // Always read the locally persisted auth session source (offline
-        // available, device-level): the linked-logout classification below
-        // must reflect what backs THIS device's login, never server-side
-        // account identities (see classifyOneKeyIdLogoutKeylessHandling in
-        // ./oneKeyIdLogoutClassification).
-        let authSessionSource: EPrimeAuthSessionSource | undefined;
-        if (Boolean(keylessWallet) && isOneKeyIdLoggedIn) {
-          try {
-            authSessionSource =
-              await backgroundApiProxy.simpleDb.prime.getAuthSessionSource();
-          } catch {
-            // Leave the source undefined; an unknown source defaults to the
-            // non-destructive (wallet-preserving) classification.
-          }
-        }
-        // A not-logged-in OneKey ID logout must never remove the keyless
-        // wallet: without a confirmed server-side session there is no proof
-        // the wallet is OAuth-bound (e.g. the bg invalid-token cleanup may
-        // have just flipped the login state), so default to the
-        // wallet-preserving classification, same as unknown identity data.
-        const {
-          shouldSkipLinkedLogout,
-          preserveLocalKeylessAuthOnOneKeyIdLogout,
-        } = classifyOneKeyIdLogoutKeylessHandling({
-          isOneKeyIdSource:
-            options.source === EOneKeyIdLogoutDialogSource.OneKeyId,
-          hasKeylessWallet: Boolean(keylessWallet),
-          keylessWalletReadFailed,
-          isOneKeyIdLoggedIn,
-          authSessionSource,
-        });
-        const shouldLogoutKeylessWallet =
-          Boolean(keylessWallet) &&
-          !(
-            options.source === EOneKeyIdLogoutDialogSource.OneKeyId &&
-            shouldSkipLinkedLogout
-          );
-        const shouldLogoutOneKeyId =
-          options.source === EOneKeyIdLogoutDialogSource.OneKeyId ||
-          (options.source === EOneKeyIdLogoutDialogSource.KeylessWallet &&
-            isOneKeyIdLoggedIn &&
-            !shouldSkipLinkedLogout);
-        const keylessWalletForDialog = shouldLogoutKeylessWallet
-          ? keylessWallet
-          : undefined;
-        const shouldLinkKeylessOneKeyIdLogout =
-          Boolean(keylessWalletForDialog) && shouldLogoutOneKeyId;
-
-        const content = getOneKeyIdLogoutDialogContent({
-          intl,
-          source: options.source,
-          keylessWallet: keylessWalletForDialog,
-          shouldLinkKeylessOneKeyIdLogout,
-        });
-
-        Dialog.show({
-          icon: content.icon,
-          tone: content.tone,
-          title: content.title,
-          description: content.description,
-          onClose: () => {
-            isOneKeyIdLogoutDialogShowing = false;
-          },
-          renderContent: (
-            <AccountSelectorProviderMirror
-              enabledNum={[0]}
-              config={
-                options.config ?? { sceneName: EAccountSelectorSceneName.home }
+          const dialogInstance = Dialog.show({
+            icon: content.icon,
+            tone: content.tone,
+            title: content.title,
+            description: content.description,
+            showExitButton: false,
+            dismissOnOverlayPress: false,
+            disableDrag: true,
+            disableSystemClose: true,
+            onClose: () => {
+              if (!executionStarted || pendingBusinessResult) {
+                isOneKeyIdLogoutDialogShowing = false;
               }
-            >
+              if (!pendingBusinessResult && !executionStarted) {
+                settleOnce({ status: 'cancelled', reason: 'dismissed' });
+              }
+            },
+            renderContent: (
               <OneKeyIdLogoutDialogContent
-                {...options}
-                keylessWallet={keylessWalletForDialog}
+                plan={plan}
                 confirmText={content.confirmText}
-                logoutWithPurchasesSdk={logoutWithPurchasesSdk}
-                shouldLogoutOneKeyId={shouldLogoutOneKeyId}
-                preserveLocalKeylessAuthOnOneKeyIdLogout={
-                  preserveLocalKeylessAuthOnOneKeyIdLogout
-                }
+                confirmButtonTestID={confirmButtonTestID}
+                beforeExecute={beforeExecute}
+                onExecutionStarted={() => {
+                  executionStarted = true;
+                }}
+                onCancel={() => void cancelAndClose()}
+                onResult={closeWithResult}
               />
-            </AccountSelectorProviderMirror>
-          ),
+            ),
+          });
+          dialogInstanceRef.current = dialogInstance;
         });
-      } catch (error) {
-        // Release the guard if anything before Dialog.show throws; once the
-        // dialog is shown, onClose above releases it instead.
+      } finally {
         isOneKeyIdLogoutDialogShowing = false;
-        throw error;
       }
     },
-    [intl, isUserOneKeyIdLoggedIn, logoutWithPurchasesSdk],
+    [intl],
   );
 }

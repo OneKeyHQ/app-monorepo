@@ -151,6 +151,7 @@ import type {
   IPrimeTransferPublicData,
   IPrimeTransferPublicDataWalletDetail,
 } from '@onekeyhq/shared/types/prime/primeTransferTypes';
+import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { EDBAccountType } from '../../dbs/local/consts';
@@ -195,6 +196,7 @@ import { verifySeedMatch as verifyLedgerSeedMatch } from '../../vaults/base/ledg
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
+import { identityLifecycleMutex } from '../ServiceIdentityExit/identityLifecycleMutex';
 import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import { isBotWalletInCurrentKeylessSyncScope } from '../ServicePrimeCloudSync/botWalletCloudSyncUtils';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
@@ -209,6 +211,16 @@ import {
   resolveBotWalletSyncItemDataTime,
 } from './botWalletCreateUtils';
 import { getHwHiddenWalletPassphraseState } from './hardwarePassphraseState';
+import {
+  type IKeylessWalletRemovalCapability,
+  type IKeylessWalletRemovalIdentity,
+  type IMalformedKeylessWalletFingerprint,
+  type IMalformedKeylessWalletRemovalCapability,
+  assertKeylessWalletRemovalAuthorized,
+  assertMalformedKeylessWalletRemovalAuthorized,
+  assertWalletCanUseGenericRemoval,
+  isIdentityManagedKeylessWallet,
+} from './keylessWalletRemovalCapability';
 import { resolveHwWalletTransportType } from './resolveHwWalletTransportType';
 
 import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
@@ -395,7 +407,9 @@ class ServiceAccount extends ServiceBase {
 
   private buildImportedAccountKdfProbeId(stage: string) {
     this.importedAccountKdfProbeIndex += 1;
-    return `prime-transfer-imported-account-${stage}-${Date.now()}-${this.importedAccountKdfProbeIndex}`;
+    return `prime-transfer-imported-account-${stage}-${Date.now()}-${
+      this.importedAccountKdfProbeIndex
+    }`;
   }
 
   private async recordImportedAccountKdfProbe({
@@ -653,21 +667,33 @@ class ServiceAccount extends ServiceBase {
   async isKeylessWalletExistsLocal(): Promise<boolean> {
     await timerUtils.wait(1500, { devOnly: true });
     const { wallets } = await this.getAllWallets();
-    return wallets.some((wallet) => wallet.isKeyless);
+    return wallets.some((wallet) => isIdentityManagedKeylessWallet(wallet));
+  }
+
+  async getIdentityManagedKeylessWalletCandidate(): Promise<
+    IDBWallet | undefined
+  > {
+    const { wallets } = await this.getAllWallets();
+    const wallet = wallets
+      .filter((item) => isIdentityManagedKeylessWallet(item))
+      .toSorted((a, b) => a.id.localeCompare(b.id))[0];
+    if (wallet) {
+      await localDb.refillWalletInfo({ wallet });
+    }
+    return wallet;
   }
 
   @backgroundMethod()
   async getKeylessWallet(): Promise<IDBWallet | undefined> {
     // TODO remove
     // await timerUtils.wait(1500, { devOnly: true });
-    const { wallets } = await this.getAllWallets();
-    const wallet = wallets
-      .filter((w) => w.isKeyless)
-      .toSorted((a, b) => a.id.localeCompare(b.id))[0];
-    if (wallet) {
-      await localDb.refillWalletInfo({
-        wallet,
-      });
+    const wallet = await this.getIdentityManagedKeylessWalletCandidate();
+    if (wallet && wallet.isKeyless !== true) {
+      throw new OneKeyLocalError(
+        `Keyless wallet isKeyless is invalid for wallet ${wallet.id}: ${String(
+          wallet.isKeyless,
+        )}.`,
+      );
     }
     return wallet;
   }
@@ -4146,48 +4172,84 @@ class ServiceAccount extends ServiceBase {
       }
     }
 
-    const result = await localDb.createHDWallet({
-      password,
-      rs,
-      backuped: !!isWalletBackedUp,
-      avatar: avatarInfo ?? randomAvatar(),
-      name,
-      walletHash,
-      walletXfp,
-      isKeylessWallet,
-      keylessDetailsInfo,
-      skipAddHDNextIndexedAccount,
-      applyRestoreSyncPolicy,
-    });
+    const createWallet = () =>
+      localDb.createHDWallet({
+        password,
+        rs,
+        backuped: !!isWalletBackedUp,
+        avatar: avatarInfo ?? randomAvatar(),
+        name,
+        walletHash,
+        walletXfp,
+        isKeylessWallet,
+        keylessDetailsInfo,
+        skipAddHDNextIndexedAccount,
+        applyRestoreSyncPolicy,
+      });
+    const { result, shouldRunKeylessPostCommitEffects } = isKeylessWallet
+      ? await identityLifecycleMutex.runExclusive(async () => {
+          if (await this.getKeylessWallet()) {
+            throw new OneKeyLocalError('Keyless wallet already exists');
+          }
+          const created = await createWallet();
+          const sessionCommitId =
+            await this.backgroundApi.simpleDb.prime.getAuthSessionCommitId(
+              EPrimeAuthSessionSource.KeylessOAuth,
+            );
+          if (sessionCommitId) {
+            await this.backgroundApi.simpleDb.prime.setKeylessSessionCommitId({
+              walletId: created.wallet.id,
+              sessionCommitId,
+            });
+          }
+          const shouldRunPostCommitEffects = Boolean(
+            created.wallet?.keylessDetailsInfo?.keylessOwnerId,
+          );
+          if (shouldRunPostCommitEffects) {
+            // Derive and persist keyless cloud sync credential from wallet seed
+            try {
+              const revealableSeed = await decryptRevealableSeed({
+                rs,
+                password,
+              });
+              const seedBuffer = bufferUtils.toBuffer(
+                revealableSeed.seed,
+                'hex',
+              );
+              const keylessWalletId = created.wallet.id;
+              const credential =
+                await keylessCloudSyncUtils.deriveKeylessCredential({
+                  seed: seedBuffer,
+                  keylessWalletId,
+                });
+              await keylessSyncCredentialStorage.saveCredential(credential);
+              this.backgroundApi.serviceKeylessCloudSync.setKeylessCloudSyncCredentialCache(
+                credential,
+              );
+            } catch (error) {
+              console.error(
+                '[ServiceAccount] Failed to derive and save keyless credential:',
+                error,
+              );
+            }
 
-    if (result.wallet?.keylessDetailsInfo?.keylessOwnerId) {
-      // Derive and persist keyless cloud sync credential from wallet seed
-      try {
-        const revealableSeed = await decryptRevealableSeed({
-          rs,
-          password,
-        });
-        const seedBuffer = bufferUtils.toBuffer(revealableSeed.seed, 'hex');
-        const keylessWalletId = result.wallet.id;
-        const credential = await keylessCloudSyncUtils.deriveKeylessCredential({
-          seed: seedBuffer,
-          keylessWalletId,
-        });
-        await keylessSyncCredentialStorage.saveCredential(credential);
-        this.backgroundApi.serviceKeylessCloudSync.setKeylessCloudSyncCredentialCache(
-          credential,
-        );
-      } catch (error) {
-        console.error(
-          '[ServiceAccount] Failed to derive and save keyless credential:',
-          error,
-        );
-      }
+            await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+            await this.backgroundApi.serviceKeylessCloudSync.setPersistedCurrentCloudSyncKeylessWalletId(
+              created.wallet.id,
+            );
+          }
+          await this.backgroundApi.simpleDb.prime.bumpIdentityLifecycleRevision();
+          return {
+            result: created,
+            shouldRunKeylessPostCommitEffects: shouldRunPostCommitEffects,
+          };
+        })
+      : {
+          result: await createWallet(),
+          shouldRunKeylessPostCommitEffects: false,
+        };
 
-      await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
-      await this.backgroundApi.serviceKeylessCloudSync.setPersistedCurrentCloudSyncKeylessWalletId(
-        result.wallet.id,
-      );
+    if (shouldRunKeylessPostCommitEffects) {
       void this.backgroundApi.servicePrimeCloudSync
         .syncNowKeyless({
           callerName: 'Keyless Wallet Login Success',
@@ -4508,16 +4570,16 @@ class ServiceAccount extends ServiceBase {
       } catch (error) {
         errorUtils.autoPrintErrorIgnore(error);
       }
-      try {
+      // Local deletion is identity-critical. Keep metadata until the wallet
+      // row is gone so a failed attempt remains discoverable and retryable by
+      // the durable parent-removal journal.
+      const childWallet = await localDb.getWalletSafe({
+        walletId: child.walletId,
+      });
+      if (childWallet) {
         await localDb.removeWallet({ walletId: child.walletId });
-      } catch (error) {
-        errorUtils.autoPrintErrorIgnore(error);
       }
-      try {
-        await simpleDb.botWallet.removeMetadata(child.walletId);
-      } catch (error) {
-        errorUtils.autoPrintErrorIgnore(error);
-      }
+      await simpleDb.botWallet.removeMetadata(child.walletId);
     }
   }
 
@@ -5079,28 +5141,168 @@ class ServiceAccount extends ServiceBase {
       );
     }
 
-    const wallet = await this.getWalletSafe({ walletId });
-    const keylessOwnerId = wallet?.keylessDetailsInfo?.keylessOwnerId;
-    const isKeylessWallet = !!wallet?.isKeyless;
-    const isBotWallet = accountUtils.isBotWallet({ walletId });
-    // OK-53558: capture bot wallet metadata before localDb.removeWallet so we
-    // can push a deletion tombstone with the original payload after removal.
-    const botWalletMetadata = isBotWallet
-      ? await simpleDb.botWallet.getMetadata(walletId)
-      : undefined;
+    let wallet = await this.getWalletSafe({ walletId });
+    assertWalletCanUseGenericRemoval(wallet);
 
     await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
       walletId,
       hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
     });
 
-    // OK-53556: Cascade-remove child Bot Wallets before the Keyless parent
-    // so children don't become orphans and don't linger on other devices.
-    if (isKeylessWallet) {
-      await this.removeChildBotWalletsForKeylessParent({
-        parentKeylessWalletId: walletId,
+    wallet = await this.getWalletSafe({ walletId });
+    assertWalletCanUseGenericRemoval(wallet);
+
+    return this.removeWalletCore({
+      walletId,
+      skipBackupWalletRemove,
+      isRemoveToMocked,
+    });
+  }
+
+  /**
+   * This method intentionally has no @backgroundMethod decorator. Only a BG
+   * coordinator holding the in-memory capability can cross this boundary.
+   */
+  async removeKeylessWalletWithCapability({
+    capability,
+    expectedIdentity,
+    operationId,
+    lifecycleRevision,
+  }: {
+    capability: IKeylessWalletRemovalCapability;
+    expectedIdentity: IKeylessWalletRemovalIdentity;
+    operationId: string;
+    lifecycleRevision: number;
+  }): Promise<void> {
+    const wallet = await this.getWalletSafe({
+      walletId: expectedIdentity.walletId,
+    });
+    assertKeylessWalletRemovalAuthorized({
+      capability,
+      expectedIdentity,
+      wallet,
+      operationId,
+      lifecycleRevision,
+    });
+
+    // Remove the parent first. The identity journal can detect this durable
+    // boundary after a crash and resume child cleanup without another
+    // password; deleting children first could lose them while the surviving
+    // parent made recovery incorrectly conclude that no removal had started.
+    await localDb.removeWallet({
+      walletId: expectedIdentity.walletId,
+    });
+    await this.removeChildBotWalletsForKeylessParent({
+      parentKeylessWalletId: expectedIdentity.walletId,
+    });
+  }
+
+  async removeMalformedKeylessWalletWithCapability({
+    capability,
+    expectedFingerprint,
+    operationId,
+    lifecycleRevision,
+  }: {
+    capability: IMalformedKeylessWalletRemovalCapability;
+    expectedFingerprint: IMalformedKeylessWalletFingerprint;
+    operationId: string;
+    lifecycleRevision: number;
+  }): Promise<void> {
+    const wallet = await this.getWalletSafe({
+      walletId: expectedFingerprint.walletId,
+    });
+    assertMalformedKeylessWalletRemovalAuthorized({
+      capability,
+      expectedFingerprint,
+      wallet,
+      operationId,
+      lifecycleRevision,
+    });
+
+    await localDb.removeWallet({ walletId: expectedFingerprint.walletId });
+    await this.removeChildBotWalletsForKeylessParent({
+      parentKeylessWalletId: expectedFingerprint.walletId,
+    });
+  }
+
+  /**
+   * Internal idempotent recovery primitive. It intentionally has no
+   * @backgroundMethod decorator; only the BG identity coordinator calls it
+   * after the parent row is durably absent.
+   */
+  async cleanupChildBotWalletsForRemovedKeylessParent({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<void> {
+    await this.removeChildBotWalletsForKeylessParent({
+      parentKeylessWalletId: walletId,
+    });
+  }
+
+  /**
+   * Best-effort post-delete phase for a Keyless wallet. Identity-critical
+   * credential and session cleanup is owned by ServiceIdentityExit instead.
+   */
+  async finalizeRemovedKeylessWalletSideEffects({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<void> {
+    await this.runKeylessWalletRemovalSideEffect(async () => {
+      const { wallets } = await localDb.getAllWallets();
+      await this.backgroundApi.serviceKeylessCloudSync.syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets(
+        wallets,
+      );
+    });
+    await this.runKeylessWalletRemovalSideEffect(async () => {
+      await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+    });
+    await this.runKeylessWalletRemovalSideEffect(async () => {
+      if (platformEnv.isNative) {
+        await timerUtils.wait(1500);
+      }
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    });
+    await this.runKeylessWalletRemovalSideEffect(async () => {
+      await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove(
+        { walletId },
+      );
+    });
+    await this.runKeylessWalletRemovalSideEffect(async () => {
+      await this.cleanupOrphanedHyperLiquidAgentCredentials({ walletId });
+    });
+    await this.runKeylessWalletRemovalSideEffect(async () => {
+      await this.backgroundApi.serviceNotification.updateClientBasicAppInfoDebounced();
+    });
+    await this.runKeylessWalletRemovalSideEffect(async () => {
+      await this.backgroundApi.serviceDBBackup.removeBackupHDWallet({
+        walletId,
       });
+    });
+  }
+
+  private async runKeylessWalletRemovalSideEffect(
+    task: () => Promise<void>,
+  ): Promise<void> {
+    try {
+      await task();
+    } catch (error) {
+      errorUtils.autoPrintErrorIgnore(error);
     }
+  }
+
+  private async removeWalletCore({
+    walletId,
+    skipBackupWalletRemove,
+    isRemoveToMocked,
+  }: Omit<IDBRemoveWalletParams, 'password' | 'isHardware'>): Promise<void> {
+    const isBotWallet = accountUtils.isBotWallet({ walletId });
+    // OK-53558: capture bot wallet metadata before localDb.removeWallet so we
+    // can push a deletion tombstone with the original payload after removal.
+    const botWalletMetadata = isBotWallet
+      ? await simpleDb.botWallet.getMetadata(walletId)
+      : undefined;
 
     const result = await localDb.removeWallet({
       walletId,
@@ -5111,13 +5313,6 @@ class ServiceAccount extends ServiceBase {
         walletId,
         metadata: botWalletMetadata,
       });
-    }
-    if (isKeylessWallet) {
-      const { wallets } = await localDb.getAllWallets();
-      await this.backgroundApi.serviceKeylessCloudSync.syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets(
-        wallets,
-      );
-      await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
     }
 
     // WARNING:
@@ -5135,15 +5330,6 @@ class ServiceAccount extends ServiceBase {
     void this.cleanupOrphanedHyperLiquidAgentCredentials({
       walletId,
     });
-
-    if (keylessOwnerId) {
-      void this.backgroundApi.serviceNotification.updateClientBasicAppInfoDebounced();
-      await this.backgroundApi.serviceKeylessWallet.cleanupKeylessWalletStorage(
-        {
-          ownerId: keylessOwnerId,
-        },
-      );
-    }
 
     if (!skipBackupWalletRemove) {
       void this.backgroundApi.serviceDBBackup.removeBackupHDWallet({
@@ -6830,12 +7016,13 @@ class ServiceAccount extends ServiceBase {
     } = {};
     for (const wallet of allWallets) {
       const walletHash = wallet.hash;
-      // Exclude bot wallets from duplicate grouping. A bot wallet's hash can
-      // collide with a plain HD wallet (e.g. its derived mnemonic was imported
-      // separately), but bot wallets are managed by the keyless cloud-sync
-      // lifecycle: removing one as a "duplicate" would push a deletion
-      // tombstone that removes it on all devices.
-      if (walletHash && !accountUtils.isBotWallet({ walletId: wallet.id })) {
+      // Bot and Keyless wallets have dedicated destructive flows and
+      // must never enter generic duplicate-wallet removal.
+      if (
+        walletHash &&
+        !accountUtils.isBotWallet({ walletId: wallet.id }) &&
+        !isIdentityManagedKeylessWallet(wallet)
+      ) {
         sameWalletsMap[walletHash] = sameWalletsMap[walletHash] || [];
         sameWalletsMap[walletHash].push(wallet);
       }
@@ -6890,16 +7077,7 @@ class ServiceAccount extends ServiceBase {
             name: string;
           }[] = [];
 
-          // A keyless wallet must always be the survivor of a merge group:
-          // removing it irreversibly destroys its OAuth credentials, PIN
-          // recovery data and child bot wallets, while removing a plain HD
-          // duplicate is lossless (the user holds the mnemonic and its
-          // accounts are re-added into the kept wallet below). Stable sort:
-          // keyless wallets first, existing relative order otherwise kept.
-          const walletsInGroup = sameWallet.wallets.toSorted(
-            (a, b) =>
-              Number(Boolean(b.isKeyless)) - Number(Boolean(a.isKeyless)),
-          );
+          const walletsInGroup = sameWallet.wallets;
 
           for (let i = 0; i < walletsInGroup.length; i += 1) {
             const wallet = walletsInGroup[i];

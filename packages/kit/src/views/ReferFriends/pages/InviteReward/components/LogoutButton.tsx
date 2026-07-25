@@ -1,35 +1,20 @@
 import { useIntl } from 'react-intl';
 
-import { Button, Dialog } from '@onekeyhq/components';
-import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { Button } from '@onekeyhq/components';
+import { useIdentityExitFlow } from '@onekeyhq/kit/src/components/OneKeyAuth/useIdentityExitFlow';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
 
 export function LogoutButton() {
   const intl = useIntl();
-  const { logoutWithPurchasesSdk } = useOneKeyAuth();
+  const { run: runIdentityExit } = useIdentityExitFlow();
 
   const handlePress = () => {
-    Dialog.show({
-      icon: 'InfoCircleOutline',
-      title: intl.formatMessage({
-        id: ETranslations.prime_onekeyid_log_out,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.prime_onekeyid_log_out_description,
-      }),
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.prime_log_out,
-      }),
-      onConfirm: async () => {
-        defaultLogger.prime.subscription.onekeyIdLogout({
-          reason: 'Referral Logout Button',
-        });
-        await logoutWithPurchasesSdk();
-      },
-    });
+    void runIdentityExit(
+      { type: 'logoutOneKeyId', scene: 'referral' },
+      { analyticsReason: 'Referral Logout Button' },
+    );
   };
 
   return (

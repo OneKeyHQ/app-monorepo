@@ -19,6 +19,7 @@ export enum EModalAssetDetailRoutes {
   HistoryDetails = 'AssetDetail_HistoryDetails',
   UTXODetails = 'AssetDetail_UTXODetails',
   MarketDetail = 'AssetDetail_MarketDetail',
+  MarketChart = 'AssetDetail_MarketChart',
   KytRiskDetail = 'AssetDetail_KytRiskDetail',
 }
 
@@ -62,6 +63,13 @@ export type IModalAssetDetailsParamList = {
   };
   [EModalAssetDetailRoutes.MarketDetail]: {
     token: string;
+  };
+  [EModalAssetDetailRoutes.MarketChart]: {
+    networkId: string;
+    networkName?: string;
+    symbol: string;
+    tokenAddress: string;
+    tokenImageUri?: string;
   };
   [EModalAssetDetailRoutes.NFTDetails]: {
     networkId: string;

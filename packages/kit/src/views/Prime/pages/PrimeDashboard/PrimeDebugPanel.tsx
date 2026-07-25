@@ -9,6 +9,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useIdentityExitFlow } from '@onekeyhq/kit/src/components/OneKeyAuth/useIdentityExitFlow';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrimePayment } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePayment';
@@ -187,13 +188,9 @@ export function PrimeDebugPanel({
 }: {
   shouldShowConfirmButton: boolean;
 }) {
-  const {
-    getAccessToken,
-    logoutWithPurchasesSdk,
-    isReady,
-    isSupabaseLoggedIn,
-    loginOneKeyId,
-  } = useOneKeyAuth();
+  const { getAccessToken, isReady, isSupabaseLoggedIn, loginOneKeyId } =
+    useOneKeyAuth();
+  const { run: runIdentityExit } = useIdentityExitFlow();
   const { getCustomerInfo, getPackagesNative, getPackagesWeb } =
     usePrimePayment();
   const navigation = useAppNavigation();
@@ -316,7 +313,10 @@ export function PrimeDebugPanel({
             defaultLogger.prime.subscription.onekeyIdLogout({
               reason: 'PrimeDebugPanel Logout Button',
             });
-            void logoutWithPurchasesSdk();
+            void runIdentityExit({
+              type: 'logoutOneKeyId',
+              scene: 'profile',
+            });
           }}
         >
           Logout

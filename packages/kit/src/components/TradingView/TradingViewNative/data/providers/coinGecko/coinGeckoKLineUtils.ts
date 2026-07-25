@@ -4,7 +4,7 @@ import type {
   IMarketTokenKLineResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
-import type { ITradingViewNativeKLineInterval } from './tradingViewNativeIntervals';
+import type { ITradingViewNativeKLineInterval } from '../../tradingViewNativeIntervals';
 
 const ONE_DAY_SECONDS = 24 * 60 * 60;
 const COINGECKO_MAX_HISTORY_DAY_COUNT = 100 * 365;

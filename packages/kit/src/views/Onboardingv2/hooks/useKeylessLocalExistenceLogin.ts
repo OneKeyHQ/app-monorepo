@@ -80,9 +80,7 @@ export function useKeylessLocalExistenceLogin({
           // session because the target cloud wallet may intentionally have no
           // corresponding local wallet. Keeping the token ephemeral also
           // avoids touching an active OneKey ID or Keyless session.
-          const result = await signInWithSocialLogin(provider, {
-            persistSession: false,
-          });
+          const result = await signInWithSocialLogin(provider);
           if (result?.session?.accessToken) {
             await backgroundApiProxy.serviceKeylessWallet.apiResetKeylessBackendShare(
               {

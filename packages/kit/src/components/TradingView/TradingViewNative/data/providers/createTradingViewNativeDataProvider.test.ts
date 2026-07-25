@@ -5,11 +5,12 @@ import type {
   IMarketWsDataUpdatePayload,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { getTradingViewNativeKLineInterval } from '../tradingViewNativeIntervals';
+
 import {
   clearTradingViewNativeDataProviderCache,
   createTradingViewNativeDataProvider,
 } from './createTradingViewNativeDataProvider';
-import { getTradingViewNativeKLineInterval } from './tradingViewNativeIntervals';
 
 type IMarketUpdateHandler = (payload: IMarketWsDataUpdatePayload) => void;
 type IMarketKLineDataFallback = NonNullable<
@@ -99,7 +100,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   },
 }));
 
-jest.mock('./tradingViewNativeHyperliquidGateway', () => ({
+jest.mock('./hyperliquid/tradingViewNativeHyperliquidGateway', () => ({
   tradingViewNativeHyperliquidGateway: {
     fetchCandles: (...args: unknown[]): unknown =>
       globalMockBag.__tradingViewNativeProviderMocks?.hyperliquidFetchCandles(

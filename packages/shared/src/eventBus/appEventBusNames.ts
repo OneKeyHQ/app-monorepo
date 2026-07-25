@@ -113,6 +113,7 @@ export enum EAppEventBusNames {
   // main-runtime holders (SupabaseAuthProvider) must re-resolve the source
   // and re-read both persisted session slots when this arrives.
   PrimeAuthSessionSourceCommitted = 'PrimeAuthSessionSourceCommitted',
+  IdentityLifecycleCommitted = 'IdentityLifecycleCommitted',
   PrimeSubscriptionPurchaseSuccess = 'PrimeSubscriptionPurchaseSuccess',
   PrimeExceedDeviceLimit = 'PrimeExceedDeviceLimit',
   PrimeDeviceLogout = 'PrimeDeviceLogout',
@@ -170,6 +171,7 @@ export enum EAppEventBusNames {
   HyperliquidDataUpdate = 'HyperliquidDataUpdate',
   HyperliquidConnectionChange = 'HyperliquidConnectionChange',
   PerpsWebSocketRecovered = 'PerpsWebSocketRecovered',
+  PerpsTvPriceScaleRefreshed = 'PerpsTvPriceScaleRefreshed',
   PerpSwitchActiveInstrument = 'PerpSwitchActiveInstrument',
   PerpSwitchInfoPanelTab = 'PerpSwitchInfoPanelTab',
   BtcFreshAddressUpdated = 'BtcFreshAddressUpdated',
