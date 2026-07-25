@@ -8,6 +8,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { TradingHoursPopover } from '@onekeyhq/kit/src/components/TradingHoursPanel';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapProSelectTokenAtom,
@@ -110,7 +111,12 @@ const SwapProTokenSelector = ({
               </SizableText>
             ) : null}
             <StockSourceLogo stock={selectedTokenStock} />
-            <StockIsOpenBadge stock={selectedTokenStock} />
+            <TradingHoursPopover
+              stock={selectedTokenStock}
+              renderTrigger={
+                <StockIsOpenBadge stock={selectedTokenStock} disableTooltip />
+              }
+            />
           </XStack>
         ) : null}
       </YStack>

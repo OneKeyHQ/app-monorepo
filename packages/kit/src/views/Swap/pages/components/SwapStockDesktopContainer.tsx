@@ -38,6 +38,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { TradingHoursPopover } from '@onekeyhq/kit/src/components/TradingHoursPanel';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
@@ -1491,7 +1492,12 @@ function StockMarketTokenHeader({
         </SizableText>
       ) : null}
       <StockSourceLogo stock={stock} />
-      {stock ? <StockIsOpenBadge stock={stock} /> : null}
+      {stock ? (
+        <TradingHoursPopover
+          stock={stock}
+          renderTrigger={<StockIsOpenBadge stock={stock} disableTooltip />}
+        />
+      ) : null}
     </XStack>
   );
   const tokenInfoContent = (
