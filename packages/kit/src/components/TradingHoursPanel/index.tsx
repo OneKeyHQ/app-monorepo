@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -470,11 +470,74 @@ function showTradingHoursDialog(stock: IMarketStockInfo) {
 }
 
 /**
- * Trading-hours info panel (OK-58043): a floating popover on wide screens and
- * an edge-to-edge bottom-sheet dialog on native/small screens (the Popover's
- * own sheet form is an inset floating card, which does not match the design).
- * Wrap a trigger (usually the stock market-status chip) and it handles the
- * rest — session math, timezone conversion and refresh are all internal.
+ * Desktop hover-card behavior: hovering the badge opens the popover, moving
+ * the pointer into the panel keeps it open, leaving both closes it after a
+ * short grace period (so the pointer can cross the trigger→panel gap).
+ * Clicking the badge still works via the Popover's own trigger press.
+ */
+function TradingHoursHoverPopover({
+  stock,
+  renderTrigger,
+}: {
+  stock: IMarketStockInfo;
+  renderTrigger: ReactNode;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearCloseTimer = useCallback(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }, []);
+  useEffect(() => clearCloseTimer, [clearCloseTimer]);
+
+  const handleHoverIn = useCallback(() => {
+    clearCloseTimer();
+    setIsOpen(true);
+  }, [clearCloseTimer]);
+
+  const handleHoverOut = useCallback(() => {
+    clearCloseTimer();
+    closeTimerRef.current = setTimeout(() => setIsOpen(false), 200);
+  }, [clearCloseTimer]);
+
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      clearCloseTimer();
+      setIsOpen(open);
+    },
+    [clearCloseTimer],
+  );
+
+  return (
+    <Popover
+      open={isOpen}
+      onOpenChange={handleOpenChange}
+      title={<TradingHoursTitle />}
+      renderTrigger={
+        <Stack onHoverIn={handleHoverIn} onHoverOut={handleHoverOut}>
+          {renderTrigger}
+        </Stack>
+      }
+      renderContent={
+        <Stack onHoverIn={handleHoverIn} onHoverOut={handleHoverOut}>
+          <TradingHoursContent stock={stock} showInlineHeader dense />
+        </Stack>
+      }
+      floatingPanelProps={{ w: 360 }}
+    />
+  );
+}
+
+/**
+ * Trading-hours info panel (OK-58043): a hover/click floating popover on wide
+ * screens and an edge-to-edge bottom-sheet dialog on native/small screens
+ * (the Popover's own sheet form is an inset floating card, which does not
+ * match the design). Wrap a trigger (usually the stock market-status chip)
+ * and it handles the rest — session math, timezone conversion and refresh
+ * are all internal.
  */
 export function TradingHoursTrigger({
   stock,
@@ -509,13 +572,6 @@ export function TradingHoursTrigger({
   }
 
   return (
-    <Popover
-      title={<TradingHoursTitle />}
-      renderTrigger={renderTrigger}
-      renderContent={
-        <TradingHoursContent stock={stock} showInlineHeader dense />
-      }
-      floatingPanelProps={{ w: 360 }}
-    />
+    <TradingHoursHoverPopover stock={stock} renderTrigger={renderTrigger} />
   );
 }
