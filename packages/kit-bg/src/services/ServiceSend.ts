@@ -434,6 +434,21 @@ class ServiceSend extends ServiceBase {
           throw new InvoiceExpiredError();
         }
       };
+      // Threat model: this hook is attached only to OneKey-built Prime
+      // transfers (isInternalTransfer + local transfersInfo + vault-built
+      // encodedTx), never to dApp- or third-party-supplied transactions. It
+      // must run in full before broadcast: require a signed encodedTx, bind the
+      // current Prime user and invoice recipient/amount/token/network/signer,
+      // enforce the deadline, refresh the server snapshot, and atomically
+      // claim sendStarted. That claim is the duplicate-broadcast/payment
+      // boundary. The decoded action count is only an internal consistency
+      // check; it does not prove that a chain-native transaction contains one
+      // money-moving instruction. The TRON contract-count check below is
+      // likewise low-cost hardening, not a security boundary. Under these
+      // assumptions, current and future Prime rails intentionally do not need
+      // chain-native instruction validators. Reusing this hook for externally
+      // supplied encodedTx invalidates the threat model and requires
+      // redesigning this defense.
       if (beforeBroadcastAction?.type === 'primeInfiniPayment') {
         const paymentCacheKey = beforeBroadcastAction.paymentCacheKey;
         const ensurePrimePaymentUserIsCurrent = async () => {
