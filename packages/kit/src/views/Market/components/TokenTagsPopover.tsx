@@ -30,6 +30,12 @@ interface ITokenTagsPopoverProps {
   showAllInTrigger?: boolean;
   /** Hide community badge from trigger (shown separately e.g. in header). */
   hideCommunityInTrigger?: boolean;
+  /**
+   * Hide the stock status badge from the trigger so the caller can render it
+   * as a sibling wrapped in TradingHoursTrigger (the badge press then opens
+   * the trading-hours panel instead of this tags popover).
+   */
+  hideStockStatusInTrigger?: boolean;
   /** Custom trigger element. Overrides default trigger rendering. */
   customTrigger?: ReactNode;
   /** Disable truncation for subtitle badge. Defaults to false. */
@@ -41,6 +47,7 @@ function TokenTagsPopover({
   stock,
   showAllInTrigger = false,
   hideCommunityInTrigger = false,
+  hideStockStatusInTrigger = false,
   customTrigger,
   noTruncateSubtitle = false,
 }: ITokenTagsPopoverProps) {
@@ -57,7 +64,8 @@ function TokenTagsPopover({
     !!customTrigger ||
     hasStockSource ||
     (communityRecognized && !hideCommunityInTrigger) ||
-    (showAllInTrigger && (hasSubtitle || hasStockStatus));
+    (showAllInTrigger &&
+      (hasSubtitle || (hasStockStatus && !hideStockStatusInTrigger)));
 
   const stockLabelId = useMemo(() => {
     if (!stock?.source) return undefined;
@@ -90,7 +98,7 @@ function TokenTagsPopover({
           noTruncate={noTruncateSubtitle}
         />
       ) : null}
-      {showAllInTrigger && hasStockStatus ? (
+      {showAllInTrigger && hasStockStatus && !hideStockStatusInTrigger ? (
         <StockIsOpenBadge stock={stock} />
       ) : null}
     </XStack>

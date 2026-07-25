@@ -9,6 +9,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { TradingHoursTrigger } from '@onekeyhq/kit/src/components/TradingHoursPanel';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -129,12 +130,23 @@ export function TokenDetailHeaderLeft({
               </SizableText>
             ) : null}
             {md ? (
-              <TokenTagsPopover
-                communityRecognized={communityRecognized}
-                stock={stock}
-                showAllInTrigger
-                noTruncateSubtitle
-              />
+              <>
+                <TokenTagsPopover
+                  communityRecognized={communityRecognized}
+                  stock={stock}
+                  showAllInTrigger
+                  noTruncateSubtitle
+                  hideStockStatusInTrigger
+                />
+                {stock ? (
+                  <TradingHoursTrigger
+                    stock={stock}
+                    renderTrigger={
+                      <StockIsOpenBadge stock={stock} disableTooltip />
+                    }
+                  />
+                ) : null}
+              </>
             ) : (
               <>
                 <StockSourceLogo stock={stock} />
@@ -142,7 +154,14 @@ export function TokenDetailHeaderLeft({
                 {stock?.subtitle ? (
                   <SubtitleBadge subtitle={stock.subtitle} noTruncate />
                 ) : null}
-                {stock ? <StockIsOpenBadge stock={stock} /> : null}
+                {stock ? (
+                  <TradingHoursTrigger
+                    stock={stock}
+                    renderTrigger={
+                      <StockIsOpenBadge stock={stock} disableTooltip />
+                    }
+                  />
+                ) : null}
               </>
             )}
           </XStack>
