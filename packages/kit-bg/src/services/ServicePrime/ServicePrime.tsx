@@ -123,6 +123,18 @@ function getInfiniPlanParam(plan: IPrimeInfiniSubscriptionPlan) {
   return plan === 'yearly' ? 'annual' : 'monthly';
 }
 
+function normalizeInfiniSubscriptionResponse(
+  subscription: IPrimeInfiniSubscription | undefined,
+): IPrimeInfiniSubscription | undefined {
+  if (!subscription) {
+    return undefined;
+  }
+  return {
+    ...subscription,
+    status: typeof subscription.status === 'string' ? subscription.status : '',
+  };
+}
+
 type IPrimeInfiniPaymentApiResponse = {
   paymentId?: unknown;
   address?: unknown;
@@ -3862,7 +3874,9 @@ class ServicePrime extends ServiceBase {
       purchaseStatusSnapshot: {
         onekeyUserId: expectedOneKeyUserId,
         primeSubscription: this.buildPrimeSubscriptionInfo(serverUserInfo),
-        infiniSubscription: infiniResult?.data?.data ?? undefined,
+        infiniSubscription: normalizeInfiniSubscriptionResponse(
+          infiniResult?.data?.data,
+        ),
       },
     };
   }
@@ -3888,7 +3902,9 @@ class ServicePrime extends ServiceBase {
     if (serverUserInfo.userId !== expectedOneKeyUserId) {
       throw this.createInfiniPurchaseUserChangedError();
     }
-    const infiniSubscription = infiniResult?.data?.data ?? undefined;
+    const infiniSubscription = normalizeInfiniSubscriptionResponse(
+      infiniResult?.data?.data,
+    );
     await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
     return {
       onekeyUserId: expectedOneKeyUserId,
@@ -3913,7 +3929,9 @@ class ServicePrime extends ServiceBase {
       '/prime/v1/infini/subscription',
       this.getInfiniPurchaseRequestConfig(authSnapshot),
     );
-    const subscription = result?.data?.data ?? undefined;
+    const subscription = normalizeInfiniSubscriptionResponse(
+      result?.data?.data,
+    );
     await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
     return subscription;
   }

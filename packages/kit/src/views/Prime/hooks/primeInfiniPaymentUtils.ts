@@ -8,6 +8,7 @@ import {
   isPrimeInfiniPaymentExplicitlyExpiredSnapshot,
   isPrimeInfiniPaymentExplicitlyFailedSnapshot,
   isPrimeInfiniPaymentForAssetSnapshot,
+  isPrimeInfiniPaymentFullyConfirmedSnapshot,
   isPrimeInfiniPurchaseCompletedSnapshot,
   isSamePrimeInfiniPaymentAssetIdentity,
   isSamePrimeInfiniPaymentTransferSnapshot,
@@ -239,21 +240,14 @@ export function getPrimeInfiniPaymentOutcome({
   payment: IPrimeInfiniPayment;
   now?: number;
 }): IPrimeInfiniPaymentOutcome {
+  if (isPrimeInfiniPaymentFullyConfirmedSnapshot(payment)) {
+    return 'confirmed';
+  }
   if (isPrimeInfiniPaymentExplicitlyExpired(payment)) {
     return 'expired';
   }
   if (isPrimeInfiniPaymentExplicitlyFailed(payment)) {
     return 'failed';
-  }
-  const amountDue = new BigNumber(payment.amountDue);
-  const amountConfirmed = new BigNumber(payment.amountConfirmed ?? '0');
-  if (
-    amountDue.isFinite() &&
-    amountDue.gt(0) &&
-    amountConfirmed.isFinite() &&
-    amountConfirmed.gte(amountDue)
-  ) {
-    return 'confirmed';
   }
   if (payment.expiresAt <= now) {
     return 'expired';

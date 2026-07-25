@@ -40,7 +40,7 @@ export function isInfiniSubscriptionInPeriod(
   }
   // currentPeriodEnd is optional until the backend schema is finalized;
   // fall back to the status field
-  return subscription.status.toLowerCase() === 'active';
+  return subscription.status?.toLowerCase() === 'active';
 }
 
 // Whether renewal invoices have stopped: explicitly canceled, expired, or the
@@ -52,5 +52,5 @@ export function isInfiniSubscriptionRenewalStopped(
   if (subscription.willRenew === false) {
     return true;
   }
-  return RENEWAL_STOPPED_STATUSES.has(subscription.status.toLowerCase());
+  return RENEWAL_STOPPED_STATUSES.has(subscription.status?.toLowerCase() ?? '');
 }

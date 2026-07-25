@@ -350,7 +350,7 @@ describe('primeInfiniPaymentUtils', () => {
     ).toBe('pending');
   });
 
-  it('classifies an explicit server expiry before confirming or confirmed amount fields', () => {
+  it('prioritizes a fully confirmed amount over an earlier server expiry', () => {
     const explicitlyExpiredPayment = {
       ...payment,
       status: 'expired',
@@ -366,10 +366,10 @@ describe('primeInfiniPaymentUtils', () => {
         payment: explicitlyExpiredPayment,
         now: 1000,
       }),
-    ).toBe('expired');
+    ).toBe('confirmed');
   });
 
-  it('treats an explicit server failure as terminal before confirmed amount totals', () => {
+  it('prioritizes a fully confirmed amount over an earlier server failure', () => {
     expect(
       getPrimeInfiniPaymentOutcome({
         payment: {
@@ -379,7 +379,7 @@ describe('primeInfiniPaymentUtils', () => {
         },
         now: 1000,
       }),
-    ).toBe('failed');
+    ).toBe('confirmed');
   });
 
   it('distinguishes an in-flight confirming amount from a partially confirmed amount', () => {

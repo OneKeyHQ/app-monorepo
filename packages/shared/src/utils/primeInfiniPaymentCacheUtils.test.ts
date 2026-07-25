@@ -2,10 +2,13 @@
 import {
   buildPrimeInfiniPaymentCacheKey,
   getPrimeInfiniPaymentAssetKey,
+  isPrimeInfiniPaymentFullyConfirmedSnapshot,
   isPrimeInfiniPaymentTransferClaimForSession,
+  mergePrimeInfiniPaymentProgressSnapshot,
 } from './primeInfiniPaymentCacheUtils';
 
 import type {
+  IPrimeInfiniPayment,
   IPrimeInfiniPaymentAsset,
   IPrimeInfiniPendingPaymentSession,
 } from '../../types/prime/primeTypes';
@@ -157,4 +160,61 @@ describe('isPrimeInfiniPaymentTransferClaimForSession', () => {
       ).toBe(false);
     },
   );
+});
+
+describe('mergePrimeInfiniPaymentProgressSnapshot', () => {
+  const payment: IPrimeInfiniPayment = {
+    paymentId: 'payment-1',
+    address: '0x1234',
+    chain: 'ETHEREUM',
+    token: 'USDC',
+    amountDue: '29.99',
+    expiresAt: Date.now() + 60_000,
+  };
+
+  test('lets a later confirmed snapshot replace an earlier expiry', () => {
+    const merged = mergePrimeInfiniPaymentProgressSnapshot({
+      previous: {
+        ...payment,
+        status: 'expired',
+        infiniStatus: 'expired',
+      },
+      latest: {
+        ...payment,
+        status: 'confirmed',
+        infiniStatus: 'paid',
+        amountConfirmed: payment.amountDue,
+      },
+    });
+
+    expect(merged).toMatchObject({
+      status: 'confirmed',
+      infiniStatus: 'paid',
+      amountConfirmed: payment.amountDue,
+    });
+    expect(isPrimeInfiniPaymentFullyConfirmedSnapshot(merged)).toBe(true);
+  });
+
+  test('does not let a later failure regress a fully confirmed snapshot', () => {
+    const merged = mergePrimeInfiniPaymentProgressSnapshot({
+      previous: {
+        ...payment,
+        status: 'pending',
+        infiniStatus: 'confirming',
+        amountConfirmed: payment.amountDue,
+      },
+      latest: {
+        ...payment,
+        status: 'failed',
+        infiniStatus: 'failed',
+        amountConfirmed: '0',
+      },
+    });
+
+    expect(merged).toMatchObject({
+      status: 'pending',
+      infiniStatus: 'confirming',
+      amountConfirmed: payment.amountDue,
+    });
+  });
 });

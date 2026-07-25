@@ -965,6 +965,30 @@ describe('ServicePrime Infini payment APIs', () => {
     });
   });
 
+  it('normalizes a missing Infini subscription status at the service boundary', async () => {
+    const { service } = createInfiniService();
+    const subscription = {
+      subscriptionId: 'infini-subscription-id',
+      plan: 'monthly',
+      currentPeriodEnd: 1_800_000_000_000,
+    };
+    const get = jest.fn(async () => ({
+      data: {
+        data: subscription,
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    await expect(
+      service.apiGetInfiniSubscription({
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).resolves.toEqual({
+      ...subscription,
+      status: '',
+    });
+  });
+
   it('pins the validated session token on webhook sync', async () => {
     const { service } = createInfiniService();
     const post = jest.fn(async () => undefined);

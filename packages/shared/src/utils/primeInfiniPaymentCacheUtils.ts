@@ -400,6 +400,19 @@ export function isPrimeInfiniPaymentExplicitlySuccessfulSnapshot(
   );
 }
 
+export function isPrimeInfiniPaymentFullyConfirmedSnapshot(
+  payment: IPrimeInfiniPayment,
+) {
+  const amountDue = new BigNumber(payment.amountDue);
+  const amountConfirmed = new BigNumber(payment.amountConfirmed ?? '');
+  return (
+    amountDue.isFinite() &&
+    amountDue.gt(0) &&
+    amountConfirmed.isFinite() &&
+    amountConfirmed.gte(amountDue)
+  );
+}
+
 export function mergePrimeInfiniPaymentProgressSnapshot({
   previous,
   latest,
@@ -410,10 +423,15 @@ export function mergePrimeInfiniPaymentProgressSnapshot({
   if (previous.paymentId !== latest.paymentId) {
     return latest;
   }
+  const latestHasSuccessfulOutcome =
+    isPrimeInfiniPaymentExplicitlySuccessfulSnapshot(latest) ||
+    isPrimeInfiniPaymentFullyConfirmedSnapshot(latest);
   const preservePreviousTerminalStatus =
-    isPrimeInfiniPaymentExplicitlyFailedSnapshot(previous) ||
-    isPrimeInfiniPaymentExplicitlyExpiredSnapshot(previous) ||
-    isPrimeInfiniPaymentExplicitlySuccessfulSnapshot(previous);
+    !latestHasSuccessfulOutcome &&
+    (isPrimeInfiniPaymentExplicitlyFailedSnapshot(previous) ||
+      isPrimeInfiniPaymentExplicitlyExpiredSnapshot(previous) ||
+      isPrimeInfiniPaymentExplicitlySuccessfulSnapshot(previous) ||
+      isPrimeInfiniPaymentFullyConfirmedSnapshot(previous));
   return {
     ...latest,
     status: preservePreviousTerminalStatus ? previous.status : latest.status,
