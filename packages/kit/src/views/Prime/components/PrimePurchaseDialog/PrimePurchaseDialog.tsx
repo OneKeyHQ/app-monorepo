@@ -4,13 +4,7 @@ import { useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IActionListItemProps } from '@onekeyhq/components';
-import {
-  ActionList,
-  Dialog,
-  Skeleton,
-  Stack,
-  YStack,
-} from '@onekeyhq/components';
+import { Dialog, Skeleton, Stack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -20,12 +14,10 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IPrimePaymentMethod } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { usePrimeInfiniPurchase } from '../../hooks/usePrimeInfiniPurchase';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { logPrimeInfiniPaymentFlow } from '../../primeInfiniPaymentLogger';
-import { PRIME_PAY_WITH_CRYPTO_LABEL } from '../../primePaymentLabels';
 import { ensurePrimePurchaseEligible } from '../../primePurchaseEligibility';
 import {
   finishPrimeSubscriptionPurchaseSuccess,
@@ -47,47 +39,46 @@ type IPrimePaymentMethodOption = {
   testID?: string;
 };
 
-const DESKTOP_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
+const CRYPTO_PAYMENT_METHOD: IPrimePaymentMethodOption = {
+  key: 'crypto',
+  label: 'Crypto',
+  icon: 'CryptoCoinOutline',
+  testID: 'prime-pay-with-crypto',
+};
+
+const WEB_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
   {
     key: 'webStripe',
     label: 'Credit card',
     icon: 'CreditCardOutline',
     testID: 'prime-pay-with-card',
   },
-  {
-    key: 'crypto',
-    label: 'Crypto',
-    icon: 'CryptoCoinOutline',
-    testID: 'prime-pay-with-crypto',
-  },
+  CRYPTO_PAYMENT_METHOD,
 ];
 
 const ANDROID_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
   {
     key: 'webview',
     label: 'Purchase by Webview',
+    icon: 'CreditCardOutline',
   },
-  {
-    key: 'crypto',
-    label: PRIME_PAY_WITH_CRYPTO_LABEL,
-  },
+  CRYPTO_PAYMENT_METHOD,
 ];
 
 const ANDROID_GOOGLE_PLAY_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
   {
     key: 'native',
     label: 'Purchase by GooglePlay',
+    icon: 'GooglePlayBrand',
   },
   ...ANDROID_PAYMENT_METHODS,
 ];
 
 function PrimePaymentMethodItems({
   methods,
-  actionList,
   onSelect,
 }: {
   methods: IPrimePaymentMethodOption[];
-  actionList?: boolean;
   onSelect: (method: IPrimePaymentMethodKey) => Promise<boolean>;
 }) {
   const [pendingMethod, setPendingMethod] = useState<IPrimePaymentMethodKey>();
@@ -113,34 +104,20 @@ function PrimePaymentMethodItems({
   );
   return (
     <>
-      {methods.map((method) =>
-        actionList ? (
-          <ActionList.Item
-            key={method.key}
-            label={method.label}
-            icon={method.icon}
-            disabled={Boolean(pendingMethod)}
-            isLoading={pendingMethod === method.key}
-            onClose={() => undefined}
-            onPress={async (_close) => {
-              await handleSelect(method.key);
-            }}
-          />
-        ) : (
-          <ListItem
-            key={method.key}
-            drillIn
-            icon={method.icon}
-            testID={method.testID ?? `prime-payment-method-${method.key}`}
-            title={method.label}
-            disabled={Boolean(pendingMethod)}
-            isLoading={pendingMethod === method.key}
-            onPress={async () => {
-              await handleSelect(method.key);
-            }}
-          />
-        ),
-      )}
+      {methods.map((method) => (
+        <ListItem
+          key={method.key}
+          drillIn
+          icon={method.icon}
+          testID={method.testID ?? `prime-payment-method-${method.key}`}
+          title={method.label}
+          disabled={Boolean(pendingMethod)}
+          isLoading={pendingMethod === method.key}
+          onPress={async () => {
+            await handleSelect(method.key);
+          }}
+        />
+      ))}
     </>
   );
 }
@@ -301,26 +278,23 @@ export function usePrimePurchaseCallback({
 
       await onPurchase?.();
 
-      // Crypto pay (Infini) is visible on every remaining branch:
-      // !isNativeIOS && !isNativeAndroidGooglePlay
+      let paymentMethods = WEB_PAYMENT_METHODS;
       if (platformEnv.isNativeAndroid) {
         const isGooglePlayServiceAvailable =
           await googlePlayService.isAvailable();
-        // Native Android only: ActionList.show renders as a bottom Sheet on
-        // native, so no popover trigger anchor is needed here
-        ActionList.show({
-          title: intl.formatMessage({
-            id: ETranslations.prime_subscribe,
-          }),
-          onClose: () => {},
-          renderItems: ({ handleActionListClose }) => (
+        paymentMethods = isGooglePlayServiceAvailable
+          ? ANDROID_GOOGLE_PLAY_PAYMENT_METHODS
+          : ANDROID_PAYMENT_METHODS;
+      }
+
+      const paymentMethodDialog = Dialog.show({
+        // TODO: i18n pending translation key
+        title: 'Payment method',
+        showFooter: false,
+        renderContent: (
+          <YStack mx="$-5" mt="$-1" mb="$-3" $md={{ pb: '$3', mb: '$0' }}>
             <PrimePaymentMethodItems
-              actionList
-              methods={
-                isGooglePlayServiceAvailable
-                  ? ANDROID_GOOGLE_PLAY_PAYMENT_METHODS
-                  : ANDROID_PAYMENT_METHODS
-              }
+              methods={paymentMethods}
               onSelect={async (method) => {
                 if (
                   !(await ensurePrimePurchaseEligible({
@@ -329,8 +303,8 @@ export function usePrimePurchaseCallback({
                 ) {
                   return false;
                 }
-                handleActionListClose();
-                await timerUtils.wait(300);
+                await paymentMethodDialog.close();
+
                 if (method === 'native') {
                   logSubscribeIntent('iap');
                   void purchaseByNativeUnchecked({
@@ -344,53 +318,7 @@ export function usePrimePurchaseCallback({
                     currency,
                     featureName,
                   });
-                } else {
-                  logPrimeInfiniPaymentFlow({
-                    stage: 'paymentMethod',
-                    status: 'selected',
-                    subscriptionPeriod: selectedSubscriptionPeriod,
-                    featureName,
-                    plan:
-                      selectedSubscriptionPeriod === 'P1Y'
-                        ? 'yearly'
-                        : 'monthly',
-                    checkoutType: 'internalWallet',
-                  });
-                  void purchaseByCryptoUnchecked({
-                    selectedSubscriptionPeriod,
-                    featureName,
-                  });
-                }
-                return true;
-              }}
-            />
-          ),
-        });
-        return;
-      }
-
-      // Desktop / Web / Extension: ActionList.show() has no trigger anchor
-      // here, and on gtMd its Popover never adapts to a Sheet, so it would
-      // render detached at the window corner. Use an imperative Dialog as
-      // the payment method picker instead.
-      const paymentMethodDialog = Dialog.show({
-        // TODO: i18n pending translation key
-        title: 'Payment method',
-        showFooter: false,
-        renderContent: (
-          <YStack mx="$-5" mt="$-1" mb="$-3" $md={{ pb: '$3', mb: '$0' }}>
-            <PrimePaymentMethodItems
-              methods={DESKTOP_PAYMENT_METHODS}
-              onSelect={async (method) => {
-                if (
-                  !(await ensurePrimePurchaseEligible({
-                    expectedOneKeyUserId: user?.onekeyUserId,
-                  }))
-                ) {
-                  return false;
-                }
-                await paymentMethodDialog.close();
-                if (method === 'webStripe') {
+                } else if (method === 'webStripe') {
                   logSubscribeIntent('stripe');
                   void purchaseByWebStripeUnchecked({
                     selectedSubscriptionPeriod,
@@ -423,7 +351,6 @@ export function usePrimePurchaseCallback({
     },
     [
       onPurchase,
-      intl,
       purchaseByCryptoUnchecked,
       purchaseByNativeUnchecked,
       purchaseByWebStripeUnchecked,
