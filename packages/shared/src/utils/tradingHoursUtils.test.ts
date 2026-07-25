@@ -108,14 +108,17 @@ describe('approximateNyOffsetMinutes', () => {
   });
 
   it('switches around the 2026 DST boundaries', () => {
-    // DST starts 2026-03-08 ≈07:00 UTC, ends 2026-11-01 ≈06:00 UTC
+    // DST starts 2026-03-08 07:00 UTC, ends 2026-11-01 06:00 UTC
     expect(approximateNyOffsetMinutes(Date.parse('2026-03-08T06:00:00Z'))).toBe(
       -300,
     );
     expect(approximateNyOffsetMinutes(Date.parse('2026-03-08T08:00:00Z'))).toBe(
       -240,
     );
-    expect(approximateNyOffsetMinutes(Date.parse('2026-11-01T08:00:00Z'))).toBe(
+    expect(approximateNyOffsetMinutes(Date.parse('2026-11-01T05:30:00Z'))).toBe(
+      -240,
+    );
+    expect(approximateNyOffsetMinutes(Date.parse('2026-11-01T06:30:00Z'))).toBe(
       -300,
     );
   });

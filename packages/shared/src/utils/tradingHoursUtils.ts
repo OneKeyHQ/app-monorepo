@@ -93,14 +93,14 @@ function getNyFormatter(): Intl.DateTimeFormat | null {
 export function approximateNyOffsetMinutes(instantMs: number): number {
   const d = new Date(instantMs);
   const year = d.getUTCFullYear();
-  const nthSundayUtc = (month: number, nth: number) => {
+  // 2:00 local = 07:00 UTC (EST) at the spring switch, 06:00 UTC (EDT) in fall
+  const nthSundayUtc = (month: number, nth: number, utcHour: number) => {
     const firstDayWeekday = new Date(Date.UTC(year, month, 1)).getUTCDay();
     const firstSunday = 1 + ((7 - firstDayWeekday) % 7);
-    // 2:00 local ≈ 07:00 UTC (EST) at the spring switch, 06:00 UTC (EDT) in fall
-    return Date.UTC(year, month, firstSunday + (nth - 1) * 7, 7, 0);
+    return Date.UTC(year, month, firstSunday + (nth - 1) * 7, utcHour, 0);
   };
-  const dstStart = nthSundayUtc(2, 2); // second Sunday of March
-  const dstEnd = nthSundayUtc(10, 1); // first Sunday of November
+  const dstStart = nthSundayUtc(2, 2, 7); // second Sunday of March
+  const dstEnd = nthSundayUtc(10, 1, 6); // first Sunday of November
   const isDst = instantMs >= dstStart && instantMs < dstEnd;
   return isDst ? -4 * 60 : -5 * 60;
 }
@@ -446,7 +446,11 @@ export function resolveUSMarketStatusVariant({
       return EUSMarketStatusVariant.ClosedTradable;
     }
     const sessionKey = usMarketSessionKeyFromBackendSession(status.session);
-    return sessionKeyToVariant(sessionKey ?? EUSMarketSessionKey.Regular);
+    // Unknown session value (future contract addition): fall back to the
+    // clock session, matching resolveUSTradingHoursActiveRow.
+    return sessionKeyToVariant(
+      sessionKey ?? getUSMarketTradingHours(now).currentSessionKey,
+    );
   }
   const tradingHours = getUSMarketTradingHours(now);
   const nowMs = now.getTime();
