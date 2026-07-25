@@ -973,6 +973,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               const isStockQuoteEventError =
                 Boolean(errorData.isStock) ||
                 isStockProtocol(event.params.protocol);
+              const isStockMarketClosed =
+                isStockQuoteEventError && errorData.isMarketOpen === false;
+              const currentSwapType = get(swapTypeSwitchAtom());
+              const shouldRequireManualRefresh =
+                isSwapOrBridgeQuoteType(currentSwapType) ||
+                currentSwapType === ESwapTabSwitchType.STOCK;
               const errorAlert: ISwapAlertState = {
                 message: errorData.errorMessage,
                 alertLevel: ESwapAlertLevel.ERROR,
@@ -1000,11 +1006,17 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 quoteId: '',
               });
               this.reconcileManualSelectQuoteProviders.call(set);
-              set(swapQuoteActionLockAtom(), (v) => ({
-                ...v,
-                actionLock: false,
-              }));
-              this.closeQuoteEvent(event.quoteRequestId);
+              if (isStockMarketClosed || !shouldRequireManualRefresh) {
+                this.cleanQuoteInterval.call(set);
+                set(swapShouldRefreshQuoteAtom(), false);
+                set(swapQuoteActionLockAtom(), (v) => ({
+                  ...v,
+                  actionLock: false,
+                }));
+                this.closeQuoteEvent(event.quoteRequestId);
+              } else {
+                this.requireManualQuoteRefresh.call(set);
+              }
               break;
             }
             const autoSlippageData = dataJson as ISwapQuoteEventAutoSlippage;
@@ -1407,6 +1419,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   );
 
   requireManualQuoteRefresh = contextAtomMethod((get, set) => {
+    this.cleanQuoteInterval.call(set);
     const quoteRequestId = get(swapQuoteActionLockAtom()).quoteRequestId;
     this.closeQuoteEvent(quoteRequestId);
     set(swapQuoteEventCompletedAtom(), true);

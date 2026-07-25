@@ -112,6 +112,31 @@ export function resolveSwapQuoteRefreshAction({
   };
 }
 
+export function shouldPlaySwapQuoteRefreshAnimation({
+  autoRefreshTimerActive,
+  disabled,
+  focused,
+  loading,
+  manualRefreshRequired,
+  refreshActionRequired,
+}: {
+  autoRefreshTimerActive: boolean;
+  disabled: boolean;
+  focused: boolean;
+  loading: boolean;
+  manualRefreshRequired: boolean;
+  refreshActionRequired: boolean;
+}) {
+  return (
+    autoRefreshTimerActive &&
+    focused &&
+    !disabled &&
+    !loading &&
+    !manualRefreshRequired &&
+    !refreshActionRequired
+  );
+}
+
 export function buildSwapQuoteProviderKey(quote: {
   info: ISwapQuoteProviderIdentity;
 }) {

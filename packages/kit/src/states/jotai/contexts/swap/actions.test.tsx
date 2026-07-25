@@ -1589,6 +1589,142 @@ describe('useSwapActions', () => {
 
   it.each([
     {
+      scenario: 'Swap',
+      errorData: {
+        errorMessage: 'Provider is temporarily unavailable',
+        eventId: 'swap-business-error',
+      },
+      fromToken: ethToken,
+      manualRefreshRequired: true,
+      protocol: ESwapTabSwitchType.SWAP,
+      quoteProtocol: EProtocolOfExchange.SWAP,
+      toToken: bnbToken,
+    },
+    {
+      scenario: 'Stock provider',
+      errorData: {
+        errorMessage: 'Stock provider is temporarily unavailable',
+        eventId: 'stock-business-error',
+        isStock: true,
+      },
+      fromToken: usdcToken,
+      manualRefreshRequired: true,
+      protocol: ESwapTabSwitchType.STOCK,
+      quoteProtocol: EProtocolOfExchange.STOCK,
+      toToken: stockTokenA,
+    },
+    {
+      scenario: 'Stock market-closed',
+      errorData: {
+        errorMessage: 'Market is closed',
+        eventId: 'stock-market-closed',
+        isMarketOpen: false,
+        isStock: true,
+      },
+      fromToken: usdcToken,
+      manualRefreshRequired: false,
+      protocol: ESwapTabSwitchType.STOCK,
+      quoteProtocol: EProtocolOfExchange.STOCK,
+      toToken: stockTokenA,
+    },
+    {
+      scenario: 'Limit',
+      errorData: {
+        errorMessage: 'Limit price is invalid',
+        eventId: 'limit-business-error',
+      },
+      fromToken: usdcToken,
+      manualRefreshRequired: false,
+      protocol: ESwapTabSwitchType.LIMIT,
+      quoteProtocol: EProtocolOfExchange.LIMIT,
+      toToken: usdtToken,
+    },
+  ])(
+    'terminalizes $scenario business errors without automatic retry',
+    async ({
+      errorData,
+      fromToken,
+      manualRefreshRequired,
+      protocol,
+      quoteProtocol,
+      toToken,
+    }) => {
+      jest.useFakeTimers();
+      try {
+        const quoteRequestId = `${protocol}-business-error-request`;
+        const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+          storeInstance.set(swapTypeSwitchAtom(), protocol);
+          storeInstance.set(swapSelectFromTokenAtom(), fromToken);
+          storeInstance.set(swapSelectToTokenAtom(), toToken);
+          storeInstance.set(swapFromTokenAmountAtom(), {
+            value: '1',
+            isInput: true,
+          });
+          storeInstance.set(swapQuoteFetchingAtom(), true);
+          storeInstance.set(swapQuoteActionLockAtom(), {
+            actionLock: true,
+            fromToken,
+            fromTokenAmount: '1',
+            kind: ESwapQuoteKind.SELL,
+            quoteRequestId,
+            toToken,
+            toTokenAmount: '',
+            type: protocol,
+          });
+        });
+        const { result } = renderHook(() => useSwapActions().current, {
+          wrapper: Wrapper,
+        });
+        const quoteParams: IFetchQuotesParams = {
+          autoSlippage: true,
+          fromNetworkId: fromToken.networkId,
+          fromTokenAddress: fromToken.contractAddress,
+          fromTokenAmount: '1',
+          protocol: quoteProtocol,
+          slippagePercentage: 0.5,
+          toNetworkId: toToken.networkId,
+          toTokenAddress: toToken.contractAddress,
+        };
+
+        act(() => {
+          result.current.quoteEventHandler({
+            event: {
+              data: JSON.stringify(errorData),
+            } as ISwapQuoteEvent,
+            type: 'message',
+            params: quoteParams,
+            quoteRequestId,
+            tokenPairs: {
+              fromToken,
+              toToken,
+            },
+          });
+        });
+
+        expect(store.get(swapQuoteFetchingAtom())).toBe(false);
+        expect(store.get(swapQuoteActionLockAtom()).actionLock).toBe(false);
+        expect(store.get(swapQuoteAutoRefreshTimerAtom())).toBeUndefined();
+        expect(store.get(swapShouldRefreshQuoteAtom())).toBe(
+          manualRefreshRequired,
+        );
+
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(
+            swapRefreshInterval * (swapQuoteIntervalMaxCount + 1),
+          );
+        });
+
+        expect(store.get(swapQuoteIntervalCountAtom())).toBe(0);
+        expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    },
+  );
+
+  it.each([
+    {
       fromToken: ethToken,
       protocol: ESwapTabSwitchType.SWAP,
       quoteProtocol: EProtocolOfExchange.SWAP,

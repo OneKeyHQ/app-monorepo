@@ -24,6 +24,7 @@ import {
   selectSwapCurrentQuote,
   selectSwapPreviousActionableQuote,
   shouldOfferSwapQuoteRefresh,
+  shouldPlaySwapQuoteRefreshAnimation,
   shouldShowSwapQuoteActionLoading,
   shouldShowSwapQuoteRequestLoading,
 } from './quoteProgress';
@@ -76,6 +77,55 @@ describe('swap quote progress', () => {
       action: ESwapQuoteRefreshAction.RequireManualRefresh,
       nextAutomaticRefreshCount: 5,
     });
+  });
+
+  it('plays the refresh animation only for an active focused auto-refresh timer', () => {
+    const activeRefresh = {
+      autoRefreshTimerActive: true,
+      disabled: false,
+      focused: true,
+      loading: false,
+      manualRefreshRequired: false,
+      refreshActionRequired: false,
+    };
+
+    expect(
+      shouldPlaySwapQuoteRefreshAnimation({
+        ...activeRefresh,
+        manualRefreshRequired: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPlaySwapQuoteRefreshAnimation({
+        ...activeRefresh,
+        refreshActionRequired: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPlaySwapQuoteRefreshAnimation({
+        ...activeRefresh,
+        disabled: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPlaySwapQuoteRefreshAnimation({
+        ...activeRefresh,
+        autoRefreshTimerActive: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPlaySwapQuoteRefreshAnimation({
+        ...activeRefresh,
+        focused: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPlaySwapQuoteRefreshAnimation({
+        ...activeRefresh,
+        loading: true,
+      }),
+    ).toBe(false);
+    expect(shouldPlaySwapQuoteRefreshAnimation(activeRefresh)).toBe(true);
   });
 
   it('matches the quote request to the current Swap input scope', () => {

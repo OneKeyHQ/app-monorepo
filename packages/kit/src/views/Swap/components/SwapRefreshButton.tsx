@@ -7,6 +7,11 @@ import { LottieView, XStack } from '@onekeyhq/components';
 
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
+import {
+  useSwapQuoteAutoRefreshTimerAtom,
+  useSwapShouldRefreshQuoteAtom,
+} from '../../../states/jotai/contexts/swap';
+import { shouldPlaySwapQuoteRefreshAnimation } from '../../../states/jotai/contexts/swap/quoteProgress';
 import { useSwapActionState } from '../hooks/useSwapState';
 
 type ISwapRefreshButtonBaseProps = {
@@ -15,6 +20,8 @@ type ISwapRefreshButtonBaseProps = {
   isRefreshQuote: boolean;
   isLoading: boolean;
   isFocused?: boolean;
+  manualRefreshRequired?: boolean;
+  autoRefreshTimerActive?: boolean;
 };
 
 function BasicSwapRefreshButton({
@@ -23,6 +30,8 @@ function BasicSwapRefreshButton({
   isRefreshQuote,
   isLoading,
   isFocused = true,
+  manualRefreshRequired = false,
+  autoRefreshTimerActive = false,
 }: ISwapRefreshButtonBaseProps) {
   const loadingAnim = useRef(new Animated.Value(0)).current;
   const themeVariant = useThemeVariant();
@@ -48,6 +57,14 @@ function BasicSwapRefreshButton({
   if (refreshActionRef.current !== refreshAction) {
     refreshActionRef.current = refreshAction;
   }
+  const shouldPlayAutoRefreshAnimation = shouldPlaySwapQuoteRefreshAnimation({
+    autoRefreshTimerActive,
+    disabled: Boolean(disabled),
+    focused: isFocused,
+    loading: isLoading,
+    manualRefreshRequired,
+    refreshActionRequired: isRefreshQuote,
+  });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const onRefresh = useCallback(
     debounce(() => {
@@ -87,24 +104,17 @@ function BasicSwapRefreshButton({
     }
   }, [isRefreshQuote]);
 
+  // Auto-refresh is owned by the quote action. The icon only runs while that
+  // owner has a real refresh timer scheduled for the current context.
   useEffect(() => {
-    if (isFocused && isLoading) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      lottieRef.current?.reset();
-    }
-  }, [isFocused, isLoading]);
-
-  // Auto-refresh is owned by the quote action. The icon mirrors whether the
-  // current quote can still be refreshed automatically.
-  useEffect(() => {
-    if (disabled || isRefreshQuote) {
+    if (!shouldPlayAutoRefreshAnimation) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
       lottieRef.current?.reset();
     } else {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
       lottieRef.current?.play();
     }
-  }, [disabled, isRefreshQuote]);
+  }, [shouldPlayAutoRefreshAnimation]);
 
   return (
     <XStack
@@ -137,7 +147,7 @@ function BasicSwapRefreshButton({
           }
           width={18}
           height={18}
-          autoPlay={!disabled && !isRefreshQuote}
+          autoPlay={shouldPlayAutoRefreshAnimation}
         />
       </Animated.View>
     </XStack>
@@ -155,6 +165,8 @@ const SwapRefreshButton = ({
 }) => {
   const isFocused = useRouteIsFocused();
   const { isRefreshQuote, isLoading } = useSwapActionState();
+  const [manualRefreshRequired] = useSwapShouldRefreshQuoteAtom();
+  const [autoRefreshTimer] = useSwapQuoteAutoRefreshTimerAtom();
   return (
     <SwapRefreshButtonBase
       refreshAction={refreshAction}
@@ -162,6 +174,8 @@ const SwapRefreshButton = ({
       isRefreshQuote={!!isRefreshQuote}
       isLoading={!!isLoading}
       isFocused={isFocused}
+      manualRefreshRequired={manualRefreshRequired}
+      autoRefreshTimerActive={autoRefreshTimer !== undefined}
     />
   );
 };
