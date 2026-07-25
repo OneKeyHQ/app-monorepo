@@ -8222,7 +8222,41 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return devices.find((item) => uuid && item.uuid === uuid);
   }
 
-  async getExistingDevice({
+  /**
+   * Resolve which existing device record (if any) a connecting device maps to.
+   *
+   * OneKey (HD) and third-party vendors are dispatched separately on purpose:
+   * OneKey must stay reachable even if third-party resolution is broken, so its
+   * branch never enters third-party code, and third-party failures degrade to
+   * "no match" (create a new device) instead of failing wallet creation.
+   */
+  async getExistingDevice(params: {
+    rawDeviceId: string;
+    uuid: string;
+    connectId?: string;
+    getFirstEvmAddressFn?: () => Promise<string | null>;
+    verifySeedMatchFn?: (
+      matchedDevice: IDBDevice,
+    ) => Promise<'match' | 'mismatch' | 'unknown'>;
+    vendor?: EHardwareVendor;
+  }): Promise<IDBDevice | undefined> {
+    const profile = getVendorProfile(params.vendor ?? EHardwareVendor.onekey);
+    if (!profile.isThirdParty) {
+      return this._resolveExistingDevice(params);
+    }
+    try {
+      return await this._resolveExistingDevice(params);
+    } catch (error) {
+      defaultLogger.hardware.sdkLog.log(
+        `[getExistingDevice] third-party resolution failed, treating as no match: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return undefined;
+    }
+  }
+
+  private async _resolveExistingDevice({
     // required: After resetting, the device will be considered as a new one.
     //      use the getSameDeviceByUUIDEvenIfReset() method if you want to find the same device even if it is reset.
     rawDeviceId,
