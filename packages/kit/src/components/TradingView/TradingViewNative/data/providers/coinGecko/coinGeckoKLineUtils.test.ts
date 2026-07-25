@@ -41,6 +41,7 @@ describe('CoinGecko TradingViewNative K-line utilities', () => {
         timeTo: 1000,
       }),
     ).toEqual({
+      pointType: 'single',
       points: [
         { o: 10, h: 12, l: 10, c: 12, v: 0, t: 300 },
         { o: 8, h: 8, l: 8, c: 8, v: 0, t: 600 },
@@ -57,6 +58,6 @@ describe('CoinGecko TradingViewNative K-line utilities', () => {
         timeFrom: 600,
         timeTo: 900,
       }),
-    ).toEqual({ points: [], total: 0 });
+    ).toEqual({ pointType: 'single', points: [], total: 0 });
   });
 });

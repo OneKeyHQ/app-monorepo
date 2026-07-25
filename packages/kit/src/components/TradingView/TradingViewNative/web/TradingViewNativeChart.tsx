@@ -43,6 +43,8 @@ import {
   TRADING_VIEW_NATIVE_CANDLE_STEP,
   TRADING_VIEW_NATIVE_CANDLE_WICK_WIDTH,
   TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
+  TRADING_VIEW_NATIVE_LINE_POINT_RADIUS,
+  TRADING_VIEW_NATIVE_LINE_WIDTH,
   TRADING_VIEW_NATIVE_VOLUME_LEGEND_TOP_PADDING as VOLUME_LEGEND_TOP_PADDING,
   TRADING_VIEW_NATIVE_VOLUME_OPACITY as VOLUME_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
@@ -63,7 +65,10 @@ import {
   type ITradingViewNativeLegendItem,
   getTradingViewNativeChartLegend,
 } from '../utils/chartLegend';
-import { isTradingViewNativePriceUp } from '../utils/chartStyle';
+import {
+  getTradingViewNativeLineColors,
+  isTradingViewNativePriceUp,
+} from '../utils/chartStyle';
 import {
   type ITradingViewNativeVisiblePointRange,
   clampTradingViewNativePanOffset,
@@ -75,6 +80,8 @@ import {
   getTradingViewNativeVisiblePointRange,
   getTradingViewNativeZoomedViewport,
 } from '../utils/chartViewport';
+
+import type { ITradingViewNativeChartType } from '../types';
 
 const WHEEL_ZOOM_SENSITIVITY = 0.0015;
 const WHEEL_DELTA_MODE_LINE = 1;
@@ -93,12 +100,14 @@ interface IChartColors {
   axisText: string;
   background: string;
   grid: string;
+  line: string;
   up: string;
   down: string;
 }
 
 interface ITradingViewNativeChartProps {
   candleIntervalSeconds: number;
+  chartType: ITradingViewNativeChartType;
   chartPictureVersion: number;
   isSwitchingInterval: boolean;
   onVisiblePointRangeChange?: (
@@ -125,9 +134,10 @@ interface ICrosshairPosition {
   y: number;
 }
 
-interface IDrawKLineChartOptions {
+interface IDrawChartOptions {
   candleIntervalSeconds: number;
   canvas: HTMLCanvasElement;
+  chartType: ITradingViewNativeChartType;
   colors: IChartColors;
   crosshairPosition: ICrosshairPosition | null;
   panOffset: number;
@@ -228,9 +238,10 @@ function getWheelDeltaYInPixels(event: WheelEvent, canvas: HTMLCanvasElement) {
   return event.deltaY;
 }
 
-function drawKLineChart({
+function drawChart({
   candleIntervalSeconds,
   canvas,
+  chartType,
   colors,
   crosshairPosition,
   panOffset,
@@ -238,7 +249,7 @@ function drawKLineChart({
   watermarkImage,
   watermarkOpacity,
   zoomScale,
-}: IDrawKLineChartOptions) {
+}: IDrawChartOptions) {
   const context = canvas.getContext('2d');
   if (!context) {
     return;
@@ -304,6 +315,7 @@ function drawKLineChart({
   });
   const layout = getTradingViewNativeChartLayout({
     candleIntervalSeconds,
+    chartType,
     height,
     minimumTimeTickIndexSpacing:
       getTradingViewNativeTimeTickMinimumIndexSpacing(
@@ -421,11 +433,90 @@ function drawKLineChart({
   const toY = (price: number) => getTradingViewNativePriceY(price, layout);
   const candleBodyWidth =
     TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH * clampedZoomScale;
+  const lineColors = getTradingViewNativeLineColors({
+    down: colors.down,
+    line: colors.line,
+    points,
+    up: colors.up,
+  });
+  const lineColor = lineColors.line;
 
   context.save();
   context.beginPath();
   context.rect(CHART_HORIZONTAL_PADDING, 0, chartWidth, timeAxisY);
   context.clip();
+
+  if (chartType === 'line') {
+    const lineStartIndex = Math.max(visiblePointRange.startIndex - 1, 0);
+    const lineEndIndex = Math.min(
+      visiblePointRange.endIndex + 1,
+      points.length,
+    );
+    context.strokeStyle = lineColor;
+    context.lineWidth = TRADING_VIEW_NATIVE_LINE_WIDTH;
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    context.setLineDash([]);
+    context.beginPath();
+    let hasLinePoint = false;
+    for (let index = lineStartIndex; index < lineEndIndex; index += 1) {
+      const point = points[index];
+      if (Number.isFinite(point.c)) {
+        const x = getPointX(index);
+        const y = toY(point.c);
+        if (hasLinePoint) {
+          context.lineTo(x, y);
+        } else {
+          context.moveTo(x, y);
+          hasLinePoint = true;
+        }
+      }
+    }
+    context.stroke();
+
+    const latestPointIndex = points.length - 1;
+    const latestLinePoint = points[latestPointIndex];
+    if (latestLinePoint && Number.isFinite(latestLinePoint.c)) {
+      context.fillStyle = lineColor;
+      context.beginPath();
+      context.arc(
+        getPointX(latestPointIndex),
+        toY(latestLinePoint.c),
+        TRADING_VIEW_NATIVE_LINE_POINT_RADIUS,
+        0,
+        Math.PI * 2,
+      );
+      context.fill();
+    }
+  } else {
+    for (
+      let index = visiblePointRange.startIndex;
+      index < visiblePointRange.endIndex;
+      index += 1
+    ) {
+      const point = points[index];
+      const color = isTradingViewNativePriceUp(point) ? colors.up : colors.down;
+      const x = getPointX(index);
+      const openY = toY(point.o);
+      const highY = toY(point.h);
+      const lowY = toY(point.l);
+      const closeY = toY(point.c);
+
+      context.fillStyle = color;
+      context.fillRect(
+        x - TRADING_VIEW_NATIVE_CANDLE_WICK_WIDTH / 2,
+        highY,
+        TRADING_VIEW_NATIVE_CANDLE_WICK_WIDTH,
+        Math.max(lowY - highY, 1),
+      );
+      context.fillRect(
+        x - candleBodyWidth / 2,
+        Math.min(openY, closeY),
+        candleBodyWidth,
+        Math.max(Math.abs(closeY - openY), 1),
+      );
+    }
+  }
 
   for (
     let index = visiblePointRange.startIndex;
@@ -433,29 +524,11 @@ function drawKLineChart({
     index += 1
   ) {
     const point = points[index];
-    const color = isTradingViewNativePriceUp(point) ? colors.up : colors.down;
-    const x = getPointX(index);
-    const openY = toY(point.o);
-    const highY = toY(point.h);
-    const lowY = toY(point.l);
-    const closeY = toY(point.c);
-
-    context.fillStyle = color;
-    context.fillRect(
-      x - TRADING_VIEW_NATIVE_CANDLE_WICK_WIDTH / 2,
-      highY,
-      TRADING_VIEW_NATIVE_CANDLE_WICK_WIDTH,
-      Math.max(lowY - highY, 1),
-    );
-    context.fillRect(
-      x - candleBodyWidth / 2,
-      Math.min(openY, closeY),
-      candleBodyWidth,
-      Math.max(Math.abs(closeY - openY), 1),
-    );
-
     if (maxVolume > 0 && Number.isFinite(point.v) && point.v > 0) {
+      const color = isTradingViewNativePriceUp(point) ? colors.up : colors.down;
+      const x = getPointX(index);
       const volumeBarHeight = Math.max((point.v / maxVolume) * volumeHeight, 1);
+      context.fillStyle = color;
       context.globalAlpha = VOLUME_OPACITY;
       context.fillRect(
         x - candleBodyWidth / 2,
@@ -484,8 +557,14 @@ function drawKLineChart({
     context.restore();
   }
 
-  const legend = getTradingViewNativeChartLegend(crosshairPoint ?? latestPoint);
-  const legendPointColor = legend.isUp ? colors.up : colors.down;
+  const legend = getTradingViewNativeChartLegend(
+    crosshairPoint ?? latestPoint,
+    chartType,
+  );
+  let legendPointColor = lineColor;
+  if (chartType !== 'line') {
+    legendPointColor = legend.isUp ? colors.up : colors.down;
+  }
   drawChartLegendRow({
     backgroundColor: colors.background,
     context,
@@ -505,9 +584,12 @@ function drawKLineChart({
     valueColor: legendPointColor,
   });
 
-  const latestPointColor = isTradingViewNativePriceUp(latestPoint)
+  let latestPointColor = isTradingViewNativePriceUp(latestPoint)
     ? colors.up
     : colors.down;
+  if (chartType === 'line') {
+    latestPointColor = lineColors.currentPrice;
+  }
 
   const currentPriceLayout = getTradingViewNativeCurrentPriceLayout({
     labelHeight: CURRENT_PRICE_LABEL_HEIGHT,
@@ -611,6 +693,7 @@ function drawKLineChart({
 export const TradingViewNativeChart = memo(
   ({
     candleIntervalSeconds,
+    chartType,
     isSwitchingInterval,
     onVisiblePointRangeChange,
     points,
@@ -639,6 +722,7 @@ export const TradingViewNativeChart = memo(
     const background = theme.bgApp.val;
     const grid = theme.borderSubdued.val;
     const axisText = theme.textSubdued.val;
+    const line = theme.text.val;
     const watermarkOpacity =
       themeName === 'dark' ? WATERMARK_DARK_OPACITY : WATERMARK_LIGHT_OPACITY;
 
@@ -664,13 +748,15 @@ export const TradingViewNativeChart = memo(
           return;
         }
 
-        drawKLineChart({
+        drawChart({
           candleIntervalSeconds,
           canvas,
+          chartType,
           colors: {
             axisText,
             background,
             grid,
+            line,
             up: CHART_UP_COLOR,
             down: CHART_DOWN_COLOR,
           },
@@ -686,7 +772,9 @@ export const TradingViewNativeChart = memo(
         axisText,
         background,
         candleIntervalSeconds,
+        chartType,
         grid,
+        line,
         points,
         watermarkImage,
         watermarkOpacity,

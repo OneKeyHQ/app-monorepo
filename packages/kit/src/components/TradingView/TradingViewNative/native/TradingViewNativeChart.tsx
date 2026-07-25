@@ -9,11 +9,13 @@ import {
 
 import {
   Canvas,
+  Circle,
   DashPathEffect,
   Group,
   ImageSVG,
   Line,
   Paint,
+  Path,
   Picture,
   Rect,
   type SkFont,
@@ -21,6 +23,7 @@ import {
   Skia,
   Text,
   matchFont,
+  usePathValue,
   useSVG,
 } from '@shopify/react-native-skia';
 import { type LayoutChangeEvent } from 'react-native';
@@ -74,6 +77,8 @@ import {
   TRADING_VIEW_NATIVE_CANDLE_GAP,
   TRADING_VIEW_NATIVE_CANDLE_WICK_WIDTH,
   TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
+  TRADING_VIEW_NATIVE_LINE_POINT_RADIUS,
+  TRADING_VIEW_NATIVE_LINE_WIDTH,
   TRADING_VIEW_NATIVE_VOLUME_LEGEND_TOP_PADDING as VOLUME_LEGEND_TOP_PADDING,
   TRADING_VIEW_NATIVE_VOLUME_OPACITY as VOLUME_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
@@ -86,6 +91,7 @@ import {
   getTradingViewNativeChartLayout,
   getTradingViewNativeChartWidth,
   getTradingViewNativeCurrentPriceLayout,
+  getTradingViewNativeLinePointPosition,
   getTradingViewNativeMaxVolume,
   getTradingViewNativePriceAtY,
   getTradingViewNativePriceTransform,
@@ -101,7 +107,10 @@ import {
   getTradingViewNativeChartLegend,
 } from '../utils/chartLegend';
 import { getTradingViewNativePicturePointsSnapshot } from '../utils/chartPictureCache';
-import { isTradingViewNativePriceUp } from '../utils/chartStyle';
+import {
+  getTradingViewNativeLineColors,
+  isTradingViewNativePriceUp,
+} from '../utils/chartStyle';
 import {
   type ITradingViewNativeVisiblePointRange,
   clampTradingViewNativePanOffset,
@@ -115,6 +124,8 @@ import {
   getTradingViewNativeVisiblePointRange,
   getTradingViewNativeZoomedViewport,
 } from '../utils/chartViewport';
+
+import type { ITradingViewNativeChartType } from '../types';
 
 const PRICE_AXIS_FONT_SIZE = 12;
 const PRICE_AXIS_TEXT_BASELINE_OFFSET = PRICE_AXIS_FONT_SIZE / 2 - 1;
@@ -160,7 +171,7 @@ interface IChartPictureData {
   volumeTop: number;
 }
 
-interface IKLinePointPictureData {
+interface IChartPointPictureData {
   pricePicture: SkPicture;
   volumeMinimumPicture: SkPicture;
   volumePicture: SkPicture;
@@ -168,6 +179,7 @@ interface IKLinePointPictureData {
 
 interface ITradingViewNativeChartProps {
   candleIntervalSeconds: number;
+  chartType: ITradingViewNativeChartType;
   chartPictureVersion: number;
   isSwitchingInterval: boolean;
   onVisiblePointRangeChange?: (
@@ -180,6 +192,11 @@ interface ITradingViewNativeChartProps {
 interface IVisiblePointRangeState extends ITradingViewNativeVisiblePointRange {
   chartWidth: number;
   minimumTimeTickIndexSpacing: number;
+}
+
+interface IIndexedChartPoint {
+  index: number;
+  point: IMarketTokenKLineDataPoint;
 }
 
 function getKLinePictureCullLeft({
@@ -199,10 +216,11 @@ function getKLinePictureCullLeft({
   );
 }
 
-function createKLinePointPictures({
+function createChartPointPictures({
   baseMaxPrice,
   baseMaxVolume,
   basePriceRange,
+  chartType,
   colors,
   height,
   indexedPoints,
@@ -216,17 +234,15 @@ function createKLinePointPictures({
   baseMaxPrice: number;
   baseMaxVolume: number;
   basePriceRange: number;
+  chartType: ITradingViewNativeChartType;
   colors: Pick<IChartColors, 'down' | 'up'>;
-  indexedPoints: Array<{
-    index: number;
-    point: IMarketTokenKLineDataPoint;
-  }>;
+  indexedPoints: IIndexedChartPoint[];
   pointCount: number;
   priceAxisX: number;
   priceChartHeight: number;
   volumeBottom: number;
   volumeHeight: number;
-}): IKLinePointPictureData {
+}): IChartPointPictureData {
   const candleCullLeft = getKLinePictureCullLeft({ pointCount, width });
   const priceRecorder = Skia.PictureRecorder();
   const priceCanvas = priceRecorder.beginRecording(
@@ -240,10 +256,47 @@ function createKLinePointPictures({
   const volumeMinimumCanvas = volumeMinimumRecorder.beginRecording(
     Skia.XYWHRect(candleCullLeft, 0, width - candleCullLeft, height),
   );
-  const candlePaint = Skia.Paint();
-  candlePaint.setAntiAlias(true);
+  const pricePaint = Skia.Paint();
+  pricePaint.setAntiAlias(true);
   const volumePaint = Skia.Paint();
   volumePaint.setAntiAlias(true);
+  const priceLayout = {
+    maxPrice: baseMaxPrice,
+    priceChartHeight,
+    priceRange: basePriceRange,
+  };
+
+  if (chartType !== 'line') {
+    indexedPoints.forEach(({ index, point }) => {
+      const color = isTradingViewNativePriceUp(point) ? colors.up : colors.down;
+      const skColor = Skia.Color(color);
+      const x = getTradingViewNativeCandleX({
+        candleGap: NATIVE_CANDLE_GAP,
+        index,
+        offset: 0,
+        pointCount,
+        priceAxisX,
+        zoomScale: 1,
+      });
+      const openY = getTradingViewNativePriceY(point.o, priceLayout);
+      const highY = getTradingViewNativePriceY(point.h, priceLayout);
+      const lowY = getTradingViewNativePriceY(point.l, priceLayout);
+      const closeY = getTradingViewNativePriceY(point.c, priceLayout);
+
+      pricePaint.setColor(skColor);
+      pricePaint.setStrokeWidth(TRADING_VIEW_NATIVE_CANDLE_WICK_WIDTH);
+      priceCanvas.drawLine(x, highY, x, Math.max(lowY, highY + 1), pricePaint);
+      priceCanvas.drawRect(
+        Skia.XYWHRect(
+          x - TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH / 2,
+          Math.min(openY, closeY),
+          TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH,
+          Math.max(Math.abs(closeY - openY), 1),
+        ),
+        pricePaint,
+      );
+    });
+  }
 
   indexedPoints.forEach(({ index, point }) => {
     const color = isTradingViewNativePriceUp(point) ? colors.up : colors.down;
@@ -256,29 +309,6 @@ function createKLinePointPictures({
       priceAxisX,
       zoomScale: 1,
     });
-    const priceLayout = {
-      maxPrice: baseMaxPrice,
-      priceChartHeight,
-      priceRange: basePriceRange,
-    };
-    const openY = getTradingViewNativePriceY(point.o, priceLayout);
-    const highY = getTradingViewNativePriceY(point.h, priceLayout);
-    const lowY = getTradingViewNativePriceY(point.l, priceLayout);
-    const closeY = getTradingViewNativePriceY(point.c, priceLayout);
-
-    candlePaint.setColor(skColor);
-    candlePaint.setStrokeWidth(TRADING_VIEW_NATIVE_CANDLE_WICK_WIDTH);
-    priceCanvas.drawLine(x, highY, x, Math.max(lowY, highY + 1), candlePaint);
-    priceCanvas.drawRect(
-      Skia.XYWHRect(
-        x - TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH / 2,
-        Math.min(openY, closeY),
-        TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH,
-        Math.max(Math.abs(closeY - openY), 1),
-      ),
-      candlePaint,
-    );
-
     const volumeBarHeight = getTradingViewNativeVolumeBarHeight({
       maxVolume: baseMaxVolume,
       volume: point.v,
@@ -317,17 +347,18 @@ function createKLinePointPictures({
   priceRecorder.dispose();
   volumeRecorder.dispose();
   volumeMinimumRecorder.dispose();
-  candlePaint.dispose();
+  pricePaint.dispose();
   volumePaint.dispose();
 
   return { pricePicture, volumeMinimumPicture, volumePicture };
 }
 
-function createKLineChartPictures({
+function createChartPictures({
   baseMaxPrice,
   baseMaxVolume,
   baseMinPrice,
   candleIntervalSeconds,
+  chartType,
   colors,
   height,
   historicalPoints,
@@ -338,6 +369,7 @@ function createKLineChartPictures({
   baseMaxVolume: number;
   baseMinPrice: number;
   candleIntervalSeconds: number;
+  chartType: ITradingViewNativeChartType;
   colors: IChartColors;
   historicalPoints: IMarketTokenKLineDataPoint[];
   layoutPoints: IMarketTokenKLineDataPoint[];
@@ -348,6 +380,7 @@ function createKLineChartPictures({
 
   const layout = getTradingViewNativeChartLayout({
     candleIntervalSeconds,
+    chartType,
     height,
     minimumTimeTickIndexSpacing: Number.MAX_SAFE_INTEGER,
     points: layoutPoints,
@@ -396,10 +429,11 @@ function createKLineChartPictures({
     );
   }
 
-  const pointPictures = createKLinePointPictures({
+  const pointPictures = createChartPointPictures({
     baseMaxPrice,
     baseMaxVolume,
     basePriceRange: baseMaxPrice - baseMinPrice,
+    chartType,
     colors,
     height,
     indexedPoints: historicalPoints.map((point, index) => ({
@@ -434,6 +468,120 @@ function createKLineChartPictures({
     volumeTop: layout.volumeTop,
   };
 }
+
+/* oxlint-disable react/style-prop-object -- Skia uses string paint styles. */
+function TradingViewNativeLine({
+  chartWidth,
+  color,
+  maxPrice,
+  minPrice,
+  panOffset,
+  points,
+  priceAxisX,
+  priceChartHeight,
+  zoomScale,
+}: {
+  chartWidth: number;
+  color: string;
+  maxPrice: SharedValue<number>;
+  minPrice: SharedValue<number>;
+  panOffset: SharedValue<number>;
+  points: IMarketTokenKLineDataPoint[];
+  priceAxisX: number;
+  priceChartHeight: number;
+  zoomScale: SharedValue<number>;
+}) {
+  const pointCount = points.length;
+  const linePath = usePathValue((path) => {
+    'worklet';
+
+    const visiblePointRange = getTradingViewNativeVisiblePointRange({
+      candleGap: NATIVE_CANDLE_GAP,
+      chartWidth,
+      offset: panOffset.value,
+      pointCount,
+      zoomScale: zoomScale.value,
+    });
+    const lineStartIndex = Math.max(visiblePointRange.startIndex - 1, 0);
+    const lineEndIndex = Math.min(visiblePointRange.endIndex + 1, pointCount);
+    let hasLinePoint = false;
+
+    for (let index = lineStartIndex; index < lineEndIndex; index += 1) {
+      const point = points[index];
+      const position = point
+        ? getTradingViewNativeLinePointPosition({
+            candleGap: NATIVE_CANDLE_GAP,
+            index,
+            maxPrice: maxPrice.value,
+            minPrice: minPrice.value,
+            offset: panOffset.value,
+            pointCount,
+            price: point.c,
+            priceAxisX,
+            priceChartHeight,
+            zoomScale: zoomScale.value,
+          })
+        : null;
+      if (!position) {
+        hasLinePoint = false;
+      } else if (hasLinePoint) {
+        path.lineTo(position.x, position.y);
+      } else {
+        path.moveTo(position.x, position.y);
+        hasLinePoint = true;
+      }
+    }
+  });
+  const latestPointPosition = useDerivedValue(() => {
+    const latestPoint = points[pointCount - 1];
+    const position = latestPoint
+      ? getTradingViewNativeLinePointPosition({
+          candleGap: NATIVE_CANDLE_GAP,
+          index: pointCount - 1,
+          maxPrice: maxPrice.value,
+          minPrice: minPrice.value,
+          offset: panOffset.value,
+          pointCount,
+          price: latestPoint.c,
+          priceAxisX,
+          priceChartHeight,
+          zoomScale: zoomScale.value,
+        })
+      : null;
+    return position
+      ? { opacity: 1, x: position.x, y: position.y }
+      : { opacity: 0, x: 0, y: 0 };
+  });
+  const latestPointOpacity = useDerivedValue(
+    () => latestPointPosition.value.opacity,
+  );
+  const latestPointTransform = useDerivedValue(() => [
+    { translateX: latestPointPosition.value.x },
+    { translateY: latestPointPosition.value.y },
+  ]);
+
+  return (
+    <>
+      <Path
+        color={color}
+        path={linePath}
+        strokeCap="round"
+        strokeJoin="round"
+        strokeWidth={TRADING_VIEW_NATIVE_LINE_WIDTH}
+        style="stroke"
+      />
+      <Group opacity={latestPointOpacity} transform={latestPointTransform}>
+        <Circle
+          color={color}
+          cx={0}
+          cy={0}
+          r={TRADING_VIEW_NATIVE_LINE_POINT_RADIUS}
+        />
+      </Group>
+    </>
+  );
+}
+/* oxlint-enable react/style-prop-object */
 
 function TradingViewNativeTimeTick({
   font,
@@ -900,6 +1048,7 @@ function TradingViewNativeCurrentPrice({
 export const TradingViewNativeChart = memo(
   ({
     candleIntervalSeconds,
+    chartType,
     chartPictureVersion,
     isSwitchingInterval,
     onVisiblePointRangeChange,
@@ -937,6 +1086,7 @@ export const TradingViewNativeChart = memo(
     const background = theme.bgApp.val;
     const grid = theme.borderSubdued.val;
     const axisText = theme.textSubdued.val;
+    const lineColor = theme.text.val;
     const timeAxisFont = useMemo(
       () =>
         matchFont({
@@ -963,19 +1113,29 @@ export const TradingViewNativeChart = memo(
     const chartWidth = getTradingViewNativeChartWidth(chartSize.width);
     const pointCount = points.length;
     const latestPoint = points[pointCount - 1];
+    const lineColors = getTradingViewNativeLineColors({
+      down: CHART_DOWN_COLOR,
+      line: lineColor,
+      points,
+      up: CHART_UP_COLOR,
+    });
     const crosshairPoint =
       crosshairPointIndex === null ? undefined : points[crosshairPointIndex];
     const legendPoint = crosshairPoint ?? latestPoint;
     const chartLegend = legendPoint
-      ? getTradingViewNativeChartLegend(legendPoint)
+      ? getTradingViewNativeChartLegend(legendPoint, chartType)
       : null;
-    const legendPointColor = chartLegend?.isUp
-      ? CHART_UP_COLOR
-      : CHART_DOWN_COLOR;
-    const latestPointColor =
+    let legendPointColor = lineColors.line;
+    if (chartType !== 'line') {
+      legendPointColor = chartLegend?.isUp ? CHART_UP_COLOR : CHART_DOWN_COLOR;
+    }
+    let latestPointColor =
       latestPoint && isTradingViewNativePriceUp(latestPoint)
         ? CHART_UP_COLOR
         : CHART_DOWN_COLOR;
+    if (chartType === 'line') {
+      latestPointColor = lineColors.currentPrice;
+    }
     const watermarkLayout = useMemo(
       () => getTradingViewNativeWatermarkLayout(chartSize),
       [chartSize],
@@ -990,23 +1150,25 @@ export const TradingViewNativeChart = memo(
     const picturePointsSnapshot = useMemo(
       () =>
         getTradingViewNativePicturePointsSnapshot({
+          chartType,
           chartPictureVersion,
           points,
           previous: picturePointsSnapshotRef.current,
         }),
-      [chartPictureVersion, points],
+      [chartPictureVersion, chartType, points],
     );
     useLayoutEffect(() => {
       picturePointsSnapshotRef.current = picturePointsSnapshot;
     }, [picturePointsSnapshot]);
     const chartPictureData = useMemo(
       () =>
-        createKLineChartPictures({
+        createChartPictures({
           ...chartSize,
           baseMaxPrice: picturePointsSnapshot.baseMaxPrice,
           baseMaxVolume: picturePointsSnapshot.baseMaxVolume,
           baseMinPrice: picturePointsSnapshot.baseMinPrice,
           candleIntervalSeconds,
+          chartType,
           colors: {
             background,
             grid,
@@ -1019,6 +1181,7 @@ export const TradingViewNativeChart = memo(
       [
         background,
         candleIntervalSeconds,
+        chartType,
         chartSize,
         grid,
         picturePointsSnapshot.baseMaxPrice,
@@ -1033,11 +1196,12 @@ export const TradingViewNativeChart = memo(
         return null;
       }
 
-      return createKLinePointPictures({
+      return createChartPointPictures({
         ...chartSize,
         baseMaxPrice: chartPictureData.baseMaxPrice,
         baseMaxVolume: chartPictureData.baseMaxVolume,
         basePriceRange: chartPictureData.basePriceRange,
+        chartType,
         colors: { down: CHART_DOWN_COLOR, up: CHART_UP_COLOR },
         indexedPoints: [{ index: pointCount - 1, point: latestPoint }],
         pointCount,
@@ -1046,7 +1210,14 @@ export const TradingViewNativeChart = memo(
         volumeBottom: chartPictureData.volumeBottom,
         volumeHeight: chartPictureData.volumeHeight,
       });
-    }, [chartPictureData, chartSize, latestPoint, pointCount, priceAxisX]);
+    }, [
+      chartPictureData,
+      chartSize,
+      chartType,
+      latestPoint,
+      pointCount,
+      priceAxisX,
+    ]);
     const [visiblePointRangeState, setVisiblePointRangeState] =
       useState<IVisiblePointRangeState>(() => ({
         chartWidth: 0,
@@ -1072,9 +1243,10 @@ export const TradingViewNativeChart = memo(
       () =>
         getTradingViewNativePriceRange({
           ...defaultVisiblePointRange,
+          chartType,
           points,
         }),
-      [defaultVisiblePointRange, points],
+      [chartType, defaultVisiblePointRange, points],
     );
     const defaultVisibleMaxVolume = useMemo(
       () =>
@@ -1176,6 +1348,7 @@ export const TradingViewNativeChart = memo(
         });
         const visiblePriceRange = getTradingViewNativePriceRange({
           ...range,
+          chartType,
           points,
         });
         const visibleMaxVolume = getTradingViewNativeMaxVolume({
@@ -1602,6 +1775,19 @@ export const TradingViewNativeChart = memo(
                       ) : null}
                     </Group>
                   </Group>
+                  {chartType === 'line' ? (
+                    <TradingViewNativeLine
+                      chartWidth={chartWidth}
+                      color={lineColors.line}
+                      maxPrice={visibleMaxPrice}
+                      minPrice={visibleMinPrice}
+                      panOffset={panOffset}
+                      points={points}
+                      priceAxisX={priceAxisX}
+                      priceChartHeight={chartPictureData.priceChartHeight}
+                      zoomScale={zoomScale}
+                    />
+                  ) : null}
                   <Group
                     clip={Skia.XYWHRect(
                       CHART_HORIZONTAL_PADDING,

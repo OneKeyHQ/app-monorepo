@@ -1,5 +1,8 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { fetchMarketKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
+import {
+  type IMarketKLinePointType,
+  fetchMarketKLineData,
+} from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -99,6 +102,7 @@ export function createTradingViewNativeMarketDataProvider({
     supportsRealtime: source.realtime === 'websocket',
     fetchHistory: async (request) => {
       const { interval, signal, timeFrom, timeTo } = request;
+      let pointType: IMarketKLinePointType | undefined;
       let usedFallback = false;
       const data = await fetchMarketKLineData({
         tokenAddress: source.tokenAddress,
@@ -131,11 +135,19 @@ export function createTradingViewNativeMarketDataProvider({
           primaryHistoryUnavailable = true;
           cacheUnavailableMarketHistoryTokenKey(marketTokenKey);
         },
+        onPointType: (nextPointType) => {
+          pointType = nextPointType;
+        },
         primaryKLineDataUnavailable: primaryHistoryUnavailable,
       });
-      return data && usedFallback
-        ? { ...data, historySource: 'fallback' as const }
-        : data;
+      if (!data) {
+        return null;
+      }
+      return {
+        ...data,
+        ...(usedFallback ? { historySource: 'fallback' as const } : {}),
+        ...(pointType ? { pointType } : {}),
+      };
     },
     subscribeRealtime: async ({
       interval,

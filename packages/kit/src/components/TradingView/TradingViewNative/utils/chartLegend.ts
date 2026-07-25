@@ -3,6 +3,8 @@ import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2
 import { formatTradingViewNativePriceTick } from './chartLayout';
 import { isTradingViewNativePriceUp } from './chartStyle';
 
+import type { ITradingViewNativeChartType } from '../types';
+
 export interface ITradingViewNativeLegendItem {
   label: string;
   value: string;
@@ -43,15 +45,19 @@ export function formatTradingViewNativeVolume(volume: number) {
 
 export function getTradingViewNativeChartLegend(
   point: IMarketTokenKLineDataPoint,
+  chartType: ITradingViewNativeChartType = 'candlestick',
 ): ITradingViewNativeChartLegend {
   return {
     isUp: isTradingViewNativePriceUp(point),
-    priceItems: [
-      { label: 'O', value: formatPrice(point.o) },
-      { label: 'H', value: formatPrice(point.h) },
-      { label: 'L', value: formatPrice(point.l) },
-      { label: 'C', value: formatPrice(point.c) },
-    ],
+    priceItems:
+      chartType === 'line'
+        ? [{ label: 'Price', value: formatPrice(point.c) }]
+        : [
+            { label: 'O', value: formatPrice(point.o) },
+            { label: 'H', value: formatPrice(point.h) },
+            { label: 'L', value: formatPrice(point.l) },
+            { label: 'C', value: formatPrice(point.c) },
+          ],
     volumeItem: {
       label: 'Volume',
       value: formatTradingViewNativeVolume(point.v),

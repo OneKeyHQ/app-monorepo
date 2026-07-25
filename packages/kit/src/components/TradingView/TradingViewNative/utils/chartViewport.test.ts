@@ -245,6 +245,23 @@ describe('TradingViewNative chart viewport', () => {
     ).toEqual({ maxPrice: 500, minPrice: 20 });
   });
 
+  it('derives a line price range from close values only', () => {
+    const points = [
+      buildPoint(10, 1000, 1),
+      buildPoint(20, 2000, 2),
+      buildPoint(30, 3000, 3),
+    ];
+
+    expect(
+      getTradingViewNativePriceRange({
+        chartType: 'line',
+        endIndex: points.length,
+        points,
+        startIndex: 0,
+      }),
+    ).toEqual({ maxPrice: 30, minPrice: 10 });
+  });
+
   it('includes candle bodies that intersect either viewport edge', () => {
     expect(
       getTradingViewNativeVisiblePointRange({

@@ -39,6 +39,22 @@ describe('TradingViewNative chart legend', () => {
     ).toBe(false);
   });
 
+  it('shows only the close price for a line series', () => {
+    expect(
+      getTradingViewNativeChartLegend(
+        {
+          c: 9,
+          h: 11,
+          l: 8,
+          o: 10,
+          t: 1,
+          v: 500,
+        },
+        'line',
+      ).priceItems,
+    ).toEqual([{ label: 'Price', value: '9' }]);
+  });
+
   it('formats volume compactly and rejects invalid values', () => {
     expect(formatTradingViewNativeVolume(1500)).toBe('1.5K');
     expect(formatTradingViewNativeVolume(2_500_000_000)).toBe('2.5B');

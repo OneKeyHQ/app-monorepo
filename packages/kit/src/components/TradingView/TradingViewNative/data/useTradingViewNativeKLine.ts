@@ -8,6 +8,11 @@ import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
+import {
+  getTradingViewNativeChartType,
+  mergeTradingViewNativePointTypes,
+} from '../utils/chartType';
+
 import { createTradingViewNativeDataProvider } from './providers/createTradingViewNativeDataProvider';
 import { logTradingViewNativeDataError } from './tradingViewNativeDataLogger';
 import {
@@ -18,6 +23,7 @@ import {
 
 import type { ITradingViewNativeRealtimeSubscription } from './providers/types';
 import type { ITradingViewNativeChartInterval } from './tradingViewNativeIntervals';
+import type { IMarketKLinePointType } from '../../utils/fetchMarketKLineData';
 import type {
   ITradingViewNativeDataState,
   ITradingViewNativeSource,
@@ -34,6 +40,7 @@ let realtimeSubscriberSequence = 0;
 interface IChartData {
   chartPictureVersion: number;
   interval: ITradingViewNativeChartInterval;
+  pointType: IMarketKLinePointType;
   seriesKey: string;
   points: IMarketTokenKLineDataPoint[];
 }
@@ -541,6 +548,10 @@ export function useTradingViewNativeKLine({
                 return {
                   ...currentData,
                   chartPictureVersion: currentData.chartPictureVersion + 1,
+                  pointType: mergeTradingViewNativePointTypes(
+                    currentData.pointType,
+                    data.pointType,
+                  ),
                   points: mergeKLinePoints(currentData.points, olderPoints),
                 };
               });
@@ -615,6 +626,7 @@ export function useTradingViewNativeKLine({
           return {
             chartPictureVersion: 0,
             interval: activeInterval,
+            pointType: 'ohlc',
             seriesKey,
             points: [point],
           };
@@ -921,20 +933,27 @@ export function useTradingViewNativeKLine({
             }
             pagination.earliestTimestamp = nextPoints[0]?.t;
           }
-          setChartData((currentData) => ({
-            chartPictureVersion:
+          setChartData((currentData) => {
+            const shouldMergeCurrentData =
               currentData?.seriesKey === seriesKey &&
-              currentData.interval === requestedInterval.value
+              currentData.interval === requestedInterval.value;
+            return {
+              chartPictureVersion: shouldMergeCurrentData
                 ? currentData.chartPictureVersion + 1
                 : 0,
-            interval: requestedInterval.value,
-            seriesKey,
-            points:
-              currentData?.seriesKey === seriesKey &&
-              currentData.interval === requestedInterval.value
+              interval: requestedInterval.value,
+              pointType: shouldMergeCurrentData
+                ? mergeTradingViewNativePointTypes(
+                    currentData.pointType,
+                    data?.pointType,
+                  )
+                : (data?.pointType ?? 'ohlc'),
+              seriesKey,
+              points: shouldMergeCurrentData
                 ? mergeKLinePoints(currentData.points, points)
                 : points,
-          }));
+            };
+          });
           setHistoryState({
             interval: requestedInterval.value,
             lastUpdatedAt: updatedAt,
@@ -1009,6 +1028,10 @@ export function useTradingViewNativeKLine({
   );
   return {
     candleIntervalSeconds: displayedInterval.seconds,
+    chartType: getTradingViewNativeChartType({
+      pointCount: visibleChartData?.points.length ?? 0,
+      pointType: visibleChartData?.pointType,
+    }),
     chartPictureVersion: visibleChartData?.chartPictureVersion ?? 0,
     dataProviderKey: seriesKey,
     dataState,

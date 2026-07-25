@@ -1,5 +1,7 @@
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
+import type { ITradingViewNativeChartType } from '../types';
+
 const PRICE_DOMAIN_HEADROOM_RATIO = 0.05;
 const VOLUME_DOMAIN_HEADROOM_RATIO = 0.25;
 
@@ -8,14 +10,17 @@ export interface ITradingViewNativePicturePointsSnapshot {
   baseMaxVolume: number;
   baseMinPrice: number;
   basePoints: IMarketTokenKLineDataPoint[];
+  chartType: ITradingViewNativeChartType;
   chartPictureVersion: number;
   historicalPoints: IMarketTokenKLineDataPoint[];
 }
 
 function createPicturePointsSnapshot({
+  chartType,
   chartPictureVersion,
   points,
 }: {
+  chartType: ITradingViewNativeChartType;
   chartPictureVersion: number;
   points: IMarketTokenKLineDataPoint[];
 }): ITradingViewNativePicturePointsSnapshot {
@@ -25,11 +30,13 @@ function createPicturePointsSnapshot({
   let maxVolume = 0;
 
   for (const point of basePoints) {
-    if (Number.isFinite(point.h)) {
-      maxPrice = Math.max(maxPrice, point.h);
+    const pointMaxPrice = chartType === 'line' ? point.c : point.h;
+    const pointMinPrice = chartType === 'line' ? point.c : point.l;
+    if (Number.isFinite(pointMaxPrice)) {
+      maxPrice = Math.max(maxPrice, pointMaxPrice);
     }
-    if (Number.isFinite(point.l)) {
-      minPrice = Math.min(minPrice, point.l);
+    if (Number.isFinite(pointMinPrice)) {
+      minPrice = Math.min(minPrice, pointMinPrice);
     }
     if (Number.isFinite(point.v)) {
       maxVolume = Math.max(maxVolume, point.v);
@@ -51,6 +58,7 @@ function createPicturePointsSnapshot({
     baseMaxVolume: maxVolume * (1 + VOLUME_DOMAIN_HEADROOM_RATIO),
     baseMinPrice: minPrice - priceHeadroom,
     basePoints,
+    chartType,
     chartPictureVersion,
     historicalPoints: basePoints.slice(0, -1),
   };
@@ -69,27 +77,37 @@ function isLatestPointOutsideBaseDomain({
   }
 
   return (
-    latestPoint.h > previous.baseMaxPrice ||
-    latestPoint.l < previous.baseMinPrice ||
+    (previous.chartType === 'line'
+      ? latestPoint.c > previous.baseMaxPrice ||
+        latestPoint.c < previous.baseMinPrice
+      : latestPoint.h > previous.baseMaxPrice ||
+        latestPoint.l < previous.baseMinPrice) ||
     latestPoint.v > previous.baseMaxVolume
   );
 }
 
 export function getTradingViewNativePicturePointsSnapshot({
+  chartType = 'candlestick',
   chartPictureVersion,
   points,
   previous,
 }: {
+  chartType?: ITradingViewNativeChartType;
   chartPictureVersion: number;
   points: IMarketTokenKLineDataPoint[];
   previous?: ITradingViewNativePicturePointsSnapshot;
 }): ITradingViewNativePicturePointsSnapshot {
   if (
     !previous ||
+    previous.chartType !== chartType ||
     previous.chartPictureVersion !== chartPictureVersion ||
     isLatestPointOutsideBaseDomain({ points, previous })
   ) {
-    return createPicturePointsSnapshot({ chartPictureVersion, points });
+    return createPicturePointsSnapshot({
+      chartType,
+      chartPictureVersion,
+      points,
+    });
   }
 
   return previous;

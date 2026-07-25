@@ -16,8 +16,11 @@ import {
 
 import {
   type ITradingViewNativeVisiblePointRange,
+  getTradingViewNativeCandleX,
   getTradingViewNativePriceRange,
 } from './chartViewport';
+
+import type { ITradingViewNativeChartType } from '../types';
 
 export type ITradingViewNativeTimeAxisUnit =
   | 'minute'
@@ -443,6 +446,7 @@ export function getTradingViewNativeTimeAxisLayout({
 
 export function getTradingViewNativeChartLayout({
   candleIntervalSeconds,
+  chartType = 'candlestick',
   height,
   minimumTimeTickIndexSpacing,
   points,
@@ -450,6 +454,7 @@ export function getTradingViewNativeChartLayout({
   width,
 }: {
   candleIntervalSeconds: number;
+  chartType?: ITradingViewNativeChartType;
   height: number;
   minimumTimeTickIndexSpacing: number;
   points: IMarketTokenKLineDataPoint[];
@@ -469,6 +474,7 @@ export function getTradingViewNativeChartLayout({
 
   const visiblePriceRange = getTradingViewNativePriceRange({
     ...visiblePointRange,
+    chartType,
     points,
   });
   if (!visiblePriceRange) {
@@ -541,6 +547,59 @@ export function getTradingViewNativePriceY(
     ? TRADING_VIEW_NATIVE_CHART_TOP_PADDING + priceChartHeight / 2
     : TRADING_VIEW_NATIVE_CHART_TOP_PADDING +
         ((maxPrice - price) / priceRange) * priceChartHeight;
+}
+
+export function getTradingViewNativeLinePointPosition({
+  candleGap,
+  index,
+  maxPrice,
+  minPrice,
+  offset,
+  pointCount,
+  price,
+  priceAxisX,
+  priceChartHeight,
+  zoomScale,
+}: {
+  candleGap?: number;
+  index: number;
+  maxPrice: number;
+  minPrice: number;
+  offset: number;
+  pointCount: number;
+  price: number;
+  priceAxisX: number;
+  priceChartHeight: number;
+  zoomScale: number;
+}) {
+  'worklet';
+
+  if (
+    !Number.isFinite(maxPrice) ||
+    !Number.isFinite(minPrice) ||
+    !Number.isFinite(price) ||
+    maxPrice < minPrice ||
+    pointCount <= 0 ||
+    priceChartHeight <= 0
+  ) {
+    return null;
+  }
+
+  return {
+    x: getTradingViewNativeCandleX({
+      candleGap,
+      index,
+      offset,
+      pointCount,
+      priceAxisX,
+      zoomScale,
+    }),
+    y: getTradingViewNativePriceY(price, {
+      maxPrice,
+      priceChartHeight,
+      priceRange: maxPrice - minPrice,
+    }),
+  };
 }
 
 export function getTradingViewNativePriceAtY({

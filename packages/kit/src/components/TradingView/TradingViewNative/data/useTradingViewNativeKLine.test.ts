@@ -231,6 +231,23 @@ describe('TradingViewNative K-line data state machine', () => {
     );
   });
 
+  it('selects the chart type from the history point shape', async () => {
+    mockFetchHistory.mockResolvedValue({
+      ...buildMultiPointResponse([
+        { close: 100, timestamp: 1000 },
+        { close: 101, timestamp: 2000 },
+      ]),
+      pointType: 'single',
+    });
+
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(2));
+    expect(result.current.chartType).toBe('line');
+  });
+
   it('does not paginate when the initial batch is shorter than requested', async () => {
     mockHistoryBatchSize = 299;
     mockHistoryRequestCandleCount = 2000;
@@ -493,6 +510,36 @@ describe('TradingViewNative K-line data state machine', () => {
         80, 90, 100, 110, 120,
       ]),
     );
+  });
+
+  it('keeps a line when an older fallback page contains single-value data', async () => {
+    mockHistoryBatchSize = 2;
+    mockHistoryRequestCandleCount = 2;
+    mockFetchHistory
+      .mockResolvedValueOnce(
+        buildMultiPointResponse([
+          { close: 100, timestamp: 1_000_000 },
+          { close: 110, timestamp: 1_003_600 },
+        ]),
+      )
+      .mockResolvedValueOnce({
+        ...buildMultiPointResponse([
+          { close: 80, timestamp: 992_800 },
+          { close: 90, timestamp: 996_400 },
+        ]),
+        historySource: 'fallback',
+        pointType: 'single',
+      });
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(2));
+    expect(result.current.chartType).toBe('candlestick');
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
+
+    await waitFor(() => expect(result.current.points).toHaveLength(4));
+    expect(result.current.chartType).toBe('line');
   });
 
   it('treats an empty older page as history EOF without retrying', async () => {
@@ -763,6 +810,38 @@ describe('TradingViewNative K-line data state machine', () => {
     await waitFor(() =>
       expect(result.current.points.map((point) => point.c)).toEqual([100, 110]),
     );
+  });
+
+  it('keeps a line when an OHLC refresh retains single-value history', async () => {
+    mockFetchHistory
+      .mockResolvedValueOnce({
+        ...buildMultiPointResponse([
+          { close: 90, timestamp: 100 },
+          { close: 100, timestamp: 200 },
+        ]),
+        pointType: 'single',
+      })
+      .mockResolvedValueOnce(
+        buildMultiPointResponse([
+          { close: 101, timestamp: 200 },
+          { close: 110, timestamp: 300 },
+        ]),
+      );
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+
+    await waitFor(() => expect(result.current.chartType).toBe('line'));
+    updateVisibility(false);
+    updateVisibility(true);
+
+    await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(result.current.points.map((point) => point.c)).toEqual([
+        90, 101, 110,
+      ]),
+    );
+    expect(result.current.chartType).toBe('line');
   });
 
   it('keeps a quiet healthy subscription live without advancing price freshness', async () => {

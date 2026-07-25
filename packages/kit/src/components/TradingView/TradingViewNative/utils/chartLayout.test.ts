@@ -6,6 +6,7 @@ import {
   getTradingViewNativeChartLayout,
   getTradingViewNativeChartWidth,
   getTradingViewNativeCurrentPriceLayout,
+  getTradingViewNativeLinePointPosition,
   getTradingViewNativeMaxVolume,
   getTradingViewNativePriceAtY,
   getTradingViewNativePriceTransform,
@@ -71,6 +72,23 @@ describe('TradingViewNative chart layout', () => {
     expect(getTradingViewNativePriceAtY({ ...range, y: 58 })).toBe(5);
     expect(getTradingViewNativePriceAtY({ ...range, y: 108 })).toBe(0);
     expect(getTradingViewNativePriceAtY({ ...range, y: 109 })).toBeNull();
+  });
+
+  it('maps a line point directly into screen coordinates', () => {
+    expect(
+      getTradingViewNativeLinePointPosition({
+        candleGap: 1,
+        index: 1,
+        maxPrice: 20,
+        minPrice: 10,
+        offset: 4,
+        pointCount: 3,
+        price: 15,
+        priceAxisX: 100,
+        priceChartHeight: 100,
+        zoomScale: 2,
+      }),
+    ).toEqual({ x: 85, y: 58 });
   });
 
   it('builds the shared rendering layout for native and web charts', () => {

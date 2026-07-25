@@ -150,6 +150,9 @@ async function runMarketKLineDataFallback(
     throw new OneKeyLocalError('Expected a Market K-line fallback');
   }
   const fallbackData = await params.kLineDataFallback(request);
+  if (fallbackData?.pointType) {
+    params.onPointType?.(fallbackData.pointType);
+  }
   if (fallbackData?.points.length) {
     params.onFallbackKLineData?.();
   }
@@ -281,6 +284,7 @@ describe('TradingViewNative data providers', () => {
       }),
     ).resolves.toEqual({
       historySource: 'fallback',
+      pointType: 'single',
       points: [{ o: 10, h: 10, l: 10, c: 10, v: 0, t: 7200 }],
       total: 1,
     });
@@ -335,6 +339,7 @@ describe('TradingViewNative data providers', () => {
       }),
     ).resolves.toEqual({
       historySource: 'fallback',
+      pointType: 'single',
       points: [{ o: 10, h: 10, l: 10, c: 10, v: 0, t: 7200 }],
       total: 1,
     });
@@ -448,6 +453,7 @@ describe('TradingViewNative data providers', () => {
     chartRequest.resolve([[7200, 10]]);
     await Promise.all([firstRequest, secondRequest]);
     await expect(provider.fetchHistory(request)).resolves.toEqual({
+      pointType: 'single',
       points: [],
       total: 0,
     });
@@ -490,6 +496,7 @@ describe('TradingViewNative data providers', () => {
       }),
     ).resolves.toEqual({
       historySource: 'fallback',
+      pointType: 'single',
       points: [{ o: 10, h: 10, l: 10, c: 10, v: 0, t: 7200 }],
       total: 1,
     });
@@ -568,6 +575,7 @@ describe('TradingViewNative data providers', () => {
     const fallbackResult = await provider.fetchHistory(request);
     expect(fallbackResult).toEqual({
       historySource: 'fallback',
+      pointType: 'single',
       points: [{ o: 10, h: 10, l: 10, c: 10, v: 0, t: 7200 }],
       total: 1,
     });

@@ -92,4 +92,27 @@ describe('TradingViewNative picture cache', () => {
     expect(breakout.basePoints).not.toBe(initial.basePoints);
     expect(breakout.baseMaxPrice).toBeGreaterThan(initial.baseMaxPrice);
   });
+
+  it('builds and invalidates line domains from close prices', () => {
+    const points = [
+      { ...buildPoint(0), h: 1000, l: 1 },
+      { ...buildPoint(1), h: 2000, l: 2 },
+    ];
+    const lineSnapshot = getTradingViewNativePicturePointsSnapshot({
+      chartPictureVersion: 0,
+      chartType: 'line',
+      points,
+    });
+    expect(lineSnapshot.baseMaxPrice).toBeLessThan(200);
+    expect(lineSnapshot.baseMinPrice).toBeGreaterThan(90);
+
+    const candleSnapshot = getTradingViewNativePicturePointsSnapshot({
+      chartPictureVersion: 0,
+      chartType: 'candlestick',
+      points,
+      previous: lineSnapshot,
+    });
+    expect(candleSnapshot).not.toBe(lineSnapshot);
+    expect(candleSnapshot.baseMaxPrice).toBeGreaterThan(2000);
+  });
 });

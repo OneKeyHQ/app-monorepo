@@ -7,6 +7,8 @@ import {
   TRADING_VIEW_NATIVE_MIN_ZOOM_SCALE,
 } from '../chartConstants';
 
+import type { ITradingViewNativeChartType } from '../types';
+
 export interface ITradingViewNativeVisiblePointRange {
   endIndex: number;
   startIndex: number;
@@ -356,10 +358,12 @@ export function getTradingViewNativePointIndexAtX({
 }
 
 export function getTradingViewNativePriceRange({
+  chartType = 'candlestick',
   endIndex,
   points,
   startIndex,
 }: ITradingViewNativeVisiblePointRange & {
+  chartType?: ITradingViewNativeChartType;
   points: IMarketTokenKLineDataPoint[];
 }): ITradingViewNativePriceRange | null {
   'worklet';
@@ -377,7 +381,10 @@ export function getTradingViewNativePriceRange({
 
   for (let index = clampedStartIndex; index < clampedEndIndex; index += 1) {
     const point = points[index];
-    if (Number.isFinite(point.l) && Number.isFinite(point.h)) {
+    if (chartType === 'line' && Number.isFinite(point.c)) {
+      minPrice = Math.min(minPrice, point.c);
+      maxPrice = Math.max(maxPrice, point.c);
+    } else if (Number.isFinite(point.l) && Number.isFinite(point.h)) {
       minPrice = Math.min(minPrice, point.l);
       maxPrice = Math.max(maxPrice, point.h);
     }
