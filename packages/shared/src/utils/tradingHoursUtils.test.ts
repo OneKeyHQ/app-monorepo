@@ -285,14 +285,20 @@ describe('resolveUSTradingHoursActiveRow', () => {
     reason: null,
     unavailable,
   });
-  const clockSessionKey = EUSMarketSessionKey.Overnight;
+  // Thu 2026-01-15 15:00 UTC = 10:00 EST (regular session, weekday)
+  const weekdayNow = new Date('2026-01-15T15:00:00Z');
+  const weekdayHours = getUSMarketTradingHours(weekdayNow);
+  // Sat 2026-01-17 15:00 UTC — inside the weekend closure window
+  const weekendNow = new Date('2026-01-17T15:00:00Z');
+  const weekendHours = getUSMarketTradingHours(weekendNow);
 
   it('overlays halts above everything', () => {
     expect(
       resolveUSTradingHoursActiveRow({
         isPaused: true,
         status: status('REGULAR'),
-        clockSessionKey,
+        tradingHours: weekdayHours,
+        now: weekdayNow,
       }),
     ).toBe('halts');
   });
@@ -302,7 +308,8 @@ describe('resolveUSTradingHoursActiveRow', () => {
       resolveUSTradingHoursActiveRow({
         isOpen: true,
         status: status('CLOSED'),
-        clockSessionKey,
+        tradingHours: weekendHours,
+        now: weekendNow,
       }),
     ).toBe('closed');
   });
@@ -312,7 +319,8 @@ describe('resolveUSTradingHoursActiveRow', () => {
       resolveUSTradingHoursActiveRow({
         isOpen: true,
         status: status('PRE_MARKET'),
-        clockSessionKey,
+        tradingHours: weekdayHours,
+        now: weekdayNow,
       }),
     ).toBe(EUSMarketSessionKey.PreMarket);
   });
@@ -322,13 +330,25 @@ describe('resolveUSTradingHoursActiveRow', () => {
       resolveUSTradingHoursActiveRow({
         isOpen: true,
         status: status('REGULAR', true),
-        clockSessionKey,
+        tradingHours: weekdayHours,
+        now: weekdayNow,
       }),
-    ).toBe(clockSessionKey);
+    ).toBe(EUSMarketSessionKey.Regular);
     expect(
       resolveUSTradingHoursActiveRow({
         isOpen: false,
-        clockSessionKey,
+        tradingHours: weekdayHours,
+        now: weekdayNow,
+      }),
+    ).toBe('closed');
+  });
+
+  it('falls back to closed on weekends before the status fetch resolves', () => {
+    expect(
+      resolveUSTradingHoursActiveRow({
+        isOpen: true,
+        tradingHours: weekendHours,
+        now: weekendNow,
       }),
     ).toBe('closed');
   });

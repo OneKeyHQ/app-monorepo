@@ -457,18 +457,24 @@ export type IUSTradingHoursRow = EUSMarketSessionKey | 'closed' | 'halts';
  * (which describes the INSTRUMENT — a 7×24 token stays "Open" on weekends),
  * the panel describes the UNDERLYING US market, so a closed session wins even
  * when the token itself is still tradable.
+ *
+ * The clock fallback (status missing — including the first render before the
+ * fetch resolves) must be weekend-aware, otherwise a 7×24 token briefly
+ * highlights a session row and flashes to "closed" when the status arrives.
  */
 export function resolveUSTradingHoursActiveRow({
   isOpen,
   isPaused,
   status,
-  clockSessionKey,
+  tradingHours,
+  now = new Date(),
 }: {
   isOpen?: boolean;
   isPaused?: boolean;
   status?: IFetchUSMarketStatusResult;
-  /** Fallback from `getUSMarketTradingHours().currentSessionKey` */
-  clockSessionKey: EUSMarketSessionKey;
+  /** From `getUSMarketTradingHours(now)` — clock/weekend fallback source */
+  tradingHours: IUSMarketTradingHours;
+  now?: Date;
 }): IUSTradingHoursRow {
   if (isPaused === true) {
     return 'halts';
@@ -478,11 +484,19 @@ export function resolveUSTradingHoursActiveRow({
       return 'closed';
     }
     return (
-      usMarketSessionKeyFromBackendSession(status.session) ?? clockSessionKey
+      usMarketSessionKeyFromBackendSession(status.session) ??
+      tradingHours.currentSessionKey
     );
   }
   if (isOpen === false) {
     return 'closed';
   }
-  return clockSessionKey;
+  const nowMs = now.getTime();
+  if (
+    nowMs >= tradingHours.weekendStartInstant &&
+    nowMs < tradingHours.weekendEndInstant
+  ) {
+    return 'closed';
+  }
+  return tradingHours.currentSessionKey;
 }

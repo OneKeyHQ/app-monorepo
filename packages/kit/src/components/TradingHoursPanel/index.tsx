@@ -290,7 +290,8 @@ function TradingHoursContent({
     isOpen: stock.isOpen,
     isPaused: stock.isPaused,
     status: marketStatus,
-    clockSessionKey: tradingHours.currentSessionKey,
+    tradingHours,
+    now,
   });
   const dimmed = activeRow === 'closed' || activeRow === 'halts';
   // 7×24 instrument while the market is closed: the subtitle switches to the
