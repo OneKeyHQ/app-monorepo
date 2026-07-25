@@ -1202,15 +1202,48 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         protocol === ESwapTabSwitchType.STOCK
           ? false
           : (incognito ?? swapIncognitoMode);
+      const isActiveQuoteRequest = () => {
+        const activeQuoteRequest = get(swapQuoteActionLockAtom());
+        return (
+          activeQuoteRequest.actionLock &&
+          activeQuoteRequest.quoteRequestId === quoteRequestId
+        );
+      };
       const limitPartiallyFillableObj = get(swapLimitPartiallyFillAtom());
       const limitPartiallyFillable = limitPartiallyFillableObj.value;
       const expirationTime = get(swapLimitExpirationTimeAtom());
-      if (shouldRefreshQuote) {
+      if (shouldRefreshQuote || !isActiveQuoteRequest()) {
         this.cleanQuoteInterval();
-        set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
+        if (shouldRefreshQuote && isActiveQuoteRequest()) {
+          set(swapQuoteActionLockAtom(), (value) => ({
+            ...value,
+            actionLock: false,
+          }));
+        }
         return;
       }
-      await backgroundApiProxy.serviceSwap.closeApproving();
+      const handleQuoteRequestFailure = () => {
+        if (!isActiveQuoteRequest()) {
+          return;
+        }
+        this.closeQuoteEvent(quoteRequestId);
+        set(swapQuoteEventCompletedAtom(), true);
+        set(swapQuoteFetchingAtom(), false);
+        set(swapShouldRefreshQuoteAtom(), true);
+        set(swapQuoteActionLockAtom(), (value) => ({
+          ...value,
+          actionLock: false,
+        }));
+      };
+      try {
+        await backgroundApiProxy.serviceSwap.closeApproving();
+      } catch {
+        handleQuoteRequestFailure();
+        return;
+      }
+      if (!isActiveQuoteRequest()) {
+        return;
+      }
       set(swapQuoteEventErrorAtom(), undefined);
       set(swapQuoteFetchingAtom(), true);
       set(swapQuoteEventCompletedAtom(), false);
@@ -1221,31 +1254,47 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         fromToken,
         toToken,
       });
-      await backgroundApiProxy.serviceSwap.fetchQuotesEvents({
-        fromToken,
-        toToken,
-        fromTokenAmount,
-        userAddress: address,
-        slippagePercentage,
-        autoSlippage,
-        blockNumber,
-        accountId,
-        kind,
-        toTokenAmount,
-        protocol,
-        receivingAddress,
-        incognito: incognitoEnabled,
-        userMarketPriceRate,
-        quoteRequestId,
-        ...(protocol === ESwapTabSwitchType.LIMIT
-          ? {
-              expirationTime: Number(expirationTime.value),
-              limitPartiallyFillable,
-            }
-          : {}),
-      });
+      try {
+        await backgroundApiProxy.serviceSwap.fetchQuotesEvents({
+          fromToken,
+          toToken,
+          fromTokenAmount,
+          userAddress: address,
+          slippagePercentage,
+          autoSlippage,
+          blockNumber,
+          accountId,
+          kind,
+          toTokenAmount,
+          protocol,
+          receivingAddress,
+          incognito: incognitoEnabled,
+          userMarketPriceRate,
+          quoteRequestId,
+          ...(protocol === ESwapTabSwitchType.LIMIT
+            ? {
+                expirationTime: Number(expirationTime.value),
+                limitPartiallyFillable,
+              }
+            : {}),
+        });
+      } catch {
+        handleQuoteRequestFailure();
+      }
     },
   );
+
+  requireManualQuoteRefresh = contextAtomMethod((get, set) => {
+    const quoteRequestId = get(swapQuoteActionLockAtom()).quoteRequestId;
+    this.closeQuoteEvent(quoteRequestId);
+    set(swapQuoteEventCompletedAtom(), true);
+    set(swapQuoteFetchingAtom(), false);
+    set(swapShouldRefreshQuoteAtom(), true);
+    set(swapQuoteActionLockAtom(), (value) => ({
+      ...value,
+      actionLock: false,
+    }));
+  });
 
   resetQuoteAction = contextAtomMethod(async (get, set) => {
     const fromToken = get(swapSelectFromTokenAtom());
@@ -3313,6 +3362,7 @@ export const useSwapActions = () => {
   const syncNetworksSort = actions.syncNetworksSort.use();
   const catchSwapTokensMap = actions.catchSwapTokensMap.use();
   const quoteAction = actions.quoteAction.use();
+  const requireManualQuoteRefresh = actions.requireManualQuoteRefresh.use();
   const checkSwapWarning = actions.checkSwapWarning.use();
   const tokenListFetchAction = actions.tokenListFetchAction.use();
   const quoteEventHandler = actions.quoteEventHandler.use();
@@ -3351,6 +3401,7 @@ export const useSwapActions = () => {
   return useRef({
     selectFromToken,
     quoteAction,
+    requireManualQuoteRefresh,
     selectToToken,
     selectStockExecutionTokens,
     alternationToken,

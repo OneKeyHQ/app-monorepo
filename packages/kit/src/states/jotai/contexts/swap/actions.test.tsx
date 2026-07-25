@@ -58,6 +58,7 @@ import {
   swapSelectToTokenAtom,
   swapSelectedFromTokenBalanceAtom,
   swapSelectedTokensColdStartContextAtom,
+  swapShouldRefreshQuoteAtom,
   swapStockExecutionTokenSyncIdAtom,
   swapStockExecutionTokensAtom,
   swapStockSelectedFromTokenBalanceAtom,
@@ -1414,6 +1415,186 @@ describe('useSwapActions', () => {
         }),
       ),
     );
+  });
+
+  it('lets a new automatic quote request take over an unfinished session', async () => {
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      storeInstance.set(swapSelectFromTokenAtom(), ethToken);
+      storeInstance.set(swapSelectToTokenAtom(), bnbToken);
+      storeInstance.set(swapFromTokenAmountAtom(), {
+        value: '1',
+        isInput: true,
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.quoteAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        '0xabc',
+        evmAccount.id,
+        undefined,
+        true,
+        ESwapQuoteKind.SELL,
+      );
+    });
+    await waitFor(() => expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1));
+    const firstQuoteRequestId = store.get(
+      swapQuoteActionLockAtom(),
+    ).quoteRequestId;
+
+    await act(async () => {
+      await result.current.quoteAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        '0xabc',
+        evmAccount.id,
+        undefined,
+        true,
+        ESwapQuoteKind.SELL,
+      );
+    });
+    await waitFor(() => expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(2));
+
+    expect(firstQuoteRequestId).toEqual(expect.any(String));
+    expect(store.get(swapQuoteActionLockAtom()).quoteRequestId).not.toBe(
+      firstQuoteRequestId,
+    );
+    expect(mockCancelFetchQuoteEvents).toHaveBeenCalledWith(
+      firstQuoteRequestId,
+    );
+  });
+
+  it('does not let delayed work from a replaced quote session start events', async () => {
+    let resolveFirstCloseApproving: (() => void) | undefined;
+    mockCloseApproving
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveFirstCloseApproving = resolve;
+          }),
+      )
+      .mockResolvedValueOnce(undefined);
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      storeInstance.set(swapSelectFromTokenAtom(), ethToken);
+      storeInstance.set(swapSelectToTokenAtom(), bnbToken);
+      storeInstance.set(swapFromTokenAmountAtom(), {
+        value: '1',
+        isInput: true,
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.quoteAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        '0xabc',
+        evmAccount.id,
+        undefined,
+        true,
+        ESwapQuoteKind.SELL,
+      );
+    });
+    await waitFor(() => expect(mockCloseApproving).toHaveBeenCalledTimes(1));
+    const firstQuoteRequestId = store.get(
+      swapQuoteActionLockAtom(),
+    ).quoteRequestId;
+
+    await act(async () => {
+      await result.current.quoteAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        '0xabc',
+        evmAccount.id,
+        undefined,
+        true,
+        ESwapQuoteKind.SELL,
+      );
+    });
+    await waitFor(() => expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1));
+    const currentQuoteRequestId = store.get(
+      swapQuoteActionLockAtom(),
+    ).quoteRequestId;
+
+    await act(async () => {
+      resolveFirstCloseApproving?.();
+      await Promise.resolve();
+    });
+
+    expect(currentQuoteRequestId).not.toBe(firstQuoteRequestId);
+    expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+    expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+      expect.objectContaining({
+        quoteRequestId: currentQuoteRequestId,
+      }),
+    );
+  });
+
+  it('terminalizes the active quote session when manual refresh is required', async () => {
+    const quoteRequestId = 'manual-refresh-request';
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapQuoteActionLockAtom(), {
+        actionLock: true,
+        quoteRequestId,
+      });
+      storeInstance.set(swapQuoteFetchingAtom(), true);
+      storeInstance.set(swapQuoteEventCompletedAtom(), false);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    act(() => {
+      result.current.requireManualQuoteRefresh();
+    });
+
+    expect(mockCancelFetchQuoteEvents).toHaveBeenCalledWith(quoteRequestId);
+    expect(store.get(swapQuoteActionLockAtom()).actionLock).toBe(false);
+    expect(store.get(swapQuoteFetchingAtom())).toBe(false);
+    expect(store.get(swapQuoteEventCompletedAtom())).toBe(true);
+    expect(store.get(swapShouldRefreshQuoteAtom())).toBe(true);
+  });
+
+  it('exposes manual refresh when a quote event session fails to start', async () => {
+    mockFetchQuotesEvents.mockRejectedValueOnce(
+      new Error('quote event failed to start'),
+    );
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      storeInstance.set(swapSelectFromTokenAtom(), ethToken);
+      storeInstance.set(swapSelectToTokenAtom(), bnbToken);
+      storeInstance.set(swapFromTokenAmountAtom(), {
+        value: '1',
+        isInput: true,
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.quoteAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        '0xabc',
+        evmAccount.id,
+        undefined,
+        undefined,
+        ESwapQuoteKind.SELL,
+      );
+    });
+
+    await waitFor(() =>
+      expect(store.get(swapShouldRefreshQuoteAtom())).toBe(true),
+    );
+    const quoteRequestId = store.get(swapQuoteActionLockAtom()).quoteRequestId;
+    expect(mockCancelFetchQuoteEvents).toHaveBeenCalledWith(quoteRequestId);
+    expect(store.get(swapQuoteActionLockAtom()).actionLock).toBe(false);
+    expect(store.get(swapQuoteFetchingAtom())).toBe(false);
+    expect(store.get(swapQuoteEventCompletedAtom())).toBe(true);
   });
 
   it('normalizes quote event results with the dispatch-time input amount', async () => {

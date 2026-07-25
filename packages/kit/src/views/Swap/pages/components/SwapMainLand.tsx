@@ -37,7 +37,6 @@ import {
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
-  useSwapQuoteActionLockAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteIntervalCountAtom,
   useSwapSelectFromTokenAtom,
@@ -49,6 +48,10 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  ESwapQuoteRefreshAction,
+  resolveSwapQuoteRefreshAction,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/MarketWatchListProviderMirrorV2';
 import {
@@ -79,6 +82,7 @@ import {
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { swapQuoteIntervalMaxCount } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchLimitOrderRes,
   IFetchQuoteResult,
@@ -178,10 +182,15 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
   const [fromTokenAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
-  const [, setSwapQuoteIntervalCount] = useSwapQuoteIntervalCountAtom();
-  const { selectFromToken, selectToToken, quoteAction, cleanQuoteInterval } =
-    useSwapActions().current;
-  const [{ actionLock }] = useSwapQuoteActionLockAtom();
+  const [swapQuoteIntervalCount, setSwapQuoteIntervalCount] =
+    useSwapQuoteIntervalCountAtom();
+  const {
+    selectFromToken,
+    selectToToken,
+    quoteAction,
+    cleanQuoteInterval,
+    requireManualQuoteRefresh,
+  } = useSwapActions().current;
   const [swapFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
@@ -559,10 +568,18 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           toAddressInfo?.address,
         );
       } else {
-        if (actionLock) {
+        const refreshTransition = resolveSwapQuoteRefreshAction({
+          automaticRefreshCount: swapQuoteIntervalCount,
+          maxAutomaticRefreshCount: swapQuoteIntervalMaxCount,
+        });
+        if (
+          refreshTransition.action ===
+          ESwapQuoteRefreshAction.RequireManualRefresh
+        ) {
+          void requireManualQuoteRefresh();
           return;
         }
-        setSwapQuoteIntervalCount((v) => v + 1);
+        setSwapQuoteIntervalCount(refreshTransition.nextAutomaticRefreshCount);
         void quoteAction(
           swapSlippageRef.current,
           swapFromAddressInfo?.address,
@@ -576,10 +593,11 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       }
     },
     [
-      actionLock,
       quoteAction,
+      requireManualQuoteRefresh,
       swapFromAddressInfo?.address,
       swapFromAddressInfo?.accountInfo?.account?.id,
+      swapQuoteIntervalCount,
       quoteResult?.kind,
       setSwapQuoteIntervalCount,
       toAddressInfo?.address,
