@@ -1828,9 +1828,7 @@ describe('iOS HomeContainer unified vertical scroll range', () => {
     expect(source).toMatch(
       /let pageBounceTransform = CGAffineTransform\([\s\S]*?y: -bottomOverscroll[\s\S]*?pager\.transform = chromeCompensation[\s\S]*?pages\.forEach \{ \$0\.transform = pageBounceTransform \}/,
     );
-    expect(source).toMatch(
-      /pager\.clipsToBounds = true/,
-    );
+    expect(source).toMatch(/pager\.clipsToBounds = true/);
   });
 
   it('settles the unified outer range after dragging and deceleration', () => {
