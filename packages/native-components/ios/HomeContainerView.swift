@@ -808,6 +808,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     outerScrollView.refreshControl = refreshControl
     pager.isPagingEnabled = true
     pager.bounces = false
+    pager.clipsToBounds = true
     pager.showsHorizontalScrollIndicator = false
     pager.isDirectionalLockEnabled = true
     pager.contentInsetAdjustmentBehavior = .never
@@ -873,6 +874,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       headerView.transform = .identity
       tabsView.transform = .identity
       pager.transform = .identity
+      pages.forEach { $0.transform = .identity }
     }
     outerScrollView.frame = bounds
     headerView.frame = CGRect(x: 0, y: 0, width: bounds.width, height: headerHeight)
@@ -1719,10 +1721,20 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     )
     if usesUnifiedVerticalDriver {
       let bodyOffset = max(0, combinedOffset - maximumHeaderOffset)
-      let compensation = CGAffineTransform(translationX: 0, y: bodyOffset)
-      headerView.transform = compensation
-      tabsView.transform = compensation
-      pager.transform = compensation
+      let maximumOuterOffset = max(
+        0,
+        outerScrollView.contentSize.height - outerScrollView.bounds.height
+      )
+      let bottomOverscroll = max(0, combinedOffset - maximumOuterOffset)
+      let chromeCompensation = CGAffineTransform(translationX: 0, y: bodyOffset)
+      let pageBounceTransform = CGAffineTransform(
+        translationX: 0,
+        y: -bottomOverscroll
+      )
+      headerView.transform = chromeCompensation
+      tabsView.transform = chromeCompensation
+      pager.transform = chromeCompensation
+      pages.forEach { $0.transform = pageBounceTransform }
       if !isSynchronizingUnifiedVerticalPage {
         pages.first(where: { $0.tabId == selectedTabId })?.setBodyContentOffset(bodyOffset)
       }

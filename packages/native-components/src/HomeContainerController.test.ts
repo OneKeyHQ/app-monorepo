@@ -1821,6 +1821,18 @@ describe('iOS HomeContainer unified vertical scroll range', () => {
     );
   });
 
+  it('keeps pager geometry stable while page content rubber-bands', () => {
+    expect(source).toMatch(
+      /let bottomOverscroll = max\(0, combinedOffset - maximumOuterOffset\)/,
+    );
+    expect(source).toMatch(
+      /let pageBounceTransform = CGAffineTransform\([\s\S]*?y: -bottomOverscroll[\s\S]*?pager\.transform = chromeCompensation[\s\S]*?pages\.forEach \{ \$0\.transform = pageBounceTransform \}/,
+    );
+    expect(source).toMatch(
+      /pager\.clipsToBounds = true/,
+    );
+  });
+
   it('settles the unified outer range after dragging and deceleration', () => {
     expect(source).toContain('settleUnifiedVerticalOffsetIfNeeded()');
     expect(source).toMatch(
