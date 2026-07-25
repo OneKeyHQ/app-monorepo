@@ -16,6 +16,7 @@ import {
   YStack,
   useBackHandler,
 } from '@onekeyhq/components';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   UNIFOLD_ARBITRUM_CHAIN_ID,
   UNIFOLD_ARBITRUM_USDC_SYMBOL,
@@ -25,12 +26,15 @@ import type { IUnifoldDepositErrorType } from '@onekeyhq/kit/src/views/Perp/hook
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IUnifoldDepositExecution } from '@onekeyhq/shared/types/unifoldDeposit';
 
 import { UnifoldDepositQRCard } from './UnifoldDepositQRCard';
 import { UnifoldExecutionStatusCards } from './UnifoldExecutionStatusCards';
-import { formatUnifoldProcessingTime, formatUnifoldUsd } from './unifoldFormat';
+import {
+  formatUnifoldProcessingTime,
+  formatUnifoldUsd,
+  normalizeUnifoldIconUrl,
+} from './unifoldFormat';
 import { UnifoldSourceSelector } from './UnifoldSourceSelector';
 import { UnifoldExecutionDetail } from './UnifoldTrackerContent';
 
@@ -39,27 +43,30 @@ import { UnifoldExecutionDetail } from './UnifoldTrackerContent';
 const HYPERLIQUID_NETWORK_ICON_URI = getPresetNetworks().find(
   (network) => network.shortcode === 'hyperevm',
 )?.logoURI;
+const THIRD_PARTY_CONVERSION_FEE = '0.25%';
 
 function DetailRow({
   label,
   value,
   tooltip,
+  compact = false,
 }: {
   label: string;
   value: string;
   tooltip?: string;
+  compact?: boolean;
 }) {
   return (
     <XStack
-      px="$4"
-      py="$2"
+      px={compact ? '$3' : '$4'}
+      py={compact ? '$1.5' : '$2'}
       alignItems="center"
       justifyContent="space-between"
       gap="$3"
     >
       {tooltip ? (
         <DashText
-          size="$bodyMd"
+          size={compact ? '$bodySm' : '$bodyMd'}
           color="$textSubdued"
           dashColor="$textDisabled"
           dashThickness={0.5}
@@ -71,12 +78,16 @@ function DetailRow({
           {label}
         </DashText>
       ) : (
-        <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+        <SizableText
+          size={compact ? '$bodySm' : '$bodyMd'}
+          color="$textSubdued"
+          flexShrink={0}
+        >
           {label}
         </SizableText>
       )}
       <SizableText
-        size="$bodyMdMedium"
+        size={compact ? '$bodySmMedium' : '$bodyMdMedium'}
         color="$text"
         flex={1}
         minWidth={0}
@@ -85,6 +96,91 @@ function DetailRow({
       >
         {value}
       </SizableText>
+    </XStack>
+  );
+}
+
+function DepositRouteRow({
+  sourceTokenSymbol,
+  sourceNetworkName,
+  sourceTokenIconUri,
+  sourceNetworkIconUri,
+  receiveTokenSymbol,
+  receiveNetworkName,
+  receiveTokenIconUri,
+  receiveNetworkIconUri,
+}: {
+  sourceTokenSymbol: string;
+  sourceNetworkName?: string;
+  sourceTokenIconUri?: string;
+  sourceNetworkIconUri?: string;
+  receiveTokenSymbol: string;
+  receiveNetworkName?: string;
+  receiveTokenIconUri?: string;
+  receiveNetworkIconUri?: string;
+}) {
+  const intl = useIntl();
+  const title = intl.formatMessage({
+    id: ETranslations.perp_unifold_conversion_route__title,
+  });
+  const sourceTokenDescription = sourceNetworkName
+    ? `${sourceTokenSymbol} (${sourceNetworkName})`
+    : sourceTokenSymbol;
+  const receiveTokenDescription = receiveNetworkName
+    ? `${receiveTokenSymbol} (${receiveNetworkName})`
+    : receiveTokenSymbol;
+
+  return (
+    <XStack
+      px="$3"
+      py="$1.5"
+      alignItems="center"
+      justifyContent="space-between"
+      gap="$3"
+    >
+      <DashText
+        size="$bodySm"
+        color="$textSubdued"
+        dashColor="$textDisabled"
+        dashThickness={0.5}
+        flexShrink={0}
+        tooltip={intl.formatMessage(
+          {
+            id: ETranslations.perp_unifold_conversion_route_tokens__desc,
+          },
+          {
+            sourceToken: sourceTokenDescription,
+            receiveToken: receiveTokenDescription,
+          },
+        )}
+        tooltipTitle={title}
+        tooltipPlacement="bottom-start"
+      >
+        {title}
+      </DashText>
+      <XStack alignItems="center" justifyContent="flex-end" gap="$2.5">
+        <XStack alignItems="center" gap="$1.5">
+          <Token
+            size="xxs"
+            tokenImageUri={normalizeUnifoldIconUrl(sourceTokenIconUri)}
+            networkImageUri={normalizeUnifoldIconUrl(sourceNetworkIconUri)}
+          />
+          <SizableText size="$bodySmMedium" color="$text">
+            {sourceTokenSymbol}
+          </SizableText>
+        </XStack>
+        <Icon name="ArrowRightOutline" size="$4" color="$iconSubdued" />
+        <XStack alignItems="center" gap="$1.5">
+          <Token
+            size="xxs"
+            tokenImageUri={normalizeUnifoldIconUrl(receiveTokenIconUri)}
+            networkImageUri={normalizeUnifoldIconUrl(receiveNetworkIconUri)}
+          />
+          <SizableText size="$bodySmMedium" color="$text">
+            {receiveTokenSymbol}
+          </SizableText>
+        </XStack>
+      </XStack>
     </XStack>
   );
 }
@@ -208,7 +304,6 @@ export function UnifoldTransferContent({
     string | null
   >(null);
   const {
-    recipientAddress,
     isHyperCoreDestination,
     addressState,
     sessionId,
@@ -265,6 +360,10 @@ export function UnifoldTransferContent({
   const receiveNetworkIconUri = isHyperCoreDestination
     ? HYPERLIQUID_NETWORK_ICON_URI
     : receiveNetwork?.icon_url;
+  const receiveNetworkName = isHyperCoreDestination
+    ? 'HyperCore'
+    : receiveNetwork?.chain_name;
+  const useCompactLayout = useDialogHeader || useExternalHeader;
   const inPageFooter = statusCardsPlacement === 'pageFooter';
   const visibleExecutions = sessionExecutions.filter(
     (item) => !dismissedExecutionIds.includes(item.executionId),
@@ -388,7 +487,7 @@ export function UnifoldTransferContent({
       <UnifoldSourceSelector
         assets={supportedAssets}
         selection={selection}
-        loading={Boolean(assetsLoading)}
+        loading={Boolean(assetsLoading && !selection)}
         onSelectToken={selectToken}
         onSelectChain={selectChain}
       />
@@ -461,10 +560,12 @@ export function UnifoldTransferContent({
         receiveTokenSymbol={UNIFOLD_ARBITRUM_USDC_SYMBOL}
         receiveTokenIconUri={receiveAsset?.icon_url}
         receiveNetworkIconUri={receiveNetworkIconUri}
+        showConversionRoute={!useCompactLayout}
         // The QR needs both the address and a chain selection. Scoped to
         // 'ready' so a genuine address failure still shows its terminal
         // message instead of shimmering forever.
         loading={
+          Boolean(assetsLoading) ||
           addressState.status === 'loading' ||
           (addressState.status === 'ready' && !selection)
         }
@@ -497,12 +598,42 @@ export function UnifoldTransferContent({
 
       <YStack
         testID="perps-unifold-processing-details"
-        bg="$bgStrong"
+        bg={useCompactLayout ? undefined : '$bgStrong'}
+        borderWidth={useCompactLayout ? '$px' : undefined}
+        borderColor={useCompactLayout ? '$borderSubdued' : undefined}
         borderRadius="$3"
         py="$2"
         overflow="hidden"
       >
+        {useCompactLayout && selection?.asset.symbol ? (
+          <DepositRouteRow
+            sourceTokenSymbol={selection.asset.symbol}
+            sourceNetworkName={chain?.chain_name}
+            sourceTokenIconUri={selection.asset.icon_url}
+            sourceNetworkIconUri={chain?.icon_url}
+            receiveTokenSymbol={UNIFOLD_ARBITRUM_USDC_SYMBOL}
+            receiveNetworkName={receiveNetworkName}
+            receiveTokenIconUri={receiveAsset?.icon_url}
+            receiveNetworkIconUri={receiveNetworkIconUri}
+          />
+        ) : null}
+        {useCompactLayout ? (
+          <DetailRow
+            compact
+            label={intl.formatMessage({
+              id: ETranslations.perp_unifold_third_party_conversion_fee__title,
+            })}
+            value={THIRD_PARTY_CONVERSION_FEE}
+            tooltip={intl.formatMessage(
+              {
+                id: ETranslations.perp_unifold_deposit_route__desc,
+              },
+              { fee: THIRD_PARTY_CONVERSION_FEE },
+            )}
+          />
+        ) : null}
         <DetailRow
+          compact={useCompactLayout}
           label={intl.formatMessage({
             id: ETranslations.perp_unifold_processing_time__title,
           })}
@@ -512,6 +643,7 @@ export function UnifoldTransferContent({
           )}
         />
         <DetailRow
+          compact={useCompactLayout}
           label={intl.formatMessage({
             id: ETranslations.perp_unifold_max_slippage__title,
           })}
@@ -520,6 +652,7 @@ export function UnifoldTransferContent({
           })} • ${(chain?.max_slippage_percent ?? 0.25).toFixed(2)}%`}
         />
         <DetailRow
+          compact={useCompactLayout}
           label={intl.formatMessage({
             id: ETranslations.perp_unifold_price_impact__title,
           })}
@@ -528,18 +661,6 @@ export function UnifoldTransferContent({
             id: ETranslations.perp_unifold_price_impact__desc,
           })}
         />
-        {recipientAddress ? (
-          <DetailRow
-            label={intl.formatMessage({
-              id: ETranslations.perp_unifold_account__title,
-            })}
-            value={accountUtils.shortenAddress({
-              address: recipientAddress,
-              leadingLength: 8,
-              trailingLength: 6,
-            })}
-          />
-        ) : null}
       </YStack>
     </YStack>,
   );

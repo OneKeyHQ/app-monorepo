@@ -8,12 +8,15 @@ import {
   DashText,
   Dialog,
   Icon,
+  IconButton,
   Popover,
   ScrollView,
   SizableText,
   Stack,
+  Tooltip,
   XStack,
   YStack,
+  useClipboard,
   useInPageDialog,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -30,6 +33,7 @@ import { normalizeUnifoldIconUrl } from './unifoldFormat';
 
 const SELECTOR_POPOVER_WIDTH = 400;
 const SELECTOR_POPOVER_MAX_HEIGHT = 360;
+const TOKEN_CONTRACT_TOOLTIP_WIDTH = 360;
 
 function SelectorTrigger({
   testID,
@@ -170,6 +174,126 @@ function SelectorOptions({ children }: { children: React.ReactNode }) {
         {children}
       </YStack>
     </ScrollView>
+  );
+}
+
+function TokenContractContent({
+  selection,
+}: {
+  selection: IUnifoldSourceSelection;
+}) {
+  const intl = useIntl();
+  const { copyText } = useClipboard();
+  const { chain } = selection;
+
+  return (
+    <YStack gap="$4">
+      <XStack
+        bg={platformEnv.isNative ? '$bgSubdued' : '$bgStrong'}
+        borderRadius="$3"
+        p="$3"
+        gap="$2"
+        alignItems="flex-start"
+      >
+        <Icon
+          name="InfoCircleOutline"
+          size="$4"
+          color="$iconSubdued"
+          mt="$0.5"
+          flexShrink={0}
+        />
+        <SizableText size="$bodySm" color="$text" flex={1}>
+          {intl.formatMessage(
+            {
+              id: ETranslations.perp_unifold_token_contract_warning__desc,
+            },
+            { token: selection.asset.symbol },
+          )}
+        </SizableText>
+      </XStack>
+      <YStack gap="$1">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {chain.chain_name}
+        </SizableText>
+        <XStack gap="$2" alignItems="center">
+          <SizableText
+            size="$bodyMdMedium"
+            color="$text"
+            fontFamily="$monoRegular"
+            flex={1}
+            minWidth={0}
+            wordWrap="break-word"
+            selectable
+          >
+            {chain.token_address}
+          </SizableText>
+          <IconButton
+            testID={`perps-unifold-copy-token-contract-${chain.chain_type}-${chain.chain_id}`}
+            icon="Copy3Outline"
+            variant="tertiary"
+            size="small"
+            flexShrink={0}
+            onPress={() => copyText(chain.token_address)}
+          />
+        </XStack>
+      </YStack>
+    </YStack>
+  );
+}
+
+function TokenContractDisclosure({
+  selection,
+}: {
+  selection: IUnifoldSourceSelection | null;
+}) {
+  const intl = useIntl();
+  const hasContract = Boolean(selection?.chain.token_address?.trim());
+  if (!selection || !hasContract) {
+    return null;
+  }
+
+  const title = intl.formatMessage({
+    id: ETranslations.perp_unifold_token_contract__title,
+  });
+  const trigger = (
+    <DashText
+      size="$bodySm"
+      color="$textSubdued"
+      dashColor="$textDisabled"
+      dashThickness={0.5}
+      flexShrink={0}
+    >
+      {title}
+    </DashText>
+  );
+
+  if (platformEnv.isNative) {
+    return (
+      <Popover
+        title={title}
+        placement="bottom-start"
+        renderTrigger={trigger}
+        renderContent={
+          <YStack px="$5" pt="$2" pb="$5">
+            <TokenContractContent selection={selection} />
+          </YStack>
+        }
+      />
+    );
+  }
+
+  return (
+    <Tooltip
+      hovering
+      placement="bottom-end"
+      contentProps={{ maxWidth: TOKEN_CONTRACT_TOOLTIP_WIDTH, p: '$0' }}
+      renderTrigger={<Stack cursor="help">{trigger}</Stack>}
+      renderContent={
+        <YStack width={TOKEN_CONTRACT_TOOLTIP_WIDTH} p="$3">
+          <TokenContractContent selection={selection} />
+        </YStack>
+      }
+    />
   );
 }
 
@@ -328,13 +452,27 @@ export function UnifoldSourceSelector({
   );
 
   return (
-    <XStack gap="$2.5">
+    <XStack gap="$3">
       <YStack flex={1} flexBasis={0} minWidth={0}>
-        <SizableText size="$bodySm" color="$textSubdued" mb="$2">
-          {intl.formatMessage({
-            id: ETranslations.perp_unifold_selected_token__title,
-          })}
-        </SizableText>
+        <XStack
+          width="100%"
+          mb="$2"
+          gap="$2"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            numberOfLines={1}
+            flexShrink={1}
+          >
+            {intl.formatMessage({
+              id: ETranslations.perp_unifold_selected_token__title,
+            })}
+          </SizableText>
+          <TokenContractDisclosure selection={selection} />
+        </XStack>
         {platformEnv.isNative ? (
           tokenTrigger
         ) : (

@@ -20,6 +20,8 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { normalizeUnifoldIconUrl } from './unifoldFormat';
 
 const QR_SIZE = 200;
+const QR_CODE_PADDING = 10;
+const QR_CODE_SIZE = QR_SIZE - QR_CODE_PADDING;
 const UNIFOLD_TERMS_URL = 'https://unifold.io/terms';
 const UNIFOLD_HELP_URL = 'https://unifold.io/support';
 
@@ -36,6 +38,7 @@ export function UnifoldDepositQRCard({
   receiveTokenSymbol,
   receiveTokenIconUri,
   receiveNetworkIconUri,
+  showConversionRoute = true,
 }: {
   address: string | null;
   chainIconUri?: string;
@@ -45,11 +48,16 @@ export function UnifoldDepositQRCard({
   receiveTokenSymbol?: string;
   receiveTokenIconUri?: string;
   receiveNetworkIconUri?: string;
+  showConversionRoute?: boolean;
 }) {
   const intl = useIntl();
   const { copyText } = useClipboard();
-  const showConversionRoute = Boolean(
-    (address || loading) && sourceTokenSymbol && receiveTokenSymbol,
+  const normalizedChainIconUri = normalizeUnifoldIconUrl(chainIconUri);
+  const shouldShowConversionRoute = Boolean(
+    showConversionRoute &&
+    (address || loading) &&
+    sourceTokenSymbol &&
+    receiveTokenSymbol,
   );
 
   return (
@@ -98,20 +106,44 @@ export function UnifoldDepositQRCard({
         <Skeleton width={QR_SIZE} height={QR_SIZE} radius={8} />
       ) : null}
       {!loading && address ? (
-        <QRCode
-          value={address}
-          size={QR_SIZE}
-          drawType="dot"
-          {...(normalizeUnifoldIconUrl(chainIconUri)
-            ? {
-                logo: {
-                  uri: normalizeUnifoldIconUrl(chainIconUri) as string,
-                },
-              }
-            : {})}
-        />
+        <Stack
+          testID="perps-unifold-qr-visual"
+          width={QR_SIZE}
+          height={QR_SIZE}
+          borderRadius="$2"
+          overflow="hidden"
+        >
+          <QRCode
+            value={address}
+            size={QR_CODE_SIZE}
+            padding={QR_CODE_PADDING}
+            drawType="dot"
+          />
+          {normalizedChainIconUri ? (
+            <YStack
+              position="absolute"
+              top={0}
+              left={0}
+              right={0}
+              bottom={0}
+              alignItems="center"
+              justifyContent="center"
+              pointerEvents="none"
+            >
+              <YStack
+                borderWidth={4}
+                borderColor="white"
+                borderRadius="$full"
+                bg="white"
+                overflow="hidden"
+              >
+                <Token size="xxl" tokenImageUri={normalizedChainIconUri} />
+              </YStack>
+            </YStack>
+          ) : null}
+        </Stack>
       ) : null}
-      {showConversionRoute ? (
+      {shouldShowConversionRoute ? (
         <XStack
           testID="perps-unifold-conversion-route"
           width="auto"
@@ -129,7 +161,7 @@ export function UnifoldDepositQRCard({
             <Token
               size="sm"
               tokenImageUri={normalizeUnifoldIconUrl(sourceTokenIconUri)}
-              networkImageUri={normalizeUnifoldIconUrl(chainIconUri)}
+              networkImageUri={normalizedChainIconUri}
             />
             <YStack minWidth={0}>
               <SizableText size="$bodyXs" color="$textSubdued">

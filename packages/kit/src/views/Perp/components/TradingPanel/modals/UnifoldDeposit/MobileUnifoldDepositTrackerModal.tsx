@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import {
   type IPageNavigationProp,
   NavBackButton,
+  NavCloseButton,
   Page,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -41,6 +42,13 @@ export default function MobileUnifoldDepositTrackerModal() {
     () => <NavBackButton onPress={closeDetail} />,
     [closeDetail],
   );
+  const closeModal = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
+  const renderCloseHeaderLeft = useCallback(
+    () => <NavCloseButton onPress={closeModal} />,
+    [closeModal],
+  );
   const expectedRecipient = route.params?.expectedRecipient;
   const handleDepositPress = useCallback(() => {
     if (!expectedRecipient) {
@@ -53,20 +61,16 @@ export default function MobileUnifoldDepositTrackerModal() {
 
   return (
     <Page safeAreaEnabled>
-      {detailExecutionId ? (
-        <Page.Header
-          title={intl.formatMessage({
-            id: ETranslations.perp_unifold_deposit_details__title,
-          })}
-          headerLeft={renderDetailHeaderLeft}
-        />
-      ) : (
-        <Page.Header
-          title={intl.formatMessage({
-            id: ETranslations.perp_unifold_crypto_deposits__title,
-          })}
-        />
-      )}
+      <Page.Header
+        title={intl.formatMessage({
+          id: detailExecutionId
+            ? ETranslations.perp_unifold_deposit_details__title
+            : ETranslations.perp_unifold_crypto_deposits__title,
+        })}
+        headerLeft={
+          detailExecutionId ? renderDetailHeaderLeft : renderCloseHeaderLeft
+        }
+      />
       <Page.Body
         px="$4"
         flex={1}

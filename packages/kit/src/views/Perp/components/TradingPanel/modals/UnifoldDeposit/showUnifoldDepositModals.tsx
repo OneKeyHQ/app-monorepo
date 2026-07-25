@@ -38,6 +38,24 @@ const DESKTOP_DIALOG_MAX_WIDTH = 'calc(100vw - 32px)';
 const DESKTOP_DIALOG_CHROME_HEIGHT = 154;
 const DESKTOP_DIALOG_MIN_BODY_HEIGHT = 320;
 
+function getSupportedAssetsSwrKey({
+  destinationChainType,
+  destinationChainId,
+  destinationTokenAddress,
+}: {
+  destinationChainType: string;
+  destinationChainId: string;
+  destinationTokenAddress: string;
+}) {
+  return [
+    'perpsUnifoldAssets',
+    'v1',
+    destinationChainType,
+    destinationChainId,
+    destinationTokenAddress,
+  ].join(':');
+}
+
 function useDesktopDialogBodyMaxHeight() {
   const { height } = useWindowDimensions();
   return Math.max(
@@ -180,7 +198,12 @@ function DepositNetworkHintLogos({
         />
       ))}
       {remainingCount > 0 ? (
-        <SizableText size="$bodyXs" color="$textSubdued" ml="$1">
+        <SizableText
+          size="$bodyXs"
+          color="$textSubdued"
+          fontFamily="$monoRegular"
+          ml="$1"
+        >
           +{remainingCount}
         </SizableText>
       ) : null}
@@ -227,7 +250,11 @@ function TransferChainHintLogos() {
     async () =>
       backgroundApiProxy.serviceUnifoldDeposit.getSupportedAssets(destination),
     [destination],
-    { watchLoading: false },
+    {
+      watchLoading: false,
+      swrKey: getSupportedAssetsSwrKey(destination),
+      swrShouldPersist: (assets) => assets.length > 0,
+    },
   );
   const sourceChains = (result ?? []).flatMap((asset) =>
     (asset.chains ?? []).map((chain) => ({ asset, chain })),

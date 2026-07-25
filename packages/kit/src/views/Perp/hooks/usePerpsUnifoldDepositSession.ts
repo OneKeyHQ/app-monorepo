@@ -9,10 +9,8 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  formatUnifoldUsdAmount,
-  pickUnifoldDepositWallet,
-} from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { pickUnifoldDepositWallet } from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
 import type {
   IUnifoldActivationStatus,
   IUnifoldDepositAddressResult,
@@ -43,6 +41,7 @@ import { getSafeUnifoldRecipient } from '../utils/unifoldRecipient';
 // migration: Arbitrum USDC.
 const DEFAULT_SOURCE_CHAIN_ID = '42161';
 const DEFAULT_SOURCE_SYMBOL = 'USDC';
+const SOURCE_SELECTION_CACHE_VERSION = 'v1';
 
 const EXECUTIONS_POLL_INTERVAL_MS = 3000;
 const RETRY_INTERVAL_MS = 5000;
@@ -189,6 +188,58 @@ function pickDefaultSelection(
   return { asset: usableAssets[0], chain: usableAssets[0].chains[0] };
 }
 
+function getSourceSelectionCacheKey(
+  destination: IUnifoldDepositDestination,
+): string {
+  return [
+    'perpsUnifoldSourceSelection',
+    SOURCE_SELECTION_CACHE_VERSION,
+    destination.destinationChainType,
+    destination.destinationChainId,
+    destination.destinationTokenAddress,
+  ].join(':');
+}
+
+function readCachedSourceSelection(
+  destination: IUnifoldDepositDestination,
+): IUnifoldSourceSelection | null {
+  return (
+    swrCacheUtils.get<IUnifoldSourceSelection>(
+      getSourceSelectionCacheKey(destination),
+    ) ?? null
+  );
+}
+
+function cacheSourceSelection(
+  destination: IUnifoldDepositDestination,
+  selection: IUnifoldSourceSelection,
+) {
+  // Cache only the catalog choice. Deposit addresses and session data must
+  // always be created again for each modal instance.
+  swrCacheUtils.set(getSourceSelectionCacheKey(destination), selection);
+}
+
+function reconcileSourceSelection(
+  assets: IUnifoldSupportedAsset[],
+  previous: IUnifoldSourceSelection | null,
+): IUnifoldSourceSelection | null {
+  if (previous) {
+    const asset = assets.find(
+      (item) =>
+        item.symbol.toUpperCase() === previous.asset.symbol.toUpperCase(),
+    );
+    const chain = asset?.chains.find(
+      (item) =>
+        item.chain_id === previous.chain.chain_id &&
+        item.chain_type === previous.chain.chain_type,
+    );
+    if (asset && chain) {
+      return { asset, chain };
+    }
+  }
+  return pickDefaultSelection(assets);
+}
+
 export function usePerpsUnifoldDepositSession({
   enabled,
   expectedRecipient,
@@ -283,7 +334,7 @@ export function usePerpsUnifoldDepositSession({
   }, [liveAccountAddress, recipientAddress, applyAddressState]);
 
   const [selection, setSelection] = useState<IUnifoldSourceSelection | null>(
-    null,
+    () => readCachedSourceSelection(destination),
   );
   const [sessionExecutions, setSessionExecutions] = useState<
     IUnifoldDepositExecution[]
@@ -342,30 +393,52 @@ export function usePerpsUnifoldDepositSession({
   ]);
 
   useEffect(() => {
-    if (!supportedAssets || selection) {
+    if (!supportedAssets) {
       return;
     }
     if (!hasUsableUnifoldSupportedAssets(supportedAssets)) {
       applyAddressState({ status: 'error', errorType: 'unavailable' });
       return;
     }
-    setSelection(pickDefaultSelection(supportedAssets));
-  }, [supportedAssets, selection, applyAddressState]);
+    setSelection((previous) => {
+      const next = reconcileSourceSelection(supportedAssets, previous);
+      if (next) {
+        cacheSourceSelection(destination, next);
+      }
+      return next;
+    });
+  }, [supportedAssets, applyAddressState, destination]);
 
   // Mirrors the SDK chain-snap rule: picking a token whose chains do not
   // include the current chain snaps to that token's first chain.
-  const selectToken = useCallback((asset: IUnifoldSupportedAsset) => {
-    setSelection((prev) => {
-      const chain =
-        asset.chains.find((c) => c.chain_id === prev?.chain.chain_id) ??
-        asset.chains[0];
-      return chain ? { asset, chain } : prev;
-    });
-  }, []);
+  const selectToken = useCallback(
+    (asset: IUnifoldSupportedAsset) => {
+      setSelection((prev) => {
+        const chain =
+          asset.chains.find((c) => c.chain_id === prev?.chain.chain_id) ??
+          asset.chains[0];
+        const next = chain ? { asset, chain } : prev;
+        if (next) {
+          cacheSourceSelection(destination, next);
+        }
+        return next;
+      });
+    },
+    [destination],
+  );
 
-  const selectChain = useCallback((chain: IUnifoldSupportedAssetChain) => {
-    setSelection((prev) => (prev ? { ...prev, chain } : prev));
-  }, []);
+  const selectChain = useCallback(
+    (chain: IUnifoldSupportedAssetChain) => {
+      setSelection((prev) => {
+        const next = prev ? { ...prev, chain } : prev;
+        if (next) {
+          cacheSourceSelection(destination, next);
+        }
+        return next;
+      });
+    },
+    [destination],
+  );
 
   // ── Deposit address (echo-checked in bg); 5s auto-retry on failure ──
   const [addressAttempt, setAddressAttempt] = useState(0);
@@ -704,6 +777,7 @@ export function usePerpsUnifoldDepositSession({
   const qrAddress = useMemo(() => {
     if (
       addressState.status !== 'ready' ||
+      !supportedAssets ||
       !selection ||
       !activationGatePassed
     ) {
@@ -714,7 +788,7 @@ export function usePerpsUnifoldDepositSession({
       selection.chain.chain_type,
     );
     return wallet?.address ?? null;
-  }, [addressState, selection, activationGatePassed]);
+  }, [addressState, supportedAssets, selection, activationGatePassed]);
 
   // The ready address is withheld while the screen is pending, so the QR keeps
   // its skeleton rather than the terminal "No address available" plate: the

@@ -1,10 +1,15 @@
 // cspell: words unifold Unifold
 import { useCallback, useState } from 'react';
 
-import { useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { NavBackButton, Page } from '@onekeyhq/components';
+import {
+  type IPageNavigationProp,
+  NavBackButton,
+  NavCloseButton,
+  Page,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalPerpRoutes,
@@ -19,6 +24,7 @@ import type { RouteProp } from '@react-navigation/core';
 
 export default function MobileUnifoldDepositTransferModal() {
   const intl = useIntl();
+  const navigation = useNavigation<IPageNavigationProp<IModalPerpParamList>>();
   const [detailExecutionId, setDetailExecutionId] = useState<string | null>(
     null,
   );
@@ -36,23 +42,26 @@ export default function MobileUnifoldDepositTransferModal() {
     () => <NavBackButton onPress={closeDetail} />,
     [closeDetail],
   );
+  const closeModal = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
+  const renderCloseHeaderLeft = useCallback(
+    () => <NavCloseButton onPress={closeModal} />,
+    [closeModal],
+  );
 
   return (
     <Page scrollEnabled safeAreaEnabled>
-      {detailExecutionId ? (
-        <Page.Header
-          title={intl.formatMessage({
-            id: ETranslations.perp_unifold_deposit_details__title,
-          })}
-          headerLeft={renderDetailHeaderLeft}
-        />
-      ) : (
-        <Page.Header
-          title={intl.formatMessage({
-            id: ETranslations.perp_unifold_transfer_crypto__title,
-          })}
-        />
-      )}
+      <Page.Header
+        title={intl.formatMessage({
+          id: detailExecutionId
+            ? ETranslations.perp_unifold_deposit_details__title
+            : ETranslations.perp_unifold_transfer_crypto__title,
+        })}
+        headerLeft={
+          detailExecutionId ? renderDetailHeaderLeft : renderCloseHeaderLeft
+        }
+      />
       <Page.Body px="$4" {...PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS}>
         {/* The page scrolls, so an absolute overlay would ride the content
             instead of the screen — the cards go in the page footer here. */}
