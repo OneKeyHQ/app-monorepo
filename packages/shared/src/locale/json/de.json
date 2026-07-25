@@ -4458,7 +4458,7 @@
   "trade_stock.wait_for_reopen": "Warten Sie, bis der Markt wieder öffnet",
   "trade_stock.wait_reopens_in_perps": "Warten Sie, bis der Markt wieder öffnet, Sie können weiterhin Perps handeln",
   "trading_hours.closed_tradable": "Geschlossen · Handelbar",
-  "trading_hours.closed_tradable_description": "Dieses Asset wird rund um die Uhr gehandelt. Preise außerhalb der Handelszeiten können sehr volatil sein.",
+  "trading_hours.closed_tradable_description": "Dieses Asset wird rund um die Uhr gehandelt, außerhalb der Handelszeiten können die Preise sehr volatil sein. Die Liquidität variiert mit der zugrunde liegenden US-Marktsitzung.",
   "trading_hours.description": "Die Liquidität variiert mit der zugrunde liegenden US-Marktsitzung.",
   "trading_hours.market_closed": "Markt geschlossen",
   "trading_hours.market_closed_time": "Wochenenden ({start} – {end}) und US-Markttage",

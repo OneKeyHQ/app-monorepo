@@ -4458,7 +4458,7 @@
   "trade_stock.wait_for_reopen": "Attendere la riapertura del mercato",
   "trade_stock.wait_reopens_in_perps": "Attendi la riapertura del mercato, puoi comunque negoziare Perps",
   "trading_hours.closed_tradable": "Chiuso · Negoziazione possibile",
-  "trading_hours.closed_tradable_description": "Questo asset è negoziato 24/7. I prezzi fuori orario possono essere altamente volatili.",
+  "trading_hours.closed_tradable_description": "Questo asset viene scambiato 24/7, i prezzi fuori orario possono essere altamente volatili. La liquidità varia con la sessione di mercato statunitense sottostante.",
   "trading_hours.description": "La liquidità varia con la sessione di mercato statunitense sottostante.",
   "trading_hours.market_closed": "Mercato chiuso",
   "trading_hours.market_closed_time": "Fine settimana ({start} – {end}) e festività del mercato statunitense",

@@ -4458,7 +4458,7 @@
   "trade_stock.wait_for_reopen": "Wait for market to reopen",
   "trade_stock.wait_reopens_in_perps": "Wait for market to reopen, you can still trade Perps",
   "trading_hours.closed_tradable": "Closed · Tradable",
-  "trading_hours.closed_tradable_description": "This asset trades 24/7. Off-hours prices may be highly volatile.",
+  "trading_hours.closed_tradable_description": "This asset trades 24/7, off-hours prices may be highly volatile. Liquidity varies with the underlying US market session.",
   "trading_hours.description": "Liquidity varies with the underlying US market session.",
   "trading_hours.market_closed": "Market closed",
   "trading_hours.market_closed_time": "Weekends ({start} – {end}) and US market holidays",

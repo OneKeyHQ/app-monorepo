@@ -293,6 +293,9 @@ function TradingHoursContent({
     clockSessionKey: tradingHours.currentSessionKey,
   });
   const dimmed = activeRow === 'closed' || activeRow === 'halts';
+  // 7×24 instrument while the market is closed: the subtitle switches to the
+  // dedicated 24/7 copy, which also makes the generic risk notice redundant.
+  const isClosedTradable = activeRow === 'closed' && stock.isOpen === true;
 
   const segmentByKey = useMemo(
     () =>
@@ -327,12 +330,9 @@ function TradingHoursContent({
       <YStack px={pagePx} pt="$1">
         <SizableText size={detailTextSize} color="$textSubdued">
           {intl.formatMessage({
-            // 7×24 instrument while the market is closed → dedicated copy
-            // explaining that it still trades with higher volatility.
-            id:
-              activeRow === 'closed' && stock.isOpen === true
-                ? ETranslations.trading_hours_closed_tradable_description
-                : ETranslations.trading_hours_description,
+            id: isClosedTradable
+              ? ETranslations.trading_hours_closed_tradable_description
+              : ETranslations.trading_hours_description,
           })}
         </SizableText>
       </YStack>
@@ -419,11 +419,15 @@ function TradingHoursContent({
         })}
       </YStack>
 
-      <YStack px={pagePx} pt="$2">
-        <SizableText size="$bodySm" color="$textDisabled">
-          {intl.formatMessage({ id: ETranslations.trading_hours_risk_notice })}
-        </SizableText>
-      </YStack>
+      {isClosedTradable ? null : (
+        <YStack px={pagePx} pt="$2">
+          <SizableText size="$bodySm" color="$textDisabled">
+            {intl.formatMessage({
+              id: ETranslations.trading_hours_risk_notice,
+            })}
+          </SizableText>
+        </YStack>
+      )}
     </YStack>
   );
 }

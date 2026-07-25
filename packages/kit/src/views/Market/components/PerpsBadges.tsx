@@ -230,10 +230,10 @@ const STOCK_MARKET_STATUS_CHIPS: Record<
 };
 
 /**
- * Market status chip for tokenized stocks (see OK-58043). Ondo tokens follow
- * the US-session model and get the multi-state chip (sessions, closed, halted,
- * "Closed · Tradable" for 7×24 instruments); other issuers (e.g. xStocks run
- * 7×24 with no open/closed distinction) keep the legacy two-state badge.
+ * Market status chip for tokenized stocks (see OK-58043). Only Ondo tokens
+ * follow the US-session model, so only they get a chip (sessions, closed,
+ * halted, "Closed · Tradable" for 7×24 instruments); other issuers (e.g.
+ * xStocks run 7×24 with no open/closed distinction) show no badge at all.
  * Pass `disableTooltip` when the chip is used as a popover trigger (e.g. the
  * trading-hours panel) — the wrapping trigger owns the press, so the hover
  * tooltip must not compete with it.
@@ -260,52 +260,23 @@ const StockIsOpenBadge = memo(
       status: marketStatus,
     });
 
-    if (!variant && isOpen === undefined) {
+    if (!variant) {
       return null;
     }
+    const chip = STOCK_MARKET_STATUS_CHIPS[variant];
 
-    const badge = variant ? (
+    const badge = (
       <XStack
         borderRadius="$1"
-        bg={STOCK_MARKET_STATUS_CHIPS[variant].bg}
+        bg={chip.bg}
         justifyContent="center"
         alignItems="center"
         gap={3}
         px="$1"
       >
-        <Icon
-          name={STOCK_MARKET_STATUS_CHIPS[variant].icon}
-          size="$3"
-          color={STOCK_MARKET_STATUS_CHIPS[variant].color}
-        />
-        <SizableText
-          fontSize={10}
-          color={STOCK_MARKET_STATUS_CHIPS[variant].color}
-          lineHeight={16}
-        >
-          {intl.formatMessage({
-            id: STOCK_MARKET_STATUS_CHIPS[variant].titleId,
-          })}
-        </SizableText>
-      </XStack>
-    ) : (
-      <XStack
-        borderRadius="$1"
-        bg={isOpen ? '$bgSuccess' : '$bgCaution'}
-        justifyContent="center"
-        alignItems="center"
-        px="$1.5"
-      >
-        <SizableText
-          fontSize={10}
-          color={isOpen ? '$textSuccess' : '$textCaution'}
-          lineHeight={16}
-        >
-          {intl.formatMessage({
-            id: isOpen
-              ? ETranslations.dexmarket_stock_status_open
-              : ETranslations.dexmarket_stock_status_closed,
-          })}
+        <Icon name={chip.icon} size="$3" color={chip.color} />
+        <SizableText fontSize={10} color={chip.color} lineHeight={16}>
+          {intl.formatMessage({ id: chip.titleId })}
         </SizableText>
       </XStack>
     );

@@ -4458,7 +4458,7 @@
   "trade_stock.wait_for_reopen": "等待市場重新開放",
   "trade_stock.wait_reopens_in_perps": "等待市場重新開放，您仍然可以交易其永續合約",
   "trading_hours.closed_tradable": "休市 · 可交易",
-  "trading_hours.closed_tradable_description": "此資產支援 24/7 全天候交易，非市場交易時間內價格波動較大",
+  "trading_hours.closed_tradable_description": "此資產全天候24/7交易，非交易時段價格可能波動較大。流動性會隨着美國市場時段而有所不同。",
   "trading_hours.description": "流動性會隨著美國市場時段的變化而變動。",
   "trading_hours.market_closed": "市場休市",
   "trading_hours.market_closed_time": "週末（{start} – {end}）及美國市場假期",

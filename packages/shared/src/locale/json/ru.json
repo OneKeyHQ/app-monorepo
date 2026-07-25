@@ -4458,7 +4458,7 @@
   "trade_stock.wait_for_reopen": "Подождите, пока рынок откроется",
   "trade_stock.wait_reopens_in_perps": "Дождитесь открытия рынка, вы все еще можете торговать Perps",
   "trading_hours.closed_tradable": "Закрыто · Доступно для торговли",
-  "trading_hours.closed_tradable_description": "Этот актив торгуется 24/7. Цены в нерабочее время могут быть очень волатильными.",
+  "trading_hours.closed_tradable_description": "Этот актив торгуется круглосуточно, цены вне рабочих часов могут быть очень волатильными. Ликвидность варьируется в зависимости от сессии на рынке США.",
   "trading_hours.description": "Ликвидность варьируется в зависимости от сессии на американском рынке.",
   "trading_hours.market_closed": "Рынок закрыт",
   "trading_hours.market_closed_time": "Выходные ({start} – {end}) и праздничные дни на рынке США",

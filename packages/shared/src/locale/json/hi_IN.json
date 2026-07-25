@@ -4458,7 +4458,7 @@
   "trade_stock.wait_for_reopen": "बाज़ार के फिर से खुलने की प्रतीक्षा करें",
   "trade_stock.wait_reopens_in_perps": "बाजार के फिर से खुलने की प्रतीक्षा करें, आप अभी भी Perps का व्यापार कर सकते हैं",
   "trading_hours.closed_tradable": "बंद · व्यापार योग्य",
-  "trading_hours.closed_tradable_description": "यह संपत्ति 24/7 ट्रेड होती है। ऑफ-ऑवर्स की कीमतें अत्यधिक अस्थिर हो सकती हैं।",
+  "trading_hours.closed_tradable_description": "यह संपत्ति 24/7 व्यापार करती है, ऑफ-घंटों के दौरान कीमतें अत्यधिक अस्थिर हो सकती हैं। तरलता अमेरिकी बाजार सत्र के अनुसार भिन्न होती है।",
   "trading_hours.description": "तरलता अंतर्निहित अमेरिकी बाजार सत्र के साथ भिन्न होती है।",
   "trading_hours.market_closed": "बाजार बंद",
   "trading_hours.market_closed_time": "सप्ताहांत ({start} – {end}) और अमेरिकी बाजार की छुट्टियाँ",

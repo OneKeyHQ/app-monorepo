@@ -4458,7 +4458,7 @@
   "trade_stock.wait_for_reopen": "Chờ thị trường mở cửa lại",
   "trade_stock.wait_reopens_in_perps": "Chờ thị trường mở cửa lại, bạn vẫn có thể giao dịch Perps",
   "trading_hours.closed_tradable": "Đóng · Có thể giao dịch",
-  "trading_hours.closed_tradable_description": "Tài sản này giao dịch 24/7. Giá ngoài giờ có thể biến động mạnh.",
+  "trading_hours.closed_tradable_description": "Tài sản này giao dịch 24/7, giá ngoài giờ có thể biến động mạnh. Thanh khoản thay đổi theo phiên giao dịch thị trường Mỹ cơ sở.",
   "trading_hours.description": "Thanh khoản thay đổi theo phiên giao dịch của thị trường Mỹ cơ bản.",
   "trading_hours.market_closed": "Thị trường đóng cửa",
   "trading_hours.market_closed_time": "Cuối tuần ({start} – {end}) và các ngày nghỉ lễ của thị trường Mỹ",

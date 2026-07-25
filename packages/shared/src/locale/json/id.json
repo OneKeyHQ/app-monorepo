@@ -4458,7 +4458,7 @@
   "trade_stock.wait_for_reopen": "Tunggu pasar dibuka kembali",
   "trade_stock.wait_reopens_in_perps": "Tunggu pasar dibuka kembali, Anda masih bisa berdagang Perps",
   "trading_hours.closed_tradable": "Tutup · Dapat diperdagangkan",
-  "trading_hours.closed_tradable_description": "Aset ini diperdagangkan 24/7. Harga di luar jam perdagangan mungkin sangat fluktuatif.",
+  "trading_hours.closed_tradable_description": "Aset ini diperdagangkan 24/7, harga di luar jam perdagangan mungkin sangat fluktuatif. Likuiditas bervariasi sesuai dengan sesi pasar AS yang mendasarinya.",
   "trading_hours.description": "Likuiditas bervariasi dengan sesi pasar AS yang mendasarinya.",
   "trading_hours.market_closed": "Pasar tutup",
   "trading_hours.market_closed_time": "Akhir pekan ({start} – {end}) dan hari libur pasar AS",

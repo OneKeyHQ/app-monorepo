@@ -4458,7 +4458,7 @@
   "trade_stock.wait_for_reopen": "বাজার পুনরায় খোলার জন্য অপেক্ষা করুন",
   "trade_stock.wait_reopens_in_perps": "বাজার পুনরায় খোলার জন্য অপেক্ষা করুন, আপনি এখনও Perps ট্রেড করতে পারেন",
   "trading_hours.closed_tradable": "বন্ধ · লেনদেনযোগ্য",
-  "trading_hours.closed_tradable_description": "এই সম্পদটি ২৪/৭ লেনদেন হয়। অফ-আওয়ার মূল্যে উচ্চ অস্থিরতা থাকতে পারে।",
+  "trading_hours.closed_tradable_description": "এই সম্পদটি ২৪/৭ লেনদেন হয়, অফ-আওয়ার মূল্যে উচ্চ অস্থিরতা থাকতে পারে। তারল্য মার্কিন বাজারের অধিবর্তী সেশনের সাথে পরিবর্তিত হয়।",
   "trading_hours.description": "তরলতা প্রাথমিক মার্কিন বাজার সেশনের সাথে পরিবর্তিত হয়।",
   "trading_hours.market_closed": "বাজার বন্ধ",
   "trading_hours.market_closed_time": "সপ্তাহান্তে ({start} – {end}) এবং মার্কিন বাজারের ছুটির দিন",

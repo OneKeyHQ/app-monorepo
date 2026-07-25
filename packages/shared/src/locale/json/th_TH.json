@@ -4458,7 +4458,7 @@
   "trade_stock.wait_for_reopen": "รอให้ตลาดเปิดอีกครั้ง",
   "trade_stock.wait_reopens_in_perps": "รอให้ตลาดเปิดอีกครั้ง คุณยังสามารถซื้อขาย Perps ได้",
   "trading_hours.closed_tradable": "ปิด · สามารถซื้อขายได้",
-  "trading_hours.closed_tradable_description": "สินทรัพย์นี้ซื้อขายได้ตลอด 24/7 ราคานอกเวลาทำการอาจมีความผันผวนสูง",
+  "trading_hours.closed_tradable_description": "สินทรัพย์นี้ซื้อขายได้ตลอด 24/7 ราคานอกเวลาทำการอาจมีความผันผวนสูง สภาพคล่องจะแตกต่างกันไปตามช่วงเวลาตลาดสหรัฐฯ",
   "trading_hours.description": "สภาพคล่องจะแตกต่างกันไปตามช่วงตลาดสหรัฐฯ",
   "trading_hours.market_closed": "ตลาดปิด",
   "trading_hours.market_closed_time": "วันหยุดสุดสัปดาห์ ({start} – {end}) และวันหยุดตลาดสหรัฐฯ",
