@@ -46,6 +46,36 @@ describe('useRefreshQuoteWhenStockMarketReopens', () => {
     expect(onRefresh).toHaveBeenCalledTimes(2);
   });
 
+  it('does not consume a closed cycle while market status is unavailable', () => {
+    const onRefresh = jest.fn();
+    const { rerender } = renderHook<
+      void,
+      { marketIsOpen: boolean | undefined }
+    >(
+      ({ marketIsOpen }) =>
+        useRefreshQuoteWhenStockMarketReopens({
+          enabled: true,
+          marketIsOpen,
+          onRefresh,
+          scopeKey: 'stock-a',
+        }),
+      {
+        initialProps: {
+          marketIsOpen: false,
+        },
+      },
+    );
+
+    rerender({ marketIsOpen: undefined });
+    expect(onRefresh).not.toHaveBeenCalled();
+
+    rerender({ marketIsOpen: true });
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+
+    rerender({ marketIsOpen: true });
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
   it('can refresh when the first Market detail is already open', () => {
     const onRefresh = jest.fn();
 

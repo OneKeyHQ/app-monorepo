@@ -1291,7 +1291,9 @@ function StockTradeTicket({
   ).gt(0);
   useRefreshQuoteWhenStockMarketReopens({
     enabled: stockChannel.readyForQuote && hasPositiveInputAmount,
-    marketIsOpen: stockChannel.stockMarketStatus?.open,
+    // The normalized status stays open while detail is unavailable so quote
+    // execution can continue; reopen detection needs the raw tri-state value.
+    marketIsOpen: stockChannel.activeStockTokenDetail?.stock?.isOpen,
     onRefresh: refreshAction,
     scopeKey: getTokenIdentityKey(stockChannel.currentStockToken),
   });
