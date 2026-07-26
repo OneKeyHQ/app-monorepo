@@ -797,3 +797,103 @@ export interface IBtcRewardHistoryResponse {
   total: number;
   data: IBtcRewardHistoryItem[];
 }
+
+export type IThirdPartyHardwareRewardVendor = 'trezor' | 'ledger';
+
+export interface IThirdPartyDeviceRewardWalletInfo {
+  walletId: string;
+  networkId: string;
+  accountId: string;
+  address: string;
+  pubkey?: string;
+  isBtcOnlyWallet?: boolean;
+}
+
+export interface IThirdPartyDeviceRewardAddressMessage {
+  version: 1;
+  challengeId: string;
+  campaignId: string;
+  walletAddAttemptId: string;
+  accountAddress: string;
+  networkId: string;
+  expiresAt: number;
+  audience: 'onekey-device-voucher';
+  purpose: 'first-wallet-add';
+}
+
+export interface IThirdPartyDeviceRewardChallenge {
+  version: 1;
+  challengeId: string;
+  challengeHex: string;
+  expiresAt: number;
+  audience: 'onekey-device-voucher';
+  purpose: 'first-wallet-add';
+  addressMessage: IThirdPartyDeviceRewardAddressMessage;
+  ledgerRelay?: {
+    attestationSessionId: string;
+    webSocketUrl: string;
+  } | null;
+}
+
+// cspell:ignore optiga
+export type IThirdPartyDeviceRewardEvidence =
+  | {
+      vendor: 'trezor';
+      scheme: 'trezor-authenticate-device-v1';
+      deviceModelHint: string;
+      proof: {
+        optiga_certificates: string[];
+        optiga_signature: string;
+        tropic_certificates?: string[];
+        tropic_signature?: string;
+        mcu_certificates?: string[];
+        mcu_signature?: string;
+      };
+    }
+  | {
+      vendor: 'ledger';
+      scheme: 'ledger-genuine-relay-v1';
+      attestationSessionId: string;
+    };
+
+export interface IThirdPartyDeviceRewardClaimResult {
+  status:
+    | 'issued'
+    | 'already_claimed'
+    | 'challenge_expired'
+    | 'challenge_consumed'
+    | 'address_signature_invalid'
+    | 'device_proof_invalid'
+    | 'device_not_genuine'
+    | 'ledger_session_incomplete'
+    | 'not_eligible'
+    | 'campaign_unavailable';
+  claimId?: string;
+  voucher?: {
+    campaignId: string;
+    code: string;
+    expiresAt: number;
+  };
+}
+
+export type IThirdPartyAccountNameSourceStatus =
+  | 'available'
+  | 'no_matches'
+  | 'source_not_found'
+  | 'encrypted_source'
+  | 'cloud_source_requires_authorization'
+  | 'unsupported_source'
+  | 'invalid_source';
+
+export interface IThirdPartyAccountNameCandidate {
+  indexedAccountId: string;
+  currentName: string;
+  sourceName: string;
+  matchedAddress: string;
+  source: 'ledger-live' | 'trezor-suite';
+}
+
+export interface IThirdPartyAccountNameCandidatesResult {
+  status: IThirdPartyAccountNameSourceStatus;
+  candidates: IThirdPartyAccountNameCandidate[];
+}

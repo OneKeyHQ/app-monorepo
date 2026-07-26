@@ -9,17 +9,24 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { assertLedgerAttestationRelayUrl } from '@onekeyhq/shared/src/hardware/ledgerAttestationRelayUrl';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type {
+  IThirdPartyAccountNameCandidatesResult,
+  IThirdPartyAccountNameSourceStatus,
+} from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import localDb from '../../dbs/local/localDb';
+import { getEndpointInfo } from '../../endpoints';
 import {
   EThirdPartyHardwareUiAction,
   thirdPartyHardwareUiStateAtom,
@@ -963,6 +970,155 @@ class ServiceThirdPartyHardware extends ServiceBase {
       ) => Promise<{ success: boolean; payload: unknown }>;
     };
     return hw.getLedgerFirmwareVersion(params.connectId);
+  }
+
+  // Device attestation for diagnostics and reward proof collection. Reward
+  // issuance must be decided by the backend from the raw Trezor proof or the
+  // server-owned Ledger relay session, never from the client's verified flag.
+  @backgroundMethod()
+  async thirdPartyHardwareVerifyDeviceAuthenticity(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+    challenge?: string;
+    ledgerGenuineCheckWebSocketUrl?: string;
+  }) {
+    if (
+      params.vendor === EHardwareVendor.ledger &&
+      params.ledgerGenuineCheckWebSocketUrl
+    ) {
+      const { endpoint } = await getEndpointInfo({
+        name: EServiceEndpointEnum.Rebate,
+      });
+      assertLedgerAttestationRelayUrl({
+        relayUrl: params.ledgerGenuineCheckWebSocketUrl,
+        rebateEndpoint: endpoint,
+      });
+    } else if (params.ledgerGenuineCheckWebSocketUrl) {
+      throw new OneKeyLocalError(
+        'Ledger attestation relay cannot be used for this vendor',
+      );
+    }
+    await this.ensureAdaptersInitialized(params.vendor);
+    const adapter = this.getThirdPartyAdapter(params.vendor);
+    if (!adapter) {
+      throw createThirdPartyAdapterNotRegisteredError(params.vendor);
+    }
+    const hw = adapter.hw as unknown as {
+      verifyDeviceAuthenticity: (
+        connectId: string,
+        options?: {
+          challenge?: string;
+          ledgerGenuineCheckWebSocketUrl?: string;
+        },
+      ) => Promise<{ success: boolean; payload: unknown }>;
+    };
+    return hw.verifyDeviceAuthenticity(params.connectId, {
+      challenge: params.challenge,
+      ledgerGenuineCheckWebSocketUrl: params.ledgerGenuineCheckWebSocketUrl,
+    });
+  }
+
+  @backgroundMethod()
+  async getThirdPartyAccountNameCandidates(params: {
+    vendor: EHardwareVendor;
+    walletId: string;
+  }): Promise<IThirdPartyAccountNameCandidatesResult> {
+    if (params.vendor === EHardwareVendor.trezor) {
+      return {
+        status: 'cloud_source_requires_authorization',
+        candidates: [],
+      };
+    }
+    if (params.vendor !== EHardwareVendor.ledger) {
+      return { status: 'unsupported_source', candidates: [] };
+    }
+    if (!platformEnv.isDesktop || !globalThis.desktopApiProxy?.system) {
+      return { status: 'unsupported_source', candidates: [] };
+    }
+
+    const source =
+      await globalThis.desktopApiProxy.system.readLedgerLiveAccountNames();
+    if (source.status !== 'available') {
+      const statusMap: Record<
+        Exclude<typeof source.status, 'available'>,
+        IThirdPartyAccountNameSourceStatus
+      > = {
+        no_accounts: 'no_matches',
+        source_not_found: 'source_not_found',
+        encrypted_source: 'encrypted_source',
+        invalid_source: 'invalid_source',
+      };
+      return { status: statusMap[source.status], candidates: [] };
+    }
+
+    const { wallets } = await this.backgroundApi.serviceAccount.getWallets({
+      nestedHiddenWallets: false,
+      includingAccounts: true,
+    });
+    const wallet = wallets.find((item) => item.id === params.walletId);
+    const indexedAccount = wallet?.dbIndexedAccounts?.[0];
+    const walletAddress = wallet?.firstEvmAddress?.trim();
+    if (!wallet || !indexedAccount || !walletAddress) {
+      return { status: 'no_matches', candidates: [] };
+    }
+
+    const matchingSourceAccounts = source.accounts.filter(
+      (item) =>
+        item.address.trim().toLowerCase() === walletAddress.toLowerCase(),
+    );
+    const matchingNames = [
+      ...new Set(matchingSourceAccounts.map((item) => item.name.trim())),
+    ].filter(Boolean);
+    // Ledger Live can contain multiple accounts with the same EVM address.
+    // Only suggest a rename when all matches agree; never pick by file order.
+    if (
+      matchingNames.length !== 1 ||
+      matchingNames[0] === indexedAccount.name
+    ) {
+      return { status: 'no_matches', candidates: [] };
+    }
+    const [sourceName] = matchingNames;
+    return {
+      status: 'available',
+      candidates: [
+        {
+          indexedAccountId: indexedAccount.id,
+          currentName: indexedAccount.name,
+          sourceName,
+          matchedAddress: walletAddress,
+          source: 'ledger-live',
+        },
+      ],
+    };
+  }
+
+  @backgroundMethod()
+  async applyThirdPartyAccountNames(params: {
+    walletId: string;
+    renames: Array<{ indexedAccountId: string; name: string }>;
+  }): Promise<void> {
+    const { wallets } = await this.backgroundApi.serviceAccount.getWallets({
+      nestedHiddenWallets: false,
+      includingAccounts: true,
+    });
+    const wallet = wallets.find((item) => item.id === params.walletId);
+    const allowedIds = new Set(
+      wallet?.dbIndexedAccounts?.map((item) => item.id) ?? [],
+    );
+    for (const rename of params.renames) {
+      const name = rename.name.trim();
+      if (
+        !allowedIds.has(rename.indexedAccountId) ||
+        !name ||
+        name.length > 80
+      ) {
+        throw new OneKeyLocalError('Invalid third-party account rename');
+      }
+      await this.backgroundApi.serviceAccount.setAccountName({
+        indexedAccountId: rename.indexedAccountId,
+        name,
+      });
+    }
   }
 
   @backgroundMethod()

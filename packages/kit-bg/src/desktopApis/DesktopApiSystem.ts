@@ -19,6 +19,8 @@ import {
 } from '@onekeyhq/desktop/app/libs/utils';
 import { restartBridge } from '@onekeyhq/desktop/app/process';
 import { getAppStaticResourcesPath } from '@onekeyhq/desktop/app/resoucePath';
+import { parseLedgerLiveAccountNames } from '@onekeyhq/shared/src/hardware/ledgerLiveAccountNames';
+import type { ILedgerLiveAccountNamesResult } from '@onekeyhq/shared/src/hardware/ledgerLiveAccountNames';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
 
@@ -32,6 +34,7 @@ const ONEKEY_LINUX_UDEV_RULES_STATIC_PATH = path.join(
   'udev',
   '99-onekey.rules',
 );
+const LEDGER_LIVE_APP_JSON_MAX_BYTES = 10 * 1024 * 1024;
 
 // Runtime sandbox detection. This module runs in the Electron MAIN process,
 // where `platformEnv` derives `desktopChannel` from a module-load-time snapshot
@@ -343,6 +346,30 @@ class DesktopApiSystem {
       module,
       desktop,
     };
+  }
+
+  async readLedgerLiveAccountNames(): Promise<ILedgerLiveAccountNamesResult> {
+    const appDataPath = app.getPath('appData');
+    const candidates = [
+      path.join(appDataPath, 'Ledger Live', 'app.json'),
+      path.join(appDataPath, 'ledger-live-desktop', 'app.json'),
+    ];
+
+    for (const filePath of candidates) {
+      try {
+        const stat = await fs.stat(filePath);
+        if (!stat.isFile() || stat.size > LEDGER_LIVE_APP_JSON_MAX_BYTES) {
+          return { status: 'invalid_source', accounts: [] };
+        }
+        const content = await fs.readFile(filePath, { encoding: 'utf8' });
+        return parseLedgerLiveAccountNames(JSON.parse(content) as unknown);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+          return { status: 'invalid_source', accounts: [] };
+        }
+      }
+    }
+    return { status: 'source_not_found', accounts: [] };
   }
 
   async getBundleInfo(): Promise<IMacBundleInfo | undefined> {

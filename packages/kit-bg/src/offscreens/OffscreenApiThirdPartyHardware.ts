@@ -6,6 +6,7 @@ import { emitOffscreenEventToBackground } from './offscreenEventBus';
 
 import type {
   ConnectorCallResult,
+  ConnectorConfig,
   ConnectorDevice,
   ConnectorEventType,
   ConnectorSession,
@@ -204,7 +205,28 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
     callParams: unknown;
   }): Promise<ConnectorCallResult> {
     const connector = await this.getConnector(params.vendor);
-    return connector.call(params.sessionId, params.method, params.callParams);
+    const ownsOneShotLedgerRelay =
+      params.vendor === 'ledger' && params.method === 'getDeviceGenuineCheck';
+    try {
+      return await connector.call(
+        params.sessionId,
+        params.method,
+        params.callParams,
+      );
+    } finally {
+      if (ownsOneShotLedgerRelay) {
+        // This offscreen document owns the long-lived DMK and relay
+        // capability. Clear it locally before replying to the service worker;
+        // SW teardown/configure messages are not a reliable security boundary.
+        try {
+          await connector.configure?.({
+            ledgerGenuineCheckWebSocketUrl: undefined,
+          });
+        } finally {
+          connector.reset();
+        }
+      }
+    }
   }
 
   async cancel(params: {
@@ -225,6 +247,14 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
   reset(params: { vendor: VendorType }): void {
     const connector = this.getConnectorSync(params.vendor);
     connector?.reset();
+  }
+
+  async configure(params: {
+    vendor: VendorType;
+    config: ConnectorConfig;
+  }): Promise<void> {
+    const connector = await this.getConnector(params.vendor);
+    await connector.configure?.(params.config);
   }
 
   /**

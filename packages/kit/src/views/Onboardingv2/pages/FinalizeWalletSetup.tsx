@@ -81,6 +81,11 @@ import {
 } from '../components/OnboardingInviteCodeDialog';
 import { OrbShader } from '../components/OrbShader';
 import {
+  type IShowThirdPartyDeviceRewardDialog,
+  showThirdPartyAccountNameSyncDialog,
+  useShowThirdPartyDeviceRewardDialog,
+} from '../components/ThirdPartyDevicePostAddDialog';
+import {
   useConnectDeviceError,
   useDeviceConnect,
 } from '../hooks/useDeviceConnect';
@@ -239,6 +244,23 @@ function OnboardingInviteCodeDialogBridge({
   return null;
 }
 
+function ThirdPartyDeviceRewardDialogBridge({
+  bridgeRef,
+}: {
+  bridgeRef: React.MutableRefObject<IShowThirdPartyDeviceRewardDialog | null>;
+}) {
+  const show = useShowThirdPartyDeviceRewardDialog();
+  useEffect(() => {
+    bridgeRef.current = show;
+    return () => {
+      if (bridgeRef.current === show) {
+        bridgeRef.current = null;
+      }
+    };
+  }, [show, bridgeRef]);
+  return null;
+}
+
 function FinalizeWalletSetupPage({
   route,
 }: IPageScreenProps<
@@ -315,6 +337,8 @@ function FinalizeWalletSetupPage({
   // the captured callback back here so `handleLetsGo` can invoke it.
   const showInviteCodeDialogRef =
     useRef<IShowOnboardingInviteCodeDialog | null>(null);
+  const showThirdPartyDeviceRewardDialogRef =
+    useRef<IShowThirdPartyDeviceRewardDialog | null>(null);
   const readyReferralCheckHandledRef = useRef(false);
 
   // Hold the "existing wallet switched" toast until the user confirms with
@@ -351,6 +375,39 @@ function FinalizeWalletSetupPage({
     };
 
     if (createdWallet) {
+      let thirdPartyVendor: 'trezor' | 'ledger' | undefined;
+      if (deviceData?.vendor === EHardwareVendor.trezor) {
+        thirdPartyVendor = 'trezor';
+      } else if (deviceData?.vendor === EHardwareVendor.ledger) {
+        thirdPartyVendor = 'ledger';
+      }
+      if (thirdPartyVendor) {
+        try {
+          await showThirdPartyAccountNameSyncDialog({
+            wallet: createdWallet,
+            vendor: thirdPartyVendor,
+          });
+        } catch {
+          // Name migration is optional and must never block the new wallet.
+        }
+        const showReward = showThirdPartyDeviceRewardDialogRef.current;
+        const connectId =
+          createdWallet.associatedDeviceInfo?.connectId ??
+          (deviceData?.device as SearchDevice | undefined)?.connectId ??
+          '';
+        if (showReward) {
+          showReward({
+            wallet: createdWallet,
+            vendor: thirdPartyVendor,
+            connectId,
+            onDone: proceedToWallet,
+          });
+          return;
+        }
+        proceedToWallet();
+        return;
+      }
+
       try {
         // Await the prefetched promise. If it already resolved while the
         // user was lingering on the success page, this returns immediately
@@ -385,7 +442,7 @@ function FinalizeWalletSetupPage({
     }
 
     proceedToWallet();
-  }, [closePage, openKeylessAutoConnectDappModal]);
+  }, [closePage, deviceData, openKeylessAutoConnectDappModal]);
 
   const processNextStep = useCallback(() => {
     while (stepQueue.current.length > 0) {
@@ -1006,6 +1063,9 @@ function FinalizeWalletSetupPage({
       enterAnimation={false}
     >
       <OnboardingInviteCodeDialogBridge bridgeRef={showInviteCodeDialogRef} />
+      <ThirdPartyDeviceRewardDialogBridge
+        bridgeRef={showThirdPartyDeviceRewardDialogRef}
+      />
       <YStack flex={1}>
         {platformEnv.isExtension && isExtensionTopRightVisible ? (
           <YStack

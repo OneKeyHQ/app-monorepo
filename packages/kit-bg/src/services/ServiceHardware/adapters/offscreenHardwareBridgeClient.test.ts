@@ -17,6 +17,7 @@ jest.mock('../../../offscreens/instance/offscreenApiProxy', () => ({
       cancel: jest.fn(),
       uiResponse: jest.fn(),
       reset: jest.fn(),
+      configure: jest.fn(),
       setKnownCredentials: jest.fn(),
     },
   },
@@ -77,6 +78,9 @@ describe('OffscreenHardwareBridgeClient', () => {
     mockedOffscreenApiProxy.thirdPartyHardware.cancel.mockResolvedValue(
       undefined,
     );
+    mockedOffscreenApiProxy.thirdPartyHardware.configure.mockResolvedValue(
+      undefined,
+    );
     mockedOffscreenApiProxy.thirdPartyHardware.setKnownCredentials.mockResolvedValue(
       undefined,
     );
@@ -106,6 +110,23 @@ describe('OffscreenHardwareBridgeClient', () => {
     await loadPromise;
 
     expect(completed).toBe(true);
+  });
+
+  it('forwards relay configuration without changing its opaque URL', async () => {
+    const client = new OffscreenHardwareBridgeClient();
+    const relayUrl = 'wss://attestation.onekey.test/session/opaque';
+
+    await client.configure({
+      vendor: 'ledger',
+      config: { ledgerGenuineCheckWebSocketUrl: relayUrl },
+    });
+
+    expect(
+      mockedOffscreenApiProxy.thirdPartyHardware.configure,
+    ).toHaveBeenCalledWith({
+      vendor: 'ledger',
+      config: { ledgerGenuineCheckWebSocketUrl: relayUrl },
+    });
   });
 
   it('loads credentials into the connector only once, then re-loads after reset', async () => {

@@ -5,6 +5,7 @@ import { onOffscreenEvent } from '../../../offscreens/offscreenEventBus';
 
 import type {
   ConnectorCallResult,
+  ConnectorConfig,
   ConnectorDevice,
   ConnectorEventType,
   ConnectorSession,
@@ -124,6 +125,17 @@ export class OffscreenHardwareBridgeClient implements IHardwareBridge {
     // The connector is recreated → its credentials must be re-pushed next time.
     this.replayedVendors.delete(params.vendor);
     void offscreenApiProxy.thirdPartyHardware.reset(params);
+  }
+
+  configure(params: {
+    vendor: VendorType;
+    config: ConnectorConfig;
+  }): Promise<void> {
+    // Never log config: Ledger relay URLs contain short-lived bearer tokens.
+    defaultLogger.hardware.sdkLog.log(
+      `[3rdPartyHW][Bridge] configure vendor=${params.vendor}`,
+    );
+    return offscreenApiProxy.thirdPartyHardware.configure(params);
   }
 
   /**

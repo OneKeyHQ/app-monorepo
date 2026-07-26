@@ -328,6 +328,79 @@ describe('ServiceReferralCode.checkWalletBindStatus', () => {
   });
 });
 
+describe('ServiceReferralCode.claimThirdPartyDeviceReward', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('rebuilds a strict claim DTO and drops runtime-only identity verdicts', async () => {
+    const { service } = createService();
+    const post = jest.fn().mockResolvedValue({
+      data: { data: { status: 'issued' } },
+    });
+    jest.spyOn(service as any, 'getOneKeyIdClient').mockResolvedValue({ post });
+
+    await service.claimThirdPartyDeviceReward({
+      challengeId: 'challenge-1',
+      addressSignature: {
+        scheme: 'evm-personal-sign',
+        address: '0xabc',
+        signature: '0xsigned',
+      },
+      evidence: {
+        vendor: 'ledger',
+        scheme: 'ledger-genuine-relay-v1',
+        attestationSessionId: 'relay-session-1',
+      },
+      verified: true,
+      deviceId: 'client-controlled-id',
+      version: 999,
+    } as any);
+
+    expect(post).toHaveBeenCalledWith('/rebate/v1/device-rewards/claims', {
+      version: 1,
+      challengeId: 'challenge-1',
+      inviteCode: undefined,
+      addressSignature: {
+        scheme: 'evm-personal-sign',
+        address: '0xabc',
+        signature: '0xsigned',
+        pubkey: undefined,
+      },
+      evidence: {
+        vendor: 'ledger',
+        scheme: 'ledger-genuine-relay-v1',
+        attestationSessionId: 'relay-session-1',
+      },
+    });
+  });
+
+  test('rejects a client-generated Ledger authenticity scheme', async () => {
+    const { service } = createService();
+    const getOneKeyIdClientSpy = jest.spyOn(
+      service as any,
+      'getOneKeyIdClient',
+    );
+
+    await expect(
+      service.claimThirdPartyDeviceReward({
+        challengeId: 'challenge-1',
+        addressSignature: {
+          scheme: 'evm-personal-sign',
+          address: '0xabc',
+          signature: '0xsigned',
+        },
+        evidence: {
+          vendor: 'ledger',
+          scheme: 'client-verified',
+          attestationSessionId: 'relay-session-1',
+        },
+      } as any),
+    ).rejects.toThrow('Invalid device reward evidence');
+    expect(getOneKeyIdClientSpy).not.toHaveBeenCalled();
+  });
+});
+
 describe('ServiceReferralCode.checkAndUpdateReferralCode', () => {
   beforeEach(() => {
     jest.clearAllMocks();

@@ -59,6 +59,11 @@ import type {
   IRedemptionCodeRedeemParams,
   IRedemptionCodeRedeemResponse,
   IRedemptionRecordsResponse,
+  IThirdPartyDeviceRewardChallenge,
+  IThirdPartyDeviceRewardClaimResult,
+  IThirdPartyDeviceRewardEvidence,
+  IThirdPartyDeviceRewardWalletInfo,
+  IThirdPartyHardwareRewardVendor,
   IUpdateInviteCodeNoteResponse,
   IWalletCreationRecordItem,
   IWalletDevUnbindParams,
@@ -81,6 +86,41 @@ import type { IWalletReferralCode } from '../dbs/simple/entity/SimpleDbEntityRef
 // OneKey's interceptor but isn't on axios's own AxiosRequestConfig type.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const SILENT_IN_PROD = { autoHandleError: !platformEnv.isProduction } as any;
+
+function copyRequiredString(
+  value: unknown,
+  fieldName: string,
+  maxLength: number,
+): string {
+  if (typeof value !== 'string' || !value.trim() || value.length > maxLength) {
+    throw new OneKeyLocalError(`Invalid device reward ${fieldName}`);
+  }
+  return value;
+}
+
+function copyOptionalString(
+  value: unknown,
+  fieldName: string,
+  maxLength: number,
+): string | undefined {
+  return value === undefined
+    ? undefined
+    : copyRequiredString(value, fieldName, maxLength);
+}
+
+function copyCertificateChain(
+  value: unknown,
+  fieldName: string,
+  optional = false,
+): string[] | undefined {
+  if (value === undefined && optional) return undefined;
+  if (!Array.isArray(value) || value.length === 0 || value.length > 8) {
+    throw new OneKeyLocalError(`Invalid device reward ${fieldName}`);
+  }
+  return value.map((certificate) =>
+    copyRequiredString(certificate, fieldName, 24_000),
+  );
+}
 
 @backgroundClass()
 class ServiceReferralCode extends ServiceBase {
@@ -818,7 +858,13 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getReferralCodeWalletInfo({ walletId }: { walletId: string }) {
+  async getReferralCodeWalletInfo({
+    walletId,
+    includeThirdPartyDevice = false,
+  }: {
+    walletId: string;
+    includeThirdPartyDevice?: boolean;
+  }) {
     if (
       !accountUtils.isHdWallet({ walletId }) &&
       !accountUtils.isHwWallet({ walletId })
@@ -836,7 +882,10 @@ class ServiceReferralCode extends ServiceBase {
       // (Ledger / Trezor) hides the ActionList entry in WalletEditButton via
       // `isThirdPartyVendorWallet`; mirror that here so the onboarding
       // invite-code dialog also skips these wallets.
-      if (getVendorProfile(wallet?.associatedDeviceInfo?.vendor).isThirdParty) {
+      if (
+        !includeThirdPartyDevice &&
+        getVendorProfile(wallet?.associatedDeviceInfo?.vendor).isThirdParty
+      ) {
         return null;
       }
     } catch {
@@ -857,7 +906,14 @@ class ServiceReferralCode extends ServiceBase {
         if (!account) {
           return null;
         }
-        return { walletId, networkId, accountId, address: account.address };
+        return {
+          walletId,
+          networkId,
+          accountId,
+          address: account.address,
+          pubkey: account.pub,
+          isBtcOnlyWallet,
+        };
       } catch {
         return null;
       }
@@ -873,10 +929,211 @@ class ServiceReferralCode extends ServiceBase {
       if (!account) {
         return null;
       }
-      return { walletId, networkId, accountId, address: account.address };
+      return {
+        walletId,
+        networkId,
+        accountId,
+        address: account.address,
+        pubkey: account.pub,
+        isBtcOnlyWallet,
+      };
     } catch {
       return null;
     }
+  }
+
+  @backgroundMethod()
+  async getThirdPartyDeviceRewardWalletInfo({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<IThirdPartyDeviceRewardWalletInfo | null> {
+    const walletInfo = await this.getReferralCodeWalletInfo({
+      walletId,
+      includeThirdPartyDevice: true,
+    });
+    if (!walletInfo) {
+      return null;
+    }
+    const wallet = await this.backgroundApi.serviceAccount.getWallet({
+      walletId,
+    });
+    if (!getVendorProfile(wallet?.associatedDeviceInfo?.vendor).isThirdParty) {
+      return null;
+    }
+    return walletInfo;
+  }
+
+  @backgroundMethod()
+  async createThirdPartyDeviceRewardChallenge(params: {
+    walletId: string;
+    vendor: IThirdPartyHardwareRewardVendor;
+    campaignId: string;
+    walletAddAttemptId: string;
+  }): Promise<IThirdPartyDeviceRewardChallenge> {
+    const wallet = await this.backgroundApi.serviceAccount.getWallet({
+      walletId: params.walletId,
+    });
+    if (wallet?.associatedDeviceInfo?.vendor !== params.vendor) {
+      throw new OneKeyLocalError(
+        'Third-party reward vendor does not match wallet',
+      );
+    }
+    const walletInfo = await this.getThirdPartyDeviceRewardWalletInfo({
+      walletId: params.walletId,
+    });
+    if (!walletInfo) {
+      throw new OneKeyLocalError(
+        'Unable to resolve third-party reward wallet address',
+      );
+    }
+
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.post<{
+      data: IThirdPartyDeviceRewardChallenge;
+    }>('/rebate/v1/device-rewards/challenges', {
+      version: 1,
+      vendor: params.vendor,
+      campaignId: params.campaignId,
+      walletAddAttemptId: params.walletAddAttemptId,
+      walletId: params.walletId,
+      accountAddress: walletInfo.address,
+      networkId: walletInfo.networkId,
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async claimThirdPartyDeviceReward(params: {
+    challengeId: string;
+    inviteCode?: string;
+    addressSignature: {
+      scheme: 'evm-personal-sign' | 'btc-ecdsa';
+      address: string;
+      signature: string;
+      pubkey?: string;
+    };
+    evidence: IThirdPartyDeviceRewardEvidence;
+  }): Promise<IThirdPartyDeviceRewardClaimResult> {
+    const challengeId = copyRequiredString(
+      params.challengeId,
+      'challenge id',
+      128,
+    );
+    const inviteCode = copyOptionalString(params.inviteCode, 'invite code', 30);
+    if (
+      params.addressSignature.scheme !== 'evm-personal-sign' &&
+      params.addressSignature.scheme !== 'btc-ecdsa'
+    ) {
+      throw new OneKeyLocalError(
+        'Invalid device reward address signature scheme',
+      );
+    }
+    const addressSignature = {
+      scheme: params.addressSignature.scheme,
+      address: copyRequiredString(
+        params.addressSignature.address,
+        'address',
+        256,
+      ),
+      signature: copyRequiredString(
+        params.addressSignature.signature,
+        'address signature',
+        4096,
+      ),
+      pubkey: copyOptionalString(
+        params.addressSignature.pubkey,
+        'address public key',
+        1024,
+      ),
+    };
+
+    // cspell:ignore optiga
+    let evidence: IThirdPartyDeviceRewardEvidence;
+    if (
+      params.evidence.vendor === 'trezor' &&
+      params.evidence.scheme === 'trezor-authenticate-device-v1'
+    ) {
+      const tropicCertificates = copyCertificateChain(
+        params.evidence.proof?.tropic_certificates,
+        'Tropic certificates',
+        true,
+      );
+      const tropicSignature = copyOptionalString(
+        params.evidence.proof?.tropic_signature,
+        'Tropic signature',
+        4096,
+      );
+      const mcuCertificates = copyCertificateChain(
+        params.evidence.proof?.mcu_certificates,
+        'MCU certificates',
+        true,
+      );
+      const mcuSignature = copyOptionalString(
+        params.evidence.proof?.mcu_signature,
+        'MCU signature',
+        4096,
+      );
+      if (
+        Boolean(tropicCertificates) !== Boolean(tropicSignature) ||
+        Boolean(mcuCertificates) !== Boolean(mcuSignature)
+      ) {
+        throw new OneKeyLocalError(
+          'Invalid device reward certificate/signature pair',
+        );
+      }
+      evidence = {
+        vendor: 'trezor',
+        scheme: 'trezor-authenticate-device-v1',
+        deviceModelHint: copyRequiredString(
+          params.evidence.deviceModelHint,
+          'device model',
+          64,
+        ),
+        proof: {
+          optiga_certificates: copyCertificateChain(
+            params.evidence.proof?.optiga_certificates,
+            'OPTIGA certificates',
+          ) as string[],
+          optiga_signature: copyRequiredString(
+            params.evidence.proof?.optiga_signature,
+            'OPTIGA signature',
+            4096,
+          ),
+          tropic_certificates: tropicCertificates,
+          tropic_signature: tropicSignature,
+          mcu_certificates: mcuCertificates,
+          mcu_signature: mcuSignature,
+        },
+      };
+    } else if (
+      params.evidence.vendor === 'ledger' &&
+      params.evidence.scheme === 'ledger-genuine-relay-v1'
+    ) {
+      evidence = {
+        vendor: 'ledger',
+        scheme: 'ledger-genuine-relay-v1',
+        attestationSessionId: copyRequiredString(
+          params.evidence.attestationSessionId,
+          'Ledger attestation session id',
+          256,
+        ),
+      };
+    } else {
+      throw new OneKeyLocalError('Invalid device reward evidence');
+    }
+
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.post<{
+      data: IThirdPartyDeviceRewardClaimResult;
+    }>('/rebate/v1/device-rewards/claims', {
+      version: 1,
+      challengeId,
+      inviteCode,
+      addressSignature,
+      evidence,
+    });
+    return response.data.data;
   }
 
   @backgroundMethod()
