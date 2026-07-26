@@ -55,7 +55,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { BaseMarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import {
-  StockIsOpenBadge,
+  StockMarketStatusBadge,
   StockSourceLogo,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
@@ -1491,7 +1491,7 @@ function StockMarketTokenHeader({
         </SizableText>
       ) : null}
       <StockSourceLogo stock={stock} />
-      {stock ? <StockIsOpenBadge stock={stock} /> : null}
+      <StockMarketStatusBadge stock={stock} />
     </XStack>
   );
   const tokenInfoContent = (

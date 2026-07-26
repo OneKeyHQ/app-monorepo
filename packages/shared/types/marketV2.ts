@@ -193,6 +193,9 @@ export interface IMarketStockInfo {
   isOpen?: boolean;
   // Localized description from backend (tooltip when open, countdown + tooltip when closed)
   description?: string;
+  // Whether trading in the underlying stock is temporarily halted (per-stock signal)
+  isPaused?: boolean;
+  pausedUpdatedAt?: string;
   assetAnalysis?: IMarketStockAssetAnalysis;
   tradingActivity?: IMarketStockTradingActivity;
   dividendPerShare?: string;
