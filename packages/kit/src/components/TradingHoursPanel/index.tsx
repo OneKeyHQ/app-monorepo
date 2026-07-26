@@ -36,10 +36,10 @@ import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 type ILiquidityLevel = 'high' | 'moderate' | 'low' | 'none';
 
 const LIQUIDITY_LABELS: Record<ILiquidityLevel, ETranslations> = {
-  high: ETranslations.kyt_risk_level_high__title,
-  moderate: ETranslations.kyt_risk_level_moderate__title,
-  low: ETranslations.kyt_risk_level_low__title,
-  none: ETranslations.kyt_risk_level_none__title,
+  high: ETranslations.trading_hours_liquidity_high,
+  moderate: ETranslations.trading_hours_liquidity_moderate,
+  low: ETranslations.trading_hours_liquidity_low,
+  none: ETranslations.trading_hours_liquidity_none,
 };
 
 const LIQUIDITY_FILLED_BARS: Record<ILiquidityLevel, number> = {
@@ -311,6 +311,15 @@ function TradingHoursContent({
     );
   }, [intl, tradingHours]);
 
+  // The badge used to surface `stock.description` via a hover tooltip; the
+  // panel replaces that tooltip, so re-surface the note here. Only the first
+  // line is shown — it carries the localized "Opens in …" countdown, while the
+  // remaining lines repeat boilerplate the panel already covers.
+  const stockStatusNote = useMemo(
+    () => stock.description?.split('\n')[0]?.trim() || undefined,
+    [stock.description],
+  );
+
   return (
     <YStack pb={dense ? '$4' : '$5'} testID="trading-hours-panel">
       {showInlineHeader ? (
@@ -370,20 +379,32 @@ function TradingHoursContent({
         {ROW_META.map(({ row, icon, titleId, liquidity }) => {
           const isActive = row === activeRow;
           const title = intl.formatMessage({ id: titleId });
+          const activeStatusNote =
+            isActive && stockStatusNote ? (
+              <SizableText size={detailTextSize} color="$textSubdued">
+                {stockStatusNote}
+              </SizableText>
+            ) : null;
           let detail: ReactNode;
           if (row === 'closed') {
             detail = (
-              <SizableText size={detailTextSize} color="$textDisabled">
-                {weekendSpanText}
-              </SizableText>
+              <YStack gap="$0.5">
+                <SizableText size={detailTextSize} color="$textDisabled">
+                  {weekendSpanText}
+                </SizableText>
+                {activeStatusNote}
+              </YStack>
             );
           } else if (row === 'halts') {
             detail = (
-              <SizableText size={detailTextSize} color="$textDisabled">
-                {intl.formatMessage({
-                  id: ETranslations.trading_hours_trading_halts_description,
-                })}
-              </SizableText>
+              <YStack gap="$0.5">
+                <SizableText size={detailTextSize} color="$textDisabled">
+                  {intl.formatMessage({
+                    id: ETranslations.trading_hours_trading_halts_description,
+                  })}
+                </SizableText>
+                {activeStatusNote}
+              </YStack>
             );
           } else {
             const segment = tradingHours.segments.find((s) => s.key === row);
