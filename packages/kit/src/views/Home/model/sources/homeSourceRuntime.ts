@@ -197,6 +197,10 @@ function buildSourceKey({
         HOME_PORTFOLIO_SHOW_LP_TOKENS_CONTROL_ID
       ];
   }
+  const capabilityPrerequisites =
+    sourceId === 'capability'
+      ? [state.walletInputs.accountType, toNetworkFamily(activeAccount.network)]
+      : [];
   return [
     encodeKeyPart(state.session.ownerToken?.scopeKey),
     encodeKeyPart(sourceId),
@@ -211,6 +215,7 @@ function buildSourceKey({
         ? control
         : undefined,
     ),
+    ...capabilityPrerequisites.map(encodeKeyPart),
   ].join('|');
 }
 
@@ -317,8 +322,15 @@ export class HomeSourceRuntime {
         environment.activeAccount.indexedAccount?.id ||
       previous?.activeAccount.network?.id !==
         environment.activeAccount.network?.id ||
+      previous?.activeAccount.network?.impl !==
+        environment.activeAccount.network?.impl ||
+      previous?.activeAccount.network?.isAllNetworks !==
+        environment.activeAccount.network?.isAllNetworks ||
       previous?.activeAccount.wallet?.id !==
         environment.activeAccount.wallet?.id ||
+      previous?.activeAccount.wallet?.type !==
+        environment.activeAccount.wallet?.type ||
+      previous?.activeAccount.ready !== environment.activeAccount.ready ||
       previous?.settings.currencyInfo.id !==
         environment.settings.currencyInfo.id ||
       previous?.settings.locale !== environment.settings.locale ||
@@ -485,6 +497,13 @@ export class HomeSourceRuntime {
       !ownerToken ||
       !producerInstanceId ||
       state.session.authority !== 'ready'
+    ) {
+      return { kind: 'ignored' };
+    }
+    if (
+      sourceId === 'capability' &&
+      (state.walletInputs.accountType === 'unknown' ||
+        toNetworkFamily(environment.activeAccount.network) === 'unknown')
     ) {
       return { kind: 'ignored' };
     }

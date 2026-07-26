@@ -1204,7 +1204,18 @@ export function reduceHomeStore(
           });
         }
       }
-      return acceptedTransition(state, mutations);
+      const effects: IHomeStoreEffect[] =
+        mutations.length > 0 &&
+        state.session.authority === 'ready' &&
+        state.session.ownerToken
+          ? [
+              {
+                kind: 'reconcileSourcePlan',
+                sessionId: state.session.ownerToken.sessionId,
+              },
+            ]
+          : [];
+      return acceptedTransition(state, mutations, effects);
     }
     case 'runtimeChanged': {
       if (equal(state.runtime, event.runtime)) {

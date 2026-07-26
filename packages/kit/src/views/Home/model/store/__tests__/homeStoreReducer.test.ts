@@ -159,6 +159,29 @@ describe('Home Store reducer', () => {
     expect(next.resources).toBe(state.resources);
   });
 
+  it('reconciles the source plan when owner facts become ready', () => {
+    const state = {
+      ...createOwnedState(),
+      session: {
+        ...createOwnedState().session,
+        authority: 'ready' as const,
+        producerInstanceId: 'producer-a',
+      },
+    };
+    const facts = createBaseFacts();
+    const transition = reduceHomeStore(state, {
+      type: 'factsChanged',
+      facts,
+    });
+
+    expect(transition.effects).toEqual([
+      {
+        kind: 'reconcileSourcePlan',
+        sessionId: ownerToken.sessionId,
+      },
+    ]);
+  });
+
   it('shows an incomplete round without overwriting the confirmed cache', () => {
     let state = createOwnedState();
     const publishBalance = (
