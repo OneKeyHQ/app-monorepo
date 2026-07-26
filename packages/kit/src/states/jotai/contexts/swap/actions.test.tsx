@@ -1476,6 +1476,7 @@ describe('useSwapActions', () => {
   it('rearms automatic quote refresh from quote events without remounting the UI', async () => {
     jest.useFakeTimers();
     try {
+      const approvedBlockNumber = 123_456;
       const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
         storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
         storeInstance.set(swapSelectFromTokenAtom(), ethToken);
@@ -1490,6 +1491,7 @@ describe('useSwapActions', () => {
       });
       const quoteParams: IFetchQuotesParams = {
         autoSlippage: true,
+        blockNumber: approvedBlockNumber,
         fromNetworkId: ethToken.networkId,
         fromTokenAddress: ethToken.contractAddress,
         fromTokenAmount: '1',
@@ -1504,13 +1506,18 @@ describe('useSwapActions', () => {
           { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
           '0xabc',
           evmAccount.id,
-          undefined,
+          approvedBlockNumber,
           undefined,
           ESwapQuoteKind.SELL,
         );
         await Promise.resolve();
       });
       expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+      expect(mockFetchQuotesEvents).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          blockNumber: approvedBlockNumber,
+        }),
+      );
 
       const publishActionableQuote = (round: number) => {
         const quoteRequestId = store.get(
@@ -1562,6 +1569,11 @@ describe('useSwapActions', () => {
         });
 
         expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(round + 2);
+        expect(mockFetchQuotesEvents).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            blockNumber: undefined,
+          }),
+        );
         expect(store.get(swapQuoteIntervalCountAtom())).toBe(round + 1);
         expect(store.get(swapShouldRefreshQuoteAtom())).toBe(false);
       }

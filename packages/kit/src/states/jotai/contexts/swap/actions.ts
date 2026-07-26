@@ -508,7 +508,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           },
           event.params.userAddress,
           event.accountId,
-          event.params.blockNumber,
+          undefined, // Approval block only applies to the first post-approval quote.
           true,
           quoteKind,
           undefined,
