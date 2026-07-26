@@ -4,6 +4,11 @@ import android.view.View
 import com.facebook.proguard.annotations.DoNotStrip
 import com.facebook.react.uimanager.ThemedReactContext
 
+internal fun homeContainerShouldSubmitInitialSnapshot(
+  current: String,
+  next: String,
+): Boolean = next.isNotEmpty() && current != next
+
 @DoNotStrip
 class HybridHomeContainer(context: ThemedReactContext) : HybridHomeContainerSpec() {
   private val containerView = HomeContainerView(context).apply {
@@ -31,8 +36,9 @@ class HybridHomeContainer(context: ThemedReactContext) : HybridHomeContainerSpec
 
   override var initialSnapshotJson: String = ""
     set(value) {
+      val shouldSubmit = homeContainerShouldSubmitInitialSnapshot(field, value)
       field = value
-      if (value.isNotEmpty()) containerView.submitInitialSnapshot(value)
+      if (shouldSubmit) containerView.submitInitialSnapshot(value)
     }
 
   override var backgroundColor: String = "#FFFFFF"
