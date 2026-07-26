@@ -114,6 +114,7 @@ function BasicQRCode({
   const primaryColor = getTokenValue('$textLight', 'color');
   const secondaryColor = getTokenValue('$bgAppLight', 'color');
   const logoBackgroundColor = logoBGColor || secondaryColor;
+  const hasLogo = Boolean(logo || logoSvg);
   const result = useMemo(() => {
     const matrix = generateMatrix(value, ecl);
     if (drawType === 'dot') {
@@ -156,14 +157,12 @@ function BasicQRCode({
                 (i < 7 && j > matrix.length - 8)
               )
             ) {
-              if (
-                !(
-                  i >= matrixMiddleStart &&
-                  i <= matrixMiddleEnd &&
-                  j >= matrixMiddleStart &&
-                  j <= matrixMiddleEnd
-                )
-              ) {
+              const isInsideLogoClearArea =
+                i >= matrixMiddleStart &&
+                i <= matrixMiddleEnd &&
+                j >= matrixMiddleStart &&
+                j <= matrixMiddleEnd;
+              if (!hasLogo || !isInsideLogoClearArea) {
                 arr.push(
                   <Circle
                     key={`circle row${i} col${j}`}
@@ -219,6 +218,7 @@ function BasicQRCode({
     enableLinearGradient,
     gradientDirection,
     drawType,
+    hasLogo,
     linearGradient,
     logoSize,
     primaryColor,
@@ -328,7 +328,8 @@ export function QRCode({
     };
   }, [value, interval, isAnimatedCode, valueUr]);
 
-  if (!partValue) {
+  const displayValue = isAnimatedCode ? partValue : value || '';
+  if (!displayValue) {
     // TODO return Skeleton
     return null;
   }
@@ -341,7 +342,7 @@ export function QRCode({
         jc="center"
         ai="center"
       >
-        <BasicQRCode value={partValue} drawType={drawType} {...props} />
+        <BasicQRCode value={displayValue} drawType={drawType} {...props} />
       </Stack>
     </Theme>
   );

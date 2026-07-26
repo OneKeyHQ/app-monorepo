@@ -1,4 +1,6 @@
 // cspell: words unifold Unifold
+import { useIntl } from 'react-intl';
+
 import {
   Icon,
   IconButton,
@@ -9,6 +11,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IUnifoldDepositExecution } from '@onekeyhq/shared/types/unifoldDeposit';
 
 import {
@@ -20,7 +23,10 @@ import {
   shortenUnifoldRef,
 } from './unifoldFormat';
 
+import type { IntlShape } from 'react-intl';
 import type { LayoutChangeEvent } from 'react-native';
+
+export const UNIFOLD_STATUS_CARDS_CONTENT_GAP = 8;
 
 // Per-execution status cards pinned to the bottom of the deposit modal while
 // it is open (D2 decision: SDK-style in-modal cards; after the modal closes
@@ -36,63 +42,66 @@ function StatusBadge({ execution }: { execution: IUnifoldDepositExecution }) {
   if (execution.status === 'succeeded') {
     return (
       <Stack
-        position="absolute"
-        right={-2}
-        bottom={-2}
+        w="$3"
+        h="$3"
         bg="$bgSuccessStrong"
         borderRadius="$full"
-        p="$0.5"
+        alignItems="center"
+        justifyContent="center"
+        opacity={1}
       >
-        <Icon name="CheckLargeOutline" size="$2.5" color="$iconOnColor" />
+        <Icon name="CheckLargeOutline" size="$1.5" color="$iconOnColor" />
       </Stack>
     );
   }
   if (isUnifoldExecutionFailed(execution)) {
     return (
-      <Stack
-        position="absolute"
-        right={-2}
-        bottom={-2}
-        bg="$bgCautionStrong"
-        borderRadius="$full"
-        p="$0.5"
-      >
+      <Stack bg="$bgCautionStrong" borderRadius="$full" p="$0.5">
         <Icon name="ErrorOutline" size="$2.5" color="$iconOnColor" />
       </Stack>
     );
   }
-  return (
-    <Stack position="absolute" right={-2} bottom={-2}>
-      <Spinner size="small" />
-    </Stack>
-  );
+  return <Spinner size="small" scale={0.65} />;
 }
 
-function statusTitle(execution: IUnifoldDepositExecution): string {
+function statusTitleId(execution: IUnifoldDepositExecution): ETranslations {
   if (execution.status === 'succeeded') {
-    return 'Deposit completed';
+    return ETranslations.perp_unifold_deposit_completed__title;
   }
   if (isUnifoldExecutionFailed(execution)) {
-    return 'Deposit needs attention';
+    return ETranslations.perp_unifold_deposit_needs_attention__title;
   }
-  return 'Deposit processing';
+  return ETranslations.perp_unifold_deposit_processing__title;
 }
 
 function statusSubtitle(
   execution: IUnifoldDepositExecution,
   sessionId: string | null,
+  intl: IntlShape,
 ): string {
   if (isUnifoldExecutionFailed(execution)) {
     // The card subtitle is a single narrow line, so the ref is shortened here;
     // the full value stays copyable in the execution detail.
     return sessionId
-      ? `Contact support · Ref ${shortenUnifoldRef(sessionId)}`
-      : 'Contact support';
+      ? intl.formatMessage(
+          { id: ETranslations.perp_unifold_contact_support_ref__desc },
+          { ref: shortenUnifoldRef(sessionId) },
+        )
+      : intl.formatMessage({ id: ETranslations.swap_ch_status_hold });
   }
   if (execution.status === 'delayed') {
-    return 'Processing, taking longer than usual';
+    return intl.formatMessage({
+      id: ETranslations.perp_unifold_processing_delayed__desc,
+    });
   }
   return formatUnifoldExecutionDate(execution.createdAt);
+}
+
+function statusCardBackground(execution: IUnifoldDepositExecution) {
+  if (isUnifoldExecutionFailed(execution)) {
+    return '$bgCautionSubdued';
+  }
+  return '$bgSubdued';
 }
 
 export function UnifoldExecutionStatusCards({
@@ -114,6 +123,7 @@ export function UnifoldExecutionStatusCards({
   onHeightChange?: (height: number) => void;
   floating?: boolean;
 }) {
+  const intl = useIntl();
   if (!executions.length) {
     return null;
   }
@@ -128,7 +138,7 @@ export function UnifoldExecutionStatusCards({
             bottom: '$0',
           } as const)
         : undefined)}
-      pb="$2"
+      pb={floating ? '$3' : '$2'}
       gap="$1"
       onLayout={(event: LayoutChangeEvent) =>
         // Rounded up: react-native-web measures through ResizeObserver and
@@ -140,51 +150,38 @@ export function UnifoldExecutionStatusCards({
       {executions.map((execution) => (
         <XStack
           key={execution.executionId}
-          bg="$bgInverse"
+          testID={`perps-unifold-status-card-${execution.executionId}`}
+          bg={statusCardBackground(execution)}
           borderRadius="$3"
-          p="$3"
+          p="$2.5"
           alignItems="center"
-          gap="$3"
+          gap="$2.5"
           borderWidth="$px"
           borderColor={
             isUnifoldExecutionFailed(execution)
               ? '$borderCaution'
-              : '$borderInverse'
+              : '$borderSubdued'
           }
           cursor="pointer"
           onPress={() => onPressExecution?.(execution)}
         >
-          <Stack>
-            <Token
-              size="md"
-              tokenImageUri={normalizeUnifoldIconUrl(
-                execution.destinationTokenIconUrl,
-              )}
-            />
-            <StatusBadge execution={execution} />
-          </Stack>
+          <Token
+            size="sm"
+            tokenImageUri={normalizeUnifoldIconUrl(
+              execution.destinationTokenIconUrl,
+            )}
+            cornerBadge={<StatusBadge execution={execution} />}
+          />
           <YStack flex={1} minWidth={0}>
-            <SizableText
-              size="$bodyMdMedium"
-              color="$textInverse"
-              numberOfLines={1}
-            >
-              {statusTitle(execution)}
+            <SizableText size="$bodySmMedium" color="$text" numberOfLines={1}>
+              {intl.formatMessage({ id: statusTitleId(execution) })}
             </SizableText>
-            <SizableText
-              size="$bodySm"
-              color="$textInverseSubdued"
-              numberOfLines={1}
-            >
-              {statusSubtitle(execution, sessionId)}
+            <SizableText size="$bodyXs" color="$textSubdued" numberOfLines={1}>
+              {statusSubtitle(execution, sessionId, intl)}
             </SizableText>
           </YStack>
           <YStack alignItems="flex-end" flexShrink={0}>
-            <SizableText
-              size="$bodyMdMedium"
-              color="$textInverse"
-              numberOfLines={1}
-            >
+            <SizableText size="$bodySmMedium" color="$text" numberOfLines={1}>
               {formatUnifoldUsd(
                 execution.destinationAmountUsd ?? execution.sourceAmountUsd,
               )}
@@ -200,13 +197,19 @@ export function UnifoldExecutionStatusCards({
             typeof estimatedProcessingTimeSeconds === 'number' &&
             estimatedProcessingTimeSeconds > 0 ? (
               <SizableText
-                size="$bodySm"
-                color="$textInverseSubdued"
+                size="$bodyXs"
+                color="$textSubdued"
                 numberOfLines={1}
               >
-                {`Est. ${formatUnifoldProcessingTime(
-                  estimatedProcessingTimeSeconds,
-                )}`}
+                {intl.formatMessage(
+                  { id: ETranslations.perp_unifold_estimated_time__value },
+                  {
+                    time: formatUnifoldProcessingTime(
+                      estimatedProcessingTimeSeconds,
+                      intl,
+                    ),
+                  },
+                )}
               </SizableText>
             ) : null}
           </YStack>
@@ -215,7 +218,10 @@ export function UnifoldExecutionStatusCards({
             icon="CrossedSmallOutline"
             size="small"
             variant="tertiary"
-            onPress={() => onDismiss(execution.executionId)}
+            onPress={(event) => {
+              event.stopPropagation?.();
+              onDismiss(execution.executionId);
+            }}
           />
         </XStack>
       ))}

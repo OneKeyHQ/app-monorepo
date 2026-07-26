@@ -1,4 +1,7 @@
-import { getSafeUnifoldRecipient } from './unifoldRecipient';
+import {
+  getSafeUnifoldRecipient,
+  isUnifoldDepositAccountDisabled,
+} from './unifoldRecipient';
 
 const ADDR = '0x1111111111111111111111111111111111111111';
 
@@ -53,5 +56,20 @@ describe('getSafeUnifoldRecipient', () => {
         activeAccountAddress: mixedCase.toLowerCase(),
       }),
     ).toBe(mixedCase);
+  });
+});
+
+describe('isUnifoldDepositAccountDisabled', () => {
+  it('disables deposits for watch-only accounts', () => {
+    expect(
+      isUnifoldDepositAccountDisabled(
+        'watching--60--0x1111111111111111111111111111111111111111',
+      ),
+    ).toBe(true);
+  });
+
+  it('keeps deposits enabled for signable and missing account ids', () => {
+    expect(isUnifoldDepositAccountDisabled('hd-1--m/44/60/0/0/0')).toBe(false);
+    expect(isUnifoldDepositAccountDisabled(undefined)).toBe(false);
   });
 });

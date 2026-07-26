@@ -12,7 +12,11 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { UnifoldDepositQRCard } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/UnifoldDeposit/UnifoldDepositQRCard';
-import { UnifoldExecutionStatusCards } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/UnifoldDeposit/UnifoldExecutionStatusCards';
+import { getUnifoldDesktopDialogBodyMaxHeight } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/UnifoldDeposit/unifoldDialogLayout';
+import {
+  UNIFOLD_STATUS_CARDS_CONTENT_GAP,
+  UnifoldExecutionStatusCards,
+} from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/UnifoldDeposit/UnifoldExecutionStatusCards';
 import {
   formatUnifoldTokenAmount,
   formatUnifoldUsd,
@@ -40,6 +44,9 @@ const USDC_ICON = 'https://api.unifold.io/api/public/icons/tokens/svg/usdc.svg';
 const ARB_ICON =
   'https://api.unifold.io/api/public/icons/networks/svg/arbitrum.svg';
 const TX = '0x41f367d5a06097f392e2b3d88cc0170a41fce6b20d46bd552145a7d5af87d592';
+const SHORT_WINDOW_HEIGHT = 386;
+const SHORT_WINDOW_BODY_MAX_HEIGHT =
+  getUnifoldDesktopDialogBodyMaxHeight(SHORT_WINDOW_HEIGHT);
 
 // Verbatim payload from a real Arbitrum deposit (2026-07-22).
 const SUCCEEDED: IUnifoldDepositExecution = {
@@ -269,54 +276,57 @@ const MOBILE_BODY_WIDTH = 343;
 // visually identical to UnifoldTransferContent's real ones.
 function ProcessingTimeRowStub() {
   return (
-    <YStack
-      px="$2.5"
-      bg="$bgSubdued"
-      borderRadius="$3"
-      borderWidth="$px"
-      borderColor="$borderSubdued"
-    >
-      <XStack py="$2.5" alignItems="center" justifyContent="space-between">
-        <XStack alignItems="center" gap="$2">
-          <Stack borderRadius="$full" p="$1" bg="$bgInfoSubdued">
-            <Icon name="ClockTimeHistoryOutline" size="$3" color="$iconInfo" />
-          </Stack>
-          <SizableText size="$bodySm" color="$textSubdued">
-            Processing time:
-          </SizableText>
+    <YStack testID="perps-unifold-processing-details">
+      <XStack
+        minHeight="$12"
+        alignItems="center"
+        justifyContent="space-between"
+        gap="$3"
+      >
+        <SizableText size="$bodySm" color="$textSubdued">
+          Deposit details
+        </SizableText>
+        <XStack alignItems="center" gap="$1.5">
           <SizableText size="$bodySmMedium" color="$text">
             {'< 1 min'}
           </SizableText>
+          <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
         </XStack>
-        <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
       </XStack>
     </YStack>
   );
 }
 
-function TermsRowStub({ waiting }: { waiting?: boolean }) {
+function TermsRowStub({
+  waiting,
+  testID,
+}: {
+  waiting?: boolean;
+  testID?: string;
+}) {
   return (
-    <XStack alignItems="center" justifyContent="space-between">
+    <XStack testID={testID} alignItems="center" justifyContent="space-between">
       <XStack alignItems="center" gap="$1.5">
         {waiting ? (
           <>
-            <Spinner size="small" />
+            <Spinner size="small" scale={0.65} />
             <SizableText size="$bodySm" color="$textSubdued">
               Checking for deposit
             </SizableText>
           </>
         ) : null}
       </XStack>
-      <XStack alignItems="center" gap="$1">
-        <SizableText size="$bodySm" color="$textInfo">
-          Terms
-        </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued">
-          |
-        </SizableText>
-        <SizableText size="$bodySm" color="$textInfo">
-          Help
-        </SizableText>
+      <XStack alignItems="center" gap="$1.5">
+        <Button size="small" variant="tertiary" childrenAsText={false} px="$2">
+          <SizableText size="$bodySm" color="$textInfo">
+            Terms
+          </SizableText>
+        </Button>
+        <Button size="small" variant="tertiary" childrenAsText={false} px="$2">
+          <SizableText size="$bodySm" color="$textInfo">
+            Help
+          </SizableText>
+        </Button>
       </XStack>
     </XStack>
   );
@@ -325,17 +335,17 @@ function TermsRowStub({ waiting }: { waiting?: boolean }) {
 function ActivationWarningStub() {
   return (
     <XStack
-      bg="$bgCautionSubdued"
-      borderWidth="$px"
-      borderColor="$borderCautionSubdued"
+      testID="perps-unifold-activation-warning"
+      bg="$bgInfoSubdued"
       borderRadius="$3"
       p="$3"
       gap="$2"
       alignItems="center"
     >
-      <Icon name="ErrorOutline" size="$4" color="$iconCaution" />
-      <SizableText size="$bodySm" color="$textCaution" flex={1}>
-        ~$1 fee is required to activate a new HyperCore account.
+      <Icon name="InfoCircleOutline" size="$4" color="$iconInfo" />
+      <SizableText size="$bodySm" color="$textInfo" flex={1}>
+        Activating a new Perps account costs approximately $1. Charged by
+        Hyperliquid.
       </SizableText>
     </XStack>
   );
@@ -347,6 +357,7 @@ function ActivationWarningStub() {
 // the same presentational pieces.
 function PanelFrame({
   title,
+  testID,
   width = DESKTOP_BODY_WIDTH,
   maxHeight,
   executions,
@@ -359,6 +370,7 @@ function PanelFrame({
   onDismiss,
 }: {
   title: string;
+  testID?: string;
   width?: number;
   maxHeight?: number;
   executions: IUnifoldDepositExecution[];
@@ -371,7 +383,9 @@ function PanelFrame({
   onDismiss?: (executionId: string) => void;
 }) {
   const [cardsHeight, setCardsHeight] = useState(0);
-  const reserve = executions.length ? cardsHeight : undefined;
+  const reserve = executions.length
+    ? cardsHeight + UNIFOLD_STATUS_CARDS_CONTENT_GAP
+    : undefined;
   const body = (
     <Stack pb={reserve}>
       <YStack gap="$3">
@@ -387,6 +401,7 @@ function PanelFrame({
           chainIconUri={ARB_ICON}
           loading={Boolean(qrLoading)}
         />
+        {activationWarning ? <ActivationWarningStub /> : null}
         <ProcessingTimeRowStub />
         {expanded ? (
           <YStack gap="$2.5" px="$2.5">
@@ -401,14 +416,16 @@ function PanelFrame({
             </SizableText>
           </YStack>
         ) : null}
-        {activationWarning ? <ActivationWarningStub /> : null}
-        <TermsRowStub waiting={!executions.length} />
+        <TermsRowStub
+          testID={testID ? `${testID}-terms` : undefined}
+          waiting={!executions.length}
+        />
       </YStack>
     </Stack>
   );
 
   return (
-    <YStack gap="$2">
+    <YStack testID={testID} gap="$2">
       <SizableText size="$bodySmMedium" color="$textSubdued">
         {title}
       </SizableText>
@@ -424,7 +441,12 @@ function PanelFrame({
           {maxHeight === undefined ? (
             <Stack>{body}</Stack>
           ) : (
-            <ScrollView maxHeight={maxHeight}>{body}</ScrollView>
+            <ScrollView
+              testID={testID ? `${testID}-scroll` : undefined}
+              maxHeight={maxHeight}
+            >
+              {body}
+            </ScrollView>
           )}
           {executions.length ? (
             <UnifoldExecutionStatusCards
@@ -542,11 +564,19 @@ function CompositePanelGallery() {
       />
       <DismissiblePanelFrame />
       <PanelFrame
+        testID="unifold-short-window-one-card"
         title="Short window 386pt · expanded + activation warning + 1 card (must scroll)"
-        maxHeight={386}
+        maxHeight={SHORT_WINDOW_BODY_MAX_HEIGHT}
         expanded
         activationWarning
         executions={[DELAYED]}
+      />
+      <PanelFrame
+        testID="unifold-short-window-three-cards"
+        title="Short window 386pt · expanded + 3 cards (must scroll)"
+        maxHeight={SHORT_WINDOW_BODY_MAX_HEIGHT}
+        expanded
+        executions={[SUCCEEDED, DELAYED, PENDING]}
       />
       <PanelFrame
         title="Loading race · address ready but no selection yet"

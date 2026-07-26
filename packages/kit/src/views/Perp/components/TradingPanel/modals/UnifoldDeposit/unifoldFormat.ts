@@ -1,4 +1,6 @@
 // cspell: words unifold Unifold
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
@@ -6,6 +8,8 @@ import {
   parseUnifoldExecutionCreatedAtMs,
 } from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
 import type { IUnifoldDepositExecution } from '@onekeyhq/shared/types/unifoldDeposit';
+
+import type { IntlShape } from 'react-intl';
 
 // `terminal` covers succeeded as well, so it can never stand in for "went
 // wrong" — every failure affordance keys on this instead.
@@ -26,15 +30,25 @@ export function shortenUnifoldRef(id: string): string {
 // SDK formatter: ceil(seconds/60) → "< N min"; ≥60min → "< N hr"; null → "< 1 min".
 export function formatUnifoldProcessingTime(
   seconds: number | null | undefined,
+  intl: IntlShape,
 ): string {
   if (!seconds || seconds <= 0) {
-    return '< 1 min';
+    return intl.formatMessage(
+      { id: ETranslations.perp_unifold_less_than_minutes__value },
+      { count: 1 },
+    );
   }
   const mins = Math.ceil(seconds / 60);
   if (mins >= 60) {
-    return `< ${Math.ceil(mins / 60)} hr`;
+    return intl.formatMessage(
+      { id: ETranslations.perp_unifold_less_than_hours__value },
+      { count: Math.ceil(mins / 60) },
+    );
   }
-  return `< ${mins} min`;
+  return intl.formatMessage(
+    { id: ETranslations.perp_unifold_less_than_minutes__value },
+    { count: mins },
+  );
 }
 
 // Amount discipline (contract §4-3): strings end-to-end, null renders as an

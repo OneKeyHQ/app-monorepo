@@ -1,9 +1,6 @@
 // cspell: words unifold Unifold hypercore Hypercore
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   perpsActiveAccountAtom,
@@ -11,12 +8,9 @@ import {
   usePerpsActiveAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  formatUnifoldUsdAmount,
-  pickUnifoldDepositWallet,
-} from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { pickUnifoldDepositWallet } from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
 import type {
   IUnifoldActivationStatus,
   IUnifoldDepositAddressResult,
@@ -41,12 +35,14 @@ import {
   UNIFOLD_HYPERCORE_USDC_PERP_ADDRESS,
 } from '../consts/unifold';
 import { hasUsableUnifoldSupportedAssets } from '../utils/unifoldDestination';
+import { shouldEnableUnifoldLedgerUpdates } from '../utils/unifoldExecution';
 import { getSafeUnifoldRecipient } from '../utils/unifoldRecipient';
 
 // Default source preference mirrors the SDK config used before the API
 // migration: Arbitrum USDC.
 const DEFAULT_SOURCE_CHAIN_ID = '42161';
 const DEFAULT_SOURCE_SYMBOL = 'USDC';
+const SOURCE_SELECTION_CACHE_VERSION = 'v1';
 
 const EXECUTIONS_POLL_INTERVAL_MS = 3000;
 const RETRY_INTERVAL_MS = 5000;
@@ -193,6 +189,58 @@ function pickDefaultSelection(
   return { asset: usableAssets[0], chain: usableAssets[0].chains[0] };
 }
 
+function getSourceSelectionCacheKey(
+  destination: IUnifoldDepositDestination,
+): string {
+  return [
+    'perpsUnifoldSourceSelection',
+    SOURCE_SELECTION_CACHE_VERSION,
+    destination.destinationChainType,
+    destination.destinationChainId,
+    destination.destinationTokenAddress,
+  ].join(':');
+}
+
+function readCachedSourceSelection(
+  destination: IUnifoldDepositDestination,
+): IUnifoldSourceSelection | null {
+  return (
+    swrCacheUtils.get<IUnifoldSourceSelection>(
+      getSourceSelectionCacheKey(destination),
+    ) ?? null
+  );
+}
+
+function cacheSourceSelection(
+  destination: IUnifoldDepositDestination,
+  selection: IUnifoldSourceSelection,
+) {
+  // Cache only the catalog choice. Deposit addresses and session data must
+  // always be created again for each modal instance.
+  swrCacheUtils.set(getSourceSelectionCacheKey(destination), selection);
+}
+
+function reconcileSourceSelection(
+  assets: IUnifoldSupportedAsset[],
+  previous: IUnifoldSourceSelection | null,
+): IUnifoldSourceSelection | null {
+  if (previous) {
+    const asset = assets.find(
+      (item) =>
+        item.symbol.toUpperCase() === previous.asset.symbol.toUpperCase(),
+    );
+    const chain = asset?.chains.find(
+      (item) =>
+        item.chain_id === previous.chain.chain_id &&
+        item.chain_type === previous.chain.chain_type,
+    );
+    if (asset && chain) {
+      return { asset, chain };
+    }
+  }
+  return pickDefaultSelection(assets);
+}
+
 export function usePerpsUnifoldDepositSession({
   enabled,
   expectedRecipient,
@@ -287,7 +335,7 @@ export function usePerpsUnifoldDepositSession({
   }, [liveAccountAddress, recipientAddress, applyAddressState]);
 
   const [selection, setSelection] = useState<IUnifoldSourceSelection | null>(
-    null,
+    () => readCachedSourceSelection(destination),
   );
   const [sessionExecutions, setSessionExecutions] = useState<
     IUnifoldDepositExecution[]
@@ -346,30 +394,52 @@ export function usePerpsUnifoldDepositSession({
   ]);
 
   useEffect(() => {
-    if (!supportedAssets || selection) {
+    if (!supportedAssets) {
       return;
     }
     if (!hasUsableUnifoldSupportedAssets(supportedAssets)) {
       applyAddressState({ status: 'error', errorType: 'unavailable' });
       return;
     }
-    setSelection(pickDefaultSelection(supportedAssets));
-  }, [supportedAssets, selection, applyAddressState]);
+    setSelection((previous) => {
+      const next = reconcileSourceSelection(supportedAssets, previous);
+      if (next) {
+        cacheSourceSelection(destination, next);
+      }
+      return next;
+    });
+  }, [supportedAssets, applyAddressState, destination]);
 
   // Mirrors the SDK chain-snap rule: picking a token whose chains do not
   // include the current chain snaps to that token's first chain.
-  const selectToken = useCallback((asset: IUnifoldSupportedAsset) => {
-    setSelection((prev) => {
-      const chain =
-        asset.chains.find((c) => c.chain_id === prev?.chain.chain_id) ??
-        asset.chains[0];
-      return chain ? { asset, chain } : prev;
-    });
-  }, []);
+  const selectToken = useCallback(
+    (asset: IUnifoldSupportedAsset) => {
+      setSelection((prev) => {
+        const chain =
+          asset.chains.find((c) => c.chain_id === prev?.chain.chain_id) ??
+          asset.chains[0];
+        const next = chain ? { asset, chain } : prev;
+        if (next) {
+          cacheSourceSelection(destination, next);
+        }
+        return next;
+      });
+    },
+    [destination],
+  );
 
-  const selectChain = useCallback((chain: IUnifoldSupportedAssetChain) => {
-    setSelection((prev) => (prev ? { ...prev, chain } : prev));
-  }, []);
+  const selectChain = useCallback(
+    (chain: IUnifoldSupportedAssetChain) => {
+      setSelection((prev) => {
+        const next = prev ? { ...prev, chain } : prev;
+        if (next) {
+          cacheSourceSelection(destination, next);
+        }
+        return next;
+      });
+    },
+    [destination],
+  );
 
   // ── Deposit address (echo-checked in bg); 5s auto-retry on failure ──
   const [addressAttempt, setAddressAttempt] = useState(0);
@@ -530,13 +600,9 @@ export function usePerpsUnifoldDepositSession({
 
   // ── Executions poll (3s while mounted and address is ready) ──
   const seenRef = useRef(new Map<string, IUnifoldExecutionStatus>());
-  // The first successful tick primes the seen map WITHOUT announcing: a modal
-  // reopen within the 60s lookback must not re-toast an already-announced
-  // (possibly already-terminal) execution.
-  const primedRef = useRef(false);
   const tickBusyRef = useRef(false);
-  // Outcomes this session announced itself; reported at unmount so the bg
-  // loop never announces them a second time.
+  // Terminal outcomes handled by this session; reported at unmount so the bg
+  // loop does not process them a second time.
   const announcedRef = useRef(new Set<string>());
   // In-flight executions already registered with the bg tracker (muted), so a
   // hard-killed session (popup closed, app killed) leaves nothing behind that
@@ -546,10 +612,6 @@ export function usePerpsUnifoldDepositSession({
   // Gates the unmount handoff: a session that never claimed tracking (address
   // never became ready) has nothing to hand back.
   const claimedRef = useRef(false);
-  // Held in a ref so a locale change never restarts the poll.
-  const intl = useIntl();
-  const intlRef = useRef(intl);
-  intlRef.current = intl;
   // The poll starts once the address is ready and then stays up for the rest
   // of the session. A veto that lands later (sanction, catalog error) must not
   // tear down tracking while money is already in flight.
@@ -561,6 +623,23 @@ export function usePerpsUnifoldDepositSession({
   if (addressState.status === 'ready') {
     sessionIdRef.current = addressState.result.sessionId;
   }
+  const acknowledgePresentedExecution = useCallback(
+    (execution: IUnifoldDepositExecution) => {
+      if (
+        !recipientAddress ||
+        !execution.terminal ||
+        announcedRef.current.has(execution.executionId)
+      ) {
+        return;
+      }
+      announcedRef.current.add(execution.executionId);
+      void backgroundApiProxy.serviceUnifoldDeposit.settleAnnouncedExecution({
+        recipientAddress,
+        executionId: execution.executionId,
+      });
+    },
+    [recipientAddress],
+  );
   useEffect(() => {
     if (!enabled || !recipientAddress || !pollEnabled) {
       return;
@@ -633,42 +712,19 @@ export function usePerpsUnifoldDepositSession({
             },
           );
         }
-        const priming = !primedRef.current;
-        primedRef.current = true;
-        // Announce transitions oldest → newest so multi-deposit sessions play
-        // back in order.
+        // Process transitions oldest → newest so multi-deposit sessions refresh
+        // in order. A succeeded status on the first poll must also enable
+        // ledger updates even though the status card itself is historical.
         for (const item of [...items].toReversed()) {
           const seenStatus = seenRef.current.get(item.executionId);
+          const shouldEnableLedgerUpdates = shouldEnableUnifoldLedgerUpdates({
+            previousStatus: seenStatus,
+            nextStatus: item.status,
+          });
           if (seenStatus !== item.status) {
             seenRef.current.set(item.executionId, item.status);
-            if (!priming && item.terminal) {
-              // This session is announcing the outcome (success toast below;
-              // failed/refunded via the status cards), so its tracked entry
-              // is settled right now — at unmount it would be unmuted and the
-              // bg loop would announce it a second time.
-              announcedRef.current.add(item.executionId);
-              void backgroundApiProxy.serviceUnifoldDeposit.settleAnnouncedExecution(
-                {
-                  recipientAddress,
-                  executionId: item.executionId,
-                },
-              );
-              if (item.status === 'succeeded') {
-                // Same key as the background loop's toast: one event must not
-                // be announced in two different languages depending on whether
-                // the modal happened to be open.
-                Toast.success({
-                  title: intlRef.current.formatMessage({
-                    id: ETranslations.perp_deposit_success_title,
-                  }),
-                  message: formatUnifoldUsdAmount(
-                    item.destinationAmountUsd ?? item.sourceAmountUsd,
-                  ),
-                });
-                void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
-              }
-              // failed/refunded render via the status cards; no extra toast
-              // (contract §1: never invent failure copy).
+            if (shouldEnableLedgerUpdates) {
+              void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
             }
           }
         }
@@ -726,6 +782,7 @@ export function usePerpsUnifoldDepositSession({
   const qrAddress = useMemo(() => {
     if (
       addressState.status !== 'ready' ||
+      !supportedAssets ||
       !selection ||
       !activationGatePassed
     ) {
@@ -736,7 +793,7 @@ export function usePerpsUnifoldDepositSession({
       selection.chain.chain_type,
     );
     return wallet?.address ?? null;
-  }, [addressState, selection, activationGatePassed]);
+  }, [addressState, supportedAssets, selection, activationGatePassed]);
 
   // The ready address is withheld while the screen is pending, so the QR keeps
   // its skeleton rather than the terminal "No address available" plate: the
@@ -789,6 +846,7 @@ export function usePerpsUnifoldDepositSession({
     selectChain,
     qrAddress,
     sessionExecutions,
+    acknowledgePresentedExecution,
     // Never claim to be watching for a deposit to an address the user has not
     // been shown: the poll (and its tracking claim) intentionally starts on
     // the raw ready state so money already in flight keeps being announced,
