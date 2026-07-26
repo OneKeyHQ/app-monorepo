@@ -46,12 +46,11 @@ export const initSentry = () => {
     dsn: process.env.SENTRY_DSN_REACT_NATIVE || '',
     ...basicOptions,
     maxCacheItems: 60,
-    maxBreadcrumbs: 0,
     enableAppHangTracking: true,
     appHangTimeoutInterval: 5,
     // Performance tracing fully disabled on native — tracesSampleRate is
     // stripped above so the SDK installs none of its default tracing
-    // integrations; error reporting remains enabled.
+    // integrations; error reporting + breadcrumbs are unaffected.
     integrations: [],
     enableAutoPerformanceTracing: false,
     // Disable Hermes profiling on React Native. With multiple Hermes runtimes

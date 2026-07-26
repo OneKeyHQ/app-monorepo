@@ -1,4 +1,3 @@
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ENotificationPushTopicTypes } from '@onekeyhq/shared/types/notification';
 
 import { BaseScene } from '../../../base/baseScene';

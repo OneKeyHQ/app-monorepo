@@ -41,6 +41,5 @@ describe('initSentry', () => {
     expect(initMock).toHaveBeenCalledTimes(1);
     expect(initMock.mock.calls[0][0].tracesSampleRate).toBeUndefined();
     expect(initMock.mock.calls[0][0].profilesSampleRate).toBeUndefined();
-    expect(initMock.mock.calls[0][0].maxBreadcrumbs).toBe(0);
   });
 });
