@@ -8,19 +8,6 @@ export class PageScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
   public pageView(pageName: string) {
-    if (!platformEnv.isNative) {
-      setTimeout(() => {
-        void import('@onekeyhq/shared/src/modules3rdParty/sentry').then(
-          ({ addBreadcrumb }) => {
-            addBreadcrumb({
-              category: 'page',
-              message: pageName,
-              level: 'info',
-            });
-          },
-        );
-      });
-    }
     return { pageName };
   }
 
