@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useTheme } from '@tamagui/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
@@ -110,6 +111,8 @@ import {
 import SwapFAQ from '../../components/SwapFAQ';
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
+import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
+import { useRefreshQuoteWhenStockMarketReopens } from '../../hooks/useRefreshQuoteWhenStockMarketReopens';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import {
   useShouldShowSwapLocalData,
@@ -1283,6 +1286,16 @@ function StockTradeTicket({
   compact?: boolean;
 }) {
   const amountInputState = useSwapStockAmountInputState({ stockChannel });
+  const hasPositiveInputAmount = new BigNumber(
+    amountInputState.inputValue || 0,
+  ).gt(0);
+  useRefreshQuoteWhenStockMarketReopens({
+    enabled: stockChannel.readyForQuote && hasPositiveInputAmount,
+    marketIsOpen: stockChannel.stockMarketStatus?.open,
+    onRefresh: refreshAction,
+    scopeKey: getTokenIdentityKey(stockChannel.currentStockToken),
+  });
+
   return (
     <YStack gap={compact ? '$3' : '$4'}>
       <StockTradeSideSwitch value={tradeSide} onChange={onTradeSideChange} />

@@ -1628,6 +1628,20 @@ describe('useSwapActions', () => {
       toToken: stockTokenA,
     },
     {
+      scenario: 'Swap stock market-closed',
+      errorData: {
+        errorMessage: 'Market is closed',
+        eventId: 'swap-stock-market-closed',
+        isMarketOpen: false,
+        isStock: true,
+      },
+      fromToken: usdcToken,
+      manualRefreshRequired: false,
+      protocol: ESwapTabSwitchType.SWAP,
+      quoteProtocol: EProtocolOfExchange.SWAP,
+      toToken: stockTokenA,
+    },
+    {
       scenario: 'Limit',
       errorData: {
         errorMessage: 'Limit price is invalid',
