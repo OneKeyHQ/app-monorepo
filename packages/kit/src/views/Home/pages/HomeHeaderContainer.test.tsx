@@ -4,7 +4,7 @@ import { type ReactTestRenderer, act, create } from 'react-test-renderer';
 
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 
-import type { IHomeBalancePresentation } from '../../../hooks/useHomeBalanceState';
+import type { IHomeDisplayModel } from '../model/policies/homeDisplayModelPolicy';
 
 const mockTestGlobal = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean;
@@ -48,20 +48,26 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: { isNative: true },
 }));
 
-let mockBalancePresentation: IHomeBalancePresentation = {
-  balanceState: 'zero',
-  correlated: {
-    kind: 'ready',
-    balance: { amount: '0', currency: 'usd' },
-    balanceState: 'zero',
-    revision: 'revision-zero',
-    showPositiveBanner: false,
+let mockDisplayModel: IHomeDisplayModel = {
+  actions: {
+    kind: 'zero',
+    items: ['addMoney', 'receive', 'more'],
   },
+  balance: {
+    kind: 'ready',
+    authority: 'live',
+    balance: { amount: '0', currency: 'usd' },
+    revision: 'revision-zero',
+  },
+  banner: { kind: 'hidden' },
+  body: { kind: 'portfolio' },
+  fundingVerdict: 'zero',
+  navigation: { kind: 'default' },
 };
 let mockBanners: unknown[] = [];
 
 jest.mock('../../../hooks/useHomeBalanceState', () => ({
-  useHomeBalancePresentation: () => mockBalancePresentation,
+  useHomeDisplayModel: () => mockDisplayModel,
 }));
 
 jest.mock('../../../states/jotai/contexts/home', () => ({
@@ -103,13 +109,9 @@ jest.mock('../model/react/useHomeRefreshIntents', () => ({
 jest.mock('../components/WalletActions', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
-    WalletActions: ({
-      balancePresentation,
-    }: {
-      balancePresentation: IHomeBalancePresentation;
-    }) =>
+    WalletActions: ({ actionFamily }: { actionFamily: 'funded' | 'zero' }) =>
       React.createElement('View', {
-        balancePresentation,
+        actionFamily,
         testID: 'wallet-actions',
       }),
   };
@@ -127,7 +129,7 @@ jest.mock('./HomeOverviewContainer', () => {
     HomeOverviewContainer: ({
       balancePresentation,
     }: {
-      balancePresentation?: IHomeBalancePresentation['correlated'];
+      balancePresentation?: IHomeDisplayModel['balance'];
     }) =>
       React.createElement('View', {
         balancePresentation,
@@ -141,15 +143,21 @@ beforeAll(() => {
 });
 
 afterEach(() => {
-  mockBalancePresentation = {
-    balanceState: 'zero',
-    correlated: {
-      kind: 'ready',
-      balance: { amount: '0', currency: 'usd' },
-      balanceState: 'zero',
-      revision: 'revision-zero',
-      showPositiveBanner: false,
+  mockDisplayModel = {
+    actions: {
+      kind: 'zero',
+      items: ['addMoney', 'receive', 'more'],
     },
+    balance: {
+      kind: 'ready',
+      authority: 'live',
+      balance: { amount: '0', currency: 'usd' },
+      revision: 'revision-zero',
+    },
+    banner: { kind: 'hidden' },
+    body: { kind: 'portfolio' },
+    fundingVerdict: 'zero',
+    navigation: { kind: 'default' },
   };
   mockBanners = [];
 });
@@ -170,7 +178,7 @@ describe('HomeHeaderContainer refresh ownership', () => {
     expect(
       view.root.findByProps({ testID: 'home-overview' }).props
         .balancePresentation,
-    ).toEqual(mockBalancePresentation.correlated);
+    ).toEqual(mockDisplayModel.balance);
 
     act(() => {
       view.update(<HomeHeaderContainer variant="normal" />);
@@ -184,19 +192,18 @@ describe('HomeHeaderContainer refresh ownership', () => {
     });
   });
 
-  it('passes one correlated balance decision to actions, banner, and height', () => {
+  it('consumes independent balance, action, and banner presentations', () => {
     let view!: ReactTestRenderer;
     act(() => {
       view = create(<HomeHeaderContainer variant="normal" />);
     });
     expect(
-      view.root.findByProps({ testID: 'wallet-actions' }).props
-        .balancePresentation,
-    ).toBe(mockBalancePresentation);
+      view.root.findByProps({ testID: 'wallet-actions' }).props.actionFamily,
+    ).toBe(mockDisplayModel.actions.kind);
     expect(
       view.root.findByProps({ testID: 'home-overview' }).props
         .balancePresentation,
-    ).toBe(mockBalancePresentation.correlated);
+    ).toBe(mockDisplayModel.balance);
     expect(view.root.findByProps({ testID: 'wallet-banner' }).props).toEqual(
       expect.objectContaining({ hidden: true }),
     );
@@ -204,29 +211,56 @@ describe('HomeHeaderContainer refresh ownership', () => {
       0,
     );
 
-    mockBalancePresentation = {
-      balanceState: 'positive',
-      correlated: {
-        kind: 'ready',
-        balance: { amount: '12', currency: 'usd' },
-        balanceState: 'positive',
-        revision: 'revision-funded',
-        showPositiveBanner: true,
+    mockDisplayModel = {
+      actions: {
+        kind: 'funded',
+        items: ['send', 'receive', 'swap'],
       },
+      balance: {
+        kind: 'ready',
+        authority: 'live',
+        balance: { amount: '12', currency: 'usd' },
+        revision: 'revision-funded',
+      },
+      banner: { kind: 'eligible' },
+      body: { kind: 'portfolio' },
+      fundingVerdict: 'funded',
+      navigation: { kind: 'default' },
     };
-    mockBanners = [{ id: 'banner-1' }];
+    mockBanners = [
+      {
+        _id: 'banner-1',
+        id: 'banner-1',
+        src: '',
+        title: 'Banner',
+        description: '',
+        button: '',
+        hrefType: null,
+        href: null,
+        mode: null,
+        payload: null,
+        rank: 1,
+        closeable: true,
+        closeForever: false,
+        useSystemBrowser: false,
+        theme: 'light',
+        position: 'home',
+        networkId: null,
+        networkIds: [],
+        icon: null,
+      },
+    ];
     act(() => {
       view.unmount();
       view = create(<HomeHeaderContainer variant="normal" />);
     });
     expect(
-      view.root.findByProps({ testID: 'wallet-actions' }).props
-        .balancePresentation,
-    ).toBe(mockBalancePresentation);
+      view.root.findByProps({ testID: 'wallet-actions' }).props.actionFamily,
+    ).toBe(mockDisplayModel.actions.kind);
     expect(
       view.root.findByProps({ testID: 'home-overview' }).props
         .balancePresentation,
-    ).toBe(mockBalancePresentation.correlated);
+    ).toBe(mockDisplayModel.balance);
     expect(view.root.findByProps({ testID: 'wallet-banner' }).props).toEqual(
       expect.objectContaining({ hidden: false }),
     );
@@ -235,15 +269,19 @@ describe('HomeHeaderContainer refresh ownership', () => {
     );
   });
 
-  it('fills the reserved action row while a funded balance is unresolved', () => {
-    mockBalancePresentation = {
-      balanceState: 'positive',
-      correlated: {
-        kind: 'loading',
-        balanceState: 'positive',
-        revision: 'revision-loading',
-        showPositiveBanner: false,
+  it('keeps the action skeleton independent from a provisional amount', () => {
+    mockDisplayModel = {
+      actions: { kind: 'loading' },
+      balance: {
+        authority: 'provisional',
+        balance: { amount: '0', currency: 'usd' },
+        kind: 'ready',
+        revision: 'revision-provisional',
       },
+      banner: { kind: 'pending' },
+      body: { kind: 'portfolio' },
+      fundingVerdict: 'unknown',
+      navigation: { kind: 'default' },
     };
 
     let view!: ReactTestRenderer;

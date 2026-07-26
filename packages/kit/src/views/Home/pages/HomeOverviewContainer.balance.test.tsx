@@ -1,27 +1,21 @@
 import { resolveHomeOverviewBalanceRenderDecision } from '../model/compatibility/homeShellRenderAdapter';
 
-import type { IHomeCorrelatedBalancePresentation } from '../model/compatibility/homeShellRenderAdapter';
+import type { IHomeBalanceDisplayPresentation } from '../model/policies/homeDisplayModelPolicy';
 
-function readyPresentation(
-  amount: string,
-  balanceState: 'unknown' | 'zero' | 'positive',
-): IHomeCorrelatedBalancePresentation {
+function readyPresentation(amount: string): IHomeBalanceDisplayPresentation {
   return {
     kind: 'ready',
+    authority: 'live',
     balance: { amount, currency: 'usd' },
-    balanceState,
     revision: `revision-${amount}`,
-    showPositiveBanner: balanceState === 'positive',
   };
 }
 
-describe('HomeOverviewContainer correlated balance presentation', () => {
-  it('keeps the Store amount loading until the correlated value is ready', () => {
-    const balancePresentation: IHomeCorrelatedBalancePresentation = {
+describe('HomeOverviewContainer balance display presentation', () => {
+  it('keeps the Store amount loading until the value is ready', () => {
+    const balancePresentation: IHomeBalanceDisplayPresentation = {
       kind: 'loading',
-      balanceState: 'unknown',
       revision: 'revision-loading',
-      showPositiveBanner: false,
     };
 
     expect(
@@ -34,7 +28,7 @@ describe('HomeOverviewContainer correlated balance presentation', () => {
   it('uses the authoritative Store zero', () => {
     expect(
       resolveHomeOverviewBalanceRenderDecision({
-        balancePresentation: readyPresentation('0', 'zero'),
+        balancePresentation: readyPresentation('0'),
         semanticDisplayAmount: '0',
       }),
     ).toEqual({
@@ -47,7 +41,7 @@ describe('HomeOverviewContainer correlated balance presentation', () => {
   it('renders the progressive zero without classifying the wallet as empty', () => {
     expect(
       resolveHomeOverviewBalanceRenderDecision({
-        balancePresentation: readyPresentation('0', 'unknown'),
+        balancePresentation: readyPresentation('0'),
         semanticDisplayAmount: '0',
       }),
     ).toEqual({
@@ -60,7 +54,7 @@ describe('HomeOverviewContainer correlated balance presentation', () => {
   it('uses the exact funded semantic amount and its revision', () => {
     expect(
       resolveHomeOverviewBalanceRenderDecision({
-        balancePresentation: readyPresentation('12.5', 'positive'),
+        balancePresentation: readyPresentation('12.5'),
         semanticDisplayAmount: '12.5',
       }),
     ).toEqual({
@@ -79,7 +73,7 @@ describe('HomeOverviewContainer correlated balance presentation', () => {
   it('does not relabel a semantic amount when display-currency quoting fails', () => {
     expect(
       resolveHomeOverviewBalanceRenderDecision({
-        balancePresentation: readyPresentation('12.5', 'positive'),
+        balancePresentation: readyPresentation('12.5'),
       }),
     ).toEqual({ revision: 'revision-12.5', showSkeleton: true });
   });

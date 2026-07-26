@@ -1,11 +1,14 @@
 import type { IHomeRuntimeOwnerToken } from '@onekeyhq/shared/src/types/homeRuntime';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+
+import {
+  type IHomeBalanceDisplayPresentation,
+  projectHomeDisplayModel,
+} from '../policies/homeDisplayModelPolicy';
 
 import type {
   IHomeMoneyViewModel,
   IHomeShellSemanticModel,
 } from '../semantic/homeSemanticTypes';
-
 type IHomeReactShellPresentation =
   | {
       actionFamily: 'loading';
@@ -100,41 +103,23 @@ function resolveHomeBalancePresentation({
   ownerToken?: IHomeRuntimeOwnerToken;
   shell: IHomeShellSemanticModel;
 }): IHomeBalancePresentation {
-  const presentation = adaptHomeShellToReactHeader(shell);
-  const revision = stringUtils.stableStringify({
+  const display = projectHomeDisplayModel({
     fallbackCurrency,
     ownerToken,
     shell,
   });
-  if ('balance' in presentation && presentation.balance) {
-    return {
-      balanceState: presentation.balanceState,
-      correlated: {
-        kind: 'ready',
-        balance: presentation.balance,
-        balanceState: presentation.balanceState,
-        revision,
-        showPositiveBanner: presentation.showPositiveBanner,
-      },
-    };
-  }
   const balanceState =
-    presentation.balanceState === 'positive' ? 'positive' : 'unknown';
-  const canShowProgressiveZero =
-    Boolean(fallbackCurrency) &&
-    (shell.kind === 'loading' ||
-      (shell.kind === 'portfolio' &&
-        (shell.presentation.kind === 'loading' ||
-          shell.presentation.kind === 'fundedPendingTotal')));
-  if (canShowProgressiveZero && fallbackCurrency) {
+    display.fundingVerdict === 'funded' ? 'positive' : display.fundingVerdict;
+  const showPositiveBanner = display.banner.kind === 'eligible';
+  if (display.balance.kind === 'ready') {
     return {
       balanceState,
       correlated: {
         kind: 'ready',
-        balance: { amount: '0', currency: fallbackCurrency },
+        balance: display.balance.balance,
         balanceState,
-        revision,
-        showPositiveBanner: presentation.showPositiveBanner,
+        revision: display.balance.revision,
+        showPositiveBanner,
       },
     };
   }
@@ -142,9 +127,9 @@ function resolveHomeBalancePresentation({
     balanceState,
     correlated: {
       kind: 'loading',
-      balanceState,
-      revision,
-      showPositiveBanner: presentation.showPositiveBanner,
+      balanceState: balanceState === 'zero' ? 'unknown' : balanceState,
+      revision: display.balance.revision,
+      showPositiveBanner,
     },
   };
 }
@@ -153,7 +138,9 @@ function resolveHomeOverviewBalanceRenderDecision({
   balancePresentation,
   semanticDisplayAmount,
 }: {
-  balancePresentation?: IHomeCorrelatedBalancePresentation;
+  balancePresentation?:
+    | IHomeBalanceDisplayPresentation
+    | IHomeCorrelatedBalancePresentation;
   semanticDisplayAmount?: string;
 }): IHomeOverviewBalanceRenderDecision {
   if (!balancePresentation) {

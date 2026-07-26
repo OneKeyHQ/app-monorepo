@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef } from 'react';
+import { type ReactNode, memo, useEffect, useRef } from 'react';
 
 import {
   HeaderScrollGestureWrapper,
@@ -12,7 +12,7 @@ import type { IHomePageViewedState } from '@onekeyhq/shared/src/logger/scopes/ac
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import { useHomeBalancePresentation } from '../../../hooks/useHomeBalanceState';
+import { useHomeDisplayModel } from '../../../hooks/useHomeBalanceState';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useHomeResource } from '../../../states/jotai/contexts/home';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
@@ -95,20 +95,15 @@ function BaseHomeHeaderContainer({
     (bannerPayload.banners.length > 0 || bannerPayload.tronResource),
   );
 
-  const isWalletNotBackedUp = variant === 'notBackedUp';
+  const displayModel = useHomeDisplayModel();
+  const isWalletNotBackedUp =
+    variant === 'notBackedUp' || displayModel.body.kind === 'backupPrompt';
   const { refreshAllSections } = useHomeRefreshIntents();
 
-  // Banner only renders once we have actual banner content AND the balance is
-  // confirmed positive. Treating 'unknown' as hidden avoids the show→hide
-  // flicker that previously occurred when the page mounted with the banner
-  // visible and then collapsed once the first balance fetch came back zero.
-  const balancePresentation = useHomeBalancePresentation();
-  const homeBalanceState = balancePresentation.balanceState;
   const shouldShowBanner =
     !isWalletNotBackedUp &&
-    (balancePresentation.correlated
-      ? balancePresentation.correlated.showPositiveBanner
-      : hasWalletBannerContent && homeBalanceState === 'positive');
+    displayModel.banner.kind === 'eligible' &&
+    hasWalletBannerContent;
 
   // Reserve the taller native header (292pt) only when the banner band will
   // actually render; otherwise collapse to the shorter layout so we don't
@@ -122,33 +117,37 @@ function BaseHomeHeaderContainer({
     networkScope = network.isAllNetworks ? 'allNetworks' : 'singleNetwork';
   }
   let walletActionFamily: 'loading' | 'zero' | 'funded' = 'loading';
-  if (homeBalanceState === 'positive') {
+  if (displayModel.actions.kind === 'funded') {
     walletActionFamily = 'funded';
-  } else if (homeBalanceState === 'zero') {
+  } else if (displayModel.actions.kind === 'zero') {
     walletActionFamily = 'zero';
   }
   const balanceTextLength =
-    balancePresentation.correlated.kind === 'ready'
-      ? balancePresentation.correlated.balance.amount.length
+    displayModel.balance.kind === 'ready'
+      ? displayModel.balance.balance.amount.length
       : 0;
 
   const homeHeaderDecisionKeyRef = useRef<string | null>(null);
   useEffect(() => {
     const decision = {
       networkScope,
-      balancePresentationKind: balancePresentation.correlated.kind,
+      balancePresentationKind: displayModel.balance.kind,
       balanceTextLength,
-      balanceState: homeBalanceState,
+      balanceState:
+        displayModel.fundingVerdict === 'funded'
+          ? 'positive'
+          : displayModel.fundingVerdict,
       bannerResourceKind: bannerResource.kind,
       bannerPayloadParsed: Boolean(bannerPayload),
       bannerCount: bannerPayload?.banners.length ?? 0,
       hasTronResource: Boolean(bannerPayload?.tronResource),
       hasWalletBannerContent,
-      showPositiveBanner: balancePresentation.correlated.showPositiveBanner,
+      showPositiveBanner: displayModel.banner.kind === 'eligible',
       shouldShowBanner,
       walletActionFamily,
       shouldShowWalletActions:
-        !isWalletNotBackedUp && homeBalanceState !== 'unknown',
+        displayModel.actions.kind === 'funded' ||
+        displayModel.actions.kind === 'zero',
       isWalletNotBackedUp,
       nativeMinHeight,
     } as const;
@@ -159,13 +158,14 @@ function BaseHomeHeaderContainer({
     homeHeaderDecisionKeyRef.current = key;
     defaultLogger.wallet.homeUi.homeHeaderDecision(decision);
   }, [
-    balancePresentation.correlated.kind,
+    displayModel.actions.kind,
+    displayModel.balance.kind,
+    displayModel.banner.kind,
+    displayModel.fundingVerdict,
     balanceTextLength,
-    balancePresentation.correlated.showPositiveBanner,
     bannerPayload,
     bannerResource.kind,
     hasWalletBannerContent,
-    homeBalanceState,
     isWalletNotBackedUp,
     nativeMinHeight,
     networkScope,
@@ -182,9 +182,9 @@ function BaseHomeHeaderContainer({
     let state: IHomePageViewedState | undefined;
     if (isWalletNotBackedUp) {
       state = 'notBackedUp';
-    } else if (homeBalanceState === 'positive') {
+    } else if (displayModel.fundingVerdict === 'funded') {
       state = 'fundedWallet';
-    } else if (homeBalanceState === 'zero') {
+    } else if (displayModel.fundingVerdict === 'zero') {
       state = 'emptyWallet';
     }
     if (!state) return;
@@ -195,7 +195,24 @@ function BaseHomeHeaderContainer({
       state,
       walletType: wallet.type,
     });
-  }, [wallet?.id, wallet?.type, isWalletNotBackedUp, homeBalanceState]);
+  }, [
+    displayModel.fundingVerdict,
+    isWalletNotBackedUp,
+    wallet?.id,
+    wallet?.type,
+  ]);
+
+  let walletActionsContent: ReactNode = null;
+  if (displayModel.actions.kind === 'loading') {
+    walletActionsContent = <HomeWalletActionsSkeleton />;
+  } else if (
+    displayModel.actions.kind === 'funded' ||
+    displayModel.actions.kind === 'zero'
+  ) {
+    walletActionsContent = (
+      <WalletActions actionFamily={displayModel.actions.kind} />
+    );
+  }
 
   return (
     <YStack
@@ -220,25 +237,23 @@ function BaseHomeHeaderContainer({
         {isWalletNotBackedUp ? (
           <Stack gap="$2.5">
             <HomeOverviewContainer
-              balancePresentation={balancePresentation.correlated}
+              balancePresentation={displayModel.balance}
+              manualRefreshEnabled={false}
             />
           </Stack>
         ) : (
           <HeaderScrollGestureWrapper onRefresh={refreshAllSections}>
             <Stack gap="$2.5">
               <HomeOverviewContainer
-                balancePresentation={balancePresentation.correlated}
+                balancePresentation={displayModel.balance}
               />
             </Stack>
           </HeaderScrollGestureWrapper>
         )}
-        {isWalletNotBackedUp ? null : (
+        {isWalletNotBackedUp ||
+        displayModel.actions.kind === 'hidden' ? null : (
           <HeaderScrollGestureWrapper onRefresh={refreshAllSections}>
-            {balancePresentation.correlated.kind === 'loading' ? (
-              <HomeWalletActionsSkeleton />
-            ) : (
-              <WalletActions balancePresentation={balancePresentation} />
-            )}
+            {walletActionsContent}
           </HeaderScrollGestureWrapper>
         )}
       </Stack>

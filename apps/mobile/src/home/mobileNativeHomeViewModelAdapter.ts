@@ -7,6 +7,11 @@ import {
   formatRewardText,
 } from '@onekeyhq/kit/src/views/Earn/components/AprText.utils';
 import type { IHomePopularTradingPayload } from '@onekeyhq/kit/src/views/Home/components/PopularTrading/types';
+import type {
+  IHomeActionsPresentation,
+  IHomeBannerPresentation,
+  IHomeBodyPresentation,
+} from '@onekeyhq/kit/src/views/Home/model/policies/homeDisplayModelPolicy';
 import type { IHomeDeFiLegacyPayload } from '@onekeyhq/kit/src/views/Home/model/sections/defi/homeDeFiSourceAdapter';
 import type { IHomeHistoryStorePayload } from '@onekeyhq/kit/src/views/Home/model/sections/history/homeHistorySourceAdapter';
 import { getHomeMarketTokenRowId } from '@onekeyhq/kit/src/views/Home/model/sections/market/homeMarketSourceAdapter';
@@ -60,12 +65,13 @@ type IMobileNativeHomeActionLayout = 'loading' | 'standard' | 'zeroBalance';
 
 function resolveMobileNativeHomeActionLayout({
   actionPresentationKind,
-  isBackupRequired,
 }: {
-  actionPresentationKind: 'funded' | 'loading' | 'zero' | undefined;
-  isBackupRequired: boolean;
+  actionPresentationKind: IHomeActionsPresentation['kind'];
 }): IMobileNativeHomeActionLayout {
-  if (isBackupRequired || actionPresentationKind === 'funded') {
+  if (
+    actionPresentationKind === 'funded' ||
+    actionPresentationKind === 'hidden'
+  ) {
     return 'standard';
   }
   if (actionPresentationKind === 'zero') {
@@ -75,19 +81,11 @@ function resolveMobileNativeHomeActionLayout({
 }
 
 function resolveMobileNativeHomeBannerPresentation({
-  balancePresentationKind,
+  bannerPolicyKind,
   bannerResourceKind,
   hasBannerContent,
-  isBackupRequired,
-  showPositiveBanner,
 }: {
-  balancePresentationKind:
-    | 'funded'
-    | 'fundedPendingTotal'
-    | 'loading'
-    | 'unavailable'
-    | 'zero'
-    | undefined;
+  bannerPolicyKind: IHomeBannerPresentation['kind'];
   bannerResourceKind:
     | 'empty'
     | 'error'
@@ -96,17 +94,11 @@ function resolveMobileNativeHomeBannerPresentation({
     | 'partial'
     | 'ready';
   hasBannerContent: boolean;
-  isBackupRequired: boolean;
-  showPositiveBanner: boolean;
 }): IMobileNativeHomeBannerPresentation {
-  if (
-    isBackupRequired ||
-    balancePresentationKind === 'unavailable' ||
-    balancePresentationKind === 'zero'
-  ) {
+  if (bannerPolicyKind === 'hidden') {
     return 'hidden';
   }
-  if (showPositiveBanner && hasBannerContent) {
+  if (bannerPolicyKind === 'eligible' && hasBannerContent) {
     return 'content';
   }
   if (
@@ -125,6 +117,33 @@ function resolveMobileNativeHomeBannerPresentation({
     return 'loading';
   }
   return 'hidden';
+}
+
+function resolveMobileNativeHomeBodySections({
+  bodyPresentationKind,
+  sections,
+  tabId,
+}: {
+  bodyPresentationKind: IHomeBodyPresentation['kind'];
+  sections: IHomeContainerSection[];
+  tabId: IHomeContainerTabId;
+}): IHomeContainerSection[] {
+  if (bodyPresentationKind !== 'backupPrompt' || tabId !== 'portfolio') {
+    return sections;
+  }
+  return [
+    {
+      id: 'portfolio-backup-state',
+      items: [
+        {
+          id: 'portfolio-backup-state-item',
+          displayHeight: 320,
+          renderer: 'empty',
+          title: '',
+        },
+      ],
+    },
+  ];
 }
 
 const MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS = {
@@ -1260,6 +1279,7 @@ export {
   getDeFiTotal,
   resolveMobileNativeHomeActionLayout,
   resolveMobileNativeHomeBannerPresentation,
+  resolveMobileNativeHomeBodySections,
 };
 export type {
   IHomeNativeExpandedState,

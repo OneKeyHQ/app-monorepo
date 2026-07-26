@@ -153,7 +153,7 @@ describe('homeBalanceAuthorityPolicy', () => {
       aggregation: partial({ amount: '0', positiveEvidence: false }),
       bannerAvailable: true,
       confirmedAt: 2,
-      portfolioIsEmpty: true,
+      decisivePortfolioIsEmpty: true,
     });
 
     expect(decision.cacheCommit).toBeUndefined();
@@ -179,7 +179,7 @@ describe('homeBalanceAuthorityPolicy', () => {
         bannerAvailable: true,
         confirmed,
         confirmedAt: 2,
-        portfolioIsEmpty: true,
+        decisivePortfolioIsEmpty: true,
       }).presentation,
     ).toMatchObject({
       kind: 'funded',

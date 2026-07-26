@@ -8,6 +8,7 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { aggregateHomeBalanceFacts } from '../balance/homeBalanceAggregation';
 import { projectHomeNavigation } from '../navigation/homeNavigationProjector';
 import { projectHomeBalanceAuthority } from '../policies/homeBalanceAuthorityPolicy';
+import { projectHomeDisplayModel } from '../policies/homeDisplayModelPolicy';
 import { projectHomeShell } from '../policies/homeShellPolicy';
 import {
   HOME_BANNER_ACTION_IDS,
@@ -149,6 +150,18 @@ function shellCommandSignature(value: IHomeShellSemanticModel): unknown {
   };
 }
 
+function homeBalancePresentationSignature(
+  value: IHomeShellSemanticModel,
+): unknown {
+  if (value.kind !== 'portfolio') {
+    return { kind: value.kind };
+  }
+  return {
+    kind: value.kind,
+    header: value.presentation.header,
+  };
+}
+
 function navigationApplicabilitySignature(
   value: IHomeNavigationSemanticModel,
 ): unknown {
@@ -273,6 +286,15 @@ function advanceShell(
   value: IHomeShellSemanticModel,
 ): IHomeStoreShellSlice {
   const displayChanged = !equal(current.value, value);
+  const currentDisplay = projectHomeDisplayModel({ shell: current.value });
+  const nextDisplay = projectHomeDisplayModel({ shell: value });
+  const balanceChanged = !equal(
+    homeBalancePresentationSignature(current.value),
+    homeBalancePresentationSignature(value),
+  );
+  const actionsChanged = !equal(currentDisplay.actions, nextDisplay.actions);
+  const bannerChanged = !equal(currentDisplay.banner, nextDisplay.banner);
+  const bodyChanged = !equal(currentDisplay.body, nextDisplay.body);
   const commandsChanged = !equal(
     shellCommandSignature(current.value),
     shellCommandSignature(value),
@@ -281,6 +303,14 @@ function advanceShell(
     return current;
   }
   return {
+    actionsPresentationRevision:
+      current.actionsPresentationRevision + (actionsChanged ? 1 : 0),
+    balancePresentationRevision:
+      current.balancePresentationRevision + (balanceChanged ? 1 : 0),
+    bannerPresentationRevision:
+      current.bannerPresentationRevision + (bannerChanged ? 1 : 0),
+    bodyPresentationRevision:
+      current.bodyPresentationRevision + (bodyChanged ? 1 : 0),
     presentationRevision:
       current.presentationRevision + (displayChanged ? 1 : 0),
     shellCommandRevision:
@@ -297,14 +327,12 @@ function advanceShellPreservingConfirmedCache(
     current.value.kind === 'portfolio' ? current.value.presentation : undefined;
   const nextPresentation =
     value.kind === 'portfolio' ? value.presentation : undefined;
-  const currentHasConfirmedCache =
+  const currentHasStableVerdict =
     (currentPresentation?.kind === 'funded' ||
       currentPresentation?.kind === 'zero') &&
-    currentPresentation.freshness === 'confirmedCache';
-  const nextStillAwaitsConfirmedTotal =
-    nextPresentation?.kind === 'loading' ||
-    nextPresentation?.kind === 'fundedPendingTotal';
-  if (currentHasConfirmedCache && nextStillAwaitsConfirmedTotal) {
+    (currentPresentation.freshness === 'confirmedCache' ||
+      currentPresentation.freshness === 'live');
+  if (currentHasStableVerdict && nextPresentation?.kind === 'loading') {
     if (nextPresentation?.refresh === 'failed') {
       return advanceShell(current, {
         kind: 'portfolio',
@@ -314,12 +342,11 @@ function advanceShellPreservingConfirmedCache(
         },
       });
     }
-    // A live request may start before the V2 display snapshot is hydrated.
-    // Pending evidence must not erase an exact cached total while that request
-    // continues to own its balance round and can still replace the snapshot.
+    // A same-owner refresh must not erase a stable funding verdict while its
+    // replacement round is still waiting for decisive evidence.
     return current;
   }
-  if (currentHasConfirmedCache && nextPresentation?.kind === 'unavailable') {
+  if (currentHasStableVerdict && nextPresentation?.kind === 'unavailable') {
     return advanceShell(current, {
       kind: 'portfolio',
       presentation: {
@@ -868,7 +895,9 @@ export function reduceHomeStore(
       }
       const aggregation = aggregateHomeBalanceFacts(balance);
       const portfolioResource = balance.contributors.portfolio?.resource;
-      const portfolioIsEmpty =
+      // Portfolio is the eager source that can settle zero. Lazy contributors
+      // may still upgrade the verdict immediately through positive evidence.
+      const decisivePortfolioIsEmpty =
         portfolioResource?.kind === 'complete' &&
         portfolioResource.result.kind === 'empty';
       const exact = exactConfirmedBalance(state, balance);
@@ -877,7 +906,7 @@ export function reduceHomeStore(
         bannerAvailable: balance.bannerAvailable,
         confirmed: exact,
         confirmedAt: event.observedAt,
-        portfolioIsEmpty,
+        decisivePortfolioIsEmpty,
       });
       const facts = {
         ...event.facts,

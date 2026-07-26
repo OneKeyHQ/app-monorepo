@@ -90,6 +90,10 @@ export function createInitialHomeStoreState(): IHomeStoreState {
       pendingShellCommands: [],
     },
     shell: {
+      actionsPresentationRevision: 0,
+      balancePresentationRevision: 0,
+      bannerPresentationRevision: 0,
+      bodyPresentationRevision: 0,
       presentationRevision: 0,
       shellCommandRevision: 0,
       value: { kind: 'loading' },

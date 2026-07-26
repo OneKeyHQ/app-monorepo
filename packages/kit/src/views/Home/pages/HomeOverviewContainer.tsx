@@ -16,7 +16,6 @@ import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -37,19 +36,20 @@ import { resolveHomeBalanceQuotedAmount } from '../model/facts/currentHomeBalanc
 import { useHomeRefreshIntents } from '../model/react/useHomeRefreshIntents';
 import { HomeTestIDs } from '../testIDs';
 
-import type { IHomeCorrelatedBalancePresentation } from '../model/compatibility/homeShellRenderAdapter';
+import type { IHomeBalanceDisplayPresentation } from '../model/policies/homeDisplayModelPolicy';
 
 function HomeOverviewContainer({
   balancePresentation,
+  manualRefreshEnabled = true,
   nativeSlot = false,
 }: {
-  balancePresentation?: IHomeCorrelatedBalancePresentation;
+  balancePresentation?: IHomeBalanceDisplayPresentation;
+  manualRefreshEnabled?: boolean;
   nativeSlot?: boolean;
 } = {}) {
   const num = 0;
   const { activeAccount } = useActiveAccount({ num });
-  const { account, network, wallet, deriveInfoItems, vaultSettings } =
-    activeAccount;
+  const { account, network, deriveInfoItems, vaultSettings } = activeAccount;
   const resourceDialogInstance = useRef<IDialogInstance | null>(null);
   const handleResourceDetailsOnPress = useCallback(() => {
     if (resourceDialogInstance.current) return;
@@ -67,13 +67,6 @@ function HomeOverviewContainer({
   const [{ currencyMap }] = useCurrencyPersistAtom();
 
   const [settings] = useSettingsPersistAtom();
-  const isWalletNotBackedUp = useMemo(() => {
-    if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
-      return true;
-    }
-    return false;
-  }, [wallet]);
-
   useEffect(() => {
     perfMark('Home:overview:mount');
     return () => {
@@ -91,7 +84,7 @@ function HomeOverviewContainer({
   const isLoading = Object.values(refreshingBySection).some(Boolean);
 
   const refreshButton = useMemo(() => {
-    return platformEnv.isNative || isWalletNotBackedUp ? undefined : (
+    return platformEnv.isNative || !manualRefreshEnabled ? undefined : (
       <IconButton
         icon="RefreshCcwOutline"
         variant="tertiary"
@@ -101,7 +94,7 @@ function HomeOverviewContainer({
         trackID="wallet-refresh-manually"
       />
     );
-  }, [handleRefreshWorth, isLoading, isWalletNotBackedUp]);
+  }, [handleRefreshWorth, isLoading, manualRefreshEnabled]);
 
   const handleBalanceOnPress = useCallback(async () => {
     const settingsValue = await settingsValuePersistAtom.get();
@@ -154,7 +147,7 @@ function HomeOverviewContainer({
     const decision = {
       networkScope,
       balancePresentationKind: balancePresentation?.kind ?? 'missing',
-      balanceState: balancePresentation?.balanceState ?? 'missing',
+      balanceState: balancePresentation ? 'unknown' : 'missing',
       hasSemanticDisplayAmount: semanticBalanceStringDisplay !== undefined,
       showSkeleton: balanceRenderDecision.showSkeleton,
       isRefreshing: isLoading,
@@ -166,8 +159,7 @@ function HomeOverviewContainer({
     homeBalanceDecisionKeyRef.current = key;
     defaultLogger.wallet.homeUi.homeBalanceDecision(decision);
   }, [
-    balancePresentation?.balanceState,
-    balancePresentation?.kind,
+    balancePresentation,
     balanceRenderDecision.showSkeleton,
     isLoading,
     networkScope,
@@ -270,7 +262,7 @@ function HomeOverviewContainer({
           })}
         </Button>
       ) : undefined}
-      {!nativeSlot && isWalletNotBackedUp && vaultSettings?.hasResource ? (
+      {!nativeSlot && !manualRefreshEnabled && vaultSettings?.hasResource ? (
         <Button
           testID="home-btn"
           onPress={handleResourceDetailsOnPress}

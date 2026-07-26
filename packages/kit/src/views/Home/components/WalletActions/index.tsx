@@ -12,7 +12,6 @@ import {
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
-import type { IHomeBalancePresentation } from '@onekeyhq/kit/src/hooks/useHomeBalanceState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -420,16 +419,10 @@ function WalletActionSend({
 }
 
 function WalletActions({
-  balancePresentation,
+  actionFamily,
   ...rest
-}: IXStackProps & { balancePresentation: IHomeBalancePresentation }) {
+}: IXStackProps & { actionFamily: 'funded' | 'zero' }) {
   const { config, getActionCustomization } = useWalletActionConfig();
-  const { balanceState } = balancePresentation;
-
-  // True cold-start with no cached balance: render nothing rather than guess
-  // a state. The parent header passes one correlated semantic decision to the
-  // action row so balance, banner, height, and actions cannot disagree.
-  if (balanceState === 'unknown') return null;
 
   const renderActionComponent = (actionType: IWalletActionType) => {
     const customization = getActionCustomization(actionType);
@@ -465,7 +458,7 @@ function WalletActions({
     }
   };
 
-  if (balanceState === 'positive') {
+  if (actionFamily === 'funded') {
     return (
       <RawActions
         {...rest}

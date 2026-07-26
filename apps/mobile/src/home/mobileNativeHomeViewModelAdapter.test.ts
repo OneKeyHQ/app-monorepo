@@ -13,6 +13,7 @@ import {
   buildMobileNativeHomeViewModelSections,
   resolveMobileNativeHomeActionLayout,
   resolveMobileNativeHomeBannerPresentation,
+  resolveMobileNativeHomeBodySections,
 } from './mobileNativeHomeViewModelAdapter';
 
 const presentation = {
@@ -55,25 +56,21 @@ describe('mobileNativeHomeViewModelAdapter', () => {
     expect(
       resolveMobileNativeHomeActionLayout({
         actionPresentationKind: 'funded',
-        isBackupRequired: false,
       }),
     ).toBe('standard');
     expect(
       resolveMobileNativeHomeActionLayout({
         actionPresentationKind: 'zero',
-        isBackupRequired: false,
       }),
     ).toBe('zeroBalance');
     expect(
       resolveMobileNativeHomeActionLayout({
         actionPresentationKind: 'loading',
-        isBackupRequired: false,
       }),
     ).toBe('loading');
     expect(
       resolveMobileNativeHomeActionLayout({
-        actionPresentationKind: undefined,
-        isBackupRequired: true,
+        actionPresentationKind: 'hidden',
       }),
     ).toBe('standard');
   });
@@ -81,49 +78,72 @@ describe('mobileNativeHomeViewModelAdapter', () => {
   it('renders the banner independently from unresolved balance content', () => {
     expect(
       resolveMobileNativeHomeBannerPresentation({
-        balancePresentationKind: undefined,
+        bannerPolicyKind: 'pending',
         bannerResourceKind: 'loading',
         hasBannerContent: false,
-        isBackupRequired: false,
-        showPositiveBanner: false,
       }),
     ).toBe('loading');
     expect(
       resolveMobileNativeHomeBannerPresentation({
-        balancePresentationKind: 'loading',
+        bannerPolicyKind: 'pending',
         bannerResourceKind: 'partial',
         hasBannerContent: true,
-        isBackupRequired: false,
-        showPositiveBanner: false,
       }),
     ).toBe('hidden');
     expect(
       resolveMobileNativeHomeBannerPresentation({
-        balancePresentationKind: 'fundedPendingTotal',
+        bannerPolicyKind: 'eligible',
         bannerResourceKind: 'ready',
         hasBannerContent: true,
-        isBackupRequired: false,
-        showPositiveBanner: true,
       }),
     ).toBe('content');
     expect(
       resolveMobileNativeHomeBannerPresentation({
-        balancePresentationKind: 'funded',
+        bannerPolicyKind: 'eligible',
         bannerResourceKind: 'ready',
         hasBannerContent: false,
-        isBackupRequired: false,
-        showPositiveBanner: false,
       }),
     ).toBe('hidden');
     expect(
       resolveMobileNativeHomeBannerPresentation({
-        balancePresentationKind: 'zero',
+        bannerPolicyKind: 'hidden',
         bannerResourceKind: 'loading',
         hasBannerContent: false,
-        isBackupRequired: false,
-        showPositiveBanner: false,
       }),
     ).toBe('hidden');
+  });
+
+  it('provides an empty state row as the backup prompt slot host', () => {
+    expect(
+      resolveMobileNativeHomeBodySections({
+        bodyPresentationKind: 'backupPrompt',
+        sections: [
+          {
+            id: 'assets',
+            items: [
+              {
+                id: 'btc',
+                renderer: 'asset',
+                title: 'BTC',
+              },
+            ],
+          },
+        ],
+        tabId: 'portfolio',
+      }),
+    ).toEqual([
+      {
+        id: 'portfolio-backup-state',
+        items: [
+          {
+            id: 'portfolio-backup-state-item',
+            displayHeight: 320,
+            renderer: 'empty',
+            title: '',
+          },
+        ],
+      },
+    ]);
   });
 
   it('maps semantic loading and hidden states without renderer-owned data', () => {

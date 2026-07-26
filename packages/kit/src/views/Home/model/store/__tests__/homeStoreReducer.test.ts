@@ -214,6 +214,93 @@ describe('Home Store reducer', () => {
     });
   });
 
+  it('keeps a live zero verdict stable during same-owner refresh', () => {
+    const createBalance = ({
+      amount,
+      positiveEvidence,
+      status,
+    }: {
+      amount?: string;
+      positiveEvidence: boolean;
+      status: 'loading' | 'partial' | 'success';
+    }) =>
+      adaptCurrentHomeBalanceFacts({
+        bannerAvailable: false,
+        contributors: [
+          {
+            amount,
+            coverageFingerprint:
+              status === 'success' ? 'portfolio-live' : undefined,
+            expectedSourceScopeKey: ownerToken.scopeKey,
+            id: 'portfolio',
+            included: true,
+            positiveEvidence,
+            sourceIdentity: 'portfolio-v1',
+            sourceScopeKey: ownerToken.scopeKey,
+            status,
+          },
+        ],
+        ownerToken,
+        quoteBasis: { currency: 'usd', pricingRevision: 'rates-1' },
+        requiredSetRevision: 'portfolio:v1',
+      });
+
+    let state = dispatch(createOwnedState(), {
+      type: 'balanceChanged',
+      facts: {
+        ...createBaseFacts(),
+        balance: createBalance({
+          amount: '0',
+          positiveEvidence: false,
+          status: 'success',
+        }),
+      },
+      observedAt: 1,
+    });
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: { kind: 'zero' },
+    });
+    const zeroActionsRevision = state.shell.actionsPresentationRevision;
+
+    state = dispatch(state, {
+      type: 'balanceChanged',
+      facts: {
+        ...createBaseFacts(),
+        balance: createBalance({
+          positiveEvidence: false,
+          status: 'loading',
+        }),
+      },
+      observedAt: 2,
+    });
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: { kind: 'zero' },
+    });
+    expect(state.shell.actionsPresentationRevision).toBe(zeroActionsRevision);
+
+    state = dispatch(state, {
+      type: 'balanceChanged',
+      facts: {
+        ...createBaseFacts(),
+        balance: createBalance({
+          amount: '2',
+          positiveEvidence: true,
+          status: 'partial',
+        }),
+      },
+      observedAt: 3,
+    });
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: { kind: 'fundedPendingTotal' },
+    });
+    expect(state.shell.actionsPresentationRevision).toBe(
+      zeroActionsRevision + 1,
+    );
+  });
+
   it('hydrates a V2 cached Header during a loading balance round and lets live data replace it', () => {
     const createBalance = (
       status: 'error' | 'loading' | 'success',

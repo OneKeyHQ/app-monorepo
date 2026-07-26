@@ -24,7 +24,7 @@ import {
 import { HomeTabSearchHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useHomeBalancePresentation } from '@onekeyhq/kit/src/hooks/useHomeBalanceState';
+import { useHomeDisplayModel } from '@onekeyhq/kit/src/hooks/useHomeBalanceState';
 import { useManageToken } from '@onekeyhq/kit/src/hooks/useManageToken';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -121,6 +121,7 @@ import {
   getDeFiTotal,
   resolveMobileNativeHomeActionLayout,
   resolveMobileNativeHomeBannerPresentation,
+  resolveMobileNativeHomeBodySections,
 } from './mobileNativeHomeViewModelAdapter';
 
 const TAB_ORDER: readonly IHomeContainerTabId[] = [
@@ -270,7 +271,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
   const marketSection = useHomeSection('market');
   const bannerResource = useHomeResource('banner');
   const portfolioResource = useHomeResource('portfolio');
-  const reactBalancePresentation = useHomeBalancePresentation();
+  const displayModel = useHomeDisplayModel();
   const [settings] = useSettingsPersistAtom();
   const [{ hideValue }] = useSettingsValuePersistAtom();
   const { dispatchHomeIntent } = useHomeStoreIntentActions().current;
@@ -611,7 +612,13 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
 
   const tabs = useMemo<IHomeContainerTab[]>(() => {
     const value = homeNavigation.value;
-    const visibleTabs = value.kind === 'ready' ? value.tabs : ['portfolio'];
+    let visibleTabs: readonly IHomeContainerTabId[] = ['portfolio'];
+    if (
+      displayModel.navigation.kind !== 'portfolioOnly' &&
+      value.kind === 'ready'
+    ) {
+      visibleTabs = value.tabs;
+    }
     return TAB_ORDER.filter((tabId) => visibleTabs.includes(tabId)).map(
       (tabId) => {
         const destination =
@@ -631,35 +638,35 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
           id: tabId,
           title: tabTitles[tabId],
           destination,
-          sections: sectionsByTab[tabId],
+          sections: resolveMobileNativeHomeBodySections({
+            bodyPresentationKind: displayModel.body.kind,
+            sections: sectionsByTab[tabId],
+            tabId,
+          }),
         };
       },
     );
-  }, [homeNavigation.value, sectionsByTab, tabTitles]);
+  }, [
+    displayModel.body.kind,
+    displayModel.navigation.kind,
+    homeNavigation.value,
+    sectionsByTab,
+    tabTitles,
+  ]);
 
-  const balancePresentation =
-    shell.value.kind === 'portfolio' ? shell.value.presentation : undefined;
   const balanceModel =
-    balancePresentation?.kind === 'zero' ||
-    balancePresentation?.kind === 'funded'
-      ? balancePresentation.header.balance
+    displayModel.balance.kind === 'ready'
+      ? displayModel.balance.balance
       : undefined;
-  const funded =
-    balancePresentation?.kind === 'funded' ||
-    balancePresentation?.kind === 'fundedPendingTotal';
-  const isBackupRequired = shell.value.kind === 'backupRequired';
+  const isBackupRequired = displayModel.body.kind === 'backupPrompt';
   const hasBannerContent = Boolean(
     bannerPayload &&
     (bannerPayload.banners.length > 0 || bannerPayload.tronResource),
   );
-  const showPositiveBanner =
-    funded && balancePresentation?.banner.kind === 'positive';
   const bannerPresentation = resolveMobileNativeHomeBannerPresentation({
-    balancePresentationKind: balancePresentation?.kind,
+    bannerPolicyKind: displayModel.banner.kind,
     bannerResourceKind: bannerResource.kind,
     hasBannerContent,
-    isBackupRequired,
-    showPositiveBanner,
   });
   const header = useMemo<IHomeContainerHeader>(() => {
     const balance = balanceModel
@@ -671,8 +678,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       : '';
     const match = hideValue ? undefined : balance.match(/^(.*)([.,]\d+)$/);
     const actionLayout = resolveMobileNativeHomeActionLayout({
-      actionPresentationKind: balancePresentation?.actions.kind,
-      isBackupRequired,
+      actionPresentationKind: displayModel.actions.kind,
     });
     let actionRowHeight = 98;
     if (isBackupRequired) {
@@ -756,10 +762,10 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     };
   }, [
     balanceModel,
-    balancePresentation?.actions.kind,
     bannerPresentation,
     bannerPayload?.banners,
     bannerPayload?.tronResource,
+    displayModel.actions.kind,
     hideValue,
     intl,
     isBackupRequired,
@@ -827,50 +833,50 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
             owner,
             producedByStoreCommitId: commitIdentity.storeCommitId,
             slotId: 'header.balance' as IHomeContainerSlotKey,
-            slotRevision: shell.presentationRevision,
+            slotRevision: shell.balancePresentationRevision,
           }
         : undefined,
     // The balance slot changes with the Shell slice while its React content
     // continues to own hide-value interaction and number formatting.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [owner?.scopeKey, owner?.sessionId, shell.presentationRevision],
+    [owner?.scopeKey, owner?.sessionId, shell.balancePresentationRevision],
   );
   const actionRowAuthority = useMemo(
     () =>
-      owner && !isBackupRequired
+      owner && displayModel.actions.kind !== 'hidden'
         ? {
             owner,
             producedByStoreCommitId: commitIdentity.storeCommitId,
             slotId: 'header.action-row' as IHomeContainerSlotKey,
-            slotRevision: shell.presentationRevision,
+            slotRevision: shell.actionsPresentationRevision,
           }
         : undefined,
     // The action slot changes only with the Shell slice. Unrelated section
     // commits must not rebuild WalletActions or advance its slot revision.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
-      isBackupRequired,
+      displayModel.actions.kind,
       owner?.scopeKey,
       owner?.sessionId,
-      shell.presentationRevision,
+      shell.actionsPresentationRevision,
     ],
   );
   const backupStateAuthority = useMemo(
     () =>
-      owner && isBackupRequired
+      owner && displayModel.body.kind === 'backupPrompt'
         ? {
             owner,
             producedByStoreCommitId: commitIdentity.storeCommitId,
             slotId: 'content.state.portfolio' as IHomeContainerSlotKey,
-            slotRevision: shell.presentationRevision,
+            slotRevision: shell.bodyPresentationRevision,
           }
         : undefined,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
-      isBackupRequired,
+      displayModel.body.kind,
       owner?.scopeKey,
       owner?.sessionId,
-      shell.presentationRevision,
+      shell.bodyPresentationRevision,
     ],
   );
   const portfolioHeaderAuthority = useMemo(
@@ -1119,28 +1125,31 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
         content: (
           <HomeOverviewContainer
             nativeSlot
-            balancePresentation={reactBalancePresentation.correlated}
+            balancePresentation={displayModel.balance}
+            manualRefreshEnabled={!isBackupRequired}
           />
         ),
       },
-      headerActionRow: isBackupRequired
-        ? undefined
-        : {
-            interaction: 'tap',
-            authority: actionRowAuthority,
-            height: header.actionRowHeight,
-            content: (
-              <HomeTokenListProviderMirror>
-                {shouldShowActionRowSkeleton ? (
-                  <MobileNativeHomeActionRowSkeleton />
-                ) : (
-                  <WalletActions
-                    balancePresentation={reactBalancePresentation}
-                  />
-                )}
-              </HomeTokenListProviderMirror>
-            ),
-          },
+      headerActionRow:
+        displayModel.actions.kind === 'hidden'
+          ? undefined
+          : {
+              interaction: 'tap',
+              authority: actionRowAuthority,
+              height: header.actionRowHeight,
+              content: (
+                <HomeTokenListProviderMirror>
+                  {shouldShowActionRowSkeleton ? (
+                    <MobileNativeHomeActionRowSkeleton />
+                  ) : (
+                    (displayModel.actions.kind === 'funded' ||
+                      displayModel.actions.kind === 'zero') && (
+                      <WalletActions actionFamily={displayModel.actions.kind} />
+                    )
+                  )}
+                </HomeTokenListProviderMirror>
+              ),
+            },
       contentStates: {
         ...(backupStateAuthority
           ? {
@@ -1209,27 +1218,31 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
           : {}),
       },
       contentHeaders: {
-        portfolio: {
-          interaction: portfolioPayload?.showLpTokenFilterSwitch
-            ? 'tap'
-            : 'none',
-          authority: portfolioHeaderAuthority,
-          content: (
-            <RichBlockHeader
-              title={nativeLabels.tokens}
-              headerActions={
-                portfolioPayload?.showLpTokenFilterSwitch ? (
-                  <TokenSelectorLpTokenSwitch
-                    value={displayedShowLpTokensOnly}
-                    loading={portfolioPayload.isLpTokenSwitchLoading}
-                    onChange={setShowLpTokensOnly}
+        ...(displayModel.body.kind === 'portfolio'
+          ? {
+              portfolio: {
+                interaction: portfolioPayload?.showLpTokenFilterSwitch
+                  ? ('tap' as const)
+                  : ('none' as const),
+                authority: portfolioHeaderAuthority,
+                content: (
+                  <RichBlockHeader
+                    title={nativeLabels.tokens}
+                    headerActions={
+                      portfolioPayload?.showLpTokenFilterSwitch ? (
+                        <TokenSelectorLpTokenSwitch
+                          value={displayedShowLpTokensOnly}
+                          loading={portfolioPayload.isLpTokenSwitchLoading}
+                          onChange={setShowLpTokensOnly}
+                        />
+                      ) : null
+                    }
+                    headerContainerProps={{ flex: 1, px: '$pagePadding' }}
                   />
-                ) : null
-              }
-              headerContainerProps={{ flex: 1, px: '$pagePadding' }}
-            />
-          ),
-        },
+                ),
+              },
+            }
+          : {}),
         ...(perpsHeaderAuthority && perpsPayload
           ? {
               perps: {
@@ -1248,13 +1261,20 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
           : {}),
       },
       tabAccessories: {
-        portfolio: {
-          interaction: 'tap',
-          authority: portfolioAccessoryAuthority,
-          content: (
-            <TabHeaderSettings nativeSlot focusedTab={tabTitles.portfolio} />
-          ),
-        },
+        ...(displayModel.body.kind === 'portfolio'
+          ? {
+              portfolio: {
+                interaction: 'tap' as const,
+                authority: portfolioAccessoryAuthority,
+                content: (
+                  <TabHeaderSettings
+                    nativeSlot
+                    focusedTab={tabTitles.portfolio}
+                  />
+                ),
+              },
+            }
+          : {}),
         history: {
           interaction: 'tap',
           authority: historyAccessoryAuthority,
@@ -1268,22 +1288,26 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
         },
       },
       contentFooters: {
-        portfolio: {
-          ...(shouldShowUpgrade
-            ? {
-                upgrade: {
+        ...(displayModel.body.kind === 'portfolio'
+          ? {
+              portfolio: {
+                ...(shouldShowUpgrade
+                  ? {
+                      upgrade: {
+                        interaction: 'tap' as const,
+                        authority: footerAuthorities.portfolioUpgrade,
+                        content: <Upgrade />,
+                      },
+                    }
+                  : {}),
+                support: {
                   interaction: 'tap' as const,
-                  authority: footerAuthorities.portfolioUpgrade,
-                  content: <Upgrade />,
+                  authority: footerAuthorities.portfolioSupport,
+                  content: <SupportHub nativeSlot />,
                 },
-              }
-            : {}),
-          support: {
-            interaction: 'tap',
-            authority: footerAuthorities.portfolioSupport,
-            content: <SupportHub nativeSlot />,
-          },
-        },
+              },
+            }
+          : {}),
         ...(perpsSection.value.kind === 'ready' || isPerpsEmpty
           ? {
               perps: {
@@ -1362,7 +1386,9 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       portfolioAccessoryAuthority,
       portfolioHeaderAuthority,
       portfolioPayload,
-      reactBalancePresentation,
+      displayModel.actions.kind,
+      displayModel.balance,
+      displayModel.body.kind,
       shouldShowActionRowSkeleton,
       setShowLpTokensOnly,
       shouldShowUpgrade,
@@ -1531,15 +1557,15 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       networkScope = 'singleNetwork';
     }
     let balanceState: 'zero' | 'positive' | 'unknown' = 'unknown';
-    if (balancePresentation?.kind === 'zero') {
+    if (displayModel.fundingVerdict === 'zero') {
       balanceState = 'zero';
-    } else if (funded) {
+    } else if (displayModel.fundingVerdict === 'funded') {
       balanceState = 'positive';
     }
     let walletActionFamily: 'zero' | 'funded' | 'loading' = 'loading';
-    if (balancePresentation?.kind === 'zero') {
+    if (displayModel.actions.kind === 'zero') {
       walletActionFamily = 'zero';
-    } else if (funded) {
+    } else if (displayModel.actions.kind === 'funded') {
       walletActionFamily = 'funded';
     }
     const bannerCount = bannerPayload?.banners.length ?? 0;
@@ -1551,12 +1577,11 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       actionRowAuthority,
       backupStateAuthority,
       balanceModel,
-      balancePresentation,
+      displayModel,
       bannerCount,
       hasTronResource,
       bannerPayloadParsed: Boolean(bannerPayload),
       bannerResourceKind: bannerResource.kind,
-      funded,
       headerBalance: header.balance,
       headerBalanceSecondary: header.balanceSecondary,
       isBackupRequired,
@@ -1577,7 +1602,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       visibleTabs: value.kind === 'ready' ? value.tabs.join(',') : '',
       showSearchHeader: true,
       showAccountSlot: Boolean(accountRowAuthority),
-      showActionSlot: Boolean(actionRowAuthority) && !isBackupRequired,
+      showActionSlot: Boolean(actionRowAuthority),
       showBackupSlot: Boolean(backupStateAuthority),
     });
     defaultLogger.wallet.homeUi.homeHeaderDecision({
@@ -1591,11 +1616,13 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       bannerCount,
       hasTronResource,
       hasWalletBannerContent: bannerCount > 0 || hasTronResource,
-      showPositiveBanner: balancePresentation?.banner.kind === 'positive',
+      showPositiveBanner: displayModel.banner.kind === 'eligible',
       shouldShowBanner,
       walletActionFamily,
-      shouldShowWalletActions: Boolean(balanceModel) || funded,
-      isWalletNotBackedUp: shell.value.kind === 'backupRequired',
+      shouldShowWalletActions:
+        displayModel.actions.kind === 'funded' ||
+        displayModel.actions.kind === 'zero',
+      isWalletNotBackedUp: displayModel.body.kind === 'backupPrompt',
     });
     defaultLogger.wallet.homeUi.homeBalanceDecision({
       networkScope,
@@ -1626,21 +1653,19 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     });
   }, [
     balanceModel,
-    balancePresentation,
     accountRowAuthority,
     actionRowAuthority,
     backupStateAuthority,
     bannerPayload,
     bannerPresentation,
     bannerResource.kind,
+    displayModel,
     facts?.owner.network.kind,
-    funded,
     header.balance,
     header.balanceSecondary,
     homeNavigation.value,
     isBackupRequired,
     portfolioResource,
-    shell.value.kind,
   ]);
 
   const dispatchTabIntent = useCallback(

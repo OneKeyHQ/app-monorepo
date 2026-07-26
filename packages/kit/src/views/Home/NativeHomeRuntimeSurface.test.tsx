@@ -137,6 +137,15 @@ describe('Native Home runtime surface', () => {
     expect(mobileRendererSource).toContain(
       "slotId: 'header.balance' as IHomeContainerSlotKey",
     );
+    expect(mobileRendererSource).toContain(
+      'slotRevision: shell.balancePresentationRevision',
+    );
+    expect(mobileRendererSource).toContain(
+      'slotRevision: shell.actionsPresentationRevision',
+    );
+    expect(mobileRendererSource).toContain(
+      'slotRevision: shell.bodyPresentationRevision',
+    );
     expect(mobileRendererSource).toMatch(
       /balance:\s*\{\s*interaction:\s*'tap',\s*authority:\s*balanceAuthority,\s*content:\s*\(\s*<HomeOverviewContainer\s+nativeSlot/,
     );
@@ -164,6 +173,9 @@ describe('Native Home runtime surface', () => {
       'HOME_CONTAINER_BANNER_SKELETON_ID = "home-banner-loading"',
     );
     expect(mobileRendererSource).toContain('<NotBackedUpEmpty />');
+    expect(mobileRendererSource).toContain(
+      'resolveMobileNativeHomeBodySections({',
+    );
     expect(mobileRendererSource).toContain('contentStates:');
     expect(mobileRendererSource).toContain(
       "slotId: 'content.state.defi' as IHomeContainerSlotKey",

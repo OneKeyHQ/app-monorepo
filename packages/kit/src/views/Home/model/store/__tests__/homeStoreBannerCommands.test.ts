@@ -69,6 +69,10 @@ function createBannerState(): IHomeStoreState {
       },
     },
     shell: {
+      actionsPresentationRevision: 1,
+      balancePresentationRevision: 1,
+      bannerPresentationRevision: 1,
+      bodyPresentationRevision: 1,
       presentationRevision: 1,
       shellCommandRevision: 1,
       value: {

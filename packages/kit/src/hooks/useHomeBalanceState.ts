@@ -1,7 +1,11 @@
+import { useMemo } from 'react';
+
 import { useHomeFacts, useHomeShell } from '../states/jotai/contexts/home';
 import { resolveHomeBalancePresentation } from '../views/Home/model/compatibility/homeShellRenderAdapter';
+import { projectHomeDisplayModel } from '../views/Home/model/policies/homeDisplayModelPolicy';
 
 import type { IHomeBalancePresentation } from '../views/Home/model/compatibility/homeShellRenderAdapter';
+import type { IHomeDisplayModel } from '../views/Home/model/policies/homeDisplayModelPolicy';
 
 export type {
   IHomeBalancePresentation,
@@ -36,6 +40,24 @@ export function useHomeBalancePresentation(): IHomeBalancePresentation {
   });
 }
 
+export function useHomeDisplayModel(): IHomeDisplayModel {
+  const facts = useHomeFacts();
+  const shell = useHomeShell();
+  const fallbackCurrency =
+    facts?.balance?.quoteBasis.currency ?? facts?.environment.currency;
+  const ownerToken = facts?.ownerToken;
+  return useMemo(
+    () =>
+      projectHomeDisplayModel({
+        fallbackCurrency,
+        ownerToken,
+        shell: shell.value,
+      }),
+    [fallbackCurrency, ownerToken, shell.value],
+  );
+}
+
 export function useHomeBalanceState(): IHomeBalanceState {
-  return useHomeBalancePresentation().balanceState;
+  const verdict = useHomeDisplayModel().fundingVerdict;
+  return verdict === 'funded' ? 'positive' : verdict;
 }

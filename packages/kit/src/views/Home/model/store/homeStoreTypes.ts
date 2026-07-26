@@ -150,6 +150,10 @@ export type IHomeStoreInteractionState = {
 };
 
 export type IHomeStoreShellSlice = {
+  actionsPresentationRevision: number;
+  balancePresentationRevision: number;
+  bannerPresentationRevision: number;
+  bodyPresentationRevision: number;
   presentationRevision: number;
   shellCommandRevision: number;
   value: IHomeShellSemanticModel;
