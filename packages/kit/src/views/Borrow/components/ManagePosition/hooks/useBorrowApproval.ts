@@ -52,6 +52,8 @@ type IBorrowApprovalRequest = {
   submit: () => Promise<void>;
 };
 
+type TBorrowAllowancePollingResult = 'ready' | 'aborted' | 'timedOut';
+
 function getBorrowApprovalSubmitErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
     return error.message;
@@ -266,6 +268,17 @@ export function useBorrowApproval({
     [intl],
   );
 
+  const showAllowancePollingTimeout = useCallback(() => {
+    Toast.warning({
+      title: intl.formatMessage({
+        id: ETranslations.swap_page_toast_approve_failed,
+      }),
+      message: intl.formatMessage({
+        id: ETranslations.global_try_again,
+      }),
+    });
+  }, [intl]);
+
   const approvalEnabled = useMemo(
     () =>
       isBorrowTokenApprovalEnabled({
@@ -362,26 +375,30 @@ export function useBorrowApproval({
       maxAttempts?: number;
       intervalMs?: number;
       signal?: AbortSignal;
-    }) => {
+    }): Promise<TBorrowAllowancePollingResult> => {
       if (!enabled) {
-        return true;
+        return 'ready';
       }
 
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         if (signal?.aborted) {
-          return false;
+          return 'aborted';
         }
 
         try {
           const nextAllowance = await fetchAllowance();
           if (signal?.aborted) {
-            return false;
+            return 'aborted';
           }
           if (isReady(nextAllowance)) {
-            return true;
+            return 'ready';
           }
         } catch {
           // Keep polling until timeout. The approval tx may be indexed later.
+        }
+
+        if (signal?.aborted) {
+          return 'aborted';
         }
 
         if (attempt < maxAttempts - 1) {
@@ -389,7 +406,7 @@ export function useBorrowApproval({
         }
       }
 
-      return false;
+      return 'timedOut';
     },
     [],
   );
@@ -414,19 +431,24 @@ export function useBorrowApproval({
       const abortController = startAllowancePolling();
       void (async () => {
         try {
-          const allowanceReady = await waitForAllowance({
+          const pollingResult = await waitForAllowance({
             enabled,
             isReady,
             fetchAllowance,
             signal: abortController.signal,
           });
           if (
-            allowanceReady &&
-            !abortController.signal.aborted &&
-            isCurrentApprovalRequest(request)
+            pollingResult === 'aborted' ||
+            abortController.signal.aborted ||
+            !isCurrentApprovalRequest(request)
           ) {
-            await onReady?.(abortController.signal);
+            return;
           }
+          if (pollingResult === 'timedOut') {
+            showAllowancePollingTimeout();
+            return;
+          }
+          await onReady?.(abortController.signal);
         } finally {
           if (!abortController.signal.aborted) {
             finishApprovalRequest(request);
@@ -437,6 +459,7 @@ export function useBorrowApproval({
     [
       finishApprovalRequest,
       isCurrentApprovalRequest,
+      showAllowancePollingTimeout,
       startAllowancePolling,
       waitForAllowance,
     ],

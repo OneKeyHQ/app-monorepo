@@ -42,6 +42,7 @@ export function useEModeSwitch({
   // Sequence id so an out-of-order (stale) switch-check response can never
   // overwrite the latest one; only the newest runCheck call applies state.
   const checkSeqRef = useRef(0);
+  const targetEModeIdRef = useRef<number | null>(null);
   const setEMode = useUniversalBorrowSetEMode({ networkId, accountId });
 
   useEffect(() => {
@@ -67,6 +68,7 @@ export function useEModeSwitch({
   const runCheck = useCallback(
     async (eModeId: number) => {
       const seq = (checkSeqRef.current += 1);
+      targetEModeIdRef.current = eModeId;
       setTargetEModeId(eModeId);
       setCheck(null);
       setIsChecking(true);
@@ -105,10 +107,29 @@ export function useEModeSwitch({
     [networkId, accountId, provider, marketAddress, intl],
   );
 
+  const applyAuthoritativeCheck = useCallback(
+    ({
+      eModeId,
+      nextCheck,
+    }: {
+      eModeId: number;
+      nextCheck: IBorrowEModeSwitchCheck;
+    }) => {
+      if (!mountedRef.current || targetEModeIdRef.current !== eModeId) {
+        return;
+      }
+      checkSeqRef.current += 1;
+      setCheck(nextCheck);
+      setIsChecking(false);
+    },
+    [],
+  );
+
   // Clear the selected target and its check. Bump the sequence so an in-flight
   // response cannot apply after the target becomes current or disappears.
   const resetTarget = useCallback(() => {
     checkSeqRef.current += 1;
+    targetEModeIdRef.current = null;
     setTargetEModeId(null);
     setCheck(null);
     setIsChecking(false);
@@ -120,7 +141,7 @@ export function useEModeSwitch({
     }
     setIsSubmitting(true);
     try {
-      await setEMode({
+      const latestCheck = await setEMode({
         provider,
         marketAddress,
         eModeId: targetEModeId,
@@ -143,11 +164,15 @@ export function useEModeSwitch({
           onSwitched();
         },
       });
+      if (!latestCheck.canSwitch) {
+        applyAuthoritativeCheck({
+          eModeId: targetEModeId,
+          nextCheck: latestCheck,
+        });
+      }
     } catch {
-      // ponytail: the API interceptor auto-toasts backend errors (autoToast on
-      // code !== 0), so swallow here purely to clear the unhandled rejection
-      // and release the lock. A rare non-server throw (e.g. network) goes
-      // silent — acceptable; matches the sibling supply/borrow/repay flows.
+      // The final check owns its fallback toast, while build errors retain the
+      // API interceptor toast. Catch here only releases the submit lock.
     } finally {
       if (mountedRef.current) {
         setIsSubmitting(false);
@@ -156,6 +181,7 @@ export function useEModeSwitch({
   }, [
     targetEModeId,
     isSubmitting,
+    applyAuthoritativeCheck,
     setEMode,
     provider,
     marketAddress,
@@ -171,6 +197,7 @@ export function useEModeSwitch({
     isChecking,
     isSubmitting,
     runCheck,
+    applyAuthoritativeCheck,
     resetTarget,
     confirmSwitch,
   };

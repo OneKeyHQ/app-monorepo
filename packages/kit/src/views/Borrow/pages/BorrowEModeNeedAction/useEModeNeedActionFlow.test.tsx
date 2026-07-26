@@ -72,6 +72,7 @@ jest.mock(
       check: null as IBorrowEModeSwitchCheck | null,
       isChecking: false,
       runCheck: jest.fn(),
+      applyAuthoritativeCheck: jest.fn(),
     };
     (
       globalThis as unknown as {
@@ -83,6 +84,7 @@ jest.mock(
         check: switchMock.check,
         isChecking: switchMock.isChecking,
         runCheck: switchMock.runCheck,
+        applyAuthoritativeCheck: switchMock.applyAuthoritativeCheck,
       }),
     };
   },
@@ -156,6 +158,7 @@ const switchMock = (
       check: IBorrowEModeSwitchCheck | null;
       isChecking: boolean;
       runCheck: jest.Mock;
+      applyAuthoritativeCheck: jest.Mock;
     };
   }
 ).__eModeNeedActionSwitchMock;
@@ -252,6 +255,7 @@ describe('useEModeNeedActionFlow approval continuation', () => {
     switchMock.check = createCheck([createAsset()]);
     switchMock.isChecking = false;
     switchMock.runCheck.mockReset();
+    switchMock.applyAuthoritativeCheck.mockReset();
     tokenMock.fetchTokensDetails.mockReset();
     tokenMock.fetchTokensDetails.mockImplementation(
       async ({ contractList }: { contractList: string[] }) =>
@@ -538,6 +542,38 @@ describe('useEModeNeedActionFlow approval continuation', () => {
       expect.objectContaining({ waitForFinalStatus: false }),
     );
     flow.unmount();
+  });
+
+  it('applies blockers returned by the final switch guard without rechecking', async () => {
+    switchMock.check = createCheck([]);
+    const latestBlockedCheck = createCheck([createAsset('2')]);
+    switchMock.applyAuthoritativeCheck.mockImplementation(
+      ({ nextCheck }: { nextCheck: IBorrowEModeSwitchCheck }) => {
+        switchMock.check = nextCheck;
+      },
+    );
+    universalMock.setEMode.mockResolvedValue(latestBlockedCheck);
+    const { result, rerender } = renderFlow();
+
+    await waitFor(() => {
+      expect(result.current.activeStep?.kind).toBe('switch');
+    });
+    act(() => result.current.run());
+
+    await waitFor(() => {
+      expect(universalMock.setEMode).toHaveBeenCalledTimes(1);
+      expect(switchMock.applyAuthoritativeCheck).toHaveBeenCalledWith({
+        eModeId: 2,
+        nextCheck: latestBlockedCheck,
+      });
+    });
+    rerender({});
+    await waitFor(() => {
+      expect(result.current.activeStep?.key).toBe('repay:0xreserve');
+    });
+    expect(switchMock.runCheck).not.toHaveBeenCalled();
+    expect(universalMock.setEMode).toHaveBeenCalledTimes(1);
+    expect(universalMock.repay).not.toHaveBeenCalled();
   });
 
   it('bounds exact-tx recovery, preserves a recased pending lock, and retries by rechecking', async () => {

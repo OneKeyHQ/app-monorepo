@@ -94,13 +94,14 @@ export function useEModeNeedActionFlow({
       onAllDoneRef.current();
     }
   }, []);
-  const { check, isChecking, runCheck } = useEModeSwitch({
-    networkId,
-    accountId,
-    provider,
-    marketAddress,
-    onSwitched: handleAllDone, // never reached via this hook (we don't call confirmSwitch)
-  });
+  const { check, isChecking, runCheck, applyAuthoritativeCheck } =
+    useEModeSwitch({
+      networkId,
+      accountId,
+      provider,
+      marketAddress,
+      onSwitched: handleAllDone, // never reached via this hook (we don't call confirmSwitch)
+    });
   const repay = useUniversalBorrowRepay({ networkId, accountId });
   const setCollateral = useUniversalBorrowSetCollateral({
     networkId,
@@ -877,7 +878,7 @@ export function useEModeNeedActionFlow({
               onFail: onStepFail,
             },
           );
-          await setEMode({
+          const latestCheck = await setEMode({
             provider,
             marketAddress,
             eModeId: targetEModeId,
@@ -885,10 +886,16 @@ export function useEModeNeedActionFlow({
             ...callbacks,
             onCancel: disarm,
           });
+          if (!latestCheck.canSwitch) {
+            applyAuthoritativeCheck({
+              eModeId: targetEModeId,
+              nextCheck: latestCheck,
+            });
+          }
         }
       } catch {
-        // interceptor auto-toasts backend errors; record the failure so the
-        // footer offers Retry, and stop the chain.
+        // The final guard/build path owns error feedback. Record the failure so
+        // the footer offers Retry, and stop the chain.
         if (mountedRef.current) {
           setFailedKey(step.key);
         }
@@ -902,6 +909,7 @@ export function useEModeNeedActionFlow({
     },
     [
       check,
+      applyAuthoritativeCheck,
       approval,
       fireAuthoritativeRepay,
       setCollateral,

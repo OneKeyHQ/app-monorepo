@@ -1,5 +1,11 @@
 /* eslint-disable import/first */
 
+jest.mock('react-intl', () => ({
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }) => id,
+  }),
+}));
+
 jest.mock('@onekeyhq/components', () => ({
   __esModule: true,
   Toast: {
@@ -21,6 +27,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useSignatureConfirm', () => {
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   const serviceStaking = {
     addEarnOrder: jest.fn(),
+    borrowSwitchCheckEMode: jest.fn(),
     borrowBuildSetEModeTransaction: jest.fn(),
   };
   (globalThis as Record<string, unknown>).__setEModeBackgroundMock = {
@@ -44,8 +51,12 @@ jest.mock('@onekeyhq/kit/src/components/DeFi/DeFiActionTxConfirmResult', () => {
 
 import { act, renderHook } from '@testing-library/react-native';
 
+import { Toast } from '@onekeyhq/components';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
-import { EEarnLabels } from '@onekeyhq/shared/types/staking';
+import {
+  type IBorrowEModeSwitchCheck,
+  EEarnLabels,
+} from '@onekeyhq/shared/types/staking';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { useUniversalBorrowSetEMode } from './useUniversalBorrowHooks';
@@ -58,11 +69,30 @@ const backgroundMock = (globalThis as Record<string, unknown>)
   .__setEModeBackgroundMock as {
   serviceStaking: {
     addEarnOrder: jest.Mock;
+    borrowSwitchCheckEMode: jest.Mock;
     borrowBuildSetEModeTransaction: jest.Mock;
   };
 };
 const confirmDialogMock = (globalThis as Record<string, unknown>)
   .__setEModeConfirmDialogMock as jest.Mock;
+const toastErrorMock = jest.mocked(Toast.error);
+
+function createSwitchCheck(
+  canSwitch: boolean,
+  reasons: string[] = [],
+): IBorrowEModeSwitchCheck {
+  return {
+    canSwitch,
+    reasons,
+    disableCollateralAssets: [],
+    repayAssets: [],
+    additionalRepayAssets: [],
+    collateral: {},
+    debt: {},
+    maxLtv: {},
+    healthFactor: {},
+  };
+}
 
 const successData = [
   {
@@ -74,11 +104,18 @@ const successData = [
 describe('useUniversalBorrowSetEMode', () => {
   beforeEach(() => {
     signatureConfirmMock.navigationToTxConfirm.mockReset();
+    toastErrorMock.mockReset();
     backgroundMock.serviceStaking.addEarnOrder.mockReset();
+    backgroundMock.serviceStaking.borrowSwitchCheckEMode.mockReset();
     backgroundMock.serviceStaking.borrowBuildSetEModeTransaction.mockReset();
     confirmDialogMock.mockReset();
 
     backgroundMock.serviceStaking.addEarnOrder.mockResolvedValue(undefined);
+    backgroundMock.serviceStaking.borrowSwitchCheckEMode.mockResolvedValue({
+      code: 0,
+      message: '',
+      data: createSwitchCheck(true),
+    });
     backgroundMock.serviceStaking.borrowBuildSetEModeTransaction.mockResolvedValue(
       {
         tx: JSON.stringify({}),
@@ -160,5 +197,179 @@ describe('useUniversalBorrowSetEMode', () => {
     expect(confirmDialogMock).not.toHaveBeenCalled();
     expect(backgroundMock.serviceStaking.addEarnOrder).toHaveBeenCalledTimes(1);
     expect(onSuccess).toHaveBeenCalledWith(successData);
+  });
+
+  it('runs the authoritative check before build and returns its latest result', async () => {
+    const latestCheck = createSwitchCheck(true);
+    backgroundMock.serviceStaking.borrowSwitchCheckEMode.mockResolvedValueOnce({
+      code: 0,
+      message: '',
+      data: latestCheck,
+    });
+    const { result } = renderHook(() =>
+      useUniversalBorrowSetEMode({
+        networkId: 'evm--1',
+        accountId: 'hd-1--m/44',
+        waitForFinalStatus: false,
+      }),
+    );
+
+    let returnedCheck: IBorrowEModeSwitchCheck | undefined;
+    await act(async () => {
+      returnedCheck = await result.current({
+        provider: 'aave',
+        marketAddress: '0xmarket',
+        eModeId: 2,
+      });
+    });
+
+    expect(
+      backgroundMock.serviceStaking.borrowSwitchCheckEMode,
+    ).toHaveBeenCalledWith({
+      networkId: 'evm--1',
+      accountId: 'hd-1--m/44',
+      provider: 'aave',
+      marketAddress: '0xmarket',
+      targetEModeId: 2,
+      autoHandleError: false,
+    });
+    expect(
+      backgroundMock.serviceStaking.borrowSwitchCheckEMode.mock
+        .invocationCallOrder[0],
+    ).toBeLessThan(
+      backgroundMock.serviceStaking.borrowBuildSetEModeTransaction.mock
+        .invocationCallOrder[0],
+    );
+    expect(
+      backgroundMock.serviceStaking.borrowBuildSetEModeTransaction.mock
+        .invocationCallOrder[0],
+    ).toBeLessThan(
+      signatureConfirmMock.navigationToTxConfirm.mock.invocationCallOrder[0],
+    );
+    expect(returnedCheck).toBe(latestCheck);
+  });
+
+  it('returns fresh blockers without building or opening confirmation', async () => {
+    const latestCheck = createSwitchCheck(false, ['repay']);
+    backgroundMock.serviceStaking.borrowSwitchCheckEMode.mockResolvedValueOnce({
+      code: 0,
+      message: '',
+      data: latestCheck,
+    });
+    const { result } = renderHook(() =>
+      useUniversalBorrowSetEMode({
+        networkId: 'evm--1',
+        accountId: 'hd-1--m/44',
+      }),
+    );
+
+    let returnedCheck: IBorrowEModeSwitchCheck | undefined;
+    await act(async () => {
+      returnedCheck = await result.current({
+        provider: 'aave',
+        marketAddress: '0xmarket',
+        eModeId: 2,
+      });
+    });
+
+    expect(returnedCheck).toBe(latestCheck);
+    expect(
+      backgroundMock.serviceStaking.borrowBuildSetEModeTransaction,
+    ).not.toHaveBeenCalled();
+    expect(signatureConfirmMock.navigationToTxConfirm).not.toHaveBeenCalled();
+    expect(toastErrorMock).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a non-zero check response once and never builds', async () => {
+    backgroundMock.serviceStaking.borrowSwitchCheckEMode.mockResolvedValueOnce({
+      code: 12_345,
+      message: 'Unable to verify E-Mode',
+      data: undefined,
+    });
+    const { result } = renderHook(() =>
+      useUniversalBorrowSetEMode({
+        networkId: 'evm--1',
+        accountId: 'hd-1--m/44',
+      }),
+    );
+
+    await act(async () => {
+      await expect(
+        result.current({
+          provider: 'aave',
+          marketAddress: '0xmarket',
+          eModeId: 2,
+        }),
+      ).rejects.toThrow('Unable to verify E-Mode');
+    });
+
+    expect(toastErrorMock).toHaveBeenCalledTimes(1);
+    expect(toastErrorMock).toHaveBeenCalledWith({
+      title: 'Unable to verify E-Mode',
+    });
+    expect(
+      backgroundMock.serviceStaking.borrowBuildSetEModeTransaction,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('does not duplicate a check error already owned by auto-toast', async () => {
+    const error = Object.assign(new Error('Server check failed'), {
+      autoToast: true,
+    });
+    backgroundMock.serviceStaking.borrowSwitchCheckEMode.mockRejectedValueOnce(
+      error,
+    );
+    const { result } = renderHook(() =>
+      useUniversalBorrowSetEMode({
+        networkId: 'evm--1',
+        accountId: 'hd-1--m/44',
+      }),
+    );
+
+    await act(async () => {
+      await expect(
+        result.current({
+          provider: 'aave',
+          marketAddress: '0xmarket',
+          eModeId: 2,
+        }),
+      ).rejects.toBe(error);
+    });
+
+    expect(toastErrorMock).not.toHaveBeenCalled();
+    expect(
+      backgroundMock.serviceStaking.borrowBuildSetEModeTransaction,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a request rejection once when no auto-toast owns it', async () => {
+    const error = new Error('Network check failed');
+    backgroundMock.serviceStaking.borrowSwitchCheckEMode.mockRejectedValueOnce(
+      error,
+    );
+    const { result } = renderHook(() =>
+      useUniversalBorrowSetEMode({
+        networkId: 'evm--1',
+        accountId: 'hd-1--m/44',
+      }),
+    );
+
+    await act(async () => {
+      await expect(
+        result.current({
+          provider: 'aave',
+          marketAddress: '0xmarket',
+          eModeId: 2,
+        }),
+      ).rejects.toBe(error);
+    });
+
+    expect(toastErrorMock).toHaveBeenCalledTimes(1);
+    expect(toastErrorMock).toHaveBeenCalledWith({
+      title: 'Network check failed',
+    });
+    expect(
+      backgroundMock.serviceStaking.borrowBuildSetEModeTransaction,
+    ).not.toHaveBeenCalled();
   });
 });

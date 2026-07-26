@@ -15,9 +15,17 @@ jest.mock('@onekeyhq/components', () => ({
 
 jest.mock(
   '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowHooks',
-  () => ({
-    useUniversalBorrowSetEMode: () => jest.fn(),
-  }),
+  () => {
+    const setEMode = jest.fn();
+    (
+      globalThis as unknown as {
+        __eModeSwitchSetEModeMock: jest.Mock;
+      }
+    ).__eModeSwitchSetEModeMock = setEMode;
+    return {
+      useUniversalBorrowSetEMode: () => setEMode,
+    };
+  },
 );
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
@@ -50,6 +58,11 @@ const backgroundMock = (
     };
   }
 ).__eModeSwitchBackgroundMock;
+const setEModeMock = (
+  globalThis as unknown as {
+    __eModeSwitchSetEModeMock: jest.Mock;
+  }
+).__eModeSwitchSetEModeMock;
 
 function createCheck(reason: string): IBorrowEModeSwitchCheck {
   return {
@@ -88,6 +101,7 @@ function renderUseEModeSwitch() {
 describe('useEModeSwitch runCheck result', () => {
   beforeEach(() => {
     backgroundMock.borrowSwitchCheckEMode.mockReset();
+    setEModeMock.mockReset();
   });
 
   it('returns the same authoritative check that it commits', async () => {
@@ -150,5 +164,87 @@ describe('useEModeSwitch runCheck result', () => {
     expect(secondResult).toBe(latestCheck);
     expect(firstResult).toBeNull();
     expect(result.current.check).toBe(latestCheck);
+  });
+
+  it('replaces an allowed preview with blockers returned by the final guard', async () => {
+    const allowedCheck = {
+      ...createCheck(''),
+      canSwitch: true,
+      reasons: [],
+    };
+    const latestBlockedCheck = createCheck('new blocker');
+    backgroundMock.borrowSwitchCheckEMode.mockResolvedValue({
+      code: 0,
+      data: allowedCheck,
+    });
+    setEModeMock.mockResolvedValue(latestBlockedCheck);
+    const { result } = renderUseEModeSwitch();
+
+    await act(async () => {
+      await result.current.runCheck(2);
+    });
+    await act(async () => {
+      await result.current.confirmSwitch();
+    });
+
+    expect(setEModeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: 'aave',
+        marketAddress: '0xMarket',
+        eModeId: 2,
+      }),
+    );
+    expect(result.current.check).toBe(latestBlockedCheck);
+    expect(backgroundMock.borrowSwitchCheckEMode).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not overwrite a newer same-target check with an allowed guard result', async () => {
+    const allowedPreview = {
+      ...createCheck(''),
+      canSwitch: true,
+      reasons: [],
+    };
+    const allowedGuard = {
+      ...createCheck(''),
+      canSwitch: true,
+      reasons: [],
+    };
+    const newerBlockedCheck = createCheck('newer blocker');
+    const guardDeferred = createDeferred<IBorrowEModeSwitchCheck>();
+    backgroundMock.borrowSwitchCheckEMode
+      .mockResolvedValueOnce({
+        code: 0,
+        data: allowedPreview,
+      })
+      .mockResolvedValueOnce({
+        code: 0,
+        data: newerBlockedCheck,
+      });
+    setEModeMock.mockReturnValueOnce(guardDeferred.promise);
+    const { result } = renderUseEModeSwitch();
+
+    await act(async () => {
+      await result.current.runCheck(2);
+    });
+
+    let confirmPromise!: Promise<void>;
+    act(() => {
+      confirmPromise = result.current.confirmSwitch();
+    });
+    await waitFor(() => {
+      expect(setEModeMock).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      await result.current.runCheck(2);
+    });
+    expect(result.current.check).toBe(newerBlockedCheck);
+
+    await act(async () => {
+      guardDeferred.resolve(allowedGuard);
+      await confirmPromise;
+    });
+
+    expect(result.current.check).toBe(newerBlockedCheck);
   });
 });

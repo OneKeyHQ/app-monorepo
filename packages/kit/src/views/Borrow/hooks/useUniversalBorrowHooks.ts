@@ -11,6 +11,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
+  type IBorrowEModeSwitchCheck,
   type IRepayWithCollateralQuote,
   type IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
@@ -568,6 +569,7 @@ export function useUniversalBorrowSetEMode({
     accountId,
     networkId,
   });
+  const intl = useIntl();
   return useCallback(
     async ({
       provider,
@@ -585,7 +587,49 @@ export function useUniversalBorrowSetEMode({
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
       onCancel?: () => void;
-    }) => {
+    }): Promise<IBorrowEModeSwitchCheck> => {
+      let switchCheckResp;
+      try {
+        switchCheckResp =
+          await backgroundApiProxy.serviceStaking.borrowSwitchCheckEMode({
+            networkId,
+            accountId,
+            provider,
+            marketAddress,
+            targetEModeId: eModeId,
+            autoHandleError: false,
+          });
+      } catch (error) {
+        if (
+          (error as { autoToast?: boolean } | undefined)?.autoToast !== true
+        ) {
+          const message = (error as { message?: unknown } | undefined)?.message;
+          Toast.error({
+            title:
+              typeof message === 'string' && message
+                ? message
+                : intl.formatMessage({ id: ETranslations.global_failed }),
+          });
+        }
+        throw error;
+      }
+
+      if (switchCheckResp.code !== 0 || !switchCheckResp.data) {
+        const message =
+          switchCheckResp.message ||
+          intl.formatMessage({ id: ETranslations.global_failed });
+        Toast.error({ title: message });
+        throw new OneKeyLocalError({
+          message,
+          autoToast: false,
+        });
+      }
+
+      const latestCheck = switchCheckResp.data;
+      if (!latestCheck.canSwitch) {
+        return latestCheck;
+      }
+
       const resp =
         await backgroundApiProxy.serviceStaking.borrowBuildSetEModeTransaction({
           networkId,
@@ -615,8 +659,9 @@ export function useUniversalBorrowSetEMode({
         onFail,
         onCancel,
       });
+      return latestCheck;
     },
-    [accountId, networkId, navigationToTxConfirm, waitForFinalStatus],
+    [accountId, intl, networkId, navigationToTxConfirm, waitForFinalStatus],
   );
 }
 

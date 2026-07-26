@@ -20,6 +20,7 @@ jest.mock('@onekeyhq/components', () => ({
   },
   Toast: {
     error: jest.fn(),
+    warning: jest.fn(),
   },
 }));
 
@@ -124,7 +125,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
 
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { useBorrowApproval } from './useBorrowApproval';
@@ -210,6 +212,7 @@ describe('useBorrowApproval', () => {
       address: '0xOwner',
     });
     (Dialog.show as jest.Mock).mockReset();
+    (Toast.warning as jest.Mock).mockReset();
     allowanceMock.fetchAllowanceResponse.mockReset();
     allowanceMock.fetchAllowanceResponse.mockResolvedValue({
       allowanceParsed: '0',
@@ -324,18 +327,17 @@ describe('useBorrowApproval', () => {
     expect(onApprovedSubmit).not.toHaveBeenCalled();
   });
 
-  it('does not call a replaced submit callback after allowance polling', async () => {
-    const allowanceDeferred = createDeferred<{ allowanceParsed: string }>();
-    allowanceMock.fetchAllowanceResponse
-      .mockResolvedValueOnce({ allowanceParsed: '0' })
-      .mockReturnValueOnce(allowanceDeferred.promise);
-    signatureConfirmMock.navigationToTxConfirm.mockImplementation(
-      async () => undefined,
-    );
-    const previousSubmit = jest.fn().mockResolvedValue(undefined);
-    const currentSubmit = jest.fn().mockResolvedValue(undefined);
-    const { result, rerender } = renderHook(
-      ({ onApprovedSubmit }: { onApprovedSubmit: () => Promise<void> }) =>
+  it('warns and releases approving when allowance polling times out', async () => {
+    jest.useFakeTimers();
+    try {
+      allowanceMock.fetchAllowanceResponse
+        .mockResolvedValueOnce({ allowanceParsed: '0' })
+        .mockRejectedValue(new Error('Allowance unavailable'));
+      signatureConfirmMock.navigationToTxConfirm.mockImplementation(
+        async () => undefined,
+      );
+      const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+      const { result } = renderHook(() =>
         useBorrowApproval({
           action: 'repay',
           amountValue: '5',
@@ -343,39 +345,102 @@ describe('useBorrowApproval', () => {
           approveTarget: tokenApproveTarget,
           onApprovedSubmit,
         }),
-      { initialProps: { onApprovedSubmit: previousSubmit } },
-    );
+      );
 
-    await act(async () => {
-      await result.current.onApprove();
-    });
-    const confirmParams = signatureConfirmMock.navigationToTxConfirm.mock
-      .calls[0][0] as {
-      onSuccess: (
-        data: {
-          decodedTx: { txid: string };
-          signedTx: { txid: string };
-        }[],
-      ) => void;
-    };
-    act(() => {
-      confirmParams.onSuccess([
-        { decodedTx: { txid: '0xApprove' }, signedTx: { txid: '' } },
-      ]);
-    });
-    await waitFor(() =>
-      expect(allowanceMock.fetchAllowanceResponse).toHaveBeenCalledTimes(2),
-    );
+      await act(async () => {
+        await result.current.onApprove();
+      });
+      const confirmParams = signatureConfirmMock.navigationToTxConfirm.mock
+        .calls[0][0] as {
+        onSuccess: (
+          data: {
+            decodedTx: { txid: string };
+            signedTx: { txid: string };
+          }[],
+        ) => void;
+      };
+      await act(async () => {
+        confirmParams.onSuccess([
+          { decodedTx: { txid: '0xApprove' }, signedTx: { txid: '' } },
+        ]);
+        await Promise.resolve();
+      });
 
-    rerender({ onApprovedSubmit: currentSubmit });
-    await act(async () => {
-      allowanceDeferred.resolve({ allowanceParsed: '100' });
-      await allowanceDeferred.promise;
-    });
+      expect(result.current.approving).toBe(true);
 
-    expect(previousSubmit).not.toHaveBeenCalled();
-    expect(currentSubmit).not.toHaveBeenCalled();
-    expect(result.current.approving).toBe(false);
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(28_000);
+      });
+
+      expect(allowanceMock.fetchAllowanceResponse).toHaveBeenCalledTimes(16);
+      expect(Toast.warning).toHaveBeenCalledWith({
+        title: ETranslations.swap_page_toast_approve_failed,
+        message: ETranslations.global_try_again,
+      });
+      expect(onApprovedSubmit).not.toHaveBeenCalled();
+      expect(result.current.approving).toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('silently aborts allowance polling when submit callback is replaced', async () => {
+    jest.useFakeTimers();
+    try {
+      allowanceMock.fetchAllowanceResponse.mockResolvedValue({
+        allowanceParsed: '0',
+      });
+      signatureConfirmMock.navigationToTxConfirm.mockImplementation(
+        async () => undefined,
+      );
+      const previousSubmit = jest.fn().mockResolvedValue(undefined);
+      const currentSubmit = jest.fn().mockResolvedValue(undefined);
+      const { result, rerender } = renderHook(
+        ({ onApprovedSubmit }: { onApprovedSubmit: () => Promise<void> }) =>
+          useBorrowApproval({
+            action: 'repay',
+            amountValue: '5',
+            approveType: EApproveType.Legacy,
+            approveTarget: tokenApproveTarget,
+            onApprovedSubmit,
+          }),
+        { initialProps: { onApprovedSubmit: previousSubmit } },
+      );
+
+      await act(async () => {
+        await result.current.onApprove();
+      });
+      const confirmParams = signatureConfirmMock.navigationToTxConfirm.mock
+        .calls[0][0] as {
+        onSuccess: (
+          data: {
+            decodedTx: { txid: string };
+            signedTx: { txid: string };
+          }[],
+        ) => void;
+      };
+      await act(async () => {
+        confirmParams.onSuccess([
+          { decodedTx: { txid: '0xApprove' }, signedTx: { txid: '' } },
+        ]);
+        await Promise.resolve();
+      });
+
+      expect(allowanceMock.fetchAllowanceResponse).toHaveBeenCalledTimes(2);
+      rerender({ onApprovedSubmit: currentSubmit });
+      expect(result.current.approving).toBe(false);
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(2000);
+      });
+
+      expect(previousSubmit).not.toHaveBeenCalled();
+      expect(currentSubmit).not.toHaveBeenCalled();
+      expect(Toast.warning).not.toHaveBeenCalled();
+      expect(result.current.approving).toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('ignores a stale USDT reset dialog confirmation', async () => {
