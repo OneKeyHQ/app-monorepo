@@ -26,6 +26,8 @@ import {
 import type { IntlShape } from 'react-intl';
 import type { LayoutChangeEvent } from 'react-native';
 
+export const UNIFOLD_STATUS_CARDS_CONTENT_GAP = 8;
+
 // Per-execution status cards pinned to the bottom of the deposit modal while
 // it is open (D2 decision: SDK-style in-modal cards; after the modal closes
 // the bg tracking loop takes over with the standard perps toast).

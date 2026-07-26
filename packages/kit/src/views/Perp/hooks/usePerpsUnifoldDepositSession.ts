@@ -626,6 +626,23 @@ export function usePerpsUnifoldDepositSession({
   if (addressState.status === 'ready') {
     sessionIdRef.current = addressState.result.sessionId;
   }
+  const acknowledgePresentedExecution = useCallback(
+    (execution: IUnifoldDepositExecution) => {
+      if (
+        !recipientAddress ||
+        !execution.terminal ||
+        announcedRef.current.has(execution.executionId)
+      ) {
+        return;
+      }
+      announcedRef.current.add(execution.executionId);
+      void backgroundApiProxy.serviceUnifoldDeposit.settleAnnouncedExecution({
+        recipientAddress,
+        executionId: execution.executionId,
+      });
+    },
+    [recipientAddress],
+  );
   useEffect(() => {
     if (!enabled || !recipientAddress || !pollEnabled) {
       return;
@@ -707,16 +724,10 @@ export function usePerpsUnifoldDepositSession({
           if (seenStatus !== item.status) {
             seenRef.current.set(item.executionId, item.status);
             if (!priming && item.terminal) {
-              // This session handles the terminal outcome via the status
-              // cards, so settle its tracked entry before unmount hands
-              // tracking back to the background loop.
-              announcedRef.current.add(item.executionId);
-              void backgroundApiProxy.serviceUnifoldDeposit.settleAnnouncedExecution(
-                {
-                  recipientAddress,
-                  executionId: item.executionId,
-                },
-              );
+              // Settlement waits until the UI confirms that the terminal
+              // status was actually presented. Otherwise a dismissed pending
+              // card could suppress the terminal card while also preventing
+              // the background loop from announcing it after unmount.
               if (item.status === 'succeeded') {
                 void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
               }
@@ -841,6 +852,7 @@ export function usePerpsUnifoldDepositSession({
     selectChain,
     qrAddress,
     sessionExecutions,
+    acknowledgePresentedExecution,
     // Never claim to be watching for a deposit to an address the user has not
     // been shown: the poll (and its tracking claim) intentionally starts on
     // the raw ready state so money already in flight keeps being announced,

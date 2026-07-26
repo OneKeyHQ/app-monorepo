@@ -1,5 +1,5 @@
 // cspell: words unifold Unifold hypercore Hypercore
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -30,7 +30,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IUnifoldDepositExecution } from '@onekeyhq/shared/types/unifoldDeposit';
 
 import { UnifoldDepositQRCard } from './UnifoldDepositQRCard';
-import { UnifoldExecutionStatusCards } from './UnifoldExecutionStatusCards';
+import {
+  UNIFOLD_STATUS_CARDS_CONTENT_GAP,
+  UnifoldExecutionStatusCards,
+} from './UnifoldExecutionStatusCards';
 import {
   formatUnifoldProcessingTime,
   formatUnifoldUsd,
@@ -300,9 +303,10 @@ export function UnifoldTransferContent({
   onDetailExecutionIdChange?: (executionId: string | null) => void;
 }) {
   const intl = useIntl();
-  const [dismissedExecutionIds, setDismissedExecutionIds] = useState<string[]>(
-    [],
-  );
+  const [dismissedExecutionStatuses, setDismissedExecutionStatuses] = useState<
+    Partial<Record<string, IUnifoldDepositExecution['status']>>
+  >({});
+  const [statusCardsHeight, setStatusCardsHeight] = useState(0);
   const [internalDetailExecutionId, setInternalDetailExecutionId] = useState<
     string | null
   >(null);
@@ -317,16 +321,46 @@ export function UnifoldTransferContent({
     selectChain,
     qrAddress,
     sessionExecutions,
+    acknowledgePresentedExecution,
     activationFee,
     showActivationWarning,
     activationRetrying,
   } = usePerpsUnifoldDepositSession({ enabled: true, expectedRecipient });
 
-  const handleDismiss = useCallback((executionId: string) => {
-    setDismissedExecutionIds((prev) =>
-      prev.includes(executionId) ? prev : [...prev, executionId],
-    );
-  }, []);
+  const handleDismiss = useCallback(
+    (executionId: string) => {
+      const execution = sessionExecutions.find(
+        (item) => item.executionId === executionId,
+      );
+      if (!execution) {
+        return;
+      }
+      setDismissedExecutionStatuses((prev) => ({
+        ...prev,
+        [executionId]: execution.status,
+      }));
+    },
+    [sessionExecutions],
+  );
+
+  useEffect(() => {
+    setDismissedExecutionStatuses((prev) => {
+      const currentStatuses = new Map(
+        sessionExecutions.map(
+          (execution) => [execution.executionId, execution.status] as const,
+        ),
+      );
+      let changed = false;
+      const next = { ...prev };
+      Object.entries(next).forEach(([executionId, dismissedStatus]) => {
+        if (currentStatuses.get(executionId) !== dismissedStatus) {
+          delete next[executionId];
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [sessionExecutions]);
 
   const detailExecutionId =
     controlledDetailExecutionId === undefined
@@ -368,11 +402,39 @@ export function UnifoldTransferContent({
     : receiveNetwork?.chain_name;
   const useCompactLayout = useDialogHeader || useExternalHeader;
   const inPageFooter = statusCardsPlacement === 'pageFooter';
-  const visibleExecutions = sessionExecutions.filter(
-    (item) => !dismissedExecutionIds.includes(item.executionId),
+  const visibleExecutions = useMemo(
+    () =>
+      sessionExecutions.filter(
+        (item) => dismissedExecutionStatuses[item.executionId] !== item.status,
+      ),
+    [dismissedExecutionStatuses, sessionExecutions],
   );
   const showStatusCards =
     visibleExecutions.length > 0 && detailExecutionId === null;
+  const cardsReserve =
+    inPageFooter || !showStatusCards
+      ? undefined
+      : statusCardsHeight + UNIFOLD_STATUS_CARDS_CONTENT_GAP;
+  const detailExecution = detailExecutionId
+    ? sessionExecutions.find((item) => item.executionId === detailExecutionId)
+    : undefined;
+
+  useEffect(() => {
+    let presentedTerminalExecutions: IUnifoldDepositExecution[] = [];
+    if (detailExecution?.terminal) {
+      presentedTerminalExecutions = [detailExecution];
+    } else if (detailExecutionId === null) {
+      presentedTerminalExecutions = visibleExecutions.filter(
+        (item) => item.terminal,
+      );
+    }
+    presentedTerminalExecutions.forEach(acknowledgePresentedExecution);
+  }, [
+    acknowledgePresentedExecution,
+    detailExecution,
+    detailExecutionId,
+    visibleExecutions,
+  ]);
 
   const statusCards = showStatusCards ? (
     <UnifoldExecutionStatusCards
@@ -384,6 +446,7 @@ export function UnifoldTransferContent({
         onPressExecution?.(execution);
       }}
       onDismiss={handleDismiss}
+      onHeightChange={inPageFooter ? undefined : setStatusCardsHeight}
       floating={!inPageFooter}
     />
   ) : null;
@@ -415,14 +478,15 @@ export function UnifoldTransferContent({
     );
   }
 
-  // Cards stay mounted in every branch below: a veto or an open detail must
-  // never hide deposits that are still moving.
+  // Give every content branch the same overlay host. When cards are visible,
+  // reserve their measured height inside the desktop scroll body so bottom
+  // rows can scroll fully above them.
   const withStatusCards = (body: React.ReactNode) => (
     <>
       {dialogHeader}
       <Stack pb={inPageFooter ? undefined : '$3'}>
         <BodyFrame maxHeight={bodyMaxHeight}>
-          <Stack>{body}</Stack>
+          <Stack pb={cardsReserve}>{body}</Stack>
         </BodyFrame>
         {inPageFooter ? null : statusCards}
       </Stack>
@@ -444,9 +508,6 @@ export function UnifoldTransferContent({
     );
   }
 
-  const detailExecution = detailExecutionId
-    ? sessionExecutions.find((item) => item.executionId === detailExecutionId)
-    : undefined;
   if (detailExecution) {
     return withStatusCards(
       <YStack>

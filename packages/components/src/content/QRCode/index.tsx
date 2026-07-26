@@ -328,7 +328,8 @@ export function QRCode({
     };
   }, [value, interval, isAnimatedCode, valueUr]);
 
-  if (!partValue) {
+  const displayValue = isAnimatedCode ? partValue : value || '';
+  if (!displayValue) {
     // TODO return Skeleton
     return null;
   }
@@ -341,7 +342,7 @@ export function QRCode({
         jc="center"
         ai="center"
       >
-        <BasicQRCode value={partValue} drawType={drawType} {...props} />
+        <BasicQRCode value={displayValue} drawType={drawType} {...props} />
       </Stack>
     </Theme>
   );

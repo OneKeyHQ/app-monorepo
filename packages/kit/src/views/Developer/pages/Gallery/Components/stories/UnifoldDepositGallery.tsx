@@ -12,7 +12,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { UnifoldDepositQRCard } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/UnifoldDeposit/UnifoldDepositQRCard';
-import { UnifoldExecutionStatusCards } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/UnifoldDeposit/UnifoldExecutionStatusCards';
+import {
+  UNIFOLD_STATUS_CARDS_CONTENT_GAP,
+  UnifoldExecutionStatusCards,
+} from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/UnifoldDeposit/UnifoldExecutionStatusCards';
 import {
   formatUnifoldTokenAmount,
   formatUnifoldUsd,
@@ -368,7 +371,9 @@ function PanelFrame({
   onDismiss?: (executionId: string) => void;
 }) {
   const [cardsHeight, setCardsHeight] = useState(0);
-  const reserve = executions.length ? cardsHeight : undefined;
+  const reserve = executions.length
+    ? cardsHeight + UNIFOLD_STATUS_CARDS_CONTENT_GAP
+    : undefined;
   const body = (
     <Stack pb={reserve}>
       <YStack gap="$3">
@@ -544,6 +549,12 @@ function CompositePanelGallery() {
         expanded
         activationWarning
         executions={[DELAYED]}
+      />
+      <PanelFrame
+        title="Short window 386pt · expanded + 3 cards (must scroll)"
+        maxHeight={386}
+        expanded
+        executions={[SUCCEEDED, DELAYED, PENDING]}
       />
       <PanelFrame
         title="Loading race · address ready but no selection yet"
