@@ -1,5 +1,13 @@
 // cspell: words unifold Unifold
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
 const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
+
+export function isUnifoldDepositAccountDisabled(
+  accountId: string | null | undefined,
+): boolean {
+  return accountUtils.isWatchingAccount({ accountId: accountId ?? '' });
+}
 
 // Fail-closed guard: the Unifold recipient MUST be the currently active Perps
 // account address at the moment the deposit session starts. Any mismatch

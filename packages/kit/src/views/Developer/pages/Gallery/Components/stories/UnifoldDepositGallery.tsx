@@ -12,6 +12,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { UnifoldDepositQRCard } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/UnifoldDeposit/UnifoldDepositQRCard';
+import { getUnifoldDesktopDialogBodyMaxHeight } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/UnifoldDeposit/unifoldDialogLayout';
 import {
   UNIFOLD_STATUS_CARDS_CONTENT_GAP,
   UnifoldExecutionStatusCards,
@@ -43,6 +44,9 @@ const USDC_ICON = 'https://api.unifold.io/api/public/icons/tokens/svg/usdc.svg';
 const ARB_ICON =
   'https://api.unifold.io/api/public/icons/networks/svg/arbitrum.svg';
 const TX = '0x41f367d5a06097f392e2b3d88cc0170a41fce6b20d46bd552145a7d5af87d592';
+const SHORT_WINDOW_HEIGHT = 386;
+const SHORT_WINDOW_BODY_MAX_HEIGHT =
+  getUnifoldDesktopDialogBodyMaxHeight(SHORT_WINDOW_HEIGHT);
 
 // Verbatim payload from a real Arbitrum deposit (2026-07-22).
 const SUCCEEDED: IUnifoldDepositExecution = {
@@ -293,9 +297,15 @@ function ProcessingTimeRowStub() {
   );
 }
 
-function TermsRowStub({ waiting }: { waiting?: boolean }) {
+function TermsRowStub({
+  waiting,
+  testID,
+}: {
+  waiting?: boolean;
+  testID?: string;
+}) {
   return (
-    <XStack alignItems="center" justifyContent="space-between">
+    <XStack testID={testID} alignItems="center" justifyContent="space-between">
       <XStack alignItems="center" gap="$1.5">
         {waiting ? (
           <>
@@ -347,6 +357,7 @@ function ActivationWarningStub() {
 // the same presentational pieces.
 function PanelFrame({
   title,
+  testID,
   width = DESKTOP_BODY_WIDTH,
   maxHeight,
   executions,
@@ -359,6 +370,7 @@ function PanelFrame({
   onDismiss,
 }: {
   title: string;
+  testID?: string;
   width?: number;
   maxHeight?: number;
   executions: IUnifoldDepositExecution[];
@@ -404,13 +416,16 @@ function PanelFrame({
             </SizableText>
           </YStack>
         ) : null}
-        <TermsRowStub waiting={!executions.length} />
+        <TermsRowStub
+          testID={testID ? `${testID}-terms` : undefined}
+          waiting={!executions.length}
+        />
       </YStack>
     </Stack>
   );
 
   return (
-    <YStack gap="$2">
+    <YStack testID={testID} gap="$2">
       <SizableText size="$bodySmMedium" color="$textSubdued">
         {title}
       </SizableText>
@@ -426,7 +441,12 @@ function PanelFrame({
           {maxHeight === undefined ? (
             <Stack>{body}</Stack>
           ) : (
-            <ScrollView maxHeight={maxHeight}>{body}</ScrollView>
+            <ScrollView
+              testID={testID ? `${testID}-scroll` : undefined}
+              maxHeight={maxHeight}
+            >
+              {body}
+            </ScrollView>
           )}
           {executions.length ? (
             <UnifoldExecutionStatusCards
@@ -544,15 +564,17 @@ function CompositePanelGallery() {
       />
       <DismissiblePanelFrame />
       <PanelFrame
+        testID="unifold-short-window-one-card"
         title="Short window 386pt · expanded + activation warning + 1 card (must scroll)"
-        maxHeight={386}
+        maxHeight={SHORT_WINDOW_BODY_MAX_HEIGHT}
         expanded
         activationWarning
         executions={[DELAYED]}
       />
       <PanelFrame
+        testID="unifold-short-window-three-cards"
         title="Short window 386pt · expanded + 3 cards (must scroll)"
-        maxHeight={386}
+        maxHeight={SHORT_WINDOW_BODY_MAX_HEIGHT}
         expanded
         executions={[SUCCEEDED, DELAYED, PENDING]}
       />

@@ -14,11 +14,13 @@ import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotai
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { loadPerpsDepositWithdrawModal } from '../utils/preloadPerpsDepositWithdrawModal';
 import { loadPerpsUnifoldDepositModals } from '../utils/preloadPerpsUnifoldDeposit';
-import { getSafeUnifoldRecipient } from '../utils/unifoldRecipient';
+import {
+  getSafeUnifoldRecipient,
+  isUnifoldDepositAccountDisabled,
+} from '../utils/unifoldRecipient';
 
 type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
 
@@ -100,19 +102,14 @@ export function useShowDepositWithdrawModal() {
   const dialogInTab = useInTabDialog();
   const [activeAccount] = usePerpsActiveAccountAtom();
   const isDepositDisabled = useMemo(
-    () =>
-      accountUtils.isWatchingAccount({
-        accountId: activeAccount.accountId ?? '',
-      }),
+    () => isUnifoldDepositAccountDisabled(activeAccount.accountId),
     [activeAccount.accountId],
   );
   const getLatestDepositDisabled = useCallback(() => {
     const latestActiveAccount = jotaiDefaultStore.get(
       perpsActiveAccountAtom.atom(),
     );
-    return accountUtils.isWatchingAccount({
-      accountId: latestActiveAccount.accountId ?? '',
-    });
+    return isUnifoldDepositAccountDisabled(latestActiveAccount.accountId);
   }, []);
 
   const openDepositWithdrawForm = useCallback(
@@ -156,6 +153,9 @@ export function useShowDepositWithdrawModal() {
       const selectedAccount = jotaiDefaultStore.get(
         perpsActiveAccountAtom.atom(),
       );
+      if (isUnifoldDepositAccountDisabled(selectedAccount.accountId)) {
+        return;
+      }
       const safeRecipient = getSafeUnifoldRecipient({
         recipient: selectedAccount.accountAddress,
         activeAccountAddress: selectedAccount.accountAddress,

@@ -35,6 +35,7 @@ import {
   UNIFOLD_HYPERCORE_USDC_PERP_ADDRESS,
 } from '../consts/unifold';
 import { hasUsableUnifoldSupportedAssets } from '../utils/unifoldDestination';
+import { shouldEnableUnifoldLedgerUpdates } from '../utils/unifoldExecution';
 import { getSafeUnifoldRecipient } from '../utils/unifoldRecipient';
 
 // Default source preference mirrors the SDK config used before the API
@@ -599,10 +600,6 @@ export function usePerpsUnifoldDepositSession({
 
   // ── Executions poll (3s while mounted and address is ready) ──
   const seenRef = useRef(new Map<string, IUnifoldExecutionStatus>());
-  // The first successful tick primes the seen map WITHOUT announcing: a modal
-  // reopen within the 60s lookback must not re-toast an already-announced
-  // (possibly already-terminal) execution.
-  const primedRef = useRef(false);
   const tickBusyRef = useRef(false);
   // Terminal outcomes handled by this session; reported at unmount so the bg
   // loop does not process them a second time.
@@ -715,22 +712,19 @@ export function usePerpsUnifoldDepositSession({
             },
           );
         }
-        const priming = !primedRef.current;
-        primedRef.current = true;
-        // Announce transitions oldest → newest so multi-deposit sessions play
-        // back in order.
+        // Process transitions oldest → newest so multi-deposit sessions refresh
+        // in order. A succeeded status on the first poll must also enable
+        // ledger updates even though the status card itself is historical.
         for (const item of [...items].toReversed()) {
           const seenStatus = seenRef.current.get(item.executionId);
+          const shouldEnableLedgerUpdates = shouldEnableUnifoldLedgerUpdates({
+            previousStatus: seenStatus,
+            nextStatus: item.status,
+          });
           if (seenStatus !== item.status) {
             seenRef.current.set(item.executionId, item.status);
-            if (!priming && item.terminal) {
-              // Settlement waits until the UI confirms that the terminal
-              // status was actually presented. Otherwise a dismissed pending
-              // card could suppress the terminal card while also preventing
-              // the background loop from announcing it after unmount.
-              if (item.status === 'succeeded') {
-                void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
-              }
+            if (shouldEnableLedgerUpdates) {
+              void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
             }
           }
         }

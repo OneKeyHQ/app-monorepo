@@ -22,6 +22,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { getUnifoldDesktopDialogBodyMaxHeight } from './unifoldDialogLayout';
 import { normalizeUnifoldIconUrl } from './unifoldFormat';
 import { UnifoldTrackerContent } from './UnifoldTrackerContent';
 import { UnifoldTransferContent } from './UnifoldTransferContent';
@@ -35,9 +36,6 @@ const DESKTOP_DIALOG_MAX_WIDTH = 'calc(100vw - 32px)';
 // The dialog panel clamps its own height but never scrolls, so the body has to
 // be told how much room is left: 64px panel inset + 70px dialog header + 20px
 // content padding.
-const DESKTOP_DIALOG_CHROME_HEIGHT = 154;
-const DESKTOP_DIALOG_MIN_BODY_HEIGHT = 320;
-
 function getSupportedAssetsSwrKey({
   destinationChainType,
   destinationChainId,
@@ -58,10 +56,7 @@ function getSupportedAssetsSwrKey({
 
 function useDesktopDialogBodyMaxHeight() {
   const { height } = useWindowDimensions();
-  return Math.max(
-    DESKTOP_DIALOG_MIN_BODY_HEIGHT,
-    height - DESKTOP_DIALOG_CHROME_HEIGHT,
-  );
+  return getUnifoldDesktopDialogBodyMaxHeight(height);
 }
 
 // Dialog content is built from a plain function, so the window-dependent bound
