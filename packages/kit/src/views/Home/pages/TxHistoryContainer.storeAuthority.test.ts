@@ -40,7 +40,7 @@ describe('Home History Store authority', () => {
     });
     expect(renderer).toContain('useHomeHistoryIntents()');
     expect(renderer).toContain("useHomeResource('history')");
-    expect(renderer).toContain('pendingSectionCommands.some');
+    expect(renderer).toContain("historyResource.refresh === 'refreshing'");
   });
 
   it('passes the complete History display payload through the Store boundary', () => {

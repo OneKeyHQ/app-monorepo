@@ -25,7 +25,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useHomeTokenListOwnerKey } from '../../../states/jotai/contexts/tokenList/cells';
-import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
+import { TokenListStoreProvider } from '../../Home/components/TokenListStoreProvider';
 import { TokenManagerList } from '../components/TokenManager/TokenManagerList';
 import { useAccountInfoForManageToken } from '../hooks/useAddToken';
 import { useTokenManagement } from '../hooks/useTokenManagement';
@@ -293,15 +293,6 @@ function TokenManagerModal() {
 }
 
 function TokenManagerModalContainer() {
-  const route =
-    useRoute<
-      RouteProp<
-        IModalAssetListParamList,
-        EModalAssetListRoutes.TokenManagerModal
-      >
-    >();
-  const { accountId } = route.params;
-
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -310,9 +301,14 @@ function TokenManagerModalContainer() {
       }}
       enabledNum={[0]}
     >
-      <HomeTokenListProviderMirrorWrapper accountId={accountId}>
+      <TokenListStoreProvider
+        consumerId="token-manager"
+        demandPriority="interactive"
+        demandReason="assetSelector"
+        ownerScopeKey="wallet-current"
+      >
         <TokenManagerModal />
-      </HomeTokenListProviderMirrorWrapper>
+      </TokenListStoreProvider>
     </AccountSelectorProviderMirror>
   );
 }

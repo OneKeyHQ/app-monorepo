@@ -1,7 +1,7 @@
 import type { IHomeRuntimeOwnerToken } from '@onekeyhq/shared/src/types/homeRuntime';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import {
+  buildHomeScalarKey,
   createHomeSourceKey,
   getHomeSourceKeyIdentity,
 } from '../../core/homeIdentity';
@@ -129,7 +129,16 @@ function createHomeMarketSourceIdentity({
   const sourceKey = createHomeSourceKey({
     dataSchemaVersion: HOME_MARKET_DATA_SCHEMA_VERSION,
     ownerToken: owner,
-    paramsFingerprint: stringUtils.stableStringify(params),
+    paramsFingerprint: buildHomeScalarKey([
+      params.favoriteMode,
+      params.homeTabConfigKey,
+      params.minLiquidity,
+      params.perpsHotEnabled,
+      params.prefetchCategoryIds.join(','),
+      params.resolvedCategoryId,
+      params.selectedCategoryId,
+      params.watchListContentKey,
+    ]),
     sourceId: 'market',
   });
   return {

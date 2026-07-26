@@ -93,7 +93,7 @@ export function useHomeRefreshIntents() {
       if (!facts) {
         return false;
       }
-      const effects = dispatchHomeIntent({
+      const receipt = dispatchHomeIntent({
         type: 'sectionRefreshRequested',
         actionId: HOME_REFRESH_ACTION_IDS[sectionId],
         authority: {
@@ -101,13 +101,12 @@ export function useHomeRefreshIntents() {
           sectionId,
           revision: sectionRevisions[sectionId],
         },
-        execution: 'controller',
         intentId: createHomeAuthorityId('intent'),
         owner: facts.owner,
         sectionId,
         sessionId: facts.ownerToken.sessionId,
       });
-      return !effects.some((effect) => effect.kind === 'traceReject');
+      return receipt.accepted;
     },
     [dispatchHomeIntent, facts, sectionRevisions],
   );

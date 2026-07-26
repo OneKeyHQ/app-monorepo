@@ -10,14 +10,13 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IHomePageViewedState } from '@onekeyhq/shared/src/logger/scopes/account/scenes/wallet';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { useHomeDisplayModel } from '../../../hooks/useHomeBalanceState';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useHomeResource } from '../../../states/jotai/contexts/home';
-import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { WalletActions } from '../components/WalletActions';
 import WalletBanner from '../components/WalletBanner';
+import { buildHomeScalarKey } from '../model/core/homeIdentity';
 import { useHomeRefreshIntents } from '../model/react/useHomeRefreshIntents';
 import { readHomeBannerStorePayload } from '../model/sections/banner/homeBannerStoreModel';
 import { HomeTestIDs } from '../testIDs';
@@ -151,7 +150,7 @@ function BaseHomeHeaderContainer({
       isWalletNotBackedUp,
       nativeMinHeight,
     } as const;
-    const key = stringUtils.stableStringify(decision);
+    const key = buildHomeScalarKey(Object.values(decision));
     if (homeHeaderDecisionKeyRef.current === key) {
       return;
     }
@@ -266,9 +265,7 @@ function BaseHomeHeaderContainer({
 
 export const HomeHeaderContainer = memo(
   ({ variant = 'normal' }: { variant?: IHomeHeaderContainerVariant }) => (
-    <HomeTokenListProviderMirror>
-      <BaseHomeHeaderContainer variant={variant} />
-    </HomeTokenListProviderMirror>
+    <BaseHomeHeaderContainer variant={variant} />
   ),
 );
 HomeHeaderContainer.displayName = 'HomeHeaderContainer';

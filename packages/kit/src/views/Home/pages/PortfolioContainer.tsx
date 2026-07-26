@@ -20,7 +20,6 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { ProviderJotaiContextDeFiList } from '../../../states/jotai/contexts/deFiList';
 import { ProviderJotaiContextHistoryList } from '../../../states/jotai/contexts/historyList';
 import useActiveTabDAppInfo from '../../DAppConnection/hooks/useActiveTabDAppInfo';
@@ -28,7 +27,6 @@ import { EarnProviderMirror } from '../../Earn/EarnProviderMirror';
 import { DeFiListBlock } from '../components/DeFiListBlock';
 import { EarnListView } from '../components/EarnListView';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
-import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { PopularTrading } from '../components/PopularTrading';
 import { PullToRefresh } from '../components/PullToRefresh';
 import { RecentHistory } from '../components/RecentHistory';
@@ -272,35 +270,30 @@ function PortfolioContainer() {
 }
 
 function PortfolioContainerWithProvider() {
-  const {
-    activeAccount: { account },
-  } = useActiveAccount({ num: 0 });
   const tabBarHeight = useScrollContentTabBarOffset();
   const { refreshSection, refreshingBySection } = useHomeRefreshIntents();
   return (
-    <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
-      <ProviderJotaiContextHistoryList>
-        <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
-          <ProviderJotaiContextDeFiList>
-            <Tabs.ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: tabBarHeight }}
-              nestedScrollEnabled={platformEnv.isNativeAndroid}
-              refreshControl={
-                !platformEnv.isNativeAndroid ? (
-                  <PullToRefresh
-                    onRefresh={() => refreshSection('portfolio')}
-                    refreshing={refreshingBySection.portfolio}
-                  />
-                ) : undefined
-              }
-            >
-              <PortfolioContainer />
-            </Tabs.ScrollView>
-          </ProviderJotaiContextDeFiList>
-        </EarnProviderMirror>
-      </ProviderJotaiContextHistoryList>
-    </HomeTokenListProviderMirrorWrapper>
+    <ProviderJotaiContextHistoryList>
+      <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
+        <ProviderJotaiContextDeFiList>
+          <Tabs.ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: tabBarHeight }}
+            nestedScrollEnabled={platformEnv.isNativeAndroid}
+            refreshControl={
+              !platformEnv.isNativeAndroid ? (
+                <PullToRefresh
+                  onRefresh={() => refreshSection('portfolio')}
+                  refreshing={refreshingBySection.portfolio}
+                />
+              ) : undefined
+            }
+          >
+            <PortfolioContainer />
+          </Tabs.ScrollView>
+        </ProviderJotaiContextDeFiList>
+      </EarnProviderMirror>
+    </ProviderJotaiContextHistoryList>
   );
 }
 PortfolioContainerWithProvider.displayName = 'PortfolioContainerWithProvider';

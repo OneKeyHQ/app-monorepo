@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 
+import { getHomeRuntimeDispatcher } from '@onekeyhq/kit/src/views/Home/model/runtime/homeRuntimeRegistry';
 import {
   createInitialHomeStoreResources,
   createInitialHomeStoreSection,
@@ -9,6 +10,8 @@ import {
   reduceHomeStore,
 } from '@onekeyhq/kit/src/views/Home/model/store/homeStoreReducer';
 import type {
+  IHomeCommandExecution,
+  IHomeDispatchReceipt,
   IHomeSetOrReset,
   IHomeStoreEffect,
   IHomeStoreEvent,
@@ -44,11 +47,12 @@ import {
   initial,
   resourceStates,
   sectionStates,
+  useHomeContextStore,
 } from './atoms';
 
 import type { IHomeDisplaySnapshotLoadState } from './atoms';
 
-function readHomeStoreState(get: IJotaiGetter): IHomeStoreState {
+export function readHomeStoreState(get: IJotaiGetter): IHomeStoreState {
   return {
     session: get(homeSessionState.atom()),
     runtime: get(homeRuntimeState.atom()),
@@ -200,7 +204,7 @@ function applyHomeMutation(
   }
 }
 
-function dispatchHomeStoreEvent(
+export function dispatchHomeStoreEvent(
   get: IJotaiGetter,
   set: IJotaiSetter,
   event: IHomeStoreEvent,
@@ -210,7 +214,7 @@ function dispatchHomeStoreEvent(
   });
 }
 
-function dispatchHomeStoreEventsAtomically(
+export function dispatchHomeStoreEventsAtomically(
   get: IJotaiGetter,
   set: IJotaiSetter,
   {
@@ -301,13 +305,42 @@ export function useHomeStoreInternalActions() {
 }
 
 export function useHomeStoreIntentActions() {
-  const actions = createActions();
-  const dispatchHomeIntent = actions.dispatchHomeIntent.use();
-  return useRef({ dispatchHomeIntent });
+  const store = useHomeContextStore();
+  const actionsRef = useRef<{
+    dispatchHomeIntent: (intent: IHomeStoreIntent) => IHomeDispatchReceipt;
+    executeHomeCommand: <TResult>(
+      intent: IHomeStoreIntent,
+    ) => IHomeCommandExecution<TResult>;
+  }>({
+    dispatchHomeIntent: (intent) => {
+      const runtime = getHomeRuntimeDispatcher(store);
+      if (!runtime) {
+        return { accepted: false, rejectReason: 'runtimeDisposed' };
+      }
+      return runtime.dispatch({
+        type: 'intentReceived',
+        intent,
+      });
+    },
+    executeHomeCommand: <TResult>(intent: IHomeStoreIntent) => {
+      const runtime = getHomeRuntimeDispatcher(store);
+      if (!runtime) {
+        return {
+          receipt: { accepted: false, rejectReason: 'runtimeDisposed' },
+          completion: Promise.resolve({
+            kind: 'cancelled',
+            reason: 'disposed',
+          }),
+        };
+      }
+      return runtime.executeIntent<TResult>(intent);
+    },
+  });
+  return actionsRef;
 }
 
 function assertNever(value: never): never {
   throw new OneKeyLocalError(`Unhandled Home Store mutation: ${String(value)}`);
 }
 
-export { applyHomeMutation, applyHomeStorePatchToState, readHomeStoreState };
+export { applyHomeMutation, applyHomeStorePatchToState };

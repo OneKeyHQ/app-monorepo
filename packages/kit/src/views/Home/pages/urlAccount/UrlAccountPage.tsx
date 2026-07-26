@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Page, SizableText, Spinner, Stack } from '@onekeyhq/components';
@@ -12,6 +11,7 @@ import { ProviderJotaiContextAccountOverview } from '@onekeyhq/kit/src/states/jo
 import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import { ProviderJotaiContextHome } from '@onekeyhq/kit/src/states/jotai/contexts/home';
+import { ProviderJotaiContextTokenList } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useJotaiContextRootStore } from '@onekeyhq/kit/src/states/jotai/utils/useJotaiContextRootStore';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -26,7 +26,7 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
-import { useUrlAccountHomeTokenListContextStoreInitData } from '../../components/HomeTokenListProvider/UrlAccountHomeTokenListProvider';
+import { useTokenListStoreLease } from '../../components/TokenListStoreProvider';
 import { HomeStoreSourceControllers } from '../../model/react/HomeStoreSourceControllers';
 import { HomePageView } from '../HomePageView';
 
@@ -98,7 +98,9 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
       platformEnv.isDesktop &&
       routePathRef.current === '/index.html' // production Desktop use `file:///index.html` not `file:///` as init route
     ) {
-      const newRouteParams = cloneDeep(routeParamsRef.current);
+      const newRouteParams = routeParamsRef.current
+        ? { ...routeParamsRef.current }
+        : undefined;
       // 'file:///?networkId=index.html'
       if (newRouteParams && newRouteParams?.networkId === 'index.html') {
         delete newRouteParams.networkId;
@@ -232,9 +234,6 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
           <SizableText size="$headingXl">
             {intl.formatMessage({ id: ETranslations.global_404_message })}
           </SizableText>
-          {/* {process.env.NODE_ENV !== 'production' ? (
-            <SizableText my="$6">{JSON.stringify(routeParams)}</SizableText>
-          ) : null} */}
         </Stack>
       </Page>
     );
@@ -261,24 +260,29 @@ export function UrlAccountPageContainer() {
   }, []);
   const data = useUrlAccountOverviewContextStoreInitData();
   const overviewStore = useJotaiContextRootStore(data);
-  const homeStoreData = useUrlAccountHomeTokenListContextStoreInitData();
-  const homeStore = useJotaiContextRootStore(homeStoreData);
+  const homeStore = useTokenListStoreLease({
+    consumerId: 'url-account-home',
+    mode: 'urlAccount',
+    ownerScopeKey: 'url-account-current',
+  });
   return (
     <ProviderJotaiContextAccountOverview store={overviewStore}>
       <ProviderJotaiContextHome
         config={URL_ACCOUNT_HOME_STORE_CONTEXT_CONFIG}
         store={homeStore}
       >
-        <AccountSelectorProviderMirror
-          config={{
-            sceneName,
-            sceneUrl: '',
-          }}
-          enabledNum={[0]}
-        >
-          <HomeStoreSourceControllers />
-          <UrlAccountAutoCreate />
-        </AccountSelectorProviderMirror>
+        <ProviderJotaiContextTokenList store={homeStore}>
+          <AccountSelectorProviderMirror
+            config={{
+              sceneName,
+              sceneUrl: '',
+            }}
+            enabledNum={[0]}
+          >
+            <HomeStoreSourceControllers />
+            <UrlAccountAutoCreate />
+          </AccountSelectorProviderMirror>
+        </ProviderJotaiContextTokenList>
       </ProviderJotaiContextHome>
     </ProviderJotaiContextAccountOverview>
   );
@@ -290,24 +294,29 @@ export function UrlAccountLanding() {
   });
   const data = useUrlAccountOverviewContextStoreInitData();
   const overviewStore = useJotaiContextRootStore(data);
-  const homeStoreData = useUrlAccountHomeTokenListContextStoreInitData();
-  const homeStore = useJotaiContextRootStore(homeStoreData);
+  const homeStore = useTokenListStoreLease({
+    consumerId: 'url-account-landing',
+    mode: 'urlAccount',
+    ownerScopeKey: 'url-account-current',
+  });
   return (
     <ProviderJotaiContextAccountOverview store={overviewStore}>
       <ProviderJotaiContextHome
         config={URL_ACCOUNT_HOME_STORE_CONTEXT_CONFIG}
         store={homeStore}
       >
-        <AccountSelectorProviderMirror
-          config={{
-            sceneName,
-            sceneUrl: '',
-          }}
-          enabledNum={[0]}
-        >
-          <HomeStoreSourceControllers />
-          <UrlAccountAutoCreate redirectMode />
-        </AccountSelectorProviderMirror>
+        <ProviderJotaiContextTokenList store={homeStore}>
+          <AccountSelectorProviderMirror
+            config={{
+              sceneName,
+              sceneUrl: '',
+            }}
+            enabledNum={[0]}
+          >
+            <HomeStoreSourceControllers />
+            <UrlAccountAutoCreate redirectMode />
+          </AccountSelectorProviderMirror>
+        </ProviderJotaiContextTokenList>
       </ProviderJotaiContextHome>
     </ProviderJotaiContextAccountOverview>
   );

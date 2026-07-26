@@ -91,14 +91,6 @@ jest.mock('../../../states/jotai/contexts/accountSelector', () => ({
   }),
 }));
 
-jest.mock(
-  '../components/HomeTokenListProvider/HomeTokenListProviderMirror',
-  () => ({
-    HomeTokenListProviderMirror: ({ children }: { children?: ReactNode }) =>
-      children,
-  }),
-);
-
 const mockRefreshAllSections = jest.fn();
 jest.mock('../model/react/useHomeRefreshIntents', () => ({
   useHomeRefreshIntents: () => ({

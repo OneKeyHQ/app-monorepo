@@ -10,14 +10,24 @@ export function validateHomeStoreInvariants(
   state: IHomeStoreState,
 ): readonly IHomeStoreInvariantViolation[] {
   const violations: IHomeStoreInvariantViolation[] = [];
+  const factsOwner = state.facts?.owner;
+  const sessionOwner = state.session.owner;
+  const ownersMatch = Boolean(
+    factsOwner &&
+    sessionOwner &&
+    factsOwner.walletId === sessionOwner.walletId &&
+    factsOwner.accountId === sessionOwner.accountId &&
+    factsOwner.network.kind === sessionOwner.network.kind &&
+    (factsOwner.network.kind === 'allNetworks' ||
+      (sessionOwner.network.kind === 'singleNetwork' &&
+        factsOwner.network.networkId === sessionOwner.network.networkId)),
+  );
   if (
     state.facts &&
-    (!state.session.owner ||
+    (!ownersMatch ||
       !state.session.ownerToken ||
-      JSON.stringify(state.facts.owner) !==
-        JSON.stringify(state.session.owner) ||
-      JSON.stringify(state.facts.ownerToken) !==
-        JSON.stringify(state.session.ownerToken))
+      state.facts.ownerToken.scopeKey !== state.session.ownerToken.scopeKey ||
+      state.facts.ownerToken.sessionId !== state.session.ownerToken.sessionId)
   ) {
     violations.push('factsOwnerMismatch');
   }

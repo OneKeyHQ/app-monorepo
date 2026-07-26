@@ -32,6 +32,9 @@ export function createHomeRuntimeProducerInstanceId(): string {
 // One producer identity is shared by every ServiceBootstrap facade created in
 // this background JS heap and changes only when that producer runtime restarts.
 const HOME_RUNTIME_PRODUCER_INSTANCE_ID = createHomeRuntimeProducerInstanceId();
+const HOME_RUNTIME_APP_EPOCH = `home-app-${stringUtils.generateUUID({
+  removeDashes: true,
+})}`;
 const HOME_STORE_CACHE_STORAGE_PREFIX = '$$home-store-cache-v1:';
 const HOME_STORE_CACHE_INDEX_KEY = '$$home-store-cache-v1:index';
 const HOME_STORE_CACHE_OWNER_LIMIT = 8;
@@ -77,6 +80,7 @@ class ServiceBootstrap extends ServiceBase {
     return {
       protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
       producerInstanceId: HOME_RUNTIME_PRODUCER_INSTANCE_ID,
+      appEpoch: HOME_RUNTIME_APP_EPOCH,
     };
   }
 

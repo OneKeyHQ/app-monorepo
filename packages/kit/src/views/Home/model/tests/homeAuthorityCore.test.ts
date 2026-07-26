@@ -1,8 +1,10 @@
 import type { IHomeRuntimeOwnerScope } from '@onekeyhq/shared/src/types/homeRuntime';
 
 import { buildHomeOwnerScopeKey } from '../core/homeIdentity';
-import { HomeSessionCoordinator } from '../lifecycle/homeSessionCoordinator';
-import { SingleRuntimeHomeAdapter } from '../runtime/singleRuntimeHomeAdapter';
+import {
+  createInitialHomeLifecycleSessionState,
+  transitionHomeSession,
+} from '../lifecycle/homeSessionMachine';
 
 const owner = (
   walletId: string,
@@ -23,37 +25,34 @@ describe('Home authority core', () => {
     );
   });
 
-  it('keeps one session for a same-scope rerender and creates a fresh A -> B -> A session', () => {
-    const ids = ['session-a1', 'session-b', 'session-a2'];
-    const coordinator = new HomeSessionCoordinator({
-      adapter: new SingleRuntimeHomeAdapter({
-        clientInstanceId: 'client-1',
-        producerInstanceId: 'producer-1',
-      }),
-      createSessionId: () => ids.shift() ?? 'unexpected-session',
+  it('keeps a same owner and creates a fresh A -> B -> A session', () => {
+    const initial = createInitialHomeLifecycleSessionState({
+      appEpoch: 'epoch-a',
+      clientInstanceId: 'client-a',
+      mode: 'wallet',
+      runtimeInstanceId: 'runtime-a',
     });
-    const firstA = coordinator.setOwner(owner('wallet-a'));
-    expect(coordinator.setOwner(owner('wallet-a'))).toBe(firstA);
-    coordinator.setOwner(owner('wallet-b'));
-    const secondA = coordinator.setOwner(owner('wallet-a'));
-    expect(secondA?.ownerToken.sessionId).toBe('session-a2');
-    expect(secondA).not.toBe(firstA);
-  });
+    const firstA = transitionHomeSession(initial, {
+      type: 'ownerChanged',
+      owner: owner('wallet-a'),
+    }).state;
+    const sameA = transitionHomeSession(firstA, {
+      type: 'ownerChanged',
+      owner: owner('wallet-a'),
+    }).state;
+    const ownerB = transitionHomeSession(sameA, {
+      type: 'ownerChanged',
+      owner: owner('wallet-b'),
+    }).state;
+    const secondA = transitionHomeSession(ownerB, {
+      type: 'ownerChanged',
+      owner: owner('wallet-a'),
+    }).state;
 
-  it('creates a fresh same-owner session after a producer runtime restart', () => {
-    const ids = ['session-before-restart', 'session-after-restart'];
-    const coordinator = new HomeSessionCoordinator({
-      adapter: new SingleRuntimeHomeAdapter({
-        clientInstanceId: 'client-1',
-        producerInstanceId: 'producer-1',
-      }),
-      createSessionId: () => ids.shift() ?? 'unexpected-session',
-    });
-    const before = coordinator.setOwner(owner('wallet-a'));
-    const after = coordinator.restartCurrent();
-
-    expect(before?.getSnapshot().status).toBe('stopped');
-    expect(after?.ownerToken.scopeKey).toBe(before?.ownerToken.scopeKey);
-    expect(after?.ownerToken.sessionId).toBe('session-after-restart');
+    expect(sameA.ownerToken).toBe(firstA.ownerToken);
+    expect(secondA.ownerToken?.scopeKey).toBe(firstA.ownerToken?.scopeKey);
+    expect(secondA.ownerToken?.sessionId).not.toBe(
+      firstA.ownerToken?.sessionId,
+    );
   });
 });

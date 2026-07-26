@@ -6,9 +6,11 @@ import {
   useHomeStoreIntentActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/home';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import { createHomeAuthorityId } from '../model/core/homeIdentity';
+import {
+  buildHomeScalarKey,
+  createHomeAuthorityId,
+} from '../model/core/homeIdentity';
 
 import type { IHomeTabId } from '../model/semantic/homeSemanticTypes';
 
@@ -46,7 +48,7 @@ export function useHomeWalletTabStore() {
       showHistory: tabs.includes('history'),
       perpsDestination,
     } as const;
-    const key = stringUtils.stableStringify(decision);
+    const key = buildHomeScalarKey(Object.values(decision));
     if (homeTabDecisionKeyRef.current === key) {
       return;
     }

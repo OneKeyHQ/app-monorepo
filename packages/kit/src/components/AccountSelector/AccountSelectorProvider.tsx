@@ -46,16 +46,21 @@ export function AccountSelectorProviderMirror({
     );
   }
 
+  const enabledNumKey = enabledNum.join(',');
+  const stableEnabledNum = useMemo(
+    () => enabledNumKey.split(',').map((num) => Number(num)),
+    [enabledNumKey],
+  );
   const data = useMemo(
     () => ({
       storeName: EJotaiContextStoreNames.accountSelector,
       accountSelectorInfo: {
         sceneName: config.sceneName,
         sceneUrl: config.sceneUrl,
-        enabledNum,
+        enabledNum: stableEnabledNum,
       },
     }),
-    [config.sceneName, config.sceneUrl, enabledNum],
+    [config.sceneName, config.sceneUrl, stableEnabledNum],
   );
   const store = jotaiContextStore.getOrCreateStore(data);
 

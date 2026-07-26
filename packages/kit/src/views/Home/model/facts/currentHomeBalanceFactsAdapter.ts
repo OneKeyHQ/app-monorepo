@@ -1,7 +1,6 @@
 import BigNumber from 'bignumber.js';
 
 import type { IHomeRuntimeOwnerToken } from '@onekeyhq/shared/src/types/homeRuntime';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import type {
   IHomeBalanceContributorFact,
@@ -108,18 +107,16 @@ function buildHomeBalanceQuoteRateIdentity({
   sourceCurrency: string;
   targetCurrency: string;
 }): string {
-  return stringUtils.stableStringify({
+  return [
     sourceCurrency,
-    sourceRate:
-      sourceCurrency === targetCurrency
-        ? 'identity'
-        : (currencyMap[sourceCurrency]?.value ?? 'missing'),
+    sourceCurrency === targetCurrency
+      ? 'identity'
+      : String(currencyMap[sourceCurrency]?.value ?? 'missing'),
     targetCurrency,
-    targetRate:
-      sourceCurrency === targetCurrency
-        ? 'identity'
-        : (currencyMap[targetCurrency]?.value ?? 'missing'),
-  });
+    sourceCurrency === targetCurrency
+      ? 'identity'
+      : String(currencyMap[targetCurrency]?.value ?? 'missing'),
+  ].join('|');
 }
 
 function resolveHomeBalanceQuotedAmount({
@@ -175,13 +172,14 @@ function buildContributorSourceKeyIdentity({
   quoteBasis: IHomeBalanceQuoteBasis;
   requiredSetRevision: string;
 }): string {
-  return stringUtils.stableStringify({
-    contributorId: contributor.id,
+  return [
+    contributor.id,
     ownerScopeKey,
-    quoteBasis,
+    quoteBasis.currency,
+    quoteBasis.pricingRevision,
     requiredSetRevision,
-    sourceIdentity: contributor.sourceIdentity,
-  });
+    contributor.sourceIdentity,
+  ].join('|');
 }
 
 function toResource({
@@ -267,15 +265,15 @@ function adaptCurrentHomeBalanceFacts({
       }),
     };
   });
-  const sourceKeyIdentity = stringUtils.stableStringify({
-    contributors: includedContributors.map((contributor) => ({
-      id: contributor.id,
-      sourceIdentity: contributor.sourceIdentity,
-    })),
-    ownerScopeKey: ownerToken.scopeKey,
-    quoteBasis,
+  const sourceKeyIdentity = [
+    ownerToken.scopeKey,
+    quoteBasis.currency,
+    quoteBasis.pricingRevision,
     requiredSetRevision,
-  });
+    ...includedContributors.map(
+      (contributor) => `${contributor.id}:${contributor.sourceIdentity}`,
+    ),
+  ].join('|');
   return {
     bannerAvailable,
     contributors: adaptedContributors,

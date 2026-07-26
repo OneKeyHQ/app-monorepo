@@ -1,6 +1,5 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import type { IHomeRuntimeJsonValue } from '@onekeyhq/shared/src/types/homeRuntime';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { ENotificationPushMessageMode } from '@onekeyhq/shared/types/notification';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
@@ -82,10 +81,10 @@ export function buildHomeBannerCoverageFingerprint({
   bannerIds: readonly string[];
   hasTronResource: boolean;
 }): string {
-  return stringUtils.stableStringify({
-    bannerIds,
-    hasTronResource,
-  });
+  return [
+    hasTronResource ? 'tron' : 'no-tron',
+    ...bannerIds.map((id) => `${id.length}:${id}`),
+  ].join('|');
 }
 
 export function toHomeBannerStoreItem(

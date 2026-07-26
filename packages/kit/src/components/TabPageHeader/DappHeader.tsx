@@ -13,7 +13,7 @@ import {
   useAccountSelectorContextData,
   useActiveAccount,
 } from '../../states/jotai/contexts/accountSelector/atoms';
-import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { TokenListStoreProvider } from '../../views/Home/components/TokenListStoreProvider';
 import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
 
 import {
@@ -96,11 +96,15 @@ export function DappHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
   const renderHeaderRight = useCallback(
     () =>
       config ? (
-        <HomeTokenListProviderMirror>
+        <TokenListStoreProvider
+          consumerId="dapp-header"
+          demandReason="externalRead"
+          ownerScopeKey="wallet-current"
+        >
           <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
             <RightActions tabRoute={tabRoute} />
           </AccountSelectorProviderMirror>
-        </HomeTokenListProviderMirror>
+        </TokenListStoreProvider>
       ) : null,
     [config, tabRoute],
   );

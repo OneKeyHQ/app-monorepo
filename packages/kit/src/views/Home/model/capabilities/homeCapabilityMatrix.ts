@@ -1,5 +1,3 @@
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-
 import type {
   IHomeCapabilityContext,
   IHomeCapabilitySet,
@@ -51,14 +49,16 @@ function projectHomeCapabilitySet(
     destinations[tabId] =
       tabId === 'perps' && perpsDestination === 'web' ? 'web' : 'inline';
   });
-  const revision = stringUtils.stableStringify({
-    accountType: context.accountType,
-    allNetworks: context.allNetworks,
-    destinations,
-    networkFamily: context.networkFamily,
-    sections,
-    tabs,
-  });
+  const revision = [
+    context.accountType,
+    context.allNetworks ? 'all' : 'single',
+    context.networkFamily,
+    perpsDestination,
+    tabs.join(','),
+    configurableCapabilityIds
+      .map((id) => `${id}:${enabled(id) ? '1' : '0'}`)
+      .join(','),
+  ].join('|');
   return {
     destinations,
     perpsDestination,

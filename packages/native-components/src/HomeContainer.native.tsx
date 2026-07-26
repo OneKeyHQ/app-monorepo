@@ -287,8 +287,9 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
       useState(false);
     const [protocolV3StagedSlotBundle, setProtocolV3StagedSlotBundle] =
       useState<IHomeContainerSlotBundle>();
-    const [pendingProtocolV3Transport, setPendingProtocolV3Transport] =
-      useState<IPendingProtocolV3Transport>();
+    const pendingProtocolV3TransportRef = useRef<
+      IPendingProtocolV3Transport | undefined
+    >(undefined);
     const submittedTransportRef = useRef<
       ISubmittedTransportIdentity | undefined
     >(undefined);
@@ -300,18 +301,17 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
     slotBundleRef.current = slotBundle;
 
     useLayoutEffect(() => {
+      const pendingProtocolV3Transport = pendingProtocolV3TransportRef.current;
       if (!pendingProtocolV3Transport || !nativeRef.current) {
         return;
       }
+      pendingProtocolV3TransportRef.current = undefined;
       if (pendingProtocolV3Transport.kind === 'snapshot') {
         nativeRef.current.setSnapshot(pendingProtocolV3Transport.json);
       } else {
         nativeRef.current.applyPatch(pendingProtocolV3Transport.json);
       }
-      setPendingProtocolV3Transport((current) =>
-        current === pendingProtocolV3Transport ? undefined : current,
-      );
-    }, [pendingProtocolV3Transport]);
+    });
 
     useImperativeHandle(
       ref,
@@ -327,7 +327,7 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
         setProtocolV2Snapshot: (nextSnapshot, nextSlots) => {
           setProtocolV3SlotStagingEnabled(false);
           setProtocolV3StagedSlotBundle(undefined);
-          setPendingProtocolV3Transport(undefined);
+          pendingProtocolV3TransportRef.current = undefined;
           const parentSlotBundle = slotBundleRef.current;
           submittedTransportRef.current = {
             owner: nextSnapshot.owner,
@@ -412,10 +412,10 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
           setAcknowledgedSlotBundle((current) =>
             current && ownersMatch(current.owner, owner) ? current : undefined,
           );
-          setPendingProtocolV3Transport({
+          pendingProtocolV3TransportRef.current = {
             json: serializeHomeContainerPayload(nextSnapshot),
             kind: 'snapshot',
-          });
+          };
         },
         applyProtocolV3Patch: (patch, nextSlots) => {
           const owner = {
@@ -437,10 +437,10 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
                 }
               : undefined,
           );
-          setPendingProtocolV3Transport({
+          pendingProtocolV3TransportRef.current = {
             json: serializeHomeContainerPayload(patch),
             kind: 'patch',
-          });
+          };
         },
         completeRefresh: (requestId) => {
           nativeRef.current?.completeRefresh(requestId);

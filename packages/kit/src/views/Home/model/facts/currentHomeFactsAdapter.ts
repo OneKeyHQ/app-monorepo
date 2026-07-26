@@ -19,11 +19,14 @@ import type {
   IHomeFacts,
   IHomeNetworkFamily,
 } from './homeFacts';
-import type { IHomeSessionSnapshot } from '../lifecycle/homeSessionCoordinator';
+import type { IHomeLifecycleSessionState } from '../lifecycle/homeSessionMachine';
 
 export type ICurrentHomeFactsAdapterInput = {
   owner: IHomeRuntimeOwnerScope;
-  authority: IHomeSessionSnapshot;
+  authority: Pick<
+    IHomeLifecycleSessionState,
+    'authority' | 'ownerToken' | 'producerInstanceId'
+  > & { topology: 'single' | 'split' };
   wallet: {
     ready: boolean;
     backuped?: boolean;
@@ -78,12 +81,12 @@ function normalizeNetworkFamily({
 }
 
 function resolveRuntimeConnection(
-  status: IHomeSessionSnapshot['status'],
+  authority: ICurrentHomeFactsAdapterInput['authority'],
 ): IHomeFacts['runtime']['connection'] {
-  if (status === 'active') {
+  if (authority.authority === 'ready') {
     return 'ready';
   }
-  if (status === 'degraded') {
+  if (authority.authority === 'degraded') {
     return 'degraded';
   }
   return 'waiting';
@@ -119,7 +122,7 @@ export function adaptCurrentHomeFacts(
     return undefined;
   }
   const accountType = normalizeAccountType(input.wallet.type);
-  const runtimeConnection = resolveRuntimeConnection(input.authority.status);
+  const runtimeConnection = resolveRuntimeConnection(input.authority);
   const allNetworks = input.owner.network.kind === 'allNetworks';
   return {
     owner: input.owner,

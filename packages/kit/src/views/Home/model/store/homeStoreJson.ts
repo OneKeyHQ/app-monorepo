@@ -1,6 +1,4 @@
 import type { IHomeRuntimeJsonValue } from '@onekeyhq/shared/src/types/homeRuntime';
-import { isHomeRuntimeJsonValue } from '@onekeyhq/shared/src/types/homeRuntime';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import type { IHomeStoreSectionSourceResult } from './homeStoreTypes';
 import type { IHomeSectionSemanticModel } from '../semantic/homeSemanticTypes';
@@ -8,16 +6,49 @@ import type { IHomeSectionSemanticModel } from '../semantic/homeSemanticTypes';
 export function normalizeHomeStoreJson(
   value: unknown,
 ): IHomeRuntimeJsonValue | undefined {
-  try {
-    const serialized = stringUtils.stableStringify(value);
-    if (!serialized) {
+  const active = new WeakSet<object>();
+  const visit = (candidate: unknown): IHomeRuntimeJsonValue | undefined => {
+    if (
+      candidate === null ||
+      typeof candidate === 'string' ||
+      typeof candidate === 'boolean'
+    ) {
+      return candidate;
+    }
+    if (typeof candidate === 'number') {
+      return Number.isFinite(candidate) ? candidate : null;
+    }
+    if (Array.isArray(candidate)) {
+      if (active.has(candidate)) {
+        return undefined;
+      }
+      active.add(candidate);
+      const result = candidate.map((item) => visit(item) ?? null);
+      active.delete(candidate);
+      return result;
+    }
+    if (!candidate || typeof candidate !== 'object') {
       return undefined;
     }
-    const parsed: unknown = JSON.parse(serialized);
-    return isHomeRuntimeJsonValue(parsed) ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
+    const prototype = Object.getPrototypeOf(candidate);
+    if (prototype !== Object.prototype && prototype !== null) {
+      return undefined;
+    }
+    if (active.has(candidate)) {
+      return undefined;
+    }
+    active.add(candidate);
+    const result: Record<string, IHomeRuntimeJsonValue> = {};
+    Object.entries(candidate).forEach(([key, item]) => {
+      const normalized = visit(item);
+      if (normalized !== undefined) {
+        result[key] = normalized;
+      }
+    });
+    active.delete(candidate);
+    return result;
+  };
+  return visit(value);
 }
 
 export function readHomeStoreSectionPayload<T>(

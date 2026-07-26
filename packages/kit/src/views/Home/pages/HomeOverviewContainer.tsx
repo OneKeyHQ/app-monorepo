@@ -16,22 +16,18 @@ import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
 import { showResourceDetailsDialog } from '../../../components/Resource';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 import { resolveHomeOverviewBalanceRenderDecision } from '../model/compatibility/homeShellRenderAdapter';
+import { buildHomeScalarKey } from '../model/core/homeIdentity';
 import { resolveHomeBalanceQuotedAmount } from '../model/facts/currentHomeBalanceFactsAdapter';
 import { useHomeRefreshIntents } from '../model/react/useHomeRefreshIntents';
 import { HomeTestIDs } from '../testIDs';
@@ -152,7 +148,7 @@ function HomeOverviewContainer({
       showSkeleton: balanceRenderDecision.showSkeleton,
       isRefreshing: isLoading,
     } as const;
-    const key = stringUtils.stableStringify(decision);
+    const key = buildHomeScalarKey(Object.values(decision));
     if (homeBalanceDecisionKeyRef.current === key) {
       return;
     }
@@ -165,32 +161,6 @@ function HomeOverviewContainer({
     networkScope,
     semanticBalanceStringDisplay,
   ]);
-
-  // Track when balance is first displayed
-  const balanceReady =
-    !balanceRenderDecision.showSkeleton &&
-    balanceRenderDecision.amount !== undefined;
-  useEffect(() => {
-    if (balanceReady && !(globalThis as any).__onekeyBalanceDisplayed) {
-      (globalThis as any).__onekeyBalanceDisplayed = true;
-      appEventBus.emit(EAppEventBusNames.HomePageReady, undefined);
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { NativeLogger: NL, LogLevel: LL } =
-          require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-        const jsEntry: number =
-          (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
-        if (jsEntry) {
-          NL.write(
-            LL.Info,
-            `[StartupTiming] Balance displayed (+${Date.now() - jsEntry}ms)`,
-          );
-        }
-      } catch {
-        /* NativeLogger may not be available */
-      }
-    }
-  }, [balanceReady]);
 
   return (
     <YStack

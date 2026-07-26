@@ -18,7 +18,7 @@ import {
   useActiveAccount,
   useIsAccountSelectorSyncLoading,
 } from '../../states/jotai/contexts/accountSelector';
-import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { TokenListStoreProvider } from '../../views/Home/components/TokenListStoreProvider';
 import { MoreActionButton } from '../MoreActionButton';
 
 import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
@@ -138,9 +138,13 @@ export function MDHeader({
   const rightActions = useMemo(() => {
     return sceneName === EAccountSelectorSceneName.homeUrlAccount ? (
       <XStack flexShrink={1}>
-        <HomeTokenListProviderMirror>
+        <TokenListStoreProvider
+          consumerId="url-account-header"
+          mode="urlAccount"
+          ownerScopeKey="url-account-current"
+        >
           <SelectorTrigger />
-        </HomeTokenListProviderMirror>
+        </TokenListStoreProvider>
       </XStack>
     ) : (
       <HeaderRight

@@ -13,6 +13,14 @@ function encodeIdentityPart(value: string): string {
   return `${value.length}:${value}`;
 }
 
+export function buildHomeScalarKey(
+  parts: readonly (boolean | number | string | undefined)[],
+): string {
+  return parts
+    .map((part) => encodeIdentityPart(part === undefined ? '' : String(part)))
+    .join('|');
+}
+
 export function buildHomeOwnerScopeKey(owner: IHomeRuntimeOwnerScope): string {
   const networkIdentity =
     owner.network.kind === 'allNetworks'

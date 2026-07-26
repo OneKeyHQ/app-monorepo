@@ -1243,6 +1243,7 @@ class ServiceHistory extends ServiceBase {
     }
     const {
       accountId,
+      indexedAccountId,
       networkId,
       tokenIdOnNetwork,
       filterScam,
@@ -1290,6 +1291,7 @@ class ServiceHistory extends ServiceBase {
         await this.backgroundApi.serviceAllNetwork.getAllNetworkAccountsWithEnabledNetworks(
           {
             accountId,
+            indexedAccountId,
             networkId,
             excludeTestNetwork,
           },

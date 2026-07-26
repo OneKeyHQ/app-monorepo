@@ -633,7 +633,44 @@ describe('Home Store reducer', () => {
     expect(next.sections).toBe(state.sections);
     expect(next.shell).toBe(state.shell);
     expect(next.navigation).toBe(state.navigation);
-    expect(transition.effects).toEqual([]);
+    expect(transition.effects).toEqual([
+      {
+        kind: 'executeCommand',
+        intent: expect.objectContaining({
+          type: 'sectionControlChanged',
+          sectionId: 'market',
+        }),
+      },
+    ]);
+  });
+
+  it('does not advance a Section revision for structurally identical rows', () => {
+    let state = createOwnedState();
+    state = dispatch(state, {
+      type: 'sectionSourceChanged',
+      ownerToken,
+      sectionId: 'defi',
+      result: {
+        kind: 'ready',
+        rowIds: ['row-a', 'row-b'],
+        freshness: 'live',
+        refresh: 'idle',
+      },
+    });
+    const currentSection = state.sections.defi;
+    state = dispatch(state, {
+      type: 'sectionSourceChanged',
+      ownerToken,
+      sectionId: 'defi',
+      result: {
+        kind: 'ready',
+        rowIds: ['row-a', 'row-b'],
+        freshness: 'live',
+        refresh: 'idle',
+      },
+    });
+
+    expect(state.sections.defi).toBe(currentSection);
   });
 
   it('accepts valid Header commands from a cached Shell', () => {
@@ -671,7 +708,6 @@ describe('Home Store reducer', () => {
           kind: 'shellCommands',
           revision: state.shell.shellCommandRevision,
         },
-        execution: 'caller',
         intentId: 'cached-balance',
         owner,
         sessionId: ownerToken.sessionId,
@@ -694,7 +730,6 @@ describe('Home Store reducer', () => {
           kind: 'shellCommands',
           revision: state.shell.shellCommandRevision,
         },
-        execution: 'caller',
         intentId: 'cached-header-unknown',
         owner,
         sessionId: ownerToken.sessionId,
@@ -747,7 +782,6 @@ describe('Home Store reducer', () => {
           revision: state.sections.defi.sectionCommandRevision,
           sectionId: 'defi',
         },
-        execution: 'caller',
         intentId: 'cached-defi-open',
         itemId: 'defi-row',
         owner,
@@ -773,17 +807,19 @@ describe('Home Store reducer', () => {
           revision: state.sections.defi.sectionCommandRevision,
           sectionId: 'defi',
         },
-        execution: 'controller',
         intentId: 'cached-defi-refresh',
         owner,
         sectionId: 'defi',
         sessionId: ownerToken.sessionId,
       },
     });
-    state = applyHomeStorePatchToState(state, refresh.patch.mutations);
-    expect(state.interaction.pendingSectionCommands).toEqual([
-      expect.objectContaining({ intentId: 'cached-defi-refresh' }),
+    expect(refresh.effects).toEqual([
+      {
+        kind: 'executeCommand',
+        intent: expect.objectContaining({ intentId: 'cached-defi-refresh' }),
+      },
     ]);
+    state = applyHomeStorePatchToState(state, refresh.patch.mutations);
 
     const control = reduceHomeStore(state, {
       type: 'intentReceived',
@@ -817,7 +853,6 @@ describe('Home Store reducer', () => {
           revision: state.sections.defi.sectionCommandRevision,
           sectionId: 'defi',
         },
-        execution: 'caller',
         intentId: 'cached-defi-missing',
         itemId: 'missing-row',
         owner,
@@ -1188,7 +1223,7 @@ describe('Home Store reducer', () => {
           sourceId: 'defi',
           sourceKeyIdentity: getHomeSourceKeyIdentity(hydrationToken.sourceKey),
           dataSchemaVersion: 1,
-          coverageFingerprint: '["row-a","row-b"]',
+          coverageFingerprint: '2:row-a:row-b',
           quoteBasis: null,
           confirmedAt: 1,
           expiresAt: 2,
@@ -1208,7 +1243,7 @@ describe('Home Store reducer', () => {
         token: hydrationToken,
         result: {
           kind: 'success',
-          coverageFingerprint: '["row-live"]',
+          coverageFingerprint: '1:row-live:row-live',
           data: {
             payload: null,
             section: {
@@ -1223,7 +1258,7 @@ describe('Home Store reducer', () => {
     });
     expect(hydrated.resources.defi).toMatchObject({
       kind: 'ready',
-      coverageFingerprint: '["row-live"]',
+      coverageFingerprint: '1:row-live:row-live',
       freshness: 'live',
       refresh: 'idle',
       token: hydrationToken,
@@ -1241,7 +1276,7 @@ describe('Home Store reducer', () => {
       sourceId: 'defi' as const,
       sourceKeyIdentity: getHomeSourceKeyIdentity(exactToken.sourceKey),
       dataSchemaVersion: exactToken.sourceKey.dataSchemaVersion,
-      coverageFingerprint: '["cached"]',
+      coverageFingerprint: '1:cached:cached',
       quoteBasis: exactToken.sourceKey.quoteBasis ?? null,
       confirmedAt: 1,
       expiresAt: 2,
@@ -1308,7 +1343,7 @@ describe('Home Store reducer', () => {
       kind: 'ready',
       token: mismatchedToken,
       freshness: 'confirmedCache',
-      coverageFingerprint: '["cached"]',
+      coverageFingerprint: '1:cached:cached',
       refresh: 'refreshing',
     });
     expect(state.sections.defi.value).toMatchObject({
@@ -1324,7 +1359,7 @@ describe('Home Store reducer', () => {
         token: mismatchedToken,
         result: {
           kind: 'success',
-          coverageFingerprint: '["live-b"]',
+          coverageFingerprint: '1:live-b:live-b',
           data: {
             section: {
               kind: 'ready',
@@ -1337,7 +1372,7 @@ describe('Home Store reducer', () => {
     expect(state.resources.defi).toMatchObject({
       kind: 'ready',
       freshness: 'live',
-      coverageFingerprint: '["live-b"]',
+      coverageFingerprint: '1:live-b:live-b',
     });
     expect(state.sections.defi.value).toMatchObject({
       kind: 'ready',
@@ -1357,7 +1392,7 @@ describe('Home Store reducer', () => {
           sourceId: 'defi',
           sourceKeyIdentity: getHomeSourceKeyIdentity(exactToken.sourceKey),
           dataSchemaVersion: exactToken.sourceKey.dataSchemaVersion,
-          coverageFingerprint: '["cached"]',
+          coverageFingerprint: '1:cached:cached',
           quoteBasis: exactToken.sourceKey.quoteBasis ?? null,
           confirmedAt: 1,
           expiresAt: 2,
@@ -1414,7 +1449,7 @@ describe('Home Store reducer', () => {
         token: request,
         result: {
           kind: 'success',
-          coverageFingerprint: '["live"]',
+          coverageFingerprint: '1:live:live',
           data: {
             section: {
               kind: 'ready',
@@ -1433,7 +1468,7 @@ describe('Home Store reducer', () => {
           sourceId: 'defi',
           sourceKeyIdentity: getHomeSourceKeyIdentity(request.sourceKey),
           dataSchemaVersion: request.sourceKey.dataSchemaVersion,
-          coverageFingerprint: '["cached"]',
+          coverageFingerprint: '1:cached:cached',
           quoteBasis: null,
           confirmedAt: 1,
           expiresAt: 2,
@@ -1449,7 +1484,7 @@ describe('Home Store reducer', () => {
     expect(state.resources.defi).toMatchObject({
       kind: 'ready',
       freshness: 'live',
-      coverageFingerprint: '["live"]',
+      coverageFingerprint: '1:live:live',
     });
     expect(state.sections.defi.value).toMatchObject({
       kind: 'ready',
@@ -1478,7 +1513,7 @@ describe('Home Store reducer', () => {
           sourceId: 'defi',
           sourceKeyIdentity: getHomeSourceKeyIdentity(request.sourceKey),
           dataSchemaVersion: request.sourceKey.dataSchemaVersion,
-          coverageFingerprint: '["cached"]',
+          coverageFingerprint: '1:cached:cached',
           quoteBasis: request.sourceKey.quoteBasis ?? null,
           confirmedAt: 1,
           expiresAt: 2,
@@ -1507,7 +1542,7 @@ describe('Home Store reducer', () => {
         token: request,
         result: {
           kind: 'success',
-          coverageFingerprint: '["live"]',
+          coverageFingerprint: '1:live:live',
           data: {
             payload: { protocols: [{ id: 'live' }] },
             section: {
@@ -1524,7 +1559,7 @@ describe('Home Store reducer', () => {
       kind: 'ready',
       freshness: 'live',
       refresh: 'idle',
-      coverageFingerprint: '["live"]',
+      coverageFingerprint: '1:live:live',
     });
   });
 

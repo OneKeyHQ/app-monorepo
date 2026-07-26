@@ -47,7 +47,18 @@ export function createInitialHomeStoreSections(): IHomeStoreSectionsState {
 
 export function createInitialHomeStoreState(): IHomeStoreState {
   return {
-    session: { status: 'idle' },
+    session: {
+      mode: 'wallet',
+      runtimeInstanceId: 'uninitialized',
+      appEpoch: 'uninitialized',
+      clientInstanceId: 'uninitialized',
+      authority: 'idle',
+      appActivity: 'active',
+      surfaceVisibility: 'visible',
+      handshakeRevision: 0,
+      sessionSequence: 0,
+      sessionId: 'uninitialized:0',
+    },
     runtime: {
       topology: 'single',
       connection: 'waiting',
@@ -86,8 +97,6 @@ export function createInitialHomeStoreState(): IHomeStoreState {
       sectionControls: {},
       visibility: 'foreground',
       acceptedIntentIds: [],
-      pendingSectionCommands: [],
-      pendingShellCommands: [],
     },
     shell: {
       actionsPresentationRevision: 0,

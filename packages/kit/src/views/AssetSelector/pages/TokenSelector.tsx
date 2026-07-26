@@ -62,7 +62,7 @@ import { useAccountSelectorCreateAddress } from '../../../components/AccountSele
 import { NetworkAvatarBase } from '../../../components/NetworkAvatar/NetworkAvatar';
 import { useAccountData } from '../../../hooks/useAccountData';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
+import { TokenListStoreProvider } from '../../Home/components/TokenListStoreProvider';
 import { AssetSelectorTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -1826,13 +1826,6 @@ function TokenSelector() {
 }
 
 export default function TokenSelectorModal() {
-  const route =
-    useRoute<
-      RouteProp<IAssetSelectorParamList, EAssetSelectorRoutes.TokenSelector>
-    >();
-
-  const { accountId } = route.params;
-
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -1840,9 +1833,14 @@ export default function TokenSelectorModal() {
       }}
       enabledNum={[num]}
     >
-      <HomeTokenListProviderMirrorWrapper accountId={accountId}>
+      <TokenListStoreProvider
+        consumerId="asset-token-selector"
+        demandPriority="interactive"
+        demandReason="assetSelector"
+        ownerScopeKey="wallet-current"
+      >
         <TokenSelector />
-      </HomeTokenListProviderMirrorWrapper>
+      </TokenListStoreProvider>
     </AccountSelectorProviderMirror>
   );
 }

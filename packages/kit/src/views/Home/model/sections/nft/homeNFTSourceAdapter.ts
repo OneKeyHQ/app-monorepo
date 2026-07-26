@@ -1,8 +1,8 @@
 import type { IHomeRuntimeOwnerToken } from '@onekeyhq/shared/src/types/homeRuntime';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 import {
+  buildHomeScalarKey,
   createHomeSourceKey,
   getHomeSourceKeyIdentity,
 } from '../../core/homeIdentity';
@@ -92,7 +92,13 @@ function createHomeNFTSourceIdentity({
   const sourceKey = createHomeSourceKey({
     dataSchemaVersion: HOME_NFT_DATA_SCHEMA_VERSION,
     ownerToken: owner,
-    paramsFingerprint: stringUtils.stableStringify(params),
+    paramsFingerprint: buildHomeScalarKey([
+      params.accountId,
+      params.indexedAccountId,
+      params.networkId,
+      params.walletId,
+      params.networkMode,
+    ]),
     sourceId: 'nft',
   });
   return {

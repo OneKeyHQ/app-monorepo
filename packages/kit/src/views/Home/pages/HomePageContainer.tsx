@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -26,15 +27,13 @@ import {
   useAccountSelectorStorageInitDoneAtom,
   useActiveAccount,
   useIsAccountSelectorActiveAccountInitDone,
-  useSelectedAccount,
-  useSelectedAccountsAtom,
 } from '../../../states/jotai/contexts/accountSelector';
 import {
   ProviderJotaiContextHome,
-  useHomeDisplaySnapshotLoadState,
   useHomeSessionState,
   useHomeShell,
 } from '../../../states/jotai/contexts/home';
+import { ProviderJotaiContextTokenList } from '../../../states/jotai/contexts/tokenList';
 import { useJotaiContextRootStore } from '../../../states/jotai/utils/useJotaiContextRootStore';
 import { NotificationRegisterDaily } from '../../Notifications/components/NotificationRegisterDaily';
 import {
@@ -42,16 +41,12 @@ import {
   useOnboardingLaunchSnapshot,
 } from '../../Onboarding/components/onboardingLaunchGate';
 import { BTCFreshAddressProvider } from '../components/BTCFreshAddressProvider';
-import { useHomeTokenListContextStoreInitData } from '../components/HomeTokenListProvider/HomeTokenListRootProvider';
+import { useTokenListStoreLease } from '../components/TokenListStoreProvider';
 import { HomeStoreSourceControllers } from '../model/react/HomeStoreSourceControllers';
 import { isNativeHomeEnabled } from '../nativeHomeFeatureFlag';
 import { NativeHomePageView } from '../NativeHomePageView';
 
 import { EmptyWalletHomePage } from './EmptyWalletHomePage';
-import {
-  HomeBackgroundRecoveryRefreshProvider,
-  useAcknowledgeHomeBackgroundRecoverySurfaceCommit,
-} from './HomeBackgroundRecoveryRefreshProvider';
 import { HomeLaunchSkeleton } from './HomeLaunchSkeleton';
 import { shouldMountHomeForegroundEffects } from './homeLaunchVisibility';
 import { resolveHomeWalletContentReadiness } from './homePageNoWalletContent';
@@ -69,37 +64,23 @@ const HOME_STORE_CONTEXT_CONFIG = {
   sceneId: EAccountSelectorSceneName.home,
 } as const;
 
-function EmptyRenderTest() {
-  // console.log('AccountSelectorAtomChanged EmptyRenderTest render');
-  return null;
-}
+const HOME_ACCOUNT_SELECTOR_CONFIG = {
+  sceneName: EAccountSelectorSceneName.home,
+  sceneUrl: '',
+} as const;
 
-function ActiveAccountTest() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  // console.log('AccountSelectorAtomChanged activeAccount: ', activeAccount);
-  return null;
-}
+const HOME_ACCOUNT_SELECTOR_ENABLED_NUM = [0];
 
-function SelectedAccountTest() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { selectedAccount } = useSelectedAccount({
-    num: 0,
-    debugName: 'HomePage',
-  });
-  // console.log('AccountSelectorAtomChanged selectedAccount: ', selectedAccount);
-  return null;
-}
-
-function SelectedAccountsMapTest() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [selectedAccounts] = useSelectedAccountsAtom();
-  // console.log(
-  //   'AccountSelectorAtomChanged selectedAccountsMap: ',
-  //   selectedAccounts,
-  // );
-  return null;
-}
+const HomeForegroundEffects = memo(function HomeForegroundEffects() {
+  return (
+    <>
+      <DAppConnectExtensionFloatingTrigger />
+      <ExtOneKeyIdAuthOnMount />
+      <NotificationRegisterDaily />
+      <BTCFreshAddressProvider />
+    </>
+  );
+});
 
 function HomeStoreDrivenWalletSurface({
   onPressHide,
@@ -160,7 +141,6 @@ export function HomeLaunchGatedContent({
     useHomeWalletList();
   const launchSnapshot = useOnboardingLaunchSnapshot();
   const homeSession = useHomeSessionState();
-  const displaySnapshotLoadState = useHomeDisplaySnapshotLoadState();
   const [accountSelectorStorageInitDone] =
     useAccountSelectorStorageInitDoneAtom();
   const accountSelectorActiveAccountInitDone =
@@ -184,24 +164,6 @@ export function HomeLaunchGatedContent({
       : !network?.isAllNetworks &&
         homeSession.owner.network.networkId === network?.id),
   );
-  const ownerDisplaySnapshotReady = Boolean(
-    displaySnapshotLoadState.status === 'hit' &&
-    homeSession.ownerToken &&
-    displaySnapshotLoadState.ownerScopeKey ===
-      homeSession.ownerToken.scopeKey &&
-    displaySnapshotLoadState.sessionId === homeSession.ownerToken.sessionId,
-  );
-  const cachedWalletOwnerReady = Boolean(
-    activeAccountReady &&
-    wallet?.id &&
-    wallet.type &&
-    account?.id &&
-    network?.id &&
-    !hasNoUsableWallet &&
-    !activeWalletUnavailable &&
-    activeOwnerMatchesHomeSession &&
-    ownerDisplaySnapshotReady,
-  );
   const completeActiveWalletOwner = Boolean(
     activeAccountReady &&
     wallet?.id &&
@@ -219,7 +181,7 @@ export function HomeLaunchGatedContent({
     accountSelectorStorageInitDone,
     accountSelectorActiveAccountInitDone,
     activeAccountReady,
-    cachedWalletOwnerReady,
+    cachedWalletOwnerReady: false,
     activeWalletOwnerReady: completeActiveWalletOwner,
     activeWalletUnavailable,
     activeWalletId: wallet?.id,
@@ -243,17 +205,6 @@ export function HomeLaunchGatedContent({
     retainPreviousOwnerWhilePending: Boolean(
       homeSession.ownerToken && !activeOwnerMatchesHomeSession,
     ),
-  });
-  useAcknowledgeHomeBackgroundRecoverySurfaceCommit({
-    owner: {
-      accountId: account?.id,
-      networkId: network?.id,
-      walletId: wallet?.id,
-    },
-    surfaceHasRenderer:
-      pageSurface.surface === 'native' ||
-      pageSurface.surface === 'react' ||
-      pageSurface.surface === 'no-wallet',
   });
   useLayoutEffect(() => {
     previousPageSurfaceRef.current = pageSurface;
@@ -281,26 +232,11 @@ export function HomeLaunchGatedContent({
           pageSurface={pageSurface}
           sceneName={sceneName}
         />
-        {/* <UrlAccountAutoReplaceHistory num={0} /> */}
-
-        {process.env.NODE_ENV !== 'production' ? (
-          <>
-            <SelectedAccountsMapTest />
-            <SelectedAccountTest />
-            <ActiveAccountTest />
-            <EmptyRenderTest />
-          </>
-        ) : null}
       </Stack>
       {shouldMountHomeForegroundEffects({
         isHomeVisible: isHomeVisible && pageSurface.surface !== 'pending',
       }) ? (
-        <>
-          <DAppConnectExtensionFloatingTrigger />
-          <ExtOneKeyIdAuthOnMount />
-          <NotificationRegisterDaily />
-          <BTCFreshAddressProvider />
-        </>
+        <HomeForegroundEffects />
       ) : null}
     </>
   );
@@ -313,8 +249,11 @@ export function HomePageContainer() {
   const nativeHomeEnabled = isNativeHomeEnabled(
     !(devSettings.enabled && devSettings.settings?.disableNativeHome === true),
   );
-  const homeStoreData = useHomeTokenListContextStoreInitData();
-  const homeStore = useJotaiContextRootStore(homeStoreData);
+  const homeStore = useTokenListStoreLease({
+    consumerId: 'home-root',
+    mode: 'wallet',
+    ownerScopeKey: 'wallet-current',
+  });
   const handlePressHide = useCallback(() => {
     setIsHide((value) => !value);
   }, []);
@@ -336,15 +275,12 @@ export function HomePageContainer() {
           config={HOME_STORE_CONTEXT_CONFIG}
           store={homeStore}
         >
-          <AccountSelectorProviderMirror
-            config={{
-              sceneName,
-              sceneUrl: '',
-            }}
-            enabledNum={[0]}
-          >
-            <HomeWalletListProvider>
-              <HomeBackgroundRecoveryRefreshProvider>
+          <ProviderJotaiContextTokenList store={homeStore}>
+            <AccountSelectorProviderMirror
+              config={HOME_ACCOUNT_SELECTOR_CONFIG}
+              enabledNum={HOME_ACCOUNT_SELECTOR_ENABLED_NUM}
+            >
+              <HomeWalletListProvider>
                 <HomeStoreSourceControllers enableWalletSources>
                   <HomeLaunchGatedContent
                     nativeHomeEnabled={nativeHomeEnabled}
@@ -352,9 +288,9 @@ export function HomePageContainer() {
                     onPressHide={handlePressHide}
                   />
                 </HomeStoreSourceControllers>
-              </HomeBackgroundRecoveryRefreshProvider>
-            </HomeWalletListProvider>
-          </AccountSelectorProviderMirror>
+              </HomeWalletListProvider>
+            </AccountSelectorProviderMirror>
+          </ProviderJotaiContextTokenList>
         </ProviderJotaiContextHome>
       </Stack>
     </TabletHomeContainer>

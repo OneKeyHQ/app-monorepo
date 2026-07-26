@@ -278,7 +278,6 @@ describe('Home Phase 0 runtime ordering oracle', () => {
         type: 'sectionActionInvoked' as const,
         actionId,
         authority,
-        execution: 'controller' as const,
         intentId: `intent-${actionId}-${itemId}`,
         itemId,
         owner,
@@ -307,7 +306,14 @@ describe('Home Phase 0 runtime ordering oracle', () => {
       state,
       createIntent('home.asset.open', 'row-current'),
     );
-    expect(accepted.state.interaction.pendingSectionCommands).toHaveLength(1);
+    expect(accepted.transition.effects).toEqual([
+      {
+        kind: 'executeCommand',
+        intent: expect.objectContaining({
+          intentId: 'intent-home.asset.open-row-current',
+        }),
+      },
+    ]);
     expect(accepted.state.diagnostics.lastRejectReason).toBeUndefined();
   });
 });

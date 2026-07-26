@@ -15,6 +15,7 @@ describe('Home Store runtime gateway conformance', () => {
       getHandshake: async () => ({
         protocolVersion: 1,
         producerInstanceId,
+        appEpoch: producerInstanceId,
       }),
     });
     await expect(single.connect()).resolves.toEqual(await split.connect());

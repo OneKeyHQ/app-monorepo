@@ -4,7 +4,7 @@ import { Button, Stack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
-import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { TokenListStoreProvider } from '@onekeyhq/kit/src/views/Home/components/TokenListStoreProvider';
 import { ScanQrCode } from '@onekeyhq/kit/src/views/ScanQrCode/components';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -128,7 +128,12 @@ const ScanQRCodeGallery = () => {
 
 function ScanQRCodeGalleryContainer() {
   return (
-    <HomeTokenListProviderMirror>
+    <TokenListStoreProvider
+      consumerId="scan-qr-gallery"
+      demandPriority="background"
+      demandReason="externalRead"
+      ownerScopeKey="wallet-current"
+    >
       <AccountSelectorProviderMirror
         config={{
           sceneName: EAccountSelectorSceneName.home,
@@ -137,7 +142,7 @@ function ScanQRCodeGalleryContainer() {
       >
         <ScanQRCodeGallery />
       </AccountSelectorProviderMirror>
-    </HomeTokenListProviderMirror>
+    </TokenListStoreProvider>
   );
 }
 

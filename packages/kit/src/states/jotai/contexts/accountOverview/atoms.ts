@@ -18,6 +18,7 @@ const {
   withProvider: withAccountOverviewProvider,
   contextAtom,
   contextAtomMethod,
+  useContextData,
 } = createJotaiContext();
 
 export {
@@ -25,6 +26,10 @@ export {
   contextAtomMethod,
   withAccountOverviewProvider,
 };
+
+export function useAccountOverviewContextStore() {
+  return useContextData().store!;
+}
 
 // `worth[networkKey]` is a partial sum: tokens with unavailable fiatValue are
 // dropped so a single broken upstream provider does not poison the total with

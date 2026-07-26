@@ -1,6 +1,5 @@
 import type { IHomeRuntimeOwnerToken } from '@onekeyhq/shared/src/types/homeRuntime';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
   IDeFiProtocol,
   IDeFiSupportedProtocolAction,
@@ -8,6 +7,7 @@ import type {
 } from '@onekeyhq/shared/types/defi';
 
 import {
+  buildHomeScalarKey,
   createHomeSourceKey,
   getHomeSourceKeyIdentity,
 } from '../../core/homeIdentity';
@@ -127,7 +127,15 @@ function createHomeDeFiSourceIdentity({
   const sourceKey = createHomeSourceKey({
     dataSchemaVersion: HOME_DEFI_DATA_SCHEMA_VERSION,
     ownerToken: owner,
-    paramsFingerprint: stringUtils.stableStringify(params),
+    paramsFingerprint: buildHomeScalarKey([
+      params.accountId,
+      params.indexedAccountId,
+      params.networkId,
+      params.walletId,
+      params.networkMode,
+      params.sourceCurrencyId,
+      params.targetCurrencyId,
+    ]),
     sourceId: 'defi',
   });
   return {

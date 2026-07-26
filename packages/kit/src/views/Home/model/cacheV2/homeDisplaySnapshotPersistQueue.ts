@@ -62,6 +62,11 @@ type IMutableChunkMap = Partial<
   Record<IHomeDisplaySnapshotChunkId, IHomeDisplaySnapshotChunkDescriptor>
 >;
 
+const HOME_DISPLAY_CHUNK_IDS = [
+  'critical',
+  ...HOME_STORE_SOURCE_IDS,
+] as const satisfies readonly IHomeDisplaySnapshotChunkId[];
+
 function isHardBlockedShell(shell: IHomeShellSemanticModel): boolean {
   return (
     shell.kind === 'backupRequired' || shell.kind === 'missingNetworkAccount'
@@ -101,6 +106,33 @@ function shouldReplaceDescriptor({
   descriptor: IHomeDisplaySnapshotChunkDescriptor | undefined;
 }): boolean {
   return !descriptor || descriptor.contentSignature !== contentSignature;
+}
+
+function areChunkDescriptorsEqual(
+  left: IHomeDisplaySnapshotChunkDescriptor | undefined,
+  right: IHomeDisplaySnapshotChunkDescriptor | undefined,
+): boolean {
+  return (
+    left === right ||
+    Boolean(
+      left &&
+      right &&
+      left.chunkId === right.chunkId &&
+      left.key === right.key &&
+      left.byteLength === right.byteLength &&
+      left.contentSignature === right.contentSignature &&
+      left.updatedAt === right.updatedAt,
+    )
+  );
+}
+
+function areChunkMapsEqual(
+  left: IMutableChunkMap,
+  right: IMutableChunkMap,
+): boolean {
+  return HOME_DISPLAY_CHUNK_IDS.every((chunkId) =>
+    areChunkDescriptorsEqual(left[chunkId], right[chunkId]),
+  );
 }
 
 async function readManifestForRoute({
@@ -360,9 +392,10 @@ async function persistHomeDisplaySnapshotOnce(
     });
   });
 
-  const chunksChanged =
-    stringUtils.stableStringify(chunks) !==
-    stringUtils.stableStringify(currentManifest?.chunks ?? {});
+  const chunksChanged = !areChunkMapsEqual(
+    chunks,
+    currentManifest?.chunks ?? {},
+  );
   if (!chunksChanged) {
     return;
   }
@@ -500,7 +533,6 @@ export class HomeDisplaySnapshotPersistQueue {
       return;
     }
     if (commitIdentity.ownerChanged) {
-      this.cancelPending();
       return;
     }
     if (!ownerScopeKey || commitIdentity.origin === 'cacheHydrate') {

@@ -25,10 +25,6 @@ import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -907,38 +903,6 @@ export function HomePageView({
     homeWalletCapabilityTabModel.shouldCommitTabs,
   ]);
 
-  const handleSwitchWalletHomeTab = useCallback(
-    (payload: { id: EHomeWalletTab }) => {
-      if (!homeWalletCapabilityTabModel.shouldCommitTabs) {
-        return;
-      }
-      if (perpTabShowWeb && payload.id === EHomeWalletTab.Perps) {
-        switchToPerpsWebTab();
-        return;
-      }
-      const name = tabConfigs.find((i) => i.id === payload.id)?.name;
-      if (
-        name &&
-        (payload.id === selectedTabId || selectCapabilityTab(payload.id))
-      ) {
-        if (payload.id !== selectedTabId) {
-          pendingPagerTabIdRef.current = payload.id;
-        }
-        setPagerTabName(name);
-        lastDisplayableTabNameRef.current = name;
-        tabsRef.current?.jumpToTab(name);
-      }
-    },
-    [
-      homeWalletCapabilityTabModel.shouldCommitTabs,
-      perpTabShowWeb,
-      selectCapabilityTab,
-      selectedTabId,
-      switchToPerpsWebTab,
-      tabConfigs,
-    ],
-  );
-
   useEffect(() => {
     void Icon.prefetch(
       'CloudOffOutline',
@@ -949,28 +913,6 @@ export function HomePageView({
       'BellOutline',
     );
   }, []);
-
-  useEffect(() => {
-    const clearCache = async () => {
-      await backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
-    };
-    appEventBus.on(EAppEventBusNames.WalletUpdate, clearCache);
-    appEventBus.on(EAppEventBusNames.AccountUpdate, clearCache);
-    appEventBus.on(EAppEventBusNames.AddressBookUpdate, clearCache);
-    appEventBus.on(
-      EAppEventBusNames.SwitchWalletHomeTab,
-      handleSwitchWalletHomeTab,
-    );
-    return () => {
-      appEventBus.off(EAppEventBusNames.WalletUpdate, clearCache);
-      appEventBus.off(EAppEventBusNames.AccountUpdate, clearCache);
-      appEventBus.off(EAppEventBusNames.AddressBookUpdate, clearCache);
-      appEventBus.off(
-        EAppEventBusNames.SwitchWalletHomeTab,
-        handleSwitchWalletHomeTab,
-      );
-    };
-  }, [handleSwitchWalletHomeTab]);
 
   const { result: accountNetworkNotSupported } = usePromiseResult(
     async () => {

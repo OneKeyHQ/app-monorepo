@@ -6,8 +6,8 @@ describe('Home portfolio Store boundary', () => {
     path.join(__dirname, 'TokenListBlock.tsx'),
     'utf8',
   );
-  const controllerSource = fs.readFileSync(
-    path.join(__dirname, 'HomePortfolioStoreController.tsx'),
+  const sourceRuntime = fs.readFileSync(
+    path.join(__dirname, '../../model/sources/homeSourceRuntime.ts'),
     'utf8',
   );
   const allNetworkHookSource = fs.readFileSync(
@@ -31,78 +31,15 @@ describe('Home portfolio Store boundary', () => {
     expect(rendererSource).toContain("useHomeSectionPayload('portfolio')");
   });
 
-  it('owns the source lifecycle in the controller', () => {
-    expect(controllerSource).toContain('beginHomeSectionRequest');
-    expect(controllerSource).toContain('completeHomeSectionRequest');
-    expect(controllerSource).toContain(
-      'beginPortfolioStoreRequestRef.current()',
-    );
-    expect(controllerSource).toContain('walletTokenSnapshot');
-    expect(controllerSource).toContain(
-      'EHomeBackgroundRecoveryRefreshDomain.portfolio',
-    );
-  });
-
-  it('keeps portfolio data activation independent from tab visibility', () => {
-    expect(controllerSource).toContain('const viewVisible =');
-    expect(controllerSource).toContain(
-      "navigation.value.selectedTabId === 'portfolio'",
-    );
-    expect(controllerSource).toContain('isPageFocused || shouldAlwaysFetch');
-    expect(controllerSource).toContain(
-      'pollingInterval: viewVisible ? POLLING_INTERVAL_FOR_TOKEN : undefined',
-    );
-    expect(controllerSource).not.toContain(
-      '(isPageFocused && isFocused) || shouldAlwaysFetch',
-    );
-  });
-
-  it('keeps persisted portfolio identity independent of runtime sessions', () => {
-    expect(controllerSource).toContain(
-      'paramsFingerprint: legacySpotCacheParamsFingerprint',
-    );
-    expect(controllerSource).not.toContain(
-      'paramsFingerprint: legacySpotIdentityKey',
-    );
-  });
-
-  it('binds single-network responses to their request owner and explicit terminal', () => {
-    expect(controllerSource).toContain(
-      'requestOwnerKey === cellsIngestInputsRef.current.ownerKey',
-    );
-    expect(controllerSource).toContain('ownerKey: requestOwnerKey');
-    expect(controllerSource).toContain(
-      'pendingSingleNetworkReadyCompletionRef.current',
-    );
-    expect(controllerSource).toContain(
-      'isHomePortfolioValuationReceiptApplied({',
-    );
-    expect(controllerSource).toContain('expected: pending.valuationReceipt');
-    expect(controllerSource).toContain(
-      'completeRequest: completeHomeSectionRequest',
-    );
-  });
-
-  it('finalizes all-network data from the exact completed run', () => {
-    expect(controllerSource).toContain(
-      'await finalizeAllNetworksTokenListRef.current({',
-    );
-    expect(controllerSource).toContain('finishedResult: result ?? []');
-    expect(controllerSource).toContain('requestRound: runContext.requestRound');
-    expect(controllerSource).toContain(
-      'legacyAllNetworkOutcomeRef.current === outcome',
-    );
-    expect(controllerSource).not.toContain('result: allNetworksResult');
-    expect(controllerSource).not.toContain('allNetworkFinalizeRevision');
+  it('owns Portfolio scheduling and exact-run publication outside React', () => {
+    expect(sourceRuntime).toContain('private async loadPortfolio(');
+    expect(sourceRuntime).toContain('this.allNetworkAccounts.get(');
+    expect(sourceRuntime).toContain('this.host.leafPool.run(priority');
+    expect(sourceRuntime).toContain('publishIntermediate({');
+    expect(sourceRuntime).toContain('createHomeResultSink({');
+    expect(sourceRuntime).not.toMatch(/from ['"]react['"]/);
     expect(allNetworkHookSource).toContain('resultForFinished = resp');
     expect(allNetworkHookSource).toContain('result: resultForFinished');
-    expect(controllerSource).toContain(
-      'pendingAllNetworkReadyCompletionRef.current',
-    );
-    expect(controllerSource).toContain(
-      'const valuationReceipt = await commitAuthoritativeIngest(snapshot)',
-    );
-    expect(controllerSource).toContain('ownerKey: valuationReceipt.ownerKey');
   });
 
   it('prevents TokenListView Home mode from fetching network metadata', () => {

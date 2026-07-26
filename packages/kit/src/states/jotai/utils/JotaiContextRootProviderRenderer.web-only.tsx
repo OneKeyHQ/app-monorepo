@@ -6,8 +6,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { HomeTokenListRootProvider } from '../../../views/Home/components/HomeTokenListProvider/HomeTokenListRootProvider';
-import { UrlAccountHomeTokenListProvider } from '../../../views/Home/components/HomeTokenListProvider/UrlAccountHomeTokenListProvider';
+import { TokenListBackgroundRootProvider } from '../../../views/Home/components/TokenListStoreProvider';
 import { MarketWatchListProvider } from '../../../views/Market/MarketWatchListProvider';
 import { MarketWatchListProviderV2 } from '../../../views/Market/MarketWatchListProviderV2';
 
@@ -162,10 +161,12 @@ function JotaiContextRootProviderRendererCmp({
             return null;
           }
           case EJotaiContextStoreNames.homeTokenList: {
-            return <HomeTokenListRootProvider key={key} />;
+            return <TokenListBackgroundRootProvider key={key} mode="wallet" />;
           }
           case EJotaiContextStoreNames.urlAccountHomeTokenList: {
-            return <UrlAccountHomeTokenListProvider key={key} />;
+            return (
+              <TokenListBackgroundRootProvider key={key} mode="urlAccount" />
+            );
           }
           case EJotaiContextStoreNames.discoveryBrowser: {
             return <DiscoveryBrowserRootProviderLazy key={key} />;

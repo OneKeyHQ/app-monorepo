@@ -33,6 +33,7 @@ export class SingleRuntimeHomeAdapter extends HomeRuntimeAdapterBase {
     return {
       protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
       producerInstanceId: this.producerInstanceId,
+      appEpoch: this.producerInstanceId,
     };
   }
 }

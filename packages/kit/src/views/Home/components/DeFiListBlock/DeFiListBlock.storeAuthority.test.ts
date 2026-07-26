@@ -8,8 +8,7 @@ const rendererSource = read('DeFiListBlock.tsx');
 const protocolSource = read('Protocol.tsx');
 const protocolRowSource = read('ProtocolRow.tsx');
 const containerSource = read('../../pages/DeFiContainer.tsx');
-const sourceController = read('../../model/react/useHomeDeFiStoreSource.ts');
-const rootController = read('../../model/react/HomeDeFiStoreController.tsx');
+const sourceRuntime = read('../../model/sources/homeSourceRuntime.ts');
 const intents = read('../../model/react/homeDeFiIntents.ts');
 
 describe('Home DeFi Store authority', () => {
@@ -45,46 +44,16 @@ describe('Home DeFi Store authority', () => {
     ).toBe(false);
   });
 
-  it('opens one logical Store request before each single/all-network source await', () => {
-    const single = sourceController.slice(
-      sourceController.indexOf('const loadSingle'),
-      sourceController.indexOf('const fetchAllNetwork'),
+  it('keeps request, concurrency, polling, and action refresh in the plain runtime', () => {
+    expect(sourceRuntime).toContain('private async loadDeFi(');
+    expect(sourceRuntime).toContain('fetchAccountDeFiPositions');
+    expect(sourceRuntime).toContain('this.host.leafPool.run');
+    expect(sourceRuntime).toContain('POLLING_INTERVAL_MS');
+    expect(sourceRuntime).toContain(
+      "intent.actionId.endsWith('.positionActionSucceeded')",
     );
-    const allNetwork = sourceController.slice(
-      sourceController.indexOf('const handleAllNetworkStarted'),
-      sourceController.indexOf('const handleAllNetworkAccountsData'),
-    );
-    expect(single.indexOf("evidence: { kind: 'loading' }")).toBeLessThan(
-      single.indexOf('fetchAccountDeFiPositions'),
-    );
-    expect(allNetwork.indexOf("evidence: { kind: 'loading' }")).toBeLessThan(
-      allNetwork.indexOf('consumeManualDeFiForceRefreshQuota'),
-    );
-    expect(sourceController).toContain('requestHandleBySeqRef.current.set');
-    expect(sourceController).toContain('completeHomeSectionRequest(');
-    expect(sourceController).not.toContain('publishHomeSectionSource');
-  });
-
-  it('has one owner for cache, polling, events, and action refresh', () => {
-    expect(sourceController).toContain('refreshCacheOnly');
-    expect(sourceController).toContain('POLLING_INTERVAL_FOR_DEFI');
-    expect(sourceController).toContain('DeFiPositionRefreshed');
-    expect(sourceController).toContain('subscribeHomeDeFiSourceCommand');
-    expect(sourceController).toContain(
-      'refreshAccountDeFiPositionsAfterAction',
-    );
+    expect(sourceRuntime).not.toMatch(/from ['"]react['"]/);
     expect(intents).toContain('dispatchHomeIntent({');
-    expect(intents).toContain("execution: 'controller'");
-    expect(rootController).toContain('pendingSectionCommands.filter');
-    expect(rootController).toContain('markHomeSectionCommandHandled');
-  });
-
-  it('prefetches the Store contributor whenever the DeFi tab is available', () => {
-    expect(rootController).toContain("navigation.value.tabs.includes('defi')");
-    expect(rootController).toContain('refreshCacheOnly: false');
-  });
-
-  it('keys all-network request reuse to the current Store owner session', () => {
-    expect(sourceController).toContain('runIdentityKey: deFiSourceIdentityKey');
+    expect(intents).not.toContain('execution:');
   });
 });

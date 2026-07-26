@@ -20,6 +20,45 @@ export type IHomeRuntimeJsonValue =
   | readonly IHomeRuntimeJsonValue[]
   | { readonly [key: string]: IHomeRuntimeJsonValue };
 
+export type IRuntimeRequestPriority = 'interactive' | 'critical' | 'background';
+
+export interface IRuntimeLeafRequestEnvelope<
+  TDescriptor extends IHomeRuntimeJsonValue = IHomeRuntimeJsonValue,
+> {
+  protocolVersion: typeof HOME_RUNTIME_PROTOCOL_VERSION;
+  taskId: string;
+  clientInstanceId: string;
+  appEpoch: string;
+  sessionId: string;
+  requestGroupId: string;
+  priority: IRuntimeRequestPriority;
+  deadlineAt: number;
+  descriptor: TDescriptor;
+}
+
+export type IRuntimeLeafCancelEnvelope = Pick<
+  IRuntimeLeafRequestEnvelope,
+  'taskId' | 'clientInstanceId' | 'appEpoch' | 'sessionId' | 'requestGroupId'
+>;
+
+export type IRuntimeLeafOutcome<TValue extends IHomeRuntimeJsonValue> =
+  | { kind: 'fulfilled'; value: TValue }
+  | { kind: 'cancelled' }
+  | { kind: 'timedOut' }
+  | { kind: 'failed'; errorCode: string };
+
+export interface IRuntimeLeafResponseEnvelope<
+  TValue extends IHomeRuntimeJsonValue = IHomeRuntimeJsonValue,
+> {
+  taskId: string;
+  clientInstanceId: string;
+  appEpoch: string;
+  sessionId: string;
+  requestGroupId: string;
+  producerInstanceId: string;
+  outcome: IRuntimeLeafOutcome<TValue>;
+}
+
 export interface IHomeRuntimeOwnerScope {
   walletId: string;
   accountId: string;
@@ -58,6 +97,7 @@ export interface IHomeRuntimeRequestToken {
 export interface IHomeRuntimeHandshake {
   protocolVersion: typeof HOME_RUNTIME_PROTOCOL_VERSION;
   producerInstanceId: string;
+  appEpoch: string;
 }
 
 export type IHomeRuntimeSourceResult<T extends IHomeRuntimeJsonValue> =
@@ -117,7 +157,94 @@ export function isHomeRuntimeHandshake(
   return (
     value.protocolVersion === HOME_RUNTIME_PROTOCOL_VERSION &&
     typeof value.producerInstanceId === 'string' &&
-    value.producerInstanceId.length > 0
+    value.producerInstanceId.length > 0 &&
+    typeof value.appEpoch === 'string' &&
+    value.appEpoch.length > 0
+  );
+}
+
+function isRuntimeRequestPriority(
+  value: unknown,
+): value is IRuntimeRequestPriority {
+  return (
+    value === 'interactive' || value === 'critical' || value === 'background'
+  );
+}
+
+export function isRuntimeLeafRequestEnvelope(
+  value: unknown,
+): value is IRuntimeLeafRequestEnvelope {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    value.protocolVersion === HOME_RUNTIME_PROTOCOL_VERSION &&
+    typeof value.taskId === 'string' &&
+    value.taskId.length > 0 &&
+    typeof value.clientInstanceId === 'string' &&
+    value.clientInstanceId.length > 0 &&
+    typeof value.appEpoch === 'string' &&
+    value.appEpoch.length > 0 &&
+    typeof value.sessionId === 'string' &&
+    value.sessionId.length > 0 &&
+    typeof value.requestGroupId === 'string' &&
+    value.requestGroupId.length > 0 &&
+    isRuntimeRequestPriority(value.priority) &&
+    typeof value.deadlineAt === 'number' &&
+    Number.isFinite(value.deadlineAt) &&
+    isHomeRuntimeJsonValue(value.descriptor)
+  );
+}
+
+export function isRuntimeLeafCancelEnvelope(
+  value: unknown,
+): value is IRuntimeLeafCancelEnvelope {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.taskId === 'string' &&
+    value.taskId.length > 0 &&
+    typeof value.clientInstanceId === 'string' &&
+    value.clientInstanceId.length > 0 &&
+    typeof value.appEpoch === 'string' &&
+    value.appEpoch.length > 0 &&
+    typeof value.sessionId === 'string' &&
+    value.sessionId.length > 0 &&
+    typeof value.requestGroupId === 'string' &&
+    value.requestGroupId.length > 0
+  );
+}
+
+export function isRuntimeLeafResponseEnvelope(
+  value: unknown,
+): value is IRuntimeLeafResponseEnvelope {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const outcome = value.outcome;
+  if (!isRecord(outcome) || typeof outcome.kind !== 'string') {
+    return false;
+  }
+  const outcomeValid =
+    (outcome.kind === 'fulfilled' && isHomeRuntimeJsonValue(outcome.value)) ||
+    outcome.kind === 'cancelled' ||
+    outcome.kind === 'timedOut' ||
+    (outcome.kind === 'failed' && typeof outcome.errorCode === 'string');
+  return (
+    typeof value.taskId === 'string' &&
+    value.taskId.length > 0 &&
+    typeof value.clientInstanceId === 'string' &&
+    value.clientInstanceId.length > 0 &&
+    typeof value.appEpoch === 'string' &&
+    value.appEpoch.length > 0 &&
+    typeof value.sessionId === 'string' &&
+    value.sessionId.length > 0 &&
+    typeof value.requestGroupId === 'string' &&
+    value.requestGroupId.length > 0 &&
+    typeof value.producerInstanceId === 'string' &&
+    value.producerInstanceId.length > 0 &&
+    outcomeValid
   );
 }
 

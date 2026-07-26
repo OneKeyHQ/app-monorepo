@@ -43,7 +43,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
 import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
-import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { TokenListStoreProvider } from '@onekeyhq/kit/src/views/Home/components/TokenListStoreProvider';
 import {
   useFirmwareUpdatesDetectStatusPersistAtom,
   useHardwareWalletXfpStatusAtom,
@@ -121,7 +121,13 @@ function MoreActionProvider({ children }: PropsWithChildren) {
         sceneUrl: '',
       }}
     >
-      <HomeTokenListProviderMirror>{children}</HomeTokenListProviderMirror>
+      <TokenListStoreProvider
+        consumerId="more-actions"
+        demandReason="externalRead"
+        ownerScopeKey="wallet-current"
+      >
+        {children}
+      </TokenListStoreProvider>
     </AccountSelectorProviderMirror>
   );
 }

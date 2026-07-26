@@ -54,18 +54,9 @@ jest.mock(
 jest.mock('../../../views/Earn/EarnProvider', () => ({
   EarnProvider: () => null,
 }));
-jest.mock(
-  '../../../views/Home/components/HomeTokenListProvider/HomeTokenListRootProvider',
-  () => ({
-    HomeTokenListRootProvider: () => null,
-  }),
-);
-jest.mock(
-  '../../../views/Home/components/HomeTokenListProvider/UrlAccountHomeTokenListProvider',
-  () => ({
-    UrlAccountHomeTokenListProvider: () => null,
-  }),
-);
+jest.mock('../../../views/Home/components/TokenListStoreProvider', () => ({
+  TokenListBackgroundRootProvider: () => null,
+}));
 jest.mock('../../../views/Market/MarketWatchListProvider', () => ({
   MarketWatchListProvider: () => null,
 }));

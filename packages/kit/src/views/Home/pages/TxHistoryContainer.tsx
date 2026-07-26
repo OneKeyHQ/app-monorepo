@@ -17,16 +17,12 @@ import {
 } from '../../../states/jotai/contexts/historyList';
 import {
   useHomeFacts,
-  useHomeInteraction,
   useHomeResource,
   useHomeSection,
 } from '../../../states/jotai/contexts/home';
 import { useHomeSectionPayload } from '../model/react/homeStoreHooks';
 import { useHomeHistoryIntents } from '../model/react/useHomeHistoryIntents';
-import {
-  HOME_HISTORY_ACTION_IDS,
-  selectRecentHomeHistoryRows,
-} from '../model/sections/history/homeHistoryStoreModel';
+import { selectRecentHomeHistoryRows } from '../model/sections/history/homeHistoryStoreModel';
 
 import {
   FrozenTopHistoryScrollObserver,
@@ -56,7 +52,6 @@ function TxHistoryListContainer(
   const homeFacts = useHomeFacts();
   const historyResource = useHomeResource('history');
   const historySection = useHomeSection('history');
-  const interaction = useHomeInteraction();
   const payload = useHomeSectionPayload('history');
   const { loadMore, openDetails, refresh } = useHomeHistoryIntents();
   const [, setSearchKey] = useSearchKeyAtom();
@@ -74,12 +69,11 @@ function TxHistoryListContainer(
     historyResource.kind === 'empty' ||
     historyResource.kind === 'error' ||
     historySection.value.kind === 'error';
-  const isLoadingMore = interaction.pendingSectionCommands.some(
-    (command) =>
-      command.sectionId === 'history' &&
-      command.type === 'sectionActionInvoked' &&
-      command.actionId === HOME_HISTORY_ACTION_IDS.loadMore,
-  );
+  const isLoadingMore =
+    historyResource.kind === 'loading' ||
+    historyResource.kind === 'partial' ||
+    ((historyResource.kind === 'ready' || historyResource.kind === 'empty') &&
+      historyResource.refresh === 'refreshing');
   const loadMoreEnabled =
     !plainMode &&
     !limit &&

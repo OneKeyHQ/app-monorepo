@@ -49,7 +49,7 @@ import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useHomeTokenListSnapshot } from '../../../states/jotai/contexts/tokenList/cells';
-import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
+import { TokenListStoreProvider } from '../../Home/components/TokenListStoreProvider';
 import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProviderMirror';
 import { MarketWatchListProviderMirrorV2 } from '../../Market/MarketWatchListProviderMirrorV2';
 import { MarketTableHeader } from '../components/MarketTableHeader';
@@ -1085,8 +1085,6 @@ const UniversalSearchWithHomeTokenListProvider = ({
   IUniversalSearchParamList,
   EUniversalSearchPages.UniversalSearch
 >) => {
-  const { activeAccount } = useActiveAccount({ num: 0 });
-
   // Stabilize the fallback reference: getDefaultFilterTypes() returns a fresh
   // array, so computing it inline in the prop would rebuild the downstream
   // allowedSearchTypeSet memo (and its dependents) on every wrapper re-render.
@@ -1097,14 +1095,17 @@ const UniversalSearchWithHomeTokenListProvider = ({
   );
 
   return (
-    <HomeTokenListProviderMirrorWrapper
-      accountId={activeAccount?.account?.id ?? ''}
+    <TokenListStoreProvider
+      consumerId="universal-search"
+      demandPriority="interactive"
+      demandReason="externalRead"
+      ownerScopeKey="wallet-current"
     >
       <UniversalSearch
         filterTypes={filterTypes}
         initialTab={route?.params?.initialTab}
       />
-    </HomeTokenListProviderMirrorWrapper>
+    </TokenListStoreProvider>
   );
 };
 

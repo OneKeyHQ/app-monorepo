@@ -19,7 +19,7 @@ export function useHomePortfolioIntents() {
       if (!facts) {
         return false;
       }
-      const effects = dispatchHomeIntent({
+      const receipt = dispatchHomeIntent({
         type: 'sectionControlChanged',
         intentId: createHomeAuthorityId('intent'),
         owner: facts.owner,
@@ -33,7 +33,7 @@ export function useHomePortfolioIntents() {
           revision: portfolioSection.sectionCommandRevision,
         },
       });
-      return !effects.some((effect) => effect.kind === 'traceReject');
+      return receipt.accepted;
     },
     [dispatchHomeIntent, facts, portfolioSection.sectionCommandRevision],
   );

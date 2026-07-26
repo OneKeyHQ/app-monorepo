@@ -1,10 +1,10 @@
 import type { IHomeRuntimeOwnerToken } from '@onekeyhq/shared/src/types/homeRuntime';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import {
+  buildHomeScalarKey,
   createHomeSourceKey,
   getHomeSourceKeyIdentity,
 } from '../../core/homeIdentity';
@@ -118,7 +118,18 @@ function createHomeHistorySourceIdentity({
   const sourceKey = createHomeSourceKey({
     dataSchemaVersion: HOME_HISTORY_DATA_SCHEMA_VERSION,
     ownerToken: owner,
-    paramsFingerprint: stringUtils.stableStringify(params),
+    paramsFingerprint: buildHomeScalarKey([
+      params.accountId,
+      params.accountOwnerId,
+      params.filterLowValue,
+      params.filterScam,
+      params.indexedAccountId,
+      params.mergeDerive,
+      params.networkId,
+      params.networkMode,
+      params.sourceCurrencyId,
+      params.walletId,
+    ]),
     sourceId: 'history',
   });
   return {

@@ -1,48 +1,47 @@
 import { useCallback } from 'react';
 
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useHomeFacts,
   useHomeSection,
   useHomeStoreIntentActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/home';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { IHomeRuntimeJsonValue } from '@onekeyhq/shared/src/types/homeRuntime';
 
 import { createHomeAuthorityId } from '../core/homeIdentity';
-
-import {
-  executeHomePerpsOpenAsset,
-  prepareHomePerpsAccount,
-} from './homePerpsActionExecutor';
 
 import type {
   IHomePerpsInfoPanelTab,
   IHomePerpsTradeMode,
+  prepareHomePerpsAccount,
 } from './homePerpsActionExecutor';
 import type { IHomeStoreIntent } from '../store/homeStoreTypes';
 
 const HOME_PERPS_ACTION_IDS = {
   deposit: 'home.perps.deposit',
   openAsset: 'home.perps.openAsset',
+  prepareDeposit: 'home.perps.prepareDeposit',
 } as const;
 
 export function useHomePerpsIntents() {
   const facts = useHomeFacts();
   const section = useHomeSection('perps');
-  const { dispatchHomeIntent } = useHomeStoreIntentActions().current;
-  const navigation = useAppNavigation();
-  const {
-    activeAccount: { account, indexedAccount, wallet },
-  } = useActiveAccount({ num: 0 });
+  const { executeHomeCommand } = useHomeStoreIntentActions().current;
 
   const dispatchPerpsAction = useCallback(
-    ({ actionId, itemId }: { actionId: string; itemId?: string }) => {
+    ({
+      actionId,
+      commandPayload,
+      itemId,
+    }: {
+      actionId: string;
+      commandPayload?: IHomeRuntimeJsonValue;
+      itemId?: string;
+    }) => {
       if (!facts) {
-        return false;
+        return undefined;
       }
       const intentId = createHomeAuthorityId('intent');
-      const effects = dispatchHomeIntent({
+      return {
         type: 'sectionActionInvoked',
         actionId,
         authority: {
@@ -50,39 +49,15 @@ export function useHomePerpsIntents() {
           revision: section.sectionCommandRevision,
           sectionId: 'perps',
         },
-        execution: 'caller',
         intentId,
+        commandPayload,
         itemId,
         owner: facts.owner,
         sectionId: 'perps',
         sessionId: facts.ownerToken.sessionId,
-      } satisfies IHomeStoreIntent);
-      return effects.some(
-        (effect) =>
-          effect.kind === 'executeCommand' &&
-          effect.intent.intentId === intentId,
-      );
+      } satisfies IHomeStoreIntent;
     },
-    [dispatchHomeIntent, facts, section.sectionCommandRevision],
-  );
-
-  const prepareDispatchedHomePerpsAccount = useCallback(
-    ({ actionId, itemId }: { actionId: string; itemId?: string }) => {
-      if (
-        (!account?.id && !indexedAccount?.id) ||
-        !dispatchPerpsAction({ actionId, itemId })
-      ) {
-        return undefined;
-      }
-      return prepareHomePerpsAccount({
-        accountIdentity: {
-          accountId: account?.id,
-          indexedAccountId: indexedAccount?.id,
-          walletId: wallet?.id,
-        },
-      });
-    },
-    [account?.id, dispatchPerpsAction, indexedAccount?.id, wallet?.id],
+    [facts, section.sectionCommandRevision],
   );
 
   const openPerpAsset = useCallback(
@@ -92,44 +67,37 @@ export function useHomePerpsIntents() {
       openMarket = true,
       infoPanelTab?: IHomePerpsInfoPanelTab,
     ) => {
-      if (
-        (!account?.id && !indexedAccount?.id) ||
-        !dispatchPerpsAction({
-          actionId: HOME_PERPS_ACTION_IDS.openAsset,
-          itemId: coin,
-        })
-      ) {
+      const intent = dispatchPerpsAction({
+        actionId: HOME_PERPS_ACTION_IDS.openAsset,
+        itemId: coin,
+        commandPayload: {
+          coin: coin ?? null,
+          infoPanelTab: infoPanelTab ?? null,
+          mode,
+          openMarket,
+        },
+      });
+      if (!intent) {
         return;
       }
-      void executeHomePerpsOpenAsset({
-        accountIdentity: {
-          accountId: account?.id,
-          indexedAccountId: indexedAccount?.id,
-          walletId: wallet?.id,
-        },
-        coin,
-        infoPanelTab,
-        mode,
-        openMarket,
-        switchToPerps: () => navigation.switchTab(ETabRoutes.Perp),
-      });
+      void executeHomeCommand<boolean>(intent).completion;
     },
-    [
-      account?.id,
-      dispatchPerpsAction,
-      indexedAccount?.id,
-      navigation,
-      wallet?.id,
-    ],
+    [dispatchPerpsAction, executeHomeCommand],
   );
 
-  const prepareDeposit = useCallback(
-    () =>
-      prepareDispatchedHomePerpsAccount({
-        actionId: HOME_PERPS_ACTION_IDS.deposit,
-      }),
-    [prepareDispatchedHomePerpsAccount],
-  );
+  const prepareDeposit = useCallback(async () => {
+    const intent = dispatchPerpsAction({
+      actionId: HOME_PERPS_ACTION_IDS.prepareDeposit,
+    });
+    if (!intent) {
+      return undefined;
+    }
+    const completion =
+      await executeHomeCommand<
+        Awaited<ReturnType<typeof prepareHomePerpsAccount>>
+      >(intent).completion;
+    return completion.kind === 'completed' ? completion.value : undefined;
+  }, [dispatchPerpsAction, executeHomeCommand]);
 
   return { openPerpAsset, prepareDeposit };
 }

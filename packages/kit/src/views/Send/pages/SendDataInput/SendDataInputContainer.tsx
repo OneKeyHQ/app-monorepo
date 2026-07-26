@@ -66,7 +66,7 @@ import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
-import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { TokenListStoreProvider } from '../../../Home/components/TokenListStoreProvider';
 import { getAccountIdOnNetwork } from '../../../ScanQrCode/utils/getAccountIdOnNetwork';
 import { parseOnChainAmount } from '../../../ScanQrCode/utils/parseOnChainAmount';
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
@@ -1337,9 +1337,14 @@ function SendDataInputContainer() {
 
 const SendDataInputContainerWithProvider = memo(() => (
   <SendConfirmProviderMirror>
-    <HomeTokenListProviderMirror>
+    <TokenListStoreProvider
+      consumerId="send-data-input"
+      demandPriority="interactive"
+      demandReason="send"
+      ownerScopeKey="wallet-current"
+    >
       <SendDataInputContainer />
-    </HomeTokenListProviderMirror>
+    </TokenListStoreProvider>
   </SendConfirmProviderMirror>
 ));
 SendDataInputContainerWithProvider.displayName =

@@ -32,17 +32,14 @@ describe('Home NFT Store authority', () => {
     ).toBe(false);
   });
 
-  it('puts polling, events, cache and explicit request ownership in the controller source', () => {
-    const controller = readSource('../model/react/HomeNFTStoreController.tsx');
-    const source = readSource('../model/react/useHomeNFTStoreSource.ts');
+  it('puts scheduling, cache and explicit request ownership in the plain runtime', () => {
+    const source = readSource('../model/sources/homeSourceRuntime.ts');
 
-    expect(controller).toContain('useHomeNFTStoreSource');
-    expect(controller).toContain('useRegisterHomeBackgroundRecoveryRefresh');
-    expect(source).toContain('useAllNetworkRequests');
-    expect(source).toContain('POLLING_INTERVAL_FOR_NFT');
-    expect(source).toContain('getAccountLocalNFTs');
+    expect(source).toContain('private async loadNFT(');
+    expect(source).toContain('this.allNetworkAccounts.get(');
+    expect(source).toContain('POLLING_INTERVAL_MS');
     expect(source).toContain('fetchAccountNFTs');
-    expect(source).toContain('beginHomeSectionRequest');
-    expect(source).toContain('completeHomeSectionRequest');
+    expect(source).toContain('createHomeResultSink({');
+    expect(source).not.toMatch(/from ['"]react['"]/);
   });
 });

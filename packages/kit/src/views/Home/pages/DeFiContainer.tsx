@@ -57,7 +57,6 @@ import {
 import { buildPortfolioStats } from '../components/DeFiListBlock/DeFiPortfolioStats';
 import { formatPortfolioTotal } from '../components/DeFiListBlock/formatPortfolioTotal';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
-import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { PullToRefresh } from '../components/PullToRefresh';
 import { RichBlock } from '../components/RichBlock/RichBlock';
 import { SupportHub } from '../components/SupportHub';
@@ -912,17 +911,12 @@ function DeFiContainerScrollable() {
 }
 
 function DeFiContainerWithProvider() {
-  const {
-    activeAccount: { account },
-  } = useActiveAccount({ num: 0 });
   return (
-    <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
-      <ProviderJotaiContextHistoryList>
-        <ProviderJotaiContextDeFiList>
-          <DeFiContainerScrollable />
-        </ProviderJotaiContextDeFiList>
-      </ProviderJotaiContextHistoryList>
-    </HomeTokenListProviderMirrorWrapper>
+    <ProviderJotaiContextHistoryList>
+      <ProviderJotaiContextDeFiList>
+        <DeFiContainerScrollable />
+      </ProviderJotaiContextDeFiList>
+    </ProviderJotaiContextHistoryList>
   );
 }
 DeFiContainerWithProvider.displayName = 'DeFiContainerWithProvider';

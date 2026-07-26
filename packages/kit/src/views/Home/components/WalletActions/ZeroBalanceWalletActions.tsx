@@ -5,7 +5,6 @@ import { Button, SizableText, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { HomeTestIDs } from '../../testIDs';
-import { HomeTokenListProviderMirrorWrapper } from '../HomeTokenListProvider';
 
 import { RawActions } from './RawActions';
 import { WalletActionMore } from './WalletActionMore';
@@ -55,12 +54,8 @@ export function ZeroBalanceWalletActions({ ...rest }: IXStackProps) {
 }
 
 export function NativeHomeZeroBalanceWalletActions({
-  accountId,
+  accountId: _accountId,
   ...rest
 }: IXStackProps & { accountId: string }) {
-  return (
-    <HomeTokenListProviderMirrorWrapper accountId={accountId}>
-      <ZeroBalanceWalletActions {...rest} />
-    </HomeTokenListProviderMirrorWrapper>
-  );
+  return <ZeroBalanceWalletActions {...rest} />;
 }

@@ -1,11 +1,11 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import {
-  type IHomeRuntimeJsonValue,
-  isHomeRuntimeJsonValue,
-} from '@onekeyhq/shared/src/types/homeRuntime';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import { type IHomeRuntimeJsonValue } from '@onekeyhq/shared/src/types/homeRuntime';
 
 import { aggregateHomeBalanceFacts } from '../balance/homeBalanceAggregation';
+import {
+  type IHomeLifecycleSessionState,
+  transitionHomeSession,
+} from '../lifecycle/homeSessionMachine';
 import { projectHomeNavigation } from '../navigation/homeNavigationProjector';
 import { projectHomeBalanceAuthority } from '../policies/homeBalanceAuthorityPolicy';
 import { projectHomeDisplayModel } from '../policies/homeDisplayModelPolicy';
@@ -36,8 +36,6 @@ import type {
   IHomeStoreIntent,
   IHomeStoreMutation,
   IHomeStoreNavigationSlice,
-  IHomeStorePendingSectionCommand,
-  IHomeStorePendingShellCommand,
   IHomeStoreRejectReason,
   IHomeStoreResourceSlot,
   IHomeStoreSectionSlice,
@@ -55,6 +53,7 @@ import type {
 import type { IHomeBalanceFacts } from '../facts/homeFacts';
 import type {
   IHomeNavigationSemanticModel,
+  IHomePortfolioPresentation,
   IHomeSectionId,
   IHomeSectionSemanticModel,
   IHomeShellSemanticModel,
@@ -62,12 +61,239 @@ import type {
 } from '../semantic/homeSemanticTypes';
 
 const MAX_ACCEPTED_INTENT_IDS = 128;
-const MAX_PENDING_SECTION_COMMANDS = 32;
-const MAX_PENDING_SHELL_COMMANDS = 32;
+const MAX_DISMISSED_BANNER_IDS = 32;
+const HOME_TAB_IDS: readonly IHomeTabId[] = [
+  'portfolio',
+  'perps',
+  'defi',
+  'nft',
+  'history',
+];
+const HOME_SECTION_IDS: readonly IHomeSectionId[] = [...HOME_TAB_IDS, 'market'];
 
 function equal(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) {
+    return true;
+  }
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return (
+      left.length === right.length &&
+      left.every((item, index) => Object.is(item, right[index]))
+    );
+  }
+  if (
+    !left ||
+    !right ||
+    typeof left !== 'object' ||
+    typeof right !== 'object' ||
+    Array.isArray(left) ||
+    Array.isArray(right)
+  ) {
+    return false;
+  }
+  const leftRecord = left as Record<string, unknown>;
+  const rightRecord = right as Record<string, unknown>;
+  const keys = Object.keys(leftRecord);
   return (
-    stringUtils.stableStringify(left) === stringUtils.stableStringify(right)
+    keys.length === Object.keys(rightRecord).length &&
+    keys.every((key) => Object.is(leftRecord[key], rightRecord[key]))
+  );
+}
+
+function sameStringArray(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
+  return (
+    left === right ||
+    (left.length === right.length &&
+      left.every((value, index) => value === right[index]))
+  );
+}
+
+function sameMoney(
+  left: { amount: string; currency: string } | undefined,
+  right: { amount: string; currency: string } | undefined,
+): boolean {
+  return (
+    left === right ||
+    Boolean(
+      left &&
+      right &&
+      left.amount === right.amount &&
+      left.currency === right.currency,
+    )
+  );
+}
+
+function samePortfolioPresentation(
+  left: IHomePortfolioPresentation,
+  right: IHomePortfolioPresentation,
+): boolean {
+  if (left === right || left.kind !== right.kind) {
+    return left === right;
+  }
+  switch (left.kind) {
+    case 'loading':
+      return right.kind === 'loading' && left.refresh === right.refresh;
+    case 'fundedPendingTotal':
+      return (
+        right.kind === 'fundedPendingTotal' &&
+        sameMoney(left.header.balance, right.header.balance) &&
+        sameStringArray(left.actions.items, right.actions.items) &&
+        left.banner.kind === right.banner.kind &&
+        left.refresh === right.refresh
+      );
+    case 'zero':
+      return (
+        right.kind === 'zero' &&
+        sameMoney(left.header.balance, right.header.balance) &&
+        sameStringArray(left.actions.items, right.actions.items) &&
+        left.freshness === right.freshness &&
+        left.refresh === right.refresh
+      );
+    case 'funded':
+      return (
+        right.kind === 'funded' &&
+        sameMoney(left.header.balance, right.header.balance) &&
+        left.header.authority === right.header.authority &&
+        sameStringArray(left.actions.items, right.actions.items) &&
+        left.banner.kind === right.banner.kind &&
+        left.freshness === right.freshness &&
+        left.refresh === right.refresh
+      );
+    case 'unavailable':
+      return (
+        right.kind === 'unavailable' &&
+        left.header.reason === right.header.reason
+      );
+    default:
+      return false;
+  }
+}
+
+function sameShell(
+  left: IHomeShellSemanticModel,
+  right: IHomeShellSemanticModel,
+): boolean {
+  if (left === right || left.kind !== right.kind) {
+    return left === right;
+  }
+  if (left.kind === 'portfolio' && right.kind === 'portfolio') {
+    return samePortfolioPresentation(left.presentation, right.presentation);
+  }
+  if (left.kind === 'backupRequired' && right.kind === 'backupRequired') {
+    return left.commandId === right.commandId;
+  }
+  return true;
+}
+
+function sameShellCommands(
+  left: IHomeShellSemanticModel,
+  right: IHomeShellSemanticModel,
+): boolean {
+  if (left.kind !== right.kind) {
+    return false;
+  }
+  if (left.kind === 'backupRequired' && right.kind === 'backupRequired') {
+    return left.commandId === right.commandId;
+  }
+  if (left.kind === 'portfolio' && right.kind === 'portfolio') {
+    return (
+      left.presentation.actions.kind === right.presentation.actions.kind &&
+      sameStringArray(
+        left.presentation.actions.items,
+        right.presentation.actions.items,
+      ) &&
+      left.presentation.banner.kind === right.presentation.banner.kind
+    );
+  }
+  return true;
+}
+
+function sameNavigationRecord<TValue extends string | boolean>(
+  keys: readonly string[],
+  left: Readonly<Record<string, TValue>> | undefined,
+  right: Readonly<Record<string, TValue>> | undefined,
+): boolean {
+  return keys.every((key) => left?.[key] === right?.[key]);
+}
+
+function sameNavigation(
+  left: IHomeNavigationSemanticModel,
+  right: IHomeNavigationSemanticModel,
+): boolean {
+  if (left === right || left.kind !== right.kind) {
+    return left === right;
+  }
+  if (left.kind === 'hidden' || right.kind === 'hidden') {
+    return left.kind === right.kind;
+  }
+  return (
+    sameStringArray(left.tabs, right.tabs) &&
+    left.selectedTabId === right.selectedTabId &&
+    left.freshness === right.freshness &&
+    left.perpsDestination === right.perpsDestination &&
+    left.refresh === right.refresh &&
+    sameNavigationRecord(HOME_TAB_IDS, left.destinations, right.destinations) &&
+    sameNavigationRecord(HOME_SECTION_IDS, left.sections, right.sections)
+  );
+}
+
+function sameNavigationApplicability(
+  left: IHomeNavigationSemanticModel,
+  right: IHomeNavigationSemanticModel,
+): boolean {
+  if (left.kind !== right.kind) {
+    return false;
+  }
+  if (left.kind === 'hidden' || right.kind === 'hidden') {
+    return true;
+  }
+  return (
+    sameStringArray(left.tabs, right.tabs) &&
+    left.perpsDestination === right.perpsDestination &&
+    sameNavigationRecord(HOME_TAB_IDS, left.destinations, right.destinations) &&
+    sameNavigationRecord(HOME_SECTION_IDS, left.sections, right.sections)
+  );
+}
+
+function sameSection(
+  left: IHomeSectionSemanticModel,
+  right: IHomeSectionSemanticModel,
+): boolean {
+  if (left === right || left.kind !== right.kind) {
+    return left === right;
+  }
+  switch (left.kind) {
+    case 'hidden':
+      return right.kind === 'hidden' && left.reason === right.reason;
+    case 'loading':
+      return right.kind === 'loading' && left.placeholder === right.placeholder;
+    case 'empty':
+      return right.kind === 'empty' && left.emptyState === right.emptyState;
+    case 'ready':
+      return (
+        right.kind === 'ready' &&
+        sameStringArray(left.rowIds, right.rowIds) &&
+        left.freshness === right.freshness &&
+        left.refresh === right.refresh
+      );
+    case 'error':
+      return right.kind === 'error' && left.errorState === right.errorState;
+    default:
+      return false;
+  }
+}
+
+function sameSectionCommands(
+  left: IHomeSectionSemanticModel,
+  right: IHomeSectionSemanticModel,
+): boolean {
+  return (
+    left.kind === right.kind &&
+    (left.kind !== 'ready' ||
+      (right.kind === 'ready' && sameStringArray(left.rowIds, right.rowIds)))
   );
 }
 
@@ -150,18 +376,6 @@ function shellCommandSignature(value: IHomeShellSemanticModel): unknown {
   };
 }
 
-function homeBalancePresentationSignature(
-  value: IHomeShellSemanticModel,
-): unknown {
-  if (value.kind !== 'portfolio') {
-    return { kind: value.kind };
-  }
-  return {
-    kind: value.kind,
-    header: value.presentation.header,
-  };
-}
-
 function navigationApplicabilitySignature(
   value: IHomeNavigationSemanticModel,
 ): unknown {
@@ -198,7 +412,7 @@ function serializeSectionForResource(
   if (value.kind === 'empty') {
     return {
       kind: 'empty',
-      coverageFingerprint: stringUtils.stableStringify(value),
+      coverageFingerprint: 'empty:v2',
       freshness: 'live',
       refresh: 'idle',
     };
@@ -206,16 +420,17 @@ function serializeSectionForResource(
   if (value.kind !== 'ready') {
     return undefined;
   }
-  const parsed: unknown = JSON.parse(
-    stringUtils.stableStringify({ payload: data, section: value }),
-  );
-  if (!isHomeRuntimeJsonValue(parsed)) {
-    return undefined;
-  }
   return {
     kind: 'ready',
-    data: parsed,
-    coverageFingerprint: stringUtils.stableStringify(value.rowIds),
+    data: {
+      payload: data ?? null,
+      section: value,
+    },
+    coverageFingerprint: [
+      value.rowIds.length,
+      value.rowIds[0] ?? '',
+      value.rowIds[value.rowIds.length - 1] ?? '',
+    ].join(':'),
     freshness: 'live',
     refresh: value.refresh,
   };
@@ -285,20 +500,25 @@ function advanceShell(
   current: IHomeStoreShellSlice,
   value: IHomeShellSemanticModel,
 ): IHomeStoreShellSlice {
-  const displayChanged = !equal(current.value, value);
+  const displayChanged = !sameShell(current.value, value);
   const currentDisplay = projectHomeDisplayModel({ shell: current.value });
   const nextDisplay = projectHomeDisplayModel({ shell: value });
-  const balanceChanged = !equal(
-    homeBalancePresentationSignature(current.value),
-    homeBalancePresentationSignature(value),
-  );
-  const actionsChanged = !equal(currentDisplay.actions, nextDisplay.actions);
-  const bannerChanged = !equal(currentDisplay.banner, nextDisplay.banner);
-  const bodyChanged = !equal(currentDisplay.body, nextDisplay.body);
-  const commandsChanged = !equal(
-    shellCommandSignature(current.value),
-    shellCommandSignature(value),
-  );
+  const balanceChanged =
+    currentDisplay.balance.kind !== nextDisplay.balance.kind ||
+    currentDisplay.balance.revision !== nextDisplay.balance.revision;
+  const actionsChanged =
+    currentDisplay.actions.kind !== nextDisplay.actions.kind ||
+    (currentDisplay.actions.kind !== 'hidden' &&
+      currentDisplay.actions.kind !== 'loading' &&
+      nextDisplay.actions.kind !== 'hidden' &&
+      nextDisplay.actions.kind !== 'loading' &&
+      !sameStringArray(
+        currentDisplay.actions.items,
+        nextDisplay.actions.items,
+      ));
+  const bannerChanged = currentDisplay.banner.kind !== nextDisplay.banner.kind;
+  const bodyChanged = currentDisplay.body.kind !== nextDisplay.body.kind;
+  const commandsChanged = !sameShellCommands(current.value, value);
   if (!displayChanged && !commandsChanged) {
     return current;
   }
@@ -380,10 +600,10 @@ function advanceNavigation(
   current: IHomeStoreNavigationSlice,
   value: IHomeNavigationSemanticModel,
 ): IHomeStoreNavigationSlice {
-  const displayChanged = !equal(current.value, value);
-  const applicabilityChanged = !equal(
-    navigationApplicabilitySignature(current.value),
-    navigationApplicabilitySignature(value),
+  const displayChanged = !sameNavigation(current.value, value);
+  const applicabilityChanged = !sameNavigationApplicability(
+    current.value,
+    value,
   );
   if (!displayChanged && !applicabilityChanged) {
     return current;
@@ -401,11 +621,8 @@ function advanceSection(
   current: IHomeStoreSectionSlice,
   value: IHomeSectionSemanticModel,
 ): IHomeStoreSectionSlice {
-  const displayChanged = !equal(current.value, value);
-  const commandsChanged = !equal(
-    sectionCommandSignature(current.value),
-    sectionCommandSignature(value),
-  );
+  const displayChanged = !sameSection(current.value, value);
+  const commandsChanged = !sameSectionCommands(current.value, value);
   if (!displayChanged && !commandsChanged) {
     return current;
   }
@@ -497,27 +714,29 @@ function createConfirmedCacheMutations({
   return mutations;
 }
 
-function resetOwnerScopedMutations(
-  event: Extract<IHomeStoreEvent, { type: 'ownerChanged' }>,
-): IHomeStoreMutation[] {
+function resetOwnerScopedMutations({
+  session,
+  state,
+  topology,
+}: {
+  session: IHomeLifecycleSessionState;
+  state: IHomeStoreState;
+  topology: IHomeStoreState['runtime']['topology'];
+}): IHomeStoreMutation[] {
   const initial = createInitialHomeStoreState();
   const mutations: IHomeStoreMutation[] = [
     {
       slice: 'session',
       operation: {
         kind: 'set',
-        value: {
-          owner: event.owner,
-          ownerToken: event.ownerToken,
-          status: event.ownerToken ? 'waitingForProducer' : 'idle',
-        },
+        value: session,
       },
     },
     {
       slice: 'runtime',
       operation: {
         kind: 'set',
-        value: { ...initial.runtime, topology: event.topology },
+        value: { ...initial.runtime, topology },
       },
     },
     { slice: 'walletInputs', operation: { kind: 'reset' } },
@@ -526,7 +745,16 @@ function resetOwnerScopedMutations(
     { slice: 'facts', operation: { kind: 'reset' } },
     { slice: 'balanceRound', operation: { kind: 'reset' } },
     { slice: 'confirmedBalance', operation: { kind: 'reset' } },
-    { slice: 'interaction', operation: { kind: 'reset' } },
+    {
+      slice: 'interaction',
+      operation: {
+        kind: 'set',
+        value: {
+          ...initial.interaction,
+          visibility: state.interaction.visibility,
+        },
+      },
+    },
     { slice: 'shell', operation: { kind: 'reset' } },
     { slice: 'navigation', operation: { kind: 'reset' } },
     { slice: 'diagnostics', operation: { kind: 'reset' } },
@@ -788,18 +1016,140 @@ export function reduceHomeStore(
   event: IHomeStoreEvent,
 ): IHomeStoreTransition {
   switch (event.type) {
-    case 'ownerChanged': {
+    case 'runtimeAcquired': {
       if (
-        equal(state.session.owner, event.owner) &&
-        equal(state.session.ownerToken, event.ownerToken) &&
+        state.session.runtimeInstanceId === event.runtimeInstanceId &&
+        state.session.clientInstanceId === event.clientInstanceId &&
+        state.session.mode === event.mode &&
         state.runtime.topology === event.topology
       ) {
         return emptyTransition();
       }
+      return acceptedTransition(state, [
+        {
+          slice: 'session',
+          operation: {
+            kind: 'set',
+            value: {
+              ...state.session,
+              mode: event.mode,
+              runtimeInstanceId: event.runtimeInstanceId,
+              clientInstanceId: event.clientInstanceId,
+              appEpoch: event.appEpoch,
+              sessionId: `${event.runtimeInstanceId}:0`,
+            },
+          },
+        },
+        {
+          slice: 'runtime',
+          operation: {
+            kind: 'set',
+            value: { ...state.runtime, topology: event.topology },
+          },
+        },
+      ]);
+    }
+    case 'sessionEvent': {
+      const transition = transitionHomeSession(state.session, event.event);
+      if (transition.state === state.session) {
+        return emptyTransition();
+      }
+      if (event.event.type === 'ownerChanged') {
+        return acceptedTransition(
+          state,
+          resetOwnerScopedMutations({
+            session: transition.state,
+            state,
+            topology: state.runtime.topology,
+          }),
+          [...transition.effects],
+          createInitialHomeStoreState().diagnostics,
+        );
+      }
+      const mutations: IHomeStoreMutation[] = [
+        {
+          slice: 'session',
+          operation: { kind: 'set', value: transition.state },
+        },
+      ];
+      if (event.event.type === 'runtimeHandshakeSucceeded') {
+        mutations.push({
+          slice: 'runtime',
+          operation: {
+            kind: 'set',
+            value: {
+              ...state.runtime,
+              connection: 'ready',
+              producerInstanceId: event.event.producerInstanceId,
+              protocolVersion: 1,
+            },
+          },
+        });
+      } else if (
+        event.event.type === 'runtimeHandshakeFailed' &&
+        event.event.exhausted
+      ) {
+        mutations.push({
+          slice: 'runtime',
+          operation: {
+            kind: 'set',
+            value: { ...state.runtime, connection: 'degraded' },
+          },
+        });
+      } else if (event.event.type === 'stopped') {
+        mutations.push({
+          slice: 'runtime',
+          operation: {
+            kind: 'set',
+            value: { ...state.runtime, connection: 'stopped' },
+          },
+        });
+      }
+      if (
+        event.event.type === 'appActivityChanged' ||
+        event.event.type === 'surfaceVisibilityChanged'
+      ) {
+        const visibility =
+          transition.state.appActivity === 'background' ||
+          transition.state.surfaceVisibility !== 'visible'
+            ? 'background'
+            : 'foreground';
+        if (state.interaction.visibility !== visibility) {
+          mutations.push({
+            slice: 'interaction',
+            operation: {
+              kind: 'set',
+              value: { ...state.interaction, visibility },
+            },
+          });
+        }
+      }
+      return acceptedTransition(state, mutations, [...transition.effects]);
+    }
+    case 'ownerChanged': {
+      const transition = transitionHomeSession(state.session, {
+        type: 'ownerChanged',
+        owner: event.owner,
+      });
+      if (transition.state === state.session) {
+        return emptyTransition();
+      }
+      const nextSession = event.ownerToken
+        ? {
+            ...transition.state,
+            ownerToken: event.ownerToken,
+            sessionId: event.ownerToken.sessionId,
+            authority: 'waitingForProducer' as const,
+          }
+        : transition.state;
       return acceptedTransition(
         state,
-        resetOwnerScopedMutations(event),
-        [],
+        resetOwnerScopedMutations({
+          session: nextSession,
+          state,
+          topology: event.topology,
+        }),
+        [...transition.effects],
         createInitialHomeStoreState().diagnostics,
       );
     }
@@ -860,13 +1210,14 @@ export function reduceHomeStore(
       if (equal(state.runtime, event.runtime)) {
         return emptyTransition();
       }
-      let status: IHomeStoreState['session']['status'] = 'waitingForProducer';
+      let authority: IHomeStoreState['session']['authority'] =
+        'waitingForProducer';
       if (event.runtime.connection === 'ready') {
-        status = 'ready';
+        authority = 'ready';
       } else if (event.runtime.connection === 'degraded') {
-        status = 'degraded';
+        authority = 'degraded';
       } else if (event.runtime.connection === 'stopped') {
-        status = 'stopped';
+        authority = 'stopped';
       }
       return acceptedTransition(state, [
         {
@@ -879,7 +1230,8 @@ export function reduceHomeStore(
             kind: 'set',
             value: {
               ...state.session,
-              status,
+              authority,
+              producerInstanceId: event.runtime.producerInstanceId,
             },
           },
         },
@@ -1460,23 +1812,27 @@ export function reduceHomeStore(
           ...navigation,
           selectedTabId: intent.tabId,
         });
-        return acceptedTransition(state, [
-          {
-            slice: 'interaction',
-            operation: {
-              kind: 'set',
-              value: {
-                ...state.interaction,
-                preferredTabId: intent.tabId,
-                acceptedIntentIds,
+        return acceptedTransition(
+          state,
+          [
+            {
+              slice: 'interaction',
+              operation: {
+                kind: 'set',
+                value: {
+                  ...state.interaction,
+                  preferredTabId: intent.tabId,
+                  acceptedIntentIds,
+                },
               },
             },
-          },
-          {
-            slice: 'navigation',
-            operation: { kind: 'set', value: nextNavigation },
-          },
-        ]);
+            {
+              slice: 'navigation',
+              operation: { kind: 'set', value: nextNavigation },
+            },
+          ],
+          [{ kind: 'reconcileSourcePlan', sessionId: intent.sessionId }],
+        );
       }
       if (intent.type === 'tabHandoffInvoked') {
         const navigation = state.navigation.value;
@@ -1499,85 +1855,46 @@ export function reduceHomeStore(
         const currentSectionControls =
           state.interaction.sectionControls[intent.sectionId] ?? {};
         const currentValue = currentSectionControls[intent.controlId];
-        return acceptedTransition(state, [
-          {
-            slice: 'interaction',
-            operation: {
-              kind: 'set',
-              value: {
-                ...state.interaction,
-                acceptedIntentIds,
-                sectionControls: equal(currentValue, intent.value)
-                  ? state.interaction.sectionControls
-                  : {
-                      ...state.interaction.sectionControls,
-                      [intent.sectionId]: {
-                        ...currentSectionControls,
-                        [intent.controlId]: intent.value,
+        return acceptedTransition(
+          state,
+          [
+            {
+              slice: 'interaction',
+              operation: {
+                kind: 'set',
+                value: {
+                  ...state.interaction,
+                  acceptedIntentIds,
+                  sectionControls: equal(currentValue, intent.value)
+                    ? state.interaction.sectionControls
+                    : {
+                        ...state.interaction.sectionControls,
+                        [intent.sectionId]: {
+                          ...currentSectionControls,
+                          [intent.controlId]: intent.value,
+                        },
                       },
-                    },
+                },
               },
             },
-          },
-        ]);
-      }
-      if (
-        (intent.type === 'sectionActionInvoked' ||
-          intent.type === 'sectionRefreshRequested') &&
-        intent.execution === 'controller'
-      ) {
-        const alreadyPending = state.interaction.pendingSectionCommands.some(
-          (command) =>
-            command.type === intent.type &&
-            command.sectionId === intent.sectionId &&
-            command.actionId === intent.actionId &&
-            command.itemId === intent.itemId,
+          ],
+          [{ kind: 'executeCommand', intent }],
         );
-        const pendingSectionCommands = alreadyPending
-          ? state.interaction.pendingSectionCommands
-          : [
-              ...state.interaction.pendingSectionCommands,
-              intent as IHomeStorePendingSectionCommand,
-            ].slice(-MAX_PENDING_SECTION_COMMANDS);
-        return acceptedTransition(state, [
-          {
-            slice: 'interaction',
-            operation: {
-              kind: 'set',
-              value: {
-                ...state.interaction,
-                acceptedIntentIds,
-                pendingSectionCommands,
-              },
-            },
-          },
-        ]);
       }
-      if (
+      const dismissedBannerIds =
         intent.type === 'headerActionInvoked' &&
-        intent.execution === 'controller'
-      ) {
-        const alreadyPending = state.interaction.pendingShellCommands.some(
-          (command) =>
-            command.actionId === intent.actionId &&
-            command.itemId === intent.itemId,
-        );
-        const pendingShellCommands = alreadyPending
-          ? state.interaction.pendingShellCommands
-          : [
-              ...state.interaction.pendingShellCommands,
-              intent as IHomeStorePendingShellCommand,
-            ].slice(-MAX_PENDING_SHELL_COMMANDS);
-        const dismissedBannerIds =
-          intent.actionId === HOME_BANNER_ACTION_IDS.dismiss && intent.itemId
-            ? [
-                ...state.interaction.dismissedBannerIds.filter(
-                  (itemId) => itemId !== intent.itemId,
-                ),
-                intent.itemId,
-              ].slice(-MAX_PENDING_SHELL_COMMANDS)
-            : state.interaction.dismissedBannerIds;
-        return acceptedTransition(state, [
+        intent.actionId === HOME_BANNER_ACTION_IDS.dismiss &&
+        intent.itemId
+          ? [
+              ...state.interaction.dismissedBannerIds.filter(
+                (itemId) => itemId !== intent.itemId,
+              ),
+              intent.itemId,
+            ].slice(-MAX_DISMISSED_BANNER_IDS)
+          : state.interaction.dismissedBannerIds;
+      return acceptedTransition(
+        state,
+        [
           {
             slice: 'interaction',
             operation: {
@@ -1586,96 +1903,28 @@ export function reduceHomeStore(
                 ...state.interaction,
                 acceptedIntentIds,
                 dismissedBannerIds,
-                pendingShellCommands,
               },
-            },
-          },
-        ]);
-      }
-      return acceptedTransition(
-        state,
-        [
-          {
-            slice: 'interaction',
-            operation: {
-              kind: 'set',
-              value: { ...state.interaction, acceptedIntentIds },
             },
           },
         ],
         [{ kind: 'executeCommand', intent }],
       );
     }
-    case 'commandHandled': {
-      if (state.session.ownerToken?.scopeKey !== event.ownerToken.scopeKey) {
-        return rejectedTransition(state, 'ownerMismatch', event.intentId);
-      }
-      if (state.session.ownerToken.sessionId !== event.ownerToken.sessionId) {
-        return rejectedTransition(state, 'sessionMismatch', event.intentId);
-      }
-      const hasSectionCommand = state.interaction.pendingSectionCommands.some(
-        (command) => command.intentId === event.intentId,
-      );
-      const hasShellCommand = state.interaction.pendingShellCommands.some(
-        (command) => command.intentId === event.intentId,
-      );
-      if (!hasSectionCommand && !hasShellCommand) {
-        return emptyTransition();
-      }
-      return acceptedTransition(state, [
-        {
-          slice: 'interaction',
-          operation: {
-            kind: 'set',
-            value: {
-              ...state.interaction,
-              pendingSectionCommands:
-                state.interaction.pendingSectionCommands.filter(
-                  (command) => command.intentId !== event.intentId,
-                ),
-              pendingShellCommands:
-                state.interaction.pendingShellCommands.filter(
-                  (command) => command.intentId !== event.intentId,
-                ),
-            },
-          },
-        },
-      ]);
-    }
     case 'visibilityChanged': {
-      if (state.interaction.visibility === event.visibility) {
-        return emptyTransition();
-      }
-      return acceptedTransition(state, [
-        {
-          slice: 'interaction',
-          operation: {
-            kind: 'set',
-            value: { ...state.interaction, visibility: event.visibility },
-          },
+      return reduceHomeStore(state, {
+        type: 'sessionEvent',
+        event: {
+          type: 'surfaceVisibilityChanged',
+          surfaceVisibility:
+            event.visibility === 'foreground' ? 'visible' : 'hidden',
         },
-      ]);
+      });
     }
     case 'stopped': {
-      if (state.session.status === 'stopped') {
-        return emptyTransition();
-      }
-      return acceptedTransition(state, [
-        {
-          slice: 'session',
-          operation: {
-            kind: 'set',
-            value: { ...state.session, status: 'stopped' },
-          },
-        },
-        {
-          slice: 'runtime',
-          operation: {
-            kind: 'set',
-            value: { ...state.runtime, connection: 'stopped' },
-          },
-        },
-      ]);
+      return reduceHomeStore(state, {
+        type: 'sessionEvent',
+        event: { type: 'stopped' },
+      });
     }
     default: {
       return assertNever(event);

@@ -12,7 +12,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import ActionBuy from '../../AssetDetails/pages/TokenDetails/ActionBuy';
-import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { TokenListStoreProvider } from '../../Home/components/TokenListStoreProvider';
 import { useHandleSwap } from '../hooks/useHandleSwap';
 
 // Default-disabled swap capability. Used both as the pre-resolve state (so an
@@ -121,13 +121,18 @@ export function TradeOrBuy({
   containerStyle?: IXStackProps;
 }) {
   return (
-    <HomeTokenListProviderMirror>
+    <TokenListStoreProvider
+      consumerId="staking-trade-or-buy"
+      demandPriority="interactive"
+      demandReason="externalRead"
+      ownerScopeKey="wallet-current"
+    >
       <BasicTradeOrBuy
         token={token}
         accountId={accountId}
         networkId={networkId}
         containerStyle={containerStyle}
       />
-    </HomeTokenListProviderMirror>
+    </TokenListStoreProvider>
   );
 }

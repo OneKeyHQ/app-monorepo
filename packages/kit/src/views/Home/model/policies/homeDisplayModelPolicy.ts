@@ -1,6 +1,5 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IHomeRuntimeOwnerToken } from '@onekeyhq/shared/src/types/homeRuntime';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import type {
   IHomeActionId,
@@ -116,11 +115,13 @@ function resolveHomeBalanceDisplay({
     balance = { amount: '0', currency: fallbackCurrency };
   }
 
-  const revision = stringUtils.stableStringify({
-    authority,
-    balance,
-    ownerToken,
-  });
+  const revision = [
+    ownerToken?.scopeKey ?? '',
+    ownerToken?.sessionId ?? '',
+    authority ?? '',
+    balance?.amount ?? '',
+    balance?.currency ?? '',
+  ].join('|');
   return balance && authority
     ? {
         authority,

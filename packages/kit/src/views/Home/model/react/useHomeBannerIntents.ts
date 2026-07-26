@@ -14,16 +14,14 @@ import type { IHomeStoreIntent } from '../store/homeStoreTypes';
 export function useHomeBannerIntents() {
   const facts = useHomeFacts();
   const shell = useHomeShell();
-  const { dispatchHomeIntent } = useHomeStoreIntentActions().current;
+  const { executeHomeCommand } = useHomeStoreIntentActions().current;
 
   return useCallback(
     ({
       actionId,
-      execution,
       itemId,
     }: {
       actionId: IHomeBannerActionId;
-      execution: 'caller' | 'controller';
       itemId: string;
     }) => {
       if (!facts) {
@@ -33,7 +31,6 @@ export function useHomeBannerIntents() {
       const intent: IHomeStoreIntent = {
         type: 'headerActionInvoked',
         actionId,
-        execution,
         itemId,
         intentId,
         owner: facts.owner,
@@ -43,16 +40,8 @@ export function useHomeBannerIntents() {
           revision: shell.shellCommandRevision,
         },
       };
-      const effects = dispatchHomeIntent(intent);
-      if (execution === 'controller') {
-        return !effects.some((effect) => effect.kind === 'traceReject');
-      }
-      return effects.some(
-        (effect) =>
-          effect.kind === 'executeCommand' &&
-          effect.intent.intentId === intentId,
-      );
+      return executeHomeCommand<void>(intent).receipt.accepted;
     },
-    [dispatchHomeIntent, facts, shell.shellCommandRevision],
+    [executeHomeCommand, facts, shell.shellCommandRevision],
   );
 }

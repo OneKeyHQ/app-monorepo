@@ -12,10 +12,9 @@ const owner = {
 function authority(scopeKey = buildHomeOwnerScopeKey(owner)) {
   return {
     topology: 'split' as const,
-    status: 'active' as const,
+    authority: 'ready' as const,
     ownerToken: { scopeKey, sessionId: 'session-a' },
     producerInstanceId: 'producer-a',
-    revision: 2,
   };
 }
 
@@ -62,7 +61,7 @@ describe('current Home facts adapter', () => {
   it('keeps independent bg readiness as a runtime fact', () => {
     const facts = adaptCurrentHomeFacts({
       owner,
-      authority: { ...authority(), status: 'waitingForProducer' },
+      authority: { ...authority(), authority: 'waitingForProducer' },
       wallet: { ready: true, backuped: true, type: 'hd' },
       network: { hasAccount: true },
     });

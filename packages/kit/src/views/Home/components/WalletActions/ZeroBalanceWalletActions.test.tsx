@@ -90,6 +90,24 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
   }),
 }));
 
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/tokenList', () => ({
+  useTokenListStateAtom: () => [
+    {
+      address: '',
+      initialized: true,
+      isRefreshing: false,
+    },
+  ],
+}));
+
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells', () => ({
+  useHomeTokenListSnapshot: () => ({
+    keys: '',
+    map: {},
+    tokens: [],
+  }),
+}));
+
 jest.mock('@onekeyhq/kit/src/utils/botWalletDisabledToast', () => ({
   showBotWalletDisabledToast: jest.fn(),
 }));

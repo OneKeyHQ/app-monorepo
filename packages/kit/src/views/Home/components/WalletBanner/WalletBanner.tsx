@@ -22,14 +22,11 @@ import {
   ScrollView,
   SizableText,
   Stack,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { ResourceBannerCard } from '@onekeyhq/kit/src/components/Resource';
-import { useWalletBanner } from '@onekeyhq/kit/src/hooks/useWalletBanner';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useHomeResource } from '@onekeyhq/kit/src/states/jotai/contexts/home';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -515,9 +512,6 @@ function PerpsReferralDialogContent({
 }
 
 function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
-  const {
-    activeAccount: { account, network, wallet },
-  } = useActiveAccount({ num: 0 });
   const intl = useIntl();
   const bannerResource = useHomeResource('banner');
   const payload =
@@ -529,11 +523,6 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
     [payload?.banners],
   );
   const dispatchBannerIntent = useHomeBannerIntents();
-  const { handleBannerOnPress } = useWalletBanner({
-    account,
-    network,
-    wallet,
-  });
   const referralEligibility = payload?.referralEligibility;
 
   const handleReferralBind = useCallback(async () => {
@@ -542,7 +531,6 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
     }
     dispatchBannerIntent({
       actionId: HOME_BANNER_ACTION_IDS.bindReferral,
-      execution: 'controller',
       itemId: HOME_PERPS_REFERRAL_BANNER_ID,
     });
   }, [dispatchBannerIntent, referralEligibility?.shouldShow]);
@@ -550,7 +538,6 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
   const handleSnoozeReferralBanner = useCallback(async () => {
     dispatchBannerIntent({
       actionId: HOME_BANNER_ACTION_IDS.snoozeReferral,
-      execution: 'controller',
       itemId: HOME_PERPS_REFERRAL_BANNER_ID,
     });
   }, [dispatchBannerIntent]);
@@ -584,7 +571,6 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
     (item: IWalletBanner) => {
       dispatchBannerIntent({
         actionId: HOME_BANNER_ACTION_IDS.dismiss,
-        execution: 'controller',
         itemId: item.id,
       });
     },
@@ -609,7 +595,6 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
       if (
         !dispatchBannerIntent({
           actionId: HOME_BANNER_ACTION_IDS.open,
-          execution: 'caller',
           itemId: item.id,
         })
       ) {
@@ -617,28 +602,9 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
       }
       if (item.id === HOME_PERPS_REFERRAL_BANNER_ID) {
         handleReferralBannerPress();
-        return;
       }
-      const href = (item.href ?? '').toLowerCase();
-      const looksLikeDepositTarget =
-        href.includes('receive') ||
-        href.includes('deposit') ||
-        href.includes('/buy') ||
-        href.includes('fund');
-      if (payload?.isBotWalletReceiveBlocked && looksLikeDepositTarget) {
-        Toast.error({
-          title: '该钱包已停用，无法接收资产',
-        });
-        return;
-      }
-      void handleBannerOnPress(item);
     },
-    [
-      dispatchBannerIntent,
-      handleBannerOnPress,
-      handleReferralBannerPress,
-      payload?.isBotWalletReceiveBlocked,
-    ],
+    [dispatchBannerIntent, handleReferralBannerPress],
   );
 
   if (hidden) {

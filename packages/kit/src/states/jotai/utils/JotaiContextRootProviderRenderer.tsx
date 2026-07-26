@@ -7,8 +7,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { AccountSelectorRootProvider } from '../../../components/AccountSelector/AccountSelectorRootProvider';
 import { DiscoveryBrowserRootProvider } from '../../../views/Discovery/components/DiscoveryBrowserRootProvider';
 import { EarnProvider } from '../../../views/Earn/EarnProvider';
-import { HomeTokenListRootProvider } from '../../../views/Home/components/HomeTokenListProvider/HomeTokenListRootProvider';
-import { UrlAccountHomeTokenListProvider } from '../../../views/Home/components/HomeTokenListProvider/UrlAccountHomeTokenListProvider';
+import { TokenListBackgroundRootProvider } from '../../../views/Home/components/TokenListStoreProvider';
 import { MarketWatchListProvider } from '../../../views/Market/MarketWatchListProvider';
 import { MarketWatchListProviderV2 } from '../../../views/Market/MarketWatchListProviderV2';
 import { PerpsRootProvider } from '../../../views/Perp/PerpsProvider';
@@ -63,10 +62,12 @@ function JotaiContextRootProviderRendererCmp({
             return null;
           }
           case EJotaiContextStoreNames.homeTokenList: {
-            return <HomeTokenListRootProvider key={key} />;
+            return <TokenListBackgroundRootProvider key={key} mode="wallet" />;
           }
           case EJotaiContextStoreNames.urlAccountHomeTokenList: {
-            return <UrlAccountHomeTokenListProvider key={key} />;
+            return (
+              <TokenListBackgroundRootProvider key={key} mode="urlAccount" />
+            );
           }
           case EJotaiContextStoreNames.discoveryBrowser: {
             return <DiscoveryBrowserRootProvider key={key} />;

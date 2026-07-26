@@ -133,7 +133,7 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { useSupportToken } from '../../../FiatCrypto/hooks';
 import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetailsDialog';
-import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { TokenListStoreProvider } from '../../../Home/components/TokenListStoreProvider';
 import { showSimilarAddressDialog } from '../../../SignatureConfirm/components/SimilarAddressDialog/SimilarAddressDialog';
 import CoinControlBadge from '../../components/CoinControlBadge';
 import {
@@ -4631,9 +4631,14 @@ function SendAmountInputContainer() {
 
 const SendAmountInputContainerWithProvider = memo(() => (
   <SendConfirmProviderMirror>
-    <HomeTokenListProviderMirror>
+    <TokenListStoreProvider
+      consumerId="send-amount-input"
+      demandPriority="interactive"
+      demandReason="send"
+      ownerScopeKey="wallet-current"
+    >
       <SendAmountInputContainer />
-    </HomeTokenListProviderMirror>
+    </TokenListStoreProvider>
   </SendConfirmProviderMirror>
 ));
 SendAmountInputContainerWithProvider.displayName =

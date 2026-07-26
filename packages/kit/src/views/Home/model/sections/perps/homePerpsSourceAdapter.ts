@@ -1,8 +1,8 @@
 import type { IHomeRuntimeOwnerToken } from '@onekeyhq/shared/src/types/homeRuntime';
 import type { IPerpsHomeView } from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import {
+  buildHomeScalarKey,
   createHomeSourceKey,
   getHomeSourceKeyIdentity,
 } from '../../core/homeIdentity';
@@ -98,7 +98,13 @@ function createHomePerpsSourceIdentity({
   const sourceKey = createHomeSourceKey({
     dataSchemaVersion: HOME_PERPS_DATA_SCHEMA_VERSION,
     ownerToken: owner,
-    paramsFingerprint: stringUtils.stableStringify(params),
+    paramsFingerprint: buildHomeScalarKey([
+      params.accountScopeKey,
+      params.accountId,
+      params.deriveType,
+      params.indexedAccountId,
+      params.networkId,
+    ]),
     sourceId: 'perps',
   });
   return {

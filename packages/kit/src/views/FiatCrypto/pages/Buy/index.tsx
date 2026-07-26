@@ -27,7 +27,7 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { TokenListStoreProvider } from '../../../Home/components/TokenListStoreProvider';
 import { SellOrBuyContent } from '../../components/SellOrBuy';
 import { TokenDataContainer } from '../../components/TokenDataContainer';
 import { FiatCryptoTestIDs } from '../../testIDs';
@@ -182,7 +182,12 @@ const BuyPage = () => {
       }}
       enabledNum={[0]}
     >
-      <HomeTokenListProviderMirror>
+      <TokenListStoreProvider
+        consumerId="fiat-buy"
+        demandPriority="interactive"
+        demandReason="externalRead"
+        ownerScopeKey="wallet-current"
+      >
         <TokenDataContainer
           networkId={networkId}
           accountId={accountId}
@@ -220,7 +225,7 @@ const BuyPage = () => {
             </Page.Body>
           </Page>
         </TokenDataContainer>
-      </HomeTokenListProviderMirror>
+      </TokenListStoreProvider>
     </AccountSelectorProviderMirror>
   );
 };

@@ -18,16 +18,16 @@ describe('WalletBanner Store boundary', () => {
     expect(renderer).not.toContain('useHomeStoreSourcePublisher');
   });
 
-  it('keeps all banner source calls in the unique root controller', () => {
-    const controller = readSource(
-      '../../model/react/HomeBannerStoreController.tsx',
-    );
-    const root = readSource('../../model/react/HomeReadySourceControllers.tsx');
+  it('keeps banner I/O in the source and command runtime', () => {
+    const source = readSource('../../model/sources/homeSourceRuntime.ts');
+    const commands = readSource('../../model/react/useHomeCommandExecutor.ts');
 
-    expect(controller).toContain('beginHomeSourceRequest');
-    expect(controller).toContain('fetchWalletBanner');
-    expect(controller).toContain('checkBannerReferralEligibility');
-    expect(controller).toContain('pendingShellCommands.find');
-    expect(root).toContain('<HomeBannerStoreController />');
+    expect(source).toContain('private async loadBanner(');
+    expect(source).toContain('fetchWalletBanner');
+    expect(source).toContain('checkBannerReferralEligibility');
+    expect(source).not.toMatch(/from ['"]react['"]/);
+    expect(commands).toContain('HOME_BANNER_ACTION_IDS.dismiss');
+    expect(commands).toContain('snoozeReferralBanner');
+    expect(commands).not.toContain('pendingShellCommands');
   });
 });

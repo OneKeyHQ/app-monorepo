@@ -6,7 +6,7 @@ import {
 } from '../../pages/perpsHomePortfolioAuthority';
 import { projectHomeCapabilities } from '../capabilities/homeCapabilityPolicy';
 import { createIdleHomeSourceFacts } from '../facts/homeFacts';
-import { createHomeHistoryStoreResult } from '../sections/history/homeHistoryControllerUtils';
+import { createHomeHistoryStoreResult } from '../sections/history/homeHistoryResult';
 import { createHomeHistoryStorePayload } from '../sections/history/homeHistoryStoreModel';
 
 import {

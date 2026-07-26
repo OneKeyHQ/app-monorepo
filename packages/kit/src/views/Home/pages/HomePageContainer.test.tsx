@@ -177,6 +177,17 @@ jest.mock('../../../states/jotai/contexts/accountSelector', () => ({
   useSelectedAccountsAtom: () => [undefined],
 }));
 
+jest.mock('../../../states/jotai/contexts/tokenList', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    ProviderJotaiContextTokenList: ({
+      children,
+    }: {
+      children?: React.ReactNode;
+    }) => React.createElement(React.Fragment, null, children),
+  };
+});
+
 jest.mock('../../../states/jotai/utils/useJotaiContextRootStore', () => ({
   useJotaiContextRootStore: () => mockSceneStore,
 }));
@@ -198,14 +209,9 @@ jest.mock('../components/BTCFreshAddressProvider', () => ({
   BTCFreshAddressProvider: () => null,
 }));
 
-jest.mock(
-  '../components/HomeTokenListProvider/HomeTokenListRootProvider',
-  () => ({
-    useHomeTokenListContextStoreInitData: () => ({
-      storeName: 'homeTokenList',
-    }),
-  }),
-);
+jest.mock('../components/TokenListStoreProvider', () => ({
+  useTokenListStoreLease: () => mockSceneStore,
+}));
 
 jest.mock('../nativeHomeFeatureFlag', () => ({
   isNativeHomeEnabled: () => true,

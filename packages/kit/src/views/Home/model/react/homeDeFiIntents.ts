@@ -18,34 +18,6 @@ const HOME_DEFI_ACTION_IDS = {
   refresh: 'home.defi.refresh',
 } as const;
 
-type IHomeDeFiSourceCommand =
-  | {
-      type: 'positionActionSucceeded';
-      payload: IProtocolPositionActionSuccessParams;
-    }
-  | { type: 'refresh' };
-
-type IHomeDeFiSourceCommandHandler = (
-  command: IHomeDeFiSourceCommand,
-) => Promise<void>;
-
-const sourceCommandHandlers = new Set<IHomeDeFiSourceCommandHandler>();
-
-function subscribeHomeDeFiSourceCommand(
-  handler: IHomeDeFiSourceCommandHandler,
-) {
-  sourceCommandHandlers.add(handler);
-  return () => {
-    sourceCommandHandlers.delete(handler);
-  };
-}
-
-async function dispatchHomeDeFiSourceCommand(command: IHomeDeFiSourceCommand) {
-  await Promise.all(
-    Array.from(sourceCommandHandlers, (handler) => handler(command)),
-  );
-}
-
 function useHomeDeFiIntents() {
   const facts = useHomeFacts();
   const section = useHomeSection('defi');
@@ -64,7 +36,7 @@ function useHomeDeFiIntents() {
       if (!facts) {
         return false;
       }
-      const effects = dispatchHomeIntent({
+      const receipt = dispatchHomeIntent({
         type,
         actionId,
         ...(commandPayload === undefined ? {} : { commandPayload }),
@@ -73,13 +45,12 @@ function useHomeDeFiIntents() {
           revision: section.sectionCommandRevision,
           sectionId: 'defi',
         },
-        execution: 'controller',
         intentId: createHomeAuthorityId('intent'),
         owner: facts.owner,
         sectionId: 'defi',
         sessionId: facts.ownerToken.sessionId,
       } as IHomeStoreIntent);
-      return !effects.some((effect) => effect.kind === 'traceReject');
+      return receipt.accepted;
     },
     [dispatchHomeIntent, facts, section.sectionCommandRevision],
   );
@@ -109,10 +80,4 @@ function useHomeDeFiIntents() {
   return { onPositionActionSucceeded, refresh };
 }
 
-export {
-  HOME_DEFI_ACTION_IDS,
-  dispatchHomeDeFiSourceCommand,
-  subscribeHomeDeFiSourceCommand,
-  useHomeDeFiIntents,
-};
-export type { IHomeDeFiSourceCommand };
+export { HOME_DEFI_ACTION_IDS, useHomeDeFiIntents };

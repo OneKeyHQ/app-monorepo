@@ -1,5 +1,4 @@
 import type { IHomeRuntimeOwnerToken } from '@onekeyhq/shared/src/types/homeRuntime';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IAccountToken,
@@ -9,6 +8,7 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import {
+  buildHomeScalarKey,
   createHomeSourceKey,
   getHomeSourceKeyIdentity,
 } from '../../core/homeIdentity';
@@ -49,12 +49,14 @@ type IHomeSpotNativePayload = {
 type IHomeSpotLegacyPayload = {
   accountTokensValue: string;
   accountTokensWorthCurrency?: string;
+  accountWorthByNetwork?: Record<string, string>;
   aggregateTokenListMap: Record<string, { tokens: IAccountToken[] }>;
   allAggregateTokenMap: Record<string, { tokens: IAccountToken[] }>;
   blockedRiskTokenCount?: number;
   displayIds: readonly string[];
   fundedIds: readonly string[];
   generation: number;
+  createAtNetworkWorth?: string;
   homeDefaultTokenMap: Record<string, IHomeDefaultToken>;
   isAllNetworkEmptyAccount: boolean;
   isLpTokenSwitchLoading: boolean;
@@ -85,12 +87,14 @@ type IHomeSpotLegacyPayload = {
 const HOME_SPOT_SNAPSHOT_KEYS = [
   'accountTokensValue',
   'accountTokensWorthCurrency',
+  'accountWorthByNetwork',
   'aggregateTokenListMap',
   'allAggregateTokenMap',
   'blockedRiskTokenCount',
   'displayIds',
   'fundedIds',
   'generation',
+  'createAtNetworkWorth',
   'homeDefaultTokenMap',
   'isAllNetworkEmptyAccount',
   'mergeDeriveAddressData',
@@ -114,12 +118,14 @@ function createHomeSpotSnapshotDefaults(): IHomeSpotLegacyPayload {
   return {
     accountTokensValue: '0',
     accountTokensWorthCurrency: '',
+    accountWorthByNetwork: {},
     aggregateTokenListMap: {},
     allAggregateTokenMap: {},
     blockedRiskTokenCount: 0,
     displayIds: [],
     fundedIds: [],
     generation: 0,
+    createAtNetworkWorth: '0',
     homeDefaultTokenMap: {},
     isAllNetworkEmptyAccount: false,
     isLpTokenSwitchLoading: false,
@@ -192,7 +198,15 @@ function createHomeSpotSourceIdentity({
   const sourceKey = createHomeSourceKey({
     dataSchemaVersion: HOME_SPOT_DATA_SCHEMA_VERSION,
     ownerToken: owner,
-    paramsFingerprint: stringUtils.stableStringify(params),
+    paramsFingerprint: buildHomeScalarKey([
+      params.accountOwnerId,
+      params.defaultTokenRevision,
+      params.enabledNetworksRevision,
+      params.mergeDerive,
+      params.networkId,
+      params.networkMode,
+      params.tokenMode,
+    ]),
     sourceId: 'portfolio',
   });
   return {

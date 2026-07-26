@@ -37,12 +37,20 @@ describe('Native Home runtime surface', () => {
     const mobileAppSource = readSource(
       path.resolve(__dirname, '../../../../../apps/mobile/App.tsx'),
     );
-    const mobileRendererSource = readSource(
-      path.resolve(
-        __dirname,
-        '../../../../../apps/mobile/src/home/MobileNativeHomeRenderer.tsx',
-      ),
-    );
+    const mobileRendererSource = [
+      'MobileNativeHomeRenderer.tsx',
+      'MobileNativeHomeRendererBridged.tsx',
+      'MobileNativeHomeBridgeRuntime.ts',
+    ]
+      .map((fileName) =>
+        readSource(
+          path.resolve(
+            __dirname,
+            `../../../../../apps/mobile/src/home/${fileName}`,
+          ),
+        ),
+      )
+      .join('\n');
     const mobileViewModelAdapterSource = readSource(
       path.resolve(
         __dirname,
@@ -67,13 +75,6 @@ describe('Native Home runtime surface', () => {
         '../../../../native-components/android/src/main/java/com/margelo/nitro/onekeynativecomponents/HomeContainerView.kt',
       ),
     );
-    const homeUiLoggerSource = readSource(
-      path.resolve(
-        __dirname,
-        '../../../../shared/src/logger/scopes/wallet/scenes/homeUi.ts',
-      ),
-    );
-
     expect(nativeSurfaceSource).toContain(
       'const NativeRenderer = useNativeHomeRenderer();',
     );
@@ -124,7 +125,10 @@ describe('Native Home runtime surface', () => {
     expect(mobileRendererSource).not.toContain('nativeUnavailable');
     expect(mobileRendererSource).not.toContain('fallback=');
     expect(mobileRendererSource).not.toContain('nativeSurfaceRevealed');
-    expect(mobileRendererSource).toContain("execution: 'controller'");
+    expect(mobileRendererSource).not.toMatch(
+      /execution:\s*['"](?:caller|controller)['"]/,
+    );
+    expect(mobileRendererSource).not.toContain('stableStringify');
     expect(mobileRendererSource).toContain(
       'const HOME_REFRESH_FEEDBACK_DURATION_MS = 1200;',
     );
@@ -134,28 +138,26 @@ describe('Native Home runtime surface', () => {
     expect(mobileRendererSource).not.toContain('seenRefreshing');
     expect(mobileRendererSource).not.toContain('15_000');
     expect(mobileRendererSource).toContain('headerActionRow:');
-    expect(mobileRendererSource).toContain(
-      "slotId: 'header.balance' as IHomeContainerSlotKey",
-    );
-    expect(mobileRendererSource).toContain(
-      'slotRevision: shell.balancePresentationRevision',
-    );
-    expect(mobileRendererSource).toContain(
-      'slotRevision: shell.actionsPresentationRevision',
-    );
-    expect(mobileRendererSource).toContain(
-      'slotRevision: shell.bodyPresentationRevision',
-    );
     expect(mobileRendererSource).toMatch(
-      /balance:\s*\{\s*interaction:\s*'tap',\s*authority:\s*balanceAuthority,\s*content:\s*\(\s*<HomeOverviewContainer\s+nativeSlot/,
+      /runtime\.authority\(\s*'header\.balance',/,
     );
-    expect(mobileRendererSource).toContain('<HomeTabSearchHeader />');
+    expect(mobileRendererSource).toContain(
+      'shell.balancePresentationRevision,',
+    );
+    expect(mobileRendererSource).toContain(
+      'shell.actionsPresentationRevision,',
+    );
+    expect(mobileRendererSource).toContain('shell.bodyPresentationRevision,');
+    expect(mobileRendererSource).toMatch(
+      /balance:\s*\{\s*interaction:\s*'tap',\s*authority:\s*runtime\.authority\([\s\S]*?content:\s*\(\s*<HomeOverviewContainer\s+nativeSlot/,
+    );
+    expect(mobileRendererSource).toContain('<MemoHomeTabSearchHeader />');
     expect(mobileRendererSource).toContain('<WalletActions');
     expect(mobileRendererSource).toContain(
       'function MobileNativeHomeActionRowSkeleton()',
     );
     expect(mobileRendererSource).toContain(
-      "const shouldShowActionRowSkeleton = header.actionLayout === 'loading';",
+      "header.actionLayout === 'loading' ?",
     );
     expect(mobileRendererSource).toContain(
       'testID={HomeTestIDs.walletActionsSkeleton}',
@@ -177,11 +179,11 @@ describe('Native Home runtime surface', () => {
       'resolveMobileNativeHomeBodySections({',
     );
     expect(mobileRendererSource).toContain('contentStates:');
-    expect(mobileRendererSource).toContain(
-      "slotId: 'content.state.defi' as IHomeContainerSlotKey",
+    expect(mobileRendererSource).toMatch(
+      /runtime\.authority\(\s*'content\.state\.defi',/,
     );
     expect(mobileRendererSource).toMatch(
-      /defiSection\.value\.kind === 'empty'[\s\S]*defiSection\.value\.kind === 'error'/,
+      /section\.value\.kind === 'empty'[\s\S]*section\.value\.kind === 'error'/,
     );
     expect(mobileRendererSource).not.toContain(
       'platformEnv.isNativeAndroid && defiSection.value.kind',
@@ -193,16 +195,19 @@ describe('Native Home runtime surface', () => {
     expect(mobileRendererSource).toContain(
       'interaction.sectionControls.portfolio',
     );
-    expect(mobileRendererSource).toContain('value={displayedShowLpTokensOnly}');
+    expect(mobileRendererSource).toContain('value={displayedLp}');
     expect(mobileRendererSource).toContain('height: header.actionRowHeight');
     expect(mobileRendererSource).toContain(
-      'slotRevisions: collectSlotRevisions(slots)',
+      'this.revisionState.slotRevisions = collectSlotRevisions(merged);',
     );
     expect(mobileRendererSource).toContain(
-      'defaultLogger.wallet.homeUi.homeNativeContentDecision(decision)',
+      'const MobileNativeHomePortfolioBridge = memo(',
     );
-    expect(homeUiLoggerSource).toMatch(
-      /@LogToLocal\(\{ level: 'info' \}\)\s+public homeNativeContentDecision/,
+    expect(mobileRendererSource).toContain(
+      'const MobileNativeHomeNFTBridge = memo(',
+    );
+    expect(mobileRendererSource).toContain(
+      '<MobileNativeHomeHistoryBridge runtime={runtime} />',
     );
     expect(mobileViewModelAdapterSource).toContain("renderer: 'history'");
     expect(mobileViewModelAdapterSource).toContain("renderer: 'market'");

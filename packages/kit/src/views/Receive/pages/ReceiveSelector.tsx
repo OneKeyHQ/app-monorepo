@@ -47,7 +47,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useExchangeAppDetection } from '../../../hooks/useExchangeAppDetection';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { TokenListStoreProvider } from '../../Home/components/TokenListStoreProvider';
 import { WalletActionBuy } from '../../Home/components/WalletActions/WalletActionBuy';
 import { WalletActionReceive } from '../../Home/components/WalletActions/WalletActionReceive';
 import { ReceiveTestIDs } from '../testIDs';
@@ -637,9 +637,14 @@ function ReceiveSelector() {
       }}
       enabledNum={[0]}
     >
-      <HomeTokenListProviderMirror>
+      <TokenListStoreProvider
+        consumerId="receive-selector"
+        demandPriority="interactive"
+        demandReason="receive"
+        ownerScopeKey="wallet-current"
+      >
         <ReceiveSelectorContent />
-      </HomeTokenListProviderMirror>
+      </TokenListStoreProvider>
     </AccountSelectorProviderMirror>
   );
 }

@@ -139,7 +139,10 @@ function hasConsistentSectionCoverage(
   if (!rowIds.every((rowId) => typeof rowId === 'string')) {
     return false;
   }
-  return record.coverageFingerprint === stringUtils.stableStringify(rowIds);
+  return (
+    record.coverageFingerprint ===
+    [rowIds.length, rowIds[0] ?? '', rowIds[rowIds.length - 1] ?? ''].join(':')
+  );
 }
 
 export function isHomeCachedRecordExactForToken(
@@ -151,8 +154,8 @@ export function isHomeCachedRecordExactForToken(
     record.sourceId === token.sourceKey.sourceId &&
     record.sourceKeyIdentity === getHomeSourceKeyIdentity(token.sourceKey) &&
     record.dataSchemaVersion === token.sourceKey.dataSchemaVersion &&
-    stringUtils.stableStringify(record.quoteBasis) ===
-      stringUtils.stableStringify(tokenQuoteBasis) &&
+    record.quoteBasis?.currency === tokenQuoteBasis?.currency &&
+    record.quoteBasis?.pricingRevision === tokenQuoteBasis?.pricingRevision &&
     hasConsistentSectionCoverage(record)
   );
 }

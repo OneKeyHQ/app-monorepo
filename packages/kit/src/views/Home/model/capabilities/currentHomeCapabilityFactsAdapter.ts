@@ -1,5 +1,4 @@
 import type { IHomeRuntimeOwnerToken } from '@onekeyhq/shared/src/types/homeRuntime';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import type {
   IHomeCapabilityContext,
@@ -37,14 +36,16 @@ function toAvailability(
 function adaptCurrentHomeCapabilityFacts(
   input: ICurrentHomeCapabilityFactsInput,
 ): IHomeCapabilityFacts {
-  const sourceKeyIdentity = stringUtils.stableStringify({
-    accountType: input.accountType,
-    allNetworks: input.allNetworks,
-    capabilityScopeKey: input.expectedSourceScopeKey,
-    networkFamily: input.networkFamily,
-    ownerScopeKey: input.ownerToken.scopeKey,
-    sourceRevision: input.sourceRevision,
-  });
+  const sourceKeyIdentity = [
+    input.ownerToken.scopeKey,
+    input.expectedSourceScopeKey,
+    input.sourceRevision,
+    input.accountType,
+    input.networkFamily,
+    input.allNetworks ? 'all' : 'single',
+  ]
+    .map((part) => `${part.length}:${part}`)
+    .join('|');
   if (
     !input.isReady ||
     input.sourceScopeKey !== input.expectedSourceScopeKey ||
@@ -84,7 +85,15 @@ function adaptCurrentHomeCapabilityFacts(
     resource: {
       kind: 'complete',
       context,
-      coverageFingerprint: stringUtils.stableStringify(context),
+      coverageFingerprint: [
+        context.accountType,
+        context.allNetworks ? 'all' : 'single',
+        context.networkFamily,
+        context.perpsDestination,
+        ...(['defi', 'history', 'market', 'nft', 'perps'] as const).flatMap(
+          (id) => [context.productAvailability[id], context.serverConfig[id]],
+        ),
+      ].join('|'),
     },
     sourceKeyIdentity,
   };

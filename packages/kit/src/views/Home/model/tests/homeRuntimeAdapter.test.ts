@@ -70,6 +70,7 @@ describe('Home runtime adapters', () => {
         getHandshake: async () => ({
           protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
           producerInstanceId: 'producer-1',
+          appEpoch: 'epoch-1',
         }),
       }),
     );
@@ -79,6 +80,7 @@ describe('Home runtime adapters', () => {
     const getHandshake = jest.fn(async () => ({
       protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
       producerInstanceId: 'producer-1',
+      appEpoch: 'epoch-1',
     }));
     const split = new SplitRuntimeHomeAdapter({
       clientInstanceId: 'client-1',

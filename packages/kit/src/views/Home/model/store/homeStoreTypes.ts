@@ -12,6 +12,11 @@ import type {
 import type { IHomeConfirmedBalanceRecord } from '../cache/homeConfirmedBalanceCacheReducer';
 import type { IHomeCapabilityFacts } from '../capabilities/homeCapabilityTypes';
 import type { IHomeBalanceFacts, IHomeFacts } from '../facts/homeFacts';
+import type {
+  IHomeLifecycleSessionState,
+  IHomeSessionMachineEffect,
+  IHomeSessionMachineEvent,
+} from '../lifecycle/homeSessionMachine';
 import type { IHomeBannerStorePayload } from '../sections/banner/homeBannerStoreModel';
 import type {
   IHomeNavigationSemanticModel,
@@ -118,11 +123,7 @@ export type IHomeStoreResourcesState = {
   >;
 };
 
-export type IHomeStoreSessionState = {
-  owner?: IHomeRuntimeOwnerScope;
-  ownerToken?: IHomeRuntimeOwnerToken;
-  status: 'idle' | 'waitingForProducer' | 'ready' | 'degraded' | 'stopped';
-};
+export type IHomeStoreSessionState = IHomeLifecycleSessionState;
 
 export type IHomeStoreRuntimeState = {
   topology: IHomeRuntimeTopology;
@@ -145,8 +146,6 @@ export type IHomeStoreInteractionState = {
   >;
   visibility: 'foreground' | 'background';
   acceptedIntentIds: readonly string[];
-  pendingSectionCommands: readonly IHomeStorePendingSectionCommand[];
-  pendingShellCommands: readonly IHomeStorePendingShellCommand[];
 };
 
 export type IHomeStoreShellSlice = {
@@ -240,7 +239,6 @@ export type IHomeStoreIntent =
       type: 'headerActionInvoked';
       actionId: string;
       itemId?: string;
-      execution?: 'caller' | 'controller';
       authority: { kind: 'shellCommands'; revision: number };
     })
   | (IHomeStoreIntentBase & {
@@ -249,7 +247,6 @@ export type IHomeStoreIntent =
       actionId: string;
       itemId?: string;
       commandPayload?: IHomeRuntimeJsonValue;
-      execution?: 'caller' | 'controller';
       authority: {
         kind: 'sectionCommands';
         sectionId: IHomeSectionId;
@@ -267,16 +264,6 @@ export type IHomeStoreIntent =
         revision: number;
       };
     });
-
-export type IHomeStorePendingSectionCommand = Extract<
-  IHomeStoreIntent,
-  { type: 'sectionActionInvoked' | 'sectionRefreshRequested' }
-> & { execution: 'controller' };
-
-export type IHomeStorePendingShellCommand = Extract<
-  IHomeStoreIntent,
-  { type: 'headerActionInvoked' }
-> & { execution: 'controller' };
 
 export type IHomeStoreSectionSourceResult =
   | { kind: 'hidden'; reason: 'notApplicable' | 'capabilityNotReady' }
@@ -297,6 +284,18 @@ export type IHomeStoreSectionSourceResult =
   | { kind: 'error' };
 
 export type IHomeStoreEvent =
+  | {
+      type: 'runtimeAcquired';
+      mode: IHomeLifecycleSessionState['mode'];
+      runtimeInstanceId: string;
+      clientInstanceId: string;
+      appEpoch: string;
+      topology: IHomeRuntimeTopology;
+    }
+  | {
+      type: 'sessionEvent';
+      event: IHomeSessionMachineEvent;
+    }
   | {
       type: 'ownerChanged';
       owner?: IHomeRuntimeOwnerScope;
@@ -341,11 +340,6 @@ export type IHomeStoreEvent =
       navigation?: IHomeNavigationSemanticModel;
     }
   | { type: 'intentReceived'; intent: IHomeStoreIntent }
-  | {
-      type: 'commandHandled';
-      ownerToken: IHomeRuntimeOwnerToken;
-      intentId: string;
-    }
   | { type: 'visibilityChanged'; visibility: 'foreground' | 'background' }
   | { type: 'stopped' };
 
@@ -400,6 +394,7 @@ export type IHomeStoreMutation =
 
 export type IHomeStoreEffect =
   | { kind: 'executeCommand'; intent: IHomeStoreIntent }
+  | IHomeSessionMachineEffect
   | {
       kind: 'traceReject';
       reason: IHomeStoreRejectReason;
@@ -409,6 +404,26 @@ export type IHomeStoreEffect =
 export type IHomeStoreTransition = {
   patch: { mutations: readonly IHomeStoreMutation[] };
   effects: readonly IHomeStoreEffect[];
+};
+
+export type IHomeDispatchReceipt = {
+  accepted: boolean;
+  correlationId?: string;
+  rejectReason?: IHomeStoreRejectReason;
+};
+
+export type IHomeCommandCompletion<TResult = void> =
+  | { kind: 'completed'; value: TResult }
+  | { kind: 'failed'; errorCode: string }
+  | {
+      kind: 'cancelled';
+      reason: 'ownerChanged' | 'disposed' | 'superseded';
+    }
+  | { kind: 'timedOut' };
+
+export type IHomeCommandExecution<TResult = void> = {
+  receipt: IHomeDispatchReceipt;
+  completion: Promise<IHomeCommandCompletion<TResult>>;
 };
 
 export type IHomeStoreRejectReason =
@@ -421,7 +436,8 @@ export type IHomeStoreRejectReason =
   | 'intentDuplicate'
   | 'intentAuthorityExpired'
   | 'intentTargetUnavailable'
-  | 'snapshotRejected';
+  | 'snapshotRejected'
+  | 'runtimeDisposed';
 
 export type IHomeCachedSourceRecord = {
   sourceId: IHomeStoreSourceId;

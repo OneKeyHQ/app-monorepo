@@ -20,7 +20,7 @@ function record(
     sourceId: 'defi',
     sourceKeyIdentity: 'defi-owner-a',
     dataSchemaVersion: 1,
-    coverageFingerprint: '["row-a"]',
+    coverageFingerprint: '1:row-a:row-a',
     quoteBasis: null,
     confirmedAt: createdAt,
     expiresAt,
@@ -116,7 +116,11 @@ describe('Home Store snapshot cache codec', () => {
         ownerScopeKey: 'owner-a',
         records: [
           record({
-            coverageFingerprint: JSON.stringify(rowIds),
+            coverageFingerprint: [
+              rowIds.length,
+              rowIds[0] ?? '',
+              rowIds[rowIds.length - 1] ?? '',
+            ].join(':'),
             payload: {
               rows: rowIds.map((id) => ({ id })),
               section: {
@@ -201,7 +205,7 @@ describe('Home Store snapshot cache codec', () => {
     const exact = record({
       sourceKeyIdentity: getHomeSourceKeyIdentity(token.sourceKey),
       dataSchemaVersion: 2,
-      coverageFingerprint: '["row-a"]',
+      coverageFingerprint: '1:row-a:row-a',
       quoteBasis: token.sourceKey.quoteBasis,
       payload: {
         section: {
@@ -230,7 +234,7 @@ describe('Home Store snapshot cache codec', () => {
     ).toBe(false);
     expect(
       isHomeCachedRecordExactForToken(
-        { ...exact, coverageFingerprint: '["row-b"]' },
+        { ...exact, coverageFingerprint: '1:row-b:row-b' },
         token,
       ),
     ).toBe(false);

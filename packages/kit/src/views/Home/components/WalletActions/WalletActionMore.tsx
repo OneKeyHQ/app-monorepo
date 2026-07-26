@@ -25,7 +25,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { HomeTestIDs } from '../../testIDs';
-import { HomeTokenListProviderMirrorWrapper } from '../HomeTokenListProvider';
 
 import { RawActions } from './RawActions';
 import { useWalletActionConfig } from './useWalletActionConfig';
@@ -334,17 +333,12 @@ function useWalletActionMoreItems() {
           }}
           enabledNum={[0]}
         >
-          <HomeTokenListProviderMirrorWrapper
-            accountId={activeAccount?.account?.id ?? ''}
-          >
-            {elements}
-          </HomeTokenListProviderMirrorWrapper>
+          {elements}
         </AccountSelectorProviderMirror>
       );
     },
     [
       getMoreActionGroups,
-      activeAccount?.account?.id,
       config.moreActions,
       show,
       vaultSettings?.hideBlockExplorer,

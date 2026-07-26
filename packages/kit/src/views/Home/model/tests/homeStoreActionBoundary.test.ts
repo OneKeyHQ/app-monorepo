@@ -11,6 +11,7 @@ const publicIntentActionKeys: Record<
   true
 > = {
   dispatchHomeIntent: true,
+  executeHomeCommand: true,
 };
 
 function listTypeScriptFiles(directory: string): string[] {
@@ -34,10 +35,13 @@ describe('Home Store action boundary', () => {
     expect(publicIndex).not.toContain('useHomeStoreInternalActions');
     expect(publicIndex).not.toContain('dispatchHomeEvent');
     expect(publicIndex).not.toContain('readHomeStoreSnapshot');
-    expect(Object.keys(publicIntentActionKeys)).toEqual(['dispatchHomeIntent']);
+    expect(Object.keys(publicIntentActionKeys)).toEqual([
+      'dispatchHomeIntent',
+      'executeHomeCommand',
+    ]);
   });
 
-  it('limits the generic dispatcher to controller/source internals and its atomic test', () => {
+  it('limits the generic dispatcher to the Store runtime and its atomic test', () => {
     const internalActionsImport = ['contexts/home', 'actions'].join('/');
     const consumers = listTypeScriptFiles(kitSrcRoot)
       .filter((filePath) => filePath !== __filename)
@@ -48,16 +52,14 @@ describe('Home Store action boundary', () => {
       .toSorted();
 
     expect(consumers).toEqual([
-      'views/Home/model/react/useHomeStoreControllerActions.ts',
-      'views/Home/model/react/useHomeStoreSourcePublisher.ts',
+      'views/Home/model/runtime/homeRuntimeLease.ts',
       'views/Home/model/store/__tests__/homeStoreAtomicCommit.test.tsx',
     ]);
   });
 
   it('keeps direct generic dispatch out of Home renderers', () => {
     const allowedDirectDispatchers = new Set([
-      path.join(homeRoot, 'model/react/useHomeStoreControllerActions.ts'),
-      path.join(homeRoot, 'model/react/useHomeStoreSourcePublisher.ts'),
+      path.join(homeRoot, 'model/runtime/homeRuntimeLease.ts'),
       path.join(
         homeRoot,
         'model/store/__tests__/homeStoreAtomicCommit.test.tsx',

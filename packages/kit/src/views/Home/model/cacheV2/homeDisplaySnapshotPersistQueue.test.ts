@@ -41,11 +41,13 @@ function createCacheableState(ownerScopeKey: string): IHomeStoreState {
   return {
     ...initial,
     session: {
+      ...initial.session,
       ownerToken: {
         scopeKey: ownerScopeKey,
         sessionId: token.sessionId,
       },
-      status: 'ready',
+      authority: 'ready',
+      sessionId: token.sessionId,
     },
     resources: {
       ...initial.resources,
@@ -59,7 +61,7 @@ function createCacheableState(ownerScopeKey: string): IHomeStoreState {
             rowIds: ['asset-a'],
           },
         },
-        coverageFingerprint: '["asset-a"]',
+        coverageFingerprint: '1:asset-a:asset-a',
         freshness: 'live',
         refresh: 'idle',
       },
@@ -481,7 +483,7 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
                 rowIds: ['asset-b'],
               },
             },
-            coverageFingerprint: '["asset-b"]',
+            coverageFingerprint: '1:asset-b:asset-b',
           },
         },
         shell: {
@@ -648,7 +650,7 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
               rowIds: ['asset-b'],
             },
           },
-          coverageFingerprint: '["asset-b"]',
+          coverageFingerprint: '1:asset-b:asset-b',
         },
       },
     };

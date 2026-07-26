@@ -94,18 +94,15 @@ function createBannerState(): IHomeStoreState {
 
 function bannerIntent({
   actionId,
-  execution,
   intentId,
 }: {
   actionId: string;
-  execution: 'caller' | 'controller';
   intentId: string;
 }): IHomeStoreIntent {
   return {
     type: 'headerActionInvoked',
     actionId,
     authority: { kind: 'shellCommands', revision: 1 },
-    execution,
     intentId,
     itemId: 'banner-a',
     owner,
@@ -149,7 +146,6 @@ describe('Home Store banner command authority', () => {
       type: 'intentReceived',
       intent: bannerIntent({
         actionId: HOME_BANNER_ACTION_IDS.open,
-        execution: 'caller',
         intentId: 'open-a',
       }),
     });
@@ -171,7 +167,6 @@ describe('Home Store banner command authority', () => {
       type: 'intentReceived',
       intent: bannerIntent({
         actionId: HOME_BANNER_ACTION_IDS.open,
-        execution: 'caller',
         intentId: 'open-hidden',
       }),
     });
@@ -205,7 +200,6 @@ describe('Home Store banner command authority', () => {
       type: 'intentReceived',
       intent: bannerIntent({
         actionId: HOME_BANNER_ACTION_IDS.open,
-        execution: 'caller',
         intentId: 'open-cached-banner',
       }),
     });
@@ -218,40 +212,28 @@ describe('Home Store banner command authority', () => {
     ]);
   });
 
-  it('queues, coalesces, and owner-validates controller-owned dismissals', () => {
+  it('records a dismissal and emits exactly one middleware command', () => {
     const state = createBannerState();
-    const first = dispatch(state, {
+    const transition = dispatch(state, {
       type: 'intentReceived',
       intent: bannerIntent({
         actionId: HOME_BANNER_ACTION_IDS.dismiss,
-        execution: 'controller',
         intentId: 'dismiss-a',
       }),
-    }).state;
-    const duplicate = dispatch(first, {
-      type: 'intentReceived',
-      intent: bannerIntent({
-        actionId: HOME_BANNER_ACTION_IDS.dismiss,
-        execution: 'controller',
-        intentId: 'dismiss-b',
-      }),
-    }).state;
+    });
 
-    expect(duplicate.interaction.pendingShellCommands).toHaveLength(1);
-    expect(duplicate.interaction.acceptedIntentIds).toContain('dismiss-b');
-    expect(duplicate.interaction.dismissedBannerIds).toEqual(['banner-a']);
-    const wrongOwner = dispatch(duplicate, {
-      type: 'commandHandled',
-      intentId: 'dismiss-a',
-      ownerToken: { ...ownerToken, scopeKey: 'owner-b' },
-    }).state;
-    expect(wrongOwner.interaction.pendingShellCommands).toHaveLength(1);
-    const handled = dispatch(duplicate, {
-      type: 'commandHandled',
-      intentId: 'dismiss-a',
-      ownerToken,
-    }).state;
-    expect(handled.interaction.pendingShellCommands).toEqual([]);
-    expect(handled.resources).toBe(duplicate.resources);
+    expect(transition.state.interaction.acceptedIntentIds).toContain(
+      'dismiss-a',
+    );
+    expect(transition.state.interaction.dismissedBannerIds).toEqual([
+      'banner-a',
+    ]);
+    expect(transition.effects).toEqual([
+      {
+        kind: 'executeCommand',
+        intent: expect.objectContaining({ intentId: 'dismiss-a' }),
+      },
+    ]);
+    expect(transition.state.resources).toBe(state.resources);
   });
 });

@@ -51,7 +51,7 @@ import {
   useAggregateSubTokenFiat,
   useAggregateSubTokenFiatMap,
 } from '../../../states/jotai/contexts/tokenList/cells';
-import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
+import { TokenListStoreProvider } from '../../Home/components/TokenListStoreProvider';
 import { AssetSelectorTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -572,15 +572,6 @@ function AggregateTokenSelector() {
 }
 
 function AggregateTokenSelectorWithProvider() {
-  const route =
-    useRoute<
-      RouteProp<
-        IAssetSelectorParamList,
-        EAssetSelectorRoutes.AggregateTokenSelector
-      >
-    >();
-
-  const { accountId } = route.params;
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -589,9 +580,14 @@ function AggregateTokenSelectorWithProvider() {
       }}
       enabledNum={[0]}
     >
-      <HomeTokenListProviderMirrorWrapper accountId={accountId}>
+      <TokenListStoreProvider
+        consumerId="aggregate-token-selector"
+        demandPriority="interactive"
+        demandReason="assetSelector"
+        ownerScopeKey="wallet-current"
+      >
         <AggregateTokenSelector />
-      </HomeTokenListProviderMirrorWrapper>
+      </TokenListStoreProvider>
     </AccountSelectorProviderMirror>
   );
 }
