@@ -4,12 +4,13 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   assertUnifoldEchoMatches,
   filterUnifoldExecutionsByRecipient,
-  formatUnifoldUsdAmount,
   parseUnifoldExecutionCreatedAtMs,
 } from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -26,14 +27,16 @@ import type {
 } from '@onekeyhq/shared/types/unifoldDeposit';
 
 import {
-  perpsActiveAccountAtom,
+  perpsUnifoldActiveRecipientAtom,
   perpsUnifoldDepositTrackingAtom,
 } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
 import type {
+  IPerpsUnifoldDepositTrackingState,
   IPerpsUnifoldRecipientWatch,
+  IPerpsUnifoldTerminalDelivery,
   IPerpsUnifoldTrackedExecution,
 } from '../states/jotai/atoms';
 
@@ -54,6 +57,22 @@ const TRACKING_WATCH_RESUME_GRACE_MS = 60 * 1000;
 // Iteration gaps beyond this mean the runtime slept or restarted — the normal
 // cadence is TRACKING_LOOP_INTERVAL_MS.
 const TRACKING_RESUME_GAP_MS = TRACKING_LOOP_INTERVAL_MS * 6;
+const TERMINAL_DELIVERY_CLAIM_TTL_MS = 30 * 1000;
+
+type ITrackingStateUpdate =
+  | IPerpsUnifoldDepositTrackingState
+  | ((
+      prev: IPerpsUnifoldDepositTrackingState,
+    ) => IPerpsUnifoldDepositTrackingState);
+
+type ITerminalDeliveryClaimResult =
+  | { status: 'unavailable' }
+  | { status: 'claimedByOther'; retryAfterMs: number }
+  | {
+      status: 'claimed';
+      delivery: IPerpsUnifoldTerminalDelivery;
+      expiresAt: number;
+    };
 
 @backgroundClass()
 export default class ServiceUnifoldDeposit extends ServiceBase {
@@ -62,6 +81,28 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
   }
 
   private trackingLoopTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private trackingMutationQueue: Promise<void> = Promise.resolve();
+
+  private mutateTrackingState(update: ITrackingStateUpdate): Promise<void> {
+    const run = async () => {
+      const snapshot = await perpsUnifoldDepositTrackingAtom.get();
+      try {
+        await perpsUnifoldDepositTrackingAtom.set(update);
+      } catch (error) {
+        try {
+          await perpsUnifoldDepositTrackingAtom.set(snapshot);
+        } catch {
+          // The atom writes memory before awaiting persistence, so even a
+          // rejected rollback restores the retryable in-memory snapshot.
+        }
+        throw error;
+      }
+    };
+    const result = this.trackingMutationQueue.then(run, run);
+    this.trackingMutationQueue = result.catch(() => undefined);
+    return result;
+  }
 
   // All Unifold endpoints opt out of the interceptor's automatic error toast
   // (autoHandleError: false, same pattern as ServiceHistory): the UI renders
@@ -122,18 +163,16 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
   // Security MUST-2, background half. The kit-side guard cross-checks the
   // recipient against the active-account atom, but every @backgroundMethod is
   // an IPC surface: a UI-side bug or an injected call can hand us any address.
-  // bg owns `perpsActiveAccountAtom` (ServiceHyperliquid writes it), so on
-  // split-runtime targets this is an independent source rather than a re-read
-  // of the value the caller derived from.
+  // ServiceHyperliquid writes this dedicated persisted atom from the resolved
+  // background account. On split-runtime targets it therefore survives a bg
+  // restart without trusting the recipient supplied by the IPC caller.
   //
-  // Positive mismatch only: the atom is not persisted, so a bg restart leaves
-  // it null while the UI stays alive. null means "cannot verify", not
-  // "different" — rejecting it would brick deposits until the user re-enters
-  // Perps, which is a worse failure than the one this guard closes.
+  // Missing state fails closed: an IPC caller cannot substitute its own
+  // recipient when bg has no independent account identity to compare against.
   private async assertRecipientIsActivePerpsAccount(recipientAddress: string) {
-    const { accountAddress } = await perpsActiveAccountAtom.get();
+    const { accountAddress } = await perpsUnifoldActiveRecipientAtom.get();
     if (
-      accountAddress &&
+      !accountAddress ||
       accountAddress.toLowerCase() !== recipientAddress.toLowerCase()
     ) {
       throw new OneKeyError({
@@ -226,7 +265,8 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
   }) {
     const now = Date.now();
     const recipient = params.recipientAddress.toLowerCase();
-    await perpsUnifoldDepositTrackingAtom.set((prev) => {
+    let effectiveSessionStart = params.sessionStart;
+    await this.mutateTrackingState((prev) => {
       const watches = prev.watches ?? [];
       const existing = watches.find(
         (w) => w.recipientAddress.toLowerCase() === recipient,
@@ -249,7 +289,9 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
             watchedAt: now,
             mutedAt: now,
           };
+      effectiveSessionStart = updatedWatch.sessionStart;
       return {
+        ...prev,
         items: prev.items.map((item) =>
           item.recipientAddress.toLowerCase() === recipient
             ? { ...item, mutedAt: now }
@@ -267,6 +309,7 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
     // nothing would kick it afterwards; while the claim is renewed everything
     // stays muted and iterations are cheap no-ops.
     void this.unifoldDepositTrackingLoop();
+    return { sessionStart: effectiveSessionStart };
   }
 
   // Live sessions register every in-flight execution the moment they see it —
@@ -286,7 +329,7 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
       return;
     }
     const now = Date.now();
-    await perpsUnifoldDepositTrackingAtom.set((prev) => {
+    await this.mutateTrackingState((prev) => {
       const existingIds = new Set(prev.items.map((i) => i.executionId));
       const added = params.executions
         .filter((e) => !existingIds.has(e.executionId))
@@ -315,7 +358,8 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
     executionId: string;
   }) {
     const recipient = params.recipientAddress.toLowerCase();
-    await perpsUnifoldDepositTrackingAtom.set((prev) => ({
+    await this.mutateTrackingState((prev) => ({
+      ...prev,
       items: prev.items.filter((i) => i.executionId !== params.executionId),
       watches: (prev.watches ?? []).map((w) =>
         w.recipientAddress.toLowerCase() === recipient &&
@@ -351,7 +395,7 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
   }) {
     const now = Date.now();
     const recipient = params.recipientAddress.toLowerCase();
-    await perpsUnifoldDepositTrackingAtom.set((prev) => {
+    await this.mutateTrackingState((prev) => {
       const existingIds = new Set(prev.items.map((i) => i.executionId));
       const added = params.executions
         .filter((e) => !existingIds.has(e.executionId))
@@ -392,6 +436,7 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
         mutedAt: null,
       };
       return {
+        ...prev,
         items: [...unmuted, ...added],
         watches: [
           ...watches.filter(
@@ -402,6 +447,110 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
       };
     });
     void this.unifoldDepositTrackingLoop();
+  }
+
+  @backgroundMethod()
+  async getPendingTerminalDeliveries(): Promise<{ deliveryId: string }[]> {
+    const { pendingDeliveries = [] } =
+      await perpsUnifoldDepositTrackingAtom.get();
+    return pendingDeliveries
+      .toSorted((a, b) => a.createdAt - b.createdAt)
+      .map(({ deliveryId }) => ({ deliveryId }));
+  }
+
+  @backgroundMethod()
+  async tryClaimTerminalDelivery(params: {
+    deliveryId: string;
+    claimId: string;
+  }): Promise<ITerminalDeliveryClaimResult> {
+    const now = Date.now();
+    let result: ITerminalDeliveryClaimResult = { status: 'unavailable' };
+    await this.mutateTrackingState((prev) => {
+      const pendingDeliveries = prev.pendingDeliveries ?? [];
+      const index = pendingDeliveries.findIndex(
+        (delivery) => delivery.deliveryId === params.deliveryId,
+      );
+      if (index < 0) {
+        return prev;
+      }
+      const delivery = pendingDeliveries[index];
+      if (
+        delivery.claim &&
+        delivery.claim.claimId !== params.claimId &&
+        delivery.claim.expiresAt > now
+      ) {
+        result = {
+          status: 'claimedByOther',
+          retryAfterMs: delivery.claim.expiresAt - now,
+        };
+        return prev;
+      }
+      const expiresAt = now + TERMINAL_DELIVERY_CLAIM_TTL_MS;
+      const claimedDelivery: IPerpsUnifoldTerminalDelivery = {
+        ...delivery,
+        claim: {
+          claimId: params.claimId,
+          expiresAt,
+        },
+      };
+      result = {
+        status: 'claimed',
+        delivery: claimedDelivery,
+        expiresAt,
+      };
+      return {
+        ...prev,
+        pendingDeliveries: pendingDeliveries.with(index, claimedDelivery),
+      };
+    });
+    return result;
+  }
+
+  @backgroundMethod()
+  async acknowledgeTerminalDelivery(params: {
+    deliveryId: string;
+    claimId: string;
+  }): Promise<{ updated: boolean }> {
+    let updated = false;
+    await this.mutateTrackingState((prev) => {
+      const pendingDeliveries = prev.pendingDeliveries ?? [];
+      const delivery = pendingDeliveries.find(
+        (item) => item.deliveryId === params.deliveryId,
+      );
+      if (!delivery || delivery.claim?.claimId !== params.claimId) {
+        return prev;
+      }
+      updated = true;
+      const recipient = delivery.recipientAddress.toLowerCase();
+      return {
+        ...prev,
+        items: prev.items.filter(
+          (item) => item.executionId !== delivery.execution.executionId,
+        ),
+        watches: (prev.watches ?? []).map((watch) =>
+          watch.recipientAddress.toLowerCase() === recipient &&
+          !watch.knownExecutionIds.includes(delivery.execution.executionId)
+            ? {
+                ...watch,
+                knownExecutionIds: [
+                  ...watch.knownExecutionIds,
+                  delivery.execution.executionId,
+                ],
+              }
+            : watch,
+        ),
+        pendingDeliveries: pendingDeliveries.filter(
+          (item) => item.deliveryId !== params.deliveryId,
+        ),
+      };
+    });
+    return { updated };
+  }
+
+  private notifyTerminalDelivery(deliveryId: string) {
+    appEventBus.emit(EAppEventBusNames.PerpsUnifoldDepositTerminalDelivery, {
+      deliveryId,
+    });
   }
 
   private trackingLoopBusy = false;
@@ -455,7 +604,11 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
     // made a Unifold deposit must not pay two persisted writes — plus their
     // bg→UI broadcasts — for an empty snapshot.
     const snapshot = await perpsUnifoldDepositTrackingAtom.get();
-    if (!snapshot.items.length && !snapshot.watches?.length) {
+    if (
+      !snapshot.items.length &&
+      !snapshot.watches?.length &&
+      !snapshot.pendingDeliveries?.length
+    ) {
       return;
     }
     const now = Date.now();
@@ -475,7 +628,7 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
     // loop starts announcing behind it.
     const justUnmutedExecutionIds = new Set<string>();
     const justUnmutedWatchRecipients = new Set<string>();
-    await perpsUnifoldDepositTrackingAtom.set((prev) => {
+    await this.mutateTrackingState((prev) => {
       let changed = false;
       const items = prev.items.map((item) => {
         if (item.mutedAt && now - item.mutedAt >= TRACKING_MUTE_MAX_AGE_MS) {
@@ -519,13 +672,21 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
       // persist the atom and broadcast to the UI runtime 6x/minute for as long
       // as anything is tracked — up to the full 48h window — for no state
       // change at all.
-      return changed ? { items, watches } : prev;
+      return changed ? { ...prev, items, watches } : prev;
     });
-    const { items, watches = [] } = await perpsUnifoldDepositTrackingAtom.get();
+    const {
+      items,
+      watches = [],
+      pendingDeliveries = [],
+    } = await perpsUnifoldDepositTrackingAtom.get();
+    const pendingExecutionIds = new Set(
+      pendingDeliveries.map((delivery) => delivery.execution.executionId),
+    );
     const liveItems = items.filter(
       (item) =>
         now - item.trackedAt < TRACKING_MAX_AGE_MS &&
         !item.mutedAt &&
+        !pendingExecutionIds.has(item.executionId) &&
         !justUnmutedExecutionIds.has(item.executionId),
     );
     const liveWatches = watches.filter(
@@ -544,6 +705,7 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
     const terminalCandidates: Array<{
       executionId: string;
       recipientKey: string;
+      recipientAddress: string;
       execution: IUnifoldDepositExecution;
       sessionId: string | null;
       viaEntry: boolean;
@@ -579,7 +741,10 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
 
     // Includes muted entries: an id with any entry is already owned by the
     // entry path (or a live session), so discovery must not double-track it.
-    const trackedIds = new Set(items.map((i) => i.executionId));
+    const trackedIds = new Set([
+      ...items.map((item) => item.executionId),
+      ...pendingExecutionIds,
+    ]);
 
     for (const [recipientKey, group] of recipientGroups) {
       try {
@@ -602,6 +767,7 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
             terminalCandidates.push({
               executionId: item.executionId,
               recipientKey,
+              recipientAddress: group.recipientAddress,
               execution,
               sessionId: item.sessionId,
               viaEntry: true,
@@ -635,6 +801,7 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
                 terminalCandidates.push({
                   executionId: execution.executionId,
                   recipientKey,
+                  recipientAddress: group.recipientAddress,
                   execution,
                   sessionId: watch.sessionId,
                   viaEntry: false,
@@ -660,51 +827,69 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
     // Functional update: entries added while this loop awaited network calls
     // (e.g. another modal close, or a session claim removing entries) must not
     // be resurrected or dropped by a stale wholesale overwrite. The announce
-    // decision is made HERE, against fresh state, so it commits atomically
-    // with the settlement it implies. Approved ids are appended to their
-    // recipient watch's knownExecutionIds, so discovery can never re-announce
-    // an outcome after its entry is gone.
-    let approvedAnnouncements: typeof terminalCandidates = [];
-    await perpsUnifoldDepositTrackingAtom.set((prev) => {
+    // decision is made HERE, against fresh state. An approved outcome is
+    // staged durably but NOT settled: the foreground must present it and ACK
+    // before the entry is removed or its id enters knownExecutionIds.
+    let stagedCandidates: typeof terminalCandidates = [];
+    await this.mutateTrackingState((prev) => {
       const prevItemsById = new Map(prev.items.map((i) => [i.executionId, i]));
       const prevWatchByRecipient = new Map(
         (prev.watches ?? []).map((w) => [w.recipientAddress.toLowerCase(), w]),
       );
+      const prevPendingDeliveries = prev.pendingDeliveries ?? [];
+      const prevPendingExecutionIds = new Set(
+        prevPendingDeliveries.map((delivery) => delivery.execution.executionId),
+      );
       const approved: typeof terminalCandidates = [];
-      const settledIds = new Set<string>();
-      const announcedIdsByRecipient = new Map<string, Set<string>>();
       for (const candidate of terminalCandidates) {
         let suppressed: boolean;
         if (candidate.viaEntry) {
           const entry = prevItemsById.get(candidate.executionId);
           // Gone: a session announced and settled it mid-iteration. Muted: a
           // session claimed the recipient mid-iteration and owns the
-          // announcement now — keep the entry for it.
-          suppressed = !entry || Boolean(entry.mutedAt);
-          if (!suppressed) {
-            settledIds.add(candidate.executionId);
-          }
+          // announcement now. Pending: a previous round already staged it.
+          suppressed =
+            !entry ||
+            Boolean(entry.mutedAt) ||
+            prevPendingExecutionIds.has(candidate.executionId);
         } else {
           const watch = prevWatchByRecipient.get(candidate.recipientKey);
           suppressed =
             !watch ||
             Boolean(watch.mutedAt) ||
             watch.knownExecutionIds.includes(candidate.executionId) ||
+            prevPendingExecutionIds.has(candidate.executionId) ||
             prevItemsById.has(candidate.executionId);
         }
         if (!suppressed) {
           approved.push(candidate);
-          const set =
-            announcedIdsByRecipient.get(candidate.recipientKey) ??
-            new Set<string>();
-          set.add(candidate.executionId);
-          announcedIdsByRecipient.set(candidate.recipientKey, set);
         }
       }
+      const newDeliveries: IPerpsUnifoldTerminalDelivery[] = approved.map(
+        (candidate) => ({
+          deliveryId: [
+            candidate.recipientKey,
+            candidate.executionId,
+            candidate.execution.status,
+          ].join(':'),
+          execution: candidate.execution,
+          recipientAddress: candidate.recipientAddress,
+          sessionId: candidate.sessionId,
+          createdAt: now,
+        }),
+      );
+      const protectedExecutionIds = new Set([
+        ...prevPendingExecutionIds,
+        ...newDeliveries.map((delivery) => delivery.execution.executionId),
+      ]);
       // A session that claimed the recipient mid-iteration owns announcements
       // now, so entries discovered by this stale round inherit its mute.
       const addedItems = discoveredItems
-        .filter((i) => !prevItemsById.has(i.executionId))
+        .filter(
+          (item) =>
+            !prevItemsById.has(item.executionId) &&
+            !protectedExecutionIds.has(item.executionId),
+        )
         .map((i) => ({
           ...i,
           mutedAt:
@@ -713,84 +898,69 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
         }));
       const keptItems = prev.items.filter(
         (item) =>
-          !settledIds.has(item.executionId) &&
+          protectedExecutionIds.has(item.executionId) ||
           now - item.trackedAt < TRACKING_MAX_AGE_MS,
+      );
+      const protectedRecipients = new Set(
+        [...prevPendingDeliveries, ...newDeliveries].map((delivery) =>
+          delivery.recipientAddress.toLowerCase(),
+        ),
       );
       // Muted watches are never pruned on age: while a session keeps the
       // claim renewed, dropping the watch would destroy knownExecutionIds and
-      // let already-announced outcomes be rediscovered later.
-      const nextWatches = (prev.watches ?? [])
-        .filter(
-          (w) => w.mutedAt || now - w.watchedAt < TRACKING_WATCH_MAX_AGE_MS,
-        )
-        .map((w) => {
-          const announced = announcedIdsByRecipient.get(
-            w.recipientAddress.toLowerCase(),
-          );
-          if (!announced?.size) {
-            return w;
-          }
-          return {
-            ...w,
-            knownExecutionIds: Array.from(
-              new Set([...w.knownExecutionIds, ...announced]),
-            ),
-          };
-        });
-      approvedAnnouncements = approved;
+      // let already-announced outcomes be rediscovered later. A watch with a
+      // pending delivery is likewise retained until ACK can record the id.
+      const nextWatches = (prev.watches ?? []).filter(
+        (w) =>
+          w.mutedAt ||
+          protectedRecipients.has(w.recipientAddress.toLowerCase()) ||
+          now - w.watchedAt < TRACKING_WATCH_MAX_AGE_MS,
+      );
+      stagedCandidates = approved;
       // Same no-op guard as the mute pass above: with nothing settled, added
       // or aged out — the steady state while a deposit is simply still
       // pending — this tick must not persist and broadcast an identical
       // snapshot.
       const prevWatches = prev.watches ?? [];
       const changed =
+        newDeliveries.length > 0 ||
         addedItems.length > 0 ||
         keptItems.length !== prev.items.length ||
         nextWatches.length !== prevWatches.length ||
         nextWatches.some((w, index) => w !== prevWatches[index]);
       return changed
-        ? { items: [...keptItems, ...addedItems], watches: nextWatches }
+        ? {
+            ...prev,
+            items: [...keptItems, ...addedItems],
+            watches: nextWatches,
+            pendingDeliveries: [...prevPendingDeliveries, ...newDeliveries],
+          }
         : prev;
     });
-    for (const candidate of approvedAnnouncements) {
-      this.showTerminalToast(candidate.execution, candidate.sessionId);
+    if (
+      stagedCandidates.some(
+        (candidate) => candidate.execution.status === 'succeeded',
+      )
+    ) {
+      void this.backgroundApi.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
     }
 
-    const { items: remainingItems, watches: remainingWatches = [] } =
-      await perpsUnifoldDepositTrackingAtom.get();
-    if (remainingItems.length || remainingWatches.length) {
+    const {
+      items: remainingItems,
+      watches: remainingWatches = [],
+      pendingDeliveries: remainingDeliveries = [],
+    } = await perpsUnifoldDepositTrackingAtom.get();
+    remainingDeliveries.forEach((delivery) => {
+      this.notifyTerminalDelivery(delivery.deliveryId);
+    });
+    if (
+      remainingItems.length ||
+      remainingWatches.length ||
+      remainingDeliveries.length
+    ) {
       this.trackingLoopTimer = setTimeout(() => {
         void this.unifoldDepositTrackingLoop();
       }, TRACKING_LOOP_INTERVAL_MS);
     }
-  }
-
-  private showTerminalToast(
-    execution: IUnifoldDepositExecution,
-    sessionId: string | null,
-  ) {
-    if (execution.status === 'succeeded') {
-      void this.backgroundApi.serviceApp.showToast({
-        method: 'success',
-        title: appLocale.intl.formatMessage({
-          id: ETranslations.perp_deposit_success_title,
-        }),
-        message: formatUnifoldUsdAmount(
-          execution.destinationAmountUsd ?? execution.sourceAmountUsd,
-        ),
-      });
-      void this.backgroundApi.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
-      return;
-    }
-    // failed / refunded: never invent a failure reason (contract §1). The body
-    // stays the bare support reference rather than an English sentence under a
-    // localized title; the in-app screens carry the "contact support" wording.
-    void this.backgroundApi.serviceApp.showToast({
-      method: 'error',
-      title: appLocale.intl.formatMessage({
-        id: ETranslations.perp_deposit_fail_title,
-      }),
-      ...(sessionId ? { message: `Ref ${sessionId}` } : undefined),
-    });
   }
 }

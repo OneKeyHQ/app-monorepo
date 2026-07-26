@@ -1,5 +1,8 @@
 // cspell: words hypercore unifold Unifold
-import type { IUnifoldSupportedAsset } from '@onekeyhq/shared/types/unifoldDeposit';
+import type {
+  IUnifoldDepositWallet,
+  IUnifoldSupportedAsset,
+} from '@onekeyhq/shared/types/unifoldDeposit';
 
 // The supported-assets endpoint is queried with our hardcoded HyperCore
 // destination; the wallet service rejects destinations outside its allowlist
@@ -14,4 +17,26 @@ export function hasUsableUnifoldSupportedAssets(
     return false;
   }
   return assets.some((asset) => (asset.chains ?? []).length > 0);
+}
+
+export function filterUnifoldSupportedAssetsByWallets(
+  assets: IUnifoldSupportedAsset[] | undefined,
+  wallets: IUnifoldDepositWallet[] | null | undefined,
+): IUnifoldSupportedAsset[] | undefined {
+  if (!assets) {
+    return undefined;
+  }
+  const usableChainTypes = new Set(
+    (wallets ?? [])
+      .filter((wallet) => Boolean(wallet.address))
+      .map((wallet) => wallet.chainType.toLowerCase()),
+  );
+  return assets
+    .map((asset) => ({
+      ...asset,
+      chains: (asset.chains ?? []).filter((chain) =>
+        usableChainTypes.has(chain.chain_type.toLowerCase()),
+      ),
+    }))
+    .filter((asset) => asset.chains.length > 0);
 }

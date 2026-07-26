@@ -101,6 +101,7 @@ export enum EAtomNames {
   perpTokenSelectorTabsAtom = 'perpTokenSelectorTabsAtom',
   perpTokenFavoritesPersistAtom = 'perpTokenFavoritesPersistAtom',
   perpsDepositOrderAtom = 'perpsDepositOrderAtom',
+  perpsUnifoldActiveRecipientAtom = 'perpsUnifoldActiveRecipientAtom',
   perpsUnifoldDepositTrackingAtom = 'perpsUnifoldDepositTrackingAtom',
   perpsLastUsedLeverageAtom = 'perpsLastUsedLeverageAtom',
   perpsLayoutStateAtom = 'perpsLayoutStateAtom',

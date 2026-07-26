@@ -22,7 +22,10 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid';
 import { DEFAULT_PERP_TOKEN_ACTIVE_TAB } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
-import type { IUnifoldExecutionStatus } from '@onekeyhq/shared/types/unifoldDeposit';
+import type {
+  IUnifoldDepositExecution,
+  IUnifoldExecutionStatus,
+} from '@onekeyhq/shared/types/unifoldDeposit';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputedR } from '../utils';
@@ -995,19 +998,49 @@ export interface IPerpsUnifoldRecipientWatch {
   mutedAt?: number | null;
 }
 
-export const {
-  target: perpsUnifoldDepositTrackingAtom,
-  use: usePerpsUnifoldDepositTrackingAtom,
-} = globalAtom<{
+export interface IPerpsUnifoldTerminalDelivery {
+  deliveryId: string;
+  execution: IUnifoldDepositExecution;
+  recipientAddress: string;
+  sessionId: string | null;
+  createdAt: number;
+  claim?: {
+    claimId: string;
+    expiresAt: number;
+  };
+}
+
+export interface IPerpsUnifoldActiveRecipientState {
+  accountAddress: IHex | null;
+}
+
+export const { target: perpsUnifoldActiveRecipientAtom } =
+  globalAtom<IPerpsUnifoldActiveRecipientState>({
+    name: EAtomNames.perpsUnifoldActiveRecipientAtom,
+    persist: true,
+    initialValue: {
+      accountAddress: null,
+    },
+  });
+
+export interface IPerpsUnifoldDepositTrackingState {
   items: IPerpsUnifoldTrackedExecution[];
   // Optional: absent in values persisted before watches existed.
   watches?: IPerpsUnifoldRecipientWatch[];
-}>({
+  // Terminal outcomes stay durable until a foreground confirms presentation.
+  pendingDeliveries?: IPerpsUnifoldTerminalDelivery[];
+}
+
+export const {
+  target: perpsUnifoldDepositTrackingAtom,
+  use: usePerpsUnifoldDepositTrackingAtom,
+} = globalAtom<IPerpsUnifoldDepositTrackingState>({
   name: EAtomNames.perpsUnifoldDepositTrackingAtom,
   persist: true,
   initialValue: {
     items: [],
     watches: [],
+    pendingDeliveries: [],
   },
 });
 

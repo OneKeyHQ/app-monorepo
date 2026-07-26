@@ -390,7 +390,12 @@ export function UnifoldExecutionDetail({
         >
           <Icon name="ErrorOutline" size="$4" color="$iconCaution" />
           <SizableText size="$bodySm" color="$textCaution" flex={1}>
-            This deposit needs attention. Please contact support.
+            {intl.formatMessage(
+              {
+                id: ETranslations.perp_unifold_contact_support_ref__desc,
+              },
+              { ref: execution.executionId },
+            )}
           </SizableText>
         </XStack>
       ) : null}

@@ -34,7 +34,10 @@ import {
   UNIFOLD_HYPERCORE_CHAIN_TYPE,
   UNIFOLD_HYPERCORE_USDC_PERP_ADDRESS,
 } from '../consts/unifold';
-import { hasUsableUnifoldSupportedAssets } from '../utils/unifoldDestination';
+import {
+  filterUnifoldSupportedAssetsByWallets,
+  hasUsableUnifoldSupportedAssets,
+} from '../utils/unifoldDestination';
 import { shouldEnableUnifoldLedgerUpdates } from '../utils/unifoldExecution';
 import { getSafeUnifoldRecipient } from '../utils/unifoldRecipient';
 
@@ -393,22 +396,45 @@ export function usePerpsUnifoldDepositSession({
     destination,
   ]);
 
+  const selectableSupportedAssets = useMemo(
+    () =>
+      addressState.status === 'ready'
+        ? filterUnifoldSupportedAssetsByWallets(
+            supportedAssets,
+            addressState.result.wallets,
+          )
+        : undefined,
+    [addressState, supportedAssets],
+  );
+
   useEffect(() => {
     if (!supportedAssets) {
       return;
     }
     if (!hasUsableUnifoldSupportedAssets(supportedAssets)) {
       applyAddressState({ status: 'error', errorType: 'unavailable' });
+    }
+  }, [supportedAssets, applyAddressState]);
+
+  useEffect(() => {
+    if (!selectableSupportedAssets) {
+      return;
+    }
+    if (!hasUsableUnifoldSupportedAssets(selectableSupportedAssets)) {
+      applyAddressState({ status: 'error', errorType: 'unavailable' });
       return;
     }
     setSelection((previous) => {
-      const next = reconcileSourceSelection(supportedAssets, previous);
+      const next = reconcileSourceSelection(
+        selectableSupportedAssets,
+        previous,
+      );
       if (next) {
         cacheSourceSelection(destination, next);
       }
       return next;
     });
-  }, [supportedAssets, applyAddressState, destination]);
+  }, [selectableSupportedAssets, applyAddressState, destination]);
 
   // Mirrors the SDK chain-snap rule: picking a token whose chains do not
   // include the current chain snaps to that token's first chain.
@@ -644,38 +670,47 @@ export function usePerpsUnifoldDepositSession({
     if (!enabled || !recipientAddress || !pollEnabled) {
       return;
     }
+    let cancelled = false;
     // This live session takes over announcements for the recipient (and arms
     // the recipient watch), so the bg tracking loop stays quiet and terminal
     // transitions are not double toasted. The claim expires on its own and is
     // renewed from the poll tick below: that is what lets the bg loop recover
     // if this session dies without running its unmount handler.
-    const claim = () => {
-      claimedRef.current = true;
-      lastClaimAtRef.current = Date.now();
-      void backgroundApiProxy.serviceUnifoldDeposit.claimDepositSessionTracking(
-        {
-          recipientAddress,
-          sessionId: sessionIdRef.current,
-          sessionStart: sessionStartRef.current,
-        },
-      );
+    const claim = async () => {
+      const result =
+        await backgroundApiProxy.serviceUnifoldDeposit.claimDepositSessionTracking(
+          {
+            recipientAddress,
+            sessionId: sessionIdRef.current,
+            sessionStart: sessionStartRef.current,
+          },
+        );
+      if (!cancelled) {
+        sessionStartRef.current = Math.min(
+          sessionStartRef.current,
+          result.sessionStart,
+        );
+        claimedRef.current = true;
+        lastClaimAtRef.current = Date.now();
+      }
     };
-    claim();
 
-    let cancelled = false;
     const tick = async () => {
-      // Renewal must not sit behind the busy gate: a poll request left
-      // hanging across a mobile suspension keeps tickBusyRef true well past
-      // resume, and starving the claim past the bg loop's one-round unmute
-      // grace would let it announce behind this live session. claim() is
-      // fire-and-forget and needs no serialization with the poll body.
+      // Claim before the busy gate and before querying: a bg restart may have
+      // restored an older watch window, and the session must poll everything
+      // it mutes. A failed claim is retried on the next tick without letting a
+      // duplicate foreground/bg announcer pair run in the meantime.
       if (
         Date.now() - lastClaimAtRef.current >=
         TRACKING_CLAIM_RENEW_INTERVAL_MS
       ) {
-        claim();
+        try {
+          await claim();
+        } catch {
+          return;
+        }
       }
-      if (tickBusyRef.current) {
+      if (cancelled || tickBusyRef.current) {
         return;
       }
       tickBusyRef.current = true;
@@ -782,7 +817,7 @@ export function usePerpsUnifoldDepositSession({
   const qrAddress = useMemo(() => {
     if (
       addressState.status !== 'ready' ||
-      !supportedAssets ||
+      !selectableSupportedAssets ||
       !selection ||
       !activationGatePassed
     ) {
@@ -793,7 +828,12 @@ export function usePerpsUnifoldDepositSession({
       selection.chain.chain_type,
     );
     return wallet?.address ?? null;
-  }, [addressState, supportedAssets, selection, activationGatePassed]);
+  }, [
+    addressState,
+    selectableSupportedAssets,
+    selection,
+    activationGatePassed,
+  ]);
 
   // The ready address is withheld while the screen is pending, so the QR keeps
   // its skeleton rather than the terminal "No address available" plate: the
@@ -839,8 +879,8 @@ export function usePerpsUnifoldDepositSession({
     // Sticky: the support copy on the sanctioned screen quotes this ref, so it
     // must survive a veto that replaces the ready state.
     sessionId: sessionIdRef.current,
-    supportedAssets,
-    assetsLoading: supportedAssets === undefined,
+    supportedAssets: selectableSupportedAssets,
+    assetsLoading: selectableSupportedAssets === undefined,
     selection,
     selectToken,
     selectChain,

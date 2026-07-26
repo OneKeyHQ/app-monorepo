@@ -141,6 +141,7 @@ import {
   perpsSpotBalancesAtom,
   perpsSpotDustingAtom,
   perpsTradesHistoryDataAtom,
+  perpsUnifoldActiveRecipientAtom,
   spotActiveAssetAtom,
   spotActiveAssetCtxAtom,
   spotAssetCtxsMapAtom,
@@ -2644,6 +2645,12 @@ export default class ServiceHyperliquid extends ServiceBase {
         return prev;
       }
       return perpsAccount;
+    });
+    if (!this.isLatestActivePerpsAccountChange(requestId)) {
+      return undefined;
+    }
+    await perpsUnifoldActiveRecipientAtom.set({
+      accountAddress: perpsAccount.accountAddress,
     });
     if (!this.isLatestActivePerpsAccountChange(requestId)) {
       return undefined;
