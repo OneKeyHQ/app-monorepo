@@ -174,6 +174,7 @@ function reuseHomePortfolioPayload(
     previous.allAggregateTokenMap === next.allAggregateTokenMap &&
     previous.blockedRiskTokenCount === next.blockedRiskTokenCount &&
     areIdsEqual(previous.displayIds, next.displayIds) &&
+    areIdsEqual(previous.fundedIds, next.fundedIds) &&
     previous.generation === next.generation &&
     previous.homeDefaultTokenMap === next.homeDefaultTokenMap &&
     previous.isAllNetworkEmptyAccount === next.isAllNetworkEmptyAccount &&

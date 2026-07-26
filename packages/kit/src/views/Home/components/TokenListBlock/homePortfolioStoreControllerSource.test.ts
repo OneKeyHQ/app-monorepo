@@ -20,6 +20,7 @@ function createPayload(
     aggregateTokenListMap: {},
     allAggregateTokenMap: {},
     displayIds: ['token-a'],
+    fundedIds: ['token-a'],
     generation: 1,
     homeDefaultTokenMap: {},
     isAllNetworkEmptyAccount: false,
@@ -222,6 +223,12 @@ describe('HomePortfolioStoreController source', () => {
     });
 
     expect(reuseHomePortfolioPayload(previous, equalPayload)).toBe(previous);
+    expect(
+      reuseHomePortfolioPayload(
+        previous,
+        createPayload({ fundedIds: ['token-b'] }),
+      ),
+    ).not.toBe(previous);
     expect(
       reuseHomePortfolioPayload(previous, createPayload({ generation: 2 })),
     ).not.toBe(previous);

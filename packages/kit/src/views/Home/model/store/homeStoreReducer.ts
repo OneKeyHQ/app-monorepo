@@ -867,12 +867,17 @@ export function reduceHomeStore(
         return emptyTransition();
       }
       const aggregation = aggregateHomeBalanceFacts(balance);
+      const portfolioResource = balance.contributors.portfolio?.resource;
+      const portfolioIsEmpty =
+        portfolioResource?.kind === 'complete' &&
+        portfolioResource.result.kind === 'empty';
       const exact = exactConfirmedBalance(state, balance);
       const decision = projectHomeBalanceAuthority({
         aggregation,
         bannerAvailable: balance.bannerAvailable,
         confirmed: exact,
         confirmedAt: event.observedAt,
+        portfolioIsEmpty,
       });
       const facts = {
         ...event.facts,

@@ -99,7 +99,7 @@ function useHomeBalanceFacts(): IHomeFacts | undefined {
       sourceCurrency: deFiSourceCurrency,
       targetCurrency: USD_CURRENCY_ID,
     });
-    const hasHoldings = Boolean(portfolioPayload?.tokens.length);
+    const hasHoldings = Boolean(portfolioPayload?.fundedIds.length);
     const hasNonZeroPortfolioWorth = !portfolioTotal.isZero();
     let portfolioStatus:
       | 'idle'

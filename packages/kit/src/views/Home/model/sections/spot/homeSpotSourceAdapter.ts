@@ -20,7 +20,7 @@ import type {
 } from '../homeSectionCoordinator';
 
 const HOME_SPOT_SOURCE_REVISION = 1;
-const HOME_SPOT_DATA_SCHEMA_VERSION = 1;
+const HOME_SPOT_DATA_SCHEMA_VERSION = 2;
 
 type IHomeSpotTokenMode = 'wallet' | 'lp';
 
@@ -53,6 +53,7 @@ type IHomeSpotLegacyPayload = {
   allAggregateTokenMap: Record<string, { tokens: IAccountToken[] }>;
   blockedRiskTokenCount?: number;
   displayIds: readonly string[];
+  fundedIds: readonly string[];
   generation: number;
   homeDefaultTokenMap: Record<string, IHomeDefaultToken>;
   isAllNetworkEmptyAccount: boolean;
@@ -88,6 +89,7 @@ const HOME_SPOT_SNAPSHOT_KEYS = [
   'allAggregateTokenMap',
   'blockedRiskTokenCount',
   'displayIds',
+  'fundedIds',
   'generation',
   'homeDefaultTokenMap',
   'isAllNetworkEmptyAccount',
@@ -116,6 +118,7 @@ function createHomeSpotSnapshotDefaults(): IHomeSpotLegacyPayload {
     allAggregateTokenMap: {},
     blockedRiskTokenCount: 0,
     displayIds: [],
+    fundedIds: [],
     generation: 0,
     homeDefaultTokenMap: {},
     isAllNetworkEmptyAccount: false,

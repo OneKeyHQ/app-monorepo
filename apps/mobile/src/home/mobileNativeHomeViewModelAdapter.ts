@@ -369,6 +369,7 @@ function buildStateSection({
     return [];
   }
   const isLoading = semantic.kind === 'loading';
+  const emptyDisplayHeight = sectionId === 'perps' ? 600 : 360;
   return [
     {
       id: `${sectionId}-state`,
@@ -384,7 +385,7 @@ function buildStateSection({
               id: `${sectionId}-state-item`,
               renderer: 'empty' as const,
               title: getStateTitle(semantic, labels),
-              displayHeight: 360,
+              displayHeight: emptyDisplayHeight,
             },
           ],
     },
@@ -1149,6 +1150,19 @@ export function buildMobileNativeHomeViewModelSections({
   const state = buildStateSection({ labels, sectionId, semantic });
   if (state) {
     return state;
+  }
+  if (
+    sectionId === 'history' &&
+    semantic.kind === 'ready' &&
+    (payloads.history?.data.length ?? 0) === 0
+  ) {
+    return (
+      buildStateSection({
+        labels,
+        sectionId,
+        semantic: { kind: 'empty', emptyState: 'history' },
+      }) ?? []
+    );
   }
   const resolvedExpanded = expanded ?? {
     defi: false,

@@ -103,6 +103,8 @@ export interface ITokenListReactivePipelineParams {
   cellsIngestInputsRef: MutableRefObject<ICellsIngestInputs>;
   /** = ENABLE_BG_TOKEN_VIEW_MODEL — the single unified kill-switch. */
   enabled: boolean;
+  /** Re-pull BG-owned frames into the main runtime after each ingest. */
+  pullLatestFrames?: () => Promise<void>;
 }
 
 export interface ITokenListIngestReceipt {
@@ -157,6 +159,7 @@ export function useTokenListReactivePipeline(
     ownerCreateAtNetwork,
     cellsIngestInputsRef,
     enabled,
+    pullLatestFrames,
   } = params;
 
   // --- the 5 LWW refs (relocated verbatim from TokenListBlock) ---------------
@@ -239,32 +242,37 @@ export function useTokenListReactivePipeline(
   );
 
   const ingestMergedSnapshot = useCallback(
-    (
+    async (
       snapshot: IMergedAllNetworkSnapshot,
       source: string,
       ownerToken?: IIngestOwnerToken,
-    ): Promise<ITokenListIngestReceipt | undefined> =>
-      backgroundApiProxy.serviceTokenViewModel.ingestRound({
-        ownerKey: ownerToken?.ownerKey ?? cellsIngestInputsRef.current.ownerKey,
-        orderedTokens: snapshot.orderedTokens,
-        smallBalanceTokens: snapshot.smallBalanceTokens,
-        tokenListMap: snapshot.mergeTokenListMap,
-        aggregateTokensMap: snapshot.aggregateTokenMap,
-        ownedAggregateTokenListMap: snapshot.aggregateTokenListMap,
-        smallBalanceFiatValue: snapshot.smallBalanceFiatValue,
-        storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
-        keepDefault: cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
-        homeDefaultTokenMap:
-          cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
-        customTokens: cellsIngestInputsRef.current.nonZeroInputs.customTokens,
-        riskyTokens: snapshot.riskyTokens,
-        riskyMap: snapshot.riskyTokenListMap,
-        accountId: ownerToken?.ownerAccountId ?? ownerAccountId,
-        networkId: ownerToken?.ownerNetworkId ?? ownerNetworkId,
-        rawKeys: `${snapshot.tokenKeys}_${snapshot.smallBalanceKeys}_${snapshot.riskyKeys}`,
-        source,
-      }),
-    [cellsIngestInputsRef, ownerAccountId, ownerNetworkId],
+    ): Promise<ITokenListIngestReceipt | undefined> => {
+      const receipt =
+        await backgroundApiProxy.serviceTokenViewModel.ingestRound({
+          ownerKey:
+            ownerToken?.ownerKey ?? cellsIngestInputsRef.current.ownerKey,
+          orderedTokens: snapshot.orderedTokens,
+          smallBalanceTokens: snapshot.smallBalanceTokens,
+          tokenListMap: snapshot.mergeTokenListMap,
+          aggregateTokensMap: snapshot.aggregateTokenMap,
+          ownedAggregateTokenListMap: snapshot.aggregateTokenListMap,
+          smallBalanceFiatValue: snapshot.smallBalanceFiatValue,
+          storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
+          keepDefault: cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
+          homeDefaultTokenMap:
+            cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
+          customTokens: cellsIngestInputsRef.current.nonZeroInputs.customTokens,
+          riskyTokens: snapshot.riskyTokens,
+          riskyMap: snapshot.riskyTokenListMap,
+          accountId: ownerToken?.ownerAccountId ?? ownerAccountId,
+          networkId: ownerToken?.ownerNetworkId ?? ownerNetworkId,
+          rawKeys: `${snapshot.tokenKeys}_${snapshot.smallBalanceKeys}_${snapshot.riskyKeys}`,
+          source,
+        });
+      await pullLatestFrames?.();
+      return receipt;
+    },
+    [cellsIngestInputsRef, ownerAccountId, ownerNetworkId, pullLatestFrames],
   );
 
   const flushProgressiveView = useCallback(

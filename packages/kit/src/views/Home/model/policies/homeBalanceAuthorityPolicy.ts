@@ -57,6 +57,7 @@ function confirmedPresentation({
 function progressivePresentation({
   aggregate,
   bannerAvailable,
+  portfolioIsEmpty,
   refresh,
 }: {
   aggregate: Extract<
@@ -64,9 +65,25 @@ function progressivePresentation({
     { kind: 'partial' }
   >['aggregate'];
   bannerAvailable: boolean;
+  portfolioIsEmpty: boolean;
   refresh: 'refreshing' | 'failed';
 }): IHomePortfolioPresentation {
   if (new BigNumber(aggregate.amount).isZero() && !aggregate.positiveEvidence) {
+    if (portfolioIsEmpty) {
+      return {
+        kind: 'zero',
+        header: {
+          kind: 'zero',
+          balance: {
+            amount: aggregate.amount,
+            currency: aggregate.quoteBasis.currency,
+          },
+        },
+        actions: { kind: 'zero', items: zeroActions },
+        banner: { kind: 'none' },
+        refresh,
+      };
+    }
     return {
       kind: 'loading',
       header: { kind: 'loading' },
@@ -95,11 +112,13 @@ function projectHomeBalanceAuthority({
   bannerAvailable,
   confirmed,
   confirmedAt,
+  portfolioIsEmpty = false,
 }: {
   aggregation: IHomeBalanceAggregationResult;
   bannerAvailable: boolean;
   confirmed?: IHomeConfirmedBalanceRecord;
   confirmedAt: number;
+  portfolioIsEmpty?: boolean;
 }): IHomeBalanceAuthorityDecision {
   if (aggregation.kind === 'loading') {
     if (confirmed) {
@@ -135,8 +154,22 @@ function projectHomeBalanceAuthority({
     const progressive = progressivePresentation({
       aggregate: aggregation.aggregate,
       bannerAvailable,
+      portfolioIsEmpty,
       refresh: aggregation.refresh,
     });
+    if (
+      progressive.kind === 'zero' &&
+      confirmed &&
+      !new BigNumber(confirmed.amount).isZero()
+    ) {
+      return {
+        presentation: confirmedPresentation({
+          bannerAvailable,
+          record: confirmed,
+          refresh: aggregation.refresh,
+        }),
+      };
+    }
     if (progressive.kind !== 'loading' || !confirmed) {
       return { presentation: progressive };
     }

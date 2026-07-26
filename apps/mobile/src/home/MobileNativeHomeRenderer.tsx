@@ -15,6 +15,7 @@ import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/Account
 import { AllNetworksManagerTrigger } from '@onekeyhq/kit/src/components/AccountSelector/AllNetworksManagerTrigger';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { EmptyDeFi, EmptyNFT } from '@onekeyhq/kit/src/components/Empty';
+import { EmptyHistory } from '@onekeyhq/kit/src/components/Empty/EmptyHistory';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import {
   showResourceDetailsDialog,
@@ -68,7 +69,10 @@ import type {
 } from '@onekeyhq/kit/src/views/Home/model/store/homeStoreTypes';
 import type { INativeHomePageViewProps } from '@onekeyhq/kit/src/views/Home/NativeHomePageView.types';
 import { HomeOverviewContainer } from '@onekeyhq/kit/src/views/Home/pages/HomeOverviewContainer';
-import { PerpsHomeHeaderSlot } from '@onekeyhq/kit/src/views/Home/pages/PerpsContainer';
+import {
+  PerpsHomeHeaderSlot,
+  PerpsHomeStateSlot,
+} from '@onekeyhq/kit/src/views/Home/pages/PerpsContainer';
 import { TabHeaderSettings } from '@onekeyhq/kit/src/views/Home/pages/TabHeaderSettings';
 import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
 import { usePrimeAvailable } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAvailable';
@@ -98,7 +102,6 @@ import {
 } from '@onekeyhq/native-components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalAssetListRoutes,
   EModalRoutes,
@@ -671,11 +674,11 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       actionPresentationKind: balancePresentation?.actions.kind,
       isBackupRequired,
     });
-    let actionRowHeight = 62;
+    let actionRowHeight = 98;
     if (isBackupRequired) {
       actionRowHeight = 0;
-    } else if (reactBalancePresentation.balanceState === 'zero') {
-      actionRowHeight = 98;
+    } else if (actionLayout === 'standard') {
+      actionRowHeight = 62;
     }
     let banners: IHomeContainerHeader['banners'] = [];
     if (bannerPresentation === 'loading') {
@@ -760,7 +763,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     hideValue,
     intl,
     isBackupRequired,
-    reactBalancePresentation.balanceState,
     tronAccountResource.result,
   ]);
   const shouldShowActionRowSkeleton = header.actionLayout === 'loading';
@@ -797,6 +799,11 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
   const perpsDepositDisabled = accountUtils.isWatchingAccount({
     accountId: facts?.owner.accountId ?? '',
   });
+  const isPerpsEmpty = perpsSection.value.kind === 'empty';
+  const isHistoryEmpty =
+    historySection.value.kind === 'empty' ||
+    (historySection.value.kind === 'ready' &&
+      (historyPayload?.data.length ?? 0) === 0);
 
   const accountRowAuthority = useMemo(
     () =>
@@ -881,7 +888,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
   );
   const perpsHeaderAuthority = useMemo(
     () =>
-      owner && perpsPayload
+      owner && perpsPayload && perpsSection.value.kind === 'ready'
         ? {
             owner,
             producedByStoreCommitId: commitIdentity.storeCommitId,
@@ -894,6 +901,25 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       owner?.scopeKey,
       owner?.sessionId,
       perpsPayload,
+      perpsSection.presentationRevision,
+      perpsSection.value.kind,
+    ],
+  );
+  const perpsStateAuthority = useMemo(
+    () =>
+      owner && isPerpsEmpty
+        ? {
+            owner,
+            producedByStoreCommitId: commitIdentity.storeCommitId,
+            slotId: 'content.state.perps' as IHomeContainerSlotKey,
+            slotRevision: perpsSection.presentationRevision,
+          }
+        : undefined,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      isPerpsEmpty,
+      owner?.scopeKey,
+      owner?.sessionId,
       perpsSection.presentationRevision,
     ],
   );
@@ -918,7 +944,8 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
   );
   const deFiStateAuthority = useMemo(
     () =>
-      owner && platformEnv.isNativeAndroid && defiSection.value.kind === 'empty'
+      owner &&
+      (defiSection.value.kind === 'empty' || defiSection.value.kind === 'error')
         ? {
             owner,
             producedByStoreCommitId: commitIdentity.storeCommitId,
@@ -930,6 +957,24 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     [
       defiSection.presentationRevision,
       defiSection.value.kind,
+      owner?.scopeKey,
+      owner?.sessionId,
+    ],
+  );
+  const historyStateAuthority = useMemo(
+    () =>
+      owner && isHistoryEmpty
+        ? {
+            owner,
+            producedByStoreCommitId: commitIdentity.storeCommitId,
+            slotId: 'content.state.history' as IHomeContainerSlotKey,
+            slotRevision: historySection.presentationRevision,
+          }
+        : undefined,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      historySection.presentationRevision,
+      isHistoryEmpty,
       owner?.scopeKey,
       owner?.sessionId,
     ],
@@ -1127,6 +1172,41 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
               },
             }
           : {}),
+        ...(perpsStateAuthority
+          ? {
+              perps: {
+                interaction: 'tap' as const,
+                authority: perpsStateAuthority,
+                content: (
+                  <PerpsHomeStateSlot
+                    viewState="empty"
+                    canDeposit={perpsCanDeposit}
+                    isDepositDisabled={perpsDepositDisabled}
+                  />
+                ),
+                height: 600,
+              },
+            }
+          : {}),
+        ...(historyStateAuthority
+          ? {
+              history: {
+                interaction: 'tap' as const,
+                authority: historyStateAuthority,
+                content: (
+                  <EmptyHistory
+                    showViewInExplorer
+                    walletId={wallet?.id}
+                    accountId={account?.id}
+                    networkId={network?.id}
+                    indexedAccountId={indexedAccount?.id}
+                    tokenMap={historyPayload?.tokenMap ?? {}}
+                  />
+                ),
+                height: 360,
+              },
+            }
+          : {}),
       },
       contentHeaders: {
         portfolio: {
@@ -1204,7 +1284,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
             content: <SupportHub nativeSlot />,
           },
         },
-        ...(perpsSection.value.kind === 'ready'
+        ...(perpsSection.value.kind === 'ready' || isPerpsEmpty
           ? {
               perps: {
                 ...(shouldShowUpgrade
@@ -1251,6 +1331,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       },
     }),
     [
+      account?.id,
       accountRowAuthority,
       actionRowAuthority,
       backupStateAuthority,
@@ -1260,17 +1341,23 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       footerAuthorities,
       header.actionRowHeight,
       historyAccessoryAuthority,
+      historyPayload?.tokenMap,
+      historyStateAuthority,
+      indexedAccount?.id,
       intl,
       isBackupRequired,
       isOthersWallet,
       nativeTheme.backgroundColor,
       nativeLabels.tokens,
+      network?.id,
       network?.isAllNetworks,
       nftStateAuthority,
       perpsCanDeposit,
       perpsDepositDisabled,
       perpsHeaderAuthority,
+      isPerpsEmpty,
       perpsPayload,
+      perpsStateAuthority,
       perpsSection.value.kind,
       portfolioAccessoryAuthority,
       portfolioHeaderAuthority,
@@ -1280,6 +1367,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       setShowLpTokensOnly,
       shouldShowUpgrade,
       tabTitles,
+      wallet?.id,
     ],
   );
   const slotBundle = useMemo(

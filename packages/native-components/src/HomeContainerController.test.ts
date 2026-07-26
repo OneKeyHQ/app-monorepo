@@ -1815,6 +1815,12 @@ describe('iOS HomeContainer unified vertical scroll range', () => {
     'utf8',
   );
 
+  it('publishes patched slot frames after UIKit finishes layout', () => {
+    expect(source).toMatch(
+      /private func applyProtocolV2Patch\([\s\S]*?setNeedsLayout\(\)[\s\S]*?headerView\.setNeedsLayout\(\)[\s\S]*?layoutIfNeeded\(\)[\s\S]*?headerView\.layoutIfNeeded\(\)[\s\S]*?slotLayoutDidChange\?\(\)/,
+    );
+  });
+
   it('clamps the rendered body offset during outer rubber-band overscroll', () => {
     expect(source).toMatch(
       /func setBodyContentOffset\(_ value: CGFloat\) \{[\s\S]*?let clampedValue = max\(0, min\(value, maximumBodyContentOffset\)\)[\s\S]*?tableView\.contentOffset\.y = clampedValue/,
@@ -2029,6 +2035,32 @@ describe('Android HomeContainer value column geometry', () => {
   it('measures the primary value from its content instead of the weighted row width', () => {
     expect(androidSource).toContain(
       'addView(value, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))',
+    );
+  });
+});
+
+describe('Android HomeContainer list update stability', () => {
+  const androidSource = fs.readFileSync(
+    path.join(
+      __dirname,
+      '../android/src/main/java/com/margelo/nitro/onekeynativecomponents/HomeContainerView.kt',
+    ),
+    'utf8',
+  );
+
+  it('keeps the RecyclerView mounted across loading and structure updates', () => {
+    expect(androidSource).toContain(
+      'private val recycler = RecyclerView(context)',
+    );
+    expect(androidSource).toContain(
+      'listAdapter.onListCommitted = { committedRevision ->',
+    );
+    expect(androidSource).not.toContain('recreateRecyclerForReadyContent');
+  });
+
+  it('does not restart skeleton animators when the theme is unchanged', () => {
+    expect(androidSource).toContain(
+      'if (configuredHomeContainerSkeletonGradients[this] == gradientColors.toList()) return',
     );
   });
 });

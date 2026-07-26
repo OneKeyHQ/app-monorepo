@@ -155,6 +155,57 @@ describe('mobileNativeHomeViewModelAdapter', () => {
     ).toEqual([]);
   });
 
+  it('reserves the original Perps empty-state slot geometry', () => {
+    expect(
+      buildMobileNativeHomeViewModelSections({
+        ...presentation,
+        payloads: {},
+        sectionId: 'perps',
+        semantic: { kind: 'empty', emptyState: 'perps' },
+      }),
+    ).toEqual([
+      {
+        id: 'perps-state',
+        items: [
+          {
+            id: 'perps-state-item',
+            displayHeight: 600,
+            renderer: 'empty',
+            title: 'No data',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('projects ready History without rows to the empty-state slot', () => {
+    expect(
+      buildMobileNativeHomeViewModelSections({
+        ...presentation,
+        payloads: {},
+        sectionId: 'history',
+        semantic: {
+          kind: 'ready',
+          freshness: 'live',
+          refresh: 'idle',
+          rowIds: [],
+        },
+      }),
+    ).toEqual([
+      {
+        id: 'history-state',
+        items: [
+          {
+            id: 'history-state-item',
+            displayHeight: 360,
+            renderer: 'empty',
+            title: 'No data',
+          },
+        ],
+      },
+    ]);
+  });
+
   it('matches the legacy mobile DeFi separators between rows only', () => {
     const defiPayload = {
       currency: 'USD',
@@ -233,6 +284,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
           aggregateTokenListMap: {},
           allAggregateTokenMap: {},
           displayIds: tokens.map((token) => token.$key),
+          fundedIds: tokens.map((token) => token.$key),
           generation: 1,
           homeDefaultTokenMap: {},
           isAllNetworkEmptyAccount: false,
@@ -325,6 +377,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
           allAggregateTokenMap: {},
           blockedRiskTokenCount: 6,
           displayIds: [visible.$key, lowValue.$key],
+          fundedIds: [visible.$key, lowValue.$key, risk.$key],
           generation: 1,
           homeDefaultTokenMap: {},
           isAllNetworkEmptyAccount: false,

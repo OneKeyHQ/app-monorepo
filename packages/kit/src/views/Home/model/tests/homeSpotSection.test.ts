@@ -36,6 +36,7 @@ function payload(id: string): IHomeSpotLegacyPayload {
     aggregateTokenListMap: {},
     allAggregateTokenMap: {},
     displayIds: [id],
+    fundedIds: [id],
     generation: 1,
     homeDefaultTokenMap: {},
     isAllNetworkEmptyAccount: false,

@@ -148,6 +148,47 @@ describe('homeBalanceAuthorityPolicy', () => {
     });
   });
 
+  it('shows zero actions once the portfolio is authoritatively empty', () => {
+    const decision = projectHomeBalanceAuthority({
+      aggregation: partial({ amount: '0', positiveEvidence: false }),
+      bannerAvailable: true,
+      confirmedAt: 2,
+      portfolioIsEmpty: true,
+    });
+
+    expect(decision.cacheCommit).toBeUndefined();
+    expect(decision.presentation).toEqual({
+      kind: 'zero',
+      header: {
+        kind: 'zero',
+        balance: { amount: '0', currency: 'usd' },
+      },
+      actions: {
+        kind: 'zero',
+        items: ['addMoney', 'receive', 'more'],
+      },
+      banner: { kind: 'none' },
+      refresh: 'refreshing',
+    });
+  });
+
+  it('keeps a funded exact total while an empty portfolio waits for optional sources', () => {
+    expect(
+      projectHomeBalanceAuthority({
+        aggregation: partial({ amount: '0', positiveEvidence: false }),
+        bannerAvailable: true,
+        confirmed,
+        confirmedAt: 2,
+        portfolioIsEmpty: true,
+      }).presentation,
+    ).toMatchObject({
+      kind: 'funded',
+      header: { balance: { amount: confirmed.amount } },
+      freshness: 'confirmedCache',
+      refresh: 'refreshing',
+    });
+  });
+
   it('uses exact confirmed data for loading/error without writing cache', () => {
     const loading = projectHomeBalanceAuthority({
       aggregation: {

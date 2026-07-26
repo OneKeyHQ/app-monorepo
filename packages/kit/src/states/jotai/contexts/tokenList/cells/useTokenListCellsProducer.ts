@@ -124,7 +124,7 @@ export function useTokenListCellsProducer(
   currencyId: string,
   storeName?: string,
   onFrameApplied?: (receipt: ITokenFrameAppliedReceipt) => void,
-): void {
+): () => Promise<void> {
   const { store } = useTokenListContextData();
 
   // Stable deps bag bound to this store. `meta/cell/subcell/aggCell` resolve the
@@ -192,7 +192,7 @@ export function useTokenListCellsProducer(
     );
   }, [deps, enabled, identity, ownerKey, store]);
 
-  useFrameChannelSubscriber<ITokenFrameKind, IFramesPull>({
+  return useFrameChannelSubscriber<ITokenFrameKind, IFramesPull>({
     ownerKey,
     enabled,
     applyOrder: ['structure', 'valuation', 'risky'],

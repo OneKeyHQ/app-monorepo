@@ -1495,7 +1495,10 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       updateSharedChromeLayout()
     }
     setNeedsLayout()
+    headerView.setNeedsLayout()
     layoutIfNeeded()
+    headerView.layoutIfNeeded()
+    slotLayoutDidChange?()
     renderGroup.notify(queue: .main, execute: completion)
   }
 

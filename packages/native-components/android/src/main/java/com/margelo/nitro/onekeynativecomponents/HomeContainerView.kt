@@ -39,6 +39,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.viewpager2.widget.ViewPager2
 import com.margelo.nitro.skeleton.SkeletonNativeView
 import java.util.UUID
+import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -49,6 +50,8 @@ import kotlin.math.roundToInt
 private const val HOME_CONTAINER_TAB_HEIGHT_DP = 60
 private const val HOME_CONTAINER_COMPACT_HEADER_HEIGHT_DP = 60
 private const val HOME_CONTAINER_BANNER_SKELETON_ID = "home-banner-loading"
+private val configuredHomeContainerSkeletonGradients =
+  WeakHashMap<SkeletonNativeView, List<String>>()
 
 private fun HomeContainerTheme.skeletonGradientColors(): Array<String> {
   val background = parseHomeContainerColor(backgroundColor, Color.WHITE)
@@ -64,7 +67,11 @@ private fun HomeContainerTheme.skeletonGradientColors(): Array<String> {
 }
 
 private fun SkeletonNativeView.applyHomeContainerSkeletonTheme(theme: HomeContainerTheme) {
-  configure(shimmerSpeed = 3.0, shimmerGradientColors = theme.skeletonGradientColors())
+  val gradientColors = theme.skeletonGradientColors()
+  if (configuredHomeContainerSkeletonGradients[this] == gradientColors.toList()) return
+  configure(shimmerSpeed = 3.0, shimmerGradientColors = gradientColors)
+  // Adapter rebinds must not restart Android's shimmer ValueAnimator for an unchanged theme.
+  configuredHomeContainerSkeletonGradients[this] = gradientColors.toList()
 }
 
 private data class HomeContainerTabViewKey(
@@ -1801,7 +1808,7 @@ private class HomePageView(context: Context) : FrameLayout(context) {
   var tabId: String = ""
     private set
 
-  private var recycler = RecyclerView(context)
+  private val recycler = RecyclerView(context)
   private val listAdapter = HomeListAdapter()
   private var topSpacerHeight = 0
   private var suppressCollapseCallback = false
@@ -1831,16 +1838,8 @@ private class HomePageView(context: Context) : FrameLayout(context) {
     listAdapter.onAction = { actionId, itemId ->
       onAction?.invoke(actionId, itemId, tabId)
     }
-    listAdapter.onListCommitted = { committedRevision, requiresRecyclerRecreation ->
-      if (requiresRecyclerRecreation) {
-        val layoutState = recycler.layoutManager?.onSaveInstanceState()
-        post {
-          recreateRecyclerForReadyContent(layoutState)
-          commitListContent(committedRevision)
-        }
-      } else {
-        commitListContent(committedRevision)
-      }
+    listAdapter.onListCommitted = { committedRevision ->
+      commitListContent(committedRevision)
     }
   }
 
@@ -2088,35 +2087,6 @@ private class HomePageView(context: Context) : FrameLayout(context) {
     }
   }
 
-  private fun recreateRecyclerForReadyContent(layoutState: android.os.Parcelable?) {
-    val previousRecycler = recycler
-    previousRecycler.stopScroll()
-    previousRecycler.clearOnScrollListeners()
-    previousRecycler.adapter = null
-    removeView(previousRecycler)
-
-    recycler = RecyclerView(context)
-    configureRecycler(recycler)
-    addView(
-      recycler,
-      LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
-    )
-    if (layoutState == null) {
-      recycler.scrollToPosition(0)
-    } else {
-      recycler.layoutManager?.onRestoreInstanceState(layoutState)
-    }
-    applyPendingSynchronizedCollapseOffset()
-    recycler.requestLayout()
-    requestLayout()
-    if (width > 0 && height > 0) {
-      val widthSpec = MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY)
-      val heightSpec = MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY)
-      recycler.measure(widthSpec, heightSpec)
-      recycler.layout(0, 0, width, height)
-    }
-  }
-
   private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
 }
@@ -2188,7 +2158,7 @@ internal fun resolveHomeContainerRowHeight(
 
 private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
   var onAction: ((String, String) -> Unit)? = null
-  var onListCommitted: ((Long, Boolean) -> Unit)? = null
+  var onListCommitted: ((Long) -> Unit)? = null
   private var theme = HomeContainerTheme("#FFFFFF", "#F5F5F5", "#EEEEEE", "#111111", "#777777", "#3574F0", "#1F9D67", "#D64545")
   private var sections: List<HomeContainerSection> = emptyList()
   private var rows: List<HomeListRow> = emptyList()
@@ -2271,19 +2241,18 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
         else -> false
       }
     }
-    val requiresRecyclerRecreation =
+    val requiresFullRebind =
       transitionsFromLoading ||
         hydratesDeferredPortfolioSections ||
         structureChanged ||
         interactiveContentChanged
 
-    if (requiresRecyclerRecreation) {
+    if (requiresFullRebind) {
       rows = nextRows
       // Skeleton views continuously invalidate while shimmering. A full,
       // synchronous rebind is required for loading-to-content and for the
-      // one-time deferred portfolio-section hydration. Recreate the recycler
-      // when row structure or interactive state changes so moved action rows
-      // cannot retain a stale holder.
+      // one-time deferred portfolio-section hydration. Keep the recycler
+      // mounted while rebinding so data polling cannot expose an empty frame.
       // Ordinary content updates below still use DiffUtil animations.
       notifyDataSetChanged()
     } else {
@@ -2296,11 +2265,11 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
     if (
       themeChanged &&
       itemCount > 0 &&
-      !requiresRecyclerRecreation
+      !requiresFullRebind
     ) {
       notifyItemRangeChanged(0, itemCount, PAYLOAD_THEME)
     }
-    onListCommitted?.invoke(submittedRevision, requiresRecyclerRecreation)
+    onListCommitted?.invoke(submittedRevision)
   }
 
   fun statePosition(): Int {

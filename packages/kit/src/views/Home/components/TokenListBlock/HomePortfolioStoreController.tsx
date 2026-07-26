@@ -411,6 +411,13 @@ function HomePortfolioStoreController({
       customTokens?: ICustomTokenItem[];
     };
   }>({ ownerKey: '', nonZeroInputs: {} });
+  const pullLatestTokenListFramesRef = useRef<() => Promise<void>>(
+    async () => undefined,
+  );
+  const pullLatestTokenListFrames = useCallback(
+    () => pullLatestTokenListFramesRef.current(),
+    [],
+  );
   // The all-network LWW orchestration pipeline (design §2 收口 facade): owns the
   // FloorView (LwwMaterializedView, SWR floor + IVM full-overwrite +
   // intersection-evict + generation guard) + the merge + the `ingestRound` feed.
@@ -422,6 +429,7 @@ function HomePortfolioStoreController({
     ownerCreateAtNetwork: account?.createAtNetwork,
     cellsIngestInputsRef,
     enabled: ENABLE_BG_TOKEN_VIEW_MODEL,
+    pullLatestFrames: pullLatestTokenListFrames,
   });
   // Destructure the stable facade callbacks (each a useCallback in the facade) so
   // the handlers below dep on the bare names. Depending on `pipeline` (a fresh
@@ -828,9 +836,8 @@ function HomePortfolioStoreController({
         }
 
         if (ENABLE_BG_TOKEN_VIEW_MODEL) {
-          valuationReceipt = requireHomePortfolioValuationReceipt({
-            ownerKey: requestOwnerKey,
-            receipt: await backgroundApiProxy.serviceTokenViewModel.ingestRound(
+          const ingestReceipt =
+            await backgroundApiProxy.serviceTokenViewModel.ingestRound(
               buildHomeTokenListCacheIngestRound({
                 ownerKey: requestOwnerKey,
                 accountId: requestAccountId,
@@ -848,7 +855,11 @@ function HomePortfolioStoreController({
                 rawKeys: r.allTokens?.keys ?? '',
                 source: 'single',
               }),
-            ),
+            );
+          await pullLatestTokenListFrames();
+          valuationReceipt = requireHomePortfolioValuationReceipt({
+            ownerKey: requestOwnerKey,
+            receipt: ingestReceipt,
           });
           if (!isLatestRequest()) {
             return;
@@ -932,6 +943,7 @@ function HomePortfolioStoreController({
       syncTokenFilterToOverview,
       walletTokenFilterParams,
       completeHomeSectionRequest,
+      pullLatestTokenListFrames,
       tokenSelectorFilterMode,
     ],
     {
@@ -1378,6 +1390,7 @@ function HomePortfolioStoreController({
       allAggregateTokenMap: allAggregateTokenMap ?? EMPTY_AGGREGATE_TOKEN_MAP,
       blockedRiskTokenCount,
       displayIds: legacySpotDisplayIds,
+      fundedIds: listStructure.fundedIds,
       generation: listStructure.generation,
       homeDefaultTokenMap: homeDefaultTokenMap ?? EMPTY_HOME_DEFAULT_TOKEN_MAP,
       isAllNetworkEmptyAccount,
@@ -1420,6 +1433,7 @@ function HomePortfolioStoreController({
       isAllNetworkEmptyAccount,
       isLpTokenSwitchLoading,
       legacySpotDisplayIds,
+      listStructure.fundedIds,
       listStructure.ownedAggregateTokenListMap,
       listStructure.generation,
       listStructure.ownerKey,
@@ -1666,12 +1680,13 @@ function HomePortfolioStoreController({
     }),
     [homeDefaultTokenMap, cellsCustomTokens],
   );
-  useTokenListCellsProducer(
+  const pullLatestTokenListFramesFromProducer = useTokenListCellsProducer(
     cellsOwnerKey,
     cellsCurrencyId,
     undefined,
     handleTokenCellsFrameApplied,
   );
+  pullLatestTokenListFramesRef.current = pullLatestTokenListFramesFromProducer;
   useEffect(() => {
     void cellsSnapshotRevision;
     void singleNetworkCompletionRevision;
@@ -3343,6 +3358,7 @@ function HomePortfolioStoreController({
             source,
           }),
         );
+        await pullLatestTokenListFrames();
         defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
           runtime: 'main',
           phase: 'single-network-cache-ingest',
@@ -3465,6 +3481,7 @@ function HomePortfolioStoreController({
     indexedAccount?.id,
     mergeDeriveAddressData,
     network?.id,
+    pullLatestTokenListFrames,
     setOverviewTokenCacheState,
     syncTokenFilterToOverview,
     updateAccountOverviewState,
@@ -3766,9 +3783,8 @@ function HomePortfolioStoreController({
         });
 
         if (ENABLE_BG_TOKEN_VIEW_MODEL) {
-          valuationReceipt = requireHomePortfolioValuationReceipt({
-            ownerKey: requestOwnerKey,
-            receipt: await backgroundApiProxy.serviceTokenViewModel.ingestRound(
+          const ingestReceipt =
+            await backgroundApiProxy.serviceTokenViewModel.ingestRound(
               buildHomeTokenListCacheIngestRound({
                 ownerKey: requestOwnerKey,
                 accountId,
@@ -3786,7 +3802,11 @@ function HomePortfolioStoreController({
                 rawKeys: r.allTokens?.keys ?? '',
                 source: 'single',
               }),
-            ),
+            );
+          await pullLatestTokenListFrames();
+          valuationReceipt = requireHomePortfolioValuationReceipt({
+            ownerKey: requestOwnerKey,
+            receipt: ingestReceipt,
           });
           if (!isLatest()) return;
         }
@@ -3857,6 +3877,7 @@ function HomePortfolioStoreController({
       updateAccountWorth,
       updateTokenListState,
       completeHomeSectionRequest,
+      pullLatestTokenListFrames,
     ],
   );
 

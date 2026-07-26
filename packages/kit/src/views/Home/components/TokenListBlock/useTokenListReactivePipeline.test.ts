@@ -84,7 +84,7 @@ function makeCacheItem(over: Partial<ICacheSeedItem> = {}): ICacheSeedItem {
   };
 }
 
-function render(enabled = true) {
+function render(enabled = true, pullLatestFrames?: () => Promise<void>) {
   const cellsIngestInputsRef = makeInputsRef();
   return {
     cellsIngestInputsRef,
@@ -104,6 +104,7 @@ function render(enabled = true) {
           ownerCreateAtNetwork: undefined,
           cellsIngestInputsRef,
           enabled: isEnabled,
+          pullLatestFrames,
         }),
       {
         initialProps: {
@@ -328,7 +329,8 @@ describe('useTokenListReactivePipeline', () => {
   });
 
   it('buildAuthoritativeSnapshot + commit → authoritative ingest', async () => {
-    const { result } = render(true);
+    const pullLatestFrames = jest.fn(async () => undefined);
+    const { result } = render(true, pullLatestFrames);
     act(() => {
       result.current.setEnabledKeys([OWNER]);
     });
@@ -355,6 +357,7 @@ describe('useTokenListReactivePipeline', () => {
     expect(
       (mockIngestRound.mock.calls[0][0] as { source: string }).source,
     ).toBe('authoritative');
+    expect(pullLatestFrames).toHaveBeenCalledTimes(2);
   });
 
   it('P1-g: a throttled live flush is SUPERSEDED by an authoritative commit (epoch bump)', async () => {
