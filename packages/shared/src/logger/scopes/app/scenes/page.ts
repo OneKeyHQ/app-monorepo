@@ -1,3 +1,4 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ENotificationPushTopicTypes } from '@onekeyhq/shared/types/notification';
 
 import { BaseScene } from '../../../base/baseScene';
@@ -7,17 +8,19 @@ export class PageScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
   public pageView(pageName: string) {
-    setTimeout(() => {
-      void import('@onekeyhq/shared/src/modules3rdParty/sentry').then(
-        ({ addBreadcrumb }) => {
-          addBreadcrumb({
-            category: 'page',
-            message: pageName,
-            level: 'info',
-          });
-        },
-      );
-    });
+    if (!platformEnv.isNative) {
+      setTimeout(() => {
+        void import('@onekeyhq/shared/src/modules3rdParty/sentry').then(
+          ({ addBreadcrumb }) => {
+            addBreadcrumb({
+              category: 'page',
+              message: pageName,
+              level: 'info',
+            });
+          },
+        );
+      });
+    }
     return { pageName };
   }
 
