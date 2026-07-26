@@ -43,37 +43,41 @@ const USDC_ICON = 'https://api.unifold.io/api/public/icons/tokens/svg/usdc.svg';
 // the QR centre logo renders as a broken image.
 const ARB_ICON =
   'https://api.unifold.io/api/public/icons/networks/svg/arbitrum.svg';
-const TX = '0x41f367d5a06097f392e2b3d88cc0170a41fce6b20d46bd552145a7d5af87d592';
+const SYNTHETIC_RECIPIENT = '0x1111111111111111111111111111111111111111';
+const SYNTHETIC_DEPOSIT_ADDRESS = '0x2222222222222222222222222222222222222222';
+const SYNTHETIC_TX =
+  '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const SHORT_WINDOW_HEIGHT = 386;
 const SHORT_WINDOW_BODY_MAX_HEIGHT =
   getUnifoldDesktopDialogBodyMaxHeight(SHORT_WINDOW_HEIGHT);
 
-// Verbatim payload from a real Arbitrum deposit (2026-07-22).
+// Fully synthetic payload: values preserve the vendor field shapes without
+// tying wallet-service identifiers to any real address or transaction.
 const SUCCEEDED: IUnifoldDepositExecution = {
-  executionId: 'exec_3GqnYvwsMohxctAkCMbfviym165',
+  executionId: 'exec_gallery_succeeded_0001',
   status: 'succeeded',
   vendorStatus: 'succeeded',
   terminal: true,
-  recipientAddress: '0x8de690f962af4d26263060bcf4cf61c1353c8eb0',
-  depositWalletId: 'wallet_3GqnPXYCXi8gg69XyS6etMfBHWs',
-  depositAddress: '0x1c30fdd3bb555dd594d92cbcf37dedaa327043b1',
-  transactionHash: TX,
-  destinationTransactionHashes: [TX],
+  recipientAddress: SYNTHETIC_RECIPIENT,
+  depositWalletId: 'wallet_gallery_0001',
+  depositAddress: SYNTHETIC_DEPOSIT_ADDRESS,
+  transactionHash: SYNTHETIC_TX,
+  destinationTransactionHashes: [SYNTHETIC_TX],
   sourceChainType: 'ethereum',
   sourceChainId: '42161',
-  sourceAmountBaseUnit: '3300000',
-  sourceAmountUsd: '3.29960100000000000000',
+  sourceAmountBaseUnit: '12345678',
+  sourceAmountUsd: '12.34567800000000000000',
   sourceCurrency: 'usdc',
   sourceTokenDecimals: 6,
-  destinationAmountBaseUnit: '3300000',
-  destinationAmountUsd: '3.29960100000000000000',
+  destinationAmountBaseUnit: '12345678',
+  destinationAmountUsd: '12.34567800000000000000',
   destinationCurrency: 'usdc',
   destinationTokenDecimals: 6,
   destinationTokenIconUrl: USDC_ICON,
-  explorerUrl: `https://arbiscan.io/tx/${TX}`,
-  destinationExplorerUrl: `https://arbiscan.io/tx/${TX}`,
+  explorerUrl: `https://arbiscan.io/tx/${SYNTHETIC_TX}`,
+  destinationExplorerUrl: `https://arbiscan.io/tx/${SYNTHETIC_TX}`,
   failureReason: null,
-  createdAt: '2026-07-22T08:13:37.181Z',
+  createdAt: '2030-01-01T12:00:00.000Z',
 };
 
 // Pre-terminal: destination amounts are null by contract, so every amount on
@@ -88,7 +92,7 @@ const PENDING: IUnifoldDepositExecution = {
   destinationAmountUsd: null,
   destinationExplorerUrl: null,
   destinationTransactionHashes: [],
-  createdAt: '2026-07-22T08:20:00.000Z',
+  createdAt: '2030-01-01T12:05:00.000Z',
 };
 
 // Delayed must never be presented as a failure (contract §1).
@@ -97,7 +101,7 @@ const DELAYED: IUnifoldDepositExecution = {
   executionId: 'exec_delayed_0002',
   status: 'delayed',
   vendorStatus: 'delayed',
-  createdAt: '2026-07-22T08:05:00.000Z',
+  createdAt: '2030-01-01T11:55:00.000Z',
 };
 
 const WAITING_MINIMAL: IUnifoldDepositExecution = {
@@ -128,7 +132,7 @@ const FAILED: IUnifoldDepositExecution = {
   destinationAmountUsd: null,
   destinationExplorerUrl: null,
   destinationTransactionHashes: [],
-  createdAt: '2026-07-22T07:40:00.000Z',
+  createdAt: '2030-01-01T11:30:00.000Z',
 };
 
 const REFUNDED: IUnifoldDepositExecution = {
@@ -153,7 +157,7 @@ const LARGE_AMOUNT: IUnifoldDepositExecution = {
 // layer has to survive zero, sub-cent, negative (refunds), huge values and
 // non-numeric junk without ever showing a misleading 0.
 const AMOUNT_EDGE_CASES: Array<[string, string | null]> = [
-  ['real payload', '3.29960100000000000000'],
+  ['decimal precision', '12.34567800000000000000'],
   ['plain 2dp', '2.00'],
   ['zero', '0'],
   ['sub-cent', '0.0000001'],
@@ -365,7 +369,7 @@ function PanelFrame({
   expanded,
   activationWarning,
   qrLoading,
-  qrAddress = '0x1c30fdd3bb555dd594d92cbcf37dedaa327043b1',
+  qrAddress = SYNTHETIC_DEPOSIT_ADDRESS,
   selectorLoading,
   onDismiss,
 }: {
@@ -412,7 +416,7 @@ function PanelFrame({
               Price impact: 0.10%
             </SizableText>
             <SizableText size="$bodySm" color="$textSubdued">
-              Recipient address: 0x8de690f9…3c8eb0
+              Recipient address: 0x11111111…111111
             </SizableText>
           </YStack>
         ) : null}
@@ -817,7 +821,7 @@ function TransferPiecesGallery() {
           QR card · ready
         </SizableText>
         <UnifoldDepositQRCard
-          address="0x1c30fdd3bb555dd594d92cbcf37dedaa327043b1"
+          address={SYNTHETIC_DEPOSIT_ADDRESS}
           chainIconUri={ARB_ICON}
           loading={false}
         />
