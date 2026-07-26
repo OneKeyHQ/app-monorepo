@@ -83,6 +83,12 @@ function resolvePerpsHomeAmountAuthority(
   };
 }
 
+function shouldPersistPerpsHomePortfolioResult(
+  result: IPerpsHomePortfolioResult,
+) {
+  return result.requestResolved && !result.errorKind;
+}
+
 function projectPerpsHomePortfolioEvidence<TView extends { isEmpty: boolean }>(
   currentResult: IPerpsHomePortfolioResult<TView> | undefined,
 ): IPerpsHomePortfolioEvidence<TView> {
@@ -117,6 +123,7 @@ export {
   projectPerpsHomePortfolioEvidence,
   resolvePerpsHomeAmountAuthority,
   selectCurrentPerpsHomePortfolioResult,
+  shouldPersistPerpsHomePortfolioResult,
 };
 export type {
   IPerpsHomeAsyncScope,

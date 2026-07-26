@@ -1131,13 +1131,7 @@ export function useHomeDeFiStoreSource({
       setInitialized(false);
       setErrorCode(undefined);
     }
-    if (
-      !fullSourceEnabled ||
-      !visible ||
-      !accountId ||
-      !networkId ||
-      !walletId
-    ) {
+    if (!fullSourceEnabled || !accountId || !networkId || !walletId) {
       return;
     }
     if (!isAllNetworks) {
@@ -1149,7 +1143,6 @@ export function useHomeDeFiStoreSource({
     isAllNetworks,
     loadSingle,
     networkId,
-    visible,
     walletId,
   ]);
 

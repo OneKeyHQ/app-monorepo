@@ -112,7 +112,10 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
-import { useHomeFactsSnapshot } from '../../model/react/homeStoreHooks';
+import {
+  useHomeFactsSnapshot,
+  useHomeNavigationSnapshot,
+} from '../../model/react/homeStoreHooks';
 import { useHomeStoreControllerActions } from '../../model/react/useHomeStoreControllerActions';
 import { useHomeStoreSourcePublisher } from '../../model/react/useHomeStoreSourcePublisher';
 import { HomeSectionCoordinator } from '../../model/sections/homeSectionCoordinator';
@@ -324,13 +327,15 @@ function HomePortfolioStoreController({
 }: {
   showRecentHistory?: boolean;
 }) {
-  const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
+  const { isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
   // Outer-route focus: false when user is on Market/Swap (Home tab inactive),
-  // when a modal is presented above Home, or when the app is locked. Combined
-  // below with `isFocused` (inner Home-tab) so app-resume only refreshes when
-  // the user is actually looking at this list.
+  // when a modal is presented above Home, or when the app is locked.
   const isRouteFocused = useRouteIsFocused();
+  const navigation = useHomeNavigationSnapshot();
+  const viewVisible =
+    navigation.value.kind === 'ready' &&
+    navigation.value.selectedTabId === 'portfolio';
 
   const {
     activeAccount: {
@@ -947,10 +952,9 @@ function HomePortfolioStoreController({
       tokenSelectorFilterMode,
     ],
     {
-      overrideIsFocused: (isPageFocused) =>
-        (isPageFocused && isFocused) || shouldAlwaysFetch,
+      overrideIsFocused: (isPageFocused) => isPageFocused || shouldAlwaysFetch,
       debounced: POLLING_DEBOUNCE_INTERVAL,
-      pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
+      pollingInterval: viewVisible ? POLLING_INTERVAL_FOR_TOKEN : undefined,
       revalidateOnFocus: true,
     },
   );
@@ -3593,12 +3597,12 @@ function HomePortfolioStoreController({
 
   useEffect(() => {
     const removeSubscription = onVisibilityStateChange((visible) => {
-      if (visible && isFocused && isRouteFocused) {
+      if (visible && viewVisible && isRouteFocused) {
         handleRefreshOnVisibilityActive();
       }
     });
     return removeSubscription;
-  }, [handleRefreshOnVisibilityActive, isFocused, isRouteFocused]);
+  }, [handleRefreshOnVisibilityActive, isRouteFocused, viewVisible]);
 
   useEffect(() => {
     const fn = () => {
@@ -3665,9 +3669,9 @@ function HomePortfolioStoreController({
       showRecentHistory,
     ],
     {
-      overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
+      overrideIsFocused: (isPageFocused) => isPageFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
-      pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
+      pollingInterval: viewVisible ? POLLING_INTERVAL_FOR_HISTORY : undefined,
     },
   );
 
@@ -3915,7 +3919,7 @@ function HomePortfolioStoreController({
     };
 
     const fn = () => {
-      if (isFocused) {
+      if (viewVisible) {
         refresh(undefined);
       }
     };
@@ -3930,13 +3934,13 @@ function HomePortfolioStoreController({
   }, [
     handleRefreshAllNetworkData,
     handleRefreshAllNetworkDataByAccounts,
-    isFocused,
     network?.isAllNetworks,
     run,
     runAllNetworksRequests,
     runLpTokenList,
     refreshSingleNetworkTokenListByTarget,
     showLpTokensOnly,
+    viewVisible,
   ]);
 
   useEffect(() => {

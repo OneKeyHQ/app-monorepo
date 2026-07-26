@@ -1921,7 +1921,10 @@ describe('native HomeContainer background authority', () => {
       /fun selectTab\(tabId: String, animated: Boolean\)[\s\S]*?moveToTab\(tabId, animated, false\)/,
     );
     expect(androidSource).toContain(
-      'if (notify && didChangeTab) emitTabSelection(tabId)',
+      'pendingPagerSelectionShouldNotify = notify && didChangeTab',
+    );
+    expect(androidSource).toContain(
+      'if (shouldNotify) emitTabSelection(targetTab.id)',
     );
   });
 
@@ -2053,9 +2056,13 @@ describe('Android HomeContainer list update stability', () => {
       'private val recycler = RecyclerView(context)',
     );
     expect(androidSource).toContain(
-      'listAdapter.onListCommitted = { committedRevision ->',
+      'target.layoutManager = HomeContainerListLayoutManager(context)',
+    );
+    expect(androidSource).toContain(
+      'listAdapter.onRowsSubmitted = { submittedRevision ->',
     );
     expect(androidSource).not.toContain('recreateRecyclerForReadyContent');
+    expect(androidSource).not.toContain('layoutSharedChromeImmediately');
   });
 
   it('does not restart skeleton animators when the theme is unchanged', () => {

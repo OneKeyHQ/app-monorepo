@@ -763,16 +763,11 @@ function useHomeHistoryStoreSource({
   ]);
 
   useEffect(() => {
-    if (
-      !sourceEnabled ||
-      !visible ||
-      !identityKey ||
-      !stableOwnerTokenRef.current
-    ) {
+    if (!sourceEnabled || !identityKey || !stableOwnerTokenRef.current) {
       return;
     }
     void seedCacheThenLoadRef.current();
-  }, [identityKey, sourceEnabled, stableOwnerTokenKey, visible]);
+  }, [identityKey, sourceEnabled, stableOwnerTokenKey]);
 
   useEffect(
     () => () => {

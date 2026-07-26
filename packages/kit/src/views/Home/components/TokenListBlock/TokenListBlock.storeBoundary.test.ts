@@ -43,6 +43,20 @@ describe('Home portfolio Store boundary', () => {
     );
   });
 
+  it('keeps portfolio data activation independent from tab visibility', () => {
+    expect(controllerSource).toContain('const viewVisible =');
+    expect(controllerSource).toContain(
+      "navigation.value.selectedTabId === 'portfolio'",
+    );
+    expect(controllerSource).toContain('isPageFocused || shouldAlwaysFetch');
+    expect(controllerSource).toContain(
+      'pollingInterval: viewVisible ? POLLING_INTERVAL_FOR_TOKEN : undefined',
+    );
+    expect(controllerSource).not.toContain(
+      '(isPageFocused && isFocused) || shouldAlwaysFetch',
+    );
+  });
+
   it('keeps persisted portfolio identity independent of runtime sessions', () => {
     expect(controllerSource).toContain(
       'paramsFingerprint: legacySpotCacheParamsFingerprint',

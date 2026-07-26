@@ -27,6 +27,13 @@ import { useHomeStoreControllerActions } from './useHomeStoreControllerActions';
 import type { ILoadedHomeDisplaySnapshotManifest } from '../cacheV2/homeDisplaySnapshotTypes';
 import type { IHomeStoreSourceId } from '../store/homeStoreTypes';
 
+const HOME_BACKGROUND_SNAPSHOT_SOURCE_IDS = [
+  'perps',
+  'defi',
+  'nft',
+  'history',
+] as const satisfies readonly IHomeStoreSourceId[];
+
 function getNow(): number {
   return Date.now();
 }
@@ -48,7 +55,9 @@ function getSourceIdsText(sourceIds: readonly IHomeStoreSourceId[]): string {
  *
  * V3 stores only explicitly selected business fields. It waits for
  * ActiveAccount to confirm the owner, then exact-reads the critical, Banner,
- * and Portfolio chunks. Other source snapshots stay on disk until requested.
+ * and Portfolio chunks. The remaining list chunks warm asynchronously after
+ * the first display is ready, so lazy views can mount from cache without
+ * extending the startup critical path.
  *
  * Cached values are re-creatable display snapshots, never runtime authority.
  * They cannot restore request tokens, producer sessions, commands, signing,
@@ -257,10 +266,36 @@ export function HomeDisplaySnapshotControllerShared() {
       });
     };
 
+    const warmCachedSources = async (
+      context?: ILoadedHomeDisplaySnapshotManifest,
+    ) => {
+      const resolvedContext =
+        context ??
+        (await loadHomeDisplaySnapshotManifest({
+          ownerScopeKey: ownerToken.scopeKey,
+        }));
+      if (!resolvedContext || !isCurrent()) {
+        return;
+      }
+      await Promise.all(
+        HOME_BACKGROUND_SNAPSHOT_SOURCE_IDS.filter(
+          (sourceId) => resolvedContext.manifest.chunks[sourceId],
+        ).map((sourceId) =>
+          loadSourceChunk({
+            candidateOwnerToken: ownerToken,
+            context: resolvedContext,
+            sourceId,
+            stage: 'lazyChunk',
+          }),
+        ),
+      );
+    };
+
     if (preparedSnapshotAlreadyLoaded) {
       loadedChunksRef.current.add(`${ownerToken.scopeKey}:banner`);
       loadedChunksRef.current.add(`${ownerToken.scopeKey}:portfolio`);
       ensureSourceRef.current = ensureSource;
+      void warmCachedSources();
       return () => {
         loadSequenceRef.current += 1;
         ensureSourceRef.current = async () => undefined;
@@ -400,6 +435,7 @@ export function HomeDisplaySnapshotControllerShared() {
           recordCount: loadedSourceIds.length,
         });
         publishLoadStatus(initialDisplayReady ? 'hit' : 'miss');
+        void warmCachedSources(context);
       } catch (error) {
         if (!isCurrent()) {
           return;

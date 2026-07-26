@@ -222,10 +222,12 @@ describe('HomeMarketStoreController', () => {
     expect(controllerSource).toContain(
       'fetchMarketPerpsTokenList({ category })',
     );
+    expect(controllerSource).toContain('pollingInterval: viewVisible');
+    expect(controllerSource).toContain('revalidateOnFocus: viewVisible');
+    expect(controllerSource).toContain('if (!dataActive || !stableOwner)');
     expect(controllerSource).toContain(
-      'pollingInterval: fetchActive ? HOME_MARKET_POLLING_INTERVAL : undefined',
+      "navigation.value.selectedTabId === 'portfolio'",
     );
-    expect(controllerSource).toContain('revalidateOnFocus: fetchActive');
     expect(controllerSource).toContain('RefreshMarketWatchList');
     expect(rendererSource).not.toContain('backgroundApiProxy');
     expect(rendererSource).not.toContain('useHomeStoreSourcePublisher');

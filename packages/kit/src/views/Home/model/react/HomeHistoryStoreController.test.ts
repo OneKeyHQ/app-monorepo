@@ -163,7 +163,21 @@ describe('HomeHistoryStoreController', () => {
     expect(controllerSource).toContain('pendingSectionCommands.find');
     expect(controllerSource).toContain('tokenMap: tokenMapRef.current');
     expect(controllerSource).toContain("useHomeSectionPayload('portfolio')");
-    expect(controllerSource).toContain('!visible ||');
+    expect(controllerSource).toContain('if (!sourceEnabled || !visible)');
     expect(controllerSource).not.toContain('useHomeTokenListSnapshot');
+  });
+
+  it('hydrates and revalidates before the History tab becomes visible', () => {
+    const initialLoadEffect = controllerSource.slice(
+      controllerSource.indexOf(
+        'const currentOwnerToken = stableOwnerTokenRef.current',
+      ),
+      controllerSource.indexOf(
+        'useEffect(\n    () => () => {\n      stopPendingTokenRefresh();',
+      ),
+    );
+
+    expect(initialLoadEffect).toContain('void seedCacheThenLoadRef.current();');
+    expect(initialLoadEffect).not.toContain('!visible');
   });
 });

@@ -5,6 +5,7 @@ import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -277,18 +278,78 @@ class HomeContainerProtocolV2Test {
   }
 
   @Test
-  fun `render completion waits for list commit and pre draw then acknowledges once`() {
+  fun `render completion waits for list layout and pre draw then acknowledges once`() {
     val coordinator = HomeContainerRenderCompletionCoordinator()
     val state = canonicalState()
     coordinator.enqueue(state, "portfolio", "ack-7")
     coordinator.registerPage("portfolio", "page-a")
 
     assertTrue(coordinator.markPreDraw("portfolio", "page-a", 7).isEmpty())
-    coordinator.markListCommitted("portfolio", "page-a", 7)
+    coordinator.markListLaidOut("portfolio", "page-a", 7)
     val completed = coordinator.markPreDraw("portfolio", "page-a", 7)
     assertEquals(listOf("ack-7"), completed.map { it.acknowledgement })
     assertEquals(listOf(7L), completed.map { it.state.revision })
     assertTrue(coordinator.markPreDraw("portfolio", "page-a", 7).isEmpty())
+  }
+
+  @Test
+  fun `adapter submission does not complete before the matching layout`() {
+    val tracker = HomeContainerListLayoutTracker()
+    val generation = tracker.submit(revision = 7)
+
+    assertTrue(tracker.hasPendingLayout)
+    assertNull(
+      tracker.markLaidOut(
+        generation = generation,
+        hasPendingAdapterUpdates = true,
+        layoutItemCount = 4,
+        adapterItemCount = 4,
+      ),
+    )
+    assertTrue(tracker.hasPendingLayout)
+    assertEquals(
+      7L,
+      tracker.markLaidOut(
+        generation = generation,
+        hasPendingAdapterUpdates = false,
+        layoutItemCount = 4,
+        adapterItemCount = 4,
+      ),
+    )
+    assertFalse(tracker.hasPendingLayout)
+  }
+
+  @Test
+  fun `stale layout cannot complete a newer adapter generation`() {
+    val tracker = HomeContainerListLayoutTracker()
+    val staleGeneration = tracker.submit(revision = 7)
+    val currentGeneration = tracker.submit(revision = 8)
+
+    assertNull(
+      tracker.markLaidOut(
+        generation = staleGeneration,
+        hasPendingAdapterUpdates = false,
+        layoutItemCount = 5,
+        adapterItemCount = 5,
+      ),
+    )
+    assertNull(
+      tracker.markLaidOut(
+        generation = currentGeneration,
+        hasPendingAdapterUpdates = false,
+        layoutItemCount = 4,
+        adapterItemCount = 5,
+      ),
+    )
+    assertEquals(
+      8L,
+      tracker.markLaidOut(
+        generation = currentGeneration,
+        hasPendingAdapterUpdates = false,
+        layoutItemCount = 5,
+        adapterItemCount = 5,
+      ),
+    )
   }
 
   @Test
@@ -297,7 +358,7 @@ class HomeContainerProtocolV2Test {
     val state = canonicalState()
     coordinator.enqueue(state, "portfolio", "ack-7")
     coordinator.registerPage("portfolio", "portfolio-page")
-    coordinator.markListCommitted("portfolio", "portfolio-page", 7)
+    coordinator.markListLaidOut("portfolio", "portfolio-page", 7)
 
     coordinator.retargetPending("history")
     coordinator.registerPage("history", "history-page")
@@ -305,7 +366,7 @@ class HomeContainerProtocolV2Test {
     assertTrue(
       coordinator.markPreDraw("portfolio", "portfolio-page", 7).isEmpty(),
     )
-    coordinator.markListCommitted("history", "history-page", 7)
+    coordinator.markListLaidOut("history", "history-page", 7)
     val completed = coordinator.markPreDraw("history", "history-page", 7)
     assertEquals(listOf("ack-7"), completed.map { it.acknowledgement })
   }
@@ -316,14 +377,14 @@ class HomeContainerProtocolV2Test {
     val state = canonicalState()
     coordinator.enqueue(state, "portfolio", "ack-7")
     coordinator.registerPage("portfolio", "old-page")
-    coordinator.markListCommitted("portfolio", "old-page", 7)
+    coordinator.markListLaidOut("portfolio", "old-page", 7)
     coordinator.unregisterPage("portfolio", "old-page")
 
     assertTrue(coordinator.markPreDraw("portfolio", "old-page", 7).isEmpty())
 
     coordinator.registerPage("portfolio", "new-page")
     assertTrue(coordinator.markPreDraw("portfolio", "new-page", 7).isEmpty())
-    coordinator.markListCommitted("portfolio", "new-page", 7)
+    coordinator.markListLaidOut("portfolio", "new-page", 7)
     val completed = coordinator.markPreDraw("portfolio", "new-page", 7)
     assertEquals(listOf("ack-7"), completed.map { it.acknowledgement })
   }
@@ -340,7 +401,7 @@ class HomeContainerProtocolV2Test {
     coordinator.enqueue(state8, "history", "ack-8")
     coordinator.registerPage("history", "history-page")
 
-    coordinator.markListCommitted("history", "history-page", 8)
+    coordinator.markListLaidOut("history", "history-page", 8)
     val completed = coordinator.markPreDraw("history", "history-page", 8)
     assertEquals(
       listOf("ack-7", "ack-8"),

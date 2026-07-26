@@ -733,7 +733,7 @@ export function useHomeNFTStoreSource({
       setInitialized(false);
       setErrorCode(undefined);
     }
-    if (!enabled || !visible || !accountId || !networkId || !walletId) {
+    if (!enabled || !accountId || !networkId || !walletId) {
       return;
     }
     if (isAllNetworks) {
@@ -791,7 +791,6 @@ export function useHomeNFTStoreSource({
     networkId,
     nftSourceIdentityKey,
     resolveNFTEvidence,
-    visible,
     walletId,
   ]);
 

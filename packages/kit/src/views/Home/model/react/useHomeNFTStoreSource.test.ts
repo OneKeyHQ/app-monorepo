@@ -274,20 +274,25 @@ describe('useHomeNFTStoreSource', () => {
     view.unmount();
   });
 
-  it('keeps the source applicable without fetching while the NFT tab is inactive', async () => {
+  it('hydrates cache and revalidates while the NFT tab is inactive', async () => {
     const background = testGlobal.__homeNFTBackgroundControl;
     const publisher = testGlobal.__homeNFTPublisherControl;
+    background.getAccountLocalNFTs.mockResolvedValue([nft]);
+    background.fetchAccountNFTs.mockResolvedValue({
+      data: [nft],
+      isSameAllNetworksAccountData: true,
+      networkId: 'btc--0',
+    });
 
     const view = renderHook(() =>
       useHomeNFTStoreSource({ enabled: true, visible: false }),
     );
 
-    await act(async () => Promise.resolve());
+    await waitFor(() => expect(publisher.complete).toHaveBeenCalledTimes(1));
 
-    expect(publisher.begin).not.toHaveBeenCalled();
-    expect(publisher.complete).not.toHaveBeenCalled();
-    expect(background.getAccountLocalNFTs).not.toHaveBeenCalled();
-    expect(background.fetchAccountNFTs).not.toHaveBeenCalled();
+    expect(publisher.begin).toHaveBeenCalledTimes(1);
+    expect(background.getAccountLocalNFTs).toHaveBeenCalledTimes(1);
+    expect(background.fetchAccountNFTs).toHaveBeenCalledTimes(1);
 
     view.unmount();
   });

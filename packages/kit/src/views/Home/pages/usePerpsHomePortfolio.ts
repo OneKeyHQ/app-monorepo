@@ -42,6 +42,7 @@ import {
   projectPerpsHomePortfolioEvidence,
   resolvePerpsHomeAmountAuthority,
   selectCurrentPerpsHomePortfolioResult,
+  shouldPersistPerpsHomePortfolioResult,
 } from './perpsHomePortfolioAuthority';
 
 const DEPOSIT_CONFIRMATION_RETRY_MAX_ATTEMPTS = 5;
@@ -182,8 +183,10 @@ function isPendingDepositRetryScopeCurrent({
 
 export function usePerpsHomePortfolio({
   isSourceActive,
+  isSourceVisible,
 }: {
   isSourceActive: boolean;
+  isSourceVisible: boolean;
 }): {
   viewState: 'ready' | 'loading' | 'empty';
   view: IPerpsHomeView | undefined;
@@ -494,9 +497,12 @@ export function usePerpsHomePortfolio({
         swrKey: currentAccountScopeKey
           ? `perps-home:${currentAccountScopeKey}:derive-revision:${deriveTypeRevision}`
           : undefined,
+        swrShouldPersist: shouldPersistPerpsHomePortfolioResult,
         // Poll at the active cadence, while the bg snapshot cache keeps real HL
         // network reads to active=15s / idle-or-empty=1m unless forced.
-        pollingInterval: PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
+        pollingInterval: isSourceVisible
+          ? PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS
+          : undefined,
         // Native Home owns its pager visibility. Capability activation is the
         // source gate, and every supported list must prefetch before selection.
         checkIsFocused: false,

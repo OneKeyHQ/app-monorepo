@@ -30,7 +30,8 @@ export function HomePerpsStoreController() {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
   const { refresh } = usePerpsHomePortfolio({
-    isSourceActive: isSourceApplicable && fetchActive,
+    isSourceActive: isSourceApplicable,
+    isSourceVisible: fetchActive,
   });
 
   useEffect(() => {

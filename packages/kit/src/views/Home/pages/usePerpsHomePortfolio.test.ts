@@ -7,6 +7,7 @@ import {
   projectPerpsHomePortfolioEvidence,
   resolvePerpsHomeAmountAuthority,
   selectCurrentPerpsHomePortfolioResult,
+  shouldPersistPerpsHomePortfolioResult,
 } from './perpsHomePortfolioAuthority';
 
 const scopeA = 'account:account-a';
@@ -31,6 +32,23 @@ function result({
 }
 
 describe('Perps Home amount authority scope gates', () => {
+  it('persists only resolved successful SWR results', () => {
+    expect(
+      shouldPersistPerpsHomePortfolioResult(
+        result({ requestResolved: false, scopeKey: scopeA }),
+      ),
+    ).toBe(false);
+    expect(
+      shouldPersistPerpsHomePortfolioResult({
+        ...result({ scopeKey: scopeA }),
+        errorKind: 'source',
+      }),
+    ).toBe(false);
+    expect(
+      shouldPersistPerpsHomePortfolioResult(result({ scopeKey: scopeA })),
+    ).toBe(true);
+  });
+
   it('keeps B success when a same-address A main request resolves late', () => {
     const bSuccess = result({ scopeKey: scopeB });
     expect(
@@ -117,6 +135,10 @@ describe('Perps Home amount authority scope gates', () => {
 
     expect(source).toContain('checkIsFocused: false');
     expect(source).toContain('!isSourceActive ||');
+    expect(source).toContain(
+      'swrShouldPersist: shouldPersistPerpsHomePortfolioResult',
+    );
+    expect(source).toContain('pollingInterval: isSourceVisible');
     const requestDependencies = source.slice(
       source.indexOf('accountId,\n        beginHomeSectionRequest'),
       source.indexOf('],\n      {\n        // Account + derive type scoped'),
