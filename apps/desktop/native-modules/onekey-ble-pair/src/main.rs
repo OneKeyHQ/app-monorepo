@@ -506,11 +506,12 @@ mod win {
                         ACCEPT_MS.store(t_ms(), Ordering::SeqCst);
                         diag("accepted DisplayPin");
                     }
-                    // Just-works / confirm-only: no code involved.
+                    // Just-works: no code, so nothing ties the bond to the device
+                    // in front of the user. A Safe 7 has a screen and always
+                    // offers a code-based ceremony, so this can only be a device
+                    // impersonating one — refuse rather than bond silently.
                     DevicePairingKinds::ConfirmOnly => {
-                        args.Accept()?;
-                        ACCEPT_MS.store(t_ms(), Ordering::SeqCst);
-                        diag("accepted ConfirmOnly");
+                        diag("refused ConfirmOnly: Safe 7 must pair with a code");
                     }
                     // We do not have a pin to type in; log so the failure is legible.
                     other => diag(&format!("cannot satisfy pairing kind {other:?}")),
