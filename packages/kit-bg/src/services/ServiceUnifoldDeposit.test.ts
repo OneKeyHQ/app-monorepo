@@ -171,10 +171,62 @@ describe('ServiceUnifoldDeposit tracking delivery', () => {
     await expect(
       service.claimDepositSessionTracking({
         recipientAddress: RECIPIENT,
+        claimId: 'claim-2',
         sessionId: 'session-2',
         sessionStart: 200,
       }),
     ).resolves.toEqual({ sessionStart: 100 });
+  });
+
+  it('keeps tracking muted until every foreground claim is released', async () => {
+    mockTrackingState = {
+      items: [buildTrackedExecution()],
+      watches: [buildWatch()],
+      pendingDeliveries: [],
+    };
+    const service = createService();
+    jest
+      .spyOn(service, 'unifoldDepositTrackingLoop')
+      .mockResolvedValue(undefined);
+
+    await service.claimDepositSessionTracking({
+      recipientAddress: RECIPIENT,
+      claimId: 'claim-1',
+      sessionId: 'session-1',
+      sessionStart: 100,
+    });
+    await service.claimDepositSessionTracking({
+      recipientAddress: RECIPIENT,
+      claimId: 'claim-2',
+      sessionId: 'session-2',
+      sessionStart: 200,
+    });
+
+    await service.finalizeDepositSessionTracking({
+      recipientAddress: RECIPIENT,
+      claimId: 'claim-1',
+      sessionId: 'session-1',
+      sessionStart: 100,
+      announcedExecutionIds: [],
+      executions: [],
+    });
+    expect(mockTrackingState.watches?.[0].claims).toEqual([
+      expect.objectContaining({ claimId: 'claim-2' }),
+    ]);
+    expect(mockTrackingState.watches?.[0].mutedAt).not.toBeNull();
+    expect(mockTrackingState.items[0].mutedAt).not.toBeNull();
+
+    await service.finalizeDepositSessionTracking({
+      recipientAddress: RECIPIENT,
+      claimId: 'claim-2',
+      sessionId: 'session-2',
+      sessionStart: 200,
+      announcedExecutionIds: [],
+      executions: [],
+    });
+    expect(mockTrackingState.watches?.[0].claims).toEqual([]);
+    expect(mockTrackingState.watches?.[0].mutedAt).toBeNull();
+    expect(mockTrackingState.items[0].mutedAt).toBeNull();
   });
 
   it('rolls back a failed delivery write and settles only after foreground ACK', async () => {

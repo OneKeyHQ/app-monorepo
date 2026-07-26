@@ -260,6 +260,7 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
   @backgroundMethod()
   async claimDepositSessionTracking(params: {
     recipientAddress: string;
+    claimId: string;
     sessionId: string | null;
     sessionStart: number;
   }) {
@@ -271,6 +272,17 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
       const existing = watches.find(
         (w) => w.recipientAddress.toLowerCase() === recipient,
       );
+      const claims = [
+        ...(existing?.claims ?? []).filter(
+          (claim) =>
+            claim.claimId !== params.claimId &&
+            now - claim.claimedAt < TRACKING_MUTE_MAX_AGE_MS,
+        ),
+        {
+          claimId: params.claimId,
+          claimedAt: now,
+        },
+      ];
       const updatedWatch: IPerpsUnifoldRecipientWatch = existing
         ? {
             ...existing,
@@ -280,6 +292,7 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
             sessionStart: Math.min(existing.sessionStart, params.sessionStart),
             watchedAt: now,
             mutedAt: now,
+            claims,
           }
         : {
             recipientAddress: params.recipientAddress,
@@ -288,6 +301,7 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
             knownExecutionIds: [],
             watchedAt: now,
             mutedAt: now,
+            claims,
           };
       effectiveSessionStart = updatedWatch.sessionStart;
       return {
@@ -385,6 +399,7 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
   @backgroundMethod()
   async finalizeDepositSessionTracking(params: {
     recipientAddress: string;
+    claimId: string;
     sessionId: string | null;
     sessionStart: number;
     announcedExecutionIds: string[];
@@ -396,6 +411,18 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
     const now = Date.now();
     const recipient = params.recipientAddress.toLowerCase();
     await this.mutateTrackingState((prev) => {
+      const watches = prev.watches ?? [];
+      const existingWatch = watches.find(
+        (w) => w.recipientAddress.toLowerCase() === recipient,
+      );
+      const claims = (existingWatch?.claims ?? []).filter(
+        (claim) =>
+          claim.claimId !== params.claimId &&
+          now - claim.claimedAt < TRACKING_MUTE_MAX_AGE_MS,
+      );
+      const mutedAt = claims.length
+        ? Math.max(...claims.map((claim) => claim.claimedAt))
+        : null;
       const existingIds = new Set(prev.items.map((i) => i.executionId));
       const added = params.executions
         .filter((e) => !existingIds.has(e.executionId))
@@ -405,18 +432,15 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
           sessionId: params.sessionId,
           lastStatus: e.lastStatus,
           trackedAt: now,
-          mutedAt: null,
+          mutedAt,
         }));
-      // The session is over, so it hands announcements back for every entry of
-      // this recipient — including ones it never saw itself.
-      const unmuted = prev.items.map((item) =>
-        item.recipientAddress.toLowerCase() === recipient && item.mutedAt
-          ? { ...item, mutedAt: null }
+      // Release only this foreground's claim. Another live foreground keeps
+      // every recipient entry muted until its own claim is released or ages
+      // out, preventing the bg loop from announcing behind a surviving modal.
+      const handedOffItems = prev.items.map((item) =>
+        item.recipientAddress.toLowerCase() === recipient
+          ? { ...item, mutedAt }
           : item,
-      );
-      const watches = prev.watches ?? [];
-      const existingWatch = watches.find(
-        (w) => w.recipientAddress.toLowerCase() === recipient,
       );
       const knownExecutionIds = Array.from(
         new Set([
@@ -426,18 +450,22 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
       );
       const updatedWatch: IPerpsUnifoldRecipientWatch = {
         recipientAddress: params.recipientAddress,
-        sessionId: params.sessionId ?? existingWatch?.sessionId ?? null,
+        sessionId:
+          claims.length > 0
+            ? (existingWatch?.sessionId ?? params.sessionId)
+            : (params.sessionId ?? existingWatch?.sessionId ?? null),
         sessionStart: Math.min(
           existingWatch?.sessionStart ?? params.sessionStart,
           params.sessionStart,
         ),
         knownExecutionIds,
         watchedAt: now,
-        mutedAt: null,
+        mutedAt,
+        claims,
       };
       return {
         ...prev,
-        items: [...unmuted, ...added],
+        items: [...handedOffItems, ...added],
         watches: [
           ...watches.filter(
             (w) => w.recipientAddress.toLowerCase() !== recipient,
@@ -646,7 +674,7 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
           // discovery window restarts from here. watchedAt kept aging on the
           // wall clock during a mobile suspension, and without this reset a
           // watch could be born expired and never get a single discovery poll.
-          return { ...w, mutedAt: null, watchedAt: now };
+          return { ...w, mutedAt: null, claims: [], watchedAt: now };
         }
         if (
           resumedAfterGap &&

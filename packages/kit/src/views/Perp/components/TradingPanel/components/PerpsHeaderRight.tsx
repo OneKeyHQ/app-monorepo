@@ -214,26 +214,20 @@ function DepositButton() {
     displayAccountValue !== undefined;
   const isEmptyAccount =
     !isUnknownAccountValue && new BigNumber(displayAccountValue ?? '0').lte(0);
+  const isDepositVariant = isEmptyAccount && !isDepositDisabled;
   let badgeVariant: 'unknown' | 'deposit' | 'portfolio' = 'portfolio';
   if (isUnknownAccountValue) {
     badgeVariant = 'unknown';
-  } else if (isEmptyAccount) {
+  } else if (isDepositVariant) {
     badgeVariant = 'deposit';
   }
   const handlePress = useCallback(() => {
-    if (isEmptyAccount) {
-      if (!isDepositDisabled) {
-        void showDepositWithdrawModal('deposit');
-      }
+    if (isDepositVariant) {
+      void showDepositWithdrawModal('deposit');
       return;
     }
     void showPortfolio();
-  }, [
-    isDepositDisabled,
-    isEmptyAccount,
-    showDepositWithdrawModal,
-    showPortfolio,
-  ]);
+  }, [isDepositVariant, showDepositWithdrawModal, showPortfolio]);
 
   useEffect(() => {
     tracePerpsMobileLayout('header.depositBadge.state', {
@@ -294,12 +288,12 @@ function DepositButton() {
   // neutral material. Off iOS 26 (every other platform) this stays the original
   // solid Badge.
   const glassActive = isLiquidGlassAvailable();
-  const nonGlassBg = isEmptyAccount ? '$bgAccent' : '$bgStrong';
+  const nonGlassBg = isDepositVariant ? '$bgAccent' : '$bgStrong';
   const badge = (
     <Badge
       borderRadius="$full"
       size="medium"
-      variant={isEmptyAccount ? 'primary' : 'secondary'}
+      variant={isDepositVariant ? 'primary' : 'secondary'}
       testID={PerpTestIDs.PortfolioButton}
       onPress={handlePress}
       alignItems="center"
@@ -326,7 +320,7 @@ function DepositButton() {
             </>
           );
         }
-        if (isEmptyAccount) {
+        if (isDepositVariant) {
           return (
             <>
               <Icon name="AlignBottomOutline" size="$4" color="$iconInverse" />
@@ -358,7 +352,7 @@ function DepositButton() {
       isInteractive
       glassEffectStyle="regular"
       // Deposit CTA → green-tinted glass; balance/unknown → neutral glass.
-      {...(isEmptyAccount && { tintColor: theme.bgAccent?.val })}
+      {...(isDepositVariant && { tintColor: theme.bgAccent?.val })}
       style={depositGlassStyle}
     >
       {badge}

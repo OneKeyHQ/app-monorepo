@@ -330,11 +330,8 @@ export function showPerpsUnifoldDepositMenuDialog({
           title={intl.formatMessage({
             id: ETranslations.perp_unifold_transfer_crypto__title,
           })}
-          // Never "No limit": below-minimum deposits have no refund endpoint
-          // (contract §4-5), and the minimum is per-chain, so it can only be
-          // stated on the next screen once a chain is selected.
           subtitle={intl.formatMessage({
-            id: ETranslations.perp_unifold_network_minimum_instant__desc,
+            id: ETranslations.perp_relay_crypto_transfer__desc,
           })}
           hint={<TransferChainHintLogos />}
           onPress={() => {

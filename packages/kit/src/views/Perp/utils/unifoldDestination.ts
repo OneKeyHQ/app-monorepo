@@ -2,6 +2,7 @@
 import type {
   IUnifoldDepositWallet,
   IUnifoldSupportedAsset,
+  IUnifoldSupportedAssetChain,
 } from '@onekeyhq/shared/types/unifoldDeposit';
 
 // The supported-assets endpoint is queried with our hardcoded HyperCore
@@ -39,4 +40,30 @@ export function filterUnifoldSupportedAssetsByWallets(
       ),
     }))
     .filter((asset) => asset.chains.length > 0);
+}
+
+export function findMatchingUnifoldSourceSelection(
+  assets: IUnifoldSupportedAsset[] | undefined,
+  selection: {
+    asset: Pick<IUnifoldSupportedAsset, 'symbol'>;
+    chain: Pick<
+      IUnifoldSupportedAssetChain,
+      'chain_id' | 'chain_type' | 'token_address'
+    >;
+  } | null,
+): {
+  asset: IUnifoldSupportedAsset;
+  chain: IUnifoldSupportedAssetChain;
+} | null {
+  if (!assets || !selection) {
+    return null;
+  }
+  const asset = assets.find((item) => item.symbol === selection.asset.symbol);
+  const chain = asset?.chains.find(
+    (item) =>
+      item.chain_id === selection.chain.chain_id &&
+      item.chain_type === selection.chain.chain_type &&
+      item.token_address === selection.chain.token_address,
+  );
+  return asset && chain ? { asset, chain } : null;
 }

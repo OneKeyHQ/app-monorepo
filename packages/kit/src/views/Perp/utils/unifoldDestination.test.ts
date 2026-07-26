@@ -2,11 +2,16 @@ import type { IUnifoldSupportedAsset } from '@onekeyhq/shared/types/unifoldDepos
 
 import {
   filterUnifoldSupportedAssetsByWallets,
+  findMatchingUnifoldSourceSelection,
   hasUsableUnifoldSupportedAssets,
 } from './unifoldDestination';
 
 const mkAsset = (
-  chains: Array<{ chain_id: string; chain_type?: string }>,
+  chains: Array<{
+    chain_id: string;
+    chain_type?: string;
+    token_address?: string;
+  }>,
 ): IUnifoldSupportedAsset =>
   ({
     symbol: 'USDC',
@@ -64,4 +69,63 @@ describe('filterUnifoldSupportedAssetsByWallets', () => {
       [],
     );
   });
+});
+
+describe('findMatchingUnifoldSourceSelection', () => {
+  const assets = [
+    mkAsset([
+      {
+        chain_id: '42161',
+        chain_type: 'evm',
+        token_address: '0x1234',
+      },
+    ]),
+  ];
+  const selection = {
+    asset: { symbol: 'USDC' },
+    chain: {
+      chain_id: '42161',
+      chain_type: 'evm',
+      token_address: '0x1234',
+    },
+  };
+  const unsupportedSelectionCases: Array<
+    [
+      string,
+      {
+        asset?: Partial<(typeof selection)['asset']>;
+        chain?: Partial<(typeof selection)['chain']>;
+      },
+    ]
+  > = [
+    ['symbol', { asset: { symbol: 'USDT' } }],
+    ['chain id', { chain: { chain_id: '1' } }],
+    ['chain type', { chain: { chain_type: 'solana' } }],
+    ['token address', { chain: { token_address: '0xremoved' } }],
+  ];
+
+  it('returns the current catalog objects for an exact selection', () => {
+    expect(findMatchingUnifoldSourceSelection(assets, selection)).toEqual({
+      asset: assets[0],
+      chain: assets[0].chains[0],
+    });
+  });
+
+  it.each(unsupportedSelectionCases)(
+    'fails closed when the cached %s is no longer in the catalog',
+    (_field, override) => {
+      expect(
+        findMatchingUnifoldSourceSelection(assets, {
+          asset: {
+            ...selection.asset,
+            ...override.asset,
+          },
+          chain: {
+            ...selection.chain,
+            ...override.chain,
+          },
+        }),
+      ).toBeNull();
+    },
+  );
 });

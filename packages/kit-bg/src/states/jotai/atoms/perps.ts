@@ -996,6 +996,12 @@ export interface IPerpsUnifoldRecipientWatch {
   // Same semantics as the tracked-execution mute: a live session owns the
   // announcements for this recipient while it keeps renewing the claim.
   mutedAt?: number | null;
+  // Each foreground runtime owns an independent renewable claim. Optional for
+  // values persisted before multi-foreground ownership was introduced.
+  claims?: Array<{
+    claimId: string;
+    claimedAt: number;
+  }>;
 }
 
 export interface IPerpsUnifoldTerminalDelivery {

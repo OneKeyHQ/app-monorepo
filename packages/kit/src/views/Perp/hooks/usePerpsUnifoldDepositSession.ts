@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { pickUnifoldDepositWallet } from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
 import type {
@@ -36,6 +37,7 @@ import {
 } from '../consts/unifold';
 import {
   filterUnifoldSupportedAssetsByWallets,
+  findMatchingUnifoldSourceSelection,
   hasUsableUnifoldSupportedAssets,
 } from '../utils/unifoldDestination';
 import { shouldEnableUnifoldLedgerUpdates } from '../utils/unifoldExecution';
@@ -227,19 +229,9 @@ function reconcileSourceSelection(
   assets: IUnifoldSupportedAsset[],
   previous: IUnifoldSourceSelection | null,
 ): IUnifoldSourceSelection | null {
-  if (previous) {
-    const asset = assets.find(
-      (item) =>
-        item.symbol.toUpperCase() === previous.asset.symbol.toUpperCase(),
-    );
-    const chain = asset?.chains.find(
-      (item) =>
-        item.chain_id === previous.chain.chain_id &&
-        item.chain_type === previous.chain.chain_type,
-    );
-    if (asset && chain) {
-      return { asset, chain };
-    }
+  const matched = findMatchingUnifoldSourceSelection(assets, previous);
+  if (matched) {
+    return matched;
   }
   return pickDefaultSelection(assets);
 }
@@ -279,6 +271,7 @@ export function usePerpsUnifoldDepositSession({
   const isHyperCoreDestination = isUnifoldHyperCoreDestination(destination);
 
   const sessionStartRef = useRef<number>(Date.now() - SESSION_LOOKBACK_MS);
+  const [trackingClaimId] = useState(() => generateUUID());
 
   const [addressState, setAddressStateRaw] = useState<IUnifoldAddressState>(
     recipientAddress
@@ -681,6 +674,7 @@ export function usePerpsUnifoldDepositSession({
         await backgroundApiProxy.serviceUnifoldDeposit.claimDepositSessionTracking(
           {
             recipientAddress,
+            claimId: trackingClaimId,
             sessionId: sessionIdRef.current,
             sessionStart: sessionStartRef.current,
           },
@@ -777,7 +771,7 @@ export function usePerpsUnifoldDepositSession({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [enabled, recipientAddress, pollEnabled]);
+  }, [enabled, pollEnabled, recipientAddress, trackingClaimId]);
 
   // ── Hand tracking back to the bg loop on unmount ──
   // Runs for every session that claimed tracking, even with nothing in
@@ -797,6 +791,7 @@ export function usePerpsUnifoldDepositSession({
     void backgroundApiProxy.serviceUnifoldDeposit.finalizeDepositSessionTracking(
       {
         recipientAddress: recipientForCleanup,
+        claimId: trackingClaimId,
         sessionId: sessionIdRef.current,
         sessionStart: sessionStartRef.current,
         announcedExecutionIds: Array.from(announcedRef.current),
@@ -806,7 +801,7 @@ export function usePerpsUnifoldDepositSession({
         })),
       },
     );
-  }, [recipientForCleanup]);
+  }, [recipientForCleanup, trackingClaimId]);
   useEffect(() => {
     if (!recipientForCleanup) {
       return;
@@ -820,6 +815,11 @@ export function usePerpsUnifoldDepositSession({
       !selectableSupportedAssets ||
       !selection ||
       !activationGatePassed
+    ) {
+      return null;
+    }
+    if (
+      !findMatchingUnifoldSourceSelection(selectableSupportedAssets, selection)
     ) {
       return null;
     }
