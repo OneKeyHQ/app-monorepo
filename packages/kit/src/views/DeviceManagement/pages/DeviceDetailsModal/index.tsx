@@ -40,6 +40,7 @@ import DeviceSectionGeneral from './DeviceSectionGeneral';
 import DeviceSectionQrInfo from './DeviceSectionQrInfo';
 import DeviceSectionSecurity from './DeviceSectionSecurity';
 import DeviceSectionSupport from './DeviceSectionSupport';
+import DeviceSectionThirdPartyOnboardingDev from './DeviceSectionThirdPartyOnboardingDev';
 import DeviceSectionTrezorDebug from './DeviceSectionTrezorDebug';
 import { DeviceUpdateAlert } from './DeviceUpdateAlert';
 import { buildDeviceDetailsVisibility } from './utils';
@@ -93,6 +94,8 @@ function DeviceDetailsModalV2Cmp({
     isQrWallet,
     hasLoadedDevice,
   });
+  const showThirdPartyOnboardingDev =
+    devSettings.enabled && Boolean(vendorProfile?.isThirdParty && device);
 
   useEffect(() => {
     if (!walletId) return;
@@ -186,6 +189,9 @@ function DeviceDetailsModalV2Cmp({
               ) : null}
               {showPassphraseSettings ? <DeviceSectionAdvance /> : null}
               {showDeviceConnection ? <DeviceSectionDeviceConnect /> : null}
+              {showThirdPartyOnboardingDev ? (
+                <DeviceSectionThirdPartyOnboardingDev />
+              ) : null}
               {showTrezorDebug ? <DeviceSectionTrezorDebug /> : null}
             </YStack>
             <DeviceGetStartedLayout visible={showDeviceSettings} />

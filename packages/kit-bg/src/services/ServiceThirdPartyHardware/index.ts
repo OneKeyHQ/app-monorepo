@@ -10,16 +10,23 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { assertLedgerAttestationRelayUrl } from '@onekeyhq/shared/src/hardware/ledgerAttestationRelayUrl';
+import {
+  getTrezorSuiteBtcReceivePath,
+  getTrezorSuiteDefaultAccountTitleFromPath,
+  matchAccountNamesByAddress,
+} from '@onekeyhq/shared/src/hardware/thirdPartyAccountNameSync';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
+  IThirdPartyAccountNameCandidate,
   IThirdPartyAccountNameCandidatesResult,
   IThirdPartyAccountNameSourceStatus,
 } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -43,7 +50,11 @@ import {
 import { mapThirdPartyDeviceToSearchDevice } from '../ServiceHardware/thirdPartyDeviceMapping';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
-import type { IDBDevice } from '../../dbs/local/types';
+import type {
+  IDBAccount,
+  IDBDevice,
+  IDBIndexedAccount,
+} from '../../dbs/local/types';
 import type {
   IAdapterUiResponse,
   IThirdPartyConnectedDevicePayload,
@@ -73,6 +84,61 @@ function createThirdPartyAdapterNotRegisteredError(vendor: EHardwareVendor) {
       { id: ETranslations.third_party_hw_adapter_not_registered__msg },
       { vendor },
     ),
+  });
+}
+
+type ITrezorBtcScriptType = 'p2pkh' | 'p2sh' | 'p2wpkh' | 'p2tr';
+const DEV_ACCOUNT_NAME_SYNC_AUTHORIZATION_TTL_MS = 5 * 60 * 1000;
+const DEV_TREZOR_NAME_SYNC_MAX_PATHS = 40;
+
+function getTrezorBtcScriptTypeFromPath(
+  path: string,
+): ITrezorBtcScriptType | undefined {
+  const purpose = /^m\/(\d+)'/.exec(path.trim())?.[1];
+  const scriptTypes: Record<string, ITrezorBtcScriptType> = {
+    '44': 'p2pkh',
+    '49': 'p2sh',
+    '84': 'p2wpkh',
+    '86': 'p2tr',
+  };
+  return purpose ? scriptTypes[purpose] : undefined;
+}
+
+function buildAccountNameTargets({
+  accounts,
+  indexedAccounts,
+  onlyBitcoin,
+}: {
+  accounts: IDBAccount[];
+  indexedAccounts: IDBIndexedAccount[];
+  onlyBitcoin?: boolean;
+}) {
+  const indexedAccountById = new Map(
+    indexedAccounts.map((account) => [account.id, account]),
+  );
+  return accounts.flatMap((account) => {
+    const indexedAccount = account.indexedAccountId
+      ? indexedAccountById.get(account.indexedAccountId)
+      : undefined;
+    const addresses = new Set<string>(
+      [
+        account.address,
+        ...('addresses' in account ? Object.values(account.addresses) : []),
+      ].filter(Boolean),
+    );
+    if (
+      !indexedAccount ||
+      addresses.size === 0 ||
+      (onlyBitcoin && account.impl !== 'btc')
+    ) {
+      return [];
+    }
+    return [...addresses].map((address) => ({
+      indexedAccountId: indexedAccount.id,
+      currentName: indexedAccount.name,
+      address,
+      path: account.path,
+    }));
   });
 }
 
@@ -152,6 +218,39 @@ class ServiceThirdPartyHardware extends ServiceBase {
     featuresDeviceId: string;
     promise: Promise<string | null>;
   };
+
+  private _devAccountNameSyncAuthorizations = new Map<
+    string,
+    {
+      expiresAt: number;
+      candidates: IThirdPartyAccountNameCandidate[];
+    }
+  >();
+
+  private async assertThirdPartyOnboardingDevMode(): Promise<void> {
+    if (!(await this.isDevModeEnabled())) {
+      throw new OneKeyLocalError(
+        'Third-party onboarding diagnostics require Developer Mode',
+      );
+    }
+  }
+
+  private createDevAccountNameSyncAuthorization(
+    candidates: IThirdPartyAccountNameCandidate[],
+  ): string {
+    const now = Date.now();
+    for (const [id, authorization] of this._devAccountNameSyncAuthorizations) {
+      if (authorization.expiresAt <= now) {
+        this._devAccountNameSyncAuthorizations.delete(id);
+      }
+    }
+    const authorizationId = generateUUID();
+    this._devAccountNameSyncAuthorizations.set(authorizationId, {
+      expiresAt: now + DEV_ACCOUNT_NAME_SYNC_AUTHORIZATION_TTL_MS,
+      candidates,
+    });
+    return authorizationId;
+  }
 
   private isRegisteredThirdPartyVendor(
     vendor: string | undefined,
@@ -1016,6 +1115,199 @@ class ServiceThirdPartyHardware extends ServiceBase {
       challenge: params.challenge,
       ledgerGenuineCheckWebSocketUrl: params.ledgerGenuineCheckWebSocketUrl,
     });
+  }
+
+  /**
+   * Developer-only device-details flow. It deliberately does not use the
+   * current page's walletId:
+   * - Ledger Live names are matched against every local indexed account.
+   * - Trezor derives the standard BTC receive addresses from the connected
+   *   device, then applies Suite's deterministic "Bitcoin #N" default title
+   *   only where the returned address exists in OneKey.
+   */
+  @backgroundMethod()
+  async getThirdPartyGlobalAccountNameCandidates(params: {
+    vendor: EHardwareVendor;
+    dbDeviceId?: string;
+  }): Promise<IThirdPartyAccountNameCandidatesResult> {
+    await this.assertThirdPartyOnboardingDevMode();
+    if (
+      params.vendor !== EHardwareVendor.trezor &&
+      params.vendor !== EHardwareVendor.ledger
+    ) {
+      return { status: 'unsupported_source', candidates: [] };
+    }
+
+    const [{ accounts }, { indexedAccounts }] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAllAccounts({
+        filterRemoved: true,
+      }),
+      this.backgroundApi.serviceAccount.getAllIndexedAccounts({
+        filterRemoved: true,
+      }),
+    ]);
+
+    if (params.vendor === EHardwareVendor.ledger) {
+      if (!platformEnv.isDesktop || !globalThis.desktopApiProxy?.system) {
+        return { status: 'unsupported_source', candidates: [] };
+      }
+      const source =
+        await globalThis.desktopApiProxy.system.readLedgerLiveAccountNames();
+      if (source.status !== 'available') {
+        const statusMap: Record<
+          Exclude<typeof source.status, 'available'>,
+          IThirdPartyAccountNameSourceStatus
+        > = {
+          no_accounts: 'no_matches',
+          source_not_found: 'source_not_found',
+          encrypted_source: 'encrypted_source',
+          invalid_source: 'invalid_source',
+        };
+        return { status: statusMap[source.status], candidates: [] };
+      }
+      const targets = buildAccountNameTargets({
+        accounts,
+        indexedAccounts,
+      });
+      const candidates = matchAccountNamesByAddress({
+        sourceAccounts: source.accounts,
+        targetAccounts: targets,
+      }).map((candidate) => ({
+        ...candidate,
+        source: 'ledger-live' as const,
+      }));
+      return {
+        status: candidates.length ? 'available' : 'no_matches',
+        candidates,
+        authorizationId: candidates.length
+          ? this.createDevAccountNameSyncAuthorization(candidates)
+          : undefined,
+      };
+    }
+
+    if (!params.dbDeviceId) {
+      return { status: 'no_matches', candidates: [] };
+    }
+    const dbDevice = await localDb
+      .getDevice(params.dbDeviceId)
+      .catch(() => undefined);
+    if (!dbDevice || dbDevice.vendor !== EHardwareVendor.trezor) {
+      return { status: 'no_matches', candidates: [] };
+    }
+
+    const targets = buildAccountNameTargets({
+      accounts,
+      indexedAccounts,
+      onlyBitcoin: true,
+    });
+    const titleByPath = new Map<string, string>();
+    for (const target of targets) {
+      const title = getTrezorSuiteDefaultAccountTitleFromPath(target.path);
+      const receivePath = getTrezorSuiteBtcReceivePath(target.path);
+      if (title && receivePath) {
+        titleByPath.set(receivePath, title);
+      }
+    }
+    if (titleByPath.size === 0) {
+      return { status: 'no_matches', candidates: [] };
+    }
+
+    await this.ensureAdaptersInitialized(EHardwareVendor.trezor);
+    const adapter = this.getThirdPartyAdapter(EHardwareVendor.trezor);
+    if (!adapter) {
+      throw createThirdPartyAdapterNotRegisteredError(EHardwareVendor.trezor);
+    }
+
+    const sourceAccounts: Array<{ name: string; address: string }> = [];
+    const pathsToDerive = [...titleByPath].slice(
+      0,
+      DEV_TREZOR_NAME_SYNC_MAX_PATHS,
+    );
+    // Fail the scan as a unit. A partial candidate set is easy to mistake for
+    // a complete sync in this developer UI.
+    for (const [path, name] of pathsToDerive) {
+      const scriptType = getTrezorBtcScriptTypeFromPath(path);
+      if (scriptType) {
+        const response = await callTrezorWithBleFallback(
+          dbDevice,
+          (connectId) =>
+            adapter.hw.btcGetAddress(connectId, dbDevice.deviceId, {
+              path,
+              coin: 'btc',
+              scriptType,
+              showOnDevice: false,
+              useEmptyPassphrase: true,
+            }),
+          buildTrezorBleFallbackOptions(this.backgroundApi),
+        );
+        if (!response.success) {
+          throw convertThirdPartyDeviceError(response.payload, {
+            vendor: 'Trezor',
+            chain: 'Bitcoin',
+          });
+        }
+        if (response.payload.address) {
+          sourceAccounts.push({
+            name,
+            address: response.payload.address,
+          });
+        }
+      }
+    }
+
+    const candidates = matchAccountNamesByAddress({
+      sourceAccounts,
+      targetAccounts: targets,
+    }).map((candidate) => ({
+      ...candidate,
+      source: 'trezor-device-default' as const,
+    }));
+    return {
+      status: candidates.length ? 'available' : 'no_matches',
+      candidates,
+      authorizationId: candidates.length
+        ? this.createDevAccountNameSyncAuthorization(candidates)
+        : undefined,
+    };
+  }
+
+  @backgroundMethod()
+  async applyThirdPartyGlobalAccountNames(params: {
+    authorizationId: string;
+  }): Promise<{ renamed: number }> {
+    await this.assertThirdPartyOnboardingDevMode();
+    const authorization = this._devAccountNameSyncAuthorizations.get(
+      params.authorizationId,
+    );
+    // Single-use even when a later validation/write fails.
+    this._devAccountNameSyncAuthorizations.delete(params.authorizationId);
+    if (!authorization || authorization.expiresAt <= Date.now()) {
+      throw new OneKeyLocalError(
+        'Third-party account name sync authorization expired',
+      );
+    }
+    const { indexedAccounts } =
+      await this.backgroundApi.serviceAccount.getAllIndexedAccounts({
+        filterRemoved: true,
+      });
+    const allowedIds = new Set(indexedAccounts.map((account) => account.id));
+    for (const candidate of authorization.candidates) {
+      const name = candidate.sourceName.trim();
+      if (
+        !allowedIds.has(candidate.indexedAccountId) ||
+        !name ||
+        name.length > 80
+      ) {
+        throw new OneKeyLocalError('Invalid third-party account rename');
+      }
+    }
+    for (const candidate of authorization.candidates) {
+      await this.backgroundApi.serviceAccount.setAccountName({
+        indexedAccountId: candidate.indexedAccountId,
+        name: candidate.sourceName,
+      });
+    }
+    return { renamed: authorization.candidates.length };
   }
 
   @backgroundMethod()

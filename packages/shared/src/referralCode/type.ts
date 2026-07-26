@@ -890,10 +890,11 @@ export interface IThirdPartyAccountNameCandidate {
   currentName: string;
   sourceName: string;
   matchedAddress: string;
-  source: 'ledger-live' | 'trezor-suite';
+  source: 'ledger-live' | 'trezor-suite' | 'trezor-device-default';
 }
 
 export interface IThirdPartyAccountNameCandidatesResult {
   status: IThirdPartyAccountNameSourceStatus;
   candidates: IThirdPartyAccountNameCandidate[];
+  authorizationId?: string;
 }

@@ -16,6 +16,7 @@ import type { IDBDevice } from '../../dbs/local/types';
 import type { IThirdPartyHardwareAdapter } from '../ServiceHardware/adapters/types';
 
 type ILocalDbMock = {
+  getDevice: jest.Mock;
   getDeviceByQuery: jest.Mock;
   updateDeviceConnectId: jest.Mock;
 };
@@ -33,6 +34,7 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
+    getDevice: jest.fn(),
     getDeviceByQuery: jest.fn(),
     updateDeviceConnectId: jest.fn(),
   },
@@ -617,5 +619,117 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
         passphraseState: 'PASSPHRASE_STATE',
       }),
     ).rejects.toThrow('passphraseState mismatch');
+  });
+});
+
+describe('ServiceThirdPartyHardware developer account name sync', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('derives a full empty-passphrase Trezor receive path and consumes one authorization', async () => {
+    const btcGetAddress = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { address: 'bc1q-device-first-address' },
+    });
+    const setAccountName = jest.fn().mockResolvedValue(undefined);
+    const backgroundApi = {
+      serviceAccount: {
+        getAllAccounts: jest.fn().mockResolvedValue({
+          accounts: [
+            {
+              id: 'btc-account',
+              indexedAccountId: 'hw-1--0',
+              impl: 'btc',
+              address: 'bc1q-current-fresh-address',
+              addresses: {
+                '0/0': 'bc1q-device-first-address',
+              },
+              path: "m/84'/0'/0'",
+            },
+          ],
+        }),
+        getAllIndexedAccounts: jest.fn().mockResolvedValue({
+          indexedAccounts: [
+            {
+              id: 'hw-1--0',
+              name: 'Account 1',
+              walletId: 'hw-1',
+              index: 0,
+              idHash: 'hash',
+            },
+          ],
+        }),
+        setAccountName,
+      },
+    } as unknown as IBackgroundApi;
+    getLocalDbMock().getDevice.mockResolvedValue({
+      id: 'db-trezor',
+      vendor: EHardwareVendor.trezor,
+      connectId: 'TREZOR-USB',
+      deviceId: 'TREZOR-DEVICE',
+    } as IDBDevice);
+    const adapter = {
+      hw: { btcGetAddress },
+    } as unknown as IThirdPartyHardwareAdapter;
+    const service = new ServiceThirdPartyHardware({ backgroundApi });
+    jest.spyOn(service, 'isDevModeEnabled').mockResolvedValue(true);
+    (
+      service as unknown as {
+        thirdPartyAdapters: Map<string, IThirdPartyHardwareAdapter>;
+      }
+    ).thirdPartyAdapters.set('trezor', adapter);
+
+    const candidates = await service.getThirdPartyGlobalAccountNameCandidates({
+      vendor: EHardwareVendor.trezor,
+      dbDeviceId: 'db-trezor',
+    });
+
+    expect(btcGetAddress).toHaveBeenCalledWith('TREZOR-USB', 'TREZOR-DEVICE', {
+      path: "m/84'/0'/0'/0/0",
+      coin: 'btc',
+      scriptType: 'p2wpkh',
+      showOnDevice: false,
+      useEmptyPassphrase: true,
+    });
+    expect(candidates).toMatchObject({
+      status: 'available',
+      candidates: [
+        {
+          indexedAccountId: 'hw-1--0',
+          sourceName: 'Bitcoin #1',
+          matchedAddress: 'bc1q-device-first-address',
+        },
+      ],
+    });
+    expect(candidates.authorizationId).toEqual(expect.any(String));
+
+    await expect(
+      service.applyThirdPartyGlobalAccountNames({
+        authorizationId: candidates.authorizationId ?? '',
+      }),
+    ).resolves.toEqual({ renamed: 1 });
+    expect(setAccountName).toHaveBeenCalledWith({
+      indexedAccountId: 'hw-1--0',
+      name: 'Bitcoin #1',
+    });
+    await expect(
+      service.applyThirdPartyGlobalAccountNames({
+        authorizationId: candidates.authorizationId ?? '',
+      }),
+    ).rejects.toThrow('authorization expired');
+  });
+
+  it('rejects global name source reads when Developer Mode is disabled', async () => {
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    jest.spyOn(service, 'isDevModeEnabled').mockResolvedValue(false);
+
+    await expect(
+      service.getThirdPartyGlobalAccountNameCandidates({
+        vendor: EHardwareVendor.ledger,
+      }),
+    ).rejects.toThrow('require Developer Mode');
   });
 });
