@@ -557,17 +557,17 @@ class ServiceReferralCode extends ServiceBase {
     accountId: string;
   }) {
     const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
-    // Swap builds only consume the local bind cache so optional attribution
-    // never waits for the Rebate service.
-    const walletReferralCode = await this.getWalletReferralCode({ walletId });
-    if (
-      !walletReferralCode?.isBound ||
-      walletReferralCode.networkId !== getNetworkIdsMap().eth
-    ) {
+    const walletInfo = await this.getReferralCodeWalletInfo({ walletId });
+    // Swap attribution uses the first EVM address as the stable wallet identity.
+    if (!walletInfo || walletInfo.networkId !== getNetworkIdsMap().eth) {
       return undefined;
     }
 
-    return walletReferralCode;
+    const bindStatus = await this.checkWalletBindStatus({
+      address: walletInfo.address,
+      networkId: walletInfo.networkId,
+    });
+    return bindStatus.data ? walletInfo : undefined;
   }
 
   @backgroundMethod()
