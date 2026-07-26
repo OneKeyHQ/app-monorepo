@@ -1,7 +1,9 @@
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   type IUnifoldDepositExecution,
+  UNIFOLD_ERROR_CODE_LOCAL_ACTIVATION_UNAVAILABLE,
   UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH,
+  UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_SANCTIONED,
 } from '@onekeyhq/shared/types/unifoldDeposit';
 
 import ServiceUnifoldDeposit from './ServiceUnifoldDeposit';
@@ -155,6 +157,103 @@ describe('ServiceUnifoldDeposit tracking delivery', () => {
     ).rejects.toMatchObject({
       code: UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH,
     });
+  });
+
+  it('fails closed before requesting an address for a sanctioned recipient', async () => {
+    mockActiveAccountGet.mockResolvedValue({
+      accountAddress: RECIPIENT,
+    });
+    const service = createService();
+    const activationStatusSpy = jest
+      .spyOn(service, 'getActivationStatus')
+      .mockResolvedValue({
+        userExists: true,
+        activationFee: '0',
+        isSanctioned: true,
+        sponsored: false,
+      });
+    const addressRequestSpy = jest.spyOn(
+      service as unknown as {
+        requestUnifold: (params: unknown) => Promise<unknown>;
+      },
+      'requestUnifold',
+    );
+
+    await expect(
+      service.createDepositAddress({
+        recipientAddress: RECIPIENT,
+        destinationChainType: 'ethereum',
+        destinationChainId: '1337',
+        destinationTokenAddress: '0x00000000000000000000000000000000',
+      }),
+    ).rejects.toMatchObject({
+      code: UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_SANCTIONED,
+      autoToast: false,
+    });
+    expect(activationStatusSpy).toHaveBeenCalledWith({
+      recipientAddress: RECIPIENT,
+    });
+    expect(addressRequestSpy).not.toHaveBeenCalled();
+  });
+
+  it('fails closed before requesting an address when sanction lookup fails', async () => {
+    mockActiveAccountGet.mockResolvedValue({
+      accountAddress: RECIPIENT,
+    });
+    const service = createService();
+    const lookupError = new Error('activation unavailable');
+    jest.spyOn(service, 'getActivationStatus').mockRejectedValue(lookupError);
+    const addressRequestSpy = jest.spyOn(
+      service as unknown as {
+        requestUnifold: (params: unknown) => Promise<unknown>;
+      },
+      'requestUnifold',
+    );
+
+    await expect(
+      service.createDepositAddress({
+        recipientAddress: RECIPIENT,
+        destinationChainType: 'ethereum',
+        destinationChainId: '1337',
+        destinationTokenAddress: '0x00000000000000000000000000000000',
+      }),
+    ).rejects.toMatchObject({
+      code: UNIFOLD_ERROR_CODE_LOCAL_ACTIVATION_UNAVAILABLE,
+      autoToast: false,
+    });
+    expect(addressRequestSpy).not.toHaveBeenCalled();
+  });
+
+  it('keeps typed activation errors quiet and blocks the address request', async () => {
+    mockActiveAccountGet.mockResolvedValue({
+      accountAddress: RECIPIENT,
+    });
+    const service = createService();
+    const lookupError = new OneKeyError({
+      message: 'geo blocked',
+      code: 14_102,
+      autoToast: true,
+    });
+    jest.spyOn(service, 'getActivationStatus').mockRejectedValue(lookupError);
+    const addressRequestSpy = jest.spyOn(
+      service as unknown as {
+        requestUnifold: (params: unknown) => Promise<unknown>;
+      },
+      'requestUnifold',
+    );
+
+    await expect(
+      service.createDepositAddress({
+        recipientAddress: RECIPIENT,
+        destinationChainType: 'ethereum',
+        destinationChainId: '1337',
+        destinationTokenAddress: '0x00000000000000000000000000000000',
+      }),
+    ).rejects.toMatchObject({
+      code: 14_102,
+      autoToast: false,
+    });
+    expect(addressRequestSpy).not.toHaveBeenCalled();
   });
 
   it('returns the earliest persisted watch start to a reopened session', async () => {

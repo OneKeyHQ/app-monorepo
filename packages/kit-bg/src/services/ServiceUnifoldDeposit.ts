@@ -15,7 +15,11 @@ import {
 } from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
-import { UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH } from '@onekeyhq/shared/types/unifoldDeposit';
+import {
+  UNIFOLD_ERROR_CODE_LOCAL_ACTIVATION_UNAVAILABLE,
+  UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH,
+  UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_SANCTIONED,
+} from '@onekeyhq/shared/types/unifoldDeposit';
 import type {
   IUnifoldActivationStatus,
   IUnifoldDepositAddressParams,
@@ -58,6 +62,7 @@ const TRACKING_WATCH_RESUME_GRACE_MS = 60 * 1000;
 // cadence is TRACKING_LOOP_INTERVAL_MS.
 const TRACKING_RESUME_GAP_MS = TRACKING_LOOP_INTERVAL_MS * 6;
 const TERMINAL_DELIVERY_CLAIM_TTL_MS = 30 * 1000;
+const UNIFOLD_HYPERCORE_CHAIN_ID = '1337';
 
 type ITrackingStateUpdate =
   | IPerpsUnifoldDepositTrackingState
@@ -183,10 +188,46 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
     }
   }
 
+  private async assertHyperCoreRecipientIsNotSanctioned(
+    params: IUnifoldDepositAddressParams,
+  ) {
+    if (params.destinationChainId !== UNIFOLD_HYPERCORE_CHAIN_ID) {
+      return;
+    }
+    let activationStatus: IUnifoldActivationStatus;
+    try {
+      activationStatus = await this.getActivationStatus({
+        recipientAddress: params.recipientAddress,
+      });
+    } catch (error) {
+      if (error instanceof OneKeyError) {
+        error.autoToast = false;
+        throw error;
+      }
+      throw new OneKeyError({
+        message: 'Unifold activation status unavailable',
+        code: UNIFOLD_ERROR_CODE_LOCAL_ACTIVATION_UNAVAILABLE,
+        autoToast: false,
+      });
+    }
+    if (activationStatus.isSanctioned) {
+      throw new OneKeyError({
+        message: 'Unifold recipient is sanctioned',
+        code: UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_SANCTIONED,
+        autoToast: false,
+      });
+    }
+  }
+
   @backgroundMethod()
   async createDepositAddress(
     params: IUnifoldDepositAddressParams,
   ): Promise<IUnifoldDepositAddressResult> {
+    await this.assertRecipientIsActivePerpsAccount(params.recipientAddress);
+    await this.assertHyperCoreRecipientIsNotSanctioned(params);
+    // The compliance lookup is a network round trip. Re-check the authoritative
+    // bg account afterwards so an account switch during that await cannot
+    // create an address for the previous recipient.
     await this.assertRecipientIsActivePerpsAccount(params.recipientAddress);
     const result = await this.requestUnifold<IUnifoldDepositAddressResult>({
       method: 'post',

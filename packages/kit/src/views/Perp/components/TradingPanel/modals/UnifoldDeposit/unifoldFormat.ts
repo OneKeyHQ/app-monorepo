@@ -88,6 +88,20 @@ export function normalizeUnifoldIconUrl(
   return url.replace('/svg/', '/png/').replace(/\.svg$/, '.png');
 }
 
+export function normalizeUnifoldExplorerUrl(
+  url: string | null | undefined,
+): string | null {
+  const trimmedUrl = url?.trim();
+  if (!trimmedUrl) {
+    return null;
+  }
+  try {
+    return new URL(trimmedUrl).protocol === 'https:' ? trimmedUrl : null;
+  } catch {
+    return null;
+  }
+}
+
 // Chain display names, mirroring the vendor SDK: EVM chains are named by
 // chainId, everything else falls back to its chain type.
 const EVM_CHAIN_NAMES: Record<string, string> = {

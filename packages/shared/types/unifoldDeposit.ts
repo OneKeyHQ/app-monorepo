@@ -115,3 +115,13 @@ export const UNIFOLD_ERROR_CODE_GEO_BLOCKED = 14_102;
 // un-coded throw as a transient network error and retrying it forever. Kept
 // far outside the wallet-service range so it can never collide with one.
 export const UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH = 914_101;
+
+// Client-side code, never sent by the server: the background compliance gate
+// rejected a HyperCore deposit-address request for a sanctioned recipient.
+// The UI maps this to its sticky sanctioned veto instead of retrying.
+export const UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_SANCTIONED = 914_102;
+
+// Client-side code, never sent by the server: the background compliance gate
+// could not obtain a sanction verdict. The request fails closed and the UI
+// renders its unavailable state instead of retrying an untyped network error.
+export const UNIFOLD_ERROR_CODE_LOCAL_ACTIVATION_UNAVAILABLE = 914_103;

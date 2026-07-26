@@ -47,6 +47,7 @@ const SYNTHETIC_RECIPIENT = '0x1111111111111111111111111111111111111111';
 const SYNTHETIC_DEPOSIT_ADDRESS = '0x2222222222222222222222222222222222222222';
 const SYNTHETIC_TX =
   '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+const INVALID_SCRIPT_EXPLORER_URL = ['java', 'script:alert(1)'].join('');
 const SHORT_WINDOW_HEIGHT = 386;
 const SHORT_WINDOW_BODY_MAX_HEIGHT =
   getUnifoldDesktopDialogBodyMaxHeight(SHORT_WINDOW_HEIGHT);
@@ -535,12 +536,10 @@ function StatusCardCase({
 // width. Every case here exists because an isolated fixture could not have
 // shown the defect.
 function CompositePanelGallery() {
-  const noLinks: IUnifoldDepositExecution = {
-    ...FAILED,
-    explorerUrl: null,
-    transactionHash: null,
-    destinationExplorerUrl: null,
-    destinationTransactionHashes: [],
+  const invalidLinks: IUnifoldDepositExecution = {
+    ...SUCCEEDED,
+    explorerUrl: INVALID_SCRIPT_EXPLORER_URL,
+    destinationExplorerUrl: 'onekey-wallet://open',
   };
   return (
     <YStack gap="$6">
@@ -593,13 +592,13 @@ function CompositePanelGallery() {
         qrAddress={null}
         executions={[]}
       />
-      <YStack gap="$2">
+      <YStack testID="unifold-invalid-explorer-links" gap="$2">
         <SizableText size="$bodySmMedium" color="$textSubdued">
-          Terminal execution with no explorer links · &quot;See more
-          details&quot; must not appear
+          Invalid explorer schemes · Deposit Tx and Completion Tx must not
+          appear
         </SizableText>
         <Stack width={MOBILE_BODY_WIDTH}>
-          <UnifoldExecutionDetail execution={noLinks} />
+          <UnifoldExecutionDetail execution={invalidLinks} />
         </Stack>
       </YStack>
       <YStack gap="$2">

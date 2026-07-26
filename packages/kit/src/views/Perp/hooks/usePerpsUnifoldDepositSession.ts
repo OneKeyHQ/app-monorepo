@@ -24,7 +24,9 @@ import type {
 import {
   UNIFOLD_ERROR_CODE_FEATURE_DISABLED,
   UNIFOLD_ERROR_CODE_GEO_BLOCKED,
+  UNIFOLD_ERROR_CODE_LOCAL_ACTIVATION_UNAVAILABLE,
   UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH,
+  UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_SANCTIONED,
 } from '@onekeyhq/shared/types/unifoldDeposit';
 
 import {
@@ -152,6 +154,12 @@ function toErrorType(error: unknown): IUnifoldDepositErrorType {
     // this must land on the terminal (veto) screen rather than the 5s
     // "retrying automatically" loop that un-coded throws fall into.
     return 'accountMismatch';
+  }
+  if (code === UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_SANCTIONED) {
+    return 'sanctioned';
+  }
+  if (code === UNIFOLD_ERROR_CODE_LOCAL_ACTIVATION_UNAVAILABLE) {
+    return 'unavailable';
   }
   if (code === UNIFOLD_ERROR_CODE_FEATURE_DISABLED) {
     return 'disabled';

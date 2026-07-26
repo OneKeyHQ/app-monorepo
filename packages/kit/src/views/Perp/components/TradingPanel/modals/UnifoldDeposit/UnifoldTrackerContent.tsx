@@ -45,6 +45,7 @@ import {
   formatUnifoldProcessingTime,
   formatUnifoldTokenAmount,
   formatUnifoldUsd,
+  normalizeUnifoldExplorerUrl,
   normalizeUnifoldIconUrl,
 } from './unifoldFormat';
 
@@ -347,6 +348,10 @@ export function UnifoldExecutionDetail({
   const destinationLabel = isUnifoldHyperCoreDestination(destination)
     ? 'HyperCore'
     : 'Arbitrum';
+  const explorerUrl = normalizeUnifoldExplorerUrl(execution.explorerUrl);
+  const destinationExplorerUrl = normalizeUnifoldExplorerUrl(
+    execution.destinationExplorerUrl,
+  );
   return (
     <YStack testID={`perps-unifold-execution-detail-${execution.executionId}`}>
       <YStack alignItems="center" py="$6" gap="$2">
@@ -483,7 +488,7 @@ export function UnifoldExecutionDetail({
             value={shortenHash(execution.executionId)}
             onCopy={() => copyText(execution.executionId)}
           />
-          {execution.explorerUrl && execution.transactionHash ? (
+          {explorerUrl && execution.transactionHash ? (
             <>
               <Divider borderColor="$bgSubdued" />
               <DetailLinkRow
@@ -492,15 +497,13 @@ export function UnifoldExecutionDetail({
                 })}
                 value={shortenHash(execution.transactionHash)}
                 onPress={() => {
-                  if (execution.explorerUrl) {
-                    openUrlExternal(execution.explorerUrl);
-                  }
+                  openUrlExternal(explorerUrl);
                 }}
               />
             </>
           ) : null}
           {execution.status === 'succeeded' &&
-          execution.destinationExplorerUrl &&
+          destinationExplorerUrl &&
           execution.destinationTransactionHashes[0] ? (
             <>
               <Divider borderColor="$bgSubdued" />
@@ -510,9 +513,7 @@ export function UnifoldExecutionDetail({
                 })}
                 value={shortenHash(execution.destinationTransactionHashes[0])}
                 onPress={() => {
-                  if (execution.destinationExplorerUrl) {
-                    openUrlExternal(execution.destinationExplorerUrl);
-                  }
+                  openUrlExternal(destinationExplorerUrl);
                 }}
               />
             </>
