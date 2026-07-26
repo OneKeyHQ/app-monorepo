@@ -4,6 +4,7 @@ import type DesktopApiBluetooth from '../DesktopApiBluetooth';
 import type DesktopApiBundleUpdate from '../DesktopApiBundleUpdate';
 import type DesktopApiCloudKit from '../DesktopApiCloudKit';
 import type DesktopApiDev from '../DesktopApiDev';
+import type DesktopApiFirmwareArtifact from '../DesktopApiFirmwareArtifact';
 import type DesktopApiInAppPurchase from '../DesktopApiInAppPurchase';
 import type DesktopApiKeychain from '../DesktopApiKeychain';
 import type DesktopApiNotification from '../DesktopApiNotification';
@@ -25,6 +26,7 @@ export interface IDesktopApi {
   bluetooth: DesktopApiBluetooth;
   appUpdate: DesktopApiAppUpdate;
   bundleUpdate: DesktopApiBundleUpdate;
+  firmwareArtifact: DesktopApiFirmwareArtifact;
   cloudKit: DesktopApiCloudKit;
   keychain: DesktopApiKeychain;
   sniRequest: DesktopApiSniRequest;

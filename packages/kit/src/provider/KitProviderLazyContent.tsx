@@ -6,6 +6,7 @@ import PasswordVerifyPromptMount from '../components/Password/container/Password
 import { SyncHomeAccountToDappAccountProvider } from '../views/Discovery/components/SyncDappAccountToHomeProvider';
 
 import { StateActiveContainer } from './Container/StateActiveContainer';
+import { FirmwareUpdateRecoveryProvider } from './FirmwareUpdateRecoveryProvider';
 import { HardwareServiceProvider } from './HardwareServiceProvider';
 import { WebViewWebEmbedProvider } from './WebViewWebEmbedProvider';
 
@@ -50,6 +51,7 @@ function KitProviderLazyContentAfterLocaleCmp() {
   return (
     <>
       <StateActiveContainer />
+      <FirmwareUpdateRecoveryProvider />
       <DelayedMount delayMs={1200}>
         <SyncHomeAccountToDappAccountProvider />
       </DelayedMount>

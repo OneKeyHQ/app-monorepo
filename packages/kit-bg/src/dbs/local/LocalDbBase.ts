@@ -5092,7 +5092,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     bitcoinOnlyFlag:
       | {
           fw_vendor: string | undefined;
-          capabilities: number[] | undefined;
+          capabilities?: Array<number | string>;
           $app_firmware_type?: EFirmwareType;
         }
       | undefined;

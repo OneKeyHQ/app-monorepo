@@ -44,6 +44,12 @@ describe('requestHelper IP Table provider', () => {
       ).default;
 
       await expect(freshRequestHelper.getIpTableConfig()).resolves.toBeNull();
+      await expect(
+        freshRequestHelper.getFirmwareManifestIpTableConfig(),
+      ).resolves.toBeNull();
+      await expect(
+        freshRequestHelper.getFirmwareArtifactIpTableConfig(),
+      ).resolves.toBeNull();
     });
   });
 
@@ -53,8 +59,9 @@ describe('requestHelper IP Table provider', () => {
         version: 1,
         ttl_sec: 60,
         generated_at: '2026-06-23T00:00:00.000Z',
-        signature: '0x',
         domains: {},
+        source: 'signed-remote',
+        sourcePayloadHash: 'test-payload-hash',
       },
       runtime: {
         enabled: true,
@@ -71,5 +78,11 @@ describe('requestHelper IP Table provider', () => {
     updateInterceptorRequestHelper();
 
     await expect(requestHelper.getIpTableConfig()).resolves.toBe(config);
+    await expect(
+      requestHelper.getFirmwareManifestIpTableConfig(),
+    ).resolves.toBe(config);
+    await expect(
+      requestHelper.getFirmwareArtifactIpTableConfig(),
+    ).resolves.toBe(config);
   });
 });

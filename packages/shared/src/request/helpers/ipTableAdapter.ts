@@ -4,6 +4,7 @@ import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
 import platformEnv from '../../platformEnv';
 import { memoizee } from '../../utils/cacheUtils';
+import { getOrderedIpTableCandidates } from '../../utils/ipTableUtils';
 import {
   DEFAULT_IP_TABLE_CONFIG,
   IP_TABLE_ADAPTER_FAILOVER_TTL_MS,
@@ -224,6 +225,46 @@ const getSelectedIpForHost = memoizee(getSelectedIpForHostInternal, {
   max: 100, // Max 100 hostname cached
   primitive: true, // hostname is a string primitive, use simple equality check
 });
+
+export async function getOrderedIpTableCandidateIpsForHost(options: {
+  canonicalUrl: string;
+  exactHostOnly: boolean;
+  maxCandidates?: number;
+}): Promise<string[]> {
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(options.canonicalUrl);
+  } catch {
+    return [];
+  }
+  if (
+    parsedUrl.protocol !== 'https:' ||
+    !isSniSupported() ||
+    !(await shouldUseIpTable())
+  ) {
+    return [];
+  }
+
+  try {
+    if ((await isProxyActiveForUrl(parsedUrl.toString())) === true) {
+      return [];
+    }
+  } catch {
+    return [];
+  }
+
+  const configWithRuntime = await requestHelper.getIpTableConfig();
+  if (!configWithRuntime || configWithRuntime.runtime?.enabled === false) {
+    return [];
+  }
+
+  return getOrderedIpTableCandidates({
+    hostname: parsedUrl.hostname,
+    configWithRuntime,
+    exactHostOnly: options.exactHostOnly,
+    maxCandidates: options.maxCandidates,
+  });
+}
 
 // ========== Fail-open on domain network failures ==========
 //

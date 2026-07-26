@@ -21,6 +21,7 @@ import {
 } from '../components/FirmwareUpdateExitPrevent';
 import { FirmwareUpdatePageLayout } from '../components/FirmwareUpdatePageLayout';
 import { FirmwareUpdateWarningMessage } from '../components/FirmwareUpdateWarningMessage';
+import { useFirmwareUpdateSession } from '../hooks/useFirmwareUpdateSession';
 
 function PageFirmwareUpdateInstall() {
   const route = useAppRoute<
@@ -31,6 +32,8 @@ function PageFirmwareUpdateInstall() {
   const navigation = useAppNavigation();
 
   const [stepInfo] = useFirmwareUpdateStepInfoAtom();
+  const firmwareUpdateSession = useFirmwareUpdateSession();
+  const projection = firmwareUpdateSession.projection;
 
   /*
      await backgroundApiProxy.serviceFirmwareUpdate.startFirmwareUpdateWorkflow(
@@ -46,6 +49,7 @@ function PageFirmwareUpdateInstall() {
             */
   const content = useMemo(() => {
     if (
+      projection ||
       stepInfo.step === EFirmwareUpdateSteps.updateStart ||
       stepInfo.step === EFirmwareUpdateSteps.installing ||
       stepInfo.step ===
@@ -54,7 +58,9 @@ function PageFirmwareUpdateInstall() {
         EFirmwareUpdateSteps.requestDeviceForSwitchFirmwareWebDevice ||
       stepInfo.step === EFirmwareUpdateSteps.updateDone
     ) {
-      const isDone = stepInfo.step === EFirmwareUpdateSteps.updateDone;
+      const isDone =
+        projection?.phase === 'COMPLETED' ||
+        stepInfo.step === EFirmwareUpdateSteps.updateDone;
       return (
         <>
           {!isDone ? (
@@ -68,7 +74,7 @@ function PageFirmwareUpdateInstall() {
       );
     }
 
-    if (stepInfo.step === EFirmwareUpdateSteps.error) {
+    if (!projection && stepInfo.step === EFirmwareUpdateSteps.error) {
       requestAnimationFrame(() => {
         navigation.pop();
       });
@@ -80,19 +86,21 @@ function PageFirmwareUpdateInstall() {
         <FirmwareLatestVersionInstalled />
       </>
     );
-  }, [stepInfo.step, navigation, result]);
+  }, [stepInfo.step, navigation, projection, result]);
 
   return (
     <Page
       scrollEnabled
       onUnmounted={async () => {
         console.log('PageFirmwareUpdateInstall unmounted');
-        await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
-        if (result?.originalConnectId) {
-          await backgroundApiProxy.serviceHardware.cancel({
-            connectId: result.originalConnectId,
-            forceDeviceResetToHome: true,
-          });
+        if (!projection) {
+          await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
+          if (result?.originalConnectId) {
+            await backgroundApiProxy.serviceHardware.cancel({
+              connectId: result.originalConnectId,
+              forceDeviceResetToHome: true,
+            });
+          }
         }
       }}
     >

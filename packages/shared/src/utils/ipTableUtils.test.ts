@@ -6,9 +6,13 @@ import {
 
 import {
   computeIpTableConfigHash,
+  createEffectiveIpTableConfig,
+  getOrderedIpTableCandidates,
   isIpTableConfigRegression,
+  isValidFirmwareUpdateRolloutConfig,
   isValidIpTableRemoteConfigShape,
   pruneIpTableRuntimeSelections,
+  validateIpTableConfigFreshness,
   verifyIpTableConfigSignature,
   verifyIpTableConfigSignatureDetailed,
 } from './ipTableUtils';
@@ -280,6 +284,40 @@ describe('isValidIpTableRemoteConfigShape', () => {
       }),
     ).toBe(false);
   });
+
+  test('validates the signed firmware rollout projection', () => {
+    const config = {
+      ...DEFAULT_IP_TABLE_CONFIG,
+      firmware_rollout: {
+        schemaVersion: 1,
+        policyVersion: 3,
+        salt: 'firmware-v3',
+        expiresAt: 2_000_000_000_000,
+        coordinatorExternalOnly: {
+          enabled: true,
+          killSwitch: false,
+          percentageBps: 500,
+          allowPlatforms: ['ios', 'android'],
+        },
+      },
+    };
+    expect(isValidIpTableRemoteConfigShape(config)).toBe(true);
+    expect(isValidFirmwareUpdateRolloutConfig(config.firmware_rollout)).toBe(
+      true,
+    );
+    expect(
+      isValidIpTableRemoteConfigShape({
+        ...config,
+        firmware_rollout: {
+          ...config.firmware_rollout,
+          coordinatorExternalOnly: {
+            ...config.firmware_rollout.coordinatorExternalOnly,
+            percentageBps: 10_001,
+          },
+        },
+      }),
+    ).toBe(false);
+  });
 });
 
 describe('isIpTableConfigRegression', () => {
@@ -344,13 +382,16 @@ describe('isIpTableConfigRegression', () => {
     });
   });
 
-  test('higher version wins regardless of generated_at', () => {
+  test('rejects generated_at regression even when the version increases', () => {
     const result = isIpTableConfigRegression({
       remoteConfig: makeConfig(3, '2025-01-01T00:00:00.000Z'),
       localConfig: makeConfig(2, '2025-11-06T08:30:54.066Z'),
       lastVerified: { version: 2, generatedAt: '2025-11-06T08:30:54.066Z' },
     });
-    expect(result).toEqual({ regression: false });
+    expect(result).toEqual({
+      regression: true,
+      reason: 'generated_at_regression',
+    });
   });
 });
 
@@ -372,6 +413,142 @@ describe('computeIpTableConfigHash', () => {
       version: 2,
     });
     expect(changed).not.toBe(base);
+  });
+
+  test('covers firmware rollout policy in the signed payload', () => {
+    const base = computeIpTableConfigHash(DEFAULT_IP_TABLE_CONFIG);
+    const withRollout = computeIpTableConfigHash({
+      ...DEFAULT_IP_TABLE_CONFIG,
+      firmware_rollout: {
+        schemaVersion: 1,
+        policyVersion: 1,
+        salt: 'firmware',
+        expiresAt: 2_000_000_000_000,
+      },
+    });
+    expect(withRollout).not.toBe(base);
+  });
+});
+
+describe('effective IP Table config and ordered candidates', () => {
+  test('keeps the raw signature out of the merged runtime view', () => {
+    const remote: IIpTableRemoteConfig = {
+      ...DEFAULT_IP_TABLE_CONFIG,
+      domains: {
+        'data.onekey.so': {
+          endpoints: [
+            {
+              ip: '1.1.1.1',
+              provider: 'test',
+              region: 'ALL',
+              weight: 100,
+            },
+          ],
+        },
+      },
+      firmware_rollout: {
+        schemaVersion: 1,
+        policyVersion: 9,
+        salt: 'rollout',
+        expiresAt: 2_000_000_000_000,
+      },
+    };
+    const effective = createEffectiveIpTableConfig({
+      rawConfig: remote,
+      source: 'signed-remote',
+    });
+
+    expect(effective).not.toHaveProperty('signature');
+    expect(effective.domains).toHaveProperty(['onekeycn.com']);
+    expect(effective.domains).toHaveProperty(['data.onekey.so']);
+    expect(effective.firmware_rollout?.policyVersion).toBe(9);
+  });
+
+  test('returns selected, last-best, and weighted endpoints in stable order', () => {
+    const effective = createEffectiveIpTableConfig({
+      rawConfig: {
+        ...DEFAULT_IP_TABLE_CONFIG,
+        domains: {
+          'data.onekey.so': {
+            endpoints: [
+              {
+                ip: '3.3.3.3',
+                provider: 'low',
+                region: 'ALL',
+                weight: 1,
+              },
+              {
+                ip: '2.2.2.2',
+                provider: 'high',
+                region: 'ALL',
+                weight: 10,
+              },
+              {
+                ip: '1.1.1.1',
+                provider: 'selected',
+                region: 'ALL',
+                weight: 5,
+              },
+            ],
+          },
+        },
+      },
+      source: 'signed-remote',
+    });
+    const configWithRuntime = {
+      config: effective,
+      runtime: {
+        enabled: true,
+        lastUpdated: 0,
+        lastRegionCheck: 0,
+        selections: { 'data.onekey.so': '1.1.1.1' },
+        lastBestIp: { 'data.onekey.so': '3.3.3.3' },
+      },
+    };
+
+    expect(
+      getOrderedIpTableCandidates({
+        hostname: 'data.onekey.so',
+        configWithRuntime,
+        exactHostOnly: true,
+      }),
+    ).toEqual(['1.1.1.1', '3.3.3.3', '2.2.2.2']);
+    expect(
+      getOrderedIpTableCandidates({
+        hostname: 'other.onekey.so',
+        configWithRuntime,
+        exactHostOnly: true,
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe('validateIpTableConfigFreshness', () => {
+  const generatedAt = '2026-07-25T00:00:00.000Z';
+  const generatedAtMs = Date.parse(generatedAt);
+
+  test('accepts a bounded, unexpired TTL', () => {
+    expect(
+      validateIpTableConfigFreshness({
+        config: { ttl_sec: 300, generated_at: generatedAt },
+        now: generatedAtMs + 1,
+      }),
+    ).toMatchObject({ valid: true });
+  });
+
+  test('rejects expired and future-generated configs', () => {
+    expect(
+      validateIpTableConfigFreshness({
+        config: { ttl_sec: 300, generated_at: generatedAt },
+        now: generatedAtMs + 300_001,
+      }),
+    ).toEqual({ valid: false, reason: 'expired' });
+    expect(
+      validateIpTableConfigFreshness({
+        config: { ttl_sec: 300, generated_at: generatedAt },
+        now: generatedAtMs - 10 * 60_000 - 1,
+      }),
+    ).toEqual({ valid: false, reason: 'generated_in_future' });
   });
 });
 

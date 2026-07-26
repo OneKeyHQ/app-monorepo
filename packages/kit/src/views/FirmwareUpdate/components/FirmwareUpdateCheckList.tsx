@@ -22,6 +22,10 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import {
+  getFirmwareUpdateSessionStartInput,
+  useFirmwareUpdateSession,
+} from '../hooks/useFirmwareUpdateSession';
 import { FirmwareUpdateTestIDs } from '../testIDs';
 
 export function FirmwareUpdateCheckList({
@@ -34,6 +38,9 @@ export function FirmwareUpdateCheckList({
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const [, setWorkflowIsRunning] = useFirmwareUpdateWorkflowRunningAtom();
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
+  const firmwareUpdateSession = useFirmwareUpdateSession({
+    refreshOnMount: false,
+  });
   const isMountedRef = useRef(true);
 
   useEffect(
@@ -122,6 +129,7 @@ export function FirmwareUpdateCheckList({
 
                 const updateFirmwareInfo = result?.updateInfos?.firmware;
                 let shouldResetWorkflowRunningInUi = true;
+                let transactionAttempted = false;
                 try {
                   await dialog.close();
 
@@ -131,13 +139,6 @@ export function FirmwareUpdateCheckList({
 
                   // Allow workflow to continue even if component unmounts
                   // The workflow runs in background service and doesn't depend on component lifecycle
-
-                  setStepInfo({
-                    step: EFirmwareUpdateSteps.updateStart,
-                    payload: {
-                      startAtTime: Date.now(),
-                    },
-                  });
 
                   defaultLogger.update.firmware.firmwareUpdateStarted({
                     deviceType: result?.deviceType,
@@ -151,7 +152,41 @@ export function FirmwareUpdateCheckList({
                     navigation.push(EModalFirmwareUpdateRoutes.InstallV2, {
                       result,
                     });
+                  } else {
+                    navigation.push(EModalFirmwareUpdateRoutes.Install, {
+                      result,
+                    });
+                  }
+                  setWorkflowIsRunning(true);
+
+                  const transactionInput =
+                    getFirmwareUpdateSessionStartInput(result);
+                  if (
+                    firmwareUpdateSession.isTransactionPlatform &&
+                    transactionInput
+                  ) {
+                    transactionAttempted = true;
+                    const startResult =
+                      await firmwareUpdateSession.start(transactionInput);
+                    if (startResult.engine === 'transaction') {
+                      shouldResetWorkflowRunningInUi = false;
+                      await firmwareUpdateSession.execute({
+                        sessionId: startResult.projection.sessionId,
+                        connectId: transactionInput.connectId,
+                      });
+                      return;
+                    }
                     setWorkflowIsRunning(true);
+                  }
+
+                  setStepInfo({
+                    step: EFirmwareUpdateSteps.updateStart,
+                    payload: {
+                      startAtTime: Date.now(),
+                    },
+                  });
+
+                  if (useV2FirmwareUpdateFlow) {
                     const { backgroundTaskStarted } =
                       await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflowV2(
                         {
@@ -168,10 +203,6 @@ export function FirmwareUpdateCheckList({
                       'Firmware update background task failed to start',
                     );
                   }
-                  navigation.push(EModalFirmwareUpdateRoutes.Install, {
-                    result,
-                  });
-                  setWorkflowIsRunning(true);
                   await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflow(
                     {
                       backuped: true,
@@ -219,12 +250,17 @@ export function FirmwareUpdateCheckList({
                   });
                 } catch (error) {
                   const err = toPlainErrorObject(error as any);
-                  setStepInfo({
-                    step: EFirmwareUpdateSteps.error,
-                    payload: {
-                      error: err,
-                    },
-                  });
+                  const projection = transactionAttempted
+                    ? await firmwareUpdateSession.refresh()
+                    : undefined;
+                  if (!projection) {
+                    setStepInfo({
+                      step: EFirmwareUpdateSteps.error,
+                      payload: {
+                        error: err,
+                      },
+                    });
+                  }
                   // Never let analytics context reading break the update flow
                   const trackingInfo =
                     await backgroundApiProxy.serviceFirmwareUpdate

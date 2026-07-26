@@ -23,6 +23,16 @@ class ServiceBootstrap extends ServiceBase {
 
   public async init() {
     await this.initCritical();
+    if (platformEnv.isNative || platformEnv.isDesktop) {
+      void this.backgroundApi.serviceFirmwareUpdate
+        .recoverFirmwareUpdateAfterBootstrap()
+        .catch(() => {
+          defaultLogger.app.bootstrap.initCriticalStep(
+            'firmwareRecovery (FAILED)',
+            0,
+          );
+        });
+    }
     if (platformEnv.isWeb || platformEnv.isDesktop) {
       setTimeout(() => {
         void this.initDeferred();
@@ -51,6 +61,18 @@ class ServiceBootstrap extends ServiceBase {
     defaultLogger.app.bootstrap.initCriticalStart();
     const criticalStart = Date.now();
     await this.timed('localDb.readyDb', () => localDb.readyDb);
+    if (platformEnv.isNative || platformEnv.isDesktop) {
+      try {
+        await this.timed('firmwareRecovery.initializeCritical', () =>
+          this.backgroundApi.serviceFirmwareUpdate.initializeFirmwareUpdateRecoveryCritical(),
+        );
+      } catch (_error) {
+        defaultLogger.app.bootstrap.initCriticalStep(
+          'firmwareRecovery.initializeCritical (FAILED)',
+          0,
+        );
+      }
+    }
     try {
       await this.timed('serviceIdentityExit.recoverInterruptedOperations', () =>
         this.backgroundApi.serviceIdentityExit.recoverInterruptedIdentityExitOperations(),

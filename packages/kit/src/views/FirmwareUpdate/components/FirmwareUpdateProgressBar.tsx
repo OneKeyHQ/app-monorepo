@@ -13,6 +13,7 @@ import {
 import {
   EFirmwareUpdateSteps,
   EHardwareUiStateAction,
+  useFirmwareUpdateProjectionAtom,
   useFirmwareUpdateRetryAtom,
   useFirmwareUpdateStepInfoAtom,
   useHardwareUiStateAtom,
@@ -24,8 +25,11 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import type { IDeviceFirmwareType } from '@onekeyhq/shared/types/device';
-import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
+import {
+  EFirmwareUpdateTipMessages,
+  type ICheckAllFirmwareReleaseResult,
+  type IDeviceFirmwareType,
+} from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePrevious } from '../../../hooks/usePrevious';
@@ -118,9 +122,11 @@ export function FirmwareUpdateProgressBarView({
 export function FirmwareUpdateProgressBar({
   lastFirmwareTipMessage,
   isDone,
+  result,
 }: {
   lastFirmwareTipMessage: EFirmwareUpdateTipMessages | undefined;
   isDone?: boolean;
+  result?: ICheckAllFirmwareReleaseResult;
 }) {
   const intl = useIntl();
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
@@ -128,6 +134,7 @@ export function FirmwareUpdateProgressBar({
   const [stateFull] = useHardwareUiStateCompletedAtom();
   const [progress, setProgress] = useState(1);
   const [retryInfo] = useFirmwareUpdateRetryAtom();
+  const [transactionProjection] = useFirmwareUpdateProjectionAtom();
 
   const progressRef = useRef(progress);
   progressRef.current = progress;
@@ -509,6 +516,7 @@ export function FirmwareUpdateProgressBar({
   const previousStepInfo = useRef(stepInfo);
   useEffect(() => {
     const onBootloaderRequest = () => {
+      if (transactionProjection) return;
       previousStepInfo.current = stepInfo;
       setStepInfo({
         step: EFirmwareUpdateSteps.requestDeviceInBootloaderForWebDevice,
@@ -516,6 +524,7 @@ export function FirmwareUpdateProgressBar({
       });
     };
     const onSwitchFirmwareRequest = () => {
+      if (transactionProjection) return;
       previousStepInfo.current = stepInfo;
       setStepInfo({
         step: EFirmwareUpdateSteps.requestDeviceForSwitchFirmwareWebDevice,
@@ -540,7 +549,7 @@ export function FirmwareUpdateProgressBar({
         onSwitchFirmwareRequest,
       );
     };
-  }, [setStepInfo, stepInfo]);
+  }, [setStepInfo, stepInfo, transactionProjection]);
 
   const renderGrantUSBAccessButton = useCallback(() => {
     if (
@@ -603,6 +612,68 @@ export function FirmwareUpdateProgressBar({
   // if (isDone) {
   //   return <Stack>{debugInfo}</Stack>;
   // }
+
+  if (transactionProjection) {
+    const transactionProgress = transactionProjection.progress;
+    const target = transactionProgress?.target;
+    let fromVersion = result?.updateInfos.firmware?.fromVersion;
+    let toVersion = result?.updateInfos.firmware?.toVersion;
+    if (target === 'ble') {
+      fromVersion = result?.updateInfos.ble?.fromVersion;
+      toVersion = result?.updateInfos.ble?.toVersion;
+    } else if (target === 'bootloader') {
+      fromVersion = result?.updateInfos.bootloader?.fromVersion;
+      toVersion = result?.updateInfos.bootloader?.toVersion;
+    }
+    let transactionProgressValue = 1;
+    if (transactionProgress && transactionProgress.total > 0) {
+      transactionProgressValue = Math.max(
+        0,
+        Math.min(
+          100,
+          (transactionProgress.completed / transactionProgress.total) * 100,
+        ),
+      );
+    } else if (transactionProjection.phase === 'COMPLETED') {
+      transactionProgressValue = 100;
+    }
+    const transactionDescription = (() => {
+      switch (transactionProgress?.stage) {
+        case 'acquisition':
+          return intl.formatMessage({ id: ETranslations.update_downloading });
+        case 'materialization':
+          return intl.formatMessage({ id: ETranslations.global_processing });
+        case 'transfer':
+          return intl.formatMessage({
+            id: ETranslations.update_transferring_data,
+          });
+        case 'install':
+          return intl.formatMessage({ id: ETranslations.update_installing });
+        default:
+          return transactionProjection.phase === 'VERIFYING'
+            ? intl.formatMessage({
+                id: ETranslations.firmware_update_status_validating,
+              })
+            : defaultDesc();
+      }
+    })();
+    return (
+      <FirmwareUpdateProgressBarView
+        totalStep={undefined}
+        currentStep={undefined}
+        title={intl.formatMessage({
+          id:
+            transactionProjection.phase === 'COMPLETED'
+              ? ETranslations.global_done
+              : ETranslations.global_updating,
+        })}
+        progress={transactionProgressValue}
+        desc={transactionDescription}
+        fromVersion={fromVersion}
+        toVersion={toVersion}
+      />
+    );
+  }
 
   return (
     <Stack>

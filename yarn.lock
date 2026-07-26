@@ -10191,6 +10191,7 @@ __metadata:
     "@types/adm-zip": "npm:^0"
     "@types/electron-localshortcut": "npm:^3.1.0"
     "@types/node-fetch": "npm:^2.6.1"
+    "@types/yauzl": "npm:2.10.3"
     adm-zip: "npm:0.5.17"
     concurrently: "npm:9.2.1"
     cross-env: "npm:7.0.3"
@@ -10209,6 +10210,7 @@ __metadata:
     passport-desktop-win32-x64-msvc: "npm:0.1.2"
     rimraf: "npm:3.0.2"
     semver: "npm:7.5.4"
+    yauzl: "npm:2.10.0"
   languageName: unknown
   linkType: soft
 
@@ -20404,7 +20406,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/yauzl@npm:^2.9.1":
+"@types/yauzl@npm:2.10.3, @types/yauzl@npm:^2.9.1":
   version: 2.10.3
   resolution: "@types/yauzl@npm:2.10.3"
   dependencies:
@@ -50753,7 +50755,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"yauzl@npm:^2.10.0":
+"yauzl@npm:2.10.0, yauzl@npm:^2.10.0":
   version: 2.10.0
   resolution: "yauzl@npm:2.10.0"
   dependencies:

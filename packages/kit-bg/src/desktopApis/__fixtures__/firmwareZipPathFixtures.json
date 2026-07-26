@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "singleNames": [
+    {
+      "name": "firmware/main.bin",
+      "allowed": true,
+      "reason": "canonical relative portable path"
+    },
+    {
+      "name": "../main.bin",
+      "allowed": false,
+      "reason": "parent traversal"
+    },
+    {
+      "name": "/main.bin",
+      "allowed": false,
+      "reason": "POSIX absolute path"
+    },
+    {
+      "name": "C:\\main.bin",
+      "allowed": false,
+      "reason": "Windows drive path"
+    },
+    {
+      "name": "\\\\server\\share\\main.bin",
+      "allowed": false,
+      "reason": "UNC path"
+    },
+    {
+      "name": "\\\\?\\C:\\main.bin",
+      "allowed": false,
+      "reason": "Windows device namespace"
+    },
+    {
+      "name": "firmware/main.bin:payload",
+      "allowed": false,
+      "reason": "NTFS alternate data stream"
+    },
+    {
+      "name": "CON",
+      "allowed": false,
+      "reason": "reserved Windows device basename"
+    },
+    {
+      "name": "firmware/con.bin",
+      "allowed": false,
+      "reason": "reserved Windows device basename with extension"
+    },
+    {
+      "name": "firmware/AUX.txt",
+      "allowed": false,
+      "reason": "reserved Windows device basename case-insensitive"
+    },
+    {
+      "name": "firmware/COM1",
+      "allowed": false,
+      "reason": "reserved Windows serial device"
+    },
+    {
+      "name": "firmware/lpt9.bin",
+      "allowed": false,
+      "reason": "reserved Windows printer device"
+    },
+    {
+      "name": "firmware/main.bin.",
+      "allowed": false,
+      "reason": "Windows trailing-dot alias"
+    },
+    {
+      "name": "firmware/main.bin ",
+      "allowed": false,
+      "reason": "Windows trailing-space alias"
+    },
+    {
+      "name": "firmware//main.bin",
+      "allowed": false,
+      "reason": "empty component"
+    },
+    {
+      "name": "firmware/./main.bin",
+      "allowed": false,
+      "reason": "dot component"
+    },
+    {
+      "name": "firmware/café.bin",
+      "allowed": false,
+      "reason": "non-NFC spelling"
+    },
+    {
+      "name": "firmware/\u0000main.bin",
+      "allowed": false,
+      "reason": "NUL control character"
+    }
+  ],
+  "collisionSets": [
+    {
+      "names": ["Firmware/main.bin", "firmware/MAIN.bin"],
+      "allowed": false,
+      "reason": "case-folding collision"
+    },
+    {
+      "names": ["firmware/café.bin", "firmware/café.bin"],
+      "allowed": false,
+      "reason": "Unicode normalization collision"
+    }
+  ]
+}

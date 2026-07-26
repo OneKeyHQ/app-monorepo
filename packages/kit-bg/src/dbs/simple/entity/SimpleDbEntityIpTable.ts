@@ -2,17 +2,24 @@ import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDeco
 import { DEFAULT_IP_TABLE_CONFIG } from '@onekeyhq/shared/src/request/constants/ipTableDefaults';
 import type {
   IIpTableConfigWithRuntime,
+  IIpTableEffectiveConfig,
   IIpTableRemoteConfig,
   IIpTableRuntime,
 } from '@onekeyhq/shared/src/request/types/ipTable';
 import {
-  computeIpTableConfigHash,
+  createEffectiveIpTableConfig,
+  isIpTableConfigRegression,
+  isValidIpTableRemoteConfigShape,
   pruneIpTableRuntimeSelections,
+  validateIpTableConfigFreshness,
+  verifyIpTableConfigSignatureDetailed,
 } from '@onekeyhq/shared/src/utils/ipTableUtils';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 const STALE_SPEED_TEST_CONFIG = new Error('stale_speed_test_config');
+const INVALID_SIGNED_CONFIG = new Error('invalid_signed_ip_table_config');
+const REGRESSED_SIGNED_CONFIG = new Error('regressed_signed_ip_table_config');
 
 /**
  * IP Table SimpleDB storage structure
@@ -20,8 +27,19 @@ const STALE_SPEED_TEST_CONFIG = new Error('stale_speed_test_config');
  * If config is null, ServiceIpTable will use builtin config
  */
 export interface ISimpleDbIpTableData {
-  // IP Table configuration (from CDN or builtin)
+  /** @deprecated V1 storage field, migrated on the next verified save. */
   config?: IIpTableRemoteConfig | null;
+
+  /** Verbatim signed CDN envelope. Never merged with bundled defaults. */
+  rawConfig?: IIpTableRemoteConfig | null;
+
+  /** Derived runtime view. Never treated as signature-covered data. */
+  effectiveConfig?: IIpTableEffectiveConfig | null;
+
+  highestAccepted?: {
+    version: number;
+    generatedAt: string;
+  };
 
   // User's current region
   currentRegion?: 'CN' | 'GLOBAL' | 'AUTO';
@@ -47,7 +65,7 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
   async saveStorageData(data: ISimpleDbIpTableData): Promise<void> {
     await this.setRawData(() => ({
       ...data,
-      version: 1,
+      version: 2,
     }));
   }
 
@@ -58,9 +76,42 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
   @backgroundMethod()
   async getConfig(): Promise<IIpTableConfigWithRuntime> {
     const data = await this.getRawData();
+    const rawConfig = data?.rawConfig ?? data?.config ?? undefined;
+
+    if (rawConfig && isValidIpTableRemoteConfigShape(rawConfig)) {
+      const verifyResult =
+        await verifyIpTableConfigSignatureDetailed(rawConfig);
+      const freshness = validateIpTableConfigFreshness({
+        config: rawConfig,
+      });
+      const regression = data?.highestAccepted
+        ? isIpTableConfigRegression({
+            remoteConfig: rawConfig,
+            localConfig: {
+              version: data.highestAccepted.version,
+              generated_at: data.highestAccepted.generatedAt,
+            },
+            lastVerified: data.highestAccepted,
+          }).regression
+        : false;
+
+      if (verifyResult.ok && freshness.valid && !regression) {
+        return {
+          config: createEffectiveIpTableConfig({
+            rawConfig,
+            source: 'signed-remote',
+          }),
+          rawSignedConfig: rawConfig,
+          runtime: data?.runtime,
+        };
+      }
+    }
 
     return {
-      config: data?.config ?? DEFAULT_IP_TABLE_CONFIG,
+      config: createEffectiveIpTableConfig({
+        rawConfig: DEFAULT_IP_TABLE_CONFIG,
+        source: 'bundled',
+      }),
       runtime: data?.runtime,
     };
   }
@@ -70,24 +121,54 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
     config: IIpTableRemoteConfig,
     verifiedMeta?: { payloadHash: string },
   ): Promise<void> {
+    if (
+      !isValidIpTableRemoteConfigShape(config) ||
+      !(await verifyIpTableConfigSignatureDetailed(config)).ok ||
+      !validateIpTableConfigFreshness({ config }).valid
+    ) {
+      throw INVALID_SIGNED_CONFIG;
+    }
+
+    const effectiveConfig = createEffectiveIpTableConfig({
+      rawConfig: config,
+      source: 'signed-remote',
+    });
+
     await this.setRawData((data) => {
+      if (
+        data?.highestAccepted &&
+        isIpTableConfigRegression({
+          remoteConfig: config,
+          localConfig: {
+            version: data.highestAccepted.version,
+            generated_at: data.highestAccepted.generatedAt,
+          },
+          lastVerified: data.highestAccepted,
+        }).regression
+      ) {
+        throw REGRESSED_SIGNED_CONFIG;
+      }
+
       const runtime = data?.runtime ?? {
         enabled: true,
         lastUpdated: Date.now(),
         lastRegionCheck: 0,
         selections: {},
       };
-      // The stored config is the signed envelope verbatim, so runtime state
-      // pointing at endpoints the new config no longer endorses (revoked or
-      // rotated-out IPs) must be dropped alongside it.
       const pruned = pruneIpTableRuntimeSelections({
-        config,
+        config: effectiveConfig,
         selections: runtime.selections,
         lastBestIp: runtime.lastBestIp,
       });
+      const { config: _legacyConfig, ...currentData } = data ?? {};
       return {
-        ...data,
-        config,
+        ...currentData,
+        rawConfig: config,
+        effectiveConfig,
+        highestAccepted: {
+          version: config.version,
+          generatedAt: config.generated_at,
+        },
         runtime: {
           ...runtime,
           selections: pruned.selections,
@@ -106,6 +187,7 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
               }
             : {}),
         },
+        version: 2,
       };
     });
   }
@@ -125,7 +207,6 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
 
       return {
         ...data,
-        config: data?.config ?? null,
         currentRegion: data?.currentRegion ?? 'AUTO',
         runtime: {
           ...runtime,
@@ -134,7 +215,7 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
             [domain]: ip,
           },
         },
-        version: data?.version ?? 1,
+        version: data?.version ?? 2,
       };
     });
   }
@@ -155,7 +236,6 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
 
       return {
         ...data,
-        config: data?.config ?? null,
         currentRegion: data?.currentRegion ?? 'AUTO',
         runtime: {
           ...runtime,
@@ -164,7 +244,7 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
             [domain]: ip,
           },
         },
-        version: data?.version ?? 1,
+        version: data?.version ?? 2,
       };
     });
   }
@@ -186,7 +266,13 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
   }): Promise<'applied' | 'stale_config'> {
     try {
       await this.setRawData((data) => {
-        const currentConfig = data?.config ?? DEFAULT_IP_TABLE_CONFIG;
+        const persistedRawConfig = data?.rawConfig ?? data?.config ?? undefined;
+        const currentConfig =
+          data?.effectiveConfig ??
+          createEffectiveIpTableConfig({
+            rawConfig: persistedRawConfig ?? DEFAULT_IP_TABLE_CONFIG,
+            source: persistedRawConfig ? 'signed-remote' : 'bundled',
+          });
         const currentEndpoints = new Set(
           currentConfig.domains[options.domain]?.endpoints.map(
             (endpoint) => endpoint.ip,
@@ -200,8 +286,7 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
           candidateIps.add(options.selection);
         }
         if (
-          computeIpTableConfigHash(currentConfig) !==
-            options.expectedConfigHash ||
+          currentConfig.sourcePayloadHash !== options.expectedConfigHash ||
           [...candidateIps].some((ip) => !currentEndpoints.has(ip))
         ) {
           throw STALE_SPEED_TEST_CONFIG;
@@ -215,7 +300,6 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
         };
         return {
           ...data,
-          config: data?.config ?? null,
           currentRegion: data?.currentRegion ?? 'AUTO',
           runtime: {
             ...runtime,
@@ -236,7 +320,7 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
                 }
               : {}),
           },
-          version: data?.version ?? 1,
+          version: data?.version ?? 2,
         };
       });
       return 'applied';
@@ -267,24 +351,21 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
   @backgroundMethod()
   async shouldRefreshConfig(): Promise<boolean> {
     const data = await this.getRawData();
+    const rawConfig = data?.rawConfig ?? data?.config ?? undefined;
 
-    // No config yet, should fetch
-    if (!data?.config) {
+    if (!rawConfig || !isValidIpTableRemoteConfigShape(rawConfig)) {
       return true;
     }
 
-    const now = Date.now();
-    const lastUpdated = data.runtime?.lastUpdated ?? 0;
-    const ttlMs = data.config.ttl_sec * 1000;
-
-    // Check if config has expired
-    return now - lastUpdated > ttlMs;
+    return !validateIpTableConfigFreshness({ config: rawConfig }).valid;
   }
 
   @backgroundMethod()
   async clearAll(): Promise<void> {
-    await this.setRawData({
-      config: null,
+    await this.setRawData((data) => ({
+      rawConfig: null,
+      effectiveConfig: null,
+      highestAccepted: data?.highestAccepted,
       currentRegion: 'AUTO',
       runtime: {
         enabled: true,
@@ -292,7 +373,7 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
         lastRegionCheck: 0,
         selections: {},
       },
-      version: 1,
-    });
+      version: 2,
+    }));
   }
 }

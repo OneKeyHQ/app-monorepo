@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { type IntlShape, useIntl } from 'react-intl';
 
 import {
@@ -14,7 +15,6 @@ import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
-import { MOCK_PRO2_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/devicePro2Mock';
 import type { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import type { IConnectYourDeviceItem } from '@onekeyhq/shared/types/device';
 
@@ -25,7 +25,6 @@ import { SetupCardBackground } from '../components/SetupCardBackground';
 import { SetupStepItem } from '../components/SetupStepItem';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
-import type { EDeviceType } from '@onekeyfe/hd-shared';
 
 // MOCK(pro2): the whole device-driven onboarding for OneKey Pro 2 is mocked —
 // the device can't connect to the App yet, so there is no real
@@ -79,7 +78,7 @@ export const MOCK_INITIAL_STATUS: IMockOnboardingStatus = {
 export function supportsDeviceDrivenOnboarding(
   device: { deviceType?: IDeviceType } | undefined,
 ): boolean {
-  return device?.deviceType === MOCK_PRO2_DEVICE_TYPE;
+  return device?.deviceType === EDeviceType.Pro2;
 }
 
 // ---------------------------------------------------------------------------
@@ -638,10 +637,7 @@ export function Pro2MockEntryButton({
 }) {
   const [devSettings] = useDevSettingsPersistAtom();
   const navigation = useAppNavigation();
-  if (
-    !devSettings.enabled ||
-    !deviceTypeItems.includes(MOCK_PRO2_DEVICE_TYPE)
-  ) {
+  if (!devSettings.enabled || !deviceTypeItems.includes(EDeviceType.Pro2)) {
     return null;
   }
   return (
@@ -654,7 +650,7 @@ export function Pro2MockEntryButton({
               title: 'OneKey Pro 2',
               src: pro2Avatar,
               device: {
-                deviceType: MOCK_PRO2_DEVICE_TYPE,
+                deviceType: EDeviceType.Pro2,
               } as unknown as SearchDevice,
             } as IConnectYourDeviceItem,
             tabValue,

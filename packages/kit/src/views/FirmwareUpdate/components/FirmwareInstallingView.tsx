@@ -13,6 +13,11 @@ import type {
   ICheckAllFirmwareReleaseResult,
 } from '@onekeyhq/shared/types/device';
 
+import {
+  getFirmwareUpdateSessionStartInput,
+  useFirmwareUpdateSession,
+} from '../hooks/useFirmwareUpdateSession';
+
 import { FirmwareUpdateDone } from './FirmwareUpdateDone';
 import { FirmwareUpdateErrors } from './FirmwareUpdateErrors';
 import { FirmwareUpdateProgressBar } from './FirmwareUpdateProgressBar';
@@ -30,16 +35,62 @@ export function FirmwareInstallingViewBase({
   progressBarKey?: number;
 }) {
   const [stepInfo] = useFirmwareUpdateStepInfoAtom();
-  const isDone = stepInfo.step === EFirmwareUpdateSteps.updateDone;
-  const needOnboarding =
-    stepInfo.step === EFirmwareUpdateSteps.updateDone
-      ? (stepInfo.payload?.needOnboarding ?? false)
-      : false;
+  const firmwareUpdateSession = useFirmwareUpdateSession();
+  const projection = firmwareUpdateSession.projection;
+  const isTransactionSession = Boolean(projection);
+  const isDone =
+    projection?.phase === 'COMPLETED' ||
+    stepInfo.step === EFirmwareUpdateSteps.updateDone;
+  const needOnboarding = (() => {
+    if (isTransactionSession) {
+      return Boolean(
+        result?.updateInfos.firmware?.fromFirmwareType &&
+        result.updateInfos.firmware.toFirmwareType &&
+        result.updateInfos.firmware.fromFirmwareType !==
+          result.updateInfos.firmware.toFirmwareType,
+      );
+    }
+    if (stepInfo.step === EFirmwareUpdateSteps.updateDone) {
+      return stepInfo.payload?.needOnboarding ?? false;
+    }
+    return false;
+  })();
 
   const content = useMemo(() => {
     if (isDone) {
       return (
         <FirmwareUpdateDone result={result} needOnboarding={needOnboarding} />
+      );
+    }
+    if (
+      projection &&
+      ['FAILED', 'PAUSED', 'RECOVERY_UNSUPPORTED'].includes(projection.phase)
+    ) {
+      return (
+        <FirmwareUpdateErrors.TransactionError
+          projection={projection}
+          onRetry={async () => {
+            const transactionInput = result
+              ? getFirmwareUpdateSessionStartInput(result)
+              : undefined;
+            if (!transactionInput) return;
+            if (projection.revision === 0) {
+              const startResult =
+                await firmwareUpdateSession.start(transactionInput);
+              if (startResult.engine === 'transaction') {
+                await firmwareUpdateSession.execute({
+                  sessionId: startResult.projection.sessionId,
+                  connectId: transactionInput.connectId,
+                });
+              }
+              return;
+            }
+            await firmwareUpdateSession.resume({
+              sessionId: projection.sessionId,
+              connectId: transactionInput.connectId,
+            });
+          }}
+        />
       );
     }
     if (retryInfo) {
@@ -55,10 +106,20 @@ export function FirmwareInstallingViewBase({
       <FirmwareUpdateProgressBar
         lastFirmwareTipMessage={tipMessage}
         isDone={isDone}
+        result={result}
         key={progressBarKey}
       />
     );
-  }, [isDone, needOnboarding, progressBarKey, result, retryInfo, tipMessage]);
+  }, [
+    firmwareUpdateSession,
+    isDone,
+    needOnboarding,
+    progressBarKey,
+    projection,
+    result,
+    retryInfo,
+    tipMessage,
+  ]);
   return <Stack>{content}</Stack>;
 }
 

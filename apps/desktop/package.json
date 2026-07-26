@@ -18,7 +18,7 @@
     "dev:renderer:rspack": "TRANSFORM_REGENERATOR_DISABLED=true BROWSER=none WEB_PORT=3001 yarn run -T rspack serve --config-loader jiti",
     "build:main:dev": "rimraf ./app/dist && cross-env node scripts/build.js",
     "build:main": "rimraf ./app/dist && cross-env NODE_ENV=production node scripts/build.js",
-    "build:renderer": "cross-env NODE_ENV=production yarn clean:build && cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 yarn run -T rspack build --config-loader jiti && node scripts/finalize-production-assets.js && node scripts/finalize-renderer-assets.js",
+    "build:renderer": "yarn verify:hardware-sdk-copy && cross-env NODE_ENV=production yarn clean:build && cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 yarn run -T rspack build --config-loader jiti && node scripts/finalize-production-assets.js && node scripts/finalize-renderer-assets.js && yarn verify:hardware-sdk-build",
     "build:electron": "electron-builder build -ml --config electron-builder.config.js",
     "build:electron:win": "electron-builder build -w --config electron-builder-win.config.js",
     "build:electron:winms": "electron-builder build -w --config electron-builder-ms.config.js",
@@ -28,6 +28,10 @@
     "harness:node-runtime": "node scripts/run-node-runtime-integrity-harness.js",
     "harness:node-runtime:snap": "cross-env ONEKEY_NODE_RUNTIME_INTEGRITY_HARNESS_SNAP=true node scripts/run-node-runtime-integrity-harness.js",
     "bundle:build": "yarn build:renderer",
+    "verify:hardware-sdk-build": "cross-env HARDWARE_SDK_DESTINATION=app/build/static/js-sdk HARDWARE_SDK_RUNTIME_ONLY=true node ../../development/scripts/verify-hardware-sdk-copy.js",
+    "verify:hardware-sdk-copy": "node ../../development/scripts/verify-hardware-sdk-copy.js",
+    "verify:hardware-sdk-e2e": "node e2e/firmware-sdk.e2e.js",
+    "verify:hardware-sdk-runtime": "yarn verify:hardware-sdk-e2e && cd ../.. && yarn jest packages/shared/src/hardware/sdk-loader/index.test.ts packages/kit-bg/src/desktopApis/DesktopApiFirmwareArtifact.test.ts packages/kit-bg/src/desktopApis/DesktopApiFirmwareArtifact.e2e.test.ts --runInBand",
     "build": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron --publish never",
     "build:snap": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:snap --publish never",
     "build:mac": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:mac --publish never",
@@ -53,7 +57,8 @@
     "node-fetch": "^2.6.7",
     "passport-desktop": "0.1.2",
     "passport-desktop-win32-x64-msvc": "0.1.2",
-    "semver": "7.5.4"
+    "semver": "7.5.4",
+    "yauzl": "2.10.0"
   },
   "devDependencies": {
     "@electron/notarize": "2.3.2",
@@ -61,6 +66,7 @@
     "@types/adm-zip": "^0",
     "@types/electron-localshortcut": "^3.1.0",
     "@types/node-fetch": "^2.6.1",
+    "@types/yauzl": "2.10.3",
     "concurrently": "9.2.1",
     "cross-env": "7.0.3",
     "electron": "39.8.9",

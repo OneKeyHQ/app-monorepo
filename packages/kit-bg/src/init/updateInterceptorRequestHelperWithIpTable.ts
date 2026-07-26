@@ -13,7 +13,7 @@ import requestHelper from '@onekeyhq/shared/src/request/requestHelper';
  * - kit/src/index.tsx on non-split-thread platforms (desktop, web, ext)
  */
 export function updateInterceptorRequestHelperWithIpTable() {
-  requestHelper.getIpTableConfig = async () => {
+  const getIpTableConfig = async () => {
     const { default: simpleDb } =
       await import('@onekeyhq/kit-bg/src/dbs/simple/simpleDb');
     if (!simpleDb) {
@@ -21,4 +21,7 @@ export function updateInterceptorRequestHelperWithIpTable() {
     }
     return simpleDb.ipTable.getConfig();
   };
+  requestHelper.getIpTableConfig = getIpTableConfig;
+  requestHelper.getFirmwareManifestIpTableConfig = getIpTableConfig;
+  requestHelper.getFirmwareArtifactIpTableConfig = getIpTableConfig;
 }

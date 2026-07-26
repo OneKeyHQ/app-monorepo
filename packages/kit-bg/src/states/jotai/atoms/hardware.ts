@@ -11,6 +11,7 @@ import type {
   IFirmwareUpdateInfo,
   IFirmwareUpdatesDetectStatus,
 } from '@onekeyhq/shared/types/device';
+import type { IFirmwareUpdateProjection } from '@onekeyhq/shared/types/firmwareUpdate';
 import type { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import { EAtomNames } from '../atomNames';
@@ -317,6 +318,17 @@ export const {
 >({
   initialValue: undefined,
   name: EAtomNames.firmwareUpdateResultVerifyAtom,
+});
+
+// The durable transaction remains owned by the background journal. Native main
+// and background runtimes each deserialize this small projection into their own
+// JS heap through the existing global atom bridge.
+export const {
+  target: firmwareUpdateProjectionAtom,
+  use: useFirmwareUpdateProjectionAtom,
+} = globalAtom<IFirmwareUpdateProjection | undefined>({
+  initialValue: undefined,
+  name: EAtomNames.firmwareUpdateProjectionAtom,
 });
 
 // hardware xfp generate ----------------------------------------------

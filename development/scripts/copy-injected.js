@@ -4,6 +4,8 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+const { verifyHardwareSdkCopy } = require('./verify-hardware-sdk-copy');
+
 console.log('Copying injected files...');
 
 function copyRecursiveSync(src, dest) {
@@ -100,6 +102,7 @@ copyFile(
 
 // Copy hardware js-sdk iframe files to desktop
 const jsSdkDestDir = './apps/desktop/public/static/js-sdk/';
+fs.rmSync(jsSdkDestDir, { force: true, recursive: true });
 ensureDirectoryExistence(jsSdkDestDir);
 
 const srcDir = path.join(
@@ -112,7 +115,13 @@ const srcDir = path.join(
   'build',
 );
 copyRecursiveSync(srcDir, jsSdkDestDir);
-console.log(`Copied ${srcDir} to ${jsSdkDestDir}`);
+const jsSdkVerification = verifyHardwareSdkCopy({
+  sourceDir: srcDir,
+  destinationDir: path.resolve(jsSdkDestDir),
+});
+console.log(
+  `Copied and verified ${jsSdkVerification.fileCount} hardware SDK files from ${srcDir} to ${jsSdkDestDir}`,
+);
 
 // Copy translate inject source to .text-js so WebView can import it as a raw string
 copyFile(

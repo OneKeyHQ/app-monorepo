@@ -28,6 +28,7 @@ import {
 import { FirmwareInstallingViewV2 } from '../componentsV2/FirmwareInstallingViewV2';
 import { FirmwareUpdateAlertInfoMessage } from '../componentsV2/FirmwareUpdateAlertInfoMessage';
 import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
+import { useFirmwareUpdateSession } from '../hooks/useFirmwareUpdateSession';
 
 function PageFirmwareUpdateInstallV2() {
   const route = useAppRoute<
@@ -40,12 +41,26 @@ function PageFirmwareUpdateInstallV2() {
   const navigation = useAppNavigation();
   const actions = useFirmwareUpdateActions();
   const [stepInfo] = useFirmwareUpdateStepInfoAtom();
+  const firmwareUpdateSession = useFirmwareUpdateSession();
+  const projection = firmwareUpdateSession.projection;
   const [isDoneInternal, setIsDoneInternal] = useState(false);
-  const isDone = stepInfo.step === EFirmwareUpdateSteps.updateDone;
-  const needOnboarding =
-    stepInfo.step === EFirmwareUpdateSteps.updateDone
-      ? (stepInfo.payload?.needOnboarding ?? false)
-      : false;
+  const isDone =
+    projection?.phase === 'COMPLETED' ||
+    stepInfo.step === EFirmwareUpdateSteps.updateDone;
+  const needOnboarding = (() => {
+    if (projection) {
+      return Boolean(
+        result?.updateInfos.firmware?.fromFirmwareType &&
+        result.updateInfos.firmware.toFirmwareType &&
+        result.updateInfos.firmware.fromFirmwareType !==
+          result.updateInfos.firmware.toFirmwareType,
+      );
+    }
+    if (stepInfo.step === EFirmwareUpdateSteps.updateDone) {
+      return stepInfo.payload?.needOnboarding ?? false;
+    }
+    return false;
+  })();
 
   useEffect(() => {
     setTimeout(() => {
@@ -107,6 +122,7 @@ function PageFirmwareUpdateInstallV2() {
 
   const content = useMemo(() => {
     if (
+      projection ||
       stepInfo.step === EFirmwareUpdateSteps.updateStart ||
       stepInfo.step === EFirmwareUpdateSteps.installing ||
       stepInfo.step ===
@@ -130,7 +146,7 @@ function PageFirmwareUpdateInstallV2() {
       );
     }
 
-    if (stepInfo.step === EFirmwareUpdateSteps.error) {
+    if (!projection && stepInfo.step === EFirmwareUpdateSteps.error) {
       requestAnimationFrame(() => {
         navigation.pop();
       });
@@ -149,6 +165,7 @@ function PageFirmwareUpdateInstallV2() {
     isDone,
     isDoneInternal,
     FooterContent,
+    projection,
   ]);
 
   return (
@@ -156,12 +173,14 @@ function PageFirmwareUpdateInstallV2() {
       scrollEnabled
       onUnmounted={async () => {
         console.log('PageFirmwareUpdateInstall unmounted');
-        await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
-        if (result?.originalConnectId) {
-          await backgroundApiProxy.serviceHardware.cancel({
-            connectId: result.originalConnectId,
-            forceDeviceResetToHome: true,
-          });
+        if (!projection) {
+          await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
+          if (result?.originalConnectId) {
+            await backgroundApiProxy.serviceHardware.cancel({
+              connectId: result.originalConnectId,
+              forceDeviceResetToHome: true,
+            });
+          }
         }
       }}
     >

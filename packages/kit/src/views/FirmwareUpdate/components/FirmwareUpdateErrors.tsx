@@ -30,6 +30,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
+import type { IFirmwareUpdateProjection } from '@onekeyhq/shared/types/firmwareUpdate';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import ImgEnterBootGuideMini from '../assets/enter-boot-guide-mini.png';
@@ -538,6 +539,34 @@ function WorkflowErrors({
   );
 }
 
+function TransactionError({
+  projection,
+  onRetry,
+}: {
+  projection: IFirmwareUpdateProjection;
+  onRetry?: () => void;
+}) {
+  const intl = useIntl();
+  const canRetry =
+    projection.action === 'retry' || projection.error?.retryable === true;
+  return (
+    <>
+      {canRetry && onRetry ? (
+        <FirmwareUpdatePageFooter
+          onConfirm={onRetry}
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.global_retry,
+          })}
+          confirmButtonProps={{
+            testID: FirmwareUpdateTestIDs.retryBtn,
+          }}
+        />
+      ) : null}
+      <CommonError message={projection.error?.message} displayTroubleshooting />
+    </>
+  );
+}
+
 function InstallingErrors({
   retryInfo,
   result,
@@ -600,4 +629,5 @@ export const FirmwareUpdateErrors = {
   EnterBootModeGuide,
   WorkflowErrors,
   InstallingErrors,
+  TransactionError,
 };

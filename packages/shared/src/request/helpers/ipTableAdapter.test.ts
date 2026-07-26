@@ -6,6 +6,7 @@ import requestHelper from '../requestHelper';
 
 import {
   createIpTableAdapter,
+  getOrderedIpTableCandidateIpsForHost,
   resetAdapterFailoverStatesForTesting,
   setReportRequestFailureCallback,
   testIpSpeed,
@@ -237,6 +238,72 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
         hostname: 'wallet.example.com',
       }),
     );
+  });
+
+  test('returns exact-host ordered candidates without mapping a firmware host to its root domain', async () => {
+    mockedRequestHelper.getIpTableConfig.mockResolvedValue({
+      config: {
+        version: 1,
+        ttl_sec: 60,
+        generated_at: '2026-06-30T00:00:00.000Z',
+        domains: {
+          'data.onekey.so': {
+            endpoints: [
+              {
+                ip: '1.1.1.1',
+                provider: 'first',
+                region: 'ALL',
+                weight: 10,
+              },
+              {
+                ip: '2.2.2.2',
+                provider: 'second',
+                region: 'ALL',
+                weight: 20,
+              },
+            ],
+          },
+          'onekey.so': {
+            endpoints: [
+              {
+                ip: '9.9.9.9',
+                provider: 'root',
+                region: 'ALL',
+                weight: 100,
+              },
+            ],
+          },
+        },
+        source: 'signed-remote',
+        sourcePayloadHash: 'hash',
+      },
+      runtime: {
+        enabled: true,
+        lastUpdated: 0,
+        lastRegionCheck: 0,
+        selections: {
+          'data.onekey.so': '1.1.1.1',
+        },
+      },
+    });
+
+    await expect(
+      getOrderedIpTableCandidateIpsForHost({
+        canonicalUrl: 'https://data.onekey.so/config.json',
+        exactHostOnly: true,
+      }),
+    ).resolves.toEqual(['1.1.1.1', '2.2.2.2']);
+  });
+
+  test('returns no pinned candidates while a user proxy is active', async () => {
+    mockedIsProxyActiveForUrl.mockResolvedValue(true);
+    await expect(
+      getOrderedIpTableCandidateIpsForHost({
+        canonicalUrl: 'https://data.onekey.so/config.json',
+        exactHostOnly: true,
+      }),
+    ).resolves.toEqual([]);
+    expect(mockedRequestHelper.getIpTableConfig).not.toHaveBeenCalled();
   });
 });
 

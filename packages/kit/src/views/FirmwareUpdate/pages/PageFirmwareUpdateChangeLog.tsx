@@ -32,6 +32,7 @@ import {
   FirmwareUpdatePageLayout,
 } from '../components/FirmwareUpdatePageLayout';
 import { FirmwareUpdateWarningMessage } from '../components/FirmwareUpdateWarningMessage';
+import { useFirmwareUpdateSession } from '../hooks/useFirmwareUpdateSession';
 
 function PageFirmwareUpdateChangeLog() {
   const route = useAppRoute<
@@ -43,6 +44,7 @@ function PageFirmwareUpdateChangeLog() {
   const baseReleaseInfo = route?.params?.baseReleaseInfo;
 
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
+  const firmwareUpdateSession = useFirmwareUpdateSession();
 
   const confirmUpdateResult = useRef<ICheckAllFirmwareReleaseResult>(undefined);
 
@@ -159,7 +161,9 @@ function PageFirmwareUpdateChangeLog() {
       scrollEnabled
       onUnmounted={async () => {
         console.log('PageFirmwareUpdateChangeLog unmounted');
-        await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
+        if (!firmwareUpdateSession.projection) {
+          await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
+        }
       }}
     >
       <FirmwareUpdatePageLayout

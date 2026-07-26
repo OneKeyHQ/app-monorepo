@@ -11,6 +11,7 @@ import {
   useExtensionUpdatingFromExpandTab,
   useModalExitPrevent,
 } from '../hooks/useFirmwareUpdateHooks';
+import { useFirmwareUpdateSession } from '../hooks/useFirmwareUpdateSession';
 
 export function ForceExtensionUpdatingFromExpandTab() {
   useExtensionUpdatingFromExpandTab();
@@ -24,6 +25,8 @@ export function FirmwareUpdateExitPrevent({
   shouldPreventRemove?: boolean;
 }) {
   const intl = useIntl();
+  const firmwareUpdateSession = useFirmwareUpdateSession();
+  const projection = firmwareUpdateSession.projection;
   const title = intl.formatMessage({ id: ETranslations.update_quit_update });
   const message = intl.formatMessage({
     id: ETranslations.update_quit_update_desc,
@@ -31,13 +34,33 @@ export function FirmwareUpdateExitPrevent({
   const continueUpdateText = intl.formatMessage({
     id: ETranslations.update_continue_update,
   });
+  let cancelUpdateMessageId = ETranslations.update_cancel_update;
+  if (projection && ['INSTALLING', 'VERIFYING'].includes(projection.phase)) {
+    cancelUpdateMessageId = ETranslations.global_later;
+  } else if (
+    projection &&
+    ![
+      'DISCOVERING',
+      'PLAN_CREATED',
+      'ELIGIBILITY_CHECKING',
+      'ACQUIRING',
+      'MATERIALIZING',
+      'PREPARED',
+    ].includes(projection.phase)
+  ) {
+    cancelUpdateMessageId = ETranslations.global_pause;
+  }
   const cancelUpdateText = intl.formatMessage({
-    id: ETranslations.update_cancel_update,
+    id: cancelUpdateMessageId,
   });
 
   const onConfirmCallback = useCallback(() => {
+    if (projection) {
+      void firmwareUpdateSession.requestExit(projection.sessionId);
+      return;
+    }
     void backgroundApiProxy.serviceHardware.cancel({});
-  }, []);
+  }, [firmwareUpdateSession, projection]);
 
   // Prevents screen locking
   useKeepAwake();

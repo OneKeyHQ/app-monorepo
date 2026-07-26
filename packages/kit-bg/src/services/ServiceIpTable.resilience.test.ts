@@ -1,10 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 
+import axios from 'axios';
+
+import { sniRequest } from '@onekeyhq/shared/src/request/helpers/sniRequest';
 import type { IIpTableRemoteConfig } from '@onekeyhq/shared/src/request/types/ipTable';
+import { createEffectiveIpTableConfig } from '@onekeyhq/shared/src/utils/ipTableUtils';
 
 import ServiceIpTable from './ServiceIpTable';
-
-const mockAxiosGet = jest.fn();
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -12,6 +14,17 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
     () => (_target: unknown, _key: string, descriptor: PropertyDescriptor) =>
       descriptor,
 }));
+
+jest.mock('@onekeyhq/shared/src/utils/ipTableUtils', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/utils/ipTableUtils')
+  >('@onekeyhq/shared/src/utils/ipTableUtils');
+
+  return {
+    ...actual,
+    isSupportIpTablePlatform: jest.fn(() => true),
+  };
+});
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
@@ -30,7 +43,6 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 }));
 
 jest.mock('@onekeyhq/shared/src/request/helpers/ipTableAdapter', () => ({
-  createAxiosWithIpTable: jest.fn(() => ({ get: mockAxiosGet })),
   getSelectedIpForHost: Object.assign(jest.fn(), { clear: jest.fn() }),
   setReportRequestFailureCallback: jest.fn(),
   setReportRequestSuccessCallback: jest.fn(),
@@ -102,8 +114,11 @@ function createService() {
 }
 
 describe('ServiceIpTable resilience', () => {
+  const mockedSniRequest = sniRequest as jest.Mock;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedSniRequest.mockReset();
   });
 
   it.each([
@@ -114,17 +129,114 @@ describe('ServiceIpTable resilience', () => {
     async (_name, data) => {
       const { service } = createService();
       const fallbackConfig = buildConfig('1.1.1.1');
-      mockAxiosGet.mockResolvedValueOnce({ data });
       const fallbackSpy = jest
         .spyOn(service as any, 'fetchRemoteConfigViaSniFallback')
         .mockResolvedValue(fallbackConfig);
+      const axiosGetSpy = jest.spyOn(axios, 'get').mockResolvedValue({
+        data,
+        headers: { 'content-type': 'application/json' },
+      });
 
       await expect((service as any).fetchRemoteConfig()).resolves.toEqual(
         fallbackConfig,
       );
       expect(fallbackSpy).toHaveBeenCalledTimes(1);
+      expect(axiosGetSpy).not.toHaveBeenCalled();
+      fallbackSpy.mockRestore();
+      axiosGetSpy.mockRestore();
     },
   );
+
+  it('tries ordered SNI candidates before the canonical domain', async () => {
+    const { service } = createService();
+    const config = buildConfig('1.1.1.1');
+    jest.spyOn(service, 'getConfig').mockResolvedValue({
+      config: createEffectiveIpTableConfig({
+        rawConfig: config,
+        source: 'signed-remote',
+      }),
+      rawSignedConfig: config,
+      runtime: {
+        enabled: true,
+        lastUpdated: 0,
+        lastRegionCheck: 0,
+        selections: { [DOMAIN]: '1.1.1.1' },
+      },
+    });
+    mockedSniRequest.mockResolvedValue({
+      statusCode: 200,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    const axiosGetSpy = jest.spyOn(axios, 'get');
+
+    await expect((service as any).fetchRemoteConfig()).resolves.toEqual(config);
+    expect(mockedSniRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ip: '1.1.1.1',
+        hostname: 'config.onekeycn.com',
+        timeout: 3000,
+      }),
+    );
+    expect(axiosGetSpy).not.toHaveBeenCalled();
+    axiosGetSpy.mockRestore();
+  });
+
+  it('shares one wall-clock deadline between candidate and canonical routes', async () => {
+    const { service } = createService();
+    const config = buildConfig('1.1.1.1');
+    jest.spyOn(service, 'getConfig').mockResolvedValue({
+      config: createEffectiveIpTableConfig({
+        rawConfig: config,
+        source: 'signed-remote',
+      }),
+      runtime: undefined,
+    });
+    let now = 1000;
+    const nowSpy = jest.spyOn(Date, 'now').mockImplementation(() => now);
+    mockedSniRequest.mockImplementation(async () => {
+      now += 2500;
+      throw Object.assign(new Error('network unavailable'), {
+        code: 'SNI_NETWORK_UNREACHABLE',
+      });
+    });
+    const axiosGetSpy = jest.spyOn(axios, 'get').mockResolvedValue({
+      data: JSON.stringify(config),
+      headers: { 'content-type': 'application/json' },
+    });
+
+    await expect((service as any).fetchRemoteConfig()).resolves.toEqual(config);
+    const canonicalTimeout = (
+      axiosGetSpy.mock.calls[0]?.[1] as { timeout?: number } | undefined
+    )?.timeout;
+    expect(canonicalTimeout).toBeGreaterThan(0);
+    expect(canonicalTimeout).toBeLessThan(10_000);
+    expect(mockedSniRequest.mock.calls.length).toBeLessThanOrEqual(3);
+    nowSpy.mockRestore();
+    axiosGetSpy.mockRestore();
+  });
+
+  it('does not fall back to another route after a certificate failure', async () => {
+    const { service } = createService();
+    const config = buildConfig('1.1.1.1');
+    jest.spyOn(service, 'getConfig').mockResolvedValue({
+      config: createEffectiveIpTableConfig({
+        rawConfig: config,
+        source: 'signed-remote',
+      }),
+      runtime: undefined,
+    });
+    mockedSniRequest.mockRejectedValue(
+      Object.assign(new Error('certificate rejected'), {
+        code: 'SNI_CERT_FAILED',
+      }),
+    );
+    const axiosGetSpy = jest.spyOn(axios, 'get');
+
+    await expect((service as any).fetchRemoteConfig()).resolves.toBeNull();
+    expect(axiosGetSpy).not.toHaveBeenCalled();
+    axiosGetSpy.mockRestore();
+  });
 
   it('discards and queues a rerun when the atomic commit sees a new signed config', async () => {
     const { service, ipTableDb } = createService();
@@ -136,7 +248,10 @@ describe('ServiceIpTable resilience', () => {
       .mockResolvedValueOnce(100)
       .mockResolvedValueOnce(20);
     jest.spyOn(service, 'getConfig').mockResolvedValueOnce({
-      config: originalConfig,
+      config: createEffectiveIpTableConfig({
+        rawConfig: originalConfig,
+        source: 'signed-remote',
+      }),
       runtime: undefined,
     });
     ipTableDb.commitSpeedTestResult.mockResolvedValueOnce('stale_config');

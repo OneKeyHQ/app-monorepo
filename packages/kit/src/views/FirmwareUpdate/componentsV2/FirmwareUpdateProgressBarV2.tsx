@@ -23,6 +23,7 @@ import {
 } from '@onekeyhq/components';
 import {
   EFirmwareUpdateSteps,
+  useFirmwareUpdateProjectionAtom,
   useFirmwareUpdateResultVerifyAtom,
   useFirmwareUpdateStepInfoAtom,
   useHardwareUiStateAtom,
@@ -235,6 +236,7 @@ export function FirmwareUpdateProgressBarV2({
 }) {
   const intl = useIntl();
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
+  const [transactionProjection] = useFirmwareUpdateProjectionAtom();
   const [state] = useHardwareUiStateAtom();
   const [progress, setProgress] = useState(1);
   const [isDoneInternal, setIsDoneInternal] = useState(!!isDone);
@@ -491,6 +493,7 @@ export function FirmwareUpdateProgressBarV2({
   const previousStepInfo = useRef(stepInfo);
   useEffect(() => {
     const onBootloaderRequest = () => {
+      if (transactionProjection) return;
       previousStepInfo.current = stepInfo;
       setStepInfo({
         step: EFirmwareUpdateSteps.requestDeviceInBootloaderForWebDevice,
@@ -498,6 +501,7 @@ export function FirmwareUpdateProgressBarV2({
       });
     };
     const onSwitchFirmwareRequest = () => {
+      if (transactionProjection) return;
       previousStepInfo.current = stepInfo;
       setStepInfo({
         step: EFirmwareUpdateSteps.requestDeviceForSwitchFirmwareWebDevice,
@@ -522,7 +526,7 @@ export function FirmwareUpdateProgressBarV2({
         onSwitchFirmwareRequest,
       );
     };
-  }, [setStepInfo, stepInfo]);
+  }, [setStepInfo, stepInfo, transactionProjection]);
 
   const renderGrantUSBAccessButton = useCallback(() => {
     if (
@@ -582,12 +586,47 @@ export function FirmwareUpdateProgressBarV2({
     }
   }, [firmwareProgress, lastFirmwareTipMessage, progress, showDebugInfo]);
 
+  const transactionProgress = transactionProjection?.progress;
+  let transactionProgressValue = 1;
+  if (transactionProgress && transactionProgress.total > 0) {
+    transactionProgressValue = Math.max(
+      0,
+      Math.min(
+        100,
+        (transactionProgress.completed / transactionProgress.total) * 100,
+      ),
+    );
+  } else if (transactionProjection?.phase === 'COMPLETED') {
+    transactionProgressValue = 100;
+  }
+  const transactionDescription = (() => {
+    switch (transactionProgress?.stage) {
+      case 'acquisition':
+        return intl.formatMessage({ id: ETranslations.update_downloading });
+      case 'materialization':
+        return intl.formatMessage({ id: ETranslations.global_processing });
+      case 'transfer':
+        return intl.formatMessage({
+          id: ETranslations.update_transferring_data,
+        });
+      case 'install':
+        return intl.formatMessage({ id: ETranslations.update_installing });
+      default:
+        return transactionProjection?.phase === 'VERIFYING'
+          ? intl.formatMessage({
+              id: ETranslations.firmware_update_status_validating,
+            })
+          : defaultDesc();
+    }
+  })();
+  const transactionDone = transactionProjection?.phase === 'COMPLETED';
+
   return (
     <Stack>
       <FirmwareUpdateProgressBarView
         versions={upgradeVersions}
         title={
-          isDoneInternal
+          transactionDone || isDoneInternal
             ? intl.formatMessage({
                 id: ETranslations.update_all_updates_complete,
               })
@@ -595,9 +634,9 @@ export function FirmwareUpdateProgressBarV2({
                 id: ETranslations.global_installing_firmware,
               })
         }
-        progress={progress}
-        desc={desc}
-        isDone={isDoneInternal}
+        progress={transactionProjection ? transactionProgressValue : progress}
+        desc={transactionProjection ? transactionDescription : desc}
+        isDone={transactionDone || isDoneInternal}
         isVerified={isVerified}
       />
       {renderGrantUSBAccessButton()}

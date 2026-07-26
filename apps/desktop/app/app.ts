@@ -58,6 +58,11 @@ import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
 import {
+  getHardwareSdkResourceRelativePath,
+  isHardwareSdkResourceRequest,
+  resolveHardwareSdkResourcePath,
+} from './libs/hardwareSdkResourcePath';
+import {
   applyDesktopNetworkThrottleToKnownSessions,
   applyDesktopNetworkThrottleToWebContents,
 } from './libs/networkThrottle';
@@ -840,15 +845,17 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
-        const jsSdkPattern = '/static/js-sdk/';
-        const jsSdkIndex = request.url.indexOf(jsSdkPattern);
-
-        // resolve js-sdk files path in local unpacked mode
-        if (jsSdkIndex > -1) {
-          const fileName = request.url.substring(
-            jsSdkIndex + jsSdkPattern.length,
-          );
-          callback(path.join(staticPath, 'js-sdk', fileName));
+        if (isHardwareSdkResourceRequest(request.url)) {
+          const sdkResourcePath = resolveHardwareSdkResourcePath({
+            requestUrl: request.url,
+            rootDir: path.join(staticPath, 'js-sdk'),
+          });
+          if (!sdkResourcePath) {
+            logger.warn('Blocked invalid hardware SDK file URL:', request.url);
+            callback({ error: -6 });
+            return;
+          }
+          callback(sdkResourcePath);
           return;
         }
 
@@ -1506,39 +1513,51 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
-        const isJsSdkFile = request.url.indexOf('/static/js-sdk') > -1;
-        const isIFrameHtml =
-          request.url.indexOf('/static/js-sdk/iframe.html') > -1;
-
-        // resolve iframe path
-        if (isJsSdkFile && isIFrameHtml) {
+        if (isHardwareSdkResourceRequest(request.url)) {
+          const relativePath = getHardwareSdkResourceRelativePath(request.url);
+          if (!relativePath) {
+            logger.warn('Blocked invalid hardware SDK file URL:', request.url);
+            callback({ error: -6 });
+            return;
+          }
           if (useJsBundle && indexHtmlPath && bundleDirPath) {
-            let key = path.join('static', 'js-sdk', 'iframe.html');
-            const filePath = path.join(bundleDirPath, key);
-            if (isWin) {
-              key = key.replace(/\\/g, '/');
-            }
-            const sha512 = metadata[key];
-            if (!checkFileSha512(filePath, sha512)) {
+            const portableKey = path.posix.join(
+              'static',
+              'js-sdk',
+              relativePath,
+            );
+            const nativeKey = path.join(
+              'static',
+              'js-sdk',
+              ...relativePath.split('/'),
+            );
+            const metadataKey = metadata[portableKey] ? portableKey : nativeKey;
+            const sha512 = metadata[metadataKey];
+            const filePath = resolveHardwareSdkResourcePath({
+              requestUrl: request.url,
+              rootDir: path.join(bundleDirPath, 'static', 'js-sdk'),
+            });
+            if (!filePath || !sha512 || !checkFileSha512(filePath, sha512)) {
               logger.info(
                 'checkFileHash error in js-sdk:',
-                `${key}:  ${filePath} not matched ${sha512}`,
+                `${metadataKey}: ${filePath || 'invalid path'} not matched ${
+                  sha512 || 'missing hash'
+                }`,
               );
-              throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
+              throw new OneKeyLocalError(`File ${portableKey} sha512 mismatch`);
             }
             callback(filePath);
             return;
           }
-          callback({
-            path: path.join(
-              __dirname,
-              '..',
-              'build',
-              'static',
-              'js-sdk',
-              'iframe.html',
-            ),
+          const filePath = resolveHardwareSdkResourcePath({
+            requestUrl: request.url,
+            rootDir: path.join(__dirname, '..', 'build', 'static', 'js-sdk'),
           });
+          if (!filePath) {
+            callback({ error: -6 });
+            return;
+          }
+          callback(filePath);
           return;
         }
 

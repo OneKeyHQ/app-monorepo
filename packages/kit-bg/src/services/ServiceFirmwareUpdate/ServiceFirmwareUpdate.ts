@@ -61,11 +61,17 @@ import {
   EHardwareCallContext,
   EOneKeyDeviceMode,
 } from '@onekeyhq/shared/types/device';
+import type {
+  IFirmwareUpdateProjection,
+  IFirmwareUpdateSessionStartInput,
+  IFirmwareUpdateSessionStartResult,
+} from '@onekeyhq/shared/types/firmwareUpdate';
 
 import localDb from '../../dbs/local/localDb';
 import {
   EFirmwareUpdateSteps,
   EHardwareUiStateAction,
+  firmwareUpdateProjectionAtom,
   firmwareUpdateResultVerifyAtom,
   firmwareUpdateRetryAtom,
   firmwareUpdateStepInfoAtom,
@@ -75,13 +81,22 @@ import {
 import ServiceBase from '../ServiceBase';
 import serviceHardwareUtils from '../ServiceHardware/serviceHardwareUtils';
 
+import { FirmwareArtifactDesktopAdapter } from './adapters/FirmwareArtifactDesktopAdapter';
+import { FirmwareArtifactNativeAdapter } from './adapters/FirmwareArtifactNativeAdapter';
+import { FirmwareArtifactStore } from './FirmwareArtifactStore';
 import {
   FIRMWARE_ONBOARDING_MAX_VERSIONS_BEHIND,
   FIRMWARE_UPDATE_MIN_BATTERY_LEVEL,
   FIRMWARE_UPDATE_MIN_VERSION_ALLOWED,
 } from './firmwareUpdateConsts';
 import { FirmwareUpdateDetectMap } from './FirmwareUpdateDetectMap';
+import {
+  FirmwareUpdateTransactionRuntime,
+  type IFirmwareUpdateTransactionStartInput,
+  getFirmwareUpdateTransactionFailureCode,
+} from './FirmwareUpdateTransactionRuntime';
 
+import type { IFirmwareUpdateCoordinatorProjection } from './firmwareUpdateCoordinatorTypes';
 import type { IDBDevice } from '../../dbs/local/types';
 import type {
   IPromiseContainerCallbackCreate,
@@ -91,13 +106,14 @@ import type {
 import type {
   AllFirmwareRelease,
   CoreApi,
+  Features as CoreFeatures,
   Success as CoreSuccess,
   DeviceUploadResourceParams,
   IDeviceType,
   IVersionArray,
 } from '@onekeyfe/hd-core';
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
-import type { Features, Success } from '@onekeyfe/hd-transport';
+import type { Success } from '@onekeyfe/hd-transport';
 
 export type IAutoUpdateFirmwareParams = {
   connectId: string | undefined;
@@ -127,6 +143,28 @@ type IUpdateFirmwareTask = {
   workflowId: number | undefined;
 };
 
+const toFirmwareUpdateUiProjection = (
+  projection: IFirmwareUpdateCoordinatorProjection,
+): IFirmwareUpdateProjection =>
+  Object.freeze({
+    sessionId: projection.sessionId,
+    revision: projection.revision,
+    phase: projection.phase,
+    ...(projection.progress ? { progress: projection.progress } : {}),
+    ...(projection.action ? { action: projection.action } : {}),
+    ...(projection.cancelDisposition
+      ? { cancelDisposition: projection.cancelDisposition }
+      : {}),
+    ...(projection.error ? { error: projection.error } : {}),
+  });
+
+const FIRMWARE_UPDATE_TERMINAL_UI_PHASES = new Set([
+  'COMPLETED',
+  'FAILED',
+  'ABANDONED',
+  'RECOVERY_UNSUPPORTED',
+]);
+
 interface IFirmwareUpdateResult {
   bleVersion?: string;
   firmwareVersion?: string;
@@ -135,8 +173,243 @@ interface IFirmwareUpdateResult {
 
 @backgroundClass()
 class ServiceFirmwareUpdate extends ServiceBase {
+  private firmwareUpdateTransactionRuntime:
+    | FirmwareUpdateTransactionRuntime
+    | undefined;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  private getFirmwareUpdateTransactionRuntime() {
+    this.firmwareUpdateTransactionRuntime ??=
+      new FirmwareUpdateTransactionRuntime({
+        getFeatures: async (connectId) =>
+          (await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
+            connectId,
+            params: {
+              allowEmptyConnectId: true,
+            },
+          })) as unknown as CoreFeatures,
+        getHardwareSdk: (connectId) => this.getSDKInstance({ connectId }),
+        getTransportType: () =>
+          this.backgroundApi.serviceSetting.getHardwareTransportType(),
+        getInstallationKey: () =>
+          this.backgroundApi.serviceSetting.getInstanceId(),
+        getFallbackStableDeviceId: async (connectId) => {
+          const device = await localDb.getDeviceByQuery({ connectId });
+          return device?.uuid || device?.deviceId;
+        },
+        getRecoveryConnectId: async (stableDeviceId) => {
+          const { devices } = await localDb.getAllDevices();
+          return devices.find((device) => device.uuid === stableDeviceId)
+            ?.connectId;
+        },
+        getDevSetting: (key) =>
+          this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+            key,
+          ),
+        resolveUpdatingConnectId: ({ connectId, transportType }) =>
+          deviceUtils.getUpdatingConnectId({
+            connectId,
+            currentTransportType: transportType,
+          }),
+        createArtifactStore: () =>
+          new FirmwareArtifactStore(
+            platformEnv.isNative
+              ? new FirmwareArtifactNativeAdapter()
+              : new FirmwareArtifactDesktopAdapter(),
+          ),
+        runHardwareMutation: async ({ originalConnectId, execute }) => {
+          const dbDevice = originalConnectId
+            ? await localDb.getDeviceByQuery({
+                connectId: originalConnectId,
+              })
+            : undefined;
+          return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+            async () => {
+              appEventBus.emit(
+                EAppEventBusNames.BeginFirmwareUpdate,
+                undefined,
+              );
+              await timerUtils.wait(3000);
+              const currentTransportType =
+                await this.backgroundApi.serviceSetting.getHardwareTransportType();
+              if (!currentTransportType) {
+                throw new OneKeyLocalError(
+                  'Firmware transaction has no active hardware transport',
+                );
+              }
+              await this.backgroundApi.serviceHardware.setForceTransportType({
+                forceTransportType: currentTransportType,
+              });
+              try {
+                return await execute();
+              } finally {
+                await this.backgroundApi.serviceHardware.clearForceTransportType();
+              }
+            },
+            {
+              deviceParams: {
+                dbDevice: dbDevice || ({} as IDBDevice),
+              },
+              skipDeviceCancel: true,
+              hideCheckingDeviceLoading: true,
+              debugMethodName: 'executeFirmwareUpdateTransaction',
+            },
+          );
+        },
+        onTransactionCompleted: async ({
+          originalConnectId,
+          currentFirmwareType,
+          firmwareType,
+          expectedFinalStates,
+        }) => {
+          try {
+            if (originalConnectId) {
+              await this.detectMap.deleteUpdateInfo({
+                connectId: originalConnectId,
+              });
+              await this.backgroundApi.serviceHardware.updateDeviceVersionAfterFirmwareTransaction(
+                {
+                  connectId: originalConnectId,
+                  expectedFinalStates,
+                  fromFirmwareType: currentFirmwareType as EFirmwareType,
+                  toFirmwareType: firmwareType as EFirmwareType,
+                },
+              );
+            }
+            await this.clearOnceUpdateDevSettings();
+          } catch (error) {
+            serviceHardwareUtils.hardwareLog(
+              'Firmware transaction post-completion synchronization failed',
+              error,
+            );
+          } finally {
+            appEventBus.emit(EAppEventBusNames.FinishFirmwareUpdate, undefined);
+          }
+        },
+        publishProjection: async (projection) => {
+          await Promise.all([
+            firmwareUpdateProjectionAtom.set(
+              toFirmwareUpdateUiProjection(projection),
+            ),
+            firmwareUpdateWorkflowRunningAtom.set(
+              !FIRMWARE_UPDATE_TERMINAL_UI_PHASES.has(projection.phase),
+            ),
+          ]);
+        },
+      });
+    return this.firmwareUpdateTransactionRuntime;
+  }
+
+  @backgroundMethod()
+  async startFirmwareUpdateTransaction(
+    input: IFirmwareUpdateTransactionStartInput,
+  ): Promise<IFirmwareUpdateCoordinatorProjection> {
+    return this.getFirmwareUpdateTransactionRuntime().start(input);
+  }
+
+  @backgroundMethod()
+  async startFirmwareUpdateSession(
+    input: IFirmwareUpdateSessionStartInput,
+  ): Promise<IFirmwareUpdateSessionStartResult> {
+    try {
+      const projection =
+        await this.getFirmwareUpdateTransactionRuntime().start(input);
+      return {
+        engine: 'transaction',
+        projection: toFirmwareUpdateUiProjection(projection),
+      };
+    } catch (error) {
+      const code = getFirmwareUpdateTransactionFailureCode(error);
+      if (code === 'ROLLOUT_NOT_ALLOWED' || code === 'CAPABILITY_NOT_READY') {
+        await Promise.all([
+          firmwareUpdateProjectionAtom.set(undefined),
+          firmwareUpdateWorkflowRunningAtom.set(false),
+        ]);
+        return {
+          engine: 'legacy',
+          reason:
+            code === 'ROLLOUT_NOT_ALLOWED'
+              ? 'rollout_not_allowed'
+              : 'capability_not_ready',
+        };
+      }
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async executeFirmwareUpdateTransaction({
+    sessionId,
+    connectId,
+  }: {
+    sessionId: string;
+    connectId: string;
+  }): Promise<IFirmwareUpdateCoordinatorProjection> {
+    return this.getFirmwareUpdateTransactionRuntime().execute({
+      sessionId,
+      connectId,
+    });
+  }
+
+  @backgroundMethod()
+  async resumeFirmwareUpdateTransaction({
+    sessionId,
+    connectId,
+  }: {
+    sessionId: string;
+    connectId: string;
+  }): Promise<IFirmwareUpdateCoordinatorProjection> {
+    return this.getFirmwareUpdateTransactionRuntime().resume({
+      sessionId,
+      connectId,
+    });
+  }
+
+  @backgroundMethod()
+  async cancelFirmwareUpdateTransaction({
+    sessionId,
+  }: {
+    sessionId: string;
+  }): Promise<IFirmwareUpdateCoordinatorProjection> {
+    return this.getFirmwareUpdateTransactionRuntime().cancel(sessionId);
+  }
+
+  @backgroundMethod()
+  async getFirmwareUpdateProjection({
+    broadcast = false,
+  }: {
+    broadcast?: boolean;
+  } = {}): Promise<IFirmwareUpdateProjection | undefined> {
+    const projection =
+      await this.getFirmwareUpdateTransactionRuntime().getProjection({
+        broadcast,
+      });
+    return projection ? toFirmwareUpdateUiProjection(projection) : undefined;
+  }
+
+  async prepareFirmwareRuntimeReset({
+    reason,
+  }: {
+    reason: 'iframe-recreate' | 'sdk-reset' | 'transport-switch';
+  }): Promise<void> {
+    await this.firmwareUpdateTransactionRuntime?.prepareForSdkReset(reason);
+  }
+
+  async restoreFirmwareRuntimeBinding(): Promise<void> {
+    await this.firmwareUpdateTransactionRuntime?.restoreAfterSdkReset();
+  }
+
+  async initializeFirmwareUpdateRecoveryCritical(): Promise<void> {
+    if (!platformEnv.isNative && !platformEnv.isDesktop) return;
+    await this.getFirmwareUpdateTransactionRuntime().initializeRecoveryCritical();
+  }
+
+  async recoverFirmwareUpdateAfterBootstrap(): Promise<void> {
+    if (!platformEnv.isNative && !platformEnv.isDesktop) return;
+    await this.getFirmwareUpdateTransactionRuntime().recoverAfterBootstrap();
   }
 
   async getSDKInstance({
@@ -453,7 +726,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         allowEmptyConnectId: true,
         featuresCache: releaseInfoCache?.features,
       });
-    let features: Features = initialFeatures as Features;
+    let features: CoreFeatures | undefined = initialFeatures;
 
     // use originalConnectId getFeatures() make sure sdk throw DeviceNotFound if connected device not matched with originalConnectId
     if (isBootloaderMode || !features) {

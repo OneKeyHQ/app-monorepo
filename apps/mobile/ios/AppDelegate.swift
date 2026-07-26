@@ -7,6 +7,9 @@ import ReactAppDependencyProvider
 
 // MARK: - Dynamic bridge to Nitro modules (avoids C++ module import issues)
 private enum NitroModuleBridge {
+  private static let firmwareBackgroundSessionIdentifier =
+    "so.onekey.firmware-artifacts.domain.v1"
+
   // LaunchOptionsStore is @objcMembers in ReactNativeDeviceUtils.
   // Reach the singleton via the `sharedInstance` class method (perform),
   // NOT KVC `value(forKeyPath: "shared")`: a Swift `static let` stored
@@ -42,6 +45,23 @@ private enum NitroModuleBridge {
     let selector = NSSelectorFromString("currentBundleCommonJSBundle")
     guard cls.responds(to: selector) else { return nil }
     return cls.perform(selector)?.takeUnretainedValue() as? String
+  }
+
+  static func handleFirmwareBackgroundSessionEvents(
+    identifier: String,
+    completionHandler: @escaping () -> Void
+  ) -> Bool {
+    guard identifier == firmwareBackgroundSessionIdentifier,
+          let cls = NSClassFromString("FirmwareBackgroundSessionEventRouter") as? NSObject.Type else {
+      return false
+    }
+    let selector = NSSelectorFromString(
+      "handleEventsForBackgroundURLSession:completionHandler:"
+    )
+    guard cls.responds(to: selector) else { return false }
+    let handler: @convention(block) () -> Void = completionHandler
+    cls.perform(selector, with: identifier, with: handler)
+    return true
   }
 }
 
@@ -249,13 +269,10 @@ public class AppDelegate: ExpoAppDelegate {
   }
 
   // Background URLSession events (concurrent/background downloads).
-  // When the app is relaunched in the background to finish a background
-  // download, hand the completion handler to the downloader via a notification.
-  // We post rather than call directly because the Nitro module's C++ umbrella
-  // header can't be imported into this Swift AppDelegate (see the
-  // NSClassFromString bridges above). If the downloader instance isn't live yet
-  // the events are processed on the next foreground launch instead — the
-  // download itself still completed in the background.
+  // Firmware downloads route directly into a process-level native inbox so the
+  // completion handler survives a relaunch before either JS runtime or the
+  // Nitro singleton starts. Other range-download channels retain the existing
+  // notification bridge because their downloader singleton owns the callback.
   //
   // Posted under a generic name (RangeDownloaderBackgroundEvents) so any number
   // of channels (bundle / apk / chart) route through one notification; the
@@ -268,6 +285,12 @@ public class AppDelegate: ExpoAppDelegate {
     completionHandler: @escaping () -> Void
   ) {
     NitroModuleBridge.logInfo("RangeDownloader", "handleEventsForBackgroundURLSession: \(identifier)")
+    if NitroModuleBridge.handleFirmwareBackgroundSessionEvents(
+      identifier: identifier,
+      completionHandler: completionHandler
+    ) {
+      return
+    }
     NotificationCenter.default.post(
       name: Notification.Name("RangeDownloaderBackgroundEvents"),
       object: nil,

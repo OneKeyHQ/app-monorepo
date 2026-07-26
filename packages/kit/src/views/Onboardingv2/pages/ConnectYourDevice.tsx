@@ -59,7 +59,6 @@ import {
   HwWalletAvatarImages,
   getDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
-import { MOCK_PRO2_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/devicePro2Mock';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -546,10 +545,8 @@ function BluetoothCard({
 }
 
 function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
-  // MOCK(pro2): Pro 2 is identified by the shared mock device type until the SDK
-  // ships the real EDeviceType.Pro2.
   const isPro2 = useMemo(
-    () => deviceTypeItems.includes(MOCK_PRO2_DEVICE_TYPE),
+    () => deviceTypeItems.includes(EDeviceType.Pro2),
     [deviceTypeItems],
   );
 
@@ -1099,9 +1096,7 @@ function ConnectYourDevicePage({
   const isSupportedQRCode = useMemo(() => {
     return deviceTypeItems.every(
       (deviceType) =>
-        deviceType === EDeviceType.Pro ||
-        // MOCK(pro2): Pro 2 supports QR wallet just like Pro.
-        deviceType === MOCK_PRO2_DEVICE_TYPE,
+        deviceType === EDeviceType.Pro || deviceType === EDeviceType.Pro2,
     );
   }, [deviceTypeItems]);
   const navigateToCreateQRWallet = useCallback(async () => {

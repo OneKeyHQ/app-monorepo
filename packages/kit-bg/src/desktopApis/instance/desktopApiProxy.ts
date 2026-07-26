@@ -12,6 +12,7 @@ import type DesktopApiBluetooth from '../DesktopApiBluetooth';
 import type DesktopApiBundleUpdate from '../DesktopApiBundleUpdate';
 import type DesktopApiCloudKit from '../DesktopApiCloudKit';
 import type DesktopApiDev from '../DesktopApiDev';
+import type DesktopApiFirmwareArtifact from '../DesktopApiFirmwareArtifact';
 import type DesktopApiInAppPurchase from '../DesktopApiInAppPurchase';
 import type DesktopApiKeychain from '../DesktopApiKeychain';
 import type DesktopApiNotification from '../DesktopApiNotification';
@@ -84,6 +85,9 @@ export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
 
   bundleUpdate: DesktopApiBundleUpdate =
     this._createProxyModule<IDesktopApiKeys>('bundleUpdate');
+
+  firmwareArtifact: DesktopApiFirmwareArtifact =
+    this._createProxyModule<IDesktopApiKeys>('firmwareArtifact');
 
   cloudKit: DesktopApiCloudKit =
     this._createProxyModule<IDesktopApiKeys>('cloudKit');

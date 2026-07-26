@@ -38,6 +38,38 @@ export interface IIpTableRemoteConfig {
       }>;
     };
   };
+
+  firmware_rollout?: IFirmwareUpdateRolloutConfig;
+}
+
+export type IFirmwareUpdateRolloutPlatform = 'ios' | 'android' | 'desktop';
+
+export interface IFirmwareUpdateRolloutRule {
+  enabled: boolean;
+  killSwitch: boolean;
+  percentageBps: number;
+  allowDeviceTypes?: string[];
+  allowPlatforms?: IFirmwareUpdateRolloutPlatform[];
+  minAppVersion?: string;
+}
+
+export interface IFirmwareUpdateRolloutConfig {
+  schemaVersion: 1;
+  policyVersion: number;
+  salt: string;
+  expiresAt: number;
+  p0Classic1sV2?: IFirmwareUpdateRolloutRule;
+  coordinatorExternalOnly?: IFirmwareUpdateRolloutRule;
+}
+
+export interface IIpTableEffectiveConfig {
+  version: number;
+  ttl_sec: number;
+  generated_at: string;
+  domains: IIpTableRemoteConfig['domains'];
+  firmware_rollout?: IFirmwareUpdateRolloutConfig;
+  source: 'bundled' | 'signed-remote';
+  sourcePayloadHash: string;
 }
 
 /**
@@ -123,7 +155,10 @@ export type IIpTableSignatureVerifyResult =
  * Clear separation between config and runtime data
  */
 export interface IIpTableConfigWithRuntime {
-  config: IIpTableRemoteConfig;
+  /** Runtime-only merged view. It is not covered by a signature. */
+  config: IIpTableEffectiveConfig;
+  /** Verbatim persisted envelope that was re-verified on this read. */
+  rawSignedConfig?: IIpTableRemoteConfig;
   runtime: IIpTableRuntime | undefined;
 }
 

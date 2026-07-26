@@ -593,7 +593,7 @@ export function useDeviceConnect({
           await backgroundApiProxy.serviceHardware.shouldAuthenticateFirmware({
             device: {
               ...latestDevice,
-              deviceId: latestDevice.deviceId || features.device_id,
+              deviceId: latestDevice.deviceId || features.device_id || null,
             },
           });
 

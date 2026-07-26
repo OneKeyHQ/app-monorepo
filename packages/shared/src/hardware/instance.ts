@@ -7,7 +7,6 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { EHardwareTransportType } from '../../types';
 
-import { createConfigFetcher } from './configFetcher';
 import { importHardwareSDK, importHardwareSDKLowLevel } from './sdk-loader';
 
 import type { EOnekeyDomain } from '../../types';
@@ -20,6 +19,19 @@ import type {
 // eslint-disable-next-line import/no-mutable-exports
 let HardwareSDK: CoreApi;
 let HardwareLowLevelSDK: LowLevelCoreApi;
+
+export const getFirmwareManifestConnectSettings = (
+  isClientPlatform: boolean,
+): Pick<ConnectSettings, 'fetchConfig' | 'firmwareManifestMode'> =>
+  isClientPlatform
+    ? {
+        firmwareManifestMode: {
+          kind: 'external-only',
+        },
+      }
+    : {
+        fetchConfig: true,
+      };
 
 export const generateConnectSrc = () => {
   const connectSrc = `${HARDWARE_SDK_IFRAME_SRC_ONEKEYSO}/${HARDWARE_SDK_VERSION}/`;
@@ -38,7 +50,7 @@ export const cleanupHardwareSDKInstance = async (): Promise<void> => {
 
       // Dispose SDK instance
       if (typeof HardwareSDK.dispose === 'function') {
-        HardwareSDK.dispose();
+        await HardwareSDK.dispose();
       }
 
       if (HardwareLowLevelSDK) {
@@ -47,7 +59,7 @@ export const cleanupHardwareSDKInstance = async (): Promise<void> => {
           HardwareLowLevelSDK.removeAllListeners();
         }
         if (typeof HardwareLowLevelSDK.dispose === 'function') {
-          HardwareLowLevelSDK.dispose();
+          await HardwareLowLevelSDK.dispose();
         }
       }
 
@@ -85,13 +97,12 @@ const createHardwareSDKInstance = async (params: {
       env = 'desktop-web-ble' as const;
     }
 
-    const configFetcher = await createConfigFetcher();
-
     const settings: Partial<ConnectSettings> = {
       debug: params.debugMode,
-      fetchConfig: true,
       env,
-      configFetcher,
+      ...getFirmwareManifestConnectSettings(
+        Boolean(platformEnv.isNative || platformEnv.isDesktop),
+      ),
     };
 
     HardwareSDK = await importHardwareSDK({

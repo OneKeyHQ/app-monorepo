@@ -147,6 +147,11 @@ type IHandleLinuxWebUsbAccessDeniedErrorParams = {
   error?: unknown;
 };
 
+type IFirmwareTransactionExpectedFinalState = {
+  target: string;
+  version?: string;
+};
+
 // skip events
 const SKIPPED_EVENTS = new Set([
   EHardwareUiStateAction.CLOSE_UI_WINDOW,
@@ -351,6 +356,11 @@ class ServiceHardware extends ServiceBase {
         );
 
         // Reset SDK instance to use new transport type
+        await this.backgroundApi.serviceFirmwareUpdate.prepareFirmwareRuntimeReset(
+          {
+            reason: 'transport-switch',
+          },
+        );
         await resetHardwareSDKInstance();
         this.registeredEvents = false;
 
@@ -376,6 +386,9 @@ class ServiceHardware extends ServiceBase {
         hardwareSDKInstance: instance,
       });
       await this.registerSdkEvents(instance);
+      if (shouldSwitch) {
+        await this.backgroundApi.serviceFirmwareUpdate.restoreFirmwareRuntimeBinding();
+      }
 
       return instance;
     } catch (error) {
@@ -1776,59 +1789,104 @@ class ServiceHardware extends ServiceBase {
   }
 
   private fixHardwareBitcoinOnlyState(params: IUpdateFirmwareWorkflowParams) {
-    let bitcoinOnlyFlag:
-      | {
-          fw_vendor: string | undefined;
-          capabilities: number[] | undefined;
-          $app_firmware_type?: EFirmwareType;
-        }
-      | undefined;
-    const capabilityBitcoinLike = 2;
-    const bitcoinOnlyFwVendor = 'OneKey Bitcoin-only';
     try {
       const updateFirmwareInfo = params?.releaseResult?.updateInfos?.firmware;
-      if (
-        updateFirmwareInfo?.fromFirmwareType === EFirmwareType.Universal &&
-        updateFirmwareInfo?.toFirmwareType === EFirmwareType.BitcoinOnly
-      ) {
-        const originalCapabilities =
-          (params?.releaseResult?.features
-            ?.capabilities as unknown as number[]) || [];
-        const newCapabilities = originalCapabilities.filter(
-          (item) => item !== capabilityBitcoinLike,
-        );
-
-        bitcoinOnlyFlag = {
-          fw_vendor: bitcoinOnlyFwVendor,
-          capabilities: newCapabilities,
-          $app_firmware_type: EFirmwareType.BitcoinOnly,
-        };
-      } else if (
-        updateFirmwareInfo?.fromFirmwareType === EFirmwareType.BitcoinOnly &&
-        updateFirmwareInfo?.toFirmwareType === EFirmwareType.Universal
-      ) {
-        const originalCapabilities =
-          (params?.releaseResult?.features
-            ?.capabilities as unknown as number[]) || [];
-        const capabilities = [...originalCapabilities];
-
-        const hasExists = capabilities.find(
-          (item) => item === capabilityBitcoinLike,
-        );
-        if (!hasExists) {
-          capabilities.push(capabilityBitcoinLike);
-        }
-
-        bitcoinOnlyFlag = {
-          fw_vendor: undefined,
-          capabilities,
-          $app_firmware_type: EFirmwareType.Universal,
-        };
-      }
+      return this.buildHardwareFirmwareTypeState({
+        fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
+        toFirmwareType: updateFirmwareInfo?.toFirmwareType,
+        capabilities: this.getFirmwareCapabilities(
+          params?.releaseResult?.features?.capabilities,
+        ),
+      });
     } catch (_error) {
-      // ignore
+      return undefined;
     }
-    return bitcoinOnlyFlag;
+  }
+
+  private getFirmwareCapabilities(
+    capabilities: unknown,
+  ): Array<number | string> | undefined {
+    if (!Array.isArray(capabilities)) {
+      return undefined;
+    }
+    return capabilities.filter(
+      (value): value is number | string =>
+        (typeof value === 'number' && Number.isFinite(value)) ||
+        typeof value === 'string',
+    );
+  }
+
+  private buildHardwareFirmwareTypeState({
+    fromFirmwareType,
+    toFirmwareType,
+    capabilities,
+  }: {
+    fromFirmwareType: EFirmwareType | undefined;
+    toFirmwareType: EFirmwareType | undefined;
+    capabilities: readonly (number | string)[] | undefined;
+  }):
+    | {
+        fw_vendor: string | undefined;
+        capabilities?: Array<number | string>;
+        $app_firmware_type: EFirmwareType;
+      }
+    | undefined {
+    if (
+      !fromFirmwareType ||
+      !toFirmwareType ||
+      fromFirmwareType === toFirmwareType
+    ) {
+      return undefined;
+    }
+    const capabilityBitcoinLike = 2;
+    const capabilityBitcoinLikeName = 'Capability_Bitcoin_like';
+    const isBitcoinLikeCapability = (value: number | string) =>
+      value === capabilityBitcoinLike || value === capabilityBitcoinLikeName;
+    const capabilitiesState = capabilities
+      ? {
+          capabilities: [...capabilities],
+        }
+      : {};
+    if (
+      fromFirmwareType === EFirmwareType.Universal &&
+      toFirmwareType === EFirmwareType.BitcoinOnly
+    ) {
+      return {
+        fw_vendor: 'OneKey Bitcoin-only',
+        ...capabilitiesState,
+        ...(capabilities
+          ? {
+              capabilities: capabilities.filter(
+                (item) => !isBitcoinLikeCapability(item),
+              ),
+            }
+          : {}),
+        $app_firmware_type: EFirmwareType.BitcoinOnly,
+      };
+    }
+    if (
+      fromFirmwareType === EFirmwareType.BitcoinOnly &&
+      toFirmwareType === EFirmwareType.Universal
+    ) {
+      const bitcoinLikeCapability = capabilities?.some(
+        (value) => typeof value === 'string',
+      )
+        ? capabilityBitcoinLikeName
+        : capabilityBitcoinLike;
+      return {
+        fw_vendor: undefined,
+        ...capabilitiesState,
+        ...(capabilities
+          ? {
+              capabilities: capabilities.some(isBitcoinLikeCapability)
+                ? [...capabilities]
+                : [...capabilities, bitcoinLikeCapability],
+            }
+          : {}),
+        $app_firmware_type: EFirmwareType.Universal,
+      };
+    }
+    return undefined;
   }
 
   @backgroundMethod()
@@ -1892,6 +1950,67 @@ class ServiceHardware extends ServiceBase {
           deviceType: dbDevice.deviceType,
           fromFirmwareType: updateFirmwareInfo.fromFirmwareType,
           toFirmwareType: updateFirmwareInfo.toFirmwareType,
+        });
+      }
+    }
+  }
+
+  @backgroundMethod()
+  async updateDeviceVersionAfterFirmwareTransaction({
+    connectId,
+    expectedFinalStates,
+    fromFirmwareType,
+    toFirmwareType,
+  }: {
+    connectId: string;
+    expectedFinalStates: readonly IFirmwareTransactionExpectedFinalState[];
+    fromFirmwareType: EFirmwareType | undefined;
+    toFirmwareType: EFirmwareType | undefined;
+  }) {
+    const dbDevice = await localDb.getDeviceByQuery({ connectId });
+    if (!dbDevice) return;
+    const versionInfo: IDeviceVersionCacheInfo = {
+      onekey_firmware_version: undefined,
+      onekey_ble_version: undefined,
+      ble_ver: undefined,
+      onekey_boot_version: undefined,
+      bootloader_version: undefined,
+    };
+    for (const state of expectedFinalStates) {
+      if (state.version && semver.valid(state.version)) {
+        if (state.target === 'firmware') {
+          versionInfo.onekey_firmware_version = state.version;
+        } else if (state.target === 'ble') {
+          versionInfo.onekey_ble_version = state.version;
+          versionInfo.ble_ver = state.version;
+        } else if (state.target === 'bootloader') {
+          versionInfo.onekey_boot_version = state.version;
+          versionInfo.bootloader_version = state.version;
+        }
+      }
+    }
+    const bitcoinOnlyFlag = this.buildHardwareFirmwareTypeState({
+      fromFirmwareType,
+      toFirmwareType,
+      capabilities: this.getFirmwareCapabilities(
+        dbDevice.featuresInfo?.capabilities,
+      ),
+    });
+    const filteredVersionInfo = Object.fromEntries(
+      Object.entries(versionInfo).filter(([, value]) => value !== undefined),
+    ) as IDeviceVersionCacheInfo;
+    await localDb.updateDeviceVersionInfo({
+      dbDeviceId: dbDevice.id,
+      versionCacheInfo: filteredVersionInfo,
+      bitcoinOnlyFlag,
+    });
+    if (bitcoinOnlyFlag) {
+      await this.updateHwWalletsDeprecatedStatus({ connectId });
+      if (fromFirmwareType && toFirmwareType) {
+        defaultLogger.update.firmware.firmwareSwitchSuccess({
+          deviceType: dbDevice.deviceType,
+          fromFirmwareType,
+          toFirmwareType,
         });
       }
     }
@@ -2298,12 +2417,18 @@ class ServiceHardware extends ServiceBase {
       this.registeredEvents = false;
 
       // 3. Reset SDK instance (clears memoizee cache and cleans up SDK instance)
+      await this.backgroundApi.serviceFirmwareUpdate.prepareFirmwareRuntimeReset(
+        {
+          reason: 'transport-switch',
+        },
+      );
       await resetHardwareSDKInstance();
 
       // 4. Get new SDK instance with new transport type
       const newInstance = await this.getSDKInstance({
         connectId: undefined,
       });
+      await this.backgroundApi.serviceFirmwareUpdate.restoreFirmwareRuntimeBinding();
 
       console.log(
         `Successfully switched hardware transport type to: ${transportType}`,
@@ -2469,7 +2594,7 @@ class ServiceHardware extends ServiceBase {
         device: {
           ...matchingDevice,
           connectId: matchingDevice.connectId || '',
-          deviceId: features.device_id,
+          deviceId: features.device_id ?? null,
         },
       });
 

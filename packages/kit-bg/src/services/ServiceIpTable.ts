@@ -24,7 +24,6 @@ import {
   IP_TABLE_SPEED_TEST_TIMEOUT_MS,
 } from '@onekeyhq/shared/src/request/constants/ipTableDefaults';
 import {
-  createAxiosWithIpTable,
   getSelectedIpForHost,
   setReportRequestFailureCallback,
   setReportRequestSuccessCallback,
@@ -36,6 +35,7 @@ import {
   applyRequestOutcome,
   nextIpTableRequestSequence,
 } from '@onekeyhq/shared/src/request/helpers/ipTableRequestOutcome';
+import { isSniFailClosedError } from '@onekeyhq/shared/src/request/helpers/sniFailClosedError';
 import {
   isProxyActiveForUrl,
   isSniSupported,
@@ -48,6 +48,7 @@ import type {
 } from '@onekeyhq/shared/src/request/types/ipTable';
 import {
   computeIpTableConfigHash,
+  getOrderedIpTableCandidates,
   isIpTableConfigRegression,
   isSupportIpTablePlatform,
   isValidIpTableRemoteConfigShape,
@@ -57,6 +58,19 @@ import {
 import { devSettingsPersistAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
+
+const IP_TABLE_CONFIG_MAX_BODY_BYTES = 1024 * 1024;
+const IP_TABLE_CONFIG_CANDIDATE_TIMEOUT_MS = 3000;
+const IP_TABLE_CONFIG_RETRYABLE_STATUS = new Set([500, 502, 503, 504]);
+
+const createIpTableConfigFailClosedError = (message: string): Error => {
+  const error = new Error(message);
+  error.name = 'IpTableConfigFailClosedError';
+  return error;
+};
+
+const isIpTableConfigFailClosedError = (error: unknown): boolean =>
+  error instanceof Error && error.name === 'IpTableConfigFailClosedError';
 
 /**
  * Endpoint health statistics
@@ -323,57 +337,74 @@ class ServiceIpTable extends ServiceBase {
   }
 
   private async fetchRemoteConfig(): Promise<IIpTableRemoteConfig | null> {
+    const deadlineAt = Date.now() + IP_TABLE_CDN_FETCH_TIMEOUT_MS;
     try {
       defaultLogger.ipTable.request.info({
         info: `[IpTable] Fetching remote config from: ${IP_TABLE_CDN_URL}`,
       });
 
-      // Fetch the config through the IP-Table-capable client: the config CDN
-      // (config.onekeycn.com) shares the walled root domain, so this fetch
-      // needs the same fail-open protection as business traffic. No cycle:
-      // endpoint selection only reads the local simpleDb/builtin table.
-      const plainAxios = createAxiosWithIpTable({
-        timeout: IP_TABLE_CDN_FETCH_TIMEOUT_MS,
-      });
+      const candidateResult =
+        await this.fetchRemoteConfigViaSniFallback(deadlineAt);
+      if (candidateResult) {
+        return candidateResult;
+      }
 
+      const remainingMs = deadlineAt - Date.now();
+      if (remainingMs <= 0) {
+        return null;
+      }
       const headers = await getRequestHeaders();
-
-      const response = await plainAxios.get<IIpTableRemoteConfig>(
-        IP_TABLE_CDN_URL,
-        {
-          timeout: IP_TABLE_CDN_FETCH_TIMEOUT_MS,
-          headers,
-        },
-      );
-
-      const remoteConfig = response.data;
-
-      if (!remoteConfig) {
-        defaultLogger.ipTable.request.error({
-          info: '[IpTable] CDN returned empty config',
-        });
-        return this.fetchRemoteConfigViaSniFallback();
+      const response = await axios.get<string>(IP_TABLE_CDN_URL, {
+        timeout: remainingMs,
+        headers,
+        responseType: 'text',
+        transformResponse: [(data: unknown) => data],
+        maxContentLength: IP_TABLE_CONFIG_MAX_BODY_BYTES,
+        maxBodyLength: IP_TABLE_CONFIG_MAX_BODY_BYTES,
+      });
+      const contentType = response.headers['content-type'];
+      if (
+        typeof contentType !== 'string' ||
+        !contentType.toLowerCase().includes('application/json') ||
+        typeof response.data !== 'string' ||
+        new TextEncoder().encode(response.data).byteLength >
+          IP_TABLE_CONFIG_MAX_BODY_BYTES
+      ) {
+        throw createIpTableConfigFailClosedError(
+          'canonical response failed content validation',
+        );
       }
-
-      // A misconfigured CDN edge can return HTML or a truncated body that
-      // still parses; reject it here so the log points at the delivery
-      // layer instead of a bogus "signature verification failed".
+      let remoteConfig: unknown;
+      try {
+        remoteConfig = JSON.parse(response.data);
+      } catch {
+        throw createIpTableConfigFailClosedError(
+          'canonical response was not valid json',
+        );
+      }
       if (!isValidIpTableRemoteConfigShape(remoteConfig)) {
-        defaultLogger.ipTable.request.error({
-          info: '[IpTable] Skipping CDN config update: invalid config shape (delivery-layer problem)',
-        });
-        return this.fetchRemoteConfigViaSniFallback();
+        throw createIpTableConfigFailClosedError(
+          'canonical response failed schema validation',
+        );
       }
-
       defaultLogger.ipTable.request.info({
-        info: `[IpTable] Remote config fetched successfully, version: ${remoteConfig.version}`,
+        info: `[IpTable] Remote config fetched successfully via canonical domain, version: ${remoteConfig.version}`,
       });
       return remoteConfig;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      if (
+        isIpTableConfigFailClosedError(error) ||
+        isSniFailClosedError(error)
+      ) {
+        defaultLogger.ipTable.request.error({
+          info: '[IpTable] CDN config fetch failed closed',
+        });
+        return null;
+      }
       if (axios.isAxiosError(error)) {
         if (error.code === 'ECONNABORTED') {
           defaultLogger.ipTable.request.error({
-            info: `[IpTable] CDN fetch timeout after ${IP_TABLE_CDN_FETCH_TIMEOUT_MS} ms`,
+            info: '[IpTable] CDN config fetch exhausted its shared deadline',
           });
         } else {
           defaultLogger.ipTable.request.error({
@@ -389,20 +420,18 @@ class ServiceIpTable extends ServiceBase {
           }`,
         });
       }
-      // The adapter's fail-open needs 3 accumulated transport failures in
-      // THIS runtime, which a fresh install's single config GET can never
-      // reach. The config GET is idempotent, so replaying it over SNI with
-      // known candidate IPs is safe and gives first-run devices on walled
-      // networks a working config path.
-      return this.fetchRemoteConfigViaSniFallback();
+      return null;
     }
   }
 
   /**
-   * Direct SNI fallback for the CDN config GET: selection -> last-best IP ->
-   * builtin endpoints, first parseable and well-shaped response wins.
+   * The CDN config route waterfall is bounded by the caller's one wall-clock
+   * deadline. Only reachability and selected 5xx failures advance to another
+   * route; trust and policy failures stop immediately.
    */
-  private async fetchRemoteConfigViaSniFallback(): Promise<IIpTableRemoteConfig | null> {
+  private async fetchRemoteConfigViaSniFallback(
+    deadlineAt: number,
+  ): Promise<IIpTableRemoteConfig | null> {
     try {
       if (!isSupportIpTablePlatform() || !isSniSupported()) {
         return null;
@@ -419,29 +448,23 @@ class ServiceIpTable extends ServiceBase {
       }
 
       const url = new URL(IP_TABLE_CDN_URL);
-      const rootDomain = url.hostname.split('.').slice(-2).join('.');
       const configWithRuntime = await this.getConfig();
-
-      const candidates: string[] = [];
-      const selectedIp = configWithRuntime.runtime?.selections?.[rootDomain];
-      const lastBestIp = configWithRuntime.runtime?.lastBestIp?.[rootDomain];
-      if (selectedIp) {
-        candidates.push(selectedIp);
-      }
-      if (lastBestIp) {
-        candidates.push(lastBestIp);
-      }
-      for (const endpoint of configWithRuntime.config.domains[rootDomain]
-        ?.endpoints ?? []) {
-        candidates.push(endpoint.ip);
-      }
-      const uniqueCandidates = [...new Set(candidates)].slice(0, 3);
+      const uniqueCandidates = getOrderedIpTableCandidates({
+        hostname: url.hostname,
+        configWithRuntime,
+        exactHostOnly: false,
+        maxCandidates: 3,
+      });
       if (uniqueCandidates.length === 0) {
         return null;
       }
 
       const headers = await getRequestHeaders();
       for (const ip of uniqueCandidates) {
+        const remainingMs = deadlineAt - Date.now();
+        if (remainingMs <= 0) {
+          return null;
+        }
         try {
           defaultLogger.ipTable.request.info({
             info: `[IpTable] CDN fetch fallback: trying SNI candidate for ${url.hostname}`,
@@ -453,13 +476,58 @@ class ServiceIpTable extends ServiceBase {
             headers,
             method: 'GET',
             body: null,
-            timeout: IP_TABLE_CDN_FETCH_TIMEOUT_MS,
+            timeout: Math.min(
+              remainingMs,
+              IP_TABLE_CONFIG_CANDIDATE_TIMEOUT_MS,
+            ),
           });
-          const body = response?.body ?? response?.data;
-          if (body) {
-            const parsed: unknown =
-              typeof body === 'string' ? JSON.parse(body) : body;
-            if (isValidIpTableRemoteConfigShape(parsed)) {
+          if (response) {
+            const isSuccessfulStatus =
+              response.statusCode >= 200 && response.statusCode < 300;
+            if (
+              !isSuccessfulStatus &&
+              !IP_TABLE_CONFIG_RETRYABLE_STATUS.has(response.statusCode)
+            ) {
+              throw createIpTableConfigFailClosedError(
+                `candidate returned status ${response.statusCode}`,
+              );
+            }
+            if (isSuccessfulStatus) {
+              const contentType = Object.entries(response.headers).find(
+                ([name]) => name.toLowerCase() === 'content-type',
+              )?.[1];
+              if (
+                typeof contentType !== 'string' ||
+                !contentType.toLowerCase().includes('application/json')
+              ) {
+                throw createIpTableConfigFailClosedError(
+                  'candidate returned a non-json content type',
+                );
+              }
+              const body = response.body ?? response.data;
+              if (
+                typeof body !== 'string' ||
+                body.length === 0 ||
+                new TextEncoder().encode(body).byteLength >
+                  IP_TABLE_CONFIG_MAX_BODY_BYTES
+              ) {
+                throw createIpTableConfigFailClosedError(
+                  'candidate returned an invalid body size',
+                );
+              }
+              let parsed: unknown;
+              try {
+                parsed = JSON.parse(body);
+              } catch {
+                throw createIpTableConfigFailClosedError(
+                  'candidate response was not valid json',
+                );
+              }
+              if (!isValidIpTableRemoteConfigShape(parsed)) {
+                throw createIpTableConfigFailClosedError(
+                  'candidate response failed schema validation',
+                );
+              }
               defaultLogger.ipTable.request.info({
                 info: `[IpTable] CDN fetch fallback succeeded via SNI, version: ${parsed.version}`,
               });
@@ -467,19 +535,27 @@ class ServiceIpTable extends ServiceBase {
             }
           }
         } catch (error) {
+          if (
+            isIpTableConfigFailClosedError(error) ||
+            isSniFailClosedError(error)
+          ) {
+            throw error;
+          }
           defaultLogger.ipTable.request.warn({
-            info: `[IpTable] CDN fetch fallback candidate failed: ${
-              error instanceof Error ? error.message : 'Unknown error'
-            }`,
+            info: '[IpTable] CDN fetch fallback candidate was unreachable',
           });
         }
       }
       return null;
     } catch (error) {
+      if (
+        isIpTableConfigFailClosedError(error) ||
+        isSniFailClosedError(error)
+      ) {
+        throw error;
+      }
       defaultLogger.ipTable.request.warn({
-        info: `[IpTable] CDN fetch fallback error: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`,
+        info: '[IpTable] CDN fetch fallback unavailable',
       });
       return null;
     }
@@ -796,7 +872,7 @@ class ServiceIpTable extends ServiceBase {
     }
 
     const startConfigVersion = configWithRuntime.config.version;
-    const startConfigHash = computeIpTableConfigHash(configWithRuntime.config);
+    const startConfigHash = configWithRuntime.config.sourcePayloadHash;
 
     // A probing round can take tens of seconds; capture the selection
     // generation so a stale result cannot overwrite a fast failover that

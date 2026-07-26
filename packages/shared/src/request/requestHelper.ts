@@ -44,6 +44,12 @@ class RequestHelper {
       return null;
     };
 
+  getFirmwareManifestIpTableConfig: () => Promise<IIpTableConfigWithRuntime | null> =
+    async () => this.getIpTableConfig();
+
+  getFirmwareArtifactIpTableConfig: () => Promise<IIpTableConfigWithRuntime | null> =
+    async () => this.getIpTableConfig();
+
   overrideMethods(methods: {
     checkIsOneKeyDomain: (url: string) => Promise<boolean>;
     getDevSettingsPersistAtom: () => Promise<IDevSettingsPersistAtom>;

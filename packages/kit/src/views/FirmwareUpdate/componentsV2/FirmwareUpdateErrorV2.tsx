@@ -18,6 +18,7 @@ import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceE
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
+import type { IFirmwareUpdateProjection } from '@onekeyhq/shared/types/firmwareUpdate';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -185,11 +186,15 @@ export function FirmwareUpdateErrorV2({
   result,
   lastFirmwareTipMessage,
   onRetryBefore,
+  transactionProjection,
+  onTransactionRetry,
 }: {
   retryInfo: IFirmwareUpdateRetry | undefined;
   result: ICheckAllFirmwareReleaseResult | undefined;
   lastFirmwareTipMessage: EFirmwareUpdateTipMessages | undefined;
   onRetryBefore?: () => void;
+  transactionProjection?: IFirmwareUpdateProjection;
+  onTransactionRetry?: () => Promise<void>;
 }) {
   const intl = useIntl();
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
@@ -217,13 +222,20 @@ export function FirmwareUpdateErrorV2({
   }, [result, retryInfo, setStepInfo, onRetryBefore]);
 
   const { errorMessage } = useFirmwareUpdateErrors({
-    error: retryInfo?.error,
+    error:
+      (transactionProjection?.error as IOneKeyError | undefined) ??
+      retryInfo?.error,
     lastFirmwareTipMessage,
   });
 
-  if (!errorMessage || !retryInfo?.error) {
+  if (!errorMessage || (!retryInfo?.error && !transactionProjection?.error)) {
     return null;
   }
+
+  const canRetryTransaction =
+    transactionProjection?.action === 'retry' ||
+    transactionProjection?.error?.retryable === true;
+  const retryHandler = transactionProjection ? onTransactionRetry : onRetry;
 
   return (
     <YStack gap="$3">
@@ -231,15 +243,17 @@ export function FirmwareUpdateErrorV2({
         // TODO: maybe hyperlink text
         message={typeof errorMessage === 'string' ? errorMessage : ''}
       />
-      <Button
-        testID="firmware-update-btn"
-        size="medium"
-        variant="primary"
-        alignSelf="flex-start"
-        onPress={onRetry}
-      >
-        {intl.formatMessage({ id: ETranslations.global_retry })}
-      </Button>
+      {(!transactionProjection || canRetryTransaction) && retryHandler ? (
+        <Button
+          testID="firmware-update-btn"
+          size="medium"
+          variant="primary"
+          alignSelf="flex-start"
+          onPress={retryHandler}
+        >
+          {intl.formatMessage({ id: ETranslations.global_retry })}
+        </Button>
+      ) : null}
       <FirmwareUpdateContactSupportMessage />
     </YStack>
   );
