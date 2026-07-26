@@ -409,9 +409,16 @@ function TradingHoursContent({
           } else {
             const segment = tradingHours.segments.find((s) => s.key === row);
             detail = (
-              <SizableText size={detailTextSize} color="$textSubdued">
-                {segment ? formatSegmentLocalRange(segment) : ''}
-              </SizableText>
+              <YStack gap="$0.5">
+                <SizableText size={detailTextSize} color="$textSubdued">
+                  {segment ? formatSegmentLocalRange(segment) : ''}
+                </SizableText>
+                {/* Per-stock closed while the market-wide session is open —
+                    keep the backend countdown visible on the active session
+                    row. During normal open hours the description is generic
+                    boilerplate, so it stays hidden. */}
+                {stock.isOpen === false ? activeStatusNote : null}
+              </YStack>
             );
           }
           return (
