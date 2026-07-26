@@ -61,6 +61,7 @@ import type {
   IThirdPartyHardwareAdapter,
 } from '../ServiceHardware/adapters/types';
 import type { SearchDevice } from '@onekeyfe/hd-core';
+import type { Response } from '@onekeyfe/hwk-adapter-core';
 
 type IThirdPartySearchDevicesResponse =
   | {
@@ -450,6 +451,51 @@ class ServiceThirdPartyHardware extends ServiceBase {
    * Business-call Trezor transport recovery. The picker may return a newly
    * bound BLE connectId, or the known USB connectId if USB is restored.
    */
+  private async connectTrezorAndVerifyDeviceIdentity({
+    device,
+    connectId,
+  }: {
+    device: IDBDevice;
+    connectId: string;
+  }): Promise<Response<IThirdPartyConnectedDevicePayload>> {
+    const adapter = await this.getAdapterForVendor(EHardwareVendor.trezor);
+    if (!adapter) {
+      throw createThirdPartyAdapterNotRegisteredError(EHardwareVendor.trezor);
+    }
+    const connected = await adapter.connectDevice(connectId);
+    if (!connected.success) {
+      return connected;
+    }
+    const expectedDeviceId = device.deviceId.trim().toLowerCase();
+    const liveDeviceId = connected.payload.deviceId.trim().toLowerCase();
+    if (!liveDeviceId || liveDeviceId !== expectedDeviceId) {
+      await adapter.disconnect(connectId).catch(() => undefined);
+      throw new OneKeyLocalError(
+        'The recovered Trezor device does not match the selected device',
+      );
+    }
+    return connected;
+  }
+
+  private async verifyRecoveredTrezorDeviceIdentity({
+    device,
+    connectId,
+  }: {
+    device: IDBDevice;
+    connectId: string;
+  }): Promise<string> {
+    const connected = await this.connectTrezorAndVerifyDeviceIdentity({
+      device,
+      connectId,
+    });
+    if (!connected.success) {
+      throw convertThirdPartyDeviceError(connected.payload, {
+        vendor: 'Trezor',
+      });
+    }
+    return connectId;
+  }
+
   async requestTrezorBleConnectIdForDevice({
     device,
   }: {
@@ -508,7 +554,14 @@ class ServiceThirdPartyHardware extends ServiceBase {
           trezorBleBindingMode: 'auto-fallback',
         },
       });
-    }).then((bleConnectId) => bleConnectId || null);
+    }).then((bleConnectId) =>
+      bleConnectId
+        ? this.verifyRecoveredTrezorDeviceIdentity({
+            device,
+            connectId: bleConnectId,
+          })
+        : null,
+    );
 
     const record = { usbConnectId, featuresDeviceId, promise: requestPromise };
     this._pendingTrezorBleBindingRequest = record;
@@ -1078,6 +1131,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
   async thirdPartyHardwareVerifyDeviceAuthenticity(params: {
     vendor: EHardwareVendor;
     connectId: string;
+    dbDeviceId?: string;
     challenge?: string;
     ledgerGenuineCheckWebSocketUrl?: string;
   }) {
@@ -1109,12 +1163,37 @@ class ServiceThirdPartyHardware extends ServiceBase {
           challenge?: string;
           ledgerGenuineCheckWebSocketUrl?: string;
         },
-      ) => Promise<{ success: boolean; payload: unknown }>;
+      ) => Promise<Response<unknown>>;
     };
-    return hw.verifyDeviceAuthenticity(params.connectId, {
-      challenge: params.challenge,
-      ledgerGenuineCheckWebSocketUrl: params.ledgerGenuineCheckWebSocketUrl,
-    });
+    const verify = (connectId: string) =>
+      hw.verifyDeviceAuthenticity(connectId, {
+        challenge: params.challenge,
+        ledgerGenuineCheckWebSocketUrl: params.ledgerGenuineCheckWebSocketUrl,
+      });
+    if (params.vendor === EHardwareVendor.trezor && params.dbDeviceId) {
+      const dbDevice = await localDb.getDevice(params.dbDeviceId);
+      if (dbDevice.vendor !== EHardwareVendor.trezor) {
+        throw new OneKeyLocalError(
+          'The selected device is not a Trezor device',
+        );
+      }
+      const verifySelectedDevice = async (connectId: string) => {
+        const connected = await this.connectTrezorAndVerifyDeviceIdentity({
+          device: dbDevice,
+          connectId,
+        });
+        if (!connected.success) {
+          return connected;
+        }
+        return verify(connectId);
+      };
+      return callTrezorWithBleFallback(
+        dbDevice,
+        verifySelectedDevice,
+        buildTrezorBleFallbackOptions(this.backgroundApi),
+      );
+    }
+    return verify(params.connectId);
   }
 
   /**

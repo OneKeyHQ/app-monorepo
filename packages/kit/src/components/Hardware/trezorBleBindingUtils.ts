@@ -5,7 +5,10 @@ import type { SearchDevice } from '@onekeyfe/hd-core';
 export type ITrezorBleBindingMode = 'manual-binding' | 'auto-fallback';
 
 export type ITrezorBleBindingScannedDevice = SearchDevice & {
-  raw?: { connectionType?: 'usb' | 'ble' };
+  raw?: {
+    connectionType?: 'usb' | 'ble';
+    deviceId?: string;
+  };
 };
 
 export function getTrezorBleBindingScanOptions(mode: ITrezorBleBindingMode): {
@@ -29,17 +32,39 @@ export function findTrezorAutoFallbackConnectId({
   mode,
   devices,
   usbConnectId,
+  featuresDeviceId,
 }: {
   mode: ITrezorBleBindingMode;
   devices: ITrezorBleBindingScannedDevice[];
   usbConnectId: string;
+  featuresDeviceId: string;
 }): string | null {
   if (mode !== 'auto-fallback') {
     return null;
   }
-  const usbDevice = devices.find(
+  const expectedUsbIds = new Set(
+    [usbConnectId, featuresDeviceId]
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  const usbDevices = devices.filter(
+    (device) => device.raw?.connectionType === 'usb',
+  );
+  const normalizedFeaturesDeviceId = featuresDeviceId.trim().toLowerCase();
+  const usbDeviceByDeviceId = usbDevices.find(
     (device) =>
-      device.connectId === usbConnectId && device.raw?.connectionType === 'usb',
+      typeof device.raw?.deviceId === 'string' &&
+      device.raw.deviceId.trim().toLowerCase() === normalizedFeaturesDeviceId,
+  );
+  if (usbDeviceByDeviceId?.connectId) {
+    return usbDeviceByDeviceId.connectId;
+  }
+  const usbDevice = usbDevices.find((device) =>
+    [device.connectId, device.raw?.deviceId].some(
+      (value) =>
+        typeof value === 'string' &&
+        expectedUsbIds.has(value.trim().toLowerCase()),
+    ),
   );
   return usbDevice?.connectId || null;
 }

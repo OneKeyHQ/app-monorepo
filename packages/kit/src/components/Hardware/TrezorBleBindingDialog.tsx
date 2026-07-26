@@ -176,6 +176,7 @@ function TrezorBleBindingContent({
           mode,
           devices: scannedDevices,
           usbConnectId,
+          featuresDeviceId,
         });
         if (autoFallbackConnectId) {
           isSearchingRef.current = false;
@@ -212,7 +213,15 @@ function TrezorBleBindingContent({
       EHardwareVendor.trezor,
       getTrezorBleBindingScanOptions(mode),
     );
-  }, [deviceScanner, dialog, intl, mode, onBound, usbConnectId]);
+  }, [
+    deviceScanner,
+    dialog,
+    featuresDeviceId,
+    intl,
+    mode,
+    onBound,
+    usbConnectId,
+  ]);
 
   const handleRetryScan = useCallback(() => {
     setDevices([]);

@@ -11,10 +11,12 @@ function device({
   connectId,
   name,
   connectionType,
+  rawDeviceId,
 }: {
   connectId?: string | null;
   name: string;
   connectionType?: 'usb' | 'ble';
+  rawDeviceId?: string;
 }): ITrezorBleBindingScannedDevice {
   return {
     connectId,
@@ -22,7 +24,7 @@ function device({
     deviceId: '',
     deviceType: 'unknown',
     uuid: '',
-    raw: { connectionType },
+    raw: { connectionType, deviceId: rawDeviceId },
   } as ITrezorBleBindingScannedDevice;
 }
 
@@ -56,6 +58,7 @@ describe('trezorBleBindingUtils', () => {
           }),
         ],
         usbConnectId: 'USB_CONNECT_ID',
+        featuresDeviceId: 'FEATURES_DEVICE_ID',
       }),
     ).toBe('USB_CONNECT_ID');
 
@@ -70,8 +73,50 @@ describe('trezorBleBindingUtils', () => {
           }),
         ],
         usbConnectId: 'USB_CONNECT_ID',
+        featuresDeviceId: 'FEATURES_DEVICE_ID',
       }),
     ).toBeNull();
+  });
+
+  it('recovers a changed Trezor USB connectId from the stable features device_id', () => {
+    expect(
+      findTrezorAutoFallbackConnectId({
+        mode: 'auto-fallback',
+        devices: [
+          device({
+            connectId: 'CURRENT_USB_CONNECT_ID',
+            name: 'Trezor Safe 7',
+            connectionType: 'usb',
+          }),
+        ],
+        usbConnectId: 'STALE_USB_CONNECT_ID',
+        featuresDeviceId: 'CURRENT_USB_CONNECT_ID',
+      }),
+    ).toBe('CURRENT_USB_CONNECT_ID');
+  });
+
+  it('prefers the scanned device identity over a reused stale connectId', () => {
+    expect(
+      findTrezorAutoFallbackConnectId({
+        mode: 'auto-fallback',
+        devices: [
+          device({
+            connectId: 'STALE_USB_CONNECT_ID',
+            name: 'Different Trezor',
+            connectionType: 'usb',
+            rawDeviceId: 'DIFFERENT_DEVICE_ID',
+          }),
+          device({
+            connectId: 'CURRENT_USB_CONNECT_ID',
+            name: 'Expected Trezor',
+            connectionType: 'usb',
+            rawDeviceId: 'FEATURES_DEVICE_ID',
+          }),
+        ],
+        usbConnectId: 'STALE_USB_CONNECT_ID',
+        featuresDeviceId: 'FEATURES_DEVICE_ID',
+      }),
+    ).toBe('CURRENT_USB_CONNECT_ID');
   });
 
   it('keeps only BLE candidates that are not the known USB device and sorts them naturally', () => {

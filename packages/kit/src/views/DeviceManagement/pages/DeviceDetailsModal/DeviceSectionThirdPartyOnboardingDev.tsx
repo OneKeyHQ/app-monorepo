@@ -13,6 +13,36 @@ import { ListItemGroup } from '../ListItemGroup';
 type ILocalVerificationStatus = 'idle' | 'pending' | 'verified' | 'failed';
 type INameSyncStatus = 'idle' | 'pending' | 'done' | 'failed';
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  return (error instanceof Error ? error.message : '') || fallback;
+}
+
+function getVerificationFailureMessage(result: {
+  success: boolean;
+  payload: unknown;
+}): string {
+  const payload = result.payload as {
+    code?: number | string;
+    error?: string;
+    message?: string;
+    note?: string;
+    verified?: boolean;
+  };
+  const detail = payload.error || payload.message;
+  const code =
+    payload.code === undefined ? '' : ` (code ${String(payload.code)})`;
+  if (!result.success) {
+    return detail
+      ? `Device connection or verification failed${code}: ${detail}`
+      : `Device connection or verification failed${code}`;
+  }
+  return (
+    payload.error ||
+    payload.note ||
+    'The connected device did not pass the local genuine check.'
+  );
+}
+
 function getNameSourceStatusMessage(
   status: IThirdPartyAccountNameSourceStatus,
 ): string {
@@ -35,7 +65,9 @@ function DeviceSectionThirdPartyOnboardingDev() {
   const [device] = useDeviceAtom();
   const [verificationStatus, setVerificationStatus] =
     useState<ILocalVerificationStatus>('idle');
+  const [verificationError, setVerificationError] = useState('');
   const [nameSyncStatus, setNameSyncStatus] = useState<INameSyncStatus>('idle');
+  const [nameSyncError, setNameSyncError] = useState('');
   const [renamedCount, setRenamedCount] = useState(0);
 
   const vendor = device?.vendor;
@@ -47,6 +79,7 @@ function DeviceSectionThirdPartyOnboardingDev() {
       return;
     }
     setVerificationStatus('pending');
+    setVerificationError('');
     try {
       const connectId =
         device.usbConnectId || device.connectId || device.bleConnectId;
@@ -63,13 +96,12 @@ function DeviceSectionThirdPartyOnboardingDev() {
           {
             vendor,
             connectId,
+            dbDeviceId: device.id,
           },
         );
       const payload = result.payload as { verified?: boolean };
       if (!result.success || payload.verified !== true) {
-        throw new OneKeyLocalError(
-          'The connected device did not pass the local genuine check.',
-        );
+        throw new OneKeyLocalError(getVerificationFailureMessage(result));
       }
       setVerificationStatus('verified');
       Dialog.show({
@@ -86,11 +118,14 @@ function DeviceSectionThirdPartyOnboardingDev() {
         onConfirmText: 'Done',
       });
     } catch (error) {
+      const message = getErrorMessage(
+        error,
+        'Local device verification failed',
+      );
       setVerificationStatus('failed');
+      setVerificationError(message);
       Toast.error({
-        title:
-          (error instanceof Error ? error.message : '') ||
-          'Local device verification failed',
+        title: message,
       });
     }
   }, [device, isThirdParty, vendor, verificationStatus]);
@@ -100,6 +135,7 @@ function DeviceSectionThirdPartyOnboardingDev() {
       return;
     }
     setNameSyncStatus('pending');
+    setNameSyncError('');
     try {
       const result =
         await backgroundApiProxy.serviceThirdPartyHardware.getThirdPartyGlobalAccountNameCandidates(
@@ -176,11 +212,11 @@ function DeviceSectionThirdPartyOnboardingDev() {
         },
       });
     } catch (error) {
+      const message = getErrorMessage(error, 'Could not read account names');
       setNameSyncStatus('failed');
+      setNameSyncError(message);
       Toast.error({
-        title:
-          (error instanceof Error ? error.message : '') ||
-          'Could not read account names',
+        title: message,
       });
     }
   }, [device, isThirdParty, nameSyncStatus, vendor]);
@@ -196,7 +232,7 @@ function DeviceSectionThirdPartyOnboardingDev() {
         : 'Run Ledger Genuine Check, then simulate binding + voucher readiness',
     pending: 'Waiting for the connected device…',
     verified: 'Passed · mock binding complete · no real voucher issued',
-    failed: 'Failed · tap to retry',
+    failed: verificationError || 'Failed · tap to retry',
   }[verificationStatus];
   const nameSyncSubtitle = {
     idle:
@@ -205,7 +241,7 @@ function DeviceSectionThirdPartyOnboardingDev() {
         : 'Match the standard Trezor BTC wallet by deriving empty-passphrase addresses',
     pending: 'Reading source accounts and matching addresses…',
     done: `Done · renamed ${renamedCount} account(s)`,
-    failed: 'Failed · tap to retry',
+    failed: nameSyncError || 'Failed · tap to retry',
   }[nameSyncStatus];
 
   return (

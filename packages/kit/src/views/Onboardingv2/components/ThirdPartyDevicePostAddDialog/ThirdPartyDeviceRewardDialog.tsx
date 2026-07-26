@@ -125,6 +125,7 @@ function ThirdPartyDeviceRewardDialogContent({
                 ? EHardwareVendor.ledger
                 : EHardwareVendor.trezor,
             connectId,
+            dbDeviceId: wallet.associatedDevice,
             challenge: vendor === 'trezor' ? challenge.challengeHex : undefined,
             ledgerGenuineCheckWebSocketUrl:
               vendor === 'ledger'
@@ -243,6 +244,7 @@ function ThirdPartyDeviceRewardDialogContent({
     isPending,
     navigationToMessageConfirmAsync,
     vendor,
+    wallet.associatedDevice,
     wallet.id,
     walletInfo,
   ]);
