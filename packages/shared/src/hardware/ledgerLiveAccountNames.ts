@@ -51,9 +51,15 @@ const getAccountDetails = (
       ethereumAddress(accountData?.freshAddress),
     currencyId:
       nonEmptyString(account?.currencyId) ??
+      nonEmptyString(accountData?.currencyId) ??
       nonEmptyString(asRecord(account?.currency)?.id),
   };
 };
+
+const getSourceAccountId = (
+  account: Record<string, unknown> | undefined,
+): string | undefined =>
+  nonEmptyString(account?.id) ?? nonEmptyString(asRecord(account?.data)?.id);
 
 const isEthereumAccount = (details: ILedgerLiveAccountDetails): boolean =>
   details.currencyId?.toLowerCase() === 'ethereum';
@@ -88,7 +94,7 @@ export function parseLedgerLiveAccountNames(
   const detailsById = new Map<string, Record<string, unknown>>();
   for (const item of accounts) {
     const record = asRecord(item);
-    const id = nonEmptyString(record?.id);
+    const id = getSourceAccountId(record);
     if (id && record) {
       detailsById.set(id, record);
     }
@@ -111,7 +117,7 @@ export function parseLedgerLiveAccountNames(
     if (account) {
       const accountData = asRecord(account.data);
       const sourceAccountId =
-        nonEmptyString(account.id) ?? `ledger-live-account-${index}`;
+        getSourceAccountId(account) ?? `ledger-live-account-${index}`;
       const name =
         ledgerAccountName(account.name) ?? ledgerAccountName(accountData?.name);
       const details = getAccountDetails(account);

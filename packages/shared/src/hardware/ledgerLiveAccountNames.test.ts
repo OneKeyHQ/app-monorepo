@@ -1,6 +1,39 @@
 import { parseLedgerLiveAccountNames } from './ledgerLiveAccountNames';
 
 describe('parseLedgerLiveAccountNames', () => {
+  it('parses the current Ledger Live account envelope', () => {
+    expect(
+      parseLedgerLiveAccountNames({
+        data: {
+          wallet: {
+            accountsData: {
+              accountNames: [['ethereum_current', 'Current Ledger']],
+            },
+          },
+          accounts: [
+            {
+              version: 1,
+              data: {
+                id: 'ethereum_current',
+                currencyId: 'ethereum',
+                name: 'Default Ethereum Name',
+                freshAddress: `0x${'12'.repeat(20)}`,
+              },
+            },
+          ],
+        },
+      }),
+    ).toEqual({
+      status: 'available',
+      accounts: [
+        {
+          name: 'Current Ledger',
+          address: `0x${'12'.repeat(20)}`,
+        },
+      ],
+    });
+  });
+
   it('prefers accountsData names and joins account details by id', () => {
     expect(
       parseLedgerLiveAccountNames({
