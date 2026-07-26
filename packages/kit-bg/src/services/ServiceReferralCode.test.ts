@@ -444,46 +444,51 @@ describe('ServiceReferralCode.getBoundEvmReferralCodeWalletInfo', () => {
     jest.clearAllMocks();
   });
 
-  test('derives and verifies the first EVM account without requiring local bind cache', async () => {
+  test('returns the cached bound EVM wallet without a server request', async () => {
     const { service, backgroundApi } = createService();
-    const checkWalletBindStatusSpy = jest
-      .spyOn(service, 'checkWalletBindStatus')
-      .mockResolvedValue({
-        data: true,
-        bindable: false,
-        reason: undefined,
-      });
+    const boundStatus = {
+      walletId: 'hd-1',
+      address: '0xabc',
+      networkId: 'evm--1',
+      pubkey: '',
+      isBound: true,
+      bindable: false,
+    };
+    backgroundApi.simpleDb.referralCode.getWalletReferralCode.mockResolvedValue(
+      boundStatus,
+    );
+    const checkWalletBindStatusSpy = jest.spyOn(
+      service,
+      'checkWalletBindStatus',
+    );
 
     await expect(
       service.getBoundEvmReferralCodeWalletInfo({
         accountId: "hd-1--m/44'/60'/0'/0/7",
       }),
-    ).resolves.toEqual({
-      walletId: 'hd-1',
-      accountId: "hd-1--m/44'/60'/0'/0/0",
-      address: '0xabc',
-      networkId: 'evm--1',
-    });
+    ).resolves.toBe(boundStatus);
 
-    expect(service.getReferralCodeWalletInfo).toHaveBeenCalledWith({
-      walletId: 'hd-1',
-    });
-    expect(checkWalletBindStatusSpy).toHaveBeenCalledWith({
-      address: '0xabc',
-      networkId: 'evm--1',
-    });
     expect(
       backgroundApi.simpleDb.referralCode.getWalletReferralCode,
-    ).not.toHaveBeenCalled();
+    ).toHaveBeenCalledWith({
+      walletId: 'hd-1',
+    });
+    expect(service.getReferralCodeWalletInfo).not.toHaveBeenCalled();
+    expect(checkWalletBindStatusSpy).not.toHaveBeenCalled();
   });
 
-  test('omits the EVM attribution when the server does not confirm binding', async () => {
-    const { service } = createService();
-    jest.spyOn(service, 'checkWalletBindStatus').mockResolvedValue({
-      data: false,
-      bindable: true,
-      reason: undefined,
-    });
+  test('omits cached EVM wallets that are not bound', async () => {
+    const { service, backgroundApi } = createService();
+    backgroundApi.simpleDb.referralCode.getWalletReferralCode.mockResolvedValue(
+      {
+        walletId: 'hd-1',
+        address: '0xabc',
+        networkId: 'evm--1',
+        pubkey: '',
+        isBound: false,
+        bindable: true,
+      },
+    );
 
     await expect(
       service.getBoundEvmReferralCodeWalletInfo({
@@ -492,14 +497,18 @@ describe('ServiceReferralCode.getBoundEvmReferralCodeWalletInfo', () => {
     ).resolves.toBeUndefined();
   });
 
-  test('skips wallets whose referral identity is not EVM', async () => {
-    const { service } = createService();
-    jest.spyOn(service, 'getReferralCodeWalletInfo').mockResolvedValue({
-      walletId: 'hw-btc-only',
-      accountId: "hw-btc-only--m/86'/0'/0'/0/0",
-      address: 'bc1ptest',
-      networkId: 'btc--0',
-    });
+  test('omits cached bound wallets whose referral identity is not EVM', async () => {
+    const { service, backgroundApi } = createService();
+    backgroundApi.simpleDb.referralCode.getWalletReferralCode.mockResolvedValue(
+      {
+        walletId: 'hw-btc-only',
+        address: 'bc1ptest',
+        networkId: 'btc--0',
+        pubkey: '',
+        isBound: true,
+        bindable: false,
+      },
+    );
     const checkWalletBindStatusSpy = jest.spyOn(
       service,
       'checkWalletBindStatus',
