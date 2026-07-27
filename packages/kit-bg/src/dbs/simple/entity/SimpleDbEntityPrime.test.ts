@@ -2172,9 +2172,14 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     ).toBeDefined();
   });
 
-  test('refuses a terminal discard when the session was claimed while the snapshot loaded', async () => {
+  // Applies concurrentWrite between the caller pinning the revision and the
+  // updater running, so the claim genuinely lands while the delete is in
+  // flight rather than as static setup.
+  const makeInFlightClaimEntity = (
+    observedUpdatedAt: number,
+    concurrentWrite: (current: typeof session & { updatedAt: number }) => void,
+  ) => {
     const entity = new SimpleDbEntityPrime();
-    const observedUpdatedAt = Date.now() - 5000;
     let persisted = {
       infiniPendingPaymentSessionByUserId: {
         'user-1': {
@@ -2188,16 +2193,25 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     jest.spyOn(entity, 'setRawData').mockImplementation((async (
       updater: (rawData: typeof persisted) => typeof persisted,
     ) => {
+      concurrentWrite(persisted.infiniPendingPaymentSessionByUserId['user-1']);
       persisted = updater(persisted);
       return persisted;
     }) as never);
-    // Another confirmation page claimed the same invoice while the terminal
-    // snapshot was in flight, so the stored revision moved on.
-    persisted.infiniPendingPaymentSessionByUserId['user-1'] = {
-      ...persisted.infiniPendingPaymentSessionByUserId['user-1'],
-      sendStarted: true,
-      updatedAt: Date.now(),
+    return {
+      entity,
+      getStored: () => persisted.infiniPendingPaymentSessionByUserId['user-1'],
     };
+  };
+
+  test('refuses a terminal discard when the session is claimed while the delete is in flight', async () => {
+    const observedUpdatedAt = Date.now() - 5000;
+    const { entity, getStored } = makeInFlightClaimEntity(
+      observedUpdatedAt,
+      (current) => {
+        current.sendStarted = true;
+        current.updatedAt = Date.now();
+      },
+    );
 
     await expect(
       entity.discardTerminalInfiniPendingPaymentSession({
@@ -2208,12 +2222,54 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
         latestPayment: { ...session.payment, status: 'expired' },
       }),
     ).resolves.toBe(false);
-    expect(
-      persisted.infiniPendingPaymentSessionByUserId['user-1'],
-    ).toBeDefined();
-    expect(
-      persisted.infiniPendingPaymentSessionByUserId['user-1'].sendStarted,
-    ).toBe(true);
+    expect(getStored()).toBeDefined();
+    expect(getStored().sendStarted).toBe(true);
+  });
+
+  // Isolates the updatedAt half of the CAS: sendStarted matches on both sides,
+  // so only the revision bump can reject. Without this the two conditions are
+  // ORed and removing the updatedAt check would still leave the suite green.
+  test('refuses a terminal discard when only the session revision moved on', async () => {
+    const observedUpdatedAt = Date.now() - 5000;
+    const { entity, getStored } = makeInFlightClaimEntity(
+      observedUpdatedAt,
+      (current) => {
+        current.updatedAt = observedUpdatedAt + 1;
+      },
+    );
+
+    await expect(
+      entity.discardTerminalInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        expectedPaymentCacheIdentity: session.paymentCacheKey,
+        expectedUpdatedAt: observedUpdatedAt,
+        expectedSendStarted: false,
+        latestPayment: { ...session.payment, status: 'expired' },
+      }),
+    ).resolves.toBe(false);
+    expect(getStored()).toBeDefined();
+    expect(getStored().sendStarted).toBe(false);
+  });
+
+  test('treats a terminal discard as done when no session remains', async () => {
+    const entity = new SimpleDbEntityPrime();
+    let persisted: Record<string, unknown> = {};
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: typeof persisted) => typeof persisted,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await expect(
+      entity.discardTerminalInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        expectedPaymentCacheIdentity: session.paymentCacheKey,
+        expectedUpdatedAt: 0,
+        expectedSendStarted: false,
+        latestPayment: { ...session.payment, status: 'expired' },
+      }),
+    ).resolves.toBe(true);
   });
 
   test('atomically marks the matching session before transaction broadcast', async () => {

@@ -1627,8 +1627,20 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       const now = Date.now();
       const currentSession =
         rawData?.infiniPendingPaymentSessionByUserId?.[onekeyUserId];
+      if (!currentSession) {
+        // Nothing left to release, which is the state the caller asked for.
+        // Reporting failure here would make the caller re-persist a session for
+        // an invoice the server already closed. Matches the idempotent success
+        // of discardUnsentInfiniPendingPaymentSession, tombstone included.
+        didDiscard = true;
+        return retireInfiniPaymentCache({
+          rawData: rawData ?? {},
+          onekeyUserId,
+          paymentCacheKey: expectedPaymentCacheIdentity,
+          now,
+        });
+      }
       if (
-        !currentSession ||
         !isValidInfiniPendingPaymentSession(currentSession, {
           onekeyUserId,
           now,

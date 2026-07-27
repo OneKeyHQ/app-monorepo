@@ -25,6 +25,11 @@ import {
 
 import type { IPrimeInfiniPaymentPhase } from './primeInfiniPaymentUtils';
 
+export type IPrimeInfiniPaymentSessionRevision = {
+  updatedAt: number;
+  sendStarted: boolean;
+};
+
 export type IPrimeInfiniPaymentReplacementResult =
   | {
       type: 'replace';
@@ -344,6 +349,7 @@ export async function resolvePrimeInfiniPaymentReplacement({
   sendStarted,
   fetchLatestPayment,
   discardPaymentSession,
+  captureSessionRevision,
   discardTerminalPaymentSession,
   fetchPersistedPaymentSession,
   persistTrackedPayment,
@@ -354,8 +360,12 @@ export async function resolvePrimeInfiniPaymentReplacement({
   sendStarted: boolean;
   fetchLatestPayment: (paymentId: string) => Promise<IPrimeInfiniPayment>;
   discardPaymentSession: (paymentId: string) => Promise<boolean>;
+  captureSessionRevision: () => Promise<
+    IPrimeInfiniPaymentSessionRevision | undefined
+  >;
   discardTerminalPaymentSession: (
     latestPayment: IPrimeInfiniPayment,
+    sessionRevision: IPrimeInfiniPaymentSessionRevision | undefined,
   ) => Promise<boolean>;
   fetchPersistedPaymentSession: () => Promise<
     IPrimeInfiniPendingPaymentSession | undefined
@@ -365,6 +375,11 @@ export async function resolvePrimeInfiniPaymentReplacement({
   ) => Promise<IPrimeInfiniPendingPaymentSession>;
   shouldContinue: () => boolean;
 }): Promise<IPrimeInfiniPaymentReplacementResult> {
+  // Pin the stored session before the remote round trip. Reading it after
+  // fetchLatestPayment() would adopt a claim made by another window during that
+  // request as the expected revision, so the terminal delete below would happily
+  // remove a session whose broadcast is already on its way.
+  const sessionRevision = await captureSessionRevision();
   const latestPayment = await fetchLatestPayment(currentPayment.paymentId);
   if (
     !isSamePrimeInfiniPaymentTransferSnapshot({
@@ -400,7 +415,7 @@ export async function resolvePrimeInfiniPaymentReplacement({
     // works here instead of sending the user straight back to polling. Only a
     // successful atomic delete may report a replacement.
     if (isPrimeInfiniPaymentClosedUnpaid(paymentWithDurableProgress)) {
-      if (await discardTerminalPaymentSession(latestPayment)) {
+      if (await discardTerminalPaymentSession(latestPayment, sessionRevision)) {
         return {
           type: 'replace',
           payment: paymentWithDurableProgress,
