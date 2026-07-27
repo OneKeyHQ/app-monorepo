@@ -188,27 +188,78 @@ function isIndependentSwapInputAmountType(
 function buildSwapInputAmountSnapshot({
   fromTokenAmount,
   toTokenAmount,
+  fromToken,
+  toToken,
 }: {
   fromTokenAmount: ISwapTokenAmountState;
   toTokenAmount: ISwapTokenAmountState;
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
 }): ISwapInputAmountSnapshot {
   const emptyAmount = { value: '', isInput: false };
   if (fromTokenAmount.isInput) {
     return {
       fromTokenAmount,
       toTokenAmount: emptyAmount,
+      fromToken,
+      toToken,
     };
   }
   if (toTokenAmount.isInput) {
     return {
       fromTokenAmount: emptyAmount,
       toTokenAmount,
+      fromToken,
+      toToken,
     };
   }
   return {
     fromTokenAmount: emptyAmount,
     toTokenAmount: emptyAmount,
+    fromToken,
+    toToken,
   };
+}
+
+function isSameOptionalSwapToken({
+  token1,
+  token2,
+}: {
+  token1?: ISwapToken;
+  token2?: ISwapToken;
+}) {
+  return (
+    (!token1 && !token2) ||
+    equalTokenNoCaseSensitive({
+      token1,
+      token2,
+    })
+  );
+}
+
+function isSwapInputAmountSnapshotForTokenPair({
+  snapshot,
+  fromToken,
+  toToken,
+}: {
+  snapshot: ISwapInputAmountSnapshot;
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+}) {
+  const hasInputToken =
+    (snapshot.fromTokenAmount.isInput && snapshot.fromToken) ||
+    (snapshot.toTokenAmount.isInput && snapshot.toToken);
+  return Boolean(
+    hasInputToken &&
+    isSameOptionalSwapToken({
+      token1: snapshot.fromToken,
+      token2: fromToken,
+    }) &&
+    isSameOptionalSwapToken({
+      token1: snapshot.toToken,
+      token2: toToken,
+    }),
+  );
 }
 
 function getSelectedPairLimitPriceRate({
@@ -925,6 +976,42 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         });
       } else {
         set(swapStockExecutionTokensAtom(), undefined);
+      }
+      const activeSwapType = getVisibleSwapTabSwitchType(
+        get(swapTypeSwitchAtom()),
+      );
+      const stockInputAmountSnapshot = get(swapInputAmountSnapshotsAtom())[
+        ESwapTabSwitchType.STOCK
+      ];
+      if (
+        activeSwapType === ESwapTabSwitchType.STOCK &&
+        stockInputAmountSnapshot &&
+        fromToken &&
+        toToken
+      ) {
+        const currentFromTokenAmount = get(swapFromTokenAmountAtom());
+        const currentToTokenAmount = get(swapToTokenAmountAtom());
+        const canRestoreSnapshot =
+          !currentFromTokenAmount.value &&
+          !currentFromTokenAmount.isInput &&
+          !currentToTokenAmount.value &&
+          !currentToTokenAmount.isInput &&
+          isSwapInputAmountSnapshotForTokenPair({
+            snapshot: stockInputAmountSnapshot,
+            fromToken,
+            toToken,
+          });
+        if (canRestoreSnapshot) {
+          set(
+            swapFromTokenAmountAtom(),
+            stockInputAmountSnapshot.fromTokenAmount,
+          );
+          set(swapToTokenAmountAtom(), stockInputAmountSnapshot.toTokenAmount);
+        }
+        set(swapInputAmountSnapshotsAtom(), (snapshots) => ({
+          ...snapshots,
+          [ESwapTabSwitchType.STOCK]: undefined,
+        }));
       }
 
       const networkIds = Array.from(
@@ -3061,31 +3148,64 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const oldType = get(swapTypeSwitchAtom());
       const normalizedType = getVisibleSwapTabSwitchType(type) ?? type;
       const oldVisibleType = getVisibleSwapTabSwitchType(oldType) ?? oldType;
-      // Desktop and web render these tabs against the same amount atoms.
-      // Native Limit owns its input through swapProInputAmountAtom instead.
-      if (
-        !platformEnv.isNative &&
+      let currentFromToken = get(swapSelectFromTokenAtom());
+      let currentToToken = get(swapSelectToTokenAtom());
+      const shouldSwitchInputAmountSnapshot =
         oldVisibleType !== normalizedType &&
         isIndependentSwapInputAmountType(oldVisibleType) &&
-        isIndependentSwapInputAmountType(normalizedType)
-      ) {
+        isIndependentSwapInputAmountType(normalizedType);
+      const shouldSaveCurrentInputAmountSnapshot =
+        shouldSwitchInputAmountSnapshot &&
+        (!platformEnv.isNative || oldVisibleType !== ESwapTabSwitchType.LIMIT);
+      const shouldRestoreTargetInputAmountSnapshot =
+        shouldSwitchInputAmountSnapshot &&
+        (!platformEnv.isNative || normalizedType !== ESwapTabSwitchType.LIMIT);
+      let nextInputAmountSnapshot: ISwapInputAmountSnapshot | undefined;
+      if (shouldSwitchInputAmountSnapshot) {
         const inputAmountSnapshots = get(swapInputAmountSnapshotsAtom());
-        set(swapInputAmountSnapshotsAtom(), {
-          ...inputAmountSnapshots,
-          [oldVisibleType]: buildSwapInputAmountSnapshot({
-            fromTokenAmount: get(swapFromTokenAmountAtom()),
-            toTokenAmount: get(swapToTokenAmountAtom()),
-          }),
-        });
-        const nextInputAmountSnapshot = inputAmountSnapshots[
-          normalizedType
-        ] ?? {
-          fromTokenAmount: { value: '', isInput: false },
-          toTokenAmount: { value: '', isInput: false },
-        };
-        set(swapFromTokenAmountAtom(), nextInputAmountSnapshot.fromTokenAmount);
-        set(swapToTokenAmountAtom(), nextInputAmountSnapshot.toTokenAmount);
+        if (shouldSaveCurrentInputAmountSnapshot) {
+          set(swapInputAmountSnapshotsAtom(), {
+            ...inputAmountSnapshots,
+            [oldVisibleType]: buildSwapInputAmountSnapshot({
+              fromTokenAmount: get(swapFromTokenAmountAtom()),
+              toTokenAmount: get(swapToTokenAmountAtom()),
+              fromToken: currentFromToken,
+              toToken: currentToToken,
+            }),
+          });
+        }
+        if (shouldRestoreTargetInputAmountSnapshot) {
+          nextInputAmountSnapshot = inputAmountSnapshots[normalizedType];
+        }
+        set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+        set(swapToTokenAmountAtom(), { value: '', isInput: false });
       }
+      const restoreTargetInputAmountSnapshot = () => {
+        if (!nextInputAmountSnapshot) {
+          return;
+        }
+        // Stock finalizes its execution pair asynchronously in
+        // selectStockExecutionTokens, so its draft is validated there.
+        if (normalizedType === ESwapTabSwitchType.STOCK) {
+          return;
+        }
+        const canRestoreSnapshot = isSwapInputAmountSnapshotForTokenPair({
+          snapshot: nextInputAmountSnapshot,
+          fromToken: get(swapSelectFromTokenAtom()),
+          toToken: get(swapSelectToTokenAtom()),
+        });
+        if (canRestoreSnapshot) {
+          set(
+            swapFromTokenAmountAtom(),
+            nextInputAmountSnapshot.fromTokenAmount,
+          );
+          set(swapToTokenAmountAtom(), nextInputAmountSnapshot.toTokenAmount);
+        }
+        set(swapInputAmountSnapshotsAtom(), (snapshots) => ({
+          ...snapshots,
+          [normalizedType]: undefined,
+        }));
+      };
       const isCrossingStockBoundary =
         (oldType === ESwapTabSwitchType.STOCK) !==
         (normalizedType === ESwapTabSwitchType.STOCK);
@@ -3098,8 +3218,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       ) {
         set(swapSelectedFromTokenBalanceAtom(), '');
       }
-      let currentFromToken = get(swapSelectFromTokenAtom());
-      let currentToToken = get(swapSelectToTokenAtom());
       if (
         oldType !== ESwapTabSwitchType.STOCK &&
         oldType !== ESwapTabSwitchType.LIMIT &&
@@ -3169,7 +3287,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
         set(swapSelectFromTokenAtom(), currentFromToken);
         set(swapSelectToTokenAtom(), currentToToken);
-        if (platformEnv.isNative) {
+        if (
+          platformEnv.isNative &&
+          normalizedType !== ESwapTabSwitchType.SWAP
+        ) {
           set(swapFromTokenAmountAtom(), { value: '', isInput: false });
           set(swapToTokenAmountAtom(), { value: '', isInput: false });
         }
@@ -3246,6 +3367,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           if (sortNetworkId) {
             void this.syncNetworksSort.call(set, sortNetworkId);
           }
+          restoreTargetInputAmountSnapshot();
           return;
         }
       }
@@ -3409,6 +3531,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           }
         }
       }
+      restoreTargetInputAmountSnapshot();
     },
   );
 

@@ -286,6 +286,8 @@ export type ISwapTokenAmountState = {
 export type ISwapInputAmountSnapshot = {
   fromTokenAmount: ISwapTokenAmountState;
   toTokenAmount: ISwapTokenAmountState;
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
 };
 
 export const {
