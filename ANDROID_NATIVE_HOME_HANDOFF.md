@@ -15,7 +15,7 @@
 > Native remains responsible only for shared search/notification chrome and
 > controlled interaction slots such as account/network selection, Wallet
 > Actions, and backup CTA. Native owns pixels, layout, scrolling, pager state,
-> gesture state, and transport acknowledgements; it does not own Home business
+> gesture state, and internal rendered-revision state; it does not own Home business
 > sources, balance policy, capability, selected-tab authority, or persistence.
 > The completion checkpoint at the end of this document overrides earlier
 > `notRun`, `Fail`, and `下一步` checkpoints only where it agrees with this
@@ -2417,7 +2417,7 @@ Polygon 的完整 Tab 结果：Spot 使用当前 POL rows，并在 `50-polygon-s
 3. owner/session/source/request identity 合同；
 4. balance aggregation complete coverage 与 required-set revision 规则；
 5. split-runtime / single-runtime adapter 合同；
-6. Native protocol-v2 的 owner/revision/baseRevision/ack/resync 方向；
+6. Native protocol-v2 的 owner/revision/baseRevision/resync 方向；
 7. Phase 0 到 Phase 7 的迁移顺序；
 8. 首个实施 phase 及其精确允许修改文件范围。
 
@@ -2544,11 +2544,11 @@ Runtime scope：main 拥有 facts adapter、policy/capability projection、Seman
 
 ## 2026-07-20 Home State Model Phase 3 checkpoint
 
-Phase 3 已完成 HomeContainer business schema v1 / transport protocol v2 的 owner-scoped transaction、typed snapshot/patch/result/intent、slot bundle 与双端 Native apply contract。TypeScript controller 只允许一个 v2 transaction in flight，ack 后合并后续变更；patch 绑定 owner、base revision、revision，section replace 同时带 stable section ID 与 index。Native 返回 `applied / duplicate / needSnapshot`，owner/revision 不匹配、malformed payload、unsafe integer 和空 ID 都会拒绝；`needSnapshot` 触发有界 full resync。v1 capability negotiation、snapshot/patch setter 与 React-only slots 继续兼容，缺少 protocol versions 的旧 Native 默认协商 v1；v2 不再用 first-tab 或旧 slots 隐式兜底。
+Phase 3 已完成 HomeContainer business schema v1 / transport protocol v2 的 owner-scoped transaction、typed snapshot/patch/snapshot-request/intent、slot bundle 与双端 Native apply contract。当前实现按 frame 合并更新，patch 绑定 owner、base revision、revision，并以最后一次已提交 snapshot 为 baseline；section replace 同时带 stable section ID 与 index。Native 对正常 apply 不发送成功事件，只在 owner/revision 不匹配、malformed payload、unsafe integer、空 ID 或 revision gap 时发送去重的 `needSnapshot`。v1 capability negotiation、snapshot/patch setter 与 React-only slots 继续兼容，缺少 protocol versions 的旧 Native 默认协商 v1；v2 不再用 first-tab 或旧 slots 隐式兜底。
 
-Kit main 侧新增 DTO adapter、stale intent guard 和 owner/revision/slot-contract 绑定的 slot bundle。Native wrapper 只接受与最后一次提交 owner/revision 相符的 transport result；refresh intent 即使因 stale/rejected 被拒绝也会按 request ID complete，避免刷新控件悬挂。Scope 切换时 existing controller 的 acquisition 在 render 明确使用 `deferScopeCommit`，owner/snapshot 只在 committed passive effect 首项切换，随后 structural navigation、theme、header、各 Tab sections 和 slots 在同一 effect batch coalesce。`replaceOwner` 会清除旧 `currentSlots`，transaction 只捕获提交当时的 slots，旧 owner slot 不会泄漏进新 owner。main 侧 semantic/transport/intent/slot owner 已建立，但当前可见 renderer 迁移与最终 UI 行为仍留给后续 Phase；本 checkpoint 不是 UI 完成声明。
+Kit main 侧新增 DTO adapter、stale intent guard 和 owner/revision/slot-contract 绑定的 slot bundle。Native wrapper 在提交 snapshot/patch 时立即展示对应 slot，并用 parent/staged commit 顺序防止旧 owner slot 反压；refresh intent 即使因 stale/rejected 被拒绝也会按 request ID complete，避免刷新控件悬挂。Scope 切换时 existing controller 的 acquisition 在 render 明确使用 `deferScopeCommit`，owner/snapshot 只在 committed passive effect 首项切换，随后 structural navigation、theme、header、各 Tab sections 和 slots 在同一 effect batch coalesce。`replaceOwner` 会清除旧 `currentSlots`，transaction 只捕获提交当时的 slots，旧 owner slot 不会泄漏进新 owner。main 侧 semantic/transport/intent/slot owner 已建立，但当前可见 renderer 迁移与最终 UI 行为仍留给后续 Phase；本 checkpoint 不是 UI 完成声明。
 
-Native 双端都先在临时 candidate 上完整 decode/validate/apply，全部成功后才原子替换当前 snapshot；same-revision duplicate 也必须先验证完整 payload，不能让 malformed duplicate 绕过校验。Swift 与 Kotlin 对 non-empty owner/tab/section ID、JS safe integer、navigation 不携带 sections、section ID/index、base revision、owner/session 和 duplicate ordering 保持一致。iOS `HomeContainerView` / `HybridHomeContainer` 与 Android `HomeContainerView` / `HybridHomeContainer` 均接入单字符串 Nitro `onIntent` / `onTransportResult` callback，避免跨独立 runtime 共享 JS 对象的假设。
+Native 双端都先在临时 candidate 上完整 decode/validate/apply，全部成功后才原子替换当前 snapshot；same-revision duplicate 也必须先验证完整 payload，不能让 malformed duplicate 绕过校验。Swift 与 Kotlin 对 non-empty owner/tab/section ID、JS safe integer、navigation 不携带 sections、section ID/index、base revision、owner/session 和 duplicate ordering 保持一致。iOS `HomeContainerView` / `HybridHomeContainer` 与 Android `HomeContainerView` / `HybridHomeContainer` 均接入单字符串 Nitro `onIntent` / `onSnapshotRequired` callback，避免跨独立 runtime 共享 JS 对象的假设。
 
 ### Codegen allow-list 修正
 
@@ -2556,13 +2556,13 @@ Native 双端都先在临时 candidate 上完整 decode/validate/apply，全部�
 
 ### 四轮独立 reviewer 闭环
 
-前三轮独立 reviewer 的 Fail 结论保留，不由最终 Pass 覆盖。第一轮发现最新 `homeSlots` 会被错误标到旧 ack revision、被拒 refresh 不 complete、wrapper 可接受 stale ack、Swift/Kotlin invariant 不一致；writer 分别改为 transaction-time slot capture、rejected refresh 携带解析后的 intent 并完成 request、last-submission correlation 与双端 strict parity。第二轮发现 `controller.updateSlots(homeSlots)` 在 React render 中写 controller，以及 Android duplicate 在完整 validation 前短路；writer 把 slots 移到业务 effects 之后的 passive effect，并让 Android candidate 先完整验证。第三轮发现 existing controller 的 scope switch 仍可由 render acquisition 触发，abandoned render 可能发送错误 owner/snapshot 并捕获旧 slots；writer 加入 deferred committed scope switch、owner switch 清 slots 及对应回归。
+前三轮独立 reviewer 的 Fail 结论保留，不由最终 Pass 覆盖。第一轮发现最新 `homeSlots` 会被错误标到旧 submitted revision、被拒 refresh 不 complete、wrapper 可能保留 stale staged slot、Swift/Kotlin invariant 不一致；writer 分别改为 transaction-time slot capture、rejected refresh 携带解析后的 intent 并完成 request、parent/staged commit ordering 与双端 strict parity。第二轮发现 `controller.updateSlots(homeSlots)` 在 React render 中写 controller，以及 Android duplicate 在完整 validation 前短路；writer 把 slots 移到业务 effects 之后的 passive effect，并让 Android candidate 先完整验证。第三轮发现 existing controller 的 scope switch 仍可由 render acquisition 触发，abandoned render 可能发送错误 owner/snapshot 并捕获旧 slots；writer 加入 deferred committed scope switch、owner switch 清 slots 及对应回归。
 
-第四轮由未参与编写的同一 reviewer 完整复扫后给出 **Pass，无 P0/P1/P2 finding**：确认 render acquisition 不切 owner，scope commit 与 structural/theme/header/sections/slots 同批 coalesce，旧 owner slots 不进入新 transaction，Android duplicate ordering 与 Swift 对齐；同时复核 ack slot capture、slot-only v2、v1 no-op、rejected refresh completion、wrapper submission filter、strict ID/safe integer、atomic patch 和 v1 compatibility 均无 actionable finding。
+第四轮由未参与编写的同一 reviewer 完整复扫后给出 **Pass，无 P0/P1/P2 finding**：确认 render acquisition 不切 owner，scope commit 与 structural/theme/header/sections/slots 同批 coalesce，旧 owner slots 不进入新 transaction，Android duplicate ordering 与 Swift 对齐；同时复核 transaction-time slot capture、slot-only v2、v1 no-op、rejected refresh completion、strict ID/safe integer、atomic patch 和 v1 compatibility 均无 actionable finding。
 
 ### 作者检查、UI 状态与安全边界
 
-- 聚焦 Jest：5 suites / 46 tests Pass，覆盖 controller v1/v2 negotiation、one-inflight/ack/coalesce/resync、owner/revision、slots、intent、DTO、wrapper identity 与 mounted scope rerender/remount。
+- 当前 transport 清理后的验证结果与新验收口径见 `docs/native-home-owner-switch-swr-handoff.md`；旧的 one-inflight 测试统计不再作为当前协议门禁。
 - 15 个 Phase 3 TS/TSX 文件的 type-aware `oxlint --deny-warnings`、`oxfmt --check` 均 Pass；指定 Phase 3 source `git diff --check` Pass。`@onekeyhq/native-components` TypeScript Pass。
 - `@onekeyhq/kit` TypeScript 仅剩共享工作区已有的两项无关错误：Desktop `config.perfReady` side-effect module 缺失、旧 `HOME_HEADER_SEARCH_ROW_HEIGHT` export 缺失；没有回滚或混修这些文件制造绿色结果。
 - iOS `swiftc -parse` Pass；iPhone 17 Pro / iOS 26.5 simulator 上 protocol fixture contract 进程退出码 0。Android 使用 JDK 17，`HomeContainerProtocolV2Test` 13/13 Pass，`:onekeyhq_native-components:compileDebugKotlin` Pass。
@@ -2623,7 +2623,7 @@ required `destination` 造成既有 fixture 类型连锁后，主 agent 另批�
 
 schema 2 首轮实现后，独立 reviewer 继续发现并逐项关闭以下真实问题：
 
-1. `HomeContainerController.replaceOwner` 曾先切 owner 并清 ack，再验证 next snapshot；invalid candidate 可能留下“新 owner + 旧 snapshot”。修正为完整验证通过后才原子切 owner/snapshot/slots，并新增 invalid owner replacement 不污染 current 的回归。
+1. `HomeContainerController.replaceOwner` 曾先切 owner 并清 transport baseline，再验证 next snapshot；invalid candidate 可能留下“新 owner + 旧 snapshot”。修正为完整验证通过后才原子切 owner/snapshot/slots，并新增 invalid owner replacement 不污染 current 的回归。
 2. `updateTabs` 从有 sections 的 inline Perps 切到 handoff 时曾仍生成 `removeSection`；双端会正确拒绝对 handoff 的 section change 并请求 snapshot。修正为 pending section diff 只收集 next inline tabs，change builder 再次防御性跳过 handoff；回归确认 inline -> handoff patch 只携带合法 navigation、不发送 Perps section change。atomic tab builder 也强制 handoff 永远无 sections 且不能 selected。
 3. protocol-v1 handoff fallback 曾是死链：iOS/Android 会发 `home.perps.openWeb` legacy action，但 `NativeHomePage` 没有处理。新增可单测的 legacy handoff guard/dispatcher；只有当前 semantic ready、`destinations.perps=web`，且 controller 当前 snapshot 仍含精确 Perps handoff command 时才切到 `WebviewPerpTrade`，removed command、inline destination、旧 snapshot 和错误 target 均拒绝。v2 typed owner/revision intent 路径保持不变。
 4. Android v1 business invariant 曾只检查 Tabs，未像 iOS 一样检查 schema 和 revision，unsafe high revision 可能锁住后续正常 revision。Android 现在要求 schema=2、revision 在 `0...Number.MAX_SAFE_INTEGER`，legacy patch 通过临时 candidate gate；测试覆盖 snapshot/patch 的 `-1` 与 `2^53` 拒绝且 current state 不变。

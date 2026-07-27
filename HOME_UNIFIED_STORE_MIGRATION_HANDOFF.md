@@ -226,7 +226,7 @@ flowchart LR
   end
 
   ReactRenderer["React renderer\nWeb / Desktop / Extension"]
-  NativeTransport["HomeContainerController\nowner + revision + ack"]
+  NativeTransport["HomeContainerController\nowner + revision + resync"]
   IOS["Swift HomeContainer"]
   Android["Kotlin HomeContainer"]
 
@@ -298,16 +298,17 @@ Atomicity has two levels:
    batch; a gap requests a full resync rather than showing a partial frame.
 
 Owner replacement is a transport boundary. The Store creates a new
-owner/session, the app creates a new owner-scoped `HomeContainerController`,
-and that controller explicitly reattaches to the long-lived Swift/Kotlin view.
+owner/session, and the app calls `replaceOwner()` on the surface-lifetime
+`HomeContainerController` already attached to the long-lived Swift/Kotlin view.
 Native `onReady` is a view-lifecycle signal and is not expected to fire again
 for every owner change. This reattachment rule prevents the RN network slot
 from displaying the new chain while native Header/rows remain on the previous
-acknowledged owner.
+committed owner.
 
 Whole live Store state is not restored verbatim. The cache may contain
-versioned, JSON-safe, confirmed owner records and settled presentation data,
-subject to record/row/byte bounds. It must not restore in-flight request
+versioned, JSON-safe, confirmed owner records and settled presentation data.
+Do not impose speculative record/row/byte limits; measure the Release path
+first. The cache must not restore in-flight request
 tokens, runtime handshake state, refresh flags, interaction state, Native
 transport revisions, scroll/pager state, or unconfirmed values. Hydration is
 therefore a display floor followed by normal owner and producer
@@ -1403,7 +1404,6 @@ Revision validation:
 selectTab      → owner + session + tabApplicabilityRevision
 headerAction   → owner + session + shellCommandRevision
 sectionAction  → owner + session + sectionId + sectionCommandRevision
-transport ack  → owner + session + transportRevision
 ```
 
 Balance or section patches must not invalidate select-tab intent. Selecting a
@@ -2125,8 +2125,9 @@ account selector and Wallet Actions.
 
 Slot presence must come from the Fabric-mounted child metadata, not from the
 desired slot bundle. A slot child carries owner, session, slot revision, and
-producing Store commit identity into Swift/Kotlin. Native only acknowledges a
-patch after the required mounted revision is available. In particular,
+producing Store commit identity into Swift/Kotlin. Native applies a patch only
+after the required mounted revision is available and requests a full snapshot
+when the revision cannot be satisfied. In particular,
 `header.actions=[]` means the native fallback buttons are absent; it must not
 hide the action-row host while the controlled RN slot is mounted. Hiding that
 host leaves the Header's action height reserved and produces the apparent
@@ -2135,7 +2136,7 @@ blank area between Banner and tabs.
 ### 16.2 Native may own
 
 - applied renderer snapshot;
-- transport revision and ack state;
+- transport revision and internal rendered-revision state;
 - layout, scroll, gesture, and animation state;
 - native attachment lifecycle;
 - image and view reuse state;
@@ -2455,7 +2456,7 @@ existing, or a settled screenshot. Each row needs the exact evidence listed.
 | Split runtime             | Debug simulator evidence for `main` Store ownership, `bg` source/persistence ownership, handshake/restart, stale producer rejection, JSON-safe proxy payloads, and independent readiness.                       | **PASS** — runtime-conformance, restart/order, JSON contract, stale-producer, and protocol suites pass; the Simulator Debug run uses the production split-runtime path.                                                                                                                                      |
 | Snapshot cache            | Exact owner/source/schema/quote/coverage admission, confirmed-only hydration, one writer, hard owner/record/row/byte bounds, sensitive-field rejection, live revalidation, and concurrent persistence behavior. | **PASS** — snapshot codec, admission, bounds, concurrency, hydration, and persistence-owner suites pass.                                                                                                                                                                                                     |
 | Header balance            | Current-worktree Debug recording with a fixed aggregation round, displayed value stable, one confirmed writer, and correlated Store/Native patch counts.                                                        | **PASS** — five one-second-spaced settled samples have the identical Header crop SHA-256 `26d1518247b3b25819cb7f833e9b3995ca6d45fa61f0687f468f662583993a86`; exact owner/valuation receipts and same-owner overlapping-round tests guard the writer boundary.                                                    |
-| Navigation                | Fifty rapid Spot/Perps/DeFi selections with zero dropped applicable intents and Store/visible selection agreement.                                                                                              | **PASS** — 17 Spot → Perps → DeFi cycles produced 51 physical taps. `.tmp/ui/home-final-51-taps.gesture-telemetry.json` records exactly 51 events at the three tab coordinates; the recording and terminal capture show the final DeFi state selected with settled rows. Store-controlled command acknowledgement is also asserted by Navigation and `HomePageView` suites. |
+| Navigation                | Fifty rapid Spot/Perps/DeFi selections with zero dropped applicable intents and Store/visible selection agreement.                                                                                              | **PASS** — 17 Spot → Perps → DeFi cycles produced 51 physical taps. `.tmp/ui/home-final-51-taps.gesture-telemetry.json` records exactly 51 events at the three tab coordinates; the recording and terminal capture show the final DeFi state selected with settled rows. Store-controlled command completion is also asserted by Navigation and `HomePageView` suites. |
 | DeFi continuity           | Debug recording of first load and same-owner refresh behavior, plus deterministic failed-refresh/retry coverage, without blank/loading regression.                                                              | **PASS** — visible DeFi content at 1, 5, and 10 seconds has the identical crop SHA-256 `a0caa060e5a16bf50d5b5fe28517b5d918f9224953242d4542bd9d4200d324f4`; source lifecycle tests cover ready refresh, failure, retry, and stale-response rejection.                 |
 | Owner replacement         | A → B → A plus delayed old response, all-network/single-network switch, background/foreground, and producer restart; no old-owner frame or stale acceptance.                                                    | **PASS** — all-networks → OP → Tron → Ethereum → all-networks completed without relaunch. Each single-network view settled in 2–3 seconds; the all-networks return was still revalidating at four seconds and was settled by ten seconds. Deterministic owner-ordering and stale-response fixtures pass.     |
 | Native protocol v3        | TS/Swift/Kotlin canonical contracts plus Debug attach, typed patch, slot-only patch, revision gap, bounded resync, stale command, and owner/slot identity evidence.                                             | **PASS** — actual Fabric mounted-slot metadata carries owner/session/slot revision/producing commit identity. Snapshot and patch slot payloads are staged until the layout barrier, revision gaps defer and retry, and TypeScript plus canonical iOS/Android contract suites pass.                           |

@@ -261,15 +261,10 @@ describe('HomeHeaderContainer refresh ownership', () => {
     );
   });
 
-  it('keeps the action skeleton independent from a provisional amount', () => {
+  it('keeps the action skeleton while the amount is unknown', () => {
     mockDisplayModel = {
       actions: { kind: 'loading' },
-      balance: {
-        authority: 'provisional',
-        balance: { amount: '0', currency: 'usd' },
-        kind: 'ready',
-        revision: 'revision-provisional',
-      },
+      balance: { kind: 'loading', revision: 'revision-loading' },
       banner: { kind: 'pending' },
       body: { kind: 'portfolio' },
       fundingVerdict: 'unknown',

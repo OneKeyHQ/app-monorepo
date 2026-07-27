@@ -8,6 +8,12 @@ import type { IHomePortfolioPresentation } from '../semantic/homeSemanticTypes';
 const fundedActions = ['send', 'receive', 'buySell', 'swap'] as const;
 const zeroActions = ['addMoney', 'receive', 'more'] as const;
 
+function resolveBannerPresentation(bannerAvailable: boolean) {
+  return bannerAvailable
+    ? ({ kind: 'positive' } as const)
+    : ({ kind: 'none' } as const);
+}
+
 function parseAmount(value: string): number | undefined {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
@@ -15,6 +21,7 @@ function parseAmount(value: string): number | undefined {
 
 function fromConfirmed(
   confirmed: IHomeConfirmedFact | undefined,
+  bannerAvailable: boolean,
 ): IHomePortfolioPresentation | undefined {
   const data = confirmed?.data as IHomePortfolioFactData | undefined;
   if (!data || !('amount' in data)) {
@@ -32,7 +39,9 @@ function fromConfirmed(
         balance: { amount: data.amount, currency: data.currency },
       },
       actions: { kind: 'zero', items: zeroActions },
-      banner: { kind: 'none' },
+      banner: resolveBannerPresentation(
+        bannerAvailable || Boolean(data.bannerAvailable),
+      ),
     };
   }
   return {
@@ -43,14 +52,20 @@ function fromConfirmed(
       authority: 'confirmedCache',
     },
     actions: { kind: 'funded', items: fundedActions },
-    banner: data.bannerAvailable ? { kind: 'positive' } : { kind: 'none' },
+    banner: resolveBannerPresentation(
+      bannerAvailable || Boolean(data.bannerAvailable),
+    ),
   };
 }
 
 export function projectHomePortfolioPresentation(
   facts: IHomeFacts,
 ): IHomePortfolioPresentation {
-  const exactConfirmed = fromConfirmed(facts.confirmed.portfolio);
+  const bannerAvailable = Boolean(facts.balance?.bannerAvailable);
+  const exactConfirmed = fromConfirmed(
+    facts.confirmed.portfolio,
+    bannerAvailable,
+  );
   const source = facts.sources.portfolio;
   if (facts.runtime.connection !== 'ready') {
     return (
@@ -58,7 +73,7 @@ export function projectHomePortfolioPresentation(
         kind: 'loading',
         header: { kind: 'loading' },
         actions: { kind: 'loading', items: [] },
-        banner: { kind: 'none' },
+        banner: resolveBannerPresentation(bannerAvailable),
       }
     );
   }
@@ -68,7 +83,7 @@ export function projectHomePortfolioPresentation(
         kind: 'loading',
         header: { kind: 'loading' },
         actions: { kind: 'loading', items: [] },
-        banner: { kind: 'none' },
+        banner: resolveBannerPresentation(bannerAvailable),
       }
     );
   }
@@ -78,9 +93,9 @@ export function projectHomePortfolioPresentation(
         kind: 'fundedPendingTotal',
         header: { kind: 'loading' },
         actions: { kind: 'funded', items: fundedActions },
-        banner: source.data.bannerAvailable
-          ? { kind: 'positive' }
-          : { kind: 'none' },
+        banner: resolveBannerPresentation(
+          bannerAvailable || Boolean(source.data.bannerAvailable),
+        ),
       };
     }
     return (
@@ -88,7 +103,7 @@ export function projectHomePortfolioPresentation(
         kind: 'loading',
         header: { kind: 'loading' },
         actions: { kind: 'loading', items: [] },
-        banner: { kind: 'none' },
+        banner: resolveBannerPresentation(bannerAvailable),
       }
     );
   }
@@ -104,7 +119,7 @@ export function projectHomePortfolioPresentation(
               : 'sourceError',
         },
         actions: { kind: 'loading', items: [] },
-        banner: { kind: 'none' },
+        banner: resolveBannerPresentation(bannerAvailable),
       }
     );
   }
@@ -119,7 +134,7 @@ export function projectHomePortfolioPresentation(
         },
       },
       actions: { kind: 'zero', items: zeroActions },
-      banner: { kind: 'none' },
+      banner: resolveBannerPresentation(bannerAvailable),
     };
   }
   const data = source.result.data;
@@ -129,7 +144,7 @@ export function projectHomePortfolioPresentation(
       kind: 'unavailable',
       header: { kind: 'unavailable', reason: 'invalidAmount' },
       actions: { kind: 'loading', items: [] },
-      banner: { kind: 'none' },
+      banner: resolveBannerPresentation(bannerAvailable),
     };
   }
   if (amount === 0) {
@@ -140,7 +155,7 @@ export function projectHomePortfolioPresentation(
         balance: { amount: data.amount, currency: data.currency },
       },
       actions: { kind: 'zero', items: zeroActions },
-      banner: { kind: 'none' },
+      banner: resolveBannerPresentation(bannerAvailable),
     };
   }
   return {
@@ -151,6 +166,8 @@ export function projectHomePortfolioPresentation(
       authority: 'live',
     },
     actions: { kind: 'funded', items: fundedActions },
-    banner: data.bannerAvailable ? { kind: 'positive' } : { kind: 'none' },
+    banner: resolveBannerPresentation(
+      bannerAvailable || Boolean(data.bannerAvailable),
+    ),
   };
 }

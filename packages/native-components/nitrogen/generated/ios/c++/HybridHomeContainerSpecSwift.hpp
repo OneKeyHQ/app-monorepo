@@ -113,12 +113,12 @@ namespace margelo::nitro::onekeynativecomponents {
     inline void setOnIntent(const std::optional<std::function<void(const std::string& /* intentJson */)>>& onIntent) noexcept override {
       _swiftPart.setOnIntent(onIntent);
     }
-    inline std::optional<std::function<void(const std::string& /* resultJson */)>> getOnTransportResult() noexcept override {
-      auto __result = _swiftPart.getOnTransportResult();
+    inline std::optional<std::function<void(const std::string& /* requestJson */)>> getOnSnapshotRequired() noexcept override {
+      auto __result = _swiftPart.getOnSnapshotRequired();
       return __result;
     }
-    inline void setOnTransportResult(const std::optional<std::function<void(const std::string& /* resultJson */)>>& onTransportResult) noexcept override {
-      _swiftPart.setOnTransportResult(onTransportResult);
+    inline void setOnSnapshotRequired(const std::optional<std::function<void(const std::string& /* requestJson */)>>& onSnapshotRequired) noexcept override {
+      _swiftPart.setOnSnapshotRequired(onSnapshotRequired);
     }
 
   public:

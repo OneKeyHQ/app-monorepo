@@ -39,6 +39,8 @@ describe('loadPreparedHomeDisplaySnapshot native', () => {
       payload: {
         payload: {
           accountTokensValue: '21.14',
+          accountTokensValueAvailable: true,
+          accountTokensValueComplete: true,
           accountTokensWorthCurrency: 'USD',
         },
         section: {
@@ -102,6 +104,7 @@ describe('loadPreparedHomeDisplaySnapshot native', () => {
     expect(
       loadPreparedHomeDisplaySnapshot({ ownerScopeKey: 'owner-a' }),
     ).toEqual({
+      context,
       navigation: {
         kind: 'ready',
         selectedTabId: 'portfolio',
@@ -140,6 +143,195 @@ describe('loadPreparedHomeDisplaySnapshot native', () => {
         tabs: ['portfolio'],
       },
     } satisfies IHomeDisplaySnapshotCritical);
+
+    expect(
+      loadPreparedHomeDisplaySnapshot({ ownerScopeKey: 'owner-a' }),
+    ).toBeUndefined();
+  });
+
+  it('keeps a cached banner visible for an authoritatively zero account', () => {
+    mockLoadCritical.mockReturnValue({
+      createdAt: 1,
+      ownerScopeKey: 'owner-a',
+      schemaVersion: 1,
+    } satisfies IHomeDisplaySnapshotCritical);
+    mockLoadSourceRecords.mockReturnValue([
+      {
+        confirmedAt: 1,
+        coverageFingerprint: 'banner-a',
+        dataSchemaVersion: 1,
+        expiresAt: 2,
+        payload: {
+          banners: [],
+          isBotWalletReceiveBlocked: false,
+          referralEligibility: null,
+          tronResource: {
+            accountId: 'account-a',
+            networkId: 'network-a',
+          },
+        },
+        quoteBasis: null,
+        sourceId: 'banner',
+        sourceKeyIdentity: 'banner-key',
+      },
+      {
+        confirmedAt: 1,
+        coverageFingerprint: 'portfolio-a',
+        dataSchemaVersion: 1,
+        expiresAt: 2,
+        payload: {
+          payload: {
+            accountTokensValue: '0',
+            accountTokensValueAvailable: true,
+            accountTokensValueComplete: true,
+            accountTokensWorthCurrency: 'USD',
+          },
+          section: {
+            kind: 'empty',
+          },
+        },
+        quoteBasis: { currency: 'USD' },
+        sourceId: 'portfolio',
+        sourceKeyIdentity: 'portfolio-key',
+      },
+    ] satisfies IHomeCachedSourceRecord[]);
+
+    expect(
+      loadPreparedHomeDisplaySnapshot({ ownerScopeKey: 'owner-a' })?.shell,
+    ).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        kind: 'zero',
+        banner: { kind: 'positive' },
+      },
+    });
+  });
+
+  it('does not restore an unavailable aggregate as an authoritative zero', () => {
+    mockLoadCritical.mockReturnValue({
+      createdAt: 1,
+      ownerScopeKey: 'owner-a',
+      schemaVersion: 1,
+    } satisfies IHomeDisplaySnapshotCritical);
+    mockLoadSourceRecords.mockReturnValue([
+      {
+        confirmedAt: 1,
+        coverageFingerprint: 'portfolio-partial',
+        dataSchemaVersion: 1,
+        expiresAt: 2,
+        payload: {
+          payload: {
+            accountTokensValue: '0',
+            accountTokensValueComplete: false,
+            accountTokensWorthCurrency: 'USD',
+          },
+          section: {
+            kind: 'ready',
+            rowIds: ['eth'],
+          },
+        },
+        quoteBasis: { currency: 'USD' },
+        sourceId: 'portfolio',
+        sourceKeyIdentity: 'portfolio-key',
+      },
+    ] satisfies IHomeCachedSourceRecord[]);
+
+    expect(
+      loadPreparedHomeDisplaySnapshot({ ownerScopeKey: 'owner-a' }),
+    ).toBeUndefined();
+  });
+
+  it('uses the complete portfolio record instead of an older critical verdict', () => {
+    mockLoadCritical.mockReturnValue({
+      createdAt: 1,
+      ownerScopeKey: 'owner-a',
+      schemaVersion: 1,
+      shell: {
+        kind: 'portfolio',
+        presentation: {
+          kind: 'zero',
+          header: {
+            kind: 'zero',
+            balance: { amount: '0', currency: 'USD' },
+          },
+          actions: { kind: 'zero', items: ['addMoney', 'receive', 'more'] },
+          banner: { kind: 'none' },
+          freshness: 'live',
+          refresh: 'idle',
+        },
+      },
+    } satisfies IHomeDisplaySnapshotCritical);
+    mockLoadSourceRecords.mockReturnValue([
+      {
+        confirmedAt: 2,
+        coverageFingerprint: 'portfolio-funded',
+        dataSchemaVersion: 1,
+        expiresAt: 3,
+        payload: {
+          payload: {
+            accountTokensValue: '27',
+            accountTokensValueAvailable: true,
+            accountTokensValueComplete: true,
+            accountTokensWorthCurrency: 'USD',
+          },
+          section: {
+            kind: 'ready',
+            rowIds: ['usdc'],
+          },
+        },
+        quoteBasis: { currency: 'USD' },
+        sourceId: 'portfolio',
+        sourceKeyIdentity: 'portfolio-key',
+      },
+    ] satisfies IHomeCachedSourceRecord[]);
+
+    expect(
+      loadPreparedHomeDisplaySnapshot({ ownerScopeKey: 'owner-a' })?.shell,
+    ).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        kind: 'funded',
+        header: { balance: { amount: '27' } },
+      },
+    });
+  });
+
+  it('rejects a portfolio record whose total quality is unspecified', () => {
+    mockLoadCritical.mockReturnValue({
+      createdAt: 1,
+      ownerScopeKey: 'owner-a',
+      schemaVersion: 1,
+      shell: {
+        kind: 'portfolio',
+        presentation: {
+          kind: 'zero',
+          header: {
+            kind: 'zero',
+            balance: { amount: '0', currency: 'USD' },
+          },
+          actions: { kind: 'zero', items: ['addMoney', 'receive', 'more'] },
+          banner: { kind: 'none' },
+        },
+      },
+    } satisfies IHomeDisplaySnapshotCritical);
+    mockLoadSourceRecords.mockReturnValue([
+      {
+        confirmedAt: 1,
+        coverageFingerprint: 'portfolio-legacy',
+        dataSchemaVersion: 1,
+        expiresAt: 2,
+        payload: {
+          payload: {
+            accountTokensValue: '0',
+            accountTokensWorthCurrency: 'USD',
+          },
+          section: { kind: 'empty' },
+        },
+        quoteBasis: { currency: 'USD' },
+        sourceId: 'portfolio',
+        sourceKeyIdentity: 'portfolio-key',
+      },
+    ] satisfies IHomeCachedSourceRecord[]);
 
     expect(
       loadPreparedHomeDisplaySnapshot({ ownerScopeKey: 'owner-a' }),

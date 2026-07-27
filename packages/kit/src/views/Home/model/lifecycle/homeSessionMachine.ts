@@ -148,6 +148,8 @@ export function transitionHomeSession(
           effects,
         };
       }
+      // Never reuse a session ID across owners; late results must remain bound
+      // to the authority of the owner that started them.
       const sessionSequence = state.sessionSequence + 1;
       const sessionId = `${state.runtimeInstanceId}:${sessionSequence}`;
       effects.push({ kind: 'connectRuntime', sessionId });

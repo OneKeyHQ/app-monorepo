@@ -68,8 +68,8 @@ void JHybridHomeContainerStateUpdater::updateViewProps(jni::alias_ref<jni::JClas
     view->setOnIntent(props.onIntent.value);
     // TODO: Set isDirty = false
   }
-  if (props.onTransportResult.isDirty) {
-    view->setOnTransportResult(props.onTransportResult.value);
+  if (props.onSnapshotRequired.isDirty) {
+    view->setOnSnapshotRequired(props.onSnapshotRequired.value);
     // TODO: Set isDirty = false
   }
 

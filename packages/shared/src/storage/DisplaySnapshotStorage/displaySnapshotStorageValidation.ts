@@ -22,8 +22,8 @@ export function validateDisplaySnapshotStorageConfig(
     );
   }
   if (
-    !Number.isSafeInteger(config.maxRecordBytes) ||
-    config.maxRecordBytes <= 0
+    config.maxRecordBytes !== undefined &&
+    (!Number.isSafeInteger(config.maxRecordBytes) || config.maxRecordBytes <= 0)
   ) {
     throw new OneKeyLocalError(
       'Display snapshot maxRecordBytes must be a positive integer',
@@ -70,7 +70,10 @@ export function validateDisplaySnapshotValue(
   value: string,
   config: IDisplaySnapshotStorageConfig,
 ): void {
-  if (getUtf8ByteLength(value) > config.maxRecordBytes) {
+  if (
+    config.maxRecordBytes !== undefined &&
+    getUtf8ByteLength(value) > config.maxRecordBytes
+  ) {
     throw new OneKeyLocalError(
       `Display snapshot record exceeds ${config.maxRecordBytes} bytes`,
     );

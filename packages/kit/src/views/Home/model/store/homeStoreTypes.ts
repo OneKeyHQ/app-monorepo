@@ -316,6 +316,7 @@ export type IHomeStoreEvent =
       type: 'sectionSourceChanged';
       ownerToken: IHomeRuntimeOwnerToken;
       sectionId: IHomeSectionId;
+      token?: IHomeRuntimeRequestToken;
       result: IHomeStoreSectionSourceResult;
     }
   | {

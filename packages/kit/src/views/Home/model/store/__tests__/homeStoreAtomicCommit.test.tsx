@@ -3,13 +3,23 @@
 import { type ReactNode, useLayoutEffect, useMemo } from 'react';
 
 import { act, render } from '@testing-library/react';
+import { createStore } from 'jotai';
 
 import {
   ProviderJotaiContextHome,
   useHomeCommitIdentity,
+  useHomeResource,
   useHomeSessionState,
 } from '@onekeyhq/kit/src/states/jotai/contexts/home';
-import { useHomeStoreInternalActions } from '@onekeyhq/kit/src/states/jotai/contexts/home/actions';
+import {
+  dispatchHomeStoreEventsAtomically,
+  useHomeStoreInternalActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/home/actions';
+import {
+  homeShellState,
+  resourceStates,
+  sectionStates,
+} from '@onekeyhq/kit/src/states/jotai/contexts/home/atoms';
 
 import type { IHomeStoreState } from '../homeStoreTypes';
 
@@ -42,6 +52,18 @@ function Probe({ probe }: { probe: IProbe }) {
     probe.read = actions.readHomeStoreSnapshot;
     probe.snapshots.push(actions.readHomeStoreSnapshot());
   }, [actions, commit, probe, session]);
+  return null;
+}
+
+function ResourceRenderProbe({
+  renders,
+  sourceId,
+}: {
+  renders: { value: number };
+  sourceId: 'banner' | 'portfolio';
+}) {
+  useHomeResource(sourceId);
+  renders.value += 1;
   return null;
 }
 
@@ -217,5 +239,149 @@ describe('Home Store atomic dispatcher', () => {
     expect(walletProbe.read?.().session.ownerToken?.scopeKey).toBe('owner-a');
     expect(urlProbe.read?.().session.ownerToken).toBeUndefined();
     expect(urlProbe.read?.().commitIdentity.storeCommitId).toBe(0);
+  });
+
+  it('rerenders only subscribers of the resource changed by a local event', () => {
+    const probe: IProbe = { renders: 0, snapshots: [] };
+    const bannerRenders = { value: 0 };
+    const portfolioRenders = { value: 0 };
+    render(
+      <Scene sceneId="wallet-home">
+        <Probe probe={probe} />
+        <ResourceRenderProbe renders={bannerRenders} sourceId="banner" />
+        <ResourceRenderProbe renders={portfolioRenders} sourceId="portfolio" />
+      </Scene>,
+    );
+    const ownerToken = { scopeKey: 'owner-local', sessionId: 'session-local' };
+    act(() => {
+      probe.dispatch?.({
+        type: 'ownerChanged',
+        owner: {
+          walletId: 'wallet-local',
+          accountId: 'account-local',
+          network: { kind: 'allNetworks' },
+        },
+        ownerToken,
+        topology: 'split',
+      });
+    });
+    const bannerBaseline = bannerRenders.value;
+    const portfolioBaseline = portfolioRenders.value;
+
+    act(() => {
+      probe.dispatch?.({
+        type: 'sectionSourceChanged',
+        ownerToken,
+        sectionId: 'portfolio',
+        result: {
+          kind: 'ready',
+          rowIds: ['asset-a'],
+          data: { rows: ['asset-a'] },
+          freshness: 'live',
+          refresh: 'idle',
+        },
+      });
+    });
+    expect(portfolioRenders.value).toBe(portfolioBaseline + 1);
+    expect(bannerRenders.value).toBe(bannerBaseline);
+
+    const portfolioAfterLocalUpdate = portfolioRenders.value;
+    const token = {
+      protocolVersion: 1,
+      clientInstanceId: 'client-local',
+      producerInstanceId: 'producer-local',
+      sessionId: ownerToken.sessionId,
+      requestSeq: 1,
+      sourceKey: {
+        scopeKey: ownerToken.scopeKey,
+        sourceId: 'banner' as const,
+        paramsFingerprint: 'banner-local',
+        dataSchemaVersion: 1,
+      },
+    } as const;
+    act(() => {
+      probe.dispatchBatch?.({
+        events: [
+          { type: 'sourceRequested', token },
+          {
+            type: 'sourceResponded',
+            envelope: {
+              token,
+              result: {
+                kind: 'success',
+                coverageFingerprint: 'banner-a',
+                data: {
+                  banners: [],
+                  referralEligibility: null,
+                  tronResource: null,
+                  isBotWalletReceiveBlocked: false,
+                },
+              },
+            },
+          },
+        ],
+      });
+    });
+    expect(bannerRenders.value).toBe(bannerBaseline + 1);
+    expect(portfolioRenders.value).toBe(portfolioAfterLocalUpdate);
+
+    const bannerAfterResourceUpdates = bannerRenders.value;
+    const portfolioAfterResourceUpdates = portfolioRenders.value;
+    act(() => {
+      probe.dispatch?.({
+        type: 'visibilityChanged',
+        visibility: 'background',
+      });
+    });
+    expect(bannerRenders.value).toBe(bannerAfterResourceUpdates);
+    expect(portfolioRenders.value).toBe(portfolioAfterResourceUpdates);
+  });
+
+  it('reads only the affected resource and section for a local event', () => {
+    const store = createStore();
+    const ownerToken = {
+      scopeKey: 'owner-read-set',
+      sessionId: 'session-read-set',
+    };
+    dispatchHomeStoreEventsAtomically(store.get, store.set, {
+      events: [
+        {
+          type: 'ownerChanged',
+          owner: {
+            walletId: 'wallet-read-set',
+            accountId: 'account-read-set',
+            network: { kind: 'allNetworks' },
+          },
+          ownerToken,
+          topology: 'split',
+        },
+      ],
+    });
+    const getSpy = jest.spyOn(store, 'get');
+
+    dispatchHomeStoreEventsAtomically(store.get, store.set, {
+      events: [
+        {
+          type: 'sectionSourceChanged',
+          ownerToken,
+          sectionId: 'portfolio',
+          result: {
+            kind: 'ready',
+            rowIds: ['asset-read-set'],
+            data: { rows: ['asset-read-set'] },
+            freshness: 'live',
+            refresh: 'idle',
+          },
+        },
+      ],
+    });
+
+    const readAtoms = new Set(getSpy.mock.calls.map(([target]) => target));
+    expect(readAtoms).toContain(resourceStates.portfolio.atom());
+    expect(readAtoms).toContain(sectionStates.portfolio.atom());
+    expect(readAtoms).not.toContain(resourceStates.banner.atom());
+    expect(readAtoms).not.toContain(resourceStates.nft.atom());
+    expect(readAtoms).not.toContain(sectionStates.nft.atom());
+    expect(readAtoms).not.toContain(homeShellState.atom());
   });
 });

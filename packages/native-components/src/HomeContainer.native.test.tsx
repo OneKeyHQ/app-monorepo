@@ -13,7 +13,6 @@ import {
   type IHomeContainerSlots,
   type IHomeContainerSnapshotEnvelope,
 } from './HomeContainer.types';
-import { HomeContainerController } from './HomeContainerController';
 import {
   HOME_CONTAINER_PROTOCOL_V3_VERSION,
   type IHomeContainerPatchEnvelopeV3,
@@ -54,8 +53,8 @@ const mockNativeView = {
   getCapabilities: jest.fn(() =>
     JSON.stringify({
       schemaVersions: [HOME_CONTAINER_SCHEMA_VERSION],
-      protocolVersions: [1, HOME_CONTAINER_PROTOCOL_VERSION],
-      preferredProtocol: HOME_CONTAINER_PROTOCOL_VERSION,
+      protocolVersions: [1, HOME_CONTAINER_PROTOCOL_VERSION, 3],
+      preferredProtocol: 3,
       tabIds: ['portfolio'],
       supportsPatches: true,
       supportsAtomicPatches: true,
@@ -79,7 +78,7 @@ let mockHostProps:
   | {
       hybridRef?: (view: typeof mockNativeView) => void;
       initialSnapshotJson?: string;
-      onTransportResult?: (resultJson: string) => void;
+      onSnapshotRequired?: (requestJson: string) => void;
     }
   | undefined;
 
@@ -128,9 +127,15 @@ const ownerA: IHomeContainerOwner = {
   scopeKey: 'bitcoin',
   sessionId: 'session-a',
 };
+
 const ownerB: IHomeContainerOwner = {
   scopeKey: 'ethereum',
   sessionId: 'session-b',
+};
+
+const ownerC: IHomeContainerOwner = {
+  scopeKey: 'solana',
+  sessionId: 'session-c',
 };
 
 function buildEnvelope(
@@ -173,23 +178,14 @@ function buildEnvelope(
   };
 }
 
-function buildSnapshot(owner: IHomeContainerOwner, revision: number) {
-  const envelope = buildEnvelope(owner, revision);
-  return {
-    ...envelope.payload,
-    schemaVersion: envelope.schemaVersion,
-    revision: envelope.revision,
-  };
-}
-
 function buildBundle(
   owner: IHomeContainerOwner,
-  revision: number,
+  semanticRevision: number,
   slots: IHomeContainerSlots,
 ): IHomeContainerSlotBundle {
   return {
     owner,
-    semanticRevision: revision,
+    semanticRevision,
     slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
     slots,
   };
@@ -199,7 +195,7 @@ function buildProtocolV3Snapshot(
   owner: IHomeContainerOwner,
   transportRevision: number,
   storeCommitId: number,
-  slotRevisions: Readonly<Record<string, number>>,
+  slotRevisions: Readonly<Record<string, number>> = {},
 ): IHomeContainerSnapshotEnvelopeV3 {
   return {
     kind: 'snapshot',
@@ -239,7 +235,7 @@ function rendererHasText(view: TestRenderer.ReactTestRenderer, text: string) {
   return view.root.findAll((node) => node.children.includes(text)).length > 0;
 }
 
-describe('Native HomeContainer protocol v2 slot fallback', () => {
+describe('Native HomeContainer slot transport', () => {
   beforeAll(() => {
     (
       globalThis as typeof globalThis & {
@@ -265,18 +261,16 @@ describe('Native HomeContainer protocol v2 slot fallback', () => {
   });
 
   it('submits one protocol v3 snapshot with the first native mount', () => {
-    const initialSlots: IHomeContainerSlots = {
-      balance: {
-        content: 'initial-balance',
-      },
+    const slots: IHomeContainerSlots = {
+      balance: { content: 'initial-balance' },
     };
-    const initialSnapshot = buildProtocolV3Snapshot(ownerA, 1, 1, {});
+    const initialSnapshot = buildProtocolV3Snapshot(ownerA, 1, 1);
     let view!: TestRenderer.ReactTestRenderer;
     act(() => {
       view = TestRenderer.create(
         <HomeContainer
           initialSnapshot={initialSnapshot}
-          slotBundle={buildBundle(ownerA, 0, initialSlots)}
+          slotBundle={buildBundle(ownerA, 1, slots)}
         />,
       );
     });
@@ -289,8 +283,8 @@ describe('Native HomeContainer protocol v2 slot fallback', () => {
     act(() => {
       view.update(
         <HomeContainer
-          initialSnapshot={buildProtocolV3Snapshot(ownerA, 2, 2, {})}
-          slotBundle={buildBundle(ownerA, 1, initialSlots)}
+          initialSnapshot={buildProtocolV3Snapshot(ownerA, 2, 2)}
+          slotBundle={buildBundle(ownerA, 2, slots)}
         />,
       );
     });
@@ -302,74 +296,50 @@ describe('Native HomeContainer protocol v2 slot fallback', () => {
     act(() => view.unmount());
   });
 
-  it('keeps the first submitted loading slots visible across an unacknowledged full resync', () => {
+  it('exposes protocol v2 slots as soon as they are submitted', () => {
     const ref = createRef<IHomeContainerRef>();
-    const loadingSlots: IHomeContainerSlots = {
+    const firstSlots: IHomeContainerSlots = {
       contentStates: {
         portfolio: { content: 'loading-skeleton', height: 320 },
       },
     };
-    const terminalSlots: IHomeContainerSlots = {
+    const nextSlots: IHomeContainerSlots = {
       contentHeaders: {
         portfolio: { content: 'Tokens', height: 56 },
       },
     };
     let view!: TestRenderer.ReactTestRenderer;
     act(() => {
-      view = TestRenderer.create(
-        <HomeContainer
-          ref={ref}
-          onTransportResult={jest.fn()}
-          slotBundle={buildBundle(ownerA, -1, loadingSlots)}
-        />,
-      );
+      view = TestRenderer.create(<HomeContainer ref={ref} />);
     });
 
     act(() => {
       ref.current?.setProtocolV2Snapshot?.(
         buildEnvelope(ownerA, 5),
-        loadingSlots,
+        firstSlots,
       );
     });
     expect(rendererHasText(view, 'loading-skeleton')).toBe(true);
 
     act(() => {
-      ref.current?.setProtocolV2Snapshot?.(
-        buildEnvelope(ownerA, 6),
-        terminalSlots,
-      );
-      view.update(
-        <HomeContainer
-          ref={ref}
-          onTransportResult={jest.fn()}
-          slotBundle={buildBundle(ownerA, 6, terminalSlots)}
-        />,
-      );
-    });
-
-    expect(rendererHasText(view, 'loading-skeleton')).toBe(true);
-    expect(rendererHasText(view, 'Tokens')).toBe(false);
-
-    act(() => {
-      mockHostProps?.onTransportResult?.(
-        JSON.stringify({ kind: 'applied', owner: ownerA, revision: 6 }),
-      );
+      ref.current?.setProtocolV2Snapshot?.(buildEnvelope(ownerA, 6), nextSlots);
     });
     expect(rendererHasText(view, 'Tokens')).toBe(true);
     expect(rendererHasText(view, 'loading-skeleton')).toBe(false);
+    expect(mockNativeView.setSnapshot).toHaveBeenCalledTimes(2);
     act(() => view.unmount());
   });
 
-  it('clears the old-owner fallback before a replacement owner is acknowledged', () => {
+  it('does not retain an older staged owner after the parent owner changes', () => {
     const ref = createRef<IHomeContainerRef>();
-    const oldOwnerSlots: IHomeContainerSlots = {
+    const oldSlots: IHomeContainerSlots = {
       contentStates: {
-        portfolio: { content: 'old-owner-loading', height: 320 },
+        portfolio: { content: 'old-owner', height: 320 },
       },
     };
-    const newOwnerSlots: IHomeContainerSlots = {
+    const newSlots: IHomeContainerSlots = {
       contentStates: {
-        portfolio: { content: 'new-owner-loading', height: 320 },
+        portfolio: { content: 'new-owner', height: 320 },
       },
     };
     let view!: TestRenderer.ReactTestRenderer;
@@ -377,146 +347,59 @@ describe('Native HomeContainer protocol v2 slot fallback', () => {
       view = TestRenderer.create(
         <HomeContainer
           ref={ref}
-          onTransportResult={jest.fn()}
-          slotBundle={buildBundle(ownerA, -1, oldOwnerSlots)}
+          slotBundle={buildBundle(ownerA, 5, oldSlots)}
         />,
       );
     });
     act(() => {
-      ref.current?.setProtocolV2Snapshot?.(
-        buildEnvelope(ownerA, 5),
-        oldOwnerSlots,
-      );
+      ref.current?.setProtocolV2Snapshot?.(buildEnvelope(ownerA, 6), oldSlots);
     });
-    expect(rendererHasText(view, 'old-owner-loading')).toBe(true);
 
     act(() => {
       view.update(
         <HomeContainer
           ref={ref}
-          onTransportResult={jest.fn()}
-          slotBundle={buildBundle(ownerB, -1, newOwnerSlots)}
+          slotBundle={buildBundle(ownerB, 1, newSlots)}
         />,
       );
     });
-    expect(rendererHasText(view, 'old-owner-loading')).toBe(false);
-    expect(rendererHasText(view, 'new-owner-loading')).toBe(false);
 
-    act(() => {
-      ref.current?.setProtocolV2Snapshot?.(
-        buildEnvelope(ownerB, 6),
-        newOwnerSlots,
-      );
-    });
-    expect(rendererHasText(view, 'new-owner-loading')).toBe(true);
-    expect(rendererHasText(view, 'old-owner-loading')).toBe(false);
+    expect(rendererHasText(view, 'new-owner')).toBe(true);
+    expect(rendererHasText(view, 'old-owner')).toBe(false);
     act(() => view.unmount());
   });
 
-  it('shows the submitted replacement owner when the parent bundle has not rerendered', () => {
+  it('shows a submitted replacement owner before its parent bundle rerenders', () => {
     const ref = createRef<IHomeContainerRef>();
-    const oldOwnerSlots: IHomeContainerSlots = {
-      contentStates: {
-        portfolio: { content: 'old-owner-loading', height: 320 },
-      },
+    const oldSlots: IHomeContainerSlots = {
+      balance: { content: 'owner-a-balance' },
     };
-    const newOwnerSlots: IHomeContainerSlots = {
-      contentStates: {
-        portfolio: { content: 'new-owner-loading', height: 320 },
-      },
+    const replacementSlots: IHomeContainerSlots = {
+      balance: { content: 'owner-c-balance' },
     };
-    const deadlines: Array<{
-      callback: () => void;
-      cancelled: boolean;
-    }> = [];
-    const controller = new HomeContainerController({
-      initialOwner: ownerA,
-      initialSnapshot: buildSnapshot(ownerA, 0),
-      initialSlots: oldOwnerSlots,
-      schedule: () => undefined,
-      scheduleDeadline: (callback) => {
-        const deadline = { callback, cancelled: false };
-        deadlines.push(deadline);
-        return () => {
-          deadline.cancelled = true;
-        };
-      },
-    });
-    const handleTransportResult = jest.fn((resultJson: string) => {
-      controller.handleTransportResult(resultJson);
-    });
     let view!: TestRenderer.ReactTestRenderer;
     act(() => {
       view = TestRenderer.create(
         <HomeContainer
           ref={ref}
-          onTransportResult={handleTransportResult}
-          slotBundle={buildBundle(ownerA, -1, oldOwnerSlots)}
+          slotBundle={buildBundle(ownerA, 5, oldSlots)}
         />,
       );
     });
-    act(() => {
-      controller.attach(ref.current!);
-    });
-    expect(rendererHasText(view, 'old-owner-loading')).toBe(true);
 
     act(() => {
-      controller.replaceOwner(ownerB, buildSnapshot(ownerB, 0));
-      controller.updateSlots(newOwnerSlots);
-      controller.flushNow();
-    });
-
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      const deadline = deadlines
-        .toReversed()
-        .find((candidate) => !candidate.cancelled);
-      expect(deadline).toBeDefined();
-      act(() => {
-        deadline!.cancelled = true;
-        deadline!.callback();
-        controller.flushNow();
-      });
-    }
-
-    expect(rendererHasText(view, 'new-owner-loading')).toBe(true);
-    expect(rendererHasText(view, 'old-owner-loading')).toBe(false);
-
-    const snapshotCalls = mockNativeView.setSnapshot.mock.calls;
-    const recoveryEnvelope = JSON.parse(
-      snapshotCalls[snapshotCalls.length - 1][0] as string,
-    ) as IHomeContainerSnapshotEnvelope;
-    expect(recoveryEnvelope.owner).toEqual(ownerB);
-    act(() => {
-      mockHostProps?.onTransportResult?.(
-        JSON.stringify({
-          kind: 'applied',
-          owner: recoveryEnvelope.owner,
-          revision: recoveryEnvelope.revision,
-        }),
+      ref.current?.setProtocolV2Snapshot?.(
+        buildEnvelope(ownerC, 1),
+        replacementSlots,
       );
     });
-    expect(controller.getRenderedSlotState()?.owner).toEqual(ownerB);
 
-    act(() => {
-      view.update(
-        <HomeContainer
-          ref={ref}
-          onTransportResult={handleTransportResult}
-          slotBundle={buildBundle(
-            ownerB,
-            recoveryEnvelope.revision,
-            newOwnerSlots,
-          )}
-        />,
-      );
-    });
-    expect(rendererHasText(view, 'new-owner-loading')).toBe(true);
-    expect(rendererHasText(view, 'old-owner-loading')).toBe(false);
+    expect(rendererHasText(view, 'owner-c-balance')).toBe(true);
+    expect(rendererHasText(view, 'owner-a-balance')).toBe(false);
     act(() => view.unmount());
-    controller.dispose();
   });
 
-  it('publishes same-owner v3 slot metadata before submitting the native patch', () => {
+  it('publishes v3 slot metadata before submitting the native patch', () => {
     const ref = createRef<IHomeContainerRef>();
     const initialSlots: IHomeContainerSlots = {
       balance: {
@@ -559,11 +442,11 @@ describe('Native HomeContainer protocol v2 slot fallback', () => {
       view = TestRenderer.create(
         <HomeContainer
           ref={ref}
-          onTransportResult={jest.fn()}
-          slotBundle={buildBundle(ownerA, 11, initialSlots)}
+          slotBundle={buildBundle(ownerA, 7, initialSlots)}
         />,
       );
     });
+
     act(() => {
       ref.current?.setProtocolV3Snapshot?.(snapshot, initialSlots);
     });
@@ -573,26 +456,11 @@ describe('Native HomeContainer protocol v2 slot fallback', () => {
       producedByStoreCommitId: 7,
       slotRevision: 4,
     });
-    act(() => {
-      mockHostProps?.onTransportResult?.(
-        JSON.stringify({ kind: 'applied', owner: ownerA, revision: 11 }),
-      );
-    });
 
-    mockNativeView.applyPatch.mockClear();
     act(() => {
       ref.current?.applyProtocolV3Patch?.(patch, nextSlots);
     });
 
-    const balanceSlot = view.root.findByProps({
-      testID: 'HomeContainer.Slot.header.balance',
-    });
-    expect(balanceSlot.props).toMatchObject({
-      ownerScopeKey: ownerA.scopeKey,
-      ownerSessionId: ownerA.sessionId,
-      producedByStoreCommitId: 8,
-      slotRevision: 5,
-    });
     expect(rendererHasText(view, 'balance-revision-5')).toBe(true);
     expect(mockNativeView.applyPatch).toHaveBeenCalledTimes(1);
     expect(mockProtocolV3PatchSlotPropsAtSubmission).toMatchObject({
@@ -601,13 +469,76 @@ describe('Native HomeContainer protocol v2 slot fallback', () => {
       producedByStoreCommitId: 8,
       slotRevision: 5,
     });
-    expect(
-      JSON.parse(mockNativeView.applyPatch.mock.calls[0][0] as string),
-    ).toMatchObject({
-      kind: 'patch',
-      requiredSlotRevisions: { 'header.balance': 5 },
-      transportRevision: 12,
+    act(() => view.unmount());
+  });
+
+  it('compares staged and parent slots in the Store commit domain', () => {
+    const ref = createRef<IHomeContainerRef>();
+    const parentSlots: IHomeContainerSlots = {
+      balance: {
+        content: 'parent-store-commit-9',
+        authority: {
+          owner: ownerA,
+          producedByStoreCommitId: 9,
+          slotId: 'header.balance',
+          slotRevision: 9,
+        },
+      },
+    };
+    const staleTransportSlots: IHomeContainerSlots = {
+      balance: {
+        content: 'stale-store-commit-7',
+        authority: {
+          owner: ownerA,
+          producedByStoreCommitId: 7,
+          slotId: 'header.balance',
+          slotRevision: 7,
+        },
+      },
+    };
+    let view!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      view = TestRenderer.create(
+        <HomeContainer
+          ref={ref}
+          slotBundle={buildBundle(ownerA, 9, parentSlots)}
+        />,
+      );
     });
+
+    act(() => {
+      ref.current?.setProtocolV3Snapshot?.(
+        buildProtocolV3Snapshot(ownerA, 100, 7, {
+          'header.balance': 7,
+        }),
+        staleTransportSlots,
+      );
+    });
+
+    expect(rendererHasText(view, 'parent-store-commit-9')).toBe(true);
+    expect(rendererHasText(view, 'stale-store-commit-7')).toBe(false);
+    act(() => view.unmount());
+  });
+
+  it('forwards only the explicit snapshot-required signal', () => {
+    const onSnapshotRequired = jest.fn();
+    let view!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      view = TestRenderer.create(
+        <HomeContainer onSnapshotRequired={onSnapshotRequired} />,
+      );
+    });
+    const request = JSON.stringify({
+      kind: 'needSnapshot',
+      owner: ownerA,
+      reason: 'revisionGap',
+    });
+
+    act(() => {
+      mockHostProps?.onSnapshotRequired?.(request);
+    });
+
+    expect(onSnapshotRequired).toHaveBeenCalledWith(request);
     act(() => view.unmount());
   });
 });

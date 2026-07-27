@@ -105,14 +105,14 @@ namespace margelo::nitro::onekeynativecomponents::views {
         throw std::runtime_error(std::string("HomeContainer.onIntent: ") + exc.what());
       }
     }()),
-    onTransportResult([&]() -> CachedProp<std::optional<std::function<void(const std::string& /* resultJson */)>>> {
+    onSnapshotRequired([&]() -> CachedProp<std::optional<std::function<void(const std::string& /* requestJson */)>>> {
       try {
-        const react::RawValue* rawValue = rawProps.at("onTransportResult", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.onTransportResult;
+        const react::RawValue* rawValue = rawProps.at("onSnapshotRequired", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.onSnapshotRequired;
         const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::function<void(const std::string& /* resultJson */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, "f"), sourceProps.onTransportResult);
+        return CachedProp<std::optional<std::function<void(const std::string& /* requestJson */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, "f"), sourceProps.onSnapshotRequired);
       } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("HomeContainer.onTransportResult: ") + exc.what());
+        throw std::runtime_error(std::string("HomeContainer.onSnapshotRequired: ") + exc.what());
       }
     }()),
     hybridRef([&]() -> CachedProp<std::optional<std::function<void(const std::shared_ptr<HybridHomeContainerSpec>& /* ref */)>>> {
@@ -136,7 +136,7 @@ namespace margelo::nitro::onekeynativecomponents::views {
     onVisibleTabChange(other.onVisibleTabChange),
     onRenderError(other.onRenderError),
     onIntent(other.onIntent),
-    onTransportResult(other.onTransportResult),
+    onSnapshotRequired(other.onSnapshotRequired),
     hybridRef(other.hybridRef) { }
 
   bool HybridHomeContainerProps::filterObjectKeys(const std::string& propName) {
@@ -149,7 +149,7 @@ namespace margelo::nitro::onekeynativecomponents::views {
       case hashString("onVisibleTabChange"): return true;
       case hashString("onRenderError"): return true;
       case hashString("onIntent"): return true;
-      case hashString("onTransportResult"): return true;
+      case hashString("onSnapshotRequired"): return true;
       case hashString("hybridRef"): return true;
       default: return false;
     }

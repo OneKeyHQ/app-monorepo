@@ -130,18 +130,18 @@ abstract class HybridHomeContainerSpec: HybridView() {
       onIntent = value?.let { it }
     }
 
-  abstract var onTransportResult: ((resultJson: String) -> Unit)?
+  abstract var onSnapshotRequired: ((requestJson: String) -> Unit)?
 
-  private var onTransportResult_cxx: Func_void_std__string?
+  private var onSnapshotRequired_cxx: Func_void_std__string?
     @Keep
     @DoNotStrip
     get() {
-      return onTransportResult?.let { Func_void_std__string_java(it) }
+      return onSnapshotRequired?.let { Func_void_std__string_java(it) }
     }
     @Keep
     @DoNotStrip
     set(value) {
-      onTransportResult = value?.let { it }
+      onSnapshotRequired = value?.let { it }
     }
 
   // Methods

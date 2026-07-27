@@ -182,7 +182,7 @@ describe('Home Store reducer', () => {
     ]);
   });
 
-  it('shows an incomplete round without overwriting the confirmed cache', () => {
+  it('keeps a confirmed total while an incomplete replacement round refreshes', () => {
     let state = createOwnedState();
     const publishBalance = (
       amount: string,
@@ -228,9 +228,9 @@ describe('Home Store reducer', () => {
     expect(state.shell.value).toMatchObject({
       kind: 'portfolio',
       presentation: {
-        kind: 'fundedPendingTotal',
+        kind: 'funded',
         header: {
-          balance: { amount: '11.62' },
+          balance: { amount: '11.61' },
         },
         refresh: 'refreshing',
       },
@@ -1588,10 +1588,12 @@ describe('Home Store reducer', () => {
 
   it('commits a normalized Section payload with its semantic slice', () => {
     const state = createOwnedState();
+    const token = createToken(1);
     const next = dispatch(state, {
       type: 'sectionSourceChanged',
       ownerToken,
       sectionId: 'defi',
+      token,
       result: {
         kind: 'ready',
         rowIds: ['protocol-a'],
@@ -1606,6 +1608,7 @@ describe('Home Store reducer', () => {
     });
     expect(next.resources.defi).toMatchObject({
       kind: 'ready',
+      token,
       data: {
         payload: { protocols: [{ id: 'protocol-a' }] },
       },
@@ -1613,6 +1616,27 @@ describe('Home Store reducer', () => {
     expect(next.commitIdentity.storeCommitId).toBe(
       state.commitIdentity.storeCommitId + 1,
     );
+  });
+
+  it('preserves confirmed-cache quality when normalizing a ready Section', () => {
+    const next = dispatch(createOwnedState(), {
+      type: 'sectionSourceChanged',
+      ownerToken,
+      sectionId: 'portfolio',
+      result: {
+        kind: 'ready',
+        rowIds: ['cached-token'],
+        freshness: 'confirmedCache',
+        refresh: 'refreshing',
+        data: { displayIds: ['cached-token'] },
+      },
+    });
+
+    expect(next.resources.portfolio).toMatchObject({
+      kind: 'ready',
+      freshness: 'confirmedCache',
+      refresh: 'refreshing',
+    });
   });
 
   it('rejects request 1 after request 2 has become authoritative', () => {

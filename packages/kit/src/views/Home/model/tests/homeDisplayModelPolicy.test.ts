@@ -6,7 +6,6 @@ const ownerToken = { scopeKey: 'wallet:account:all', sessionId: 'session-1' };
 
 function project(shell: IHomeShellSemanticModel) {
   return projectHomeDisplayModel({
-    fallbackCurrency: 'usd',
     ownerToken,
     shell,
   });
@@ -29,7 +28,7 @@ describe('homeDisplayModelPolicy', () => {
     });
   });
 
-  it('keeps a provisional amount separate from an unknown funding verdict', () => {
+  it('does not manufacture zero while the funding verdict is unknown', () => {
     const display = project({
       kind: 'portfolio',
       presentation: {
@@ -40,11 +39,7 @@ describe('homeDisplayModelPolicy', () => {
       },
     });
 
-    expect(display.balance).toMatchObject({
-      kind: 'ready',
-      authority: 'provisional',
-      balance: { amount: '0', currency: 'usd' },
-    });
+    expect(display.balance).toMatchObject({ kind: 'loading' });
     expect(display.fundingVerdict).toBe('unknown');
     expect(display.actions).toEqual({ kind: 'loading' });
   });
@@ -99,6 +94,26 @@ describe('homeDisplayModelPolicy', () => {
     expect(display.fundingVerdict).toBe('zero');
     expect(display.actions.kind).toBe('zero');
     expect(display.banner).toEqual({ kind: 'hidden' });
+  });
+
+  it('keeps banner eligibility independent from a zero funding verdict', () => {
+    const display = project({
+      kind: 'portfolio',
+      presentation: {
+        kind: 'zero',
+        header: {
+          kind: 'zero',
+          balance: { amount: '0', currency: 'usd' },
+        },
+        actions: { kind: 'zero', items: ['addMoney', 'receive', 'more'] },
+        banner: { kind: 'positive' },
+        freshness: 'live',
+        refresh: 'idle',
+      },
+    });
+
+    expect(display.fundingVerdict).toBe('zero');
+    expect(display.banner).toEqual({ kind: 'eligible' });
   });
 
   it('does not revise an exact amount when only actions change', () => {

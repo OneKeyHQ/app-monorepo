@@ -106,11 +106,7 @@ function HomeStoreDrivenWalletSurface({
   }
   if (pageSurface.surface === 'native') {
     return (
-      <NativeHomePageView
-        key={`native-${sceneName}-${pageSurface.walletId ?? ''}`}
-        sceneName={sceneName}
-        onPressHide={onPressHide}
-      />
+      <NativeHomePageView sceneName={sceneName} onPressHide={onPressHide} />
     );
   }
   if (pageSurface.surface === 'react' || pageSurface.surface === 'no-wallet') {

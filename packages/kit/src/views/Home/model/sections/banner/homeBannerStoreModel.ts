@@ -87,6 +87,23 @@ export function buildHomeBannerCoverageFingerprint({
   ].join('|');
 }
 
+export function buildHomeBannerSemanticFingerprint(
+  payload: IHomeBannerStorePayload,
+): string {
+  const referral = payload.referralEligibility;
+  return [
+    buildHomeBannerCoverageFingerprint({
+      bannerIds: payload.banners.map((banner) => banner.id),
+      hasTronResource: Boolean(payload.tronResource),
+    }),
+    payload.isBotWalletReceiveBlocked ? 'bot-blocked' : 'bot-active',
+    referral?.shouldShow ? 'referral-visible' : 'referral-hidden',
+    referral?.resolvedAccountId ?? '',
+    referral?.resolvedAddress ?? '',
+    referral?.reason ?? '',
+  ].join('|');
+}
+
 export function toHomeBannerStoreItem(
   banner: IWalletBanner,
 ): IHomeBannerStoreItem {

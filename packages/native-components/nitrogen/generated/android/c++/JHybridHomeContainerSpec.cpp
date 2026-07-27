@@ -158,10 +158,10 @@ namespace margelo::nitro::onekeynativecomponents {
     static const auto method = javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_std__string::javaobject> /* onIntent */)>("setOnIntent_cxx");
     method(_javaPart, onIntent.has_value() ? JFunc_void_std__string_cxx::fromCpp(onIntent.value()) : nullptr);
   }
-  std::optional<std::function<void(const std::string& /* resultJson */)>> JHybridHomeContainerSpec::getOnTransportResult() {
-    static const auto method = javaClassStatic()->getMethod<jni::local_ref<JFunc_void_std__string::javaobject>()>("getOnTransportResult_cxx");
+  std::optional<std::function<void(const std::string& /* requestJson */)>> JHybridHomeContainerSpec::getOnSnapshotRequired() {
+    static const auto method = javaClassStatic()->getMethod<jni::local_ref<JFunc_void_std__string::javaobject>()>("getOnSnapshotRequired_cxx");
     auto __result = method(_javaPart);
-    return __result != nullptr ? std::make_optional([&]() -> std::function<void(const std::string& /* resultJson */)> {
+    return __result != nullptr ? std::make_optional([&]() -> std::function<void(const std::string& /* requestJson */)> {
       if (__result->isInstanceOf(JFunc_void_std__string_cxx::javaClassStatic())) [[likely]] {
         auto downcast = jni::static_ref_cast<JFunc_void_std__string_cxx::javaobject>(__result);
         return downcast->cthis()->getFunction();
@@ -171,9 +171,9 @@ namespace margelo::nitro::onekeynativecomponents {
       }
     }()) : std::nullopt;
   }
-  void JHybridHomeContainerSpec::setOnTransportResult(const std::optional<std::function<void(const std::string& /* resultJson */)>>& onTransportResult) {
-    static const auto method = javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_std__string::javaobject> /* onTransportResult */)>("setOnTransportResult_cxx");
-    method(_javaPart, onTransportResult.has_value() ? JFunc_void_std__string_cxx::fromCpp(onTransportResult.value()) : nullptr);
+  void JHybridHomeContainerSpec::setOnSnapshotRequired(const std::optional<std::function<void(const std::string& /* requestJson */)>>& onSnapshotRequired) {
+    static const auto method = javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_std__string::javaobject> /* onSnapshotRequired */)>("setOnSnapshotRequired_cxx");
+    method(_javaPart, onSnapshotRequired.has_value() ? JFunc_void_std__string_cxx::fromCpp(onSnapshotRequired.value()) : nullptr);
   }
 
   // Methods

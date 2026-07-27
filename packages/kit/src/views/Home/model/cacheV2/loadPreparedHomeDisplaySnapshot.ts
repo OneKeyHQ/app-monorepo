@@ -3,6 +3,7 @@ import {
   loadHomeDisplaySnapshotManifest,
   loadHomeDisplaySnapshotSourceRecords,
 } from './homeDisplaySnapshotRepository';
+import { selectPreparedHomeDisplaySnapshotShell } from './homeDisplaySnapshotShell';
 
 import type { IPreparedHomeDisplaySnapshot } from './loadPreparedHomeDisplaySnapshot.types';
 
@@ -18,22 +19,21 @@ export async function loadPreparedHomeDisplaySnapshot({
     return undefined;
   }
   const critical = await loadHomeDisplaySnapshotCritical({ context });
-  if (!critical?.shell || critical.shell.kind === 'loading') {
-    return undefined;
-  }
   const records = await loadHomeDisplaySnapshotSourceRecords({
     context,
     sourceIds: ['banner', 'portfolio'],
   });
-  if (
-    critical.shell.kind === 'portfolio' &&
-    !records.some((record) => record.sourceId === 'portfolio')
-  ) {
+  const shell = selectPreparedHomeDisplaySnapshotShell({
+    criticalShell: critical?.shell,
+    records,
+  });
+  if (!shell) {
     return undefined;
   }
   return {
+    context,
     navigation: critical?.navigation,
     records,
-    shell: critical?.shell,
+    shell,
   };
 }

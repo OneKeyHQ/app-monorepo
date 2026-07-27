@@ -26,7 +26,6 @@ const HOME_DISPLAY_SNAPSHOT_READ_BATCH_SIZE = 4;
 
 const homeDisplaySnapshotStorage = createDisplaySnapshotStorage({
   namespace: 'home-v3',
-  maxRecordBytes: 2 * 1024 * 1024,
   maxReadBatchSize: HOME_DISPLAY_SNAPSHOT_READ_BATCH_SIZE,
 });
 

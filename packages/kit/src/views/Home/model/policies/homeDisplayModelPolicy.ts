@@ -12,8 +12,7 @@ export type IHomeFundingVerdict = 'funded' | 'unknown' | 'zero';
 export type IHomeBalanceDisplayAuthority =
   | 'confirmedCache'
   | 'live'
-  | 'partial'
-  | 'provisional';
+  | 'partial';
 
 export type IHomeBalanceDisplayPresentation =
   | {
@@ -79,11 +78,9 @@ function resolveFundingVerdict(
 }
 
 function resolveHomeBalanceDisplay({
-  fallbackCurrency,
   ownerToken,
   shell,
 }: {
-  fallbackCurrency?: string;
   ownerToken?: IHomeRuntimeOwnerToken;
   shell: IHomeShellSemanticModel;
 }): IHomeBalanceDisplayPresentation {
@@ -104,15 +101,6 @@ function resolveHomeBalanceDisplay({
   ) {
     authority = 'partial';
     balance = portfolio.header.balance;
-  } else if (
-    fallbackCurrency &&
-    (shell.kind === 'loading' ||
-      (portfolio &&
-        (portfolio.kind === 'loading' ||
-          portfolio.kind === 'fundedPendingTotal')))
-  ) {
-    authority = 'provisional';
-    balance = { amount: '0', currency: fallbackCurrency };
   }
 
   const revision = [
@@ -209,11 +197,9 @@ function resolveHomeNavigation(
 }
 
 export function projectHomeDisplayModel({
-  fallbackCurrency,
   ownerToken,
   shell,
 }: {
-  fallbackCurrency?: string;
   ownerToken?: IHomeRuntimeOwnerToken;
   shell: IHomeShellSemanticModel;
 }): IHomeDisplayModel {
@@ -221,7 +207,6 @@ export function projectHomeDisplayModel({
   return {
     actions: resolveHomeActions(shell),
     balance: resolveHomeBalanceDisplay({
-      fallbackCurrency,
       ownerToken,
       shell,
     }),

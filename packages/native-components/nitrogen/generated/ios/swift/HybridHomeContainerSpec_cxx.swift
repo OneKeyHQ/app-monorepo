@@ -307,12 +307,12 @@ open class HybridHomeContainerSpec_cxx {
     }
   }
 
-  public final var onTransportResult: bridge.std__optional_std__function_void_const_std__string_____resultJson______ {
+  public final var onSnapshotRequired: bridge.std__optional_std__function_void_const_std__string_____requestJson______ {
     @inline(__always)
     get {
-      return { () -> bridge.std__optional_std__function_void_const_std__string_____resultJson______ in
-        if let __unwrappedValue = self.__implementation.onTransportResult {
-          return bridge.create_std__optional_std__function_void_const_std__string_____resultJson______({ () -> bridge.Func_void_std__string in
+      return { () -> bridge.std__optional_std__function_void_const_std__string_____requestJson______ in
+        if let __unwrappedValue = self.__implementation.onSnapshotRequired {
+          return bridge.create_std__optional_std__function_void_const_std__string_____requestJson______({ () -> bridge.Func_void_std__string in
             let __closureWrapper = Func_void_std__string(__unwrappedValue)
             return bridge.create_Func_void_std__string(__closureWrapper.toUnsafe())
           }())
@@ -323,13 +323,13 @@ open class HybridHomeContainerSpec_cxx {
     }
     @inline(__always)
     set {
-      self.__implementation.onTransportResult = { () -> ((_ resultJson: String) -> Void)? in
-        if bridge.has_value_std__optional_std__function_void_const_std__string_____resultJson______(newValue) {
-          let __unwrapped = bridge.get_std__optional_std__function_void_const_std__string_____resultJson______(newValue)
+      self.__implementation.onSnapshotRequired = { () -> ((_ requestJson: String) -> Void)? in
+        if bridge.has_value_std__optional_std__function_void_const_std__string_____requestJson______(newValue) {
+          let __unwrapped = bridge.get_std__optional_std__function_void_const_std__string_____requestJson______(newValue)
           return { () -> (String) -> Void in
             let __wrappedFunction = bridge.wrap_Func_void_std__string(__unwrapped)
-            return { (__resultJson: String) -> Void in
-              __wrappedFunction.call(std.string(__resultJson))
+            return { (__requestJson: String) -> Void in
+              __wrappedFunction.call(std.string(__requestJson))
             }
           }()
         } else {

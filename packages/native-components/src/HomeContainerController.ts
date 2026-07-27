@@ -12,12 +12,12 @@ import {
   type IHomeContainerSlots,
   type IHomeContainerSnapshot,
   type IHomeContainerSnapshotEnvelope,
+  type IHomeContainerSnapshotRequest,
   type IHomeContainerTab,
   type IHomeContainerTabId,
   type IHomeContainerTheme,
-  type IHomeContainerTransportResult,
   isHomeContainerSnapshotInvariantValid,
-  parseHomeContainerTransportResult,
+  parseHomeContainerSnapshotRequest,
 } from './HomeContainer.types';
 import {
   HOME_CONTAINER_PROTOCOL_V3_VERSION,
@@ -34,43 +34,12 @@ import type {
 } from './HomeContainerProtocolV3';
 
 type IHomeContainerControllerScheduler = (flush: () => void) => void;
-type IHomeContainerControllerDeadlineScheduler = (
-  callback: () => void,
-  delayMs: number,
-) => () => void;
-
-export const HOME_CONTAINER_TRANSPORT_ACK_DEADLINE_MS = 5000;
-
-type IHomeContainerPortfolioSlotState = 'absent' | 'content' | 'geometry';
-
-export interface IHomeContainerTransportDiagnostic {
-  event: 'deadline' | 'recoverySnapshot' | 'result';
-  sessionHash: string;
-  revision: number;
-  inFlightRevision?: number;
-  inFlightAgeMs?: number;
-  resultKind:
-    | IHomeContainerTransportResult['kind']
-    | 'deadline'
-    | 'recoverySnapshot';
-  exactMatch: boolean;
-  mismatch?: 'missingInFlight' | 'owner' | 'revision';
-  portfolioSlot: {
-    current: IHomeContainerPortfolioSlotState;
-    acknowledged: IHomeContainerPortfolioSlotState;
-    presentation: 'absent' | 'acknowledged' | 'reserved';
-  };
-}
 
 export interface IHomeContainerControllerOptions {
   initialSnapshot: IHomeContainerSnapshot;
   initialOwner?: IHomeContainerOwner;
   initialSlots?: IHomeContainerSlots;
   schedule?: IHomeContainerControllerScheduler;
-  scheduleDeadline?: IHomeContainerControllerDeadlineScheduler;
-  now?: () => number;
-  diagnosticsEnabled?: boolean;
-  reportDiagnostic?: (diagnostic: IHomeContainerTransportDiagnostic) => void;
   requireProtocolV3?: boolean;
   initialProtocolV3Revisions?: IHomeContainerControllerRevisionStateV3;
 }
@@ -82,21 +51,6 @@ export interface IHomeContainerControllerRevisionStateV3 {
   slotRevisions?: IHomeContainerSlotRevisionVectorV3;
 }
 
-export interface IHomeContainerRenderedSlotState {
-  owner: IHomeContainerOwner;
-  revision: number;
-  slots: IHomeContainerSlots;
-}
-
-interface IHomeContainerInFlightTransaction {
-  owner: IHomeContainerOwner;
-  revision: number;
-  snapshot: IHomeContainerSnapshot;
-  slots?: IHomeContainerSlots;
-  startedAt: number;
-  isRecovery: boolean;
-}
-
 const LEGACY_OWNER: IHomeContainerOwner = {
   scopeKey: 'legacy',
   sessionId: 'legacy',
@@ -105,84 +59,18 @@ const LEGACY_OWNER: IHomeContainerOwner = {
 const MAX_PENDING_NATIVE_TAB_SELECTIONS = 16;
 
 const defaultSchedule: IHomeContainerControllerScheduler = (flush) => {
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => flush());
+    return;
+  }
   queueMicrotask(flush);
 };
-
-const defaultScheduleDeadline: IHomeContainerControllerDeadlineScheduler = (
-  callback,
-  delayMs,
-) => {
-  const timeout = setTimeout(callback, delayMs);
-  (timeout as ReturnType<typeof setTimeout> & { unref?: () => void }).unref?.();
-  return () => clearTimeout(timeout);
-};
-
-function isDebugRuntime(): boolean {
-  return (
-    (globalThis as typeof globalThis & { __DEV__?: boolean }).__DEV__ ===
-      true && process.env.NODE_ENV !== 'test'
-  );
-}
-
-const ignoreDiagnostic = (_diagnostic: IHomeContainerTransportDiagnostic) =>
-  undefined;
-
-function hashSessionId(sessionId: string): string {
-  let hash = 2_166_136_261;
-  for (let index = 0; index < sessionId.length; index += 1) {
-    hash ^= sessionId.charCodeAt(index);
-    hash = Math.imul(hash, 16_777_619);
-  }
-  return (hash >>> 0).toString(16).padStart(8, '0');
-}
-
-function getPortfolioSlotState(
-  slots: IHomeContainerSlots | undefined,
-): IHomeContainerPortfolioSlotState {
-  const slot = slots?.contentStates?.portfolio;
-  if (!slot) {
-    return 'absent';
-  }
-  return slot.content === undefined || slot.content === null
-    ? 'geometry'
-    : 'content';
-}
 
 function ownersMatch(
   left: IHomeContainerOwner,
   right: IHomeContainerOwner,
 ): boolean {
   return left.scopeKey === right.scopeKey && left.sessionId === right.sessionId;
-}
-
-function getTransportResultMismatch(
-  owner: IHomeContainerOwner,
-  revision: number,
-  candidate: IHomeContainerInFlightTransaction | undefined,
-): IHomeContainerTransportDiagnostic['mismatch'] {
-  if (!candidate) {
-    return 'missingInFlight';
-  }
-  if (!ownersMatch(owner, candidate.owner)) {
-    return 'owner';
-  }
-  if (revision !== candidate.revision) {
-    return 'revision';
-  }
-  return undefined;
-}
-
-function getPortfolioSlotPresentation(
-  current: IHomeContainerPortfolioSlotState,
-  acknowledged: IHomeContainerPortfolioSlotState,
-): IHomeContainerTransportDiagnostic['portfolioSlot']['presentation'] {
-  if (acknowledged !== 'absent') {
-    return 'acknowledged';
-  }
-  if (current !== 'absent') {
-    return 'reserved';
-  }
-  return 'absent';
 }
 
 function arraysHaveSameValues<T>(left: T[], right: T[]): boolean {
@@ -392,9 +280,9 @@ function snapshotEnvelope(
 }
 
 /**
- * Main-runtime data transport for HomeContainer. Protocol v2 keeps exactly one
- * transaction in flight so native always applies patches to an acknowledged
- * owner/revision. Scroll and gesture state never enters this controller.
+ * Main-runtime data transport for HomeContainer. Updates are coalesced before
+ * submission and patches advance from the last submitted owner/revision.
+ * Scroll and gesture state never enters this controller.
  */
 export class HomeContainerController {
   private snapshot: IHomeContainerSnapshot;
@@ -417,21 +305,9 @@ export class HomeContainerController {
 
   private readonly requireProtocolV3: boolean;
 
-  private inFlight: IHomeContainerInFlightTransaction | undefined;
-
-  private expiredRecovery: IHomeContainerInFlightTransaction | undefined;
-
-  private cancelInFlightDeadline: (() => void) | undefined;
-
-  private nextTransactionIsRecovery = false;
-
-  private transportRecoveryBlocked = false;
-
-  private acknowledgedSnapshot: IHomeContainerSnapshot | undefined;
+  private submittedSnapshot: IHomeContainerSnapshot | undefined;
 
   private currentSlots: IHomeContainerSlots | undefined;
-
-  private renderedSlotState: IHomeContainerRenderedSlotState | undefined;
 
   private readonly pendingTabIds = new Set<IHomeContainerTabId>();
 
@@ -455,25 +331,11 @@ export class HomeContainerController {
 
   private readonly schedule: IHomeContainerControllerScheduler;
 
-  private readonly scheduleDeadline: IHomeContainerControllerDeadlineScheduler;
-
-  private readonly now: () => number;
-
-  private readonly diagnosticsEnabled: boolean;
-
-  private readonly reportDiagnostic: (
-    diagnostic: IHomeContainerTransportDiagnostic,
-  ) => void;
-
   constructor({
     initialSnapshot,
     initialOwner = LEGACY_OWNER,
     initialSlots,
     schedule = defaultSchedule,
-    scheduleDeadline = defaultScheduleDeadline,
-    now = Date.now,
-    diagnosticsEnabled = isDebugRuntime(),
-    reportDiagnostic = ignoreDiagnostic,
     requireProtocolV3 = false,
     initialProtocolV3Revisions,
   }: IHomeContainerControllerOptions) {
@@ -482,10 +344,6 @@ export class HomeContainerController {
     this.owner = initialOwner;
     this.currentSlots = initialSlots;
     this.schedule = schedule;
-    this.scheduleDeadline = scheduleDeadline;
-    this.now = now;
-    this.diagnosticsEnabled = diagnosticsEnabled;
-    this.reportDiagnostic = reportDiagnostic;
     this.requireProtocolV3 = requireProtocolV3;
     this.protocolV3Revisions =
       initialProtocolV3Revisions ?? createProtocolV3RevisionState();
@@ -501,10 +359,6 @@ export class HomeContainerController {
 
   getOwner(): IHomeContainerOwner {
     return this.owner;
-  }
-
-  getRenderedRevision(): number | undefined {
-    return this.acknowledgedSnapshot?.revision;
   }
 
   getProtocolVersion(): 1 | 2 | 3 {
@@ -530,10 +384,6 @@ export class HomeContainerController {
       revisionState,
     );
     this.protocolV3RevisionsAreExternal = true;
-  }
-
-  getRenderedSlotState(): IHomeContainerRenderedSlotState | undefined {
-    return this.renderedSlotState;
   }
 
   attach(
@@ -592,9 +442,7 @@ export class HomeContainerController {
     this.target = target;
     this.capabilities = capabilities;
     this.protocolVersion = protocolVersion;
-    this.resetTransportRecovery();
-    this.acknowledgedSnapshot = undefined;
-    this.renderedSlotState = undefined;
+    this.submittedSnapshot = undefined;
     this.fullSnapshotPending = true;
     this.flushNow();
     return true;
@@ -607,9 +455,7 @@ export class HomeContainerController {
     this.target = undefined;
     this.capabilities = undefined;
     this.pendingNativeTabSelections = [];
-    this.resetTransportRecovery();
-    this.acknowledgedSnapshot = undefined;
-    this.renderedSlotState = undefined;
+    this.submittedSnapshot = undefined;
   }
 
   replaceOwner(
@@ -621,9 +467,7 @@ export class HomeContainerController {
     }
     this.owner = owner;
     this.pendingNativeTabSelections = [];
-    this.resetTransportRecovery();
-    this.acknowledgedSnapshot = undefined;
-    this.renderedSlotState = undefined;
+    this.submittedSnapshot = undefined;
     this.currentSlots = undefined;
     this.slotRevisionsForCurrentSlots = {};
     this.protocolV3Revisions = createProtocolV3RevisionState();
@@ -635,7 +479,6 @@ export class HomeContainerController {
     if (this.disposed || !isHomeContainerSnapshotInvariantValid(nextSnapshot)) {
       return;
     }
-    this.resumeTransportForNewData();
     this.snapshot = {
       ...nextSnapshot,
       schemaVersion: HOME_CONTAINER_SCHEMA_VERSION,
@@ -658,7 +501,6 @@ export class HomeContainerController {
     if (this.disposed) {
       return;
     }
-    this.resumeTransportForNewData();
     const changesAuthority =
       headerCommandSignature(this.snapshot.header) !==
       headerCommandSignature(header);
@@ -675,7 +517,6 @@ export class HomeContainerController {
     if (this.disposed) {
       return;
     }
-    this.resumeTransportForNewData();
     this.snapshot = { ...this.snapshot, theme };
     this.bumpProtocolV3({});
     if (this.protocolVersion === 2 || this.protocolVersion === 3) {
@@ -696,7 +537,6 @@ export class HomeContainerController {
     ) {
       return;
     }
-    this.resumeTransportForNewData();
     const changesAuthority =
       navigationAuthoritySignature(this.snapshot.tabs) !==
       navigationAuthoritySignature(tabs);
@@ -723,7 +563,6 @@ export class HomeContainerController {
     if (this.disposed || this.currentSlots === slots) {
       return;
     }
-    this.resumeTransportForNewData();
     const previousSlots = this.currentSlots;
     const previousSlotRevisions = this.slotRevisionsForCurrentSlots;
     this.currentSlots = slots;
@@ -760,7 +599,6 @@ export class HomeContainerController {
     if (tabIndex < 0 || this.snapshot.tabs[tabIndex].destination !== 'inline') {
       return false;
     }
-    this.resumeTransportForNewData();
     const previousSections = this.snapshot.tabs[tabIndex].sections;
     const tabs = [...this.snapshot.tabs];
     tabs[tabIndex] = { ...tabs[tabIndex], sections };
@@ -798,7 +636,6 @@ export class HomeContainerController {
     this.snapshot = { ...this.snapshot, selectedTabId: tabId };
     this.bumpProtocolV3({ navigationPresentation: true });
     if (this.protocolVersion === 2 || this.protocolVersion === 3) {
-      this.resumeTransportForNewData();
       this.navigationPending = true;
       this.scheduleFlush();
     }
@@ -829,87 +666,25 @@ export class HomeContainerController {
     return true;
   }
 
-  handleTransportResult(
-    value: string | IHomeContainerTransportResult,
+  handleSnapshotRequest(
+    value: string | IHomeContainerSnapshotRequest,
   ): boolean {
     if (this.protocolVersion === 1 || this.disposed) {
       return false;
     }
-    const result =
+    const request =
       typeof value === 'string'
-        ? parseHomeContainerTransportResult(value)
+        ? parseHomeContainerSnapshotRequest(value)
         : value;
-    if (!result) {
+    if (
+      !request ||
+      (request.owner && !ownersMatch(request.owner, this.owner))
+    ) {
       return false;
     }
-
-    if (result.kind === 'needSnapshot') {
-      const inFlight = this.inFlight;
-      const ownerMatches =
-        !result.owner || ownersMatch(result.owner, this.owner);
-      this.emitDiagnostic({
-        event: 'result',
-        revision: result.currentRevision ?? this.revision,
-        resultKind: result.kind,
-        exactMatch: ownerMatches,
-        mismatch: ownerMatches ? undefined : 'owner',
-        inFlight,
-      });
-      if (!ownerMatches) {
-        return false;
-      }
-      this.resetTransportRecovery();
-      this.acknowledgedSnapshot = undefined;
-      this.renderedSlotState = undefined;
-      this.fullSnapshotPending = true;
-      this.clearIncrementalPending();
-      this.scheduleFlush();
-      return true;
-    }
-
-    const activeInFlight = this.inFlight;
-    const candidate = activeInFlight ?? this.expiredRecovery;
-    const mismatch = getTransportResultMismatch(
-      result.owner,
-      result.revision,
-      candidate,
-    );
-    if (mismatch) {
-      this.emitDiagnostic({
-        event: 'result',
-        revision: result.revision,
-        resultKind: result.kind,
-        exactMatch: false,
-        mismatch,
-        inFlight: candidate,
-      });
-      return false;
-    }
-    if (!candidate) {
-      return false;
-    }
-    if (activeInFlight) {
-      this.clearInFlightDeadline();
-    }
-    this.acknowledgedSnapshot = candidate.snapshot;
-    this.renderedSlotState = candidate.slots
-      ? {
-          owner: candidate.owner,
-          revision: candidate.revision,
-          slots: candidate.slots,
-        }
-      : undefined;
-    this.inFlight = undefined;
-    this.expiredRecovery = undefined;
-    this.nextTransactionIsRecovery = false;
-    this.transportRecoveryBlocked = false;
-    this.emitDiagnostic({
-      event: 'result',
-      revision: result.revision,
-      resultKind: result.kind,
-      exactMatch: true,
-      inFlight: candidate,
-    });
+    this.submittedSnapshot = undefined;
+    this.fullSnapshotPending = true;
+    this.clearIncrementalPending();
     this.scheduleFlush();
     return true;
   }
@@ -918,13 +693,7 @@ export class HomeContainerController {
     this.flushScheduled = false;
     const target = this.target;
     const capabilities = this.capabilities;
-    if (
-      this.disposed ||
-      !target ||
-      !capabilities ||
-      this.inFlight ||
-      this.transportRecoveryBlocked
-    ) {
+    if (this.disposed || !target || !capabilities) {
       return false;
     }
 
@@ -970,9 +739,7 @@ export class HomeContainerController {
     this.target = undefined;
     this.capabilities = undefined;
     this.pendingNativeTabSelections = [];
-    this.resetTransportRecovery();
-    this.acknowledgedSnapshot = undefined;
-    this.renderedSlotState = undefined;
+    this.submittedSnapshot = undefined;
     this.clearIncrementalPending();
   }
 
@@ -997,12 +764,7 @@ export class HomeContainerController {
   }
 
   private scheduleFlush(): void {
-    if (
-      this.flushScheduled ||
-      !this.target ||
-      this.inFlight ||
-      this.transportRecoveryBlocked
-    ) {
+    if (this.flushScheduled || !this.target) {
       return;
     }
     this.flushScheduled = true;
@@ -1010,24 +772,19 @@ export class HomeContainerController {
   }
 
   private flushProtocolV2(target: IHomeContainerRef): boolean {
-    let sendsFullSnapshot =
-      this.fullSnapshotPending || !this.acknowledgedSnapshot;
+    const sendsFullSnapshot =
+      this.fullSnapshotPending || !this.submittedSnapshot;
     let baseRevision: number | undefined;
     let changes: IHomeContainerChange[] | undefined;
     if (!sendsFullSnapshot) {
-      const baseSnapshot = this.acknowledgedSnapshot;
+      const baseSnapshot = this.submittedSnapshot;
       if (!baseSnapshot) {
         return false;
       }
       baseRevision = baseSnapshot.revision;
       changes = this.buildProtocolV2Changes(baseSnapshot);
-      if (changes.length === 0 && this.slotsPending) {
-        sendsFullSnapshot = true;
-        changes = undefined;
-        baseRevision = undefined;
-      }
     }
-    if (changes?.length === 0) {
+    if (changes?.length === 0 && !this.slotsPending) {
       this.clearIncrementalPending();
       return false;
     }
@@ -1035,35 +792,16 @@ export class HomeContainerController {
     this.revision += 1;
     this.snapshot = { ...this.snapshot, revision: this.revision };
     const sentSnapshot = this.snapshot;
-    const isRecovery = this.nextTransactionIsRecovery;
-    this.nextTransactionIsRecovery = false;
-    this.inFlight = {
-      owner: this.owner,
-      revision: this.revision,
-      snapshot: sentSnapshot,
-      slots: this.currentSlots,
-      startedAt: this.now(),
-      isRecovery,
-    };
-    const inFlight = this.inFlight;
+    const sentSlots = this.currentSlots;
+    this.submittedSnapshot = sentSnapshot;
     this.fullSnapshotPending = false;
     this.clearIncrementalPending();
-    this.armInFlightDeadline(inFlight);
 
     if (sendsFullSnapshot) {
       target.setProtocolV2Snapshot?.(
         snapshotEnvelope(sentSnapshot, this.owner, this.revision),
-        inFlight.slots,
+        sentSlots,
       );
-      if (isRecovery) {
-        this.emitDiagnostic({
-          event: 'recoverySnapshot',
-          revision: inFlight.revision,
-          resultKind: 'recoverySnapshot',
-          exactMatch: true,
-          inFlight,
-        });
-      }
     } else {
       if (baseRevision === undefined || !changes) {
         return false;
@@ -1077,7 +815,7 @@ export class HomeContainerController {
         revision: this.revision,
         changes,
       };
-      target.applyProtocolV2Patch?.(patch, inFlight.slots);
+      target.applyProtocolV2Patch?.(patch, sentSlots);
     }
     return true;
   }
@@ -1093,11 +831,11 @@ export class HomeContainerController {
       ),
     );
     const sendsFullSnapshot =
-      this.fullSnapshotPending || !this.acknowledgedSnapshot;
+      this.fullSnapshotPending || !this.submittedSnapshot;
     let baseRevision: number | undefined;
     let changes: IHomeContainerChange[] | undefined;
     if (!sendsFullSnapshot) {
-      const baseSnapshot = this.acknowledgedSnapshot;
+      const baseSnapshot = this.submittedSnapshot;
       if (!baseSnapshot) {
         return false;
       }
@@ -1112,38 +850,19 @@ export class HomeContainerController {
     this.revision += 1;
     this.snapshot = { ...this.snapshot, revision: this.revision };
     const sentSnapshot = this.snapshot;
-    const isRecovery = this.nextTransactionIsRecovery;
-    this.nextTransactionIsRecovery = false;
-    this.inFlight = {
-      owner: this.owner,
-      revision: this.revision,
-      snapshot: sentSnapshot,
-      slots: this.currentSlots,
-      startedAt: this.now(),
-      isRecovery,
-    };
-    const inFlight = this.inFlight;
+    const sentSlots = this.currentSlots;
+    this.submittedSnapshot = sentSnapshot;
     const revisionState = this.protocolV3Revisions;
     this.fullSnapshotPending = false;
     this.clearIncrementalPending();
-    this.armInFlightDeadline(inFlight);
 
     if (sendsFullSnapshot) {
       const envelope = this.createProtocolV3SnapshotEnvelope(
         sentSnapshot,
         this.revision,
-        inFlight.slots,
+        sentSlots,
       );
-      target.setProtocolV3Snapshot?.(envelope, inFlight.slots);
-      if (isRecovery) {
-        this.emitDiagnostic({
-          event: 'recoverySnapshot',
-          revision: inFlight.revision,
-          resultKind: 'recoverySnapshot',
-          exactMatch: true,
-          inFlight,
-        });
-      }
+      target.setProtocolV3Snapshot?.(envelope, sentSlots);
     } else {
       if (baseRevision === undefined || !changes) {
         return false;
@@ -1162,7 +881,7 @@ export class HomeContainerController {
         requiredSlotRevisions: hasPendingSlots ? requiredSlotRevisions : {},
         changes,
       };
-      target.applyProtocolV3Patch?.(patch, inFlight.slots);
+      target.applyProtocolV3Patch?.(patch, sentSlots);
     }
     return true;
   }
@@ -1194,112 +913,6 @@ export class HomeContainerController {
         theme: snapshot.theme,
       },
     };
-  }
-
-  private armInFlightDeadline(
-    inFlight: IHomeContainerInFlightTransaction,
-  ): void {
-    this.clearInFlightDeadline();
-    this.cancelInFlightDeadline = this.scheduleDeadline(() => {
-      this.cancelInFlightDeadline = undefined;
-      this.handleInFlightDeadline(inFlight);
-    }, HOME_CONTAINER_TRANSPORT_ACK_DEADLINE_MS);
-  }
-
-  private handleInFlightDeadline(
-    inFlight: IHomeContainerInFlightTransaction,
-  ): void {
-    if (this.disposed || this.inFlight !== inFlight) {
-      return;
-    }
-    this.emitDiagnostic({
-      event: 'deadline',
-      revision: inFlight.revision,
-      resultKind: 'deadline',
-      exactMatch: true,
-      inFlight,
-    });
-    this.inFlight = undefined;
-    if (inFlight.isRecovery) {
-      // Keep only the latest timed-out recovery eligible for a late exact ack.
-      // A new transport attempt requires new data, an explicit resync, or reattach.
-      this.expiredRecovery = inFlight;
-      this.transportRecoveryBlocked = true;
-      if (this.hasPendingChanges()) {
-        this.resumeTransportForNewData();
-        this.scheduleFlush();
-      }
-      return;
-    }
-    this.expiredRecovery = undefined;
-    this.acknowledgedSnapshot = undefined;
-    this.fullSnapshotPending = true;
-    this.nextTransactionIsRecovery = true;
-    this.scheduleFlush();
-  }
-
-  private clearInFlightDeadline(): void {
-    this.cancelInFlightDeadline?.();
-    this.cancelInFlightDeadline = undefined;
-  }
-
-  private resetTransportRecovery(): void {
-    this.clearInFlightDeadline();
-    this.inFlight = undefined;
-    this.expiredRecovery = undefined;
-    this.nextTransactionIsRecovery = false;
-    this.transportRecoveryBlocked = false;
-  }
-
-  private resumeTransportForNewData(): void {
-    if (!this.transportRecoveryBlocked) {
-      return;
-    }
-    this.expiredRecovery = undefined;
-    this.transportRecoveryBlocked = false;
-    this.nextTransactionIsRecovery = false;
-    this.fullSnapshotPending = true;
-  }
-
-  private emitDiagnostic({
-    event,
-    revision,
-    resultKind,
-    exactMatch,
-    mismatch,
-    inFlight,
-  }: {
-    event: IHomeContainerTransportDiagnostic['event'];
-    revision: number;
-    resultKind: IHomeContainerTransportDiagnostic['resultKind'];
-    exactMatch: boolean;
-    mismatch?: IHomeContainerTransportDiagnostic['mismatch'];
-    inFlight?: IHomeContainerInFlightTransaction;
-  }): void {
-    if (!this.diagnosticsEnabled) {
-      return;
-    }
-    const current = getPortfolioSlotState(this.currentSlots);
-    const acknowledged = getPortfolioSlotState(this.renderedSlotState?.slots);
-    this.reportDiagnostic({
-      event,
-      sessionHash: hashSessionId(
-        (inFlight ?? this.inFlight)?.owner.sessionId ?? this.owner.sessionId,
-      ),
-      revision,
-      inFlightRevision: inFlight?.revision,
-      inFlightAgeMs: inFlight
-        ? Math.max(0, this.now() - inFlight.startedAt)
-        : undefined,
-      resultKind,
-      exactMatch,
-      mismatch,
-      portfolioSlot: {
-        current,
-        acknowledged,
-        presentation: getPortfolioSlotPresentation(current, acknowledged),
-      },
-    });
   }
 
   private buildProtocolV2Changes(

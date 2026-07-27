@@ -231,7 +231,7 @@ plus bounded Store commits, cheap reducer work, and scoped render subscriptions.
 - background-ready sequence handling;
 - owner activation and claim deduplication;
 - wallet-list silent refresh barrier;
-- surface commit acknowledgement;
+- surface commit observation;
 - source-domain refresh callbacks;
 - latched recovery replay after Home mounts.
 
@@ -1191,7 +1191,7 @@ them in bounded order so the first section switch remains fast.
 
 A background warm task is eligible only when:
 
-- the first confirmed Home frame has been acknowledged;
+- the first confirmed Home frame has rendered;
 - the visible section has produced its first useful result or a terminal
   no-data/error result;
 - app activity is `active` and the Home surface is `visible`;
@@ -1867,7 +1867,7 @@ Move as one authority set:
 - visibility and app activity;
 - native recovery sequence and claims;
 - wallet-list barrier;
-- surface commit acknowledgement;
+- surface commit observation;
 - prepared snapshot bootstrap;
 - display snapshot hydration and persistence.
 - per-source cross-tab freshness and CAS merge;

@@ -988,7 +988,7 @@ type HomeSlotBundle = {
 Rules:
 
 - snapshot and slot owner must match;
-- React wrapper is keyed by `sessionId`;
+- React wrapper is surface-lifetime stable and is not keyed by `sessionId`;
 - an unready slot displays its current owner's reserved placeholder;
 - old-owner slot content is never retained for stable height;
 - background result, semantic snapshot, Native DTO, and slot bundle all carry
@@ -998,7 +998,7 @@ Rules:
 
 Keep these versions separate:
 
-- `protocolVersion` — envelope, owner, revision, ack, and resync behavior;
+- `protocolVersion` — envelope, owner, revision, ordering, and resync behavior;
 - `schemaVersion` — DTO fields and discriminated-union variants.
 
 Rules:
@@ -1522,7 +1522,7 @@ Modify:
 
 - Native envelope owner/session/baseRevision;
 - typed transaction patches;
-- ack/resync;
+- ordered submission and resync;
 - stale intent;
 - slot owner bundle;
 - Swift/Kotlin validation.

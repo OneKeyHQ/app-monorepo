@@ -20,9 +20,9 @@ import type {
  * or deleted at any time.
  *
  * Snapshot payloads must be page-scoped, explicitly serialized through a
- * size-bounded codec, and loaded by exact key. Implementations intentionally
- * expose no enumeration API so a cold start cannot preload every record into
- * JavaScript memory.
+ * validated codec, and loaded by exact key. Implementations intentionally expose
+ * no enumeration API so a cold start cannot preload every record into JavaScript
+ * memory.
  */
 export function createDisplaySnapshotStorageCore(
   config: IDisplaySnapshotStorageConfig,

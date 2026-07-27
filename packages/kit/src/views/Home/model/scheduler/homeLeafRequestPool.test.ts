@@ -67,4 +67,38 @@ describe('HomeLeafRequestPool', () => {
     await expect(activeTask).resolves.toBe('done');
     activeClient.dispose();
   });
+
+  test('removes only queued leaves owned by a cancelled session', async () => {
+    const client = new HomeLeafRequestPool(1, 'pool-test-session-cancel', 11);
+    const running = createDeferred<string>();
+    const runningTask = client.run(
+      'critical',
+      () => running.promise,
+      'session-running',
+    );
+    const cancelledTask = client.run(
+      'critical',
+      async () => 'cancelled',
+      'session-old',
+    );
+    const retainedTask = client.run(
+      'critical',
+      async () => 'retained',
+      'session-new',
+    );
+
+    client.cancelSession('session-old');
+    await expect(cancelledTask).rejects.toThrow(
+      'Shared leaf request session was cancelled',
+    );
+    expect(client.getSnapshot()).toMatchObject({
+      clientPendingCount: 1,
+      runningCount: 1,
+    });
+
+    running.resolve('running');
+    await expect(runningTask).resolves.toBe('running');
+    await expect(retainedTask).resolves.toBe('retained');
+    client.dispose();
+  });
 });

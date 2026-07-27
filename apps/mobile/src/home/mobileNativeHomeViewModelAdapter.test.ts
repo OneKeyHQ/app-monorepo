@@ -12,6 +12,7 @@ import {
 import {
   buildMobileNativeHomeViewModelSections,
   resolveMobileNativeHomeActionLayout,
+  resolveMobileNativeHomeActionRowHeight,
   resolveMobileNativeHomeBannerPresentation,
   resolveMobileNativeHomeBodySections,
 } from './mobileNativeHomeViewModelAdapter';
@@ -73,6 +74,33 @@ describe('mobileNativeHomeViewModelAdapter', () => {
         actionPresentationKind: 'hidden',
       }),
     ).toBe('standard');
+  });
+
+  it('keeps loading action geometry aligned with the funded row', () => {
+    expect(
+      resolveMobileNativeHomeActionRowHeight({
+        actionLayout: 'loading',
+        isBackupRequired: false,
+      }),
+    ).toBe(62);
+    expect(
+      resolveMobileNativeHomeActionRowHeight({
+        actionLayout: 'standard',
+        isBackupRequired: false,
+      }),
+    ).toBe(62);
+    expect(
+      resolveMobileNativeHomeActionRowHeight({
+        actionLayout: 'zeroBalance',
+        isBackupRequired: false,
+      }),
+    ).toBe(98);
+    expect(
+      resolveMobileNativeHomeActionRowHeight({
+        actionLayout: 'loading',
+        isBackupRequired: true,
+      }),
+    ).toBe(0);
   });
 
   it('renders the banner independently from unresolved balance content', () => {

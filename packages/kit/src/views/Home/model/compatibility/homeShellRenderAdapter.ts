@@ -95,16 +95,13 @@ function adaptHomeShellToReactHeader(
 }
 
 function resolveHomeBalancePresentation({
-  fallbackCurrency,
   ownerToken,
   shell,
 }: {
-  fallbackCurrency?: string;
   ownerToken?: IHomeRuntimeOwnerToken;
   shell: IHomeShellSemanticModel;
 }): IHomeBalancePresentation {
   const display = projectHomeDisplayModel({
-    fallbackCurrency,
     ownerToken,
     shell,
   });

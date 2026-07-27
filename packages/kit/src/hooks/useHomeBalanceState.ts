@@ -33,8 +33,6 @@ export function useHomeBalancePresentation(): IHomeBalancePresentation {
   const facts = useHomeFacts();
   const shell = useHomeShell();
   return resolveHomeBalancePresentation({
-    fallbackCurrency:
-      facts?.balance?.quoteBasis.currency ?? facts?.environment.currency,
     ownerToken: facts?.ownerToken,
     shell: shell.value,
   });
@@ -43,17 +41,14 @@ export function useHomeBalancePresentation(): IHomeBalancePresentation {
 export function useHomeDisplayModel(): IHomeDisplayModel {
   const facts = useHomeFacts();
   const shell = useHomeShell();
-  const fallbackCurrency =
-    facts?.balance?.quoteBasis.currency ?? facts?.environment.currency;
   const ownerToken = facts?.ownerToken;
   return useMemo(
     () =>
       projectHomeDisplayModel({
-        fallbackCurrency,
         ownerToken,
         shell: shell.value,
       }),
-    [fallbackCurrency, ownerToken, shell.value],
+    [ownerToken, shell.value],
   );
 }
 

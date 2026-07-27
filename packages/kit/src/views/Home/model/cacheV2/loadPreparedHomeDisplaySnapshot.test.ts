@@ -30,7 +30,7 @@ beforeEach(() => {
 });
 
 describe('loadPreparedHomeDisplaySnapshot', () => {
-  it('treats a missing or loading critical shell as a cache miss', async () => {
+  it('treats a missing or loading critical shell without records as a cache miss', async () => {
     mockLoadCritical.mockResolvedValueOnce(undefined);
     await expect(
       loadPreparedHomeDisplaySnapshot({ ownerScopeKey: 'owner-a' }),
@@ -45,7 +45,7 @@ describe('loadPreparedHomeDisplaySnapshot', () => {
     await expect(
       loadPreparedHomeDisplaySnapshot({ ownerScopeKey: 'owner-a' }),
     ).resolves.toBeUndefined();
-    expect(mockLoadSourceRecords).not.toHaveBeenCalled();
+    expect(mockLoadSourceRecords).toHaveBeenCalledTimes(2);
   });
 
   it('loads the visible owner records only after a renderable shell hit', async () => {
@@ -60,6 +60,7 @@ describe('loadPreparedHomeDisplaySnapshot', () => {
     await expect(
       loadPreparedHomeDisplaySnapshot({ ownerScopeKey: 'owner-b' }),
     ).resolves.toEqual({
+      context,
       navigation: undefined,
       records: [],
       shell: critical.shell,
@@ -95,14 +96,51 @@ describe('loadPreparedHomeDisplaySnapshot', () => {
     ).resolves.toBeUndefined();
 
     const portfolioRecord = {
+      confirmedAt: 2,
+      coverageFingerprint: 'portfolio-funded',
+      dataSchemaVersion: 1,
+      expiresAt: 3,
+      payload: {
+        payload: {
+          accountTokensValue: '27',
+          accountTokensValueAvailable: true,
+          accountTokensValueComplete: true,
+          accountTokensWorthCurrency: 'USD',
+        },
+        section: {
+          kind: 'ready',
+          rowIds: ['usdc'],
+        },
+      },
+      quoteBasis: { currency: 'USD' },
       sourceId: 'portfolio',
-    } as IHomeCachedSourceRecord;
+      sourceKeyIdentity: 'portfolio-key',
+    } satisfies IHomeCachedSourceRecord;
     mockLoadSourceRecords.mockResolvedValue([portfolioRecord]);
     await expect(
       loadPreparedHomeDisplaySnapshot({ ownerScopeKey: 'owner-c' }),
-    ).resolves.toMatchObject({
+    ).resolves.toEqual({
+      context,
+      navigation: undefined,
       records: [portfolioRecord],
-      shell: critical.shell,
+      shell: {
+        kind: 'portfolio',
+        presentation: {
+          actions: {
+            items: ['send', 'receive', 'buySell', 'swap'],
+            kind: 'funded',
+          },
+          banner: { kind: 'none' },
+          freshness: 'confirmedCache',
+          header: {
+            authority: 'confirmedCache',
+            balance: { amount: '27', currency: 'USD' },
+            kind: 'funded',
+          },
+          kind: 'funded',
+          refresh: 'refreshing',
+        },
+      },
     });
   });
 });

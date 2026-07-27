@@ -1,177 +1,69 @@
-import { HOME_CONTAINER_SLOT_CONTRACT_REVISION } from './HomeContainer.types';
+import {
+  HOME_CONTAINER_SLOT_CONTRACT_REVISION,
+  type IHomeContainerSlotBundle,
+  type IHomeContainerSlots,
+} from './HomeContainer.types';
 import { resolveHomeContainerSlots } from './HomeContainerSlotPresentation';
 
 const owner = { scopeKey: 'scope-1', sessionId: 'session-1' };
 
+function buildBundle(
+  slots: IHomeContainerSlots,
+  slotContractRevision = HOME_CONTAINER_SLOT_CONTRACT_REVISION,
+): IHomeContainerSlotBundle {
+  return {
+    owner,
+    semanticRevision: 7,
+    slotContractRevision,
+    slots,
+  };
+}
+
 describe('HomeContainer slot presentation', () => {
-  it('renders the acknowledged transaction slots while the parent revision commit lags', () => {
-    const acknowledgedSlots = {
-      balance: { content: 'acknowledged', height: 58 },
-    };
-    const parentSlots = {
-      balance: { content: 'parent-lagging', height: 58 },
+  it('exposes the current slot bundle immediately', () => {
+    const slots: IHomeContainerSlots = {
+      balance: { content: 'current-balance', height: 58 },
     };
 
     expect(
       resolveHomeContainerSlots({
-        acknowledgedBundle: {
-          owner,
-          semanticRevision: 8,
-          slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
-          slots: acknowledgedSlots,
-        },
-        currentBundle: {
-          owner,
-          semanticRevision: 7,
-          slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
-          slots: parentSlots,
-        },
+        currentBundle: buildBundle(slots),
         legacySlots: undefined,
       }),
-    ).toBe(acknowledgedSlots);
+    ).toBe(slots);
   });
 
-  it('does not expose a future same-owner parent bundle before acknowledgement', () => {
-    const acknowledgedSlots = {
-      balance: { content: 'acknowledged', height: 58 },
+  it('prefers the current bundle over legacy slots', () => {
+    const currentSlots: IHomeContainerSlots = {
+      balance: { content: 'current-balance', height: 58 },
+    };
+    const legacySlots: IHomeContainerSlots = {
+      balance: { content: 'legacy-balance', height: 58 },
     };
 
     expect(
       resolveHomeContainerSlots({
-        acknowledgedBundle: {
-          owner,
-          semanticRevision: 8,
-          slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
-          slots: acknowledgedSlots,
-        },
-        currentBundle: {
-          owner,
-          semanticRevision: 9,
-          slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
-          slots: {
-            balance: { content: 'future', height: 58 },
-          },
-        },
-        legacySlots: undefined,
+        currentBundle: buildBundle(currentSlots),
+        legacySlots,
       }),
-    ).toBe(acknowledgedSlots);
+    ).toBe(currentSlots);
   });
 
-  it('reserves current geometry instead of retaining old-owner content', () => {
-    const currentSlots = {
-      balance: { content: 'current-owner', height: 58 },
-      headerActionRow: {
-        content: 'current-owner-actions',
-        height: 62,
-        interaction: 'tap' as const,
-      },
-    };
+  it('reserves geometry when the slot contract is unsupported', () => {
     const resolved = resolveHomeContainerSlots({
-      acknowledgedBundle: {
-        owner,
-        semanticRevision: 8,
-        slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
-        slots: {
-          balance: { content: 'old-owner', height: 58 },
-        },
-      },
-      currentBundle: {
-        owner: { scopeKey: 'scope-2', sessionId: 'session-2' },
-        semanticRevision: -1,
-        slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
-        slots: currentSlots,
-      },
-      legacySlots: undefined,
-    });
-
-    expect(resolved?.balance).toEqual({
-      content: null,
-      height: 58,
-      interaction: 'none',
-    });
-    expect(resolved?.headerActionRow).toEqual({
-      content: null,
-      height: 62,
-      interaction: 'none',
-    });
-  });
-
-  it('reserves slots after resync clears the acknowledged bundle', () => {
-    const resolved = resolveHomeContainerSlots({
-      acknowledgedBundle: undefined,
-      currentBundle: {
-        owner,
-        semanticRevision: -1,
-        slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
-        slots: {
-          balance: { content: 'unacknowledged', height: 58 },
-        },
-      },
-      legacySlots: undefined,
-    });
-
-    expect(resolved?.balance?.content).toBeNull();
-  });
-
-  it('keeps the submitted current-owner loading fallback when initial and resync acknowledgements are both lost', () => {
-    const submittedLoadingSlots = {
-      contentStates: {
-        portfolio: { content: 'loading-skeleton', height: 320 },
-      },
-    };
-    const currentTerminalSlots = {
-      contentHeaders: {
-        portfolio: { content: 'Tokens', height: 56 },
-      },
-    };
-    const resolved = resolveHomeContainerSlots({
-      acknowledgedBundle: undefined,
-      currentBundle: {
-        owner,
-        semanticRevision: 6,
-        slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
-        slots: currentTerminalSlots,
-      },
-      legacySlots: undefined,
-      safeFallbackBundle: {
-        owner,
-        semanticRevision: 5,
-        slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
-        slots: submittedLoadingSlots,
-      },
-    });
-
-    expect(resolved).toBe(submittedLoadingSlots);
-    expect(resolved?.contentStates?.portfolio?.content).toBe(
-      'loading-skeleton',
-    );
-  });
-
-  it('never exposes a submitted fallback from an old owner', () => {
-    const currentOwner = { scopeKey: 'scope-2', sessionId: 'session-2' };
-    const resolved = resolveHomeContainerSlots({
-      acknowledgedBundle: undefined,
-      currentBundle: {
-        owner: currentOwner,
-        semanticRevision: 6,
-        slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
-        slots: {
+      currentBundle: buildBundle(
+        {
           contentStates: {
-            portfolio: { content: 'new-owner-loading', height: 320 },
+            portfolio: {
+              content: 'unsupported-content',
+              height: 320,
+              interaction: 'tap',
+            },
           },
         },
-      },
+        HOME_CONTAINER_SLOT_CONTRACT_REVISION + 1,
+      ),
       legacySlots: undefined,
-      safeFallbackBundle: {
-        owner,
-        semanticRevision: 5,
-        slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
-        slots: {
-          contentStates: {
-            portfolio: { content: 'old-owner-content', height: 320 },
-          },
-        },
-      },
     });
 
     expect(resolved?.contentStates?.portfolio).toEqual({
@@ -182,53 +74,37 @@ describe('HomeContainer slot presentation', () => {
   });
 
   it('filters slots that have neither content nor reserved geometry', () => {
+    const visible = { content: null, height: 58 };
     const resolved = resolveHomeContainerSlots({
-      acknowledgedBundle: {
-        owner,
-        semanticRevision: 8,
-        slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
-        slots: {
-          contentStates: {
-            portfolio: {
-              content: undefined,
-              height: undefined,
-              interaction: 'none',
-            },
-            history: {
-              content: undefined,
-              height: 320,
-              interaction: 'none',
-            },
-          },
+      currentBundle: buildBundle({
+        accountRow: { content: null },
+        balance: visible,
+        contentStates: {
+          portfolio: { content: undefined },
+          history: { content: 'history' },
         },
-      },
-      currentBundle: {
-        owner,
-        semanticRevision: 8,
-        slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
-        slots: {
-          contentStates: {
-            portfolio: {
-              content: undefined,
-              height: undefined,
-              interaction: 'none',
-            },
-            history: {
-              content: undefined,
-              height: 320,
-              interaction: 'none',
-            },
-          },
-        },
-      },
+      }),
       legacySlots: undefined,
     });
 
-    expect(resolved?.contentStates).not.toHaveProperty('portfolio');
-    expect(resolved?.contentStates?.history).toEqual({
-      content: undefined,
-      height: 320,
-      interaction: 'none',
+    expect(resolved?.accountRow).toBeUndefined();
+    expect(resolved?.balance).toBe(visible);
+    expect(resolved?.contentStates?.portfolio).toBeUndefined();
+    expect(resolved?.contentStates?.history).toEqual({ content: 'history' });
+  });
+
+  it('uses filtered legacy slots when no bundle exists', () => {
+    const resolved = resolveHomeContainerSlots({
+      currentBundle: undefined,
+      legacySlots: {
+        balance: { content: 'legacy' },
+        accountRow: { content: null },
+      },
+    });
+
+    expect(resolved).toEqual({
+      balance: { content: 'legacy' },
+      accountRow: undefined,
     });
   });
 });

@@ -7,7 +7,7 @@ import {
   type IHomeContainerPatchEnvelope,
   type IHomeContainerSnapshotEnvelope,
   isHomeContainerSnapshotInvariantValid,
-  isHomeContainerTransportResultForSubmission,
+  parseHomeContainerSnapshotRequest,
 } from './HomeContainer.types';
 
 function readFixture<T>(name: string): T {
@@ -67,36 +67,47 @@ describe('HomeContainer protocol v2 fixtures', () => {
     }
   });
 
-  it('does not let stale results change wrapper transport identity', () => {
-    const submission = {
-      owner: { scopeKey: 'scope-current', sessionId: 'session-current' },
-      revision: 9,
-    };
+  it('accepts only explicit snapshot resynchronization requests', () => {
     expect(
-      isHomeContainerTransportResultForSubmission(
-        { kind: 'applied', owner: submission.owner, revision: 9 },
-        submission,
-      ),
-    ).toBe(true);
-    expect(
-      isHomeContainerTransportResultForSubmission(
-        {
-          kind: 'applied',
-          owner: { ...submission.owner, sessionId: 'session-stale' },
-          revision: 9,
-        },
-        submission,
-      ),
-    ).toBe(false);
-    expect(
-      isHomeContainerTransportResultForSubmission(
-        {
+      parseHomeContainerSnapshotRequest(
+        JSON.stringify({
           kind: 'needSnapshot',
-          owner: { ...submission.owner, sessionId: 'session-stale' },
-          reason: 'ownerMismatch',
-        },
-        submission,
+          owner: {
+            scopeKey: 'scope-current',
+            sessionId: 'session-current',
+          },
+          currentRevision: 9,
+          reason: 'revisionGap',
+        }),
       ),
-    ).toBe(false);
+    ).toEqual({
+      kind: 'needSnapshot',
+      owner: {
+        scopeKey: 'scope-current',
+        sessionId: 'session-current',
+      },
+      currentRevision: 9,
+      reason: 'revisionGap',
+    });
+    expect(
+      parseHomeContainerSnapshotRequest(
+        JSON.stringify({
+          kind: 'applied',
+          owner: {
+            scopeKey: 'scope-current',
+            sessionId: 'session-current',
+          },
+          revision: 9,
+        }),
+      ),
+    ).toBeUndefined();
+    expect(
+      parseHomeContainerSnapshotRequest(
+        JSON.stringify({
+          kind: 'needSnapshot',
+          reason: 'unknownReason',
+        }),
+      ),
+    ).toBeUndefined();
   });
 });

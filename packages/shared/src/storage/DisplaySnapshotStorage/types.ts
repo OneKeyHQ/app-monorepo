@@ -1,6 +1,6 @@
 export type IDisplaySnapshotStorageConfig = {
   namespace: string;
-  maxRecordBytes: number;
+  maxRecordBytes?: number;
   maxReadBatchSize: number;
 };
 

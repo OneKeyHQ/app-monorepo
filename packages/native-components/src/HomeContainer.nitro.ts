@@ -13,7 +13,7 @@ export interface IHomeContainerNativeProps extends HybridViewProps {
   onVisibleTabChange?: (tabId: string) => void;
   onRenderError?: (code: string, message: string) => void;
   onIntent?: (intentJson: string) => void;
-  onTransportResult?: (resultJson: string) => void;
+  onSnapshotRequired?: (requestJson: string) => void;
 }
 
 export interface IHomeContainerNativeMethods extends HybridViewMethods {

@@ -521,48 +521,20 @@ enum HomeContainerProtocolV2ApplyOutcome {
   )
 }
 
-struct HomeContainerProtocolV2TransportResult: Encodable {
+struct HomeContainerProtocolV2SnapshotRequest: Encodable {
   let kind: String
   let owner: HomeContainerProtocolV2Owner?
-  let revision: Int?
   let currentRevision: Int?
-  let reason: HomeContainerProtocolV2NeedSnapshotReason?
-
-  static func applied(
-    owner: HomeContainerProtocolV2Owner,
-    revision: Int
-  ) -> HomeContainerProtocolV2TransportResult {
-    HomeContainerProtocolV2TransportResult(
-      kind: "applied",
-      owner: owner,
-      revision: revision,
-      currentRevision: nil,
-      reason: nil
-    )
-  }
-
-  static func duplicate(
-    owner: HomeContainerProtocolV2Owner,
-    revision: Int
-  ) -> HomeContainerProtocolV2TransportResult {
-    HomeContainerProtocolV2TransportResult(
-      kind: "duplicate",
-      owner: owner,
-      revision: revision,
-      currentRevision: nil,
-      reason: nil
-    )
-  }
+  let reason: HomeContainerProtocolV2NeedSnapshotReason
 
   static func needSnapshot(
     owner: HomeContainerProtocolV2Owner?,
     currentRevision: Int?,
     reason: HomeContainerProtocolV2NeedSnapshotReason
-  ) -> HomeContainerProtocolV2TransportResult {
-    HomeContainerProtocolV2TransportResult(
+  ) -> HomeContainerProtocolV2SnapshotRequest {
+    HomeContainerProtocolV2SnapshotRequest(
       kind: "needSnapshot",
       owner: owner,
-      revision: nil,
       currentRevision: currentRevision,
       reason: reason
     )
@@ -574,7 +546,7 @@ struct HomeContainerProtocolV2TransportResult: Encodable {
       owner?.scopeKey ?? "",
       owner?.sessionId ?? "",
       currentRevision.map(String.init) ?? "",
-      reason?.rawValue ?? "",
+      reason.rawValue,
     ].joined(separator: "|")
   }
 }

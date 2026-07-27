@@ -5,6 +5,7 @@ type IQueuedLeaf = {
   clientId: string;
   enqueuedAt: number;
   priority: IRuntimeRequestPriority;
+  sessionId?: string;
   reject(reason: unknown): void;
   resolve(value: unknown): void;
   run(): Promise<unknown>;
@@ -37,6 +38,7 @@ export class SharedHomeLeafRequestPool {
     clientId: string,
     priority: IRuntimeRequestPriority,
     request: () => Promise<TResult>,
+    sessionId?: string,
   ): Promise<TResult> {
     const queue = this.getClientQueue(clientId);
     if (
@@ -62,6 +64,7 @@ export class SharedHomeLeafRequestPool {
         clientId,
         enqueuedAt: Date.now(),
         priority,
+        sessionId,
         reject,
         resolve,
         run: request,
@@ -89,6 +92,37 @@ export class SharedHomeLeafRequestPool {
         this.roundRobinCursor %= this.clientOrder.length;
       }
     }
+  }
+
+  cancelSession(clientId: string, sessionId: string): void {
+    const queue = this.queues.get(clientId);
+    if (!queue) {
+      return;
+    }
+    const retained: IQueuedLeaf[] = [];
+    queue.forEach((leaf) => {
+      if (leaf.sessionId === sessionId) {
+        leaf.reject(
+          new OneKeyLocalError('Shared leaf request session was cancelled'),
+        );
+      } else {
+        retained.push(leaf);
+      }
+    });
+    if (retained.length === 0) {
+      this.queues.delete(clientId);
+      const index = this.clientOrder.indexOf(clientId);
+      if (index >= 0) {
+        this.clientOrder.splice(index, 1);
+        if (this.clientOrder.length === 0) {
+          this.roundRobinCursor = 0;
+        } else {
+          this.roundRobinCursor %= this.clientOrder.length;
+        }
+      }
+      return;
+    }
+    this.queues.set(clientId, retained);
   }
 
   getSnapshot(clientId: string) {

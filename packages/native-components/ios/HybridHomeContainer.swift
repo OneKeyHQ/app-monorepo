@@ -20,8 +20,8 @@ final class HybridHomeContainer: HybridHomeContainerSpec {
     container.onIntent = { [weak self] intentJson in
       self?.onIntent?(intentJson)
     }
-    container.onTransportResult = { [weak self] resultJson in
-      self?.onTransportResult?(resultJson)
+    container.onSnapshotRequired = { [weak self] requestJson in
+      self?.onSnapshotRequired?(requestJson)
     }
     return container
   }()
@@ -52,7 +52,7 @@ final class HybridHomeContainer: HybridHomeContainerSpec {
   var onIntent: ((_ intentJson: String) -> Void)? {
     didSet { updateRefreshAvailability() }
   }
-  var onTransportResult: ((_ resultJson: String) -> Void)?
+  var onSnapshotRequired: ((_ requestJson: String) -> Void)?
 
   func setSnapshot(snapshotJson: String) throws {
     containerView.submitSnapshot(snapshotJson)

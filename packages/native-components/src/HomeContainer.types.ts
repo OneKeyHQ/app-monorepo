@@ -319,28 +319,17 @@ export type IHomeContainerTransportPayload =
   | IHomeContainerSnapshotEnvelopeV3
   | IHomeContainerPatchEnvelopeV3;
 
-export type IHomeContainerTransportResult =
-  | {
-      kind: 'applied' | 'duplicate';
-      owner: IHomeContainerOwner;
-      revision: number;
-    }
-  | {
-      kind: 'needSnapshot';
-      owner?: IHomeContainerOwner;
-      currentRevision?: number;
-      reason:
-        | 'ownerMismatch'
-        | 'revisionGap'
-        | 'slotRevisionGap'
-        | 'invalidInvariant'
-        | 'unsupportedSchema'
-        | 'unsupportedProtocol';
-    };
-
-export interface IHomeContainerTransportSubmission {
-  owner: IHomeContainerOwner;
-  revision: number;
+export interface IHomeContainerSnapshotRequest {
+  kind: 'needSnapshot';
+  owner?: IHomeContainerOwner;
+  currentRevision?: number;
+  reason:
+    | 'ownerMismatch'
+    | 'revisionGap'
+    | 'slotRevisionGap'
+    | 'invalidInvariant'
+    | 'unsupportedSchema'
+    | 'unsupportedProtocol';
 }
 
 export type IHomeContainerIntentPayload =
@@ -380,7 +369,7 @@ export interface IHomeContainerProps {
   onVisibleTabChange?: (tabId: string) => void;
   onRenderError?: (code: string, message: string) => void;
   onIntent?: (intentJson: string) => void;
-  onTransportResult?: (resultJson: string) => void;
+  onSnapshotRequired?: (requestJson: string) => void;
 }
 
 export interface IHomeContainerRef {
@@ -456,24 +445,17 @@ function isHomeContainerOwner(value: unknown): value is IHomeContainerOwner {
   );
 }
 
-export function parseHomeContainerTransportResult(
+export function parseHomeContainerSnapshotRequest(
   value: string,
-): IHomeContainerTransportResult | undefined {
+): IHomeContainerSnapshotRequest | undefined {
   try {
-    const result = JSON.parse(value) as {
+    const request = JSON.parse(value) as {
       kind?: unknown;
       owner?: unknown;
-      revision?: unknown;
       currentRevision?: unknown;
       reason?: unknown;
     };
-    if (result.kind === 'applied' || result.kind === 'duplicate') {
-      return isHomeContainerOwner(result.owner) &&
-        typeof result.revision === 'number'
-        ? (result as IHomeContainerTransportResult)
-        : undefined;
-    }
-    if (result.kind !== 'needSnapshot') {
+    if (request.kind !== 'needSnapshot') {
       return undefined;
     }
     const reasons = [
@@ -485,37 +467,16 @@ export function parseHomeContainerTransportResult(
       'unsupportedProtocol',
     ] as const;
     if (
-      !result.reason ||
-      !reasons.some((reason) => reason === result.reason) ||
-      (result.owner !== undefined && !isHomeContainerOwner(result.owner)) ||
-      (result.currentRevision !== undefined &&
-        typeof result.currentRevision !== 'number')
+      !request.reason ||
+      !reasons.some((reason) => reason === request.reason) ||
+      (request.owner !== undefined && !isHomeContainerOwner(request.owner)) ||
+      (request.currentRevision !== undefined &&
+        typeof request.currentRevision !== 'number')
     ) {
       return undefined;
     }
-    return result as IHomeContainerTransportResult;
+    return request as IHomeContainerSnapshotRequest;
   } catch {
     return undefined;
   }
-}
-
-export function isHomeContainerTransportResultForSubmission(
-  result: IHomeContainerTransportResult,
-  submission: IHomeContainerTransportSubmission | undefined,
-): boolean {
-  if (!submission) {
-    return false;
-  }
-  if (result.kind === 'needSnapshot') {
-    return Boolean(
-      result.owner &&
-      result.owner.scopeKey === submission.owner.scopeKey &&
-      result.owner.sessionId === submission.owner.sessionId,
-    );
-  }
-  return (
-    result.revision === submission.revision &&
-    result.owner.scopeKey === submission.owner.scopeKey &&
-    result.owner.sessionId === submission.owner.sessionId
-  );
 }

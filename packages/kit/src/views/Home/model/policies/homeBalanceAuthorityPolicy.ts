@@ -7,6 +7,12 @@ import type { IHomePortfolioPresentation } from '../semantic/homeSemanticTypes';
 const fundedActions = ['send', 'receive', 'buySell', 'swap'] as const;
 const zeroActions = ['addMoney', 'receive', 'more'] as const;
 
+function resolveBannerPresentation(bannerAvailable: boolean) {
+  return bannerAvailable
+    ? ({ kind: 'positive' } as const)
+    : ({ kind: 'none' } as const);
+}
+
 type IHomeBalanceAuthorityDecision = {
   cacheCommit?: IHomeConfirmedBalanceRecord;
   presentation: IHomePortfolioPresentation;
@@ -32,7 +38,7 @@ function confirmedPresentation({
         },
       },
       actions: { kind: 'zero', items: zeroActions },
-      banner: { kind: 'none' },
+      banner: resolveBannerPresentation(bannerAvailable),
       freshness: 'confirmedCache',
       refresh,
     };
@@ -48,7 +54,7 @@ function confirmedPresentation({
       },
     },
     actions: { kind: 'funded', items: fundedActions },
-    banner: bannerAvailable ? { kind: 'positive' } : { kind: 'none' },
+    banner: resolveBannerPresentation(bannerAvailable),
     freshness: 'confirmedCache',
     refresh,
   };
@@ -80,7 +86,7 @@ function progressivePresentation({
           },
         },
         actions: { kind: 'zero', items: zeroActions },
-        banner: { kind: 'none' },
+        banner: resolveBannerPresentation(bannerAvailable),
         refresh,
       };
     }
@@ -88,7 +94,7 @@ function progressivePresentation({
       kind: 'loading',
       header: { kind: 'loading' },
       actions: { kind: 'loading', items: [] },
-      banner: { kind: 'none' },
+      banner: resolveBannerPresentation(bannerAvailable),
       refresh,
     };
   }
@@ -102,7 +108,7 @@ function progressivePresentation({
       },
     },
     actions: { kind: 'funded', items: fundedActions },
-    banner: bannerAvailable ? { kind: 'positive' } : { kind: 'none' },
+    banner: resolveBannerPresentation(bannerAvailable),
     refresh,
   };
 }
@@ -136,7 +142,7 @@ function projectHomeBalanceAuthority({
           kind: 'fundedPendingTotal',
           header: { kind: 'loading' },
           actions: { kind: 'funded', items: fundedActions },
-          banner: bannerAvailable ? { kind: 'positive' } : { kind: 'none' },
+          banner: resolveBannerPresentation(bannerAvailable),
         },
       };
     }
@@ -145,7 +151,7 @@ function projectHomeBalanceAuthority({
         kind: 'loading',
         header: { kind: 'loading' },
         actions: { kind: 'loading', items: [] },
-        banner: { kind: 'none' },
+        banner: resolveBannerPresentation(bannerAvailable),
       },
     };
   }
@@ -194,7 +200,7 @@ function projectHomeBalanceAuthority({
             kind: 'unavailable',
             header: { kind: 'unavailable', reason: 'sourceError' },
             actions: { kind: 'loading', items: [] },
-            banner: { kind: 'none' },
+            banner: resolveBannerPresentation(bannerAvailable),
           },
     };
   }
@@ -222,7 +228,7 @@ function projectHomeBalanceAuthority({
           },
         },
         actions: { kind: 'zero', items: zeroActions },
-        banner: { kind: 'none' },
+        banner: resolveBannerPresentation(bannerAvailable),
         freshness: 'live',
         refresh: 'idle',
       },
@@ -241,7 +247,7 @@ function projectHomeBalanceAuthority({
         },
       },
       actions: { kind: 'funded', items: fundedActions },
-      banner: bannerAvailable ? { kind: 'positive' } : { kind: 'none' },
+      banner: resolveBannerPresentation(bannerAvailable),
       freshness: 'live',
       refresh: 'idle',
     },

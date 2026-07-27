@@ -1,5 +1,7 @@
 import { useRef } from 'react';
 
+/* eslint-disable max-classes-per-file -- Prototype-backed lazy slices avoid rebuilding getter closures for every Store event. */
+
 import { getHomeRuntimeDispatcher } from '@onekeyhq/kit/src/views/Home/model/runtime/homeRuntimeRegistry';
 import {
   createInitialHomeStoreResources,
@@ -88,6 +90,287 @@ export function readHomeStoreState(get: IJotaiGetter): IHomeStoreState {
     diagnostics: get(homeDiagnosticsState.atom()),
     commitIdentity: get(homeCommitIdentityState.atom()),
   };
+}
+
+type IHomeTopLevelSlice = Exclude<
+  keyof IHomeStoreState,
+  'resources' | 'sections'
+>;
+type IHomeResourceState = IHomeStoreState['resources'];
+type IHomeSectionState = IHomeStoreState['sections'];
+
+class LazyHomeResourceState implements IHomeResourceState {
+  private readonly overrides = new Map<
+    keyof IHomeStoreState['resources'],
+    IHomeStoreState['resources'][keyof IHomeStoreState['resources']]
+  >();
+
+  constructor(private readonly get: IJotaiGetter) {}
+
+  get capability() {
+    return this.read('capability');
+  }
+
+  get banner() {
+    return this.read('banner');
+  }
+
+  get portfolio() {
+    return this.read('portfolio');
+  }
+
+  get perps() {
+    return this.read('perps');
+  }
+
+  get defi() {
+    return this.read('defi');
+  }
+
+  get nft() {
+    return this.read('nft');
+  }
+
+  get history() {
+    return this.read('history');
+  }
+
+  get market() {
+    return this.read('market');
+  }
+
+  set(mutation: Extract<IHomeStoreMutation, { slice: 'resource' }>): void {
+    this.overrides.set(
+      mutation.sourceId,
+      mutation.operation.kind === 'set'
+        ? mutation.operation.value
+        : createInitialHomeStoreResources()[mutation.sourceId],
+    );
+  }
+
+  private read<TSourceId extends keyof IHomeStoreState['resources']>(
+    sourceId: TSourceId,
+  ): IHomeStoreState['resources'][TSourceId] {
+    if (this.overrides.has(sourceId)) {
+      return this.overrides.get(
+        sourceId,
+      ) as IHomeStoreState['resources'][TSourceId];
+    }
+    return this.get(
+      resourceStates[sourceId].atom(),
+    ) as IHomeStoreState['resources'][TSourceId];
+  }
+}
+
+class LazyHomeSectionState implements IHomeSectionState {
+  private readonly overrides = new Map<
+    keyof IHomeStoreState['sections'],
+    IHomeStoreState['sections'][keyof IHomeStoreState['sections']]
+  >();
+
+  constructor(private readonly get: IJotaiGetter) {}
+
+  get portfolio() {
+    return this.read('portfolio');
+  }
+
+  get perps() {
+    return this.read('perps');
+  }
+
+  get defi() {
+    return this.read('defi');
+  }
+
+  get nft() {
+    return this.read('nft');
+  }
+
+  get history() {
+    return this.read('history');
+  }
+
+  get market() {
+    return this.read('market');
+  }
+
+  set(mutation: Extract<IHomeStoreMutation, { slice: 'section' }>): void {
+    this.overrides.set(
+      mutation.sectionId,
+      mutation.operation.kind === 'set'
+        ? mutation.operation.value
+        : createInitialHomeStoreSection(mutation.sectionId),
+    );
+  }
+
+  private read<TSectionId extends keyof IHomeStoreState['sections']>(
+    sectionId: TSectionId,
+  ): IHomeStoreState['sections'][TSectionId] {
+    if (this.overrides.has(sectionId)) {
+      return this.overrides.get(
+        sectionId,
+      ) as IHomeStoreState['sections'][TSectionId];
+    }
+    return this.get(
+      sectionStates[sectionId].atom(),
+    ) as IHomeStoreState['sections'][TSectionId];
+  }
+}
+
+class LazyHomeStoreState implements IHomeStoreState {
+  readonly resources: IHomeStoreState['resources'];
+
+  readonly sections: IHomeStoreState['sections'];
+
+  private readonly resourceState: LazyHomeResourceState;
+
+  private readonly sectionState: LazyHomeSectionState;
+
+  private readonly overrides = new Map<IHomeTopLevelSlice, unknown>();
+
+  constructor(private readonly get: IJotaiGetter) {
+    this.resourceState = new LazyHomeResourceState(get);
+    this.sectionState = new LazyHomeSectionState(get);
+    this.resources = this.resourceState;
+    this.sections = this.sectionState;
+  }
+
+  get session() {
+    return this.read('session');
+  }
+
+  get runtime() {
+    return this.read('runtime');
+  }
+
+  get walletInputs() {
+    return this.read('walletInputs');
+  }
+
+  get environmentInputs() {
+    return this.read('environmentInputs');
+  }
+
+  get capabilityInputs() {
+    return this.read('capabilityInputs');
+  }
+
+  get facts() {
+    return this.read('facts');
+  }
+
+  get balanceRound() {
+    return this.read('balanceRound');
+  }
+
+  get confirmedBalance() {
+    return this.read('confirmedBalance');
+  }
+
+  get interaction() {
+    return this.read('interaction');
+  }
+
+  get shell() {
+    return this.read('shell');
+  }
+
+  get navigation() {
+    return this.read('navigation');
+  }
+
+  get diagnostics() {
+    return this.read('diagnostics');
+  }
+
+  get commitIdentity() {
+    return this.read('commitIdentity');
+  }
+
+  applyMutations(mutations: readonly IHomeStoreMutation[]): void {
+    mutations.forEach((mutation) => {
+      switch (mutation.slice) {
+        case 'resource':
+          this.resourceState.set(mutation);
+          return;
+        case 'section':
+          this.sectionState.set(mutation);
+          return;
+        case 'facts':
+        case 'balanceRound':
+        case 'confirmedBalance':
+          this.overrides.set(
+            mutation.slice,
+            mutation.operation.kind === 'set'
+              ? mutation.operation.value
+              : undefined,
+          );
+          return;
+        default:
+          this.overrides.set(
+            mutation.slice,
+            resolveOperation(mutation.operation, initial[mutation.slice]),
+          );
+      }
+    });
+  }
+
+  private read<TSlice extends IHomeTopLevelSlice>(
+    slice: TSlice,
+  ): IHomeStoreState[TSlice] {
+    if (this.overrides.has(slice)) {
+      return this.overrides.get(slice) as IHomeStoreState[TSlice];
+    }
+    let value: unknown;
+    switch (slice) {
+      case 'session':
+        value = this.get(homeSessionState.atom());
+        break;
+      case 'runtime':
+        value = this.get(homeRuntimeState.atom());
+        break;
+      case 'walletInputs':
+        value = this.get(homeWalletInputsState.atom());
+        break;
+      case 'environmentInputs':
+        value = this.get(homeEnvironmentInputsState.atom());
+        break;
+      case 'capabilityInputs':
+        value = this.get(homeCapabilityInputsState.atom());
+        break;
+      case 'facts':
+        value = this.get(homeFactsState.atom());
+        break;
+      case 'balanceRound':
+        value = this.get(homeBalanceRoundState.atom());
+        break;
+      case 'confirmedBalance':
+        value = this.get(homeConfirmedBalanceState.atom());
+        break;
+      case 'interaction':
+        value = this.get(homeInteractionState.atom());
+        break;
+      case 'shell':
+        value = this.get(homeShellState.atom());
+        break;
+      case 'navigation':
+        value = this.get(homeNavigationState.atom());
+        break;
+      case 'diagnostics':
+        value = this.get(homeDiagnosticsState.atom());
+        break;
+      case 'commitIdentity':
+        value = this.get(homeCommitIdentityState.atom());
+        break;
+      default:
+        assertNever(slice);
+    }
+    return value as IHomeStoreState[TSlice];
+  }
+}
+
+export function readHomeStoreStateLazily(get: IJotaiGetter): IHomeStoreState {
+  return new LazyHomeStoreState(get);
 }
 
 function resolveOperation<T>(
@@ -225,15 +508,14 @@ export function dispatchHomeStoreEventsAtomically(
     events: readonly IHomeStoreEvent[];
   },
 ) {
-  const current = readHomeStoreState(get);
-  let next = current;
+  const lazyState = new LazyHomeStoreState(get);
   const effects: IHomeStoreEffect[] = [];
   const mutations: IHomeStoreMutation[] = [];
   events.forEach((event) => {
-    const transition = reduceHomeStore(next, event);
+    const transition = reduceHomeStore(lazyState, event);
     effects.push(...transition.effects);
     mutations.push(...transition.patch.mutations);
-    next = applyHomeStorePatchToState(next, transition.patch.mutations);
+    lazyState.applyMutations(transition.patch.mutations);
   });
   if (mutations.length === 0) {
     if (displaySnapshotLoadState) {
@@ -260,7 +542,7 @@ export function dispatchHomeStoreEventsAtomically(
       event.type === 'confirmedSnapshotHydrated',
   );
   set(homeCommitIdentityState.atom(), {
-    storeCommitId: current.commitIdentity.storeCommitId + 1,
+    storeCommitId: lazyState.commitIdentity.storeCommitId + 1,
     origin: cacheHydrated ? 'cacheHydrate' : 'storeEvent',
     changedSourceIds,
     presentationChanged,

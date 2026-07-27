@@ -25,7 +25,10 @@ export function loadHomeInitialSnapshot(
   return {
     context,
     navigation: critical.navigation,
-    records: [],
+    records: loadHomeDisplaySnapshotSourceRecords({
+      context,
+      sourceIds: ['banner', 'portfolio'],
+    }),
     shell: critical.shell,
   };
 }

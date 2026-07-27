@@ -278,16 +278,15 @@ class HomeContainerProtocolV2Test {
   }
 
   @Test
-  fun `render completion waits for list layout and pre draw then acknowledges once`() {
+  fun `render completion waits for list layout and pre draw then completes once`() {
     val coordinator = HomeContainerRenderCompletionCoordinator()
     val state = canonicalState()
-    coordinator.enqueue(state, "portfolio", "ack-7")
+    coordinator.enqueue(state, "portfolio")
     coordinator.registerPage("portfolio", "page-a")
 
     assertTrue(coordinator.markPreDraw("portfolio", "page-a", 7).isEmpty())
     coordinator.markListLaidOut("portfolio", "page-a", 7)
     val completed = coordinator.markPreDraw("portfolio", "page-a", 7)
-    assertEquals(listOf("ack-7"), completed.map { it.acknowledgement })
     assertEquals(listOf(7L), completed.map { it.state.revision })
     assertTrue(coordinator.markPreDraw("portfolio", "page-a", 7).isEmpty())
   }
@@ -356,7 +355,7 @@ class HomeContainerProtocolV2Test {
   fun `render completion follows the latest selected tab and ignores the old page`() {
     val coordinator = HomeContainerRenderCompletionCoordinator()
     val state = canonicalState()
-    coordinator.enqueue(state, "portfolio", "ack-7")
+    coordinator.enqueue(state, "portfolio")
     coordinator.registerPage("portfolio", "portfolio-page")
     coordinator.markListLaidOut("portfolio", "portfolio-page", 7)
 
@@ -368,14 +367,14 @@ class HomeContainerProtocolV2Test {
     )
     coordinator.markListLaidOut("history", "history-page", 7)
     val completed = coordinator.markPreDraw("history", "history-page", 7)
-    assertEquals(listOf("ack-7"), completed.map { it.acknowledgement })
+    assertEquals(listOf(7L), completed.map { it.state.revision })
   }
 
   @Test
   fun `recycled selected page must be replaced before render completion`() {
     val coordinator = HomeContainerRenderCompletionCoordinator()
     val state = canonicalState()
-    coordinator.enqueue(state, "portfolio", "ack-7")
+    coordinator.enqueue(state, "portfolio")
     coordinator.registerPage("portfolio", "old-page")
     coordinator.markListLaidOut("portfolio", "old-page", 7)
     coordinator.unregisterPage("portfolio", "old-page")
@@ -386,27 +385,23 @@ class HomeContainerProtocolV2Test {
     assertTrue(coordinator.markPreDraw("portfolio", "new-page", 7).isEmpty())
     coordinator.markListLaidOut("portfolio", "new-page", 7)
     val completed = coordinator.markPreDraw("portfolio", "new-page", 7)
-    assertEquals(listOf("ack-7"), completed.map { it.acknowledgement })
+    assertEquals(listOf(7L), completed.map { it.state.revision })
   }
 
   @Test
-  fun `a newer rendered revision completes pending acknowledgements in order`() {
+  fun `a newer rendered revision completes pending renders in order`() {
     val coordinator = HomeContainerRenderCompletionCoordinator()
     val state7 = canonicalState()
     val state8 = HomeContainerProtocolV2Transaction.applyPatch(
       fixture("home-container-v2.patch.json"),
       current = state7,
     ).appliedState()
-    coordinator.enqueue(state7, "history", "ack-7")
-    coordinator.enqueue(state8, "history", "ack-8")
+    coordinator.enqueue(state7, "history")
+    coordinator.enqueue(state8, "history")
     coordinator.registerPage("history", "history-page")
 
     coordinator.markListLaidOut("history", "history-page", 8)
     val completed = coordinator.markPreDraw("history", "history-page", 8)
-    assertEquals(
-      listOf("ack-7", "ack-8"),
-      completed.map { it.acknowledgement },
-    )
     assertEquals(listOf(7L, 8L), completed.map { it.state.revision })
   }
 
@@ -444,10 +439,6 @@ class HomeContainerProtocolV2Test {
       patchState.snapshot.tabs.single { it.id == "history" }.sections.single().items.single().title,
     )
 
-    val result = JSONObject(patchOutcome.toTransportResultJson())
-    assertEquals("applied", result.getString("kind"))
-    assertEquals(8, result.getLong("revision"))
-    assertEquals("session-1", result.getJSONObject("owner").getString("sessionId"))
   }
 
   @Test
@@ -763,14 +754,13 @@ class HomeContainerProtocolV2Test {
   }
 
   @Test
-  fun `stale snapshot and patch acknowledge duplicate`() {
+  fun `stale snapshot and patch are ignored as duplicates`() {
     val current = canonicalState()
     val duplicateSnapshot = HomeContainerProtocolV2Transaction.applySnapshot(
       fixture("home-container-v2.snapshot.json"),
       current,
     )
     assertTrue(duplicateSnapshot is HomeContainerProtocolV2ApplyOutcome.Duplicate)
-    assertEquals("duplicate", JSONObject(duplicateSnapshot.toTransportResultJson()).getString("kind"))
 
     val duplicatePatch = JSONObject(fixture("home-container-v2.patch.json"))
       .put("baseRevision", 6)
@@ -928,7 +918,7 @@ class HomeContainerProtocolV2Test {
     val needSnapshot = outcome as HomeContainerProtocolV2ApplyOutcome.NeedSnapshot
     assertEquals(reason, needSnapshot.reason)
     assertEquals(currentRevision, needSnapshot.currentRevision)
-    val result = JSONObject(outcome.toTransportResultJson())
+    val result = JSONObject(needSnapshot.toSnapshotRequestJson())
     assertEquals("needSnapshot", result.getString("kind"))
     assertEquals(reason.wireValue, result.getString("reason"))
   }

@@ -48,6 +48,8 @@ type IHomeSpotNativePayload = {
 
 type IHomeSpotLegacyPayload = {
   accountTokensValue: string;
+  accountTokensValueAvailable?: boolean;
+  accountTokensValueComplete?: boolean;
   accountTokensWorthCurrency?: string;
   accountWorthByNetwork?: Record<string, string>;
   aggregateTokenListMap: Record<string, { tokens: IAccountToken[] }>;
@@ -86,6 +88,8 @@ type IHomeSpotLegacyPayload = {
 
 const HOME_SPOT_SNAPSHOT_KEYS = [
   'accountTokensValue',
+  'accountTokensValueAvailable',
+  'accountTokensValueComplete',
   'accountTokensWorthCurrency',
   'accountWorthByNetwork',
   'aggregateTokenListMap',
@@ -117,6 +121,8 @@ const HOME_SPOT_SNAPSHOT_KEYS = [
 function createHomeSpotSnapshotDefaults(): IHomeSpotLegacyPayload {
   return {
     accountTokensValue: '0',
+    accountTokensValueAvailable: false,
+    accountTokensValueComplete: false,
     accountTokensWorthCurrency: '',
     accountWorthByNetwork: {},
     aggregateTokenListMap: {},

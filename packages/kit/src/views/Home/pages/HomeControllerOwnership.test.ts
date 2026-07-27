@@ -16,6 +16,13 @@ describe('Home runtime ownership', () => {
     expect(root).not.toContain('HomeReadySourceControllers');
   });
 
+  it('keeps the Native Home surface identity independent from the owner', () => {
+    const page = readSource('HomePageContainer.tsx');
+
+    expect(page).toContain('<NativeHomePageView');
+    expect(page).not.toMatch(/key=\{`native-\$\{sceneName\}-/);
+  });
+
   it('creates URL Account runtimes with URL mode and no wallet source execution', () => {
     const page = readSource('urlAccount/UrlAccountPage.tsx');
     const root = readSource('../model/react/HomeStoreSourceControllers.tsx');

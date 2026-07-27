@@ -70,7 +70,7 @@ describe('homeBalanceAuthorityPolicy', () => {
       kind: 'loading',
       header: { kind: 'loading' },
       actions: { kind: 'loading', items: [] },
-      banner: { kind: 'none' },
+      banner: { kind: 'positive' },
     });
   });
 
@@ -167,7 +167,7 @@ describe('homeBalanceAuthorityPolicy', () => {
         kind: 'zero',
         items: ['addMoney', 'receive', 'more'],
       },
-      banner: { kind: 'none' },
+      banner: { kind: 'positive' },
       refresh: 'refreshing',
     });
   });
@@ -230,6 +230,7 @@ describe('homeBalanceAuthorityPolicy', () => {
     });
     expect(zero.presentation).toMatchObject({
       kind: 'zero',
+      banner: { kind: 'positive' },
       freshness: 'live',
     });
     expect(zero.cacheCommit).toMatchObject({

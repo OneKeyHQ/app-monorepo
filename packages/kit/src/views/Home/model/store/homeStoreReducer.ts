@@ -1,5 +1,8 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { type IHomeRuntimeJsonValue } from '@onekeyhq/shared/src/types/homeRuntime';
+import type {
+  IHomeRuntimeJsonValue,
+  IHomeRuntimeRequestToken,
+} from '@onekeyhq/shared/src/types/homeRuntime';
 
 import { aggregateHomeBalanceFacts } from '../balance/homeBalanceAggregation';
 import {
@@ -400,6 +403,8 @@ function sectionCommandSignature(value: IHomeSectionSemanticModel): unknown {
 function serializeSectionForResource(
   value: IHomeSectionSemanticModel,
   data?: IHomeRuntimeJsonValue,
+  freshness: 'confirmedCache' | 'live' = 'live',
+  token?: IHomeRuntimeRequestToken,
 ):
   | IHomeStoreResourceSlot<
       IHomeStoreState['resources'][IHomeStoreSourceId] extends IHomeStoreResourceSlot<
@@ -412,6 +417,7 @@ function serializeSectionForResource(
   if (value.kind === 'empty') {
     return {
       kind: 'empty',
+      token,
       coverageFingerprint: 'empty:v2',
       freshness: 'live',
       refresh: 'idle',
@@ -422,6 +428,7 @@ function serializeSectionForResource(
   }
   return {
     kind: 'ready',
+    token,
     data: {
       payload: data ?? null,
       section: value,
@@ -431,7 +438,7 @@ function serializeSectionForResource(
       value.rowIds[0] ?? '',
       value.rowIds[value.rowIds.length - 1] ?? '',
     ].join(':'),
-    freshness: 'live',
+    freshness,
     refresh: value.refresh,
   };
 }
@@ -552,26 +559,21 @@ function advanceShellPreservingConfirmedCache(
       currentPresentation?.kind === 'zero') &&
     (currentPresentation.freshness === 'confirmedCache' ||
       currentPresentation.freshness === 'live');
-  if (currentHasStableVerdict && nextPresentation?.kind === 'loading') {
-    if (nextPresentation?.refresh === 'failed') {
-      return advanceShell(current, {
-        kind: 'portfolio',
-        presentation: {
-          ...currentPresentation,
-          refresh: 'failed',
-        },
-      });
-    }
-    // A same-owner refresh must not erase a stable funding verdict while its
-    // replacement round is still waiting for decisive evidence.
-    return current;
-  }
-  if (currentHasStableVerdict && nextPresentation?.kind === 'unavailable') {
+  const nextHasLowerQuality =
+    nextPresentation?.kind === 'loading' ||
+    nextPresentation?.kind === 'unavailable' ||
+    (currentPresentation?.kind === 'funded' &&
+      nextPresentation?.kind === 'fundedPendingTotal');
+  if (currentHasStableVerdict && nextHasLowerQuality) {
+    const refreshFailed =
+      nextPresentation?.kind === 'unavailable' ||
+      nextPresentation?.refresh === 'failed';
     return advanceShell(current, {
       kind: 'portfolio',
       presentation: {
         ...currentPresentation,
-        refresh: 'failed',
+        banner: nextPresentation?.banner ?? currentPresentation.banner,
+        refresh: refreshFailed ? 'failed' : 'refreshing',
       },
     });
   }
@@ -723,6 +725,8 @@ function resetOwnerScopedMutations({
   state: IHomeStoreState;
   topology: IHomeStoreState['runtime']['topology'];
 }): IHomeStoreMutation[] {
+  // Never mutate the previous owner's scoped store into the next owner. Replace
+  // it atomically with owner-matched state, or reset it until that state exists.
   const initial = createInitialHomeStoreState();
   const mutations: IHomeStoreMutation[] = [
     {
@@ -1460,6 +1464,8 @@ export function reduceHomeStore(
       let resource = serializeSectionForResource(
         value,
         event.result.kind === 'ready' ? event.result.data : undefined,
+        event.result.kind === 'ready' ? event.result.freshness : undefined,
+        event.token,
       );
       const currentResource = state.resources[event.sectionId];
       if (

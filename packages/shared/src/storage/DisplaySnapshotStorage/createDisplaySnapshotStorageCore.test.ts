@@ -124,6 +124,26 @@ describe('DisplaySnapshotStorage core', () => {
     ).rejects.toThrow('exceeds 4 bytes');
   });
 
+  it('does not impose a record-size limit when none is configured', async () => {
+    const memory = createMemoryBackend();
+    const storage = createDisplaySnapshotStorageCore(
+      {
+        namespace: 'home-test',
+        maxReadBatchSize: 2,
+      },
+      async () => memory.backend,
+    );
+    const value = 'x'.repeat(4096);
+
+    await expect(
+      storage.commit({
+        entries: [{ key: 'chunk/a', value }],
+        commitMarker: { key: 'route/a', value: '1' },
+      }),
+    ).resolves.toBeUndefined();
+    await expect(storage.read('chunk/a')).resolves.toBe(value);
+  });
+
   it('serializes overlapping mutations', async () => {
     const memory = createMemoryBackend();
     let releaseFirst: (() => void) | undefined;

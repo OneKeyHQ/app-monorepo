@@ -38,6 +38,7 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.viewpager2.widget.ViewPager2
 import com.margelo.nitro.skeleton.SkeletonNativeView
+import java.util.ArrayDeque
 import java.util.UUID
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
@@ -49,6 +50,9 @@ import kotlin.math.roundToInt
 
 private const val HOME_CONTAINER_TAB_HEIGHT_DP = 60
 private const val HOME_CONTAINER_COMPACT_HEADER_HEIGHT_DP = 60
+private const val HOME_CONTAINER_STANDARD_ACTION_ROW_HEIGHT_DP = 62
+// Loading and content banners share one row height to prevent owner-switch layout shifts.
+private const val HOME_CONTAINER_BANNER_ROW_HEIGHT_DP = 88
 private const val HOME_CONTAINER_BANNER_SKELETON_ID = "home-banner-loading"
 private val configuredHomeContainerSkeletonGradients =
   WeakHashMap<SkeletonNativeView, List<String>>()
@@ -232,13 +236,11 @@ internal fun homeContainerTargetSynchronizedCollapseOffset(
 
 internal data class HomeContainerCompletedRender(
   val state: HomeContainerProtocolV2State,
-  val acknowledgement: String,
 )
 
 private data class HomeContainerPendingRender(
   val state: HomeContainerProtocolV2State,
   var requiredTabId: String,
-  val acknowledgement: String,
 )
 
 private data class HomeContainerPageRenderProgress(
@@ -289,12 +291,10 @@ internal class HomeContainerRenderCompletionCoordinator {
   fun enqueue(
     state: HomeContainerProtocolV2State,
     requiredTabId: String,
-    acknowledgement: String,
   ) {
     pendingRenders[state.revision] = HomeContainerPendingRender(
       state = state,
       requiredTabId = requiredTabId,
-      acknowledgement = acknowledgement,
     )
   }
 
@@ -362,19 +362,11 @@ internal class HomeContainerRenderCompletionCoordinator {
       add(
         HomeContainerCompletedRender(
           state = pending.state,
-          acknowledgement = pending.acknowledgement,
         ),
       )
     }
   }
 }
-
-internal fun homeContainerDuplicateIsRendered(
-  renderedState: HomeContainerProtocolV2State?,
-  duplicate: HomeContainerProtocolV2ApplyOutcome.Duplicate,
-): Boolean = renderedState?.let { state ->
-  state.owner == duplicate.owner && state.revision >= duplicate.revision
-} == true
 
 internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context) {
   var onAction: ((String, String, String) -> Unit)? = null
@@ -382,7 +374,7 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
   var onVisibleTabChange: ((String) -> Unit)? = null
   var onRenderError: ((String, String) -> Unit)? = null
   var onIntent: ((String) -> Unit)? = null
-  var onTransportResult: ((String) -> Unit)? = null
+  var onSnapshotRequired: ((String) -> Unit)? = null
   var onSlotLayoutChange: (() -> Unit)? = null
 
   private val parser = Executors.newSingleThreadExecutor()
@@ -401,9 +393,9 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
   private var renderedProtocolV2State: HomeContainerProtocolV2State? = null
   private var protocolV3State: HomeContainerProtocolV3State? = null
   private var renderedProtocolV3State: HomeContainerProtocolV3State? = null
-  private var pendingProtocolV3PatchJson: String? = null
-  private var pendingProtocolV3PatchRetryScheduled = false
-  private var lastNeedSnapshotResultKey: String? = null
+  private val pendingProtocolV3PatchJsons = ArrayDeque<String>()
+  private var pendingProtocolV3PatchDrainScheduled = false
+  private var lastSnapshotRequestKey: String? = null
   private var fallbackBackgroundColor = Color.WHITE
   private var selectedTabId = ""
   private var pendingPagerTabId: String? = null
@@ -537,7 +529,7 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       if (disposed.get()) return@execute
       if (HomeContainerProtocolV3Transaction.isProtocolPayload(json, "snapshot")) {
         post {
-          pendingProtocolV3PatchJson = null
+          pendingProtocolV3PatchJsons.clear()
           handleProtocolV3Outcome(
             HomeContainerProtocolV3Transaction.applySnapshot(json),
           )
@@ -546,7 +538,7 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       }
       if (HomeContainerProtocolV2Transaction.isProtocolPayload(json, "snapshot")) {
         post {
-          pendingProtocolV3PatchJson = null
+          pendingProtocolV3PatchJsons.clear()
           protocolV3State = null
           renderedProtocolV3State = null
           handleProtocolV2Outcome(
@@ -565,13 +557,13 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
           return@execute
         }
         post {
-          pendingProtocolV3PatchJson = null
+          pendingProtocolV3PatchJsons.clear()
           protocolV2State = null
           renderedProtocolV2State = null
           protocolV3State = null
           renderedProtocolV3State = null
           renderCompletionCoordinator.reset()
-          lastNeedSnapshotResultKey = null
+          lastSnapshotRequestKey = null
           applySnapshot(next)
         }
       } catch (error: Exception) {
@@ -612,7 +604,7 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       }
       val json = pendingInitialSnapshotJson ?: return@post
       pendingInitialSnapshotJson = null
-      pendingProtocolV3PatchJson = null
+      pendingProtocolV3PatchJsons.clear()
       handleProtocolV3Outcome(HomeContainerProtocolV3Transaction.applySnapshot(json))
     }
   }
@@ -738,13 +730,13 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       if (disposed.get()) return@execute
       if (HomeContainerProtocolV3Transaction.isProtocolPayload(json, "patch")) {
         post {
-          applyProtocolV3PatchOrDefer(json)
+          enqueueProtocolV3Patch(json)
         }
         return@execute
       }
       if (HomeContainerProtocolV2Transaction.isProtocolPayload(json, "patch")) {
         post {
-          pendingProtocolV3PatchJson = null
+          pendingProtocolV3PatchJsons.clear()
           protocolV3State = null
           renderedProtocolV3State = null
           handleProtocolV2Outcome(
@@ -799,7 +791,7 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
   ) {
     mountedSlotMetadata = metadata
     setMountedSlotKeys(keys)
-    schedulePendingProtocolV3PatchRetry()
+    schedulePendingProtocolV3PatchDrain()
   }
 
   private fun availableProtocolV3SlotRevisions(): Map<String, Long> =
@@ -807,29 +799,39 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       homeContainerProtocolV3AvailableSlotRevisions(owner, mountedSlotMetadata)
     }.orEmpty()
 
-  private fun applyProtocolV3PatchOrDefer(json: String) {
-    val outcome = HomeContainerProtocolV3Transaction.applyPatch(
-      json,
-      current = protocolV3State,
-      availableSlotRevisions = availableProtocolV3SlotRevisions(),
-    )
-    if (
-      outcome is HomeContainerProtocolV3ApplyOutcome.NeedSnapshot &&
-      outcome.reason == HomeContainerProtocolV3NeedSnapshotReason.SLOT_REVISION_GAP
-    ) {
-      pendingProtocolV3PatchJson = json
-      return
-    }
-    pendingProtocolV3PatchJson = null
-    handleProtocolV3Outcome(outcome)
+  private fun enqueueProtocolV3Patch(json: String) {
+    pendingProtocolV3PatchJsons.addLast(json)
+    drainPendingProtocolV3Patches()
   }
 
-  private fun schedulePendingProtocolV3PatchRetry() {
-    if (pendingProtocolV3PatchJson == null || pendingProtocolV3PatchRetryScheduled) return
-    pendingProtocolV3PatchRetryScheduled = true
+  private fun drainPendingProtocolV3Patches() {
+    while (pendingProtocolV3PatchJsons.isNotEmpty()) {
+      val outcome = HomeContainerProtocolV3Transaction.applyPatch(
+        pendingProtocolV3PatchJsons.first(),
+        current = protocolV3State,
+        availableSlotRevisions = availableProtocolV3SlotRevisions(),
+      )
+      if (
+        outcome is HomeContainerProtocolV3ApplyOutcome.NeedSnapshot &&
+        outcome.reason == HomeContainerProtocolV3NeedSnapshotReason.SLOT_REVISION_GAP
+      ) {
+        return
+      }
+      pendingProtocolV3PatchJsons.removeFirst()
+      handleProtocolV3Outcome(outcome)
+      if (outcome is HomeContainerProtocolV3ApplyOutcome.NeedSnapshot) {
+        pendingProtocolV3PatchJsons.clear()
+        return
+      }
+    }
+  }
+
+  private fun schedulePendingProtocolV3PatchDrain() {
+    if (pendingProtocolV3PatchJsons.isEmpty() || pendingProtocolV3PatchDrainScheduled) return
+    pendingProtocolV3PatchDrainScheduled = true
     post {
-      pendingProtocolV3PatchRetryScheduled = false
-      pendingProtocolV3PatchJson?.let(::applyProtocolV3PatchOrDefer)
+      pendingProtocolV3PatchDrainScheduled = false
+      drainPendingProtocolV3Patches()
     }
   }
 
@@ -938,8 +940,8 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       renderedProtocolV2State = null
       protocolV3State = null
       renderedProtocolV3State = null
-      pendingProtocolV3PatchJson = null
-      pendingProtocolV3PatchRetryScheduled = false
+      pendingProtocolV3PatchJsons.clear()
+      pendingProtocolV3PatchDrainScheduled = false
       mountedSlotKeys = emptySet()
       mountedSlotMetadata = emptyList()
       renderCompletionCoordinator.reset()
@@ -948,7 +950,7 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       onVisibleTabChange = null
       onRenderError = null
       onIntent = null
-      onTransportResult = null
+      onSnapshotRequired = null
       onSlotLayoutChange = null
     }
   }
@@ -1315,20 +1317,17 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
           renderCompletionCoordinator.reset()
           renderedProtocolV2State = null
           renderedProtocolV3State = null
-          resetViewportForOwnerChange()
+          prepareViewportForOwnerChange()
         }
         protocolV3State = outcome.state
         protocolV2State = outcome.state.legacyState
-        lastNeedSnapshotResultKey = null
+        lastSnapshotRequestKey = null
         renderCompletionCoordinator.retargetPending(
           outcome.state.legacyState.snapshot.selectedTabId,
         )
         renderCompletionCoordinator.enqueue(
           state = outcome.state.legacyState,
           requiredTabId = outcome.state.legacyState.snapshot.selectedTabId,
-          acknowledgement = HomeContainerProtocolV3Transaction.appliedResult(
-            outcome.state,
-          ),
         )
         if (outcome.renderPlan.isFullSnapshot) {
           applySnapshot(
@@ -1343,27 +1342,18 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
           )
         }
       }
-      is HomeContainerProtocolV3ApplyOutcome.Duplicate -> {
-        if (
-          renderedProtocolV3State?.identity?.owner == outcome.state.identity.owner &&
-          renderedProtocolV3State?.transportRevision == outcome.state.transportRevision
-        ) {
-          emitTransportResult(
-            HomeContainerProtocolV3Transaction.duplicateResult(outcome.state),
-          )
-        }
-      }
+      is HomeContainerProtocolV3ApplyOutcome.Duplicate -> Unit
       is HomeContainerProtocolV3ApplyOutcome.NeedSnapshot -> {
         renderCompletionCoordinator.reset()
         renderedProtocolV2State = null
         renderedProtocolV3State = null
-        val result = HomeContainerProtocolV3Transaction.needSnapshotResult(
+        val request = HomeContainerProtocolV3Transaction.needSnapshotRequest(
           protocolV3State,
           outcome.reason,
         )
-        if (lastNeedSnapshotResultKey != result) {
-          lastNeedSnapshotResultKey = result
-          emitTransportResult(result)
+        if (lastSnapshotRequestKey != request) {
+          lastSnapshotRequestKey = request
+          emitSnapshotRequest(request)
         }
       }
     }
@@ -1376,15 +1366,14 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
         if (protocolV2State?.owner != outcome.state.owner) {
           renderCompletionCoordinator.reset()
           renderedProtocolV2State = null
-          resetViewportForOwnerChange()
+          prepareViewportForOwnerChange()
         }
         protocolV2State = outcome.state
-        lastNeedSnapshotResultKey = null
+        lastSnapshotRequestKey = null
         renderCompletionCoordinator.retargetPending(outcome.state.snapshot.selectedTabId)
         renderCompletionCoordinator.enqueue(
           state = outcome.state,
           requiredTabId = outcome.state.snapshot.selectedTabId,
-          acknowledgement = outcome.toTransportResultJson(),
         )
         if (outcome.renderPlan.isFullSnapshot) {
           applySnapshot(
@@ -1396,11 +1385,7 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
           applyProtocolV2Patch(outcome.state.snapshot, outcome.renderPlan)
         }
       }
-      is HomeContainerProtocolV2ApplyOutcome.Duplicate -> {
-        if (homeContainerDuplicateIsRendered(renderedProtocolV2State, outcome)) {
-          emitTransportResult(outcome.toTransportResultJson())
-        }
-      }
+      is HomeContainerProtocolV2ApplyOutcome.Duplicate -> Unit
       is HomeContainerProtocolV2ApplyOutcome.NeedSnapshot -> {
         renderCompletionCoordinator.reset()
         renderedProtocolV2State = null
@@ -1426,7 +1411,6 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       it.identity.owner == completed.state.owner &&
         it.transportRevision == completed.state.revision
     }
-    emitTransportResult(completed.acknowledgement)
   }
 
   private fun emitAction(actionId: String, itemId: String, tabId: String) {
@@ -1556,13 +1540,13 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
   }
 
   private fun emitNeedSnapshot(result: HomeContainerProtocolV2ApplyOutcome.NeedSnapshot) {
-    if (lastNeedSnapshotResultKey == result.coalescingKey) return
-    lastNeedSnapshotResultKey = result.coalescingKey
-    emitTransportResult(result.toTransportResultJson())
+    if (lastSnapshotRequestKey == result.coalescingKey) return
+    lastSnapshotRequestKey = result.coalescingKey
+    emitSnapshotRequest(result.toSnapshotRequestJson())
   }
 
-  private fun emitTransportResult(json: String) {
-    onTransportResult?.invoke(json)
+  private fun emitSnapshotRequest(json: String) {
+    onSnapshotRequired?.invoke(json)
   }
 
   private fun reportError(code: String, message: String) {
@@ -1830,20 +1814,15 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
     tabsView.translationY = -boundedOffset.toFloat()
   }
 
-  private fun resetViewportForOwnerChange() {
+  private fun prepareViewportForOwnerChange() {
+    // Owner data is synchronously rebound into the existing pages. Keep the
+    // pager, scroll offset, and active gesture owned by the mounted surface.
     pendingPagerTabId = null
     pendingPagerSelectionIsProgrammatic = false
     pendingPagerSelectionShouldNotify = false
     pendingSelectedPageRenderRevision = -1L
-    collapseOffset = 0
     activeRefreshRequestId = null
     isRefreshing = false
-    val mountedPages = adapter.pages().toList()
-    pager.adapter = null
-    mountedPages.forEach(HomePageView::recycle)
-    adapter = HomePagerAdapter()
-    pager.adapter = adapter
-    updateSharedChromePosition()
   }
 
   override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
@@ -2852,15 +2831,18 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
       actionsScroll,
       FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
     )
-    addView(actionRowHost, row(62).apply {
+    addView(actionRowHost, row(HOME_CONTAINER_STANDARD_ACTION_ROW_HEIGHT_DP).apply {
       topMargin = dp(26)
     })
     bannersContent.orientation = HORIZONTAL
     bannersScroll.addView(
       bannersContent,
-      ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(88)),
+      ViewGroup.LayoutParams(
+        ViewGroup.LayoutParams.WRAP_CONTENT,
+        dp(HOME_CONTAINER_BANNER_ROW_HEIGHT_DP),
+      ),
     )
-    addView(bannersScroll, row(88).apply {
+    addView(bannersScroll, row(HOME_CONTAINER_BANNER_ROW_HEIGHT_DP).apply {
       topMargin = dp(21)
     })
     accountGroup.alpha = 0f
@@ -2942,7 +2924,9 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
   }
 
   private fun preferredHeightAdjustment(header: HomeContainerHeader): Int {
-    val actionHeightDelta = (header.actionRowHeight - 62).coerceAtLeast(0)
+    val actionHeightDelta =
+      (header.actionRowHeight - HOME_CONTAINER_STANDARD_ACTION_ROW_HEIGHT_DP)
+        .coerceAtLeast(0)
     if (header.actionLayout != "zeroBalance" && header.actionLayout != "loading") {
       return actionHeightDelta
     }
@@ -3053,9 +3037,15 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
           isClickable = false
         }
         actionViews[action.id] = view
-        actionsContent.addView(view, LinearLayout.LayoutParams(dp(82), dp(62)).apply {
-          marginEnd = dp(10)
-        })
+        actionsContent.addView(
+          view,
+          LinearLayout.LayoutParams(
+            dp(82),
+            dp(HOME_CONTAINER_STANDARD_ACTION_ROW_HEIGHT_DP),
+          ).apply {
+            marginEnd = dp(10)
+          },
+        )
       }
     }
     actions.forEach { actionViews[it.id]?.bind(it, theme) }
@@ -3114,9 +3104,15 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
           this.onAction = { actionId -> this@HomeHeaderView.onAction?.invoke(actionId, banner.id) }
         }
         bannerViews[banner.id] = view
-        bannersContent.addView(view, LinearLayout.LayoutParams(dp(bannerWidth), dp(88)).apply {
-          marginEnd = dp(10)
-        })
+        bannersContent.addView(
+          view,
+          LinearLayout.LayoutParams(
+            dp(bannerWidth),
+            dp(HOME_CONTAINER_BANNER_ROW_HEIGHT_DP),
+          ).apply {
+            marginEnd = dp(10)
+          },
+        )
       }
     }
     banners.forEach { banner ->
@@ -3127,16 +3123,24 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
     }
     bannersContent.layoutParams = bannersContent.layoutParams.apply {
       width = bannersContentWidth
-      height = dp(88)
+      height = dp(HOME_CONTAINER_BANNER_ROW_HEIGHT_DP)
     }
     bannersContent.requestLayout()
     bannersContent.post {
       if (bannersContentWidth <= 0) return@post
       bannersContent.measure(
         MeasureSpec.makeMeasureSpec(bannersContentWidth, MeasureSpec.EXACTLY),
-        MeasureSpec.makeMeasureSpec(dp(88), MeasureSpec.EXACTLY),
+        MeasureSpec.makeMeasureSpec(
+          dp(HOME_CONTAINER_BANNER_ROW_HEIGHT_DP),
+          MeasureSpec.EXACTLY,
+        ),
       )
-      bannersContent.layout(0, 0, bannersContentWidth, dp(88))
+      bannersContent.layout(
+        0,
+        0,
+        bannersContentWidth,
+        dp(HOME_CONTAINER_BANNER_ROW_HEIGHT_DP),
+      )
     }
   }
 

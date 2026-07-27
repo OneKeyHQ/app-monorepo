@@ -89,7 +89,7 @@ import {
   type IHomeContainerTabId,
   type IHomeContainerTheme,
   parseHomeContainerIntentV3,
-  parseHomeContainerTransportResult,
+  parseHomeContainerSnapshotRequest,
 } from '@onekeyhq/native-components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -114,6 +114,7 @@ import {
   buildMobileNativeHomeViewModelSections,
   getDeFiTotal,
   resolveMobileNativeHomeActionLayout,
+  resolveMobileNativeHomeActionRowHeight,
   resolveMobileNativeHomeBannerPresentation,
 } from './mobileNativeHomeViewModelAdapter';
 
@@ -394,9 +395,10 @@ const MobileNativeHomeHeaderBridge = memo(
       const actionLayout = resolveMobileNativeHomeActionLayout({
         actionPresentationKind: displayModel.actions.kind,
       });
-      let actionRowHeight = 98;
-      if (isBackupRequired) actionRowHeight = 0;
-      else if (actionLayout === 'standard') actionRowHeight = 62;
+      const actionRowHeight = resolveMobileNativeHomeActionRowHeight({
+        actionLayout,
+        isBackupRequired,
+      });
       let banners: IHomeContainerHeader['banners'] = [];
       if (bannerPresentation === 'loading') {
         banners = [{ id: MOBILE_NATIVE_HOME_BANNER_SKELETON_ID, title: '' }];
@@ -768,10 +770,6 @@ const MobileNativeHomePortfolioBridge = memo(
     const isLpTokenSwitchLoading = Boolean(
       portfolioPayload?.isLpTokenSwitchLoading,
     );
-    const portfolioHeaderSlotRevision =
-      (displayedLp ? 1 : 0) +
-      (isLpTokenSwitchLoading ? 2 : 0) +
-      (showLpTokenFilterSwitch ? 4 : 0);
     const headerSlots = useMemo<IHomeContainerSlots>(
       () => ({
         contentHeaders:
@@ -779,10 +777,7 @@ const MobileNativeHomePortfolioBridge = memo(
             ? {
                 portfolio: {
                   interaction: showLpTokenFilterSwitch ? 'tap' : 'none',
-                  authority: runtime.authority(
-                    'content.header.portfolio',
-                    portfolioHeaderSlotRevision,
-                  ),
+                  authority: runtime.storeAuthority('content.header.portfolio'),
                   content: (
                     <RichBlockHeader
                       title={labels.tokens}
@@ -807,7 +802,6 @@ const MobileNativeHomePortfolioBridge = memo(
         displayModel.body.kind,
         isLpTokenSwitchLoading,
         labels.tokens,
-        portfolioHeaderSlotRevision,
         runtime,
         setShowLpTokensOnly,
         showLpTokenFilterSwitch,
@@ -1512,20 +1506,59 @@ const MobileNativeHomeHistoryBridge = memo(
   },
 );
 
-const MobileNativeHomeBridges = memo(function MobileNativeHomeBridges({
+const MobileNativeHomeOwnerBridge = memo(function MobileNativeHomeOwnerBridge({
+  nativeTheme,
+  owner,
   runtime,
 }: {
+  nativeTheme: IHomeContainerTheme;
+  owner: IHomeContainerOwner;
   runtime: MobileNativeHomeBridgeRuntime;
 }) {
+  useLayoutEffect(() => {
+    runtime.replaceOwner(owner, nativeTheme);
+  }, [nativeTheme, owner, runtime]);
+  return null;
+});
+
+const MobileNativeHomeProducerBridges = memo(
+  function MobileNativeHomeProducerBridges({
+    runtime,
+  }: {
+    runtime: MobileNativeHomeBridgeRuntime;
+  }) {
+    return (
+      <>
+        <MobileNativeHomeNavigationBridge runtime={runtime} />
+        <MobileNativeHomeHeaderBridge runtime={runtime} />
+        <MobileNativeHomePortfolioBridge runtime={runtime} />
+        <MobileNativeHomePerpsBridge runtime={runtime} />
+        <MobileNativeHomeDeFiBridge runtime={runtime} />
+        <MobileNativeHomeNFTBridge runtime={runtime} />
+        <MobileNativeHomeHistoryBridge runtime={runtime} />
+      </>
+    );
+  },
+);
+
+const MobileNativeHomeBridges = memo(function MobileNativeHomeBridges({
+  nativeTheme,
+  owner,
+  runtime,
+}: {
+  nativeTheme: IHomeContainerTheme;
+  owner: IHomeContainerOwner;
+  runtime: MobileNativeHomeBridgeRuntime;
+}) {
+  const producerKey = `${owner.scopeKey}:${owner.sessionId}`;
   return (
     <>
-      <MobileNativeHomeNavigationBridge runtime={runtime} />
-      <MobileNativeHomeHeaderBridge runtime={runtime} />
-      <MobileNativeHomePortfolioBridge runtime={runtime} />
-      <MobileNativeHomePerpsBridge runtime={runtime} />
-      <MobileNativeHomeDeFiBridge runtime={runtime} />
-      <MobileNativeHomeNFTBridge runtime={runtime} />
-      <MobileNativeHomeHistoryBridge runtime={runtime} />
+      <MobileNativeHomeOwnerBridge
+        nativeTheme={nativeTheme}
+        owner={owner}
+        runtime={runtime}
+      />
+      <MobileNativeHomeProducerBridges key={producerKey} runtime={runtime} />
     </>
   );
 });
@@ -1553,19 +1586,17 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
         : undefined,
     [session.ownerToken],
   );
-  const runtime = useMemo(
-    () =>
-      owner
-        ? new MobileNativeHomeBridgeRuntime(
-            owner,
-            () => readHomeStoreState(store.get).commitIdentity.storeCommitId,
-            nativeTheme,
-          )
-        : undefined,
-    // Theme changes are patched into the existing transport session.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [owner?.scopeKey, owner?.sessionId, store],
+  const runtimeRef = useRef<MobileNativeHomeBridgeRuntime | undefined>(
+    undefined,
   );
+  if (!runtimeRef.current && owner) {
+    runtimeRef.current = new MobileNativeHomeBridgeRuntime(
+      owner,
+      () => readHomeStoreState(store.get).commitIdentity.storeCommitId,
+      nativeTheme,
+    );
+  }
+  const runtime = runtimeRef.current;
   const slotBundle = useSyncExternalStore(
     runtime?.subscribeSlots ?? (() => () => undefined),
     runtime?.getSlotBundle ?? (() => undefined),
@@ -1591,6 +1622,9 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       refreshTimersRef.current.clear();
       runtime?.controller.detach(target);
       runtime?.dispose();
+      if (runtimeRef.current === runtime) {
+        runtimeRef.current = undefined;
+      }
       attachedTargetRef.current = undefined;
       nativeCapabilitiesRef.current = undefined;
     },
@@ -1805,26 +1839,21 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       attachedTargetRef.current = target;
     }
   }, [runtime]);
-  const handleTransportResult = useCallback(
+  const handleSnapshotRequired = useCallback(
     (value: string) => {
-      const result = parseHomeContainerTransportResult(value);
-      if (!result) {
+      const request = parseHomeContainerSnapshotRequest(value);
+      if (!request) {
         defaultLogger.wallet.homeUi.homeNativeTransportDecision({
           resultKind: 'invalid',
         });
-      } else if (result.kind === 'needSnapshot') {
-        defaultLogger.wallet.homeUi.homeNativeTransportDecision({
-          resultKind: result.kind,
-          currentRevision: result.currentRevision,
-          reason: result.reason,
-        });
       } else {
         defaultLogger.wallet.homeUi.homeNativeTransportDecision({
-          resultKind: result.kind,
-          revision: result.revision,
+          resultKind: request.kind,
+          currentRevision: request.currentRevision,
+          reason: request.reason,
         });
       }
-      runtime?.controller.handleTransportResult(value);
+      runtime?.controller.handleSnapshotRequest(value);
     },
     [runtime],
   );
@@ -1837,7 +1866,11 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
   if (!owner || !runtime || !initialSnapshot || !slotBundle) return null;
   return (
     <Stack flex={1} bg="$bgApp">
-      <MobileNativeHomeBridges runtime={runtime} />
+      <MobileNativeHomeBridges
+        nativeTheme={nativeTheme}
+        owner={owner}
+        runtime={runtime}
+      />
       <MemoHomeTabSearchHeader />
       <HomeContainer
         ref={nativeRef}
@@ -1847,7 +1880,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
         testID="NativeHomeContainer"
         onReady={handleReady}
         onIntent={handleIntent}
-        onTransportResult={handleTransportResult}
+        onSnapshotRequired={handleSnapshotRequired}
         onRenderError={handleRenderError}
       />
     </Stack>

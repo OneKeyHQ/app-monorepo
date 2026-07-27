@@ -27,8 +27,8 @@ class HybridHomeContainer(context: ThemedReactContext) : HybridHomeContainerSpec
     onIntent = { intentJson ->
       this@HybridHomeContainer.onIntent?.invoke(intentJson)
     }
-    onTransportResult = { resultJson ->
-      this@HybridHomeContainer.onTransportResult?.invoke(resultJson)
+    onSnapshotRequired = { requestJson ->
+      this@HybridHomeContainer.onSnapshotRequired?.invoke(requestJson)
     }
   }
 
@@ -66,7 +66,7 @@ class HybridHomeContainer(context: ThemedReactContext) : HybridHomeContainerSpec
       field = value
       updateRefreshAvailability()
     }
-  override var onTransportResult: ((resultJson: String) -> Unit)? = null
+  override var onSnapshotRequired: ((requestJson: String) -> Unit)? = null
 
   override fun setSnapshot(snapshotJson: String) {
     containerView.submitSnapshot(snapshotJson)

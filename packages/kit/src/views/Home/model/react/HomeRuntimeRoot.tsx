@@ -112,13 +112,6 @@ export function HomeRuntimeRoot({
       }
     };
     return {
-      cancelSession: (envelope) => {
-        runtime.scheduler.cancelSession(envelope.effect.sessionId);
-        runtime.sources.cancelSession(envelope.effect.sessionId);
-        runtime.commitBudget.discardAuthority({
-          sessionId: envelope.effect.sessionId,
-        });
-      },
       connectRuntime: async () => connectRuntime(),
       recoverRuntime: async () => connectRuntime(),
       executeCommand: async (envelope) => {
@@ -182,10 +175,7 @@ export function HomeRuntimeRoot({
   }, [mode, runtime]);
 
   useLayoutEffect(() => {
-    runtime.dispatch({
-      type: 'sessionEvent',
-      event: { type: 'ownerChanged', owner },
-    });
+    runtime.replaceOwner(owner);
   }, [owner, runtime]);
 
   useEffect(() => {

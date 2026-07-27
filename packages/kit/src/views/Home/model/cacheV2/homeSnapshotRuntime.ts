@@ -3,13 +3,10 @@ import { registerColdStartFlushTrigger } from '@onekeyhq/shared/src/storage/cold
 import type { IHomeRuntimeOwnerToken } from '@onekeyhq/shared/src/types/homeRuntime';
 
 import { homeDisplaySnapshotPersistQueue } from './homeDisplaySnapshotPersistQueue';
-import {
-  type IHomeInitialSnapshotLoad,
-  loadHomeInitialSnapshot,
-  loadHomeSnapshotSource,
-} from './homeSnapshotLoader';
+import { loadHomeSnapshotSource } from './homeSnapshotLoader';
+import { loadPreparedHomeDisplaySnapshot } from './loadPreparedHomeDisplaySnapshot';
 
-import type { ILoadedHomeDisplaySnapshotManifest } from './homeDisplaySnapshotTypes';
+import type { IPreparedHomeDisplaySnapshot } from './loadPreparedHomeDisplaySnapshot.types';
 import type {
   IHomeCachedSourceRecord,
   IHomeStoreCommitIdentity,
@@ -23,7 +20,7 @@ interface IHomeSnapshotRuntimeHost {
     ownerToken: IHomeRuntimeOwnerToken;
     records?: readonly IHomeCachedSourceRecord[];
     snapshot?: Pick<
-      IHomeInitialSnapshotLoad,
+      IPreparedHomeDisplaySnapshot,
       'navigation' | 'records' | 'shell'
     >;
   }): void;
@@ -36,7 +33,7 @@ export class HomeSnapshotRuntime {
 
   private lastCommitId = -1;
 
-  private context: ILoadedHomeDisplaySnapshotManifest | undefined;
+  private context: IPreparedHomeDisplaySnapshot['context'] | undefined;
 
   private readonly loadedSourceIds = new Set<IHomeStoreSourceId>();
 
@@ -60,11 +57,75 @@ export class HomeSnapshotRuntime {
       : () => undefined;
   }
 
+  prepareOwner(
+    ownerScopeKey: string,
+  ):
+    | IPreparedHomeDisplaySnapshot
+    | Promise<IPreparedHomeDisplaySnapshot | undefined>
+    | undefined {
+    if (!this.persistenceEnabled) {
+      return undefined;
+    }
+    return loadPreparedHomeDisplaySnapshot({ ownerScopeKey }) as
+      | IPreparedHomeDisplaySnapshot
+      | Promise<IPreparedHomeDisplaySnapshot | undefined>
+      | undefined;
+  }
+
+  adoptPreparedOwner(
+    ownerToken: IHomeRuntimeOwnerToken | undefined,
+    snapshot?: IPreparedHomeDisplaySnapshot,
+  ): void {
+    this.loadSequence += 1;
+    this.ownerToken = ownerToken;
+    this.context = snapshot?.context;
+    this.loadedSourceIds.clear();
+    snapshot?.records.forEach((record) => {
+      this.loadedSourceIds.add(record.sourceId);
+    });
+    this.inFlightSourceIds.clear();
+  }
+
+  publishPreparedOwner(
+    ownerToken: IHomeRuntimeOwnerToken,
+    snapshot: IPreparedHomeDisplaySnapshot | undefined,
+  ): void {
+    if (
+      this.disposed ||
+      ownerToken.scopeKey !== this.ownerToken?.scopeKey ||
+      ownerToken.sessionId !== this.ownerToken.sessionId
+    ) {
+      return;
+    }
+    this.context = snapshot?.context;
+    snapshot?.records.forEach((record) => {
+      this.loadedSourceIds.add(record.sourceId);
+    });
+    this.host.publishHydration({
+      loadState: {
+        ownerScopeKey: ownerToken.scopeKey,
+        sessionId: ownerToken.sessionId,
+        status: snapshot ? 'hit' : 'miss',
+      },
+      ownerToken,
+      snapshot,
+    });
+  }
+
   onStoreCommit(state: IHomeStoreState): void {
     if (this.disposed) {
       return;
     }
     const ownerToken = state.session.ownerToken;
+    if (!this.persistenceEnabled) {
+      if (
+        ownerToken?.scopeKey !== this.ownerToken?.scopeKey ||
+        ownerToken?.sessionId !== this.ownerToken?.sessionId
+      ) {
+        this.adoptPreparedOwner(ownerToken);
+      }
+      return;
+    }
     if (
       ownerToken?.scopeKey !== this.ownerToken?.scopeKey ||
       ownerToken?.sessionId !== this.ownerToken?.sessionId
@@ -117,7 +178,7 @@ export class HomeSnapshotRuntime {
       },
       ownerToken,
     });
-    const loaded = loadHomeInitialSnapshot(ownerToken.scopeKey);
+    const loaded = this.prepareOwner(ownerToken.scopeKey);
     if (loaded instanceof Promise) {
       void loaded.then(
         (snapshot) => this.acceptInitial(sequence, ownerToken, snapshot),
@@ -131,7 +192,7 @@ export class HomeSnapshotRuntime {
   private acceptInitial(
     sequence: number,
     ownerToken: IHomeRuntimeOwnerToken,
-    snapshot: IHomeInitialSnapshotLoad | undefined,
+    snapshot: IPreparedHomeDisplaySnapshot | undefined,
   ): void {
     if (!this.isCurrent(sequence, ownerToken)) {
       return;

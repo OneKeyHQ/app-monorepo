@@ -5,13 +5,6 @@ import {
   type IHomeContainerSlots,
 } from './HomeContainer.types';
 
-function ownersMatch(
-  left: IHomeContainerSlotBundle['owner'],
-  right: IHomeContainerSlotBundle['owner'],
-): boolean {
-  return left.scopeKey === right.scopeKey && left.sessionId === right.sessionId;
-}
-
 function createReservedSlot(slot: IHomeContainerSlot): IHomeContainerSlot {
   return { ...slot, content: null, interaction: 'none' };
 }
@@ -129,45 +122,19 @@ function createReservedSlots(slots: IHomeContainerSlots): IHomeContainerSlots {
 }
 
 function resolveHomeContainerSlots({
-  acknowledgedBundle,
   currentBundle,
   legacySlots,
-  preferCurrentBundle = false,
-  safeFallbackBundle,
 }: {
-  acknowledgedBundle: IHomeContainerSlotBundle | undefined;
   currentBundle: IHomeContainerSlotBundle | undefined;
   legacySlots: IHomeContainerSlots | undefined;
-  preferCurrentBundle?: boolean;
-  safeFallbackBundle?: IHomeContainerSlotBundle;
 }): IHomeContainerSlots | undefined {
   if (!currentBundle) {
     return legacySlots ? filterSlots(legacySlots) : undefined;
   }
-  // The acknowledged bundle already carries the exact transaction revision.
-  // The parent bundle may commit before or after the wrapper acknowledgement,
-  // so only its current owner and slot contract participate in this gate.
   if (
-    currentBundle.slotContractRevision ===
-      HOME_CONTAINER_SLOT_CONTRACT_REVISION &&
-    acknowledgedBundle?.slotContractRevision ===
-      HOME_CONTAINER_SLOT_CONTRACT_REVISION &&
-    ownersMatch(currentBundle.owner, acknowledgedBundle.owner)
+    currentBundle.slotContractRevision === HOME_CONTAINER_SLOT_CONTRACT_REVISION
   ) {
-    return filterSlots(
-      preferCurrentBundle ? currentBundle.slots : acknowledgedBundle.slots,
-    );
-  }
-  if (
-    currentBundle.slotContractRevision ===
-      HOME_CONTAINER_SLOT_CONTRACT_REVISION &&
-    safeFallbackBundle?.slotContractRevision ===
-      HOME_CONTAINER_SLOT_CONTRACT_REVISION &&
-    ownersMatch(currentBundle.owner, safeFallbackBundle.owner)
-  ) {
-    return filterSlots(
-      preferCurrentBundle ? currentBundle.slots : safeFallbackBundle.slots,
-    );
+    return filterSlots(currentBundle.slots);
   }
   return createReservedSlots(currentBundle.slots);
 }

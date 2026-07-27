@@ -12,12 +12,16 @@ import {
   type IHomeContainerSlotBundle,
   type IHomeContainerSlotKey,
   type IHomeContainerSlots,
+  type IHomeContainerSnapshot,
   type IHomeContainerTab,
   type IHomeContainerTabId,
   type IHomeContainerTheme,
 } from '@onekeyhq/native-components';
 
-import { resolveMobileNativeHomeBodySections } from './mobileNativeHomeViewModelAdapter';
+import {
+  MOBILE_NATIVE_HOME_STANDARD_ACTION_ROW_HEIGHT,
+  resolveMobileNativeHomeBodySections,
+} from './mobileNativeHomeViewModelAdapter';
 
 const TAB_ORDER: readonly IHomeContainerTabId[] = [
   'portfolio',
@@ -50,6 +54,33 @@ function createRevisionState(): IHomeContainerControllerRevisionStateV3 {
       sectionCommands: { ...sections },
     },
     slotRevisions: {},
+  };
+}
+
+function createInitialSnapshot(
+  theme: IHomeContainerTheme,
+): IHomeContainerSnapshot {
+  return {
+    schemaVersion: HOME_CONTAINER_SCHEMA_VERSION,
+    revision: 0,
+    selectedTabId: 'portfolio',
+    header: {
+      accountName: '',
+      balance: '',
+      actionLayout: 'loading',
+      actionRowHeight: MOBILE_NATIVE_HOME_STANDARD_ACTION_ROW_HEIGHT,
+      actions: [],
+      banners: [],
+    },
+    tabs: [
+      {
+        id: 'portfolio',
+        title: '',
+        destination: 'inline',
+        sections: [],
+      },
+    ],
+    theme,
   };
 }
 
@@ -135,6 +166,8 @@ export class MobileNativeHomeBridgeRuntime {
 
   private slotFlushScheduled = false;
 
+  private slotFlushToken = 0;
+
   private visibleTabs: readonly IHomeContainerTabId[] = ['portfolio'];
 
   private destinations: Partial<
@@ -172,7 +205,7 @@ export class MobileNativeHomeBridgeRuntime {
   private disposed = false;
 
   constructor(
-    readonly owner: IHomeContainerOwner,
+    private owner: IHomeContainerOwner,
     private readonly getStoreCommitId: () => number,
     initialTheme: IHomeContainerTheme,
   ) {
@@ -187,28 +220,7 @@ export class MobileNativeHomeBridgeRuntime {
       initialOwner: owner,
       initialProtocolV3Revisions: this.revisionState,
       initialSlots,
-      initialSnapshot: {
-        schemaVersion: HOME_CONTAINER_SCHEMA_VERSION,
-        revision: 0,
-        selectedTabId: 'portfolio',
-        header: {
-          accountName: '',
-          balance: '',
-          actionLayout: 'loading',
-          actionRowHeight: 98,
-          actions: [],
-          banners: [],
-        },
-        tabs: [
-          {
-            id: 'portfolio',
-            title: '',
-            destination: 'inline',
-            sections: [],
-          },
-        ],
-        theme: initialTheme,
-      },
+      initialSnapshot: createInitialSnapshot(initialTheme),
       requireProtocolV3: true,
     });
   }
@@ -228,12 +240,66 @@ export class MobileNativeHomeBridgeRuntime {
     return this.selectedTabId;
   }
 
+  replaceOwner(owner: IHomeContainerOwner, theme: IHomeContainerTheme): void {
+    if (
+      this.disposed ||
+      (this.owner.scopeKey === owner.scopeKey &&
+        this.owner.sessionId === owner.sessionId)
+    ) {
+      return;
+    }
+    this.owner = owner;
+    this.revisionState = createRevisionState();
+    this.sectionModels.clear();
+    this.slotContributions.clear();
+    const storeCommitId = this.getStoreCommitId();
+    this.slotFlushToken += 1;
+    this.slotFlushScheduled = false;
+    this.visibleTabs = ['portfolio'];
+    this.destinations = {};
+    this.tabTitles = {
+      portfolio: '',
+      perps: '',
+      defi: '',
+      nft: '',
+      history: '',
+    };
+    this.selectedTabId = 'portfolio';
+    this.bodyPresentationKind = 'loading';
+    this.lastNavigation = undefined;
+    const slots: IHomeContainerSlots = {};
+    this.revisionState.storeCommitId = storeCommitId;
+    this.revisionState.slotRevisions = collectSlotRevisions(slots);
+    this.slotBundle = {
+      owner,
+      semanticRevision: storeCommitId,
+      slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
+      slots,
+    };
+    this.controller.replaceOwner(owner, createInitialSnapshot(theme));
+    this.controller.setProtocolV3RevisionState(this.revisionState);
+    this.controller.updateSlots(slots);
+    // The keyed producers publish one complete target-owner bundle before the
+    // controller's frame flush; exposing this empty bridge state would create
+    // an avoidable blank frame between owners.
+  }
+
   authority(slotId: IHomeContainerSlotKey, slotRevision: number) {
     return {
       owner: this.owner,
       producedByStoreCommitId: this.getStoreCommitId(),
       slotId,
       slotRevision,
+    };
+  }
+
+  storeAuthority(slotId: IHomeContainerSlotKey) {
+    const storeCommitId = this.getStoreCommitId();
+    return {
+      owner: this.owner,
+      producedByStoreCommitId: storeCommitId,
+      slotId,
+      slotRevision: storeCommitId,
     };
   }
 
@@ -339,7 +405,12 @@ export class MobileNativeHomeBridgeRuntime {
       return;
     }
     this.slotFlushScheduled = true;
+    this.slotFlushToken += 1;
+    const flushToken = this.slotFlushToken;
     queueMicrotask(() => {
+      if (flushToken !== this.slotFlushToken) {
+        return;
+      }
       this.slotFlushScheduled = false;
       if (this.disposed) {
         return;

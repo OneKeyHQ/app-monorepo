@@ -10,8 +10,7 @@ export {
   HOME_CONTAINER_SLOT_CONTRACT_REVISION,
   HOME_CONTAINER_TAB_IDS,
   serializeHomeContainerPayload,
-  parseHomeContainerTransportResult,
-  isHomeContainerTransportResultForSubmission,
+  parseHomeContainerSnapshotRequest,
   isHomeContainerSnapshotInvariantValid,
 } from './HomeContainer.types';
 
@@ -41,13 +40,12 @@ export type {
   IHomeContainerSnapshot,
   IHomeContainerSnapshotEnvelope,
   IHomeContainerSnapshotPayload,
+  IHomeContainerSnapshotRequest,
   IHomeContainerTab,
   IHomeContainerTabPatch,
   IHomeContainerTabId,
   IHomeContainerTheme,
   IHomeContainerTransportPayload,
-  IHomeContainerTransportResult,
-  IHomeContainerTransportSubmission,
 } from './HomeContainer.types';
 
 export {

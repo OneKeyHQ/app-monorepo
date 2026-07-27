@@ -30,7 +30,7 @@ export type IHomePortfolioPresentation =
       kind: 'loading';
       header: { kind: 'loading' };
       actions: { kind: 'loading'; items: readonly [] };
-      banner: { kind: 'none' };
+      banner: { kind: 'positive' } | { kind: 'none' };
       refresh?: 'refreshing' | 'failed';
     }
   | {
@@ -44,7 +44,7 @@ export type IHomePortfolioPresentation =
       kind: 'zero';
       header: { kind: 'zero'; balance: IHomeMoneyViewModel };
       actions: { kind: 'zero'; items: readonly IHomeActionId[] };
-      banner: { kind: 'none' };
+      banner: { kind: 'positive' } | { kind: 'none' };
       freshness?: 'live' | 'confirmedCache';
       refresh?: 'idle' | 'refreshing' | 'failed';
     }
@@ -67,7 +67,7 @@ export type IHomePortfolioPresentation =
         reason: 'sourceError' | 'runtimeUnavailable' | 'invalidAmount';
       };
       actions: { kind: 'loading'; items: readonly [] };
-      banner: { kind: 'none' };
+      banner: { kind: 'positive' } | { kind: 'none' };
     };
 
 export type IHomeShellSemanticModel =

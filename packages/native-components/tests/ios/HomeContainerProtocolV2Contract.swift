@@ -17,7 +17,7 @@ enum HomeContainerProtocolV2Contract {
     try verifyPatchRejectsOwnerMismatchAndRevisionGapWithoutMutation()
     try verifyReplaceSectionUsesStableIdAndExplicitIndex()
     try verifyInvalidLateChangeDoesNotCommitEarlierChanges()
-    try verifyDuplicateSnapshotAcknowledgesWithoutReapplying()
+    try verifyDuplicateSnapshotIsIgnoredWithoutReapplying()
     try verifyEmptyOwnerAndContentIdentifiersAreRejectedWithoutMutation()
     try verifyUnsafeIntegersAreRejectedWithoutMutation()
     try verifyStringAndFractionalNumbersAreDecodeRejections()
@@ -168,7 +168,7 @@ enum HomeContainerProtocolV2Contract {
     let movedPatch = HomeContainerProtocolV2PatchEnvelope(
       kind: "patch",
       protocolVersion: 2,
-      schemaVersion: 1,
+      schemaVersion: homeContainerBusinessSchemaVersion,
       owner: initialState.owner,
       baseRevision: 7,
       revision: 8,
@@ -214,7 +214,7 @@ enum HomeContainerProtocolV2Contract {
     let invalidPatch = HomeContainerProtocolV2PatchEnvelope(
       kind: "patch",
       protocolVersion: 2,
-      schemaVersion: 1,
+      schemaVersion: homeContainerBusinessSchemaVersion,
       owner: initialState.owner,
       baseRevision: 7,
       revision: 8,
@@ -240,7 +240,7 @@ enum HomeContainerProtocolV2Contract {
     try expect(initialState.snapshot.revision == 7)
   }
 
-  private static func verifyDuplicateSnapshotAcknowledgesWithoutReapplying() throws {
+  private static func verifyDuplicateSnapshotIsIgnoredWithoutReapplying() throws {
     let envelope = try decoder.decode(
       HomeContainerProtocolV2SnapshotEnvelope.self,
       from: fixtureData("home-container-v2.snapshot.json")
@@ -344,7 +344,7 @@ enum HomeContainerProtocolV2Contract {
     let emptyChangeIdentifiers = HomeContainerProtocolV2PatchEnvelope(
       kind: "patch",
       protocolVersion: 2,
-      schemaVersion: 1,
+      schemaVersion: homeContainerBusinessSchemaVersion,
       owner: initialState.owner,
       baseRevision: initialState.revision,
       revision: initialState.revision + 1,

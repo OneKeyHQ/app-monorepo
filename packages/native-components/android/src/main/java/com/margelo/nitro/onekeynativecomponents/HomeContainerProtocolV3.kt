@@ -369,13 +369,7 @@ internal object HomeContainerProtocolV3Transaction {
       .put("commandId", commandId),
   )
 
-  fun appliedResult(state: HomeContainerProtocolV3State): String =
-    transportResult("applied", state)
-
-  fun duplicateResult(state: HomeContainerProtocolV3State): String =
-    transportResult("duplicate", state)
-
-  fun needSnapshotResult(
+  fun needSnapshotRequest(
     state: HomeContainerProtocolV3State?,
     reason: HomeContainerProtocolV3NeedSnapshotReason,
   ): String = JSONObject()
@@ -416,15 +410,6 @@ internal object HomeContainerProtocolV3Transaction {
       .toString()
     return value.takeIf { validateIntent(it, state) }
   }
-
-  private fun transportResult(
-    kind: String,
-    state: HomeContainerProtocolV3State,
-  ): String = JSONObject()
-    .put("kind", kind)
-    .put("owner", state.identity.owner.toJson())
-    .put("revision", state.transportRevision)
-    .toString()
 
   private fun needSnapshot(reason: HomeContainerProtocolV3NeedSnapshotReason) =
     HomeContainerProtocolV3ApplyOutcome.NeedSnapshot(reason)

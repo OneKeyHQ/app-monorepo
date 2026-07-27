@@ -7,6 +7,7 @@ import type { ISettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   HOME_RUNTIME_PROTOCOL_VERSION,
   type IHomeRuntimeJsonValue,
@@ -50,12 +51,15 @@ import {
 import { adaptCurrentHomeCapabilityFacts } from '../capabilities/currentHomeCapabilityFactsAdapter';
 import {
   type IHomeResultAuthority,
+  type IHomeResultPhase,
   type IHomeResultSink,
   createHomeResultSink,
 } from '../results/homeResultSink';
 import {
   HOME_PERPS_REFERRAL_BANNER_ID,
   type IHomeBannerStorePayload,
+  buildHomeBannerSemanticFingerprint,
+  readHomeBannerStorePayload,
   toHomeBannerStoreItem,
 } from '../sections/banner/homeBannerStoreModel';
 import { getHomeDeFiProtocolRowIds } from '../sections/defi/homeDeFiSourceAdapter';
@@ -73,6 +77,10 @@ import {
 } from '../store/homeStoreJson';
 
 import { AllNetworkAccountRepository } from './AllNetworkAccountRepository';
+import {
+  buildHomeSourceExecutionKey,
+  normalizeHomePortfolioLpCacheControl,
+} from './homeSourceExecutionKey';
 
 import type { IHomeCapabilityFacts } from '../capabilities/homeCapabilityTypes';
 import type {
@@ -123,7 +131,7 @@ interface IHomeSourceRuntimeHost {
   leafPool: HomeLeafRequestPool;
   dispatch(event: IHomeStoreEvent): unknown;
   dispatchAtomically(events: readonly IHomeStoreEvent[]): unknown;
-  getState(): IHomeStoreState;
+  getStateView(): IHomeStoreState;
 }
 
 type ISectionWireResult = {
@@ -135,8 +143,10 @@ type ISectionWireResult = {
 };
 
 type ISourceCacheEntry = {
+  coverageFingerprint: string;
   dataRevision: number;
   expiresAt: number;
+  phase: IHomeResultPhase;
   payload: IHomeRuntimeJsonValue;
   rowIds: readonly string[];
 };
@@ -161,18 +171,20 @@ function encodeKeyPart(value: string | number | boolean | undefined): string {
   return `${normalized.length}:${normalized}`;
 }
 
-function sumTokenValue(response: IFetchAccountTokensResp): string {
-  return [
+function sumTokenValue(response: IFetchAccountTokensResp): string | undefined {
+  const values = [
     response.tokens.fiatValue,
     response.smallBalanceTokens.fiatValue,
     response.riskTokens.fiatValue,
-  ]
-    .reduce(
-      (total, value) =>
-        value === undefined ? total : total.plus(new BigNumber(value)),
-      new BigNumber(0),
-    )
-    .toFixed();
+  ].filter((value): value is string => value !== undefined);
+  if (values.length === 0) {
+    return undefined;
+  }
+  const total = values.reduce(
+    (result, value) => result.plus(new BigNumber(value)),
+    new BigNumber(0),
+  );
+  return total.isFinite() ? total.toFixed() : undefined;
 }
 
 function buildSourceKey({
@@ -192,10 +204,11 @@ function buildSourceKey({
         'home.market.selectedCategory'
       ];
   } else if (sourceId === 'portfolio') {
-    control =
+    control = normalizeHomePortfolioLpCacheControl(
       state.interaction.sectionControls.portfolio?.[
         HOME_PORTFOLIO_SHOW_LP_TOKENS_CONTROL_ID
-      ];
+      ],
+    );
   }
   const capabilityPrerequisites =
     sourceId === 'capability'
@@ -269,11 +282,14 @@ export class HomeSourceRuntime {
     Map<string, ISourceCacheEntry>
   >();
 
-  private readonly lastLoadedKey = new Map<IHomeStoreSourceId, string>();
+  private readonly lastLoadedKey = new Map<
+    IHomeStoreSourceId,
+    { executionKey: string; sessionId: string }
+  >();
 
   private readonly inFlight = new Map<
     IHomeStoreSourceId,
-    { key: string; taskId: string }
+    { executionKey: string; sessionId: string; taskId: string }
   >();
 
   private environment: IHomeSourceEnvironment | undefined;
@@ -353,7 +369,7 @@ export class HomeSourceRuntime {
     if (this.disposed || !this.environment) {
       return;
     }
-    const state = this.host.getState();
+    const state = this.host.getStateView();
     const session = state.session;
     const ready =
       session.authority === 'ready' &&
@@ -362,6 +378,10 @@ export class HomeSourceRuntime {
     if (!ready || session.surfaceVisibility !== 'visible') {
       this.stopTimers();
       return;
+    }
+    const balanceEvent = this.createBalanceEvent();
+    if (balanceEvent) {
+      this.host.dispatch(balanceEvent);
     }
     this.sinks.forEach((sink) => sink.flushBuffered());
     void this.runSource('capability', 'critical');
@@ -384,7 +404,17 @@ export class HomeSourceRuntime {
         this.activeAuthority.delete(sourceId);
       }
     });
-    this.inFlight.clear();
+    this.lastLoadedKey.forEach((value, sourceId) => {
+      if (value.sessionId === sessionId) {
+        this.lastLoadedKey.delete(sourceId);
+      }
+    });
+    this.inFlight.forEach((value, sourceId) => {
+      if (value.sessionId === sessionId) {
+        this.inFlight.delete(sourceId);
+      }
+    });
+    this.host.leafPool.cancelSession(sessionId);
     this.stopTimers();
   }
 
@@ -411,7 +441,7 @@ export class HomeSourceRuntime {
   }
 
   refreshVisibleSources(): void {
-    const state = this.host.getState();
+    const state = this.host.getStateView();
     void this.runSource('capability', 'critical', true);
     void this.runSource('banner', 'critical', true);
     void this.runSource('portfolio', 'critical', true);
@@ -422,7 +452,7 @@ export class HomeSourceRuntime {
   }
 
   updateTokenListDemands(demands: readonly IHomeTokenListDemand[]): void {
-    const state = this.host.getState();
+    const state = this.host.getStateView();
     const ownerScopeKey = state.session.ownerToken?.scopeKey;
     const matching = ownerScopeKey
       ? demands.filter(
@@ -488,7 +518,7 @@ export class HomeSourceRuntime {
     force = false,
   ): Promise<IHomeRequestOutcome<void>> {
     const environment = this.environment;
-    const state = this.host.getState();
+    const state = this.host.getStateView();
     const ownerToken = state.session.ownerToken;
     const producerInstanceId = state.session.producerInstanceId;
     if (
@@ -508,10 +538,17 @@ export class HomeSourceRuntime {
       return { kind: 'ignored' };
     }
     const sourceKey = buildSourceKey({ environment, sourceId, state });
-    if (!force && this.lastLoadedKey.get(sourceId) === sourceKey) {
+    const executionKey = buildHomeSourceExecutionKey({
+      sessionId: ownerToken.sessionId,
+      sourceKey,
+    });
+    if (
+      !force &&
+      this.lastLoadedKey.get(sourceId)?.executionKey === executionKey
+    ) {
       return { kind: 'ignored' };
     }
-    if (!force && this.inFlight.get(sourceId)?.key === sourceKey) {
+    if (this.inFlight.get(sourceId)?.executionKey === executionKey) {
       return { kind: 'ignored' };
     }
     const requestSequence = (this.requestSequence.get(sourceId) ?? 0) + 1;
@@ -543,7 +580,11 @@ export class HomeSourceRuntime {
     this.hydrateCache(sourceId, sourceKey, authority, sink);
     this.scheduleSourceStart(sourceId, authority, priority);
 
-    this.inFlight.set(sourceId, { key: sourceKey, taskId });
+    this.inFlight.set(sourceId, {
+      executionKey,
+      sessionId: ownerToken.sessionId,
+      taskId,
+    });
     const outcome = await this.host.scheduler.schedule({
       taskId,
       key: sourceKey,
@@ -560,9 +601,11 @@ export class HomeSourceRuntime {
           return;
         }
         await this.loadAndPublish({
+          authority,
           environment,
           force,
           priority,
+          sessionId: authority.sessionId,
           sink,
           sourceId,
           sourceKey,
@@ -572,7 +615,10 @@ export class HomeSourceRuntime {
           this.activeAuthority.get(sourceId) === authority &&
           !signal.aborted
         ) {
-          this.lastLoadedKey.set(sourceId, sourceKey);
+          this.lastLoadedKey.set(sourceId, {
+            executionKey,
+            sessionId: ownerToken.sessionId,
+          });
         }
       },
     });
@@ -590,7 +636,7 @@ export class HomeSourceRuntime {
     if (sourceId !== 'banner' && !isSectionSource(sourceId)) {
       return;
     }
-    if (this.host.getState().session.surfaceVisibility !== 'visible') {
+    if (this.host.getStateView().session.surfaceVisibility !== 'visible') {
       return;
     }
     this.host.commitBudget.submit({
@@ -604,7 +650,7 @@ export class HomeSourceRuntime {
       publicationId: `${authority.taskId}:start`,
       publicationRevision: 0,
       commit: () => {
-        const state = this.host.getState();
+        const state = this.host.getStateView();
         if (
           this.activeAuthority.get(sourceId) !== authority ||
           state.session.ownerToken?.sessionId !== authority.sessionId
@@ -651,7 +697,7 @@ export class HomeSourceRuntime {
       priority,
       commitBudget: this.host.commitBudget,
       getCurrentAuthority: () => {
-        const state = this.host.getState();
+        const state = this.host.getStateView();
         return this.activeAuthority.get(sourceId) === authority &&
           state.session.ownerToken?.scopeKey === authority.ownerScopeKey &&
           state.session.ownerToken.sessionId === authority.sessionId &&
@@ -670,10 +716,10 @@ export class HomeSourceRuntime {
           dataRevision: `${authority.requestSequence}:${materializedSequence}`,
         };
       },
-      commit: ({ materialized, publicationRevision }) => {
+      commit: ({ materialized, phase }) => {
         this.commitWireResult({
           authority,
-          publicationRevision,
+          phase,
           sourceId,
           wire: materialized.model,
         });
@@ -682,17 +728,21 @@ export class HomeSourceRuntime {
   }
 
   private async loadAndPublish({
+    authority,
     environment,
     force,
     priority,
+    sessionId,
     sink,
     sourceId,
     sourceKey,
     yieldIfMainBudgetExceeded,
   }: {
+    authority: IHomeResultAuthority;
     environment: IHomeSourceEnvironment;
     force: boolean;
     priority: IRuntimeRequestPriority;
+    sessionId: string;
     sink: IHomeResultSink<IHomeRuntimeJsonValue>;
     sourceId: IHomeStoreSourceId;
     sourceKey: string;
@@ -700,13 +750,36 @@ export class HomeSourceRuntime {
   }): Promise<void> {
     try {
       if (sourceId === 'capability') {
-        const facts = await this.loadCapability(environment);
-        this.publishModel(sink, facts, 'final');
+        const facts = await this.loadCapability(environment, sessionId);
+        const wire = this.publishModel(sink, facts, 'final');
+        this.rememberCache(sourceId, sourceKey, {
+          coverageFingerprint: `capability:${sourceKey}`,
+          dataRevision: this.dataRevision,
+          expiresAt: Date.now() + SOURCE_CACHE_TTL_MS,
+          phase: 'final',
+          payload: wire,
+          rowIds: [],
+        });
         return;
       }
       if (sourceId === 'banner') {
-        const payload = await this.loadBanner(environment, priority);
-        this.publishModel(sink, payload, 'final');
+        const payload = await this.loadBanner(
+          environment,
+          priority,
+          sessionId,
+          (intermediate) => {
+            this.publishModel(sink, intermediate, 'intermediate');
+          },
+        );
+        const wire = this.publishModel(sink, payload, 'final');
+        this.rememberCache(sourceId, sourceKey, {
+          coverageFingerprint: buildHomeBannerSemanticFingerprint(payload),
+          dataRevision: this.dataRevision,
+          expiresAt: Date.now() + SOURCE_CACHE_TTL_MS,
+          phase: 'final',
+          payload: wire,
+          rowIds: [],
+        });
         return;
       }
       const publishIntermediate = (input: {
@@ -721,6 +794,20 @@ export class HomeSourceRuntime {
             revision: this.dataRevision,
             wireValue: wire,
           });
+          if (input.rowIds.length > 0) {
+            this.rememberCache(sourceId, sourceKey, {
+              coverageFingerprint: [
+                input.rowIds.length,
+                input.rowIds[0] ?? '',
+                input.rowIds[input.rowIds.length - 1] ?? '',
+              ].join(':'),
+              dataRevision: this.dataRevision,
+              expiresAt: Date.now() + SOURCE_CACHE_TTL_MS,
+              phase: 'intermediate',
+              payload: wire,
+              rowIds: input.rowIds,
+            });
+          }
         }
       };
       const section = await this.loadSection({
@@ -728,6 +815,7 @@ export class HomeSourceRuntime {
         force,
         priority,
         publishIntermediate,
+        sessionId,
         sourceId,
         yieldIfMainBudgetExceeded,
       });
@@ -744,13 +832,21 @@ export class HomeSourceRuntime {
         wireValue: wire,
       });
       this.rememberCache(sourceId, sourceKey, {
+        coverageFingerprint: [
+          section.rowIds.length,
+          section.rowIds[0] ?? '',
+          section.rowIds[section.rowIds.length - 1] ?? '',
+        ].join(':'),
         dataRevision: this.dataRevision,
         expiresAt: Date.now() + SOURCE_CACHE_TTL_MS,
+        phase: 'final',
         payload: wire,
         rowIds: section.rowIds,
       });
     } catch {
-      if (isSectionSource(sourceId)) {
+      if (sourceId === 'banner') {
+        this.commitBannerFailure(authority);
+      } else if (isSectionSource(sourceId)) {
         this.dataRevision += 1;
         sink.publish({
           phase: 'final',
@@ -766,11 +862,37 @@ export class HomeSourceRuntime {
     }
   }
 
+  private commitBannerFailure(authority: IHomeResultAuthority): void {
+    const token = {
+      protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
+      clientInstanceId: authority.clientInstanceId,
+      producerInstanceId: authority.producerInstanceId,
+      sessionId: authority.sessionId,
+      requestSeq: authority.requestSequence,
+      sourceKey: {
+        scopeKey: authority.ownerScopeKey,
+        sourceId: 'banner' as const,
+        paramsFingerprint: authority.sourceKey,
+        dataSchemaVersion: 1,
+      },
+    };
+    this.host.dispatchAtomically([
+      { type: 'sourceRequested', token },
+      {
+        type: 'sourceResponded',
+        envelope: {
+          token,
+          result: { kind: 'error', errorKind: 'source' },
+        },
+      },
+    ]);
+  }
+
   private publishModel(
     sink: IHomeResultSink<IHomeRuntimeJsonValue>,
     model: unknown,
     phase: 'intermediate' | 'final',
-  ): void {
+  ): IHomeRuntimeJsonValue {
     const wire = normalizeHomeStoreJson(model);
     if (wire === undefined) {
       throw new OneKeyLocalError('Home source model is not serializable');
@@ -781,6 +903,7 @@ export class HomeSourceRuntime {
       revision: this.dataRevision,
       wireValue: wire,
     });
+    return wire;
   }
 
   private createSectionWire(
@@ -801,16 +924,16 @@ export class HomeSourceRuntime {
 
   private commitWireResult({
     authority,
-    publicationRevision,
+    phase,
     sourceId,
     wire,
   }: {
     authority: IHomeResultAuthority;
-    publicationRevision: number;
+    phase: IHomeResultPhase;
     sourceId: IHomeStoreSourceId;
     wire: IHomeRuntimeJsonValue;
   }): void {
-    const state = this.host.getState();
+    const state = this.host.getStateView();
     const ownerToken = state.session.ownerToken;
     if (!ownerToken) {
       return;
@@ -824,6 +947,21 @@ export class HomeSourceRuntime {
       return;
     }
     if (sourceId === 'banner') {
+      const bannerPayload = readHomeBannerStorePayload(wire);
+      if (!bannerPayload) {
+        return;
+      }
+      const coverageFingerprint =
+        buildHomeBannerSemanticFingerprint(bannerPayload);
+      const currentBanner = state.resources.banner;
+      if (
+        currentBanner.kind === 'ready' &&
+        currentBanner.freshness === 'live' &&
+        currentBanner.refresh === 'idle' &&
+        currentBanner.coverageFingerprint === coverageFingerprint
+      ) {
+        return;
+      }
       const token = {
         protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
         clientInstanceId: authority.clientInstanceId,
@@ -847,14 +985,14 @@ export class HomeSourceRuntime {
           token,
           result: {
             kind: 'success',
-            data: wire as IHomeBannerStorePayload,
-            coverageFingerprint: `banner:${publicationRevision}`,
+            data: bannerPayload,
+            coverageFingerprint,
           },
         },
       };
       const balanceEvent = this.createBalanceEvent({
         sourceId: 'banner',
-        payload: wire,
+        payload: bannerPayload,
         rowIds: [],
         empty: false,
       });
@@ -869,12 +1007,21 @@ export class HomeSourceRuntime {
       return;
     }
     const sectionWire = wire as ISectionWireResult;
+    const currentResource = state.resources[sourceId];
+    if (
+      phase === 'intermediate' &&
+      (currentResource.kind === 'ready' || currentResource.kind === 'empty')
+    ) {
+      return;
+    }
     let sectionResult: Extract<
       IHomeStoreEvent,
       { type: 'sectionSourceChanged' }
     >['result'];
     if (sectionWire.error) {
       sectionResult = { kind: 'error' };
+    } else if (phase === 'intermediate' && sectionWire.empty) {
+      sectionResult = { kind: 'loading' };
     } else if (sectionWire.empty) {
       sectionResult = { kind: 'empty' };
     } else {
@@ -883,13 +1030,26 @@ export class HomeSourceRuntime {
         rowIds: sectionWire.rowIds as string[],
         data: sectionWire.payload ?? undefined,
         freshness: 'live',
-        refresh: 'idle',
+        refresh: phase === 'final' ? 'idle' : 'refreshing',
       };
     }
     const sectionEvent: IHomeStoreEvent = {
       type: 'sectionSourceChanged',
       ownerToken,
       sectionId: sourceId,
+      token: {
+        protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
+        clientInstanceId: authority.clientInstanceId,
+        producerInstanceId: authority.producerInstanceId,
+        sessionId: authority.sessionId,
+        requestSeq: authority.requestSequence,
+        sourceKey: {
+          scopeKey: authority.ownerScopeKey,
+          sourceId,
+          paramsFingerprint: authority.sourceKey,
+          dataSchemaVersion: 1,
+        },
+      },
       result: sectionResult,
     };
     const balanceEvent =
@@ -899,6 +1059,7 @@ export class HomeSourceRuntime {
             payload: sectionWire.payload,
             rowIds: sectionWire.rowIds as string[],
             empty: sectionWire.empty,
+            phase,
           })
         : undefined;
     this.host.dispatchAtomically(
@@ -911,8 +1072,10 @@ export class HomeSourceRuntime {
     payload: IHomeRuntimeJsonValue;
     rowIds: readonly string[];
     empty: boolean;
+    freshness?: 'confirmedCache' | 'live';
+    phase?: IHomeResultPhase;
   }): IHomeStoreEvent | undefined {
-    const state = this.host.getState();
+    const state = this.host.getStateView();
     const facts = state.facts;
     const ownerToken = state.session.ownerToken;
     if (!facts || !ownerToken || !this.environment) {
@@ -942,20 +1105,22 @@ export class HomeSourceRuntime {
     const requiredSetRevision = 'home-balance-required:portfolio:v3';
     const makeContributor = ({
       amount,
+      amountComplete = true,
       id,
       positiveEvidence,
     }: {
       amount: BigNumber.Value | undefined;
+      amountComplete?: boolean;
       id: IHomeBalanceContributorId;
       positiveEvidence: boolean;
     }): IHomeBalanceContributorFact => {
       let resource = state.resources[id];
       if (override?.sourceId === id) {
-        if (override.empty) {
+        if (override.empty && override.phase !== 'intermediate') {
           resource = {
             kind: 'empty',
             coverageFingerprint: 'empty:v2',
-            freshness: 'live',
+            freshness: override.freshness ?? 'live',
             refresh: 'idle',
           };
         } else {
@@ -966,8 +1131,9 @@ export class HomeSourceRuntime {
               section: {
                 kind: 'ready',
                 rowIds: override.rowIds,
-                freshness: 'live',
-                refresh: 'idle',
+                freshness: override.freshness ?? 'live',
+                refresh:
+                  override.phase === 'intermediate' ? 'refreshing' : 'idle',
               },
             },
             coverageFingerprint: [
@@ -975,7 +1141,7 @@ export class HomeSourceRuntime {
               override.rowIds[0] ?? '',
               override.rowIds[override.rowIds.length - 1] ?? '',
             ].join(':'),
-            freshness: 'live',
+            freshness: override.freshness ?? 'live',
             refresh: 'idle',
           };
         }
@@ -984,36 +1150,78 @@ export class HomeSourceRuntime {
         amount: string;
         positiveEvidence: boolean;
       }>;
-      const normalizedAmount = new BigNumber(amount ?? 0);
+      const normalizedAmount =
+        amount === undefined ? undefined : new BigNumber(amount);
+      const hasUsableAmount = Boolean(normalizedAmount?.isFinite());
+      const data = {
+        amount: hasUsableAmount ? (normalizedAmount?.toFixed() ?? '0') : '0',
+        positiveEvidence,
+      };
+      const coverageFingerprint =
+        'coverageFingerprint' in resource
+          ? resource.coverageFingerprint
+          : `${id}:intermediate`;
       if (resource.kind === 'error') {
         factResource = {
           kind: 'error',
           errorKind: resource.errorKind,
         };
+      } else if (
+        override?.sourceId === id &&
+        override.phase === 'intermediate'
+      ) {
+        factResource =
+          hasUsableAmount || positiveEvidence
+            ? {
+                kind: 'partial',
+                data,
+                coverageFingerprint,
+              }
+            : { kind: 'loading' };
+      } else if (
+        (resource.kind === 'ready' || resource.kind === 'empty') &&
+        resource.freshness === 'confirmedCache'
+      ) {
+        factResource =
+          hasUsableAmount || positiveEvidence
+            ? {
+                kind: 'partial',
+                data,
+                coverageFingerprint: resource.coverageFingerprint,
+              }
+            : { kind: 'loading' };
+      } else if (!amountComplete) {
+        factResource =
+          hasUsableAmount || positiveEvidence
+            ? {
+                kind: 'partial',
+                data,
+                coverageFingerprint,
+              }
+            : { kind: 'loading' };
       } else if (resource.kind === 'ready' || resource.kind === 'empty') {
-        const data = {
-          amount: normalizedAmount.isFinite()
-            ? normalizedAmount.toFixed()
-            : '0',
-          positiveEvidence,
-        };
-        factResource = {
-          kind: 'complete',
-          result:
-            resource.kind === 'empty' || normalizedAmount.isZero()
-              ? { kind: 'empty' }
-              : { kind: 'success', data },
-          coverageFingerprint: resource.coverageFingerprint,
-        };
+        if (!hasUsableAmount) {
+          factResource = positiveEvidence
+            ? {
+                kind: 'partial',
+                data,
+                coverageFingerprint: resource.coverageFingerprint,
+              }
+            : { kind: 'loading' };
+        } else {
+          factResource = {
+            kind: 'complete',
+            result:
+              normalizedAmount?.isZero() && !positiveEvidence
+                ? { kind: 'empty' }
+                : { kind: 'success', data },
+            coverageFingerprint: resource.coverageFingerprint,
+          };
+        }
       } else if (resource.kind === 'partial') {
         factResource = {
           kind: 'partial',
-          data: {
-            amount: normalizedAmount.isFinite()
-              ? normalizedAmount.toFixed()
-              : '0',
-            positiveEvidence,
-          },
+          data,
           coverageFingerprint: resource.coverageFingerprint,
         };
       } else {
@@ -1038,13 +1246,17 @@ export class HomeSourceRuntime {
         resource: factResource,
       };
     };
-    const portfolioAmount = portfolio?.accountTokensValue;
+    const portfolioAmount =
+      portfolio?.accountTokensValueAvailable === true
+        ? portfolio.accountTokensValue
+        : undefined;
     const defiAmount = defi?.overview.netWorth;
     const perpsAmount = perps?.view.accountValueUsd;
     const contributors = {
       portfolio: makeContributor({
         id: 'portfolio',
         amount: portfolioAmount,
+        amountComplete: portfolio?.accountTokensValueComplete === true,
         positiveEvidence: Boolean(
           portfolio?.fundedIds.length ||
           (portfolioAmount && !new BigNumber(portfolioAmount).isZero()),
@@ -1090,13 +1302,20 @@ export class HomeSourceRuntime {
       contributors,
       bannerAvailable:
         (override?.sourceId === 'banner' &&
-          (override.payload as unknown as IHomeBannerStorePayload).banners
-            .length > 0) ||
+          (() => {
+            const payload =
+              override.payload as unknown as IHomeBannerStorePayload;
+            return Boolean(payload.banners.length > 0 || payload.tronResource);
+          })()) ||
         (state.resources.banner.kind === 'ready' &&
-          Boolean(
-            (state.resources.banner.data as IHomeBannerStorePayload | undefined)
-              ?.banners.length,
-          )),
+          (() => {
+            const payload = readHomeBannerStorePayload(
+              state.resources.banner.data,
+            );
+            return Boolean(
+              payload && (payload.banners.length > 0 || payload.tronResource),
+            );
+          })()),
     };
     return {
       type: 'balanceChanged',
@@ -1107,8 +1326,9 @@ export class HomeSourceRuntime {
 
   private async loadCapability(
     environment: IHomeSourceEnvironment,
+    sessionId: string,
   ): Promise<IHomeCapabilityFacts> {
-    const state = this.host.getState();
+    const state = this.host.getStateView();
     const ownerToken = state.session.ownerToken;
     const { account, indexedAccount, network, vaultSettings, wallet } =
       environment.activeAccount;
@@ -1132,10 +1352,13 @@ export class HomeSourceRuntime {
           perpDisabled: false,
         })
       : await this.host.leafPool
-          .run('critical', () =>
-            backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMapState({
-              syncIfEmpty: true,
-            }),
+          .run(
+            'critical',
+            () =>
+              backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMapState({
+                syncIfEmpty: true,
+              }),
+            sessionId,
           )
           .then(({ enabledNetworksMap, isReady }) =>
             buildHomeWalletTabSupport({
@@ -1181,107 +1404,202 @@ export class HomeSourceRuntime {
   private async loadBanner(
     environment: IHomeSourceEnvironment,
     priority: IRuntimeRequestPriority,
+    sessionId: string,
+    publishIntermediate: (payload: IHomeBannerStorePayload) => void,
   ): Promise<IHomeBannerStorePayload> {
     const { account, network, vaultSettings, wallet } =
       environment.activeAccount;
     if (!account || !network || !wallet) {
       throw new OneKeyLocalError('Home banner owner is unavailable');
     }
-    const [remote, local, botDeactivated, referralEligibility] =
-      await Promise.all([
-        this.host.leafPool
-          .run(priority, () =>
-            backgroundApiProxy.serviceWalletBanner.fetchWalletBanner({
-              accountId: account.id,
-            }),
-          )
-          .catch(() => undefined),
-        this.host.leafPool
-          .run(priority, () =>
-            backgroundApiProxy.simpleDb.walletBanner.getRawData(),
-          )
-          .catch(() => undefined),
-        accountUtils.isBotWallet({ walletId: wallet.id })
-          ? this.host.leafPool
-              .run(priority, () =>
+    type ILeafState<T> =
+      | { status: 'pending' }
+      | { status: 'failed' }
+      | { status: 'ready'; value: T };
+    let remoteState: ILeafState<
+      Awaited<
+        ReturnType<
+          typeof backgroundApiProxy.serviceWalletBanner.fetchWalletBanner
+        >
+      >
+    > = { status: 'pending' };
+    let localState: ILeafState<
+      Awaited<
+        ReturnType<typeof backgroundApiProxy.simpleDb.walletBanner.getRawData>
+      >
+    > = { status: 'pending' };
+    let botState: ILeafState<boolean> = accountUtils.isBotWallet({
+      walletId: wallet.id,
+    })
+      ? { status: 'pending' }
+      : { status: 'ready', value: false };
+    let referralState: ILeafState<
+      IHomeBannerStorePayload['referralEligibility']
+    > = { status: 'pending' };
+    let normalResultCount = 0;
+    let lastPublishedFingerprint: string | undefined;
+
+    const buildPayload = (): IHomeBannerStorePayload => {
+      const local =
+        localState.status === 'ready' ? localState.value : undefined;
+      const remote =
+        remoteState.status === 'ready' ? remoteState.value : undefined;
+      const referralEligibility =
+        referralState.status === 'ready' ? referralState.value : null;
+      const closedForever = local?.closedForever ?? {};
+      const dismissedIds = new Set(
+        this.host.getStateView().interaction.dismissedBannerIds,
+      );
+      const banners = (remote ?? local?.topBanners ?? []).filter(
+        (banner) =>
+          (!banner.position || banner.position === 'home') &&
+          (!banner.networkIds?.length ||
+            banner.networkIds.includes(network.id)) &&
+          !closedForever[banner.id] &&
+          !dismissedIds.has(banner.id),
+      );
+      const referralBanner =
+        referralEligibility?.shouldShow &&
+        !dismissedIds.has(HOME_PERPS_REFERRAL_BANNER_ID)
+          ? toHomeBannerStoreItem({
+              _id: HOME_PERPS_REFERRAL_BANNER_ID,
+              id: HOME_PERPS_REFERRAL_BANNER_ID,
+              title: environment.bannerLabels.referralTitle,
+              description: environment.bannerLabels.referralDescription,
+              src: '',
+              button: '',
+              rank: 0,
+              closeable: false,
+              closeForever: false,
+              useSystemBrowser: false,
+              theme: 'light',
+              position: 'home',
+              icon: 'GiftSolid',
+            })
+          : undefined;
+      return {
+        banners: [
+          ...(referralBanner ? [referralBanner] : []),
+          ...banners.map(toHomeBannerStoreItem),
+        ],
+        referralEligibility,
+        tronResource:
+          vaultSettings?.hasResource && account.id && network.id
+            ? { accountId: account.id, networkId: network.id }
+            : null,
+        // Unknown bot status must not be treated as an authoritative safe value.
+        isBotWalletReceiveBlocked:
+          botState.status === 'ready' ? botState.value : true,
+      };
+    };
+    const publishNormalResult = () => {
+      if (remoteState.status !== 'ready' && localState.status !== 'ready') {
+        return;
+      }
+      const payload = buildPayload();
+      const fingerprint = buildHomeBannerSemanticFingerprint(payload);
+      if (fingerprint !== lastPublishedFingerprint) {
+        lastPublishedFingerprint = fingerprint;
+        publishIntermediate(payload);
+      }
+    };
+
+    const remoteTask = this.host.leafPool
+      .run(
+        priority,
+        () =>
+          backgroundApiProxy.serviceWalletBanner.fetchWalletBanner({
+            accountId: account.id,
+          }),
+        sessionId,
+      )
+      .then((remote) => {
+        normalResultCount += 1;
+        remoteState = { status: 'ready', value: remote };
+        publishNormalResult();
+        void backgroundApiProxy.serviceWalletBanner.updateLocalTopBanners({
+          topBanners: remote,
+        });
+      })
+      .catch(() => {
+        remoteState = { status: 'failed' };
+        publishNormalResult();
+      });
+    const localTask = this.host.leafPool
+      .run(
+        priority,
+        () => backgroundApiProxy.simpleDb.walletBanner.getRawData(),
+        sessionId,
+      )
+      .then((local) => {
+        normalResultCount += 1;
+        localState = { status: 'ready', value: local };
+        publishNormalResult();
+      })
+      .catch(() => {
+        localState = { status: 'failed' };
+        publishNormalResult();
+      });
+    const botTask =
+      botState.status === 'pending'
+        ? this.host.leafPool
+            .run(
+              priority,
+              () =>
                 backgroundApiProxy.serviceAccount.isBotWalletDeactivated({
                   walletId: wallet.id,
                 }),
-              )
-              .catch(() => false)
-          : false,
-        this.host.leafPool
-          .run(priority, async () => {
-            const deriveType =
-              await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-                { networkId: PERPS_NETWORK_ID },
-              );
-            const result =
-              await backgroundApiProxy.serviceHyperliquidReferral.checkBannerReferralEligibility(
-                {
-                  accountId: account.id,
-                  indexedAccountId:
-                    environment.activeAccount.indexedAccount?.id || undefined,
-                  deriveType,
-                },
-              );
-            return {
-              shouldShow: result.shouldShow,
-              resolvedAccountId: result.resolvedAccountId,
-              resolvedAddress: result.resolvedAddress,
-              reason: result.reason ?? null,
-            };
-          })
-          .catch(() => null),
-      ]);
-    const closedForever = local?.closedForever ?? {};
-    const dismissedIds = new Set(
-      this.host.getState().interaction.dismissedBannerIds,
-    );
-    const banners = (remote ?? local?.topBanners ?? []).filter(
-      (banner) =>
-        (!banner.position || banner.position === 'home') &&
-        (!banner.networkIds?.length ||
-          banner.networkIds.includes(network.id)) &&
-        !closedForever[banner.id] &&
-        !dismissedIds.has(banner.id),
-    );
-    if (remote) {
-      void backgroundApiProxy.serviceWalletBanner.updateLocalTopBanners({
-        topBanners: remote,
+              sessionId,
+            )
+            .then((botDeactivated) => {
+              botState = { status: 'ready', value: botDeactivated };
+              publishNormalResult();
+            })
+            .catch(() => {
+              botState = { status: 'failed' };
+              publishNormalResult();
+            })
+        : Promise.resolve();
+    const referralTask = this.host.leafPool
+      .run(
+        'background',
+        async () => {
+          const deriveType =
+            await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+              { networkId: PERPS_NETWORK_ID },
+            );
+          const result =
+            await backgroundApiProxy.serviceHyperliquidReferral.checkBannerReferralEligibility(
+              {
+                accountId: account.id,
+                indexedAccountId:
+                  environment.activeAccount.indexedAccount?.id || undefined,
+                deriveType,
+              },
+            );
+          return {
+            shouldShow: result.shouldShow,
+            resolvedAccountId: result.resolvedAccountId,
+            resolvedAddress: result.resolvedAddress,
+            reason: result.reason ?? null,
+          };
+        },
+        sessionId,
+      )
+      .then((referralEligibility) => {
+        referralState = { status: 'ready', value: referralEligibility };
+        publishNormalResult();
+      })
+      .catch(() => {
+        referralState = { status: 'failed' };
+        publishNormalResult();
       });
+
+    await Promise.allSettled([remoteTask, localTask, botTask, referralTask]);
+    if (normalResultCount === 0) {
+      throw new OneKeyLocalError('Home banner sources are unavailable');
     }
-    const referralBanner =
-      referralEligibility?.shouldShow &&
-      !dismissedIds.has(HOME_PERPS_REFERRAL_BANNER_ID)
-        ? toHomeBannerStoreItem({
-            _id: HOME_PERPS_REFERRAL_BANNER_ID,
-            id: HOME_PERPS_REFERRAL_BANNER_ID,
-            title: environment.bannerLabels.referralTitle,
-            description: environment.bannerLabels.referralDescription,
-            src: '',
-            button: '',
-            rank: 0,
-            closeable: false,
-            closeForever: false,
-            useSystemBrowser: false,
-            theme: 'light',
-            position: 'home',
-            icon: 'GiftSolid',
-          })
-        : undefined;
-    return {
-      banners: [
-        ...(referralBanner ? [referralBanner] : []),
-        ...banners.map(toHomeBannerStoreItem),
-      ],
-      referralEligibility,
-      tronResource:
-        vaultSettings?.hasResource && account.id && network.id
-          ? { accountId: account.id, networkId: network.id }
-          : null,
-      isBotWalletReceiveBlocked: botDeactivated,
-    };
+    return buildPayload();
   }
 
   private async loadSection({
@@ -1289,6 +1607,7 @@ export class HomeSourceRuntime {
     force,
     priority,
     publishIntermediate,
+    sessionId,
     sourceId,
     yieldIfMainBudgetExceeded,
   }: {
@@ -1299,6 +1618,7 @@ export class HomeSourceRuntime {
       payload: unknown;
       rowIds: readonly string[];
     }) => void;
+    sessionId: string;
     sourceId: IHomeSectionId;
     yieldIfMainBudgetExceeded: () => Promise<void>;
   }): Promise<{ payload: unknown; rowIds: readonly string[] }> {
@@ -1308,22 +1628,23 @@ export class HomeSourceRuntime {
         force,
         priority,
         publishIntermediate,
+        sessionId,
         yieldIfMainBudgetExceeded,
       });
     }
     if (sourceId === 'nft') {
-      return this.loadNFT(environment, force, priority);
+      return this.loadNFT(environment, force, priority, sessionId);
     }
     if (sourceId === 'defi') {
-      return this.loadDeFi(environment, force, priority);
+      return this.loadDeFi(environment, force, priority, sessionId);
     }
     if (sourceId === 'history') {
-      return this.loadHistory(environment, force, priority);
+      return this.loadHistory(environment, force, priority, sessionId);
     }
     if (sourceId === 'perps') {
-      return this.loadPerps(environment, priority);
+      return this.loadPerps(environment, priority, sessionId);
     }
-    return this.loadMarket(environment, priority);
+    return this.loadMarket(environment, priority, sessionId);
   }
 
   private async loadPortfolio({
@@ -1331,6 +1652,7 @@ export class HomeSourceRuntime {
     force,
     priority,
     publishIntermediate,
+    sessionId,
     yieldIfMainBudgetExceeded,
   }: {
     environment: IHomeSourceEnvironment;
@@ -1340,11 +1662,12 @@ export class HomeSourceRuntime {
       payload: unknown;
       rowIds: readonly string[];
     }) => void;
+    sessionId: string;
     yieldIfMainBudgetExceeded: () => Promise<void>;
   }): Promise<{ payload: IHomeSpotLegacyPayload; rowIds: readonly string[] }> {
     const { account, indexedAccount, network, vaultSettings, wallet } =
       environment.activeAccount;
-    const state = this.host.getState();
+    const state = this.host.getStateView();
     if (!account || !network || !wallet || !state.session.ownerToken) {
       throw new OneKeyLocalError('Home Portfolio owner is unavailable');
     }
@@ -1355,8 +1678,11 @@ export class HomeSourceRuntime {
     const isDeFiEnabled = network.isAllNetworks
       ? true
       : await this.host.leafPool
-          .run(priority, () =>
-            backgroundApiProxy.serviceDeFi.isNetworkDeFiEnabled(network.id),
+          .run(
+            priority,
+            () =>
+              backgroundApiProxy.serviceDeFi.isNetworkDeFiEnabled(network.id),
+            sessionId,
           )
           .catch(() => false);
     const showLpTokenFilterSwitch =
@@ -1385,11 +1711,14 @@ export class HomeSourceRuntime {
       mergeDeriveAssets?: boolean;
       networkId: string;
     };
-    await this.host.leafPool.run(priority, () =>
-      backgroundApiProxy.serviceToken.updateCurrentAccount({
-        accountId: account.id,
-        networkId: network.id,
-      }),
+    await this.host.leafPool.run(
+      priority,
+      () =>
+        backgroundApiProxy.serviceToken.updateCurrentAccount({
+          accountId: account.id,
+          networkId: network.id,
+        }),
+      sessionId,
     );
     const fetchTokens = async (
       target: IPortfolioFetchTarget,
@@ -1401,31 +1730,37 @@ export class HomeSourceRuntime {
           target.mergeDeriveAssets !== undefined
             ? Promise.resolve(target.mergeDeriveAssets)
             : this.host.leafPool
-                .run(priority, () =>
-                  backgroundApiProxy.serviceNetwork.getVaultSettings({
-                    networkId: target.networkId,
-                  }),
+                .run(
+                  priority,
+                  () =>
+                    backgroundApiProxy.serviceNetwork.getVaultSettings({
+                      networkId: target.networkId,
+                    }),
+                  sessionId,
                 )
                 .then((settings) => Boolean(settings?.mergeDeriveAssetsEnabled))
                 .catch(() => false);
         mergeDeriveByNetworkId.set(target.networkId, mergeDerivePromise);
       }
       const [response, mergeDeriveAssets] = await Promise.all([
-        this.host.leafPool.run(priority, () =>
-          backgroundApiProxy.serviceToken.fetchAccountTokens({
-            accountId: target.accountId,
-            dbAccount: target.dbAccount,
-            indexedAccountId: indexedAccount?.id,
-            networkId: target.networkId,
-            mergeTokens: true,
-            flag: 'home-token-list',
-            isAllNetworks: Boolean(network.isAllNetworks),
-            isManualRefresh: force,
-            allNetworksAccountId: account.id,
-            allNetworksNetworkId: network.id,
-            saveToLocal: true,
-            ...(lpToken ? lpTokenFilterParams : walletTokenFilterParams),
-          }),
+        this.host.leafPool.run(
+          priority,
+          () =>
+            backgroundApiProxy.serviceToken.fetchAccountTokens({
+              accountId: target.accountId,
+              dbAccount: target.dbAccount,
+              indexedAccountId: indexedAccount?.id,
+              networkId: target.networkId,
+              mergeTokens: true,
+              flag: 'home-token-list',
+              isAllNetworks: Boolean(network.isAllNetworks),
+              isManualRefresh: force,
+              allNetworksAccountId: account.id,
+              allNetworksNetworkId: network.id,
+              saveToLocal: true,
+              ...(lpToken ? lpTokenFilterParams : walletTokenFilterParams),
+            }),
+          sessionId,
         ),
         mergeDerivePromise,
       ]);
@@ -1444,6 +1779,7 @@ export class HomeSourceRuntime {
       lpToken: boolean;
       onProgress?: (
         responses: readonly INativeHomeAllNetworkTokenResponse[],
+        processedTargetCount: number,
       ) => Promise<void>;
       targets: readonly IPortfolioFetchTarget[];
     }) => {
@@ -1467,11 +1803,12 @@ export class HomeSourceRuntime {
           (index + 4) % 12 === 0 &&
           index + 4 < targets.length
         ) {
-          await onProgress(responses);
+          await onProgress(responses, Math.min(index + 4, targets.length));
         }
       }
       return responses;
     };
+    let publishedCacheIntermediate = false;
     const fetchCachedTargets = async (
       targets: readonly IPortfolioFetchTarget[],
     ) => {
@@ -1480,13 +1817,16 @@ export class HomeSourceRuntime {
         const chunk = targets.slice(index, index + 4);
         const settled = await Promise.allSettled(
           chunk.map(async (target) => {
-            const cached = await this.host.leafPool.run(priority, () =>
-              backgroundApiProxy.serviceToken.getAccountLocalTokens({
-                accountId: target.accountId,
-                networkId: target.networkId,
-                accountAddress: target.accountAddress,
-                xpub: target.accountXpub,
-              }),
+            const cached = await this.host.leafPool.run(
+              priority,
+              () =>
+                backgroundApiProxy.serviceToken.getAccountLocalTokens({
+                  accountId: target.accountId,
+                  networkId: target.networkId,
+                  accountAddress: target.accountAddress,
+                  xpub: target.accountXpub,
+                }),
+              sessionId,
             );
             if (!cached.hasCache) {
               return undefined;
@@ -1507,13 +1847,15 @@ export class HomeSourceRuntime {
               isSameAllNetworksAccountData: true,
               tokens: {
                 data: cached.tokenList,
-                fiatValue: cached.tokenListValue,
+                currency: cached.currency,
+                fiatValue: cached.currency ? cached.tokenListValue : undefined,
                 keys: cached.tokenList.map((token) => token.$key).join('_'),
                 map: pickMap(cached.tokenList),
               },
               smallBalanceTokens: {
                 data: cached.smallBalanceTokenList,
-                fiatValue: '0',
+                currency: cached.currency,
+                fiatValue: cached.currency ? '0' : undefined,
                 keys: cached.smallBalanceTokenList
                   .map((token) => token.$key)
                   .join('_'),
@@ -1521,7 +1863,8 @@ export class HomeSourceRuntime {
               },
               riskTokens: {
                 data: cached.riskyTokenList,
-                fiatValue: '0',
+                currency: cached.currency,
+                fiatValue: cached.currency ? '0' : undefined,
                 keys: cached.riskyTokenList
                   .map((token) => token.$key)
                   .join('_'),
@@ -1535,21 +1878,32 @@ export class HomeSourceRuntime {
             item.status === 'fulfilled' && item.value ? [item.value] : [],
           ),
         );
-        if (responses.length > 0) {
+        if (responses.length > 0 && !publishedCacheIntermediate) {
           const intermediate = await this.buildPortfolioPayload({
             environment,
             mergeDeriveAddressData,
             priority,
             responses: [...responses],
+            sessionId,
             shouldIngest: true,
             showLpTokenFilterSwitch,
             showLpTokensOnly: false,
           });
-          publishIntermediate({
-            payload: intermediate,
-            rowIds: intermediate.displayIds,
-          });
-          await yieldIfMainBudgetExceeded();
+          if (intermediate.displayIds.length > 0) {
+            publishedCacheIntermediate = true;
+            defaultLogger.wallet.homeUi.homePortfolioProgress({
+              publicationKind: 'localCacheIntermediate',
+              mode: 'wallet',
+              processedTargetCount: Math.min(index + 4, targets.length),
+              responseCount: responses.length,
+              rowCount: intermediate.displayIds.length,
+            });
+            publishIntermediate({
+              payload: intermediate,
+              rowIds: intermediate.displayIds,
+            });
+            await yieldIfMainBudgetExceeded();
+          }
         }
       }
       return responses;
@@ -1597,14 +1951,17 @@ export class HomeSourceRuntime {
         }));
       }
     } else if (mergeDeriveAddressData && indexedAccount?.id) {
-      const { networkAccounts } = await this.host.leafPool.run(priority, () =>
-        backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-          {
-            networkId: network.id,
-            indexedAccountId: indexedAccount.id,
-            excludeEmptyAccount: true,
-          },
-        ),
+      const { networkAccounts } = await this.host.leafPool.run(
+        priority,
+        () =>
+          backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+            {
+              networkId: network.id,
+              indexedAccountId: indexedAccount.id,
+              excludeEmptyAccount: true,
+            },
+          ),
+        sessionId,
       );
       walletTargets = networkAccounts.flatMap((item) =>
         item.account?.id
@@ -1629,15 +1986,23 @@ export class HomeSourceRuntime {
       targets: walletTargets,
       onProgress: showLpTokensOnly
         ? undefined
-        : async (responses) => {
+        : async (responses, processedTargetCount) => {
             const intermediate = await this.buildPortfolioPayload({
               environment,
               mergeDeriveAddressData,
               priority,
               responses: [...responses],
+              sessionId,
               shouldIngest: true,
               showLpTokenFilterSwitch,
               showLpTokensOnly: false,
+            });
+            defaultLogger.wallet.homeUi.homePortfolioProgress({
+              publicationKind: 'liveIntermediate',
+              mode: 'wallet',
+              processedTargetCount,
+              responseCount: responses.length,
+              rowCount: intermediate.displayIds.length,
             });
             publishIntermediate({
               payload: intermediate,
@@ -1651,6 +2016,8 @@ export class HomeSourceRuntime {
       mergeDeriveAddressData,
       priority,
       responses: walletResponses,
+      expectedResponseCount: walletTargets.length,
+      sessionId,
       shouldIngest: true,
       showLpTokenFilterSwitch,
       showLpTokensOnly: false,
@@ -1661,16 +2028,24 @@ export class HomeSourceRuntime {
     const lpResponses = await fetchTargets({
       lpToken: true,
       targets: lpTargets,
-      onProgress: async (responses) => {
+      onProgress: async (responses, processedTargetCount) => {
         const intermediate = await this.buildPortfolioPayload({
           environment,
           mergeDeriveAddressData,
           priority,
           responses: [...responses],
+          sessionId,
           shouldIngest: false,
           showLpTokenFilterSwitch,
           showLpTokensOnly: true,
           valuationPayload: walletPayload,
+        });
+        defaultLogger.wallet.homeUi.homePortfolioProgress({
+          publicationKind: 'liveIntermediate',
+          mode: 'lp',
+          processedTargetCount,
+          responseCount: responses.length,
+          rowCount: intermediate.displayIds.length,
         });
         publishIntermediate({
           payload: intermediate,
@@ -1684,6 +2059,8 @@ export class HomeSourceRuntime {
       mergeDeriveAddressData,
       priority,
       responses: lpResponses,
+      expectedResponseCount: lpTargets.length,
+      sessionId,
       shouldIngest: false,
       showLpTokenFilterSwitch,
       showLpTokensOnly: true,
@@ -1697,15 +2074,19 @@ export class HomeSourceRuntime {
     mergeDeriveAddressData,
     priority,
     responses,
+    sessionId,
     shouldIngest,
     showLpTokenFilterSwitch,
     showLpTokensOnly,
     valuationPayload,
+    expectedResponseCount,
   }: {
     environment: IHomeSourceEnvironment;
     mergeDeriveAddressData: boolean;
     priority: IRuntimeRequestPriority;
     responses: INativeHomeAllNetworkTokenResponse[];
+    expectedResponseCount?: number;
+    sessionId: string;
     shouldIngest: boolean;
     showLpTokenFilterSwitch: boolean;
     showLpTokensOnly: boolean;
@@ -1715,7 +2096,7 @@ export class HomeSourceRuntime {
     const projection = buildNativeHomeAllNetworkPortfolioProjection({
       responses,
     });
-    const networksMap = await this.getAllNetworksMap();
+    const networksMap = await this.getAllNetworksMap(sessionId);
     const aggregateTokenListMap = Object.assign(
       {},
       ...responses.map((item) => item.aggregateTokenListMap ?? {}),
@@ -1748,18 +2129,32 @@ export class HomeSourceRuntime {
         createAtNetworkWorth = createAtNetworkWorth.plus(worth);
       }
     });
-    const ownerKey = this.host.getState().session.ownerToken?.scopeKey ?? '';
+    const ownerKey =
+      this.host.getStateView().session.ownerToken?.scopeKey ?? '';
+    const responseValues = responses.map(sumTokenValue);
+    const accountTokensValueAvailable = valuationPayload
+      ? valuationPayload.accountTokensValueAvailable === true
+      : responseValues.some((value) => value !== undefined);
+    const accountTokensValueComplete = valuationPayload
+      ? valuationPayload.accountTokensValueComplete === true
+      : responses.length > 0 &&
+        (expectedResponseCount === undefined ||
+          responses.length === expectedResponseCount) &&
+        responseValues.every((value) => value !== undefined);
     const accountTokensValue =
       valuationPayload?.accountTokensValue ??
-      responses
+      responseValues
         .reduce(
-          (total, response) => total.plus(sumTokenValue(response)),
+          (total, value) =>
+            value === undefined ? total : total.plus(new BigNumber(value)),
           new BigNumber(0),
         )
         .toFixed();
     const payload: IHomeSpotLegacyPayload = {
       ...createHomeSpotSnapshotDefaults(),
       accountTokensValue,
+      accountTokensValueAvailable,
+      accountTokensValueComplete,
       accountTokensWorthCurrency: USD_CURRENCY_ID,
       accountWorthByNetwork:
         valuationPayload?.accountWorthByNetwork ?? accountWorthByNetwork,
@@ -1806,7 +2201,7 @@ export class HomeSourceRuntime {
       })),
     };
     if (shouldIngest) {
-      await this.ingestTokenListPayload(payload, priority);
+      await this.ingestTokenListPayload(payload, priority, sessionId);
     }
     return payload;
   }
@@ -1814,44 +2209,50 @@ export class HomeSourceRuntime {
   private async ingestTokenListPayload(
     payload: IHomeSpotLegacyPayload,
     priority: IRuntimeRequestPriority,
+    sessionId: string,
   ): Promise<void> {
     const { account, network } = this.environment?.activeAccount ?? {};
     if (!account || !network || !payload.ownerKey) {
       return;
     }
-    await this.host.leafPool.run(priority, () =>
-      backgroundApiProxy.serviceTokenViewModel.ingestRound({
-        ownerKey: payload.ownerKey,
-        orderedTokens: payload.tokens,
-        smallBalanceTokens: payload.smallBalanceTokens,
-        tokenListMap: {
-          ...payload.tokenListMap,
-          ...payload.smallBalanceMap,
-        },
-        aggregateTokensMap: {},
-        ownedAggregateTokenListMap: payload.aggregateTokenListMap,
-        smallBalanceFiatValue: payload.smallBalanceFiatValue ?? '0',
-        storeData: {
-          storeName: EJotaiContextStoreNames.homeTokenList,
-        },
-        keepDefault: true,
-        homeDefaultTokenMap: payload.homeDefaultTokenMap,
-        riskyTokens: payload.riskTokens,
-        riskyMap: payload.riskMap,
-        accountId: account.id,
-        networkId: network.id,
-        rawKeys: [
-          payload.generation,
-          payload.displayIds.length,
-          payload.displayIds[0] ?? '',
-          payload.displayIds[payload.displayIds.length - 1] ?? '',
-        ].join(':'),
-        source: network.isAllNetworks ? 'authoritative' : 'single',
-      }),
+    await this.host.leafPool.run(
+      priority,
+      () =>
+        backgroundApiProxy.serviceTokenViewModel.ingestRound({
+          ownerKey: payload.ownerKey,
+          orderedTokens: payload.tokens,
+          smallBalanceTokens: payload.smallBalanceTokens,
+          tokenListMap: {
+            ...payload.tokenListMap,
+            ...payload.smallBalanceMap,
+          },
+          aggregateTokensMap: {},
+          ownedAggregateTokenListMap: payload.aggregateTokenListMap,
+          smallBalanceFiatValue: payload.smallBalanceFiatValue ?? '0',
+          storeData: {
+            storeName: EJotaiContextStoreNames.homeTokenList,
+          },
+          keepDefault: true,
+          homeDefaultTokenMap: payload.homeDefaultTokenMap,
+          riskyTokens: payload.riskTokens,
+          riskyMap: payload.riskMap,
+          accountId: account.id,
+          networkId: network.id,
+          rawKeys: [
+            payload.generation,
+            payload.displayIds.length,
+            payload.displayIds[0] ?? '',
+            payload.displayIds[payload.displayIds.length - 1] ?? '',
+          ].join(':'),
+          source: network.isAllNetworks ? 'authoritative' : 'single',
+        }),
+      sessionId,
     );
   }
 
-  private getAllNetworksMap(): Promise<IHomeSpotLegacyPayload['networksMap']> {
+  private getAllNetworksMap(
+    sessionId: string,
+  ): Promise<IHomeSpotLegacyPayload['networksMap']> {
     const now = Date.now();
     if (this.allNetworksMapCache && this.allNetworksMapCache.expiresAt > now) {
       return Promise.resolve(this.allNetworksMapCache.value);
@@ -1860,10 +2261,13 @@ export class HomeSourceRuntime {
       return this.allNetworksMapPromise;
     }
     this.allNetworksMapPromise = this.host.leafPool
-      .run('background', () =>
-        backgroundApiProxy.serviceNetwork.getAllNetworks({
-          excludeTestNetwork: true,
-        }),
+      .run(
+        'background',
+        () =>
+          backgroundApiProxy.serviceNetwork.getAllNetworks({
+            excludeTestNetwork: true,
+          }),
+        sessionId,
       )
       .then(({ networks }) => {
         const value = Object.fromEntries(
@@ -1885,34 +2289,41 @@ export class HomeSourceRuntime {
     environment: IHomeSourceEnvironment,
     force: boolean,
     priority: IRuntimeRequestPriority,
+    sessionId: string,
   ): Promise<{ payload: { data: unknown[] }; rowIds: readonly string[] }> {
     const { account, indexedAccount, network, wallet } =
       environment.activeAccount;
     if (!account || !network) {
       throw new OneKeyLocalError('Home NFT owner is unavailable');
     }
-    await this.host.leafPool.run(priority, () =>
-      backgroundApiProxy.serviceNFT.updateCurrentAccount({
-        accountId: account.id,
-        networkId: network.id,
-      }),
+    await this.host.leafPool.run(
+      priority,
+      () =>
+        backgroundApiProxy.serviceNFT.updateCurrentAccount({
+          accountId: account.id,
+          networkId: network.id,
+        }),
+      sessionId,
     );
     const fetch = (
       accountId: string,
       networkId: string,
       dbAccount?: IAccountSelectorActiveAccountInfo['dbAccount'],
     ) =>
-      this.host.leafPool.run(priority, () =>
-        backgroundApiProxy.serviceNFT.fetchAccountNFTs({
-          accountId,
-          dbAccount,
-          networkId,
-          isAllNetworks: Boolean(network.isAllNetworks),
-          isManualRefresh: force,
-          allNetworksAccountId: account.id,
-          allNetworksNetworkId: network.id,
-          saveToLocal: true,
-        }),
+      this.host.leafPool.run(
+        priority,
+        () =>
+          backgroundApiProxy.serviceNFT.fetchAccountNFTs({
+            accountId,
+            dbAccount,
+            networkId,
+            isAllNetworks: Boolean(network.isAllNetworks),
+            isManualRefresh: force,
+            allNetworksAccountId: account.id,
+            allNetworksNetworkId: network.id,
+            saveToLocal: true,
+          }),
+        sessionId,
       );
     const responses: PromiseSettledResult<Awaited<ReturnType<typeof fetch>>>[] =
       [];
@@ -1971,36 +2382,43 @@ export class HomeSourceRuntime {
     environment: IHomeSourceEnvironment,
     force: boolean,
     priority: IRuntimeRequestPriority,
+    sessionId: string,
   ): Promise<{ payload: unknown; rowIds: readonly string[] }> {
     const { account, indexedAccount, network, wallet } =
       environment.activeAccount;
     if (!account || !network) {
       throw new OneKeyLocalError('Home DeFi owner is unavailable');
     }
-    await this.host.leafPool.run(priority, () =>
-      backgroundApiProxy.serviceDeFi.updateCurrentAccount({
-        accountId: account.id,
-        networkId: network.id,
-      }),
+    await this.host.leafPool.run(
+      priority,
+      () =>
+        backgroundApiProxy.serviceDeFi.updateCurrentAccount({
+          accountId: account.id,
+          networkId: network.id,
+        }),
+      sessionId,
     );
     const sourceCurrencyInfo =
       environment.currencyMap[environment.settings.currencyInfo.id];
     const targetCurrencyInfo = environment.currencyMap.usd;
     const fetch = (accountId: string, networkId: string) =>
-      this.host.leafPool.run(priority, () =>
-        backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
-          accountId,
-          indexedAccountId: indexedAccount?.id,
-          networkId,
-          isAllNetworks: Boolean(network.isAllNetworks),
-          allNetworksAccountId: account.id,
-          allNetworksNetworkId: network.id,
-          saveToLocal: true,
-          excludeLowValueProtocols: true,
-          sourceCurrencyInfo,
-          targetCurrencyInfo,
-          isForceRefresh: force,
-        }),
+      this.host.leafPool.run(
+        priority,
+        () =>
+          backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
+            accountId,
+            indexedAccountId: indexedAccount?.id,
+            networkId,
+            isAllNetworks: Boolean(network.isAllNetworks),
+            allNetworksAccountId: account.id,
+            allNetworksNetworkId: network.id,
+            saveToLocal: true,
+            excludeLowValueProtocols: true,
+            sourceCurrencyInfo,
+            targetCurrencyInfo,
+            isForceRefresh: force,
+          }),
+        sessionId,
       );
     const accounts = network.isAllNetworks
       ? (
@@ -2019,8 +2437,10 @@ export class HomeSourceRuntime {
         ).accountsInfo
       : [{ accountId: account.id, networkId: network.id }];
     const supportedActionsPromise = this.host.leafPool
-      .run(priority, () =>
-        backgroundApiProxy.serviceDeFi.fetchSupportedDeFiProtocols(),
+      .run(
+        priority,
+        () => backgroundApiProxy.serviceDeFi.fetchSupportedDeFiProtocols(),
+        sessionId,
       )
       .catch(() => [] as IDeFiSupportedProtocolAction[]);
     const settled: PromiseSettledResult<Awaited<ReturnType<typeof fetch>>>[] =
@@ -2075,6 +2495,7 @@ export class HomeSourceRuntime {
     environment: IHomeSourceEnvironment,
     force: boolean,
     priority: IRuntimeRequestPriority,
+    sessionId: string,
   ): Promise<{ payload: unknown; rowIds: readonly string[] }> {
     const { account, indexedAccount, network, vaultSettings } =
       environment.activeAccount;
@@ -2096,19 +2517,24 @@ export class HomeSourceRuntime {
       networkId: network.id,
       sourceCurrency: environment.settings.currencyInfo.id,
     };
-    const response = await this.host.leafPool.run(priority, () =>
-      mergeDerive
-        ? backgroundApiProxy.serviceHistory.fetchAccountHistoryForMergeDerive({
-            ...common,
-            indexedAccountId: indexedAccountId ?? '',
-          })
-        : backgroundApiProxy.serviceHistory.fetchAccountHistory({
-            ...common,
-            accountId: account.id,
-            indexedAccountId: network.isAllNetworks
-              ? indexedAccount?.id
-              : undefined,
-          }),
+    const response = await this.host.leafPool.run(
+      priority,
+      () =>
+        mergeDerive
+          ? backgroundApiProxy.serviceHistory.fetchAccountHistoryForMergeDerive(
+              {
+                ...common,
+                indexedAccountId: indexedAccountId ?? '',
+              },
+            )
+          : backgroundApiProxy.serviceHistory.fetchAccountHistory({
+              ...common,
+              accountId: account.id,
+              indexedAccountId: network.isAllNetworks
+                ? indexedAccount?.id
+                : undefined,
+            }),
+      sessionId,
     );
     const payload = {
       addressMap: response.addressMap ?? {},
@@ -2126,33 +2552,43 @@ export class HomeSourceRuntime {
   private async loadPerps(
     environment: IHomeSourceEnvironment,
     priority: IRuntimeRequestPriority,
+    sessionId: string,
   ): Promise<{ payload: unknown; rowIds: readonly string[] }> {
     const { account, indexedAccount } = environment.activeAccount;
     if (!account) {
       throw new OneKeyLocalError('Home Perps owner is unavailable');
     }
-    const deriveType = await this.host.leafPool.run(priority, () =>
-      backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-        networkId: PERPS_NETWORK_ID,
-      }),
+    const deriveType = await this.host.leafPool.run(
+      priority,
+      () =>
+        backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: PERPS_NETWORK_ID,
+        }),
+      sessionId,
     );
-    const networkAccount = await this.host.leafPool.run(priority, () =>
-      backgroundApiProxy.serviceAccount.getNetworkAccount({
-        accountId: indexedAccount ? undefined : account.id,
-        indexedAccountId: indexedAccount?.id,
-        deriveType,
-        networkId: PERPS_NETWORK_ID,
-      }),
+    const networkAccount = await this.host.leafPool.run(
+      priority,
+      () =>
+        backgroundApiProxy.serviceAccount.getNetworkAccount({
+          accountId: indexedAccount ? undefined : account.id,
+          indexedAccountId: indexedAccount?.id,
+          deriveType,
+          networkId: PERPS_NETWORK_ID,
+        }),
+      sessionId,
     );
     const address =
       networkAccount?.addressDetail?.normalizedAddress ??
       networkAccount?.address ??
       '';
     const snapshot = address
-      ? await this.host.leafPool.run(priority, () =>
-          backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
-            { address },
-          ),
+      ? await this.host.leafPool.run(
+          priority,
+          () =>
+            backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
+              { address },
+            ),
+          sessionId,
         )
       : undefined;
     const view = snapshot
@@ -2166,7 +2602,7 @@ export class HomeSourceRuntime {
         };
     const payload = {
       address,
-      scopeKey: this.host.getState().session.ownerToken?.scopeKey,
+      scopeKey: this.host.getStateView().session.ownerToken?.scopeKey,
       view,
     };
     return {
@@ -2181,18 +2617,23 @@ export class HomeSourceRuntime {
   private async loadMarket(
     environment: IHomeSourceEnvironment,
     priority: IRuntimeRequestPriority,
+    sessionId: string,
   ): Promise<{ payload: unknown; rowIds: readonly string[] }> {
-    const state = this.host.getState();
+    const state = this.host.getStateView();
     const selectedControl =
       state.interaction.sectionControls.market?.[
         'home.market.selectedCategory'
       ];
     const [configResponse, watchList] = await Promise.all([
-      this.host.leafPool.run(priority, () =>
-        backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig(),
+      this.host.leafPool.run(
+        priority,
+        () => backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig(),
+        sessionId,
       ),
-      this.host.leafPool.run(priority, () =>
-        backgroundApiProxy.serviceMarketV2.getMarketWatchListV2(),
+      this.host.leafPool.run(
+        priority,
+        () => backgroundApiProxy.serviceMarketV2.getMarketWatchListV2(),
+        sessionId,
       ),
     ]);
     const config = configResponse.data;
@@ -2214,17 +2655,20 @@ export class HomeSourceRuntime {
     )
       ? requestedCategory
       : (categories[0]?.id ?? DEFAULT_MARKET_CATEGORY_ID);
-    const response = await this.host.leafPool.run(priority, () =>
-      backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
-        networkId: '',
-        sortBy: 'v24hUSD',
-        sortType: 'desc',
-        page: 1,
-        limit: HOME_MARKET_CATEGORY_REQUEST_LIMIT,
-        minLiquidity: config.minLiquidity || 5000,
-        type: resolvedCategoryId,
-        timeFrame: '4',
-      }),
+    const response = await this.host.leafPool.run(
+      priority,
+      () =>
+        backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
+          networkId: '',
+          sortBy: 'v24hUSD',
+          sortType: 'desc',
+          page: 1,
+          limit: HOME_MARKET_CATEGORY_REQUEST_LIMIT,
+          minLiquidity: config.minLiquidity || 5000,
+          type: resolvedCategoryId,
+          timeFrame: '4',
+        }),
+      sessionId,
     );
     const rows = response.list
       .map(mapMarketTokenToDisplay)
@@ -2258,22 +2702,60 @@ export class HomeSourceRuntime {
     authority: IHomeResultAuthority,
     sink: IHomeResultSink<IHomeRuntimeJsonValue>,
   ): void {
-    if (!isSectionSource(sourceId)) {
-      return;
-    }
     const entry = this.cache.get(sourceId)?.get(sourceKey);
-    if (!entry || entry.expiresAt <= Date.now()) {
+    if (!entry) {
       return;
     }
-    const state = this.host.getState();
+    const state = this.host.getStateView();
     if (
       state.session.ownerToken?.scopeKey !== authority.ownerScopeKey ||
       state.session.ownerToken.sessionId !== authority.sessionId
     ) {
       return;
     }
+    if (!isSectionSource(sourceId)) {
+      const hydrationEvent: IHomeStoreEvent = {
+        type: 'displaySnapshotHydrated',
+        ownerScopeKey: authority.ownerScopeKey,
+        sessionId: authority.sessionId,
+        records: [
+          {
+            sourceId,
+            sourceKeyIdentity: sourceKey,
+            dataSchemaVersion: 1,
+            coverageFingerprint: entry.coverageFingerprint,
+            quoteBasis: null,
+            confirmedAt: entry.expiresAt - SOURCE_CACHE_TTL_MS,
+            expiresAt: entry.expiresAt,
+            payload: entry.payload,
+          },
+        ],
+      };
+      if (sourceId === 'banner') {
+        const payload = readHomeBannerStorePayload(entry.payload);
+        const balanceEvent = payload
+          ? this.createBalanceEvent({
+              sourceId,
+              payload,
+              rowIds: [],
+              empty: false,
+            })
+          : undefined;
+        this.host.dispatchAtomically(
+          balanceEvent ? [hydrationEvent, balanceEvent] : [hydrationEvent],
+        );
+      } else {
+        this.host.dispatch(hydrationEvent);
+      }
+      sink.flushBuffered();
+      return;
+    }
+    const currentResource = state.resources[sourceId];
+    if (currentResource.kind === 'ready' || currentResource.kind === 'empty') {
+      return;
+    }
     const wire = entry.payload as ISectionWireResult;
-    this.host.dispatch({
+    const sectionEvent: IHomeStoreEvent = {
       type: 'sectionSourceChanged',
       ownerToken: state.session.ownerToken,
       sectionId: sourceId,
@@ -2286,7 +2768,21 @@ export class HomeSourceRuntime {
             freshness: 'confirmedCache',
             refresh: 'refreshing',
           },
-    });
+    };
+    const balanceEvent =
+      sourceId === 'portfolio' || sourceId === 'defi' || sourceId === 'perps'
+        ? this.createBalanceEvent({
+            sourceId,
+            payload: wire.payload,
+            rowIds: [...entry.rowIds],
+            empty: wire.empty,
+            freshness: 'confirmedCache',
+            phase: entry.phase,
+          })
+        : undefined;
+    this.host.dispatchAtomically(
+      balanceEvent ? [sectionEvent, balanceEvent] : [sectionEvent],
+    );
     sink.flushBuffered();
   }
 
@@ -2333,7 +2829,7 @@ export class HomeSourceRuntime {
             sourceId !== 'portfolio' && all.indexOf(sourceId) === index,
         );
         for (const sourceId of order) {
-          const state = this.host.getState();
+          const state = this.host.getStateView();
           if (
             generation !== this.warmGeneration ||
             state.session.surfaceVisibility !== 'visible' ||
@@ -2357,16 +2853,22 @@ export class HomeSourceRuntime {
     }
     this.pollingTimer = setTimeout(() => {
       this.pollingTimer = undefined;
-      const state = this.host.getState();
+      const state = this.host.getStateView();
       if (
         state.session.surfaceVisibility !== 'visible' ||
         state.session.appActivity !== 'active'
       ) {
         return;
       }
-      void this.runSource('portfolio', 'background', true);
+      if (!this.inFlight.has('portfolio')) {
+        void this.runSource('portfolio', 'background', true);
+      }
       const selected = sourceForSelectedTab(state);
-      if (selected && selected !== 'portfolio') {
+      if (
+        selected &&
+        selected !== 'portfolio' &&
+        !this.inFlight.has(selected)
+      ) {
         void this.runSource(selected, 'background', true);
       }
       this.schedulePolling();

@@ -59,6 +59,8 @@ const HYPER_EVM_LOGO_URI =
   'https://uni.onekey-asset.com/static/chain/hyper-evm.png';
 const VISIBLE_ROW_LIMIT = 6;
 const MOBILE_NATIVE_HOME_BANNER_SKELETON_ID = 'home-banner-loading';
+const MOBILE_NATIVE_HOME_STANDARD_ACTION_ROW_HEIGHT = 62;
+const MOBILE_NATIVE_HOME_ZERO_BALANCE_ACTION_ROW_HEIGHT = 98;
 
 type IMobileNativeHomeBannerPresentation = 'content' | 'hidden' | 'loading';
 type IMobileNativeHomeActionLayout = 'loading' | 'standard' | 'zeroBalance';
@@ -78,6 +80,21 @@ function resolveMobileNativeHomeActionLayout({
     return 'zeroBalance';
   }
   return 'loading';
+}
+
+function resolveMobileNativeHomeActionRowHeight({
+  actionLayout,
+  isBackupRequired,
+}: {
+  actionLayout: IMobileNativeHomeActionLayout;
+  isBackupRequired: boolean;
+}): number {
+  if (isBackupRequired) {
+    return 0;
+  }
+  return actionLayout === 'zeroBalance'
+    ? MOBILE_NATIVE_HOME_ZERO_BALANCE_ACTION_ROW_HEIGHT
+    : MOBILE_NATIVE_HOME_STANDARD_ACTION_ROW_HEIGHT;
 }
 
 function resolveMobileNativeHomeBannerPresentation({
@@ -1276,8 +1293,10 @@ export {
   MOBILE_NATIVE_HOME_MARKET_CATEGORY_ACTION_PREFIX,
   MOBILE_NATIVE_HOME_MARKET_ACTION_IDS,
   MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS,
+  MOBILE_NATIVE_HOME_STANDARD_ACTION_ROW_HEIGHT,
   getDeFiTotal,
   resolveMobileNativeHomeActionLayout,
+  resolveMobileNativeHomeActionRowHeight,
   resolveMobileNativeHomeBannerPresentation,
   resolveMobileNativeHomeBodySections,
 };

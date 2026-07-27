@@ -18,6 +18,9 @@ private enum HomeContainerMetrics {
   static var compactHeaderHeight: CGFloat { scaledHeight(60, maximumScale: 1.25) }
   static var compactAccountTopInset: CGFloat { scaledHeight(16, maximumScale: 1.25) }
   static var headerBottomPadding: CGFloat { scaledHeight(40, maximumScale: 1.25) }
+  static let standardActionRowHeight: CGFloat = 62
+  // Loading and content banners share one row height to prevent owner-switch layout shifts.
+  static let bannerRowHeight: CGFloat = 88
   static var legacyABZeroBalanceActionTrailingCompaction: CGFloat { scaledHeight(14) }
   static var rowHeight: CGFloat { scaledHeight(68) }
   static var nftRowHeight: CGFloat { scaledHeight(92) }
@@ -741,7 +744,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   var onVisibleTabChange: ((String) -> Void)?
   var onRenderError: ((String, String) -> Void)?
   var onIntent: ((String) -> Void)?
-  var onTransportResult: ((String) -> Void)?
+  var onSnapshotRequired: ((String) -> Void)?
   @objc dynamic var slotLayoutDidChange: (() -> Void)?
 
   private let outerScrollView = HomeContainerNestedScrollView()
@@ -763,9 +766,9 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   private var protocolV3State: HomeContainerProtocolV3State?
   private var renderedProtocolV2State: HomeContainerProtocolV2State?
   private var renderedProtocolV3State: HomeContainerProtocolV3State?
-  private var pendingProtocolV3Patch: HomeContainerProtocolV3PatchEnvelope?
-  private var pendingProtocolV3PatchRetryScheduled = false
-  private var lastNeedSnapshotResultKey: String?
+  private var pendingProtocolV3Patches: [HomeContainerProtocolV3PatchEnvelope] = []
+  private var pendingProtocolV3PatchDrainScheduled = false
+  private var lastSnapshotRequestKey: String?
   private var pages: [HomeContainerPageView] = []
   private var refreshRequestIds = Set<String>()
   private var selectedTabId = ""
@@ -942,7 +945,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
               from: data
             )
             DispatchQueue.main.async { [weak self] in
-              self?.pendingProtocolV3Patch = nil
+              self?.pendingProtocolV3Patches.removeAll()
               self?.handleProtocolV3Outcome(
                 HomeContainerProtocolV3Transaction.apply(snapshot: envelope)
               )
@@ -976,7 +979,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
           DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.protocolV3State = nil
-            self.pendingProtocolV3Patch = nil
+            self.pendingProtocolV3Patches.removeAll()
             self.handleProtocolV2Outcome(
               HomeContainerProtocolV2Transaction.apply(
                 snapshot: envelope,
@@ -1008,8 +1011,8 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
           guard let self else { return }
           self.protocolV2State = nil
           self.protocolV3State = nil
-          self.pendingProtocolV3Patch = nil
-          self.lastNeedSnapshotResultKey = nil
+          self.pendingProtocolV3Patches.removeAll()
+          self.lastSnapshotRequestKey = nil
           self.applySnapshot(
             next,
             allowsMissingSelectedTabFallback: true,
@@ -1066,7 +1069,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
         return
       }
       self.pendingInitialSnapshot = nil
-      self.pendingProtocolV3Patch = nil
+      self.pendingProtocolV3Patches.removeAll()
       self.handleProtocolV3Outcome(
         HomeContainerProtocolV3Transaction.apply(snapshot: next)
       )
@@ -1087,7 +1090,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
             )
             DispatchQueue.main.async { [weak self] in
               guard let self else { return }
-              self.applyProtocolV3PatchOrDefer(patch)
+              self.enqueueProtocolV3Patch(patch)
             }
             return
           }
@@ -1118,7 +1121,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
           DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.protocolV3State = nil
-            self.pendingProtocolV3Patch = nil
+            self.pendingProtocolV3Patches.removeAll()
             self.handleProtocolV2Outcome(
               HomeContainerProtocolV2Transaction.apply(
                 patch: patch,
@@ -1212,7 +1215,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     }
     mountedSlotMetadata = metadata
     setMountedSlotKeys(entries.compactMap { $0["slotId"] as? String })
-    schedulePendingProtocolV3PatchRetry()
+    schedulePendingProtocolV3PatchDrain()
   }
 
   private func availableProtocolV3SlotRevisions() -> [String: Int] {
@@ -1223,31 +1226,40 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     )
   }
 
-  private func applyProtocolV3PatchOrDefer(
+  private func enqueueProtocolV3Patch(
     _ patch: HomeContainerProtocolV3PatchEnvelope
   ) {
-    let outcome = HomeContainerProtocolV3Transaction.apply(
-      patch: patch,
-      current: protocolV3State,
-      availableSlotRevisions: availableProtocolV3SlotRevisions()
-    )
-    if case .needSnapshot(.slotRevisionGap) = outcome {
-      pendingProtocolV3Patch = patch
-      return
-    }
-    pendingProtocolV3Patch = nil
-    handleProtocolV3Outcome(outcome)
+    pendingProtocolV3Patches.append(patch)
+    drainPendingProtocolV3Patches()
   }
 
-  private func schedulePendingProtocolV3PatchRetry() {
-    guard pendingProtocolV3Patch != nil,
-          !pendingProtocolV3PatchRetryScheduled else { return }
-    pendingProtocolV3PatchRetryScheduled = true
+  private func drainPendingProtocolV3Patches() {
+    while let patch = pendingProtocolV3Patches.first {
+      let outcome = HomeContainerProtocolV3Transaction.apply(
+        patch: patch,
+        current: protocolV3State,
+        availableSlotRevisions: availableProtocolV3SlotRevisions()
+      )
+      if case .needSnapshot(.slotRevisionGap) = outcome {
+        return
+      }
+      pendingProtocolV3Patches.removeFirst()
+      handleProtocolV3Outcome(outcome)
+      if case .needSnapshot = outcome {
+        pendingProtocolV3Patches.removeAll()
+        return
+      }
+    }
+  }
+
+  private func schedulePendingProtocolV3PatchDrain() {
+    guard !pendingProtocolV3Patches.isEmpty,
+          !pendingProtocolV3PatchDrainScheduled else { return }
+    pendingProtocolV3PatchDrainScheduled = true
     DispatchQueue.main.async { [weak self] in
       guard let self else { return }
-      self.pendingProtocolV3PatchRetryScheduled = false
-      guard let patch = self.pendingProtocolV3Patch else { return }
-      self.applyProtocolV3PatchOrDefer(patch)
+      self.pendingProtocolV3PatchDrainScheduled = false
+      self.drainPendingProtocolV3Patches()
     }
   }
 
@@ -1311,6 +1323,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     _ next: HomeContainerSnapshot,
     allowsMissingSelectedTabFallback: Bool,
     enforcesMonotonicRevision: Bool,
+    animatesDataChanges: Bool = true,
     completion: (() -> Void)? = nil
   ) {
     guard !isDisposed() else { return }
@@ -1349,6 +1362,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       page.apply(
         tab: tab,
         theme: next.theme,
+        animatesDataChanges: animatesDataChanges,
         completion: renderGroup.leave
       )
       nextPages.append(page)
@@ -1944,16 +1958,17 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     guard !isDisposed() else { return }
     switch outcome {
     case .applied(let state, let renderPlan):
+      let ownerChanged = protocolV3State?.identity.owner != state.identity.owner
       if renderPlan.isFullSnapshot {
-        pendingProtocolV3Patch = nil
+        pendingProtocolV3Patches.removeAll()
       }
-      if protocolV3State?.identity.owner != state.identity.owner {
+      if ownerChanged {
         renderedProtocolV2State = nil
         renderedProtocolV3State = nil
       }
       protocolV3State = state
       protocolV2State = state.legacyState
-      lastNeedSnapshotResultKey = nil
+      lastSnapshotRequestKey = nil
       let completion = { [weak self] in
         guard let self,
               self.protocolV3State?.identity == state.identity,
@@ -1961,15 +1976,13 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
         else { return }
         self.renderedProtocolV2State = state.legacyState
         self.renderedProtocolV3State = state
-        self.emitTransportResult(
-          .applied(owner: state.identity.owner, revision: state.transportRevision)
-        )
       }
       if renderPlan.isFullSnapshot {
         applySnapshot(
           state.snapshot,
           allowsMissingSelectedTabFallback: false,
           enforcesMonotonicRevision: false,
+          animatesDataChanges: !ownerChanged,
           completion: completion
         )
       } else {
@@ -1979,15 +1992,10 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
           completion: completion
         )
       }
-    case .duplicate(let state):
-      guard renderedProtocolV3State?.identity == state.identity,
-            renderedProtocolV3State?.transportRevision == state.transportRevision
-      else { return }
-      emitTransportResult(
-        .duplicate(owner: state.identity.owner, revision: state.transportRevision)
-      )
+    case .duplicate:
+      break
     case .needSnapshot(let reason):
-      pendingProtocolV3Patch = nil
+      pendingProtocolV3Patches.removeAll()
       renderedProtocolV2State = nil
       renderedProtocolV3State = nil
       let legacyReason: HomeContainerProtocolV2NeedSnapshotReason
@@ -2013,24 +2021,25 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     guard !isDisposed() else { return }
     switch outcome {
     case .applied(let state, let renderPlan):
-      if protocolV2State?.owner != state.owner {
+      let ownerChanged = protocolV2State?.owner != state.owner
+      if ownerChanged {
         renderedProtocolV2State = nil
       }
       protocolV2State = state
-      lastNeedSnapshotResultKey = nil
+      lastSnapshotRequestKey = nil
       let completion = { [weak self] in
         guard let self,
               self.protocolV2State?.owner == state.owner,
               self.protocolV2State?.revision == state.revision
         else { return }
         self.renderedProtocolV2State = state
-        self.emitTransportResult(.applied(owner: state.owner, revision: state.revision))
       }
       if renderPlan.isFullSnapshot {
         applySnapshot(
           state.snapshot,
           allowsMissingSelectedTabFallback: false,
           enforcesMonotonicRevision: false,
+          animatesDataChanges: !ownerChanged,
           completion: completion
         )
       } else {
@@ -2040,11 +2049,8 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
           completion: completion
         )
       }
-    case let .duplicate(owner, revision):
-      guard renderedProtocolV2State?.owner == owner,
-            renderedProtocolV2State?.revision == revision
-      else { return }
-      emitTransportResult(.duplicate(owner: owner, revision: revision))
+    case .duplicate:
+      break
     case let .needSnapshot(owner, currentRevision, reason):
       renderedProtocolV2State = nil
       emitNeedSnapshot(
@@ -2228,26 +2234,26 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     currentRevision: Int?,
     reason: HomeContainerProtocolV2NeedSnapshotReason
   ) {
-    let result = HomeContainerProtocolV2TransportResult.needSnapshot(
+    let request = HomeContainerProtocolV2SnapshotRequest.needSnapshot(
       owner: owner,
       currentRevision: currentRevision,
       reason: reason
     )
-    guard result.coalescingKey != lastNeedSnapshotResultKey else { return }
-    lastNeedSnapshotResultKey = result.coalescingKey
-    emitTransportResult(result)
+    guard request.coalescingKey != lastSnapshotRequestKey else { return }
+    lastSnapshotRequestKey = request.coalescingKey
+    emitSnapshotRequest(request)
   }
 
-  private func emitTransportResult(_ result: HomeContainerProtocolV2TransportResult) {
-    guard let data = try? encoder.encode(result),
+  private func emitSnapshotRequest(_ request: HomeContainerProtocolV2SnapshotRequest) {
+    guard let data = try? encoder.encode(request),
           let json = String(data: data, encoding: .utf8) else {
       reportError(
-        code: "transport_result_encode_failed",
-        message: "Unable to encode native transport result"
+        code: "snapshot_request_encode_failed",
+        message: "Unable to encode native snapshot request"
       )
       return
     }
-    onTransportResult?(json)
+    onSnapshotRequired?(json)
   }
 
   private func reportError(code: String, message: String) {
@@ -2347,6 +2353,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   func apply(
     tab: HomeContainerTab,
     theme: HomeContainerTheme,
+    animatesDataChanges: Bool = true,
     completion: (() -> Void)? = nil
   ) {
     let nextThemeSignature = theme.contentSignature
@@ -2360,6 +2367,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     updateSections(
       tab.sections,
       forceReconfigureAll: shouldReconfigureAllRows,
+      animatesDataChanges: animatesDataChanges,
       completion: completion
     )
   }
@@ -2367,10 +2375,15 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   func updateSections(
     _ sections: [HomeContainerSection],
     forceReconfigureAll: Bool = false,
+    animatesDataChanges: Bool = true,
     completion: (() -> Void)? = nil
   ) {
     self.sections = sections
-    rebuildRows(forceReconfigureAll: forceReconfigureAll, completion: completion)
+    rebuildRows(
+      forceReconfigureAll: forceReconfigureAll,
+      animatesDataChanges: animatesDataChanges,
+      completion: completion
+    )
   }
 
   func setMountedSlotKeys(_ keys: Set<String>) {
@@ -2390,6 +2403,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   private func rebuildRows(
     forceReconfigureAll: Bool = false,
     reloadsStateSlotRows: Bool = false,
+    animatesDataChanges: Bool = true,
     completion: (() -> Void)? = nil
   ) {
     var rows: [HomeContainerRow] = []
@@ -2507,7 +2521,8 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
       previousRows: previousRows,
       nextRows: rowsById
     )
-    let pinsMarketMutationContentOffset = isMarketMutation &&
+    let pinsMarketMutationContentOffset = animatesDataChanges &&
+      isMarketMutation &&
       !tableView.isTracking &&
       !tableView.isDragging &&
       !tableView.isDecelerating
@@ -2516,7 +2531,8 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     }
     dataSource.apply(
       nextSnapshot,
-      animatingDifferences: cellUpdatePlan.reloadRowIds.isEmpty &&
+      animatingDifferences: animatesDataChanges &&
+        cellUpdatePlan.reloadRowIds.isEmpty &&
         (
           animatesMarketMutation ||
             animatesPortfolioDeFiMutation ||
@@ -3124,12 +3140,12 @@ private final class HomeContainerHeaderView: UIView {
     actionsScrollHeightConstraint = configureHorizontalStrip(
       scrollView: actionsScroll,
       stack: actionsStack,
-      height: 62
+      height: HomeContainerMetrics.standardActionRowHeight
     )
     bannersScrollHeightConstraint = configureHorizontalStrip(
       scrollView: bannersScroll,
       stack: bannersStack,
-      height: 88
+      height: HomeContainerMetrics.bannerRowHeight
     )
     contentStack.addArrangedSubview(actionsScroll)
     contentStack.addArrangedSubview(bannersScroll)
@@ -3222,7 +3238,10 @@ private final class HomeContainerHeaderView: UIView {
     updateActions(header.actions, theme: theme)
     updateBanners(header.banners, theme: theme)
     updateNativeOwnershipVisibility()
-    let actionRowHeight = max(0, header.actionRowHeight ?? 62)
+    let actionRowHeight = max(
+      0,
+      header.actionRowHeight ?? HomeContainerMetrics.standardActionRowHeight
+    )
     actionsScrollHeightConstraint.constant = HomeContainerMetrics.scaledHeight(actionRowHeight)
     updateActionRowVisibility()
     bannersScroll.isHidden = header.banners.isEmpty
@@ -3240,9 +3259,14 @@ private final class HomeContainerHeaderView: UIView {
     balanceHeightConstraint.constant = HomeContainerMetrics.scaledHeight(58, maximumScale: 1.3)
     balanceActionsHeightConstraint.constant = HomeContainerMetrics.scaledHeight(28)
     actionsScrollHeightConstraint.constant = HomeContainerMetrics.scaledHeight(
-      max(0, header?.actionRowHeight ?? 62)
+      max(
+        0,
+        header?.actionRowHeight ?? HomeContainerMetrics.standardActionRowHeight
+      )
     )
-    bannersScrollHeightConstraint.constant = HomeContainerMetrics.scaledHeight(88)
+    bannersScrollHeightConstraint.constant = HomeContainerMetrics.scaledHeight(
+      HomeContainerMetrics.bannerRowHeight
+    )
     if let header {
       let balanceActionsHeight: CGFloat = (header.balanceActions ?? []).isEmpty ? 0 : 38
       let actionHeightAdjustment = preferredHeightAdjustment(for: header)
@@ -3257,7 +3281,11 @@ private final class HomeContainerHeaderView: UIView {
 
   private func preferredHeightAdjustment(for header: HomeContainerHeader) -> CGFloat {
     let actionHeightDelta = HomeContainerMetrics.scaledHeight(
-      max(0, (header.actionRowHeight ?? 62) - 62)
+      max(
+        0,
+        (header.actionRowHeight ?? HomeContainerMetrics.standardActionRowHeight) -
+          HomeContainerMetrics.standardActionRowHeight
+      )
     )
     guard header.actionLayout == "zeroBalance" || header.actionLayout == "loading" else {
       return actionHeightDelta

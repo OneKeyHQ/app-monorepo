@@ -64,7 +64,7 @@ type IHomeDisplaySnapshotPortfolioPresentation =
       kind: 'zero';
       header: { kind: 'zero'; balance: IHomeMoneyViewModel };
       actions: { kind: 'zero'; items: readonly IHomeActionId[] };
-      banner: { kind: 'none' };
+      banner: { kind: 'positive' } | { kind: 'none' };
     };
 
 export type IHomeDisplaySnapshotPersistedShell = {

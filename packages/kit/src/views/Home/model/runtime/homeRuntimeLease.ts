@@ -1,6 +1,7 @@
 import {
   dispatchHomeStoreEventsAtomically,
   readHomeStoreState,
+  readHomeStoreStateLazily,
 } from '@onekeyhq/kit/src/states/jotai/contexts/home/actions';
 import type { IHomeDisplaySnapshotLoadState } from '@onekeyhq/kit/src/states/jotai/contexts/home/atoms';
 import type { IJotaiContextStore } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
@@ -8,6 +9,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IHomeRuntimeJsonValue,
+  IHomeRuntimeOwnerScope,
   IRuntimeLeafResponseEnvelope,
 } from '@onekeyhq/shared/src/types/homeRuntime';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -18,6 +20,7 @@ import {
   type IHomeEffectEnvelope,
   type IHomeEffectHandlerMap,
 } from '../effects/homeEffectMiddleware';
+import { transitionHomeSession } from '../lifecycle/homeSessionMachine';
 import { HomePersistenceRuntime } from '../persistence/homePersistenceRuntime';
 import {
   HomeStoreCommitBudget,
@@ -165,6 +168,8 @@ export class HomeStoreRuntime {
     this.leafPool = new HomeLeafRequestPool(
       platformEnv.isNative ? 4 : 8,
       this.identity.clientInstanceId,
+      64,
+      () => readHomeStoreState(this.store.get).session.ownerToken?.sessionId,
     );
     this.scheduler = new HomeRequestScheduler({
       maxPending: 64,
@@ -176,8 +181,8 @@ export class HomeStoreRuntime {
     this.middleware = new HomeEffectMiddleware({
       handlers: {
         cancelSession: async (effect, context) => {
+          this.cancelSessionWork(effect.effect.sessionId);
           await this.effectExecutors.cancelSession?.(effect, context);
-          this.cancelPendingCommands(effect.effect.sessionId, 'ownerChanged');
         },
         connectRuntime: (effect, context) =>
           this.effectExecutors.connectRuntime?.(effect, context),
@@ -241,6 +246,99 @@ export class HomeStoreRuntime {
     events: readonly IHomeStoreEvent[],
   ): IHomeDispatchReceipt => {
     return this.applyEvents(events);
+  };
+
+  readonly replaceOwner = (
+    owner: IHomeRuntimeOwnerScope | undefined,
+  ): IHomeDispatchReceipt => {
+    const state = this.getState();
+    const transition = transitionHomeSession(state.session, {
+      type: 'ownerChanged',
+      owner,
+    });
+    if (transition.state === state.session) {
+      return { accepted: true };
+    }
+    // Never retain the previous sessionId across an owner replacement.
+    const ownerToken = transition.state.ownerToken;
+    const previousSessionId = state.session.ownerToken?.sessionId;
+    if (previousSessionId && previousSessionId !== ownerToken?.sessionId) {
+      this.cancelSessionWork(previousSessionId);
+    }
+    if (!ownerToken) {
+      this.snapshots.adoptPreparedOwner(undefined);
+      return this.applyEvents(
+        [
+          {
+            type: 'ownerChanged',
+            owner,
+            topology: state.runtime.topology,
+          },
+        ],
+        { status: 'idle' },
+      );
+    }
+    if (!this.capabilities.displaySnapshots) {
+      this.snapshots.adoptPreparedOwner(ownerToken);
+      return this.applyEvents([
+        {
+          type: 'ownerChanged',
+          owner,
+          ownerToken,
+          topology: state.runtime.topology,
+        },
+      ]);
+    }
+    const prepared = this.snapshots.prepareOwner(ownerToken.scopeKey);
+    if (prepared instanceof Promise) {
+      this.snapshots.adoptPreparedOwner(ownerToken);
+      const receipt = this.applyEvents(
+        [
+          {
+            type: 'ownerChanged',
+            owner,
+            ownerToken,
+            topology: state.runtime.topology,
+          },
+        ],
+        {
+          ownerScopeKey: ownerToken.scopeKey,
+          sessionId: ownerToken.sessionId,
+          status: 'loading',
+        },
+      );
+      void prepared.then(
+        (snapshot) => this.snapshots.publishPreparedOwner(ownerToken, snapshot),
+        () => this.snapshots.publishPreparedOwner(ownerToken, undefined),
+      );
+      return receipt;
+    }
+    this.snapshots.adoptPreparedOwner(ownerToken, prepared);
+    // Replace owner-scoped Store slices atomically; never reinterpret or
+    // mutate the previous owner's Store data as data for the target owner.
+    const events: IHomeStoreEvent[] = [
+      {
+        type: 'ownerChanged',
+        owner,
+        ownerToken,
+        topology: state.runtime.topology,
+      },
+    ];
+    if (prepared) {
+      events.push({
+        type: 'displaySnapshotHydrated',
+        ownerScopeKey: ownerToken.scopeKey,
+        sessionId: ownerToken.sessionId,
+        records: prepared.records,
+        shell: prepared.shell,
+        navigation: prepared.navigation,
+      });
+    }
+    return this.applyEvents(events, {
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      status: prepared ? 'hit' : 'miss',
+    });
   };
 
   private applyEvents(
@@ -338,6 +436,10 @@ export class HomeStoreRuntime {
     return readHomeStoreState(this.store.get);
   }
 
+  getStateView() {
+    return readHomeStoreStateLazily(this.store.get);
+  }
+
   getMode(): IHomeRuntimeMode {
     return this.mode;
   }
@@ -381,6 +483,12 @@ export class HomeStoreRuntime {
         }
       },
     );
+  }
+
+  private cancelSessionWork(sessionId: string): void {
+    this.sources.cancelSession(sessionId);
+    this.commitBudget.discardAuthority({ sessionId });
+    this.cancelPendingCommands(sessionId, 'ownerChanged');
   }
 }
 

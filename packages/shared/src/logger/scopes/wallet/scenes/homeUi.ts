@@ -166,6 +166,17 @@ export class HomeUiScene extends BaseScene {
   }
 
   @LogToLocal({ level: 'info' })
+  public homePortfolioProgress(params: {
+    publicationKind: 'localCacheIntermediate' | 'liveIntermediate';
+    mode: 'lp' | 'wallet';
+    processedTargetCount: number;
+    responseCount: number;
+    rowCount: number;
+  }) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
   public homeNativeTransportDecision(params: {
     resultKind: 'applied' | 'duplicate' | 'needSnapshot' | 'invalid';
     revision?: number;

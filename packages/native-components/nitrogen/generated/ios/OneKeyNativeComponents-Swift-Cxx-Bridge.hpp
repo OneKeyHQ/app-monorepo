@@ -171,18 +171,18 @@ namespace margelo::nitro::onekeynativecomponents::bridge::swift {
     return *optional;
   }
 
-  // pragma MARK: std::optional<std::function<void(const std::string& /* resultJson */)>>
+  // pragma MARK: std::optional<std::function<void(const std::string& /* requestJson */)>>
   /**
-   * Specialized version of `std::optional<std::function<void(const std::string& / * resultJson * /)>>`.
+   * Specialized version of `std::optional<std::function<void(const std::string& / * requestJson * /)>>`.
    */
-  using std__optional_std__function_void_const_std__string_____resultJson______ = std::optional<std::function<void(const std::string& /* resultJson */)>>;
-  inline std::optional<std::function<void(const std::string& /* resultJson */)>> create_std__optional_std__function_void_const_std__string_____resultJson______(const std::function<void(const std::string& /* resultJson */)>& value) noexcept {
-    return std::optional<std::function<void(const std::string& /* resultJson */)>>(value);
+  using std__optional_std__function_void_const_std__string_____requestJson______ = std::optional<std::function<void(const std::string& /* requestJson */)>>;
+  inline std::optional<std::function<void(const std::string& /* requestJson */)>> create_std__optional_std__function_void_const_std__string_____requestJson______(const std::function<void(const std::string& /* requestJson */)>& value) noexcept {
+    return std::optional<std::function<void(const std::string& /* requestJson */)>>(value);
   }
-  inline bool has_value_std__optional_std__function_void_const_std__string_____resultJson______(const std::optional<std::function<void(const std::string& /* resultJson */)>>& optional) noexcept {
+  inline bool has_value_std__optional_std__function_void_const_std__string_____requestJson______(const std::optional<std::function<void(const std::string& /* requestJson */)>>& optional) noexcept {
     return optional.has_value();
   }
-  inline std::function<void(const std::string& /* resultJson */)> get_std__optional_std__function_void_const_std__string_____resultJson______(const std::optional<std::function<void(const std::string& /* resultJson */)>>& optional) noexcept {
+  inline std::function<void(const std::string& /* requestJson */)> get_std__optional_std__function_void_const_std__string_____requestJson______(const std::optional<std::function<void(const std::string& /* requestJson */)>>& optional) noexcept {
     return *optional;
   }
 

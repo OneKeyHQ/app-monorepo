@@ -66,8 +66,8 @@ namespace margelo::nitro::onekeynativecomponents {
     void setOnRenderError(const std::optional<std::function<void(const std::string& /* code */, const std::string& /* message */)>>& onRenderError) override;
     std::optional<std::function<void(const std::string& /* intentJson */)>> getOnIntent() override;
     void setOnIntent(const std::optional<std::function<void(const std::string& /* intentJson */)>>& onIntent) override;
-    std::optional<std::function<void(const std::string& /* resultJson */)>> getOnTransportResult() override;
-    void setOnTransportResult(const std::optional<std::function<void(const std::string& /* resultJson */)>>& onTransportResult) override;
+    std::optional<std::function<void(const std::string& /* requestJson */)>> getOnSnapshotRequired() override;
+    void setOnSnapshotRequired(const std::optional<std::function<void(const std::string& /* requestJson */)>>& onSnapshotRequired) override;
 
   public:
     // Methods

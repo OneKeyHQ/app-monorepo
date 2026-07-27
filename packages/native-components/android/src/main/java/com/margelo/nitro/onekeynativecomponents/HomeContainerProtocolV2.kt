@@ -74,30 +74,15 @@ internal data class HomeContainerProtocolV2RenderPlan(
 }
 
 internal sealed class HomeContainerProtocolV2ApplyOutcome {
-  abstract fun toTransportResultJson(): String
-
   data class Applied(
     val state: HomeContainerProtocolV2State,
     val renderPlan: HomeContainerProtocolV2RenderPlan,
-  ) :
-    HomeContainerProtocolV2ApplyOutcome() {
-    override fun toTransportResultJson(): String = JSONObject()
-      .put("kind", "applied")
-      .put("owner", state.owner.toJson())
-      .put("revision", state.revision)
-      .toString()
-  }
+  ) : HomeContainerProtocolV2ApplyOutcome()
 
   data class Duplicate(
     val owner: HomeContainerProtocolV2Owner,
     val revision: Long,
-  ) : HomeContainerProtocolV2ApplyOutcome() {
-    override fun toTransportResultJson(): String = JSONObject()
-      .put("kind", "duplicate")
-      .put("owner", owner.toJson())
-      .put("revision", revision)
-      .toString()
-  }
+  ) : HomeContainerProtocolV2ApplyOutcome()
 
   data class NeedSnapshot(
     val owner: HomeContainerProtocolV2Owner?,
@@ -112,7 +97,7 @@ internal sealed class HomeContainerProtocolV2ApplyOutcome {
         reason.wireValue,
       ).joinToString("|")
 
-    override fun toTransportResultJson(): String = JSONObject()
+    fun toSnapshotRequestJson(): String = JSONObject()
       .put("kind", "needSnapshot")
       .apply {
         owner?.let { put("owner", it.toJson()) }
