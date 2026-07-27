@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -137,12 +138,14 @@ function ActivityCampaignCard({
   );
 }
 
-export function PerpsActivityCenterAction({
-  size = 'medium',
+export function PerpsActivityCenterContent({
   copyAsUrl = false,
+  closePopover,
+  showTitle = true,
 }: {
-  size?: IButtonProps['size'];
   copyAsUrl?: boolean;
+  closePopover: () => void;
+  showTitle?: boolean;
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -169,89 +172,118 @@ export function PerpsActivityCenterAction({
   }, [showInviteeRewardModal]);
 
   return (
+    <YStack mb="$2">
+      {isDesktop && showTitle ? (
+        <XStack px="$5" pt="$4" pb="$1">
+          <SizableText size="$headingMd" color="$text" userSelect="none">
+            {activityCenterTitle}
+          </SizableText>
+        </XStack>
+      ) : null}
+      <YStack px="$4" pt={isDesktop && showTitle ? '$3.5' : '$3'} pb="$3.5">
+        <XStack width="100%" flexWrap="nowrap">
+          <ActivityShortcutCard
+            lottieSrc={
+              themeVariant === 'light' ? GiftExpandOnLight : GiftExpandOnDark
+            }
+            title={intl.formatMessage({
+              id: ETranslations.sidebar_refer_a_friend,
+            })}
+            onPress={() => {
+              closePopover();
+              handleOpenReferReward();
+            }}
+          />
+          <ActivityShortcutCard
+            iconName="HandCoinsOutline"
+            title={intl.formatMessage({
+              id: ETranslations.perps_trade_reward,
+            })}
+            onPress={() => {
+              closePopover();
+              handleOpenTradeReward();
+            }}
+          />
+        </XStack>
+        {hasActivityCards ? (
+          <YStack gap="$2.5" mt="$4">
+            <SizableText size="$headingXs" color="$text">
+              {`${intl.formatMessage({ id: ETranslations.perps_ongoing_events })} (${activityCards.length})`}
+            </SizableText>
+            <YStack gap="$2">
+              {activityCards.map((item) => (
+                <ActivityCampaignCard
+                  key={item.id}
+                  imageUrl={item.imageUrl}
+                  fallbackIconName={
+                    (item.iconName as IButtonProps['icon']) ?? 'GiftOutline'
+                  }
+                  title={item.title}
+                  subtitle={item.subtitle}
+                  onPress={() => {
+                    closePopover();
+                    void openUrlExternal(item.url);
+                  }}
+                />
+              ))}
+            </YStack>
+          </YStack>
+        ) : null}
+      </YStack>
+    </YStack>
+  );
+}
+
+export function PerpsActivityCenterAction({
+  size = 'medium',
+  copyAsUrl = false,
+  renderTrigger,
+  open,
+  onOpenChange,
+}: {
+  size?: IButtonProps['size'];
+  copyAsUrl?: boolean;
+  renderTrigger?: ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
+  const intl = useIntl();
+  const { gtMd } = useMedia();
+  const activityCenterTitle = intl.formatMessage({
+    id: ETranslations.perps_activity_hub,
+  });
+
+  return (
     <Popover
+      open={open}
+      onOpenChange={onOpenChange}
       title={activityCenterTitle}
-      showHeader={!isDesktop}
+      showHeader={!gtMd}
       placement="bottom-end"
       sheetProps={
-        isDesktop
+        gtMd
           ? undefined
           : {
               dismissOnSnapToBottom: true,
             }
       }
       floatingPanelProps={{
-        width: isDesktop ? 384 : undefined,
+        width: gtMd ? 384 : undefined,
       }}
       renderTrigger={
-        <HeaderIconButton
-          title={activityCenterTitle}
-          icon="GiftOutline"
-          size={size}
-        />
+        renderTrigger ?? (
+          <HeaderIconButton
+            title={activityCenterTitle}
+            icon="GiftOutline"
+            size={size}
+          />
+        )
       }
       renderContent={({ closePopover }) => (
-        <YStack mb="$2">
-          {isDesktop ? (
-            <XStack px="$5" pt="$4" pb="$1">
-              <SizableText size="$headingMd" color="$text" userSelect="none">
-                {activityCenterTitle}
-              </SizableText>
-            </XStack>
-          ) : null}
-          <YStack px="$4" pt={isDesktop ? '$3.5' : null} pb="$3.5">
-            <XStack width="100%" flexWrap="nowrap">
-              <ActivityShortcutCard
-                lottieSrc={
-                  themeVariant === 'light'
-                    ? GiftExpandOnLight
-                    : GiftExpandOnDark
-                }
-                title={intl.formatMessage({
-                  id: ETranslations.sidebar_refer_a_friend,
-                })}
-                onPress={() => {
-                  closePopover();
-                  handleOpenReferReward();
-                }}
-              />
-              <ActivityShortcutCard
-                iconName="HandCoinsOutline"
-                title={intl.formatMessage({
-                  id: ETranslations.perps_trade_reward,
-                })}
-                onPress={() => {
-                  closePopover();
-                  handleOpenTradeReward();
-                }}
-              />
-            </XStack>
-            {hasActivityCards ? (
-              <YStack gap="$2.5" mt="$4">
-                <SizableText size="$headingXs" color="$text">
-                  {`${intl.formatMessage({ id: ETranslations.perps_ongoing_events })} (${activityCards.length})`}
-                </SizableText>
-                <YStack gap="$2">
-                  {activityCards.map((item) => (
-                    <ActivityCampaignCard
-                      key={item.id}
-                      imageUrl={item.imageUrl}
-                      fallbackIconName={
-                        (item.iconName as IButtonProps['icon']) ?? 'GiftOutline'
-                      }
-                      title={item.title}
-                      subtitle={item.subtitle}
-                      onPress={() => {
-                        closePopover();
-                        void openUrlExternal(item.url);
-                      }}
-                    />
-                  ))}
-                </YStack>
-              </YStack>
-            ) : null}
-          </YStack>
-        </YStack>
+        <PerpsActivityCenterContent
+          copyAsUrl={copyAsUrl}
+          closePopover={closePopover}
+        />
       )}
     />
   );
