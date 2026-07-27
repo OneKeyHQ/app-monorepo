@@ -2081,7 +2081,7 @@
   "keytag_progress__msg": "Décodé {current}/{total}",
   "keytag_punch_check__desc": "Un point poinçonné est irréversible. Comparez chaque ligne à l'écran avant de la marquer.",
   "keytag_punch_check__title": "Vérifiez avant de poinçonner",
-  "keytag_punch_how__desc": "Chaque ligne à l'écran correspond à une ligne de votre KeyTag, de haut en bas. Centrez le pointeau sur chaque point plein et appuyez.",
+  "keytag_punch_how__desc": "Chaque ligne à l'écran correspond à la ligne portant le même numéro sur votre KeyTag. Centrez le pointeau sur chaque point plein et appuyez.",
   "keytag_punch_how__title": "Alignez et poinçonnez",
   "keytag_punch_passphrase__desc": "Poinçonnez-le sur la ligne marquée d’un '*' sur votre KeyTag.",
   "keytag_punch_passphrase__title": "Utiliser un Passphrase ?",

@@ -2081,7 +2081,7 @@
   "keytag_progress__msg": "ถอดรหัสแล้ว {current}/{total}",
   "keytag_punch_check__desc": "จุดที่เจาะไปแล้วแก้ไม่ได้ ตรวจสอบแต่ละแถวกับหน้าจอก่อนลงมือเจาะ",
   "keytag_punch_check__title": "ตรวจสอบก่อนเจาะ",
-  "keytag_punch_how__desc": "แต่ละแถวบนหน้าจอตรงกับหนึ่งแถวบน KeyTag ของคุณ เรียงจากบนลงล่าง จัดปลายเหล็กเจาะให้อยู่กึ่งกลางของทุกจุดทึบแล้วกด",
+  "keytag_punch_how__desc": "แต่ละแถวบนหน้าจอตรงกับแถวที่มีหมายเลขเดียวกันบน KeyTag ของคุณ จัดปลายเหล็กเจาะให้อยู่กึ่งกลางของทุกจุดทึบแล้วกด",
   "keytag_punch_how__title": "จัดแนวแล้วเจาะ",
   "keytag_punch_passphrase__desc": "เจาะลงในแถวที่มีเครื่องหมาย '*' บน KeyTag ของคุณ",
   "keytag_punch_passphrase__title": "ใช้ Passphrase หรือไม่?",

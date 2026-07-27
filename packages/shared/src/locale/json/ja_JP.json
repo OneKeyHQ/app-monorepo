@@ -2081,7 +2081,7 @@
   "keytag_progress__msg": "デコード済み {current}/{total}",
   "keytag_punch_check__desc": "一度打刻したドットは元に戻せません。各行を画面と照合してから印を付けてください。",
   "keytag_punch_check__title": "打刻する前に確認",
-  "keytag_punch_how__desc": "画面上の各行は、上から順に KeyTag の各行に対応します。塗りつぶされたドットの中心にポンチを合わせて押し込んでください。",
+  "keytag_punch_how__desc": "画面上の各行は、KeyTag の同じ行番号の行に対応します。塗りつぶされたドットの中心にポンチを合わせて押し込んでください。",
   "keytag_punch_how__title": "位置を合わせて打ち抜く",
   "keytag_punch_passphrase__desc": "KeyTag の「*」で示された行に打ち抜いてください。",
   "keytag_punch_passphrase__title": "Passphrase を使用しますか？",

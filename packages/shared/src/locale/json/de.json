@@ -2081,7 +2081,7 @@
   "keytag_progress__msg": "Dekodiert {current}/{total}",
   "keytag_punch_check__desc": "Ein gestanzter Punkt lässt sich nicht rückgängig machen. Vergleichen Sie jede Zeile mit dem Bildschirm, bevor Sie sie markieren.",
   "keytag_punch_check__title": "Vor dem Stanzen prüfen",
-  "keytag_punch_how__desc": "Jede Zeile auf dem Bildschirm entspricht von oben nach unten einer Zeile auf Ihrem KeyTag. Setzen Sie den Körner mittig auf jeden ausgefüllten Punkt und drücken Sie zu.",
+  "keytag_punch_how__desc": "Jede Zeile auf dem Bildschirm entspricht der Zeile mit derselben Nummer auf Ihrem KeyTag. Setzen Sie den Körner mittig auf jeden ausgefüllten Punkt und drücken Sie zu.",
   "keytag_punch_how__title": "Ausrichten und lochen",
   "keytag_punch_passphrase__desc": "Lochen Sie es in der mit '*' markierten Zeile auf Ihrem KeyTag.",
   "keytag_punch_passphrase__title": "Passphrase verwenden?",

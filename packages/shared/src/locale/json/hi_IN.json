@@ -2081,7 +2081,7 @@
   "keytag_progress__msg": "डिकोड किया गया {current}/{total}",
   "keytag_punch_check__desc": "छेदा गया बिंदु पलटा नहीं जा सकता। हर पंक्ति को चिह्नित करने से पहले स्क्रीन से मिलाएँ।",
   "keytag_punch_check__title": "छेद करने से पहले जाँचें",
-  "keytag_punch_how__desc": "स्क्रीन पर हर पंक्ति आपके KeyTag की एक पंक्ति है, ऊपर से नीचे। हर भरे हुए बिंदु के केंद्र पर पंच रखें और दबाएँ।",
+  "keytag_punch_how__desc": "स्क्रीन पर हर पंक्ति आपके KeyTag की उसी नंबर वाली पंक्ति से मेल खाती है। हर भरे हुए बिंदु के केंद्र पर पंच रखें और दबाएँ।",
   "keytag_punch_how__title": "संरेखित करें और छेद करें",
   "keytag_punch_passphrase__desc": "इसे अपने KeyTag पर '*' से चिह्नित पंक्ति पर छेद करें।",
   "keytag_punch_passphrase__title": "Passphrase का उपयोग कर रहे हैं?",

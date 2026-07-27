@@ -2081,7 +2081,7 @@
   "keytag_progress__msg": "Decodificado {current}/{total}",
   "keytag_punch_check__desc": "Um ponto perfurado não pode ser desfeito. Compare cada linha com a tela antes de marcá-la.",
   "keytag_punch_check__title": "Confira antes de perfurar",
-  "keytag_punch_how__desc": "Cada linha na tela corresponde a uma linha do seu KeyTag, de cima para baixo. Centralize o punção em cada ponto preenchido e pressione.",
+  "keytag_punch_how__desc": "Cada linha na tela corresponde à linha com o mesmo número no seu KeyTag. Centralize o punção em cada ponto preenchido e pressione.",
   "keytag_punch_how__title": "Alinhe e perfure",
   "keytag_punch_passphrase__desc": "Digite-o na linha marcada com '*' no seu KeyTag.",
   "keytag_punch_passphrase__title": "Está usando uma Passphrase?",

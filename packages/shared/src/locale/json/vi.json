@@ -2081,7 +2081,7 @@
   "keytag_progress__msg": "Đã giải mã {current}/{total}",
   "keytag_punch_check__desc": "Chấm đã đục thì không thể hoàn tác. Hãy đối chiếu từng hàng với màn hình trước khi đánh dấu.",
   "keytag_punch_check__title": "Kiểm tra trước khi đục",
-  "keytag_punch_how__desc": "Mỗi hàng trên màn hình tương ứng với một hàng trên KeyTag của bạn, từ trên xuống dưới. Đặt mũi đục vào giữa mỗi chấm đặc rồi ấn.",
+  "keytag_punch_how__desc": "Mỗi hàng trên màn hình tương ứng với hàng có cùng số thứ tự trên KeyTag của bạn. Đặt mũi đục vào giữa mỗi chấm đặc rồi ấn.",
   "keytag_punch_how__title": "Căn chỉnh rồi đột lỗ",
   "keytag_punch_passphrase__desc": "Đột nó ở hàng được đánh dấu '*' trên KeyTag của bạn.",
   "keytag_punch_passphrase__title": "Dùng Passphrase?",

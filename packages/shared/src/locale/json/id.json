@@ -2081,7 +2081,7 @@
   "keytag_progress__msg": "Terdekode {current}/{total}",
   "keytag_punch_check__desc": "Titik yang sudah dilubangi tidak bisa dibatalkan. Bandingkan setiap baris dengan layar sebelum menandainya.",
   "keytag_punch_check__title": "Periksa sebelum melubangi",
-  "keytag_punch_how__desc": "Setiap baris di layar sesuai dengan satu baris pada KeyTag Anda, dari atas ke bawah. Posisikan penitik tepat di tengah setiap titik penuh lalu tekan.",
+  "keytag_punch_how__desc": "Setiap baris di layar sesuai dengan baris bernomor sama pada KeyTag Anda. Posisikan penitik tepat di tengah setiap titik penuh lalu tekan.",
   "keytag_punch_how__title": "Sejajarkan dan lubangi",
   "keytag_punch_passphrase__desc": "Lubangi pada baris yang ditandai dengan '*' pada KeyTag Anda.",
   "keytag_punch_passphrase__title": "Menggunakan Passphrase?",

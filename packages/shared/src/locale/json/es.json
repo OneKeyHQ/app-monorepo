@@ -2081,7 +2081,7 @@
   "keytag_progress__msg": "Decodificado {current}/{total}",
   "keytag_punch_check__desc": "Un punto perforado no se puede deshacer. Compara cada fila con la pantalla antes de marcarla.",
   "keytag_punch_check__title": "Comprueba antes de perforar",
-  "keytag_punch_how__desc": "Cada fila en pantalla corresponde a una fila de tu KeyTag, de arriba abajo. Centra el punzón en cada punto relleno y presiona.",
+  "keytag_punch_how__desc": "Cada fila en pantalla corresponde a la fila con el mismo número en tu KeyTag. Centra el punzón en cada punto relleno y presiona.",
   "keytag_punch_how__title": "Alinea y perfora",
   "keytag_punch_passphrase__desc": "Perfora en la fila marcada con '*' en tu KeyTag.",
   "keytag_punch_passphrase__title": "¿Usando Passphrase?",

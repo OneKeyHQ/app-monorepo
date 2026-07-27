@@ -2081,7 +2081,7 @@
   "keytag_progress__msg": "디코딩됨 {current}/{total}",
   "keytag_punch_check__desc": "한 번 뚫은 점은 되돌릴 수 없습니다. 각 행을 화면과 대조한 뒤 표시하세요.",
   "keytag_punch_check__title": "타공하기 전에 확인",
-  "keytag_punch_how__desc": "화면의 각 행은 위에서부터 KeyTag의 각 행에 해당합니다. 채워진 점의 중앙에 펀치를 맞추고 눌러 주세요.",
+  "keytag_punch_how__desc": "화면의 각 행은 KeyTag에서 같은 번호의 행에 해당합니다. 채워진 점의 중앙에 펀치를 맞추고 눌러 주세요.",
   "keytag_punch_how__title": "정렬한 뒤 펀치하세요",
   "keytag_punch_passphrase__desc": "KeyTag에서 '*' 표시가 있는 행에 펀치하세요.",
   "keytag_punch_passphrase__title": "Passphrase를 사용하시나요?",

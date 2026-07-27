@@ -2081,7 +2081,7 @@
   "keytag_progress__msg": "已解碼 {current}/{total}",
   "keytag_punch_check__desc": "打下去的孔無法復原。每一行都先與螢幕核對，再打孔。",
   "keytag_punch_check__title": "打孔前先核對",
-  "keytag_punch_how__desc": "螢幕上的每一行對應 KeyTag 上的一行，由上至下。將中心衝對準每個實心點的中心後下壓。",
+  "keytag_punch_how__desc": "螢幕上的每一行對應 KeyTag 上行號相同的那一行。將中心衝對準每個實心點的中心後下壓。",
   "keytag_punch_how__title": "對齊後打孔",
   "keytag_punch_passphrase__desc": "請在 KeyTag 上標有「*」的那一行輸入",
   "keytag_punch_passphrase__title": "使用 Passphrase？",

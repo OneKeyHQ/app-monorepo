@@ -2081,7 +2081,7 @@
   "keytag_progress__msg": "Decoded {current}/{total}",
   "keytag_punch_check__desc": "A punched dot can't be undone. Compare each row to the screen before you mark it.",
   "keytag_punch_check__title": "Check before you punch",
-  "keytag_punch_how__desc": "Each row on screen is one row on your KeyTag, top to bottom. Center the punch on every filled dot and press.",
+  "keytag_punch_how__desc": "Each row on screen matches the row with the same number on your KeyTag. Center the punch on every filled dot and press.",
   "keytag_punch_how__title": "Line up and punch",
   "keytag_punch_passphrase__desc": "Punch it on the row marked with '*' on your KeyTag.",
   "keytag_punch_passphrase__title": "Using a passphrase?",

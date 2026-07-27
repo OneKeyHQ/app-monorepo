@@ -2081,7 +2081,7 @@
   "keytag_progress__msg": "Decodificato {current}/{total}",
   "keytag_punch_check__desc": "Un punto punzonato non può essere annullato. Confronta ogni riga con lo schermo prima di segnarla.",
   "keytag_punch_check__title": "Controlla prima di punzonare",
-  "keytag_punch_how__desc": "Ogni riga sullo schermo corrisponde a una riga del tuo KeyTag, dall'alto verso il basso. Centra il punzone su ogni punto pieno e premi.",
+  "keytag_punch_how__desc": "Ogni riga sullo schermo corrisponde alla riga con lo stesso numero sul tuo KeyTag. Centra il punzone su ogni punto pieno e premi.",
   "keytag_punch_how__title": "Allinea e perfora",
   "keytag_punch_passphrase__desc": "Perforalo sulla riga contrassegnata con '*' sul tuo KeyTag.",
   "keytag_punch_passphrase__title": "Stai usando una Passphrase?",
