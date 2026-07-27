@@ -12,6 +12,7 @@
     "packages/shared/src/modules3rdParty/stripe-v3/*",
     "packages/core/src/chains/xmr/sdkXmr/moneroCore/moneroCore.js",
     "packages/kit/src/routes/config/getStateFromPath.ext.ts",
+    "packages/kit-bg/src/services/ServiceFirmwareUpdate/trustedFirmwareCatalog.generated.ts",
     "dist/**",
     "build/**"
   ]

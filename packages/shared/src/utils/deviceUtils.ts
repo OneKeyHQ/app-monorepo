@@ -297,6 +297,7 @@ const DEVICE_MODEL_NAMES_BY_TYPE: Record<IOneKeyDeviceType, string> = {
   [EDeviceType.Mini]: 'OneKey Mini',
   [EDeviceType.Touch]: 'OneKey Touch',
   [EDeviceType.Pro]: 'OneKey Pro',
+  [EDeviceType.Pro2]: 'OneKey Pro 2',
   [EDeviceType.Unknown]: '',
 };
 
@@ -533,6 +534,9 @@ async function shouldUseV2FirmwareUpdateFlow({
 
   const { getDeviceBootloaderVersion, getDeviceType } = await CoreSDKLoader();
   const deviceType = getDeviceType(features);
+  if (deviceType === EDeviceType.Pro2) {
+    return true;
+  }
   if (deviceType !== EDeviceType.Pro) {
     return false;
   }

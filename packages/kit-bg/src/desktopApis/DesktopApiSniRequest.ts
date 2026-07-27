@@ -439,7 +439,7 @@ export function validateSniRequestConfig(
   };
 }
 
-function createCustomAgent(): https.Agent {
+export function createSniRequestAgent(): https.Agent {
   const agent = new https.Agent({
     keepAlive: true,
     keepAliveMsecs: 30_000,
@@ -465,7 +465,7 @@ function createCustomAgent(): https.Agent {
 
 function createAgentState(): SniAgentState {
   return {
-    agent: createCustomAgent(),
+    agent: createSniRequestAgent(),
     activeRequests: new Set<ClientRequest>(),
     destroyed: false,
   };

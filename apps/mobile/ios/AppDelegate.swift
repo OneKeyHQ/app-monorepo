@@ -43,6 +43,24 @@ private enum NitroModuleBridge {
     guard cls.responds(to: selector) else { return nil }
     return cls.perform(selector)?.takeUnretainedValue() as? String
   }
+
+  static func handleFirmwareBackgroundSessionEvents(
+    identifier: String,
+    completionHandler: @escaping () -> Void
+  ) -> Bool {
+    guard let cls = NSClassFromString("FirmwareBackgroundSessionEventRouter") as? NSObject.Type else {
+      return false
+    }
+    let selector = NSSelectorFromString(
+      "routeEventsForBackgroundURLSession:completionHandler:"
+    )
+    guard cls.responds(to: selector) else { return false }
+    let handler: @convention(block) () -> Void = completionHandler
+    return (
+      cls.perform(selector, with: identifier, with: handler)?
+        .takeUnretainedValue() as? NSNumber
+    )?.boolValue == true
+  }
 }
 
 private enum BackgroundThreadBridge {
@@ -249,13 +267,10 @@ public class AppDelegate: ExpoAppDelegate {
   }
 
   // Background URLSession events (concurrent/background downloads).
-  // When the app is relaunched in the background to finish a background
-  // download, hand the completion handler to the downloader via a notification.
-  // We post rather than call directly because the Nitro module's C++ umbrella
-  // header can't be imported into this Swift AppDelegate (see the
-  // NSClassFromString bridges above). If the downloader instance isn't live yet
-  // the events are processed on the next foreground launch instead — the
-  // download itself still completed in the background.
+  // Firmware events are routed directly into the process-level native
+  // downloader so the completion handler cannot be lost before either JS
+  // runtime initializes. Other channels retain their existing notification
+  // bridge.
   //
   // Posted under a generic name (RangeDownloaderBackgroundEvents) so any number
   // of channels (bundle / apk / chart) route through one notification; the
@@ -268,6 +283,12 @@ public class AppDelegate: ExpoAppDelegate {
     completionHandler: @escaping () -> Void
   ) {
     NitroModuleBridge.logInfo("RangeDownloader", "handleEventsForBackgroundURLSession: \(identifier)")
+    if NitroModuleBridge.handleFirmwareBackgroundSessionEvents(
+      identifier: identifier,
+      completionHandler: completionHandler
+    ) {
+      return
+    }
     NotificationCenter.default.post(
       name: Notification.Name("RangeDownloaderBackgroundEvents"),
       object: nil,
