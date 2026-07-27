@@ -18,6 +18,7 @@ import {
   ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_CODE,
   ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_MESSAGE_ID,
   OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
+  OneKeyErrorOneKeyIdLegacyBindStateChanged,
   OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound,
   OneKeyErrorPrimeLoginInvalidToken,
   OneKeyLocalError,
@@ -317,7 +318,7 @@ async function withIdentityNetworkTimeout<T>(
   }
 }
 
-type IPrimeInfiniPurchaseAuthSnapshot = {
+type IOneKeyIdAuthSnapshot = {
   expectedOneKeyUserId: string;
   requestAuthToken: string;
   authSessionSource: EPrimeAuthSessionSource;
@@ -340,23 +341,55 @@ class ServicePrime extends ServiceBase {
     });
   }
 
-  private async captureInfiniPurchaseAuthSnapshot(
-    expectedOneKeyUserId: string,
-  ): Promise<IPrimeInfiniPurchaseAuthSnapshot> {
+  /**
+   * Pin the OneKey ID login a user-consented, account-scoped operation was
+   * started against, so every later step can prove it is still acting for
+   * that account instead of whatever now occupies the shared session slots.
+   *
+   * The snapshot binds four things together: the consented account
+   * (captured by the UI at press time), the exact active token bytes, the
+   * auth session source, and the auth-state generation. `requireSource`
+   * additionally pins WHICH realm the operation is allowed to run against
+   * (the legacy bind must never proceed once the login flipped to
+   * KeylessOAuth).
+   *
+   * Note the ordering: getActiveAuthToken() resolves (and self-heals) the
+   * effective source first, so the getAuthSessionSource() read below is
+   * definitive even for pre-authSessionSource legacy sessions — exactly the
+   * accounts the legacy bind targets.
+   */
+  private async captureOneKeyIdAuthSnapshot({
+    expectedOneKeyUserId,
+    requireSource,
+    insideLoginMutex,
+    createStateChangedError,
+  }: {
+    expectedOneKeyUserId: string;
+    requireSource?: EPrimeAuthSessionSource;
+    // Set by callers that already hold loginMutex (the legacy bind runs its
+    // whole flow inside one section). loginMutex is NOT reentrant, so the
+    // wait below would deadlock against the caller's own section — and it is
+    // redundant there anyway: holding the mutex already excludes the
+    // in-flight login commit the wait exists to avoid reading across.
+    insideLoginMutex?: boolean;
+    createStateChangedError: () => Error;
+  }): Promise<IOneKeyIdAuthSnapshot> {
     const initialUserInfo = await primePersistAtom.get();
     if (
       !expectedOneKeyUserId ||
       !initialUserInfo.isLoggedIn ||
       initialUserInfo.onekeyUserId !== expectedOneKeyUserId
     ) {
-      throw this.createInfiniPurchaseUserChangedError();
+      throw createStateChangedError();
     }
 
-    await this.loginMutex.waitForUnlock();
+    if (!insideLoginMutex) {
+      await this.loginMutex.waitForUnlock();
+    }
     const requestAuthToken =
       await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
     if (!requestAuthToken) {
-      throw this.createInfiniPurchaseUserChangedError();
+      throw createStateChangedError();
     }
 
     return this.authStateWriteMutex.runExclusive(async () => {
@@ -368,9 +401,10 @@ class ServicePrime extends ServiceBase {
       if (
         !currentUserInfo.isLoggedIn ||
         currentUserInfo.onekeyUserId !== expectedOneKeyUserId ||
-        !authSessionSource
+        !authSessionSource ||
+        (requireSource && authSessionSource !== requireSource)
       ) {
-        throw this.createInfiniPurchaseUserChangedError();
+        throw createStateChangedError();
       }
       const persistedSession =
         await readPersistedAccessTokenBySessionSourceStrict(authSessionSource);
@@ -378,7 +412,7 @@ class ServicePrime extends ServiceBase {
         persistedSession.status !== 'ok' ||
         persistedSession.accessToken !== requestAuthToken
       ) {
-        throw this.createInfiniPurchaseUserChangedError();
+        throw createStateChangedError();
       }
       return {
         expectedOneKeyUserId,
@@ -389,9 +423,13 @@ class ServicePrime extends ServiceBase {
     });
   }
 
-  private async assertInfiniPurchaseAuthSnapshot(
-    snapshot: IPrimeInfiniPurchaseAuthSnapshot,
-  ) {
+  private async assertOneKeyIdAuthSnapshot({
+    snapshot,
+    createStateChangedError,
+  }: {
+    snapshot: IOneKeyIdAuthSnapshot;
+    createStateChangedError: () => Error;
+  }) {
     await this.authStateWriteMutex.runExclusive(async () => {
       const currentUserInfo = await primePersistAtom.get();
       const authSessionSource =
@@ -404,19 +442,43 @@ class ServicePrime extends ServiceBase {
         authSessionSource !== snapshot.authSessionSource ||
         authStateGeneration !== snapshot.authStateGeneration
       ) {
-        throw this.createInfiniPurchaseUserChangedError();
+        throw createStateChangedError();
       }
     });
   }
 
-  private getInfiniPurchaseRequestConfig(
-    snapshot: IPrimeInfiniPurchaseAuthSnapshot,
+  private getOneKeyIdAuthSnapshotRequestConfig(
+    snapshot: IOneKeyIdAuthSnapshot,
   ) {
     return {
       headers: {
         'X-Onekey-Request-Token': snapshot.requestAuthToken,
       },
     };
+  }
+
+  private async captureInfiniPurchaseAuthSnapshot(
+    expectedOneKeyUserId: string,
+  ): Promise<IOneKeyIdAuthSnapshot> {
+    return this.captureOneKeyIdAuthSnapshot({
+      expectedOneKeyUserId,
+      createStateChangedError: () =>
+        this.createInfiniPurchaseUserChangedError(),
+    });
+  }
+
+  private async assertInfiniPurchaseAuthSnapshot(
+    snapshot: IOneKeyIdAuthSnapshot,
+  ) {
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot,
+      createStateChangedError: () =>
+        this.createInfiniPurchaseUserChangedError(),
+    });
+  }
+
+  private getInfiniPurchaseRequestConfig(snapshot: IOneKeyIdAuthSnapshot) {
+    return this.getOneKeyIdAuthSnapshotRequestConfig(snapshot);
   }
 
   private async cleanupLegacyKeylessSessionStorageBestEffort({
@@ -1185,10 +1247,11 @@ class ServicePrime extends ServiceBase {
           : `${callerName} ERROR: Keyless OAuth session is not persisted locally`,
       );
     }
-    // Identity check, not just occupancy: persistKeylessOAuthSession runs in
-    // the main runtime OUTSIDE loginMutex, so between the caller's persist
-    // and this bg-side guard a concurrent flow (e.g. ext popup vs expand
-    // tab) can overwrite the shared slot with ANOTHER account's session.
+    // Identity check, not just occupancy: the caller's persist
+    // (persistKeylessOAuthSession) and this login/bind method hold SEPARATE
+    // loginMutex sections, so between the two a concurrent flow (e.g. ext
+    // popup vs expand tab) can still overwrite the shared slot with ANOTHER
+    // account's session.
     // Occupancy alone would then let the POST proceed with account A's
     // token while the committed local state serves account B's slot.
     // Compare the JWT `sub` claims (payload decode only, no signature or
@@ -2123,8 +2186,14 @@ class ServicePrime extends ServiceBase {
   @toastIfError()
   async apiBindLegacyOneKeyIdOAuth({
     oauthAccessToken,
+    expectedOnekeyUserId,
   }: {
     oauthAccessToken: string;
+    // The onekeyUserId the bind UI displayed when the user consented,
+    // captured at button-press time — before the user-paced OAuth
+    // round-trip. Re-asserted below against the live login right before the
+    // irreversible bind POST.
+    expectedOnekeyUserId: string;
   }): Promise<IOneKeyIdOAuthBindResponse> {
     return this.loginMutex.runExclusive(async () => {
       if (!oauthAccessToken) {
@@ -2133,12 +2202,134 @@ class ServicePrime extends ServiceBase {
         );
       }
 
-      const legacyOneKeyIdAuthToken =
-        await this.backgroundApi.simpleDb.prime.getSupabaseAuthToken();
-      if (!legacyOneKeyIdAuthToken) {
-        throw new OneKeyLocalError(
-          'apiBindLegacyOneKeyIdOAuth ERROR: Legacy auth token not found',
-        );
+      // Legacy-side identity guard, mirroring the keyless-side slot guard
+      // below but for the account that permanently RECEIVES the identity.
+      // The bind is irreversible and one-time per identity, so a
+      // wrong-target bind can never be undone or repeated — and two
+      // documented behaviors can put another account's session in the
+      // legacy slot by the time we get here: the ext bind flow hands off to
+      // the expand tab (the popup can re-log the slot in as someone else
+      // meanwhile), and post-commit legacy cleanup failures are deliberately
+      // tolerated as "leftovers are re-cleaned later".
+      //
+      // The snapshot pins the consented account together with the exact
+      // legacy token bytes, the source (must still be LegacyEmailSupabase)
+      // and the auth-state generation; requestAuthToken is therefore the
+      // legacy realm's token, verified to be the bytes actually persisted in
+      // the slot.
+      const bindAuthSnapshot = await this.captureOneKeyIdAuthSnapshot({
+        expectedOneKeyUserId: expectedOnekeyUserId,
+        requireSource: EPrimeAuthSessionSource.LegacyEmailSupabase,
+        insideLoginMutex: true,
+        createStateChangedError: () =>
+          new OneKeyErrorOneKeyIdLegacyBindStateChanged({
+            message:
+              'apiBindLegacyOneKeyIdOAuth ERROR: OneKey ID login changed since the bind was confirmed',
+          }),
+      });
+      const legacyOneKeyIdAuthToken = bindAuthSnapshot.requestAuthToken;
+
+      const client = await this.getPrimeClient();
+
+      // Pin BOTH requests below to the exact captured legacy token via the
+      // explicit request-token header. This is what makes "the verified
+      // bytes, never a re-read" true: without an explicit header the
+      // getOneKeyIdClient request interceptor injects
+      // getActiveAuthToken() — a fresh slot read at request time — so a
+      // main-runtime slot swap landing after the probe would send account
+      // B's token in the POST header while the body still carried the
+      // verified account A token.
+      const pinnedLegacyTokenRequestConfig =
+        this.getOneKeyIdAuthSnapshotRequestConfig(bindAuthSnapshot);
+
+      // Authoritative receiving-account check on the EXACT token bytes the
+      // bind POST below carries. The snapshot above cannot vouch for those
+      // bytes on split-runtime targets: the main runtime persists legacy
+      // sessions (email OTP verifyOtp) straight into the shared slot without
+      // taking this bg loginMutex, and the bg atom/generation only catch up
+      // when that login's apiLogin commit acquires it — so the slot can
+      // already hold another account's session (which the snapshot then
+      // captures and self-consistently validates) while the atom still shows
+      // the consented one. Asking the server who owns the captured token
+      // closes that gap for any interleaving: a swap before the capture is
+      // detected here; a swap after it is harmless because both requests are
+      // pinned to the captured bytes.
+      //
+      // autoHandleError: false follows callApiFetchPrimeUserInfoWithRequestToken
+      // — including its second half: the interceptor's `code !== 0` branch is
+      // skipped by that flag (axiosInterceptor), so business errors resolve
+      // normally and MUST be reclassified here. getPrimeApiResponseData maps
+      // 90002/90003 back to OneKeyErrorPrimeLoginInvalidToken (and anything
+      // else to OneKeyServerApiError). Without it a rejected legacy token
+      // would surface as the state-changed error below — telling the user to
+      // retry something that can never succeed, skipping the invalid-token
+      // teardown, and (because that class is exempt from keyless cleanup)
+      // stranding this flow's provisional keyless session. The bind POST keeps
+      // the default handling, unchanged from before this guard.
+      const profileRequestConfig: Parameters<typeof client.get>[1] & {
+        autoHandleError?: boolean;
+      } = {
+        autoHandleError: false,
+        ...pinnedLegacyTokenRequestConfig,
+      };
+      const profileResult = await client.get<
+        IPrimeApiClientResponse<IOneKeyIdProfileResponse>
+      >('/prime/v1/account/profile', profileRequestConfig);
+      let tokenOwnerOnekeyUserId: string | undefined;
+      try {
+        tokenOwnerOnekeyUserId = this.getPrimeApiResponseData({
+          response: profileResult,
+          fallbackMessage:
+            'apiBindLegacyOneKeyIdOAuth ERROR: legacy token owner probe failed',
+        })?.onekeyAccount?.onekeyUserId;
+      } catch (error) {
+        // The same autoHandleError: false that lets us classify the response
+        // also bypasses the client's invalid-token interceptor, so a rejected
+        // legacy token would abort the bind while the stale source/atom/session
+        // stay logged in. Hand the CAPTURED token to the existing coordinator
+        // so it reconciles the exact session the probe just proved dead.
+        //
+        // Safe from inside this loginMutex section: the synchronous part only
+        // evaluates guards and STAGES the plan (neither takes loginMutex), and
+        // the identity exit itself runs detached, so it queues behind this
+        // section instead of deadlocking against it.
+        if (error instanceof OneKeyErrorPrimeLoginInvalidToken) {
+          const invalidTokenError = error as OneKeyError;
+          try {
+            await this.handlePrimeLoginInvalidToken({
+              requestAuthToken: legacyOneKeyIdAuthToken,
+              errorCode: Number(invalidTokenError.code) || undefined,
+              errorMessage: invalidTokenError.message,
+              requestUrl: '/prime/v1/account/profile',
+            });
+          } catch (reconciliationError) {
+            // Best-effort side effect: the coordinator throws when it cannot
+            // resolve the auth source, and letting that escape would replace
+            // the real cause (invalid token) with a confusing secondary
+            // error. The bind aborts either way; a later request hitting the
+            // same dead token reconciles again.
+            defaultLogger.prime.subscription.onekeyIdInvalidToken({
+              url: '/prime/v1/account/profile',
+              errorCode: Number(invalidTokenError.code) || -1,
+              errorMessage: `apiBindLegacyOneKeyIdOAuth: legacy token owner probe reconciliation failed: ${String(
+                reconciliationError,
+              )}`,
+            });
+          }
+        }
+        throw error;
+      }
+      if (!tokenOwnerOnekeyUserId) {
+        throw new OneKeyErrorOneKeyIdLegacyBindStateChanged({
+          message:
+            'apiBindLegacyOneKeyIdOAuth ERROR: Unable to resolve legacy token owner',
+        });
+      }
+      if (tokenOwnerOnekeyUserId !== expectedOnekeyUserId) {
+        throw new OneKeyErrorOneKeyIdLegacyBindStateChanged({
+          message:
+            'apiBindLegacyOneKeyIdOAuth ERROR: Legacy session account changed since the bind was confirmed',
+        });
       }
 
       // Same fail-fast (occupancy + identity) as apiOAuthLogin — and it
@@ -2148,23 +2339,45 @@ class ServicePrime extends ServiceBase {
       // overwrote meanwhile — would leave the account bound on the server
       // while the client rolls its login state back or presents the wrong
       // identity.
+      //
+      // Runs AFTER the probe on purpose: this guard's own contract accepts an
+      // uncovered guard->POST window, and the snapshot re-check below only
+      // re-validates the LEGACY side (a main-runtime keyless slot write does
+      // not move authStateGeneration). Placing it before the probe would
+      // stretch that window from one POST to a full GET + POST for no gain.
+      // It is all local reads, so the only cost of running it here is one
+      // wasted GET when the keyless slot is already unusable.
       const { verifiedTokenSub } =
         await this.assertKeylessSessionPersistedBeforeLogin({
           accessToken: oauthAccessToken,
           callerName: 'ServicePrime.apiBindLegacyOneKeyIdOAuth',
         });
 
-      const client = await this.getPrimeClient();
+      // Final local re-check across the profile round-trip: the snapshot's
+      // source/generation must still hold before the irreversible POST.
+      await this.assertOneKeyIdAuthSnapshot({
+        snapshot: bindAuthSnapshot,
+        createStateChangedError: () =>
+          new OneKeyErrorOneKeyIdLegacyBindStateChanged({
+            message:
+              'apiBindLegacyOneKeyIdOAuth ERROR: OneKey ID login changed during the bind',
+          }),
+      });
+
       let result: {
         data: IApiClientResponse<IOneKeyIdOAuthBindResponse>;
       };
       try {
         result = await client.post<
           IApiClientResponse<IOneKeyIdOAuthBindResponse>
-        >('/prime/v1/account/identities/oauth/bind', {
-          token: oauthAccessToken,
-          legacyOneKeyIdAuthToken,
-        });
+        >(
+          '/prime/v1/account/identities/oauth/bind',
+          {
+            token: oauthAccessToken,
+            legacyOneKeyIdAuthToken,
+          },
+          pinnedLegacyTokenRequestConfig,
+        );
       } catch (error) {
         if (this.isOneKeyIdOAuthIdentityAlreadyBoundError(error)) {
           throw this.buildOneKeyIdOAuthIdentityAlreadyBoundError(error);
