@@ -9,6 +9,7 @@ export enum EGalleryRoutes {
   ComponentDiscoveryBrowser = 'component-DiscoveryBrowser',
   ComponentDotMap = 'component-DotMap',
   ComponentErrorToast = 'component-ErrorToast',
+  ComponentFirmwareArtifact = 'component-FirmwareArtifact',
   ComponentHardware = 'component-Hardware',
   ComponentLedgerAppOps = 'component-LedgerAppOps',
   ComponentImageCropGallery = 'component-ImageCrop',

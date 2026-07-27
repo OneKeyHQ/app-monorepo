@@ -1,0 +1,211 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
+import {
+  executeFirmwareArtifactSelfTest,
+  getFirmwareArtifactSelfTestArtifact,
+  getFirmwareArtifactSelfTestErrorCode,
+} from './FirmwareArtifactSelfTest';
+
+import type { IFirmwareArtifactAdapter } from './FirmwareArtifactAdapter.types';
+import type { downloadTrustedFirmwareArtifact } from './FirmwareArtifactPreflight';
+
+const createAdapter = ({
+  size,
+  read,
+}: {
+  size: number;
+  read?: IFirmwareArtifactAdapter['read'];
+}) => {
+  const readMock =
+    read ?? jest.fn(async ({ length }) => new ArrayBuffer(length));
+  const materializeImpl: IFirmwareArtifactAdapter['materialize'] = async ({
+    expectedEntries,
+  }) =>
+    Promise.resolve(
+      expectedEntries.map((entry) => ({
+        entryName: entry.entryName,
+        receipt: {
+          artifactRef: `fw:${entry.expectedSha256}`,
+          size: entry.expectedSize,
+          sha256: entry.expectedSha256,
+        },
+      })),
+    );
+  const materialize = jest.fn(materializeImpl);
+  const close = jest.fn(async () => undefined);
+  const releaseLease = jest.fn(async () => undefined);
+  const sweepOrphans = jest.fn(async () => ({
+    deletedFiles: 2,
+    deletedBytes: 4096,
+  }));
+  const adapter: IFirmwareArtifactAdapter = {
+    getCapabilities: async () => ({
+      firmwareArtifactProtocolVersion: 1,
+      supportedRouteTypes: ['domain', 'pinnedIp'],
+      supportsArchiveMaterialization: true,
+      maxReadBytes: 256 * 1024,
+    }),
+    download: jest.fn(),
+    cancelDownloads: jest.fn(),
+    materialize,
+    open: jest.fn(async () => ({ readerId: 'reader-1', size })),
+    read: readMock,
+    close,
+    createLease: jest.fn(async () => ({ leaseRef: 'fwlease:test' })),
+    retain: jest.fn(async () => undefined),
+    releaseLease,
+    reconcileLeases: jest.fn(async () => undefined),
+    sweepOrphans,
+  };
+  return {
+    adapter,
+    close,
+    materialize,
+    read: readMock,
+    releaseLease,
+    sweepOrphans,
+  };
+};
+
+const createDownload = (
+  scenario: 'pro-firmware' | 'pro-resource',
+): typeof downloadTrustedFirmwareArtifact => {
+  const { artifact } = getFirmwareArtifactSelfTestArtifact(scenario);
+  return jest.fn(async () => ({
+    artifactRef: `fw:${artifact.expectedSha256}`,
+    size: artifact.expectedSize,
+    sha256: artifact.expectedSha256,
+  }));
+};
+
+describe('FirmwareArtifactSelfTest', () => {
+  it('reads every firmware byte in bounded chunks and releases the lease', async () => {
+    const { artifact } = getFirmwareArtifactSelfTestArtifact('pro-firmware');
+    const { adapter, read, releaseLease } = createAdapter({
+      size: artifact.expectedSize,
+    });
+    const progress = jest.fn();
+
+    const result = await executeFirmwareArtifactSelfTest({
+      scenario: 'pro-firmware',
+      transactionId: 'fwtx:test-firmware',
+      leaseRef: 'fwlease:test',
+      onProgress: progress,
+      dependencies: {
+        adapter,
+        download: createDownload('pro-firmware'),
+      },
+    });
+
+    expect(result.bytesRead).toBe(artifact.expectedSize);
+    expect(result.chunkCount).toBeGreaterThan(1);
+    expect(result.materializedEntryCount).toBe(0);
+    expect(result).toEqual(
+      expect.objectContaining({ deletedFiles: 2, deletedBytes: 4096 }),
+    );
+    expect(read).toHaveBeenCalledWith(
+      expect.objectContaining({ length: expect.any(Number) }),
+    );
+    expect(releaseLease).toHaveBeenCalledWith({
+      leaseRef: 'fwlease:test',
+      disposition: 'completed',
+    });
+    expect(progress).toHaveBeenLastCalledWith(
+      expect.objectContaining({ phase: 'sweeping', progress: 97 }),
+    );
+  });
+
+  it('materializes every trusted resource entry', async () => {
+    const { artifact } = getFirmwareArtifactSelfTestArtifact('pro-resource');
+    const { adapter, materialize } = createAdapter({
+      size: artifact.expectedSize,
+    });
+
+    const result = await executeFirmwareArtifactSelfTest({
+      scenario: 'pro-resource',
+      transactionId: 'fwtx:test-resource',
+      leaseRef: 'fwlease:test',
+      onProgress: jest.fn(),
+      dependencies: {
+        adapter,
+        download: createDownload('pro-resource'),
+      },
+    });
+
+    expect(artifact.expectedEntries?.length).toBeGreaterThan(0);
+    expect(result.materializedEntryCount).toBe(
+      artifact.expectedEntries?.length,
+    );
+    expect(materialize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedEntries: artifact.expectedEntries,
+      }),
+    );
+  });
+
+  it('marks cancellation as safe and still runs cleanup', async () => {
+    const { artifact } = getFirmwareArtifactSelfTestArtifact('pro-firmware');
+    const { adapter, releaseLease, sweepOrphans } = createAdapter({
+      size: artifact.expectedSize,
+    });
+    const download = jest.fn(async () => {
+      throw new OneKeyLocalError('ARTIFACT_CANCELLED: stopped by test');
+    }) as typeof downloadTrustedFirmwareArtifact;
+
+    await expect(
+      executeFirmwareArtifactSelfTest({
+        scenario: 'pro-firmware',
+        transactionId: 'fwtx:test-cancel',
+        leaseRef: 'fwlease:test',
+        onProgress: jest.fn(),
+        dependencies: { adapter, download },
+      }),
+    ).rejects.toThrow('ARTIFACT_CANCELLED');
+
+    expect(releaseLease).toHaveBeenCalledWith({
+      leaseRef: 'fwlease:test',
+      disposition: 'safeCancelled',
+    });
+    expect(sweepOrphans).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes the reader and safely abandons an incomplete chunk', async () => {
+    const { artifact } = getFirmwareArtifactSelfTestArtifact('pro-firmware');
+    const { adapter, close, releaseLease } = createAdapter({
+      size: artifact.expectedSize,
+      read: jest.fn(async ({ length }) => new ArrayBuffer(length - 1)),
+    });
+
+    await expect(
+      executeFirmwareArtifactSelfTest({
+        scenario: 'pro-firmware',
+        transactionId: 'fwtx:test-reader',
+        leaseRef: 'fwlease:test',
+        onProgress: jest.fn(),
+        dependencies: {
+          adapter,
+          download: createDownload('pro-firmware'),
+        },
+      }),
+    ).rejects.toThrow('incomplete chunk');
+
+    expect(close).toHaveBeenCalledWith('reader-1');
+    expect(releaseLease).toHaveBeenCalledWith({
+      leaseRef: 'fwlease:test',
+      disposition: 'safeAbandoned',
+    });
+  });
+
+  it('exposes only stable error codes', () => {
+    expect(
+      getFirmwareArtifactSelfTestErrorCode(
+        new Error('ARTIFACT_HTTP_503: unavailable'),
+      ),
+    ).toBe('ARTIFACT_HTTP_503');
+    expect(
+      getFirmwareArtifactSelfTestErrorCode(
+        new Error('https://secret.example/path failed'),
+      ),
+    ).toBe('SELF_TEST_FAILED');
+  });
+});

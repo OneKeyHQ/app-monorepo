@@ -25,13 +25,17 @@ export type IFirmwareMaterializedArtifact = {
   receipt: IFirmwareArtifactReceipt;
 };
 
+export type IFirmwareArtifactCapabilities = {
+  firmwareArtifactProtocolVersion: number;
+  supportedRouteTypes: string[];
+  supportsArchiveMaterialization: boolean;
+  maxReadBytes: number;
+};
+
 export interface IFirmwareArtifactAdapter {
-  getCapabilities(): {
-    firmwareArtifactProtocolVersion: number;
-    supportedRouteTypes: string[];
-    supportsArchiveMaterialization: boolean;
-    maxReadBytes: number;
-  };
+  getCapabilities():
+    | IFirmwareArtifactCapabilities
+    | Promise<IFirmwareArtifactCapabilities>;
   download(input: {
     taskId: string;
     transactionId: string;

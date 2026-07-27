@@ -17,7 +17,7 @@ const assertBackgroundRuntime = () => {
 };
 
 export const firmwareArtifactAdapter: IFirmwareArtifactAdapter = {
-  getCapabilities() {
+  async getCapabilities() {
     assertBackgroundRuntime();
     return ReactNativeRangeDownloader.getFirmwareArtifactCapabilities();
   },
