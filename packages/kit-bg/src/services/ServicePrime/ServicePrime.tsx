@@ -2275,11 +2275,50 @@ class ServicePrime extends ServiceBase {
       const profileResult = await client.get<
         IPrimeApiClientResponse<IOneKeyIdProfileResponse>
       >('/prime/v1/account/profile', profileRequestConfig);
-      const tokenOwnerOnekeyUserId = this.getPrimeApiResponseData({
-        response: profileResult,
-        fallbackMessage:
-          'apiBindLegacyOneKeyIdOAuth ERROR: legacy token owner probe failed',
-      })?.onekeyAccount?.onekeyUserId;
+      let tokenOwnerOnekeyUserId: string | undefined;
+      try {
+        tokenOwnerOnekeyUserId = this.getPrimeApiResponseData({
+          response: profileResult,
+          fallbackMessage:
+            'apiBindLegacyOneKeyIdOAuth ERROR: legacy token owner probe failed',
+        })?.onekeyAccount?.onekeyUserId;
+      } catch (error) {
+        // The same autoHandleError: false that lets us classify the response
+        // also bypasses the client's invalid-token interceptor, so a rejected
+        // legacy token would abort the bind while the stale source/atom/session
+        // stay logged in. Hand the CAPTURED token to the existing coordinator
+        // so it reconciles the exact session the probe just proved dead.
+        //
+        // Safe from inside this loginMutex section: the synchronous part only
+        // evaluates guards and STAGES the plan (neither takes loginMutex), and
+        // the identity exit itself runs detached, so it queues behind this
+        // section instead of deadlocking against it.
+        if (error instanceof OneKeyErrorPrimeLoginInvalidToken) {
+          const invalidTokenError = error as OneKeyError;
+          try {
+            await this.handlePrimeLoginInvalidToken({
+              requestAuthToken: legacyOneKeyIdAuthToken,
+              errorCode: Number(invalidTokenError.code) || undefined,
+              errorMessage: invalidTokenError.message,
+              requestUrl: '/prime/v1/account/profile',
+            });
+          } catch (reconciliationError) {
+            // Best-effort side effect: the coordinator throws when it cannot
+            // resolve the auth source, and letting that escape would replace
+            // the real cause (invalid token) with a confusing secondary
+            // error. The bind aborts either way; a later request hitting the
+            // same dead token reconciles again.
+            defaultLogger.prime.subscription.onekeyIdInvalidToken({
+              url: '/prime/v1/account/profile',
+              errorCode: Number(invalidTokenError.code) || -1,
+              errorMessage: `apiBindLegacyOneKeyIdOAuth: legacy token owner probe reconciliation failed: ${String(
+                reconciliationError,
+              )}`,
+            });
+          }
+        }
+        throw error;
+      }
       if (!tokenOwnerOnekeyUserId) {
         throw new OneKeyErrorOneKeyIdLegacyBindStateChanged({
           message:

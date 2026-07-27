@@ -2885,6 +2885,62 @@ describe('ServicePrime provisional Keyless OAuth session rollback', () => {
     );
   });
 
+  it('clears this flow own provisional session on a guarded rollback', async () => {
+    // The legacy-bind abort path relies on this: since the rollback is
+    // ownership-guarded, the caller must NOT be exempted from cleanup.
+    const { service, simpleDbPrime } = createService();
+    const accessToken = buildFakeJwt({ sub: 'independent-keyless-user' });
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(1);
+
+    const { rollbackHandle } = await service.persistKeylessOAuthSession({
+      accessToken,
+      refreshToken: 'refresh-independent',
+    });
+    const persistenceJournal =
+      simpleDbPrime.setKeylessOAuthSessionPersistenceJournal.mock.calls[0][0];
+    simpleDbPrime.getAuthSessionCommitId.mockResolvedValue(
+      persistenceJournal.sessionCommitId,
+    );
+
+    await expect(
+      service.rollbackProvisionalKeylessOAuthSession({ rollbackHandle }),
+    ).resolves.toEqual({ cleared: true });
+    expect(mockRemoveAuthSessionStorageBySessionSource).toHaveBeenCalledTimes(
+      1,
+    );
+  });
+
+  it('preserves a session that now backs a committed KeylessOAuth login', async () => {
+    // The concurrent-flow case the cleanup exemption used to protect: the
+    // rollback itself refuses once the slot backs a committed login, so no
+    // caller-side exemption is needed to keep the winning session.
+    const { service, simpleDbPrime } = createService();
+    const accessToken = buildFakeJwt({ sub: 'independent-keyless-user' });
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(1);
+
+    const { rollbackHandle } = await service.persistKeylessOAuthSession({
+      accessToken,
+      refreshToken: 'refresh-independent',
+    });
+    // A concurrent KeylessOAuth login committed while the bind was aborting.
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+
+    await expect(
+      service.rollbackProvisionalKeylessOAuthSession({ rollbackHandle }),
+    ).resolves.toEqual({ cleared: false });
+    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
+  });
+
   it('rejects an expired rollback handle when its timer is delayed', async () => {
     jest.useFakeTimers();
     const { service, simpleDbPrime } = createService();
@@ -3447,9 +3503,14 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
     authSessionSource?: unknown;
     authStateGeneration?: number;
   } = {}) {
-    const { service, simpleDbPrime } = createService();
+    const { service, simpleDbPrime, backgroundApi } = createService();
     simpleDbPrime.getActiveAuthToken.mockResolvedValue(LEGACY_TOKEN);
     simpleDbPrime.getAuthSessionSource.mockResolvedValue(authSessionSource);
+    // The invalid-token coordinator resolves the source through the
+    // effective-source reader, so keep both in sync.
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      authSessionSource,
+    );
     simpleDbPrime.getAuthStateGeneration.mockResolvedValue(authStateGeneration);
     mockSlots();
 
@@ -3475,7 +3536,7 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
     }));
     service.getPrimeClient = jest.fn(async () => ({ get, post }));
     service.apiFetchPrimeUserInfo = jest.fn(async () => undefined);
-    return { service, simpleDbPrime, get, post };
+    return { service, simpleDbPrime, backgroundApi, get, post };
   }
 
   function bind(service: any, expectedOnekeyUserId = 'user-a') {
@@ -3649,7 +3710,7 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
     // state-changed error would tell the user to retry something that can
     // never succeed, skip the invalid-token teardown, and (via the cleanup
     // exemption) strand this flow's provisional keyless session.
-    const { service, post } = createBindService();
+    const { service, post, backgroundApi } = createBindService();
     service.getPrimeClient = jest.fn(async () => ({
       get: jest.fn(async () => ({
         status: 200,
@@ -3660,6 +3721,32 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
 
     // This class carries no className override, so match the type itself —
     // that is what handlePrimeLoginInvalidToken keys off.
+    await expect(bind(service)).rejects.toBeInstanceOf(
+      OneKeyErrorPrimeLoginInvalidToken,
+    );
+
+    expect(post).not.toHaveBeenCalled();
+    // autoHandleError:false bypasses the client's invalid-token interceptor,
+    // so the bind must hand the CAPTURED token to the coordinator itself —
+    // otherwise the dead session stays logged in after the abort.
+    expect(
+      backgroundApi.serviceIdentityExit.stageRemoteOneKeyIdLogoutReconciliation,
+    ).toHaveBeenCalledWith({ expectedAccessToken: LEGACY_TOKEN });
+  });
+
+  it('still surfaces the invalid-token cause when reconciliation itself fails', async () => {
+    // The coordinator is a best-effort side effect; letting its failure
+    // escape would replace the real cause with a confusing secondary error.
+    const { service, post, simpleDbPrime } = createBindService();
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(undefined);
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => ({
+        status: 200,
+        data: { code: 90_002, message: 'token expired', data: undefined },
+      })),
+      post,
+    }));
+
     await expect(bind(service)).rejects.toBeInstanceOf(
       OneKeyErrorPrimeLoginInvalidToken,
     );

@@ -9,10 +9,13 @@ import { isTransientNetworkLikeError } from './transientNetworkErrorUtils';
  * session, while slot replacement preserves the different account's winning
  * session.
  *
- * The legacy-bind state-changed rejection is exempt for the same reason as
- * slot replacement: it means a concurrent flow changed the OneKey ID login
- * out from under the bind, so the shared slot may hold or back that flow's
- * valid session — tearing it down would break the winning login too.
+ * Note the legacy-bind state-changed rejection is deliberately NOT exempt.
+ * It is a definitive abort, and the caller's rollback is ownership-guarded
+ * (rollbackProvisionalKeylessOAuthSession refuses once the slot backs a
+ * committed KeylessOAuth login, and otherwise deletes only the exact
+ * revision + sessionCommitId + sessionTokenSub it reserved), so a concurrent
+ * flow's winning session is already safe. Exempting it would instead leak
+ * this flow's own provisional session in the common abort case.
  */
 export function shouldClearKeylessOAuthSessionAfterError(
   error: unknown,
@@ -23,11 +26,6 @@ export function shouldClearKeylessOAuthSessionAfterError(
       error,
       className:
         EOneKeyErrorClassNames.OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
-    }) &&
-    !errorUtils.isErrorByClassName({
-      error,
-      className:
-        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
     })
   );
 }
