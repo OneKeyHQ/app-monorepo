@@ -523,19 +523,25 @@ describe('swapStockChannelUtils', () => {
     ).toBeUndefined();
   });
 
-  it('keeps a persisted balance display-only until live balance is ready', () => {
+  it('keeps cached and seeded balances display-only until live balance is ready', () => {
     expect(
       resolveStockBalanceViewState({
+        balanceSnapshot: {
+          ownerScope: 'account-1:usdc',
+          balance: '0.24',
+          tokenDetail: usdcToken,
+        },
         cachedDisplayBalance: '0.24',
       }),
     ).toEqual({
       balance: undefined,
       displayBalance: '0.24',
-      tokenDetail: undefined,
+      tokenDetail: usdcToken,
     });
 
     expect(
       resolveStockBalanceViewState({
+        authoritativeBalance: '0.25',
         balanceSnapshot: {
           ownerScope: 'account-1:usdc',
           balance: '0.25',

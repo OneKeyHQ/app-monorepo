@@ -32,6 +32,7 @@ import {
 } from './swapStockChannelUtils';
 import { markStockUsdPriceCurrency } from './swapStockFiatValueUtils';
 import {
+  buildStockTokenDetailsRequestScope,
   runStockPayTokenDetailsRequest,
   shouldRefreshStockPayTokensForHistoryEvent,
   shouldSyncStockPayTokenDetail,
@@ -281,24 +282,45 @@ export function useSwapStockPayTokens({
   }:${rawPayTokenKeys}:${activeAccount?.indexedAccount?.id ?? ''}:${
     activeAccount?.account?.id ?? ''
   }`;
+  const currentPayTokenDetailsScopeRef = useRef(payTokenDetailsScope);
+  const completedPayTokenDetailsScopeRef = useRef('');
+  const explicitPayTokenDetailsRevalidationScopeRef = useRef('');
+  currentPayTokenDetailsScopeRef.current = payTokenDetailsScope;
   const {
     result: payTokenDetailsState,
     isLoading: payTokenDetailsLoading,
     run: reloadPayTokenDetails,
   } = usePromiseResult(
     async () => {
+      const requestScope = payTokenDetailsScope;
+      const shouldExplicitlyRevalidate =
+        explicitPayTokenDetailsRevalidationScopeRef.current === requestScope;
+      if (shouldExplicitlyRevalidate) {
+        explicitPayTokenDetailsRevalidationScopeRef.current = '';
+      }
+      const requestMode =
+        shouldExplicitlyRevalidate ||
+        completedPayTokenDetailsScopeRef.current === requestScope
+          ? 'revalidate'
+          : 'dedupe';
+      const completeRequestScope = <T>(result: T) => {
+        if (currentPayTokenDetailsScopeRef.current === requestScope) {
+          completedPayTokenDetailsScopeRef.current = requestScope;
+        }
+        return result;
+      };
       if (!shouldLoadPayTokenDetails) {
-        return {
+        return completeRequestScope({
           scope: payTokenDetailsScope,
           tokens: [] as IStockPayToken[],
           balances: {} as Record<string, string | undefined>,
-        };
+        });
       }
       if (!hasActiveAccount) {
         const tokens = sortStockPayTokens(
           rawPayTokens.map((token) => buildStockPayToken({ token })),
         );
-        return {
+        return completeRequestScope({
           scope: payTokenDetailsScope,
           tokens,
           balances: tokens.reduce<Record<string, string | undefined>>(
@@ -308,7 +330,7 @@ export function useSwapStockPayTokens({
             },
             {},
           ),
-        };
+        });
       }
 
       const accountRequestMap = new Map<
@@ -354,14 +376,15 @@ export function useSwapStockPayTokens({
               return buildStockPayToken({ token });
             }
             const details = await runStockPayTokenDetailsRequest({
-              scope: [
-                EProtocolOfExchange.STOCK,
-                token.networkId,
-                token.contractAddress?.toLowerCase() ?? '',
-                networkAccount.id,
-                networkAccount.address.toLowerCase(),
-                'usd',
-              ].join(':'),
+              mode: requestMode,
+              scope: buildStockTokenDetailsRequestScope({
+                protocol: EProtocolOfExchange.STOCK,
+                networkId: token.networkId,
+                contractAddress: token.contractAddress,
+                accountId: networkAccount.id,
+                accountAddress: networkAccount.address,
+                currency: 'usd',
+              }),
               request: () =>
                 backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
                   protocol: EProtocolOfExchange.STOCK,
@@ -387,7 +410,7 @@ export function useSwapStockPayTokens({
         }),
       );
       const sortedTokens = sortStockPayTokens(tokens);
-      return {
+      return completeRequestScope({
         scope: payTokenDetailsScope,
         tokens: sortedTokens,
         balances: Object.fromEntries(
@@ -396,7 +419,7 @@ export function useSwapStockPayTokens({
             token.balanceParsed ?? '0',
           ]),
         ),
-      };
+      });
     },
     [
       activeAccount?.account?.id,
@@ -479,6 +502,8 @@ export function useSwapStockPayTokens({
           toToken,
         })
       ) {
+        explicitPayTokenDetailsRevalidationScopeRef.current =
+          payTokenDetailsScope;
         void reloadPayTokenDetails();
       }
     };
@@ -492,7 +517,12 @@ export function useSwapStockPayTokens({
         handleSwapHistoryStatusUpdate,
       );
     };
-  }, [rawPayTokens, reloadPayTokenDetails, shouldLoadPayTokenDetails]);
+  }, [
+    payTokenDetailsScope,
+    rawPayTokens,
+    reloadPayTokenDetails,
+    shouldLoadPayTokenDetails,
+  ]);
 
   useEffect(() => {
     const manualPayTokenKey = manualStockPayTokenKeyRef.current;

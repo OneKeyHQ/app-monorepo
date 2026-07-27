@@ -426,14 +426,16 @@ export function resolveStockBalanceSnapshot({
 }
 
 export function resolveStockBalanceViewState({
+  authoritativeBalance,
   balanceSnapshot,
   cachedDisplayBalance,
 }: {
+  authoritativeBalance?: string;
   balanceSnapshot?: IStockBalanceSnapshot;
   cachedDisplayBalance?: string;
 }) {
   return {
-    balance: balanceSnapshot?.balance,
+    balance: authoritativeBalance,
     displayBalance: balanceSnapshot?.balance ?? cachedDisplayBalance,
     tokenDetail: balanceSnapshot?.tokenDetail,
   };
