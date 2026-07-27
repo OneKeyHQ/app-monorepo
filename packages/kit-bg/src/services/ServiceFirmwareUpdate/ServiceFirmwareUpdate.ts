@@ -41,6 +41,7 @@ import {
   CoreSDKLoader,
   isDirectFirmwareHostBindingTransport,
 } from '@onekeyhq/shared/src/hardware/instance';
+import { importHardwareSDK } from '@onekeyhq/shared/src/hardware/sdk-loader';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { parseFirmwareVersions } from '@onekeyhq/shared/src/logger/scopes/update/scenes/firmware';
@@ -102,6 +103,7 @@ import {
 import {
   type IFirmwareArtifactSelfTestPhase,
   type IFirmwareArtifactSelfTestProgress,
+  type IFirmwareArtifactSelfTestResult,
   type IFirmwareArtifactSelfTestScenario,
   type IFirmwareArtifactSelfTestState,
   executeFirmwareArtifactSelfTest,
@@ -120,6 +122,7 @@ import {
   firmwareUpdateJournal,
 } from './FirmwareUpdateJournal';
 import { evaluateFirmwareUpdateRollout } from './FirmwareUpdateRolloutPolicy';
+import { getTrustedFirmwareConfig } from './trustedFirmwareCatalog';
 
 import type { IDBDevice } from '../../dbs/local/types';
 import type {
@@ -291,8 +294,48 @@ class ServiceFirmwareUpdate extends ServiceBase {
       bytes: state.bytesRead || undefined,
       chunkCount: state.chunkCount || undefined,
       materializedEntryCount: state.materializedEntryCount || undefined,
+      sdkEntryValidated: state.sdkEntryValidated || undefined,
+      sdkIntegrityRejected: state.sdkIntegrityRejected || undefined,
+      sdkBindingReleased: state.sdkBindingReleased || undefined,
+      sdkBoundaryCode: state.sdkBoundaryCode,
       errorCode: state.errorCode,
     });
+  }
+
+  private async getFirmwareArtifactSelfTestSdk(): Promise<{
+    sdk: CoreApi;
+    disposeAfterTest: boolean;
+  }> {
+    if (!platformEnv.isDesktop) {
+      return {
+        sdk: await this.getSDKInstance({ connectId: undefined }),
+        disposeAfterTest: false,
+      };
+    }
+    const transportType =
+      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+    if (isDirectFirmwareHostBindingTransport(transportType)) {
+      return {
+        sdk: await this.getSDKInstance({ connectId: undefined }),
+        disposeAfterTest: false,
+      };
+    }
+    const sdk = await importHardwareSDK({
+      hardwareTransportType: EHardwareTransportType.WEBUSB,
+    });
+    const initialized = await sdk.init({
+      debug: false,
+      env: 'desktop-webusb',
+      fetchConfig: false,
+      firmwareManifestMode: 'external-only',
+      preloadedConfig: getTrustedFirmwareConfig({ preRelease: false }),
+    });
+    if (!initialized) {
+      throw new OneKeyLocalError(
+        'Firmware SDK self-test direct instance failed to initialize',
+      );
+    }
+    return { sdk, disposeAfterTest: true };
   }
 
   private finishFirmwareArtifactSelfTest({
@@ -309,13 +352,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       IFirmwareArtifactSelfTestState['status'],
       'completed' | 'failed' | 'cancelled'
     >;
-    result?: {
-      bytesRead: number;
-      chunkCount: number;
-      materializedEntryCount: number;
-      deletedFiles: number;
-      deletedBytes: number;
-    };
+    result?: IFirmwareArtifactSelfTestResult;
     errorCode?: string;
   }): void {
     const current = this.firmwareArtifactSelfTestState;
@@ -332,6 +369,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
       chunkCount: result?.chunkCount ?? current.chunkCount,
       materializedEntryCount:
         result?.materializedEntryCount ?? current.materializedEntryCount,
+      sdkEntryValidated: result?.sdkEntryValidated ?? current.sdkEntryValidated,
+      sdkIntegrityRejected:
+        result?.sdkIntegrityRejected ?? current.sdkIntegrityRejected,
+      sdkBindingReleased:
+        result?.sdkBindingReleased ?? current.sdkBindingReleased,
+      sdkBoundaryCode: result?.sdkBoundaryCode ?? current.sdkBoundaryCode,
       deletedFiles: result?.deletedFiles ?? current.deletedFiles,
       deletedBytes: result?.deletedBytes ?? current.deletedBytes,
       errorCode,
@@ -375,16 +418,30 @@ class ServiceFirmwareUpdate extends ServiceBase {
       bytesRead: 0,
       chunkCount: 0,
       materializedEntryCount: 0,
+      sdkEntryValidated: false,
+      sdkIntegrityRejected: false,
+      sdkBindingReleased: false,
       deletedFiles: 0,
       deletedBytes: 0,
     };
     this.firmwareArtifactSelfTestState = state;
     this.logFirmwareArtifactSelfTest({ state, outcome: 'started' });
-    void executeFirmwareArtifactSelfTest({
-      scenario,
-      transactionId,
-      onProgress: (next) => this.updateFirmwareArtifactSelfTestState(next),
-    })
+    void this.getFirmwareArtifactSelfTestSdk()
+      .then(async ({ sdk, disposeAfterTest }) => {
+        try {
+          return await executeFirmwareArtifactSelfTest({
+            scenario,
+            transactionId,
+            sdk,
+            onProgress: (next) =>
+              this.updateFirmwareArtifactSelfTestState(next),
+          });
+        } finally {
+          if (disposeAfterTest) {
+            await sdk.dispose();
+          }
+        }
+      })
       .then((result) => {
         this.finishFirmwareArtifactSelfTest({
           phase: 'completed',
