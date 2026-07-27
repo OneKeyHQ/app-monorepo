@@ -976,6 +976,44 @@ function PrimeInfiniWalletPaymentContent({
     [baseline.onekeyUserId],
   );
 
+  // Releases an invoice the server closed with nothing collected. The ordinary
+  // discard above refuses it once sendStarted is latched, which would strand
+  // the user on a dead payment with no way to change the selection.
+  const discardTerminalPaymentSessionForSelectionChange = useCallback(
+    async (latestPayment: IPrimeInfiniPayment) => {
+      const onekeyUserId = baseline.onekeyUserId;
+      const expectedPaymentCacheIdentity = paymentCacheKeyRef.current;
+      if (
+        !onekeyUserId ||
+        expectedPaymentCacheIdentity?.paymentId !== latestPayment.paymentId
+      ) {
+        return false;
+      }
+      let didDiscard = false;
+      await sessionPersistenceQueueRef.current.finalize(async () => {
+        const persistedSession =
+          await backgroundApiProxy.simpleDb.prime.getInfiniPendingPaymentSession(
+            { onekeyUserId },
+          );
+        if (!persistedSession) {
+          return;
+        }
+        didDiscard =
+          await backgroundApiProxy.simpleDb.prime.discardTerminalInfiniPendingPaymentSession(
+            {
+              onekeyUserId,
+              expectedPaymentCacheIdentity,
+              expectedUpdatedAt: persistedSession.updatedAt,
+              expectedSendStarted: persistedSession.sendStarted,
+              latestPayment,
+            },
+          );
+      });
+      return didDiscard;
+    },
+    [baseline.onekeyUserId],
+  );
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -1362,6 +1400,8 @@ function PrimeInfiniWalletPaymentContent({
               expectedOneKeyUserId: baseline.onekeyUserId ?? '',
             }),
           discardPaymentSession: discardPaymentSessionForSelectionChange,
+          discardTerminalPaymentSession:
+            discardTerminalPaymentSessionForSelectionChange,
           fetchPersistedPaymentSession: () =>
             backgroundApiProxy.simpleDb.prime.getInfiniPendingPaymentSession({
               onekeyUserId: baseline.onekeyUserId ?? '',
@@ -1530,6 +1570,7 @@ function PrimeInfiniWalletPaymentContent({
       baseline.onekeyUserId,
       assets,
       discardPaymentSessionForSelectionChange,
+      discardTerminalPaymentSessionForSelectionChange,
       featureName,
       intl,
       onExitPreventedChange,
@@ -2755,6 +2796,8 @@ function PrimeInfiniWalletPaymentContent({
             expectedOneKeyUserId: baseline.onekeyUserId ?? '',
           }),
         discardPaymentSession: discardPaymentSessionForSelectionChange,
+        discardTerminalPaymentSession:
+          discardTerminalPaymentSessionForSelectionChange,
         fetchPersistedPaymentSession: () =>
           backgroundApiProxy.simpleDb.prime.getInfiniPendingPaymentSession({
             onekeyUserId: baseline.onekeyUserId ?? '',
@@ -2885,6 +2928,7 @@ function PrimeInfiniWalletPaymentContent({
   }, [
     baseline.onekeyUserId,
     discardPaymentSessionForSelectionChange,
+    discardTerminalPaymentSessionForSelectionChange,
     featureName,
     intl,
     isPurchaseUserCurrent,
@@ -2947,6 +2991,8 @@ function PrimeInfiniWalletPaymentContent({
                   expectedOneKeyUserId: baseline.onekeyUserId ?? '',
                 }),
               discardPaymentSession: discardPaymentSessionForSelectionChange,
+              discardTerminalPaymentSession:
+                discardTerminalPaymentSessionForSelectionChange,
               fetchPersistedPaymentSession: () =>
                 backgroundApiProxy.simpleDb.prime.getInfiniPendingPaymentSession(
                   {
@@ -3056,6 +3102,7 @@ function PrimeInfiniWalletPaymentContent({
     [
       baseline.onekeyUserId,
       discardPaymentSessionForSelectionChange,
+      discardTerminalPaymentSessionForSelectionChange,
       featureName,
       onClose,
       onExitPreventedChange,

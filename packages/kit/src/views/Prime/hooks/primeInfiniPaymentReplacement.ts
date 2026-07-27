@@ -18,6 +18,7 @@ import type {
 import {
   getPrimeInfiniPaymentOutcome,
   hasPrimeInfiniPaymentProgress,
+  isPrimeInfiniPaymentClosedUnpaid,
   isPrimeInfiniPaymentForAsset,
   isPrimeInfiniPaymentReplaceable,
 } from './primeInfiniPaymentUtils';
@@ -343,6 +344,7 @@ export async function resolvePrimeInfiniPaymentReplacement({
   sendStarted,
   fetchLatestPayment,
   discardPaymentSession,
+  discardTerminalPaymentSession,
   fetchPersistedPaymentSession,
   persistTrackedPayment,
   shouldContinue,
@@ -352,6 +354,9 @@ export async function resolvePrimeInfiniPaymentReplacement({
   sendStarted: boolean;
   fetchLatestPayment: (paymentId: string) => Promise<IPrimeInfiniPayment>;
   discardPaymentSession: (paymentId: string) => Promise<boolean>;
+  discardTerminalPaymentSession: (
+    latestPayment: IPrimeInfiniPayment,
+  ) => Promise<boolean>;
   fetchPersistedPaymentSession: () => Promise<
     IPrimeInfiniPendingPaymentSession | undefined
   >;
@@ -389,6 +394,22 @@ export async function resolvePrimeInfiniPaymentReplacement({
       sendStarted: sendStarted || hasPrimeInfiniPaymentProgress(currentPayment),
     })
   ) {
+    // A claimed invoice the server closed with nothing collected is dead, but
+    // the ordinary discard refuses it because sendStarted stays latched.
+    // Release it through the terminal path so changing the selection actually
+    // works here instead of sending the user straight back to polling. Only a
+    // successful atomic delete may report a replacement.
+    if (isPrimeInfiniPaymentClosedUnpaid(paymentWithDurableProgress)) {
+      if (await discardTerminalPaymentSession(latestPayment)) {
+        return {
+          type: 'replace',
+          payment: paymentWithDurableProgress,
+        };
+      }
+      if (!shouldContinue()) {
+        return { type: 'cancelled' };
+      }
+    }
     const persistedSession = await persistTrackedPayment(
       paymentWithDurableProgress,
     );

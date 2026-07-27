@@ -128,6 +128,7 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
 
     await expect(
       resolvePrimeInfiniPaymentReplacement({
+        discardTerminalPaymentSession: async () => false,
         currentPayment: payment,
         selectedAsset: asset,
         sendStarted: false,
@@ -145,6 +146,64 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
     expect(fetchPersistedPaymentSession).not.toHaveBeenCalled();
   });
 
+  it('releases a claimed invoice the server closed unpaid so the selection can change', async () => {
+    const closedUnpaidPayment = {
+      ...payment,
+      status: 'expired',
+    };
+    const discardPaymentSession = jest.fn();
+    const discardTerminalPaymentSession = jest.fn(async () => true);
+    const persistTracked = jest.fn();
+
+    await expect(
+      resolvePrimeInfiniPaymentReplacement({
+        currentPayment: payment,
+        selectedAsset: asset,
+        sendStarted: true,
+        fetchLatestPayment: async () => closedUnpaidPayment,
+        discardPaymentSession,
+        discardTerminalPaymentSession,
+        fetchPersistedPaymentSession: jest.fn(),
+        persistTrackedPayment: persistTracked,
+        shouldContinue: () => true,
+      }),
+    ).resolves.toEqual({
+      type: 'replace',
+      payment: closedUnpaidPayment,
+    });
+    expect(discardTerminalPaymentSession).toHaveBeenCalledWith(
+      closedUnpaidPayment,
+    );
+    expect(discardPaymentSession).not.toHaveBeenCalled();
+    expect(persistTracked).not.toHaveBeenCalled();
+  });
+
+  it('keeps tracking a claimed invoice when the terminal release is refused', async () => {
+    const closedUnpaidPayment = {
+      ...payment,
+      status: 'expired',
+    };
+    const discardTerminalPaymentSession = jest.fn(async () => false);
+
+    await expect(
+      resolvePrimeInfiniPaymentReplacement({
+        currentPayment: payment,
+        selectedAsset: asset,
+        sendStarted: true,
+        fetchLatestPayment: async () => closedUnpaidPayment,
+        discardPaymentSession: jest.fn(),
+        discardTerminalPaymentSession,
+        fetchPersistedPaymentSession: jest.fn(),
+        persistTrackedPayment,
+        shouldContinue: () => true,
+      }),
+    ).resolves.toEqual({
+      type: 'track',
+      payment: closedUnpaidPayment,
+    });
+    expect(discardTerminalPaymentSession).toHaveBeenCalledTimes(1);
+  });
+
   it('tracks a freshly observed payment progress without discarding it', async () => {
     const progressedPayment = {
       ...payment,
@@ -154,6 +213,7 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
 
     await expect(
       resolvePrimeInfiniPaymentReplacement({
+        discardTerminalPaymentSession: async () => false,
         currentPayment: payment,
         selectedAsset: asset,
         sendStarted: false,
@@ -176,6 +236,7 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
 
     await expect(
       resolvePrimeInfiniPaymentReplacement({
+        discardTerminalPaymentSession: async () => false,
         currentPayment: payment,
         selectedAsset: asset,
         sendStarted: false,
@@ -203,6 +264,7 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
 
     await expect(
       resolvePrimeInfiniPaymentReplacement({
+        discardTerminalPaymentSession: async () => false,
         currentPayment: progressedPayment,
         selectedAsset: asset,
         sendStarted: false,
@@ -229,6 +291,7 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
 
     await expect(
       resolvePrimeInfiniPaymentReplacement({
+        discardTerminalPaymentSession: async () => false,
         currentPayment: expiredPayment,
         selectedAsset: asset,
         sendStarted: true,
@@ -252,6 +315,7 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
 
     await expect(
       resolvePrimeInfiniPaymentReplacement({
+        discardTerminalPaymentSession: async () => false,
         currentPayment: payment,
         selectedAsset: asset,
         sendStarted: false,
@@ -278,6 +342,7 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
 
     await expect(
       resolvePrimeInfiniPaymentReplacement({
+        discardTerminalPaymentSession: async () => false,
         currentPayment: payment,
         selectedAsset: asset,
         sendStarted: false,
@@ -296,6 +361,7 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
 
     await expect(
       resolvePrimeInfiniPaymentReplacement({
+        discardTerminalPaymentSession: async () => false,
         currentPayment: payment,
         selectedAsset: asset,
         sendStarted: false,
@@ -316,6 +382,7 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
 
     await expect(
       resolvePrimeInfiniPaymentReplacement({
+        discardTerminalPaymentSession: async () => false,
         currentPayment: payment,
         selectedAsset: asset,
         sendStarted: false,
@@ -335,6 +402,7 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
 
     await expect(
       resolvePrimeInfiniPaymentReplacement({
+        discardTerminalPaymentSession: async () => false,
         currentPayment: payment,
         selectedAsset: asset,
         sendStarted: false,
@@ -353,6 +421,7 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
 
     await expect(
       resolvePrimeInfiniPaymentReplacement({
+        discardTerminalPaymentSession: async () => false,
         currentPayment: payment,
         selectedAsset: asset,
         sendStarted: false,

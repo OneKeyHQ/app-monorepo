@@ -2132,6 +2132,8 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
       entity.discardTerminalInfiniPendingPaymentSession({
         onekeyUserId: 'user-1',
         expectedPaymentCacheIdentity: session.paymentCacheKey,
+        expectedUpdatedAt: getStoredSession().updatedAt,
+        expectedSendStarted: true,
         latestPayment: { ...session.payment, status: 'expired' },
       }),
     ).resolves.toBe(false);
@@ -2141,6 +2143,9 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
       freshEntity.discardTerminalInfiniPendingPaymentSession({
         onekeyUserId: 'user-1',
         expectedPaymentCacheIdentity: session.paymentCacheKey,
+        expectedUpdatedAt:
+          getRawData().infiniPendingPaymentSessionByUserId['user-1'].updatedAt,
+        expectedSendStarted: true,
         latestPayment: { ...session.payment, status: 'expired' },
       }),
     ).resolves.toBe(true);
@@ -2156,12 +2161,59 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
       entity.discardTerminalInfiniPendingPaymentSession({
         onekeyUserId: 'user-1',
         expectedPaymentCacheIdentity: session.paymentCacheKey,
+        expectedUpdatedAt:
+          getRawData().infiniPendingPaymentSessionByUserId['user-1'].updatedAt,
+        expectedSendStarted: true,
         latestPayment: { ...session.payment, expiresAt: 1 },
       }),
     ).resolves.toBe(false);
     expect(
       getRawData().infiniPendingPaymentSessionByUserId['user-1'],
     ).toBeDefined();
+  });
+
+  test('refuses a terminal discard when the session was claimed while the snapshot loaded', async () => {
+    const entity = new SimpleDbEntityPrime();
+    const observedUpdatedAt = Date.now() - 5000;
+    let persisted = {
+      infiniPendingPaymentSessionByUserId: {
+        'user-1': {
+          ...session,
+          schemaVersion: 2 as const,
+          updatedAt: observedUpdatedAt,
+          sendStarted: false,
+        },
+      },
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: typeof persisted) => typeof persisted,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+    // Another confirmation page claimed the same invoice while the terminal
+    // snapshot was in flight, so the stored revision moved on.
+    persisted.infiniPendingPaymentSessionByUserId['user-1'] = {
+      ...persisted.infiniPendingPaymentSessionByUserId['user-1'],
+      sendStarted: true,
+      updatedAt: Date.now(),
+    };
+
+    await expect(
+      entity.discardTerminalInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        expectedPaymentCacheIdentity: session.paymentCacheKey,
+        expectedUpdatedAt: observedUpdatedAt,
+        expectedSendStarted: false,
+        latestPayment: { ...session.payment, status: 'expired' },
+      }),
+    ).resolves.toBe(false);
+    expect(
+      persisted.infiniPendingPaymentSessionByUserId['user-1'],
+    ).toBeDefined();
+    expect(
+      persisted.infiniPendingPaymentSessionByUserId['user-1'].sendStarted,
+    ).toBe(true);
   });
 
   test('atomically marks the matching session before transaction broadcast', async () => {

@@ -1606,10 +1606,14 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   async discardTerminalInfiniPendingPaymentSession({
     onekeyUserId,
     expectedPaymentCacheIdentity,
+    expectedUpdatedAt,
+    expectedSendStarted,
     latestPayment,
   }: {
     onekeyUserId: string;
     expectedPaymentCacheIdentity: IPrimeInfiniPaymentCacheKey;
+    expectedUpdatedAt: number;
+    expectedSendStarted: boolean;
     latestPayment: IPrimeInfiniPayment;
   }): Promise<boolean> {
     if (
@@ -1633,7 +1637,14 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
           expectedPaymentCacheIdentity,
           currentSession.paymentCacheKey,
         ) ||
-        currentSession.payment.paymentId !== latestPayment.paymentId
+        currentSession.payment.paymentId !== latestPayment.paymentId ||
+        // The stored session must still be the exact revision the caller
+        // inspected. Another window can claim the same invoice while the
+        // terminal snapshot is in flight, and deleting that fresh claim would
+        // let the entry gate report no pending payment while the broadcast it
+        // already authorized is still on its way.
+        currentSession.updatedAt !== expectedUpdatedAt ||
+        currentSession.sendStarted !== expectedSendStarted
       ) {
         return rawData ?? {};
       }
