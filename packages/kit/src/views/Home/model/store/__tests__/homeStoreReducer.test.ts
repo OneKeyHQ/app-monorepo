@@ -1639,6 +1639,56 @@ describe('Home Store reducer', () => {
     });
   });
 
+  it.each([
+    ['loading', 'refreshing'],
+    ['error', 'failed'],
+  ] as const)(
+    'preserves the confirmed-cache payload when a Section enters %s',
+    (resultKind, expectedRefresh) => {
+      const cachedPayload = {
+        displayIds: ['cached-token'],
+        tokenListMap: {
+          'cached-token': { balance: '1', fiatValue: '42' },
+        },
+        tokens: [{ $key: 'cached-token', symbol: 'ETH' }],
+      };
+      let state = dispatch(createOwnedState(), {
+        type: 'sectionSourceChanged',
+        ownerToken,
+        sectionId: 'portfolio',
+        result: {
+          kind: 'ready',
+          rowIds: ['cached-token'],
+          freshness: 'confirmedCache',
+          refresh: 'refreshing',
+          data: cachedPayload,
+        },
+      });
+
+      state = dispatch(state, {
+        type: 'sectionSourceChanged',
+        ownerToken,
+        sectionId: 'portfolio',
+        result: { kind: resultKind },
+      });
+
+      expect(state.resources.portfolio).toMatchObject({
+        kind: 'ready',
+        data: {
+          payload: cachedPayload,
+        },
+        freshness: 'confirmedCache',
+        refresh: expectedRefresh,
+      });
+      expect(state.sections.portfolio.value).toEqual({
+        kind: 'ready',
+        rowIds: ['cached-token'],
+        freshness: 'confirmedCache',
+        refresh: expectedRefresh,
+      });
+    },
+  );
+
   it('rejects request 1 after request 2 has become authoritative', () => {
     let state = createOwnedState();
     const request1 = createToken(1);

@@ -1461,23 +1461,23 @@ export function reduceHomeStore(
           operation: { kind: 'set', value: next },
         });
       }
-      let resource = serializeSectionForResource(
-        value,
-        event.result.kind === 'ready' ? event.result.data : undefined,
-        event.result.kind === 'ready' ? event.result.freshness : undefined,
-        event.token,
-      );
       const currentResource = state.resources[event.sectionId];
-      if (
-        !resource &&
+      const shouldPreserveCurrentResource =
         (event.result.kind === 'loading' || event.result.kind === 'error') &&
-        (currentResource.kind === 'ready' || currentResource.kind === 'empty')
-      ) {
-        resource = {
-          ...currentResource,
-          refresh: event.result.kind === 'loading' ? 'refreshing' : 'failed',
-        };
-      }
+        (currentResource.kind === 'ready' || currentResource.kind === 'empty');
+      const resource:
+        | IHomeStoreResourceSlot<IHomeRuntimeJsonValue>
+        | undefined = shouldPreserveCurrentResource
+        ? {
+            ...currentResource,
+            refresh: event.result.kind === 'loading' ? 'refreshing' : 'failed',
+          }
+        : serializeSectionForResource(
+            value,
+            event.result.kind === 'ready' ? event.result.data : undefined,
+            event.result.kind === 'ready' ? event.result.freshness : undefined,
+            event.token,
+          );
       if (resource && !equal(currentResource, resource)) {
         mutations.push({
           slice: 'resource',
