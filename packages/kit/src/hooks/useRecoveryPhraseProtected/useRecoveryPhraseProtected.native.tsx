@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -106,58 +106,85 @@ const showRecoveryPhraseProtectedDialog = (
   });
 };
 
-// CaptureProtection is a process-wide native singleton while its React
-// consumers nest: pushing KeyTagBackupDotMap on top of the enter-phrase page
-// keeps that page (and its PhaseInputArea) mounted underneath. An unconditional
-// allow() in the top page's cleanup would drop protection while the phrase below
-// is still on screen, so ref-count and only release on the last consumer — the
-// same contract as the desktop implementation.
-let activeConsumerCount = 0;
+// CaptureProtection is a process-wide native singleton while its React consumers
+// nest: pushing KeyTagBackupDotMap on top of the enter-phrase page keeps that
+// page (and its PhaseInputArea) mounted underneath, so two consumers are live at
+// once. Everything below the hook is therefore module-level and ref-counted —
+// the native prevent/allow pair, the capture listener, and the warning dialog's
+// timer/debounce. Per-consumer listeners would each fire on one screenshot and
+// stack a dialog per mounted consumer.
+type IProtectionConsumer = {
+  // Reads the owning hook's latest intl + dialogType through a ref, so the
+  // registry never has to re-register when either changes.
+  show: () => void;
+};
+
+let consumers: IProtectionConsumer[] = [];
+let captureListener: { remove: () => void } | undefined;
+let showTimer: ReturnType<typeof setTimeout> | undefined;
+
+// The topmost consumer is the last one mounted, and it owns the screen the user
+// is actually looking at — so its copy (recoveryPhrase vs sensitiveInformation)
+// is the one to show.
+const debouncedShow = debounce(() => {
+  consumers[consumers.length - 1]?.show();
+}, 350);
+
+const handleCaptureEvent = (eventType: CaptureEventType) => {
+  if (
+    eventType !== CaptureEventType.CAPTURED &&
+    eventType !== CaptureEventType.RECORDING
+  ) {
+    return;
+  }
+  if (showTimer) {
+    clearTimeout(showTimer);
+  }
+  showTimer = setTimeout(() => {
+    debouncedShow();
+  }, 350);
+};
+
+const registerConsumer = (consumer: IProtectionConsumer) => {
+  consumers.push(consumer);
+  if (consumers.length === 1) {
+    void CaptureProtection.prevent();
+    captureListener = CaptureProtection.addListener(handleCaptureEvent);
+  }
+};
+
+const unregisterConsumer = (consumer: IProtectionConsumer) => {
+  consumers = consumers.filter((item) => item !== consumer);
+  if (consumers.length > 0) {
+    return;
+  }
+  if (showTimer) {
+    clearTimeout(showTimer);
+    showTimer = undefined;
+  }
+  debouncedShow.cancel();
+  void CaptureProtection.allow();
+  captureListener?.remove();
+  captureListener = undefined;
+};
 
 export const useRecoveryPhraseProtected = ({
   dialogType = 'recoveryPhrase',
   enabled = true,
 }: IUseRecoveryPhraseProtectedOptions = {}) => {
   const intl = useIntl();
+  // Held in a ref so a new intl identity or a changed dialogType never churns
+  // the registration — re-registering would momentarily drop the count to zero
+  // and release protection while the phrase is still on screen.
+  const showRef = useRef<() => void>(() => {});
+  showRef.current = () => showRecoveryPhraseProtectedDialog(intl, dialogType);
+
   useEffect(() => {
     if (!enabled) {
       return;
     }
-    const debouncedShow = debounce(
-      () => showRecoveryPhraseProtectedDialog(intl, dialogType),
-      350,
-    );
-    let showTimer: ReturnType<typeof setTimeout> | undefined;
-
-    activeConsumerCount += 1;
-    if (activeConsumerCount === 1) {
-      void CaptureProtection.prevent();
-    }
-    const listener = CaptureProtection.addListener(
-      (eventType: CaptureEventType) => {
-        if (
-          eventType === CaptureEventType.CAPTURED ||
-          eventType === CaptureEventType.RECORDING
-        ) {
-          if (showTimer) {
-            clearTimeout(showTimer);
-          }
-          showTimer = setTimeout(() => {
-            debouncedShow();
-          }, 350);
-        }
-      },
-    );
-    return () => {
-      if (showTimer) {
-        clearTimeout(showTimer);
-      }
-      debouncedShow.cancel();
-      activeConsumerCount -= 1;
-      if (activeConsumerCount === 0) {
-        void CaptureProtection.allow();
-      }
-      listener?.remove();
-    };
-  }, [dialogType, enabled, intl]);
+    const consumer: IProtectionConsumer = { show: () => showRef.current() };
+    registerConsumer(consumer);
+    return () => unregisterConsumer(consumer);
+  }, [enabled]);
 };
