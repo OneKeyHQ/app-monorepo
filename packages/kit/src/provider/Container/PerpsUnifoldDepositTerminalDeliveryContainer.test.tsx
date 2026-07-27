@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+
 import { PerpsUnifoldDepositTerminalDeliveryContainer } from './PerpsUnifoldDepositTerminalDeliveryContainer';
 
 jest.mock('@onekeyhq/components', () => ({
