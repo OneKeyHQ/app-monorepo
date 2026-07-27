@@ -1,3 +1,4 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
@@ -15,10 +16,14 @@ import {
   getTradingViewNativeGestureStartOffsetAfterDataUpdate,
   getTradingViewNativeMaxPanOffset,
   getTradingViewNativePanOffsetAfterDataUpdate,
+  getTradingViewNativePanStartOffsetAfterViewportPreservation,
   getTradingViewNativePointIndexAtX,
   getTradingViewNativePriceExtrema,
   getTradingViewNativePriceRange,
+  getTradingViewNativeRelativePinchScale,
+  getTradingViewNativeViewportForPointRange,
   getTradingViewNativeViewportOffsetTransition,
+  getTradingViewNativeViewportPointRange,
   getTradingViewNativeVisiblePointRange,
   getTradingViewNativeZoomedViewport,
 } from './chartViewport';
@@ -184,6 +189,26 @@ describe('TradingViewNative chart viewport', () => {
     ).toBe(0);
   });
 
+  it('keeps a zero-offset viewport attached to the newest appended candle', () => {
+    const nextOffset = getTradingViewNativePanOffsetAfterDataUpdate({
+      appendedPointCount: 100,
+      chartWidth: 21,
+      currentOffset: 0,
+      pointCount: 102,
+      zoomScale: 1,
+    });
+
+    expect(nextOffset).toBe(0);
+    expect(
+      getTradingViewNativeVisiblePointRange({
+        chartWidth: 21,
+        offset: nextOffset,
+        pointCount: 102,
+        zoomScale: 1,
+      }).endIndex,
+    ).toBe(102);
+  });
+
   it('keeps existing candles stationary when older history is prepended', () => {
     const currentX = getTradingViewNativeCandleX({
       index: 2,
@@ -220,6 +245,25 @@ describe('TradingViewNative chart viewport', () => {
         startZoomScale: 1,
       }),
     ).toBe(28);
+  });
+
+  it('rebases an active pan when a preserved viewport is applied', () => {
+    expect(
+      getTradingViewNativePanStartOffsetAfterViewportPreservation({
+        currentTranslationX: -40,
+        dragRatio: 1.1,
+        preservedOffset: 300,
+      }),
+    ).toBe(344);
+  });
+
+  it('rebases cumulative pinch scale after an async viewport update', () => {
+    expect(
+      getTradingViewNativeRelativePinchScale({
+        baselineScale: 1.5,
+        gestureScale: 1.65,
+      }),
+    ).toBeCloseTo(1.1);
   });
 
   it('derives the price range from visible candles only', () => {
@@ -379,5 +423,80 @@ describe('TradingViewNative chart viewport', () => {
     expect(nextContentRight - anchorDistance * viewport.zoomScale).toBe(
       anchorX,
     );
+  });
+
+  it('resolves timestamp and time-range targets to candle indices', () => {
+    const points = [
+      buildPoint(1, 2, 100),
+      buildPoint(1, 2, 200),
+      buildPoint(1, 2, 300),
+      buildPoint(1, 2, 400),
+    ];
+
+    expect(
+      getTradingViewNativeViewportPointRange({
+        points,
+        target: { kind: 'timestamp', timestamp: 260 },
+      }),
+    ).toEqual({
+      firstIndex: 2,
+      fitRange: false,
+      lastIndex: 2,
+    });
+    expect(
+      getTradingViewNativeViewportPointRange({
+        points,
+        target: { kind: 'timeRange', from: 150, to: 350 },
+      }),
+    ).toEqual({
+      firstIndex: 1,
+      fitRange: true,
+      lastIndex: 2,
+    });
+  });
+
+  it('centers a timestamp and fits a selected candle range', () => {
+    const timestampViewport = getTradingViewNativeViewportForPointRange({
+      chartWidth: 120,
+      currentZoomScale: 1.5,
+      firstIndex: 20,
+      fitRange: false,
+      lastIndex: 20,
+      pointCount: 100,
+    });
+    expect(timestampViewport).not.toBeNull();
+    if (!timestampViewport) {
+      throw new OneKeyLocalError('Expected a timestamp viewport');
+    }
+    expect(timestampViewport.zoomScale).toBe(1.5);
+    const timestampVisibleRange = getTradingViewNativeVisiblePointRange({
+      chartWidth: 120,
+      offset: timestampViewport.offset,
+      pointCount: 100,
+      zoomScale: timestampViewport.zoomScale,
+    });
+    expect(timestampVisibleRange.startIndex).toBeLessThanOrEqual(20);
+    expect(timestampVisibleRange.endIndex).toBeGreaterThan(20);
+
+    const timeRangeViewport = getTradingViewNativeViewportForPointRange({
+      chartWidth: 120,
+      currentZoomScale: 1,
+      firstIndex: 40,
+      fitRange: true,
+      lastIndex: 59,
+      pointCount: 100,
+    });
+    expect(timeRangeViewport).not.toBeNull();
+    if (!timeRangeViewport) {
+      throw new OneKeyLocalError('Expected a time-range viewport');
+    }
+    const timeRangeVisibleRange = getTradingViewNativeVisiblePointRange({
+      chartWidth: 120,
+      offset: timeRangeViewport.offset,
+      pointCount: 100,
+      zoomScale: timeRangeViewport.zoomScale,
+    });
+    expect(timeRangeVisibleRange.startIndex).toBeLessThanOrEqual(40);
+    expect(timeRangeVisibleRange.endIndex).toBeGreaterThan(59);
   });
 });

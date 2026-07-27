@@ -6,28 +6,35 @@ import { useIntl } from 'react-intl';
 import { TradingViewChartControls } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import type { ITradingViewChartControlsProps } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import { showTradingViewChartSettingsDialog } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings';
+import { getTradingViewTimezone } from '@onekeyhq/kit/src/components/TradingView/utils/tradingViewTimezone';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const ACTIVE_INDICATOR_VALUES = new Set<string>();
 
 interface ITradingViewNativeChartControlsContainerProps {
+  calendarAvailableTimeRange?: ITradingViewChartControlsProps['calendarAvailableTimeRange'];
   enableNativeChartSettings?: boolean;
   intervalConfig: ITradingViewChartControlsProps['intervalConfig'];
   layoutMode?: ITradingViewChartControlsProps['layoutMode'];
   isFullscreen?: boolean;
   fullscreenHeader?: ReactNode;
   onIntervalChange: ITradingViewChartControlsProps['onIntervalChange'];
+  onCalendarPanelOpen?: ITradingViewChartControlsProps['onCalendarPanelOpen'];
+  onCalendarPanelSubmit?: ITradingViewChartControlsProps['onCalendarPanelSubmit'];
   onFullscreenChange?: (isFullscreen: boolean) => void;
 }
 
 export const TradingViewNativeChartControlsContainer = memo(
   ({
+    calendarAvailableTimeRange,
     enableNativeChartSettings = false,
     intervalConfig,
     layoutMode = 'mobile',
     isFullscreen = false,
     fullscreenHeader,
     onIntervalChange,
+    onCalendarPanelOpen,
+    onCalendarPanelSubmit,
     onFullscreenChange,
   }: ITradingViewNativeChartControlsContainerProps) => {
     const intl = useIntl();
@@ -45,6 +52,7 @@ export const TradingViewNativeChartControlsContainer = memo(
 
     return (
       <TradingViewChartControls
+        calendarAvailableTimeRange={calendarAvailableTimeRange}
         intervalConfig={intervalConfig}
         activeChartType={undefined}
         activeIndicatorValues={ACTIVE_INDICATOR_VALUES}
@@ -71,7 +79,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         isControlsReady
         intervalControlMode={layoutMode === 'desktop' ? 'popover' : 'dialog'}
         layoutMode={layoutMode}
-        chartTimezone="UTC"
+        chartTimezone={getTradingViewTimezone()}
         isFullscreen={isFullscreen}
         fullscreenHeader={fullscreenHeader}
         onIntervalChange={onIntervalChange}
@@ -80,6 +88,8 @@ export const TradingViewNativeChartControlsContainer = memo(
         onChartTypeChange={noop}
         onChartTypeToggle={noop}
         onPriceMarketCapModeChange={noop}
+        onCalendarPanelOpen={onCalendarPanelOpen}
+        onCalendarPanelSubmit={onCalendarPanelSubmit}
         onSettingsPress={handleSettingsPress}
         onFullscreenToggle={
           onFullscreenChange ? handleFullscreenToggle : undefined
