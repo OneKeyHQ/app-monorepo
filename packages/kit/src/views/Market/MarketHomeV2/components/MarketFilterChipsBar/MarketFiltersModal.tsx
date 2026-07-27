@@ -167,9 +167,7 @@ function DimensionRow({
           ? `${dimension.label} (${dimension.unit})`
           : dimension.label
       }
-      // Token age is the one row that narrows the rows already fetched rather
-      // than the upstream pool, so it says so instead of looking like a peer.
-      note={dimension.isLocalOnly ? 'Filters loaded rows only' : dimension.note}
+      note={dimension.note}
     >
       <TierGrid
         columns={getTierColumns(dimension.options.length)}
@@ -291,11 +289,6 @@ function MarketFiltersModalContent({
                           }
                         />
                       ))}
-                  {group === EMarketFilterGroup.Audit ? (
-                    <SizableText size="$bodySm" color="$textSubdued">
-                      Pending Spike A#8 boolean-direction verification
-                    </SizableText>
-                  ) : null}
                 </YStack>
               </YStack>
             );
