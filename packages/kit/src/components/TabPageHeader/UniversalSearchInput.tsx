@@ -52,7 +52,11 @@ export function UniversalSearchInput({
   }
   return (
     <XStack
-      $gtLg={{ minWidth: 320 } as any}
+      // The desktop header centers this pill between two flex-basis:0 spacers,
+      // so every pixel of pill width costs two pixels of room for the header
+      // actions, which then paint over it (OK-58363). Claim the 320 floor only
+      // where the window can afford it.
+      $gtXl={{ minWidth: 320 } as any}
       width="100%"
       {...(containerProps as IXStackProps)}
     >
@@ -96,7 +100,7 @@ export function MDUniversalSearchInput() {
         size="medium"
         containerProps={{
           width: '100%',
-          $gtLg: undefined,
+          $gtXl: undefined,
         }}
       />
     </XStack>
