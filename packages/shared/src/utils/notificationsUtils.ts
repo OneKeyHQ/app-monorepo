@@ -8,6 +8,7 @@ import {
   ENotificationPushMessageMode,
 } from '../../types/notification';
 import appGlobals from '../appGlobals';
+import { OneKeyLocalError } from '../errors';
 import {
   EAppEventBusNames,
   type IAppEventBusPayload,
@@ -103,6 +104,14 @@ export async function navigateToNotificationDetailByLocalParams({
   getEarnAccount: IGetEarnAccountFunc;
 }) {
   const { screen, params: navigationParams } = payload;
+  // Defence in depth for callers that bypass parseNotificationPayload (the
+  // mode=dialog navigate action). Throwing lets their catch surface the
+  // fallback dialog rather than dispatching push(undefined) into the void.
+  if (typeof screen !== 'string' || !screen) {
+    throw new OneKeyLocalError(
+      'navigateToNotificationDetail: payload has no target screen',
+    );
+  }
   // Recursively find and merge the deepest params
 
   const localParams = { ...originalLocalParams };
@@ -372,6 +381,19 @@ export function parseNotificationPayload(
     case ENotificationPushMessageMode.page:
       try {
         const payloadObj = JSON.parse(payload || '');
+        // `JSON.parse('{}')` succeeds, so a structurally invalid payload used
+        // to reach the navigator as `push(undefined)` — a silent no-op that
+        // reads to the user as a dead banner/notification. Treat a missing
+        // target as a parse failure so the caller's fallback runs instead.
+        if (
+          !payloadObj ||
+          typeof payloadObj !== 'object' ||
+          typeof payloadObj.screen !== 'string' ||
+          !payloadObj.screen
+        ) {
+          fallbackHandler();
+          break;
+        }
         // When mode=page targets the WebView overlay, apply the same URL safety
         // and source enforcement as mode=openInApp to prevent policy bypass.
         // Without this guard an attacker could craft a page payload that routes

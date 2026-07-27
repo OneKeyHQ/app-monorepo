@@ -73,21 +73,30 @@ function useWalletBanner({
       }
 
       if (item.mode) {
-        parseNotificationPayload(item.mode, item.payload, () => {});
-        if (item.mode === ENotificationPushMessageMode.page && item.payload) {
-          try {
-            const payloadObj = JSON.parse(item.payload);
-            if (
-              payloadObj?.screen === 'main' &&
-              payloadObj?.params?.screen === ETabRoutes.Perp
-            ) {
-              setPerpPageEnterSource(EPerpPageEnterSource.WalletBanner);
+        // A banner whose payload cannot be turned into a navigation target
+        // used to be a dead tap: the empty fallback swallowed the failure and
+        // the early return skipped the href handling below. Fall through
+        // instead so a banner that also carries an href still goes somewhere.
+        let payloadHandled = true;
+        parseNotificationPayload(item.mode, item.payload, () => {
+          payloadHandled = false;
+        });
+        if (payloadHandled) {
+          if (item.mode === ENotificationPushMessageMode.page && item.payload) {
+            try {
+              const payloadObj = JSON.parse(item.payload);
+              if (
+                payloadObj?.screen === 'main' &&
+                payloadObj?.params?.screen === ETabRoutes.Perp
+              ) {
+                setPerpPageEnterSource(EPerpPageEnterSource.WalletBanner);
+              }
+            } catch {
+              // ignore malformed payload
             }
-          } catch {
-            // ignore malformed payload
           }
+          return;
         }
-        return;
       }
 
       if (item.href) {
