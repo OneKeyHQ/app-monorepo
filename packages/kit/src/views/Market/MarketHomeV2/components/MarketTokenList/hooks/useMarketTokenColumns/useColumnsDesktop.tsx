@@ -94,6 +94,10 @@ const REDESIGN_STAR_COLUMN_WIDTH = 40;
 const REDESIGN_NAME_COLUMN_WIDTH = 240;
 const REDESIGN_STAR_ICON_SIZE = '$4';
 
+// The `𝕏 #1` reason tag is mock (real data is P1-3 scope). Hidden for this
+// delivery; flip to true once P1-3 provides real reason data.
+const SHOW_REASON_TAG = false;
+
 // Figma: 14px sort glyph sitting 2px after the label. Rendered here (rather
 // than by Column) so the label and the icon form a single hit target.
 // Must be a size token — Icon ignores raw numbers and falls back to 24px.
@@ -290,7 +294,7 @@ function renderRedesignTokenIdentity(
           </SizableText>
           <XStack alignItems="center" gap={6} flexShrink={0}>
             {record.communityRecognized ? <CommunityRecognizedBadge /> : null}
-            {showReasonTag ? (
+            {SHOW_REASON_TAG && showReasonTag ? (
               // Mock reason tag placeholder (P1-3 scope wires real data later).
               <XStack
                 alignItems="center"
