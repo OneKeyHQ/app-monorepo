@@ -11,8 +11,7 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
-import type { IDeviceType } from '@onekeyfe/hd-core';
-import type { Features } from '@onekeyfe/hd-transport';
+import type { Features, IDeviceType } from '@onekeyfe/hd-core';
 
 // Helper function to convert transport type enum to analytics string
 export type IHardwareCommunicationType =

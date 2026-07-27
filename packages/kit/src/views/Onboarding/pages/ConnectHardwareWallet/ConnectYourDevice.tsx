@@ -1665,7 +1665,11 @@ export function ConnectYourDevicePage() {
           await backgroundApiProxy.serviceHardware.shouldAuthenticateFirmware({
             device: {
               ...device,
-              deviceId: device.deviceId || features.device_id,
+              deviceId:
+                device.deviceId ||
+                features.deviceId ||
+                features.device_id ||
+                null,
             },
           });
 

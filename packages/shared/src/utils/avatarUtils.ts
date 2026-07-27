@@ -85,7 +85,6 @@ export const AllWalletAvatarImages = {
   ...ThirdPartyWalletAvatarImages,
 };
 
-export type IAllWalletAvatarImageNames = keyof typeof AllWalletAvatarImages;
 export type IHdWalletAvatarImageNames = keyof typeof HdWalletAvatarImages;
 export type IHwWalletAvatarImageNames = keyof typeof HwWalletAvatarImages;
 export type IOthersWalletAvatarImageNames =
@@ -98,6 +97,9 @@ export type IAllWalletAvatarImageNamesWithoutDividers =
   | IHwWalletAvatarImageNames
   | IOthersWalletAvatarImageNames
   | IThirdPartyWalletAvatarImageNames;
+export type IAllWalletAvatarImageNames =
+  | 'cardDividers'
+  | IAllWalletAvatarImageNamesWithoutDividers;
 
 export function getDeviceAvatarImage(
   deviceType: IDeviceType,

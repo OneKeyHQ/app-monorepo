@@ -18,12 +18,11 @@ import type {
   Unsuccessful,
 } from '@onekeyfe/hd-core';
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
-import type { Features as FeaturesTransport } from '@onekeyfe/hd-transport';
 import type { ImageSourcePropType } from 'react-native';
 
 export type IOneKeyDeviceType = IDeviceType;
 
-export type IOneKeyDeviceFeatures = FeaturesTransport;
+export type IOneKeyDeviceFeatures = FeaturesCore;
 export type IOneKeyDeviceFeaturesCore = FeaturesCore;
 export type IOneKeyDeviceFeaturesWithAppParams = IOneKeyDeviceFeatures & {
   $app_firmware_type?: EFirmwareType;
@@ -108,6 +107,7 @@ export type ICheckAllFirmwareReleaseResult = {
   isBootloaderMode: boolean;
   deviceType: IDeviceType | undefined;
   deviceUUID: string;
+  firmwareUpdatePlanDigest?: string;
   deviceName: string | undefined;
   deviceBleName: string | undefined;
   updatingConnectId: string | undefined;

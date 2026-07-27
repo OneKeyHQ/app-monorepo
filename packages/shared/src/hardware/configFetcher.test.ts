@@ -95,7 +95,9 @@ describe('firmware config fetcher', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedAxios.create.mockReturnValue({ get: directGet });
+    mockedAxios.create.mockReturnValue({
+      get: directGet,
+    } as unknown as ReturnType<typeof axios.create>);
     mockedGetMappedDomainForIpLookup.mockResolvedValue('onekeycn.com');
     mockedIsIpTableTransportError.mockImplementation(
       (error: { code?: string }) =>

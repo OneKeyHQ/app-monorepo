@@ -74,6 +74,7 @@ import {
   settingsPersistAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
+import { loadTrustedFirmwareConfig } from '../ServiceFirmwareUpdate/trustedFirmwareCatalog';
 
 import { DeviceSettingsManager } from './DeviceSettingsManager';
 import { HardwareConnectionManager } from './HardwareConnectionManager';
@@ -362,6 +363,12 @@ class ServiceHardware extends ServiceBase {
     this.connectionManager.setCurrentTransportType(hardwareTransportType);
 
     try {
+      const preloadedConfig =
+        platformEnv.isNative || platformEnv.isDesktop
+          ? await loadTrustedFirmwareConfig({
+              preRelease: isPreRelease === true,
+            })
+          : undefined;
       const instance = await getHardwareSDKInstance({
         hardwareTransportType,
         // https://data.onekey.so/pre-config.json?noCache=1714090312200
@@ -369,6 +376,7 @@ class ServiceHardware extends ServiceBase {
         isPreRelease: isPreRelease === true,
         hardwareConnectSrc,
         debugMode,
+        preloadedConfig,
       });
 
       // TODO re-register events when hardwareConnectSrc or isPreRelease changed
@@ -427,7 +435,9 @@ class ServiceHardware extends ServiceBase {
 
       if (
         dbDevice?.deviceType &&
-        [EDeviceType.Touch, EDeviceType.Pro].includes(dbDevice?.deviceType)
+        [EDeviceType.Touch, EDeviceType.Pro, EDeviceType.Pro2].includes(
+          dbDevice?.deviceType,
+        )
       ) {
         newUiRequestType = EHardwareUiStateAction.EnterPinOnDevice;
         if (
@@ -592,6 +602,9 @@ class ServiceHardware extends ServiceBase {
       );
 
       instance.on(DEVICE.CONNECT, (message: { device: KnownDevice }) => {
+        void this.backgroundApi.serviceFirmwareUpdate
+          .resumeActiveFirmwareTransaction()
+          .catch(() => undefined);
         const { features } = message.device || {};
         if (!features || !features.device_id) return;
         const { device_id: deviceId } = features;
@@ -2446,7 +2459,8 @@ class ServiceHardware extends ServiceBase {
       }
 
       // Step 2: Get expected device name from features
-      const expectedDeviceName = features.ble_name;
+      const expectedDeviceName = features.bleName || features.ble_name;
+      const expectedDeviceId = features.deviceId || features.device_id;
 
       // Step 3: Find matching device by name
       const matchingDevice = searchResult.payload.find((device) => {
@@ -2469,11 +2483,11 @@ class ServiceHardware extends ServiceBase {
         device: {
           ...matchingDevice,
           connectId: matchingDevice.connectId || '',
-          deviceId: features.device_id,
+          deviceId: expectedDeviceId || null,
         },
       });
 
-      if (connectResult && connectResult.device_id === features.device_id) {
+      if (connectResult && connectResult.device_id === expectedDeviceId) {
         // Step 5: Update device in DB with BLE connectId
         const device = await localDb.getDeviceByQuery({
           connectId,
