@@ -1,15 +1,12 @@
-import {
-  getInstallReferrerAsync,
-  getInstallationTimeAsync,
-  nativeApplicationVersion,
-} from 'expo-application';
+import { getInstallReferrerAsync } from 'expo-application';
 
-import { analytics } from '../../analytics';
+import { defaultLogger } from '../../logger/logger';
 import platformEnv from '../../platformEnv';
 import appStorage from '../../storage/appStorage';
 
+import type { IGooglePlayInstallAttributionParams } from '../../logger/scopes/app/scenes/install';
+
 const REPORTED_STORAGE_KEY = 'google_play_install_attribution_reported_v1';
-const EVENT_NAME = 'googlePlayInstallAttribution';
 const MAX_VALUE_LENGTH = 128;
 
 const referrerFields = [
@@ -26,19 +23,6 @@ type IParsedReferrer = Partial<
   Record<(typeof referrerFields)[number][1], string>
 >;
 
-type IReporterDependencies = {
-  eligible: boolean;
-  getInstallReferrer: () => Promise<string>;
-  getInstallationTime: () => Promise<Date>;
-  getReported: () => Promise<string | null>;
-  markReported: () => Promise<void>;
-  trackEventWithAck: (
-    eventName: string,
-    eventProps: Record<string, unknown>,
-  ) => Promise<void>;
-  installVersion: string;
-};
-
 export function parseGooglePlayInstallReferrer(
   rawReferrer: string,
 ): IParsedReferrer {
@@ -53,41 +37,26 @@ export function parseGooglePlayInstallReferrer(
   return parsed;
 }
 
-export async function reportGooglePlayInstallAttribution(
-  overrides: Partial<IReporterDependencies> = {},
-): Promise<void> {
-  const dependencies: IReporterDependencies = {
-    eligible:
-      platformEnv.isNativeAndroidGooglePlay === true &&
-      platformEnv.isNativeMainThread === true,
-    getInstallReferrer: getInstallReferrerAsync,
-    getInstallationTime: getInstallationTimeAsync,
-    getReported: () => appStorage.getItem(REPORTED_STORAGE_KEY),
-    markReported: () => appStorage.setItem(REPORTED_STORAGE_KEY, '1'),
-    trackEventWithAck: (eventName, eventProps) =>
-      analytics.trackEventWithAck(eventName, eventProps),
-    installVersion: nativeApplicationVersion ?? '',
-    ...overrides,
-  };
-
-  if (!dependencies.eligible || (await dependencies.getReported())) {
+export async function reportGooglePlayInstallAttribution(): Promise<void> {
+  if (
+    !platformEnv.isNativeAndroidGooglePlay ||
+    !platformEnv.isNativeMainThread ||
+    (await appStorage.getItem(REPORTED_STORAGE_KEY))
+  ) {
     return;
   }
 
-  const [rawReferrer, installationTime] = await Promise.all([
-    dependencies.getInstallReferrer(),
-    dependencies.getInstallationTime(),
-  ]);
-  const referrer = parseGooglePlayInstallReferrer(rawReferrer);
-  await dependencies.trackEventWithAck(EVENT_NAME, {
+  const referrer = parseGooglePlayInstallReferrer(
+    await getInstallReferrerAsync(),
+  );
+  const eventProps: IGooglePlayInstallAttributionParams = {
     ...referrer,
     appChannel: 'googlePlay',
     attributionSource:
       referrer.clickId || referrer.utmCampaign
         ? 'campaign'
         : 'google_play_organic',
-    installTimestampMs: installationTime.getTime(),
-    installVersion: dependencies.installVersion,
-  });
-  await dependencies.markReported();
+  };
+  defaultLogger.app.install.googlePlayInstallAttribution(eventProps);
+  await appStorage.setItem(REPORTED_STORAGE_KEY, '1');
 }
