@@ -32,6 +32,7 @@ const mockGetPrimeInfiniPaymentEntryGuard = jest.fn<
 >();
 const mockPurchaseByCrypto = jest.fn(async () => undefined);
 const mockPurchasePackageWeb = jest.fn(async () => undefined);
+const mockToastError = jest.fn<void, [config: { title: string }]>();
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -50,6 +51,9 @@ jest.mock('@onekeyhq/components', () => {
     },
     Skeleton: () => null,
     Stack: Passthrough,
+    Toast: {
+      error: (config: { title: string }) => mockToastError(config),
+    },
     YStack: Passthrough,
   };
 });
@@ -197,6 +201,30 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
 
     expect(mockDialogShow).toHaveBeenCalledTimes(1);
     expect(mockPurchaseByCrypto).not.toHaveBeenCalled();
+  });
+
+  it('blocks the purchase with a visible error when the guard request fails', async () => {
+    mockGetPrimeInfiniPaymentEntryGuard.mockRejectedValue(
+      new Error('network down'),
+    );
+    const onPurchase = jest.fn(async () => undefined);
+    const { result } = renderHook(() =>
+      usePrimePurchaseCallback({ onPurchase }),
+    );
+
+    await act(async () => {
+      await expect(
+        result.current.purchase({
+          selectedSubscriptionPeriod: 'P1Y',
+        }),
+      ).rejects.toThrow('Unable to verify the Infini payment session');
+    });
+
+    expect(mockToastError).toHaveBeenCalledTimes(1);
+    expect(mockDialogShow).not.toHaveBeenCalled();
+    expect(mockPurchaseByCrypto).not.toHaveBeenCalled();
+    expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
+    expect(onPurchase).not.toHaveBeenCalled();
   });
 
   it('reroutes a payment method selection when a payment starts while the picker is open', async () => {

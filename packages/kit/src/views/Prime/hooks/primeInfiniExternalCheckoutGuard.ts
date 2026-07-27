@@ -64,13 +64,29 @@ export async function getPrimeInfiniPaymentEntryGuard() {
   const sendStarted =
     pendingPaymentSession.sendStarted ||
     hasPrimeInfiniPaymentProgress(paymentWithDurableProgress);
+  const hasPendingPayment = !isPrimeInfiniPaymentReplaceable({
+    payment: paymentWithDurableProgress,
+    sendStarted,
+  });
+
+  if (hasPendingPayment) {
+    // Latch the observed progress before returning, otherwise a later snapshot
+    // that transiently reports zero progress would make this session
+    // replaceable again and a second invoice could be sent while the first
+    // transaction is still processing. The raw payment is passed through so
+    // the merge runs atomically against the stored session.
+    await backgroundApiProxy.simpleDb.prime.latchInfiniPendingPaymentSessionProgress(
+      {
+        onekeyUserId,
+        paymentCacheKey: pendingPaymentSession.paymentCacheKey,
+        latestPayment,
+      },
+    );
+  }
 
   return {
     isLoggedIn: true,
-    hasPendingPayment: !isPrimeInfiniPaymentReplaceable({
-      payment: paymentWithDurableProgress,
-      sendStarted,
-    }),
+    hasPendingPayment,
     onekeyUserId,
   };
 }

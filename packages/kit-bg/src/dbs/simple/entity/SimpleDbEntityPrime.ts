@@ -1592,6 +1592,87 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     return didDiscard;
   }
 
+  // The payment-entry guard is the first place that observes server-side
+  // progress for a session that was never marked locally. Latch that progress
+  // durably here: a later snapshot that transiently reports zero progress must
+  // not make the session replaceable again and let a second invoice be
+  // created. Writes only on new information so the session TTL is not
+  // refreshed by every read.
+  @backgroundMethod()
+  async latchInfiniPendingPaymentSessionProgress({
+    onekeyUserId,
+    paymentCacheKey,
+    latestPayment,
+  }: {
+    onekeyUserId: string;
+    paymentCacheKey: IPrimeInfiniPaymentCacheKey;
+    latestPayment: IPrimeInfiniPayment;
+  }): Promise<IPrimeInfiniPendingPaymentSession | undefined> {
+    if (!onekeyUserId || !isValidInfiniPaymentCacheKey(paymentCacheKey)) {
+      return undefined;
+    }
+    let latchedSession: IPrimeInfiniPendingPaymentSession | undefined;
+    await this.setRawData((rawData) => {
+      const now = Date.now();
+      const currentSession =
+        rawData?.infiniPendingPaymentSessionByUserId?.[onekeyUserId];
+      if (
+        !currentSession ||
+        !isValidInfiniPendingPaymentSession(currentSession, {
+          onekeyUserId,
+          now,
+        }) ||
+        !isSamePrimeInfiniPaymentCacheKey(
+          paymentCacheKey,
+          currentSession.paymentCacheKey,
+        ) ||
+        !isSamePrimeInfiniPaymentTransferSnapshot({
+          first: currentSession.payment,
+          second: latestPayment,
+          networkId: currentSession.asset.networkId,
+        }) ||
+        !isPrimeInfiniPaymentForAssetSnapshot({
+          payment: latestPayment,
+          asset: currentSession.asset,
+        })
+      ) {
+        return rawData ?? {};
+      }
+      const paymentWithDurableProgress =
+        mergePrimeInfiniPaymentProgressSnapshot({
+          previous: currentSession.payment,
+          latest: latestPayment,
+        });
+      const sendStarted =
+        currentSession.sendStarted ||
+        hasPrimeInfiniPaymentProgressSnapshot(paymentWithDurableProgress);
+      const hasNewDurableProgress =
+        sendStarted !== currentSession.sendStarted ||
+        paymentWithDurableProgress.amountConfirmed !==
+          currentSession.payment.amountConfirmed ||
+        paymentWithDurableProgress.amountConfirming !==
+          currentSession.payment.amountConfirming;
+      if (!hasNewDurableProgress) {
+        latchedSession = currentSession;
+        return rawData ?? {};
+      }
+      latchedSession = {
+        ...currentSession,
+        payment: paymentWithDurableProgress,
+        sendStarted,
+        updatedAt: now,
+      };
+      return {
+        ...rawData,
+        infiniPendingPaymentSessionByUserId: {
+          ...rawData?.infiniPendingPaymentSessionByUserId,
+          [onekeyUserId]: latchedSession,
+        },
+      };
+    });
+    return latchedSession;
+  }
+
   @backgroundMethod()
   async markInfiniPendingPaymentSessionSendStarted({
     onekeyUserId,

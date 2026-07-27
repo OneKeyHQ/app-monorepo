@@ -4,10 +4,11 @@ import { useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IActionListItemProps } from '@onekeyhq/components';
-import { Dialog, Skeleton, Stack, YStack } from '@onekeyhq/components';
+import { Dialog, Skeleton, Stack, Toast, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -264,7 +265,25 @@ export function usePrimePurchaseCallback({
       }: {
         beforeContinue: () => void | Promise<void>;
       }) => {
-        const entryGuard = await getPrimeInfiniPaymentEntryGuard();
+        // The guard hits the network, so a failure means the active-payment
+        // state is unknown. Block the attempt instead of falling through to a
+        // second channel: a duplicate charge is worse than a retryable error.
+        let entryGuard: Awaited<
+          ReturnType<typeof getPrimeInfiniPaymentEntryGuard>
+        >;
+        try {
+          entryGuard = await getPrimeInfiniPaymentEntryGuard();
+        } catch {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_network_error,
+            }),
+          });
+          throw new OneKeyLocalError({
+            message: 'Unable to verify the Infini payment session',
+            autoToast: false,
+          });
+        }
         if (!entryGuard.hasPendingPayment) {
           return false;
         }
@@ -386,6 +405,7 @@ export function usePrimePurchaseCallback({
       });
     },
     [
+      intl,
       onPurchase,
       purchaseByCryptoUnchecked,
       purchaseByNativeUnchecked,

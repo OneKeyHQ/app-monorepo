@@ -1988,6 +1988,113 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     );
   });
 
+  const makeLatchEntity = () => {
+    const entity = new SimpleDbEntityPrime();
+    let persisted = {
+      infiniPendingPaymentSessionByUserId: {
+        'user-1': {
+          ...session,
+          schemaVersion: 2 as const,
+          updatedAt: Date.now() - 1000,
+        },
+      },
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: typeof persisted) => typeof persisted,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+    return {
+      entity,
+      getStoredSession: () =>
+        persisted.infiniPendingPaymentSessionByUserId['user-1'],
+    };
+  };
+
+  test('latches server-observed progress onto an unsent session', async () => {
+    const { entity, getStoredSession } = makeLatchEntity();
+
+    const result = await entity.latchInfiniPendingPaymentSessionProgress({
+      onekeyUserId: 'user-1',
+      paymentCacheKey: session.paymentCacheKey,
+      latestPayment: {
+        ...session.payment,
+        amountConfirming: '0.5',
+      },
+    });
+
+    expect(result?.sendStarted).toBe(true);
+    expect(result?.payment.amountConfirming).toBe('0.5');
+    expect(getStoredSession().sendStarted).toBe(true);
+  });
+
+  test('does not refresh the session when no new progress is observed', async () => {
+    const { entity, getStoredSession } = makeLatchEntity();
+    const updatedAtBefore = getStoredSession().updatedAt;
+
+    const result = await entity.latchInfiniPendingPaymentSessionProgress({
+      onekeyUserId: 'user-1',
+      paymentCacheKey: session.paymentCacheKey,
+      latestPayment: session.payment,
+    });
+
+    expect(result?.sendStarted).toBe(false);
+    expect(getStoredSession().updatedAt).toBe(updatedAtBefore);
+  });
+
+  test('ignores a latch for a session the cache key no longer matches', async () => {
+    const { entity, getStoredSession } = makeLatchEntity();
+
+    const result = await entity.latchInfiniPendingPaymentSessionProgress({
+      onekeyUserId: 'user-1',
+      paymentCacheKey: {
+        ...session.paymentCacheKey,
+        paymentId: 'payment-2',
+      },
+      latestPayment: {
+        ...session.payment,
+        amountConfirming: '0.5',
+      },
+    });
+
+    expect(result).toBeUndefined();
+    expect(getStoredSession().sendStarted).toBe(false);
+  });
+
+  test('keeps a latched session undiscardable when a later snapshot reports zero progress', async () => {
+    const { entity, getStoredSession } = makeLatchEntity();
+
+    await entity.latchInfiniPendingPaymentSessionProgress({
+      onekeyUserId: 'user-1',
+      paymentCacheKey: session.paymentCacheKey,
+      latestPayment: {
+        ...session.payment,
+        amountConfirming: '0.5',
+      },
+    });
+    // Final consistency can report the confirming amount back as zero; the
+    // merge would then see no progress, so only the persisted sendStarted
+    // latch keeps the session from being replaced by a second invoice.
+    await entity.latchInfiniPendingPaymentSessionProgress({
+      onekeyUserId: 'user-1',
+      paymentCacheKey: session.paymentCacheKey,
+      latestPayment: {
+        ...session.payment,
+        amountConfirming: '0',
+      },
+    });
+
+    expect(getStoredSession().sendStarted).toBe(true);
+    await expect(
+      entity.discardUnsentInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        expectedPaymentCacheIdentity: session.paymentCacheKey,
+      }),
+    ).resolves.toBe(false);
+    expect(getStoredSession().sendStarted).toBe(true);
+  });
+
   test('atomically marks the matching session before transaction broadcast', async () => {
     const entity = new SimpleDbEntityPrime();
     const persistedSession = {

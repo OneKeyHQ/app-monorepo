@@ -16,6 +16,16 @@ const mockApiGetInfiniPayment = jest.fn<
   Promise<unknown>,
   [{ paymentId: string; expectedOneKeyUserId: string }]
 >();
+const mockLatchPendingPaymentProgress = jest.fn<
+  Promise<unknown>,
+  [
+    {
+      onekeyUserId: string;
+      paymentCacheKey: { paymentId: string };
+      latestPayment: unknown;
+    },
+  ]
+>();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -31,6 +41,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       prime: {
         getInfiniPendingPaymentSession: (params: { onekeyUserId: string }) =>
           mockGetPendingPaymentSession(params),
+        latchInfiniPendingPaymentSessionProgress: (params: {
+          onekeyUserId: string;
+          paymentCacheKey: { paymentId: string };
+          latestPayment: unknown;
+        }) => mockLatchPendingPaymentProgress(params),
       },
     },
   },
@@ -105,6 +120,41 @@ describe('getPrimeInfiniExternalCheckoutGuard', () => {
     });
   });
 
+  it('latches the observed server progress before blocking', async () => {
+    mockGetLocalUserInfo.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-1',
+    });
+    mockGetPendingPaymentSession.mockResolvedValue({
+      sendStarted: false,
+      paymentCacheKey: {
+        paymentId: 'payment-1',
+      },
+      payment: {
+        paymentId: 'payment-1',
+        amountDue: '1',
+        amountConfirmed: '0',
+        amountConfirming: '0',
+      },
+    });
+    const latestPayment = {
+      paymentId: 'payment-1',
+      amountDue: '1',
+      amountConfirmed: '0',
+      amountConfirming: '0.5',
+    };
+    mockApiGetInfiniPayment.mockResolvedValue(latestPayment);
+
+    await getPrimeInfiniPaymentEntryGuard();
+
+    expect(mockLatchPendingPaymentProgress).toHaveBeenCalledTimes(1);
+    expect(mockLatchPendingPaymentProgress).toHaveBeenCalledWith({
+      onekeyUserId: 'user-1',
+      paymentCacheKey: { paymentId: 'payment-1' },
+      latestPayment,
+    });
+  });
+
   it('blocks the payment method picker when the server reports payment progress', async () => {
     mockGetLocalUserInfo.mockResolvedValue({
       isLoggedIn: true,
@@ -165,5 +215,6 @@ describe('getPrimeInfiniExternalCheckoutGuard', () => {
       hasPendingPayment: false,
       onekeyUserId: 'user-1',
     });
+    expect(mockLatchPendingPaymentProgress).not.toHaveBeenCalled();
   });
 });
