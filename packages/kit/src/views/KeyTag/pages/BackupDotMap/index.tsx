@@ -206,6 +206,12 @@ const BackupDotMap = () => {
       onConfirmText: intl.formatMessage({
         id: ETranslations.keytag_verify_help_recheck__action,
       }),
+      // The copy tells the user to re-check the plate (and to re-punch a spare
+      // if it is wrong), which they cannot do without seeing the dot map again
+      // — so send them back to it. Cancel keeps them on the grid with what they
+      // typed. Re-entering verify blanks the input and resets the fail count,
+      // so this cannot be used to copy the map across a row at a time.
+      onConfirm: () => setPhase('review'),
     });
   }, [intl]);
 
