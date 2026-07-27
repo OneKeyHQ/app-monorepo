@@ -39,6 +39,7 @@ export function useEModeSwitch({
   // One in-flight tx at a time: guards the async build-tx window (before the
   // confirm modal opens) against a double-tap firing two builds / two modals.
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   // Sequence id so an out-of-order (stale) switch-check response can never
   // overwrite the latest one; only the newest runCheck call applies state.
   const checkSeqRef = useRef(0);
@@ -49,6 +50,7 @@ export function useEModeSwitch({
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      submittingRef.current = false;
       checkSeqRef.current += 1;
     };
   }, []);
@@ -145,9 +147,10 @@ export function useEModeSwitch({
   }, []);
 
   const confirmSwitch = useCallback(async () => {
-    if (targetEModeId === null || isSubmitting) {
+    if (targetEModeId === null || submittingRef.current) {
       return;
     }
+    submittingRef.current = true;
     setIsSubmitting(true);
     try {
       const expectedGeneration = getCheckGeneration();
@@ -185,13 +188,13 @@ export function useEModeSwitch({
       // The final check owns its fallback toast, while build errors retain the
       // API interceptor toast. Catch here only releases the submit lock.
     } finally {
+      submittingRef.current = false;
       if (mountedRef.current) {
         setIsSubmitting(false);
       }
     }
   }, [
     targetEModeId,
-    isSubmitting,
     applyAuthoritativeCheck,
     getCheckGeneration,
     setEMode,

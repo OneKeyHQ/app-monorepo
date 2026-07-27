@@ -198,6 +198,41 @@ describe('useEModeSwitch runCheck result', () => {
     expect(backgroundMock.borrowSwitchCheckEMode).toHaveBeenCalledTimes(1);
   });
 
+  it('allows only one confirm request before React commits submitting state', async () => {
+    const allowedCheck = {
+      ...createCheck(''),
+      canSwitch: true,
+      reasons: [],
+    };
+    const guardDeferred = createDeferred<IBorrowEModeSwitchCheck>();
+    backgroundMock.borrowSwitchCheckEMode.mockResolvedValue({
+      code: 0,
+      data: allowedCheck,
+    });
+    setEModeMock.mockReturnValueOnce(guardDeferred.promise);
+    const { result } = renderUseEModeSwitch();
+
+    await act(async () => {
+      await result.current.runCheck(2);
+    });
+
+    let firstConfirm!: Promise<void>;
+    let secondConfirm!: Promise<void>;
+    act(() => {
+      firstConfirm = result.current.confirmSwitch();
+      secondConfirm = result.current.confirmSwitch();
+    });
+
+    expect(setEModeMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      guardDeferred.resolve(allowedCheck);
+      await Promise.all([firstConfirm, secondConfirm]);
+    });
+
+    expect(result.current.isSubmitting).toBe(false);
+  });
+
   it('does not overwrite a newer same-target check with blocked guard results', async () => {
     const allowedPreview = {
       ...createCheck(''),
