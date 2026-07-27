@@ -22,6 +22,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -33,6 +34,8 @@ import type {
   IPrimeInfiniSubscription,
   IPrimeInfiniSubscriptionPlan,
 } from '@onekeyhq/shared/types/prime/primeTypes';
+
+import { PrimeInfiniSubscriptionResetButton } from '../../components/PrimeDevUtils';
 
 import {
   isInfiniSubscriptionRenewalStopped,
@@ -168,6 +171,7 @@ export default function PrimeInfiniSubscription() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [primeUserInfo] = usePrimePersistAtom();
+  const [isResetButtonVisible, setIsResetButtonVisible] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -241,6 +245,10 @@ export default function PrimeInfiniSubscription() {
   const refreshSubscription = useCallback(() => {
     void run();
   }, [run]);
+
+  const handleSubscriptionTitleMultipleClick = useCallback(() => {
+    setIsResetButtonVisible(true);
+  }, []);
 
   const handleCancelRenewal = useCallback(
     (currentSubscription: IPrimeInfiniSubscription) => {
@@ -366,14 +374,23 @@ export default function PrimeInfiniSubscription() {
             borderColor="$borderSubdued"
             gap="$3"
           >
-            <XStack alignItems="center" gap="$2">
-              <SizableText size="$headingLg" flexShrink={1}>
-                {planLabel}
-              </SizableText>
-              <Badge badgeType={badgeType} badgeSize="sm">
-                {statusLabel}
-              </Badge>
-            </XStack>
+            <MultipleClickStack
+              alignSelf="flex-start"
+              testID="prime-infini-subscription-title"
+              onPress={handleSubscriptionTitleMultipleClick}
+            >
+              <XStack alignItems="center" gap="$2">
+                <SizableText size="$headingLg" flexShrink={1}>
+                  {planLabel}
+                </SizableText>
+                <Badge badgeType={badgeType} badgeSize="sm">
+                  {statusLabel}
+                </Badge>
+              </XStack>
+            </MultipleClickStack>
+            {isResetButtonVisible ? (
+              <PrimeInfiniSubscriptionResetButton testID="prime-infini-subscription-reset" />
+            ) : null}
             <SizableText size="$headingXl">{priceText}</SizableText>
             <Divider />
             <YStack gap="$2.5">
@@ -422,7 +439,12 @@ export default function PrimeInfiniSubscription() {
         </YStack>
       );
     },
-    [intl, primeUserInfo.displayEmail],
+    [
+      handleSubscriptionTitleMultipleClick,
+      intl,
+      isResetButtonVisible,
+      primeUserInfo.displayEmail,
+    ],
   );
 
   const renderContent = () => {

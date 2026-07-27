@@ -32,13 +32,14 @@ export function MultipleClickStack({
         bg={showDevBgColor && platformEnv.isDev ? '$bgCritical' : undefined}
         {...others}
         onPress={(event) => {
-          if (clickCount > triggerAt) {
+          const nextClickCount = clickCount + 1;
+          if (nextClickCount >= triggerAt) {
             onPress?.(event);
             if (debugComponent && devSettings.enabled) {
               setDebugComponentVisible(true);
             }
           }
-          setClickCount((prev) => prev + 1);
+          setClickCount(nextClickCount);
         }}
       >
         {children}
