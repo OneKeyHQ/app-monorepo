@@ -3401,3 +3401,259 @@ describe('ServicePrime.apiOAuthLoginWithFreshSessionForLoggedOutState', () => {
     expect(mockRevokeAuthSessionTokenOnServerBestEffort).not.toHaveBeenCalled();
   });
 });
+
+describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => {
+  const LEGACY_TOKEN = 'legacy-token-a';
+  const OAUTH_TOKEN = buildFakeJwt({ sub: 'oauth-sub-a' });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-a',
+    });
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockReset();
+  });
+
+  afterEach(() => {
+    mockPrimePersistAtom.get.mockImplementation(async () => ({}));
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'persisted-access-token',
+    });
+  });
+
+  // Source-aware slot reads: the legacy snapshot reads the LegacyEmailSupabase
+  // slot while the keyless guard (and the post-POST commit) read the shared
+  // KeylessOAuth slot.
+  function mockSlots({ legacyToken = LEGACY_TOKEN } = {}) {
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockImplementation(
+      async (source: unknown) => ({
+        status: 'ok',
+        accessToken:
+          source === EPrimeAuthSessionSource.LegacyEmailSupabase
+            ? legacyToken
+            : OAUTH_TOKEN,
+      }),
+    );
+  }
+
+  function createBindService({
+    tokenOwnerOnekeyUserId = 'user-a',
+    authSessionSource = EPrimeAuthSessionSource.LegacyEmailSupabase,
+    authStateGeneration = 7,
+  }: {
+    tokenOwnerOnekeyUserId?: string;
+    authSessionSource?: unknown;
+    authStateGeneration?: number;
+  } = {}) {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue(LEGACY_TOKEN);
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(authSessionSource);
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(authStateGeneration);
+    mockSlots();
+
+    const get = jest.fn(async () => ({
+      data: {
+        data: {
+          onekeyAccount: { onekeyUserId: tokenOwnerOnekeyUserId },
+        },
+      },
+    }));
+    const post = jest.fn(async () => ({
+      data: {
+        data: {
+          onekeyAccount: {
+            onekeyUserId: 'user-a',
+            normalizedEmail: 'a@example.com',
+            displayEmail: 'a@example.com',
+          },
+        },
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ get, post }));
+    service.apiFetchPrimeUserInfo = jest.fn(async () => undefined);
+    return { service, simpleDbPrime, get, post };
+  }
+
+  function bind(service: any, expectedOnekeyUserId = 'user-a') {
+    return service.apiBindLegacyOneKeyIdOAuth({
+      oauthAccessToken: OAUTH_TOKEN,
+      expectedOnekeyUserId,
+    });
+  }
+
+  it('binds with the token bytes whose server-side owner is the consented account', async () => {
+    const { service, get, post } = createBindService();
+
+    await expect(bind(service)).resolves.toEqual(
+      expect.objectContaining({
+        onekeyAccount: expect.objectContaining({ onekeyUserId: 'user-a' }),
+      }),
+    );
+
+    // Ownership probe pinned to the exact captured legacy token, and the
+    // bind POST carries those same bytes (never a re-read).
+    expect(get).toHaveBeenCalledWith('/prime/v1/account/profile', {
+      autoHandleError: false,
+      headers: {
+        'X-Onekey-Request-Token': LEGACY_TOKEN,
+      },
+    });
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/account/identities/oauth/bind',
+      {
+        token: OAUTH_TOKEN,
+        legacyOneKeyIdAuthToken: LEGACY_TOKEN,
+      },
+    );
+  });
+
+  it('aborts when the live login already flipped to KeylessOAuth (stale legacy slot)', async () => {
+    // Post-commit legacy cleanup failures are deliberately tolerated, so a
+    // residual legacy token can coexist with a live KeylessOAuth login.
+    const { service, get, post } = createBindService({
+      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+    });
+
+    await expect(bind(service)).rejects.toMatchObject({
+      className:
+        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    });
+
+    expect(get).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('aborts when the logged-in account changed since the user consented', async () => {
+    const { service, get, post } = createBindService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-b',
+    });
+
+    await expect(bind(service, 'user-a')).rejects.toMatchObject({
+      className:
+        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    });
+
+    expect(get).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('aborts when OneKey ID is logged out', async () => {
+    const { service, get, post } = createBindService();
+    mockPrimePersistAtom.get.mockResolvedValue({ isLoggedIn: false });
+
+    await expect(bind(service)).rejects.toMatchObject({
+      className:
+        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    });
+
+    expect(get).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('aborts when the captured legacy token is not the bytes persisted in the slot', async () => {
+    const { service, get, post } = createBindService();
+    mockSlots({ legacyToken: 'another-legacy-token' });
+
+    await expect(bind(service)).rejects.toMatchObject({
+      className:
+        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    });
+
+    expect(get).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('aborts when the server says the captured token belongs to another account', async () => {
+    // Split-runtime TOCTOU: the main runtime wrote account B's session into
+    // the shared legacy slot (verifyOtp) while its apiLogin is still queued
+    // on this loginMutex, so the bg atom/generation still show the consented
+    // account A and every local check is self-consistent. Only the server can
+    // tell whose token this is.
+    const { service, get, post } = createBindService({
+      tokenOwnerOnekeyUserId: 'user-b',
+    });
+
+    await expect(bind(service, 'user-a')).rejects.toMatchObject({
+      className:
+        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    });
+
+    expect(get).toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('aborts when the token owner cannot be resolved', async () => {
+    const { service, post } = createBindService();
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => ({ data: { data: {} } })),
+      post,
+    }));
+
+    await expect(bind(service)).rejects.toMatchObject({
+      className:
+        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    });
+
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('aborts when the auth state generation advances across the ownership probe', async () => {
+    const { service, simpleDbPrime, post } = createBindService();
+    let probed = false;
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => {
+        probed = true;
+        // A login commit landed while the probe was in flight.
+        simpleDbPrime.getAuthStateGeneration.mockResolvedValue(8);
+        return {
+          data: { data: { onekeyAccount: { onekeyUserId: 'user-a' } } },
+        };
+      }),
+      post,
+    }));
+
+    await expect(bind(service)).rejects.toMatchObject({
+      className:
+        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    });
+
+    expect(probed).toBe(true);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('runs the legacy guard before the keyless slot guard', async () => {
+    // The legacy precondition is the cheap, definitive one: it must fail
+    // before the keyless slot is even read, so a bind aborted by a login
+    // change never reports a keyless-slot problem instead.
+    const { service } = createBindService({
+      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+    });
+    const keylessGuard = jest.spyOn(
+      service,
+      'assertKeylessSessionPersistedBeforeLogin',
+    );
+
+    await expect(bind(service)).rejects.toMatchObject({
+      className:
+        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    });
+
+    expect(keylessGuard).not.toHaveBeenCalled();
+  });
+
+  it('rejects an empty expectedOnekeyUserId instead of binding unconditionally', async () => {
+    const { service, get, post } = createBindService();
+
+    await expect(bind(service, '')).rejects.toMatchObject({
+      className:
+        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    });
+
+    expect(get).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+  });
+});

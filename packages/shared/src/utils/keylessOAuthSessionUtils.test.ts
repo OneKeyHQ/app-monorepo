@@ -19,6 +19,14 @@ describe('shouldClearKeylessOAuthSessionAfterError', () => {
     expect(shouldClearKeylessOAuthSessionAfterError(error)).toBe(false);
   });
 
+  test('preserves the session a legacy-bind state change may have left behind', () => {
+    const error = {
+      className:
+        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    };
+    expect(shouldClearKeylessOAuthSessionAfterError(error)).toBe(false);
+  });
+
   test.each([
     { httpStatusCode: 401 },
     { name: 'AuthApiError', status: 400 },
