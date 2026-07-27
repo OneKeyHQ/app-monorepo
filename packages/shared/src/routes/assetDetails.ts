@@ -65,6 +65,7 @@ export type IModalAssetDetailsParamList = {
     token: string;
   };
   [EModalAssetDetailRoutes.MarketChart]: {
+    isNative: boolean;
     networkId: string;
     networkName?: string;
     symbol: string;

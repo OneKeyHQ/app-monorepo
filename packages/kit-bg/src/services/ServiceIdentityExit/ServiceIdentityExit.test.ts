@@ -718,6 +718,26 @@ describe('ServiceIdentityExit', () => {
     );
   });
 
+  test('requires explicit acknowledgement before Keyless removal', async () => {
+    const fixture = createFixture();
+    const plan = await fixture.service.prepareIdentityExit({
+      type: 'removeKeyless',
+      expectedWalletId: keylessWallet.id,
+      scene: 'accountSelector',
+    });
+    expectReadyPlan(plan);
+    expect(plan.confirmation).toEqual({
+      type: 'keylessRemovalAcknowledgement',
+    });
+
+    await expect(
+      fixture.service.executeIdentityExit({ planId: plan.planId }),
+    ).rejects.toThrow('Keyless wallet removal acknowledgement is required.');
+
+    expect(fixture.promptPasswordVerifyByWallet).not.toHaveBeenCalled();
+    expect(fixture.removeKeylessWalletWithCapability).not.toHaveBeenCalled();
+  });
+
   test('KeylessOAuth OneKey ID logout preserves Keyless when linkage is unknown', async () => {
     const fixture = createFixture({
       source: EPrimeAuthSessionSource.KeylessOAuth,
@@ -1015,6 +1035,49 @@ describe('ServiceIdentityExit', () => {
         sessionCommitId: 'keyless-session',
       },
     });
+  });
+
+  test('routes account-selector removal with a missing social fingerprint through recovery', async () => {
+    const malformedWallet = {
+      ...keylessWallet,
+      keylessDetails: JSON.stringify({
+        keylessOwnerId: keylessWallet.keylessDetailsInfo?.keylessOwnerId,
+        keylessProvider: keylessWallet.keylessDetailsInfo?.keylessProvider,
+      }),
+      keylessDetailsInfo: {
+        ...keylessWallet.keylessDetailsInfo,
+        socialUserIdHash: undefined,
+      },
+    } as unknown as IDBWallet;
+    const fixture = createFixture({ wallet: malformedWallet });
+
+    const plan = await fixture.service.prepareIdentityExit({
+      type: 'removeKeyless',
+      expectedWalletId: malformedWallet.id,
+      scene: 'accountSelector',
+    });
+    expectReadyPlan(plan);
+    expect(plan).toMatchObject({
+      presentation: {
+        type: 'recoverMalformedKeyless',
+        oneKeyIdWillBeLoggedOut: false,
+      },
+      confirmation: { type: 'keylessRemovalAcknowledgement' },
+    });
+
+    await expect(
+      fixture.service.executeIdentityExit({
+        planId: plan.planId,
+        acknowledgement: 'keylessWalletRemoval',
+      }),
+    ).resolves.toMatchObject({
+      status: 'completed',
+      removedWalletId: malformedWallet.id,
+    });
+    expect(
+      fixture.removeMalformedKeylessWalletWithCapability,
+    ).toHaveBeenCalledTimes(1);
+    expect(fixture.removeKeylessWalletWithCapability).not.toHaveBeenCalled();
   });
 
   test('routes a broad identity-managed wallet with an invalid isKeyless flag to recovery', async () => {

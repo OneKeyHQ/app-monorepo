@@ -10,6 +10,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -132,6 +136,7 @@ async function executeHomePerpsOpenAsset({
         return false;
       }
     }
+    setPerpPageEnterSource(EPerpPageEnterSource.Home);
     switchToPerps();
     if (!coin) {
       return true;

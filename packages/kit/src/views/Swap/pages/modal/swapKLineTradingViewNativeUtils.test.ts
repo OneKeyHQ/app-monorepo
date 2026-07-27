@@ -70,6 +70,7 @@ describe('Swap K-line TradingViewNative source', () => {
       }),
     ).toEqual({
       kind: 'market',
+      isNative: true,
       networkId: 'hype--mainnet',
       tokenAddress: '',
       symbol: 'HYPE',
@@ -139,6 +140,7 @@ describe('Swap K-line TradingViewNative source', () => {
       }),
     ).toEqual({
       kind: 'market',
+      isNative: true,
       networkId: 'evm--1',
       tokenAddress: '',
       symbol: 'ETH',

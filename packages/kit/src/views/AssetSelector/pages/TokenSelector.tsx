@@ -16,6 +16,7 @@ import {
   type IScopedActiveTokenListState,
   buildScopedActiveTokenListFromResponses,
   fetchFilteredTokenSelectorTokens,
+  fetchTokenSelectorAccountTokens,
   filterTokenSelectorSearchTokensByBackendIndexedNetworks,
 } from '@onekeyhq/kit/src/components/TokenSelectorFilter/utils';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -1400,11 +1401,10 @@ function TokenSelector() {
           }
         }
 
-        const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
+        const r = await fetchTokenSelectorAccountTokens({
           accountId: activeAccountId,
           networkId: activeNetworkId,
           indexedAccountId,
-          flag: 'token-selector',
           ...tokenSelectorFilterParams,
         });
 
@@ -1642,15 +1642,12 @@ function TokenSelector() {
                 onlyBackendIndexedNetworks: false,
                 tokenSelectorFilterParams,
               })
-            : backgroundApiProxy.serviceToken
-                .fetchAccountTokens({
-                  accountId,
-                  networkId,
-                  indexedAccountId,
-                  flag: 'token-selector',
-                  ...tokenSelectorFilterParams,
-                })
-                .then((r) => ({ responses: [r], expectedResponseCount: 1 })),
+            : fetchTokenSelectorAccountTokens({
+                accountId,
+                networkId,
+                indexedAccountId,
+                ...tokenSelectorFilterParams,
+              }).then((r) => ({ responses: [r], expectedResponseCount: 1 })),
           backgroundApiProxy.serviceToken.getLocalAggregateTokenListMap({
             accountId,
             networkId,

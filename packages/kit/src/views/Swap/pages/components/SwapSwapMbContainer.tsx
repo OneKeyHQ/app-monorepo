@@ -142,7 +142,7 @@ const SwapSwapMbContainer = ({
           onOpenProviderList={onOpenProviderList}
           quoteResult={quoteResult}
         />
-        <SwapQuoteStockMarketStatusAlert />
+        <SwapQuoteStockMarketStatusAlert onMarketReopen={refreshAction} />
         {alerts.states.length > 0 &&
         !quoteLoading &&
         !quoteEventFetching &&

@@ -185,22 +185,22 @@ describe('TradingViewNative data providers', () => {
       realtime: 'disabled',
     });
 
-    expect(provider.getHistoryRequestCandleCount(getInterval('60'))).toBe(2000);
+    expect(provider.getHistoryRequestCandleCount(getInterval('1M'))).toBe(2000);
     expect(
       provider.hasMoreHistory({
-        interval: getInterval('60'),
+        interval: getInterval('1M'),
         receivedPointCount: 299,
       }),
     ).toBe(true);
     expect(
       provider.hasMoreHistory({
-        interval: getInterval('60'),
+        interval: getInterval('1M'),
         receivedPointCount: 298,
       }),
     ).toBe(false);
 
     await provider.fetchHistory({
-      interval: getInterval('60'),
+      interval: getInterval('1M'),
       signal: new AbortController().signal,
       timeFrom: 100,
       timeTo: 200,
@@ -212,7 +212,7 @@ describe('TradingViewNative data providers', () => {
       expect.objectContaining({
         tokenAddress: '0xabc',
         networkId: 'evm--1',
-        interval: '1H',
+        interval: '1M',
         timeFrom: 100,
         timeTo: 200,
         autoHandleError: false,
@@ -223,29 +223,38 @@ describe('TradingViewNative data providers', () => {
     );
   });
 
-  it('uses the 200-point API page contract for native Market tokens', () => {
-    const provider = createTradingViewNativeDataProvider({
-      kind: 'market',
-      networkId: 'btc--0',
-      tokenAddress: '',
-      symbol: 'BTC',
-      realtime: 'disabled',
-    });
+  it.each([
+    { isNative: undefined, tokenAddress: '' },
+    { isNative: true, tokenAddress: '0xeeee' },
+  ])(
+    'uses the 200-point API page contract for native Market token $tokenAddress',
+    ({ isNative, tokenAddress }) => {
+      const provider = createTradingViewNativeDataProvider({
+        kind: 'market',
+        ...(isNative ? { isNative } : {}),
+        networkId: 'btc--0',
+        tokenAddress,
+        symbol: 'BTC',
+        realtime: 'disabled',
+      });
 
-    expect(provider.getHistoryRequestCandleCount(getInterval('60'))).toBe(2000);
-    expect(
-      provider.hasMoreHistory({
-        interval: getInterval('60'),
-        receivedPointCount: 200,
-      }),
-    ).toBe(true);
-    expect(
-      provider.hasMoreHistory({
-        interval: getInterval('60'),
-        receivedPointCount: 199,
-      }),
-    ).toBe(false);
-  });
+      expect(provider.getHistoryRequestCandleCount(getInterval('60'))).toBe(
+        2000,
+      );
+      expect(
+        provider.hasMoreHistory({
+          interval: getInterval('60'),
+          receivedPointCount: 200,
+        }),
+      ).toBe(true);
+      expect(
+        provider.hasMoreHistory({
+          interval: getInterval('60'),
+          receivedPointCount: 199,
+        }),
+      ).toBe(false);
+    },
+  );
 
   it('uses a supplied CoinGecko hint only after the Market fallback runs', async () => {
     const mocks = globalMockBag.__tradingViewNativeProviderMocks;
@@ -736,7 +745,7 @@ describe('TradingViewNative data providers', () => {
       coin: 'BTC',
       environment: 'testnet',
     });
-    const interval = getInterval('240');
+    const interval = getInterval('1M');
     expect(provider.getHistoryRequestCandleCount(interval)).toBe(5000);
     expect(
       provider.hasMoreHistory({ interval, receivedPointCount: 5000 }),
@@ -752,7 +761,7 @@ describe('TradingViewNative data providers', () => {
     expect(mocks?.hyperliquidFetchCandles).toHaveBeenCalledWith({
       coin: 'BTC',
       environment: 'testnet',
-      interval: '4h',
+      interval: '1M',
       signal: abortController.signal,
       timeFrom: 100,
       timeTo: 200,

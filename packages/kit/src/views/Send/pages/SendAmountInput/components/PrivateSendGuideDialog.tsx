@@ -50,6 +50,9 @@ export function showPrivateSendGuideDialog({ intl }: { intl: IntlShape }) {
           borderRadius="$3"
           source={require('@onekeyhq/kit/assets/private_send_guide.webp')}
           resizeMode="cover"
+          // Image defaults autoplay to false on Android (OOM guard for lists);
+          // this single animated webp in a dialog is safe to play everywhere.
+          autoplay
         />
         <PrivateSendGuideFeature icon="BrokenLink2Outline">
           {intl.formatMessage({

@@ -26,6 +26,10 @@ import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWid
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -573,6 +577,7 @@ export function HomePageView({
   }, [tabConfigs]);
 
   const switchToPerpsWebTab = useCallback(() => {
+    setPerpPageEnterSource(EPerpPageEnterSource.Home);
     navigation.switchTab(ETabRoutes.WebviewPerpTrade);
   }, [navigation]);
 

@@ -253,7 +253,7 @@ const SwapOldSwapBridgeLimitContainer = ({
         }
         quoteResult={quoteResult}
       />
-      <SwapQuoteStockMarketStatusAlert />
+      <SwapQuoteStockMarketStatusAlert onMarketReopen={refreshAction} />
       {alerts.states.length > 0 &&
       !quoteLoading &&
       !quoteEventFetching &&
@@ -314,7 +314,7 @@ const SwapOldSwapBridgeLimitContainer = ({
           onOpenProviderList={undefined}
           quoteResult={quoteResult}
         />
-        <SwapQuoteStockMarketStatusAlert />
+        <SwapQuoteStockMarketStatusAlert onMarketReopen={refreshAction} />
         {alerts.states.length > 0 &&
         !quoteLoading &&
         !quoteEventFetching &&
@@ -419,7 +419,7 @@ const SwapOldSwapBridgeLimitContainer = ({
               onOpenProviderList={undefined}
               quoteResult={quoteResult}
             />
-            <SwapQuoteStockMarketStatusAlert />
+            <SwapQuoteStockMarketStatusAlert onMarketReopen={refreshAction} />
             {alerts.states.length > 0 &&
             !quoteLoading &&
             !quoteEventFetching &&

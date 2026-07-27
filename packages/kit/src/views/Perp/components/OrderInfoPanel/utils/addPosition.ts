@@ -6,6 +6,8 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IActiveAssetData } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+export const ADD_POSITION_MIN_ORDER_NOTIONAL = 10;
+
 export type IAddPositionValidationError =
   | 'invalidSize'
   | 'invalidPrice'
@@ -85,8 +87,52 @@ export function validateAddPositionOrder({
   if (!maxSizeBN.isFinite() || new BigNumber(formattedSize).gt(maxSizeBN)) {
     return { size: formattedSize, error: 'insufficientMargin' };
   }
-  if (new BigNumber(formattedSize).multipliedBy(priceBN).lt(10)) {
+  if (
+    new BigNumber(formattedSize)
+      .multipliedBy(priceBN)
+      .lt(ADD_POSITION_MIN_ORDER_NOTIONAL)
+  ) {
     return { size: formattedSize, error: 'minimumOrder' };
   }
   return { size: formattedSize };
+}
+
+// Mirrors the main trading panel: the minimum order hint is expressed in the
+// unit the size field is currently showing, not always in USD.
+export function buildAddPositionMinimumAmountLabel({
+  price,
+  szDecimals,
+  sizeInputUnit,
+  leverage,
+  symbol,
+}: {
+  price: string;
+  szDecimals: number;
+  sizeInputUnit: 'token' | 'usd' | 'margin';
+  leverage: number;
+  symbol: string;
+}): string {
+  const fallback = `$${ADD_POSITION_MIN_ORDER_NOTIONAL}`;
+  const priceBN = new BigNumber(price);
+  if (!priceBN.isFinite() || priceBN.lte(0) || sizeInputUnit === 'usd') {
+    return fallback;
+  }
+
+  const minSize = new BigNumber(ADD_POSITION_MIN_ORDER_NOTIONAL)
+    .dividedBy(priceBN)
+    .decimalPlaces(szDecimals, BigNumber.ROUND_UP);
+
+  if (sizeInputUnit === 'token') {
+    return `${minSize.toFixed(szDecimals)} ${symbol}`;
+  }
+
+  const leverageBN = new BigNumber(leverage);
+  if (!leverageBN.isFinite() || leverageBN.lte(0)) {
+    return fallback;
+  }
+  return `$${minSize
+    .multipliedBy(priceBN)
+    .dividedBy(leverageBN)
+    .decimalPlaces(2, BigNumber.ROUND_UP)
+    .toFixed(2)}`;
 }

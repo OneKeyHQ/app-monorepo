@@ -1,10 +1,11 @@
-import { Suspense, lazy, useCallback } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { HeaderIconButton, Page, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -27,12 +28,6 @@ import { HeaderTitle } from './HeaderTitle';
 
 import type { ITabPageHeaderProp } from './type';
 
-const LazyPerpsActivityCenterAction = lazy(async () => {
-  const { PerpsActivityCenterAction } =
-    await import('../../views/Perp/components/PerpsActivityCenterAction');
-  return { default: PerpsActivityCenterAction };
-});
-
 function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -43,12 +38,6 @@ function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
   });
 
   const isWalletConnected = !!wallet && !!account;
-  // The remote perps config can serve /perps as the webview impl, which the tab
-  // router exposes as WebviewPerpTrade (hiding ETabRoutes.Perp). Match both so
-  // the relocated Activity Hub stays in the header in either configuration.
-  const isPerpsTab =
-    tabRoute === ETabRoutes.Perp || tabRoute === ETabRoutes.WebviewPerpTrade;
-
   const handleSearchPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
       screen: EUniversalSearchPages.UniversalSearch,
@@ -70,11 +59,6 @@ function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
         testID="header-right-notification"
         size="medium"
       />
-      {isPerpsTab && isWalletConnected ? (
-        <Suspense fallback={null}>
-          <LazyPerpsActivityCenterAction copyAsUrl size="medium" />
-        </Suspense>
-      ) : null}
       <KeylessWebConnectAlertContainer />
       {isWalletConnected ? (
         <WebAccountSelectorTrigger tabRoute={tabRoute} />

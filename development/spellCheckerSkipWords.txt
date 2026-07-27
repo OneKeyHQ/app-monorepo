@@ -621,6 +621,7 @@ onboard
 onboarding
 Onchain
 oncomplete
+ondo
 onekey
 onekeyall
 onekeyfe
@@ -644,6 +645,7 @@ Outout
 p2pkh
 p2wpkh
 pageview
+pancakeswap
 passcode
 passpharse
 passphrase

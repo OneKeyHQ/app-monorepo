@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import { useState } from 'react';
 
 import {
@@ -256,6 +257,29 @@ export function PrimeDebugPanel({
           }}
         >
           ServerPrimeUserInfo
+        </Button>
+
+        <Button
+          variant="destructive"
+          onPress={() => {
+            Dialog.confirm({
+              title: 'Reset Infini Subscription',
+              description:
+                "Permanently delete the current Prime user's Infini subscription so the subscription flow can be tested again?",
+              confirmButtonProps: {
+                variant: 'destructive',
+              },
+              onConfirm: async () => {
+                await backgroundApiProxy.servicePrime.apiResetInfiniSubscription();
+                await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+                Toast.success({
+                  title: 'Infini subscription reset',
+                });
+              },
+            });
+          }}
+        >
+          apiResetInfiniSubscription
         </Button>
 
         <Button
