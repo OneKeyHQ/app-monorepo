@@ -6,11 +6,18 @@ import { parseColdStartSnapshotRaw } from '@onekeyhq/shared/src/utils/coldStartC
 import {
   getSwapColdStartSelectedTokensFromSnapshot,
   isSwapColdStartAllNetworkContextNetworkId,
+  normalizeSwapColdStartCacheSnapshot,
 } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
+import {
+  type ISwapBalanceDisplayCache,
+  areSwapBalanceDisplayAccountKeysEquivalent,
+  resolveSwapBalanceDisplayCacheEntry,
+} from '../utils/swapBalanceDisplayCacheUtils';
 import {
   buildSwapDefaultLimitSelectedTokens,
   buildSwapDefaultSelectedTokensFromHomeAccount,
@@ -117,6 +124,14 @@ function hasSwapSelectedTokenSnapshot(snapshot: Record<string, unknown>) {
   );
 }
 
+function hasSwapStockSelectedTokenSnapshot(snapshot: Record<string, unknown>) {
+  return Object.keys(snapshot).some((key) =>
+    key.endsWith(
+      `::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom}`,
+    ),
+  );
+}
+
 function hasHomeSelectedAccountSnapshot(snapshot: Record<string, unknown>) {
   return Boolean(
     getSelectedAccountFromSnapshot({
@@ -138,6 +153,7 @@ function getColdStartSnapshotCandidatesFromGlobal() {
     if (
       isSnapshotRecord(snapshot) &&
       (hasSwapSelectedTokenSnapshot(snapshot) ||
+        hasSwapStockSelectedTokenSnapshot(snapshot) ||
         hasHomeSelectedAccountSnapshot(snapshot))
     ) {
       snapshots.push(snapshot);
@@ -145,6 +161,7 @@ function getColdStartSnapshotCandidatesFromGlobal() {
   } else if (
     isSnapshotRecord(rawSnapshot) &&
     (hasSwapSelectedTokenSnapshot(rawSnapshot) ||
+      hasSwapStockSelectedTokenSnapshot(rawSnapshot) ||
       hasHomeSelectedAccountSnapshot(rawSnapshot))
   ) {
     snapshots.push(rawSnapshot);
@@ -153,12 +170,127 @@ function getColdStartSnapshotCandidatesFromGlobal() {
   if (
     isSnapshotRecord(globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__) &&
     (hasSwapSelectedTokenSnapshot(globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__) ||
+      hasSwapStockSelectedTokenSnapshot(
+        globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__,
+      ) ||
       hasHomeSelectedAccountSnapshot(globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__))
   ) {
     snapshots.push(globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__);
   }
 
   return snapshots;
+}
+
+export function getSwapStockColdStartDisplayTokenFromGlobalSnapshot() {
+  for (const snapshot of getColdStartSnapshotCandidatesFromGlobal()) {
+    const normalizedSnapshot = normalizeSwapColdStartCacheSnapshot({
+      ...snapshot,
+    });
+    const stockToken = getSnapshotValue<ISwapToken>({
+      snapshot: normalizedSnapshot,
+      coldStartScopeKey: SWAP_STORE_SCOPE_KEY,
+      coldStartCacheKey:
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
+    });
+    if (stockToken?.isStock) {
+      return stockToken;
+    }
+  }
+
+  return undefined;
+}
+
+function getSwapBalanceDisplayAccountKeyFromSnapshot({
+  snapshot,
+  tokenNetworkId,
+}: {
+  snapshot: Record<string, unknown>;
+  tokenNetworkId: string;
+}) {
+  const cachedContext = getSnapshotValue<ISwapSelectedTokensColdStartContext>({
+    snapshot,
+    coldStartScopeKey: SWAP_STORE_SCOPE_KEY,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+  });
+  if (cachedContext?.accountKey && cachedContext.networkId === tokenNetworkId) {
+    return cachedContext.accountKey;
+  }
+
+  const homeSelectedAccount = getSelectedAccountFromSnapshot({
+    snapshot,
+    coldStartScopeKey: ACCOUNT_SELECTOR_HOME_SCOPE_KEY,
+  });
+  const homeAccountKey = buildSelectedAccountKey(homeSelectedAccount);
+  if (
+    homeAccountKey &&
+    (homeSelectedAccount?.networkId === tokenNetworkId ||
+      isSwapColdStartAllNetworkContextNetworkId(homeSelectedAccount?.networkId))
+  ) {
+    return homeAccountKey;
+  }
+
+  const swapSelectedAccount = getSelectedAccountFromSnapshot({
+    snapshot,
+    coldStartScopeKey: ACCOUNT_SELECTOR_SWAP_SCOPE_KEY,
+  });
+  const swapAccountKey = buildSelectedAccountKey(swapSelectedAccount);
+  if (
+    swapAccountKey &&
+    swapSelectedAccount?.networkId === tokenNetworkId &&
+    (!homeAccountKey || homeAccountKey === swapAccountKey)
+  ) {
+    return swapAccountKey;
+  }
+  return undefined;
+}
+
+export function getSwapBalanceDisplayEntryFromGlobalSnapshot({
+  accountAddress,
+  currentAccountKey,
+  token,
+}: {
+  accountAddress?: string;
+  currentAccountKey?: string;
+  token?: ISwapToken;
+}) {
+  if (!token?.networkId) {
+    return undefined;
+  }
+  for (const snapshot of getColdStartSnapshotCandidatesFromGlobal()) {
+    const normalizedSnapshot = normalizeSwapColdStartCacheSnapshot({
+      ...snapshot,
+    });
+    const snapshotAccountKey = getSwapBalanceDisplayAccountKeyFromSnapshot({
+      snapshot: normalizedSnapshot,
+      tokenNetworkId: token.networkId,
+    });
+    if (
+      snapshotAccountKey &&
+      (!currentAccountKey ||
+        areSwapBalanceDisplayAccountKeysEquivalent(
+          currentAccountKey,
+          snapshotAccountKey,
+        ))
+    ) {
+      const cache = getSnapshotValue<ISwapBalanceDisplayCache>({
+        snapshot: normalizedSnapshot,
+        coldStartScopeKey: SWAP_STORE_SCOPE_KEY,
+        coldStartCacheKey:
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapBalanceDisplayCacheAtom,
+      });
+      const entry = resolveSwapBalanceDisplayCacheEntry({
+        accountAddress,
+        accountKey: currentAccountKey ?? snapshotAccountKey,
+        cache: cache ?? undefined,
+        token,
+      });
+      if (entry) {
+        return entry;
+      }
+    }
+  }
+  return undefined;
 }
 
 function shouldUseRawSwapSelectedTokens(snapshot: Record<string, unknown>) {
@@ -314,6 +446,66 @@ export function getSwapColdStartDisplayTokensFromGlobalSnapshot() {
   return displayTokens;
 }
 
+export function resolveSwapDisplayToken({
+  allowFallback,
+  currentToken,
+  fallbackToken,
+  previousDisplayToken,
+}: {
+  allowFallback: boolean;
+  currentToken?: ISwapToken;
+  fallbackToken?: ISwapToken;
+  previousDisplayToken?: ISwapToken;
+}) {
+  let nextToken: ISwapToken | undefined;
+  if (currentToken?.symbol) {
+    nextToken = currentToken;
+  } else if (allowFallback && previousDisplayToken?.symbol) {
+    nextToken = previousDisplayToken;
+  } else if (allowFallback && fallbackToken?.symbol) {
+    nextToken = fallbackToken;
+  }
+  if (!nextToken) {
+    return undefined;
+  }
+  const matchingFallbackToken = equalTokenNoCaseSensitive({
+    token1: fallbackToken,
+    token2: nextToken,
+  })
+    ? fallbackToken
+    : undefined;
+  const matchingPreviousDisplayToken = equalTokenNoCaseSensitive({
+    token1: previousDisplayToken,
+    token2: nextToken,
+  })
+    ? previousDisplayToken
+    : undefined;
+  if (!matchingFallbackToken && !matchingPreviousDisplayToken) {
+    return nextToken;
+  }
+
+  const logoURI =
+    nextToken.logoURI ||
+    matchingPreviousDisplayToken?.logoURI ||
+    matchingFallbackToken?.logoURI;
+  const networkLogoURI =
+    nextToken.networkLogoURI ||
+    matchingPreviousDisplayToken?.networkLogoURI ||
+    matchingFallbackToken?.networkLogoURI;
+  if (
+    logoURI === nextToken.logoURI &&
+    networkLogoURI === nextToken.networkLogoURI
+  ) {
+    return nextToken;
+  }
+
+  return {
+    ...nextToken,
+    logoURI,
+    networkLogoURI,
+  };
+}
+
 export function useSwapColdStartDisplayTokens({
   fromToken,
   initialSelectedTokensSynced = false,
@@ -327,6 +519,12 @@ export function useSwapColdStartDisplayTokens({
 }) {
   const hasResolvedFromTokenRef = useRef(Boolean(fromToken?.symbol));
   const hasResolvedToTokenRef = useRef(Boolean(toToken?.symbol));
+  const previousDisplayFromTokenRef = useRef<ISwapToken | undefined>(
+    fromToken?.symbol ? fromToken : undefined,
+  );
+  const previousDisplayToTokenRef = useRef<ISwapToken | undefined>(
+    toToken?.symbol ? toToken : undefined,
+  );
   const coldStartDisplayTokensRef = useRef<
     | ReturnType<typeof getSwapColdStartDisplayTokensFromGlobalSnapshot>
     | undefined
@@ -361,19 +559,32 @@ export function useSwapColdStartDisplayTokens({
       ? buildSwapDefaultLimitSelectedTokens()
       : undefined;
 
+  const displayFromToken = resolveSwapDisplayToken({
+    allowFallback:
+      Boolean(defaultDisplayTokens?.fromToken) || !initialSelectedTokensSynced,
+    currentToken: fromToken,
+    fallbackToken:
+      defaultDisplayTokens?.fromToken ?? coldStartDisplayTokens.fromToken,
+    previousDisplayToken: previousDisplayFromTokenRef.current,
+  });
+  const displayToToken = resolveSwapDisplayToken({
+    allowFallback:
+      Boolean(defaultDisplayTokens?.toToken) || !initialSelectedTokensSynced,
+    currentToken: toToken,
+    fallbackToken:
+      defaultDisplayTokens?.toToken ?? coldStartDisplayTokens.toToken,
+    previousDisplayToken: previousDisplayToTokenRef.current,
+  });
+  if (displayFromToken?.symbol) {
+    previousDisplayFromTokenRef.current = displayFromToken;
+  }
+  if (displayToToken?.symbol) {
+    previousDisplayToTokenRef.current = displayToToken;
+  }
+
   const displayTokens = {
-    displayFromToken:
-      (fromToken?.symbol ? fromToken : undefined) ||
-      (!fromToken?.symbol ? defaultDisplayTokens?.fromToken : undefined) ||
-      (hasResolvedFromTokenRef.current
-        ? undefined
-        : coldStartDisplayTokens.fromToken),
-    displayToToken:
-      (toToken?.symbol ? toToken : undefined) ||
-      (!toToken?.symbol ? defaultDisplayTokens?.toToken : undefined) ||
-      (hasResolvedToTokenRef.current
-        ? undefined
-        : coldStartDisplayTokens.toToken),
+    displayFromToken,
+    displayToToken,
   };
   const isInitialFromTokenSelectionPending =
     !hasResolvedFromTokenRef.current && !displayTokens.displayFromToken?.symbol;

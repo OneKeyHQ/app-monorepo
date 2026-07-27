@@ -230,6 +230,8 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
           ...primePaymentUtils.extractWebPaywallPrice(paywallPackage),
           subscriptionPeriod,
           featureName,
+          // purchases-js = RevenueCat web billing (Stripe embedded form)
+          paymentMethod: 'stripe',
         });
 
         // test credit card

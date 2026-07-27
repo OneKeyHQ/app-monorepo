@@ -338,6 +338,66 @@ export class OneKeyErrorPrimePaidMembershipRequired extends OneKeyAppError {
   }
 }
 
+export const ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_CODE = 90_300;
+export const ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_MESSAGE_ID =
+  'oauth_identity_already_bound';
+
+export class OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    const nextProps =
+      typeof props === 'string'
+        ? {
+            code: ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_CODE,
+            message: props,
+          }
+        : {
+            code: ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_CODE,
+            ...props,
+          };
+    super(
+      normalizeErrorProps(nextProps, {
+        // TODO: i18n — remove this client fallback once the server returns
+        // message or translatedMessage for oauth_identity_already_bound.
+        defaultMessage:
+          'This Google or Apple account is already linked to another OneKey ID.',
+        defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override className =
+    EOneKeyErrorClassNames.OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound;
+
+  override name =
+    EOneKeyErrorClassNames.OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound;
+}
+
+// Local (bg-side) guard rejection: a concurrent login flow overwrote the
+// shared keyless session slot with ANOTHER account's valid session before
+// this flow's server POST. Definitive for THIS flow (never retried blindly),
+// but main-runtime failure cleanup must recognize this class and SKIP its
+// session teardown — the slot holds the winning account's valid session, and
+// wiping it would fail both concurrent logins. className/name are plain own
+// properties so the check survives bg -> main bridge serialization.
+export class OneKeyErrorOneKeyIdKeylessSessionSlotReplaced extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        // TODO: i18n
+        defaultMessage:
+          'Another account signed in during this login; please retry.',
+        defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override className =
+    EOneKeyErrorClassNames.OneKeyErrorOneKeyIdKeylessSessionSlotReplaced;
+
+  override name =
+    EOneKeyErrorClassNames.OneKeyErrorOneKeyIdKeylessSessionSlotReplaced;
+}
+
 export class OneKeyInternalError extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(
@@ -714,6 +774,22 @@ export class TransferValueTooSmall extends OneKeyAppError {
       normalizeErrorProps(props, {
         defaultMessage: 'TransferValueTooSmall',
         defaultKey: ETranslations.send_amount_too_small,
+      }),
+    );
+  }
+}
+
+export type ITooManyTransactionInputsInfo = {
+  number: string | number;
+  max: string | number;
+};
+
+export class TooManyTransactionInputs extends OneKeyAppError<ITooManyTransactionInputsInfo> {
+  constructor(props?: IOneKeyError<ITooManyTransactionInputsInfo>) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'TooManyTransactionInputs',
+        defaultKey: ETranslations.send_too_many_inputs__msg,
       }),
     );
   }

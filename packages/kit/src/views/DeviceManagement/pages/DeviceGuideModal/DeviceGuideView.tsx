@@ -2,7 +2,6 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { Linking } from 'react-native';
 
 import {
   Anchor,
@@ -24,6 +23,7 @@ import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { DeviceManagementTestIDs } from '../../testIDs';
 
@@ -199,16 +199,8 @@ function ButtonContainer() {
   const toOnBoardingPage = useNavigateToPickYourDevicePage();
   const { gtMd } = useMedia();
 
-  const handleBuyButtonPress = useCallback(async () => {
-    const url = ONEKEY_BUY_HARDWARE_URL;
-
-    const supported = await Linking.canOpenURL(url);
-
-    if (supported) {
-      await Linking.openURL(url);
-    } else {
-      alert(`Don't know how to open this URL: ${url}`);
-    }
+  const handleBuyButtonPress = useCallback(() => {
+    openUrlExternal(ONEKEY_BUY_HARDWARE_URL);
   }, []);
 
   const onAddDevice = useCallback(async () => {

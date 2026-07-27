@@ -1,94 +1,59 @@
-# Provider And Channel Contracts
+# Swap Provider And Channel Contracts
 
-Use this file before implementing or reviewing a new Swap provider, PrivateSend-like channel, stock/order channel, or Market speed-swap extension.
+Use this when quote/build/history behavior differs from an ordinary on-chain
+swap, including Bridge, Limit, Stock/order, privacy/order, and broker flows.
 
-## Contract Template
+## Contract
 
-Define these fields in writing before UI work:
+| Area                | Required decisions                                                               |
+| ------------------- | -------------------------------------------------------------------------------- |
+| Capability          | swap, bridge, limit, stock/order, privacy/order, funding handoff, or data-only   |
+| Asset/account roles | source and target asset/network/account, signer, receiver, settlement target     |
+| Quote identity      | request/event, provider, tokens/assets, amount mode, receiver, slippage/session  |
+| Quote fields        | units, limits, fees, rate, ETA, availability, and meaning of missing values      |
+| Review              | fields frozen for confirmation, setup/approval, risk and settlement copy         |
+| Build/send          | normal tx, setup then business tx, signed/order payload, provider-managed action |
+| Lifecycle identity  | txid, order id, route id, provider id, or explicit composite key                 |
+| Persistence         | local row owner, initial status, fields preserved across restart                 |
+| Replay/repair       | status source, merge priority, terminal mapping, stop/retry behavior             |
 
-| Area | Questions |
-| --- | --- |
-| Capability | Is this swap, bridge, limit, privacy/order, stock/order, funding handoff, or data-only? |
-| Asset universe | Are assets tokens, native tokens, wrapped tokens, stock-like assets, or provider-owned synthetic assets? |
-| Account roles | Which account signs, which account receives, which address is hidden, and which address settles? |
-| Quote identity | What identifies a quote across provider, amount, token, network, and request lifecycle? |
-| Amount units | Which fields are base units, parsed units, fiat values, rates, or display strings? |
-| Limits | What do min/max fields mean, and are they per token, per route, per provider, or per trading session? |
-| Fees | Which fees are network gas, provider fee, protocol fee, service fee, stock commission, or settlement fee? |
-| Time | Does ETA mean chain confirmation, provider processing time, trading session state, or order expiry? |
-| Build response | Does build return unsigned tx, setup tx, business tx, order payload, or provider-managed action? |
-| History identity | Is status keyed by txid, order id, route id, provider id, or a composite key? |
-| Channel state | Which listener, local row, replay source, and repair rule own the lifecycle after submit? |
+A data-only channel must not create transaction or history state. A response
+shape that does not fit an existing variant should get a typed adapter instead
+of conditionals spread through UI components.
 
-## Quote Result Fields
+## Quote Selection
 
-For every quote field used in UI, decide:
+Bind each result to the active request/event and full trade identity. When
+providers race, an early error is not terminal while the current event can
+still return an actionable quote. Once identity changes, ignore late results.
+Manual provider selection remains authoritative until invalidated by a real
+capability or identity change.
 
-- source of truth: quote payload, build payload, cached provider metadata, or local formatting only
-- missing value meaning: unavailable, unknown, zero, hidden, unsupported, or provider error
-- display owner: quote list, review, history, or detail page
-- invalidation rule: amount, network, token, account, receiver, provider, slippage, or market session change
+For every displayed field, define its source and missing-value meaning.
+Unknown fee/rate/ETA/limit is not zero, and provider unavailable is not an
+empty successful quote.
 
-Never normalize a missing provider field into a display value without preserving whether it was unknown.
+## Review And Submission
 
-## Build Response Variants
+Freeze the chosen quote, assets, accounts, receiver, provider, fees, rate,
+slippage, limits, risk text, and setup requirements. Confirmation must not
+read changing page atoms. After send/order submission, create the correct
+pending/history identity before relying on status polling.
 
-Model build responses as one of these variants:
+## History, Replay, And Repair
 
-- `normalTx`: one transaction to sign/send.
-- `setupThenBusinessTx`: approval, permit, wrap, or setup before the business transaction.
-- `providerOrder`: order payload where status comes from provider polling.
-- `privacyOrder`: provider-managed flow with special receiver/progress display.
-- `stockOrder`: non-token order with session availability, settlement currency, and broker/provider status.
-- `dataOnly`: no transaction; do not wire to history/status.
+For flows that outlive the submit screen, define:
 
-If a new response shape does not fit, add a typed adapter rather than branching throughout UI components.
+1. semantic fields copied from the review/build result
+2. sole local writer and persisted identity
+3. listener or polling source and terminal states
+4. restart/account-history/notification replay source
+5. merge priority when a richer provider or backend detail arrives
 
-## Address Roles
+Preserve semantic receiver, asset, fee, and provider fields until a
+higher-priority source explicitly replaces the same meaning. On-chain data
+must not erase richer order/channel context. Repair only when the merged row
+actually differs.
 
-Keep these roles distinct:
-
-- signing account address
-- source token owner
-- target account address
-- receiver address
-- privacy receiver
-- provider settlement address
-- order venue account
-
-PrivateSend-like channels often hide or delay receiver display. Stock-like
-channels may not have a token receiver at all. Review and history must still
-explain what the user is confirming.
-
-## Status Mapping
-
-Map status in two layers:
-
-1. Provider raw status: provider-specific and preserved for diagnostics.
-2. App status: pending, processing, success, failed, canceled, expired, partially filled, or unknown.
-
-Order-backed channels must define terminal states before polling is trusted. A pending row without a final-state plan is incomplete.
-
-## Local And Replay Contract
-
-For any channel that can outlive the original submit screen, define:
-
-- which fields are frozen from review into local history
-- which fields come only from build/send response
-- which fields can be repaired from order detail or account history
-- whether status should prefer order detail, normal status polling, or a composite
-- which fields are semantic display fields and must not be overwritten by chain
-  settlement fields
-
-Missing values must retain their meaning. For example, unknown fee/rate/ETA is
-not the same as zero, and unknown finality is not the same as success.
-
-## Provider Examples As Patterns
-
-- Privacy/order channels show why receiver semantics, progress steps, and price fallback belong in the contract.
-- Market speed-swap shows why market detail payload and execution payload should be separate.
-- Limit/order flows show why order id and txid are not interchangeable.
-- Bridge flows show why visible entry consolidation must still preserve
-  cross-chain history and status semantics.
-- Future stock-trading channels should reuse the order-channel model, not the
-  token-swap model, unless the provider contract proves it is a normal swap.
+Visibility is a separate concern: hiding local rows during disconnect or an
+unready account state must not call delete/clean persistence paths.

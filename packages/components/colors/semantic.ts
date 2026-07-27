@@ -52,7 +52,7 @@ function generateSemanticColorsWithDefaultCount<
   return generateSemanticColors(primitiveColorName, semanticKey, theme, 13);
 }
 
-/* 
+/*
   Light color theme
 */
 export const brand = generateSemanticColorsWithDefaultCount(

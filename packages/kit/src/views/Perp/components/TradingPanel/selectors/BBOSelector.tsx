@@ -14,6 +14,8 @@ import type { IBBOPriceMode } from '@onekeyhq/kit/src/states/jotai/contexts/hype
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { formatBboModeLabel } from './bboDisplay';
+
 interface IBBOSelectorProps {
   value: IBBOPriceMode;
   onChange: (mode: IBBOPriceMode) => void;
@@ -21,8 +23,6 @@ interface IBBOSelectorProps {
   isMobile?: boolean;
   inputLike?: boolean;
 }
-
-const BBO_LEVEL = 1; // Currently only Level 1 (native BBO) is supported
 
 export const BBOSelector = memo<IBBOSelectorProps>(
   // eslint-disable-next-line react/prop-types
@@ -35,23 +35,33 @@ export const BBOSelector = memo<IBBOSelectorProps>(
   }) => {
     const intl = useIntl();
 
-    const bboOptions = useMemo(
-      (): ISelectItem[] => [
+    const bboOptions = useMemo((): ISelectItem[] => {
+      const counterpartyLabel = intl.formatMessage({
+        id: ETranslations.Perps_BBO_Counterparty,
+      });
+      const queueLabel = intl.formatMessage({
+        id: ETranslations.Perps_BBO_Queue,
+      });
+
+      return [
         {
-          label: intl.formatMessage({
-            id: ETranslations.Perps_BBO_Counterparty,
-          }),
-          value: `counterparty-${BBO_LEVEL}`,
+          label: formatBboModeLabel(counterpartyLabel, 0),
+          value: 'counterparty-0',
         },
         {
-          label: intl.formatMessage({
-            id: ETranslations.Perps_BBO_Queue,
-          }),
-          value: `queue-${BBO_LEVEL}`,
+          label: formatBboModeLabel(counterpartyLabel, 5),
+          value: 'counterparty-5',
         },
-      ],
-      [intl],
-    );
+        {
+          label: formatBboModeLabel(queueLabel, 0),
+          value: 'queue-0',
+        },
+        {
+          label: formatBboModeLabel(queueLabel, 5),
+          value: 'queue-5',
+        },
+      ];
+    }, [intl]);
 
     const parseBBOPriceMode = useCallback((val: string): IBBOPriceMode => {
       const parts = val.split('-');
@@ -60,24 +70,23 @@ export const BBOSelector = memo<IBBOSelectorProps>(
           message: `[BBOSelector] Invalid BBO mode format: ${val}`,
         });
       }
-      const [type, levelStr] = parts;
-      const level = parseInt(levelStr, 10);
+      const [type, offsetTicksStr] = parts;
+      const offsetTicks = parseInt(offsetTicksStr, 10);
       if (
         (type !== 'counterparty' && type !== 'queue') ||
-        Number.isNaN(level) ||
-        level <= 0
+        (offsetTicks !== 0 && offsetTicks !== 5)
       ) {
         throw new OneKeyLocalError({
-          message: `[BBOSelector] Invalid BBO mode: type=${type}, level=${level}`,
+          message: `[BBOSelector] Invalid BBO mode: type=${type}, offsetTicks=${offsetTicks}`,
         });
       }
-      return { type, level } as IBBOPriceMode;
+      return { type, offsetTicks } as IBBOPriceMode;
     }, []);
 
     const serializeBBOPriceMode = useCallback(
       (mode: IBBOPriceMode): string | undefined => {
         if (!mode) return undefined;
-        return `${mode.type}-${mode.level}`;
+        return `${mode.type}-${mode.offsetTicks}`;
       },
       [],
     );

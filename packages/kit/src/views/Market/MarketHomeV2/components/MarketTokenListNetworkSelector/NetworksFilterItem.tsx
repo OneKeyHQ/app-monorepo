@@ -8,6 +8,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { IXStackProps } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export type INetworksFilterItemProps = {
   networkImageUri?: string;
@@ -59,7 +60,7 @@ export function NetworksFilterItem({
     <XStack
       alignItems="center"
       justifyContent="center"
-      px="$2.5"
+      px={md && platformEnv.isNativeIOS ? '$2' : '$2.5'}
       py="$1.5"
       gap={md ? '$1' : '$2'}
       borderRadius={md ? '$full' : '$2.5'}

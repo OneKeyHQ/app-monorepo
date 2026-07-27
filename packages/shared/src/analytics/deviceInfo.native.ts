@@ -6,22 +6,33 @@ import {
   osVersion,
   supportedCpuArchitectures,
 } from 'expo-device';
+import { getCalendars } from 'expo-localization';
 import { Dimensions } from 'react-native';
 
 import platformEnv from '../platformEnv';
+import {
+  getDeviceTimeZone,
+  getDeviceUtcOffsetMinutes,
+} from '../utils/timeZoneUtils';
 
 import type { IGetDeviceInfo } from './type';
 
-export const getDeviceInfo: IGetDeviceInfo = async () => ({
-  deviceId:
-    (platformEnv.isNativeIOS
-      ? await getIosIdForVendorAsync()
-      : getAndroidId()) ?? '',
-  arch: supportedCpuArchitectures ? supportedCpuArchitectures?.join(',') : '',
-  manufacturer: manufacturer ?? '',
-  model: modelName ?? '',
-  os: osName ?? '',
-  osVersion: osVersion ?? '',
-  screenHeight: Dimensions.get('window').height,
-  screenWidth: Dimensions.get('window').width,
-});
+export const getDeviceInfo: IGetDeviceInfo = async () => {
+  const deviceTimeZone = getCalendars()?.[0]?.timeZone;
+
+  return {
+    deviceId:
+      (platformEnv.isNativeIOS
+        ? await getIosIdForVendorAsync()
+        : getAndroidId()) ?? '',
+    deviceTimeZone: getDeviceTimeZone(deviceTimeZone),
+    deviceUtcOffsetMinutes: getDeviceUtcOffsetMinutes(),
+    arch: supportedCpuArchitectures ? supportedCpuArchitectures?.join(',') : '',
+    manufacturer: manufacturer ?? '',
+    model: modelName ?? '',
+    os: osName ?? '',
+    osVersion: osVersion ?? '',
+    screenHeight: Dimensions.get('window').height,
+    screenWidth: Dimensions.get('window').width,
+  };
+};

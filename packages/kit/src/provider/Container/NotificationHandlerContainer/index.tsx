@@ -106,7 +106,11 @@ function BaseNotificationHandlerContainer() {
               openWebView({ url: payload as string, source: 'notification' });
               break;
             case ENotificationViewDialogActionType.openInBrowser:
-              openUrlExternal(payload as string);
+              // The dialog protocol's openInBrowser action promises the OS
+              // browser; openInApp above is the in-app counterpart.
+              openUrlExternal(payload as string, {
+                useSystemBrowser: true,
+              });
               break;
             default:
               break;

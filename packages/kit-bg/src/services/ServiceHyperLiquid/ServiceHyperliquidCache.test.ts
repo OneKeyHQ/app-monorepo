@@ -1,8 +1,13 @@
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IBook } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import {
+import ServiceHyperliquidCache, {
   buildL2BookSnapshotCachePayload,
   getL2BookSnapshotCacheEntryLevelCount,
+  getL2BookSnapshotSwrCache,
   selectL2BookSnapshotCacheEntry,
   shouldWritePerpsAccountDisplayCache,
 } from './ServiceHyperliquidCache';
@@ -51,6 +56,11 @@ function buildEntry({
 }
 
 describe('ServiceHyperliquidCache L2 book helpers', () => {
+  afterEach(() => {
+    swrCacheUtils.clearAll();
+    swrCacheUtils.flushNow();
+  });
+
   it('counts the shallower side of the cached L2 book', () => {
     expect(
       getL2BookSnapshotCacheEntryLevelCount(
@@ -59,13 +69,13 @@ describe('ServiceHyperliquidCache L2 book helpers', () => {
     ).toBe(12);
   });
 
-  it('selects the newest complete L2 book snapshot from cache candidates', () => {
+  it('selects the newest two-sided L2 book even when the market is shallow', () => {
     const simpleDbEntry = buildEntry({
       updatedAt: 100,
       bidLevels: 18,
       askLevels: 18,
     });
-    const newerIncompleteSwrEntry = buildEntry({
+    const newerShallowSwrEntry = buildEntry({
       updatedAt: 200,
       bidLevels: 25,
       askLevels: 4,
@@ -74,9 +84,29 @@ describe('ServiceHyperliquidCache L2 book helpers', () => {
     expect(
       selectL2BookSnapshotCacheEntry({
         simpleDbEntry,
-        swrEntry: newerIncompleteSwrEntry,
+        swrEntry: newerShallowSwrEntry,
       }),
-    ).toBe(simpleDbEntry);
+    ).toBe(newerShallowSwrEntry);
+  });
+
+  it('rejects snapshots with an empty side', () => {
+    const validEntry = buildEntry({
+      updatedAt: 100,
+      bidLevels: 1,
+      askLevels: 1,
+    });
+    const newerOneSidedEntry = buildEntry({
+      updatedAt: 200,
+      bidLevels: 25,
+      askLevels: 0,
+    });
+
+    expect(
+      selectL2BookSnapshotCacheEntry({
+        simpleDbEntry: validEntry,
+        swrEntry: newerOneSidedEntry,
+      }),
+    ).toBe(validEntry);
   });
 
   it('builds option-specific payload only for the active book', () => {
@@ -113,6 +143,157 @@ describe('ServiceHyperliquidCache L2 book helpers', () => {
       nSigFigs: null,
       mantissa: null,
     });
+  });
+
+  it('uses the source precision instead of current UI options', () => {
+    const data = Object.assign(
+      buildBook({ coin: 'ETH', bidLevels: 20, askLevels: 20 }),
+      { nSigFigs: 5, mantissa: 5 },
+    );
+
+    expect(
+      buildL2BookSnapshotCachePayload({
+        data,
+        activeBookCoin: 'ETH',
+        activeOptions: { nSigFigs: 5, mantissa: 2 },
+      }),
+    ).toMatchObject({ nSigFigs: 5, mantissa: 5 });
+  });
+
+  it('rejects a latest snapshot cached for another precision', () => {
+    const data = Object.assign(
+      buildBook({ coin: 'ETH', bidLevels: 20, askLevels: 20 }),
+      { nSigFigs: 5, mantissa: 5 },
+    );
+    swrCacheUtils.set(swrKeys.perpsL2BookSnapshotLatest({ coin: 'ETH' }), data);
+
+    expect(
+      getL2BookSnapshotSwrCache({
+        coin: 'ETH',
+        nSigFigs: 5,
+        mantissa: 2,
+        maxAgeMs: 60_000,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('preserves source precision when using an untargeted latest snapshot', () => {
+    const data = Object.assign(
+      buildBook({ coin: 'ETH', bidLevels: 20, askLevels: 20 }),
+      { nSigFigs: 5, mantissa: 5 },
+    );
+    swrCacheUtils.set(swrKeys.perpsL2BookSnapshotLatest({ coin: 'ETH' }), data);
+
+    expect(
+      getL2BookSnapshotSwrCache({
+        coin: 'ETH',
+        maxAgeMs: 60_000,
+      }),
+    ).toMatchObject({
+      data,
+      nSigFigs: 5,
+      mantissa: 5,
+    });
+  });
+});
+
+describe('ServiceHyperliquidCache L2 book runtime cache', () => {
+  afterEach(() => {
+    delete (
+      globalThis as typeof globalThis & {
+        $onekeyIsInBackground?: boolean;
+      }
+    ).$onekeyIsInBackground;
+    jest.useRealTimers();
+    swrCacheUtils.clearAll();
+    swrCacheUtils.flushNow();
+  });
+
+  function createService() {
+    (
+      globalThis as typeof globalThis & {
+        $onekeyIsInBackground?: boolean;
+      }
+    ).$onekeyIsInBackground = true;
+    const getL2BookSnapshotCache = jest.fn().mockResolvedValue(undefined);
+    const setL2BookSnapshotCaches = jest.fn().mockResolvedValue(undefined);
+    const service = new ServiceHyperliquidCache({
+      backgroundApi: {
+        simpleDb: {
+          perp: {
+            getL2BookSnapshotCache,
+            setL2BookSnapshotCaches,
+          },
+        },
+      },
+    });
+    return {
+      service,
+      getL2BookSnapshotCache,
+      setL2BookSnapshotCaches,
+    };
+  }
+
+  it('serves the exact hot target without waiting for persisted storage', async () => {
+    const { service, getL2BookSnapshotCache } = createService();
+    const data = Object.assign(
+      buildBook({ coin: 'ETH', bidLevels: 4, askLevels: 4 }),
+      { nSigFigs: 5, mantissa: 2 },
+    );
+
+    service.cacheL2BookSnapshot({
+      data,
+      activeBookCoin: 'ETH',
+      activeOptions: { nSigFigs: 5, mantissa: 2 },
+    });
+
+    await expect(
+      service.getL2BookSnapshotCache({
+        coin: 'ETH',
+        nSigFigs: 5,
+        mantissa: 2,
+      }),
+    ).resolves.toMatchObject({
+      coin: 'ETH',
+      nSigFigs: 5,
+      mantissa: 2,
+      isCachedSnapshot: true,
+    });
+    expect(getL2BookSnapshotCache).not.toHaveBeenCalled();
+  });
+
+  it('keeps one pending snapshot per target during rapid switches', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-07-16T00:00:00.000Z'));
+    const { service, setL2BookSnapshotCaches } = createService();
+    const cache = (coin: string, bidPrice: string) => {
+      const data = buildBook({ coin, bidLevels: 4, askLevels: 4 });
+      data.levels[0][0] = { px: bidPrice, sz: '1', n: 1 };
+      service.cacheL2BookSnapshot({
+        data,
+        activeBookCoin: coin,
+        activeOptions: { nSigFigs: 5, mantissa: null },
+      });
+    };
+
+    cache('BTC', '100');
+    cache('ETH', '200');
+    cache('SOL', '300');
+    cache('ETH', '201');
+    service.flushPendingL2BookSnapshotCache();
+
+    expect(setL2BookSnapshotCaches).toHaveBeenCalledTimes(2);
+    expect(setL2BookSnapshotCaches.mock.calls[1]?.[0]).toEqual([
+      expect.objectContaining({
+        coin: 'ETH',
+        data: expect.objectContaining({
+          levels: expect.arrayContaining([
+            expect.arrayContaining([expect.objectContaining({ px: '201' })]),
+          ]),
+        }),
+      }),
+      expect.objectContaining({ coin: 'SOL' }),
+    ]);
   });
 });
 

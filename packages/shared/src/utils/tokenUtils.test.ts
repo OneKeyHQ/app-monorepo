@@ -8,6 +8,7 @@ import {
   buildTokenSearchKeywordQueries,
   calculateAccountTokensValue,
   calculateAccountTotalValue,
+  checkWrappedTokenPair,
   flattenAggregateTokensMap,
   getFilteredTokenBySearchKey,
   mergeDeriveTokenListMap,
@@ -20,6 +21,34 @@ import type {
   IFetchAccountTokensResp,
   ITokenFiat,
 } from '../../types/token';
+
+describe('checkWrappedTokenPair', () => {
+  const wrappedNativeToken = {
+    networkId: 'evm--4663',
+    contractAddress: '',
+    isNative: true,
+  };
+  const wrappedContractToken = {
+    networkId: 'evm--4663',
+    contractAddress: '0x0bd7d308f8e1639fab988df18a8011f41eacad73',
+    isNative: false,
+  };
+
+  test('recognizes Robinhood ETH and WETH in both directions', () => {
+    expect(
+      checkWrappedTokenPair({
+        fromToken: wrappedNativeToken,
+        toToken: wrappedContractToken,
+      }),
+    ).toBe(true);
+    expect(
+      checkWrappedTokenPair({
+        fromToken: wrappedContractToken,
+        toToken: wrappedNativeToken,
+      }),
+    ).toBe(true);
+  });
+});
 
 describe('buildTokenSearchKeywordQueries', () => {
   test('adds ether fallback for multi-word eth network searches', () => {

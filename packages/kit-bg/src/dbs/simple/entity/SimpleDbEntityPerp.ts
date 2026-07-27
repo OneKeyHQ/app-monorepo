@@ -417,24 +417,40 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     mantissa?: number | null;
     data: IBook;
   }) {
-    if (!coin || !data) {
+    await this.setL2BookSnapshotCaches([{ coin, nSigFigs, mantissa, data }]);
+  }
+
+  @backgroundMethod()
+  async setL2BookSnapshotCaches(
+    snapshots: Array<{
+      coin: string;
+      nSigFigs?: number | null;
+      mantissa?: number | null;
+      data: IBook;
+    }>,
+  ) {
+    const validSnapshots = snapshots.filter(
+      (snapshot) => snapshot.coin && snapshot.data,
+    );
+    if (validSnapshots.length === 0) {
       return;
     }
     await this.setPerpData((prev): ISimpleDbPerpData => {
-      const key = this._getL2BookSnapshotCacheKey({
-        coin,
-        nSigFigs,
-        mantissa,
-      });
-      const nextCache = {
-        ...prev?.l2BookSnapshotCache,
-        [key]: {
-          data,
-          updatedAt: Date.now(),
+      const updatedAt = Date.now();
+      const nextCache = { ...prev?.l2BookSnapshotCache };
+      validSnapshots.forEach(({ coin, nSigFigs, mantissa, data }) => {
+        const key = this._getL2BookSnapshotCacheKey({
+          coin,
           nSigFigs,
           mantissa,
-        },
-      };
+        });
+        nextCache[key] = {
+          data,
+          updatedAt,
+          nSigFigs,
+          mantissa,
+        };
+      });
       return {
         ...prev,
         l2BookSnapshotCache: this._limitSnapshotCacheEntries(nextCache),

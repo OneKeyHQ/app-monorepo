@@ -1,7 +1,15 @@
+import { IDBFactory } from 'fake-indexeddb';
+
+import { OneKeyLocalError } from '../../errors';
 import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
+import { isRetryableSupabaseAuthError } from '../../utils/supabaseAuthErrorUtils';
 import appStorage from '../appStorage';
 import secureStorageInstance from '../instance/secureStorageInstance';
 
+import {
+  SUPABASE_SEALED_VALUE_PREFIX,
+  buildSupabaseSealedValueCodec,
+} from './sealedValueCodec';
 import { SupabaseStorage } from './SupabaseStorage';
 
 jest.mock('../appStorage', () => ({
@@ -25,26 +33,91 @@ jest.mock('../instance/secureStorageInstance', () => ({
 
 jest.mock('../../platformEnv', () => ({
   __esModule: true,
+  ERuntimeRole: {
+    Main: 'main',
+    Background: 'background',
+    Standalone: 'standalone',
+  },
   default: {
     isNative: false,
     isDesktop: false,
     isDev: false,
+    // Standalone = single web/desktop runtime; owns session writes, so the
+    // legacy plaintext -> sealed opportunistic rewrite is active.
+    runtimeRole: 'standalone',
   },
 }));
 
 const mockAppStorage = jest.mocked(appStorage);
 const mockSecureStorageInstance = jest.mocked(secureStorageInstance);
 
+const PREFIXED_SESSION_KEY = 'OneKeySupabaseAuth__session';
+
+let testDbNameSeq = 0;
+
+function buildTestCodec({
+  cryptoGlobal,
+  indexedDBInstance = new IDBFactory(),
+}: {
+  cryptoGlobal?: Crypto | null;
+  indexedDBInstance?: IDBFactory | null;
+} = {}) {
+  return buildSupabaseSealedValueCodec({
+    cryptoGlobal,
+    dbName: `test-supabase-sealed-${(testDbNameSeq += 1)}`,
+    indexedDBInstance,
+  });
+}
+
+function useInMemoryAppStorage() {
+  const backing = new Map<string, string>();
+  mockAppStorage.getItem.mockImplementation(
+    async (key: string) => backing.get(key) ?? null,
+  );
+  mockAppStorage.setItem.mockImplementation(
+    async (key: string, value: string) => {
+      backing.set(key, value);
+    },
+  );
+  mockAppStorage.removeItem.mockImplementation(async (key: string) => {
+    backing.delete(key);
+  });
+  return backing;
+}
+
+async function waitFor(check: () => boolean, timeoutMs = 2000) {
+  const startedAt = Date.now();
+  while (!check()) {
+    if (Date.now() - startedAt > timeoutMs) {
+      throw new OneKeyLocalError('waitFor timeout');
+    }
+    await new Promise((resolve) => {
+      setTimeout(resolve, 10);
+    });
+  }
+}
+
 describe('SupabaseStorage', () => {
+  let consoleErrorSpy: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockSecureStorageInstance.supportSecureStorageWithoutInteraction.mockResolvedValue(
       false,
     );
   });
 
+  afterEach(() => {
+    consoleErrorSpy.mockRestore();
+  });
+
   it('clears local inflight cache before setItem retries a write', async () => {
-    const storage = new SupabaseStorage();
+    const storage = new SupabaseStorage({
+      // WebCrypto disabled: keep this cache-behavior test on the plaintext
+      // path, matching its original assertions.
+      sealedValueCodec: buildTestCodec({ cryptoGlobal: null }),
+    });
     const emitSpy = jest.spyOn(appEventBus, 'emit');
     mockAppStorage.getItem
       .mockResolvedValueOnce('stale')
@@ -65,7 +138,9 @@ describe('SupabaseStorage', () => {
   });
 
   it('clears local inflight cache before removeItem retries a write', async () => {
-    const storage = new SupabaseStorage();
+    const storage = new SupabaseStorage({
+      sealedValueCodec: buildTestCodec({ cryptoGlobal: null }),
+    });
     const emitSpy = jest.spyOn(appEventBus, 'emit');
     mockAppStorage.getItem
       .mockResolvedValueOnce('stale')
@@ -83,5 +158,232 @@ describe('SupabaseStorage', () => {
       EAppEventBusNames.SupabaseStorageCacheCleared,
       expect.anything(),
     );
+  });
+
+  describe('device-key sealing (non-secure-storage fallback path)', () => {
+    const sessionValue = JSON.stringify({
+      access_token: 'secret-access-token',
+      refresh_token: 'secret-refresh-token',
+    });
+
+    it('seals on write and round-trips through the sealed envelope', async () => {
+      const backing = useInMemoryAppStorage();
+      const codec = buildTestCodec();
+      const storage = new SupabaseStorage({ sealedValueCodec: codec });
+
+      await storage.setItem('session', sessionValue);
+
+      const storedValue = backing.get(PREFIXED_SESSION_KEY);
+      expect(storedValue).toBeDefined();
+      expect(storedValue?.startsWith(SUPABASE_SEALED_VALUE_PREFIX)).toBe(true);
+      expect(storedValue).not.toContain('secret-access-token');
+      expect(storedValue).not.toContain('secret-refresh-token');
+
+      await expect(storage.getItem('session')).resolves.toBe(sessionValue);
+
+      // A fresh instance (fresh read cache) decrypts the persisted envelope.
+      const storage2 = new SupabaseStorage({ sealedValueCodec: codec });
+      await expect(storage2.getItem('session')).resolves.toBe(sessionValue);
+    });
+
+    it('uses a fresh random IV per write', async () => {
+      const backing = useInMemoryAppStorage();
+      const codec = buildTestCodec();
+      const storage = new SupabaseStorage({ sealedValueCodec: codec });
+
+      await storage.setItem('session', sessionValue);
+      const firstValue = backing.get(PREFIXED_SESSION_KEY);
+      await storage.setItem('session', sessionValue);
+      const secondValue = backing.get(PREFIXED_SESSION_KEY);
+
+      expect(firstValue).toBeDefined();
+      expect(secondValue).toBeDefined();
+      expect(firstValue).not.toBe(secondValue);
+    });
+
+    it('returns legacy plaintext values and opportunistically rewrites them sealed', async () => {
+      const backing = useInMemoryAppStorage();
+      backing.set(PREFIXED_SESSION_KEY, sessionValue);
+      const codec = buildTestCodec();
+      const storage = new SupabaseStorage({ sealedValueCodec: codec });
+
+      await expect(storage.getItem('session')).resolves.toBe(sessionValue);
+
+      // The rewrite is fire-and-forget; wait until it lands.
+      await waitFor(() =>
+        Boolean(
+          backing
+            .get(PREFIXED_SESSION_KEY)
+            ?.startsWith(SUPABASE_SEALED_VALUE_PREFIX),
+        ),
+      );
+      expect(backing.get(PREFIXED_SESSION_KEY)).not.toContain(
+        'secret-access-token',
+      );
+
+      // The rewritten sealed value still decrypts to the same session.
+      storage.clearCache({ syncRemote: false });
+      await expect(storage.getItem('session')).resolves.toBe(sessionValue);
+    });
+
+    it('falls back to plaintext storage when WebCrypto is unavailable', async () => {
+      const backing = useInMemoryAppStorage();
+      const storage = new SupabaseStorage({
+        sealedValueCodec: buildTestCodec({ cryptoGlobal: null }),
+      });
+
+      await storage.setItem('session', sessionValue);
+
+      expect(backing.get(PREFIXED_SESSION_KEY)).toBe(sessionValue);
+      await expect(storage.getItem('session')).resolves.toBe(sessionValue);
+    });
+
+    it('falls back to plaintext storage when IndexedDB is unavailable', async () => {
+      const backing = useInMemoryAppStorage();
+      const storage = new SupabaseStorage({
+        sealedValueCodec: buildTestCodec({ indexedDBInstance: null }),
+      });
+
+      await storage.setItem('session', sessionValue);
+
+      expect(backing.get(PREFIXED_SESSION_KEY)).toBe(sessionValue);
+      await expect(storage.getItem('session')).resolves.toBe(sessionValue);
+    });
+
+    it('returns null (session lost) when the sealed envelope cannot be decrypted', async () => {
+      const backing = useInMemoryAppStorage();
+      const codecA = buildTestCodec();
+      const storageA = new SupabaseStorage({ sealedValueCodec: codecA });
+      await storageA.setItem('session', sessionValue);
+      expect(
+        backing
+          .get(PREFIXED_SESSION_KEY)
+          ?.startsWith(SUPABASE_SEALED_VALUE_PREFIX),
+      ).toBe(true);
+
+      // Fresh IndexedDB = device key lost (e.g. browser cleared site data):
+      // a different key is generated and decryption genuinely fails.
+      const codecB = buildTestCodec();
+      const storageB = new SupabaseStorage({ sealedValueCodec: codecB });
+      await expect(storageB.getItem('session')).resolves.toBeNull();
+    });
+
+    it('rejects retryable on a transient device-key failure and recovers without caching it', async () => {
+      const backing = useInMemoryAppStorage();
+      const sharedDbName = `test-supabase-sealed-${(testDbNameSeq += 1)}`;
+      const realFactory = new IDBFactory();
+
+      // Seal with a healthy codec so a sealed value AND a persisted device
+      // key exist.
+      const writerStorage = new SupabaseStorage({
+        sealedValueCodec: buildSupabaseSealedValueCodec({
+          dbName: sharedDbName,
+          indexedDBInstance: realFactory,
+        }),
+      });
+      await writerStorage.setItem('session', sessionValue);
+      expect(
+        backing
+          .get(PREFIXED_SESSION_KEY)
+          ?.startsWith(SUPABASE_SEALED_VALUE_PREFIX),
+      ).toBe(true);
+
+      // Reader whose IndexedDB open fails transiently, then recovers to the
+      // SAME underlying database (same persisted device key) — modeling a
+      // cold-start open failure, not a lost key.
+      let failOpen = true;
+      const flakyFactory = {
+        open: (...args: Parameters<IDBFactory['open']>) => {
+          if (failOpen) {
+            throw new OneKeyLocalError('transient IndexedDB open failure');
+          }
+          return realFactory.open(...args);
+        },
+      } as unknown as IDBFactory;
+      const readerStorage = new SupabaseStorage({
+        sealedValueCodec: buildSupabaseSealedValueCodec({
+          dbName: sharedDbName,
+          indexedDBInstance: flakyFactory,
+        }),
+      });
+
+      // Transient unavailability REJECTS retryable instead of resolving
+      // null: resolving null would be indistinguishable from a genuinely
+      // lost session and lets destructive cleanups orphan a valid one.
+      const readError: unknown = await readerStorage.getItem('session').then(
+        () => null,
+        (error: unknown) => error,
+      );
+      expect(readError).toBeTruthy();
+      expect(isRetryableSupabaseAuthError(readError)).toBe(true);
+
+      // The rejection is not kept for maxAge: memoizee evicts rejected
+      // promises on the next event-loop tick, so once the device key store
+      // recovers, the SAME storage instance unseals the same persisted
+      // session instead of serving the stale failure for 30s.
+      failOpen = false;
+      await new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      });
+      await expect(readerStorage.getItem('session')).resolves.toBe(
+        sessionValue,
+      );
+    });
+
+    it('falls back to plaintext on a transient seal failure and reseals immediately after recovery', async () => {
+      const backing = useInMemoryAppStorage();
+      const realFactory = new IDBFactory();
+      // Device key store fails exactly once (the setItem-time seal attempt),
+      // then recovers — the write must not be rejected (a rejected write
+      // would lose a just-rotated refresh token), and the immediate
+      // opportunistic reseal must shrink the plaintext window without
+      // waiting for the next read.
+      let remainingFailures = 1;
+      const failOnceFactory = {
+        open: (...args: Parameters<IDBFactory['open']>) => {
+          if (remainingFailures > 0) {
+            remainingFailures -= 1;
+            throw new OneKeyLocalError('transient IndexedDB open failure');
+          }
+          return realFactory.open(...args);
+        },
+      } as unknown as IDBFactory;
+      const storage = new SupabaseStorage({
+        sealedValueCodec: buildSupabaseSealedValueCodec({
+          dbName: `test-supabase-sealed-${(testDbNameSeq += 1)}`,
+          indexedDBInstance: failOnceFactory,
+        }),
+      });
+
+      await storage.setItem('session', sessionValue);
+
+      // The reseal is fire-and-forget; wait until it lands sealed.
+      await waitFor(() =>
+        Boolean(
+          backing
+            .get(PREFIXED_SESSION_KEY)
+            ?.startsWith(SUPABASE_SEALED_VALUE_PREFIX),
+        ),
+      );
+      expect(backing.get(PREFIXED_SESSION_KEY)).not.toContain(
+        'secret-access-token',
+      );
+      // The resealed value still decrypts to the same session.
+      storage.clearCache({ syncRemote: false });
+      await expect(storage.getItem('session')).resolves.toBe(sessionValue);
+    });
+
+    it('returns null for a recognized but corrupt envelope instead of leaking it as plaintext', async () => {
+      const backing = useInMemoryAppStorage();
+      backing.set(
+        PREFIXED_SESSION_KEY,
+        `${SUPABASE_SEALED_VALUE_PREFIX}not-json`,
+      );
+      const storage = new SupabaseStorage({
+        sealedValueCodec: buildTestCodec(),
+      });
+
+      await expect(storage.getItem('session')).resolves.toBeNull();
+    });
   });
 });

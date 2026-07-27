@@ -145,6 +145,15 @@ export class KeylessScene extends BaseScene {
     return {};
   }
 
+  @LogToLocal({ level: 'error' })
+  public prepareOneKeyIdLoginWithLocalKeylessFailed({
+    error,
+  }: {
+    error: string;
+  }) {
+    return { error };
+  }
+
   @LogToLocal({ level: 'info' })
   public restoreKeylessBackendShareRetrieved() {
     return {};

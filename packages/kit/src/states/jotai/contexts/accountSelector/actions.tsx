@@ -112,7 +112,9 @@ import type {
 const { serviceAccount } = backgroundApiProxy;
 
 const RECENT_ACCOUNT_SWITCH_COLD_START_MS = 5 * 60 * 1000;
-const ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION = 1;
+// Version 1 can contain a Swap num 1 fallback that was selected from an
+// incomplete map. Do not restore that recipient state after this fix lands.
+const ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION = 2;
 
 type IAccountSelectorRecentSelectionCacheItem = {
   version: typeof ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION;
@@ -545,6 +547,42 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         now - meta.updatedAt >= 0 &&
         now - meta.updatedAt <= RECENT_ACCOUNT_SWITCH_COLD_START_MS,
     );
+  }
+
+  mergeColdStartSelectedAccountsWithStorage({
+    selectedAccountsMap,
+    selectedAccountsMapInDB,
+  }: {
+    selectedAccountsMap: ISelectedAccountsAtomMap;
+    selectedAccountsMapInDB: IAccountSelectorSelectedAccountsMap | undefined;
+  }) {
+    const mergedSelectedAccountsMap = cloneDeep(selectedAccountsMap);
+    Object.entries(selectedAccountsMapInDB ?? {}).forEach(
+      ([numKey, dbAccount]) => {
+        const targetNum = Number(numKey);
+        const current = mergedSelectedAccountsMap[targetNum];
+        // A wallet-only slot still triggers automatic selection of index 0,
+        // so only a complete account identity can override the storage value.
+        const currentHasAccount = Boolean(
+          current?.othersWalletAccountId ||
+          (current?.walletId && current?.indexedAccountId),
+        );
+        const dbHasAccount = Boolean(
+          dbAccount?.othersWalletAccountId ||
+          (dbAccount?.walletId && dbAccount?.indexedAccountId),
+        );
+        if (!currentHasAccount && dbAccount && dbHasAccount) {
+          // Keep the slot's freshly restored network context while filling the
+          // missing identity from the normalized storage map.
+          mergedSelectedAccountsMap[targetNum] =
+            accountSelectorUtils.buildMergedSelectedAccount({
+              data: current,
+              mergedByData: dbAccount,
+            });
+        }
+      },
+    );
+    return mergedSelectedAccountsMap;
   }
 
   mutex = new Semaphore(1);
@@ -1299,6 +1337,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
+  // Keyed by scene + selector num so concurrent selections in different
+  // scenes cannot cancel each other.
+  confirmAccountSelectLatestRequestIdMap = new Map<string, number>();
+
   confirmAccountSelect = contextAtomMethod(
     async (
       get,
@@ -1337,6 +1379,18 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         );
       }
 
+      const requestContextData = get(accountSelectorContextDataAtom());
+      const confirmRequestKey = `${requestContextData?.sceneName ?? ''}__${
+        requestContextData?.sceneUrl ?? ''
+      }__${num}`;
+      const confirmRequestId =
+        (this.confirmAccountSelectLatestRequestIdMap.get(confirmRequestKey) ??
+          0) + 1;
+      this.confirmAccountSelectLatestRequestIdMap.set(
+        confirmRequestKey,
+        confirmRequestId,
+      );
+
       const accountNetworkId: string =
         forceSelectToNetworkId ||
         this.getAutoSelectNetworkIdForAccount.call(set, {
@@ -1348,15 +1402,53 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       const oldSelectedAccount: IAccountSelectorSelectedAccount = cloneDeep(
         this.getSelectedAccount.call(set, { num }) || defaultSelectedAccount(),
       );
+
+      // All Networks is a dead end when none of its enabled networks is
+      // compatible with the target wallet (home renders a blank network
+      // selector); fall back to the first compatible single chain instead.
+      let resolvedNetworkId: string = accountNetworkId;
+      const targetNetworkId = accountNetworkId || oldSelectedAccount.networkId;
+      if (
+        !platformEnv.isWebDappMode &&
+        targetNetworkId &&
+        networkUtils.isAllNetwork({ networkId: targetNetworkId }) &&
+        !accountUtils.isOthersWallet({ walletId })
+      ) {
+        try {
+          const fallbackNetworkId =
+            await backgroundApiProxy.serviceAllNetwork.getAllNetworksFallbackNetworkId(
+              {
+                walletId,
+              },
+            );
+          if (fallbackNetworkId) {
+            resolvedNetworkId = fallbackNetworkId;
+          }
+        } catch {
+          // keep the All Networks selection if the check fails
+        }
+      }
+
+      // A newer selection may have started while the fallback query was in
+      // flight; committing this stale result would overwrite the user's
+      // latest choice, so drop it.
+      if (
+        this.confirmAccountSelectLatestRequestIdMap.get(confirmRequestKey) !==
+        confirmRequestId
+      ) {
+        return;
+      }
+
       const newSelectedAccount: IAccountSelectorSelectedAccount = {
         ...oldSelectedAccount,
-        networkId: accountNetworkId || oldSelectedAccount.networkId,
+        networkId: resolvedNetworkId || oldSelectedAccount.networkId,
         walletId,
         othersWalletAccountId: othersWalletAccount?.id,
         indexedAccountId: indexedAccount?.id,
       };
       const shouldUseFastConfirm =
-        !accountNetworkId || accountNetworkId === oldSelectedAccount.networkId;
+        !resolvedNetworkId ||
+        resolvedNetworkId === oldSelectedAccount.networkId;
 
       if (shouldUseFastConfirm) {
         if (platformEnv.isWebDappMode) {
@@ -1409,7 +1501,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           num,
           builder: (v) => ({
             ...v,
-            networkId: accountNetworkId || v.networkId,
+            networkId: resolvedNetworkId || v.networkId,
             walletId,
             othersWalletAccountId: othersWalletAccount?.id,
             indexedAccountId: indexedAccount?.id,
@@ -2211,6 +2303,26 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               indexedAccount,
               isCreateWallet: true,
             });
+            const firstAccount = result?.addedAccounts?.[0];
+            // All Networks is a dead end when none of its enabled networks
+            // is compatible with the QR wallet (home renders a blank network
+            // selector with no way to escape); fall back to the first created
+            // account's network in that case.
+            let shouldFallbackToFirstAccountNetwork = false;
+            if (firstAccount) {
+              try {
+                const compatibleEnabledNetworks =
+                  await backgroundApiProxy.serviceAllNetwork.getEnabledNetworksCompatibleWithWalletId(
+                    {
+                      walletId: wallet.id,
+                    },
+                  );
+                shouldFallbackToFirstAccountNetwork =
+                  compatibleEnabledNetworks.length === 0;
+              } catch {
+                // keep the All Networks default if the check fails
+              }
+            }
             // update networkId and deriveType matched with first account
             await this.updateSelectedAccount.call(set, {
               num: 0, // update home num selector
@@ -2220,10 +2332,17 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                     item.networkId === v.networkId &&
                     item.deriveType === v.deriveType,
                 );
-                const firstAccount = result?.addedAccounts?.[0];
 
                 if (currentNetworkSupport || !firstAccount) {
                   return v;
+                }
+
+                if (shouldFallbackToFirstAccountNetwork) {
+                  return {
+                    ...v,
+                    networkId: firstAccount.networkId,
+                    deriveType: firstAccount.deriveType || 'default',
+                  };
                 }
 
                 return {
@@ -2744,9 +2863,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             updateMeta: recentSelectionCache.updateMeta,
           })
         ) {
+          const mergedRecentSelectionCacheSelectedAccountsMap =
+            this.mergeColdStartSelectedAccountsWithStorage({
+              selectedAccountsMap: recentSelectionCacheSelectedAccountsMap,
+              selectedAccountsMapInDB,
+            });
           this.setSelectedAccountsAtom(
             set,
-            () => recentSelectionCacheSelectedAccountsMap,
+            () => mergedRecentSelectionCacheSelectedAccountsMap,
             'initFromRecentSelectionCache',
           );
           set(accountSelectorUpdateMetaAtom(), (v) => ({
@@ -2801,35 +2925,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           // (home-merged) DB; else a sibling scene (e.g. swap on the Perps
           // route) leaves num0 empty, auto-selects index 0, and clobbers home's
           // restored num0 via the home<->swap sync. Non-empty slots untouched.
-          const mergedSelectedAccountsMap = cloneDeep(selectedAccountsMap);
-          Object.entries(selectedAccountsMapInDB ?? {}).forEach(
-            ([numKey, dbAccount]) => {
-              const targetNum = Number(numKey);
-              const current = mergedSelectedAccountsMap[targetNum];
-              // "Resolved" means a usable account identity: an others-wallet
-              // account, or an HD/HW wallet WITH an index. A wallet-only slot
-              // (no index) still auto-selects index 0, so treat it as fillable.
-              const currentHasAccount = Boolean(
-                current?.othersWalletAccountId ||
-                (current?.walletId && current?.indexedAccountId),
-              );
-              const dbHasAccount = Boolean(
-                dbAccount?.othersWalletAccountId ||
-                (dbAccount?.walletId && dbAccount?.indexedAccountId),
-              );
-              if (!currentHasAccount && dbAccount && dbHasAccount) {
-                // Field-level merge: take only the account identity from DB and
-                // keep the slot's already-restored scene context (networkId/
-                // deriveType), else filling the account would also revert those
-                // to stale DB values and re-propagate them via home<->swap sync.
-                mergedSelectedAccountsMap[targetNum] =
-                  accountSelectorUtils.buildMergedSelectedAccount({
-                    data: current,
-                    mergedByData: dbAccount,
-                  });
-              }
-            },
-          );
+          const mergedSelectedAccountsMap =
+            this.mergeColdStartSelectedAccountsWithStorage({
+              selectedAccountsMap,
+              selectedAccountsMapInDB,
+            });
           // Compare against the raw atom value: repair/clear results must
           // reach memory even when the fill step adds nothing.
           if (!isEqual(mergedSelectedAccountsMap, currentSelectedAccountsMap)) {

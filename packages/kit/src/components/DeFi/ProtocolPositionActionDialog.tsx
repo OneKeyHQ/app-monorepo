@@ -98,6 +98,7 @@ const DEFI_ACTION_HERO_MIN_HEIGHT = 128;
 // two heroes read as one, and so a short amount can't grow past the reserved
 // height (SendAutoSizeAmountInput otherwise ramps up to ~84px on desktop).
 const MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE = 40;
+const PERCENT_INPUT_HORIZONTAL_OVERFLOW = 12;
 const resolveActionTxAmount = resolveDeFiActionTxAmount as (params: {
   percentageAction: boolean;
   percent?: number;
@@ -1250,35 +1251,54 @@ function ProtocolPositionActionPercentHero({
       gap="$2"
     >
       <XStack alignItems="center" justifyContent="center" gap="$1">
-        <Input
-          testID="defi-position-action-percent-input"
-          value={percentText}
-          onChangeText={onChangePercentText}
-          keyboardType="number-pad"
-          maxLength={maxLength}
-          onFocus={onFocus}
-          onKeyPress={handleKeyPress}
-          autoCorrect={false}
-          spellCheck={false}
-          autoComplete="off"
-          textContentType="none"
-          unstyled
-          borderWidth={0}
-          bg="transparent"
-          p="$0"
-          h={Math.ceil(MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE * 1.4)}
-          size="large"
-          fontSize={MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE}
-          fontWeight="500"
-          textAlign="right"
-          placeholder="0"
-          placeholderTextColor="$textDisabled"
-          containerProps={{
-            width: 96,
-            borderWidth: 0,
-            bg: 'transparent',
-          }}
-        />
+        <Stack position="relative">
+          <SizableText
+            opacity={0}
+            pointerEvents="none"
+            aria-hidden
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            fontSize={MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE}
+            lineHeight={Math.ceil(MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE * 1.4)}
+            fontWeight="500"
+            numberOfLines={1}
+          >
+            {percentText || '0'}
+          </SizableText>
+          <Input
+            testID="defi-position-action-percent-input"
+            value={percentText}
+            onChangeText={onChangePercentText}
+            keyboardType="number-pad"
+            maxLength={maxLength}
+            onFocus={onFocus}
+            onKeyPress={handleKeyPress}
+            autoCorrect={false}
+            spellCheck={false}
+            autoComplete="off"
+            textContentType="none"
+            unstyled
+            borderWidth={0}
+            bg="transparent"
+            p="$0"
+            h={Math.ceil(MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE * 1.4)}
+            size="large"
+            fontSize={MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE}
+            fontWeight="500"
+            textAlign="center"
+            placeholder="0"
+            placeholderTextColor="$textDisabled"
+            containerProps={{
+              position: 'absolute',
+              top: 0,
+              right: -PERCENT_INPUT_HORIZONTAL_OVERFLOW,
+              bottom: 0,
+              left: -PERCENT_INPUT_HORIZONTAL_OVERFLOW,
+              borderWidth: 0,
+              bg: 'transparent',
+            }}
+          />
+        </Stack>
         <SizableText
           fontSize={MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE}
           lineHeight={Math.ceil(MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE * 1.4)}

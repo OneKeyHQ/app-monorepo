@@ -103,6 +103,15 @@ export const defaultMidPriceNode = (midPrice: string) => (
   <PerpBookText>{midPrice}</PerpBookText>
 );
 
+const EMPTY_FORMATTED_ORDER_BOOK_LEVEL: IFormattedOBLevel = {
+  price: '',
+  size: '',
+  cumSize: '',
+  displayPrice: '--',
+  displaySize: '--',
+  displayCumSize: '--',
+};
+
 // Helper function to calculate percentage with BigNumber precision
 function calculatePercentage(cumSize: string, totalDepth: BigNumber): number {
   if (totalDepth.isZero()) return 0;
@@ -747,6 +756,24 @@ export function OrderBook({
     sizeDecimals,
   );
   const isEmpty = !aggregatedData.bids.length && !aggregatedData.asks.length;
+  const verticalEmptyLevels = useMemo<IFormattedOBLevel[]>(
+    () =>
+      !horizontal && isEmpty
+        ? Array.from(
+            { length: resolvedMaxLevelsPerSide },
+            () => EMPTY_FORMATTED_ORDER_BOOK_LEVEL,
+          )
+        : [],
+    [horizontal, isEmpty, resolvedMaxLevelsPerSide],
+  );
+  let verticalAsks: IFormattedOBLevel[] = [];
+  let verticalBids: IFormattedOBLevel[] = [];
+  if (!horizontal) {
+    verticalAsks = isEmpty
+      ? verticalEmptyLevels
+      : aggregatedData.asks.toReversed();
+    verticalBids = isEmpty ? verticalEmptyLevels : aggregatedData.bids;
+  }
   const depthEpoch = useOrderBookEpoch(
     _symbol,
     selectedTickOption?.value,
@@ -1170,19 +1197,21 @@ export function OrderBook({
           />
         </View>
         <View style={styles.absoluteContainer}>
-          {aggregatedData.asks.toReversed().map((itemData, index) => {
+          {verticalAsks.map((itemData, index) => {
             const originalIndex = aggregatedData.asks.length - 1 - index;
             return (
               <Pressable
                 key={index}
-                disabled={!isInteractive}
-                onPress={() =>
-                  handleSelectLevel('ask', itemData, originalIndex)
-                }
+                disabled={isEmpty || !isInteractive}
+                onPress={() => {
+                  if (!isEmpty) {
+                    handleSelectLevel('ask', itemData, originalIndex);
+                  }
+                }}
                 style={() => [
                   styles.blockRow,
                   { height: verticalRowHeight },
-                  isInteractive && !platformEnv.isNative
+                  !isEmpty && isInteractive && !platformEnv.isNative
                     ? styles.pointer
                     : null,
                 ]}
@@ -1191,8 +1220,8 @@ export function OrderBook({
                   <OrderBookVerticalRow
                     item={itemData}
                     priceColor={textColor.red}
-                    sizeColor={textColor.text}
-                    isHovered={getPressableHoverState(state)}
+                    sizeColor={isEmpty ? textColor.textSubdued : textColor.text}
+                    isHovered={isEmpty ? false : getPressableHoverState(state)}
                   />
                 )}
               </Pressable>
@@ -1260,27 +1289,33 @@ export function OrderBook({
                 />
               ) : null}
               <PerpBookText style={[styles.bodySm, { color: textColor.text }]}>
-                {spreadPercentage}
+                {isEmpty ? '--' : spreadPercentage}
               </PerpBookText>
             </View>
           </DebugRenderTracker>
-          {aggregatedData.bids.map((itemData, index) => (
+          {verticalBids.map((itemData, index) => (
             <Pressable
               key={index}
-              disabled={!isInteractive}
-              onPress={() => handleSelectLevel('bid', itemData, index)}
+              disabled={isEmpty || !isInteractive}
+              onPress={() => {
+                if (!isEmpty) {
+                  handleSelectLevel('bid', itemData, index);
+                }
+              }}
               style={() => [
                 styles.blockRow,
                 { height: verticalRowHeight },
-                isInteractive && !platformEnv.isNative ? styles.pointer : null,
+                !isEmpty && isInteractive && !platformEnv.isNative
+                  ? styles.pointer
+                  : null,
               ]}
             >
               {(state) => (
                 <OrderBookVerticalRow
                   item={itemData}
                   priceColor={textColor.green}
-                  sizeColor={textColor.text}
-                  isHovered={getPressableHoverState(state)}
+                  sizeColor={isEmpty ? textColor.textSubdued : textColor.text}
+                  isHovered={isEmpty ? false : getPressableHoverState(state)}
                 />
               )}
             </Pressable>

@@ -410,7 +410,9 @@ export function parseNotificationPayload(
       break;
     case ENotificationPushMessageMode.openInBrowser:
       if (payload) {
-        openUrlExternal(payload);
+        // The push protocol's openInBrowser mode promises the OS browser;
+        // openInApp below is the in-app counterpart.
+        openUrlExternal(payload, { useSystemBrowser: true });
       }
       break;
     case ENotificationPushMessageMode.openInApp:

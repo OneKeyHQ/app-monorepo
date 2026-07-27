@@ -801,6 +801,25 @@ export function MenuBarTrayListItem(props: ICustomElementProps) {
   );
 }
 
+export function HapticFeedbackListItem(props: ICustomElementProps) {
+  const [{ hapticFeedbackEnabled }] = useSettingsPersistAtom();
+  const toggleHapticFeedback = useCallback((value: boolean) => {
+    startViewTransition(() => {
+      void backgroundApiProxy.serviceSetting.setHapticFeedbackEnabled(value);
+    });
+  }, []);
+  return (
+    <TabSettingsListItem {...props} userSelect="none">
+      <Switch
+        testID={SettingTestIDs.tabHapticFeedbackSwitch}
+        size={ESwitchSize.small}
+        value={hapticFeedbackEnabled ?? true}
+        onChange={toggleHapticFeedback}
+      />
+    </TabSettingsListItem>
+  );
+}
+
 export function BTCFreshAddressListItem(props: ICustomElementProps) {
   const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
   const toggleBTCFreshAddress = useCallback(async (value: boolean) => {

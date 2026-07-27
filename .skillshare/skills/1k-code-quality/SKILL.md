@@ -21,6 +21,7 @@ yarn agent:check --profile pr
 yarn lint        # Comprehensive: TypeScript, ESLint, folder structure, i18n
 yarn lint:only   # Quick: oxlint only
 yarn tsc:only    # Full type check
+yarn lint:agent-context # Skill metadata and startup-context budgets
 ```
 
 **Note:** `yarn lint` is for CI only. For agent workflows, always use
@@ -161,6 +162,15 @@ grep -i "yourword" development/spellCheckerSkipWords.txt
 echo "yourword" >> development/spellCheckerSkipWords.txt
 ```
 
+## Agent Context Harness
+
+`yarn lint:agent-context` enforces repository skill discovery and startup
+context budgets. Configuration lives in
+`development/lint/agent-context.config.json`. When adding or restructuring a
+skill, keep detailed guidance in references, use Codex explicit policy for
+operational workflows, and stay within the configured catalog and instruction
+budgets.
+
 ## Checklist
 
 ### Pre-commit
@@ -175,6 +185,6 @@ echo "yourword" >> development/spellCheckerSkipWords.txt
 
 ## Related Skills
 
-- `/1k-sentry-analysis` - Sentry error analysis and fixes
+- `/1k-sentry` - Sentry error analysis and fixes
 - `/1k-test-version` - Test version creation workflow
 - `/1k-coding-patterns` - General coding patterns

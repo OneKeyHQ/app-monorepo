@@ -8,7 +8,6 @@ import type { IPerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/at
 import { usePerpsTradingPreferencesAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
-  formatHlSize,
   formatWithPrecision,
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -16,6 +15,7 @@ import type { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import { SizeInputModeSelector } from '../selectors/SizeInputModeSelector';
 
+import { convertPerpsSizeDisplayValueToToken } from './sizeInputConversion';
 import { TradingFormInput } from './TradingFormInput';
 
 import type { ISide } from '../selectors/TradeSideToggle';
@@ -29,6 +29,7 @@ export type ISizeInputDisplayValueChangePayload = {
 };
 
 interface ISizeInputProps {
+  testID?: string;
   value: string;
   side: ISide;
   symbol: string;
@@ -46,10 +47,12 @@ interface ISizeInputProps {
   isMobile?: boolean;
   leverage: number;
   allowMarginInput?: boolean;
+  ifOnDialog?: boolean;
 }
 
 export const SizeInput = memo(
   ({
+    testID,
     value,
     onChange,
     onDisplayValueChange,
@@ -67,6 +70,7 @@ export const SizeInput = memo(
     isMobile = false,
     leverage,
     allowMarginInput = true,
+    ifOnDialog = false,
   }: ISizeInputProps) => {
     const intl = useIntl();
     const szDecimals = activeAsset?.universe?.szDecimals ?? 2;
@@ -134,13 +138,15 @@ export const SizeInput = memo(
     // otherwise we may submit a size whose actual notional exceeds the user's
     // typed USD amount (root cause of the "input $10 → estimate $10.44" bug).
     const calcTokenFromUsd = useCallback(
-      (usdValue: string) => {
-        if (!hasValidPrice) return '';
-        const usdBN = new BigNumber(usdValue);
-        if (!usdBN.isFinite()) return '';
-        return formatHlSize(usdBN.dividedBy(priceBN), szDecimals);
-      },
-      [hasValidPrice, priceBN, szDecimals],
+      (usdValue: string) =>
+        convertPerpsSizeDisplayValueToToken({
+          displayValue: usdValue,
+          inputMode: 'usd',
+          referencePrice,
+          leverage,
+          szDecimals,
+        }),
+      [leverage, referencePrice, szDecimals],
     );
 
     const calcMarginFromToken = useCallback(
@@ -155,14 +161,15 @@ export const SizeInput = memo(
     );
 
     const calcTokenFromMargin = useCallback(
-      (marginValue: string) => {
-        if (!hasValidPrice) return '';
-        const marginBN = new BigNumber(marginValue);
-        if (!marginBN.isFinite()) return '';
-        const tokenValue = marginBN.multipliedBy(leverageBN).dividedBy(priceBN);
-        return formatHlSize(tokenValue, szDecimals);
-      },
-      [hasValidPrice, priceBN, leverageBN, szDecimals],
+      (marginValue: string) =>
+        convertPerpsSizeDisplayValueToToken({
+          displayValue: marginValue,
+          inputMode: 'margin',
+          referencePrice,
+          leverage,
+          szDecimals,
+        }),
+      [leverage, referencePrice, szDecimals],
     );
 
     const sliderDisplay = useMemo(() => {
@@ -537,6 +544,7 @@ export const SizeInput = memo(
 
     return (
       <TradingFormInput
+        testID={testID}
         value={displayValue}
         onChange={handleInputChange}
         label={formatLabel}
@@ -555,6 +563,7 @@ export const SizeInput = memo(
               })
             : '0.0'
         }
+        ifOnDialog={ifOnDialog}
       />
     );
   },

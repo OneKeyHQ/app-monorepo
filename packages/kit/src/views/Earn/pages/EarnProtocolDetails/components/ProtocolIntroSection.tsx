@@ -23,6 +23,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import {
   ANIMATE_ONLY_OPACITY,
@@ -32,6 +33,7 @@ import { EarnTestIDs } from '@onekeyhq/kit/src/views/Earn/testIDs';
 import { EarnIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnIcon';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
   IEarnProtocolIntroAudit,
@@ -345,10 +347,18 @@ function hasProtocolIntroItemContent(item: IEarnProtocolIntroItem) {
 }
 
 const DIALOG_CONTENT_MAX_HEIGHT = 512;
+const COMPACT_DIALOG_CONTENT_HEIGHT = 260;
 
 function DialogContent({ children }: { children: React.ReactNode }) {
+  const { md } = useMedia();
+  const isCompact = Boolean(platformEnv.isRuntimeBrowser && md);
+
   return (
-    <ScrollView maxHeight={DIALOG_CONTENT_MAX_HEIGHT} nestedScrollEnabled>
+    <ScrollView
+      height={isCompact ? COMPACT_DIALOG_CONTENT_HEIGHT : undefined}
+      maxHeight={isCompact ? undefined : DIALOG_CONTENT_MAX_HEIGHT}
+      nestedScrollEnabled
+    >
       <YStack px="$5" pb="$5">
         {children}
       </YStack>
@@ -1561,6 +1571,7 @@ function ProtocolIntroSectionComponent({
           variant: 'secondary',
         },
         showCancelButton: false,
+        disableDrag: platformEnv.isRuntimeBrowser,
       });
     },
     [intl],

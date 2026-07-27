@@ -44,14 +44,20 @@ export function QuickAmountSelector({
 
   const handleAmountSelect = useCallback(
     (amount: { label: string; value: string | number }, index: number) => {
+      const sellBalance =
+        tradeType === ESwapDirection.SELL ? balance : undefined;
+      if (tradeType === ESwapDirection.SELL && !sellBalance) {
+        return;
+      }
+
       // Track preset selection in analytics
       if (onPresetSelect) {
         const presetType = `preset${index + 1}` as IAmountEnterSource;
         onPresetSelect(presetType);
       }
 
-      if (tradeType === ESwapDirection.SELL && balance) {
-        if (balance.isZero()) {
+      if (sellBalance) {
+        if (sellBalance.isZero()) {
           onSelect('0');
           return;
         }
@@ -59,7 +65,7 @@ export function QuickAmountSelector({
         const reserveGas = swapNativeTokenReserveGas.find(
           (item) => item.networkId === selectedTokenNetworkId,
         )?.reserveGas;
-        let calculatedAmountBN = balance.multipliedBy(percentageBN);
+        let calculatedAmountBN = sellBalance.multipliedBy(percentageBN);
         if (selectedTokenIsNative && reserveGas) {
           calculatedAmountBN = BigNumber.max(
             0,
@@ -118,6 +124,7 @@ export function QuickAmountSelector({
             borderBottomRightRadius={index !== amountsLength - 1 ? 0 : '$2'}
             borderTopLeftRadius={0}
             borderBottomLeftRadius={index !== 0 ? 0 : '$2'}
+            disabled={tradeType === ESwapDirection.SELL && !balance}
             onPress={() => handleAmountSelect(amount, index)}
           >
             <SizableText size="$bodyMdMedium" color="$textSubdued">

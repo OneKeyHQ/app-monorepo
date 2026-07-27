@@ -37,6 +37,7 @@ import {
 } from '@onekeyhq/components';
 import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json';
 import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-light.json';
+import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
@@ -594,7 +595,10 @@ function MoreActionOneKeyId() {
     if (!isLoggedIn) {
       return intl.formatMessage({ id: ETranslations.prime_signup_login });
     }
-    return user?.displayEmail || 'OneKey ID';
+    return getDisplayEmailOrUnknown({
+      intl,
+      displayEmail: user?.displayEmail,
+    });
   }, [isLoggedIn, user?.displayEmail, intl]);
 
   const navigation = useAppNavigation();
@@ -961,6 +965,7 @@ function MoreActionGeneralGrid() {
             title: 'Prime',
             icon: 'PrimeOutline' as const,
             onPress: handlePrime,
+            testID: 'wallet-prime',
             trackID: 'wallet-prime',
             isPrimeFeature: true,
             hidePrimeBadge: true,

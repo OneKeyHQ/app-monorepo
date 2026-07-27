@@ -620,6 +620,12 @@ export function useSwapSelectedTokenInfo({
     }, 300),
     [],
   );
+  useEffect(
+    () => () => {
+      loadSwapSelectTokenDetailDeb.cancel();
+    },
+    [loadSwapSelectTokenDetailDeb],
+  );
 
   const reloadSwapSelectTokenDetail = useCallback(
     ({

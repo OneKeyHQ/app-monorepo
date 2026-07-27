@@ -43,6 +43,7 @@ import {
 } from '../utils/swapColdStartTokenCacheUtils';
 
 import {
+  getSwapAddressAccountSelectorNum,
   shouldResetSwapRecipientOnAccountNetworkSync,
   shouldShowSwapRecipientAddressInfo,
   shouldUseSwapCustomRecipientAddress,
@@ -258,10 +259,13 @@ export function useSwapFromAccountNetworkSync() {
 }
 
 export function useSwapAddressInfo(type: ESwapDirectionType) {
-  const { activeAccount } = useActiveAccount({
-    num: type === ESwapDirectionType.FROM ? 0 : 1,
-  });
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
+  const { activeAccount } = useActiveAccount({
+    num: getSwapAddressAccountSelectorNum({
+      type,
+      swapToAnotherAccountSwitchOn,
+    }),
+  });
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();

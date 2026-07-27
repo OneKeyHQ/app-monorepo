@@ -36,6 +36,7 @@ export default function ChainSelectorPage({
     hideLowValueNetworkValue,
     indexedAccountId,
     accountId,
+    featuredNetwork,
   } = route.params ?? {};
   const { result } = usePromiseResult(
     async () => {
@@ -60,13 +61,15 @@ export default function ChainSelectorPage({
         networks = networks.filter((o) => {
           let isOK = networkIds.includes(o.id);
           if (disableNetworkIds && disableNetworkIds?.length > 0) {
-            isOK = isOK && !disableNetworkIds.includes(o.id);
+            isOK =
+              isOK &&
+              (!disableNetworkIds.includes(o.id) ||
+                o.id === featuredNetwork?.networkId);
           }
           return isOK;
         });
         networks.sort((a, b) => networkIdIndex[a.id] - networkIdIndex[b.id]);
       }
-
       let accountNetworkValues: Record<string, string> | undefined;
       let accountNetworkValueCurrency: string | undefined;
       if (showNetworkValues) {
@@ -124,6 +127,18 @@ export default function ChainSelectorPage({
         }
       }
 
+      if (featuredNetwork) {
+        const featuredNetworkIndex = networks.findIndex(
+          (network) => network.id === featuredNetwork.networkId,
+        );
+        if (featuredNetworkIndex > 0) {
+          const [network] = networks.splice(featuredNetworkIndex, 1);
+          if (network) {
+            networks.unshift(network);
+          }
+        }
+      }
+
       return {
         networks,
         disableNetwork,
@@ -138,6 +153,7 @@ export default function ChainSelectorPage({
       showNetworkValues,
       indexedAccountId,
       accountId,
+      featuredNetwork,
     ],
     {
       revalidateOnFocus: showNetworkValues,
@@ -154,6 +170,7 @@ export default function ChainSelectorPage({
       accountNetworkValues={result?.accountNetworkValues}
       accountNetworkValueCurrency={result?.accountNetworkValueCurrency}
       hideLowValueNetworkValue={hideLowValueNetworkValue}
+      featuredNetwork={featuredNetwork}
       onPressItem={(network) => {
         onSelect?.(network);
         if (closeAfterSelect) {

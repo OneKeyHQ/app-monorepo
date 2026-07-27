@@ -11,25 +11,29 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { showOneKeyIdLegacyOAuthBindDialog } from '../OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
+import {
+  showOneKeyIdLoginFailedToast,
+  showOneKeyIdLoginSuccessToast,
+} from '../oneKeyIdLoginToastUtils';
 import { DevTestAccountSelector } from '../PrimeDevUtils/DevTestAccountSelector';
 import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 
 function PrimeLoginEmailDialogV2(props: {
-  onComplete: () => void;
+  onComplete: () => Promise<void>;
   onLoginSuccess?: () => void | Promise<void>;
   title?: string;
   description?: string;
   onConfirm?: (code: string) => void;
   onCancel?: () => void | Promise<void>;
+  initialSignUpMode?: boolean;
 }) {
   const {
     onComplete,
@@ -38,6 +42,7 @@ function PrimeLoginEmailDialogV2(props: {
     description,
     onConfirm,
     onCancel,
+    initialSignUpMode,
   } = props;
 
   const [devSettings] = useDevSettingsPersistAtom();
@@ -48,14 +53,13 @@ function PrimeLoginEmailDialogV2(props: {
   // const isReady = false;
   const {
     isReady,
-    getAccessToken,
     useLoginWithEmail,
     // user
   } = useOneKeyAuth();
   const { sendCode, loginWithCode } = useLoginWithEmail();
 
   const intl = useIntl();
-  const [isSignUpMode, setIsSignUpMode] = useState(false);
+  const [isSignUpMode, setIsSignUpMode] = useState(Boolean(initialSignUpMode));
 
   const form = useForm<{ email: string }>({
     defaultValues: { email: lastOneKeyIdLoginEmail || '' },
@@ -77,11 +81,19 @@ function PrimeLoginEmailDialogV2(props: {
       );
 
       try {
-        onComplete?.();
-        await timerUtils.wait(550);
+        await onComplete();
         const dialog = Dialog.show({
           onCancel,
-          onClose: onCancel,
+          onClose: async (extra) => {
+            // dialog.close({ flag: 'loginSuccess' }) means the dialog was
+            // closed programmatically after a successful login; skip the
+            // cancel handler so the outer login promise is not rejected
+            // with PrimeLoginDialogCancelError before onLoginSuccess runs.
+            if (extra?.flag === 'loginSuccess') {
+              return;
+            }
+            await onCancel?.();
+          },
           renderContent: (
             <PrimeLoginEmailCodeDialogV2
               sendCode={sendCode}
@@ -89,14 +101,28 @@ function PrimeLoginEmailDialogV2(props: {
               email={data.email}
               onConfirm={onConfirm}
               onLoginSuccess={async () => {
+                let isDialogClosed = false;
+                let isOneKeyIdLoginCommitted = false;
                 try {
-                  const token = await getAccessToken();
-                  await backgroundApiProxy.servicePrime.apiLogin({
-                    accessToken: token || '',
-                  });
+                  // loginWithCode has already completed the BG-authoritative
+                  // OTP verification, session persistence, and Prime commit.
+                  isOneKeyIdLoginCommitted = true;
+                  showOneKeyIdLoginSuccessToast(intl);
+                  await dialog.close({ flag: 'loginSuccess' });
+                  isDialogClosed = true;
                   await onLoginSuccess?.();
+                  await showOneKeyIdLegacyOAuthBindDialog({
+                    type: 'post-email-login',
+                  });
+                } catch (error) {
+                  if (!isOneKeyIdLoginCommitted) {
+                    showOneKeyIdLoginFailedToast({ error, intl });
+                  }
+                  throw error;
                 } finally {
-                  await dialog.close();
+                  if (!isDialogClosed) {
+                    await dialog.close();
+                  }
                 }
               }}
             />
@@ -109,7 +135,7 @@ function PrimeLoginEmailDialogV2(props: {
     },
     [
       form,
-      getAccessToken,
+      intl,
       loginWithCode,
       onComplete,
       onConfirm,
@@ -119,18 +145,23 @@ function PrimeLoginEmailDialogV2(props: {
     ],
   );
 
+  const titleContent = (
+    <Dialog.Title>
+      {title ||
+        intl.formatMessage({
+          id: isSignUpMode
+            ? ETranslations.prime_onekeyid_signup
+            : ETranslations.prime_signup_login,
+        })}
+    </Dialog.Title>
+  );
+  const showSignUpEntry = !title;
+
   return (
     <Stack>
       <Dialog.Header>
         <Dialog.Icon icon="EmailOutline" />
-        <Dialog.Title>
-          {title ||
-            intl.formatMessage({
-              id: isSignUpMode
-                ? ETranslations.prime_onekeyid_signup
-                : ETranslations.prime_signup_login,
-            })}
-        </Dialog.Title>
+        {titleContent}
         <Dialog.Description>
           {description ||
             intl.formatMessage({
@@ -189,7 +220,7 @@ function PrimeLoginEmailDialogV2(props: {
           await submit({ preventClose });
         }}
         extraContent={
-          !title ? (
+          showSignUpEntry ? (
             <XStack jc="center" px="$5" pb="$5">
               {isSignUpMode ? null : (
                 <SizableText size="$bodyMd" color="$textSubdued">

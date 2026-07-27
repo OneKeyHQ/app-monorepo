@@ -108,6 +108,7 @@ export function createChartOptions(
   showTimeScale = true,
   priceScaleEntireTextOnly = false,
   useTimeScaleTickMarkWithoutUnit = false,
+  priceScaleMinimumWidth?: number,
 ): DeepPartial<ChartOptions> {
   return {
     layout: {
@@ -149,6 +150,9 @@ export function createChartOptions(
       borderVisible: false,
       entireTextOnly: priceScaleEntireTextOnly,
       ...(priceScaleMargins && { scaleMargins: priceScaleMargins }),
+      ...(priceScaleMinimumWidth !== undefined && {
+        minimumWidth: priceScaleMinimumWidth,
+      }),
     },
     leftPriceScale: {
       visible: false,

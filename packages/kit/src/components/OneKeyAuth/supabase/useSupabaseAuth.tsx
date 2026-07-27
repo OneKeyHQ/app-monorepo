@@ -9,13 +9,15 @@ import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/auth
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IKeylessOAuthSessionRollbackHandle } from '@onekeyhq/shared/types/prime/identityExitTypes';
 
 import { OAuthPopup } from '../OAuthPopup';
 import { ensureOneKeyOAuthState } from '../oauthUtils';
 
 import { useSupabaseAuthContext } from './SupabaseAuthContext';
 
-import type { AuthResponse, SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type ISupabaseClientUtils =
   typeof import('@onekeyhq/shared/src/utils/supabaseClientUtils');
@@ -52,13 +54,6 @@ export type IOAuthSignInResult = {
   };
 };
 
-export type IOAuthSignInOptions = {
-  // Whether to persist the session to storage and set it in Supabase client
-  // When false (default): Only return tokens in memory, don't call setSession
-  // When true: Call setSession to persist and enable auto-refresh
-  persistSession?: boolean;
-};
-
 export function useSupabaseAuth() {
   const ctx = useSupabaseAuthContext();
   const supabaseUser = ctx?.session?.user;
@@ -74,38 +69,46 @@ export function useSupabaseAuth() {
 
   // ============ OAuth Sign In Methods ============
 
+  // Persist a Keyless OAuth session into the shared Supabase session storage.
+  // There is a single keyless session slot (one shared native store; the bg
+  // runtime re-reads it from storage), so persisting overwrites any currently
+  // active keyless session. Flows that verify an existing keyless wallet MUST
+  // validate the OAuth account first and only persist after validation passes.
+  const persistKeylessOAuthSession = useCallback(
+    async ({
+      accessToken,
+      refreshToken,
+    }: {
+      accessToken: string;
+      refreshToken: string;
+    }): Promise<{
+      identityLifecycleRevision: number;
+      rollbackHandle: IKeylessOAuthSessionRollbackHandle;
+    }> => {
+      return backgroundApiProxy.servicePrime.persistKeylessOAuthSession({
+        accessToken,
+        refreshToken,
+      });
+    },
+    [],
+  );
+
   const performOAuthSignIn = useCallback(
     async (
       provider: EOAuthSocialLoginProvider,
-      options?: IOAuthSignInOptions,
     ): Promise<IOAuthSignInResult> => {
-      const { persistSession } = options ?? {};
+      // Last-resort guard: Chrome destroys the action popup on focus loss,
+      // so the launchWebAuthFlow window opened below would silently kill
+      // this whole pending flow. Callers must redirect to the expand tab
+      // first (see extOneKeyIdAuthExpandTab); fail loudly if one slips
+      // through instead of dying without any feedback.
+      if (platformEnv.isExtensionUiPopup) {
+        // TODO: i18n
+        throw new OneKeyLocalError(
+          'OAuth sign-in cannot run in the extension popup. Please continue in the expanded view.',
+        );
+      }
       const clientTemp: SupabaseClient = await createTemporarySupabaseClient();
-
-      const handleOAuthSessionPersistence = async ({
-        accessToken,
-        refreshToken,
-      }: {
-        accessToken: string;
-        refreshToken: string;
-      }): Promise<void> => {
-        if (persistSession) {
-          // Persist session to Supabase client storage
-          await (
-            await getSupabaseClient()
-          ).client.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-
-          // Login to Prime service
-          // if (loginToPrime) {
-          //   await backgroundApiProxy.servicePrime.apiLogin({
-          //     accessToken,
-          //   });
-          // }
-        }
-      };
 
       // Get platform-specific redirect URL
       // Note: Some platforms return Promise<string> (e.g., desktop needs to start server)
@@ -179,7 +182,7 @@ export function useSupabaseAuth() {
         authUrl,
         redirectTo,
         client: clientTemp,
-        handleSessionPersistence: handleOAuthSessionPersistence,
+        handleSessionPersistence: async () => undefined,
       });
     },
     [enableKeylessDebugInfo],
@@ -188,10 +191,9 @@ export function useSupabaseAuth() {
   const signInWithSocialLogin = useCallback(
     async (
       provider: EOAuthSocialLoginProvider,
-      options?: IOAuthSignInOptions,
     ): Promise<IOAuthSignInResult> => {
       return errorToastUtils.withErrorAutoToast(async () => {
-        const oauthResult = await performOAuthSignIn(provider, options);
+        const oauthResult = await performOAuthSignIn(provider);
         return oauthResult;
       });
     },
@@ -207,11 +209,9 @@ export function useSupabaseAuth() {
       ).client.auth.signInWithOtp({
         email,
         options: {
-          // set this to false if you do not want the user to be automatically signed up
           shouldCreateUser: true,
         },
       });
-      console.log('useSupabaseAuth_signInWithOtp', res);
       if (res.error && res.error.message) {
         // For security purposes, you can only request this after 48 seconds.
         if (
@@ -242,79 +242,26 @@ export function useSupabaseAuth() {
   );
 
   const verifyOtp = useCallback(
-    async ({ email, otp }: { email: string; otp: string }) => {
-      let res: AuthResponse | undefined;
-      const isPrivyEmail = email.endsWith('@privy.io');
-      // Special handling for privy.io emails
-      if (isPrivyEmail) {
-        let phoneOtpData:
-          | {
-              phone: string;
-              otp: string;
-            }
-          | undefined;
-        try {
-          phoneOtpData = await backgroundApiProxy.servicePrime.apiFetchPhoneOtp(
-            {
-              email,
-              otp,
-            },
-          );
-        } catch (error) {
-          console.error('Error fetching phone OTP:', error);
-        }
-
-        if (phoneOtpData?.phone && phoneOtpData?.otp) {
-          res = await (
-            await getSupabaseClient()
-          ).client.auth.verifyOtp({
-            phone: phoneOtpData.phone,
-            token: phoneOtpData.otp,
-            type: 'sms',
-          });
-        }
-      }
-
-      if (!res) {
-        // Default email OTP verification
-        res = await (
-          await getSupabaseClient()
-        ).client.auth.verifyOtp({
-          email,
-          token: otp,
-          type: 'email',
-        });
-      }
-
-      console.log('useSupabaseAuth_verifyOtp', res);
-      if (res.error && res.error.message) {
-        throw new OneKeyLocalError(res.error.message);
-      }
-      return res;
-    },
+    async ({ email, otp }: { email: string; otp: string }) =>
+      backgroundApiProxy.servicePrime.apiEmailOtpLogin({ email, otp }),
     [],
   );
 
-  // ============ Session Management Methods ============
-
-  const signOut = useCallback(async () => {
-    const res = await (
-      await getSupabaseClient()
-    ).client.auth.signOut({
-      scope: 'local',
-    });
-    console.log('useSupabaseAuth_signOut', res);
-    if (res.error) {
-      console.error('Error signing out:', res.error);
-    }
-    return res;
-  }, []);
-
+  // INTERACTIVE-FLOW READ ONLY (e.g. capturing the token right after an OTP
+  // sign-in, dev/debug panels). NEVER use for steady-state token reads: this
+  // runs client.auth.getSession() in the UI runtime, whose on-demand refresh
+  // of an EXPIRED session is NOT disabled by autoRefreshToken:false and
+  // would race the bg runtime's token rotation (spurious full logout — see
+  // isSupabaseTokenRefreshRuntime in supabaseClientUtils). Steady-state
+  // reads must use backgroundApiProxy.simpleDb.prime.getSupabaseAuthToken /
+  // getKeylessSupabaseAuthToken / getActiveAuthToken instead.
   const getAccessToken = useCallback(async () => {
     const res = await (await getSupabaseClient()).client.auth.getSession();
     return res.data.session?.access_token;
   }, []);
 
+  // Dev-gallery/debug helper — same UI-runtime refresh caveat as
+  // getAccessToken above; do not use for steady-state reads.
   const getSession = useCallback(async () => {
     const result = await (await getSupabaseClient()).client.auth.getSession();
 
@@ -346,6 +293,8 @@ export function useSupabaseAuth() {
     };
   }, []);
 
+  // Dev-gallery/debug helper — same UI-runtime refresh caveat as
+  // getAccessToken above; do not use for steady-state reads.
   const getUser = useCallback(async () => {
     const result = await (await getSupabaseClient()).client.auth.getUser();
 
@@ -373,6 +322,9 @@ export function useSupabaseAuth() {
     };
   }, []);
 
+  // Dev-gallery/debug helper — performs an explicit UI-runtime token
+  // rotation. Only for manual debugging; production refreshes are owned by
+  // the bg runtime (see isSupabaseTokenRefreshRuntime).
   const refreshSession = useCallback(async () => {
     const result = await (
       await getSupabaseClient()
@@ -390,10 +342,10 @@ export function useSupabaseAuth() {
 
   return useMemo(
     () => ({
-      signOut,
       signInWithOtp,
       signInWithSocialLogin,
       performOAuthSignIn,
+      persistKeylessOAuthSession,
       verifyOtp,
       getSupabaseClient,
       getAccessToken,
@@ -405,10 +357,10 @@ export function useSupabaseAuth() {
       isLoggedIn,
     }),
     [
-      signOut,
       signInWithOtp,
       signInWithSocialLogin,
       performOAuthSignIn,
+      persistKeylessOAuthSession,
       verifyOtp,
       getAccessToken,
       getSession,

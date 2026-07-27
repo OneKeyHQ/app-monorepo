@@ -85,11 +85,13 @@ export enum EAccountSelectorSceneName {
   home = 'home',
   homeUrlAccount = 'homeUrlAccount',
   swap = 'swap',
+  primePayment = 'primePayment',
   perp = 'perp',
   discover = 'discover',
   addressInput = 'addressInput', // test Gallery AddressInput test
   market = 'market',
   rewardCenter = 'rewardCenter',
+  bulkExportHistory = 'bulkExportHistory',
 }
 
 export enum EAccountSelectorAutoSelectTriggerBy {

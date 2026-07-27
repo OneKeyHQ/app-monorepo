@@ -488,6 +488,10 @@ function useOrderConfirmWithMarketDataFreshness({
             : new BigNumber(effectiveFormData.price || '0'),
         side,
         leverage,
+        szDecimals:
+          activeTradeInstrument.mode === 'spot'
+            ? undefined
+            : activeTradeInstrument.universe?.szDecimals,
       });
       if (tpTriggerPx !== undefined || slTriggerPx !== undefined) {
         effectiveFormData = {

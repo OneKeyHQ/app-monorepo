@@ -79,6 +79,8 @@ export interface IDevSettings {
   showPerformanceMonitorV2?: boolean;
   // use local trading view URL for development
   useLocalTradingViewUrl?: boolean;
+  // use the data-only native chart in Market Detail
+  useTradingViewNativeInMarketDetail?: boolean;
   showPerpsRenderStats?: boolean;
   mockTradingViewKLineEmptyEnabled?: boolean;
   mockTradingViewKLineEmptyIntervals?: ITradingViewKLineMockEmptyInterval[];
@@ -93,6 +95,9 @@ export interface IDevSettings {
   // Force IP Table strict mode: always use IP even if runtime.selections is empty
   // Fallback to first available IP from config when no selection exists
   forceIpTableStrict?: boolean;
+  // Kill switch for the fast-failover behaviors introduced for extreme
+  // network conditions (adapter fail-open + service fast switch to last-best IP)
+  disableIpTableFailover?: boolean;
   // Enable mock market banner data for UI testing
   enableMockMarketBanner?: boolean;
   // Test accounts for OneKey ID login testing
@@ -109,11 +114,16 @@ export interface IDevSettings {
   disableCustomUA?: boolean;
   // Allow Discovery browser to load local development URLs.
   allowLocalhostUrlInDAppBrowser?: boolean;
+  // Open external links in the system browser instead of the native in-app
+  // browser (SFSafariViewController / Chrome Custom Tabs). Native only.
+  useSystemBrowserForExternalLinks?: boolean;
   // Force react-native-fast-pbkdf2 instead of the default quick-crypto backend
   // for native PBKDF2 calls (debug only).
   useFastPbkdf2NativeBackend?: boolean;
   // Enable Slow 4G throttling on platforms with a supported backend.
   networkThrottleEnabled?: boolean;
+  // Force kaspa refTx fetch to fail, so QA can verify the blind-sign fallback.
+  mockKaspaRefTxFetchFailed?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -160,6 +170,7 @@ export const {
         selectedTab: ETabRoutes.Home,
       },
       useLocalTradingViewUrl: false,
+      useTradingViewNativeInMarketDetail: false,
       mockTradingViewKLineEmptyEnabled: false,
       mockTradingViewKLineEmptyIntervals: ['1m'],
       showMarketHomeWsDebug: false,
@@ -169,6 +180,7 @@ export const {
       usbCommunicationMode: 'webusb',
       disableIpTableInProd: false, // IP Table enabled by default
       forceIpTableStrict: false, // Strict mode: disabled by default
+      disableIpTableFailover: false, // Fast failover enabled by default
       useFastPbkdf2NativeBackend: false,
     },
   },

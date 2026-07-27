@@ -100,7 +100,11 @@ function useWalletBanner({
           ],
           qrWalletScene: false,
           autoExecuteParsedAction: true,
-          defaultHandler: openUrlExternal,
+          // The backend flag promises the OS browser, not the in-app one.
+          defaultHandler: (url: string) =>
+            openUrlExternal(url, {
+              useSystemBrowser: item.useSystemBrowser,
+            }),
           account,
           network,
           wallet,

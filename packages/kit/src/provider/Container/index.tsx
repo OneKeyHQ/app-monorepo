@@ -111,6 +111,8 @@ export function Container() {
     return (
       <RootSiblingParent>
         <AppStateLockContainer>
+          {/* Page.Every must register before routers render their active page. */}
+          <GlobalWalletConnectModalContainer />
           <TableSplitViewContainer
             mainRouter={
               <SplitViewContext.Provider value={splitMainViewContext}>
@@ -124,7 +126,6 @@ export function Container() {
             }
           />
           <SplitViewPerpTabSync />
-          <GlobalWalletConnectModalContainer />
         </AppStateLockContainer>
       </RootSiblingParent>
     );
@@ -132,8 +133,9 @@ export function Container() {
   return (
     <RootSiblingParent>
       <AppStateLockContainer>
-        <DetailRouter />
+        {/* Page.Every must register before routers render their active page. */}
         <GlobalWalletConnectModalContainer />
+        <DetailRouter />
       </AppStateLockContainer>
     </RootSiblingParent>
   );

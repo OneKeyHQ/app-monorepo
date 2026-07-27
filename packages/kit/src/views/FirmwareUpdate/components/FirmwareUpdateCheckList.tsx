@@ -180,6 +180,14 @@ export function FirmwareUpdateCheckList({
                     },
                   );
 
+                  // Never let analytics context reading break the update flow
+                  const trackingInfo =
+                    await backgroundApiProxy.serviceFirmwareUpdate
+                      .getUpdateWorkflowTrackingInfo()
+                      .catch(() => ({
+                        retryCount: undefined,
+                        durationMs: undefined,
+                      }));
                   defaultLogger.update.firmware.firmwareUpdateResult({
                     deviceType: result?.deviceType,
                     transportType: hardwareTransportType,
@@ -188,6 +196,8 @@ export function FirmwareUpdateCheckList({
                     fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
                     toFirmwareType: updateFirmwareInfo?.toFirmwareType,
                     status: 'success',
+                    retryCount: trackingInfo.retryCount,
+                    durationMs: trackingInfo.durationMs,
                   });
 
                   const { fromFirmwareType, toFirmwareType } =
@@ -215,6 +225,14 @@ export function FirmwareUpdateCheckList({
                       error: err,
                     },
                   });
+                  // Never let analytics context reading break the update flow
+                  const trackingInfo =
+                    await backgroundApiProxy.serviceFirmwareUpdate
+                      .getUpdateWorkflowTrackingInfo()
+                      .catch(() => ({
+                        retryCount: undefined,
+                        durationMs: undefined,
+                      }));
                   defaultLogger.update.firmware.firmwareUpdateResult({
                     deviceType: result?.deviceType,
                     transportType: hardwareTransportType,
@@ -225,6 +243,8 @@ export function FirmwareUpdateCheckList({
                     status: 'failed',
                     errorCode: err?.code,
                     errorMessage: err?.message,
+                    retryCount: trackingInfo.retryCount,
+                    durationMs: trackingInfo.durationMs,
                   });
                 } finally {
                   if (shouldResetWorkflowRunningInUi) {

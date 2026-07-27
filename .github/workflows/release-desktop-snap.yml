@@ -112,7 +112,7 @@ jobs:
         run: |
           cd apps/desktop
           npx cross-env NODE_ENV=production yarn clean:build
-          npx cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 webpack build
+          yarn run -T cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 yarn run -T rspack build --config-loader jiti
 
       - name: Upload Desktop Snap Sourcemaps to Sentry
         id: upload_desktop_snap_sourcemaps
@@ -152,19 +152,9 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
-      - name: Cleanup Desktop Snap Sourcemaps and License Files
+      - name: Finalize Desktop Snap Production Assets
         if: always()
-        continue-on-error: true
-        run: |
-          if [ ! -d ./apps/desktop/web-build ]; then
-            echo "Desktop web-build directory does not exist - skipping sourcemap cleanup."
-            exit 0
-          fi
-
-          find ./apps/desktop/web-build -name '*.LICENSE.txt' -type f -exec rm -f {} +
-          find ./apps/desktop/web-build \
-            -type f \( -name '*.js.map' -o -name '*.css.map' \) \
-            -exec rm -f {} +
+        run: node ./apps/desktop/scripts/finalize-production-assets.js --strip-only
 
       - name: Build and Sign Snap Linux
         env:
@@ -179,24 +169,6 @@ jobs:
         run: |
           cd apps/desktop
           node scripts/finalize-renderer-assets.js
-          artifact_maps="$(find ./app/build \
-            -type f \( -name '*.js.map' -o -name '*.css.map' \) \
-            -print)"
-          if [ -n "$artifact_maps" ]; then
-            echo "::warning::Desktop snap package still contains sourcemaps after finalize; removing before packaging:"
-            echo "$artifact_maps"
-            find ./app/build \
-              -type f \( -name '*.js.map' -o -name '*.css.map' \) \
-              -exec rm -f {} +
-          fi
-          remaining_maps="$(find ./app/build \
-            -type f \( -name '*.js.map' -o -name '*.css.map' \) \
-            -print)"
-          if [ -n "$remaining_maps" ]; then
-            echo "::error::Desktop snap package still contains sourcemaps:"
-            echo "$remaining_maps"
-            exit 1
-          fi
           yarn build:main
           yarn install-app-deps
           npx electron-builder build -l --config electron-builder-snap.config.js ${{ matrix.build-flag }} --publish never

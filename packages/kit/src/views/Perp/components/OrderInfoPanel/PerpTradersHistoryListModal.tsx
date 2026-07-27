@@ -31,6 +31,7 @@ import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
 import { PerpTwapList } from './List/PerpTwapList';
 
 import type { RouteProp } from '@react-navigation/native';
+
 type ITabName = IPerpHistoryTab;
 
 const HISTORY_TABS: Array<{

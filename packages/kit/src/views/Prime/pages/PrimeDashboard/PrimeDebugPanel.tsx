@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import { useState } from 'react';
 
 import {
@@ -9,6 +10,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useIdentityExitFlow } from '@onekeyhq/kit/src/components/OneKeyAuth/useIdentityExitFlow';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrimePayment } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePayment';
@@ -187,13 +189,9 @@ export function PrimeDebugPanel({
 }: {
   shouldShowConfirmButton: boolean;
 }) {
-  const {
-    getAccessToken,
-    logoutWithPurchasesSdk,
-    isReady,
-    isSupabaseLoggedIn,
-    loginOneKeyId,
-  } = useOneKeyAuth();
+  const { getAccessToken, isReady, isSupabaseLoggedIn, loginOneKeyId } =
+    useOneKeyAuth();
+  const { run: runIdentityExit } = useIdentityExitFlow();
   const { getCustomerInfo, getPackagesNative, getPackagesWeb } =
     usePrimePayment();
   const navigation = useAppNavigation();
@@ -262,6 +260,29 @@ export function PrimeDebugPanel({
         </Button>
 
         <Button
+          variant="destructive"
+          onPress={() => {
+            Dialog.confirm({
+              title: 'Reset Infini Subscription',
+              description:
+                "Permanently delete the current Prime user's Infini subscription so the subscription flow can be tested again?",
+              confirmButtonProps: {
+                variant: 'destructive',
+              },
+              onConfirm: async () => {
+                await backgroundApiProxy.servicePrime.apiResetInfiniSubscription();
+                await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+                Toast.success({
+                  title: 'Infini subscription reset',
+                });
+              },
+            });
+          }}
+        >
+          apiResetInfiniSubscription
+        </Button>
+
+        <Button
           onPress={() => {
             showDebugMessageByDialog(primePersistAtomData);
           }}
@@ -316,7 +337,10 @@ export function PrimeDebugPanel({
             defaultLogger.prime.subscription.onekeyIdLogout({
               reason: 'PrimeDebugPanel Logout Button',
             });
-            void logoutWithPurchasesSdk();
+            void runIdentityExit({
+              type: 'logoutOneKeyId',
+              scene: 'profile',
+            });
           }}
         >
           Logout

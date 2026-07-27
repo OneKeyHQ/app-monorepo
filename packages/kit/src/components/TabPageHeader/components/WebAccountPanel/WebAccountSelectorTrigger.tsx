@@ -1,6 +1,6 @@
 import { Suspense, lazy } from 'react';
 
-import { SizableText, XStack } from '@onekeyhq/components';
+import { SizableText, XStack, useMedia } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
@@ -26,6 +26,7 @@ const LazyPerpsBalancePill = lazy(async () => {
 export function WebAccountSelectorTrigger({
   tabRoute,
 }: IWebAccountSelectorTriggerProps) {
+  const { gtMd } = useMedia();
   const {
     activeAccount: { account, dbAccount, indexedAccount },
   } = useActiveAccount({ num: 0 });
@@ -77,7 +78,10 @@ export function WebAccountSelectorTrigger({
           {address}
         </SizableText>
       </XStack>
-      {isPerpsRoute ? (
+      {/* Mount gate, not CSS-hide: the lazy pill fetches a chunk and
+          subscribes to live balance ticks, so small screens skip mounting it;
+          the balance stays reachable via the account panel / portfolio. */}
+      {isPerpsRoute && gtMd ? (
         <Suspense fallback={null}>
           <LazyPerpsBalancePill userAddress={realAddress} />
         </Suspense>

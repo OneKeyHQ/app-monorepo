@@ -16,6 +16,7 @@ export const SwapTestIDs = {
   swapButton: 'swap-action-button',
   approveButton: 'swap-approve-button',
   kLineButton: 'swap-kline-button',
+  kLineChart: 'swap-kline-chart',
   kLineModal: 'swap-kline-modal',
   settingsButton: 'swap-settings-button',
 

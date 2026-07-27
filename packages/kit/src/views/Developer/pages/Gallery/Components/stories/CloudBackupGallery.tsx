@@ -301,6 +301,7 @@ export function CloudBackupApiTests() {
                   const encryptedData = Buffer.from(content, 'base64');
                   // eslint-disable-next-line @typescript-eslint/no-shadow
                   const { decryptAsync } =
+                    // oxlint-disable-next-line no-restricted-imports -- Developer-only Core API test harness.
                     await import('@onekeyhq/core/src/secret/encryptors/aes256');
                   const decryptedData = await decryptAsync({
                     data: encryptedData,

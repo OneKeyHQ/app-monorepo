@@ -191,19 +191,12 @@ export const swapProTimeRangeItems: {
   { label: '24H', value: ESwapProTimeRange.TWENTY_FOUR_HOURS },
 ];
 
-export const swapProSellInputSegmentItems = [
-  { label: '25%', value: '0.25' },
-  { label: '50%', value: '0.5' },
-  { label: '75%', value: '0.75' },
-  { label: '100%', value: '1' },
-];
-
-export const swapProBuyInputSegmentItems = [
-  { label: '0.1', value: '0.1' },
-  { label: '0.5', value: '0.5' },
-  { label: '1', value: '1' },
-  { label: '10', value: '10' },
-];
+// Input → quote debounce delays. Pro-surface inputs (slider drags, rapid
+// edits with a spinner-locked action button) re-quote on the shorter delay;
+// ordinary swap/bridge keeps the longer one to throttle the heavier
+// multi-provider quote stream.
+export const SWAP_QUOTE_INPUT_DEBOUNCE_MS = 500;
+export const SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS = 300;
 
 export const swapProPositionsListMinValue = 1;
 export const swapProPositionsListMaxCount = 20;
@@ -1897,5 +1890,10 @@ export const wrappedTokens = [
     networkId: 'evm--5000',
     address: '0x78c1b0c915c4faa5fffa6cabf0219da63d7f4cb8',
     logo: 'https://uni-test.onekey-asset.com/server-service-onchain/evm--5000/tokens/0x78c1b0c915c4faa5fffa6cabf0219da63d7f4cb8.png',
+  },
+  {
+    networkId: 'evm--4663',
+    address: '0x0bd7d308f8e1639fab988df18a8011f41eacad73',
+    logo: 'https://uni.onekey-asset.com/static/logo/WETH.png',
   },
 ];

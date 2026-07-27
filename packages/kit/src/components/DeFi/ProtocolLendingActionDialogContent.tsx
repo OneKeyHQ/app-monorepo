@@ -875,7 +875,7 @@ function ProtocolLendingActionDefiContent({
   );
   const feedbackNode = showFeedbackRegion ? (
     <LendingActionAlerts
-      showLiquidationWarning={Boolean(hasDebts) && isWithdraw}
+      showLiquidationWarning={Boolean(hasDebts && isWithdraw)}
       errorMessage={inlineErrorMessage}
     />
   ) : null;
@@ -1155,46 +1155,13 @@ function ProtocolLendingActionBorrowContent({
     isAmountPositive && tokenPriceBN.isFinite() && tokenPriceBN.gt(0)
       ? amountBN.multipliedBy(tokenPriceBN).toFixed()
       : '0';
-  // Repay spends wallet tokens, but referenceBalance above is the DEBT — the user
-  // may hold less than they owe. Fetch the wallet balance of the debt's
-  // underlying token directly (the same pattern the defi content uses), so this
-  // never depends on the borrow asset-list carrying walletBalance and works in
-  // both dropdown and fixed mode. '' address = native; the API handles both
-  // uniformly. undefined = the token isn't resolved yet, so skip the fetch.
-  const repayTokenAddress = selectedBorrowAsset
-    ? (selectedBorrowAsset.token.address ?? '')
-    : baseToken?.address;
-  const {
-    result: repayWalletBalanceState,
-    isLoading: repayWalletBalanceLoading,
-  } = usePromiseResult<IRepayWalletBalanceLoadState>(
-    async () => {
-      if (isWithdraw || repayTokenAddress === undefined) return {};
-      try {
-        const details =
-          await backgroundApiProxy.serviceToken.fetchTokensDetails({
-            accountId,
-            networkId,
-            contractList: [repayTokenAddress],
-          });
-        return { balance: details?.[0]?.balanceParsed };
-      } catch (error) {
-        return { errorMessage: getErrorMessage(error) };
-      }
-    },
-    [accountId, isWithdraw, networkId, repayTokenAddress],
-    { watchLoading: true, undefinedResultIfReRun: true },
-  );
-  const repayWalletBalance = repayWalletBalanceState?.balance;
-  const repayWalletBalanceError = repayWalletBalanceState?.errorMessage;
-  const isRepayWalletBalancePending =
-    !isWithdraw &&
-    (repayWalletBalanceLoading ||
-      repayWalletBalanceState === undefined ||
-      repayTokenAddress === undefined);
+  // Borrow manage-page already returns the selected reserve's wallet balance.
+  // Reuse that account/reserve-scoped result instead of adding a second
+  // token/search request to the repay dialog's critical loading path.
+  const repayWalletBalance = isWithdraw ? undefined : tokenInfo?.balanceParsed;
   const isBorrowDataLoading =
     manageLoading || (source.selectable && Boolean(assetsLoading));
-  const hasBorrowLoadError = Boolean(assetsError || repayWalletBalanceError);
+  const hasBorrowLoadError = Boolean(assetsError);
   // Show the wallet balance for repay whenever it has resolved — it tells the
   // user whether they can fully close the loan and why Max may cap below the debt.
   const walletBalanceText = isWithdraw ? undefined : repayWalletBalance;
@@ -1211,8 +1178,8 @@ function ProtocolLendingActionBorrowContent({
     referenceBalance,
   });
   // Max fillable amount: withdraw → the full supplied balance; repay → the
-  // server-provided maxRepayBalance first (debt capped by wallet), then direct
-  // wallet balance if the server max is unavailable.
+  // server-provided maxRepayBalance first (debt capped by wallet), then the
+  // manage-page wallet balance if the server max is unavailable.
   const valueForMax = isWithdraw
     ? referenceBalance
     : repayAmountState.valueForMax;
@@ -1250,7 +1217,7 @@ function ProtocolLendingActionBorrowContent({
     }
   };
   const handleMaxAmount = () => {
-    if (!isWithdraw && (isBorrowDataLoading || isRepayWalletBalancePending)) {
+    if (!isWithdraw && isBorrowDataLoading) {
       return;
     }
     if (hasBorrowLoadError) {
@@ -1264,7 +1231,7 @@ function ProtocolLendingActionBorrowContent({
     // A full close (amount === debt/supplied balance) maps to
     // withdrawAll/repayAll via isFullClose; 25/50/75 fill an exact token
     // amount of the actionable max (wallet-capped for fixed-mode repay).
-    if (!isWithdraw && (isBorrowDataLoading || isRepayWalletBalancePending)) {
+    if (!isWithdraw && isBorrowDataLoading) {
       return;
     }
     if (hasBorrowLoadError) {
@@ -1299,10 +1266,7 @@ function ProtocolLendingActionBorrowContent({
     reserveAddress,
     amount,
     isDisabled:
-      isBorrowDataLoading ||
-      isRepayWalletBalancePending ||
-      hasBorrowLoadError ||
-      isAmountInsufficient,
+      isBorrowDataLoading || hasBorrowLoadError || isAmountInsufficient,
     repayAll: actionType === 'repay' ? isFullClose : undefined,
   });
 
@@ -1428,6 +1392,9 @@ function ProtocolLendingActionBorrowContent({
                 tags,
               }
             : undefined,
+          // Same as withdraw: close the repay input dialog before navigating
+          // to the tx confirm page, so dialogs don't stack (OK-58105).
+          onBeforeNavigate: closeActionDialogBeforeConfirm,
           onSuccess: (data) => {
             releaseSubmitGuardOnce();
             void onSuccess?.({ accountId, networkId, data });
@@ -1456,6 +1423,12 @@ function ProtocolLendingActionBorrowContent({
               tags,
             }
           : undefined,
+        // Close the withdraw input dialog before navigating to the tx confirm
+        // page, so the confirm page / "transaction submitted" dialog doesn't
+        // stack on top of a lingering input dialog (OK-58105). onSettleResult
+        // fires only after the confirm succeeds — too late; onBeforeNavigate
+        // runs right before navigationToTxConfirm ("close first, then open").
+        onBeforeNavigate: closeActionDialogBeforeConfirm,
         onSuccess: (data) => {
           releaseSubmitGuardOnce();
           void onSuccess?.({ accountId, networkId, data });
@@ -1611,7 +1584,6 @@ function ProtocolLendingActionBorrowContent({
   const healthFactor = actionResult.transactionConfirmation?.healthFactor;
   const confirmDisabled =
     isBorrowDataLoading ||
-    isRepayWalletBalancePending ||
     hasBorrowLoadError ||
     !isAmountPositive ||
     isAmountInsufficient ||
@@ -1640,7 +1612,6 @@ function ProtocolLendingActionBorrowContent({
   const checkAmountAlerts = actionResult.checkAmountAlerts ?? [];
   const inlineErrorMessage =
     assetsError ??
-    repayWalletBalanceError ??
     submitError ??
     (actionResult.isCheckAmountMessageError
       ? actionResult.checkAmountMessage
@@ -1786,7 +1757,7 @@ function ProtocolLendingActionBorrowContent({
   );
   const feedbackNode = showFeedbackRegion ? (
     <LendingActionAlerts
-      showLiquidationWarning={Boolean(hasDebts) && isWithdraw}
+      showLiquidationWarning={Boolean(hasDebts && isWithdraw)}
       errorMessage={inlineErrorMessage}
       checkAmountAlerts={checkAmountAlerts}
       riskOfLiquidationAlert={actionResult.riskOfLiquidationAlert}
@@ -1824,8 +1795,7 @@ function ProtocolLendingActionBorrowContent({
       approveLoading ||
       actionResult.checkAmountLoading ||
       submitting ||
-      isBorrowDataLoading ||
-      isRepayWalletBalancePending,
+      isBorrowDataLoading,
   };
 
   if (renderMode === 'page') {

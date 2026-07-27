@@ -4,3 +4,4 @@ export * from './useMarketHolders';
 export * from './useAutoRefreshTokenDetail';
 export * from './useBtcMetadata';
 export * from './BtcMetadataContext';
+export * from './useTradingViewNativeInMarketDetail';

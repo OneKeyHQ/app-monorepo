@@ -20,6 +20,7 @@ skillshare
 bitrefill
 Bitrefill
 BITREFILL
+Bitway
 worktree
 googleusercontent
 0xf7ad23226db5c1c00ca0ca1468fd49c8f8bbc1489bc1c382de5adc557a69c229
@@ -162,6 +163,7 @@ babylon
 backends
 backgrounded
 backgrounding
+backpackapp
 backuped
 bassed
 bch
@@ -503,6 +505,8 @@ jsx
 juno
 kaspa
 Kaspa
+katana
+Katana
 Kdsr
 keccak256
 keyframes
@@ -617,6 +621,7 @@ onboard
 onboarding
 Onchain
 oncomplete
+ondo
 onekey
 onekeyall
 onekeyfe
@@ -640,6 +645,7 @@ Outout
 p2pkh
 p2wpkh
 pageview
+pancakeswap
 passcode
 passpharse
 passphrase
@@ -1402,6 +1408,7 @@ avd
 AVD
 oxlint
 oxlintrc
+oxfmt
 serviceworker
 newtab
 hrstart

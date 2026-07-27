@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
+import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   HYPER_LIQUID_ORIGIN,
   HYPER_LIQUID_WEBVIEW_TRADE_URL,
@@ -86,6 +87,9 @@ function usePerpPageShortcuts({
 
 function WebviewPerpTradeView() {
   const intl = useIntl();
+  const [activePerpsAccount] = usePerpsActiveAccountAtom();
+  const walletTypeRef = useRef(activePerpsAccount.walletType);
+  walletTypeRef.current = activePerpsAccount.walletType;
 
   useDebugComponentRemountLog({ name: 'PerpTradePageContainer' });
 
@@ -96,6 +100,7 @@ function WebviewPerpTradeView() {
         firedRef.current = true;
         defaultLogger.perp.common.pageView({
           source: consumePerpPageEnterSource(),
+          walletType: walletTypeRef.current ?? 'unknown',
         });
       }
       return () => {

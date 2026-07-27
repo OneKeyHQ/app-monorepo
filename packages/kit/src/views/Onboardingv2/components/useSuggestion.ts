@@ -9,6 +9,13 @@ import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import {
+  buildPhraseFormValues,
+  getInvalidWordErrors,
+  mergePastedPhraseWords,
+  resolvePhraseLengthAfterPaste,
+} from '../../Onboarding/utils/mnemonicPasteUtils';
+
 // Force the BIP39 JSON module to evaluate synchronously at this module's
 // load time. With split-thread bundles the original `wordLists.includes(...)`
 // deferred evaluation until the first call inside setTimeout, and that
@@ -16,7 +23,6 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 const wordListSet = new Set(wordLists);
 const isValidWord = (word: string) => wordListSet.has(word);
 
-export const PHRASE_LENGTHS = [12, 15, 18, 21, 24];
 export const useSearchWords = () => {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const ref = useRef(new Map<string, string[]>());
@@ -74,19 +80,6 @@ export const useSuggestion = (
   const openStatusRef = useRef(false);
 
   const updateByPressLock = useRef(false);
-
-  const checkAllWords = useCallback(() => {
-    const values = form.getValues() as Record<string, string>;
-    const errors: Record<string, boolean> = {};
-    for (let i = 0; i < phraseLength; i += 1) {
-      const key = `phrase${i + 1}`;
-      const value = values[key];
-      if (value && !isValidWord(value)) {
-        errors[i] = true;
-      }
-    }
-    setIsShowErrors(errors);
-  }, [form, phraseLength]);
 
   const checkIsValidWord = useCallback(
     (index: number, text?: string, isBlur = false) => {
@@ -251,52 +244,43 @@ export const useSuggestion = (
   const { clearText } = useClipboard();
 
   const onPasteMnemonic = useCallback(
-    (value: string, inputIndex: number) => {
-      const arrays = value.trim().split(' ');
-      if (arrays.length > 1) {
-        Haptics.success();
-        let currentPhraseLength = phraseLength;
-        setTimeout(async () => {
-          clearText();
-          if (
-            PHRASE_LENGTHS.includes(arrays.length) &&
-            arrays.length > currentPhraseLength
-          ) {
-            currentPhraseLength = arrays.length;
-            setPhraseLength(currentPhraseLength.toString());
-            await timerUtils.wait(30);
-          }
-          const formValues = Object.values(form.getValues());
-          const values: string[] = formValues.slice(0, inputIndex);
-          const words = [...values, ...arrays].slice(0, currentPhraseLength);
-          if (words.length < currentPhraseLength) {
-            words.push(...formValues.slice(words.length, currentPhraseLength));
-          }
-          form.reset(
-            words.reduce(
-              (prev, next, index) => {
-                prev[`phrase${index + 1}`] = next;
-                return prev;
-              },
-              {} as Record<`phrase${number}`, string>,
-            ),
-          );
-          resetSuggestions();
-          await timerUtils.wait(10);
-          checkAllWords();
-        }, 30);
-        return true;
+    (pastedWords: string[], inputIndex: number) => {
+      const currentPhraseLength = resolvePhraseLengthAfterPaste({
+        pastedWordCount: pastedWords.length,
+        currentPhraseLength: phraseLength,
+        inputIndex,
+      });
+      if (currentPhraseLength === null) {
+        return false;
       }
-      return false;
+
+      Haptics.success();
+      setTimeout(() => {
+        clearText();
+        const currentValues = form.getValues() as Record<string, string>;
+        const currentWords = Array.from(
+          { length: phraseLength },
+          (_, index) => currentValues[`phrase${index + 1}`] ?? '',
+        );
+        const words = mergePastedPhraseWords({
+          currentWords,
+          pastedWords,
+          inputIndex,
+          phraseLength: currentPhraseLength,
+        });
+
+        // Reset before mounting dynamic fields so Controllers read the
+        // pasted values instead of registering their empty defaults.
+        form.reset(buildPhraseFormValues(words));
+        if (currentPhraseLength !== phraseLength) {
+          setPhraseLength(currentPhraseLength.toString());
+        }
+        resetSuggestions();
+        setIsShowErrors(getInvalidWordErrors(words, wordListSet));
+      }, 30);
+      return true;
     },
-    [
-      checkAllWords,
-      clearText,
-      form,
-      phraseLength,
-      resetSuggestions,
-      setPhraseLength,
-    ],
+    [clearText, form, phraseLength, resetSuggestions, setPhraseLength],
   );
 
   const closePopover = useCallback(() => {

@@ -7,10 +7,12 @@ import {
   useState,
 } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Button,
   Divider,
   HeightTransition,
@@ -24,6 +26,8 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
+  useSwapLimitPriceMarketPriceAtom,
+  useSwapLimitPriceUseRateAtom,
   useSwapStepNetFeeLevelAtom,
   useSwapStepsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -34,6 +38,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { ICustomPriorityFeeOverride } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   ESwapNetworkFeeLevel,
   IFetchLimitOrderRes,
@@ -62,6 +67,7 @@ import PreSwapStep from '../../components/PreSwapStep';
 import { PreSwapTipInfo } from '../../components/PreSwapTipInfo';
 import PreSwapTokenItem from '../../components/PreSwapTokenItem';
 import { resolveQuoteShowTip } from '../../utils/quoteShowTipUtils';
+import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
 
 interface IPreSwapDialogContentProps {
   onConfirm: () => void;
@@ -182,6 +188,58 @@ const PreSwapDialogContent = ({
       toAmount: preSwapData?.toTokenAmount || '0',
     };
   }, [preSwapData]);
+  const [limitPriceUseRate] = useSwapLimitPriceUseRateAtom();
+  const [limitPriceMarketPrice] = useSwapLimitPriceMarketPriceAtom();
+  // A limit order whose rate the market already beats will likely fill
+  // immediately at the market price — surface that before the user confirms.
+  // Both rates are "toToken per fromToken", so a single comparison covers the
+  // BUY and SELL directions; gate on the quote's own protocol (not UI state)
+  // and require both rates to belong to the reviewed pair.
+  const showMarketableFillTip = useMemo(() => {
+    if (
+      getSwapExecutionTypeFromQuoteResult(quoteResult) !==
+      ESwapTabSwitchType.LIMIT
+    ) {
+      return false;
+    }
+    const userRate = new BigNumber(limitPriceUseRate?.rate ?? '0');
+    const marketRate = new BigNumber(limitPriceMarketPrice?.rate ?? '0');
+    if (
+      !userRate.isFinite() ||
+      !marketRate.isFinite() ||
+      userRate.lte(0) ||
+      marketRate.lte(0)
+    ) {
+      return false;
+    }
+    const pairMatched =
+      equalTokenNoCaseSensitive({
+        token1: limitPriceUseRate?.fromToken,
+        token2: preSwapData?.fromToken,
+      }) &&
+      equalTokenNoCaseSensitive({
+        token1: limitPriceUseRate?.toToken,
+        token2: preSwapData?.toToken,
+      }) &&
+      equalTokenNoCaseSensitive({
+        token1: limitPriceMarketPrice?.fromToken,
+        token2: preSwapData?.fromToken,
+      }) &&
+      equalTokenNoCaseSensitive({
+        token1: limitPriceMarketPrice?.toToken,
+        token2: preSwapData?.toToken,
+      });
+    if (!pairMatched) {
+      return false;
+    }
+    return userRate.lt(marketRate);
+  }, [
+    quoteResult,
+    limitPriceUseRate,
+    limitPriceMarketPrice,
+    preSwapData?.fromToken,
+    preSwapData?.toToken,
+  ]);
   const { activeAccount } = useActiveAccount({ num: 0 });
   const isHwWallet = useMemo(
     () =>
@@ -610,6 +668,16 @@ const PreSwapDialogContent = ({
               rateDifference={preSwapData.rateDifference}
             />
           </YStack>
+
+          {showMarketableFillTip ? (
+            <Alert
+              type="warning"
+              icon="InfoCircleOutline"
+              title={intl.formatMessage({
+                id: ETranslations.limit_marketable_fill_tip,
+              })}
+            />
+          ) : null}
 
           <Divider />
 
