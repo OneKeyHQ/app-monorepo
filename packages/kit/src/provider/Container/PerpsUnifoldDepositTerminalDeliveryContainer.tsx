@@ -16,7 +16,21 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 const DELIVERY_RETRY_BUFFER_MS = 50;
 const DELIVERY_ERROR_RETRY_MS = 1000;
-const DELIVERY_ACK_MAX_ATTEMPTS = 5;
+const DELIVERY_ACK_FAST_RETRY_ATTEMPTS = 5;
+const DELIVERY_ACK_MAX_RETRY_MS = 60_000;
+
+function getDeliveryAckRetryMs(acknowledgementAttempts: number) {
+  const exponentialRetryCount = Math.max(
+    0,
+    acknowledgementAttempts - DELIVERY_ACK_FAST_RETRY_ATTEMPTS + 1,
+  );
+  return Math.min(
+    DELIVERY_ERROR_RETRY_MS *
+      2 **
+        Math.min(exponentialRetryCount, DELIVERY_ACK_FAST_RETRY_ATTEMPTS + 1),
+    DELIVERY_ACK_MAX_RETRY_MS,
+  );
+}
 
 type IPresentedClaim = {
   claimId: string;
@@ -60,15 +74,11 @@ export function PerpsUnifoldDepositTerminalDeliveryContainer() {
         presentedClaims.delete(deliveryId);
         return undefined;
       }
-      if (
-        result.reason === 'gone' ||
-        result.reason === 'claimLost' ||
-        attemptedClaim.acknowledgementAttempts >= DELIVERY_ACK_MAX_ATTEMPTS
-      ) {
+      if (result.reason === 'gone' || result.reason === 'claimLost') {
         presentedClaims.delete(deliveryId);
         return undefined;
       }
-      return DELIVERY_ERROR_RETRY_MS;
+      return getDeliveryAckRetryMs(attemptedClaim.acknowledgementAttempts);
     };
 
     const present = async (deliveryId: string) => {
@@ -135,14 +145,9 @@ export function PerpsUnifoldDepositTerminalDeliveryContainer() {
       } catch (error) {
         errorUtils.autoPrintErrorIgnore(error);
         const presentedClaim = presentedClaims.get(deliveryId);
-        if (
-          presentedClaim &&
-          presentedClaim.acknowledgementAttempts >= DELIVERY_ACK_MAX_ATTEMPTS
-        ) {
-          presentedClaims.delete(deliveryId);
-        } else {
-          retryAfterMs = DELIVERY_ERROR_RETRY_MS;
-        }
+        retryAfterMs = presentedClaim
+          ? getDeliveryAckRetryMs(presentedClaim.acknowledgementAttempts)
+          : DELIVERY_ERROR_RETRY_MS;
       } finally {
         inFlight.delete(deliveryId);
         if (!disposed && retryAfterMs !== undefined) {
