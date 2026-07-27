@@ -192,7 +192,7 @@ export const DotMap = ({ mnemonic, side = 'front' }: IDotMapProps) => {
       $gtMd={{ alignItems: 'flex-start' }}
       onLayout={onLayout}
     >
-      <KeyTagPlateEntrance active={measured} zoom={false}>
+      <KeyTagPlateEntrance active={measured}>
         {back.length > 0 ? (
           <KeyTagFlipCard
             flipped={side === 'back'}

@@ -11,12 +11,20 @@ import type { IKeyTagHoleToggleHandler } from './KeyTagInput';
 // a flip card (front rows 1-12 / back rows 13-24, back padded to full height)
 // past that. Shared by the import page and the backup-verify phase — the only
 // difference between them is whether a mismatchMask is supplied.
+//
+// PROTOTYPE (map + pad, small screens): the plate is a read-only map — tapping
+// a row selects it (activeRow/onSelectRow, owned by the host page) — and the
+// actual hole toggling happens on the KeyTagRowPad the host docks into its
+// footer. gtMd keeps the original direct-toggle interaction (mouse is precise
+// enough).
 export function KeyTagInputBoard({
   rows,
   touchedMask,
   side,
   flagIncomplete,
   mismatchMask,
+  activeRow,
+  onSelectRow,
   onToggleHole,
 }: {
   rows: number[];
@@ -24,16 +32,27 @@ export function KeyTagInputBoard({
   side: 'front' | 'back';
   flagIncomplete?: boolean;
   mismatchMask?: boolean[];
+  // Map-mode selection state, owned by the host page (which also renders the
+  // row pad). Only consumed on small screens.
+  activeRow?: number;
+  onSelectRow?: (globalRowIndex: number) => void;
   onToggleHole: IKeyTagHoleToggleHandler;
 }) {
   const { gtMd } = useMedia();
   const { cellSize, measured, onLayout } = useKeyTagCellSize(gtMd ? 26 : 18);
+  const isPadMode = !gtMd;
 
   const frontRows = rows.slice(0, KEY_TAG_PLATE_ROWS);
   const backRows = rows.slice(KEY_TAG_PLATE_ROWS);
   const backPlaceholderRows =
     backRows.length > 0 ? KEY_TAG_PLATE_ROWS - backRows.length : 0;
   const isMultiPlate = backRows.length > 0;
+
+  // Exactly one of the two interaction paths is wired at a time: map mode
+  // selects rows, otherwise cells toggle directly.
+  const plateActiveRow = isPadMode ? activeRow : undefined;
+  const plateSelectRow = isPadMode ? onSelectRow : undefined;
+  const plateToggle = isPadMode ? undefined : onToggleHole;
 
   return (
     <YStack
@@ -54,7 +73,9 @@ export function KeyTagInputBoard({
                 cellSize={cellSize}
                 flagIncomplete={flagIncomplete}
                 mismatchMask={mismatchMask}
-                onToggleHole={onToggleHole}
+                onToggleHole={plateToggle}
+                activeRow={plateActiveRow}
+                onSelectRow={plateSelectRow}
               />
             }
             back={
@@ -66,7 +87,9 @@ export function KeyTagInputBoard({
                 placeholderRows={backPlaceholderRows}
                 flagIncomplete={flagIncomplete}
                 mismatchMask={mismatchMask}
-                onToggleHole={onToggleHole}
+                onToggleHole={plateToggle}
+                activeRow={plateActiveRow}
+                onSelectRow={plateSelectRow}
               />
             }
           />
@@ -78,7 +101,9 @@ export function KeyTagInputBoard({
             cellSize={cellSize}
             flagIncomplete={flagIncomplete}
             mismatchMask={mismatchMask}
-            onToggleHole={onToggleHole}
+            onToggleHole={plateToggle}
+            activeRow={plateActiveRow}
+            onSelectRow={plateSelectRow}
           />
         )}
       </KeyTagPlateEntrance>

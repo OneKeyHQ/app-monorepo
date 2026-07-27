@@ -16,6 +16,7 @@ import {
   KEYTAG_HEADER_H,
   KEYTAG_ROW_LABEL_W,
   KeyTagBrandMark,
+  KeyTagHoleDot,
   KeyTagPlateFrame,
   KeyTagScaleHeader,
   useKeyTagLine,
@@ -37,6 +38,13 @@ export type IKeyTagHoleToggleHandler = (
   rowIndex: number,
   holeIndex: number,
 ) => void;
+
+const CELL_PRESS_STYLE = { bg: '$bgActive' } as const;
+const CELL_FOCUS_STYLE = {
+  outlineColor: '$focusRing',
+  outlineStyle: 'solid',
+  outlineWidth: 2,
+} as const;
 
 function GridCell({
   on,
@@ -62,8 +70,6 @@ function GridCell({
   onHoverIn?: () => void;
   onHoverOut?: () => void;
 }) {
-  const dotSize = Math.max(6, Math.round(size * 0.42));
-  const guideSize = Math.max(2.5, size * 0.1);
   return (
     <Stack
       width={size}
@@ -81,29 +87,11 @@ function GridCell({
         onHoverIn,
         onHoverOut,
         focusable: true,
-        pressStyle: { bg: '$bgActive' },
-        focusVisibleStyle: {
-          outlineColor: '$focusRing',
-          outlineStyle: 'solid',
-          outlineWidth: 2,
-        },
+        pressStyle: CELL_PRESS_STYLE,
+        focusVisibleStyle: CELL_FOCUS_STYLE,
       })}
     >
-      {on ? (
-        <Stack
-          width={dotSize}
-          height={dotSize}
-          borderRadius="$full"
-          backgroundColor={invalid ? '$textCritical' : '$brand10'}
-        />
-      ) : (
-        <Stack
-          width={guideSize}
-          height={guideSize}
-          borderRadius="$full"
-          backgroundColor={line.guide}
-        />
-      )}
+      <KeyTagHoleDot on={on} invalid={invalid} size={size} line={line} />
     </Stack>
   );
 }
@@ -124,6 +112,10 @@ type IKeyTagGridRowProps = {
   // Backup verify: this row's entered value differs from the wallet's true
   // value (a valid-but-wrong word) — flag it red like an invalid row.
   mismatch?: boolean;
+  // Map mode (small screens): the plate is an overview; tapping anywhere in a
+  // row selects it into the enlarged row pad instead of toggling holes.
+  selected?: boolean;
+  onSelectRow?: (rowIndex: number) => void;
   // Hover cross-hair: which local row / column is currently highlighted.
   hoverRow?: number;
   hoverCol?: number;
@@ -143,6 +135,8 @@ const KeyTagGridRow = memo(function KeyTagGridRowBase({
   placeholder,
   flagIncomplete,
   mismatch,
+  selected,
+  onSelectRow,
   hoverRow,
   hoverCol,
   line,
@@ -164,12 +158,15 @@ const KeyTagGridRow = memo(function KeyTagGridRowBase({
     editable && !!flagIncomplete && status !== EKeyTagRowStatus.Verified;
   // Any reason this row's number should read red / blink on a failed Confirm.
   const flagged = flaggedEmpty || mismatched;
-  const rowHovered = hoverRow === localIndex;
+  // Map mode: the whole row is one target, so the row — not a cell — carries
+  // the press, and "active" means selected rather than hovered.
+  const selectMode = !!onSelectRow;
+  const rowActive = selectMode ? !!selected : hoverRow === localIndex;
 
   let labelColor = '$textDisabled';
   if (invalid || flagged) {
     labelColor = '$textCritical';
-  } else if (rowHovered) {
+  } else if (rowActive) {
     labelColor = '$text';
   }
 
@@ -197,8 +194,18 @@ const KeyTagGridRow = memo(function KeyTagGridRowBase({
     opacity: numberPulse.value,
   }));
 
+  const rowSelectable = editable && selectMode;
+
   return (
-    <XStack alignItems="center" gap={KEYTAG_GRID_GAP}>
+    <XStack
+      alignItems="center"
+      gap={KEYTAG_GRID_GAP}
+      {...(rowSelectable && {
+        onPress: () => onSelectRow?.(rowIndex),
+        focusable: true,
+        focusVisibleStyle: CELL_FOCUS_STYLE,
+      })}
+    >
       <Stack
         width={ROW_LABEL_W}
         height={cellSize}
@@ -221,10 +228,10 @@ const KeyTagGridRow = memo(function KeyTagGridRowBase({
             size={cellSize}
             isFirstRow={isFirstRow}
             isFirstCol={col === 0}
-            banded={editable && (rowHovered || hoverCol === col)}
+            banded={editable && (rowActive || hoverCol === col)}
             line={line}
             onPress={
-              editable && onToggleHole
+              editable && !selectMode && onToggleHole
                 ? () => {
                     onToggleHole(rowIndex, col);
                     // Anchor the active row on touch too (no hover fires there).
@@ -233,11 +240,11 @@ const KeyTagGridRow = memo(function KeyTagGridRowBase({
                 : undefined
             }
             onHoverIn={
-              editable && onHoverCell
+              editable && !selectMode && onHoverCell
                 ? () => onHoverCell(localIndex, col)
                 : undefined
             }
-            onHoverOut={editable ? onHoverOut : undefined}
+            onHoverOut={editable && !selectMode ? onHoverOut : undefined}
           />
         ))}
       </XStack>
@@ -269,6 +276,8 @@ export function KeyTagInputPlate({
   placeholderRows = 0,
   flagIncomplete,
   mismatchMask,
+  activeRow,
+  onSelectRow,
   onToggleHole,
 }: {
   rowOffset: number;
@@ -281,6 +290,10 @@ export function KeyTagInputPlate({
   // value. Flags a valid-but-WRONG word red — which the empty/>2048 red paths
   // cannot express — so the fund-losing mistap is visible. Global row index.
   mismatchMask?: boolean[];
+  // Map mode (small screens): rows select into the row pad instead of toggling
+  // holes directly. Global row index.
+  activeRow?: number;
+  onSelectRow?: (globalRowIndex: number) => void;
   onToggleHole?: IKeyTagHoleToggleHandler;
 }) {
   const line = useKeyTagLine();
@@ -346,6 +359,8 @@ export function KeyTagInputPlate({
             placeholder={row.placeholder}
             flagIncomplete={flagIncomplete}
             mismatch={row.mismatch}
+            selected={activeRow === row.rowIndex}
+            onSelectRow={onSelectRow}
             hoverRow={hoverRow}
             hoverCol={hoverCol}
             line={line}

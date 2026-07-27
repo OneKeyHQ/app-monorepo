@@ -7,7 +7,6 @@ import Animated, {
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
-  withDelay,
   withTiming,
 } from 'react-native-reanimated';
 import Svg, {
@@ -23,10 +22,11 @@ import {
   SizableText,
   Stack,
   XStack,
-  useMedia,
   useTheme,
   useThemeName,
 } from '@onekeyhq/components';
+
+import { KEY_TAG_ROW_WEIGHTS } from './utils';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -36,6 +36,10 @@ import type { LayoutChangeEvent } from 'react-native';
 // the left, and the "1/0" brand mark in the corner. The row-label column width
 // equals the header row height so the 12x12 grid + gutters reads as a square.
 export const KEYTAG_CELL_BORDER = 1;
+// Frame corner radii. Exported so surfaces that must read as part of the same
+// object (the docked row pad) can match instead of hardcoding the number.
+export const KEYTAG_PLATE_RADIUS = 32;
+export const KEYTAG_PLATE_INNER_RADIUS = 24;
 // Row-label column width == header row height keeps the 12x12 grid + gutters
 // square. Sized to fit the largest 2^n label ("2048") at HeadingXS, rotated.
 export const KEYTAG_ROW_LABEL_W = 36;
@@ -64,6 +68,45 @@ export const KEYTAG_LINE = {
 };
 
 export type IKeyTagLine = (typeof KEYTAG_LINE)['light'];
+
+// The punched hole itself: a filled dot when the bit is on, a faint guide speck
+// when it is off. Shared by the read-only map, the interactive plate cell and
+// the docked row pad so all three stay identical on one screen — the pad sits
+// directly under the map, where any drift would be visible side by side.
+export function KeyTagHoleDot({
+  on,
+  invalid,
+  size,
+  line,
+}: {
+  on: boolean;
+  // Impossible (>2048) or, during backup verify, valid-but-wrong.
+  invalid?: boolean;
+  // The cell this dot sits in; the dot and guide scale off it.
+  size: number;
+  line: IKeyTagLine;
+}) {
+  if (on) {
+    const dotSize = Math.max(6, Math.round(size * 0.42));
+    return (
+      <Stack
+        width={dotSize}
+        height={dotSize}
+        borderRadius="$full"
+        backgroundColor={invalid ? '$textCritical' : '$brand10'}
+      />
+    );
+  }
+  const guideSize = Math.max(2.5, size * 0.1);
+  return (
+    <Stack
+      width={guideSize}
+      height={guideSize}
+      borderRadius="$full"
+      backgroundColor={line.guide}
+    />
+  );
+}
 
 // Resolve against the ambient Tamagui theme, not the global settings variant:
 // the Onboarding V2 navigator pins its subtree to dark (<Theme name="dark">,
@@ -107,87 +150,38 @@ export function useKeyTagCellSize(fallback: number) {
   };
 }
 
-// The plate arrives aligned with the rest of the page, holds there long enough
-// to be read as the starting state, then grows — slowly, anchored at its top
-// edge — breaking out of the content gutters onto cells big enough to hit with
-// a thumb. Growing out of the container is the whole effect, so the resting
-// state must stay inside it. Small screens only: on gtMd the plate is capped at
-// 400 and sits beside the sidebar, so there is nowhere to grow into.
+// The plate fades in once its width has been measured, so it never flashes at
+// the fallback cell size and then jump-resizes to the real one.
 const PLATE_FADE_MS = 240;
-const PLATE_ZOOM_DELAY_MS = 700;
-const PLATE_ZOOM_MS = 900;
-const PLATE_ZOOM_TO = 1.27;
-// The plate is not visually centred on its own grid: the row-number column and
-// its gutter sit only on the left, and the numbers are right-aligned inside it,
-// so the left edge carries far more dead space than the right. Drifting left
-// while it grows spends that dead space instead of the right margin, which is
-// the side where a real cell would be the first thing to fall off screen.
-const PLATE_ZOOM_SHIFT_X = -12;
-
-const entranceStyles = StyleSheet.create({
-  // Top-center origin keeps the heading above the plate visually still.
-  origin: { transformOrigin: 'top center' },
-});
 
 export function KeyTagPlateEntrance({
   active,
-  zoom: zoomEnabled = true,
   children,
 }: {
   // Flips true once the host has measured the plate width.
   active: boolean;
-  // The grow-out zoom only earns its keep on an interactive plate, where it
-  // enlarges tap targets. A read-only plate has nothing to tap, so its host
-  // opts out (zoom={false}): the plate then fades in at its resting width and
-  // stays aligned with the page instead of overhanging the copy below it.
-  zoom?: boolean;
   children: ReactNode;
 }) {
-  const { gtMd } = useMedia();
   const reducedMotion = useReducedMotion();
   const fade = useSharedValue(0);
-  const zoom = useSharedValue(1);
-  const shift = useSharedValue(0);
 
   useEffect(() => {
     if (!active) {
       return;
     }
-    const grows = zoomEnabled && !gtMd;
-    const zoomTo = grows ? PLATE_ZOOM_TO : 1;
-    const shiftTo = grows ? PLATE_ZOOM_SHIFT_X : 0;
     if (reducedMotion) {
-      // Same end state, no motion: the zoom is a touch-target size, not decor.
       fade.value = 1;
-      zoom.value = zoomTo;
-      shift.value = shiftTo;
       return;
     }
     fade.value = withTiming(1, {
       duration: PLATE_FADE_MS,
       easing: Easing.out(Easing.cubic),
     });
-    const grow = {
-      duration: PLATE_ZOOM_MS,
-      easing: Easing.inOut(Easing.cubic),
-    };
-    zoom.value = withDelay(PLATE_ZOOM_DELAY_MS, withTiming(zoomTo, grow));
-    shift.value = withDelay(PLATE_ZOOM_DELAY_MS, withTiming(shiftTo, grow));
-  }, [active, fade, gtMd, reducedMotion, shift, zoom, zoomEnabled]);
+  }, [active, fade, reducedMotion]);
 
-  // translateX before scale in the array == CSS `translateX() scale()`, i.e.
-  // the shift is applied after scaling, so it stays a fixed pixel offset
-  // instead of being multiplied by the zoom.
-  const style = useAnimatedStyle(() => ({
-    opacity: fade.value,
-    transform: [{ translateX: shift.value }, { scale: zoom.value }],
-  }));
+  const style = useAnimatedStyle(() => ({ opacity: fade.value }));
 
-  return (
-    <Animated.View style={[entranceStyles.origin, style]}>
-      {children}
-    </Animated.View>
-  );
+  return <Animated.View style={style}>{children}</Animated.View>;
 }
 
 // OneKey "1/0" logo mark for the plate corner. Brand asset flattened to a
@@ -218,6 +212,11 @@ export function KeyTagBrandMark({ line }: { line: IKeyTagLine }) {
 // the first grid row. textAlign "left" anchors the glyphs to the bottom of the
 // band (nearest the grid): after the -90deg rotation the text's start edge maps
 // to the bottom, so short numbers sit low and long ones grow upward.
+const scaleStyles = StyleSheet.create({
+  rotated: { transform: [{ rotate: '-90deg' }] },
+  label: { width: KEYTAG_HEADER_H },
+});
+
 export function KeyTagScaleHeader({
   cellSize,
   highlightedCol,
@@ -228,22 +227,22 @@ export function KeyTagScaleHeader({
 }) {
   return (
     <XStack height={KEYTAG_HEADER_H}>
-      {Array.from({ length: 12 }).map((_, col) => (
+      {KEY_TAG_ROW_WEIGHTS.map((weight, col) => (
         <Stack
-          key={col}
+          key={weight}
           width={cellSize}
           height={KEYTAG_HEADER_H}
           alignItems="center"
           justifyContent="center"
         >
-          <Stack style={{ transform: [{ rotate: '-90deg' }] }}>
+          <Stack style={scaleStyles.rotated}>
             <SizableText
               size="$headingXs"
               color={col === highlightedCol ? '$text' : '$textDisabled'}
               textAlign="left"
-              style={{ width: KEYTAG_HEADER_H }}
+              style={scaleStyles.label}
             >
-              {2 ** (11 - col)}
+              {weight}
             </SizableText>
           </Stack>
         </Stack>
@@ -280,35 +279,34 @@ const noiseStyles = StyleSheet.create({
   },
 });
 
-function KeyTagNoise() {
-  return (
-    <Stack style={noiseStyles.noise}>
-      <Svg width="100%" height="100%">
-        <Defs>
-          <Pattern
-            id="keytag-noise"
-            patternUnits="userSpaceOnUse"
+// Takes no props and never changes, so it is built once at module scope rather
+// than re-instantiating five react-native-svg elements on every plate render
+// (react-native-svg re-runs transform/viewBox extraction in render()). The
+// pattern id is a
+// constant on purpose: both faces of the flip card mount at once, and since the
+// two <Defs> are byte-identical it does not matter which one a web
+// url(#keytag-noise) resolves against.
+const KEYTAG_NOISE = (
+  <Stack style={noiseStyles.noise}>
+    <Svg width="100%" height="100%">
+      <Defs>
+        <Pattern
+          id="keytag-noise"
+          patternUnits="userSpaceOnUse"
+          width={KEYTAG_NOISE_TILE_SIZE}
+          height={KEYTAG_NOISE_TILE_SIZE}
+        >
+          <SvgImage
+            href={KEYTAG_NOISE_TILE}
             width={KEYTAG_NOISE_TILE_SIZE}
             height={KEYTAG_NOISE_TILE_SIZE}
-          >
-            <SvgImage
-              href={KEYTAG_NOISE_TILE}
-              width={KEYTAG_NOISE_TILE_SIZE}
-              height={KEYTAG_NOISE_TILE_SIZE}
-            />
-          </Pattern>
-        </Defs>
-        <Rect
-          x="0"
-          y="0"
-          width="100%"
-          height="100%"
-          fill="url(#keytag-noise)"
-        />
-      </Svg>
-    </Stack>
-  );
-}
+          />
+        </Pattern>
+      </Defs>
+      <Rect x="0" y="0" width="100%" height="100%" fill="url(#keytag-noise)" />
+    </Svg>
+  </Stack>
+);
 
 // Strap-hole cutout shape from design (30x29), fill stripped so the theme
 // supplies it at render time.
@@ -327,7 +325,7 @@ export function KeyTagPlateFrame({ children }: { children: ReactNode }) {
   const theme = useTheme();
   return (
     <Stack
-      borderRadius={32}
+      borderRadius={KEYTAG_PLATE_RADIUS}
       borderWidth={1}
       borderColor={line.frame}
       bg="$bgStrong"
@@ -346,10 +344,10 @@ export function KeyTagPlateFrame({ children }: { children: ReactNode }) {
         end={[1, 1]}
         pointerEvents="none"
       />
-      <KeyTagNoise />
+      {KEYTAG_NOISE}
       {/* inner frame: app-background border reads as a recessed groove */}
       <Stack
-        borderRadius={24}
+        borderRadius={KEYTAG_PLATE_INNER_RADIUS}
         borderWidth={1}
         borderColor="$bgApp"
         p="$3"

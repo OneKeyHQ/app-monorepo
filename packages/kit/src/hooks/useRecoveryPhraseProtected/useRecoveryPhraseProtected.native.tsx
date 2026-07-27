@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import type { MutableRefObject } from 'react';
 
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -113,36 +114,31 @@ const showRecoveryPhraseProtectedDialog = (
 // the native prevent/allow pair, the capture listener, and the warning dialog's
 // timer/debounce. Per-consumer listeners would each fire on one screenshot and
 // stack a dialog per mounted consumer.
-type IProtectionConsumer = {
-  // Reads the owning hook's latest intl + dialogType through a ref, so the
-  // registry never has to re-register when either changes.
-  show: () => void;
-};
+// Each entry is the owning hook's own ref, so the registry always reads the
+// latest intl + dialogType without ever needing to re-register.
+type IProtectionConsumer = MutableRefObject<() => void>;
 
 let consumers: IProtectionConsumer[] = [];
 let captureListener: { remove: () => void } | undefined;
-let showTimer: ReturnType<typeof setTimeout> | undefined;
+
+// A capture event can fire several times in a burst (screenshot + the recording
+// state change), so settle before showing anything.
+const CAPTURE_SETTLE_MS = 700;
 
 // The topmost consumer is the last one mounted, and it owns the screen the user
 // is actually looking at — so its copy (recoveryPhrase vs sensitiveInformation)
 // is the one to show.
 const debouncedShow = debounce(() => {
-  consumers[consumers.length - 1]?.show();
-}, 350);
+  consumers[consumers.length - 1]?.current();
+}, CAPTURE_SETTLE_MS);
 
 const handleCaptureEvent = (eventType: CaptureEventType) => {
   if (
-    eventType !== CaptureEventType.CAPTURED &&
-    eventType !== CaptureEventType.RECORDING
+    eventType === CaptureEventType.CAPTURED ||
+    eventType === CaptureEventType.RECORDING
   ) {
-    return;
-  }
-  if (showTimer) {
-    clearTimeout(showTimer);
-  }
-  showTimer = setTimeout(() => {
     debouncedShow();
-  }, 350);
+  }
 };
 
 const registerConsumer = (consumer: IProtectionConsumer) => {
@@ -157,10 +153,6 @@ const unregisterConsumer = (consumer: IProtectionConsumer) => {
   consumers = consumers.filter((item) => item !== consumer);
   if (consumers.length > 0) {
     return;
-  }
-  if (showTimer) {
-    clearTimeout(showTimer);
-    showTimer = undefined;
   }
   debouncedShow.cancel();
   void CaptureProtection.allow();
@@ -183,8 +175,7 @@ export const useRecoveryPhraseProtected = ({
     if (!enabled) {
       return;
     }
-    const consumer: IProtectionConsumer = { show: () => showRef.current() };
-    registerConsumer(consumer);
-    return () => unregisterConsumer(consumer);
-  }, [enabled]);
+    registerConsumer(showRef);
+    return () => unregisterConsumer(showRef);
+  }, [enabled, showRef]);
 };

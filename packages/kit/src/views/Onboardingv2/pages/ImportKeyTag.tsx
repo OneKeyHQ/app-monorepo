@@ -22,6 +22,8 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { KeyTagInputBoard } from '@onekeyhq/kit/src/components/DotMap/KeyTagInputBoard';
+import { KeyTagRowPad } from '@onekeyhq/kit/src/components/DotMap/KeyTagRowPad';
+import { useKeyTagActiveRow } from '@onekeyhq/kit/src/components/DotMap/useKeyTagActiveRow';
 import {
   KEY_TAG_PLATE_ROWS,
   KEY_TAG_WORD_COUNTS,
@@ -81,12 +83,13 @@ export function ImportKeyTag() {
   // still missing a valid word in red, instead of a dead disabled button.
   const [flagIncomplete, setFlagIncomplete] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  // Which face of the plate is showing when the mnemonic spans two plates
-  // (>12 words). 12-word imports never leave the front.
-  const [side, setSide] = useState<'front' | 'back'>('front');
   // Disarms the leave guard once the phrase is on its way to wallet setup: the
   // stack reset that finishes onboarding removes this page too.
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  // Which row the docked pad edits, and which face of the plate is showing
+  // (>12 words spill onto the back; 12-word imports never leave the front).
+  const { activeRow, side, setSide, focusRow, stepRow, resetRow } =
+    useKeyTagActiveRow({ rowCount: rows.length });
 
   const dirty = useMemo(() => rows.some((value) => value !== 0), [rows]);
   const canSubmit = useMemo(() => canSubmitKeyTagRows(rows), [rows]);
@@ -117,8 +120,8 @@ export function ImportKeyTag() {
     [],
   );
 
-  const handleFlipToBack = useCallback(() => setSide('back'), []);
-  const handleFlipToFront = useCallback(() => setSide('front'), []);
+  const handleFlipToBack = useCallback(() => setSide('back'), [setSide]);
+  const handleFlipToFront = useCallback(() => setSide('front'), [setSide]);
 
   const handleWordCountChange = useCallback(
     (nextCountValue: string | number) => {
@@ -135,7 +138,7 @@ export function ImportKeyTag() {
           }
           return prev.concat(new Array(nextCount - prev.length).fill(false));
         });
-        setSide('front');
+        resetRow();
         setFlagIncomplete(false);
       };
       if (keyTagRowsShrinkDiscardsInput(rows, nextCount)) {
@@ -158,7 +161,7 @@ export function ImportKeyTag() {
       }
       applyResize();
     },
-    [intl, rows],
+    [intl, rows, resetRow],
   );
 
   // Leaving with punched holes discards them (input is intentionally not
@@ -197,9 +200,10 @@ export function ImportKeyTag() {
       // On a two-face plate the red flags only paint on the visible face, so a
       // Confirm whose first gap sits on the hidden face would look like a dead
       // tap. Flip to the face that holds the first offender so the flag shows.
+      // Land on the first row that still needs fixing, flipping to its face.
       const firstBad = firstNonVerifiedKeyTagRowIndex(rows);
       if (firstBad >= 0) {
-        setSide(firstBad < KEY_TAG_PLATE_ROWS ? 'front' : 'back');
+        focusRow(firstBad);
       }
       return;
     }
@@ -236,7 +240,14 @@ export function ImportKeyTag() {
     } finally {
       setSubmitting(false);
     }
-  }, [canSubmit, isSoftwareWalletOnlyUser, navigation, rows, submitting]);
+  }, [
+    canSubmit,
+    focusRow,
+    isSoftwareWalletOnlyUser,
+    navigation,
+    rows,
+    submitting,
+  ]);
 
   const wordCountOptions = useMemo(
     () =>
@@ -348,6 +359,8 @@ export function ImportKeyTag() {
               side={side}
               flagIncomplete={flagIncomplete}
               onToggleHole={handleToggleHole}
+              activeRow={activeRow}
+              onSelectRow={focusRow}
             />
 
             {gtMd ? (
@@ -406,33 +419,26 @@ export function ImportKeyTag() {
         <Page.Footer>
           <Page.FooterActions
             pb={safeAreaBottom ? safeAreaBottom + 8 : 20}
-            onConfirmText={showNextAction ? nextLabel : confirmLabel}
-            confirmButtonProps={
-              showNextAction
-                ? {
-                    testID: OnboardingTestIDs.importKeyTagFlipNext,
-                    icon: 'RotateAxisOutline',
-                    onPress: handleFlipToBack,
-                  }
-                : {
-                    testID: OnboardingTestIDs.importKeyTagConfirm,
-                    disabled: submitting,
-                    loading: submitting,
-                    onPress: handleSubmit,
-                  }
-            }
-            {...(showFlipBack
-              ? {
-                  onCancelText: flipToFrontLabel,
-                  // 1-arg handler so FooterActions does not auto-pop the page.
-                  onCancel: (_close: () => void) => setSide('front'),
-                  cancelButtonProps: {
-                    icon: 'RotateAxisOutline',
-                    testID: OnboardingTestIDs.importKeyTagFlipBack,
-                  },
-                }
-              : {})}
-          />
+            onConfirmText={confirmLabel}
+            confirmButtonProps={{
+              testID: OnboardingTestIDs.importKeyTagConfirm,
+              disabled: submitting,
+              loading: submitting,
+              onPress: handleSubmit,
+            }}
+          >
+            {/* PROTOTYPE: docked row pad — always on screen regardless of
+                viewport height, so the input surface can't hide below the
+                fold. Its chevrons step rows (and flip faces), replacing the
+                footer flip buttons on small screens. */}
+            <KeyTagRowPad
+              rowIndex={activeRow}
+              value={rows[activeRow] ?? 0}
+              totalRows={rows.length}
+              onToggleHole={handleToggleHole}
+              onStep={stepRow}
+            />
+          </Page.FooterActions>
         </Page.Footer>
       ) : null}
     </OnboardingPage>

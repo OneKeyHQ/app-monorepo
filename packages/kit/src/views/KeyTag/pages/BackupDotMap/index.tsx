@@ -22,6 +22,8 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { DotMap } from '@onekeyhq/kit/src/components/DotMap';
 import { KeyTagInputBoard } from '@onekeyhq/kit/src/components/DotMap/KeyTagInputBoard';
+import { KeyTagRowPad } from '@onekeyhq/kit/src/components/DotMap/KeyTagRowPad';
+import { useKeyTagActiveRow } from '@onekeyhq/kit/src/components/DotMap/useKeyTagActiveRow';
 import {
   KEY_TAG_PLATE_ROWS,
   encodeWordToKeyTagRowValue,
@@ -112,8 +114,7 @@ const BackupDotMap = () => {
   const showVerifyFlow = Boolean(result) && !alreadyBackedUp;
 
   const [phase, setPhase] = useState<IPhase>('review');
-  // Which face of the plate is showing when the phrase spans both sides.
-  const [side, setSide] = useState<'front' | 'back'>('front');
+  const isVerify = phase === 'verify';
   // Verify input (blank re-entry from the physical plate).
   const [rows, setRows] = useState<number[]>([]);
   const [touchedMask, setTouchedMask] = useState<boolean[]>([]);
@@ -122,6 +123,10 @@ const BackupDotMap = () => {
   const [flagged, setFlagged] = useState(false);
   const [failCount, setFailCount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  // Which row the docked pad edits, and which face of the plate is showing
+  // when the phrase spans both sides.
+  const { activeRow, side, setSide, focusRow, stepRow, resetRow } =
+    useKeyTagActiveRow({ rowCount: rows.length });
 
   const mismatchMask = useMemo(
     () =>
@@ -134,9 +139,13 @@ const BackupDotMap = () => {
   // last face a secondary "Flip to front" sits beside the primary.
   const showNextAction = isMultiPlate && side === 'front';
   const showFlipBack = isMultiPlate && side === 'back';
+  // In verify the docked pad's chevrons own row stepping (and the face flip),
+  // so the footer keeps its flip buttons for the review phase only.
+  const footerFlipNext = !isVerify && showNextAction;
+  const footerFlipBack = !isVerify && showFlipBack;
 
-  const handleFlipToBack = useCallback(() => setSide('back'), []);
-  const handleFlipToFront = useCallback(() => setSide('front'), []);
+  const handleFlipToBack = useCallback(() => setSide('back'), [setSide]);
+  const handleFlipToFront = useCallback(() => setSide('front'), [setSide]);
 
   const handleToggleHole = useCallback(
     (rowIndex: number, holeIndex: number) => {
@@ -165,11 +174,11 @@ const BackupDotMap = () => {
     // only faithful copy on hand is the punched plate.
     setRows(Array.from({ length: wordCount }, () => 0));
     setTouchedMask(Array.from({ length: wordCount }, () => false));
-    setSide('front');
+    resetRow();
     setFlagged(false);
     setFailCount(0);
     setPhase('verify');
-  }, [wordCount]);
+  }, [wordCount, resetRow]);
 
   // Closing the read-only map: re-viewing a wallet that is already backed up.
   // Deliberately writes nothing — a passing verification is the only thing
@@ -206,9 +215,10 @@ const BackupDotMap = () => {
     }
     if (!keyTagRowsMatchTrueValues(rows, trueValues)) {
       setFlagged(true);
+      // Land on the first row that failed, flipping to its face.
       const bad = firstKeyTagRowMismatchIndex(rows, trueValues);
       if (bad >= 0) {
-        setSide(bad < KEY_TAG_PLATE_ROWS ? 'front' : 'back');
+        focusRow(bad);
       }
       Toast.error({
         title: intl.formatMessage(
@@ -250,6 +260,7 @@ const BackupDotMap = () => {
     rows,
     trueValues,
     failCount,
+    focusRow,
     intl,
     showMispunchHelp,
     walletId,
@@ -314,8 +325,6 @@ const BackupDotMap = () => {
       </OnboardingPage>
     );
   }
-
-  const isVerify = phase === 'verify';
 
   // The final-face primary action depends on the phase. None of these mark the
   // wallet backed up; only a passing verification does.
@@ -424,6 +433,8 @@ const BackupDotMap = () => {
       flagIncomplete={flagged}
       mismatchMask={mismatchMask}
       onToggleHole={handleToggleHole}
+      activeRow={activeRow}
+      onSelectRow={focusRow}
     />
   );
 
@@ -464,9 +475,9 @@ const BackupDotMap = () => {
         <Page.Footer>
           <Page.FooterActions
             pb={safeAreaBottom ? safeAreaBottom + 8 : 20}
-            onConfirmText={showNextAction ? nextLabel : primaryLabel}
+            onConfirmText={footerFlipNext ? nextLabel : primaryLabel}
             confirmButtonProps={
-              showNextAction
+              footerFlipNext
                 ? {
                     testID: KeyTagTestIDs.backupFlipNextBtn,
                     icon: 'RotateAxisOutline',
@@ -480,7 +491,7 @@ const BackupDotMap = () => {
                     onPress: primaryOnPress,
                   }
             }
-            {...(showFlipBack
+            {...(footerFlipBack
               ? {
                   onCancelText: flipToFrontLabel,
                   // 1-arg handler so FooterActions does not auto-pop the page.
@@ -491,7 +502,20 @@ const BackupDotMap = () => {
                   },
                 }
               : {})}
-          />
+          >
+            {/* PROTOTYPE: docked row pad (verify phase only) — pinned to the
+                viewport so it can't hide below the fold; its chevrons step
+                rows and flip faces, replacing the footer flip buttons. */}
+            {isVerify ? (
+              <KeyTagRowPad
+                rowIndex={activeRow}
+                value={rows[activeRow] ?? 0}
+                totalRows={rows.length}
+                onToggleHole={handleToggleHole}
+                onStep={stepRow}
+              />
+            ) : null}
+          </Page.FooterActions>
         </Page.Footer>
       ) : null}
     </OnboardingPage>

@@ -76,6 +76,20 @@ export function keyTagRowValueToBits(value: number): boolean[] {
   );
 }
 
+// The engraved 2^n weights, left to right (2048 … 1). Single source for the
+// plate's scale header and the row pad's, so the two can never disagree with
+// each other or with the codec above.
+export const KEY_TAG_ROW_WEIGHTS = Array.from(
+  { length: KEY_TAG_ROW_BITS },
+  (_, holeIndex) => 2 ** (KEY_TAG_ROW_BITS - 1 - holeIndex),
+);
+
+// Which face of the tag a global row index lives on. Rows 1-12 are engraved on
+// the front, 13-24 on the back.
+export function keyTagRowSide(rowIndex: number): 'front' | 'back' {
+  return rowIndex >= KEY_TAG_PLATE_ROWS ? 'back' : 'front';
+}
+
 export function decodeKeyTagRow(
   value: number,
   { touched }: { touched: boolean },
