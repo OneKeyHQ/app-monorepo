@@ -87,6 +87,7 @@ import {
   getTradingButtonStyleValues,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
+import { buildDefaultTpSlPercent } from '../../../utils/tpslSeed';
 import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../../PerpDialogLayout';
 import { PerpsSlider } from '../../PerpsSlider';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
@@ -719,13 +720,29 @@ export function LimitOrderForm({
     }
   }, [bboPriceMode, isSpot]);
 
-  const handleTpslCheckboxChange = useCallback((checked: boolean) => {
-    setHasTpsl(checked);
-    if (!checked) {
-      setTpValue('');
-      setSlValue('');
-    }
-  }, []);
+  const handleTpslCheckboxChange = useCallback(
+    (checked: boolean) => {
+      setHasTpsl(checked);
+      if (!checked) {
+        setTpValue('');
+        setSlValue('');
+        return;
+      }
+      // Seed the same 10% ROE default the main panel applies, so the chart
+      // ticket does not open its TP/SL legs empty.
+      const seeded = buildDefaultTpSlPercent({
+        tpType,
+        tpValue,
+        slType,
+        slValue,
+      });
+      setTpType(seeded.tpType);
+      setTpValue(seeded.tpValue);
+      setSlType(seeded.slType);
+      setSlValue(seeded.slValue);
+    },
+    [slType, slValue, tpType, tpValue],
+  );
 
   const handlePlace = useCallback(
     async (pressedSide: ITradeSide) => {
