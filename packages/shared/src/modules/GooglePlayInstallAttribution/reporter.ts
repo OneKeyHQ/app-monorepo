@@ -4,8 +4,6 @@ import { defaultLogger } from '../../logger/logger';
 import platformEnv from '../../platformEnv';
 import appStorage from '../../storage/appStorage';
 
-import type { IGooglePlayInstallAttributionParams } from '../../logger/scopes/app/scenes/install';
-
 const REPORTED_STORAGE_KEY = 'google_play_install_attribution_reported_v1';
 const MAX_VALUE_LENGTH = 128;
 
@@ -49,13 +47,6 @@ export async function reportGooglePlayInstallAttribution(): Promise<void> {
   const referrer = parseGooglePlayInstallReferrer(
     await getInstallReferrerAsync(),
   );
-  const eventProps: IGooglePlayInstallAttributionParams = {
-    ...referrer,
-    attributionSource:
-      referrer.clickId || referrer.utmCampaign
-        ? 'campaign'
-        : 'google_play_organic',
-  };
-  defaultLogger.app.install.googlePlayInstallAttribution(eventProps);
+  defaultLogger.app.install.googlePlayInstallAttribution(referrer);
   await appStorage.setItem(REPORTED_STORAGE_KEY, '1');
 }

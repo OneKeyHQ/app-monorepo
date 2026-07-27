@@ -2,7 +2,6 @@ import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 export type IGooglePlayInstallAttributionParams = {
-  attributionSource: 'campaign' | 'google_play_organic';
   clickId?: string;
   utmCampaign?: string;
   utmContent?: string;

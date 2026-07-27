@@ -81,7 +81,6 @@ describe('Google Play install attribution', () => {
     await reportGooglePlayInstallAttribution();
 
     expect(logAttributionMock).toHaveBeenCalledWith({
-      attributionSource: 'campaign',
       clickId: 'click-123',
       utmCampaign: 'download_page',
       utmMedium: 'owned_web',
