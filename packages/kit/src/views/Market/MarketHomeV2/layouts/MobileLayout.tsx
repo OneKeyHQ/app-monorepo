@@ -15,10 +15,12 @@ import type { ITabContainerRef } from '@onekeyhq/components';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketBannerList } from '../components/MarketBanner';
 import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
+import { MarketListFilterProvider } from '../components/MarketFilterChipsBar';
 import { MarketListColumnHeader } from '../components/MarketListColumnHeader';
 import { useSyncedMarketPerpsCategory } from '../components/MarketPerpsList/hooks/useSyncedMarketPerpsCategory';
 import { MarketPerpsCategorySelector } from '../components/MarketPerpsList/MarketPerpsCategorySelector';
@@ -76,6 +78,7 @@ interface ITabBarDynamicContext {
   selectedCategoryId: string;
   onSelectCategory: (categoryId: string) => void;
   activeTabName: string;
+  marketListRedesignEnabled: boolean;
 }
 
 const TabBarDynamicContext = createContext<ITabBarDynamicContext | null>(null);
@@ -198,6 +201,7 @@ function MarketHomeTabBar({
               timeRange={ctx.filterBarProps.timeRange}
               onNetworkIdChange={ctx.filterBarProps.onNetworkIdChange}
               onTimeRangeChange={ctx.filterBarProps.onTimeRangeChange}
+              marketListRedesignEnabled={ctx.marketListRedesignEnabled}
             />
           ) : null}
           {showStockCategorySelector ? (
@@ -256,6 +260,10 @@ function MobileLayoutComponent({
 }: IMobileLayoutProps) {
   const openMarketWatchlistEditDialog = useOpenMarketWatchlistEditDialog();
   const isTokenCacheReady = useIsWatchlistTokenCacheReady();
+  const [devSettings] = useDevSettingsPersistAtom();
+  const marketListRedesignEnabled = Boolean(
+    devSettings.enabled && devSettings.settings?.showMarketListRedesign,
+  );
   const {
     watchlistTabName,
     spotTabItems,
@@ -412,6 +420,7 @@ function MobileLayoutComponent({
       selectedCategoryId,
       onSelectCategory: handleSelectCategory,
       activeTabName,
+      marketListRedesignEnabled,
     }),
     [
       filterBarProps,
@@ -427,6 +436,7 @@ function MobileLayoutComponent({
       selectedCategoryId,
       handleSelectCategory,
       activeTabName,
+      marketListRedesignEnabled,
     ],
   );
 
@@ -469,25 +479,29 @@ function MobileLayoutComponent({
   ];
 
   return (
-    <TabBarDynamicContext.Provider value={dynamicCtx}>
-      <Tabs.Container
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ref={currentTabsRef as any}
-        width={platformEnv.isNative ? tabContainerWidth : undefined}
-        renderTabBar={renderTabBar}
-        initialTabName={selectedTabName}
-        onTabChange={onTabChangeHandler}
-        useNativeHeaderAnimation={
-          platformEnv.isNativeAndroid ? !nestedPager : false
-        }
-        pagerProps={
-          nestedPager ? ({ nestedScrollEnabled: true } as any) : undefined
-        }
-        {...containerProps}
-      >
-        {tabElements}
-      </Tabs.Container>
-    </TabBarDynamicContext.Provider>
+    // Wraps the whole container so the tab bar's filters trigger and the tab
+    // content's lists read the same condition state.
+    <MarketListFilterProvider>
+      <TabBarDynamicContext.Provider value={dynamicCtx}>
+        <Tabs.Container
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ref={currentTabsRef as any}
+          width={platformEnv.isNative ? tabContainerWidth : undefined}
+          renderTabBar={renderTabBar}
+          initialTabName={selectedTabName}
+          onTabChange={onTabChangeHandler}
+          useNativeHeaderAnimation={
+            platformEnv.isNativeAndroid ? !nestedPager : false
+          }
+          pagerProps={
+            nestedPager ? ({ nestedScrollEnabled: true } as any) : undefined
+          }
+          {...containerProps}
+        >
+          {tabElements}
+        </Tabs.Container>
+      </TabBarDynamicContext.Provider>
+    </MarketListFilterProvider>
   );
 }
 

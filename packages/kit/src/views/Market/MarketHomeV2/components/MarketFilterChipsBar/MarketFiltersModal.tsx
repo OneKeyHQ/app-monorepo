@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import {
@@ -50,6 +50,10 @@ function getTierColumns(optionCount: number) {
     ? TIER_COLUMNS_FOR_FOUR_OPTIONS
     : TIER_COLUMNS_DEFAULT;
 }
+
+// Figma 25169-44190: the icon-only mobile trigger draws an invisible
+// -4/-8 inset around itself so the 18px glyph still has a comfortable tap area.
+const MOBILE_TRIGGER_HIT_SLOP = { top: 4, bottom: 4, left: 8, right: 8 };
 
 const AUDIT_TIER_LABELS = ['≤ 10%', '≤ 30%', '≤ 50%'];
 
@@ -330,19 +334,20 @@ function MarketFiltersModalContent({
   );
 }
 
-// Filters entry pill; opens the filter conditions modal. Lives inside the
-// Market provider subtree, so it snapshots state/setters for the dialog.
-export function MarketFiltersTrigger({
+// Opens the filter dialog. Must be called from inside the Market provider
+// subtree: Dialog portals render outside it, so the current state and the
+// setters are snapshotted here and handed to the content as props.
+// Desktop renders it as a centered modal, native as a bottom sheet — that is
+// Dialog's own platform behavior, so both entry points share this one path.
+function useOpenMarketFiltersDialog({
   timeRange,
   onTimeRangeChange,
 }: {
   timeRange: IMarketTimeRangeValue;
   onTimeRangeChange: (v: IMarketTimeRangeValue) => void;
 }) {
-  const { filterState, applyConditions, activeConditionCount } =
-    useMarketListFilter();
-
-  const handlePress = () => {
+  const { filterState, applyConditions } = useMarketListFilter();
+  return useCallback(() => {
     const dialog = Dialog.show({
       title: 'Filters',
       showFooter: false,
@@ -358,7 +363,77 @@ export function MarketFiltersTrigger({
         />
       ),
     });
-  };
+  }, [filterState.conditions, timeRange, applyConditions, onTimeRangeChange]);
+}
+
+// Applied-condition count badge (Figma 24980-5127 / 25169-44218).
+function FiltersCountBadge({ count }: { count: number }) {
+  if (count <= 0) {
+    return null;
+  }
+  return (
+    <XStack
+      minWidth={18}
+      px="$1"
+      py={1}
+      borderRadius="$full"
+      bg="$bgInfo"
+      alignItems="center"
+      justifyContent="center"
+    >
+      <SizableText size="$bodySmMedium" color="$textInfo">
+        {count}
+      </SizableText>
+    </XStack>
+  );
+}
+
+// Mobile toolbar entry (Figma 25169-43731 / 25169-44211): icon only, with the
+// count badge beside it once conditions are applied. The 18px icon is a small
+// touch target, so hitSlop widens it to the design's -4/-8 inset.
+export function MarketFiltersIconTrigger({
+  timeRange,
+  onTimeRangeChange,
+}: {
+  timeRange: IMarketTimeRangeValue;
+  onTimeRangeChange: (v: IMarketTimeRangeValue) => void;
+}) {
+  const { activeConditionCount } = useMarketListFilter();
+  const openDialog = useOpenMarketFiltersDialog({
+    timeRange,
+    onTimeRangeChange,
+  });
+  return (
+    <XStack
+      alignItems="center"
+      justifyContent="center"
+      gap="$0.5"
+      hitSlop={MOBILE_TRIGGER_HIT_SLOP}
+      userSelect="none"
+      cursor="pointer"
+      onPress={openDialog}
+      role="button"
+      testID="market-filters-icon-trigger"
+    >
+      <Icon name="Filter1Outline" size="$4.5" color="$iconSubdued" />
+      <FiltersCountBadge count={activeConditionCount} />
+    </XStack>
+  );
+}
+
+// Desktop toolbar entry pill.
+export function MarketFiltersTrigger({
+  timeRange,
+  onTimeRangeChange,
+}: {
+  timeRange: IMarketTimeRangeValue;
+  onTimeRangeChange: (v: IMarketTimeRangeValue) => void;
+}) {
+  const { activeConditionCount } = useMarketListFilter();
+  const openDialog = useOpenMarketFiltersDialog({
+    timeRange,
+    onTimeRangeChange,
+  });
 
   return (
     <XStack
@@ -372,28 +447,14 @@ export function MarketFiltersTrigger({
       hoverStyle={{ bg: '$bgHover' }}
       pressStyle={{ bg: '$bgActive' }}
       userSelect="none"
-      onPress={handlePress}
+      onPress={openDialog}
       role="button"
       testID="market-filters-modal-trigger"
     >
       <SizableText size="$bodySmMedium" color="$textSubdued">
         Filters
       </SizableText>
-      {activeConditionCount > 0 ? (
-        <XStack
-          minWidth={18}
-          px="$1"
-          py={1}
-          borderRadius="$full"
-          bg="$bgInfo"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <SizableText size="$bodySmMedium" color="$textInfo">
-            {activeConditionCount}
-          </SizableText>
-        </XStack>
-      ) : null}
+      <FiltersCountBadge count={activeConditionCount} />
       <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
     </XStack>
   );

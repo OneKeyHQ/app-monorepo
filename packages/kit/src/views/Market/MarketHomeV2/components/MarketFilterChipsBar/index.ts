@@ -1,5 +1,8 @@
 export { MarketFilterChipsBar } from './MarketFilterChipsBar';
-export { MarketFiltersTrigger } from './MarketFiltersModal';
+export {
+  MarketFiltersIconTrigger,
+  MarketFiltersTrigger,
+} from './MarketFiltersModal';
 export {
   MarketListFilterProvider,
   useMarketListFilter,

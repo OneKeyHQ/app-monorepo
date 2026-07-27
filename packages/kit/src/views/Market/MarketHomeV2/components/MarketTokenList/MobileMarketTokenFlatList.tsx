@@ -14,6 +14,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getMarketNativeCompactListStyle } from '../../layouts/mobileLayoutUtils';
+import {
+  applyMarketListLocalFilter,
+  useMarketListFilter,
+} from '../MarketFilterChipsBar';
 
 import { TokenListItem } from './components/TokenListItem';
 import { TokenListSkeleton } from './components/TokenListSkeleton';
@@ -55,7 +59,7 @@ function MobileMarketTokenFlatListBase({
 
   // Data management
   const {
-    data,
+    data: fetchedData,
     isLoading,
     isLoadingMore,
     isNetworkSwitching,
@@ -71,6 +75,17 @@ function MobileMarketTokenFlatListBase({
     category: stockCategory,
     timeRange,
   });
+
+  const { filterState } = useMarketListFilter();
+  // Filters apply to trending only; stock categories keep server-driven data.
+  const filtersActive = selectedCategory === 'trending' && !stockCategory;
+  const data = useMemo(
+    () =>
+      filtersActive
+        ? applyMarketListLocalFilter(fetchedData, filterState.conditions)
+        : fetchedData,
+    [filtersActive, fetchedData, filterState.conditions],
+  );
 
   const isStockData = useMemo(
     () => shouldUseStockMetadataColumnsForTokens(data),
