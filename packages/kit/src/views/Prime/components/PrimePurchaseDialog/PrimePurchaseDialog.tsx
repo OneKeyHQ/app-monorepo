@@ -15,6 +15,7 @@ import type { IPrimePaymentMethod } from '@onekeyhq/shared/src/logger/scopes/pri
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
+import { getPrimeInfiniPaymentEntryGuard } from '../../hooks/primeInfiniExternalCheckoutGuard';
 import { usePrimeInfiniPurchase } from '../../hooks/usePrimeInfiniPurchase';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { logPrimeInfiniPaymentFlow } from '../../primeInfiniPaymentLogger';
@@ -258,6 +259,32 @@ export function usePrimePurchaseCallback({
           paymentMethod,
         });
       };
+      const continuePendingCryptoPayment = async ({
+        beforeContinue,
+      }: {
+        beforeContinue: () => void | Promise<void>;
+      }) => {
+        const entryGuard = await getPrimeInfiniPaymentEntryGuard();
+        if (!entryGuard.hasPendingPayment) {
+          return false;
+        }
+        await beforeContinue();
+        await purchaseByCryptoUnchecked({
+          selectedSubscriptionPeriod,
+          featureName,
+        });
+        return true;
+      };
+
+      if (
+        await continuePendingCryptoPayment({
+          beforeContinue: async () => {
+            await onPurchase?.();
+          },
+        })
+      ) {
+        return;
+      }
 
       if (platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay) {
         if (
@@ -296,6 +323,15 @@ export function usePrimePurchaseCallback({
             <PrimePaymentMethodItems
               methods={paymentMethods}
               onSelect={async (method) => {
+                if (
+                  await continuePendingCryptoPayment({
+                    beforeContinue: async () => {
+                      await paymentMethodDialog.close();
+                    },
+                  })
+                ) {
+                  return true;
+                }
                 if (
                   !(await ensurePrimePurchaseEligible({
                     expectedOneKeyUserId: user?.onekeyUserId,
