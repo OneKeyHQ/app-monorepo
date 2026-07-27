@@ -38,6 +38,27 @@ export interface IIpTableRemoteConfig {
       }>;
     };
   };
+
+  firmware_rollout?: IFirmwareUpdateRolloutConfig;
+}
+
+export type IFirmwareUpdateRolloutPlatform = 'ios' | 'android' | 'desktop';
+
+export interface IFirmwareUpdateRolloutRule {
+  enabled: boolean;
+  killSwitch: boolean;
+  percentageBps: number;
+  allowDeviceTypes?: string[];
+  allowPlatforms?: IFirmwareUpdateRolloutPlatform[];
+  minAppVersion?: string;
+}
+
+export interface IFirmwareUpdateRolloutConfig {
+  schemaVersion: 1;
+  policyVersion: number;
+  salt: string;
+  expiresAt: number;
+  coordinatorExternalOnly?: IFirmwareUpdateRolloutRule;
 }
 
 /**
@@ -63,6 +84,7 @@ export interface IIpTableRuntime {
     at: number;
     version: number;
     generatedAt: string;
+    firmwarePolicyVersion?: number;
     /** FNV-1a correlation hash of the canonical signed payload (not a security hash) */
     payloadHash: string;
   };

@@ -80,23 +80,23 @@ describe('verifyIpTableConfigSignature', () => {
 
   test('returns true for valid signature from correct signer', async () => {
     const validConfig: IIpTableRemoteConfig = {
-      'domains': {
+      domains: {
         'onekeycn.com': {
-          'endpoints': [
+          endpoints: [
             {
-              'ip': '104.18.20.233',
-              'provider': 'cloudflare',
-              'region': 'GLOBAL',
-              'weight': 100,
+              ip: '104.18.20.233',
+              provider: 'cloudflare',
+              region: 'GLOBAL',
+              weight: 100,
             },
           ],
         },
       },
-      'generated_at': '2025-11-07T07:27:37.338Z',
-      'signature':
+      generated_at: '2025-11-07T07:27:37.338Z',
+      signature:
         '0x66708c60c6a1aae2d34d75c6f42662208279f2dc13e1370a0b52fdfe783fc6d56369708a8a5a98f0e3eda900d537de0cbb7e808bbaf1bef267f350843a761b5d1c',
-      'ttl_sec': 86_400,
-      'version': 1,
+      ttl_sec: 86_400,
+      version: 1,
     };
     await expect(verifyIpTableConfigSignature(validConfig)).resolves.toBe(true);
   });
@@ -372,6 +372,25 @@ describe('computeIpTableConfigHash', () => {
       version: 2,
     });
     expect(changed).not.toBe(base);
+  });
+
+  test('includes firmware rollout policy in the signed canonical payload', () => {
+    const base = computeIpTableConfigHash(DEFAULT_IP_TABLE_CONFIG);
+    const withRollout = computeIpTableConfigHash({
+      ...DEFAULT_IP_TABLE_CONFIG,
+      firmware_rollout: {
+        schemaVersion: 1,
+        policyVersion: 1,
+        salt: 'rollout-test',
+        expiresAt: Date.parse('2030-01-01T00:00:00.000Z'),
+        coordinatorExternalOnly: {
+          enabled: false,
+          killSwitch: true,
+          percentageBps: 0,
+        },
+      },
+    });
+    expect(withRollout).not.toBe(base);
   });
 });
 

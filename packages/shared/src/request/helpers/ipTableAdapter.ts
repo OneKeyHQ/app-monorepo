@@ -102,7 +102,7 @@ function logIpTableEvent(
 /**
  * Request failure callback parameters
  */
-interface IRequestFailureParams {
+export interface IRequestFailureParams {
   /** Root domain (e.g., "onekey.so") */
   domain: string;
   /** 'ip' for SNI request failure, 'domain' for direct domain request failure */
@@ -124,7 +124,7 @@ let reportRequestFailureCallback:
  * its consecutive-failure counters reset on real recovery instead of only
  * ever incrementing.
  */
-interface IRequestSuccessParams {
+export interface IRequestSuccessParams {
   domain: string;
   requestType: 'ip' | 'domain';
   target: string;
@@ -140,6 +140,18 @@ export function setReportRequestSuccessCallback(
   callback: (params: IRequestSuccessParams) => void,
 ) {
   reportRequestSuccessCallback = callback;
+}
+
+export function reportIpTableRequestSuccess(
+  params: IRequestSuccessParams,
+): void {
+  reportRequestSuccessCallback?.(params);
+}
+
+export function reportIpTableRequestFailure(
+  params: IRequestFailureParams,
+): void {
+  reportRequestFailureCallback?.(params);
 }
 
 /**
@@ -196,7 +208,7 @@ const SHARED_IP_DOMAINS = new Set(['onekey.so']);
  * Get the mapped domain for IP lookup
  * For domains in SHARED_IP_DOMAINS, use the current API environment's domain
  */
-async function getMappedDomainForIpLookup(
+export async function getMappedDomainForIpLookup(
   rootDomain: string,
 ): Promise<string | null> {
   if (!SHARED_IP_DOMAINS.has(rootDomain)) {
@@ -294,9 +306,13 @@ const TRANSPORT_ERROR_CODES = new Set([
   'ENETUNREACH',
   'EHOSTUNREACH',
   'EAI_AGAIN',
+  'SNI_TIMEOUT',
+  'SNI_CONNECTION_REFUSED',
+  'SNI_DNS_FAILED',
+  'SNI_NETWORK_UNREACHABLE',
 ]);
 
-function isTransportLevelError(error: unknown): boolean {
+export function isIpTableTransportError(error: unknown): boolean {
   if (!error || typeof error !== 'object') {
     return false;
   }
@@ -327,7 +343,7 @@ function getFailoverState(lookupDomain: string): IAdapterFailoverState {
       hostFailures: new Map(),
       failOpenUntil: 0,
       activatedHostSequences: new Map(),
-      fallbackIpIndex: 0,
+      fallbackIpIndex: -1,
     };
     adapterFailoverStates.set(lookupDomain, state);
   }
@@ -422,7 +438,7 @@ async function recordDomainRequestOutcome(options: {
     return;
   }
 
-  if (!isTransportLevelError(error)) {
+  if (!isIpTableTransportError(error)) {
     return;
   }
   if (await isFailoverDisabledByDevSettings()) {
@@ -982,7 +998,7 @@ export function createIpTableAdapter(
         hostname &&
         rootDomain &&
         reportRequestFailureCallback &&
-        isTransportLevelError(error)
+        isIpTableTransportError(error)
       ) {
         debugLog(
           `[IpTableAdapter] Domain request failed (not fallback): ${hostname}`,
@@ -1423,8 +1439,8 @@ export function createAxiosWithIpTable(axiosConfig: AxiosRequestConfig = {}) {
 /**
  * Test endpoint speed using domain directly (no IP Table)
  */
-export async function testDomainSpeed(
-  domain: string,
+export async function testHostSpeed(
+  hostname: string,
   path: string,
   timeout = 3000,
 ): Promise<number> {
@@ -1436,8 +1452,7 @@ export async function testDomainSpeed(
 
     const headers = await getRequestHeaders();
 
-    // Build full URL: https://wallet.{domain}/wallet/v1/health
-    const fullUrl = `https://wallet.${domain}${path}`;
+    const fullUrl = `https://${hostname}${path}`;
 
     await plainAxios.get(fullUrl, {
       timeout,
@@ -1453,10 +1468,10 @@ export async function testDomainSpeed(
     });
     return latency;
   } catch (error) {
-    debugWarn(`[IpTableAdapter] Domain test failed for ${domain}:`, error);
+    debugWarn(`[IpTableAdapter] Domain test failed for ${hostname}:`, error);
     defaultLogger.ipTable.request.warn({
       info: redactIpLiterals(
-        `[IpTable] Domain speed test failed for ${domain}: ${
+        `[IpTable] Domain speed test failed for ${hostname}: ${
           error instanceof Error ? error.message : 'Unknown error'
         }`,
       ),
@@ -1465,12 +1480,20 @@ export async function testDomainSpeed(
   }
 }
 
+export async function testDomainSpeed(
+  domain: string,
+  path: string,
+  timeout = 3000,
+): Promise<number> {
+  return testHostSpeed(`wallet.${domain}`, path, timeout);
+}
+
 /**
  * Test endpoint speed using IP with SNI
  */
-export async function testIpSpeed(
+export async function testIpHostSpeed(
   ip: string,
-  domain: string,
+  hostname: string,
   path: string,
   timeout = 3000,
 ): Promise<number> {
@@ -1486,9 +1509,7 @@ export async function testIpSpeed(
     // Get OneKey request headers
     const headers = await getRequestHeaders();
 
-    // SNI hostname should be: wallet.{domain}
-    const sniHostname = `wallet.${domain}`;
-    const targetUrl = `https://${sniHostname}${path}`;
+    const targetUrl = `https://${hostname}${path}`;
 
     let proxyActive: boolean | null;
     try {
@@ -1496,7 +1517,7 @@ export async function testIpSpeed(
     } catch (error) {
       logIpTableEvent('warn', 'sni_speed_preflight_decision', {
         platform: getSniLogPlatform(),
-        hostname: sniHostname,
+        hostname,
         ipHash: hashForLog(ip),
         proxyActive: 'null',
         decision: 'skip_ip_speed',
@@ -1510,7 +1531,7 @@ export async function testIpSpeed(
     if (proxyActive === true) {
       logIpTableEvent('warn', 'sni_speed_preflight_decision', {
         platform: getSniLogPlatform(),
-        hostname: sniHostname,
+        hostname,
         ipHash: hashForLog(ip),
         proxyActive,
         decision: 'skip_ip_speed',
@@ -1521,7 +1542,7 @@ export async function testIpSpeed(
 
     logIpTableEvent('info', 'sni_speed_preflight_decision', {
       platform: getSniLogPlatform(),
-      hostname: sniHostname,
+      hostname,
       ipHash: hashForLog(ip),
       proxyActive: proxyActive === null ? 'null' : proxyActive,
       decision: 'test_ip_speed',
@@ -1533,7 +1554,7 @@ export async function testIpSpeed(
 
     const response = await sniRequest({
       ip,
-      hostname: sniHostname,
+      hostname,
       path,
       method: 'GET',
       timeout,
@@ -1553,11 +1574,11 @@ export async function testIpSpeed(
 
     const latency = Date.now() - startTime;
     debugLog(
-      `[IpTableAdapter] IP test: ${ip} -> ${sniHostname}${path} -> ${latency}ms`,
+      `[IpTableAdapter] IP test: ${ip} -> ${hostname}${path} -> ${latency}ms`,
     );
     defaultLogger.ipTable.request.info({
       info: redactIpLiterals(
-        `[IpTable] IP speed test successful: ${ip} -> ${sniHostname}${path} : ${latency} ms`,
+        `[IpTable] IP speed test successful: ${ip} -> ${hostname}${path} : ${latency} ms`,
       ),
     });
     return latency;
@@ -1572,6 +1593,15 @@ export async function testIpSpeed(
     });
     return Infinity;
   }
+}
+
+export async function testIpSpeed(
+  ip: string,
+  domain: string,
+  path: string,
+  timeout = 3000,
+): Promise<number> {
+  return testIpHostSpeed(ip, `wallet.${domain}`, path, timeout);
 }
 
 // ========== Request Failure Reporting ==========

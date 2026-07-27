@@ -29,6 +29,8 @@ import {
   setReportRequestFailureCallback,
   setReportRequestSuccessCallback,
   testDomainSpeed,
+  testHostSpeed,
+  testIpHostSpeed,
   testIpSpeed,
 } from '@onekeyhq/shared/src/request/helpers/ipTableAdapter';
 import { decideEndpoint } from '@onekeyhq/shared/src/request/helpers/ipTableEndpointDecision';
@@ -57,6 +59,9 @@ import {
 import { devSettingsPersistAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
+
+const FIRMWARE_CONFIG_HOST = 'data.onekey.so';
+const FIRMWARE_CONFIG_PATH = '/config.json';
 
 /**
  * Endpoint health statistics
@@ -808,13 +813,27 @@ class ServiceIpTable extends ServiceBase {
       defaultLogger.ipTable.request.info({
         info: `[IpTable] Testing domain: ${domain}`,
       });
-      const domainLatency = await this.testMultipleTimes(() =>
-        testDomainSpeed(
-          domain,
-          ONEKEY_HEALTH_CHECK_URL,
-          IP_TABLE_SPEED_TEST_TIMEOUT_MS,
+      const domainLatencies = [
+        await this.testMultipleTimes(() =>
+          testDomainSpeed(
+            domain,
+            ONEKEY_HEALTH_CHECK_URL,
+            IP_TABLE_SPEED_TEST_TIMEOUT_MS,
+          ),
         ),
-      );
+      ];
+      if (domain === ONEKEY_API_HOST) {
+        domainLatencies.push(
+          await this.testMultipleTimes(() =>
+            testHostSpeed(
+              FIRMWARE_CONFIG_HOST,
+              FIRMWARE_CONFIG_PATH,
+              IP_TABLE_SPEED_TEST_TIMEOUT_MS,
+            ),
+          ),
+        );
+      }
+      const domainLatency = Math.max(...domainLatencies);
 
       defaultLogger.ipTable.request.info({
         info: `[IpTable] Domain test result: ${domain} -> ${domainLatency}ms`,
@@ -828,14 +847,29 @@ class ServiceIpTable extends ServiceBase {
           info: `[IpTable] Testing IP: ${endpoint.ip} for ${domain}`,
         });
 
-        const ipLatency = await this.testMultipleTimes(() =>
-          testIpSpeed(
-            endpoint.ip,
-            domain,
-            ONEKEY_HEALTH_CHECK_URL,
-            IP_TABLE_SPEED_TEST_TIMEOUT_MS,
+        const ipLatencies = [
+          await this.testMultipleTimes(() =>
+            testIpSpeed(
+              endpoint.ip,
+              domain,
+              ONEKEY_HEALTH_CHECK_URL,
+              IP_TABLE_SPEED_TEST_TIMEOUT_MS,
+            ),
           ),
-        );
+        ];
+        if (domain === ONEKEY_API_HOST) {
+          ipLatencies.push(
+            await this.testMultipleTimes(() =>
+              testIpHostSpeed(
+                endpoint.ip,
+                FIRMWARE_CONFIG_HOST,
+                FIRMWARE_CONFIG_PATH,
+                IP_TABLE_SPEED_TEST_TIMEOUT_MS,
+              ),
+            ),
+          );
+        }
+        const ipLatency = Math.max(...ipLatencies);
 
         ipResults.set(endpoint.ip, ipLatency);
 
