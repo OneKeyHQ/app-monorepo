@@ -16,6 +16,16 @@ const mockApiGetInfiniPayment = jest.fn<
   Promise<unknown>,
   [{ paymentId: string; expectedOneKeyUserId: string }]
 >();
+const mockDiscardTerminalPaymentSession = jest.fn<
+  Promise<boolean>,
+  [
+    {
+      onekeyUserId: string;
+      expectedPaymentCacheIdentity: { paymentId: string };
+      latestPayment: unknown;
+    },
+  ]
+>();
 const mockLatchPendingPaymentProgress = jest.fn<
   Promise<unknown>,
   [
@@ -41,6 +51,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       prime: {
         getInfiniPendingPaymentSession: (params: { onekeyUserId: string }) =>
           mockGetPendingPaymentSession(params),
+        discardTerminalInfiniPendingPaymentSession: (params: {
+          onekeyUserId: string;
+          expectedPaymentCacheIdentity: { paymentId: string };
+          latestPayment: unknown;
+        }) => mockDiscardTerminalPaymentSession(params),
         latchInfiniPendingPaymentSessionProgress: (params: {
           onekeyUserId: string;
           paymentCacheKey: { paymentId: string };
@@ -96,6 +111,7 @@ describe('getPrimeInfiniExternalCheckoutGuard', () => {
     });
     mockGetPendingPaymentSession.mockResolvedValue({
       sendStarted: true,
+      selectedSubscriptionPeriod: 'P1M',
       paymentCacheKey: {
         paymentId: 'payment-1',
       },
@@ -117,6 +133,7 @@ describe('getPrimeInfiniExternalCheckoutGuard', () => {
       isLoggedIn: true,
       hasPendingPayment: true,
       onekeyUserId: 'user-1',
+      pendingSubscriptionPeriod: 'P1M',
     });
   });
 
@@ -127,6 +144,7 @@ describe('getPrimeInfiniExternalCheckoutGuard', () => {
     });
     mockGetPendingPaymentSession.mockResolvedValue({
       sendStarted: false,
+      selectedSubscriptionPeriod: 'P1M',
       paymentCacheKey: {
         paymentId: 'payment-1',
       },
@@ -162,6 +180,7 @@ describe('getPrimeInfiniExternalCheckoutGuard', () => {
     });
     mockGetPendingPaymentSession.mockResolvedValue({
       sendStarted: false,
+      selectedSubscriptionPeriod: 'P1M',
       paymentCacheKey: {
         paymentId: 'payment-1',
       },
@@ -183,6 +202,7 @@ describe('getPrimeInfiniExternalCheckoutGuard', () => {
       isLoggedIn: true,
       hasPendingPayment: true,
       onekeyUserId: 'user-1',
+      pendingSubscriptionPeriod: 'P1M',
     });
   });
 
@@ -193,6 +213,7 @@ describe('getPrimeInfiniExternalCheckoutGuard', () => {
     });
     mockGetPendingPaymentSession.mockResolvedValue({
       sendStarted: false,
+      selectedSubscriptionPeriod: 'P1M',
       paymentCacheKey: {
         paymentId: 'payment-1',
       },
@@ -214,7 +235,84 @@ describe('getPrimeInfiniExternalCheckoutGuard', () => {
       isLoggedIn: true,
       hasPendingPayment: false,
       onekeyUserId: 'user-1',
+      pendingSubscriptionPeriod: 'P1M',
     });
     expect(mockLatchPendingPaymentProgress).not.toHaveBeenCalled();
+  });
+
+  it('releases a claimed session once the server closes the invoice unpaid', async () => {
+    mockGetLocalUserInfo.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-1',
+    });
+    mockGetPendingPaymentSession.mockResolvedValue({
+      sendStarted: true,
+      selectedSubscriptionPeriod: 'P1M',
+      paymentCacheKey: {
+        paymentId: 'payment-1',
+      },
+      payment: {
+        paymentId: 'payment-1',
+        amountDue: '1',
+        amountConfirmed: '0',
+        amountConfirming: '0',
+      },
+    });
+    const latestPayment = {
+      paymentId: 'payment-1',
+      amountDue: '1',
+      amountConfirmed: '0',
+      amountConfirming: '0',
+      status: 'expired',
+    };
+    mockApiGetInfiniPayment.mockResolvedValue(latestPayment);
+
+    await expect(getPrimeInfiniPaymentEntryGuard()).resolves.toEqual({
+      isLoggedIn: true,
+      hasPendingPayment: false,
+      onekeyUserId: 'user-1',
+      pendingSubscriptionPeriod: undefined,
+    });
+    expect(mockDiscardTerminalPaymentSession).toHaveBeenCalledWith({
+      onekeyUserId: 'user-1',
+      expectedPaymentCacheIdentity: { paymentId: 'payment-1' },
+      latestPayment,
+    });
+    expect(mockLatchPendingPaymentProgress).not.toHaveBeenCalled();
+  });
+
+  it('keeps blocking a claimed session that only expired on the local clock', async () => {
+    mockGetLocalUserInfo.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-1',
+    });
+    mockGetPendingPaymentSession.mockResolvedValue({
+      sendStarted: true,
+      selectedSubscriptionPeriod: 'P1Y',
+      paymentCacheKey: {
+        paymentId: 'payment-1',
+      },
+      payment: {
+        paymentId: 'payment-1',
+        amountDue: '1',
+        amountConfirmed: '0',
+        amountConfirming: '0',
+      },
+    });
+    mockApiGetInfiniPayment.mockResolvedValue({
+      paymentId: 'payment-1',
+      amountDue: '1',
+      amountConfirmed: '0',
+      amountConfirming: '0',
+      expiresAt: 1,
+    });
+
+    await expect(getPrimeInfiniPaymentEntryGuard()).resolves.toEqual({
+      isLoggedIn: true,
+      hasPendingPayment: true,
+      onekeyUserId: 'user-1',
+      pendingSubscriptionPeriod: 'P1Y',
+    });
+    expect(mockDiscardTerminalPaymentSession).not.toHaveBeenCalled();
   });
 });

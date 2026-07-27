@@ -7,6 +7,7 @@ import {
   getPrimeInfiniPaymentAssetKey,
   hasPrimeInfiniPaymentProgressSnapshot,
   isPrimeInfiniPaymentCacheKeyForContext,
+  isPrimeInfiniPaymentClosedUnpaidSnapshot,
   isPrimeInfiniPaymentForAssetSnapshot,
   isPrimeInfiniPaymentPreBroadcastSnapshotSendable,
   isPrimeInfiniPaymentTransferClaimForSession,
@@ -1587,6 +1588,78 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       return retireExpectedPayment({
         ...rawData,
         infiniPendingPaymentSessionByUserId: nextSessions,
+      });
+    });
+    return didDiscard;
+  }
+
+  // Releases a session whose invoice the server has closed with nothing
+  // collected, including one that already claimed sendStarted. That claim is
+  // set before broadcast and is never cleared except on purchase completion, so
+  // a transaction that reverted or ran out of gas would otherwise pin the
+  // session for its whole TTL and block every purchase channel behind the
+  // payment-entry guard. The progress merge runs against the stored session so
+  // a transient zero-progress snapshot cannot release a payment that is
+  // actually moving, and a tombstone is retired alongside it so a stale writer
+  // cannot resurrect the session.
+  @backgroundMethod()
+  async discardTerminalInfiniPendingPaymentSession({
+    onekeyUserId,
+    expectedPaymentCacheIdentity,
+    latestPayment,
+  }: {
+    onekeyUserId: string;
+    expectedPaymentCacheIdentity: IPrimeInfiniPaymentCacheKey;
+    latestPayment: IPrimeInfiniPayment;
+  }): Promise<boolean> {
+    if (
+      !onekeyUserId ||
+      !isValidInfiniPaymentCacheKey(expectedPaymentCacheIdentity)
+    ) {
+      return false;
+    }
+    let didDiscard = false;
+    await this.setRawData((rawData) => {
+      const now = Date.now();
+      const currentSession =
+        rawData?.infiniPendingPaymentSessionByUserId?.[onekeyUserId];
+      if (
+        !currentSession ||
+        !isValidInfiniPendingPaymentSession(currentSession, {
+          onekeyUserId,
+          now,
+        }) ||
+        !isSamePrimeInfiniPaymentCacheKey(
+          expectedPaymentCacheIdentity,
+          currentSession.paymentCacheKey,
+        ) ||
+        currentSession.payment.paymentId !== latestPayment.paymentId
+      ) {
+        return rawData ?? {};
+      }
+      const paymentWithDurableProgress =
+        mergePrimeInfiniPaymentProgressSnapshot({
+          previous: currentSession.payment,
+          latest: latestPayment,
+        });
+      if (
+        !isPrimeInfiniPaymentClosedUnpaidSnapshot(paymentWithDurableProgress)
+      ) {
+        return rawData ?? {};
+      }
+      const nextSessions = {
+        ...rawData?.infiniPendingPaymentSessionByUserId,
+      };
+      delete nextSessions[onekeyUserId];
+      didDiscard = true;
+      return retireInfiniPaymentCache({
+        rawData: {
+          ...rawData,
+          infiniPendingPaymentSessionByUserId: nextSessions,
+        },
+        onekeyUserId,
+        paymentCacheKey: expectedPaymentCacheIdentity,
+        now,
       });
     });
     return didDiscard;

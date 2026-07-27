@@ -289,7 +289,12 @@ export function usePrimePurchaseCallback({
         }
         await beforeContinue();
         await purchaseByCryptoUnchecked({
-          selectedSubscriptionPeriod,
+          // Resume the in-flight invoice on its own period. Passing the period
+          // the user just picked would restore a monthly invoice under a
+          // yearly request, which the restore path tracks without complaint
+          // once the payment is no longer replaceable.
+          selectedSubscriptionPeriod:
+            entryGuard.pendingSubscriptionPeriod ?? selectedSubscriptionPeriod,
           featureName,
         });
         return true;

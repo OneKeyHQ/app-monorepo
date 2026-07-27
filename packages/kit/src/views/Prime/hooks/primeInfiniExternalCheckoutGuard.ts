@@ -5,6 +5,7 @@ import type { IPrimeInfiniPendingPaymentSession } from '@onekeyhq/shared/types/p
 
 import {
   hasPrimeInfiniPaymentProgress,
+  isPrimeInfiniPaymentClosedUnpaid,
   isPrimeInfiniPaymentReplaceable,
 } from './primeInfiniPaymentUtils';
 
@@ -56,6 +57,7 @@ export async function getPrimeInfiniPaymentEntryGuard() {
       isLoggedIn: context.isLoggedIn,
       hasPendingPayment: false,
       onekeyUserId,
+      pendingSubscriptionPeriod: undefined,
     };
   }
 
@@ -71,6 +73,25 @@ export async function getPrimeInfiniPaymentEntryGuard() {
   const sendStarted =
     pendingPaymentSession.sendStarted ||
     hasPrimeInfiniPaymentProgress(paymentWithDurableProgress);
+  if (isPrimeInfiniPaymentClosedUnpaid(paymentWithDurableProgress)) {
+    // The invoice is closed server-side with nothing collected. Release the
+    // session so the entry gate stops blocking every channel; a claimed but
+    // reverted broadcast would otherwise pin it until the session TTL.
+    await backgroundApiProxy.simpleDb.prime.discardTerminalInfiniPendingPaymentSession(
+      {
+        onekeyUserId,
+        expectedPaymentCacheIdentity: pendingPaymentSession.paymentCacheKey,
+        latestPayment,
+      },
+    );
+    return {
+      isLoggedIn: true,
+      hasPendingPayment: false,
+      onekeyUserId,
+      pendingSubscriptionPeriod: undefined,
+    };
+  }
+
   const hasPendingPayment = !isPrimeInfiniPaymentReplaceable({
     payment: paymentWithDurableProgress,
     sendStarted,
@@ -95,5 +116,9 @@ export async function getPrimeInfiniPaymentEntryGuard() {
     isLoggedIn: true,
     hasPendingPayment,
     onekeyUserId,
+    // Resuming has to follow the invoice that is already in flight, not a
+    // period the user picked afterwards, otherwise the restore silently
+    // continues a monthly invoice for a yearly selection.
+    pendingSubscriptionPeriod: pendingPaymentSession.selectedSubscriptionPeriod,
   };
 }
