@@ -3,6 +3,7 @@ const mockDemoConstructor = jest.fn();
 const mockDemoGetPlatformEnv = jest.fn(async () => ({ platform: 'test' }));
 const mockUnifoldConstructor = jest.fn();
 const mockUnifoldTrackingLoop = jest.fn(async () => undefined);
+const mockUnifoldPrivateMethod = jest.fn(async () => undefined);
 let mockDemoModuleLoadCount = 0;
 let mockUnifoldModuleLoadCount = 0;
 
@@ -68,12 +69,20 @@ jest.mock('../services/ServiceUnifoldDeposit', () => {
         unifoldDepositTrackingLoop: async () => mockUnifoldTrackingLoop(),
         INTERNAL_unifoldDepositTrackingLoop: async () =>
           mockUnifoldTrackingLoop(),
+        mutateTrackingState: async () => mockUnifoldPrivateMethod(),
       };
     },
   };
 });
 
 describe('BackgroundApi lazy services', () => {
+  beforeEach(() => {
+    jest.resetModules();
+    jest.clearAllMocks();
+    mockDemoModuleLoadCount = 0;
+    mockUnifoldModuleLoadCount = 0;
+  });
+
   test('loads and constructs each service only when a method is called', async () => {
     const { default: BackgroundApi } = await import('./BackgroundApi');
     const backgroundApi = new BackgroundApi();
@@ -114,5 +123,91 @@ describe('BackgroundApi lazy services', () => {
     });
     expect(mockDemoGetPlatformEnv).toHaveBeenCalledTimes(1);
     expect(mockUnifoldTrackingLoop).toHaveBeenCalledTimes(2);
+  });
+
+  test('does not load for inspection properties or behave like a promise', async () => {
+    const { default: BackgroundApi } = await import('./BackgroundApi');
+    const backgroundApi = new BackgroundApi();
+    const service = backgroundApi.serviceUnifoldDeposit as unknown as Record<
+      PropertyKey,
+      unknown
+    >;
+
+    expect(service.then).toBeUndefined();
+    expect(service.toJSON).toBeUndefined();
+    expect(Reflect.get(service, 'hasOwnProperty')).toBeUndefined();
+    expect(service[Symbol.toStringTag]).toBeUndefined();
+    expect(await Promise.resolve(service)).toBe(service);
+    expect(mockUnifoldModuleLoadCount).toBe(0);
+    expect(mockUnifoldConstructor).not.toHaveBeenCalled();
+  });
+
+  test('uses the decorated alias for local calls and rejects private methods', async () => {
+    const { default: BackgroundApi } = await import('./BackgroundApi');
+    const { getLocalBackgroundServiceMethod } =
+      await import('./lazyServiceProxy');
+    const backgroundApi = new BackgroundApi();
+    const service = backgroundApi.serviceUnifoldDeposit;
+
+    const allowedMethod = getLocalBackgroundServiceMethod({
+      serviceApi: service,
+      methodName: 'unifoldDepositTrackingLoop',
+      backgroundMethodName: 'INTERNAL_unifoldDepositTrackingLoop',
+    });
+    await expect(
+      Reflect.apply(
+        allowedMethod as (...args: unknown[]) => unknown,
+        service,
+        [],
+      ),
+    ).resolves.toBeUndefined();
+
+    const privateMethod = getLocalBackgroundServiceMethod({
+      serviceApi: service,
+      methodName: 'mutateTrackingState',
+      backgroundMethodName: 'INTERNAL_mutateTrackingState',
+    });
+    await expect(
+      Reflect.apply(
+        privateMethod as (...args: unknown[]) => unknown,
+        service,
+        [],
+      ),
+    ).rejects.toThrow(
+      'Background method not support (method=serviceUnifoldDeposit.INTERNAL_mutateTrackingState)',
+    );
+    expect(mockUnifoldPrivateMethod).not.toHaveBeenCalled();
+  });
+
+  test('keeps eager services gated by the decorated alias', async () => {
+    const { getLocalBackgroundServiceMethod } =
+      await import('./lazyServiceProxy');
+    const originalMethod = jest.fn(async () => 'result');
+    const service = {
+      INTERNAL_method: jest.fn(async () => 'decorated result'),
+      method: originalMethod,
+    };
+
+    const serviceMethod = getLocalBackgroundServiceMethod({
+      serviceApi: service,
+      methodName: 'method',
+      backgroundMethodName: 'INTERNAL_method',
+    });
+    await expect(
+      Reflect.apply(
+        serviceMethod as (...args: unknown[]) => unknown,
+        service,
+        [],
+      ),
+    ).resolves.toBe('result');
+    expect(originalMethod).toHaveBeenCalledTimes(1);
+
+    expect(
+      getLocalBackgroundServiceMethod({
+        serviceApi: { method: originalMethod },
+        methodName: 'method',
+        backgroundMethodName: 'INTERNAL_method',
+      }),
+    ).toBeUndefined();
   });
 });

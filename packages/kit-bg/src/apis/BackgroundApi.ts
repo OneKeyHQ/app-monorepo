@@ -3,12 +3,15 @@
 
 // eslint-disable-next-line import-js/order
 
+import { throwMethodNotFound } from '@onekeyhq/shared/src/background/backgroundUtils';
+
 import externalWalletFactory from '../connectors/externalWalletFactory';
 import localDb from '../dbs/local/localDb';
 import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
 import BackgroundApiBase from './BackgroundApiBase';
+import { LAZY_SERVICE_PROXY } from './lazyServiceProxy';
 
 import type { IBackgroundApi } from './IBackgroundApi';
 import type ServiceDemo from '../services/ServiceDemo';
@@ -46,19 +49,32 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   ): T {
     let service: T | undefined;
     const value = new Proxy({} as T, {
-      get:
-        (_target, methodName) =>
-        (...args: unknown[]) =>
+      get: (_target, methodName) => {
+        if (methodName === LAZY_SERVICE_PROXY) {
+          return true;
+        }
+        if (
+          typeof methodName !== 'string' ||
+          methodName === 'then' ||
+          methodName === 'toJSON' ||
+          methodName === 'hasOwnProperty'
+        ) {
+          return undefined;
+        }
+        return (...args: unknown[]) =>
           loader().then(({ default: Service }) => {
             service ??= new Service({ backgroundApi: this });
+            const method = Reflect.get(service, methodName) as unknown;
+            if (typeof method !== 'function') {
+              return throwMethodNotFound(String(propertyName), methodName);
+            }
             return Reflect.apply(
-              Reflect.get(service, methodName) as (
-                ...params: unknown[]
-              ) => unknown,
+              method as (...params: unknown[]) => unknown,
               service,
               args,
             );
-          }),
+          });
+      },
     });
     Object.defineProperty(this, propertyName, { value });
     return value;
