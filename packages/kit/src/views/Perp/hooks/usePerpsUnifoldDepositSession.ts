@@ -344,6 +344,7 @@ export function usePerpsUnifoldDepositSession({
   const alignmentGeneration = alignmentGenerationRef.current;
   const addressGenerationRef = useRef<number | null>(null);
   const activationGenerationRef = useRef<number | null>(null);
+  const activationRetryGenerationRef = useRef<number | null>(null);
   useEffect(() => {
     if (recipientAddress && liveAccountAddress && !isLiveAccountAligned) {
       applyAddressState({ status: 'error', errorType: 'accountMismatch' });
@@ -624,7 +625,7 @@ export function usePerpsUnifoldDepositSession({
           return;
         }
         setActivationLookupFailed(true);
-        activationGenerationRef.current = requestGeneration;
+        activationRetryGenerationRef.current = requestGeneration;
         retryTimer = setTimeout(() => {
           if (!cancelled && !vetoRef.current) {
             setActivationAttempt((n) => n + 1);
@@ -974,7 +975,7 @@ export function usePerpsUnifoldDepositSession({
     // The eligibility screen failed and is retrying every 5s: the address
     // stays hidden, and the panel explains why instead of shimmering silently.
     activationRetrying:
-      activationGenerationRef.current === alignmentGeneration &&
+      activationRetryGenerationRef.current === alignmentGeneration &&
       activationLookupFailed &&
       !activationGatePassed,
     activationFee: currentActivationStatus?.activationFee ?? null,

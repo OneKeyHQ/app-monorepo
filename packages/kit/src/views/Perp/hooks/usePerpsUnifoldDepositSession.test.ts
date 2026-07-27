@@ -239,4 +239,48 @@ describe('usePerpsUnifoldDepositSession account alignment', () => {
 
     unmount();
   });
+
+  it('keeps the previous activation verdict invalid while reconnect checks retry', async () => {
+    const { result, rerender, unmount } = renderHook(() =>
+      usePerpsUnifoldDepositSession({
+        enabled: true,
+        expectedRecipient: RECIPIENT,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.qrAddress).toBe(DEPOSIT_ADDRESS);
+    });
+
+    mockLiveAccountAddress = null;
+    rerender({});
+    expect(result.current.qrAddress).toBeNull();
+
+    mockService.getActivationStatus.mockRejectedValue(
+      new Error('network unavailable'),
+    );
+    mockLiveAccountAddress = RECIPIENT;
+    rerender({});
+
+    await waitFor(() => {
+      expect(mockService.createDepositAddress).toHaveBeenCalledTimes(2);
+      expect(mockService.getActivationStatus).toHaveBeenCalledTimes(2);
+      expect(result.current.activationRetrying).toBe(true);
+    });
+    expect(result.current.qrAddress).toBeNull();
+    expect(result.current.addressState).toEqual({ status: 'loading' });
+    expect(result.current.activationFee).toBeNull();
+    expect(result.current.showActivationWarning).toBe(false);
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(5000);
+    });
+    await waitFor(() => {
+      expect(mockService.getActivationStatus).toHaveBeenCalledTimes(3);
+    });
+    expect(result.current.qrAddress).toBeNull();
+    expect(result.current.addressState).toEqual({ status: 'loading' });
+
+    unmount();
+  });
 });
