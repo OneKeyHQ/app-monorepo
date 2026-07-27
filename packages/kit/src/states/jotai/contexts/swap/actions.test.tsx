@@ -1297,6 +1297,125 @@ describe('useSwapActions', () => {
     expect(store.get(swapActiveSelectedFromTokenBalanceAtom())).toBe('0.1724');
   });
 
+  it('keeps user-entered amounts isolated across Swap, Stock, and Limit', async () => {
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      storeInstance.set(swapFromTokenAmountAtom(), {
+        value: '1',
+        isInput: true,
+      });
+      storeInstance.set(swapToTokenAmountAtom(), {
+        value: '101',
+        isInput: false,
+      });
+    });
+    const { result } = renderHook(
+      () => {
+        const actions = useSwapActions().current;
+
+        return {
+          actions,
+        };
+      },
+      {
+        wrapper: Wrapper,
+      },
+    );
+
+    await act(async () => {
+      await result.current.actions.swapTypeSwitchAction(
+        ESwapTabSwitchType.STOCK,
+      );
+    });
+
+    expect(store.get(swapFromTokenAmountAtom())).toEqual({
+      value: '',
+      isInput: false,
+    });
+    expect(store.get(swapToTokenAmountAtom())).toEqual({
+      value: '',
+      isInput: false,
+    });
+
+    store.set(swapFromTokenAmountAtom(), {
+      value: '2',
+      isInput: true,
+    });
+    store.set(swapToTokenAmountAtom(), {
+      value: '202',
+      isInput: false,
+    });
+
+    await act(async () => {
+      await result.current.actions.swapTypeSwitchAction(
+        ESwapTabSwitchType.LIMIT,
+      );
+    });
+
+    expect(store.get(swapFromTokenAmountAtom())).toEqual({
+      value: '',
+      isInput: false,
+    });
+    expect(store.get(swapToTokenAmountAtom())).toEqual({
+      value: '',
+      isInput: false,
+    });
+
+    store.set(swapFromTokenAmountAtom(), {
+      value: '0.3',
+      isInput: false,
+    });
+    store.set(swapToTokenAmountAtom(), {
+      value: '3',
+      isInput: true,
+    });
+
+    await act(async () => {
+      await result.current.actions.swapTypeSwitchAction(
+        ESwapTabSwitchType.SWAP,
+      );
+    });
+
+    expect(store.get(swapFromTokenAmountAtom())).toEqual({
+      value: '1',
+      isInput: true,
+    });
+    expect(store.get(swapToTokenAmountAtom())).toEqual({
+      value: '',
+      isInput: false,
+    });
+
+    await act(async () => {
+      await result.current.actions.swapTypeSwitchAction(
+        ESwapTabSwitchType.STOCK,
+      );
+    });
+
+    expect(store.get(swapFromTokenAmountAtom())).toEqual({
+      value: '2',
+      isInput: true,
+    });
+    expect(store.get(swapToTokenAmountAtom())).toEqual({
+      value: '',
+      isInput: false,
+    });
+
+    await act(async () => {
+      await result.current.actions.swapTypeSwitchAction(
+        ESwapTabSwitchType.LIMIT,
+      );
+    });
+
+    expect(store.get(swapFromTokenAmountAtom())).toEqual({
+      value: '',
+      isInput: false,
+    });
+    expect(store.get(swapToTokenAmountAtom())).toEqual({
+      value: '3',
+      isInput: true,
+    });
+  });
+
   it('blocks Stock quote before Stock execution tokens own the selected pair', async () => {
     const { result } = renderHook(
       () => {

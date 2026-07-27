@@ -84,7 +84,9 @@ import {
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
+  type ISwapInputAmountSnapshot,
   type ISwapQuoteEventErrorState,
+  type ISwapTokenAmountState,
   buildSwapProPositionsOwnerKey,
   contextAtomMethod,
   limitOrderMarketPriceAtom,
@@ -97,6 +99,7 @@ import {
   swapBuildTxFetchingAtom,
   swapFromTokenAmountAtom,
   swapInitialSelectedTokensSyncedAtom,
+  swapInputAmountSnapshotsAtom,
   swapLastNonLimitSelectedTokensAtom,
   swapLimitExpirationTimeAtom,
   swapLimitPartiallyFillAtom,
@@ -166,6 +169,47 @@ import {
   isSwapQuoteEventFetching,
   resolveSwapQuoteRefreshAction,
 } from './quoteProgress';
+
+type IIndependentSwapInputAmountType =
+  | ESwapTabSwitchType.SWAP
+  | ESwapTabSwitchType.STOCK
+  | ESwapTabSwitchType.LIMIT;
+
+function isIndependentSwapInputAmountType(
+  type: ESwapTabSwitchType,
+): type is IIndependentSwapInputAmountType {
+  return (
+    type === ESwapTabSwitchType.SWAP ||
+    type === ESwapTabSwitchType.STOCK ||
+    type === ESwapTabSwitchType.LIMIT
+  );
+}
+
+function buildSwapInputAmountSnapshot({
+  fromTokenAmount,
+  toTokenAmount,
+}: {
+  fromTokenAmount: ISwapTokenAmountState;
+  toTokenAmount: ISwapTokenAmountState;
+}): ISwapInputAmountSnapshot {
+  const emptyAmount = { value: '', isInput: false };
+  if (fromTokenAmount.isInput) {
+    return {
+      fromTokenAmount,
+      toTokenAmount: emptyAmount,
+    };
+  }
+  if (toTokenAmount.isInput) {
+    return {
+      fromTokenAmount: emptyAmount,
+      toTokenAmount,
+    };
+  }
+  return {
+    fromTokenAmount: emptyAmount,
+    toTokenAmount: emptyAmount,
+  };
+}
 
 function getSelectedPairLimitPriceRate({
   protocol,
@@ -3016,6 +3060,32 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     ) => {
       const oldType = get(swapTypeSwitchAtom());
       const normalizedType = getVisibleSwapTabSwitchType(type) ?? type;
+      const oldVisibleType = getVisibleSwapTabSwitchType(oldType) ?? oldType;
+      // Desktop and web render these tabs against the same amount atoms.
+      // Native Limit owns its input through swapProInputAmountAtom instead.
+      if (
+        !platformEnv.isNative &&
+        oldVisibleType !== normalizedType &&
+        isIndependentSwapInputAmountType(oldVisibleType) &&
+        isIndependentSwapInputAmountType(normalizedType)
+      ) {
+        const inputAmountSnapshots = get(swapInputAmountSnapshotsAtom());
+        set(swapInputAmountSnapshotsAtom(), {
+          ...inputAmountSnapshots,
+          [oldVisibleType]: buildSwapInputAmountSnapshot({
+            fromTokenAmount: get(swapFromTokenAmountAtom()),
+            toTokenAmount: get(swapToTokenAmountAtom()),
+          }),
+        });
+        const nextInputAmountSnapshot = inputAmountSnapshots[
+          normalizedType
+        ] ?? {
+          fromTokenAmount: { value: '', isInput: false },
+          toTokenAmount: { value: '', isInput: false },
+        };
+        set(swapFromTokenAmountAtom(), nextInputAmountSnapshot.fromTokenAmount);
+        set(swapToTokenAmountAtom(), nextInputAmountSnapshot.toTokenAmount);
+      }
       const isCrossingStockBoundary =
         (oldType === ESwapTabSwitchType.STOCK) !==
         (normalizedType === ESwapTabSwitchType.STOCK);
@@ -3030,7 +3100,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       let currentFromToken = get(swapSelectFromTokenAtom());
       let currentToToken = get(swapSelectToTokenAtom());
-      const oldVisibleType = getVisibleSwapTabSwitchType(oldType) ?? oldType;
       if (
         oldType !== ESwapTabSwitchType.STOCK &&
         oldType !== ESwapTabSwitchType.LIMIT &&
@@ -3100,8 +3169,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
         set(swapSelectFromTokenAtom(), currentFromToken);
         set(swapSelectToTokenAtom(), currentToToken);
-        set(swapFromTokenAmountAtom(), { value: '', isInput: false });
-        set(swapToTokenAmountAtom(), { value: '', isInput: false });
+        if (platformEnv.isNative) {
+          set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+          set(swapToTokenAmountAtom(), { value: '', isInput: false });
+        }
         set(swapSelectedTokensColdStartContextAtom(), undefined);
         set(swapInitialSelectedTokensSyncedAtom(), false);
       }
