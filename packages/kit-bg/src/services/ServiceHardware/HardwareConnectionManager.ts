@@ -1,7 +1,6 @@
 import { EDeviceType, ONEKEY_WEBUSB_FILTER } from '@onekeyfe/hd-shared';
 import axios from 'axios';
 
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -329,18 +328,6 @@ export class HardwareConnectionManager {
         await hardwareForceTransportAtom.get();
       const forceTransportType =
         hardwareForceTransportAtomState.forceTransportType;
-
-      // [TrezorConnectIdTrace] The read side: what transport this resolves to.
-      // A stale forceTransportType here (webusb during a BLE session) is what
-      // makes getCompatibleConnectId return the deviceId instead of bleConnectId.
-      defaultLogger.hardware.sdkLog.log(
-        `[TrezorConnectIdTrace][shouldSwitchTransportType] ${JSON.stringify({
-          hardwareCallContext,
-          forceTransportType,
-          connectId,
-          actualTransportType: this.actualTransportType,
-        })}`,
-      );
 
       // If a specific transport type is forced (e.g., for onboarding), use it directly
       if (forceTransportType) {

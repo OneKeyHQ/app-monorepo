@@ -433,11 +433,6 @@ class ServiceThirdPartyHardware extends ServiceBase {
     deviceId: string;
   }): Promise<void> {
     const adapter = await this.getAdapterForVendor(EHardwareVendor.trezor);
-    defaultLogger.hardware.sdkLog.log(
-      `[TrezorTHPTrace][service.persist] connectId=${String(
-        connectId,
-      )} deviceId=${deviceId}`,
-    );
     await adapter?.flushThpCredentials?.(deviceId, { connectId });
   }
 
