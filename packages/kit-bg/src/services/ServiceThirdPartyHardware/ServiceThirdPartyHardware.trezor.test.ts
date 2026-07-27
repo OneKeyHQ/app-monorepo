@@ -866,7 +866,10 @@ describe('ServiceThirdPartyHardware developer account name sync', () => {
           matchedOneKeyAccounts: [
             {
               indexedAccountId: 'hw-1--0',
+              accountId: 'btc-account',
+              walletId: 'hw-1',
               currentName: 'OneKey BTC Account',
+              path: "m/84'/0'/0'",
             },
           ],
         }),
@@ -877,6 +880,24 @@ describe('ServiceThirdPartyHardware developer account name sync', () => {
           selectedDeviceMatch: false,
         }),
       );
+      expect(inventory.selectedDevice).toEqual({
+        dbDeviceId: 'db-trezor',
+        deviceId: 'TREZOR-DEVICE',
+        featuresDeviceId: undefined,
+        connectId: 'TREZOR-USB',
+        usbConnectId: undefined,
+        bleConnectId: undefined,
+      });
+      expect(inventory.localAccounts).toEqual([
+        {
+          indexedAccountId: 'hw-1--0',
+          accountId: 'btc-account',
+          walletId: 'hw-1',
+          currentName: 'OneKey BTC Account',
+          address: matchedAddress,
+          path: "m/84'/0'/0'",
+        },
+      ]);
     } finally {
       (platformEnv as { isDesktop: boolean | undefined }).isDesktop =
         originalIsDesktop;
@@ -887,22 +908,23 @@ describe('ServiceThirdPartyHardware developer account name sync', () => {
   it('lists every parsed Ledger Live source account before filtering matches', async () => {
     const originalIsDesktop = platformEnv.isDesktop;
     const originalDesktopApiProxy = globalThis.desktopApiProxy;
+    const readLedgerLiveAccountNames = jest.fn().mockResolvedValue({
+      status: 'available',
+      accounts: [
+        {
+          name: 'Ledger Main',
+          address: '0x1111111111111111111111111111111111111111',
+        },
+        {
+          name: 'Ledger Unmatched',
+          address: '0x2222222222222222222222222222222222222222',
+        },
+      ],
+    });
     (platformEnv as { isDesktop: boolean }).isDesktop = true;
     globalThis.desktopApiProxy = {
       system: {
-        readLedgerLiveAccountNames: jest.fn().mockResolvedValue({
-          status: 'available',
-          accounts: [
-            {
-              name: 'Ledger Main',
-              address: '0x1111111111111111111111111111111111111111',
-            },
-            {
-              name: 'Ledger Unmatched',
-              address: '0x2222222222222222222222222222222222222222',
-            },
-          ],
-        }),
+        readLedgerLiveAccountNames,
       },
     } as never;
     try {
@@ -950,7 +972,10 @@ describe('ServiceThirdPartyHardware developer account name sync', () => {
           matchedOneKeyAccounts: [
             {
               indexedAccountId: 'hw-1--0',
+              accountId: 'evm-account',
+              walletId: 'hw-1',
               currentName: 'OneKey EVM',
+              path: "m/44'/60'/0'/0/0",
             },
           ],
         },
@@ -962,6 +987,32 @@ describe('ServiceThirdPartyHardware developer account name sync', () => {
           matchedOneKeyAccounts: [],
         },
       ]);
+      expect(inventory.localAccounts).toEqual([
+        {
+          indexedAccountId: 'hw-1--0',
+          accountId: 'evm-account',
+          walletId: 'hw-1',
+          currentName: 'OneKey EVM',
+          address: '0x1111111111111111111111111111111111111111',
+          path: "m/44'/60'/0'/0/0",
+        },
+      ]);
+
+      readLedgerLiveAccountNames.mockResolvedValueOnce({
+        status: 'source_not_found',
+        accounts: [],
+      });
+      const localOnlyInventory =
+        await service.getThirdPartyGlobalAccountNameSourceInventory({
+          vendor: EHardwareVendor.ledger,
+        });
+      expect(localOnlyInventory).toEqual(
+        expect.objectContaining({
+          status: 'source_not_found',
+          accounts: [],
+          localAccounts: inventory.localAccounts,
+        }),
+      );
     } finally {
       (platformEnv as { isDesktop: boolean | undefined }).isDesktop =
         originalIsDesktop;

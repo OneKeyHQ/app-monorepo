@@ -17,6 +17,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IThirdPartyAccountNameCandidatesResult,
+  IThirdPartyAccountNameLocalAccount,
+  IThirdPartyAccountNameSelectedDevice,
   IThirdPartyAccountNameSourceInventoryAccount,
   IThirdPartyAccountNameSourceInventoryResult,
   IThirdPartyAccountNameSourceStatus,
@@ -121,6 +123,8 @@ function buildAccountNameTargets({
     }
     return [...addresses].map((address) => ({
       indexedAccountId: indexedAccount.id,
+      accountId: account.id,
+      walletId: indexedAccount.walletId,
       currentName: indexedAccount.name,
       address,
       path: account.path,
@@ -153,7 +157,13 @@ function buildAccountNameSourceInventory({
 }): IThirdPartyAccountNameSourceInventoryAccount[] {
   const targetsByAddress = new Map<
     string,
-    Array<{ indexedAccountId: string; currentName: string }>
+    Array<{
+      indexedAccountId: string;
+      accountId: string;
+      walletId: string;
+      currentName: string;
+      path?: string;
+    }>
   >();
   for (const target of targetAccounts) {
     const address = normalizeInventoryAddress(target.address);
@@ -165,7 +175,10 @@ function buildAccountNameSourceInventory({
     ) {
       matches.push({
         indexedAccountId: target.indexedAccountId,
+        accountId: target.accountId,
+        walletId: target.walletId,
         currentName: target.currentName,
+        path: target.path,
       });
       targetsByAddress.set(address, matches);
     }
@@ -181,6 +194,39 @@ function buildAccountNameSourceInventory({
     matchedOneKeyAccounts:
       targetsByAddress.get(normalizeInventoryAddress(account.address)) ?? [],
   }));
+}
+
+function buildLocalAccountNameInventory(
+  targetAccounts: ReturnType<typeof buildAccountNameTargets>,
+): IThirdPartyAccountNameLocalAccount[] {
+  return targetAccounts.map((target) => ({
+    indexedAccountId: target.indexedAccountId,
+    accountId: target.accountId,
+    walletId: target.walletId,
+    currentName: target.currentName,
+    address: target.address,
+    path: target.path,
+  }));
+}
+
+function buildSelectedDeviceDebugInfo(
+  device: IDBDevice | undefined,
+): IThirdPartyAccountNameSelectedDevice | undefined {
+  if (!device) {
+    return undefined;
+  }
+  const featuresDeviceId = (
+    device.featuresInfo as { device_id?: unknown } | undefined
+  )?.device_id;
+  return {
+    dbDeviceId: device.id,
+    deviceId: device.deviceId,
+    featuresDeviceId:
+      typeof featuresDeviceId === 'string' ? featuresDeviceId : undefined,
+    connectId: device.connectId,
+    usbConnectId: device.usbConnectId,
+    bleConnectId: device.bleConnectId,
+  };
 }
 
 function stringifyThirdPartySearchDebugValue(value: unknown): string {
@@ -1308,9 +1354,15 @@ class ServiceThirdPartyHardware extends ServiceBase {
     const empty = (
       status: IThirdPartyAccountNameSourceStatus,
       scopeDescription: string,
+      options?: {
+        localAccounts?: IThirdPartyAccountNameLocalAccount[];
+        selectedDevice?: IThirdPartyAccountNameSelectedDevice;
+      },
     ): IThirdPartyAccountNameSourceInventoryResult => ({
       status,
       accounts: [],
+      localAccounts: options?.localAccounts ?? [],
+      selectedDevice: options?.selectedDevice,
       scopeDescription,
     });
     if (
@@ -1327,12 +1379,24 @@ class ServiceThirdPartyHardware extends ServiceBase {
         filterRemoved: true,
       }),
     ]);
+    const selectedDbDevice = params.dbDeviceId
+      ? await localDb.getDevice(params.dbDeviceId).catch(() => undefined)
+      : undefined;
+    const selectedDevice = buildSelectedDeviceDebugInfo(selectedDbDevice);
 
     if (params.vendor === EHardwareVendor.ledger) {
       const scopeDescription =
         'All plaintext Ethereum name/address entries parsed from Ledger Live on this computer.';
+      const localTargets = buildAccountNameTargets({
+        accounts,
+        indexedAccounts,
+      }).filter((account) => /^0x[0-9a-f]{40}$/i.test(account.address.trim()));
+      const localAccounts = buildLocalAccountNameInventory(localTargets);
       if (!platformEnv.isDesktop || !globalThis.desktopApiProxy?.system) {
-        return empty('unsupported_source', scopeDescription);
+        return empty('unsupported_source', scopeDescription, {
+          localAccounts,
+          selectedDevice,
+        });
       }
       const source =
         await globalThis.desktopApiProxy.system.readLedgerLiveAccountNames();
@@ -1346,36 +1410,48 @@ class ServiceThirdPartyHardware extends ServiceBase {
           encrypted_source: 'encrypted_source',
           invalid_source: 'invalid_source',
         };
-        return empty(statusMap[source.status], scopeDescription);
+        return empty(statusMap[source.status], scopeDescription, {
+          localAccounts,
+          selectedDevice,
+        });
       }
       const inventory = buildAccountNameSourceInventory({
         sourceAccounts: source.accounts,
-        targetAccounts: buildAccountNameTargets({
-          accounts,
-          indexedAccounts,
-        }),
+        targetAccounts: localTargets,
         source: 'ledger-live',
       });
       return {
         status: 'available',
         accounts: inventory,
+        localAccounts,
+        selectedDevice,
         scopeDescription,
       };
     }
 
     const scopeDescription =
       'All locally cached Trezor Suite Bitcoin accounts: one cached receive address per account, associated by Suite deviceId. No hardware address derivation is performed.';
+    const localTargets = buildAccountNameTargets({
+      accounts,
+      indexedAccounts,
+      onlyBitcoin: true,
+    });
+    const localAccounts = buildLocalAccountNameInventory(localTargets);
     if (!params.dbDeviceId) {
-      return empty('no_matches', scopeDescription);
+      return empty('no_matches', scopeDescription, { localAccounts });
     }
-    const dbDevice = await localDb
-      .getDevice(params.dbDeviceId)
-      .catch(() => undefined);
+    const dbDevice = selectedDbDevice;
     if (!dbDevice || dbDevice.vendor !== EHardwareVendor.trezor) {
-      return empty('no_matches', scopeDescription);
+      return empty('no_matches', scopeDescription, {
+        localAccounts,
+        selectedDevice,
+      });
     }
     if (!platformEnv.isDesktop || !globalThis.desktopApiProxy?.system) {
-      return empty('unsupported_source', scopeDescription);
+      return empty('unsupported_source', scopeDescription, {
+        localAccounts,
+        selectedDevice,
+      });
     }
     const sourceResponse =
       await globalThis.desktopApiProxy.system.readTrezorSuiteAccountNames();
@@ -1388,7 +1464,10 @@ class ServiceThirdPartyHardware extends ServiceBase {
         source_not_found: 'source_not_found',
         invalid_source: 'invalid_source',
       };
-      return empty(statusMap[sourceResponse.status], scopeDescription);
+      return empty(statusMap[sourceResponse.status], scopeDescription, {
+        localAccounts,
+        selectedDevice,
+      });
     }
     const selectedDeviceId = dbDevice.deviceId.trim().toLowerCase();
     const sourceAccounts = sourceResponse.accounts.map((account) => ({
@@ -1402,16 +1481,14 @@ class ServiceThirdPartyHardware extends ServiceBase {
     }));
     const inventory = buildAccountNameSourceInventory({
       sourceAccounts,
-      targetAccounts: buildAccountNameTargets({
-        accounts,
-        indexedAccounts,
-        onlyBitcoin: true,
-      }),
+      targetAccounts: localTargets,
       source: 'trezor-suite',
     });
     return {
       status: inventory.length ? 'available' : 'no_matches',
       accounts: inventory,
+      localAccounts,
+      selectedDevice,
       scopeDescription,
     };
   }

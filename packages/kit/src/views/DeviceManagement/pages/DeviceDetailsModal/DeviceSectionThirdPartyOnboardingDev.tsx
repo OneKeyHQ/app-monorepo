@@ -13,6 +13,8 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useDeviceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
+  IThirdPartyAccountNameLocalAccount,
+  IThirdPartyAccountNameSelectedDevice,
   IThirdPartyAccountNameSourceInventoryAccount,
   IThirdPartyAccountNameSourceStatus,
 } from '@onekeyhq/shared/src/referralCode/type';
@@ -49,9 +51,13 @@ function getNameSourceStatusMessage(
 
 function AccountNameSourceInventory({
   accounts,
+  localAccounts,
+  selectedDevice,
   scopeDescription,
 }: {
   accounts: IThirdPartyAccountNameSourceInventoryAccount[];
+  localAccounts: IThirdPartyAccountNameLocalAccount[];
+  selectedDevice?: IThirdPartyAccountNameSelectedDevice;
   scopeDescription: string;
 }) {
   return (
@@ -59,6 +65,46 @@ function AccountNameSourceInventory({
       <YStack gap="$3">
         <SizableText size="$bodySm" color="$textSubdued">
           {scopeDescription}
+        </SizableText>
+        {selectedDevice ? (
+          <YStack
+            gap="$1"
+            p="$3"
+            borderWidth="$px"
+            borderColor="$borderSubdued"
+            borderRadius="$3"
+          >
+            <SizableText size="$bodyMdMedium">
+              Selected OneKey device
+            </SizableText>
+            <SizableText size="$bodySm" color="$textSubdued" selectable>
+              DB device id: {selectedDevice.dbDeviceId}
+            </SizableText>
+            <SizableText size="$bodySm" color="$textSubdued" selectable>
+              Stored deviceId: {selectedDevice.deviceId}
+            </SizableText>
+            {selectedDevice.featuresDeviceId ? (
+              <SizableText size="$bodySm" color="$textSubdued" selectable>
+                Features device_id: {selectedDevice.featuresDeviceId}
+              </SizableText>
+            ) : null}
+            <SizableText size="$bodySm" color="$textSubdued" selectable>
+              Primary connectId: {selectedDevice.connectId || '(empty)'}
+            </SizableText>
+            {selectedDevice.usbConnectId ? (
+              <SizableText size="$bodySm" color="$textSubdued" selectable>
+                USB connectId: {selectedDevice.usbConnectId}
+              </SizableText>
+            ) : null}
+            {selectedDevice.bleConnectId ? (
+              <SizableText size="$bodySm" color="$textSubdued" selectable>
+                BLE connectId: {selectedDevice.bleConnectId}
+              </SizableText>
+            ) : null}
+          </YStack>
+        ) : null}
+        <SizableText size="$bodyMdMedium">
+          Source wallet accounts ({accounts.length})
         </SizableText>
         {accounts.map((account, index) => (
           <YStack
@@ -111,14 +157,65 @@ function AccountNameSourceInventory({
               {account.address}
             </SizableText>
             {account.matchedOneKeyAccounts.map((match) => (
-              <SizableText
+              <YStack
                 key={match.indexedAccountId}
-                size="$bodySm"
-                color="$textSuccess"
+                gap="$0.5"
+                pl="$2"
+                borderLeftWidth="$px"
+                borderLeftColor="$borderSuccess"
               >
-                OneKey: {match.currentName}
-              </SizableText>
+                <SizableText size="$bodySm" color="$textSuccess">
+                  OneKey: {match.currentName}
+                </SizableText>
+                <SizableText size="$bodySm" color="$textSubdued" selectable>
+                  Wallet: {match.walletId}
+                </SizableText>
+                <SizableText size="$bodySm" color="$textSubdued" selectable>
+                  Indexed account: {match.indexedAccountId}
+                </SizableText>
+                <SizableText size="$bodySm" color="$textSubdued" selectable>
+                  DB account: {match.accountId}
+                </SizableText>
+                {match.path ? (
+                  <SizableText size="$bodySm" color="$textSubdued" selectable>
+                    OneKey path: {match.path}
+                  </SizableText>
+                ) : null}
+              </YStack>
             ))}
+          </YStack>
+        ))}
+        <SizableText size="$bodyMdMedium">
+          Local OneKey address records ({localAccounts.length})
+        </SizableText>
+        {localAccounts.map((account, index) => (
+          <YStack
+            key={`${account.accountId}:${account.address}:${index}`}
+            gap="$1"
+            pb="$3"
+            borderBottomWidth="$px"
+            borderBottomColor="$borderSubdued"
+          >
+            <SizableText size="$bodyMdMedium">
+              {account.currentName}
+            </SizableText>
+            <SizableText size="$bodySm" color="$textSubdued" selectable>
+              Wallet: {account.walletId}
+            </SizableText>
+            <SizableText size="$bodySm" color="$textSubdued" selectable>
+              Indexed account: {account.indexedAccountId}
+            </SizableText>
+            <SizableText size="$bodySm" color="$textSubdued" selectable>
+              DB account: {account.accountId}
+            </SizableText>
+            {account.path ? (
+              <SizableText size="$bodySm" color="$textSubdued" selectable>
+                OneKey path: {account.path}
+              </SizableText>
+            ) : null}
+            <SizableText size="$bodySm" color="$textSubdued" selectable>
+              {account.address}
+            </SizableText>
           </YStack>
         ))}
       </YStack>
@@ -208,26 +305,25 @@ function DeviceSectionThirdPartyOnboardingDev() {
             dbDeviceId: device.id,
           },
         );
-      if (result.status !== 'available' || result.accounts.length === 0) {
-        setNameSyncStatus('idle');
-        Dialog.show({
-          icon: 'InfoCircleOutline',
-          title: 'No source accounts found',
-          description: getNameSourceStatusMessage(result.status),
-          onConfirmText: 'Done',
-        });
-        return;
-      }
       setSourceAccountCount(result.accounts.length);
-      setNameSyncStatus('done');
+      setNameSyncStatus(result.status === 'available' ? 'done' : 'idle');
       Dialog.show({
-        icon: 'EditOutline',
+        icon:
+          result.status === 'available' ? 'EditOutline' : 'InfoCircleOutline',
         title: `${vendor === EHardwareVendor.ledger ? 'Ledger Live' : 'Trezor Suite'} source accounts (${result.accounts.length})`,
-        description:
+        description: [
           'Read-only developer view. Nothing is renamed from this window.',
+          result.status === 'available'
+            ? ''
+            : getNameSourceStatusMessage(result.status),
+        ]
+          .filter(Boolean)
+          .join('\n'),
         renderContent: (
           <AccountNameSourceInventory
             accounts={result.accounts}
+            localAccounts={result.localAccounts}
+            selectedDevice={result.selectedDevice}
             scopeDescription={result.scopeDescription}
           />
         ),

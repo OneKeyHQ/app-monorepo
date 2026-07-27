@@ -908,12 +908,35 @@ export interface IThirdPartyAccountNameSourceInventoryAccount {
   selectedDeviceMatch?: boolean;
   matchedOneKeyAccounts: Array<{
     indexedAccountId: string;
+    accountId: string;
+    walletId: string;
     currentName: string;
+    path?: string;
   }>;
+}
+
+export interface IThirdPartyAccountNameLocalAccount {
+  indexedAccountId: string;
+  accountId: string;
+  walletId: string;
+  currentName: string;
+  address: string;
+  path?: string;
+}
+
+export interface IThirdPartyAccountNameSelectedDevice {
+  dbDeviceId: string;
+  deviceId: string;
+  featuresDeviceId?: string;
+  connectId: string;
+  usbConnectId?: string;
+  bleConnectId?: string;
 }
 
 export interface IThirdPartyAccountNameSourceInventoryResult {
   status: IThirdPartyAccountNameSourceStatus;
   accounts: IThirdPartyAccountNameSourceInventoryAccount[];
+  localAccounts: IThirdPartyAccountNameLocalAccount[];
+  selectedDevice?: IThirdPartyAccountNameSelectedDevice;
   scopeDescription: string;
 }
