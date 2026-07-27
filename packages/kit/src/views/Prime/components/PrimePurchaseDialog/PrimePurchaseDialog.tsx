@@ -295,6 +295,16 @@ export function usePrimePurchaseCallback({
         return true;
       };
 
+      // This gate is deliberately channel-wide and runs before the IAP and
+      // Google Play branches, not only on the crypto path.
+      // entryGuard.hasPendingPayment answers "is the user's money already
+      // committed to an Infini invoice" (a broadcast was claimed, or the chain
+      // and server report progress on it) — it does not answer "does the user
+      // want to pay with crypto". Starting IAP, Stripe or the WebView checkout
+      // while such an invoice is in flight charges for one subscription twice,
+      // and the crypto leg cannot be cancelled once broadcast, so the in-flight
+      // payment has to be resumed first. Narrowing this to the crypto channel
+      // reintroduces exactly the double charge it exists to prevent.
       if (
         await continuePendingCryptoPayment({
           beforeContinue: async () => {

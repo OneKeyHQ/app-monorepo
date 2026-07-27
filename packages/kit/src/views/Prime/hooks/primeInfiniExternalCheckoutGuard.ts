@@ -41,6 +41,13 @@ export async function getPrimeInfiniExternalCheckoutGuard() {
   };
 }
 
+// Entry gate for every Prime purchase channel, not just the crypto one.
+// hasPendingPayment reports whether the user's money is already committed to
+// an Infini invoice: replaceable means the invoice was never sent and shows no
+// progress, so it can be swapped for a new one, while anything else means a
+// broadcast was claimed or funds are moving and a second purchase through any
+// channel would charge twice for one subscription. Callers are expected to
+// resume the existing crypto flow instead of offering a payment method choice.
 export async function getPrimeInfiniPaymentEntryGuard() {
   const context = await getPrimeInfiniPendingPaymentContext();
   const { pendingPaymentSession, onekeyUserId } = context;
