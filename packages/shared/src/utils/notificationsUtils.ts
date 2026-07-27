@@ -104,7 +104,7 @@ export async function navigateToNotificationDetailByLocalParams({
   getEarnAccount: IGetEarnAccountFunc;
 }) {
   const { screen, params: navigationParams } = payload;
-  // Defence in depth for callers that bypass parseNotificationPayload (the
+  // Defense in depth for callers that bypass parseNotificationPayload (the
   // mode=dialog navigate action). Throwing lets their catch surface the
   // fallback dialog rather than dispatching push(undefined) into the void.
   if (typeof screen !== 'string' || !screen) {
