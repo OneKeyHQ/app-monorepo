@@ -257,7 +257,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _destroyingSubscriptionKeys = new Set<string>();
 
-  private _fundedActivationRefreshAddress: string | null = null;
+  private _fundedActivationRefreshInFlightAddress: string | null = null;
 
   private _routeSubscriptionStateVersion = 0;
 
@@ -270,13 +270,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }): Promise<void> {
     const activeAccount = await perpsActiveAccountAtom.get();
     const activeAddress = activeAccount?.accountAddress?.toLowerCase();
-
-    if (
-      this._fundedActivationRefreshAddress &&
-      this._fundedActivationRefreshAddress !== activeAddress
-    ) {
-      this._fundedActivationRefreshAddress = null;
-    }
 
     const statusInfo = await perpsActiveAccountStatusInfoAtom.get();
     const normalizedEventAddress = eventAddress?.toLowerCase();
@@ -291,14 +284,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       activatedOk: activeStatusInfo?.details.activatedOk,
       hasFundedBalance: hasPositivePerpsBalance(balanceValues),
       refreshHandled:
-        this._fundedActivationRefreshAddress === normalizedEventAddress,
+        this._fundedActivationRefreshInFlightAddress === normalizedEventAddress,
     });
 
     if (!shouldRefresh || !normalizedEventAddress) {
       return;
     }
 
-    this._fundedActivationRefreshAddress = normalizedEventAddress;
+    this._fundedActivationRefreshInFlightAddress = normalizedEventAddress;
     try {
       await this.backgroundApi.serviceHyperliquid.checkPerpsAccountStatus();
     } catch (error) {
@@ -306,6 +299,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         '[ServiceHyperliquidSubscription] Funded account status refresh failed:',
         error,
       );
+    } finally {
+      if (
+        this._fundedActivationRefreshInFlightAddress === normalizedEventAddress
+      ) {
+        this._fundedActivationRefreshInFlightAddress = null;
+      }
     }
   }
 
@@ -1425,7 +1424,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       if (
         state.currentUser?.toLowerCase() !== params.currentUser?.toLowerCase()
       ) {
-        this._fundedActivationRefreshAddress = null;
+        this._fundedActivationRefreshInFlightAddress = null;
       }
       state.currentUser = params.currentUser;
     }
