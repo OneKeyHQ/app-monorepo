@@ -546,8 +546,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       return;
     }
 
-    // Resubscribing stays focus-gated so a blurred route does not rebuild
-    // streams it cannot render.
+    // Skip the explicit resubscribe when the route cannot render the result.
+    // This is a best-effort saving, not a guarantee: on extension and native
+    // the BG atom watcher subscribes to perpsActiveOrderBookOptionsAtom and
+    // reconciles on its own, so the publish above can already trigger a
+    // rebuild there. It only stays suppressed while the handler is disabled
+    // (AutoPauseSubscriptions does that on blur) — notably not while the Perp
+    // tab is merely covered by a modal. Desktop and web have no watcher, so
+    // this branch is the only gate for them.
     if (!this.shouldSyncSubscriptionsAfterInstrumentChange(params.viewState)) {
       return;
     }

@@ -2684,6 +2684,18 @@ export default class ServiceHyperliquid extends ServiceBase {
         };
         if (requestId === this.activeAssetChangeRequestId) {
           await perpsActiveAssetAtom.set(result);
+          // This branch used to fall through to the shared tail below, which
+          // clears the previous coin's ctx on a switch. Returning early skips
+          // that, and perpsActiveAssetCtxMidPriceAtom reads the ctx without a
+          // coin guard — useTradingPrice would then seed the form with the
+          // previous coin's mid price.
+          if (oldCoin !== newCoin) {
+            await perpsActiveAssetCtxAtom.set(undefined);
+            schedulePerpsActiveAssetCtxDisplayUpdate({
+              nextValue: undefined,
+              immediate: true,
+            });
+          }
         }
         markPerpsColdStartPerf('service_change_active_asset_empty_universe', {
           coin: result.coin,

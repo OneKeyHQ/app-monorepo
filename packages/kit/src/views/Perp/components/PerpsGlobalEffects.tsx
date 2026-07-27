@@ -1115,8 +1115,18 @@ function useHyperliquidSymbolSelect() {
     }
   }, [actions, setActiveAssetCtxColdCache]);
 
+  // `useOnRouterChange` fires on every root state change, so without this
+  // transition dedupe an in-tab push/pop — the token selector's `popStack()`
+  // runs before its own `switchTradeInstrument()` resolves — would re-enter
+  // selectInitialSymbol mid-switch. The context instrument is written
+  // optimistically ahead of the BG atoms, so that window reads as divergence
+  // and would force the previous coin back over the user's selection.
+  const isRouteFocusedRef = useRef(shouldTreatPerpAsFocusedOnMount);
   useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
-    if (!resolvePerpRouteFocused(isFocus)) return;
+    const nextFocused = resolvePerpRouteFocused(isFocus);
+    const wasFocused = isRouteFocusedRef.current;
+    isRouteFocusedRef.current = nextFocused;
+    if (!nextFocused || wasFocused) return;
     void selectInitialSymbol();
   });
 
