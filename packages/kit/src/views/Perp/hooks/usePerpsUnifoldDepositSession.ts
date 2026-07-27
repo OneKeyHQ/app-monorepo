@@ -331,6 +331,19 @@ export function usePerpsUnifoldDepositSession({
     recipient: recipientAddress,
     activeAccountAddress: liveAccountAddress,
   });
+  // A disconnect followed by the same address is still a new connection
+  // generation. Tag async address and activation results so the previous
+  // generation cannot become visible during the render before fresh checks
+  // complete.
+  const alignmentGenerationRef = useRef(0);
+  const previousAlignmentRef = useRef(isLiveAccountAligned);
+  if (previousAlignmentRef.current && !isLiveAccountAligned) {
+    alignmentGenerationRef.current += 1;
+  }
+  previousAlignmentRef.current = isLiveAccountAligned;
+  const alignmentGeneration = alignmentGenerationRef.current;
+  const addressGenerationRef = useRef<number | null>(null);
+  const activationGenerationRef = useRef<number | null>(null);
   useEffect(() => {
     if (recipientAddress && liveAccountAddress && !isLiveAccountAligned) {
       applyAddressState({ status: 'error', errorType: 'accountMismatch' });
@@ -485,6 +498,7 @@ export function usePerpsUnifoldDepositSession({
     }
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    const requestGeneration = alignmentGeneration;
     void (async () => {
       try {
         const result =
@@ -492,7 +506,11 @@ export function usePerpsUnifoldDepositSession({
             recipientAddress,
             ...destination,
           });
-        if (!cancelled) {
+        if (
+          !cancelled &&
+          requestGeneration === alignmentGenerationRef.current
+        ) {
+          addressGenerationRef.current = requestGeneration;
           applyAddressState({ status: 'ready', result });
         }
       } catch (error) {
@@ -535,6 +553,7 @@ export function usePerpsUnifoldDepositSession({
     enabled,
     recipientAddress,
     isLiveAccountAligned,
+    alignmentGeneration,
     addressAttempt,
     applyAddressState,
     destination,
@@ -563,19 +582,25 @@ export function usePerpsUnifoldDepositSession({
       !enabled ||
       !recipientAddress ||
       !isHyperCoreDestination ||
+      !isLiveAccountAligned ||
       vetoRef.current
     ) {
       return;
     }
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    const requestGeneration = alignmentGeneration;
     void (async () => {
       try {
         const status =
           await backgroundApiProxy.serviceUnifoldDeposit.getActivationStatus({
             recipientAddress,
           });
-        if (!cancelled) {
+        if (
+          !cancelled &&
+          requestGeneration === alignmentGenerationRef.current
+        ) {
+          activationGenerationRef.current = requestGeneration;
           setActivationStatus(status);
           setActivationLookupFailed(false);
         }
@@ -599,6 +624,7 @@ export function usePerpsUnifoldDepositSession({
           return;
         }
         setActivationLookupFailed(true);
+        activationGenerationRef.current = requestGeneration;
         retryTimer = setTimeout(() => {
           if (!cancelled && !vetoRef.current) {
             setActivationAttempt((n) => n + 1);
@@ -616,15 +642,21 @@ export function usePerpsUnifoldDepositSession({
     enabled,
     recipientAddress,
     isHyperCoreDestination,
+    isLiveAccountAligned,
+    alignmentGeneration,
     activationAttempt,
     applyAddressState,
   ]);
 
+  const currentActivationStatus =
+    activationGenerationRef.current === alignmentGeneration
+      ? activationStatus
+      : undefined;
   useEffect(() => {
-    if (activationStatus?.isSanctioned) {
+    if (currentActivationStatus?.isSanctioned) {
       applyAddressState({ status: 'error', errorType: 'sanctioned' });
     }
-  }, [activationStatus?.isSanctioned, applyAddressState]);
+  }, [currentActivationStatus?.isSanctioned, applyAddressState]);
 
   // Fail-closed sanction gate: a HyperCore deposit address is neither shown
   // nor copyable until the screen has answered NOT sanctioned. Keying on the
@@ -635,14 +667,14 @@ export function usePerpsUnifoldDepositSession({
   // render that receives it instead of one passive-effect pass later — which
   // would otherwise paint the QR and its copy row for exactly one commit.
   const activationGatePassed =
-    !isHyperCoreDestination || activationStatus?.isSanctioned === false;
+    !isHyperCoreDestination || currentActivationStatus?.isSanctioned === false;
 
   const showActivationWarning = Boolean(
     isHyperCoreDestination &&
-    activationStatus &&
-    !activationStatus.userExists &&
-    !activationStatus.sponsored &&
-    !activationStatus.isSanctioned,
+    currentActivationStatus &&
+    !currentActivationStatus.userExists &&
+    !currentActivationStatus.sponsored &&
+    !currentActivationStatus.isSanctioned,
   );
 
   // ── Executions poll (3s while mounted and address is ready) ──
@@ -853,6 +885,7 @@ export function usePerpsUnifoldDepositSession({
       addressState.status !== 'ready' ||
       !selectableSupportedAssets ||
       !selection ||
+      addressGenerationRef.current !== alignmentGeneration ||
       !activationGatePassed ||
       !isLiveAccountAligned
     ) {
@@ -872,6 +905,7 @@ export function usePerpsUnifoldDepositSession({
     addressState,
     selectableSupportedAssets,
     selection,
+    alignmentGeneration,
     activationGatePassed,
     isLiveAccountAligned,
   ]);
@@ -885,7 +919,9 @@ export function usePerpsUnifoldDepositSession({
   // `applyAddressState`, so a successful retry restores 'ready' on its own.
   const gatedAddressState: IUnifoldAddressState =
     addressState.status === 'ready' &&
-    (!activationGatePassed || !isLiveAccountAligned)
+    (addressGenerationRef.current !== alignmentGeneration ||
+      !activationGatePassed ||
+      !isLiveAccountAligned)
       ? { status: 'loading' }
       : addressState;
 
@@ -937,8 +973,11 @@ export function usePerpsUnifoldDepositSession({
     showWaitingUi: showWaitingUi && !hasInFlightExecution && Boolean(qrAddress),
     // The eligibility screen failed and is retrying every 5s: the address
     // stays hidden, and the panel explains why instead of shimmering silently.
-    activationRetrying: activationLookupFailed && !activationGatePassed,
-    activationFee: activationStatus?.activationFee ?? null,
+    activationRetrying:
+      activationGenerationRef.current === alignmentGeneration &&
+      activationLookupFailed &&
+      !activationGatePassed,
+    activationFee: currentActivationStatus?.activationFee ?? null,
     showActivationWarning,
   };
 }

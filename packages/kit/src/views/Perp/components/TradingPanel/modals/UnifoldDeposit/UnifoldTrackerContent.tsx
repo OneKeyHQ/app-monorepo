@@ -27,7 +27,10 @@ import {
   isUnifoldHyperCoreDestination,
   resolveUnifoldDepositDestination,
 } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
-import { getSafeUnifoldRecipient } from '@onekeyhq/kit/src/views/Perp/utils/unifoldRecipient';
+import {
+  getSafeUnifoldRecipient,
+  isUnifoldRecipientAligned,
+} from '@onekeyhq/kit/src/views/Perp/utils/unifoldRecipient';
 import {
   perpsActiveAccountAtom,
   useDevSettingsPersistAtom,
@@ -559,15 +562,16 @@ export function UnifoldTrackerContent({
   const safeRecipient = safeRecipientRef.current ?? null;
 
   // The frozen recipient must also stop being queried once the active perps
-  // account moves under an open tracker, or this keeps polling and rendering
-  // the PREVIOUS account's deposit history. Positive mismatch only: a null
-  // address is the transient state while a switch is in flight.
+  // account moves or disappears under an open tracker, or this keeps polling
+  // and rendering the PREVIOUS account's deposit history.
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const liveAccountAddress = activePerpsAccount.accountAddress;
+  const isLiveRecipientAligned = isUnifoldRecipientAligned({
+    recipient: safeRecipient,
+    activeAccountAddress: liveAccountAddress,
+  });
   const accountChanged = Boolean(
-    safeRecipient &&
-    liveAccountAddress &&
-    liveAccountAddress.toLowerCase() !== safeRecipient.toLowerCase(),
+    safeRecipient && liveAccountAddress && !isLiveRecipientAligned,
   );
 
   // Track the selected row by id and re-derive it from the freshest poll
@@ -606,7 +610,7 @@ export function UnifoldTrackerContent({
   const [loadFailed, setLoadFailed] = useState(false);
   const { result: executions } = usePromiseResult(
     async () => {
-      if (!safeRecipient || accountChanged) {
+      if (!safeRecipient || !isLiveRecipientAligned) {
         return [];
       }
       try {
@@ -621,8 +625,13 @@ export function UnifoldTrackerContent({
         throw error;
       }
     },
-    [safeRecipient, accountChanged],
-    { watchLoading: true, pollingInterval: TRACKER_POLL_INTERVAL_MS },
+    [safeRecipient, isLiveRecipientAligned],
+    {
+      watchLoading: true,
+      pollingInterval: isLiveRecipientAligned
+        ? TRACKER_POLL_INTERVAL_MS
+        : undefined,
+    },
   );
 
   // The detail is a sub-view, not a route, so Android's hardware back would
@@ -682,7 +691,7 @@ export function UnifoldTrackerContent({
     );
   };
 
-  if (!safeRecipient || accountChanged) {
+  if (!safeRecipient || !isLiveRecipientAligned) {
     return withDialogHeader(
       <YStack py="$8">
         <Empty

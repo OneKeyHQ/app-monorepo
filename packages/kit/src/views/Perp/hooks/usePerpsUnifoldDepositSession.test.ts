@@ -1,11 +1,17 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type {
+  IUnifoldActivationStatus,
+  IUnifoldDepositAddressResult,
+} from '@onekeyhq/shared/types/unifoldDeposit';
 
 import { usePerpsUnifoldDepositSession } from './usePerpsUnifoldDepositSession';
 
 const RECIPIENT = '0x1111111111111111111111111111111111111111';
 const DEPOSIT_ADDRESS = '0x2222222222222222222222222222222222222222';
+const RECONNECTED_DEPOSIT_ADDRESS =
+  '0x3333333333333333333333333333333333333333';
 
 let mockLiveAccountAddress: string | null = RECIPIENT;
 
@@ -135,7 +141,7 @@ describe('usePerpsUnifoldDepositSession account alignment', () => {
     jest.useRealTimers();
   });
 
-  it('pauses QR exposure and execution queries while the live account is missing', async () => {
+  it('requires fresh address and activation checks after the same account reconnects', async () => {
     const { result, rerender, unmount } = renderHook(() =>
       usePerpsUnifoldDepositSession({
         enabled: true,
@@ -164,10 +170,68 @@ describe('usePerpsUnifoldDepositSession account alignment', () => {
       queryCountBeforeDisconnect,
     );
 
+    let resolveReconnectedAddress:
+      | ((value: IUnifoldDepositAddressResult) => void)
+      | undefined;
+    let resolveReconnectedActivation:
+      | ((value: IUnifoldActivationStatus) => void)
+      | undefined;
+    mockService.createDepositAddress.mockImplementationOnce(
+      () =>
+        new Promise<IUnifoldDepositAddressResult>((resolve) => {
+          resolveReconnectedAddress = resolve;
+        }),
+    );
+    mockService.getActivationStatus.mockImplementationOnce(
+      () =>
+        new Promise<IUnifoldActivationStatus>((resolve) => {
+          resolveReconnectedActivation = resolve;
+        }),
+    );
+
     mockLiveAccountAddress = RECIPIENT;
     rerender({});
     await waitFor(() => {
-      expect(result.current.qrAddress).toBe(DEPOSIT_ADDRESS);
+      expect(mockService.createDepositAddress).toHaveBeenCalledTimes(2);
+      expect(mockService.getActivationStatus).toHaveBeenCalledTimes(2);
+    });
+    expect(result.current.qrAddress).toBeNull();
+    expect(result.current.addressState).toEqual({ status: 'loading' });
+
+    await act(async () => {
+      resolveReconnectedAddress?.({
+        sessionId: 'session-2',
+        depositAddress: RECONNECTED_DEPOSIT_ADDRESS,
+        depositWalletId: 'wallet-2',
+        sourceChainType: 'ethereum',
+        wallets: [
+          {
+            chainType: 'ethereum',
+            address: RECONNECTED_DEPOSIT_ADDRESS,
+            isPrimary: true,
+          },
+        ],
+        echo: {
+          recipientAddress: RECIPIENT,
+          destinationChainType: 'hypercore',
+          destinationChainId: '1337',
+          destinationTokenAddress: '0x0000000000000000000000000000000000000000',
+        },
+      });
+    });
+    expect(result.current.qrAddress).toBeNull();
+    expect(result.current.addressState).toEqual({ status: 'loading' });
+
+    await act(async () => {
+      resolveReconnectedActivation?.({
+        userExists: true,
+        activationFee: '0',
+        isSanctioned: false,
+        sponsored: false,
+      });
+    });
+    await waitFor(() => {
+      expect(result.current.qrAddress).toBe(RECONNECTED_DEPOSIT_ADDRESS);
       expect(
         mockService.listDepositExecutions.mock.calls.length,
       ).toBeGreaterThan(queryCountBeforeDisconnect);

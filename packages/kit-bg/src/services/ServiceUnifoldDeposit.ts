@@ -656,17 +656,29 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
   async acknowledgeTerminalDelivery(params: {
     deliveryId: string;
     claimId: string;
-  }): Promise<{ updated: boolean }> {
-    let updated = false;
+  }): Promise<
+    { updated: true } | { updated: false; reason: 'gone' | 'claimLost' }
+  > {
+    let result:
+      | { updated: true }
+      | { updated: false; reason: 'gone' | 'claimLost' } = {
+      updated: false,
+      reason: 'gone',
+    };
     await this.mutateTrackingState((prev) => {
       const pendingDeliveries = prev.pendingDeliveries ?? [];
       const delivery = pendingDeliveries.find(
         (item) => item.deliveryId === params.deliveryId,
       );
-      if (!delivery || delivery.claim?.claimId !== params.claimId) {
+      if (!delivery) {
+        result = { updated: false, reason: 'gone' };
         return prev;
       }
-      updated = true;
+      if (delivery.claim?.claimId !== params.claimId) {
+        result = { updated: false, reason: 'claimLost' };
+        return prev;
+      }
+      result = { updated: true };
       const recipient = delivery.recipientAddress.toLowerCase();
       return {
         ...prev,
@@ -690,7 +702,7 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
         ),
       };
     });
-    return { updated };
+    return result;
   }
 
   private notifyTerminalDelivery(deliveryId: string) {

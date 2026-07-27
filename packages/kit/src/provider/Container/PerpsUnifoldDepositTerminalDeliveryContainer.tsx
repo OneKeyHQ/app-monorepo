@@ -16,6 +16,12 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 const DELIVERY_RETRY_BUFFER_MS = 50;
 const DELIVERY_ERROR_RETRY_MS = 1000;
+const DELIVERY_ACK_MAX_ATTEMPTS = 5;
+
+type IPresentedClaim = {
+  claimId: string;
+  acknowledgementAttempts: number;
+};
 
 export function PerpsUnifoldDepositTerminalDeliveryContainer() {
   const intl = useIntl();
@@ -24,7 +30,7 @@ export function PerpsUnifoldDepositTerminalDeliveryContainer() {
     let disposed = false;
     const inFlight = new Set<string>();
     const retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
-    const presentedClaims = new Map<string, string>();
+    const presentedClaims = new Map<string, IPresentedClaim>();
 
     const clearRetry = (deliveryId: string) => {
       const timer = retryTimers.get(deliveryId);
@@ -32,6 +38,37 @@ export function PerpsUnifoldDepositTerminalDeliveryContainer() {
         clearTimeout(timer);
         retryTimers.delete(deliveryId);
       }
+    };
+
+    const acknowledge = async (
+      deliveryId: string,
+      presentedClaim: IPresentedClaim,
+    ): Promise<number | undefined> => {
+      const attemptedClaim = {
+        ...presentedClaim,
+        acknowledgementAttempts: presentedClaim.acknowledgementAttempts + 1,
+      };
+      presentedClaims.set(deliveryId, attemptedClaim);
+      const result =
+        await backgroundApiProxy.serviceUnifoldDeposit.acknowledgeTerminalDelivery(
+          {
+            deliveryId,
+            claimId: attemptedClaim.claimId,
+          },
+        );
+      if (result.updated) {
+        presentedClaims.delete(deliveryId);
+        return undefined;
+      }
+      if (
+        result.reason === 'gone' ||
+        result.reason === 'claimLost' ||
+        attemptedClaim.acknowledgementAttempts >= DELIVERY_ACK_MAX_ATTEMPTS
+      ) {
+        presentedClaims.delete(deliveryId);
+        return undefined;
+      }
+      return DELIVERY_ERROR_RETRY_MS;
     };
 
     const present = async (deliveryId: string) => {
@@ -42,20 +79,9 @@ export function PerpsUnifoldDepositTerminalDeliveryContainer() {
       clearRetry(deliveryId);
       let retryAfterMs: number | undefined;
       try {
-        const presentedClaimId = presentedClaims.get(deliveryId);
-        if (presentedClaimId) {
-          const { updated } =
-            await backgroundApiProxy.serviceUnifoldDeposit.acknowledgeTerminalDelivery(
-              {
-                deliveryId,
-                claimId: presentedClaimId,
-              },
-            );
-          if (updated) {
-            presentedClaims.delete(deliveryId);
-          } else {
-            retryAfterMs = DELIVERY_ERROR_RETRY_MS;
-          }
+        const presentedClaim = presentedClaims.get(deliveryId);
+        if (presentedClaim) {
+          retryAfterMs = await acknowledge(deliveryId, presentedClaim);
           return;
         }
 
@@ -100,22 +126,23 @@ export function PerpsUnifoldDepositTerminalDeliveryContainer() {
           }),
           message,
         });
-        presentedClaims.set(deliveryId, claimId);
-        const { updated } =
-          await backgroundApiProxy.serviceUnifoldDeposit.acknowledgeTerminalDelivery(
-            {
-              deliveryId,
-              claimId,
-            },
-          );
-        if (updated) {
+        const newPresentedClaim = {
+          claimId,
+          acknowledgementAttempts: 0,
+        };
+        presentedClaims.set(deliveryId, newPresentedClaim);
+        retryAfterMs = await acknowledge(deliveryId, newPresentedClaim);
+      } catch (error) {
+        errorUtils.autoPrintErrorIgnore(error);
+        const presentedClaim = presentedClaims.get(deliveryId);
+        if (
+          presentedClaim &&
+          presentedClaim.acknowledgementAttempts >= DELIVERY_ACK_MAX_ATTEMPTS
+        ) {
           presentedClaims.delete(deliveryId);
         } else {
           retryAfterMs = DELIVERY_ERROR_RETRY_MS;
         }
-      } catch (error) {
-        errorUtils.autoPrintErrorIgnore(error);
-        retryAfterMs = DELIVERY_ERROR_RETRY_MS;
       } finally {
         inFlight.delete(deliveryId);
         if (!disposed && retryAfterMs !== undefined) {

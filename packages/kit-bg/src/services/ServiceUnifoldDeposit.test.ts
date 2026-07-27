@@ -514,6 +514,13 @@ describe('ServiceUnifoldDeposit tracking delivery', () => {
     await expect(
       service.acknowledgeTerminalDelivery({
         deliveryId: deliveryId || '',
+        claimId: 'claim-2',
+      }),
+    ).resolves.toEqual({ updated: false, reason: 'claimLost' });
+    expect(mockTrackingState.pendingDeliveries).toHaveLength(1);
+    await expect(
+      service.acknowledgeTerminalDelivery({
+        deliveryId: deliveryId || '',
         claimId: 'claim-1',
       }),
     ).resolves.toEqual({ updated: true });
@@ -522,5 +529,11 @@ describe('ServiceUnifoldDeposit tracking delivery', () => {
     expect(mockTrackingState.watches?.[0].knownExecutionIds).toEqual([
       'execution-1',
     ]);
+    await expect(
+      service.acknowledgeTerminalDelivery({
+        deliveryId: deliveryId || '',
+        claimId: 'claim-1',
+      }),
+    ).resolves.toEqual({ updated: false, reason: 'gone' });
   });
 });
