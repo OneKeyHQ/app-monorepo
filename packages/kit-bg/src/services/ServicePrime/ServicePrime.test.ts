@@ -3454,7 +3454,9 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
     mockSlots();
 
     const get = jest.fn(async () => ({
+      status: 200,
       data: {
+        code: 0,
         data: {
           onekeyAccount: { onekeyUserId: tokenOwnerOnekeyUserId },
         },
@@ -3598,7 +3600,10 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
   it('aborts when the token owner cannot be resolved', async () => {
     const { service, post } = createBindService();
     service.getPrimeClient = jest.fn(async () => ({
-      get: jest.fn(async () => ({ data: { data: {} } })),
+      get: jest.fn(async () => ({
+        status: 200,
+        data: { code: 0, data: {} },
+      })),
       post,
     }));
 
@@ -3619,7 +3624,11 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
         // A login commit landed while the probe was in flight.
         simpleDbPrime.getAuthStateGeneration.mockResolvedValue(8);
         return {
-          data: { data: { onekeyAccount: { onekeyUserId: 'user-a' } } },
+          status: 200,
+          data: {
+            code: 0,
+            data: { onekeyAccount: { onekeyUserId: 'user-a' } },
+          },
         };
       }),
       post,
@@ -3632,6 +3641,92 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
 
     expect(probed).toBe(true);
     expect(post).not.toHaveBeenCalled();
+  });
+
+  it('reclassifies an invalid legacy token instead of reporting a login change', async () => {
+    // autoHandleError: false makes the interceptor skip its code!==0 branch,
+    // so a rejected token resolves normally. Collapsing that into the
+    // state-changed error would tell the user to retry something that can
+    // never succeed, skip the invalid-token teardown, and (via the cleanup
+    // exemption) strand this flow's provisional keyless session.
+    const { service, post } = createBindService();
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => ({
+        status: 200,
+        data: { code: 90_002, message: 'token expired', data: undefined },
+      })),
+      post,
+    }));
+
+    // This class carries no className override, so match the type itself —
+    // that is what handlePrimeLoginInvalidToken keys off.
+    await expect(bind(service)).rejects.toBeInstanceOf(
+      OneKeyErrorPrimeLoginInvalidToken,
+    );
+
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a non-auth server error from the probe as a server error', async () => {
+    const { service, post } = createBindService();
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => ({
+        status: 200,
+        data: { code: 50_000, message: 'boom', data: undefined },
+      })),
+      post,
+    }));
+
+    await expect(bind(service)).rejects.toMatchObject({
+      className: EOneKeyErrorClassNames.OneKeyServerApiError,
+    });
+
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('checks the keyless slot after the probe to keep the guard->POST window at one request', async () => {
+    // The probe added a round-trip; running the keyless guard before it would
+    // stretch the uncovered window from one POST to GET + POST, and the
+    // snapshot re-check only re-validates the legacy side.
+    const { service } = createBindService();
+    const calls: string[] = [];
+    const keylessGuard = jest
+      .spyOn(service, 'assertKeylessSessionPersistedBeforeLogin')
+      .mockImplementation(async () => {
+        calls.push('keylessGuard');
+        return { verifiedTokenSub: 'oauth-sub-a' };
+      });
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => {
+        calls.push('probe');
+        return {
+          status: 200,
+          data: {
+            code: 0,
+            data: { onekeyAccount: { onekeyUserId: 'user-a' } },
+          },
+        };
+      }),
+      post: jest.fn(async () => {
+        calls.push('bindPost');
+        return {
+          data: {
+            data: {
+              onekeyAccount: {
+                onekeyUserId: 'user-a',
+                normalizedEmail: 'a@example.com',
+                displayEmail: 'a@example.com',
+              },
+            },
+          },
+        };
+      }),
+    }));
+
+    await expect(bind(service)).resolves.toBeDefined();
+
+    expect(calls).toEqual(['probe', 'keylessGuard', 'bindPost']);
+    expect(keylessGuard).toHaveBeenCalledTimes(1);
   });
 
   it('runs the legacy guard before the keyless slot guard', async () => {

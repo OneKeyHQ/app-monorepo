@@ -2229,19 +2229,6 @@ class ServicePrime extends ServiceBase {
       });
       const legacyOneKeyIdAuthToken = bindAuthSnapshot.requestAuthToken;
 
-      // Same fail-fast (occupancy + identity) as apiOAuthLogin — and it
-      // matters MORE here: the bind POST below is an irreversible
-      // server-side identity bind, so a subsequent KeylessOAuth commit
-      // failing on an empty slot — or serving a slot another account
-      // overwrote meanwhile — would leave the account bound on the server
-      // while the client rolls its login state back or presents the wrong
-      // identity.
-      const { verifiedTokenSub } =
-        await this.assertKeylessSessionPersistedBeforeLogin({
-          accessToken: oauthAccessToken,
-          callerName: 'ServicePrime.apiBindLegacyOneKeyIdOAuth',
-        });
-
       const client = await this.getPrimeClient();
 
       // Pin BOTH requests below to the exact captured legacy token via the
@@ -2268,12 +2255,17 @@ class ServicePrime extends ServiceBase {
       // detected here; a swap after it is harmless because both requests are
       // pinned to the captured bytes.
       //
-      // autoHandleError: false (same as the other pinned-token profile
-      // reads, see callApiFetchPrimeUserInfoWithRequestToken) — this is a
-      // validation read, so a rejected legacy token must abort the bind and
-      // let the UI classify the failure, not fire the global invalid-token
-      // teardown coordinator from inside this loginMutex section. The bind
-      // POST keeps the default handling, unchanged from before this guard.
+      // autoHandleError: false follows callApiFetchPrimeUserInfoWithRequestToken
+      // — including its second half: the interceptor's `code !== 0` branch is
+      // skipped by that flag (axiosInterceptor), so business errors resolve
+      // normally and MUST be reclassified here. getPrimeApiResponseData maps
+      // 90002/90003 back to OneKeyErrorPrimeLoginInvalidToken (and anything
+      // else to OneKeyServerApiError). Without it a rejected legacy token
+      // would surface as the state-changed error below — telling the user to
+      // retry something that can never succeed, skipping the invalid-token
+      // teardown, and (because that class is exempt from keyless cleanup)
+      // stranding this flow's provisional keyless session. The bind POST keeps
+      // the default handling, unchanged from before this guard.
       const profileRequestConfig: Parameters<typeof client.get>[1] & {
         autoHandleError?: boolean;
       } = {
@@ -2281,10 +2273,13 @@ class ServicePrime extends ServiceBase {
         ...pinnedLegacyTokenRequestConfig,
       };
       const profileResult = await client.get<
-        IApiClientResponse<IOneKeyIdProfileResponse>
+        IPrimeApiClientResponse<IOneKeyIdProfileResponse>
       >('/prime/v1/account/profile', profileRequestConfig);
-      const tokenOwnerOnekeyUserId =
-        profileResult?.data?.data?.onekeyAccount?.onekeyUserId;
+      const tokenOwnerOnekeyUserId = this.getPrimeApiResponseData({
+        response: profileResult,
+        fallbackMessage:
+          'apiBindLegacyOneKeyIdOAuth ERROR: legacy token owner probe failed',
+      })?.onekeyAccount?.onekeyUserId;
       if (!tokenOwnerOnekeyUserId) {
         throw new OneKeyErrorOneKeyIdLegacyBindStateChanged({
           message:
@@ -2297,6 +2292,27 @@ class ServicePrime extends ServiceBase {
             'apiBindLegacyOneKeyIdOAuth ERROR: Legacy session account changed since the bind was confirmed',
         });
       }
+
+      // Same fail-fast (occupancy + identity) as apiOAuthLogin — and it
+      // matters MORE here: the bind POST below is an irreversible
+      // server-side identity bind, so a subsequent KeylessOAuth commit
+      // failing on an empty slot — or serving a slot another account
+      // overwrote meanwhile — would leave the account bound on the server
+      // while the client rolls its login state back or presents the wrong
+      // identity.
+      //
+      // Runs AFTER the probe on purpose: this guard's own contract accepts an
+      // uncovered guard->POST window, and the snapshot re-check below only
+      // re-validates the LEGACY side (a main-runtime keyless slot write does
+      // not move authStateGeneration). Placing it before the probe would
+      // stretch that window from one POST to a full GET + POST for no gain.
+      // It is all local reads, so the only cost of running it here is one
+      // wasted GET when the keyless slot is already unusable.
+      const { verifiedTokenSub } =
+        await this.assertKeylessSessionPersistedBeforeLogin({
+          accessToken: oauthAccessToken,
+          callerName: 'ServicePrime.apiBindLegacyOneKeyIdOAuth',
+        });
 
       // Final local re-check across the profile round-trip: the snapshot's
       // source/generation must still hold before the irreversible POST.
