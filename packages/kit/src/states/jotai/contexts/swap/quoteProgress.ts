@@ -223,19 +223,22 @@ export function isSwapZeroProviderQuoteCompleted({
 export function isSwapNoProviderSupportsTrade({
   zeroProviderQuoteCompleted,
   quote,
+  quoteUiPhase,
+  quoteRequestMatchesCurrentInput,
   quoteResultPairNoMatch,
 }: {
   zeroProviderQuoteCompleted: boolean;
   quote?: Pick<IFetchQuoteResult, 'toAmount' | 'limit'>;
+  quoteUiPhase: ESwapQuoteUiPhase;
+  quoteRequestMatchesCurrentInput: boolean;
   quoteResultPairNoMatch: boolean;
 }) {
-  // Only trust the no-provider verdict when the quote belongs to the current
-  // token pair; a stale quote left over from a previous pair must not lock
-  // the action button out of its "Refresh quotes" recovery state. The veto
-  // must stay identity-based: provider-error quotes carry no amount fields
-  // at all, so an amount-based mismatch check would permanently veto the
-  // genuine no-provider signal. (OK-57545)
+  // A provider error is only authoritative after the current request settles.
+  // Keep the original amount-less/no-limit predicate so min/max limit quotes
+  // retain their dedicated recovery state. (OK-57545, OK-58528)
   return (
+    quoteUiPhase === ESwapQuoteUiPhase.ZeroProvider &&
+    quoteRequestMatchesCurrentInput &&
     (zeroProviderQuoteCompleted ||
       Boolean(quote && !quote.toAmount && !quote.limit)) &&
     !quoteResultPairNoMatch

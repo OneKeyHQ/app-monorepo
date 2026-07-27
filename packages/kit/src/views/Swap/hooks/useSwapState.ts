@@ -400,6 +400,7 @@ export function useSwapActionState() {
     quoteLoading,
     quoteEventFetching,
     isWaitingActionableQuote,
+    phase: quoteUiPhase,
   } = useSwapQuoteProgressState();
   const [quoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
   const [quoteActionLock] = useSwapQuoteActionLockAtom();
@@ -562,20 +563,13 @@ export function useSwapActionState() {
     isWaitingAutoSlippage,
     manualRefreshRequired: isRefreshQuote,
   });
-  // "The CURRENT pair's quote round completed and no provider supports it."
-  // The veto must be pair-identity based only: provider-error quotes carry
-  // no amount fields, so the amount-aware quoteResultNoMatch would
-  // permanently veto the genuine no-provider verdict. (OK-57545)
-  const noProviderSupportsTrade = useMemo(
-    () =>
-      isSwapNoProviderSupportsTrade({
-        zeroProviderQuoteCompleted: isZeroProviderQuoteCompleted,
-        quote: quoteCurrentSelect,
-        quoteResultPairNoMatch,
-      }),
-    [isZeroProviderQuoteCompleted, quoteCurrentSelect, quoteResultPairNoMatch],
-  );
   const noConnectWallet = alerts.states.some((item) => item.noConnectWallet);
+  const currentQuoteKind =
+    swapTypeSwitchValue === ESwapTabSwitchType.LIMIT &&
+    toTokenAmount.isInput &&
+    Boolean(toTokenAmount.value)
+      ? ESwapQuoteKind.BUY
+      : ESwapQuoteKind.SELL;
   const quoteRequestMatchesCurrentInput = useMemo(
     () =>
       isSwapQuoteRequestForCurrentInput({
@@ -585,7 +579,7 @@ export function useSwapActionState() {
         currentSwapType: swapTypeSwitchValue,
         fromAmount: fromTokenAmount.value,
         fromToken,
-        quoteKind: ESwapQuoteKind.SELL,
+        quoteKind: currentQuoteKind,
         quoteRequest: quoteActionLock,
         toAmount: toTokenAmount.value,
         toToken,
@@ -593,6 +587,7 @@ export function useSwapActionState() {
     [
       fromToken,
       fromTokenAmount.value,
+      currentQuoteKind,
       quoteActionLock,
       swapFromAddressInfo.accountInfo?.account?.id,
       swapFromAddressInfo.address,
@@ -600,6 +595,23 @@ export function useSwapActionState() {
       swapToAddressInfo.address,
       toToken,
       toTokenAmount.value,
+    ],
+  );
+  const noProviderSupportsTrade = useMemo(
+    () =>
+      isSwapNoProviderSupportsTrade({
+        zeroProviderQuoteCompleted: isZeroProviderQuoteCompleted,
+        quote: quoteCurrentSelect,
+        quoteUiPhase,
+        quoteRequestMatchesCurrentInput,
+        quoteResultPairNoMatch,
+      }),
+    [
+      isZeroProviderQuoteCompleted,
+      quoteCurrentSelect,
+      quoteRequestMatchesCurrentInput,
+      quoteResultPairNoMatch,
+      quoteUiPhase,
     ],
   );
   const hasValidQuoteInput = useMemo(() => {
