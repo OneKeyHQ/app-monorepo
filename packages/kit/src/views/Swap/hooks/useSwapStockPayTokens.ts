@@ -1,7 +1,8 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { isEqual } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -31,6 +32,7 @@ import {
 } from './swapStockChannelUtils';
 import { markStockUsdPriceCurrency } from './swapStockFiatValueUtils';
 import {
+  runStockPayTokenDetailsRequest,
   shouldRefreshStockPayTokensForHistoryEvent,
   shouldSyncStockPayTokenDetail,
 } from './swapStockPayTokenUtils';
@@ -236,7 +238,7 @@ export function useSwapStockPayTokens({
     () => filterStockPayTokenCandidates(defaultTokens ?? []),
     [defaultTokens],
   );
-  const rawPayTokens = useMemo(() => {
+  const rawPayTokensValue = useMemo(() => {
     if (!stockPayTokenCandidates.length) {
       return EMPTY_DEFAULT_TOKENS;
     }
@@ -258,6 +260,11 @@ export function useSwapStockPayTokens({
         normalizedCurrentStockTokenKey,
     );
   }, [currentStockTokenKey, stockPayTokenCandidates]);
+  const rawPayTokensRef = useRef(rawPayTokensValue);
+  if (!isEqual(rawPayTokensRef.current, rawPayTokensValue)) {
+    rawPayTokensRef.current = rawPayTokensValue;
+  }
+  const rawPayTokens = rawPayTokensRef.current;
 
   const rawPayTokenKeys = useMemo(
     () => rawPayTokens.map(getTokenIdentityKey).join('|'),
@@ -346,16 +353,34 @@ export function useSwapStockPayTokens({
             if (!networkAccount?.id || !networkAccount?.address) {
               return buildStockPayToken({ token });
             }
-            const details =
-              await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-                protocol: EProtocolOfExchange.STOCK,
-                networkId: token.networkId,
-                contractAddress: token.contractAddress,
-                accountId: networkAccount.id,
-                accountAddress: networkAccount.address,
-                currency: 'usd',
-              });
-            return buildStockPayToken({ token, detail: details?.[0] });
+            const details = await runStockPayTokenDetailsRequest({
+              scope: [
+                EProtocolOfExchange.STOCK,
+                token.networkId,
+                token.contractAddress?.toLowerCase() ?? '',
+                networkAccount.id,
+                networkAccount.address.toLowerCase(),
+                'usd',
+              ].join(':'),
+              request: () =>
+                backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+                  protocol: EProtocolOfExchange.STOCK,
+                  networkId: token.networkId,
+                  contractAddress: token.contractAddress,
+                  accountId: networkAccount.id,
+                  accountAddress: networkAccount.address,
+                  currency: 'usd',
+                }),
+            });
+            const firstDetail = details?.[0];
+            const detail =
+              firstDetail?.balanceParsed !== undefined
+                ? {
+                    ...firstDetail,
+                    accountAddress: networkAccount.address,
+                  }
+                : firstDetail;
+            return buildStockPayToken({ token, detail });
           } catch {
             return buildStockPayToken({ token });
           }

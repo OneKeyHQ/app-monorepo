@@ -38,6 +38,7 @@ import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src
 import { getVisibleSwapTabSwitchType } from '@onekeyhq/shared/src/utils/swapTypeUtils';
 import {
   buildSwapAllNetworkTokenListCacheKey,
+  dedupeTokenSelectorNetworkAccounts,
   isTokenSelectorDappTokenFilterSupportedNetworkBase,
 } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
@@ -2645,7 +2646,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       lpToken?: boolean,
       currency?: string,
     ) => {
-      const swapAllNetworkActionLock = get(swapAllNetworkActionLockAtom());
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
       const swapSupportNetworks = get(swapNetworks());
       let currentTypeSupportNetworks = swapSupportNetworks.filter(
@@ -2666,56 +2666,57 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             isTokenSelectorDappTokenFilterSupportedNetworkBase,
           )
         : currentTypeSupportNetworks;
-      const { accountIdKey, swapSupportAccounts } =
-        await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
-          indexedAccountId,
-          otherWalletTypeAccountId,
-          swapSupportNetworks: tokenListSupportNetworks,
-        });
       const tokenListCacheKey = buildSwapAllNetworkTokenListCacheKey({
-        accountId: accountIdKey,
+        accountId:
+          indexedAccountId ?? otherWalletTypeAccountId ?? 'noAccountId',
         lpToken,
         currency,
         protocol: swapTypeSwitchValue,
       });
-      if (swapAllNetworkActionLock[tokenListCacheKey]) {
+      if (get(swapAllNetworkActionLockAtom())[tokenListCacheKey]) {
         return;
       }
-      if (swapSupportAccounts.length > 0) {
-        set(swapAllNetworkActionLockAtom(), (v) => ({
-          ...v,
-          [tokenListCacheKey]: true,
-        }));
-        const currentSwapAllNetworkTokenList = get(
-          swapAllNetworkTokenListMapAtom(),
-        )[tokenListCacheKey];
-        const accountAddressList = swapSupportAccounts
-          .filter((item) => item.apiAddress)
-          .filter(
+      set(swapAllNetworkActionLockAtom(), (v) => ({
+        ...v,
+        [tokenListCacheKey]: true,
+      }));
+      try {
+        const { swapSupportAccounts } =
+          await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
+            indexedAccountId,
+            otherWalletTypeAccountId,
+            swapSupportNetworks: tokenListSupportNetworks,
+          });
+        if (swapSupportAccounts.length > 0) {
+          const currentSwapAllNetworkTokenList = get(
+            swapAllNetworkTokenListMapAtom(),
+          )[tokenListCacheKey];
+          const accountAddressList = dedupeTokenSelectorNetworkAccounts(
+            swapSupportAccounts,
+          ).filter(
             (item) => !networkUtils.isAllNetwork({ networkId: item.networkId }),
           );
 
-        // Create tasks as functions to delay execution until batched
-        const tasks = accountAddressList.map((networkDataString) => {
-          const {
-            apiAddress,
-            networkId: accountNetworkId,
-            accountId,
-          } = networkDataString;
-          return () =>
-            this.updateAllNetworkTokenList.call(
-              set,
-              accountNetworkId,
-              accountId,
+          // Create tasks as functions to delay execution until batched
+          const tasks = accountAddressList.map((networkDataString) => {
+            const {
               apiAddress,
-              !currentSwapAllNetworkTokenList,
-              tokenListCacheKey,
-              lpToken,
-              currency,
-            );
-        });
+              networkId: accountNetworkId,
+              accountId,
+            } = networkDataString;
+            return () =>
+              this.updateAllNetworkTokenList.call(
+                set,
+                accountNetworkId,
+                accountId,
+                apiAddress,
+                !currentSwapAllNetworkTokenList,
+                tokenListCacheKey,
+                lpToken,
+                currency,
+              );
+          });
 
-        try {
           // Execute requests in batches of 3 to prevent UI thread blocking
           const results = await this.executeBatched(tasks, 3);
 
@@ -2742,16 +2743,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               [tokenListCacheKey]: allTokensResult,
             }));
           }
-        } finally {
-          set(swapAllNetworkActionLockAtom(), (v) => ({
+        } else {
+          set(swapAllNetworkTokenListMapAtom(), (v) => ({
             ...v,
-            [tokenListCacheKey]: false,
+            [tokenListCacheKey]: [],
           }));
         }
-      } else {
-        set(swapAllNetworkTokenListMapAtom(), (v) => ({
+      } finally {
+        set(swapAllNetworkActionLockAtom(), (v) => ({
           ...v,
-          [tokenListCacheKey]: [],
+          [tokenListCacheKey]: false,
         }));
       }
     },

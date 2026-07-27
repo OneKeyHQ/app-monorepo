@@ -199,6 +199,14 @@ function useStockInputTokenBalance({
           tokenDetail: token,
         };
       }
+      if (seededBalance !== undefined && refreshKey === 0) {
+        return {
+          scope: balanceScope,
+          balance: seededBalance,
+          hasAuthoritativeBalance: true,
+          tokenDetail: token,
+        };
+      }
       const details =
         await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
           protocol: EProtocolOfExchange.STOCK,
@@ -220,6 +228,7 @@ function useStockInputTokenBalance({
       enabled,
       hasActiveAccount,
       networkAccount,
+      refreshKey,
       seededBalance,
       shouldWaitForNetworkAccount,
       token,

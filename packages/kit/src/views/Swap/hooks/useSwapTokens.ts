@@ -26,14 +26,12 @@ import {
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   ESwapCrossChainStatus,
+  ESwapTabSwitchType,
   ESwapTxHistoryStatus,
   ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import {
-  ESwapDirectionType,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
@@ -205,8 +203,6 @@ export function useSwapTokenList(
   const isTokenFetchAllNetworks = networkUtils.isAllNetwork({
     networkId: tokenFetchParams.networkId,
   });
-  const isStockAllNetworkTokenList =
-    from === ESwapTabSwitchType.STOCK && isTokenFetchAllNetworks;
   const allNetworkTokenListReady = useMemo(() => {
     if (!isTokenFetchAllNetworks) {
       return true;
@@ -324,13 +320,6 @@ export function useSwapTokenList(
       swapAllNetRecommend?: ISwapToken[];
       swapSearchTokens?: ISwapToken[];
     }) => {
-      if (isStockAllNetworkTokenList) {
-        return sortAllNetworkTokens(
-          filterSupportedAllNetworkTokens(
-            swapAllNetRecommend ?? swapSearchTokens ?? [],
-          ),
-        );
-      }
       if (swapAllNetRecommend?.length && !swapAllNetworkTokenList) {
         return [];
       }
@@ -398,7 +387,6 @@ export function useSwapTokenList(
     },
     [
       filterSupportedAllNetworkTokens,
-      isStockAllNetworkTokenList,
       sortAllNetworkTokens,
       swapAllNetworkTokenList,
       swapNetworks,
@@ -444,7 +432,6 @@ export function useSwapTokenList(
           tokenFetchParams.networkId &&
           !keywords &&
           isTokenFetchAllNetworks &&
-          !isStockAllNetworkTokenList &&
           allNetworkTokenListReady
             ? swapLoadAllNetworkTokenList(
                 indexedAccountId,
@@ -469,7 +456,6 @@ export function useSwapTokenList(
     otherWalletTypeAccountId,
     allNetworkTokenListReady,
     isSwapSupportAllAccountsReady,
-    isStockAllNetworkTokenList,
     isTokenFetchAllNetworks,
     swapLoadAllNetworkTokenList,
     tokenFetchParams,
@@ -581,8 +567,7 @@ export function useSwapTokenList(
     !isSwapSupportAllAccountsReady ||
     (swapTokenFetching && currentTokens.length === 0) ||
     (networkUtils.isAllNetwork({ networkId: tokenFetchParams.networkId }) &&
-      (!allNetworkTokenListReady ||
-        (!isStockAllNetworkTokenList && !swapAllNetworkTokenList)));
+      (!allNetworkTokenListReady || !swapAllNetworkTokenList));
 
   return {
     fetchLoading,

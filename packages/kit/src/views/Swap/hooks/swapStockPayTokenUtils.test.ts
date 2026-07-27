@@ -1,6 +1,7 @@
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  runStockPayTokenDetailsRequest,
   shouldRefreshStockPayTokensForHistoryEvent,
   shouldSyncStockPayTokenDetail,
 } from './swapStockPayTokenUtils';
@@ -36,6 +37,63 @@ const stockToken: ISwapToken = {
 };
 
 describe('swapStockPayTokenUtils', () => {
+  it('reuses an in-flight pay-token detail request for the same scope', async () => {
+    let resolveRequest: ((value: string) => void) | undefined;
+    const request = jest.fn(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveRequest = resolve;
+        }),
+    );
+
+    const firstRequest = runStockPayTokenDetailsRequest({
+      request,
+      scope: 'account-1:usdc|usdt',
+    });
+    const duplicateRequest = runStockPayTokenDetailsRequest({
+      request,
+      scope: 'account-1:usdc|usdt',
+    });
+
+    expect(request).toHaveBeenCalledTimes(1);
+    resolveRequest?.('loaded');
+    await expect(
+      Promise.all([firstRequest, duplicateRequest]),
+    ).resolves.toEqual(['loaded', 'loaded']);
+  });
+
+  it('reuses a settled pay-token detail request inside the deduping interval', async () => {
+    const request = jest.fn(async () => 'loaded');
+
+    await runStockPayTokenDetailsRequest({
+      request,
+      scope: 'account-2:usdc|usdt',
+    });
+    await runStockPayTokenDetailsRequest({
+      request,
+      scope: 'account-2:usdc|usdt',
+    });
+
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts a fresh pay-token detail request outside the deduping interval', async () => {
+    const request = jest.fn(async () => 'loaded');
+
+    await runStockPayTokenDetailsRequest({
+      dedupingInterval: 0,
+      request,
+      scope: 'account-3:usdc|usdt',
+    });
+    await runStockPayTokenDetailsRequest({
+      dedupingInterval: 0,
+      request,
+      scope: 'account-3:usdc|usdt',
+    });
+
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
   it('refreshes pay tokens when a history event contains a pay token', () => {
     expect(
       shouldRefreshStockPayTokensForHistoryEvent({
