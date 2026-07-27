@@ -312,6 +312,7 @@ describe('usePrimePaymentMethods native purchase', () => {
         currency: 'USD',
         subscriptionPeriod: 'P1Y',
         featureName: undefined,
+        paymentMethod: 'iap',
       });
       if (isNativeAndroid) {
         expect(mockIsGooglePlayAvailable).toHaveBeenCalledTimes(1);
