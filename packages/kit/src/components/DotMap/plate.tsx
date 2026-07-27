@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { Image as RNImage, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -10,7 +10,13 @@ import Animated, {
   withDelay,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Path } from 'react-native-svg';
+import Svg, {
+  Defs,
+  Path,
+  Pattern,
+  Rect,
+  Image as SvgImage,
+} from 'react-native-svg';
 
 import {
   LinearGradient,
@@ -257,9 +263,14 @@ const KEYTAG_LIGHT_GRADIENT = [
 
 // Fine sandblasted grain tiled across the plate. The tile mixes light and
 // dark specks so it stays neutral on both themes; tiling (not stretching)
-// keeps the speckle crisp at any plate size. RN core Image is used because
-// the expo-image based wrapper has no tiling mode.
+// keeps the speckle crisp at any plate size. Tiled via an SVG <Pattern>
+// because RN core Image's resizeMode="repeat" does not tile under the new
+// architecture (it paints the tile once, at intrinsic size, top-left), and
+// the expo-image based wrapper has no tiling mode at all.
 const KEYTAG_NOISE_TILE = require('@onekeyhq/kit/assets/keytag/keytag_noise.png');
+
+// Matches the asset's intrinsic pixel size so the speckle stays crisp.
+const KEYTAG_NOISE_TILE_SIZE = 96;
 
 const noiseStyles = StyleSheet.create({
   noise: {
@@ -268,6 +279,36 @@ const noiseStyles = StyleSheet.create({
     pointerEvents: 'none',
   },
 });
+
+function KeyTagNoise() {
+  return (
+    <Stack style={noiseStyles.noise}>
+      <Svg width="100%" height="100%">
+        <Defs>
+          <Pattern
+            id="keytag-noise"
+            patternUnits="userSpaceOnUse"
+            width={KEYTAG_NOISE_TILE_SIZE}
+            height={KEYTAG_NOISE_TILE_SIZE}
+          >
+            <SvgImage
+              href={KEYTAG_NOISE_TILE}
+              width={KEYTAG_NOISE_TILE_SIZE}
+              height={KEYTAG_NOISE_TILE_SIZE}
+            />
+          </Pattern>
+        </Defs>
+        <Rect
+          x="0"
+          y="0"
+          width="100%"
+          height="100%"
+          fill="url(#keytag-noise)"
+        />
+      </Svg>
+    </Stack>
+  );
+}
 
 // Strap-hole cutout shape from design (30x29), fill stripped so the theme
 // supplies it at render time.
@@ -305,11 +346,7 @@ export function KeyTagPlateFrame({ children }: { children: ReactNode }) {
         end={[1, 1]}
         pointerEvents="none"
       />
-      <RNImage
-        source={KEYTAG_NOISE_TILE}
-        resizeMode="repeat"
-        style={noiseStyles.noise}
-      />
+      <KeyTagNoise />
       {/* inner frame: app-background border reads as a recessed groove */}
       <Stack
         borderRadius={24}
