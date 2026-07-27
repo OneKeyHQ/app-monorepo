@@ -11,6 +11,7 @@ import {
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { normalizeMarketApiKLineInterval } from '@onekeyhq/shared/src/utils/marketKLineUtils';
 import { dedupeTokenSelectorFavoriteCoins } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -377,11 +378,7 @@ class ServiceMarketV2 extends ServiceBase {
     timeTo?: number;
     autoHandleError?: boolean;
   }) {
-    let innerInterval = interval?.toUpperCase();
-
-    if (innerInterval?.includes('M') || innerInterval?.includes('S')) {
-      innerInterval = innerInterval?.toLowerCase();
-    }
+    const innerInterval = normalizeMarketApiKLineInterval(interval);
 
     const requestConfig = {
       params: {

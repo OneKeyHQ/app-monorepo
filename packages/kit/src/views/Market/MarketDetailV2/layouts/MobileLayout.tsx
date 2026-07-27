@@ -261,6 +261,7 @@ export function MobileLayout({
     () =>
       getMarketDetailTradingViewNativeSource({
         hyperliquidCoin: nativeHyperliquidCoin,
+        isNative,
         marketDataSource: marketTradingViewParams?.dataSource,
         networkId,
         symbol: tokenSymbol ?? '',
@@ -269,6 +270,7 @@ export function MobileLayout({
     [
       marketTradingViewParams?.dataSource,
       nativeHyperliquidCoin,
+      isNative,
       networkId,
       tokenAddress,
       tokenSymbol,

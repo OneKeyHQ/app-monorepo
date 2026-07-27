@@ -85,6 +85,7 @@ function TokenDetailsFooter(props: {
       });
     } else if (marketNavigationTarget?.type === 'chart') {
       navigation.push(EModalAssetDetailRoutes.MarketChart, {
+        isNative: marketNavigationTarget.isNative,
         networkId: marketNavigationTarget.networkId,
         networkName: marketNavigationTarget.networkName,
         symbol: marketNavigationTarget.symbol,
