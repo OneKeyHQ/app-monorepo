@@ -42,6 +42,25 @@ const LastActivityTracker = () => {
         enableAnalyticsInDev:
           devSettings.enabled && devSettings.settings?.enableAnalyticsRequest,
       });
+      if (
+        platformEnv.isNativeAndroidGooglePlay &&
+        platformEnv.isNativeMainThread
+      ) {
+        void import('@onekeyhq/shared/src/modules/GooglePlayInstallAttribution/reporter')
+          .then(
+            ({
+              reportGooglePlayInstallAttribution,
+            }: {
+              reportGooglePlayInstallAttribution: () => Promise<void>;
+            }) => reportGooglePlayInstallAttribution(),
+          )
+          .catch((error) => {
+            console.warn(
+              '[InstallAttribution] Google Play attribution report failed',
+              error instanceof Error ? error.message : 'unknown_error',
+            );
+          });
+      }
       initPosthog({
         enableTestEndpoint:
           devSettings.enabled && devSettings.settings?.enableTestEndpoint,

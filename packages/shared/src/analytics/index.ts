@@ -6,6 +6,7 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/webEmebd/postMessage';
 
 import appGlobals from '../appGlobals';
+import { OneKeyLocalError } from '../errors';
 import platformEnv from '../platformEnv';
 import { headerPlatform } from '../request/InterceptorConsts';
 
@@ -119,6 +120,27 @@ export class Analytics {
     } else {
       this.cacheEvents.push([eventName, eventProps]);
     }
+  }
+
+  async trackEventWithAck(
+    eventName: string,
+    eventProps?: Record<string, unknown>,
+  ): Promise<void> {
+    if (!this.instanceId || !this.baseURL) {
+      throw new OneKeyLocalError('Analytics is not initialized');
+    }
+    if (platformEnv.isWebEmbed) {
+      throw new OneKeyLocalError(
+        'Analytics acknowledgement is unavailable in web embed',
+      );
+    }
+    if (
+      (platformEnv.isDev || platformEnv.isE2E) &&
+      !this.enableAnalyticsInDev
+    ) {
+      throw new OneKeyLocalError('Analytics delivery is disabled');
+    }
+    await this.requestEvent(eventName, eventProps);
   }
 
   private async lazyDeviceInfo(): Promise<IAnalyticsDeviceInfo> {
