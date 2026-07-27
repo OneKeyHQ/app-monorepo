@@ -13,7 +13,10 @@ import type {
   IPrimeInfiniPaymentAsset,
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
-import { logPrimeInfiniPaymentFlow } from '../primeInfiniPaymentLogger';
+import {
+  logPrimeInfiniPaymentFlow,
+  logPrimeInfiniPaymentMonitorEvent,
+} from '../primeInfiniPaymentLogger';
 
 import {
   getPrimeInfiniPaymentOutcome,
@@ -241,41 +244,19 @@ export function usePrimeInfiniPaymentPolling({
       if (!currentPayment) {
         return;
       }
-      const context = {
-        stage: 'paymentPolling' as const,
-        checkoutType: 'internalWallet' as const,
-        paymentId: currentPayment.paymentId,
-        networkId: asset.networkId,
-        tokenSymbol: asset.token,
-        amountDue: currentPayment.amountDue,
-        sendStarted: true,
-      };
-      if (event.type === 'started') {
-        logPrimeInfiniPaymentFlow({
-          ...context,
-          status: 'started',
-        });
-      } else if (event.type === 'refreshed') {
-        logPrimeInfiniPaymentFlow({
-          ...context,
-          status: 'refreshed',
-          reason: 'manualRefresh',
-        });
-      } else if (event.type === 'failed') {
-        logPrimeInfiniPaymentFlow({
-          ...context,
-          status: 'failed',
-          retryCount: event.retryCount,
-          reason: getProcessingFailureReason(event.issue.reason),
-          error: event.issue.error,
-        });
-      } else if (event.type === 'recovered') {
-        logPrimeInfiniPaymentFlow({
-          ...context,
-          status: 'recovered',
-          retryCount: event.retryCount,
-        });
-      }
+      logPrimeInfiniPaymentMonitorEvent({
+        event,
+        context: {
+          stage: 'paymentPolling',
+          checkoutType: 'internalWallet',
+          paymentId: currentPayment.paymentId,
+          networkId: asset.networkId,
+          tokenSymbol: asset.token,
+          amountDue: currentPayment.amountDue,
+          sendStarted: true,
+        },
+        getFailureReason: getProcessingFailureReason,
+      });
     },
     [asset.networkId, asset.token, payment],
   );

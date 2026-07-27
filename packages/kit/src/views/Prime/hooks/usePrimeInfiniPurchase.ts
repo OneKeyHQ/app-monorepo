@@ -234,14 +234,16 @@ export function usePrimeInfiniPurchase() {
 
         await beforeOpenCheckout?.();
 
-        // checkoutUrl is passed down so the waiting dialog can offer an
-        // "Open checkout page" affordance: on web window.open runs
-        // after async gaps and may be blocked by the popup blocker
+        // The checkout URL is part of the external monitor session identity,
+        // so a new hosted checkout cannot reuse an older monitor generation.
         showPrimeInfiniWaitingDialog({
-          plan,
-          onekeyUserId: purchaserUserId,
-          featureName,
-          checkoutUrl,
+          context: {
+            checkoutType: 'externalWallet',
+            plan,
+            onekeyUserId: purchaserUserId,
+            featureName,
+            checkoutUrl,
+          },
         });
         // Keep the waiting state visible before handing control to the system
         // browser. The shared modal transition takes 250 ms.

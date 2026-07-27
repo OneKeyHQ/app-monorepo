@@ -106,7 +106,6 @@ import {
   shouldBlockPrimeInfiniPaymentRefresh,
   shouldRenderPrimeInfiniPaymentSelection,
 } from '../hooks/primeInfiniPaymentUtils';
-import { usePrimeInfiniPaymentPolling } from '../hooks/usePrimeInfiniPaymentPolling';
 import {
   isPrimeInfiniExternalCheckoutInFlight,
   usePrimeInfiniPurchase,
@@ -118,6 +117,8 @@ import {
   finishPrimeSubscriptionPurchaseSuccess,
   preparePrimeSubscriptionPurchaseSuccess,
 } from '../primeSubscriptionPurchaseSuccess';
+
+import { showPrimeInfiniWaitingDialog } from './PrimeInfiniWaitingDialog';
 
 import type {
   IPrimeInfiniPaymentAsset,
@@ -816,7 +817,7 @@ function PrimeInfiniWalletPaymentContent({
       createPrimeInfiniPaymentBindingId(),
   );
   const submitInFlightRef = useRef(false);
-  const successHandledRef = useRef(false);
+  const waitingDialogHandoffRef = useRef('');
   const sessionPersistenceQueueRef = useRef(
     createPrimeInfiniPaymentSessionQueue(),
   );
@@ -935,26 +936,6 @@ function PrimeInfiniWalletPaymentContent({
     [baseline, featureName, paymentBindingId, plan, selectedSubscriptionPeriod],
   );
 
-  const clearPaymentSession = useCallback(
-    async (expectedPaymentId?: string) => {
-      const onekeyUserId = baseline.onekeyUserId;
-      const expectedPaymentCacheIdentity = paymentCacheKeyRef.current;
-      if (
-        onekeyUserId &&
-        (!expectedPaymentId ||
-          expectedPaymentCacheIdentity?.paymentId === expectedPaymentId)
-      ) {
-        await sessionPersistenceQueueRef.current.finalize(() =>
-          backgroundApiProxy.simpleDb.prime.clearInfiniPendingPaymentSession({
-            onekeyUserId,
-            expectedPaymentCacheIdentity,
-          }),
-        );
-      }
-    },
-    [baseline.onekeyUserId],
-  );
-
   const discardPaymentSessionForSelectionChange = useCallback(
     async (expectedPaymentId: string) => {
       const onekeyUserId = baseline.onekeyUserId;
@@ -1056,137 +1037,88 @@ function PrimeInfiniWalletPaymentContent({
     }
   }, [isAuthReady, isPurchaseUserCurrent, payment]);
 
-  const handlePurchaseSuccess = useCallback(
-    async (latestPayment: IPrimeInfiniPayment) => {
-      const purchaseUserId = baseline.onekeyUserId;
-      if (
-        successHandledRef.current ||
-        !mountedRef.current ||
-        !isPurchaseUserCurrentRef.current ||
-        !purchaseUserId
-      ) {
-        return;
-      }
-      successHandledRef.current = true;
-      onExitPreventedChange(true);
-      setPhase('finalizing');
+  useEffect(() => {
+    if (
+      phase !== 'polling' ||
+      !sendStarted ||
+      !payment ||
+      !baseline.onekeyUserId
+    ) {
+      return;
+    }
+    const payerAccountId = paymentAccountIdRef.current;
+    const payerAddress = paymentAccountAddressRef.current;
+    const paymentCacheKey = paymentCacheKeyRef.current;
+    const handoffKey = `${payment.paymentId}:${paymentCacheKey?.bindingId ?? ''}`;
+    if (
+      waitingDialogHandoffRef.current === handoffKey ||
+      !payerAccountId ||
+      !payerAddress ||
+      !paymentCacheKey
+    ) {
+      return;
+    }
+    waitingDialogHandoffRef.current = handoffKey;
+    submitInFlightRef.current = false;
+    onExitPreventedChange(false);
+    const waitingSession: IPrimeInfiniPendingPaymentSession = {
+      schemaVersion: 2,
+      asset: paymentAssetRef.current,
+      baseline: {
+        ...baseline,
+        onekeyUserId: baseline.onekeyUserId,
+      },
+      plan,
+      selectedSubscriptionPeriod,
+      featureName,
+      payerAccountId,
+      payerAddress,
+      paymentCacheKey,
+      payment,
+      sendStarted: true,
+      updatedAt: Date.now(),
+    };
+    void (async () => {
+      await timerUtils.setTimeoutPromised();
+      onClose();
+      await timerUtils.setTimeoutPromised(
+        undefined,
+        PRIME_PAYMENT_MODAL_CLOSE_DELAY_MS,
+      );
+      showPrimeInfiniWaitingDialog({
+        context: {
+          checkoutType: 'internalWallet',
+          session: waitingSession,
+        },
+      });
+    })().catch((error) => {
       logPrimeInfiniPaymentFlow({
-        stage: 'purchaseCompletion',
-        status: 'started',
+        stage: 'paymentPolling',
+        status: 'failed',
         subscriptionPeriod: selectedSubscriptionPeriod,
         featureName,
         plan,
         checkoutType: 'internalWallet',
         ...getPrimeInfiniPaymentLogContext({
-          payment: latestPayment,
-          asset: selectedAsset,
+          payment,
+          asset: waitingSession.asset,
         }),
         sendStarted: true,
+        reason: 'waitingDialogHandoffFailed',
+        error,
       });
-      try {
-        const successPayload =
-          await preparePrimeSubscriptionPurchaseSuccess(purchaseUserId);
-        await clearPaymentSession(latestPayment.paymentId);
-        const analyticsAmount = Number(latestPayment.amountDue);
-        defaultLogger.prime.subscription.primeSubscribeSuccess({
-          planType: plan,
-          amount: Number.isFinite(analyticsAmount) ? analyticsAmount : 0,
-          currency: 'USD',
-          featureName,
-          paymentMethod: 'crypto',
-        });
-        if (mountedRef.current && isPurchaseUserCurrentRef.current) {
-          Toast.success({
-            title: intl.formatMessage({
-              id: ETranslations.prime_payment_successful,
-            }),
-            message: intl.formatMessage({
-              id: ETranslations.prime_payment_successful_description,
-            }),
-          });
-        }
-        if (mountedRef.current) {
-          onClose();
-        }
-        logPrimeInfiniPaymentFlow({
-          stage: 'purchaseCompletion',
-          status: 'succeeded',
-          subscriptionPeriod: selectedSubscriptionPeriod,
-          featureName,
-          plan,
-          checkoutType: 'internalWallet',
-          ...getPrimeInfiniPaymentLogContext({
-            payment: latestPayment,
-            asset: selectedAsset,
-          }),
-          sendStarted: true,
-        });
-        void (async () => {
-          await timerUtils.wait(350);
-          await finishPrimeSubscriptionPurchaseSuccess(successPayload);
-        })().catch((error) => {
-          errorToastUtils.showToastOfError(error);
-        });
-      } catch (error) {
-        successHandledRef.current = false;
-        logPrimeInfiniPaymentFlow({
-          stage: 'purchaseCompletion',
-          status: 'failed',
-          subscriptionPeriod: selectedSubscriptionPeriod,
-          featureName,
-          plan,
-          checkoutType: 'internalWallet',
-          ...getPrimeInfiniPaymentLogContext({
-            payment: latestPayment,
-            asset: selectedAsset,
-          }),
-          sendStarted: true,
-          error,
-        });
-        if (mountedRef.current) {
-          onExitPreventedChange(false);
-          setPhase(isPurchaseUserCurrentRef.current ? 'polling' : 'failed');
-        }
-        throw error;
-      }
-    },
-    [
-      baseline.onekeyUserId,
-      clearPaymentSession,
-      featureName,
-      intl,
-      onClose,
-      onExitPreventedChange,
-      plan,
-      selectedAsset,
-      selectedSubscriptionPeriod,
-    ],
-  );
-
-  const handlePaymentTerminal = useCallback(
-    (terminalOutcome: 'expired' | 'failed') => {
-      submitInFlightRef.current = false;
-      setPhase(terminalOutcome);
-    },
-    [],
-  );
-
-  const polling = usePrimeInfiniPaymentPolling({
-    payment,
-    asset: selectedAsset,
+    });
+  }, [
     baseline,
-    enabled: phase === 'polling' && isPurchaseUserCurrent,
-    onSuccess: handlePurchaseSuccess,
-    onTerminal: handlePaymentTerminal,
-  });
-
-  useEffect(() => {
-    if (polling.latestPayment) {
-      void persistPaymentSession({
-        nextPayment: polling.latestPayment,
-      }).catch(() => undefined);
-    }
-  }, [persistPaymentSession, polling.latestPayment]);
+    featureName,
+    onClose,
+    onExitPreventedChange,
+    payment,
+    phase,
+    plan,
+    selectedSubscriptionPeriod,
+    sendStarted,
+  ]);
 
   const listedNetworkMap = getListedNetworkMap();
 
@@ -3263,19 +3195,6 @@ function PrimeInfiniWalletPaymentContent({
     </ListItem>
   );
   const renderPaymentFooter = () => {
-    if (phase === 'polling') {
-      return (
-        <PrimeInfiniPaymentFooter
-          onConfirmText={intl.formatMessage({
-            id: ETranslations.global_refresh,
-          })}
-          confirmButtonProps={{ loading: polling.isPolling }}
-          onConfirm={() => {
-            polling.refresh();
-          }}
-        />
-      );
-    }
     if (inlinePaymentErrorTitle) {
       return (
         <PrimeInfiniPaymentFooter
@@ -3416,25 +3335,6 @@ function PrimeInfiniWalletPaymentContent({
 
       {inlinePaymentErrorTitle ? (
         <Alert type="critical" title={inlinePaymentErrorTitle} />
-      ) : null}
-
-      {phase === 'polling' ? (
-        <>
-          <XStack gap="$2" alignItems="center">
-            <Spinner size="small" />
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.global_processing })}
-            </SizableText>
-          </XStack>
-          {polling.hasError ? (
-            <Alert
-              type="warning"
-              title={intl.formatMessage({
-                id: ETranslations.global_network_error,
-              })}
-            />
-          ) : null}
-        </>
       ) : null}
 
       {isCurrentBalanceInsufficient ? (
