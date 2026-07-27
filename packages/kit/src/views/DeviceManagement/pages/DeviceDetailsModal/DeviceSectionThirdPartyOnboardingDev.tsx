@@ -1,46 +1,31 @@
 import { useCallback, useState } from 'react';
 
-import { Dialog, Toast } from '@onekeyhq/components';
+import {
+  Dialog,
+  ScrollView,
+  SizableText,
+  Toast,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useDeviceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import type { IThirdPartyAccountNameSourceStatus } from '@onekeyhq/shared/src/referralCode/type';
+import type {
+  IThirdPartyAccountNameSourceInventoryAccount,
+  IThirdPartyAccountNameSourceStatus,
+} from '@onekeyhq/shared/src/referralCode/type';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { ListItemGroup } from '../ListItemGroup';
 
+// cspell:ignore DSID
 type ILocalVerificationStatus = 'idle' | 'pending' | 'verified' | 'failed';
 type INameSyncStatus = 'idle' | 'pending' | 'done' | 'failed';
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return (error instanceof Error ? error.message : '') || fallback;
-}
-
-function getVerificationFailureMessage(result: {
-  success: boolean;
-  payload: unknown;
-}): string {
-  const payload = result.payload as {
-    code?: number | string;
-    error?: string;
-    message?: string;
-    note?: string;
-    verified?: boolean;
-  };
-  const detail = payload.error || payload.message;
-  const code =
-    payload.code === undefined ? '' : ` (code ${String(payload.code)})`;
-  if (!result.success) {
-    return detail
-      ? `Device connection or verification failed${code}: ${detail}`
-      : `Device connection or verification failed${code}`;
-  }
-  return (
-    payload.error ||
-    payload.note ||
-    'The connected device did not pass the local genuine check.'
-  );
 }
 
 function getNameSourceStatusMessage(
@@ -61,6 +46,68 @@ function getNameSourceStatusMessage(
   return messages[status];
 }
 
+function AccountNameSourceInventory({
+  accounts,
+  scopeDescription,
+}: {
+  accounts: IThirdPartyAccountNameSourceInventoryAccount[];
+  scopeDescription: string;
+}) {
+  return (
+    <ScrollView maxHeight={480}>
+      <YStack gap="$3">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {scopeDescription}
+        </SizableText>
+        {accounts.map((account, index) => (
+          <YStack
+            key={`${account.source}:${account.path || account.address}:${index}`}
+            gap="$1"
+            pb="$3"
+            borderBottomWidth="$px"
+            borderBottomColor="$borderSubdued"
+          >
+            <XStack justifyContent="space-between" gap="$3">
+              <SizableText flex={1} size="$bodyMdMedium">
+                {account.sourceName}
+              </SizableText>
+              <SizableText
+                size="$bodySm"
+                color={
+                  account.matchedOneKeyAccounts.length
+                    ? '$textSuccess'
+                    : '$textSubdued'
+                }
+              >
+                {account.matchedOneKeyAccounts.length
+                  ? `${account.matchedOneKeyAccounts.length} match`
+                  : 'No match'}
+              </SizableText>
+            </XStack>
+            {account.path ? (
+              <SizableText size="$bodySm" color="$textSubdued" selectable>
+                {account.path}
+              </SizableText>
+            ) : null}
+            <SizableText size="$bodySm" color="$textSubdued" selectable>
+              {account.address}
+            </SizableText>
+            {account.matchedOneKeyAccounts.map((match) => (
+              <SizableText
+                key={match.indexedAccountId}
+                size="$bodySm"
+                color="$textSuccess"
+              >
+                OneKey: {match.currentName}
+              </SizableText>
+            ))}
+          </YStack>
+        ))}
+      </YStack>
+    </ScrollView>
+  );
+}
+
 function DeviceSectionThirdPartyOnboardingDev() {
   const [device] = useDeviceAtom();
   const [verificationStatus, setVerificationStatus] =
@@ -68,7 +115,7 @@ function DeviceSectionThirdPartyOnboardingDev() {
   const [verificationError, setVerificationError] = useState('');
   const [nameSyncStatus, setNameSyncStatus] = useState<INameSyncStatus>('idle');
   const [nameSyncError, setNameSyncError] = useState('');
-  const [renamedCount, setRenamedCount] = useState(0);
+  const [sourceAccountCount, setSourceAccountCount] = useState(0);
 
   const vendor = device?.vendor;
   const isThirdParty =
@@ -88,36 +135,31 @@ function DeviceSectionThirdPartyOnboardingDev() {
           'Reconnect this device before running the genuine check.',
         );
       }
-      // Intentionally omit a OneKey relay URL and reward challenge:
-      // Trezor returns a local attestation proof; Ledger uses its direct
-      // Genuine Check flow. This is diagnostic evidence, not coupon authority.
       const result =
-        await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareVerifyDeviceAuthenticity(
+        await backgroundApiProxy.serviceThirdPartyHardware.runLocalMockThirdPartyDeviceClaim(
           {
             vendor,
             connectId,
             dbDeviceId: device.id,
           },
         );
-      const payload = result.payload as { verified?: boolean };
-      if (!result.success || payload.verified !== true) {
-        throw new OneKeyLocalError(getVerificationFailureMessage(result));
-      }
       setVerificationStatus('verified');
       Dialog.show({
         icon: 'BadgeVerifiedSolid',
-        title: 'Real device authenticity passed',
+        title: 'Local mock claim issued',
         description: [
           vendor === EHardwareVendor.trezor
-            ? 'Trezor attestation passed with a fresh local challenge.'
-            : 'Ledger Genuine Check passed through the vendor service.',
+            ? 'Trezor signed a fresh local mock-server challenge. The mock backend independently reverified the raw certificate/signature proof.'
+            : 'Ledger passed the official vendor Genuine Check. This validates the device integration, but production still requires a OneKey relay.',
           '',
-          'Physical-device check: real',
-          'OneKey server challenge: not requested',
-          'Wallet address signature: not requested',
-          'OneKey reward claim: not requested',
+          `Verification mode: ${result.verificationMode}`,
+          `Device DSID: ${result.deviceId}`,
+          `Challenge: ${result.challengeHex}`,
+          `Mock voucher: ${result.voucherCode}`,
           '',
-          'This diagnostic proof cannot be reused for a later claim. The production reward flow must start with a fresh server challenge.',
+          result.serverPortable
+            ? 'The Trezor verifier and evidence DTO can move to the backend unchanged; the backend must generate its own fresh challenge.'
+            : 'The Ledger client verdict cannot move to the backend as proof. The production backend must witness the same Genuine Check session through its relay.',
         ].join('\n'),
         onConfirmText: 'Done',
       });
@@ -134,7 +176,7 @@ function DeviceSectionThirdPartyOnboardingDev() {
     }
   }, [device, isThirdParty, vendor, verificationStatus]);
 
-  const handleNameSync = useCallback(async () => {
+  const handleNameInventory = useCallback(async () => {
     if (!device || !isThirdParty || nameSyncStatus === 'pending') {
       return;
     }
@@ -142,78 +184,36 @@ function DeviceSectionThirdPartyOnboardingDev() {
     setNameSyncError('');
     try {
       const result =
-        await backgroundApiProxy.serviceThirdPartyHardware.getThirdPartyGlobalAccountNameCandidates(
+        await backgroundApiProxy.serviceThirdPartyHardware.getThirdPartyGlobalAccountNameSourceInventory(
           {
             vendor,
             dbDeviceId: device.id,
           },
         );
-      if (result.status !== 'available' || result.candidates.length === 0) {
+      if (result.status !== 'available' || result.accounts.length === 0) {
         setNameSyncStatus('idle');
         Dialog.show({
           icon: 'InfoCircleOutline',
-          title: 'No names to sync',
+          title: 'No source accounts found',
           description: getNameSourceStatusMessage(result.status),
           onConfirmText: 'Done',
         });
         return;
       }
-      const authorizationId = result.authorizationId;
-      if (!authorizationId) {
-        throw new OneKeyLocalError(
-          'The account name matches were not authorized by the background service.',
-        );
-      }
-
-      const preview = result.candidates
-        .slice(0, 8)
-        .map(
-          (candidate) =>
-            `${candidate.currentName} → ${candidate.sourceName}\n${candidate.matchedAddress}`,
-        );
-      if (result.candidates.length > preview.length) {
-        preview.push(
-          `…and ${result.candidates.length - preview.length} more account(s)`,
-        );
-      }
-      setNameSyncStatus('idle');
+      setSourceAccountCount(result.accounts.length);
+      setNameSyncStatus('done');
       Dialog.show({
         icon: 'EditOutline',
-        title: `Sync ${result.candidates.length} account name(s)?`,
-        description: [
-          vendor === EHardwareVendor.ledger
-            ? 'Ledger Live was read locally. Every OneKey account was scanned; only exact address matches are listed.'
-            : 'The connected Trezor derived BTC receive addresses. Matching OneKey accounts use Trezor Suite default titles.',
-          '',
-          ...preview,
-        ].join('\n'),
-        onCancelText: 'Cancel',
-        onConfirmText: 'Sync names',
-        onCancel: () => setNameSyncStatus('idle'),
-        onConfirm: async ({ close }) => {
-          setNameSyncStatus('pending');
-          try {
-            const applied =
-              await backgroundApiProxy.serviceThirdPartyHardware.applyThirdPartyGlobalAccountNames(
-                {
-                  authorizationId,
-                },
-              );
-            setRenamedCount(applied.renamed);
-            setNameSyncStatus('done');
-            Toast.success({
-              title: `Synced ${applied.renamed} account name(s)`,
-            });
-            await close?.();
-          } catch (error) {
-            setNameSyncStatus('failed');
-            Toast.error({
-              title:
-                (error instanceof Error ? error.message : '') ||
-                'Account name sync failed',
-            });
-          }
-        },
+        title: `${vendor === EHardwareVendor.ledger ? 'Ledger Live' : 'Trezor'} source accounts (${result.accounts.length})`,
+        description:
+          'Read-only developer view. Nothing is renamed from this window.',
+        renderContent: (
+          <AccountNameSourceInventory
+            accounts={result.accounts}
+            scopeDescription={result.scopeDescription}
+          />
+        ),
+        onConfirmText: 'Done',
       });
     } catch (error) {
       const message = getErrorMessage(error, 'Could not read account names');
@@ -232,19 +232,19 @@ function DeviceSectionThirdPartyOnboardingDev() {
   const verifySubtitle = {
     idle:
       vendor === EHardwareVendor.trezor
-        ? 'Run real Trezor attestation locally; the OneKey reward API is not called'
-        : 'Run real Ledger Genuine Check; the OneKey reward API is not called',
+        ? 'Mock the backend locally; sign and independently verify a real Trezor proof'
+        : 'Mock the backend locally; run the real Ledger vendor Genuine Check',
     pending: 'Waiting for the connected device…',
-    verified: 'Real device check passed · server reward flow not tested',
+    verified: 'Real device proof accepted · local DEV voucher issued',
     failed: verificationError || 'Failed · tap to retry',
   }[verificationStatus];
   const nameSyncSubtitle = {
     idle:
       vendor === EHardwareVendor.ledger
-        ? 'Read Ledger Live locally and match every OneKey account by address'
-        : 'Match the standard Trezor BTC wallet by deriving empty-passphrase addresses',
-    pending: 'Reading source accounts and matching addresses…',
-    done: `Done · renamed ${renamedCount} account(s)`,
+        ? 'Show every plaintext Ledger Live Ethereum name/address and its OneKey matches'
+        : 'Show 40 standard Trezor BTC receive addresses, paths, titles, and OneKey matches',
+    pending: 'Reading every bounded source account and matching addresses…',
+    done: `Read-only list ready · ${sourceAccountCount} source account(s)`,
     failed: nameSyncError || 'Failed · tap to retry',
   }[nameSyncStatus];
 
@@ -256,7 +256,7 @@ function DeviceSectionThirdPartyOnboardingDev() {
     >
       <ListItem
         icon="LinkOutline"
-        title="1. Pair, verify, and mock voucher"
+        title="1. Local mock claim with real device proof"
         subtitle={verifySubtitle}
         titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
@@ -267,13 +267,13 @@ function DeviceSectionThirdPartyOnboardingDev() {
       />
       <ListItem
         icon="EditOutline"
-        title="2. Sync account names by address"
+        title="2. View all source accounts and address matches"
         subtitle={nameSyncSubtitle}
         titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         isLoading={nameSyncStatus === 'pending'}
         disabled={nameSyncStatus === 'pending'}
-        onPress={handleNameSync}
+        onPress={handleNameInventory}
         testID="third-party-onboarding-name-sync"
       />
     </ListItemGroup>

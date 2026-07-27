@@ -898,3 +898,20 @@ export interface IThirdPartyAccountNameCandidatesResult {
   candidates: IThirdPartyAccountNameCandidate[];
   authorizationId?: string;
 }
+
+export interface IThirdPartyAccountNameSourceInventoryAccount {
+  sourceName: string;
+  address: string;
+  path?: string;
+  source: 'ledger-live' | 'trezor-device-default';
+  matchedOneKeyAccounts: Array<{
+    indexedAccountId: string;
+    currentName: string;
+  }>;
+}
+
+export interface IThirdPartyAccountNameSourceInventoryResult {
+  status: IThirdPartyAccountNameSourceStatus;
+  accounts: IThirdPartyAccountNameSourceInventoryAccount[];
+  scopeDescription: string;
+}

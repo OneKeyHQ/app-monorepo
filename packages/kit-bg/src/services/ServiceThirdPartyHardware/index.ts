@@ -23,6 +23,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IThirdPartyAccountNameCandidate,
   IThirdPartyAccountNameCandidatesResult,
+  IThirdPartyAccountNameSourceInventoryAccount,
+  IThirdPartyAccountNameSourceInventoryResult,
   IThirdPartyAccountNameSourceStatus,
 } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -48,6 +50,11 @@ import {
   thirdPartyHardwareAdapterRegistry,
 } from '../ServiceHardware/adapters/thirdPartyHardwareAdapterRegistry';
 import { mapThirdPartyDeviceToSearchDevice } from '../ServiceHardware/thirdPartyDeviceMapping';
+
+import {
+  createLocalMockDeviceClaimChallenge,
+  verifyLocalMockDeviceClaimEvidence,
+} from './localMockDeviceClaim';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type {
@@ -91,6 +98,8 @@ function createThirdPartyAdapterNotRegisteredError(vendor: EHardwareVendor) {
 type ITrezorBtcScriptType = 'p2pkh' | 'p2sh' | 'p2wpkh' | 'p2tr';
 const DEV_ACCOUNT_NAME_SYNC_AUTHORIZATION_TTL_MS = 5 * 60 * 1000;
 const DEV_TREZOR_NAME_SYNC_MAX_PATHS = 40;
+const DEV_TREZOR_INVENTORY_ACCOUNTS_PER_SCRIPT_TYPE = 10;
+const DEV_TREZOR_INVENTORY_PURPOSES = [44, 49, 84, 86] as const;
 
 function getTrezorBtcScriptTypeFromPath(
   path: string,
@@ -143,6 +152,51 @@ function buildAccountNameTargets({
       path: account.path,
     }));
   });
+}
+
+function normalizeInventoryAddress(address: string): string {
+  const trimmed = address.trim();
+  return /^0x[0-9a-f]{40}$/i.test(trimmed) || /^(bc1|tb1)/i.test(trimmed)
+    ? trimmed.toLowerCase()
+    : trimmed;
+}
+
+function buildAccountNameSourceInventory({
+  sourceAccounts,
+  targetAccounts,
+  source,
+}: {
+  sourceAccounts: Array<{ name: string; address: string; path?: string }>;
+  targetAccounts: ReturnType<typeof buildAccountNameTargets>;
+  source: IThirdPartyAccountNameSourceInventoryAccount['source'];
+}): IThirdPartyAccountNameSourceInventoryAccount[] {
+  const targetsByAddress = new Map<
+    string,
+    Array<{ indexedAccountId: string; currentName: string }>
+  >();
+  for (const target of targetAccounts) {
+    const address = normalizeInventoryAddress(target.address);
+    const matches = targetsByAddress.get(address) ?? [];
+    if (
+      !matches.some(
+        (match) => match.indexedAccountId === target.indexedAccountId,
+      )
+    ) {
+      matches.push({
+        indexedAccountId: target.indexedAccountId,
+        currentName: target.currentName,
+      });
+      targetsByAddress.set(address, matches);
+    }
+  }
+  return sourceAccounts.map((account) => ({
+    sourceName: account.name,
+    address: account.address,
+    path: account.path,
+    source,
+    matchedOneKeyAccounts:
+      targetsByAddress.get(normalizeInventoryAddress(account.address)) ?? [],
+  }));
 }
 
 function stringifyThirdPartySearchDebugValue(value: unknown): string {
@@ -1199,6 +1253,87 @@ class ServiceThirdPartyHardware extends ServiceBase {
   }
 
   /**
+   * Developer-only replacement for the future OneKey attestation backend.
+   * The backend boundary is mocked; device/vendor verification is real:
+   * - Trezor signs this method's fresh nonce and the raw proof is independently
+   *   reverified here without trusting the adapter's `verified` boolean.
+   * - Ledger runs the official vendor Genuine Check. Its result is useful for
+   *   integration testing but is not portable server evidence; production must
+   *   witness the same session through the OneKey relay.
+   */
+  @backgroundMethod()
+  async runLocalMockThirdPartyDeviceClaim(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+    dbDeviceId: string;
+  }): Promise<{
+    status: 'issued';
+    voucherCode: string;
+    challengeHex: string;
+    deviceId: string;
+    verificationMode:
+      | 'trezor-independent-proof'
+      | 'ledger-vendor-genuine-check';
+    serverPortable: boolean;
+  }> {
+    await this.assertThirdPartyOnboardingDevMode();
+    if (
+      params.vendor !== EHardwareVendor.trezor &&
+      params.vendor !== EHardwareVendor.ledger
+    ) {
+      throw new OneKeyLocalError(
+        'Local mock device claim supports only Trezor and Ledger',
+      );
+    }
+    const challengeHex = createLocalMockDeviceClaimChallenge();
+    const response = await this.thirdPartyHardwareVerifyDeviceAuthenticity({
+      vendor: params.vendor,
+      connectId: params.connectId,
+      dbDeviceId: params.dbDeviceId,
+      challenge:
+        params.vendor === EHardwareVendor.trezor ? challengeHex : undefined,
+    });
+    if (!response.success) {
+      throw convertThirdPartyDeviceError(response.payload, {
+        vendor: params.vendor === EHardwareVendor.trezor ? 'Trezor' : 'Ledger',
+      });
+    }
+    const vendor =
+      params.vendor === EHardwareVendor.trezor ? 'trezor' : 'ledger';
+    const verification = verifyLocalMockDeviceClaimEvidence({
+      vendor,
+      challengeHex,
+      authenticity: response.payload as {
+        vendor: 'trezor' | 'ledger';
+        verified: boolean;
+        deviceId?: string;
+        usedDebugKey?: boolean;
+        // cspell:ignore optiga
+        trezorProof?: {
+          challenge: string;
+          deviceModel: string;
+          proof: {
+            optiga_certificates: string[];
+            optiga_signature: string;
+            tropic_certificates?: string[];
+            tropic_signature?: string;
+            mcu_certificates?: string[];
+            mcu_signature?: string;
+          };
+        };
+      },
+    });
+    return {
+      status: 'issued',
+      voucherCode: `DEV-LOCAL-${vendor.toUpperCase()}-${challengeHex
+        .slice(0, 8)
+        .toUpperCase()}`,
+      challengeHex,
+      ...verification,
+    };
+  }
+
+  /**
    * Developer-only device-details flow. It deliberately does not use the
    * current page's walletId:
    * - Ledger Live names are matched against every local indexed account.
@@ -1206,6 +1341,159 @@ class ServiceThirdPartyHardware extends ServiceBase {
    *   device, then applies Suite's deterministic "Bitcoin #N" default title
    *   only where the returned address exists in OneKey.
    */
+  @backgroundMethod()
+  async getThirdPartyGlobalAccountNameSourceInventory(params: {
+    vendor: EHardwareVendor;
+    dbDeviceId?: string;
+  }): Promise<IThirdPartyAccountNameSourceInventoryResult> {
+    await this.assertThirdPartyOnboardingDevMode();
+    const empty = (
+      status: IThirdPartyAccountNameSourceStatus,
+      scopeDescription: string,
+    ): IThirdPartyAccountNameSourceInventoryResult => ({
+      status,
+      accounts: [],
+      scopeDescription,
+    });
+    if (
+      params.vendor !== EHardwareVendor.trezor &&
+      params.vendor !== EHardwareVendor.ledger
+    ) {
+      return empty('unsupported_source', 'Unsupported third-party source.');
+    }
+    const [{ accounts }, { indexedAccounts }] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAllAccounts({
+        filterRemoved: true,
+      }),
+      this.backgroundApi.serviceAccount.getAllIndexedAccounts({
+        filterRemoved: true,
+      }),
+    ]);
+
+    if (params.vendor === EHardwareVendor.ledger) {
+      const scopeDescription =
+        'All plaintext Ethereum name/address entries parsed from Ledger Live on this computer.';
+      if (!platformEnv.isDesktop || !globalThis.desktopApiProxy?.system) {
+        return empty('unsupported_source', scopeDescription);
+      }
+      const source =
+        await globalThis.desktopApiProxy.system.readLedgerLiveAccountNames();
+      if (source.status !== 'available') {
+        const statusMap: Record<
+          Exclude<typeof source.status, 'available'>,
+          IThirdPartyAccountNameSourceStatus
+        > = {
+          no_accounts: 'no_matches',
+          source_not_found: 'source_not_found',
+          encrypted_source: 'encrypted_source',
+          invalid_source: 'invalid_source',
+        };
+        return empty(statusMap[source.status], scopeDescription);
+      }
+      const inventory = buildAccountNameSourceInventory({
+        sourceAccounts: source.accounts,
+        targetAccounts: buildAccountNameTargets({
+          accounts,
+          indexedAccounts,
+        }),
+        source: 'ledger-live',
+      });
+      return {
+        status: 'available',
+        accounts: inventory,
+        scopeDescription,
+      };
+    }
+
+    const scopeDescription =
+      'Connected Trezor: the first 10 accounts for each standard Bitcoin script type (Legacy, Nested SegWit, Native SegWit, Taproot), up to 40 receive addresses.';
+    if (!params.dbDeviceId) {
+      return empty('no_matches', scopeDescription);
+    }
+    const dbDevice = await localDb
+      .getDevice(params.dbDeviceId)
+      .catch(() => undefined);
+    if (!dbDevice || dbDevice.vendor !== EHardwareVendor.trezor) {
+      return empty('no_matches', scopeDescription);
+    }
+    await this.ensureAdaptersInitialized(EHardwareVendor.trezor);
+    const adapter = this.getThirdPartyAdapter(EHardwareVendor.trezor);
+    if (!adapter) {
+      throw createThirdPartyAdapterNotRegisteredError(EHardwareVendor.trezor);
+    }
+    const sourceAccounts: Array<{
+      name: string;
+      address: string;
+      path: string;
+    }> = [];
+    for (const purpose of DEV_TREZOR_INVENTORY_PURPOSES) {
+      for (
+        let index = 0;
+        index < DEV_TREZOR_INVENTORY_ACCOUNTS_PER_SCRIPT_TYPE;
+        index += 1
+      ) {
+        const path = `m/${purpose}'/0'/${index}'/0/0`;
+        const scriptType = getTrezorBtcScriptTypeFromPath(path);
+        const name = getTrezorSuiteDefaultAccountTitleFromPath(path);
+        if (scriptType && name) {
+          const response = await callTrezorWithBleFallback(
+            dbDevice,
+            async (connectId) => {
+              // A persisted connectId is only a transport handle and may later
+              // resolve to another paired Trezor. Bind every inventory read to
+              // the selected DB device's live Features.device_id before asking
+              // it for an address, including each USB/BLE fallback attempt.
+              const connected = await this.connectTrezorAndVerifyDeviceIdentity(
+                {
+                  device: dbDevice,
+                  connectId,
+                },
+              );
+              if (!connected.success) {
+                return connected;
+              }
+              return adapter.hw.btcGetAddress(connectId, dbDevice.deviceId, {
+                path,
+                coin: 'btc',
+                scriptType,
+                showOnDevice: false,
+                useEmptyPassphrase: true,
+              });
+            },
+            buildTrezorBleFallbackOptions(this.backgroundApi),
+          );
+          if (!response.success) {
+            throw convertThirdPartyDeviceError(response.payload, {
+              vendor: 'Trezor',
+              chain: 'Bitcoin',
+            });
+          }
+          if (response.payload.address) {
+            sourceAccounts.push({
+              name,
+              address: response.payload.address,
+              path,
+            });
+          }
+        }
+      }
+    }
+    const inventory = buildAccountNameSourceInventory({
+      sourceAccounts,
+      targetAccounts: buildAccountNameTargets({
+        accounts,
+        indexedAccounts,
+        onlyBitcoin: true,
+      }),
+      source: 'trezor-device-default',
+    });
+    return {
+      status: inventory.length ? 'available' : 'no_matches',
+      accounts: inventory,
+      scopeDescription,
+    };
+  }
+
   @backgroundMethod()
   async getThirdPartyGlobalAccountNameCandidates(params: {
     vendor: EHardwareVendor;

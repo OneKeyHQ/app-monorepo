@@ -880,6 +880,237 @@ describe('ServiceThirdPartyHardware developer account name sync', () => {
     ).rejects.toThrow('authorization expired');
   });
 
+  it('lists a bounded standard Trezor BTC source inventory before filtering matches', async () => {
+    const matchedAddress = 'bc1q-device-native-segwit-account-zero';
+    const connectDevice = jest.fn().mockResolvedValue({
+      success: true,
+      payload: {
+        connectId: 'TREZOR-USB',
+        deviceId: 'TREZOR-DEVICE',
+      },
+    });
+    const btcGetAddress = jest.fn(
+      async (
+        _connectId: string,
+        _deviceId: string,
+        params: { path: string },
+      ) => ({
+        success: true,
+        payload: {
+          address:
+            params.path === "m/84'/0'/0'/0/0"
+              ? matchedAddress
+              : `source-address:${params.path}`,
+        },
+      }),
+    );
+    const backgroundApi = {
+      serviceAccount: {
+        getAllAccounts: jest.fn().mockResolvedValue({
+          accounts: [
+            {
+              id: 'btc-account',
+              indexedAccountId: 'hw-1--0',
+              impl: 'btc',
+              address: matchedAddress,
+              addresses: null,
+              path: "m/84'/0'/0'",
+            },
+          ],
+        }),
+        getAllIndexedAccounts: jest.fn().mockResolvedValue({
+          indexedAccounts: [
+            {
+              id: 'hw-1--0',
+              name: 'OneKey BTC Account',
+              walletId: 'hw-1',
+              index: 0,
+              idHash: 'hash',
+            },
+          ],
+        }),
+      },
+    } as unknown as IBackgroundApi;
+    getLocalDbMock().getDevice.mockResolvedValue({
+      id: 'db-trezor',
+      vendor: EHardwareVendor.trezor,
+      connectId: 'TREZOR-USB',
+      deviceId: 'TREZOR-DEVICE',
+    } as IDBDevice);
+    const adapter = {
+      hw: { btcGetAddress },
+      connectDevice,
+      disconnect: jest.fn().mockResolvedValue(undefined),
+    } as unknown as IThirdPartyHardwareAdapter;
+    const service = new ServiceThirdPartyHardware({ backgroundApi });
+    jest.spyOn(service, 'isDevModeEnabled').mockResolvedValue(true);
+    (
+      service as unknown as {
+        thirdPartyAdapters: Map<string, IThirdPartyHardwareAdapter>;
+      }
+    ).thirdPartyAdapters.set('trezor', adapter);
+
+    const inventory =
+      await service.getThirdPartyGlobalAccountNameSourceInventory({
+        vendor: EHardwareVendor.trezor,
+        dbDeviceId: 'db-trezor',
+      });
+
+    expect(inventory.status).toBe('available');
+    expect(inventory.accounts).toHaveLength(40);
+    expect(connectDevice).toHaveBeenCalledTimes(40);
+    expect(btcGetAddress).toHaveBeenCalledTimes(40);
+    expect(inventory.accounts).toContainEqual({
+      sourceName: 'Bitcoin #1',
+      address: matchedAddress,
+      path: "m/84'/0'/0'/0/0",
+      source: 'trezor-device-default',
+      matchedOneKeyAccounts: [
+        {
+          indexedAccountId: 'hw-1--0',
+          currentName: 'OneKey BTC Account',
+        },
+      ],
+    });
+  });
+
+  it('rejects Trezor inventory when a stale connectId resolves to another device', async () => {
+    const connectDevice = jest.fn().mockResolvedValue({
+      success: true,
+      payload: {
+        connectId: 'STALE-TREZOR-USB',
+        deviceId: 'ANOTHER-TREZOR',
+      },
+    });
+    const disconnect = jest.fn().mockResolvedValue(undefined);
+    const btcGetAddress = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { address: 'bc1q-wrong-device-address' },
+    });
+    const backgroundApi = {
+      serviceAccount: {
+        getAllAccounts: jest.fn().mockResolvedValue({ accounts: [] }),
+        getAllIndexedAccounts: jest
+          .fn()
+          .mockResolvedValue({ indexedAccounts: [] }),
+      },
+    } as unknown as IBackgroundApi;
+    getLocalDbMock().getDevice.mockResolvedValue({
+      id: 'db-trezor',
+      vendor: EHardwareVendor.trezor,
+      connectId: 'STALE-TREZOR-USB',
+      deviceId: 'EXPECTED-TREZOR',
+    } as IDBDevice);
+    const adapter = {
+      hw: { btcGetAddress },
+      connectDevice,
+      disconnect,
+    } as unknown as IThirdPartyHardwareAdapter;
+    const service = new ServiceThirdPartyHardware({ backgroundApi });
+    jest.spyOn(service, 'isDevModeEnabled').mockResolvedValue(true);
+    (
+      service as unknown as {
+        thirdPartyAdapters: Map<string, IThirdPartyHardwareAdapter>;
+      }
+    ).thirdPartyAdapters.set('trezor', adapter);
+
+    await expect(
+      service.getThirdPartyGlobalAccountNameSourceInventory({
+        vendor: EHardwareVendor.trezor,
+        dbDeviceId: 'db-trezor',
+      }),
+    ).rejects.toThrow('does not match');
+
+    expect(connectDevice).toHaveBeenCalledWith('STALE-TREZOR-USB');
+    expect(disconnect).toHaveBeenCalledWith('STALE-TREZOR-USB');
+    expect(btcGetAddress).not.toHaveBeenCalled();
+  });
+
+  it('lists every parsed Ledger Live source account before filtering matches', async () => {
+    const originalIsDesktop = platformEnv.isDesktop;
+    const originalDesktopApiProxy = globalThis.desktopApiProxy;
+    (platformEnv as { isDesktop: boolean }).isDesktop = true;
+    globalThis.desktopApiProxy = {
+      system: {
+        readLedgerLiveAccountNames: jest.fn().mockResolvedValue({
+          status: 'available',
+          accounts: [
+            {
+              name: 'Ledger Main',
+              address: '0x1111111111111111111111111111111111111111',
+            },
+            {
+              name: 'Ledger Unmatched',
+              address: '0x2222222222222222222222222222222222222222',
+            },
+          ],
+        }),
+      },
+    } as never;
+    try {
+      const backgroundApi = {
+        serviceAccount: {
+          getAllAccounts: jest.fn().mockResolvedValue({
+            accounts: [
+              {
+                id: 'evm-account',
+                indexedAccountId: 'hw-1--0',
+                impl: 'evm',
+                address: '0x1111111111111111111111111111111111111111',
+                path: "m/44'/60'/0'/0/0",
+              },
+            ],
+          }),
+          getAllIndexedAccounts: jest.fn().mockResolvedValue({
+            indexedAccounts: [
+              {
+                id: 'hw-1--0',
+                name: 'OneKey EVM',
+                walletId: 'hw-1',
+                index: 0,
+                idHash: 'hash',
+              },
+            ],
+          }),
+        },
+      } as unknown as IBackgroundApi;
+      const service = new ServiceThirdPartyHardware({ backgroundApi });
+      jest.spyOn(service, 'isDevModeEnabled').mockResolvedValue(true);
+
+      const inventory =
+        await service.getThirdPartyGlobalAccountNameSourceInventory({
+          vendor: EHardwareVendor.ledger,
+        });
+
+      expect(inventory.status).toBe('available');
+      expect(inventory.accounts).toEqual([
+        {
+          sourceName: 'Ledger Main',
+          address: '0x1111111111111111111111111111111111111111',
+          path: undefined,
+          source: 'ledger-live',
+          matchedOneKeyAccounts: [
+            {
+              indexedAccountId: 'hw-1--0',
+              currentName: 'OneKey EVM',
+            },
+          ],
+        },
+        {
+          sourceName: 'Ledger Unmatched',
+          address: '0x2222222222222222222222222222222222222222',
+          path: undefined,
+          source: 'ledger-live',
+          matchedOneKeyAccounts: [],
+        },
+      ]);
+    } finally {
+      (platformEnv as { isDesktop: boolean | undefined }).isDesktop =
+        originalIsDesktop;
+      globalThis.desktopApiProxy = originalDesktopApiProxy;
+    }
+  });
+
   it('rejects global name source reads when Developer Mode is disabled', async () => {
     const service = new ServiceThirdPartyHardware({
       backgroundApi: {} as IBackgroundApi,
