@@ -258,8 +258,8 @@ export const {
 
 export type IBBOPriceMode =
   | null
-  | { type: 'counterparty'; level: number }
-  | { type: 'queue'; level: number };
+  | { type: 'counterparty'; offsetTicks: 0 | 5 }
+  | { type: 'queue'; offsetTicks: 0 | 5 };
 
 export interface ITradingFormData {
   side: 'long' | 'short';
@@ -387,7 +387,7 @@ function isBboPriceModeEqual(
   if (!a || !b) {
     return false;
   }
-  return a.type === b.type && a.level === b.level;
+  return a.type === b.type && a.offsetTicks === b.offsetTicks;
 }
 
 function isTradingFormOrderPriceParamsEqual(

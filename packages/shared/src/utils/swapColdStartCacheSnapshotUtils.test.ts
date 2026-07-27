@@ -20,12 +20,27 @@ const stockDisplaySeedSnapshotKey = buildSnapshotKey(
   swapScope,
   CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
 );
+const balanceDisplayCacheSnapshotKey = buildSnapshotKey(
+  swapScope,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapBalanceDisplayCacheAtom,
+);
 const validStockDisplaySeed = {
   networkId: 'evm--56',
   contractAddress: '0xaapl',
   symbol: 'AAPL',
   decimals: 18,
   isStock: true,
+};
+const validBalanceDisplayCache = {
+  version: 1,
+  entries: [
+    {
+      accountAddress: '0xabc',
+      balance: '1.25',
+      networkId: 'evm--1',
+      updatedAt: 1,
+    },
+  ],
 };
 
 function buildActiveAccount({
@@ -97,6 +112,7 @@ function buildSwapSnapshot({
       CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
     )]: { networkId: toTokenNetworkId, symbol: 'ETH' },
     [stockDisplaySeedSnapshotKey]: stockDisplaySeed,
+    [balanceDisplayCacheSnapshotKey]: validBalanceDisplayCache,
   };
   if (swapActiveNetworkId) {
     snapshot[
@@ -260,6 +276,9 @@ describe('swapColdStartCacheSnapshotUtils', () => {
     ).toBeUndefined();
     expect(snapshot[stockDisplaySeedSnapshotKey]).toEqual(
       validStockDisplaySeed,
+    );
+    expect(snapshot[balanceDisplayCacheSnapshotKey]).toEqual(
+      validBalanceDisplayCache,
     );
   });
 

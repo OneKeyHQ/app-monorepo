@@ -1,9 +1,6 @@
 import { useCallback } from 'react';
 
-import {
-  EOneKeyIdLogoutDialogSource,
-  useShowOneKeyIdLogoutDialog,
-} from './OneKeyIdLogoutDialog';
+import { useIdentityExitFlow } from './useIdentityExitFlow';
 
 type IUseConfirmOneKeyIdLogoutOptions = {
   reason: string;
@@ -16,14 +13,16 @@ export function useConfirmOneKeyIdLogout({
   onBeforeLogout,
   onSuccess,
 }: IUseConfirmOneKeyIdLogoutOptions) {
-  const showOneKeyIdLogoutDialog = useShowOneKeyIdLogoutDialog();
+  const { run } = useIdentityExitFlow();
 
   return useCallback(() => {
-    void showOneKeyIdLogoutDialog({
-      source: EOneKeyIdLogoutDialogSource.OneKeyId,
-      reason,
-      onBeforeLogout,
-      onSuccess,
-    });
-  }, [onBeforeLogout, onSuccess, reason, showOneKeyIdLogoutDialog]);
+    void run(
+      { type: 'logoutOneKeyId', scene: 'profile' },
+      {
+        analyticsReason: reason,
+        beforeExecute: onBeforeLogout,
+        onCompletedReceipt: onSuccess,
+      },
+    );
+  }, [onBeforeLogout, onSuccess, reason, run]);
 }

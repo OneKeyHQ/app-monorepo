@@ -595,9 +595,6 @@ const BaseDevSettingsSection = () => {
   const handleLegacyOneKeyIdEmailLogin = useCallback(() => {
     void loginOneKeyIdWithLegacyEmail({
       toOneKeyIdPageOnLoginSuccess: true,
-      // A dev tool must never wipe the shared keyless session slot — it may
-      // hold the wallet's only local credential.
-      preserveLocalKeylessAuth: true,
     });
   }, [loginOneKeyIdWithLegacyEmail]);
 
@@ -1297,6 +1294,18 @@ const BaseDevSettingsSection = () => {
                           devSettings.settings?.forceIpTableStrict
                             ? '强制使用 IP 请求'
                             : '非强制使用 IP 请求'
+                        }
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="ShieldOutline"
+                        name="disableIpTableFailover"
+                        title="禁用 IP 快速故障切换"
+                        subtitle={
+                          devSettings.settings?.disableIpTableFailover
+                            ? '域名失败时不自动切换到 IP'
+                            : '域名连续失败时自动切换到 IP (默认)'
                         }
                       >
                         <Switch size={ESwitchSize.small} />
@@ -2292,9 +2301,9 @@ const BaseDevSettingsSection = () => {
 
                       <SectionPressItem
                         icon="EmailOutline"
-                        title="Legacy OneKeyID Email Login"
-                        subtitle="旧版本 Email/OTP 登录入口"
-                        searchKeywords="OneKeyID Legacy Email OTP Login 旧版本 登录"
+                        title="OneKey ID Email Login"
+                        subtitle="Email/OTP 注册和登录入口"
+                        searchKeywords="OneKey ID Email OTP 注册 登录"
                         onPress={handleLegacyOneKeyIdEmailLogin}
                       />
 

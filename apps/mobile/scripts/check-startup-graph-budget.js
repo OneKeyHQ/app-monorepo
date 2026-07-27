@@ -63,6 +63,7 @@ const FORBIDDEN_NPM_IN_MAIN = [
   '@keystonehq/', // Hardware wallet QR SDK — lazy via qr-wallet-sdk
   '@reown/', //       WalletConnect UI — event-driven lazy mount
   '@bufbuild/protobuf', // Protobuf — transitive dep of @keystonehq
+  '@revenuecat/purchases-js-hybrid-mappings', // Browser-only RevenueCat runtime
 ];
 
 // npm packages that must NEVER appear in the common startup graph.

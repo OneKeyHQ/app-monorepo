@@ -20,6 +20,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IAlertType } from '@onekeyhq/components';
 import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
@@ -47,6 +48,7 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import type {
   ICheckAmountAlert,
+  IEarnActionIcon,
   IEarnEstimateFeeResp,
   IEarnText,
   IEarnTokenInfo,
@@ -74,7 +76,10 @@ import {
   type IManagePageV2ReceiveInputConfig,
   ManagePageV2ReceiveInput,
 } from '../ManagePageV2ReceiveInput';
-import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
+import {
+  ActionPopupContent,
+  EarnActionIcon,
+} from '../ProtocolDetails/EarnActionIcon';
 import { EarnAmountText } from '../ProtocolDetails/EarnAmountText';
 import { EarnText } from '../ProtocolDetails/EarnText';
 import { EarnTooltip } from '../ProtocolDetails/EarnTooltip';
@@ -304,7 +309,7 @@ function WithdrawPathDialogContent({
             {box.tip?.text ? (
               <Alert
                 icon="InfoCircleOutline"
-                type="warning"
+                type={resolveEarnAlertType(box.tip?.type)}
                 renderTitle={() => (
                   <EarnText text={box.tip?.text} size="$bodyMdMedium" />
                 )}
@@ -316,6 +321,26 @@ function WithdrawPathDialogContent({
       })}
     </YStack>
   );
+}
+
+const EARN_ALERT_TYPES = new Set<IAlertType>([
+  'info',
+  'warning',
+  'critical',
+  'success',
+  'default',
+  'danger',
+  'caution',
+]);
+
+// Server-driven tip/alert color: map the string `type` (EAlertType, e.g.
+// Spark's info banner for a liquidity request vs warning for the blocked range)
+// onto the Alert component's IAlertType. Falls back to 'warning' for legacy tips
+// that don't set a type.
+function resolveEarnAlertType(type?: string): IAlertType {
+  return EARN_ALERT_TYPES.has(type as IAlertType)
+    ? (type as IAlertType)
+    : 'warning';
 }
 
 export function UniversalWithdraw({
@@ -556,6 +581,60 @@ export function UniversalWithdraw({
       });
     },
     [formTransactionTip?.button, handleWithdrawAction, protocolInfo, tokenInfo],
+  );
+
+  // Open the explainer dialog for a `popup` tip button (e.g. Spark's "Detail"
+  // on the liquidity-request info banner → "Why is a liquidity request
+  // required?"). Content is fully server-driven via the popup button's data.
+  const handleShowTipPopup = useCallback((button?: IEarnActionIcon) => {
+    if (button?.type !== 'popup') {
+      return;
+    }
+    Dialog.show({
+      title: button.data.title?.text ?? button.text?.text ?? '',
+      renderContent: (
+        <ActionPopupContent
+          bulletList={button.data.bulletList}
+          items={button.data.items}
+          panel={button.data.panel}
+          description={button.data.description}
+          // Dialog's Content already applies px="$5" pb="$5"; drop the
+          // component's own horizontal + bottom padding to avoid doubling
+          // (align body with the dialog title, no extra bottom gap). Keep the
+          // top padding for a comfortable title-to-body gap.
+          containerProps={{ px: '$0', pb: '$0' }}
+        />
+      ),
+      showFooter: false,
+    });
+  }, []);
+
+  // Alert action for a tip button: cancel-withdrawal keeps its existing
+  // handler; a popup button opens the explainer dialog. Other/no button → no
+  // action rendered.
+  const buildTipAlertAction = useCallback(
+    (tip?: IEarnTransactionTip) => {
+      const button = tip?.button;
+      if (!button) {
+        return undefined;
+      }
+      if (button.type === EStakingActionType.CancelWithdrawal) {
+        return {
+          primary: button.text?.text ?? '',
+          onPrimaryPress: () => {
+            void handleTipAction(tip);
+          },
+        };
+      }
+      if (button.type === 'popup') {
+        return {
+          primary: button.text?.text ?? '',
+          onPrimaryPress: () => handleShowTipPopup(button),
+        };
+      }
+      return undefined;
+    },
+    [handleTipAction, handleShowTipPopup],
   );
 
   const approveAmountValue = useMemo(() => {
@@ -1664,21 +1743,20 @@ export function UniversalWithdraw({
       {formTransactionTip?.text ? (
         <Alert
           icon="InfoCircleOutline"
-          type="warning"
+          type={resolveEarnAlertType(formTransactionTip.type)}
           renderTitle={() => (
             <EarnText text={formTransactionTip.text} size="$bodyMdMedium" />
           )}
-          action={
-            formTransactionTip.button?.type ===
-            EStakingActionType.CancelWithdrawal
-              ? {
-                  primary: formTransactionTip.button.text.text,
-                  onPrimaryPress: () => {
-                    void handleTipAction();
-                  },
-                }
-              : undefined
+          descriptionComponent={
+            formTransactionTip.description ? (
+              <EarnText
+                text={formTransactionTip.description}
+                size="$bodyMd"
+                color="$textSubdued"
+              />
+            ) : undefined
           }
+          action={buildTipAlertAction(formTransactionTip)}
         />
       ) : null}
 
@@ -1704,7 +1782,7 @@ export function UniversalWithdraw({
           {checkAmountAlerts.map((alert, index) => (
             <Alert
               key={index}
-              type="warning"
+              type={resolveEarnAlertType(alert.type)}
               renderTitle={() => {
                 return <EarnText text={alert.text} size="$bodyMdMedium" />;
               }}
@@ -1924,7 +2002,11 @@ export function UniversalWithdraw({
                   EStakeProgressStep.deposit,
                 ) as EStakeProgressStep)
           }
-          step2LabelId={ETranslations.global_swap}
+          step2LabelId={
+            isPendleProvider
+              ? ETranslations.global_swap
+              : ETranslations.global_withdraw
+          }
           step3LabelId={
             isEthenaCooldownWithdrawPath
               ? ETranslations.defi_unstake

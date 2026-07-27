@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useTheme } from '@tamagui/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
+import type { EPageType, IPageNavigationProp } from '@onekeyhq/components';
 import {
   Button,
   Divider,
@@ -55,7 +56,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { BaseMarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import {
-  StockIsOpenBadge,
+  StockMarketStatusBadge,
   StockSourceLogo,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
@@ -110,6 +111,8 @@ import {
 import SwapFAQ from '../../components/SwapFAQ';
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
+import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
+import { useRefreshQuoteWhenStockMarketReopens } from '../../hooks/useRefreshQuoteWhenStockMarketReopens';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import {
   useShouldShowSwapLocalData,
@@ -172,10 +175,12 @@ import {
   SwapStockTradeProvider,
   useSwapStockTradeContext,
 } from './SwapStockTradeProvider';
+import SwapTipsContainer from './SwapTipsContainer';
 
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 
 interface ISwapStockDesktopContainerProps {
+  pageType?: EPageType;
   headerContent?: ReactNode;
   storeName: EJotaiContextStoreNames;
   onSelectToken: (type: ESwapDirectionType) => void;
@@ -1281,6 +1286,18 @@ function StockTradeTicket({
   compact?: boolean;
 }) {
   const amountInputState = useSwapStockAmountInputState({ stockChannel });
+  const hasPositiveInputAmount = new BigNumber(
+    amountInputState.inputValue || 0,
+  ).gt(0);
+  useRefreshQuoteWhenStockMarketReopens({
+    enabled: stockChannel.readyForQuote && hasPositiveInputAmount,
+    // The normalized status stays open while detail is unavailable so quote
+    // execution can continue; reopen detection needs the raw tri-state value.
+    marketIsOpen: stockChannel.activeStockTokenDetail?.stock?.isOpen,
+    onRefresh: refreshAction,
+    scopeKey: getTokenIdentityKey(stockChannel.currentStockToken),
+  });
+
   return (
     <YStack gap={compact ? '$3' : '$4'}>
       <StockTradeSideSwitch value={tradeSide} onChange={onTradeSideChange} />
@@ -1489,7 +1506,7 @@ function StockMarketTokenHeader({
         </SizableText>
       ) : null}
       <StockSourceLogo stock={stock} />
-      {stock ? <StockIsOpenBadge stock={stock} /> : null}
+      <StockMarketStatusBadge stock={stock} />
     </XStack>
   );
   const tokenInfoContent = (
@@ -1934,10 +1951,12 @@ function StockPriceChart({
 function StockMobilePositionsSection({
   onTokenPress,
   supportNetworksList,
+  supportNetworksReady,
   storeName,
 }: {
   onTokenPress?: (token: ISwapToken) => void;
   supportNetworksList: (IMarketBasicConfigNetwork | ISwapNetwork)[];
+  supportNetworksReady: boolean;
   storeName: EJotaiContextStoreNames;
 }) {
   const intl = useIntl();
@@ -1947,8 +1966,15 @@ function StockMobilePositionsSection({
   const [swapFromToken] = useSwapSelectFromTokenAtom();
   const [swapToToken] = useSwapSelectToTokenAtom();
   const { selectStockSwapToken } = stockChannel;
-  const { cachedPositionTokenList, hasCachedPositionTokenList } =
-    useSwapProSupportNetworksTokenList(supportNetworksList);
+  const {
+    cachedPositionTokenList,
+    hasCachedPositionSnapshot,
+    hasPositionOwner,
+    isLiveTokenListForCurrentOwner,
+  } = useSwapProSupportNetworksTokenList(
+    supportNetworksList,
+    supportNetworksReady,
+  );
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
     defaultNetworkId: stockChannel.stockNetworkId || undefined,
     storeName,
@@ -2039,7 +2065,9 @@ function StockMobilePositionsSection({
             onSearchClick={handleOpenStockTokenSelector}
             filterToken={filterToken}
             cachedTokenList={cachedPositionTokenList}
-            hasCachedTokenList={hasCachedPositionTokenList}
+            hasPositionOwner={hasPositionOwner}
+            hasCachedTokenSnapshot={hasCachedPositionSnapshot}
+            isLiveTokenListForCurrentOwner={isLiveTokenListForCurrentOwner}
             stockOnly
             hideSearch
           />
@@ -2204,6 +2232,7 @@ function useSwapStockRecentTokenPairs() {
 }
 
 function SwapStockDesktopContent({
+  pageType,
   headerContent,
   storeName,
   onSelectToken,
@@ -2283,6 +2312,7 @@ function SwapStockDesktopContent({
 
   return (
     <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+      <SwapTipsContainer pageType={pageType} />
       <YStack
         width="100%"
         alignItems="center"
@@ -2455,6 +2485,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
       contentContainerStyle={{ paddingBottom: tabBarHeight }}
       bottomOffset={bottomOffset}
     >
+      <SwapTipsContainer pageType={props.pageType} />
       <YStack
         testID={SwapTestIDs.stockMobileContainer}
         // pt $1 + the header pill's py $1 puts the stock symbol at the same
@@ -2497,6 +2528,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
             <StockMobilePositionsSection
               onTokenPress={props.onTokenPress}
               supportNetworksList={props.supportNetworksList}
+              supportNetworksReady={!props.fetchLoading}
               storeName={props.storeName}
             />
           </YStack>

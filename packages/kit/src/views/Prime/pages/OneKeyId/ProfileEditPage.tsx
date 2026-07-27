@@ -50,16 +50,14 @@ function isImagePickerCancelled(error: unknown) {
 function ProfileEditPage() {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { isLoggedIn, logout, user } = useOneKeyAuth();
+  const { isLoggedIn, user } = useOneKeyAuth();
   const profileUserId = user?.onekeyUserId || user?.email || '';
   const isFocused = useRouteIsFocused();
   const isMountedRef = useRef(true);
   const isFocusedRef = useRef(isFocused);
-  const logoutRef = useRef<() => Promise<void>>(logout);
   const profileUserIdRef = useRef(profileUserId);
 
   isFocusedRef.current = isFocused;
-  logoutRef.current = logout;
 
   useEffect(
     () => () => {
@@ -79,7 +77,6 @@ function ProfileEditPage() {
         reason:
           'OneKeyIdProfileEditPage: is focused and primePersistAtom is not logged in',
       });
-      void logoutRef.current();
     }
   }, [isFocused, isLoggedIn]);
 

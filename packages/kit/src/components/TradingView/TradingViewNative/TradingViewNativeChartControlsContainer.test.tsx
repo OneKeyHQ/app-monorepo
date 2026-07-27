@@ -2,6 +2,8 @@
  * @jest-environment jsdom
  */
 
+import type { ReactNode } from 'react';
+
 import { render } from '@testing-library/react';
 
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
@@ -93,5 +95,76 @@ describe('TradingViewNative chart controls', () => {
     controlsProps.onSettingsPress();
 
     expect(mockShowTradingViewChartSettingsDialog).toHaveBeenCalledTimes(1);
+  });
+
+  it('enables calendar navigation in desktop controls', () => {
+    const handleCalendarPanelOpen = jest.fn();
+    const handleCalendarPanelSubmit = jest.fn();
+    render(
+      <TradingViewNativeChartControlsContainer
+        calendarAvailableTimeRange={{ from: 100 }}
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        layoutMode="desktop"
+        onIntervalChange={jest.fn()}
+        onCalendarPanelOpen={handleCalendarPanelOpen}
+        onCalendarPanelSubmit={handleCalendarPanelSubmit}
+      />,
+    );
+
+    expect(mockTradingViewChartControls).toHaveBeenCalledWith(
+      expect.objectContaining({
+        calendarAvailableTimeRange: { from: 100 },
+        chartTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        onCalendarPanelOpen: handleCalendarPanelOpen,
+        onCalendarPanelSubmit: handleCalendarPanelSubmit,
+      }),
+    );
+  });
+
+  it('reports fullscreen state changes through the shared chart controls', () => {
+    const handleFullscreenChange = jest.fn();
+    const fullscreenHeader = <div>Token info</div>;
+    const { rerender } = render(
+      <TradingViewNativeChartControlsContainer
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        isFullscreen={false}
+        fullscreenHeader={fullscreenHeader}
+        onIntervalChange={jest.fn()}
+        onFullscreenChange={handleFullscreenChange}
+      />,
+    );
+
+    let controlsProps = mockTradingViewChartControls.mock.calls.at(-1)?.[0] as {
+      isFullscreen: boolean;
+      fullscreenHeader: ReactNode;
+      onFullscreenToggle: () => void;
+    };
+    expect(controlsProps).toEqual(
+      expect.objectContaining({
+        isFullscreen: false,
+        fullscreenHeader,
+      }),
+    );
+
+    controlsProps.onFullscreenToggle();
+    expect(handleFullscreenChange).toHaveBeenLastCalledWith(true);
+
+    rerender(
+      <TradingViewNativeChartControlsContainer
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        isFullscreen
+        fullscreenHeader={fullscreenHeader}
+        onIntervalChange={jest.fn()}
+        onFullscreenChange={handleFullscreenChange}
+      />,
+    );
+    controlsProps = mockTradingViewChartControls.mock.calls.at(-1)?.[0] as {
+      isFullscreen: boolean;
+      fullscreenHeader: ReactNode;
+      onFullscreenToggle: () => void;
+    };
+    controlsProps.onFullscreenToggle();
+
+    expect(handleFullscreenChange).toHaveBeenLastCalledWith(false);
   });
 });

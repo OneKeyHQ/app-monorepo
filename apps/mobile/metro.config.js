@@ -151,6 +151,13 @@ const devRouterStub = path.resolve(
   monorepoRoot,
   'packages/kit/src/views/Developer/router.empty.ts',
 );
+// react-native-purchases statically imports its browser implementation, which
+// otherwise pulls the full purchases-js runtime into native bundles even
+// though the linked RNPurchases module is always selected on iOS and Android.
+const revenueCatBrowserMappingsStub = path.resolve(
+  projectRoot,
+  'shims/revenueCatBrowserMappings.js',
+);
 
 // Ledger DMK packages only declare `exports` (no `main`). With
 // unstable_enablePackageExports=false above, Metro can't find the entry
@@ -174,6 +181,15 @@ const ledgerCjsByPackage = new Map(
 );
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (
+    (platform === 'ios' || platform === 'android') &&
+    moduleName === '@revenuecat/purchases-js-hybrid-mappings'
+  ) {
+    return {
+      type: 'sourceFile',
+      filePath: revenueCatBrowserMappingsStub,
+    };
+  }
   if (moduleName === '@nktkas/hyperliquid/signing') {
     return {
       type: 'sourceFile',

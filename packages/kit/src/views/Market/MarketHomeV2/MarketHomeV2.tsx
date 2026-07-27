@@ -31,6 +31,7 @@ import { preloadMarketHomeTokenListSeed } from '../utils/marketHomeTokenListSeed
 import { markMarketPerf } from '../utils/marketPerf';
 import { useMarketRenderCommitProbe } from '../utils/marketReactPerf';
 
+import { MarketHomeLoadingFallback } from './components/MarketHomeLoadingFallback';
 import { useNetworkAnalytics, useTabAnalytics } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { shouldRestoreSpotCategoryFromAtom } from './layouts/marketTabSelectionGuards';
@@ -310,7 +311,9 @@ function BaseMarketHomeLayout() {
 
   if (shouldWaitForSpotCategoryReady) {
     return (
-      <LazyPageContainer eager={platformEnv.isWeb}>{null}</LazyPageContainer>
+      <LazyPageContainer eager={platformEnv.isWeb}>
+        {md && !platformEnv.isNative ? <MarketHomeLoadingFallback /> : null}
+      </LazyPageContainer>
     );
   }
 

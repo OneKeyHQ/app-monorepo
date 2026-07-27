@@ -1,5 +1,8 @@
+import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
+
 import {
   calculateSpotHoldingPnl,
+  canChasePerpsOrder,
   formatSpotHoldingPnlText,
   getOrderAssetDisplayName,
   getOrderSizeDisplayName,
@@ -7,6 +10,43 @@ import {
   isSpotHoldingStableCoin,
   normalizeEpochMs,
 } from './utils';
+
+function makeOpenOrder(
+  overrides: Partial<IPerpsFrontendOrder> = {},
+): IPerpsFrontendOrder {
+  return {
+    coin: 'BTC',
+    oid: 1,
+    orderType: 'Limit',
+    tif: 'Gtc',
+    isTrigger: false,
+    isPositionTpsl: false,
+    sz: '0.25',
+    origSz: '1',
+    ...overrides,
+  } as IPerpsFrontendOrder;
+}
+
+describe('canChasePerpsOrder', () => {
+  it('allows a partially filled ordinary perp Gtc order', () => {
+    expect(canChasePerpsOrder(makeOpenOrder())).toBe(true);
+  });
+
+  it.each([
+    ['spot', { coin: '@107' }],
+    ['Alo', { tif: 'Alo' }],
+    ['null TIF', { tif: null }],
+    ['trigger', { isTrigger: true }],
+    ['position TP/SL', { isPositionTpsl: true }],
+    ['non-limit type', { orderType: 'Market' }],
+    ['empty remaining size', { sz: '0' }],
+  ] satisfies [string, Partial<IPerpsFrontendOrder>][])(
+    'rejects %s',
+    (_, value) => {
+      expect(canChasePerpsOrder(makeOpenOrder(value))).toBe(false);
+    },
+  );
+});
 
 describe('calculateSpotHoldingPnl', () => {
   it('preserves sub-cent pnl precision for small spot holdings', () => {
