@@ -41,7 +41,8 @@ function getNameSourceStatusMessage(
     cloud_source_requires_authorization:
       'This source requires authorization and is not enabled in this test.',
     unsupported_source: 'This source is not supported on the current platform.',
-    invalid_source: 'The local account source could not be parsed safely.',
+    invalid_source:
+      'The local wallet data was found, but OneKey could not read it safely. Close the wallet application and retry.',
   };
   return messages[status];
 }

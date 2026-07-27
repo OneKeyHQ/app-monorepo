@@ -609,6 +609,12 @@ class DesktopApiSystem {
         return { status: 'invalid_source', accounts: [] };
       }
     } catch (error) {
+      if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+        logger.warn(
+          '[TrezorSuiteSource] source directory validation failed',
+          error,
+        );
+      }
       return (error as NodeJS.ErrnoException)?.code === 'ENOENT'
         ? { status: 'source_not_found', accounts: [] }
         : { status: 'invalid_source', accounts: [] };
@@ -656,7 +662,7 @@ class DesktopApiSystem {
         },
       });
       await sourceWindow.loadURL(
-        pathToFileURL(path.join(app.getAppPath(), 'package.json')).href,
+        pathToFileURL(path.join(app.getAppPath(), 'recovery.html')).href,
       );
       const sourceAccounts = (await withTimeout(
         sourceWindow.webContents.executeJavaScript(`
@@ -747,7 +753,8 @@ class DesktopApiSystem {
         'Trezor Suite source read timed out',
       )) as unknown;
       return parseTrezorSuiteAccountNames(sourceAccounts);
-    } catch {
+    } catch (error) {
+      logger.warn('[TrezorSuiteSource] local account read failed', error);
       return { status: 'invalid_source', accounts: [] };
     } finally {
       sourceWindow?.destroy();
