@@ -20,6 +20,7 @@ export enum EAppSyncStorageKeys {
   onekey_swr_cache = 'onekey_swr_cache',
   onekey_device_performance_tier = 'onekey_device_performance_tier',
   onekey_device_cpu_tier_override_v2 = 'onekey_device_cpu_tier_override_v2',
+  onekey_trading_view_native_active_intervals_v1 = 'onekey_trading_view_native_active_intervals_v1',
   // TokenList cells one-time cold-start cleanup version flag (spec §7). A
   // monotonically-increasing integer compared against
   // TOKEN_COLD_START_CLEANUP_VERSION so the OLD `::ctx:renderedTokenListCacheAtom`

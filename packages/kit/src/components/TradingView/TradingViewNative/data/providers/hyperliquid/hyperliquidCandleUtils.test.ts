@@ -30,6 +30,7 @@ describe('TradingViewNative Hyperliquid candle utilities', () => {
     ['240', '4h'],
     ['1D', '1d'],
     ['1W', '1w'],
+    ['1M', '1M'],
   ] as const)('maps chart interval %s to %s', (chartInterval, expected) => {
     expect(
       getTradingViewNativeKLineInterval(chartInterval)?.hyperliquidValue,

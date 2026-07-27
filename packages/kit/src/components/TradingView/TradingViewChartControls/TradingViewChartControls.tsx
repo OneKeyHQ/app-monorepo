@@ -13,7 +13,10 @@ import { TradingViewNativeIntervalSelector } from './intervalSelector/NativeInte
 import { PriceMarketCapSelect } from './priceMarketCap/PriceMarketCapSelect';
 import { HEADER_ICON_BUTTON_STYLE_PROPS } from './utils/NativeChartControlsShared';
 
-import type { ICalendarPanelSubmitPayload } from './calendarControls/CalendarPanelPopover';
+import type {
+  ICalendarPanelAvailableTimeRange,
+  ICalendarPanelSubmitPayload,
+} from './calendarControls/CalendarPanelPopover';
 import type { ITradingViewNativeIntervalControlMode } from './intervalSelector/NativeIntervalSelector';
 import type {
   ITradingViewChartTypeOption,
@@ -52,6 +55,7 @@ export interface ITradingViewChartControlsProps {
   intervalControlMode: ITradingViewNativeIntervalControlMode;
   layoutMode: ITradingViewNativeControlsLayoutMode;
   chartTimezone: string;
+  calendarAvailableTimeRange?: ICalendarPanelAvailableTimeRange;
   isFullscreen: boolean;
   fullscreenHeader?: ReactNode;
   onIntervalChange: (interval: string) => void;
@@ -60,6 +64,7 @@ export interface ITradingViewChartControlsProps {
   onChartTypeChange: (chartType: number) => void;
   onChartTypeToggle: () => void;
   onPriceMarketCapModeChange: (mode: ITradingViewPriceMarketCapMode) => void;
+  onCalendarPanelOpen?: () => void;
   onCalendarPanelSubmit?: (payload: ICalendarPanelSubmitPayload) => void;
   onSettingsPress: () => void;
   onControlInteraction?: () => void;
@@ -102,6 +107,7 @@ export const TradingViewChartControls = memo(
     intervalControlMode,
     layoutMode,
     chartTimezone,
+    calendarAvailableTimeRange,
     isFullscreen,
     fullscreenHeader,
     onIntervalChange,
@@ -110,6 +116,7 @@ export const TradingViewChartControls = memo(
     onChartTypeChange,
     onChartTypeToggle,
     onPriceMarketCapModeChange,
+    onCalendarPanelOpen,
     onCalendarPanelSubmit,
     onSettingsPress,
     onControlInteraction,
@@ -233,7 +240,9 @@ export const TradingViewChartControls = memo(
     const calendarControl =
       hasCalendarControl && onCalendarPanelSubmit ? (
         <CalendarPanelPopover
+          availableTimeRange={calendarAvailableTimeRange}
           chartTimezone={chartTimezone}
+          onOpen={onCalendarPanelOpen}
           onSubmit={onCalendarPanelSubmit}
           onControlInteraction={onControlInteraction}
         />
