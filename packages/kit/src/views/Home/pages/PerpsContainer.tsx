@@ -499,13 +499,16 @@ function PerpsEmptyRecommendSection() {
   const navigateToMarketTab = useNavigateToMarketTab();
   const marketResource = useHomeResource('market');
   const marketPayload = useHomeSectionPayload('market');
-  const isLoading =
-    marketResource.kind === 'idle' || marketResource.kind === 'loading';
-
   const displayTokens = useMemo(
     () => marketPayload?.perpsHotRows.slice(0, media.gtMd ? 6 : 5) ?? [],
     [marketPayload?.perpsHotRows, media.gtMd],
   );
+  const isLoading =
+    marketResource.kind === 'idle' ||
+    marketResource.kind === 'loading' ||
+    (marketResource.kind === 'ready' &&
+      marketResource.refresh === 'refreshing' &&
+      displayTokens.length === 0);
 
   if (!isLoading && displayTokens.length === 0) {
     return null;

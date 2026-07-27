@@ -17,6 +17,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { mapSnapshotToPerpsHomeView } from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
+import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import {
   buildTokenSelectorDappTokenFilterParams,
   isTokenSelectorDappTokenFilterSupportedNetwork,
@@ -34,9 +35,11 @@ import {
   DEFAULT_MARKET_CATEGORY_ID,
   FAVORITES_CATEGORY_ID,
   HOME_MARKET_CATEGORY_REQUEST_LIMIT,
+  HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
 } from '../../components/PopularTrading/constants';
 import {
   getTokenKey,
+  mapMarketPerpsTokenToDisplay,
   mapMarketTokenToDisplay,
 } from '../../components/PopularTrading/utils';
 import {
@@ -82,6 +85,7 @@ import {
   normalizeHomePortfolioLpCacheControl,
 } from './homeSourceExecutionKey';
 
+import type { IHomePopularTradingPayload } from '../../components/PopularTrading/types';
 import type { IHomeCapabilityFacts } from '../capabilities/homeCapabilityTypes';
 import type {
   IHomeBalanceContributorFact,
@@ -154,6 +158,7 @@ type ISourceCacheEntry = {
 const SOURCE_CACHE_TTL_MS = 30_000;
 const SOURCE_CACHE_MAX_IDENTITIES = 8;
 const FIRST_FRAME_WARM_DELAY_MS = 800;
+const HOME_PERPS_HOT_ROW_LIMIT = 6;
 const POLLING_INTERVAL_MS = 60_000;
 const SOURCE_TIMEOUT_MS = 90_000;
 
@@ -391,6 +396,9 @@ export class HomeSourceRuntime {
     if (selected && selected !== 'portfolio') {
       void this.runSource(selected, 'interactive');
     }
+    if (selected === 'perps') {
+      void this.runSource('market', 'interactive');
+    }
     this.scheduleWarm(selected);
     this.schedulePolling();
   }
@@ -426,7 +434,13 @@ export class HomeSourceRuntime {
           intent.actionId.endsWith('.loadMore') ||
           intent.actionId.endsWith('.positionActionSucceeded')))
     ) {
-      await this.runSource(intent.sectionId, 'interactive', true);
+      const sectionTask = this.runSource(intent.sectionId, 'interactive', true);
+      const marketTask =
+        intent.sectionId === 'perps'
+          ? this.runSource('market', 'interactive', true)
+          : undefined;
+      await sectionTask;
+      await marketTask;
       return true;
     }
     if (intent.type === 'sectionControlChanged') {
@@ -448,6 +462,9 @@ export class HomeSourceRuntime {
     const selected = sourceForSelectedTab(state);
     if (selected && selected !== 'portfolio') {
       void this.runSource(selected, 'interactive', true);
+    }
+    if (selected === 'perps') {
+      void this.runSource('market', 'interactive', true);
     }
   }
 
@@ -1644,7 +1661,12 @@ export class HomeSourceRuntime {
     if (sourceId === 'perps') {
       return this.loadPerps(environment, priority, sessionId);
     }
-    return this.loadMarket(environment, priority, sessionId);
+    return this.loadMarket(
+      environment,
+      priority,
+      sessionId,
+      publishIntermediate,
+    );
   }
 
   private async loadPortfolio({
@@ -2618,81 +2640,215 @@ export class HomeSourceRuntime {
     environment: IHomeSourceEnvironment,
     priority: IRuntimeRequestPriority,
     sessionId: string,
+    publishIntermediate: (input: {
+      payload: unknown;
+      rowIds: readonly string[];
+    }) => void,
   ): Promise<{ payload: unknown; rowIds: readonly string[] }> {
     const state = this.host.getStateView();
+    const currentMarketPayload =
+      state.resources.market.kind === 'ready'
+        ? readHomeStoreSectionPayload<IHomePopularTradingPayload>(
+            state.resources.market.data,
+          )
+        : undefined;
+    const retainedPerpsHotRows = currentMarketPayload?.perpsHotRows ?? [];
     const selectedControl =
       state.interaction.sectionControls.market?.[
         'home.market.selectedCategory'
       ];
-    const [configResponse, watchList] = await Promise.all([
-      this.host.leafPool.run(
+    type IMarketRuntimePayload = IHomePopularTradingPayload & {
+      quoteCurrency: string;
+    };
+    type ISpotResult =
+      | {
+          kind: 'ready';
+          payload: Omit<IMarketRuntimePayload, 'perpsHotRows'>;
+        }
+      | { kind: 'failed' };
+    type IPerpsHotResult =
+      | {
+          kind: 'ready';
+          rows: IHomePopularTradingPayload['perpsHotRows'];
+        }
+      | { kind: 'failed' };
+
+    const tokenSearchAliasesPromise = this.host.leafPool
+      .run(
+        priority,
+        () => backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases(),
+        sessionId,
+      )
+      .catch(() => undefined);
+    let settledPerpsHotResult: IPerpsHotResult | undefined;
+    const perpsHotResultPromise = this.host.leafPool
+      .run(
+        priority,
+        () =>
+          backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
+            category: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
+          }),
+        sessionId,
+      )
+      .then(async (response): Promise<IPerpsHotResult> => {
+        const tokenSearchAliases = await tokenSearchAliasesPromise;
+        return {
+          kind: 'ready',
+          rows: response.tokens
+            .map((token) =>
+              mapMarketPerpsTokenToDisplay({
+                token,
+                subtitle: getTokenSubtitle(token.name, tokenSearchAliases),
+              }),
+            )
+            .slice(0, HOME_PERPS_HOT_ROW_LIMIT),
+        };
+      })
+      .catch((): IPerpsHotResult => ({ kind: 'failed' }))
+      .then((result) => {
+        settledPerpsHotResult = result;
+        return result;
+      });
+
+    let settledSpotResult: ISpotResult | undefined;
+    const spotResultPromise = (async (): Promise<ISpotResult> => {
+      const watchListPromise = this.host.leafPool
+        .run(
+          priority,
+          () => backgroundApiProxy.serviceMarketV2.getMarketWatchListV2(),
+          sessionId,
+        )
+        .catch(() => undefined);
+      const configResponse = await this.host.leafPool.run(
         priority,
         () => backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig(),
         sessionId,
-      ),
-      this.host.leafPool.run(
+      );
+      const config = configResponse.data;
+      const categories = (
+        config.homeTab?.length
+          ? config.homeTab.map((item) => ({ id: item.type, name: item.name }))
+          : (config.spotCategories?.map((item) => ({
+              id: item.type,
+              name: item.name,
+              icon: item.icon,
+            })) ?? [])
+      ).filter((item) => item.id !== FAVORITES_CATEGORY_ID);
+      const requestedCategory =
+        typeof selectedControl === 'string'
+          ? selectedControl
+          : DEFAULT_MARKET_CATEGORY_ID;
+      const resolvedCategoryId = categories.some(
+        (item) => item.id === requestedCategory,
+      )
+        ? requestedCategory
+        : (categories[0]?.id ?? DEFAULT_MARKET_CATEGORY_ID);
+      const response = await this.host.leafPool.run(
         priority,
-        () => backgroundApiProxy.serviceMarketV2.getMarketWatchListV2(),
+        () =>
+          backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
+            networkId: '',
+            sortBy: 'v24hUSD',
+            sortType: 'desc',
+            page: 1,
+            limit: HOME_MARKET_CATEGORY_REQUEST_LIMIT,
+            minLiquidity: config.minLiquidity || 5000,
+            type: resolvedCategoryId,
+            timeFrame: '4',
+          }),
         sessionId,
-      ),
-    ]);
-    const config = configResponse.data;
-    const categories = (
-      config.homeTab?.length
-        ? config.homeTab.map((item) => ({ id: item.type, name: item.name }))
-        : (config.spotCategories?.map((item) => ({
-            id: item.type,
-            name: item.name,
-            icon: item.icon,
-          })) ?? [])
-    ).filter((item) => item.id !== FAVORITES_CATEGORY_ID);
-    const requestedCategory =
-      typeof selectedControl === 'string'
-        ? selectedControl
-        : DEFAULT_MARKET_CATEGORY_ID;
-    const resolvedCategoryId = categories.some(
-      (item) => item.id === requestedCategory,
-    )
-      ? requestedCategory
-      : (categories[0]?.id ?? DEFAULT_MARKET_CATEGORY_ID);
-    const response = await this.host.leafPool.run(
-      priority,
-      () =>
-        backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
-          networkId: '',
-          sortBy: 'v24hUSD',
-          sortType: 'desc',
-          page: 1,
-          limit: HOME_MARKET_CATEGORY_REQUEST_LIMIT,
-          minLiquidity: config.minLiquidity || 5000,
-          type: resolvedCategoryId,
-          timeFrame: '4',
-        }),
-      sessionId,
-    );
-    const rows = response.list
-      .map(mapMarketTokenToDisplay)
-      .filter((item): item is NonNullable<typeof item> => item !== null);
-    const payload = {
-      categories,
-      earnRows: [],
-      favoriteMode:
-        watchList.data.length > 0
-          ? ('favorites' as const)
-          : ('recommendation' as const),
-      perpsHotRows: [],
-      prefetchCategoryIds: [],
-      prefetchedRowsByRequestKey: {},
-      resolvedCategoryId,
-      rows,
-      selectedCategoryId: resolvedCategoryId,
-      totalFavorites: watchList.data.length,
-      watchListContentKey: watchList.data
-        .map((item) => getTokenKey(item))
-        .join('|'),
-      watchListItems: watchList.data,
+      );
+      const rows = response.list
+        .map(mapMarketTokenToDisplay)
+        .filter((item): item is NonNullable<typeof item> => item !== null);
+      const watchListResponse = await watchListPromise;
+      const watchListItems =
+        watchListResponse?.data ?? currentMarketPayload?.watchListItems ?? [];
+      return {
+        kind: 'ready',
+        payload: {
+          categories,
+          earnRows: [],
+          favoriteMode:
+            watchListItems.length > 0 ? 'favorites' : 'recommendation',
+          prefetchCategoryIds: [],
+          prefetchedRowsByRequestKey: {},
+          resolvedCategoryId,
+          rows,
+          selectedCategoryId: resolvedCategoryId,
+          totalFavorites: watchListItems.length,
+          watchListContentKey: watchListItems
+            .map((item) => getTokenKey(item))
+            .join('|'),
+          watchListItems,
+          quoteCurrency: environment.settings.currencyInfo.id,
+        },
+      };
+    })()
+      .catch((): ISpotResult => ({ kind: 'failed' }))
+      .then((result) => {
+        settledSpotResult = result;
+        return result;
+      });
+
+    const fallbackPayload: IMarketRuntimePayload = {
+      categories: currentMarketPayload?.categories ?? [],
+      earnRows: currentMarketPayload?.earnRows ?? [],
+      favoriteMode: currentMarketPayload?.favoriteMode ?? 'recommendation',
+      perpsHotRows: retainedPerpsHotRows,
+      prefetchCategoryIds: currentMarketPayload?.prefetchCategoryIds ?? [],
+      prefetchedRowsByRequestKey:
+        currentMarketPayload?.prefetchedRowsByRequestKey ?? {},
+      resolvedCategoryId:
+        currentMarketPayload?.resolvedCategoryId ?? DEFAULT_MARKET_CATEGORY_ID,
+      rows: currentMarketPayload?.rows ?? [],
+      selectedCategoryId:
+        currentMarketPayload?.selectedCategoryId ?? DEFAULT_MARKET_CATEGORY_ID,
+      totalFavorites: currentMarketPayload?.totalFavorites ?? 0,
+      watchListContentKey: currentMarketPayload?.watchListContentKey ?? '',
+      watchListItems: currentMarketPayload?.watchListItems ?? [],
       quoteCurrency: environment.settings.currencyInfo.id,
     };
+    const buildPayload = (
+      spotResult: ISpotResult | undefined,
+      perpsHotRows: IHomePopularTradingPayload['perpsHotRows'],
+    ): IMarketRuntimePayload => ({
+      ...(spotResult?.kind === 'ready' ? spotResult.payload : fallbackPayload),
+      perpsHotRows,
+      quoteCurrency: environment.settings.currencyInfo.id,
+    });
+
+    await Promise.race([spotResultPromise, perpsHotResultPromise]);
+    const hasPendingBranch = !settledSpotResult || !settledPerpsHotResult;
+    const hasFreshBranch =
+      settledSpotResult?.kind === 'ready' ||
+      settledPerpsHotResult?.kind === 'ready';
+    const intermediatePayload = buildPayload(
+      settledSpotResult,
+      settledPerpsHotResult?.kind === 'ready'
+        ? settledPerpsHotResult.rows
+        : retainedPerpsHotRows,
+    );
+    const intermediateRowIds = getHomeMarketRowIds(intermediatePayload);
+    if (hasPendingBranch && hasFreshBranch && intermediateRowIds.length > 0) {
+      publishIntermediate({
+        payload: intermediatePayload,
+        rowIds: intermediateRowIds,
+      });
+    }
+
+    const spotResult = settledSpotResult ?? (await spotResultPromise);
+    const perpsHotResult =
+      settledPerpsHotResult ?? (await perpsHotResultPromise);
+    if (spotResult.kind === 'failed' && perpsHotResult.kind === 'failed') {
+      throw new OneKeyLocalError('Home Market sources are unavailable');
+    }
+    const payload = buildPayload(
+      spotResult,
+      perpsHotResult.kind === 'ready'
+        ? perpsHotResult.rows
+        : retainedPerpsHotRows,
+    );
     return { payload, rowIds: getHomeMarketRowIds(payload) };
   }
 
@@ -2870,6 +3026,9 @@ export class HomeSourceRuntime {
         !this.inFlight.has(selected)
       ) {
         void this.runSource(selected, 'background', true);
+      }
+      if (selected === 'perps' && !this.inFlight.has('market')) {
+        void this.runSource('market', 'background', true);
       }
       this.schedulePolling();
     }, POLLING_INTERVAL_MS);
