@@ -99,6 +99,7 @@ export function getSwapKLineTradingViewNativeSource({
 
   return getTradingViewNativeSource({
     hyperliquidCoin,
+    isNative: token.isNative,
     marketDataSource: websocketConfig?.kline ? 'websocket' : 'polling',
     networkId: token.networkId,
     symbol: token.symbol,

@@ -13,6 +13,7 @@ export type ITradingViewNativeSource =
   | {
       kind: 'market';
       fallbackCoinGeckoId?: string;
+      isNative?: boolean;
       networkId: string;
       tokenAddress: string;
       symbol: string;

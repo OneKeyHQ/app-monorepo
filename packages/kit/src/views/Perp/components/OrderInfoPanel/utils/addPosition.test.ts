@@ -1,6 +1,7 @@
 import type { IActiveAssetData } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
+  buildAddPositionMinimumAmountLabel,
   getPositionDirection,
   isAddPositionAssetDataScoped,
   isAddPositionScopeValid,
@@ -97,5 +98,44 @@ describe('add position guards', () => {
         szDecimals: 2,
       }).error,
     ).toBe('minimumOrder');
+  });
+
+  it('expresses the minimum order hint in the active size unit', () => {
+    const base = {
+      price: '100',
+      szDecimals: 2,
+      leverage: 5,
+      symbol: 'ETH',
+    };
+    expect(
+      buildAddPositionMinimumAmountLabel({ ...base, sizeInputUnit: 'usd' }),
+    ).toBe('$10');
+    expect(
+      buildAddPositionMinimumAmountLabel({ ...base, sizeInputUnit: 'token' }),
+    ).toBe('0.10 ETH');
+    expect(
+      buildAddPositionMinimumAmountLabel({ ...base, sizeInputUnit: 'margin' }),
+    ).toBe('$2.00');
+  });
+
+  it('falls back to the usd minimum when price or leverage is unusable', () => {
+    expect(
+      buildAddPositionMinimumAmountLabel({
+        price: '0',
+        szDecimals: 2,
+        leverage: 5,
+        symbol: 'ETH',
+        sizeInputUnit: 'token',
+      }),
+    ).toBe('$10');
+    expect(
+      buildAddPositionMinimumAmountLabel({
+        price: '100',
+        szDecimals: 2,
+        leverage: 0,
+        symbol: 'ETH',
+        sizeInputUnit: 'margin',
+      }),
+    ).toBe('$10');
   });
 });

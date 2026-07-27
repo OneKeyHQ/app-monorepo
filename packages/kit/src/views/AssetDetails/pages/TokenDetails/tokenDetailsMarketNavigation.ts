@@ -5,6 +5,7 @@ export type ITokenDetailsMarketNavigationTarget =
     }
   | {
       type: 'chart';
+      isNative: boolean;
       networkId: string;
       networkName?: string;
       symbol: string;
@@ -69,6 +70,7 @@ export function buildTokenDetailsMarketNavigationTarget({
   if (networkId && symbol && (tokenAddress || resolvedIsNative)) {
     return {
       type: 'chart',
+      isNative: resolvedIsNative,
       networkId,
       networkName,
       symbol,
