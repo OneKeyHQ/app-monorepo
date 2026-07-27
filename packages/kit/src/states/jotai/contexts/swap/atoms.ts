@@ -367,6 +367,11 @@ export const {
 } = contextAtom<number>(0);
 
 export const {
+  atom: swapQuoteAutoRefreshTimerAtom,
+  use: useSwapQuoteAutoRefreshTimerAtom,
+} = contextAtom<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+export const {
   atom: swapQuoteEventTotalCountAtom,
   use: useSwapQuoteEventTotalCountAtom,
 } = contextAtom<ISwapQuoteEventTotalCount>({
