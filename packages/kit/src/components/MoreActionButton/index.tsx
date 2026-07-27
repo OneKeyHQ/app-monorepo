@@ -965,6 +965,7 @@ function MoreActionGeneralGrid() {
             title: 'Prime',
             icon: 'PrimeOutline' as const,
             onPress: handlePrime,
+            testID: 'wallet-prime',
             trackID: 'wallet-prime',
             isPrimeFeature: true,
             hidePrimeBadge: true,
