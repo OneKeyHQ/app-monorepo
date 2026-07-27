@@ -69,6 +69,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 describe('getPrimeInfiniExternalCheckoutGuard', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockLatchPendingPaymentProgress.mockResolvedValue({ sendStarted: true });
+    mockDiscardTerminalPaymentSession.mockResolvedValue(true);
   });
 
   it('blocks external checkout when another context has persisted a payment', async () => {
@@ -314,5 +316,70 @@ describe('getPrimeInfiniExternalCheckoutGuard', () => {
       pendingSubscriptionPeriod: 'P1Y',
     });
     expect(mockDiscardTerminalPaymentSession).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when the session is replaced while the payment is fetched', async () => {
+    mockGetLocalUserInfo.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-1',
+    });
+    mockGetPendingPaymentSession.mockResolvedValue({
+      sendStarted: false,
+      selectedSubscriptionPeriod: 'P1M',
+      paymentCacheKey: {
+        paymentId: 'payment-1',
+      },
+      payment: {
+        paymentId: 'payment-1',
+        amountDue: '1',
+        amountConfirmed: '0',
+        amountConfirming: '0',
+      },
+    });
+    mockApiGetInfiniPayment.mockResolvedValue({
+      paymentId: 'payment-1',
+      amountDue: '1',
+      amountConfirmed: '0',
+      amountConfirming: '0.5',
+    });
+    // Another window swapped the stored session, so no matching session takes
+    // the latch and the observed progress is recorded nowhere.
+    mockLatchPendingPaymentProgress.mockResolvedValue(undefined);
+
+    await expect(getPrimeInfiniPaymentEntryGuard()).rejects.toThrow(
+      'Infini payment session changed while it was being verified',
+    );
+  });
+
+  it('fails closed when a terminal session cannot be discarded', async () => {
+    mockGetLocalUserInfo.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-1',
+    });
+    mockGetPendingPaymentSession.mockResolvedValue({
+      sendStarted: true,
+      selectedSubscriptionPeriod: 'P1M',
+      paymentCacheKey: {
+        paymentId: 'payment-1',
+      },
+      payment: {
+        paymentId: 'payment-1',
+        amountDue: '1',
+        amountConfirmed: '0',
+        amountConfirming: '0',
+      },
+    });
+    mockApiGetInfiniPayment.mockResolvedValue({
+      paymentId: 'payment-1',
+      amountDue: '1',
+      amountConfirmed: '0',
+      amountConfirming: '0',
+      status: 'expired',
+    });
+    mockDiscardTerminalPaymentSession.mockResolvedValue(false);
+
+    await expect(getPrimeInfiniPaymentEntryGuard()).rejects.toThrow(
+      'Infini payment session changed while it was being verified',
+    );
   });
 });
