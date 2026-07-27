@@ -43,8 +43,6 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../../../utils/mobileLayoutTrace';
-import { PerpGuidePopover } from '../../Guide/PerpGuidePopover';
-import { PerpsActivityCenterAction } from '../../PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../../PerpSettingsButton';
 
 import { PerpsAccountNumberValue } from './PerpsAccountNumberValue';
@@ -294,7 +292,15 @@ function DepositButton() {
       // In the glass capsule, drop the solid fill (the glass provides it) and
       // the press/hover feedback (the glass material handles it).
       bg={glassActive ? '$transparent' : nonGlassBg}
-      cursor="default"
+      cursor={platformEnv.isNative ? 'default' : 'pointer'}
+      borderWidth={platformEnv.isNative ? 0 : 1}
+      borderColor="$transparent"
+      hoverStyle={
+        platformEnv.isNative ? undefined : { borderColor: '$borderHover' }
+      }
+      pressStyle={
+        platformEnv.isNative ? undefined : { borderColor: '$borderActive' }
+      }
       onLayout={handleLayout}
       {...(glassActive && { hoverStyle: undefined, pressStyle: undefined })}
     >
@@ -367,11 +373,11 @@ export function PerpsHeaderRight() {
         if (platformEnv.isWebDappMode) return null;
         if (gtMd) {
           return (
-            <>
-              <PerpsActivityCenterAction copyAsUrl />
-              <PerpGuidePopover />
-              <PerpSettingsButton testID={PerpTestIDs.HeaderSettingsButton} />
-            </>
+            <PerpSettingsButton
+              testID={PerpTestIDs.HeaderSettingsButton}
+              showActivityCenterEntry
+              showGuideEntry
+            />
           );
         }
         return null;
