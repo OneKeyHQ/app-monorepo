@@ -83,9 +83,7 @@ describe('DesktopApiFirmwareArtifact URL admission', () => {
       overallDeadlineSeconds: 1,
     };
     await adapter.cancelDownloads(transactionId);
-    await expect(adapter.download(input)).rejects.toMatchObject({
-      code: 'ARTIFACT_CANCELLED',
-    });
+    await expect(adapter.download(input)).rejects.toThrow('ARTIFACT_CANCELLED');
     await adapter.releaseLease({
       leaseRef: lease.leaseRef,
       disposition: 'safeCancelled',
@@ -93,8 +91,6 @@ describe('DesktopApiFirmwareArtifact URL admission', () => {
     const nextLease = await adapter.createLease(transactionId);
     await expect(
       adapter.download({ ...input, leaseRef: nextLease.leaseRef }),
-    ).rejects.toMatchObject({
-      code: 'ARTIFACT_NETWORK_FAILED',
-    });
+    ).rejects.toThrow('ARTIFACT_NETWORK_FAILED');
   });
 });
