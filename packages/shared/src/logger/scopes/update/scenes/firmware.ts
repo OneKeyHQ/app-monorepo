@@ -21,6 +21,7 @@ export class FirmwareScene extends BaseScene {
       | 'downloading'
       | 'reading'
       | 'materializing'
+      | 'sdk-contract'
       | 'releasing'
       | 'sweeping'
       | 'completed'
@@ -31,6 +32,10 @@ export class FirmwareScene extends BaseScene {
     bytes?: number;
     chunkCount?: number;
     materializedEntryCount?: number;
+    sdkEntryValidated?: boolean;
+    sdkIntegrityRejected?: boolean;
+    sdkBindingReleased?: boolean;
+    sdkBoundaryCode?: string;
     errorCode?: string;
   }) {
     return params;

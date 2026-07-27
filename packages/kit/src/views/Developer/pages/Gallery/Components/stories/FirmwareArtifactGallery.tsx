@@ -101,6 +101,22 @@ function FirmwareArtifactStatus({
           Materialized entries: {state.materializedEntryCount}
         </SizableText>
         <SizableText size="$bodySm">
+          SDK entry: {state.sdkEntryValidated ? 'validated' : 'pending'}
+        </SizableText>
+        <SizableText size="$bodySm">
+          SDK integrity rejection:{' '}
+          {state.sdkIntegrityRejected ? 'validated' : 'pending'}
+        </SizableText>
+        <SizableText size="$bodySm">
+          SDK binding release:{' '}
+          {state.sdkBindingReleased ? 'validated' : 'pending'}
+        </SizableText>
+        {state.sdkBoundaryCode ? (
+          <SizableText size="$bodySm">
+            SDK device boundary: {state.sdkBoundaryCode}
+          </SizableText>
+        ) : null}
+        <SizableText size="$bodySm">
           GC: {state.deletedFiles} files / {formatBytes(state.deletedBytes)}
         </SizableText>
         <SizableText size="$bodySm">
@@ -229,6 +245,7 @@ const FirmwareArtifactGallery = () => (
     description="Validate trusted Pro firmware and resource artifacts without connecting a hardware device."
     suggestions={[
       'Run one scenario at a time and keep the App in the foreground for the first smoke test',
+      'SDK entry validation must stop at the missing-device boundary before any hardware command',
       'Use a fresh App data directory when the test must prove a network transfer instead of a cache hit',
       'Use the Run ID to correlate UI state with app-latest.log',
     ]}
