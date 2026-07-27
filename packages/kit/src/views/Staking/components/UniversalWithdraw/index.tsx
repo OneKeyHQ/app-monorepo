@@ -1909,15 +1909,14 @@ export function UniversalWithdraw({
                           .color ?? '$textSubdued'
                       }
                       size={
-                        transactionConfirmation.availableLiquidity.title
-                          .size ?? '$bodyMd'
+                        transactionConfirmation.availableLiquidity.title.size ??
+                        '$bodyMd'
                       }
                     />
                     {transactionConfirmation.availableLiquidity.tooltip ? (
                       <EarnTooltip
                         title={
-                          transactionConfirmation.availableLiquidity.title
-                            .text
+                          transactionConfirmation.availableLiquidity.title.text
                         }
                         tooltip={
                           transactionConfirmation.availableLiquidity.tooltip
