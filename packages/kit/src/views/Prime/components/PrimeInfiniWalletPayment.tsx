@@ -989,27 +989,43 @@ function PrimeInfiniWalletPaymentContent({
       ) {
         return false;
       }
-      let didDiscard = false;
-      await sessionPersistenceQueueRef.current.finalize(async () => {
-        const persistedSession =
-          await backgroundApiProxy.simpleDb.prime.getInfiniPendingPaymentSession(
-            { onekeyUserId },
-          );
-        if (!persistedSession) {
-          return;
+      let wasDiscardRejected = false;
+      try {
+        await sessionPersistenceQueueRef.current.finalize(async () => {
+          const persistedSession =
+            await backgroundApiProxy.simpleDb.prime.getInfiniPendingPaymentSession(
+              { onekeyUserId },
+            );
+          const didDiscard =
+            Boolean(persistedSession) &&
+            (await backgroundApiProxy.simpleDb.prime.discardTerminalInfiniPendingPaymentSession(
+              {
+                onekeyUserId,
+                expectedPaymentCacheIdentity,
+                expectedUpdatedAt: persistedSession?.updatedAt ?? 0,
+                expectedSendStarted: persistedSession?.sendStarted ?? false,
+                latestPayment,
+              },
+            ));
+          if (!didDiscard) {
+            // Must throw rather than return: finalize() only clears its
+            // finalized flag when the task rejects. Returning here would leave
+            // the queue permanently finalized, so the caller's fallback to
+            // tracking the payment would fail on a finalized persistence queue
+            // instead of resuming polling.
+            wasDiscardRejected = true;
+            throw new OneKeyLocalError(
+              'Infini payment session cannot be released',
+            );
+          }
+        });
+        return true;
+      } catch (error) {
+        if (wasDiscardRejected) {
+          return false;
         }
-        didDiscard =
-          await backgroundApiProxy.simpleDb.prime.discardTerminalInfiniPendingPaymentSession(
-            {
-              onekeyUserId,
-              expectedPaymentCacheIdentity,
-              expectedUpdatedAt: persistedSession.updatedAt,
-              expectedSendStarted: persistedSession.sendStarted,
-              latestPayment,
-            },
-          );
-      });
-      return didDiscard;
+        throw error;
+      }
     },
     [baseline.onekeyUserId],
   );
