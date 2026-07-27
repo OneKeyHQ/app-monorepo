@@ -1146,16 +1146,18 @@ class ServiceAccountSelector extends ServiceBase {
   // calls the bg method once per 50-row batch — memoize briefly so a
   // multi-batch open computes them once. Perps worth is additive display
   // data, so a short-lived stale hit is acceptable.
-  private _getPerpsSelectorGating = cacheUtils.memoizee(
+  private _getPerpsSelectorGatingCached = cacheUtils.memoizee(
     async (
       linkedNetworkId: string | undefined,
     ): Promise<{
       isPerpsSupported: boolean;
       perpsDeriveType: IAccountDeriveTypes | undefined;
+      isGatingReady: boolean;
     }> => {
       const notSupported = {
         isPerpsSupported: false,
         perpsDeriveType: undefined,
+        isGatingReady: true,
       };
       const { perpConfigCommon, perpConfigLoaded } =
         await perpsCommonConfigPersistAtom.get();
@@ -1170,7 +1172,7 @@ class ServiceAccountSelector extends ServiceBase {
       // Local-only read: a cold start with an empty map disables perps for
       // this pass instead of blocking selector values on a server sync; the
       // kicked-off background sync feeds the next pass.
-      const { enabledNetworksMap: deFiEnabledNetworksMap } =
+      const { enabledNetworksMap: deFiEnabledNetworksMap, isReady } =
         await this.backgroundApi.serviceDeFi.getDeFiEnabledNetworksMapState({
           syncIfEmpty: false,
         });
@@ -1211,13 +1213,13 @@ class ServiceAccountSelector extends ServiceBase {
         }).isPerpsSupported;
       }
       if (!isPerpsSupported) {
-        return notSupported;
+        return { ...notSupported, isGatingReady: isReady };
       }
       const perpsDeriveType =
         await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
           networkId: PERPS_NETWORK_ID,
         });
-      return { isPerpsSupported, perpsDeriveType };
+      return { isPerpsSupported, perpsDeriveType, isGatingReady: isReady };
     },
     {
       max: 4,
@@ -1225,6 +1227,18 @@ class ServiceAccountSelector extends ServiceBase {
       promise: true,
     },
   );
+
+  // Cache only gating computed from a ready DeFi map: a cold-start pass runs
+  // with the map still empty (perps off, non-blocking) and must not pin that
+  // provisional verdict for the whole memo TTL — dropping it lets the next
+  // loader pass pick up the background sync's result immediately.
+  private async _getPerpsSelectorGating(linkedNetworkId: string | undefined) {
+    const gating = await this._getPerpsSelectorGatingCached(linkedNetworkId);
+    if (!gating.isGatingReady) {
+      void this._getPerpsSelectorGatingCached.delete(linkedNetworkId);
+    }
+    return gating;
+  }
 
   // One getAllAccounts read + in-memory lookups instead of a per-row
   // getNetworkAccount (each a DB read + vault address build) on the
@@ -1290,19 +1304,30 @@ class ServiceAccountSelector extends ServiceBase {
       for (const [address, snapshot] of Object.entries(
         perpData?.hyperliquidPortfolioSnapshotByAddress ?? {},
       )) {
+        const netWorthUsd = snapshot?.netWorthUsd;
         // Mirror ServiceHyperliquid.getHyperliquidPortfolioSnapshot's cache
         // policy: fresh snapshots serve as-is; stale ones only inside the
         // stale-serve window and never when degraded. Older entries would
         // render as loading on Home, so the selector must not sum them.
         if (
-          snapshot?.netWorthUsd !== undefined &&
+          netWorthUsd !== undefined &&
           (isHyperliquidPortfolioSnapshotFresh(snapshot, now) ||
             (!snapshot.isDegraded &&
               now - snapshot.fetchedAt <=
                 PERPS_HL_PORTFOLIO_STALE_SERVE_MAX_AGE_MS))
         ) {
-          snapshotNetWorthUsdByAddress[address.toLowerCase()] =
-            snapshot.netWorthUsd;
+          // Same-policy mode check: a snapshot written under a different
+          // abstraction mode than the persisted one is rejected by the
+          // service (allowCachedFallback), so the selector must not sum it
+          // either. getUserAbstractionMode reads the cached perp data and
+          // includes the legacy dexAbstraction fallback.
+          const persistedMode =
+            await this.backgroundApi.simpleDb.perp.getUserAbstractionMode(
+              address,
+            );
+          if (!persistedMode || snapshot.abstractionMode === persistedMode) {
+            snapshotNetWorthUsdByAddress[address.toLowerCase()] = netWorthUsd;
+          }
         }
       }
 

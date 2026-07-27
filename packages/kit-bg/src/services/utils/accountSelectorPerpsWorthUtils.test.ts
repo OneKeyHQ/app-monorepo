@@ -64,8 +64,14 @@ describe('buildAccountsPerpsNetWorthUsd', () => {
     expect(resolve).toHaveBeenCalledWith(['hd-1--0', 'hd-1--1']);
   });
 
-  it('dedupes ids and skips rows already carrying an EVM address', async () => {
-    const resolve = jest.fn(async () => ({ 'hd-1--0': HL_ADDRESS }));
+  it('dedupes ids and routes indexed rows through the resolver even when the row carries an EVM scene address', async () => {
+    // The indexed row's scene address (HL_ADDRESS) must NOT shortcut the
+    // lookup: Home resolves via the perps global derive type, which here
+    // yields a different address that is absent from the snapshot cache.
+    const resolve = jest.fn(async () => ({
+      'hd-1--0': HL_ADDRESS,
+      'hd-1--1': '0x0000000000000000000000000000000000000002',
+    }));
     const result = await buildAccountsPerpsNetWorthUsd({
       accounts: [
         { accountId: 'a1', indexedAccountId: 'hd-1--0', accountAddress: '' },
@@ -79,9 +85,9 @@ describe('buildAccountsPerpsNetWorthUsd', () => {
       snapshotNetWorthUsdByAddress,
       resolvePerpsAddressesByIndexedAccountIds: resolve,
     });
-    expect(result).toEqual(['502.00', '502.00', '502.00']);
+    expect(result).toEqual(['502.00', '502.00', undefined]);
     expect(resolve).toHaveBeenCalledTimes(1);
-    expect(resolve).toHaveBeenCalledWith(['hd-1--0']);
+    expect(resolve).toHaveBeenCalledWith(['hd-1--0', 'hd-1--1']);
   });
 
   it('skips others rows with non-EVM addresses and no indexed id', async () => {

@@ -37,19 +37,24 @@ export async function buildAccountsPerpsNetWorthUsd({
   if (Object.keys(snapshotNetWorthUsdByAddress).length === 0) {
     return accounts.map(() => undefined);
   }
-  // EVM rows (linked EVM network / others EVM accounts) already carry the
-  // address Hyperliquid is keyed by.
+  // Only rows without an indexed identity (imported/watching/external) may
+  // use their row address directly, and only when it is EVM-shaped. Indexed
+  // rows always resolve through the perps network's global derive type the
+  // same way Home does — the row's scene address may be derived differently
+  // (linkNetworkDeriveType) and would look up the snapshot under the wrong
+  // key.
   const directAddresses: (string | undefined)[] = accounts.map((account) =>
-    account.accountAddress && EVM_ADDRESS_REGEX.test(account.accountAddress)
+    !isResolvableIndexedAccountId(account.indexedAccountId) &&
+    account.accountAddress &&
+    EVM_ADDRESS_REGEX.test(account.accountAddress)
       ? account.accountAddress.toLowerCase()
       : undefined,
   );
-  // All-Networks / non-EVM linked contexts: resolve the remaining rows' perps
-  // network address the same way Home does, in one batch instead of per row.
+  // Resolve indexed rows' perps network address in one batch instead of per
+  // row.
   const idsToResolve = Array.from(
     new Set(
       accounts
-        .filter((_, index) => !directAddresses[index])
         .map((account) => account.indexedAccountId)
         .filter(isResolvableIndexedAccountId),
     ),
