@@ -2152,6 +2152,20 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     expect(
       getRawData().infiniPendingPaymentSessionByUserId['user-1'],
     ).toBeUndefined();
+    // Tombstone and session removal must always come as a pair.
+    expect(
+      (
+        getRawData() as unknown as {
+          infiniPaymentCacheTombstonesByUserId?: Record<string, unknown[]>;
+        }
+      ).infiniPaymentCacheTombstonesByUserId?.['user-1'],
+    ).toEqual([
+      expect.objectContaining({
+        paymentId: session.paymentCacheKey.paymentId,
+        bindingId: session.paymentCacheKey.bindingId,
+        retiredAt: expect.any(Number),
+      }),
+    ]);
   });
 
   test('refuses to release a claimed session that only expired on the local clock', async () => {
@@ -2270,6 +2284,23 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
         latestPayment: { ...session.payment, status: 'expired' },
       }),
     ).resolves.toBe(true);
+    // The tombstone is the only side effect of this branch and the sole source
+    // of the 'Infini payment cache is retired' rejection, so without it a
+    // writer still holding the old cache key could resurrect the session right
+    // after the caller was told it was released.
+    expect(
+      (
+        persisted as {
+          infiniPaymentCacheTombstonesByUserId?: Record<string, unknown[]>;
+        }
+      ).infiniPaymentCacheTombstonesByUserId?.['user-1'],
+    ).toEqual([
+      expect.objectContaining({
+        paymentId: session.paymentCacheKey.paymentId,
+        bindingId: session.paymentCacheKey.bindingId,
+        retiredAt: expect.any(Number),
+      }),
+    ]);
   });
 
   test('atomically marks the matching session before transaction broadcast', async () => {

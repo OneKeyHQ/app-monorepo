@@ -987,12 +987,18 @@ function PrimeInfiniWalletPaymentContent({
     }
     // Read through the persistence queue so a local write already in flight is
     // reflected in the revision the terminal release will be checked against.
-    const persistedSession = await sessionPersistenceQueueRef.current.persist(
-      async () =>
+    // Only the closed-unpaid branch consumes this, so a failed read must not
+    // break an ordinary replacement that never needed it. Swallowing is safe
+    // because the DB layer fails closed on a missing revision: an existing
+    // session cannot match expectedUpdatedAt 0, and no session takes the
+    // idempotent branch.
+    const persistedSession = await sessionPersistenceQueueRef.current
+      .persist(async () =>
         backgroundApiProxy.simpleDb.prime.getInfiniPendingPaymentSession({
           onekeyUserId,
         }),
-    );
+      )
+      .catch(() => undefined);
     if (!persistedSession) {
       return undefined;
     }
