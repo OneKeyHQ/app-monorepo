@@ -88,7 +88,7 @@ export function ImportKeyTag() {
 
   useRecoveryPhraseProtected({ enabled: dirty });
   // Mirroring a punched plate is a slow, look-away-often task; hold the screen
-  // awake so a long pause reading the steel does not drop the session.
+  // awake so a long pause reading the plate does not drop the session.
   useKeepAwake();
 
   const handleToggleHole = useCallback(

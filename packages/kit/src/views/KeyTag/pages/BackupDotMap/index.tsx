@@ -51,7 +51,7 @@ import type { RouteProp } from '@react-navigation/core';
 
 // Consecutive fully-entered failed Confirms after which we surface the
 // "your plate itself may be mispunched" help — a single mistap fails once,
-// so repeated full-plate failures point at the steel, not a slip.
+// so repeated full-plate failures point at the plate, not a slip.
 const MISPUNCH_HELP_AFTER_FAILS = 3;
 
 const punchGuide = [
@@ -88,7 +88,7 @@ const BackupDotMap = () => {
   );
   // The dot map is seed-equivalent; block screenshots/recording while shown.
   useRecoveryPhraseProtected({ enabled: Boolean(result) });
-  // Punching (and re-entering) 12-24 rows is a minutes-long, hands-on-steel
+  // Punching (and re-entering) 12-24 rows is a minutes-long, hands-on-plate
   // task with the phone propped up and untouched; without this the OS
   // auto-locks mid-row. Mirrors the app's other long-run flows.
   useKeepAwake();
@@ -162,7 +162,7 @@ const BackupDotMap = () => {
       return;
     }
     // Blank plate: the true dots are unmounted and rows reset to zero, so the
-    // only faithful copy on hand is the punched steel.
+    // only faithful copy on hand is the punched plate.
     setRows(Array.from({ length: wordCount }, () => 0));
     setTouchedMask(Array.from({ length: wordCount }, () => false));
     setSide('front');
@@ -375,7 +375,7 @@ const BackupDotMap = () => {
   );
 
   // Right column (gtMd) / below-plate (mobile): review shows how-to-punch
-  // guidance, verify shows its one-line "read the steel" instruction.
+  // guidance, verify shows its one-line "read the plate" instruction.
   const sideContent = isVerify ? (
     <>
       {/* same flat plate shot the interactive import page uses, since verify is

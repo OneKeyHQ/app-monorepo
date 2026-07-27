@@ -102,7 +102,7 @@ export const DotMapBase = ({
   );
   // Hover cross-hair: the plate is read-only, but pointing at a dot still
   // highlights its whole row and column so the row number and 2^n weight are
-  // easy to trace while copying dots onto the steel. Pointer devices only.
+  // easy to trace while copying dots onto the plate. Pointer devices only.
   const [hover, setHover] = useState<{ row: number; col: number } | null>(null);
   const handleHoverOut = useCallback(() => setHover(null), []);
 
