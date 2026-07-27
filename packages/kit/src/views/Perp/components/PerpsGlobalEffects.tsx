@@ -952,7 +952,24 @@ function useHyperliquidSymbolSelect() {
         activeCoin: activeTradeInstrumentRef.current?.coin,
       });
       if (!claimed && activeTradeInstrumentRef.current?.coin) {
-        return;
+        // The latch is process-wide, so this skip is also the only
+        // remount-time resync from the BG target. Bail out only when the
+        // context already agrees with BG — a context-less switch
+        // (notification / banner / tray) whose event bus message was dropped
+        // would otherwise strand this page on the previous coin forever.
+        const bgSwitchParams =
+          await buildActiveInstrumentSwitchParamsFromGlobal();
+        const ctxInstrument = activeTradeInstrumentRef.current;
+        const diverged =
+          !bgSwitchParams ||
+          bgSwitchParams.coin !== ctxInstrument?.coin ||
+          bgSwitchParams.mode !== ctxInstrument?.mode;
+        markPerpsColdStartPerf('initial_symbol_latch_skip', {
+          diverged,
+        });
+        if (!diverged) {
+          return;
+        }
       }
       if (claimed) {
         markPerpsColdStartPerf('initial_symbol_refresh_meta_background_start');

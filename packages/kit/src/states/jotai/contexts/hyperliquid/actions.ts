@@ -518,13 +518,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     requestId: number;
     viewState: ITradeRouteViewState;
   }): Promise<void> {
-    if (
-      !this.isLatestActiveInstrumentChange(params.requestId) ||
-      !this.shouldSyncSubscriptionsAfterInstrumentChange(params.viewState)
-    ) {
+    if (!this.isLatestActiveInstrumentChange(params.requestId)) {
       return;
     }
 
+    // Publishing the subscription target is unconditional: it is idempotent
+    // state sync, and the BG reconcile aborts wholesale (allMids/L2/BBO/user
+    // channels) while perpsActiveOrderBookOptionsAtom still names the previous
+    // coin. Gating it on route focus stranded every context-less coin switch
+    // (notification / banner / tray) until the next focus transition.
     const stored = getPerpsOrderBookTickOptionsWithCache(
       params.orderBookTickOptions,
     )[params.instrument.coin];
@@ -541,6 +543,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       isLatest: () => this.isLatestActiveInstrumentChange(params.requestId),
     });
     if (!isLatest) {
+      return;
+    }
+
+    // Resubscribing stays focus-gated so a blurred route does not rebuild
+    // streams it cannot render.
+    if (!this.shouldSyncSubscriptionsAfterInstrumentChange(params.viewState)) {
       return;
     }
 

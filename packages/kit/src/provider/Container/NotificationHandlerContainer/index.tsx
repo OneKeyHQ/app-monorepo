@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { Dialog } from '@onekeyhq/components';
+import { tradingModeAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
@@ -142,6 +144,11 @@ function BaseNotificationHandlerContainer() {
           await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
             coin: perpToken,
           });
+          // The payload targets a perp market, but changeActiveAsset only
+          // writes perpsActiveAssetAtom. Without this the page reopens in
+          // whatever mode the user left behind, and a spot mode would make
+          // the resync read spotActiveAssetAtom and drop this coin entirely.
+          await tradingModeAtom.set('perp');
           // Notify an already-mounted Perp page (via PerpsGlobalEffects) to
           // switch its active instrument; without this the coin switch is a
           // no-op when the Perp page was already opened (banner deep-link case).
@@ -149,6 +156,19 @@ function BaseNotificationHandlerContainer() {
             mode: 'perp',
             coin: perpToken,
           });
+          // Leaving Perps closes the socket, and navigation here is ~350ms of
+          // popToMainRoute + wait before the tab even switches. Start the
+          // reconnect now so it overlaps the navigation instead of beginning
+          // only once the route regains focus.
+          void backgroundApiProxy.serviceHyperliquidSubscription
+            .resumeSubscriptions()
+            .catch((error) => {
+              defaultLogger.perp.hyperliquid.coldStartInitializationError({
+                type: 'prewarm_subscriptions',
+                coin: perpToken,
+                error,
+              });
+            });
         } catch (error) {
           console.error('Failed to change perps active asset:', error);
         }

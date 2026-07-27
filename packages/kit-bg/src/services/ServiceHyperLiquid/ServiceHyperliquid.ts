@@ -2661,22 +2661,32 @@ export default class ServiceHyperliquid extends ServiceBase {
       const dexMarginTables: IMarginTableMap | undefined =
         marginTablesMapByDex?.[targetDexIndex];
 
-      if (dexUniverses?.length === 0) {
-        if (
-          shouldSeedSubscriptionTarget &&
-          requestId === this.activeAssetChangeRequestId
-        ) {
-          await perpsActiveAssetAtom.set(rollbackActiveAsset);
+      // `universesByDex` is `[]` when nothing is cached yet, so `[dexIndex]`
+      // is `undefined` and the old `?.length === 0` test was never true —
+      // execution fell through and committed `assetId: -1` as if it were a
+      // resolved asset. Keep the seeded coin (l2Book subscribes by coin, so
+      // the target stays correct) but leave the metadata unresolved.
+      if (!dexUniverses?.length) {
+        // Re-selecting the coin that is already active must not downgrade
+        // metadata we already resolved; only an actual switch falls back to
+        // the unresolved shape.
+        if (!shouldSeedSubscriptionTarget && oldActiveAsset?.coin === newCoin) {
+          markPerpsColdStartPerf('service_change_active_asset_empty_universe', {
+            coin: oldActiveAsset.coin,
+          });
+          return oldActiveAsset;
         }
         const result = {
-          coin: rollbackActiveAsset?.coin || newCoin || '',
-          assetId: rollbackActiveAsset?.assetId,
-          universe: rollbackActiveAsset?.universe,
-          margin: rollbackActiveAsset?.margin,
+          coin: newCoin || rollbackActiveAsset?.coin || '',
+          assetId: undefined,
+          universe: undefined,
+          margin: undefined,
         };
+        if (requestId === this.activeAssetChangeRequestId) {
+          await perpsActiveAssetAtom.set(result);
+        }
         markPerpsColdStartPerf('service_change_active_asset_empty_universe', {
           coin: result.coin,
-          assetId: result.assetId,
         });
         return result;
       }
