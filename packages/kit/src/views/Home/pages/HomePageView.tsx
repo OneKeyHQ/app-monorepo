@@ -34,6 +34,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -545,6 +549,7 @@ export function HomePageView({
   }, [tabConfigs]);
 
   const switchToPerpsWebTab = useCallback(() => {
+    setPerpPageEnterSource(EPerpPageEnterSource.Home);
     navigation.switchTab(ETabRoutes.WebviewPerpTrade);
   }, [navigation]);
 

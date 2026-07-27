@@ -16,6 +16,7 @@ import {
   getTradingViewNativeMaxPanOffset,
   getTradingViewNativePanOffsetAfterDataUpdate,
   getTradingViewNativePointIndexAtX,
+  getTradingViewNativePriceExtrema,
   getTradingViewNativePriceRange,
   getTradingViewNativeViewportOffsetTransition,
   getTradingViewNativeVisiblePointRange,
@@ -243,6 +244,15 @@ describe('TradingViewNative chart viewport', () => {
         points,
       }),
     ).toEqual({ maxPrice: 500, minPrice: 20 });
+    expect(
+      getTradingViewNativePriceExtrema({
+        ...visiblePointRange,
+        points,
+      }),
+    ).toEqual({
+      high: { index: 2, price: 500 },
+      low: { index: 1, price: 20 },
+    });
   });
 
   it('derives a line price range from close values only', () => {

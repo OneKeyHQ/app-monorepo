@@ -47,6 +47,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -168,6 +172,7 @@ function useOpenPerpAsset() {
         if (infoPanelTab) {
           await perpsPendingInfoPanelTabAtom.set(infoPanelTab);
         }
+        setPerpPageEnterSource(EPerpPageEnterSource.Home);
         navigation.switchTab(ETabRoutes.Perp);
         if (!coin) {
           return;

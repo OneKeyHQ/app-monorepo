@@ -857,6 +857,7 @@ export function LimitOrderForm({
         referencePrice: resolvedPriceBN,
         side: pressedSide,
         leverage,
+        szDecimals: isSpot ? undefined : szDecimals,
       });
 
       // Normalize to a concrete manual token size so the confirm dialog display

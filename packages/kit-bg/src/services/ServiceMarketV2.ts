@@ -26,6 +26,7 @@ import type {
   IMarketChainsResponse,
   IMarketPerpsTokenListData,
   IMarketPerpsTokenListResponse,
+  IMarketStockDetail,
   IMarketTokenBatchListResponse,
   IMarketTokenDetailResponse,
   IMarketTokenHoldersResponse,
@@ -48,6 +49,10 @@ import { perpTokenFavoritesPersistAtom } from '../states/jotai/atoms/perps';
 
 import ServiceBase from './ServiceBase';
 import { MOCK_MARKET_BANNER_LIST } from './ServiceMarketV2.const';
+import {
+  type IMarketStockAssetApiData,
+  buildMarketStockDetail,
+} from './utils/marketStockUtils';
 import { resolveMarketTokenDetailRequestTokenAddress } from './utils/marketTokenDetailUtils';
 
 type IMarketTokenListRequestParams = {
@@ -92,6 +97,7 @@ class ServiceMarketV2 extends ServiceBase {
       if (event.level !== 'critical') return;
       this._marketTokenBatchCache.clear();
       void this.memoizedFetchMarketTokenList.clear();
+      void this.memoizedFetchMarketStockByTicker.clear();
     });
   }
 
@@ -109,6 +115,31 @@ class ServiceMarketV2 extends ServiceBase {
   private _marketTokenListCacheTTL = timerUtils.getTimeDurationMs({
     seconds: 20,
   });
+
+  private memoizedFetchMarketStockByTicker = memoizee(
+    async (ticker: string, locale: string) => {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        code: number;
+        message: string;
+        data?: IMarketStockAssetApiData | null;
+      }>('/utility/v1/market/stock', {
+        params: {
+          ticker,
+        },
+        headers: {
+          'x-onekey-request-currency': 'usd',
+          'x-onekey-request-locale': locale,
+        },
+      });
+      const data = response.data?.data;
+      return data ? buildMarketStockDetail(data) : undefined;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
+      promise: true,
+    },
+  );
 
   private _cleanExpiredMarketTokenBatchCache() {
     const now = Date.now();
@@ -228,6 +259,28 @@ class ServiceMarketV2 extends ServiceBase {
       },
     );
     return response.data;
+  }
+
+  @backgroundMethod()
+  async fetchMarketStockByTicker(
+    ticker: string,
+  ): Promise<IMarketStockDetail | undefined> {
+    const normalizedTicker = ticker.trim().toUpperCase();
+    if (!normalizedTicker) {
+      return undefined;
+    }
+    const locale = await this._getMarketTokenBatchCacheLocale();
+    const detail = await this.memoizedFetchMarketStockByTicker(
+      normalizedTicker,
+      locale,
+    );
+    if (!detail) {
+      await this.memoizedFetchMarketStockByTicker.delete(
+        normalizedTicker,
+        locale,
+      );
+    }
+    return detail;
   }
 
   private memoizedFetchMarketChains = memoizee(
