@@ -13,9 +13,22 @@ import { TradingViewNativeContainer } from './TradingViewNativeContainer';
 import type { ITradingViewNativeDataState } from './types';
 
 const mockHandleRetry = jest.fn();
+const mockHandleHistoryBoundaryPrefetch = jest.fn();
+const mockHandleIntervalChange = jest.fn();
+const mockHandleViewportRequestApplied = jest.fn();
+const mockHandleViewportTargetChange = jest.fn<Promise<void>, [unknown]>(
+  async () => undefined,
+);
+const mockTradingViewNativeChartControlsContainer = jest.fn<null, [unknown]>(
+  () => null,
+);
+const mockTradingViewNativeChart = jest.fn<null, [unknown]>(() => null);
 let mockDataProviderKey = 'market:evm--1:0xabc:TOKEN';
 let mockDataState: ITradingViewNativeDataState;
+let mockActiveInterval = '60';
 let mockPoints: IMarketTokenKLineDataPoint[];
+let mockVisibleTimeRange: { from: number; to: number } | undefined;
+let mockViewportRequest: unknown;
 let mockRealtimePointListener:
   | ((point: IMarketTokenKLineDataPoint) => void)
   | undefined;
@@ -27,16 +40,22 @@ const mockUseTradingViewNativeKLine = jest.fn(
   }) => {
     mockRealtimePointListener = onRealtimePoint;
     return {
+      calendarAvailableTimeRange: { from: 100 },
       candleIntervalSeconds: 3600,
       chartPictureVersion: 0,
       dataProviderKey: mockDataProviderKey,
       dataState: mockDataState,
-      handleIntervalChange: jest.fn(),
+      getVisibleTimeRange: () => mockVisibleTimeRange,
+      handleHistoryBoundaryPrefetch: mockHandleHistoryBoundaryPrefetch,
+      handleIntervalChange: mockHandleIntervalChange,
       handleRetry: mockHandleRetry,
+      handleViewportTargetChange: mockHandleViewportTargetChange,
+      handleViewportRequestApplied: mockHandleViewportRequestApplied,
       handleVisiblePointRangeChange: jest.fn(),
-      intervalConfig: { activeInterval: '60', intervals: [] },
+      intervalConfig: { activeInterval: mockActiveInterval, intervals: [] },
       isSwitchingInterval: false,
       points: mockPoints,
+      viewportRequest: mockViewportRequest,
     };
   },
 );
@@ -77,23 +96,27 @@ jest.mock('./data/useTradingViewNativeKLine', () => ({
 }));
 
 jest.mock('./TradingViewNativeChart', () => ({
-  TradingViewNativeChart: () => <div />,
+  TradingViewNativeChart: (props: unknown) => mockTradingViewNativeChart(props),
 }));
 
 jest.mock('./TradingViewNativeChartControlsContainer', () => ({
-  TradingViewNativeChartControlsContainer: () => null,
+  TradingViewNativeChartControlsContainer: (props: unknown) =>
+    mockTradingViewNativeChartControlsContainer(props),
 }));
 
 describe('TradingViewNativeContainer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockDataProviderKey = 'market:evm--1:0xabc:TOKEN';
+    mockActiveInterval = '60';
     mockDataState = {
       status: 'error',
       error: new Error('history unavailable'),
     };
     mockPoints = [];
+    mockVisibleTimeRange = undefined;
     mockRealtimePointListener = undefined;
+    mockViewportRequest = null;
   });
 
   afterEach(() => {
@@ -117,6 +140,375 @@ describe('TradingViewNativeContainer', () => {
     expect(screen.getByTestId('chart-error')).toBeTruthy();
     fireEvent.click(screen.getByTestId('chart-retry'));
     expect(mockHandleRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('forwards controlled fullscreen props to chart controls', () => {
+    const handleFullscreenChange = jest.fn();
+    const fullscreenHeader = <div>Token info</div>;
+
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+        isNativeChartFullscreen
+        nativeChartFullscreenHeader={fullscreenHeader}
+        onNativeChartFullscreenChange={handleFullscreenChange}
+      />,
+    );
+
+    expect(mockTradingViewNativeChartControlsContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isFullscreen: true,
+        fullscreenHeader,
+        onFullscreenChange: handleFullscreenChange,
+      }),
+    );
+  });
+
+  it('maps calendar submissions to native viewport targets', () => {
+    const goToTimestamp = 1_751_328_000;
+    const halfSevenDays = (7 * 24 * 60 * 60) / 2;
+    mockDataState = { status: 'stale' };
+    mockPoints = [
+      {
+        o: 100,
+        h: 101,
+        l: 99,
+        c: 100,
+        v: 10,
+        t: 1000,
+      },
+    ];
+    mockViewportRequest = {
+      requestId: 1,
+      target: { kind: 'timestamp', timestamp: 1000 },
+    };
+
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+      />,
+    );
+
+    const controlsProps = mockTradingViewNativeChartControlsContainer.mock
+      .calls[0][0] as {
+      onCalendarPanelOpen: () => void;
+      onCalendarPanelSubmit: (payload: {
+        panel: 'goToDate' | 'timeRange';
+        timestamp?: number;
+        from?: number;
+        to?: number;
+      }) => void;
+    };
+    controlsProps.onCalendarPanelOpen();
+    controlsProps.onCalendarPanelSubmit({
+      panel: 'goToDate',
+      timestamp: goToTimestamp,
+    });
+    controlsProps.onCalendarPanelSubmit({
+      panel: 'timeRange',
+      from: 100,
+      to: 200,
+    });
+
+    expect(mockHandleViewportTargetChange).toHaveBeenNthCalledWith(1, {
+      kind: 'timeRange',
+      from: goToTimestamp - halfSevenDays,
+      to: goToTimestamp + halfSevenDays,
+    });
+    expect(mockHandleViewportTargetChange).toHaveBeenNthCalledWith(2, {
+      kind: 'timeRange',
+      from: 100,
+      to: 200,
+    });
+    expect(mockHandleHistoryBoundaryPrefetch).toHaveBeenCalledTimes(1);
+    expect(controlsProps).toEqual(
+      expect.objectContaining({
+        calendarAvailableTimeRange: { from: 100 },
+      }),
+    );
+    expect(mockTradingViewNativeChart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        onViewportRequestApplied: mockHandleViewportRequestApplied,
+        viewportRequest: mockViewportRequest,
+      }),
+    );
+  });
+
+  it('switches to the V2 adaptive interval before navigating to a date', () => {
+    const timestamp = 1_751_328_000;
+    const halfSevenDays = (7 * 24 * 60 * 60) / 2;
+    const handleIntervalChange = jest.fn();
+    mockActiveInterval = '1';
+    mockDataState = { status: 'stale' };
+    mockPoints = [
+      {
+        o: 100,
+        h: 101,
+        l: 99,
+        c: 100,
+        v: 10,
+        t: timestamp,
+      },
+    ];
+
+    const renderChart = () => (
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market' as const,
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled' as const,
+        }}
+        onIntervalChange={handleIntervalChange}
+      />
+    );
+    const { rerender } = render(renderChart());
+    const controlsProps = mockTradingViewNativeChartControlsContainer.mock
+      .calls[0][0] as {
+      onCalendarPanelSubmit: (payload: {
+        panel: 'goToDate';
+        timestamp: number;
+      }) => void;
+    };
+
+    act(() => {
+      controlsProps.onCalendarPanelSubmit({
+        panel: 'goToDate',
+        timestamp,
+      });
+    });
+
+    expect(mockHandleIntervalChange).toHaveBeenCalledWith('60', {
+      skipNextHistoryRequest: true,
+    });
+    expect(handleIntervalChange).toHaveBeenCalledWith({
+      fromInterval: '1',
+      toInterval: '60',
+    });
+    expect(mockHandleViewportTargetChange).not.toHaveBeenCalled();
+
+    mockActiveInterval = '60';
+    rerender(renderChart());
+
+    expect(mockHandleViewportTargetChange).toHaveBeenCalledWith({
+      kind: 'timeRange',
+      from: timestamp - halfSevenDays,
+      to: timestamp + halfSevenDays,
+    });
+  });
+
+  it('switches to the V2 adaptive interval before navigating a large time range', () => {
+    const from = 1_751_328_000;
+    const to = from + 2 * 24 * 60 * 60;
+    const handleIntervalChange = jest.fn();
+    mockActiveInterval = '1';
+    mockDataState = { status: 'stale' };
+    mockPoints = [
+      {
+        o: 100,
+        h: 101,
+        l: 99,
+        c: 100,
+        v: 10,
+        t: to,
+      },
+    ];
+
+    const renderChart = () => (
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market' as const,
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled' as const,
+        }}
+        onIntervalChange={handleIntervalChange}
+      />
+    );
+    const { rerender } = render(renderChart());
+    const controlsProps = mockTradingViewNativeChartControlsContainer.mock
+      .calls[0][0] as {
+      onCalendarPanelSubmit: (payload: {
+        panel: 'timeRange';
+        from: number;
+        to: number;
+      }) => void;
+    };
+
+    act(() => {
+      controlsProps.onCalendarPanelSubmit({
+        panel: 'timeRange',
+        from,
+        to,
+      });
+    });
+
+    expect(mockHandleIntervalChange).toHaveBeenCalledWith('15', {
+      skipNextHistoryRequest: true,
+    });
+    expect(handleIntervalChange).toHaveBeenCalledWith({
+      fromInterval: '1',
+      toInterval: '15',
+    });
+    expect(mockHandleViewportTargetChange).not.toHaveBeenCalled();
+
+    mockActiveInterval = '15';
+    rerender(renderChart());
+
+    expect(mockHandleViewportTargetChange).toHaveBeenCalledWith({
+      kind: 'timeRange',
+      from,
+      to,
+    });
+  });
+
+  it('uses the measured chart width when choosing an adaptive interval', () => {
+    const from = 1_751_328_000;
+    const to = from + 2 * 24 * 60 * 60;
+    mockActiveInterval = '1';
+    mockDataState = { status: 'stale' };
+    mockPoints = [];
+
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+      />,
+    );
+    const chartProps = mockTradingViewNativeChart.mock.calls.at(-1)?.[0] as {
+      onChartWidthChange: (width: number) => void;
+    };
+    act(() => chartProps.onChartWidthChange(320));
+    const controlsProps =
+      mockTradingViewNativeChartControlsContainer.mock.calls.at(-1)?.[0] as {
+        onCalendarPanelSubmit: (payload: {
+          panel: 'timeRange';
+          from: number;
+          to: number;
+        }) => void;
+      };
+    act(() => {
+      controlsProps.onCalendarPanelSubmit({
+        panel: 'timeRange',
+        from,
+        to,
+      });
+    });
+
+    expect(mockHandleIntervalChange).toHaveBeenCalledWith('15', {
+      skipNextHistoryRequest: true,
+    });
+  });
+
+  it('discards a pending calendar target when the data provider changes', () => {
+    const from = 1_751_328_000;
+    const to = from + 2 * 24 * 60 * 60;
+    mockActiveInterval = '1';
+    mockDataState = { status: 'stale' };
+    mockPoints = [];
+
+    const renderChart = () => (
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market' as const,
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled' as const,
+        }}
+      />
+    );
+    const { rerender } = render(renderChart());
+    const controlsProps = mockTradingViewNativeChartControlsContainer.mock
+      .calls[0][0] as {
+      onCalendarPanelSubmit: (payload: {
+        panel: 'timeRange';
+        from: number;
+        to: number;
+      }) => void;
+    };
+    act(() => {
+      controlsProps.onCalendarPanelSubmit({
+        panel: 'timeRange',
+        from,
+        to,
+      });
+    });
+
+    mockDataProviderKey = 'market:evm--1:0xdef:OTHER';
+    mockActiveInterval = '15';
+    rerender(renderChart());
+
+    expect(mockHandleViewportTargetChange).not.toHaveBeenCalled();
+  });
+
+  it('does not replace an interval that is already coarser than the range preset', () => {
+    const from = 1_751_328_000;
+    const to = from + 2 * 24 * 60 * 60;
+    mockActiveInterval = '240';
+    mockDataState = { status: 'stale' };
+    mockPoints = [
+      {
+        o: 100,
+        h: 101,
+        l: 99,
+        c: 100,
+        v: 10,
+        t: to,
+      },
+    ];
+
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+      />,
+    );
+    const controlsProps = mockTradingViewNativeChartControlsContainer.mock
+      .calls[0][0] as {
+      onCalendarPanelSubmit: (payload: {
+        panel: 'timeRange';
+        from: number;
+        to: number;
+      }) => void;
+    };
+
+    controlsProps.onCalendarPanelSubmit({
+      panel: 'timeRange',
+      from,
+      to,
+    });
+
+    expect(mockHandleIntervalChange).not.toHaveBeenCalled();
+    expect(mockHandleViewportTargetChange).toHaveBeenCalledWith({
+      kind: 'timeRange',
+      from,
+      to,
+    });
   });
 
   it('reports the same latest close rendered by the chart for history and realtime updates', () => {

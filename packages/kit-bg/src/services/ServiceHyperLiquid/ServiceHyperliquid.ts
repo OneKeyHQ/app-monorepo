@@ -25,6 +25,10 @@ import {
 import { PERPS_HL_PORTFOLIO_STALE_SERVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   markPerpsColdStartPerf,
@@ -3866,6 +3870,12 @@ export default class ServiceHyperliquid extends ServiceBase {
     );
   }
 
+  // Concurrent callers (mount prefetch + priceScale fallback/refresh) share
+  // one REST allMids request instead of issuing duplicates.
+  private allMidsInflightRequest: Promise<
+    Awaited<ReturnType<typeof hyperLiquidApiClients.infoClient.allMids>>
+  > | null = null;
+
   @backgroundMethod()
   async getTradingviewMidPrice(symbol: string): Promise<string | undefined> {
     if (!symbol) {
@@ -3885,8 +3895,13 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
 
     try {
-      const { infoClient } = hyperLiquidApiClients;
-      const allMids = await infoClient.allMids();
+      if (!this.allMidsInflightRequest) {
+        const { infoClient } = hyperLiquidApiClients;
+        this.allMidsInflightRequest = infoClient.allMids().finally(() => {
+          this.allMidsInflightRequest = null;
+        });
+      }
+      const allMids = await this.allMidsInflightRequest;
       hyperLiquidCache.allMids = {
         mids: allMids,
       };
@@ -3899,6 +3914,73 @@ export default class ServiceHyperliquid extends ServiceBase {
       );
       return undefined;
     }
+  }
+
+  @backgroundMethod()
+  async getTradingviewPriceScale({
+    symbol,
+  }: {
+    symbol: string;
+  }): Promise<{ priceScale: number | undefined }> {
+    if (!symbol) {
+      return { priceScale: undefined };
+    }
+
+    const cachedMid = hyperLiquidCache.allMids?.mids?.[symbol];
+    if (cachedMid) {
+      const priceScale = perpsUtils.calculateDisplayPriceScale(cachedMid);
+      void this.setTradingviewDisplayPriceScale({ symbol, priceScale }).catch(
+        () => undefined,
+      );
+      return { priceScale };
+    }
+
+    // Answer from the persisted scale instead of waiting for the REST
+    // fallback; the chart's resolveSymbol blocks first paint on this response.
+    const persisted = await this.getTradingviewDisplayPriceScale(symbol);
+    if (persisted !== undefined) {
+      this.refreshTradingviewPriceScaleOffCriticalPath({
+        symbol,
+        previousPriceScale: persisted,
+      });
+      return { priceScale: persisted };
+    }
+
+    const midValue = await this.getTradingviewMidPrice(symbol);
+    if (!midValue) {
+      return { priceScale: undefined };
+    }
+    const priceScale = perpsUtils.calculateDisplayPriceScale(midValue);
+    void this.setTradingviewDisplayPriceScale({ symbol, priceScale }).catch(
+      () => undefined,
+    );
+    return { priceScale };
+  }
+
+  private refreshTradingviewPriceScaleOffCriticalPath({
+    symbol,
+    previousPriceScale,
+  }: {
+    symbol: string;
+    previousPriceScale: number;
+  }): void {
+    void this.getTradingviewMidPrice(symbol)
+      .then(async (midValue) => {
+        if (!midValue) {
+          return;
+        }
+        const priceScale = perpsUtils.calculateDisplayPriceScale(midValue);
+        await this.setTradingviewDisplayPriceScale({ symbol, priceScale });
+        if (priceScale !== previousPriceScale) {
+          // The chart may have already resolved with the stale scale; let the
+          // UI trigger a re-resolve so precision self-heals in this session.
+          appEventBus.emit(EAppEventBusNames.PerpsTvPriceScaleRefreshed, {
+            symbol,
+            priceScale,
+          });
+        }
+      })
+      .catch(() => undefined);
   }
 
   @backgroundMethod()

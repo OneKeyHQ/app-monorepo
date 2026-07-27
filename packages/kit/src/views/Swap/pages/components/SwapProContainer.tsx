@@ -5,7 +5,6 @@ import { ScrollView } from 'react-native';
 import {
   IconButton,
   RefreshControl,
-  Skeleton,
   XStack,
   YStack,
   useScrollContentTabBarOffset,
@@ -75,9 +74,11 @@ interface ISwapProContainerProps {
   onBalanceMaxPress: () => void;
   onTokenPress: (token: ISwapToken) => void;
   supportNetworksList: IMarketBasicConfigNetwork[];
+  supportNetworksReady: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
   config: {
     isLoading: boolean;
+    speedConfigReady: boolean;
     speedConfig: ISwapProSpeedConfig;
     balanceLoading: boolean;
     supportSpeedSwap?: boolean;
@@ -97,11 +98,13 @@ const SwapProContainer = ({
   onSelectPercentageStage,
   onTokenPress,
   supportNetworksList,
+  supportNetworksReady,
   marketPresetSettings,
   config,
 }: ISwapProContainerProps) => {
   const {
     isLoading,
+    speedConfigReady,
     speedConfig,
     balanceLoading,
     isMEV,
@@ -147,27 +150,31 @@ const SwapProContainer = ({
     useSwapProTokenInfoSync();
   const inputToken = useSwapProInputToken();
   const toToken = useSwapProToToken();
-  // Delay rendering heavy components to improve initial render performance
-  const [shouldRenderHeavyComponents, setShouldRenderHeavyComponents] =
-    useState(false);
-
   const { swapProLoadSupportNetworksTokenListRun } =
     useSwapPositionsSupportTokenListAction();
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([
-      fetchTokenMarketDetailInfo(),
-      swapProLoadSupportNetworksTokenListRun(supportNetworksList),
-      syncInputTokenBalance(),
-      syncToTokenPrice(),
-    ]);
-    setRefreshing(false);
+    try {
+      await Promise.all([
+        fetchTokenMarketDetailInfo(),
+        supportNetworksReady
+          ? swapProLoadSupportNetworksTokenListRun(supportNetworksList, {
+              forceRefresh: true,
+            })
+          : Promise.resolve(),
+        syncInputTokenBalance(),
+        syncToTokenPrice(),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
   }, [
     fetchTokenMarketDetailInfo,
     swapProLoadSupportNetworksTokenListRun,
     syncInputTokenBalance,
     syncToTokenPrice,
     supportNetworksList,
+    supportNetworksReady,
   ]);
   const cleanInputAmount = useCallback(() => {
     setSwapProInputAmount('');
@@ -201,17 +208,7 @@ const SwapProContainer = ({
     cleanInputAmount();
   }, [netAccountAddress, cleanInputAmount]);
 
-  // Delay rendering heavy components after initial render
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShouldRenderHeavyComponents(true);
-    }, 100);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, []);
   const showMarketPresetSelector =
-    shouldRenderHeavyComponents &&
     swapProTradeType === ESwapProTradeType.MARKET &&
     !!marketPresetSettings?.enabled;
   const estimatePriorityFeeFiatValues =
@@ -312,61 +309,39 @@ const SwapProContainer = ({
           />
         )}
       </XStack>
-      <XStack
-        mt="$2"
-        gap="$4"
-        pb={showMarketPresetSelector ? '$2.5' : '$4'}
-        alignItems="stretch"
-      >
+      <XStack mt="$2" gap="$4" pb="$2.5" alignItems="stretch">
         <YStack flexBasis="40%" flexShrink={1} alignSelf="stretch">
-          {shouldRenderHeavyComponents ? (
-            <SwapProTradeInfoPanel
-              supportSpeedSwap={supportSpeedSwap}
-              onPricePress={(price) => {
-                if (swapProTradeType === ESwapProTradeType.LIMIT) {
-                  setLimitPriceUseMarketPrice((prev) => ({
-                    value: price,
-                    change: !prev.change,
-                  }));
-                }
-              }}
-            />
-          ) : (
-            <YStack gap="$6" flex={1} p="$3">
-              <Skeleton w="100%" h="$20" borderRadius="$2" />
-              <Skeleton w="100%" h="$32" borderRadius="$2" />
-              <Skeleton w="100%" h="$20" borderRadius="$2" />
-            </YStack>
-          )}
+          <SwapProTradeInfoPanel
+            supportSpeedSwap={supportSpeedSwap}
+            onPricePress={(price) => {
+              if (swapProTradeType === ESwapProTradeType.LIMIT) {
+                setLimitPriceUseMarketPrice((prev) => ({
+                  value: price,
+                  change: !prev.change,
+                }));
+              }
+            }}
+          />
         </YStack>
         <YStack flexBasis="60%" flexShrink={1} alignSelf="stretch">
-          {shouldRenderHeavyComponents ? (
-            <SwapProTradingPanel
-              supportSpeedSwap={!!supportSpeedSwap}
-              swapProConfig={speedConfig}
-              configLoading={isLoading}
-              balanceLoading={balanceLoading}
-              limitPriceUseMarketPrice={limitPriceUseMarketPrice}
-              onBalanceMax={onBalanceMaxPress}
-              onSelectPercentageStage={onSelectPercentageStage}
-              onSwapProActionClick={onSwapProActionClick}
-              hasEnoughBalance={hasEnoughBalance}
-              handleSelectAccountClick={handleSelectAccountClick}
-              cleanInputAmount={cleanInputAmount}
-              marketPresetSettings={marketPresetSettings}
-              showMarketPresetSelector={showMarketPresetSelector}
-              antiMEV={isMEV}
-              estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
-            />
-          ) : (
-            <YStack gap="$6" flex={1} p="$3">
-              <Skeleton w="100%" h="$8" borderRadius="$2" />
-              <Skeleton w="100%" h="$8" borderRadius="$2" />
-              <Skeleton w="100%" h="$18" borderRadius="$2" />
-              <Skeleton w="100%" h="$28" borderRadius="$2" />
-              <Skeleton w="100%" h="$8" borderRadius="$2" />
-            </YStack>
-          )}
+          <SwapProTradingPanel
+            supportSpeedSwap={!!supportSpeedSwap}
+            swapProConfig={speedConfig}
+            configLoading={isLoading}
+            configReady={speedConfigReady}
+            balanceLoading={balanceLoading}
+            limitPriceUseMarketPrice={limitPriceUseMarketPrice}
+            onBalanceMax={onBalanceMaxPress}
+            onSelectPercentageStage={onSelectPercentageStage}
+            onSwapProActionClick={onSwapProActionClick}
+            hasEnoughBalance={hasEnoughBalance}
+            handleSelectAccountClick={handleSelectAccountClick}
+            cleanInputAmount={cleanInputAmount}
+            marketPresetSettings={marketPresetSettings}
+            showMarketPresetSelector={showMarketPresetSelector}
+            antiMEV={isMEV}
+            estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
+          />
         </YStack>
       </XStack>
       {isProStockMarketClosed ? (
@@ -394,7 +369,7 @@ const SwapProContainer = ({
         onOpenOrdersClick={onOpenOrdersClick}
         onSearchClick={onSearchClickCallback}
         supportNetworksList={supportNetworksList}
-        disableDelayRender={shouldRenderHeavyComponents}
+        supportNetworksReady={supportNetworksReady}
       />
     </ScrollView>
   );

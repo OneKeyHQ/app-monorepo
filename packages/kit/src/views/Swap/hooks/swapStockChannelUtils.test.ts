@@ -11,6 +11,7 @@ import {
   isStockTradeReadyForQuote,
   resolveStockBalanceSeed,
   resolveStockBalanceSnapshot,
+  resolveStockBalanceViewState,
   resolveStockChannelSwapPair,
   resolveStockKLineToken,
   resolveStockPayTokenDisplaySeed,
@@ -520,6 +521,33 @@ describe('swapStockChannelUtils', () => {
         },
       }),
     ).toBeUndefined();
+  });
+
+  it('keeps a persisted balance display-only until live balance is ready', () => {
+    expect(
+      resolveStockBalanceViewState({
+        cachedDisplayBalance: '0.24',
+      }),
+    ).toEqual({
+      balance: undefined,
+      displayBalance: '0.24',
+      tokenDetail: undefined,
+    });
+
+    expect(
+      resolveStockBalanceViewState({
+        balanceSnapshot: {
+          ownerScope: 'account-1:usdc',
+          balance: '0.25',
+          tokenDetail: usdcToken,
+        },
+        cachedDisplayBalance: '0.24',
+      }),
+    ).toEqual({
+      balance: '0.25',
+      displayBalance: '0.25',
+      tokenDetail: usdcToken,
+    });
   });
 
   it('keeps sell-side stock input skeleton tied to full readiness', () => {

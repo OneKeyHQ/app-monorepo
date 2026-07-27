@@ -1,5 +1,7 @@
 export interface IDeviceInfo {
   deviceId?: string;
+  deviceTimeZone?: string;
+  deviceUtcOffsetMinutes?: number;
   manufacturer?: string;
   model?: string;
   os?: string;

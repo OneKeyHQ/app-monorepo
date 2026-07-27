@@ -14,18 +14,27 @@ import type { BigNumber as EthersBigNumber } from '@ethersproject/bignumber';
 
 export const PERMIT2_APPROVE_SELECTOR = '0x87517c45';
 
-const PERMIT2_ADDRESS = '0x000000000022D473030F116dDEE9F6B43aC78BA3';
+const UNISWAP_PERMIT2_ADDRESS = '0x000000000022D473030F116dDEE9F6B43aC78BA3';
+const PANCAKESWAP_PERMIT2_ADDRESS =
+  '0x31c2F6fcFf4F8759b3Bd5Bf0e1084A055615c768';
 const PERMIT2_APPROVE_DATA_LENGTH = 2 + 8 + 64 * 4;
 const UINT48_MAX = new BigNumber(2).pow(48).minus(1);
 const networkIdsMap = getNetworkIdsMap();
-const TRUSTED_PERMIT2_ADDRESSES: Readonly<Record<string, string>> = {
-  [networkIdsMap.eth]: PERMIT2_ADDRESS,
-  [networkIdsMap.bsc]: PERMIT2_ADDRESS,
-  [networkIdsMap.polygon]: PERMIT2_ADDRESS,
-  [networkIdsMap.arbitrum]: PERMIT2_ADDRESS,
-  [networkIdsMap.avalanche]: PERMIT2_ADDRESS,
-  [networkIdsMap.optimism]: PERMIT2_ADDRESS,
-  [networkIdsMap.base]: PERMIT2_ADDRESS,
+// The server-side approvals whitelist only returns these two Permit2
+// deployments (>99.9% of Permit2 approval records); both are deterministic
+// CREATE2 deployments sharing one address across chains.
+const TRUSTED_PERMIT2_ADDRESS_LIST: readonly string[] = [
+  UNISWAP_PERMIT2_ADDRESS,
+  PANCAKESWAP_PERMIT2_ADDRESS,
+];
+const TRUSTED_PERMIT2_ADDRESSES: Readonly<Record<string, readonly string[]>> = {
+  [networkIdsMap.eth]: TRUSTED_PERMIT2_ADDRESS_LIST,
+  [networkIdsMap.bsc]: TRUSTED_PERMIT2_ADDRESS_LIST,
+  [networkIdsMap.polygon]: TRUSTED_PERMIT2_ADDRESS_LIST,
+  [networkIdsMap.arbitrum]: TRUSTED_PERMIT2_ADDRESS_LIST,
+  [networkIdsMap.avalanche]: TRUSTED_PERMIT2_ADDRESS_LIST,
+  [networkIdsMap.optimism]: TRUSTED_PERMIT2_ADDRESS_LIST,
+  [networkIdsMap.base]: TRUSTED_PERMIT2_ADDRESS_LIST,
 };
 
 function isSameEvmAddress(left?: string, right?: string) {
@@ -46,10 +55,10 @@ export function resolveTrustedPermit2Address({
   networkId: string;
   permit2Address?: string;
 }) {
-  const trustedPermit2Address = TRUSTED_PERMIT2_ADDRESSES[networkId];
-  return isSameEvmAddress(permit2Address, trustedPermit2Address)
-    ? trustedPermit2Address
-    : undefined;
+  const trustedPermit2Addresses = TRUSTED_PERMIT2_ADDRESSES[networkId] ?? [];
+  return trustedPermit2Addresses.find((trustedPermit2Address) =>
+    isSameEvmAddress(permit2Address, trustedPermit2Address),
+  );
 }
 
 export function buildErc20ApproveEncodedTx({

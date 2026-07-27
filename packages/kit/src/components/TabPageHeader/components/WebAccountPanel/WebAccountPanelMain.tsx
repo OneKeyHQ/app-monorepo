@@ -65,6 +65,7 @@ export interface IWebAccountPanelMainProps {
   onNavigateAccountList: () => void;
   onNavigateSettings: () => void;
   onNavigateArticles: () => void;
+  onNavigatePerpsActivityCenter?: () => void;
   onHelp?: () => void;
   onDownloadApp?: () => void;
   onRequestClose: () => void;
@@ -268,6 +269,7 @@ export function WebAccountPanelMain({
   onNavigateAccountList,
   onNavigateSettings,
   onNavigateArticles,
+  onNavigatePerpsActivityCenter,
   onHelp,
   onDownloadApp,
   onRequestClose,
@@ -695,6 +697,7 @@ export function WebAccountPanelMain({
       <WebAccountPanelFooter
         connected
         onDownloadApp={onDownloadApp}
+        onPerpsActivityCenter={onNavigatePerpsActivityCenter}
         onArticles={onNavigateArticles}
         onHelp={onHelp}
         onSettings={onNavigateSettings}

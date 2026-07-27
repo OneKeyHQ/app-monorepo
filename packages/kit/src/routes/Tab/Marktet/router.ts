@@ -9,13 +9,17 @@ import {
   LazyLoadRootTabPage,
 } from '../../../components/LazyLoadPage';
 import { createMarketDetailV2Route } from '../../../views/Market/MarketDetailV2/MarketDetailV2Route';
+import { MarketHomeLoadingFallback } from '../../../views/Market/MarketHomeV2/components/MarketHomeLoadingFallback';
 import { RootTabLoadingFallback } from '../RootTabLoadingFallback';
 
 import { MarketDetailV2LoadingFallback } from './MarketDetailV2LoadingFallback';
 
 const MarketHome = LazyLoadRootTabPage(
   () => import(/* webpackPrefetch: true */ '../../../views/Market/MarketHome'),
-  createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Market }),
+  createElement(RootTabLoadingFallback, {
+    tabRoute: ETabRoutes.Market,
+    mobileContentFallback: createElement(MarketHomeLoadingFallback),
+  }),
 );
 
 const MarketDetail = LazyLoadPage(

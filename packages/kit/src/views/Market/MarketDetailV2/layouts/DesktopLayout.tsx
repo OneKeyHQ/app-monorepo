@@ -22,6 +22,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { MarketTestIDs } from '../../testIDs';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
+import { MarketChartFullscreenHeader } from '../components/MarketTradingView/MarketChartFullscreenHeader';
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import { SwapPanel } from '../components/SwapPanel/SwapPanel';
 import { TokenActivityOverview } from '../components/TokenActivityOverview/TokenActivityOverview';
@@ -236,6 +237,7 @@ export function DesktopLayout({
     () =>
       getMarketDetailTradingViewNativeSource({
         hyperliquidCoin: nativeHyperliquidCoin,
+        isNative,
         marketDataSource: marketTradingViewParams?.dataSource,
         networkId,
         symbol: tokenDetail?.symbol ?? '',
@@ -244,6 +246,7 @@ export function DesktopLayout({
     [
       marketTradingViewParams?.dataSource,
       nativeHyperliquidCoin,
+      isNative,
       networkId,
       tokenAddress,
       tokenDetail?.symbol,
@@ -257,6 +260,9 @@ export function DesktopLayout({
           source={tradingViewNativeSource}
           enableNativeChartSettings
           nativeControlsLayoutMode="desktop"
+          isNativeChartFullscreen={isChartFullscreen}
+          nativeChartFullscreenHeader={<MarketChartFullscreenHeader />}
+          onNativeChartFullscreenChange={handleChartFullscreenChange}
         />
       ) : null;
     }

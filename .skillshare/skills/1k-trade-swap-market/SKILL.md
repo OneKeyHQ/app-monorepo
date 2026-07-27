@@ -1,194 +1,93 @@
 ---
 name: 1k-trade-swap-market
-description: OneKey app Trade/Swap/Market development for entry handoffs, native hosts, quotes, transactions, orders, history, charts, providers, fees, slippage, and funding flows.
+description: OneKey App Swap, Bridge, Limit, and Stock/Market implementation or debugging. Use for entries, token selection, quotes, review/build/send, providers, cold start, and history/status; excludes Perps.
 ---
 
-# Trade, Swap, Market
+# Trade / Swap / Market Domain Guide
 
-Use this skill when App code touches Trade, Swap, Market swap panels, provider/channel integrations, order-style execution, K-line data, transaction history, token selection, cold-start rendering, or funding handoffs into Swap.
+Use this skill to locate the owning transition and execution contract. Trust
+current code, payloads, and runtime behavior rather than a past issue or
+implementation snapshot.
 
-This is an App development skill. Use current repository code, runtime payloads, and visible App behavior as evidence. Do not bake external workflow details into the skill.
+## Working Loop
 
-## Core Model
+1. Reproduce or inspect the real entry and state transition. Retrieve any
+   current issue, thread, PR, payload, or API contract named by the user.
+2. Trace in order: host/framework -> state machine -> hook/component. Do not
+   patch the first component that displays the symptom.
+3. Freeze identity and ownership: account, networks, tokens/assets, provider,
+   receiver, amount mode, request/event id, execution type, and route source.
+4. Follow `selection -> quote -> review -> build/send -> history/status` and
+   identify the first incorrect transition.
+5. Reuse the closest current pattern only when its identity, quote, settlement,
+   and persistence semantics match; otherwise add a typed local adapter.
+6. Make the smallest owner-correct change, run focused tests, and verify the
+   real owning surface. If it still fails, revisit the hypothesis.
 
-The canonical Swap path is:
+## Owner Router
 
-`selection/account -> quote -> review snapshot -> build/sign/send -> pending history/status`
+| Symptom or change                                            | Start with                                                             | Load                                                                                         |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Direct Swap, token selection, quote, review, or send         | Swap state/actions, view hooks, background service                     | [app-architecture.md](references/app-architecture.md), [code-map.md](references/code-map.md) |
+| Wallet, Home Token, Send, Earn, Buy, or Market handoff       | Source params, then settled Swap state after mount                     | [app-architecture.md](references/app-architecture.md)                                        |
+| Bridge, Limit, Stock, broker, privacy, or new provider       | Channel capability and lifecycle contract                              | [provider-contracts.md](references/provider-contracts.md)                                    |
+| Cold start, first-frame flicker, default token, or tab drift | Route seed, persisted display state, readiness, then quote state       | [app-architecture.md](references/app-architecture.md)                                        |
+| Pending/history/status, disconnect, restart, or replay       | Visibility owner, persistent writer, identity, repair source           | [provider-contracts.md](references/provider-contracts.md)                                    |
+| Receive-only token filtering                                 | Receive -> AssetSelector -> shared filter; use Swap only after handoff | [code-map.md](references/code-map.md)                                                        |
+| Perps order, position, or deposit                            | Perps owner                                                            | `$1k-perps-module`                                                                           |
 
-Treat Swap as the execution spine below visible surfaces. Market speed-swap,
-Bridge, Limit, PrivateSend-like flows, stock/order channels, and funding
-handoffs can adapt entry, asset, and settlement semantics, but they must still
-declare quote, review, execution, history, status, and repair ownership.
+## Stable Contracts
 
-When a visible entry is merged into another surface, keep visible tab state
-separate from internal execution and channel type. For example, Bridge can
-render under the `Swap & Bridge` tab while `BRIDGE` still owns cross-chain
-defaults, support checks, history labels, status, analytics, and provider
-semantics.
+- Entry surfaces own navigation, prefill, and analytics source. Once quoting
+  starts, Swap owns selection, quote, review, build/send, and Swap history.
+- Visible tab and internal execution type are separate. Sharing a combined Swap
+  and Bridge surface must not erase Bridge, Limit, Stock, or provider semantics.
+- Guard async results with account, network, token, provider, receiver, amount,
+  request/event, and execution identity. Older work cannot update new state.
+- A provider error is terminal only when the current quote event cannot still
+  produce an actionable quote. Preserve manual provider intent.
+- Review uses a frozen snapshot. It must not reread mutable page atoms after
+  the user enters confirmation.
+- Missing fee, rate, ETA, limit, or finality means unknown/unavailable unless
+  the current contract explicitly defines zero.
+- txid, order id, route id, and provider id have different roles. Define local
+  writeback, listener, replay, repair, and terminal state for long-lived flows.
+- Hiding local history while disconnected is not permission to delete it.
 
-For broad Swap or Trade bugs, analyze in this order before changing code:
+## Reference Routing
 
-1. Framework: entry surface, route/modal host, provider/context boundary, and
-   source/target ownership.
-2. State machine: tab type, route params, selected-token atoms, cold-start
-   cache, quote progress, review snapshot, build/send, history/status, and
-   replay/repair transitions.
-3. Hooks: business hooks, component hooks, listeners, side effects, and derived
-   data owners.
+Load only what the task needs:
 
-This order applies to Swap page work and to Home Token, Send, Market, Earn, or
-Buy entries that launch or prefill Swap.
-
-## Evidence-Driven Intake
-
-When a Trade/Swap/Market task comes from Jira, Slack, a review thread, or a
-local todo ledger, treat the title as a routing clue only. Before changing code,
-verify the current source-of-truth packet:
-
-- Jira issue text, latest comments, priority/status, and attachments when an
-  issue key exists.
-- Slack thread or DM context when it contains late corrections, screenshots,
-  videos, QA notes, or owner decisions.
-- Current client branch and the closest existing implementation in this repo.
-- Server branch/ref/commit when provider fields, stock/order status, fees,
-  quote/build semantics, or history DTOs are part of the behavior.
-
-If source evidence conflicts, stop and name the conflict before picking a fix
-shape.
-
-## Autonomous Implementation Contract
-
-For a sufficiently clear feature or bug request, recover discoverable context,
-fill the capability packet, implement, test, and validate without waiting for a
-human to map the repository. Read
-[autonomous-feature-workflow.md](references/autonomous-feature-workflow.md)
-before editing and use [feature-packet.md](templates/feature-packet.md) as the
-working artifact.
-
-Run the readiness check first:
-
-```bash
-node .skillshare/skills/1k-trade-swap-market/scripts/check-readiness.mjs
-```
-
-The check intentionally fails when current stable anchors or required eval
-assets are missing, or when pre-existing uncommitted domain code makes intake
-ambiguous. Reconcile the current checkout, code map, and tests before
-continuing; do not bypass the failure. Use
-[runtime-boundaries.md](references/runtime-boundaries.md) for every
-cross-runtime, persistence, cold-start, background, or restart path and
-[test-map.md](references/test-map.md) for exact validation lanes.
-
-Autonomy does not authorize inventing product behavior, resolving conflicting
-authoritative sources silently, using unavailable secrets, making irreversible
-external writes, or claiming runtime proof from static checks.
-
-## Protocol Channel Model
-
-Before adding or reviewing any provider channel, define this contract:
-
-1. Capability: swap, bridge, limit, privacy/order channel, stock order, funding handoff, or data-only chart.
-2. Asset universe: token, native token, wrapped token, stock-like asset, route-only target, or provider-owned synthetic asset.
-3. Account roles: source account, target account, receiver, settlement account, and whether address privacy changes the display.
-4. Quote contract: amount units, quote identity, provider key, min/max, slippage, fee, ETA, and stale-response guard.
-5. Review snapshot: fields frozen for confirm, risk text, fee/rate display, allowance/approval, and receiver semantics.
-6. Build/send contract: build payload, unsigned tx or order payload, approval/setup tx, send method, and retry behavior.
-7. History/status: pending item, order id vs txid, progress labels, final status mapping, detail-page fallback data.
-8. Channel state: listener source, local writeback owner, replay/enrichment source, and correction strategy for stale or incomplete rows.
-
-PrivateSend-like channels and future stock-trading channels should be evaluated with this same contract before UI work starts.
-
-## Default Workflow
-
-1. Classify the surface: Swap, Swap Pro, Market speed-swap, K-line/chart, token selector, review/confirm, history, or new provider channel.
-2. Classify the integration style: standard swap provider, order-backed privacy channel, stock/order channel, limit order, or cross-module funding handoff.
-3. Map framework, state machine, and hooks before editing when the change spans
-   route, modal, Home Token, Send, Market, Earn, Buy, or shared Swap state.
-4. Identify the closest valid repo pattern before inventing a new hook, atom,
-   adapter, modal, or channel abstraction. Reuse the shell only when account,
-   network, token, provider, route, and execution semantics match.
-5. Run the readiness script, fill the feature packet, and state `main`, `bg`,
-   native/web resource, JS-copy, and initialization ownership.
-6. Read [app-architecture.md](references/app-architecture.md) and [code-map.md](references/code-map.md) before editing.
-7. Fill the provider/channel contract in [provider-contracts.md](references/provider-contracts.md).
-8. For any non-standard channel, fill [channel-state-model.md](references/channel-state-model.md) before touching history, status polling, or local replay.
-9. Run the durable checklist in [checklists.md](references/checklists.md),
-   especially async identity, token/account identity, frozen review data, and
-   history/status.
-10. Run the exact tests in [test-map.md](references/test-map.md) and validate
-    with [validation.md](references/validation.md), including a readiness drill
-    when the change is a new channel.
-11. For cold start, token selector flicker, default-token bring-in, tab stability,
-   or Wallet handoff regressions, run
-   [swap-cold-start-frame-checklist.md](references/swap-cold-start-frame-checklist.md).
-
-## Reference Map
-
-| Need | Reference |
-| --- | --- |
-| Understand the App flow and extension seams | [app-architecture.md](references/app-architecture.md) |
-| Execute a feature end to end | [autonomous-feature-workflow.md](references/autonomous-feature-workflow.md) |
-| Fill the implementation capability packet | [feature-packet.md](templates/feature-packet.md) |
-| Find stable code anchors | [code-map.md](references/code-map.md) |
-| Reason about main/bg/persistence/init timing | [runtime-boundaries.md](references/runtime-boundaries.md) |
-| Define provider/channel fields | [provider-contracts.md](references/provider-contracts.md) |
-| Define channel listening, writeback, replay, and repair | [channel-state-model.md](references/channel-state-model.md) |
-| Prevent known failure classes | [checklists.md](references/checklists.md) |
-| Prove the change works | [validation.md](references/validation.md) |
-| Run exact focused test lanes | [test-map.md](references/test-map.md) |
-| Validate Swap cold-start frames, default tokens, tab stability, and Wallet handoffs | [swap-cold-start-frame-checklist.md](references/swap-cold-start-frame-checklist.md) |
-
-## Readiness Drills
-
-Use these drills to judge whether the skill is complete enough for a new requirement:
-
-- PrivateSend-like channel: can you identify entry surface, receiver/address
-  semantics, quote identity, order id, review snapshot, progress steps, pending
-  row, history detail, and status polling without adding ad hoc rules?
-- Stock-trading channel: can you model non-token asset identity, market hours
-  or unavailable states, settlement currency, order status, review/risk
-  display, and history rows through the same provider/channel contract?
-- Bridge/Limit visible-entry merge: can you preserve visible tab
-  normalization, channel semantics, default-token rules, status source,
-  analytics/history identity, and pending-row filters while sharing Swap
-  infrastructure?
-- Funding handoff: can an Earn/Market/Buy entry land in Swap with the correct network, account, token, amount, preset, and reset behavior?
-- Entry ownership: can you tell whether the bug belongs to Wallet/Home
-  handoff params, Swap route initialization, channel-specific state such as
-  Stock, native/mobile host behavior, or the quote/review/build spine?
-
-If a drill cannot be completed from the references, update the abstraction instead of adding another one-off case.
+- [app-architecture.md](references/app-architecture.md): execution spine,
+  entry ownership, platform runtimes, and cold-start boundaries.
+- [code-map.md](references/code-map.md): stable directories and search paths.
+- [provider-contracts.md](references/provider-contracts.md): quote, review,
+  build/order, history, replay, and repair contracts.
+- [validation.md](references/validation.md): focused tests and runtime proof.
 
 ## Hard Stops
 
-- Do not treat missing fee, ETA, rate, or limit fields as zero until the quote/build payload proves that meaning.
-- Do not treat a local pending history item as the only source of truth for an
-  order-backed channel; define replay/enrichment and repair sources before
-  shipping.
-- Do not let page atoms drift into review/confirm; confirm must use a frozen quote/build snapshot.
-- Do not reuse token-list state from another surface as proof for Swap selection.
-- Do not treat Wallet/Receive DeFi-token list regressions as Swap selector bugs unless the failing owner is the Swap/Market selector or handoff state.
-- Do not collapse account, network, provider, token, and receiver resets into one path without checking dependents.
-- Do not use the visible tab atom as proof of execution type after entry
-  consolidation; trace route params, support-check type, quote/review
-  execution type, cache context, and history/status separately.
-- Do not mark transaction behavior validated from static diff alone; inspect the actual App path, payload, pending row, or visible state.
-- Do not validate cold-start or flicker fixes from the final settled screenshot only; inspect the first frames and tab/token transitions.
-- Do not edit generated locale files directly; use the repository i18n workflow.
-- Do not create a new abstraction, hook, or state owner until the closest
-  existing repo pattern and its semantic mismatch have been named.
-- Do not continue from a failing readiness check. Reconcile current code,
-  actual PR scope, anchors, tests, and pre-existing worktree changes first.
-- Do not ask the user to supply Jira, Slack, Git, client, or accessible server
-  context that current tools can retrieve.
-- Do not leave route/provider/listener/quote/history side effects inside one
-  oversized render hook. Split stateful business logic by stable responsibility:
-  data loading, selection/route sync, quote/review state machine,
-  listener/history bridge, and view model.
+- Do not invent or coerce provider fields to make a UI path proceed.
+- Do not normalize missing values to zero or unknown finality to success.
+- Do not use route params or cached display tokens as proof that quote/build is
+  ready.
+- Do not let mutable page state alter an open review/confirmation.
+- Do not change persisted data to satisfy a visibility-only requirement.
+- Do not claim a transaction or cold-start fix from unit tests or a settled
+  screenshot alone; inspect the relevant transition and payload.
+- Do not edit generated locale files; use `$1k-i18n`.
+
+## Done When
+
+The entry, first wrong transition, identities, and owners are explicit; the
+change is scoped to that owner; focused tests pass; the real surface proves
+the expected quote/review/send/history or first-frame behavior; and protected
+Swap/Bridge/Limit/Stock/Market flows remain coherent.
 
 ## Related Skills
 
-- `/1k-coding-patterns` for TypeScript and React patterns.
-- `/1k-state-management` for Jotai state ownership.
-- `/1k-cross-platform` for desktop, web, extension, and native differences.
-- `/1k-i18n` for translation work.
+- `$1k-perps-module` for Perps/Hyperliquid-specific flows.
+- `$1k-tradingview-communication` for TradingView message contracts.
+- `$1k-state-management` for Jotai ownership.
+- `$1k-cross-platform` for platform-specific UI and hosts.
+- `$1k-defi-module-integration` for the DeFi side of an Earn-to-Swap handoff.

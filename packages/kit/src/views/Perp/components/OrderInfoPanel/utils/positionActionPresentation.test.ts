@@ -1,11 +1,7 @@
-import {
-  ADD_POSITION_LABEL,
-  MOBILE_POSITION_ACTION_TEXT_SIZE,
-} from './positionActionPresentation';
+import { MOBILE_POSITION_ACTION_TEXT_SIZE } from './positionActionPresentation';
 
 describe('position action presentation', () => {
-  it('uses the explicit English add-position label and shared mobile text size', () => {
-    expect(ADD_POSITION_LABEL).toBe('Add Position');
+  it('uses the shared mobile text size', () => {
     expect(MOBILE_POSITION_ACTION_TEXT_SIZE).toBe('$bodySm');
   });
 });

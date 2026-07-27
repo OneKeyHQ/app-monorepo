@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -6,7 +7,6 @@ import { Dialog, Toast } from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -23,10 +23,14 @@ const PrimePurchaseDialog = LazyLoadPage(
   true,
 );
 
-export function usePrimeRequirements() {
-  const { user, logout, loginOneKeyId } = useOneKeyAuth();
+export function usePrimeRequirements({
+  onPurchase,
+}: {
+  onPurchase?: () => void | Promise<void>;
+} = {}) {
+  const { user, loginOneKeyId } = useOneKeyAuth();
 
-  const { purchase } = usePrimePurchaseCallback();
+  const { purchase } = usePrimePurchaseCallback({ onPurchase });
 
   const intl = useIntl();
   const ensureOneKeyIDLoggedIn = useCallback(
@@ -38,17 +42,6 @@ export function usePrimeRequirements() {
       const isLoggedInInBackground: boolean =
         await backgroundApiProxy.servicePrime.isLoggedIn();
       if (!isLoggedInInBackground) {
-        defaultLogger.prime.subscription.onekeyIdLogout({
-          reason:
-            'usePrimeRequirements: Logout when primePersistAtom,simpleDb.prime.getActiveAuthToken is not logged in',
-        });
-        // Logout before login to make sure the local supabase cache is
-        // cleared. Preserve local keyless auth so the upcoming loginOneKeyId()
-        // can still reuse the local keyless session
-        // (prepareOneKeyIdLoginWithLocalKeyless). Await it so the cleanup
-        // cannot race the login flow below.
-        await logout({ preserveLocalKeylessAuth: true });
-
         const onConfirm = async () => {
           await loginOneKeyId();
         };
@@ -74,7 +67,7 @@ export function usePrimeRequirements() {
         throw new OneKeyLocalError('Prime is not logged in');
       }
     },
-    [logout, intl, loginOneKeyId],
+    [intl, loginOneKeyId],
   );
 
   const ensurePrimeSubscriptionActive = useCallback(
@@ -109,11 +102,11 @@ export function usePrimeRequirements() {
               featureName,
             });
           } else {
-            const purchaseDialog = Dialog.show({
+            const _purchaseDialog = Dialog.show({
               renderContent: (
                 <PrimePurchaseDialog
                   onPurchase={() => {
-                    void purchaseDialog.close();
+                    return _purchaseDialog.close();
                   }}
                   featureName={featureName}
                 />

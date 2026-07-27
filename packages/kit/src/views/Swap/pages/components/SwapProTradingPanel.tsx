@@ -44,6 +44,7 @@ interface ISwapProTradingPanelProps {
   swapProConfig: ISwapProSpeedConfig;
   balanceLoading: boolean;
   configLoading: boolean;
+  configReady: boolean;
   supportSpeedSwap: boolean;
   onSwapProActionClick: () => void;
   hasEnoughBalance: boolean;
@@ -63,6 +64,7 @@ const SwapProTradingPanel = ({
   swapProConfig,
   balanceLoading,
   configLoading,
+  configReady,
   onBalanceMax,
   onSwapProActionClick,
   handleSelectAccountClick,
@@ -200,6 +202,7 @@ const SwapProTradingPanel = ({
           defaultTokens={swapProConfig.defaultTokens}
           defaultLimitTokens={swapProConfig.defaultLimitTokens}
           cleanInputAmount={cleanInputAmount}
+          configReady={configReady}
         />
         {swapProTradeType === ESwapProTradeType.LIMIT ? (
           <SwapProLimitPriceValue
@@ -217,21 +220,24 @@ const SwapProTradingPanel = ({
           onBalanceMax={onBalanceMax}
         />
         <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />
-        {showMarketPresetSelector && marketPresetSettings ? (
-          <SwapProPresetSelector
-            antiMEV={antiMEV}
-            estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
-            presetSettings={marketPresetSettings}
-          />
-        ) : null}
-        {/* Networks without an enabled market preset still quote with the
-            global slippage state, so keep the plain slippage entry visible
-            there — the preset selector replaces it only when presets are on. */}
-        {swapProTradeType === ESwapProTradeType.MARKET &&
-        (!marketPresetSettings ||
-          (!marketPresetSettings.enabled &&
-            !marketPresetSettings.isLoading)) ? (
-          <SwapProSlippageSetting isMEV={!!antiMEV} />
+        {swapProTradeType === ESwapProTradeType.MARKET ? (
+          <YStack h="$6">
+            {showMarketPresetSelector && marketPresetSettings ? (
+              <SwapProPresetSelector
+                antiMEV={antiMEV}
+                estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
+                presetSettings={marketPresetSettings}
+              />
+            ) : null}
+            {/* Networks without an enabled market preset still quote with the
+                global slippage state, so keep the plain slippage entry visible
+                there — the preset selector replaces it only when presets are on. */}
+            {!marketPresetSettings ||
+            (!marketPresetSettings.enabled &&
+              !marketPresetSettings.isLoading) ? (
+              <SwapProSlippageSetting isMEV={!!antiMEV} />
+            ) : null}
+          </YStack>
         ) : null}
         {swapProTradeType === ESwapProTradeType.LIMIT ? (
           <>

@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
@@ -37,6 +38,7 @@ import { usePrimeSubscriptionPackages } from '../../hooks/usePrimeSubscriptionPa
 import { PrimeBenefitsList } from './PrimeBenefitsList';
 import { PrimeDebugPanel } from './PrimeDebugPanel';
 import { PrimeLottieAnimation } from './PrimeLottieAnimation';
+import { runPrimeSubscribeWithMinimumLoadingDuration } from './primeSubscribeLoadingUtils';
 import { PrimeTermsAndPrivacy } from './PrimeTermsAndPrivacy';
 import { PrimeUserInfo } from './PrimeUserInfo';
 
@@ -259,19 +261,18 @@ export default function PrimeDashboard({
       };
     }
 
-    setIsSubscribeLazyLoading(true);
-    setTimeout(() => {
+    try {
+      setIsSubscribeLazyLoading(true);
+      await runPrimeSubscribeWithMinimumLoadingDuration(() =>
+        ensurePrimeSubscriptionActive({
+          skipDialogConfirm: true,
+          selectedSubscriptionPeriod,
+          featureName: fromFeature,
+        }),
+      );
+    } finally {
       setIsSubscribeLazyLoading(false);
-    }, 2000);
-
-    // await ensureOneKeyIDLoggedIn({
-    //   skipDialogConfirm: true,
-    // });
-    await ensurePrimeSubscriptionActive({
-      skipDialogConfirm: true,
-      selectedSubscriptionPeriod,
-      featureName: fromFeature,
-    });
+    }
   }, [
     ensurePrimeSubscriptionActive,
     selectedSubscriptionPeriod,

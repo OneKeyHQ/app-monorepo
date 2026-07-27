@@ -83,14 +83,16 @@ describe('position TP/SL snapshot helpers', () => {
       getPositionTpslScopeChangeErrorTitle({
         initialScopeKey: 'account|BTC|1',
         currentScopeKey: 'account|BTC|1',
+        errorTitle: 'Position changed',
       }),
     ).toBeUndefined();
     expect(
       getPositionTpslScopeChangeErrorTitle({
         initialScopeKey: 'account|BTC|1',
         currentScopeKey: 'account|BTC|2',
+        errorTitle: 'Position changed',
       }),
-    ).toBe('Position changed. Please review and submit again.');
+    ).toBe('Position changed');
   });
 
   it('captures the first non-empty position scope and keeps it stable', () => {

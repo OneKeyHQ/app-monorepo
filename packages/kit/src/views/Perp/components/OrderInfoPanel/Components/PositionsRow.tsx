@@ -43,10 +43,7 @@ import { showAdjustPositionMarginDialog } from '../AdjustPositionMarginModal';
 import { showClosePositionDialog } from '../ClosePositionModal';
 import { showSetTpslDialog } from '../SetTpslModal';
 import { calcCellAlign, getColumnStyle } from '../utils';
-import {
-  ADD_POSITION_LABEL,
-  MOBILE_POSITION_ACTION_TEXT_SIZE,
-} from '../utils/positionActionPresentation';
+import { MOBILE_POSITION_ACTION_TEXT_SIZE } from '../utils/positionActionPresentation';
 
 import { DesktopActionIconButton } from './DesktopActionIconButton';
 
@@ -540,13 +537,13 @@ const PositionRowDesktopTPSL = memo(
           alignItems="center"
         >
           {tpslInfo.showOrder ? (
-            <XStack alignItems="center" gap="$1" cursor="default">
+            <XStack alignItems="center" gap="$1">
               <SizableText
                 hoverStyle={{ size: '$bodySmMedium' }}
                 color="$bgAccent"
                 size="$bodySmMedium"
                 onPress={onViewTpslOrders}
-                cursor="default"
+                cursor="pointer"
               >
                 {intl.formatMessage({
                   id: ETranslations.perp_position_view_orders,
@@ -563,7 +560,7 @@ const PositionRowDesktopTPSL = memo(
             <XStack
               alignItems="center"
               gap="$1"
-              cursor="default"
+              cursor="pointer"
               onPress={onSetTpsl}
             >
               <SizableText
@@ -610,17 +607,19 @@ const PositionRowDesktopActions = memo(
           alignItems="center"
           gap="$2"
         >
-          <XStack onPress={onAddPosition} cursor="default">
+          <XStack onPress={onAddPosition} cursor="pointer">
             <SizableText
               testID={PerpTestIDs.PositionAddButton}
               hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
               color="$bgAccent"
               size="$bodySmMedium"
             >
-              {ADD_POSITION_LABEL}
+              {intl.formatMessage({
+                id: ETranslations.add_position__action,
+              })}
             </SizableText>
           </XStack>
-          <XStack onPress={() => onClosePosition('market')} cursor="default">
+          <XStack onPress={() => onClosePosition('market')} cursor="pointer">
             <SizableText
               hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
               color="$bgAccent"
@@ -631,7 +630,7 @@ const PositionRowDesktopActions = memo(
               })}
             </SizableText>
           </XStack>
-          <XStack onPress={() => onClosePosition('limit')} cursor="default">
+          <XStack onPress={() => onClosePosition('limit')} cursor="pointer">
             <SizableText
               hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
               color="$bgAccent"
@@ -1335,7 +1334,9 @@ const PositionRowMobileActions = memo(
           childrenAsText={false}
         >
           <SizableText size={MOBILE_POSITION_ACTION_TEXT_SIZE}>
-            {ADD_POSITION_LABEL}
+            {intl.formatMessage({
+              id: ETranslations.add_position__action,
+            })}
           </SizableText>
         </Button>
         <Button
@@ -1676,8 +1677,9 @@ const PositionRow = memo(
         coin,
         isBuy: new BigNumber(pos.szi || '0').gt(0),
         accountAddress: activeAccount.accountAddress,
+        intl,
       });
-    }, [activeAccount?.accountAddress, coin, pos.szi]);
+    }, [activeAccount?.accountAddress, coin, intl, pos.szi]);
 
     const handleChangeAsset = useCallback(() => {
       void actions.current.changeActiveAsset({

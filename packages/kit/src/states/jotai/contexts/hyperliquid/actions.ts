@@ -125,6 +125,11 @@ import {
   shouldResetOpenOrdersForAccount,
   sortActivePerpsPositions,
 } from './utils/coldStartMergeUtils';
+import {
+  getPerpsOrderChangedMessage,
+  getPerpsOrderNoLongerEligibleForChaseMessage,
+  getPerpsTokenInfoNotFoundMessage,
+} from './utils/config';
 import { publishLatestOrderBookOptions } from './utils/instrumentSwitch';
 import {
   shouldClearPerpsMarketDataForInstrument,
@@ -3196,18 +3201,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         asyncFn: async () => {
           const existing = await this.findChartOrder(get, params.oid);
           if (!existing) {
-            throw new OneKeyLocalError(`Order ${params.oid} not found`);
+            throw new OneKeyLocalError(getPerpsOrderChangedMessage());
           }
           if (existing.coin !== params.coin) {
-            throw new OneKeyLocalError(
-              `Order ${params.oid} does not belong to ${params.coin}`,
-            );
+            throw new OneKeyLocalError(getPerpsOrderChangedMessage());
           }
           const amendKind = getPerpsOrderAmendKind(existing);
           if (!amendKind) {
-            throw new OneKeyLocalError(
-              `Order ${params.oid} cannot be modified safely`,
-            );
+            throw new OneKeyLocalError(getPerpsOrderChangedMessage());
           }
           return backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(
             {
@@ -3241,7 +3242,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         asyncFn: async () => {
           const existing = await this.findChartOrder(get, params.oid);
           if (!existing) {
-            throw new OneKeyLocalError(`Order ${params.oid} not found`);
+            throw new OneKeyLocalError(getPerpsOrderChangedMessage());
           }
           const amendKind = getPerpsChaseOrderAmendKind(existing);
           const remainingSize = new BigNumber(existing.sz);
@@ -3253,7 +3254,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             remainingSize.lte(0)
           ) {
             throw new OneKeyLocalError(
-              `Order ${params.oid} is no longer eligible for chase`,
+              getPerpsOrderNoLongerEligibleForChaseMessage(),
             );
           }
           return backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(
@@ -3287,7 +3288,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       // error toast for pre-network validation so failures aren't silent.
       const existing = await this.findChartOrder(get, params.oid);
       if (!existing) {
-        Toast.error({ title: `Order ${params.oid} not found` });
+        Toast.error({
+          title: getPerpsOrderChangedMessage(),
+        });
         return undefined;
       }
       const symbolMeta =
@@ -3295,7 +3298,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           coin: existing.coin,
         });
       if (!symbolMeta) {
-        Toast.error({ title: `Unknown coin: ${existing.coin}` });
+        Toast.error({
+          title: getPerpsTokenInfoNotFoundMessage(),
+        });
         return undefined;
       }
       return this.cancelOrder.call(set, {

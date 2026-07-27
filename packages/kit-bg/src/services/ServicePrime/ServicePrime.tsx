@@ -1,9 +1,13 @@
+/* cspell:ignore Infini */
+import { type AuthResponse } from '@supabase/supabase-js';
 import { Semaphore } from 'async-mutex';
+import BigNumber from 'bignumber.js';
 import { chunk, cloneDeep, isString } from 'lodash';
 
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import {
   backgroundMethod,
+  backgroundMethodForDev,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
@@ -14,6 +18,7 @@ import {
   ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_CODE,
   ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_MESSAGE_ID,
   OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
+  OneKeyErrorOneKeyIdLegacyBindStateChanged,
   OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound,
   OneKeyErrorPrimeLoginInvalidToken,
   OneKeyLocalError,
@@ -25,7 +30,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { ISupabaseJWTPayload } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
-import { EOneKeyIdLoginWithLocalKeylessPrepareStatus } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -37,16 +41,29 @@ import {
 } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/src/utils/oneKeyIdAccountUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import { getSupabaseClient } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import { ETranslateEngine } from '@onekeyhq/shared/types/discovery';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type {
+  IIdentityExitOAuthHandoff,
+  IKeylessOAuthSessionRollbackHandle,
+} from '@onekeyhq/shared/types/prime/identityExitTypes';
 import type {
   IOneKeyIdAccount,
   IOneKeyIdOAuthBindResponse,
   IOneKeyIdOAuthLoginResponse,
   IOneKeyIdProfileResponse,
   IPrimeDeviceInfo,
+  IPrimeInfiniPayment,
+  IPrimeInfiniPaymentCreateParams,
+  IPrimeInfiniPaymentOption,
+  IPrimeInfiniPaymentPreBroadcastSnapshot,
+  IPrimeInfiniPurchaseStatusSnapshot,
+  IPrimeInfiniSubscription,
+  IPrimeInfiniSubscriptionPlan,
   IPrimeServerUserInfo,
   IPrimeSubscriptionInfo,
   IPrimeUserInfo,
@@ -61,17 +78,33 @@ import {
   primeServerMasterPasswordStatusAtom,
 } from '../../states/jotai/atoms/prime';
 import ServiceBase from '../ServiceBase';
+import {
+  beginIdentityLifecycleReservation,
+  endIdentityLifecycleReservation,
+  getActiveIdentityLifecycleOperationId,
+  identityLifecycleMutex,
+  isIdentityRecoveryReady,
+  markIdentityRecoveryFailed,
+  markIdentityRecoveryPending,
+  markIdentityRecoveryReady,
+} from '../ServiceIdentityExit/identityLifecycleMutex';
 
 import {
+  allowAuthSessionStorageWritesBySessionSource,
+  clearAllSupabaseAuthSessions,
   clearSupabaseStorageLocalCache,
+  persistKeylessAuthSession,
   readAuthTokenAllowingRetryableAuthError,
-  readPersistedAccessTokenBySessionSource,
   readPersistedAccessTokenBySessionSourceStrict,
   removeAuthSessionStorageBySessionSource,
-  revokeAuthSessionTokenOnServerBestEffort,
   runExclusiveOnAuthSessionSlot,
 } from './primeAuthSessionAccess';
 
+import type {
+  IKeylessOAuthSessionIdentity,
+  IKeylessOAuthSessionPersistenceJournal,
+  IKeylessOAuthSessionPersistenceJournalPreparation,
+} from '../../dbs/simple/entity/SimpleDbEntityPrime';
 import type {
   IPrimeLoginDialogAtomData,
   IPrimeLoginDialogKeys,
@@ -88,12 +121,208 @@ type IPrimeServerUserInfoWithProfile = IPrimeServerUserInfo & {
   onekeyAccount?: IOneKeyIdAccount;
 };
 
+function getInfiniPlanParam(plan: IPrimeInfiniSubscriptionPlan) {
+  return plan === 'yearly' ? 'annual' : 'monthly';
+}
+
+function validateInfiniCheckoutUrl(checkoutUrl: unknown): string {
+  if (!isString(checkoutUrl)) {
+    throw new OneKeyLocalError('Invalid Infini checkout URL');
+  }
+
+  const trimmedUrl = checkoutUrl.trim();
+  if (!isAllowedWebViewUrl(trimmedUrl)) {
+    throw new OneKeyLocalError('Invalid Infini checkout URL');
+  }
+
+  return new URL(trimmedUrl).toString();
+}
+
+function normalizeInfiniSubscriptionResponse(
+  subscription: IPrimeInfiniSubscription | undefined,
+): IPrimeInfiniSubscription | undefined {
+  if (!subscription) {
+    return undefined;
+  }
+  return {
+    ...subscription,
+    status: typeof subscription.status === 'string' ? subscription.status : '',
+  };
+}
+
+type IPrimeInfiniPaymentApiResponse = {
+  paymentId?: unknown;
+  address?: unknown;
+  chain?: unknown;
+  token?: unknown;
+  amountDue?: unknown;
+  payAmount?: unknown;
+  payCurrency?: unknown;
+  expiresAt?: unknown;
+  status?: unknown;
+  infiniStatus?: unknown;
+  amountConfirmed?: unknown;
+  amountConfirming?: unknown;
+};
+
+function validateInfiniPaymentResponse(
+  payment: IPrimeInfiniPaymentApiResponse | undefined,
+  expectedPaymentId?: string,
+): IPrimeInfiniPayment {
+  const rawAmountDue =
+    payment?.amountDue === undefined ? payment?.payAmount : payment.amountDue;
+  const amountDue = new BigNumber(isString(rawAmountDue) ? rawAmountDue : '');
+  const amountFieldsMatch =
+    payment?.amountDue === undefined ||
+    payment.payAmount === undefined ||
+    (isString(payment.amountDue) &&
+      isString(payment.payAmount) &&
+      new BigNumber(payment.amountDue).eq(payment.payAmount));
+  if (
+    !payment ||
+    !isString(payment.paymentId) ||
+    !payment.paymentId ||
+    !isString(payment.address) ||
+    !payment.address ||
+    !isString(payment.chain) ||
+    !payment.chain ||
+    !isString(payment.token) ||
+    !payment.token ||
+    !isString(rawAmountDue) ||
+    !rawAmountDue ||
+    !amountDue.isFinite() ||
+    !amountDue.gt(0) ||
+    !amountFieldsMatch ||
+    typeof payment.expiresAt !== 'number' ||
+    !Number.isFinite(payment.expiresAt) ||
+    (payment.payCurrency !== undefined &&
+      (!isString(payment.payCurrency) ||
+        payment.payCurrency.trim().toUpperCase() !==
+          payment.token.trim().toUpperCase())) ||
+    (payment.status !== undefined && !isString(payment.status)) ||
+    (payment.infiniStatus !== undefined && !isString(payment.infiniStatus)) ||
+    (payment.amountConfirmed !== undefined &&
+      !isString(payment.amountConfirmed)) ||
+    (payment.amountConfirming !== undefined &&
+      !isString(payment.amountConfirming)) ||
+    (expectedPaymentId !== undefined && payment.paymentId !== expectedPaymentId)
+  ) {
+    throw new OneKeyLocalError('Invalid Infini payment response');
+  }
+  return {
+    paymentId: payment.paymentId,
+    address: payment.address,
+    chain: payment.chain,
+    token: payment.token,
+    amountDue: rawAmountDue,
+    expiresAt: payment.expiresAt,
+    status: payment.status,
+    infiniStatus: payment.infiniStatus,
+    amountConfirmed: payment.amountConfirmed,
+    amountConfirming: payment.amountConfirming,
+  };
+}
+
 type ICompleteOneKeyIdProfileResponse = IPrimeServerUserInfo & {
   onekeyAccount: IOneKeyIdAccount;
 };
 
 type IPrimeApiClientResponse<T> = IApiClientResponse<T> & {
   messageId?: string;
+};
+
+type IKeylessOAuthSessionRollbackRecord = {
+  expectedIdentityLifecycleRevision: number;
+  sessionCommitId: string;
+  sessionTokenSub: string;
+  walletId?: string;
+  expiresAt: number;
+  expiryTimer?: ReturnType<typeof setTimeout>;
+};
+
+type IKeylessOAuthJwtPayload = ISupabaseJWTPayload & {
+  session_id?: unknown;
+};
+
+type IKeylessOAuthSessionIdentityReadResult =
+  | { status: 'ok'; identity: IKeylessOAuthSessionIdentity }
+  | { status: 'missingClaim'; claim: 'session_id' | 'sub' };
+
+function readKeylessOAuthSessionIdentity(
+  accessToken: string,
+): IKeylessOAuthSessionIdentityReadResult {
+  const payload = stringUtils.decodeJWT(
+    accessToken,
+  ) as IKeylessOAuthJwtPayload | null;
+  const sessionTokenSub = typeof payload?.sub === 'string' ? payload.sub : '';
+  if (!sessionTokenSub) {
+    return { status: 'missingClaim', claim: 'sub' };
+  }
+  // Never fall back to token bytes, `iat`, or subject-only matching. The
+  // session_id claim is stable across refreshes and distinguishes a fresh
+  // same-account session without persisting credential material.
+  const supabaseSessionId =
+    typeof payload?.session_id === 'string' ? payload.session_id : '';
+  if (!supabaseSessionId) {
+    return { status: 'missingClaim', claim: 'session_id' };
+  }
+  return {
+    status: 'ok',
+    identity: { sessionTokenSub, supabaseSessionId },
+  };
+}
+
+const keylessOAuthSessionRollbackRegistry = new Map<
+  IKeylessOAuthSessionRollbackHandle,
+  IKeylessOAuthSessionRollbackRecord
+>();
+const KEYLESS_OAUTH_SESSION_ROLLBACK_TTL_MS = 5 * 60 * 1000;
+
+function getSanitizedAuthErrorLog(error: unknown): string {
+  const safeError = error as {
+    message?: unknown;
+    code?: unknown;
+    status?: unknown;
+    httpStatusCode?: unknown;
+    requestId?: unknown;
+  };
+  return `message=${String(safeError?.message || 'unknown')} code=${String(
+    safeError?.code || '',
+  )} status=${String(
+    safeError?.status || safeError?.httpStatusCode || '',
+  )} requestId=${String(safeError?.requestId || '')}`;
+}
+
+async function withIdentityNetworkTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs = 10_000,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => {
+          reject(
+            new Error(
+              `Identity network operation timed out after ${timeoutMs}ms.`,
+            ),
+          );
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}
+
+type IOneKeyIdAuthSnapshot = {
+  expectedOneKeyUserId: string;
+  requestAuthToken: string;
+  authSessionSource: EPrimeAuthSessionSource;
+  authStateGeneration: number;
 };
 
 class ServicePrime extends ServiceBase {
@@ -105,7 +334,154 @@ class ServicePrime extends ServiceBase {
     return this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
   }
 
-  private async cleanupLegacyKeylessSessionStorage({
+  private createInfiniPurchaseUserChangedError() {
+    return new OneKeyLocalError({
+      message: 'Prime purchase user changed',
+      autoToast: false,
+    });
+  }
+
+  /**
+   * Pin the OneKey ID login a user-consented, account-scoped operation was
+   * started against, so every later step can prove it is still acting for
+   * that account instead of whatever now occupies the shared session slots.
+   *
+   * The snapshot binds four things together: the consented account
+   * (captured by the UI at press time), the exact active token bytes, the
+   * auth session source, and the auth-state generation. `requireSource`
+   * additionally pins WHICH realm the operation is allowed to run against
+   * (the legacy bind must never proceed once the login flipped to
+   * KeylessOAuth).
+   *
+   * Note the ordering: getActiveAuthToken() resolves (and self-heals) the
+   * effective source first, so the getAuthSessionSource() read below is
+   * definitive even for pre-authSessionSource legacy sessions — exactly the
+   * accounts the legacy bind targets.
+   */
+  private async captureOneKeyIdAuthSnapshot({
+    expectedOneKeyUserId,
+    requireSource,
+    insideLoginMutex,
+    createStateChangedError,
+  }: {
+    expectedOneKeyUserId: string;
+    requireSource?: EPrimeAuthSessionSource;
+    // Set by callers that already hold loginMutex (the legacy bind runs its
+    // whole flow inside one section). loginMutex is NOT reentrant, so the
+    // wait below would deadlock against the caller's own section — and it is
+    // redundant there anyway: holding the mutex already excludes the
+    // in-flight login commit the wait exists to avoid reading across.
+    insideLoginMutex?: boolean;
+    createStateChangedError: () => Error;
+  }): Promise<IOneKeyIdAuthSnapshot> {
+    const initialUserInfo = await primePersistAtom.get();
+    if (
+      !expectedOneKeyUserId ||
+      !initialUserInfo.isLoggedIn ||
+      initialUserInfo.onekeyUserId !== expectedOneKeyUserId
+    ) {
+      throw createStateChangedError();
+    }
+
+    if (!insideLoginMutex) {
+      await this.loginMutex.waitForUnlock();
+    }
+    const requestAuthToken =
+      await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
+    if (!requestAuthToken) {
+      throw createStateChangedError();
+    }
+
+    return this.authStateWriteMutex.runExclusive(async () => {
+      const currentUserInfo = await primePersistAtom.get();
+      const authSessionSource =
+        await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+      const authStateGeneration =
+        await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
+      if (
+        !currentUserInfo.isLoggedIn ||
+        currentUserInfo.onekeyUserId !== expectedOneKeyUserId ||
+        !authSessionSource ||
+        (requireSource && authSessionSource !== requireSource)
+      ) {
+        throw createStateChangedError();
+      }
+      const persistedSession =
+        await readPersistedAccessTokenBySessionSourceStrict(authSessionSource);
+      if (
+        persistedSession.status !== 'ok' ||
+        persistedSession.accessToken !== requestAuthToken
+      ) {
+        throw createStateChangedError();
+      }
+      return {
+        expectedOneKeyUserId,
+        requestAuthToken,
+        authSessionSource,
+        authStateGeneration,
+      };
+    });
+  }
+
+  private async assertOneKeyIdAuthSnapshot({
+    snapshot,
+    createStateChangedError,
+  }: {
+    snapshot: IOneKeyIdAuthSnapshot;
+    createStateChangedError: () => Error;
+  }) {
+    await this.authStateWriteMutex.runExclusive(async () => {
+      const currentUserInfo = await primePersistAtom.get();
+      const authSessionSource =
+        await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+      const authStateGeneration =
+        await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
+      if (
+        !currentUserInfo.isLoggedIn ||
+        currentUserInfo.onekeyUserId !== snapshot.expectedOneKeyUserId ||
+        authSessionSource !== snapshot.authSessionSource ||
+        authStateGeneration !== snapshot.authStateGeneration
+      ) {
+        throw createStateChangedError();
+      }
+    });
+  }
+
+  private getOneKeyIdAuthSnapshotRequestConfig(
+    snapshot: IOneKeyIdAuthSnapshot,
+  ) {
+    return {
+      headers: {
+        'X-Onekey-Request-Token': snapshot.requestAuthToken,
+      },
+    };
+  }
+
+  private async captureInfiniPurchaseAuthSnapshot(
+    expectedOneKeyUserId: string,
+  ): Promise<IOneKeyIdAuthSnapshot> {
+    return this.captureOneKeyIdAuthSnapshot({
+      expectedOneKeyUserId,
+      createStateChangedError: () =>
+        this.createInfiniPurchaseUserChangedError(),
+    });
+  }
+
+  private async assertInfiniPurchaseAuthSnapshot(
+    snapshot: IOneKeyIdAuthSnapshot,
+  ) {
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot,
+      createStateChangedError: () =>
+        this.createInfiniPurchaseUserChangedError(),
+    });
+  }
+
+  private getInfiniPurchaseRequestConfig(snapshot: IOneKeyIdAuthSnapshot) {
+    return this.getOneKeyIdAuthSnapshotRequestConfig(snapshot);
+  }
+
+  private async cleanupLegacyKeylessSessionStorageBestEffort({
     callerName,
   }: {
     callerName: string;
@@ -142,18 +518,6 @@ class ServicePrime extends ServiceBase {
       httpStatusCode: e?.httpStatusCode,
       requestId: e?.requestId,
     });
-  }
-
-  private isPrimeLoginInvalidTokenError(error: unknown) {
-    if (error instanceof OneKeyErrorPrimeLoginInvalidToken) {
-      return true;
-    }
-    const e = error as OneKeyError | undefined;
-    const errorData = e?.data as { code?: number } | undefined;
-    return (
-      [90_002, 90_003].includes(Number(e?.code)) ||
-      [90_002, 90_003].includes(Number(errorData?.code))
-    );
   }
 
   private buildPrimeApiResponseError<T>({
@@ -363,7 +727,10 @@ class ServicePrime extends ServiceBase {
             throw error;
           }
 
-          console.error('[Prime Translate] batch error:', error);
+          console.error(
+            '[Prime Translate] batch error:',
+            getSanitizedAuthErrorLog(error),
+          );
           return batch;
         }
       }),
@@ -371,8 +738,7 @@ class ServicePrime extends ServiceBase {
     return { translations: results.flat() };
   }
 
-  @backgroundMethod()
-  async apiDeleteAccount({
+  async deleteOneKeyIdAccountOnServer({
     uuid,
     emailOTP,
   }: {
@@ -390,7 +756,7 @@ class ServicePrime extends ServiceBase {
     return result?.data?.data;
   }
 
-  loginMutex = new Semaphore(1);
+  loginMutex = identityLifecycleMutex;
 
   // Narrow mutex serializing WRITES to the shared auth-state pair
   // (persisted authSessionSource in simpleDb + primePersistAtom): the
@@ -413,50 +779,51 @@ class ServicePrime extends ServiceBase {
   // either mutex and must never await a OneKey-ID-client HTTP request
   // (whose response interceptor could re-enter the cleanup handler and
   // thus this mutex). Only local simpleDb/atom writes belong inside; the
-  // Supabase getSession token reads used by the CLEANUP guards
-  // (evaluateInvalidTokenClearGuards, clearOneKeyIdAuthStateIfNoActiveToken)
-  // are the single documented exception (they can refresh over the
-  // network, but go directly to Supabase, never through the intercepted
-  // client). The login-side commit takes no part in that exception: its
+  // Supabase getSession token reads used by cleanup guards happen before
+  // either mutex or inside the lifecycle mutex only; they never run under
+  // authStateWriteMutex. The login-side commit takes no part in that
+  // exception: its
   // slot check is a strict persisted-bytes read
   // (readPersistedAccessTokenBySessionSourceStrict), never getSession.
   authStateWriteMutex = new Semaphore(1);
 
   /**
-   * Guard evaluation shared by handlePrimeLoginInvalidToken's entry-time
-   * pass (outside authStateWriteMutex: cheap fast-path skip plus session
-   * warm-up before the lock) and its authoritative in-lock re-check
-   * (against a login commit that finished while waiting for the lock).
-   * Returns skip=true when clearing must NOT proceed.
+   * Entry guard for invalid-token reconciliation. The coordinator performs
+   * the authoritative token and identity recheck after the current login
+   * lifecycle scope releases.
    */
   private async evaluateInvalidTokenClearGuards({
     requestAuthToken,
     errorCode,
     errorMessage,
     requestUrl,
-    phase,
   }: {
     requestAuthToken?: string;
     errorCode?: number;
     errorMessage?: string;
     requestUrl?: string;
-    phase: '' | ' (in-lock recheck)';
   }): Promise<{
     skip: boolean;
     authSessionSource: EPrimeAuthSessionSource | undefined;
   }> {
+    if (getActiveIdentityLifecycleOperationId()) {
+      return { skip: true, authSessionSource: undefined };
+    }
     const authSessionSource =
-      await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+      await this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource();
+    if (!authSessionSource) {
+      throw new OneKeyLocalError(
+        'OneKey ID authSessionSource is unavailable during invalid-token reconciliation.',
+      );
+    }
     const tokenRead = await readAuthTokenAllowingRetryableAuthError(() =>
-      authSessionSource
-        ? this.backgroundApi.simpleDb.prime.getActiveAuthToken()
-        : this.backgroundApi.simpleDb.prime.getSupabaseAuthToken(),
+      this.backgroundApi.simpleDb.prime.getActiveAuthToken(),
     );
     if (tokenRead.retryableError) {
       defaultLogger.prime.subscription.onekeyIdInvalidToken({
         url: requestUrl || '',
         errorCode: errorCode || -1,
-        errorMessage: `skip clearing invalid token response because local refresh failed${phase}: ${String(
+        errorMessage: `skip clearing invalid token response because local refresh failed: ${String(
           tokenRead.retryableError,
         )}`,
       });
@@ -465,25 +832,14 @@ class ServicePrime extends ServiceBase {
     const currentAuthToken = tokenRead.token;
 
     if (
-      requestAuthToken &&
-      currentAuthToken &&
+      !requestAuthToken ||
+      !currentAuthToken ||
       requestAuthToken !== currentAuthToken
     ) {
       defaultLogger.prime.subscription.onekeyIdInvalidToken({
         url: requestUrl || '',
         errorCode: errorCode || -1,
-        errorMessage: `skip clearing stale invalid token response${phase}: ${
-          errorMessage || ''
-        }`,
-      });
-      return { skip: true, authSessionSource };
-    }
-
-    if (!requestAuthToken && currentAuthToken) {
-      defaultLogger.prime.subscription.onekeyIdInvalidToken({
-        url: requestUrl || '',
-        errorCode: errorCode || -1,
-        errorMessage: `skip clearing invalid token response without request token${phase}: ${
+        errorMessage: `skip clearing invalid token response without an exact active-token match: ${
           errorMessage || ''
         }`,
       });
@@ -506,22 +862,20 @@ class ServicePrime extends ServiceBase {
   }): Promise<{
     cleared: boolean;
     authSessionSource?: EPrimeAuthSessionSource;
-    // Auth-state commit generation observed in-lock at clear time; carried
-    // into the PrimeLoginInvalidToken event so main-runtime handlers can
-    // detect that a login committed after this clear and skip their stale
-    // sign-outs (see the event payload doc in appEventBus).
     authStateGeneration?: number;
+    identityLifecycleRevision?: number;
   }> {
-    // Entry-time guard pass OUTSIDE authStateWriteMutex: skips cheaply
-    // without contending on the lock, and performs the possibly-slow
-    // Supabase session read (network-capable token refresh) before the
-    // lock is taken, keeping the in-lock re-read fast (cached session).
+    if (getActiveIdentityLifecycleOperationId()) {
+      return { cleared: false };
+    }
+    if (!isIdentityRecoveryReady()) {
+      return { cleared: false };
+    }
     const entryGuards = await this.evaluateInvalidTokenClearGuards({
       requestAuthToken,
       errorCode,
       errorMessage,
       requestUrl,
-      phase: '',
     });
     if (entryGuards.skip) {
       return {
@@ -529,89 +883,63 @@ class ServicePrime extends ServiceBase {
         authSessionSource: entryGuards.authSessionSource,
       };
     }
-
-    // Decide + write under authStateWriteMutex so the clear can never
-    // interleave with a concurrent login commit. Guards are re-checked
-    // inside the lock because a login may have committed a new source
-    // and/or token between the entry-time reads above and lock
-    // acquisition.
-    const lockResult = await this.authStateWriteMutex.runExclusive(
-      async (): Promise<{
-        cleared: boolean;
-        authSessionSource?: EPrimeAuthSessionSource;
-        authStateGeneration?: number;
-      }> => {
-        const guards = await this.evaluateInvalidTokenClearGuards({
-          requestAuthToken,
-          errorCode,
-          errorMessage,
-          requestUrl,
-          phase: ' (in-lock recheck)',
-        });
-        if (guards.skip) {
-          return {
-            cleared: false,
-            authSessionSource: guards.authSessionSource,
-          };
-        }
-        if (guards.authSessionSource !== entryGuards.authSessionSource) {
-          // A login committed a different source while this handler waited
-          // for the lock: the failed request belongs to the pre-login
-          // session, so clearing now would wipe the fresh login.
-          defaultLogger.prime.subscription.onekeyIdInvalidToken({
-            url: requestUrl || '',
-            errorCode: errorCode || -1,
-            errorMessage: `skip clearing invalid token response because auth session source changed (in-lock recheck): ${
-              errorMessage || ''
-            }`,
-          });
-          return {
-            cleared: false,
-            authSessionSource: guards.authSessionSource,
-          };
-        }
-
-        const sourceToClear =
-          guards.authSessionSource ??
-          EPrimeAuthSessionSource.LegacyEmailSupabase;
-        // Read the commit generation in-lock so the emitted event carries
-        // the exact auth-state epoch this clear belongs to (clears never
-        // bump the generation — only login commits do).
-        const authStateGeneration =
-          await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
-        // Write section: simpleDb + atom only — no network I/O while the
-        // lock is held (clearAuthTokens is a simpleDb write plus a local
-        // storage-cache clear; setPrimePersistAtomNotLoggedIn is atom +
-        // local credential-cache writes).
-        await this.backgroundApi.simpleDb.prime.clearAuthTokens();
-        await this.setPrimePersistAtomNotLoggedIn();
-        return {
-          cleared: true,
-          authSessionSource: sourceToClear,
-          authStateGeneration,
-        };
-      },
-    );
-
-    if (!lockResult.cleared) {
-      return lockResult;
+    const entryAuthSessionSource = entryGuards.authSessionSource;
+    if (!entryAuthSessionSource) {
+      throw new OneKeyLocalError(
+        'OneKey ID authSessionSource is unavailable during invalid-token reconciliation.',
+      );
     }
 
-    // Per-source Supabase session clear deliberately runs OUTSIDE
-    // authStateWriteMutex (auth.signOut can perform network I/O), but
-    // through the generation-gated slot-queue clear: the generation
-    // validation and the storage removal execute as one serial operation
-    // (atomic w.r.t. login commits — see the method doc), so a login that
-    // fully commits after the in-lock clear above can never have its fresh
-    // session swept here.
-    await this.clearAuthSessionIfGenerationStillMatches({
-      authSessionSource:
-        lockResult.authSessionSource ??
-        EPrimeAuthSessionSource.LegacyEmailSupabase,
-      expectedAuthStateGeneration: lockResult.authStateGeneration ?? 0,
-      callerName: 'handlePrimeLoginInvalidToken',
-    });
-    return lockResult;
+    const authStateGeneration =
+      await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
+    if (!requestAuthToken) {
+      return {
+        cleared: false,
+        authSessionSource: entryAuthSessionSource,
+        authStateGeneration,
+      };
+    }
+    const staged =
+      await this.backgroundApi.serviceIdentityExit.stageRemoteOneKeyIdLogoutReconciliation(
+        { expectedAccessToken: requestAuthToken },
+      );
+    if (!staged.staged) {
+      return {
+        cleared: false,
+        authSessionSource: entryAuthSessionSource,
+        authStateGeneration,
+      };
+    }
+    void (async () => {
+      try {
+        const receipt =
+          await this.backgroundApi.serviceIdentityExit.executeIdentityExit({
+            planId: staged.planId,
+          });
+        if (receipt.status === 'completed' && receipt.oneKeyIdLoggedOut) {
+          appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, {
+            authSessionSource: entryAuthSessionSource,
+            clearedByBackground: true,
+            authStateGeneration,
+          });
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'unknown reconciliation error';
+        defaultLogger.prime.subscription.onekeyIdInvalidToken({
+          url: requestUrl || '',
+          errorCode: errorCode || -1,
+          errorMessage: `deferred invalid-token reconciliation failed: ${message}`,
+        });
+      }
+    })();
+    return {
+      cleared: false,
+      authSessionSource: entryAuthSessionSource,
+      authStateGeneration,
+    };
   }
 
   /**
@@ -656,9 +984,19 @@ class ServicePrime extends ServiceBase {
     // identity to compare and omit it.
     expectedSlotTokenSub?: string;
   }) {
-    await this.backgroundApi.simpleDb.prime.setAuthSessionSource(
+    const persistedSessionCommitId =
+      await this.backgroundApi.simpleDb.prime.getAuthSessionCommitId(
+        authSessionSource,
+      );
+    const sessionCommitId =
+      authSessionSource === EPrimeAuthSessionSource.KeylessOAuth &&
+      persistedSessionCommitId
+        ? persistedSessionCommitId
+        : stringUtils.generateUUID();
+    await this.backgroundApi.simpleDb.prime.setAuthSessionSourceWithCommitId({
       authSessionSource,
-    );
+      sessionCommitId,
+    });
     try {
       // Strict LOCAL read of the committed source's slot (both realms are
       // supported): an expired-but-persisted token passes — proving slot
@@ -718,6 +1056,12 @@ class ServicePrime extends ServiceBase {
         callerName,
       });
       await updatePrimeAtom();
+      const identityLifecycleRevision =
+        await this.backgroundApi.simpleDb.prime.bumpIdentityLifecycleRevision();
+      appEventBus.emit(EAppEventBusNames.IdentityLifecycleCommitted, {
+        revision: identityLifecycleRevision,
+        oneKeyIdState: 'loggedIn',
+      });
     } catch (error) {
       // Roll back to a consistent logged-out pair before rethrowing — the
       // exact rollback the empty-slot branch has always performed. Without
@@ -729,98 +1073,136 @@ class ServicePrime extends ServiceBase {
     }
   }
 
-  @backgroundMethod()
-  async apiLogin({
+  private async apiLoginWithPersistedLegacySession({
     accessToken,
     authSessionSource,
   }: {
     accessToken: string;
     authSessionSource?: EPrimeAuthSessionSource;
   }) {
-    await this.loginMutex.runExclusive(async () => {
-      if (!accessToken) {
-        return;
-      }
-      // This endpoint (/prime/v1/user/login) only accepts legacy-realm
-      // tokens, so the source is statically LegacyEmailSupabase. Never fall
-      // back to the persisted source: a stale KeylessOAuth source would be
-      // committed for a legacy-token login and getActiveAuthToken would then
-      // read the wrong realm.
-      const nextAuthSessionSource =
-        authSessionSource ?? EPrimeAuthSessionSource.LegacyEmailSupabase;
-      // Invalidation site (login): the active account/session is about to
-      // change, so any user info cached before this login must not be served
-      // to post-login callers.
-      this.clearPrimeUserInfoCache();
-      // Clear only the deprecated cached token, use the explicit request
-      // header below. Keep authSessionSource so a transient login failure
-      // cannot orphan a still-valid session (e.g. standalone Keyless OAuth).
-      await this.backgroundApi.simpleDb.prime.clearCachedAuthToken();
-      const client = await this.getPrimeClient();
-      try {
-        const response = await client.post<{
-          data: IPrimeServerUserInfo;
-        }>(
-          '/prime/v1/user/login',
-          {},
-          {
-            headers: {
-              'X-Onekey-Request-Token': accessToken,
-            },
+    if (!accessToken) {
+      return;
+    }
+    // This endpoint (/prime/v1/user/login) only accepts legacy-realm
+    // tokens, so the source is statically LegacyEmailSupabase. Never fall
+    // back to the persisted source: a stale KeylessOAuth source would be
+    // committed for a legacy-token login and getActiveAuthToken would then
+    // read the wrong realm.
+    const nextAuthSessionSource =
+      authSessionSource ?? EPrimeAuthSessionSource.LegacyEmailSupabase;
+    // Invalidation site (login): the active account/session is about to
+    // change, so any user info cached before this login must not be served
+    // to post-login callers.
+    this.clearPrimeUserInfoCache();
+    // Clear only the deprecated cached token, use the explicit request
+    // header below. Keep authSessionSource so a transient login failure
+    // cannot orphan a still-valid session (e.g. standalone Keyless OAuth).
+    await this.backgroundApi.simpleDb.prime.clearCachedAuthToken();
+    const client = await this.getPrimeClient();
+    try {
+      const response = await client.post<{
+        data: IPrimeServerUserInfo;
+      }>(
+        '/prime/v1/user/login',
+        {},
+        {
+          headers: {
+            'X-Onekey-Request-Token': accessToken,
           },
-        );
-        // Commit section (authStateWriteMutex, inner to loginMutex):
-        // persist the auth session source and update the prime atom as one
-        // atomic (local-only) write, so the invalid-token cleanup can never
-        // observe — and wipe — a half-committed login, and any commit
-        // failure rolls the pair back. The network POST above stays outside
-        // this lock; it is held only for the few-ms local commit.
-        await this.authStateWriteMutex.runExclusive(async () => {
-          await this.commitAuthSessionSourceAndPrimeAtom({
-            authSessionSource: nextAuthSessionSource,
-            callerName: 'ServicePrime.apiLogin',
-            updatePrimeAtom: async () => {
-              await this.updatePrimeAtomByServerUserInfo({
-                serverUserInfo: response.data.data,
-              });
-            },
-          });
+        },
+      );
+      // Commit section (authStateWriteMutex, inner to loginMutex):
+      // persist the auth session source and update the prime atom as one
+      // atomic (local-only) write, so the invalid-token cleanup can never
+      // observe — and wipe — a half-committed login, and any commit
+      // failure rolls the pair back. The network POST above stays outside
+      // this lock; it is held only for the few-ms local commit.
+      await this.authStateWriteMutex.runExclusive(async () => {
+        await this.commitAuthSessionSourceAndPrimeAtom({
+          authSessionSource: nextAuthSessionSource,
+          callerName: 'ServicePrime.apiLogin',
+          updatePrimeAtom: async () => {
+            await this.updatePrimeAtomByServerUserInfo({
+              serverUserInfo: response.data.data,
+            });
+          },
         });
-      } catch (error) {
-        if (this.isPrimeLoginInvalidTokenError(error)) {
-          // Confirmed invalid-token rejection: drop both the cached token
-          // and the auth session source. Serialized like every other
-          // source/token write so it cannot tear a concurrent writer.
-          await this.authStateWriteMutex.runExclusive(async () => {
-            // In-lock source guard (mirrors evaluateInvalidTokenClearGuards):
-            // the rejected token belongs to THIS legacy-realm login attempt.
-            // If the persisted source meanwhile points at a different realm
-            // (a KeylessOAuth login committed concurrently, or this call
-            // replayed a residual legacy token while a keyless session backs
-            // the live login), clearing would wipe that session's source —
-            // and a wiped KeylessOAuth source is never re-inferred.
-            const persistedSource =
-              await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
-            if (persistedSource && persistedSource !== nextAuthSessionSource) {
-              defaultLogger.prime.subscription.onekeyIdInvalidToken({
-                url: '/prime/v1/user/login',
-                errorCode: -1,
-                errorMessage:
-                  'ServicePrime.apiLogin: skip clearing auth tokens, persisted source belongs to another realm',
-              });
-              return;
-            }
-            await this.backgroundApi.simpleDb.prime.clearAuthTokens();
+      });
+    } catch (error) {
+      // The invalid-token interceptor durably stages exact cleanup before
+      // this lifecycle scope releases. Do not clear source metadata here or
+      // the coordinator would lose the authoritative session snapshot it
+      // must compare before deleting the slot. Other POST failures likewise
+      // keep the existing source usable on retry.
+      // A COMMIT failure has already rolled the source/atom pair back
+      // inside commitAuthSessionSourceAndPrimeAtom and only needs the
+      // rethrow.
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async apiLogin(params: {
+    accessToken: string;
+    authSessionSource?: EPrimeAuthSessionSource;
+  }) {
+    return this.loginMutex.runExclusive(() =>
+      this.apiLoginWithPersistedLegacySession(params),
+    );
+  }
+
+  @backgroundMethod()
+  async apiEmailOtpLogin({
+    email,
+    otp,
+  }: {
+    email: string;
+    otp: string;
+  }): Promise<{ success: true }> {
+    return this.loginMutex.runExclusive(async () => {
+      await this.assertOneKeyIdLoggedOutForInteractiveLogin(
+        'ServicePrime.apiEmailOtpLogin',
+      );
+      allowAuthSessionStorageWritesBySessionSource(
+        EPrimeAuthSessionSource.LegacyEmailSupabase,
+      );
+      let response: AuthResponse | undefined;
+      if (email.endsWith('@privy.io')) {
+        try {
+          const phoneOtpData = await this.apiFetchPhoneOtp({ email, otp });
+          if (phoneOtpData?.phone && phoneOtpData?.otp) {
+            response = await getSupabaseClient().client.auth.verifyOtp({
+              phone: phoneOtpData.phone,
+              token: phoneOtpData.otp,
+              type: 'sms',
+            });
+          }
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error || 'unknown');
+          defaultLogger.prime.subscription.onekeyIdLoginFailedToast({
+            reason: `ServicePrime.apiEmailOtpLogin: phone OTP exchange failed: ${message}`,
           });
         }
-        // For any other POST failure (e.g. transient network error), keep
-        // the persisted authSessionSource so the existing session stays
-        // usable on retry — the failure happened before any source write.
-        // A COMMIT failure has already rolled the source/atom pair back
-        // inside commitAuthSessionSourceAndPrimeAtom and only needs the
-        // rethrow.
-        throw error;
       }
+
+      response ??= await getSupabaseClient().client.auth.verifyOtp({
+        email,
+        token: otp,
+        type: 'email',
+      });
+      if (response.error) {
+        throw new OneKeyLocalError(response.error.message);
+      }
+      const accessToken = response.data.session?.access_token;
+      if (!accessToken) {
+        // TODO: i18n
+        throw new OneKeyLocalError(
+          'OneKey ID login failed: access token not found',
+        );
+      }
+      await this.apiLoginWithPersistedLegacySession({ accessToken });
+      return { success: true };
     });
   }
 
@@ -865,10 +1247,11 @@ class ServicePrime extends ServiceBase {
           : `${callerName} ERROR: Keyless OAuth session is not persisted locally`,
       );
     }
-    // Identity check, not just occupancy: persistKeylessOAuthSession runs in
-    // the main runtime OUTSIDE loginMutex, so between the caller's persist
-    // and this bg-side guard a concurrent flow (e.g. ext popup vs expand
-    // tab) can overwrite the shared slot with ANOTHER account's session.
+    // Identity check, not just occupancy: the caller's persist
+    // (persistKeylessOAuthSession) and this login/bind method hold SEPARATE
+    // loginMutex sections, so between the two a concurrent flow (e.g. ext
+    // popup vs expand tab) can still overwrite the shared slot with ANOTHER
+    // account's session.
     // Occupancy alone would then let the POST proceed with account A's
     // token while the committed local state serves account B's slot.
     // Compare the JWT `sub` claims (payload decode only, no signature or
@@ -914,6 +1297,88 @@ class ServicePrime extends ServiceBase {
     return { verifiedTokenSub: inFlightTokenSub };
   }
 
+  private async apiOAuthLoginWithPersistedSession({
+    accessToken,
+    callerName,
+  }: {
+    accessToken: string;
+    callerName: string;
+  }): Promise<IOneKeyIdOAuthLoginResponse> {
+    if (!accessToken) {
+      throw new OneKeyLocalError(`${callerName} ERROR: Invalid accessToken`);
+    }
+
+    // Invalidation site (OAuth login): same as apiLogin — drop any
+    // pre-login cached user info before the session changes.
+    this.clearPrimeUserInfoCache();
+    // Clear only the deprecated cached token (same rule as apiLogin): the
+    // authSessionSource must survive a transient POST failure, because a
+    // wiped KeylessOAuth source is never re-inferred (see
+    // getEffectiveAuthSessionSource) and would permanently orphan a
+    // still-valid keyless session. The source is committed after success.
+    await this.backgroundApi.simpleDb.prime.clearCachedAuthToken();
+    // Fail fast when the shared keyless session slot is empty or holds a
+    // different account's session (run AFTER the cache clear above so the
+    // read cannot serve a stale pre-login probe): the POST below would
+    // otherwise succeed on the server while the local commit fails or
+    // serves the wrong slot, leaving the server logged in and the client
+    // rolled back (or logged in as another account locally).
+    const { verifiedTokenSub } =
+      await this.assertKeylessSessionPersistedBeforeLogin({
+        accessToken,
+        callerName,
+      });
+    const client = await this.getPrimeClient();
+    const result = await client.post<
+      IApiClientResponse<IOneKeyIdOAuthLoginResponse>
+    >(
+      '/prime/v1/account/oauth/login',
+      {},
+      {
+        headers: {
+          'X-Onekey-Request-Token': accessToken,
+        },
+      },
+    );
+    const data = result?.data?.data;
+    if (!data) {
+      throw new OneKeyLocalError(`${callerName} ERROR: Empty response data`);
+    }
+    // Commit section (authStateWriteMutex, inner to loginMutex): source +
+    // atom written as one atomic (local-only, rollback-on-failure) pair —
+    // see apiLogin. The POST above and the legacy-session cleanup below
+    // (Supabase signOut, network-capable) stay outside the lock.
+    await this.authStateWriteMutex.runExclusive(async () => {
+      await this.commitAuthSessionSourceAndPrimeAtom({
+        authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+        callerName,
+        expectedSlotTokenSub: verifiedTokenSub,
+        updatePrimeAtom: async () => {
+          await this.updatePrimeAtomByOAuthLoginResponse({
+            loginResponse: data,
+          });
+        },
+      });
+    });
+    // Best-effort hygiene: the login is already committed atomically
+    // above, so a failure here (e.g. transient storage error while
+    // clearing the legacy slot) must not reject the whole login — the UI
+    // would tear down the just-validated OAuth session and show a login
+    // failure for a login that succeeded. Leftovers are re-cleaned by the
+    // next login/bind/logout.
+    try {
+      await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
+    } catch (cleanupError) {
+      defaultLogger.prime.subscription.onekeyIdLogout({
+        reason: `${callerName}: post-commit legacy session cleanup failed: ${String(
+          cleanupError,
+        )}`,
+      });
+    }
+    await this.cleanupLegacyKeylessSessionStorageBestEffort({ callerName });
+    return data;
+  }
+
   @backgroundMethod()
   async apiOAuthLogin({
     accessToken,
@@ -921,81 +1386,640 @@ class ServicePrime extends ServiceBase {
     accessToken: string;
   }): Promise<IOneKeyIdOAuthLoginResponse> {
     return this.loginMutex.runExclusive(async () => {
-      if (!accessToken) {
-        throw new OneKeyLocalError('apiOAuthLogin ERROR: Invalid accessToken');
-      }
-
-      // Invalidation site (OAuth login): same as apiLogin — drop any
-      // pre-login cached user info before the session changes.
-      this.clearPrimeUserInfoCache();
-      // Clear only the deprecated cached token (same rule as apiLogin): the
-      // authSessionSource must survive a transient POST failure, because a
-      // wiped KeylessOAuth source is never re-inferred (see
-      // getEffectiveAuthSessionSource) and would permanently orphan a
-      // still-valid keyless session. The source is committed after success.
-      await this.backgroundApi.simpleDb.prime.clearCachedAuthToken();
-      // Fail fast when the shared keyless session slot is empty or holds a
-      // different account's session (run AFTER the cache clear above so the
-      // read cannot serve a stale pre-login probe): the POST below would
-      // otherwise succeed on the server while the local commit fails or
-      // serves the wrong slot, leaving the server logged in and the client
-      // rolled back (or logged in as another account locally).
-      const { verifiedTokenSub } =
-        await this.assertKeylessSessionPersistedBeforeLogin({
-          accessToken,
-          callerName: 'ServicePrime.apiOAuthLogin',
-        });
-      const client = await this.getPrimeClient();
-      const result = await client.post<
-        IApiClientResponse<IOneKeyIdOAuthLoginResponse>
-      >(
-        '/prime/v1/account/oauth/login',
-        {},
-        {
-          headers: {
-            'X-Onekey-Request-Token': accessToken,
-          },
-        },
+      await this.assertOneKeyIdLoggedOutForInteractiveLogin(
+        'ServicePrime.apiOAuthLogin',
       );
-      const data = result?.data?.data;
-      if (!data) {
-        throw new OneKeyLocalError('apiOAuthLogin ERROR: Empty response data');
-      }
-      // Commit section (authStateWriteMutex, inner to loginMutex): source +
-      // atom written as one atomic (local-only, rollback-on-failure) pair —
-      // see apiLogin. The POST above and the legacy-session cleanup below
-      // (Supabase signOut, network-capable) stay outside the lock.
-      await this.authStateWriteMutex.runExclusive(async () => {
-        await this.commitAuthSessionSourceAndPrimeAtom({
-          authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
-          callerName: 'ServicePrime.apiOAuthLogin',
-          expectedSlotTokenSub: verifiedTokenSub,
-          updatePrimeAtom: async () => {
-            await this.updatePrimeAtomByOAuthLoginResponse({
-              loginResponse: data,
-            });
-          },
-        });
-      });
-      // Best-effort hygiene: the login is already committed atomically
-      // above, so a failure here (e.g. transient storage error while
-      // clearing the legacy slot) must not reject the whole login — the UI
-      // would tear down the just-validated OAuth session and show a login
-      // failure for a login that succeeded. Leftovers are re-cleaned by the
-      // next login/bind/logout.
-      try {
-        await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
-      } catch (cleanupError) {
-        defaultLogger.prime.subscription.onekeyIdLogout({
-          reason: `ServicePrime.apiOAuthLogin: post-commit legacy session cleanup failed: ${String(
-            cleanupError,
-          )}`,
-        });
-      }
-      await this.cleanupLegacyKeylessSessionStorage({
+      return this.apiOAuthLoginWithPersistedSession({
+        accessToken,
         callerName: 'ServicePrime.apiOAuthLogin',
       });
-      return data;
+    });
+  }
+
+  private async assertOneKeyIdLoggedOutForInteractiveLogin(
+    callerName: string,
+  ): Promise<void> {
+    const [user, source, authState] = await Promise.all([
+      primePersistAtom.get(),
+      this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource(),
+      this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
+    ]);
+    if (user.isLoggedIn !== user.isLoggedInOnServer) {
+      throw new OneKeyLocalError(
+        `${callerName}: OneKey ID login projection is inconsistent.`,
+      );
+    }
+    if (
+      user.isLoggedIn ||
+      user.isLoggedInOnServer ||
+      source ||
+      authState === 'loggedIn'
+    ) {
+      throw new OneKeyLocalError(
+        `${callerName}: OneKey ID is already logged in. Sign out before switching accounts.`,
+      );
+    }
+  }
+
+  private async assertNoLocalKeylessWalletForFreshOAuthLogin(): Promise<void> {
+    if (await this.backgroundApi.serviceAccount.getKeylessWallet()) {
+      // TODO: i18n
+      throw new OneKeyLocalError({
+        message:
+          'Independent OneKey ID login cannot continue because a local Keyless wallet now exists.',
+        autoToast: false,
+      });
+    }
+  }
+
+  private async removeExactKeylessOAuthSessionForJournal(
+    journal: IKeylessOAuthSessionPersistenceJournal,
+  ): Promise<void> {
+    await runExclusiveOnAuthSessionSlot(
+      EPrimeAuthSessionSource.KeylessOAuth,
+      async () => {
+        clearSupabaseStorageLocalCache();
+        const currentSlot = await readPersistedAccessTokenBySessionSourceStrict(
+          EPrimeAuthSessionSource.KeylessOAuth,
+        );
+        if (currentSlot.status !== 'ok') {
+          return;
+        }
+        const currentIdentity = readKeylessOAuthSessionIdentity(
+          currentSlot.accessToken,
+        );
+        if (
+          currentIdentity.status !== 'ok' ||
+          currentIdentity.identity.sessionTokenSub !==
+            journal.sessionTokenSub ||
+          currentIdentity.identity.supabaseSessionId !==
+            journal.supabaseSessionId
+        ) {
+          return;
+        }
+        await removeAuthSessionStorageBySessionSource(
+          EPrimeAuthSessionSource.KeylessOAuth,
+        );
+        clearSupabaseStorageLocalCache();
+      },
+    );
+  }
+
+  private async recoverKeylessOAuthSessionPersistenceJournalUnderLifecycle(): Promise<{
+    recovered: boolean;
+    abandoned: boolean;
+    identityLifecycleRevision?: number;
+  }> {
+    const journal =
+      await this.backgroundApi.simpleDb.prime.getKeylessOAuthSessionPersistenceJournal();
+    if (!journal) {
+      return { recovered: false, abandoned: false };
+    }
+
+    const slot = await readPersistedAccessTokenBySessionSourceStrict(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    const persistedSessionIdentity =
+      slot.status === 'ok'
+        ? readKeylessOAuthSessionIdentity(slot.accessToken)
+        : undefined;
+    if (
+      persistedSessionIdentity?.status !== 'ok' ||
+      persistedSessionIdentity.identity.sessionTokenSub !==
+        journal.sessionTokenSub ||
+      persistedSessionIdentity.identity.supabaseSessionId !==
+        journal.supabaseSessionId
+    ) {
+      const removed =
+        await this.backgroundApi.simpleDb.prime.removeKeylessOAuthSessionPersistenceJournal(
+          { operationId: journal.operationId },
+        );
+      if (!removed) {
+        throw new OneKeyLocalError(
+          'Keyless OAuth session persistence journal changed during recovery.',
+        );
+      }
+      return { recovered: false, abandoned: true };
+    }
+
+    if (journal.walletId) {
+      const wallet = await this.backgroundApi.serviceAccount.getKeylessWallet();
+      if (wallet?.id !== journal.walletId) {
+        throw new OneKeyLocalError(
+          `Keyless OAuth session persistence recovery expected wallet ${
+            journal.walletId
+          }, received ${wallet?.id ?? 'undefined'}.`,
+        );
+      }
+    }
+
+    const commit =
+      await this.backgroundApi.simpleDb.prime.commitKeylessOAuthSessionPersistenceMetadata(
+        {
+          operationId: journal.operationId,
+          persistedSessionIdentity: persistedSessionIdentity.identity,
+          allowRevisionRebase: true,
+        },
+      );
+    if (commit.status === 'stateChanged') {
+      await this.removeExactKeylessOAuthSessionForJournal(journal);
+      const removed =
+        await this.backgroundApi.simpleDb.prime.removeKeylessOAuthSessionPersistenceJournal(
+          { operationId: journal.operationId },
+        );
+      if (!removed) {
+        throw new OneKeyLocalError(
+          'Keyless OAuth session persistence journal changed during conflict recovery.',
+        );
+      }
+      return { recovered: false, abandoned: true };
+    }
+    if (commit.status !== 'committed') {
+      throw new OneKeyLocalError(
+        'Keyless OAuth session persistence metadata changed before recovery could commit.',
+      );
+    }
+    const currentUser = await primePersistAtom.get();
+    appEventBus.emit(EAppEventBusNames.IdentityLifecycleCommitted, {
+      revision: commit.identityLifecycleRevision,
+      oneKeyIdState:
+        currentUser.isLoggedIn && currentUser.isLoggedInOnServer
+          ? 'loggedIn'
+          : 'loggedOut',
+    });
+    return {
+      recovered: true,
+      abandoned: false,
+      identityLifecycleRevision: commit.identityLifecycleRevision,
+    };
+  }
+
+  async recoverInterruptedKeylessOAuthSessionPersistence(): Promise<{
+    recovered: boolean;
+    abandoned: boolean;
+  }> {
+    return identityLifecycleMutex.runExclusiveForRecovery(async () => {
+      const journal =
+        await this.backgroundApi.simpleDb.prime.getKeylessOAuthSessionPersistenceJournal();
+      if (!journal) {
+        return { recovered: false, abandoned: false };
+      }
+      markIdentityRecoveryPending(journal.operationId);
+      try {
+        const result =
+          await this.recoverKeylessOAuthSessionPersistenceJournalUnderLifecycle();
+        markIdentityRecoveryReady(journal.operationId);
+        return {
+          recovered: result.recovered,
+          abandoned: result.abandoned,
+        };
+      } catch (error) {
+        markIdentityRecoveryFailed(journal.operationId);
+        throw error;
+      }
+    });
+  }
+
+  private async persistKeylessOAuthSessionWithinLifecycle({
+    accessToken,
+    refreshToken,
+    expectedWalletId,
+  }: {
+    accessToken: string;
+    refreshToken: string;
+    expectedWalletId?: string;
+  }): Promise<{
+    identityLifecycleRevision: number;
+    sessionCommitId: string;
+    sessionTokenSub: string;
+    walletId?: string;
+  }> {
+    await identityLifecycleMutex.waitForUnlock();
+    return this.loginMutex.runExclusive(() =>
+      this.persistKeylessOAuthSessionUnderLifecycleLock({
+        accessToken,
+        refreshToken,
+        expectedWalletId,
+      }),
+    );
+  }
+
+  private async persistKeylessOAuthSessionUnderLifecycleLock({
+    accessToken,
+    refreshToken,
+    expectedWalletId,
+  }: {
+    accessToken: string;
+    refreshToken: string;
+    expectedWalletId?: string;
+  }): Promise<{
+    identityLifecycleRevision: number;
+    sessionCommitId: string;
+    sessionTokenSub: string;
+    walletId?: string;
+  }> {
+    const operationId = `keylessSession:${stringUtils.generateUUID()}`;
+    beginIdentityLifecycleReservation(operationId);
+    try {
+      return await this.persistKeylessOAuthSessionWithinReservation({
+        accessToken,
+        refreshToken,
+        expectedWalletId,
+        operationId,
+      });
+    } finally {
+      endIdentityLifecycleReservation(operationId);
+    }
+  }
+
+  private async persistKeylessOAuthSessionWithinReservation({
+    accessToken,
+    refreshToken,
+    expectedWalletId,
+    operationId,
+  }: {
+    accessToken: string;
+    refreshToken: string;
+    expectedWalletId?: string;
+    operationId: string;
+  }): Promise<{
+    identityLifecycleRevision: number;
+    sessionCommitId: string;
+    sessionTokenSub: string;
+    walletId?: string;
+  }> {
+    const sessionIdentity = readKeylessOAuthSessionIdentity(accessToken);
+    if (sessionIdentity.status !== 'ok') {
+      throw new OneKeyLocalError(
+        `Failed to persist Keyless OAuth session: token ${sessionIdentity.claim} claim is missing`,
+      );
+    }
+    const { sessionTokenSub, supabaseSessionId } = sessionIdentity.identity;
+
+    const [currentOneKeyIdUser, activeOneKeyIdSource, oneKeyIdAuthState] =
+      await Promise.all([
+        primePersistAtom.get(),
+        this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource(),
+        this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
+      ]);
+    if (
+      currentOneKeyIdUser.isLoggedIn !== currentOneKeyIdUser.isLoggedInOnServer
+    ) {
+      throw new OneKeyLocalError(
+        'Failed to persist Keyless OAuth session: OneKey ID login projection is inconsistent.',
+      );
+    }
+    const isOneKeyIdLoggedIn = Boolean(
+      currentOneKeyIdUser.isLoggedIn && currentOneKeyIdUser.isLoggedInOnServer,
+    );
+    if (
+      isOneKeyIdLoggedIn &&
+      (!activeOneKeyIdSource || oneKeyIdAuthState === 'loggedOut')
+    ) {
+      throw new OneKeyLocalError(
+        'Failed to persist Keyless OAuth session: active OneKey ID auth source is unavailable.',
+      );
+    }
+    if (
+      !isOneKeyIdLoggedIn &&
+      (activeOneKeyIdSource || oneKeyIdAuthState === 'loggedIn')
+    ) {
+      throw new OneKeyLocalError(
+        'Failed to persist Keyless OAuth session: OneKey ID auth state is inconsistent.',
+      );
+    }
+    if (
+      isOneKeyIdLoggedIn &&
+      activeOneKeyIdSource === EPrimeAuthSessionSource.KeylessOAuth
+    ) {
+      const activeSlot = await readPersistedAccessTokenBySessionSourceStrict(
+        EPrimeAuthSessionSource.KeylessOAuth,
+      );
+      if (activeSlot.status !== 'ok') {
+        throw new OneKeyLocalError(
+          `Failed to persist Keyless OAuth session: active OneKey ID session slot is ${activeSlot.status}.`,
+        );
+      }
+      const activeSessionTokenSub =
+        (
+          stringUtils.decodeJWT(
+            activeSlot.accessToken,
+          ) as ISupabaseJWTPayload | null
+        )?.sub || '';
+      if (!activeSessionTokenSub) {
+        throw new OneKeyLocalError(
+          'Failed to persist Keyless OAuth session: active OneKey ID session subject is unavailable.',
+        );
+      }
+      if (activeSessionTokenSub !== sessionTokenSub) {
+        throw new OneKeyErrorOneKeyIdKeylessSessionSlotReplaced();
+      }
+    }
+
+    const keylessWallet =
+      await this.backgroundApi.serviceAccount.getKeylessWallet();
+    if (expectedWalletId && keylessWallet?.id !== expectedWalletId) {
+      throw new OneKeyLocalError(
+        `Keyless wallet changed before OAuth session persistence: expected ${expectedWalletId}, received ${
+          keylessWallet?.id ?? 'undefined'
+        }.`,
+      );
+    }
+    if (keylessWallet) {
+      const { isValid } =
+        await this.backgroundApi.serviceKeylessWallet.validateTokenMatchesKeylessWallet(
+          {
+            token: accessToken,
+            skipFixProvider: true,
+          },
+        );
+      if (!isValid) {
+        throw new OneKeyLocalError(
+          'Keyless OAuth session does not match the local Keyless wallet.',
+        );
+      }
+    }
+
+    const sessionCommitId = stringUtils.generateUUID();
+    const now = Date.now();
+    const persistencePreparation: IKeylessOAuthSessionPersistenceJournalPreparation =
+      {
+        operationId,
+        status: 'prepared',
+        startedAt: now,
+        updatedAt: now,
+        sessionCommitId,
+        sessionTokenSub,
+        supabaseSessionId,
+        walletId: keylessWallet?.id,
+      };
+
+    markIdentityRecoveryPending(operationId);
+    let persistenceJournal: IKeylessOAuthSessionPersistenceJournal;
+    try {
+      persistenceJournal =
+        await this.backgroundApi.simpleDb.prime.setKeylessOAuthSessionPersistenceJournal(
+          persistencePreparation,
+        );
+    } catch (error) {
+      // A rejected storage write has an ambiguous durable outcome. The
+      // SimpleDB cache is not authoritative after that failure, so keep the
+      // identity gate closed until startup reloads and recovers persisted
+      // state.
+      markIdentityRecoveryFailed(operationId);
+      throw error;
+    }
+
+    let metadataCommitStorageOutcomeUnknown = false;
+    try {
+      await persistKeylessAuthSession({ accessToken, refreshToken });
+      clearSupabaseStorageLocalCache();
+      const persistedSlot = await readPersistedAccessTokenBySessionSourceStrict(
+        EPrimeAuthSessionSource.KeylessOAuth,
+      );
+      const persistedSessionIdentity =
+        persistedSlot.status === 'ok'
+          ? readKeylessOAuthSessionIdentity(persistedSlot.accessToken)
+          : undefined;
+      if (
+        persistedSessionIdentity?.status !== 'ok' ||
+        persistedSessionIdentity.identity.sessionTokenSub !== sessionTokenSub ||
+        persistedSessionIdentity.identity.supabaseSessionId !==
+          supabaseSessionId
+      ) {
+        throw new OneKeyLocalError(
+          'Failed to persist Keyless OAuth session: exact session identity is not persisted locally',
+        );
+      }
+      let commit;
+      try {
+        commit =
+          await this.backgroundApi.simpleDb.prime.commitKeylessOAuthSessionPersistenceMetadata(
+            {
+              operationId: persistenceJournal.operationId,
+              persistedSessionIdentity: persistedSessionIdentity.identity,
+            },
+          );
+      } catch (error) {
+        metadataCommitStorageOutcomeUnknown = true;
+        markIdentityRecoveryFailed(persistenceJournal.operationId);
+        throw error;
+      }
+      if (commit.status !== 'committed') {
+        throw new OneKeyLocalError(
+          'Keyless OAuth session persistence metadata changed before commit.',
+        );
+      }
+      markIdentityRecoveryReady(persistenceJournal.operationId);
+      const projectedUser = await primePersistAtom.get();
+      appEventBus.emit(EAppEventBusNames.IdentityLifecycleCommitted, {
+        revision: commit.identityLifecycleRevision,
+        oneKeyIdState:
+          projectedUser.isLoggedIn && projectedUser.isLoggedInOnServer
+            ? 'loggedIn'
+            : 'loggedOut',
+      });
+      return {
+        identityLifecycleRevision: commit.identityLifecycleRevision,
+        sessionCommitId,
+        sessionTokenSub,
+        walletId: keylessWallet?.id,
+      };
+    } catch (error) {
+      if (metadataCommitStorageOutcomeUnknown) {
+        throw error;
+      }
+      try {
+        await this.recoverKeylessOAuthSessionPersistenceJournalUnderLifecycle();
+        markIdentityRecoveryReady(persistenceJournal.operationId);
+      } catch (recoveryError) {
+        markIdentityRecoveryFailed(persistenceJournal.operationId);
+        throw recoveryError;
+      }
+      throw error;
+    }
+  }
+
+  async persistMigratedKeylessOAuthSessionForWallet({
+    accessToken,
+    refreshToken,
+    expectedWalletId,
+  }: {
+    accessToken: string;
+    refreshToken: string;
+    expectedWalletId: string;
+  }): Promise<void> {
+    await this.persistKeylessOAuthSessionWithinLifecycle({
+      accessToken,
+      refreshToken,
+      expectedWalletId,
+    });
+  }
+
+  /**
+   * Persist and commit a fresh OAuth session only while OneKey ID is still
+   * logged out. Keeping the precondition and persistence under loginMutex
+   * prevents a concurrent Email or OAuth login from committing between the
+   * state check and the shared Keyless session-slot write.
+   */
+  @backgroundMethod()
+  async apiOAuthLoginWithFreshSessionForLoggedOutState({
+    accessToken,
+    refreshToken,
+    identityExitOAuthHandoff,
+    provider,
+  }: {
+    accessToken: string;
+    refreshToken: string;
+    identityExitOAuthHandoff?: IIdentityExitOAuthHandoff;
+    provider?: EOAuthSocialLoginProvider;
+  }): Promise<IOneKeyIdOAuthLoginResponse> {
+    const callerName =
+      'ServicePrime.apiOAuthLoginWithFreshSessionForLoggedOutState';
+    return this.loginMutex.runExclusive(async () => {
+      if (Boolean(identityExitOAuthHandoff) !== Boolean(provider)) {
+        throw new OneKeyLocalError(
+          'OAuth provider-switch handoff and provider must be supplied together.',
+        );
+      }
+      if (identityExitOAuthHandoff && provider) {
+        const tokenProvider =
+          this.backgroundApi.serviceKeylessWallet.buildKeylessProviderFromSocialToken(
+            {
+              token: accessToken,
+              skipFixedProvider: true,
+            },
+          );
+        if (tokenProvider !== provider) {
+          throw new OneKeyLocalError(
+            `OAuth callback provider mismatch: expected ${provider}, received ${tokenProvider}.`,
+          );
+        }
+        await this.backgroundApi.serviceIdentityExit.consumeOAuthHandoffForLogin(
+          {
+            handoff: identityExitOAuthHandoff,
+            provider,
+          },
+        );
+      }
+      if (await this.isLoggedIn()) {
+        // TODO: i18n
+        throw new OneKeyLocalError({
+          message: 'OneKey ID login state changed. Please try again.',
+          autoToast: false,
+        });
+      }
+
+      await this.assertNoLocalKeylessWalletForFreshOAuthLogin();
+      await this.persistKeylessOAuthSessionUnderLifecycleLock({
+        accessToken,
+        refreshToken,
+      });
+      // setSession may wait on network I/O. Recheck before the OneKey ID
+      // POST so a Keyless wallet created during that wait wins the race.
+      await this.assertNoLocalKeylessWalletForFreshOAuthLogin();
+      return this.apiOAuthLoginWithPersistedSession({
+        accessToken,
+        callerName,
+      });
+    });
+  }
+
+  /**
+   * Persist the shared Keyless OAuth slot from the BG runtime. All production
+   * callers use this entry so session replacement participates in the same
+   * lifecycle serialization and revision checks as identity exit.
+   */
+  @backgroundMethod()
+  async persistKeylessOAuthSession({
+    accessToken,
+    refreshToken,
+  }: {
+    accessToken: string;
+    refreshToken: string;
+  }): Promise<{
+    identityLifecycleRevision: number;
+    rollbackHandle: IKeylessOAuthSessionRollbackHandle;
+  }> {
+    await identityLifecycleMutex.waitForUnlock();
+    return this.loginMutex.runExclusive(async () => {
+      const persisted = await this.persistKeylessOAuthSessionUnderLifecycleLock(
+        {
+          accessToken,
+          refreshToken,
+        },
+      );
+      const rollbackHandle =
+        stringUtils.generateUUID() as IKeylessOAuthSessionRollbackHandle;
+      const rollbackRecord: IKeylessOAuthSessionRollbackRecord = {
+        expectedIdentityLifecycleRevision: persisted.identityLifecycleRevision,
+        sessionCommitId: persisted.sessionCommitId,
+        sessionTokenSub: persisted.sessionTokenSub,
+        walletId: persisted.walletId,
+        expiresAt: Date.now() + KEYLESS_OAUTH_SESSION_ROLLBACK_TTL_MS,
+      };
+      keylessOAuthSessionRollbackRegistry.set(rollbackHandle, rollbackRecord);
+      const expiryTimer = setTimeout(() => {
+        if (
+          keylessOAuthSessionRollbackRegistry.get(rollbackHandle) ===
+          rollbackRecord
+        ) {
+          keylessOAuthSessionRollbackRegistry.delete(rollbackHandle);
+        }
+      }, KEYLESS_OAUTH_SESSION_ROLLBACK_TTL_MS);
+      rollbackRecord.expiryTimer = expiryTimer;
+      (
+        expiryTimer as unknown as {
+          unref?: () => void;
+        }
+      ).unref?.();
+      return {
+        identityLifecycleRevision: persisted.identityLifecycleRevision,
+        rollbackHandle,
+      };
+    });
+  }
+
+  @backgroundMethod()
+  async rollbackProvisionalKeylessOAuthSession({
+    rollbackHandle,
+  }: {
+    rollbackHandle: IKeylessOAuthSessionRollbackHandle;
+  }): Promise<{ cleared: boolean }> {
+    return this.loginMutex.runExclusive(async () => {
+      const record = keylessOAuthSessionRollbackRegistry.get(rollbackHandle);
+      keylessOAuthSessionRollbackRegistry.delete(rollbackHandle);
+      if (!record) {
+        return { cleared: false };
+      }
+      if (record.expiryTimer) {
+        clearTimeout(record.expiryTimer);
+      }
+      if (record.expiresAt <= Date.now()) {
+        return { cleared: false };
+      }
+
+      const source =
+        await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+      if (source === EPrimeAuthSessionSource.KeylessOAuth) {
+        return { cleared: false };
+      }
+
+      const result = await this.commitIdentityExitLocalState({
+        expectedIdentityLifecycleRevision:
+          record.expectedIdentityLifecycleRevision,
+        keylessSession: {
+          sessionCommitId: record.sessionCommitId,
+          sessionTokenSub: record.sessionTokenSub,
+        },
+        keylessWalletSession: record.walletId
+          ? {
+              walletId: record.walletId,
+              sessionCommitId: record.sessionCommitId,
+            }
+          : undefined,
+      });
+      return { cleared: result.status === 'committed' };
     });
   }
 
@@ -1107,125 +2131,69 @@ class ServicePrime extends ServiceBase {
     return isLegacyOneKeyIdAccountMissingOAuthIdentity(profile.onekeyAccount);
   }
 
-  // Dedicated mutex for the local-keyless upgrade bind prompt gate. Do NOT
+  // Dedicated mutex for the optional OAuth bind reminder gate. Do NOT
   // reuse loginMutex: isLegacyOneKeyIdOAuthBindRequired() ->
   // apiFetchOneKeyIdProfile() waits for loginMutex to unlock and would
   // deadlock if the gate itself held it.
-  localKeylessUpgradeBindPromptCheckMutex = new Semaphore(1);
+  oneKeyIdOAuthBindPromptCheckMutex = new Semaphore(1);
 
   /**
-   * Atomically decide whether the local-keyless upgrade bind prompt should
-   * be auto-shown, and persist the per-user throttle timestamp for every
-   * completed check (not only when the dialog is actually shown), so that:
-   * - concurrent UI contexts (in the extension, popup / sidepanel / expanded
-   *   tab all share this single bg runtime) cannot both get `true` and
-   *   double-prompt: `runExclusive` serializes callers and the throttle mark
-   *   happens before the mutex is released, closing the check-then-mark gap;
-   * - the expensive pipeline (local keyless prepare + keyless getSession +
-   *   network profile GET) runs at most once per throttle window even when
-   *   the outcome is "no prompt needed" (no local keyless wallet, or
-   *   bindRequired=false), instead of on every app start and unlock.
-   *
-   * Transient failures (prepare / profile fetch errors) do NOT consume the
-   * throttle, so the next check retries — matching the previous UI-side
-   * behavior.
-   *
-   * NOTE: the throttle window is consumed as soon as this method returns
-   * `true`. If the calling UI context then fails to actually show the dialog
-   * (e.g. the app gets locked while the result is in flight), the prompt
-   * waits for the next throttle window. This is an accepted trade-off of
-   * the atomic gate.
-   *
-   * Explicit user-triggered bind flows (after legacy email OTP login, or the
-   * keyless-create bind step) intentionally bypass this gate and its
-   * throttle; they show the dialog directly.
+   * Atomically consume the optional OAuth sign-in-method reminder once per
+   * OneKey ID. Concurrent UI contexts cannot both receive `true`, and a
+   * transient profile failure leaves the marker unset so a later Email login
+   * can retry. Existing timestamps from the former daily reminder are treated
+   * as already consumed by the SimpleDB entity.
    */
   @backgroundMethod()
-  async checkAndMarkShouldShowLocalKeylessUpgradeBindPrompt({
+  async checkAndMarkShouldShowOneKeyIdOAuthBindPrompt({
     onekeyUserId,
-    trigger,
   }: {
     onekeyUserId: string;
-    trigger: string;
   }): Promise<boolean> {
     if (!onekeyUserId) {
       return false;
     }
-    return this.localKeylessUpgradeBindPromptCheckMutex.runExclusive(
-      async () => {
-        const isThrottled =
-          await this.backgroundApi.simpleDb.prime.hasShownLocalKeylessUpgradeBindPrompt(
-            {
-              onekeyUserId,
-            },
-          );
-        if (isThrottled) {
-          return false;
-        }
-
-        let hasLocalKeylessWallet = false;
-        try {
-          const result =
-            await this.backgroundApi.serviceKeylessWallet.prepareOneKeyIdLoginWithLocalKeyless();
-          hasLocalKeylessWallet =
-            result.status !==
-            EOneKeyIdLoginWithLocalKeylessPrepareStatus.NoLocalKeyless;
-        } catch (error) {
-          console.error(
-            `ServicePrime.checkAndMarkShouldShowLocalKeylessUpgradeBindPrompt(${trigger}): local keyless prepare failed:`,
-            error,
-          );
-          // Transient failure: keep the throttle unset so the next check
-          // retries.
-          return false;
-        }
-
-        if (!hasLocalKeylessWallet) {
-          // Definitive "no prompt needed" outcome: consume the throttle
-          // window so the local keyless prepare does not rerun on every
-          // unlock.
-          await this.backgroundApi.simpleDb.prime.markLocalKeylessUpgradeBindPromptShown(
-            {
-              onekeyUserId,
-            },
-          );
-          return false;
-        }
-
-        let bindRequired = false;
-        try {
-          bindRequired = await this.isLegacyOneKeyIdOAuthBindRequired();
-        } catch (error) {
-          console.error(
-            `ServicePrime.checkAndMarkShouldShowLocalKeylessUpgradeBindPrompt(${trigger}): bind required check failed:`,
-            error,
-          );
-          // Transient failure (e.g. profile GET network error): keep the
-          // throttle unset so the next check retries.
-          return false;
-        }
-
-        // Persist the throttle for both outcomes: bindRequired=true is about
-        // to show the dialog, and bindRequired=false must not re-run the
-        // network profile GET on every unlock. The mark happens inside the
-        // mutex, before any concurrent caller can re-enter the throttle
-        // check above.
-        await this.backgroundApi.simpleDb.prime.markLocalKeylessUpgradeBindPromptShown(
+    return this.oneKeyIdOAuthBindPromptCheckMutex.runExclusive(async () => {
+      const hasShown =
+        await this.backgroundApi.simpleDb.prime.hasShownOneKeyIdOAuthBindPrompt(
           {
             onekeyUserId,
           },
         );
-        return bindRequired;
-      },
-    );
+      if (hasShown) {
+        return false;
+      }
+
+      let bindRequired = false;
+      try {
+        bindRequired = await this.isLegacyOneKeyIdOAuthBindRequired();
+      } catch (error) {
+        console.error(
+          'ServicePrime.checkAndMarkShouldShowOneKeyIdOAuthBindPrompt: bind required check failed:',
+          getSanitizedAuthErrorLog(error),
+        );
+        return false;
+      }
+
+      await this.backgroundApi.simpleDb.prime.markOneKeyIdOAuthBindPromptShown({
+        onekeyUserId,
+      });
+      return bindRequired;
+    });
   }
 
   @backgroundMethod()
   @toastIfError()
   async apiBindLegacyOneKeyIdOAuth({
     oauthAccessToken,
+    expectedOnekeyUserId,
   }: {
     oauthAccessToken: string;
+    // The onekeyUserId the bind UI displayed when the user consented,
+    // captured at button-press time — before the user-paced OAuth
+    // round-trip. Re-asserted below against the live login right before the
+    // irreversible bind POST.
+    expectedOnekeyUserId: string;
   }): Promise<IOneKeyIdOAuthBindResponse> {
     return this.loginMutex.runExclusive(async () => {
       if (!oauthAccessToken) {
@@ -1234,12 +2202,134 @@ class ServicePrime extends ServiceBase {
         );
       }
 
-      const legacyOneKeyIdAuthToken =
-        await this.backgroundApi.simpleDb.prime.getSupabaseAuthToken();
-      if (!legacyOneKeyIdAuthToken) {
-        throw new OneKeyLocalError(
-          'apiBindLegacyOneKeyIdOAuth ERROR: Legacy auth token not found',
-        );
+      // Legacy-side identity guard, mirroring the keyless-side slot guard
+      // below but for the account that permanently RECEIVES the identity.
+      // The bind is irreversible and one-time per identity, so a
+      // wrong-target bind can never be undone or repeated — and two
+      // documented behaviors can put another account's session in the
+      // legacy slot by the time we get here: the ext bind flow hands off to
+      // the expand tab (the popup can re-log the slot in as someone else
+      // meanwhile), and post-commit legacy cleanup failures are deliberately
+      // tolerated as "leftovers are re-cleaned later".
+      //
+      // The snapshot pins the consented account together with the exact
+      // legacy token bytes, the source (must still be LegacyEmailSupabase)
+      // and the auth-state generation; requestAuthToken is therefore the
+      // legacy realm's token, verified to be the bytes actually persisted in
+      // the slot.
+      const bindAuthSnapshot = await this.captureOneKeyIdAuthSnapshot({
+        expectedOneKeyUserId: expectedOnekeyUserId,
+        requireSource: EPrimeAuthSessionSource.LegacyEmailSupabase,
+        insideLoginMutex: true,
+        createStateChangedError: () =>
+          new OneKeyErrorOneKeyIdLegacyBindStateChanged({
+            message:
+              'apiBindLegacyOneKeyIdOAuth ERROR: OneKey ID login changed since the bind was confirmed',
+          }),
+      });
+      const legacyOneKeyIdAuthToken = bindAuthSnapshot.requestAuthToken;
+
+      const client = await this.getPrimeClient();
+
+      // Pin BOTH requests below to the exact captured legacy token via the
+      // explicit request-token header. This is what makes "the verified
+      // bytes, never a re-read" true: without an explicit header the
+      // getOneKeyIdClient request interceptor injects
+      // getActiveAuthToken() — a fresh slot read at request time — so a
+      // main-runtime slot swap landing after the probe would send account
+      // B's token in the POST header while the body still carried the
+      // verified account A token.
+      const pinnedLegacyTokenRequestConfig =
+        this.getOneKeyIdAuthSnapshotRequestConfig(bindAuthSnapshot);
+
+      // Authoritative receiving-account check on the EXACT token bytes the
+      // bind POST below carries. The snapshot above cannot vouch for those
+      // bytes on split-runtime targets: the main runtime persists legacy
+      // sessions (email OTP verifyOtp) straight into the shared slot without
+      // taking this bg loginMutex, and the bg atom/generation only catch up
+      // when that login's apiLogin commit acquires it — so the slot can
+      // already hold another account's session (which the snapshot then
+      // captures and self-consistently validates) while the atom still shows
+      // the consented one. Asking the server who owns the captured token
+      // closes that gap for any interleaving: a swap before the capture is
+      // detected here; a swap after it is harmless because both requests are
+      // pinned to the captured bytes.
+      //
+      // autoHandleError: false follows callApiFetchPrimeUserInfoWithRequestToken
+      // — including its second half: the interceptor's `code !== 0` branch is
+      // skipped by that flag (axiosInterceptor), so business errors resolve
+      // normally and MUST be reclassified here. getPrimeApiResponseData maps
+      // 90002/90003 back to OneKeyErrorPrimeLoginInvalidToken (and anything
+      // else to OneKeyServerApiError). Without it a rejected legacy token
+      // would surface as the state-changed error below — telling the user to
+      // retry something that can never succeed, skipping the invalid-token
+      // teardown, and (because that class is exempt from keyless cleanup)
+      // stranding this flow's provisional keyless session. The bind POST keeps
+      // the default handling, unchanged from before this guard.
+      const profileRequestConfig: Parameters<typeof client.get>[1] & {
+        autoHandleError?: boolean;
+      } = {
+        autoHandleError: false,
+        ...pinnedLegacyTokenRequestConfig,
+      };
+      const profileResult = await client.get<
+        IPrimeApiClientResponse<IOneKeyIdProfileResponse>
+      >('/prime/v1/account/profile', profileRequestConfig);
+      let tokenOwnerOnekeyUserId: string | undefined;
+      try {
+        tokenOwnerOnekeyUserId = this.getPrimeApiResponseData({
+          response: profileResult,
+          fallbackMessage:
+            'apiBindLegacyOneKeyIdOAuth ERROR: legacy token owner probe failed',
+        })?.onekeyAccount?.onekeyUserId;
+      } catch (error) {
+        // The same autoHandleError: false that lets us classify the response
+        // also bypasses the client's invalid-token interceptor, so a rejected
+        // legacy token would abort the bind while the stale source/atom/session
+        // stay logged in. Hand the CAPTURED token to the existing coordinator
+        // so it reconciles the exact session the probe just proved dead.
+        //
+        // Safe from inside this loginMutex section: the synchronous part only
+        // evaluates guards and STAGES the plan (neither takes loginMutex), and
+        // the identity exit itself runs detached, so it queues behind this
+        // section instead of deadlocking against it.
+        if (error instanceof OneKeyErrorPrimeLoginInvalidToken) {
+          const invalidTokenError = error as OneKeyError;
+          try {
+            await this.handlePrimeLoginInvalidToken({
+              requestAuthToken: legacyOneKeyIdAuthToken,
+              errorCode: Number(invalidTokenError.code) || undefined,
+              errorMessage: invalidTokenError.message,
+              requestUrl: '/prime/v1/account/profile',
+            });
+          } catch (reconciliationError) {
+            // Best-effort side effect: the coordinator throws when it cannot
+            // resolve the auth source, and letting that escape would replace
+            // the real cause (invalid token) with a confusing secondary
+            // error. The bind aborts either way; a later request hitting the
+            // same dead token reconciles again.
+            defaultLogger.prime.subscription.onekeyIdInvalidToken({
+              url: '/prime/v1/account/profile',
+              errorCode: Number(invalidTokenError.code) || -1,
+              errorMessage: `apiBindLegacyOneKeyIdOAuth: legacy token owner probe reconciliation failed: ${String(
+                reconciliationError,
+              )}`,
+            });
+          }
+        }
+        throw error;
+      }
+      if (!tokenOwnerOnekeyUserId) {
+        throw new OneKeyErrorOneKeyIdLegacyBindStateChanged({
+          message:
+            'apiBindLegacyOneKeyIdOAuth ERROR: Unable to resolve legacy token owner',
+        });
+      }
+      if (tokenOwnerOnekeyUserId !== expectedOnekeyUserId) {
+        throw new OneKeyErrorOneKeyIdLegacyBindStateChanged({
+          message:
+            'apiBindLegacyOneKeyIdOAuth ERROR: Legacy session account changed since the bind was confirmed',
+        });
       }
 
       // Same fail-fast (occupancy + identity) as apiOAuthLogin — and it
@@ -1249,23 +2339,45 @@ class ServicePrime extends ServiceBase {
       // overwrote meanwhile — would leave the account bound on the server
       // while the client rolls its login state back or presents the wrong
       // identity.
+      //
+      // Runs AFTER the probe on purpose: this guard's own contract accepts an
+      // uncovered guard->POST window, and the snapshot re-check below only
+      // re-validates the LEGACY side (a main-runtime keyless slot write does
+      // not move authStateGeneration). Placing it before the probe would
+      // stretch that window from one POST to a full GET + POST for no gain.
+      // It is all local reads, so the only cost of running it here is one
+      // wasted GET when the keyless slot is already unusable.
       const { verifiedTokenSub } =
         await this.assertKeylessSessionPersistedBeforeLogin({
           accessToken: oauthAccessToken,
           callerName: 'ServicePrime.apiBindLegacyOneKeyIdOAuth',
         });
 
-      const client = await this.getPrimeClient();
+      // Final local re-check across the profile round-trip: the snapshot's
+      // source/generation must still hold before the irreversible POST.
+      await this.assertOneKeyIdAuthSnapshot({
+        snapshot: bindAuthSnapshot,
+        createStateChangedError: () =>
+          new OneKeyErrorOneKeyIdLegacyBindStateChanged({
+            message:
+              'apiBindLegacyOneKeyIdOAuth ERROR: OneKey ID login changed during the bind',
+          }),
+      });
+
       let result: {
         data: IApiClientResponse<IOneKeyIdOAuthBindResponse>;
       };
       try {
         result = await client.post<
           IApiClientResponse<IOneKeyIdOAuthBindResponse>
-        >('/prime/v1/account/identities/oauth/bind', {
-          token: oauthAccessToken,
-          legacyOneKeyIdAuthToken,
-        });
+        >(
+          '/prime/v1/account/identities/oauth/bind',
+          {
+            token: oauthAccessToken,
+            legacyOneKeyIdAuthToken,
+          },
+          pinnedLegacyTokenRequestConfig,
+        );
       } catch (error) {
         if (this.isOneKeyIdOAuthIdentityAlreadyBoundError(error)) {
           throw this.buildOneKeyIdOAuthIdentityAlreadyBoundError(error);
@@ -1313,7 +2425,7 @@ class ServicePrime extends ServiceBase {
           )}`,
         });
       }
-      await this.cleanupLegacyKeylessSessionStorage({
+      await this.cleanupLegacyKeylessSessionStorageBestEffort({
         callerName: 'ServicePrime.apiBindLegacyOneKeyIdOAuth',
       });
 
@@ -1335,46 +2447,297 @@ class ServicePrime extends ServiceBase {
   }
 
   /**
-   * Single source of truth for the bg-side "log out of OneKey ID" local
-   * cleanup policy:
-   * - preserveLocalKeylessAuth: drop only the OneKey ID login state (cached
-   *   auth tokens + legacy email Supabase session) and keep the local Keyless
-   *   OAuth session usable;
-   * - otherwise: destroy every local auth session, including the legacy
-   *   Keyless OAuth token storage.
-   * Always resets the Prime persist atom to the not-logged-in state.
-   * Note: this only clears bg-runtime state and the shared native session
-   * storage; main-runtime Supabase clients keep their own in-memory session,
-   * so UI call sites must sign those out in the main runtime separately.
+   * Local commit primitive used only by ServiceIdentityExit while holding the
+   * identity lifecycle mutex. It compares the exact persisted session
+   * identity before deleting one slot; it never sweeps the other realm.
    */
-  @backgroundMethod()
-  async clearOneKeyIdAuthState({
-    preserveLocalKeylessAuth,
+  async commitIdentityExitLocalState({
+    expectedIdentityLifecycleRevision,
+    oneKeyId,
+    keylessSession,
+    keylessWalletSession,
+  }: {
+    expectedIdentityLifecycleRevision: number;
+    oneKeyId?: {
+      onekeyUserId: string;
+      source: EPrimeAuthSessionSource;
+      sessionCommitId: string;
+      sessionTokenSub?: string;
+    };
+    keylessSession?: {
+      sessionCommitId?: string;
+      sessionTokenSub?: string;
+      allowUnknownIdentity?: boolean;
+    };
+    keylessWalletSession?: {
+      walletId: string;
+      sessionCommitId?: string;
+    };
+  }): Promise<{ status: 'committed' | 'stateChanged'; revision?: number }> {
+    const sourceToClear =
+      oneKeyId?.source ?? EPrimeAuthSessionSource.KeylessOAuth;
+    const shouldClearAuthSession = Boolean(oneKeyId || keylessSession);
+    return runExclusiveOnAuthSessionSlot(sourceToClear, async () =>
+      this.authStateWriteMutex.runExclusive(async () => {
+        const revision =
+          await this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision();
+        const isInitialCommit = revision === expectedIdentityLifecycleRevision;
+        const isRecoveringCompletedCommit =
+          revision === expectedIdentityLifecycleRevision + 1;
+        if (!isInitialCommit && !isRecoveringCompletedCommit) {
+          return { status: 'stateChanged' as const };
+        }
+
+        const expectedSession =
+          sourceToClear === EPrimeAuthSessionSource.KeylessOAuth
+            ? (keylessSession ?? oneKeyId)
+            : oneKeyId;
+        let isSessionCommitCleared = true;
+        let isSessionSlotCleared = true;
+        if (shouldClearAuthSession) {
+          const [currentSessionCommitId, slot] = await Promise.all([
+            this.backgroundApi.simpleDb.prime.getAuthSessionCommitId(
+              sourceToClear,
+            ),
+            readPersistedAccessTokenBySessionSourceStrict(sourceToClear),
+          ]);
+          const isExpectedSessionCommit =
+            currentSessionCommitId === expectedSession?.sessionCommitId;
+          isSessionCommitCleared = currentSessionCommitId === undefined;
+          if (!isExpectedSessionCommit && !isSessionCommitCleared) {
+            return { status: 'stateChanged' as const };
+          }
+
+          let isExpectedSessionSlot =
+            Boolean(keylessSession?.allowUnknownIdentity) && isInitialCommit;
+          if (!isExpectedSessionSlot && expectedSession?.sessionTokenSub) {
+            if (slot.status === 'ok') {
+              const currentTokenSub =
+                (stringUtils.decodeJWT(slot.accessToken) as ISupabaseJWTPayload)
+                  ?.sub || '';
+              isExpectedSessionSlot =
+                currentTokenSub === expectedSession.sessionTokenSub;
+            }
+          } else if (!isExpectedSessionSlot) {
+            isExpectedSessionSlot = slot.status === 'empty';
+          }
+          isSessionSlotCleared = slot.status === 'empty';
+          if (!isExpectedSessionSlot && !isSessionSlotCleared) {
+            return { status: 'stateChanged' as const };
+          }
+        }
+
+        if (oneKeyId) {
+          const [currentSource, currentAuthState, currentUser] =
+            await Promise.all([
+              this.backgroundApi.simpleDb.prime.getAuthSessionSource(),
+              this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
+              primePersistAtom.get(),
+            ]);
+          const isExpectedOneKeyId =
+            currentSource === oneKeyId.source &&
+            currentUser.onekeyUserId === oneKeyId.onekeyUserId &&
+            currentUser.isLoggedIn &&
+            currentUser.isLoggedInOnServer;
+          const isOneKeyIdCleared =
+            currentSource === undefined &&
+            currentAuthState === 'loggedOut' &&
+            !currentUser.isLoggedIn &&
+            !currentUser.isLoggedInOnServer;
+          const isOneKeyIdMetadataClearedBeforeAtom =
+            currentSource === undefined &&
+            currentAuthState === 'loggedOut' &&
+            currentUser.onekeyUserId === oneKeyId.onekeyUserId &&
+            currentUser.isLoggedIn &&
+            currentUser.isLoggedInOnServer;
+          if (
+            !isExpectedOneKeyId &&
+            !isOneKeyIdCleared &&
+            !isOneKeyIdMetadataClearedBeforeAtom
+          ) {
+            return { status: 'stateChanged' as const };
+          }
+          if (isRecoveringCompletedCommit && !isOneKeyIdCleared) {
+            return { status: 'stateChanged' as const };
+          }
+        }
+
+        if (keylessWalletSession) {
+          const currentWalletSessionCommitId =
+            await this.backgroundApi.simpleDb.prime.getKeylessSessionCommitId({
+              walletId: keylessWalletSession.walletId,
+            });
+          if (
+            currentWalletSessionCommitId !==
+              keylessWalletSession.sessionCommitId &&
+            currentWalletSessionCommitId !== undefined
+          ) {
+            return { status: 'stateChanged' as const };
+          }
+          if (
+            isRecoveringCompletedCommit &&
+            currentWalletSessionCommitId !== undefined
+          ) {
+            return { status: 'stateChanged' as const };
+          }
+        }
+
+        if (
+          isRecoveringCompletedCommit &&
+          shouldClearAuthSession &&
+          (!isSessionCommitCleared || !isSessionSlotCleared)
+        ) {
+          return { status: 'stateChanged' as const };
+        }
+
+        if (shouldClearAuthSession && !isSessionSlotCleared) {
+          await removeAuthSessionStorageBySessionSource(sourceToClear);
+        }
+        if (oneKeyId) {
+          await this.backgroundApi.simpleDb.prime.clearAuthTokens();
+          await this.backgroundApi.simpleDb.prime.clearAuthSessionCommitIdIfMatches(
+            {
+              authSessionSource: oneKeyId.source,
+              expectedSessionCommitId: oneKeyId.sessionCommitId,
+            },
+          );
+          await this.setPrimePersistAtomNotLoggedIn();
+        } else if (keylessSession?.sessionCommitId) {
+          await this.backgroundApi.simpleDb.prime.clearAuthSessionCommitIdIfMatches(
+            {
+              authSessionSource: sourceToClear,
+              expectedSessionCommitId: keylessSession.sessionCommitId,
+            },
+          );
+        }
+
+        if (keylessWalletSession) {
+          await this.backgroundApi.simpleDb.prime.clearKeylessSessionCommitIdIfMatches(
+            {
+              walletId: keylessWalletSession.walletId,
+              expectedSessionCommitId: keylessWalletSession.sessionCommitId,
+            },
+          );
+        }
+
+        const nextRevision = isInitialCommit
+          ? await this.backgroundApi.simpleDb.prime.bumpIdentityLifecycleRevision()
+          : revision;
+        const currentUser = await primePersistAtom.get();
+        appEventBus.emit(EAppEventBusNames.IdentityLifecycleCommitted, {
+          revision: nextRevision,
+          oneKeyIdState:
+            currentUser.isLoggedIn && currentUser.isLoggedInOnServer
+              ? 'loggedIn'
+              : 'loggedOut',
+        });
+        if (
+          shouldClearAuthSession &&
+          sourceToClear === EPrimeAuthSessionSource.KeylessOAuth
+        ) {
+          appEventBus.emit(
+            EAppEventBusNames.KeylessAuthSessionCleared,
+            undefined,
+          );
+        }
+        return { status: 'committed' as const, revision: nextRevision };
+      }),
+    );
+  }
+
+  async clearAllIdentityAuthForExplicitOperation({
+    callerName: _callerName,
+    expectedIdentityLifecycleRevision,
+  }: {
+    callerName: 'accountDeletion' | 'appReset';
+    expectedIdentityLifecycleRevision: number;
+  }): Promise<{
+    status: 'committed' | 'stateChanged';
+    revision?: number;
+  }> {
+    const revisionBeforeCleanup =
+      await this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision();
+    if (
+      revisionBeforeCleanup !== expectedIdentityLifecycleRevision &&
+      revisionBeforeCleanup !== expectedIdentityLifecycleRevision + 1
+    ) {
+      return { status: 'stateChanged' };
+    }
+    if (
+      revisionBeforeCleanup === expectedIdentityLifecycleRevision + 1 &&
+      !(await this.backgroundApi.simpleDb.prime.isAllIdentityAuthMetadataCleared())
+    ) {
+      return { status: 'stateChanged' };
+    }
+    await clearAllSupabaseAuthSessions();
+    await this.backgroundApi.serviceKeylessWallet.cleanupLocalKeylessOAuthTokens();
+    const commit = await this.authStateWriteMutex.runExclusive(async () => {
+      const currentRevision =
+        await this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision();
+      if (currentRevision === expectedIdentityLifecycleRevision + 1) {
+        if (
+          !(await this.backgroundApi.simpleDb.prime.isAllIdentityAuthMetadataCleared())
+        ) {
+          return { status: 'stateChanged' as const };
+        }
+        await this.setPrimePersistAtomNotLoggedIn();
+        return {
+          status: 'committed' as const,
+          revision: currentRevision,
+        };
+      }
+      if (currentRevision !== expectedIdentityLifecycleRevision) {
+        return { status: 'stateChanged' as const };
+      }
+      const nextRevision =
+        await this.backgroundApi.simpleDb.prime.clearAllIdentityAuthMetadataAndBumpRevision();
+      await this.setPrimePersistAtomNotLoggedIn();
+      return { status: 'committed' as const, revision: nextRevision };
+    });
+    if (commit.status !== 'committed') {
+      return commit;
+    }
+    appEventBus.emit(EAppEventBusNames.KeylessAuthSessionCleared, undefined);
+    appEventBus.emit(EAppEventBusNames.IdentityLifecycleCommitted, {
+      revision: commit.revision,
+      oneKeyIdState: 'loggedOut',
+    });
+    return commit;
+  }
+
+  async logoutPrimeServerSessionBestEffort({
+    accessToken,
     callerName,
   }: {
-    preserveLocalKeylessAuth?: boolean;
+    accessToken: string;
     callerName: string;
-  }) {
-    // Decide + write under authStateWriteMutex: the persisted-source wipe
-    // and the atom reset must be atomic with respect to a concurrent login
-    // commit (see authStateWriteMutex), otherwise the interleaving could
-    // leave the atom logged-in with a wiped source (orphaned session) or
-    // logged-out right after a successful commit. The Supabase session
-    // clears below (auth.signOut, network-capable) intentionally stay
-    // OUTSIDE the lock: once the source is wiped and the atom is reset,
-    // the logout decision is committed, and the session-storage sweep is
-    // best-effort cleanup that must not extend the lock hold time.
-    await this.authStateWriteMutex.runExclusive(async () => {
-      await this.backgroundApi.simpleDb.prime.clearAuthTokens();
-      await this.setPrimePersistAtomNotLoggedIn();
-    });
-    if (preserveLocalKeylessAuth) {
-      await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
-    } else {
-      await this.cleanupLegacyKeylessSessionStorage({ callerName });
-      // clearLocalAuthSession repeats clearAuthTokens (idempotent) before
-      // sweeping every Supabase session storage key.
-      await this.backgroundApi.simpleDb.prime.clearLocalAuthSession();
+  }): Promise<void> {
+    if (!accessToken) {
+      return;
+    }
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Prime);
+      await withIdentityNetworkTimeout(
+        client.post(
+          '/prime/v1/user/logout',
+          {},
+          { headers: { 'X-Onekey-Request-Token': accessToken } },
+        ),
+      );
+    } catch (error) {
+      const safeError = error as {
+        message?: unknown;
+        code?: unknown;
+        status?: unknown;
+        requestId?: unknown;
+      };
+      defaultLogger.prime.subscription.onekeyIdLogout({
+        reason: `${callerName}: server logout failed message=${String(
+          safeError?.message || 'unknown',
+        )} code=${String(safeError?.code || '')} status=${String(
+          safeError?.status || '',
+        )} requestId=${String(safeError?.requestId || '')}`,
+      });
     }
   }
 
@@ -1390,234 +2753,14 @@ class ServicePrime extends ServiceBase {
    * refresh failures) skip the clear entirely: the session may still be
    * valid and must not be destroyed over a network blip.
    */
-  @backgroundMethod()
   async clearOneKeyIdAuthStateIfNoActiveToken({
     callerName,
   }: {
     callerName: string;
   }): Promise<{ cleared: boolean }> {
-    // Entry-time read OUTSIDE the lock: performs the possibly-slow Supabase
-    // session read (network-capable token refresh) before the lock is taken,
-    // keeping the in-lock re-read fast (cached session) — same pattern as
-    // handlePrimeLoginInvalidToken.
-    const entryRead = await readAuthTokenAllowingRetryableAuthError(() =>
-      this.backgroundApi.simpleDb.prime.getActiveAuthToken(),
+    return this.backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession(
+      { callerName },
     );
-    if (entryRead.retryableError || entryRead.token) {
-      return { cleared: false };
-    }
-    return this.authStateWriteMutex.runExclusive(async () => {
-      // In-lock re-check: a login commit may have finished between the
-      // entry-time read above and lock acquisition.
-      const read = await readAuthTokenAllowingRetryableAuthError(() =>
-        this.backgroundApi.simpleDb.prime.getActiveAuthToken(),
-      );
-      if (read.retryableError || read.token) {
-        defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
-          reason: `${callerName}: skip no-active-token clear, a token appeared or the refresh failed (in-lock recheck)`,
-        });
-        return { cleared: false };
-      }
-      await this.backgroundApi.simpleDb.prime.clearAuthTokens();
-      await this.setPrimePersistAtomNotLoggedIn();
-      return { cleared: true };
-    });
-  }
-
-  /**
-   * Generation-gated per-realm session-slot deletion, serialized on the
-   * bg-owned session slot queue (see runExclusiveOnAuthSessionSlot).
-   *
-   * Race-free structure:
-   * 1. Slot queue (outer): no two deletions of the same realm interleave.
-   * 2. authStateWriteMutex (inner): [generation validation + storage-key
-   *    removal] execute atomically w.r.t. login commits — both are local
-   *    writes, allowed under the lock policy. A commit that already
-   *    finished bumped the generation, so the validation skips; a commit
-   *    still waiting on the mutex re-reads its session slot AFTER this
-   *    removal and fails safe (rolls back + throws), so the worst racing
-   *    outcome is one visibly failed login retry — never a logged-in
-   *    atom/source pointing at an empty session slot.
-   * 3. Server-side revocation (network-capable) runs after the gated
-   *    removal, inside the slot queue but outside authStateWriteMutex,
-   *    using ONLY the in-lock token snapshot. Deliberately NOT auth-js
-   *    signOut: signOut RE-READS the shared slot and ends with
-   *    _removeSession(), so a fresh OAuth setSession landing between the
-   *    gated removal and the signOut (before its apiOAuthLogin commit
-   *    bumps the generation) would be revoked server-side and deleted
-   *    locally — the exact credential loss this method exists to prevent.
-   */
-  @backgroundMethod()
-  async clearAuthSessionIfGenerationStillMatches({
-    authSessionSource,
-    expectedAuthStateGeneration,
-    callerName,
-  }: {
-    authSessionSource: EPrimeAuthSessionSource;
-    expectedAuthStateGeneration: number;
-    callerName: string;
-  }): Promise<{ cleared: boolean; generationChanged?: boolean }> {
-    return runExclusiveOnAuthSessionSlot(authSessionSource, async () => {
-      const lockOutcome = await this.authStateWriteMutex.runExclusive(
-        async (): Promise<{
-          removed: boolean;
-          accessTokenToRevoke: string;
-        }> => {
-          const currentGeneration =
-            await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
-          if (currentGeneration !== expectedAuthStateGeneration) {
-            defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
-              reason: `${callerName}: skip session-slot clear, a login committed after the caller snapshot (generation ${expectedAuthStateGeneration} -> ${currentGeneration})`,
-            });
-            return { removed: false, accessTokenToRevoke: '' };
-          }
-          // Snapshot the slot's access token BEFORE removing it, so the
-          // post-lock server revocation targets exactly the session this
-          // gated deletion decided to destroy — never a later write.
-          const accessTokenToRevoke =
-            await readPersistedAccessTokenBySessionSource(authSessionSource);
-          await removeAuthSessionStorageBySessionSource(authSessionSource);
-          return { removed: true, accessTokenToRevoke };
-        },
-      );
-      if (!lockOutcome.removed) {
-        return { cleared: false, generationChanged: true };
-      }
-      await revokeAuthSessionTokenOnServerBestEffort({
-        authSessionSource,
-        accessToken: lockOutcome.accessTokenToRevoke,
-      });
-      return { cleared: true };
-    });
-  }
-
-  /**
-   * Guarded destructive clear for keyless-session teardown
-   * (ServiceKeylessWallet.clearKeylessAuthSessionAndLoginState): wipes the
-   * auth-state pair only when the CURRENT persisted source is still
-   * KeylessOAuth. The caller's session clear can involve a slow signOut, so
-   * deciding on a pre-clear source snapshot could race a login commit that
-   * lands in between and wipe the fresh login; the in-lock re-read under
-   * authStateWriteMutex closes that window.
-   *
-   * The source-only re-read cannot distinguish "the same KeylessOAuth login
-   * the caller decided to tear down" from "a FRESH KeylessOAuth login that
-   * committed while the caller's session clear awaited" — both read as
-   * KeylessOAuth. Callers therefore pass `expectedAuthStateGeneration`
-   * (snapshotted BEFORE their session clear): a fresh commit bumps the
-   * generation, and the in-lock comparison skips the wipe with
-   * `generationChanged: true` so the caller can also suppress its stale
-   * follow-up broadcasts (e.g. KeylessAuthSessionCleared).
-   */
-  @backgroundMethod()
-  async clearOneKeyIdAuthStateIfSourceStillKeylessOAuth({
-    callerName,
-    expectedAuthStateGeneration,
-  }: {
-    callerName: string;
-    expectedAuthStateGeneration?: number;
-  }): Promise<{ cleared: boolean; generationChanged?: boolean }> {
-    return this.authStateWriteMutex.runExclusive(async () => {
-      if (expectedAuthStateGeneration !== undefined) {
-        const currentGeneration =
-          await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
-        if (currentGeneration !== expectedAuthStateGeneration) {
-          defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
-            reason: `${callerName}: skip keyless-source clear, a login committed while the caller's session clear was in flight (generation ${expectedAuthStateGeneration} -> ${currentGeneration})`,
-          });
-          return { cleared: false, generationChanged: true };
-        }
-      }
-      const source =
-        await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
-      if (source !== EPrimeAuthSessionSource.KeylessOAuth) {
-        defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
-          reason: `${callerName}: skip keyless-source clear, current source is ${
-            source ?? 'undefined'
-          } (in-lock recheck)`,
-        });
-        return { cleared: false };
-      }
-      await this.backgroundApi.simpleDb.prime.clearAuthTokens();
-      await this.setPrimePersistAtomNotLoggedIn();
-      return { cleared: true };
-    });
-  }
-
-  @backgroundMethod()
-  async apiLogout({
-    preserveLocalKeylessAuth,
-  }: {
-    preserveLocalKeylessAuth?: boolean;
-  } = {}) {
-    const currentAtomValue = await primePersistAtom.get();
-    defaultLogger.prime.subscription.onekeyIdLogout({
-      reason: `ServicePrime.apiLogout: starting logout for user ${currentAtomValue.onekeyUserId}`,
-    });
-
-    const tokenRead = await readAuthTokenAllowingRetryableAuthError(() =>
-      preserveLocalKeylessAuth
-        ? this.backgroundApi.simpleDb.prime.getSupabaseAuthToken()
-        : this.backgroundApi.simpleDb.prime.getActiveAuthToken(),
-    );
-    if (tokenRead.retryableError) {
-      defaultLogger.prime.subscription.onekeyIdLogout({
-        reason: `ServicePrime.apiLogout: skip server logout because auth refresh failed: ${String(
-          tokenRead.retryableError,
-        )}`,
-      });
-    }
-    const authToken = tokenRead.token;
-    if (!authToken) {
-      defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
-        reason:
-          'ServicePrime.apiLogout: simpleDb.prime.getActiveAuthToken() is null',
-      });
-      await this.clearOneKeyIdAuthState({
-        preserveLocalKeylessAuth,
-        callerName: 'ServicePrime.apiLogout',
-      });
-      return;
-    }
-    const client = await this.getPrimeClient();
-    try {
-      await client.post(
-        '/prime/v1/user/logout',
-        {},
-        {
-          headers: {
-            'X-Onekey-Request-Token': authToken,
-          },
-        },
-      );
-      defaultLogger.prime.subscription.onekeyIdLogout({
-        reason: 'ServicePrime.apiLogout: server logout success',
-      });
-    } catch (e) {
-      console.error(e);
-      defaultLogger.prime.subscription.onekeyIdLogout({
-        reason: `ServicePrime.apiLogout: server logout failed: ${String(e)}`,
-      });
-      const error = e as OneKeyError | undefined;
-      if (error && error?.key === 'id.login_expired_description') {
-        error.autoToast = false;
-      }
-      throw e;
-    } finally {
-      // Server logout is best-effort; local state must always clear so
-      // the UI cannot keep rendering the previously-logged-in account.
-      defaultLogger.prime.subscription.onekeyIdLogout({
-        reason: 'ServicePrime.apiLogout: clearing local token and atom',
-      });
-      await this.clearOneKeyIdAuthState({
-        preserveLocalKeylessAuth,
-        callerName: 'ServicePrime.apiLogout',
-      });
-      const clearedAtomValue = await primePersistAtom.get();
-      defaultLogger.prime.subscription.onekeyIdLogout({
-        reason: `ServicePrime.apiLogout: atom cleared, isLoggedIn=${clearedAtomValue.isLoggedIn}, onekeyUserId=${clearedAtomValue.onekeyUserId}`,
-      });
-    }
   }
 
   @backgroundMethod()
@@ -1660,13 +2803,13 @@ class ServicePrime extends ServiceBase {
       // isPrimeDeviceLimitExceeded, as the login endpoint may return stale
       // device limit data after removal.
       try {
-        const serverUserInfo = await this.callApiFetchPrimeUserInfo();
-        if (serverUserInfo) {
-          await this.updatePrimeAtomByServerUserInfo({ serverUserInfo });
-        }
+        await this.apiFetchPrimeUserInfo();
       } catch (e) {
         // Log but don't fail — apiLogin already updated the atom with best-effort data
-        console.error(e);
+        console.error(
+          'ServicePrime.apiLogoutPrimeUserDevice refresh failed:',
+          getSanitizedAuthErrorLog(e),
+        );
       }
     }
   }
@@ -1692,7 +2835,6 @@ class ServicePrime extends ServiceBase {
 
   @backgroundMethod()
   async callApiFetchPrimeUserInfo(): Promise<IPrimeServerUserInfoWithProfile> {
-    const client = await this.getPrimeClient();
     // Snapshot the token AND pin it as the explicit request header (the
     // ServiceBase interceptor respects a pre-set header). Without pinning,
     // the interceptor would re-read the active token at send time, so a
@@ -1706,6 +2848,17 @@ class ServicePrime extends ServiceBase {
     // evaluateInvalidTokenClearGuards.
     const requestAuthToken =
       await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
+    return this.callApiFetchPrimeUserInfoWithRequestToken({
+      requestAuthToken,
+    });
+  }
+
+  private async callApiFetchPrimeUserInfoWithRequestToken({
+    requestAuthToken,
+  }: {
+    requestAuthToken: string;
+  }): Promise<IPrimeServerUserInfoWithProfile> {
+    const client = await this.getPrimeClient();
     const requestConfig: Parameters<typeof client.get>[1] & {
       autoHandleError?: boolean;
     } = {
@@ -1799,6 +2952,20 @@ class ServicePrime extends ServiceBase {
     return result?.data?.data;
   }
 
+  private buildPrimeSubscriptionInfo(
+    serverUserInfo: IPrimeServerUserInfo,
+  ): IPrimeSubscriptionInfo | undefined {
+    if (!serverUserInfo.isPrime) {
+      return undefined;
+    }
+    return {
+      isActive: true,
+      expiresAt: serverUserInfo.primeExpiredAt,
+      willRenew: serverUserInfo.willRenew,
+      subscriptions: serverUserInfo.subscriptions,
+    };
+  }
+
   async updatePrimeAtomByServerUserInfo({
     serverUserInfo,
   }: {
@@ -1812,17 +2979,7 @@ class ServicePrime extends ServiceBase {
       reason: `updatePrimeAtomByServerUserInfo: before update, atom isPrime=${beforeValue.primeSubscription?.isActive}, atom userId=${beforeValue.onekeyUserId}, server isPrime=${serverUserInfo?.isPrime}, server userId=${serverUserId}`,
     });
 
-    let primeSubscription: IPrimeSubscriptionInfo | undefined;
-    if (serverUserInfo.isPrime) {
-      primeSubscription = {
-        isActive: true,
-        expiresAt: serverUserInfo.primeExpiredAt,
-        willRenew: serverUserInfo.willRenew,
-        subscriptions: serverUserInfo.subscriptions,
-      };
-    } else {
-      primeSubscription = undefined;
-    }
+    const primeSubscription = this.buildPrimeSubscriptionInfo(serverUserInfo);
 
     const serverManagementUrl =
       serverUserInfo.subscriptions?.[0]?.managementUrl;
@@ -2031,11 +3188,18 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
-  async apiFetchPrimeUserInfo(): Promise<{
+  async apiFetchPrimeUserInfo({
+    forceRefresh = false,
+  }: {
+    forceRefresh?: boolean;
+  } = {}): Promise<{
     userInfo: IPrimeUserInfo;
     serverUserInfo: IPrimeServerUserInfo | undefined;
     primeSubscription: IPrimeSubscriptionInfo | undefined;
   }> {
+    if (forceRefresh) {
+      this.clearPrimeUserInfoCache();
+    }
     // Deduped: concurrent calls share a single in-flight request, and calls
     // arriving within a short TTL reuse the previous result. See
     // _fetchPrimeUserInfoWithCache for the TTL and invalidation contract.
@@ -2047,7 +3211,6 @@ class ServicePrime extends ServiceBase {
     serverUserInfo: IPrimeServerUserInfo | undefined;
     primeSubscription: IPrimeSubscriptionInfo | undefined;
   }> {
-    console.log('call servicePrime.apiFetchPrimeUserInfo');
     await this.loginMutex.waitForUnlock();
     // Snapshot the RESOLVED source (not the raw persisted one): the
     // getActiveAuthToken() call below runs the self-healing resolver, which
@@ -2058,7 +3221,16 @@ class ServicePrime extends ServiceBase {
     // raw after-snapshot stays comparable.
     const authSessionSourceBeforeFetch =
       await this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource();
-    const localUserInfoBeforeFetch = await primePersistAtom.get();
+    const [localUserInfoBeforeFetch, identityLifecycleRevisionBeforeFetch] =
+      await Promise.all([
+        primePersistAtom.get(),
+        this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision(),
+      ]);
+    const sessionCommitIdBeforeFetch = authSessionSourceBeforeFetch
+      ? await this.backgroundApi.simpleDb.prime.getAuthSessionCommitId(
+          authSessionSourceBeforeFetch,
+        )
+      : undefined;
     const authToken =
       await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
     if (!authToken) {
@@ -2066,7 +3238,9 @@ class ServicePrime extends ServiceBase {
         reason:
           'ServicePrime.apiFetchPrimeUserInfo: simpleDb.prime.getActiveAuthToken() is null',
       });
-      await this.setPrimePersistAtomNotLoggedIn();
+      await this.clearOneKeyIdAuthStateIfNoActiveToken({
+        callerName: 'ServicePrime.apiFetchPrimeUserInfo.beforeRequest',
+      });
       const localUserInfo = await primePersistAtom.get();
 
       defaultLogger.prime.subscription.onekeyIdInvalidToken({
@@ -2102,7 +3276,9 @@ class ServicePrime extends ServiceBase {
         reason:
           'ServicePrime.apiFetchPrimeUserInfo: auth token cleared during request, discarding response',
       });
-      await this.setPrimePersistAtomNotLoggedIn();
+      await this.clearOneKeyIdAuthStateIfNoActiveToken({
+        callerName: 'ServicePrime.apiFetchPrimeUserInfo.afterRequest',
+      });
       const localUserInfo = await primePersistAtom.get();
       return {
         userInfo: localUserInfo,
@@ -2126,6 +3302,80 @@ class ServicePrime extends ServiceBase {
       };
     }
 
+    const responseOneKeyUserId =
+      serverUserInfo.userId ??
+      (serverUserInfo as Partial<IOneKeyIdProfileResponse>).onekeyAccount
+        ?.onekeyUserId;
+    const commitResult = await this.loginMutex.runExclusive(async () => {
+      const [
+        currentLifecycleRevision,
+        currentAuthSessionSource,
+        currentSessionCommitId,
+        currentOneKeyIdAuthState,
+        currentUserInfo,
+        currentAuthToken,
+      ] = await Promise.all([
+        this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision(),
+        this.backgroundApi.simpleDb.prime.getAuthSessionSource(),
+        authSessionSourceBeforeFetch
+          ? this.backgroundApi.simpleDb.prime.getAuthSessionCommitId(
+              authSessionSourceBeforeFetch,
+            )
+          : Promise.resolve(undefined),
+        this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
+        primePersistAtom.get(),
+        this.backgroundApi.simpleDb.prime.getActiveAuthToken(),
+      ]);
+      const isSameSession = Boolean(
+        currentAuthToken &&
+        currentOneKeyIdAuthState !== 'loggedOut' &&
+        currentUserInfo.isLoggedIn &&
+        currentUserInfo.isLoggedInOnServer &&
+        currentLifecycleRevision === identityLifecycleRevisionBeforeFetch &&
+        currentAuthSessionSource === authSessionSourceBeforeFetch &&
+        currentSessionCommitId === sessionCommitIdBeforeFetch &&
+        currentUserInfo.onekeyUserId ===
+          localUserInfoBeforeFetch.onekeyUserId &&
+        (!responseOneKeyUserId ||
+          responseOneKeyUserId === localUserInfoBeforeFetch.onekeyUserId),
+      );
+      if (!isSameSession) {
+        return {
+          committed: false as const,
+          userInfo: currentUserInfo,
+        };
+      }
+
+      const { primeSubscription } = await this.updatePrimeAtomByServerUserInfo({
+        serverUserInfo,
+      });
+      const serverPasswordUUID = serverUserInfo?.pwdHash;
+      const isServerMasterPasswordSet = Boolean(
+        serverPasswordUUID &&
+        serverPasswordUUID !== RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID,
+      );
+      await primeServerMasterPasswordStatusAtom.set((v) => ({
+        ...v,
+        isServerMasterPasswordSet,
+      }));
+      return {
+        committed: true as const,
+        userInfo: await primePersistAtom.get(),
+        primeSubscription,
+      };
+    });
+    if (!commitResult.committed) {
+      defaultLogger.prime.subscription.onekeyIdLogout({
+        reason:
+          'ServicePrime.apiFetchPrimeUserInfo: identity lifecycle changed before response commit, discarding response',
+      });
+      return {
+        userInfo: commitResult.userInfo,
+        serverUserInfo: undefined,
+        primeSubscription: commitResult.userInfo.primeSubscription,
+      };
+    }
+
     void this.backgroundApi.servicePrimeCloudSync.showAlertDialogIfServerPasswordNotSet(
       {
         serverUserInfo,
@@ -2137,30 +3387,13 @@ class ServicePrime extends ServiceBase {
       },
     );
 
-    const { primeSubscription } = await this.updatePrimeAtomByServerUserInfo({
-      serverUserInfo,
-    });
-
-    const localUserInfo = await primePersistAtom.get();
-
-    const serverPasswordUUID = serverUserInfo?.pwdHash;
-    const isServerMasterPasswordSet = Boolean(
-      serverPasswordUUID &&
-      serverPasswordUUID !== RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID,
-    );
-    await primeServerMasterPasswordStatusAtom.set((v) => ({
-      ...v,
-      isServerMasterPasswordSet,
-    }));
-
     return {
-      userInfo: localUserInfo,
+      userInfo: commitResult.userInfo,
       serverUserInfo,
-      primeSubscription,
+      primeSubscription: commitResult.primeSubscription,
     };
   }
 
-  @backgroundMethod()
   async setPrimePersistAtomNotLoggedIn() {
     // Invalidation site (logged-out transitions, choke point): this method is
     // the shared final step of apiLogout -> clearOneKeyIdAuthState,
@@ -2296,7 +3529,10 @@ class ServicePrime extends ServiceBase {
       );
       return result?.data?.data;
     } catch (error) {
-      console.error(error);
+      console.error(
+        'ServicePrime.apiSendPrimeEmailVerificationCode failed:',
+        getSanitizedAuthErrorLog(error),
+      );
     }
 
     return { success: true };
@@ -2326,7 +3562,10 @@ class ServicePrime extends ServiceBase {
       });
       return result?.data?.data;
     } catch (error) {
-      console.error(error);
+      console.error(
+        'ServicePrime.apiPrimeLogin failed:',
+        getSanitizedAuthErrorLog(error),
+      );
     }
     return { success: false };
   }
@@ -2653,6 +3892,396 @@ class ServicePrime extends ServiceBase {
       '/prime/v1/user/shopify-orders',
     );
     return result?.data?.data ?? [];
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async apiGetInfiniCheckoutUrl({
+    plan,
+    expectedOneKeyUserId,
+  }: {
+    plan: IPrimeInfiniSubscriptionPlan;
+    expectedOneKeyUserId: string;
+  }): Promise<{ checkoutUrl: string }> {
+    const authSnapshot =
+      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+    const client = await this.getPrimeClient();
+    // The checkout API's wire enum uses 'annual' for the yearly plan, while
+    // the app models it as 'yearly' everywhere else (IPrimeInfiniSubscriptionPlan);
+    // convert only at this boundary, mirroring normalizeInfiniSubscriptionPlan
+    // which maps 'annual' back to 'yearly' on the read path.
+    const planParam = getInfiniPlanParam(plan);
+    // The authenticated OneKey API owns the checkout destination and may move
+    // it without a client release. Keep only generic external-URL validation
+    // here; checkout-origin policy and authorization belong on the server.
+    const result = await client.post<
+      IApiClientResponse<{ checkoutUrl?: unknown }>
+    >(
+      '/prime/v1/infini/checkout',
+      {
+        plan: planParam,
+      },
+      this.getInfiniPurchaseRequestConfig(authSnapshot),
+    );
+    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+    return {
+      checkoutUrl: validateInfiniCheckoutUrl(result?.data?.data?.checkoutUrl),
+    };
+  }
+
+  @backgroundMethod()
+  async apiGetInfiniPaymentOptions(): Promise<IPrimeInfiniPaymentOption[]> {
+    const client = await this.getPrimeClient();
+    const result = await client.get<IApiClientResponse<{ chains?: unknown }>>(
+      '/prime/v1/infini/payment/options',
+    );
+    const chains = result?.data?.data?.chains;
+    if (!Array.isArray(chains)) {
+      return [];
+    }
+    return chains.flatMap((value): IPrimeInfiniPaymentOption[] => {
+      if (!value || typeof value !== 'object') {
+        return [];
+      }
+      const option = value as Record<string, unknown>;
+      if (
+        !isString(option.chain) ||
+        !option.chain.trim() ||
+        !isString(option.networkId) ||
+        !option.networkId.trim() ||
+        !Array.isArray(option.tokens)
+      ) {
+        return [];
+      }
+      const tokens = option.tokens.flatMap((tokenValue) => {
+        if (!tokenValue || typeof tokenValue !== 'object') {
+          return [];
+        }
+        const token = tokenValue as Record<string, unknown>;
+        if (
+          !isString(token.symbol) ||
+          !token.symbol.trim() ||
+          !isString(token.contract) ||
+          !token.contract.trim()
+        ) {
+          return [];
+        }
+        return [
+          {
+            symbol: token.symbol.trim().toUpperCase(),
+            contract: token.contract.trim(),
+          },
+        ];
+      });
+      if (!tokens.length) {
+        return [];
+      }
+      return [
+        {
+          chain: option.chain.trim().toUpperCase(),
+          networkId: option.networkId.trim(),
+          tokens,
+        },
+      ];
+    });
+  }
+
+  @backgroundMethod()
+  async apiCreateInfiniPayment({
+    plan,
+    chain,
+    token,
+    expectedOneKeyUserId,
+  }: IPrimeInfiniPaymentCreateParams): Promise<IPrimeInfiniPayment> {
+    const authSnapshot =
+      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+    const client = await this.getPrimeClient();
+    const result = await client.post<
+      IApiClientResponse<IPrimeInfiniPaymentApiResponse>
+    >(
+      '/prime/v1/infini/payment',
+      {
+        plan: getInfiniPlanParam(plan),
+        chain,
+        token,
+      },
+      this.getInfiniPurchaseRequestConfig(authSnapshot),
+    );
+    let payment = result?.data?.data;
+    if (
+      payment &&
+      isString(payment.paymentId) &&
+      payment.paymentId &&
+      (!isString(payment.address) || !payment.address)
+    ) {
+      const paymentId = payment.paymentId;
+      const queryResult = await client.get<
+        IApiClientResponse<IPrimeInfiniPaymentApiResponse>
+      >('/prime/v1/infini/payment', {
+        params: {
+          paymentId,
+        },
+        ...this.getInfiniPurchaseRequestConfig(authSnapshot),
+      });
+      payment = queryResult?.data?.data;
+      const validatedPayment = validateInfiniPaymentResponse(
+        payment,
+        paymentId,
+      );
+      await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+      return validatedPayment;
+    }
+    const validatedPayment = validateInfiniPaymentResponse(payment);
+    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+    return validatedPayment;
+  }
+
+  @backgroundMethod()
+  async apiGetInfiniPayment({
+    paymentId,
+    expectedOneKeyUserId,
+  }: {
+    paymentId: string;
+    expectedOneKeyUserId: string;
+  }): Promise<IPrimeInfiniPayment> {
+    const authSnapshot =
+      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+    const client = await this.getPrimeClient();
+    const result = await client.get<
+      IApiClientResponse<IPrimeInfiniPaymentApiResponse>
+    >('/prime/v1/infini/payment', {
+      params: {
+        paymentId,
+      },
+      ...this.getInfiniPurchaseRequestConfig(authSnapshot),
+    });
+    const payment = validateInfiniPaymentResponse(
+      result?.data?.data,
+      paymentId,
+    );
+    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+    return payment;
+  }
+
+  @backgroundMethod()
+  async apiGetInfiniPaymentPreBroadcastSnapshot({
+    paymentId,
+    expectedOneKeyUserId,
+  }: {
+    paymentId: string;
+    expectedOneKeyUserId: string;
+  }): Promise<IPrimeInfiniPaymentPreBroadcastSnapshot> {
+    const authSnapshot =
+      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+    const client = await this.getPrimeClient();
+    const [paymentResult, serverUserInfo, infiniResult] = await Promise.all([
+      client.get<IApiClientResponse<IPrimeInfiniPaymentApiResponse>>(
+        '/prime/v1/infini/payment',
+        {
+          params: {
+            paymentId,
+          },
+          ...this.getInfiniPurchaseRequestConfig(authSnapshot),
+        },
+      ),
+      this.callApiFetchPrimeUserInfoWithRequestToken({
+        requestAuthToken: authSnapshot.requestAuthToken,
+      }),
+      client.get<IApiClientResponse<IPrimeInfiniSubscription | undefined>>(
+        '/prime/v1/infini/subscription',
+        this.getInfiniPurchaseRequestConfig(authSnapshot),
+      ),
+    ]);
+    if (serverUserInfo.userId !== expectedOneKeyUserId) {
+      throw this.createInfiniPurchaseUserChangedError();
+    }
+    const payment = validateInfiniPaymentResponse(
+      paymentResult?.data?.data,
+      paymentId,
+    );
+    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+    return {
+      payment,
+      purchaseStatusSnapshot: {
+        onekeyUserId: expectedOneKeyUserId,
+        primeSubscription: this.buildPrimeSubscriptionInfo(serverUserInfo),
+        infiniSubscription: normalizeInfiniSubscriptionResponse(
+          infiniResult?.data?.data,
+        ),
+      },
+    };
+  }
+
+  @backgroundMethod()
+  async apiGetInfiniPurchaseStatusSnapshot({
+    expectedOneKeyUserId,
+  }: {
+    expectedOneKeyUserId: string;
+  }): Promise<IPrimeInfiniPurchaseStatusSnapshot> {
+    const authSnapshot =
+      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+    const client = await this.getPrimeClient();
+    const [serverUserInfo, infiniResult] = await Promise.all([
+      this.callApiFetchPrimeUserInfoWithRequestToken({
+        requestAuthToken: authSnapshot.requestAuthToken,
+      }),
+      client.get<IApiClientResponse<IPrimeInfiniSubscription | undefined>>(
+        '/prime/v1/infini/subscription',
+        this.getInfiniPurchaseRequestConfig(authSnapshot),
+      ),
+    ]);
+    if (serverUserInfo.userId !== expectedOneKeyUserId) {
+      throw this.createInfiniPurchaseUserChangedError();
+    }
+    const infiniSubscription = normalizeInfiniSubscriptionResponse(
+      infiniResult?.data?.data,
+    );
+    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+    return {
+      onekeyUserId: expectedOneKeyUserId,
+      primeSubscription: this.buildPrimeSubscriptionInfo(serverUserInfo),
+      infiniSubscription,
+    };
+  }
+
+  @backgroundMethod()
+  async apiGetInfiniSubscription({
+    expectedOneKeyUserId,
+  }: {
+    expectedOneKeyUserId: string;
+  }): Promise<IPrimeInfiniSubscription | undefined> {
+    const authSnapshot =
+      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+    const client = await this.getPrimeClient();
+    // NOTE: response schema pending backend confirmation (see IPrimeInfiniSubscription)
+    const result = await client.get<
+      IApiClientResponse<IPrimeInfiniSubscription | undefined>
+    >(
+      '/prime/v1/infini/subscription',
+      this.getInfiniPurchaseRequestConfig(authSnapshot),
+    );
+    const subscription = normalizeInfiniSubscriptionResponse(
+      result?.data?.data,
+    );
+    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+    return subscription;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async apiCancelInfiniSubscription({
+    note,
+    expectedOneKeyUserId,
+  }: {
+    note?: string;
+    expectedOneKeyUserId: string;
+  }): Promise<void> {
+    const createUserChangedError = () =>
+      new OneKeyLocalError({
+        message: 'Prime subscription user changed',
+        autoToast: false,
+      });
+    const initialUserInfo = await primePersistAtom.get();
+    if (
+      !expectedOneKeyUserId ||
+      !initialUserInfo.isLoggedIn ||
+      initialUserInfo.onekeyUserId !== expectedOneKeyUserId
+    ) {
+      throw createUserChangedError();
+    }
+
+    await this.loginMutex.waitForUnlock();
+    const requestAuthToken =
+      await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
+    if (!requestAuthToken) {
+      throw createUserChangedError();
+    }
+
+    const sessionSnapshot = await this.authStateWriteMutex.runExclusive(
+      async () => {
+        const currentUserInfo = await primePersistAtom.get();
+        const authSessionSource =
+          await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+        const authStateGeneration =
+          await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
+        if (
+          !currentUserInfo.isLoggedIn ||
+          currentUserInfo.onekeyUserId !== expectedOneKeyUserId ||
+          !authSessionSource
+        ) {
+          throw createUserChangedError();
+        }
+        // Bind the SDK token read to the persisted slot while auth commits
+        // are excluded, covering an A -> B -> A switch between the reads.
+        const persistedSession =
+          await readPersistedAccessTokenBySessionSourceStrict(
+            authSessionSource,
+          );
+        if (
+          persistedSession.status !== 'ok' ||
+          persistedSession.accessToken !== requestAuthToken
+        ) {
+          throw createUserChangedError();
+        }
+        return { authSessionSource, authStateGeneration };
+      },
+    );
+
+    const client = await this.getPrimeClient();
+    // note is an optional cancel reason, max 200 chars enforced by the server
+    await client.post(
+      '/prime/v1/infini/subscription/cancel',
+      { note },
+      {
+        // Pin the request to the session validated above. The interceptor
+        // must not substitute a different user's token during an account switch.
+        headers: {
+          'X-Onekey-Request-Token': requestAuthToken,
+        },
+      },
+    );
+
+    await this.authStateWriteMutex.runExclusive(async () => {
+      const currentUserInfo = await primePersistAtom.get();
+      const authSessionSource =
+        await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+      const authStateGeneration =
+        await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
+      if (
+        !currentUserInfo.isLoggedIn ||
+        currentUserInfo.onekeyUserId !== expectedOneKeyUserId ||
+        authSessionSource !== sessionSnapshot.authSessionSource ||
+        authStateGeneration !== sessionSnapshot.authStateGeneration
+      ) {
+        throw createUserChangedError();
+      }
+    });
+  }
+
+  @backgroundMethodForDev()
+  @toastIfError()
+  async apiResetInfiniSubscription(): Promise<void> {
+    const client = await this.getPrimeClient();
+    await client.post('/prime/v1/infini/test/reset');
+  }
+
+  @backgroundMethod()
+  async apiSyncInfiniWebhook({
+    expectedOneKeyUserId,
+  }: {
+    expectedOneKeyUserId: string;
+  }): Promise<void> {
+    const authSnapshot =
+      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+    const client = await this.getPrimeClient();
+    // Ask the server to proactively sync the latest Infini payment state,
+    // used as a nudge right after the user returns from the checkout page
+    await client.post(
+      '/prime/v1/infini/webhook/sync',
+      undefined,
+      this.getInfiniPurchaseRequestConfig(authSnapshot),
+    );
+    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
   }
 
   @backgroundMethod()

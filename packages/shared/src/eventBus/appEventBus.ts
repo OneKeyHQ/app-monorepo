@@ -466,6 +466,10 @@ export interface IAppEventBusPayload {
     authSessionSource: EPrimeAuthSessionSource;
     callerName: string;
   };
+  [EAppEventBusNames.IdentityLifecycleCommitted]: {
+    revision: number;
+    oneKeyIdState: 'loggedIn' | 'loggedOut';
+  };
   [EAppEventBusNames.PrimeSubscriptionPurchaseSuccess]: {
     // UI-local event: use emitToSelf so multiple Extension surfaces cannot race
     // to show the same post-purchase dialog.
@@ -475,7 +479,10 @@ export interface IAppEventBusPayload {
     claimId?: string;
   };
   [EAppEventBusNames.PrimeExceedDeviceLimit]: undefined;
-  [EAppEventBusNames.PrimeDeviceLogout]: undefined;
+  [EAppEventBusNames.PrimeDeviceLogout]: {
+    operationId: string;
+    messageId: string;
+  };
   [EAppEventBusNames.PrimeMasterPasswordInvalid]: undefined;
   [EAppEventBusNames.PrimeTransferDataReceived]: {
     data: IPrimeTransferData;
@@ -544,6 +551,10 @@ export interface IAppEventBusPayload {
     data: unknown;
   };
   [EAppEventBusNames.PerpsWebSocketRecovered]: undefined;
+  [EAppEventBusNames.PerpsTvPriceScaleRefreshed]: {
+    symbol: string;
+    priceScale: number;
+  };
   [EAppEventBusNames.PerpSwitchActiveInstrument]: {
     mode: 'perp' | 'spot';
     coin: string;

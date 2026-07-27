@@ -187,8 +187,9 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         />
       );
     }
-    // Native mobile: use FlatList + TokenListItem to match watchlist layout
-    if (platformEnv.isNative && !gtMd) {
+    // Narrow layouts use the compact list to avoid the desktop table's
+    // intrinsic width overflowing the viewport.
+    if (!gtMd) {
       return (
         <BannerDetailTokenFlatList
           data={mobileData}

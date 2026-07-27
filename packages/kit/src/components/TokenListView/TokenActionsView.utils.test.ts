@@ -3,7 +3,9 @@ import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import {
   buildTokenActionSwapFromToken,
+  findTokenActionAggregateKey,
   getResolvedTokenActionToken,
+  getTokenActionSameNetworkSwapToToken,
   getTokenActionSwapToToken,
   isResolvedTokenActionReady,
 } from './TokenActionsView.utils';
@@ -203,7 +205,7 @@ describe('getTokenActionSwapToToken', () => {
     },
   );
 
-  it('does not force an ordinary supported token into a bridge pair', () => {
+  it('uses the same-network default pair for an ordinary supported token', () => {
     expect(
       getTokenActionSwapToToken({
         fromToken: buildSwapToken({
@@ -217,7 +219,49 @@ describe('getTokenActionSwapToToken', () => {
           isSupportSwap: true,
         },
       }),
-    ).toBeUndefined();
+    ).toEqual(expect.objectContaining({ networkId: 'evm--1', symbol: 'USDC' }));
+  });
+
+  it('selects the native default when Home opens Swap from the default target', () => {
+    expect(
+      getTokenActionSameNetworkSwapToToken({
+        fromToken: buildSwapToken({
+          contractAddress: '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d',
+          decimals: 18,
+          isNative: false,
+          name: 'USD Coin',
+          networkId: 'evm--56',
+          symbol: 'USDC',
+        }),
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        isNative: true,
+        networkId: 'evm--56',
+        symbol: 'BNB',
+      }),
+    );
+  });
+
+  it('selects the native default for another non-native same-network token', () => {
+    expect(
+      getTokenActionSameNetworkSwapToToken({
+        fromToken: buildSwapToken({
+          contractAddress: '0x55d398326f99059ff775485246999027b3197955',
+          decimals: 18,
+          isNative: false,
+          name: 'Tether',
+          networkId: 'evm--56',
+          symbol: 'USDT',
+        }),
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        isNative: true,
+        networkId: 'evm--56',
+        symbol: 'BNB',
+      }),
+    );
   });
 
   it('uses the bridge default for a cross-chain-only ordinary token', () => {
@@ -235,5 +279,33 @@ describe('getTokenActionSwapToToken', () => {
         },
       }),
     ).toEqual(expect.objectContaining({ networkId: 'evm--1', symbol: 'ETH' }));
+  });
+});
+
+describe('findTokenActionAggregateKey', () => {
+  it('finds the network-scoped member behind an aggregate Home token', () => {
+    expect(
+      findTokenActionAggregateKey({
+        ownedAggregateTokenListMap: {
+          aggregate_USDC_: {
+            tokens: [
+              buildAccountToken({
+                $key: 'bsc-usdc',
+                address: '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d',
+                isNative: false,
+                networkId: 'evm--56',
+                symbol: 'USDC',
+              }),
+            ],
+          },
+        },
+        targetToken: buildSwapToken({
+          contractAddress: '0x8AC76A51CC950D9822D68B83FE1AD97B32CD580D',
+          isNative: false,
+          networkId: 'evm--56',
+          symbol: 'USDC',
+        }),
+      }),
+    ).toBe('aggregate_USDC_');
   });
 });

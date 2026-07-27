@@ -175,11 +175,13 @@ const NS = {
   historyTxDetail: 'historyTxDetail',
   marketHomeTokenList: 'marketHomeTokenList',
   tokenSelectorView: 'tokenSelectorView',
+  specifiedTokenSelectorView: 'specifiedTokenSelectorView',
   swapHistoryPreviewList: 'swapHistoryPreviewList',
   swapStockChart: 'swapStockChart',
   swapStockTokenDetail: 'swapStockTokenDetail',
   swapStockSpeedConfig: 'swapStockSpeedConfig',
   swapStockPayTokenDetails: 'swapStockPayTokenDetails',
+  swapStockPositionsMetadata: 'swapStockPositionsMetadata',
 } as const;
 export type ISwrCacheNamespace = (typeof NS)[keyof typeof NS];
 export const swrCacheNamespaces = NS;
@@ -453,6 +455,25 @@ export const swrKeys = {
       isAllNetworks ? '1' : '0',
       mergeDeriveAddressData ? '1' : '0',
     ].join(':'),
+  specifiedTokenSelectorView: ({
+    accountId,
+    networkId,
+    indexedAccountId,
+    targetsKey,
+  }: {
+    accountId: string;
+    networkId: string;
+    indexedAccountId?: string;
+    targetsKey: string;
+  }) =>
+    [
+      NS.specifiedTokenSelectorView,
+      'v1',
+      accountId,
+      networkId,
+      indexedAccountId ?? '',
+      targetsKey,
+    ].join(':'),
   swapStockTokenDetail: ({ tokenScope }: { tokenScope: string }) =>
     [NS.swapStockTokenDetail, 'v1', tokenScope].join(':'),
   // Keep the existing unversioned key stable so users retain the history
@@ -484,6 +505,8 @@ export const swrKeys = {
     [NS.swapStockSpeedConfig, 'v1', networkId].join(':'),
   swapStockPayTokenDetails: ({ scope }: { scope: string }) =>
     [NS.swapStockPayTokenDetails, 'v1', scope].join(':'),
+  swapStockPositionsMetadata: ({ scope }: { scope: string }) =>
+    [NS.swapStockPositionsMetadata, 'v1', scope].join(':'),
 };
 
 function uniqueCacheKeys(keys: string[]) {
