@@ -36,6 +36,7 @@ import {
   TRADING_VIEW_NATIVE_LEGEND_ITEM_GAP as LEGEND_ITEM_GAP,
   TRADING_VIEW_NATIVE_LEGEND_LABEL_VALUE_GAP as LEGEND_LABEL_VALUE_GAP,
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING as PRICE_AXIS_LABEL_RIGHT_PADDING,
+  TRADING_VIEW_NATIVE_PRICE_EXTREMA_FONT_SIZE as PRICE_EXTREMA_FONT_SIZE,
   TRADING_VIEW_NATIVE_PRICE_LEGEND_TOP as PRICE_LEGEND_TOP,
   TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT as TIME_AXIS_HEIGHT,
@@ -55,6 +56,7 @@ import {
   getTradingViewNativeChartWidth,
   getTradingViewNativeCurrentPriceLayout,
   getTradingViewNativePriceAtY,
+  getTradingViewNativePriceExtremumHorizontalLayout,
   getTradingViewNativePriceY,
   getTradingViewNativeTimeTickMinimumIndexSpacing,
   getTradingViewNativeWatermarkLayout,
@@ -71,6 +73,7 @@ import {
   getTradingViewNativeCandleX,
   getTradingViewNativeDataUpdateMetadata,
   getTradingViewNativePointIndexAtX,
+  getTradingViewNativePriceExtrema,
   getTradingViewNativeViewportOffsetTransition,
   getTradingViewNativeVisiblePointRange,
   getTradingViewNativeZoomedViewport,
@@ -302,6 +305,10 @@ function drawKLineChart({
     pointCount: points.length,
     zoomScale: clampedZoomScale,
   });
+  const visiblePriceExtrema = getTradingViewNativePriceExtrema({
+    ...visiblePointRange,
+    points,
+  });
   const layout = getTradingViewNativeChartLayout({
     candleIntervalSeconds,
     height,
@@ -467,6 +474,44 @@ function drawKLineChart({
     }
   }
   context.restore();
+
+  if (visiblePriceExtrema) {
+    context.save();
+    context.fillStyle = colors.axisText;
+    context.font = `${PRICE_EXTREMA_FONT_SIZE}px sans-serif`;
+    context.lineWidth = 1;
+    context.setLineDash([]);
+    context.strokeStyle = colors.axisText;
+    context.textAlign = 'left';
+    context.textBaseline = 'middle';
+
+    for (const extremum of [
+      visiblePriceExtrema.high,
+      visiblePriceExtrema.low,
+    ]) {
+      const anchorX = getPointX(extremum.index);
+      const isPointVisible =
+        anchorX >= CHART_HORIZONTAL_PADDING - candleBodyWidth / 2 &&
+        anchorX <= priceAxisX + candleBodyWidth / 2;
+      if (isPointVisible) {
+        const text = formatTradingViewNativePriceTick(extremum.price);
+        const { lineEndX, textX } =
+          getTradingViewNativePriceExtremumHorizontalLayout({
+            anchorX,
+            canvasWidth: width,
+            textWidth: context.measureText(text).width,
+          });
+        const y = toY(extremum.price);
+
+        context.beginPath();
+        context.moveTo(anchorX, y);
+        context.lineTo(lineEndX, y);
+        context.stroke();
+        context.fillText(text, textX, y);
+      }
+    }
+    context.restore();
+  }
 
   const latestPoint = points[points.length - 1];
   if (crosshairX !== null && crosshairY !== null) {

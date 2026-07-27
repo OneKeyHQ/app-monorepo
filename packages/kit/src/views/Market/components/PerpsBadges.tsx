@@ -3,16 +3,25 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Icon,
   Image,
   SizableText,
   Stack,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { IColorTokens, IKeyOfIcons } from '@onekeyhq/components';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import type { ITooltipRef } from '@onekeyhq/components/src/actions/Tooltip';
+import { TradingHoursTrigger } from '@onekeyhq/kit/src/components/TradingHoursPanel';
+import { useUSMarketStatus } from '@onekeyhq/kit/src/hooks/useUSMarketStatus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EUSMarketStatusVariant,
+  isOndoUSMarketStock,
+  resolveUSMarketStatusVariant,
+} from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
 import { truncatePerpsSubtitle } from './utils/perpsSubtitle';
@@ -168,52 +177,153 @@ const SubtitleText = memo(
 );
 SubtitleText.displayName = 'SubtitleText';
 
-const StockIsOpenBadge = memo(({ stock }: { stock: IMarketStockInfo }) => {
-  const intl = useIntl();
-  const { isOpen, description } = stock;
-
-  if (isOpen === undefined) {
-    return null;
+const STOCK_MARKET_STATUS_CHIPS: Record<
+  EUSMarketStatusVariant,
+  {
+    icon: IKeyOfIcons;
+    titleId: ETranslations;
+    bg: IColorTokens;
+    color: IColorTokens;
   }
+> = {
+  [EUSMarketStatusVariant.PreMarket]: {
+    icon: 'SunriseOutline',
+    titleId: ETranslations.market_status_pre_market,
+    bg: '$bgCaution',
+    color: '$textCaution',
+  },
+  [EUSMarketStatusVariant.Open]: {
+    icon: 'SunOutline',
+    titleId: ETranslations.market_status_open,
+    bg: '$bgSuccess',
+    color: '$textSuccess',
+  },
+  [EUSMarketStatusVariant.PostMarket]: {
+    icon: 'SunDownOutline',
+    titleId: ETranslations.market_status_post_market,
+    bg: '$bgCaution',
+    color: '$textCaution',
+  },
+  [EUSMarketStatusVariant.Overnight]: {
+    icon: 'MoonOutline',
+    titleId: ETranslations.market_status_overnight,
+    bg: '$bgInfo',
+    color: '$textInfo',
+  },
+  [EUSMarketStatusVariant.Closed]: {
+    icon: 'ClockSnoozeOutline',
+    titleId: ETranslations.market_status_closed,
+    bg: '$bgStrong',
+    color: '$textSubdued',
+  },
+  [EUSMarketStatusVariant.ClosedTradable]: {
+    icon: 'ClockSnoozeOutline',
+    titleId: ETranslations.trading_hours_closed_tradable,
+    bg: '$bgStrong',
+    color: '$textSubdued',
+  },
+  [EUSMarketStatusVariant.Halted]: {
+    icon: 'PauseOutline',
+    titleId: ETranslations.market_status_halted,
+    bg: '$bgCritical',
+    color: '$textCritical',
+  },
+};
 
-  const statusText = intl.formatMessage({
-    id: isOpen
-      ? ETranslations.dexmarket_stock_status_open
-      : ETranslations.dexmarket_stock_status_closed,
-  });
+/**
+ * Market status chip for tokenized stocks (see OK-58043). Only Ondo tokens
+ * follow the US-session model, so only they get a chip (sessions, closed,
+ * halted, "Closed · Tradable" for 7×24 instruments); other issuers (e.g.
+ * xStocks run 7×24 with no open/closed distinction) show no badge at all.
+ * Pass `disableTooltip` when the chip is used as a popover trigger (e.g. the
+ * trading-hours panel) — the wrapping trigger owns the press, so the hover
+ * tooltip must not compete with it.
+ */
+const StockIsOpenBadge = memo(
+  ({
+    stock,
+    disableTooltip,
+  }: {
+    stock: IMarketStockInfo;
+    disableTooltip?: boolean;
+  }) => {
+    const intl = useIntl();
+    const { source, isOpen, isPaused, description } = stock;
+    const marketStatus = useUSMarketStatus({
+      enabled:
+        isOndoUSMarketStock(source) && isOpen === true && isPaused !== true,
+    });
 
-  const badge = (
-    <XStack
-      borderRadius="$1"
-      bg={isOpen ? '$bgSuccess' : '$bgCaution'}
-      justifyContent="center"
-      alignItems="center"
-      px="$1.5"
-    >
-      <SizableText
-        fontSize={10}
-        color={isOpen ? '$textSuccess' : '$textCaution'}
-        lineHeight={16}
+    // The offline fallback path runs Intl-heavy clock math — don't redo it on
+    // unrelated parent re-renders.
+    const variant = useMemo(
+      () =>
+        resolveUSMarketStatusVariant({
+          source,
+          isOpen,
+          isPaused,
+          status: marketStatus,
+        }),
+      [source, isOpen, isPaused, marketStatus],
+    );
+
+    if (!variant) {
+      return null;
+    }
+    const chip = STOCK_MARKET_STATUS_CHIPS[variant];
+
+    const badge = (
+      <XStack
+        borderRadius="$1"
+        bg={chip.bg}
+        justifyContent="center"
+        alignItems="center"
+        gap={3}
+        px="$1"
       >
-        {statusText}
-      </SizableText>
-    </XStack>
-  );
+        <Icon name={chip.icon} size="$3" color={chip.color} />
+        <SizableText fontSize={10} color={chip.color} lineHeight={16}>
+          {intl.formatMessage({ id: chip.titleId })}
+        </SizableText>
+      </XStack>
+    );
 
-  if (!description || platformEnv.isNative) {
-    return badge;
-  }
+    if (disableTooltip || !description || platformEnv.isNative) {
+      return badge;
+    }
 
-  return (
-    <LazyTooltip
-      hovering
-      placement="bottom"
-      renderContent={description}
-      renderTrigger={<Stack cursor="pointer">{badge}</Stack>}
-    />
-  );
-});
+    return (
+      <LazyTooltip
+        hovering
+        placement="bottom"
+        renderContent={description}
+        renderTrigger={<Stack cursor="pointer">{badge}</Stack>}
+      />
+    );
+  },
+);
 StockIsOpenBadge.displayName = 'StockIsOpenBadge';
+
+/**
+ * Standard entry composition used by every trading-hours surface: the status
+ * chip wired to open the panel (hover popover on desktop, bottom-sheet dialog
+ * on native/small screens). Renders nothing for tokens without a stock;
+ * non-Ondo issuers render no chip (see StockIsOpenBadge).
+ */
+const StockMarketStatusBadge = memo(
+  ({ stock }: { stock?: IMarketStockInfo }) => {
+    if (!stock) {
+      return null;
+    }
+    return (
+      <TradingHoursTrigger
+        stock={stock}
+        renderTrigger={<StockIsOpenBadge stock={stock} disableTooltip />}
+      />
+    );
+  },
+);
+StockMarketStatusBadge.displayName = 'StockMarketStatusBadge';
 
 const StockSourceLogo = memo(
   ({ stock }: { stock: IMarketStockInfo | undefined }) => {
@@ -249,6 +359,7 @@ StockSourceLogo.displayName = 'StockSourceLogo';
 export {
   LeverageBadge,
   StockIsOpenBadge,
+  StockMarketStatusBadge,
   StockSourceLogo,
   SubtitleBadge,
   SubtitleText,

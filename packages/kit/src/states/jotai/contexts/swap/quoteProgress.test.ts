@@ -6,6 +6,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  ESwapQuoteRefreshAction,
   ESwapQuoteUiPhase,
   buildSwapQuoteProviderKey,
   getSwapQuoteEventProgressTotalCount,
@@ -19,9 +20,11 @@ import {
   isSwapQuoteRequestForCurrentInput,
   isSwapZeroProviderQuoteCompleted,
   resolveSwapQuoteForDisplay,
+  resolveSwapQuoteRefreshAction,
   selectSwapCurrentQuote,
   selectSwapPreviousActionableQuote,
   shouldOfferSwapQuoteRefresh,
+  shouldPlaySwapQuoteRefreshAnimation,
   shouldShowSwapQuoteActionLoading,
   shouldShowSwapQuoteRequestLoading,
 } from './quoteProgress';
@@ -55,6 +58,76 @@ function buildQuote({
 }
 
 describe('swap quote progress', () => {
+  it('allows exactly five automatic refresh requests before requiring manual refresh', () => {
+    expect(
+      resolveSwapQuoteRefreshAction({
+        automaticRefreshCount: 4,
+        maxAutomaticRefreshCount: 5,
+      }),
+    ).toEqual({
+      action: ESwapQuoteRefreshAction.AutoRequest,
+      nextAutomaticRefreshCount: 5,
+    });
+    expect(
+      resolveSwapQuoteRefreshAction({
+        automaticRefreshCount: 5,
+        maxAutomaticRefreshCount: 5,
+      }),
+    ).toEqual({
+      action: ESwapQuoteRefreshAction.RequireManualRefresh,
+      nextAutomaticRefreshCount: 5,
+    });
+  });
+
+  it('plays the refresh animation only for an active focused auto-refresh timer', () => {
+    const activeRefresh = {
+      autoRefreshTimerActive: true,
+      disabled: false,
+      focused: true,
+      loading: false,
+      manualRefreshRequired: false,
+      refreshActionRequired: false,
+    };
+
+    expect(
+      shouldPlaySwapQuoteRefreshAnimation({
+        ...activeRefresh,
+        manualRefreshRequired: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPlaySwapQuoteRefreshAnimation({
+        ...activeRefresh,
+        refreshActionRequired: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPlaySwapQuoteRefreshAnimation({
+        ...activeRefresh,
+        disabled: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPlaySwapQuoteRefreshAnimation({
+        ...activeRefresh,
+        autoRefreshTimerActive: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPlaySwapQuoteRefreshAnimation({
+        ...activeRefresh,
+        focused: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPlaySwapQuoteRefreshAnimation({
+        ...activeRefresh,
+        loading: true,
+      }),
+    ).toBe(false);
+    expect(shouldPlaySwapQuoteRefreshAnimation(activeRefresh)).toBe(true);
+  });
+
   it('matches the quote request to the current Swap input scope', () => {
     const fromToken = {
       networkId: 'evm--56',
@@ -559,6 +632,15 @@ describe('swap quote progress', () => {
         quoteEventFetching: false,
       }),
     ).toBe(true);
+    expect(
+      shouldOfferSwapQuoteRefresh({
+        isRefreshQuote: true,
+        quoteResultNoMatch: false,
+        quoteResultNoMatchDebounced: false,
+        quoteLoading: true,
+        quoteEventFetching: true,
+      }),
+    ).toBe(true);
   });
 
   it('stops action loading when the first actionable quote arrives', () => {
@@ -568,6 +650,7 @@ describe('swap quote progress', () => {
         isWaitingActionableQuote: true,
         isQuoteEventSettlingForAction: false,
         isWaitingAutoSlippage: false,
+        manualRefreshRequired: false,
       }),
     ).toBe(true);
     expect(
@@ -576,6 +659,7 @@ describe('swap quote progress', () => {
         isWaitingActionableQuote: false,
         isQuoteEventSettlingForAction: true,
         isWaitingAutoSlippage: false,
+        manualRefreshRequired: false,
       }),
     ).toBe(true);
     expect(
@@ -584,6 +668,7 @@ describe('swap quote progress', () => {
         isWaitingActionableQuote: false,
         isQuoteEventSettlingForAction: false,
         isWaitingAutoSlippage: true,
+        manualRefreshRequired: false,
       }),
     ).toBe(true);
     expect(
@@ -592,6 +677,7 @@ describe('swap quote progress', () => {
         isWaitingActionableQuote: false,
         isQuoteEventSettlingForAction: false,
         isWaitingAutoSlippage: false,
+        manualRefreshRequired: false,
       }),
     ).toBe(false);
     expect(
@@ -600,6 +686,16 @@ describe('swap quote progress', () => {
         isWaitingActionableQuote: false,
         isQuoteEventSettlingForAction: true,
         isWaitingAutoSlippage: false,
+        manualRefreshRequired: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowSwapQuoteActionLoading({
+        hasActionableQuote: false,
+        isWaitingActionableQuote: true,
+        isQuoteEventSettlingForAction: true,
+        isWaitingAutoSlippage: true,
+        manualRefreshRequired: true,
       }),
     ).toBe(false);
   });
