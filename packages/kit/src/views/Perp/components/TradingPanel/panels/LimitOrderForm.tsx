@@ -592,8 +592,13 @@ export function LimitOrderForm({
         perpsAccountLoading.enableTradingStatusPending,
       isLiveStatusPending: false,
     });
+  const isPerpActionDisabled = Boolean(
+    perpConfigCommon?.disablePerpActionPerp || perpConfigCommon?.ipDisablePerp,
+  );
   const shouldDisableActionButtons = Boolean(
-    shouldDisableForAccountLoading || perpsAccountStatus.accountNotSupport,
+    shouldDisableForAccountLoading ||
+    perpsAccountStatus.accountNotSupport ||
+    isPerpActionDisabled,
   );
   const accountActionType = useMemo(
     () =>
@@ -614,7 +619,7 @@ export function LimitOrderForm({
     shouldShowPerpsFirstDepositPrompt({
       status: perpsAccountStatus,
       isLiveStatusPending: !perpsAccountDisplayReady.statusReady,
-      isPerpActionDisabled: Boolean(perpConfigCommon?.disablePerpActionPerp),
+      isPerpActionDisabled,
     });
 
   const handleFirstDepositPress = useCallback(() => {
