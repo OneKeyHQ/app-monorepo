@@ -1169,13 +1169,14 @@ class ServiceAccountSelector extends ServiceBase {
         return notSupported;
       }
 
-      // Local-only read: a cold start with an empty map disables perps for
-      // this pass instead of blocking selector values on a server sync; the
-      // kicked-off background sync feeds the next pass.
+      // On a cold start the local map is empty; await the shared sync
+      // promise and gate on the final map, so every batch of one selector
+      // open computes perps with the same verdict instead of the early
+      // batches silently dropping it. The sync is deduped in ServiceDeFi
+      // and its empty result is negative-cached, so this blocks at most
+      // once per cold start.
       const { enabledNetworksMap: deFiEnabledNetworksMap, isReady } =
-        await this.backgroundApi.serviceDeFi.getDeFiEnabledNetworksMapState({
-          syncIfEmpty: false,
-        });
+        await this.backgroundApi.serviceDeFi.getDeFiEnabledNetworksMapState();
       const isSingleLinkedNetwork =
         !!linkedNetworkId &&
         !networkUtils.isAllNetwork({ networkId: linkedNetworkId });
@@ -1228,10 +1229,10 @@ class ServiceAccountSelector extends ServiceBase {
     },
   );
 
-  // Cache only gating computed from a ready DeFi map: a cold-start pass runs
-  // with the map still empty (perps off, non-blocking) and must not pin that
-  // provisional verdict for the whole memo TTL — dropping it lets the next
-  // loader pass pick up the background sync's result immediately.
+  // Cache only gating computed from a ready DeFi map: when the awaited sync
+  // still ends with an empty map (sync failure or empty server list), that
+  // provisional verdict must not be pinned for the whole memo TTL — dropping
+  // it lets the next loader pass retry once the map actually syncs.
   private async _getPerpsSelectorGating(linkedNetworkId: string | undefined) {
     const gating = await this._getPerpsSelectorGatingCached(linkedNetworkId);
     if (!gating.isGatingReady) {
