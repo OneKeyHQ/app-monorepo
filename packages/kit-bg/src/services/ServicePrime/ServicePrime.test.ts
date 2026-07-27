@@ -3500,11 +3500,20 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
         'X-Onekey-Request-Token': LEGACY_TOKEN,
       },
     });
+    // The POST must be pinned to the same verified bytes: without an
+    // explicit header the client interceptor would inject a fresh slot read,
+    // so a slot swap after the probe would authenticate the irreversible
+    // bind as a different account than the one just verified.
     expect(post).toHaveBeenCalledWith(
       '/prime/v1/account/identities/oauth/bind',
       {
         token: OAUTH_TOKEN,
         legacyOneKeyIdAuthToken: LEGACY_TOKEN,
+      },
+      {
+        headers: {
+          'X-Onekey-Request-Token': LEGACY_TOKEN,
+        },
       },
     );
   });

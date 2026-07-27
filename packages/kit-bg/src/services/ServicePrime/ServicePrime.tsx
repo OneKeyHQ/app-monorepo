@@ -2244,31 +2244,41 @@ class ServicePrime extends ServiceBase {
 
       const client = await this.getPrimeClient();
 
+      // Pin BOTH requests below to the exact captured legacy token via the
+      // explicit request-token header. This is what makes "the verified
+      // bytes, never a re-read" true: without an explicit header the
+      // getOneKeyIdClient request interceptor injects
+      // getActiveAuthToken() — a fresh slot read at request time — so a
+      // main-runtime slot swap landing after the probe would send account
+      // B's token in the POST header while the body still carried the
+      // verified account A token.
+      const pinnedLegacyTokenRequestConfig =
+        this.getOneKeyIdAuthSnapshotRequestConfig(bindAuthSnapshot);
+
       // Authoritative receiving-account check on the EXACT token bytes the
-      // bind POST below carries, pinned via the explicit request-token
-      // header (the request interceptor honors it and skips active-token
-      // injection). The snapshot above cannot vouch for those bytes on
-      // split-runtime targets: the main runtime persists legacy sessions
-      // (email OTP verifyOtp) straight into the shared slot without taking
-      // this bg loginMutex, and the bg atom/generation only catch up when
-      // that login's apiLogin commit acquires it — so the slot can already
-      // hold another account's session (which the snapshot then captures
-      // and self-consistently validates) while the atom still shows the
-      // consented one. Asking the server who owns the captured token closes
-      // that gap for any interleaving: a swap before the capture is
-      // detected here; a swap after it is harmless because the POST sends
-      // the verified bytes, never a re-read.
+      // bind POST below carries. The snapshot above cannot vouch for those
+      // bytes on split-runtime targets: the main runtime persists legacy
+      // sessions (email OTP verifyOtp) straight into the shared slot without
+      // taking this bg loginMutex, and the bg atom/generation only catch up
+      // when that login's apiLogin commit acquires it — so the slot can
+      // already hold another account's session (which the snapshot then
+      // captures and self-consistently validates) while the atom still shows
+      // the consented one. Asking the server who owns the captured token
+      // closes that gap for any interleaving: a swap before the capture is
+      // detected here; a swap after it is harmless because both requests are
+      // pinned to the captured bytes.
       //
       // autoHandleError: false (same as the other pinned-token profile
       // reads, see callApiFetchPrimeUserInfoWithRequestToken) — this is a
       // validation read, so a rejected legacy token must abort the bind and
       // let the UI classify the failure, not fire the global invalid-token
-      // teardown coordinator from inside this loginMutex section.
+      // teardown coordinator from inside this loginMutex section. The bind
+      // POST keeps the default handling, unchanged from before this guard.
       const profileRequestConfig: Parameters<typeof client.get>[1] & {
         autoHandleError?: boolean;
       } = {
         autoHandleError: false,
-        ...this.getOneKeyIdAuthSnapshotRequestConfig(bindAuthSnapshot),
+        ...pinnedLegacyTokenRequestConfig,
       };
       const profileResult = await client.get<
         IApiClientResponse<IOneKeyIdProfileResponse>
@@ -2305,10 +2315,14 @@ class ServicePrime extends ServiceBase {
       try {
         result = await client.post<
           IApiClientResponse<IOneKeyIdOAuthBindResponse>
-        >('/prime/v1/account/identities/oauth/bind', {
-          token: oauthAccessToken,
-          legacyOneKeyIdAuthToken,
-        });
+        >(
+          '/prime/v1/account/identities/oauth/bind',
+          {
+            token: oauthAccessToken,
+            legacyOneKeyIdAuthToken,
+          },
+          pinnedLegacyTokenRequestConfig,
+        );
       } catch (error) {
         if (this.isOneKeyIdOAuthIdentityAlreadyBoundError(error)) {
           throw this.buildOneKeyIdOAuthIdentityAlreadyBoundError(error);
