@@ -1,36 +1,99 @@
 import axios from 'axios';
 
+import { defaultLogger } from '../logger/logger';
+import { DEFAULT_IP_TABLE_CONFIG } from '../request/constants/ipTableDefaults';
+import {
+  getMappedDomainForIpLookup,
+  isIpTableTransportError,
+  reportIpTableRequestFailure,
+  reportIpTableRequestSuccess,
+} from '../request/helpers/ipTableAdapter';
+import { nextIpTableRequestSequence } from '../request/helpers/ipTableRequestOutcome';
+import {
+  isProxyActiveForUrl,
+  isSniSupported,
+  sniRequest,
+} from '../request/helpers/sniRequest';
+import requestHelper from '../request/requestHelper';
+import { getOrderedIpTableCandidates } from '../utils/ipTableUtils';
+
 import type { RemoteConfigResponse } from '@onekeyfe/hd-core';
-import type { AxiosInstance } from 'axios';
 
-// Cached axios instance with IP Table adapter for config fetching
-let configFetcherAxios: AxiosInstance | null = null;
+const CONFIG_FETCH_TIMEOUT_MS = 7000;
+const CONFIG_FETCH_MAX_SNI_CANDIDATES = 3;
+const FIRMWARE_DEVICE_CONFIG_KEYS = [
+  'classic',
+  'classic1s',
+  'classicpure',
+  'mini',
+  'touch',
+  'pro',
+  'pro2',
+] as const;
 
-async function getConfigFetcherAxios(): Promise<AxiosInstance> {
-  if (!configFetcherAxios) {
-    const baseConfig = {
-      timeout: 7000,
-    };
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
-    let ipTableAdapter;
+export function isFirmwareRemoteConfig(
+  value: unknown,
+): value is RemoteConfigResponse {
+  return (
+    isRecord(value) &&
+    isRecord(value.bridge) &&
+    FIRMWARE_DEVICE_CONFIG_KEYS.every((key) => isRecord(value[key]))
+  );
+}
+
+function parseFirmwareRemoteConfig(
+  value: unknown,
+): RemoteConfigResponse | null {
+  let parsed = value;
+  if (typeof value === 'string') {
     try {
-      const { isSupportIpTablePlatform } =
-        await import('../utils/ipTableUtils');
-      if (isSupportIpTablePlatform()) {
-        const { createIpTableAdapter } =
-          await import('../request/helpers/ipTableAdapter');
-        ipTableAdapter = createIpTableAdapter(baseConfig);
-      }
-    } catch (error) {
-      console.warn('[HardwareSDK] Failed to load IP Table adapter:', error);
+      parsed = JSON.parse(value) as unknown;
+    } catch {
+      return null;
     }
-
-    configFetcherAxios = axios.create({
-      ...baseConfig,
-      adapter: ipTableAdapter,
-    });
   }
-  return configFetcherAxios;
+  return isFirmwareRemoteConfig(parsed) ? parsed : null;
+}
+
+async function getConfigSniCandidates(options: {
+  hostname: string;
+  configKey: string;
+}): Promise<string[]> {
+  const { hostname, configKey } = options;
+  let activeConfig = null;
+  try {
+    activeConfig = await requestHelper.getIpTableConfig();
+  } catch {
+    activeConfig = null;
+  }
+  const activeEndpoints =
+    activeConfig?.config.domains[configKey]?.endpoints ?? [];
+  const endorsedIps = new Set(activeEndpoints.map((endpoint) => endpoint.ip));
+  const preferredCandidates = [
+    activeConfig?.runtime?.selections?.[configKey],
+    activeConfig?.runtime?.lastBestIp?.[configKey],
+  ].filter(
+    (candidate): candidate is string =>
+      typeof candidate === 'string' &&
+      candidate.length > 0 &&
+      endorsedIps.has(candidate),
+  );
+  const builtinCandidates = getOrderedIpTableCandidates({
+    hostname,
+    configKey,
+    configWithRuntime: {
+      config: DEFAULT_IP_TABLE_CONFIG,
+      runtime: undefined,
+    },
+  });
+  return [...new Set([...preferredCandidates, ...builtinCandidates])].slice(
+    0,
+    CONFIG_FETCH_MAX_SNI_CANDIDATES,
+  );
 }
 
 export async function createConfigFetcher(): Promise<
@@ -48,17 +111,129 @@ export async function createConfigFetcher(): Promise<
   }
 
   return async (url: string) => {
-    console.log('[HardwareSDK] configFetcher url:', url);
+    const startedAt = Date.now();
+    const parsedUrl = new URL(url);
+    const rootDomain = parsedUrl.hostname.split('.').slice(-2).join('.');
+    const configKey =
+      (await getMappedDomainForIpLookup(rootDomain)) ?? rootDomain;
+    const plainAxios = axios.create();
+    const domainRequestSequence = nextIpTableRequestSequence();
     try {
-      const axiosInstance = await getConfigFetcherAxios();
-      const response = await axiosInstance.get<RemoteConfigResponse>(url, {
-        timeout: 7000,
+      const response = await plainAxios.get<unknown>(url, {
+        timeout: CONFIG_FETCH_TIMEOUT_MS,
       });
-      console.log('[HardwareSDK] configFetcher success');
-      return response.data;
+      reportIpTableRequestSuccess({
+        domain: configKey,
+        requestType: 'domain',
+        target: parsedUrl.hostname,
+        requestSequence: domainRequestSequence,
+      });
+      const config = parseFirmwareRemoteConfig(response.data);
+      defaultLogger.ipTable.request.info({
+        info: `[HardwareSDK] firmware_config_fetch route=domain outcome=${
+          config ? 'success' : 'invalid_schema'
+        } durationMs=${Date.now() - startedAt}`,
+      });
+      return config;
     } catch (error) {
-      console.warn('[HardwareSDK] configFetcher error:', error);
+      if (
+        error &&
+        typeof error === 'object' &&
+        'response' in error &&
+        error.response
+      ) {
+        reportIpTableRequestSuccess({
+          domain: configKey,
+          requestType: 'domain',
+          target: parsedUrl.hostname,
+          requestSequence: domainRequestSequence,
+        });
+      }
+      if (!isIpTableTransportError(error)) {
+        return null;
+      }
+      reportIpTableRequestFailure({
+        domain: configKey,
+        requestType: 'domain',
+        target: parsedUrl.hostname,
+        error: error instanceof Error ? error.message : 'Network error',
+        requestSequence: domainRequestSequence,
+      });
+    }
+
+    if (!isSniSupported()) {
       return null;
     }
+    try {
+      if ((await isProxyActiveForUrl(url)) === true) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+
+    const candidates = await getConfigSniCandidates({
+      hostname: parsedUrl.hostname,
+      configKey,
+    });
+    for (const [candidateIndex, ip] of candidates.entries()) {
+      const requestSequence = nextIpTableRequestSequence();
+      try {
+        const response = await sniRequest({
+          ip,
+          hostname: parsedUrl.hostname,
+          path: `${parsedUrl.pathname}${parsedUrl.search}`,
+          method: 'GET',
+          headers: {},
+          body: null,
+          timeout: CONFIG_FETCH_TIMEOUT_MS,
+        });
+        if (
+          !response ||
+          response.statusCode < 200 ||
+          response.statusCode >= 300
+        ) {
+          if (response) {
+            reportIpTableRequestSuccess({
+              domain: configKey,
+              requestType: 'ip',
+              target: ip,
+              requestSequence,
+            });
+          }
+          return null;
+        }
+        reportIpTableRequestSuccess({
+          domain: configKey,
+          requestType: 'ip',
+          target: ip,
+          requestSequence,
+        });
+        const config = parseFirmwareRemoteConfig(
+          response.body ?? response.data,
+        );
+        if (!config) {
+          return null;
+        }
+        defaultLogger.ipTable.request.info({
+          info: `[HardwareSDK] firmware_config_fetch route=sni outcome=success candidateIndex=${candidateIndex} durationMs=${
+            Date.now() - startedAt
+          }`,
+        });
+        return config;
+      } catch (error) {
+        if (!isIpTableTransportError(error)) {
+          return null;
+        }
+        reportIpTableRequestFailure({
+          domain: configKey,
+          requestType: 'ip',
+          target: ip,
+          error: error instanceof Error ? error.message : 'Network error',
+          requestSequence,
+        });
+      }
+    }
+    return null;
   };
 }

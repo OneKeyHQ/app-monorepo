@@ -1,5 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 
+import {
+  testDomainSpeed,
+  testHostSpeed,
+  testIpHostSpeed,
+  testIpSpeed,
+} from '@onekeyhq/shared/src/request/helpers/ipTableAdapter';
 import type { IIpTableRemoteConfig } from '@onekeyhq/shared/src/request/types/ipTable';
 
 import ServiceIpTable from './ServiceIpTable';
@@ -35,6 +41,8 @@ jest.mock('@onekeyhq/shared/src/request/helpers/ipTableAdapter', () => ({
   setReportRequestFailureCallback: jest.fn(),
   setReportRequestSuccessCallback: jest.fn(),
   testDomainSpeed: jest.fn(),
+  testHostSpeed: jest.fn(),
+  testIpHostSpeed: jest.fn(),
   testIpSpeed: jest.fn(),
 }));
 
@@ -66,6 +74,10 @@ jest.mock('./ServiceBase', () => ({
 }));
 
 const DOMAIN = 'onekeycn.com';
+const mockedTestDomainSpeed = testDomainSpeed as jest.Mock;
+const mockedTestHostSpeed = testHostSpeed as jest.Mock;
+const mockedTestIpHostSpeed = testIpHostSpeed as jest.Mock;
+const mockedTestIpSpeed = testIpSpeed as jest.Mock;
 
 function buildConfig(ip: string, version = 1): IIpTableRemoteConfig {
   return {
@@ -134,6 +146,8 @@ describe('ServiceIpTable resilience', () => {
     jest
       .spyOn(service as any, 'testMultipleTimes')
       .mockResolvedValueOnce(100)
+      .mockResolvedValueOnce(100)
+      .mockResolvedValueOnce(20)
       .mockResolvedValueOnce(20);
     jest.spyOn(service, 'getConfig').mockResolvedValueOnce({
       config: originalConfig,
@@ -157,6 +171,50 @@ describe('ServiceIpTable resilience', () => {
     );
     expect((service as any).pendingConfigChangeRerun.get(DOMAIN)).toBe(
       'periodic',
+    );
+  });
+
+  it('selects an IP when wallet health is reachable but the firmware config host is not', async () => {
+    const { service, ipTableDb } = createService();
+    const config = buildConfig('1.1.1.1', 1);
+
+    jest.spyOn(service as any, 'isIpTableEnabled').mockResolvedValue(true);
+    jest
+      .spyOn(service as any, 'testMultipleTimes')
+      .mockImplementation(async (...args: unknown[]) => {
+        const testFn = args[0] as () => Promise<number>;
+        return testFn();
+      });
+    jest.spyOn(service, 'getConfig').mockResolvedValue({
+      config,
+      runtime: undefined,
+    });
+    mockedTestDomainSpeed.mockResolvedValue(20);
+    mockedTestHostSpeed.mockResolvedValue(Infinity);
+    mockedTestIpSpeed.mockResolvedValue(25);
+    mockedTestIpHostSpeed.mockResolvedValue(30);
+
+    await (service as any).selectBestEndpointForDomainInternal(DOMAIN, {
+      trigger: 'periodic',
+    });
+
+    expect(mockedTestHostSpeed).toHaveBeenCalledWith(
+      'data.onekey.so',
+      '/config.json',
+      expect.any(Number),
+    );
+    expect(mockedTestIpHostSpeed).toHaveBeenCalledWith(
+      '1.1.1.1',
+      'data.onekey.so',
+      '/config.json',
+      expect.any(Number),
+    );
+    expect(ipTableDb.commitSpeedTestResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        domain: DOMAIN,
+        lastBestIp: '1.1.1.1',
+        selection: '1.1.1.1',
+      }),
     );
   });
 
