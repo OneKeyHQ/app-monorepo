@@ -32,7 +32,6 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../../utils/mobileLayoutTrace';
-import { PerpsActivityCenterAction } from '../PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../PerpSettingsButton';
 import { PerpTokenSelectorMobile } from '../TokenSelector/PerpTokenSelector';
 
@@ -287,10 +286,10 @@ export function PerpTickerBarMobile() {
       </YStack>
 
       <XStack pt="$0.5" gap="$3" alignItems="center">
-        <PerpsActivityCenterAction size="small" copyAsUrl />
         <PerpCandleChartButtonMobile />
         <PerpSettingsButton
           testID={PerpTestIDs.MobileSettingsButton}
+          showActivityCenterEntry
           showGuideEntry
         />
       </XStack>
