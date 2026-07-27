@@ -6,6 +6,7 @@ import {
   backfillSwapProTokenStockIdentity,
   buildStockSwapTokenFromMarketListToken,
   filterStockPayTokenCandidates,
+  hasValidStockBalanceForTrade,
   isStockBalanceInitializing,
   isStockPayTokenReadyForTradeInput,
   isStockTradeReadyForQuote,
@@ -423,6 +424,15 @@ describe('swapStockChannelUtils', () => {
         requestPending: true,
       }),
     ).toBe(false);
+  });
+
+  it('accepts only finite non-negative live balances for Stock trading', () => {
+    expect(hasValidStockBalanceForTrade('0')).toBe(true);
+    expect(hasValidStockBalanceForTrade('1.25')).toBe(true);
+    expect(hasValidStockBalanceForTrade(undefined)).toBe(false);
+    expect(hasValidStockBalanceForTrade('')).toBe(false);
+    expect(hasValidStockBalanceForTrade('invalid')).toBe(false);
+    expect(hasValidStockBalanceForTrade('-1')).toBe(false);
   });
 
   it('uses a Stock balance seed only when it belongs to the active account', () => {

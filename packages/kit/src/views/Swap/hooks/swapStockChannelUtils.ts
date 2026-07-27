@@ -359,6 +359,14 @@ export function isStockBalanceInitializing({
   return balance === undefined && requestPending;
 }
 
+export function hasValidStockBalanceForTrade(balance?: string) {
+  if (!balance) {
+    return false;
+  }
+  const balanceBN = new BigNumber(balance);
+  return balanceBN.isFinite() && balanceBN.gte(0);
+}
+
 export function resolveStockBalanceSeed({
   hasActiveAccount,
   networkAccountAddress,
