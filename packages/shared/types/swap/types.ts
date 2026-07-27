@@ -59,6 +59,13 @@ export enum ESwapTabSwitchType {
   STOCK = 'stock',
 }
 
+export enum ESwapTipsEffectiveTab {
+  ALL = 'All',
+  SWAP_AND_BRIDGE = 'Swap&Bridge',
+  STOCKS = 'Stocks',
+  LIMIT = 'Limit',
+}
+
 export enum ESwapDirectionType {
   FROM = 'from',
   TO = 'to',
@@ -936,6 +943,7 @@ export interface IPerpDepositQuoteRes {
 export interface ISwapTips {
   tipsId: string;
   title: string;
+  effectiveTab?: ESwapTipsEffectiveTab[];
   detailLink?: string;
   userCanClose?: boolean;
   iconImage?: string;
