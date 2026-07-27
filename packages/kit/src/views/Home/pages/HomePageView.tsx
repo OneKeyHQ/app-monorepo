@@ -839,6 +839,15 @@ export function HomePageView({
       <Tabs.Container
         ref={tabsRef as any}
         key={key}
+        // The key above remounts the whole container on wallet/account
+        // switches, which resets the pager to the first tab (Spot) while
+        // HomePageView's activeTab state — and therefore the tab bar
+        // highlight and per-tab settings — still points at the previously
+        // selected tab. Seed the remounted container with that tab so the
+        // user stays where they were. Both implementations only read this
+        // prop at mount, and both fall back to the first tab when the name
+        // is missing from the new tab set.
+        initialTabName={activeTabName || undefined}
         allowHeaderOverscroll
         headerHeight={platformEnv.isNative ? 292 : undefined}
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
@@ -876,6 +885,7 @@ export function HomePageView({
     handleTabChange,
     renderSubHeader,
     pagerTabConfigs,
+    activeTabName,
     activeTabId,
     mountedHomeTabIds,
   ]);
