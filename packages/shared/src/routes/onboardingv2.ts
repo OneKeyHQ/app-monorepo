@@ -47,6 +47,10 @@ export enum EOnboardingPagesV2 {
   ConnectWalletSelectNetworks = 'ConnectWalletSelectNetworks',
   ConnectExternalWallet = 'ConnectExternalWallet',
   ImportKeyTag = 'ImportKeyTag',
+  // The KeyTag "view dots to back up" and "enter phrase" content pages live in
+  // the onboarding page stack; the hub + wallet selector stay in KeyTagModal.
+  KeyTagBackupDotMap = 'KeyTagBackupDotMap',
+  KeyTagEnterPhrase = 'KeyTagEnterPhrase',
   OneKeyIDLogin = 'OneKeyIDLogin',
   CreatePin = 'CreatePin',
   ConfirmPin = 'ConfirmPin',
@@ -135,6 +139,15 @@ export type IOnboardingParamListV2 = {
     title: string;
   };
   [EOnboardingPagesV2.ImportKeyTag]: undefined;
+  [EOnboardingPagesV2.KeyTagBackupDotMap]: {
+    // Primitives only, matching IVerifyRecoveryPhraseParams: navigation state is
+    // persisted, so a route must not carry a whole local-DB model.
+    walletId?: string;
+    isWalletBackedUp?: boolean;
+    encodedText: string;
+    title: string;
+  };
+  [EOnboardingPagesV2.KeyTagEnterPhrase]: undefined;
   [EOnboardingPagesV2.OneKeyIDLogin]: {
     mode: EOnboardingV2OneKeyIDLoginMode;
     provider?: EOAuthSocialLoginProvider;
