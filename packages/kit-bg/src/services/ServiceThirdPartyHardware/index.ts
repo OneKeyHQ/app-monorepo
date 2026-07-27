@@ -46,10 +46,7 @@ import {
 } from '../ServiceHardware/adapters/thirdPartyHardwareAdapterRegistry';
 import { mapThirdPartyDeviceToSearchDevice } from '../ServiceHardware/thirdPartyDeviceMapping';
 
-import {
-  createLocalMockDeviceClaimChallenge,
-  verifyLocalMockDeviceClaimEvidence,
-} from './localMockDeviceClaim';
+import { runTrustedLocalMockDeviceClaim } from './localMockDeviceClaim';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type {
@@ -1290,52 +1287,45 @@ class ServiceThirdPartyHardware extends ServiceBase {
         'Local mock device claim supports only Trezor and Ledger',
       );
     }
-    const challengeHex = createLocalMockDeviceClaimChallenge();
-    const response = await this.thirdPartyHardwareVerifyDeviceAuthenticity({
-      vendor: params.vendor,
-      connectId: params.connectId,
-      dbDeviceId: params.dbDeviceId,
-      challenge:
-        params.vendor === EHardwareVendor.trezor ? challengeHex : undefined,
-    });
-    if (!response.success) {
-      throw convertThirdPartyDeviceError(response.payload, {
-        vendor: params.vendor === EHardwareVendor.trezor ? 'Trezor' : 'Ledger',
-      });
-    }
     const vendor =
       params.vendor === EHardwareVendor.trezor ? 'trezor' : 'ledger';
-    const verification = verifyLocalMockDeviceClaimEvidence({
+    return runTrustedLocalMockDeviceClaim({
       vendor,
-      challengeHex,
-      authenticity: response.payload as {
-        vendor: 'trezor' | 'ledger';
-        verified: boolean;
-        deviceId?: string;
-        usedDebugKey?: boolean;
-        // cspell:ignore optiga
-        trezorProof?: {
-          challenge: string;
-          deviceModel: string;
-          proof: {
-            optiga_certificates: string[];
-            optiga_signature: string;
-            tropic_certificates?: string[];
-            tropic_signature?: string;
-            mcu_certificates?: string[];
-            mcu_signature?: string;
+      executeAuthenticityCheck: async (challengeHex) => {
+        const response = await this.thirdPartyHardwareVerifyDeviceAuthenticity({
+          vendor: params.vendor,
+          connectId: params.connectId,
+          dbDeviceId: params.dbDeviceId,
+          challenge:
+            params.vendor === EHardwareVendor.trezor ? challengeHex : undefined,
+        });
+        if (!response.success) {
+          throw convertThirdPartyDeviceError(response.payload, {
+            vendor:
+              params.vendor === EHardwareVendor.trezor ? 'Trezor' : 'Ledger',
+          });
+        }
+        return response.payload as {
+          vendor: 'trezor' | 'ledger';
+          verified: boolean;
+          deviceId?: string;
+          usedDebugKey?: boolean;
+          // cspell:ignore optiga
+          trezorProof?: {
+            challenge: string;
+            deviceModel: string;
+            proof: {
+              optiga_certificates: string[];
+              optiga_signature: string;
+              tropic_certificates?: string[];
+              tropic_signature?: string;
+              mcu_certificates?: string[];
+              mcu_signature?: string;
+            };
           };
         };
       },
     });
-    return {
-      status: 'issued',
-      voucherCode: `DEV-LOCAL-${vendor.toUpperCase()}-${challengeHex
-        .slice(0, 8)
-        .toUpperCase()}`,
-      challengeHex,
-      ...verification,
-    };
   }
 
   /**

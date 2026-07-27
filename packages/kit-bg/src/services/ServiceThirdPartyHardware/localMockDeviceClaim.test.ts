@@ -2,6 +2,7 @@ import { authenticateDeviceFromProof } from '@onekeyfe/hwk-trezor-adapter';
 
 import {
   createLocalMockDeviceClaimChallenge,
+  runTrustedLocalMockDeviceClaim,
   verifyLocalMockDeviceClaimEvidence,
 } from './localMockDeviceClaim';
 
@@ -114,5 +115,58 @@ describe('verifyLocalMockDeviceClaimEvidence', () => {
         },
       }),
     ).toThrow('Genuine Check');
+  });
+
+  it('owns the challenge and runs the real Trezor executor before issuing', async () => {
+    verifyTrezorProof.mockReturnValue({
+      verified: true,
+      deviceId: 'trezor-device-id',
+      usedDebugKey: false,
+    });
+    const executeAuthenticityCheck = jest.fn(async (challengeHex: string) => ({
+      vendor: 'trezor' as const,
+      verified: true,
+      trezorProof: {
+        challenge: challengeHex,
+        deviceModel: 'T3W1',
+        proof: {
+          optiga_certificates: ['certificate'],
+          optiga_signature: 'signature',
+        },
+      },
+    }));
+
+    const result = await runTrustedLocalMockDeviceClaim({
+      vendor: 'trezor',
+      executeAuthenticityCheck,
+    });
+
+    expect(executeAuthenticityCheck).toHaveBeenCalledTimes(1);
+    expect(executeAuthenticityCheck).toHaveBeenCalledWith(result.challengeHex);
+    expect(result).toMatchObject({
+      status: 'issued',
+      deviceId: 'trezor-device-id',
+      verificationMode: 'trezor-independent-proof',
+      serverPortable: true,
+    });
+    expect(result.voucherCode).toContain(
+      result.challengeHex.slice(0, 8).toUpperCase(),
+    );
+  });
+
+  it('does not issue a Ledger voucher when the vendor session is not genuine', async () => {
+    const executeAuthenticityCheck = jest.fn(async () => ({
+      vendor: 'ledger' as const,
+      verified: false,
+      deviceId: '12'.repeat(32),
+    }));
+
+    await expect(
+      runTrustedLocalMockDeviceClaim({
+        vendor: 'ledger',
+        executeAuthenticityCheck,
+      }),
+    ).rejects.toThrow('Genuine Check');
+    expect(executeAuthenticityCheck).toHaveBeenCalledTimes(1);
   });
 });

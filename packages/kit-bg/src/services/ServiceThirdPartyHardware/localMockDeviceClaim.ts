@@ -23,6 +23,12 @@ export type ILocalMockDeviceClaimVerification = {
   serverPortable: boolean;
 };
 
+export type ILocalMockDeviceClaimResult = ILocalMockDeviceClaimVerification & {
+  status: 'issued';
+  voucherCode: string;
+  challengeHex: string;
+};
+
 export function createLocalMockDeviceClaimChallenge(): string {
   const challenge = globalThis.crypto.getRandomValues(new Uint8Array(32));
   return [...challenge]
@@ -92,5 +98,38 @@ export function verifyLocalMockDeviceClaimEvidence({
     // Ledger's public DMK verdict is real, but is not an offline proof a future
     // backend can trust. Production must witness the same session via relay.
     serverPortable: false,
+  };
+}
+
+/**
+ * Local stand-in for the future trusted backend. The caller supplies an
+ * executor, not an attestation DTO: this function owns the fresh challenge,
+ * invokes the real device/vendor session, verifies its result, and only then
+ * issues the development voucher. A renderer cannot submit `verified: true`.
+ */
+export async function runTrustedLocalMockDeviceClaim({
+  vendor,
+  executeAuthenticityCheck,
+}: {
+  vendor: 'trezor' | 'ledger';
+  executeAuthenticityCheck: (
+    challengeHex: string,
+  ) => Promise<ILocalMockAuthenticityResult>;
+}): Promise<ILocalMockDeviceClaimResult> {
+  const challengeHex = createLocalMockDeviceClaimChallenge();
+  const authenticity = await executeAuthenticityCheck(challengeHex);
+  const verification = verifyLocalMockDeviceClaimEvidence({
+    vendor,
+    challengeHex,
+    authenticity,
+  });
+
+  return {
+    status: 'issued',
+    voucherCode: `DEV-LOCAL-${vendor.toUpperCase()}-${challengeHex
+      .slice(0, 8)
+      .toUpperCase()}`,
+    challengeHex,
+    ...verification,
   };
 }
