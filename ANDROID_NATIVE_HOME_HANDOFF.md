@@ -7,6 +7,15 @@
 > visual defects only; `HOME_UNIFIED_STORE_MIGRATION_HANDOFF.md` is
 > authoritative for business state and source ownership.
 >
+> Transport update (2026-07-27): HomeContainer now supports protocol v3 only.
+> Owner attach/replace uses one full snapshot; same-owner updates use complete
+> `shell`, `navigation`, `section:<tabId>`, and `surface` domain values with
+> independent controller generations. V1/V2, incremental patch compatibility,
+> ACK, snapshot recovery callbacks, and slot/body revision gates have been
+> removed. Any older transport description later in this historical handoff is
+> superseded by this paragraph and
+> `docs/native-home-owner-switch-swr-handoff.md`.
+>
 > Final architecture update (2026-07-22): Android actively renders the Kotlin
 > `HomeContainer`, and iOS actively renders the Swift `HomeContainer`. The
 > app-owned `MobileNativeHomeRenderer` reads the same per-scene Unified Home

@@ -1,350 +1,256 @@
-import fs from 'fs';
-import path from 'path';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import {
   HOME_CONTAINER_PROTOCOL_V3_VERSION,
-  applyHomeContainerPatchV3,
+  applyHomeContainerDomainsV3,
   applyHomeContainerSnapshotV3,
-  parseHomeContainerIntentV3,
-  validateHomeContainerIntentV3,
 } from './HomeContainerProtocolV3';
 
 import type {
-  IHomeContainerAuthorityRevisionVectorV3,
-  IHomeContainerPatchEnvelopeV3,
-  IHomeContainerPresentationRevisionVectorV3,
-  IHomeContainerProtocolV3State,
+  IHomeContainerDomainBatchV3,
   IHomeContainerSnapshotEnvelopeV3,
 } from './HomeContainerProtocolV3';
 
-const sectionRevisions = {
+const tabRevisions = {
   portfolio: 1,
   perps: 1,
   defi: 1,
   nft: 1,
   history: 1,
-  market: 1,
-};
-const presentationRevisions: IHomeContainerPresentationRevisionVectorV3 = {
-  shell: 1,
-  navigation: 1,
-  sections: sectionRevisions,
-};
-const authorityRevisions: IHomeContainerAuthorityRevisionVectorV3 = {
-  shellCommands: 1,
-  tabApplicability: 4,
-  sectionCommands: sectionRevisions,
-};
+} as const;
 
-function snapshotEnvelope(): IHomeContainerSnapshotEnvelopeV3 {
+const sectionRevisions = {
+  ...tabRevisions,
+  market: 1,
+} as const;
+
+function snapshot(sessionId = 'session-1'): IHomeContainerSnapshotEnvelopeV3 {
   return {
     kind: 'snapshot',
     protocolVersion: HOME_CONTAINER_PROTOCOL_V3_VERSION,
     identity: {
-      scopeKey: 'owner-a',
-      sessionId: 'session-a',
-      storeCommitId: 10,
+      scopeKey: 'wallet:account:all',
+      sessionId,
+      storeCommitId: 1,
     },
-    transportRevision: 1,
-    presentationRevisions,
-    authorityRevisions,
-    slotRevisions: { 'header.balance': 2 },
+    presentationRevisions: {
+      shell: 1,
+      navigation: 1,
+      surface: 1,
+      sections: tabRevisions,
+    },
+    authorityRevisions: {
+      shellCommands: 1,
+      tabApplicability: 1,
+      sectionCommands: sectionRevisions,
+    },
     payload: {
       selectedTabId: 'portfolio',
       header: {
-        accountName: 'Account A',
-        balance: '$11.61',
+        accountName: 'Account 1',
+        balance: '$1',
         actions: [],
         banners: [],
       },
       tabs: [
         {
           id: 'portfolio',
-          title: 'Portfolio',
+          title: 'Spot',
           destination: 'inline',
           sections: [],
         },
         {
-          id: 'defi',
-          title: 'DeFi',
+          id: 'perps',
+          title: 'Perps',
           destination: 'inline',
           sections: [],
         },
       ],
       theme: {
         backgroundColor: '#fff',
-        cardColor: '#fff',
+        cardColor: '#eee',
         dividerColor: '#ddd',
-        primaryTextColor: '#000',
+        primaryTextColor: '#111',
         secondaryTextColor: '#666',
-        accentColor: '#00f',
-        positiveColor: '#0a0',
+        accentColor: '#55f',
+        positiveColor: '#080',
         negativeColor: '#f00',
       },
     },
   };
 }
 
-function state(): IHomeContainerProtocolV3State {
-  const result = applyHomeContainerSnapshotV3(snapshotEnvelope());
-  expect(result.kind).toBe('applied');
-  return result.kind === 'applied' ? result.state : (undefined as never);
+function state() {
+  const result = applyHomeContainerSnapshotV3(snapshot());
+  if (result.kind !== 'applied') {
+    throw new OneKeyLocalError('Expected valid snapshot');
+  }
+  return result.state;
 }
 
-function patch(
-  current: IHomeContainerProtocolV3State,
-  overrides: Partial<IHomeContainerPatchEnvelopeV3> = {},
-): IHomeContainerPatchEnvelopeV3 {
+function batch(
+  updates: IHomeContainerDomainBatchV3['updates'],
+  sessionId = 'session-1',
+): IHomeContainerDomainBatchV3 {
   return {
-    kind: 'patch',
+    kind: 'domains',
     protocolVersion: HOME_CONTAINER_PROTOCOL_V3_VERSION,
-    identity: { ...current.identity, storeCommitId: 11 },
-    baseTransportRevision: current.transportRevision,
-    transportRevision: current.transportRevision + 1,
-    presentationRevisions: current.presentationRevisions,
-    authorityRevisions: current.authorityRevisions,
-    requiredSlotRevisions: {},
-    changes: [],
-    ...overrides,
+    identity: {
+      scopeKey: 'wallet:account:all',
+      sessionId,
+      storeCommitId: 10,
+    },
+    updates,
   };
 }
 
-function fixture<T>(name: string): T {
-  return JSON.parse(
-    fs.readFileSync(path.join(__dirname, '../tests/fixtures', name), 'utf8'),
-  ) as T;
-}
-
-describe('HomeContainer protocol v3', () => {
-  it('applies the canonical cross-language snapshot and patch fixtures', () => {
-    const snapshotResult = applyHomeContainerSnapshotV3(
-      fixture<IHomeContainerSnapshotEnvelopeV3>(
-        'home-container-v3.snapshot.json',
-      ),
-    );
-    expect(snapshotResult.kind).toBe('applied');
-    if (snapshotResult.kind !== 'applied') {
-      return;
-    }
-    const patchResult = applyHomeContainerPatchV3({
-      current: snapshotResult.state,
-      availableSlotRevisions: snapshotResult.state.slotRevisions,
-      envelope: fixture<IHomeContainerPatchEnvelopeV3>(
-        'home-container-v3.patch.json',
-      ),
-    });
-    expect(patchResult).toMatchObject({
-      kind: 'applied',
-      state: {
-        transportRevision: 12,
-        identity: { storeCommitId: 8 },
-        payload: {
-          selectedTabId: 'history',
-          header: { balance: '$101.00' },
-        },
-      },
-    });
-  });
-
-  it('applies a Shell-only patch without requiring unchanged slots', () => {
+describe('HomeContainer protocol v3 domain transport', () => {
+  it('accepts skipped generations and applies only the addressed domain', () => {
     const current = state();
-    const result = applyHomeContainerPatchV3({
-      current,
-      availableSlotRevisions: current.slotRevisions,
-      envelope: patch(current, {
-        presentationRevisions: {
-          ...current.presentationRevisions,
-          shell: 2,
-        },
-        changes: [
-          {
-            kind: 'replaceShell',
-            value: { ...current.payload.header, balance: '$11.62' },
+    const result = applyHomeContainerDomainsV3(
+      batch([
+        {
+          kind: 'section',
+          tabId: 'perps',
+          presentationRevision: 20,
+          commandRevisions: {
+            ...sectionRevisions,
+            perps: 8,
           },
-        ],
-      }),
-    });
-    expect(result).toMatchObject({
-      kind: 'applied',
-      state: {
-        authorityRevisions: { tabApplicability: 4 },
-        payload: { header: { balance: '$11.62' } },
-      },
-    });
-  });
-
-  it('rejects unknown section revision keys', () => {
-    const envelope = snapshotEnvelope();
-    const unknownPresentationEnvelope = {
-      ...envelope,
-      presentationRevisions: {
-        ...envelope.presentationRevisions,
-        sections: {
-          ...envelope.presentationRevisions.sections,
-          unknown: 1,
+          value: [
+            {
+              id: 'positions',
+              items: [],
+            },
+          ],
         },
-      },
-    } as unknown as IHomeContainerSnapshotEnvelopeV3;
-    const unknownAuthorityEnvelope = {
-      ...envelope,
-      authorityRevisions: {
-        ...envelope.authorityRevisions,
-        sectionCommands: {
-          ...envelope.authorityRevisions.sectionCommands,
-          unknown: 1,
-        },
-      },
-    } as unknown as IHomeContainerSnapshotEnvelopeV3;
-
-    expect(applyHomeContainerSnapshotV3(unknownPresentationEnvelope)).toEqual({
-      kind: 'needSnapshot',
-      reason: 'invalidInvariant',
-    });
-    expect(applyHomeContainerSnapshotV3(unknownAuthorityEnvelope)).toEqual({
-      kind: 'needSnapshot',
-      reason: 'invalidInvariant',
-    });
-  });
-
-  it('rejects mounted slot regressions and records only required slots', () => {
-    const current = state();
-    expect(
-      applyHomeContainerPatchV3({
-        current,
-        availableSlotRevisions: {
-          ...current.slotRevisions,
-          'header.balance': 1,
-        },
-        envelope: patch(current),
-      }),
-    ).toEqual({ kind: 'needSnapshot', reason: 'invalidInvariant' });
-
-    const result = applyHomeContainerPatchV3({
+      ]),
       current,
-      availableSlotRevisions: {
-        ...current.slotRevisions,
-        'header.action-row': 9,
-      },
-      envelope: patch(current),
-    });
+    );
+
     expect(result.kind).toBe('applied');
-    if (result.kind === 'applied') {
-      expect(result.state.slotRevisions).toEqual(current.slotRevisions);
-    }
-  });
-
-  it('waits only for explicitly required slot revisions', () => {
-    const current = state();
+    if (result.kind !== 'applied') return;
+    expect(result.appliedDomains).toEqual(['section:perps']);
+    expect(result.state.payload.header).toBe(current.payload.header);
     expect(
-      applyHomeContainerPatchV3({
-        current,
-        availableSlotRevisions: current.slotRevisions,
-        envelope: patch(current, {
-          requiredSlotRevisions: { 'content.state.defi': 3 },
-        }),
-      }),
-    ).toEqual({ kind: 'needSnapshot', reason: 'slotRevisionGap' });
+      result.state.payload.tabs.find((tab) => tab.id === 'perps')?.sections,
+    ).toEqual([{ id: 'positions', items: [] }]);
   });
 
-  it('accepts multiple tab intents from one applicability revision', () => {
+  it('ignores stale domains without blocking a newer independent domain', () => {
     const current = state();
-    for (const [intentId, tabId] of [
-      ['tab-portfolio', 'portfolio'],
-      ['tab-defi', 'defi'],
-    ] as const) {
-      const intent = parseHomeContainerIntentV3(
-        JSON.stringify({
-          protocolVersion: 3,
-          intentId,
-          owner: {
-            scopeKey: current.identity.scopeKey,
-            sessionId: current.identity.sessionId,
+    const result = applyHomeContainerDomainsV3(
+      batch([
+        {
+          kind: 'shell',
+          presentationRevision: 1,
+          commandRevision: 1,
+          value: {
+            accountName: 'Stale',
+            balance: '$0',
+            actions: [],
+            banners: [],
           },
-          authority: { kind: 'tabApplicability', revision: 4 },
-          intent: { kind: 'selectTab', tabId },
-        }),
-      );
-      expect(intent).toBeDefined();
-      expect(intent && validateHomeContainerIntentV3({ current, intent })).toBe(
-        true,
-      );
-    }
-  });
-
-  it('rejects unknown authority and stale owner/session', () => {
-    expect(
-      parseHomeContainerIntentV3(
-        JSON.stringify({
-          protocolVersion: 3,
-          intentId: 'unknown-authority',
-          owner: { scopeKey: 'owner-a', sessionId: 'session-a' },
-          authority: { kind: 'globalRevision', revision: 1 },
-          intent: { kind: 'selectTab', tabId: 'portfolio' },
-        }),
-      ),
-    ).toBeUndefined();
-    const current = state();
-    const intent = parseHomeContainerIntentV3(
-      JSON.stringify({
-        protocolVersion: 3,
-        intentId: 'stale-owner',
-        owner: { scopeKey: 'owner-b', sessionId: 'session-b' },
-        authority: { kind: 'tabApplicability', revision: 4 },
-        intent: { kind: 'selectTab', tabId: 'portfolio' },
-      }),
-    );
-    expect(intent).toBeDefined();
-    expect(intent && validateHomeContainerIntentV3({ current, intent })).toBe(
-      false,
-    );
-  });
-
-  it('requests resync for transport gaps and revision regression', () => {
-    const current = state();
-    expect(
-      applyHomeContainerPatchV3({
-        current,
-        availableSlotRevisions: current.slotRevisions,
-        envelope: patch(current, { baseTransportRevision: 0 }),
-      }),
-    ).toEqual({ kind: 'needSnapshot', reason: 'revisionGap' });
-    expect(
-      applyHomeContainerPatchV3({
-        current,
-        availableSlotRevisions: current.slotRevisions,
-        envelope: patch(current, {
-          authorityRevisions: {
-            ...current.authorityRevisions,
-            tabApplicability: 3,
-          },
-        }),
-      }),
-    ).toEqual({ kind: 'needSnapshot', reason: 'invalidInvariant' });
-    expect(
-      applyHomeContainerPatchV3({
-        current,
-        availableSlotRevisions: current.slotRevisions,
-        envelope: patch(current, {
-          baseTransportRevision: current.transportRevision - 1,
-          transportRevision: current.transportRevision,
-          authorityRevisions: {
-            ...current.authorityRevisions,
-            tabApplicability: 3,
-          },
-        }),
-      }),
-    ).toEqual({ kind: 'needSnapshot', reason: 'invalidInvariant' });
-  });
-
-  it('rejects snapshots with an empty owner identity', () => {
-    expect(
-      applyHomeContainerSnapshotV3({
-        ...snapshotEnvelope(),
-        identity: {
-          ...snapshotEnvelope().identity,
-          scopeKey: '',
         },
-      }),
-    ).toEqual({ kind: 'needSnapshot', reason: 'invalidInvariant' });
+        {
+          kind: 'surface',
+          presentationRevision: 9,
+          value: {
+            ...current.payload.theme,
+            backgroundColor: '#000',
+          },
+        },
+      ]),
+      current,
+    );
+
+    expect(result.kind).toBe('applied');
+    if (result.kind !== 'applied') return;
+    expect(result.appliedDomains).toEqual(['surface']);
+    expect(result.state.payload.header.accountName).toBe('Account 1');
+    expect(result.state.payload.theme.backgroundColor).toBe('#000');
+  });
+
+  it('does not let unrelated authority revisions block a fresh domain', () => {
+    const current = state();
+    const currentWithNewPortfolioAuthority = {
+      ...current,
+      authorityRevisions: {
+        ...current.authorityRevisions,
+        sectionCommands: {
+          ...current.authorityRevisions.sectionCommands,
+          portfolio: 10,
+        },
+      },
+    };
+    const result = applyHomeContainerDomainsV3(
+      batch([
+        {
+          kind: 'section',
+          tabId: 'perps',
+          presentationRevision: 2,
+          commandRevisions: {
+            ...sectionRevisions,
+            perps: 2,
+          },
+          value: [{ id: 'positions', items: [] }],
+        },
+      ]),
+      currentWithNewPortfolioAuthority,
+    );
+
+    expect(result.kind).toBe('applied');
+    if (result.kind !== 'applied') return;
+    expect(result.state.authorityRevisions.sectionCommands).toMatchObject({
+      portfolio: 10,
+      perps: 2,
+    });
+    expect(result.appliedDomains).toEqual(['section:perps']);
+  });
+
+  it('drops late updates from an old owner session', () => {
+    expect(
+      applyHomeContainerDomainsV3(
+        batch(
+          [
+            {
+              kind: 'surface',
+              presentationRevision: 2,
+              value: state().payload.theme,
+            },
+          ],
+          'old-session',
+        ),
+        state(),
+      ),
+    ).toEqual({ kind: 'ignored', reason: 'ownerMismatch' });
+  });
+
+  it('merges a delayed same-owner snapshot by domain generation', () => {
+    const currentResult = applyHomeContainerDomainsV3(
+      batch([
+        {
+          kind: 'shell',
+          presentationRevision: 5,
+          commandRevision: 5,
+          value: {
+            accountName: 'Fresh',
+            balance: '$5',
+            actions: [],
+            banners: [],
+          },
+        },
+      ]),
+      state(),
+    );
+    if (currentResult.kind !== 'applied') {
+      throw new OneKeyLocalError('Expected current state');
+    }
+
+    const result = applyHomeContainerSnapshotV3(
+      snapshot(),
+      currentResult.state,
+    );
+    expect(result).toEqual({ kind: 'ignored', reason: 'stale' });
   });
 });

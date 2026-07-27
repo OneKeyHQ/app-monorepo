@@ -14,6 +14,6 @@ xcrun swiftc \
   -o "$TEMP_DIR/home-container-protocol-v3"
 
 SNAPSHOT_JSON="$(<"$REPO_ROOT/packages/native-components/tests/fixtures/home-container-v3.snapshot.json")"
-PATCH_JSON="$(<"$REPO_ROOT/packages/native-components/tests/fixtures/home-container-v3.patch.json")"
+DOMAINS_JSON="$(<"$REPO_ROOT/packages/native-components/tests/fixtures/home-container-v3.domains.json")"
 
-"$TEMP_DIR/home-container-protocol-v3" "$SNAPSHOT_JSON" "$PATCH_JSON"
+"$TEMP_DIR/home-container-protocol-v3" "$SNAPSHOT_JSON" "$DOMAINS_JSON"

@@ -62,13 +62,11 @@ namespace margelo::nitro::onekeynativecomponents {
       virtual void setOnRenderError(const std::optional<std::function<void(const std::string& /* code */, const std::string& /* message */)>>& onRenderError) = 0;
       virtual std::optional<std::function<void(const std::string& /* intentJson */)>> getOnIntent() = 0;
       virtual void setOnIntent(const std::optional<std::function<void(const std::string& /* intentJson */)>>& onIntent) = 0;
-      virtual std::optional<std::function<void(const std::string& /* requestJson */)>> getOnSnapshotRequired() = 0;
-      virtual void setOnSnapshotRequired(const std::optional<std::function<void(const std::string& /* requestJson */)>>& onSnapshotRequired) = 0;
 
     public:
       // Methods
       virtual void setSnapshot(const std::string& snapshotJson) = 0;
-      virtual void applyPatch(const std::string& patchJson) = 0;
+      virtual void setDomains(const std::string& domainsJson) = 0;
       virtual void completeRefresh(const std::string& requestId) = 0;
       virtual void selectTab(const std::string& tabId, bool animated) = 0;
       virtual std::string getCapabilities() = 0;

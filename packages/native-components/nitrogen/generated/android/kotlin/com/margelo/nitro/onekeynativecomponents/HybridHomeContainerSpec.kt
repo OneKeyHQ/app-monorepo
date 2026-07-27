@@ -130,20 +130,6 @@ abstract class HybridHomeContainerSpec: HybridView() {
       onIntent = value?.let { it }
     }
 
-  abstract var onSnapshotRequired: ((requestJson: String) -> Unit)?
-
-  private var onSnapshotRequired_cxx: Func_void_std__string?
-    @Keep
-    @DoNotStrip
-    get() {
-      return onSnapshotRequired?.let { Func_void_std__string_java(it) }
-    }
-    @Keep
-    @DoNotStrip
-    set(value) {
-      onSnapshotRequired = value?.let { it }
-    }
-
   // Methods
   @DoNotStrip
   @Keep
@@ -151,7 +137,7 @@ abstract class HybridHomeContainerSpec: HybridView() {
 
   @DoNotStrip
   @Keep
-  abstract fun applyPatch(patchJson: String): Unit
+  abstract fun setDomains(domainsJson: String): Unit
 
   @DoNotStrip
   @Keep

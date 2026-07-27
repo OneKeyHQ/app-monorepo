@@ -1,6 +1,9 @@
 import Foundation
 
 private let homeContainerProtocolV3Version = 3
+private let homeContainerProtocolV3TabIds = [
+  "portfolio", "perps", "defi", "nft", "history",
+]
 private let homeContainerProtocolV3SectionIds = [
   "portfolio", "perps", "defi", "nft", "history", "market",
 ]
@@ -20,13 +23,13 @@ func homeContainerHeaderContainsCommand(
     })
 }
 
-struct HomeContainerProtocolV3Identity: Decodable, Equatable {
+struct HomeContainerProtocolV3Identity: Codable, Equatable {
   let scopeKey: String
   let sessionId: String
   let storeCommitId: Int
 
-  var owner: HomeContainerProtocolV2Owner {
-    HomeContainerProtocolV2Owner(scopeKey: scopeKey, sessionId: sessionId)
+  var owner: HomeContainerOwner {
+    HomeContainerOwner(scopeKey: scopeKey, sessionId: sessionId)
   }
 
   var isValid: Bool {
@@ -34,33 +37,22 @@ struct HomeContainerProtocolV3Identity: Decodable, Equatable {
   }
 }
 
-struct HomeContainerProtocolV3PresentationRevisions: Decodable, Equatable {
+struct HomeContainerProtocolV3PresentationRevisions: Codable, Equatable {
   let shell: Int
   let navigation: Int
+  let surface: Int
   let sections: [String: Int]
 
   var isValid: Bool {
     homeContainerIsNonnegativeSafeInteger(shell)
       && homeContainerIsNonnegativeSafeInteger(navigation)
-      && Set(sections.keys) == Set(homeContainerProtocolV3SectionIds)
-      && homeContainerProtocolV3SectionIds.allSatisfy {
-        sections[$0].map(homeContainerIsNonnegativeSafeInteger) == true
-      }
-  }
-
-  func doesNotRegress(from current: Self) -> Bool {
-    shell >= current.shell
-      && navigation >= current.navigation
-      && homeContainerProtocolV3SectionIds.allSatisfy {
-        guard let next = sections[$0], let previous = current.sections[$0] else {
-          return false
-        }
-        return next >= previous
-      }
+      && homeContainerIsNonnegativeSafeInteger(surface)
+      && Set(sections.keys) == Set(homeContainerProtocolV3TabIds)
+      && sections.values.allSatisfy(homeContainerIsNonnegativeSafeInteger)
   }
 }
 
-struct HomeContainerProtocolV3AuthorityRevisions: Decodable, Equatable {
+struct HomeContainerProtocolV3AuthorityRevisions: Codable, Equatable {
   let shellCommands: Int
   let tabApplicability: Int
   let sectionCommands: [String: Int]
@@ -69,23 +61,7 @@ struct HomeContainerProtocolV3AuthorityRevisions: Decodable, Equatable {
     homeContainerIsNonnegativeSafeInteger(shellCommands)
       && homeContainerIsNonnegativeSafeInteger(tabApplicability)
       && Set(sectionCommands.keys) == Set(homeContainerProtocolV3SectionIds)
-      && homeContainerProtocolV3SectionIds.allSatisfy {
-        sectionCommands[$0].map(homeContainerIsNonnegativeSafeInteger) == true
-      }
-  }
-
-  func doesNotRegress(from current: Self) -> Bool {
-    shellCommands >= current.shellCommands
-      && tabApplicability >= current.tabApplicability
-      && homeContainerProtocolV3SectionIds.allSatisfy {
-        guard
-          let next = sectionCommands[$0],
-          let previous = current.sectionCommands[$0]
-        else {
-          return false
-        }
-        return next >= previous
-      }
+      && sectionCommands.values.allSatisfy(homeContainerIsNonnegativeSafeInteger)
   }
 }
 
@@ -93,74 +69,141 @@ struct HomeContainerProtocolV3SnapshotEnvelope: Decodable {
   let kind: String
   let protocolVersion: Int
   let identity: HomeContainerProtocolV3Identity
-  let transportRevision: Int
   let presentationRevisions: HomeContainerProtocolV3PresentationRevisions
   let authorityRevisions: HomeContainerProtocolV3AuthorityRevisions
-  let slotRevisions: [String: Int]
-  let payload: HomeContainerProtocolV2SnapshotPayload
+  let payload: HomeContainerSnapshotPayload
 }
 
-struct HomeContainerProtocolV3PatchEnvelope: Decodable {
+struct HomeContainerProtocolV3Navigation: Decodable {
+  let selectedTabId: String
+  let tabs: [HomeContainerNavigationTab]
+}
+
+enum HomeContainerProtocolV3DomainUpdate: Decodable {
+  case shell(
+    presentationRevision: Int,
+    commandRevision: Int,
+    value: HomeContainerHeader
+  )
+  case navigation(
+    presentationRevision: Int,
+    applicabilityRevision: Int,
+    value: HomeContainerProtocolV3Navigation
+  )
+  case section(
+    tabId: String,
+    presentationRevision: Int,
+    commandRevisions: [String: Int],
+    value: [HomeContainerSection]
+  )
+  case surface(presentationRevision: Int, value: HomeContainerTheme)
+
+  private enum CodingKeys: String, CodingKey {
+    case kind
+    case tabId
+    case presentationRevision
+    case commandRevision
+    case commandRevisions
+    case applicabilityRevision
+    case value
+  }
+
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    switch try container.decode(String.self, forKey: .kind) {
+    case "shell":
+      self = .shell(
+        presentationRevision: try container.decode(Int.self, forKey: .presentationRevision),
+        commandRevision: try container.decode(Int.self, forKey: .commandRevision),
+        value: try container.decode(HomeContainerHeader.self, forKey: .value)
+      )
+    case "navigation":
+      self = .navigation(
+        presentationRevision: try container.decode(Int.self, forKey: .presentationRevision),
+        applicabilityRevision: try container.decode(Int.self, forKey: .applicabilityRevision),
+        value: try container.decode(HomeContainerProtocolV3Navigation.self, forKey: .value)
+      )
+    case "section":
+      self = .section(
+        tabId: try container.decode(String.self, forKey: .tabId),
+        presentationRevision: try container.decode(Int.self, forKey: .presentationRevision),
+        commandRevisions: try container.decode([String: Int].self, forKey: .commandRevisions),
+        value: try container.decode([HomeContainerSection].self, forKey: .value)
+      )
+    case "surface":
+      self = .surface(
+        presentationRevision: try container.decode(Int.self, forKey: .presentationRevision),
+        value: try container.decode(HomeContainerTheme.self, forKey: .value)
+      )
+    default:
+      throw DecodingError.dataCorruptedError(
+        forKey: .kind,
+        in: container,
+        debugDescription: "Unknown HomeContainer domain"
+      )
+    }
+  }
+
+  var domainKey: String {
+    switch self {
+    case .shell:
+      return "shell"
+    case .navigation:
+      return "navigation"
+    case .section(let tabId, _, _, _):
+      return "section:\(tabId)"
+    case .surface:
+      return "surface"
+    }
+  }
+}
+
+struct HomeContainerProtocolV3DomainBatch: Decodable {
   let kind: String
   let protocolVersion: Int
   let identity: HomeContainerProtocolV3Identity
-  let baseTransportRevision: Int
-  let transportRevision: Int
-  let presentationRevisions: HomeContainerProtocolV3PresentationRevisions
-  let authorityRevisions: HomeContainerProtocolV3AuthorityRevisions
-  let requiredSlotRevisions: [String: Int]
-  let changes: [HomeContainerProtocolV2Change]
+  let updates: [HomeContainerProtocolV3DomainUpdate]
 }
 
 struct HomeContainerProtocolV3State {
   let identity: HomeContainerProtocolV3Identity
-  let transportRevision: Int
   let presentationRevisions: HomeContainerProtocolV3PresentationRevisions
   let authorityRevisions: HomeContainerProtocolV3AuthorityRevisions
-  let slotRevisions: [String: Int]
-  let legacyState: HomeContainerProtocolV2State
-
-  var snapshot: HomeContainerSnapshot { legacyState.snapshot }
+  let snapshot: HomeContainerSnapshot
 }
 
-struct HomeContainerProtocolV3MountedSlotMetadata: Equatable {
-  let slotId: String
-  let owner: HomeContainerProtocolV2Owner
-  let slotRevision: Int
-  let producedByStoreCommitId: Int
+struct HomeContainerRenderPlan: Equatable {
+  let isFullSnapshot: Bool
+  let shouldBindHeader: Bool
+  let shouldReconcileNavigation: Bool
+  let sectionTabIds: Set<String>
+  let shouldApplySurface: Bool
 
-  var isValid: Bool {
-    !slotId.isEmpty
-      && owner.isValid
-      && homeContainerIsNonnegativeSafeInteger(slotRevision)
-      && homeContainerIsNonnegativeSafeInteger(producedByStoreCommitId)
+  static let fullSnapshot = HomeContainerRenderPlan(
+    isFullSnapshot: true,
+    shouldBindHeader: true,
+    shouldReconcileNavigation: true,
+    sectionTabIds: [],
+    shouldApplySurface: true
+  )
+
+  static func domains(_ domains: [String]) -> HomeContainerRenderPlan {
+    HomeContainerRenderPlan(
+      isFullSnapshot: false,
+      shouldBindHeader: domains.contains("shell"),
+      shouldReconcileNavigation: domains.contains("navigation"),
+      sectionTabIds: Set(domains.compactMap { domain in
+        domain.hasPrefix("section:") ? String(domain.dropFirst("section:".count)) : nil
+      }),
+      shouldApplySurface: domains.contains("surface")
+    )
   }
-}
-
-func homeContainerProtocolV3AvailableSlotRevisions(
-  owner: HomeContainerProtocolV2Owner,
-  mountedSlots: [HomeContainerProtocolV3MountedSlotMetadata]
-) -> [String: Int] {
-  let matchingSlots = mountedSlots.filter { $0.isValid && $0.owner == owner }
-  let slotsById = Dictionary(grouping: matchingSlots, by: \.slotId)
-  return slotsById.reduce(into: [:]) { result, entry in
-    guard entry.value.count == 1, let slot = entry.value.first else { return }
-    result[entry.key] = slot.slotRevision
-  }
-}
-
-enum HomeContainerProtocolV3NeedSnapshotReason: String, Equatable {
-  case invalidInvariant
-  case ownerMismatch
-  case revisionGap
-  case slotRevisionGap
-  case unsupportedProtocol
 }
 
 enum HomeContainerProtocolV3ApplyOutcome {
-  case applied(HomeContainerProtocolV3State, HomeContainerProtocolV2RenderPlan)
-  case duplicate(HomeContainerProtocolV3State)
-  case needSnapshot(HomeContainerProtocolV3NeedSnapshotReason)
+  case applied(HomeContainerProtocolV3State, HomeContainerRenderPlan)
+  case ignored
+  case invalid(String)
 }
 
 enum HomeContainerProtocolV3IntentAuthority: Codable, Equatable {
@@ -294,180 +337,317 @@ enum HomeContainerProtocolV3IntentPayload: Codable, Equatable {
 struct HomeContainerProtocolV3Intent: Codable, Equatable {
   let protocolVersion: Int
   let intentId: String
-  let owner: HomeContainerProtocolV2Owner
+  let owner: HomeContainerOwner
   let authority: HomeContainerProtocolV3IntentAuthority
   let intent: HomeContainerProtocolV3IntentPayload
-
-  func isValid(against state: HomeContainerProtocolV3State) -> Bool {
-    guard protocolVersion == homeContainerProtocolV3Version,
-      !intentId.isEmpty,
-      owner == state.identity.owner
-    else {
-      return false
-    }
-    switch (authority, intent) {
-    case let (.shellCommands(revision), .action(commandId, _)):
-      return !commandId.isEmpty
-        && revision == state.authorityRevisions.shellCommands
-    case let (
-      .sectionCommands(sectionId, revision),
-      .action(commandId, _)
-    ):
-      return !commandId.isEmpty
-        && revision == state.authorityRevisions.sectionCommands[sectionId]
-    case let (.tabApplicability(revision), .selectTab(tabId)):
-      return !tabId.isEmpty
-        && revision == state.authorityRevisions.tabApplicability
-    case let (.tabApplicability(revision), .handoff(tabId, commandId)):
-      return !tabId.isEmpty && !commandId.isEmpty
-        && revision == state.authorityRevisions.tabApplicability
-    case let (
-      .sectionCommands(sectionId, revision),
-      .refresh(tabId, requestId)
-    ):
-      return sectionId == tabId && !requestId.isEmpty
-        && revision == state.authorityRevisions.sectionCommands[sectionId]
-    default:
-      return false
-    }
-  }
 }
 
 enum HomeContainerProtocolV3Transaction {
   static func apply(
-    snapshot envelope: HomeContainerProtocolV3SnapshotEnvelope
+    snapshot envelope: HomeContainerProtocolV3SnapshotEnvelope,
+    current: HomeContainerProtocolV3State? = nil
   ) -> HomeContainerProtocolV3ApplyOutcome {
     guard envelope.protocolVersion == homeContainerProtocolV3Version else {
-      return .needSnapshot(.unsupportedProtocol)
+      return .invalid("unsupported_protocol")
     }
     guard envelope.kind == "snapshot",
       envelope.identity.isValid,
-      homeContainerIsNonnegativeSafeInteger(envelope.transportRevision),
       envelope.presentationRevisions.isValid,
-      envelope.authorityRevisions.isValid,
-      revisionsAreValid(envelope.slotRevisions)
+      envelope.authorityRevisions.isValid
     else {
-      return .needSnapshot(.invalidInvariant)
+      return .invalid("invalid_snapshot")
     }
-    let legacyEnvelope = HomeContainerProtocolV2SnapshotEnvelope(
-      kind: "snapshot",
-      protocolVersion: homeContainerProtocolVersion,
-      schemaVersion: homeContainerBusinessSchemaVersion,
-      owner: envelope.identity.owner,
-      revision: envelope.transportRevision,
-      payload: envelope.payload
-    )
-    switch HomeContainerProtocolV2Transaction.apply(
-      snapshot: legacyEnvelope,
-      current: nil
-    ) {
-    case .applied(let legacyState, let renderPlan):
-      return .applied(
-        HomeContainerProtocolV3State(
-          identity: envelope.identity,
-          transportRevision: envelope.transportRevision,
-          presentationRevisions: envelope.presentationRevisions,
-          authorityRevisions: envelope.authorityRevisions,
-          slotRevisions: envelope.slotRevisions,
-          legacyState: legacyState
-        ),
-        renderPlan
+    let snapshot = envelope.payload.makeSnapshot(revision: envelope.identity.storeCommitId)
+    guard homeContainerValidatesBusinessInvariants(snapshot) else {
+      return .invalid("invalid_snapshot")
+    }
+    if let current, current.identity.owner == envelope.identity.owner {
+      let batch = HomeContainerProtocolV3DomainBatch(
+        kind: "domains",
+        protocolVersion: homeContainerProtocolV3Version,
+        identity: envelope.identity,
+        updates: snapshotUpdates(envelope)
       )
-    case .duplicate:
-      return .needSnapshot(.invalidInvariant)
-    case .needSnapshot:
-      return .needSnapshot(.invalidInvariant)
+      return apply(domains: batch, current: current)
     }
+    return .applied(
+      HomeContainerProtocolV3State(
+        identity: envelope.identity,
+        presentationRevisions: envelope.presentationRevisions,
+        authorityRevisions: envelope.authorityRevisions,
+        snapshot: snapshot
+      ),
+      .fullSnapshot
+    )
   }
 
   static func apply(
-    patch: HomeContainerProtocolV3PatchEnvelope,
-    current: HomeContainerProtocolV3State?,
-    availableSlotRevisions: [String: Int]
+    domains batch: HomeContainerProtocolV3DomainBatch,
+    current: HomeContainerProtocolV3State?
   ) -> HomeContainerProtocolV3ApplyOutcome {
-    guard patch.protocolVersion == homeContainerProtocolV3Version else {
-      return .needSnapshot(.unsupportedProtocol)
+    guard batch.protocolVersion == homeContainerProtocolV3Version else {
+      return .invalid("unsupported_protocol")
     }
-    guard let current else {
-      return .needSnapshot(.revisionGap)
+    guard batch.kind == "domains", batch.identity.isValid, let current else {
+      return .invalid("invalid_domains")
     }
-    guard patch.identity.owner == current.identity.owner else {
-      return .needSnapshot(.ownerMismatch)
+    guard batch.identity.owner == current.identity.owner else {
+      return .ignored
     }
-    guard patch.kind == "patch",
-      patch.identity.isValid,
-      patch.identity.storeCommitId >= current.identity.storeCommitId,
-      homeContainerIsNonnegativeSafeInteger(patch.baseTransportRevision),
-      homeContainerIsNonnegativeSafeInteger(patch.transportRevision),
-      patch.presentationRevisions.isValid,
-      patch.authorityRevisions.isValid,
-      patch.presentationRevisions.doesNotRegress(
-        from: current.presentationRevisions
-      ),
-      patch.authorityRevisions.doesNotRegress(from: current.authorityRevisions),
-      revisionsAreValid(patch.requiredSlotRevisions)
-    else {
-      return .needSnapshot(.invalidInvariant)
+    guard Set(batch.updates.map(\.domainKey)).count == batch.updates.count else {
+      return .invalid("duplicate_domain")
     }
-    if patch.transportRevision == current.transportRevision,
-      patch.baseTransportRevision < patch.transportRevision
-    {
-      return .duplicate(current)
+
+    var snapshot = current.snapshot
+    var presentation = current.presentationRevisions
+    var authority = current.authorityRevisions
+    var appliedDomains = [String]()
+
+    for update in batch.updates {
+      switch update {
+      case .shell(let revision, let commandRevision, let value):
+        guard valid(revision), valid(commandRevision) else {
+          return .invalid("invalid_shell_revision")
+        }
+        guard revision > presentation.shell else { continue }
+        guard commandRevision >= authority.shellCommands else {
+          return .invalid("regressed_shell_authority")
+        }
+        snapshot = replacing(snapshot, header: value)
+        presentation = .init(
+          shell: revision,
+          navigation: presentation.navigation,
+          surface: presentation.surface,
+          sections: presentation.sections
+        )
+        authority = .init(
+          shellCommands: commandRevision,
+          tabApplicability: authority.tabApplicability,
+          sectionCommands: authority.sectionCommands
+        )
+      case .navigation(let revision, let applicabilityRevision, let value):
+        guard valid(revision), valid(applicabilityRevision) else {
+          return .invalid("invalid_navigation_revision")
+        }
+        guard revision > presentation.navigation else { continue }
+        guard applicabilityRevision >= authority.tabApplicability,
+          let next = replacing(snapshot, navigation: value)
+        else {
+          return .invalid("invalid_navigation")
+        }
+        snapshot = next
+        presentation = .init(
+          shell: presentation.shell,
+          navigation: revision,
+          surface: presentation.surface,
+          sections: presentation.sections
+        )
+        authority = .init(
+          shellCommands: authority.shellCommands,
+          tabApplicability: applicabilityRevision,
+          sectionCommands: authority.sectionCommands
+        )
+      case .section(let tabId, let revision, let commandRevisions, let value):
+        guard valid(revision),
+          Set(commandRevisions.keys) == Set(homeContainerProtocolV3SectionIds),
+          commandRevisions.values.allSatisfy(valid),
+          homeContainerProtocolV3TabIds.contains(tabId)
+        else {
+          return .invalid("invalid_section_revision")
+        }
+        let currentRevision = presentation.sections[tabId] ?? 0
+        guard revision > currentRevision else { continue }
+        guard let next = replacing(snapshot, tabId: tabId, sections: value) else {
+          return .invalid("invalid_section")
+        }
+        snapshot = next
+        var sectionRevisions = presentation.sections
+        sectionRevisions[tabId] = revision
+        presentation = .init(
+          shell: presentation.shell,
+          navigation: presentation.navigation,
+          surface: presentation.surface,
+          sections: sectionRevisions
+        )
+        authority = .init(
+          shellCommands: authority.shellCommands,
+          tabApplicability: authority.tabApplicability,
+          sectionCommands: Dictionary(
+            uniqueKeysWithValues: homeContainerProtocolV3SectionIds.map { sectionId in
+              (
+                sectionId,
+                max(
+                  authority.sectionCommands[sectionId] ?? 0,
+                  commandRevisions[sectionId] ?? 0
+                )
+              )
+            }
+          )
+        )
+      case .surface(let revision, let value):
+        guard valid(revision) else {
+          return .invalid("invalid_surface_revision")
+        }
+        guard revision > presentation.surface else { continue }
+        snapshot = replacing(snapshot, theme: value)
+        presentation = .init(
+          shell: presentation.shell,
+          navigation: presentation.navigation,
+          surface: revision,
+          sections: presentation.sections
+        )
+      }
+      appliedDomains.append(update.domainKey)
     }
-    guard patch.baseTransportRevision == current.transportRevision,
-      patch.transportRevision == current.transportRevision + 1
-    else {
-      return .needSnapshot(.revisionGap)
+
+    guard !appliedDomains.isEmpty else { return .ignored }
+    guard homeContainerValidatesBusinessInvariants(snapshot) else {
+      return .invalid("invalid_result")
     }
-    guard patch.requiredSlotRevisions.allSatisfy({ key, revision in
-      availableSlotRevisions[key] == revision
-    }) else {
-      return .needSnapshot(.slotRevisionGap)
-    }
-    guard availableSlotRevisions.allSatisfy({ key, revision in
-      current.slotRevisions[key].map { revision >= $0 } ?? true
-    }) else {
-      return .needSnapshot(.invalidInvariant)
-    }
-    let legacyPatch = HomeContainerProtocolV2PatchEnvelope(
-      kind: "patch",
-      protocolVersion: homeContainerProtocolVersion,
-      schemaVersion: homeContainerBusinessSchemaVersion,
-      owner: patch.identity.owner,
-      baseRevision: patch.baseTransportRevision,
-      revision: patch.transportRevision,
-      changes: patch.changes
-    )
-    switch HomeContainerProtocolV2Transaction.apply(
-      patch: legacyPatch,
-      current: current.legacyState
-    ) {
-    case .applied(let legacyState, let renderPlan):
-      return .applied(
-        HomeContainerProtocolV3State(
-          identity: patch.identity,
-          transportRevision: patch.transportRevision,
-          presentationRevisions: patch.presentationRevisions,
-          authorityRevisions: patch.authorityRevisions,
-          slotRevisions: patch.requiredSlotRevisions.merging(
-            current.slotRevisions,
-            uniquingKeysWith: { required, _ in required }
-          ),
-          legacyState: legacyState
+    return .applied(
+      HomeContainerProtocolV3State(
+        identity: HomeContainerProtocolV3Identity(
+          scopeKey: current.identity.scopeKey,
+          sessionId: current.identity.sessionId,
+          storeCommitId: max(current.identity.storeCommitId, batch.identity.storeCommitId)
         ),
-        renderPlan
-      )
-    case .duplicate:
-      return .duplicate(current)
-    case .needSnapshot(_, _, let reason):
-      return .needSnapshot(
-        reason == .ownerMismatch ? .ownerMismatch
-          : reason == .revisionGap ? .revisionGap : .invalidInvariant
-      )
-    }
+        presentationRevisions: presentation,
+        authorityRevisions: authority,
+        snapshot: snapshot
+      ),
+      .domains(appliedDomains)
+    )
   }
 
-  private static func revisionsAreValid(_ revisions: [String: Int]) -> Bool {
-    revisions.values.allSatisfy(homeContainerIsNonnegativeSafeInteger)
+  private static func valid(_ revision: Int) -> Bool {
+    homeContainerIsNonnegativeSafeInteger(revision)
+  }
+
+  private static func snapshotUpdates(
+    _ envelope: HomeContainerProtocolV3SnapshotEnvelope
+  ) -> [HomeContainerProtocolV3DomainUpdate] {
+    var updates: [HomeContainerProtocolV3DomainUpdate] = [
+      .shell(
+        presentationRevision: envelope.presentationRevisions.shell,
+        commandRevision: envelope.authorityRevisions.shellCommands,
+        value: envelope.payload.header
+      ),
+      .navigation(
+        presentationRevision: envelope.presentationRevisions.navigation,
+        applicabilityRevision: envelope.authorityRevisions.tabApplicability,
+        value: HomeContainerProtocolV3Navigation(
+          selectedTabId: envelope.payload.selectedTabId,
+          tabs: envelope.payload.tabs.map {
+            HomeContainerNavigationTab(
+              id: $0.id,
+              title: $0.title,
+              destination: $0.destination,
+              handoffCommandId: $0.handoffCommandId,
+              toolbarAction: $0.toolbarAction
+            )
+          }
+        )
+      ),
+      .surface(
+        presentationRevision: envelope.presentationRevisions.surface,
+        value: envelope.payload.theme
+      ),
+    ]
+    envelope.payload.tabs.filter { $0.destination == .inline }.forEach { tab in
+      updates.append(
+        .section(
+          tabId: tab.id,
+          presentationRevision: envelope.presentationRevisions.sections[tab.id] ?? 0,
+          commandRevisions: envelope.authorityRevisions.sectionCommands,
+          value: tab.sections
+        )
+      )
+    }
+    return updates
+  }
+
+  private static func replacing(
+    _ snapshot: HomeContainerSnapshot,
+    header: HomeContainerHeader
+  ) -> HomeContainerSnapshot {
+    HomeContainerSnapshot(
+      schemaVersion: snapshot.schemaVersion,
+      revision: snapshot.revision,
+      selectedTabId: snapshot.selectedTabId,
+      header: header,
+      tabs: snapshot.tabs,
+      theme: snapshot.theme
+    )
+  }
+
+  private static func replacing(
+    _ snapshot: HomeContainerSnapshot,
+    theme: HomeContainerTheme
+  ) -> HomeContainerSnapshot {
+    HomeContainerSnapshot(
+      schemaVersion: snapshot.schemaVersion,
+      revision: snapshot.revision,
+      selectedTabId: snapshot.selectedTabId,
+      header: snapshot.header,
+      tabs: snapshot.tabs,
+      theme: theme
+    )
+  }
+
+  private static func replacing(
+    _ snapshot: HomeContainerSnapshot,
+    navigation: HomeContainerProtocolV3Navigation
+  ) -> HomeContainerSnapshot? {
+    let sections = Dictionary(
+      uniqueKeysWithValues: snapshot.tabs.map { ($0.id, $0.sections) }
+    )
+    let tabs = navigation.tabs.map { tab in
+      HomeContainerTab(
+        id: tab.id,
+        title: tab.title,
+        destination: tab.destination,
+        handoffCommandId: tab.handoffCommandId,
+        toolbarAction: tab.toolbarAction,
+        sections: tab.destination == .inline ? sections[tab.id] ?? [] : []
+      )
+    }
+    let next = HomeContainerSnapshot(
+      schemaVersion: snapshot.schemaVersion,
+      revision: snapshot.revision,
+      selectedTabId: navigation.selectedTabId,
+      header: snapshot.header,
+      tabs: tabs,
+      theme: snapshot.theme
+    )
+    return homeContainerValidatesBusinessInvariants(next) ? next : nil
+  }
+
+  private static func replacing(
+    _ snapshot: HomeContainerSnapshot,
+    tabId: String,
+    sections: [HomeContainerSection]
+  ) -> HomeContainerSnapshot? {
+    var replaced = false
+    let tabs = snapshot.tabs.map { tab -> HomeContainerTab in
+      guard tab.id == tabId, tab.destination == .inline else { return tab }
+      replaced = true
+      return HomeContainerTab(
+        id: tab.id,
+        title: tab.title,
+        destination: tab.destination,
+        handoffCommandId: tab.handoffCommandId,
+        toolbarAction: tab.toolbarAction,
+        sections: sections
+      )
+    }
+    guard replaced else { return nil }
+    return HomeContainerSnapshot(
+      schemaVersion: snapshot.schemaVersion,
+      revision: snapshot.revision,
+      selectedTabId: snapshot.selectedTabId,
+      header: snapshot.header,
+      tabs: tabs,
+      theme: snapshot.theme
+    )
   }
 }

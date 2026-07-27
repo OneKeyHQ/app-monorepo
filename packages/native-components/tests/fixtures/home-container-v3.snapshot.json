@@ -6,17 +6,16 @@
     "sessionId": "session-1",
     "storeCommitId": 7
   },
-  "transportRevision": 11,
   "presentationRevisions": {
     "shell": 4,
     "navigation": 3,
+    "surface": 1,
     "sections": {
       "portfolio": 6,
       "perps": 1,
       "defi": 2,
       "nft": 1,
-      "history": 2,
-      "market": 1
+      "history": 2
     }
   },
   "authorityRevisions": {
@@ -30,10 +29,6 @@
       "history": 1,
       "market": 1
     }
-  },
-  "slotRevisions": {
-    "header.balance": 4,
-    "content.state.portfolio": 6
   },
   "payload": {
     "selectedTabId": "portfolio",

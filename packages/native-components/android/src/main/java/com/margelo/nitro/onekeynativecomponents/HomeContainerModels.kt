@@ -5,6 +5,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 private const val HOME_CONTAINER_MAXIMUM_SAFE_INTEGER = 9_007_199_254_740_991L
+internal const val HOME_CONTAINER_BUSINESS_SCHEMA_VERSION = 2
 
 internal data class HomeContainerTheme(
   val backgroundColor: String,
@@ -143,18 +144,7 @@ internal data class HomeContainerSnapshot(
   val header: HomeContainerHeader,
   val tabs: List<HomeContainerTab>,
   val theme: HomeContainerTheme,
-) {
-  fun applying(patch: HomeContainerPatch): HomeContainerSnapshot {
-    val sectionPatches = patch.tabs.associate { it.tabId to it.sections }
-    return copy(
-      revision = patch.revision,
-      header = patch.header ?: header,
-      tabs = tabs.map { tab ->
-        sectionPatches[tab.id]?.let { tab.copy(sections = it) } ?: tab
-      },
-    )
-  }
-}
+)
 
 internal fun HomeContainerSnapshot.inlineTabs(): List<HomeContainerTab> =
   tabs.filter { it.destination == HomeContainerTabDestination.INLINE }
@@ -184,36 +174,34 @@ internal fun HomeContainerSnapshot.hasValidTabInvariants(): Boolean {
   }
 }
 
-internal fun HomeContainerSnapshot.applyingValidatedPatch(
-  patch: HomeContainerPatch,
-): HomeContainerSnapshot? {
-  if (
-    patch.schemaVersion != HOME_CONTAINER_BUSINESS_SCHEMA_VERSION ||
-    patch.revision !in 0..HOME_CONTAINER_MAXIMUM_SAFE_INTEGER ||
-    patch.revision < revision
-  ) {
-    return null
-  }
-  val validTabIds = inlineTabs().mapTo(mutableSetOf()) { it.id }
-  val patchedTabIds = patch.tabs.map { it.tabId }
-  if (patchedTabIds.toSet().size != patchedTabIds.size) return null
-  if (patchedTabIds.any { it !in validTabIds }) return null
-  return applying(patch).takeIf(HomeContainerSnapshot::hasValidTabInvariants)
-}
-
-internal data class HomeContainerTabPatch(
-  val tabId: String,
-  val sections: List<HomeContainerSection>,
-)
-
-internal data class HomeContainerPatch(
-  val schemaVersion: Int,
-  val revision: Long,
-  val header: HomeContainerHeader?,
-  val tabs: List<HomeContainerTabPatch>,
-)
-
 internal object HomeContainerJson {
+  fun parseSnapshotPayload(value: JSONObject, revision: Long): HomeContainerSnapshot =
+    HomeContainerSnapshot(
+      schemaVersion = HOME_CONTAINER_BUSINESS_SCHEMA_VERSION,
+      revision = revision,
+      selectedTabId = value.getString("selectedTabId"),
+      header = parseHeader(value.getJSONObject("header")),
+      tabs = value.getJSONArray("tabs").mapObjects(::parseTab),
+      theme = parseTheme(value.getJSONObject("theme")),
+    ).also { snapshot ->
+      require(snapshot.hasValidTabInvariants()) {
+        "HomeContainer snapshot has invalid tab destination invariants"
+      }
+    }
+
+  fun parseNavigationTabs(value: JSONArray): List<HomeContainerTab> =
+    value.mapObjects { tab ->
+      require(!tab.has("sections")) {
+        "HomeContainer navigation tabs must not carry sections"
+      }
+      parseTab(
+        JSONObject(tab.toString()).put("sections", JSONArray()),
+      )
+    }
+
+  fun parseSections(value: JSONArray): List<HomeContainerSection> =
+    value.mapObjects(::parseSection)
+
   fun parseSnapshot(json: String): HomeContainerSnapshot {
     val root = JSONObject(json)
     return HomeContainerSnapshot(
@@ -230,22 +218,7 @@ internal object HomeContainerJson {
     }
   }
 
-  fun parsePatch(json: String): HomeContainerPatch {
-    val root = JSONObject(json)
-    return HomeContainerPatch(
-      schemaVersion = root.getInt("schemaVersion"),
-      revision = root.getLong("revision"),
-      header = root.optJSONObject("header")?.let(::parseHeader),
-      tabs = root.getJSONArray("tabs").mapObjects { tab ->
-        HomeContainerTabPatch(
-          tabId = tab.getString("tabId"),
-          sections = tab.getJSONArray("sections").mapObjects(::parseSection),
-        )
-      },
-    )
-  }
-
-  private fun parseTheme(value: JSONObject): HomeContainerTheme = HomeContainerTheme(
+  fun parseTheme(value: JSONObject): HomeContainerTheme = HomeContainerTheme(
     backgroundColor = value.getString("backgroundColor"),
     cardColor = value.getString("cardColor"),
     dividerColor = value.getString("dividerColor"),
@@ -259,7 +232,7 @@ internal object HomeContainerJson {
     subduedIconColor = value.optString("subduedIconColor"),
   )
 
-  private fun parseHeader(value: JSONObject): HomeContainerHeader = HomeContainerHeader(
+  fun parseHeader(value: JSONObject): HomeContainerHeader = HomeContainerHeader(
     accountName = value.getString("accountName"),
     accountSubtitle = value.optString("accountSubtitle"),
     accountImageUrl = value.optString("accountImageUrl"),

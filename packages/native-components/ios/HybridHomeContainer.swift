@@ -20,9 +20,6 @@ final class HybridHomeContainer: HybridHomeContainerSpec {
     container.onIntent = { [weak self] intentJson in
       self?.onIntent?(intentJson)
     }
-    container.onSnapshotRequired = { [weak self] requestJson in
-      self?.onSnapshotRequired?(requestJson)
-    }
     return container
   }()
 
@@ -52,14 +49,12 @@ final class HybridHomeContainer: HybridHomeContainerSpec {
   var onIntent: ((_ intentJson: String) -> Void)? {
     didSet { updateRefreshAvailability() }
   }
-  var onSnapshotRequired: ((_ requestJson: String) -> Void)?
-
   func setSnapshot(snapshotJson: String) throws {
     containerView.submitSnapshot(snapshotJson)
   }
 
-  func applyPatch(patchJson: String) throws {
-    containerView.submitPatch(patchJson)
+  func setDomains(domainsJson: String) throws {
+    containerView.submitDomains(domainsJson)
   }
 
   func completeRefresh(requestId: String) throws {
@@ -71,9 +66,8 @@ final class HybridHomeContainer: HybridHomeContainerSpec {
   }
 
   func getCapabilities() throws -> String {
-    return "{\"schemaVersions\":[2],\"protocolVersions\":[1,2,3],\"preferredProtocol\":3,"
+    return "{\"schemaVersions\":[2],\"protocolVersion\":3,"
       + "\"tabIds\":[\"portfolio\",\"perps\",\"defi\",\"nft\",\"history\"],"
-      + "\"supportsPatches\":true,\"supportsAtomicPatches\":true,"
       + "\"supportsNativeRefresh\":true,\"supportsHorizontalPaging\":true,"
       + "\"supportsSlots\":true}"
   }

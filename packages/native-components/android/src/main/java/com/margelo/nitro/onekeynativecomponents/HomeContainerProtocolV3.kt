@@ -1,10 +1,18 @@
 package com.margelo.nitro.onekeynativecomponents
 
+import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
 private const val HOME_CONTAINER_PROTOCOL_V3_VERSION = 3L
-private const val MAX_SAFE_INTEGER = 9_007_199_254_740_991L
+private const val HOME_CONTAINER_PROTOCOL_MAX_SAFE_INTEGER = 9_007_199_254_740_991L
+private val HOME_CONTAINER_PROTOCOL_V3_TAB_IDS = listOf(
+  "portfolio",
+  "perps",
+  "defi",
+  "nft",
+  "history",
+)
 private val HOME_CONTAINER_PROTOCOL_V3_SECTION_IDS = listOf(
   "portfolio",
   "perps",
@@ -14,243 +22,125 @@ private val HOME_CONTAINER_PROTOCOL_V3_SECTION_IDS = listOf(
   "market",
 )
 
+internal data class HomeContainerOwner(
+  val scopeKey: String,
+  val sessionId: String,
+) {
+  val isValid: Boolean
+    get() = scopeKey.isNotEmpty() && sessionId.isNotEmpty()
+
+  fun toJson(): JSONObject = JSONObject()
+    .put("scopeKey", scopeKey)
+    .put("sessionId", sessionId)
+}
+
 internal data class HomeContainerProtocolV3Identity(
-  val owner: HomeContainerProtocolV2Owner,
+  val owner: HomeContainerOwner,
   val storeCommitId: Long,
 )
 
 internal data class HomeContainerProtocolV3State(
   val identity: HomeContainerProtocolV3Identity,
-  val transportRevision: Long,
   val presentationRevisions: JSONObject,
   val authorityRevisions: JSONObject,
-  val slotRevisions: Map<String, Long>,
-  val legacyState: HomeContainerProtocolV2State,
+  val snapshot: HomeContainerSnapshot,
 )
 
-internal data class HomeContainerProtocolV3MountedSlotMetadata(
-  val slotId: String,
-  val owner: HomeContainerProtocolV2Owner,
-  val slotRevision: Long,
-  val producedByStoreCommitId: Long,
+internal data class HomeContainerRenderPlan(
+  val isFullSnapshot: Boolean,
+  val shouldBindHeader: Boolean,
+  val shouldReconcileNavigation: Boolean,
+  val sectionTabIds: Set<String>,
+  val shouldApplySurface: Boolean,
 ) {
-  val isValid: Boolean
-    get() = slotId.isNotEmpty() &&
-      owner.isValid &&
-      slotRevision in 0..MAX_SAFE_INTEGER &&
-      producedByStoreCommitId in 0..MAX_SAFE_INTEGER
-}
+  companion object {
+    val FULL_SNAPSHOT = HomeContainerRenderPlan(
+      isFullSnapshot = true,
+      shouldBindHeader = true,
+      shouldReconcileNavigation = true,
+      sectionTabIds = emptySet(),
+      shouldApplySurface = true,
+    )
 
-internal fun homeContainerProtocolV3AvailableSlotRevisions(
-  owner: HomeContainerProtocolV2Owner,
-  mountedSlots: List<HomeContainerProtocolV3MountedSlotMetadata>,
-): Map<String, Long> = mountedSlots
-  .filter { it.isValid && it.owner == owner }
-  .groupBy(HomeContainerProtocolV3MountedSlotMetadata::slotId)
-  .mapNotNull { (slotId, slots) ->
-    slots.singleOrNull()?.let { slotId to it.slotRevision }
+    fun domains(domains: List<String>) = HomeContainerRenderPlan(
+      isFullSnapshot = false,
+      shouldBindHeader = "shell" in domains,
+      shouldReconcileNavigation = "navigation" in domains,
+      sectionTabIds = domains
+        .filter { it.startsWith("section:") }
+        .mapTo(mutableSetOf()) { it.removePrefix("section:") },
+      shouldApplySurface = "surface" in domains,
+    )
   }
-  .toMap()
-
-internal enum class HomeContainerProtocolV3NeedSnapshotReason {
-  INVALID_INVARIANT,
-  OWNER_MISMATCH,
-  REVISION_GAP,
-  SLOT_REVISION_GAP,
-  UNSUPPORTED_PROTOCOL,
 }
 
 internal sealed class HomeContainerProtocolV3ApplyOutcome {
   data class Applied(
     val state: HomeContainerProtocolV3State,
-    val renderPlan: HomeContainerProtocolV2RenderPlan,
+    val renderPlan: HomeContainerRenderPlan,
   ) : HomeContainerProtocolV3ApplyOutcome()
 
-  data class Duplicate(val state: HomeContainerProtocolV3State) :
-    HomeContainerProtocolV3ApplyOutcome()
+  data object Ignored : HomeContainerProtocolV3ApplyOutcome()
 
-  data class NeedSnapshot(val reason: HomeContainerProtocolV3NeedSnapshotReason) :
-    HomeContainerProtocolV3ApplyOutcome()
+  data class Invalid(val code: String) : HomeContainerProtocolV3ApplyOutcome()
 }
 
 internal object HomeContainerProtocolV3Transaction {
-  fun isProtocolPayload(json: String, expectedKind: String): Boolean =
-    runCatching {
-      val root = JSONObject(json)
-      root.safeRevision("protocolVersion") == HOME_CONTAINER_PROTOCOL_V3_VERSION &&
-        root.optString("kind") == expectedKind
-    }.getOrDefault(false)
-
-  fun applySnapshot(json: String): HomeContainerProtocolV3ApplyOutcome {
-    val root = runCatching { JSONObject(json) }.getOrElse {
-      return needSnapshot(HomeContainerProtocolV3NeedSnapshotReason.INVALID_INVARIANT)
-    }
-    if (root.safeRevision("protocolVersion") != HOME_CONTAINER_PROTOCOL_V3_VERSION) {
-      return needSnapshot(HomeContainerProtocolV3NeedSnapshotReason.UNSUPPORTED_PROTOCOL)
-    }
-    val identity = root.optJSONObject("identity")?.protocolV3Identity()
-    val transportRevision = root.safeRevision("transportRevision")
-    val presentation = root.optJSONObject("presentationRevisions")
-    val authority = root.optJSONObject("authorityRevisions")
-    val slots = root.optJSONObject("slotRevisions")?.revisionMap()
-    if (
-      root.optString("kind") != "snapshot" ||
-      identity == null ||
-      transportRevision == null ||
-      presentation?.validPresentationRevisions() != true ||
-      authority?.validAuthorityRevisions() != true ||
-      slots == null
-    ) {
-      return needSnapshot(HomeContainerProtocolV3NeedSnapshotReason.INVALID_INVARIANT)
-    }
-    val legacyJson = runCatching {
-      JSONObject()
-        .put("kind", "snapshot")
-        .put("protocolVersion", 2)
-        .put("schemaVersion", 2)
-        .put("owner", identity.owner.toJson())
-        .put("revision", transportRevision)
-        .put("payload", JSONObject(root.getJSONObject("payload").toString()))
-        .toString()
-    }.getOrElse {
-      return needSnapshot(HomeContainerProtocolV3NeedSnapshotReason.INVALID_INVARIANT)
-    }
-    return when (
-      val outcome = HomeContainerProtocolV2Transaction.applySnapshot(
-        legacyJson,
-        current = null,
-      )
-    ) {
-      is HomeContainerProtocolV2ApplyOutcome.Applied ->
-        HomeContainerProtocolV3ApplyOutcome.Applied(
-          state = HomeContainerProtocolV3State(
-            identity = identity,
-            transportRevision = transportRevision,
-            presentationRevisions = JSONObject(presentation.toString()),
-            authorityRevisions = JSONObject(authority.toString()),
-            slotRevisions = slots,
-            legacyState = outcome.state,
-          ),
-          renderPlan = outcome.renderPlan,
-        )
-      else -> needSnapshot(HomeContainerProtocolV3NeedSnapshotReason.INVALID_INVARIANT)
-    }
-  }
-
-  fun applyPatch(
+  fun applySnapshot(
     json: String,
-    current: HomeContainerProtocolV3State?,
-    availableSlotRevisions: Map<String, Long>,
+    current: HomeContainerProtocolV3State? = null,
   ): HomeContainerProtocolV3ApplyOutcome {
     val root = runCatching { JSONObject(json) }.getOrElse {
-      return needSnapshot(HomeContainerProtocolV3NeedSnapshotReason.INVALID_INVARIANT)
+      return invalid("snapshot_decode_failed")
     }
     if (root.safeRevision("protocolVersion") != HOME_CONTAINER_PROTOCOL_V3_VERSION) {
-      return needSnapshot(HomeContainerProtocolV3NeedSnapshotReason.UNSUPPORTED_PROTOCOL)
+      return invalid("unsupported_protocol")
     }
-    if (current == null) {
-      return needSnapshot(HomeContainerProtocolV3NeedSnapshotReason.REVISION_GAP)
-    }
-    val identity = root.optJSONObject("identity")?.protocolV3Identity()
-    if (identity?.owner != current.identity.owner) {
-      return needSnapshot(HomeContainerProtocolV3NeedSnapshotReason.OWNER_MISMATCH)
-    }
-    val baseRevision = root.safeRevision("baseTransportRevision")
-    val transportRevision = root.safeRevision("transportRevision")
+    val identity = root.optJSONObject("identity")?.protocolIdentity()
+      ?: return invalid("invalid_snapshot")
     val presentation = root.optJSONObject("presentationRevisions")
+      ?.takeIf(JSONObject::validPresentationRevisions)
+      ?: return invalid("invalid_snapshot")
     val authority = root.optJSONObject("authorityRevisions")
-    val requiredSlots = root.optJSONObject("requiredSlotRevisions")?.revisionMap()
-    if (
-      root.optString("kind") != "patch" ||
-      identity.storeCommitId < current.identity.storeCommitId ||
-      baseRevision == null ||
-      transportRevision == null ||
-      presentation?.validPresentationRevisions() != true ||
-      authority?.validAuthorityRevisions() != true ||
-      requiredSlots == null ||
-      !presentation.revisionsDoNotRegress(
-        current.presentationRevisions,
-        shellKey = "shell",
-        navigationKey = "navigation",
-        sectionKey = "sections",
-      ) ||
-      !authority.revisionsDoNotRegress(
-        current.authorityRevisions,
-        shellKey = "shellCommands",
-        navigationKey = "tabApplicability",
-        sectionKey = "sectionCommands",
+      ?.takeIf(JSONObject::validAuthorityRevisions)
+      ?: return invalid("invalid_snapshot")
+    if (root.optString("kind") != "snapshot") {
+      return invalid("invalid_snapshot")
+    }
+    val snapshot = runCatching {
+      HomeContainerJson.parseSnapshotPayload(
+        root.getJSONObject("payload"),
+        identity.storeCommitId,
       )
-    ) {
-      return needSnapshot(HomeContainerProtocolV3NeedSnapshotReason.INVALID_INVARIANT)
-    }
-    if (
-      transportRevision == current.transportRevision &&
-      baseRevision < transportRevision
-    ) {
-      return HomeContainerProtocolV3ApplyOutcome.Duplicate(current)
-    }
-    if (
-      baseRevision != current.transportRevision ||
-      transportRevision != current.transportRevision + 1
-    ) {
-      return needSnapshot(HomeContainerProtocolV3NeedSnapshotReason.REVISION_GAP)
-    }
-    if (requiredSlots.any { (slotId, revision) ->
-        availableSlotRevisions[slotId] != revision
-      }
-    ) {
-      return needSnapshot(HomeContainerProtocolV3NeedSnapshotReason.SLOT_REVISION_GAP)
-    }
-    if (availableSlotRevisions.any { (slotId, revision) ->
-        current.slotRevisions[slotId]?.let { revision < it } == true
-      }
-    ) {
-      return needSnapshot(HomeContainerProtocolV3NeedSnapshotReason.INVALID_INVARIANT)
-    }
-    val legacyJson = runCatching {
-      JSONObject()
-        .put("kind", "patch")
-        .put("protocolVersion", 2)
-        .put("schemaVersion", 2)
-        .put("owner", identity.owner.toJson())
-        .put("baseRevision", baseRevision)
-        .put("revision", transportRevision)
-        .put("changes", root.getJSONArray("changes"))
-        .toString()
     }.getOrElse {
-      return needSnapshot(HomeContainerProtocolV3NeedSnapshotReason.INVALID_INVARIANT)
+      return invalid("invalid_snapshot")
     }
-    return when (
-      val outcome = HomeContainerProtocolV2Transaction.applyPatch(
-        legacyJson,
-        current.legacyState,
-      )
-    ) {
-      is HomeContainerProtocolV2ApplyOutcome.Applied ->
-        HomeContainerProtocolV3ApplyOutcome.Applied(
-          state = HomeContainerProtocolV3State(
-            identity = identity,
-            transportRevision = transportRevision,
-            presentationRevisions = JSONObject(presentation.toString()),
-            authorityRevisions = JSONObject(authority.toString()),
-            slotRevisions = current.slotRevisions + requiredSlots,
-            legacyState = outcome.state,
-          ),
-          renderPlan = outcome.renderPlan,
-        )
-      is HomeContainerProtocolV2ApplyOutcome.Duplicate ->
-        HomeContainerProtocolV3ApplyOutcome.Duplicate(current)
-      is HomeContainerProtocolV2ApplyOutcome.NeedSnapshot -> needSnapshot(
-        when (outcome.reason) {
-          HomeContainerProtocolV2NeedSnapshotReason.OWNER_MISMATCH ->
-            HomeContainerProtocolV3NeedSnapshotReason.OWNER_MISMATCH
-          HomeContainerProtocolV2NeedSnapshotReason.REVISION_GAP ->
-            HomeContainerProtocolV3NeedSnapshotReason.REVISION_GAP
-          else -> HomeContainerProtocolV3NeedSnapshotReason.INVALID_INVARIANT
-        },
+    if (current?.identity?.owner == identity.owner) {
+      return applyDomains(
+        snapshotAsDomains(root, identity, presentation, authority, snapshot),
+        current,
       )
     }
+    return HomeContainerProtocolV3ApplyOutcome.Applied(
+      state = HomeContainerProtocolV3State(
+        identity = identity,
+        presentationRevisions = JSONObject(presentation.toString()),
+        authorityRevisions = JSONObject(authority.toString()),
+        snapshot = snapshot,
+      ),
+      renderPlan = HomeContainerRenderPlan.FULL_SNAPSHOT,
+    )
   }
+
+  fun applyDomains(
+    json: String,
+    current: HomeContainerProtocolV3State?,
+  ): HomeContainerProtocolV3ApplyOutcome =
+    runCatching { JSONObject(json) }
+      .fold(
+        onSuccess = { applyDomains(it, current) },
+        onFailure = { invalid("domains_decode_failed") },
+      )
 
   fun validateIntent(json: String, current: HomeContainerProtocolV3State): Boolean =
     runCatching {
@@ -258,41 +148,33 @@ internal object HomeContainerProtocolV3Transaction {
       if (root.safeRevision("protocolVersion") != HOME_CONTAINER_PROTOCOL_V3_VERSION) {
         return@runCatching false
       }
-      val owner = root.optJSONObject("owner")?.protocolV2Owner() ?: return@runCatching false
-      val intentId = root.optString("intentId")
+      val owner = root.optJSONObject("owner")?.owner() ?: return@runCatching false
       val authority = root.getJSONObject("authority")
       val intent = root.getJSONObject("intent")
-      val authorityKind = authority.optString("kind")
       val revision = authority.safeRevision("revision") ?: return@runCatching false
-      if (owner != current.identity.owner || intentId.isEmpty()) {
+      if (owner != current.identity.owner || root.optString("intentId").isEmpty()) {
         return@runCatching false
       }
       when (intent.optString("kind")) {
         "selectTab", "handoff" ->
-          authorityKind == "tabApplicability" &&
-            intent.optString("tabId").isNotEmpty() &&
+          authority.optString("kind") == "tabApplicability" &&
             revision == current.authorityRevisions.safeRevision("tabApplicability")
         "refresh" -> {
           val sectionId = authority.optString("sectionId")
-          authorityKind == "sectionCommands" &&
-            HOME_CONTAINER_PROTOCOL_V3_SECTION_IDS.contains(sectionId) &&
+          authority.optString("kind") == "sectionCommands" &&
             intent.optString("tabId") == sectionId &&
-            intent.optString("requestId").isNotEmpty() &&
             revision == current.authorityRevisions
               .getJSONObject("sectionCommands")
               .safeRevision(sectionId)
         }
-        "action" -> when (authorityKind) {
+        "action" -> when (authority.optString("kind")) {
           "shellCommands" ->
-            intent.optString("commandId").isNotEmpty() &&
-              revision == current.authorityRevisions.safeRevision("shellCommands")
+            revision == current.authorityRevisions.safeRevision("shellCommands")
           "sectionCommands" -> {
             val sectionId = authority.optString("sectionId")
-            HOME_CONTAINER_PROTOCOL_V3_SECTION_IDS.contains(sectionId) &&
-              intent.optString("commandId").isNotEmpty() &&
-              revision == current.authorityRevisions
-                .getJSONObject("sectionCommands")
-                .safeRevision(sectionId)
+            revision == current.authorityRevisions
+              .getJSONObject("sectionCommands")
+              .safeRevision(sectionId)
           }
           else -> false
         }
@@ -306,8 +188,7 @@ internal object HomeContainerProtocolV3Transaction {
     itemId: String,
     sectionId: String,
   ): String? {
-    val isShellCommand = state.legacyState.snapshot.header.containsCommand(commandId)
-    val authority = if (isShellCommand) {
+    val authority = if (state.snapshot.header.containsCommand(commandId)) {
       JSONObject()
         .put("kind", "shellCommands")
         .put(
@@ -315,13 +196,15 @@ internal object HomeContainerProtocolV3Transaction {
           state.authorityRevisions.safeRevision("shellCommands") ?: return null,
         )
     } else {
-      val revision = state.authorityRevisions
-        .getJSONObject("sectionCommands")
-        .safeRevision(sectionId) ?: return null
       JSONObject()
         .put("kind", "sectionCommands")
         .put("sectionId", sectionId)
-        .put("revision", revision)
+        .put(
+          "revision",
+          state.authorityRevisions
+            .getJSONObject("sectionCommands")
+            .safeRevision(sectionId) ?: return null,
+        )
     }
     return buildIntent(
       state,
@@ -369,19 +252,224 @@ internal object HomeContainerProtocolV3Transaction {
       .put("commandId", commandId),
   )
 
-  fun needSnapshotRequest(
-    state: HomeContainerProtocolV3State?,
-    reason: HomeContainerProtocolV3NeedSnapshotReason,
-  ): String = JSONObject()
-    .put("kind", "needSnapshot")
-    .apply {
-      state?.let {
-        put("owner", it.identity.owner.toJson())
-        put("currentRevision", it.transportRevision)
-      }
+  private fun applyDomains(
+    root: JSONObject,
+    current: HomeContainerProtocolV3State?,
+  ): HomeContainerProtocolV3ApplyOutcome {
+    if (root.safeRevision("protocolVersion") != HOME_CONTAINER_PROTOCOL_V3_VERSION) {
+      return invalid("unsupported_protocol")
     }
-    .put("reason", reason.wireValue)
-    .toString()
+    val identity = root.optJSONObject("identity")?.protocolIdentity()
+      ?: return invalid("invalid_domains")
+    if (root.optString("kind") != "domains" || current == null) {
+      return invalid("invalid_domains")
+    }
+    if (identity.owner != current.identity.owner) {
+      return HomeContainerProtocolV3ApplyOutcome.Ignored
+    }
+    val updates = root.optJSONArray("updates") ?: return invalid("invalid_domains")
+    val domainKeys = mutableSetOf<String>()
+    var snapshot = current.snapshot
+    val presentation = JSONObject(current.presentationRevisions.toString())
+    val authority = JSONObject(current.authorityRevisions.toString())
+    val appliedDomains = mutableListOf<String>()
+
+    repeat(updates.length()) { index ->
+      val update = updates.optJSONObject(index) ?: return invalid("invalid_domain")
+      val kind = update.optString("kind")
+      val domainKey = if (kind == "section") {
+        "section:${update.optString("tabId")}"
+      } else {
+        kind
+      }
+      if (!domainKeys.add(domainKey)) {
+        return invalid("duplicate_domain")
+      }
+      val revision = update.safeRevision("presentationRevision")
+        ?: return invalid("invalid_domain_revision")
+      when (kind) {
+        "shell" -> {
+          if (revision <= (presentation.safeRevision("shell") ?: 0)) return@repeat
+          val commandRevision = update.safeRevision("commandRevision")
+            ?: return invalid("invalid_shell_revision")
+          if (commandRevision < (authority.safeRevision("shellCommands") ?: 0)) {
+            return invalid("regressed_shell_authority")
+          }
+          snapshot = snapshot.copy(
+            header = HomeContainerJson.parseHeader(update.getJSONObject("value")),
+          )
+          presentation.put("shell", revision)
+          authority.put("shellCommands", commandRevision)
+        }
+        "navigation" -> {
+          if (revision <= (presentation.safeRevision("navigation") ?: 0)) return@repeat
+          val applicabilityRevision = update.safeRevision("applicabilityRevision")
+            ?: return invalid("invalid_navigation_revision")
+          if (applicabilityRevision < (authority.safeRevision("tabApplicability") ?: 0)) {
+            return invalid("regressed_navigation_authority")
+          }
+          val value = update.getJSONObject("value")
+          val sectionsByTab = snapshot.tabs.associate { it.id to it.sections }
+          val tabs = HomeContainerJson.parseNavigationTabs(value.getJSONArray("tabs"))
+            .map { tab ->
+              if (tab.destination == HomeContainerTabDestination.INLINE) {
+                tab.copy(sections = sectionsByTab[tab.id].orEmpty())
+              } else {
+                tab
+              }
+            }
+          val next = snapshot.copy(
+            selectedTabId = value.getString("selectedTabId"),
+            tabs = tabs,
+          )
+          if (!next.hasValidTabInvariants()) return invalid("invalid_navigation")
+          snapshot = next
+          presentation.put("navigation", revision)
+          authority.put("tabApplicability", applicabilityRevision)
+        }
+        "section" -> {
+          val tabId = update.optString("tabId")
+          if (tabId !in HOME_CONTAINER_PROTOCOL_V3_TAB_IDS) {
+            return invalid("invalid_section")
+          }
+          val sectionRevisions = presentation.getJSONObject("sections")
+          val currentRevision = sectionRevisions.safeRevision(tabId) ?: 0
+          if (revision <= currentRevision) return@repeat
+          val commandRevisions = update.optJSONObject("commandRevisions")
+            ?.takeIf(JSONObject::hasAllSectionRevisions)
+            ?: return invalid("invalid_section_revision")
+          val currentCommands = authority.getJSONObject("sectionCommands")
+          var replaced = false
+          val sections = HomeContainerJson.parseSections(update.getJSONArray("value"))
+          val tabs = snapshot.tabs.map { tab ->
+            if (tab.id == tabId && tab.destination == HomeContainerTabDestination.INLINE) {
+              replaced = true
+              tab.copy(sections = sections)
+            } else {
+              tab
+            }
+          }
+          if (!replaced) return invalid("invalid_section")
+          snapshot = snapshot.copy(tabs = tabs)
+          sectionRevisions.put(tabId, revision)
+          authority.put(
+            "sectionCommands",
+            JSONObject().also { merged ->
+              HOME_CONTAINER_PROTOCOL_V3_SECTION_IDS.forEach { sectionId ->
+                merged.put(
+                  sectionId,
+                  maxOf(
+                    currentCommands.safeRevision(sectionId) ?: 0,
+                    commandRevisions.safeRevision(sectionId) ?: 0,
+                  ),
+                )
+              }
+            },
+          )
+        }
+        "surface" -> {
+          if (revision <= (presentation.safeRevision("surface") ?: 0)) return@repeat
+          snapshot = snapshot.copy(
+            theme = HomeContainerJson.parseTheme(update.getJSONObject("value")),
+          )
+          presentation.put("surface", revision)
+        }
+        else -> return invalid("invalid_domain")
+      }
+      appliedDomains += domainKey
+    }
+    if (appliedDomains.isEmpty()) {
+      return HomeContainerProtocolV3ApplyOutcome.Ignored
+    }
+    if (!snapshot.hasValidTabInvariants()) {
+      return invalid("invalid_result")
+    }
+    snapshot = snapshot.copy(
+      revision = maxOf(snapshot.revision, identity.storeCommitId),
+    )
+    return HomeContainerProtocolV3ApplyOutcome.Applied(
+      state = HomeContainerProtocolV3State(
+        identity = HomeContainerProtocolV3Identity(
+          owner = current.identity.owner,
+          storeCommitId = maxOf(
+            current.identity.storeCommitId,
+            identity.storeCommitId,
+          ),
+        ),
+        presentationRevisions = presentation,
+        authorityRevisions = authority,
+        snapshot = snapshot,
+      ),
+      renderPlan = HomeContainerRenderPlan.domains(appliedDomains),
+    )
+  }
+
+  private fun snapshotAsDomains(
+    root: JSONObject,
+    identity: HomeContainerProtocolV3Identity,
+    presentation: JSONObject,
+    authority: JSONObject,
+    snapshot: HomeContainerSnapshot,
+  ): JSONObject {
+    val updates = JSONArray()
+      .put(
+        JSONObject()
+          .put("kind", "shell")
+          .put("presentationRevision", presentation.getLong("shell"))
+          .put("commandRevision", authority.getLong("shellCommands"))
+          .put("value", root.getJSONObject("payload").getJSONObject("header")),
+      )
+      .put(
+        JSONObject()
+          .put("kind", "navigation")
+          .put("presentationRevision", presentation.getLong("navigation"))
+          .put("applicabilityRevision", authority.getLong("tabApplicability"))
+          .put(
+            "value",
+            JSONObject()
+              .put("selectedTabId", snapshot.selectedTabId)
+              .put(
+                "tabs",
+                JSONArray(root.getJSONObject("payload").getJSONArray("tabs").toString())
+                  .also { tabs ->
+                    repeat(tabs.length()) { index ->
+                      tabs.getJSONObject(index).remove("sections")
+                    }
+                  },
+              ),
+          ),
+      )
+      .put(
+        JSONObject()
+          .put("kind", "surface")
+          .put("presentationRevision", presentation.getLong("surface"))
+          .put("value", root.getJSONObject("payload").getJSONObject("theme")),
+      )
+    snapshot.inlineTabs().forEach { tab ->
+      val tabJson = root.getJSONObject("payload").getJSONArray("tabs")
+        .objects()
+        .first { it.getString("id") == tab.id }
+      updates.put(
+        JSONObject()
+          .put("kind", "section")
+          .put("tabId", tab.id)
+          .put(
+            "presentationRevision",
+            presentation.getJSONObject("sections").getLong(tab.id),
+          )
+          .put("commandRevisions", authority.getJSONObject("sectionCommands"))
+          .put("value", tabJson.getJSONArray("sections")),
+      )
+    }
+    return JSONObject()
+      .put("kind", "domains")
+      .put("protocolVersion", HOME_CONTAINER_PROTOCOL_V3_VERSION)
+      .put(
+        "identity",
+        identity.owner.toJson().put("storeCommitId", identity.storeCommitId),
+      )
+      .put("updates", updates)
+  }
 
   private fun buildTabIntent(
     state: HomeContainerProtocolV3State,
@@ -391,7 +479,9 @@ internal object HomeContainerProtocolV3Transaction {
       ?: return null
     return buildIntent(
       state,
-      JSONObject().put("kind", "tabApplicability").put("revision", revision),
+      JSONObject()
+        .put("kind", "tabApplicability")
+        .put("revision", revision),
       intent,
     )
   }
@@ -402,7 +492,7 @@ internal object HomeContainerProtocolV3Transaction {
     intent: JSONObject,
   ): String? {
     val value = JSONObject()
-      .put("protocolVersion", 3)
+      .put("protocolVersion", HOME_CONTAINER_PROTOCOL_V3_VERSION)
       .put("intentId", UUID.randomUUID().toString())
       .put("owner", state.identity.owner.toJson())
       .put("authority", authority)
@@ -411,18 +501,9 @@ internal object HomeContainerProtocolV3Transaction {
     return value.takeIf { validateIntent(it, state) }
   }
 
-  private fun needSnapshot(reason: HomeContainerProtocolV3NeedSnapshotReason) =
-    HomeContainerProtocolV3ApplyOutcome.NeedSnapshot(reason)
+  private fun invalid(code: String) =
+    HomeContainerProtocolV3ApplyOutcome.Invalid(code)
 }
-
-private val HomeContainerProtocolV3NeedSnapshotReason.wireValue: String
-  get() = when (this) {
-    HomeContainerProtocolV3NeedSnapshotReason.INVALID_INVARIANT -> "invalidInvariant"
-    HomeContainerProtocolV3NeedSnapshotReason.OWNER_MISMATCH -> "ownerMismatch"
-    HomeContainerProtocolV3NeedSnapshotReason.REVISION_GAP -> "revisionGap"
-    HomeContainerProtocolV3NeedSnapshotReason.SLOT_REVISION_GAP -> "slotRevisionGap"
-    HomeContainerProtocolV3NeedSnapshotReason.UNSUPPORTED_PROTOCOL -> "unsupportedProtocol"
-  }
 
 private fun HomeContainerHeader.containsCommand(commandId: String): Boolean =
   accountActionId == commandId ||
@@ -430,20 +511,20 @@ private fun HomeContainerHeader.containsCommand(commandId: String): Boolean =
     networkActionId == commandId ||
     balanceActionId == commandId ||
     actions.any { it.actionId == commandId } ||
-    balanceActions.orEmpty().any { it.actionId == commandId } ||
+    balanceActions.any { it.actionId == commandId } ||
     banners.any { it.actionId == commandId || it.dismissActionId == commandId }
 
-private fun JSONObject.protocolV3Identity(): HomeContainerProtocolV3Identity? {
-  val owner = protocolV2Owner() ?: return null
+private fun JSONObject.protocolIdentity(): HomeContainerProtocolV3Identity? {
+  val owner = owner() ?: return null
   val storeCommitId = safeRevision("storeCommitId") ?: return null
   return HomeContainerProtocolV3Identity(owner, storeCommitId)
 }
 
-private fun JSONObject.protocolV2Owner(): HomeContainerProtocolV2Owner? {
+private fun JSONObject.owner(): HomeContainerOwner? {
   val scopeKey = optString("scopeKey")
   val sessionId = optString("sessionId")
   return if (scopeKey.isNotEmpty() && sessionId.isNotEmpty()) {
-    HomeContainerProtocolV2Owner(scopeKey, sessionId)
+    HomeContainerOwner(scopeKey, sessionId)
   } else {
     null
   }
@@ -451,25 +532,19 @@ private fun JSONObject.protocolV2Owner(): HomeContainerProtocolV2Owner? {
 
 private fun JSONObject.safeRevision(key: String): Long? {
   if (!has(key) || isNull(key)) return null
-  val value = get(key)
-  val number = when (value) {
+  val number = when (val value = get(key)) {
     is Int -> value.toLong()
     is Long -> value
     else -> return null
   }
-  return number.takeIf { it in 0..MAX_SAFE_INTEGER }
+  return number.takeIf { it in 0..HOME_CONTAINER_PROTOCOL_MAX_SAFE_INTEGER }
 }
-
-private fun JSONObject.revisionMap(): Map<String, Long>? = runCatching {
-  keys().asSequence().associateWith { key ->
-    safeRevision(key) ?: error("Invalid revision")
-  }
-}.getOrNull()
 
 private fun JSONObject.validPresentationRevisions(): Boolean =
   safeRevision("shell") != null &&
     safeRevision("navigation") != null &&
-    optJSONObject("sections")?.hasAllSectionRevisions() == true
+    safeRevision("surface") != null &&
+    optJSONObject("sections")?.hasAllTabRevisions() == true
 
 private fun JSONObject.validAuthorityRevisions(): Boolean =
   safeRevision("shellCommands") != null &&
@@ -480,23 +555,9 @@ private fun JSONObject.hasAllSectionRevisions(): Boolean =
   keys().asSequence().toSet() == HOME_CONTAINER_PROTOCOL_V3_SECTION_IDS.toSet() &&
     HOME_CONTAINER_PROTOCOL_V3_SECTION_IDS.all { safeRevision(it) != null }
 
-private fun JSONObject.revisionsDoNotRegress(
-  current: JSONObject,
-  shellKey: String,
-  navigationKey: String,
-  sectionKey: String,
-): Boolean {
-  val nextShell = safeRevision(shellKey) ?: return false
-  val currentShell = current.safeRevision(shellKey) ?: return false
-  val nextNavigation = safeRevision(navigationKey) ?: return false
-  val currentNavigation = current.safeRevision(navigationKey) ?: return false
-  val nextSections = optJSONObject(sectionKey) ?: return false
-  val currentSections = current.optJSONObject(sectionKey) ?: return false
-  return nextShell >= currentShell &&
-    nextNavigation >= currentNavigation &&
-    HOME_CONTAINER_PROTOCOL_V3_SECTION_IDS.all { sectionId ->
-      val next = nextSections.safeRevision(sectionId) ?: return@all false
-      val previous = currentSections.safeRevision(sectionId) ?: return@all false
-      next >= previous
-    }
-}
+private fun JSONObject.hasAllTabRevisions(): Boolean =
+  keys().asSequence().toSet() == HOME_CONTAINER_PROTOCOL_V3_TAB_IDS.toSet() &&
+    HOME_CONTAINER_PROTOCOL_V3_TAB_IDS.all { safeRevision(it) != null }
+
+private fun JSONArray.objects(): Sequence<JSONObject> =
+  (0 until length()).asSequence().map(::getJSONObject)

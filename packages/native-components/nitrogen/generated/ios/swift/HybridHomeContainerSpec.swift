@@ -19,11 +19,10 @@ public protocol HybridHomeContainerSpec_protocol: HybridObject, HybridView {
   var onVisibleTabChange: ((_ tabId: String) -> Void)? { get set }
   var onRenderError: ((_ code: String, _ message: String) -> Void)? { get set }
   var onIntent: ((_ intentJson: String) -> Void)? { get set }
-  var onSnapshotRequired: ((_ requestJson: String) -> Void)? { get set }
 
   // Methods
   func setSnapshot(snapshotJson: String) throws -> Void
-  func applyPatch(patchJson: String) throws -> Void
+  func setDomains(domainsJson: String) throws -> Void
   func completeRefresh(requestId: String) throws -> Void
   func selectTab(tabId: String, animated: Bool) throws -> Void
   func getCapabilities() throws -> String

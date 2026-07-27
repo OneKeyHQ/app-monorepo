@@ -1,13 +1,12 @@
 import type { ReactNode } from 'react';
 
 import type {
-  IHomeContainerPatchEnvelopeV3,
+  IHomeContainerDomainBatchV3,
   IHomeContainerSnapshotEnvelopeV3,
 } from './HomeContainerProtocolV3';
 import type { StyleProp, ViewStyle } from 'react-native';
 
 export const HOME_CONTAINER_SCHEMA_VERSION = 2;
-export const HOME_CONTAINER_PROTOCOL_VERSION = 2;
 export const HOME_CONTAINER_SLOT_CONTRACT_REVISION = 1;
 
 export const HOME_CONTAINER_TAB_IDS = [
@@ -248,18 +247,6 @@ export interface IHomeContainerSnapshot {
   theme: IHomeContainerTheme;
 }
 
-export interface IHomeContainerPatch {
-  schemaVersion: typeof HOME_CONTAINER_SCHEMA_VERSION;
-  revision: number;
-  header?: IHomeContainerHeader;
-  tabs: IHomeContainerTabPatch[];
-}
-
-export interface IHomeContainerTabPatch {
-  tabId: IHomeContainerTabId;
-  sections: IHomeContainerSection[];
-}
-
 export type IHomeContainerNavigationTab = Omit<IHomeContainerTab, 'sections'>;
 
 export interface IHomeContainerSnapshotPayload {
@@ -269,85 +256,9 @@ export interface IHomeContainerSnapshotPayload {
   theme: IHomeContainerTheme;
 }
 
-export type IHomeContainerChange =
-  | { kind: 'replaceShell'; value: IHomeContainerHeader }
-  | {
-      kind: 'replaceNavigation';
-      value: {
-        selectedTabId: IHomeContainerTabId;
-        tabs: IHomeContainerNavigationTab[];
-      };
-    }
-  | {
-      kind: 'replaceSection';
-      tabId: IHomeContainerTabId;
-      sectionId: string;
-      index: number;
-      value: IHomeContainerSection;
-    }
-  | {
-      kind: 'removeSection';
-      tabId: IHomeContainerTabId;
-      sectionId: string;
-    }
-  | { kind: 'replaceSurface'; value: IHomeContainerTheme };
-
-export interface IHomeContainerSnapshotEnvelope {
-  kind: 'snapshot';
-  protocolVersion: typeof HOME_CONTAINER_PROTOCOL_VERSION;
-  schemaVersion: typeof HOME_CONTAINER_SCHEMA_VERSION;
-  owner: IHomeContainerOwner;
-  revision: number;
-  payload: IHomeContainerSnapshotPayload;
-}
-
-export interface IHomeContainerPatchEnvelope {
-  kind: 'patch';
-  protocolVersion: typeof HOME_CONTAINER_PROTOCOL_VERSION;
-  schemaVersion: typeof HOME_CONTAINER_SCHEMA_VERSION;
-  owner: IHomeContainerOwner;
-  baseRevision: number;
-  revision: number;
-  changes: IHomeContainerChange[];
-}
-
 export type IHomeContainerTransportPayload =
-  | IHomeContainerSnapshot
-  | IHomeContainerPatch
-  | IHomeContainerSnapshotEnvelope
-  | IHomeContainerPatchEnvelope
   | IHomeContainerSnapshotEnvelopeV3
-  | IHomeContainerPatchEnvelopeV3;
-
-export interface IHomeContainerSnapshotRequest {
-  kind: 'needSnapshot';
-  owner?: IHomeContainerOwner;
-  currentRevision?: number;
-  reason:
-    | 'ownerMismatch'
-    | 'revisionGap'
-    | 'slotRevisionGap'
-    | 'invalidInvariant'
-    | 'unsupportedSchema'
-    | 'unsupportedProtocol';
-}
-
-export type IHomeContainerIntentPayload =
-  | { kind: 'action'; commandId: string; itemId?: string }
-  | {
-      kind: 'handoff';
-      tabId: IHomeContainerTabId;
-      commandId: string;
-    }
-  | { kind: 'refresh'; tabId: IHomeContainerTabId; requestId: string }
-  | { kind: 'selectTab'; tabId: IHomeContainerTabId };
-
-export interface IHomeContainerIntent {
-  intentId: string;
-  owner: IHomeContainerOwner;
-  renderedRevision: number;
-  intent: IHomeContainerIntentPayload;
-}
+  | IHomeContainerDomainBatchV3;
 
 export interface IHomeContainerSlotBundle {
   owner: IHomeContainerOwner;
@@ -369,28 +280,11 @@ export interface IHomeContainerProps {
   onVisibleTabChange?: (tabId: string) => void;
   onRenderError?: (code: string, message: string) => void;
   onIntent?: (intentJson: string) => void;
-  onSnapshotRequired?: (requestJson: string) => void;
 }
 
 export interface IHomeContainerRef {
-  setSnapshot: (snapshot: IHomeContainerSnapshot) => void;
-  applyPatch: (patch: IHomeContainerPatch) => void;
-  setProtocolV2Snapshot?: (
-    snapshot: IHomeContainerSnapshotEnvelope,
-    slots?: IHomeContainerSlots,
-  ) => void;
-  applyProtocolV2Patch?: (
-    patch: IHomeContainerPatchEnvelope,
-    slots?: IHomeContainerSlots,
-  ) => void;
-  setProtocolV3Snapshot?: (
-    snapshot: IHomeContainerSnapshotEnvelopeV3,
-    slots?: IHomeContainerSlots,
-  ) => void;
-  applyProtocolV3Patch?: (
-    patch: IHomeContainerPatchEnvelopeV3,
-    slots?: IHomeContainerSlots,
-  ) => void;
+  setSnapshot: (snapshot: IHomeContainerSnapshotEnvelopeV3) => void;
+  setDomains: (batch: IHomeContainerDomainBatchV3) => void;
   completeRefresh: (requestId: string) => void;
   selectTab: (tabId: IHomeContainerTabId, animated?: boolean) => void;
   getCapabilities: () => IHomeContainerCapabilities | undefined;
@@ -398,14 +292,11 @@ export interface IHomeContainerRef {
 
 export interface IHomeContainerCapabilities {
   schemaVersions: number[];
-  protocolVersions?: number[];
-  preferredProtocol?: number;
+  protocolVersion: number;
   tabIds: IHomeContainerTabId[];
-  supportsPatches: boolean;
-  supportsAtomicPatches?: boolean;
   supportsNativeRefresh: boolean;
   supportsHorizontalPaging: boolean;
-  supportsSlots?: boolean;
+  supportsSlots: boolean;
 }
 
 export function serializeHomeContainerPayload(
@@ -433,50 +324,4 @@ export function isHomeContainerSnapshotInvariantValid(
   return snapshot.tabs.some(
     (tab) => tab.id === snapshot.selectedTabId && tab.destination === 'inline',
   );
-}
-
-function isHomeContainerOwner(value: unknown): value is IHomeContainerOwner {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-  const owner = value as Partial<IHomeContainerOwner>;
-  return (
-    typeof owner.scopeKey === 'string' && typeof owner.sessionId === 'string'
-  );
-}
-
-export function parseHomeContainerSnapshotRequest(
-  value: string,
-): IHomeContainerSnapshotRequest | undefined {
-  try {
-    const request = JSON.parse(value) as {
-      kind?: unknown;
-      owner?: unknown;
-      currentRevision?: unknown;
-      reason?: unknown;
-    };
-    if (request.kind !== 'needSnapshot') {
-      return undefined;
-    }
-    const reasons = [
-      'ownerMismatch',
-      'revisionGap',
-      'slotRevisionGap',
-      'invalidInvariant',
-      'unsupportedSchema',
-      'unsupportedProtocol',
-    ] as const;
-    if (
-      !request.reason ||
-      !reasons.some((reason) => reason === request.reason) ||
-      (request.owner !== undefined && !isHomeContainerOwner(request.owner)) ||
-      (request.currentRevision !== undefined &&
-        typeof request.currentRevision !== 'number')
-    ) {
-      return undefined;
-    }
-    return request as IHomeContainerSnapshotRequest;
-  } catch {
-    return undefined;
-  }
 }

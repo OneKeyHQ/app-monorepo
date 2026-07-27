@@ -100,7 +100,7 @@ class HomeContainerMarketContractTest {
   }
 
   private fun marketSnapshotJson(includeOptionalFields: Boolean = true): String {
-    val payload = JSONObject(fixture("home-container-v2.snapshot.json").getJSONObject("payload").toString())
+    val payload = JSONObject(fixture("home-container-v3.snapshot.json").getJSONObject("payload").toString())
       .put("schemaVersion", HOME_CONTAINER_BUSINESS_SCHEMA_VERSION)
       .put("revision", 10)
     val portfolio = payload.getJSONArray("tabs").getJSONObject(0)

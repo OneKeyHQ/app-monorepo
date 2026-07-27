@@ -111,11 +111,6 @@ using namespace margelo::nitro::onekeynativecomponents::views;
     swiftPart.setOnIntent(newViewProps.onIntent.value);
     newViewProps.onIntent.isDirty = false;
   }
-  // onSnapshotRequired: optional
-  if (newViewProps.onSnapshotRequired.isDirty) {
-    swiftPart.setOnSnapshotRequired(newViewProps.onSnapshotRequired.value);
-    newViewProps.onSnapshotRequired.isDirty = false;
-  }
 
   swiftPart.afterUpdate();
 

@@ -13,12 +13,11 @@ export interface IHomeContainerNativeProps extends HybridViewProps {
   onVisibleTabChange?: (tabId: string) => void;
   onRenderError?: (code: string, message: string) => void;
   onIntent?: (intentJson: string) => void;
-  onSnapshotRequired?: (requestJson: string) => void;
 }
 
 export interface IHomeContainerNativeMethods extends HybridViewMethods {
   setSnapshot(snapshotJson: string): void;
-  applyPatch(patchJson: string): void;
+  setDomains(domainsJson: string): void;
   completeRefresh(requestId: string): void;
   selectTab(tabId: string, animated: boolean): void;
   getCapabilities(): string;

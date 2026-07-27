@@ -235,11 +235,11 @@ internal fun homeContainerTargetSynchronizedCollapseOffset(
   }
 
 internal data class HomeContainerCompletedRender(
-  val state: HomeContainerProtocolV2State,
+  val state: HomeContainerProtocolV3State,
 )
 
 private data class HomeContainerPendingRender(
-  val state: HomeContainerProtocolV2State,
+  val state: HomeContainerProtocolV3State,
   var requiredTabId: String,
 )
 
@@ -289,10 +289,10 @@ internal class HomeContainerRenderCompletionCoordinator {
   private val pageProgressByTab = mutableMapOf<String, HomeContainerPageRenderProgress>()
 
   fun enqueue(
-    state: HomeContainerProtocolV2State,
+    state: HomeContainerProtocolV3State,
     requiredTabId: String,
   ) {
-    pendingRenders[state.revision] = HomeContainerPendingRender(
+    pendingRenders[state.snapshot.revision] = HomeContainerPendingRender(
       state = state,
       requiredTabId = requiredTabId,
     )
@@ -374,7 +374,6 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
   var onVisibleTabChange: ((String) -> Unit)? = null
   var onRenderError: ((String, String) -> Unit)? = null
   var onIntent: ((String) -> Unit)? = null
-  var onSnapshotRequired: ((String) -> Unit)? = null
   var onSlotLayoutChange: (() -> Unit)? = null
 
   private val parser = Executors.newSingleThreadExecutor()
@@ -389,13 +388,8 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
   private var pendingInitialSnapshotJson: String? = null
   private var initialSnapshotApplyScheduled = false
   private var snapshot: HomeContainerSnapshot? = null
-  private var protocolV2State: HomeContainerProtocolV2State? = null
-  private var renderedProtocolV2State: HomeContainerProtocolV2State? = null
   private var protocolV3State: HomeContainerProtocolV3State? = null
   private var renderedProtocolV3State: HomeContainerProtocolV3State? = null
-  private val pendingProtocolV3PatchJsons = ArrayDeque<String>()
-  private var pendingProtocolV3PatchDrainScheduled = false
-  private var lastSnapshotRequestKey: String? = null
   private var fallbackBackgroundColor = Color.WHITE
   private var selectedTabId = ""
   private var pendingPagerTabId: String? = null
@@ -409,7 +403,6 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
   private var collapseOffset = 0
   private var appliedSharedChromeOffset: Int? = null
   private var mountedSlotKeys = emptySet<String>()
-  private var mountedSlotMetadata = emptyList<HomeContainerProtocolV3MountedSlotMetadata>()
   private val chromeTouchSlop = ViewConfiguration.get(context).scaledTouchSlop
   private var chromeGestureCandidate = false
   private var horizontalGesture = false
@@ -527,60 +520,19 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
   fun submitSnapshot(json: String) {
     parser.execute {
       if (disposed.get()) return@execute
-      if (HomeContainerProtocolV3Transaction.isProtocolPayload(json, "snapshot")) {
-        post {
-          pendingProtocolV3PatchJsons.clear()
-          handleProtocolV3Outcome(
-            HomeContainerProtocolV3Transaction.applySnapshot(json),
-          )
-        }
-        return@execute
-      }
-      if (HomeContainerProtocolV2Transaction.isProtocolPayload(json, "snapshot")) {
-        post {
-          pendingProtocolV3PatchJsons.clear()
-          protocolV3State = null
-          renderedProtocolV3State = null
-          handleProtocolV2Outcome(
-            HomeContainerProtocolV2Transaction.applySnapshot(json, protocolV2State),
-          )
-        }
-        return@execute
-      }
-      try {
-        val next = HomeContainerJson.parseSnapshot(json)
-        if (next.schemaVersion != SCHEMA_VERSION) {
-          reportError(
-            "unsupported_schema",
-            "HomeContainer schema ${next.schemaVersion} is not supported",
-          )
-          return@execute
-        }
-        post {
-          pendingProtocolV3PatchJsons.clear()
-          protocolV2State = null
-          renderedProtocolV2State = null
-          protocolV3State = null
-          renderedProtocolV3State = null
-          renderCompletionCoordinator.reset()
-          lastSnapshotRequestKey = null
-          applySnapshot(next)
-        }
-      } catch (error: Exception) {
-        reportError("snapshot_decode_failed", error.message ?: error.javaClass.simpleName)
+      post {
+        handleProtocolV3Outcome(
+          HomeContainerProtocolV3Transaction.applySnapshot(
+            json,
+            protocolV3State,
+          ),
+        )
       }
     }
   }
 
   fun submitInitialSnapshot(json: String) {
     if (disposed.get()) return
-    if (!HomeContainerProtocolV3Transaction.isProtocolPayload(json, "snapshot")) {
-      reportError(
-        "unsupported_protocol",
-        "HomeContainer initial snapshot must use protocol v3",
-      )
-      return
-    }
     pendingInitialSnapshotJson = json
     schedulePendingInitialSnapshot()
     requestLayout()
@@ -604,8 +556,9 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       }
       val json = pendingInitialSnapshotJson ?: return@post
       pendingInitialSnapshotJson = null
-      pendingProtocolV3PatchJsons.clear()
-      handleProtocolV3Outcome(HomeContainerProtocolV3Transaction.applySnapshot(json))
+      handleProtocolV3Outcome(
+        HomeContainerProtocolV3Transaction.applySnapshot(json, protocolV3State),
+      )
     }
   }
 
@@ -725,38 +678,16 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
     parent?.requestDisallowInterceptTouchEvent(false)
   }
 
-  fun submitPatch(json: String) {
+  fun submitDomains(json: String) {
     parser.execute {
       if (disposed.get()) return@execute
-      if (HomeContainerProtocolV3Transaction.isProtocolPayload(json, "patch")) {
-        post {
-          enqueueProtocolV3Patch(json)
-        }
-        return@execute
-      }
-      if (HomeContainerProtocolV2Transaction.isProtocolPayload(json, "patch")) {
-        post {
-          pendingProtocolV3PatchJsons.clear()
-          protocolV3State = null
-          renderedProtocolV3State = null
-          handleProtocolV2Outcome(
-            HomeContainerProtocolV2Transaction.applyPatch(json, protocolV2State),
-          )
-        }
-        return@execute
-      }
-      try {
-        val patch = HomeContainerJson.parsePatch(json)
-        if (patch.schemaVersion != SCHEMA_VERSION) {
-          reportError(
-            "unsupported_schema",
-            "HomeContainer patch schema ${patch.schemaVersion} is not supported",
-          )
-          return@execute
-        }
-        post { applyPatch(patch) }
-      } catch (error: Exception) {
-        reportError("patch_decode_failed", error.message ?: error.javaClass.simpleName)
+      post {
+        handleProtocolV3Outcome(
+          HomeContainerProtocolV3Transaction.applyDomains(
+            json,
+            protocolV3State,
+          ),
+        )
       }
     }
   }
@@ -783,56 +714,6 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
     updateSharedChromeLayout()
     requestLayout()
     onSlotLayoutChange?.invoke()
-  }
-
-  fun setMountedSlotMetadata(
-    keys: Set<String>,
-    metadata: List<HomeContainerProtocolV3MountedSlotMetadata>,
-  ) {
-    mountedSlotMetadata = metadata
-    setMountedSlotKeys(keys)
-    schedulePendingProtocolV3PatchDrain()
-  }
-
-  private fun availableProtocolV3SlotRevisions(): Map<String, Long> =
-    protocolV3State?.identity?.owner?.let { owner ->
-      homeContainerProtocolV3AvailableSlotRevisions(owner, mountedSlotMetadata)
-    }.orEmpty()
-
-  private fun enqueueProtocolV3Patch(json: String) {
-    pendingProtocolV3PatchJsons.addLast(json)
-    drainPendingProtocolV3Patches()
-  }
-
-  private fun drainPendingProtocolV3Patches() {
-    while (pendingProtocolV3PatchJsons.isNotEmpty()) {
-      val outcome = HomeContainerProtocolV3Transaction.applyPatch(
-        pendingProtocolV3PatchJsons.first(),
-        current = protocolV3State,
-        availableSlotRevisions = availableProtocolV3SlotRevisions(),
-      )
-      if (
-        outcome is HomeContainerProtocolV3ApplyOutcome.NeedSnapshot &&
-        outcome.reason == HomeContainerProtocolV3NeedSnapshotReason.SLOT_REVISION_GAP
-      ) {
-        return
-      }
-      pendingProtocolV3PatchJsons.removeFirst()
-      handleProtocolV3Outcome(outcome)
-      if (outcome is HomeContainerProtocolV3ApplyOutcome.NeedSnapshot) {
-        pendingProtocolV3PatchJsons.clear()
-        return
-      }
-    }
-  }
-
-  private fun schedulePendingProtocolV3PatchDrain() {
-    if (pendingProtocolV3PatchJsons.isEmpty() || pendingProtocolV3PatchDrainScheduled) return
-    pendingProtocolV3PatchDrainScheduled = true
-    post {
-      pendingProtocolV3PatchDrainScheduled = false
-      drainPendingProtocolV3Patches()
-    }
   }
 
   fun slotFrame(key: String): Rect? {
@@ -936,21 +817,15 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       activeRefreshRequestId = null
       isRefreshing = false
       snapshot = null
-      protocolV2State = null
-      renderedProtocolV2State = null
       protocolV3State = null
       renderedProtocolV3State = null
-      pendingProtocolV3PatchJsons.clear()
-      pendingProtocolV3PatchDrainScheduled = false
       mountedSlotKeys = emptySet()
-      mountedSlotMetadata = emptyList()
       renderCompletionCoordinator.reset()
       onAction = null
       onRefresh = null
       onVisibleTabChange = null
       onRenderError = null
       onIntent = null
-      onSnapshotRequired = null
       onSlotLayoutChange = null
     }
   }
@@ -1021,28 +896,9 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
     awaitSelectedPageRender(next.revision)
   }
 
-  private fun applyPatch(patch: HomeContainerPatch) {
-    val current = snapshot ?: return
-    val next = current.applyingValidatedPatch(patch) ?: return
-    snapshot = next
-    patch.header?.let { header ->
-      val previousHeaderHeight = headerHeight
-      headerView.bind(header, next.theme)
-      headerHeight = headerView.preferredHeight
-      if (previousHeaderHeight != headerHeight) {
-        adapter.updateTopSpacerHeight(
-          headerHeight + dp(HOME_CONTAINER_TAB_HEIGHT_DP),
-          next.revision,
-        )
-      }
-      updateSharedChromeLayout()
-    }
-    adapter.applyPatch(next, patch)
-  }
-
-  private fun applyProtocolV2Patch(
+  private fun applyDomainUpdates(
     next: HomeContainerSnapshot,
-    renderPlan: HomeContainerProtocolV2RenderPlan,
+    renderPlan: HomeContainerRenderPlan,
   ) {
     if (disposed.get() || !next.hasValidTabInvariants()) return
     snapshot = next
@@ -1158,7 +1014,7 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       }
       val latestRequiredTabId = selectedTabId
       val latestRevision = maxOf(
-        protocolV2State?.revision ?: revision,
+        protocolV3State?.snapshot?.revision ?: revision,
         pendingSelectedPageRenderRevision,
       )
       renderCompletionCoordinator.retargetPending(latestRequiredTabId)
@@ -1177,7 +1033,7 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
   }
 
   private fun preparePageForPresentation(tabId: String) {
-    val revision = protocolV2State?.revision ?: snapshot?.revision ?: return
+    val revision = protocolV3State?.snapshot?.revision ?: snapshot?.revision ?: return
     val sourceOffset = adapter.pageForTab(selectedTabId)?.collapseOffset ?: collapseOffset
     adapter.pageForTab(tabId)?.prepareForPresentation(revision, sourceOffset)
   }
@@ -1230,7 +1086,7 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
     updateSharedChromePosition()
     updatePagePresentationActivity()
     if (shouldNotify) emitTabSelection(targetTab.id)
-    protocolV2State?.revision?.let(::awaitSelectedPageRender)
+    protocolV3State?.snapshot?.revision?.let(::awaitSelectedPageRender)
   }
 
   private fun moveToTab(tabId: String, animated: Boolean, notify: Boolean) {
@@ -1304,7 +1160,7 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
         pendingPagerSelectionIsProgrammatic = false
         pendingPagerSelectionShouldNotify = false
         updatePagePresentationActivity()
-        protocolV2State?.revision?.let(::awaitSelectedPageRender)
+        protocolV3State?.snapshot?.revision?.let(::awaitSelectedPageRender)
       }
     }
   }
@@ -1315,62 +1171,13 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       is HomeContainerProtocolV3ApplyOutcome.Applied -> {
         if (protocolV3State?.identity?.owner != outcome.state.identity.owner) {
           renderCompletionCoordinator.reset()
-          renderedProtocolV2State = null
           renderedProtocolV3State = null
           prepareViewportForOwnerChange()
         }
         protocolV3State = outcome.state
-        protocolV2State = outcome.state.legacyState
-        lastSnapshotRequestKey = null
         renderCompletionCoordinator.retargetPending(
-          outcome.state.legacyState.snapshot.selectedTabId,
+          outcome.state.snapshot.selectedTabId,
         )
-        renderCompletionCoordinator.enqueue(
-          state = outcome.state.legacyState,
-          requiredTabId = outcome.state.legacyState.snapshot.selectedTabId,
-        )
-        if (outcome.renderPlan.isFullSnapshot) {
-          applySnapshot(
-            next = outcome.state.legacyState.snapshot,
-            allowsMissingSelectedTabFallback = false,
-            enforcesMonotonicRevision = false,
-          )
-        } else {
-          applyProtocolV2Patch(
-            outcome.state.legacyState.snapshot,
-            outcome.renderPlan,
-          )
-        }
-      }
-      is HomeContainerProtocolV3ApplyOutcome.Duplicate -> Unit
-      is HomeContainerProtocolV3ApplyOutcome.NeedSnapshot -> {
-        renderCompletionCoordinator.reset()
-        renderedProtocolV2State = null
-        renderedProtocolV3State = null
-        val request = HomeContainerProtocolV3Transaction.needSnapshotRequest(
-          protocolV3State,
-          outcome.reason,
-        )
-        if (lastSnapshotRequestKey != request) {
-          lastSnapshotRequestKey = request
-          emitSnapshotRequest(request)
-        }
-      }
-    }
-  }
-
-  private fun handleProtocolV2Outcome(outcome: HomeContainerProtocolV2ApplyOutcome) {
-    if (disposed.get()) return
-    when (outcome) {
-      is HomeContainerProtocolV2ApplyOutcome.Applied -> {
-        if (protocolV2State?.owner != outcome.state.owner) {
-          renderCompletionCoordinator.reset()
-          renderedProtocolV2State = null
-          prepareViewportForOwnerChange()
-        }
-        protocolV2State = outcome.state
-        lastSnapshotRequestKey = null
-        renderCompletionCoordinator.retargetPending(outcome.state.snapshot.selectedTabId)
         renderCompletionCoordinator.enqueue(
           state = outcome.state,
           requiredTabId = outcome.state.snapshot.selectedTabId,
@@ -1382,34 +1189,35 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
             enforcesMonotonicRevision = false,
           )
         } else {
-          applyProtocolV2Patch(outcome.state.snapshot, outcome.renderPlan)
+          applyDomainUpdates(
+            outcome.state.snapshot,
+            outcome.renderPlan,
+          )
         }
       }
-      is HomeContainerProtocolV2ApplyOutcome.Duplicate -> Unit
-      is HomeContainerProtocolV2ApplyOutcome.NeedSnapshot -> {
-        renderCompletionCoordinator.reset()
-        renderedProtocolV2State = null
-        emitNeedSnapshot(outcome)
-      }
+      HomeContainerProtocolV3ApplyOutcome.Ignored -> Unit
+      is HomeContainerProtocolV3ApplyOutcome.Invalid ->
+        reportError(
+          outcome.code,
+          "HomeContainer rejected an invalid domain update",
+        )
     }
   }
 
-  private fun completeProtocolV2Render(completed: HomeContainerCompletedRender) {
-    val appliedState = protocolV2State ?: return
+  private fun completeProtocolRender(completed: HomeContainerCompletedRender) {
+    val appliedState = protocolV3State ?: return
     if (
-      appliedState.owner != completed.state.owner ||
-      completed.state.revision > appliedState.revision
+      appliedState.identity.owner != completed.state.identity.owner ||
+      completed.state.snapshot.revision > appliedState.snapshot.revision
     ) {
       return
     }
-    renderedProtocolV2State = if (appliedState.revision == completed.state.revision) {
+    renderedProtocolV3State = if (
+      appliedState.snapshot.revision == completed.state.snapshot.revision
+    ) {
       appliedState
     } else {
       completed.state
-    }
-    renderedProtocolV3State = protocolV3State?.takeIf {
-      it.identity.owner == completed.state.owner &&
-        it.transportRevision == completed.state.revision
     }
   }
 
@@ -1432,19 +1240,7 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       )?.let(::emitIntent)
       return
     }
-    if (protocolV2State == null) {
-      onAction?.invoke(actionId, itemId, tabId)
-      return
-    }
-    val state = renderedProtocolV2State ?: return
-    emitIntent(
-      HomeContainerProtocolV2Intent.action(
-        owner = state.owner,
-        renderedRevision = state.revision,
-        commandId = actionId,
-        itemId = itemId,
-      ),
-    )
+    onAction?.invoke(actionId, itemId, tabId)
   }
 
   private fun emitRefresh(tabId: String, requestId: String) {
@@ -1457,23 +1253,11 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       )?.let(::emitIntent)
       return
     }
-    if (protocolV2State == null) {
-      onRefresh?.invoke(tabId, requestId)
-      return
-    }
-    val state = renderedProtocolV2State ?: return
-    emitIntent(
-      HomeContainerProtocolV2Intent.refresh(
-        owner = state.owner,
-        renderedRevision = state.revision,
-        tabId = tabId,
-        requestId = requestId,
-      ),
-    )
+    onRefresh?.invoke(tabId, requestId)
   }
 
   private fun emitTabSelection(tabId: String) {
-    val currentState = protocolV2State
+    val currentState = protocolV3State
     if (currentState == null) {
       onVisibleTabChange?.invoke(tabId)
       return
@@ -1485,28 +1269,15 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
     ) {
       return
     }
-    val selectedState = currentState.selectingTab(tabId) ?: return
-    snapshot = selectedState.snapshot
-    protocolV2State = selectedState
-    protocolV3State = protocolV3State?.let { state ->
-      state.copy(legacyState = selectedState)
-    }
-    if (protocolV3State != null) {
-      val renderedState = renderedProtocolV3State ?: return
-      HomeContainerProtocolV3Transaction.selectTabIntent(
-        renderedState,
-        tabId,
-      )?.let(::emitIntent)
-      return
-    }
-    val renderedState = renderedProtocolV2State ?: return
-    emitIntent(
-      HomeContainerProtocolV2Intent.selectTab(
-        owner = renderedState.owner,
-        renderedRevision = renderedState.revision,
-        tabId = tabId,
-      ),
-    )
+    val selectedSnapshot = currentState.snapshot.copy(selectedTabId = tabId)
+    val selectedState = currentState.copy(snapshot = selectedSnapshot)
+    snapshot = selectedSnapshot
+    protocolV3State = selectedState
+    renderedProtocolV3State = selectedState
+    HomeContainerProtocolV3Transaction.selectTabIntent(
+      currentState,
+      tabId,
+    )?.let(::emitIntent)
   }
 
   private fun emitHandoff(tab: HomeContainerTab) {
@@ -1520,33 +1291,11 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       )?.let(::emitIntent)
       return
     }
-    if (protocolV2State == null) {
-      onAction?.invoke(commandId, tab.id, selectedTabId)
-      return
-    }
-    val state = renderedProtocolV2State ?: return
-    emitIntent(
-      HomeContainerProtocolV2Intent.handoff(
-        owner = state.owner,
-        renderedRevision = state.revision,
-        tabId = tab.id,
-        commandId = commandId,
-      ),
-    )
+    onAction?.invoke(commandId, tab.id, selectedTabId)
   }
 
   private fun emitIntent(json: String) {
     onIntent?.invoke(json)
-  }
-
-  private fun emitNeedSnapshot(result: HomeContainerProtocolV2ApplyOutcome.NeedSnapshot) {
-    if (lastSnapshotRequestKey == result.coalescingKey) return
-    lastSnapshotRequestKey = result.coalescingKey
-    emitSnapshotRequest(result.toSnapshotRequestJson())
-  }
-
-  private fun emitSnapshotRequest(json: String) {
-    onSnapshotRequired?.invoke(json)
   }
 
   private fun reportError(code: String, message: String) {
@@ -1603,10 +1352,6 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
         }
       }
       return changedTabIds
-    }
-
-    fun applyPatch(next: HomeContainerSnapshot, patch: HomeContainerPatch) {
-      updateSections(next, patch.tabs.mapTo(linkedSetOf()) { it.tabId })
     }
 
     fun updateSections(
@@ -1730,7 +1475,7 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       super.onViewRecycled(holder)
       if (recycledTabId == selectedTabId) {
         pager.post {
-          protocolV2State?.revision?.let(::awaitSelectedPageRender)
+          protocolV3State?.snapshot?.revision?.let(::awaitSelectedPageRender)
         }
       }
     }
@@ -1762,7 +1507,7 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
           sourcePage.tabId,
           sourcePage.renderInstanceId,
           revision,
-        ).forEach(::completeProtocolV2Render)
+        ).forEach(::completeProtocolRender)
       }
       renderCompletionCoordinator.registerPage(tab.id, page.renderInstanceId)
       page.bind(

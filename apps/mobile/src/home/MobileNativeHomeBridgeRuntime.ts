@@ -3,7 +3,7 @@ import {
   HOME_CONTAINER_SCHEMA_VERSION,
   HOME_CONTAINER_SLOT_CONTRACT_REVISION,
   HomeContainerController,
-  type IHomeContainerControllerRevisionStateV3,
+  type IHomeContainerControllerAuthorityStateV3,
   type IHomeContainerHeader,
   type IHomeContainerIntentV3,
   type IHomeContainerOwner,
@@ -37,23 +37,17 @@ const SECTION_IDS: readonly IHomeContainerSectionId[] = [
 
 type INativeIntentHandler = (intent: IHomeContainerIntentV3) => boolean;
 
-function createRevisionState(): IHomeContainerControllerRevisionStateV3 {
+function createAuthorityState(): IHomeContainerControllerAuthorityStateV3 {
   const sections = Object.fromEntries(
     SECTION_IDS.map((sectionId) => [sectionId, 0]),
   ) as Record<IHomeContainerSectionId, number>;
   return {
     storeCommitId: 0,
-    presentationRevisions: {
-      shell: 0,
-      navigation: 0,
-      sections: { ...sections },
-    },
     authorityRevisions: {
       shellCommands: 0,
       tabApplicability: 0,
       sectionCommands: { ...sections },
     },
-    slotRevisions: {},
   };
 }
 
@@ -121,29 +115,6 @@ function mergeSlots(
   return result;
 }
 
-function collectSlotRevisions(
-  slots: IHomeContainerSlots,
-): Record<string, number> {
-  const revisions: Record<string, number> = {};
-  const add = (
-    slot: { authority?: { slotId: string; slotRevision: number } } | undefined,
-  ) => {
-    if (slot?.authority) {
-      revisions[slot.authority.slotId] = slot.authority.slotRevision;
-    }
-  };
-  add(slots.accountRow);
-  add(slots.balance);
-  add(slots.headerActionRow);
-  Object.values(slots.contentHeaders ?? {}).forEach(add);
-  Object.values(slots.contentStates ?? {}).forEach(add);
-  Object.values(slots.tabAccessories ?? {}).forEach(add);
-  Object.values(slots.contentFooters ?? {}).forEach((footers) => {
-    Object.values(footers ?? {}).forEach(add);
-  });
-  return revisions;
-}
-
 export function isNativeHomeTabId(value: string): value is IHomeContainerTabId {
   return TAB_ORDER.some((tabId) => tabId === value);
 }
@@ -151,7 +122,7 @@ export function isNativeHomeTabId(value: string): value is IHomeContainerTabId {
 export class MobileNativeHomeBridgeRuntime {
   readonly controller: HomeContainerController;
 
-  private revisionState = createRevisionState();
+  private authorityState = createAuthorityState();
 
   private readonly sectionModels = new Map<
     IHomeContainerTabId,
@@ -189,7 +160,6 @@ export class MobileNativeHomeBridgeRuntime {
   private lastNavigation:
     | {
         bodyPresentationKind: IHomeBodyPresentation['kind'];
-        presentationRevision: number;
         selectedTabId: IHomeContainerTabId;
         tabApplicabilityRevision: number;
         tabTitles: Record<IHomeContainerTabId, string>;
@@ -218,10 +188,8 @@ export class MobileNativeHomeBridgeRuntime {
     };
     this.controller = new HomeContainerController({
       initialOwner: owner,
-      initialProtocolV3Revisions: this.revisionState,
-      initialSlots,
+      initialProtocolV3AuthorityState: this.authorityState,
       initialSnapshot: createInitialSnapshot(initialTheme),
-      requireProtocolV3: true,
     });
   }
 
@@ -249,7 +217,7 @@ export class MobileNativeHomeBridgeRuntime {
       return;
     }
     this.owner = owner;
-    this.revisionState = createRevisionState();
+    this.authorityState = createAuthorityState();
     this.sectionModels.clear();
     this.slotContributions.clear();
     const storeCommitId = this.getStoreCommitId();
@@ -268,8 +236,7 @@ export class MobileNativeHomeBridgeRuntime {
     this.bodyPresentationKind = 'loading';
     this.lastNavigation = undefined;
     const slots: IHomeContainerSlots = {};
-    this.revisionState.storeCommitId = storeCommitId;
-    this.revisionState.slotRevisions = collectSlotRevisions(slots);
+    this.authorityState.storeCommitId = storeCommitId;
     this.slotBundle = {
       owner,
       semanticRevision: storeCommitId,
@@ -277,8 +244,7 @@ export class MobileNativeHomeBridgeRuntime {
       slots,
     };
     this.controller.replaceOwner(owner, createInitialSnapshot(theme));
-    this.controller.setProtocolV3RevisionState(this.revisionState);
-    this.controller.updateSlots(slots);
+    this.controller.setProtocolV3AuthorityState(this.authorityState);
     // The keyed producers publish one complete target-owner bundle before the
     // controller's frame flush; exposing this empty bridge state would create
     // an avoidable blank frame between owners.
@@ -310,11 +276,14 @@ export class MobileNativeHomeBridgeRuntime {
   updateHeader(input: {
     commandRevision: number;
     header: IHomeContainerHeader;
-    presentationRevision: number;
   }): void {
-    this.revisionState.storeCommitId = this.getStoreCommitId();
-    this.revisionState.presentationRevisions.shell = input.presentationRevision;
-    this.revisionState.authorityRevisions.shellCommands = input.commandRevision;
+    this.authorityState = {
+      storeCommitId: this.getStoreCommitId(),
+      authorityRevisions: {
+        ...this.authorityState.authorityRevisions,
+        shellCommands: input.commandRevision,
+      },
+    };
     this.commitRevisions();
     this.controller.updateHeader(input.header);
   }
@@ -322,7 +291,6 @@ export class MobileNativeHomeBridgeRuntime {
   updateNavigation(input: {
     bodyPresentationKind: IHomeBodyPresentation['kind'];
     destinations: Partial<Record<IHomeContainerTabId, 'inline' | 'handoff'>>;
-    presentationRevision: number;
     selectedTabId: IHomeContainerTabId;
     tabApplicabilityRevision: number;
     tabTitles: Record<IHomeContainerTabId, string>;
@@ -342,11 +310,13 @@ export class MobileNativeHomeBridgeRuntime {
     this.tabTitles = input.tabTitles;
     this.bodyPresentationKind = input.bodyPresentationKind;
     this.selectedTabId = input.selectedTabId;
-    this.revisionState.storeCommitId = this.getStoreCommitId();
-    this.revisionState.presentationRevisions.navigation =
-      input.presentationRevision;
-    this.revisionState.authorityRevisions.tabApplicability =
-      input.tabApplicabilityRevision;
+    this.authorityState = {
+      storeCommitId: this.getStoreCommitId(),
+      authorityRevisions: {
+        ...this.authorityState.authorityRevisions,
+        tabApplicability: input.tabApplicabilityRevision,
+      },
+    };
     this.commitRevisions();
     this.controller.updateTabs(this.buildTabs());
     this.controller.selectTab(this.selectedTabId);
@@ -354,24 +324,15 @@ export class MobileNativeHomeBridgeRuntime {
 
   updateSection(input: {
     commandRevision: number;
-    presentationRevision: number;
     sectionId: IHomeContainerSectionId;
     sections: IHomeContainerSection[];
   }): void {
-    this.revisionState.storeCommitId = this.getStoreCommitId();
-    this.revisionState = {
-      ...this.revisionState,
-      presentationRevisions: {
-        ...this.revisionState.presentationRevisions,
-        sections: {
-          ...this.revisionState.presentationRevisions.sections,
-          [input.sectionId]: input.presentationRevision,
-        },
-      },
+    this.authorityState = {
+      storeCommitId: this.getStoreCommitId(),
       authorityRevisions: {
-        ...this.revisionState.authorityRevisions,
+        ...this.authorityState.authorityRevisions,
         sectionCommands: {
-          ...this.revisionState.authorityRevisions.sectionCommands,
+          ...this.authorityState.authorityRevisions.sectionCommands,
           [input.sectionId]: input.commandRevision,
         },
       },
@@ -392,6 +353,7 @@ export class MobileNativeHomeBridgeRuntime {
           sections: input.sections,
           tabId: input.sectionId,
         }),
+        input.sectionId,
       );
     }
   }
@@ -421,13 +383,14 @@ export class MobileNativeHomeBridgeRuntime {
 
   private flushSlots(): void {
     const merged = mergeSlots(this.slotContributions.values());
-    this.revisionState.storeCommitId = this.getStoreCommitId();
-    this.revisionState.slotRevisions = collectSlotRevisions(merged);
+    this.authorityState = {
+      ...this.authorityState,
+      storeCommitId: this.getStoreCommitId(),
+    };
     this.commitRevisions();
-    this.controller.updateSlots(merged);
     this.slotBundle = {
       owner: this.owner,
-      semanticRevision: this.revisionState.storeCommitId,
+      semanticRevision: this.authorityState.storeCommitId,
       slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
       slots: merged,
     };
@@ -466,13 +429,12 @@ export class MobileNativeHomeBridgeRuntime {
   }
 
   private commitRevisions(): void {
-    this.controller.setProtocolV3RevisionState(this.revisionState);
+    this.controller.setProtocolV3AuthorityState(this.authorityState);
   }
 
   private isSameNavigation(input: {
     bodyPresentationKind: IHomeBodyPresentation['kind'];
     destinations: Partial<Record<IHomeContainerTabId, 'inline' | 'handoff'>>;
-    presentationRevision: number;
     selectedTabId: IHomeContainerTabId;
     tabApplicabilityRevision: number;
     tabTitles: Record<IHomeContainerTabId, string>;
@@ -482,7 +444,6 @@ export class MobileNativeHomeBridgeRuntime {
     return Boolean(
       previous &&
       previous.bodyPresentationKind === input.bodyPresentationKind &&
-      previous.presentationRevision === input.presentationRevision &&
       previous.selectedTabId === input.selectedTabId &&
       previous.tabApplicabilityRevision === input.tabApplicabilityRevision &&
       TAB_ORDER.every(

@@ -4,10 +4,8 @@ import {
   forwardRef,
   useCallback,
   useImperativeHandle,
-  useLayoutEffect,
   useMemo,
   useRef,
-  useState,
 } from 'react';
 
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
@@ -20,12 +18,10 @@ import {
 import HomeContainerConfig from '../nitrogen/generated/shared/json/HomeContainerConfig.json';
 
 import {
-  HOME_CONTAINER_SLOT_CONTRACT_REVISION,
   type IHomeContainerCapabilities,
   type IHomeContainerProps,
   type IHomeContainerRef,
   type IHomeContainerSlot,
-  type IHomeContainerSlotBundle,
   serializeHomeContainerPayload,
 } from './HomeContainer.types';
 import { resolveHomeContainerBackgroundColor } from './HomeContainerBackground';
@@ -119,51 +115,6 @@ function parseCapabilities(
   }
 }
 
-interface IPendingProtocolV3Transport {
-  json: string;
-  kind: 'patch' | 'snapshot';
-}
-
-interface IStagedSlotBundle {
-  bundle: IHomeContainerSlotBundle;
-  parentAtSubmission: IHomeContainerSlotBundle | undefined;
-}
-
-function bundlesIdentifySameCommit(
-  left: IHomeContainerSlotBundle | undefined,
-  right: IHomeContainerSlotBundle | undefined,
-): boolean {
-  if (!left || !right) {
-    return left === right;
-  }
-  return (
-    left.owner.scopeKey === right.owner.scopeKey &&
-    left.owner.sessionId === right.owner.sessionId &&
-    left.semanticRevision === right.semanticRevision
-  );
-}
-
-function selectLatestSlotBundle(
-  staged: IStagedSlotBundle | undefined,
-  parentBundle: IHomeContainerSlotBundle | undefined,
-): IHomeContainerSlotBundle | undefined {
-  const stagedBundle = staged?.bundle;
-  if (!stagedBundle || !parentBundle) {
-    return stagedBundle ?? parentBundle;
-  }
-  const sameOwner =
-    stagedBundle.owner.scopeKey === parentBundle.owner.scopeKey &&
-    stagedBundle.owner.sessionId === parentBundle.owner.sessionId;
-  if (!sameOwner) {
-    return bundlesIdentifySameCommit(staged.parentAtSubmission, parentBundle)
-      ? stagedBundle
-      : parentBundle;
-  }
-  return parentBundle.semanticRevision >= stagedBundle.semanticRevision
-    ? parentBundle
-    : stagedBundle;
-}
-
 function getSlotLayoutStyle(key: string) {
   if (key === 'header.account-row') {
     return styles.accountRowSlot;
@@ -252,36 +203,15 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
       onVisibleTabChange,
       onRenderError,
       onIntent,
-      onSnapshotRequired,
     },
     ref,
   ) => {
     const { width: windowWidth } = useWindowDimensions();
     const nativeRef = useRef<HomeContainerNativeView | null>(null);
-    const [stagedSlotBundle, setStagedSlotBundle] =
-      useState<IStagedSlotBundle>();
-    const slotBundleRef = useRef(slotBundle);
-    slotBundleRef.current = slotBundle;
-    const pendingProtocolV3TransportRef = useRef<
-      IPendingProtocolV3Transport | undefined
-    >(undefined);
     const initialSnapshotRef = useRef(initialSnapshot);
     const initialSnapshotJsonRef = useRef(
       initialSnapshot ? serializeHomeContainerPayload(initialSnapshot) : '',
     );
-
-    useLayoutEffect(() => {
-      const pendingProtocolV3Transport = pendingProtocolV3TransportRef.current;
-      if (!pendingProtocolV3Transport || !nativeRef.current) {
-        return;
-      }
-      pendingProtocolV3TransportRef.current = undefined;
-      if (pendingProtocolV3Transport.kind === 'snapshot') {
-        nativeRef.current.setSnapshot(pendingProtocolV3Transport.json);
-      } else {
-        nativeRef.current.applyPatch(pendingProtocolV3Transport.json);
-      }
-    });
 
     useImperativeHandle(
       ref,
@@ -291,89 +221,8 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
             serializeHomeContainerPayload(nextSnapshot),
           );
         },
-        applyPatch: (patch) => {
-          nativeRef.current?.applyPatch(serializeHomeContainerPayload(patch));
-        },
-        setProtocolV2Snapshot: (nextSnapshot, nextSlots) => {
-          pendingProtocolV3TransportRef.current = undefined;
-          setStagedSlotBundle(
-            nextSlots
-              ? {
-                  bundle: {
-                    owner: nextSnapshot.owner,
-                    semanticRevision: nextSnapshot.revision,
-                    slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
-                    slots: nextSlots,
-                  },
-                  parentAtSubmission: slotBundleRef.current,
-                }
-              : undefined,
-          );
-          nativeRef.current?.setSnapshot(
-            serializeHomeContainerPayload(nextSnapshot),
-          );
-        },
-        applyProtocolV2Patch: (patch, nextSlots) => {
-          setStagedSlotBundle(
-            nextSlots
-              ? {
-                  bundle: {
-                    owner: patch.owner,
-                    semanticRevision: patch.revision,
-                    slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
-                    slots: nextSlots,
-                  },
-                  parentAtSubmission: slotBundleRef.current,
-                }
-              : undefined,
-          );
-          nativeRef.current?.applyPatch(serializeHomeContainerPayload(patch));
-        },
-        setProtocolV3Snapshot: (nextSnapshot, nextSlots) => {
-          const owner = {
-            scopeKey: nextSnapshot.identity.scopeKey,
-            sessionId: nextSnapshot.identity.sessionId,
-          };
-          setStagedSlotBundle(
-            nextSlots
-              ? {
-                  bundle: {
-                    owner,
-                    semanticRevision: nextSnapshot.identity.storeCommitId,
-                    slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
-                    slots: nextSlots,
-                  },
-                  parentAtSubmission: slotBundleRef.current,
-                }
-              : undefined,
-          );
-          pendingProtocolV3TransportRef.current = {
-            json: serializeHomeContainerPayload(nextSnapshot),
-            kind: 'snapshot',
-          };
-        },
-        applyProtocolV3Patch: (patch, nextSlots) => {
-          const owner = {
-            scopeKey: patch.identity.scopeKey,
-            sessionId: patch.identity.sessionId,
-          };
-          setStagedSlotBundle(
-            nextSlots
-              ? {
-                  bundle: {
-                    owner,
-                    semanticRevision: patch.identity.storeCommitId,
-                    slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
-                    slots: nextSlots,
-                  },
-                  parentAtSubmission: slotBundleRef.current,
-                }
-              : undefined,
-          );
-          pendingProtocolV3TransportRef.current = {
-            json: serializeHomeContainerPayload(patch),
-            kind: 'patch',
-          };
+        setDomains: (batch) => {
+          nativeRef.current?.setDomains(serializeHomeContainerPayload(batch));
         },
         completeRefresh: (requestId) => {
           nativeRef.current?.completeRefresh(requestId);
@@ -400,8 +249,6 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
     onRenderErrorRef.current = onRenderError;
     const onIntentRef = useRef(onIntent);
     onIntentRef.current = onIntent;
-    const onSnapshotRequiredRef = useRef(onSnapshotRequired);
-    onSnapshotRequiredRef.current = onSnapshotRequired;
 
     const stableOnAction = useCallback(
       (actionId: string, itemId: string, tabId: string) => {
@@ -421,16 +268,12 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
     const stableOnIntent = useCallback((intentJson: string) => {
       onIntentRef.current?.(intentJson);
     }, []);
-    const stableOnSnapshotRequired = useCallback((requestJson: string) => {
-      onSnapshotRequiredRef.current?.(requestJson);
-    }, []);
 
     const hasOnAction = Boolean(onAction);
     const hasOnRefresh = Boolean(onRefresh);
     const hasOnVisibleTabChange = Boolean(onVisibleTabChange);
     const hasOnRenderError = Boolean(onRenderError);
     const hasOnIntent = Boolean(onIntent);
-    const hasOnSnapshotRequired = Boolean(onSnapshotRequired);
     const onActionCallback = useMemo(
       () => (hasOnAction ? nitroCallback(stableOnAction) : undefined),
       [hasOnAction, stableOnAction],
@@ -454,13 +297,6 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
       () => (hasOnIntent ? nitroCallback(stableOnIntent) : undefined),
       [hasOnIntent, stableOnIntent],
     );
-    const onSnapshotRequiredCallback = useMemo(
-      () =>
-        hasOnSnapshotRequired
-          ? nitroCallback(stableOnSnapshotRequired)
-          : undefined,
-      [hasOnSnapshotRequired, stableOnSnapshotRequired],
-    );
     const stableHybridRef = useCallback((nextRef: HomeContainerNativeView) => {
       nativeRef.current = nextRef;
       const capabilities = parseCapabilities(nextRef.getCapabilities());
@@ -479,25 +315,20 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
       () => nitroCallback(stableHybridRef),
       [stableHybridRef],
     );
-    const authoritativeSlotBundle = useMemo(
-      () => selectLatestSlotBundle(stagedSlotBundle, slotBundle),
-      [slotBundle, stagedSlotBundle],
-    );
     const resolvedBackgroundColor = resolveHomeContainerBackgroundColor({
       snapshotBackgroundColor:
         initialSnapshotRef.current?.payload.theme.backgroundColor,
       slotBackgroundColor:
-        authoritativeSlotBundle?.slots.backgroundColor ??
-        slots?.backgroundColor,
+        slotBundle?.slots.backgroundColor ?? slots?.backgroundColor,
     });
 
     const resolvedSlots = useMemo(
       () =>
         resolveHomeContainerSlots({
-          currentBundle: authoritativeSlotBundle,
+          currentBundle: slotBundle,
           legacySlots: slots,
         }),
-      [authoritativeSlotBundle, slots],
+      [slotBundle, slots],
     );
 
     const slotViews = useMemo(() => {
@@ -599,7 +430,6 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
           onVisibleTabChange={onVisibleTabChangeCallback}
           onRenderError={onRenderErrorCallback}
           onIntent={onIntentCallback}
-          onSnapshotRequired={onSnapshotRequiredCallback}
           hybridRef={hybridRefCallback}
         />
         {slotViews}

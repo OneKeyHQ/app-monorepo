@@ -89,7 +89,6 @@ import {
   type IHomeContainerTabId,
   type IHomeContainerTheme,
   parseHomeContainerIntentV3,
-  parseHomeContainerSnapshotRequest,
 } from '@onekeyhq/native-components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -327,7 +326,6 @@ const MobileNativeHomeNavigationBridge = memo(
       runtime.updateNavigation({
         bodyPresentationKind: displayModel.body.kind,
         destinations,
-        presentationRevision: navigation.presentationRevision,
         selectedTabId,
         tabApplicabilityRevision: navigation.tabApplicabilityRevision,
         tabTitles,
@@ -589,7 +587,6 @@ const MobileNativeHomeHeaderBridge = memo(
       runtime.updateHeader({
         commandRevision: shell.shellCommandRevision,
         header,
-        presentationRevision: shell.presentationRevision,
       });
     }, [
       header,
@@ -746,7 +743,6 @@ const MobileNativeHomePortfolioBridge = memo(
     useLayoutEffect(() => {
       runtime.updateSection({
         commandRevision: section.sectionCommandRevision,
-        presentationRevision: section.presentationRevision,
         sectionId: 'portfolio',
         sections,
       });
@@ -1115,7 +1111,6 @@ const MobileNativeHomePerpsBridge = memo(function MobileNativeHomePerpsBridge({
   useLayoutEffect(() => {
     runtime.updateSection({
       commandRevision: section.sectionCommandRevision,
-      presentationRevision: section.presentationRevision,
       sectionId: 'perps',
       sections,
     });
@@ -1275,7 +1270,6 @@ const MobileNativeHomeDeFiBridge = memo(function MobileNativeHomeDeFiBridge({
   useLayoutEffect(() => {
     runtime.updateSection({
       commandRevision: section.sectionCommandRevision,
-      presentationRevision: section.presentationRevision,
       sectionId: 'defi',
       sections,
     });
@@ -1371,7 +1365,6 @@ const MobileNativeHomeNFTBridge = memo(function MobileNativeHomeNFTBridge({
   useLayoutEffect(() => {
     runtime.updateSection({
       commandRevision: section.sectionCommandRevision,
-      presentationRevision: section.presentationRevision,
       sectionId: 'nft',
       sections,
     });
@@ -1436,7 +1429,6 @@ const MobileNativeHomeHistoryBridge = memo(
     useLayoutEffect(() => {
       runtime.updateSection({
         commandRevision: section.sectionCommandRevision,
-        presentationRevision: section.presentationRevision,
         sectionId: 'history',
         sections,
       });
@@ -1839,24 +1831,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       attachedTargetRef.current = target;
     }
   }, [runtime]);
-  const handleSnapshotRequired = useCallback(
-    (value: string) => {
-      const request = parseHomeContainerSnapshotRequest(value);
-      if (!request) {
-        defaultLogger.wallet.homeUi.homeNativeTransportDecision({
-          resultKind: 'invalid',
-        });
-      } else {
-        defaultLogger.wallet.homeUi.homeNativeTransportDecision({
-          resultKind: request.kind,
-          currentRevision: request.currentRevision,
-          reason: request.reason,
-        });
-      }
-      runtime?.controller.handleSnapshotRequest(value);
-    },
-    [runtime],
-  );
   const handleRenderError = useCallback((code: string, message: string) => {
     defaultLogger.app.error.log(
       `[NativeHome] render failed: code=${code}, message=${message}`,
@@ -1880,7 +1854,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
         testID="NativeHomeContainer"
         onReady={handleReady}
         onIntent={handleIntent}
-        onSnapshotRequired={handleSnapshotRequired}
         onRenderError={handleRenderError}
       />
     </Stack>

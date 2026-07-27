@@ -27,9 +27,6 @@ class HybridHomeContainer(context: ThemedReactContext) : HybridHomeContainerSpec
     onIntent = { intentJson ->
       this@HybridHomeContainer.onIntent?.invoke(intentJson)
     }
-    onSnapshotRequired = { requestJson ->
-      this@HybridHomeContainer.onSnapshotRequired?.invoke(requestJson)
-    }
   }
 
   override val view: View = containerView
@@ -66,14 +63,12 @@ class HybridHomeContainer(context: ThemedReactContext) : HybridHomeContainerSpec
       field = value
       updateRefreshAvailability()
     }
-  override var onSnapshotRequired: ((requestJson: String) -> Unit)? = null
-
   override fun setSnapshot(snapshotJson: String) {
     containerView.submitSnapshot(snapshotJson)
   }
 
-  override fun applyPatch(patchJson: String) {
-    containerView.submitPatch(patchJson)
+  override fun setDomains(domainsJson: String) {
+    containerView.submitDomains(domainsJson)
   }
 
   override fun completeRefresh(requestId: String) {
@@ -85,9 +80,8 @@ class HybridHomeContainer(context: ThemedReactContext) : HybridHomeContainerSpec
   }
 
   override fun getCapabilities(): String =
-    "{\"schemaVersions\":[2],\"protocolVersions\":[1,2,3],\"preferredProtocol\":3," +
+    "{\"schemaVersions\":[2],\"protocolVersion\":3," +
       "\"tabIds\":[\"portfolio\",\"perps\",\"defi\",\"nft\",\"history\"]," +
-      "\"supportsPatches\":true,\"supportsAtomicPatches\":true," +
       "\"supportsNativeRefresh\":true,\"supportsHorizontalPaging\":true," +
       "\"supportsSlots\":true}"
 

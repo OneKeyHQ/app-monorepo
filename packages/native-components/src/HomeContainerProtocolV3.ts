@@ -4,12 +4,14 @@ import {
 } from './HomeContainer.types';
 
 import type {
-  IHomeContainerChange,
+  IHomeContainerHeader,
   IHomeContainerNavigationTab,
   IHomeContainerOwner,
+  IHomeContainerSection,
   IHomeContainerSnapshotPayload,
   IHomeContainerTab,
   IHomeContainerTabId,
+  IHomeContainerTheme,
 } from './HomeContainer.types';
 
 export const HOME_CONTAINER_PROTOCOL_V3_VERSION = 3 as const;
@@ -29,7 +31,8 @@ export type IHomeContainerSectionId =
 export type IHomeContainerPresentationRevisionVectorV3 = {
   shell: number;
   navigation: number;
-  sections: Readonly<Record<IHomeContainerSectionId, number>>;
+  surface: number;
+  sections: Readonly<Record<IHomeContainerTabId, number>>;
 };
 
 export type IHomeContainerAuthorityRevisionVectorV3 = {
@@ -37,10 +40,6 @@ export type IHomeContainerAuthorityRevisionVectorV3 = {
   tabApplicability: number;
   sectionCommands: Readonly<Record<IHomeContainerSectionId, number>>;
 };
-
-export type IHomeContainerSlotRevisionVectorV3 = Readonly<
-  Record<string, number>
->;
 
 export type IHomeContainerCommitIdentityV3 = IHomeContainerOwner & {
   storeCommitId: number;
@@ -50,23 +49,45 @@ export type IHomeContainerSnapshotEnvelopeV3 = {
   kind: 'snapshot';
   protocolVersion: typeof HOME_CONTAINER_PROTOCOL_V3_VERSION;
   identity: IHomeContainerCommitIdentityV3;
-  transportRevision: number;
   presentationRevisions: IHomeContainerPresentationRevisionVectorV3;
   authorityRevisions: IHomeContainerAuthorityRevisionVectorV3;
-  slotRevisions: IHomeContainerSlotRevisionVectorV3;
   payload: IHomeContainerSnapshotPayload;
 };
 
-export type IHomeContainerPatchEnvelopeV3 = {
-  kind: 'patch';
+export type IHomeContainerDomainUpdateV3 =
+  | {
+      kind: 'shell';
+      presentationRevision: number;
+      commandRevision: number;
+      value: IHomeContainerHeader;
+    }
+  | {
+      kind: 'navigation';
+      presentationRevision: number;
+      applicabilityRevision: number;
+      value: {
+        selectedTabId: IHomeContainerTabId;
+        tabs: IHomeContainerNavigationTab[];
+      };
+    }
+  | {
+      kind: 'section';
+      tabId: IHomeContainerTabId;
+      presentationRevision: number;
+      commandRevisions: Readonly<Record<IHomeContainerSectionId, number>>;
+      value: IHomeContainerSection[];
+    }
+  | {
+      kind: 'surface';
+      presentationRevision: number;
+      value: IHomeContainerTheme;
+    };
+
+export type IHomeContainerDomainBatchV3 = {
+  kind: 'domains';
   protocolVersion: typeof HOME_CONTAINER_PROTOCOL_V3_VERSION;
   identity: IHomeContainerCommitIdentityV3;
-  baseTransportRevision: number;
-  transportRevision: number;
-  presentationRevisions: IHomeContainerPresentationRevisionVectorV3;
-  authorityRevisions: IHomeContainerAuthorityRevisionVectorV3;
-  requiredSlotRevisions: Partial<IHomeContainerSlotRevisionVectorV3>;
-  changes: readonly IHomeContainerChange[];
+  updates: readonly IHomeContainerDomainUpdateV3[];
 };
 
 export type IHomeContainerIntentAuthorityV3 =
@@ -96,24 +117,21 @@ export type IHomeContainerIntentV3 = {
 
 export type IHomeContainerProtocolV3State = {
   identity: IHomeContainerCommitIdentityV3;
-  transportRevision: number;
   presentationRevisions: IHomeContainerPresentationRevisionVectorV3;
   authorityRevisions: IHomeContainerAuthorityRevisionVectorV3;
-  slotRevisions: IHomeContainerSlotRevisionVectorV3;
   payload: IHomeContainerSnapshotPayload;
 };
 
 export type IHomeContainerProtocolV3ApplyResult =
-  | { kind: 'applied'; state: IHomeContainerProtocolV3State }
-  | { kind: 'duplicate'; state: IHomeContainerProtocolV3State }
   | {
-      kind: 'needSnapshot';
-      reason:
-        | 'invalidInvariant'
-        | 'ownerMismatch'
-        | 'revisionGap'
-        | 'slotRevisionGap'
-        | 'unsupportedProtocol';
+      kind: 'applied';
+      state: IHomeContainerProtocolV3State;
+      appliedDomains: readonly string[];
+    }
+  | { kind: 'ignored'; reason: 'ownerMismatch' | 'stale' }
+  | {
+      kind: 'invalid';
+      reason: 'invalidInvariant' | 'unsupportedProtocol';
     };
 
 function isSafeRevision(value: unknown): value is number {
@@ -123,10 +141,20 @@ function isSafeRevision(value: unknown): value is number {
 function isRevisionRecord(
   value: unknown,
 ): value is Readonly<Record<string, number>> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return false;
-  }
-  return Object.values(value).every(isSafeRevision);
+  return (
+    value !== null &&
+    value !== undefined &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    Object.values(value).every(isSafeRevision)
+  );
+}
+
+function hasExactTabRevisionKeys(
+  value: Readonly<Record<string, number>>,
+): boolean {
+  const keys = Object.keys(value);
+  return keys.length === HOME_CONTAINER_TAB_IDS.length && keys.every(isTabId);
 }
 
 function hasExactSectionRevisionKeys(
@@ -134,8 +162,7 @@ function hasExactSectionRevisionKeys(
 ): boolean {
   const keys = Object.keys(value);
   return (
-    keys.length === HOME_CONTAINER_SECTION_IDS.length &&
-    keys.every((key) => isSectionId(key))
+    keys.length === HOME_CONTAINER_SECTION_IDS.length && keys.every(isSectionId)
   );
 }
 
@@ -150,11 +177,9 @@ function isPresentationRevisionVector(
   return (
     isSafeRevision(candidate.shell) &&
     isSafeRevision(candidate.navigation) &&
+    isSafeRevision(candidate.surface) &&
     isRevisionRecord(candidate.sections) &&
-    hasExactSectionRevisionKeys(candidate.sections) &&
-    HOME_CONTAINER_SECTION_IDS.every((sectionId) =>
-      isSafeRevision(candidate.sections?.[sectionId]),
-    )
+    hasExactTabRevisionKeys(candidate.sections)
   );
 }
 
@@ -169,10 +194,7 @@ function isAuthorityRevisionVector(
     isSafeRevision(candidate.shellCommands) &&
     isSafeRevision(candidate.tabApplicability) &&
     isRevisionRecord(candidate.sectionCommands) &&
-    hasExactSectionRevisionKeys(candidate.sectionCommands) &&
-    HOME_CONTAINER_SECTION_IDS.every((sectionId) =>
-      isSafeRevision(candidate.sectionCommands?.[sectionId]),
-    )
+    hasExactSectionRevisionKeys(candidate.sectionCommands)
   );
 }
 
@@ -191,135 +213,6 @@ function isSectionId(value: unknown): value is IHomeContainerSectionId {
   return HOME_CONTAINER_SECTION_IDS.some((candidate) => candidate === value);
 }
 
-function revisionsDoNotRegress(
-  current: IHomeContainerProtocolV3State,
-  next: Pick<
-    IHomeContainerProtocolV3State,
-    'authorityRevisions' | 'presentationRevisions'
-  >,
-): boolean {
-  if (
-    next.presentationRevisions.shell < current.presentationRevisions.shell ||
-    next.presentationRevisions.navigation <
-      current.presentationRevisions.navigation ||
-    next.authorityRevisions.shellCommands <
-      current.authorityRevisions.shellCommands ||
-    next.authorityRevisions.tabApplicability <
-      current.authorityRevisions.tabApplicability
-  ) {
-    return false;
-  }
-  return HOME_CONTAINER_SECTION_IDS.every(
-    (sectionId) =>
-      next.presentationRevisions.sections[sectionId] >=
-        current.presentationRevisions.sections[sectionId] &&
-      next.authorityRevisions.sectionCommands[sectionId] >=
-        current.authorityRevisions.sectionCommands[sectionId],
-  );
-}
-
-function hasRequiredSlots(
-  available: IHomeContainerSlotRevisionVectorV3,
-  required: Partial<IHomeContainerSlotRevisionVectorV3>,
-): boolean {
-  return Object.entries(required).every(
-    ([slotId, revision]) =>
-      revision !== undefined && available[slotId] === revision,
-  );
-}
-
-function applyChanges(
-  payload: IHomeContainerSnapshotPayload,
-  changes: readonly IHomeContainerChange[],
-): IHomeContainerSnapshotPayload | undefined {
-  let next = payload;
-  for (const change of changes) {
-    switch (change.kind) {
-      case 'replaceShell':
-        next = { ...next, header: change.value };
-        break;
-      case 'replaceNavigation': {
-        const sectionsByTab = new Map(
-          next.tabs.map((tab) => [tab.id, tab.sections] as const),
-        );
-        const tabs: IHomeContainerTab[] = [];
-        for (const tab of change.value.tabs) {
-          if (tab.destination === 'handoff') {
-            if (!tab.handoffCommandId) return undefined;
-            tabs.push({
-              id: tab.id,
-              title: tab.title,
-              toolbarAction: tab.toolbarAction,
-              destination: 'handoff',
-              handoffCommandId: tab.handoffCommandId,
-              sections: [],
-            });
-          } else {
-            tabs.push({
-              id: tab.id,
-              title: tab.title,
-              toolbarAction: tab.toolbarAction,
-              destination: 'inline',
-              sections: sectionsByTab.get(tab.id) ?? [],
-            });
-          }
-        }
-        next = {
-          ...next,
-          selectedTabId: change.value.selectedTabId,
-          tabs,
-        };
-        break;
-      }
-      case 'replaceSection': {
-        let changed = false;
-        const tabs = next.tabs.map((tab) => {
-          if (tab.id !== change.tabId || tab.destination !== 'inline') {
-            return tab;
-          }
-          const sections = [...tab.sections];
-          const existingIndex = sections.findIndex(
-            (section) => section.id === change.sectionId,
-          );
-          if (existingIndex >= 0) {
-            sections.splice(existingIndex, 1);
-          }
-          if (change.index < 0 || change.index > sections.length) {
-            return tab;
-          }
-          sections.splice(change.index, 0, change.value);
-          changed = true;
-          return { ...tab, sections };
-        });
-        if (!changed) return undefined;
-        next = { ...next, tabs };
-        break;
-      }
-      case 'removeSection':
-        next = {
-          ...next,
-          tabs: next.tabs.map((tab) =>
-            tab.id === change.tabId
-              ? {
-                  ...tab,
-                  sections: tab.sections.filter(
-                    (section) => section.id !== change.sectionId,
-                  ),
-                }
-              : tab,
-          ),
-        };
-        break;
-      case 'replaceSurface':
-        next = { ...next, theme: change.value };
-        break;
-      default:
-        return undefined;
-    }
-  }
-  return next;
-}
-
 function payloadIsValid(payload: IHomeContainerSnapshotPayload): boolean {
   return isHomeContainerSnapshotInvariantValid({
     selectedTabId: payload.selectedTabId,
@@ -327,109 +220,321 @@ function payloadIsValid(payload: IHomeContainerSnapshotPayload): boolean {
   });
 }
 
-export function applyHomeContainerSnapshotV3(
+function snapshotState(
   envelope: IHomeContainerSnapshotEnvelopeV3,
-): IHomeContainerProtocolV3ApplyResult {
-  if (envelope.protocolVersion !== HOME_CONTAINER_PROTOCOL_V3_VERSION) {
-    return { kind: 'needSnapshot', reason: 'unsupportedProtocol' };
-  }
+): IHomeContainerProtocolV3State | undefined {
   if (
-    !isSafeRevision(envelope.transportRevision) ||
+    envelope.protocolVersion !== HOME_CONTAINER_PROTOCOL_V3_VERSION ||
+    envelope.kind !== 'snapshot' ||
     !isSafeRevision(envelope.identity.storeCommitId) ||
     envelope.identity.scopeKey.length === 0 ||
     envelope.identity.sessionId.length === 0 ||
     !isPresentationRevisionVector(envelope.presentationRevisions) ||
     !isAuthorityRevisionVector(envelope.authorityRevisions) ||
-    !isRevisionRecord(envelope.slotRevisions) ||
     !payloadIsValid(envelope.payload)
   ) {
-    return { kind: 'needSnapshot', reason: 'invalidInvariant' };
+    return undefined;
   }
   return {
-    kind: 'applied',
-    state: {
-      identity: envelope.identity,
-      transportRevision: envelope.transportRevision,
-      presentationRevisions: envelope.presentationRevisions,
-      authorityRevisions: envelope.authorityRevisions,
-      slotRevisions: envelope.slotRevisions,
-      payload: envelope.payload,
-    },
+    identity: envelope.identity,
+    presentationRevisions: envelope.presentationRevisions,
+    authorityRevisions: envelope.authorityRevisions,
+    payload: envelope.payload,
   };
 }
 
-export function applyHomeContainerPatchV3({
-  availableSlotRevisions,
-  current,
-  envelope,
-}: {
-  availableSlotRevisions: IHomeContainerSlotRevisionVectorV3;
-  current: IHomeContainerProtocolV3State;
-  envelope: IHomeContainerPatchEnvelopeV3;
-}): IHomeContainerProtocolV3ApplyResult {
+function navigationTabs(
+  current: IHomeContainerSnapshotPayload,
+  navigation: {
+    selectedTabId: IHomeContainerTabId;
+    tabs: IHomeContainerNavigationTab[];
+  },
+): IHomeContainerSnapshotPayload | undefined {
+  const sectionsByTab = new Map(
+    current.tabs.map((tab) => [tab.id, tab.sections] as const),
+  );
+  const tabs: IHomeContainerTab[] = [];
+  for (const tab of navigation.tabs) {
+    if (tab.destination === 'handoff') {
+      if (!tab.handoffCommandId) return undefined;
+      tabs.push({
+        ...tab,
+        destination: 'handoff',
+        handoffCommandId: tab.handoffCommandId,
+        sections: [],
+      });
+    } else {
+      const { handoffCommandId: _handoffCommandId, ...inlineTab } = tab;
+      tabs.push({
+        ...inlineTab,
+        destination: 'inline',
+        sections: sectionsByTab.get(tab.id) ?? [],
+      });
+    }
+  }
+  const payload = {
+    ...current,
+    selectedTabId: navigation.selectedTabId,
+    tabs,
+  };
+  return payloadIsValid(payload) ? payload : undefined;
+}
+
+function replaceTabSections(
+  current: IHomeContainerSnapshotPayload,
+  tabId: IHomeContainerTabId,
+  sections: IHomeContainerSection[],
+): IHomeContainerSnapshotPayload | undefined {
+  let replaced = false;
+  const tabs = current.tabs.map((tab) => {
+    if (tab.id !== tabId || tab.destination !== 'inline') {
+      return tab;
+    }
+    replaced = true;
+    return { ...tab, sections };
+  });
+  if (!replaced) {
+    return undefined;
+  }
+  const payload = { ...current, tabs };
+  return payloadIsValid(payload) ? payload : undefined;
+}
+
+export function applyHomeContainerSnapshotV3(
+  envelope: IHomeContainerSnapshotEnvelopeV3,
+  current?: IHomeContainerProtocolV3State,
+): IHomeContainerProtocolV3ApplyResult {
   if (envelope.protocolVersion !== HOME_CONTAINER_PROTOCOL_V3_VERSION) {
-    return { kind: 'needSnapshot', reason: 'unsupportedProtocol' };
+    return { kind: 'invalid', reason: 'unsupportedProtocol' };
+  }
+  const incoming = snapshotState(envelope);
+  if (!incoming) {
+    return { kind: 'invalid', reason: 'invalidInvariant' };
+  }
+  if (!current || !ownersMatch(current.identity, incoming.identity)) {
+    return {
+      kind: 'applied',
+      state: incoming,
+      appliedDomains: ['shell', 'navigation', 'surface', 'sections'],
+    };
+  }
+  const updates: IHomeContainerDomainUpdateV3[] = [
+    {
+      kind: 'shell',
+      presentationRevision: incoming.presentationRevisions.shell,
+      commandRevision: incoming.authorityRevisions.shellCommands,
+      value: incoming.payload.header,
+    },
+    {
+      kind: 'navigation',
+      presentationRevision: incoming.presentationRevisions.navigation,
+      applicabilityRevision: incoming.authorityRevisions.tabApplicability,
+      value: {
+        selectedTabId: incoming.payload.selectedTabId,
+        tabs: incoming.payload.tabs.map(
+          ({ sections: _sections, ...tab }) => tab,
+        ),
+      },
+    },
+    {
+      kind: 'surface',
+      presentationRevision: incoming.presentationRevisions.surface,
+      value: incoming.payload.theme,
+    },
+    ...incoming.payload.tabs
+      .filter((tab) => tab.destination === 'inline')
+      .map(
+        (tab): IHomeContainerDomainUpdateV3 => ({
+          kind: 'section',
+          tabId: tab.id,
+          presentationRevision: incoming.presentationRevisions.sections[tab.id],
+          commandRevisions: incoming.authorityRevisions.sectionCommands,
+          value: tab.sections,
+        }),
+      ),
+  ];
+  return applyHomeContainerDomainsV3(
+    {
+      kind: 'domains',
+      protocolVersion: HOME_CONTAINER_PROTOCOL_V3_VERSION,
+      identity: incoming.identity,
+      updates,
+    },
+    current,
+  );
+}
+
+export function applyHomeContainerDomainsV3(
+  batch: IHomeContainerDomainBatchV3,
+  current: IHomeContainerProtocolV3State | undefined,
+): IHomeContainerProtocolV3ApplyResult {
+  if (batch.protocolVersion !== HOME_CONTAINER_PROTOCOL_V3_VERSION) {
+    return { kind: 'invalid', reason: 'unsupportedProtocol' };
   }
   if (
-    !isSafeRevision(envelope.baseTransportRevision) ||
-    !isSafeRevision(envelope.transportRevision) ||
-    !isSafeRevision(envelope.identity.storeCommitId) ||
-    envelope.identity.storeCommitId < current.identity.storeCommitId ||
-    !isPresentationRevisionVector(envelope.presentationRevisions) ||
-    !isAuthorityRevisionVector(envelope.authorityRevisions) ||
-    !isRevisionRecord(envelope.requiredSlotRevisions)
+    batch.kind !== 'domains' ||
+    !current ||
+    !isSafeRevision(batch.identity.storeCommitId) ||
+    batch.identity.scopeKey.length === 0 ||
+    batch.identity.sessionId.length === 0
   ) {
-    return { kind: 'needSnapshot', reason: 'invalidInvariant' };
+    return { kind: 'invalid', reason: 'invalidInvariant' };
   }
-  if (!ownersMatch(current.identity, envelope.identity)) {
-    return { kind: 'needSnapshot', reason: 'ownerMismatch' };
+  if (!ownersMatch(batch.identity, current.identity)) {
+    return { kind: 'ignored', reason: 'ownerMismatch' };
   }
-  if (!revisionsDoNotRegress(current, envelope)) {
-    return { kind: 'needSnapshot', reason: 'invalidInvariant' };
+
+  let payload = current.payload;
+  let presentationRevisions = current.presentationRevisions;
+  let authorityRevisions = current.authorityRevisions;
+  const appliedDomains: string[] = [];
+  const seenDomains = new Set<string>();
+
+  for (const update of batch.updates) {
+    const domainKey =
+      update.kind === 'section' ? `section:${update.tabId}` : update.kind;
+    if (seenDomains.has(domainKey)) {
+      return { kind: 'invalid', reason: 'invalidInvariant' };
+    }
+    seenDomains.add(domainKey);
+    if (!isSafeRevision(update.presentationRevision)) {
+      return { kind: 'invalid', reason: 'invalidInvariant' };
+    }
+
+    switch (update.kind) {
+      case 'shell':
+        if (!isSafeRevision(update.commandRevision)) {
+          return { kind: 'invalid', reason: 'invalidInvariant' };
+        }
+        if (update.presentationRevision <= presentationRevisions.shell) {
+          break;
+        }
+        if (update.commandRevision < authorityRevisions.shellCommands) {
+          return { kind: 'invalid', reason: 'invalidInvariant' };
+        }
+        payload = { ...payload, header: update.value };
+        presentationRevisions = {
+          ...presentationRevisions,
+          shell: update.presentationRevision,
+        };
+        authorityRevisions = {
+          ...authorityRevisions,
+          shellCommands: update.commandRevision,
+        };
+        appliedDomains.push(domainKey);
+        break;
+      case 'navigation': {
+        if (
+          !isSafeRevision(update.applicabilityRevision) ||
+          update.value.tabs.some((tab) => !isTabId(tab.id))
+        ) {
+          return { kind: 'invalid', reason: 'invalidInvariant' };
+        }
+        if (update.presentationRevision <= presentationRevisions.navigation) {
+          break;
+        }
+        if (
+          update.applicabilityRevision < authorityRevisions.tabApplicability
+        ) {
+          return { kind: 'invalid', reason: 'invalidInvariant' };
+        }
+        const nextPayload = navigationTabs(payload, update.value);
+        if (!nextPayload) {
+          return { kind: 'invalid', reason: 'invalidInvariant' };
+        }
+        payload = nextPayload;
+        presentationRevisions = {
+          ...presentationRevisions,
+          navigation: update.presentationRevision,
+        };
+        authorityRevisions = {
+          ...authorityRevisions,
+          tabApplicability: update.applicabilityRevision,
+        };
+        appliedDomains.push(domainKey);
+        break;
+      }
+      case 'section': {
+        if (
+          !isTabId(update.tabId) ||
+          !isRevisionRecord(update.commandRevisions) ||
+          !hasExactSectionRevisionKeys(update.commandRevisions)
+        ) {
+          return { kind: 'invalid', reason: 'invalidInvariant' };
+        }
+        if (
+          update.presentationRevision <=
+          presentationRevisions.sections[update.tabId]
+        ) {
+          break;
+        }
+        const nextPayload = replaceTabSections(
+          payload,
+          update.tabId,
+          update.value,
+        );
+        if (!nextPayload) {
+          return { kind: 'invalid', reason: 'invalidInvariant' };
+        }
+        payload = nextPayload;
+        presentationRevisions = {
+          ...presentationRevisions,
+          sections: {
+            ...presentationRevisions.sections,
+            [update.tabId]: update.presentationRevision,
+          },
+        };
+        const currentSectionCommands = authorityRevisions.sectionCommands;
+        const incomingSectionCommands = update.commandRevisions;
+        authorityRevisions = {
+          ...authorityRevisions,
+          sectionCommands: Object.fromEntries(
+            HOME_CONTAINER_SECTION_IDS.map((sectionId) => [
+              sectionId,
+              Math.max(
+                currentSectionCommands[sectionId],
+                incomingSectionCommands[sectionId],
+              ),
+            ]),
+          ) as Record<IHomeContainerSectionId, number>,
+        };
+        appliedDomains.push(domainKey);
+        break;
+      }
+      case 'surface':
+        if (update.presentationRevision <= presentationRevisions.surface) {
+          break;
+        }
+        payload = { ...payload, theme: update.value };
+        presentationRevisions = {
+          ...presentationRevisions,
+          surface: update.presentationRevision,
+        };
+        appliedDomains.push(domainKey);
+        break;
+      default:
+        return { kind: 'invalid', reason: 'invalidInvariant' };
+    }
   }
-  if (
-    envelope.transportRevision === current.transportRevision &&
-    envelope.baseTransportRevision < envelope.transportRevision
-  ) {
-    return { kind: 'duplicate', state: current };
-  }
-  if (
-    envelope.baseTransportRevision !== current.transportRevision ||
-    envelope.transportRevision !== current.transportRevision + 1
-  ) {
-    return { kind: 'needSnapshot', reason: 'revisionGap' };
-  }
-  if (
-    !hasRequiredSlots(availableSlotRevisions, envelope.requiredSlotRevisions)
-  ) {
-    return { kind: 'needSnapshot', reason: 'slotRevisionGap' };
-  }
-  if (
-    Object.entries(availableSlotRevisions).some(
-      ([slotId, revision]) =>
-        current.slotRevisions[slotId] !== undefined &&
-        revision < current.slotRevisions[slotId],
-    )
-  ) {
-    return { kind: 'needSnapshot', reason: 'invalidInvariant' };
-  }
-  const payload = applyChanges(current.payload, envelope.changes);
-  if (!payload || !payloadIsValid(payload)) {
-    return { kind: 'needSnapshot', reason: 'invalidInvariant' };
+
+  if (appliedDomains.length === 0) {
+    return { kind: 'ignored', reason: 'stale' };
   }
   return {
     kind: 'applied',
     state: {
-      identity: envelope.identity,
-      transportRevision: envelope.transportRevision,
-      presentationRevisions: envelope.presentationRevisions,
-      authorityRevisions: envelope.authorityRevisions,
-      slotRevisions: {
-        ...current.slotRevisions,
-        ...envelope.requiredSlotRevisions,
+      identity: {
+        ...batch.identity,
+        storeCommitId: Math.max(
+          current.identity.storeCommitId,
+          batch.identity.storeCommitId,
+        ),
       },
+      presentationRevisions,
+      authorityRevisions,
       payload,
     },
+    appliedDomains,
   };
 }
 

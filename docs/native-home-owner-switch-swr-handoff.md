@@ -4,6 +4,8 @@
 
 状态：
 
+- Native transport 已收敛为唯一的 protocol v3 per-domain Latest-Wins；
+  V1/V2、增量 patch、ACK、反向 snapshot recovery 和兼容分支均已删除。
 - Native transport 的成功回调、等待门闩、超时重试与 slot 展示门闩已从当前分支移除。
 - owner 原子切换、Native surface 复用、完整 SWR、banner 渐进发布、局部 atom
   读取和 frame 级 transport 合并已在当前分支实现。
@@ -11,6 +13,12 @@
   模拟器已完成同 wallet 账户往返切换视觉验证。iOS/Android Release 真机的
   首帧耗时、完整场景矩阵和内存指标仍待执行，不能由 Jest 或 Debug 结果代替。
 - 目标平台为 iOS 与 Android Native Home。
+
+> 2026-07-27 transport 最终决策：本文后续历史段落中出现的 V1/V2、
+> snapshot/patch、`needSnapshot`、slot revision gap 或兼容协议描述均已失效。
+> 当前唯一有效的边界是 owner full snapshot + `shell`、`navigation`、
+> `section:<tabId>`、`surface` 完整域值；同域按 controller generation
+> Latest-Wins，不同域互不等待。
 
 关联文档：`docs/home-runtime-effect-scheduler-handoff.md`
 
@@ -56,8 +64,8 @@
   display cache；
 - owner cache 必须加载到 main 的 Home Store；
 - 旧 session 的结果即使无法物理取消，也不能进入新 session；
-- transport 是进程内有序调用。正常更新不依赖反向成功确认；协议校验失败或
-  revision gap 时，Native 只发显式 `needSnapshot` 请求。
+- transport 是进程内调用，但正确性不依赖连续序号。Native 接受同域 generation
+  gap，忽略同域旧 generation 和旧 owner session；没有反向确认或 recovery 请求。
 
 ### 2.2 Desktop / Web
 
@@ -75,11 +83,12 @@ Store、SWR 和 scheduler 规则必须保持跨平台。
    - target owner 的 prepared cache；或
    - target owner 自己的 initial loading state。
 6. 新 owner label 下不得出现旧 owner 数据。
-7. owner 替换使用完整 target-owner snapshot；同 owner 后续更新才使用 patch。
+7. owner 替换使用完整 target-owner snapshot；同 owner 后续更新使用完整域值，
+   不使用增量 patch。
 8. Native surface 生命周期与 wallet/account/owner/session 解耦，不允许
    owner-derived React key remount surface。
-9. owner bundle 必须同时包含 owner、session、Store commit、Native snapshot、
-   完整 slot bundle 和 revision vector。
+9. owner bundle 必须同时包含 owner、session、Store commit、Native snapshot 和
+   完整 slot bundle；Native body domain generation 与 React slot 版本独立。
 10. cache identity 与 execution identity 分离：
     - cache 可跨 session 复用；
     - 请求去重、取消与发布权限必须包含 session。
@@ -87,8 +96,7 @@ Store、SWR 和 scheduler 规则必须保持跨平台。
     business Store 或 service。
 12. owner replacement 可以读取全部 owner-scoped slice；同 owner event 只能读取
     已声明依赖并写入语义变化的 slice。
-13. unchanged atom、presentation revision、slot reference 和 native slot revision
-    必须稳定。
+13. unchanged atom、slot reference 和 native domain value 必须稳定。
 14. semantic no-op 不产生 Store commit、React invalidation、snapshot write 或
     Native transport。
 15. 不通过提高 scheduler、leaf、Store commit 或 Native transport 的既有限额
@@ -201,46 +209,45 @@ global account selection changes
   -> HomeContainerController.replaceOwner(full snapshot)
   -> same mounted Native surface renders target cache/loading
   -> admit bounded revalidation work
-  -> same-owner source completions commit local patches
+  -> same-owner source completions commit local Store slices
+  -> controller publishes complete changed-domain values
 ```
 
 Surface 不 remount，controller 不重建，Native viewport state 由现有 host 保留。
-owner replace 清空旧 transport baseline 并提交完整 snapshot；之后 patch 以最后
-一次已提交 snapshot 为 base。
+owner replace 清空旧 pending domain 并提交完整 snapshot；之后每个 domain 使用
+独立 controller generation，不依赖全局 base revision。
 
 ### 5.2 Native transport
 
-正常路径是单向、进程内、有序提交：
+正常路径是单向、进程内、per-domain Latest-Wins：
 
 ```text
 Store commits in main
   -> one scheduled flush per frame
-  -> latest semantic state wins within the frame
+  -> latest complete value per domain wins within the frame
   -> full snapshot for owner replacement
-  -> minimal patch for same-owner changes
-  -> Native validates owner and revision
+  -> complete domain values for same-owner changes
+  -> Native validates owner and per-domain generation
 ```
 
 规则：
 
 1. JS 不等待 Native 成功回调，不维护 submitted-but-unconfirmed gate。
 2. 不设置 transport timeout，不做基于 timeout 的重发。
-3. patch baseline 是最后一次已提交 snapshot。
+3. 每域 generation 由 controller 独立单调递增，允许跳号。
 4. 同一 frame 内的多次更新合并为一次 flush；默认使用
    `requestAnimationFrame`，无 RAF 环境退化为 microtask。
 5. slot bundle 在提交时立即进入 wrapper presentation，不等待 render 完成。
-6. 同 owner 时选择更高 semantic revision；owner 不同时根据 staged submission
-   当时看到的 parent commit 判断谁更新，防止旧 staged owner 反压新 parent。
+6. 同 owner 时只比较目标 domain generation；不同 domain 不读取或等待彼此。
+   owner 不同时只接受当前 `scopeKey + sessionId`。
 7. Native 仍维护内部 rendered state，用于 intent authority 和可见 page 的
    revision 校验，但不向 JS 发送成功事件。
-8. 只有校验失败、owner mismatch、revision gap、slot revision gap 或协议不支持
-   时，Native 才发送 `needSnapshot`。
-9. `needSnapshot` 按 owner/current revision/reason 去重。JS 收到当前 owner 的
-   请求后，把当前最新状态合并为一次 full snapshot flush。
-10. stale-owner 或非法 `needSnapshot` 被忽略。
+8. 同域旧 generation 与 stale-owner batch 静默忽略；generation gap 直接接受。
+9. schema/业务 invariant 非法时报告 render error，不建立反向恢复协议。
+10. React slots 与 Native body domain 独立；slot render 可合并或跳过中间帧。
 
-这套模型利用进程内桥接的有序交付；如果 Native 检测到 gap，就走显式
-resynchronization，而不是让所有正常 patch 承担双向握手成本。
+这套模型不要求 Native 连续应用每个中间状态。因为每个 domain 携带完整值，
+Native 可以直接从 generation N 跳到 N+K。
 
 ### 5.3 SWR state machine
 
@@ -320,9 +327,9 @@ no cache
 ### `apps/mobile`
 
 - 持有稳定 bridge runtime/controller；
-- 将 owner bundle 转换为完整 snapshot 或同 owner patch；
+- 将 owner bundle 转换为完整 snapshot 或同 owner 完整域值；
 - 不直接从 global active account 混入已提交 owner UI；
-- 把 `needSnapshot` 路由给当前 controller。
+- 保持 Store authority 与 transport domain generation 分离。
 
 ### `packages/native-components`
 
@@ -330,7 +337,6 @@ no cache
 - owner/revision 校验；
 - frame 级 latest-wins transport；
 - 内部 rendered state 与 intent authority；
-- 协议异常时请求 full snapshot；
 - 不引入 Home Store、service 或 business cache。
 
 ### `packages/kit-bg`
@@ -423,7 +429,7 @@ no cache
 - revalidation failure 显示 stale-with-error，不伪造成 empty/fresh。
 - 无 cache failure 与 stale cache failure 可区分。
 - safety unknown 不等价于 safe。
-- freshness 变化但可见 model 不变时，不产生无意义 Native patch。
+- freshness 变化但可见 model 不变时，不产生无意义 Native domain submission。
 
 ### AC-05：渐进 banner
 
@@ -459,16 +465,17 @@ no cache
 对跨多个 frame 的有效同 owner 更新：
 
 - 每 frame 至多一个 submission；
-- 第 N 个 patch 的 base revision 等于第 N-1 个已提交 revision；
+- 同域 generation 单调增加且允许跳号；
+- 一个 domain 的旧 generation 不阻塞另一个 domain；
 - 不存在周期性 retry 或 timeout resubmit；
 - semantic no-op submission 数为 0。
 
 协议异常：
 
-- 相同 failure key 的 `needSnapshot` 只上报一次；
-- 当前 owner 在一个 scheduled flush 内只回复一个 latest full snapshot；
-- stale-owner request 被忽略；
-- snapshot 应用成功后，同一后续 gap 可重新触发请求。
+- stale-owner batch 被忽略；
+- 同域 stale batch 被忽略；
+- generation gap 被直接接受；
+- malformed payload 被拒绝且不触发 ACK、recovery request 或 retry。
 
 ### AC-08：局部 Store / React / Native 更新
 
@@ -477,7 +484,7 @@ portfolio data-only event：
 - banner、NFT、DeFi、Perps、history atom reference 不变；
 - 不读取未声明的全局 Home snapshot；
 - 只有 portfolio selector subscriber rerender；
-- Native patch 不包含无关 section/shell。
+- Native domain batch 不包含无关 section/shell。
 
 banner-only event：
 
@@ -490,7 +497,7 @@ global facts event：
 - 只运行声明依赖该 fact 的 projection；
 - 无关 source 不重新请求；
 - 无关 atom/selector/component 不 invalidated；
-- 无关 Native section 不进入 patch。
+- 无关 Native section 不进入 domain batch。
 
 owner replace：
 
@@ -524,27 +531,26 @@ owner replace：
 - projection arrival-order permutation。
 - banner intermediate/final semantic no-op。
 - selector reference stability。
-- protocol request parser 只接受 `needSnapshot`。
 
 ### Controller / wrapper
 
 - 同 frame updates 只产生一次 flush。
-- 连续 v2/v3 patch 无需反向成功事件即可推进 revision。
+- 同域 generation gap 可直接应用。
+- 不同域 authority revision 互不阻塞。
+- 新增 inline tab 同批次发布完整 section。
 - owner churn 在 flush 前只提交最终 snapshot。
-- current owner `needSnapshot` 触发一个 latest full snapshot。
-- stale/malformed request 被忽略。
+- stale/malformed domain batch 被忽略或拒绝。
 - slot bundle 提交后立即展示。
 - parent 切到新 owner 时旧 staged slot 不反压。
 - staged replacement owner 可在 parent rerender 前展示。
 
 ### Native
 
-- iOS/Android snapshot/patch owner 和 revision 校验。
-- duplicate snapshot/patch 内部忽略且不产生反向成功事件。
-- gap/invalid invariant 产生去重的 snapshot request。
+- iOS/Android snapshot/domain owner 和 generation 校验。
+- duplicate/stale domain 内部忽略且不产生反向成功事件。
+- generation gap 直接应用；invalid invariant 不产生 recovery request。
 - rendered state 只在 selected page layout/pre-draw 完成后更新。
 - intent 使用内部 rendered owner/revision。
-- v3 slot revision gap 请求 snapshot。
 
 ### Integration
 
@@ -568,9 +574,8 @@ owner replace：
 - source logical admission、leaf queued/running high-water mark；
 - 每 source physical request 数；
 - Store commit/no-op 数；
-- Native scheduled flush、full snapshot、patch、slot-only patch 数；
+- Native scheduled flush、full snapshot、domain batch、slot-only render 数；
 - serialized field/change 数与序列化耗时；
-- `needSnapshot` request/response 数；
 - owner switch 到 first cached content、first live content、banner visible 的时间；
 - stale-owner result rejection 数；
 - memory before/after settled churn。
@@ -601,26 +606,32 @@ owner replace：
 如果立即 cache decode 被 Release 数据证明为显著瓶颈，再基于 profile 优化
 schema、索引或 decode 路径；不能预先用不可验证的体积上限回避 SWR。
 
-## 11. 当前分支已完成的 transport 清理
+## 11. 当前分支 transport 最终结构
 
-- 移除 JS controller 的 in-flight success gate、deadline、timeout recovery、
-  recovery-blocked 和 rendered-slot publication state。
-- 移除 TypeScript、Nitro、iOS、Android 的 `applied`/`duplicate` 成功事件。
-- mobile bridge 只接收 `onSnapshotRequired`。
-- slot bundle 提交后立即进入 presentation。
-- 默认 transport scheduler 改为 RAF 合并，测试环境使用 microtask fallback。
-- patch 以 last submitted snapshot 为 baseline。
-- Native duplicate 仍作为内部 apply outcome 静默忽略。
+- 只保留 protocol v3；V1/V2 model、parser、fixture、test 和 native apply
+  分支均已删除，不协商旧协议。
+- Nitro 只暴露 `setSnapshot()` 与 `setDomains()`；没有 `applyPatch()`、
+  `onSnapshotRequired`、ACK、deadline、timeout recovery 或 retransmission。
+- owner attach/replace 发送一个完整 snapshot。旧 session 的 pending domain
+  在 owner replace 时被清除。
+- same-owner 使用 `shell`、`navigation`、`section:<tabId>`、`surface` 四类完整
+  域值。每域由 controller 维护独立单调 generation；允许跳号，只拒绝同域旧值。
+- Store commit 与 command-authority revision 只用于数据来源和 intent authority，
+  不再充当 Native body 的传输序号。
+- portfolio 与 market 可以共同触发 portfolio 域的新 generation，不再用两者
+  Store revision 的最大值猜测传输先后。
+- 同 frame 每域只保留最后值，并最多提交一个 domain batch；不同域的 authority
+  revision 不互相阻塞。
+- React slot 独立发布，React 合并或跳过中间 render 不会阻塞 Native body。
 - Native rendered state 仍服务于 intent authority，不跨桥通知 JS。
 - Nitro codegen 已重新生成。
 
-验证：
+当前验证：
 
-- TypeScript：`packages/kit/tsconfig.json` 与
-  `packages/native-components/tsconfig.json` 通过。
-- 当前完整相关 Jest 统计见 12.3，不再使用早期 4 suites / 25 tests 作为门禁。
-- Android：`HomeContainerProtocolV2Test` 通过。
-- iOS：protocol v2 contract 与现有 protocol v3 contract 通过。
+- `packages/native-components` TypeScript 通过。
+- 相关 Jest 4 suites / 14 tests 通过。
+- Android JDK 17 protocol v3 / market contract tests 通过。
+- iOS protocol v3 fixture contract 通过。
 
 ## 12. 当前分支改造与测试结果
 
@@ -678,7 +689,7 @@ schema、索引或 decode 路径；不能预先用不可验证的体积上限回
    - optional referral 不使用 critical leaf priority；
    - controller 使用 RAF、测试环境使用 microtask，把同 frame 更新合并成一次
      latest-wins submission；
-   - v2 slot-only 更新发送空 change patch，不再升级成 full snapshot；
+   - slot-only 更新不提交 Native body domain；
    - 正常路径没有 ACK、timeout、retry 或成功回调。
 7. Home display cache 不再配置单记录 byte hard limit。底层 storage 的
    `maxRecordBytes` 改为可选；Home 的 Native/Web repository 均不传该值。精确
@@ -720,18 +731,18 @@ schema、索引或 decode 路径；不能预先用不可验证的体积上限回
 
 根因不是缺少 ACK，而是多个独立 producer 在一个渲染周期内分别推进
 shell、navigation、section 和 slot；如果每次推进都立即跨桥，渐进 publication
-会被放大为多次 snapshot/patch。旧 v2 slot-only 路径还会升级成 full snapshot，
-rapid owner churn 也可能保留中间 staged owner。
+会被放大为多次全量提交，rapid owner churn 也可能保留中间 staged owner。
 
 当前控制点是：
 
-- controller 每 frame 只安排一个 flush，并在 flush 时读取最后语义状态；
+- controller 每 frame 只安排一个 flush，并在 flush 时读取最后域值；
+- 同一 frame 的同域写入覆盖 pending value，不累积中间 snapshot；
 - owner churn 在 flush 前只保留最终 owner full snapshot；
-- same-owner updates 使用 patch，v2/v3 slot-only 都不升级 full snapshot；
+- same-owner updates 发送完整域值，不依赖连续增量；
+- slot-only 更新不提交 Native body；
 - semantic no-op 不提交；
 - 只有跨多个 frame 的真实语义变化才允许每 frame 各一次 submission；
-- `needSnapshot` 只用于 owner/revision/slot gap 等异常恢复，并按 failure key
-  去重；正常更新没有双向成功确认。
+- Native 可直接忽略同域旧 generation，没有双向确认、异常恢复请求或重传。
 
 ### 12.3 自动化观测
 
@@ -751,10 +762,9 @@ rapid owner churn 也可能保留中间 staged owner。
   保留；running work 仍计数到 settle。
 - TypeScript：`packages/kit` 和 `packages/native-components` 均通过。
 - 改动 TS/TSX：Oxlint 0 warning/error，Oxfmt check 通过。
-- Android：JDK 17 下 `HomeContainerProtocolV2Test` 和
-  `:onekeyhq_native-components:compileDebugKotlin` 通过；Gradle codegen 前后
-  generated diff hash 不变；移除 owner page recycle 后已重新执行并通过。
-- iOS：HomeContainer 指定 Swift 文件 parse 通过；protocol v2 与 v3 fixture
+- Android：JDK 17 下 protocol v3 与 market contract tests，以及
+  `:onekeyhq_native-components:compileDebugKotlin` 通过。
+- iOS：HomeContainer 指定 Swift 文件 parse 通过；唯一的 protocol v3 fixture
   contract 编译并运行通过。
 - iOS 26.5、iPhone 17 Pro Debug 模拟器：
   - 原生工程重新编译、安装和启动成功，0 error；
@@ -811,17 +821,24 @@ rapid owner churn 也可能保留中间 staged owner。
      `liveIntermediate(processed=12, responses=12, rows=50)`，没有每 4 个
      target 一次的 Store/Native 洪流。
 6. Native transport 保持无 ACK 的单向提交模型：
-   - Header slot revision 改用 Store commit authority，避免可逆 bitmask 造成
-     `invalidInvariant`；
-   - iOS/Android 对 slot gap 只在 Native 内按序暂存 patch，slot metadata 到达后
-     继续 drain；不增加 ACK、timeout、retry 或成功回调；
-   - final clean runtime 日志中没有 `invalidInvariant`、`revisionGap`、
-     `slotRevisionGap`、`needSnapshot` 或 Native render failure。
+   - Header intent authority 继续使用 Store command revision；
+   - Native body 使用 controller-owned per-domain generation，不复用 Store
+     revision，也不等待 React slot revision；
+   - iOS/Android 接受同域 generation gap，忽略同域旧值和 stale owner；
+   - 没有 pending patch queue、ACK、snapshot recovery request、timeout、retry
+     或成功回调。
 
 最新验证结果：
 
 - 真实 iOS Debug 切换录像：
   `.tmp/ui-six-fixes/final-account2-to-account3.mov`；
+- protocol v3 per-domain Latest-Wins 改造后的同 wallet 往返录像：
+  `.tmp/home-domain-v3-account-switch.mov`；
+- Watch-Only Account #1 的首页 Perps 列表在切换后正常展示持仓；切换到
+  Account #2、再返回 Account #1、最后切回 Account #2 后，Account #2 的
+  Perps 稳定进入 `$0.00` 空态，没有永久 loading；
+- 本轮运行日志中没有 `[NativeHome] render failed`、controller attach failure、
+  owner mismatch 或 unsupported protocol；
 - Account #3 首个采集帧直接显示 target cache 的 `$20.77`、funded actions、
   banner 和 token rows；1.5 秒帧与 settled 帧结构一致，没有 `$0.00`、
   Add Money、banner 空窗或列表收缩；

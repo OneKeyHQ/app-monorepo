@@ -66,13 +66,11 @@ namespace margelo::nitro::onekeynativecomponents {
     void setOnRenderError(const std::optional<std::function<void(const std::string& /* code */, const std::string& /* message */)>>& onRenderError) override;
     std::optional<std::function<void(const std::string& /* intentJson */)>> getOnIntent() override;
     void setOnIntent(const std::optional<std::function<void(const std::string& /* intentJson */)>>& onIntent) override;
-    std::optional<std::function<void(const std::string& /* requestJson */)>> getOnSnapshotRequired() override;
-    void setOnSnapshotRequired(const std::optional<std::function<void(const std::string& /* requestJson */)>>& onSnapshotRequired) override;
 
   public:
     // Methods
     void setSnapshot(const std::string& snapshotJson) override;
-    void applyPatch(const std::string& patchJson) override;
+    void setDomains(const std::string& domainsJson) override;
     void completeRefresh(const std::string& requestId) override;
     void selectTab(const std::string& tabId, bool animated) override;
     std::string getCapabilities() override;

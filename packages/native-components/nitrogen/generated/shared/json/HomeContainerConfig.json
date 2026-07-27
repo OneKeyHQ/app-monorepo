@@ -12,7 +12,6 @@
     "onVisibleTabChange": true,
     "onRenderError": true,
     "onIntent": true,
-    "onSnapshotRequired": true,
     "hybridRef": true
   }
 }

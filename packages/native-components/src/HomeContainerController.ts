@@ -1,23 +1,16 @@
 import {
-  HOME_CONTAINER_PROTOCOL_VERSION,
   HOME_CONTAINER_SCHEMA_VERSION,
+  HOME_CONTAINER_TAB_IDS,
   type IHomeContainerCapabilities,
-  type IHomeContainerChange,
   type IHomeContainerHeader,
   type IHomeContainerOwner,
-  type IHomeContainerPatchEnvelope,
   type IHomeContainerRef,
   type IHomeContainerSection,
-  type IHomeContainerSlotKey,
-  type IHomeContainerSlots,
   type IHomeContainerSnapshot,
-  type IHomeContainerSnapshotEnvelope,
-  type IHomeContainerSnapshotRequest,
   type IHomeContainerTab,
   type IHomeContainerTabId,
   type IHomeContainerTheme,
   isHomeContainerSnapshotInvariantValid,
-  parseHomeContainerSnapshotRequest,
 } from './HomeContainer.types';
 import {
   HOME_CONTAINER_PROTOCOL_V3_VERSION,
@@ -26,10 +19,10 @@ import {
 
 import type {
   IHomeContainerAuthorityRevisionVectorV3,
-  IHomeContainerPatchEnvelopeV3,
+  IHomeContainerDomainBatchV3,
+  IHomeContainerDomainUpdateV3,
   IHomeContainerPresentationRevisionVectorV3,
   IHomeContainerSectionId,
-  IHomeContainerSlotRevisionVectorV3,
   IHomeContainerSnapshotEnvelopeV3,
 } from './HomeContainerProtocolV3';
 
@@ -37,24 +30,15 @@ type IHomeContainerControllerScheduler = (flush: () => void) => void;
 
 export interface IHomeContainerControllerOptions {
   initialSnapshot: IHomeContainerSnapshot;
-  initialOwner?: IHomeContainerOwner;
-  initialSlots?: IHomeContainerSlots;
+  initialOwner: IHomeContainerOwner;
   schedule?: IHomeContainerControllerScheduler;
-  requireProtocolV3?: boolean;
-  initialProtocolV3Revisions?: IHomeContainerControllerRevisionStateV3;
+  initialProtocolV3AuthorityState?: IHomeContainerControllerAuthorityStateV3;
 }
 
-export interface IHomeContainerControllerRevisionStateV3 {
+export interface IHomeContainerControllerAuthorityStateV3 {
   storeCommitId: number;
-  presentationRevisions: IHomeContainerPresentationRevisionVectorV3;
   authorityRevisions: IHomeContainerAuthorityRevisionVectorV3;
-  slotRevisions?: IHomeContainerSlotRevisionVectorV3;
 }
-
-const LEGACY_OWNER: IHomeContainerOwner = {
-  scopeKey: 'legacy',
-  sessionId: 'legacy',
-};
 
 const MAX_PENDING_NATIVE_TAB_SELECTIONS = 16;
 
@@ -66,76 +50,36 @@ const defaultSchedule: IHomeContainerControllerScheduler = (flush) => {
   queueMicrotask(flush);
 };
 
-function ownersMatch(
-  left: IHomeContainerOwner,
-  right: IHomeContainerOwner,
-): boolean {
-  return left.scopeKey === right.scopeKey && left.sessionId === right.sessionId;
-}
-
-function arraysHaveSameValues<T>(left: T[], right: T[]): boolean {
-  return (
-    left.length === right.length && left.every((value) => right.includes(value))
-  );
-}
-
-function capabilitiesMatch(
-  left: IHomeContainerCapabilities,
-  right: IHomeContainerCapabilities,
-): boolean {
-  return (
-    arraysHaveSameValues(left.schemaVersions, right.schemaVersions) &&
-    arraysHaveSameValues(
-      left.protocolVersions ?? [],
-      right.protocolVersions ?? [],
-    ) &&
-    arraysHaveSameValues(left.tabIds, right.tabIds) &&
-    left.preferredProtocol === right.preferredProtocol &&
-    left.supportsPatches === right.supportsPatches &&
-    left.supportsAtomicPatches === right.supportsAtomicPatches &&
-    left.supportsNativeRefresh === right.supportsNativeRefresh &&
-    left.supportsHorizontalPaging === right.supportsHorizontalPaging &&
-    left.supportsSlots === right.supportsSlots
-  );
-}
-
-function navigationTabs(snapshot: IHomeContainerSnapshot) {
-  return snapshot.tabs.map(({ sections: _sections, ...tab }) => tab);
-}
-
-function createProtocolV3RevisionState(): IHomeContainerControllerRevisionStateV3 {
-  const sectionRevisions = Object.fromEntries(
+function createAuthorityState(): IHomeContainerControllerAuthorityStateV3 {
+  const sections = Object.fromEntries(
     HOME_CONTAINER_SECTION_IDS.map((sectionId) => [sectionId, 0]),
-  ) as Record<(typeof HOME_CONTAINER_SECTION_IDS)[number], number>;
+  ) as Record<IHomeContainerSectionId, number>;
   return {
     storeCommitId: 0,
-    presentationRevisions: {
-      shell: 0,
-      navigation: 0,
-      sections: sectionRevisions,
-    },
     authorityRevisions: {
       shellCommands: 0,
       tabApplicability: 0,
-      sectionCommands: sectionRevisions,
+      sectionCommands: { ...sections },
     },
-    slotRevisions: {},
   };
 }
 
-function mergeProtocolV3RevisionState(
-  current: IHomeContainerControllerRevisionStateV3,
-  next: IHomeContainerControllerRevisionStateV3,
-): IHomeContainerControllerRevisionStateV3 {
-  const presentationSections = Object.fromEntries(
-    HOME_CONTAINER_SECTION_IDS.map((sectionId) => [
-      sectionId,
-      Math.max(
-        current.presentationRevisions.sections[sectionId],
-        next.presentationRevisions.sections[sectionId],
-      ),
-    ]),
-  ) as Record<IHomeContainerSectionId, number>;
+function createDomainRevisions(): IHomeContainerPresentationRevisionVectorV3 {
+  const sections = Object.fromEntries(
+    HOME_CONTAINER_TAB_IDS.map((tabId) => [tabId, 0]),
+  ) as Record<IHomeContainerTabId, number>;
+  return {
+    shell: 0,
+    navigation: 0,
+    surface: 0,
+    sections,
+  };
+}
+
+function mergeAuthorityState(
+  current: IHomeContainerControllerAuthorityStateV3,
+  next: IHomeContainerControllerAuthorityStateV3,
+): IHomeContainerControllerAuthorityStateV3 {
   const authoritySections = Object.fromEntries(
     HOME_CONTAINER_SECTION_IDS.map((sectionId) => [
       sectionId,
@@ -145,32 +89,8 @@ function mergeProtocolV3RevisionState(
       ),
     ]),
   ) as Record<IHomeContainerSectionId, number>;
-  const slotIds = new Set([
-    ...Object.keys(current.slotRevisions ?? {}),
-    ...Object.keys(next.slotRevisions ?? {}),
-  ]);
-  const slotRevisions = Object.fromEntries(
-    Array.from(slotIds).map((slotId) => [
-      slotId,
-      Math.max(
-        current.slotRevisions?.[slotId] ?? 0,
-        next.slotRevisions?.[slotId] ?? 0,
-      ),
-    ]),
-  );
   return {
     storeCommitId: Math.max(current.storeCommitId, next.storeCommitId),
-    presentationRevisions: {
-      shell: Math.max(
-        current.presentationRevisions.shell,
-        next.presentationRevisions.shell,
-      ),
-      navigation: Math.max(
-        current.presentationRevisions.navigation,
-        next.presentationRevisions.navigation,
-      ),
-      sections: presentationSections,
-    },
     authorityRevisions: {
       shellCommands: Math.max(
         current.authorityRevisions.shellCommands,
@@ -182,146 +102,54 @@ function mergeProtocolV3RevisionState(
       ),
       sectionCommands: authoritySections,
     },
-    slotRevisions,
   };
 }
 
-function slotKeys(slots: IHomeContainerSlots): string[] {
-  const keys: string[] = [];
-  if (slots.accountRow) keys.push('header.account-row');
-  if (slots.balance) keys.push('header.balance');
-  if (slots.headerActionRow) keys.push('header.action-row');
-  Object.entries(slots.contentFooters ?? {}).forEach(([tabId, footerSlots]) => {
-    Object.keys(footerSlots ?? {}).forEach((footerId) => {
-      keys.push(`content.footer.${tabId}.${footerId}`);
-    });
-  });
-  Object.keys(slots.contentHeaders ?? {}).forEach((tabId) => {
-    keys.push(`content.header.${tabId}`);
-  });
-  Object.keys(slots.contentStates ?? {}).forEach((tabId) => {
-    keys.push(`content.state.${tabId}`);
-  });
-  Object.keys(slots.tabAccessories ?? {}).forEach((tabId) => {
-    keys.push(`tab.accessory.${tabId}`);
-  });
-  return keys;
+function navigationTabs(snapshot: IHomeContainerSnapshot) {
+  return snapshot.tabs.map(({ sections: _sections, ...tab }) => tab);
 }
 
-function pickSlotRevisions(
-  revisions: IHomeContainerSlotRevisionVectorV3,
-  keys: ReadonlySet<string>,
-): IHomeContainerSlotRevisionVectorV3 {
-  return Object.fromEntries(
-    Array.from(keys).flatMap((slotId) => {
-      const revision = revisions[slotId];
-      return revision === undefined ? [] : [[slotId, revision]];
-    }),
+function capabilitiesMatch(
+  left: IHomeContainerCapabilities,
+  right: IHomeContainerCapabilities,
+): boolean {
+  return (
+    left.protocolVersion === right.protocolVersion &&
+    left.supportsNativeRefresh === right.supportsNativeRefresh &&
+    left.supportsHorizontalPaging === right.supportsHorizontalPaging &&
+    left.supportsSlots === right.supportsSlots &&
+    left.schemaVersions.length === right.schemaVersions.length &&
+    left.schemaVersions.every((version) =>
+      right.schemaVersions.includes(version),
+    ) &&
+    left.tabIds.length === right.tabIds.length &&
+    left.tabIds.every((tabId) => right.tabIds.includes(tabId))
   );
-}
-
-function headerCommandSignature(header: IHomeContainerHeader): string {
-  return JSON.stringify({
-    accountActionId: header.accountActionId,
-    balanceActionId: header.balanceActionId,
-    copyActionId: header.copyActionId,
-    networkActionId: header.networkActionId,
-    actions: header.actions.map((action) => action.actionId),
-    balanceActions: header.balanceActions?.map((action) => action.actionId),
-    banners: header.banners.map((banner) => [
-      banner.actionId,
-      banner.dismissActionId,
-    ]),
-  });
-}
-
-function navigationAuthoritySignature(tabs: IHomeContainerTab[]): string {
-  return JSON.stringify(
-    tabs.map((tab) => [
-      tab.id,
-      tab.destination,
-      tab.destination === 'handoff' ? tab.handoffCommandId : undefined,
-    ]),
-  );
-}
-
-function sectionCommandSignature(sections: IHomeContainerSection[]): string {
-  return JSON.stringify(
-    sections.map((section) => [
-      section.id,
-      section.actionId,
-      section.items.map((item) => [
-        item.id,
-        item.actionId,
-        item.favoriteActionId,
-      ]),
-    ]),
-  );
-}
-
-function snapshotEnvelope(
-  snapshot: IHomeContainerSnapshot,
-  owner: IHomeContainerOwner,
-  revision: number,
-): IHomeContainerSnapshotEnvelope {
-  return {
-    kind: 'snapshot',
-    protocolVersion: HOME_CONTAINER_PROTOCOL_VERSION,
-    schemaVersion: HOME_CONTAINER_SCHEMA_VERSION,
-    owner,
-    revision,
-    payload: {
-      selectedTabId: snapshot.selectedTabId,
-      header: snapshot.header,
-      tabs: snapshot.tabs,
-      theme: snapshot.theme,
-    },
-  };
 }
 
 /**
- * Main-runtime data transport for HomeContainer. Updates are coalesced before
- * submission and patches advance from the last submitted owner/revision.
- * Scroll and gesture state never enters this controller.
+ * Main-runtime transport for HomeContainer. Each frame carries at most one
+ * self-contained value per domain, so skipped intermediate frames never block
+ * a newer update from the same or another domain.
  */
 export class HomeContainerController {
   private snapshot: IHomeContainerSnapshot;
 
-  private revision: number;
-
   private owner: IHomeContainerOwner;
+
+  private authorityState: IHomeContainerControllerAuthorityStateV3;
+
+  private authorityStateIsExternal: boolean;
+
+  private domainRevisions: IHomeContainerPresentationRevisionVectorV3;
 
   private target: IHomeContainerRef | undefined;
 
   private capabilities: IHomeContainerCapabilities | undefined;
 
-  private protocolVersion: 1 | 2 | 3 = 1;
-
-  private protocolV3Revisions: IHomeContainerControllerRevisionStateV3;
-
-  private protocolV3RevisionsAreExternal = false;
-
   private pendingNativeTabSelections: IHomeContainerTabId[] = [];
 
-  private readonly requireProtocolV3: boolean;
-
-  private submittedSnapshot: IHomeContainerSnapshot | undefined;
-
-  private currentSlots: IHomeContainerSlots | undefined;
-
-  private readonly pendingTabIds = new Set<IHomeContainerTabId>();
-
-  private headerPending = false;
-
-  private themePending = false;
-
-  private navigationPending = false;
-
-  private slotsPending = false;
-
-  private readonly pendingRequiredSlotIds = new Set<IHomeContainerSlotKey>();
-
-  private slotRevisionsForCurrentSlots: IHomeContainerSlotRevisionVectorV3;
+  private readonly pendingDomains = new Set<string>();
 
   private fullSnapshotPending = false;
 
@@ -333,24 +161,17 @@ export class HomeContainerController {
 
   constructor({
     initialSnapshot,
-    initialOwner = LEGACY_OWNER,
-    initialSlots,
+    initialOwner,
     schedule = defaultSchedule,
-    requireProtocolV3 = false,
-    initialProtocolV3Revisions,
+    initialProtocolV3AuthorityState,
   }: IHomeContainerControllerOptions) {
     this.snapshot = initialSnapshot;
-    this.revision = initialSnapshot.revision;
     this.owner = initialOwner;
-    this.currentSlots = initialSlots;
     this.schedule = schedule;
-    this.requireProtocolV3 = requireProtocolV3;
-    this.protocolV3Revisions =
-      initialProtocolV3Revisions ?? createProtocolV3RevisionState();
-    this.protocolV3RevisionsAreExternal = Boolean(initialProtocolV3Revisions);
-    this.slotRevisionsForCurrentSlots = {
-      ...this.protocolV3Revisions.slotRevisions,
-    };
+    this.authorityState =
+      initialProtocolV3AuthorityState ?? createAuthorityState();
+    this.authorityStateIsExternal = Boolean(initialProtocolV3AuthorityState);
+    this.domainRevisions = createDomainRevisions();
   }
 
   getSnapshot(): IHomeContainerSnapshot {
@@ -361,29 +182,21 @@ export class HomeContainerController {
     return this.owner;
   }
 
-  getProtocolVersion(): 1 | 2 | 3 {
-    return this.protocolVersion;
-  }
-
   getInitialProtocolV3Snapshot(): IHomeContainerSnapshotEnvelopeV3 {
-    return this.createProtocolV3SnapshotEnvelope(
-      this.snapshot,
-      this.revision + 1,
-      this.currentSlots,
-    );
+    return this.createSnapshotEnvelope();
   }
 
-  setProtocolV3RevisionState(
-    revisionState: IHomeContainerControllerRevisionStateV3,
+  setProtocolV3AuthorityState(
+    authorityState: IHomeContainerControllerAuthorityStateV3,
   ): void {
     if (this.disposed) {
       return;
     }
-    this.protocolV3Revisions = mergeProtocolV3RevisionState(
-      this.protocolV3Revisions,
-      revisionState,
+    this.authorityState = mergeAuthorityState(
+      this.authorityState,
+      authorityState,
     );
-    this.protocolV3RevisionsAreExternal = true;
+    this.authorityStateIsExternal = true;
   }
 
   attach(
@@ -393,56 +206,24 @@ export class HomeContainerController {
     if (
       this.disposed ||
       !capabilities ||
+      capabilities.protocolVersion !== HOME_CONTAINER_PROTOCOL_V3_VERSION ||
+      !capabilities.schemaVersions.includes(HOME_CONTAINER_SCHEMA_VERSION) ||
+      !this.snapshot.tabs.every((tab) =>
+        capabilities.tabIds.includes(tab.id),
+      ) ||
       !isHomeContainerSnapshotInvariantValid(this.snapshot)
     ) {
       return false;
     }
-    const supportsSchema = capabilities.schemaVersions.includes(
-      HOME_CONTAINER_SCHEMA_VERSION,
-    );
-    const supportsTabs = this.snapshot.tabs.every((tab) =>
-      capabilities.tabIds.includes(tab.id),
-    );
-    if (!supportsSchema || !supportsTabs) {
-      return false;
-    }
-    const protocolVersions = capabilities.protocolVersions ?? [1];
-    const preferredProtocol = capabilities.preferredProtocol;
-    const supportsProtocolV3 = Boolean(
-      protocolVersions.includes(HOME_CONTAINER_PROTOCOL_V3_VERSION) &&
-      target.setProtocolV3Snapshot &&
-      target.applyProtocolV3Patch,
-    );
-    if (this.requireProtocolV3 && !supportsProtocolV3) {
-      return false;
-    }
-    const supportsProtocolV2 = Boolean(
-      protocolVersions.includes(HOME_CONTAINER_PROTOCOL_VERSION) &&
-      target.setProtocolV2Snapshot &&
-      target.applyProtocolV2Patch,
-    );
-    let protocolVersion: 1 | 2 | 3 = 1;
-    if (
-      supportsProtocolV3 &&
-      (this.requireProtocolV3 ||
-        (preferredProtocol !== 1 && preferredProtocol !== 2))
-    ) {
-      protocolVersion = 3;
-    } else if (supportsProtocolV2 && preferredProtocol !== 1) {
-      protocolVersion = 2;
-    }
     if (
       this.target === target &&
       this.capabilities &&
-      capabilitiesMatch(this.capabilities, capabilities) &&
-      this.protocolVersion === protocolVersion
+      capabilitiesMatch(this.capabilities, capabilities)
     ) {
       return true;
     }
     this.target = target;
     this.capabilities = capabilities;
-    this.protocolVersion = protocolVersion;
-    this.submittedSnapshot = undefined;
     this.fullSnapshotPending = true;
     this.flushNow();
     return true;
@@ -455,7 +236,6 @@ export class HomeContainerController {
     this.target = undefined;
     this.capabilities = undefined;
     this.pendingNativeTabSelections = [];
-    this.submittedSnapshot = undefined;
   }
 
   replaceOwner(
@@ -465,14 +245,20 @@ export class HomeContainerController {
     if (this.disposed || !isHomeContainerSnapshotInvariantValid(nextSnapshot)) {
       return;
     }
+    // Owner transitions always start a new session. Never retain the previous
+    // sessionId or mutate the previous owner's store into the next owner.
     this.owner = owner;
+    this.snapshot = {
+      ...nextSnapshot,
+      schemaVersion: HOME_CONTAINER_SCHEMA_VERSION,
+    };
+    this.authorityState = createAuthorityState();
+    this.authorityStateIsExternal = false;
+    this.domainRevisions = createDomainRevisions();
     this.pendingNativeTabSelections = [];
-    this.submittedSnapshot = undefined;
-    this.currentSlots = undefined;
-    this.slotRevisionsForCurrentSlots = {};
-    this.protocolV3Revisions = createProtocolV3RevisionState();
-    this.protocolV3RevisionsAreExternal = false;
-    this.replaceSnapshot(nextSnapshot);
+    this.pendingDomains.clear();
+    this.fullSnapshotPending = true;
+    this.scheduleFlush();
   }
 
   replaceSnapshot(nextSnapshot: IHomeContainerSnapshot): void {
@@ -482,18 +268,39 @@ export class HomeContainerController {
     this.snapshot = {
       ...nextSnapshot,
       schemaVersion: HOME_CONTAINER_SCHEMA_VERSION,
-      revision: this.revision,
     };
-    this.bumpProtocolV3({
-      authoritySections: HOME_CONTAINER_SECTION_IDS,
-      navigationAuthority: true,
-      presentationSections: HOME_CONTAINER_SECTION_IDS,
-      shellAuthority: true,
-      shellPresentation: true,
-      navigationPresentation: true,
-    });
+    this.domainRevisions = {
+      shell: this.domainRevisions.shell + 1,
+      navigation: this.domainRevisions.navigation + 1,
+      surface: this.domainRevisions.surface + 1,
+      sections: Object.fromEntries(
+        HOME_CONTAINER_TAB_IDS.map((tabId) => [
+          tabId,
+          this.domainRevisions.sections[tabId] + 1,
+        ]),
+      ) as Record<IHomeContainerTabId, number>,
+    };
+    if (!this.authorityStateIsExternal) {
+      this.authorityState = {
+        storeCommitId: this.authorityState.storeCommitId + 1,
+        authorityRevisions: {
+          shellCommands:
+            this.authorityState.authorityRevisions.shellCommands + 1,
+          tabApplicability:
+            this.authorityState.authorityRevisions.tabApplicability + 1,
+          sectionCommands: Object.fromEntries(
+            HOME_CONTAINER_SECTION_IDS.map((sectionId) => [
+              sectionId,
+              this.authorityState.authorityRevisions.sectionCommands[
+                sectionId
+              ] + 1,
+            ]),
+          ) as Record<IHomeContainerSectionId, number>,
+        },
+      };
+    }
     this.fullSnapshotPending = true;
-    this.clearIncrementalPending();
+    this.pendingDomains.clear();
     this.scheduleFlush();
   }
 
@@ -501,15 +308,23 @@ export class HomeContainerController {
     if (this.disposed) {
       return;
     }
-    const changesAuthority =
-      headerCommandSignature(this.snapshot.header) !==
-      headerCommandSignature(header);
     this.snapshot = { ...this.snapshot, header };
-    this.bumpProtocolV3({
-      shellAuthority: changesAuthority,
-      shellPresentation: true,
-    });
-    this.headerPending = true;
+    this.domainRevisions = {
+      ...this.domainRevisions,
+      shell: this.domainRevisions.shell + 1,
+    };
+    if (!this.authorityStateIsExternal) {
+      this.authorityState = {
+        ...this.authorityState,
+        storeCommitId: this.authorityState.storeCommitId + 1,
+        authorityRevisions: {
+          ...this.authorityState.authorityRevisions,
+          shellCommands:
+            this.authorityState.authorityRevisions.shellCommands + 1,
+        },
+      };
+    }
+    this.pendingDomains.add('shell');
     this.scheduleFlush();
   }
 
@@ -518,12 +333,17 @@ export class HomeContainerController {
       return;
     }
     this.snapshot = { ...this.snapshot, theme };
-    this.bumpProtocolV3({});
-    if (this.protocolVersion === 2 || this.protocolVersion === 3) {
-      this.themePending = true;
-    } else {
-      this.fullSnapshotPending = true;
+    this.domainRevisions = {
+      ...this.domainRevisions,
+      surface: this.domainRevisions.surface + 1,
+    };
+    if (!this.authorityStateIsExternal) {
+      this.authorityState = {
+        ...this.authorityState,
+        storeCommitId: this.authorityState.storeCommitId + 1,
+      };
     }
+    this.pendingDomains.add('surface');
     this.scheduleFlush();
   }
 
@@ -537,60 +357,47 @@ export class HomeContainerController {
     ) {
       return;
     }
-    const changesAuthority =
-      navigationAuthoritySignature(this.snapshot.tabs) !==
-      navigationAuthoritySignature(tabs);
+    const previousInlineTabIds = new Set(
+      this.snapshot.tabs
+        .filter((tab) => tab.destination === 'inline')
+        .map((tab) => tab.id),
+    );
     this.snapshot = { ...this.snapshot, tabs };
-    this.bumpProtocolV3({
-      navigationAuthority: changesAuthority,
-      navigationPresentation: true,
-    });
-    if (this.protocolVersion === 2 || this.protocolVersion === 3) {
-      this.navigationPending = true;
-      tabs.forEach((tab) => {
-        if (tab.destination === 'inline') {
-          this.pendingTabIds.add(tab.id);
-        }
-      });
-    } else {
-      this.fullSnapshotPending = true;
-      this.pendingTabIds.clear();
+    this.domainRevisions = {
+      ...this.domainRevisions,
+      navigation: this.domainRevisions.navigation + 1,
+    };
+    if (!this.authorityStateIsExternal) {
+      this.authorityState = {
+        ...this.authorityState,
+        storeCommitId: this.authorityState.storeCommitId + 1,
+        authorityRevisions: {
+          ...this.authorityState.authorityRevisions,
+          tabApplicability:
+            this.authorityState.authorityRevisions.tabApplicability + 1,
+        },
+      };
     }
-    this.scheduleFlush();
-  }
-
-  updateSlots(slots: IHomeContainerSlots): void {
-    if (this.disposed || this.currentSlots === slots) {
-      return;
-    }
-    const previousSlots = this.currentSlots;
-    const previousSlotRevisions = this.slotRevisionsForCurrentSlots;
-    this.currentSlots = slots;
-    this.bumpProtocolV3Slots(slots);
-    const nextSlotRevisions = this.protocolV3Revisions.slotRevisions ?? {};
-    const nextSlotIds = new Set(slotKeys(slots));
-    const previousSlotIds = new Set(slotKeys(previousSlots ?? {}));
-    nextSlotIds.forEach((slotId) => {
-      if (
-        !previousSlotIds.has(slotId) ||
-        previousSlotRevisions[slotId] !== nextSlotRevisions[slotId]
-      ) {
-        this.pendingRequiredSlotIds.add(slotId as IHomeContainerSlotKey);
+    this.pendingDomains.add('navigation');
+    tabs.forEach((tab) => {
+      if (tab.destination === 'inline' && !previousInlineTabIds.has(tab.id)) {
+        this.domainRevisions = {
+          ...this.domainRevisions,
+          sections: {
+            ...this.domainRevisions.sections,
+            [tab.id]: this.domainRevisions.sections[tab.id] + 1,
+          },
+        };
+        this.pendingDomains.add(`section:${tab.id}`);
       }
     });
-    this.slotRevisionsForCurrentSlots = { ...nextSlotRevisions };
-    if (
-      this.target &&
-      (this.protocolVersion === 2 || this.protocolVersion === 3)
-    ) {
-      this.slotsPending = true;
-      this.scheduleFlush();
-    }
+    this.scheduleFlush();
   }
 
   updateTabSections(
     tabId: IHomeContainerTabId,
     sections: IHomeContainerSection[],
+    sectionId: IHomeContainerSectionId = tabId,
   ): boolean {
     if (this.disposed) {
       return false;
@@ -599,19 +406,33 @@ export class HomeContainerController {
     if (tabIndex < 0 || this.snapshot.tabs[tabIndex].destination !== 'inline') {
       return false;
     }
-    const previousSections = this.snapshot.tabs[tabIndex].sections;
     const tabs = [...this.snapshot.tabs];
     tabs[tabIndex] = { ...tabs[tabIndex], sections };
     this.snapshot = { ...this.snapshot, tabs };
-    this.bumpProtocolV3({
-      authoritySections:
-        sectionCommandSignature(previousSections) !==
-        sectionCommandSignature(sections)
-          ? [tabId]
-          : [],
-      presentationSections: [tabId],
-    });
-    this.pendingTabIds.add(tabId);
+    this.domainRevisions = {
+      ...this.domainRevisions,
+      sections: {
+        ...this.domainRevisions.sections,
+        [tabId]: this.domainRevisions.sections[tabId] + 1,
+      },
+    };
+    if (!this.authorityStateIsExternal) {
+      this.authorityState = {
+        ...this.authorityState,
+        storeCommitId: this.authorityState.storeCommitId + 1,
+        authorityRevisions: {
+          ...this.authorityState.authorityRevisions,
+          sectionCommands: {
+            ...this.authorityState.authorityRevisions.sectionCommands,
+            [sectionId]:
+              this.authorityState.authorityRevisions.sectionCommands[
+                sectionId
+              ] + 1,
+          },
+        },
+      };
+    }
+    this.pendingDomains.add(`section:${tabId}`);
     this.scheduleFlush();
     return true;
   }
@@ -634,15 +455,20 @@ export class HomeContainerController {
     }
     const changesSelection = this.snapshot.selectedTabId !== tabId;
     this.snapshot = { ...this.snapshot, selectedTabId: tabId };
-    this.bumpProtocolV3({ navigationPresentation: true });
-    if (this.protocolVersion === 2 || this.protocolVersion === 3) {
-      this.navigationPending = true;
-      this.scheduleFlush();
+    this.domainRevisions = {
+      ...this.domainRevisions,
+      navigation: this.domainRevisions.navigation + 1,
+    };
+    if (!this.authorityStateIsExternal) {
+      this.authorityState = {
+        ...this.authorityState,
+        storeCommitId: this.authorityState.storeCommitId + 1,
+      };
     }
-    if (this.target && !confirmsNativeSelection && changesSelection) {
+    this.pendingDomains.add('navigation');
+    this.scheduleFlush();
+    if (this.target && changesSelection && !confirmsNativeSelection) {
       this.target.selectTab(tabId, animated);
-    } else if (!this.target) {
-      this.fullSnapshotPending = true;
     }
     return true;
   }
@@ -666,71 +492,35 @@ export class HomeContainerController {
     return true;
   }
 
-  handleSnapshotRequest(
-    value: string | IHomeContainerSnapshotRequest,
-  ): boolean {
-    if (this.protocolVersion === 1 || this.disposed) {
-      return false;
-    }
-    const request =
-      typeof value === 'string'
-        ? parseHomeContainerSnapshotRequest(value)
-        : value;
-    if (
-      !request ||
-      (request.owner && !ownersMatch(request.owner, this.owner))
-    ) {
-      return false;
-    }
-    this.submittedSnapshot = undefined;
-    this.fullSnapshotPending = true;
-    this.clearIncrementalPending();
-    this.scheduleFlush();
-    return true;
-  }
-
   flushNow(): boolean {
     this.flushScheduled = false;
-    const target = this.target;
-    const capabilities = this.capabilities;
-    if (this.disposed || !target || !capabilities) {
+    if (this.disposed || !this.target || !this.capabilities) {
       return false;
     }
-
-    if (!this.hasPendingChanges()) {
-      return false;
-    }
-
-    if (this.protocolVersion === 3) {
-      return this.flushProtocolV3(target);
-    }
-
-    if (this.protocolVersion === 2) {
-      return this.flushProtocolV2(target);
-    }
-
-    if (
-      this.fullSnapshotPending ||
-      !capabilities.supportsPatches ||
-      !capabilities.supportsAtomicPatches
-    ) {
-      this.pushFullSnapshotV1(target);
+    if (this.fullSnapshotPending) {
+      this.fullSnapshotPending = false;
+      this.pendingDomains.clear();
+      this.target.setSnapshot(this.createSnapshotEnvelope());
       return true;
     }
-
-    this.revision += 1;
-    target.applyPatch({
-      schemaVersion: HOME_CONTAINER_SCHEMA_VERSION,
-      revision: this.revision,
-      header: this.headerPending ? this.snapshot.header : undefined,
-      tabs: Array.from(this.pendingTabIds).flatMap((tabId) => {
-        const tab = this.snapshot.tabs.find((item) => item.id === tabId);
-        return tab ? [{ tabId, sections: tab.sections }] : [];
-      }),
-    });
-    this.snapshot = { ...this.snapshot, revision: this.revision };
-    this.headerPending = false;
-    this.pendingTabIds.clear();
+    if (this.pendingDomains.size === 0) {
+      return false;
+    }
+    const updates = this.createPendingDomainUpdates();
+    this.pendingDomains.clear();
+    if (updates.length === 0) {
+      return false;
+    }
+    const batch: IHomeContainerDomainBatchV3 = {
+      kind: 'domains',
+      protocolVersion: HOME_CONTAINER_PROTOCOL_V3_VERSION,
+      identity: {
+        ...this.owner,
+        storeCommitId: this.authorityState.storeCommitId,
+      },
+      updates,
+    };
+    this.target.setDomains(batch);
     return true;
   }
 
@@ -739,28 +529,7 @@ export class HomeContainerController {
     this.target = undefined;
     this.capabilities = undefined;
     this.pendingNativeTabSelections = [];
-    this.submittedSnapshot = undefined;
-    this.clearIncrementalPending();
-  }
-
-  private hasPendingChanges(): boolean {
-    return (
-      this.fullSnapshotPending ||
-      this.headerPending ||
-      this.themePending ||
-      this.navigationPending ||
-      this.slotsPending ||
-      this.pendingTabIds.size > 0
-    );
-  }
-
-  private clearIncrementalPending(): void {
-    this.headerPending = false;
-    this.themePending = false;
-    this.navigationPending = false;
-    this.slotsPending = false;
-    this.pendingRequiredSlotIds.clear();
-    this.pendingTabIds.clear();
+    this.pendingDomains.clear();
   }
 
   private scheduleFlush(): void {
@@ -771,273 +540,73 @@ export class HomeContainerController {
     this.schedule(() => this.flushNow());
   }
 
-  private flushProtocolV2(target: IHomeContainerRef): boolean {
-    const sendsFullSnapshot =
-      this.fullSnapshotPending || !this.submittedSnapshot;
-    let baseRevision: number | undefined;
-    let changes: IHomeContainerChange[] | undefined;
-    if (!sendsFullSnapshot) {
-      const baseSnapshot = this.submittedSnapshot;
-      if (!baseSnapshot) {
-        return false;
-      }
-      baseRevision = baseSnapshot.revision;
-      changes = this.buildProtocolV2Changes(baseSnapshot);
-    }
-    if (changes?.length === 0 && !this.slotsPending) {
-      this.clearIncrementalPending();
-      return false;
-    }
-
-    this.revision += 1;
-    this.snapshot = { ...this.snapshot, revision: this.revision };
-    const sentSnapshot = this.snapshot;
-    const sentSlots = this.currentSlots;
-    this.submittedSnapshot = sentSnapshot;
-    this.fullSnapshotPending = false;
-    this.clearIncrementalPending();
-
-    if (sendsFullSnapshot) {
-      target.setProtocolV2Snapshot?.(
-        snapshotEnvelope(sentSnapshot, this.owner, this.revision),
-        sentSlots,
-      );
-    } else {
-      if (baseRevision === undefined || !changes) {
-        return false;
-      }
-      const patch: IHomeContainerPatchEnvelope = {
-        kind: 'patch',
-        protocolVersion: HOME_CONTAINER_PROTOCOL_VERSION,
-        schemaVersion: HOME_CONTAINER_SCHEMA_VERSION,
-        owner: this.owner,
-        baseRevision,
-        revision: this.revision,
-        changes,
-      };
-      target.applyProtocolV2Patch?.(patch, sentSlots);
-    }
-    return true;
-  }
-
-  private flushProtocolV3(target: IHomeContainerRef): boolean {
-    const hasPendingSlots = this.slotsPending;
-    const requiredSlotRevisions = pickSlotRevisions(
-      this.protocolV3Revisions.slotRevisions ?? {},
-      new Set(
-        Array.from(this.pendingRequiredSlotIds).filter((slotId) =>
-          slotKeys(this.currentSlots ?? {}).includes(slotId),
-        ),
-      ),
-    );
-    const sendsFullSnapshot =
-      this.fullSnapshotPending || !this.submittedSnapshot;
-    let baseRevision: number | undefined;
-    let changes: IHomeContainerChange[] | undefined;
-    if (!sendsFullSnapshot) {
-      const baseSnapshot = this.submittedSnapshot;
-      if (!baseSnapshot) {
-        return false;
-      }
-      baseRevision = baseSnapshot.revision;
-      changes = this.buildProtocolV2Changes(baseSnapshot);
-    }
-    if (changes?.length === 0 && !hasPendingSlots) {
-      this.clearIncrementalPending();
-      return false;
-    }
-
-    this.revision += 1;
-    this.snapshot = { ...this.snapshot, revision: this.revision };
-    const sentSnapshot = this.snapshot;
-    const sentSlots = this.currentSlots;
-    this.submittedSnapshot = sentSnapshot;
-    const revisionState = this.protocolV3Revisions;
-    this.fullSnapshotPending = false;
-    this.clearIncrementalPending();
-
-    if (sendsFullSnapshot) {
-      const envelope = this.createProtocolV3SnapshotEnvelope(
-        sentSnapshot,
-        this.revision,
-        sentSlots,
-      );
-      target.setProtocolV3Snapshot?.(envelope, sentSlots);
-    } else {
-      if (baseRevision === undefined || !changes) {
-        return false;
-      }
-      const patch: IHomeContainerPatchEnvelopeV3 = {
-        kind: 'patch',
-        protocolVersion: HOME_CONTAINER_PROTOCOL_V3_VERSION,
-        identity: {
-          ...this.owner,
-          storeCommitId: revisionState.storeCommitId,
-        },
-        baseTransportRevision: baseRevision,
-        transportRevision: this.revision,
-        presentationRevisions: revisionState.presentationRevisions,
-        authorityRevisions: revisionState.authorityRevisions,
-        requiredSlotRevisions: hasPendingSlots ? requiredSlotRevisions : {},
-        changes,
-      };
-      target.applyProtocolV3Patch?.(patch, sentSlots);
-    }
-    return true;
-  }
-
-  private createProtocolV3SnapshotEnvelope(
-    snapshot: IHomeContainerSnapshot,
-    transportRevision: number,
-    slots: IHomeContainerSlots | undefined,
-  ): IHomeContainerSnapshotEnvelopeV3 {
-    const revisionState = this.protocolV3Revisions;
+  private createSnapshotEnvelope(): IHomeContainerSnapshotEnvelopeV3 {
     return {
       kind: 'snapshot',
       protocolVersion: HOME_CONTAINER_PROTOCOL_V3_VERSION,
       identity: {
         ...this.owner,
-        storeCommitId: revisionState.storeCommitId,
+        storeCommitId: this.authorityState.storeCommitId,
       },
-      transportRevision,
-      presentationRevisions: revisionState.presentationRevisions,
-      authorityRevisions: revisionState.authorityRevisions,
-      slotRevisions: pickSlotRevisions(
-        revisionState.slotRevisions ?? {},
-        new Set(slotKeys(slots ?? {})),
-      ),
+      presentationRevisions: this.domainRevisions,
+      authorityRevisions: this.authorityState.authorityRevisions,
       payload: {
-        selectedTabId: snapshot.selectedTabId,
-        header: snapshot.header,
-        tabs: snapshot.tabs,
-        theme: snapshot.theme,
+        selectedTabId: this.snapshot.selectedTabId,
+        header: this.snapshot.header,
+        tabs: this.snapshot.tabs,
+        theme: this.snapshot.theme,
       },
     };
   }
 
-  private buildProtocolV2Changes(
-    baseSnapshot: IHomeContainerSnapshot,
-  ): IHomeContainerChange[] {
-    const changes: IHomeContainerChange[] = [];
-    if (this.headerPending) {
-      changes.push({ kind: 'replaceShell', value: this.snapshot.header });
+  private createPendingDomainUpdates(): IHomeContainerDomainUpdateV3[] {
+    const updates: IHomeContainerDomainUpdateV3[] = [];
+    if (this.pendingDomains.has('shell')) {
+      updates.push({
+        kind: 'shell',
+        presentationRevision: this.domainRevisions.shell,
+        commandRevision: this.authorityState.authorityRevisions.shellCommands,
+        value: this.snapshot.header,
+      });
     }
-    if (this.themePending) {
-      changes.push({ kind: 'replaceSurface', value: this.snapshot.theme });
-    }
-    if (this.navigationPending) {
-      changes.push({
-        kind: 'replaceNavigation',
+    if (this.pendingDomains.has('navigation')) {
+      updates.push({
+        kind: 'navigation',
+        presentationRevision: this.domainRevisions.navigation,
+        applicabilityRevision:
+          this.authorityState.authorityRevisions.tabApplicability,
         value: {
           selectedTabId: this.snapshot.selectedTabId,
           tabs: navigationTabs(this.snapshot),
         },
       });
     }
-
-    this.pendingTabIds.forEach((tabId) => {
-      const nextTab = this.snapshot.tabs.find((tab) => tab.id === tabId);
-      if (!nextTab || nextTab.destination !== 'inline') {
+    HOME_CONTAINER_TAB_IDS.forEach((tabId) => {
+      if (!this.pendingDomains.has(`section:${tabId}`)) {
         return;
       }
-      const previousSections =
-        baseSnapshot.tabs.find((tab) => tab.id === tabId)?.sections ?? [];
-      const nextIds = new Set(nextTab.sections.map((section) => section.id));
-      previousSections.forEach((section) => {
-        if (!nextIds.has(section.id)) {
-          changes.push({
-            kind: 'removeSection',
-            tabId,
-            sectionId: section.id,
-          });
-        }
-      });
-      nextTab.sections.forEach((section, index) => {
-        changes.push({
-          kind: 'replaceSection',
-          tabId,
-          sectionId: section.id,
-          index,
-          value: section,
-        });
+      const tab = this.snapshot.tabs.find(
+        (candidate) => candidate.id === tabId,
+      );
+      if (!tab || tab.destination !== 'inline') {
+        return;
+      }
+      updates.push({
+        kind: 'section',
+        tabId,
+        presentationRevision: this.domainRevisions.sections[tabId],
+        commandRevisions:
+          this.authorityState.authorityRevisions.sectionCommands,
+        value: tab.sections,
       });
     });
-    return changes;
-  }
-
-  private bumpProtocolV3({
-    authoritySections = [],
-    navigationAuthority = false,
-    navigationPresentation = false,
-    presentationSections = [],
-    shellAuthority = false,
-    shellPresentation = false,
-  }: {
-    authoritySections?: readonly IHomeContainerSectionId[];
-    navigationAuthority?: boolean;
-    navigationPresentation?: boolean;
-    presentationSections?: readonly IHomeContainerSectionId[];
-    shellAuthority?: boolean;
-    shellPresentation?: boolean;
-  }): void {
-    if (this.protocolV3RevisionsAreExternal) {
-      return;
+    if (this.pendingDomains.has('surface')) {
+      updates.push({
+        kind: 'surface',
+        presentationRevision: this.domainRevisions.surface,
+        value: this.snapshot.theme,
+      });
     }
-    const current = this.protocolV3Revisions;
-    const presentationSectionsState = {
-      ...current.presentationRevisions.sections,
-    };
-    presentationSections.forEach((sectionId) => {
-      presentationSectionsState[sectionId] += 1;
-    });
-    const authoritySectionsState = {
-      ...current.authorityRevisions.sectionCommands,
-    };
-    authoritySections.forEach((sectionId) => {
-      authoritySectionsState[sectionId] += 1;
-    });
-    this.protocolV3Revisions = {
-      ...current,
-      storeCommitId: current.storeCommitId + 1,
-      presentationRevisions: {
-        shell:
-          current.presentationRevisions.shell + (shellPresentation ? 1 : 0),
-        navigation:
-          current.presentationRevisions.navigation +
-          (navigationPresentation ? 1 : 0),
-        sections: presentationSectionsState,
-      },
-      authorityRevisions: {
-        shellCommands:
-          current.authorityRevisions.shellCommands + (shellAuthority ? 1 : 0),
-        tabApplicability:
-          current.authorityRevisions.tabApplicability +
-          (navigationAuthority ? 1 : 0),
-        sectionCommands: authoritySectionsState,
-      },
-    };
-  }
-
-  private bumpProtocolV3Slots(slots: IHomeContainerSlots): void {
-    if (this.protocolV3RevisionsAreExternal) {
-      return;
-    }
-    const current = this.protocolV3Revisions;
-    const revisions = { ...current.slotRevisions };
-    slotKeys(slots).forEach((slotId) => {
-      revisions[slotId] = (revisions[slotId] ?? 0) + 1;
-    });
-    this.protocolV3Revisions = {
-      ...current,
-      slotRevisions: revisions,
-    };
-  }
-
-  private pushFullSnapshotV1(target: IHomeContainerRef): void {
-    this.revision += 1;
-    this.snapshot = { ...this.snapshot, revision: this.revision };
-    target.setSnapshot(this.snapshot);
-    this.fullSnapshotPending = false;
-    this.clearIncrementalPending();
+    return updates;
   }
 }

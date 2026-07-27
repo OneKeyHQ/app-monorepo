@@ -2,212 +2,102 @@ package com.margelo.nitro.onekeynativecomponents
 
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HomeContainerProtocolV3Test {
   @Test
-  fun `canonical snapshot and patch preserve independent revision vectors`() {
-    val initial = applied(
-      HomeContainerProtocolV3Transaction.applySnapshot(
-        fixture("home-container-v3.snapshot.json"),
-      ),
+  fun `domain generations may skip and update independently`() {
+    val initial = canonicalState()
+    val domains = JSONObject(fixture("home-container-v3.domains.json"))
+    val outcome = HomeContainerProtocolV3Transaction.applyDomains(
+      domains.toString(),
+      initial,
     )
-    assertEquals(11L, initial.transportRevision)
-    assertEquals(7L, initial.identity.storeCommitId)
-    assertEquals("$100.00", initial.legacyState.snapshot.header.balance)
+    val next = applied(outcome)
 
-    val next = applied(
-      HomeContainerProtocolV3Transaction.applyPatch(
-        fixture("home-container-v3.patch.json"),
-        current = initial,
-        availableSlotRevisions = initial.slotRevisions,
-      ),
-    )
-    assertEquals(12L, next.transportRevision)
     assertEquals(8L, next.identity.storeCommitId)
-    assertEquals("history", next.legacyState.snapshot.selectedTabId)
-    assertEquals("$101.00", next.legacyState.snapshot.header.balance)
-    assertEquals(3L, next.authorityRevisions.getLong("tabApplicability"))
-  }
-
-  @Test
-  fun `patch waits only for explicitly required slot revisions`() {
-    val current = canonicalState()
-    val patch = JSONObject(fixture("home-container-v3.patch.json"))
-      .put(
-        "requiredSlotRevisions",
-        JSONObject().put("content.state.defi", 9),
-      )
-    val outcome = HomeContainerProtocolV3Transaction.applyPatch(
-      patch.toString(),
-      current = current,
-      availableSlotRevisions = current.slotRevisions,
-    )
-    assertNeedSnapshot(
-      outcome,
-      HomeContainerProtocolV3NeedSnapshotReason.SLOT_REVISION_GAP,
+    assertEquals("$101.00", next.snapshot.header.balance)
+    assertEquals("history", next.snapshot.selectedTabId)
+    assertEquals(
+      "+1 USDC",
+      next.snapshot.tabs
+        .first { it.id == "history" }
+        .sections.first()
+        .items.first()
+        .value,
     )
   }
 
   @Test
-  fun `patch rejects mounted slot regressions and records only required slots`() {
-    val current = canonicalState()
-    val regressingSlots = current.slotRevisions.toMutableMap()
-    val firstSlot = regressingSlots.entries.first()
-    regressingSlots[firstSlot.key] = firstSlot.value - 1
-    assertNeedSnapshot(
-      HomeContainerProtocolV3Transaction.applyPatch(
-        fixture("home-container-v3.patch.json"),
-        current,
-        regressingSlots,
-      ),
-      HomeContainerProtocolV3NeedSnapshotReason.INVALID_INVARIANT,
-    )
-
-    val unrequiredSlots = current.slotRevisions + ("header.action-row" to 99L)
-    val next = applied(
-      HomeContainerProtocolV3Transaction.applyPatch(
-        fixture("home-container-v3.patch.json"),
-        current,
-        unrequiredSlots,
-      ),
-    )
-    assertFalse(next.slotRevisions.containsKey("header.action-row"))
-  }
-
-  @Test
-  fun `available slot vector is derived only from valid mounted metadata for current owner`() {
-    val owner = HomeContainerProtocolV2Owner("wallet", "session")
-    val otherOwner = HomeContainerProtocolV2Owner("wallet", "other-session")
-    val revisions = homeContainerProtocolV3AvailableSlotRevisions(
-      owner,
-      listOf(
-        HomeContainerProtocolV3MountedSlotMetadata(
-          "header.balance",
-          owner,
-          slotRevision = 7,
-          producedByStoreCommitId = 9,
-        ),
-        HomeContainerProtocolV3MountedSlotMetadata(
-          "header.action-row",
-          otherOwner,
-          slotRevision = 11,
-          producedByStoreCommitId = 9,
-        ),
-        HomeContainerProtocolV3MountedSlotMetadata(
-          "content.state.defi",
-          owner,
-          slotRevision = -1,
-          producedByStoreCommitId = 9,
-        ),
-      ),
-    )
-    assertEquals(mapOf("header.balance" to 7L), revisions)
-  }
-
-  @Test
-  fun `transport gaps and authority regression request a snapshot`() {
-    val current = canonicalState()
-    val gap = JSONObject(fixture("home-container-v3.patch.json"))
-      .put("baseTransportRevision", 10)
-    assertNeedSnapshot(
-      HomeContainerProtocolV3Transaction.applyPatch(
-        gap.toString(),
-        current,
-        current.slotRevisions,
-      ),
-      HomeContainerProtocolV3NeedSnapshotReason.REVISION_GAP,
-    )
-
-    val regression = JSONObject(fixture("home-container-v3.patch.json"))
-      .put("baseTransportRevision", current.transportRevision - 1)
-      .put("transportRevision", current.transportRevision)
-    regression.getJSONObject("authorityRevisions")
-      .put("tabApplicability", 2)
-    assertNeedSnapshot(
-      HomeContainerProtocolV3Transaction.applyPatch(
-        regression.toString(),
-        current,
-        current.slotRevisions,
-      ),
-      HomeContainerProtocolV3NeedSnapshotReason.INVALID_INVARIANT,
-    )
-  }
-
-  @Test
-  fun `same applicability revision accepts rapid tabs and rejects unknown authority`() {
-    val current = canonicalState()
-    listOf("portfolio", "defi").forEachIndexed { index, tabId ->
-      val intent = JSONObject()
-        .put("protocolVersion", 3)
-        .put("intentId", "tab-$index")
-        .put(
-          "owner",
-          JSONObject()
-            .put("scopeKey", current.identity.owner.scopeKey)
-            .put("sessionId", current.identity.owner.sessionId),
-        )
-        .put(
-          "authority",
-          JSONObject().put("kind", "tabApplicability").put("revision", 3),
-        )
-        .put(
-          "intent",
-          JSONObject().put("kind", "selectTab").put("tabId", tabId),
-        )
-      assertTrue(
-        HomeContainerProtocolV3Transaction.validateIntent(
-          intent.toString(),
-          current,
-        ),
-      )
+  fun `stale shell does not block a fresh surface`() {
+    val initial = canonicalState()
+    val domains = JSONObject(fixture("home-container-v3.domains.json"))
+    val updates = domains.getJSONArray("updates")
+    updates.getJSONObject(0).put("presentationRevision", 4)
+    updates.getJSONObject(1)
+      .put("kind", "surface")
+      .put("presentationRevision", 9)
+      .remove("applicabilityRevision")
+    updates.getJSONObject(1)
+      .put("value", JSONObject(initialThemeJson()).put("backgroundColor", "#000000"))
+    while (updates.length() > 2) {
+      updates.remove(updates.length() - 1)
     }
 
-    val unknown = JSONObject()
-      .put("protocolVersion", 3)
-      .put("intentId", "unknown")
-      .put(
-        "owner",
-        JSONObject()
-          .put("scopeKey", current.identity.owner.scopeKey)
-          .put("sessionId", current.identity.owner.sessionId),
-      )
-      .put(
-        "authority",
-        JSONObject().put("kind", "globalRevision").put("revision", 3),
-      )
-      .put(
-        "intent",
-        JSONObject().put("kind", "selectTab").put("tabId", "portfolio"),
-      )
-    assertFalse(
-      HomeContainerProtocolV3Transaction.validateIntent(
-        unknown.toString(),
-        current,
+    val next = applied(
+      HomeContainerProtocolV3Transaction.applyDomains(
+        domains.toString(),
+        initial,
       ),
+    )
+    assertEquals("$100.00", next.snapshot.header.balance)
+    assertEquals("#000000", next.snapshot.theme.backgroundColor)
+  }
+
+  @Test
+  fun `unrelated authority does not block a fresh section domain`() {
+    val initial = canonicalState()
+    initial.authorityRevisions
+      .getJSONObject("sectionCommands")
+      .put("portfolio", 10)
+    val domains = JSONObject(fixture("home-container-v3.domains.json"))
+    val updates = domains.getJSONArray("updates")
+    while (updates.length() > 1) {
+      updates.remove(0)
+    }
+
+    val next = applied(
+      HomeContainerProtocolV3Transaction.applyDomains(
+        domains.toString(),
+        initial,
+      ),
+    )
+    assertEquals(
+      10L,
+      next.authorityRevisions
+        .getJSONObject("sectionCommands")
+        .getLong("portfolio"),
+    )
+    assertEquals(
+      "+1 USDC",
+      next.snapshot.tabs
+        .first { it.id == "history" }
+        .sections.first()
+        .items.first()
+        .value,
     )
   }
 
   @Test
-  fun `snapshot rejects unknown section revision keys`() {
-    val presentation = JSONObject(fixture("home-container-v3.snapshot.json"))
-    presentation.getJSONObject("presentationRevisions")
-      .getJSONObject("sections")
-      .put("unknown", 1)
-    assertNeedSnapshot(
-      HomeContainerProtocolV3Transaction.applySnapshot(presentation.toString()),
-      HomeContainerProtocolV3NeedSnapshotReason.INVALID_INVARIANT,
-    )
-
-    val authority = JSONObject(fixture("home-container-v3.snapshot.json"))
-    authority.getJSONObject("authorityRevisions")
-      .getJSONObject("sectionCommands")
-      .put("unknown", 1)
-    assertNeedSnapshot(
-      HomeContainerProtocolV3Transaction.applySnapshot(authority.toString()),
-      HomeContainerProtocolV3NeedSnapshotReason.INVALID_INVARIANT,
+  fun `old owner domains are ignored`() {
+    val domains = JSONObject(fixture("home-container-v3.domains.json"))
+    domains.getJSONObject("identity").put("sessionId", "old-session")
+    assertTrue(
+      HomeContainerProtocolV3Transaction.applyDomains(
+        domains.toString(),
+        canonicalState(),
+      ) is HomeContainerProtocolV3ApplyOutcome.Ignored,
     )
   }
 
@@ -220,24 +110,18 @@ class HomeContainerProtocolV3Test {
   private fun applied(
     outcome: HomeContainerProtocolV3ApplyOutcome,
   ): HomeContainerProtocolV3State {
-    assertTrue(outcome is HomeContainerProtocolV3ApplyOutcome.Applied)
-    return (outcome as HomeContainerProtocolV3ApplyOutcome.Applied).state
+    check(outcome is HomeContainerProtocolV3ApplyOutcome.Applied)
+    return outcome.state
   }
 
-  private fun assertNeedSnapshot(
-    outcome: HomeContainerProtocolV3ApplyOutcome,
-    reason: HomeContainerProtocolV3NeedSnapshotReason,
-  ) {
-    assertTrue(outcome is HomeContainerProtocolV3ApplyOutcome.NeedSnapshot)
-    assertEquals(
-      reason,
-      (outcome as HomeContainerProtocolV3ApplyOutcome.NeedSnapshot).reason,
-    )
-  }
+  private fun initialThemeJson(): String =
+    JSONObject(fixture("home-container-v3.snapshot.json"))
+      .getJSONObject("payload")
+      .getJSONObject("theme")
+      .toString()
 
-  private fun fixture(name: String): String {
-    val resource = javaClass.classLoader?.getResource(name)
-      ?: error("Missing canonical fixture: $name")
-    return resource.readText()
-  }
+  private fun fixture(name: String): String =
+    requireNotNull(
+      javaClass.classLoader?.getResourceAsStream(name),
+    ).bufferedReader().use { it.readText() }
 }
