@@ -35,7 +35,7 @@ function getNameSourceStatusMessage(
     available: 'The source was read, but no account needs to be renamed.',
     no_matches: 'No OneKey account address matched the source accounts.',
     source_not_found:
-      'Ledger Live account data was not found on this computer.',
+      'The wallet application account data was not found on this computer.',
     encrypted_source:
       'The local account source is encrypted and cannot be read directly.',
     cloud_source_requires_authorization:
@@ -87,6 +87,23 @@ function AccountNameSourceInventory({
             {account.path ? (
               <SizableText size="$bodySm" color="$textSubdued" selectable>
                 {account.path}
+              </SizableText>
+            ) : null}
+            {account.sourceDeviceId ? (
+              <SizableText
+                size="$bodySm"
+                color={
+                  account.selectedDeviceMatch ? '$textSuccess' : '$textSubdued'
+                }
+                selectable
+              >
+                Suite deviceId: {account.sourceDeviceId}
+                {account.selectedDeviceMatch ? ' · selected device' : ''}
+              </SizableText>
+            ) : null}
+            {account.sourceAccountType ? (
+              <SizableText size="$bodySm" color="$textSubdued">
+                Account type: {account.sourceAccountType}
               </SizableText>
             ) : null}
             <SizableText size="$bodySm" color="$textSubdued" selectable>
@@ -204,7 +221,7 @@ function DeviceSectionThirdPartyOnboardingDev() {
       setNameSyncStatus('done');
       Dialog.show({
         icon: 'EditOutline',
-        title: `${vendor === EHardwareVendor.ledger ? 'Ledger Live' : 'Trezor'} source accounts (${result.accounts.length})`,
+        title: `${vendor === EHardwareVendor.ledger ? 'Ledger Live' : 'Trezor Suite'} source accounts (${result.accounts.length})`,
         description:
           'Read-only developer view. Nothing is renamed from this window.',
         renderContent: (
@@ -242,8 +259,8 @@ function DeviceSectionThirdPartyOnboardingDev() {
     idle:
       vendor === EHardwareVendor.ledger
         ? 'Show every plaintext Ledger Live Ethereum name/address and its OneKey matches'
-        : 'Show 40 standard Trezor BTC receive addresses, paths, titles, and OneKey matches',
-    pending: 'Reading every bounded source account and matching addresses…',
+        : 'Read Trezor Suite local BTC accounts and deviceId; no hardware address derivation',
+    pending: 'Reading local wallet application data and matching addresses…',
     done: `Read-only list ready · ${sourceAccountCount} source account(s)`,
     failed: nameSyncError || 'Failed · tap to retry',
   }[nameSyncStatus];

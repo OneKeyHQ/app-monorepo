@@ -1,11 +1,20 @@
 import { execFile } from 'child_process';
+import { constants as fsConstants } from 'fs';
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import { pathToFileURL } from 'url';
 import { promisify } from 'util';
 
 import * as Sentry from '@sentry/electron/main';
-import { Menu, app, shell, systemPreferences } from 'electron';
+import {
+  BrowserWindow,
+  Menu,
+  app,
+  session,
+  shell,
+  systemPreferences,
+} from 'electron';
 import logger from 'electron-log/main';
 import si from 'systeminformation';
 
@@ -19,8 +28,13 @@ import {
 } from '@onekeyhq/desktop/app/libs/utils';
 import { restartBridge } from '@onekeyhq/desktop/app/process';
 import { getAppStaticResourcesPath } from '@onekeyhq/desktop/app/resoucePath';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { parseLedgerLiveAccountNames } from '@onekeyhq/shared/src/hardware/ledgerLiveAccountNames';
 import type { ILedgerLiveAccountNamesResult } from '@onekeyhq/shared/src/hardware/ledgerLiveAccountNames';
+import {
+  type ITrezorSuiteAccountNamesResult,
+  parseTrezorSuiteAccountNames,
+} from '@onekeyhq/shared/src/hardware/trezorSuiteAccountNames';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
 
@@ -35,6 +49,204 @@ const ONEKEY_LINUX_UDEV_RULES_STATIC_PATH = path.join(
   '99-onekey.rules',
 );
 const LEDGER_LIVE_APP_JSON_MAX_BYTES = 10 * 1024 * 1024;
+const TREZOR_SUITE_INDEXED_DB_MAX_BYTES = 25 * 1024 * 1024;
+const TREZOR_SUITE_INDEXED_DB_MAX_FILES = 1000;
+const TREZOR_SUITE_SOURCE_READ_TIMEOUT_MS = 10_000;
+const TREZOR_SUITE_TEMP_PREFIX = 'onekey-trezor-suite-';
+const TREZOR_SUITE_COPY_CHUNK_BYTES = 64 * 1024;
+const TREZOR_SUITE_TEMP_REMOVE_RETRIES = 5;
+
+const delay = (milliseconds: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  milliseconds: number,
+  message: string,
+): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(() => reject(new Error(message)), milliseconds);
+      }),
+    ]);
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  }
+}
+
+async function removeTrezorSuiteTemporaryProfile(
+  temporaryProfile: string,
+): Promise<boolean> {
+  for (
+    let attempt = 0;
+    attempt < TREZOR_SUITE_TEMP_REMOVE_RETRIES;
+    attempt += 1
+  ) {
+    try {
+      await fs.rm(temporaryProfile, { recursive: true, force: true });
+      return true;
+    } catch {
+      await delay(100 * (attempt + 1));
+    }
+  }
+  return false;
+}
+
+async function cleanupStaleTrezorSuiteTemporaryProfiles(
+  temporaryRoot: string,
+): Promise<void> {
+  try {
+    const entries = await fs.readdir(temporaryRoot, { withFileTypes: true });
+    await Promise.all(
+      entries
+        .filter(
+          (entry) =>
+            entry.isDirectory() &&
+            entry.name.startsWith(TREZOR_SUITE_TEMP_PREFIX),
+        )
+        .map(async (entry) => {
+          const profilePath = path.join(temporaryRoot, entry.name);
+          if (!(await removeTrezorSuiteTemporaryProfile(profilePath))) {
+            logger.warn(
+              '[TrezorSuiteSource] could not remove stale temporary profile',
+            );
+          }
+        }),
+    );
+  } catch {
+    // The OS temp directory may not exist yet.
+  }
+}
+
+const normalizeCanonicalPath = (targetPath: string) => {
+  const normalized = path.normalize(targetPath);
+  return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
+};
+
+async function assertTrezorSuiteSourceDirectory({
+  appDataPath,
+  sourceDbPath,
+}: {
+  appDataPath: string;
+  sourceDbPath: string;
+}): Promise<void> {
+  const resolvedRoot = path.resolve(appDataPath);
+  const resolvedSource = path.resolve(sourceDbPath);
+  const relativeSource = path.relative(resolvedRoot, resolvedSource);
+  if (
+    !relativeSource ||
+    relativeSource.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativeSource)
+  ) {
+    throw new OneKeyLocalError('Invalid Trezor Suite source path');
+  }
+
+  const canonicalRoot = await fs.realpath(resolvedRoot);
+  const canonicalSource = await fs.realpath(resolvedSource);
+  const expectedCanonicalSource = path.resolve(canonicalRoot, relativeSource);
+  if (
+    normalizeCanonicalPath(canonicalSource) !==
+    normalizeCanonicalPath(expectedCanonicalSource)
+  ) {
+    throw new OneKeyLocalError('Trezor Suite source directory is redirected');
+  }
+
+  let currentPath = resolvedRoot;
+  const pathParts = relativeSource.split(path.sep).filter(Boolean);
+  for (const part of pathParts) {
+    currentPath = path.join(currentPath, part);
+    const currentStat = await fs.lstat(currentPath);
+    if (!currentStat.isDirectory() || currentStat.isSymbolicLink()) {
+      throw new OneKeyLocalError(
+        'Trezor Suite source path contains a redirected directory',
+      );
+    }
+  }
+}
+
+const isSameFileIdentity = (
+  pathStat: Awaited<ReturnType<typeof fs.lstat>>,
+  fileStat: Awaited<ReturnType<Awaited<ReturnType<typeof fs.open>>['stat']>>,
+) =>
+  pathStat.dev === fileStat.dev &&
+  pathStat.ino === fileStat.ino &&
+  pathStat.size === fileStat.size;
+
+async function copyRegularFileAtVerifiedSize({
+  sourcePath,
+  destinationPath,
+  maximumBytes,
+}: {
+  sourcePath: string;
+  destinationPath: string;
+  maximumBytes: number;
+}): Promise<number> {
+  const source = await fs.open(
+    sourcePath,
+    fsConstants.O_RDONLY |
+      (process.platform === 'win32' ? 0 : fsConstants.O_NOFOLLOW),
+  );
+  let destination: Awaited<ReturnType<typeof fs.open>> | undefined;
+  try {
+    const sourceStat = await source.stat();
+    const sourcePathStat = await fs.lstat(sourcePath);
+    if (
+      maximumBytes < 0 ||
+      !sourceStat.isFile() ||
+      !sourcePathStat.isFile() ||
+      sourcePathStat.isSymbolicLink() ||
+      !isSameFileIdentity(sourcePathStat, sourceStat) ||
+      sourceStat.size > maximumBytes
+    ) {
+      throw new OneKeyLocalError(
+        'Trezor Suite source file exceeds the safe limit',
+      );
+    }
+    destination = await fs.open(
+      destinationPath,
+      fsConstants.O_WRONLY | fsConstants.O_CREAT | fsConstants.O_EXCL,
+      0o600,
+    );
+    let offset = 0;
+    while (offset < sourceStat.size) {
+      const requested = Math.min(
+        TREZOR_SUITE_COPY_CHUNK_BYTES,
+        sourceStat.size - offset,
+      );
+      const buffer = Buffer.allocUnsafe(requested);
+      const { bytesRead } = await source.read(buffer, 0, requested, offset);
+      if (bytesRead <= 0) {
+        throw new OneKeyLocalError('Trezor Suite source changed while copying');
+      }
+      await destination.write(buffer, 0, bytesRead, offset);
+      offset += bytesRead;
+    }
+    const [finalSourceStat, finalSourcePathStat] = await Promise.all([
+      source.stat(),
+      fs.lstat(sourcePath),
+    ]);
+    if (
+      !isSameFileIdentity(finalSourcePathStat, finalSourceStat) ||
+      !isSameFileIdentity(sourcePathStat, finalSourceStat) ||
+      finalSourcePathStat.isSymbolicLink() ||
+      finalSourceStat.mtimeMs !== sourceStat.mtimeMs ||
+      finalSourceStat.ctimeMs !== sourceStat.ctimeMs
+    ) {
+      throw new OneKeyLocalError('Trezor Suite source changed while copying');
+    }
+    return sourceStat.size;
+  } finally {
+    await destination?.close().catch(() => undefined);
+    await source.close().catch(() => undefined);
+  }
+}
 
 // Runtime sandbox detection. This module runs in the Electron MAIN process,
 // where `platformEnv` derives `desktopChannel` from a module-load-time snapshot
@@ -370,6 +582,193 @@ class DesktopApiSystem {
       }
     }
     return { status: 'source_not_found', accounts: [] };
+  }
+
+  async readTrezorSuiteAccountNames(): Promise<ITrezorSuiteAccountNamesResult> {
+    const appDataPath = app.getPath('appData');
+    const sourceDbPath = path.join(
+      appDataPath,
+      '@trezor',
+      'suite-desktop',
+      'IndexedDB',
+      'file__0.indexeddb.leveldb',
+    );
+    let sourceEntries: Awaited<ReturnType<typeof fs.readdir>>;
+    try {
+      await assertTrezorSuiteSourceDirectory({
+        appDataPath,
+        sourceDbPath,
+      });
+      sourceEntries = await fs.readdir(sourceDbPath, {
+        withFileTypes: true,
+      });
+      if (
+        sourceEntries.length > TREZOR_SUITE_INDEXED_DB_MAX_FILES ||
+        sourceEntries.some((entry) => !entry.isFile())
+      ) {
+        return { status: 'invalid_source', accounts: [] };
+      }
+    } catch (error) {
+      return (error as NodeJS.ErrnoException)?.code === 'ENOENT'
+        ? { status: 'source_not_found', accounts: [] }
+        : { status: 'invalid_source', accounts: [] };
+    }
+
+    // Never attach Chromium directly to Trezor Suite's profile. Different
+    // Electron versions can update profile metadata, and Suite may own the
+    // LevelDB lock. Work from a bounded snapshot in a private temporary profile.
+    const temporaryRoot = app.getPath('temp');
+    await cleanupStaleTrezorSuiteTemporaryProfiles(temporaryRoot);
+    const temporaryProfile = await fs.mkdtemp(
+      path.join(temporaryRoot, TREZOR_SUITE_TEMP_PREFIX),
+    );
+    let sourceWindow: BrowserWindow | undefined;
+    let sourceSession: Electron.Session | undefined;
+    try {
+      const temporaryDbPath = path.join(
+        temporaryProfile,
+        'IndexedDB',
+        'file__0.indexeddb.leveldb',
+      );
+      await fs.mkdir(temporaryDbPath, { recursive: true });
+      let copiedBytes = 0;
+      for (const entry of sourceEntries) {
+        copiedBytes += await copyRegularFileAtVerifiedSize({
+          sourcePath: path.join(sourceDbPath, entry.name),
+          destinationPath: path.join(temporaryDbPath, entry.name),
+          maximumBytes: TREZOR_SUITE_INDEXED_DB_MAX_BYTES - copiedBytes,
+        });
+      }
+      await assertTrezorSuiteSourceDirectory({
+        appDataPath,
+        sourceDbPath,
+      });
+      sourceSession = session.fromPath(temporaryProfile, {
+        cache: false,
+      });
+      sourceWindow = new BrowserWindow({
+        show: false,
+        webPreferences: {
+          session: sourceSession,
+          sandbox: true,
+          contextIsolation: true,
+          nodeIntegration: false,
+        },
+      });
+      await sourceWindow.loadURL(
+        pathToFileURL(path.join(app.getAppPath(), 'package.json')).href,
+      );
+      const sourceAccounts = (await withTimeout(
+        sourceWindow.webContents.executeJavaScript(`
+          new Promise((resolve) => {
+            let settled = false;
+            const finish = (value) => {
+              if (!settled) {
+                settled = true;
+                resolve(value);
+              }
+            };
+            const request = indexedDB.open('trezor-suite');
+            request.onerror = () => finish({
+              error: request.error?.message || 'open failed',
+            });
+            request.onsuccess = () => {
+              const db = request.result;
+              if (!Array.from(db.objectStoreNames).includes('accounts')) {
+                finish([]);
+                db.close();
+                return;
+              }
+              const transaction = db.transaction('accounts', 'readonly');
+              const sourceAccounts = [];
+              let scannedAccounts = 0;
+              const accountsRequest = transaction
+                .objectStore('accounts')
+                .openCursor();
+              accountsRequest.onerror = () => finish({
+                error: accountsRequest.error?.message || 'cursor failed',
+              });
+              accountsRequest.onsuccess = () => {
+                const cursor = accountsRequest.result;
+                if (!cursor) {
+                  return;
+                }
+                scannedAccounts += 1;
+                if (scannedAccounts > 1000) {
+                  transaction.abort();
+                  finish({ error: 'account scan limit exceeded' });
+                  return;
+                }
+                const account = cursor.value;
+                if (account?.symbol === 'btc') {
+                  const used = Array.isArray(account?.addresses?.used)
+                    ? account.addresses.used.slice(0, 25)
+                    : [];
+                  const unused = Array.isArray(account?.addresses?.unused)
+                    ? account.addresses.unused.slice(0, 25)
+                    : [];
+                  const firstAddress = [...used, ...unused].find(
+                    (item) =>
+                      item &&
+                      typeof item.address === 'string' &&
+                      typeof item.path === 'string',
+                  );
+                  sourceAccounts.push({
+                    deviceState: account.deviceState,
+                    symbol: account.symbol,
+                    index: account.index,
+                    accountType: account.accountType,
+                    visible: account.visible,
+                    address: firstAddress?.address,
+                    addressPath: firstAddress?.path,
+                  });
+                  if (sourceAccounts.length > 500) {
+                    transaction.abort();
+                    finish({ error: 'account result limit exceeded' });
+                    return;
+                  }
+                }
+                cursor.continue();
+              };
+              transaction.onerror = () => finish({
+                error: transaction.error?.message || 'transaction failed',
+              });
+              transaction.onabort = () => finish({
+                error: transaction.error?.message || 'transaction aborted',
+              });
+              transaction.oncomplete = () => {
+                finish(sourceAccounts);
+                db.close();
+              };
+            };
+          })
+        `),
+        TREZOR_SUITE_SOURCE_READ_TIMEOUT_MS,
+        'Trezor Suite source read timed out',
+      )) as unknown;
+      return parseTrezorSuiteAccountNames(sourceAccounts);
+    } catch {
+      return { status: 'invalid_source', accounts: [] };
+    } finally {
+      sourceWindow?.destroy();
+      if (sourceSession) {
+        await withTimeout(
+          Promise.all([
+            sourceSession.clearStorageData({ storages: ['indexdb'] }),
+            sourceSession.clearCache(),
+          ]).then(() => {
+            sourceSession?.flushStorageData();
+          }),
+          TREZOR_SUITE_SOURCE_READ_TIMEOUT_MS,
+          'Trezor Suite temporary session cleanup timed out',
+        ).catch(() => undefined);
+      }
+      if (!(await removeTrezorSuiteTemporaryProfile(temporaryProfile))) {
+        logger.warn(
+          '[TrezorSuiteSource] could not remove temporary profile; cleanup will retry later',
+        );
+      }
+    }
   }
 
   async getBundleInfo(): Promise<IMacBundleInfo | undefined> {

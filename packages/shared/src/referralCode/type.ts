@@ -890,20 +890,22 @@ export interface IThirdPartyAccountNameCandidate {
   currentName: string;
   sourceName: string;
   matchedAddress: string;
-  source: 'ledger-live' | 'trezor-suite' | 'trezor-device-default';
+  source: 'ledger-live' | 'trezor-suite';
 }
 
 export interface IThirdPartyAccountNameCandidatesResult {
   status: IThirdPartyAccountNameSourceStatus;
   candidates: IThirdPartyAccountNameCandidate[];
-  authorizationId?: string;
 }
 
 export interface IThirdPartyAccountNameSourceInventoryAccount {
   sourceName: string;
   address: string;
   path?: string;
-  source: 'ledger-live' | 'trezor-device-default';
+  source: 'ledger-live' | 'trezor-suite';
+  sourceDeviceId?: string;
+  sourceAccountType?: string;
+  selectedDeviceMatch?: boolean;
   matchedOneKeyAccounts: Array<{
     indexedAccountId: string;
     currentName: string;
