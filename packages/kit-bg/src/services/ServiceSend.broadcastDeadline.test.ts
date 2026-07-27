@@ -371,14 +371,7 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
       vault.buildDecodedTx.mock.invocationCallOrder[0],
     );
     expect(vault.buildDecodedTx.mock.invocationCallOrder[0]).toBeLessThan(
-      (
-        backgroundApi as unknown as {
-          servicePrime: {
-            apiGetInfiniPaymentPreBroadcastSnapshot: jest.Mock;
-          };
-        }
-      ).servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mock
-        .invocationCallOrder[0],
+      mark.mock.invocationCallOrder[0],
     );
     expect(
       (
@@ -393,6 +386,39 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
     expect(mark.mock.invocationCallOrder[0]).toBeLessThan(
       vault.broadcastTransaction.mock.invocationCallOrder[0],
     );
+  });
+
+  test('loads the Infini snapshot while decoding the signed transaction', async () => {
+    const { service, vault } = makeService();
+    const backgroundApi = service.backgroundApi as unknown as {
+      servicePrime: {
+        apiGetInfiniPaymentPreBroadcastSnapshot: jest.Mock;
+      };
+    };
+    const decodedTxDeferred = createDeferred<IDecodedTx>();
+    const snapshotStarted = createDeferred<void>();
+    vault.buildDecodedTx.mockReturnValueOnce(decodedTxDeferred.promise);
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockImplementationOnce(
+      async () => {
+        snapshotStarted.resolve();
+        return {
+          payment: latestPayment,
+          purchaseStatusSnapshot,
+        };
+      },
+    );
+
+    const sendPromise = signAndSend(service, {
+      beforeBroadcastAction,
+    });
+    await snapshotStarted.promise;
+
+    expect(vault.buildDecodedTx).toHaveBeenCalledTimes(1);
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+
+    decodedTxDeferred.resolve(decodedTx);
+    await expect(sendPromise).resolves.toMatchObject({ txid: '0xtxid' });
+    expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
   });
 
   test('rejects a signed TRON Infini transaction with multiple native contracts', async () => {

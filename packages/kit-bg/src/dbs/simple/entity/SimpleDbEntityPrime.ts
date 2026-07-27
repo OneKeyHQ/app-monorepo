@@ -7,6 +7,7 @@ import {
   getPrimeInfiniPaymentAssetKey,
   hasPrimeInfiniPaymentProgressSnapshot,
   isPrimeInfiniPaymentCacheKeyForContext,
+  isPrimeInfiniPaymentClosedUnpaidSnapshot,
   isPrimeInfiniPaymentForAssetSnapshot,
   isPrimeInfiniPaymentPreBroadcastSnapshotSendable,
   isPrimeInfiniPaymentTransferClaimForSession,
@@ -1590,6 +1591,159 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       });
     });
     return didDiscard;
+  }
+
+  // Releases a session whose invoice the server has closed with nothing
+  // collected, including one that already claimed sendStarted. That claim is
+  // set before broadcast and is never cleared except on purchase completion, so
+  // a transaction that reverted or ran out of gas would otherwise pin the
+  // session for its whole TTL and block every purchase channel behind the
+  // payment-entry guard. The progress merge runs against the stored session so
+  // a transient zero-progress snapshot cannot release a payment that is
+  // actually moving, and a tombstone is retired alongside it so a stale writer
+  // cannot resurrect the session.
+  @backgroundMethod()
+  async discardTerminalInfiniPendingPaymentSession({
+    onekeyUserId,
+    expectedPaymentCacheIdentity,
+    latestPayment,
+  }: {
+    onekeyUserId: string;
+    expectedPaymentCacheIdentity: IPrimeInfiniPaymentCacheKey;
+    latestPayment: IPrimeInfiniPayment;
+  }): Promise<boolean> {
+    if (
+      !onekeyUserId ||
+      !isValidInfiniPaymentCacheKey(expectedPaymentCacheIdentity)
+    ) {
+      return false;
+    }
+    let didDiscard = false;
+    await this.setRawData((rawData) => {
+      const now = Date.now();
+      const currentSession =
+        rawData?.infiniPendingPaymentSessionByUserId?.[onekeyUserId];
+      if (
+        !currentSession ||
+        !isValidInfiniPendingPaymentSession(currentSession, {
+          onekeyUserId,
+          now,
+        }) ||
+        !isSamePrimeInfiniPaymentCacheKey(
+          expectedPaymentCacheIdentity,
+          currentSession.paymentCacheKey,
+        ) ||
+        currentSession.payment.paymentId !== latestPayment.paymentId
+      ) {
+        return rawData ?? {};
+      }
+      const paymentWithDurableProgress =
+        mergePrimeInfiniPaymentProgressSnapshot({
+          previous: currentSession.payment,
+          latest: latestPayment,
+        });
+      if (
+        !isPrimeInfiniPaymentClosedUnpaidSnapshot(paymentWithDurableProgress)
+      ) {
+        return rawData ?? {};
+      }
+      const nextSessions = {
+        ...rawData?.infiniPendingPaymentSessionByUserId,
+      };
+      delete nextSessions[onekeyUserId];
+      didDiscard = true;
+      return retireInfiniPaymentCache({
+        rawData: {
+          ...rawData,
+          infiniPendingPaymentSessionByUserId: nextSessions,
+        },
+        onekeyUserId,
+        paymentCacheKey: expectedPaymentCacheIdentity,
+        now,
+      });
+    });
+    return didDiscard;
+  }
+
+  // The payment-entry guard is the first place that observes server-side
+  // progress for a session that was never marked locally. Latch that progress
+  // durably here: a later snapshot that transiently reports zero progress must
+  // not make the session replaceable again and let a second invoice be
+  // created. Writes only on new information so the session TTL is not
+  // refreshed by every read.
+  @backgroundMethod()
+  async latchInfiniPendingPaymentSessionProgress({
+    onekeyUserId,
+    paymentCacheKey,
+    latestPayment,
+  }: {
+    onekeyUserId: string;
+    paymentCacheKey: IPrimeInfiniPaymentCacheKey;
+    latestPayment: IPrimeInfiniPayment;
+  }): Promise<IPrimeInfiniPendingPaymentSession | undefined> {
+    if (!onekeyUserId || !isValidInfiniPaymentCacheKey(paymentCacheKey)) {
+      return undefined;
+    }
+    let latchedSession: IPrimeInfiniPendingPaymentSession | undefined;
+    await this.setRawData((rawData) => {
+      const now = Date.now();
+      const currentSession =
+        rawData?.infiniPendingPaymentSessionByUserId?.[onekeyUserId];
+      if (
+        !currentSession ||
+        !isValidInfiniPendingPaymentSession(currentSession, {
+          onekeyUserId,
+          now,
+        }) ||
+        !isSamePrimeInfiniPaymentCacheKey(
+          paymentCacheKey,
+          currentSession.paymentCacheKey,
+        ) ||
+        !isSamePrimeInfiniPaymentTransferSnapshot({
+          first: currentSession.payment,
+          second: latestPayment,
+          networkId: currentSession.asset.networkId,
+        }) ||
+        !isPrimeInfiniPaymentForAssetSnapshot({
+          payment: latestPayment,
+          asset: currentSession.asset,
+        })
+      ) {
+        return rawData ?? {};
+      }
+      const paymentWithDurableProgress =
+        mergePrimeInfiniPaymentProgressSnapshot({
+          previous: currentSession.payment,
+          latest: latestPayment,
+        });
+      const sendStarted =
+        currentSession.sendStarted ||
+        hasPrimeInfiniPaymentProgressSnapshot(paymentWithDurableProgress);
+      const hasNewDurableProgress =
+        sendStarted !== currentSession.sendStarted ||
+        paymentWithDurableProgress.amountConfirmed !==
+          currentSession.payment.amountConfirmed ||
+        paymentWithDurableProgress.amountConfirming !==
+          currentSession.payment.amountConfirming;
+      if (!hasNewDurableProgress) {
+        latchedSession = currentSession;
+        return rawData ?? {};
+      }
+      latchedSession = {
+        ...currentSession,
+        payment: paymentWithDurableProgress,
+        sendStarted,
+        updatedAt: now,
+      };
+      return {
+        ...rawData,
+        infiniPendingPaymentSessionByUserId: {
+          ...rawData?.infiniPendingPaymentSessionByUserId,
+          [onekeyUserId]: latchedSession,
+        },
+      };
+    });
+    return latchedSession;
   }
 
   @backgroundMethod()
