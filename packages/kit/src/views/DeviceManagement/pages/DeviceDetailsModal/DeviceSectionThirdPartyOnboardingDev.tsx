@@ -106,14 +106,18 @@ function DeviceSectionThirdPartyOnboardingDev() {
       setVerificationStatus('verified');
       Dialog.show({
         icon: 'BadgeVerifiedSolid',
-        title: 'Local pairing test passed',
+        title: 'Real device authenticity passed',
         description: [
-          `${vendor === EHardwareVendor.trezor ? 'Trezor attestation' : 'Ledger Genuine Check'} passed.`,
+          vendor === EHardwareVendor.trezor
+            ? 'Trezor attestation passed with a fresh local challenge.'
+            : 'Ledger Genuine Check passed through the vendor service.',
           '',
-          'Mock binding: completed',
-          `Mock voucher: DEV-${vendor.toUpperCase()}-LOCAL`,
+          'Physical-device check: real',
+          'OneKey server challenge: not requested',
+          'Wallet address signature: not requested',
+          'OneKey reward claim: not requested',
           '',
-          'Developer test only. No server claim was created and no real voucher was issued.',
+          'This diagnostic proof cannot be reused for a later claim. The production reward flow must start with a fresh server challenge.',
         ].join('\n'),
         onConfirmText: 'Done',
       });
@@ -228,10 +232,10 @@ function DeviceSectionThirdPartyOnboardingDev() {
   const verifySubtitle = {
     idle:
       vendor === EHardwareVendor.trezor
-        ? 'Run Trezor attestation, then simulate binding + voucher readiness'
-        : 'Run Ledger Genuine Check, then simulate binding + voucher readiness',
+        ? 'Run real Trezor attestation locally; the OneKey reward API is not called'
+        : 'Run real Ledger Genuine Check; the OneKey reward API is not called',
     pending: 'Waiting for the connected device…',
-    verified: 'Passed · mock binding complete · no real voucher issued',
+    verified: 'Real device check passed · server reward flow not tested',
     failed: verificationError || 'Failed · tap to retry',
   }[verificationStatus];
   const nameSyncSubtitle = {

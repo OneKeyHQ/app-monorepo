@@ -800,6 +800,13 @@ describe('ServiceThirdPartyHardware developer account name sync', () => {
               },
               path: "m/84'/0'/0'",
             },
+            {
+              id: 'btc-account-with-null-addresses',
+              impl: 'btc',
+              address: 'bc1q-account-without-address-map',
+              addresses: null,
+              path: "m/84'/0'/1'",
+            },
           ],
         }),
         getAllIndexedAccounts: jest.fn().mockResolvedValue({

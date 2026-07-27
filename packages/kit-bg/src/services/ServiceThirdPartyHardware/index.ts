@@ -124,7 +124,9 @@ function buildAccountNameTargets({
     const addresses = new Set<string>(
       [
         account.address,
-        ...('addresses' in account ? Object.values(account.addresses) : []),
+        ...('addresses' in account
+          ? Object.values(account.addresses ?? {})
+          : []),
       ].filter(Boolean),
     );
     if (
