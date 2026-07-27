@@ -56,8 +56,11 @@ export function ImportRecoveryPhrase() {
         encodedText: mnemonic,
         title: '',
       });
-    } catch (error) {
-      console.error(error);
+    } catch (_error) {
+      // submit() runs encodeSensitiveText + validateMnemonic, so this catch
+      // sits on the recovery-phrase path: never log the error, it could carry
+      // the phrase. validateMnemonic is @toastIfError() and throws
+      // InvalidMnemonic, so the "Invalid phrases" toast is already raised.
     } finally {
       setIsConfirming(false);
     }
