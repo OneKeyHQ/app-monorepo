@@ -4,10 +4,11 @@ import { useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IActionListItemProps } from '@onekeyhq/components';
-import { Dialog, Skeleton, Stack, YStack } from '@onekeyhq/components';
+import { Dialog, Skeleton, Stack, Toast, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -15,6 +16,7 @@ import type { IPrimePaymentMethod } from '@onekeyhq/shared/src/logger/scopes/pri
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
+import { getPrimeInfiniPaymentEntryGuard } from '../../hooks/primeInfiniExternalCheckoutGuard';
 import { usePrimeInfiniPurchase } from '../../hooks/usePrimeInfiniPurchase';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { logPrimeInfiniPaymentFlow } from '../../primeInfiniPaymentLogger';
@@ -258,6 +260,65 @@ export function usePrimePurchaseCallback({
           paymentMethod,
         });
       };
+      const continuePendingCryptoPayment = async ({
+        beforeContinue,
+      }: {
+        beforeContinue: () => void | Promise<void>;
+      }) => {
+        // The guard hits the network, so a failure means the active-payment
+        // state is unknown. Block the attempt instead of falling through to a
+        // second channel: a duplicate charge is worse than a retryable error.
+        let entryGuard: Awaited<
+          ReturnType<typeof getPrimeInfiniPaymentEntryGuard>
+        >;
+        try {
+          entryGuard = await getPrimeInfiniPaymentEntryGuard();
+        } catch {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_network_error,
+            }),
+          });
+          throw new OneKeyLocalError({
+            message: 'Unable to verify the Infini payment session',
+            autoToast: false,
+          });
+        }
+        if (!entryGuard.hasPendingPayment) {
+          return false;
+        }
+        await beforeContinue();
+        await purchaseByCryptoUnchecked({
+          // Resume the in-flight invoice on its own period. Passing the period
+          // the user just picked would restore a monthly invoice under a
+          // yearly request, which the restore path tracks without complaint
+          // once the payment is no longer replaceable.
+          selectedSubscriptionPeriod:
+            entryGuard.pendingSubscriptionPeriod ?? selectedSubscriptionPeriod,
+          featureName,
+        });
+        return true;
+      };
+
+      // This gate is deliberately channel-wide and runs before the IAP and
+      // Google Play branches, not only on the crypto path.
+      // entryGuard.hasPendingPayment answers "is the user's money already
+      // committed to an Infini invoice" (a broadcast was claimed, or the chain
+      // and server report progress on it) — it does not answer "does the user
+      // want to pay with crypto". Starting IAP, Stripe or the WebView checkout
+      // while such an invoice is in flight charges for one subscription twice,
+      // and the crypto leg cannot be cancelled once broadcast, so the in-flight
+      // payment has to be resumed first. Narrowing this to the crypto channel
+      // reintroduces exactly the double charge it exists to prevent.
+      if (
+        await continuePendingCryptoPayment({
+          beforeContinue: async () => {
+            await onPurchase?.();
+          },
+        })
+      ) {
+        return;
+      }
 
       if (platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay) {
         if (
@@ -296,6 +357,15 @@ export function usePrimePurchaseCallback({
             <PrimePaymentMethodItems
               methods={paymentMethods}
               onSelect={async (method) => {
+                if (
+                  await continuePendingCryptoPayment({
+                    beforeContinue: async () => {
+                      await paymentMethodDialog.close();
+                    },
+                  })
+                ) {
+                  return true;
+                }
                 if (
                   !(await ensurePrimePurchaseEligible({
                     expectedOneKeyUserId: user?.onekeyUserId,
@@ -350,6 +420,7 @@ export function usePrimePurchaseCallback({
       });
     },
     [
+      intl,
       onPurchase,
       purchaseByCryptoUnchecked,
       purchaseByNativeUnchecked,
