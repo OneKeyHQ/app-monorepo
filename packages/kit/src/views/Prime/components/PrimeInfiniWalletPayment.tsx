@@ -2488,10 +2488,15 @@ function PrimeInfiniWalletPaymentContent({
             setPhase('polling');
             throw new OneKeyLocalError('Infini payment send already started');
           }
-          const persistedSession =
-            await backgroundApiProxy.simpleDb.prime.getInfiniPendingPaymentSession(
-              { onekeyUserId: purchaseUserIdForSend },
-            );
+          const [persistedSession, latestPayment] = await Promise.all([
+            backgroundApiProxy.simpleDb.prime.getInfiniPendingPaymentSession({
+              onekeyUserId: purchaseUserIdForSend,
+            }),
+            backgroundApiProxy.servicePrime.apiGetInfiniPayment({
+              paymentId: paymentForSend.paymentId,
+              expectedOneKeyUserId: purchaseUserIdForSend,
+            }),
+          ]);
           if (
             !persistedSession ||
             !isSamePrimeInfiniPaymentCacheKey(
@@ -2510,11 +2515,6 @@ function PrimeInfiniWalletPaymentContent({
             setPhase('polling');
             throw new OneKeyLocalError('Infini payment send already started');
           }
-          const latestPayment =
-            await backgroundApiProxy.servicePrime.apiGetInfiniPayment({
-              paymentId: paymentForSend.paymentId,
-              expectedOneKeyUserId: purchaseUserIdForSend,
-            });
           if (!isAttemptCurrent()) {
             preSendBlockedPhase = 'failed';
             throw new OneKeyLocalError('Infini payment attempt is stale');
@@ -2536,7 +2536,6 @@ function PrimeInfiniWalletPaymentContent({
           }
           paymentRef.current = latestPayment;
           setPayment(latestPayment);
-          await persistPaymentSession({ nextPayment: latestPayment });
           const latestOutcome = getPrimeInfiniPaymentOutcome({
             payment: latestPayment,
           });
@@ -2562,6 +2561,10 @@ function PrimeInfiniWalletPaymentContent({
           ) {
             preSendBlockedPhase =
               latestOutcome === 'failed' ? 'failed' : 'expired';
+            await persistPaymentSession({
+              nextPayment: latestPayment,
+              nextSendStarted: false,
+            });
             setPhase(preSendBlockedPhase);
             throw new OneKeyLocalError('Infini payment is no longer sendable');
           }

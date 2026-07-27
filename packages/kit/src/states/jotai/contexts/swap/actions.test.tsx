@@ -20,6 +20,7 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
   swapQuoteIntervalMaxCount,
   swapRefreshInterval,
+  swapStockTokenListMaxCount,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchQuoteResult,
@@ -41,6 +42,8 @@ import {
   ProviderJotaiContextSwap,
   swapActiveSelectedFromTokenBalanceAtom,
   swapAlertsAtom,
+  swapAllNetworkActionLockAtom,
+  swapAllNetworkTokenListMapAtom,
   swapFromTokenAmountAtom,
   swapInitialSelectedTokensSyncedAtom,
   swapInputAmountSnapshotsAtom,
@@ -255,6 +258,20 @@ const fromAddressInfo: ISwapAddressInfo = {
   isAddressInfoReady: true,
 };
 
+function createDeferred<T>() {
+  let resolve: ((value: T) => void) | undefined;
+  let reject: ((reason?: unknown) => void) | undefined;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return {
+    promise,
+    reject: (reason?: unknown) => reject?.(reason),
+    resolve: (value: T) => resolve?.(value),
+  };
+}
+
 function createExternalAddressInfo({
   address,
   isAddressInfoReady,
@@ -353,6 +370,169 @@ describe('useSwapActions', () => {
       swapSlippagePercentageMode: ESwapSlippageSegmentKey.AUTO,
       swapToAnotherAccountSwitchOn: false,
     });
+  });
+
+  it('uses the complete Stock list limit for child-network balance requests', async () => {
+    mockGetSupportSwapAllAccounts.mockResolvedValue({
+      supportAccountsFetchFailed: false,
+      swapSupportAccounts: [
+        {
+          apiAddress: '0xabc',
+          networkId: 'evm--56',
+          accountId: 'account-bsc',
+        },
+      ],
+    });
+    mockFetchSwapTokens.mockResolvedValue([stockTokenA]);
+    const { Wrapper } = createWrapperWithStore((store) => {
+      store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.swapLoadAllNetworkTokenList(
+        undefined,
+        'account-1',
+        false,
+        'usd',
+      );
+    });
+
+    expect(mockFetchSwapTokens).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountAddress: '0xabc',
+        accountId: 'account-bsc',
+        accountNetworkId: 'evm--56',
+        limit: swapStockTokenListMaxCount,
+        networkId: 'evm--56',
+        protocol: ESwapTabSwitchType.STOCK,
+      }),
+    );
+  });
+
+  it('queues the latest Stock network generation without duplicating the active generation', async () => {
+    const firstAccountsRequest = createDeferred<{
+      supportAccountsFetchFailed: boolean;
+      swapSupportAccounts: {
+        apiAddress: string;
+        networkId: string;
+        accountId: string;
+      }[];
+    }>();
+    mockGetSupportSwapAllAccounts
+      .mockImplementationOnce(() => firstAccountsRequest.promise)
+      .mockResolvedValueOnce({
+        supportAccountsFetchFailed: false,
+        swapSupportAccounts: [
+          {
+            apiAddress: '0xaaa',
+            networkId: 'evm--1',
+            accountId: 'account-eth',
+          },
+          {
+            apiAddress: '0xbbb',
+            networkId: 'evm--56',
+            accountId: 'account-bsc',
+          },
+        ],
+      });
+    mockFetchSwapTokens.mockImplementation(async (params) => {
+      const { networkId } = params as { networkId: string };
+      return networkId === 'evm--1'
+        ? [{ ...stockTokenA, networkId }]
+        : [appleStockToken];
+    });
+    const networkA: ISwapNetwork = {
+      networkId: 'evm--1',
+      name: 'Ethereum',
+      symbol: 'ETH',
+      supportStock: true,
+    };
+    const networkB: ISwapNetwork = {
+      networkId: 'evm--56',
+      name: 'BNB Smart Chain',
+      symbol: 'BNB',
+      supportStock: true,
+    };
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapNetworks(), [networkA]);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    let activeRequest: Promise<void> | undefined;
+    act(() => {
+      activeRequest = result.current.swapLoadAllNetworkTokenList(
+        undefined,
+        'account-1',
+        false,
+        'usd',
+      );
+    });
+    await waitFor(() =>
+      expect(mockGetSupportSwapAllAccounts).toHaveBeenCalledTimes(1),
+    );
+
+    let duplicateRequestSettled = false;
+    let duplicateRequest: Promise<void> | undefined;
+    act(() => {
+      duplicateRequest = result.current
+        .swapLoadAllNetworkTokenList(undefined, 'account-1', false, 'usd')
+        .then(() => {
+          duplicateRequestSettled = true;
+        });
+    });
+    await Promise.resolve();
+    expect(duplicateRequestSettled).toBe(false);
+    expect(mockGetSupportSwapAllAccounts).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      store.set(swapNetworks(), [networkA, networkB]);
+    });
+    let queuedRequestSettled = false;
+    let queuedRequest: Promise<void> | undefined;
+    act(() => {
+      queuedRequest = result.current
+        .swapLoadAllNetworkTokenList(undefined, 'account-1', false, 'usd')
+        .then(() => {
+          queuedRequestSettled = true;
+        });
+    });
+    await Promise.resolve();
+    expect(queuedRequestSettled).toBe(false);
+    expect(mockGetSupportSwapAllAccounts).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      firstAccountsRequest.resolve({
+        supportAccountsFetchFailed: false,
+        swapSupportAccounts: [
+          {
+            apiAddress: '0xaaa',
+            networkId: 'evm--1',
+            accountId: 'account-eth',
+          },
+        ],
+      });
+      await Promise.all([activeRequest, duplicateRequest, queuedRequest]);
+    });
+
+    expect(duplicateRequestSettled).toBe(true);
+    expect(queuedRequestSettled).toBe(true);
+    expect(mockGetSupportSwapAllAccounts).toHaveBeenCalledTimes(2);
+    expect(
+      mockFetchSwapTokens.mock.calls.filter(
+        ([params]) => (params as { networkId: string }).networkId === 'evm--56',
+      ),
+    ).toHaveLength(1);
+    expect(
+      Object.values(store.get(swapAllNetworkTokenListMapAtom()))
+        .flat()
+        .map((token) => token.networkId),
+    ).toEqual(expect.arrayContaining(['evm--1', 'evm--56']));
+    expect(store.get(swapAllNetworkActionLockAtom())).toEqual({});
   });
 
   it('pins selected token detail price fetches to USD for rate-difference math', async () => {
