@@ -214,7 +214,7 @@ const trackArtifactDownload = async <T>(
   }
 };
 
-const downloadArtifact = async ({
+export const downloadTrustedFirmwareArtifact = async ({
   artifact,
   artifactId,
   transactionId,
@@ -422,7 +422,7 @@ const getBridgeBinaryPlanArtifacts = (
 export async function prepareBridgeFirmwareBinaries(
   plan: FirmwareUpdatePlan,
 ): Promise<IBridgeFirmwareBinaries | undefined> {
-  if (!isFirmwareArtifactCapabilityReady()) {
+  if (!(await isFirmwareArtifactCapabilityReady())) {
     throw new OneKeyLocalError(
       'Installed firmware artifact module is incompatible',
     );
@@ -439,7 +439,7 @@ export async function prepareBridgeFirmwareBinaries(
     for (const planArtifact of planArtifacts) {
       const trustedArtifact = getTrustedFirmwareArtifact(planArtifact.url);
       assertPlanArtifactMatchesCatalog({ planArtifact, trustedArtifact });
-      const receipt = await downloadArtifact({
+      const receipt = await downloadTrustedFirmwareArtifact({
         artifact: trustedArtifact,
         artifactId: planArtifact.artifactId,
         transactionId,
@@ -518,7 +518,7 @@ export async function prepareFirmwareArtifacts(
     preparePlan: CoreApi['prepareFirmwareUpdatePlan'];
   },
 ): Promise<IPreparedFirmwareArtifacts> {
-  if (!isFirmwareArtifactCapabilityReady()) {
+  if (!(await isFirmwareArtifactCapabilityReady())) {
     throw new OneKeyLocalError(
       'Installed firmware artifact module is incompatible',
     );
@@ -541,7 +541,7 @@ export async function prepareFirmwareArtifacts(
     plan.artifacts.map(async (planArtifact) => {
       const trustedArtifact = getTrustedFirmwareArtifact(planArtifact.url);
       assertPlanArtifactMatchesCatalog({ planArtifact, trustedArtifact });
-      const receipt = await downloadArtifact({
+      const receipt = await downloadTrustedFirmwareArtifact({
         artifact: trustedArtifact,
         artifactId: planArtifact.artifactId,
         transactionId,
@@ -665,10 +665,10 @@ export const isFirmwareArtifactCapabilityReadyValue = (
   );
 };
 
-export function isFirmwareArtifactCapabilityReady(): boolean {
+export async function isFirmwareArtifactCapabilityReady(): Promise<boolean> {
   try {
     return isFirmwareArtifactCapabilityReadyValue(
-      firmwareArtifactAdapter.getCapabilities(),
+      await firmwareArtifactAdapter.getCapabilities(),
     );
   } catch {
     return false;

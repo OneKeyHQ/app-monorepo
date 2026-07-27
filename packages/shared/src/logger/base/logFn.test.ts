@@ -1,9 +1,10 @@
 import appGlobals from '../../appGlobals';
+import { getLoggerExtension } from '../extensions';
 import { loggerConfig } from '../loggerConfig';
 import { captureLoggerUtmParamsFromUrl } from '../utmParams';
 
 import { BaseScene } from './baseScene';
-import { LogToServer } from './decorators';
+import { LogToLocal, LogToServer } from './decorators';
 
 import type { Analytics } from '../../analytics';
 
@@ -15,6 +16,11 @@ class ServerLogScene extends BaseScene {
 
   @LogToServer()
   campaignEvent(params: Record<string, string>) {
+    return params;
+  }
+
+  @LogToLocal({ always: true, level: 'info' })
+  selfTest(params: { runId: string }) {
     return params;
   }
 }
@@ -61,5 +67,19 @@ describe('logFn', () => {
     expect(trackEvent).toHaveBeenCalledWith('utmParamsCaptured', {
       utm_source: 'dedicated',
     });
+  });
+
+  it('writes an always-local diagnostic when its scene is disabled', () => {
+    const info = jest
+      .spyOn(getLoggerExtension(''), 'info')
+      .mockImplementation(() => undefined);
+    const scene = new ServerLogScene();
+
+    scene.selfTest({ runId: 'fwtx:test' });
+    jest.runOnlyPendingTimers();
+
+    expect(info).toHaveBeenCalledWith(
+      expect.stringContaining('"runId":"fwtx:test"'),
+    );
   });
 });

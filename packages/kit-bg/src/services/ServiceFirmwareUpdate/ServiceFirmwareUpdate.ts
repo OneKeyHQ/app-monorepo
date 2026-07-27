@@ -9,6 +9,7 @@ import semver from 'semver';
 import {
   backgroundClass,
   backgroundMethod,
+  backgroundMethodForDev,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
@@ -46,6 +47,7 @@ import { parseFirmwareVersions } from '@onekeyhq/shared/src/logger/scopes/update
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IFirmwareUpdateRolloutPlatform } from '@onekeyhq/shared/src/request/types/ipTable';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
@@ -97,6 +99,16 @@ import {
   restoreFirmwareUpdatePlanFromPrepared,
   restorePreparedFirmwareArtifacts,
 } from './FirmwareArtifactPreflight';
+import {
+  type IFirmwareArtifactSelfTestPhase,
+  type IFirmwareArtifactSelfTestProgress,
+  type IFirmwareArtifactSelfTestScenario,
+  type IFirmwareArtifactSelfTestState,
+  executeFirmwareArtifactSelfTest,
+  getFirmwareArtifactSelfTestArtifact,
+  getFirmwareArtifactSelfTestErrorCode,
+  getFirmwareArtifactSelfTestPlatform,
+} from './FirmwareArtifactSelfTest';
 import {
   FIRMWARE_ONBOARDING_MAX_VERSIONS_BEHIND,
   FIRMWARE_UPDATE_MIN_BATTERY_LEVEL,
@@ -223,8 +235,180 @@ class ServiceFirmwareUpdate extends ServiceBase {
     IFirmwareCheckpointBinding
   >();
 
+  private firmwareArtifactSelfTestState?: IFirmwareArtifactSelfTestState;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  private updateFirmwareArtifactSelfTestState({
+    phase,
+    progress,
+    bytesRead,
+    chunkCount,
+    materializedEntryCount,
+  }: IFirmwareArtifactSelfTestProgress): void {
+    const current = this.firmwareArtifactSelfTestState;
+    if (!current || current.status !== 'running') return;
+    const now = Date.now();
+    const next = {
+      ...current,
+      phase,
+      progress,
+      updatedAt: now,
+      bytesRead: bytesRead ?? current.bytesRead,
+      chunkCount: chunkCount ?? current.chunkCount,
+      materializedEntryCount:
+        materializedEntryCount ?? current.materializedEntryCount,
+    };
+    this.firmwareArtifactSelfTestState = next;
+    const enteredNewPhase = phase !== current.phase;
+    const enteredNewProgressBucket =
+      Math.floor(progress / 5) !== Math.floor(current.progress / 5);
+    if (enteredNewPhase || enteredNewProgressBucket) {
+      this.logFirmwareArtifactSelfTest({
+        state: next,
+        outcome: 'progress',
+      });
+    }
+  }
+
+  private logFirmwareArtifactSelfTest({
+    state,
+    outcome,
+  }: {
+    state: IFirmwareArtifactSelfTestState;
+    outcome: 'started' | 'progress' | 'success' | 'failure' | 'cancelled';
+  }): void {
+    defaultLogger.update.firmware.firmwareArtifactSelfTest({
+      runId: state.runId,
+      runtime: 'bg',
+      platform: state.platform,
+      scenario: state.descriptor.scenario,
+      phase: state.phase,
+      outcome,
+      durationMs: Date.now() - state.startedAt,
+      bytes: state.bytesRead || undefined,
+      chunkCount: state.chunkCount || undefined,
+      materializedEntryCount: state.materializedEntryCount || undefined,
+      errorCode: state.errorCode,
+    });
+  }
+
+  private finishFirmwareArtifactSelfTest({
+    phase,
+    status,
+    result,
+    errorCode,
+  }: {
+    phase: Extract<
+      IFirmwareArtifactSelfTestPhase,
+      'completed' | 'failed' | 'cancelled'
+    >;
+    status: Extract<
+      IFirmwareArtifactSelfTestState['status'],
+      'completed' | 'failed' | 'cancelled'
+    >;
+    result?: {
+      bytesRead: number;
+      chunkCount: number;
+      materializedEntryCount: number;
+      deletedFiles: number;
+      deletedBytes: number;
+    };
+    errorCode?: string;
+  }): void {
+    const current = this.firmwareArtifactSelfTestState;
+    if (!current) return;
+    const completedAt = Date.now();
+    const next = {
+      ...current,
+      phase,
+      status,
+      progress: status === 'completed' ? 100 : current.progress,
+      updatedAt: completedAt,
+      completedAt,
+      bytesRead: result?.bytesRead ?? current.bytesRead,
+      chunkCount: result?.chunkCount ?? current.chunkCount,
+      materializedEntryCount:
+        result?.materializedEntryCount ?? current.materializedEntryCount,
+      deletedFiles: result?.deletedFiles ?? current.deletedFiles,
+      deletedBytes: result?.deletedBytes ?? current.deletedBytes,
+      errorCode,
+    };
+    this.firmwareArtifactSelfTestState = next;
+    let outcome: 'success' | 'failure' | 'cancelled' = 'failure';
+    if (status === 'completed') {
+      outcome = 'success';
+    } else if (status === 'cancelled') {
+      outcome = 'cancelled';
+    }
+    this.logFirmwareArtifactSelfTest({
+      state: next,
+      outcome,
+    });
+  }
+
+  @backgroundMethodForDev()
+  async startFirmwareArtifactSelfTest({
+    scenario,
+  }: {
+    scenario: IFirmwareArtifactSelfTestScenario;
+  }): Promise<IFirmwareArtifactSelfTestState> {
+    if (this.firmwareArtifactSelfTestState?.status === 'running') {
+      throw new OneKeyLocalError(
+        'Another firmware artifact self-test is already running',
+      );
+    }
+    const runId = generateUUID();
+    const transactionId = `fwtx:${runId}`;
+    const now = Date.now();
+    const state: IFirmwareArtifactSelfTestState = {
+      runId,
+      descriptor: getFirmwareArtifactSelfTestArtifact(scenario).descriptor,
+      platform: getFirmwareArtifactSelfTestPlatform(),
+      status: 'running',
+      phase: 'starting',
+      progress: 0,
+      startedAt: now,
+      updatedAt: now,
+      bytesRead: 0,
+      chunkCount: 0,
+      materializedEntryCount: 0,
+      deletedFiles: 0,
+      deletedBytes: 0,
+    };
+    this.firmwareArtifactSelfTestState = state;
+    this.logFirmwareArtifactSelfTest({ state, outcome: 'started' });
+    void executeFirmwareArtifactSelfTest({
+      scenario,
+      transactionId,
+      onProgress: (next) => this.updateFirmwareArtifactSelfTestState(next),
+    })
+      .then((result) => {
+        this.finishFirmwareArtifactSelfTest({
+          phase: 'completed',
+          status: 'completed',
+          result,
+        });
+      })
+      .catch((error) => {
+        const errorCode = getFirmwareArtifactSelfTestErrorCode(error);
+        const cancelled = errorCode === 'ARTIFACT_CANCELLED';
+        this.finishFirmwareArtifactSelfTest({
+          phase: cancelled ? 'cancelled' : 'failed',
+          status: cancelled ? 'cancelled' : 'failed',
+          errorCode,
+        });
+      });
+    return state;
+  }
+
+  @backgroundMethodForDev()
+  async getFirmwareArtifactSelfTestState(): Promise<
+    IFirmwareArtifactSelfTestState | undefined
+  > {
+    return this.firmwareArtifactSelfTestState;
   }
 
   async getSDKInstance({
@@ -267,7 +451,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   private async getExternalFirmwareSdk(
     connectId: string | undefined,
   ): Promise<CoreApi | undefined> {
-    if (!isFirmwareArtifactCapabilityReady()) {
+    if (!(await isFirmwareArtifactCapabilityReady())) {
       return undefined;
     }
     if (platformEnv.isDesktop) {
@@ -1505,7 +1689,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       const bridgeBinaryReady =
         platformEnv.isDesktop &&
         currentTransportType === EHardwareTransportType.Bridge &&
-        isFirmwareArtifactCapabilityReady();
+        (await isFirmwareArtifactCapabilityReady());
       const externalPreparedReady =
         externalFirmwareSdk &&
         (currentTransactionOwnsPlan ||
