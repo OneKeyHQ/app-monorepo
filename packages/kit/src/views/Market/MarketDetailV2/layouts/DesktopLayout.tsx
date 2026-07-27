@@ -237,6 +237,7 @@ export function DesktopLayout({
     () =>
       getMarketDetailTradingViewNativeSource({
         hyperliquidCoin: nativeHyperliquidCoin,
+        isNative,
         marketDataSource: marketTradingViewParams?.dataSource,
         networkId,
         symbol: tokenDetail?.symbol ?? '',
@@ -245,6 +246,7 @@ export function DesktopLayout({
     [
       marketTradingViewParams?.dataSource,
       nativeHyperliquidCoin,
+      isNative,
       networkId,
       tokenAddress,
       tokenDetail?.symbol,

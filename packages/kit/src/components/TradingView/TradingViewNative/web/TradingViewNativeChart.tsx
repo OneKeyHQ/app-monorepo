@@ -67,6 +67,7 @@ import {
 } from '../utils/chartLegend';
 import { isTradingViewNativePriceUp } from '../utils/chartStyle';
 import {
+  type ITradingViewNativeViewportRequest,
   type ITradingViewNativeVisiblePointRange,
   clampTradingViewNativePanOffset,
   clampTradingViewNativeZoomScale,
@@ -74,7 +75,9 @@ import {
   getTradingViewNativeDataUpdateMetadata,
   getTradingViewNativePointIndexAtX,
   getTradingViewNativePriceExtrema,
+  getTradingViewNativeViewportForPointRange,
   getTradingViewNativeViewportOffsetTransition,
+  getTradingViewNativeViewportPointRange,
   getTradingViewNativeVisiblePointRange,
   getTradingViewNativeZoomedViewport,
 } from '../utils/chartViewport';
@@ -104,11 +107,14 @@ interface ITradingViewNativeChartProps {
   candleIntervalSeconds: number;
   chartPictureVersion: number;
   isSwitchingInterval: boolean;
+  onChartWidthChange?: (width: number) => void;
+  onViewportRequestApplied?: (requestId: number) => void;
   onVisiblePointRangeChange?: (
     range: ITradingViewNativeVisiblePointRange,
   ) => void;
   points: IMarketTokenKLineDataPoint[];
   testID?: string;
+  viewportRequest?: ITradingViewNativeViewportRequest | null;
 }
 
 interface IChartViewportState {
@@ -117,6 +123,7 @@ interface IChartViewportState {
 }
 
 interface IPointerDragState {
+  currentClientX: number;
   pointerId: number;
   startClientX: number;
   startOffset: number;
@@ -657,13 +664,20 @@ export const TradingViewNativeChart = memo(
   ({
     candleIntervalSeconds,
     isSwitchingInterval,
+    onChartWidthChange,
+    onViewportRequestApplied,
     onVisiblePointRangeChange,
     points,
     testID,
+    viewportRequest,
   }: ITradingViewNativeChartProps) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const crosshairPositionRef = useRef<ICrosshairPosition | null>(null);
     const pointerDragStateRef = useRef<IPointerDragState | null>(null);
+    const appliedViewportRequestRef = useRef({
+      chartWidth: 0,
+      requestId: 0,
+    });
     const [watermarkImage, setWatermarkImage] =
       useState<HTMLImageElement | null>(null);
     const [measuredChartWidth, setMeasuredChartWidth] = useState(0);
@@ -686,6 +700,10 @@ export const TradingViewNativeChart = memo(
     const axisText = theme.textSubdued.val;
     const watermarkOpacity =
       themeName === 'dark' ? WATERMARK_DARK_OPACITY : WATERMARK_LIGHT_OPACITY;
+
+    useEffect(() => {
+      onChartWidthChange?.(measuredChartWidth);
+    }, [measuredChartWidth, onChartWidthChange]);
 
     useEffect(() => {
       const image = new Image();
@@ -775,6 +793,59 @@ export const TradingViewNativeChart = memo(
     }, [pointCount, points]);
 
     useLayoutEffect(() => {
+      if (
+        !viewportRequest ||
+        (viewportRequest.requestId ===
+          appliedViewportRequestRef.current.requestId &&
+          measuredChartWidth ===
+            appliedViewportRequestRef.current.chartWidth) ||
+        measuredChartWidth <= 0 ||
+        pointCount <= 0
+      ) {
+        return;
+      }
+      const pointRange = getTradingViewNativeViewportPointRange({
+        points,
+        target: viewportRequest.target,
+      });
+      if (!pointRange) {
+        return;
+      }
+      const nextViewport = getTradingViewNativeViewportForPointRange({
+        ...pointRange,
+        chartWidth: measuredChartWidth,
+        currentZoomScale: zoomScale,
+        pointCount,
+      });
+      if (!nextViewport) {
+        return;
+      }
+
+      appliedViewportRequestRef.current = {
+        chartWidth: measuredChartWidth,
+        requestId: viewportRequest.requestId,
+      };
+      crosshairPositionRef.current = null;
+      const dragState = pointerDragStateRef.current;
+      if (viewportRequest.preserveVisibleAnchor && dragState) {
+        dragState.startClientX = dragState.currentClientX;
+        dragState.startOffset = nextViewport.offset;
+        dragState.zoomScale = nextViewport.zoomScale;
+      } else {
+        pointerDragStateRef.current = null;
+      }
+      setViewportState(nextViewport);
+      onViewportRequestApplied?.(viewportRequest.requestId);
+    }, [
+      measuredChartWidth,
+      onViewportRequestApplied,
+      pointCount,
+      points,
+      viewportRequest,
+      zoomScale,
+    ]);
+
+    useLayoutEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) {
         return undefined;
@@ -834,6 +905,7 @@ export const TradingViewNativeChart = memo(
 
         const chartWidth = getCanvasChartWidth(event.currentTarget);
         pointerDragStateRef.current = {
+          currentClientX: event.clientX,
           pointerId: event.pointerId,
           startClientX: event.clientX,
           startOffset: clampTradingViewNativePanOffset({
@@ -865,6 +937,7 @@ export const TradingViewNativeChart = memo(
         }
 
         event.preventDefault();
+        dragState.currentClientX = event.clientX;
         const chartWidth = getCanvasChartWidth(event.currentTarget);
         const nextOffset = clampTradingViewNativePanOffset({
           chartWidth,
