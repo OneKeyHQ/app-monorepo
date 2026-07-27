@@ -3735,15 +3735,17 @@ class ServiceAccount extends ServiceBase {
           isMockedStandardHwWallet,
         });
       },
-      verifySeedMatchFn:
-        vendor === EHardwareVendor.ledger
-          ? async (matchedDevice) =>
-              verifyLedgerSeedMatch(
-                this.backgroundApi,
-                matchedDevice,
-                compatibleConnectId,
-              )
-          : undefined,
+      // Gated by vendor capability, not `vendor === ledger`, so a future vendor
+      // with the same non-persistent-identity connectId opts in via its profile
+      // instead of a new branch here.
+      verifySeedMatchFn: vendorProfile?.requiresSeedVerifyOnConnectIdMatch
+        ? async (matchedDevice) =>
+            verifyLedgerSeedMatch(
+              this.backgroundApi,
+              matchedDevice,
+              compatibleConnectId,
+            )
+        : undefined,
       // Seed-rebind on identity miss, gated by vendor capability (Trezor only
       // today; Ledger/OneKey opt out via profile). xfp is closed over (SDK-
       // derived, absent from the DB layer); the rest comes from the hook ctx.
