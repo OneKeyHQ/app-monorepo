@@ -79,6 +79,81 @@ type ITerminalDeliveryClaimResult =
       expiresAt: number;
     };
 
+type IUnknownRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is IUnknownRecord {
+  return typeof value === 'object' && value !== null;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === 'string';
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function isValidSupportedAssetChain(
+  value: unknown,
+): value is IUnifoldSupportedAsset['chains'][number] {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    isNonEmptyString(value.chain_id) &&
+    isNonEmptyString(value.chain_name) &&
+    isNonEmptyString(value.chain_type) &&
+    isString(value.icon_url) &&
+    isString(value.token_address) &&
+    isFiniteNumber(value.decimals) &&
+    isFiniteNumber(value.estimated_price_impact_percent) &&
+    isFiniteNumber(value.max_slippage_percent) &&
+    isFiniteNumber(value.estimated_processing_time) &&
+    isFiniteNumber(value.minimum_deposit_amount_usd)
+  );
+}
+
+function sanitizeSupportedAssets(value: unknown): IUnifoldSupportedAsset[] {
+  let rawAssets: unknown[] = [];
+  if (Array.isArray(value)) {
+    rawAssets = value;
+  } else if (isRecord(value) && Array.isArray(value.data)) {
+    rawAssets = value.data;
+  }
+
+  return rawAssets.flatMap((asset): IUnifoldSupportedAsset[] => {
+    if (
+      !isRecord(asset) ||
+      !isNonEmptyString(asset.symbol) ||
+      !isNonEmptyString(asset.name) ||
+      !isString(asset.icon_url) ||
+      typeof asset.is_newly_added !== 'boolean' ||
+      typeof asset.is_stablecoin !== 'boolean' ||
+      !Array.isArray(asset.chains)
+    ) {
+      return [];
+    }
+    const chains = asset.chains.filter(isValidSupportedAssetChain);
+    if (!chains.length) {
+      return [];
+    }
+    return [
+      {
+        symbol: asset.symbol,
+        name: asset.name,
+        icon_url: asset.icon_url,
+        is_newly_added: asset.is_newly_added,
+        is_stablecoin: asset.is_stablecoin,
+        chains,
+      },
+    ];
+  });
+}
+
 @backgroundClass()
 export default class ServiceUnifoldDeposit extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -152,17 +227,16 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
     // supported-assets is a vendor catalog passthrough: the envelope's `data`
     // wraps the vendor's own `{ data: [...] }` (contract §2.1) — verified
     // against the live local wallet service. Unwrap defensively either way.
-    const data = await this.requestUnifold<
-      IUnifoldSupportedAsset[] | { data?: IUnifoldSupportedAsset[] }
-    >({
+    const data = await this.requestUnifold<unknown>({
       method: 'get',
       url: '/wallet/v1/perp/unifold/supported-assets',
       params: { ...destination },
     });
-    if (Array.isArray(data)) {
-      return data;
-    }
-    return data?.data ?? [];
+    // This IPC boundary must never trust the vendor payload's TypeScript
+    // shape. Drop malformed assets/chains before kit code calls string/number
+    // methods on them; an empty result is the existing fail-closed
+    // "unavailable" signal.
+    return sanitizeSupportedAssets(data);
   }
 
   // Security MUST-2, background half. The kit-side guard cross-checks the

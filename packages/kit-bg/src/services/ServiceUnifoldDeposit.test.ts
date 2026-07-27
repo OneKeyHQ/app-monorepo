@@ -1,6 +1,7 @@
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   type IUnifoldDepositExecution,
+  type IUnifoldSupportedAsset,
   UNIFOLD_ERROR_CODE_LOCAL_ACTIVATION_UNAVAILABLE,
   UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH,
   UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_SANCTIONED,
@@ -124,6 +125,34 @@ function createService() {
   });
 }
 
+const SUPPORTED_ASSETS_DESTINATION = {
+  destinationChainType: 'ethereum',
+  destinationChainId: '1337',
+  destinationTokenAddress: '0x00000000000000000000000000000000',
+};
+
+const VALID_SUPPORTED_ASSET: IUnifoldSupportedAsset = {
+  symbol: 'USDC',
+  name: 'USD Coin',
+  icon_url: '',
+  is_newly_added: false,
+  is_stablecoin: true,
+  chains: [
+    {
+      chain_id: '42161',
+      chain_name: 'Arbitrum One',
+      chain_type: 'ethereum',
+      icon_url: '',
+      token_address: '0x1234',
+      decimals: 6,
+      estimated_price_impact_percent: 0,
+      max_slippage_percent: 0.25,
+      estimated_processing_time: 60,
+      minimum_deposit_amount_usd: 3,
+    },
+  ],
+};
+
 describe('ServiceUnifoldDeposit tracking delivery', () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -139,6 +168,71 @@ describe('ServiceUnifoldDeposit tracking delivery', () => {
   afterEach(() => {
     jest.clearAllTimers();
     jest.useRealTimers();
+  });
+
+  it('filters malformed supported asset catalog entries at the bg boundary', async () => {
+    const service = createService();
+    jest
+      .spyOn(
+        service as unknown as {
+          requestUnifold: (request: unknown) => Promise<unknown>;
+        },
+        'requestUnifold',
+      )
+      .mockResolvedValue({
+        data: [
+          {
+            ...VALID_SUPPORTED_ASSET,
+            chains: [
+              VALID_SUPPORTED_ASSET.chains[0],
+              {
+                ...VALID_SUPPORTED_ASSET.chains[0],
+                chain_id: 'missing-chain-type',
+                chain_type: undefined,
+              },
+              {
+                ...VALID_SUPPORTED_ASSET.chains[0],
+                chain_id: 'invalid-decimals',
+                decimals: '6',
+              },
+            ],
+          },
+          {
+            ...VALID_SUPPORTED_ASSET,
+            symbol: '',
+          },
+        ],
+      });
+
+    await expect(
+      service.getSupportedAssets(SUPPORTED_ASSETS_DESTINATION),
+    ).resolves.toEqual([VALID_SUPPORTED_ASSET]);
+  });
+
+  it('returns an unavailable empty catalog when no valid source chain remains', async () => {
+    const service = createService();
+    jest
+      .spyOn(
+        service as unknown as {
+          requestUnifold: (request: unknown) => Promise<unknown>;
+        },
+        'requestUnifold',
+      )
+      .mockResolvedValue([
+        {
+          ...VALID_SUPPORTED_ASSET,
+          chains: [
+            {
+              ...VALID_SUPPORTED_ASSET.chains[0],
+              max_slippage_percent: Number.POSITIVE_INFINITY,
+            },
+          ],
+        },
+      ]);
+
+    await expect(
+      service.getSupportedAssets(SUPPORTED_ASSETS_DESTINATION),
+    ).resolves.toEqual([]);
   });
 
   it('fails closed when bg cannot restore the active perps account', async () => {

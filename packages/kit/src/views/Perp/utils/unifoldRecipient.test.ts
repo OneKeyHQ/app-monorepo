@@ -1,6 +1,7 @@
 import {
   getSafeUnifoldRecipient,
   isUnifoldDepositAccountDisabled,
+  isUnifoldRecipientAligned,
 } from './unifoldRecipient';
 
 const ADDR = '0x1111111111111111111111111111111111111111';
@@ -71,5 +72,34 @@ describe('isUnifoldDepositAccountDisabled', () => {
   it('keeps deposits enabled for signable and missing account ids', () => {
     expect(isUnifoldDepositAccountDisabled('hd-1--m/44/60/0/0/0')).toBe(false);
     expect(isUnifoldDepositAccountDisabled(undefined)).toBe(false);
+  });
+});
+
+describe('isUnifoldRecipientAligned', () => {
+  it('requires a non-empty live account matching the frozen recipient', () => {
+    expect(
+      isUnifoldRecipientAligned({
+        recipient: ADDR,
+        activeAccountAddress: ADDR,
+      }),
+    ).toBe(true);
+    expect(
+      isUnifoldRecipientAligned({
+        recipient: ADDR,
+        activeAccountAddress: ADDR.toUpperCase(),
+      }),
+    ).toBe(true);
+    expect(
+      isUnifoldRecipientAligned({
+        recipient: ADDR,
+        activeAccountAddress: null,
+      }),
+    ).toBe(false);
+    expect(
+      isUnifoldRecipientAligned({
+        recipient: ADDR,
+        activeAccountAddress: '0x2222222222222222222222222222222222222222',
+      }),
+    ).toBe(false);
   });
 });

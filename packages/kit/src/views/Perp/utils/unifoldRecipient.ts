@@ -9,6 +9,20 @@ export function isUnifoldDepositAccountDisabled(
   return accountUtils.isWatchingAccount({ accountId: accountId ?? '' });
 }
 
+export function isUnifoldRecipientAligned({
+  recipient,
+  activeAccountAddress,
+}: {
+  recipient: string | null | undefined;
+  activeAccountAddress: string | null | undefined;
+}): boolean {
+  return Boolean(
+    recipient &&
+    activeAccountAddress &&
+    recipient.toLowerCase() === activeAccountAddress.toLowerCase(),
+  );
+}
+
 // Fail-closed guard: the Unifold recipient MUST be the currently active Perps
 // account address at the moment the deposit session starts. Any mismatch
 // aborts the deposit instead of falling back to a possibly-stale value, so a
@@ -26,7 +40,7 @@ export function getSafeUnifoldRecipient({
   if (!EVM_ADDRESS_RE.test(recipient)) {
     return null;
   }
-  if (recipient.toLowerCase() !== activeAccountAddress.toLowerCase()) {
+  if (!isUnifoldRecipientAligned({ recipient, activeAccountAddress })) {
     return null;
   }
   return recipient;

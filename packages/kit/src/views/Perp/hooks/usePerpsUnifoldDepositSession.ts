@@ -43,7 +43,10 @@ import {
   hasUsableUnifoldSupportedAssets,
 } from '../utils/unifoldDestination';
 import { shouldEnableUnifoldLedgerUpdates } from '../utils/unifoldExecution';
-import { getSafeUnifoldRecipient } from '../utils/unifoldRecipient';
+import {
+  getSafeUnifoldRecipient,
+  isUnifoldRecipientAligned,
+} from '../utils/unifoldRecipient';
 
 // Default source preference mirrors the SDK config used before the API
 // migration: Arbitrum USDC.
@@ -150,9 +153,8 @@ function readErrorCode(error: unknown): number | undefined {
 function toErrorType(error: unknown): IUnifoldDepositErrorType {
   const code = readErrorCode(error);
   if (code === UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH) {
-    // The bg guard rejected the recipient. Retrying cannot change that, so
-    // this must land on the terminal (veto) screen rather than the 5s
-    // "retrying automatically" loop that un-coded throws fall into.
+    // The caller decides whether a missing live account is only a transient
+    // alignment pause. A positive mismatch still lands on the sticky veto.
     return 'accountMismatch';
   }
   if (code === UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_SANCTIONED) {
@@ -319,24 +321,26 @@ export function usePerpsUnifoldDepositSession({
   // PREVIOUS account — and still toast "deposit completed" for it — with no
   // visible cue, since the vendor address never changes.
   //
-  // Positive mismatch only: a null address is the transient state while a
-  // switch is in flight, not evidence of a different account, and this veto is
-  // sticky by design (it can never be undone).
-  //
-  // Deliberately does NOT stop the executions poll: money already in flight
-  // for the original recipient must still be tracked and handed to the bg loop
-  // at unmount. Only the address stops being shown.
+  // A positive mismatch is a sticky veto for this session. A null live address
+  // is only a transient disconnected/switching state, so the non-sticky
+  // alignment gate below pauses address exposure and foreground tracking until
+  // the same account returns without permanently vetoing the session.
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const liveAccountAddress = activePerpsAccount.accountAddress;
+  const isLiveAccountAligned = isUnifoldRecipientAligned({
+    recipient: recipientAddress,
+    activeAccountAddress: liveAccountAddress,
+  });
   useEffect(() => {
-    if (
-      recipientAddress &&
-      liveAccountAddress &&
-      liveAccountAddress.toLowerCase() !== recipientAddress.toLowerCase()
-    ) {
+    if (recipientAddress && liveAccountAddress && !isLiveAccountAligned) {
       applyAddressState({ status: 'error', errorType: 'accountMismatch' });
     }
-  }, [liveAccountAddress, recipientAddress, applyAddressState]);
+  }, [
+    liveAccountAddress,
+    recipientAddress,
+    isLiveAccountAligned,
+    applyAddressState,
+  ]);
 
   const [selection, setSelection] = useState<IUnifoldSourceSelection | null>(
     () => readCachedSourceSelection(destination),
@@ -471,7 +475,12 @@ export function usePerpsUnifoldDepositSession({
   // ── Deposit address (echo-checked in bg); 5s auto-retry on failure ──
   const [addressAttempt, setAddressAttempt] = useState(0);
   useEffect(() => {
-    if (!enabled || !recipientAddress || vetoRef.current) {
+    if (
+      !enabled ||
+      !recipientAddress ||
+      !isLiveAccountAligned ||
+      vetoRef.current
+    ) {
       return;
     }
     let cancelled = false;
@@ -491,6 +500,16 @@ export function usePerpsUnifoldDepositSession({
           return;
         }
         const errorType = toErrorType(error);
+        if (
+          errorType === 'accountMismatch' &&
+          !jotaiDefaultStore.get(perpsActiveAccountAtom.atom()).accountAddress
+        ) {
+          // A disconnect/switch can make the bg guard fail while the request
+          // is in flight. Missing identity is a non-sticky pause; the live
+          // alignment dependency restarts this request if the same account
+          // returns.
+          return;
+        }
         applyAddressState({
           status: 'error',
           errorType,
@@ -515,6 +534,7 @@ export function usePerpsUnifoldDepositSession({
   }, [
     enabled,
     recipientAddress,
+    isLiveAccountAligned,
     addressAttempt,
     applyAddressState,
     destination,
@@ -668,7 +688,12 @@ export function usePerpsUnifoldDepositSession({
     [recipientAddress],
   );
   useEffect(() => {
-    if (!enabled || !recipientAddress || !pollEnabled) {
+    if (
+      !enabled ||
+      !recipientAddress ||
+      !pollEnabled ||
+      !isLiveAccountAligned
+    ) {
       return;
     }
     let cancelled = false;
@@ -779,7 +804,13 @@ export function usePerpsUnifoldDepositSession({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [enabled, pollEnabled, recipientAddress, trackingClaimId]);
+  }, [
+    enabled,
+    pollEnabled,
+    recipientAddress,
+    trackingClaimId,
+    isLiveAccountAligned,
+  ]);
 
   // ── Hand tracking back to the bg loop on unmount ──
   // Runs for every session that claimed tracking, even with nothing in
@@ -822,7 +853,8 @@ export function usePerpsUnifoldDepositSession({
       addressState.status !== 'ready' ||
       !selectableSupportedAssets ||
       !selection ||
-      !activationGatePassed
+      !activationGatePassed ||
+      !isLiveAccountAligned
     ) {
       return null;
     }
@@ -841,6 +873,7 @@ export function usePerpsUnifoldDepositSession({
     selectableSupportedAssets,
     selection,
     activationGatePassed,
+    isLiveAccountAligned,
   ]);
 
   // The ready address is withheld while the screen is pending, so the QR keeps
@@ -851,7 +884,8 @@ export function usePerpsUnifoldDepositSession({
   // never a silent dead end. Derived, never written through
   // `applyAddressState`, so a successful retry restores 'ready' on its own.
   const gatedAddressState: IUnifoldAddressState =
-    addressState.status === 'ready' && !activationGatePassed
+    addressState.status === 'ready' &&
+    (!activationGatePassed || !isLiveAccountAligned)
       ? { status: 'loading' }
       : addressState;
 
@@ -893,7 +927,7 @@ export function usePerpsUnifoldDepositSession({
     selectToken,
     selectChain,
     qrAddress,
-    sessionExecutions,
+    sessionExecutions: isLiveAccountAligned ? sessionExecutions : [],
     acknowledgePresentedExecution,
     // Never claim to be watching for a deposit to an address the user has not
     // been shown: the poll (and its tracking claim) intentionally starts on
