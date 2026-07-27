@@ -53,6 +53,8 @@ import {
   resolveStakeTokenAddress,
 } from '../../../utils/utils';
 
+import { resolveStakeInitialAllowanceTarget } from './StakeSection.utils';
+
 import type {
   IManagePositionFooterAction,
   IManagePositionProtocolSwitchConfig,
@@ -470,56 +472,6 @@ export const StakeSection = ({
     }
   }, [estimateFeeUTXO]);
 
-  const { result: initialAllowanceResult, isLoading: _isLoading = true } =
-    usePromiseResult(
-      async () => {
-        if (
-          !hasRequiredData ||
-          !effectiveApproveType ||
-          !approveSpenderAddress ||
-          effectiveStakeTokenInfo?.token?.isNative
-        ) {
-          return undefined;
-        }
-        // While a protocol switch is in flight (confirm button force-loading),
-        // networkId is already the new chain but token/spender still come from
-        // the previous protocol's stale data — skip to avoid a mismatched
-        // allowance request. Re-runs automatically once fresh data lands.
-        if (footerActionOverride?.loading) {
-          return undefined;
-        }
-        const { allowanceParsed } =
-          await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
-            accountId,
-            networkId,
-            spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
-              approveType: effectiveApproveType,
-              approveSpenderAddress,
-            }),
-            tokenAddress: effectiveStakeTokenInfo?.token.address || '',
-          });
-
-        return { allowanceParsed };
-      },
-      [
-        hasRequiredData,
-        accountId,
-        networkId,
-        approveSpenderAddress,
-        effectiveApproveType,
-        effectiveStakeTokenInfo?.token?.isNative,
-        effectiveStakeTokenInfo?.token.address,
-        footerActionOverride?.loading,
-      ],
-      {
-        watchLoading: true,
-      },
-    );
-
-  const handleStake = useUniversalStake({ accountId, networkId });
-  const handleBorrowSupply = useUniversalBorrowSupply({ accountId, networkId });
-  const handleBorrowBorrow = useUniversalBorrowBorrow({ accountId, networkId });
-
   const borrowSupplyApproveToken = useMemo<IToken | undefined>(() => {
     const token = tokenInfo?.token as IToken | undefined;
     if (!token) {
@@ -554,6 +506,63 @@ export const StakeSection = ({
     networkId,
     useBorrowApi,
   ]);
+
+  const initialAllowanceTarget = resolveStakeInitialAllowanceTarget({
+    borrowSupplyApproveTarget,
+    approveType: effectiveApproveType,
+    spenderAddress: approveSpenderAddress,
+    token: effectiveStakeTokenInfo?.token,
+  });
+
+  const { result: initialAllowanceResult, isLoading: _isLoading = true } =
+    usePromiseResult(
+      async () => {
+        if (
+          !hasRequiredData ||
+          !initialAllowanceTarget.approveType ||
+          !initialAllowanceTarget.spenderAddress ||
+          initialAllowanceTarget.token?.isNative
+        ) {
+          return undefined;
+        }
+        // While a protocol switch is in flight (confirm button force-loading),
+        // networkId is already the new chain but token/spender still come from
+        // the previous protocol's stale data — skip to avoid a mismatched
+        // allowance request. Re-runs automatically once fresh data lands.
+        if (footerActionOverride?.loading) {
+          return undefined;
+        }
+        const { allowanceParsed } =
+          await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
+            accountId,
+            networkId,
+            spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+              approveType: initialAllowanceTarget.approveType,
+              approveSpenderAddress: initialAllowanceTarget.spenderAddress,
+            }),
+            tokenAddress: initialAllowanceTarget.token?.address || '',
+          });
+
+        return { allowanceParsed };
+      },
+      [
+        hasRequiredData,
+        accountId,
+        networkId,
+        initialAllowanceTarget.approveType,
+        initialAllowanceTarget.spenderAddress,
+        initialAllowanceTarget.token?.isNative,
+        initialAllowanceTarget.token?.address,
+        footerActionOverride?.loading,
+      ],
+      {
+        watchLoading: true,
+      },
+    );
+
+  const handleStake = useUniversalStake({ accountId, networkId });
+  const handleBorrowSupply = useUniversalBorrowSupply({ accountId, networkId });
+  const handleBorrowBorrow = useUniversalBorrowBorrow({ accountId, networkId });
 
   const onConfirm = useCallback(
     async ({

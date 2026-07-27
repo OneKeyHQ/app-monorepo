@@ -1,5 +1,11 @@
 /* eslint-disable import/first */
 
+jest.mock('react-intl', () => ({
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }) => id,
+  }),
+}));
+
 jest.mock('@onekeyhq/components', () => ({
   __esModule: true,
   Toast: {
@@ -23,6 +29,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   const serviceStaking = {
     addEarnOrder: jest.fn(),
     borrowBuildSetCollateralTransaction: jest.fn(),
+    getBorrowTransactionConfirmation: jest.fn(),
   };
   (globalThis as Record<string, unknown>).__setCollateralBackgroundMock = {
     serviceStaking,
@@ -59,6 +66,7 @@ const backgroundMock = (globalThis as Record<string, unknown>)
   serviceStaking: {
     addEarnOrder: jest.Mock;
     borrowBuildSetCollateralTransaction: jest.Mock;
+    getBorrowTransactionConfirmation: jest.Mock;
   };
 };
 
@@ -96,9 +104,16 @@ describe('useUniversalBorrowSetCollateral', () => {
     signatureConfirmMock.navigationToTxConfirm.mockReset();
     backgroundMock.serviceStaking.addEarnOrder.mockReset();
     backgroundMock.serviceStaking.borrowBuildSetCollateralTransaction.mockReset();
+    backgroundMock.serviceStaking.getBorrowTransactionConfirmation.mockReset();
 
     signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
     backgroundMock.serviceStaking.addEarnOrder.mockResolvedValue(undefined);
+    backgroundMock.serviceStaking.getBorrowTransactionConfirmation.mockResolvedValue(
+      {
+        canBeCollateral: true,
+        liquidationRisk: false,
+      },
+    );
     backgroundMock.serviceStaking.borrowBuildSetCollateralTransaction.mockResolvedValue(
       {
         tx: JSON.stringify({ to: '0xpool', data: '0xenable' }),
@@ -131,6 +146,18 @@ describe('useUniversalBorrowSetCollateral', () => {
       });
     });
 
+    expect(
+      backgroundMock.serviceStaking.getBorrowTransactionConfirmation.mock
+        .calls[0][0],
+    ).toStrictEqual({
+      networkId: 'evm--1',
+      accountId: 'account-1',
+      ...baseParams,
+      action: 'setCollateral',
+      amount: '0',
+      useAsCollateral: true,
+      eModeId: 0,
+    });
     expect(
       backgroundMock.serviceStaking.borrowBuildSetCollateralTransaction.mock
         .calls[0][0],
@@ -169,6 +196,10 @@ describe('useUniversalBorrowSetCollateral', () => {
     const buildParams =
       backgroundMock.serviceStaking.borrowBuildSetCollateralTransaction.mock
         .calls[0][0];
+    const confirmationParams =
+      backgroundMock.serviceStaking.getBorrowTransactionConfirmation.mock
+        .calls[0][0];
+    expect(confirmationParams).not.toHaveProperty('eModeId');
     expect(buildParams).toStrictEqual({
       networkId: 'evm--1',
       accountId: 'account-1',
@@ -176,6 +207,117 @@ describe('useUniversalBorrowSetCollateral', () => {
       useAsCollateral: false,
     });
     expect(buildParams).not.toHaveProperty('eModeId');
+  });
+
+  it('revalidates immediately before building the transaction', async () => {
+    const { result } = renderSetCollateral();
+
+    await act(async () => {
+      await result.current({
+        ...baseParams,
+        useAsCollateral: true,
+        stakingInfo,
+      });
+    });
+
+    expect(
+      backgroundMock.serviceStaking.getBorrowTransactionConfirmation.mock
+        .invocationCallOrder[0],
+    ).toBeLessThan(
+      backgroundMock.serviceStaking.borrowBuildSetCollateralTransaction.mock
+        .invocationCallOrder[0],
+    );
+  });
+
+  it('fails closed when the authoritative confirmation is unavailable', async () => {
+    backgroundMock.serviceStaking.getBorrowTransactionConfirmation.mockRejectedValue(
+      new Error('confirmation unavailable'),
+    );
+    const { result } = renderSetCollateral();
+
+    await act(async () => {
+      await expect(
+        result.current({
+          ...baseParams,
+          useAsCollateral: false,
+          stakingInfo,
+        }),
+      ).rejects.toThrow('confirmation unavailable');
+    });
+
+    expect(
+      backgroundMock.serviceStaking.borrowBuildSetCollateralTransaction,
+    ).not.toHaveBeenCalled();
+    expect(signatureConfirmMock.navigationToTxConfirm).not.toHaveBeenCalled();
+  });
+
+  it('blocks a collateral transition with liquidation risk', async () => {
+    backgroundMock.serviceStaking.getBorrowTransactionConfirmation.mockResolvedValue(
+      {
+        liquidationRisk: true,
+      },
+    );
+    const { result } = renderSetCollateral();
+
+    await act(async () => {
+      await expect(
+        result.current({
+          ...baseParams,
+          useAsCollateral: false,
+          stakingInfo,
+        }),
+      ).rejects.toThrow('defi_disable_collateral_liquidation_risk__desc');
+    });
+
+    expect(
+      backgroundMock.serviceStaking.borrowBuildSetCollateralTransaction,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('blocks enablement when collateral is explicitly unavailable', async () => {
+    backgroundMock.serviceStaking.getBorrowTransactionConfirmation.mockResolvedValue(
+      {
+        canBeCollateral: false,
+        liquidationRisk: false,
+      },
+    );
+    const { result } = renderSetCollateral();
+
+    await act(async () => {
+      await expect(
+        result.current({
+          ...baseParams,
+          useAsCollateral: true,
+          stakingInfo,
+        }),
+      ).rejects.toThrow('defi_action_unavailable__msg');
+    });
+
+    expect(
+      backgroundMock.serviceStaking.borrowBuildSetCollateralTransaction,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('allows disablement when canBeCollateral is false', async () => {
+    backgroundMock.serviceStaking.getBorrowTransactionConfirmation.mockResolvedValue(
+      {
+        canBeCollateral: false,
+        liquidationRisk: false,
+      },
+    );
+    const { result } = renderSetCollateral();
+
+    await act(async () => {
+      await result.current({
+        ...baseParams,
+        useAsCollateral: false,
+        stakingInfo,
+      });
+    });
+
+    expect(
+      backgroundMock.serviceStaking.borrowBuildSetCollateralTransaction,
+    ).toHaveBeenCalledTimes(1);
   });
 
   it('reports broadcast success even when order tracking fails', async () => {

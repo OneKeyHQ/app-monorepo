@@ -52,7 +52,7 @@ type IBorrowApprovalRequest = {
   submit: () => Promise<void>;
 };
 
-type TBorrowAllowancePollingResult = 'ready' | 'aborted' | 'timedOut';
+type IBorrowAllowancePollingResult = 'ready' | 'aborted' | 'timedOut';
 
 function getBorrowApprovalSubmitErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
@@ -130,6 +130,7 @@ export function useBorrowApproval({
   const [approving, setApproving] = useState(false);
   const mountedRef = useRef(false);
   const allowanceAbortRef = useRef<AbortController | undefined>(undefined);
+  const approvalInFlightRef = useRef(false);
   const approvalScopeKey = JSON.stringify([
     action,
     amountValue,
@@ -181,6 +182,7 @@ export function useBorrowApproval({
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      approvalInFlightRef.current = false;
       allowanceAbortRef.current?.abort();
       allowanceAbortRef.current = undefined;
     };
@@ -206,6 +208,7 @@ export function useBorrowApproval({
       submit: onApprovedSubmit,
     };
     if (!isSameRequest) {
+      approvalInFlightRef.current = false;
       stopAllowancePolling();
       setApprovingSafe(false);
     }
@@ -237,11 +240,23 @@ export function useBorrowApproval({
       if (!isCurrentApprovalRequest(request)) {
         return false;
       }
+      approvalInFlightRef.current = false;
       stopAllowancePolling();
       setApprovingSafe(false);
       return true;
     },
     [isCurrentApprovalRequest, setApprovingSafe, stopAllowancePolling],
+  );
+
+  const beginApprovalRequest = useCallback(
+    (request: IBorrowApprovalRequest) => {
+      if (approvalInFlightRef.current || !isCurrentApprovalRequest(request)) {
+        return false;
+      }
+      approvalInFlightRef.current = true;
+      return true;
+    },
+    [isCurrentApprovalRequest],
   );
 
   const startAllowancePolling = useCallback(() => {
@@ -375,7 +390,7 @@ export function useBorrowApproval({
       maxAttempts?: number;
       intervalMs?: number;
       signal?: AbortSignal;
-    }): Promise<TBorrowAllowancePollingResult> => {
+    }): Promise<IBorrowAllowancePollingResult> => {
       if (!enabled) {
         return 'ready';
       }
@@ -590,7 +605,7 @@ export function useBorrowApproval({
   const onApprove = useCallback(async () => {
     if (delegationApprovalEnabled && borrowDelegationApproveTarget) {
       const request = getApprovalRequest();
-      if (!isCurrentApprovalRequest(request)) {
+      if (!beginApprovalRequest(request)) {
         return;
       }
       Keyboard.dismiss();
@@ -688,7 +703,7 @@ export function useBorrowApproval({
       return;
     }
     const request = getApprovalRequest();
-    if (!isCurrentApprovalRequest(request)) {
+    if (!beginApprovalRequest(request)) {
       return;
     }
 
@@ -802,6 +817,7 @@ export function useBorrowApproval({
     amountValue,
     approvalEnabled,
     approveTarget,
+    beginApprovalRequest,
     borrowDelegationApproveTarget,
     delegationApprovalEnabled,
     fetchBorrowDelegationAllowance,

@@ -128,8 +128,8 @@ function CollateralConfirmDialogContent({
   const confirmDisabled =
     previewPending || liquidationRisk || actionUnavailable;
   const handleConfirm = useCallback(async () => {
-    // The button state is not a security boundary. Re-check the latest
-    // authoritative preview in case an imperative caller invokes confirm.
+    // This guard protects the dialog interaction. The final transaction owner
+    // performs another authoritative preview immediately before building.
     if (confirmDisabled) {
       return;
     }

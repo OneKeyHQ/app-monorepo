@@ -4,6 +4,88 @@ import {
   type IEarnTokenInfo,
 } from '@onekeyhq/shared/types/staking';
 
+export type IScopedBorrowManagePageResult = {
+  requestKey: string;
+  data?: IEarnManagePageResponse;
+  failed?: boolean;
+};
+
+export async function settleScopedBorrowManagePageRequest({
+  requestKey,
+  request,
+}: {
+  requestKey: string;
+  request: () => Promise<IEarnManagePageResponse>;
+}): Promise<IScopedBorrowManagePageResult> {
+  try {
+    return {
+      requestKey,
+      data: await request(),
+    };
+  } catch {
+    // A failed request still owns the current scope. Settling it explicitly
+    // ends the loading state without exposing data from the previous asset.
+    return {
+      requestKey,
+      failed: true,
+    };
+  }
+}
+
+export function buildSelectedBorrowManagePageRequestKey({
+  accountId,
+  networkId,
+  provider,
+  marketAddress,
+  reserveAddress,
+  action,
+}: {
+  accountId: string;
+  networkId: string;
+  provider: string;
+  marketAddress?: string;
+  reserveAddress?: string;
+  action?: 'withdraw' | 'repay';
+}) {
+  if (
+    !accountId ||
+    !networkId ||
+    !provider ||
+    !marketAddress ||
+    reserveAddress === undefined ||
+    !action
+  ) {
+    return '';
+  }
+
+  return JSON.stringify([
+    accountId,
+    networkId,
+    provider,
+    marketAddress,
+    reserveAddress,
+    action,
+  ]);
+}
+
+export function resolveScopedBorrowManagePageResult({
+  requestKey,
+  result,
+  isLoading,
+}: {
+  requestKey: string;
+  result?: IScopedBorrowManagePageResult;
+  isLoading?: boolean;
+}) {
+  const isCurrent =
+    !!requestKey && !!result && result.requestKey === requestKey;
+
+  return {
+    data: isCurrent ? result.data : undefined,
+    isPending: !!requestKey && (!isCurrent || !!isLoading),
+  };
+}
+
 export function resolveBorrowManageApproveType({
   isBorrowTokenApproval,
   approveType,

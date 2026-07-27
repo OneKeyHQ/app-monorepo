@@ -327,6 +327,39 @@ describe('useBorrowApproval', () => {
     expect(onApprovedSubmit).not.toHaveBeenCalled();
   });
 
+  it('prevents concurrent approval preflights for the same request', async () => {
+    const allowanceDeferred = createDeferred<{ allowanceParsed: string }>();
+    allowanceMock.fetchAllowanceResponse.mockReturnValue(
+      allowanceDeferred.promise,
+    );
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useBorrowApproval({
+        action: 'repay',
+        amountValue: '5',
+        approveType: EApproveType.Legacy,
+        approveTarget: tokenApproveTarget,
+        onApprovedSubmit,
+      }),
+    );
+
+    let firstApproval!: Promise<void>;
+    let duplicateApproval!: Promise<void>;
+    act(() => {
+      firstApproval = result.current.onApprove();
+      duplicateApproval = result.current.onApprove();
+    });
+
+    expect(allowanceMock.fetchAllowanceResponse).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      allowanceDeferred.resolve({ allowanceParsed: '0' });
+      await Promise.all([firstApproval, duplicateApproval]);
+    });
+
+    expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(1);
+  });
+
   it('warns and releases approving when allowance polling times out', async () => {
     jest.useFakeTimers();
     try {

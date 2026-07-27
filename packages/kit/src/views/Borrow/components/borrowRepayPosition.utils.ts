@@ -340,12 +340,14 @@ export function buildBorrowRepayPositionKey({
   repayAll,
   slippageBps,
   hasDebtPosition = true,
+  scopeKey,
 }: {
   amount: string;
   collateralReserveAddress?: string;
   repayAll: boolean;
   slippageBps?: number;
   hasDebtPosition?: boolean;
+  scopeKey?: string;
 }) {
   const amountBN = new BigNumber(amount);
   if (
@@ -358,6 +360,7 @@ export function buildBorrowRepayPositionKey({
   }
 
   return [
+    ...(scopeKey ? [scopeKey] : []),
     amount,
     collateralReserveAddress,
     repayAll ? '1' : '0',

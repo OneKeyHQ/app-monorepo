@@ -25,7 +25,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   };
 });
 
-import { useUniversalBorrowAction } from '.';
+import {
+  resolveBorrowCheckAmountStateForRequest,
+  useUniversalBorrowAction,
+} from '.';
 
 import { act, renderHook } from '@testing-library/react-native';
 
@@ -148,5 +151,29 @@ describe('useUniversalBorrowAction', () => {
     expect(result.current.checkAmountLoading).toBe(false);
     expect(result.current.checkAmountMessage).toBe('');
     expect(result.current.checkAmountResult).toBe(true);
+  });
+
+  it('fails closed when rendered params do not own the visible check result', () => {
+    expect(
+      resolveBorrowCheckAmountStateForRequest({
+        requestKey: 'reserve-b',
+        shouldCheckAmount: true,
+        state: {
+          requestKey: 'reserve-a',
+          checkAmountMessage: '',
+          checkAmountAlerts: [],
+          checkAmountLoading: false,
+          checkAmountResult: true,
+          riskOfLiquidationAlert: false,
+        },
+      }),
+    ).toEqual({
+      requestKey: 'reserve-b',
+      checkAmountMessage: '',
+      checkAmountAlerts: [],
+      checkAmountLoading: true,
+      checkAmountResult: undefined,
+      riskOfLiquidationAlert: undefined,
+    });
   });
 });

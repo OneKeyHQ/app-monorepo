@@ -17,7 +17,10 @@ import {
 
 import { buildLocalTxStatusSyncId } from '../../../utils/utils';
 
-import { buildManagePageApproveInfo } from './useManagePage.utils';
+import {
+  buildManagePageApproveInfo,
+  buildManagePageRequestKey,
+} from './useManagePage.utils';
 
 export { EManagePositionType };
 
@@ -52,16 +55,17 @@ export const useManagePage = ({
   // protocol switch: child effects (e.g. allowance fetch) run before this
   // hook's own reload effect flips isLoading, so isLoading alone can't guard
   // the first render where fresh params meet stale data.
-  const requestKey = [
+  const requestKey = buildManagePageRequestKey({
     accountId,
+    indexedAccountId,
     networkId,
     symbol,
     provider,
-    vault ?? '',
+    vault,
     type,
-    reserveAddress ?? '',
-    marketAddress ?? '',
-  ].join('|');
+    reserveAddress,
+    marketAddress,
+  });
 
   const {
     result,

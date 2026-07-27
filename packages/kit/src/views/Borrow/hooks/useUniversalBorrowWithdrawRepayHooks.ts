@@ -32,6 +32,7 @@ export type IBorrowBuildTxParams = {
   stakingInfo?: IStakingInfo;
   onSetupLutReadyForRepay?: () => void;
   onBeforeNavigate?: () => void | Promise<void>;
+  ignoreOrderTrackingError?: boolean;
   onSettleResult?: (
     result: IBorrowSettleResult,
   ) => boolean | void | Promise<boolean | void>;
@@ -241,6 +242,7 @@ export function useUniversalBorrowRepay({
       repayAll,
       stakingInfo,
       onBeforeNavigate,
+      ignoreOrderTrackingError,
       onSettleResult,
       onSuccess,
       onFail,
@@ -274,6 +276,7 @@ export function useUniversalBorrowRepay({
             networkId,
             accountId,
             stakingInfo: stakingInfoWithOrderId,
+            ignoreOrderTrackingError,
             onSettleResult,
             onSuccess,
           });

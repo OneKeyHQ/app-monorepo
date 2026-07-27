@@ -27,6 +27,7 @@ import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
 import { NetworkUnsupportedWarning } from '../../../components/ProtocolDetails/NetworkUnsupportedWarning';
 import { NoAddressWarning } from '../../../components/ProtocolDetails/NoAddressWarning';
 import { EManagePositionType, useManagePage } from '../hooks/useManagePage';
+import { shouldBlockManagePageAction } from '../hooks/useManagePage.utils';
 
 import { AdaManageContent } from './AdaManageContent';
 import { ManagePageV2Content } from './ManagePageV2Content';
@@ -508,16 +509,15 @@ export function ManagePositionContent({
     });
   }, [intl, type, defaultTab]);
 
-  // When switching protocols, useManagePage re-fetches while keeping the
-  // previous (stale) data on screen. Surface that whole refetch as one loading
-  // on the confirm button — instead of letting it surface late/scattered on a
-  // downstream request — and disable the button so stale data can't be acted on.
-  // isStaleData flips synchronously on the very render the params change (before
-  // any effect runs), so downstream fetch gates see it in time; isLoading covers
-  // any same-key refresh tail.
-  const isSwitchingProtocol = Boolean(
-    stakeProtocolSwitchConfig && (isStaleData || isLoading) && managePageData,
-  );
+  // Stale request identity must always block actions, including account
+  // switches on pages without a protocol switcher. The loading tail remains
+  // specific to protocol switching so ordinary same-scope refreshes stay usable.
+  const isSwitchingProtocol = shouldBlockManagePageAction({
+    hasManagePageData: !!managePageData,
+    isStaleData,
+    isLoading,
+    hasProtocolSwitch: !!stakeProtocolSwitchConfig,
+  });
   const switchingFooterAction = useMemo<
     IManagePositionFooterAction | undefined
   >(

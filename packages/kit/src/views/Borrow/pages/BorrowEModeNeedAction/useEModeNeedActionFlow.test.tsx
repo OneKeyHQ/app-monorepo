@@ -73,6 +73,7 @@ jest.mock(
       isChecking: false,
       runCheck: jest.fn(),
       applyAuthoritativeCheck: jest.fn(),
+      getCheckGeneration: jest.fn(() => 7),
     };
     (
       globalThis as unknown as {
@@ -85,6 +86,7 @@ jest.mock(
         isChecking: switchMock.isChecking,
         runCheck: switchMock.runCheck,
         applyAuthoritativeCheck: switchMock.applyAuthoritativeCheck,
+        getCheckGeneration: switchMock.getCheckGeneration,
       }),
     };
   },
@@ -159,6 +161,7 @@ const switchMock = (
       isChecking: boolean;
       runCheck: jest.Mock;
       applyAuthoritativeCheck: jest.Mock;
+      getCheckGeneration: jest.Mock;
     };
   }
 ).__eModeNeedActionSwitchMock;
@@ -256,6 +259,8 @@ describe('useEModeNeedActionFlow approval continuation', () => {
     switchMock.isChecking = false;
     switchMock.runCheck.mockReset();
     switchMock.applyAuthoritativeCheck.mockReset();
+    switchMock.getCheckGeneration.mockReset();
+    switchMock.getCheckGeneration.mockReturnValue(7);
     tokenMock.fetchTokensDetails.mockReset();
     tokenMock.fetchTokensDetails.mockImplementation(
       async ({ contractList }: { contractList: string[] }) =>
@@ -292,6 +297,7 @@ describe('useEModeNeedActionFlow approval continuation', () => {
     expect(universalMock.repay).toHaveBeenCalledWith(
       expect.objectContaining({
         amount: '3',
+        ignoreOrderTrackingError: true,
         reserveAddress: '0xReserve',
       }),
     );
@@ -562,9 +568,13 @@ describe('useEModeNeedActionFlow approval continuation', () => {
 
     await waitFor(() => {
       expect(universalMock.setEMode).toHaveBeenCalledTimes(1);
+      expect(universalMock.setEMode).toHaveBeenCalledWith(
+        expect.objectContaining({ ignoreOrderTrackingError: true }),
+      );
       expect(switchMock.applyAuthoritativeCheck).toHaveBeenCalledWith({
         eModeId: 2,
         nextCheck: latestBlockedCheck,
+        expectedGeneration: 7,
       });
     });
     rerender({});

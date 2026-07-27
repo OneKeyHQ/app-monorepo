@@ -12,6 +12,7 @@ import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   type IBorrowEModeSwitchCheck,
+  type IBorrowTransactionConfirmation,
   type IRepayWithCollateralQuote,
   type IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
@@ -576,6 +577,7 @@ export function useUniversalBorrowSetEMode({
       marketAddress,
       eModeId,
       stakingInfo,
+      ignoreOrderTrackingError,
       onSuccess,
       onFail,
       onCancel,
@@ -584,6 +586,7 @@ export function useUniversalBorrowSetEMode({
       marketAddress: string;
       eModeId: number;
       stakingInfo?: IStakingInfo;
+      ignoreOrderTrackingError?: boolean;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
       onCancel?: () => void;
@@ -653,6 +656,7 @@ export function useUniversalBorrowSetEMode({
             accountId,
             stakingInfo: stakingInfoWithOrderId,
             waitForFinalStatus,
+            ignoreOrderTrackingError,
             onSuccess,
           });
         },
@@ -676,6 +680,7 @@ export function useUniversalBorrowSetCollateral({
     accountId,
     networkId,
   });
+  const intl = useIntl();
   return useCallback(
     async ({
       provider,
@@ -698,6 +703,55 @@ export function useUniversalBorrowSetCollateral({
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
       onCancel?: () => void;
     }) => {
+      let confirmation: IBorrowTransactionConfirmation | undefined;
+      try {
+        confirmation =
+          await backgroundApiProxy.serviceStaking.getBorrowTransactionConfirmation(
+            {
+              networkId,
+              accountId,
+              provider,
+              marketAddress,
+              reserveAddress,
+              action: 'setCollateral',
+              amount: '0',
+              useAsCollateral,
+              ...(useAsCollateral && eModeId !== undefined ? { eModeId } : {}),
+            },
+          );
+      } catch (error) {
+        if (
+          (error as { autoToast?: boolean } | undefined)?.autoToast !== true
+        ) {
+          const message = (error as { message?: unknown } | undefined)?.message;
+          Toast.error({
+            title:
+              typeof message === 'string' && message
+                ? message
+                : intl.formatMessage({ id: ETranslations.global_failed }),
+          });
+        }
+        throw error;
+      }
+
+      const unavailable =
+        !confirmation ||
+        confirmation.liquidationRisk === true ||
+        (useAsCollateral && confirmation.canBeCollateral === false);
+      if (unavailable) {
+        const message = intl.formatMessage({
+          id:
+            confirmation?.liquidationRisk === true
+              ? ETranslations.defi_disable_collateral_liquidation_risk__desc
+              : ETranslations.defi_action_unavailable__msg,
+        });
+        Toast.error({ title: message });
+        throw new OneKeyLocalError({
+          message,
+          autoToast: false,
+        });
+      }
+
       const resp =
         await backgroundApiProxy.serviceStaking.borrowBuildSetCollateralTransaction(
           {
@@ -734,6 +788,6 @@ export function useUniversalBorrowSetCollateral({
         onCancel,
       });
     },
-    [accountId, networkId, navigationToTxConfirm],
+    [accountId, intl, networkId, navigationToTxConfirm],
   );
 }

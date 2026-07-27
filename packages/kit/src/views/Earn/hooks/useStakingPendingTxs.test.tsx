@@ -8,14 +8,20 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 }));
 
 jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => {
-  const actual = jest.requireActual(
-    '@onekeyhq/shared/src/utils/timerUtils',
-  ) as typeof import('@onekeyhq/shared/src/utils/timerUtils');
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/utils/timerUtils')
+  >('@onekeyhq/shared/src/utils/timerUtils');
+  const timerMock = { durationMs: 0 };
+  (
+    globalThis as unknown as {
+      __stakingPendingTxsTimerMock: typeof timerMock;
+    }
+  ).__stakingPendingTxsTimerMock = timerMock;
   return {
     __esModule: true,
     default: {
       ...actual.default,
-      getTimeDurationMs: () => 0,
+      getTimeDurationMs: () => timerMock.durationMs,
     },
   };
 });
@@ -25,9 +31,9 @@ jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => {
-  const { useDeferredPromise } = jest.requireActual(
-    '../../../../../components/src/hooks/useDeferredPromise',
-  ) as typeof import('../../../../../components/src/hooks/useDeferredPromise');
+  const { useDeferredPromise } = jest.requireActual<
+    typeof import('../../../../../components/src/hooks/useDeferredPromise')
+  >('../../../../../components/src/hooks/useDeferredPromise');
   return {
     __esModule: true,
     getCurrentVisibilityState: () => true,
@@ -73,6 +79,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   const backgroundMock = {
     fetchAccountHistory: jest.fn(),
     getAccountLocalHistoryPendingTxs: jest.fn(),
+    getNetworkAccountsInSameIndexedAccountId: jest.fn(),
     getAccountMetaForNetworksBatch: jest.fn(),
     getFetchHistoryPollingIntervalsBatch: jest.fn(),
   };
@@ -85,6 +92,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
     __esModule: true,
     default: {
       serviceAccount: {
+        getNetworkAccountsInSameIndexedAccountId:
+          backgroundMock.getNetworkAccountsInSameIndexedAccountId,
         getAccountMetaForNetworksBatch:
           backgroundMock.getAccountMetaForNetworksBatch,
       },
@@ -115,11 +124,19 @@ const backgroundMock = (
     __stakingPendingTxsBackgroundMock: {
       fetchAccountHistory: jest.Mock;
       getAccountLocalHistoryPendingTxs: jest.Mock;
+      getNetworkAccountsInSameIndexedAccountId: jest.Mock;
       getAccountMetaForNetworksBatch: jest.Mock;
       getFetchHistoryPollingIntervalsBatch: jest.Mock;
     };
   }
 ).__stakingPendingTxsBackgroundMock;
+const timerMock = (
+  globalThis as unknown as {
+    __stakingPendingTxsTimerMock: {
+      durationMs: number;
+    };
+  }
+).__stakingPendingTxsTimerMock;
 
 const pendingTag = 'borrow:aave:setEMode';
 const pendingTagMatcher = (tag: string) => tag === pendingTag;
@@ -135,9 +152,14 @@ function createPendingTx(id: string): IStakePendingTx {
 
 describe('useStakingPendingTxsByInfo history verification', () => {
   beforeEach(() => {
+    timerMock.durationMs = 0;
     backgroundMock.fetchAccountHistory.mockReset();
     backgroundMock.fetchAccountHistory.mockResolvedValue(undefined);
     backgroundMock.getAccountLocalHistoryPendingTxs.mockReset();
+    backgroundMock.getNetworkAccountsInSameIndexedAccountId.mockReset();
+    backgroundMock.getNetworkAccountsInSameIndexedAccountId.mockResolvedValue(
+      [],
+    );
     backgroundMock.getAccountMetaForNetworksBatch.mockReset();
     backgroundMock.getAccountMetaForNetworksBatch.mockImplementation(
       async ({
@@ -184,6 +206,30 @@ describe('useStakingPendingTxsByInfo history verification', () => {
     expect(result.current.pendingHistoryFailedNetworkIds).toEqual(['evm--1']);
   });
 
+  it('automatically retries an unverified pending-history result', async () => {
+    timerMock.durationMs = 5;
+    const pendingTx = createPendingTx('recovered-pending');
+    backgroundMock.getAccountLocalHistoryPendingTxs
+      .mockRejectedValueOnce(new OneKeyLocalError('history unavailable'))
+      .mockResolvedValue([pendingTx]);
+
+    const { result } = renderHook(() =>
+      useStakingPendingTxsByInfo({
+        networkIds: ['evm--1'],
+        accountId: 'route-account',
+        tagMatcher: pendingTagMatcher,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        backgroundMock.getAccountLocalHistoryPendingTxs.mock.calls.length,
+      ).toBeGreaterThanOrEqual(2);
+      expect(result.current.isPendingHistoryVerified).toBe(true);
+      expect(result.current.filteredTxs).toEqual([pendingTx]);
+    });
+  });
+
   it('fails closed when an expected network account meta cannot be resolved', async () => {
     backgroundMock.getAccountMetaForNetworksBatch.mockRejectedValue(
       new OneKeyLocalError('account meta unavailable'),
@@ -206,6 +252,98 @@ describe('useStakingPendingTxsByInfo history verification', () => {
       backgroundMock.getAccountLocalHistoryPendingTxs,
     ).not.toHaveBeenCalled();
     expect(result.current.pendingHistoryFailedNetworkIds).toEqual(['evm--1']);
+  });
+
+  it('fails closed when the requested network account map cannot be resolved', async () => {
+    backgroundMock.getNetworkAccountsInSameIndexedAccountId.mockRejectedValue(
+      new OneKeyLocalError('account map unavailable'),
+    );
+
+    const { result } = renderHook(() =>
+      useStakingPendingTxsByInfo({
+        networkIds: ['evm--8453'],
+        indexedAccountId: 'route-indexed-account',
+        tagMatcher: pendingTagMatcher,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.isPendingHistoryVerified).toBe(false);
+    });
+
+    expect(
+      backgroundMock.getAccountLocalHistoryPendingTxs,
+    ).not.toHaveBeenCalled();
+    expect(result.current.pendingHistoryFailedNetworkIds).toEqual([
+      'evm--8453',
+    ]);
+  });
+
+  it('fails closed for networks missing from a partial account map', async () => {
+    backgroundMock.getNetworkAccountsInSameIndexedAccountId.mockResolvedValue([
+      {
+        network: { id: 'evm--1' },
+        account: { id: 'network-1-account' },
+      },
+    ]);
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([]);
+
+    const { result } = renderHook(() =>
+      useStakingPendingTxsByInfo({
+        networkIds: ['evm--1', 'evm--8453'],
+        indexedAccountId: 'route-indexed-account',
+        tagMatcher: pendingTagMatcher,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.isPendingHistoryVerified).toBe(false);
+    });
+
+    expect(backgroundMock.getAccountLocalHistoryPendingTxs).toHaveBeenCalled();
+    expect(
+      backgroundMock.getAccountLocalHistoryPendingTxs.mock.calls.every(
+        ([params]) => params.networkId === 'evm--1',
+      ),
+    ).toBe(true);
+    expect(result.current.pendingHistoryFailedNetworkIds).toEqual([
+      'evm--8453',
+    ]);
+  });
+
+  it('recovers account ownership before retrying pending history', async () => {
+    timerMock.durationMs = 5;
+    const recoveredPendingTx = createPendingTx('recovered-account-map');
+    backgroundMock.getNetworkAccountsInSameIndexedAccountId
+      .mockRejectedValueOnce(new OneKeyLocalError('account map unavailable'))
+      .mockResolvedValue([
+        {
+          network: { id: 'evm--8453' },
+          account: { id: 'route-network-account' },
+        },
+      ]);
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([
+      recoveredPendingTx,
+    ]);
+
+    const { result } = renderHook(() =>
+      useStakingPendingTxsByInfo({
+        networkIds: ['evm--8453'],
+        indexedAccountId: 'route-indexed-account',
+        tagMatcher: pendingTagMatcher,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        backgroundMock.getNetworkAccountsInSameIndexedAccountId.mock.calls
+          .length,
+      ).toBeGreaterThanOrEqual(2);
+      expect(result.current.isPendingHistoryVerified).toBe(true);
+      expect(result.current.filteredTxs).toEqual([recoveredPendingTx]);
+    });
   });
 
   it('keeps the failed network last verified tx on partial success', async () => {

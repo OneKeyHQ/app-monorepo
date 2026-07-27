@@ -67,7 +67,8 @@ export function useEModeSwitch({
 
   const runCheck = useCallback(
     async (eModeId: number) => {
-      const seq = (checkSeqRef.current += 1);
+      const seq = checkSeqRef.current + 1;
+      checkSeqRef.current = seq;
       targetEModeIdRef.current = eModeId;
       setTargetEModeId(eModeId);
       setCheck(null);
@@ -111,11 +112,17 @@ export function useEModeSwitch({
     ({
       eModeId,
       nextCheck,
+      expectedGeneration,
     }: {
       eModeId: number;
       nextCheck: IBorrowEModeSwitchCheck;
+      expectedGeneration: number;
     }) => {
-      if (!mountedRef.current || targetEModeIdRef.current !== eModeId) {
+      if (
+        !mountedRef.current ||
+        targetEModeIdRef.current !== eModeId ||
+        checkSeqRef.current !== expectedGeneration
+      ) {
         return;
       }
       checkSeqRef.current += 1;
@@ -124,6 +131,8 @@ export function useEModeSwitch({
     },
     [],
   );
+
+  const getCheckGeneration = useCallback(() => checkSeqRef.current, []);
 
   // Clear the selected target and its check. Bump the sequence so an in-flight
   // response cannot apply after the target becomes current or disappears.
@@ -141,6 +150,7 @@ export function useEModeSwitch({
     }
     setIsSubmitting(true);
     try {
+      const expectedGeneration = getCheckGeneration();
       const latestCheck = await setEMode({
         provider,
         marketAddress,
@@ -168,6 +178,7 @@ export function useEModeSwitch({
         applyAuthoritativeCheck({
           eModeId: targetEModeId,
           nextCheck: latestCheck,
+          expectedGeneration,
         });
       }
     } catch {
@@ -182,6 +193,7 @@ export function useEModeSwitch({
     targetEModeId,
     isSubmitting,
     applyAuthoritativeCheck,
+    getCheckGeneration,
     setEMode,
     provider,
     marketAddress,
@@ -198,6 +210,7 @@ export function useEModeSwitch({
     isSubmitting,
     runCheck,
     applyAuthoritativeCheck,
+    getCheckGeneration,
     resetTarget,
     confirmSwitch,
   };

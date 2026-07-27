@@ -293,19 +293,21 @@ function RepayWithCollateralForm({
   const { handleOpenWebSite } = useBrowserAction().current;
   const [amountValue, setAmountValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [quote, setQuote] = useState<IRepayWithCollateralQuote | undefined>();
-  const [transactionConfirmation, setTransactionConfirmation] = useState<
+  const [storedQuote, setQuote] = useState<
+    IRepayWithCollateralQuote | undefined
+  >();
+  const [storedTransactionConfirmation, setTransactionConfirmation] = useState<
     IBorrowTransactionConfirmation | undefined
   >();
-  const [checkAmountMessage, setCheckAmountMessage] = useState('');
-  const [checkAmountAlerts, setCheckAmountAlerts] = useState<
+  const [storedCheckAmountMessage, setCheckAmountMessage] = useState('');
+  const [storedCheckAmountAlerts, setCheckAmountAlerts] = useState<
     ICheckAmountAlert[]
   >([]);
-  const [checkAmountLoading, setCheckAmountLoading] = useState(false);
-  const [checkAmountResult, setCheckAmountResult] = useState<
+  const [storedCheckAmountLoading, setCheckAmountLoading] = useState(false);
+  const [storedCheckAmountResult, setCheckAmountResult] = useState<
     boolean | undefined
   >();
-  const [selectedCollateral, setSelectedCollateral] = useState<
+  const [selectedCollateralState, setSelectedCollateral] = useState<
     IRepayCollateralAsset | undefined
   >();
   const [slippage, setSlippage] = useState<ISwapSlippageSegmentItem>({
@@ -319,6 +321,15 @@ function RepayWithCollateralForm({
       currencyInfo: { symbol: currencySymbol },
     },
   ] = useSettingsPersistAtom();
+
+  const selectedCollateral = useMemo(
+    () =>
+      collateralAssets.find(
+        (item) =>
+          item.reserveAddress === selectedCollateralState?.reserveAddress,
+      ),
+    [collateralAssets, selectedCollateralState?.reserveAddress],
+  );
 
   useEffect(() => {
     if (!collateralAssets.length) {
@@ -411,6 +422,23 @@ function RepayWithCollateralForm({
         .toNumber(),
     [slippage.value],
   );
+  const repayScopeKey = useMemo(
+    () =>
+      JSON.stringify([
+        accountId,
+        networkId,
+        providerName,
+        borrowMarketAddress,
+        borrowReserveAddress,
+      ]),
+    [
+      accountId,
+      borrowMarketAddress,
+      borrowReserveAddress,
+      networkId,
+      providerName,
+    ],
+  );
 
   const repayProgressKey = useMemo(() => {
     // Once the debt is cleared, stop auto re-quoting with the stale input value.
@@ -420,11 +448,13 @@ function RepayWithCollateralForm({
       repayAll: isRepayAll,
       slippageBps,
       hasDebtPosition,
+      scopeKey: repayScopeKey,
     });
   }, [
     hasDebtPosition,
     isRepayAll,
     normalizedAmount,
+    repayScopeKey,
     selectedCollateral?.reserveAddress,
     slippageBps,
   ]);
@@ -454,6 +484,7 @@ function RepayWithCollateralForm({
       collateralReserveAddress: selectedCollateral?.reserveAddress,
       repayAll: isRepayAll,
       hasDebtPosition,
+      scopeKey: repayScopeKey,
     });
     return appendBorrowRepaySetupState({
       requestKey,
@@ -464,6 +495,7 @@ function RepayWithCollateralForm({
     hasDebtPosition,
     isRepayAll,
     normalizedAmount,
+    repayScopeKey,
     selectedCollateral?.reserveAddress,
   ]);
 
@@ -729,6 +761,26 @@ function RepayWithCollateralForm({
     normalizedAmount,
     selectedCollateral,
   ]);
+
+  const isRepayRequestCurrent = repayRequestKeyRef.current === repayRequestKey;
+  const quote = isRepayRequestCurrent ? storedQuote : undefined;
+  const transactionConfirmation = isRepayRequestCurrent
+    ? storedTransactionConfirmation
+    : undefined;
+  const isCheckAmountRequestCurrent =
+    checkAmountRequestKeyRef.current === checkAmountRequestKey;
+  const checkAmountMessage = isCheckAmountRequestCurrent
+    ? storedCheckAmountMessage
+    : '';
+  const checkAmountAlerts = isCheckAmountRequestCurrent
+    ? storedCheckAmountAlerts
+    : [];
+  const checkAmountResult = isCheckAmountRequestCurrent
+    ? storedCheckAmountResult
+    : undefined;
+  const checkAmountLoading = isCheckAmountRequestCurrent
+    ? storedCheckAmountLoading
+    : Boolean(checkAmountRequestKey);
 
   const isCheckAmountMessageError = useMemo(
     () => amountValue.length > 0 && !!checkAmountMessage,

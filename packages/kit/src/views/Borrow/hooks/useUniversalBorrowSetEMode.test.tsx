@@ -54,8 +54,8 @@ import { act, renderHook } from '@testing-library/react-native';
 import { Toast } from '@onekeyhq/components';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import {
-  type IBorrowEModeSwitchCheck,
   EEarnLabels,
+  type IBorrowEModeSwitchCheck,
 } from '@onekeyhq/shared/types/staking';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
@@ -196,6 +196,39 @@ describe('useUniversalBorrowSetEMode', () => {
 
     expect(confirmDialogMock).not.toHaveBeenCalled();
     expect(backgroundMock.serviceStaking.addEarnOrder).toHaveBeenCalledTimes(1);
+    expect(onSuccess).toHaveBeenCalledWith(successData);
+  });
+
+  it('reports a broadcast when auxiliary order tracking rejects', async () => {
+    const onSuccess = jest.fn();
+    backgroundMock.serviceStaking.addEarnOrder.mockRejectedValue(
+      new Error('order tracking unavailable'),
+    );
+    const { result } = renderHook(() =>
+      useUniversalBorrowSetEMode({
+        networkId: 'evm--1',
+        accountId: 'hd-1--m/44',
+        waitForFinalStatus: false,
+      }),
+    );
+
+    await act(async () => {
+      await expect(
+        result.current({
+          provider: 'aave',
+          marketAddress: '0xmarket',
+          eModeId: 1,
+          ignoreOrderTrackingError: true,
+          stakingInfo: {
+            label: EEarnLabels.Borrow,
+            protocol: 'aave',
+            tags: [EEarnLabels.Borrow, 'borrow:aave:setEMode'],
+          },
+          onSuccess,
+        }),
+      ).resolves.toEqual(expect.objectContaining({ canSwitch: true }));
+    });
+
     expect(onSuccess).toHaveBeenCalledWith(successData);
   });
 

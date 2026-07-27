@@ -43,7 +43,6 @@ import {
   type IBorrowAsset,
   type IBorrowAssetsList,
   type IEarnAssetsList,
-  type IEarnManagePageResponse,
   type IEarnTokenInfo,
   type IEarnTokenItem,
   type IEarnWithdrawType,
@@ -63,8 +62,12 @@ import {
 import { buildManagePageApproveInfo } from '../hooks/useManagePage.utils';
 
 import {
+  type IScopedBorrowManagePageResult,
+  buildSelectedBorrowManagePageRequestKey,
   resolveBorrowManageApproveType,
   resolveBorrowManageTokenInfo,
+  resolveScopedBorrowManagePageResult,
+  settleScopedBorrowManagePageRequest,
 } from './WithdrawSection.utils';
 
 import type { IManagePositionFooterAction } from './ManagePositionContent';
@@ -202,12 +205,32 @@ export const WithdrawSection = ({
 
     return borrowAction;
   }, [borrowAction, selectedAssetReserveAddress, useBorrowApi]);
+  const selectedBorrowManagePageRequestKey = useMemo(
+    () =>
+      buildSelectedBorrowManagePageRequestKey({
+        accountId,
+        networkId,
+        provider: providerName,
+        marketAddress: borrowMarketAddress,
+        reserveAddress: selectedAssetReserveAddress,
+        action: selectedBorrowManagePageType,
+      }),
+    [
+      accountId,
+      borrowMarketAddress,
+      networkId,
+      providerName,
+      selectedAssetReserveAddress,
+      selectedBorrowManagePageType,
+    ],
+  );
   const {
-    result: selectedBorrowManagePageData,
-    isLoading: selectedBorrowManagePageLoading,
-  } = usePromiseResult<IEarnManagePageResponse | undefined>(
+    result: selectedBorrowManagePageResult,
+    isLoading: selectedBorrowManagePageRequestLoading,
+  } = usePromiseResult<IScopedBorrowManagePageResult | undefined>(
     async () => {
       if (
+        !selectedBorrowManagePageRequestKey ||
         !selectedBorrowManagePageType ||
         selectedAssetReserveAddress === undefined ||
         !accountId ||
@@ -218,13 +241,17 @@ export const WithdrawSection = ({
       ) {
         return undefined;
       }
-      return backgroundApiProxy.serviceStaking.getBorrowManagePage({
-        accountId,
-        networkId,
-        provider: providerName,
-        marketAddress: borrowMarketAddress,
-        reserveAddress: selectedAssetReserveAddress,
-        type: selectedBorrowManagePageType,
+      return settleScopedBorrowManagePageRequest({
+        requestKey: selectedBorrowManagePageRequestKey,
+        request: () =>
+          backgroundApiProxy.serviceStaking.getBorrowManagePage({
+            accountId,
+            networkId,
+            provider: providerName,
+            marketAddress: borrowMarketAddress,
+            reserveAddress: selectedAssetReserveAddress,
+            type: selectedBorrowManagePageType,
+          }),
       });
     },
     [
@@ -234,6 +261,7 @@ export const WithdrawSection = ({
       providerName,
       selectedAssetReserveAddress,
       selectedBorrowManagePageType,
+      selectedBorrowManagePageRequestKey,
       useBorrowApi,
     ],
     {
@@ -241,6 +269,14 @@ export const WithdrawSection = ({
       undefinedResultIfReRun: true,
     },
   );
+  const {
+    data: selectedBorrowManagePageData,
+    isPending: selectedBorrowManagePageLoading,
+  } = resolveScopedBorrowManagePageResult({
+    requestKey: selectedBorrowManagePageRequestKey,
+    result: selectedBorrowManagePageResult,
+    isLoading: selectedBorrowManagePageRequestLoading,
+  });
   const selectedBorrowManagePageApproveInfo = useMemo(
     () =>
       selectedBorrowManagePageData

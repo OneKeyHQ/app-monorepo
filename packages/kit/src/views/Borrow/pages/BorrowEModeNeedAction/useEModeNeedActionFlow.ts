@@ -94,14 +94,19 @@ export function useEModeNeedActionFlow({
       onAllDoneRef.current();
     }
   }, []);
-  const { check, isChecking, runCheck, applyAuthoritativeCheck } =
-    useEModeSwitch({
-      networkId,
-      accountId,
-      provider,
-      marketAddress,
-      onSwitched: handleAllDone, // never reached via this hook (we don't call confirmSwitch)
-    });
+  const {
+    check,
+    isChecking,
+    runCheck,
+    applyAuthoritativeCheck,
+    getCheckGeneration,
+  } = useEModeSwitch({
+    networkId,
+    accountId,
+    provider,
+    marketAddress,
+    onSwitched: handleAllDone, // never reached via this hook (we don't call confirmSwitch)
+  });
   const repay = useUniversalBorrowRepay({ networkId, accountId });
   const setCollateral = useUniversalBorrowSetCollateral({
     networkId,
@@ -192,7 +197,8 @@ export function useEModeNeedActionFlow({
     ).toSorted(),
   );
   useEffect(() => {
-    const seq = (balanceSeqRef.current += 1);
+    const seq = balanceSeqRef.current + 1;
+    balanceSeqRef.current = seq;
     if (!accountId || fundingAddressesKey === '[]') {
       balanceRequestPendingRef.current = false;
       setBalancesLoading(false);
@@ -659,6 +665,7 @@ export function useEModeNeedActionFlow({
           marketAddress,
           reserveAddress: step.reserveAddress,
           repayAll,
+          ignoreOrderTrackingError: true,
           stakingInfo: stakingInfo('repay'),
           ...callbacks,
           onCancel: disarm,
@@ -878,10 +885,12 @@ export function useEModeNeedActionFlow({
               onFail: onStepFail,
             },
           );
+          const expectedGeneration = getCheckGeneration();
           const latestCheck = await setEMode({
             provider,
             marketAddress,
             eModeId: targetEModeId,
+            ignoreOrderTrackingError: true,
             stakingInfo: stakingInfo('setEMode'),
             ...callbacks,
             onCancel: disarm,
@@ -890,6 +899,7 @@ export function useEModeNeedActionFlow({
             applyAuthoritativeCheck({
               eModeId: targetEModeId,
               nextCheck: latestCheck,
+              expectedGeneration,
             });
           }
         }
@@ -910,6 +920,7 @@ export function useEModeNeedActionFlow({
     [
       check,
       applyAuthoritativeCheck,
+      getCheckGeneration,
       approval,
       fireAuthoritativeRepay,
       setCollateral,
@@ -949,7 +960,8 @@ export function useEModeNeedActionFlow({
   // making the footer actionable in between; blocker checks still run after it
   // so amounts/canSwitch stay synchronized with the backend.
   const refresh = useCallback(async () => {
-    const seq = (refreshSeqRef.current += 1);
+    const seq = refreshSeqRef.current + 1;
+    refreshSeqRef.current = seq;
     refreshAbortRef.current?.abort();
     const controller = new AbortController();
     refreshAbortRef.current = controller;

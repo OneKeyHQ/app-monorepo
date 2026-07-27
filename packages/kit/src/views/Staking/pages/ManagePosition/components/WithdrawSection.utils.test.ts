@@ -6,8 +6,11 @@ import {
 } from '@onekeyhq/shared/types/staking';
 
 import {
+  buildSelectedBorrowManagePageRequestKey,
   resolveBorrowManageApproveType,
   resolveBorrowManageTokenInfo,
+  resolveScopedBorrowManagePageResult,
+  settleScopedBorrowManagePageRequest,
 } from './WithdrawSection.utils';
 
 const createToken = (symbol: string): IEarnToken => ({
@@ -52,6 +55,121 @@ describe('resolveBorrowManageApproveType', () => {
         approveType: EApproveType.Permit,
       }),
     ).toBe(EApproveType.Permit);
+  });
+});
+
+describe('selected Borrow manage-page request identity', () => {
+  const requestParams = {
+    accountId: 'account-1',
+    networkId: 'evm--1',
+    provider: 'aave',
+    marketAddress: 'market-1',
+    action: 'repay' as const,
+  };
+
+  it('changes when the selected reserve changes', () => {
+    expect(
+      buildSelectedBorrowManagePageRequestKey({
+        ...requestParams,
+        reserveAddress: 'reserve-a',
+      }),
+    ).not.toBe(
+      buildSelectedBorrowManagePageRequestKey({
+        ...requestParams,
+        reserveAddress: 'reserve-b',
+      }),
+    );
+  });
+
+  it('fails closed while the previous selected reserve result is visible', () => {
+    const currentRequestKey = buildSelectedBorrowManagePageRequestKey({
+      ...requestParams,
+      reserveAddress: 'reserve-b',
+    });
+    const previousRequestKey = buildSelectedBorrowManagePageRequestKey({
+      ...requestParams,
+      reserveAddress: 'reserve-a',
+    });
+    const previousData: IEarnManagePageResponse = {
+      repay: {
+        type: 'repay',
+        disabled: false,
+        text: { text: 'Repay' },
+        data: {
+          balance: '1',
+          token: {
+            info: createToken('DAI'),
+            price: '1',
+          },
+        },
+      },
+    };
+
+    expect(
+      resolveScopedBorrowManagePageResult({
+        requestKey: currentRequestKey,
+        result: {
+          requestKey: previousRequestKey,
+          data: previousData,
+        },
+        isLoading: false,
+      }),
+    ).toEqual({
+      data: undefined,
+      isPending: true,
+    });
+  });
+
+  it('settles a rejected current request without exposing stale data', async () => {
+    const currentRequestKey = buildSelectedBorrowManagePageRequestKey({
+      ...requestParams,
+      reserveAddress: 'reserve-b',
+    });
+    const result = await settleScopedBorrowManagePageRequest({
+      requestKey: currentRequestKey,
+      request: jest.fn().mockRejectedValue(new Error('network unavailable')),
+    });
+
+    expect(result).toEqual({
+      requestKey: currentRequestKey,
+      failed: true,
+    });
+    expect(
+      resolveScopedBorrowManagePageResult({
+        requestKey: currentRequestKey,
+        result,
+        isLoading: false,
+      }),
+    ).toEqual({
+      data: undefined,
+      isPending: false,
+    });
+  });
+
+  it('does not let a rejected previous request settle the current scope', async () => {
+    const currentRequestKey = buildSelectedBorrowManagePageRequestKey({
+      ...requestParams,
+      reserveAddress: 'reserve-b',
+    });
+    const previousRequestKey = buildSelectedBorrowManagePageRequestKey({
+      ...requestParams,
+      reserveAddress: 'reserve-a',
+    });
+    const previousResult = await settleScopedBorrowManagePageRequest({
+      requestKey: previousRequestKey,
+      request: jest.fn().mockRejectedValue(new Error('stale failure')),
+    });
+
+    expect(
+      resolveScopedBorrowManagePageResult({
+        requestKey: currentRequestKey,
+        result: previousResult,
+        isLoading: false,
+      }),
+    ).toEqual({
+      data: undefined,
+      isPending: true,
+    });
   });
 });
 

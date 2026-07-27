@@ -198,17 +198,13 @@ describe('useEModeSwitch runCheck result', () => {
     expect(backgroundMock.borrowSwitchCheckEMode).toHaveBeenCalledTimes(1);
   });
 
-  it('does not overwrite a newer same-target check with an allowed guard result', async () => {
+  it('does not overwrite a newer same-target check with blocked guard results', async () => {
     const allowedPreview = {
       ...createCheck(''),
       canSwitch: true,
       reasons: [],
     };
-    const allowedGuard = {
-      ...createCheck(''),
-      canSwitch: true,
-      reasons: [],
-    };
+    const staleBlockedGuard = createCheck('stale final blocker');
     const newerBlockedCheck = createCheck('newer blocker');
     const guardDeferred = createDeferred<IBorrowEModeSwitchCheck>();
     backgroundMock.borrowSwitchCheckEMode
@@ -241,7 +237,7 @@ describe('useEModeSwitch runCheck result', () => {
     expect(result.current.check).toBe(newerBlockedCheck);
 
     await act(async () => {
-      guardDeferred.resolve(allowedGuard);
+      guardDeferred.resolve(staleBlockedGuard);
       await confirmPromise;
     });
 

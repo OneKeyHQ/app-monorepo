@@ -437,8 +437,11 @@ export const useStakingPendingTxsByInfo = ({
     ],
     { initResult: {}, watchLoading: true },
   );
-  const { result: networkAccountMap, isLoading: networkAccountMapLoading } =
-    networkAccountResult;
+  const {
+    result: networkAccountMap,
+    isLoading: networkAccountMapLoading,
+    run: refreshNetworkAccountMap,
+  } = networkAccountResult;
 
   const pendingNetworkIds = useMemo(
     () => Object.keys(networkAccountMap).sort(),
@@ -556,9 +559,6 @@ export const useStakingPendingTxsByInfo = ({
       }
 
       const expectedNetworkIds = effectiveNetworkIds.filter((networkId) => {
-        if (!networkAccountMap[networkId]) {
-          return false;
-        }
         if (tagMatcher) {
           return true;
         }
@@ -567,11 +567,18 @@ export const useStakingPendingTxsByInfo = ({
       if (expectedNetworkIds.length === 0) {
         return VERIFIED_EMPTY_PENDING_TXS_RESULT;
       }
+      const missingNetworkAccountIds = expectedNetworkIds.filter(
+        (networkId) => !networkAccountMap[networkId],
+      );
+      const resolvedNetworkIds = expectedNetworkIds.filter(
+        (networkId) => networkAccountMap[networkId],
+      );
       const missingAccountMetaNetworkIds = expectedNetworkIds.filter(
-        (networkId) => !accountMetaByNetwork[networkId],
+        (networkId) =>
+          networkAccountMap[networkId] && !accountMetaByNetwork[networkId],
       );
       const targetsWithAccount: Array<[string, INetworkAccountMeta]> = [];
-      expectedNetworkIds.forEach((networkId) => {
+      resolvedNetworkIds.forEach((networkId) => {
         const meta = accountMetaByNetwork[networkId];
         if (meta) {
           targetsWithAccount.push([networkId, meta]);
@@ -614,6 +621,7 @@ export const useStakingPendingTxsByInfo = ({
 
       const failedNetworkIds = [
         ...new Set([
+          ...missingNetworkAccountIds,
           ...missingAccountMetaNetworkIds,
           ...txsForTargets
             .filter((result) => !result.ok)
@@ -676,6 +684,11 @@ export const useStakingPendingTxsByInfo = ({
     isPendingHistoryVerified,
     pendingHistoryFailedNetworkIds,
   } = pendingTxsResult;
+  const pendingHistoryFailureKey = pendingHistoryFailedNetworkIds.join('|');
+  const isPendingHistoryVerifiedRef = useRef(isPendingHistoryVerified);
+  const networkAccountMapRef = useRef(networkAccountMap);
+  isPendingHistoryVerifiedRef.current = isPendingHistoryVerified;
+  networkAccountMapRef.current = networkAccountMap;
 
   const isPending = filteredTxs.length > 0;
   const prevIsPending = usePrevious(isPending);
@@ -747,7 +760,16 @@ export const useStakingPendingTxsByInfo = ({
 
   // Refresh both account history and pending transactions
   const refreshPendingWithHistory = useCallback(async () => {
-    const accounts = Object.entries(networkAccountMap);
+    if (!isPendingHistoryVerifiedRef.current) {
+      // Account-map and account-meta failures must be recoverable too, not only
+      // history-query failures. Re-running the top-level mapping produces a new
+      // scoped map; the dependent meta and pending-history requests then
+      // continue automatically with that recovered ownership.
+      await refreshNetworkAccountMap({ alwaysSetState: true });
+      return;
+    }
+
+    const accounts = Object.entries(networkAccountMapRef.current);
     if (accounts.length === 0) {
       return;
     }
@@ -767,15 +789,26 @@ export const useStakingPendingTxsByInfo = ({
     );
 
     await refreshPendingTxs();
-  }, [networkAccountMap, refreshPendingTxs]);
+  }, [refreshNetworkAccountMap, refreshPendingTxs]);
 
   // Auto-polling when there are pending transactions
   usePromiseResult(
     async () => {
-      if (!isPending) return;
+      if (
+        !isPending &&
+        isPendingHistoryVerified &&
+        pendingHistoryFailureKey.length === 0
+      ) {
+        return;
+      }
       await refreshPendingWithHistory();
     },
-    [isPending, refreshPendingWithHistory],
+    [
+      isPending,
+      isPendingHistoryVerified,
+      pendingHistoryFailureKey,
+      refreshPendingWithHistory,
+    ],
     {
       pollingInterval,
     },
