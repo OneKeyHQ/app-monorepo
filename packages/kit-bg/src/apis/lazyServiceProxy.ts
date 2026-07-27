@@ -1,8 +1,13 @@
-export const LAZY_SERVICE_PROXY = Symbol.for(
-  'onekey.background.lazyServiceProxy',
+export const LAZY_SERVICE_LOCAL_CALL = Symbol.for(
+  'onekey.background.lazyServiceLocalCall',
 );
 
 type IBackgroundServiceMethod = (...args: unknown[]) => unknown;
+type ILazyServiceLocalCall = (
+  backgroundMethodName: string,
+  methodName: string,
+  args: unknown[],
+) => unknown;
 
 export function getLocalBackgroundServiceMethod({
   serviceApi,
@@ -13,16 +18,25 @@ export function getLocalBackgroundServiceMethod({
   methodName: string;
   backgroundMethodName: string;
 }): IBackgroundServiceMethod | undefined {
+  const lazyServiceLocalCall = Reflect.get(
+    serviceApi,
+    LAZY_SERVICE_LOCAL_CALL,
+  ) as unknown;
+  if (typeof lazyServiceLocalCall === 'function') {
+    return (...args: unknown[]) =>
+      Reflect.apply(lazyServiceLocalCall as ILazyServiceLocalCall, serviceApi, [
+        backgroundMethodName,
+        methodName,
+        args,
+      ]);
+  }
+
   const backgroundMethod = Reflect.get(
     serviceApi,
     backgroundMethodName,
   ) as unknown;
   if (typeof backgroundMethod !== 'function') {
     return undefined;
-  }
-
-  if (Reflect.get(serviceApi, LAZY_SERVICE_PROXY) === true) {
-    return backgroundMethod as IBackgroundServiceMethod;
   }
 
   const method = Reflect.get(serviceApi, methodName) as unknown;

@@ -11,7 +11,7 @@ import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
 import BackgroundApiBase from './BackgroundApiBase';
-import { LAZY_SERVICE_PROXY } from './lazyServiceProxy';
+import { LAZY_SERVICE_LOCAL_CALL } from './lazyServiceProxy';
 
 import type { IBackgroundApi } from './IBackgroundApi';
 import type ServiceDemo from '../services/ServiceDemo';
@@ -48,10 +48,43 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     loader: () => Promise<ILazyServiceModule<T>>,
   ): T {
     let service: T | undefined;
+    const loadService = () =>
+      loader().then(({ default: Service }) => {
+        service ??= new Service({ backgroundApi: this });
+        return service;
+      });
     const value = new Proxy({} as T, {
       get: (_target, methodName) => {
-        if (methodName === LAZY_SERVICE_PROXY) {
-          return true;
+        if (methodName === LAZY_SERVICE_LOCAL_CALL) {
+          return (
+            backgroundMethodName: string,
+            localMethodName: string,
+            args: unknown[],
+          ) =>
+            loadService().then((loadedService) => {
+              const backgroundMethod = Reflect.get(
+                loadedService,
+                backgroundMethodName,
+              ) as unknown;
+              const localMethod = Reflect.get(
+                loadedService,
+                localMethodName,
+              ) as unknown;
+              if (
+                typeof backgroundMethod !== 'function' ||
+                typeof localMethod !== 'function'
+              ) {
+                return throwMethodNotFound(
+                  String(propertyName),
+                  backgroundMethodName,
+                );
+              }
+              return Reflect.apply(
+                localMethod as (...params: unknown[]) => unknown,
+                loadedService,
+                args,
+              );
+            });
         }
         if (
           typeof methodName !== 'string' ||
@@ -62,15 +95,14 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
           return undefined;
         }
         return (...args: unknown[]) =>
-          loader().then(({ default: Service }) => {
-            service ??= new Service({ backgroundApi: this });
-            const method = Reflect.get(service, methodName) as unknown;
+          loadService().then((loadedService) => {
+            const method = Reflect.get(loadedService, methodName) as unknown;
             if (typeof method !== 'function') {
               return throwMethodNotFound(String(propertyName), methodName);
             }
             return Reflect.apply(
               method as (...params: unknown[]) => unknown,
-              service,
+              loadedService,
               args,
             );
           });

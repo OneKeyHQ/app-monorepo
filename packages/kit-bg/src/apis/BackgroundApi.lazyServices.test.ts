@@ -1,6 +1,9 @@
 const mockBootstrapInit = jest.fn();
 const mockDemoConstructor = jest.fn();
 const mockDemoGetPlatformEnv = jest.fn(async () => ({ platform: 'test' }));
+const mockDemoInternalGetPlatformEnv = jest.fn(async () => ({
+  platform: 'internal',
+}));
 const mockUnifoldConstructor = jest.fn();
 const mockUnifoldTrackingLoop = jest.fn(async () => undefined);
 const mockUnifoldPrivateMethod = jest.fn(async () => undefined);
@@ -53,7 +56,9 @@ jest.mock('../services/ServiceDemo', () => {
     default: function ServiceDemo(params: unknown) {
       mockDemoConstructor(params);
       return {
-        INTERNAL_demoGetPlatformEnv: async () => mockDemoGetPlatformEnv(),
+        demoGetPlatformEnv: async () => mockDemoGetPlatformEnv(),
+        INTERNAL_demoGetPlatformEnv: async () =>
+          mockDemoInternalGetPlatformEnv(),
       };
     },
   };
@@ -99,11 +104,7 @@ describe('BackgroundApi lazy services', () => {
     expect(mockDemoModuleLoadCount).toBe(0);
     expect(mockUnifoldModuleLoadCount).toBe(0);
 
-    await (
-      demoService as unknown as {
-        INTERNAL_demoGetPlatformEnv: () => Promise<unknown>;
-      }
-    ).INTERNAL_demoGetPlatformEnv();
+    await demoService.demoGetPlatformEnv();
     await service.unifoldDepositTrackingLoop();
     await (
       service as unknown as {
@@ -122,6 +123,7 @@ describe('BackgroundApi lazy services', () => {
       backgroundApi,
     });
     expect(mockDemoGetPlatformEnv).toHaveBeenCalledTimes(1);
+    expect(mockDemoInternalGetPlatformEnv).not.toHaveBeenCalled();
     expect(mockUnifoldTrackingLoop).toHaveBeenCalledTimes(2);
   });
 
@@ -142,7 +144,7 @@ describe('BackgroundApi lazy services', () => {
     expect(mockUnifoldConstructor).not.toHaveBeenCalled();
   });
 
-  test('uses the decorated alias for local calls and rejects private methods', async () => {
+  test('gates lazy local calls with the decorated alias and rejects private methods', async () => {
     const { default: BackgroundApi } = await import('./BackgroundApi');
     const { getLocalBackgroundServiceMethod } =
       await import('./lazyServiceProxy');
@@ -177,6 +179,29 @@ describe('BackgroundApi lazy services', () => {
       'Background method not support (method=serviceUnifoldDeposit.INTERNAL_mutateTrackingState)',
     );
     expect(mockUnifoldPrivateMethod).not.toHaveBeenCalled();
+  });
+
+  test('calls the original dev method after the lazy local gate passes', async () => {
+    const { default: BackgroundApi } = await import('./BackgroundApi');
+    const { getLocalBackgroundServiceMethod } =
+      await import('./lazyServiceProxy');
+    const backgroundApi = new BackgroundApi();
+    const service = backgroundApi.serviceDemo;
+
+    const localMethod = getLocalBackgroundServiceMethod({
+      serviceApi: service,
+      methodName: 'demoGetPlatformEnv',
+      backgroundMethodName: 'INTERNAL_demoGetPlatformEnv',
+    });
+    await expect(
+      Reflect.apply(
+        localMethod as (...args: unknown[]) => unknown,
+        service,
+        [],
+      ),
+    ).resolves.toEqual({ platform: 'test' });
+    expect(mockDemoGetPlatformEnv).toHaveBeenCalledTimes(1);
+    expect(mockDemoInternalGetPlatformEnv).not.toHaveBeenCalled();
   });
 
   test('keeps eager services gated by the decorated alias', async () => {
