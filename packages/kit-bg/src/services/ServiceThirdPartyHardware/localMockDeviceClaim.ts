@@ -10,6 +10,7 @@ type ILocalMockAuthenticityResult = {
   verified: boolean;
   deviceId?: string;
   usedDebugKey?: boolean;
+  ledgerVerificationAuthority?: 'onekey-local-dmk-server';
   trezorProof?: {
     challenge: string;
     deviceModel: string;
@@ -19,7 +20,7 @@ type ILocalMockAuthenticityResult = {
 
 export type ILocalMockDeviceClaimVerification = {
   deviceId: string;
-  verificationMode: 'trezor-independent-proof' | 'ledger-vendor-genuine-check';
+  verificationMode: 'trezor-independent-proof' | 'ledger-server-dmk-relay';
   serverPortable: boolean;
 };
 
@@ -84,6 +85,7 @@ export function verifyLocalMockDeviceClaimEvidence({
   }
 
   if (
+    authenticity.ledgerVerificationAuthority !== 'onekey-local-dmk-server' ||
     !authenticity.verified ||
     !authenticity.deviceId ||
     !/^[0-9a-f]{64}$/i.test(authenticity.deviceId)
@@ -94,10 +96,8 @@ export function verifyLocalMockDeviceClaimEvidence({
   }
   return {
     deviceId: authenticity.deviceId.toLowerCase(),
-    verificationMode: 'ledger-vendor-genuine-check',
-    // Ledger's public DMK verdict is real, but is not an offline proof a future
-    // backend can trust. Production must witness the same session via relay.
-    serverPortable: false,
+    verificationMode: 'ledger-server-dmk-relay',
+    serverPortable: true,
   };
 }
 

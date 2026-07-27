@@ -47,6 +47,10 @@ import {
 import { mapThirdPartyDeviceToSearchDevice } from '../ServiceHardware/thirdPartyDeviceMapping';
 
 import { runTrustedLocalMockDeviceClaim } from './localMockDeviceClaim';
+import {
+  type ILedgerAttestationBridgeAdapter,
+  runLedgerLocalServerAttestation,
+} from './ledgerLocalAttestationBridge';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type {
@@ -1259,9 +1263,8 @@ class ServiceThirdPartyHardware extends ServiceBase {
    * The backend boundary is mocked; device/vendor verification is real:
    * - Trezor signs this method's fresh nonce and the raw proof is independently
    *   reverified here without trusting the adapter's `verified` boolean.
-   * - Ledger runs the official vendor Genuine Check. Its result is useful for
-   *   integration testing but is not portable server evidence; production must
-   *   witness the same session through the OneKey relay.
+   * - Ledger is driven by a local OneKey-owned DMK server over a one-time WSS
+   *   ticket. The app only forwards APDUs; it never supplies the verdict/DSID.
    */
   @backgroundMethod()
   async runLocalMockThirdPartyDeviceClaim(params: {
@@ -1273,9 +1276,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
     voucherCode: string;
     challengeHex: string;
     deviceId: string;
-    verificationMode:
-      | 'trezor-independent-proof'
-      | 'ledger-vendor-genuine-check';
+    verificationMode: 'trezor-independent-proof' | 'ledger-server-dmk-relay';
     serverPortable: boolean;
   }> {
     await this.assertThirdPartyOnboardingDevMode();
@@ -1292,6 +1293,23 @@ class ServiceThirdPartyHardware extends ServiceBase {
     return runTrustedLocalMockDeviceClaim({
       vendor,
       executeAuthenticityCheck: async (challengeHex) => {
+        if (params.vendor === EHardwareVendor.ledger) {
+          await this.ensureAdaptersInitialized(params.vendor);
+          const adapter = this.getThirdPartyAdapter(params.vendor);
+          if (!adapter) {
+            throw createThirdPartyAdapterNotRegisteredError(params.vendor);
+          }
+          const result = await runLedgerLocalServerAttestation({
+            hw: adapter.hw as unknown as ILedgerAttestationBridgeAdapter,
+            connectId: params.connectId,
+          });
+          return {
+            vendor: 'ledger' as const,
+            verified: result.isGenuine,
+            deviceId: result.deviceId,
+            ledgerVerificationAuthority: 'onekey-local-dmk-server' as const,
+          };
+        }
         const response = await this.thirdPartyHardwareVerifyDeviceAuthenticity({
           vendor: params.vendor,
           connectId: params.connectId,
@@ -1310,6 +1328,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
           verified: boolean;
           deviceId?: string;
           usedDebugKey?: boolean;
+          ledgerVerificationAuthority?: 'onekey-local-dmk-server';
           // cspell:ignore optiga
           trezorProof?: {
             challenge: string;

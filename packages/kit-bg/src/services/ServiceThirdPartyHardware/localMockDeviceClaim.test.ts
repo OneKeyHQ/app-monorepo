@@ -96,12 +96,13 @@ describe('verifyLocalMockDeviceClaimEvidence', () => {
           vendor: 'ledger',
           verified: true,
           deviceId: '12'.repeat(32),
+          ledgerVerificationAuthority: 'onekey-local-dmk-server',
         },
       }),
     ).toEqual({
       deviceId: '12'.repeat(32),
-      verificationMode: 'ledger-vendor-genuine-check',
-      serverPortable: false,
+      verificationMode: 'ledger-server-dmk-relay',
+      serverPortable: true,
     });
 
     expect(() =>
@@ -111,6 +112,19 @@ describe('verifyLocalMockDeviceClaimEvidence', () => {
         authenticity: {
           vendor: 'ledger',
           verified: false,
+          deviceId: '12'.repeat(32),
+          ledgerVerificationAuthority: 'onekey-local-dmk-server',
+        },
+      }),
+    ).toThrow('Genuine Check');
+
+    expect(() =>
+      verifyLocalMockDeviceClaimEvidence({
+        vendor: 'ledger',
+        challengeHex: 'ab'.repeat(32),
+        authenticity: {
+          vendor: 'ledger',
+          verified: true,
           deviceId: '12'.repeat(32),
         },
       }),
@@ -159,6 +173,7 @@ describe('verifyLocalMockDeviceClaimEvidence', () => {
       vendor: 'ledger' as const,
       verified: false,
       deviceId: '12'.repeat(32),
+      ledgerVerificationAuthority: 'onekey-local-dmk-server' as const,
     }));
 
     await expect(
