@@ -19,6 +19,7 @@ function isCancelled(currentLoadId: number, loadingIdRef: { current: number }) {
 export function useAccountSelectorValuesLoader({
   num,
   accountsForValuesQuery,
+  linkedNetworkId,
 }: {
   num: number;
   accountsForValuesQuery:
@@ -30,6 +31,7 @@ export function useAccountSelectorValuesLoader({
         xpub?: string;
       }[]
     | undefined;
+  linkedNetworkId?: string;
 }) {
   const loadingIdRef = useRef(0);
 
@@ -106,7 +108,7 @@ export function useAccountSelectorValuesLoader({
         try {
           const { accountsValue, accountsDeFiOverview } =
             await backgroundApiProxy.serviceAccountSelector.buildAccountSelectorAccountsValuesData(
-              { accounts: batch },
+              { accounts: batch, linkedNetworkId },
             );
 
           if (isCancelled(currentLoadId, loadingIdRef)) return;
@@ -157,5 +159,5 @@ export function useAccountSelectorValuesLoader({
       // Increment loadingId to cancel ongoing batches
       loadingIdRef.current += 1;
     };
-  }, [num, accountsForValuesQuery]);
+  }, [num, accountsForValuesQuery, linkedNetworkId]);
 }
