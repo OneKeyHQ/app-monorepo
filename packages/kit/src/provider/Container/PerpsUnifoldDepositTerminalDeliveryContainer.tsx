@@ -24,6 +24,7 @@ export function PerpsUnifoldDepositTerminalDeliveryContainer() {
     let disposed = false;
     const inFlight = new Set<string>();
     const retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+    const presentedClaims = new Map<string, string>();
 
     const clearRetry = (deliveryId: string) => {
       const timer = retryTimers.get(deliveryId);
@@ -41,6 +42,23 @@ export function PerpsUnifoldDepositTerminalDeliveryContainer() {
       clearRetry(deliveryId);
       let retryAfterMs: number | undefined;
       try {
+        const presentedClaimId = presentedClaims.get(deliveryId);
+        if (presentedClaimId) {
+          const { updated } =
+            await backgroundApiProxy.serviceUnifoldDeposit.acknowledgeTerminalDelivery(
+              {
+                deliveryId,
+                claimId: presentedClaimId,
+              },
+            );
+          if (updated) {
+            presentedClaims.delete(deliveryId);
+          } else {
+            retryAfterMs = DELIVERY_ERROR_RETRY_MS;
+          }
+          return;
+        }
+
         const claimId = generateUUID();
         const claim =
           await backgroundApiProxy.serviceUnifoldDeposit.tryClaimTerminalDelivery(
@@ -82,6 +100,7 @@ export function PerpsUnifoldDepositTerminalDeliveryContainer() {
           }),
           message,
         });
+        presentedClaims.set(deliveryId, claimId);
         const { updated } =
           await backgroundApiProxy.serviceUnifoldDeposit.acknowledgeTerminalDelivery(
             {
@@ -89,8 +108,10 @@ export function PerpsUnifoldDepositTerminalDeliveryContainer() {
               claimId,
             },
           );
-        if (!updated) {
-          retryAfterMs = claim.expiresAt - Date.now();
+        if (updated) {
+          presentedClaims.delete(deliveryId);
+        } else {
+          retryAfterMs = DELIVERY_ERROR_RETRY_MS;
         }
       } catch (error) {
         errorUtils.autoPrintErrorIgnore(error);
@@ -136,6 +157,7 @@ export function PerpsUnifoldDepositTerminalDeliveryContainer() {
       );
       retryTimers.forEach((timer) => clearTimeout(timer));
       retryTimers.clear();
+      presentedClaims.clear();
     };
   }, [intl]);
 

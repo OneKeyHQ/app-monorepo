@@ -234,6 +234,9 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
       url: '/wallet/v1/perp/unifold/deposit-address',
       body: params,
     });
+    // The address request is another network round trip. Discard its response
+    // if the active account changed after the compliance checks completed.
+    await this.assertRecipientIsActivePerpsAccount(params.recipientAddress);
     assertUnifoldEchoMatches(result.echo, params);
     return result;
   }

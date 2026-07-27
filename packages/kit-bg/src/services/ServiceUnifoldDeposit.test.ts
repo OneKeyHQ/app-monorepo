@@ -159,6 +159,55 @@ describe('ServiceUnifoldDeposit tracking delivery', () => {
     });
   });
 
+  it('discards an address response when the active account changes in flight', async () => {
+    const nextRecipient = '0x3333333333333333333333333333333333333333';
+    mockActiveAccountGet
+      .mockResolvedValueOnce({
+        accountAddress: RECIPIENT,
+      })
+      .mockResolvedValueOnce({
+        accountAddress: RECIPIENT,
+      })
+      .mockResolvedValueOnce({
+        accountAddress: nextRecipient,
+      });
+    const service = createService();
+    jest.spyOn(service, 'getActivationStatus').mockResolvedValue({
+      userExists: true,
+      activationFee: '0',
+      isSanctioned: false,
+      sponsored: false,
+    });
+    const params = {
+      recipientAddress: RECIPIENT,
+      destinationChainType: 'ethereum',
+      destinationChainId: '1337',
+      destinationTokenAddress: '0x00000000000000000000000000000000',
+    };
+    const addressRequestSpy = jest
+      .spyOn(
+        service as unknown as {
+          requestUnifold: (request: unknown) => Promise<unknown>;
+        },
+        'requestUnifold',
+      )
+      .mockResolvedValue({
+        sessionId: 'session-1',
+        depositAddress: '0x2222222222222222222222222222222222222222',
+        depositWalletId: 'wallet-1',
+        sourceChainType: 'ethereum',
+        wallets: [],
+        echo: params,
+      });
+
+    await expect(service.createDepositAddress(params)).rejects.toMatchObject({
+      code: UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH,
+      autoToast: false,
+    });
+    expect(addressRequestSpy).toHaveBeenCalledTimes(1);
+    expect(mockActiveAccountGet).toHaveBeenCalledTimes(3);
+  });
+
   it('fails closed before requesting an address for a sanctioned recipient', async () => {
     mockActiveAccountGet.mockResolvedValue({
       accountAddress: RECIPIENT,
