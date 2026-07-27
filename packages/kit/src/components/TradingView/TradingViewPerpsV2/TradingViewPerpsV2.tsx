@@ -345,8 +345,41 @@ export function TradingViewPerpsV2(
     };
   }, [closeChartOrderDialog, setMounted]);
 
+  // Warm the allMids cache AND refresh the persisted scale before the chart's
+  // resolveSymbol asks, so a cold start never waits on the REST fallback and
+  // the persisted scale keeps a refresh path even when the bridge request is
+  // skipped by future TV builds.
+  useEffect(() => {
+    void backgroundApiProxy.serviceHyperliquid
+      .getTradingviewPriceScale({ symbol })
+      .catch(() => undefined);
+  }, [symbol]);
+
   const latestSymbolRef = useRef(symbol);
   latestSymbolRef.current = symbol;
+
+  // A refreshed scale that differs from the one the chart resolved with needs
+  // a forced re-resolve, or the wrong precision would persist all session.
+  useEffect(() => {
+    const handler = (payload: { symbol: string; priceScale: number }) => {
+      if (payload.symbol !== latestSymbolRef.current) {
+        return;
+      }
+      webRef.current?.sendMessageViaInjectedScript({
+        type: 'SYMBOL_CHANGE',
+        payload: {
+          symbol: payload.symbol,
+          displayPair,
+          displayCoin,
+          force: true,
+        },
+      });
+    };
+    appEventBus.on(EAppEventBusNames.PerpsTvPriceScaleRefreshed, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.PerpsTvPriceScaleRefreshed, handler);
+    };
+  }, [displayCoin, displayPair]);
   const prevSymbolRef = useRef(symbol);
   useEffect(() => {
     if (prevSymbolRef.current !== symbol) {

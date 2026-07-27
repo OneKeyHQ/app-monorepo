@@ -18,6 +18,8 @@ import type { MutableRefObject } from 'react';
 
 import { act, renderHook } from '@testing-library/react';
 
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
 const mockIngestRound = jest.fn();
 const mockGetVaultSettings = jest.fn(async () => ({
   mergeDeriveAssetsEnabled: false,
@@ -350,6 +352,64 @@ describe('useTokenListReactivePipeline', () => {
     expect(
       (mockIngestRound.mock.calls[0][0] as { source: string }).source,
     ).toBe('authoritative');
+  });
+
+  it('cache seed: explicit tokenListValue keeps risk-only map keys out of the worth', async () => {
+    // The cache stores ONE full tokenListMap (normal + small + risk entries)
+    // that seedAndFlushCache reuses for all three group maps. The cached
+    // tokenListValue counts tokens + smallBalanceTokens only, so it must be
+    // carried as the round's explicit accountWorth — a map-derived sum would
+    // add risk-only keys and write the authoritative worth too high.
+    const { result } = render(true);
+    act(() => {
+      result.current.setEnabledKeys([OWNER]);
+    });
+    let worth: string | undefined;
+    await act(async () => {
+      await result.current.seedAndFlushCache({
+        data: [
+          makeCacheItem({
+            riskyTokenList: [
+              {
+                $key: 'scam',
+                name: 'Scam',
+                symbol: 'SCAM',
+                decimals: 18,
+                address: '0xscam',
+                isNative: false,
+              },
+            ] as ICacheSeedItem['riskyTokenList'],
+            tokenListMap: {
+              a1: {
+                balance: '1',
+                balanceParsed: '1',
+                fiatValue: '10',
+                price: 1,
+              },
+              scam: {
+                balance: '1',
+                balanceParsed: '1',
+                fiatValue: '999',
+                price: 1,
+              },
+            },
+            tokenListValue: '10',
+          }),
+        ],
+        accountId: OWNER.accountId,
+        networkId: OWNER.networkId,
+        generation: 1,
+      });
+      const snap = await result.current.buildAuthoritativeSnapshot();
+      worth =
+        snap.accountsWorth[
+          accountUtils.buildAccountValueKey({
+            accountId: OWNER.accountId,
+            networkId: OWNER.networkId,
+          })
+        ];
+    });
+    expect(worth).toBe('10');
   });
 
   it('P1-g: a throttled live flush is SUPERSEDED by an authoritative commit (epoch bump)', async () => {

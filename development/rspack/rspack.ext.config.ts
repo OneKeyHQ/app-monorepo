@@ -253,6 +253,7 @@ function createCompilerConfig({
     swcTargets: getSwcTargets(),
     enableImportMetaCompat: true,
     enableSentryMinimalCompat: true,
+    removeFirstPartyConsole: true,
   });
   removeDefaultHtmlPlugin(baseConfig);
 

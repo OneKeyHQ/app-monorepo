@@ -28,6 +28,7 @@ import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { EKeylessFinalizeAction } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
 import {
   EKeylessCreateWithOneKeyIdPrepareStatus,
+  ELocalKeylessWalletOAuthState,
   type IKeylessCreateWithOneKeyIdPrepareResult,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -39,8 +40,8 @@ import {
   EOnboardingV2Routes,
 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
+import { shouldClearKeylessOAuthSessionAfterError } from '@onekeyhq/shared/src/utils/keylessOAuthSessionUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -51,8 +52,12 @@ import {
   markOneKeyIdFailureServerLogged,
   showOneKeyIdLoginFailedToast,
 } from '../../views/Prime/components/oneKeyIdLoginToastUtils';
-import { shouldRunOneKeyIdAuthInExtExpandTab } from '../OneKeyAuth/extOneKeyIdAuthExpandTab';
+import {
+  redirectKeylessOneKeyIdAuthToExtExpandTab,
+  shouldRunOneKeyIdAuthInExtExpandTab,
+} from '../OneKeyAuth/extOneKeyIdAuthExpandTab';
 import { getDisplayEmailOrUnknown } from '../OneKeyAuth/oneKeyIdDisplayEmailUtils';
+import { useIdentityExitFlow } from '../OneKeyAuth/useIdentityExitFlow';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
 
 import {
@@ -95,23 +100,6 @@ async function keylessOnboardingCacheGet(key: string) {
   }
   return backgroundApiProxy.servicePassword.decodeSensitiveText({
     encodedText: token,
-  });
-}
-
-async function redirectKeylessOneKeyIdAuthToExtExpandTab({
-  mode,
-  provider,
-}: {
-  mode: EOnboardingV2OneKeyIDLoginMode;
-  provider?: EOAuthSocialLoginProvider;
-}) {
-  const params: Record<string, string> = { mode };
-  if (provider) {
-    params.provider = provider;
-  }
-  await backgroundApiProxy.serviceApp.openExtensionExpandTab({
-    path: `/onboarding/${EOnboardingPagesV2.OneKeyIDLogin}`,
-    params,
   });
 }
 
@@ -289,13 +277,8 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export function useKeylessWallet() {
-  const {
-    signInWithSocialLogin,
-    logout,
-    keylessSupabaseSignOut,
-    legacySupabaseSignOut,
-    persistKeylessOAuthSession,
-  } = useOneKeyAuth();
+  const { signInWithSocialLogin, persistKeylessOAuthSession } = useOneKeyAuth();
+  const { run: runIdentityExit } = useIdentityExitFlow();
   const navigation = useAppNavigation();
   const intl = useIntl();
 
@@ -392,8 +375,7 @@ export function useKeylessWallet() {
             // when it also backed the OneKey ID login, clear the login state
             // to avoid a zombie logged-in atom without a session.
             if (!refreshToken) {
-              await keylessSupabaseSignOut();
-              await backgroundApiProxy.serviceKeylessWallet.clearKeylessAuthSessionAndLoginState();
+              await backgroundApiProxy.serviceIdentityExit.reconcileInvalidKeylessSessionForLocalWallet();
             }
 
             // Get keyless wallet provider type to determine which dialog to show
@@ -457,10 +439,16 @@ export function useKeylessWallet() {
                 autoToast: false,
               });
             }
-            // Log out OneKey ID while preserving the keyless wallet and its
-            // local auth artifacts (bg resets the Prime persist atom + auth
-            // session source; the atom change syncs to the main runtime).
-            await logout({ preserveLocalKeylessAuth: true });
+            const exitResult = await runIdentityExit({
+              type: 'switchOneKeyIdAccount',
+              scene: 'keylessOnboarding',
+            });
+            if (exitResult.status !== 'completed') {
+              throw new OneKeyLocalError({
+                message: 'OneKey ID account switch cancelled by user',
+                autoToast: false,
+              });
+            }
           }
           // Persist the fresh OAuth session only AFTER it passed validation,
           // so a wrong-account session can never replace the active keyless
@@ -574,10 +562,9 @@ export function useKeylessWallet() {
     [
       handleKeylessOnboardingTimeout,
       intl,
-      keylessSupabaseSignOut,
-      logout,
       navigation,
       persistKeylessOAuthSession,
+      runIdentityExit,
     ],
   );
 
@@ -650,41 +637,26 @@ export function useKeylessWallet() {
 
   const startKeylessCreateWithOAuthProvider = useCallback(
     async ({ provider }: { provider: EOAuthSocialLoginProvider }) => {
-      const result = await signInWithSocialLogin(provider, {
-        persistSession: true,
-      });
+      const result = await signInWithSocialLogin(provider);
       const accessToken = result?.session?.accessToken;
-      if (!accessToken) {
+      const refreshToken = result?.session?.refreshToken;
+      if (!accessToken || !refreshToken) {
         // TODO: i18n
         throw new OneKeyLocalError(
-          'Keyless wallet OAuth login failed: access token not found',
+          'Keyless wallet OAuth login failed: session token not found',
         );
       }
+      const { rollbackHandle } = await persistKeylessOAuthSession({
+        accessToken,
+        refreshToken,
+      });
       try {
         await backgroundApiProxy.servicePrime.apiOAuthLogin({ accessToken });
       } catch (error) {
-        // Only a definite auth/business rejection of the OneKey ID login
-        // (e.g. invalid token 90002/90003, OAuth identity already bound)
-        // invalidates the keyless OAuth session persisted just above, so
-        // only then wipe it before rethrowing. A transient failure (network
-        // down, 5xx, timeout) must NOT destroy that session: downstream
-        // keyless server calls authenticate with the Supabase access token
-        // directly and don't depend on the Prime login, and keeping the
-        // session lets the next attempt reuse it instead of forcing a fresh
-        // Google/Apple OAuth round-trip.
-        if (
-          !isTransientNetworkLikeError(error) &&
-          // Slot-replaced is definitive for THIS flow, but the shared
-          // keyless slot now holds ANOTHER account's valid session —
-          // tearing it down would fail the winning login too.
-          !errorUtils.isErrorByClassName({
-            error,
-            className:
-              EOneKeyErrorClassNames.OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
-          })
-        ) {
-          await logout();
-          await backgroundApiProxy.simpleDb.prime.clearLocalAuthSession();
+        if (shouldClearKeylessOAuthSessionAfterError(error)) {
+          await backgroundApiProxy.servicePrime.rollbackProvisionalKeylessOAuthSession(
+            { rollbackHandle },
+          );
         }
         throw error;
       }
@@ -693,13 +665,12 @@ export function useKeylessWallet() {
         mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
       });
     },
-    [checkKeylessWalletCreatedOnServer, logout, signInWithSocialLogin],
+    [
+      checkKeylessWalletCreatedOnServer,
+      persistKeylessOAuthSession,
+      signInWithSocialLogin,
+    ],
   );
-
-  const clearPendingKeylessOAuthSession = useCallback(async () => {
-    await keylessSupabaseSignOut();
-    await backgroundApiProxy.serviceKeylessWallet.clearKeylessAuthSessionAndLoginState();
-  }, [keylessSupabaseSignOut]);
 
   const reauthenticateLegacyOneKeyIdWithOAuthProvider = useCallback(
     async ({ provider }: { provider: EOAuthSocialLoginProvider }) => {
@@ -755,32 +726,21 @@ export function useKeylessWallet() {
         }
       }
 
-      await persistKeylessOAuthSession({ accessToken, refreshToken });
+      const { rollbackHandle } = await persistKeylessOAuthSession({
+        accessToken,
+        refreshToken,
+      });
       try {
         // The profile + subject check above proves this provider identity is
         // already owned by the current OneKey ID. Log in through that
         // identity to switch the local auth source; never call the immutable
         // identity bind endpoint again for this OAuth sign-in path.
         await backgroundApiProxy.servicePrime.apiOAuthLogin({ accessToken });
-        try {
-          await legacySupabaseSignOut();
-        } catch (cleanupError) {
-          defaultLogger.prime.subscription.onekeyIdLogout({
-            reason: `useKeylessWallet: legacy Supabase sign-out failed after OAuth login committed: ${String(
-              cleanupError,
-            )}`,
-          });
-        }
       } catch (error) {
-        if (
-          !isTransientNetworkLikeError(error) &&
-          !errorUtils.isErrorByClassName({
-            error,
-            className:
-              EOneKeyErrorClassNames.OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
-          })
-        ) {
-          await clearPendingKeylessOAuthSession();
+        if (shouldClearKeylessOAuthSessionAfterError(error)) {
+          await backgroundApiProxy.servicePrime.rollbackProvisionalKeylessOAuthSession(
+            { rollbackHandle },
+          );
         }
         throw error;
       }
@@ -792,9 +752,7 @@ export function useKeylessWallet() {
     },
     [
       checkKeylessWalletCreatedOnServer,
-      clearPendingKeylessOAuthSession,
       intl,
-      legacySupabaseSignOut,
       persistKeylessOAuthSession,
       signInWithSocialLogin,
     ],
@@ -867,9 +825,16 @@ export function useKeylessWallet() {
             isActionTriggered = true;
             void (async () => {
               try {
-                await logout();
                 await close();
                 await timerUtils.wait(100);
+                const exitResult = await runIdentityExit({
+                  type: 'switchOneKeyIdAccount',
+                  scene: 'keylessOnboarding',
+                });
+                if (exitResult.status !== 'completed') {
+                  resolveOnce();
+                  return;
+                }
                 await startKeylessCreateWithOAuthProvider({ provider });
                 resolveOnce();
               } catch (error) {
@@ -891,12 +856,12 @@ export function useKeylessWallet() {
     [
       continueKeylessCreateWithPreparedOneKeyId,
       intl,
-      logout,
+      runIdentityExit,
       startKeylessCreateWithOAuthProvider,
     ],
   );
 
-  const handlePreparedKeylessCreateWithOneKeyId = useCallback(
+  const handleHealthyPreparedKeylessCreateWithOneKeyId = useCallback(
     async ({
       provider,
       prepareResult,
@@ -904,6 +869,15 @@ export function useKeylessWallet() {
       provider: EOAuthSocialLoginProvider;
       prepareResult: IKeylessCreateWithOneKeyIdPrepareResult;
     }) => {
+      if (
+        prepareResult.status ===
+        EKeylessCreateWithOneKeyIdPrepareStatus.LocalKeylessDataUnavailable
+      ) {
+        throw new OneKeyLocalError(
+          prepareResult.errorMessage ||
+            'Local Keyless wallet data is unavailable.',
+        );
+      }
       if (
         prepareResult.status ===
         EKeylessCreateWithOneKeyIdPrepareStatus.LocalKeylessExists
@@ -917,8 +891,8 @@ export function useKeylessWallet() {
         EKeylessCreateWithOneKeyIdPrepareStatus.NeedLegacyOAuthBind
       ) {
         await showOneKeyIdLegacyOAuthBindDialog({
-          bindProvider: provider,
-          checkBindRequired: false,
+          type: 'required-for-keyless',
+          provider,
           onBindSuccess: async () => {
             const nextPrepareResult =
               await backgroundApiProxy.serviceKeylessWallet.prepareKeylessCreateWithOneKeyId(
@@ -941,6 +915,15 @@ export function useKeylessWallet() {
             ) {
               showLocalKeylessWalletExistsDialog();
               return;
+            }
+            if (
+              nextPrepareResult.status ===
+              EKeylessCreateWithOneKeyIdPrepareStatus.LocalKeylessDataUnavailable
+            ) {
+              throw new OneKeyLocalError(
+                nextPrepareResult.errorMessage ||
+                  'Local Keyless wallet data is unavailable.',
+              );
             }
             await startKeylessCreateWithOAuthProvider({ provider });
           },
@@ -976,6 +959,55 @@ export function useKeylessWallet() {
       showLocalKeylessWalletExistsDialog,
       startKeylessCreateWithOAuthProvider,
     ],
+  );
+
+  const handlePreparedKeylessCreateWithOneKeyId = useCallback(
+    async ({
+      provider,
+      prepareResult,
+    }: {
+      provider: EOAuthSocialLoginProvider;
+      prepareResult: IKeylessCreateWithOneKeyIdPrepareResult;
+    }) => {
+      if (
+        prepareResult.status !==
+        EKeylessCreateWithOneKeyIdPrepareStatus.LocalKeylessDataUnavailable
+      ) {
+        await handleHealthyPreparedKeylessCreateWithOneKeyId({
+          provider,
+          prepareResult,
+        });
+        return;
+      }
+      if (!prepareResult.walletId) {
+        throw new OneKeyLocalError(
+          prepareResult.errorMessage ||
+            'Unable to identify the local Keyless wallet for recovery.',
+        );
+      }
+      await runIdentityExit(
+        {
+          type: 'recoverMalformedKeyless',
+          expectedWalletId: prepareResult.walletId,
+          nextProvider: provider,
+          scene: 'keylessOnboarding',
+        },
+        {
+          confirmButtonTestID: 'keyless-onboarding-recover-wallet-confirm-btn',
+          onCompletedReceipt: async () => {
+            const nextPrepareResult =
+              await backgroundApiProxy.serviceKeylessWallet.prepareKeylessCreateWithOneKeyId(
+                { signInProvider: provider },
+              );
+            await handleHealthyPreparedKeylessCreateWithOneKeyId({
+              provider,
+              prepareResult: nextPrepareResult,
+            });
+          },
+        },
+      );
+    },
+    [handleHealthyPreparedKeylessCreateWithOneKeyId, runIdentityExit],
   );
 
   // goToOneKeyIDLoginPageForKeylessWallet
@@ -1057,26 +1089,26 @@ export function useKeylessWallet() {
           enableKeylessWalletLoadingRef.current = true;
           setEnableKeylessWalletLoading(true);
 
-          const exists =
-            await backgroundApiProxy.serviceAccount.isKeylessWalletExistsLocal();
-          if (exists) {
-            showLocalKeylessWalletExistsDialog();
-          } else {
-            if (signInProvider) {
-              const prepareResult =
-                await backgroundApiProxy.serviceKeylessWallet.prepareKeylessCreateWithOneKeyId(
-                  { signInProvider },
-                );
-              await handlePreparedKeylessCreateWithOneKeyId({
-                provider: signInProvider,
-                prepareResult,
-              });
-              return;
-            }
-            await goToOneKeyIDLoginPageForKeylessWallet({
-              mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
+          if (signInProvider) {
+            const prepareResult =
+              await backgroundApiProxy.serviceKeylessWallet.prepareKeylessCreateWithOneKeyId(
+                { signInProvider },
+              );
+            await handlePreparedKeylessCreateWithOneKeyId({
+              provider: signInProvider,
+              prepareResult,
             });
+            return;
           }
+          const inspection =
+            await backgroundApiProxy.serviceKeylessWallet.inspectLocalKeylessWalletForOAuth();
+          if (inspection.status === ELocalKeylessWalletOAuthState.Ready) {
+            showLocalKeylessWalletExistsDialog();
+            return;
+          }
+          await goToOneKeyIDLoginPageForKeylessWallet({
+            mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
+          });
         } finally {
           setEnableKeylessWalletLoading(false);
         }

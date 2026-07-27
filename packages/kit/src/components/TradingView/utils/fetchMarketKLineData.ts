@@ -8,6 +8,19 @@ import { sliceKLineRequest } from './sliceKLineRequest';
 
 const MIN_KLINE_TIME_SPAN_SECONDS = 2 * 24 * 60 * 60;
 
+type IRuntimeKLineDataPoint = Partial<
+  Record<keyof IMarketTokenKLineDataPoint, unknown>
+>;
+
+interface INormalizedKLineValues {
+  c: number;
+  h?: number;
+  l?: number;
+  o?: number;
+  t: number;
+  v?: number;
+}
+
 export type IMarketKLineDataFallback = (params: {
   tokenAddress: string;
   networkId: string;
@@ -23,6 +36,7 @@ interface IFetchKLineDataFallbackParams {
   timeFrom: number;
   timeTo: number;
   kLineDataFallback?: IMarketKLineDataFallback;
+  onFallbackKLineData?: () => void;
 }
 
 export interface IFetchMarketKLineDataParams {
@@ -34,27 +48,125 @@ export interface IFetchMarketKLineDataParams {
   autoHandleError?: boolean;
   kLineDataFallback?: IMarketKLineDataFallback;
   primaryKLineDataUnavailable?: boolean;
+  onFallbackKLineData?: () => void;
   onPrimaryKLineDataUnavailable?: () => void;
 }
 
 function normalizeKLinePoints({
   points,
-  timeFrom,
-  timeTo,
+  timeFrom = Number.NEGATIVE_INFINITY,
+  timeTo = Number.POSITIVE_INFINITY,
 }: {
   points: IMarketTokenKLineDataPoint[];
-  timeFrom: number;
-  timeTo: number;
+  timeFrom?: number;
+  timeTo?: number;
 }) {
-  const pointsByTimestamp = new Map<number, IMarketTokenKLineDataPoint>();
+  const pointsByTimestamp = new Map<number, INormalizedKLineValues>();
 
   for (const point of points) {
-    if (point.t >= timeFrom && point.t <= timeTo) {
-      pointsByTimestamp.set(point.t, point);
+    const normalizedValues = getNormalizedKLineValues({
+      point,
+      timeFrom,
+      timeTo,
+    });
+    if (normalizedValues) {
+      pointsByTimestamp.set(normalizedValues.t, normalizedValues);
     }
   }
 
-  return Array.from(pointsByTimestamp.values()).toSorted((a, b) => a.t - b.t);
+  let previousClose: number | undefined;
+  return Array.from(pointsByTimestamp.values())
+    .toSorted((a, b) => a.t - b.t)
+    .map<IMarketTokenKLineDataPoint>((point) => {
+      let normalizedPoint: IMarketTokenKLineDataPoint;
+      if (
+        point.o !== undefined &&
+        point.h !== undefined &&
+        point.l !== undefined
+      ) {
+        normalizedPoint = {
+          o: point.o,
+          h: point.h,
+          l: point.l,
+          c: point.c,
+          v: point.v ?? 0,
+          t: point.t,
+        };
+      } else {
+        const open = previousClose ?? point.c;
+        normalizedPoint = {
+          o: open,
+          h: Math.max(open, point.c),
+          l: Math.min(open, point.c),
+          c: point.c,
+          v: point.v ?? 0,
+          t: point.t,
+        };
+      }
+      previousClose = point.c;
+      return normalizedPoint;
+    });
+}
+
+function getNormalizedKLineValues({
+  point,
+  timeFrom,
+  timeTo,
+}: {
+  point: IMarketTokenKLineDataPoint;
+  timeFrom: number;
+  timeTo: number;
+}): INormalizedKLineValues | undefined {
+  const runtimePoint = point as unknown as IRuntimeKLineDataPoint;
+  const close = toFiniteNumber(runtimePoint.c);
+  const timestamp = toFiniteNumber(runtimePoint.t);
+
+  if (
+    close === undefined ||
+    timestamp === undefined ||
+    timestamp < timeFrom ||
+    timestamp > timeTo
+  ) {
+    return undefined;
+  }
+
+  const open = toFiniteNumber(runtimePoint.o);
+  const high = toFiniteNumber(runtimePoint.h);
+  const low = toFiniteNumber(runtimePoint.l);
+  const hasOhlValues =
+    (runtimePoint.o !== undefined && runtimePoint.o !== null) ||
+    (runtimePoint.h !== undefined && runtimePoint.h !== null) ||
+    (runtimePoint.l !== undefined && runtimePoint.l !== null);
+
+  if (
+    hasOhlValues &&
+    (open === undefined ||
+      high === undefined ||
+      low === undefined ||
+      high < low)
+  ) {
+    return undefined;
+  }
+
+  return {
+    c: close,
+    h: high,
+    l: low,
+    o: open,
+    t: timestamp,
+    v: toFiniteNumber(runtimePoint.v),
+  };
+}
+
+function toFiniteNumber(value: unknown) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  if (typeof value !== 'string' || !value.trim()) {
+    return undefined;
+  }
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : undefined;
 }
 
 function hasKLinePoints(data?: IMarketTokenKLineResponse | null) {
@@ -67,6 +179,16 @@ function hasValidKLineResponse(
   return Array.isArray(data?.points);
 }
 
+function normalizeKLineResponse(
+  data?: IMarketTokenKLineResponse | null,
+): IMarketTokenKLineResponse | null {
+  if (!hasValidKLineResponse(data)) {
+    return null;
+  }
+  const points = normalizeKLinePoints({ points: data.points });
+  return { ...data, points, total: points.length };
+}
+
 async function fetchKLineDataFallback({
   tokenAddress,
   networkId,
@@ -74,21 +196,26 @@ async function fetchKLineDataFallback({
   timeFrom,
   timeTo,
   kLineDataFallback,
+  onFallbackKLineData,
 }: IFetchKLineDataFallbackParams): Promise<IMarketTokenKLineResponse | null> {
   if (!kLineDataFallback) {
     return null;
   }
 
   try {
-    return (
-      (await kLineDataFallback({
+    const fallbackData = normalizeKLineResponse(
+      await kLineDataFallback({
         tokenAddress,
         networkId,
         interval,
         timeFrom,
         timeTo,
-      })) ?? null
+      }),
     );
+    if (hasKLinePoints(fallbackData)) {
+      onFallbackKLineData?.();
+    }
+    return fallbackData;
   } catch (error) {
     console.error('Failed to fetch fallback kline data:', error);
     return null;
@@ -103,6 +230,7 @@ async function fetchFallbackIfNeeded({
   timeFrom,
   timeTo,
   kLineDataFallback,
+  onFallbackKLineData,
   onPrimaryKLineDataUnavailable,
 }: IFetchKLineDataFallbackParams & {
   data?: IMarketTokenKLineResponse | null;
@@ -119,6 +247,7 @@ async function fetchFallbackIfNeeded({
     timeFrom,
     timeTo,
     kLineDataFallback,
+    onFallbackKLineData,
   });
   if (!hasValidKLineResponse(data) && hasKLinePoints(fallbackData)) {
     onPrimaryKLineDataUnavailable?.();
@@ -135,6 +264,7 @@ export async function fetchMarketKLineData({
   autoHandleError,
   kLineDataFallback,
   primaryKLineDataUnavailable,
+  onFallbackKLineData,
   onPrimaryKLineDataUnavailable,
 }: IFetchMarketKLineDataParams): Promise<IMarketTokenKLineResponse | null> {
   if (primaryKLineDataUnavailable) {
@@ -145,19 +275,20 @@ export async function fetchMarketKLineData({
       timeFrom,
       timeTo,
       kLineDataFallback,
+      onFallbackKLineData,
     });
   }
 
   try {
-    const data = await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline(
-      {
+    const data = normalizeKLineResponse(
+      await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline({
         tokenAddress,
         networkId,
         interval,
         timeFrom,
         timeTo,
         autoHandleError,
-      },
+      }),
     );
 
     return await fetchFallbackIfNeeded({
@@ -168,6 +299,7 @@ export async function fetchMarketKLineData({
       timeFrom,
       timeTo,
       kLineDataFallback,
+      onFallbackKLineData,
       onPrimaryKLineDataUnavailable,
     });
   } catch (error) {
@@ -179,6 +311,7 @@ export async function fetchMarketKLineData({
       timeFrom,
       timeTo,
       kLineDataFallback,
+      onFallbackKLineData,
     });
   }
 }
@@ -192,6 +325,7 @@ export async function fetchMarketKLineDataWithSlicing({
   autoHandleError,
   kLineDataFallback,
   primaryKLineDataUnavailable,
+  onFallbackKLineData,
   onPrimaryKLineDataUnavailable,
 }: IFetchMarketKLineDataParams): Promise<IMarketTokenKLineResponse | null> {
   if (primaryKLineDataUnavailable) {
@@ -202,6 +336,7 @@ export async function fetchMarketKLineDataWithSlicing({
       timeFrom,
       timeTo,
       kLineDataFallback,
+      onFallbackKLineData,
     });
   }
 
@@ -253,6 +388,7 @@ export async function fetchMarketKLineDataWithSlicing({
       timeFrom,
       timeTo,
       kLineDataFallback,
+      onFallbackKLineData,
       onPrimaryKLineDataUnavailable,
     });
   } catch (error) {
@@ -264,6 +400,7 @@ export async function fetchMarketKLineDataWithSlicing({
       timeFrom,
       timeTo,
       kLineDataFallback,
+      onFallbackKLineData,
     });
   }
 }

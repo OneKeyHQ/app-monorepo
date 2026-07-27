@@ -180,6 +180,7 @@ const NS = {
   swapStockTokenDetail: 'swapStockTokenDetail',
   swapStockSpeedConfig: 'swapStockSpeedConfig',
   swapStockPayTokenDetails: 'swapStockPayTokenDetails',
+  swapStockPositionsMetadata: 'swapStockPositionsMetadata',
 } as const;
 export type ISwrCacheNamespace = (typeof NS)[keyof typeof NS];
 export const swrCacheNamespaces = NS;
@@ -484,6 +485,8 @@ export const swrKeys = {
     [NS.swapStockSpeedConfig, 'v1', networkId].join(':'),
   swapStockPayTokenDetails: ({ scope }: { scope: string }) =>
     [NS.swapStockPayTokenDetails, 'v1', scope].join(':'),
+  swapStockPositionsMetadata: ({ scope }: { scope: string }) =>
+    [NS.swapStockPositionsMetadata, 'v1', scope].join(':'),
 };
 
 function uniqueCacheKeys(keys: string[]) {

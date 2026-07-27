@@ -714,6 +714,116 @@ describe('marketDirectSendTx', () => {
     );
   });
 
+  it('validates rebuilt send-time gas infos before signing', async () => {
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(createUnsignedTx());
+    const validateFinalGasInfos = jest
+      .fn()
+      .mockRejectedValue(new Error('insufficient final gas balance'));
+
+    await expect(
+      sendMarketDirectUnsignedTxs({
+        accountAddress: '0xuser',
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        buildUnsignedParams: {
+          accountId: 'account-1',
+          networkId: 'evm--1',
+          encodedTx: {
+            data: '0xencoded',
+          } as never,
+          isInternalSwap: true,
+        },
+        gasInfos: [
+          {
+            encodeTx: {
+              data: '0xstale',
+            } as never,
+            gasInfo: {
+              common: createEstimateFeeResult().common,
+              gas: {
+                gasPrice: '1',
+                gasLimit: '21000',
+              },
+            },
+          },
+        ],
+        validateFinalGasInfos,
+      }),
+    ).rejects.toThrow('insufficient final gas balance');
+
+    expect(validateFinalGasInfos).toHaveBeenCalledWith([
+      expect.objectContaining({
+        gasInfo: expect.objectContaining({
+          gas: expect.objectContaining({
+            gasPrice: '2',
+          }),
+        }),
+      }),
+    ]);
+    expect(mockUpdateUnsignedTx).not.toHaveBeenCalled();
+    expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
+  });
+
+  it('revalidates user-paid gas before retrying a failed sponsor send', async () => {
+    const sponsoredUnsignedTx = createUnsignedTx({
+      swapInfo: {
+        swapBuildResData: {
+          result: {
+            gasAccountEnabled: true,
+          },
+        },
+      } as never,
+    });
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(sponsoredUnsignedTx);
+    mockEstimateFee.mockResolvedValue({
+      ...createEstimateFeeResult(),
+      payer: 'gasAccount',
+      gasAccountEligible: true,
+      gasAccountQuote: {
+        quoteId: 'gas-account-quote',
+      },
+    });
+    mockSignAndSendTransaction.mockRejectedValueOnce({ code: 40_213 });
+    const validateFinalGasInfos = jest
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('insufficient user-paid gas balance'));
+
+    await expect(
+      sendMarketDirectUnsignedTxs({
+        accountAddress: '0xuser',
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        buildUnsignedParams: {
+          accountId: 'account-1',
+          networkId: 'evm--1',
+          encodedTx: sponsoredUnsignedTx.encodedTx,
+          isInternalSwap: true,
+        },
+        validateFinalGasInfos,
+      }),
+    ).rejects.toThrow('insufficient user-paid gas balance');
+
+    expect(validateFinalGasInfos).toHaveBeenCalledTimes(2);
+    expect(validateFinalGasInfos).toHaveBeenNthCalledWith(1, [
+      expect.objectContaining({
+        gasInfo: expect.objectContaining({
+          payer: 'gasAccount',
+          gasAccountEligible: true,
+        }),
+      }),
+    ]);
+    expect(validateFinalGasInfos).toHaveBeenNthCalledWith(2, [
+      expect.objectContaining({
+        gasInfo: expect.objectContaining({
+          payer: 'user',
+          gasAccountEligible: false,
+        }),
+      }),
+    ]);
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps Tron high fee selection aligned with the legacy confirm flow', async () => {
     mockPrepareSendConfirmUnsignedTx.mockResolvedValue(createUnsignedTx());
     mockEstimateFee.mockResolvedValue({

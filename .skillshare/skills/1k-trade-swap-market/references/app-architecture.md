@@ -1,157 +1,61 @@
-# App Architecture
+# Trade / Swap Architecture
 
-## Canonical Flow
+## Execution Spine
 
-Every Trade/Swap/Market execution path should be mapped before editing:
+Trace every trade-like path through:
 
-`selection/account -> quote -> review snapshot -> build/sign/send -> pending history/status`
+`entry -> account/asset selection -> quote -> frozen review -> build/sign/send -> history/status`
 
-The App can expose the same execution through different surfaces, but the data ownership checkpoints stay stable.
+Swap is the shared execution spine. Bridge, Limit, Stock/order, privacy/order,
+and Market speed-trade flows may adapt capability and settlement semantics,
+but they must declare how they use or intentionally diverge from each stage.
 
-Swap should be treated as the shared execution spine for trade-like channels.
-Bridge, Limit, PrivateSend-like provider orders, stock/order channels, and
-Market speed-swap can adapt entry and settlement semantics, but they should not
-duplicate quote/review/build/history/status ownership in isolated surfaces.
+## Entry Ownership
 
-## Surfaces
+| Entry                   | Source owns                                          | Swap owns after mount/quote                       |
+| ----------------------- | ---------------------------------------------------- | ------------------------------------------------- |
+| Wallet or Home Token    | navigation, imported network/token, analytics source | selected state, quote, review, execution, history |
+| Send/Earn/Buy           | source intent, amount/prefill, return context        | quote onward                                      |
+| Market detail           | market token context and presets                     | executable payload onward                         |
+| Direct Swap route/modal | route seed and host                                  | full Swap state machine                           |
+| Receive selector        | Receive/AssetSelector filtering before handoff       | only after a real Swap route mounts               |
 
-- Swap page and Swap Pro own the standard token-to-token interaction.
-- Home Token and wallet actions can launch or prefill Swap, but they remain
-  entry surfaces. After the Swap route opens and quote starts, Swap owns
-  selected-token, quote, review, build, and history state.
-- Send insufficient-balance and similar wallet flows can route into Swap with
-  imported source/target tokens. Treat those params as handoff inputs, not as
-  long-term state owners.
-- Market speed-swap starts from market token detail, then builds a Swap execution payload.
-- Swap K-line/chart is data and display, not execution. Keep chart data fallback separate from quote/build state.
-- Review/Confirm owns the frozen transaction summary and approval/setup state.
-- History/detail owns pending rows, provider status, progress text, and fallback price data.
-- Cross-module handoffs can prefill Swap state, but must not become the source of truth after quote starts.
+Route params are one-shot inputs. After consumption, current manual selection
+and channel-owned state win over later source/account synchronization.
 
-## Entry Ownership Matrix
+## State Boundaries
 
-Use this before deciding which file owns an entry bug.
+Keep these owners distinct:
 
-| Entry | Source owner | Swap owner after mount | Common validation |
-| --- | --- | --- | --- |
-| Wallet Home action | `WalletActionSwap` | route init, selected network, quote/review/build/history | Home -> Swap first frame, All Networks/single network, disabled swap action |
-| Home Token row action | `TokenActionsView` | imported token pair, unsupported-token fallback, Bridge default when applicable | BTC native, unsupported ordinary Swap, imported token icons and derive type |
-| Swap page/direct route | `SwapPageContainer` / `SwapMainLandModal` | tab state, selected tokens, account mirror, quote state | direct `/swap?tab=...`, modal reopen, route-param reset |
-| Send insufficient-balance route | Send source surface | imported token and amount, quote readiness, no-wallet warning | Send -> Swap with wallet disconnected and unsupported account states |
-| Earn/Staking funding route | `useHandleSwap` / Earn source | `ESwapSource.EARN`, imported `from/to` tokens, Swap execution | Earn -> Swap prefill, then quote/review owns execution |
-| Market speed-swap | Market detail swap panel | execution payload, build/send/history | Market token context and presets, then Swap payload proof |
-| Native/mobile Limit or K-line | mobile host/dialog owner plus Swap hooks | native-specific Limit focus and dialog/page variant | iOS/Android dialog, bottom sheet, keyboard/safe area, K-line variant |
+- visible tab versus internal execution/capability type
+- source and target account/network/token/receiver
+- cached first-frame display versus trade readiness
+- quote event progress versus selected actionable quote
+- mutable page state versus frozen review state
+- local history visibility versus background persistence
+- tx settlement versus provider/order lifecycle
 
-The entry source owns only prefill, analytics source, and host navigation. Once
-the Swap route is mounted and quote starts, debug selected-token atoms, quote
-progress, review snapshot, build/send, pending, and status in the Swap spine.
+## Platform Runtime
 
-## Selection And Account Resolution
+iOS, Android, and browser extension run `main` and `bg` in isolated JavaScript
+runtimes. They initialize independently; proxy/event payloads are serialized
+copies. Native storage or other native resources can be process-shared, while
+the background SimpleDB/service owner remains the sole writer.
 
-Resolve these identities separately:
+Desktop and web run App `main` and `bg` code in one JavaScript runtime/thread.
+Keep service and persistence ownership, but do not apply split-heap reasoning
+or independent-JS-runtime deserialization assumptions to them.
 
-- from account and to account
-- source network and target network
-- token identity, native token identity, and wrapped token identity
-- receiver address, privacy receiver, and provider-owned settlement target
-- manual provider selection and provider capability filters
+## Cold Start And First Frame
 
-Do not infer target account support from the source account alone. All Networks, account derive type, and native/wrapped token handling are separate failure lanes.
+Inspect both the first meaningful frame and the settled frame. Track route
+seed, account readiness, persisted channel/display context, selected assets,
+visible tab, internal execution type, provider data, and quote readiness
+separately. Expected default assets come from current configuration and code,
+not from this skill.
 
-## Quote Pipeline
-
-The quote pipeline owns quote request identity and stale response guards:
-
-- event id or request id
-- provider key
-- source and target token keys
-- amount mode
-- manual provider selection intent
-- quote progress and quote completion state
-
-When multiple providers race, only the active request/provider/token tuple can update the selected quote. Do not let an older quote replace the current quote after account, network, provider, or amount changes.
-
-## Review Snapshot
-
-Review must freeze the quote/build inputs that the user confirms:
-
-- from/to token, amount, network, account, receiver
-- provider, route, fee, rate, slippage, ETA, limits
-- approval/setup requirements
-- warning/risk text and provider-specific display
-
-The review state should not keep reading mutable page atoms after the user enters confirm.
-
-## Build, Sign, And Send
-
-Build/send can return different execution types:
-
-- normal unsigned transaction
-- approval/setup transaction plus business transaction
-- order payload with later settlement
-- provider-managed privacy or order flow
-- Market speed-swap payload derived from market detail
-
-Keep build response parsing, transaction send, and post-send history creation in one traced path. A send success without the correct pending history item is not validated.
-
-## History And Status
-
-History/status must define:
-
-- pending item identity
-- txid and order id roles
-- provider raw status to App final status
-- progress-step labels
-- detail-page fallback data
-- polling end conditions and retry behavior
-- replay/enrichment source for partial local rows
-- correction behavior when backend detail arrives after local submit
-
-PrivateSend-like channels often need order progress even when normal
-transaction status is unavailable. Stock/order channels often need order
-lifecycle states that are not equivalent to on-chain success.
-
-See [channel-state-model.md](channel-state-model.md) before changing list
-filters, status polling, detail display, or history replay for a non-standard
-channel.
-
-## Market Detail And K-Line
-
-Market detail flows have separate data boundaries:
-
-- token detail enrichment
-- token selector and live token overrides
-- chart/K-line data and fallback data
-- transaction stream and holders/portfolio panels
-- speed-swap execution payload
-
-Do not fix a chart fallback issue by changing quote state, and do not fix a quote issue by changing chart data ownership.
-
-## Extension Decision Tree
-
-Use this when a new channel appears:
-
-1. Can it execute a normal token swap with existing quote/build/status fields? Add or adjust a provider adapter.
-2. Does it hide receiver or settlement details, or use provider-managed progress? Treat it as an order-backed privacy channel.
-3. Does it trade a non-token or stock-like asset? Define asset identity, session availability, settlement currency, and order statuses first.
-4. Is it only a funding entry into Swap? Keep the source surface as prefill only; Swap owns execution after quote starts.
-5. Is it only data display? Keep it in Market/K-line data flow and do not add execution state.
-6. Does it share Swap infrastructure but need different history or listener
-   semantics? Add a channel-state contract before reusing ordinary Swap lists
-   or status polling.
-
-## Framework / State Machine / Hook Pass
-
-Use this pass before patching broad Swap issues:
-
-1. Framework: identify the entry surface (`Swap`, `Wallet Home`, `Home Token`,
-   `Send`, `Market`, `Earn`, `Buy`), route/modal host, provider mirrors, and
-   package boundary.
-2. State machine: trace visible tab type, internal execution type, route params,
-   selected-token atoms, cold-start snapshot, quote progress, review snapshot,
-   build/send result, local history, status listener, and replay/repair.
-3. Hooks: only after the first two passes, pick the hook or component boundary
-   that owns the wrong transition or side effect.
-
-This prevents Home Token or Send handoff regressions from being mistaken for
-ordinary Swap page UI bugs.
+A cache can improve display without authorizing quote/build/send. A fix is not
+verified if a wrong token/tab/icon flashes before the final state settles.
+Restored channel-owned execution type and asset selection must win over an
+ordinary Swap default initializer; resolve ownership before any default path
+writes shared selection state.

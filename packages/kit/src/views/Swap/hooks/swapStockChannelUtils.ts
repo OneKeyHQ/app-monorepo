@@ -425,6 +425,20 @@ export function resolveStockBalanceSnapshot({
   return undefined;
 }
 
+export function resolveStockBalanceViewState({
+  balanceSnapshot,
+  cachedDisplayBalance,
+}: {
+  balanceSnapshot?: IStockBalanceSnapshot;
+  cachedDisplayBalance?: string;
+}) {
+  return {
+    balance: balanceSnapshot?.balance,
+    displayBalance: balanceSnapshot?.balance ?? cachedDisplayBalance,
+    tokenDetail: balanceSnapshot?.tokenDetail,
+  };
+}
+
 function getStockDefaultPayTokenCandidates(candidates: IToken[]) {
   return filterStockPayTokenCandidates(candidates);
 }

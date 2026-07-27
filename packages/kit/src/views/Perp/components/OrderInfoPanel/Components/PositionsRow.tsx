@@ -19,6 +19,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -36,10 +37,13 @@ import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid/sdk
 import { usePerpsAccountScopedOpenOrdersByCoin } from '../../../hooks/usePerpsAccountScopedOpenOrdersByCoin';
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { useShowPositionShare } from '../../../hooks/useShowPositionShare';
+import { PerpTestIDs } from '../../../testIDs';
+import { showAddPositionDialog } from '../AddPositionModal';
 import { showAdjustPositionMarginDialog } from '../AdjustPositionMarginModal';
 import { showClosePositionDialog } from '../ClosePositionModal';
 import { showSetTpslDialog } from '../SetTpslModal';
 import { calcCellAlign, getColumnStyle } from '../utils';
+import { MOBILE_POSITION_ACTION_TEXT_SIZE } from '../utils/positionActionPresentation';
 
 import { DesktopActionIconButton } from './DesktopActionIconButton';
 
@@ -533,13 +537,13 @@ const PositionRowDesktopTPSL = memo(
           alignItems="center"
         >
           {tpslInfo.showOrder ? (
-            <XStack alignItems="center" gap="$1" cursor="default">
+            <XStack alignItems="center" gap="$1">
               <SizableText
                 hoverStyle={{ size: '$bodySmMedium' }}
                 color="$bgAccent"
                 size="$bodySmMedium"
                 onPress={onViewTpslOrders}
-                cursor="default"
+                cursor="pointer"
               >
                 {intl.formatMessage({
                   id: ETranslations.perp_position_view_orders,
@@ -556,7 +560,7 @@ const PositionRowDesktopTPSL = memo(
             <XStack
               alignItems="center"
               gap="$1"
-              cursor="default"
+              cursor="pointer"
               onPress={onSetTpsl}
             >
               <SizableText
@@ -583,9 +587,11 @@ PositionRowDesktopTPSL.displayName = 'PositionRowDesktopTPSL';
 const PositionRowDesktopActions = memo(
   ({
     columnConfig,
+    onAddPosition,
     onClosePosition,
   }: {
     columnConfig: IColumnConfig;
+    onAddPosition: () => void;
     onClosePosition: (type: 'market' | 'limit') => void;
   }) => {
     const intl = useIntl();
@@ -601,7 +607,19 @@ const PositionRowDesktopActions = memo(
           alignItems="center"
           gap="$2"
         >
-          <XStack onPress={() => onClosePosition('market')} cursor="default">
+          <XStack onPress={onAddPosition} cursor="pointer">
+            <SizableText
+              testID={PerpTestIDs.PositionAddButton}
+              hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
+              color="$bgAccent"
+              size="$bodySmMedium"
+            >
+              {intl.formatMessage({
+                id: ETranslations.add_position__action,
+              })}
+            </SizableText>
+          </XStack>
+          <XStack onPress={() => onClosePosition('market')} cursor="pointer">
             <SizableText
               hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
               color="$bgAccent"
@@ -612,7 +630,7 @@ const PositionRowDesktopActions = memo(
               })}
             </SizableText>
           </XStack>
-          <XStack onPress={() => onClosePosition('limit')} cursor="default">
+          <XStack onPress={() => onClosePosition('limit')} cursor="pointer">
             <SizableText
               hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
               color="$bgAccent"
@@ -642,6 +660,7 @@ interface IPositionRowDesktopProps {
   isIsolatedMode: boolean;
   onChangeAsset: () => void;
   onSetTpsl: () => void;
+  onAddPosition: () => void;
   onClosePosition: (type: 'market' | 'limit') => void;
   onAdjustMargin: () => void;
   onViewTpslOrders: () => void;
@@ -664,6 +683,7 @@ const PositionRowDesktop = memo(
     isIsolatedMode,
     onChangeAsset,
     onSetTpsl,
+    onAddPosition,
     onClosePosition,
     onAdjustMargin,
     onViewTpslOrders,
@@ -747,6 +767,7 @@ const PositionRowDesktop = memo(
           {shouldRenderRight ? (
             <PositionRowDesktopActions
               columnConfig={columnConfigs[9]}
+              onAddPosition={onAddPosition}
               onClosePosition={onClosePosition}
             />
           ) : null}
@@ -1288,9 +1309,11 @@ PositionRowMobileLiqPrice.displayName = 'PositionRowMobileLiqPrice';
 
 const PositionRowMobileActions = memo(
   ({
+    onAddPosition,
     onSetTpsl,
     onClosePosition,
   }: {
+    onAddPosition: () => void;
     onSetTpsl: () => void;
     onClosePosition: (type: 'market' | 'limit') => void;
   }) => {
@@ -1303,6 +1326,20 @@ const PositionRowMobileActions = memo(
         position="relative"
       >
         <Button
+          testID={PerpTestIDs.PositionAddButton}
+          size="medium"
+          variant="secondary"
+          onPress={onAddPosition}
+          flex={1}
+          childrenAsText={false}
+        >
+          <SizableText size={MOBILE_POSITION_ACTION_TEXT_SIZE}>
+            {intl.formatMessage({
+              id: ETranslations.add_position__action,
+            })}
+          </SizableText>
+        </Button>
+        <Button
           size="medium"
           variant="secondary"
           onPress={onSetTpsl}
@@ -1310,7 +1347,7 @@ const PositionRowMobileActions = memo(
           childrenAsText={false}
           testID="perp-intl-btn"
         >
-          <SizableText size="$bodySm">
+          <SizableText size={MOBILE_POSITION_ACTION_TEXT_SIZE}>
             {intl.formatMessage({
               id: ETranslations.perp_trade_set_tp_sl,
             })}
@@ -1324,7 +1361,7 @@ const PositionRowMobileActions = memo(
           flex={1}
           childrenAsText={false}
         >
-          <SizableText size="$bodySm">
+          <SizableText size={MOBILE_POSITION_ACTION_TEXT_SIZE}>
             {intl.formatMessage({
               id: ETranslations.perp_close_position_title,
             })}
@@ -1347,6 +1384,7 @@ interface IPositionRowMobileProps {
   isSizeViewChange: boolean;
   onChangeAsset: () => void;
   onSetTpsl: () => void;
+  onAddPosition: () => void;
   onClosePosition: (type: 'market' | 'limit') => void;
   onAdjustMargin: () => void;
   onSizeViewChange: () => void;
@@ -1365,6 +1403,7 @@ const PositionRowMobile = memo(
     isSizeViewChange,
     onChangeAsset,
     onSetTpsl,
+    onAddPosition,
     onClosePosition,
     onAdjustMargin,
     onSizeViewChange,
@@ -1412,6 +1451,7 @@ const PositionRowMobile = memo(
             <PositionRowMobileLiqPrice priceInfo={priceInfo} />
           </XStack>
           <PositionRowMobileActions
+            onAddPosition={onAddPosition}
             onSetTpsl={onSetTpsl}
             onClosePosition={onClosePosition}
           />
@@ -1435,6 +1475,7 @@ const PositionRow = memo(
   }: IPositionRowProps) => {
     const navigation = useAppNavigation();
     const actions = useHyperliquidActions();
+    const [activeAccount] = usePerpsActiveAccountAtom();
     const intl = useIntl();
     const pos = mockedPosition.activePosition.position;
     const coin = pos.coin;
@@ -1628,6 +1669,18 @@ const PositionRow = memo(
       });
     }, [isMobile, navigation, actions, pos, intl]);
 
+    const handleAddPosition = useCallback(() => {
+      if (!activeAccount?.accountAddress) {
+        return;
+      }
+      showAddPositionDialog({
+        coin,
+        isBuy: new BigNumber(pos.szi || '0').gt(0),
+        accountAddress: activeAccount.accountAddress,
+        intl,
+      });
+    }, [activeAccount?.accountAddress, coin, intl, pos.szi]);
+
     const handleChangeAsset = useCallback(() => {
       void actions.current.changeActiveAsset({
         coin: assetInfo.rawCoin,
@@ -1678,6 +1731,7 @@ const PositionRow = memo(
           isIsolatedMode={isIsolatedMode}
           isSizeViewChange={isSizeViewChange}
           onChangeAsset={handleChangeAsset}
+          onAddPosition={handleAddPosition}
           onSetTpsl={handleSetTpsl}
           onClosePosition={handleClosePosition}
           onAdjustMargin={handleAdjustMargin}
@@ -1699,6 +1753,7 @@ const PositionRow = memo(
         coin={coin}
         isIsolatedMode={isIsolatedMode}
         onChangeAsset={handleChangeAsset}
+        onAddPosition={handleAddPosition}
         onSetTpsl={handleSetTpsl}
         onClosePosition={handleClosePosition}
         onAdjustMargin={handleAdjustMargin}

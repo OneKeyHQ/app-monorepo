@@ -17,7 +17,6 @@ import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapProviderSort,
-  swapQuoteIntervalMaxCount,
   swapSlippageAutoValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -58,7 +57,6 @@ import {
   useSwapQuoteEventErrorAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteFetchingAtom,
-  useSwapQuoteIntervalCountAtom,
   useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -423,7 +421,6 @@ export function useSwapActionState() {
   const isCrossChain = fromToken?.networkId !== toToken?.networkId;
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const [quoteIntervalCount] = useSwapQuoteIntervalCountAtom();
   const [swapUseLimitPrice] = useSwapLimitPriceUseRateAtom();
   const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
   const [{ swapApprovingLoading, swapApprovingTransaction }] =
@@ -456,10 +453,7 @@ export function useSwapActionState() {
     toToken,
   ]);
 
-  const isRefreshQuote = useMemo(
-    () => quoteIntervalCount > swapQuoteIntervalMaxCount || shouldRefreshQuote,
-    [quoteIntervalCount, shouldRefreshQuote],
-  );
+  const isRefreshQuote = shouldRefreshQuote;
 
   const hasError = alerts.states.some(
     (item) => item.alertLevel === ESwapAlertLevel.ERROR,
@@ -566,6 +560,7 @@ export function useSwapActionState() {
     isWaitingActionableQuote,
     isQuoteEventSettlingForAction,
     isWaitingAutoSlippage,
+    manualRefreshRequired: isRefreshQuote,
   });
   // "The CURRENT pair's quote round completed and no provider supports it."
   // The veto must be pair-identity based only: provider-error quotes carry

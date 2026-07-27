@@ -6,6 +6,8 @@ import {
   TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT,
   TRADING_VIEW_NATIVE_PRICE_AXIS_WIDTH,
+  TRADING_VIEW_NATIVE_PRICE_EXTREMA_LABEL_GAP,
+  TRADING_VIEW_NATIVE_PRICE_EXTREMA_LINE_LENGTH,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
   TRADING_VIEW_NATIVE_TIME_AXIS_MIN_TICK_SPACING,
   TRADING_VIEW_NATIVE_WATERMARK_ASPECT_RATIO,
@@ -50,6 +52,11 @@ export interface ITradingViewNativePriceTransform {
 export interface ITradingViewNativeCurrentPriceLayout {
   labelTop: number;
   lineY: number;
+}
+
+export interface ITradingViewNativePriceExtremumHorizontalLayout {
+  lineEndX: number;
+  textX: number;
 }
 
 export interface ITradingViewNativeWatermarkLayout {
@@ -122,6 +129,30 @@ export function getTradingViewNativeChartWidth(width: number) {
       TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
     0,
   );
+}
+
+export function getTradingViewNativePriceExtremumHorizontalLayout({
+  anchorX,
+  canvasWidth,
+  textWidth,
+}: {
+  anchorX: number;
+  canvasWidth: number;
+  textWidth: number;
+}): ITradingViewNativePriceExtremumHorizontalLayout {
+  'worklet';
+
+  const shouldPlaceLabelOnLeft = anchorX > canvasWidth / 2;
+  const lineEndX =
+    anchorX +
+    (shouldPlaceLabelOnLeft
+      ? -TRADING_VIEW_NATIVE_PRICE_EXTREMA_LINE_LENGTH
+      : TRADING_VIEW_NATIVE_PRICE_EXTREMA_LINE_LENGTH);
+  const textX = shouldPlaceLabelOnLeft
+    ? lineEndX - TRADING_VIEW_NATIVE_PRICE_EXTREMA_LABEL_GAP - textWidth
+    : lineEndX + TRADING_VIEW_NATIVE_PRICE_EXTREMA_LABEL_GAP;
+
+  return { lineEndX, textX };
 }
 
 export function getTradingViewNativeWatermarkLayout({

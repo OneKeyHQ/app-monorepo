@@ -52,6 +52,13 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type {
+  TPerpLocalInvalidReason,
+  TPerpTradeOrderType,
+  TPerpTradePriceMode,
+  TPerpTradeValidationState,
+} from '@onekeyhq/shared/src/logger/scopes/perp/type';
 import {
   SCALE_ORDER_MAX_COUNT,
   SCALE_ORDER_MIN_COUNT,
@@ -255,6 +262,152 @@ EstLiqPriceLeaf.displayName = 'EstLiqPriceLeaf';
 function getPerpSideButtonStyles(isLong: boolean) {
   const styles = getTradingButtonStyleValues(isLong ? 'long' : 'short');
   return styles;
+}
+
+function getPerpTradeButtonState({
+  canTrade,
+  activatedOk,
+}: {
+  canTrade: boolean;
+  activatedOk?: boolean;
+}) {
+  if (canTrade) {
+    return 'readyToTrade' as const;
+  }
+  if (activatedOk === false) {
+    return 'depositRequired' as const;
+  }
+  return 'enableTrading' as const;
+}
+
+type IPerpTradeAnalyticsFormData = Pick<
+  ITradingFormData,
+  'orderMode' | 'type'
+> &
+  Partial<
+    Pick<
+      ITradingFormData,
+      | 'bboPriceMode'
+      | 'hasTpsl'
+      | 'limitTif'
+      | 'reduceOnly'
+      | 'scaleReduceOnly'
+      | 'scaleTif'
+      | 'triggerOrderType'
+      | 'triggerReduceOnly'
+      | 'twapReduceOnly'
+    >
+  >;
+
+function getPerpTradeOrderType(
+  formData: IPerpTradeAnalyticsFormData,
+): TPerpTradeOrderType {
+  if (formData.orderMode === 'trigger') {
+    return formData.triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT
+      ? 'triggerLimit'
+      : 'triggerMarket';
+  }
+  if (formData.orderMode === 'scale') {
+    return 'scale';
+  }
+  if (formData.orderMode === 'twap') {
+    return 'twap';
+  }
+  return formData.type;
+}
+
+function getPerpTradePriceMode(
+  formData: IPerpTradeAnalyticsFormData,
+): TPerpTradePriceMode {
+  if (
+    formData.orderMode === 'standard' &&
+    formData.type === 'limit' &&
+    formData.bboPriceMode
+  ) {
+    return formData.bboPriceMode.type === 'counterparty'
+      ? 'bboCounterparty'
+      : 'bboQueue';
+  }
+  if (
+    formData.orderMode === 'twap' ||
+    (formData.orderMode === 'standard' && formData.type === 'market') ||
+    (formData.orderMode === 'trigger' &&
+      formData.triggerOrderType !== ETriggerOrderType.TRIGGER_LIMIT)
+  ) {
+    return 'market';
+  }
+  return 'manualLimit';
+}
+
+function getPerpTradeReduceOnly(
+  formData: IPerpTradeAnalyticsFormData,
+): boolean | undefined {
+  if (formData.orderMode === 'trigger') {
+    return formData.triggerReduceOnly;
+  }
+  if (formData.orderMode === 'scale') {
+    return formData.scaleReduceOnly;
+  }
+  if (formData.orderMode === 'twap') {
+    return formData.twapReduceOnly;
+  }
+  return formData.reduceOnly;
+}
+
+function getPerpTradeTif(
+  formData: IPerpTradeAnalyticsFormData,
+): string | undefined {
+  if (formData.orderMode === 'scale') {
+    return formData.scaleTif;
+  }
+  if (formData.orderMode === 'standard' && formData.type === 'limit') {
+    return formData.limitTif;
+  }
+  return undefined;
+}
+
+function logPerpTradeButtonClick({
+  side,
+  canTrade,
+  activatedOk,
+  validationState,
+  localInvalidReason,
+  formData,
+  symbol,
+  leverage,
+  orderValue,
+}: {
+  side: 'long' | 'short';
+  canTrade: boolean;
+  activatedOk?: boolean;
+  validationState: TPerpTradeValidationState;
+  localInvalidReason?: TPerpLocalInvalidReason;
+  formData: IPerpTradeAnalyticsFormData;
+  symbol: string;
+  leverage?: number;
+  orderValue?: BigNumber;
+}) {
+  defaultLogger.perp.common.perpTradeButtonClick({
+    side,
+    isTradingEnabled: canTrade,
+    buttonState: getPerpTradeButtonState({ canTrade, activatedOk }),
+    validationState,
+    ...(localInvalidReason ? { localInvalidReason } : {}),
+    symbol,
+    orderType: getPerpTradeOrderType(formData),
+    priceMode: getPerpTradePriceMode(formData),
+    reduceOnly: getPerpTradeReduceOnly(formData),
+    hasTpsl: formData.orderMode === 'standard' ? formData.hasTpsl : undefined,
+    tif: getPerpTradeTif(formData),
+    leverage:
+      typeof leverage === 'number' && Number.isFinite(leverage) && leverage > 0
+        ? leverage
+        : undefined,
+    orderValue:
+      orderValue?.isFinite() && orderValue.gt(0)
+        ? orderValue.toNumber()
+        : undefined,
+  });
 }
 
 function SideButtonInternal({
@@ -634,6 +787,7 @@ function SideButtonInternal({
     marketDataFreshness,
     midPriceBN,
     orderContextKey,
+    orderValue,
     perpsAccount,
     perpsCustomSettings,
     priceError,
@@ -659,6 +813,7 @@ function SideButtonInternal({
     marketDataFreshness,
     midPriceBN,
     orderContextKey,
+    orderValue,
     perpsAccount,
     perpsCustomSettings,
     priceError,
@@ -709,7 +864,7 @@ function SideButtonInternal({
             id: ETranslations.Perps_BBO_unavailable,
           }),
         });
-        return false;
+        return 'bboUnavailable' as const;
       }
 
       if (latestShouldBlockForMarketData) {
@@ -721,7 +876,7 @@ function SideButtonInternal({
             id: ETranslations.perps_offline_moblie,
           }),
         });
-        return false;
+        return 'marketDataUnavailable' as const;
       }
 
       if (latestIsTriggerMode && latestFormData.triggerOrderType) {
@@ -732,7 +887,7 @@ function SideButtonInternal({
               id: ETranslations.perps_input_trigger_price,
             }),
           });
-          return false;
+          return 'invalidTriggerPrice' as const;
         }
         const isLimitTrigger =
           latestFormData.triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
@@ -744,18 +899,18 @@ function SideButtonInternal({
                 id: ETranslations.perp_trade_price_place_holder,
               }),
             });
-            return false;
+            return 'invalidLimitPrice' as const;
           }
         }
         if (!latestMidPriceBN.isFinite() || latestMidPriceBN.lte(0)) {
           Toast.error({ title: 'Market price unavailable, please try again' });
-          return false;
+          return 'marketDataUnavailable' as const;
         }
         if (new BigNumber(tp).eq(latestMidPriceBN)) {
           Toast.error({
             title: 'Trigger price must differ from current price',
           });
-          return false;
+          return 'invalidTriggerPrice' as const;
         }
       }
 
@@ -771,7 +926,7 @@ function SideButtonInternal({
             id: ETranslations.perp_trade_price_place_holder,
           }),
         });
-        return false;
+        return 'missingLimitPrice' as const;
       }
 
       if (latestIsScaleMode) {
@@ -788,7 +943,7 @@ function SideButtonInternal({
               id: ETranslations.perp_scale_price_range_required__msg,
             }),
           });
-          return false;
+          return 'invalidScaleConfig' as const;
         }
         if (lowerPrice.eq(upperPrice)) {
           Toast.message({
@@ -796,7 +951,7 @@ function SideButtonInternal({
               id: ETranslations.perp_scale_price_range_same__msg,
             }),
           });
-          return false;
+          return 'invalidScaleConfig' as const;
         }
         const orderCount = normalizeScaleOrderCount(
           latestFormData.scaleOrderCount ?? 0,
@@ -816,7 +971,7 @@ function SideButtonInternal({
               },
             ),
           });
-          return false;
+          return 'invalidScaleConfig' as const;
         }
       }
 
@@ -830,7 +985,7 @@ function SideButtonInternal({
           Toast.message({
             title: `TWAP duration must be ${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES} minutes`,
           });
-          return false;
+          return 'invalidTwapConfig' as const;
         }
       }
 
@@ -885,12 +1040,14 @@ function SideButtonInternal({
             { amount: minAmount },
           ),
         });
-        return false;
+        return hasSizeEmpty
+          ? ('emptySize' as const)
+          : ('minimumOrderNotMet' as const);
       }
 
       if (latestIsNoEnoughMargin) {
         showNoEnoughMarginToast(latestIsSpot);
-        return false;
+        return 'insufficientMargin' as const;
       }
 
       if (latestIsScaleMode) {
@@ -915,7 +1072,7 @@ function SideButtonInternal({
               fallback: 'Invalid scale order',
             }),
           });
-          return false;
+          return 'invalidScaleConfig' as const;
         }
       }
 
@@ -938,7 +1095,7 @@ function SideButtonInternal({
               id: ETranslations.perp_twap_small_slice__msg,
             }),
           });
-          return false;
+          return 'invalidTwapConfig' as const;
         }
       }
 
@@ -1009,7 +1166,7 @@ function SideButtonInternal({
                 id: ETranslations.perp_invaild_tp_desc_1,
               }),
             });
-            return false;
+            return 'invalidTpsl' as const;
           }
           if (
             validationSide === 'short' &&
@@ -1023,7 +1180,7 @@ function SideButtonInternal({
                 id: ETranslations.perp_invaild_tp_desc_2,
               }),
             });
-            return false;
+            return 'invalidTpsl' as const;
           }
         }
 
@@ -1045,7 +1202,7 @@ function SideButtonInternal({
                 id: ETranslations.perp_invaild_sl_desc_1,
               }),
             });
-            return false;
+            return 'invalidTpsl' as const;
           }
           if (
             validationSide === 'short' &&
@@ -1059,12 +1216,12 @@ function SideButtonInternal({
                 id: ETranslations.perp_invaild_sl_desc_2,
               }),
             });
-            return false;
+            return 'invalidTpsl' as const;
           }
         }
       }
 
-      return true;
+      return undefined;
     },
     [intl, showNoEnoughMarginToast],
   );
@@ -1176,7 +1333,33 @@ function SideButtonInternal({
         return;
       }
 
+      const logTradeClick = ({
+        orderPanelState,
+        validationState,
+        localInvalidReason,
+      }: {
+        orderPanelState: ILatestOrderPanelState;
+        validationState: TPerpTradeValidationState;
+        localInvalidReason?: TPerpLocalInvalidReason;
+      }) => {
+        if (orderPanelState.isSpot) {
+          return;
+        }
+        logPerpTradeButtonClick({
+          side,
+          canTrade: Boolean(perpsAccountStatus.canTrade),
+          activatedOk: perpsAccountStatus.details?.activatedOk,
+          validationState,
+          localInvalidReason,
+          formData: orderPanelState.formData,
+          symbol: orderPanelState.activeTradeInstrument.coin,
+          leverage: orderPanelState.leverage,
+          orderValue: orderPanelState.orderValue,
+        });
+      };
+
       const preEnableOrderPanelState = latestOrderPanelStateRef.current;
+      let hasLoggedDeferredClick = false;
 
       if (shouldEnableTradingBeforeOrder) {
         const isDepositRequired =
@@ -1188,9 +1371,20 @@ function SideButtonInternal({
             isDepositRequired,
           })
         ) {
+          logTradeClick({
+            orderPanelState: preEnableOrderPanelState,
+            validationState: 'invalid',
+            localInvalidReason: 'insufficientMargin',
+          });
           showNoEnoughMarginToast(preEnableOrderPanelState.isSpot);
           return;
         }
+
+        logTradeClick({
+          orderPanelState: preEnableOrderPanelState,
+          validationState: 'deferred',
+        });
+        hasLoggedDeferredClick = !preEnableOrderPanelState.isSpot;
 
         const enableTradingAccountKey = perpsAccountKey;
         const enableTradingSide = side;
@@ -1236,13 +1430,19 @@ function SideButtonInternal({
       // dialog. Running validation here covers both the just-enabled path and
       // accounts that can already trade.
       const validationState = latestOrderPanelStateRef.current;
-      if (
-        !validateOrderPanelState({
-          orderPanelState: validationState,
-          validationSide: side,
-          shouldValidateBboPriceError: true,
-        })
-      ) {
+      const localInvalidReason = validateOrderPanelState({
+        orderPanelState: validationState,
+        validationSide: side,
+        shouldValidateBboPriceError: true,
+      });
+      if (localInvalidReason) {
+        if (!hasLoggedDeferredClick) {
+          logTradeClick({
+            orderPanelState: validationState,
+            validationState: 'invalid',
+            localInvalidReason,
+          });
+        }
         return;
       }
       const submitState = latestOrderPanelStateRef.current;
@@ -1258,6 +1458,13 @@ function SideButtonInternal({
             submitState.activePositionsValue.accountAddress,
         });
         if (snapshotError) {
+          if (!hasLoggedDeferredClick) {
+            logTradeClick({
+              orderPanelState: submitState,
+              validationState: 'invalid',
+              localInvalidReason: 'invalidReduceOnly',
+            });
+          }
           Toast.message({ title: snapshotError });
           return;
         }
@@ -1285,9 +1492,23 @@ function SideButtonInternal({
               }),
         });
         if (reduceOnlyError) {
+          if (!hasLoggedDeferredClick) {
+            logTradeClick({
+              orderPanelState: submitState,
+              validationState: 'invalid',
+              localInvalidReason: 'invalidReduceOnly',
+            });
+          }
           Toast.message({ title: reduceOnlyError });
           return;
         }
+      }
+
+      if (!hasLoggedDeferredClick) {
+        logTradeClick({
+          orderPanelState: submitState,
+          validationState: 'valid',
+        });
       }
 
       if (submitState.perpsCustomSettings.skipOrderConfirm) {
@@ -1829,6 +2050,19 @@ function EmptySizeSideButton({
         return;
       }
 
+      let hasLoggedDeferredClick = false;
+      if (!isSpot && shouldEnableTradingBeforeOrder) {
+        logPerpTradeButtonClick({
+          side,
+          canTrade: Boolean(perpsAccountStatus.canTrade),
+          activatedOk: perpsAccountStatus.details?.activatedOk,
+          validationState: 'deferred',
+          formData,
+          symbol: activeTradeInstrument.coin,
+        });
+        hasLoggedDeferredClick = true;
+      }
+
       if (shouldEnableTradingBeforeOrder) {
         const enableTradingAccountKey = perpsAccountKey;
         const shouldIgnoreEnableTradingResult = () =>
@@ -1850,6 +2084,17 @@ function EmptySizeSideButton({
         shouldBlockPerpsTradingForMarketData(marketDataFreshness);
 
       if (shouldBlockForMarketData) {
+        if (!isSpot && !hasLoggedDeferredClick) {
+          logPerpTradeButtonClick({
+            side,
+            canTrade: Boolean(perpsAccountStatus.canTrade),
+            activatedOk: perpsAccountStatus.details?.activatedOk,
+            validationState: 'invalid',
+            localInvalidReason: 'marketDataUnavailable',
+            formData,
+            symbol: activeTradeInstrument.coin,
+          });
+        }
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.perp_offline,
@@ -1865,6 +2110,17 @@ function EmptySizeSideButton({
         formData.type === 'limit' &&
         (!formData.price || formData.price.trim() === '')
       ) {
+        if (!isSpot && !hasLoggedDeferredClick) {
+          logPerpTradeButtonClick({
+            side,
+            canTrade: Boolean(perpsAccountStatus.canTrade),
+            activatedOk: perpsAccountStatus.details?.activatedOk,
+            validationState: 'invalid',
+            localInvalidReason: 'missingLimitPrice',
+            formData,
+            symbol: activeTradeInstrument.coin,
+          });
+        }
         Toast.message({
           title: intl.formatMessage({
             id: ETranslations.perp_trade_price_place_holder,
@@ -1873,6 +2129,17 @@ function EmptySizeSideButton({
         return;
       }
 
+      if (!isSpot && !hasLoggedDeferredClick) {
+        logPerpTradeButtonClick({
+          side,
+          canTrade: Boolean(perpsAccountStatus.canTrade),
+          activatedOk: perpsAccountStatus.details?.activatedOk,
+          validationState: 'invalid',
+          localInvalidReason: 'emptySize',
+          formData,
+          symbol: activeTradeInstrument.coin,
+        });
+      }
       Toast.message({
         title: intl.formatMessage(
           { id: ETranslations.perp_size_least },

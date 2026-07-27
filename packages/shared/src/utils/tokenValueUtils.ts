@@ -83,6 +83,12 @@ export function sumFiatValuesIgnoringUnavailable(
 // collapses the duplicated `tokens.map + smallBalanceTokens.map` sum at every
 // accountWorth write site. Single pass over both maps to avoid the
 // toFixed → reparse round trip.
+//
+// Each $key is counted ONCE across both maps: cache-floor rounds
+// (useTokenListReactivePipeline.seedAndFlushCache) reuse the ONE cached full
+// tokenListMap as both tokens.map and smallBalanceTokens.map — summing them
+// verbatim doubled every cache-floor network's worth on the Home overview.
+// Live rounds carry disjoint maps, so the dedup is a no-op for them.
 export function sumTokenGroupsFiatValueIgnoringUnavailable(r: {
   tokens?: { map?: Record<string, ITokenFiatValueShape | undefined> };
   smallBalanceTokens?: {
@@ -90,13 +96,17 @@ export function sumTokenGroupsFiatValueIgnoringUnavailable(r: {
   };
 }): string {
   let acc = new BigNumber(0);
+  const seenKeys = new Set<string>();
   const addAll = (
     map: Record<string, ITokenFiatValueShape | undefined> | undefined,
   ) => {
     if (!map) return;
-    for (const entry of Object.values(map)) {
-      if (entry && isValidNumberValue(entry.fiatValue)) {
-        acc = acc.plus(entry.fiatValue);
+    for (const [key, entry] of Object.entries(map)) {
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        if (entry && isValidNumberValue(entry.fiatValue)) {
+          acc = acc.plus(entry.fiatValue);
+        }
       }
     }
   };

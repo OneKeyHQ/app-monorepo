@@ -69,6 +69,7 @@ type IMarketDirectSendParams = {
   customPriorityFee?: IMarketPresetPriorityFeeOverride;
   tronResourceRentalInfo?: ITronResourceRentalInfo;
   useDefaultRpc?: boolean;
+  validateFinalGasInfos?: (gasInfos: IMarketGasInfoEntry[]) => Promise<void>;
 };
 
 type IEstimateMarketDirectGasInfosParams = Omit<
@@ -1008,6 +1009,7 @@ async function updateUnsignedTxAndSendTx({
   estimateFeeParams,
   tronResourceRentalInfo,
   useDefaultRpc,
+  onBeforeGasAccountFallback,
 }: {
   accountId: string;
   networkId: string;
@@ -1016,6 +1018,7 @@ async function updateUnsignedTxAndSendTx({
   estimateFeeParams?: IEstimateFeeParams;
   tronResourceRentalInfo?: ITronResourceRentalInfo;
   useDefaultRpc?: boolean;
+  onBeforeGasAccountFallback?: () => Promise<void>;
 }): Promise<ISendTxOnSuccessData> {
   const feeInfo = buildMarketGasInfoFeeInfo(gasInfo);
 
@@ -1113,6 +1116,7 @@ async function updateUnsignedTxAndSendTx({
     if (entry?.strategy !== EGasAccountErrorStrategy.Fallback) {
       throw e;
     }
+    await onBeforeGasAccountFallback?.();
     signedTx =
       await backgroundApiProxy.serviceSend.signAndSendTransaction(sendTxParams);
   }
@@ -1177,6 +1181,7 @@ export async function sendMarketDirectUnsignedTxs({
   customPriorityFee,
   tronResourceRentalInfo,
   useDefaultRpc,
+  validateFinalGasInfos,
 }: IMarketDirectSendParams): Promise<ISendTxOnSuccessData[]> {
   if (!accountId || !networkId || !accountAddress) {
     throw new OneKeyError('account error');
@@ -1223,12 +1228,18 @@ export async function sendMarketDirectUnsignedTxs({
     });
   }
 
-  for (const unsignedTxItem of unsignedTxArr) {
+  await validateFinalGasInfos?.(gasInfosFinal);
+
+  for (const [unsignedTxIndex, unsignedTxItem] of unsignedTxArr.entries()) {
     const gasInfoEntry = findGasInfo(gasInfosFinal, unsignedTxItem.encodedTx);
     const gasInfo = gasInfoEntry?.gasInfo;
     if (!gasInfo) {
       throw new OneKeyError('gas info not found');
     }
+    const remainingGasInfos = unsignedTxArr
+      .slice(unsignedTxIndex)
+      .map((item) => findGasInfo(gasInfosFinal, item.encodedTx))
+      .filter((item): item is IMarketGasInfoEntry => Boolean(item));
 
     results.push(
       await updateUnsignedTxAndSendTx({
@@ -1239,6 +1250,25 @@ export async function sendMarketDirectUnsignedTxs({
         estimateFeeParams: gasInfoEntry.estimateFeeParams,
         tronResourceRentalInfo,
         useDefaultRpc,
+        onBeforeGasAccountFallback: validateFinalGasInfos
+          ? () =>
+              validateFinalGasInfos(
+                remainingGasInfos.map((item) =>
+                  item === gasInfoEntry
+                    ? {
+                        ...item,
+                        gasInfo: {
+                          ...item.gasInfo,
+                          payer: 'user',
+                          gasAccountEligible: false,
+                          gasAccountQuote: undefined,
+                          megafuelEligible: undefined,
+                        },
+                      }
+                    : item,
+                ),
+              )
+          : undefined,
       }),
     );
   }

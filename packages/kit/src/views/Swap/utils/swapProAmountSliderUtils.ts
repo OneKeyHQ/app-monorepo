@@ -69,8 +69,11 @@ export function calcSwapProSliderAmount({
   availableBalance: BigNumber;
   decimals?: number;
 }): string | undefined {
-  if (availableBalance.lte(0) || percent <= 0) {
+  if (percent <= 0) {
     return undefined;
+  }
+  if (availableBalance.lte(0)) {
+    return '0';
   }
   const tokenDecimals = Number(decimals ?? 6);
   // 100% fills the entire available balance at full token precision (the

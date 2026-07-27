@@ -34,6 +34,7 @@ export type IModalSwapParamList = {
   [EModalSwapRoutes.SwapMainLand]: {
     importFromToken?: ISwapToken;
     importToToken?: ISwapToken;
+    importAccountKey?: string;
     fromAmount?: string;
     importNetworkId?: string;
     swapTabSwitchType?: ESwapTabSwitchType;

@@ -13,6 +13,7 @@ import {
 import {
   buildSwapBatchTransferType,
   buildSwapReviewState,
+  resolveSwapReviewTokenAmounts,
 } from './buildSwapReviewState';
 
 const fromToken: ISwapToken = {
@@ -92,6 +93,38 @@ describe('buildSwapBatchTransferType', () => {
         providerDisableBatchTransfer: true,
       }),
     ).toBe(ESwapBatchTransferType.NORMAL);
+  });
+});
+
+describe('resolveSwapReviewTokenAmounts', () => {
+  it('uses the selected quote output for Swap Pro Market review', () => {
+    expect(
+      resolveSwapReviewTokenAmounts({
+        isSwapProMarket: true,
+        swapProInputAmount: '1',
+        swapFromAmount: 'stale-from-amount',
+        swapToAmount: '',
+        quoteToAmount: '0.9997',
+      }),
+    ).toEqual({
+      fromTokenAmount: '1',
+      toTokenAmount: '0.9997',
+    });
+  });
+
+  it('keeps the regular Swap input atoms outside Swap Pro Market', () => {
+    expect(
+      resolveSwapReviewTokenAmounts({
+        isSwapProMarket: false,
+        swapProInputAmount: 'stale-pro-amount',
+        swapFromAmount: '2',
+        swapToAmount: '5000',
+        quoteToAmount: 'stale-quote-amount',
+      }),
+    ).toEqual({
+      fromTokenAmount: '2',
+      toTokenAmount: '5000',
+    });
   });
 });
 
