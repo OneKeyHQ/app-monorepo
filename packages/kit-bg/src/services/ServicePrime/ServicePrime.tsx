@@ -3698,8 +3698,9 @@ class ServicePrime extends ServiceBase {
     // convert only at this boundary, mirroring normalizeInfiniSubscriptionPlan
     // which maps 'annual' back to 'yearly' on the read path.
     const planParam = getInfiniPlanParam(plan);
-    // Infini's hosted-checkout contract currently uses checkout.infini.money.
-    // Keep additional hosts explicit so suffix lookalikes cannot pass validation.
+    // The authenticated OneKey API owns the checkout destination and may move
+    // it without a client release. Keep only generic external-URL validation
+    // here; checkout-origin policy and authorization belong on the server.
     const result = await client.post<
       IApiClientResponse<{ checkoutUrl?: unknown }>
     >(
