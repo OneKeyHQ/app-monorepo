@@ -106,6 +106,14 @@ const showRecoveryPhraseProtectedDialog = (
   });
 };
 
+// CaptureProtection is a process-wide native singleton while its React
+// consumers nest: pushing KeyTagBackupDotMap on top of the enter-phrase page
+// keeps that page (and its PhaseInputArea) mounted underneath. An unconditional
+// allow() in the top page's cleanup would drop protection while the phrase below
+// is still on screen, so ref-count and only release on the last consumer — the
+// same contract as the desktop implementation.
+let activeConsumerCount = 0;
+
 export const useRecoveryPhraseProtected = ({
   dialogType = 'recoveryPhrase',
   enabled = true,
@@ -121,7 +129,10 @@ export const useRecoveryPhraseProtected = ({
     );
     let showTimer: ReturnType<typeof setTimeout> | undefined;
 
-    void CaptureProtection.prevent();
+    activeConsumerCount += 1;
+    if (activeConsumerCount === 1) {
+      void CaptureProtection.prevent();
+    }
     const listener = CaptureProtection.addListener(
       (eventType: CaptureEventType) => {
         if (
@@ -142,7 +153,10 @@ export const useRecoveryPhraseProtected = ({
         clearTimeout(showTimer);
       }
       debouncedShow.cancel();
-      void CaptureProtection.allow();
+      activeConsumerCount -= 1;
+      if (activeConsumerCount === 0) {
+        void CaptureProtection.allow();
+      }
       listener?.remove();
     };
   }, [dialogType, enabled, intl]);

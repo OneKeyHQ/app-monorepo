@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useKeepAwake } from 'expo-keep-awake';
@@ -17,6 +17,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  usePreventRemove,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -44,6 +45,8 @@ import {
   OnboardingSidebar,
 } from '../components/Layout';
 import { OnboardingTestIDs } from '../testIDs';
+
+import type { NavigationAction } from '@react-navigation/routers';
 
 const KEYTAG_PRODUCT_URL = 'https://onekey.so/products/onekey-keytag/';
 
@@ -81,7 +84,9 @@ export function ImportKeyTag() {
   // Which face of the plate is showing when the mnemonic spans two plates
   // (>12 words). 12-word imports never leave the front.
   const [side, setSide] = useState<'front' | 'back'>('front');
-  const allowLeaveRef = useRef(false);
+  // Disarms the leave guard once the phrase is on its way to wallet setup: the
+  // stack reset that finishes onboarding removes this page too.
+  const [hasSubmitted, setHasSubmitted] = useState(false);
 
   const dirty = useMemo(() => rows.some((value) => value !== 0), [rows]);
   const canSubmit = useMemo(() => canSubmitKeyTagRows(rows), [rows]);
@@ -157,21 +162,9 @@ export function ImportKeyTag() {
   );
 
   // Leaving with punched holes discards them (input is intentionally not
-  // persisted); ask first. Successful submits disable the guard.
-  useEffect(() => {
-    const unsubscribe = reactNavigation.addListener('beforeRemove', (e) => {
-      if (allowLeaveRef.current) {
-        return;
-      }
-      let isDirty = false;
-      setRows((currentRows) => {
-        isDirty = currentRows.some((value) => value !== 0);
-        return currentRows;
-      });
-      if (!isDirty) {
-        return;
-      }
-      e.preventDefault();
+  // persisted); ask first.
+  const handlePreventRemove = useCallback(
+    ({ data }: { data: { action: NavigationAction } }) => {
       Dialog.show({
         icon: 'ErrorOutline',
         tone: 'destructive',
@@ -182,14 +175,16 @@ export function ImportKeyTag() {
           id: ETranslations.keytag_leave_confirm__desc,
         }),
         onConfirmText: intl.formatMessage({ id: ETranslations.global_confirm }),
-        onConfirm: () => {
-          allowLeaveRef.current = true;
-          reactNavigation.dispatch(e.data.action);
-        },
+        // react-navigation stamps this route key onto the action before it
+        // emits, so re-dispatching that same action walks past our guard
+        // instead of re-triggering it.
+        onConfirm: () => reactNavigation.dispatch(data.action),
       });
-    });
-    return unsubscribe;
-  }, [intl, reactNavigation]);
+    },
+    [intl, reactNavigation],
+  );
+  // Armed from render state so the decision never races a pending setRows.
+  usePreventRemove(dirty && !hasSubmitted, handlePreventRemove);
 
   const handleSubmit = useCallback(async () => {
     if (submitting) {
@@ -220,7 +215,7 @@ export function ImportKeyTag() {
           await backgroundApiProxy.serviceAccount.validateMnemonic(
             mnemonicEncoded,
           );
-        allowLeaveRef.current = true;
+        setHasSubmitted(true);
         defaultLogger.account.wallet.walletAdded({
           status: 'success',
           addMethod: 'ImportWallet',

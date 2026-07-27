@@ -1,7 +1,4 @@
-import type {
-  IDBWallet,
-  IKeylessWalletDetailsInfo,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IKeylessWalletDetailsInfo } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 import type { EConnectDeviceChannel } from '../../types/connectDevice';
 import type {
@@ -143,7 +140,10 @@ export type IOnboardingParamListV2 = {
   };
   [EOnboardingPagesV2.ImportKeyTag]: undefined;
   [EOnboardingPagesV2.KeyTagBackupDotMap]: {
-    wallet?: IDBWallet;
+    // Primitives only, matching IVerifyRecoveryPhraseParams: navigation state is
+    // persisted, so a route must not carry a whole local-DB model.
+    walletId?: string;
+    isWalletBackedUp?: boolean;
     encodedText: string;
     title: string;
   };

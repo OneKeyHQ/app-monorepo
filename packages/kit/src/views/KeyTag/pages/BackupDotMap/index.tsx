@@ -80,7 +80,7 @@ const BackupDotMap = () => {
     defaultLogger.setting.page.keyTagBackup();
   }, []);
 
-  const { encodedText, title, wallet } = route.params;
+  const { encodedText, title, walletId, isWalletBackedUp } = route.params;
   const { result } = usePromiseResult(
     () =>
       backgroundApiProxy.servicePassword.decodeSensitiveText({ encodedText }),
@@ -108,7 +108,7 @@ const BackupDotMap = () => {
   // Re-viewing an already-backed-up wallet has nothing to verify; stay on the
   // read-only map with a plain Done. Everything else (a wallet not yet backed
   // up, or the no-wallet "enter phrase" branch) runs review -> verify.
-  const alreadyBackedUp = Boolean(wallet?.id && wallet.backuped);
+  const alreadyBackedUp = Boolean(walletId && isWalletBackedUp);
   const showVerifyFlow = Boolean(result) && !alreadyBackedUp;
 
   const [phase, setPhase] = useState<IPhase>('review');
@@ -231,9 +231,9 @@ const BackupDotMap = () => {
     try {
       // No wallet (enter-phrase branch): verification still runs, it just marks
       // nothing. updateWalletBackupStatus already emits WalletUpdate + analytics.
-      if (wallet?.id && !wallet.backuped) {
+      if (walletId && !isWalletBackedUp) {
         await backgroundApiProxy.serviceAccount.updateWalletBackupStatus({
-          walletId: wallet.id,
+          walletId,
           isBackedUp: true,
         });
       }
@@ -245,7 +245,16 @@ const BackupDotMap = () => {
     } finally {
       setSubmitting(false);
     }
-  }, [submitting, rows, trueValues, failCount, intl, showMispunchHelp, wallet]);
+  }, [
+    submitting,
+    rows,
+    trueValues,
+    failCount,
+    intl,
+    showMispunchHelp,
+    walletId,
+    isWalletBackedUp,
+  ]);
 
   // How-to-punch guidance (review phase only).
   const guidance = useMemo(

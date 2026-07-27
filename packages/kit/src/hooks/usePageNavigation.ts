@@ -1,5 +1,4 @@
 import { resetToRoute } from '@onekeyhq/components';
-import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   EOnboardingPagesV2,
   EOnboardingV2Routes,
@@ -40,11 +39,13 @@ export const navigateToBackupWalletReminderPage = ({
 // stack, while the KeyTag hub + wallet selector stay in KeyTagModal. These
 // helpers cross that modal→V2 boundary race-safely.
 export const navigateToKeyTagBackupDotMapPage = ({
-  wallet,
+  walletId,
+  isWalletBackedUp,
   encodedText,
   title,
 }: {
-  wallet?: IDBWallet;
+  walletId?: string;
+  isWalletBackedUp?: boolean;
   encodedText: string;
   title: string;
 }) => {
@@ -53,7 +54,8 @@ export const navigateToKeyTagBackupDotMapPage = ({
     params: {
       screen: EOnboardingPagesV2.KeyTagBackupDotMap,
       params: {
-        wallet,
+        walletId,
+        isWalletBackedUp,
         encodedText,
         title,
       },

@@ -60,7 +60,8 @@ function useBackUpWallet({ walletId }: { walletId: string }) {
         });
       if (encodedText) ensureSensitiveTextEncoded(encodedText);
       navigateToKeyTagBackupDotMapPage({
-        wallet,
+        walletId: wallet.id,
+        isWalletBackedUp: wallet.backuped,
         encodedText,
         title: wallet.name,
       });

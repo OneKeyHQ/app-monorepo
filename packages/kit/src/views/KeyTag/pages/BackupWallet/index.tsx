@@ -82,7 +82,8 @@ const BackupWallet = () => {
         reason: EReasonForNeedPassword.Security,
       });
     navigateToKeyTagBackupDotMapPage({
-      wallet: item,
+      walletId: item.id,
+      isWalletBackedUp: item.backuped,
       encodedText,
       title: item.name,
     });
