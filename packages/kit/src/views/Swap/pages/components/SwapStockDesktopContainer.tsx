@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useTheme } from '@tamagui/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
@@ -55,7 +56,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { BaseMarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import {
-  StockIsOpenBadge,
+  StockMarketStatusBadge,
   StockSourceLogo,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
@@ -110,6 +111,8 @@ import {
 import SwapFAQ from '../../components/SwapFAQ';
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
+import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
+import { useRefreshQuoteWhenStockMarketReopens } from '../../hooks/useRefreshQuoteWhenStockMarketReopens';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import {
   useShouldShowSwapLocalData,
@@ -1283,6 +1286,18 @@ function StockTradeTicket({
   compact?: boolean;
 }) {
   const amountInputState = useSwapStockAmountInputState({ stockChannel });
+  const hasPositiveInputAmount = new BigNumber(
+    amountInputState.inputValue || 0,
+  ).gt(0);
+  useRefreshQuoteWhenStockMarketReopens({
+    enabled: stockChannel.readyForQuote && hasPositiveInputAmount,
+    // The normalized status stays open while detail is unavailable so quote
+    // execution can continue; reopen detection needs the raw tri-state value.
+    marketIsOpen: stockChannel.activeStockTokenDetail?.stock?.isOpen,
+    onRefresh: refreshAction,
+    scopeKey: getTokenIdentityKey(stockChannel.currentStockToken),
+  });
+
   return (
     <YStack gap={compact ? '$3' : '$4'}>
       <StockTradeSideSwitch value={tradeSide} onChange={onTradeSideChange} />
@@ -1491,7 +1506,7 @@ function StockMarketTokenHeader({
         </SizableText>
       ) : null}
       <StockSourceLogo stock={stock} />
-      {stock ? <StockIsOpenBadge stock={stock} /> : null}
+      <StockMarketStatusBadge stock={stock} />
     </XStack>
   );
   const tokenInfoContent = (

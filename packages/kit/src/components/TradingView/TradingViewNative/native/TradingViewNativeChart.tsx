@@ -67,6 +67,7 @@ import {
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING as PRICE_AXIS_LABEL_RIGHT_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT as PRICE_AXIS_TICK_COUNT,
   TRADING_VIEW_NATIVE_PRICE_AXIS_WIDTH as PRICE_AXIS_WIDTH,
+  TRADING_VIEW_NATIVE_PRICE_EXTREMA_FONT_SIZE as PRICE_EXTREMA_FONT_SIZE,
   TRADING_VIEW_NATIVE_PRICE_LEGEND_TOP as PRICE_LEGEND_TOP,
   TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT as TIME_AXIS_HEIGHT,
@@ -88,6 +89,7 @@ import {
   getTradingViewNativeCurrentPriceLayout,
   getTradingViewNativeMaxVolume,
   getTradingViewNativePriceAtY,
+  getTradingViewNativePriceExtremumHorizontalLayout,
   getTradingViewNativePriceTransform,
   getTradingViewNativePriceY,
   getTradingViewNativeTimeAxisLayout,
@@ -103,21 +105,28 @@ import {
 import { getTradingViewNativePicturePointsSnapshot } from '../utils/chartPictureCache';
 import { isTradingViewNativePriceUp } from '../utils/chartStyle';
 import {
+  type ITradingViewNativeViewportRequest,
   type ITradingViewNativeVisiblePointRange,
   clampTradingViewNativePanOffset,
   getTradingViewNativeCandleX,
   getTradingViewNativeDataUpdateMetadata,
   getTradingViewNativeGestureStartOffsetAfterDataUpdate,
   getTradingViewNativeMaxPanOffset,
+  getTradingViewNativePanStartOffsetAfterViewportPreservation,
   getTradingViewNativePointIndexAtX,
+  getTradingViewNativePriceExtrema,
   getTradingViewNativePriceRange,
+  getTradingViewNativeRelativePinchScale,
+  getTradingViewNativeViewportForPointRange,
   getTradingViewNativeViewportOffsetTransition,
+  getTradingViewNativeViewportPointRange,
   getTradingViewNativeVisiblePointRange,
   getTradingViewNativeZoomedViewport,
 } from '../utils/chartViewport';
 
 const PRICE_AXIS_FONT_SIZE = 12;
 const PRICE_AXIS_TEXT_BASELINE_OFFSET = PRICE_AXIS_FONT_SIZE / 2 - 1;
+const PRICE_EXTREMA_TEXT_BASELINE_OFFSET = PRICE_EXTREMA_FONT_SIZE / 2 - 1;
 const PRICE_AXIS_TICK_PROGRESS = Array.from(
   { length: PRICE_AXIS_TICK_COUNT },
   (_, index) => index / (PRICE_AXIS_TICK_COUNT - 1),
@@ -170,11 +179,14 @@ interface ITradingViewNativeChartProps {
   candleIntervalSeconds: number;
   chartPictureVersion: number;
   isSwitchingInterval: boolean;
+  onChartWidthChange?: (width: number) => void;
+  onViewportRequestApplied?: (requestId: number) => void;
   onVisiblePointRangeChange?: (
     range: ITradingViewNativeVisiblePointRange,
   ) => void;
   points: IMarketTokenKLineDataPoint[];
   testID?: string;
+  viewportRequest?: ITradingViewNativeViewportRequest | null;
 }
 
 interface IVisiblePointRangeState extends ITradingViewNativeVisiblePointRange {
@@ -551,6 +563,96 @@ function TradingViewNativePriceTick({
   );
 }
 
+function TradingViewNativePriceExtremum({
+  chartOpacity,
+  color,
+  font,
+  maxPrice,
+  minPrice,
+  panOffset,
+  pointCount,
+  pointIndex,
+  price,
+  priceAxisX,
+  priceChartHeight,
+  width,
+  zoomScale,
+}: {
+  chartOpacity: number;
+  color: string;
+  font: SkFont;
+  maxPrice: SharedValue<number>;
+  minPrice: SharedValue<number>;
+  panOffset: SharedValue<number>;
+  pointCount: number;
+  pointIndex: number;
+  price: number;
+  priceAxisX: number;
+  priceChartHeight: number;
+  width: number;
+  zoomScale: SharedValue<number>;
+}) {
+  const text = formatTradingViewNativePriceTick(price);
+  const textWidth = font.measureText(text).width;
+  const layout = useDerivedValue(() => {
+    const anchorX = getTradingViewNativeCandleX({
+      candleGap: NATIVE_CANDLE_GAP,
+      index: pointIndex,
+      offset: panOffset.value,
+      pointCount,
+      priceAxisX,
+      zoomScale: zoomScale.value,
+    });
+    const horizontalLayout = getTradingViewNativePriceExtremumHorizontalLayout({
+      anchorX,
+      canvasWidth: width,
+      textWidth,
+    });
+    const y = getTradingViewNativePriceY(price, {
+      maxPrice: maxPrice.value,
+      priceChartHeight,
+      priceRange: maxPrice.value - minPrice.value,
+    });
+
+    return {
+      anchorX,
+      ...horizontalLayout,
+      y,
+    };
+  });
+  const lineStart = useDerivedValue(() => ({
+    x: layout.value.anchorX,
+    y: layout.value.y,
+  }));
+  const lineEnd = useDerivedValue(() => ({
+    x: layout.value.lineEndX,
+    y: layout.value.y,
+  }));
+  const textX = useDerivedValue(() => layout.value.textX);
+  const textY = useDerivedValue(
+    () => layout.value.y + PRICE_EXTREMA_TEXT_BASELINE_OFFSET,
+  );
+  const opacity = useDerivedValue(() => {
+    const hasVisiblePriceRange =
+      Number.isFinite(maxPrice.value) &&
+      Number.isFinite(minPrice.value) &&
+      maxPrice.value >= minPrice.value;
+    const halfCandleWidth =
+      (TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH * zoomScale.value) / 2;
+    const isPointVisible =
+      layout.value.anchorX >= CHART_HORIZONTAL_PADDING - halfCandleWidth &&
+      layout.value.anchorX <= priceAxisX + halfCandleWidth;
+    return hasVisiblePriceRange && isPointVisible ? chartOpacity : 0;
+  });
+
+  return (
+    <Group opacity={opacity}>
+      <Line color={color} p1={lineStart} p2={lineEnd} strokeWidth={1} />
+      <Text color={color} font={font} text={text} x={textX} y={textY} />
+    </Group>
+  );
+}
+
 function TradingViewNativeChartLegendRow({
   backgroundColor,
   font,
@@ -902,9 +1004,12 @@ export const TradingViewNativeChart = memo(
     candleIntervalSeconds,
     chartPictureVersion,
     isSwitchingInterval,
+    onChartWidthChange,
+    onViewportRequestApplied,
     onVisiblePointRangeChange,
     points,
     testID,
+    viewportRequest,
   }: ITradingViewNativeChartProps) => {
     const [chartSize, setChartSize] = useState<IChartSize>({
       height: 0,
@@ -920,16 +1025,24 @@ export const TradingViewNativeChart = memo(
     const panOffset = useSharedValue(0);
     const zoomScale = useSharedValue(TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE);
     const panStartOffset = useSharedValue(0);
+    const panTranslationX = useSharedValue(0);
     const pinchStartOffset = useSharedValue(0);
     const pinchStartZoomScale = useSharedValue(
       TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
     );
     const pinchAnchorX = useSharedValue(0);
+    const pinchCurrentScale = useSharedValue(1);
+    const pinchIsActive = useSharedValue(false);
+    const pinchScaleBaseline = useSharedValue(1);
     const priceScaleY = useSharedValue(1);
     const priceTranslateY = useSharedValue(0);
     const volumeScaleY = useSharedValue(1);
     const visibleMaxPrice = useSharedValue(Number.NaN);
     const visibleMinPrice = useSharedValue(Number.NaN);
+    const appliedViewportRequestRef = useRef({
+      chartWidth: 0,
+      requestId: 0,
+    });
     const hasInitializedViewportRef = useRef(false);
     const theme = useTheme();
     const themeName = useThemeName();
@@ -996,6 +1109,10 @@ export const TradingViewNativeChart = memo(
         }),
       [chartPictureVersion, points],
     );
+
+    useLayoutEffect(() => {
+      onChartWidthChange?.(chartWidth);
+    }, [chartWidth, onChartWidthChange]);
     useLayoutEffect(() => {
       picturePointsSnapshotRef.current = picturePointsSnapshot;
     }, [picturePointsSnapshot]);
@@ -1112,6 +1229,14 @@ export const TradingViewNativeChart = memo(
         picturePointsSnapshot.basePoints,
         visiblePointRange,
       ],
+    );
+    const visiblePriceExtrema = useMemo(
+      () =>
+        getTradingViewNativePriceExtrema({
+          ...visiblePointRange,
+          points,
+        }),
+      [points, visiblePointRange],
     );
     const defaultPriceTransform = useMemo(() => {
       if (!chartPictureData || !defaultVisiblePriceRange) {
@@ -1344,6 +1469,98 @@ export const TradingViewNativeChart = memo(
       latestPoint?.t,
     ]);
 
+    useLayoutEffect(() => {
+      if (
+        !viewportRequest ||
+        (viewportRequest.requestId ===
+          appliedViewportRequestRef.current.requestId &&
+          chartWidth === appliedViewportRequestRef.current.chartWidth) ||
+        chartWidth <= 0 ||
+        pointCount <= 0 ||
+        !chartPictureData ||
+        !defaultVisiblePriceRange
+      ) {
+        return;
+      }
+      const pointRange = getTradingViewNativeViewportPointRange({
+        points,
+        target: viewportRequest.target,
+      });
+      if (!pointRange) {
+        return;
+      }
+
+      const { firstIndex, fitRange, lastIndex } = pointRange;
+      const preserveVisibleAnchor = Boolean(
+        viewportRequest.preserveVisibleAnchor,
+      );
+      const requestId = viewportRequest.requestId;
+      appliedViewportRequestRef.current = {
+        chartWidth,
+        requestId,
+      };
+      setCrosshairPointIndex(null);
+      scheduleOnUI(() => {
+        'worklet';
+
+        const nextViewport = getTradingViewNativeViewportForPointRange({
+          candleGap: NATIVE_CANDLE_GAP,
+          chartWidth,
+          currentZoomScale: zoomScale.value,
+          firstIndex,
+          fitRange,
+          lastIndex,
+          pointCount,
+        });
+        if (!nextViewport) {
+          return;
+        }
+
+        cancelAnimation(panOffset);
+        crosshairPointIndexValue.value = -1;
+        crosshairVisible.value = 0;
+        panOffset.value = nextViewport.offset;
+        panStartOffset.value = preserveVisibleAnchor
+          ? getTradingViewNativePanStartOffsetAfterViewportPreservation({
+              currentTranslationX: panTranslationX.value,
+              dragRatio: PAN_DRAG_RATIO,
+              preservedOffset: nextViewport.offset,
+            })
+          : nextViewport.offset;
+        pinchStartOffset.value = nextViewport.offset;
+        pinchStartZoomScale.value = nextViewport.zoomScale;
+        if (pinchIsActive.value) {
+          pinchScaleBaseline.value = pinchCurrentScale.value;
+        } else {
+          pinchCurrentScale.value = 1;
+          pinchScaleBaseline.value = 1;
+        }
+        zoomScale.value = nextViewport.zoomScale;
+        if (onViewportRequestApplied) {
+          scheduleOnRN(onViewportRequestApplied, requestId);
+        }
+      });
+    }, [
+      chartPictureData,
+      chartWidth,
+      crosshairPointIndexValue,
+      crosshairVisible,
+      defaultVisiblePriceRange,
+      onViewportRequestApplied,
+      panOffset,
+      panStartOffset,
+      panTranslationX,
+      pinchStartOffset,
+      pinchStartZoomScale,
+      pinchCurrentScale,
+      pinchIsActive,
+      pinchScaleBaseline,
+      pointCount,
+      points,
+      viewportRequest,
+      zoomScale,
+    ]);
+
     const chartTransform = useDerivedValue(() => [
       { translateX: panOffset.value },
       { scaleX: zoomScale.value },
@@ -1436,6 +1653,7 @@ export const TradingViewNativeChart = memo(
         .onStart(() => {
           'worklet';
 
+          panTranslationX.value = 0;
           panStartOffset.value = clampTradingViewNativePanOffset({
             candleGap: NATIVE_CANDLE_GAP,
             chartWidth,
@@ -1447,6 +1665,7 @@ export const TradingViewNativeChart = memo(
         .onUpdate((event) => {
           'worklet';
 
+          panTranslationX.value = event.translationX;
           panOffset.value = clampTradingViewNativePanOffset({
             candleGap: NATIVE_CANDLE_GAP,
             chartWidth,
@@ -1476,6 +1695,11 @@ export const TradingViewNativeChart = memo(
             deceleration: PAN_DECELERATION,
             velocity: event.velocityX * PAN_DRAG_RATIO,
           });
+        })
+        .onFinalize(() => {
+          'worklet';
+
+          panTranslationX.value = 0;
         });
 
       const pinchGesture = Gesture.Pinch()
@@ -1492,21 +1716,36 @@ export const TradingViewNativeChart = memo(
           });
           pinchStartZoomScale.value = zoomScale.value;
           pinchAnchorX.value = event.focalX - CHART_HORIZONTAL_PADDING;
+          pinchCurrentScale.value = event.scale;
+          pinchIsActive.value = true;
+          pinchScaleBaseline.value = event.scale;
         })
         .onUpdate((event) => {
           'worklet';
 
+          pinchCurrentScale.value = event.scale;
+          const relativeScale = getTradingViewNativeRelativePinchScale({
+            baselineScale: pinchScaleBaseline.value,
+            gestureScale: event.scale,
+          });
           const nextViewport = getTradingViewNativeZoomedViewport({
             anchorX: pinchAnchorX.value,
             candleGap: NATIVE_CANDLE_GAP,
             chartWidth,
             currentOffset: pinchStartOffset.value,
             currentZoomScale: pinchStartZoomScale.value,
-            nextZoomScale: pinchStartZoomScale.value * event.scale,
+            nextZoomScale: pinchStartZoomScale.value * relativeScale,
             pointCount,
           });
           panOffset.value = nextViewport.offset;
           zoomScale.value = nextViewport.zoomScale;
+        })
+        .onFinalize(() => {
+          'worklet';
+
+          pinchCurrentScale.value = 1;
+          pinchIsActive.value = false;
+          pinchScaleBaseline.value = 1;
         });
 
       return Gesture.Exclusive(
@@ -1522,7 +1761,11 @@ export const TradingViewNativeChart = memo(
       handleCrosshairPointIndexChange,
       panOffset,
       panStartOffset,
+      panTranslationX,
       pinchAnchorX,
+      pinchCurrentScale,
+      pinchIsActive,
+      pinchScaleBaseline,
       pinchStartOffset,
       pinchStartZoomScale,
       pointCount,
@@ -1637,6 +1880,40 @@ export const TradingViewNativeChart = memo(
                   </Group>
                 </Group>
               </Group>
+              {visiblePriceExtrema ? (
+                <>
+                  <TradingViewNativePriceExtremum
+                    chartOpacity={chartOpacity}
+                    color={axisText}
+                    font={legendFont}
+                    maxPrice={visibleMaxPrice}
+                    minPrice={visibleMinPrice}
+                    panOffset={panOffset}
+                    pointCount={pointCount}
+                    pointIndex={visiblePriceExtrema.high.index}
+                    price={visiblePriceExtrema.high.price}
+                    priceAxisX={priceAxisX}
+                    priceChartHeight={chartPictureData.priceChartHeight}
+                    width={chartSize.width}
+                    zoomScale={zoomScale}
+                  />
+                  <TradingViewNativePriceExtremum
+                    chartOpacity={chartOpacity}
+                    color={axisText}
+                    font={legendFont}
+                    maxPrice={visibleMaxPrice}
+                    minPrice={visibleMinPrice}
+                    panOffset={panOffset}
+                    pointCount={pointCount}
+                    pointIndex={visiblePriceExtrema.low.index}
+                    price={visiblePriceExtrema.low.price}
+                    priceAxisX={priceAxisX}
+                    priceChartHeight={chartPictureData.priceChartHeight}
+                    width={chartSize.width}
+                    zoomScale={zoomScale}
+                  />
+                </>
+              ) : null}
               <TradingViewNativeCrosshair
                 chartOpacity={chartOpacity}
                 color={axisText}
