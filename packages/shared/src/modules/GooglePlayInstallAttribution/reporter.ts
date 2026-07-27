@@ -51,7 +51,6 @@ export async function reportGooglePlayInstallAttribution(): Promise<void> {
   );
   const eventProps: IGooglePlayInstallAttributionParams = {
     ...referrer,
-    appChannel: 'googlePlay',
     attributionSource:
       referrer.clickId || referrer.utmCampaign
         ? 'campaign'
