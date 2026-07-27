@@ -349,7 +349,6 @@ class ServiceHardware extends ServiceBase {
             currentTransportType ?? 'null'
           } → ${hardwareTransportType}`,
         );
-
         // Reset SDK instance to use new transport type
         await resetHardwareSDKInstance();
         this.registeredEvents = false;
@@ -2323,19 +2322,6 @@ class ServiceHardware extends ServiceBase {
     forceTransportType: EHardwareTransportType;
   }) {
     const operationId = stringUtils.randomString(12);
-    // [TrezorConnectIdTrace] Capture WHO sets the transport (esp. a stray webusb
-    // during a BLE session) — the caller frames pinpoint the source among the
-    // several setForceTransportType call sites.
-    const caller = new Error('stack').stack
-      ?.split('\n')
-      .slice(2, 6)
-      .map((s) => s.trim())
-      .join(' <- ');
-    defaultLogger.hardware.sdkLog.log(
-      `[TrezorConnectIdTrace][setForceTransportType] forceTransportType=${String(
-        forceTransportType,
-      )} caller=${String(caller)}`,
-    );
     await hardwareForceTransportAtom.set({
       forceTransportType,
       operationId,
@@ -2556,11 +2542,6 @@ class ServiceHardware extends ServiceBase {
     if (trezorUsbPresent) {
       return undefined;
     }
-    defaultLogger.hardware.sdkLog.log(
-      `[TrezorConnectIdTrace][resolveTrezorPreferredBleConnectId] targetType=${String(
-        targetType,
-      )} but no Trezor on USB; preferring bleConnectId=${device.bleConnectId}`,
-    );
     return device.bleConnectId;
   }
 
@@ -2610,22 +2591,6 @@ class ServiceHardware extends ServiceBase {
       vendor,
     });
 
-    // [TrezorConnectIdTrace] Unconditional entry probe: was a vendor passed, and
-    // did the query find a device? If vendor is undefined here for a Trezor call,
-    // the caller isn't passing it (fix ineffective); if vendor=trezor but device
-    // is undefined, getDeviceByQuery isn't matching.
-    defaultLogger.hardware.sdkLog.log(
-      `[TrezorConnectIdTrace][getCompatibleConnectId.entry] ${JSON.stringify({
-        connectId,
-        vendorParam: vendor,
-        featuresDeviceId,
-        foundDevice: Boolean(device),
-        foundVendor: device?.vendor,
-        foundBleConnectId: (device as { bleConnectId?: string } | undefined)
-          ?.bleConnectId,
-      })}`,
-    );
-
     // Third-party devices keep USB as the primary connectId, but Trezor can
     // have a bound BLE connectId after USB->BLE pairing. Prefer the bound BLE
     // handle only when the active target transport is DesktopWebBle; do not
@@ -2633,19 +2598,6 @@ class ServiceHardware extends ServiceBase {
     if (device?.vendor) {
       const vp = getVendorProfile(device.vendor);
       if (vp.isThirdParty) {
-        // [TrezorConnectIdTrace] What the DB record holds vs the input, so we
-        // can see whether the main connectId is the deviceId while bleConnectId
-        // has the address — and which branch below decides the returned id.
-        defaultLogger.hardware.sdkLog.log(
-          `[TrezorConnectIdTrace][getCompatibleConnectId] ${JSON.stringify({
-            inputConnectId: connectId,
-            hardwareCallContext,
-            isSupportDesktopBle: platformEnv.isSupportDesktopBle,
-            deviceConnectId: device.connectId,
-            deviceBleConnectId: device.bleConnectId,
-            deviceUsbConnectId: device.usbConnectId,
-          })}`,
-        );
         if (!platformEnv.isSupportDesktopBle) {
           return device.connectId || connectId;
         }
@@ -2656,11 +2608,6 @@ class ServiceHardware extends ServiceBase {
             targetType: currentTransportType,
           });
           const picked = preferredBle || device.connectId || connectId;
-          defaultLogger.hardware.sdkLog.log(
-            `[TrezorConnectIdTrace][getCompatibleConnectId] backgroundTask currentTransportType=${String(
-              currentTransportType,
-            )} picked=${String(picked)}`,
-          );
           return picked;
         }
 
@@ -2673,13 +2620,6 @@ class ServiceHardware extends ServiceBase {
           targetType: result.targetType,
         });
         const picked = preferredBle || device.connectId || connectId;
-        defaultLogger.hardware.sdkLog.log(
-          `[TrezorConnectIdTrace][getCompatibleConnectId] switchResult targetType=${String(
-            result.targetType,
-          )} bleConnectId=${String(device.bleConnectId)} picked=${String(
-            picked,
-          )}`,
-        );
         return picked;
       }
     }

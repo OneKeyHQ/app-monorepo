@@ -5988,21 +5988,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       usbConnectId,
       bleConnectId,
     };
-    // [TrezorConnectIdTrace] What actually lands in the device record — the
-    // main `connectId` vs the split ble/usb ids. Confirms whether the main
-    // connectId is (wrongly) the deviceId while bleConnectId holds the address.
-    defaultLogger.hardware.sdkLog.log(
-      `[TrezorConnectIdTrace][addDbDevice] ${JSON.stringify({
-        transportType,
-        inputConnectId: connectId,
-        rawDeviceId,
-        writtenConnectId: deviceToAdd.connectId,
-        writtenBleConnectId: bleConnectId,
-        writtenUsbConnectId: usbConnectId,
-        compatibleConnectId,
-      })}`,
-    );
-
     // Refill on a clone so DB insert keeps runtime-only fields out.
     const deviceToAddHydrated: IDBDevice = { ...deviceToAdd };
     this.refillDeviceInfo({ device: deviceToAddHydrated });

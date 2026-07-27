@@ -3449,15 +3449,6 @@ class ServiceAccount extends ServiceBase {
 
     // Ensure connectId is compatible for the current transport type
     if (dbDevice.connectId) {
-      // [TrezorConnectIdTrace] Confirm this path runs and what vendor it passes.
-      defaultLogger.hardware.sdkLog.log(
-        `[TrezorConnectIdTrace][getWalletDeviceParams] ${JSON.stringify({
-          connectId: dbDevice.connectId,
-          vendor: dbDevice.vendor,
-          bleConnectId: (dbDevice as { bleConnectId?: string }).bleConnectId,
-          hardwareCallContext,
-        })}`,
-      );
       try {
         dbDevice.connectId =
           await this.backgroundApi.serviceHardware.getCompatibleConnectId({
@@ -3849,14 +3840,6 @@ class ServiceAccount extends ServiceBase {
     // Best-effort — a miss just means re-pairing on next boot, never a failure.
     if (vendor === EHardwareVendor.trezor) {
       try {
-        defaultLogger.hardware.sdkLog.log(
-          `[TrezorTHPTrace][serviceAccount.persist] ${JSON.stringify({
-            connectId: params.device.connectId,
-            rawDeviceId: deviceId,
-            paramsDeviceId: params.device.deviceId,
-            featuresDeviceId: features.device_id,
-          })}`,
-        );
         await this.backgroundApi.serviceThirdPartyHardware.persistTrezorThpCredentials(
           {
             connectId: params.device.connectId ?? undefined,
