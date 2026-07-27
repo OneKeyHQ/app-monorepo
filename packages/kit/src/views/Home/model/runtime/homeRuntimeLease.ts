@@ -62,7 +62,7 @@ export const HOME_RUNTIME_CAPABILITIES = {
     commands: true,
   },
   urlAccount: {
-    sourceExecution: false,
+    sourceExecution: true,
     displaySnapshots: false,
     persistence: false,
     commands: false,

@@ -29,6 +29,7 @@ import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 import { useTokenListStoreLease } from '../../components/TokenListStoreProvider';
 import { HomeStoreSourceControllers } from '../../model/react/HomeStoreSourceControllers';
 import { HomePageView } from '../HomePageView';
+import { HomeWalletListProvider } from '../HomeWalletListProvider';
 
 import { UrlAccountAutoReplaceHistory } from './UrlAccountAutoReplaceHistory';
 import { getPrevUrlAccount, urlAccountNavigation } from './urlAccountUtils';
@@ -279,8 +280,10 @@ export function UrlAccountPageContainer() {
             }}
             enabledNum={[0]}
           >
-            <HomeStoreSourceControllers />
-            <UrlAccountAutoCreate />
+            <HomeWalletListProvider>
+              <HomeStoreSourceControllers />
+              <UrlAccountAutoCreate />
+            </HomeWalletListProvider>
           </AccountSelectorProviderMirror>
         </ProviderJotaiContextTokenList>
       </ProviderJotaiContextHome>

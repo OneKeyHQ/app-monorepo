@@ -23,7 +23,7 @@ describe('Home runtime ownership', () => {
     expect(page).not.toMatch(/key=\{`native-\$\{sceneName\}-/);
   });
 
-  it('creates URL Account runtimes with URL mode and no wallet source execution', () => {
+  it('creates URL Account runtimes with isolated source execution', () => {
     const page = readSource('urlAccount/UrlAccountPage.tsx');
     const root = readSource('../model/react/HomeStoreSourceControllers.tsx');
     const lease = readSource('../model/runtime/homeRuntimeLease.ts');
@@ -32,6 +32,16 @@ describe('Home runtime ownership', () => {
     expect(root).toMatch(
       /const mode = enableWalletSources \? ['"]wallet['"] : ['"]urlAccount['"];/,
     );
-    expect(lease).toContain('sourceExecution: false');
+    expect(lease).toMatch(
+      /urlAccount:\s*\{\s*sourceExecution: true,\s*displaySnapshots: false,\s*persistence: false,\s*commands: false,/,
+    );
+  });
+
+  it('provides wallet-list state to the URL Account home view', () => {
+    const page = readSource('urlAccount/UrlAccountPage.tsx');
+
+    expect(page).toMatch(
+      /<HomeWalletListProvider>\s*<HomeStoreSourceControllers \/>\s*<UrlAccountAutoCreate \/>\s*<\/HomeWalletListProvider>/,
+    );
   });
 });
