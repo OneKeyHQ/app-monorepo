@@ -304,11 +304,10 @@ export const useDownloadPackage = () => {
         // reuses the on-disk resume artifact (iOS .resume / Android & Desktop
         // .partial), so attempts after the first are real range-resumes.
         // Bails immediately on SHA256_MISMATCH / HTTP 4xx-permanent.
-        // OCDS §5.11 — persisted cross-restart attempt budget + wall-clock
-        // deadline. ServiceAppUpdate is the durable owner of the attempt
-        // counter, so a permanently-failing target eventually gives up
-        // (DownloadGaveUpError) instead of re-downloading from scratch on every
-        // relaunch; success resets it and a new target version starts fresh.
+        // OCDS §5.11 — ServiceAppUpdate owns the bg service instance's attempt
+        // budget, so a permanently failing target eventually gives up within
+        // that instance. A cold restart creates a fresh budget; success resets
+        // it, and a new target version also starts fresh.
         // `activeDownloadParams` is mutable so a 401/403 URL refresh can swap in
         // a freshly-signed URL for the next attempt (OCDS §4).
         const targetKey = `${asOptionalString(latestVersion) ?? ''}:${
@@ -368,10 +367,9 @@ export const useDownloadPackage = () => {
           errorCode: extractUpdateErrorCode(e),
         });
         if (e instanceof DownloadGaveUpError) {
-          // §5.11 definitive give-up: the persisted budget/deadline is spent (or
-          // the single-stream fallback itself failed). Surfaced as a terminal
-          // failure; the persisted record keeps the next relaunch from
-          // re-downloading until a new target version supersedes it.
+          // §5.11 definitive give-up: the service-instance budget is spent (or
+          // the single-stream fallback itself failed). Surface a terminal
+          // failure for this bg service instance; a cold restart starts fresh.
           defaultLogger.app.appUpdate.log(
             `downloadPackage: OCDS §5.11 terminal give-up reason=${e.reason}`,
           );
