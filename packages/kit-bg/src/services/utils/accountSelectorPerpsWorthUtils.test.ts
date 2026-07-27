@@ -37,14 +37,16 @@ describe('buildAccountsPerpsNetWorthUsd', () => {
         },
       ],
       snapshotNetWorthUsdByAddress,
-      resolvePerpsAddressByIndexedAccountId: resolve,
+      resolvePerpsAddressesByIndexedAccountIds: resolve,
     });
     expect(result).toEqual(['502.00', undefined]);
     expect(resolve).not.toHaveBeenCalled();
   });
 
-  it('resolves indexed accounts without an EVM address via the callback', async () => {
-    const resolve = jest.fn(async () => HL_ADDRESS);
+  it('resolves indexed accounts without an EVM address in one batch', async () => {
+    const resolve = jest.fn(async (indexedAccountIds: string[]) =>
+      Object.fromEntries(indexedAccountIds.map((id) => [id, HL_ADDRESS])),
+    );
     const result = await buildAccountsPerpsNetWorthUsd({
       accounts: [
         { accountId: 'a1', indexedAccountId: 'hd-1--0', accountAddress: '' },
@@ -55,10 +57,31 @@ describe('buildAccountsPerpsNetWorthUsd', () => {
         },
       ],
       snapshotNetWorthUsdByAddress,
-      resolvePerpsAddressByIndexedAccountId: resolve,
+      resolvePerpsAddressesByIndexedAccountIds: resolve,
     });
     expect(result).toEqual(['502.00', '502.00']);
-    expect(resolve).toHaveBeenCalledTimes(2);
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(resolve).toHaveBeenCalledWith(['hd-1--0', 'hd-1--1']);
+  });
+
+  it('dedupes ids and skips rows already carrying an EVM address', async () => {
+    const resolve = jest.fn(async () => ({ 'hd-1--0': HL_ADDRESS }));
+    const result = await buildAccountsPerpsNetWorthUsd({
+      accounts: [
+        { accountId: 'a1', indexedAccountId: 'hd-1--0', accountAddress: '' },
+        { accountId: 'a2', indexedAccountId: 'hd-1--0', accountAddress: '' },
+        {
+          accountId: 'a3',
+          indexedAccountId: 'hd-1--1',
+          accountAddress: HL_ADDRESS,
+        },
+      ],
+      snapshotNetWorthUsdByAddress,
+      resolvePerpsAddressesByIndexedAccountIds: resolve,
+    });
+    expect(result).toEqual(['502.00', '502.00', '502.00']);
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(resolve).toHaveBeenCalledWith(['hd-1--0']);
   });
 
   it('skips others rows with non-EVM addresses and no indexed id', async () => {
@@ -72,7 +95,7 @@ describe('buildAccountsPerpsNetWorthUsd', () => {
         },
       ],
       snapshotNetWorthUsdByAddress,
-      resolvePerpsAddressByIndexedAccountId: resolve,
+      resolvePerpsAddressesByIndexedAccountIds: resolve,
     });
     expect(result).toEqual([undefined]);
     expect(resolve).not.toHaveBeenCalled();
@@ -83,18 +106,18 @@ describe('buildAccountsPerpsNetWorthUsd', () => {
     const result = await buildAccountsPerpsNetWorthUsd({
       accounts: [{ accountId: 'a1', indexedAccountId: 'hd-1--0' }],
       snapshotNetWorthUsdByAddress: {},
-      resolvePerpsAddressByIndexedAccountId: resolve,
+      resolvePerpsAddressesByIndexedAccountIds: resolve,
     });
     expect(result).toEqual([undefined]);
     expect(resolve).not.toHaveBeenCalled();
   });
 
-  it('returns undefined when resolution fails', async () => {
-    const resolve = jest.fn(async () => undefined);
+  it('returns undefined for rows the batch resolver left unresolved', async () => {
+    const resolve = jest.fn(async () => ({}));
     const result = await buildAccountsPerpsNetWorthUsd({
       accounts: [{ accountId: 'a1', indexedAccountId: 'hd-1--0' }],
       snapshotNetWorthUsdByAddress,
-      resolvePerpsAddressByIndexedAccountId: resolve,
+      resolvePerpsAddressesByIndexedAccountIds: resolve,
     });
     expect(result).toEqual([undefined]);
   });

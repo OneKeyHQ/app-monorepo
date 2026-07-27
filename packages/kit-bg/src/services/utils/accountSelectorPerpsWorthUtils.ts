@@ -21,7 +21,7 @@ export function isResolvableIndexedAccountId(
 export async function buildAccountsPerpsNetWorthUsd({
   accounts,
   snapshotNetWorthUsdByAddress,
-  resolvePerpsAddressByIndexedAccountId,
+  resolvePerpsAddressesByIndexedAccountIds,
 }: {
   accounts: {
     accountId: string;
@@ -29,35 +29,40 @@ export async function buildAccountsPerpsNetWorthUsd({
     accountAddress?: string;
   }[];
   snapshotNetWorthUsdByAddress: Record<string, string>;
-  resolvePerpsAddressByIndexedAccountId: (
-    indexedAccountId: string,
-  ) => Promise<string | undefined>;
+  resolvePerpsAddressesByIndexedAccountIds: (
+    indexedAccountIds: string[],
+  ) => Promise<Record<string, string | undefined>>;
 }): Promise<(string | undefined)[]> {
-  // No cached snapshots — skip per-row address resolution entirely.
+  // No cached snapshots — skip address resolution entirely.
   if (Object.keys(snapshotNetWorthUsdByAddress).length === 0) {
     return accounts.map(() => undefined);
   }
-  return Promise.all(
-    accounts.map(async (account) => {
-      let address: string | undefined;
-      if (
-        account.accountAddress &&
-        EVM_ADDRESS_REGEX.test(account.accountAddress)
-      ) {
-        // EVM rows (linked EVM network / others EVM accounts) already carry
-        // the address Hyperliquid is keyed by.
-        address = account.accountAddress.toLowerCase();
-      } else if (isResolvableIndexedAccountId(account.indexedAccountId)) {
-        // All-Networks / non-EVM linked contexts: resolve the row's perps
-        // network address the same way Home does.
-        address = (
-          await resolvePerpsAddressByIndexedAccountId(account.indexedAccountId)
-        )?.toLowerCase();
-      }
-      if (!address) {
-        return undefined;
-      }
-      return snapshotNetWorthUsdByAddress[address];
-    }),
+  // EVM rows (linked EVM network / others EVM accounts) already carry the
+  // address Hyperliquid is keyed by.
+  const directAddresses: (string | undefined)[] = accounts.map((account) =>
+    account.accountAddress && EVM_ADDRESS_REGEX.test(account.accountAddress)
+      ? account.accountAddress.toLowerCase()
+      : undefined,
   );
+  // All-Networks / non-EVM linked contexts: resolve the remaining rows' perps
+  // network address the same way Home does, in one batch instead of per row.
+  const idsToResolve = Array.from(
+    new Set(
+      accounts
+        .filter((_, index) => !directAddresses[index])
+        .map((account) => account.indexedAccountId)
+        .filter(isResolvableIndexedAccountId),
+    ),
+  );
+  const resolvedByIndexedAccountId = idsToResolve.length
+    ? await resolvePerpsAddressesByIndexedAccountIds(idsToResolve)
+    : {};
+  return accounts.map((account, index) => {
+    const address =
+      directAddresses[index] ??
+      (isResolvableIndexedAccountId(account.indexedAccountId)
+        ? resolvedByIndexedAccountId[account.indexedAccountId]?.toLowerCase()
+        : undefined);
+    return address ? snapshotNetWorthUsdByAddress[address] : undefined;
+  });
 }

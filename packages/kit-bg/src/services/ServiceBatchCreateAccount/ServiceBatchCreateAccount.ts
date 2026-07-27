@@ -253,7 +253,10 @@ export type IBatchBuildAccountsAdvancedFlowForAllNetworkParams = {
   // Auto multi-network fill scene; flows to the keyring via ...params.
   isAutoCreateMultiNetwork?: boolean;
   walletId: string;
-  customNetworks?: { networkId: string; deriveType: IAccountDeriveTypes }[];
+  // Per-pair `indexes` scoping is honored the same way as in
+  // startBatchCreateAccountsFlow (both the hardware prefetch bundle and the
+  // per-network build loop).
+  customNetworks?: IBatchCreateCustomNetworkParams[];
   autoHandleExitError?: boolean;
   showUIProgress?: boolean;
 } & IAdvancedModeFlowParamsBase &
@@ -1299,7 +1302,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
-        const networksParams: IBatchBuildAccountsBaseParams[] =
+        const networksParams: IBatchBuildAccountsNetworkParams[] =
           await this.buildBatchCreateAccountsNetworksParams({
             walletId: params.walletId,
             customNetworks: params.customNetworks,
@@ -1383,7 +1386,12 @@ class ServiceBatchCreateAccount extends ServiceBase {
               ...networkParams,
               showUIProgress:
                 params.showUIProgress || networkParams.showUIProgress,
-              indexes,
+              // Consume per-pair index scoping symmetrically with
+              // startBatchCreateAccountsFlow: the hardware prefetch bundle
+              // above already honors networkParams.indexes, so the build
+              // loop must too, or scoped pairs would iterate the whole
+              // flow-level range and miss the prefetch cache.
+              indexes: networkParams.indexes ?? indexes,
               excludedIndexes,
               saveToDb: true,
               hwAllNetworkPrepareAccountsResponse,

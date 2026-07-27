@@ -13,14 +13,18 @@ import {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
+import { PERPS_HL_PORTFOLIO_STALE_SERVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import { buildHomeWalletTabSupport } from '@onekeyhq/shared/src/utils/homeWalletTabSupportUtils';
+import { isHyperliquidPortfolioSnapshotFresh } from '@onekeyhq/shared/src/utils/hyperliquidPortfolioUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -1137,24 +1141,22 @@ class ServiceAccountSelector extends ServiceBase {
     };
   }
 
-  // Hyperliquid perps net worth (USD) per selector row, read from the LOCAL
-  // portfolio snapshot cache only — the same cache the Home overview polls
-  // into — so selector totals can match Home's tokens + DeFi + perps sum.
-  // Gating mirrors Home's isPerpsSupported (buildHomeWalletTabSupport): a
-  // BTC-linked selector gets no perps, exactly like the BTC Home overview.
-  async _getAccountsPerpsNetWorthUsd({
-    accounts,
-    linkedNetworkId,
-  }: {
-    accounts: {
-      accountId: string;
-      indexedAccountId?: string;
-      accountAddress?: string;
-    }[];
-    linkedNetworkId?: string;
-  }): Promise<(string | undefined)[]> {
-    const emptyResult = accounts.map(() => undefined);
-    try {
+  // Gating inputs (perp config, DeFi-enabled map, all-networks state, global
+  // derive type) are constant across one selector open, but the values loader
+  // calls the bg method once per 50-row batch — memoize briefly so a
+  // multi-batch open computes them once. Perps worth is additive display
+  // data, so a short-lived stale hit is acceptable.
+  private _getPerpsSelectorGating = cacheUtils.memoizee(
+    async (
+      linkedNetworkId: string | undefined,
+    ): Promise<{
+      isPerpsSupported: boolean;
+      perpsDeriveType: IAccountDeriveTypes | undefined;
+    }> => {
+      const notSupported = {
+        isPerpsSupported: false,
+        perpsDeriveType: undefined,
+      };
       const { perpConfigCommon, perpConfigLoaded } =
         await perpsCommonConfigPersistAtom.get();
       // Not-yet-loaded config counts as enabled, mirroring usePerpTabConfig.
@@ -1162,11 +1164,16 @@ class ServiceAccountSelector extends ServiceBase {
         ? perpConfigCommon?.disablePerp === true
         : false;
       if (perpDisabled) {
-        return emptyResult;
+        return notSupported;
       }
 
-      const deFiEnabledNetworksMap =
-        await this.backgroundApi.serviceDeFi.getDeFiEnabledNetworksMap();
+      // Local-only read: a cold start with an empty map disables perps for
+      // this pass instead of blocking selector values on a server sync; the
+      // kicked-off background sync feeds the next pass.
+      const { enabledNetworksMap: deFiEnabledNetworksMap } =
+        await this.backgroundApi.serviceDeFi.getDeFiEnabledNetworksMapState({
+          syncIfEmpty: false,
+        });
       const isSingleLinkedNetwork =
         !!linkedNetworkId &&
         !networkUtils.isAllNetwork({ networkId: linkedNetworkId });
@@ -1204,45 +1211,109 @@ class ServiceAccountSelector extends ServiceBase {
         }).isPerpsSupported;
       }
       if (!isPerpsSupported) {
+        return notSupported;
+      }
+      const perpsDeriveType =
+        await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: PERPS_NETWORK_ID,
+        });
+      return { isPerpsSupported, perpsDeriveType };
+    },
+    {
+      max: 4,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 15 }),
+      promise: true,
+    },
+  );
+
+  // One getAllAccounts read + in-memory lookups instead of a per-row
+  // getNetworkAccount (each a DB read + vault address build) on the
+  // selector-open path.
+  async _resolvePerpsAddressesByIndexedAccountIds({
+    indexedAccountIds,
+    perpsDeriveType,
+  }: {
+    indexedAccountIds: string[];
+    perpsDeriveType: IAccountDeriveTypes;
+  }): Promise<Record<string, string | undefined>> {
+    const addressByIndexedAccountId: Record<string, string | undefined> = {};
+    const { accounts: allDbAccounts } =
+      await this.backgroundApi.serviceAccount.getAllAccounts();
+    const { accounts: perpsAccounts } =
+      await this.backgroundApi.serviceAccount.getAccountsByIndexedAccounts({
+        indexedAccountIds,
+        networkId: PERPS_NETWORK_ID,
+        deriveType: perpsDeriveType,
+        allDbAccounts,
+        // Rows without a created perps-network account resolve to undefined
+        // instead of throwing per row.
+        skipDbQueryIfNotFoundFromAllDbAccounts: true,
+      });
+    for (const account of perpsAccounts) {
+      if (account?.indexedAccountId) {
+        addressByIndexedAccountId[account.indexedAccountId] =
+          account.addressDetail?.normalizedAddress ||
+          account.address ||
+          undefined;
+      }
+    }
+    return addressByIndexedAccountId;
+  }
+
+  // Hyperliquid perps net worth (USD) per selector row, read from the LOCAL
+  // portfolio snapshot cache only — the same cache the Home overview polls
+  // into — so selector totals can match Home's tokens + DeFi + perps sum.
+  // Gating mirrors Home's isPerpsSupported (buildHomeWalletTabSupport): a
+  // BTC-linked selector gets no perps, exactly like the BTC Home overview.
+  async _getAccountsPerpsNetWorthUsd({
+    accounts,
+    linkedNetworkId,
+  }: {
+    accounts: {
+      accountId: string;
+      indexedAccountId?: string;
+      accountAddress?: string;
+    }[];
+    linkedNetworkId?: string;
+  }): Promise<(string | undefined)[]> {
+    const emptyResult = accounts.map(() => undefined);
+    try {
+      const { isPerpsSupported, perpsDeriveType } =
+        await this._getPerpsSelectorGating(linkedNetworkId);
+      if (!isPerpsSupported || !perpsDeriveType) {
         return emptyResult;
       }
 
       const perpData = await this.backgroundApi.simpleDb.perp.getPerpData();
       const snapshotNetWorthUsdByAddress: Record<string, string> = {};
+      const now = Date.now();
       for (const [address, snapshot] of Object.entries(
         perpData?.hyperliquidPortfolioSnapshotByAddress ?? {},
       )) {
-        if (snapshot?.netWorthUsd !== undefined) {
+        // Mirror ServiceHyperliquid.getHyperliquidPortfolioSnapshot's cache
+        // policy: fresh snapshots serve as-is; stale ones only inside the
+        // stale-serve window and never when degraded. Older entries would
+        // render as loading on Home, so the selector must not sum them.
+        if (
+          snapshot?.netWorthUsd !== undefined &&
+          (isHyperliquidPortfolioSnapshotFresh(snapshot, now) ||
+            (!snapshot.isDegraded &&
+              now - snapshot.fetchedAt <=
+                PERPS_HL_PORTFOLIO_STALE_SERVE_MAX_AGE_MS))
+        ) {
           snapshotNetWorthUsdByAddress[address.toLowerCase()] =
             snapshot.netWorthUsd;
         }
       }
 
-      const perpsDeriveType =
-        await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId: PERPS_NETWORK_ID,
-        });
       return await buildAccountsPerpsNetWorthUsd({
         accounts,
         snapshotNetWorthUsdByAddress,
-        resolvePerpsAddressByIndexedAccountId: async (indexedAccountId) => {
-          try {
-            const account =
-              await this.backgroundApi.serviceAccount.getNetworkAccount({
-                accountId: undefined,
-                indexedAccountId,
-                deriveType: perpsDeriveType,
-                networkId: PERPS_NETWORK_ID,
-              });
-            return (
-              account?.addressDetail?.normalizedAddress ||
-              account?.address ||
-              undefined
-            );
-          } catch {
-            return undefined;
-          }
-        },
+        resolvePerpsAddressesByIndexedAccountIds: async (indexedAccountIds) =>
+          this._resolvePerpsAddressesByIndexedAccountIds({
+            indexedAccountIds,
+            perpsDeriveType,
+          }),
       });
     } catch {
       // Perps worth is additive display data — never break the selector.
