@@ -32,6 +32,7 @@ describe('buildTokenDetailsMarketNavigationTarget', () => {
       }),
     ).toEqual({
       type: 'chart',
+      isNative: false,
       networkId: 'evm--1',
       networkName: 'Ethereum',
       symbol: 'TOKEN',
@@ -55,6 +56,7 @@ describe('buildTokenDetailsMarketNavigationTarget', () => {
       }),
     ).toEqual({
       type: 'chart',
+      isNative: false,
       networkId: 'evm--1',
       symbol: 'TOKEN-B',
       tokenAddress: '0xBBBB',
@@ -71,9 +73,27 @@ describe('buildTokenDetailsMarketNavigationTarget', () => {
       }),
     ).toEqual({
       type: 'chart',
+      isNative: true,
       networkId: 'custom--native',
       symbol: 'NATIVE',
       tokenAddress: '',
+    });
+  });
+
+  it('keeps native identity when the route uses a placeholder address', () => {
+    expect(
+      buildTokenDetailsMarketNavigationTarget({
+        isNative: true,
+        networkId: 'evm--1',
+        symbol: 'ETH',
+        tokenAddress: '0xeeee',
+      }),
+    ).toEqual({
+      type: 'chart',
+      isNative: true,
+      networkId: 'evm--1',
+      symbol: 'ETH',
+      tokenAddress: '0xeeee',
     });
   });
 
@@ -86,6 +106,7 @@ describe('buildTokenDetailsMarketNavigationTarget', () => {
       }),
     ).toEqual({
       type: 'chart',
+      isNative: true,
       networkId: 'custom--native',
       symbol: 'NATIVE',
       tokenAddress: '',

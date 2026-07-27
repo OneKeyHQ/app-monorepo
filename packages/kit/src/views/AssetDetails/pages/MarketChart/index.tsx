@@ -31,8 +31,14 @@ export default function MarketChart() {
         EModalAssetDetailRoutes.MarketChart
       >
     >();
-  const { networkId, networkName, symbol, tokenAddress, tokenImageUri } =
-    route.params;
+  const {
+    isNative,
+    networkId,
+    networkName,
+    symbol,
+    tokenAddress,
+    tokenImageUri,
+  } = route.params;
   const { gtMd } = useMedia();
   const { network } = useAccountData({ networkId });
   const resolvedNetworkName = networkName || network?.name || '';
@@ -40,12 +46,13 @@ export default function MarketChart() {
     () =>
       getTradingViewNativeSource({
         hyperliquidCoin: '',
+        isNative,
         marketDataSource: undefined,
         networkId,
         symbol,
         tokenAddress,
       }),
-    [networkId, symbol, tokenAddress],
+    [isNative, networkId, symbol, tokenAddress],
   );
   const renderHeaderTitle = useCallback(
     () => (

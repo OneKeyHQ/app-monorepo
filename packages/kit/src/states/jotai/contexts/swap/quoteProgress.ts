@@ -87,6 +87,56 @@ export enum ESwapQuoteUiPhase {
   StaleRefreshing = 'staleRefreshing',
 }
 
+export enum ESwapQuoteRefreshAction {
+  AutoRequest = 'autoRequest',
+  RequireManualRefresh = 'requireManualRefresh',
+}
+
+export function resolveSwapQuoteRefreshAction({
+  automaticRefreshCount,
+  maxAutomaticRefreshCount,
+}: {
+  automaticRefreshCount: number;
+  maxAutomaticRefreshCount: number;
+}) {
+  if (automaticRefreshCount >= maxAutomaticRefreshCount) {
+    return {
+      action: ESwapQuoteRefreshAction.RequireManualRefresh,
+      nextAutomaticRefreshCount: automaticRefreshCount,
+    };
+  }
+
+  return {
+    action: ESwapQuoteRefreshAction.AutoRequest,
+    nextAutomaticRefreshCount: automaticRefreshCount + 1,
+  };
+}
+
+export function shouldPlaySwapQuoteRefreshAnimation({
+  autoRefreshTimerActive,
+  disabled,
+  focused,
+  loading,
+  manualRefreshRequired,
+  refreshActionRequired,
+}: {
+  autoRefreshTimerActive: boolean;
+  disabled: boolean;
+  focused: boolean;
+  loading: boolean;
+  manualRefreshRequired: boolean;
+  refreshActionRequired: boolean;
+}) {
+  return (
+    autoRefreshTimerActive &&
+    focused &&
+    !disabled &&
+    !loading &&
+    !manualRefreshRequired &&
+    !refreshActionRequired
+  );
+}
+
 export function buildSwapQuoteProviderKey(quote: {
   info: ISwapQuoteProviderIdentity;
 }) {
@@ -264,10 +314,15 @@ export function shouldOfferSwapQuoteRefresh({
   quoteLoading: boolean;
   quoteEventFetching: boolean;
 }) {
+  if (isRefreshQuote) {
+    return true;
+  }
+
   return (
     !quoteLoading &&
     !quoteEventFetching &&
-    (isRefreshQuote || (quoteResultNoMatch && quoteResultNoMatchDebounced))
+    quoteResultNoMatch &&
+    quoteResultNoMatchDebounced
   );
 }
 
@@ -276,12 +331,18 @@ export function shouldShowSwapQuoteActionLoading({
   isWaitingActionableQuote,
   isQuoteEventSettlingForAction,
   isWaitingAutoSlippage,
+  manualRefreshRequired,
 }: {
   hasActionableQuote: boolean;
   isWaitingActionableQuote: boolean;
   isQuoteEventSettlingForAction: boolean;
   isWaitingAutoSlippage: boolean;
+  manualRefreshRequired: boolean;
 }) {
+  if (manualRefreshRequired) {
+    return false;
+  }
+
   return (
     isWaitingActionableQuote ||
     (!hasActionableQuote && isQuoteEventSettlingForAction) ||
