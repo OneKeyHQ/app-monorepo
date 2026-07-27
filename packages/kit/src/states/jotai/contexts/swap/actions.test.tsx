@@ -1543,6 +1543,78 @@ describe('useSwapActions', () => {
     ).toBeUndefined();
   });
 
+  it('restores a saved Stock amount as soon as its execution pair is known', async () => {
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapInputAmountSnapshotsAtom(), {
+        [ESwapTabSwitchType.STOCK]: {
+          fromTokenAmount: {
+            value: '100',
+            isInput: true,
+          },
+          toTokenAmount: {
+            value: '',
+            isInput: false,
+          },
+          fromToken: usdcToken,
+          toToken: appleStockToken,
+        },
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.selectStockExecutionTokens({
+        fromToken: usdcToken,
+        toToken: appleStockToken,
+        syncId: 1,
+      });
+    });
+
+    expect(store.get(swapFromTokenAmountAtom())).toEqual({
+      value: '100',
+      isInput: true,
+    });
+    expect(
+      store.get(swapInputAmountSnapshotsAtom())[ESwapTabSwitchType.STOCK],
+    ).toBeUndefined();
+  });
+
+  it('discards an unrestored Stock draft when the user leaves the tab', async () => {
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapSelectFromTokenAtom(), usdcToken);
+      storeInstance.set(swapSelectToTokenAtom(), appleStockToken);
+      storeInstance.set(swapInputAmountSnapshotsAtom(), {
+        [ESwapTabSwitchType.STOCK]: {
+          fromTokenAmount: {
+            value: '100',
+            isInput: true,
+          },
+          toTokenAmount: {
+            value: '',
+            isInput: false,
+          },
+          fromToken: usdcToken,
+          toToken: appleStockToken,
+        },
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.swapTypeSwitchAction(ESwapTabSwitchType.SWAP);
+    });
+
+    expect(
+      store.get(swapInputAmountSnapshotsAtom())[ESwapTabSwitchType.STOCK],
+    ).toBeUndefined();
+  });
+
   it('restores native Swap and Stock drafts without reusing shared amounts for native Limit', async () => {
     const previousIsNative = platformEnv.isNative;
     platformEnv.isNative = true;

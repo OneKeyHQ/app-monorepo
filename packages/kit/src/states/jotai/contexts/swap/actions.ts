@@ -3164,14 +3164,22 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       if (shouldSwitchInputAmountSnapshot) {
         const inputAmountSnapshots = get(swapInputAmountSnapshotsAtom());
         if (shouldSaveCurrentInputAmountSnapshot) {
+          const currentInputAmountSnapshot = buildSwapInputAmountSnapshot({
+            fromTokenAmount: get(swapFromTokenAmountAtom()),
+            toTokenAmount: get(swapToTokenAmountAtom()),
+            fromToken: currentFromToken,
+            toToken: currentToToken,
+          });
+          const shouldDiscardUnrestoredStockInputAmountSnapshot =
+            oldVisibleType === ESwapTabSwitchType.STOCK &&
+            Boolean(inputAmountSnapshots[ESwapTabSwitchType.STOCK]) &&
+            !currentInputAmountSnapshot.fromTokenAmount.isInput &&
+            !currentInputAmountSnapshot.toTokenAmount.isInput;
           set(swapInputAmountSnapshotsAtom(), {
             ...inputAmountSnapshots,
-            [oldVisibleType]: buildSwapInputAmountSnapshot({
-              fromTokenAmount: get(swapFromTokenAmountAtom()),
-              toTokenAmount: get(swapToTokenAmountAtom()),
-              fromToken: currentFromToken,
-              toToken: currentToToken,
-            }),
+            [oldVisibleType]: shouldDiscardUnrestoredStockInputAmountSnapshot
+              ? undefined
+              : currentInputAmountSnapshot,
           });
         }
         if (shouldRestoreTargetInputAmountSnapshot) {

@@ -585,10 +585,6 @@ export function useSwapStockChannel() {
   });
 
   useEffect(() => {
-    if (!readyForQuote) {
-      return;
-    }
-
     const {
       fromToken: stockExecutionFromToken,
       toToken: stockExecutionToToken,
@@ -597,9 +593,12 @@ export function useSwapStockChannel() {
       stockToken: currentStockToken,
       tradeSide,
     });
+    // Execution-pair ownership and draft restoration must not depend on quote
+    // readiness: the pair remains authoritative while the market is closed.
+    if (!stockExecutionFromToken || !stockExecutionToToken) {
+      return;
+    }
     const executionPairSynced = Boolean(
-      stockExecutionFromToken &&
-      stockExecutionToToken &&
       equalTokenNoCaseSensitive({
         token1: fromToken,
         token2: stockExecutionFromToken,
@@ -620,7 +619,6 @@ export function useSwapStockChannel() {
   }, [
     currentStockToken,
     payToken,
-    readyForQuote,
     syncStockExecutionTokens,
     tradeSide,
     fromToken,
