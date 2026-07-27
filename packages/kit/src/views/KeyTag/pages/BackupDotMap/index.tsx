@@ -171,17 +171,13 @@ const BackupDotMap = () => {
     setPhase('verify');
   }, [wordCount]);
 
-  // Non-verify exit: re-viewing an already-backed-up wallet, or a wallet that
-  // for some reason isn't KeyTag-verifiable. Marks backed up only if pending.
-  const handleReviewDone = useCallback(async () => {
-    if (wallet?.id && !wallet.backuped) {
-      await backgroundApiProxy.serviceAccount.updateWalletBackupStatus({
-        walletId: wallet.id,
-        isBackedUp: true,
-      });
-    }
-    appNavigation.popStack();
-  }, [appNavigation, wallet]);
+  // Closing the read-only map: re-viewing a wallet that is already backed up.
+  // Deliberately writes nothing — a passing verification is the only thing
+  // that may mark a wallet backed up (see handleVerifyConfirm).
+  const handleClose = useCallback(
+    () => appNavigation.popStack(),
+    [appNavigation],
+  );
 
   const handleSuccessDone = useCallback(
     () => appNavigation.popStack(),
@@ -312,9 +308,10 @@ const BackupDotMap = () => {
 
   const isVerify = phase === 'verify';
 
-  // The final-face primary action depends on the phase.
+  // The final-face primary action depends on the phase. None of these mark the
+  // wallet backed up; only a passing verification does.
   let primaryLabel = doneLabel;
-  let primaryOnPress: () => void = handleReviewDone;
+  let primaryOnPress: () => void = handleClose;
   let primaryTestID: string = KeyTagTestIDs.gotItBtn;
   let primaryLoading = false;
   let primaryDisabled = false;
@@ -330,7 +327,12 @@ const BackupDotMap = () => {
     });
     primaryOnPress = handleEnterVerify;
     primaryTestID = KeyTagTestIDs.verifyStartBtn;
-    primaryDisabled = !result;
+  } else if (!alreadyBackedUp) {
+    // Still decoding the phrase (or the decode failed), so there is no dot map
+    // on screen yet and nothing to verify against. Offer no primary action —
+    // a "Done" here would read as completion. The header back button still
+    // leaves, and the wallet correctly stays not-backed-up.
+    primaryDisabled = true;
   }
 
   const primaryButton = (
