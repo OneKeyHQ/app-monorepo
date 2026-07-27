@@ -1,8 +1,11 @@
+/* cspell:ignore Infini */
+
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IExchangeFilter } from '@onekeyhq/shared/types/exchange';
+import type { IPrimeInfiniPaymentAsset } from '@onekeyhq/shared/types/prime/primeTypes';
 import type {
   IAccountToken,
   IToken,
@@ -19,6 +22,7 @@ export enum EAssetSelectorRoutes {
   TokenSelector = 'TokenSelector',
   DeriveTypesAddressSelector = 'DeriveTypesAddressSelector',
   AggregateTokenSelector = 'AggregateTokenSelector',
+  PrimeInfiniPaymentAssetSelector = 'PrimeInfiniPaymentAssetSelector',
 }
 
 export type IDeriveTypesAddressSelectorParams = {
@@ -99,8 +103,18 @@ export type IAggregateTokenSelectorParams = {
   hideBalanceAndValue?: boolean;
 };
 
+export type IPrimeInfiniPaymentAssetSelectorParams = {
+  assets: IPrimeInfiniPaymentAsset[];
+  selectedAssetKey: string;
+  accountId?: string;
+  indexedAccountId?: string;
+  accountNetworkId?: string;
+  onSelect: (assetKey: string) => void;
+};
+
 export type IAssetSelectorParamList = {
   [EAssetSelectorRoutes.TokenSelector]: ITokenSelectorParamList;
   [EAssetSelectorRoutes.DeriveTypesAddressSelector]: IDeriveTypesAddressSelectorParams;
   [EAssetSelectorRoutes.AggregateTokenSelector]: IAggregateTokenSelectorParams;
+  [EAssetSelectorRoutes.PrimeInfiniPaymentAssetSelector]: IPrimeInfiniPaymentAssetSelectorParams;
 };
