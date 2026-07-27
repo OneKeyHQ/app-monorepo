@@ -25,7 +25,7 @@ import type {
 const HOME_DISPLAY_SNAPSHOT_READ_BATCH_SIZE = 4;
 
 const homeDisplaySnapshotStorage = createDisplaySnapshotStorage({
-  namespace: 'home-v3',
+  namespace: 'home',
   maxReadBatchSize: HOME_DISPLAY_SNAPSHOT_READ_BATCH_SIZE,
 });
 

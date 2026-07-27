@@ -324,7 +324,7 @@ describe('Home Store reducer', () => {
     );
   });
 
-  it('hydrates a V2 cached Header during a loading balance round and lets live data replace it', () => {
+  it('hydrates a cached Header during a loading balance round and lets live data replace it', () => {
     const createBalance = (
       status: 'error' | 'loading' | 'success',
       amount?: string,
@@ -505,7 +505,7 @@ describe('Home Store reducer', () => {
     });
   });
 
-  it('hydrates a failed V2 Header after an early live error but never over a hard owner state', () => {
+  it('hydrates a failed cached Header after an early live error but never over a hard owner state', () => {
     const failedBalance = adaptCurrentHomeBalanceFacts({
       bannerAvailable: false,
       contributors: [
@@ -1293,7 +1293,7 @@ describe('Home Store reducer', () => {
     });
   });
 
-  it('keeps a V3 owner snapshot visible until a mismatched live source replaces it', () => {
+  it('keeps an owner snapshot visible until a mismatched live source replaces it', () => {
     const exactToken = createToken(1);
     const cachedRecord = {
       sourceId: 'defi' as const,
@@ -1460,7 +1460,7 @@ describe('Home Store reducer', () => {
     });
   });
 
-  it('never lets a late V3 snapshot replace a live source result', () => {
+  it('never lets a late snapshot replace a live source result', () => {
     const request = createToken(1);
     let state = dispatch(createOwnedState(), {
       type: 'sourceRequested',

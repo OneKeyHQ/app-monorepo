@@ -450,9 +450,3 @@ export type IHomeCachedSourceRecord = {
   expiresAt: number;
   payload: IHomeRuntimeJsonValue;
 };
-
-export type IHomeCachedSnapshotPayload = {
-  codecVersion: number;
-  ownerScopeKey: string;
-  records: readonly IHomeCachedSourceRecord[];
-};

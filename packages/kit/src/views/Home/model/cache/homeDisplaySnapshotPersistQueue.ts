@@ -3,7 +3,7 @@ import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 import type { IDisplaySnapshotWriteEntry } from '@onekeyhq/shared/src/storage/DisplaySnapshotStorage';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import { createCacheRecord } from '../store/homeStoreSnapshotRecord';
+import { createHomeCachedSourceRecord } from '../store/homeCachedSourceRecord';
 import { HOME_STORE_SOURCE_IDS } from '../store/homeStoreTypes';
 
 import {
@@ -320,20 +320,18 @@ async function persistHomeDisplaySnapshotOnce(
           shell,
           navigation,
         });
-        if (raw) {
-          if (chunks.critical) {
-            cleanupKeys.add(chunks.critical.key);
-          }
-          entries.push({ key, value: raw });
-          chunks.critical = createHomeDisplaySnapshotDescriptor({
-            chunkId: 'critical',
-            contentSignature,
-            generation: nextGeneration,
-            partitionId,
-            raw,
-            updatedAt: now,
-          });
+        if (chunks.critical) {
+          cleanupKeys.add(chunks.critical.key);
         }
+        entries.push({ key, value: raw });
+        chunks.critical = createHomeDisplaySnapshotDescriptor({
+          chunkId: 'critical',
+          contentSignature,
+          generation: nextGeneration,
+          partitionId,
+          raw,
+          updatedAt: now,
+        });
       }
     } else if (isHardBlockedShell(currentShell) && chunks.critical) {
       cleanupKeys.add(chunks.critical.key);
@@ -345,7 +343,7 @@ async function persistHomeDisplaySnapshotOnce(
     ? job.dirtySourceIds
     : new Set(HOME_STORE_SOURCE_IDS);
   dirtySourceIds.forEach((sourceId) => {
-    const record = createCacheRecord({
+    const record = createHomeCachedSourceRecord({
       now,
       sourceId,
       slot: job.state.resources[sourceId],
@@ -480,7 +478,7 @@ async function persistHomeDisplaySnapshotOnce(
         chunkId !== 'critical' &&
         HOME_STORE_SOURCE_IDS.includes(chunkId as IHomeStoreSourceId),
     );
-  defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+  defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
     stage: 'persist',
     outcome: 'accepted',
     partitionTag: getHomeDisplaySnapshotPartitionTag(job.ownerScopeKey),
@@ -499,7 +497,7 @@ async function persistHomeDisplaySnapshot(
   try {
     await persistHomeDisplaySnapshotOnce(job);
   } catch (error) {
-    defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+    defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
       stage: 'persist',
       outcome: 'retrying',
       partitionTag: getHomeDisplaySnapshotPartitionTag(job.ownerScopeKey),
@@ -646,7 +644,7 @@ export class HomeDisplaySnapshotPersistQueue {
       try {
         await persistHomeDisplaySnapshot(job);
       } catch (error) {
-        defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+        defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
           stage: 'persist',
           outcome: 'failed',
           partitionTag: getHomeDisplaySnapshotPartitionTag(job.ownerScopeKey),

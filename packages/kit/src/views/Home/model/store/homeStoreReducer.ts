@@ -20,6 +20,7 @@ import {
 } from '../sections/banner/homeBannerStoreModel';
 import { projectHomeSemanticModel } from '../semantic/homeSemanticProjector';
 
+import { isHomeCachedRecordExactForToken } from './homeCachedSourceRecord';
 import {
   HOME_SECTION_ACTION_IDS,
   HOME_SHELL_ACTION_IDS,
@@ -29,7 +30,6 @@ import {
   createInitialHomeStoreSection,
   createInitialHomeStoreState,
 } from './homeStoreInitialState';
-import { isHomeCachedRecordExactForToken } from './homeStoreSnapshotCodec';
 
 import type {
   IHomeCachedSourceRecord,
@@ -1497,7 +1497,7 @@ export function reduceHomeStore(
         (resource.kind === 'ready' || resource.kind === 'empty') &&
         resource.freshness === 'confirmedCache'
       ) {
-        // V3 can hydrate a visible source before its lazy producer has loaded
+        // A snapshot can hydrate a visible source before its lazy producer has loaded
         // stable business inputs. Keep that display-only value through the
         // producer's setup reset; the first exact request will retain it, while
         // a mismatched request keeps it until live data can replace it.

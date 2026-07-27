@@ -240,7 +240,8 @@ the old provider is deleted.
 
 ### 5.7 Current snapshot persistence is not per Store
 
-`F-10`: the CacheV2 persist queue is currently a module-level serial writer.
+`F-10`: the display snapshot persist queue is currently a module-level serial
+writer.
 Native critical hydration is synchronous; web/desktop hydration is
 asynchronous. Prepared-owner replacement also has ordering semantics.
 
@@ -1172,8 +1173,8 @@ Static import-boundary tests enforce this table.
 
 ## 18. Cache and Snapshot Ownership
 
-The rewrite keeps the proven CacheV2 ordering, atomicity, retention, and
-confirmed-cache semantics, removes React ownership, and replaces immediate
+The rewrite keeps the proven display snapshot ordering, atomicity, retention,
+and confirmed-cache semantics, removes React ownership, and replaces immediate
 parallel post-bootstrap warming with controlled sequential background warming.
 
 The hydration matrix is frozen:
@@ -1226,45 +1227,29 @@ Preferred-tab information selects the first eligible warm candidate; it does
 not hydrate every lazy chunk together. First navigation to any section remains
 cache-first and is part of its acceptance test.
 
-Native synchronous bootstrap has an executable hard boundary:
+Native synchronous bootstrap validates snapshot ownership, schema, and
+structure before accepting cached records:
 
 ```text
-allowed keys: owner route/manifest + critical chunk only
-manifest raw bytes: <= 32 KiB
-critical raw bytes: <= 128 KiB
-synchronous source chunks: 0
+required metadata: owner route + manifest
+payload validation: schema + owner + source identity
+chunk integrity: descriptor byte length must match stored content
 ```
 
-Banner and Portfolio records are not synchronously read during bootstrap.
-Their hydrate begins after the first committed frame. Any oversized,
-malformed, missing, or unknown critical record is a cache miss; it is not
-parsed synchronously.
+Malformed, missing, or unknown records are cache misses. Snapshot codecs do not
+reject otherwise valid records based on serialized byte size.
 
 The existing 100ms target is an observed degrade threshold, not a preemptive
 timeout: a synchronous MMKV read or JSON parse cannot be interrupted once
-started. The implementation checks byte metadata and elapsed time before each
-allowed read and stops the bootstrap after the current bounded operation. A
-snapshot miss never blocks middleware drain or live-source startup.
+started. A snapshot miss never blocks middleware drain or live-source startup.
 
-Shared limits begin with the existing CacheV2 bounds:
+The display snapshot cache retains structural bounds that are independent of
+payload byte size:
 
 ```text
-critical chunk: 128 KiB
-normal source chunk: 1 MiB
-manifest: 32 KiB
-retained bytes per owner: 4 MiB
-retained bytes per storage namespace: 16 MiB
 owner/routes retained per namespace: 16
 source-runtime identity cache: 8 entries by default
 ```
-
-Every source descriptor additionally declares `maxRows`, `maxBytes`, and
-`maxIdentityEntries`. On byte pressure, the writer evicts oldest lazy chunks,
-then oldest non-active owners; it never expands the limit or evicts the active
-owner's critical chunk. It does not rely only on row counts. Oversized jobs are
-rejected before entering the persist queue. These initial byte profiles may be
-lowered or adjusted only with fixture and startup-memory evidence; hard bounds
-remain mandatory.
 
 Snapshot/cache rejection discards only disposable persistence work. It never
 rejects, truncates, or rolls back the corresponding live source result in the
@@ -1643,7 +1628,7 @@ The following uses are serialization boundaries, not equality mechanisms, and
 may remain after confirming that they are outside reducer/render/projector hot
 paths:
 
-- CacheV2 and Store snapshot codec encode/decode;
+- Home display snapshot codec encode/decode;
 - RPC/runtime transport encode/decode;
 - URL Account persisted route formats;
 - Banner typed-data signing and other deterministic crypto serialization.
@@ -1810,11 +1795,12 @@ must preserve or intentionally replace the following behavior before cutover:
 confirmed-cache behavior is preserved by the source-runtime contract in
 Section 20.4 and its parity tests.
 
-The CacheV2 behavior intentionally replaced by this handoff is immediate
-parallel hydration of Perps, DeFi, NFT, History, and Market during bootstrap.
-These sources now use the visible/lazy/controlled-warm policy in Section 18.
-This preserves automatic warming without allowing it to compete with the first
-frame or create a five-source materialization and Store-write burst.
+The display snapshot behavior intentionally replaced by this handoff is
+immediate parallel hydration of Perps, DeFi, NFT, History, and Market during
+bootstrap. These sources now use the visible/lazy/controlled-warm policy in
+Section 18. This preserves automatic warming without allowing it to compete
+with the first frame or create a five-source materialization and Store-write
+burst.
 
 ## 22. Direct Rewrite Execution Plan
 
@@ -2060,10 +2046,9 @@ Additional parity suites cover:
 ### 23.6 Cache
 
 - prepared owner replacement is atomic;
-- Native bootstrap reads only manifest + critical, never Banner/Portfolio;
-- manifest over 32 KiB or critical over 128 KiB is a cache miss before parse;
-- maximum valid Native bootstrap fixture meets the observed budget without
-  blocking middleware drain;
+- valid snapshots are not rejected based on serialized byte size;
+- Native bootstrap fixtures meet the observed budget without blocking
+  middleware drain;
 - shared async hydration preserves tier order;
 - no background warm starts before every Section 18 eligibility gate passes;
 - after eligibility, at most one warm source workflow runs per Home runtime;

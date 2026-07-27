@@ -5,10 +5,12 @@ import {
   decodeHomeDisplaySnapshotCritical,
   decodeHomeDisplaySnapshotManifest,
   decodeHomeDisplaySnapshotRoute,
+  decodeHomeDisplaySnapshotRouteIndex,
   decodeHomeDisplaySnapshotSourceChunk,
   encodeHomeDisplaySnapshotCritical,
   encodeHomeDisplaySnapshotManifest,
   encodeHomeDisplaySnapshotRoute,
+  encodeHomeDisplaySnapshotRouteIndex,
   encodeHomeDisplaySnapshotSourceChunk,
 } from './homeDisplaySnapshotCodec';
 import {
@@ -21,7 +23,7 @@ const ownerScopeKey = 'wallet-a:account-a:network-eth';
 const partitionId = getHomeDisplaySnapshotPartitionId(ownerScopeKey);
 const now = 1000;
 
-describe('Home display snapshot V3 codec', () => {
+describe('Home display snapshot codec', () => {
   it('uses a deterministic opaque partition id and restores runtime defaults', () => {
     expect(partitionId).toHaveLength(64);
     expect(partitionId).not.toContain(ownerScopeKey);
@@ -58,7 +60,7 @@ describe('Home display snapshot V3 codec', () => {
       },
     });
     const legacyExpiredRaw = JSON.stringify({
-      ...JSON.parse(raw ?? '{}'),
+      ...JSON.parse(raw),
       expiresAt: now - 1,
     });
     expect(
@@ -302,5 +304,110 @@ describe('Home display snapshot V3 codec', () => {
     });
     expect(manifest?.chunks.critical?.key).toContain('/3/critical');
     expect(manifest?.chunks.portfolio?.key).toContain('/1/portfolio');
+  });
+
+  it('accepts valid snapshots regardless of serialized byte size', () => {
+    const largeValue = 'x'.repeat(1024 * 1024 + 1);
+    const criticalRaw = encodeHomeDisplaySnapshotCritical({
+      schemaVersion: HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION,
+      ownerScopeKey,
+      createdAt: now,
+      shell: {
+        kind: 'portfolio',
+        presentation: {
+          kind: 'funded',
+          header: {
+            kind: 'funded',
+            balance: { amount: largeValue, currency: 'USD' },
+          },
+          actions: { kind: 'funded', items: ['send'] },
+          banner: { kind: 'none' },
+        },
+      },
+    });
+    expect(criticalRaw.length).toBeGreaterThan(1024 * 1024);
+    expect(
+      decodeHomeDisplaySnapshotCritical({
+        raw: criticalRaw,
+        expectedOwnerScopeKey: ownerScopeKey,
+      }),
+    ).toBeDefined();
+
+    const sourceRaw = encodeHomeDisplaySnapshotSourceChunk({
+      ownerScopeKey,
+      record: {
+        sourceId: 'banner',
+        sourceKeyIdentity: 'banner-source',
+        dataSchemaVersion: 1,
+        coverageFingerprint: 'large-banner',
+        quoteBasis: null,
+        confirmedAt: now,
+        expiresAt: now + 1,
+        payload: {
+          banners: [{ id: largeValue }],
+          referralEligibility: null,
+          tronResource: null,
+          isBotWalletReceiveBlocked: false,
+        },
+      },
+    });
+    expect(sourceRaw?.length).toBeGreaterThan(1024 * 1024);
+    expect(
+      decodeHomeDisplaySnapshotSourceChunk({
+        raw: sourceRaw,
+        expectedOwnerScopeKey: ownerScopeKey,
+        expectedSourceId: 'banner',
+      }),
+    ).toBeDefined();
+
+    const routeRaw = encodeHomeDisplaySnapshotRoute({
+      schemaVersion: HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION,
+      ownerScopeKey: largeValue,
+      partitionId,
+      currentGeneration: 1,
+      updatedAt: now,
+    });
+    expect(routeRaw.length).toBeGreaterThan(16 * 1024);
+    expect(
+      decodeHomeDisplaySnapshotRoute({
+        raw: routeRaw,
+        expectedOwnerScopeKey: largeValue,
+        expectedPartitionId: partitionId,
+      }),
+    ).toBeDefined();
+
+    const manifestRaw = encodeHomeDisplaySnapshotManifest({
+      schemaVersion: HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION,
+      ownerScopeKey,
+      partitionId,
+      generation: 1,
+      createdAt: now,
+      chunks: {
+        portfolio: createHomeDisplaySnapshotDescriptor({
+          chunkId: 'portfolio',
+          contentSignature: largeValue,
+          generation: 1,
+          partitionId,
+          raw: '{"portfolio":true}',
+          updatedAt: now,
+        }),
+      },
+    });
+    expect(manifestRaw.length).toBeGreaterThan(64 * 1024);
+    expect(
+      decodeHomeDisplaySnapshotManifest({
+        raw: manifestRaw,
+        expectedOwnerScopeKey: ownerScopeKey,
+        expectedPartitionId: partitionId,
+        expectedGeneration: 1,
+      }),
+    ).toBeDefined();
+
+    const routeIndexRaw = encodeHomeDisplaySnapshotRouteIndex({
+      schemaVersion: HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION,
+      routes: [{ partitionId: largeValue, lastAccessedAt: now }],
+    });
+    expect(routeIndexRaw.length).toBeGreaterThan(32 * 1024);
+    expect(decodeHomeDisplaySnapshotRouteIndex(routeIndexRaw)).toBeDefined();
   });
 });

@@ -13,19 +13,19 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/home';
 import type { IJotaiContextStore } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 
-import { loadPreparedHomeDisplaySnapshot } from '../cacheV2/loadPreparedHomeDisplaySnapshot';
+import { loadPreparedHomeDisplaySnapshot } from '../cache/loadPreparedHomeDisplaySnapshot';
 
 import { HomeStoreRuntime } from './homeRuntimeLease';
 
-import type { IPreparedHomeDisplaySnapshot } from '../cacheV2/loadPreparedHomeDisplaySnapshot.types';
+import type { IPreparedHomeDisplaySnapshot } from '../cache/loadPreparedHomeDisplaySnapshot.types';
 
 const mockCancelSourceSession = jest.fn();
 
-jest.mock('../cacheV2/loadPreparedHomeDisplaySnapshot', () => ({
+jest.mock('../cache/loadPreparedHomeDisplaySnapshot', () => ({
   loadPreparedHomeDisplaySnapshot: jest.fn(),
 }));
 
-jest.mock('../cacheV2/homeDisplaySnapshotPersistQueue', () => ({
+jest.mock('../cache/homeDisplaySnapshotPersistQueue', () => ({
   homeDisplaySnapshotPersistQueue: {
     enqueue: jest.fn(),
     flushAndCompact: jest.fn(async () => undefined),
@@ -33,7 +33,7 @@ jest.mock('../cacheV2/homeDisplaySnapshotPersistQueue', () => ({
   },
 }));
 
-jest.mock('../cacheV2/homeSnapshotLoader', () => ({
+jest.mock('../cache/homeSnapshotLoader', () => ({
   loadHomeSnapshotSource: jest.fn(),
 }));
 

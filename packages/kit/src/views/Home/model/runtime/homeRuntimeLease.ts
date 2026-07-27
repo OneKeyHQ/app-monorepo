@@ -14,7 +14,7 @@ import type {
 } from '@onekeyhq/shared/src/types/homeRuntime';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import { HomeSnapshotRuntime } from '../cacheV2/homeSnapshotRuntime';
+import { HomeSnapshotRuntime } from '../cache/homeSnapshotRuntime';
 import {
   HomeEffectMiddleware,
   type IHomeEffectEnvelope,

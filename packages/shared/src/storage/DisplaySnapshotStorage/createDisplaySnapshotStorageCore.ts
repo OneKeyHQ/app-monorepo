@@ -13,7 +13,7 @@ import type {
 } from './types';
 
 /**
- * Display Snapshot Storage V2
+ * Display Snapshot Storage
  *
  * This storage is only for non-sensitive, re-creatable UI snapshots. It is
  * not a source of truth and its contents may be missing, stale, corrupted,

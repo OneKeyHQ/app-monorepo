@@ -11,8 +11,6 @@ import {
   getHomeDisplaySnapshotManifestKey,
 } from './homeDisplaySnapshotKeys';
 import {
-  HOME_DISPLAY_SNAPSHOT_MAX_CHUNK_BYTES,
-  HOME_DISPLAY_SNAPSHOT_MAX_CRITICAL_BYTES,
   HOME_DISPLAY_SNAPSHOT_MAX_ROUTES,
   HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION,
 } from './homeDisplaySnapshotTypes';
@@ -126,11 +124,8 @@ export function projectHomeDisplaySnapshotNavigation(
 
 export function encodeHomeDisplaySnapshotCritical(
   value: IHomeDisplaySnapshotPersistedCritical,
-): string | undefined {
-  const encoded = stringUtils.stableStringify(value);
-  return getByteLength(encoded) <= HOME_DISPLAY_SNAPSHOT_MAX_CRITICAL_BYTES
-    ? encoded
-    : undefined;
+): string {
+  return stringUtils.stableStringify(value);
 }
 
 export function decodeHomeDisplaySnapshotCritical({
@@ -140,7 +135,7 @@ export function decodeHomeDisplaySnapshotCritical({
   expectedOwnerScopeKey: string;
   raw: string | undefined;
 }): IHomeDisplaySnapshotCritical | undefined {
-  if (!raw || getByteLength(raw) > HOME_DISPLAY_SNAPSHOT_MAX_CRITICAL_BYTES) {
+  if (!raw) {
     return undefined;
   }
   try {
@@ -278,10 +273,7 @@ export function encodeHomeDisplaySnapshotSourceChunk({
       expiresAt: HOME_DISPLAY_SNAPSHOT_NO_EXPIRY_AT,
     },
   };
-  const encoded = stringUtils.stableStringify(chunk);
-  return getByteLength(encoded) <= HOME_DISPLAY_SNAPSHOT_MAX_CHUNK_BYTES
-    ? encoded
-    : undefined;
+  return stringUtils.stableStringify(chunk);
 }
 
 function readPersistedSourceRecord(
@@ -327,7 +319,7 @@ export function decodeHomeDisplaySnapshotSourceChunk({
   expectedSourceId: IHomeCachedSourceRecord['sourceId'];
   raw: string | undefined;
 }): IHomeCachedSourceRecord | undefined {
-  if (!raw || getByteLength(raw) > HOME_DISPLAY_SNAPSHOT_MAX_CHUNK_BYTES) {
+  if (!raw) {
     return undefined;
   }
   try {
@@ -362,7 +354,7 @@ export function decodeHomeDisplaySnapshotRoute({
   expectedPartitionId: string;
   raw: string | undefined;
 }): IHomeDisplaySnapshotRoute | undefined {
-  if (!raw || getByteLength(raw) > 16 * 1024) {
+  if (!raw) {
     return undefined;
   }
   try {
@@ -407,7 +399,6 @@ function isChunkDescriptor({
     descriptor.key.endsWith(`/${chunkId}`) &&
     Number.isSafeInteger(descriptor.byteLength) &&
     Number(descriptor.byteLength) > 0 &&
-    Number(descriptor.byteLength) <= HOME_DISPLAY_SNAPSHOT_MAX_CHUNK_BYTES &&
     typeof descriptor.contentSignature === 'string' &&
     descriptor.contentSignature.length > 0 &&
     Number.isSafeInteger(descriptor.updatedAt)
@@ -431,7 +422,7 @@ export function decodeHomeDisplaySnapshotManifest({
   expectedPartitionId: string;
   raw: string | undefined;
 }): IHomeDisplaySnapshotManifest | undefined {
-  if (!raw || getByteLength(raw) > 64 * 1024) {
+  if (!raw) {
     return undefined;
   }
   try {
@@ -476,7 +467,7 @@ export function encodeHomeDisplaySnapshotRouteIndex(
 export function decodeHomeDisplaySnapshotRouteIndex(
   raw: string | undefined,
 ): IHomeDisplaySnapshotRouteIndex | undefined {
-  if (!raw || getByteLength(raw) > 32 * 1024) {
+  if (!raw) {
     return undefined;
   }
   try {
