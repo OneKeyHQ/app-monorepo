@@ -122,6 +122,41 @@ describe('HomeSourceRuntime Market workflow', () => {
     mockBaseMarketRequests();
   });
 
+  it('releases automatic reconciliation after the cached frame barrier', () => {
+    const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+    const callbacks: FrameRequestCallback[] = [];
+    jest.useFakeTimers();
+    globalThis.requestAnimationFrame = jest.fn((callback) => {
+      callbacks.push(callback);
+      return callbacks.length;
+    });
+    const runtime = createRuntime({} as IHomeStoreState);
+    const reconcile = jest
+      .spyOn(runtime, 'reconcile')
+      .mockImplementation(() => undefined);
+
+    try {
+      runtime.deferAutomaticReconcileUntilCachedFrame('session-a');
+      expect(reconcile).not.toHaveBeenCalled();
+
+      callbacks.shift()?.(0);
+      expect(reconcile).not.toHaveBeenCalled();
+
+      callbacks.shift()?.(16);
+      expect(reconcile).toHaveBeenCalledTimes(1);
+
+      runtime.deferAutomaticReconcileUntilCachedFrame('session-b');
+      jest.advanceTimersByTime(499);
+      expect(reconcile).toHaveBeenCalledTimes(1);
+      jest.advanceTimersByTime(1);
+      expect(reconcile).toHaveBeenCalledTimes(2);
+    } finally {
+      globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+      runtime.dispose();
+      jest.useRealTimers();
+    }
+  });
+
   it('publishes Spot progressively and completes with Perps Hot rows', async () => {
     const perpsResponse =
       createDeferred<

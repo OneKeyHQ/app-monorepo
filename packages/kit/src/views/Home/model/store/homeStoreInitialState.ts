@@ -1,3 +1,5 @@
+import { createInitialHomeHeaderPresentation } from '../presentation/homeHeaderPresentation';
+
 import type {
   IHomeStoreResourceSlot,
   IHomeStoreResourcesState,
@@ -64,6 +66,7 @@ export function createInitialHomeStoreState(): IHomeStoreState {
       connection: 'waiting',
       protocolVersion: 0,
     },
+    headerPresentation: createInitialHomeHeaderPresentation(),
     walletInputs: {
       ready: false,
       hasNetworkAccount: false,

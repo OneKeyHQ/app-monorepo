@@ -1,4 +1,6 @@
 import {
+  Profiler,
+  type ProfilerOnRenderCallback,
   memo,
   useCallback,
   useEffect,
@@ -14,6 +16,7 @@ import {
   EJotaiContextStoreNames,
   useDevSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
@@ -91,7 +94,18 @@ function HomeStoreDrivenWalletSurface({
   pageSurface: IHomeWalletPageSurfaceState;
   sceneName: EAccountSelectorSceneName;
 }) {
+  const renderStartedAt = performance.now();
+  const renderDurationRef = useRef(0);
   const shell = useHomeShell();
+  renderDurationRef.current = performance.now() - renderStartedAt;
+  useLayoutEffect(() => {
+    defaultLogger.wallet.homeFramePerf.frame({
+      stage: 'functionTiming',
+      functionName: 'HomeStoreDrivenWalletSurface.renderFunction',
+      durationMs: renderDurationRef.current,
+      outcome: pageSurface.surface,
+    });
+  });
   if (
     pageSurface.surface === 'react' &&
     shell.value.kind === 'backupRequired'
@@ -130,6 +144,8 @@ export function HomeLaunchGatedContent({
   sceneName: EAccountSelectorSceneName;
   onPressHide: () => void;
 }) {
+  const renderStartedAt = performance.now();
+  const renderDurationRef = useRef(0);
   const {
     activeAccount: { ready: activeAccountReady, wallet, account, network },
   } = useActiveAccount({ num: 0 });
@@ -211,6 +227,29 @@ export function HomeLaunchGatedContent({
       markCurrentHomeGenerationReady(launchSnapshot.requiredHomeGeneration);
     }
   }, [isHomeVisible, launchSnapshot.requiredHomeGeneration, shouldGateHome]);
+  const handleProfilerRender = useCallback<ProfilerOnRenderCallback>(
+    (id, phase, actualDuration, baseDuration, startTime, commitTime) => {
+      defaultLogger.wallet.homeFramePerf.frame({
+        stage: 'functionTiming',
+        functionName: `ReactProfiler.${id}`,
+        durationMs: actualDuration,
+        phase,
+        baseDurationMs: baseDuration,
+        startTimeMs: startTime,
+        commitTimeMs: commitTime,
+      });
+    },
+    [],
+  );
+  renderDurationRef.current = performance.now() - renderStartedAt;
+  useLayoutEffect(() => {
+    defaultLogger.wallet.homeFramePerf.frame({
+      stage: 'functionTiming',
+      functionName: 'HomeLaunchGatedContent.renderFunction',
+      durationMs: renderDurationRef.current,
+      outcome: pageSurface.surface,
+    });
+  });
 
   return (
     <>
@@ -223,16 +262,23 @@ export function HomeLaunchGatedContent({
           isHomeVisible ? 'auto' : 'no-hide-descendants'
         }
       >
-        <HomeStoreDrivenWalletSurface
-          onPressHide={onPressHide}
-          pageSurface={pageSurface}
-          sceneName={sceneName}
-        />
+        <Profiler
+          id="HomeStoreDrivenWalletSurface"
+          onRender={handleProfilerRender}
+        >
+          <HomeStoreDrivenWalletSurface
+            onPressHide={onPressHide}
+            pageSurface={pageSurface}
+            sceneName={sceneName}
+          />
+        </Profiler>
       </Stack>
       {shouldMountHomeForegroundEffects({
         isHomeVisible: isHomeVisible && pageSurface.surface !== 'pending',
       }) ? (
-        <HomeForegroundEffects />
+        <Profiler id="HomeForegroundEffects" onRender={handleProfilerRender}>
+          <HomeForegroundEffects />
+        </Profiler>
       ) : null}
     </>
   );

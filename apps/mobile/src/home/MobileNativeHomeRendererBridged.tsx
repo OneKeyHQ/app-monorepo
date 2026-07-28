@@ -1,4 +1,6 @@
 import {
+  Profiler,
+  type ProfilerOnRenderCallback,
   memo,
   useCallback,
   useEffect,
@@ -12,10 +14,6 @@ import {
 import { useIntl } from 'react-intl';
 
 import { Skeleton, Stack, XStack, useTheme } from '@onekeyhq/components';
-import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorActiveAccount';
-import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerHome';
-import { AllNetworksManagerTrigger } from '@onekeyhq/kit/src/components/AccountSelector/AllNetworksManagerTrigger';
-import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { EmptyDeFi, EmptyNFT } from '@onekeyhq/kit/src/components/Empty';
 import { EmptyHistory } from '@onekeyhq/kit/src/components/Empty/EmptyHistory';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
@@ -28,9 +26,15 @@ import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSe
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHomeDisplayModel } from '@onekeyhq/kit/src/hooks/useHomeBalanceState';
 import { useManageToken } from '@onekeyhq/kit/src/hooks/useManageToken';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useShortcutsOnRouteFocused } from '@onekeyhq/kit/src/hooks/useShortcutsOnRouteFocused';
+import {
+  EAccountSelectorActiveAccountReloadStatus,
+  useAccountSelectorActiveAccountReloadRequestsAtom,
+  useActiveAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useHomeContextStore,
+  useHomeHeaderPresentation,
   useHomeInteraction,
   useHomeNavigation,
   useHomeResource,
@@ -39,7 +43,10 @@ import {
   useHomeShell,
 } from '@onekeyhq/kit/src/states/jotai/contexts/home';
 import { readHomeStoreState } from '@onekeyhq/kit/src/states/jotai/contexts/home/actions';
+import { deferHeavyWorkUntilUIIdle } from '@onekeyhq/kit/src/utils/deferHeavyWork';
 import { formatPortfolioTotal } from '@onekeyhq/kit/src/views/Home/components/DeFiListBlock/formatPortfolioTotal';
+import { HomeAccountRowView } from '@onekeyhq/kit/src/views/Home/components/HomeAccountRowView';
+import { HomeBalanceSlotView } from '@onekeyhq/kit/src/views/Home/components/HomeBalanceSlotView';
 import { NotBackedUpEmpty } from '@onekeyhq/kit/src/views/Home/components/NotBakcedUp';
 import {
   HOME_PERPS_GUIDE_URL,
@@ -50,7 +57,12 @@ import { SupportHub } from '@onekeyhq/kit/src/views/Home/components/SupportHub';
 import { Upgrade } from '@onekeyhq/kit/src/views/Home/components/Upgrade';
 import { WalletActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions';
 import { loadHomeDisplaySnapshotPortfolioDetailsForOwner } from '@onekeyhq/kit/src/views/Home/model/cache/loadHomeDisplaySnapshotPortfolioDetails.native';
-import { createHomeAuthorityId } from '@onekeyhq/kit/src/views/Home/model/core/homeIdentity';
+import { resolveHomeOverviewBalanceRenderDecision } from '@onekeyhq/kit/src/views/Home/model/compatibility/homeShellRenderAdapter';
+import {
+  buildHomeScalarKey,
+  createHomeAuthorityId,
+} from '@onekeyhq/kit/src/views/Home/model/core/homeIdentity';
+import { resolveHomeBalanceQuotedAmount } from '@onekeyhq/kit/src/views/Home/model/facts/currentHomeBalanceFactsAdapter';
 import { useHomeSectionPayload } from '@onekeyhq/kit/src/views/Home/model/react/homeStoreHooks';
 import { useHomeMarketIntents } from '@onekeyhq/kit/src/views/Home/model/react/useHomeMarketIntents';
 import { useHomePortfolioIntents } from '@onekeyhq/kit/src/views/Home/model/react/useHomePortfolioIntents';
@@ -67,7 +79,6 @@ import {
 } from '@onekeyhq/kit/src/views/Home/model/store/homeStoreCommandIds';
 import type { IHomeStoreIntent } from '@onekeyhq/kit/src/views/Home/model/store/homeStoreTypes';
 import type { INativeHomePageViewProps } from '@onekeyhq/kit/src/views/Home/NativeHomePageView.types';
-import { HomeOverviewContainer } from '@onekeyhq/kit/src/views/Home/pages/HomeOverviewContainer';
 import {
   PerpsHomeHeaderSlot,
   PerpsHomeStateSlot,
@@ -76,6 +87,7 @@ import { TabHeaderSettings } from '@onekeyhq/kit/src/views/Home/pages/TabHeaderS
 import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
 import { usePrimeAvailable } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAvailable';
 import {
+  useCurrencyPersistAtom,
   useSettingsPersistAtom,
   useSettingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -86,6 +98,7 @@ import {
   type IHomeContainerIntentV3,
   type IHomeContainerOwner,
   type IHomeContainerRef,
+  type IHomeContainerSlotKey,
   type IHomeContainerSlots,
   type IHomeContainerTabId,
   type IHomeContainerTheme,
@@ -98,6 +111,7 @@ import {
   EModalRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import {
@@ -122,6 +136,12 @@ const HOME_REFRESH_FEEDBACK_DURATION_MS = 1200;
 const MOBILE_NATIVE_HOME_TRON_RESOURCE_ACTION_ID =
   'home.native.banner.openTronResource';
 const MOBILE_NATIVE_HOME_ACTION_SKELETON_COUNT = 4;
+const MOBILE_NATIVE_HOME_INITIAL_ACTIVATED_TAB_IDS: ReadonlySet<IHomeContainerTabId> =
+  new Set(['portfolio']);
+const MOBILE_NATIVE_HOME_STATIC_SLOT_REVISIONS = {
+  support: 'home-slot-support-v1',
+  upgrade: 'home-slot-upgrade-v1',
+} as const;
 const MemoHomeTabSearchHeader = memo(HomeTabSearchHeader);
 
 type IMobileNativeHomeProducerBridgeProps = {
@@ -129,6 +149,43 @@ type IMobileNativeHomeProducerBridgeProps = {
   ownerRevision: string;
   runtime: MobileNativeHomeBridgeRuntime;
 };
+
+type IMobileNativeHomeTabActivationState = {
+  activatedTabIds: ReadonlySet<IHomeContainerTabId>;
+  ownerScopeKey: string;
+  ownerSessionId: string;
+};
+
+type IMobileNativeHomeActionRowTransitionGate = {
+  requestId: number;
+  sourceOwnerKey: string;
+};
+
+type IDispatchHomeHeaderAction = (
+  actionId: (typeof HOME_SHELL_ACTION_IDS)[keyof typeof HOME_SHELL_ACTION_IDS],
+) => void;
+
+type IMobileNativeHomeHeaderBridgeProps =
+  IMobileNativeHomeProducerBridgeProps & {
+    dispatchHeaderAction: IDispatchHomeHeaderAction;
+  };
+
+function buildOwnerSlotContentRevision({
+  owner,
+  parts,
+  slotId,
+}: {
+  owner: IHomeContainerOwner;
+  parts: readonly (boolean | number | string | undefined)[];
+  slotId: IHomeContainerSlotKey;
+}): string {
+  return buildHomeScalarKey([
+    slotId,
+    owner.scopeKey,
+    owner.sessionId,
+    ...parts,
+  ]);
+}
 
 function useStableRevisionValue<T extends { revision: string }>(value: T): T {
   const valueRef = useRef(value);
@@ -187,6 +244,60 @@ function MobileNativeHomeActionRowSkeleton() {
     </XStack>
   );
 }
+
+const MobileNativeHomeWalletActions = memo(
+  function MobileNativeHomeWalletActions({
+    actionFamily,
+    ownerKey,
+  }: {
+    actionFamily: 'funded' | 'zero';
+    ownerKey: string;
+  }) {
+    const [activeAccountReloadRequests] =
+      useAccountSelectorActiveAccountReloadRequestsAtom();
+    const activeAccountReloadRequest = activeAccountReloadRequests[0];
+    const transitionGateRef = useRef<
+      IMobileNativeHomeActionRowTransitionGate | undefined
+    >(undefined);
+    if (
+      activeAccountReloadRequest &&
+      activeAccountReloadRequest.status !==
+        EAccountSelectorActiveAccountReloadStatus.Completed &&
+      transitionGateRef.current?.requestId !==
+        activeAccountReloadRequest.requestId
+    ) {
+      transitionGateRef.current = {
+        requestId: activeAccountReloadRequest.requestId,
+        sourceOwnerKey: ownerKey,
+      };
+    }
+    if (
+      transitionGateRef.current &&
+      transitionGateRef.current.sourceOwnerKey !== ownerKey
+    ) {
+      transitionGateRef.current = undefined;
+    }
+    const isTransitionBlocked = Boolean(transitionGateRef.current);
+    const previousTransitionBlockedRef = useRef(isTransitionBlocked);
+    useEffect(() => {
+      if (previousTransitionBlockedRef.current === isTransitionBlocked) {
+        return;
+      }
+      previousTransitionBlockedRef.current = isTransitionBlocked;
+      defaultLogger.wallet.homeFramePerf.frame({
+        stage: 'functionTiming',
+        functionName: 'MobileNativeHomeActionRowTransitionGate',
+        durationMs: 0,
+        outcome: isTransitionBlocked ? 'blocked' : 'released',
+      });
+    }, [isTransitionBlocked]);
+    return isTransitionBlocked ? (
+      <MobileNativeHomeActionRowSkeleton />
+    ) : (
+      <WalletActions actionFamily={actionFamily} />
+    );
+  },
+);
 
 function useNativeTheme(): IHomeContainerTheme {
   const theme = useTheme();
@@ -351,19 +462,89 @@ const MobileNativeHomeNavigationBridge = memo(
 
 const MobileNativeHomeHeaderBridge = memo(
   function MobileNativeHomeHeaderBridge({
+    dispatchHeaderAction,
     owner,
     ownerRevision,
     runtime,
-  }: IMobileNativeHomeProducerBridgeProps) {
+  }: IMobileNativeHomeHeaderBridgeProps) {
     const intl = useIntl();
+    const headerPresentation = useHomeHeaderPresentation();
     const shell = useHomeShell();
     const bannerResource = useHomeResource('banner');
     const displayModel = useHomeDisplayModel();
     const balancePresentation = useStableRevisionValue(displayModel.balance);
     const [{ hideValue }] = useSettingsValuePersistAtom();
-    const {
-      activeAccount: { isOthersWallet, network },
-    } = useActiveAccount({ num: 0 });
+    const [{ currencyMap }] = useCurrencyPersistAtom();
+    const [settings] = useSettingsPersistAtom();
+    const balanceDecisionKeyRef = useRef<string | null>(null);
+    const actionRowOwnerKey = `${owner.scopeKey}:${owner.sessionId}`;
+    const [activatedActionRowOwnerKey, setActivatedActionRowOwnerKey] =
+      useState<string>();
+    const isActionRowActivated =
+      activatedActionRowOwnerKey === actionRowOwnerKey;
+    useEffect(() => {
+      let cancelled = false;
+      let released = false;
+      const startedAt = performance.now();
+      defaultLogger.wallet.homeFramePerf.frame({
+        stage: 'functionTiming',
+        functionName: 'MobileNativeHomeActionRowActivation.schedule',
+        durationMs: 0,
+        outcome: 'uiIdle',
+      });
+      void deferHeavyWorkUntilUIIdle().then(() => {
+        if (cancelled) {
+          return;
+        }
+        released = true;
+        setActivatedActionRowOwnerKey(actionRowOwnerKey);
+        defaultLogger.wallet.homeFramePerf.frame({
+          stage: 'functionTiming',
+          functionName: 'MobileNativeHomeActionRowActivation.release',
+          durationMs: performance.now() - startedAt,
+          outcome: 'activated',
+        });
+      });
+      return () => {
+        cancelled = true;
+        if (!released) {
+          defaultLogger.wallet.homeFramePerf.frame({
+            stage: 'functionTiming',
+            functionName: 'MobileNativeHomeActionRowActivation.release',
+            durationMs: performance.now() - startedAt,
+            outcome: 'cancelled',
+          });
+        }
+      };
+    }, [actionRowOwnerKey]);
+    const handleAccountSelectorPress = useCallback(
+      () => dispatchHeaderAction(HOME_SHELL_ACTION_IDS.accountSelector),
+      [dispatchHeaderAction],
+    );
+    const handleCopyAddressPress = useCallback(
+      () => dispatchHeaderAction(HOME_SHELL_ACTION_IDS.copyAddress),
+      [dispatchHeaderAction],
+    );
+    const handleNetworkSelectorPress = useCallback(
+      () => dispatchHeaderAction(HOME_SHELL_ACTION_IDS.networkSelector),
+      [dispatchHeaderAction],
+    );
+    const handleBalancePress = useCallback(
+      () => dispatchHeaderAction(HOME_SHELL_ACTION_IDS.balance),
+      [dispatchHeaderAction],
+    );
+    useShortcutsOnRouteFocused(
+      EShortcutEvents.AccountSelector,
+      handleAccountSelectorPress,
+    );
+    useShortcutsOnRouteFocused(
+      EShortcutEvents.CopyAddressOrUrl,
+      handleCopyAddressPress,
+    );
+    useShortcutsOnRouteFocused(
+      EShortcutEvents.NetworkSelector,
+      handleNetworkSelectorPress,
+    );
     const bannerPayload =
       bannerResource.kind === 'ready' || bannerResource.kind === 'partial'
         ? readHomeBannerStorePayload(bannerResource.data)
@@ -379,6 +560,70 @@ const MobileNativeHomeHeaderBridge = memo(
       balancePresentation.kind === 'ready'
         ? balancePresentation.balance
         : undefined;
+    const semanticBalanceStringDisplay = useMemo(() => {
+      if (balancePresentation.kind !== 'ready') {
+        return undefined;
+      }
+      return resolveHomeBalanceQuotedAmount({
+        currencyMap,
+        value: balancePresentation.balance.amount,
+        sourceCurrency: balancePresentation.balance.currency,
+        targetCurrency: settings.currencyInfo.id,
+      })?.amount;
+    }, [balancePresentation, currencyMap, settings.currencyInfo.id]);
+    const balanceRenderDecision = useMemo(
+      () =>
+        resolveHomeOverviewBalanceRenderDecision({
+          balancePresentation,
+          semanticDisplayAmount: semanticBalanceStringDisplay,
+        }),
+      [balancePresentation, semanticBalanceStringDisplay],
+    );
+    const balanceSlotPresentation = useMemo(
+      () => ({
+        amount: balanceRenderDecision.amount ?? '0',
+        currencySymbol: settings.currencyInfo.symbol,
+        hidden: hideValue,
+        showSkeleton: balanceRenderDecision.showSkeleton,
+      }),
+      [
+        balanceRenderDecision.amount,
+        balanceRenderDecision.showSkeleton,
+        hideValue,
+        settings.currencyInfo.symbol,
+      ],
+    );
+    useEffect(() => {
+      const network = headerPresentation.account.network;
+      let networkScope: 'allNetworks' | 'singleNetwork' | 'unknown' = 'unknown';
+      if (network) {
+        networkScope = network.isAllNetworks ? 'allNetworks' : 'singleNetwork';
+      }
+      const isRefreshing =
+        shell.value.kind === 'portfolio' &&
+        'refresh' in shell.value.presentation &&
+        shell.value.presentation.refresh === 'refreshing';
+      const decision = {
+        networkScope,
+        balancePresentationKind: balancePresentation.kind,
+        balanceState: 'unknown' as const,
+        hasSemanticDisplayAmount: semanticBalanceStringDisplay !== undefined,
+        showSkeleton: balanceRenderDecision.showSkeleton,
+        isRefreshing,
+      };
+      const key = buildHomeScalarKey(Object.values(decision));
+      if (balanceDecisionKeyRef.current === key) {
+        return;
+      }
+      balanceDecisionKeyRef.current = key;
+      defaultLogger.wallet.homeUi.homeBalanceDecision(decision);
+    }, [
+      balancePresentation.kind,
+      balanceRenderDecision.showSkeleton,
+      headerPresentation.account.network,
+      semanticBalanceStringDisplay,
+      shell.value,
+    ]);
     const isBackupRequired = displayModel.body.kind === 'backupPrompt';
     const bannerPresentation = resolveMobileNativeHomeBannerPresentation({
       bannerPolicyKind: displayModel.banner.kind,
@@ -485,37 +730,35 @@ const MobileNativeHomeHeaderBridge = memo(
       () => ({
         accountRow: {
           interaction: 'tap',
-          authority: runtime.authority('header.account-row', 1, owner),
+          authority: runtime.authority(
+            'header.account-row',
+            headerPresentation.accountPresentationRevision,
+            owner,
+          ),
+          contentRevision: buildOwnerSlotContentRevision({
+            owner,
+            parts: [headerPresentation.accountPresentationRevision],
+            slotId: 'header.account-row',
+          }),
           content: (
-            <XStack flex={1} alignItems="center" justifyContent="space-between">
-              <XStack flex={1} minWidth={0} gap="$3" alignItems="center">
-                <AccountSelectorTriggerHome num={0} />
-                <AccountSelectorActiveAccountHome
-                  num={0}
-                  showAccountAddress={false}
-                  showCopyButton
-                  showCreateAddressButton={false}
-                  showNoAddressTip={false}
-                />
-              </XStack>
-              <XStack flexShrink={0} alignItems="center">
-                {network?.isAllNetworks && !isOthersWallet ? (
-                  <AllNetworksManagerTrigger num={0} unifiedMode />
-                ) : (
-                  <NetworkSelectorTriggerHome
-                    num={0}
-                    size="small"
-                    recordNetworkHistoryEnabled
-                    hideOnNoAccount
-                    unifiedMode
-                  />
-                )}
-              </XStack>
-            </XStack>
+            <HomeAccountRowView
+              presentation={headerPresentation.account}
+              onAccountSelectorPress={handleAccountSelectorPress}
+              onCopyAddressPress={handleCopyAddressPress}
+              onNetworkSelectorPress={handleNetworkSelectorPress}
+            />
           ),
         },
       }),
-      [isOthersWallet, network?.isAllNetworks, owner, runtime],
+      [
+        handleAccountSelectorPress,
+        handleCopyAddressPress,
+        handleNetworkSelectorPress,
+        headerPresentation.account,
+        headerPresentation.accountPresentationRevision,
+        owner,
+        runtime,
+      ],
     );
     const balanceSlots = useMemo<IHomeContainerSlots>(
       () => ({
@@ -526,18 +769,28 @@ const MobileNativeHomeHeaderBridge = memo(
             shell.balancePresentationRevision,
             owner,
           ),
+          contentRevision: buildOwnerSlotContentRevision({
+            owner,
+            parts: [
+              shell.balancePresentationRevision,
+              balanceSlotPresentation.amount,
+              balanceSlotPresentation.currencySymbol,
+              balanceSlotPresentation.hidden,
+              balanceSlotPresentation.showSkeleton,
+            ],
+            slotId: 'header.balance',
+          }),
           content: (
-            <HomeOverviewContainer
-              nativeSlot
-              balancePresentation={balancePresentation}
-              manualRefreshEnabled={!isBackupRequired}
+            <HomeBalanceSlotView
+              presentation={balanceSlotPresentation}
+              onBalancePress={handleBalancePress}
             />
           ),
         },
       }),
       [
-        balancePresentation,
-        isBackupRequired,
+        balanceSlotPresentation,
+        handleBalancePress,
         owner,
         runtime,
         shell.balancePresentationRevision,
@@ -555,14 +808,28 @@ const MobileNativeHomeHeaderBridge = memo(
                   shell.actionsPresentationRevision,
                   owner,
                 ),
+                contentRevision: buildOwnerSlotContentRevision({
+                  owner,
+                  parts: [
+                    shell.actionsPresentationRevision,
+                    displayModel.actions.kind,
+                    header.actionLayout,
+                    header.actionRowHeight,
+                    isActionRowActivated,
+                  ],
+                  slotId: 'header.action-row',
+                }),
                 height: header.actionRowHeight,
                 content:
-                  header.actionLayout === 'loading' ? (
+                  header.actionLayout === 'loading' || !isActionRowActivated ? (
                     <MobileNativeHomeActionRowSkeleton />
                   ) : (
                     (displayModel.actions.kind === 'funded' ||
                       displayModel.actions.kind === 'zero') && (
-                      <WalletActions actionFamily={displayModel.actions.kind} />
+                      <MobileNativeHomeWalletActions
+                        actionFamily={displayModel.actions.kind}
+                        ownerKey={actionRowOwnerKey}
+                      />
                     )
                   ),
               },
@@ -571,6 +838,8 @@ const MobileNativeHomeHeaderBridge = memo(
         displayModel.actions.kind,
         header.actionLayout,
         header.actionRowHeight,
+        isActionRowActivated,
+        actionRowOwnerKey,
         owner,
         runtime,
         shell.actionsPresentationRevision,
@@ -587,6 +856,11 @@ const MobileNativeHomeHeaderBridge = memo(
                   shell.bodyPresentationRevision,
                   owner,
                 ),
+                contentRevision: buildOwnerSlotContentRevision({
+                  owner,
+                  parts: [shell.bodyPresentationRevision, isBackupRequired],
+                  slotId: 'content.state.portfolio',
+                }),
                 content: <NotBackedUpEmpty />,
                 height: 320,
               },
@@ -795,6 +1069,18 @@ const MobileNativeHomePortfolioBridge = memo(
                     'content.header.portfolio',
                     owner,
                   ),
+                  contentRevision: buildOwnerSlotContentRevision({
+                    owner,
+                    parts: [
+                      section.sectionCommandRevision,
+                      displayedLp,
+                      displayModel.body.kind,
+                      isLpTokenSwitchLoading,
+                      labels.tokens,
+                      showLpTokenFilterSwitch,
+                    ],
+                    slotId: 'content.header.portfolio',
+                  }),
                   content: (
                     <RichBlockHeader
                       title={labels.tokens}
@@ -821,6 +1107,7 @@ const MobileNativeHomePortfolioBridge = memo(
         labels.tokens,
         owner,
         runtime,
+        section.sectionCommandRevision,
         setShowLpTokensOnly,
         showLpTokenFilterSwitch,
       ],
@@ -837,6 +1124,11 @@ const MobileNativeHomePortfolioBridge = memo(
                     1,
                     owner,
                   ),
+                  contentRevision: buildOwnerSlotContentRevision({
+                    owner,
+                    parts: [tabTitles.portfolio],
+                    slotId: 'tab.accessory.portfolio',
+                  }),
                   content: (
                     <TabHeaderSettings
                       nativeSlot
@@ -864,6 +1156,8 @@ const MobileNativeHomePortfolioBridge = memo(
                             1,
                             owner,
                           ),
+                          contentRevision:
+                            MOBILE_NATIVE_HOME_STATIC_SLOT_REVISIONS.upgrade,
                           content: <Upgrade />,
                         },
                       }
@@ -875,6 +1169,8 @@ const MobileNativeHomePortfolioBridge = memo(
                       1,
                       owner,
                     ),
+                    contentRevision:
+                      MOBILE_NATIVE_HOME_STATIC_SLOT_REVISIONS.support,
                     content: <SupportHub nativeSlot />,
                   },
                 },
@@ -1201,6 +1497,15 @@ const MobileNativeHomePerpsBridge = memo(function MobileNativeHomePerpsBridge({
                   section.presentationRevision,
                   owner,
                 ),
+                contentRevision: buildOwnerSlotContentRevision({
+                  owner,
+                  parts: [
+                    section.presentationRevision,
+                    canDeposit,
+                    depositDisabled,
+                  ],
+                  slotId: 'content.header.perps',
+                }),
                 content: (
                   <PerpsHomeHeaderSlot
                     totalUsd={payload.view.accountValueUsd}
@@ -1221,6 +1526,16 @@ const MobileNativeHomePerpsBridge = memo(function MobileNativeHomePerpsBridge({
                 section.presentationRevision,
                 owner,
               ),
+              contentRevision: buildOwnerSlotContentRevision({
+                owner,
+                parts: [
+                  section.presentationRevision,
+                  canDeposit,
+                  depositDisabled,
+                  isEmpty,
+                ],
+                slotId: 'content.state.perps',
+              }),
               content: (
                 <PerpsHomeStateSlot
                   viewState="empty"
@@ -1245,6 +1560,8 @@ const MobileNativeHomePerpsBridge = memo(function MobileNativeHomePerpsBridge({
                           1,
                           owner,
                         ),
+                        contentRevision:
+                          MOBILE_NATIVE_HOME_STATIC_SLOT_REVISIONS.upgrade,
                         content: <Upgrade />,
                       },
                     }
@@ -1256,6 +1573,11 @@ const MobileNativeHomePerpsBridge = memo(function MobileNativeHomePerpsBridge({
                     1,
                     owner,
                   ),
+                  contentRevision: buildHomeScalarKey([
+                    MOBILE_NATIVE_HOME_STATIC_SLOT_REVISIONS.support,
+                    intl.locale,
+                    HOME_PERPS_GUIDE_URL,
+                  ]),
                   content: (
                     <SupportHub
                       nativeSlot
@@ -1365,6 +1687,11 @@ const MobileNativeHomeDeFiBridge = memo(function MobileNativeHomeDeFiBridge({
                 section.presentationRevision,
                 owner,
               ),
+              contentRevision: buildOwnerSlotContentRevision({
+                owner,
+                parts: [section.presentationRevision, showEmpty],
+                slotId: 'content.state.defi',
+              }),
               content: <EmptyDeFi tableLayout />,
               height: 360,
             },
@@ -1381,6 +1708,8 @@ const MobileNativeHomeDeFiBridge = memo(function MobileNativeHomeDeFiBridge({
                     1,
                     owner,
                   ),
+                  contentRevision:
+                    MOBILE_NATIVE_HOME_STATIC_SLOT_REVISIONS.upgrade,
                   content: <Upgrade />,
                 },
               }
@@ -1392,6 +1721,7 @@ const MobileNativeHomeDeFiBridge = memo(function MobileNativeHomeDeFiBridge({
               1,
               owner,
             ),
+            contentRevision: MOBILE_NATIVE_HOME_STATIC_SLOT_REVISIONS.support,
             content: <SupportHub nativeSlot />,
           },
         },
@@ -1473,6 +1803,11 @@ const MobileNativeHomeNFTBridge = memo(function MobileNativeHomeNFTBridge({
                 section.presentationRevision,
                 owner,
               ),
+              contentRevision: buildOwnerSlotContentRevision({
+                owner,
+                parts: [section.presentationRevision, showEmpty],
+                slotId: 'content.state.nft',
+              }),
               content: <EmptyNFT />,
               height: 360,
             },
@@ -1540,6 +1875,11 @@ const MobileNativeHomeHistoryBridge = memo(
                   section.presentationRevision,
                   owner,
                 ),
+                contentRevision: buildOwnerSlotContentRevision({
+                  owner,
+                  parts: [section.presentationRevision, isEmpty],
+                  slotId: 'content.state.history',
+                }),
                 content: (
                   <EmptyHistory
                     showViewInExplorer
@@ -1558,6 +1898,11 @@ const MobileNativeHomeHistoryBridge = memo(
           history: {
             interaction: 'tap',
             authority: runtime.authority('tab.accessory.history', 1, owner),
+            contentRevision: buildOwnerSlotContentRevision({
+              owner,
+              parts: [tabTitles.history],
+              slotId: 'tab.accessory.history',
+            }),
             content: (
               <TabHeaderSettings
                 nativeSlot
@@ -1605,10 +1950,14 @@ const MobileNativeHomeOwnerBridge = memo(function MobileNativeHomeOwnerBridge({
 
 const MobileNativeHomeProducerBridges = memo(
   function MobileNativeHomeProducerBridges({
+    activatedTabIds,
+    dispatchHeaderAction,
     owner,
     ownerRevision,
     runtime,
-  }: IMobileNativeHomeProducerBridgeProps) {
+  }: IMobileNativeHomeHeaderBridgeProps & {
+    activatedTabIds: ReadonlySet<IHomeContainerTabId>;
+  }) {
     return (
       <>
         <MobileNativeHomeNavigationBridge
@@ -1617,6 +1966,7 @@ const MobileNativeHomeProducerBridges = memo(
           runtime={runtime}
         />
         <MobileNativeHomeHeaderBridge
+          dispatchHeaderAction={dispatchHeaderAction}
           owner={owner}
           ownerRevision={ownerRevision}
           runtime={runtime}
@@ -1626,36 +1976,48 @@ const MobileNativeHomeProducerBridges = memo(
           ownerRevision={ownerRevision}
           runtime={runtime}
         />
-        <MobileNativeHomePerpsBridge
-          owner={owner}
-          ownerRevision={ownerRevision}
-          runtime={runtime}
-        />
-        <MobileNativeHomeDeFiBridge
-          owner={owner}
-          ownerRevision={ownerRevision}
-          runtime={runtime}
-        />
-        <MobileNativeHomeNFTBridge
-          owner={owner}
-          ownerRevision={ownerRevision}
-          runtime={runtime}
-        />
-        <MobileNativeHomeHistoryBridge
-          owner={owner}
-          ownerRevision={ownerRevision}
-          runtime={runtime}
-        />
+        {activatedTabIds.has('perps') ? (
+          <MobileNativeHomePerpsBridge
+            owner={owner}
+            ownerRevision={ownerRevision}
+            runtime={runtime}
+          />
+        ) : null}
+        {activatedTabIds.has('defi') ? (
+          <MobileNativeHomeDeFiBridge
+            owner={owner}
+            ownerRevision={ownerRevision}
+            runtime={runtime}
+          />
+        ) : null}
+        {activatedTabIds.has('nft') ? (
+          <MobileNativeHomeNFTBridge
+            owner={owner}
+            ownerRevision={ownerRevision}
+            runtime={runtime}
+          />
+        ) : null}
+        {activatedTabIds.has('history') ? (
+          <MobileNativeHomeHistoryBridge
+            owner={owner}
+            ownerRevision={ownerRevision}
+            runtime={runtime}
+          />
+        ) : null}
       </>
     );
   },
 );
 
 const MobileNativeHomeBridges = memo(function MobileNativeHomeBridges({
+  activatedTabIds,
+  dispatchHeaderAction,
   nativeTheme,
   owner,
   runtime,
 }: {
+  activatedTabIds: ReadonlySet<IHomeContainerTabId>;
+  dispatchHeaderAction: IDispatchHomeHeaderAction;
   nativeTheme: IHomeContainerTheme;
   owner: IHomeContainerOwner;
   runtime: MobileNativeHomeBridgeRuntime;
@@ -1668,6 +2030,8 @@ const MobileNativeHomeBridges = memo(function MobileNativeHomeBridges({
         runtime={runtime}
       />
       <MobileNativeHomeProducerBridges
+        activatedTabIds={activatedTabIds}
+        dispatchHeaderAction={dispatchHeaderAction}
         owner={owner}
         ownerRevision={owner.sessionId}
         runtime={runtime}
@@ -1677,6 +2041,8 @@ const MobileNativeHomeBridges = memo(function MobileNativeHomeBridges({
 });
 
 export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
+  const renderFunctionStartedAt = performance.now();
+  const renderFunctionDurationRef = useRef(0);
   const navigation = useAppNavigation();
   const store = useHomeContextStore();
   const session = useHomeSessionState();
@@ -1689,6 +2055,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
   const refreshTimersRef = useRef(
     new Map<string, ReturnType<typeof setTimeout>>(),
   );
+  const tabActivationFramesRef = useRef(new Map<string, number>());
   const owner = useMemo<IHomeContainerOwner | undefined>(
     () =>
       session.ownerToken
@@ -1699,6 +2066,18 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
         : undefined,
     [session.ownerToken],
   );
+  const [tabActivationState, setTabActivationState] =
+    useState<IMobileNativeHomeTabActivationState>(() => ({
+      activatedTabIds: MOBILE_NATIVE_HOME_INITIAL_ACTIVATED_TAB_IDS,
+      ownerScopeKey: owner?.scopeKey ?? '',
+      ownerSessionId: owner?.sessionId ?? '',
+    }));
+  const activatedTabIds =
+    owner &&
+    tabActivationState.ownerScopeKey === owner.scopeKey &&
+    tabActivationState.ownerSessionId === owner.sessionId
+      ? tabActivationState.activatedTabIds
+      : MOBILE_NATIVE_HOME_INITIAL_ACTIVATED_TAB_IDS;
   const runtimeRef = useRef<MobileNativeHomeBridgeRuntime | undefined>(
     undefined,
   );
@@ -1710,11 +2089,26 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     );
   }
   const runtime = runtimeRef.current;
-  const slotBundle = useSyncExternalStore(
+  const publishedSlotBundle = useSyncExternalStore(
     runtime?.subscribeSlots ?? (() => () => undefined),
     runtime?.getSlotBundle ?? (() => undefined),
     runtime?.getSlotBundle ?? (() => undefined),
   );
+  const slotBundle = useMemo(() => {
+    if (
+      !owner ||
+      !publishedSlotBundle ||
+      (publishedSlotBundle.owner.scopeKey === owner.scopeKey &&
+        publishedSlotBundle.owner.sessionId === owner.sessionId)
+    ) {
+      return publishedSlotBundle;
+    }
+    return {
+      ...publishedSlotBundle,
+      owner,
+      phase: 'owner-transition' as const,
+    };
+  }, [owner, publishedSlotBundle]);
   const initialSnapshot = useMemo(
     () => runtime?.getInitialSnapshot(),
     [runtime],
@@ -1723,6 +2117,16 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
   useLayoutEffect(() => {
     runtime?.updateTheme(nativeTheme);
   }, [nativeTheme, runtime]);
+
+  useLayoutEffect(
+    () => () => {
+      tabActivationFramesRef.current.forEach((frameId) => {
+        cancelAnimationFrame(frameId);
+      });
+      tabActivationFramesRef.current.clear();
+    },
+    [owner?.scopeKey, owner?.sessionId],
+  );
 
   useLayoutEffect(
     () => () => {
@@ -1751,6 +2155,25 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
         intent,
       }),
     [store],
+  );
+  const dispatchHeaderAction = useCallback<IDispatchHomeHeaderAction>(
+    (actionId) => {
+      const state = readHomeStoreState(store.get);
+      const facts = state.facts;
+      if (!facts) return;
+      dispatchIntent({
+        type: 'headerActionInvoked',
+        actionId,
+        authority: {
+          kind: 'shellCommands',
+          revision: state.shell.shellCommandRevision,
+        },
+        intentId: createHomeAuthorityId('intent'),
+        owner: facts.owner,
+        sessionId: facts.ownerToken.sessionId,
+      });
+    },
+    [dispatchIntent, store],
   );
 
   const handleRefresh = useCallback(
@@ -1957,26 +2380,148 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       `[NativeHome] render failed: code=${code}, message=${message}`,
     );
   }, []);
+  const handleVisibleTabChange = useCallback(
+    (tabId: string) => {
+      if (!owner || !isNativeHomeTabId(tabId) || activatedTabIds.has(tabId)) {
+        return;
+      }
+      const ownerScopeKey = owner.scopeKey;
+      const ownerSessionId = owner.sessionId;
+      const activationKey = `${ownerSessionId}:${tabId}`;
+      if (tabActivationFramesRef.current.has(activationKey)) {
+        return;
+      }
+      const startedAt = performance.now();
+      defaultLogger.wallet.homeFramePerf.frame({
+        stage: 'functionTiming',
+        functionName: 'MobileNativeHomeTabActivation.schedule',
+        durationMs: 0,
+        sectionId: tabId,
+        outcome: 'tabSettled',
+      });
+      const frameId = requestAnimationFrame(() => {
+        tabActivationFramesRef.current.delete(activationKey);
+        const state = readHomeStoreState(store.get);
+        const navigationValue = state.navigation.value;
+        const isCurrentSelection =
+          state.session.ownerToken?.scopeKey === ownerScopeKey &&
+          state.session.ownerToken.sessionId === ownerSessionId &&
+          navigationValue.kind === 'ready' &&
+          navigationValue.selectedTabId === tabId &&
+          navigationValue.destinations?.[tabId] !== 'web';
+        if (!isCurrentSelection) {
+          defaultLogger.wallet.homeFramePerf.frame({
+            stage: 'functionTiming',
+            functionName: 'MobileNativeHomeTabActivation.release',
+            durationMs: performance.now() - startedAt,
+            sectionId: tabId,
+            outcome: 'staleSelection',
+          });
+          return;
+        }
+        setTabActivationState((previous) => {
+          const previousTabIds =
+            previous.ownerScopeKey === ownerScopeKey &&
+            previous.ownerSessionId === ownerSessionId
+              ? previous.activatedTabIds
+              : MOBILE_NATIVE_HOME_INITIAL_ACTIVATED_TAB_IDS;
+          if (previousTabIds.has(tabId)) {
+            return previous;
+          }
+          const nextTabIds = new Set(previousTabIds);
+          nextTabIds.add(tabId);
+          return {
+            activatedTabIds: nextTabIds,
+            ownerScopeKey,
+            ownerSessionId,
+          };
+        });
+        defaultLogger.wallet.homeFramePerf.frame({
+          stage: 'functionTiming',
+          functionName: 'MobileNativeHomeTabActivation.release',
+          durationMs: performance.now() - startedAt,
+          sectionId: tabId,
+          outcome: 'activated',
+        });
+      });
+      tabActivationFramesRef.current.set(activationKey, frameId);
+    },
+    [activatedTabIds, owner, store],
+  );
+  const handleBridgeProfilerRender = useCallback<ProfilerOnRenderCallback>(
+    (id, phase, actualDuration, baseDuration, startTime, commitTime) => {
+      defaultLogger.wallet.homeFramePerf.frame({
+        stage: 'functionTiming',
+        functionName: `ReactProfiler.${id}`,
+        durationMs: actualDuration,
+        phase,
+        baseDurationMs: baseDuration,
+        startTimeMs: startTime,
+        commitTimeMs: commitTime,
+      });
+    },
+    [],
+  );
+  const handleHomeContainerProfilerRender =
+    useCallback<ProfilerOnRenderCallback>(
+      (id, phase, actualDuration, baseDuration, startTime, commitTime) => {
+        defaultLogger.wallet.homeFramePerf.frame({
+          stage: 'functionTiming',
+          functionName: `ReactProfiler.HomeContainer.${id}`,
+          durationMs: actualDuration,
+          phase,
+          baseDurationMs: baseDuration,
+          startTimeMs: startTime,
+          commitTimeMs: commitTime,
+        });
+      },
+      [],
+    );
+  renderFunctionDurationRef.current =
+    performance.now() - renderFunctionStartedAt;
+  useLayoutEffect(() => {
+    defaultLogger.wallet.homeFramePerf.frame({
+      stage: 'functionTiming',
+      functionName: 'MobileNativeHomeRenderer.renderFunction',
+      durationMs: renderFunctionDurationRef.current,
+    });
+  });
 
   if (!owner || !runtime || !initialSnapshot || !slotBundle) return null;
   return (
     <Stack flex={1} bg="$bgApp">
-      <MobileNativeHomeBridges
-        nativeTheme={nativeTheme}
-        owner={owner}
-        runtime={runtime}
-      />
-      <MemoHomeTabSearchHeader />
-      <HomeContainer
-        ref={nativeRef}
-        initialSnapshot={initialSnapshot}
-        style={{ flex: 1 }}
-        slotBundle={slotBundle}
-        testID="NativeHomeContainer"
-        onReady={handleReady}
-        onIntent={handleIntent}
-        onRenderError={handleRenderError}
-      />
+      <Profiler
+        id="MobileNativeHomeBridges"
+        onRender={handleBridgeProfilerRender}
+      >
+        <MobileNativeHomeBridges
+          activatedTabIds={activatedTabIds}
+          dispatchHeaderAction={dispatchHeaderAction}
+          nativeTheme={nativeTheme}
+          owner={owner}
+          runtime={runtime}
+        />
+      </Profiler>
+      <Profiler
+        id="MemoHomeTabSearchHeader"
+        onRender={handleBridgeProfilerRender}
+      >
+        <MemoHomeTabSearchHeader />
+      </Profiler>
+      <Profiler id="HomeContainer" onRender={handleBridgeProfilerRender}>
+        <HomeContainer
+          ref={nativeRef}
+          initialSnapshot={initialSnapshot}
+          style={{ flex: 1 }}
+          slotBundle={slotBundle}
+          testID="NativeHomeContainer"
+          onReady={handleReady}
+          onIntent={handleIntent}
+          onVisibleTabChange={handleVisibleTabChange}
+          onProfilerRender={handleHomeContainerProfilerRender}
+          onRenderError={handleRenderError}
+        />
+      </Profiler>
     </Stack>
   );
 }

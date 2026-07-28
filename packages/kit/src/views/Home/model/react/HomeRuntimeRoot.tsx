@@ -1,5 +1,8 @@
 import {
+  Profiler,
+  type ProfilerOnRenderCallback,
   type PropsWithChildren,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -8,14 +11,20 @@ import {
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useAccountOverviewContextStore } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useActiveAccount,
+  useIsAccountSelectorSyncLoading,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useHomeContextStore,
   useHomeSessionState,
   useHomeShell,
 } from '@onekeyhq/kit/src/states/jotai/contexts/home';
+import { shouldBlockBotWalletCopyAddress } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
@@ -26,11 +35,13 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   HOME_RUNTIME_PROTOCOL_VERSION,
   type IHomeRuntimeOwnerScope,
 } from '@onekeyhq/shared/src/types/homeRuntime';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { createHomeAuthorityId } from '../core/homeIdentity';
 import { adaptCurrentHomeFacts } from '../facts/currentHomeFactsAdapter';
@@ -46,6 +57,8 @@ import { homeTokenListRuntime } from '../tokenList/homeTokenListRuntime';
 
 import { useHomeCommandExecutor } from './useHomeCommandExecutor';
 
+import type { IHomeHeaderAccountPresentation } from '../presentation/homeHeaderPresentation';
+
 export function HomeRuntimeRoot({
   children,
   mode,
@@ -57,7 +70,88 @@ export function HomeRuntimeRoot({
   const shell = useHomeShell();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const accountOverviewStore = useAccountOverviewContextStore();
-  const { account, network, ready, wallet } = activeAccount;
+  const {
+    account,
+    dbAccount,
+    indexedAccount,
+    isOthersWallet,
+    network,
+    ready,
+    wallet,
+  } = activeAccount;
+  const isAccountSelectorSyncLoading = useIsAccountSelectorSyncLoading(0);
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId: wallet?.id,
+    },
+  );
+  const shouldLoadCompatibleNetworks = Boolean(
+    network?.isAllNetworks &&
+    wallet?.id &&
+    !accountUtils.isOthersWallet({ walletId: wallet.id }),
+  );
+  const {
+    enabledNetworksCompatibleWithWalletId,
+    enabledNetworksWithoutAccount,
+    isReady: compatibleNetworksReady,
+    run: refreshCompatibleNetworks,
+  } = useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
+    walletId: shouldLoadCompatibleNetworks ? (wallet?.id ?? '') : '',
+    networkId: network?.id,
+    indexedAccountId: indexedAccount?.id,
+    filterNetworksWithoutAccount: true,
+  });
+  useEffect(() => {
+    const refresh = () => {
+      void refreshCompatibleNetworks({ alwaysSetState: true });
+    };
+    appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, refresh);
+    return () => {
+      appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
+    };
+  }, [refreshCompatibleNetworks]);
+  const headerAccountPresentation = useMemo<IHomeHeaderAccountPresentation>(
+    () => ({
+      account,
+      accountName: activeAccount.accountName,
+      compatibleNetworks: enabledNetworksCompatibleWithWalletId,
+      compatibleNetworksReady:
+        !shouldLoadCompatibleNetworks || compatibleNetworksReady,
+      compatibleNetworksWithoutAccountCount:
+        enabledNetworksWithoutAccount.length,
+      copyDisabled: shouldBlockBotWalletCopyAddress({
+        isBotWallet,
+        isBotWalletDeactivated,
+      }),
+      dbAccount,
+      indexedAccount,
+      isAccountSelectorSyncLoading,
+      isAllNetworks: Boolean(network?.isAllNetworks),
+      isOthersWallet: Boolean(isOthersWallet),
+      network,
+      ready,
+      wallet,
+    }),
+    [
+      account,
+      activeAccount.accountName,
+      compatibleNetworksReady,
+      dbAccount,
+      enabledNetworksCompatibleWithWalletId,
+      enabledNetworksWithoutAccount.length,
+      indexedAccount,
+      isAccountSelectorSyncLoading,
+      isBotWallet,
+      isBotWalletDeactivated,
+      isOthersWallet,
+      network,
+      ready,
+      shouldLoadCompatibleNetworks,
+      wallet,
+    ],
+  );
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const runtimeLease = useMemo(
@@ -175,8 +269,54 @@ export function HomeRuntimeRoot({
   }, [mode, runtime]);
 
   useLayoutEffect(() => {
-    runtime.replaceOwner(owner);
-  }, [owner, runtime]);
+    const startedAt = Date.now();
+    const previousSessionId = runtime.getState().session.ownerToken?.sessionId;
+    const labels = {
+      walletName: wallet?.name,
+      accountName: indexedAccount?.name || account?.name,
+    };
+    runtime.replaceOwner(owner, labels, headerAccountPresentation);
+    const nextSessionId = runtime.getState().session.ownerToken?.sessionId;
+    if (
+      !owner ||
+      !nextSessionId ||
+      nextSessionId === previousSessionId ||
+      typeof requestAnimationFrame !== 'function'
+    ) {
+      return undefined;
+    }
+    const frame = requestAnimationFrame(() => {
+      defaultLogger.wallet.homeFramePerf.frame({
+        stage: 'firstOwnerFrame',
+        ...labels,
+        elapsedMs: Date.now() - startedAt,
+      });
+    });
+    return () => {
+      if (typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(frame);
+      }
+    };
+  }, [
+    account?.name,
+    headerAccountPresentation,
+    indexedAccount?.name,
+    owner,
+    runtime,
+    wallet?.name,
+  ]);
+
+  useLayoutEffect(() => {
+    const ownerToken = runtime.getState().session.ownerToken;
+    if (!owner || !ownerToken) {
+      return;
+    }
+    runtime.dispatch({
+      type: 'headerAccountPresentationChanged',
+      ownerToken,
+      presentation: headerAccountPresentation,
+    });
+  }, [headerAccountPresentation, owner, runtime]);
 
   useEffect(() => {
     const publishVisibility = (appVisible: boolean) => {
@@ -474,5 +614,26 @@ export function HomeRuntimeRoot({
     });
   }, [runtime, session.ownerToken, session.surfaceVisibility]);
 
-  return children;
+  const handleHomeProfilerRender = useCallback<ProfilerOnRenderCallback>(
+    (id, phase, actualDuration, baseDuration, startTime, commitTime) => {
+      defaultLogger.wallet.homeFramePerf.frame({
+        stage: 'functionTiming',
+        functionName: `ReactProfiler.${id}`,
+        durationMs: actualDuration,
+        phase,
+        walletName: wallet?.name,
+        accountName: indexedAccount?.name || account?.name,
+        baseDurationMs: baseDuration,
+        startTimeMs: startTime,
+        commitTimeMs: commitTime,
+      });
+    },
+    [account?.name, indexedAccount?.name, wallet?.name],
+  );
+
+  return (
+    <Profiler id="HomeRuntimeChildren" onRender={handleHomeProfilerRender}>
+      {children}
+    </Profiler>
+  );
 }

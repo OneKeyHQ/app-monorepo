@@ -17,6 +17,10 @@ import type {
   IHomeSessionMachineEffect,
   IHomeSessionMachineEvent,
 } from '../lifecycle/homeSessionMachine';
+import type {
+  IHomeHeaderAccountPresentation,
+  IHomeHeaderPresentation,
+} from '../presentation/homeHeaderPresentation';
 import type { IHomeBannerStorePayload } from '../sections/banner/homeBannerStoreModel';
 import type {
   IHomeNavigationSemanticModel,
@@ -192,6 +196,7 @@ export type IHomeStoreCommitIdentity = {
 export type IHomeStoreState = {
   session: IHomeStoreSessionState;
   runtime: IHomeStoreRuntimeState;
+  headerPresentation: IHomeHeaderPresentation;
   walletInputs: IHomeStoreWalletInputs;
   environmentInputs: IHomeStoreEnvironmentInputs;
   capabilityInputs: IHomeStoreCapabilityInputs;
@@ -300,7 +305,13 @@ export type IHomeStoreEvent =
       type: 'ownerChanged';
       owner?: IHomeRuntimeOwnerScope;
       ownerToken?: IHomeRuntimeOwnerToken;
+      headerAccountPresentation?: IHomeHeaderAccountPresentation;
       topology: IHomeRuntimeTopology;
+    }
+  | {
+      type: 'headerAccountPresentationChanged';
+      ownerToken: IHomeRuntimeOwnerToken;
+      presentation: IHomeHeaderAccountPresentation;
     }
   | {
       type: 'factsChanged';
@@ -355,6 +366,10 @@ type IHomeStoreResourceMutation = {
 export type IHomeStoreMutation =
   | { slice: 'session'; operation: IHomeSetOrReset<IHomeStoreSessionState> }
   | { slice: 'runtime'; operation: IHomeSetOrReset<IHomeStoreRuntimeState> }
+  | {
+      slice: 'headerPresentation';
+      operation: IHomeSetOrReset<IHomeHeaderPresentation>;
+    }
   | {
       slice: 'walletInputs';
       operation: IHomeSetOrReset<IHomeStoreWalletInputs>;

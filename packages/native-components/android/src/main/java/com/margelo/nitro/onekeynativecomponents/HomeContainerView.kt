@@ -1086,6 +1086,7 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
     updateSharedChromePosition()
     updatePagePresentationActivity()
     if (shouldNotify) emitTabSelection(targetTab.id)
+    onVisibleTabChange?.invoke(targetTab.id)
     protocolV3State?.snapshot?.revision?.let(::awaitSelectedPageRender)
   }
 
@@ -1257,11 +1258,7 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
   }
 
   private fun emitTabSelection(tabId: String) {
-    val currentState = protocolV3State
-    if (currentState == null) {
-      onVisibleTabChange?.invoke(tabId)
-      return
-    }
+    val currentState = protocolV3State ?: return
     if (
       currentState.snapshot.tabs.none {
         it.id == tabId && it.destination == HomeContainerTabDestination.INLINE

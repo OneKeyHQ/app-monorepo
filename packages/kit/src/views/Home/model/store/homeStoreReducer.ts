@@ -54,6 +54,7 @@ import type {
   IHomeConfirmedCapabilityRecord,
 } from '../capabilities/homeConfirmedCapabilityCache';
 import type { IHomeBalanceFacts } from '../facts/homeFacts';
+import type { IHomeHeaderAccountPresentation } from '../presentation/homeHeaderPresentation';
 import type {
   IHomeNavigationSemanticModel,
   IHomePortfolioPresentation,
@@ -717,10 +718,12 @@ function createConfirmedCacheMutations({
 }
 
 function resetOwnerScopedMutations({
+  headerAccountPresentation,
   session,
   state,
   topology,
 }: {
+  headerAccountPresentation?: IHomeHeaderAccountPresentation;
   session: IHomeLifecycleSessionState;
   state: IHomeStoreState;
   topology: IHomeStoreState['runtime']['topology'];
@@ -741,6 +744,18 @@ function resetOwnerScopedMutations({
       operation: {
         kind: 'set',
         value: { ...initial.runtime, topology },
+      },
+    },
+    {
+      slice: 'headerPresentation',
+      operation: {
+        kind: 'set',
+        value: headerAccountPresentation
+          ? {
+              account: headerAccountPresentation,
+              accountPresentationRevision: 1,
+            }
+          : initial.headerPresentation,
       },
     },
     { slice: 'walletInputs', operation: { kind: 'reset' } },
@@ -959,8 +974,9 @@ function validateIntent(
     if (intent.type !== 'headerActionInvoked') {
       return 'intentTargetUnavailable';
     }
-    return intent.actionId === HOME_SHELL_ACTION_IDS.balance ||
-      intent.actionId.startsWith('home.banner.')
+    return Object.values(HOME_SHELL_ACTION_IDS).some(
+      (actionId) => actionId === intent.actionId,
+    ) || intent.actionId.startsWith('home.banner.')
       ? undefined
       : 'intentTargetUnavailable';
   }
@@ -1149,6 +1165,7 @@ export function reduceHomeStore(
       return acceptedTransition(
         state,
         resetOwnerScopedMutations({
+          headerAccountPresentation: event.headerAccountPresentation,
           session: nextSession,
           state,
           topology: event.topology,
@@ -1156,6 +1173,27 @@ export function reduceHomeStore(
         [...transition.effects],
         createInitialHomeStoreState().diagnostics,
       );
+    }
+    case 'headerAccountPresentationChanged': {
+      if (!ownerTokensMatch(state, event.ownerToken)) {
+        return rejectedTransition(state, 'ownerMismatch');
+      }
+      if (equal(state.headerPresentation.account, event.presentation)) {
+        return emptyTransition();
+      }
+      return acceptedTransition(state, [
+        {
+          slice: 'headerPresentation',
+          operation: {
+            kind: 'set',
+            value: {
+              account: event.presentation,
+              accountPresentationRevision:
+                state.headerPresentation.accountPresentationRevision + 1,
+            },
+          },
+        },
+      ]);
     }
     case 'factsChanged': {
       if (!ownerTokensMatch(state, event.facts.ownerToken)) {
@@ -1977,6 +2015,15 @@ export function applyHomeStorePatchToState(
         next = {
           ...next,
           runtime: applySetOrReset(mutation.operation, initial.runtime),
+        };
+        return;
+      case 'headerPresentation':
+        next = {
+          ...next,
+          headerPresentation: applySetOrReset(
+            mutation.operation,
+            initial.headerPresentation,
+          ),
         };
         return;
       case 'walletInputs':

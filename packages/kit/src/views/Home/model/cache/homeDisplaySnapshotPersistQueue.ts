@@ -30,6 +30,7 @@ import {
   getHomeDisplaySnapshotRouteKey,
 } from './homeDisplaySnapshotKeys';
 import { homeDisplaySnapshotStorage } from './homeDisplaySnapshotRepository';
+import { selectPreparedHomeDisplaySnapshotShell } from './homeDisplaySnapshotShell';
 import {
   HOME_DISPLAY_SNAPSHOT_MAX_ROUTES,
   HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION,
@@ -38,6 +39,8 @@ import {
   PREPARED_HOME_DISPLAY_SNAPSHOT_CACHE_SIZE,
   clearPreparedHomeDisplaySnapshotCache,
   deletePreparedHomeDisplaySnapshot,
+  getPreparedHomeDisplaySnapshot,
+  setPreparedHomeDisplaySnapshot,
 } from './preparedHomeDisplaySnapshotCache';
 
 import type {
@@ -46,7 +49,11 @@ import type {
   IHomeDisplaySnapshotManifest,
   IHomeDisplaySnapshotRoute,
 } from './homeDisplaySnapshotTypes';
-import type { IHomeShellSemanticModel } from '../semantic/homeSemanticTypes';
+import type { IPreparedHomeDisplaySnapshot } from './loadPreparedHomeDisplaySnapshot.types';
+import type {
+  IHomeNavigationSemanticModel,
+  IHomeShellSemanticModel,
+} from '../semantic/homeSemanticTypes';
 import type {
   IHomeStoreCommitIdentity,
   IHomeStoreSourceId,
@@ -140,6 +147,128 @@ function areChunkMapsEqual(
   return HOME_DISPLAY_CHUNK_IDS.every((chunkId) =>
     areChunkDescriptorsEqual(left[chunkId], right[chunkId]),
   );
+}
+
+function createPreparedNavigation(
+  navigation: IHomeNavigationSemanticModel,
+): IHomeNavigationSemanticModel | undefined {
+  if (navigation.kind !== 'ready') {
+    return undefined;
+  }
+  const selectedTabId = navigation.tabs.includes('portfolio')
+    ? 'portfolio'
+    : navigation.tabs[0];
+  if (
+    navigation.destinations &&
+    navigation.perpsDestination &&
+    navigation.sections
+  ) {
+    return {
+      kind: 'ready',
+      tabs: navigation.tabs,
+      selectedTabId,
+      destinations: navigation.destinations,
+      freshness: 'confirmedCache',
+      perpsDestination: navigation.perpsDestination,
+      refresh: 'refreshing',
+      sections: navigation.sections,
+    };
+  }
+  return {
+    kind: 'ready',
+    tabs: navigation.tabs,
+    selectedTabId,
+  };
+}
+
+function refreshPreparedHomeDisplaySnapshot({
+  criticalIncluded,
+  dirtySourceIds,
+  job,
+  manifest,
+  nextRoute,
+  nextRouteRaw,
+  now,
+}: {
+  criticalIncluded: boolean;
+  dirtySourceIds: ReadonlySet<IHomeStoreSourceId>;
+  job: IHomeDisplaySnapshotPersistJob;
+  manifest: IHomeDisplaySnapshotManifest;
+  nextRoute: IHomeDisplaySnapshotRoute;
+  nextRouteRaw: string;
+  now: number;
+}): {
+  memoryCacheInvalidated: boolean;
+  memoryCacheRefreshed: boolean;
+} {
+  const prepared = getPreparedHomeDisplaySnapshot(job.ownerScopeKey);
+  if (!prepared) {
+    return {
+      memoryCacheInvalidated: false,
+      memoryCacheRefreshed: false,
+    };
+  }
+  if (
+    !prepared.context?.manifest ||
+    !Array.isArray(prepared.records) ||
+    isHardBlockedShell(job.state.shell.value)
+  ) {
+    return {
+      memoryCacheInvalidated: deletePreparedHomeDisplaySnapshot(
+        job.ownerScopeKey,
+      ),
+      memoryCacheRefreshed: false,
+    };
+  }
+
+  const recordsBySourceId = new Map(
+    prepared.records.map((record) => [record.sourceId, record]),
+  );
+  dirtySourceIds.forEach((sourceId) => {
+    if (!manifest.chunks[sourceId]) {
+      recordsBySourceId.delete(sourceId);
+      return;
+    }
+    const record = createHomeCachedSourceRecord({
+      now,
+      sourceId,
+      slot: job.state.resources[sourceId],
+    });
+    if (record) {
+      recordsBySourceId.set(sourceId, record);
+    }
+  });
+  const records = Array.from(recordsBySourceId.values());
+  const shell = selectPreparedHomeDisplaySnapshotShell({
+    criticalShell: undefined,
+    records,
+  });
+  if (!shell) {
+    return {
+      memoryCacheInvalidated: deletePreparedHomeDisplaySnapshot(
+        job.ownerScopeKey,
+      ),
+      memoryCacheRefreshed: false,
+    };
+  }
+
+  const nextPrepared: IPreparedHomeDisplaySnapshot = {
+    context: {
+      routeRaw: nextRouteRaw,
+      route: nextRoute,
+      manifest,
+    },
+    navigation: criticalIncluded
+      ? createPreparedNavigation(job.state.navigation.value)
+      : prepared.navigation,
+    records,
+    shell,
+  };
+  setPreparedHomeDisplaySnapshot(job.ownerScopeKey, nextPrepared);
+  return {
+    memoryCacheInvalidated: false,
+    memoryCacheRefreshed: true,
+  };
 }
 
 async function readManifestForRoute({
@@ -496,9 +625,10 @@ async function persistHomeDisplaySnapshotOnce(
   );
   evictedKeyGroups.flat().forEach((key) => cleanupKeys.add(key));
 
+  const nextRouteRaw = encodeHomeDisplaySnapshotRoute(nextRoute);
   entries.push({
     key: routeKey,
-    value: encodeHomeDisplaySnapshotRoute(nextRoute),
+    value: nextRouteRaw,
   });
   await homeDisplaySnapshotStorage.commit({
     entries,
@@ -515,9 +645,19 @@ async function persistHomeDisplaySnapshotOnce(
     },
     removeKeys: Array.from(cleanupKeys),
   });
-  const memoryCacheInvalidated = deletePreparedHomeDisplaySnapshot(
-    job.ownerScopeKey,
+  const criticalIncluded = entries.some((entry) =>
+    entry.key.endsWith('/critical'),
   );
+  const { memoryCacheInvalidated, memoryCacheRefreshed } =
+    refreshPreparedHomeDisplaySnapshot({
+      criticalIncluded,
+      dirtySourceIds,
+      job,
+      manifest,
+      nextRoute,
+      nextRouteRaw,
+      now,
+    });
   perfMark('Home:v3Cache:physicalWrite', {
     chunkCount: entries.length - 2,
   });
@@ -529,7 +669,7 @@ async function persistHomeDisplaySnapshotOnce(
         chunkId !== 'critical' &&
         HOME_STORE_SOURCE_IDS.includes(chunkId as IHomeStoreSourceId),
     );
-  defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
+  defaultLogger.wallet.homeSnapshotPerf.event({
     stage: 'persist',
     outcome: 'accepted',
     partitionTag: getHomeDisplaySnapshotPartitionTag(job.ownerScopeKey),
@@ -538,8 +678,9 @@ async function persistHomeDisplaySnapshotOnce(
     requestedSourceIds: Array.from(dirtySourceIds).toSorted().join(','),
     loadedSourceIds: writtenSourceIds.toSorted().join(','),
     generation: nextGeneration,
-    criticalIncluded: entries.some((entry) => entry.key.endsWith('/critical')),
+    criticalIncluded,
     memoryCacheInvalidated,
+    memoryCacheRefreshed,
   });
 }
 
@@ -549,7 +690,7 @@ async function persistHomeDisplaySnapshot(
   try {
     await persistHomeDisplaySnapshotOnce(job);
   } catch (error) {
-    defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
+    defaultLogger.wallet.homeSnapshotPerf.event({
       stage: 'persist',
       outcome: 'retrying',
       partitionTag: getHomeDisplaySnapshotPartitionTag(job.ownerScopeKey),
@@ -647,7 +788,7 @@ export class HomeDisplaySnapshotPersistQueue {
     await this.inFlight?.catch(() => undefined);
     await homeDisplaySnapshotStorage.clearNamespace();
     const clearedEntryCount = clearPreparedHomeDisplaySnapshotCache();
-    defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
+    defaultLogger.wallet.homeSnapshotPerf.event({
       stage: 'preparedMemory',
       outcome: 'cleared',
       partitionTag: 'all',
@@ -708,7 +849,7 @@ export class HomeDisplaySnapshotPersistQueue {
       try {
         await persistHomeDisplaySnapshot(job);
       } catch (error) {
-        defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
+        defaultLogger.wallet.homeSnapshotPerf.event({
           stage: 'persist',
           outcome: 'failed',
           partitionTag: getHomeDisplaySnapshotPartitionTag(job.ownerScopeKey),

@@ -40,6 +40,7 @@ import {
   homeDisplaySnapshotLoadState,
   homeEnvironmentInputsState,
   homeFactsState,
+  homeHeaderPresentationState,
   homeInteractionState,
   homeNavigationState,
   homeRuntimeState,
@@ -58,6 +59,7 @@ export function readHomeStoreState(get: IJotaiGetter): IHomeStoreState {
   return {
     session: get(homeSessionState.atom()),
     runtime: get(homeRuntimeState.atom()),
+    headerPresentation: get(homeHeaderPresentationState.atom()),
     walletInputs: get(homeWalletInputsState.atom()),
     environmentInputs: get(homeEnvironmentInputsState.atom()),
     capabilityInputs: get(homeCapabilityInputsState.atom()),
@@ -243,6 +245,10 @@ class LazyHomeStoreState implements IHomeStoreState {
     return this.read('runtime');
   }
 
+  get headerPresentation() {
+    return this.read('headerPresentation');
+  }
+
   get walletInputs() {
     return this.read('walletInputs');
   }
@@ -329,6 +335,9 @@ class LazyHomeStoreState implements IHomeStoreState {
       case 'runtime':
         value = this.get(homeRuntimeState.atom());
         break;
+      case 'headerPresentation':
+        value = this.get(homeHeaderPresentationState.atom());
+        break;
       case 'walletInputs':
         value = this.get(homeWalletInputsState.atom());
         break;
@@ -396,6 +405,12 @@ function applyHomeMutation(
       set(
         homeRuntimeState.atom(),
         resolveOperation(mutation.operation, initial.runtime),
+      );
+      return;
+    case 'headerPresentation':
+      set(
+        homeHeaderPresentationState.atom(),
+        resolveOperation(mutation.operation, initial.headerPresentation),
       );
       return;
     case 'walletInputs':
@@ -534,7 +549,10 @@ export function dispatchHomeStoreEventsAtomically(
     ),
   );
   const presentationChanged = mutations.some(
-    (mutation) => mutation.slice === 'shell' || mutation.slice === 'navigation',
+    (mutation) =>
+      mutation.slice === 'headerPresentation' ||
+      mutation.slice === 'shell' ||
+      mutation.slice === 'navigation',
   );
   const cacheHydrated = events.some(
     (event) =>
@@ -554,12 +572,14 @@ export function dispatchHomeStoreEventsAtomically(
   return effects;
 }
 
+export const dispatchHomeStoreEventsTransaction = contextAtomMethod(
+  dispatchHomeStoreEventsAtomically,
+);
+
 class ContextJotaiActionsHome extends ContextJotaiActionsBase {
   dispatchHomeEvent = contextAtomMethod(dispatchHomeStoreEvent);
 
-  dispatchHomeEventsAtomically = contextAtomMethod(
-    dispatchHomeStoreEventsAtomically,
-  );
+  dispatchHomeEventsAtomically = dispatchHomeStoreEventsTransaction;
 
   readHomeStoreSnapshot = contextAtomMethod((get) => readHomeStoreState(get));
 

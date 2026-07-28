@@ -22,6 +22,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import {
   MOBILE_NATIVE_HOME_STANDARD_ACTION_ROW_HEIGHT,
+  buildMobileNativeHomeLoadingSections,
   resolveMobileNativeHomeBodySections,
 } from './mobileNativeHomeViewModelAdapter';
 
@@ -121,6 +122,18 @@ export function isNativeHomeTabId(value: string): value is IHomeContainerTabId {
   return TAB_ORDER.some((tabId) => tabId === value);
 }
 
+type IOwnerTransitionFrameScheduler = (flush: () => void) => void;
+
+const scheduleOwnerTransitionFrame: IOwnerTransitionFrameScheduler = (
+  flush,
+) => {
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => flush());
+    return;
+  }
+  queueMicrotask(flush);
+};
+
 export class MobileNativeHomeBridgeRuntime {
   readonly controller: HomeContainerController;
 
@@ -140,6 +153,10 @@ export class MobileNativeHomeBridgeRuntime {
   private slotFlushScheduled = false;
 
   private slotFlushToken = 0;
+
+  private ownerTransitionSlotFramePending = false;
+
+  private ownerTransitionSlotFrameStartedAt = 0;
 
   private visibleTabs: readonly IHomeContainerTabId[] = ['portfolio'];
 
@@ -180,10 +197,12 @@ export class MobileNativeHomeBridgeRuntime {
     private owner: IHomeContainerOwner,
     private readonly getStoreCommitId: () => number,
     initialTheme: IHomeContainerTheme,
+    private readonly scheduleOwnerFrame: IOwnerTransitionFrameScheduler = scheduleOwnerTransitionFrame,
   ) {
     const initialSlots: IHomeContainerSlots = {};
     this.slotBundle = {
       owner,
+      phase: 'stable',
       semanticRevision: 0,
       slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
       slots: initialSlots,
@@ -192,6 +211,23 @@ export class MobileNativeHomeBridgeRuntime {
       initialOwner: owner,
       initialProtocolV3AuthorityState: this.authorityState,
       initialSnapshot: createInitialSnapshot(initialTheme),
+      onFlushTiming: ({
+        kind,
+        prepareDurationMs,
+        transportDurationMs,
+        totalDurationMs,
+        updateCount,
+      }) => {
+        defaultLogger.wallet.homeFramePerf.frame({
+          stage: 'functionTiming',
+          functionName: `HomeContainerController.flushNow.${kind}`,
+          durationMs: totalDurationMs,
+          prepareDurationMs,
+          transportDurationMs,
+          partitionTag: getHomeDisplaySnapshotPartitionTag(this.owner.scopeKey),
+          updateCount,
+        });
+      },
     });
   }
 
@@ -218,6 +254,7 @@ export class MobileNativeHomeBridgeRuntime {
     ) {
       return;
     }
+    const startedAt = performance.now();
     const previousPartitionTag = getHomeDisplaySnapshotPartitionTag(
       this.owner.scopeKey,
     );
@@ -228,6 +265,8 @@ export class MobileNativeHomeBridgeRuntime {
     const storeCommitId = this.getStoreCommitId();
     this.slotFlushToken += 1;
     this.slotFlushScheduled = false;
+    this.ownerTransitionSlotFramePending = true;
+    this.ownerTransitionSlotFrameStartedAt = performance.now();
     this.visibleTabs = ['portfolio'];
     this.destinations = {};
     this.tabTitles = {
@@ -240,21 +279,30 @@ export class MobileNativeHomeBridgeRuntime {
     this.selectedTabId = 'portfolio';
     this.bodyPresentationKind = 'loading';
     this.lastNavigation = undefined;
-    const slots: IHomeContainerSlots = {};
     this.authorityState.storeCommitId = storeCommitId;
     this.slotBundle = {
       owner,
+      phase: 'owner-transition',
       semanticRevision: storeCommitId,
       slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
-      slots,
+      slots: this.slotBundle.slots,
     };
     this.controller.replaceOwner(owner, createInitialSnapshot(theme));
     this.controller.setProtocolV3AuthorityState(this.authorityState);
-    defaultLogger.wallet.homeUi.homeNativeOwnerTransition({
+    defaultLogger.wallet.homeOwnerPerf.transition({
+      stage: 'nativeControllerReplaced',
       previousPartitionTag,
       nextPartitionTag: getHomeDisplaySnapshotPartitionTag(owner.scopeKey),
       storeCommitId,
       controllerReused: true,
+      elapsedMs: 0,
+    });
+    defaultLogger.wallet.homeFramePerf.frame({
+      stage: 'functionTiming',
+      functionName: 'MobileNativeHomeBridgeRuntime.replaceOwner',
+      durationMs: performance.now() - startedAt,
+      partitionTag: getHomeDisplaySnapshotPartitionTag(owner.scopeKey),
+      storeCommitId,
     });
     // Producer bridges republish one complete target-owner bundle before the
     // controller's frame flush, avoiding an empty frame between owners.
@@ -294,6 +342,7 @@ export class MobileNativeHomeBridgeRuntime {
     commandRevision: number;
     header: IHomeContainerHeader;
   }): void {
+    const startedAt = performance.now();
     this.authorityState = {
       storeCommitId: this.getStoreCommitId(),
       authorityRevisions: {
@@ -303,6 +352,13 @@ export class MobileNativeHomeBridgeRuntime {
     };
     this.commitRevisions();
     this.controller.updateHeader(input.header);
+    defaultLogger.wallet.homeFramePerf.frame({
+      stage: 'functionTiming',
+      functionName: 'MobileNativeHomeBridgeRuntime.updateHeader',
+      durationMs: performance.now() - startedAt,
+      partitionTag: getHomeDisplaySnapshotPartitionTag(this.owner.scopeKey),
+      storeCommitId: this.authorityState.storeCommitId,
+    });
   }
 
   updateNavigation(input: {
@@ -316,6 +372,7 @@ export class MobileNativeHomeBridgeRuntime {
     if (this.isSameNavigation(input)) {
       return;
     }
+    const startedAt = performance.now();
     this.lastNavigation = {
       ...input,
       destinations: { ...input.destinations },
@@ -337,6 +394,14 @@ export class MobileNativeHomeBridgeRuntime {
     this.commitRevisions();
     this.controller.updateTabs(this.buildTabs());
     this.controller.selectTab(this.selectedTabId);
+    defaultLogger.wallet.homeFramePerf.frame({
+      stage: 'functionTiming',
+      functionName: 'MobileNativeHomeBridgeRuntime.updateNavigation',
+      durationMs: performance.now() - startedAt,
+      partitionTag: getHomeDisplaySnapshotPartitionTag(this.owner.scopeKey),
+      inputCount: input.visibleTabs.length,
+      storeCommitId: this.authorityState.storeCommitId,
+    });
   }
 
   updateSection(input: {
@@ -344,6 +409,7 @@ export class MobileNativeHomeBridgeRuntime {
     sectionId: IHomeContainerSectionId;
     sections: IHomeContainerSection[];
   }): void {
+    const startedAt = performance.now();
     this.authorityState = {
       storeCommitId: this.getStoreCommitId(),
       authorityRevisions: {
@@ -356,6 +422,19 @@ export class MobileNativeHomeBridgeRuntime {
     };
     this.commitRevisions();
     if (!isNativeHomeTabId(input.sectionId)) {
+      defaultLogger.wallet.homeFramePerf.frame({
+        stage: 'functionTiming',
+        functionName: 'MobileNativeHomeBridgeRuntime.updateSection',
+        durationMs: performance.now() - startedAt,
+        partitionTag: getHomeDisplaySnapshotPartitionTag(this.owner.scopeKey),
+        sectionId: input.sectionId,
+        outcome: 'nonNativeSection',
+        outputSectionCount: input.sections.length,
+        outputItemCount: input.sections.reduce(
+          (total, section) => total + section.items.length,
+          0,
+        ),
+      });
       return;
     }
     this.sectionModels.set(input.sectionId, input.sections);
@@ -373,6 +452,22 @@ export class MobileNativeHomeBridgeRuntime {
         input.sectionId,
       );
     }
+    defaultLogger.wallet.homeFramePerf.frame({
+      stage: 'functionTiming',
+      functionName: 'MobileNativeHomeBridgeRuntime.updateSection',
+      durationMs: performance.now() - startedAt,
+      partitionTag: getHomeDisplaySnapshotPartitionTag(this.owner.scopeKey),
+      sectionId: input.sectionId,
+      outcome: this.visibleTabs.includes(input.sectionId)
+        ? 'visible'
+        : 'notVisible',
+      outputSectionCount: input.sections.length,
+      outputItemCount: input.sections.reduce(
+        (total, section) => total + section.items.length,
+        0,
+      ),
+      storeCommitId: this.authorityState.storeCommitId,
+    });
   }
 
   updateSlots(bridgeId: string, slots: IHomeContainerSlots): void {
@@ -386,7 +481,7 @@ export class MobileNativeHomeBridgeRuntime {
     this.slotFlushScheduled = true;
     this.slotFlushToken += 1;
     const flushToken = this.slotFlushToken;
-    queueMicrotask(() => {
+    const flush = () => {
       if (flushToken !== this.slotFlushToken) {
         return;
       }
@@ -394,11 +489,32 @@ export class MobileNativeHomeBridgeRuntime {
       if (this.disposed) {
         return;
       }
+      const wasOwnerTransitionFrame = this.ownerTransitionSlotFramePending;
+      this.ownerTransitionSlotFramePending = false;
       this.flushSlots();
-    });
+      if (wasOwnerTransitionFrame) {
+        defaultLogger.wallet.homeFramePerf.frame({
+          stage: 'functionTiming',
+          functionName:
+            'MobileNativeHomeBridgeRuntime.ownerTransitionSlotFrame',
+          durationMs:
+            performance.now() - this.ownerTransitionSlotFrameStartedAt,
+          outcome: 'committed',
+          contributionCount: this.slotContributions.size,
+          partitionTag: getHomeDisplaySnapshotPartitionTag(this.owner.scopeKey),
+          storeCommitId: this.authorityState.storeCommitId,
+        });
+      }
+    };
+    if (this.ownerTransitionSlotFramePending) {
+      this.scheduleOwnerFrame(flush);
+      return;
+    }
+    queueMicrotask(flush);
   }
 
   private flushSlots(): void {
+    const startedAt = performance.now();
     const merged = mergeSlots(this.slotContributions.values());
     this.authorityState = {
       ...this.authorityState,
@@ -407,11 +523,21 @@ export class MobileNativeHomeBridgeRuntime {
     this.commitRevisions();
     this.slotBundle = {
       owner: this.owner,
+      phase: 'stable',
       semanticRevision: this.authorityState.storeCommitId,
       slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
       slots: merged,
     };
     this.listeners.forEach((listener) => listener());
+    defaultLogger.wallet.homeFramePerf.frame({
+      stage: 'functionTiming',
+      functionName: 'MobileNativeHomeBridgeRuntime.flushSlots',
+      durationMs: performance.now() - startedAt,
+      partitionTag: getHomeDisplaySnapshotPartitionTag(this.owner.scopeKey),
+      contributionCount: this.slotContributions.size,
+      listenerCount: this.listeners.size,
+      storeCommitId: this.authorityState.storeCommitId,
+    });
   }
 
   registerIntentHandler(
@@ -492,7 +618,9 @@ export class MobileNativeHomeBridgeRuntime {
         destination: 'inline',
         sections: resolveMobileNativeHomeBodySections({
           bodyPresentationKind: this.bodyPresentationKind,
-          sections: this.sectionModels.get(tabId) ?? [],
+          sections:
+            this.sectionModels.get(tabId) ??
+            buildMobileNativeHomeLoadingSections(tabId),
           tabId,
         }),
       };

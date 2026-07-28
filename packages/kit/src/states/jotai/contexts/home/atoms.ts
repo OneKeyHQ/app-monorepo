@@ -34,6 +34,7 @@ const initialSections = createInitialHomeStoreSections();
 
 const homeSessionState = contextAtom(initial.session);
 const homeRuntimeState = contextAtom(initial.runtime);
+const homeHeaderPresentationState = contextAtom(initial.headerPresentation);
 const homeWalletInputsState = contextAtom(initial.walletInputs);
 const homeEnvironmentInputsState = contextAtom(initial.environmentInputs);
 const homeCapabilityInputsState = contextAtom(initial.capabilityInputs);
@@ -122,6 +123,10 @@ export function useHomeRuntimeState() {
   return homeRuntimeState.use()[0];
 }
 
+export function useHomeHeaderPresentation() {
+  return homeHeaderPresentationState.use()[0];
+}
+
 export function useHomeWalletInputs() {
   return homeWalletInputsState.use()[0];
 }
@@ -207,6 +212,7 @@ export {
   homeDisplaySnapshotLoadState,
   homeEnvironmentInputsState,
   homeFactsState,
+  homeHeaderPresentationState,
   homeInteractionState,
   homeNavigationState,
   homeRuntimeState,

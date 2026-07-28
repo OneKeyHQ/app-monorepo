@@ -1,11 +1,12 @@
 import {
-  dispatchHomeStoreEventsAtomically,
+  dispatchHomeStoreEventsTransaction,
   readHomeStoreState,
   readHomeStoreStateLazily,
 } from '@onekeyhq/kit/src/states/jotai/contexts/home/actions';
 import type { IHomeDisplaySnapshotLoadState } from '@onekeyhq/kit/src/states/jotai/contexts/home/atoms';
 import type { IJotaiContextStore } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IHomeRuntimeJsonValue,
@@ -25,16 +26,19 @@ import { HomePersistenceRuntime } from '../persistence/homePersistenceRuntime';
 import {
   HomeStoreCommitBudget,
   type IHomeStoreCommitBudgetOptions,
+  type IHomeStoreCommitBudgetSnapshot,
 } from '../results/homeStoreCommitBudget';
 import { HomeLeafRequestPool } from '../scheduler/homeLeafRequestPool';
 import {
   HomeRequestScheduler,
   type IHomeRequestSchedulerOptions,
+  type IHomeRequestSchedulerSnapshot,
 } from '../scheduler/homeRequestScheduler';
 import { HomeSourceRuntime } from '../sources/homeSourceRuntime';
 
 import { registerHomeRuntimeDispatcher } from './homeRuntimeRegistry';
 
+import type { IHomeHeaderAccountPresentation } from '../presentation/homeHeaderPresentation';
 import type {
   IHomeCommandCompletion,
   IHomeCommandExecution,
@@ -72,6 +76,11 @@ export const HOME_RUNTIME_CAPABILITIES = {
 export interface IHomeRuntimeIdentity {
   runtimeInstanceId: string;
   clientInstanceId: string;
+}
+
+export interface IHomeOwnerPerfLabels {
+  walletName?: string;
+  accountName?: string;
 }
 
 export type IHomeRuntimeEffectExecutors = IHomeEffectHandlerMap;
@@ -148,6 +157,16 @@ export class HomeStoreRuntime {
 
   private eventSequence = 0;
 
+  private ownerPerfLabels: IHomeOwnerPerfLabels = {};
+
+  private lastSchedulerPerfLogAt = 0;
+
+  private lastSchedulerPerfSnapshot = '';
+
+  private lastCommitBudgetPerfLogAt = 0;
+
+  private lastCommitBudgetPerfSnapshot = '';
+
   private readonly pendingCommands = new Map<
     string,
     {
@@ -164,7 +183,13 @@ export class HomeStoreRuntime {
     this.mode = options.mode;
     this.capabilities = HOME_RUNTIME_CAPABILITIES[options.mode];
     this.effectExecutors = options.effectExecutors ?? {};
-    this.commitBudget = new HomeStoreCommitBudget(options.commitBudget);
+    this.commitBudget = new HomeStoreCommitBudget({
+      ...options.commitBudget,
+      onSnapshot: (snapshot) => {
+        options.commitBudget?.onSnapshot?.(snapshot);
+        this.logCommitBudgetPerf(snapshot);
+      },
+    });
     this.leafPool = new HomeLeafRequestPool(
       platformEnv.isNative ? 4 : 8,
       this.identity.clientInstanceId,
@@ -174,7 +199,10 @@ export class HomeStoreRuntime {
     this.scheduler = new HomeRequestScheduler({
       maxPending: 64,
       maxRunning: 4,
-      onSnapshot: options.onSchedulerSnapshot,
+      onSnapshot: (snapshot) => {
+        options.onSchedulerSnapshot?.(snapshot);
+        this.logSchedulerPerf(snapshot);
+      },
       requestLeaf:
         options.requestLeaf ?? (async () => createUnavailableLeafResponse()),
     });
@@ -250,7 +278,10 @@ export class HomeStoreRuntime {
 
   readonly replaceOwner = (
     owner: IHomeRuntimeOwnerScope | undefined,
+    labels: IHomeOwnerPerfLabels = {},
+    headerAccountPresentation?: IHomeHeaderAccountPresentation,
   ): IHomeDispatchReceipt => {
+    const startedAt = Date.now();
     const state = this.getState();
     const transition = transitionHomeSession(state.session, {
       type: 'ownerChanged',
@@ -259,38 +290,104 @@ export class HomeStoreRuntime {
     if (transition.state === state.session) {
       return { accepted: true };
     }
+    const previousLabels = this.ownerPerfLabels;
+    const logFunctionTiming = (
+      functionName: string,
+      durationMs: number,
+      outcome?: string,
+    ) => {
+      defaultLogger.wallet.homeFramePerf.frame({
+        stage: 'functionTiming',
+        functionName,
+        durationMs,
+        previousWalletName: previousLabels.walletName,
+        previousAccountName: previousLabels.accountName,
+        walletName: labels.walletName,
+        accountName: labels.accountName,
+        outcome,
+      });
+    };
+    const logTransition = ({
+      stage,
+      cacheOutcome,
+      storeCommitId,
+    }: {
+      stage: 'started' | 'cachePrepared' | 'storeCommitted';
+      cacheOutcome?: 'hit' | 'miss' | 'async' | 'disabled' | 'ownerCleared';
+      storeCommitId?: number;
+    }) => {
+      defaultLogger.wallet.homeOwnerPerf.transition({
+        stage,
+        previousWalletName: previousLabels.walletName,
+        previousAccountName: previousLabels.accountName,
+        walletName: labels.walletName,
+        accountName: labels.accountName,
+        cacheOutcome,
+        elapsedMs: Date.now() - startedAt,
+        storeCommitId,
+      });
+    };
+    logTransition({ stage: 'started' });
     // Never retain the previous sessionId across an owner replacement.
     const ownerToken = transition.state.ownerToken;
     const previousSessionId = state.session.ownerToken?.sessionId;
     if (previousSessionId && previousSessionId !== ownerToken?.sessionId) {
       this.cancelSessionWork(previousSessionId);
     }
+    this.ownerPerfLabels = labels;
     if (!ownerToken) {
       this.snapshots.adoptPreparedOwner(undefined);
-      return this.applyEvents(
+      const receipt = this.applyEvents(
         [
           {
             type: 'ownerChanged',
             owner,
+            headerAccountPresentation,
             topology: state.runtime.topology,
           },
         ],
         { status: 'idle' },
       );
+      logTransition({
+        stage: 'storeCommitted',
+        cacheOutcome: 'ownerCleared',
+        storeCommitId: this.getState().commitIdentity.storeCommitId,
+      });
+      return receipt;
     }
     if (!this.capabilities.displaySnapshots) {
       this.snapshots.adoptPreparedOwner(ownerToken);
-      return this.applyEvents([
+      const receipt = this.applyEvents([
         {
           type: 'ownerChanged',
           owner,
           ownerToken,
+          headerAccountPresentation,
           topology: state.runtime.topology,
         },
       ]);
+      logTransition({
+        stage: 'storeCommitted',
+        cacheOutcome: 'disabled',
+        storeCommitId: this.getState().commitIdentity.storeCommitId,
+      });
+      return receipt;
     }
+    const prepareOwnerStartedAt = performance.now();
     const prepared = this.snapshots.prepareOwner(ownerToken.scopeKey);
+    let prepareOwnerOutcome = 'miss';
     if (prepared instanceof Promise) {
+      prepareOwnerOutcome = 'async';
+    } else if (prepared) {
+      prepareOwnerOutcome = 'hit';
+    }
+    logFunctionTiming(
+      'HomeSnapshotRuntime.prepareOwner',
+      performance.now() - prepareOwnerStartedAt,
+      prepareOwnerOutcome,
+    );
+    if (prepared instanceof Promise) {
+      logTransition({ stage: 'cachePrepared', cacheOutcome: 'async' });
       this.snapshots.adoptPreparedOwner(ownerToken);
       const receipt = this.applyEvents(
         [
@@ -298,6 +395,7 @@ export class HomeStoreRuntime {
             type: 'ownerChanged',
             owner,
             ownerToken,
+            headerAccountPresentation,
             topology: state.runtime.topology,
           },
         ],
@@ -307,12 +405,21 @@ export class HomeStoreRuntime {
           status: 'loading',
         },
       );
+      logTransition({
+        stage: 'storeCommitted',
+        cacheOutcome: 'async',
+        storeCommitId: this.getState().commitIdentity.storeCommitId,
+      });
       void prepared.then(
         (snapshot) => this.snapshots.publishPreparedOwner(ownerToken, snapshot),
         () => this.snapshots.publishPreparedOwner(ownerToken, undefined),
       );
       return receipt;
     }
+    logTransition({
+      stage: 'cachePrepared',
+      cacheOutcome: prepared ? 'hit' : 'miss',
+    });
     this.snapshots.adoptPreparedOwner(ownerToken, prepared);
     // Replace owner-scoped Store slices atomically; never reinterpret or
     // mutate the previous owner's Store data as data for the target owner.
@@ -321,10 +428,16 @@ export class HomeStoreRuntime {
         type: 'ownerChanged',
         owner,
         ownerToken,
+        headerAccountPresentation,
         topology: state.runtime.topology,
       },
     ];
     if (prepared) {
+      if (platformEnv.isNativeIOS) {
+        this.sources.deferAutomaticReconcileUntilCachedFrame(
+          ownerToken.sessionId,
+        );
+      }
       events.push({
         type: 'displaySnapshotHydrated',
         ownerScopeKey: ownerToken.scopeKey,
@@ -334,11 +447,17 @@ export class HomeStoreRuntime {
         navigation: prepared.navigation,
       });
     }
-    return this.applyEvents(events, {
+    const receipt = this.applyEvents(events, {
       ownerScopeKey: ownerToken.scopeKey,
       sessionId: ownerToken.sessionId,
       status: prepared ? 'hit' : 'miss',
     });
+    logTransition({
+      stage: 'storeCommitted',
+      cacheOutcome: prepared ? 'hit' : 'miss',
+      storeCommitId: this.getState().commitIdentity.storeCommitId,
+    });
+    return receipt;
   };
 
   private applyEvents(
@@ -348,17 +467,65 @@ export class HomeStoreRuntime {
     if (this.disposed) {
       return { accepted: false, rejectReason: 'runtimeDisposed' };
     }
+    const measureOwnerTransition = events.some(
+      (event) => event.type === 'ownerChanged',
+    );
+    const applyEventsStartedAt = performance.now();
+    const logFunctionTiming = (
+      functionName: string,
+      durationMs: number,
+      extra: {
+        effectCount?: number;
+        outcome?: string;
+      } = {},
+    ) => {
+      if (!measureOwnerTransition) {
+        return;
+      }
+      defaultLogger.wallet.homeFramePerf.frame({
+        stage: 'functionTiming',
+        functionName,
+        durationMs,
+        walletName: this.ownerPerfLabels.walletName,
+        accountName: this.ownerPerfLabels.accountName,
+        eventCount: events.length,
+        effectCount: extra.effectCount,
+        outcome: extra.outcome,
+      });
+    };
     this.eventSequence += 1;
     const eventSequence = this.eventSequence;
-    const effects = dispatchHomeStoreEventsAtomically(
-      this.store.get,
-      this.store.set,
-      { events, displaySnapshotLoadState },
+    let stepStartedAt = performance.now();
+    const effects = dispatchHomeStoreEventsTransaction.call(this.store.set, {
+      events,
+      displaySnapshotLoadState,
+    });
+    logFunctionTiming(
+      'dispatchHomeStoreEventsTransaction',
+      performance.now() - stepStartedAt,
+      { effectCount: effects.length },
     );
+    stepStartedAt = performance.now();
     const snapshot = readHomeStoreState(this.store.get);
-    this.persistence?.onStoreCommit(snapshot);
-    this.snapshots?.onStoreCommit(snapshot);
+    logFunctionTiming('readHomeStoreState', performance.now() - stepStartedAt);
+    if (this.persistence) {
+      stepStartedAt = performance.now();
+      this.persistence.onStoreCommit(snapshot);
+      logFunctionTiming(
+        'HomePersistenceRuntime.onStoreCommit',
+        performance.now() - stepStartedAt,
+      );
+    }
+    if (this.snapshots) {
+      stepStartedAt = performance.now();
+      this.snapshots.onStoreCommit(snapshot);
+      logFunctionTiming(
+        'HomeSnapshotRuntime.onStoreCommit',
+        performance.now() - stepStartedAt,
+      );
+    }
     const sessionId = snapshot.session.ownerToken?.sessionId ?? 'idle';
+    stepStartedAt = performance.now();
     const envelopes = effects.map<IHomeEffectEnvelope>((effect, index) => ({
       effectId: `${this.identity.runtimeInstanceId}:${eventSequence}:${index}`,
       eventSequence,
@@ -367,12 +534,23 @@ export class HomeStoreRuntime {
         effect.kind === 'executeCommand' ? effect.intent.intentId : undefined,
       effect,
     }));
+    logFunctionTiming(
+      'HomeRuntimeLease.buildEffectEnvelopes',
+      performance.now() - stepStartedAt,
+      { effectCount: effects.length },
+    );
+    stepStartedAt = performance.now();
     this.middleware.enqueue(envelopes);
+    logFunctionTiming(
+      'HomeEffectMiddleware.enqueue',
+      performance.now() - stepStartedAt,
+      { effectCount: effects.length },
+    );
     const rejected = effects.find(
       (effect): effect is Extract<IHomeStoreEffect, { kind: 'traceReject' }> =>
         effect.kind === 'traceReject',
     );
-    return rejected
+    const receipt = rejected
       ? {
           accepted: false,
           correlationId: rejected.intentId,
@@ -384,6 +562,15 @@ export class HomeStoreRuntime {
             (candidate) => candidate.type === 'intentReceived',
           )?.intent.intentId,
         };
+    logFunctionTiming(
+      'HomeRuntimeLease.applyEvents',
+      performance.now() - applyEventsStartedAt,
+      {
+        effectCount: effects.length,
+        outcome: receipt.accepted ? 'accepted' : 'rejected',
+      },
+    );
+    return receipt;
   }
 
   readonly executeIntent = <TResult>(
@@ -489,6 +676,56 @@ export class HomeStoreRuntime {
     this.sources.cancelSession(sessionId);
     this.commitBudget.discardAuthority({ sessionId });
     this.cancelPendingCommands(sessionId, 'ownerChanged');
+  }
+
+  private logSchedulerPerf(snapshot: IHomeRequestSchedulerSnapshot): void {
+    const snapshotKey = `${snapshot.pendingCount}:${snapshot.runningCount}:${snapshot.peakPendingCount}:${snapshot.peakRunningCount}`;
+    if (snapshotKey === this.lastSchedulerPerfSnapshot) {
+      return;
+    }
+    const now = Date.now();
+    const atBoundary =
+      snapshot.disposed ||
+      snapshot.pendingCount === 0 ||
+      snapshot.runningCount === 0;
+    if (!atBoundary && now - this.lastSchedulerPerfLogAt < 100) {
+      return;
+    }
+    this.lastSchedulerPerfSnapshot = snapshotKey;
+    this.lastSchedulerPerfLogAt = now;
+    defaultLogger.wallet.homeSchedulerPerf.snapshot({
+      stage: 'requestQueue',
+      walletName: this.ownerPerfLabels.walletName,
+      accountName: this.ownerPerfLabels.accountName,
+      pendingCount: snapshot.pendingCount,
+      runningCount: snapshot.runningCount,
+      peakPendingCount: snapshot.peakPendingCount,
+      peakRunningCount: snapshot.peakRunningCount,
+    });
+  }
+
+  private logCommitBudgetPerf(snapshot: IHomeStoreCommitBudgetSnapshot): void {
+    const snapshotKey = `${snapshot.bufferedCount}:${snapshot.committedCount}:${snapshot.peakBufferedCount}`;
+    if (snapshotKey === this.lastCommitBudgetPerfSnapshot) {
+      return;
+    }
+    const now = Date.now();
+    if (
+      snapshot.bufferedCount !== 0 &&
+      now - this.lastCommitBudgetPerfLogAt < 100
+    ) {
+      return;
+    }
+    this.lastCommitBudgetPerfSnapshot = snapshotKey;
+    this.lastCommitBudgetPerfLogAt = now;
+    defaultLogger.wallet.homeFramePerf.frame({
+      stage: 'commitBudget',
+      walletName: this.ownerPerfLabels.walletName,
+      accountName: this.ownerPerfLabels.accountName,
+      bufferedCount: snapshot.bufferedCount,
+      committedCount: snapshot.committedCount,
+      peakBufferedCount: snapshot.peakBufferedCount,
+    });
   }
 }
 

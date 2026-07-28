@@ -7,7 +7,7 @@ import type {
 import type { StyleProp, ViewStyle } from 'react-native';
 
 export const HOME_CONTAINER_SCHEMA_VERSION = 2;
-export const HOME_CONTAINER_SLOT_CONTRACT_REVISION = 1;
+export const HOME_CONTAINER_SLOT_CONTRACT_REVISION = 2;
 
 export const HOME_CONTAINER_TAB_IDS = [
   'portfolio',
@@ -44,6 +44,7 @@ export interface IHomeContainerSlotAuthority {
 
 export interface IHomeContainerSlot {
   content: ReactNode;
+  contentRevision: string;
   height?: number;
   interaction?: IHomeContainerSlotInteraction;
   authority?: IHomeContainerSlotAuthority;
@@ -262,6 +263,7 @@ export type IHomeContainerTransportPayload =
 
 export interface IHomeContainerSlotBundle {
   owner: IHomeContainerOwner;
+  phase: 'owner-transition' | 'stable';
   semanticRevision: number;
   slotContractRevision: number;
   slots: IHomeContainerSlots;
@@ -280,6 +282,14 @@ export interface IHomeContainerProps {
   onVisibleTabChange?: (tabId: string) => void;
   onRenderError?: (code: string, message: string) => void;
   onIntent?: (intentJson: string) => void;
+  onProfilerRender?: (
+    id: string,
+    phase: 'mount' | 'nested-update' | 'update',
+    actualDuration: number,
+    baseDuration: number,
+    startTime: number,
+    commitTime: number,
+  ) => void;
 }
 
 export interface IHomeContainerRef {

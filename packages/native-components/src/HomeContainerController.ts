@@ -28,11 +28,20 @@ import type {
 
 type IHomeContainerControllerScheduler = (flush: () => void) => void;
 
+export interface IHomeContainerControllerFlushTiming {
+  kind: 'snapshot' | 'domains';
+  prepareDurationMs: number;
+  transportDurationMs: number;
+  totalDurationMs: number;
+  updateCount: number;
+}
+
 export interface IHomeContainerControllerOptions {
   initialSnapshot: IHomeContainerSnapshot;
   initialOwner: IHomeContainerOwner;
   schedule?: IHomeContainerControllerScheduler;
   initialProtocolV3AuthorityState?: IHomeContainerControllerAuthorityStateV3;
+  onFlushTiming?: (timing: IHomeContainerControllerFlushTiming) => void;
 }
 
 export interface IHomeContainerControllerAuthorityStateV3 {
@@ -159,15 +168,21 @@ export class HomeContainerController {
 
   private readonly schedule: IHomeContainerControllerScheduler;
 
+  private readonly onFlushTiming:
+    | ((timing: IHomeContainerControllerFlushTiming) => void)
+    | undefined;
+
   constructor({
     initialSnapshot,
     initialOwner,
     schedule = defaultSchedule,
     initialProtocolV3AuthorityState,
+    onFlushTiming,
   }: IHomeContainerControllerOptions) {
     this.snapshot = initialSnapshot;
     this.owner = initialOwner;
     this.schedule = schedule;
+    this.onFlushTiming = onFlushTiming;
     this.authorityState =
       initialProtocolV3AuthorityState ?? createAuthorityState();
     this.authorityStateIsExternal = Boolean(initialProtocolV3AuthorityState);
@@ -493,6 +508,7 @@ export class HomeContainerController {
   }
 
   flushNow(): boolean {
+    const flushStartedAt = performance.now();
     this.flushScheduled = false;
     if (this.disposed || !this.target || !this.capabilities) {
       return false;
@@ -500,12 +516,25 @@ export class HomeContainerController {
     if (this.fullSnapshotPending) {
       this.fullSnapshotPending = false;
       this.pendingDomains.clear();
-      this.target.setSnapshot(this.createSnapshotEnvelope());
+      const prepareStartedAt = performance.now();
+      const envelope = this.createSnapshotEnvelope();
+      const prepareDurationMs = performance.now() - prepareStartedAt;
+      const transportStartedAt = performance.now();
+      this.target.setSnapshot(envelope);
+      const transportDurationMs = performance.now() - transportStartedAt;
+      this.onFlushTiming?.({
+        kind: 'snapshot',
+        prepareDurationMs,
+        transportDurationMs,
+        totalDurationMs: performance.now() - flushStartedAt,
+        updateCount: 1,
+      });
       return true;
     }
     if (this.pendingDomains.size === 0) {
       return false;
     }
+    const prepareStartedAt = performance.now();
     const updates = this.createPendingDomainUpdates();
     this.pendingDomains.clear();
     if (updates.length === 0) {
@@ -520,7 +549,17 @@ export class HomeContainerController {
       },
       updates,
     };
+    const prepareDurationMs = performance.now() - prepareStartedAt;
+    const transportStartedAt = performance.now();
     this.target.setDomains(batch);
+    const transportDurationMs = performance.now() - transportStartedAt;
+    this.onFlushTiming?.({
+      kind: 'domains',
+      prepareDurationMs,
+      transportDurationMs,
+      totalDurationMs: performance.now() - flushStartedAt,
+      updateCount: updates.length,
+    });
     return true;
   }
 

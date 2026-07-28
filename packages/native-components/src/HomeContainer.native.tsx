@@ -1,7 +1,10 @@
 import {
   type ComponentType,
+  Profiler,
+  type ProfilerOnRenderCallback,
   type PropsWithChildren,
   forwardRef,
+  memo,
   useCallback,
   useImperativeHandle,
   useMemo,
@@ -100,6 +103,11 @@ const styles = StyleSheet.create({
   slotContent: {
     flex: 1,
   },
+  inactiveSlot: {
+    width: 0,
+    height: 0,
+    opacity: 0,
+  },
 });
 
 function parseCapabilities(
@@ -188,6 +196,89 @@ export function isHomeContainerAvailable(): boolean {
   return NitroModules.hasHybridObject('HomeContainer');
 }
 
+type IHomeContainerSlotViewProps = {
+  active: boolean;
+  backgroundColor: string;
+  onProfilerRender: ProfilerOnRenderCallback;
+  slot: IHomeContainerSlot;
+  slotKey: string;
+  windowWidth: number;
+};
+
+type IHomeContainerSlotContentViewProps = {
+  content: IHomeContainerSlot['content'];
+  contentRevision: IHomeContainerSlot['contentRevision'];
+  interactive: boolean;
+  onProfilerRender: ProfilerOnRenderCallback;
+  slotKey: string;
+};
+
+const HomeContainerSlotContentView = memo(
+  function HomeContainerSlotContentView({
+    content,
+    interactive,
+    onProfilerRender,
+    slotKey,
+  }: IHomeContainerSlotContentViewProps) {
+    return (
+      <Profiler id={`slot.${slotKey}`} onRender={onProfilerRender}>
+        <View
+          collapsable={false}
+          pointerEvents={interactive ? 'auto' : 'none'}
+          style={styles.slotContent}
+        >
+          {content}
+        </View>
+      </Profiler>
+    );
+  },
+  (previous, next) =>
+    previous.contentRevision === next.contentRevision &&
+    previous.interactive === next.interactive &&
+    previous.onProfilerRender === next.onProfilerRender &&
+    previous.slotKey === next.slotKey,
+);
+
+const HomeContainerSlotView = memo(function HomeContainerSlotView({
+  active,
+  backgroundColor,
+  onProfilerRender,
+  slot,
+  slotKey,
+  windowWidth,
+}: IHomeContainerSlotViewProps) {
+  const interactive = slot.interaction === 'tap';
+  const authority =
+    slot.authority?.slotId === slotKey ? slot.authority : undefined;
+  return (
+    <HomeContainerSlot
+      ownerScopeKey={authority?.owner.scopeKey ?? ''}
+      ownerSessionId={authority?.owner.sessionId ?? ''}
+      producedByStoreCommitId={authority?.producedByStoreCommitId ?? -1}
+      slotKey={active ? slotKey : ''}
+      slotRevision={authority?.slotRevision ?? -1}
+      testID={`HomeContainer.Slot.${slotKey}`}
+      pointerEvents={active && interactive ? 'auto' : 'none'}
+      style={[
+        styles.slot,
+        getSlotLayoutStyle(slotKey),
+        getSlotWidthStyle(slotKey, windowWidth),
+        slot.height === undefined ? undefined : { height: slot.height },
+        { backgroundColor },
+        active ? undefined : styles.inactiveSlot,
+      ]}
+    >
+      <HomeContainerSlotContentView
+        content={slot.content}
+        contentRevision={slot.contentRevision}
+        interactive={interactive}
+        onProfilerRender={onProfilerRender}
+        slotKey={slotKey}
+      />
+    </HomeContainerSlot>
+  );
+});
+
 const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
   (
     {
@@ -203,6 +294,7 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
       onVisibleTabChange,
       onRenderError,
       onIntent,
+      onProfilerRender,
     },
     ref,
   ) => {
@@ -249,6 +341,8 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
     onRenderErrorRef.current = onRenderError;
     const onIntentRef = useRef(onIntent);
     onIntentRef.current = onIntent;
+    const onProfilerRenderRef = useRef(onProfilerRender);
+    onProfilerRenderRef.current = onProfilerRender;
 
     const stableOnAction = useCallback(
       (actionId: string, itemId: string, tabId: string) => {
@@ -268,6 +362,19 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
     const stableOnIntent = useCallback((intentJson: string) => {
       onIntentRef.current?.(intentJson);
     }, []);
+    const stableOnProfilerRender = useCallback<ProfilerOnRenderCallback>(
+      (id, phase, actualDuration, baseDuration, startTime, commitTime) => {
+        onProfilerRenderRef.current?.(
+          id,
+          phase,
+          actualDuration,
+          baseDuration,
+          startTime,
+          commitTime,
+        );
+      },
+      [],
+    );
 
     const hasOnAction = Boolean(onAction);
     const hasOnRefresh = Boolean(onRefresh);
@@ -385,53 +492,42 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
         },
       );
       return values.map(({ key, slot }) => {
-        const interactive = slot.interaction === 'tap';
-        const authority =
-          slot.authority?.slotId === key ? slot.authority : undefined;
         return (
-          <HomeContainerSlot
+          <HomeContainerSlotView
             key={key}
-            ownerScopeKey={authority?.owner.scopeKey ?? ''}
-            ownerSessionId={authority?.owner.sessionId ?? ''}
-            producedByStoreCommitId={authority?.producedByStoreCommitId ?? -1}
+            active={slotBundle?.phase !== 'owner-transition'}
+            backgroundColor={resolvedBackgroundColor}
+            onProfilerRender={stableOnProfilerRender}
+            slot={slot}
             slotKey={key}
-            slotRevision={authority?.slotRevision ?? -1}
-            testID={`HomeContainer.Slot.${key}`}
-            pointerEvents={interactive ? 'auto' : 'none'}
-            style={[
-              styles.slot,
-              getSlotLayoutStyle(key),
-              getSlotWidthStyle(key, windowWidth),
-              slot.height === undefined ? undefined : { height: slot.height },
-              { backgroundColor: resolvedBackgroundColor },
-            ]}
-          >
-            <View
-              collapsable={false}
-              pointerEvents={interactive ? 'auto' : 'none'}
-              style={styles.slotContent}
-            >
-              {slot.content}
-            </View>
-          </HomeContainerSlot>
+            windowWidth={windowWidth}
+          />
         );
       });
-    }, [resolvedBackgroundColor, resolvedSlots, windowWidth]);
+    }, [
+      resolvedBackgroundColor,
+      resolvedSlots,
+      slotBundle?.phase,
+      stableOnProfilerRender,
+      windowWidth,
+    ]);
 
     return (
       <HomeContainerSurface style={style} testID={testID}>
-        <HomeContainerHost
-          initialSnapshotJson={initialSnapshotJsonRef.current}
-          backgroundColor={resolvedBackgroundColor}
-          debugOverlayEnabled={debugOverlayEnabled}
-          style={styles.engine}
-          onAction={onActionCallback}
-          onRefresh={onRefreshCallback}
-          onVisibleTabChange={onVisibleTabChangeCallback}
-          onRenderError={onRenderErrorCallback}
-          onIntent={onIntentCallback}
-          hybridRef={hybridRefCallback}
-        />
+        <Profiler id="nativeHost" onRender={stableOnProfilerRender}>
+          <HomeContainerHost
+            initialSnapshotJson={initialSnapshotJsonRef.current}
+            backgroundColor={resolvedBackgroundColor}
+            debugOverlayEnabled={debugOverlayEnabled}
+            style={styles.engine}
+            onAction={onActionCallback}
+            onRefresh={onRefreshCallback}
+            onVisibleTabChange={onVisibleTabChangeCallback}
+            onRenderError={onRenderErrorCallback}
+            onIntent={onIntentCallback}
+            hybridRef={hybridRefCallback}
+          />
+        </Profiler>
         {slotViews}
       </HomeContainerSurface>
     );

@@ -725,17 +725,55 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       },
     ): Promise<IReloadActiveAccountInfoResult> => {
       const { num, selectedAccount } = payload;
+      const requestedAt = performance.now();
       const expectedSelectionRevision =
         payload.selectionRevision ??
         get(accountSelectorSelectionRevisionsAtom())[num] ??
         0;
       return this.mutex.runExclusive(async () => {
+        const enteredMutexAt = performance.now();
         const { serviceAccountSelector } = backgroundApiProxy;
         // console.log('buildActiveAccountInfoFromSelectedAccount', {
         // selectedAccount,
         // });
         const currentActiveAccount =
           get(activeAccountsAtom())?.[num] || defaultActiveAccountInfo();
+        const logFunctionTiming = ({
+          functionName,
+          durationMs,
+          outcome,
+          activeAccount = currentActiveAccount,
+        }: {
+          functionName: string;
+          durationMs: number;
+          outcome?: string;
+          activeAccount?: IAccountSelectorActiveAccountInfo;
+        }) => {
+          defaultLogger.accountSelector.switchPerf.functionTiming({
+            functionName,
+            durationMs,
+            num,
+            walletName: activeAccount.wallet?.name,
+            accountName:
+              activeAccount.indexedAccount?.name || activeAccount.account?.name,
+            outcome,
+          });
+        };
+        const logTotal = (
+          outcome: IReloadActiveAccountInfoResult['status'],
+          activeAccount = currentActiveAccount,
+        ) => {
+          logFunctionTiming({
+            functionName: 'reloadActiveAccountInfo.total',
+            durationMs: performance.now() - requestedAt,
+            outcome,
+            activeAccount,
+          });
+        };
+        logFunctionTiming({
+          functionName: 'reloadActiveAccountInfo.mutexWait',
+          durationMs: enteredMutexAt - requestedAt,
+        });
         const markActiveAccountInitDone = () => {
           set(accountSelectorActiveAccountInitDoneAtom(), {
             ...get(accountSelectorActiveAccountInitDoneAtom()),
@@ -758,6 +796,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           );
         };
         if (!isCurrentSelection()) {
+          logTotal('stale');
           return {
             status: 'stale',
           };
@@ -770,12 +809,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           })
         ) {
           markActiveAccountInitDone();
+          logTotal('keptCurrent');
           return {
             status: 'keptCurrent',
             activeAccount: currentActiveAccount,
           };
         }
         let activeAccount: IAccountSelectorActiveAccountInfo | undefined;
+        const buildStartedAt = performance.now();
+        let buildOutcome = 'success';
         try {
           ({ activeAccount } =
             await serviceAccountSelector.buildActiveAccountInfoFromSelectedAccount(
@@ -784,27 +826,43 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               },
             ));
         } catch (_error) {
+          buildOutcome = 'errorFallback';
           //
           activeAccount = {
             ...defaultActiveAccountInfo(),
             ready: true,
           };
         }
+        logFunctionTiming({
+          functionName:
+            'serviceAccountSelector.buildActiveAccountInfoFromSelectedAccount',
+          durationMs: performance.now() - buildStartedAt,
+          outcome: buildOutcome,
+          activeAccount,
+        });
         // console.log('buildActiveAccountInfoFromSelectedAccount update state', {
         //   selectedAccount,
         //   activeAccount,
         // });
         if (!isCurrentSelection()) {
+          logTotal('stale', activeAccount);
           return {
             status: 'stale',
           };
         }
+        const commitStartedAt = performance.now();
         const newActiveAccounts = {
           ...get(activeAccountsAtom()),
           [num]: activeAccount,
         };
         set(activeAccountsAtom(), newActiveAccounts);
         markActiveAccountInitDone();
+        logFunctionTiming({
+          functionName: 'reloadActiveAccountInfo.commitActiveAccountAtoms',
+          durationMs: performance.now() - commitStartedAt,
+          outcome: 'committed',
+          activeAccount,
+        });
         const sceneInfo = get(accountSelectorContextDataAtom());
         const selectedAccounts = get(selectedAccountsAtom());
         const updateMeta = get(accountSelectorUpdateMetaAtom());
@@ -829,6 +887,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             networkId: activeAccount.network.id,
           });
         }
+        logTotal('committed', activeAccount);
         return {
           status: 'committed',
           activeAccount,
@@ -1583,6 +1642,26 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         autoChangeToAccountMatchedNetworkId,
         forceSelectToNetworkId,
       } = params;
+      const confirmStartedAt = performance.now();
+      const currentActiveAccount = get(activeAccountsAtom())?.[num];
+      const logConfirmTiming = (
+        functionName: string,
+        startedAt: number,
+        outcome?: string,
+      ) => {
+        defaultLogger.accountSelector.switchPerf.functionTiming({
+          functionName,
+          durationMs: performance.now() - startedAt,
+          num,
+          walletName: currentActiveAccount?.wallet?.name,
+          accountName:
+            indexedAccount?.name ||
+            othersWalletAccount?.name ||
+            currentActiveAccount?.indexedAccount?.name ||
+            currentActiveAccount?.account?.name,
+          outcome,
+        });
+      };
       if (othersWalletAccount && indexedAccount) {
         throw new OneKeyLocalError(
           'confirmSelectAccount ERROR: othersWalletAccount and indexedAccount can not be both defined',
@@ -1637,6 +1716,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         networkUtils.isAllNetwork({ networkId: targetNetworkId }) &&
         !accountUtils.isOthersWallet({ walletId })
       ) {
+        const fallbackStartedAt = performance.now();
         try {
           const fallbackNetworkId =
             await backgroundApiProxy.serviceAllNetwork.getAllNetworksFallbackNetworkId(
@@ -1650,6 +1730,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         } catch {
           // keep the All Networks selection if the check fails
         }
+        logConfirmTiming(
+          'serviceAllNetwork.getAllNetworksFallbackNetworkId',
+          fallbackStartedAt,
+          resolvedNetworkId === accountNetworkId ? 'unchanged' : 'fallback',
+        );
       }
 
       // A newer selection may have started while the fallback query was in
@@ -1659,6 +1744,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         this.confirmAccountSelectLatestRequestIdMap.get(confirmRequestKey) !==
         confirmRequestId
       ) {
+        logConfirmTiming(
+          'confirmAccountSelect.total',
+          confirmStartedAt,
+          'stale',
+        );
         return;
       }
 
@@ -1704,6 +1794,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           ) &&
           !isEmpty(newSelectedAccount)
         ) {
+          const fastCommitStartedAt = performance.now();
           this.setSelectedAccountsAtom(
             set,
             (v) => ({
@@ -1720,8 +1811,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               updatedAt: Date.now(),
             },
           }));
+          logConfirmTiming(
+            'confirmAccountSelect.commitSelectedAccountAtoms',
+            fastCommitStartedAt,
+            'fast',
+          );
         }
       } else {
+        const updateSelectedStartedAt = performance.now();
         await this.updateSelectedAccount.call(set, {
           activeAccountReload:
             activeAccountReloadMode ===
@@ -1740,12 +1837,18 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             indexedAccountId: indexedAccount?.id,
           }),
         });
+        logConfirmTiming(
+          'updateSelectedAccount',
+          updateSelectedStartedAt,
+          'networkChanged',
+        );
       }
       if (
         didCommitFastConfirm &&
         activeAccountReloadMode ===
           EAccountSelectorActiveAccountReloadMode.Immediate
       ) {
+        const reloadRequestStartedAt = performance.now();
         this.setImmediateActiveAccountReloadRequest({
           num,
           reason: 'accountSelect',
@@ -1754,6 +1857,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           selectedAccount: newSelectedAccount,
           set,
         });
+        logConfirmTiming(
+          'setImmediateActiveAccountReloadRequest',
+          reloadRequestStartedAt,
+          'scheduled',
+        );
       }
 
       const sceneInfo = get(accountSelectorContextDataAtom());
@@ -1803,6 +1911,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         indexedAccountId: indexedAccount?.id,
         othersWalletAccountId: othersWalletAccount?.id,
       });
+      logConfirmTiming(
+        'confirmAccountSelect.total',
+        confirmStartedAt,
+        didCommitFastConfirm ? 'fast' : 'networkChanged',
+      );
     },
   );
 
@@ -1823,13 +1936,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       } & IAccountSelectorRouteParams &
         IAccountSelectorRouteParamsExtraConfig,
     ) => {
-      defaultLogger.accountSelector.perf.showAccountSelector({
-        num,
-        sceneName,
-        sceneUrl,
-      });
-
       const activeAccountInfo = this.getActiveAccount.call(set, { num });
+      defaultLogger.accountSelector.switchPerf.lifecycle({
+        stage: 'openRequested',
+        num,
+        walletName: activeAccountInfo?.wallet?.name,
+        accountName:
+          activeAccountInfo?.indexedAccount?.name ||
+          activeAccountInfo?.account?.name,
+      });
 
       // In dapp mode, show the connect-wallet options whenever there is no
       // connected account. Key on the account (not the wallet record): a

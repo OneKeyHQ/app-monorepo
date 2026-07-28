@@ -10,6 +10,7 @@ export {
   useHomeDisplaySnapshotLoadState,
   useHomeEnvironmentInputs,
   useHomeFacts,
+  useHomeHeaderPresentation,
   useHomeInteraction,
   useHomeNavigation,
   useHomeResource,

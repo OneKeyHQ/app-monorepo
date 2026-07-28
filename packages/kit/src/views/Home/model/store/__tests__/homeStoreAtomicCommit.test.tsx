@@ -13,9 +13,13 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/home';
 import {
   dispatchHomeStoreEventsAtomically,
+  dispatchHomeStoreEventsTransaction,
   useHomeStoreInternalActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/home/actions';
 import {
+  homeCommitIdentityState,
+  homeHeaderPresentationState,
+  homeSessionState,
   homeShellState,
   resourceStates,
   sectionStates,
@@ -175,6 +179,251 @@ describe('Home Store atomic dispatcher', () => {
         header: { balance: { amount: '42.50', currency: 'usd' } },
       },
     });
+  });
+
+  it('publishes the replacement owner and its account presentation atomically', () => {
+    const store = createStore();
+    const observedFrames: Array<{
+      accountName: string;
+      sessionId?: string;
+    }> = [];
+    const unsubscribe = store.sub(homeSessionState.atom(), () => {
+      observedFrames.push({
+        accountName: store.get(homeHeaderPresentationState.atom()).account
+          .accountName,
+        sessionId: store.get(homeSessionState.atom()).ownerToken?.sessionId,
+      });
+    });
+
+    dispatchHomeStoreEventsTransaction.call(store.set, {
+      events: [
+        {
+          type: 'ownerChanged',
+          owner: {
+            walletId: 'wallet-header',
+            accountId: 'account-header',
+            network: { kind: 'allNetworks' },
+          },
+          ownerToken: {
+            scopeKey: 'owner-header',
+            sessionId: 'session-header',
+          },
+          headerAccountPresentation: {
+            accountName: 'Account Header',
+            compatibleNetworks: [],
+            compatibleNetworksReady: true,
+            compatibleNetworksWithoutAccountCount: 0,
+            copyDisabled: false,
+            isAccountSelectorSyncLoading: false,
+            isAllNetworks: true,
+            isOthersWallet: false,
+            ready: true,
+          },
+          topology: 'split',
+        },
+      ],
+    });
+    unsubscribe();
+
+    expect(observedFrames).toEqual([
+      {
+        accountName: 'Account Header',
+        sessionId: 'session-header',
+      },
+    ]);
+    expect(
+      store.get(homeHeaderPresentationState.atom()).accountPresentationRevision,
+    ).toBe(1);
+  });
+
+  it('rejects stale account presentation updates without replacing the view model', () => {
+    const store = createStore();
+    const ownerToken = {
+      scopeKey: 'owner-current',
+      sessionId: 'session-current',
+    };
+    dispatchHomeStoreEventsAtomically(store.get, store.set, {
+      events: [
+        {
+          type: 'ownerChanged',
+          owner: {
+            walletId: 'wallet-current',
+            accountId: 'account-current',
+            network: { kind: 'allNetworks' },
+          },
+          ownerToken,
+          headerAccountPresentation: {
+            accountName: 'Current Account',
+            compatibleNetworks: [],
+            compatibleNetworksReady: false,
+            compatibleNetworksWithoutAccountCount: 0,
+            copyDisabled: false,
+            isAccountSelectorSyncLoading: false,
+            isAllNetworks: true,
+            isOthersWallet: false,
+            ready: true,
+          },
+          topology: 'split',
+        },
+      ],
+    });
+    const commitId = store.get(homeCommitIdentityState.atom()).storeCommitId;
+    const effects = dispatchHomeStoreEventsAtomically(store.get, store.set, {
+      events: [
+        {
+          type: 'headerAccountPresentationChanged',
+          ownerToken: {
+            scopeKey: 'owner-stale',
+            sessionId: 'session-stale',
+          },
+          presentation: {
+            accountName: 'Stale Account',
+            compatibleNetworks: [],
+            compatibleNetworksReady: true,
+            compatibleNetworksWithoutAccountCount: 0,
+            copyDisabled: false,
+            isAccountSelectorSyncLoading: false,
+            isAllNetworks: true,
+            isOthersWallet: false,
+            ready: true,
+          },
+        },
+      ],
+    });
+
+    expect(effects).toEqual([
+      expect.objectContaining({
+        kind: 'traceReject',
+        reason: 'ownerMismatch',
+      }),
+    ]);
+    expect(
+      store.get(homeHeaderPresentationState.atom()).account.accountName,
+    ).toBe('Current Account');
+    expect(store.get(homeCommitIdentityState.atom()).storeCommitId).toBe(
+      commitId + 1,
+    );
+  });
+
+  it('does not publish an unchanged account presentation', () => {
+    const store = createStore();
+    const ownerToken = {
+      scopeKey: 'owner-stable',
+      sessionId: 'session-stable',
+    };
+    const presentation = {
+      accountName: 'Stable Account',
+      compatibleNetworks: [],
+      compatibleNetworksReady: true,
+      compatibleNetworksWithoutAccountCount: 0,
+      copyDisabled: false,
+      isAccountSelectorSyncLoading: false,
+      isAllNetworks: true,
+      isOthersWallet: false,
+      ready: true,
+    };
+    dispatchHomeStoreEventsAtomically(store.get, store.set, {
+      events: [
+        {
+          type: 'ownerChanged',
+          owner: {
+            walletId: 'wallet-stable',
+            accountId: 'account-stable',
+            network: { kind: 'allNetworks' },
+          },
+          ownerToken,
+          headerAccountPresentation: presentation,
+          topology: 'split',
+        },
+      ],
+    });
+    const commitId = store.get(homeCommitIdentityState.atom()).storeCommitId;
+
+    dispatchHomeStoreEventsAtomically(store.get, store.set, {
+      events: [
+        {
+          type: 'headerAccountPresentationChanged',
+          ownerToken,
+          presentation,
+        },
+      ],
+    });
+
+    expect(store.get(homeCommitIdentityState.atom()).storeCommitId).toBe(
+      commitId,
+    );
+    expect(
+      store.get(homeHeaderPresentationState.atom()).accountPresentationRevision,
+    ).toBe(1);
+  });
+
+  it('publishes external runtime dispatches as one Jotai transaction', () => {
+    const store = createStore();
+    const observedFrames: Array<{
+      sessionId?: string;
+      shellKind: IHomeStoreState['shell']['value']['kind'];
+    }> = [];
+    const unsubscribe = store.sub(homeSessionState.atom(), () => {
+      observedFrames.push({
+        sessionId: store.get(homeSessionState.atom()).ownerToken?.sessionId,
+        shellKind: store.get(homeShellState.atom()).value.kind,
+      });
+    });
+
+    dispatchHomeStoreEventsTransaction.call(store.set, {
+      displaySnapshotLoadState: {
+        ownerScopeKey: 'owner-runtime',
+        sessionId: 'session-runtime',
+        status: 'hit',
+      },
+      events: [
+        {
+          type: 'ownerChanged',
+          owner: {
+            walletId: 'wallet-runtime',
+            accountId: 'account-runtime',
+            network: { kind: 'allNetworks' },
+          },
+          ownerToken: {
+            scopeKey: 'owner-runtime',
+            sessionId: 'session-runtime',
+          },
+          topology: 'split',
+        },
+        {
+          type: 'displaySnapshotHydrated',
+          ownerScopeKey: 'owner-runtime',
+          sessionId: 'session-runtime',
+          records: [],
+          shell: {
+            kind: 'portfolio',
+            presentation: {
+              kind: 'funded',
+              header: {
+                kind: 'funded',
+                authority: 'confirmedCache',
+                balance: { amount: '42.50', currency: 'usd' },
+              },
+              actions: {
+                kind: 'funded',
+                items: ['send', 'receive', 'buySell', 'swap'],
+              },
+              banner: { kind: 'none' },
+              freshness: 'confirmedCache',
+              refresh: 'refreshing',
+            },
+          },
+        },
+      ],
+    });
+    unsubscribe();
+
+    expect(observedFrames).toEqual([
+      {
+        sessionId: 'session-runtime',
+        shellKind: 'portfolio',
+      },
+    ]);
   });
 
   it('preserves the same Store session and commit across parent rerenders', () => {

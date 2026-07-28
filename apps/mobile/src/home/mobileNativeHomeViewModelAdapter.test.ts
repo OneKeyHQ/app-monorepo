@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import {
+  buildMobileNativeHomeLoadingSections,
   buildMobileNativeHomeViewModelSections,
   resolveMobileNativeHomeActionLayout,
   resolveMobileNativeHomeActionRowHeight,
@@ -53,6 +54,20 @@ const presentation = {
 };
 
 describe('mobileNativeHomeViewModelAdapter', () => {
+  it('builds a native-only skeleton for a tab before its first activation', () => {
+    expect(buildMobileNativeHomeLoadingSections('defi')).toEqual([
+      {
+        id: 'defi-activation-loading',
+        items: Array.from({ length: 5 }, (_, index) => ({
+          id: `defi-activation-loading-${index}`,
+          displayHeight: 68,
+          renderer: 'loading',
+          title: '',
+        })),
+      },
+    ]);
+  });
+
   it('shows funded actions before the final balance total settles', () => {
     expect(
       resolveMobileNativeHomeActionLayout({

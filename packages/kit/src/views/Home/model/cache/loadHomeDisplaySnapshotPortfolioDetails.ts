@@ -19,7 +19,7 @@ export async function loadHomeDisplaySnapshotPortfolioDetailsForOwner({
   const details = context
     ? await loadHomeDisplaySnapshotPortfolioDetails({ context })
     : undefined;
-  defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
+  defaultLogger.wallet.homeSnapshotPerf.event({
     stage: 'lazyChunk',
     outcome: details ? 'hit' : 'miss',
     partitionTag,

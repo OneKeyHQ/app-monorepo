@@ -4,6 +4,9 @@ import { useIntl } from 'react-intl';
 
 import { Toast, rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
+import { useUnifiedNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useUnifiedNetworkSelectorTrigger';
+import { useAccountSelectorCopyAddress } from '@onekeyhq/kit/src/components/AccountSelector/useAccountSelectorCopyAddress';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useWalletBanner } from '@onekeyhq/kit/src/hooks/useWalletBanner';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -144,9 +147,22 @@ export function useHomeCommandExecutor(runtime: HomeStoreRuntime) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const navigateToMarketTab = useNavigateToMarketTab();
-  const {
-    activeAccount: { account, indexedAccount, network, wallet },
-  } = useActiveAccount({ num: 0 });
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { account, indexedAccount, network, vaultSettings, wallet } =
+    activeAccount;
+  const { showAccountSelector } = useAccountSelectorTrigger({
+    num: 0,
+    showConnectWalletModalInDappMode: true,
+    linkNetwork: !network?.isAllNetworks,
+    linkNetworkId: !network?.isAllNetworks ? network?.id : undefined,
+    hideAddress: vaultSettings?.mergeDeriveAssetsEnabled,
+    keepAllOtherAccounts: true,
+    allowSelectEmptyAccount: true,
+  });
+  const { showUnifiedNetworkSelector } = useUnifiedNetworkSelectorTrigger({
+    num: 0,
+  });
+  const { copyAddress } = useAccountSelectorCopyAddress({ activeAccount });
   const [settings] = useSettingsPersistAtom();
   const { handleBannerOnPress } = useWalletBanner({ account, network, wallet });
   const deferredTimersRef = useRef(new Set<ReturnType<typeof setTimeout>>());
@@ -189,6 +205,30 @@ export function useHomeCommandExecutor(runtime: HomeStoreRuntime) {
           : undefined;
       };
 
+      if (
+        intent.type === 'headerActionInvoked' &&
+        intent.actionId === HOME_SHELL_ACTION_IDS.accountSelector
+      ) {
+        showAccountSelector();
+        return;
+      }
+      if (
+        intent.type === 'headerActionInvoked' &&
+        intent.actionId === HOME_SHELL_ACTION_IDS.copyAddress
+      ) {
+        await copyAddress();
+        return;
+      }
+      if (
+        intent.type === 'headerActionInvoked' &&
+        intent.actionId === HOME_SHELL_ACTION_IDS.networkSelector
+      ) {
+        showUnifiedNetworkSelector({
+          recordNetworkHistoryEnabled: true,
+          defaultTab: network?.isAllNetworks ? 'portfolio' : undefined,
+        });
+        return;
+      }
       if (
         intent.type === 'headerActionInvoked' &&
         intent.actionId === HOME_SHELL_ACTION_IDS.balance
@@ -688,6 +728,7 @@ export function useHomeCommandExecutor(runtime: HomeStoreRuntime) {
     },
     [
       account,
+      copyAddress,
       handleBannerOnPress,
       indexedAccount?.id,
       intl,
@@ -696,6 +737,8 @@ export function useHomeCommandExecutor(runtime: HomeStoreRuntime) {
       network,
       runtime,
       settings.currencyInfo.symbol,
+      showAccountSelector,
+      showUnifiedNetworkSelector,
       wallet,
     ],
   );

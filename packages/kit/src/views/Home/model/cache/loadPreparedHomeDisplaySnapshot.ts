@@ -27,7 +27,7 @@ export async function loadPreparedHomeDisplaySnapshot({
   const partitionTag = getHomeDisplaySnapshotPartitionTag(ownerScopeKey);
   const cached = getPreparedHomeDisplaySnapshot(ownerScopeKey);
   if (cached) {
-    defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
+    defaultLogger.wallet.homeSnapshotPerf.event({
       stage: 'preparedMemory',
       outcome: 'hit',
       partitionTag,
@@ -39,7 +39,7 @@ export async function loadPreparedHomeDisplaySnapshot({
     });
     return cached;
   }
-  defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
+  defaultLogger.wallet.homeSnapshotPerf.event({
     stage: 'preparedMemory',
     outcome: 'miss',
     partitionTag,
@@ -50,7 +50,7 @@ export async function loadPreparedHomeDisplaySnapshot({
   });
   const context = await loadHomeDisplaySnapshotManifest({ ownerScopeKey });
   if (!context) {
-    defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
+    defaultLogger.wallet.homeSnapshotPerf.event({
       stage: 'preparedStorage',
       outcome: 'miss',
       partitionTag,
@@ -70,7 +70,7 @@ export async function loadPreparedHomeDisplaySnapshot({
     records,
   });
   if (!shell) {
-    defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
+    defaultLogger.wallet.homeSnapshotPerf.event({
       stage: 'preparedStorage',
       outcome: 'miss',
       partitionTag,
@@ -92,7 +92,7 @@ export async function loadPreparedHomeDisplaySnapshot({
     snapshot,
   );
   if (evictedOwnerScopeKey) {
-    defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
+    defaultLogger.wallet.homeSnapshotPerf.event({
       stage: 'preparedMemory',
       outcome: 'evicted',
       partitionTag: getHomeDisplaySnapshotPartitionTag(evictedOwnerScopeKey),
@@ -103,7 +103,7 @@ export async function loadPreparedHomeDisplaySnapshot({
       reason: 'capacity',
     });
   }
-  defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
+  defaultLogger.wallet.homeSnapshotPerf.event({
     stage: 'preparedStorage',
     outcome: 'accepted',
     partitionTag,

@@ -29,6 +29,7 @@ import type {
 } from '@onekeyhq/native-components';
 import { SHOW_NFT_AMOUNT_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import { buildAddressMapInfoKey } from '@onekeyhq/shared/src/utils/historyUtils';
@@ -159,6 +160,22 @@ function resolveMobileNativeHomeBodySections({
           title: '',
         },
       ],
+    },
+  ];
+}
+
+function buildMobileNativeHomeLoadingSections(
+  tabId: IHomeContainerTabId,
+): IHomeContainerSection[] {
+  return [
+    {
+      id: `${tabId}-activation-loading`,
+      items: Array.from({ length: 5 }, (_, index) => ({
+        id: `${tabId}-activation-loading-${index}`,
+        displayHeight: 68,
+        renderer: 'loading' as const,
+        title: '',
+      })),
     },
   ];
 }
@@ -426,9 +443,17 @@ function buildPortfolioAssetSections({
   locale: string;
   payload: IHomeSpotLegacyPayload | undefined;
 }): IHomeContainerSection[] {
+  const sortStartedAt = performance.now();
   const sortedTokens = sortTokensByFiatValue({
     tokens: payload?.tokens ?? [],
     map: payload?.tokenListMap ?? {},
+  });
+  defaultLogger.wallet.homeFramePerf.frame({
+    stage: 'functionTiming',
+    functionName: 'sortTokensByFiatValue',
+    durationMs: performance.now() - sortStartedAt,
+    sectionId: 'portfolio',
+    inputCount: payload?.tokens.length ?? 0,
   });
   const smallBalanceTokenCount =
     payload?.smallBalanceTokenCount ?? payload?.smallBalanceTokens.length ?? 0;
@@ -1157,21 +1182,51 @@ export function buildMobileNativeHomeViewModelSections({
   semantic: IHomeSectionSemanticModel;
   isAllNetworks?: boolean;
 }): IHomeContainerSection[] {
+  const functionStartedAt = performance.now();
+  const logResult = (
+    result: IHomeContainerSection[],
+    functionName = 'buildMobileNativeHomeViewModelSections',
+    startedAt = functionStartedAt,
+    inputCount?: number,
+  ) => {
+    defaultLogger.wallet.homeFramePerf.frame({
+      stage: 'functionTiming',
+      functionName,
+      durationMs: performance.now() - startedAt,
+      sectionId,
+      outcome: semantic.kind,
+      inputCount,
+      outputSectionCount: result.length,
+      outputItemCount: result.reduce(
+        (total, section) => total + section.items.length,
+        0,
+      ),
+    });
+    return result;
+  };
+  const measureBuilder = (
+    functionName: string,
+    builder: () => IHomeContainerSection[],
+    inputCount?: number,
+  ) => {
+    const startedAt = performance.now();
+    return logResult(builder(), functionName, startedAt, inputCount);
+  };
   const state = buildStateSection({ labels, sectionId, semantic });
   if (state) {
-    return state;
+    return logResult(state);
   }
   if (
     sectionId === 'history' &&
     semantic.kind === 'ready' &&
     (payloads.history?.data.length ?? 0) === 0
   ) {
-    return (
+    return logResult(
       buildStateSection({
         labels,
         sectionId,
         semantic: { kind: 'empty', emptyState: 'history' },
-      }) ?? []
+      }) ?? [],
     );
   }
   const resolvedExpanded = expanded ?? {
@@ -1181,84 +1236,144 @@ export function buildMobileNativeHomeViewModelSections({
   };
   switch (sectionId) {
     case 'portfolio': {
-      const deFiTotal = getDeFiTotal(payloads.defi);
-      return [
-        ...buildPortfolioAssetSections({
-          allNetworksBadgeImageUrl,
-          expanded: resolvedExpanded.portfolioAssets,
-          isAllNetworks,
-          labels,
-          locale,
-          payload: payloads.portfolio,
-        }),
-        ...(payloads.defi?.protocols.length
-          ? buildDeFiSections({
-              expanded: resolvedExpanded.portfolioDeFi,
+      const deFiPayload = payloads.defi;
+      const deFiTotal = getDeFiTotal(deFiPayload);
+      const assetSections = measureBuilder(
+        'buildPortfolioAssetSections',
+        () =>
+          buildPortfolioAssetSections({
+            allNetworksBadgeImageUrl,
+            expanded: resolvedExpanded.portfolioAssets,
+            isAllNetworks,
+            labels,
+            locale,
+            payload: payloads.portfolio,
+          }),
+        payloads.portfolio?.tokens.length ?? 0,
+      );
+      const deFiSections = deFiPayload?.protocols.length
+        ? measureBuilder(
+            'buildDeFiSections',
+            () =>
+              buildDeFiSections({
+                expanded: resolvedExpanded.portfolioDeFi,
+                formatActionLabel,
+                labels,
+                locale,
+                payload: deFiPayload,
+                sectionTitle: `DeFi · ${formatCurrency(
+                  deFiTotal,
+                  deFiPayload.currency,
+                  locale,
+                )}`,
+                toggleActionId:
+                  MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS.togglePortfolioDeFiExpanded,
+              }),
+            deFiPayload.protocols.length,
+          )
+        : [];
+      const networkLogoMapStartedAt = performance.now();
+      const networkLogoMap = Object.fromEntries(
+        Object.entries(payloads.portfolio?.networksMap ?? {}).flatMap(
+          ([networkId, network]) =>
+            network.logoURI ? [[networkId, network.logoURI]] : [],
+        ),
+      );
+      defaultLogger.wallet.homeFramePerf.frame({
+        stage: 'functionTiming',
+        functionName: 'buildPortfolioNetworkLogoMap',
+        durationMs: performance.now() - networkLogoMapStartedAt,
+        sectionId,
+        inputCount: Object.keys(payloads.portfolio?.networksMap ?? {}).length,
+        outputItemCount: Object.keys(networkLogoMap).length,
+      });
+      const marketSections = measureBuilder(
+        'buildMarketSections',
+        () =>
+          buildMarketSections(
+            payloads.market,
+            labels,
+            locale,
+            networkLogoMap,
+            marketRecommendationState,
+          ),
+        payloads.market?.rows.length ?? 0,
+      );
+      const earnSections = measureBuilder(
+        'buildEarnSections',
+        () => buildEarnSections(payloads.market, labels),
+        payloads.market?.earnRows.length ?? 0,
+      );
+      return logResult([
+        ...assetSections,
+        ...deFiSections,
+        ...marketSections,
+        ...earnSections,
+      ]);
+    }
+    case 'perps':
+      return logResult(
+        measureBuilder(
+          'buildPerpsSections',
+          () =>
+            buildPerpsSections({
+              labels,
+              locale,
+              market: payloads.market,
+              payload: payloads.perps,
+            }),
+          payloads.perps?.view.holdings.length ?? 0,
+        ),
+      );
+    case 'defi':
+      return logResult(
+        measureBuilder(
+          'buildDeFiSections',
+          () =>
+            buildDeFiSections({
+              expanded: resolvedExpanded.defi,
               formatActionLabel,
               labels,
               locale,
               payload: payloads.defi,
-              sectionTitle: `DeFi · ${formatCurrency(
-                deFiTotal,
-                payloads.defi.currency,
-                locale,
-              )}`,
+              sectionTitle,
               toggleActionId:
-                MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS.togglePortfolioDeFiExpanded,
-            })
-          : []),
-        ...buildMarketSections(
-          payloads.market,
-          labels,
-          locale,
-          Object.fromEntries(
-            Object.entries(payloads.portfolio?.networksMap ?? {}).flatMap(
-              ([networkId, network]) =>
-                network.logoURI ? [[networkId, network.logoURI]] : [],
-            ),
-          ),
-          marketRecommendationState,
-        ),
-        ...buildEarnSections(payloads.market, labels),
-      ];
-    }
-    case 'perps':
-      return buildPerpsSections({
-        labels,
-        locale,
-        market: payloads.market,
-        payload: payloads.perps,
-      });
-    case 'defi':
-      return buildDeFiSections({
-        expanded: resolvedExpanded.defi,
-        formatActionLabel,
-        labels,
-        locale,
-        payload: payloads.defi,
-        sectionTitle,
-        toggleActionId:
-          MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS.toggleDeFiExpanded,
-      });
-    case 'nft':
-      return buildNFTSections(
-        payloads.nft,
-        Object.fromEntries(
-          Object.entries(payloads.portfolio?.networksMap ?? {}).flatMap(
-            ([networkId, network]) =>
-              network.logoURI ? [[networkId, network.logoURI]] : [],
-          ),
+                MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS.toggleDeFiExpanded,
+            }),
+          payloads.defi?.protocols.length ?? 0,
         ),
       );
+    case 'nft': {
+      const networkLogoMap = Object.fromEntries(
+        Object.entries(payloads.portfolio?.networksMap ?? {}).flatMap(
+          ([networkId, network]) =>
+            network.logoURI ? [[networkId, network.logoURI]] : [],
+        ),
+      );
+      return logResult(
+        measureBuilder(
+          'buildNFTSections',
+          () => buildNFTSections(payloads.nft, networkLogoMap),
+          payloads.nft?.data.length ?? 0,
+        ),
+      );
+    }
     case 'history':
-      return buildHistorySections(
-        payloads.history,
-        labels,
-        locale,
-        isAllNetworks,
+      return logResult(
+        measureBuilder(
+          'buildHistorySections',
+          () =>
+            buildHistorySections(
+              payloads.history,
+              labels,
+              locale,
+              isAllNetworks,
+            ),
+          payloads.history?.data.length ?? 0,
+        ),
       );
     default:
-      return [];
+      return logResult([]);
   }
 }
 
@@ -1268,6 +1383,7 @@ export {
   MOBILE_NATIVE_HOME_MARKET_ACTION_IDS,
   MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS,
   MOBILE_NATIVE_HOME_STANDARD_ACTION_ROW_HEIGHT,
+  buildMobileNativeHomeLoadingSections,
   getDeFiTotal,
   resolveMobileNativeHomeActionLayout,
   resolveMobileNativeHomeActionRowHeight,

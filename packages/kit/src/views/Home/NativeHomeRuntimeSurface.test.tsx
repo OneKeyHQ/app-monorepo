@@ -149,15 +149,26 @@ describe('Native Home runtime surface', () => {
     );
     expect(mobileRendererSource).toContain('shell.bodyPresentationRevision,');
     expect(mobileRendererSource).toMatch(
-      /balance:\s*\{\s*interaction:\s*'tap',\s*authority:\s*runtime\.authority\([\s\S]*?content:\s*\(\s*<HomeOverviewContainer\s+nativeSlot/,
+      /balance:\s*\{\s*interaction:\s*'tap',\s*authority:\s*runtime\.authority\([\s\S]*?content:\s*\(\s*<HomeBalanceSlotView/,
     );
+    expect(mobileRendererSource).not.toContain('<HomeOverviewContainer');
     expect(mobileRendererSource).toContain('<MemoHomeTabSearchHeader />');
     expect(mobileRendererSource).toContain('<WalletActions');
     expect(mobileRendererSource).toContain(
       'function MobileNativeHomeActionRowSkeleton()',
     );
     expect(mobileRendererSource).toContain(
-      "header.actionLayout === 'loading' ?",
+      "header.actionLayout === 'loading' ||",
+    );
+    expect(mobileRendererSource).toContain('deferHeavyWorkUntilUIIdle');
+    expect(mobileRendererSource).toContain(
+      'MobileNativeHomeActionRowActivation.release',
+    );
+    expect(mobileRendererSource).toContain(
+      'useAccountSelectorActiveAccountReloadRequestsAtom',
+    );
+    expect(mobileRendererSource).toContain(
+      'const MobileNativeHomeWalletActions = memo(',
     );
     expect(mobileRendererSource).toContain(
       'testID={HomeTestIDs.walletActionsSkeleton}',
@@ -198,8 +209,9 @@ describe('Native Home runtime surface', () => {
     expect(mobileRendererSource).toContain('value={displayedLp}');
     expect(mobileRendererSource).toContain('height: header.actionRowHeight');
     expect(mobileRendererSource).toContain(
-      'this.revisionState.slotRevisions = collectSlotRevisions(merged);',
+      'slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,',
     );
+    expect(mobileRendererSource).toContain('slots: merged,');
     expect(mobileRendererSource).toContain(
       'const MobileNativeHomePortfolioBridge = memo(',
     );
@@ -207,7 +219,22 @@ describe('Native Home runtime surface', () => {
       'const MobileNativeHomeNFTBridge = memo(',
     );
     expect(mobileRendererSource).toContain(
-      '<MobileNativeHomeHistoryBridge runtime={runtime} />',
+      'const MOBILE_NATIVE_HOME_INITIAL_ACTIVATED_TAB_IDS',
+    );
+    expect(mobileRendererSource).toContain("activatedTabIds.has('perps') ?");
+    expect(mobileRendererSource).toContain("activatedTabIds.has('history') ?");
+    expect(mobileRendererSource).toContain(
+      'onVisibleTabChange={handleVisibleTabChange}',
+    );
+    expect(mobileRendererSource).toContain(
+      'buildMobileNativeHomeLoadingSections(tabId)',
+    );
+    expect(iosNativeSource).toContain('onVisibleTabChange?(nextTabId)');
+    expect(androidNativeSource).toContain(
+      'onVisibleTabChange?.invoke(targetTab.id)',
+    );
+    expect(mobileRendererSource).toMatch(
+      /<MobileNativeHomeHistoryBridge[\s\S]*?runtime=\{runtime\}[\s\S]*?\/>/,
     );
     expect(mobileViewModelAdapterSource).toContain("renderer: 'history'");
     expect(mobileViewModelAdapterSource).toContain("renderer: 'market'");

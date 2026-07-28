@@ -12,6 +12,7 @@ import {
   useHomeShell,
 } from '@onekeyhq/kit/src/states/jotai/contexts/home';
 import type { IJotaiContextStore } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { loadPreparedHomeDisplaySnapshot } from '../cache/loadPreparedHomeDisplaySnapshot';
 
@@ -20,6 +21,7 @@ import { HomeStoreRuntime } from './homeRuntimeLease';
 import type { IPreparedHomeDisplaySnapshot } from '../cache/loadPreparedHomeDisplaySnapshot.types';
 
 const mockCancelSourceSession = jest.fn();
+const mockDeferAutomaticReconcileUntilCachedFrame = jest.fn();
 
 jest.mock('../cache/loadPreparedHomeDisplaySnapshot', () => ({
   loadPreparedHomeDisplaySnapshot: jest.fn(),
@@ -47,6 +49,8 @@ jest.mock('../persistence/homePersistenceRuntime', () => ({
 jest.mock('../sources/homeSourceRuntime', () => ({
   HomeSourceRuntime: jest.fn(() => ({
     cancelSession: mockCancelSourceSession,
+    deferAutomaticReconcileUntilCachedFrame:
+      mockDeferAutomaticReconcileUntilCachedFrame,
     dispose: jest.fn(),
   })),
 }));
@@ -77,11 +81,19 @@ function Probe({ probe }: { probe: IProbe }) {
 }
 
 describe('HomeStoreRuntime prepared owner transition', () => {
+  const originalIsNativeIOS = platformEnv.isNativeIOS;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    platformEnv.isNativeIOS = originalIsNativeIOS;
+  });
+
+  afterAll(() => {
+    platformEnv.isNativeIOS = originalIsNativeIOS;
   });
 
   it('installs a synchronous cache hit in the owner replacement commit', () => {
+    platformEnv.isNativeIOS = true;
     const prepared = {
       context: {},
       navigation: {
@@ -178,6 +190,9 @@ describe('HomeStoreRuntime prepared owner transition', () => {
       bannerKind: 'ready',
       shellKind: 'portfolio',
     });
+    expect(mockDeferAutomaticReconcileUntilCachedFrame).toHaveBeenCalledWith(
+      state.session.ownerToken?.sessionId,
+    );
     runtime.dispose();
   });
 

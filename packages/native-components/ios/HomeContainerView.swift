@@ -1450,6 +1450,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     if notify, didChangeTab {
       emitTabSelection(tabId: nextTabId)
     }
+    onVisibleTabChange?(nextTabId)
     if let pendingSelection = tabSelectionQueue.takePending(),
        pendingSelection.tabId != nextTabId {
       moveToTab(
@@ -1794,10 +1795,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   }
 
   private func emitTabSelection(tabId: String) {
-    guard let currentState = renderedProtocolV3State else {
-      onVisibleTabChange?(tabId)
-      return
-    }
+    guard let currentState = renderedProtocolV3State else { return }
     guard currentState.snapshot.tabs.contains(where: {
       $0.id == tabId && $0.destination == .inline
     }) else {

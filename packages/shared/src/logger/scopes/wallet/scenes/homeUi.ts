@@ -121,6 +121,7 @@ export class HomeUiScene extends BaseScene {
     cacheEntryCount?: number;
     cacheCapacity?: number;
     memoryCacheInvalidated?: boolean;
+    memoryCacheRefreshed?: boolean;
     reason?:
       | 'manifestMissing'
       | 'loadingShell'

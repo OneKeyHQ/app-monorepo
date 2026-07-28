@@ -167,6 +167,7 @@ function assertHomeSourceRequestActive(signal: AbortSignal): void {
 }
 
 const FIRST_FRAME_WARM_DELAY_MS = 800;
+const CACHED_FRAME_BARRIER_MAX_DELAY_MS = 500;
 
 function createSourceRequestToken({
   authority,
@@ -352,6 +353,12 @@ export class HomeSourceRuntime {
 
   private tokenListDemandKey = '';
 
+  private cachedFrameBarrierSessionId: string | undefined;
+
+  private cachedFrameBarrierGeneration = 0;
+
+  private cachedFrameBarrierTimeout: ReturnType<typeof setTimeout> | undefined;
+
   private disposed = false;
 
   constructor(private readonly host: IHomeSourceRuntimeHost) {
@@ -406,6 +413,9 @@ export class HomeSourceRuntime {
     if (this.disposed || !this.environment) {
       return;
     }
+    if (this.cachedFrameBarrierSessionId) {
+      return;
+    }
     const state = this.host.getStateView();
     const session = state.session;
     const ready =
@@ -435,7 +445,57 @@ export class HomeSourceRuntime {
     this.schedulePolling();
   }
 
+  deferAutomaticReconcileUntilCachedFrame(sessionId: string): void {
+    this.cancelCachedFrameBarrier();
+    if (typeof requestAnimationFrame !== 'function') {
+      return;
+    }
+    this.cachedFrameBarrierSessionId = sessionId;
+    this.cachedFrameBarrierGeneration += 1;
+    const generation = this.cachedFrameBarrierGeneration;
+    const startedAt = Date.now();
+    const release = (releaseReason: 'frame' | 'timeout') => {
+      if (
+        this.disposed ||
+        generation !== this.cachedFrameBarrierGeneration ||
+        this.cachedFrameBarrierSessionId !== sessionId
+      ) {
+        return;
+      }
+      if (this.cachedFrameBarrierTimeout) {
+        clearTimeout(this.cachedFrameBarrierTimeout);
+        this.cachedFrameBarrierTimeout = undefined;
+      }
+      this.cachedFrameBarrierSessionId = undefined;
+      defaultLogger.wallet.homeFramePerf.frame({
+        stage: 'cachedFrameBarrierReleased',
+        elapsedMs: Date.now() - startedAt,
+        releaseReason,
+      });
+      this.reconcile();
+    };
+    defaultLogger.wallet.homeFramePerf.frame({
+      stage: 'cachedFrameBarrierScheduled',
+    });
+    this.cachedFrameBarrierTimeout = setTimeout(() => {
+      release('timeout');
+    }, CACHED_FRAME_BARRIER_MAX_DELAY_MS);
+    requestAnimationFrame(() => {
+      if (
+        this.disposed ||
+        generation !== this.cachedFrameBarrierGeneration ||
+        this.cachedFrameBarrierSessionId !== sessionId
+      ) {
+        return;
+      }
+      requestAnimationFrame(() => {
+        release('frame');
+      });
+    });
+  }
+
   cancelSession(sessionId: string): void {
+    this.cancelCachedFrameBarrier(sessionId);
     const schedulerSnapshot = this.host.scheduler.getSnapshot();
     const leafSnapshot = this.host.leafPool.getSnapshot();
     const activeSourceCount = Array.from(this.activeAuthority.values()).filter(
@@ -464,7 +524,8 @@ export class HomeSourceRuntime {
     });
     this.host.leafPool.cancelSession(sessionId);
     this.stopTimers();
-    defaultLogger.wallet.homeUi.homeSessionCancellation({
+    defaultLogger.wallet.homeSchedulerPerf.snapshot({
+      stage: 'sessionCancellation',
       schedulerPendingBefore: schedulerSnapshot.pendingCount,
       schedulerRunningBefore: schedulerSnapshot.runningCount,
       leafPendingBefore: leafSnapshot.clientPendingCount,
@@ -566,6 +627,7 @@ export class HomeSourceRuntime {
       return;
     }
     this.disposed = true;
+    this.cancelCachedFrameBarrier();
     this.stopTimers();
     this.sinks.forEach((sink) => sink.dispose());
     this.sinks.clear();
@@ -575,6 +637,24 @@ export class HomeSourceRuntime {
     this.allNetworksMapCache = undefined;
     this.allNetworksMapPromise = undefined;
     this.allNetworkAccounts.dispose();
+  }
+
+  private cancelCachedFrameBarrier(sessionId?: string): void {
+    if (
+      !this.cachedFrameBarrierSessionId ||
+      (sessionId && this.cachedFrameBarrierSessionId !== sessionId)
+    ) {
+      return;
+    }
+    if (this.cachedFrameBarrierTimeout) {
+      clearTimeout(this.cachedFrameBarrierTimeout);
+      this.cachedFrameBarrierTimeout = undefined;
+    }
+    this.cachedFrameBarrierSessionId = undefined;
+    this.cachedFrameBarrierGeneration += 1;
+    defaultLogger.wallet.homeFramePerf.frame({
+      stage: 'cachedFrameBarrierCancelled',
+    });
   }
 
   private async runSource(

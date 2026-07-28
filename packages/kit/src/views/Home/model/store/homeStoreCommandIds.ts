@@ -1,5 +1,8 @@
 export const HOME_SHELL_ACTION_IDS = {
+  accountSelector: 'home.header.accountSelector',
   balance: 'home.header.balance',
+  copyAddress: 'home.header.copyAddress',
+  networkSelector: 'home.header.networkSelector',
 } as const;
 
 export const HOME_SECTION_ACTION_IDS = {

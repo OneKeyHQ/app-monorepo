@@ -1,9 +1,11 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { createHomeCachedSourceRecord } from '../store/homeCachedSourceRecord';
 import { createInitialHomeStoreState } from '../store/homeStoreInitialState';
 
 import { HomeDisplaySnapshotPersistQueue } from './homeDisplaySnapshotPersistQueue';
 import { homeDisplaySnapshotStorage } from './homeDisplaySnapshotRepository';
+import { HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION } from './homeDisplaySnapshotTypes';
 import {
   clearPreparedHomeDisplaySnapshotCache,
   getPreparedHomeDisplaySnapshot,
@@ -61,7 +63,12 @@ function createCacheableState(ownerScopeKey: string): IHomeStoreState {
         kind: 'ready',
         token,
         data: {
-          payload: {},
+          payload: {
+            accountTokensValue: '42.50',
+            accountTokensWorthCurrency: 'usd',
+            accountTokensValueAvailable: true,
+            accountTokensValueComplete: true,
+          },
           section: {
             kind: 'ready',
             rowIds: ['asset-a'],
@@ -165,6 +172,68 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     expect(commit.entries.some((entry) => entry.key.startsWith('route/'))).toBe(
       true,
     );
+  });
+
+  it('rebases a valid prepared snapshot onto the committed generation', async () => {
+    const queue = new HomeDisplaySnapshotPersistQueue();
+    const state = withFundedShell(createCacheableState('owner-a'));
+    const record = createHomeCachedSourceRecord({
+      now: 1,
+      slot: state.resources.portfolio,
+      sourceId: 'portfolio',
+    });
+    if (!record) {
+      throw new OneKeyLocalError('Expected a cacheable portfolio record');
+    }
+    setPreparedHomeDisplaySnapshot('owner-a', {
+      context: {
+        routeRaw: 'stale-route',
+        route: {
+          schemaVersion: HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION,
+          ownerScopeKey: 'owner-a',
+          partitionId: 'stale-partition',
+          currentGeneration: 0,
+          updatedAt: 0,
+        },
+        manifest: {
+          schemaVersion: HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION,
+          ownerScopeKey: 'owner-a',
+          partitionId: 'stale-partition',
+          generation: 0,
+          createdAt: 0,
+          chunks: {},
+        },
+      },
+      records: [record],
+      shell: state.shell.value,
+    });
+
+    queue.enqueue(state, {
+      storeCommitId: 1,
+      origin: 'storeEvent',
+      changedSourceIds: ['portfolio'],
+    });
+    await queue.flushNow();
+
+    const prepared = getPreparedHomeDisplaySnapshot('owner-a');
+    expect(prepared?.context.route.currentGeneration).toBe(1);
+    expect(prepared?.context.manifest.generation).toBe(1);
+    expect(prepared?.context.routeRaw).not.toBe('stale-route');
+    expect(prepared?.records.map(({ sourceId }) => sourceId)).toContain(
+      'portfolio',
+    );
+    expect(prepared?.shell).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        freshness: 'confirmedCache',
+        header: {
+          balance: {
+            amount: '42.50',
+            currency: 'usd',
+          },
+        },
+      },
+    });
   });
 
   it('keeps content signatures bounded instead of duplicating chunk payloads in the manifest', async () => {

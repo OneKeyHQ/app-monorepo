@@ -5,6 +5,7 @@ import TestRenderer, { act } from 'react-test-renderer';
 import { HomeContainer } from './HomeContainer.native';
 import {
   HOME_CONTAINER_SCHEMA_VERSION,
+  HOME_CONTAINER_SLOT_CONTRACT_REVISION,
   type IHomeContainerRef,
 } from './HomeContainer.types';
 import { HOME_CONTAINER_PROTOCOL_V3_VERSION } from './HomeContainerProtocolV3';
@@ -48,8 +49,10 @@ let mockHostProps:
   | {
       hybridRef?: (view: typeof mockNativeView) => void;
       initialSnapshotJson?: string;
+      onVisibleTabChange?: (tabId: string) => void;
     }
   | undefined;
+const mockSlotRenderCounts = new Map<string, number>();
 
 jest.mock('react-native-nitro-modules', () => ({
   NitroModules: {
@@ -74,9 +77,20 @@ jest.mock('react-native-nitro-modules', () => ({
 
 jest.mock('./HomeContainerSlotNativeComponent', () => ({
   __esModule: true,
-  default: ({ children, ...props }: { children?: ReactNode }) => {
+  default: ({
+    children,
+    slotKey,
+    ...props
+  }: {
+    children?: ReactNode;
+    slotKey: string;
+  }) => {
     const React = jest.requireActual<typeof import('react')>('react');
-    return React.createElement('View', props, children);
+    mockSlotRenderCounts.set(
+      slotKey,
+      (mockSlotRenderCounts.get(slotKey) ?? 0) + 1,
+    );
+    return React.createElement('View', { ...props, slotKey }, children);
   },
 }));
 
@@ -153,6 +167,7 @@ describe('HomeContainer native wrapper', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockHostProps = undefined;
+    mockSlotRenderCounts.clear();
   });
 
   it('submits only the current protocol snapshot at mount', async () => {
@@ -173,11 +188,13 @@ describe('HomeContainer native wrapper', () => {
           initialSnapshot={snapshot}
           slotBundle={{
             owner: snapshot.identity,
+            phase: 'stable',
             semanticRevision: 1,
-            slotContractRevision: 1,
+            slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
             slots: {
               balance: {
                 content: 'Balance',
+                contentRevision: 'balance',
                 height: 58,
               },
             },
@@ -221,5 +238,165 @@ describe('HomeContainer native wrapper', () => {
     expect(onReady).toHaveBeenCalledWith(
       expect.objectContaining({ protocolVersion: 3 }),
     );
+  });
+
+  it('forwards the native settled-tab callback without recreating its contract', async () => {
+    const onVisibleTabChange = jest.fn();
+    await act(async () => {
+      TestRenderer.create(
+        <HomeContainer
+          initialSnapshot={snapshot}
+          onVisibleTabChange={onVisibleTabChange}
+        />,
+      );
+    });
+
+    act(() => {
+      mockHostProps?.onVisibleTabChange?.('defi');
+    });
+
+    expect(onVisibleTabChange).toHaveBeenCalledWith('defi');
+  });
+
+  it('does not rerender an unchanged slot when another slot changes', async () => {
+    const balance = {
+      content: 'Balance',
+      contentRevision: 'balance',
+      height: 58,
+    };
+    const buildSlotBundle = (accountName: string) => ({
+      owner: snapshot.identity,
+      phase: 'stable' as const,
+      semanticRevision: 1,
+      slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
+      slots: {
+        accountRow: {
+          content: accountName,
+          contentRevision: accountName,
+          height: 32,
+        },
+        balance,
+      },
+    });
+    let renderer!: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      renderer = TestRenderer.create(
+        <HomeContainer
+          initialSnapshot={snapshot}
+          slotBundle={buildSlotBundle('Account 1')}
+        />,
+      );
+    });
+
+    await act(async () => {
+      renderer.update(
+        <HomeContainer
+          initialSnapshot={snapshot}
+          slotBundle={buildSlotBundle('Account 2')}
+        />,
+      );
+    });
+
+    expect(mockSlotRenderCounts.get('header.account-row')).toBe(2);
+    expect(mockSlotRenderCounts.get('header.balance')).toBe(1);
+  });
+
+  it('updates slot authority without rerendering unchanged content', async () => {
+    let contentRenderCount = 0;
+    function CountingContent({ label }: { label: string }) {
+      contentRenderCount += 1;
+      return label;
+    }
+    const buildSlotBundle = ({
+      contentRevision,
+      label,
+      phase = 'stable',
+      storeCommitId,
+    }: {
+      contentRevision: string;
+      label: string;
+      phase?: 'owner-transition' | 'stable';
+      storeCommitId: number;
+    }) => ({
+      owner: snapshot.identity,
+      phase,
+      semanticRevision: storeCommitId,
+      slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
+      slots: {
+        balance: {
+          authority: {
+            owner: snapshot.identity,
+            producedByStoreCommitId: storeCommitId,
+            slotId: 'header.balance' as const,
+            slotRevision: storeCommitId,
+          },
+          content: <CountingContent label={label} />,
+          contentRevision,
+          height: 58,
+        },
+      },
+    });
+    let renderer!: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      renderer = TestRenderer.create(
+        <HomeContainer
+          initialSnapshot={snapshot}
+          slotBundle={buildSlotBundle({
+            contentRevision: 'balance-v1',
+            label: 'Balance 1',
+            storeCommitId: 1,
+          })}
+        />,
+      );
+    });
+
+    await act(async () => {
+      renderer.update(
+        <HomeContainer
+          initialSnapshot={snapshot}
+          slotBundle={buildSlotBundle({
+            contentRevision: 'balance-v1',
+            label: 'Balance ignored',
+            phase: 'owner-transition',
+            storeCommitId: 2,
+          })}
+        />,
+      );
+    });
+
+    expect(mockSlotRenderCounts.get('')).toBe(1);
+    expect(contentRenderCount).toBe(1);
+
+    await act(async () => {
+      renderer.update(
+        <HomeContainer
+          initialSnapshot={snapshot}
+          slotBundle={buildSlotBundle({
+            contentRevision: 'balance-v1',
+            label: 'Balance ignored',
+            storeCommitId: 3,
+          })}
+        />,
+      );
+    });
+
+    expect(mockSlotRenderCounts.get('header.balance')).toBe(2);
+    expect(contentRenderCount).toBe(1);
+
+    await act(async () => {
+      renderer.update(
+        <HomeContainer
+          initialSnapshot={snapshot}
+          slotBundle={buildSlotBundle({
+            contentRevision: 'balance-v2',
+            label: 'Balance 2',
+            storeCommitId: 4,
+          })}
+        />,
+      );
+    });
+
+    expect(mockSlotRenderCounts.get('header.balance')).toBe(3);
+    expect(contentRenderCount).toBe(2);
   });
 });

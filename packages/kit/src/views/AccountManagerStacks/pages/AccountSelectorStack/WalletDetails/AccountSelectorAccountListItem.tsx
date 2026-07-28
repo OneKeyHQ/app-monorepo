@@ -32,6 +32,7 @@ import {
   useIndexedAccountAddressCreationStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -415,6 +416,19 @@ export function AccountSelectorAccountListItem({
             if (!allowSelectEmptyAccount && shouldShowCreateAddressButton) {
               return;
             }
+            const startedAt = Date.now();
+            const walletName = focusedWalletInfo?.wallet?.name;
+            const accountName = item.name;
+            const sameAccount = isOthersUniversal
+              ? item.id === selectedAccount.othersWalletAccountId
+              : item.id === selectedAccount.indexedAccountId;
+            defaultLogger.accountSelector.switchPerf.lifecycle({
+              stage: 'selectionStarted',
+              num,
+              walletName,
+              accountName,
+              sameAccount,
+            });
             if (isOthersUniversal) {
               let autoChangeToAccountMatchedNetworkId = avatarNetworkId;
               if (
@@ -444,7 +458,32 @@ export function AccountSelectorAccountListItem({
                 autoChangeToAccountMatchedNetworkId: undefined,
               });
             }
+            defaultLogger.accountSelector.switchPerf.lifecycle({
+              stage: 'selectionCommitted',
+              num,
+              walletName,
+              accountName,
+              sameAccount,
+              elapsedMs: Date.now() - startedAt,
+            });
+            defaultLogger.accountSelector.switchPerf.lifecycle({
+              stage: 'dismissRequested',
+              num,
+              walletName,
+              accountName,
+              sameAccount,
+              elapsedMs: Date.now() - startedAt,
+            });
+            const dismissStartedAt = performance.now();
             resetAccountManagerStacksModal();
+            defaultLogger.accountSelector.switchPerf.functionTiming({
+              functionName: 'resetAccountManagerStacksModal',
+              durationMs: performance.now() - dismissStartedAt,
+              num,
+              walletName,
+              accountName,
+              outcome: 'requested',
+            });
           },
           isLoading: isCreatingAddress,
           userSelect: 'none',
