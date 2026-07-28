@@ -1,0 +1,16 @@
+{
+  "name": "@onekeyhq/ledger-attestation-server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Local-only Ledger DMK attestation server used by the Desktop developer flow",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@ledgerhq/device-management-kit": "1.2.0",
+    "purify-ts": "2.1.0",
+    "rxjs": "^7.8.2",
+    "ws": "^8.18.3"
+  }
+}

@@ -6,11 +6,13 @@ type ILocalMockAuthenticityResult = {
   deviceId?: string;
   usedDebugKey?: boolean;
   error?: string;
+  ledgerVerificationAuthority?: 'onekey-local-dmk-server';
+  serverVoucherCode?: string;
 };
 
 export type ILocalMockDeviceClaimVerification = {
   deviceId: string;
-  verificationMode: 'trezor-sdk-genuine-check' | 'ledger-vendor-genuine-check';
+  verificationMode: 'trezor-sdk-genuine-check' | 'ledger-server-dmk-relay';
 };
 
 export type ILocalMockDeviceClaimResult = ILocalMockDeviceClaimVerification & {
@@ -66,16 +68,17 @@ export function verifyLocalMockDeviceClaimEvidence({
   if (
     !authenticity.verified ||
     !authenticity.deviceId ||
-    !/^[0-9a-f]{64}$/i.test(authenticity.deviceId)
+    !/^[0-9a-f]{64}$/i.test(authenticity.deviceId) ||
+    authenticity.ledgerVerificationAuthority !== 'onekey-local-dmk-server'
   ) {
     throw new OneKeyLocalError({
       message:
-        'Ledger Genuine Check did not return a verified physical-device DSID',
+        'The local Ledger DMK server did not return a verified physical-device DSID',
     });
   }
   return {
     deviceId: authenticity.deviceId.toLowerCase(),
-    verificationMode: 'ledger-vendor-genuine-check',
+    verificationMode: 'ledger-server-dmk-relay',
   };
 }
 
@@ -98,12 +101,26 @@ export async function runTrustedLocalMockDeviceClaim({
     vendor,
     authenticity,
   });
+  const voucherCode =
+    vendor === 'ledger'
+      ? authenticity.serverVoucherCode
+      : `DEV-LOCAL-${vendor.toUpperCase()}-${challengeHex
+          .slice(0, 8)
+          .toUpperCase()}`;
+  if (
+    !voucherCode ||
+    !new RegExp(`^DEV-LOCAL-${vendor.toUpperCase()}-[0-9A-F]{8}$`).test(
+      voucherCode,
+    )
+  ) {
+    throw new OneKeyLocalError({
+      message: 'The trusted verification authority did not issue a DEV voucher',
+    });
+  }
 
   return {
     status: 'issued',
-    voucherCode: `DEV-LOCAL-${vendor.toUpperCase()}-${challengeHex
-      .slice(0, 8)
-      .toUpperCase()}`,
+    voucherCode,
     challengeHex,
     ...verification,
   };

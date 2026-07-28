@@ -244,9 +244,17 @@ function DeviceSectionThirdPartyOnboardingDev() {
     setVerificationStatus('pending');
     setVerificationError('');
     try {
+      // Ledger USB connectIds are per-session UUIDs. Passing no target lets
+      // the SDK reuse its one active session, or safely discover the sole
+      // attached Ledger after an app restart instead of chasing a stale DB id.
       const connectId =
-        device.usbConnectId || device.connectId || device.bleConnectId;
-      if (!connectId) {
+        vendor === EHardwareVendor.ledger
+          ? ''
+          : device.usbConnectId ||
+            device.connectId ||
+            device.bleConnectId ||
+            '';
+      if (!connectId && vendor !== EHardwareVendor.ledger) {
         throw new OneKeyLocalError(
           'Reconnect this device before running the genuine check.',
         );
@@ -266,11 +274,13 @@ function DeviceSectionThirdPartyOnboardingDev() {
         description: [
           vendor === EHardwareVendor.trezor
             ? 'The SDK asked the connected Trezor to authenticate a fresh challenge and accepted its genuine-check result.'
-            : 'The SDK ran Ledger’s official vendor Genuine Check and captured the physical-device DSID.',
+            : 'The local OneKey DMK server drove Ledger’s official Genuine Check through the SDK’s existing device session and captured the physical-device DSID.',
           '',
           `Verification mode: ${result.verificationMode}`,
           `Device DSID: ${result.deviceId}`,
-          `Challenge: ${result.challengeHex}`,
+          vendor === EHardwareVendor.trezor
+            ? `Challenge: ${result.challengeHex}`
+            : `Client claim nonce: ${result.challengeHex}`,
           `Mock voucher: ${result.voucherCode}`,
           '',
           'This is only a local integration check. The production backend must own or witness its own verification before issuing a real voucher.',
@@ -284,9 +294,6 @@ function DeviceSectionThirdPartyOnboardingDev() {
       );
       setVerificationStatus('failed');
       setVerificationError(message);
-      Toast.error({
-        title: ETranslations.device_communication_failed,
-      });
     }
   }, [device, isThirdParty, vendor, verificationStatus]);
 

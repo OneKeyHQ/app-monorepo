@@ -96,7 +96,7 @@ function ThirdPartyDeviceRewardDialogContent({
       setError('The reward address is not ready yet. Please try again.');
       return;
     }
-    if (!connectId) {
+    if (!connectId && vendor !== 'ledger') {
       setError('Reconnect the hardware wallet to verify this device.');
       return;
     }

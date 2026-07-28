@@ -47,6 +47,10 @@ import {
 import { mapThirdPartyDeviceToSearchDevice } from '../ServiceHardware/thirdPartyDeviceMapping';
 
 import { runTrustedLocalMockDeviceClaim } from './localMockDeviceClaim';
+import {
+  type ILedgerAttestationBridgeAdapter,
+  runLedgerLocalServerAttestation,
+} from './ledgerLocalAttestationBridge';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type {
@@ -1270,9 +1274,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
     voucherCode: string;
     challengeHex: string;
     deviceId: string;
-    verificationMode:
-      | 'trezor-sdk-genuine-check'
-      | 'ledger-vendor-genuine-check';
+    verificationMode: 'trezor-sdk-genuine-check' | 'ledger-server-dmk-relay';
   }> {
     await this.assertThirdPartyOnboardingDevMode();
     if (
@@ -1288,6 +1290,24 @@ class ServiceThirdPartyHardware extends ServiceBase {
     return runTrustedLocalMockDeviceClaim({
       vendor,
       executeAuthenticityCheck: async (challengeHex) => {
+        if (params.vendor === EHardwareVendor.ledger) {
+          await this.ensureAdaptersInitialized(params.vendor);
+          const adapter = this.getThirdPartyAdapter(params.vendor);
+          if (!adapter) {
+            throw createThirdPartyAdapterNotRegisteredError(params.vendor);
+          }
+          const result = await runLedgerLocalServerAttestation({
+            hw: adapter.hw as unknown as ILedgerAttestationBridgeAdapter,
+            connectId: params.connectId,
+          });
+          return {
+            vendor: 'ledger' as const,
+            verified: result.isGenuine,
+            deviceId: result.deviceId,
+            ledgerVerificationAuthority: 'onekey-local-dmk-server' as const,
+            serverVoucherCode: result.voucherCode,
+          };
+        }
         const response = await this.thirdPartyHardwareVerifyDeviceAuthenticity({
           vendor: params.vendor,
           connectId: params.connectId,
@@ -1307,6 +1327,8 @@ class ServiceThirdPartyHardware extends ServiceBase {
           deviceId?: string;
           usedDebugKey?: boolean;
           error?: string;
+          ledgerVerificationAuthority?: 'onekey-local-dmk-server';
+          serverVoucherCode?: string;
           // cspell:ignore optiga
           trezorProof?: {
             challenge: string;
