@@ -8,6 +8,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   assertUnifoldEchoMatches,
   filterUnifoldExecutionsByRecipient,
@@ -107,6 +108,8 @@ const UNIFOLD_EXECUTION_STATUSES = new Set<IUnifoldExecutionStatus>([
   'refunded',
 ]);
 const MAX_UNIFOLD_TOKEN_DECIMALS = 255;
+const MAX_EXECUTION_SHAPE_WARNINGS = 20;
+const reportedExecutionShapeWarnings = new Set<string>();
 
 function isValidExecutionStatus(
   value: unknown,
@@ -130,27 +133,69 @@ function sanitizeTokenDecimals(value: unknown): number | null {
     : null;
 }
 
-function sanitizeDepositExecutions(value: unknown): IUnifoldDepositExecution[] {
-  if (!Array.isArray(value)) {
-    return [];
+function reportNormalizedExecutionShape({
+  rawStatus,
+  rawTerminal,
+  status,
+  terminal,
+}: {
+  rawStatus: unknown;
+  rawTerminal: unknown;
+  status: IUnifoldExecutionStatus;
+  terminal: boolean;
+}) {
+  const statusLabel = isValidExecutionStatus(rawStatus)
+    ? rawStatus
+    : `unknown-${typeof rawStatus}`;
+  const terminalLabel =
+    typeof rawTerminal === 'boolean' ? String(rawTerminal) : typeof rawTerminal;
+  const warningKey = `${statusLabel}:${terminalLabel}:${status}:${terminal}`;
+  if (
+    reportedExecutionShapeWarnings.has(warningKey) ||
+    reportedExecutionShapeWarnings.size >= MAX_EXECUTION_SHAPE_WARNINGS
+  ) {
+    return;
   }
-  return value.flatMap((execution): IUnifoldDepositExecution[] => {
-    if (
-      !isRecord(execution) ||
-      !isNonEmptyString(execution.executionId) ||
-      !isValidExecutionStatus(execution.status) ||
-      typeof execution.terminal !== 'boolean'
-    ) {
+  reportedExecutionShapeWarnings.add(warningKey);
+  defaultLogger.app.error.log(
+    `[UnifoldDeposit] normalized execution payload: status=${statusLabel}->${status}, terminal=${terminalLabel}->${String(
+      terminal,
+    )}`,
+  );
+}
+
+function sanitizeDepositExecutions(value: unknown): IUnifoldDepositExecution[] {
+  let rawExecutions: unknown[] = [];
+  if (Array.isArray(value)) {
+    rawExecutions = value;
+  } else if (isRecord(value) && Array.isArray(value.data)) {
+    rawExecutions = value.data;
+  }
+
+  return rawExecutions.flatMap((execution): IUnifoldDepositExecution[] => {
+    if (!isRecord(execution) || !isNonEmptyString(execution.executionId)) {
       return [];
     }
-    const terminal = UNIFOLD_TERMINAL_STATUSES.includes(execution.status);
-    if (execution.terminal !== terminal) {
-      return [];
+    const status = isValidExecutionStatus(execution.status)
+      ? execution.status
+      : 'pending';
+    const terminal = UNIFOLD_TERMINAL_STATUSES.includes(status);
+    if (
+      status !== execution.status ||
+      typeof execution.terminal !== 'boolean' ||
+      execution.terminal !== terminal
+    ) {
+      reportNormalizedExecutionShape({
+        rawStatus: execution.status,
+        rawTerminal: execution.terminal,
+        status,
+        terminal,
+      });
     }
     return [
       {
         executionId: execution.executionId,
-        status: execution.status,
+        status,
         terminal,
         destinationTransactionHashes: Array.isArray(
           execution.destinationTransactionHashes,

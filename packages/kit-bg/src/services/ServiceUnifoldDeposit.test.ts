@@ -22,6 +22,7 @@ type ITrackingUpdate =
     ) => IPerpsUnifoldDepositTrackingState);
 
 const mockEventEmit = jest.fn<void, unknown[]>();
+const mockErrorLog = jest.fn<void, [string]>();
 const mockActiveAccountGet = jest.fn<
   Promise<{ accountAddress: string | null }>,
   []
@@ -71,6 +72,16 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   appEventBus: {
     emit: (...args: unknown[]) => {
       mockEventEmit(...args);
+    },
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    app: {
+      error: {
+        log: (message: string) => mockErrorLog(message),
+      },
     },
   },
 }));
@@ -269,6 +280,12 @@ describe('ServiceUnifoldDeposit tracking delivery', () => {
           executionId: 'inconsistent-terminal',
           status: 'pending',
         },
+        {
+          ...buildTerminalExecution(),
+          executionId: 'invalid-terminal-shape',
+          status: 'failed',
+          terminal: 'yes',
+        },
       ]);
 
     await expect(
@@ -284,10 +301,26 @@ describe('ServiceUnifoldDeposit tracking delivery', () => {
         sourceTokenDecimals: null,
         destinationTokenDecimals: null,
       }),
+      expect.objectContaining({
+        executionId: 'invalid-status',
+        status: 'pending',
+        terminal: false,
+      }),
+      expect.objectContaining({
+        executionId: 'inconsistent-terminal',
+        status: 'pending',
+        terminal: false,
+      }),
+      expect.objectContaining({
+        executionId: 'invalid-terminal-shape',
+        status: 'failed',
+        terminal: true,
+      }),
     ]);
+    expect(mockErrorLog).toHaveBeenCalledTimes(3);
   });
 
-  it('returns an empty execution list for a non-array payload', async () => {
+  it('unwraps execution arrays from nested data', async () => {
     const service = createService();
     jest
       .spyOn(
@@ -296,13 +329,19 @@ describe('ServiceUnifoldDeposit tracking delivery', () => {
         },
         'requestUnifold',
       )
-      .mockResolvedValue({ data: [] });
+      .mockResolvedValue({ data: [buildTerminalExecution()] });
 
     await expect(
       service.listDepositExecutions({
         recipientAddress: RECIPIENT,
       }),
-    ).resolves.toEqual([]);
+    ).resolves.toEqual([
+      expect.objectContaining({
+        executionId: 'execution-1',
+        status: 'succeeded',
+        terminal: true,
+      }),
+    ]);
   });
 
   it('fails closed when bg cannot restore the active perps account', async () => {
