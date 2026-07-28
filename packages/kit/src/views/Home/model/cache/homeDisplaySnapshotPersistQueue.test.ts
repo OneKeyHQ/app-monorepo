@@ -4,7 +4,13 @@ import { createInitialHomeStoreState } from '../store/homeStoreInitialState';
 
 import { HomeDisplaySnapshotPersistQueue } from './homeDisplaySnapshotPersistQueue';
 import { homeDisplaySnapshotStorage } from './homeDisplaySnapshotRepository';
+import {
+  clearPreparedHomeDisplaySnapshotCache,
+  getPreparedHomeDisplaySnapshot,
+  setPreparedHomeDisplaySnapshot,
+} from './preparedHomeDisplaySnapshotCache';
 
+import type { IPreparedHomeDisplaySnapshot } from './loadPreparedHomeDisplaySnapshot.types';
 import type { IHomeStoreState } from '../store/homeStoreTypes';
 
 jest.mock('./homeDisplaySnapshotRepository', () => ({
@@ -101,6 +107,7 @@ function withFundedShell(
 
 describe('HomeDisplaySnapshotPersistQueue', () => {
   beforeEach(() => {
+    clearPreparedHomeDisplaySnapshotCache();
     mockValues.clear();
     mockStorage.read.mockClear();
     mockStorage.commit.mockClear();
@@ -133,6 +140,10 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
   it('observes rapid commits but coalesces them into one physical generation', async () => {
     const queue = new HomeDisplaySnapshotPersistQueue();
     const state = createCacheableState('owner-a');
+    setPreparedHomeDisplaySnapshot(
+      'owner-a',
+      {} as IPreparedHomeDisplaySnapshot,
+    );
     for (let storeCommitId = 1; storeCommitId <= 100; storeCommitId += 1) {
       queue.enqueue(state, {
         storeCommitId,
@@ -146,6 +157,10 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     expect(
       commit.entries.some((entry) => entry.key.endsWith('/portfolio')),
     ).toBe(true);
+    expect(
+      commit.entries.some((entry) => entry.key.endsWith('/portfolioDetails')),
+    ).toBe(true);
+    expect(getPreparedHomeDisplaySnapshot('owner-a')).toBeUndefined();
     expect(commit.commitMarker.key).toBe('index/routes');
     expect(commit.entries.some((entry) => entry.key.startsWith('route/'))).toBe(
       true,

@@ -101,4 +101,21 @@ describe('HomeLeafRequestPool', () => {
     await expect(retainedTask).resolves.toBe('retained');
     client.dispose();
   });
+
+  test('rejects work scheduled after its session was cancelled', async () => {
+    const client = new HomeLeafRequestPool(
+      1,
+      'pool-test-session-tombstone',
+      13,
+    );
+    const start = jest.fn(async () => 'unexpected');
+
+    client.cancelSession('session-old');
+
+    await expect(client.run('critical', start, 'session-old')).rejects.toThrow(
+      'Shared leaf request session was cancelled',
+    );
+    expect(start).not.toHaveBeenCalled();
+    client.dispose();
+  });
 });

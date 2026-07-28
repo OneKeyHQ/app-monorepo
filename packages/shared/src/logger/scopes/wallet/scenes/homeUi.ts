@@ -94,6 +94,8 @@ export class HomeUiScene extends BaseScene {
       | 'critical'
       | 'visibleChunks'
       | 'lazyChunk'
+      | 'preparedMemory'
+      | 'preparedStorage'
       | 'initialHydrate'
       | 'persist';
     outcome:
@@ -105,7 +107,9 @@ export class HomeUiScene extends BaseScene {
       | 'empty'
       | 'retrying'
       | 'failed'
-      | 'stale';
+      | 'stale'
+      | 'evicted'
+      | 'cleared';
     partitionTag: string;
     elapsedMs: number;
     recordCount: number;
@@ -114,7 +118,38 @@ export class HomeUiScene extends BaseScene {
     generation?: number;
     criticalIncluded?: boolean;
     cacheAgeMs?: number;
+    cacheEntryCount?: number;
+    cacheCapacity?: number;
+    memoryCacheInvalidated?: boolean;
+    reason?:
+      | 'manifestMissing'
+      | 'loadingShell'
+      | 'shellRejected'
+      | 'capacity'
+      | 'namespaceCleared';
     errorName?: string;
+  }) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public homeSessionCancellation(params: {
+    schedulerPendingBefore: number;
+    schedulerRunningBefore: number;
+    leafPendingBefore: number;
+    leafGlobalRunningBefore: number;
+    activeSourceCount: number;
+    inFlightSourceCount: number;
+  }) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public homeNativeOwnerTransition(params: {
+    previousPartitionTag: string;
+    nextPartitionTag: string;
+    storeCommitId: number;
+    controllerReused: boolean;
   }) {
     return params;
   }

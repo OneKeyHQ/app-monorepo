@@ -13,6 +13,7 @@ import {
   decodeHomeDisplaySnapshotRouteIndex,
   encodeHomeDisplaySnapshotCritical,
   encodeHomeDisplaySnapshotManifest,
+  encodeHomeDisplaySnapshotPortfolioDetails,
   encodeHomeDisplaySnapshotRoute,
   encodeHomeDisplaySnapshotRouteIndex,
   encodeHomeDisplaySnapshotSourceChunk,
@@ -33,6 +34,11 @@ import {
   HOME_DISPLAY_SNAPSHOT_MAX_ROUTES,
   HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION,
 } from './homeDisplaySnapshotTypes';
+import {
+  PREPARED_HOME_DISPLAY_SNAPSHOT_CACHE_SIZE,
+  clearPreparedHomeDisplaySnapshotCache,
+  deletePreparedHomeDisplaySnapshot,
+} from './preparedHomeDisplaySnapshotCache';
 
 import type {
   IHomeDisplaySnapshotChunkDescriptor,
@@ -64,6 +70,7 @@ type IMutableChunkMap = Partial<
 
 const HOME_DISPLAY_CHUNK_IDS = [
   'critical',
+  'portfolioDetails',
   ...HOME_STORE_SOURCE_IDS,
 ] as const satisfies readonly IHomeDisplaySnapshotChunkId[];
 
@@ -365,7 +372,48 @@ async function persistHomeDisplaySnapshotOnce(
         cleanupKeys.add(chunks[sourceId].key);
         delete chunks[sourceId];
       }
+      if (sourceId === 'portfolio' && chunks.portfolioDetails) {
+        cleanupKeys.add(chunks.portfolioDetails.key);
+        delete chunks.portfolioDetails;
+      }
       return;
+    }
+    if (sourceId === 'portfolio') {
+      const detailsRaw = encodeHomeDisplaySnapshotPortfolioDetails({
+        ownerScopeKey: job.ownerScopeKey,
+        record,
+      });
+      if (detailsRaw) {
+        const detailsContentSignature =
+          getHomeDisplaySnapshotContentSignature(detailsRaw);
+        if (
+          shouldReplaceDescriptor({
+            descriptor: chunks.portfolioDetails,
+            contentSignature: detailsContentSignature,
+          })
+        ) {
+          const detailsKey = getHomeDisplaySnapshotChunkKey(
+            partitionId,
+            nextGeneration,
+            'portfolioDetails',
+          );
+          if (chunks.portfolioDetails) {
+            cleanupKeys.add(chunks.portfolioDetails.key);
+          }
+          entries.push({ key: detailsKey, value: detailsRaw });
+          chunks.portfolioDetails = createHomeDisplaySnapshotDescriptor({
+            chunkId: 'portfolioDetails',
+            contentSignature: detailsContentSignature,
+            generation: nextGeneration,
+            partitionId,
+            raw: detailsRaw,
+            updatedAt: now,
+          });
+        }
+      } else if (chunks.portfolioDetails) {
+        cleanupKeys.add(chunks.portfolioDetails.key);
+        delete chunks.portfolioDetails;
+      }
     }
     const contentSignature = getHomeDisplaySnapshotContentSignature(raw);
     if (
@@ -467,6 +515,9 @@ async function persistHomeDisplaySnapshotOnce(
     },
     removeKeys: Array.from(cleanupKeys),
   });
+  const memoryCacheInvalidated = deletePreparedHomeDisplaySnapshot(
+    job.ownerScopeKey,
+  );
   perfMark('Home:v3Cache:physicalWrite', {
     chunkCount: entries.length - 2,
   });
@@ -488,6 +539,7 @@ async function persistHomeDisplaySnapshotOnce(
     loadedSourceIds: writtenSourceIds.toSorted().join(','),
     generation: nextGeneration,
     criticalIncluded: entries.some((entry) => entry.key.endsWith('/critical')),
+    memoryCacheInvalidated,
   });
 }
 
@@ -589,10 +641,22 @@ export class HomeDisplaySnapshotPersistQueue {
   }
 
   async suspendAndClear(): Promise<void> {
+    const startedAt = Date.now();
     this.suspended = true;
     this.cancelPending();
     await this.inFlight?.catch(() => undefined);
     await homeDisplaySnapshotStorage.clearNamespace();
+    const clearedEntryCount = clearPreparedHomeDisplaySnapshotCache();
+    defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
+      stage: 'preparedMemory',
+      outcome: 'cleared',
+      partitionTag: 'all',
+      elapsedMs: Date.now() - startedAt,
+      recordCount: clearedEntryCount,
+      cacheEntryCount: 0,
+      cacheCapacity: PREPARED_HOME_DISPLAY_SNAPSHOT_CACHE_SIZE,
+      reason: 'namespaceCleared',
+    });
   }
 
   private cancelPending(): void {

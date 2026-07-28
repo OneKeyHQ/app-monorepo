@@ -1,3 +1,5 @@
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+
 import type { IHomePerpsDestination } from '../capabilities/homeCapabilityTypes';
 import type {
   IHomeActionId,
@@ -15,7 +17,10 @@ import type {
 export const HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION = 1 as const;
 export const HOME_DISPLAY_SNAPSHOT_MAX_ROUTES = 16;
 
-export type IHomeDisplaySnapshotChunkId = 'critical' | IHomeStoreSourceId;
+export type IHomeDisplaySnapshotChunkId =
+  | 'critical'
+  | 'portfolioDetails'
+  | IHomeStoreSourceId;
 
 export type IHomeDisplaySnapshotChunkDescriptor = {
   chunkId: IHomeDisplaySnapshotChunkId;
@@ -97,6 +102,18 @@ export type IHomeDisplaySnapshotSourceChunk = {
   schemaVersion: typeof HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION;
   ownerScopeKey: string;
   record: IHomeCachedSourceRecord;
+};
+
+export type IHomeDisplaySnapshotPortfolioDetails = {
+  schemaVersion: typeof HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION;
+  ownerScopeKey: string;
+  sourceKeyIdentity: string;
+  aggregateTokenListMap: Record<string, { tokens: IAccountToken[] }>;
+  allAggregateTokenMap: Record<string, { tokens: IAccountToken[] }>;
+  riskMap: Record<string, ITokenFiat>;
+  riskTokens: IAccountToken[];
+  smallBalanceMap: Record<string, ITokenFiat>;
+  smallBalanceTokens: IAccountToken[];
 };
 
 export type IHomeDisplaySnapshotRouteIndex = {

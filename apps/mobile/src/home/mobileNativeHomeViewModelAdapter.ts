@@ -304,23 +304,6 @@ function formatCompactCurrency(
   )}`;
 }
 
-function sumTokenFiatValue({
-  map,
-  tokens,
-}: {
-  map: Record<string, { fiatValue?: string }>;
-  tokens: { $key: string }[];
-}): string {
-  return tokens
-    .reduce((total, token) => {
-      const value = map[token.$key]?.fiatValue;
-      return value === undefined || !new BigNumber(value).isFinite()
-        ? total
-        : total.plus(value);
-    }, new BigNumber(0))
-    .toFixed();
-}
-
 function formatEarnApr(
   item: NonNullable<IHomePopularTradingPayload>['earnRows'][number],
 ): string {
@@ -447,14 +430,10 @@ function buildPortfolioAssetSections({
     tokens: payload?.tokens ?? [],
     map: payload?.tokenListMap ?? {},
   });
-  const smallBalanceTokens = sortTokensByFiatValue({
-    tokens: payload?.smallBalanceTokens ?? [],
-    map: payload?.smallBalanceMap ?? {},
-  });
-  const riskTokens = sortTokensByFiatValue({
-    tokens: payload?.riskTokens ?? [],
-    map: payload?.riskMap ?? {},
-  });
+  const smallBalanceTokenCount =
+    payload?.smallBalanceTokenCount ?? payload?.smallBalanceTokens.length ?? 0;
+  const riskTokenCount =
+    payload?.riskTokenCount ?? payload?.riskTokens.length ?? 0;
   const visibleTokens = expanded
     ? sortedTokens
     : sortedTokens.slice(0, VISIBLE_ROW_LIMIT);
@@ -495,25 +474,20 @@ function buildPortfolioAssetSections({
       }),
     },
   ];
-  const hasHiddenAssetRows =
-    smallBalanceTokens.length > 0 || riskTokens.length > 0;
+  const hasHiddenAssetRows = smallBalanceTokenCount > 0 || riskTokenCount > 0;
   if (expanded && hasHiddenAssetRows) {
     sections.push({
       id: 'portfolio-assets-hidden-groups',
       items: [
-        ...(smallBalanceTokens.length > 0
+        ...(smallBalanceTokenCount > 0
           ? [
               {
                 id: 'portfolio-assets-low-value',
                 renderer: 'asset' as const,
-                title: `${smallBalanceTokens.length} ${labels.lowValueAssets}`,
+                title: `${smallBalanceTokenCount} ${labels.lowValueAssets}`,
                 displayHeight: 56,
                 value: formatCurrency(
-                  payload?.smallBalanceFiatValue ??
-                    sumTokenFiatValue({
-                      tokens: smallBalanceTokens,
-                      map: payload?.smallBalanceMap ?? {},
-                    }),
+                  payload?.smallBalanceFiatValue,
                   currency,
                   locale,
                 ),
@@ -524,13 +498,13 @@ function buildPortfolioAssetSections({
               },
             ]
           : []),
-        ...(riskTokens.length > 0
+        ...(riskTokenCount > 0
           ? [
               {
                 id: 'portfolio-assets-risk',
                 renderer: 'asset' as const,
                 title: labels.riskAssets(
-                  payload?.blockedRiskTokenCount ?? riskTokens.length,
+                  payload?.blockedRiskTokenCount ?? riskTokenCount,
                 ),
                 displayHeight: 56,
                 leadingIcon: 'risk' as const,

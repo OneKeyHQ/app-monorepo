@@ -4,6 +4,7 @@ import {
   loadHomeDisplaySnapshotSourceRecords,
 } from './homeDisplaySnapshotRepository';
 import { loadPreparedHomeDisplaySnapshot } from './loadPreparedHomeDisplaySnapshot';
+import { clearPreparedHomeDisplaySnapshotCache } from './preparedHomeDisplaySnapshotCache';
 
 import type {
   IHomeDisplaySnapshotCritical,
@@ -24,12 +25,34 @@ const mockLoadSourceRecords = jest.mocked(loadHomeDisplaySnapshotSourceRecords);
 const context = {} as ILoadedHomeDisplaySnapshotManifest;
 
 beforeEach(() => {
+  clearPreparedHomeDisplaySnapshotCache();
   jest.clearAllMocks();
   mockLoadManifest.mockResolvedValue(context);
   mockLoadSourceRecords.mockResolvedValue([]);
 });
 
 describe('loadPreparedHomeDisplaySnapshot', () => {
+  it('reuses a decoded owner snapshot without reading storage again', async () => {
+    mockLoadCritical.mockResolvedValue({
+      createdAt: 1,
+      ownerScopeKey: 'owner-hot',
+      schemaVersion: 1,
+      shell: { kind: 'backupRequired', commandId: 'backupWallet' },
+    } satisfies IHomeDisplaySnapshotCritical);
+
+    const first = await loadPreparedHomeDisplaySnapshot({
+      ownerScopeKey: 'owner-hot',
+    });
+    const second = await loadPreparedHomeDisplaySnapshot({
+      ownerScopeKey: 'owner-hot',
+    });
+
+    expect(second).toBe(first);
+    expect(mockLoadManifest).toHaveBeenCalledTimes(1);
+    expect(mockLoadCritical).toHaveBeenCalledTimes(1);
+    expect(mockLoadSourceRecords).toHaveBeenCalledTimes(1);
+  });
+
   it('treats a missing or loading critical shell without records as a cache miss', async () => {
     mockLoadCritical.mockResolvedValueOnce(undefined);
     await expect(

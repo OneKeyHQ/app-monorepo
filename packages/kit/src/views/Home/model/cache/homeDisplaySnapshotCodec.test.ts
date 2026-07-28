@@ -4,11 +4,13 @@ import {
   createHomeDisplaySnapshotDescriptor,
   decodeHomeDisplaySnapshotCritical,
   decodeHomeDisplaySnapshotManifest,
+  decodeHomeDisplaySnapshotPortfolioDetails,
   decodeHomeDisplaySnapshotRoute,
   decodeHomeDisplaySnapshotRouteIndex,
   decodeHomeDisplaySnapshotSourceChunk,
   encodeHomeDisplaySnapshotCritical,
   encodeHomeDisplaySnapshotManifest,
+  encodeHomeDisplaySnapshotPortfolioDetails,
   encodeHomeDisplaySnapshotRoute,
   encodeHomeDisplaySnapshotRouteIndex,
   encodeHomeDisplaySnapshotSourceChunk,
@@ -108,13 +110,27 @@ describe('Home display snapshot codec', () => {
 
   it('encodes one independently loadable source chunk without time expiry', () => {
     const portfolioPayload = {
+      aggregateTokenListMap: {
+        'asset-a': { tokens: [{ $key: 'aggregate-a' }] },
+      },
+      allAggregateTokenMap: {
+        'hidden-a': { tokens: [{ $key: 'hidden-aggregate-a' }] },
+      },
       displayIds: ['asset-a'],
       isLpTokenSwitchLoading: true,
       ownerKey: 'owner-a',
+      riskMap: {
+        'risk-a': { fiatValue: '1' },
+      },
+      riskTokens: [{ $key: 'risk-a' }],
       scopedLpTokenListState: {
         initialized: false,
         isRefreshing: true,
       },
+      smallBalanceMap: {
+        'small-a': { fiatValue: '2' },
+      },
+      smallBalanceTokens: [{ $key: 'small-a' }],
     };
     const record = {
       sourceId: 'portfolio' as const,
@@ -158,6 +174,38 @@ describe('Home display snapshot codec', () => {
     });
     expect(raw).not.toContain('isLpTokenSwitchLoading');
     expect(raw).not.toContain('scopedLpTokenListState');
+    expect(raw).not.toContain('allAggregateTokenMap');
+    expect(raw).not.toContain('riskMap');
+    expect(raw).not.toContain('riskTokens');
+    expect(raw).not.toContain('smallBalanceMap');
+    expect(raw).not.toContain('smallBalanceTokens');
+    expect(decoded).toMatchObject({
+      payload: {
+        payload: {
+          riskTokenCount: 1,
+          smallBalanceTokenCount: 1,
+        },
+      },
+    });
+
+    const detailsRaw = encodeHomeDisplaySnapshotPortfolioDetails({
+      ownerScopeKey,
+      record,
+    });
+    expect(detailsRaw).toContain('allAggregateTokenMap');
+    expect(detailsRaw).toContain('riskTokens');
+    expect(detailsRaw).toContain('smallBalanceTokens');
+    expect(
+      decodeHomeDisplaySnapshotPortfolioDetails({
+        raw: detailsRaw,
+        expectedOwnerScopeKey: ownerScopeKey,
+      }),
+    ).toMatchObject({
+      ownerScopeKey,
+      sourceKeyIdentity: 'portfolio-source',
+      riskTokens: [{ $key: 'risk-a' }],
+      smallBalanceTokens: [{ $key: 'small-a' }],
+    });
     expect(
       decodeHomeDisplaySnapshotSourceChunk({
         raw,

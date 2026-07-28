@@ -3,6 +3,7 @@ import { createDisplaySnapshotStorage } from '@onekeyhq/shared/src/storage/Displ
 import {
   decodeHomeDisplaySnapshotCritical,
   decodeHomeDisplaySnapshotManifest,
+  decodeHomeDisplaySnapshotPortfolioDetails,
   decodeHomeDisplaySnapshotRoute,
   decodeHomeDisplaySnapshotSourceChunk,
   getByteLength,
@@ -15,6 +16,7 @@ import {
 
 import type {
   IHomeDisplaySnapshotCritical,
+  IHomeDisplaySnapshotPortfolioDetails,
   ILoadedHomeDisplaySnapshotManifest,
 } from './homeDisplaySnapshotTypes';
 import type {
@@ -126,6 +128,25 @@ export async function loadHomeDisplaySnapshotSourceRecords({
     });
   }
   return records;
+}
+
+export async function loadHomeDisplaySnapshotPortfolioDetails({
+  context,
+}: {
+  context: ILoadedHomeDisplaySnapshotManifest;
+}): Promise<IHomeDisplaySnapshotPortfolioDetails | undefined> {
+  const descriptor = context.manifest.chunks.portfolioDetails;
+  if (!descriptor) {
+    return undefined;
+  }
+  const raw = await homeDisplaySnapshotStorage.read(descriptor.key);
+  if (!raw || getByteLength(raw) !== descriptor.byteLength) {
+    return undefined;
+  }
+  return decodeHomeDisplaySnapshotPortfolioDetails({
+    raw,
+    expectedOwnerScopeKey: context.route.ownerScopeKey,
+  });
 }
 
 export { homeDisplaySnapshotStorage };

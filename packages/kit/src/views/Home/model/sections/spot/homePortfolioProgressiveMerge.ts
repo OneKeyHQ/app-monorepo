@@ -151,6 +151,7 @@ function mergeHomePortfolioProgressivePayload({
     isAllNetworkEmptyAccount: tokens.length === 0,
     networksMap: { ...base.networksMap, ...incoming.networksMap },
     riskMap,
+    riskTokenCount: riskTokens.length,
     riskTokens,
     scopedLpTokenList: {
       keys: incoming.scopedLpTokenList.keys,
@@ -158,6 +159,7 @@ function mergeHomePortfolioProgressivePayload({
     },
     scopedLpTokenListMap,
     smallBalanceMap,
+    smallBalanceTokenCount: smallBalanceTokens.length,
     smallBalanceTokens,
     tapTokenMap: { ...base.tapTokenMap, ...incoming.tapTokenMap },
     tokenListMap,

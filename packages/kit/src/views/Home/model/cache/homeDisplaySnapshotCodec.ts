@@ -3,6 +3,7 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { HOME_STORE_SOURCE_IDS } from '../store/homeStoreTypes';
 
 import {
+  projectHomeDisplaySnapshotPortfolioDetails,
   projectHomeDisplaySnapshotRecord,
   restoreHomeDisplaySnapshotRecord,
 } from './homeDisplaySnapshotData';
@@ -23,6 +24,7 @@ import type {
   IHomeDisplaySnapshotPersistedCritical,
   IHomeDisplaySnapshotPersistedNavigation,
   IHomeDisplaySnapshotPersistedShell,
+  IHomeDisplaySnapshotPortfolioDetails,
   IHomeDisplaySnapshotRoute,
   IHomeDisplaySnapshotRouteIndex,
   IHomeDisplaySnapshotSourceChunk,
@@ -62,6 +64,7 @@ function isHomeDisplaySnapshotChunkId(
 ): value is IHomeDisplaySnapshotChunkId {
   return (
     value === 'critical' ||
+    value === 'portfolioDetails' ||
     HOME_STORE_SOURCE_IDS.some((sourceId) => sourceId === value)
   );
 }
@@ -276,6 +279,61 @@ export function encodeHomeDisplaySnapshotSourceChunk({
   return stringUtils.stableStringify(chunk);
 }
 
+export function encodeHomeDisplaySnapshotPortfolioDetails({
+  ownerScopeKey,
+  record,
+}: {
+  ownerScopeKey: string;
+  record: IHomeCachedSourceRecord;
+}): string | undefined {
+  if (record.sourceId !== 'portfolio') {
+    return undefined;
+  }
+  const projected = projectHomeDisplaySnapshotPortfolioDetails(record);
+  if (!projected) {
+    return undefined;
+  }
+  const details: IHomeDisplaySnapshotPortfolioDetails = {
+    schemaVersion: HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION,
+    ownerScopeKey,
+    ...projected,
+  };
+  return stringUtils.stableStringify(details);
+}
+
+export function decodeHomeDisplaySnapshotPortfolioDetails({
+  expectedOwnerScopeKey,
+  raw,
+}: {
+  expectedOwnerScopeKey: string;
+  raw: string | undefined;
+}): IHomeDisplaySnapshotPortfolioDetails | undefined {
+  if (!raw) {
+    return undefined;
+  }
+  try {
+    const value = JSON.parse(
+      raw,
+    ) as Partial<IHomeDisplaySnapshotPortfolioDetails>;
+    if (
+      value.schemaVersion !== HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION ||
+      value.ownerScopeKey !== expectedOwnerScopeKey ||
+      typeof value.sourceKeyIdentity !== 'string' ||
+      !isObject(value.aggregateTokenListMap) ||
+      !isObject(value.allAggregateTokenMap) ||
+      !isObject(value.riskMap) ||
+      !Array.isArray(value.riskTokens) ||
+      !isObject(value.smallBalanceMap) ||
+      !Array.isArray(value.smallBalanceTokens)
+    ) {
+      return undefined;
+    }
+    return value as IHomeDisplaySnapshotPortfolioDetails;
+  } catch {
+    return undefined;
+  }
+}
+
 function readPersistedSourceRecord(
   value: unknown,
 ): IHomeCachedSourceRecord | undefined {
@@ -439,7 +497,7 @@ export function decodeHomeDisplaySnapshotManifest({
     }
     const entries = Object.entries(value.chunks);
     if (
-      entries.length > HOME_STORE_SOURCE_IDS.length + 1 ||
+      entries.length > HOME_STORE_SOURCE_IDS.length + 2 ||
       entries.some(
         ([chunkId, descriptor]) =>
           !isHomeDisplaySnapshotChunkId(chunkId) ||

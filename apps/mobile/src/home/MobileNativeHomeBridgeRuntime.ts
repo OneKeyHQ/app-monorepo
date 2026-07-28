@@ -1,3 +1,4 @@
+import { getHomeDisplaySnapshotPartitionTag } from '@onekeyhq/kit/src/views/Home/model/cache/homeDisplaySnapshotKeys';
 import type { IHomeBodyPresentation } from '@onekeyhq/kit/src/views/Home/model/policies/homeDisplayModelPolicy';
 import {
   HOME_CONTAINER_SCHEMA_VERSION,
@@ -17,6 +18,7 @@ import {
   type IHomeContainerTabId,
   type IHomeContainerTheme,
 } from '@onekeyhq/native-components';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import {
   MOBILE_NATIVE_HOME_STANDARD_ACTION_ROW_HEIGHT,
@@ -216,6 +218,9 @@ export class MobileNativeHomeBridgeRuntime {
     ) {
       return;
     }
+    const previousPartitionTag = getHomeDisplaySnapshotPartitionTag(
+      this.owner.scopeKey,
+    );
     this.owner = owner;
     this.authorityState = createAuthorityState();
     this.sectionModels.clear();
@@ -245,24 +250,36 @@ export class MobileNativeHomeBridgeRuntime {
     };
     this.controller.replaceOwner(owner, createInitialSnapshot(theme));
     this.controller.setProtocolV3AuthorityState(this.authorityState);
-    // The keyed producers publish one complete target-owner bundle before the
-    // controller's frame flush; exposing this empty bridge state would create
-    // an avoidable blank frame between owners.
+    defaultLogger.wallet.homeUi.homeNativeOwnerTransition({
+      previousPartitionTag,
+      nextPartitionTag: getHomeDisplaySnapshotPartitionTag(owner.scopeKey),
+      storeCommitId,
+      controllerReused: true,
+    });
+    // Producer bridges republish one complete target-owner bundle before the
+    // controller's frame flush, avoiding an empty frame between owners.
   }
 
-  authority(slotId: IHomeContainerSlotKey, slotRevision: number) {
+  authority(
+    slotId: IHomeContainerSlotKey,
+    slotRevision: number,
+    owner: IHomeContainerOwner = this.owner,
+  ) {
     return {
-      owner: this.owner,
+      owner,
       producedByStoreCommitId: this.getStoreCommitId(),
       slotId,
       slotRevision,
     };
   }
 
-  storeAuthority(slotId: IHomeContainerSlotKey) {
+  storeAuthority(
+    slotId: IHomeContainerSlotKey,
+    owner: IHomeContainerOwner = this.owner,
+  ) {
     const storeCommitId = this.getStoreCommitId();
     return {
-      owner: this.owner,
+      owner,
       producedByStoreCommitId: storeCommitId,
       slotId,
       slotRevision: storeCommitId,

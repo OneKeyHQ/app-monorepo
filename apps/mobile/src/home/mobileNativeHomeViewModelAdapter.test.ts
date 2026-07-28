@@ -433,32 +433,18 @@ describe('mobileNativeHomeViewModelAdapter', () => {
           mergeDeriveAddressData: false,
           networksMap: {},
           ownerKey: 'owner-a',
-          riskMap: {
-            [risk.$key]: {
-              balance: '1',
-              balanceParsed: '1',
-              fiatValue: '1',
-              price: 1,
-              price24h: 0,
-            },
-          },
-          riskTokens: [risk],
+          riskMap: {},
+          riskTokenCount: 1,
+          riskTokens: [],
           scopedLpTokenList: { keys: '', tokens: [] },
           scopedLpTokenListMap: {},
           scopedLpTokenListState: { initialized: true, isRefreshing: false },
           showLpTokenFilterSwitch: false,
           showLpTokensOnly: false,
           smallBalanceFiatValue: '2',
-          smallBalanceMap: {
-            [lowValue.$key]: {
-              balance: '1',
-              balanceParsed: '1',
-              fiatValue: '2',
-              price: 2,
-              price24h: 0,
-            },
-          },
-          smallBalanceTokens: [lowValue],
+          smallBalanceMap: {},
+          smallBalanceTokenCount: 1,
+          smallBalanceTokens: [],
           tapTokenMap: {},
           tokenListMap: {
             [visible.$key]: {

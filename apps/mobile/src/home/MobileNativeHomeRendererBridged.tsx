@@ -49,6 +49,7 @@ import { RichBlockHeader } from '@onekeyhq/kit/src/views/Home/components/RichBlo
 import { SupportHub } from '@onekeyhq/kit/src/views/Home/components/SupportHub';
 import { Upgrade } from '@onekeyhq/kit/src/views/Home/components/Upgrade';
 import { WalletActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions';
+import { loadHomeDisplaySnapshotPortfolioDetailsForOwner } from '@onekeyhq/kit/src/views/Home/model/cache/loadHomeDisplaySnapshotPortfolioDetails.native';
 import { createHomeAuthorityId } from '@onekeyhq/kit/src/views/Home/model/core/homeIdentity';
 import { useHomeSectionPayload } from '@onekeyhq/kit/src/views/Home/model/react/homeStoreHooks';
 import { useHomeMarketIntents } from '@onekeyhq/kit/src/views/Home/model/react/useHomeMarketIntents';
@@ -122,6 +123,12 @@ const MOBILE_NATIVE_HOME_TRON_RESOURCE_ACTION_ID =
   'home.native.banner.openTronResource';
 const MOBILE_NATIVE_HOME_ACTION_SKELETON_COUNT = 4;
 const MemoHomeTabSearchHeader = memo(HomeTabSearchHeader);
+
+type IMobileNativeHomeProducerBridgeProps = {
+  owner: IHomeContainerOwner;
+  ownerRevision: string;
+  runtime: MobileNativeHomeBridgeRuntime;
+};
 
 function useStableRevisionValue<T extends { revision: string }>(value: T): T {
   const valueRef = useRef(value);
@@ -291,10 +298,9 @@ function useUpgradeAvailable() {
 
 const MobileNativeHomeNavigationBridge = memo(
   function MobileNativeHomeNavigationBridge({
+    ownerRevision,
     runtime,
-  }: {
-    runtime: MobileNativeHomeBridgeRuntime;
-  }) {
+  }: IMobileNativeHomeProducerBridgeProps) {
     const navigation = useHomeNavigation();
     const displayModel = useHomeDisplayModel();
     const tabTitles = useTabTitles();
@@ -335,6 +341,7 @@ const MobileNativeHomeNavigationBridge = memo(
       displayModel.body.kind,
       displayModel.navigation.kind,
       navigation,
+      ownerRevision,
       runtime,
       tabTitles,
     ]);
@@ -344,10 +351,10 @@ const MobileNativeHomeNavigationBridge = memo(
 
 const MobileNativeHomeHeaderBridge = memo(
   function MobileNativeHomeHeaderBridge({
+    owner,
+    ownerRevision,
     runtime,
-  }: {
-    runtime: MobileNativeHomeBridgeRuntime;
-  }) {
+  }: IMobileNativeHomeProducerBridgeProps) {
     const intl = useIntl();
     const shell = useHomeShell();
     const bannerResource = useHomeResource('banner');
@@ -478,7 +485,7 @@ const MobileNativeHomeHeaderBridge = memo(
       () => ({
         accountRow: {
           interaction: 'tap',
-          authority: runtime.authority('header.account-row', 1),
+          authority: runtime.authority('header.account-row', 1, owner),
           content: (
             <XStack flex={1} alignItems="center" justifyContent="space-between">
               <XStack flex={1} minWidth={0} gap="$3" alignItems="center">
@@ -508,7 +515,7 @@ const MobileNativeHomeHeaderBridge = memo(
           ),
         },
       }),
-      [isOthersWallet, network?.isAllNetworks, runtime],
+      [isOthersWallet, network?.isAllNetworks, owner, runtime],
     );
     const balanceSlots = useMemo<IHomeContainerSlots>(
       () => ({
@@ -517,6 +524,7 @@ const MobileNativeHomeHeaderBridge = memo(
           authority: runtime.authority(
             'header.balance',
             shell.balancePresentationRevision,
+            owner,
           ),
           content: (
             <HomeOverviewContainer
@@ -530,6 +538,7 @@ const MobileNativeHomeHeaderBridge = memo(
       [
         balancePresentation,
         isBackupRequired,
+        owner,
         runtime,
         shell.balancePresentationRevision,
       ],
@@ -544,6 +553,7 @@ const MobileNativeHomeHeaderBridge = memo(
                 authority: runtime.authority(
                   'header.action-row',
                   shell.actionsPresentationRevision,
+                  owner,
                 ),
                 height: header.actionRowHeight,
                 content:
@@ -561,6 +571,7 @@ const MobileNativeHomeHeaderBridge = memo(
         displayModel.actions.kind,
         header.actionLayout,
         header.actionRowHeight,
+        owner,
         runtime,
         shell.actionsPresentationRevision,
       ],
@@ -574,6 +585,7 @@ const MobileNativeHomeHeaderBridge = memo(
                 authority: runtime.authority(
                   'content.state.portfolio',
                   shell.bodyPresentationRevision,
+                  owner,
                 ),
                 content: <NotBackedUpEmpty />,
                 height: 320,
@@ -581,7 +593,7 @@ const MobileNativeHomeHeaderBridge = memo(
             }
           : {},
       }),
-      [isBackupRequired, runtime, shell.bodyPresentationRevision],
+      [isBackupRequired, owner, runtime, shell.bodyPresentationRevision],
     );
     useLayoutEffect(() => {
       runtime.updateHeader({
@@ -590,22 +602,23 @@ const MobileNativeHomeHeaderBridge = memo(
       });
     }, [
       header,
+      ownerRevision,
       runtime,
       shell.presentationRevision,
       shell.shellCommandRevision,
     ]);
     useLayoutEffect(() => {
       runtime.updateSlots('header-account', accountSlots);
-    }, [accountSlots, runtime]);
+    }, [accountSlots, ownerRevision, runtime]);
     useLayoutEffect(() => {
       runtime.updateSlots('header-balance', balanceSlots);
-    }, [balanceSlots, runtime]);
+    }, [balanceSlots, ownerRevision, runtime]);
     useLayoutEffect(() => {
       runtime.updateSlots('header-actions', actionSlots);
-    }, [actionSlots, runtime]);
+    }, [actionSlots, ownerRevision, runtime]);
     useLayoutEffect(() => {
       runtime.updateSlots('header-body', bodySlots);
-    }, [bodySlots, runtime]);
+    }, [bodySlots, ownerRevision, runtime]);
     useLayoutEffect(
       () =>
         runtime.registerIntentHandler('tron-resource', (intent) => {
@@ -624,7 +637,7 @@ const MobileNativeHomeHeaderBridge = memo(
           }
           return true;
         }),
-      [runtime, tronResource],
+      [ownerRevision, runtime, tronResource],
     );
     return null;
   },
@@ -632,10 +645,10 @@ const MobileNativeHomeHeaderBridge = memo(
 
 const MobileNativeHomePortfolioBridge = memo(
   function MobileNativeHomePortfolioBridge({
+    owner,
+    ownerRevision,
     runtime,
-  }: {
-    runtime: MobileNativeHomeBridgeRuntime;
-  }) {
+  }: IMobileNativeHomeProducerBridgeProps) {
     const intl = useIntl();
     const navigation = useAppNavigation();
     const labels = useNativeLabels();
@@ -684,7 +697,11 @@ const MobileNativeHomePortfolioBridge = memo(
         portfolioAssets: false,
         portfolioDeFi: false,
       });
-    }, [portfolioPayload?.ownerKey, portfolioPayload?.showLpTokensOnly]);
+    }, [
+      ownerRevision,
+      portfolioPayload?.ownerKey,
+      portfolioPayload?.showLpTokensOnly,
+    ]);
     useEffect(() => {
       setSelectedRecommendedIds(
         marketPayload?.favoriteMode === 'recommendation'
@@ -748,6 +765,7 @@ const MobileNativeHomePortfolioBridge = memo(
       });
     }, [
       runtime,
+      ownerRevision,
       section.presentationRevision,
       section.sectionCommandRevision,
       sections,
@@ -773,7 +791,10 @@ const MobileNativeHomePortfolioBridge = memo(
             ? {
                 portfolio: {
                   interaction: showLpTokenFilterSwitch ? 'tap' : 'none',
-                  authority: runtime.storeAuthority('content.header.portfolio'),
+                  authority: runtime.storeAuthority(
+                    'content.header.portfolio',
+                    owner,
+                  ),
                   content: (
                     <RichBlockHeader
                       title={labels.tokens}
@@ -798,6 +819,7 @@ const MobileNativeHomePortfolioBridge = memo(
         displayModel.body.kind,
         isLpTokenSwitchLoading,
         labels.tokens,
+        owner,
         runtime,
         setShowLpTokensOnly,
         showLpTokenFilterSwitch,
@@ -810,7 +832,11 @@ const MobileNativeHomePortfolioBridge = memo(
             ? {
                 portfolio: {
                   interaction: 'tap',
-                  authority: runtime.authority('tab.accessory.portfolio', 1),
+                  authority: runtime.authority(
+                    'tab.accessory.portfolio',
+                    1,
+                    owner,
+                  ),
                   content: (
                     <TabHeaderSettings
                       nativeSlot
@@ -821,7 +847,7 @@ const MobileNativeHomePortfolioBridge = memo(
               }
             : {},
       }),
-      [displayModel.body.kind, runtime, tabTitles.portfolio],
+      [displayModel.body.kind, owner, runtime, tabTitles.portfolio],
     );
     const footerSlots = useMemo<IHomeContainerSlots>(
       () => ({
@@ -836,6 +862,7 @@ const MobileNativeHomePortfolioBridge = memo(
                           authority: runtime.authority(
                             'content.footer.portfolio.upgrade',
                             1,
+                            owner,
                           ),
                           content: <Upgrade />,
                         },
@@ -846,6 +873,7 @@ const MobileNativeHomePortfolioBridge = memo(
                     authority: runtime.authority(
                       'content.footer.portfolio.support',
                       1,
+                      owner,
                     ),
                     content: <SupportHub nativeSlot />,
                   },
@@ -853,21 +881,35 @@ const MobileNativeHomePortfolioBridge = memo(
               }
             : {},
       }),
-      [displayModel.body.kind, runtime, shouldShowUpgrade],
+      [displayModel.body.kind, owner, runtime, shouldShowUpgrade],
     );
     useLayoutEffect(() => {
       runtime.updateSlots('portfolio-header', headerSlots);
-    }, [headerSlots, runtime]);
+    }, [headerSlots, ownerRevision, runtime]);
     useLayoutEffect(() => {
       runtime.updateSlots('portfolio-accessory', accessorySlots);
-    }, [accessorySlots, runtime]);
+    }, [accessorySlots, ownerRevision, runtime]);
     useLayoutEffect(() => {
       runtime.updateSlots('portfolio-footer', footerSlots);
-    }, [footerSlots, runtime]);
+    }, [footerSlots, ownerRevision, runtime]);
 
     const openLowValueAssets = useCallback(() => {
       if (!account || !network || !wallet || !portfolioPayload) return;
-      const tokens = portfolioPayload.smallBalanceTokens ?? [];
+      const cachedDetails =
+        portfolioPayload.smallBalanceTokens.length === 0 &&
+        (portfolioPayload.smallBalanceTokenCount ?? 0) > 0
+          ? loadHomeDisplaySnapshotPortfolioDetailsForOwner({
+              ownerScopeKey: owner.scopeKey,
+            })
+          : undefined;
+      const tokens =
+        portfolioPayload.smallBalanceTokens.length > 0
+          ? portfolioPayload.smallBalanceTokens
+          : (cachedDetails?.smallBalanceTokens ?? []);
+      const tokenMap =
+        portfolioPayload.smallBalanceTokens.length > 0
+          ? portfolioPayload.smallBalanceMap
+          : (cachedDetails?.smallBalanceMap ?? {});
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetListRoutes.TokenList,
         params: {
@@ -885,16 +927,20 @@ const MobileNativeHomePortfolioBridge = memo(
           tokenList: {
             tokens,
             keys: tokens.map((token) => token.$key).join(','),
-            map: portfolioPayload.smallBalanceMap ?? {},
+            map: tokenMap,
           },
           deriveType,
           deriveInfo,
           hideValue,
           isAllNetworks: network.isAllNetworks,
-          aggregateTokensListMap: portfolioPayload.aggregateTokenListMap,
+          aggregateTokensListMap:
+            cachedDetails?.aggregateTokenListMap ??
+            portfolioPayload.aggregateTokenListMap,
           aggregateTokensMap: {},
           accountAddress: account.address,
-          allAggregateTokenMap: portfolioPayload.allAggregateTokenMap,
+          allAggregateTokenMap:
+            cachedDetails?.allAggregateTokenMap ??
+            portfolioPayload.allAggregateTokenMap,
           searchKeyLengthThreshold: 1,
         },
       });
@@ -907,12 +953,27 @@ const MobileNativeHomePortfolioBridge = memo(
       intl,
       navigation,
       network,
+      owner.scopeKey,
       portfolioPayload,
       wallet,
     ]);
     const openRiskAssets = useCallback(() => {
       if (!account || !network || !wallet || !portfolioPayload) return;
-      const tokens = portfolioPayload.riskTokens ?? [];
+      const cachedDetails =
+        portfolioPayload.riskTokens.length === 0 &&
+        (portfolioPayload.riskTokenCount ?? 0) > 0
+          ? loadHomeDisplaySnapshotPortfolioDetailsForOwner({
+              ownerScopeKey: owner.scopeKey,
+            })
+          : undefined;
+      const tokens =
+        portfolioPayload.riskTokens.length > 0
+          ? portfolioPayload.riskTokens
+          : (cachedDetails?.riskTokens ?? []);
+      const tokenMap =
+        portfolioPayload.riskTokens.length > 0
+          ? portfolioPayload.riskMap
+          : (cachedDetails?.riskMap ?? {});
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetListRoutes.RiskTokenManager,
         params: {
@@ -922,7 +983,7 @@ const MobileNativeHomePortfolioBridge = memo(
           tokenList: {
             tokens,
             keys: tokens.map((token) => token.$key).join(','),
-            map: portfolioPayload.riskMap ?? {},
+            map: tokenMap,
           },
           deriveType,
           deriveInfo,
@@ -938,6 +999,7 @@ const MobileNativeHomePortfolioBridge = memo(
       hideValue,
       navigation,
       network,
+      owner.scopeKey,
       portfolioPayload,
       wallet,
     ]);
@@ -1067,6 +1129,7 @@ const MobileNativeHomePortfolioBridge = memo(
         marketPayload,
         openLowValueAssets,
         openRiskAssets,
+        ownerRevision,
         runtime,
         selectCategory,
         selectedRecommendedIds,
@@ -1079,10 +1142,10 @@ const MobileNativeHomePortfolioBridge = memo(
 );
 
 const MobileNativeHomePerpsBridge = memo(function MobileNativeHomePerpsBridge({
+  owner,
+  ownerRevision,
   runtime,
-}: {
-  runtime: MobileNativeHomeBridgeRuntime;
-}) {
+}: IMobileNativeHomeProducerBridgeProps) {
   const intl = useIntl();
   const labels = useNativeLabels();
   const section = useHomeSection('perps');
@@ -1116,6 +1179,7 @@ const MobileNativeHomePerpsBridge = memo(function MobileNativeHomePerpsBridge({
     });
   }, [
     runtime,
+    ownerRevision,
     section.presentationRevision,
     section.sectionCommandRevision,
     sections,
@@ -1135,6 +1199,7 @@ const MobileNativeHomePerpsBridge = memo(function MobileNativeHomePerpsBridge({
                 authority: runtime.authority(
                   'content.header.perps',
                   section.presentationRevision,
+                  owner,
                 ),
                 content: (
                   <PerpsHomeHeaderSlot
@@ -1154,6 +1219,7 @@ const MobileNativeHomePerpsBridge = memo(function MobileNativeHomePerpsBridge({
               authority: runtime.authority(
                 'content.state.perps',
                 section.presentationRevision,
+                owner,
               ),
               content: (
                 <PerpsHomeStateSlot
@@ -1177,6 +1243,7 @@ const MobileNativeHomePerpsBridge = memo(function MobileNativeHomePerpsBridge({
                         authority: runtime.authority(
                           'content.footer.perps.upgrade',
                           1,
+                          owner,
                         ),
                         content: <Upgrade />,
                       },
@@ -1187,6 +1254,7 @@ const MobileNativeHomePerpsBridge = memo(function MobileNativeHomePerpsBridge({
                   authority: runtime.authority(
                     'content.footer.perps.support',
                     1,
+                    owner,
                   ),
                   content: (
                     <SupportHub
@@ -1207,6 +1275,7 @@ const MobileNativeHomePerpsBridge = memo(function MobileNativeHomePerpsBridge({
       depositDisabled,
       intl,
       isEmpty,
+      owner,
       payload,
       runtime,
       section.presentationRevision,
@@ -1216,15 +1285,15 @@ const MobileNativeHomePerpsBridge = memo(function MobileNativeHomePerpsBridge({
   );
   useLayoutEffect(() => {
     runtime.updateSlots('perps', slots);
-  }, [runtime, slots]);
+  }, [ownerRevision, runtime, slots]);
   return null;
 });
 
 const MobileNativeHomeDeFiBridge = memo(function MobileNativeHomeDeFiBridge({
+  owner,
+  ownerRevision,
   runtime,
-}: {
-  runtime: MobileNativeHomeBridgeRuntime;
-}) {
+}: IMobileNativeHomeProducerBridgeProps) {
   const intl = useIntl();
   const labels = useNativeLabels();
   const tabTitles = useTabTitles();
@@ -1234,6 +1303,9 @@ const MobileNativeHomeDeFiBridge = memo(function MobileNativeHomeDeFiBridge({
   const [{ hideValue }] = useSettingsValuePersistAtom();
   const shouldShowUpgrade = useUpgradeAvailable();
   const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    setExpanded(false);
+  }, [ownerRevision]);
   const sections = useMemo(
     () =>
       buildMobileNativeHomeViewModelSections({
@@ -1275,6 +1347,7 @@ const MobileNativeHomeDeFiBridge = memo(function MobileNativeHomeDeFiBridge({
     });
   }, [
     runtime,
+    ownerRevision,
     section.presentationRevision,
     section.sectionCommandRevision,
     sections,
@@ -1290,6 +1363,7 @@ const MobileNativeHomeDeFiBridge = memo(function MobileNativeHomeDeFiBridge({
               authority: runtime.authority(
                 'content.state.defi',
                 section.presentationRevision,
+                owner,
               ),
               content: <EmptyDeFi tableLayout />,
               height: 360,
@@ -1305,6 +1379,7 @@ const MobileNativeHomeDeFiBridge = memo(function MobileNativeHomeDeFiBridge({
                   authority: runtime.authority(
                     'content.footer.defi.upgrade',
                     1,
+                    owner,
                   ),
                   content: <Upgrade />,
                 },
@@ -1312,17 +1387,27 @@ const MobileNativeHomeDeFiBridge = memo(function MobileNativeHomeDeFiBridge({
             : {}),
           support: {
             interaction: 'tap',
-            authority: runtime.authority('content.footer.defi.support', 1),
+            authority: runtime.authority(
+              'content.footer.defi.support',
+              1,
+              owner,
+            ),
             content: <SupportHub nativeSlot />,
           },
         },
       },
     }),
-    [runtime, section.presentationRevision, shouldShowUpgrade, showEmpty],
+    [
+      owner,
+      runtime,
+      section.presentationRevision,
+      shouldShowUpgrade,
+      showEmpty,
+    ],
   );
   useLayoutEffect(() => {
     runtime.updateSlots('defi', slots);
-  }, [runtime, slots]);
+  }, [ownerRevision, runtime, slots]);
   useLayoutEffect(
     () =>
       runtime.registerIntentHandler('defi-expand', (intent) => {
@@ -1336,16 +1421,16 @@ const MobileNativeHomeDeFiBridge = memo(function MobileNativeHomeDeFiBridge({
         }
         return false;
       }),
-    [runtime],
+    [ownerRevision, runtime],
   );
   return null;
 });
 
 const MobileNativeHomeNFTBridge = memo(function MobileNativeHomeNFTBridge({
+  owner,
+  ownerRevision,
   runtime,
-}: {
-  runtime: MobileNativeHomeBridgeRuntime;
-}) {
+}: IMobileNativeHomeProducerBridgeProps) {
   const intl = useIntl();
   const labels = useNativeLabels();
   const section = useHomeSection('nft');
@@ -1370,6 +1455,7 @@ const MobileNativeHomeNFTBridge = memo(function MobileNativeHomeNFTBridge({
     });
   }, [
     runtime,
+    ownerRevision,
     section.presentationRevision,
     section.sectionCommandRevision,
     sections,
@@ -1385,6 +1471,7 @@ const MobileNativeHomeNFTBridge = memo(function MobileNativeHomeNFTBridge({
               authority: runtime.authority(
                 'content.state.nft',
                 section.presentationRevision,
+                owner,
               ),
               content: <EmptyNFT />,
               height: 360,
@@ -1392,20 +1479,20 @@ const MobileNativeHomeNFTBridge = memo(function MobileNativeHomeNFTBridge({
           }
         : {},
     }),
-    [runtime, section.presentationRevision, showEmpty],
+    [owner, runtime, section.presentationRevision, showEmpty],
   );
   useLayoutEffect(() => {
     runtime.updateSlots('nft', slots);
-  }, [runtime, slots]);
+  }, [ownerRevision, runtime, slots]);
   return null;
 });
 
 const MobileNativeHomeHistoryBridge = memo(
   function MobileNativeHomeHistoryBridge({
+    owner,
+    ownerRevision,
     runtime,
-  }: {
-    runtime: MobileNativeHomeBridgeRuntime;
-  }) {
+  }: IMobileNativeHomeProducerBridgeProps) {
     const intl = useIntl();
     const labels = useNativeLabels();
     const tabTitles = useTabTitles();
@@ -1434,6 +1521,7 @@ const MobileNativeHomeHistoryBridge = memo(
       });
     }, [
       runtime,
+      ownerRevision,
       section.presentationRevision,
       section.sectionCommandRevision,
       sections,
@@ -1450,6 +1538,7 @@ const MobileNativeHomeHistoryBridge = memo(
                 authority: runtime.authority(
                   'content.state.history',
                   section.presentationRevision,
+                  owner,
                 ),
                 content: (
                   <EmptyHistory
@@ -1468,7 +1557,7 @@ const MobileNativeHomeHistoryBridge = memo(
         tabAccessories: {
           history: {
             interaction: 'tap',
-            authority: runtime.authority('tab.accessory.history', 1),
+            authority: runtime.authority('tab.accessory.history', 1, owner),
             content: (
               <TabHeaderSettings
                 nativeSlot
@@ -1484,6 +1573,7 @@ const MobileNativeHomeHistoryBridge = memo(
         indexedAccount?.id,
         isEmpty,
         network?.id,
+        owner,
         payload?.tokenMap,
         runtime,
         section.presentationRevision,
@@ -1493,7 +1583,7 @@ const MobileNativeHomeHistoryBridge = memo(
     );
     useLayoutEffect(() => {
       runtime.updateSlots('history', slots);
-    }, [runtime, slots]);
+    }, [ownerRevision, runtime, slots]);
     return null;
   },
 );
@@ -1515,19 +1605,47 @@ const MobileNativeHomeOwnerBridge = memo(function MobileNativeHomeOwnerBridge({
 
 const MobileNativeHomeProducerBridges = memo(
   function MobileNativeHomeProducerBridges({
+    owner,
+    ownerRevision,
     runtime,
-  }: {
-    runtime: MobileNativeHomeBridgeRuntime;
-  }) {
+  }: IMobileNativeHomeProducerBridgeProps) {
     return (
       <>
-        <MobileNativeHomeNavigationBridge runtime={runtime} />
-        <MobileNativeHomeHeaderBridge runtime={runtime} />
-        <MobileNativeHomePortfolioBridge runtime={runtime} />
-        <MobileNativeHomePerpsBridge runtime={runtime} />
-        <MobileNativeHomeDeFiBridge runtime={runtime} />
-        <MobileNativeHomeNFTBridge runtime={runtime} />
-        <MobileNativeHomeHistoryBridge runtime={runtime} />
+        <MobileNativeHomeNavigationBridge
+          owner={owner}
+          ownerRevision={ownerRevision}
+          runtime={runtime}
+        />
+        <MobileNativeHomeHeaderBridge
+          owner={owner}
+          ownerRevision={ownerRevision}
+          runtime={runtime}
+        />
+        <MobileNativeHomePortfolioBridge
+          owner={owner}
+          ownerRevision={ownerRevision}
+          runtime={runtime}
+        />
+        <MobileNativeHomePerpsBridge
+          owner={owner}
+          ownerRevision={ownerRevision}
+          runtime={runtime}
+        />
+        <MobileNativeHomeDeFiBridge
+          owner={owner}
+          ownerRevision={ownerRevision}
+          runtime={runtime}
+        />
+        <MobileNativeHomeNFTBridge
+          owner={owner}
+          ownerRevision={ownerRevision}
+          runtime={runtime}
+        />
+        <MobileNativeHomeHistoryBridge
+          owner={owner}
+          ownerRevision={ownerRevision}
+          runtime={runtime}
+        />
       </>
     );
   },
@@ -1542,7 +1660,6 @@ const MobileNativeHomeBridges = memo(function MobileNativeHomeBridges({
   owner: IHomeContainerOwner;
   runtime: MobileNativeHomeBridgeRuntime;
 }) {
-  const producerKey = `${owner.scopeKey}:${owner.sessionId}`;
   return (
     <>
       <MobileNativeHomeOwnerBridge
@@ -1550,7 +1667,11 @@ const MobileNativeHomeBridges = memo(function MobileNativeHomeBridges({
         owner={owner}
         runtime={runtime}
       />
-      <MobileNativeHomeProducerBridges key={producerKey} runtime={runtime} />
+      <MobileNativeHomeProducerBridges
+        owner={owner}
+        ownerRevision={owner.sessionId}
+        runtime={runtime}
+      />
     </>
   );
 });

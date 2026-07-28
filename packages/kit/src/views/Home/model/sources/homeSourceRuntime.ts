@@ -159,6 +159,13 @@ type ISourceCacheEntry = {
 
 const SOURCE_CACHE_TTL_MS = 30_000;
 const SOURCE_CACHE_MAX_IDENTITIES = 8;
+
+function assertHomeSourceRequestActive(signal: AbortSignal): void {
+  if (signal.aborted) {
+    throw new OneKeyLocalError('Home source request was cancelled');
+  }
+}
+
 const FIRST_FRAME_WARM_DELAY_MS = 800;
 
 function createSourceRequestToken({
@@ -429,6 +436,14 @@ export class HomeSourceRuntime {
   }
 
   cancelSession(sessionId: string): void {
+    const schedulerSnapshot = this.host.scheduler.getSnapshot();
+    const leafSnapshot = this.host.leafPool.getSnapshot();
+    const activeSourceCount = Array.from(this.activeAuthority.values()).filter(
+      (authority) => authority.sessionId === sessionId,
+    ).length;
+    const inFlightSourceCount = Array.from(this.inFlight.values()).filter(
+      (value) => value.sessionId === sessionId,
+    ).length;
     this.host.scheduler.cancelSession(sessionId);
     this.activeAuthority.forEach((authority, sourceId) => {
       if (authority.sessionId === sessionId) {
@@ -449,6 +464,14 @@ export class HomeSourceRuntime {
     });
     this.host.leafPool.cancelSession(sessionId);
     this.stopTimers();
+    defaultLogger.wallet.homeUi.homeSessionCancellation({
+      schedulerPendingBefore: schedulerSnapshot.pendingCount,
+      schedulerRunningBefore: schedulerSnapshot.runningCount,
+      leafPendingBefore: leafSnapshot.clientPendingCount,
+      leafGlobalRunningBefore: leafSnapshot.runningCount,
+      activeSourceCount,
+      inFlightSourceCount,
+    });
   }
 
   async executeCommand(intent: IHomeStoreIntent): Promise<boolean> {
@@ -647,6 +670,7 @@ export class HomeSourceRuntime {
           environment,
           force,
           priority,
+          signal,
           sessionId: authority.sessionId,
           sink,
           sourceId,
@@ -753,6 +777,7 @@ export class HomeSourceRuntime {
     environment,
     force,
     priority,
+    signal,
     sessionId,
     sink,
     sourceId,
@@ -763,6 +788,7 @@ export class HomeSourceRuntime {
     environment: IHomeSourceEnvironment;
     force: boolean;
     priority: IRuntimeRequestPriority;
+    signal: AbortSignal;
     sessionId: string;
     sink: IHomeResultSink<IHomeRuntimeJsonValue>;
     sourceId: IHomeStoreSourceId;
@@ -770,8 +796,10 @@ export class HomeSourceRuntime {
     yieldIfMainBudgetExceeded: () => Promise<void>;
   }): Promise<void> {
     try {
+      assertHomeSourceRequestActive(signal);
       if (sourceId === 'capability') {
         const facts = await this.loadCapability(environment, sessionId);
+        assertHomeSourceRequestActive(signal);
         const wire = this.publishModel(sink, facts, 'final');
         this.rememberCache(sourceId, sourceKey, {
           coverageFingerprint: `capability:${sourceKey}`,
@@ -792,6 +820,7 @@ export class HomeSourceRuntime {
             this.publishModel(sink, intermediate, 'intermediate');
           },
         );
+        assertHomeSourceRequestActive(signal);
         const wire = this.publishModel(sink, payload, 'final');
         this.rememberCache(sourceId, sourceKey, {
           coverageFingerprint: buildHomeBannerSemanticFingerprint(payload),
@@ -807,6 +836,9 @@ export class HomeSourceRuntime {
         payload: unknown;
         rowIds: readonly string[];
       }) => {
+        if (signal.aborted) {
+          return;
+        }
         const wire = this.createSectionWire(input.payload, input.rowIds);
         if (wire) {
           this.dataRevision += 1;
@@ -837,9 +869,11 @@ export class HomeSourceRuntime {
         priority,
         publishIntermediate,
         sessionId,
+        signal,
         sourceId,
         yieldIfMainBudgetExceeded,
       });
+      assertHomeSourceRequestActive(signal);
       const wire = this.createSectionWire(section.payload, section.rowIds);
       if (!wire) {
         throw new OneKeyLocalError(
@@ -865,6 +899,9 @@ export class HomeSourceRuntime {
         rowIds: section.rowIds,
       });
     } catch {
+      if (signal.aborted) {
+        return;
+      }
       if (sourceId === 'banner') {
         this.commitBannerFailure(authority);
       } else if (isSectionSource(sourceId)) {
@@ -1625,6 +1662,7 @@ export class HomeSourceRuntime {
     priority,
     publishIntermediate,
     sessionId,
+    signal,
     sourceId,
     yieldIfMainBudgetExceeded,
   }: {
@@ -1636,6 +1674,7 @@ export class HomeSourceRuntime {
       rowIds: readonly string[];
     }) => void;
     sessionId: string;
+    signal: AbortSignal;
     sourceId: IHomeSectionId;
     yieldIfMainBudgetExceeded: () => Promise<void>;
   }): Promise<{ payload: unknown; rowIds: readonly string[] }> {
@@ -1646,6 +1685,7 @@ export class HomeSourceRuntime {
         priority,
         publishIntermediate,
         sessionId,
+        signal,
         yieldIfMainBudgetExceeded,
       });
     }
@@ -1675,6 +1715,7 @@ export class HomeSourceRuntime {
     priority,
     publishIntermediate,
     sessionId,
+    signal,
     yieldIfMainBudgetExceeded,
   }: {
     environment: IHomeSourceEnvironment;
@@ -1685,8 +1726,10 @@ export class HomeSourceRuntime {
       rowIds: readonly string[];
     }) => void;
     sessionId: string;
+    signal: AbortSignal;
     yieldIfMainBudgetExceeded: () => Promise<void>;
   }): Promise<{ payload: IHomeSpotLegacyPayload; rowIds: readonly string[] }> {
+    assertHomeSourceRequestActive(signal);
     const { account, indexedAccount, network, vaultSettings, wallet } =
       environment.activeAccount;
     const state = this.host.getStateView();
@@ -1707,6 +1750,7 @@ export class HomeSourceRuntime {
             sessionId,
           )
           .catch(() => false);
+    assertHomeSourceRequestActive(signal);
     const showLpTokenFilterSwitch =
       isTokenSelectorDappTokenFilterSupportedNetwork({
         network,
@@ -1742,10 +1786,12 @@ export class HomeSourceRuntime {
         }),
       sessionId,
     );
+    assertHomeSourceRequestActive(signal);
     const fetchTokens = async (
       target: IPortfolioFetchTarget,
       lpToken: boolean,
     ): Promise<INativeHomeAllNetworkTokenResponse> => {
+      assertHomeSourceRequestActive(signal);
       let mergeDerivePromise = mergeDeriveByNetworkId.get(target.networkId);
       if (!mergeDerivePromise) {
         mergeDerivePromise =
@@ -1786,6 +1832,7 @@ export class HomeSourceRuntime {
         ),
         mergeDerivePromise,
       ]);
+      assertHomeSourceRequestActive(signal);
       return {
         ...response,
         accountId: response.accountId ?? target.accountId,
@@ -1807,6 +1854,7 @@ export class HomeSourceRuntime {
     }) => {
       const responses: INativeHomeAllNetworkTokenResponse[] = [];
       for (let index = 0; index < targets.length; index += 4) {
+        assertHomeSourceRequestActive(signal);
         const chunk = targets.slice(index, index + 4);
         const settled = await Promise.allSettled(
           chunk.map((target) => fetchTokens(target, lpToken)),
@@ -1819,6 +1867,7 @@ export class HomeSourceRuntime {
               : [],
           ),
         );
+        assertHomeSourceRequestActive(signal);
         if (
           onProgress &&
           responses.length > 0 &&
@@ -1836,6 +1885,7 @@ export class HomeSourceRuntime {
     ) => {
       const responses: INativeHomeAllNetworkTokenResponse[] = [];
       const publishCachedResponses = async (processedTargetCount: number) => {
+        assertHomeSourceRequestActive(signal);
         if (
           responses.length === 0 ||
           responses.length === publishedCacheResponseCount
@@ -1852,6 +1902,7 @@ export class HomeSourceRuntime {
           showLpTokenFilterSwitch,
           showLpTokensOnly: false,
         });
+        assertHomeSourceRequestActive(signal);
         if (intermediate.displayIds.length === 0) {
           return;
         }
@@ -1870,6 +1921,7 @@ export class HomeSourceRuntime {
         await yieldIfMainBudgetExceeded();
       };
       for (let index = 0; index < targets.length; index += 4) {
+        assertHomeSourceRequestActive(signal);
         const chunk = targets.slice(index, index + 4);
         const settled = await Promise.allSettled(
           chunk.map(async (target) => {
@@ -1934,6 +1986,7 @@ export class HomeSourceRuntime {
             item.status === 'fulfilled' && item.value ? [item.value] : [],
           ),
         );
+        assertHomeSourceRequestActive(signal);
         if (publishedCacheResponseCount === 0) {
           await publishCachedResponses(Math.min(index + 4, targets.length));
         }
@@ -1955,6 +2008,7 @@ export class HomeSourceRuntime {
         },
         { force, walletId: wallet.id },
       );
+      assertHomeSourceRequestActive(signal);
       walletTargets = walletAccounts.accountsInfo.map((item) => ({
         accountId: item.accountId,
         accountAddress: item.apiAddress,
@@ -1975,6 +2029,7 @@ export class HomeSourceRuntime {
           },
           { force, walletId: wallet.id },
         );
+        assertHomeSourceRequestActive(signal);
         lpTargets = lpAccounts.accountsInfo.map((item) => ({
           accountId: item.accountId,
           accountAddress: item.apiAddress,
@@ -1996,6 +2051,7 @@ export class HomeSourceRuntime {
           ),
         sessionId,
       );
+      assertHomeSourceRequestActive(signal);
       walletTargets = networkAccounts.flatMap((item) =>
         item.account?.id
           ? [
@@ -2014,12 +2070,14 @@ export class HomeSourceRuntime {
     }
 
     await fetchCachedTargets(walletTargets);
+    assertHomeSourceRequestActive(signal);
     const walletResponses = await fetchTargets({
       lpToken: false,
       targets: walletTargets,
       onProgress: showLpTokensOnly
         ? undefined
         : async (responses, processedTargetCount) => {
+            assertHomeSourceRequestActive(signal);
             const intermediate = await this.buildPortfolioPayload({
               environment,
               mergeDeriveAddressData,
@@ -2030,6 +2088,7 @@ export class HomeSourceRuntime {
               showLpTokenFilterSwitch,
               showLpTokensOnly: false,
             });
+            assertHomeSourceRequestActive(signal);
             defaultLogger.wallet.homeUi.homePortfolioProgress({
               publicationKind: 'liveIntermediate',
               mode: 'wallet',
@@ -2044,6 +2103,7 @@ export class HomeSourceRuntime {
             await yieldIfMainBudgetExceeded();
           },
     });
+    assertHomeSourceRequestActive(signal);
     const walletPayload = await this.buildPortfolioPayload({
       environment,
       mergeDeriveAddressData,
@@ -2062,6 +2122,7 @@ export class HomeSourceRuntime {
       lpToken: true,
       targets: lpTargets,
       onProgress: async (responses, processedTargetCount) => {
+        assertHomeSourceRequestActive(signal);
         const intermediate = await this.buildPortfolioPayload({
           environment,
           mergeDeriveAddressData,
@@ -2073,6 +2134,7 @@ export class HomeSourceRuntime {
           showLpTokensOnly: true,
           valuationPayload: walletPayload,
         });
+        assertHomeSourceRequestActive(signal);
         defaultLogger.wallet.homeUi.homePortfolioProgress({
           publicationKind: 'liveIntermediate',
           mode: 'lp',
@@ -2087,6 +2149,7 @@ export class HomeSourceRuntime {
         await yieldIfMainBudgetExceeded();
       },
     });
+    assertHomeSourceRequestActive(signal);
     const payload = await this.buildPortfolioPayload({
       environment,
       mergeDeriveAddressData,
@@ -2207,6 +2270,7 @@ export class HomeSourceRuntime {
       networksMap,
       ownerKey,
       riskMap: showLpTokensOnly ? {} : projection.riskMap,
+      riskTokenCount: showLpTokensOnly ? 0 : projection.riskTokens.length,
       riskTokens: showLpTokensOnly ? [] : projection.riskTokens,
       scopedLpTokenList: showLpTokensOnly
         ? {
@@ -2225,6 +2289,9 @@ export class HomeSourceRuntime {
         )
         .toFixed(),
       smallBalanceMap: showLpTokensOnly ? {} : projection.smallBalanceMap,
+      smallBalanceTokenCount: showLpTokensOnly
+        ? 0
+        : projection.smallBalanceTokens.length,
       smallBalanceTokens: showLpTokensOnly ? [] : projection.smallBalanceTokens,
       tapTokenMap: { ...projection.map, ...aggregateTokenMap },
       tokenListMap: projection.map,

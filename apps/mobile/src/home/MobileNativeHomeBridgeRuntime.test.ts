@@ -48,6 +48,10 @@ describe('MobileNativeHomeBridgeRuntime owner replacement', () => {
       },
       backgroundColor: '#ffffff',
     });
+    expect(runtime.authority('header.balance', 1, nextOwner)).toMatchObject({
+      owner: nextOwner,
+      producedByStoreCommitId: 7,
+    });
     runtime.replaceOwner(nextOwner, theme);
     await Promise.resolve();
 

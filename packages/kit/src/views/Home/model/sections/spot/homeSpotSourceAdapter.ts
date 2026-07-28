@@ -66,11 +66,13 @@ type IHomeSpotLegacyPayload = {
   networksMap: Record<string, IServerNetwork>;
   ownerKey: string;
   riskMap: Record<string, ITokenFiat>;
+  riskTokenCount?: number;
   riskTokens: IAccountToken[];
   showLpTokenFilterSwitch: boolean;
   showLpTokensOnly: boolean;
   smallBalanceFiatValue?: string;
   smallBalanceMap: Record<string, ITokenFiat>;
+  smallBalanceTokenCount?: number;
   smallBalanceTokens: IAccountToken[];
   scopedLpTokenList: {
     keys: string;
@@ -93,7 +95,6 @@ const HOME_SPOT_SNAPSHOT_KEYS = [
   'accountTokensWorthCurrency',
   'accountWorthByNetwork',
   'aggregateTokenListMap',
-  'allAggregateTokenMap',
   'blockedRiskTokenCount',
   'displayIds',
   'fundedIds',
@@ -104,13 +105,11 @@ const HOME_SPOT_SNAPSHOT_KEYS = [
   'mergeDeriveAddressData',
   'networksMap',
   'ownerKey',
-  'riskMap',
-  'riskTokens',
+  'riskTokenCount',
   'showLpTokenFilterSwitch',
   'showLpTokensOnly',
   'smallBalanceFiatValue',
-  'smallBalanceMap',
-  'smallBalanceTokens',
+  'smallBalanceTokenCount',
   'scopedLpTokenList',
   'scopedLpTokenListMap',
   'tapTokenMap',
@@ -139,11 +138,13 @@ function createHomeSpotSnapshotDefaults(): IHomeSpotLegacyPayload {
     networksMap: {},
     ownerKey: '',
     riskMap: {},
+    riskTokenCount: 0,
     riskTokens: [],
     showLpTokenFilterSwitch: false,
     showLpTokensOnly: false,
     smallBalanceFiatValue: '0',
     smallBalanceMap: {},
+    smallBalanceTokenCount: 0,
     smallBalanceTokens: [],
     scopedLpTokenList: {
       keys: '',

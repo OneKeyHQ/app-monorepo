@@ -25,6 +25,7 @@ import {
   createHomeSpotSnapshotDefaults,
 } from '../sections/spot/homeSpotSourceAdapter';
 
+import type { IHomeDisplaySnapshotPortfolioDetails } from './homeDisplaySnapshotTypes';
 import type { IHomeBannerStorePayload } from '../sections/banner/homeBannerStoreModel';
 import type { IHomeDeFiLegacyPayload } from '../sections/defi/homeDeFiSourceAdapter';
 import type { IHomeHistoryStorePayload } from '../sections/history/homeHistorySourceAdapter';
@@ -85,11 +86,18 @@ function projectSourceData({
         value as IHomeBannerStorePayload,
         HOME_BANNER_SNAPSHOT_KEYS,
       ) as IHomeRuntimeJsonValue;
-    case 'portfolio':
-      return pickSnapshotFields(
-        value as IHomeSpotLegacyPayload,
-        HOME_SPOT_SNAPSHOT_KEYS,
-      ) as IHomeRuntimeJsonValue;
+    case 'portfolio': {
+      const payload = value as IHomeSpotLegacyPayload;
+      return {
+        ...pickSnapshotFields(payload, HOME_SPOT_SNAPSHOT_KEYS),
+        riskTokenCount:
+          payload.riskTokenCount ?? payload.riskTokens?.length ?? 0,
+        smallBalanceTokenCount:
+          payload.smallBalanceTokenCount ??
+          payload.smallBalanceTokens?.length ??
+          0,
+      } as unknown as IHomeRuntimeJsonValue;
+    }
     case 'perps':
       return pickSnapshotFields(
         value as IHomePerpsLegacyPayload,
@@ -187,6 +195,33 @@ function getPersistedSection(
     kind: 'ready',
     rowIds: value.section.rowIds,
     payload: value.payload,
+  };
+}
+
+export function projectHomeDisplaySnapshotPortfolioDetails(
+  record: IHomeCachedSourceRecord,
+):
+  | Omit<
+      IHomeDisplaySnapshotPortfolioDetails,
+      'ownerScopeKey' | 'schemaVersion'
+    >
+  | undefined {
+  if (record.sourceId !== 'portfolio') {
+    return undefined;
+  }
+  const section = getPersistedSection(record.payload);
+  if (!section || section.kind !== 'ready' || !isObject(section.payload)) {
+    return undefined;
+  }
+  const payload = section.payload as unknown as IHomeSpotLegacyPayload;
+  return {
+    sourceKeyIdentity: record.sourceKeyIdentity,
+    aggregateTokenListMap: payload.aggregateTokenListMap ?? {},
+    allAggregateTokenMap: payload.allAggregateTokenMap ?? {},
+    riskMap: payload.riskMap ?? {},
+    riskTokens: payload.riskTokens ?? [],
+    smallBalanceMap: payload.smallBalanceMap ?? {},
+    smallBalanceTokens: payload.smallBalanceTokens ?? [],
   };
 }
 
