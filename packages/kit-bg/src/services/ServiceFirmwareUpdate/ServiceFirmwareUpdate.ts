@@ -2456,9 +2456,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
           releaseResult,
         )
       : undefined;
-    const executor =
-      plan?.executor ??
-      (releaseResult.deviceType === EDeviceType.Pro2 ? 'v4' : 'v3');
+    if (!plan && releaseResult.deviceType === EDeviceType.Pro2) {
+      throw new OneKeyLocalError(
+        'Do not support update firmware for this device',
+      );
+    }
+    const executor = plan?.executor ?? 'v3';
 
     const updateParams: IFirmwareUpdateV3VersionParams = {
       connectId: releaseResult.updatingConnectId,
@@ -2474,20 +2477,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
       firmwareType: updateInfos.firmware?.toFirmwareType,
     };
     if (executor === 'v4') {
+      if (!plan) {
+        throw new OneKeyLocalError(
+          'Firmware update plan is required for the V4 executor',
+        );
+      }
       const { getFirmwareUpdateV4Targets } = await loadFirmwareUpdateRuntime();
-      const targetsToUpdate = getFirmwareUpdateV4Targets(
-        plan?.targetsToUpdate ?? [
-          'boot',
-          'app_v1',
-          'app_v2',
-          'coprocessor',
-          'resource',
-          'se01',
-          'se02',
-          'se03',
-          'se04',
-        ],
-      );
+      const targetsToUpdate = getFirmwareUpdateV4Targets(plan.targetsToUpdate);
       return this.createRunTaskWithRetry({
         fn: async () =>
           this.updatingFirmwareV4(

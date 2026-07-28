@@ -433,40 +433,23 @@ describe('ServiceFirmwareUpdate legacy Pro firmware fallback', () => {
     expect(runtimeHost).not.toHaveBeenCalled();
   });
 
-  test('keeps Pro2 on V4 with the complete legacy target set when no Plan exists', async () => {
+  test('keeps the legacy Pro2 rejection when no Plan exists', async () => {
     const service = createService();
     const updatingFirmwareV4 = jest
       .spyOn(service, 'updatingFirmwareV4')
       .mockResolvedValue({ message: 'ok' });
-    jest
-      .spyOn(service, 'createRunTaskWithRetry')
-      .mockImplementation(async ({ fn }) => fn({ id: 1 }));
 
-    await service.startUpdateFirmwareTaskForNewBootVersion({
-      backuped: true,
-      usbConnected: true,
-      releaseResult: {
-        deviceType: EDeviceType.Pro2,
-        updateInfos: {},
-      } as ICheckAllFirmwareReleaseResult,
-    });
-
-    expect(updatingFirmwareV4).toHaveBeenCalledWith(
-      expect.objectContaining({
-        requirePreparedArtifacts: false,
-        targetsToUpdate: [
-          'boot',
-          'app_v1',
-          'app_v2',
-          'coprocessor',
-          'resource',
-          'se01',
-          'se02',
-          'se03',
-          'se04',
-        ],
+    await expect(
+      service.startUpdateFirmwareTaskForNewBootVersion({
+        backuped: true,
+        usbConnected: true,
+        releaseResult: {
+          deviceType: EDeviceType.Pro2,
+          updateInfos: {},
+        } as ICheckAllFirmwareReleaseResult,
       }),
-      undefined,
-    );
+    ).rejects.toThrow('Do not support update firmware for this device');
+
+    expect(updatingFirmwareV4).not.toHaveBeenCalled();
   });
 });
