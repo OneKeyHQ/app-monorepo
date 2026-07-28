@@ -16,11 +16,6 @@ import { isHyperliquidPortfolioSnapshotFresh } from '@onekeyhq/shared/src/utils/
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-// Direct localDb import is safe here: this module is reached only through a
-// dynamic import that unit tests never execute, so it cannot pierce the
-// ServiceAccountSelector.test.ts mock boundary the way a module-scope import
-// in the service file would.
-import localDb from '../../dbs/local/localDb';
 import { perpsCommonConfigPersistAtom } from '../../states/jotai/atoms';
 
 import { buildAccountsPerpsNetWorthUsd } from './accountSelectorPerpsWorthUtils';
@@ -154,11 +149,9 @@ export class AccountSelectorPerpsWorth {
   private async _resolvePerpsAddressesByIndexedAccountIds({
     indexedAccountIds,
     perpsDeriveType,
-    snapshotAddresses,
   }: {
     indexedAccountIds: string[];
     perpsDeriveType: IAccountDeriveTypes;
-    snapshotAddresses?: string[];
   }): Promise<Record<string, string | undefined>> {
     const addressByIndexedAccountId: Record<string, string | undefined> = {};
     const { accounts: allDbAccounts } =
@@ -181,47 +174,38 @@ export class AccountSelectorPerpsWorth {
           undefined;
       }
     }
-    // Home can materialize an indexed account's EVM address on demand,
-    // writing the Address index (saveAccountAddresses) and the perps
-    // snapshot cache WITHOUT creating an Account record; such rows miss the
-    // Account-table pass above. Before treating them as unresolvable,
-    // reverse-map the cached snapshot addresses through the Address index
-    // so their Home-visible perps net worth also shows in the selector.
-    const unresolvedIdSet = new Set(
-      indexedAccountIds.filter((id) => !addressByIndexedAccountId[id]),
+    // Rows missed by the Account-table pass resolve through the same call
+    // Home's overview uses (getNetworkAccount with the perps network's
+    // global derive type), so the selector agrees with Home's perps display
+    // by construction. The Address index cannot substitute here: its key
+    // omits the derive type, so a reverse mapping from snapshot addresses
+    // cannot prove a candidate belongs to the CURRENT derive path — after a
+    // global derive-type switch it would surface the old path's balance.
+    const unresolvedIds = indexedAccountIds.filter(
+      (id) => !addressByIndexedAccountId[id],
     );
-    if (unresolvedIdSet.size && snapshotAddresses?.length) {
-      // The Address index key (`${impl}--${normalizedAddress}`) omits the
-      // derive type, so the same indexedAccount maps every derive path's
-      // address to identical wallets values. Collect all candidates first and
-      // adopt only an unambiguous single hit; with multiple hits the derive
-      // path cannot be determined, so the row keeps no perps worth rather
-      // than showing another derive path's balance.
-      const candidateAddressesById = new Map<string, Set<string>>();
-      for (const snapshotAddress of snapshotAddresses) {
-        const addressRecord = await localDb.getAddressByNetworkImpl({
-          networkId: PERPS_NETWORK_ID,
-          normalizedAddress: snapshotAddress.toLowerCase(),
-        });
-        for (const mappedAccountId of Object.values(
-          addressRecord?.wallets ?? {},
-        )) {
-          if (unresolvedIdSet.has(mappedAccountId)) {
-            let candidates = candidateAddressesById.get(mappedAccountId);
-            if (!candidates) {
-              candidates = new Set<string>();
-              candidateAddressesById.set(mappedAccountId, candidates);
-            }
-            candidates.add(snapshotAddress);
+    if (unresolvedIds.length) {
+      await Promise.all(
+        unresolvedIds.map(async (indexedAccountId) => {
+          try {
+            const account =
+              await this.backgroundApi.serviceAccount.getNetworkAccount({
+                accountId: undefined,
+                indexedAccountId,
+                networkId: PERPS_NETWORK_ID,
+                deriveType: perpsDeriveType,
+              });
+            addressByIndexedAccountId[indexedAccountId] =
+              account?.addressDetail?.normalizedAddress ||
+              account?.address ||
+              undefined;
+          } catch {
+            // No resolvable address for the current derive path — the row
+            // keeps no perps worth, matching Home whose own resolution
+            // fails the same way.
           }
-        }
-      }
-      for (const [mappedAccountId, candidates] of candidateAddressesById) {
-        if (candidates.size === 1) {
-          const [candidateAddress] = candidates;
-          addressByIndexedAccountId[mappedAccountId] = candidateAddress;
-        }
-      }
+        }),
+      );
     }
     return addressByIndexedAccountId;
   }
@@ -324,7 +308,6 @@ export class AccountSelectorPerpsWorth {
           this._resolvePerpsAddressesByIndexedAccountIds({
             indexedAccountIds,
             perpsDeriveType,
-            snapshotAddresses: Object.keys(snapshotNetWorthUsdByAddress),
           }),
       });
     } catch {
