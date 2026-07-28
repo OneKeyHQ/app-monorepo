@@ -1162,6 +1162,21 @@ function SendAmountInputContainer() {
     return undefined;
   }, [currentSelectedUtxoInfo?.totalValue, tokenDetails?.info]);
 
+  // Scaled-UI (rebase) token multiplier shared by every display-basis leaf
+  // (maxBalance, the fiat-overflow rewrite) and the display->raw submit
+  // conversion. A scaled-UI multiplier is a Token-2022 / jetton feature and
+  // can never legitimately appear on a native coin, so native resolves to
+  // undefined here; guarding once at the source keeps multiply and divide
+  // symmetric — a hypothetical bad server value on a native coin must not
+  // inflate the display while the submit conversion refuses to divide.
+  const rebaseMultiplier = useMemo(
+    () =>
+      tokenDetails && !tokenDetails.info.isNative
+        ? tokenRebaseUtils.pickBalanceMultiplier(tokenDetails)
+        : undefined,
+    [tokenDetails],
+  );
+
   const maxBalance = useMemo(() => {
     if (!tokenDetails) return '0';
     // `??` (not `||`) so a genuine "0" subtotal is kept, not replaced by the
@@ -1179,10 +1194,16 @@ function SendAmountInputContainer() {
     return (
       tokenRebaseUtils.applyBalanceMultiplier({
         amount: balance,
-        balanceMultiplier: tokenRebaseUtils.pickBalanceMultiplier(tokenDetails),
+        balanceMultiplier: rebaseMultiplier,
       }) ?? balance
     );
-  }, [selectedUtxoTotalAmount, isLightningNetwork, lnUnit, tokenDetails]);
+  }, [
+    selectedUtxoTotalAmount,
+    isLightningNetwork,
+    lnUnit,
+    tokenDetails,
+    rebaseMultiplier,
+  ]);
 
   const maxBalanceFiat = useMemo(() => {
     if (!tokenDetails) return '0';
@@ -1756,6 +1777,63 @@ function SendAmountInputContainer() {
     sendMode,
   ]);
 
+  // Scaled-UI (rebase) tokens: `displayAmount` is the multiplied display
+  // amount, but ITransferInfo.amount carries the raw parsed amount. Sending
+  // the full balance takes the raw balance directly (no division => no
+  // rounding failure); partial amounts divide and truncate at token decimals
+  // so the raw amount never exceeds the balance. The >= display-balance check
+  // (rather than isMaxSend) also covers a hand-typed full balance and the
+  // fiat-overflow branch, and cannot go stale if the user edits after tapping
+  // MAX. Shared by the submit path and the form validator so the amount that
+  // gets validated is exactly the amount that gets sent.
+  const convertDisplayAmountToRawAmount = useCallback(
+    (displayAmount: string): { rawAmount: string; isFullSend: boolean } => {
+      if (
+        isNFT ||
+        !tokenDetails ||
+        !tokenRebaseUtils.isValidBalanceMultiplier(rebaseMultiplier)
+      ) {
+        return { rawAmount: displayAmount, isFullSend: false };
+      }
+      const displayBalance = tokenRebaseUtils.applyBalanceMultiplier({
+        amount: tokenDetails.balanceParsed,
+        balanceMultiplier: rebaseMultiplier,
+      });
+      // Any input >= the display balance truncated to the token's input
+      // precision is a full send: the MAX button sets the untruncated
+      // display balance, but the keyboard percent-100 shortcut and the
+      // fiat<->token mode clamp truncate to `decimals` places first.
+      // Sending the exact raw balance for these differs from a literal
+      // conversion by less than one display precision unit and matches
+      // the user's full-send intent. `dp(undefined)` would return the
+      // decimal-place count instead of truncating (and a negative /
+      // fractional argument throws), so only truncate when `decimals`
+      // is a usable non-negative integer. The asymmetry with the
+      // division arm below is intentional: that one fails closed
+      // (removeBalanceMultiplier throws) on the same invalid decimals.
+      const fullSendThreshold =
+        Number.isInteger(tokenDetails.info.decimals) &&
+        tokenDetails.info.decimals >= 0
+          ? new BigNumber(displayBalance).dp(
+              tokenDetails.info.decimals,
+              BigNumber.ROUND_DOWN,
+            )
+          : displayBalance;
+      if (new BigNumber(displayAmount).gte(fullSendThreshold)) {
+        return { rawAmount: tokenDetails.balanceParsed, isFullSend: true };
+      }
+      return {
+        rawAmount: tokenRebaseUtils.removeBalanceMultiplier({
+          amount: displayAmount,
+          balanceMultiplier: rebaseMultiplier,
+          decimals: tokenDetails.info.decimals,
+        }),
+        isFullSend: false,
+      };
+    },
+    [isNFT, tokenDetails, rebaseMultiplier],
+  );
+
   const handleValidateTokenAmount = useCallback(
     async (value: string): Promise<string | undefined> => {
       if (!value) {
@@ -1859,6 +1937,37 @@ function SendAmountInputContainer() {
         });
       }
 
+      // Scaled-UI (rebase) tokens: the checks above ran on the display-basis
+      // amount, but the transfer carries display ÷ multiplier truncated
+      // (ROUND_DOWN) at token decimals. An input at the minimal display unit
+      // (e.g. 0.00000001 with multiplier 1.1) passes the display-basis min
+      // check yet divides to a raw 0, which would build — and pay fees for —
+      // a zero-amount transfer. Reject it here with the exact conversion the
+      // submit path uses. Full sends are exempt: they bypass the division and
+      // a zero raw balance is the insufficient-balance path's concern.
+      if (
+        !isNFT &&
+        !tokenAmountBN.isZero() &&
+        tokenRebaseUtils.isValidBalanceMultiplier(rebaseMultiplier)
+      ) {
+        try {
+          const { rawAmount, isFullSend } = convertDisplayAmountToRawAmount(
+            tokenAmountBN.toFixed(),
+          );
+          if (!isFullSend && new BigNumber(rawAmount).isZero()) {
+            return intl.formatMessage({
+              id: ETranslations.send_amount_too_small,
+            });
+          }
+        } catch {
+          // removeBalanceMultiplier fails closed on invalid token decimals;
+          // surface it as an invalid amount instead of an unhandled rejection.
+          return intl.formatMessage({
+            id: ETranslations.send_amount_invalid,
+          });
+        }
+      }
+
       // Zero native token transfer prevention
       if (
         !isNFT &&
@@ -1911,6 +2020,8 @@ function SendAmountInputContainer() {
       networkId,
       maxBalance,
       recipientAddress,
+      rebaseMultiplier,
+      convertDisplayAmountToRawAmount,
     ],
   );
 
@@ -2615,8 +2726,7 @@ function SendAmountInputContainer() {
                     ? chainValueUtils.convertSatsToBtc(balance)
                     : (tokenRebaseUtils.applyBalanceMultiplier({
                         amount: balance,
-                        balanceMultiplier:
-                          tokenRebaseUtils.pickBalanceMultiplier(tokenDetails),
+                        balanceMultiplier: rebaseMultiplier,
                       }) ?? balance);
               } else {
                 realAmount = linkedAmount.originalAmount;
@@ -2669,11 +2779,7 @@ function SendAmountInputContainer() {
             // never reach the display->raw conversion below; fail closed
             // instead of silently over-sending by the multiplier if one ever
             // gets listed for private send.
-            if (
-              tokenRebaseUtils.isValidBalanceMultiplier(
-                tokenRebaseUtils.pickBalanceMultiplier(tokenDetails),
-              )
-            ) {
+            if (tokenRebaseUtils.isValidBalanceMultiplier(rebaseMultiplier)) {
               throw new OneKeyLocalError(
                 'Private send does not support scaled-UI tokens',
               );
@@ -3004,58 +3110,11 @@ function SendAmountInputContainer() {
 
           // Scaled-UI (rebase) tokens: `realAmount` is the multiplied display
           // amount, but ITransferInfo.amount carries the raw parsed amount.
-          // Sending the full balance takes the raw balance directly (no
-          // division => no rounding failure); partial amounts divide and
-          // truncate at token decimals so the raw amount never exceeds the
-          // balance. The >= display-balance check (rather than isMaxSend)
-          // also covers a hand-typed full balance and the fiat-overflow
-          // branch, and cannot go stale if the user edits after tapping MAX.
-          let transferAmount = realAmount;
-          const rebaseMultiplier =
-            tokenRebaseUtils.pickBalanceMultiplier(tokenDetails);
-          if (
-            !isNFT &&
-            tokenDetails &&
-            // A scaled-UI multiplier is a Token-2022 / jetton feature and can
-            // never legitimately appear on a native coin. Excluding native
-            // here keeps a hypothetical bad server value from colliding with
-            // the native max-send rewrite paths, which spend the display
-            // `amountToSend` and would over-send against a divided amount.
-            !tokenDetails.info.isNative &&
-            tokenRebaseUtils.isValidBalanceMultiplier(rebaseMultiplier)
-          ) {
-            const displayBalance = tokenRebaseUtils.applyBalanceMultiplier({
-              amount: tokenDetails.balanceParsed,
-              balanceMultiplier: rebaseMultiplier,
-            });
-            // Any input >= the display balance truncated to the token's input
-            // precision is a full send: the MAX button sets the untruncated
-            // display balance, but the keyboard percent-100 shortcut and the
-            // fiat<->token mode clamp truncate to `decimals` places first.
-            // Sending the exact raw balance for these differs from a literal
-            // conversion by less than one display precision unit and matches
-            // the user's full-send intent. `dp(undefined)` would return the
-            // decimal-place count instead of truncating (and a negative /
-            // fractional argument throws), so only truncate when `decimals`
-            // is a usable non-negative integer. The asymmetry with the
-            // division arm below is intentional: that one fails closed
-            // (removeBalanceMultiplier throws) on the same invalid decimals.
-            const fullSendThreshold =
-              Number.isInteger(tokenDetails.info.decimals) &&
-              tokenDetails.info.decimals >= 0
-                ? new BigNumber(displayBalance).dp(
-                    tokenDetails.info.decimals,
-                    BigNumber.ROUND_DOWN,
-                  )
-                : displayBalance;
-            transferAmount = new BigNumber(realAmount).gte(fullSendThreshold)
-              ? tokenDetails.balanceParsed
-              : tokenRebaseUtils.removeBalanceMultiplier({
-                  amount: realAmount,
-                  balanceMultiplier: rebaseMultiplier,
-                  decimals: tokenDetails.info.decimals,
-                });
-          }
+          // The conversion (full-send detection + truncating division) lives
+          // in convertDisplayAmountToRawAmount, shared with the form
+          // validator so what was validated is exactly what is sent.
+          const transferAmount =
+            convertDisplayAmountToRawAmount(realAmount).rawAmount;
 
           const transfersInfo: ITransferInfo[] = [
             {
@@ -3166,6 +3225,8 @@ function SendAmountInputContainer() {
       validateRecipientBeforeSubmit,
       wallet?.type,
       intl,
+      rebaseMultiplier,
+      convertDisplayAmountToRawAmount,
     ],
   );
 
