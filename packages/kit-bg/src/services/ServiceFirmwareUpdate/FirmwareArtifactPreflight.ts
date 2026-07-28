@@ -427,7 +427,9 @@ export async function prepareBridgeFirmwareBinaries(
     const targetBinaries: IBridgeFirmwareBinaries['targetBinaries'] = {};
     const deadlineAt = Date.now() + TOTAL_DEADLINE_MS;
     for (const planArtifact of planArtifacts) {
-      const trustedArtifact = getTrustedFirmwareArtifact(planArtifact.url);
+      const trustedArtifact = await getTrustedFirmwareArtifact(
+        planArtifact.url,
+      );
       assertPlanArtifactMatchesCatalog({ planArtifact, trustedArtifact });
       const receipt = await downloadTrustedFirmwareArtifact({
         artifact: trustedArtifact,
@@ -532,7 +534,9 @@ export async function prepareFirmwareArtifacts(
   await Promise.allSettled(
     plan.artifacts.map(async (planArtifact) => {
       try {
-        const trustedArtifact = getTrustedFirmwareArtifact(planArtifact.url);
+        const trustedArtifact = await getTrustedFirmwareArtifact(
+          planArtifact.url,
+        );
         assertPlanArtifactMatchesCatalog({ planArtifact, trustedArtifact });
         const receipt = await downloadTrustedFirmwareArtifact({
           artifact: trustedArtifact,

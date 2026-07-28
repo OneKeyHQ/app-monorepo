@@ -67,10 +67,10 @@ const createAdapter = ({
   };
 };
 
-const createDownload = (
+const createDownload = async (
   scenario: 'pro-firmware' | 'pro-resource',
-): typeof downloadTrustedFirmwareArtifact => {
-  const { artifact } = getFirmwareArtifactSelfTestArtifact(scenario);
+): Promise<typeof downloadTrustedFirmwareArtifact> => {
+  const { artifact } = await getFirmwareArtifactSelfTestArtifact(scenario);
   return jest.fn(async () => ({
     artifactRef: `fw:${artifact.expectedSha256}`,
     size: artifact.expectedSize,
@@ -139,7 +139,8 @@ const createSdk = () => {
 
 describe('FirmwareArtifactSelfTest', () => {
   it('reads every firmware byte in bounded chunks and releases the lease', async () => {
-    const { artifact } = getFirmwareArtifactSelfTestArtifact('pro-firmware');
+    const { artifact } =
+      await getFirmwareArtifactSelfTestArtifact('pro-firmware');
     const { adapter, read, releaseLease } = createAdapter({
       size: artifact.expectedSize,
     });
@@ -154,7 +155,7 @@ describe('FirmwareArtifactSelfTest', () => {
       onProgress: progress,
       dependencies: {
         adapter,
-        download: createDownload('pro-firmware'),
+        download: await createDownload('pro-firmware'),
       },
     });
 
@@ -189,7 +190,8 @@ describe('FirmwareArtifactSelfTest', () => {
   });
 
   it('materializes every trusted resource entry', async () => {
-    const { artifact } = getFirmwareArtifactSelfTestArtifact('pro-resource');
+    const { artifact } =
+      await getFirmwareArtifactSelfTestArtifact('pro-resource');
     const { adapter, materialize } = createAdapter({
       size: artifact.expectedSize,
     });
@@ -203,7 +205,7 @@ describe('FirmwareArtifactSelfTest', () => {
       onProgress: jest.fn(),
       dependencies: {
         adapter,
-        download: createDownload('pro-resource'),
+        download: await createDownload('pro-resource'),
       },
     });
 
@@ -219,7 +221,8 @@ describe('FirmwareArtifactSelfTest', () => {
   });
 
   it('marks cancellation as safe and still runs cleanup', async () => {
-    const { artifact } = getFirmwareArtifactSelfTestArtifact('pro-firmware');
+    const { artifact } =
+      await getFirmwareArtifactSelfTestArtifact('pro-firmware');
     const { adapter, releaseLease, sweepOrphans } = createAdapter({
       size: artifact.expectedSize,
     });
@@ -247,7 +250,8 @@ describe('FirmwareArtifactSelfTest', () => {
   });
 
   it('closes the reader and safely abandons an incomplete chunk', async () => {
-    const { artifact } = getFirmwareArtifactSelfTestArtifact('pro-firmware');
+    const { artifact } =
+      await getFirmwareArtifactSelfTestArtifact('pro-firmware');
     const { adapter, close, releaseLease } = createAdapter({
       size: artifact.expectedSize,
       read: jest.fn(async ({ length }) => new ArrayBuffer(length - 1)),
@@ -263,7 +267,7 @@ describe('FirmwareArtifactSelfTest', () => {
         onProgress: jest.fn(),
         dependencies: {
           adapter,
-          download: createDownload('pro-firmware'),
+          download: await createDownload('pro-firmware'),
         },
       }),
     ).rejects.toThrow('incomplete chunk');
