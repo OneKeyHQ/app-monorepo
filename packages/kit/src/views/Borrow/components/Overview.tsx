@@ -11,6 +11,7 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Divider,
+  Icon,
   IconButton,
   SizableText,
   Skeleton,

@@ -43,3 +43,30 @@ export function buildEarnAvailableAssetCategoryTabs(
     title: getEarnAvailableAssetCategoryTitle(intl, type),
   }));
 }
+
+/**
+ * 移动端首页平铺分区 (OK-58506)：
+ *  - Trending tokens (SimpleEarn，Staking 资产并入本分区展示)
+ *  - Fixed income
+ * 不含独立 Staked 分区。桌面端 TabView / 搜索弹窗仍用
+ * buildEarnAvailableAssetCategoryTabs，不受影响。
+ */
+export function buildEarnHomeFlatSections(
+  intl: Pick<IntlShape, 'formatMessage'>,
+): IEarnAvailableAssetCategoryTab[] {
+  return [
+    {
+      type: EAvailableAssetsTypeEnum.SimpleEarn,
+      title: intl.formatMessage({
+        id: ETranslations.trending_tokens__title,
+      }),
+    },
+    {
+      type: EAvailableAssetsTypeEnum.FixedRate,
+      title: getEarnAvailableAssetCategoryTitle(
+        intl,
+        EAvailableAssetsTypeEnum.FixedRate,
+      ),
+    },
+  ];
+}

@@ -84,7 +84,13 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
         bg="rgba(255,255,255,0.75)"
         contentStyle={{ flex: 1 }}
       >
-        <XStack minHeight={BANNER_INFO_HEIGHT} px="$3" py="$2" gap="$3" ai="center">
+        <XStack
+          minHeight={BANNER_INFO_HEIGHT}
+          px="$3"
+          py="$2"
+          gap="$3"
+          ai="center"
+        >
           {item.icon ? (
             <Image
               src={item.icon}

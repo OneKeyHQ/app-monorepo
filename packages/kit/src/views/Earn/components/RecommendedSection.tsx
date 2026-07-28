@@ -540,7 +540,10 @@ function RecommendedSectionContainer({
     <YStack gap="$3">
       <YStack gap="$1" pointerEvents="box-none" px="$pagePadding">
         <SizableText size="$headingLg" pointerEvents="box-none">
-          {intl.formatMessage({ id: ETranslations.market_trending })}
+          {/* 持币推荐 "Earns on your holding" (OK-58506) */}
+          {intl.formatMessage({
+            id: ETranslations.earns_on_your_holding__title,
+          })}
         </SizableText>
       </YStack>
       {children}

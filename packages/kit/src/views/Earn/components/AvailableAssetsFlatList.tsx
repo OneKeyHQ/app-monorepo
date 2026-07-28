@@ -26,7 +26,7 @@ import { useNavigateToEarnAsset } from '../hooks/useNavigateToEarnAsset';
 import { EarnTestIDs } from '../testIDs';
 
 import { AprText } from './AprText';
-import { buildEarnAvailableAssetCategoryTabs } from './earnCategoryTabs';
+import { buildEarnHomeFlatSections } from './earnCategoryTabs';
 
 const MAX_INLINE_ASSETS = 4;
 const AVAILABLE_ASSETS_DIALOG_MAX_HEIGHT = 512;
@@ -144,10 +144,28 @@ function AvailableAssetsFlatListComponent() {
   const [{ availableAssetsByType = {} }] = useEarnAtom();
   const [loadingStates] = useEarnLoadingStatesAtom();
   const navigateToAsset = useNavigateToEarnAsset();
-  const sections = useMemo(
-    () => buildEarnAvailableAssetCategoryTabs(intl),
-    [intl],
-  );
+  const sections = useMemo(() => buildEarnHomeFlatSections(intl), [intl]);
+  // Staked 资产并入 Trending tokens 分区展示，不再单独成区 (OK-58506)。
+  // 按 symbol 去重：同一 symbol 以 SimpleEarn 列表为准。
+  const sectionAssetsByType = useMemo(() => {
+    const simpleEarnAssets =
+      availableAssetsByType[EAvailableAssetsTypeEnum.SimpleEarn] ?? [];
+    const stakingAssets =
+      availableAssetsByType[EAvailableAssetsTypeEnum.Staking] ?? [];
+    const simpleEarnSymbols = new Set(
+      simpleEarnAssets.map((asset) => asset.symbol),
+    );
+    const merged: typeof availableAssetsByType = {
+      ...availableAssetsByType,
+      [EAvailableAssetsTypeEnum.SimpleEarn]: [
+        ...simpleEarnAssets,
+        ...stakingAssets.filter(
+          (asset) => !simpleEarnSymbols.has(asset.symbol),
+        ),
+      ],
+    };
+    return merged;
+  }, [availableAssetsByType]);
   const totalLiquidityLabel = useMemo(
     () =>
       intl.formatMessage({
@@ -202,7 +220,7 @@ function AvailableAssetsFlatListComponent() {
   return (
     <YStack gap="$8">
       {sections.map(({ type, title }) => {
-        const assets = availableAssetsByType[type] ?? [];
+        const assets = sectionAssetsByType[type] ?? [];
         const isLoading =
           loadingStates[`availableAssets-${type}`] && assets.length === 0;
 
@@ -227,7 +245,8 @@ function AvailableAssetsFlatListComponent() {
               px="$pagePadding"
               py="$1"
               ai="center"
-              jc="space-between"
+              // chevron 紧跟标题文字，不右对齐 (OK-58507)
+              gap="$1"
               cursor="pointer"
               userSelect="none"
               pressStyle={{ opacity: 0.5 }}
