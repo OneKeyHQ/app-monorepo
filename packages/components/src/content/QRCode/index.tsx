@@ -280,6 +280,9 @@ export interface IQRCodeProps extends Omit<IBasicQRCodeProps, 'value'> {
   valueUr?: IAirGapUrJson;
   interval?: number;
   padding?: number;
+  // Uses size + padding as the fixed canvas and shrinks the symbol so each
+  // side keeps this many full modules of quiet zone.
+  quietZoneModules?: number;
 }
 
 export function QRCode({
@@ -288,6 +291,7 @@ export function QRCode({
   interval = 500,
   drawType,
   padding = 10,
+  quietZoneModules = 0,
   ...props
 }: IQRCodeProps) {
   const [partValue, setPartValue] = useState<string>(value || '');
@@ -333,16 +337,32 @@ export function QRCode({
     // TODO return Skeleton
     return null;
   }
+  const canvasSize = props.size + padding;
+  const normalizedQuietZoneModules =
+    Number.isFinite(quietZoneModules) && quietZoneModules > 0
+      ? quietZoneModules
+      : 0;
+  const matrixSize = normalizedQuietZoneModules
+    ? generateMatrix(displayValue, props.ecl ?? 'H').length
+    : 0;
+  const qrCodeSize = normalizedQuietZoneModules
+    ? (canvasSize * matrixSize) / (matrixSize + normalizedQuietZoneModules * 2)
+    : props.size;
   return (
     <Theme name="light">
       <Stack
-        width={props.size + padding}
-        height={props.size + padding}
+        width={canvasSize}
+        height={canvasSize}
         bg="$bgApp"
         jc="center"
         ai="center"
       >
-        <BasicQRCode value={displayValue} drawType={drawType} {...props} />
+        <BasicQRCode
+          value={displayValue}
+          drawType={drawType}
+          {...props}
+          size={qrCodeSize}
+        />
       </Stack>
     </Theme>
   );

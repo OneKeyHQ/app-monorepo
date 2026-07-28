@@ -28,6 +28,7 @@ import type {
   IUnifoldDepositAddressResult,
   IUnifoldDepositDestination,
   IUnifoldDepositExecution,
+  IUnifoldDepositWallet,
   IUnifoldExecutionStatus,
   IUnifoldSupportedAsset,
 } from '@onekeyhq/shared/types/unifoldDeposit';
@@ -131,6 +132,16 @@ function sanitizeTokenDecimals(value: unknown): number | null {
     value <= MAX_UNIFOLD_TOKEN_DECIMALS
     ? value
     : null;
+}
+
+function sanitizeExecutionCreatedAt(value: unknown): string | null {
+  if (isString(value)) {
+    return value;
+  }
+  // The vendor does not pin this field to one representation. Preserve a
+  // finite numeric epoch as text so the shared seconds/ms parser can still
+  // bound discovery without widening the public execution type.
+  return isFiniteNumber(value) ? String(value) : null;
 }
 
 function reportNormalizedExecutionShape({
@@ -237,10 +248,60 @@ function sanitizeDepositExecutions(value: unknown): IUnifoldDepositExecution[] {
           execution.destinationExplorerUrl,
         ),
         failureReason: sanitizeNullableString(execution.failureReason),
-        createdAt: sanitizeNullableString(execution.createdAt),
+        createdAt: sanitizeExecutionCreatedAt(execution.createdAt),
       },
     ];
   });
+}
+
+function isValidDepositWallet(value: unknown): value is IUnifoldDepositWallet {
+  return (
+    isRecord(value) &&
+    isNonEmptyString(value.chainType) &&
+    isNonEmptyString(value.address) &&
+    typeof value.isPrimary === 'boolean'
+  );
+}
+
+function sanitizeDepositAddressResult(
+  value: unknown,
+): IUnifoldDepositAddressResult {
+  if (
+    !isRecord(value) ||
+    !isNonEmptyString(value.sessionId) ||
+    !isNonEmptyString(value.depositAddress) ||
+    !isNonEmptyString(value.depositWalletId) ||
+    !isNonEmptyString(value.sourceChainType) ||
+    !Array.isArray(value.wallets) ||
+    !value.wallets.every(isValidDepositWallet) ||
+    !isRecord(value.echo) ||
+    !isNonEmptyString(value.echo.recipientAddress) ||
+    !isNonEmptyString(value.echo.destinationChainType) ||
+    !isNonEmptyString(value.echo.destinationChainId) ||
+    !isNonEmptyString(value.echo.destinationTokenAddress)
+  ) {
+    throw new OneKeyError({
+      message: 'Invalid Unifold deposit-address response',
+      autoToast: false,
+    });
+  }
+  return {
+    sessionId: value.sessionId,
+    depositAddress: value.depositAddress,
+    depositWalletId: value.depositWalletId,
+    sourceChainType: value.sourceChainType,
+    wallets: value.wallets.map((wallet) => ({
+      chainType: wallet.chainType,
+      address: wallet.address,
+      isPrimary: wallet.isPrimary,
+    })),
+    echo: {
+      recipientAddress: value.echo.recipientAddress,
+      destinationChainType: value.echo.destinationChainType,
+      destinationChainId: value.echo.destinationChainId,
+      destinationTokenAddress: value.echo.destinationTokenAddress,
+    },
+  };
 }
 
 function isValidSupportedAssetChain(
@@ -449,7 +510,7 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
     // bg account afterwards so an account switch during that await cannot
     // create an address for the previous recipient.
     await this.assertRecipientIsActivePerpsAccount(params.recipientAddress);
-    const result = await this.requestUnifold<IUnifoldDepositAddressResult>({
+    const data = await this.requestUnifold<unknown>({
       method: 'post',
       url: '/wallet/v1/perp/unifold/deposit-address',
       body: params,
@@ -457,6 +518,7 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
     // The address request is another network round trip. Discard its response
     // if the active account changed after the compliance checks completed.
     await this.assertRecipientIsActivePerpsAccount(params.recipientAddress);
+    const result = sanitizeDepositAddressResult(data);
     assertUnifoldEchoMatches(result.echo, params);
     return result;
   }

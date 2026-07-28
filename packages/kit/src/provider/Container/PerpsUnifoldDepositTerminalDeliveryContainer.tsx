@@ -58,6 +58,19 @@ export function PerpsUnifoldDepositTerminalDeliveryContainer() {
       deliveryId: string,
       presentedClaim: IPresentedClaim,
     ): Promise<number | undefined> => {
+      if (presentedClaim.acknowledgementAttempts > 0) {
+        const renewedClaim =
+          await backgroundApiProxy.serviceUnifoldDeposit.tryClaimTerminalDelivery(
+            {
+              deliveryId,
+              claimId: presentedClaim.claimId,
+            },
+          );
+        if (renewedClaim.status !== 'claimed') {
+          presentedClaims.delete(deliveryId);
+          return undefined;
+        }
+      }
       const attemptedClaim = {
         ...presentedClaim,
         acknowledgementAttempts: presentedClaim.acknowledgementAttempts + 1,

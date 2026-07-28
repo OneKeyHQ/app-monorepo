@@ -269,6 +269,7 @@ describe('ServiceUnifoldDeposit tracking delivery', () => {
           transactionHash: {},
           sourceTokenDecimals: 6.5,
           destinationTokenDecimals: Number.MAX_SAFE_INTEGER + 1,
+          createdAt: 1_700_000_000,
         },
         {
           ...buildTerminalExecution(),
@@ -300,6 +301,7 @@ describe('ServiceUnifoldDeposit tracking delivery', () => {
         transactionHash: null,
         sourceTokenDecimals: null,
         destinationTokenDecimals: null,
+        createdAt: '1700000000',
       }),
       expect.objectContaining({
         executionId: 'invalid-status',
@@ -409,6 +411,61 @@ describe('ServiceUnifoldDeposit tracking delivery', () => {
     });
     expect(addressRequestSpy).toHaveBeenCalledTimes(1);
     expect(mockActiveAccountGet).toHaveBeenCalledTimes(3);
+  });
+
+  it.each([
+    {
+      label: 'a missing deposit address',
+      patch: { depositAddress: '' },
+    },
+    {
+      label: 'a non-array wallet collection',
+      patch: { wallets: null },
+    },
+    {
+      label: 'an invalid wallet entry',
+      patch: {
+        wallets: [
+          {
+            chainType: 'bitcoin',
+            address: '',
+            isPrimary: true,
+          },
+        ],
+      },
+    },
+  ])('quietly rejects an address response with $label', async ({ patch }) => {
+    mockActiveAccountGet.mockResolvedValue({
+      accountAddress: RECIPIENT,
+    });
+    const service = createService();
+    const params = {
+      recipientAddress: RECIPIENT,
+      destinationChainType: 'ethereum',
+      destinationChainId: '1',
+      destinationTokenAddress: '0x00000000000000000000000000000000',
+    };
+    jest
+      .spyOn(
+        service as unknown as {
+          requestUnifold: (request: unknown) => Promise<unknown>;
+        },
+        'requestUnifold',
+      )
+      .mockResolvedValue({
+        sessionId: 'session-1',
+        depositAddress: '0x2222222222222222222222222222222222222222',
+        depositWalletId: 'wallet-1',
+        sourceChainType: 'ethereum',
+        wallets: [],
+        echo: params,
+        ...patch,
+      });
+
+    await expect(service.createDepositAddress(params)).rejects.toMatchObject({
+      message: 'Invalid Unifold deposit-address response',
+      autoToast: false,
+    });
   });
 
   it('fails closed before requesting an address for a sanctioned recipient', async () => {
@@ -527,6 +584,56 @@ describe('ServiceUnifoldDeposit tracking delivery', () => {
         sessionStart: 200,
       }),
     ).resolves.toEqual({ sessionStart: 100 });
+  });
+
+  it('discovers an execution with a numeric createdAt in an unbounded query', async () => {
+    const now = Date.now();
+    mockTrackingState = {
+      items: [buildTrackedExecution()],
+      watches: [
+        {
+          ...buildWatch(),
+          sessionStart: now - 1000,
+          watchedAt: now,
+        },
+      ],
+      pendingDeliveries: [],
+    };
+    const service = createService();
+    jest
+      .spyOn(
+        service as unknown as {
+          requestUnifold: (request: unknown) => Promise<unknown>;
+        },
+        'requestUnifold',
+      )
+      .mockResolvedValue([
+        {
+          ...buildTrackedExecution(),
+          status: 'pending',
+          terminal: false,
+          createdAt: now - 2000,
+        },
+        {
+          ...buildTerminalExecution(),
+          executionId: 'execution-2',
+          createdAt: now,
+        },
+      ]);
+
+    const runTrackingIteration = (
+      service as unknown as { runTrackingIteration: () => Promise<void> }
+    ).runTrackingIteration.bind(service);
+    await runTrackingIteration();
+
+    expect(mockTrackingState.pendingDeliveries).toEqual([
+      expect.objectContaining({
+        execution: expect.objectContaining({
+          executionId: 'execution-2',
+          createdAt: String(now),
+        }),
+      }),
+    ]);
   });
 
   it('keeps tracking muted until every foreground claim is released', async () => {

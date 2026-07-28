@@ -103,7 +103,7 @@ describe('PerpsUnifoldDepositTerminalDeliveryContainer', () => {
     jest.useRealTimers();
   });
 
-  it('retries only ACK with the original claim after the Toast is shown', async () => {
+  it('renews the original claim before retrying ACK', async () => {
     mockService.acknowledgeTerminalDelivery
       .mockRejectedValueOnce(new OneKeyLocalError('ipc failed'))
       .mockResolvedValueOnce({ updated: false })
@@ -127,14 +127,14 @@ describe('PerpsUnifoldDepositTerminalDeliveryContainer', () => {
     await act(async () => {
       await jest.advanceTimersByTimeAsync(1050);
     });
-    expect(mockService.tryClaimTerminalDelivery).toHaveBeenCalledTimes(1);
+    expect(mockService.tryClaimTerminalDelivery).toHaveBeenCalledTimes(2);
     expect(mockToast.success).toHaveBeenCalledTimes(1);
     expect(mockService.acknowledgeTerminalDelivery).toHaveBeenCalledTimes(2);
 
     await act(async () => {
       await jest.advanceTimersByTimeAsync(1050);
     });
-    expect(mockService.tryClaimTerminalDelivery).toHaveBeenCalledTimes(1);
+    expect(mockService.tryClaimTerminalDelivery).toHaveBeenCalledTimes(3);
     expect(mockToast.success).toHaveBeenCalledTimes(1);
     expect(mockService.acknowledgeTerminalDelivery).toHaveBeenCalledTimes(3);
     expect(mockService.acknowledgeTerminalDelivery).toHaveBeenNthCalledWith(3, {
@@ -144,6 +144,62 @@ describe('PerpsUnifoldDepositTerminalDeliveryContainer', () => {
 
     unmount();
   });
+
+  it.each([
+    { status: 'unavailable' as const },
+    { status: 'claimedByOther' as const, retryAfterMs: 30_000 },
+  ])(
+    'stops ACK retries when claim renewal returns $status',
+    async (renewalResult) => {
+      mockService.tryClaimTerminalDelivery
+        .mockResolvedValueOnce({
+          status: 'claimed',
+          delivery: {
+            deliveryId: 'delivery-1',
+            sessionId: 'session-1',
+            execution: {
+              status: 'succeeded',
+              destinationAmountUsd: '12.34',
+              sourceAmountUsd: '12.34',
+            },
+          },
+          expiresAt: Date.now() + 30_000,
+        })
+        .mockResolvedValueOnce(renewalResult);
+      mockService.acknowledgeTerminalDelivery.mockRejectedValue(
+        new OneKeyLocalError('ipc failed'),
+      );
+      const { unmount } = render(
+        <PerpsUnifoldDepositTerminalDeliveryContainer />,
+      );
+      await flushPromises();
+
+      act(() => {
+        appEventBus.emit(
+          EAppEventBusNames.PerpsUnifoldDepositTerminalDelivery,
+          {
+            deliveryId: 'delivery-1',
+          },
+        );
+      });
+      await flushPromises();
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(1050);
+      });
+      expect(mockService.tryClaimTerminalDelivery).toHaveBeenCalledTimes(2);
+      expect(mockService.acknowledgeTerminalDelivery).toHaveBeenCalledTimes(1);
+      expect(mockToast.success).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(10_000);
+      });
+      expect(mockService.tryClaimTerminalDelivery).toHaveBeenCalledTimes(2);
+      expect(mockService.acknowledgeTerminalDelivery).toHaveBeenCalledTimes(1);
+
+      unmount();
+    },
+  );
 
   it.each(['gone', 'claimLost'] as const)(
     'stops ACK retries when the delivery is permanently %s',
@@ -202,7 +258,7 @@ describe('PerpsUnifoldDepositTerminalDeliveryContainer', () => {
       });
     }
     expect(mockService.acknowledgeTerminalDelivery).toHaveBeenCalledTimes(5);
-    expect(mockService.tryClaimTerminalDelivery).toHaveBeenCalledTimes(1);
+    expect(mockService.tryClaimTerminalDelivery).toHaveBeenCalledTimes(5);
     expect(mockToast.success).toHaveBeenCalledTimes(1);
 
     await act(async () => {
@@ -214,6 +270,7 @@ describe('PerpsUnifoldDepositTerminalDeliveryContainer', () => {
       await jest.advanceTimersByTimeAsync(1);
     });
     expect(mockService.acknowledgeTerminalDelivery).toHaveBeenCalledTimes(6);
+    expect(mockService.tryClaimTerminalDelivery).toHaveBeenCalledTimes(6);
 
     await act(async () => {
       await jest.advanceTimersByTimeAsync(4049);
@@ -224,6 +281,7 @@ describe('PerpsUnifoldDepositTerminalDeliveryContainer', () => {
       await jest.advanceTimersByTimeAsync(1);
     });
     expect(mockService.acknowledgeTerminalDelivery).toHaveBeenCalledTimes(7);
+    expect(mockService.tryClaimTerminalDelivery).toHaveBeenCalledTimes(7);
 
     await act(async () => {
       await jest.advanceTimersByTimeAsync(30_000);
@@ -241,7 +299,9 @@ describe('PerpsUnifoldDepositTerminalDeliveryContainer', () => {
     expect(mockService.acknowledgeTerminalDelivery).toHaveBeenCalledTimes(
       acknowledgementCallsAfterClaimExpiry + 1,
     );
-    expect(mockService.tryClaimTerminalDelivery).toHaveBeenCalledTimes(1);
+    expect(mockService.tryClaimTerminalDelivery).toHaveBeenCalledTimes(
+      acknowledgementCallsAfterClaimExpiry + 1,
+    );
     expect(mockToast.success).toHaveBeenCalledTimes(1);
 
     unmount();
