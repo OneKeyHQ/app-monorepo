@@ -370,13 +370,14 @@ export default function PrimeInfiniSubscription() {
             gap="$3"
           >
             {/* Hidden reset entry: revealed by repeated clicks on the title,
-                and only when developer mode is enabled. MultipleClickStack
-                gates debugComponent on devSettings.enabled, unlike onPress
-                which fires for every user. (Enabling developer mode itself
-                requires the devOnly password plus the app password.) */}
+                and only when developer mode is enabled. devSettingsOnly keeps
+                the gate in place even if an onPress is added here later.
+                (Enabling developer mode itself requires the devOnly password
+                plus the app password.) */}
             <MultipleClickStack
               alignSelf="flex-start"
               testID="prime-infini-subscription-title"
+              devSettingsOnly
               debugComponent={
                 <PrimeInfiniSubscriptionResetButton testID="prime-infini-subscription-reset" />
               }
