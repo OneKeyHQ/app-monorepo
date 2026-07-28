@@ -6,6 +6,7 @@ import {
   backfillSwapProTokenStockIdentity,
   buildStockSwapTokenFromMarketListToken,
   filterStockPayTokenCandidates,
+  hasValidStockBalanceForTrade,
   isStockBalanceInitializing,
   isStockPayTokenReadyForTradeInput,
   isStockTradeReadyForQuote,
@@ -425,6 +426,15 @@ describe('swapStockChannelUtils', () => {
     ).toBe(false);
   });
 
+  it('accepts only finite non-negative live balances for Stock trading', () => {
+    expect(hasValidStockBalanceForTrade('0')).toBe(true);
+    expect(hasValidStockBalanceForTrade('1.25')).toBe(true);
+    expect(hasValidStockBalanceForTrade(undefined)).toBe(false);
+    expect(hasValidStockBalanceForTrade('')).toBe(false);
+    expect(hasValidStockBalanceForTrade('invalid')).toBe(false);
+    expect(hasValidStockBalanceForTrade('-1')).toBe(false);
+  });
+
   it('uses a Stock balance seed only when it belongs to the active account', () => {
     const tokenWithBalanceOwner: ISwapToken = {
       ...usdcToken,
@@ -523,19 +533,25 @@ describe('swapStockChannelUtils', () => {
     ).toBeUndefined();
   });
 
-  it('keeps a persisted balance display-only until live balance is ready', () => {
+  it('keeps cached and seeded balances display-only until live balance is ready', () => {
     expect(
       resolveStockBalanceViewState({
+        balanceSnapshot: {
+          ownerScope: 'account-1:usdc',
+          balance: '0.24',
+          tokenDetail: usdcToken,
+        },
         cachedDisplayBalance: '0.24',
       }),
     ).toEqual({
       balance: undefined,
       displayBalance: '0.24',
-      tokenDetail: undefined,
+      tokenDetail: usdcToken,
     });
 
     expect(
       resolveStockBalanceViewState({
+        authoritativeBalance: '0.25',
         balanceSnapshot: {
           ownerScope: 'account-1:usdc',
           balance: '0.25',
