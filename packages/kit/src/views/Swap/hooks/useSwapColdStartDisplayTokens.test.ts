@@ -9,6 +9,7 @@ import {
   getSwapColdStartDisplayTokensFromGlobalSnapshot,
   getSwapDefaultSelectedTokensFromGlobalHomeSnapshot,
   getSwapStockColdStartDisplayTokenFromGlobalSnapshot,
+  getSwapStockPayTokenDisplayFromGlobalSnapshot,
   resolveSwapDisplayToken,
 } from './useSwapColdStartDisplayTokens';
 
@@ -355,6 +356,85 @@ describe('getSwapStockColdStartDisplayTokenFromGlobalSnapshot', () => {
   });
 });
 
+describe('getSwapStockPayTokenDisplayFromGlobalSnapshot', () => {
+  afterEach(() => {
+    clearGlobalSnapshot();
+  });
+
+  it('reads an account-scoped Stock pay-token display seed', () => {
+    const scope = 'evm--56:indexed-account-1';
+    const payToken = {
+      networkId: 'evm--56',
+      contractAddress: '0xusdt',
+      decimals: 18,
+      isNative: false,
+      symbol: 'USDT',
+      logoURI: 'https://example.com/usdt.png',
+    } satisfies ISwapToken;
+    setGlobalSnapshot({
+      [scopedKey(
+        SWAP_STORE_SCOPE_KEY,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockPayTokenDisplayAtom,
+      )]: {
+        [scope]: payToken,
+      },
+      [scopedKey(
+        SWAP_STORE_SCOPE_KEY,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
+      )]: {
+        networkId: 'evm--56',
+        contractAddress: '0xstock',
+        decimals: 18,
+        isNative: false,
+        isStock: true,
+        symbol: 'AAPLon',
+      },
+    });
+
+    expect(getSwapStockPayTokenDisplayFromGlobalSnapshot({ scope })).toEqual(
+      payToken,
+    );
+  });
+
+  it('rejects another scope and unsupported display tokens', () => {
+    const scope = 'evm--56:indexed-account-1';
+    setGlobalSnapshot({
+      [scopedKey(
+        SWAP_STORE_SCOPE_KEY,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockPayTokenDisplayAtom,
+      )]: {
+        [scope]: {
+          networkId: 'evm--1',
+          contractAddress: '',
+          decimals: 18,
+          isNative: true,
+          symbol: 'ETH',
+        },
+      },
+      [scopedKey(
+        SWAP_STORE_SCOPE_KEY,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
+      )]: {
+        networkId: 'evm--56',
+        contractAddress: '0xstock',
+        decimals: 18,
+        isNative: false,
+        isStock: true,
+        symbol: 'AAPLon',
+      },
+    });
+
+    expect(
+      getSwapStockPayTokenDisplayFromGlobalSnapshot({ scope }),
+    ).toBeUndefined();
+    expect(
+      getSwapStockPayTokenDisplayFromGlobalSnapshot({
+        scope: 'evm--56:indexed-account-2',
+      }),
+    ).toBeUndefined();
+  });
+});
+
 describe('resolveSwapDisplayToken', () => {
   const cachedEthToken = {
     networkId: 'evm--1',
@@ -396,6 +476,58 @@ describe('resolveSwapDisplayToken', () => {
         fallbackToken: cachedEthToken,
       }),
     ).toEqual(cachedEthToken);
+  });
+
+  it('replaces a network logo used as the SOL token logo', () => {
+    const solNetworkLogoURI = 'https://example.com/solana-network.png';
+    const cachedSolToken = {
+      networkId: 'sol--101',
+      contractAddress: '',
+      decimals: 9,
+      isNative: true,
+      symbol: 'SOL',
+      logoURI: 'https://example.com/sol-token.png',
+      networkLogoURI: solNetworkLogoURI,
+    } satisfies ISwapToken;
+
+    expect(
+      resolveSwapDisplayToken({
+        allowFallback: false,
+        currentToken: {
+          ...cachedSolToken,
+          logoURI: solNetworkLogoURI,
+        },
+        fallbackToken: cachedSolToken,
+      }),
+    ).toEqual(cachedSolToken);
+  });
+
+  it('recognizes a network logo from the matching fallback token', () => {
+    const solNetworkLogoURI = 'https://example.com/solana-network.png';
+    const cachedSolToken = {
+      networkId: 'sol--101',
+      contractAddress: '',
+      decimals: 9,
+      isNative: true,
+      symbol: 'SOL',
+      logoURI: 'https://example.com/sol-token.png',
+      networkLogoURI: solNetworkLogoURI,
+    } satisfies ISwapToken;
+
+    expect(
+      resolveSwapDisplayToken({
+        allowFallback: false,
+        currentToken: {
+          networkId: 'sol--101',
+          contractAddress: '',
+          decimals: 9,
+          isNative: true,
+          symbol: 'SOL',
+          logoURI: solNetworkLogoURI,
+        },
+        fallbackToken: cachedSolToken,
+      }),
+    ).toEqual(cachedSolToken);
   });
 
   it('keeps the cached token visible across the initial selection gap', () => {
