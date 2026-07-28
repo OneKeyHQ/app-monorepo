@@ -30,7 +30,9 @@ export type IBorrowAction =
   | 'borrow'
   | 'withdraw'
   | 'repay'
-  | 'claim';
+  | 'claim'
+  | 'setEMode'
+  | 'setCollateral';
 
 export const buildBorrowTag = ({
   provider,
