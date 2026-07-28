@@ -60,7 +60,7 @@ import {
 } from '../utils/mobilePerpMarketScrollState';
 import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
-const IOS_CHART_HEIGHT = 500;
+const MOBILE_CHART_HEIGHT = 500;
 const IOS_CHART_BOTTOM_OVERLAP = 56;
 
 const MOBILE_PERP_MARKET_TAB_ITEMS: Array<{
@@ -169,7 +169,7 @@ function MobilePerpCandlesHeader({
     if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
       tracePerpsMobileLayout('mobileMarket.candlesHeader.layout', {
         rect,
-        chartHeight: IOS_CHART_HEIGHT,
+        chartHeight: MOBILE_CHART_HEIGHT,
         bottomOverlap: IOS_CHART_BOTTOM_OVERLAP,
       });
       layoutRef.current = rect;
@@ -189,7 +189,7 @@ function MobilePerpCandlesHeader({
         simultaneousWithNativeGesture
         cancelChildTouches={false}
       >
-        <YStack h={IOS_CHART_HEIGHT} overflow="hidden">
+        <YStack h={MOBILE_CHART_HEIGHT} overflow="hidden">
           <PerpCandles
             onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
           />
@@ -222,7 +222,11 @@ function MobilePerpCandlesStatic({
   return (
     <YStack onLayout={handleLayout}>
       <MobilePerpMarketHeader />
-      <YStack flex={1} minHeight={500}>
+      {/* Explicit height, not `flex={1} minHeight`: the parent height is
+          indefinite here, so `flex-basis: 0%` resolves the chart box to its
+          content in WebKit (Safari collapses it and leaves the reserved space
+          blank) while Blink grows it to the min-height. */}
+      <YStack h={MOBILE_CHART_HEIGHT} overflow="hidden">
         <PerpCandles
           onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
         />
