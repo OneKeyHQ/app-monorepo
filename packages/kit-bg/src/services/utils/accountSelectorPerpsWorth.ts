@@ -174,39 +174,15 @@ export class AccountSelectorPerpsWorth {
           undefined;
       }
     }
-    // Rows missed by the Account-table pass resolve through the same call
-    // Home's overview uses (getNetworkAccount with the perps network's
-    // global derive type), so the selector agrees with Home's perps display
-    // by construction. The Address index cannot substitute here: its key
-    // omits the derive type, so a reverse mapping from snapshot addresses
-    // cannot prove a candidate belongs to the CURRENT derive path — after a
-    // global derive-type switch it would surface the old path's balance.
-    const unresolvedIds = indexedAccountIds.filter(
-      (id) => !addressByIndexedAccountId[id],
-    );
-    if (unresolvedIds.length) {
-      await Promise.all(
-        unresolvedIds.map(async (indexedAccountId) => {
-          try {
-            const account =
-              await this.backgroundApi.serviceAccount.getNetworkAccount({
-                accountId: undefined,
-                indexedAccountId,
-                networkId: PERPS_NETWORK_ID,
-                deriveType: perpsDeriveType,
-              });
-            addressByIndexedAccountId[indexedAccountId] =
-              account?.addressDetail?.normalizedAddress ||
-              account?.address ||
-              undefined;
-          } catch {
-            // No resolvable address for the current derive path — the row
-            // keeps no perps worth, matching Home whose own resolution
-            // fails the same way.
-          }
-        }),
-      );
-    }
+    // Rows the batch pass could not resolve have no Account record for the
+    // current derive path: getAllAccounts() is the full unfiltered account
+    // table and both this pass and getNetworkAccount derive the same
+    // realDBAccountId, so a per-row getNetworkAccount retry would
+    // deterministically throw — Home's own overview resolution fails the
+    // same way and shows no perps worth for such rows. Leave them
+    // unresolved. The Address index is no substitute either: its key omits
+    // the derive type, so reverse-mapping snapshot addresses cannot prove a
+    // candidate belongs to the CURRENT derive path.
     return addressByIndexedAccountId;
   }
 
