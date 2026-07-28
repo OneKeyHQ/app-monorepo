@@ -20,6 +20,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   UNIFOLD_ARBITRUM_CHAIN_ID,
   UNIFOLD_ARBITRUM_USDC_SYMBOL,
+  UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL,
 } from '@onekeyhq/kit/src/views/Perp/consts/unifold';
 import { usePerpsUnifoldDepositSession } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
 import type { IUnifoldDepositErrorType } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
@@ -400,6 +401,9 @@ export function UnifoldTransferContent({
   const receiveNetworkName = isHyperCoreDestination
     ? 'HyperCore'
     : receiveNetwork?.chain_name;
+  const receiveTokenSymbol = isHyperCoreDestination
+    ? UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL
+    : UNIFOLD_ARBITRUM_USDC_SYMBOL;
   const useCompactLayout = useDialogHeader || useExternalHeader;
   const inPageFooter = statusCardsPlacement === 'pageFooter';
   const visibleExecutions = useMemo(
@@ -621,7 +625,7 @@ export function UnifoldTransferContent({
         chainIconUri={chain?.icon_url}
         sourceTokenSymbol={selection?.asset.symbol}
         sourceTokenIconUri={selection?.asset.icon_url}
-        receiveTokenSymbol={UNIFOLD_ARBITRUM_USDC_SYMBOL}
+        receiveTokenSymbol={receiveTokenSymbol}
         receiveTokenIconUri={receiveAsset?.icon_url}
         receiveNetworkIconUri={receiveNetworkIconUri}
         showConversionRoute={!useCompactLayout}
@@ -675,7 +679,7 @@ export function UnifoldTransferContent({
             sourceNetworkName={chain?.chain_name}
             sourceTokenIconUri={selection.asset.icon_url}
             sourceNetworkIconUri={chain?.icon_url}
-            receiveTokenSymbol={UNIFOLD_ARBITRUM_USDC_SYMBOL}
+            receiveTokenSymbol={receiveTokenSymbol}
             receiveNetworkName={receiveNetworkName}
             receiveTokenIconUri={receiveAsset?.icon_url}
             receiveNetworkIconUri={receiveNetworkIconUri}
