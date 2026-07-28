@@ -259,28 +259,20 @@ function DeviceSectionThirdPartyOnboardingDev() {
           },
         );
       setVerificationStatus('verified');
-      let portabilityMessage =
-        'This result is not portable to a trusted backend.';
-      if (result.serverPortable) {
-        portabilityMessage =
-          vendor === EHardwareVendor.trezor
-            ? 'The Trezor verifier can move to the backend unchanged; the backend must generate its own fresh challenge.'
-            : 'This is the production server ownership model. Move the same relay/state-machine code to the backend and replace local ws:// with remote wss://.';
-      }
       Dialog.show({
         icon: 'BadgeVerifiedSolid',
-        title: 'Local mock claim issued',
+        title: 'Local device check passed',
         description: [
           vendor === EHardwareVendor.trezor
-            ? 'Trezor signed a fresh local mock-server challenge. The mock backend independently reverified the raw certificate/signature proof.'
-            : 'The local OneKey DMK server drove Ledger Genuine Check over a one-time WSS session. The app only forwarded physical-device APDUs.',
+            ? 'The SDK asked the connected Trezor to authenticate a fresh challenge and accepted its genuine-check result.'
+            : 'The SDK ran Ledger’s official vendor Genuine Check and captured the physical-device DSID.',
           '',
           `Verification mode: ${result.verificationMode}`,
           `Device DSID: ${result.deviceId}`,
           `Challenge: ${result.challengeHex}`,
           `Mock voucher: ${result.voucherCode}`,
           '',
-          portabilityMessage,
+          'This is only a local integration check. The production backend must own or witness its own verification before issuing a real voucher.',
         ].join('\n'),
         onConfirmText: 'Done',
       });
@@ -352,8 +344,8 @@ function DeviceSectionThirdPartyOnboardingDev() {
   const verifySubtitle = {
     idle:
       vendor === EHardwareVendor.trezor
-        ? 'Mock the backend locally; sign and independently verify a real Trezor proof'
-        : 'Run a local OneKey DMK server; forward APDUs and verify with Ledger',
+        ? 'Run the real Trezor SDK genuine check with a fresh challenge'
+        : 'Run the real Ledger vendor Genuine Check and read its DSID',
     pending: 'Waiting for the connected device…',
     verified: 'Real device proof accepted · local DEV voucher issued',
     failed: verificationError || 'Failed · tap to retry',

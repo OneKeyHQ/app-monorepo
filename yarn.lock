@@ -10152,15 +10152,10 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/kit-bg@workspace:packages/kit-bg"
   dependencies:
-    "@ledgerhq/device-management-kit": "npm:^1.1.0"
-    "@types/ws": "npm:^8.5.10"
     eth-url-parser: "npm:^1.0.4"
     idb: "npm:^7.1.1"
     ipaddr.js: "npm:^2.3.0"
     miscreant: "npm:^0.3.2"
-    purify-ts: "npm:2.1.0"
-    rxjs: "npm:7.8.2"
-    ws: "npm:^8.18.0"
   languageName: unknown
   linkType: soft
 

@@ -1,8 +1,3 @@
-import {
-  type AuthenticityProof,
-  authenticateDeviceFromProof,
-} from '@onekeyfe/hwk-trezor-adapter';
-
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 type ILocalMockAuthenticityResult = {
@@ -10,18 +5,14 @@ type ILocalMockAuthenticityResult = {
   verified: boolean;
   deviceId?: string;
   usedDebugKey?: boolean;
-  ledgerVerificationAuthority?: 'onekey-local-dmk-server';
   trezorProof?: {
     challenge: string;
-    deviceModel: string;
-    proof: AuthenticityProof;
   };
 };
 
 export type ILocalMockDeviceClaimVerification = {
   deviceId: string;
-  verificationMode: 'trezor-independent-proof' | 'ledger-server-dmk-relay';
-  serverPortable: boolean;
+  verificationMode: 'trezor-sdk-genuine-check' | 'ledger-vendor-genuine-check';
 };
 
 export type ILocalMockDeviceClaimResult = ILocalMockDeviceClaimVerification & {
@@ -55,37 +46,23 @@ export function verifyLocalMockDeviceClaimEvidence({
   if (vendor === 'trezor') {
     const envelope = authenticity.trezorProof;
     if (
+      !authenticity.verified ||
+      authenticity.usedDebugKey ||
+      !authenticity.deviceId ||
       !envelope ||
       envelope.challenge.toLowerCase() !== challengeHex.toLowerCase()
     ) {
       throw new OneKeyLocalError(
-        'Trezor proof does not match the local mock-server challenge',
-      );
-    }
-    const independentlyVerified = authenticateDeviceFromProof({
-      proof: envelope.proof,
-      challenge: Buffer.from(challengeHex, 'hex'),
-      deviceModel: envelope.deviceModel,
-    });
-    if (
-      !independentlyVerified.verified ||
-      independentlyVerified.usedDebugKey ||
-      !independentlyVerified.deviceId
-    ) {
-      throw new OneKeyLocalError(
-        independentlyVerified.error ||
-          'Local mock backend rejected the Trezor proof',
+        'Trezor SDK genuine check did not verify this challenge',
       );
     }
     return {
-      deviceId: independentlyVerified.deviceId,
-      verificationMode: 'trezor-independent-proof',
-      serverPortable: true,
+      deviceId: authenticity.deviceId,
+      verificationMode: 'trezor-sdk-genuine-check',
     };
   }
 
   if (
-    authenticity.ledgerVerificationAuthority !== 'onekey-local-dmk-server' ||
     !authenticity.verified ||
     !authenticity.deviceId ||
     !/^[0-9a-f]{64}$/i.test(authenticity.deviceId)
@@ -96,16 +73,13 @@ export function verifyLocalMockDeviceClaimEvidence({
   }
   return {
     deviceId: authenticity.deviceId.toLowerCase(),
-    verificationMode: 'ledger-server-dmk-relay',
-    serverPortable: true,
+    verificationMode: 'ledger-vendor-genuine-check',
   };
 }
 
 /**
- * Local stand-in for the future trusted backend. The caller supplies an
- * executor, not an attestation DTO: this function owns the fresh challenge,
- * invokes the real device/vendor session, verifies its result, and only then
- * issues the development voucher. A renderer cannot submit `verified: true`.
+ * Minimal local UI-flow check. The fresh challenge and hardware call happen in
+ * the background service; a future backend must own an equivalent remote flow.
  */
 export async function runTrustedLocalMockDeviceClaim({
   vendor,

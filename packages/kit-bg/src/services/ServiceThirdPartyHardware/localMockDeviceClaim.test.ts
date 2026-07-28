@@ -1,24 +1,11 @@
-import { authenticateDeviceFromProof } from '@onekeyfe/hwk-trezor-adapter';
-
 import {
   createLocalMockDeviceClaimChallenge,
   runTrustedLocalMockDeviceClaim,
   verifyLocalMockDeviceClaimEvidence,
 } from './localMockDeviceClaim';
 
-// cspell:ignore optiga
-jest.mock('@onekeyfe/hwk-trezor-adapter', () => ({
-  authenticateDeviceFromProof: jest.fn(),
-}));
-
-const verifyTrezorProof = jest.mocked(authenticateDeviceFromProof);
-
 describe('verifyLocalMockDeviceClaimEvidence', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('creates a fresh 32-byte mock-server challenge', () => {
+  it('creates a fresh 32-byte Web Crypto challenge', () => {
     const first = createLocalMockDeviceClaimChallenge();
     const second = createLocalMockDeviceClaimChallenge();
 
@@ -27,17 +14,8 @@ describe('verifyLocalMockDeviceClaimEvidence', () => {
     expect(first).not.toBe(second);
   });
 
-  it('independently verifies a Trezor raw proof against the mock-server challenge', () => {
-    verifyTrezorProof.mockReturnValue({
-      verified: true,
-      deviceId: 'trezor-device-id',
-      usedDebugKey: false,
-    });
+  it('accepts a real Trezor SDK result bound to the fresh challenge', () => {
     const challengeHex = 'ab'.repeat(32);
-    const proof = {
-      optiga_certificates: ['certificate'],
-      optiga_signature: 'signature',
-    };
 
     expect(
       verifyLocalMockDeviceClaimEvidence({
@@ -46,48 +24,52 @@ describe('verifyLocalMockDeviceClaimEvidence', () => {
         authenticity: {
           vendor: 'trezor',
           verified: true,
+          deviceId: 'trezor-device-id',
+          usedDebugKey: false,
           trezorProof: {
             challenge: challengeHex,
-            deviceModel: 'T3W1',
-            proof,
           },
         },
       }),
     ).toEqual({
       deviceId: 'trezor-device-id',
-      verificationMode: 'trezor-independent-proof',
-      serverPortable: true,
-    });
-    expect(verifyTrezorProof).toHaveBeenCalledWith({
-      proof,
-      challenge: Buffer.from(challengeHex, 'hex'),
-      deviceModel: 'T3W1',
+      verificationMode: 'trezor-sdk-genuine-check',
     });
   });
 
-  it('rejects a Trezor proof bound to another challenge', () => {
-    expect(() =>
-      verifyLocalMockDeviceClaimEvidence({
-        vendor: 'trezor',
-        challengeHex: 'ab'.repeat(32),
-        authenticity: {
-          vendor: 'trezor',
-          verified: true,
-          trezorProof: {
-            challenge: 'cd'.repeat(32),
-            deviceModel: 'T3W1',
-            proof: {
-              optiga_certificates: ['certificate'],
-              optiga_signature: 'signature',
-            },
-          },
+  it('rejects an unverified, debug-key, or stale Trezor result', () => {
+    const challengeHex = 'ab'.repeat(32);
+    const validEvidence = {
+      vendor: 'trezor' as const,
+      verified: true,
+      deviceId: 'trezor-device-id',
+      usedDebugKey: false,
+      trezorProof: {
+        challenge: challengeHex,
+      },
+    };
+
+    for (const authenticity of [
+      { ...validEvidence, verified: false },
+      { ...validEvidence, usedDebugKey: true },
+      {
+        ...validEvidence,
+        trezorProof: {
+          challenge: 'cd'.repeat(32),
         },
-      }),
-    ).toThrow('challenge');
-    expect(verifyTrezorProof).not.toHaveBeenCalled();
+      },
+    ]) {
+      expect(() =>
+        verifyLocalMockDeviceClaimEvidence({
+          vendor: 'trezor',
+          challengeHex,
+          authenticity,
+        }),
+      ).toThrow('Trezor SDK genuine check');
+    }
   });
 
-  it('accepts only a real Ledger vendor verdict with a captured DSID', () => {
+  it('accepts only a genuine Ledger vendor result with a captured DSID', () => {
     expect(
       verifyLocalMockDeviceClaimEvidence({
         vendor: 'ledger',
@@ -96,57 +78,43 @@ describe('verifyLocalMockDeviceClaimEvidence', () => {
           vendor: 'ledger',
           verified: true,
           deviceId: '12'.repeat(32),
-          ledgerVerificationAuthority: 'onekey-local-dmk-server',
         },
       }),
     ).toEqual({
       deviceId: '12'.repeat(32),
-      verificationMode: 'ledger-server-dmk-relay',
-      serverPortable: true,
+      verificationMode: 'ledger-vendor-genuine-check',
     });
 
-    expect(() =>
-      verifyLocalMockDeviceClaimEvidence({
-        vendor: 'ledger',
-        challengeHex: 'ab'.repeat(32),
-        authenticity: {
+    for (const authenticity of [
+      {
+        vendor: 'ledger' as const,
+        verified: false,
+        deviceId: '12'.repeat(32),
+      },
+      {
+        vendor: 'ledger' as const,
+        verified: true,
+        deviceId: 'not-a-dsid',
+      },
+    ]) {
+      expect(() =>
+        verifyLocalMockDeviceClaimEvidence({
           vendor: 'ledger',
-          verified: false,
-          deviceId: '12'.repeat(32),
-          ledgerVerificationAuthority: 'onekey-local-dmk-server',
-        },
-      }),
-    ).toThrow('Genuine Check');
-
-    expect(() =>
-      verifyLocalMockDeviceClaimEvidence({
-        vendor: 'ledger',
-        challengeHex: 'ab'.repeat(32),
-        authenticity: {
-          vendor: 'ledger',
-          verified: true,
-          deviceId: '12'.repeat(32),
-        },
-      }),
-    ).toThrow('Genuine Check');
+          challengeHex: 'ab'.repeat(32),
+          authenticity,
+        }),
+      ).toThrow('Genuine Check');
+    }
   });
 
-  it('owns the challenge and runs the real Trezor executor before issuing', async () => {
-    verifyTrezorProof.mockReturnValue({
-      verified: true,
-      deviceId: 'trezor-device-id',
-      usedDebugKey: false,
-    });
+  it('runs the hardware check before issuing the local voucher', async () => {
     const executeAuthenticityCheck = jest.fn(async (challengeHex: string) => ({
       vendor: 'trezor' as const,
       verified: true,
+      deviceId: 'trezor-device-id',
+      usedDebugKey: false,
       trezorProof: {
         challenge: challengeHex,
-        deviceModel: 'T3W1',
-        proof: {
-          optiga_certificates: ['certificate'],
-          optiga_signature: 'signature',
-        },
       },
     }));
 
@@ -155,33 +123,14 @@ describe('verifyLocalMockDeviceClaimEvidence', () => {
       executeAuthenticityCheck,
     });
 
-    expect(executeAuthenticityCheck).toHaveBeenCalledTimes(1);
     expect(executeAuthenticityCheck).toHaveBeenCalledWith(result.challengeHex);
     expect(result).toMatchObject({
       status: 'issued',
       deviceId: 'trezor-device-id',
-      verificationMode: 'trezor-independent-proof',
-      serverPortable: true,
+      verificationMode: 'trezor-sdk-genuine-check',
     });
     expect(result.voucherCode).toContain(
       result.challengeHex.slice(0, 8).toUpperCase(),
     );
-  });
-
-  it('does not issue a Ledger voucher when the vendor session is not genuine', async () => {
-    const executeAuthenticityCheck = jest.fn(async () => ({
-      vendor: 'ledger' as const,
-      verified: false,
-      deviceId: '12'.repeat(32),
-      ledgerVerificationAuthority: 'onekey-local-dmk-server' as const,
-    }));
-
-    await expect(
-      runTrustedLocalMockDeviceClaim({
-        vendor: 'ledger',
-        executeAuthenticityCheck,
-      }),
-    ).rejects.toThrow('Genuine Check');
-    expect(executeAuthenticityCheck).toHaveBeenCalledTimes(1);
   });
 });
