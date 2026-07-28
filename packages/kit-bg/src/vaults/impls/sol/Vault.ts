@@ -1346,7 +1346,10 @@ export default class Vault extends VaultBase {
               // same-snapshot contract. Solana mint addresses are base58 and
               // case-sensitive, so compare exactly. Fall back to the freshly
               // fetched `tokenInfo` (getToken) for dApp/external txs that
-              // never populated transferPayload.
+              // never populated transferPayload. Both are IToken, so this
+              // reads the info-level field; ingestion normalization mirrors
+              // the item and info levels, so it equals the item-level value
+              // the send page displayed against.
               const balanceMultiplier =
                 sendTokenInfo?.address === tokenAddress
                   ? sendTokenInfo.balanceMultiplier

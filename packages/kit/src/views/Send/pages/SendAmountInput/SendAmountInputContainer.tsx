@@ -2665,6 +2665,20 @@ function SendAmountInputContainer() {
                 }),
               );
             }
+            // Scaled-UI (rebase) tokens are display-basis in this branch and
+            // never reach the display->raw conversion below; fail closed
+            // instead of silently over-sending by the multiplier if one ever
+            // gets listed for private send.
+            if (
+              tokenRebaseUtils.isValidBalanceMultiplier(
+                tokenRebaseUtils.pickBalanceMultiplier(tokenDetails),
+              )
+            ) {
+              throw new OneKeyLocalError(
+                'Private send does not support scaled-UI tokens',
+              );
+            }
+
             const submitPrivateSendQuoteScopeKey =
               buildPrivateSendQuoteScopeKey({
                 accountId: currentAccountId,
@@ -3023,7 +3037,9 @@ function SendAmountInputContainer() {
             // the user's full-send intent. `dp(undefined)` would return the
             // decimal-place count instead of truncating (and a negative /
             // fractional argument throws), so only truncate when `decimals`
-            // is a usable non-negative integer.
+            // is a usable non-negative integer. The asymmetry with the
+            // division arm below is intentional: that one fails closed
+            // (removeBalanceMultiplier throws) on the same invalid decimals.
             const fullSendThreshold =
               Number.isInteger(tokenDetails.info.decimals) &&
               tokenDetails.info.decimals >= 0

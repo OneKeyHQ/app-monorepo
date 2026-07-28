@@ -18,7 +18,7 @@ import type {
 
 /**
  * Single-key aggregate-token summation, extracted verbatim from
- * `flattenAggregateTokensMap` (tokenUtils.ts:709-790) so `aggCell` and the
+ * `flattenAggregateTokensMap` (tokenUtils.ts) so `aggCell` and the
  * legacy flatten share one summation implementation (spec §3.1, §11.1).
  *
  * - balance / fiatValue / frozen* / total* are BigNumber.plus summed across

@@ -59,7 +59,9 @@ function isValidBalanceMultiplier(
 // Picks the effective multiplier from a token-detail-shaped object
 // ({ info } & ITokenFiat). First VALID of [item-level, info-level] — `??`
 // would let an invalid item-level value ('0', '--') shadow a valid
-// info-level one and silently yield the raw balance.
+// info-level one and silently yield the raw balance. Call sites holding a
+// bare ITokenFiat (no `info` level to consult) read the field directly
+// instead; validation happens inside apply/remove either way.
 function pickBalanceMultiplier(
   detail:
     | { balanceMultiplier?: string; info?: { balanceMultiplier?: string } }
