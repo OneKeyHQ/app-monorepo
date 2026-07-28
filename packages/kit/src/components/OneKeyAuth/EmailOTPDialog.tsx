@@ -13,7 +13,9 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { EMAIL_OTP_COUNTDOWN_SECONDS } from '@onekeyhq/shared/src/consts/authConsts';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 
 export function EmailOTPDialog(props: {
   title: string;
@@ -29,7 +31,10 @@ export function EmailOTPDialog(props: {
   const [isResending, setIsResending] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
-  const [state, setState] = useState<{ status: 'initial' | 'error' | 'done' }>({
+  const [state, setState] = useState<{
+    status: 'initial' | 'error' | 'done';
+    errorMessageId?: ETranslations;
+  }>({
     status: 'initial',
   });
   const intl = useIntl();
@@ -92,7 +97,33 @@ export function EmailOTPDialog(props: {
       await onConfirm(verificationCode);
     } catch (error) {
       console.error('sendEmailOTP error', error);
-      setState({ status: 'error' });
+      // Not every consume failure means the code was wrong — a transient
+      // network failure or an expired OneKey ID login must not be rendered
+      // as "invalid verification code" (which tells the user to retype a
+      // code that was never the problem). Classification relies only on
+      // fields that survive bridge serialization (name / key / status).
+      if (isTransientNetworkLikeError(error)) {
+        setState({
+          status: 'initial',
+          errorMessageId: ETranslations.global_network_error,
+        });
+      } else if (
+        (error as IOneKeyError | undefined)?.key ===
+        ETranslations.id_login_expired_description
+      ) {
+        // OneKeyErrorPrimeLoginInvalidToken (90002/90003): the login was
+        // invalidated while the dialog was open; retyping the code cannot
+        // succeed.
+        setState({
+          status: 'initial',
+          errorMessageId: ETranslations.id_login_expired_description,
+        });
+      } else {
+        setState({
+          status: 'error',
+          errorMessageId: ETranslations.prime_invalid_verification_code,
+        });
+      }
     } finally {
       setIsSubmittingVerificationCode(false);
       setIsConfirming(false);
@@ -134,10 +165,10 @@ export function EmailOTPDialog(props: {
           }}
         />
 
-        {state.status === 'error' ? (
+        {state.errorMessageId ? (
           <SizableText size="$bodyMd" color="$red9">
             {intl.formatMessage({
-              id: ETranslations.prime_invalid_verification_code,
+              id: state.errorMessageId,
             })}
           </SizableText>
         ) : null}

@@ -19,7 +19,10 @@ import { useSpotPairDisplayMapAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  formatLocalizedNumberString,
+  numberFormat,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   getSpotTokenDisplayName,
   getValidPriceDecimals,
@@ -33,6 +36,8 @@ import {
   getColumnStyle,
   getFillDirectionDisplayInfo,
 } from '../utils';
+
+import { TradesHistoryShareAction } from './TradesHistoryShareAction';
 
 import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
 
@@ -69,12 +74,12 @@ const TradesHistoryRow = memo(
     builderFeeRate,
   }: ITradesHistoryRowProps) => {
     const canShare = useMemo(() => {
-      return (
+      return Boolean(
         fill.closedPnl &&
         !new BigNumber(fill.closedPnl).isZero() &&
         !isSpotInstrument(fill.coin) &&
         !fill.liquidation &&
-        onShare
+        onShare,
       );
     }, [fill.closedPnl, fill.coin, fill.liquidation, onShare]);
     const actions = useHyperliquidActions();
@@ -136,7 +141,9 @@ const TradesHistoryRow = memo(
       const decimals = getValidPriceDecimals(price);
       const priceBN = new BigNumber(price);
       const sizeBN = new BigNumber(size);
-      const priceFormatted = priceBN.toFixed(decimals);
+      const priceFormatted = formatLocalizedNumberString(
+        priceBN.toFixed(decimals),
+      );
       const feeFormatted = numberFormat(fee, formatter);
 
       const tradeValue = priceBN.times(sizeBN).toFixed();
@@ -220,7 +227,7 @@ const TradesHistoryRow = memo(
                 gap="$2"
                 alignItems="center"
                 onPress={handleSwitchInstrument}
-                cursor="default"
+                cursor="pointer"
               >
                 <SizableText size="$bodyMdMedium">{assetSymbol}</SizableText>
                 <SizableText
@@ -376,7 +383,7 @@ const TradesHistoryRow = memo(
               justifyContent={calcCellAlign(columnConfigs[1].align)}
               alignItems="center"
               onPress={handleSwitchInstrument}
-              cursor="default"
+              cursor="pointer"
             >
               <SizableText
                 numberOfLines={1}
@@ -392,9 +399,11 @@ const TradesHistoryRow = memo(
               {...getColumnStyle(columnConfigs[2])}
               justifyContent={calcCellAlign(columnConfigs[2].align)}
               alignItems="center"
+              minWidth={0}
             >
-              <XStack gap="$1.5" alignItems="center">
+              <XStack gap="$1.5" alignItems="center" width="100%" minWidth={0}>
                 <SizableText
+                  flexShrink={1}
                   numberOfLines={1}
                   ellipsizeMode="tail"
                   size="$bodySm"
@@ -477,10 +486,10 @@ const TradesHistoryRow = memo(
             {...getColumnStyle(columnConfigs[7])}
             justifyContent={calcCellAlign(columnConfigs[7].align)}
             alignItems="center"
-            gap="$1"
             cursor="default"
           >
             <SizableText
+              flexShrink={1}
               numberOfLines={1}
               ellipsizeMode="tail"
               size="$bodySm"
@@ -488,20 +497,10 @@ const TradesHistoryRow = memo(
             >
               {`${closePnlInfo.closePnlPlusOrMinus}${closePnlInfo.closePnlFormatted}`}
             </SizableText>
-            {canShare ? (
-              <IconButton
-                testID="perp-icon-btn"
-                variant="tertiary"
-                size="small"
-                icon="ShareOutline"
-                iconSize="$4"
-                onPress={() => onShare?.(fill)}
-                hoverStyle={null}
-                pressStyle={null}
-              />
-            ) : (
-              <XStack width={16} height={16} />
-            )}
+            <TradesHistoryShareAction
+              visible={canShare}
+              onPress={() => onShare?.(fill)}
+            />
           </XStack>
         ) : null}
       </XStack>

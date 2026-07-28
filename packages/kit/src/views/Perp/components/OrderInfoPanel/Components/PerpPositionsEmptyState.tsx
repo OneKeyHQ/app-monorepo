@@ -71,7 +71,8 @@ export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
     Record<string, IPerpsMobileLayoutTraceRect | undefined>
   >({});
   const { gtMd } = useMedia();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal, isDepositDisabled } =
+    useShowDepositWithdrawModal();
   const { showGuide } = useShowGuide();
   const [activeAccount] = usePerpsActiveAccountAtom();
 
@@ -177,7 +178,7 @@ export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
               id: ETranslations.perp_trade_deposit,
             })}
             onPress={() => void showDepositWithdrawModal('deposit')}
-            disabled={!hasAccountAddress}
+            disabled={!hasAccountAddress || isDepositDisabled}
           />
           {useGuidePopover ? (
             <YStack width={buttonWidth}>

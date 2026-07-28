@@ -2,10 +2,20 @@ import BigNumber from 'bignumber.js';
 
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
+import {
+  EMPTY_SWAP_BALANCE_DISPLAY_CACHE,
+  type ISwapBalanceDisplayCache,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceDisplayCacheUtils';
+import {
+  EMPTY_SWAP_PRO_POSITIONS_CACHE,
+  type ISwapProPositionsCache,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapProPositionsCacheUtils';
+import { isStockQuoteInputAmountMatched } from '@onekeyhq/kit/src/views/Swap/utils/swapStockTradeControl';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import type { ICustomPriorityFeeOverride } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
+import { clampLimitRateDecimals } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import {
@@ -24,34 +34,33 @@ import {
   swapProTimeRangeItems,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
+  type ESwapDirectionType,
   ESwapNetworkFeeLevel,
   ESwapProTradeType,
+  type ESwapQuoteKind,
+  type ESwapRateDifferenceUnit,
+  type ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
+  type IFetchQuoteResult,
+  type ISwapAlertState,
+  type ISwapAutoSlippageSuggestedValue,
+  type ISwapLimitPriceInfo,
+  type ISwapNativeTokenReserveGas,
+  type ISwapNetwork,
+  type ISwapPreSwapData,
+  type ISwapStep,
+  type ISwapTips,
+  type ISwapToken,
+  type ISwapTokenCatch,
+  type ISwapTokenMetadata,
   LIMIT_PRICE_DEFAULT_DECIMALS,
   defaultLimitExpirationTime,
-} from '@onekeyhq/shared/types/swap/types';
-import type {
-  ESwapDirectionType,
-  ESwapQuoteKind,
-  ESwapRateDifferenceUnit,
-  ESwapSlippageSegmentKey,
-  IFetchQuoteResult,
-  ISwapAlertState,
-  ISwapAutoSlippageSuggestedValue,
-  ISwapLimitPriceInfo,
-  ISwapNativeTokenReserveGas,
-  ISwapNetwork,
-  ISwapPreSwapData,
-  ISwapStep,
-  ISwapTips,
-  ISwapToken,
-  ISwapTokenCatch,
-  ISwapTokenMetadata,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
 import {
+  type ISwapQuoteEventTotalCount,
   type ISwapQuoteSelectionIntent,
   buildSwapQuoteProviderKey,
   selectSwapCurrentQuote,
@@ -83,6 +92,7 @@ export type ISwapQuoteEventErrorState = {
   message: string;
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
+  fromTokenAmount?: string;
   isStock?: boolean;
   isMarketOpen?: boolean;
   eventId?: string;
@@ -203,6 +213,8 @@ export const {
   atom: swapStockSelectedTokenAtom,
   use: useSwapStockSelectedTokenAtom,
 } = contextAtom<ISwapToken | undefined>(undefined, {
+  // Display-only Stock identity. Ordinary Swap execution resets must not clear
+  // it; realtime market/pay-token readiness still gates quote and execution.
   coldStartCache: true,
   coldStartCacheKey:
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
@@ -230,6 +242,42 @@ export const {
 );
 
 export const {
+  atom: swapStockPayTokenDisplayAtom,
+  use: useSwapStockPayTokenDisplayAtom,
+} = contextAtom<Record<string, ISwapToken>>(
+  {},
+  {
+    // Account-scoped Stock pay-token seeds are display-only. Live speed config
+    // and token details still gate selection, quote, and execution.
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockPayTokenDisplayAtom,
+  },
+);
+
+export const {
+  atom: swapBalanceDisplayCacheAtom,
+  use: useSwapBalanceDisplayCacheAtom,
+} = contextAtom<ISwapBalanceDisplayCache>(EMPTY_SWAP_BALANCE_DISPLAY_CACHE, {
+  // Last-good, owner-scoped balance values are for first-frame display only.
+  // Quote, Max, review, build, and send continue to use live balance state.
+  coldStartCache: true,
+  coldStartCacheKey:
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapBalanceDisplayCacheAtom,
+});
+
+export const {
+  atom: swapStockBalanceDisplayCacheAtom,
+  use: useSwapStockBalanceDisplayCacheAtom,
+} = contextAtom<ISwapBalanceDisplayCache>(EMPTY_SWAP_BALANCE_DISPLAY_CACHE, {
+  // Stock keeps its own display cache so channel transitions can never replace
+  // the ordinary Swap first-frame balance.
+  coldStartCache: true,
+  coldStartCacheKey:
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockBalanceDisplayCacheAtom,
+});
+
+export const {
   atom: swapInitialSelectedTokensSyncedAtom,
   use: useSwapInitialSelectedTokensSyncedAtom,
 } = contextAtom<boolean>(false);
@@ -244,30 +292,55 @@ export const {
   use: useSwapModalSelectToTokenAtom,
 } = contextAtom<ISwapToken | undefined>(undefined);
 
+export type ISwapTokenAmountState = {
+  value: string;
+  isInput: boolean;
+};
+
+export type ISwapInputAmountDraft = {
+  fromTokenAmount: ISwapTokenAmountState;
+  toTokenAmount: ISwapTokenAmountState;
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+};
+
 export const {
   atom: swapFromTokenAmountAtom,
   use: useSwapFromTokenAmountAtom,
-} = contextAtom<{
-  value: string;
-  isInput: boolean;
-}>({
+} = contextAtom<ISwapTokenAmountState>({
   value: '',
   isInput: false,
 });
 
 export const { atom: swapToTokenAmountAtom, use: useSwapToTokenAmountAtom } =
-  contextAtom<{
-    value: string;
-    isInput: boolean;
-  }>({
+  contextAtom<ISwapTokenAmountState>({
     value: '',
     isInput: false,
   });
 
 export const {
+  atom: swapInputAmountDraftsAtom,
+  use: useSwapInputAmountDraftsAtom,
+} = contextAtom<Partial<Record<ESwapTabSwitchType, ISwapInputAmountDraft>>>({});
+
+export const {
   atom: swapSelectedFromTokenBalanceAtom,
   use: useSwapSelectedFromTokenBalanceAtom,
 } = contextAtom('');
+
+export const {
+  atom: swapStockSelectedFromTokenBalanceAtom,
+  use: useSwapStockSelectedFromTokenBalanceAtom,
+} = contextAtom('');
+
+export const {
+  atom: swapActiveSelectedFromTokenBalanceAtom,
+  use: useSwapActiveSelectedFromTokenBalanceAtom,
+} = contextAtomComputed((get) =>
+  get(swapTypeSwitchAtom()) === ESwapTabSwitchType.STOCK
+    ? get(swapStockSelectedFromTokenBalanceAtom())
+    : get(swapSelectedFromTokenBalanceAtom()),
+);
 
 export const {
   atom: swapSelectedToTokenBalanceAtom,
@@ -282,7 +355,16 @@ export const {
 export const {
   atom: swapAllNetworkActionLockAtom,
   use: useSwapAllNetworkActionLockAtom,
-} = contextAtom<Record<string, boolean>>({});
+} = contextAtom<
+  Record<
+    string,
+    {
+      activeRequestKey: string;
+      completionPromise: Promise<void>;
+      pendingRequestKey?: string;
+    }
+  >
+>({});
 
 // swap quote
 export const {
@@ -310,6 +392,7 @@ export const {
   kind?: ESwapQuoteKind;
   address?: string;
   receivingAddress?: string;
+  quoteRequestId?: string;
 }>({ actionLock: false });
 
 export const {
@@ -318,9 +401,14 @@ export const {
 } = contextAtom<number>(0);
 
 export const {
+  atom: swapQuoteAutoRefreshTimerAtom,
+  use: useSwapQuoteAutoRefreshTimerAtom,
+} = contextAtom<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+export const {
   atom: swapQuoteEventTotalCountAtom,
   use: useSwapQuoteEventTotalCountAtom,
-} = contextAtom<{ eventId?: string; count: number }>({
+} = contextAtom<ISwapQuoteEventTotalCount>({
   count: 0,
 });
 
@@ -378,18 +466,34 @@ export const {
 } = contextAtomComputed((get) => {
   const list = get(swapQuoteCurrentEventListAtom());
   const fromTokenAmount = get(swapFromTokenAmountAtom());
+  const toTokenAmount = get(swapToTokenAmountAtom());
+  const swapTypeSwitch = get(swapTypeSwitchAtom());
   const selectionIntent = get(swapManualSelectQuoteProvidersAtom());
   const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
+  const quoteEventCompleted = get(swapQuoteEventCompletedAtom());
   const currentEventProviderKeys = get(swapQuoteCurrentEventProviderKeysAtom());
   const recommendedSortedList = sortSwapQuotes(list, {
     sort: ESwapProviderSort.RECOMMENDED,
     fromTokenAmount: fromTokenAmount.value,
   });
+  const currentEventSortedQuotes =
+    swapTypeSwitch === ESwapTabSwitchType.STOCK
+      ? recommendedSortedList.filter((quote) =>
+          isStockQuoteInputAmountMatched({
+            quote,
+            fromAmount: fromTokenAmount.value,
+            toAmount: toTokenAmount.value,
+          }),
+        )
+      : recommendedSortedList;
   return selectSwapCurrentQuote({
-    currentEventSortedQuotes: recommendedSortedList,
+    currentEventSortedQuotes,
     selectionIntent: selectionIntent ?? undefined,
     quoteEventTotalCount,
     currentEventProviderKeys,
+    quoteEventCompleted,
+    deferNonActionableQuoteUntilEventSettled:
+      swapTypeSwitch === ESwapTabSwitchType.STOCK,
   });
 });
 
@@ -413,8 +517,8 @@ export const {
   atom: swapSelectTokenDetailFetchingAtom,
   use: useSwapSelectTokenDetailFetchingAtom,
 } = contextAtom<Record<ESwapDirectionType, boolean>>({
-  'from': false,
-  'to': false,
+  from: false,
+  to: false,
 });
 
 export const {
@@ -655,9 +759,6 @@ export const { atom: swapProTradeTypeAtom, use: useSwapProTradeTypeAtom } =
 export const { atom: swapProInputAmountAtom, use: useSwapProInputAmountAtom } =
   contextAtom<string>('');
 
-export const { atom: swapProSliderValueAtom, use: useSwapProSliderValueAtom } =
-  contextAtom<number>(0);
-
 export const {
   atom: swapProUseSelectBuyTokenAtom,
   use: useSwapProUseSelectBuyTokenAtom,
@@ -707,45 +808,56 @@ export const {
   use: useSwapProSupportNetworksTokenListAtom,
 } = contextAtom<ISwapToken[]>([]);
 
-export const SWAP_PRO_POSITIONS_CACHE_MAX_OWNERS = 20;
-
-export type ISwapProPositionsCacheEntry = {
-  ownerKey: string;
-  networkIdsKey: string;
-  tokens: ISwapToken[];
-  updatedAt: number;
-};
-
 export function buildSwapProPositionsOwnerKey({
   accountId,
   networkIdsKey,
+  currencyId,
 }: {
   accountId?: string;
   networkIdsKey: string;
+  currencyId: string;
 }) {
-  if (!accountId || !networkIdsKey) {
+  if (!accountId || !networkIdsKey || !currencyId) {
     return '';
   }
-  return `${accountId}__${networkIdsKey}`;
+  return `${accountId}__${networkIdsKey}__${currencyId.toLowerCase()}`;
 }
 
 export const {
   atom: swapProPositionsCacheAtom,
   use: useSwapProPositionsCacheAtom,
-} = contextAtom<{
-  byOwner: Record<string, ISwapProPositionsCacheEntry>;
-}>(
-  { byOwner: {} },
-  {
-    coldStartCache: true,
-    coldStartCacheKey:
-      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProPositionsCacheAtom,
-  },
-);
+} = contextAtom<ISwapProPositionsCache>(EMPTY_SWAP_PRO_POSITIONS_CACHE, {
+  coldStartCache: true,
+  coldStartCacheKey:
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProPositionsCacheAtom,
+});
 
 export const {
-  atom: swapProSupportNetworksTokenListLoadingAtom,
-  use: useSwapProSupportNetworksTokenListLoadingAtom,
+  atom: swapProPositionsCurrentOwnerKeyAtom,
+  use: useSwapProPositionsCurrentOwnerKeyAtom,
+} = contextAtom<string>('');
+
+export const {
+  atom: swapProPositionsRequestIdAtom,
+  use: useSwapProPositionsRequestIdAtom,
+} = contextAtom<number>(0);
+
+export const {
+  atom: swapProPositionsRequestIdsAtom,
+  use: useSwapProPositionsRequestIdsAtom,
+} = contextAtom<Record<string, number>>({});
+
+export const {
+  atom: swapProPositionsDataOwnerKeyAtom,
+  use: useSwapProPositionsDataOwnerKeyAtom,
+} = contextAtom<string>('');
+
+export const { atom: swapProTokenBalanceRequestIdAtom } =
+  contextAtom<number>(0);
+
+export const {
+  atom: swapProTokenBalanceLoadingAtom,
+  use: useSwapProTokenBalanceLoadingAtom,
 } = contextAtom<boolean>(false);
 
 export const { atom: swapProTokenValueAtom, use: useSwapProTokenValueAtom } =
@@ -832,24 +944,18 @@ export const {
     if (fromPriceBN.isZero() || toPriceBN.isZero()) {
       return {};
     }
-    const rate = fromPriceBN
-      .div(toPriceBN)
-      .decimalPlaces(
-        Number(
-          toTokenPriceInfo.tokenInfo.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
-        ),
-        BigNumber.ROUND_HALF_UP,
-      )
-      .toFixed();
-    const reverseRate = toPriceBN
-      .div(fromPriceBN)
-      .decimalPlaces(
-        Number(
-          fromTokenPriceInfo.tokenInfo.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
-        ),
-        BigNumber.ROUND_HALF_UP,
-      )
-      .toFixed();
+    // clampLimitRateDecimals keeps ultra-small market rates (many-leading-
+    // zeros tokens) from collapsing to "0" at the source, which would defeat
+    // every downstream consumer (percent presets, market-price display,
+    // equal-market checks).
+    const rate = clampLimitRateDecimals(
+      fromPriceBN.div(toPriceBN),
+      toTokenPriceInfo.tokenInfo.decimals,
+    ).toFixed();
+    const reverseRate = clampLimitRateDecimals(
+      toPriceBN.div(fromPriceBN),
+      fromTokenPriceInfo.tokenInfo.decimals,
+    ).toFixed();
     const limitPriceMarketInfo = {
       fromToken: fromTokenPriceInfo.tokenInfo,
       toToken: toTokenPriceInfo.tokenInfo,

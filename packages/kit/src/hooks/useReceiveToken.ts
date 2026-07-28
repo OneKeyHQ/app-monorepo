@@ -153,7 +153,6 @@ function useReceiveToken({
         if (withAllAggregateTokens) {
           const res =
             await backgroundApiProxy.serviceToken.getAllAggregateTokenInfo();
-          await backgroundApiProxy.serviceToken.getAllAggregateTokenInfo();
           allAggregateTokenMap = res.allAggregateTokenMap;
           allAggregateTokens = res.allAggregateTokens;
         }

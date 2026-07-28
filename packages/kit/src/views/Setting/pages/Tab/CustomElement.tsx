@@ -442,13 +442,13 @@ export function ListVersionItem(props: ICustomElementProps) {
     <TabSettingsListItem
       {...props}
       onPress={handleToUpdatePreviewPage}
-      iconProps={{ ...iconProps, color: '$textInfo' }}
-      titleProps={{ ...titleProps, color: '$textInfo' }}
+      iconProps={{ ...iconProps, color: '$textSuccess' }}
+      titleProps={{ ...titleProps, color: '$textSuccess' }}
       drillIn
     >
       <ListItem.Text
         primary={
-          <Badge badgeType="info" badgeSize="lg">
+          <Badge badgeType="success" badgeSize="lg">
             {displayAppUpdateVersion(appUpdateInfo.data)}
           </Badge>
         }
@@ -796,6 +796,25 @@ export function MenuBarTrayListItem(props: ICustomElementProps) {
         size={ESwitchSize.small}
         value={isEnabled}
         onChange={toggleMenuBarTray}
+      />
+    </TabSettingsListItem>
+  );
+}
+
+export function HapticFeedbackListItem(props: ICustomElementProps) {
+  const [{ hapticFeedbackEnabled }] = useSettingsPersistAtom();
+  const toggleHapticFeedback = useCallback((value: boolean) => {
+    startViewTransition(() => {
+      void backgroundApiProxy.serviceSetting.setHapticFeedbackEnabled(value);
+    });
+  }, []);
+  return (
+    <TabSettingsListItem {...props} userSelect="none">
+      <Switch
+        testID={SettingTestIDs.tabHapticFeedbackSwitch}
+        size={ESwitchSize.small}
+        value={hapticFeedbackEnabled ?? true}
+        onChange={toggleHapticFeedback}
       />
     </TabSettingsListItem>
   );

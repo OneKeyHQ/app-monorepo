@@ -2,7 +2,10 @@ import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  formatLocalizedNumberString,
+  numberFormat,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { type ITickParam } from './tickSizeUtils';
@@ -52,6 +55,7 @@ const withDisplayFields = (
 ): IFormattedOBLevel[] =>
   levels.map((level) => ({
     ...level,
+    displayPrice: formatLocalizedNumberString(level.price),
     displaySize: formatOrderBookValue(level.size, variant),
     displayCumSize: formatOrderBookValue(level.cumSize, variant),
   }));

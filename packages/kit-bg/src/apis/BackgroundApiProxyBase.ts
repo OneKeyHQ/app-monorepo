@@ -13,6 +13,7 @@ import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEvent
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IAsyncStorageWriteRequest } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
 import {
   ensurePromiseObject,
   ensureSerializable,
@@ -22,6 +23,7 @@ import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
 
 import { BackgroundServiceProxyBase } from './BackgroundServiceProxyBase';
+import { getLocalBackgroundServiceMethod } from './lazyServiceProxy';
 
 import type {
   IBackgroundApi,
@@ -50,9 +52,14 @@ export class BackgroundApiProxyBase
 {
   override serviceNameSpace = '';
 
-  private readonly backgroundApiFactory?: () => IBackgroundApi;
+  private readonly backgroundApiFactory?: () =>
+    | IBackgroundApi
+    | null
+    | Promise<IBackgroundApi | null>;
 
   private backgroundApiFactoryInvoked = false;
+
+  private backgroundApiFactoryPromise?: Promise<IBackgroundApi | null>;
 
   private getNativeBackgroundThreadTransport() {
     type INativeBackgroundThreadTransport = {
@@ -99,18 +106,34 @@ export class BackgroundApiProxyBase
     return runtimeGlobal.__onekeyNativeBackgroundThreadTransport;
   }
 
-  private ensureLocalBackgroundApi() {
+  private async ensureLocalBackgroundApi() {
     // Invoke the factory at most once. In dual-thread native, the factory
     // is the `native-ui` stub that returns `null`; without this guard,
     // every call into the local dispatch path would re-run the factory
     // (since `!null` is still truthy) and replay its `console.log`.
+    if (this.backgroundApiFactoryPromise) {
+      return this.backgroundApiFactoryPromise;
+    }
     if (
       !this.backgroundApi &&
       !this.backgroundApiFactoryInvoked &&
       this.backgroundApiFactory
     ) {
-      this.backgroundApi = this.backgroundApiFactory();
       this.backgroundApiFactoryInvoked = true;
+      this.backgroundApiFactoryPromise = Promise.resolve(
+        this.backgroundApiFactory(),
+      ).then(
+        (backgroundApi) => {
+          this.backgroundApi = backgroundApi;
+          return backgroundApi;
+        },
+        (error: unknown) => {
+          this.backgroundApiFactoryInvoked = false;
+          this.backgroundApiFactoryPromise = undefined;
+          throw error;
+        },
+      );
+      return this.backgroundApiFactoryPromise;
     }
 
     return this.backgroundApi;
@@ -120,7 +143,7 @@ export class BackgroundApiProxyBase
     channel: 'dapp' | 'webEmbed',
     bridge: JsBridgeBase | null,
   ) {
-    const backgroundApi = this.ensureLocalBackgroundApi();
+    const backgroundApi = await this.ensureLocalBackgroundApi();
     if (!backgroundApi) {
       throw new OneKeyLocalError('backgroundApi not found in non-ext env');
     }
@@ -137,7 +160,7 @@ export class BackgroundApiProxyBase
   private async callLocalBridgeReceiveHandler(
     payload: IJsBridgeMessagePayload,
   ) {
-    const backgroundApi = this.ensureLocalBackgroundApi();
+    const backgroundApi = await this.ensureLocalBackgroundApi();
     if (!backgroundApi) {
       throw new OneKeyLocalError('backgroundApi not found in non-ext env');
     }
@@ -185,7 +208,7 @@ export class BackgroundApiProxyBase
       if (platformEnv.isNative && IGNORE_METHODS.has(methodName)) {
         backgroundMethodNameLocal = methodName;
       }
-      const backgroundApi = this.ensureLocalBackgroundApi();
+      const backgroundApi = await this.ensureLocalBackgroundApi();
       if (!backgroundApi) {
         throw new OneKeyLocalError('backgroundApi not found in non-ext env');
       }
@@ -195,11 +218,13 @@ export class BackgroundApiProxyBase
         backgroundApi,
       });
 
-      if (serviceApi[backgroundMethodNameLocal] && serviceApi[methodName]) {
-        const resultPromise = serviceApi[methodName].call(
-          serviceApi,
-          ...params,
-        );
+      const serviceMethod = getLocalBackgroundServiceMethod({
+        serviceApi,
+        methodName,
+        backgroundMethodName: backgroundMethodNameLocal,
+      });
+      if (serviceMethod) {
+        const resultPromise = Reflect.apply(serviceMethod, serviceApi, params);
         ensurePromiseObject(resultPromise, {
           serviceName,
           methodName,
@@ -266,7 +291,10 @@ export class BackgroundApiProxyBase
     getBackgroundApi,
   }: {
     backgroundApi?: any;
-    getBackgroundApi?: () => IBackgroundApi;
+    getBackgroundApi?: () =>
+      | IBackgroundApi
+      | null
+      | Promise<IBackgroundApi | null>;
   } = {}) {
     super();
     if (backgroundApi) {
@@ -333,6 +361,10 @@ export class BackgroundApiProxyBase
     return this.callBackground('emitEvent', type, payload, originNodeId);
   }
 
+  async writeAsyncStorage(request: IAsyncStorageWriteRequest): Promise<void> {
+    return this.callBackground('writeAsyncStorage', request);
+  }
+
   bridge = {} as JsBridgeBase;
 
   bridgeExtBg = {} as JsBridgeExtBackground;
@@ -367,7 +399,15 @@ export class BackgroundApiProxyBase
         return;
       }
     }
-    this.backgroundApi?.connectBridge(bridge);
+    if (this.backgroundApi) {
+      this.backgroundApi.connectBridge(bridge);
+      return;
+    }
+    if (!platformEnv.isExtensionUi) {
+      void this.connectLocalBackgroundBridge('dapp', bridge).catch((error) => {
+        console.error('connectBridge local failed', error);
+      });
+    }
   }
 
   connectWebEmbedBridge(bridge: JsBridgeBase | null) {
@@ -436,7 +476,20 @@ export class BackgroundApiProxyBase
       }
     }
     defaultLogger.app.webembed.connectWebEmbedBridgeDirect();
-    this.backgroundApi?.connectWebEmbedBridge(bridge);
+    if (this.backgroundApi) {
+      this.backgroundApi.connectWebEmbedBridge(bridge);
+      return;
+    }
+    if (!platformEnv.isExtensionUi) {
+      void this.connectLocalBackgroundBridge('webEmbed', bridge).catch(
+        (error) => {
+          defaultLogger.app.webembed.connectWebEmbedBridgeSyncError({
+            error: String(error),
+          });
+          console.error('connectWebEmbedBridge local failed', error);
+        },
+      );
+    }
   }
 
   // NOTE: `callWebEmbedBridgeLocal` was added per the 2026-04-06 dual-thread

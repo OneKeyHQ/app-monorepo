@@ -1,6 +1,17 @@
 import type { ComponentType } from 'react';
 
-import * as Sentry from '@sentry/react';
+import {
+  addEventProcessor,
+  breadcrumbsIntegration,
+  browserApiErrorsIntegration,
+  captureException,
+  init,
+  makeBrowserOfflineTransport,
+  makeFetchTransport,
+  setUser,
+  withErrorBoundary,
+  withProfiler,
+} from '@sentry/react';
 
 import {
   EWebEmbedPostMessageType,
@@ -18,16 +29,21 @@ import {
 
 import type { FallbackRender } from '@sentry/react';
 
-// oxlint-disable-next-line import/export -- re-export from third-party module
-export * from '@sentry/react';
+export { addEventProcessor, captureException, setUser };
 
 export * from './basicOptions';
+
+const sentryRuntime = {
+  breadcrumbsIntegration,
+  makeBrowserOfflineTransport,
+  makeFetchTransport,
+};
 
 export const initSentry = () => {
   if (process.env.NODE_ENV !== 'production') {
     return;
   }
-  Sentry.init({
+  init({
     dsn: process.env.SENTRY_DSN_WEB || '',
     // Associate runtime events with the sourcemaps uploaded by CI. The web
     // rspack build has no in-build Sentry plugin, so release-web.yml uploads
@@ -54,11 +70,11 @@ export const initSentry = () => {
         }
       },
     }),
-    ...buildSentryOptions(Sentry),
+    ...buildSentryOptions(sentryRuntime),
     integrations: [
-      ...buildIntegrations(Sentry),
+      ...buildIntegrations(sentryRuntime),
       // https://github.com/getsentry/sentry-javascript/issues/3040
-      Sentry.browserApiErrorsIntegration({
+      browserApiErrorsIntegration({
         eventTarget: false,
       }),
     ],
@@ -74,7 +90,7 @@ export const withSentryHOC = (
   Component: ComponentType<any>,
   errorBoundaryFallback?: FallbackRender,
 ): ComponentType<any> =>
-  Sentry.withErrorBoundary(Sentry.withProfiler(Component), {
+  withErrorBoundary(withProfiler(Component), {
     onError: (error, info) => {
       console.error('error', error, info);
     },

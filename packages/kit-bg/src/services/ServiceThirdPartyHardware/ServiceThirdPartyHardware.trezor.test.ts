@@ -9,6 +9,8 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
+import { thirdPartyHardwareUiStateAtom } from '../../states/jotai/atoms';
+
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice } from '../../dbs/local/types';
 import type { IThirdPartyHardwareAdapter } from '../ServiceHardware/adapters/types';
@@ -136,6 +138,117 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
     expect(disconnect).toHaveBeenCalledWith('BLE_CONNECT_ID');
   });
 
+  it('treats a probe-suppressed pairing cancel as not-this-device', async () => {
+    const connectDevice = jest.fn().mockResolvedValue({
+      success: false,
+      payload: {
+        code: HardwareErrorCode.UserAborted,
+        error: 'User aborted operation',
+      },
+    });
+    const endBindingProbe = jest.fn();
+    const { updateDeviceConnectId } = getLocalDbMock();
+    const adapter = {
+      beginBindingProbe: jest.fn(),
+      endBindingProbe,
+      wasBindingProbeCancelled: jest.fn().mockReturnValue(true),
+      connectDevice,
+      disconnect: jest.fn().mockResolvedValue(undefined),
+    } as unknown as IThirdPartyHardwareAdapter;
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    (
+      service as unknown as {
+        thirdPartyAdapters: Map<string, IThirdPartyHardwareAdapter>;
+      }
+    ).thirdPartyAdapters.set('trezor', adapter);
+
+    await expect(
+      service.bindTrezorBleConnectId({
+        usbConnectId: 'USB_CONNECT_ID',
+        featuresDeviceId: 'FEATURES_DEVICE_ID',
+        bleConnectId: 'BLE_CONNECT_ID',
+      }),
+    ).resolves.toBeNull();
+
+    expect(updateDeviceConnectId).not.toHaveBeenCalled();
+    expect(endBindingProbe).toHaveBeenCalled();
+  });
+
+  it('throws the real hardware error when the probe connect fails without a probe cancel', async () => {
+    const connectDevice = jest.fn().mockResolvedValue({
+      success: false,
+      payload: {
+        code: HardwareErrorCode.DeviceNotInitialized,
+        error: 'Device not initialized',
+      },
+    });
+    const adapter = {
+      beginBindingProbe: jest.fn(),
+      endBindingProbe: jest.fn(),
+      wasBindingProbeCancelled: jest.fn().mockReturnValue(false),
+      connectDevice,
+      disconnect: jest.fn().mockResolvedValue(undefined),
+    } as unknown as IThirdPartyHardwareAdapter;
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    (
+      service as unknown as {
+        thirdPartyAdapters: Map<string, IThirdPartyHardwareAdapter>;
+      }
+    ).thirdPartyAdapters.set('trezor', adapter);
+
+    await expect(
+      service.bindTrezorBleConnectId({
+        usbConnectId: 'USB_CONNECT_ID',
+        featuresDeviceId: 'FEATURES_DEVICE_ID',
+        bleConnectId: 'BLE_CONNECT_ID',
+      }),
+    ).rejects.toMatchObject({
+      code: HardwareErrorCode.DeviceNotInitialized,
+      autoToast: true,
+    });
+  });
+
+  it('does not mask a genuine user abort as device mismatch', async () => {
+    // User cancel without the probe flag must throw, not read as mismatch.
+    const connectDevice = jest.fn().mockResolvedValue({
+      success: false,
+      payload: {
+        code: HardwareErrorCode.UserAborted,
+        error: 'User aborted operation',
+      },
+    });
+    const adapter = {
+      beginBindingProbe: jest.fn(),
+      endBindingProbe: jest.fn(),
+      wasBindingProbeCancelled: jest.fn().mockReturnValue(false),
+      connectDevice,
+      disconnect: jest.fn().mockResolvedValue(undefined),
+    } as unknown as IThirdPartyHardwareAdapter;
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    (
+      service as unknown as {
+        thirdPartyAdapters: Map<string, IThirdPartyHardwareAdapter>;
+      }
+    ).thirdPartyAdapters.set('trezor', adapter);
+
+    await expect(
+      service.bindTrezorBleConnectId({
+        usbConnectId: 'USB_CONNECT_ID',
+        featuresDeviceId: 'FEATURES_DEVICE_ID',
+        bleConnectId: 'BLE_CONNECT_ID',
+      }),
+    ).rejects.toMatchObject({
+      code: HardwareErrorCode.UserAborted,
+      autoToast: false,
+    });
+  });
+
   it('passes waitForAllTransports to Trezor adapter search', async () => {
     const searchDevices = jest.fn().mockResolvedValue([]);
     const adapter = {
@@ -201,6 +314,97 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
         raw: expect.objectContaining({ connectionType: 'ble' }),
       }),
     ]);
+  });
+
+  describe('requestTrezorBleConnectIdForDevice coalescing', () => {
+    const deviceA = {
+      id: 'db-device-1',
+      connectId: 'USB_A',
+      usbConnectId: 'USB_A',
+      deviceId: 'DEVICE_A',
+    } as IDBDevice;
+    const deviceB = {
+      id: 'db-device-2',
+      connectId: 'USB_B',
+      usbConnectId: 'USB_B',
+      deviceId: 'DEVICE_B',
+    } as IDBDevice;
+
+    let atomSetSpy: jest.SpyInstance;
+    let capturedResolves: Array<(value: string | null) => void>;
+    let createCallback: jest.Mock;
+    let service: ServiceThirdPartyHardware;
+
+    beforeEach(() => {
+      (platformEnv as { isSupportDesktopBle: boolean }).isSupportDesktopBle =
+        true;
+      atomSetSpy = jest
+        .spyOn(thirdPartyHardwareUiStateAtom, 'set')
+        .mockResolvedValue(undefined as never);
+      capturedResolves = [];
+      createCallback = jest.fn(
+        ({ resolve }: { resolve: (value: string | null) => void }) => {
+          capturedResolves.push(resolve);
+          return capturedResolves.length;
+        },
+      );
+      service = new ServiceThirdPartyHardware({
+        backgroundApi: {
+          servicePromise: { createCallback },
+        } as unknown as IBackgroundApi,
+      });
+    });
+
+    afterEach(() => {
+      atomSetSpy.mockRestore();
+    });
+
+    it('coalesces concurrent binding requests for the same device onto one dialog', async () => {
+      const first = service.requestTrezorBleConnectIdForDevice({
+        device: deviceA,
+      });
+      const second = service.requestTrezorBleConnectIdForDevice({
+        device: deviceA,
+      });
+
+      capturedResolves[0]('BLE_NEW');
+
+      await expect(first).resolves.toBe('BLE_NEW');
+      await expect(second).resolves.toBe('BLE_NEW');
+      expect(createCallback).toHaveBeenCalledTimes(1);
+      expect(atomSetSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('answers null immediately for a different device while a binding is in flight', async () => {
+      const first = service.requestTrezorBleConnectIdForDevice({
+        device: deviceA,
+      });
+      const second = service.requestTrezorBleConnectIdForDevice({
+        device: deviceB,
+      });
+
+      await expect(second).resolves.toBeNull();
+      expect(createCallback).toHaveBeenCalledTimes(1);
+
+      capturedResolves[0](null);
+      await expect(first).resolves.toBeNull();
+    });
+
+    it('allows a fresh binding request after the previous one settles', async () => {
+      const first = service.requestTrezorBleConnectIdForDevice({
+        device: deviceA,
+      });
+      capturedResolves[0](null);
+      await expect(first).resolves.toBeNull();
+
+      const second = service.requestTrezorBleConnectIdForDevice({
+        device: deviceA,
+      });
+      capturedResolves[1]('BLE_RETRY');
+
+      await expect(second).resolves.toBe('BLE_RETRY');
+      expect(createCallback).toHaveBeenCalledTimes(2);
+    });
   });
 
   it('does not request a Trezor BLE binding on platforms without desktop BLE support', async () => {

@@ -15,6 +15,7 @@ import type { IMarketWatchListDataV2 } from '@onekeyhq/shared/types/market';
 import type {
   IMarketPerpsInfo,
   IMarketTokenDetail,
+  IMarketTokenDetailPreview,
   IMarketTokenDetailWebsocket,
 } from '@onekeyhq/shared/types/marketV2';
 
@@ -37,6 +38,9 @@ export const {
 export const { atom: tokenDetailAtom, use: useTokenDetailAtom } = contextAtom<
   IMarketTokenDetail | undefined
 >(undefined);
+
+export const { atom: tokenDetailPreviewAtom, use: useTokenDetailPreviewAtom } =
+  contextAtom<IMarketTokenDetailPreview | undefined>(undefined);
 
 export const { atom: tokenDetailLoadingAtom, use: useTokenDetailLoadingAtom } =
   contextAtom<boolean>(false);

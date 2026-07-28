@@ -13,6 +13,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { ConnectToWalletDialogContent } from '../../components/WebDapp/ConnectToWalletDialogContent';
 
 import { useConnectExternalWallet } from './useConnectExternalWallet';
@@ -38,6 +39,12 @@ export function useWalletConnection({
 
   const dialogRef = useRef<IDialogInstance | null>(null);
   const isMountedRef = useRef(true);
+  const shouldCancelWalletConnectOnDialogCloseRef = useRef(false);
+
+  const closeDialogWithoutCancelling = useCallback(async () => {
+    shouldCancelWalletConnectOnDialogCloseRef.current = false;
+    await dialogRef.current?.close();
+  }, []);
 
   useEffect(
     () => () => {
@@ -72,7 +79,7 @@ export function useWalletConnection({
       if (state.open === true && platformEnv.isNative && isWalletConnect) {
         // Dialog component will cover the WalletConnectSDK modal, so we need to manually close the Dialog
         // search: zIndex: 99993173
-        await dialogRef.current?.close();
+        await closeDialogWithoutCancelling();
 
         // Wait for React Native Fabric to complete view cleanup
         // This prevents race conditions when opening WalletConnect modal
@@ -83,7 +90,7 @@ export function useWalletConnection({
     return () => {
       appEventBus.off(EAppEventBusNames.WalletConnectModalState, fn);
     };
-  }, [isWalletConnect]);
+  }, [closeDialogWithoutCancelling, isWalletConnect]);
 
   const connectToWalletWithDialogShow = useCallback(async () => {
     console.log('WalletItem onPress');
@@ -96,7 +103,7 @@ export function useWalletConnection({
       shouldShowDialogLoading = true;
     }
     // Don't check loading state - let user try again if needed
-    await dialogRef.current?.close();
+    await closeDialogWithoutCancelling();
 
     // Wait for React Native Fabric to complete view cleanup
     // This prevents valtio destructuring errors in WalletConnect modal
@@ -107,6 +114,7 @@ export function useWalletConnection({
     if (!isMountedRef.current) return;
 
     if (shouldShowDialogLoading) {
+      shouldCancelWalletConnectOnDialogCloseRef.current = true;
       dialogRef.current = Dialog.show({
         title: intl.formatMessage(
           { id: ETranslations.global_connect_to_wallet },
@@ -116,7 +124,26 @@ export function useWalletConnection({
         ),
         showFooter: false,
         dismissOnOverlayPress: false,
+        // The zero-inset first frame only happens inside the iOS
+        // FullWindowOverlay portal; Android must not pad with the startup
+        // snapshot (stale under edge-to-edge gesture navigation).
+        useInitialSafeAreaBottomInsetFallback:
+          platformEnv.isNativeIOS && isWalletConnect,
         onClose() {
+          if (
+            platformEnv.isNative &&
+            isWalletConnect &&
+            shouldCancelWalletConnectOnDialogCloseRef.current
+          ) {
+            shouldCancelWalletConnectOnDialogCloseRef.current = false;
+            appEventBus.emit(
+              EAppEventBusNames.WalletConnectCloseModal,
+              undefined,
+            );
+            void backgroundApiProxy.serviceWalletConnect.abortConnectPairing({
+              uri: '',
+            });
+          }
           if (isMountedRef.current) {
             setLoadingRef.current?.(false);
           }
@@ -127,7 +154,7 @@ export function useWalletConnection({
               try {
                 const result = await connectToWallet(connectionInfo);
                 if (result !== false) {
-                  await dialogRef.current?.close();
+                  await closeDialogWithoutCancelling();
                 }
               } catch {
                 // Dialog stays open to allow further retries
@@ -141,7 +168,7 @@ export function useWalletConnection({
     try {
       await connectToWallet(connectionInfo);
       // Connection successful - close the dialog
-      await dialogRef.current?.close();
+      await closeDialogWithoutCancelling();
     } catch (error) {
       // Connection failed - dialog stays open to show retry button
       console.error('Wallet connection failed:', error);
@@ -149,6 +176,7 @@ export function useWalletConnection({
     }
   }, [
     connectToWallet,
+    closeDialogWithoutCancelling,
     connectionInfo,
     intl,
     isWalletConnect,

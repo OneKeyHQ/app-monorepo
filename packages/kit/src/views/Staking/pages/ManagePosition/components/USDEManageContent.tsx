@@ -22,6 +22,7 @@ import { useHandleSwap } from '../../../hooks/useHandleSwap';
 import { SpecialManageContent } from './SpecialManageContent';
 import { ESpecialManageLayoutType } from './types';
 
+import type { IManagePositionFooterAction } from './ManagePositionContent';
 import type { ISpecialManageButtonConfig } from './types';
 
 interface IUSDEManageContentProps {
@@ -38,6 +39,7 @@ interface IUSDEManageContentProps {
   showApyDetail?: boolean;
   isInModalContext?: boolean;
   beforeFooter?: React.ReactElement | null;
+  footerActionOverride?: IManagePositionFooterAction;
   fallbackTokenImageUri?: string;
   onActionSuccess?: () => void;
   earnAccount?: {
@@ -63,6 +65,7 @@ export function USDEManageContent({
   showApyDetail = false,
   isInModalContext = false,
   beforeFooter,
+  footerActionOverride,
   fallbackTokenImageUri,
   onActionSuccess,
   earnAccount,
@@ -253,6 +256,7 @@ export function USDEManageContent({
       showApyDetail={showApyDetail}
       isInModalContext={isInModalContext}
       beforeFooter={beforeFooter}
+      footerActionOverride={footerActionOverride}
       buttonConfig={buttonConfig}
       transactionConfirmation={transactionConfirmation}
       fallbackTokenImageUri={fallbackTokenImageUri}

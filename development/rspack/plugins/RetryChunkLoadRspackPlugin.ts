@@ -4,7 +4,7 @@ import type { Compiler } from '@rspack/core';
 
 interface IRetryChunkLoadOptions {
   // delay in ms before retrying a failed chunk load
-  retryDelay?: number;
+  retryDelay?: number | string;
   // maximum number of retries before giving up
   maxRetries?: number;
   // optional JS executed in the browser if all retries fail
@@ -27,15 +27,21 @@ const PLUGIN_NAME = 'RetryChunkLoadRspackPlugin';
 // to today's missing-feature state, never a crash).
 export class RetryChunkLoadRspackPlugin {
   private readonly options: Required<
-    Pick<IRetryChunkLoadOptions, 'retryDelay' | 'maxRetries'>
+    Pick<IRetryChunkLoadOptions, 'maxRetries'>
   > &
-    Pick<IRetryChunkLoadOptions, 'lastResortScript'>;
+    Pick<IRetryChunkLoadOptions, 'lastResortScript'> & {
+      retryDelayCode: string;
+    };
 
   constructor(options: IRetryChunkLoadOptions = {}) {
     const maxRetries = Number(options.maxRetries);
+    const retryDelay =
+      typeof options.retryDelay === 'number' ? options.retryDelay : 0;
     this.options = {
-      retryDelay:
-        typeof options.retryDelay === 'number' ? options.retryDelay : 0,
+      retryDelayCode:
+        typeof options.retryDelay === 'string'
+          ? options.retryDelay
+          : `function() { return ${retryDelay}; }`,
       maxRetries:
         Number.isInteger(maxRetries) && maxRetries > 0 ? maxRetries : 1,
       lastResortScript: options.lastResortScript,
@@ -43,7 +49,7 @@ export class RetryChunkLoadRspackPlugin {
   }
 
   apply(compiler: Compiler): void {
-    const { maxRetries, retryDelay, lastResortScript } = this.options;
+    const { maxRetries, retryDelayCode, lastResortScript } = this.options;
 
     compiler.hooks.thisCompilation.tap(PLUGIN_NAME, (compilation) => {
       // Per-compilation flag: did we match the ensure-chunk runtime module? The
@@ -77,7 +83,7 @@ if (typeof ${RuntimeGlobals.require} !== "undefined") {
   var __okOldEnsure = ${RuntimeGlobals.ensureChunk};
   var __okQueryMap = {};
   var __okCountMap = {};
-  var __okGetRetryDelay = function() { return ${retryDelay}; };
+  var __okGetRetryDelay = ${retryDelayCode};
   ${RuntimeGlobals.getChunkScriptFilename} = function (chunkId) {
     var result = __okOldGetScript(chunkId);
     return (

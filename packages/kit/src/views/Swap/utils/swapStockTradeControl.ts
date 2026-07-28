@@ -2,7 +2,16 @@ import BigNumber from 'bignumber.js';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type {
+  IFetchQuoteResult,
+  ISwapToken,
+  ISwapTokenBase,
+} from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapQuoteKind,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import type { IntlShape } from 'react-intl';
 
@@ -10,6 +19,126 @@ export type IStockQuoteTradeControl = {
   message: string;
   reason: 'limit' | 'error';
 };
+
+export function isSameStockTradeAmount({
+  left,
+  right,
+}: {
+  left?: string;
+  right?: string;
+}) {
+  const leftBN = new BigNumber(left ?? '');
+  const rightBN = new BigNumber(right ?? '');
+  return leftBN.isFinite() && rightBN.isFinite() && leftBN.eq(rightBN);
+}
+
+export function isStockQuoteInputAmountMatched({
+  fromAmount,
+  quote,
+  toAmount,
+}: {
+  fromAmount: string;
+  quote?: Pick<IFetchQuoteResult, 'kind' | 'fromAmount' | 'toAmount'>;
+  toAmount: string;
+}) {
+  if (!quote) {
+    return false;
+  }
+  return isSameStockTradeAmount(
+    quote.kind === ESwapQuoteKind.BUY
+      ? {
+          left: quote.toAmount,
+          right: toAmount,
+        }
+      : {
+          left: quote.fromAmount,
+          right: fromAmount,
+        },
+  );
+}
+
+export function isQuoteResultForStockTrade({
+  quoteResult,
+  receiveToken,
+  sendAmount,
+  sendToken,
+}: {
+  quoteResult?: IFetchQuoteResult;
+  receiveToken?: ISwapTokenBase;
+  sendAmount?: string;
+  sendToken?: ISwapToken;
+}) {
+  if (
+    !quoteResult ||
+    !equalTokenNoCaseSensitive({
+      token1: quoteResult.fromTokenInfo,
+      token2: sendToken,
+    }) ||
+    !equalTokenNoCaseSensitive({
+      token1: quoteResult.toTokenInfo,
+      token2: receiveToken,
+    })
+  ) {
+    return false;
+  }
+
+  if (!quoteResult.fromAmount) {
+    return false;
+  }
+
+  return isSameStockTradeAmount({
+    left: quoteResult.fromAmount,
+    right: sendAmount,
+  });
+}
+
+export function isQuoteRequestForStockTrade({
+  currentAccountId,
+  currentAddress,
+  currentReceivingAddress,
+  quoteRequest,
+  receiveToken,
+  sendAmount,
+  sendToken,
+}: {
+  currentAccountId?: string;
+  currentAddress?: string;
+  currentReceivingAddress?: string;
+  quoteRequest?: {
+    type?: ESwapTabSwitchType;
+    fromToken?: ISwapToken;
+    toToken?: ISwapToken;
+    fromTokenAmount?: string;
+    accountId?: string;
+    address?: string;
+    receivingAddress?: string;
+  };
+  receiveToken?: ISwapTokenBase;
+  sendAmount?: string;
+  sendToken?: ISwapToken;
+}) {
+  if (
+    quoteRequest?.type !== ESwapTabSwitchType.STOCK ||
+    quoteRequest.accountId !== currentAccountId ||
+    quoteRequest.address !== currentAddress ||
+    quoteRequest.receivingAddress !== currentReceivingAddress ||
+    !equalTokenNoCaseSensitive({
+      token1: quoteRequest.fromToken,
+      token2: sendToken,
+    }) ||
+    !equalTokenNoCaseSensitive({
+      token1: quoteRequest.toToken,
+      token2: receiveToken,
+    })
+  ) {
+    return false;
+  }
+
+  return isSameStockTradeAmount({
+    left: quoteRequest.fromTokenAmount,
+    right: sendAmount,
+  });
+}
 
 export function getStockQuoteTradeControl({
   quoteResult,

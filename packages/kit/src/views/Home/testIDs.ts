@@ -11,9 +11,13 @@ export const HomeTestIDs = {
 
   // Tabs
   tabPortfolio: 'home-tab-portfolio',
+  tabPerps: 'home-tab-perps',
   tabDefi: 'home-tab-defi',
   tabNFT: 'home-tab-nft',
   tabHistory: 'home-tab-history',
+  perpsManageButton: 'home-perps-manage-button',
+  perpsDepositButton: 'home-perps-deposit-button',
+  perpsDesktopDepositButton: 'home-perps-desktop-deposit-button',
 
   // Wallet actions
   sendButton: 'home-send-button',

@@ -3,12 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type {
-  IFormMode,
-  IReValidateMode,
-  IXStackProps,
-  UseFormReturn,
-} from '@onekeyhq/components';
+import type { IXStackProps } from '@onekeyhq/components';
 import {
   Alert,
   Button,
@@ -22,11 +17,16 @@ import {
   SizableText,
   XStack,
   YStack,
-  useForm,
-  useFormWatch,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import {
+  type IFormMode,
+  type IReValidateMode,
+  type UseFormReturn,
+  useForm,
+  useFormWatch,
+} from '@onekeyhq/components/src/hooks/useForm';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -66,7 +66,7 @@ import { MAX_LENGTH_ACCOUNT_NAME } from '../../../components/RenameDialog/rename
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
-import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 import { toastSuccessWhenImportAddressOrPrivateKey } from '../../../utils/toastExistingWalletSwitch';
 import {
   OnboardingHeading,

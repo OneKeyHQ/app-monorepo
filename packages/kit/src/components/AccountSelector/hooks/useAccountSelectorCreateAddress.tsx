@@ -33,7 +33,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorLazyAction } from '../../../states/jotai/contexts/accountSelector/actionsLazy';
 import { TutorialsList } from '../../TutorialsList';
 
 import { useCreateQrWallet } from './useCreateQrWallet';
@@ -42,7 +42,7 @@ export function useAccountSelectorCreateAddress() {
   const { serviceAccount, serviceBatchCreateAccount, serviceHardwareUI } =
     backgroundApiProxy;
   const intl = useIntl();
-  const actions = useAccountSelectorActions();
+  const callAccountSelectorAction = useAccountSelectorLazyAction();
   const { createQrWalletAccount } = useCreateQrWallet();
 
   const createAddress = useCallback(
@@ -112,14 +112,17 @@ export function useAccountSelectorCreateAddress() {
       ) => {
         console.log(result);
         // await refreshCurrentAccount();
-        actions.current.refresh({ num });
+        await callAccountSelectorAction('refresh', { num });
 
         if (selectAfterCreate) {
-          await actions.current.updateSelectedAccountForHdOrHwAccount({
-            num,
-            walletId: result?.walletId,
-            indexedAccountId: result?.indexedAccountId,
-          });
+          await callAccountSelectorAction(
+            'updateSelectedAccountForHdOrHwAccount',
+            {
+              num,
+              walletId: result?.walletId,
+              indexedAccountId: result?.indexedAccountId,
+            },
+          );
         }
         return result;
       };
@@ -351,7 +354,7 @@ export function useAccountSelectorCreateAddress() {
       }
     },
     [
-      actions,
+      callAccountSelectorAction,
       createQrWalletAccount,
       intl,
       serviceAccount,

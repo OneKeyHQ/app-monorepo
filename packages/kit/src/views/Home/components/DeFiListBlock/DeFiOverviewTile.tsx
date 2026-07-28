@@ -16,8 +16,6 @@ import type {
 import { OVERVIEW_TILE_SHADOW } from './DeFiOverviewLayout';
 import { formatPortfolioTotal } from './formatPortfolioTotal';
 
-const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
-
 export type IDeFiOverviewTileProps = {
   protocol: IDeFiProtocol;
   protocolInfo: IProtocolSummary | undefined;
@@ -105,11 +103,7 @@ function DeFiOverviewTile({
         >
           {name}
         </SizableText>
-        <SizableText
-          size="$bodyLgMedium"
-          numberOfLines={1}
-          fontVariant={TABULAR_NUMS}
-        >
+        <SizableText size="$bodyLgMedium" numberOfLines={1}>
           {formattedNetWorth}
         </SizableText>
       </YStack>

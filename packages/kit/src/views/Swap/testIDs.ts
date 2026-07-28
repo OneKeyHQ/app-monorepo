@@ -16,6 +16,7 @@ export const SwapTestIDs = {
   swapButton: 'swap-action-button',
   approveButton: 'swap-approve-button',
   kLineButton: 'swap-kline-button',
+  kLineChart: 'swap-kline-chart',
   kLineModal: 'swap-kline-modal',
   settingsButton: 'swap-settings-button',
 
@@ -26,6 +27,7 @@ export const SwapTestIDs = {
 
   // Provider
   providerSelector: 'swap-provider-selector',
+  quoteDetailsToggle: 'swap-quote-details-toggle',
   providerItem: (name: string) => `swap-provider-${name}`,
 
   // Pro

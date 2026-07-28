@@ -95,6 +95,9 @@ function TxActionUnknownDetailView(props: ITxActionProps) {
   const { decodedTx } = props;
   const { unknownFrom, unknownTo, unknownIcon } = getTxActionUnknownInfo(props);
 
+  // TODO(6.7.0): Stop reading the legacy SendConfirm route after the
+  // SendModal confirmation page is removed. Active confirmation lives in
+  // SignatureConfirmModal -> TxConfirm.
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendConfirm>>();
   const sourceInfo = route.params?.sourceInfo;

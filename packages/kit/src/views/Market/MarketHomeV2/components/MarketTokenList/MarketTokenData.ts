@@ -6,6 +6,7 @@ export interface IMarketToken {
   decimals: number;
   price: number;
   change24h: number;
+  priceChangeRaw?: string;
   marketCap: number;
   liquidity: number;
   transactions: number;

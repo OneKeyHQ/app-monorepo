@@ -2,7 +2,6 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { UseFormReturn } from '@onekeyhq/components';
 import {
   Form,
   Icon,
@@ -14,9 +13,12 @@ import {
   XStack,
   YStack,
   resetPrimeModal,
-  useForm,
   useUpdateEffect,
 } from '@onekeyhq/components';
+import {
+  type UseFormReturn,
+  useForm,
+} from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { OneKeyIdAvatar } from '@onekeyhq/kit/src/components/OneKeyIdAvatar';
@@ -48,16 +50,14 @@ function isImagePickerCancelled(error: unknown) {
 function ProfileEditPage() {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { isLoggedIn, logout, user } = useOneKeyAuth();
+  const { isLoggedIn, user } = useOneKeyAuth();
   const profileUserId = user?.onekeyUserId || user?.email || '';
   const isFocused = useRouteIsFocused();
   const isMountedRef = useRef(true);
   const isFocusedRef = useRef(isFocused);
-  const logoutRef = useRef<() => Promise<void>>(logout);
   const profileUserIdRef = useRef(profileUserId);
 
   isFocusedRef.current = isFocused;
-  logoutRef.current = logout;
 
   useEffect(
     () => () => {
@@ -77,7 +77,6 @@ function ProfileEditPage() {
         reason:
           'OneKeyIdProfileEditPage: is focused and primePersistAtom is not logged in',
       });
-      void logoutRef.current();
     }
   }, [isFocused, isLoggedIn]);
 
@@ -207,6 +206,7 @@ function ProfileEditPage() {
                   <OneKeyIdAvatar
                     size="$20"
                     source={profileAvatar ? { uri: profileAvatar } : undefined}
+                    showSocialBadge={false}
                   />
                   <XStack
                     bg="$bg"

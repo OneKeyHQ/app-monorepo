@@ -7,18 +7,16 @@ import {
   Divider,
   Icon,
   SizableText,
-  SortableListView,
   Stack,
   XStack,
   useShortcuts,
 } from '@onekeyhq/components';
-import type {
-  IActionListSection,
-  ISortableListViewRef,
-} from '@onekeyhq/components';
+import type { IActionListSection } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { useBrowserSubmenu } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/BrowserSubmenuColumn/BrowserSubmenuContext';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
+import { SortableListView } from '@onekeyhq/components/src/layouts/SortableListView';
+import type { ISortableListViewRef } from '@onekeyhq/components/src/layouts/SortableListView';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';

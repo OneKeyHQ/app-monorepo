@@ -101,23 +101,12 @@ export type {
 export { Dialog as TMDialog } from '@tamagui/dialog';
 export type { DialogContentProps, DialogProps } from '@tamagui/dialog';
 
-// Popover
-export { Popover as TMPopover } from '@tamagui/popover';
-export type {
-  PopoverContentProps,
-  PopoverProps as TMPopoverProps,
-} from '@tamagui/popover';
-
 // Sheet
 export { Sheet } from '@tamagui/sheet';
 export type { SheetProps } from '@tamagui/sheet';
 
 // Portal
 export { PortalProvider } from '@tamagui/portal';
-
-// Tooltip
-export { Tooltip as TMTooltip } from '@tamagui/tooltip';
-export type { TooltipProps } from '@tamagui/tooltip';
 
 // Toast
 export { Toast, ToastViewport, ToastProvider } from '@tamagui/toast';

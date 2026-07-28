@@ -21,6 +21,7 @@ import {
 } from '../hooks/useEnableTradingWithDepositFallback';
 import { useShowDepositWithdrawModal } from '../hooks/useShowDepositWithdrawModal';
 import { getEnableTradingDialogConfirmDecision } from '../utils/enableTradingDialogConfirm';
+import { getTradingButtonStyleProps } from '../utils/styleUtils';
 
 import { showEnableTradingStepsDialog } from './TradingPanel/modals/EnableTradingStepsDialog';
 
@@ -62,9 +63,12 @@ function TradingGuardWrapperInternal({
 
   const buttonStyles = useMemo(() => {
     const isDisabled = disabled || isEnableTradingLoading;
+    const styles = getTradingButtonStyleProps('long');
     return {
-      hoverStyle: isDisabled ? undefined : { bg: '$green8' },
-      pressStyle: isDisabled ? undefined : { bg: '$green8' },
+      bg: styles.bg,
+      hoverStyle: isDisabled ? undefined : styles.hoverStyle,
+      pressStyle: isDisabled ? undefined : styles.pressStyle,
+      textColor: styles.textColor,
     };
   }, [disabled, isEnableTradingLoading]);
 
@@ -170,13 +174,12 @@ function TradingGuardWrapperInternal({
         disabled={disabled || isEnableTradingLoading}
         loading={isEnableTradingLoading}
         onPress={disabled ? undefined : handleEnableTrading}
-        bg="#18794E"
+        bg={buttonStyles.bg}
         hoverStyle={buttonStyles.hoverStyle}
         pressStyle={buttonStyles.pressStyle}
-        color="$textOnColor"
         childrenAsText={false}
       >
-        <SizableText size="$bodyMdMedium" color="$textOnColor">
+        <SizableText size="$bodyMdMedium" color={buttonStyles.textColor}>
           {intl.formatMessage({
             id: ETranslations.perp_trade_button_enable_trading,
           })}

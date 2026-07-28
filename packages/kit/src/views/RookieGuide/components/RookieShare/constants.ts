@@ -2,7 +2,7 @@ import { Image } from 'react-native';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getLocaleMessages } from '@onekeyhq/shared/src/locale/getDefaultLocale';
-import { LOCALES, enUS } from '@onekeyhq/shared/src/locale/localeJsonMap';
+import { LOCALE_KEYS } from '@onekeyhq/shared/src/locale/localeLoaders';
 import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale/type';
 
 // Canvas configuration for Rookie Share image generation
@@ -136,14 +136,12 @@ export type IRookieShareLocaleText = {
 
 const DEFAULT_ROOKIE_SHARE_LOCALE: ILocaleJSONSymbol = 'en-US';
 
-const LOCALE_KEY_BY_NORMALIZED = Object.keys(LOCALES).reduce<
+const LOCALE_KEY_BY_NORMALIZED = LOCALE_KEYS.reduce<
   Record<string, ILocaleJSONSymbol>
 >((result, locale) => {
-  result[locale.toLowerCase()] = locale as ILocaleJSONSymbol;
+  result[locale.toLowerCase()] = locale;
   return result;
 }, {});
-
-const LOCALE_KEYS = Object.keys(LOCALES) as ILocaleJSONSymbol[];
 
 function normalizeLocaleInput(locale?: string): string | undefined {
   const normalizedLocale = locale?.trim().replace(/_/g, '-').toLowerCase();
@@ -239,7 +237,14 @@ function buildRookieShareLocaleText(
 }
 
 export const DEFAULT_ROOKIE_SHARE_LOCALE_TEXT = buildRookieShareLocaleText(
-  enUS as ILocaleMessageMap,
+  {
+    [ETranslations.rookie_share_footer_text]: 'Scan to start your Web3 journey',
+    [ETranslations.rookie_share_referral_code_label]: 'Referral Code:',
+    [ETranslations.rookie_share_download_title]: 'Scan to try OneKey',
+    [ETranslations.rookie_share_download_subtitle]:
+      'Your most secure crypto wallet, everywhere.',
+    [ETranslations.rookie_share_qr_caption]: 'SCAN TO JOIN',
+  },
   {},
 );
 

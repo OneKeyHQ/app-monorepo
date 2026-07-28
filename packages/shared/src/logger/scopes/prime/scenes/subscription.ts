@@ -1,9 +1,65 @@
+/* cspell:ignore Infini */
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
+
+// Payment channel dimension: 'iap' = native in-app purchase (RevenueCat),
+// 'stripe' = RevenueCat web billing (Stripe), 'crypto' = Infini crypto checkout
+export type IPrimePaymentMethod = 'iap' | 'stripe' | 'crypto';
+
+export type IPrimeCryptoPaymentStage =
+  | 'paymentMethod'
+  | 'walletPaymentPage'
+  | 'paymentContext'
+  | 'paymentSession'
+  | 'paymentCreation'
+  | 'paymentReplacement'
+  | 'assetSelection'
+  | 'accountSelection'
+  | 'paymentPreflight'
+  | 'sendConfirmation'
+  | 'broadcast'
+  | 'paymentPolling'
+  | 'externalCheckout'
+  | 'purchaseCompletion';
+
+export type IPrimeCryptoPaymentStatus =
+  | 'started'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled'
+  | 'blocked'
+  | 'pending'
+  | 'expired'
+  | 'selected'
+  | 'restored'
+  | 'refreshed'
+  | 'recovered';
+
+export type IPrimeCryptoPaymentFlowParams = {
+  stage: IPrimeCryptoPaymentStage;
+  status: IPrimeCryptoPaymentStatus;
+  subscriptionPeriod?: ISubscriptionPeriod;
+  featureName?: EPrimeFeatures;
+  plan?: 'monthly' | 'yearly';
+  checkoutType?: 'internalWallet' | 'externalWallet';
+  paymentId?: string;
+  networkId?: string;
+  tokenSymbol?: string;
+  amountDue?: string;
+  reason?: string;
+  sendStarted?: boolean;
+  isRetry?: boolean;
+  durationMs?: number;
+  retryCount?: number;
+  errorName?: string;
+  errorCode?: string;
+  requestId?: string;
+  httpStatusCode?: number;
+};
 
 export class PrimeSubscriptionScene extends BaseScene {
   /**
@@ -23,7 +79,8 @@ export class PrimeSubscriptionScene extends BaseScene {
       | 'approvalPopup'
       | 'primePage'
       | 'walletEdit'
-      | 'browserTranslate';
+      | 'browserTranslate'
+      | 'historySettings';
     isPrimeActive: boolean;
   }) {
     return {
@@ -82,15 +139,18 @@ export class PrimeSubscriptionScene extends BaseScene {
     subscriptionPeriod,
     featureName,
     isLoggedIn,
+    paymentMethod,
   }: {
     subscriptionPeriod: ISubscriptionPeriod;
     featureName?: EPrimeFeatures;
     isLoggedIn: boolean;
+    paymentMethod?: IPrimePaymentMethod;
   }) {
     return {
       subscriptionPeriod,
       featureName,
       isLoggedIn,
+      paymentMethod,
     };
   }
 
@@ -104,16 +164,25 @@ export class PrimeSubscriptionScene extends BaseScene {
     subscriptionPeriod,
     featureName,
     currency,
+    paymentMethod,
   }: {
     subscriptionPeriod: ISubscriptionPeriod;
     featureName?: EPrimeFeatures;
     currency?: string;
+    paymentMethod?: IPrimePaymentMethod;
   }) {
     return {
       subscriptionPeriod,
       featureName,
       currency,
+      paymentMethod,
     };
+  }
+
+  @LogToLocal({ level: 'info' })
+  @LogToServer()
+  public primeCryptoPaymentFlow(params: IPrimeCryptoPaymentFlowParams) {
+    return params;
   }
 
   /**
@@ -166,17 +235,20 @@ export class PrimeSubscriptionScene extends BaseScene {
     amount,
     currency,
     featureName,
+    paymentMethod,
   }: {
     planType: 'monthly' | 'yearly';
     amount: number;
     currency: string;
     featureName?: EPrimeFeatures;
+    paymentMethod?: IPrimePaymentMethod;
   }) {
     return {
       planType,
       amount,
       currency,
       featureName,
+      paymentMethod,
     };
   }
 
@@ -226,6 +298,28 @@ export class PrimeSubscriptionScene extends BaseScene {
       url,
       errorCode,
       errorMessage,
+    };
+  }
+
+  // Local Supabase session persistence failed (e.g. setSession's internal
+  // GET /auth/v1/user was rejected). The reason carries the underlying auth
+  // error so exported logs can distinguish a gateway/WAF rejection from a
+  // GoTrue verdict without needing a toast screenshot.
+  @LogToLocal()
+  @LogToServer()
+  public onekeyIdSessionPersistFailed({ reason }: { reason: string }) {
+    return {
+      reason,
+    };
+  }
+
+  // The fallback login-failed toast was shown (errors NOT handled by the
+  // global auto toast). Mirrors the toast body into exported logs.
+  @LogToLocal()
+  @LogToServer()
+  public onekeyIdLoginFailedToast({ reason }: { reason: string }) {
+    return {
+      reason,
     };
   }
 }

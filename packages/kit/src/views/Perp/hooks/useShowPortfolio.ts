@@ -7,16 +7,16 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 
-import { showPerpPortfolioDialog } from '../components/Portfolio/PerpPortfolioModal';
-
 export function useShowPortfolio() {
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
   const dialogInTab = useInTabDialog();
   const intl = useIntl();
 
-  const showPortfolio = useCallback(() => {
+  const showPortfolio = useCallback(async () => {
     if (gtMd) {
+      const { showPerpPortfolioDialog } =
+        await import('../components/Portfolio/PerpPortfolioModal');
       showPerpPortfolioDialog(dialogInTab, intl);
     } else {
       navigation.pushModal(EModalRoutes.PerpModal, {

@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button, IconButton } from '@onekeyhq/components';
-import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
+import useScanQrCodeLazy from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCodeLazy';
 import type {
   IChainValue,
   IQRCodeHandlerParseResult,
@@ -31,7 +31,7 @@ export function ScanPlugin({
   networkId,
   display = 'icon',
 }: IScanPluginProps) {
-  const { start } = useScanQrCode();
+  const { start } = useScanQrCodeLazy();
   const intl = useIntl();
   const onPress = useCallback(async () => {
     const result = (await start({

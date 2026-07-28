@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import type { IAdaAmount } from '@onekeyhq/core/src/chains/ada/types';
 import type { IXrpMemoField } from '@onekeyhq/core/src/chains/xrp/types';
 import type {
@@ -42,6 +43,7 @@ import type {
 } from '@onekeyhq/shared/types/history';
 import type { ILNURLPaymentInfo } from '@onekeyhq/shared/types/lightning';
 import type { ENFTType } from '@onekeyhq/shared/types/nft';
+import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 import type { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type {
@@ -578,12 +580,22 @@ export type IApproveInfo = {
   isMax?: boolean;
   tokenInfo?: IToken;
   swapApproveRes?: IFetchBuildTxResult;
+  permit2Info?: {
+    permit2Address: string;
+    expirationSeconds: string;
+  };
 };
 
 export type ITransferPayload = {
   amountToSend: string;
   isMaxSend: boolean;
   isNFT: boolean;
+  // utxo coin-control: total amount (in token units) of the user-selected
+  // UTXOs backing this tx. When present the tx can only spend these UTXOs,
+  // so confirm-page balance checks must use it as the spendable balance
+  // instead of the account-level balance — find-address claimed UTXOs are
+  // excluded from balance aggregation and would otherwise read as 0.
+  selectedUtxoTotalAmount?: string;
   isPrivateSend?: boolean;
   privateSend?: {
     orderId?: string;
@@ -754,6 +766,8 @@ export interface IBatchSignTransactionParamsBase {
   // retry loop registers an AbortController against this id so the UI can
   // cancel an in-flight 90212 retry via ServiceSend.abortGasAccountSubmit.
   gasAccountSubmitId?: string;
+  broadcastDeadline?: number;
+  beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
   useDefaultRpc?: boolean;
 }
 

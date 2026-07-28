@@ -1,3 +1,4 @@
+import { sha256 as sha256ByNoble } from '@noble/hashes/sha256';
 import { isNaN, isNil, isNumber } from 'lodash';
 
 import type { EAddressEncodings } from '@onekeyhq/core/src/types';
@@ -17,7 +18,6 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import appCrypto from '../appCrypto';
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '../consts/addresses';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 import {
@@ -47,6 +47,10 @@ import type { IBotWalletParsedId } from '../../types/botWallet';
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
 
 const HD_WALLET_HASH_SALT = '4863FBE1-7B9B-4006-91D0-24212CCCC375';
+
+function sha256Buffer(data: Buffer): Buffer {
+  return Buffer.from(sha256ByNoble(data));
+}
 
 function parseBotWalletId(walletId: string): IBotWalletParsedId | undefined {
   if (!walletId.startsWith(BOT_WALLET_ID_PREFIX)) {
@@ -1183,7 +1187,7 @@ function isEnabledBtcFreshAddress({
 function buildHdWalletHash({ mnemonic }: { mnemonic: string }): string {
   const text = `${mnemonic}--${HD_WALLET_HASH_SALT}`;
   return bufferUtils.bytesToHex(
-    appCrypto.hash.sha256Sync(bufferUtils.toBuffer(text, 'utf8')),
+    sha256Buffer(bufferUtils.toBuffer(text, 'utf8')),
   );
 }
 
@@ -1194,7 +1198,7 @@ async function buildKeylessWalletIdV2({
   ownerId: string;
   xfp: string;
 }): Promise<string> {
-  const hash = await appCrypto.hash.sha256(
+  const hash = sha256Buffer(
     Buffer.from(
       `${ownerId}__E9590EE9-3A3D-43A1-8DE8-886AD1F02786__${xfp}`,
       'utf-8',
@@ -1267,7 +1271,7 @@ async function hashKeylessSocialUserId({
   socialUserId: string;
 }): Promise<string> {
   return bufferUtils.bytesToHex(
-    await appCrypto.hash.sha256(
+    sha256Buffer(
       Buffer.from(
         `${socialUserId}98635F65-A052-4EF1-B84B-AF749D08DCF4`,
         'utf-8',

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { Haptics } from '@onekeyhq/components';
 import type { IAccountSelectorRouteParamsExtraConfig } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useAccountSelectorLazyAction } from '../../../states/jotai/contexts/accountSelector/actionsLazy';
 import {
-  useAccountSelectorActions,
   useAccountSelectorSceneInfo,
   useActiveAccount,
-} from '../../../states/jotai/contexts/accountSelector';
+} from '../../../states/jotai/contexts/accountSelector/atoms';
 
 export function useAccountSelectorTrigger({
   num,
@@ -21,10 +22,11 @@ export function useAccountSelectorTrigger({
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num });
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
-  const actions = useAccountSelectorActions();
+  const callAccountSelectorAction = useAccountSelectorLazyAction();
 
   const showAccountSelector = useCallback(() => {
-    void actions.current.showAccountSelector({
+    Haptics.selection();
+    void callAccountSelectorAction('showAccountSelector', {
       activeWallet: activeAccount.wallet,
       num,
       navigation,
@@ -36,8 +38,8 @@ export function useAccountSelectorTrigger({
     });
   }, [
     linkNetworkId,
-    actions,
     activeAccount.wallet,
+    callAccountSelectorAction,
     others,
     navigation,
     num,

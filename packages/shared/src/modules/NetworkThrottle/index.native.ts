@@ -8,6 +8,7 @@ import {
 } from './runtimeState';
 
 import type { INativeNetworkThrottleConfig } from './types';
+
 export type {
   INativeNetworkThrottleConfig,
   INativeNetworkThrottleProfile,

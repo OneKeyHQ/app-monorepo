@@ -23,7 +23,7 @@ const WEB_ORDER_BOOK_HEADER_SIDE_PADDING = 8;
 function MobileVerticalEmptyRow({
   priceColor,
 }: {
-  priceColor: '$red11' | '$green11';
+  priceColor: '$bgCriticalStrong' | '$bgAccent';
 }) {
   return (
     <XStack
@@ -72,7 +72,7 @@ function MobileHorizontalEmptyRow() {
           lineHeight={16}
           fontFamily="$monoRegular"
           fontVariant={['tabular-nums']}
-          color="$green11"
+          color="$bgAccent"
         >
           --
         </SizableText>
@@ -83,7 +83,7 @@ function MobileHorizontalEmptyRow() {
           lineHeight={16}
           fontFamily="$monoRegular"
           fontVariant={['tabular-nums']}
-          color="$red11"
+          color="$bgCriticalStrong"
         >
           --
         </SizableText>
@@ -189,7 +189,10 @@ export function DefaultLoadingNode({
 
         <YStack flex={1}>
           {mobileVerticalEmptyRowIndexes.map((index) => (
-            <MobileVerticalEmptyRow key={`ask-${index}`} priceColor="$red11" />
+            <MobileVerticalEmptyRow
+              key={`ask-${index}`}
+              priceColor="$bgCriticalStrong"
+            />
           ))}
           <YStack
             h={MOBILE_VERTICAL_SPREAD_ROW_HEIGHT}
@@ -219,7 +222,7 @@ export function DefaultLoadingNode({
           {mobileVerticalEmptyRowIndexes.map((index) => (
             <MobileVerticalEmptyRow
               key={`bid-${index}`}
-              priceColor="$green11"
+              priceColor="$bgAccent"
             />
           ))}
         </YStack>

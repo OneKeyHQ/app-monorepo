@@ -18,6 +18,7 @@ import {
   XStack,
   YStack,
   useFocusedTab,
+  useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
@@ -33,11 +34,14 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
@@ -49,6 +53,7 @@ import { RiskApprovalAlert } from '../../../components/RiskApprovalAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WatchOnlyAlert } from '../../../components/WatchOnlyAlert';
 import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import {
@@ -67,13 +72,18 @@ import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
+import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
 import { HomeTestIDs } from '../testIDs';
 
 import { DeFiContainerWithProvider } from './DeFiContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { homePageContentMaxWidthSx } from './homePageContentMaxWidth';
-import { shouldShowNoWalletContent } from './homePageNoWalletContent';
+import {
+  isWalletListResolvedNoWallet,
+  shouldShowNoWalletContent,
+} from './homePageNoWalletContent';
 import { NFTListContainerWithProvider } from './NFTListContainer';
+import { PerpsContainer } from './PerpsContainer';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
@@ -193,6 +203,8 @@ export function HomePageView({
   const tabBarHeight = useScrollContentTabBarOffset();
   const tabContainerWidth = useTabContainerWidth();
   const intl = useIntl();
+  const navigation = useAppNavigation();
+  const { md: isSmallScreen } = useMedia();
   const {
     activeAccount: {
       account,
@@ -210,7 +222,7 @@ export function HomePageView({
     useAccountSelectorStorageInitDoneAtom();
   const accountSelectorActiveAccountInitDone =
     useIsAccountSelectorActiveAccountInitDone(0);
-  const { result: walletListResult } = usePromiseResult(
+  const { result: walletListResult, run: refreshWalletList } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceAccount.getWallets({
         ignoreEmptySingletonWalletAccounts: true,
@@ -299,20 +311,11 @@ export function HomePageView({
     (vaultSettings?.NFTEnabled &&
       networkUtils.getEnabledNFTNetworkIds().includes(network?.id ?? ''));
 
-  const { result: isDeFiEnabled = true } = usePromiseResult(
-    async () => {
-      if (!network?.id) return false;
-      if (networkUtils.isAllNetwork({ networkId: network.id })) return true;
-      const enabledNetworks =
-        await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
-      return !!enabledNetworks[network.id];
-    },
-    [network?.id],
-    {
-      initResult: true,
-      swrKey: network?.id ? swrKeys.defiEnabled(network.id) : undefined,
-    },
-  );
+  const {
+    isDeFiSupported: isDeFiEnabled,
+    isPerpsSupported: isPerpsEnabled,
+    perpTabShowWeb,
+  } = useHomeWalletTabSupport({ network });
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -469,6 +472,20 @@ export function HomePageView({
         testID: HomeTestIDs.tabPortfolio,
         component: <PortfolioContainerWithProvider />,
       },
+      isPerpsEnabled
+        ? {
+            id: EHomeWalletTab.Perps,
+            name: intl.formatMessage({
+              id: ETranslations.global_perp,
+            }),
+            testID: HomeTestIDs.tabPerps,
+            component: (
+              <HomeTabContentMaxWidth>
+                <PerpsContainer />
+              </HomeTabContentMaxWidth>
+            ),
+          }
+        : undefined,
       isDeFiEnabled
         ? {
             id: EHomeWalletTab.DeFi,
@@ -506,7 +523,20 @@ export function HomePageView({
         ),
       },
     ].filter(Boolean);
-  }, [intl, isDeFiEnabled, isNFTEnabled]);
+  }, [intl, isDeFiEnabled, isNFTEnabled, isPerpsEnabled]);
+
+  const pagerTabConfigs = useMemo(
+    () =>
+      tabConfigs.filter(
+        (tab) => !(perpTabShowWeb && tab.id === EHomeWalletTab.Perps),
+      ),
+    [perpTabShowWeb, tabConfigs],
+  );
+
+  const tabBarTabNames = useMemo(
+    () => tabConfigs.map((tab) => tab.name),
+    [tabConfigs],
+  );
 
   const tabTestIDMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -518,12 +548,25 @@ export function HomePageView({
     return map;
   }, [tabConfigs]);
 
+  const switchToPerpsWebTab = useCallback(() => {
+    setPerpPageEnterSource(EPerpPageEnterSource.Home);
+    navigation.switchTab(ETabRoutes.WebviewPerpTrade);
+  }, [navigation]);
+
   const handleRenderItem = useCallback(
     (props: ITabBarItemProps) => {
       const testID = tabTestIDMap[props.name];
-      return <TabBarItem {...props} testID={testID} />;
+      const nextTab = tabConfigs.find((tab) => tab.name === props.name);
+      const handlePress = (name: string) => {
+        if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
+          switchToPerpsWebTab();
+          return;
+        }
+        props.onPress(name);
+      };
+      return <TabBarItem {...props} testID={testID} onPress={handlePress} />;
     },
-    [tabTestIDMap],
+    [perpTabShowWeb, switchToPerpsWebTab, tabConfigs, tabTestIDMap],
   );
 
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
@@ -540,23 +583,59 @@ export function HomePageView({
     setStickyHost((prev) => (prev === next ? prev : next));
   }, []);
 
-  const initialTabName = tabConfigs[0]?.name ?? '';
+  const initialTabName = pagerTabConfigs[0]?.name ?? '';
   const [activeTabName, setActiveTabName] = useState(initialTabName);
-  const initialTabId = tabConfigs[0]?.id;
+  const initialTabId = pagerTabConfigs[0]?.id;
   const [activeTabId, setActiveTabId] = useState<EHomeWalletTab | undefined>(
     initialTabId,
   );
+  const [mountedHomeTabIds, setMountedHomeTabIds] = useState<
+    Set<EHomeWalletTab>
+  >(() => (initialTabId ? new Set([initialTabId]) : new Set()));
+  const lastDisplayableTabNameRef = useRef(initialTabName);
 
   useEffect(() => {
     setActiveTabName((prev) =>
-      tabConfigs.some((tab) => tab.name === prev)
+      pagerTabConfigs.some((tab) => tab.name === prev)
         ? prev
-        : (tabConfigs[0]?.name ?? ''),
+        : (pagerTabConfigs[0]?.name ?? ''),
     );
     setActiveTabId((prev) =>
-      tabConfigs.some((tab) => tab.id === prev) ? prev : tabConfigs[0]?.id,
+      pagerTabConfigs.some((tab) => tab.id === prev)
+        ? prev
+        : pagerTabConfigs[0]?.id,
     );
-  }, [tabConfigs]);
+    const lastDisplayableTab = pagerTabConfigs.find(
+      (tab) => tab.name === lastDisplayableTabNameRef.current,
+    );
+    if (!lastDisplayableTab) {
+      lastDisplayableTabNameRef.current = pagerTabConfigs[0]?.name ?? '';
+    }
+  }, [pagerTabConfigs]);
+
+  useEffect(() => {
+    if (!perpTabShowWeb || activeTabId !== EHomeWalletTab.Perps) {
+      return;
+    }
+    const fallbackTabName = pagerTabConfigs[0]?.name;
+    if (fallbackTabName) {
+      tabsRef.current?.jumpToTab(fallbackTabName);
+    }
+  }, [activeTabId, perpTabShowWeb, pagerTabConfigs]);
+
+  useEffect(() => {
+    if (!activeTabId) {
+      return;
+    }
+    setMountedHomeTabIds((prev) => {
+      if (prev.has(activeTabId)) {
+        return prev;
+      }
+      const next = new Set(prev);
+      next.add(activeTabId);
+      return next;
+    });
+  }, [activeTabId]);
 
   const renderToolbar = useCallback(
     ({ focusedTab }: { focusedTab: string }) => (
@@ -569,10 +648,17 @@ export function HomePageView({
 
   const renderTabBar = useCallback(
     (tabBarProps: any) => {
+      // Design: plain-text tabs on small screens only; pill elsewhere.
+      const tabBarVariant = isSmallScreen ? 'text' : 'pill';
       const handleTabPress = (name: string) => {
         const nextTab = tabConfigs.find((tab) => tab.name === name);
+        if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
+          switchToPerpsWebTab();
+          return;
+        }
         setActiveTabName(nextTab?.name ?? name);
         setActiveTabId(nextTab?.id);
+        lastDisplayableTabNameRef.current = nextTab?.name ?? name;
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         tabBarProps.onTabPress?.(name);
       };
@@ -581,8 +667,10 @@ export function HomePageView({
         return (
           <Tabs.TabBar
             {...tabBarProps}
+            tabNames={tabBarTabNames}
+            indexDecimal={perpTabShowWeb ? undefined : tabBarProps.indexDecimal}
             onTabPress={handleTabPress}
-            variant="pill"
+            variant={tabBarVariant}
             renderItem={handleRenderItem}
             renderToolbar={renderToolbar}
           />
@@ -604,8 +692,12 @@ export function HomePageView({
           <Stack {...homePageContentMaxWidthSx}>
             <Tabs.TabBar
               {...tabBarProps}
+              tabNames={tabBarTabNames}
+              indexDecimal={
+                perpTabShowWeb ? undefined : tabBarProps.indexDecimal
+              }
               onTabPress={handleTabPress}
-              variant="pill"
+              variant={tabBarVariant}
               renderItem={handleRenderItem}
               renderToolbar={renderToolbar}
               containerStyle={{ position: 'relative' as any }}
@@ -629,17 +721,31 @@ export function HomePageView({
       stickyHostRefCallback,
       handleRenderItem,
       renderToolbar,
+      switchToPerpsWebTab,
+      perpTabShowWeb,
+      isSmallScreen,
       tabConfigs,
+      tabBarTabNames,
     ],
   );
 
   const handleTabChange = useCallback(
     (data: { tabName: string }) => {
       const nextTab = tabConfigs.find((tab) => tab.name === data.tabName);
+      if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
+        switchToPerpsWebTab();
+        const fallbackTabName =
+          lastDisplayableTabNameRef.current || pagerTabConfigs[0]?.name;
+        if (fallbackTabName && fallbackTabName !== data.tabName) {
+          tabsRef.current?.jumpToTab(fallbackTabName);
+        }
+        return;
+      }
       setActiveTabName(nextTab?.name ?? data.tabName);
       setActiveTabId(nextTab?.id);
+      lastDisplayableTabNameRef.current = nextTab?.name ?? data.tabName;
     },
-    [tabConfigs],
+    [perpTabShowWeb, switchToPerpsWebTab, tabConfigs, pagerTabConfigs],
   );
 
   // When the user switches network while NOT on the wallet (token list) tab,
@@ -729,12 +835,27 @@ export function HomePageView({
     const key = `${wallet?.id ?? ''}-${
       account?.indexedAccountId ?? account?.id ?? ''
     }`;
+    // The remount key resets the pager to the first tab while HomePageView's
+    // activeTab state still points at the previously selected tab, so seed
+    // the remounted container with that tab. But the new pagerTabConfigs and
+    // the stale activeTabName can land in the same render (the reset effect
+    // above runs only after it), and the web Tabs.Container initializes
+    // focusedTab with whatever name it receives without falling back when
+    // the name is missing from the tab set — leaving content, highlight and
+    // active state out of sync. Validate here and fall back to the first tab.
+    const seedTabName = pagerTabConfigs.some(
+      (tab) => tab.name === activeTabName,
+    )
+      ? activeTabName
+      : pagerTabConfigs[0]?.name;
     return (
       <Tabs.Container
         ref={tabsRef as any}
         key={key}
+        // Both implementations only read this prop at mount.
+        initialTabName={seedTabName || undefined}
         allowHeaderOverscroll
-        headerHeight={platformEnv.isNative ? 312 : undefined}
+        headerHeight={platformEnv.isNative ? 292 : undefined}
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
         renderHeader={renderHeader}
@@ -742,10 +863,17 @@ export function HomePageView({
         onTabChange={handleTabChange}
         renderSubHeader={renderSubHeader}
       >
-        {tabConfigs.map((tab) => (
+        {pagerTabConfigs.map((tab) => (
           <Tabs.Tab key={tab.name} name={tab.name}>
             <FreezeInactiveHomeTab tabName={tab.name}>
-              {tab.component}
+              {platformEnv.isNative ||
+              tab.id === EHomeWalletTab.Perps ||
+              activeTabId === tab.id ||
+              mountedHomeTabIds.has(tab.id) ? (
+                tab.component
+              ) : (
+                <Stack flex={1} />
+              )}
             </FreezeInactiveHomeTab>
           </Tabs.Tab>
         ))}
@@ -762,17 +890,24 @@ export function HomePageView({
     renderTabBar,
     handleTabChange,
     renderSubHeader,
-    tabConfigs,
+    pagerTabConfigs,
+    activeTabName,
+    activeTabId,
+    mountedHomeTabIds,
   ]);
 
   const handleSwitchWalletHomeTab = useCallback(
     (payload: { id: EHomeWalletTab }) => {
+      if (perpTabShowWeb && payload.id === EHomeWalletTab.Perps) {
+        switchToPerpsWebTab();
+        return;
+      }
       const name = tabConfigs.find((i) => i.id === payload.id)?.name;
       if (name) {
         tabsRef.current?.jumpToTab(name);
       }
     },
-    [tabConfigs],
+    [perpTabShowWeb, switchToPerpsWebTab, tabConfigs],
   );
 
   useEffect(() => {
@@ -790,10 +925,28 @@ export function HomePageView({
     const clearCache = async () => {
       await backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
     };
+    // Keep the no-wallet gate's wallet list fresh: it feeds
+    // shouldShowNoWalletContent, and a stale mount-time list can hold Home on
+    // the blank fallback after wallets are removed while mounted.
+    const refreshWalletListForNoWalletGate = () => {
+      void refreshWalletList();
+    };
 
     appEventBus.on(EAppEventBusNames.WalletUpdate, clearCache);
     appEventBus.on(EAppEventBusNames.AccountUpdate, clearCache);
     appEventBus.on(EAppEventBusNames.AddressBookUpdate, clearCache);
+    appEventBus.on(
+      EAppEventBusNames.WalletUpdate,
+      refreshWalletListForNoWalletGate,
+    );
+    appEventBus.on(
+      EAppEventBusNames.AccountUpdate,
+      refreshWalletListForNoWalletGate,
+    );
+    appEventBus.on(
+      EAppEventBusNames.AccountRemove,
+      refreshWalletListForNoWalletGate,
+    );
     appEventBus.on(
       EAppEventBusNames.SwitchWalletHomeTab,
       handleSwitchWalletHomeTab,
@@ -803,15 +956,27 @@ export function HomePageView({
       appEventBus.off(EAppEventBusNames.AccountUpdate, clearCache);
       appEventBus.off(EAppEventBusNames.AddressBookUpdate, clearCache);
       appEventBus.off(
+        EAppEventBusNames.WalletUpdate,
+        refreshWalletListForNoWalletGate,
+      );
+      appEventBus.off(
+        EAppEventBusNames.AccountUpdate,
+        refreshWalletListForNoWalletGate,
+      );
+      appEventBus.off(
+        EAppEventBusNames.AccountRemove,
+        refreshWalletListForNoWalletGate,
+      );
+      appEventBus.off(
         EAppEventBusNames.SwitchWalletHomeTab,
         handleSwitchWalletHomeTab,
       );
     };
-  }, [handleSwitchWalletHomeTab]);
+  }, [handleSwitchWalletHomeTab, refreshWalletList]);
 
   const { result: accountNetworkNotSupported } = usePromiseResult(
     async () => {
-      if (!network?.id) return undefined;
+      if (!network?.id || (!wallet?.id && !account?.id)) return undefined;
       const checkResult =
         await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
           {
@@ -921,6 +1086,10 @@ export function HomePageView({
     wallet,
     account,
   });
+  const walletListWalletIds = walletListResult?.wallets.map((item) => item.id);
+  const walletListResolvedNoWallet = isWalletListResolvedNoWallet({
+    wallets: walletListResult?.wallets,
+  });
   const walletPageContent = useMemo(
     () =>
       platformEnv.isNative ? (
@@ -930,11 +1099,17 @@ export function HomePageView({
       ),
     [homePageContent],
   );
+  const activeWalletId = wallet?.id;
+  const activeWalletUnavailable =
+    accountUtils.isWalletDeprecatedOrMocked(wallet);
   const showNoWalletContent = shouldShowNoWalletContent({
     hasNoUsableWallet,
     accountSelectorStorageInitDone,
     accountSelectorActiveAccountInitDone,
-    walletListResolvedNoWallet: walletListResult?.wallets.length === 0,
+    walletListResolvedNoWallet,
+    activeWalletUnavailable,
+    activeWalletId,
+    walletListWalletIds,
   });
 
   const homePage = useMemo(() => {

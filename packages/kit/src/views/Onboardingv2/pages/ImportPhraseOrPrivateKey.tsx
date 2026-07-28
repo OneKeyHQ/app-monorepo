@@ -35,7 +35,7 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { fixInputImportSingleChain } from '../../Onboarding/pages/ImportWallet/ImportSingleChainBase';
-import useScanQrCode from '../../ScanQrCode/hooks/useScanQrCode';
+import useScanQrCodeLazy from '../../ScanQrCode/hooks/useScanQrCodeLazy';
 import {
   OnboardingHeading,
   OnboardingIconBadge,
@@ -56,7 +56,7 @@ import type {
 function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
   const intl = useIntl();
   const [privateKey, setPrivateKey] = useState(value);
-  const { start: startScanQrCode } = useScanQrCode();
+  const { start: startScanQrCode } = useScanQrCodeLazy();
   const [encrypted, setEncrypted] = useState(true);
   const inputRef = useRef<IInputRef>(null);
   const encryptedRef = useRef(encrypted);

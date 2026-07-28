@@ -36,6 +36,13 @@ function findChromiumExecutable(preferred) {
     // Chromium
     '/Applications/Chromium.app/Contents/MacOS/Chromium',
     `${process.env.HOME}/Applications/Chromium.app/Contents/MacOS/Chromium`,
+    // Linux CI images, including GitHub-hosted Ubuntu runners.
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/opt/google/chrome/chrome',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/snap/bin/chromium',
   ];
 
   for (const p of candidates) {

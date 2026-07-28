@@ -48,7 +48,9 @@ export function isSamePositiveAmount({
 }) {
   const amountBN = new BigNumber(amount);
   const targetAmountBN = new BigNumber(targetAmount ?? '0');
-  if (amountBN.isNaN() || targetAmountBN.isNaN()) return false;
+  // Guard on isFinite (not isNaN) so an Infinity operand is also rejected —
+  // matches the sibling helper in protocolLendingActionUtils.
+  if (!amountBN.isFinite() || !targetAmountBN.isFinite()) return false;
   return amountBN.gt(0) && amountBN.eq(targetAmountBN);
 }
 

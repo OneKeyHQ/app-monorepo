@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { RawIntlProvider } from 'react-intl';
 
 import { appLocale } from './appLocale';
-import { LOCALES } from './localeJsonMap';
+import { loadLocaleMessages } from './localeLoaders';
 
 import type { ILocaleJSONSymbol, ILocaleSymbol } from './type';
 import type { ResolvedIntlConfig } from '@formatjs/intl';
@@ -29,19 +29,16 @@ export function AppIntlProvider({
   );
 
   useEffect(() => {
-    const data = LOCALES[locale as ILocaleJSONSymbol];
-    if (typeof data === 'function') {
-      void data().then((module) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        (LOCALES as any)[locale as ILocaleJSONSymbol] = module;
-        updateAppLocaleMessage(
-          locale,
-          module as unknown as Record<string, string>,
-        );
-      });
-    } else {
-      updateAppLocaleMessage(locale, data);
-    }
+    let cancelled = false;
+    void loadLocaleMessages(locale as ILocaleJSONSymbol).then((messages) => {
+      if (cancelled) {
+        return;
+      }
+      updateAppLocaleMessage(locale, messages);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [locale, onLocaleChange, updateAppLocaleMessage]);
   return localeUpdateTs ? (
     <RawIntlProvider value={appLocale.intl}>{children as any}</RawIntlProvider>

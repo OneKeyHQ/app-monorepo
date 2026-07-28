@@ -5,7 +5,7 @@ import { useMedia } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { AccountSelectorProviderMirror } from '../AccountSelector';
+import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
 
 import { UrlAccountPageHeader } from './urlAccountPageHeader';
 

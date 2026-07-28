@@ -1,13 +1,22 @@
+import { createElement } from 'react';
+
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
-import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
+import {
+  LazyLoadPage,
+  LazyLoadRootTabPage,
+} from '@onekeyhq/kit/src/components/LazyLoadPage';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ETabReferFriendsRoutes,
+  ETabRoutes,
   type ITabReferFriendsParamList,
 } from '@onekeyhq/shared/src/routes';
 
-const ReferAFriend = LazyLoadPage(
+import { RootTabLoadingFallback } from '../RootTabLoadingFallback';
+
+const ReferAFriend = LazyLoadRootTabPage(
   () => import('../../../views/ReferFriends/pages/ReferAFriend'),
+  createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.ReferFriends }),
 );
 
 const InviteReward = LazyLoadPage(

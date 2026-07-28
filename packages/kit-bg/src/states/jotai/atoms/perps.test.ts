@@ -630,7 +630,64 @@ describe('perpsComputedAccountValueAtom withdrawable', () => {
     });
     jotaiDefaultStore.set(perpsAbstractionModeAtom.atom(), undefined);
     jotaiDefaultStore.set(perpsActiveAccountSummaryAtom.atom(), undefined);
+    jotaiDefaultStore.set(perpsActiveAccountStatusInfoAtom.atom(), undefined);
     jotaiDefaultStore.set(perpsSpotBalancesAtom.atom(), undefined);
+  });
+
+  it('not activated account: returns zero and does not keep account value loading', () => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: 'account-1',
+      indexedAccountId: 'indexed-1',
+      deriveType: 'default',
+      accountAddress: ADDR,
+    });
+    jotaiDefaultStore.set(perpsActiveAccountStatusInfoAtom.atom(), {
+      accountAddress: ADDR,
+      details: {
+        activatedOk: false,
+        agentOk: false,
+        referralCodeOk: false,
+        builderFeeOk: false,
+        internalRebateBoundOk: false,
+        abstractionOk: false,
+      },
+    });
+
+    expect(jotaiDefaultStore.get(perpsComputedAccountValueAtom.atom())).toEqual(
+      {
+        accountValue: '0',
+        withdrawable: '0',
+        isLoading: false,
+      },
+    );
+  });
+
+  it('activation unknown (check pending/failed): keeps loading instead of confirmed zero', () => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: 'account-1',
+      indexedAccountId: 'indexed-1',
+      deriveType: 'default',
+      accountAddress: ADDR,
+    });
+    jotaiDefaultStore.set(perpsActiveAccountStatusInfoAtom.atom(), {
+      accountAddress: ADDR,
+      details: {
+        activatedOk: undefined,
+        agentOk: false,
+        referralCodeOk: false,
+        builderFeeOk: false,
+        internalRebateBoundOk: false,
+        abstractionOk: false,
+      },
+    });
+
+    expect(jotaiDefaultStore.get(perpsComputedAccountValueAtom.atom())).toEqual(
+      {
+        accountValue: undefined,
+        withdrawable: undefined,
+        isLoading: true,
+      },
+    );
   });
 
   it('unified account: withdrawable = USDC available (total - hold)', () => {

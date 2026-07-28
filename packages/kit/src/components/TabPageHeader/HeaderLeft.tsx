@@ -34,7 +34,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { getHomeTabStackLength } from '../../views/Home/pages/urlAccount/urlAccountUtils';
-import { AccountSelectorProviderMirror } from '../AccountSelector';
+import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
 
 import { WalletConnectionGroup } from './components';
 import { UrlAccountPageHeader } from './urlAccountPageHeader';

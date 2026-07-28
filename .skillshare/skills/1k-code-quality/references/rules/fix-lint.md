@@ -6,16 +6,14 @@ Helps fix oxlint warnings in the OneKey app-monorepo codebase.
 
 ## Lint Commands
 
-### Recommended: Lint Staged Files (Faster)
+### Recommended: Agent Check (Faster, Low Context)
 ```bash
-# Only lint files staged for commit - FAST for pre-commit checks
-yarn lint:staged
-
-# Type check staged files only
-yarn tsc:staged
+yarn agent:check --profile commit
 ```
 
-**✅ Recommended**: For daily development, use `yarn lint:staged` and `yarn tsc:staged` to run checks only on your staged files. This is much faster than full project checks.
+**✅ Recommended**: For agent workflows, use `yarn agent:check --profile commit`.
+It runs staged lint and type checks while keeping detailed command output in
+`node_modules/.cache/agent-checks`.
 
 ### Full Project Validation (For CI or Pre-PR)
 ```bash
@@ -35,8 +33,8 @@ Use this when:
 ### Step 1: Run Lint and Analyze Warnings
 
 ```bash
-# For staged files (recommended)
-yarn lint:staged
+# For agent workflows (recommended)
+yarn agent:check --profile commit
 
 # Or for full project check
 yarn lint 2>&1 | tail -100
@@ -143,8 +141,8 @@ function Parent() {
 ### Step 4: Verify Fixes
 
 ```bash
-# For staged files (recommended)
-yarn lint:staged
+# For agent workflows (recommended)
+yarn agent:check --profile commit
 
 # Or for full project check
 yarn lint 2>&1 | tail -50
@@ -154,17 +152,14 @@ yarn lint 2>&1 | tail -50
 
 For fast pre-commit validation, only lint modified files:
 ```bash
-# Lint only staged files
-yarn lint:staged
+# Run staged lint and type checks with compact output
+yarn agent:check --profile commit
 
 # Then commit
 git commit -m "your message"
 
 # Or combine
-yarn lint:staged && git commit -m "your message"
-
-# With type check
-yarn lint:staged && yarn tsc:staged && git commit -m "your message"
+yarn agent:check --profile commit && git commit -m "your message"
 ```
 
 ## Common Patterns in This Codebase
@@ -202,8 +197,8 @@ const { used, unused: _unused } = usePromiseResult(...);
 
 2. **Verify no regressions** after fixes:
    ```bash
-   # For staged files (recommended - faster)
-   yarn tsc:staged
+   # Agent pre-commit gate (recommended - faster)
+   yarn agent:check --profile commit
    ```
 
 ## Key Files

@@ -1,407 +1,34 @@
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Divider,
-  HeaderIconButton,
-  Icon,
-  Page,
-  Popover,
-  SegmentControl,
-  Select,
-  SizableText,
-  XStack,
-  YStack,
-  useMedia,
-  usePopoverContext,
-} from '@onekeyhq/components';
-import { useCurrencySections } from '@onekeyhq/kit/src/hooks/useCurrencySections';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { HeaderIconButton, Page, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EModalRoutes,
-  EModalSettingRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
+import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { KeylessWebConnectAlertContainer } from '../../provider/Container/KeylessWebConnectAlertContainer';
 import {
   useAccountSelectorContextData,
   useActiveAccount,
-} from '../../states/jotai/contexts/accountSelector';
+} from '../../states/jotai/contexts/accountSelector/atoms';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import { PerpsActivityCenterAction } from '../../views/Perp/components/PerpsActivityCenterAction';
-import { useLanguageSelector } from '../../views/Setting/hooks';
-import { AccountSelectorProviderMirror } from '../AccountSelector';
-import { ListItem } from '../ListItem';
+import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
 
 import {
   HeaderNotificationIconButton,
-  WalletConnectionGroup,
   WebHeaderNavigation,
 } from './components';
-import {
-  WebAccountSelectorTrigger,
-  WebConnectButton,
-  WebSettingsTrigger,
-} from './components/WebAccountPanel';
+import { WebAccountSelectorTrigger } from './components/WebAccountPanel/WebAccountSelectorTrigger';
+import { WebConnectButton } from './components/WebAccountPanel/WebConnectButton';
+import { WebSettingsTrigger } from './components/WebAccountPanel/WebSettingsTrigger';
 import { HeaderTitle } from './HeaderTitle';
-import { UniversalSearchInput } from './UniversalSearchInput';
 
 import type { ITabPageHeaderProp } from './type';
 
-function LanguageListItem({
-  open,
-  onOpenChange: onOpenChangeProp,
-}: {
-  open?: boolean;
-  onOpenChange?: (isOpen: boolean) => void;
-}) {
-  const intl = useIntl();
-  const { options, value, onChange } = useLanguageSelector();
-  const label = useMemo(() => {
-    return options.find((i) => i.value === value)?.label;
-  }, [options, value]);
-  const title = useMemo(() => {
-    return intl.formatMessage({ id: ETranslations.global_language });
-  }, [intl]);
-  return (
-    <Select
-      testID="tab-page-header-title-select"
-      title={title}
-      items={options}
-      value={value}
-      open={open}
-      onChange={onChange}
-      onOpenChange={onOpenChangeProp}
-      floatingPanelProps={{ maxHeight: 280 }}
-      sheetProps={{
-        disableDrag: true,
-        snapPoints: [80],
-        snapPointsMode: 'percent',
-      }}
-      placement="bottom-end"
-      renderTrigger={() => (
-        <ListItem
-          title={title}
-          drillIn
-          titleProps={{
-            size: '$bodyMdMedium',
-          }}
-        >
-          <SizableText size="$bodyMd" color="textSubdued" userSelect="none">
-            {label}
-          </SizableText>
-        </ListItem>
-      )}
-    />
-  );
-}
-
-function CurrencyListItem({
-  open,
-  onOpenChange: onOpenChangeProp,
-}: {
-  open?: boolean;
-  onOpenChange?: (isOpen: boolean) => void;
-}) {
-  const [settings] = useSettingsPersistAtom();
-  const sections = useCurrencySections();
-  const formatSections = useMemo(() => {
-    return sections.map((i) => {
-      return {
-        title: i.title,
-        data: i.data.map((item) => {
-          return {
-            value: item.id,
-            label: `${item.id.toUpperCase()} - ${item.unit}`,
-          };
-        }),
-      };
-    });
-  }, [sections]);
-  const intl = useIntl();
-  const title = useMemo(() => {
-    return intl.formatMessage({ id: ETranslations.settings_default_currency });
-  }, [intl]);
-  const handleChange = useCallback(
-    async (currencyId: string) => {
-      if (currencyId) {
-        for (let i = 0; i < sections.length; i += 1) {
-          const item = sections[i].data.find((idx) => idx.id === currencyId);
-          if (item) {
-            await backgroundApiProxy.serviceSetting.setCurrency({
-              id: item.id,
-              symbol: item.unit,
-            });
-            setTimeout(() => {
-              void backgroundApiProxy.serviceApp.restartApp();
-            });
-            return;
-          }
-        }
-      }
-    },
-    [sections],
-  );
-  return (
-    <Select
-      testID="tab-page-header-item-select"
-      title={title}
-      sections={formatSections}
-      value={settings.currencyInfo.id}
-      open={open}
-      onChange={handleChange}
-      onOpenChange={onOpenChangeProp}
-      floatingPanelProps={{ maxHeight: 280 }}
-      sheetProps={{
-        disableDrag: true,
-        snapPoints: [80],
-        snapPointsMode: 'percent',
-      }}
-      placement="bottom-end"
-      renderTrigger={() => (
-        <ListItem
-          title={title}
-          drillIn
-          titleProps={{
-            size: '$bodyMdMedium',
-          }}
-        >
-          <SizableText size="$bodyMd" color="textSubdued" userSelect="none">
-            {settings.currencyInfo.id.toUpperCase()}
-          </SizableText>
-        </ListItem>
-      )}
-    />
-  );
-}
-
-function ThemeListItem() {
-  const intl = useIntl();
-  const [{ theme }] = useSettingsPersistAtom();
-  const tabOptions = useMemo(
-    () => [
-      {
-        label: (
-          <Icon
-            my="$0.5"
-            name="LaptopOutline"
-            size="$4"
-            color={theme === 'system' ? '$iconInverse' : '$icon'}
-          />
-        ),
-        value: 'system' as const,
-      },
-      {
-        label: (
-          <Icon
-            my="$0.5"
-            name="SunOutline"
-            size="$4"
-            color={theme === 'light' ? '$iconInverse' : '$icon'}
-          />
-        ),
-        value: 'light' as const,
-      },
-      {
-        label: (
-          <Icon
-            my="$0.5"
-            name="MoonOutline"
-            size="$4"
-            color={theme === 'dark' ? '$iconInverse' : '$icon'}
-          />
-        ),
-        value: 'dark' as const,
-      },
-    ],
-    [theme],
-  );
-  const handleChange = useCallback(async (value: unknown) => {
-    await backgroundApiProxy.serviceSetting.setTheme(
-      value as 'light' | 'dark' | 'system',
-    );
-  }, []);
-  return (
-    <ListItem
-      title={intl.formatMessage({ id: ETranslations.settings_theme })}
-      titleProps={{
-        size: '$bodyMdMedium',
-      }}
-    >
-      <SegmentControl
-        options={tabOptions}
-        value={theme}
-        onChange={handleChange}
-      />
-    </ListItem>
-  );
-}
-
-function DownloadOneKeyWalletListItem() {
-  const intl = useIntl();
-  const handlePress = useCallback(() => {
-    openUrlExternal(DOWNLOAD_URL);
-  }, []);
-  return (
-    <ListItem
-      title={intl.formatMessage({
-        id: ETranslations.global_download_onekey_wallet,
-      })}
-      titleProps={{
-        size: '$bodyMdMedium',
-      }}
-      drillIn
-      onPress={handlePress}
-    />
-  );
-}
-
-// function Web3GuideListItem() {
-//   const intl = useIntl();
-//   const handlePress = useCallback(() => {
-//     // TODO: implement Web3 guide link
-//   }, []);
-//   return (
-//     <ListItem
-//       title={intl.formatMessage({ id: ETranslations.global_web3_guide })}
-//       titleProps={{
-//         size: '$bodyMdMedium',
-//       }}
-//       drillIn
-//       onPress={handlePress}
-//     />
-//   );
-// }
-
-function AnnouncementListItem() {
-  const intl = useIntl();
-  const handlePress = useCallback(() => {
-    openUrlExternal('https://help.onekey.so/collections/13034490');
-  }, []);
-  return (
-    <ListItem
-      title={intl.formatMessage({ id: ETranslations.global_announcement })}
-      drillIn
-      titleProps={{
-        size: '$bodyMdMedium',
-      }}
-      onPress={handlePress}
-    />
-  );
-}
-
-function SettingListItem({
-  onBeforeNavigate,
-}: {
-  onBeforeNavigate?: () => void;
-}) {
-  const intl = useIntl();
-  const navigation = useAppNavigation();
-  const { closePopover } = usePopoverContext();
-  const handlePress = useCallback(async () => {
-    onBeforeNavigate?.();
-    await closePopover?.();
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingListModal,
-    });
-  }, [closePopover, navigation, onBeforeNavigate]);
-  return (
-    <ListItem
-      title={intl.formatMessage({ id: ETranslations.settings_settings })}
-      drillIn
-      titleProps={{
-        size: '$bodyMdMedium',
-      }}
-      onPress={handlePress}
-    />
-  );
-}
-
-function MoreDappActionContent() {
-  const [activeSelect, setActiveSelect] = useState<
-    'language' | 'currency' | null
-  >(null);
-
-  const handleLanguageOpenChange = useCallback((isOpen: boolean) => {
-    setActiveSelect(isOpen ? 'language' : null);
-  }, []);
-
-  const handleCurrencyOpenChange = useCallback((isOpen: boolean) => {
-    setActiveSelect(isOpen ? 'currency' : null);
-  }, []);
-
-  const closeAllDropdowns = useCallback(() => {
-    setActiveSelect(null);
-  }, []);
-
-  return (
-    <YStack py="$3">
-      <ThemeListItem />
-      <LanguageListItem
-        open={activeSelect === 'language'}
-        onOpenChange={handleLanguageOpenChange}
-      />
-      <CurrencyListItem
-        open={activeSelect === 'currency'}
-        onOpenChange={handleCurrencyOpenChange}
-      />
-      <DownloadOneKeyWalletListItem />
-      {/* <Web3GuideListItem /> */}
-      <YStack py="$1.5" px="$3">
-        <Divider />
-      </YStack>
-      <AnnouncementListItem />
-      <SettingListItem onBeforeNavigate={closeAllDropdowns} />
-    </YStack>
-  );
-}
-
-function MoreDappAction({ size }: { size?: 'small' | 'medium' }) {
-  const intl = useIntl();
-
-  return (
-    <Popover
-      title={intl.formatMessage({ id: ETranslations.address_book_menu_title })}
-      showHeader={false}
-      keepChildrenMounted
-      floatingPanelProps={{
-        maxWidth: 288,
-        width: 288,
-        p: 0,
-        overflow: 'hidden',
-        style: { transformOrigin: 'bottom left' },
-      }}
-      placement="bottom-end"
-      renderTrigger={
-        <HeaderIconButton
-          testID="moreActions"
-          title={intl.formatMessage({
-            id: ETranslations.address_book_menu_title,
-          })}
-          icon="DotGridOutline"
-          size={size}
-        />
-      }
-      renderContent={<MoreDappActionContent />}
-    />
-  );
-}
-
-function RightActions({
-  tabRoute,
-}: {
-  tabRoute: ETabRoutes;
-  customHeaderRightItems?: ReactNode;
-  customToolbarItems?: ReactNode;
-}) {
+function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const {
@@ -411,12 +38,6 @@ function RightActions({
   });
 
   const isWalletConnected = !!wallet && !!account;
-  // The remote perps config can serve /perps as the webview impl, which the tab
-  // router exposes as WebviewPerpTrade (hiding ETabRoutes.Perp). Match both so
-  // the relocated Activity Hub stays in the header in either configuration.
-  const isPerpsTab =
-    tabRoute === ETabRoutes.Perp || tabRoute === ETabRoutes.WebviewPerpTrade;
-
   const handleSearchPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
       screen: EUniversalSearchPages.UniversalSearch,
@@ -424,7 +45,7 @@ function RightActions({
   }, [navigation]);
 
   return (
-    <XStack ai="center" gap="$5">
+    <XStack ai="center" gap="$3" $gtMd={{ gap: '$5' }}>
       <HeaderIconButton
         size="medium"
         icon="SearchOutline"
@@ -438,9 +59,6 @@ function RightActions({
         testID="header-right-notification"
         size="medium"
       />
-      {isPerpsTab && isWalletConnected ? (
-        <PerpsActivityCenterAction copyAsUrl size="medium" />
-      ) : null}
       <KeylessWebConnectAlertContainer />
       {isWalletConnected ? (
         <WebAccountSelectorTrigger tabRoute={tabRoute} />
@@ -454,123 +72,41 @@ function RightActions({
   );
 }
 
-function MobileRightActions() {
-  return (
-    <XStack
-      ai="center"
-      gap="$2.5"
-      px="$1.5"
-      py="$1.5"
-      borderRadius="$2"
-      bg="$bgStrong"
-    >
-      <HeaderNotificationIconButton
-        testID="header-right-notification"
-        size="medium"
-      />
-      <MoreDappAction size="medium" />
-    </XStack>
-  );
-}
-
-function MobileLeftActions({ tabRoute }: { tabRoute: ETabRoutes }) {
-  return (
-    <XStack ai="center">
-      <WalletConnectionGroup
-        tabRoute={tabRoute}
-        showNetworkSelector={false}
-        showAccountInfo={false}
-      />
-    </XStack>
-  );
-}
-
-export function DappHeader({
-  sceneName,
-  tabRoute,
-  hideSearch,
-  customHeaderRightItems,
-  customToolbarItems,
-}: ITabPageHeaderProp) {
-  const { gtMd } = useMedia();
+export function DappHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
   const { config } = useAccountSelectorContextData();
 
-  // Desktop layout
-  const renderDesktopHeaderLeft = useCallback(
-    () => <WebHeaderNavigation />,
-    [],
-  );
+  const renderHeaderLeft = useCallback(() => <WebHeaderNavigation />, []);
 
-  const renderDesktopHeaderRight = useCallback(
+  const renderHeaderRight = useCallback(
     () =>
       config ? (
         <HomeTokenListProviderMirror>
           <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
-            <RightActions
-              tabRoute={tabRoute}
-              customHeaderRightItems={customHeaderRightItems}
-              customToolbarItems={customToolbarItems}
-            />
-          </AccountSelectorProviderMirror>
-        </HomeTokenListProviderMirror>
-      ) : null,
-    [config, customHeaderRightItems, customToolbarItems, tabRoute],
-  );
-
-  const renderDesktopHeaderTitle = useCallback(
-    () => <HeaderTitle sceneName={sceneName} />,
-    [sceneName],
-  );
-
-  // Mobile layout
-  const renderMobileHeaderLeft = useCallback(
-    () =>
-      config ? (
-        <HomeTokenListProviderMirror>
-          <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
-            <MobileLeftActions tabRoute={tabRoute} />
+            <RightActions tabRoute={tabRoute} />
           </AccountSelectorProviderMirror>
         </HomeTokenListProviderMirror>
       ) : null,
     [config, tabRoute],
   );
 
-  const renderMobileHeaderRight = useCallback(() => <MobileRightActions />, []);
+  const renderHeaderTitle = useCallback(
+    () => <HeaderTitle sceneName={sceneName} />,
+    [sceneName],
+  );
 
-  if (gtMd) {
-    return (
-      <>
-        <Page.Header
-          headerTitleAlign="center"
-          headerShadowVisible={false}
-          headerStyle={{
-            backgroundColor: 'transparent',
-          }}
-          headerTitle={renderDesktopHeaderTitle}
-          headerRight={renderDesktopHeaderRight}
-          headerLeft={renderDesktopHeaderLeft}
-        />
-        <XStack h="$px" bg="$borderSubdued" />
-      </>
-    );
-  }
-
-  // Mobile layout
   return (
     <>
       <Page.Header
+        headerShown
+        headerTitleAlign="center"
         headerShadowVisible={false}
         headerStyle={{
           backgroundColor: 'transparent',
         }}
-        headerLeft={renderMobileHeaderLeft}
-        headerRight={renderMobileHeaderRight}
+        headerTitle={renderHeaderTitle}
+        headerRight={renderHeaderRight}
+        headerLeft={renderHeaderLeft}
       />
-      {!hideSearch ? (
-        <XStack px="$pagePadding" pt="$2" pb="$2">
-          <UniversalSearchInput />
-        </XStack>
-      ) : null}
       <XStack h="$px" bg="$borderSubdued" />
     </>
   );

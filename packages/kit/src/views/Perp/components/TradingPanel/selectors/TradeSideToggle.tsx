@@ -106,7 +106,7 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
           >
             <SizableText
               size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
-              color={isLongActive ? '$textOnColor' : '$textDisabled'}
+              color={isLongActive ? longStyles.textColor : '$textDisabled'}
             >
               {longLabel}
             </SizableText>

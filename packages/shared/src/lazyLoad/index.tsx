@@ -1,4 +1,12 @@
-import { Component, Suspense, lazy, memo, useMemo, useState } from 'react';
+import {
+  Component,
+  Suspense,
+  lazy,
+  memo,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { ComponentType, ErrorInfo, ReactNode } from 'react';
 
 import {
@@ -26,6 +34,7 @@ const RETRYABLE_CODES = new Set([
   'SPLIT_BUNDLE_NO_RUNTIME',
   'SPLIT_BUNDLE_TIMEOUT',
 ]);
+const RETRYABLE_ERROR_NAMES = new Set(['ChunkLoadError']);
 
 // Exported for unit testing. A split-bundle segment timeout is normally
 // TRANSIENT, so it re-attempts. Real eval failures (SPLIT_BUNDLE_EVAL_ERROR /
@@ -41,14 +50,30 @@ const RETRYABLE_CODES = new Set([
 // once.
 export function isRetryableLazyError(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false;
-  const e = err as { code?: unknown; retryable?: unknown; message?: unknown };
+  const e = err as {
+    code?: unknown;
+    retryable?: unknown;
+    message?: unknown;
+    name?: unknown;
+  };
   if (e.retryable === false) return false;
   if (e.retryable === true) return true;
   if (typeof e.code === 'string' && RETRYABLE_CODES.has(e.code)) return true;
-  return (
-    typeof e.message === 'string' &&
+  if (typeof e.name === 'string' && RETRYABLE_ERROR_NAMES.has(e.name)) {
+    return true;
+  }
+  if (typeof e.message !== 'string') return false;
+  if (
     e.message.includes('[SplitBundle]') &&
     e.message.includes('eval timed out')
+  ) {
+    return true;
+  }
+  return (
+    (e.message.includes('Loading chunk') &&
+      e.message.toLowerCase().includes('failed')) ||
+    e.message.includes('Failed to fetch dynamically imported module') ||
+    e.message.includes('Importing a module script failed')
   );
 }
 
@@ -164,24 +189,49 @@ function LazyLoad<T = Record<string, unknown>>(
 ) {
   const wrappedFactory =
     delayMs && delayMs > 0 ? () => delayImport(factory, delayMs) : factory;
+  let loadedModule: { default: ComponentType<T> } | undefined;
+  let loadingPromise:
+    | Promise<{
+        default: ComponentType<T>;
+      }>
+    | undefined;
+  const load = () => {
+    if (loadedModule) {
+      return Promise.resolve(loadedModule);
+    }
+    if (!loadingPromise) {
+      loadingPromise = wrappedFactory()
+        .then((module) => {
+          loadedModule = module;
+          return module;
+        })
+        .catch((err: Error) => {
+          loadingPromise = undefined;
+          NativeLogger.write(
+            LogLevel.Error,
+            `[LazyLoad] FAILED: ${err?.message || err}\n${err?.stack?.slice(0, 300) || ''}`,
+          );
+          throw err;
+        });
+    }
+    return loadingPromise;
+  };
   function LazyLoadContainer(props: T) {
     const [retryKey, setRetryKey] = useState(0);
+    // Cold-start instances must stay on the lazy element after it resolves;
+    // switching them to the direct component on later prop updates remounts the
+    // loaded subtree.
+    const renderLoadedModuleDirectlyRef = useRef(Boolean(loadedModule));
     const LazyLoadComponent = useMemo(
-      () =>
-        lazy(() =>
-          wrappedFactory().catch((err: Error) => {
-            NativeLogger.write(
-              LogLevel.Error,
-              `[LazyLoad] FAILED: ${err?.message || err}\n${err?.stack?.slice(0, 300) || ''}`,
-            );
-            throw err;
-          }),
-        ),
+      () => lazy(load),
       // regenerate a fresh lazy() object each retry — React caches the rejected
       // payload on the lazy object, so only a NEW object re-invokes the factory.
       // eslint-disable-next-line react-hooks/exhaustive-deps
       [retryKey],
     );
+    const LoadedComponent = renderLoadedModuleDirectlyRef.current
+      ? loadedModule?.default
+      : undefined;
     return (
       <LazyRetryBoundary
         maxRetries={MAX_LAZY_RETRIES}
@@ -193,12 +243,34 @@ function LazyLoad<T = Record<string, unknown>>(
               directly (TS can't prove `T` is a valid props object for the
               lazily-typed component); the cast is unavoidable and safe because
               `props` is exactly what the caller typed `LazyLoad<T>` with. */}
-          <LazyLoadComponent {...(props as any)} />
+          {LoadedComponent ? (
+            <LoadedComponent {...(props as any)} />
+          ) : (
+            <LazyLoadComponent {...(props as any)} />
+          )}
         </Suspense>
       </LazyRetryBoundary>
     );
   }
-  return memo(LazyLoadContainer);
+  return Object.assign(memo(LazyLoadContainer), {
+    preload: load,
+  });
+}
+
+export function createLazyModuleComponent<TProps, TModule>(
+  loadModule: () => Promise<TModule>,
+  getComponent: (module: TModule) => ComponentType<TProps>,
+) {
+  return LazyLoad<TProps>(async () => {
+    const module = await loadModule();
+    return { default: getComponent(module) };
+  });
+}
+
+export function preloadLazyComponents(
+  components: Array<{ preload: () => Promise<unknown> }>,
+) {
+  return Promise.all(components.map((component) => component.preload()));
 }
 
 export default LazyLoad;

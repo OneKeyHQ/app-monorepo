@@ -1,7 +1,14 @@
 import type { FC } from 'react';
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 
-import { NumberSizeableText, XStack, useThemeName } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  XStack,
+  useMedia,
+  useThemeName,
+} from '@onekeyhq/components';
+import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
+import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketTestIDs } from '../../../testIDs';
@@ -60,15 +67,39 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
   isDragging,
 }) => {
   const themeName = useThemeName();
+  const media = useMedia();
   const isDarkMode = themeName?.includes('dark');
   const isHighlighted = Boolean(isPrimed || (isDragging && isDarkMode));
+  const priceChange =
+    item.priceChangeRaw === '-' ? item.priceChangeRaw : item.change24h;
+  const preloadLayout =
+    media.gtLg && !platformEnv.isNative ? 'desktop' : 'mobile';
+
+  const prewarmTokenDetail = useCallback(() => {
+    void preloadMarketDetailV2Page({
+      includeBodyModules: true,
+      includeHeavyModules: true,
+      layout: preloadLayout,
+    });
+    prewarmMarketTokenImages(item);
+  }, [item, preloadLayout]);
+
+  const handlePressIn = useCallback(
+    (event: GestureResponderEvent) => {
+      prewarmTokenDetail();
+      onPressIn?.(event);
+    },
+    [onPressIn, prewarmTokenDetail],
+  );
+
   return (
     <XStack
       testID={MarketTestIDs.tokenListItem(item.symbol)}
       pressStyle={{ opacity: 0.8 }}
       onPress={onPress}
       onLongPress={onLongPress}
-      onPressIn={onPressIn}
+      onPressIn={handlePressIn}
+      onHoverIn={prewarmTokenDetail}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
       onPressOut={onPressOut}
@@ -108,7 +139,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
         >
           {item.price}
         </NumberSizeableText>
-        <PriceChangeBadge change={item.change24h} />
+        <PriceChangeBadge change={priceChange} />
       </XStack>
     </XStack>
   );

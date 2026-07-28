@@ -29,10 +29,10 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePrevious } from '../../hooks/usePrevious';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
-  useAccountSelectorActions,
   useAccountSelectorStorageReadyAtom,
   useActiveAccount,
 } from '../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector/actions';
 
 import type { GestureResponderEvent } from 'react-native';
 

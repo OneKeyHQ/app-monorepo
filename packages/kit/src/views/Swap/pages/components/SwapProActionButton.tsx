@@ -3,7 +3,12 @@ import { useCallback, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  NumberSizeableText,
+  SizableText,
+  YStack,
+} from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { useDebouncedCallback } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
@@ -20,8 +25,10 @@ import {
   useSwapSelectToTokenAtom,
   useSwapSpeedQuoteFetchingAtom,
   useSwapSpeedQuoteResultAtom,
+  useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { isSwapQuoteInputAmountMatched } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
@@ -39,9 +46,8 @@ import {
   useSwapQuoteProgressState,
   useSwapZeroProviderQuoteCompleted,
 } from '../../hooks/useSwapState';
+import { ESwapProAccountStatus } from '../../utils/swapProAccountUtils';
 import { isSelectedProStockMarketClosed } from '../../utils/swapProStockMarketClosed';
-
-const MAX_BUTTON_CHARS = 25;
 
 /**
  * Format value with compact notation (k, M, B, T)
@@ -69,75 +75,6 @@ const formatCompactValue = (value: string, currencySymbol: string): string => {
   }
 
   return `(${currencySymbol}${formatted})`;
-};
-
-/**
- * Format amount within character limit
- * Rules:
- * 1. Display as much as possible within the character limit
- * 2. Use rounding for truncation
- * 3. Special cases (may exceed limit, accept line break):
- *    - At least 1 significant digit must be shown (e.g., 0.00000001)
- *    - At least 4 decimal places if the number has decimals
- */
-const formatAmountWithLimit = (amount: string, maxChars: number): string => {
-  if (!amount) return '';
-
-  const amountBN = new BigNumber(amount);
-  if (amountBN.isNaN() || amountBN.isZero()) {
-    return '';
-  }
-
-  // Get full precision string
-  const fullPrecision = amountBN.toFixed();
-
-  // If full precision fits, return it
-  if (fullPrecision.length <= maxChars) {
-    return fullPrecision;
-  }
-
-  // Check if original number has decimals
-  const hasDecimal = !amountBN.isInteger();
-
-  // Calculate minimum required decimals
-  let minDecimals = 0;
-
-  if (amountBN.lt(1) && amountBN.gt(0)) {
-    // For numbers < 1, find first significant digit position
-    const decimalPart = fullPrecision.split('.')[1] || '';
-    let significantDecimalPos = decimalPart.length;
-
-    for (let i = 0; i < decimalPart.length; i += 1) {
-      if (decimalPart[i] !== '0') {
-        significantDecimalPos = i + 1;
-        break;
-      }
-    }
-
-    // At least show first significant digit, and at least 4 decimals
-    minDecimals = Math.max(4, significantDecimalPos);
-  } else if (hasDecimal) {
-    // For numbers >= 1 with decimals, at least 4 decimals
-    minDecimals = 4;
-  }
-
-  // Calculate available decimals based on character limit
-  const integerPartStr = amountBN.integerValue(BigNumber.ROUND_DOWN).toFixed();
-  // Available for decimals = maxChars - integerPart.length - 1 (for the dot)
-  const maxAvailableDecimals = maxChars - integerPartStr.length - 1;
-
-  // Determine final decimals to use
-  // If maxAvailable >= min, use maxAvailable to show as much as possible
-  // If maxAvailable < min, use min (accept line break)
-  const finalDecimals =
-    maxAvailableDecimals >= minDecimals ? maxAvailableDecimals : minDecimals;
-
-  if (finalDecimals > 0 && hasDecimal) {
-    return amountBN.toFixed(finalDecimals, BigNumber.ROUND_HALF_UP);
-  }
-
-  // No decimals
-  return integerPartStr;
 };
 
 interface ISwapProActionButtonProps {
@@ -169,13 +106,15 @@ const SwapProActionButton = ({
   const [swapQuoteResult] = useSwapQuoteCurrentSelectAtom();
   const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
   const swapProAccount = useSwapProAccount();
-  const { isWaitingActionableQuote } = useSwapQuoteProgressState();
+  const { isWaitingActionableQuote, hasPreviousActionableQuote } =
+    useSwapQuoteProgressState();
   const isZeroProviderQuoteCompleted = useSwapZeroProviderQuoteCompleted();
   const currencyInfo = useCurrency();
   const [quoteFetching] = useSwapSpeedQuoteFetchingAtom();
   const [swapProInputAmount] = useSwapProInputAmountAtom();
   const [limitPriceUseRate] = useSwapLimitPriceUseRateAtom();
   const [swapFromInputAmount] = useSwapFromTokenAmountAtom();
+  const [toTokenAmount] = useSwapToTokenAmountAtom();
   const inputToken = useSwapProInputToken();
   const toToken = useSwapProToToken();
   const inputAmount = useMemo(() => {
@@ -188,14 +127,18 @@ const SwapProActionButton = ({
     if (swapProTradeType === ESwapProTradeType.MARKET) {
       return swapProQuoteResult?.toAmount || '0';
     }
-    // For limit order, calculate toAmount based on limitPriceUseRate
-    if (
-      swapProTradeType === ESwapProTradeType.LIMIT &&
-      limitPriceUseRate?.rate
-    ) {
-      const inputAmountBN = new BigNumber(swapFromInputAmount.value || '0');
-      if (!inputAmountBN.isNaN() && !inputAmountBN.isZero()) {
-        return inputAmountBN.multipliedBy(limitPriceUseRate.rate).toFixed();
+    if (swapProTradeType === ESwapProTradeType.LIMIT) {
+      // Single source with the Est. Receive row (synced from the computed
+      // limit to-amount atom), so the button can never disagree with it.
+      if (toTokenAmount.value) {
+        return toTokenAmount.value;
+      }
+      // Fallback while the sync hasn't landed yet.
+      if (limitPriceUseRate?.rate) {
+        const inputAmountBN = new BigNumber(swapFromInputAmount.value || '0');
+        if (!inputAmountBN.isNaN() && !inputAmountBN.isZero()) {
+          return inputAmountBN.multipliedBy(limitPriceUseRate.rate).toFixed();
+        }
       }
     }
     return swapQuoteResult?.toAmount || '0';
@@ -203,75 +146,27 @@ const SwapProActionButton = ({
     swapProTradeType,
     swapQuoteResult?.toAmount,
     swapProQuoteResult?.toAmount,
+    toTokenAmount.value,
     limitPriceUseRate?.rate,
     swapFromInputAmount.value,
   ]);
 
+  // The parenthesized fiat value is always what the user PAYS (input amount ×
+  // pay-token market price). A limit-derived receive quantity priced at the
+  // market unit price would mix two price systems into a meaningless number.
   const inputTokenValue = useMemo(() => {
     const inputPrice = new BigNumber(inputToken?.price || '0');
-    const toPrice = new BigNumber(toToken?.price || '0');
-    if (swapProDirection === ESwapDirection.BUY) {
-      if (toPrice.isZero() || toPrice.isNaN()) {
-        return '';
-      }
-      // For limit order, calculate toAmount based on limitPriceUseRate
-      if (
-        swapProTradeType === ESwapProTradeType.LIMIT &&
-        limitPriceUseRate?.rate
-      ) {
-        const inputFromAmountBN = new BigNumber(
-          swapFromInputAmount.value || '0',
-        );
-        if (inputFromAmountBN.isNaN() || inputFromAmountBN.isZero()) {
-          return '';
-        }
-        const limitToAmount = inputFromAmountBN.multipliedBy(
-          limitPriceUseRate.rate,
-        );
-        return limitToAmount.multipliedBy(toPrice).toFixed();
-      }
-      const quoteToAmountBN = new BigNumber(quoteToAmount || '0');
-      if (quoteToAmountBN.isNaN() || quoteToAmountBN.isZero()) {
-        return '';
-      }
-      return quoteToAmountBN.multipliedBy(toPrice).toFixed();
-    }
-    // For limit order SELL direction - use limitPriceUseRate to calculate value
+    const inputAmountBN = new BigNumber(inputAmount || '0');
     if (
-      swapProTradeType === ESwapProTradeType.LIMIT &&
-      limitPriceUseRate?.rate
+      inputPrice.isNaN() ||
+      inputPrice.lte(0) ||
+      inputAmountBN.isNaN() ||
+      inputAmountBN.lte(0)
     ) {
-      if (toPrice.isZero() || toPrice.isNaN()) {
-        return '';
-      }
-      const inputFromAmountBN = new BigNumber(swapFromInputAmount.value || '0');
-      if (inputFromAmountBN.isNaN() || inputFromAmountBN.isZero()) {
-        return '';
-      }
-      const limitToAmount = inputFromAmountBN.multipliedBy(
-        limitPriceUseRate.rate,
-      );
-      return limitToAmount.multipliedBy(toPrice).toFixed();
-    }
-    // For market order SELL direction
-    if (inputPrice.isNaN() || inputPrice.isZero()) {
       return '';
     }
-    const inputProAmountBN = new BigNumber(inputAmount || '0');
-    if (inputProAmountBN.isNaN() || inputProAmountBN.isZero()) {
-      return '';
-    }
-    return inputPrice.multipliedBy(inputProAmountBN).toFixed();
-  }, [
-    inputToken?.price,
-    toToken?.price,
-    swapProDirection,
-    swapProTradeType,
-    swapFromInputAmount.value,
-    quoteToAmount,
-    inputAmount,
-    limitPriceUseRate?.rate,
-  ]);
+    return inputPrice.multipliedBy(inputAmountBN).toFixed();
+  }, [inputToken?.price, inputAmount]);
 
   const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
   const { selectToToken, selectFromToken } = useSwapActions().current;
@@ -409,16 +304,22 @@ const SwapProActionButton = ({
 
     if (!hasEnoughBalance) {
       return {
-        resValue: intl.formatMessage({
+        plainText: intl.formatMessage({
           id: ETranslations.swap_page_button_insufficient_balance,
         }),
         subValue: '',
       };
     }
 
-    if (!swapProAccount?.result?.addressDetail.address) {
+    // Only truly missing/unsupported accounts read as "Select wallet"; a
+    // connected account still resolving (PENDING) is covered by the loading
+    // spinner instead of flashing this label on every panel mount.
+    if (
+      !swapProAccount?.result?.addressDetail.address &&
+      swapProAccount?.accountStatus !== ESwapProAccountStatus.PENDING
+    ) {
       return {
-        resValue: intl.formatMessage({
+        plainText: intl.formatMessage({
           id: ETranslations.global_select_wallet,
         }),
         subValue: '',
@@ -427,7 +328,7 @@ const SwapProActionButton = ({
 
     if (shouldShowNoProviderSupport) {
       return {
-        resValue: intl.formatMessage({
+        plainText: intl.formatMessage({
           id: ETranslations.swap_page_alert_no_provider_supports_trade,
         }),
         subValue: '',
@@ -438,19 +339,6 @@ const SwapProActionButton = ({
       ? formatCompactValue(inputTokenValue, currencySymbol)
       : '';
 
-    // Calculate fixed parts length
-    // Format: "{direction} {amount} {symbol} {value}"
-    // Fixed length = direction + space + symbol + (space + value if exists)
-    const fixedLength =
-      directionText.length +
-      1 +
-      tokenSymbol.length +
-      (formattedValue ? 1 + formattedValue.length : 0);
-
-    // Available characters for amount (subtract 1 for space before symbol)
-    const availableForAmount = MAX_BUTTON_CHARS - fixedLength - 1;
-
-    // Format amount within limit
     let amountFromDirection = '';
     if (swapProDirection === ESwapDirection.BUY) {
       amountFromDirection = quoteToAmount || '';
@@ -458,16 +346,16 @@ const SwapProActionButton = ({
       amountFromDirection = inputAmount || '';
     }
 
-    const formattedAmount = formatAmountWithLimit(
-      amountFromDirection,
-      availableForAmount,
-    );
-    const resValue = `${directionText} ${formattedAmount} ${tokenSymbol}`;
-    const subValue = formattedValue;
-    // Build final text
+    const amountBN = new BigNumber(amountFromDirection || '0');
     return {
-      resValue,
-      subValue,
+      directionText,
+      // Rendered via NumberSizeableText so tiny amounts keep the
+      // leading-zero subscript (0.0₅157) and >= 1M amounts abbreviate to
+      // K/M/B — matching the Est. Receive row and staying one line.
+      amountValue:
+        !amountBN.isNaN() && amountBN.gt(0) ? amountBN.toFixed() : '',
+      tokenSymbol,
+      subValue: formattedValue,
     };
   }, [
     intl,
@@ -476,6 +364,7 @@ const SwapProActionButton = ({
     currencyInfo?.symbol,
     hasEnoughBalance,
     swapProAccount?.result?.addressDetail.address,
+    swapProAccount?.accountStatus,
     shouldShowNoProviderSupport,
     inputTokenValue,
     toToken?.symbol,
@@ -488,31 +377,87 @@ const SwapProActionButton = ({
   // accent variant labels use $textInverse, destructive uses $textOnColor;
   // childrenAsText is false, so the label color must be set explicitly.
   const labelColor = isBuy ? '$textInverse' : '$textOnColor';
+  // The current quote must belong to the typed amount (kind-aware: BUY-kind
+  // quotes match on toAmount). An unmatched or missing quote means the next
+  // one is still on its way — the debounce window before it fires, the
+  // one-frame gap after the old quote is cleaned, or the initial wait — so
+  // show only the spinner (no stale label) instead of a broken-looking
+  // locked button.
+  const isQuoteAmountMatched = isSwapQuoteInputAmountMatched({
+    quote: currentQuoteRes,
+    fromAmount: inputAmount,
+    toAmount: toTokenAmount.value,
+  });
+  // Zero/invalid amounts never produce a quote, and without speed-swap
+  // support the button is a jump-to-Swap CTA — neither may spin forever.
+  // LIMIT interval refreshes keep the previous quote's label instead of
+  // blanking to a spinner on every cycle (previous-quote state belongs to
+  // the standard quote stream, so it only applies to LIMIT).
+  const inputAmountBN = new BigNumber(inputAmount || '0');
+  const hasPositiveInputAmount = !inputAmountBN.isNaN() && inputAmountBN.gt(0);
+  const isQuoting =
+    supportSpeedSwap &&
+    hasPositiveInputAmount &&
+    hasEnoughBalance &&
+    !shouldShowNoProviderSupport &&
+    (currentQuoteLoading || !isQuoteAmountMatched) &&
+    !(
+      swapProTradeType === ESwapProTradeType.LIMIT && hasPreviousActionableQuote
+    );
+  // A connected account still resolving shows the spinner too, so panel
+  // mounts don't flash "Select wallet" before the account lands.
+  const isAccountPending =
+    swapProAccount?.accountStatus === ESwapProAccountStatus.PENDING;
+  const showButtonLoading = isQuoting || isAccountPending;
 
   return (
     <Button
       testID="swap-sub-value-btn"
       disabled={actionButtonDisabled}
+      loading={showButtonLoading}
       onPress={debouncedOnSwapProActionClick}
       variant={isBuy ? 'accent' : 'destructive'}
       size="small"
       childrenAsText={false}
       py={5}
     >
-      <YStack alignItems="center">
-        <SizableText size="$bodyMdMedium" color={labelColor} textAlign="center">
-          {actionButtonText.resValue}
-        </SizableText>
-        {actionButtonText.subValue ? (
+      {showButtonLoading ? null : (
+        <YStack alignItems="center">
           <SizableText
             size="$bodyMdMedium"
             color={labelColor}
             textAlign="center"
           >
-            {actionButtonText.subValue}
+            {actionButtonText.plainText || (
+              <>
+                {`${actionButtonText.directionText ?? ''} `}
+                {actionButtonText.amountValue ? (
+                  <>
+                    <NumberSizeableText
+                      size="$bodyMdMedium"
+                      color={labelColor}
+                      autoFormatter="balance-marketCap"
+                      subTextStyle={{ color: labelColor }}
+                    >
+                      {actionButtonText.amountValue}
+                    </NumberSizeableText>{' '}
+                  </>
+                ) : null}
+                {actionButtonText.tokenSymbol}
+              </>
+            )}
           </SizableText>
-        ) : null}
-      </YStack>
+          {actionButtonText.subValue ? (
+            <SizableText
+              size="$bodyMdMedium"
+              color={labelColor}
+              textAlign="center"
+            >
+              {actionButtonText.subValue}
+            </SizableText>
+          ) : null}
+        </YStack>
+      )}
     </Button>
   );
 };

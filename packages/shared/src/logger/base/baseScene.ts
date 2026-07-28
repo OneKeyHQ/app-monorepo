@@ -1,6 +1,6 @@
 import { formatTime } from '../../utils/dateUtils';
 
-import { LogToConsole, LogToServer } from './decorators';
+import { LogToConsole } from './decorators';
 import { logFn } from './logFn';
 
 import type { IMethodDecoratorMetadata } from '../types';
@@ -76,13 +76,6 @@ export abstract class BaseScene {
   ignoreDurationBegin() {
     this.lastTimestamp = Date.now();
     return [];
-  }
-
-  @LogToServer()
-  registerRid(rid: string) {
-    return {
-      jpush_rid: rid,
-    };
   }
 
   @LogToConsole()

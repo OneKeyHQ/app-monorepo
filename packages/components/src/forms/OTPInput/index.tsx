@@ -29,6 +29,7 @@ export function OTPInput(
     ...rest
   } = props;
   const theme = useTheme();
+  const errorBorderColor = theme.borderCritical.val;
   const [innerStatus, setInnerStatus] = useState<'error' | 'normal'>(status);
   const ref = useRef<IOtpInputRef>(null);
   const shouldReloadAutoFocus = useMemo(
@@ -94,7 +95,7 @@ export function OTPInput(
         height: 50,
         borderWidth: 1,
         borderColor:
-          innerStatus === 'error' ? theme.red9.val : theme.neutral7.val,
+          innerStatus === 'error' ? errorBorderColor : theme.neutral7.val,
       },
       filledPinCodeContainerStyle: {
         borderWidth: 2,
@@ -103,13 +104,13 @@ export function OTPInput(
       focusedPinCodeContainerStyle: {
         borderWidth: 2,
         borderColor:
-          innerStatus === 'error' ? theme.red9.val : theme.borderActive.val,
+          innerStatus === 'error' ? errorBorderColor : theme.borderActive.val,
       },
     }),
     [
       innerStatus,
       theme.text.val,
-      theme.red9.val,
+      errorBorderColor,
       theme.neutral7.val,
       theme.gray2.val,
       theme.borderActive.val,

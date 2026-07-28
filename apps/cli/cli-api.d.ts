@@ -40,13 +40,13 @@ export interface BalanceInput {
 export interface BalanceOutput {
   address: string;
   chain: string;
-  tokens: ({
+  tokens: {
     symbol: string;
     balance: string;
     contractAddress: string;
     fiatValue: string | null;
     isNative: boolean;
-  })[];
+  }[];
 }
 
 /** Send native or ERC-20 tokens */
@@ -101,7 +101,7 @@ export interface SignOutput {
 
 /** Show the active Bot Wallet address */
 export interface GetAddressInput {
-  format?: "json" | "text";
+  format?: 'json' | 'text';
 }
 
 export interface GetAddressOutput {
@@ -117,28 +117,34 @@ export interface AuthLoginInput {
   /** Target hardware device UUID (from `onekey device search`). Required when multiple devices are connected. Only valid with --hardware. */
   deviceId?: string;
   /** Hardware passphrase mode. Required in non-interactive mode when device passphrase protection is enabled. */
-  passphraseMode?: "none" | "on_host" | "on_device";
+  passphraseMode?: 'none' | 'on_host' | 'on_device';
   /** CLI Bot Wallet payload JSON or base64-encoded JSON */
   payload?: string;
 }
 
 export interface AuthLoginOutput {
-  auth_status: "authenticated";
-  login_method: "app_transfer" | "hardware";
+  auth_status: 'authenticated';
+  login_method: 'app_transfer' | 'hardware';
   source_label: string | null;
   display_address: string | null;
-  storage_backend: "macos-keychain" | "linux-secret-service" | "windows-credential-manager";
+  storage_backend:
+    | 'macos-keychain'
+    | 'linux-secret-service'
+    | 'windows-credential-manager';
 }
 
 /** Show the current auth session */
 export interface AuthStatusInput {}
 
 export interface AuthStatusOutput {
-  authStatus: "authenticated" | "unauthenticated";
+  authStatus: 'authenticated' | 'unauthenticated';
   hasSecrets: boolean;
-  storageBackend: "macos-keychain" | "linux-secret-service" | "windows-credential-manager";
-  loginMethod: "app_transfer" | "hardware" | null;
-  walletKind: "hd" | "hw" | null;
+  storageBackend:
+    | 'macos-keychain'
+    | 'linux-secret-service'
+    | 'windows-credential-manager';
+  loginMethod: 'app_transfer' | 'hardware' | null;
+  walletKind: 'hd' | 'hw' | null;
   sourceLabel: string | null;
   displayAddress: string | null;
   importedAt: string | null;
@@ -147,15 +153,15 @@ export interface AuthStatusOutput {
     deviceId: string;
     deviceLabel: string;
   } | null;
-  passphraseMode: "none" | "on_host" | "on_device" | null;
+  passphraseMode: 'none' | 'on_host' | 'on_device' | null;
 }
 
 /** Log out of the current auth session */
 export interface AuthLogoutInput {}
 
 export interface AuthLogoutOutput {
-  status: "logged_out" | "already_logged_out" | "cancelled";
-  authStatus: "authenticated" | "unauthenticated";
+  status: 'logged_out' | 'already_logged_out' | 'cancelled';
+  authStatus: 'authenticated' | 'unauthenticated';
   changed: boolean;
   sourceLabel: string | null;
   displayAddress: string | null;
@@ -169,7 +175,7 @@ export interface HistoryInput {
   detail?: boolean;
 }
 
-export type HistoryOutput = ({
+export type HistoryOutput = {
   txHash: string;
   type: string;
   status: string;
@@ -198,7 +204,7 @@ export type HistoryOutput = ({
   networkName?: string;
   label?: string;
   contractAddress?: string | null;
-})[]
+}[];
 
 /** Search tokens by keyword, symbol, or address */
 export interface TokenSearchInput {
@@ -210,7 +216,7 @@ export interface TokenSearchInput {
   limit?: number;
 }
 
-export type TokenSearchOutput = ({
+export type TokenSearchOutput = {
   contractAddress: string;
   symbol: string;
   name: string | null;
@@ -222,7 +228,7 @@ export type TokenSearchOutput = ({
   liquidity: string | null;
   marketCap: string | null;
   communityRecognized: boolean;
-})[]
+}[];
 
 /** Detailed token metadata and market data */
 export interface TokenInfoInput {
@@ -287,7 +293,7 @@ export interface TokenTrendingInput {
   limit?: number;
 }
 
-export type TokenTrendingOutput = ({
+export type TokenTrendingOutput = {
   symbol: string;
   name: string | null;
   contractAddress: string;
@@ -298,7 +304,7 @@ export type TokenTrendingOutput = ({
   logoUrl: string | null;
   isNative: boolean;
   communityRecognized: boolean;
-})[]
+}[];
 
 /** Buy/sell activity and volume stats by timeframe */
 export interface TokenTradesInput {
@@ -369,12 +375,12 @@ export interface TokenLiquidityInput {
   token: string;
 }
 
-export type TokenLiquidityOutput = ({
+export type TokenLiquidityOutput = {
   accountAddress: string;
   amount: string;
   fiatValue: string;
   percentage: string | null;
-})[]
+}[];
 
 /** Get single token price from market data */
 export interface MarketPriceInput {
@@ -402,13 +408,13 @@ export interface MarketPricesInput {
   tokens: string;
 }
 
-export type MarketPricesOutput = ({
+export type MarketPricesOutput = {
   symbol: string;
   contractAddress: string;
   networkId: string;
   price: string | null;
   priceChange24hPercent: string | null;
-})[]
+}[];
 
 /** Candlestick OHLCV data */
 export interface MarketKlineInput {
@@ -435,7 +441,7 @@ export type MarketKlineOutput = {
   v: number;
   /** Timestamp (seconds) */
   t: number;
-}[]
+}[];
 
 /** Get real-time swap quotes (read-only, not commitment) */
 export interface SwapQuoteInput {
@@ -458,7 +464,7 @@ export interface SwapQuoteInput {
 }
 
 export interface SwapQuoteOutput {
-  quotes: ({
+  quotes: {
     provider: string;
     providerName: string;
     toAmount: string | null;
@@ -476,10 +482,10 @@ export interface SwapQuoteOutput {
       amount: string;
       shouldResetApprove?: boolean;
     } | null;
-  })[];
+  }[];
   security: {
     blocked: boolean;
-    overallRisk: "high" | "caution" | "low" | "unknown";
+    overallRisk: 'high' | 'caution' | 'low' | 'unknown';
     riskItems: string[];
     cautionItems: string[];
     checks: { [key: string]: unknown };
@@ -554,35 +560,37 @@ export interface SwapExecuteInput {
   /** Order ID from swap build */
   order: string;
   /** BTC source address type */
-  fromAddressType?: "taproot" | "native-segwit" | "nested-segwit" | "legacy";
+  fromAddressType?: 'taproot' | 'native-segwit' | 'nested-segwit' | 'legacy';
   /** BTC only: sign the PSBT without broadcasting */
   signOnly?: boolean;
   /** Approve unlimited allowance */
   approveUnlimited?: boolean;
 }
 
-export type SwapExecuteOutput = {
-  orderId: string;
-  status: "executed";
-  txHash: string;
-  approveTxHash?: string;
-  chain: string;
-  from: string;
-  to: string;
-  amount: string;
-  message: string;
-} | {
-  orderId: string;
-  status: "signed";
-  chain: string;
-  from: string;
-  to: string;
-  amount: string;
-  rawTx: string;
-  psbtHex: string | null;
-  finalizedPsbtHex: string | null;
-  message: string;
-}
+export type SwapExecuteOutput =
+  | {
+      orderId: string;
+      status: 'executed';
+      txHash: string;
+      approveTxHash?: string;
+      chain: string;
+      from: string;
+      to: string;
+      amount: string;
+      message: string;
+    }
+  | {
+      orderId: string;
+      status: 'signed';
+      chain: string;
+      from: string;
+      to: string;
+      amount: string;
+      rawTx: string;
+      psbtHex: string | null;
+      finalizedPsbtHex: string | null;
+      message: string;
+    };
 
 /** Query swap order or transaction status */
 export interface SwapStatusInput {
@@ -624,12 +632,12 @@ export type SwapNetworksOutput = {
   supportSingleSwap: boolean;
   supportCrossChainSwap: boolean;
   supportLimit: boolean;
-}[]
+}[];
 
 /** Local swap order history */
 export interface SwapHistoryInput {}
 
-export type SwapHistoryOutput = ({
+export type SwapHistoryOutput = {
   orderId: string;
   status: string;
   chain: string;
@@ -640,7 +648,7 @@ export type SwapHistoryOutput = ({
   provider: string | null;
   createdAt: number;
   updatedAt: number;
-})[]
+}[];
 
 /** Token risk assessment — returns overall risk level with item breakdown */
 export interface SecurityAuditInput {
@@ -654,7 +662,7 @@ export interface SecurityAuditOutput {
   symbol: string;
   contractAddress: string;
   networkId: string;
-  overallRisk: "high" | "caution" | "low";
+  overallRisk: 'high' | 'caution' | 'low';
   riskItems: string[];
   cautionItems: string[];
   checks: { [key: string]: unknown };

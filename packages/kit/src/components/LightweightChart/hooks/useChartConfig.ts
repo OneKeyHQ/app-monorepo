@@ -35,6 +35,7 @@ interface IUseChartConfigProps {
   showLastValue?: boolean;
   showLastPointMarker?: boolean;
   showTimeScale?: boolean;
+  useTimeScaleTickMarkWithoutUnit?: boolean;
 }
 
 export function useChartConfig({
@@ -59,6 +60,7 @@ export function useChartConfig({
   showLastValue,
   showLastPointMarker,
   showTimeScale = true,
+  useTimeScaleTickMarkWithoutUnit,
 }: IUseChartConfigProps): ILightweightChartConfig {
   const theme = useTheme();
   const resolvedSeriesType = seriesType ?? 'area';
@@ -109,6 +111,7 @@ export function useChartConfig({
       showLastValue,
       showLastPointMarker,
       showTimeScale,
+      useTimeScaleTickMarkWithoutUnit,
     }),
     [
       data,
@@ -135,6 +138,7 @@ export function useChartConfig({
       showLastValue,
       showLastPointMarker,
       showTimeScale,
+      useTimeScaleTickMarkWithoutUnit,
     ],
   );
 }

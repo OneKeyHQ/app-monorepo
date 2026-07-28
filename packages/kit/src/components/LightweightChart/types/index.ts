@@ -43,6 +43,7 @@ export interface ILightweightChartConfig {
   showLastValue?: boolean;
   showLastPointMarker?: boolean;
   showTimeScale?: boolean;
+  useTimeScaleTickMarkWithoutUnit?: boolean;
 }
 
 export interface ILightweightChartProps {
@@ -60,6 +61,9 @@ export interface ILightweightChartProps {
   showHorzGridLines?: boolean;
   priceScaleMargins?: { top: number; bottom: number };
   priceScaleEntireTextOnly?: boolean;
+  // Web/desktop only. Reserve the axis before labels are measured so the plot
+  // width does not shift during the first chart paint.
+  priceScaleMinimumWidth?: number;
   priceFormatter?: (price: number) => string;
   priceFormatterTickStep?: number;
   fontSize?: number;
@@ -68,10 +72,14 @@ export interface ILightweightChartProps {
   showLastValue?: boolean;
   showLastPointMarker?: boolean;
   showTimeScale?: boolean;
+  useTimeScaleTickMarkWithoutUnit?: boolean;
   // When true, overlays an animated "breathing" dot on the last data point to
   // signal the chart is live. Web/desktop only; toggling it does not recreate
   // the chart.
   pulseLastPoint?: boolean;
+  // Web/desktop only. Keep the chart instance alive when only data changes,
+  // then update series data in place to avoid axis/marker flicker.
+  preserveChartInstanceOnDataChange?: boolean;
   onHover?: (data: {
     time?: number;
     price?: number;

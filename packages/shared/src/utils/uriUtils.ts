@@ -1,5 +1,6 @@
 import { toASCII, toUnicode } from 'punycode/';
-import validator from 'validator';
+import isIP from 'validator/lib/isIP';
+import isURL from 'validator/lib/isURL';
 
 import type { IUrlValue } from '@onekeyhq/shared/types/uri';
 
@@ -33,7 +34,7 @@ type ILocalhostUrlOptions = {
 };
 
 function parseIpv4Address(ipAddress: string): number[] | null {
-  if (!validator.isIP(ipAddress, 4)) {
+  if (!isIP(ipAddress, 4)) {
     return null;
   }
 
@@ -79,7 +80,7 @@ function isPublicIpv4Address(ipAddress: string): boolean {
 }
 
 function parseIpv6Address(ipAddress: string): number[] | null {
-  if (!validator.isIP(ipAddress, 6)) {
+  if (!isIP(ipAddress, 6)) {
     return null;
   }
 
@@ -220,7 +221,7 @@ function isLocalhostOrPrivateIpParsedUrl(parsedUrl: URL | null) {
   const result = Boolean(
     hostname &&
     (LOCALHOST_URL_HOSTNAMES.has(hostname) ||
-      (validator.isIP(hostname) && !isPublicIpAddress(hostname))),
+      (isIP(hostname) && !isPublicIpAddress(hostname))),
   );
   return result;
 }
@@ -312,7 +313,7 @@ export function isIpAddressUrl(url: string): boolean {
   if (!text) return false;
 
   const hostname = getHostnameFromUrlLikeText(text);
-  const result = Boolean(hostname && validator.isIP(hostname));
+  const result = Boolean(hostname && isIP(hostname));
   return result;
 }
 
@@ -333,7 +334,7 @@ export function isLocalhostOrPrivateIpUrl(url: string): boolean {
   const result = Boolean(
     hostname &&
     (LOCALHOST_URL_HOSTNAMES.has(hostname) ||
-      (validator.isIP(hostname) && !isPublicIpAddress(hostname))),
+      (isIP(hostname) && !isPublicIpAddress(hostname))),
   );
   return result;
 }
@@ -641,14 +642,14 @@ export const validateUrl = (
     )
       ? normalizedPublicIpAddressUrl
       : `http://${normalizedPublicIpAddressUrl}`;
-    if (validator.isURL(httpUrl, { protocols: ['http'] })) {
+    if (isURL(httpUrl, { protocols: ['http'] })) {
       return httpUrl;
     }
   }
 
   // Try to validate with HTTPS protocol
   const httpsUrl = `https://${urlWithoutProtocol}`;
-  if (validator.isURL(httpsUrl, { protocols: ['https'] })) {
+  if (isURL(httpsUrl, { protocols: ['https'] })) {
     return httpsUrl;
   }
 

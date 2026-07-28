@@ -6,9 +6,9 @@ import { useNavigation } from '@react-navigation/native';
 import { get, isString } from 'lodash';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
-import { Linking, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
-import type { IPageScreenProps, IYStackProps } from '@onekeyhq/components';
+import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -27,9 +27,7 @@ import {
   YStack,
   useMedia,
   usePopoverContext,
-  useThemeName,
 } from '@onekeyhq/components';
-import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -61,7 +59,9 @@ import {
   HwWalletAvatarImages,
   getDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
+import { MOCK_PRO2_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/devicePro2Mock';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EAccountSelectorSceneName,
@@ -92,6 +92,9 @@ import {
   getForceTransportType,
   sortDevicesData,
 } from '../utils';
+
+import { ConnectionIndicator } from './ConnectionIndicator';
+import { Pro2MockEntryButton } from './deviceSetupPro2Mock';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ReactVideoSource } from 'react-native-video';
@@ -274,7 +277,7 @@ function useDeviceConnection({
               onConfirmText: intl.formatMessage({
                 id: ETranslations.global_download_and_install,
               }),
-              onConfirm: () => Linking.openURL(HARDWARE_BRIDGE_DOWNLOAD_URL),
+              onConfirm: () => openUrlExternal(HARDWARE_BRIDGE_DOWNLOAD_URL),
             });
 
             deviceScanner.stopScan();
@@ -394,84 +397,6 @@ function useDeviceConnection({
   );
 }
 
-function ConnectionIndicatorCard({ children }: { children: React.ReactNode }) {
-  return (
-    <YStack
-      borderRadius={10}
-      borderCurve="continuous"
-      $platform-web={{
-        boxShadow: '0 1px 1px 0 rgba(0, 0, 0, 0.20)',
-      }}
-      // $platform-android={{ elevation: 0.1 }}
-      $platform-ios={{
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 0.5 },
-        shadowOpacity: 0.2,
-        shadowRadius: 0.5,
-      }}
-      bg="$bg"
-    >
-      {children}
-    </YStack>
-  );
-}
-
-function ConnectionIndicatorAnimation({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <YStack
-      h={320}
-      alignItems="center"
-      justifyContent="center"
-      overflow="hidden"
-    >
-      {children}
-    </YStack>
-  );
-}
-
-function ConnectionIndicatorContent({
-  children,
-  ...rest
-}: {
-  children: React.ReactNode;
-} & IYStackProps) {
-  return (
-    <YStack
-      px="$5"
-      py="$4"
-      borderWidth={0}
-      borderTopWidth={StyleSheet.hairlineWidth}
-      borderTopColor="$borderSubdued"
-      $platform-web={{
-        borderStyle: 'dashed',
-      }}
-      {...rest}
-    >
-      {children}
-    </YStack>
-  );
-}
-
-function ConnectionIndicatorTitle({ children }: { children: React.ReactNode }) {
-  return <SizableText size="$bodyMdMedium">{children}</SizableText>;
-}
-
-function ConnectionIndicatorFooter({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <YStack pt="$5" pb="$2" gap="$2">
-      {children}
-    </YStack>
-  );
-}
-
 function TroubleShootingButton({ type: _type }: { type: 'usb' | 'bluetooth' }) {
   const [showHelper, setShowHelper] = useState(false);
   const intl = useIntl();
@@ -518,7 +443,7 @@ function TroubleShootingButton({ type: _type }: { type: 'usb' | 'bluetooth' }) {
               testID={OnboardingTestIDs.connectYourDeviceTroubleshootingBtn}
               icon="OpenOutline"
               onPress={() => {
-                void Linking.openURL(HARDWARE_TROUBLESHOOTING_URL);
+                openUrlExternal(HARDWARE_TROUBLESHOOTING_URL);
               }}
             >
               {intl.formatMessage({ id: ETranslations.self_troubleshooting })}
@@ -538,46 +463,6 @@ function TroubleShootingButton({ type: _type }: { type: 'usb' | 'bluetooth' }) {
     </>
   );
 }
-
-function ConnectionIndicatorRoot({ children }: { children: React.ReactNode }) {
-  return (
-    <YStack
-      $platform-web={{
-        boxShadow:
-          '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
-      }}
-      $theme-dark={{
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: '$neutral3',
-        bg: '$neutral4',
-      }}
-      $platform-native={{
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: '$neutral4',
-      }}
-      overflow="hidden"
-      borderRadius={10}
-      borderCurve="continuous"
-      bg="$bgSubdued"
-      animation="quick"
-      animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-      enterStyle={{
-        opacity: 0,
-        x: 24,
-      }}
-    >
-      {children}
-    </YStack>
-  );
-}
-
-export const ConnectionIndicator = Object.assign(ConnectionIndicatorRoot, {
-  Animation: ConnectionIndicatorAnimation,
-  Card: ConnectionIndicatorCard,
-  Content: ConnectionIndicatorContent,
-  Title: ConnectionIndicatorTitle,
-  Footer: ConnectionIndicatorFooter,
-});
 
 function BluetoothCard({
   onConnect,
@@ -660,13 +545,14 @@ function BluetoothCard({
   );
 }
 
-function DeviceVideo({
-  themeVariant,
-  deviceTypeItems,
-}: {
-  themeVariant: 'light' | 'dark';
-  deviceTypeItems: EDeviceType[];
-}) {
+function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
+  // MOCK(pro2): Pro 2 is identified by the shared mock device type until the SDK
+  // ships the real EDeviceType.Pro2.
+  const isPro2 = useMemo(
+    () => deviceTypeItems.includes(MOCK_PRO2_DEVICE_TYPE),
+    [deviceTypeItems],
+  );
+
   const isTouch = useMemo(() => {
     return deviceTypeItems.find(
       (deviceType) => deviceType === EDeviceType.Touch,
@@ -688,29 +574,23 @@ function DeviceVideo({
     );
   }, [deviceTypeItems]);
 
+  // The onboarding flow is force-dark, so every device uses its dark (-D) asset
+  // and no theme branching is needed.
   const videoSource = useMemo<ReactVideoSource>(() => {
+    if (isPro2) {
+      return require('@onekeyhq/kit/assets/onboarding/Pro2-D.mp4') as ReactVideoSource;
+    }
     if (isMini) {
-      return themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/onboarding/Mini-D.mp4') as ReactVideoSource)
-        : (require('@onekeyhq/kit/assets/onboarding/Mini-L.mp4') as ReactVideoSource);
+      return require('@onekeyhq/kit/assets/onboarding/Mini-D.mp4') as ReactVideoSource;
     }
-
     if (isClassic) {
-      return themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/onboarding/Classic1S-D.mp4') as ReactVideoSource)
-        : (require('@onekeyhq/kit/assets/onboarding/Classic1S-L.mp4') as ReactVideoSource);
+      return require('@onekeyhq/kit/assets/onboarding/Classic1S-D.mp4') as ReactVideoSource;
     }
-
     if (isTouch) {
-      return themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/onboarding/Touch-D.mp4') as ReactVideoSource)
-        : (require('@onekeyhq/kit/assets/onboarding/Touch-L.mp4') as ReactVideoSource);
+      return require('@onekeyhq/kit/assets/onboarding/Touch-D.mp4') as ReactVideoSource;
     }
-
-    return themeVariant === 'dark'
-      ? (require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as ReactVideoSource)
-      : (require('@onekeyhq/kit/assets/onboarding/ProW-L.mp4') as ReactVideoSource);
-  }, [isClassic, isMini, isTouch, themeVariant]);
+    return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as ReactVideoSource;
+  }, [isClassic, isMini, isTouch, isPro2]);
 
   return (
     <Video
@@ -732,7 +612,6 @@ function USBOrBLEConnectionIndicator({
   connectDevice,
   vendor,
 }: IDeviceConnectionProps) {
-  const themeVariant = useThemeName() as 'light' | 'dark';
   const intl = useIntl();
   const navigation = useAppNavigation();
   const isFocused = useIsFocused();
@@ -903,10 +782,7 @@ function USBOrBLEConnectionIndicator({
         ) : (
           <ConnectionIndicator.Card>
             <ConnectionIndicator.Animation>
-              <DeviceVideo
-                themeVariant={themeVariant}
-                deviceTypeItems={deviceTypeItems}
-              />
+              <DeviceVideo deviceTypeItems={deviceTypeItems} />
             </ConnectionIndicator.Animation>
             <ConnectionIndicator.Content gap="$2">
               <ConnectionIndicator.Title>
@@ -976,6 +852,10 @@ function USBOrBLEConnectionIndicator({
         </ConnectionIndicator.Footer>
       </ConnectionIndicator>
       <TroubleShootingButton type="usb" />
+      <Pro2MockEntryButton
+        deviceTypeItems={deviceTypeItems}
+        tabValue={tabValue}
+      />
     </>
   );
 }
@@ -1218,7 +1098,10 @@ function ConnectYourDevicePage({
   const intl = useIntl();
   const isSupportedQRCode = useMemo(() => {
     return deviceTypeItems.every(
-      (deviceType) => deviceType === EDeviceType.Pro,
+      (deviceType) =>
+        deviceType === EDeviceType.Pro ||
+        // MOCK(pro2): Pro 2 supports QR wallet just like Pro.
+        deviceType === MOCK_PRO2_DEVICE_TYPE,
     );
   }, [deviceTypeItems]);
   const navigateToCreateQRWallet = useCallback(async () => {

@@ -104,7 +104,11 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import { ClientBtc } from './sdkBtc/ClientBtc';
-import { buildBtcSendUtxoPool, buildUtxoKey } from './sdkBtc/findAddressUtils';
+import {
+  buildAccountAddressArrayParam,
+  buildBtcSendUtxoPool,
+  buildUtxoKey,
+} from './sdkBtc/findAddressUtils';
 
 import type { IDBUtxoAccount } from '../../../dbs/local/types';
 import type { IKeyringMap } from '../../base/VaultBase';
@@ -1351,6 +1355,37 @@ export default class VaultBtc extends VaultBase {
     const withCheckInscription =
       checkInscriptionProtectionEnabled && inscriptionProtection;
     return this._collectUTXOsInfoByApiWithCache(withCheckInscription);
+  }
+
+  // btc find-address feature: claimed off-gap addresses are outside the
+  // server xpub gap scan, attach them to history list/detail requests as
+  // `accountAddressArray` so the server merges them into the account's
+  // address set (direction/amount/dedupe are all computed server-side).
+  // Detail requests with tx context carry `txInvolvedAddresses` to narrow
+  // the set to the claimed addresses the tx touches; list requests,
+  // context-less detail requests and empty narrowing results send the
+  // full claimed set (always a safe superset server-side).
+  override async buildFetchHistoryListParams(params: {
+    accountId: string;
+    networkId: string;
+    accountAddress: string;
+    txInvolvedAddresses?: string[];
+  }): Promise<{ accountAddressArray?: string[] }> {
+    let dbAccount: IDBUtxoAccount;
+    try {
+      dbAccount = (await this.backgroundApi.serviceAccount.getDBAccount({
+        accountId: this.accountId,
+      })) as IDBUtxoAccount;
+    } catch {
+      // never let a DB read failure break history fetching; the pure
+      // builder below stays outside the guard so its bugs surface
+      return {};
+    }
+    const accountAddressArray = buildAccountAddressArrayParam({
+      findAddresses: dbAccount.findAddresses,
+      txInvolvedAddresses: params.txInvolvedAddresses,
+    });
+    return accountAddressArray ? { accountAddressArray } : {};
   }
 
   // btc find-address feature: claimed off-gap addresses are never returned

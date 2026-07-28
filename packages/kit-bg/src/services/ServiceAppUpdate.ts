@@ -3,6 +3,7 @@ import semver from 'semver';
 
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import type {
+  IFeaturedChangelog,
   IPendingInstallTask,
   IResponseAppUpdateInfo,
 } from '@onekeyhq/shared/src/appUpdate';
@@ -106,6 +107,7 @@ interface IDownloadAttemptBudgetRecord {
   targetKey: string;
   attemptCount: number;
   firstAttemptAt: number;
+  nativeRuntimeKey?: string;
 }
 
 export interface IDownloadAttemptBudgetResult {
@@ -504,6 +506,59 @@ class ServiceAppUpdate extends ServiceBase {
     return this.cachedUpdateInfo;
   }
 
+  // Ops-only Featured Changelog preview. Looks up the changelog configured for
+  // EXACTLY the requested version via the read-only preview endpoint
+  // (/featured-changelog-preview), which bypasses the release-selection
+  // pipeline server-side — the production /app-update response only attaches
+  // featuredChangelog to the release the pipeline currently selects, so any
+  // other version would be unreachable.
+  //
+  // Deliberately does NOT call the real /app-update: that path performs a
+  // grayscale `$inc` (server-side write to shared release state) when the
+  // selected release is under grayscale rollout, which would violate the
+  // preview's zero-side-effect guarantee. The preview endpoint is a pure read.
+  //
+  // Writes NOTHING client-side either — no this.cachedUpdateInfo, no
+  // this.updateAt, no appUpdatePersistAtom.
+  //
+  // Runtime scope: bg-JS. The returned plain object crosses the
+  // backgroundApiProxy boundary back to main-JS (JSON-safe).
+  @backgroundMethod()
+  public async previewFeaturedChangelog(params: { version: string }): Promise<{
+    version: string | undefined;
+    featuredChangelog: IFeaturedChangelog | undefined;
+  }> {
+    const version = params.version?.trim();
+    if (!version) {
+      throw new OneKeyLocalError(
+        'previewFeaturedChangelog: version is required',
+      );
+    }
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      code: number;
+      data: { version?: string; featuredChangelog?: unknown };
+    }>('/utility/v1/app-update/featured-changelog-preview', {
+      params: { version },
+    });
+
+    const { code, data } = response.data;
+    if (code !== 0) {
+      return { version: undefined, featuredChangelog: undefined };
+    }
+    // Use the version the server echoed as the expected-version guard for
+    // normalizeFeaturedChangelog (same as the production path) so operator
+    // input formatting never nukes an otherwise-valid payload.
+    const responseVersion = normalizeOptionalString(data?.version);
+    return {
+      version: responseVersion,
+      featuredChangelog: normalizeFeaturedChangelog(
+        data?.featuredChangelog,
+        responseVersion,
+      ),
+    };
+  }
+
   @backgroundMethod()
   async getAppLatestInfo(forceUpdate = false) {
     if (
@@ -885,6 +940,36 @@ class ServiceAppUpdate extends ServiceBase {
     };
   }
 
+  private async getDownloadAttemptNativeRuntimeKey(): Promise<
+    string | undefined
+  > {
+    if (!platformEnv.isDesktop) {
+      return undefined;
+    }
+    const [nativeAppVersionResult, nativeBuildNumberResult] =
+      await Promise.allSettled([
+        BundleUpdate.getNativeAppVersion(),
+        BundleUpdate.getNativeBuildNumber(),
+      ]);
+    const nativeAppVersion =
+      nativeAppVersionResult.status === 'fulfilled'
+        ? nativeAppVersionResult.value
+        : undefined;
+    const nativeBuildNumber =
+      nativeBuildNumberResult.status === 'fulfilled'
+        ? nativeBuildNumberResult.value
+        : undefined;
+    const version = nativeAppVersion || platformEnv.version || 'unknown';
+    const buildNumber =
+      nativeBuildNumber || platformEnv.buildNumber || 'unknown';
+    // Desktop must always write a stable key. Returning undefined here makes a
+    // transient native-info failure ambiguous: a later successful read can
+    // either erase the same runtime's budget or inherit an older runtime's
+    // exhausted budget. Build-time values are stable per installed shell and
+    // provide a conservative fallback when either native getter is unavailable.
+    return `${version}:${buildNumber}`;
+  }
+
   /**
    * Read the persisted budget for `targetKey` WITHOUT mutating it. The caller
    * checks `givenUp` on entry (before starting a download) so a target that
@@ -899,8 +984,14 @@ class ServiceAppUpdate extends ServiceBase {
     targetKey: string;
   }): Promise<IDownloadAttemptBudgetResult> {
     const { targetKey } = params;
+    const nativeRuntimeKey = await this.getDownloadAttemptNativeRuntimeKey();
     const existing = this.readDownloadAttemptBudget();
-    if (!existing || existing.targetKey !== targetKey) {
+    if (
+      !existing ||
+      existing.targetKey !== targetKey ||
+      (nativeRuntimeKey !== undefined &&
+        existing.nativeRuntimeKey !== nativeRuntimeKey)
+    ) {
       return {
         targetKey,
         attemptCount: 0,
@@ -923,16 +1014,21 @@ class ServiceAppUpdate extends ServiceBase {
     targetKey: string;
   }): Promise<IDownloadAttemptBudgetResult> {
     const { targetKey } = params;
+    const nativeRuntimeKey = await this.getDownloadAttemptNativeRuntimeKey();
     const now = Date.now();
     const existing = this.readDownloadAttemptBudget();
     const base: IDownloadAttemptBudgetRecord =
-      existing && existing.targetKey === targetKey
+      existing &&
+      existing.targetKey === targetKey &&
+      (nativeRuntimeKey === undefined ||
+        existing.nativeRuntimeKey === nativeRuntimeKey)
         ? existing
         : { targetKey, attemptCount: 0, firstAttemptAt: 0 };
     const next: IDownloadAttemptBudgetRecord = {
       targetKey,
       attemptCount: base.attemptCount + 1,
       firstAttemptAt: base.firstAttemptAt > 0 ? base.firstAttemptAt : now,
+      nativeRuntimeKey: nativeRuntimeKey ?? base.nativeRuntimeKey,
     };
     this.writeDownloadAttemptBudget(next);
     const result = this.evaluateDownloadBudget(next);

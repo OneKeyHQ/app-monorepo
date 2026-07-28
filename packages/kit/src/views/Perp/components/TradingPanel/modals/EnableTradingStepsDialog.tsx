@@ -18,6 +18,7 @@ import type { IPerpsActiveAccountStatusAtom } from '@onekeyhq/kit-bg/src/states/
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { getPerpsOrderPanelEnableTradingSteps } from '../../../utils/perpsOrderPanelEnableTrading';
+import { getTradingButtonStyleProps } from '../../../utils/styleUtils';
 import {
   CONTEXTUAL_ARTICLE_IDS,
   buildHelpUrl,
@@ -88,6 +89,7 @@ function EnableTradingStepsContent({
   const [isConfirming, setIsConfirming] = useState(false);
   const [liveAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [abstractionMode] = usePerpsAbstractionMode();
+  const buttonStyleProps = getTradingButtonStyleProps('long');
   const accountStatus = liveAccountStatus ?? initialAccountStatus;
   const steps = useMemo(
     () =>
@@ -177,10 +179,14 @@ function EnableTradingStepsContent({
           onPress={handleConfirm}
           loading={isConfirming}
           disabled={isConfirming}
+          {...buttonStyleProps}
+          childrenAsText={false}
         >
-          {intl.formatMessage({
-            id: ETranslations.global_continue,
-          })}
+          <SizableText size="$bodyMdMedium" color={buttonStyleProps.textColor}>
+            {intl.formatMessage({
+              id: ETranslations.global_continue,
+            })}
+          </SizableText>
         </Button>
       </YStack>
     </YStack>

@@ -127,6 +127,26 @@ export interface IMarketTokenDetail {
   [key: string]: unknown;
 }
 
+export interface IMarketTokenDetailPreview {
+  address: string;
+  networkId: string;
+  isNative?: boolean;
+  name: string;
+  symbol: string;
+  decimals: number;
+  price?: number;
+  change24h?: number;
+  marketCap?: number;
+  liquidity?: number;
+  holders?: number;
+  turnover?: number;
+  tokenImageUri?: string;
+  tokenImageUris?: string[];
+  communityRecognized?: boolean;
+  stock?: IMarketStockInfo;
+  selectedAt: number;
+}
+
 export interface IMarketChain {
   networkId: string;
   name: string;
@@ -173,6 +193,9 @@ export interface IMarketStockInfo {
   isOpen?: boolean;
   // Localized description from backend (tooltip when open, countdown + tooltip when closed)
   description?: string;
+  // Whether trading in the underlying stock is temporarily halted (per-stock signal)
+  isPaused?: boolean;
+  pausedUpdatedAt?: string;
   assetAnalysis?: IMarketStockAssetAnalysis;
   tradingActivity?: IMarketStockTradingActivity;
   dividendPerShare?: string;
@@ -180,6 +203,15 @@ export interface IMarketStockInfo {
   sharesOutstanding?: string;
   underlyingAssetTicker?: string;
   underlyingAssetName?: string;
+}
+
+export interface IMarketStockDetail {
+  ticker: string;
+  name: string;
+  logoUrl?: string;
+  introduction?: string;
+  underlyingUpdatedAt?: string;
+  stock: IMarketStockInfo;
 }
 
 export interface IMarketTokenListItem extends IMarketTokenHistoricalPriceFields {
@@ -275,6 +307,41 @@ export interface IMarketTokenKLineResponse {
   points: IMarketTokenKLineDataPoint[];
   total: number;
 }
+
+export interface IMarketWsPriceData {
+  o: number;
+  h: number;
+  l: number;
+  c: number;
+  eventType: 'ohlcv';
+  type: string;
+  unixTime: number;
+  v: number;
+  symbol: string;
+  address: string;
+  volUsd?: number;
+  confirm?: number;
+  dataSource?: string;
+}
+
+export type IMarketWsPriceUpdate = Pick<
+  IMarketWsPriceData,
+  'address' | 'c' | 'unixTime'
+> &
+  Partial<Omit<IMarketWsPriceData, 'address' | 'c' | 'unixTime'>>;
+
+interface IMarketWsDataUpdateBasePayload {
+  tokenAddress: string;
+  networkId?: string;
+  isSubscriptionAmbiguous?: boolean;
+  messageType?: string;
+  data: unknown;
+  originalData?: unknown;
+}
+
+export type IMarketWsDataUpdatePayload =
+  | (IMarketWsDataUpdateBasePayload & { channel: 'ohlcv' })
+  | (IMarketWsDataUpdateBasePayload & { channel: 'tokenTxs' });
 
 export interface IMarketTokenTransactionToken {
   symbol: string;
@@ -469,23 +536,63 @@ export interface IMarketBasicConfigData {
   homeTab?: IMarketBasicConfigHomeTab[];
   perpsCategories?: IMarketPerpsCategory[];
   spotCategories?: IMarketSpotCategory[];
+  stockCategories?: IMarketStockCategory[];
 }
+
+export type IMarketBasicConfigHomeTabType =
+  | 'watchlist'
+  | 'trending'
+  | 'stocks'
+  | (string & {});
 
 export interface IMarketBasicConfigHomeTab {
-  type: string;
+  type: IMarketBasicConfigHomeTabType;
   name: string;
   icon?: string;
 }
+
+export type IMarketSpotCategoryType = 'trending' | 'stocks' | (string & {});
 
 export interface IMarketSpotCategory {
-  type: string;
+  type: IMarketSpotCategoryType;
   name: string;
   icon?: string;
 }
 
+export type IMarketStockCategoryId =
+  | 'all'
+  | 'cons-tech'
+  | 'ai-chip'
+  | 'index'
+  | 'crypto'
+  | 'bio'
+  | 'energy'
+  | 'aero-def'
+  | 'materials'
+  | 'cn'
+  | (string & {});
+
+export interface IMarketStockCategory {
+  category: IMarketStockCategoryId;
+  name: string;
+  tokenCount: number;
+}
+
+export type IMarketPerpsCategoryId =
+  | 'hot'
+  | 'newList'
+  | 'crypto'
+  | 'stocks'
+  | 'metals'
+  | 'indices'
+  | 'commodities'
+  | 'pre-ipo'
+  | 'forex'
+  | (string & {});
+
 export interface IMarketPerpsCategory {
-  /** Unique category identifier, e.g. "crypto", "stock", "commodity" */
-  categoryId: string;
+  /** Unique category identifier from market basic config. */
+  categoryId: IMarketPerpsCategoryId;
   /** Localized display name, e.g. "Crypto", "Stocks" */
   name: string;
 }

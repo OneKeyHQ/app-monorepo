@@ -252,7 +252,8 @@ function TrezorBleBindingContent({
           return;
         }
 
-        // device_id mismatch / candidate asked to pair → not this one.
+        // Connected, but a different device_id → not this one (real failures
+        // throw and are handled below).
         setRejectedConnectIds((prev) => ({ ...prev, [bleConnectId]: true }));
         Toast.error({
           title: intl.formatMessage({
@@ -260,13 +261,10 @@ function TrezorBleBindingContent({
           }),
         });
       } catch (error) {
-        Toast.error({
-          title:
-            (error as Error)?.message ||
-            intl.formatMessage({
-              id: ETranslations.hardware_connect_failed,
-            }),
-        });
+        // Hardware errors auto-toast via the background proxy (standard OneKey
+        // pattern, see Hardware.tsx repairBleConnectIdWithProgress) — no manual
+        // toast here.
+        console.error('Trezor BLE binding failed:', error);
       } finally {
         setBindingId(null);
         // Skip the resume if the dialog was closed mid-bind — the unmount

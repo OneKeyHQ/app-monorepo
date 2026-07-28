@@ -4,12 +4,12 @@ import { useIntl } from 'react-intl';
 
 import { SizableText, Stack, Toast, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePasswordBiologyAuthInfoAtom,
-  usePasswordModeAtom,
   usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
+import { usePasswordModeAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPasswordMode } from '@onekeyhq/shared/types/password';

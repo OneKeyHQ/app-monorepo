@@ -21,17 +21,23 @@ const developmentConsts = require('../developmentConsts') as {
   };
 };
 
+const WEB_RETRY_CHUNK_LOAD_DELAY_CODE =
+  'function() { return 1000 + Math.floor(Math.random() * 2001); }';
+
 interface IProdConfigOptions {
   platform: string;
   basePath: string;
+  dropConsole?: boolean;
 }
 
 export function createProductionConfig({
   platform,
   basePath,
+  dropConsole,
 }: IProdConfigOptions): RspackOptions {
   const isExt = platform === developmentConsts.platforms.ext;
   const isWeb = platform === developmentConsts.platforms.web;
+  const shouldDropConsole = dropConsole ?? false;
   const rootPath = isExt
     ? path.join(basePath, 'build', getOutputFolder())
     : path.join(basePath, 'web-build');
@@ -54,16 +60,19 @@ export function createProductionConfig({
       // (the npm plugin is incompatible with rspack's Compilation). ext keeps
       // its own code-splitting and is unaffected (guard drops to `false`).
       isWeb &&
-        new RetryChunkLoadRspackPlugin({ retryDelay: 3000, maxRetries: 5 }),
+        new RetryChunkLoadRspackPlugin({
+          retryDelay: WEB_RETRY_CHUNK_LOAD_DELAY_CODE,
+          maxRetries: 5,
+        }),
     ].filter(Boolean) as RspackPluginInstance[],
     optimization: {
       minimizer: [
         new rspack.SwcJsMinimizerRspackPlugin({
           minimizerOptions: {
             compress: {
-              // web prod parity with babel-plugin-transform-remove-console.
-              // ext console output is preserved (guard is web-only).
-              drop_console: isWeb,
+              // Preserve dependency runtime logging; first-party console calls
+              // are stripped earlier by the scoped Babel rule.
+              drop_console: shouldDropConsole,
             },
             mangle: {
               keep_classnames: true,
@@ -74,17 +83,16 @@ export function createProductionConfig({
       ],
       splitChunks: {
         chunks: 'all',
-        minSize: 102_400,
-        maxSize: 4_194_304,
+        minSize: isWeb ? 153_600 : 102_400,
+        maxSize: isWeb ? 614_400 : 4_194_304,
         hidePathInfo: true,
         automaticNameDelimiter: '.',
         name: false,
         maxInitialRequests: 20,
         maxAsyncRequests: 50_000,
         // Vendor cache groups for long-term caching (web/desktop only).
-        // Extension uses its own code splitting via HtmlWebpackPlugin chunks,
-        // and named vendor chunks would NOT be included in ext HTML files,
-        // breaking the extension UI in production.
+        // Extension compiler domains add their cache groups after this shared
+        // production config is merged.
         cacheGroups: isExt
           ? {}
           : {
@@ -96,14 +104,33 @@ export function createProductionConfig({
                 reuseExistingChunk: true,
               },
               lodashVendor: {
+                // 'initial' (not 'all'): only group lodash reachable from the
+                // initial graph. With 'all', lodash methods used solely by async
+                // route/SDK chunks are merged into this named chunk and dragged
+                // onto first paint. Keep parity with webpack.prod.config.js.
                 test: /[\\/]node_modules[\\/]lodash/,
                 name: 'vendor-lodash',
-                chunks: 'all' as const,
+                chunks: 'initial' as const,
                 priority: 30,
                 reuseExistingChunk: true,
               },
+              supabaseVendor: {
+                test: /[\\/]node_modules[\\/]@supabase[\\/]/,
+                name: 'vendor-supabase',
+                chunks: 'async' as const,
+                priority: 35,
+                reuseExistingChunk: true,
+              },
+              reactHookFormVendor: {
+                test: /[\\/]node_modules[\\/]react-hook-form[\\/]/,
+                name: 'vendor-react-hook-form',
+                chunks: 'all' as const,
+                enforce: true,
+                priority: 35,
+                reuseExistingChunk: true,
+              },
               networkVendor: {
-                test: /[\\/]node_modules[\\/](axios|@supabase)[\\/]/,
+                test: /[\\/]node_modules[\\/]axios[\\/]/,
                 name: 'vendor-network',
                 chunks: 'all' as const,
                 priority: 30,
@@ -114,6 +141,18 @@ export function createProductionConfig({
                 name: 'vendor-crypto',
                 chunks: 'all' as const,
                 priority: 20,
+                reuseExistingChunk: true,
+              },
+              // These UI primitives sit below splitChunks.minSize, so once no
+              // initial module imports them they get re-inlined into every
+              // async chunk that uses them (dozens of copies). Pin them to one
+              // shared chunk; `enforce` bypasses the minSize floor.
+              sharedUiPrimitives: {
+                test: /[\\/]packages[\\/]components[\\/]src[\\/](actions[\\/](Popover|Tooltip|SegmentControl)|forms[\\/]Select|content[\\/]DashText)[\\/]/,
+                name: 'shared-ui-primitives',
+                chunks: 'all' as const,
+                enforce: true,
+                priority: 25,
                 reuseExistingChunk: true,
               },
             },

@@ -391,7 +391,17 @@ function getToastLabel(
   }
 }
 
-type IAnimationModule = { default: ILottieViewProps['source'] };
+type IAnimationModule = { default?: ILottieViewProps['source'] };
+
+function resolveLottieModule(
+  module: IAnimationModule | ILottieViewProps['source'] | null | undefined,
+): ILottieViewProps['source'] | null {
+  if (!module) {
+    return null;
+  }
+  return ((module as IAnimationModule).default ??
+    module) as ILottieViewProps['source'];
+}
 
 // Dynamically import animation JSON so the assets are code-split into an async
 // chunk instead of the startup bundle (matches ConfirmOnDeviceToastContent).
@@ -433,34 +443,38 @@ function getTrezorActionAnimation(
 }
 
 // THP pairing input — owns its text state so typing doesn't re-render the parent dialog.
-const TrezorThpPairingInput = memo(function TrezorThpPairingInput({
-  placeholder,
-  onChange,
-}: {
-  placeholder: string;
-  onChange: (value: string) => void;
-}) {
-  const [value, setValue] = useState('');
-  const handleChangeText = useCallback(
-    (next: string) => {
-      setValue(next);
-      onChange(next);
-    },
-    [onChange],
-  );
-  return (
-    <Input
-      testID="third-party-hw-trezor-thp-pairing-input"
-      value={value}
-      onChangeText={handleChangeText}
-      placeholder={placeholder}
-      autoCapitalize="none"
-      autoCorrect={false}
-      keyboardType="number-pad"
-      autoFocus
-    />
-  );
-});
+const TrezorThpPairingInput = memo(
+  ({
+    placeholder,
+    onChange,
+  }: {
+    placeholder: string;
+    onChange: (value: string) => void;
+  }) => {
+    const [value, setValue] = useState('');
+    const handleChangeText = useCallback(
+      (next: string) => {
+        setValue(next);
+        onChange(next);
+      },
+      [onChange],
+    );
+    return (
+      <Input
+        testID="third-party-hw-trezor-thp-pairing-input"
+        value={value}
+        onChangeText={handleChangeText}
+        placeholder={placeholder}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="number-pad"
+        autoFocus
+      />
+    );
+  },
+);
+
+TrezorThpPairingInput.displayName = 'TrezorThpPairingInput';
 
 function DeviceActionToast({
   action,
@@ -473,6 +487,9 @@ function DeviceActionToast({
 }) {
   const intl = useIntl();
   const [showCloseButton, setShowCloseButton] = useState(false);
+  const [animationSource, setAnimationSource] = useState<
+    ILottieViewProps['source'] | null
+  >(null);
   const themeVariant = useThemeVariant();
 
   useEffect(() => {
@@ -486,10 +503,6 @@ function DeviceActionToast({
 
   const label = getToastLabel(action, vendor, intl);
 
-  const [animationSource, setAnimationSource] = useState<
-    ILottieViewProps['source'] | null
-  >(null);
-
   useEffect(() => {
     let cancelled = false;
     setAnimationSource(null);
@@ -501,7 +514,9 @@ function DeviceActionToast({
     }
     loader
       ?.then((module) => {
-        if (!cancelled) setAnimationSource(module?.default ?? null);
+        if (!cancelled) {
+          setAnimationSource(resolveLottieModule(module));
+        }
       })
       .catch(() => {
         // ignore

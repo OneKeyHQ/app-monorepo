@@ -50,6 +50,7 @@ const {
 } = require('../plugins/segmentPaths');
 const {
   deriveSegmentKey,
+  deriveSharedSegmentKey,
   allocateSegmentIds,
   monorepoRoot,
 } = require('../plugins/segmentUtils');
@@ -388,6 +389,151 @@ function createBundleOptions({
   };
 }
 
+function collectSegmentSyncEdges(graph, moduleToSegment, eagerModuleIds) {
+  const segmentEdges = new Map();
+  for (const [absolutePath, moduleData] of graph.dependencies) {
+    const moduleId = fileToIdMap.get(absolutePath);
+    const segmentKey = moduleToSegment.get(moduleId);
+    if (!segmentKey || eagerModuleIds.has(moduleId)) {
+      continue;
+    }
+
+    for (const [, dep] of moduleData.dependencies) {
+      if (dep.data?.data?.asyncType === 'async') {
+        continue;
+      }
+      const depId = fileToIdMap.get(dep.absolutePath);
+      const depSegmentKey = moduleToSegment.get(depId);
+      if (!depSegmentKey || depSegmentKey === segmentKey) {
+        continue;
+      }
+      if (!segmentEdges.has(segmentKey)) {
+        segmentEdges.set(segmentKey, new Set());
+      }
+      segmentEdges.get(segmentKey).add(depSegmentKey);
+    }
+  }
+  return segmentEdges;
+}
+
+function findSegmentSyncCycles(segmentEdges) {
+  const segmentKeys = new Set(segmentEdges.keys());
+  for (const deps of segmentEdges.values()) {
+    for (const dep of deps) {
+      segmentKeys.add(dep);
+    }
+  }
+
+  const indexByKey = new Map();
+  const lowLinkByKey = new Map();
+  const stack = [];
+  const onStack = new Set();
+  const cycles = [];
+  let nextIndex = 0;
+
+  const visit = (segmentKey) => {
+    indexByKey.set(segmentKey, nextIndex);
+    lowLinkByKey.set(segmentKey, nextIndex);
+    nextIndex += 1;
+    stack.push(segmentKey);
+    onStack.add(segmentKey);
+
+    for (const depKey of segmentEdges.get(segmentKey) || []) {
+      if (!indexByKey.has(depKey)) {
+        visit(depKey);
+        lowLinkByKey.set(
+          segmentKey,
+          Math.min(lowLinkByKey.get(segmentKey), lowLinkByKey.get(depKey)),
+        );
+      } else if (onStack.has(depKey)) {
+        lowLinkByKey.set(
+          segmentKey,
+          Math.min(lowLinkByKey.get(segmentKey), indexByKey.get(depKey)),
+        );
+      }
+    }
+
+    if (lowLinkByKey.get(segmentKey) !== indexByKey.get(segmentKey)) {
+      return;
+    }
+
+    const component = [];
+    let current;
+    do {
+      current = stack.pop();
+      onStack.delete(current);
+      component.push(current);
+    } while (current !== segmentKey);
+
+    if (component.length > 1) {
+      cycles.push(component.toSorted());
+    }
+  };
+
+  for (const segmentKey of [...segmentKeys].toSorted()) {
+    if (!indexByKey.has(segmentKey)) {
+      visit(segmentKey);
+    }
+  }
+
+  return cycles;
+}
+
+function chooseCycleSegmentKey(segmentKeys) {
+  return segmentKeys
+    .slice()
+    .toSorted(
+      (left, right) => left.length - right.length || left.localeCompare(right),
+    )[0];
+}
+
+function coalesceCircularSegments({
+  graph,
+  eagerModuleIds,
+  segmentModules,
+  moduleToSegment,
+}) {
+  const segmentEdges = collectSegmentSyncEdges(
+    graph,
+    moduleToSegment,
+    eagerModuleIds,
+  );
+  const cycles = findSegmentSyncCycles(segmentEdges);
+  if (cycles.length === 0) {
+    return 0;
+  }
+
+  for (const cycle of cycles) {
+    const targetSegmentKey = chooseCycleSegmentKey(cycle);
+    if (!segmentModules.has(targetSegmentKey)) {
+      segmentModules.set(targetSegmentKey, new Set());
+    }
+    const targetModules = segmentModules.get(targetSegmentKey);
+
+    for (const segmentKey of cycle) {
+      const modules = segmentModules.get(segmentKey);
+      if (!modules) {
+        continue;
+      }
+      for (const moduleId of modules) {
+        targetModules.add(moduleId);
+        moduleToSegment.set(moduleId, targetSegmentKey);
+      }
+      if (segmentKey !== targetSegmentKey) {
+        segmentModules.delete(segmentKey);
+      }
+    }
+  }
+
+  const mergedSummary = cycles
+    .map((cycle) => `${chooseCycleSegmentKey(cycle)} <= ${cycle.join(', ')}`)
+    .join('\n  ');
+  console.log(
+    `[unionBuild] Coalesced ${cycles.length} circular segment group(s):\n  ${mergedSummary}`,
+  );
+  return cycles.length;
+}
+
 function buildSegmentAllocation(graph) {
   const asyncFlag = 'async';
   const eagerModuleIds = new Set();
@@ -531,10 +677,21 @@ function buildSegmentAllocation(graph) {
 
       if (hasUnresolvedParent) continue;
 
-      if (!parentSegments.has('main') && parentSegments.size >= 1) {
+      if (parentSegments.has('main')) {
+        eagerModuleIds.add(moduleId);
+        rescanChanged = true;
+      } else if (parentSegments.size === 1) {
         const segmentKey = [...parentSegments][0];
         segmentModules.get(segmentKey).add(moduleId);
         moduleToSegment.set(moduleId, segmentKey);
+        rescanChanged = true;
+      } else if (parentSegments.size >= 2) {
+        const sharedSegmentKey = deriveSharedSegmentKey(absolutePath);
+        if (!segmentModules.has(sharedSegmentKey)) {
+          segmentModules.set(sharedSegmentKey, new Set());
+        }
+        segmentModules.get(sharedSegmentKey).add(moduleId);
+        moduleToSegment.set(moduleId, sharedSegmentKey);
         rescanChanged = true;
       } else {
         eagerModuleIds.add(moduleId);
@@ -558,13 +715,13 @@ function buildSegmentAllocation(graph) {
       }
 
       let hasEagerParent = false;
-      let hasSegmentParent = false;
+      const parentSegments = new Set();
       for (const parentPath of moduleData.inverseDependencies) {
         const parentId = fileToIdMap.get(parentPath);
         if (eagerModuleIds.has(parentId)) {
           hasEagerParent = true;
         } else if (moduleToSegment.has(parentId)) {
-          hasSegmentParent = true;
+          parentSegments.add(moduleToSegment.get(parentId));
         }
       }
 
@@ -572,23 +729,25 @@ function buildSegmentAllocation(graph) {
         // Reachable from eager code → must be eager
         eagerModuleIds.add(moduleId);
         fallbackChanged = true;
-      } else if (hasSegmentParent && moduleData.inverseDependencies.size > 0) {
-        // All resolved parents are segments, no eager parent → assign to first
-        // parent's segment.  Unresolved parents are likely also segments that
-        // will resolve in subsequent iterations.
-        for (const parentPath of moduleData.inverseDependencies) {
-          const parentId = fileToIdMap.get(parentPath);
-          const parentSeg = moduleToSegment.get(parentId);
-          if (parentSeg) {
-            if (!segmentModules.has(parentSeg)) {
-              segmentModules.set(parentSeg, new Set());
-            }
-            segmentModules.get(parentSeg).add(moduleId);
-            moduleToSegment.set(moduleId, parentSeg);
-            fallbackChanged = true;
-            break;
-          }
+      } else if (parentSegments.size === 1) {
+        // All resolved parents are in one segment, no eager parent → co-locate.
+        const segmentKey = [...parentSegments][0];
+        if (!segmentModules.has(segmentKey)) {
+          segmentModules.set(segmentKey, new Set());
         }
+        segmentModules.get(segmentKey).add(moduleId);
+        moduleToSegment.set(moduleId, segmentKey);
+        fallbackChanged = true;
+      } else if (parentSegments.size >= 2) {
+        // Multi-root sync share → dedicated shared segment, so every consumer
+        // gets a manifest dependsOn edge instead of relying on load order.
+        const sharedSegmentKey = deriveSharedSegmentKey(absolutePath);
+        if (!segmentModules.has(sharedSegmentKey)) {
+          segmentModules.set(sharedSegmentKey, new Set());
+        }
+        segmentModules.get(sharedSegmentKey).add(moduleId);
+        moduleToSegment.set(moduleId, sharedSegmentKey);
+        fallbackChanged = true;
       }
     }
   }
@@ -601,6 +760,13 @@ function buildSegmentAllocation(graph) {
       eagerModuleIds.add(moduleId);
     }
   }
+
+  coalesceCircularSegments({
+    graph,
+    eagerModuleIds,
+    segmentModules,
+    moduleToSegment,
+  });
 
   // Build a path-based set of segment modules for use in moduleFilter.
   // moduleToSegment uses fileToIdMap IDs which may differ from Metro server IDs,
@@ -885,6 +1051,139 @@ function detectStartupViolations(moduleIds, moduleIdToAbsPath) {
     .toSorted();
 }
 
+function getDependencyEdgeType(dep) {
+  return dep?.data?.data?.asyncType ? 'dynamic' : 'sync';
+}
+
+function buildMetroImportChain({
+  graph,
+  roots,
+  target,
+  allowedAbsPaths,
+  maxDepth = 32,
+}) {
+  const queue = roots
+    .filter((root) => graph.dependencies.has(root))
+    .map((root) => ({ absPath: root, depth: 0 }));
+  const visited = new Set(queue.map((item) => item.absPath));
+  const parent = new Map();
+
+  while (queue.length > 0) {
+    const item = queue.shift();
+    if (item.absPath === target) {
+      const chain = [];
+      let current = target;
+      while (parent.has(current)) {
+        const edge = parent.get(current);
+        chain.push(edge);
+        current = edge.from;
+      }
+      return chain.toReversed();
+    }
+    if (item.depth >= maxDepth) {
+      continue;
+    }
+
+    const moduleData = graph.dependencies.get(item.absPath);
+    if (!moduleData?.dependencies) {
+      continue;
+    }
+    for (const [specifier, dep] of moduleData.dependencies) {
+      const to = dep.absolutePath;
+      if (!to || visited.has(to) || !allowedAbsPaths.has(to)) {
+        continue;
+      }
+      const edgeType = getDependencyEdgeType(dep);
+      if (edgeType !== 'sync') {
+        continue;
+      }
+      visited.add(to);
+      parent.set(to, {
+        from: item.absPath,
+        to,
+        specifier,
+        edgeType,
+      });
+      queue.push({ absPath: to, depth: item.depth + 1 });
+    }
+  }
+  return null;
+}
+
+function buildStartupImportChains({
+  runtimeTarget,
+  entryAbsPaths,
+  startupModuleIds,
+  graph,
+  moduleIdToAbsPath,
+  violations,
+  maxChains = 20,
+}) {
+  const startupAbsPaths = [...startupModuleIds]
+    .map((moduleId) => moduleIdToAbsPath.get(moduleId))
+    .filter(Boolean);
+  const startupAbsPathSet = new Set(startupAbsPaths);
+  const violationAbsPaths = (violations || []).map((relPath) =>
+    path.resolve(monorepoRoot, relPath),
+  );
+  const topStartupAbsPaths = startupAbsPaths
+    .map((absPath) => ({
+      absPath,
+      size: estimateModuleSize(graph.dependencies.get(absPath)),
+    }))
+    .toSorted((a, b) => b.size - a.size)
+    .map((item) => item.absPath);
+  const targets = [
+    ...new Set([...violationAbsPaths, ...topStartupAbsPaths]),
+  ].slice(0, maxChains);
+  const roots = entryAbsPaths.filter(Boolean);
+  let graphEdgeCount = 0;
+  for (const absPath of startupAbsPathSet) {
+    const moduleData = graph.dependencies.get(absPath);
+    if (!moduleData?.dependencies) {
+      continue;
+    }
+    for (const [, dep] of moduleData.dependencies) {
+      if (
+        dep.absolutePath &&
+        startupAbsPathSet.has(dep.absolutePath) &&
+        getDependencyEdgeType(dep) === 'sync'
+      ) {
+        graphEdgeCount += 1;
+      }
+    }
+  }
+  const chains = targets.map((target) => {
+    const chain = buildMetroImportChain({
+      graph,
+      roots,
+      target,
+      allowedAbsPaths: startupAbsPathSet,
+    });
+    return {
+      target: relativePath(target),
+      status: chain ? 'found' : 'unreachable',
+      chain:
+        chain?.map((edge) => ({
+          from: relativePath(edge.from),
+          to: relativePath(edge.to),
+          specifier: edge.specifier,
+          edgeType: edge.edgeType,
+        })) || [],
+    };
+  });
+
+  return {
+    kind: 'metro-startup-import-chain',
+    runtimeTarget,
+    graphNodeCount: startupAbsPathSet.size,
+    graphEdgeCount,
+    roots: roots.map(relativePath),
+    targetCount: targets.length,
+    chains,
+  };
+}
+
 function buildAllocationReport({
   runtimeTarget,
   startupModuleIds,
@@ -893,6 +1192,7 @@ function buildAllocationReport({
   moduleIdToAbsPath,
   segmentModules,
   violations,
+  entryAbsPaths,
 }) {
   const startupModules = [...startupModuleIds]
     .map((moduleId) => moduleIdToAbsPath.get(moduleId))
@@ -926,6 +1226,14 @@ function buildAllocationReport({
       estimatedSizeBytes,
       modules: startupModules,
     },
+    importChains: buildStartupImportChains({
+      runtimeTarget,
+      entryAbsPaths,
+      startupModuleIds,
+      graph,
+      moduleIdToAbsPath,
+      violations,
+    }),
     segments,
     violations,
   };
@@ -2086,6 +2394,7 @@ async function main() {
           moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
           segmentModules: reportSegmentModules.common,
           violations: commonViolations,
+          entryAbsPaths: [mainEntry, bgEntry],
         }),
         null,
         2,
@@ -2103,6 +2412,7 @@ async function main() {
           moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
           segmentModules: reportSegmentModules.main,
           violations: mainViolations,
+          entryAbsPaths: [mainEntry],
         }),
         null,
         2,
@@ -2120,6 +2430,7 @@ async function main() {
           moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
           segmentModules: reportSegmentModules.background,
           violations: backgroundViolations,
+          entryAbsPaths: [bgEntry],
         }),
         null,
         2,

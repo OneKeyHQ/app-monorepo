@@ -1,17 +1,13 @@
-import { LOCALES_OPTION } from '.';
-
-import { isFunction } from 'lodash';
-
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
-import { LOCALES } from './localeJsonMap';
+import { loadLocaleMessages } from './localeLoaders';
+import { LOCALES_KEYS } from './localeOptions';
 import systemLocaleUtils from './systemLocale';
 
-import type { ETranslations } from '.';
 import type { ILocaleJSONSymbol, ILocaleSymbol } from './type';
 
 const getDefaultLocaleFunc = () => {
-  const locales = LOCALES_OPTION.map((locale) => locale.value);
+  const locales = LOCALES_KEYS;
   const current = systemLocaleUtils.getSystemLocale();
 
   for (let i = 0; i < locales.length; i += 1) {
@@ -39,9 +35,6 @@ const getDefaultLocaleFunc = () => {
 export const getDefaultLocale = memoizee(getDefaultLocaleFunc);
 
 export const getLocaleMessages = async (locale: ILocaleSymbol) => {
-  const messagesBuilder = LOCALES[locale as ILocaleJSONSymbol];
-  const messages = isFunction(messagesBuilder)
-    ? await messagesBuilder()
-    : messagesBuilder;
-  return messages as Record<ETranslations, string>;
+  const messages = await loadLocaleMessages(locale as ILocaleJSONSymbol);
+  return messages;
 };

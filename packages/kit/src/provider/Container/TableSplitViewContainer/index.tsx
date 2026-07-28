@@ -1,5 +1,5 @@
 import { Divider, XStack, YStack, useIsSplitView } from '@onekeyhq/components';
-import { useIsOnBoardingOpenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useIsOnBoardingOpenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/onboarding';
 
 export function TableSplitViewContainer({
   mainRouter,

@@ -55,5 +55,6 @@ export interface IMarketFilterBarProps {
   onLiquidityFilterChange?: (filter: ILiquidityFilter) => void;
   selectedCategory?: string;
   categories?: IMarketCategoryItem[];
+  stockCategories?: IMarketCategoryItem[];
   onCategoryChange?: (categoryId: string) => void;
 }

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -23,6 +23,13 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
+import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
+
+import { prewarmMarketTokenImages } from '../../utils/marketDetailImagePreload';
+import {
+  buildMarketSearchTokenDetailPreview,
+  buildMarketTokenDetailPreview,
+} from '../../utils/marketDetailPreview';
 
 import { TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
@@ -65,6 +72,18 @@ function MobileTokenSelectorContent() {
   );
   const liveTokenOverride = useLiveTokenOverride();
 
+  useEffect(() => {
+    if (!searchValueDebounce) {
+      return;
+    }
+    searchTokenList.slice(0, 20).forEach((token) => {
+      prewarmMarketTokenImages({
+        tokenImageUri: token.logoUrl,
+        tokenImageUris: token.logoUrls,
+      });
+    });
+  }, [searchTokenList, searchValueDebounce]);
+
   const handleNetworkIdChange = useCallback(
     (networkId: string) => {
       setStartListSelect(false);
@@ -90,6 +109,7 @@ function MobileTokenSelectorContent() {
       networkId: string;
       isNative?: boolean;
       perpsCoin?: string;
+      tokenDetailPreview?: IMarketTokenDetailPreview;
     }) => {
       if (token.perpsCoin) {
         navigation.popStack();
@@ -101,6 +121,7 @@ function MobileTokenSelectorContent() {
         tokenDetailActions,
         beforeNavigate: () => navigation.popStack(),
         showFavoriteButton,
+        tokenDetailPreview: token.tokenDetailPreview,
       });
     },
     [tokenDetailActions, navigation, navigateToPerps, showFavoriteButton],
@@ -108,17 +129,26 @@ function MobileTokenSelectorContent() {
 
   const handleTokenSelect = useCallback(
     (item: IMarketToken) => {
-      navigateToTokenDetail(item);
+      navigateToTokenDetail({
+        ...item,
+        tokenDetailPreview: buildMarketTokenDetailPreview(item),
+      });
     },
     [navigateToTokenDetail],
   );
 
   const handleSearchTokenSelect = useCallback(
     (token: IMarketSearchV2Token & { networkLogoURI: string }) => {
+      prewarmMarketTokenImages({
+        tokenImageUri: token.logoUrl,
+        tokenImageUris: token.logoUrls,
+      });
+      const tokenDetailPreview = buildMarketSearchTokenDetailPreview(token);
       navigateToTokenDetail({
         address: token.address,
         networkId: token.network,
         isNative: token.isNative,
+        tokenDetailPreview,
       });
     },
     [navigateToTokenDetail],

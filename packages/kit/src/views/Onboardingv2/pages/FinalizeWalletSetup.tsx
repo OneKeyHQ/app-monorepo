@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { range } from 'lodash';
-import { useIntl } from 'react-intl';
+import { type IntlShape, useIntl } from 'react-intl';
 import {
   Easing,
   useSharedValue,
@@ -11,6 +11,7 @@ import {
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
+  Alert,
   AnimatePresence,
   Button,
   Dialog,
@@ -19,6 +20,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  resetOnboardingModal,
   useMedia,
   useTheme,
 } from '@onekeyhq/components';
@@ -47,7 +49,6 @@ import { buildWalletCreatedAtISOString } from '@onekeyhq/shared/src/referralCode
 import type { ICheckWalletBindStatusResponse } from '@onekeyhq/shared/src/referralCode/type';
 import {
   type EOnboardingPagesV2,
-  ERootRoutes,
   type IOnboardingParamListV2,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -68,7 +69,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
 import { ensureLedgerCoreAppsReady } from '../../../provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog';
-import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
 import {
   flushPendingExistingWalletSwitchToast,
@@ -147,6 +148,7 @@ function getTrezorConnectFailureMessage(payload: unknown) {
 function getTrezorConnectFailureError(
   payload: unknown,
   vendor: EHardwareVendor,
+  intl: IntlShape,
 ) {
   const failure =
     payload && typeof payload === 'object'
@@ -171,7 +173,9 @@ function getTrezorConnectFailureError(
     return new OneKeyLocalError(failureMessage);
   }
   return new OneKeyLocalError({
-    key: ETranslations.trezor_connect_failed_before_wallet_creation__msg,
+    message: intl.formatMessage({
+      id: ETranslations.trezor_connect_failed_before_wallet_creation__msg,
+    }),
   });
 }
 
@@ -294,10 +298,8 @@ function FinalizeWalletSetupPage({
   const closePage = useCallback(() => {
     closePageCalled.current = true;
     void backgroundApiProxy.serviceHardware.clearForceTransportType();
-    navigation.navigate(ERootRoutes.Main, undefined, {
-      pop: true,
-    });
-  }, [navigation]);
+    resetOnboardingModal();
+  }, []);
 
   const {
     setPendingKeylessAutoConnectWalletId,
@@ -448,22 +450,13 @@ function FinalizeWalletSetupPage({
                   if (!keylessDetailsInfo?.keylessOwnerId) {
                     return;
                   }
-                  const refreshResult =
-                    await backgroundApiProxy.serviceKeylessWallet.tryRefreshTokenFromStorage(
-                      {
-                        ownerId: keylessDetailsInfo?.keylessOwnerId,
-                        forceRefresh: true,
-                      },
-                    );
-                  if (
-                    !refreshResult?.accessToken ||
-                    !refreshResult?.refreshToken
-                  ) {
+                  const token =
+                    await backgroundApiProxy.serviceKeylessWallet.getActiveKeylessOAuthAccessTokenForLocalWallet();
+                  if (!token) {
                     return;
                   }
-                  const { accessToken: token, refreshToken } = refreshResult;
                   const pin = await getKeylessOnboardingPin();
-                  if (!token || !pin || !refreshToken) {
+                  if (!pin) {
                     console.error(
                       'Skip keyless auto reset pin: missing onboarding token or pin.',
                     );
@@ -473,7 +466,6 @@ function FinalizeWalletSetupPage({
                   await backgroundApiProxy.serviceKeylessWallet.autoResetKeylessWalletPinAfterRestoreForSameEmailAccount(
                     {
                       token,
-                      refreshToken: refreshToken || undefined,
                       pin,
                     },
                   );
@@ -482,6 +474,18 @@ function FinalizeWalletSetupPage({
                     'autoResetKeylessWalletPinAfterRestoreForSameEmailAccount error:',
                     autoResetError,
                   );
+                  // A swallowed failure here leaves the server share under
+                  // the old provider/PIN while the UI reports success —
+                  // an inconsistent keyless wallet state. Mirror the reason
+                  // into exported logs so it stays diagnosable in production
+                  // (the bg-side @toastIfError decorator already surfaces a
+                  // toast for this rejected background call).
+                  defaultLogger.wallet.keyless.dataCorruptedError({
+                    reason: `autoResetKeylessWalletPinAfterRestoreForSameEmailAccount failed: ${
+                      (autoResetError as Error | undefined)?.message ||
+                      String(autoResetError)
+                    }`,
+                  });
                 }
               })();
             }
@@ -616,11 +620,14 @@ function FinalizeWalletSetupPage({
                 throw getTrezorConnectFailureError(
                   connected.payload,
                   deviceData.vendor,
+                  intl,
                 );
               }
               if (!connectedDeviceId) {
                 throw new OneKeyLocalError({
-                  key: ETranslations.trezor_device_id_required_before_wallet_creation__msg,
+                  message: intl.formatMessage({
+                    id: ETranslations.trezor_device_id_required_before_wallet_creation__msg,
+                  }),
                 });
               }
               // Device has no seed yet — block creation and prompt the user to
@@ -690,6 +697,16 @@ function FinalizeWalletSetupPage({
               isSoftwareWalletOnlyUser,
               vendor: deviceData.vendor,
             });
+            // After a reset the same device re-onboards with a new device_id;
+            // mark the stale wallet deprecated so only the current one lights
+            // up. Trezor-specific dedup, matched on the device's transport
+            // connect ids (same key set as the connection-status light).
+            if (deviceData.vendor === EHardwareVendor.trezor) {
+              await actions.current.updateTrezorWalletsDeprecatedStatus({
+                connectId: thirdPartyDevice.connectId ?? '',
+                deviceId: thirdPartyDevice.deviceId ?? '',
+              });
+            }
           } catch (createError) {
             await trackHardwareWalletConnection({
               status: 'failure',
@@ -1078,44 +1095,42 @@ function FinalizeWalletSetupPage({
           </YStack>
         ) : null}
         {setupError ? (
-          <YStack flex={1} justifyContent="center" alignItems="center" gap="$7">
-            <SizableText size="$heading5xl" fontWeight={600}>
-              {intl.formatMessage({
-                id: ETranslations.failed_to_create_wallet,
-              })}
-            </SizableText>
-            <SizableText
-              size="$bodyMd"
-              color="$textSubdued"
-              maxWidth={620}
-              pl="$3"
-              borderLeftWidth={1}
-              borderLeftColor="$borderSubdued"
-            >
-              {intl.formatMessage({
-                id: setupError.messageId,
-                defaultMessage: setupError.messageId,
-              })}
-            </SizableText>
-            <XStack gap="$2.5" mt="$4" maxWidth={420}>
-              <Button
-                testID={OnboardingTestIDs.finalizeSetupRetryBtn}
-                flex={1}
-                variant="primary"
-                size="large"
-                onPress={retrySetup}
-              >
-                {intl.formatMessage({ id: ETranslations.global_retry })}
-              </Button>
-              <Button
-                testID={OnboardingTestIDs.finalizeSetupExitBtn}
-                flex={1}
-                size="large"
-                onPress={closePage}
-              >
-                {intl.formatMessage({ id: ETranslations.global_exit })}
-              </Button>
-            </XStack>
+          <YStack flex={1} justifyContent="center" alignItems="center">
+            <YStack maxWidth={400} width="100%" minHeight={400} gap="$7">
+              <SizableText fontSize={48}>💆‍♀️</SizableText>
+              <SizableText size="$heading4xl" fontWeight={600}>
+                {intl.formatMessage({
+                  id: ETranslations.failed_to_create_wallet,
+                })}
+              </SizableText>
+              <Alert
+                icon="InfoCircleOutline"
+                type="info"
+                description={intl.formatMessage({
+                  id: setupError.messageId,
+                  defaultMessage: setupError.messageId,
+                })}
+              />
+              <XStack gap="$4" alignItems="center">
+                <Button
+                  testID={OnboardingTestIDs.finalizeSetupRetryBtn}
+                  flex={1}
+                  variant="primary"
+                  size="large"
+                  onPress={retrySetup}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_retry })}
+                </Button>
+                <Button
+                  testID={OnboardingTestIDs.finalizeSetupExitBtn}
+                  variant="tertiary"
+                  onPress={closePage}
+                  minWidth="$20"
+                >
+                  {intl.formatMessage({ id: ETranslations.global_exit })}
+                </Button>
+              </XStack>
+            </YStack>
           </YStack>
         ) : (
           <>

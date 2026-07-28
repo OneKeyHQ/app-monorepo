@@ -1,18 +1,23 @@
 import type {
+  IFetchLimitOrderRes,
   ISwapToken,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
+  ESwapLimitOrderStatus,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildSwapRecentTokenPairsFromHistory,
   filterSwapMarketHistoryItems,
+  getSwapLimitOpenOrderCount,
   getSwapMarketPendingHistoryCount,
   getSwapMarketPendingHistoryKey,
   isStockSwapHistoryItem,
+  isSwapLimitHistoryTypeSupported,
+  isSwapLimitOpenOrder,
   isSwapMarketHistoryItem,
 } from './swapMarketHistory';
 
@@ -85,7 +90,19 @@ function createHistoryItem({
   };
 }
 
+function createLimitOrder(status: ESwapLimitOrderStatus): IFetchLimitOrderRes {
+  return {
+    status,
+  } as IFetchLimitOrderRes;
+}
+
 describe('swapMarketHistory', () => {
+  it('supports the Limit history category only outside native apps', () => {
+    expect(isSwapLimitHistoryTypeSupported({ isNative: false })).toBe(true);
+    expect(isSwapLimitHistoryTypeSupported({})).toBe(true);
+    expect(isSwapLimitHistoryTypeSupported({ isNative: true })).toBe(false);
+  });
+
   it('keeps stock orders in the market history bucket', () => {
     expect(
       isSwapMarketHistoryItem(
@@ -147,28 +164,32 @@ describe('swapMarketHistory', () => {
     const stockHistory = createHistoryItem({
       protocol: EProtocolOfExchange.STOCK,
     });
+    const stockFallbackHistory = createHistoryItem({
+      protocol: EProtocolOfExchange.SWAP,
+      toToken: createToken('AAPLon', '0xAAPLon', { isStock: true }),
+    });
     const swapHistory = createHistoryItem({
       protocol: EProtocolOfExchange.SWAP,
     });
-    const histories = [stockHistory, swapHistory];
+    const histories = [stockHistory, stockFallbackHistory, swapHistory];
 
     expect(
       filterSwapMarketHistoryItems({
         items: histories,
         protocol: EProtocolOfExchange.STOCK,
       }),
-    ).toEqual([stockHistory]);
+    ).toEqual([stockHistory, stockFallbackHistory]);
     expect(
       filterSwapMarketHistoryItems({
         items: histories,
         protocol: EProtocolOfExchange.SWAP,
       }),
-    ).toEqual([stockHistory, swapHistory]);
+    ).toEqual([stockHistory, stockFallbackHistory, swapHistory]);
     expect(
       filterSwapMarketHistoryItems({
         items: histories,
       }),
-    ).toEqual([stockHistory, swapHistory]);
+    ).toEqual([stockHistory, stockFallbackHistory, swapHistory]);
   });
 
   it('counts stock pending history in the swap market pending bucket', () => {
@@ -188,6 +209,27 @@ describe('swapMarketHistory', () => {
     ).toBe(
       `${stockHistory.txInfo.txId}:pending|${swapHistory.txInfo.txId}:pending`,
     );
+  });
+
+  it('counts only open and presignature-pending limit orders as active', () => {
+    expect(
+      isSwapLimitOpenOrder(
+        createLimitOrder(ESwapLimitOrderStatus.PRESIGNATURE_PENDING),
+      ),
+    ).toBe(true);
+    expect(
+      isSwapLimitOpenOrder(createLimitOrder(ESwapLimitOrderStatus.OPEN)),
+    ).toBe(true);
+    expect(
+      isSwapLimitOpenOrder(createLimitOrder(ESwapLimitOrderStatus.FULFILLED)),
+    ).toBe(false);
+    expect(
+      getSwapLimitOpenOrderCount([
+        createLimitOrder(ESwapLimitOrderStatus.PRESIGNATURE_PENDING),
+        createLimitOrder(ESwapLimitOrderStatus.OPEN),
+        createLimitOrder(ESwapLimitOrderStatus.CANCELLED),
+      ]),
+    ).toBe(2);
   });
 
   it('builds recent token pairs from stock histories only', () => {

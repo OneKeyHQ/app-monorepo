@@ -18,6 +18,7 @@ import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
   IMarketPerpsInfo,
   IMarketTokenDetail,
+  IMarketTokenDetailPreview,
   IMarketTokenDetailResponse,
   IMarketTokenDetailWebsocket,
 } from '@onekeyhq/shared/types/marketV2';
@@ -33,6 +34,7 @@ import {
   tokenAddressAtom,
   tokenDetailAtom,
   tokenDetailLoadingAtom,
+  tokenDetailPreviewAtom,
   tokenDetailWebsocketAtom,
 } from './atoms';
 
@@ -50,6 +52,31 @@ const uniqByFn = (i: IMarketWatchListItemV2) =>
 
 const CHART_PRICE_FRESHNESS_MS = 10_000;
 
+function isSameMarketTokenDetail({
+  tokenDetail,
+  tokenAddress,
+  networkId,
+}: {
+  tokenDetail?: IMarketTokenDetail;
+  tokenAddress: string;
+  networkId: string;
+}) {
+  if (!tokenDetail) {
+    return false;
+  }
+
+  return equalTokenNoCaseSensitive({
+    token1: {
+      networkId,
+      contractAddress: tokenAddress,
+    },
+    token2: {
+      networkId,
+      contractAddress: tokenDetail.address || '',
+    },
+  });
+}
+
 class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   // Token Detail Actions
   setTokenDetail = contextAtomMethod(
@@ -60,6 +87,43 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
 
   setTokenDetailLoading = contextAtomMethod((_, set, payload: boolean) => {
     set(tokenDetailLoadingAtom(), payload);
+  });
+
+  setTokenDetailPreview = contextAtomMethod(
+    (_, set, payload: IMarketTokenDetailPreview | undefined) => {
+      set(tokenDetailPreviewAtom(), payload);
+      if (!payload) {
+        return;
+      }
+      set(tokenAddressAtom(), payload.address);
+      set(networkIdAtom(), payload.networkId);
+      set(isNativeAtom(), Boolean(payload.isNative));
+    },
+  );
+
+  prepareTokenDetailPreview = contextAtomMethod(
+    (_, set, payload: IMarketTokenDetailPreview | undefined) => {
+      set(tokenDetailAtom(), undefined);
+      set(tokenDetailPreviewAtom(), payload);
+      set(tokenDetailLoadingAtom(), false);
+      set(tokenDetailWebsocketAtom(), undefined);
+      set(perpsInfoAtom(), undefined);
+
+      if (!payload) {
+        set(tokenAddressAtom(), '');
+        set(networkIdAtom(), '');
+        set(isNativeAtom(), false);
+        return;
+      }
+
+      set(tokenAddressAtom(), payload.address);
+      set(networkIdAtom(), payload.networkId);
+      set(isNativeAtom(), Boolean(payload.isNative));
+    },
+  );
+
+  clearTokenDetailPreview = contextAtomMethod((_, set) => {
+    set(tokenDetailPreviewAtom(), undefined);
   });
 
   setTokenAddress = contextAtomMethod((_, set, payload: string) => {
@@ -88,6 +152,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
 
   clearTokenDetail = contextAtomMethod((_, set) => {
     set(tokenDetailAtom(), undefined);
+    set(tokenDetailPreviewAtom(), undefined);
     set(tokenDetailLoadingAtom(), false);
     set(tokenAddressAtom(), '');
     set(networkIdAtom(), '');
@@ -172,12 +237,23 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     async (
       get,
       set,
-      payload: { tokenAddress: string; networkId: string; isNative: boolean },
+      payload: {
+        tokenAddress: string;
+        networkId: string;
+        isNative: boolean;
+        tokenDetailPreview?: IMarketTokenDetailPreview;
+      },
     ) => {
-      const { tokenAddress, networkId, isNative } = payload;
+      const { tokenAddress, networkId, isNative, tokenDetailPreview } = payload;
+      const nextPreview =
+        tokenDetailPreview?.address === tokenAddress &&
+        tokenDetailPreview.networkId === networkId
+          ? tokenDetailPreview
+          : undefined;
       // Set atom values directly — `this.xxx.call(set)` doesn't work
       // because `this` is not the class instance inside contextAtomMethod.
       set(tokenDetailAtom(), undefined);
+      set(tokenDetailPreviewAtom(), nextPreview);
       set(tokenDetailWebsocketAtom(), undefined);
       set(perpsInfoAtom(), undefined);
       set(tokenAddressAtom(), tokenAddress);
@@ -206,9 +282,14 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           typeof responseData?.data?.token?.name === 'undefined' ||
           responseData.data.token.name === ''
         ) {
+          set(tokenDetailAtom(), undefined);
+          set(tokenDetailPreviewAtom(), undefined);
+          set(tokenDetailWebsocketAtom(), undefined);
+          set(perpsInfoAtom(), undefined);
           return;
         }
         set(tokenDetailAtom(), responseData.data.token);
+        set(tokenDetailPreviewAtom(), undefined);
         set(tokenDetailWebsocketAtom(), responseData.data.websocket);
         set(perpsInfoAtom(), responseData.data.perpsInfo);
       } catch (error) {
@@ -219,6 +300,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           isStale = true;
         } else {
           set(tokenDetailAtom(), undefined);
+          set(tokenDetailPreviewAtom(), undefined);
           set(tokenDetailWebsocketAtom(), undefined);
           set(perpsInfoAtom(), undefined);
         }
@@ -281,11 +363,30 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         // Assume new format with data.token and data.websocket
         const responseData = response as unknown as IMarketTokenDetailResponse;
 
+        const currentTokenDetail = get(tokenDetailAtom());
+
         if (
           typeof responseData?.data?.token?.name === 'undefined' ||
           responseData.data.token.name === ''
         ) {
+          if (
+            isSameMarketTokenDetail({
+              tokenDetail: currentTokenDetail,
+              tokenAddress,
+              networkId,
+            })
+          ) {
+            console.warn(
+              'Token detail is not available, keep current token detail',
+            );
+            return currentTokenDetail;
+          }
+
           console.warn('Token detail is not available');
+          set(tokenDetailAtom(), undefined);
+          set(tokenDetailPreviewAtom(), undefined);
+          set(tokenDetailWebsocketAtom(), undefined);
+          set(perpsInfoAtom(), undefined);
           return;
         }
 
@@ -295,18 +396,12 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         const perpsInfo = responseData.data.perpsInfo;
 
         // Preserve chart-updated price only while it is fresh.
-        const currentTokenDetail = get(tokenDetailAtom());
         const isSameToken =
           currentTokenDetail &&
-          equalTokenNoCaseSensitive({
-            token1: {
-              networkId,
-              contractAddress: tokenAddress,
-            },
-            token2: {
-              networkId,
-              contractAddress: currentTokenDetail.address || '',
-            },
+          isSameMarketTokenDetail({
+            tokenDetail: currentTokenDetail,
+            tokenAddress,
+            networkId,
           });
         const chartPriceUpdatedAt = currentTokenDetail?.chartPriceUpdatedAt;
         const hasFreshKLinePrice =
@@ -325,6 +420,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           : tokenData;
 
         set(tokenDetailAtom(), finalTokenData);
+        set(tokenDetailPreviewAtom(), undefined);
         set(tokenDetailWebsocketAtom(), websocketConfig);
         set(perpsInfoAtom(), perpsInfo);
 
@@ -339,6 +435,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           (currentNetworkId === networkId || currentNetworkId === '')
         ) {
           set(tokenDetailAtom(), undefined);
+          set(tokenDetailPreviewAtom(), undefined);
           set(tokenDetailWebsocketAtom(), undefined);
           set(perpsInfoAtom(), undefined);
         } else {
@@ -670,6 +767,9 @@ export function useTokenDetailActions() {
   const actions = createActions();
   const setTokenDetail = actions.setTokenDetail.use();
   const setTokenDetailLoading = actions.setTokenDetailLoading.use();
+  const setTokenDetailPreview = actions.setTokenDetailPreview.use();
+  const prepareTokenDetailPreview = actions.prepareTokenDetailPreview.use();
+  const clearTokenDetailPreview = actions.clearTokenDetailPreview.use();
   const setTokenAddress = actions.setTokenAddress.use();
   const setNetworkId = actions.setNetworkId.use();
   const setIsNative = actions.setIsNative.use();
@@ -683,6 +783,9 @@ export function useTokenDetailActions() {
   return useRef({
     setTokenDetail,
     setTokenDetailLoading,
+    setTokenDetailPreview,
+    prepareTokenDetailPreview,
+    clearTokenDetailPreview,
     setTokenAddress,
     setNetworkId,
     setIsNative,

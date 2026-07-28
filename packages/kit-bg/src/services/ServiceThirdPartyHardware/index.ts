@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -61,8 +62,10 @@ type IThirdPartySearchDevicesResponse =
 
 function createThirdPartyAdapterNotRegisteredError(vendor: EHardwareVendor) {
   return new OneKeyLocalError({
-    key: ETranslations.third_party_hw_adapter_not_registered__msg,
-    info: { vendor },
+    message: appLocale.intl.formatMessage(
+      { id: ETranslations.third_party_hw_adapter_not_registered__msg },
+      { vendor },
+    ),
   });
 }
 
@@ -136,6 +139,13 @@ class ServiceThirdPartyHardware extends ServiceBase {
     Promise<void>
   >();
 
+  /** In-flight BLE binding dialog request; concurrent callers share it. */
+  private _pendingTrezorBleBindingRequest?: {
+    usbConnectId: string;
+    featuresDeviceId: string;
+    promise: Promise<string | null>;
+  };
+
   private isRegisteredThirdPartyVendor(
     vendor: string | undefined,
   ): vendor is IThirdPartyVendor {
@@ -162,7 +172,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
         .catch((error) => {
           defaultLogger.hardware.sdkLog.log(
             `[ServiceThirdPartyHardware] Failed to init ${vendor} adapter: ${
-              (error as Error)?.message ?? String(error)
+              error instanceof Error ? error.message : String(error)
             }`,
           );
           throw error;
@@ -255,7 +265,9 @@ class ServiceThirdPartyHardware extends ServiceBase {
     const adapter = await this.getAdapterForVendor(EHardwareVendor.trezor);
     if (!adapter) {
       throw new OneKeyLocalError({
-        key: ETranslations.trezor_adapter_not_available__msg,
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.trezor_adapter_not_available__msg,
+        }),
       });
     }
 
@@ -269,13 +281,21 @@ class ServiceThirdPartyHardware extends ServiceBase {
     try {
       const result = await adapter.connectDevice(bleConnectId);
       if (!result.success) {
+        // Probe suppressed the pairing request — "not this device", not an error.
+        if (adapter.wasBindingProbeCancelled?.()) {
+          defaultLogger.hardware.sdkLog.log(
+            `[TrezorBLEBind] candidate rejected by probe cancel bleConnectId=${bleConnectId}`,
+          );
+          return null;
+        }
         defaultLogger.hardware.sdkLog.log(
           `[TrezorBLEBind] candidate probe failed bleConnectId=${bleConnectId}`,
         );
-        return null;
+        throw convertThirdPartyDeviceError(result.payload, {
+          vendor: EHardwareVendor.trezor,
+        });
       }
       if (result.payload.deviceId !== featuresDeviceId) {
-        // Wrong device (different device_id) or pairing was cancelled above.
         defaultLogger.hardware.sdkLog.log(
           `[TrezorBLEBind] candidate rejected bleConnectId=${bleConnectId} expectedDeviceId=${featuresDeviceId} actualDeviceId=${result.payload.deviceId}`,
         );
@@ -287,18 +307,23 @@ class ServiceThirdPartyHardware extends ServiceBase {
         vendor: EHardwareVendor.trezor,
       });
       if (!device) {
+        // Matched but our DB record is missing — internal error, not a mismatch.
         defaultLogger.hardware.sdkLog.log(
           `[TrezorBLEBind] candidate matched but db device missing usbConnectId=${usbConnectId} deviceId=${featuresDeviceId}`,
         );
-        return null;
+        throw new OneKeyLocalError({
+          message: appLocale.intl.formatMessage({
+            id: ETranslations.hardware_connect_failed,
+          }),
+          autoToast: true,
+        });
       }
       await localDb.updateDeviceConnectId({
         dbDeviceId: device.id,
         bleConnectId,
       });
       // The DB write emits nothing on its own; notify the device-details UI so
-      // the "bind Bluetooth" row reflects the new bleConnectId immediately
-      // (otherwise it stays visible until the modal is reopened).
+      // the "bind Bluetooth" row reflects the new bleConnectId immediately.
       appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
         deviceId: device.id,
       });
@@ -309,9 +334,6 @@ class ServiceThirdPartyHardware extends ServiceBase {
         `[3rdPartyHW][Trezor] bound BLE connectId=${bleConnectId} to device_id=${featuresDeviceId}`,
       );
       return bleConnectId;
-    } catch {
-      // Connect/probe failed (e.g. pairing cancelled) — not this device.
-      return null;
     } finally {
       adapter.endBindingProbe?.();
       await adapter.disconnect(bleConnectId).catch(() => undefined);
@@ -346,7 +368,25 @@ class ServiceThirdPartyHardware extends ServiceBase {
       return null;
     }
 
-    const bleConnectId = await new Promise<string | null>((resolve, reject) => {
+    // One binding dialog at a time: same device joins it, another device gives up.
+    const pending = this._pendingTrezorBleBindingRequest;
+    if (pending) {
+      if (
+        pending.usbConnectId === usbConnectId &&
+        pending.featuresDeviceId === featuresDeviceId
+      ) {
+        defaultLogger.hardware.sdkLog.log(
+          `[3rdPartyHW][Trezor] joining in-flight BLE binding request usbConnectId=${usbConnectId}`,
+        );
+        return pending.promise;
+      }
+      defaultLogger.hardware.sdkLog.log(
+        `[3rdPartyHW][Trezor] skip BLE binding request: another binding in flight (usbConnectId=${pending.usbConnectId})`,
+      );
+      return null;
+    }
+
+    const requestPromise = new Promise<string | null>((resolve, reject) => {
       const promiseId = this.backgroundApi.servicePromise.createCallback({
         resolve,
         reject,
@@ -362,9 +402,17 @@ class ServiceThirdPartyHardware extends ServiceBase {
           trezorBleBindingMode: 'auto-fallback',
         },
       });
-    });
+    }).then((bleConnectId) => bleConnectId || null);
 
-    return bleConnectId || null;
+    const record = { usbConnectId, featuresDeviceId, promise: requestPromise };
+    this._pendingTrezorBleBindingRequest = record;
+    try {
+      return await requestPromise;
+    } finally {
+      if (this._pendingTrezorBleBindingRequest === record) {
+        this._pendingTrezorBleBindingRequest = undefined;
+      }
+    }
   }
 
   /**
@@ -412,7 +460,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
     } catch (error) {
       defaultLogger.hardware.sdkLog.log(
         `[ServiceThirdPartyHardware] trezor adapter dispose failed: ${
-          (error as Error)?.message ?? String(error)
+          error instanceof Error ? error.message : String(error)
         }`,
       );
     }
@@ -507,7 +555,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
     } catch (error) {
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW] getEvmAddressByStandardWallet failed: ${
-          (error as Error)?.message ?? String(error)
+          error instanceof Error ? error.message : String(error)
         }`,
       );
       throw error;
@@ -598,7 +646,9 @@ class ServiceThirdPartyHardware extends ServiceBase {
     const getPassphraseState = adapter?.hw.getPassphraseState?.bind(adapter.hw);
     if (!getPassphraseState) {
       throw new OneKeyLocalError({
-        key: ETranslations.trezor_passphrase_state_not_supported__msg,
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.trezor_passphrase_state_not_supported__msg,
+        }),
       });
     }
     // Mirror the signing path: resolve the passphrase state with USB→BLE
@@ -636,7 +686,9 @@ class ServiceThirdPartyHardware extends ServiceBase {
       );
     }
     throw new OneKeyLocalError({
-      key: ETranslations.trezor_get_passphrase_state_failed__msg,
+      message: appLocale.intl.formatMessage({
+        id: ETranslations.trezor_get_passphrase_state_failed__msg,
+      }),
     });
   }
 

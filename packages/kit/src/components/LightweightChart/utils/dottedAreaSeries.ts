@@ -1,5 +1,3 @@
-import { customSeriesDefaultOptions } from 'lightweight-charts';
-
 import type { ILightweightChartTheme } from '../types';
 import type {
   CustomData,
@@ -11,6 +9,28 @@ import type {
   SeriesPartialOptions,
   Time,
 } from 'lightweight-charts';
+
+const DOTTED_AREA_BASE_OPTIONS: CustomSeriesOptions = {
+  title: '',
+  color: '#8D8FE8',
+  visible: true,
+  hitTestTolerance: 3,
+  lastValueVisible: true,
+  priceLineVisible: true,
+  priceLineSource: 0,
+  priceLineWidth: 1,
+  priceLineColor: '',
+  priceLineStyle: 2,
+  baseLineVisible: true,
+  baseLineWidth: 1,
+  baseLineColor: '#B2B5BE',
+  baseLineStyle: 0,
+  priceFormat: {
+    type: 'price',
+    precision: 2,
+    minMove: 0.01,
+  },
+};
 
 export interface IDottedAreaData extends CustomData {
   value: number;
@@ -30,7 +50,7 @@ export interface IDottedAreaSeriesOptions extends CustomSeriesOptions {
 
 function getDefaultDottedAreaSeriesOptions(): IDottedAreaSeriesOptions {
   return {
-    ...customSeriesDefaultOptions,
+    ...DOTTED_AREA_BASE_OPTIONS,
     color: '#8D8FE8',
     lineColor: '#8D8FE8',
     lineWidth: 3,

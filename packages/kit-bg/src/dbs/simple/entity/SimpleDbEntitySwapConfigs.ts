@@ -1,10 +1,10 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { capRecentTokenPairsPreservingOrder } from '@onekeyhq/shared/src/utils/swapRecentTokenPairsUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   ESwapProviderSort,
   ISwapProviderManager,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import { maxRecentTokenPairs } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IPopularTrading,
   ISwapToken,
@@ -63,31 +63,13 @@ export class SimpleDbEntitySwapConfigs extends SimpleDbEntityBase<ISwapConfigs> 
           ),
       );
     }
-    let newRecentTokenPairs = [
+    const newRecentTokenPairs = capRecentTokenPairsPreservingOrder([
       {
         fromToken,
         toToken,
       },
       ...recentTokenPairs,
-    ];
-
-    let singleChainTokenPairs = newRecentTokenPairs.filter(
-      (t) => t.fromToken.networkId === t.toToken.networkId,
-    );
-    let crossChainTokenPairs = newRecentTokenPairs.filter(
-      (t) => t.fromToken.networkId !== t.toToken.networkId,
-    );
-
-    if (singleChainTokenPairs.length > maxRecentTokenPairs) {
-      singleChainTokenPairs = singleChainTokenPairs.slice(
-        0,
-        maxRecentTokenPairs,
-      );
-    }
-    if (crossChainTokenPairs.length > maxRecentTokenPairs) {
-      crossChainTokenPairs = crossChainTokenPairs.slice(0, maxRecentTokenPairs);
-    }
-    newRecentTokenPairs = [...singleChainTokenPairs, ...crossChainTokenPairs];
+    ]);
 
     await this.setRawData({
       ...data,

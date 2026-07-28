@@ -83,7 +83,7 @@ const SwapProPriceInfo = ({ onPricePress }: ISwapProPriceInfoProps) => {
       <NumberSizeableText
         size="$headingLg"
         color={textColor}
-        fontFamily="$monoMedium"
+        fontWeight="500"
         formatter="price"
         formatterOptions={{
           currency: '$',
@@ -101,11 +101,7 @@ const SwapProPriceInfo = ({ onPricePress }: ISwapProPriceInfoProps) => {
           {tokenMarketDetailInfo.priceConverted}
         </NumberSizeableText>
       ) : null}
-      <SizableText
-        size="$bodySmMedium"
-        color={textColor}
-        fontFamily="$monoMedium"
-      >
+      <SizableText size="$bodySmMedium" color={textColor}>
         {formattedPriceChange}
       </SizableText>
     </YStack>

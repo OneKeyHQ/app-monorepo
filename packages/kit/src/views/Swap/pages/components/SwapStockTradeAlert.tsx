@@ -16,7 +16,6 @@ import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerp
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IFetchQuoteResult,
   ISwapAlertState,
@@ -32,6 +31,13 @@ import { getStockTradeAlertAnalyticsPayload } from '../../utils/swapStockAnalyti
 import { getStockQuoteTradeControl } from '../../utils/swapStockTradeControl';
 
 import SwapAlertContainer from './SwapAlertContainer';
+import {
+  getStockErrorAlertLevel,
+  getStockTradeAlertType,
+  isCurrentStockMarketClosedQuoteEventError,
+  isCurrentStockQuoteEventError,
+  isSameAlertMessage,
+} from './SwapStockTradeAlertUtils';
 
 type IStockTradeAlerts = {
   states: ISwapAlertState[];
@@ -45,23 +51,6 @@ type ISwapStockTradeAlertProps = {
   quoteResult?: IFetchQuoteResult;
   stockChannel: IUseSwapStockChannelReturn;
 };
-
-function isSameAlertMessage(a?: string, b?: string) {
-  return Boolean(a && b && a.trim() === b.trim());
-}
-
-function getStockErrorAlertLevel({
-  message,
-  notAvailableInRegionMessage,
-}: {
-  message: string;
-  notAvailableInRegionMessage: string;
-}) {
-  const isRegionError =
-    isSameAlertMessage(message, notAvailableInRegionMessage) ||
-    message.toLowerCase().includes('region');
-  return isRegionError ? ESwapAlertLevel.ERROR : ESwapAlertLevel.WARNING;
-}
 
 function useStockQuoteAlert({
   quoteResult,
@@ -115,6 +104,7 @@ function BasicSwapStockTradeAlert({
 }: ISwapStockTradeAlertProps) {
   const intl = useIntl();
   const [quoteEventError] = useSwapQuoteEventErrorAtom();
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   // The same underlying may have a Perps (contract) equivalent we can hand off
   // to while the stock market is closed. `stockPerpsInfo.hlTicker` from the
   // token detail tells us, and drives the "with Perps" cases (1 & 4).
@@ -128,36 +118,35 @@ function BasicSwapStockTradeAlert({
     id: ETranslations.trade_stock_not_available_in_region,
   });
 
-  const isCurrentStockQuoteEventError = useMemo(
+  const currentStockQuoteEventError = useMemo(
     () =>
-      Boolean(
-        quoteEventError &&
-        stockChannel.fromToken &&
-        stockChannel.toToken &&
-        equalTokenNoCaseSensitive({
-          token1: quoteEventError.fromToken,
-          token2: stockChannel.fromToken,
-        }) &&
-        equalTokenNoCaseSensitive({
-          token1: quoteEventError.toToken,
-          token2: stockChannel.toToken,
-        }),
-      ),
-    [quoteEventError, stockChannel.fromToken, stockChannel.toToken],
+      isCurrentStockQuoteEventError({
+        fromToken: stockChannel.fromToken,
+        fromTokenAmount: fromTokenAmount.value,
+        quoteEventError,
+        toToken: stockChannel.toToken,
+      }),
+    [
+      fromTokenAmount.value,
+      quoteEventError,
+      stockChannel.fromToken,
+      stockChannel.toToken,
+    ],
   );
 
   const isStockMarketClosed =
     stockChannel.channelStage === ESwapStockChannelStage.MarketClosed ||
-    Boolean(
-      quoteEventError?.isStock &&
-      quoteEventError.isMarketOpen === false &&
-      isCurrentStockQuoteEventError,
-    );
+    isCurrentStockMarketClosedQuoteEventError({
+      fromToken: stockChannel.fromToken,
+      fromTokenAmount: fromTokenAmount.value,
+      quoteEventError,
+      toToken: stockChannel.toToken,
+    });
 
   const stockEventAlert = useMemo<ISwapAlertState | undefined>(() => {
     if (
       !quoteEventError?.isStock ||
-      !isCurrentStockQuoteEventError ||
+      !currentStockQuoteEventError ||
       !quoteEventError.message ||
       isStockMarketClosed
     ) {
@@ -171,7 +160,7 @@ function BasicSwapStockTradeAlert({
       }),
     };
   }, [
-    isCurrentStockQuoteEventError,
+    currentStockQuoteEventError,
     isStockMarketClosed,
     notAvailableInRegionMessage,
     quoteEventError?.isStock,
@@ -186,7 +175,6 @@ function BasicSwapStockTradeAlert({
   const stockPrimaryAlert = stockQuoteAlert ?? stockEventAlert;
   const stockTradeDisabled =
     isStockMarketClosed ||
-    stockChannel.channelStage === ESwapStockChannelStage.MarketUnavailable ||
     stockChannel.channelStage === ESwapStockChannelStage.MissingPayToken ||
     Boolean(stockQuoteAlert || stockEventAlert);
 
@@ -209,28 +197,22 @@ function BasicSwapStockTradeAlert({
   const stockAlertForLog = useMemo(() => {
     if (isStockMarketClosed) {
       return {
-        alertType: 'marketClosed',
-        alertLevel: ESwapAlertLevel.WARNING,
-      };
-    }
-    if (
-      stockChannel.channelStage === ESwapStockChannelStage.MarketUnavailable
-    ) {
-      return {
-        alertType: 'marketUnavailable',
+        alertType: getStockTradeAlertType({ isMarketClosed: true }),
         alertLevel: ESwapAlertLevel.WARNING,
       };
     }
     if (stockChannel.channelStage === ESwapStockChannelStage.MissingPayToken) {
       return {
-        alertType: 'missingPayToken',
+        alertType: getStockTradeAlertType({ notAvailableInRegionMessage }),
         alertLevel: ESwapAlertLevel.WARNING,
       };
     }
     if (stockPrimaryAlert) {
       return {
-        alertType:
-          stockPrimaryAlert === stockQuoteAlert ? 'quoteAlert' : 'stockEvent',
+        alertType: getStockTradeAlertType({
+          message: stockPrimaryAlert.message,
+          notAvailableInRegionMessage,
+        }),
         alertLevel: stockPrimaryAlert.alertLevel,
         message: stockPrimaryAlert.message,
       };
@@ -238,9 +220,9 @@ function BasicSwapStockTradeAlert({
     return undefined;
   }, [
     isStockMarketClosed,
+    notAvailableInRegionMessage,
     stockChannel.channelStage,
     stockPrimaryAlert,
-    stockQuoteAlert,
   ]);
 
   useEffect(() => {
@@ -293,20 +275,6 @@ function BasicSwapStockTradeAlert({
         statusCase={statusCase}
         timeText={closedTimeText}
         onTradePerps={hlTicker ? () => navigateToPerps(hlTicker) : undefined}
-      />
-    );
-  }
-
-  if (stockChannel.channelStage === ESwapStockChannelStage.MarketUnavailable) {
-    return (
-      <Alert
-        testID={SwapTestIDs.stockTradeStatusAlert}
-        type="warning"
-        icon="InfoCircleOutline"
-        title={intl.formatMessage({
-          id: ETranslations.swap_page_alert_no_provider_supports_trade,
-        })}
-        description={stockChannel.stockMarketStatus?.reason ?? undefined}
       />
     );
   }

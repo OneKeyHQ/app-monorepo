@@ -19,10 +19,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import {
-  useAccountSelectorActions,
   useActiveAccount,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import {
   usePerpsActiveAccountAtom,
@@ -65,6 +65,7 @@ export interface IWebAccountPanelMainProps {
   onNavigateAccountList: () => void;
   onNavigateSettings: () => void;
   onNavigateArticles: () => void;
+  onNavigatePerpsActivityCenter?: () => void;
   onHelp?: () => void;
   onDownloadApp?: () => void;
   onRequestClose: () => void;
@@ -73,10 +74,12 @@ export interface IWebAccountPanelMainProps {
 function PerpsSection({
   userAddress,
   ensureActivePerpsAccount,
+  isDepositDisabled,
   onRequestClose,
 }: {
   userAddress?: string;
   ensureActivePerpsAccount: () => Promise<void>;
+  isDepositDisabled?: boolean;
   onRequestClose: () => void;
 }) {
   const intl = useIntl();
@@ -196,20 +199,28 @@ function PerpsSection({
   };
 
   const handleDeposit = useCallback(async () => {
+    if (isDepositDisabled) {
+      return;
+    }
     // The deposit/withdraw dialog reads perpsActiveAccountAtom, which only
     // PerpsGlobalEffects populates on the /perps route. The panel surfaces the
     // Perps section on every web-dapp route, so initialize the active perps
     // account from this account first — otherwise the dialog errors with a
     // missing-account toast when opened off the perps route.
     await ensureActivePerpsAccount();
-    await showDepositWithdrawModal('deposit');
     onRequestClose();
-  }, [ensureActivePerpsAccount, showDepositWithdrawModal, onRequestClose]);
+    void showDepositWithdrawModal('deposit');
+  }, [
+    ensureActivePerpsAccount,
+    isDepositDisabled,
+    showDepositWithdrawModal,
+    onRequestClose,
+  ]);
 
   const handleWithdraw = useCallback(async () => {
     await ensureActivePerpsAccount();
-    await showDepositWithdrawModal('withdraw');
     onRequestClose();
+    void showDepositWithdrawModal('withdraw');
   }, [ensureActivePerpsAccount, showDepositWithdrawModal, onRequestClose]);
 
   return (
@@ -234,6 +245,7 @@ function PerpsSection({
           flex={1}
           size="small"
           variant="accent"
+          disabled={isDepositDisabled}
           onPress={handleDeposit}
           testID="web-account-panel-main-deposit"
         >
@@ -257,6 +269,7 @@ export function WebAccountPanelMain({
   onNavigateAccountList,
   onNavigateSettings,
   onNavigateArticles,
+  onNavigatePerpsActivityCenter,
   onHelp,
   onDownloadApp,
   onRequestClose,
@@ -268,6 +281,9 @@ export function WebAccountPanelMain({
   const {
     activeAccount: { account, dbAccount, indexedAccount, wallet },
   } = useActiveAccount({ num: 0 });
+  const isDepositDisabled = accountUtils.isWatchingAccount({
+    accountId: account?.id ?? '',
+  });
 
   // In web-dapp all-networks mode an indexed account's address is a mock
   // placeholder; resolve the real EVM address for display, copy and perps.
@@ -674,12 +690,14 @@ export function WebAccountPanelMain({
         <PerpsSection
           userAddress={realAddress}
           ensureActivePerpsAccount={ensureActivePerpsAccount}
+          isDepositDisabled={isDepositDisabled}
           onRequestClose={onRequestClose}
         />
       </YStack>
       <WebAccountPanelFooter
         connected
         onDownloadApp={onDownloadApp}
+        onPerpsActivityCenter={onNavigatePerpsActivityCenter}
         onArticles={onNavigateArticles}
         onHelp={onHelp}
         onSettings={onNavigateSettings}

@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import type { EHardwareUiStateAction } from '@onekeyhq/shared/src/utils/deviceUtils';
 import type {
   EFirmwareUpdateTipMessages,
   EHardwareVendor,
@@ -12,13 +11,14 @@ import type {
   IFirmwareUpdateInfo,
   IFirmwareUpdatesDetectStatus,
 } from '@onekeyhq/shared/types/device';
+import type { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
-export { EHardwareUiStateAction } from '@onekeyhq/shared/src/utils/deviceUtils';
+export { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 export type IHardwareUiPayload = {
   uiRequestType: string; // EHardwareUiStateAction
   eventType: string;

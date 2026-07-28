@@ -13,6 +13,18 @@ Claude Code loads skills on-demand based on trigger words. Large skills cause:
 
 ## Monitoring Tool
 
+### Enforced Harness
+
+```bash
+yarn lint:agent-context
+```
+
+This command is part of `yarn lint` and `yarn agent:check`. It validates skill
+structure, frontmatter, relative links, cross-agent explicit-invocation policy,
+and the budgets in `development/lint/agent-context.config.json`. The Python
+analysis below remains useful for detailed body/reference sizing, but its output
+is diagnostic rather than the CI gate.
+
 ### Quick Start
 
 ```bash
@@ -31,11 +43,10 @@ python3 development/skills-analysis/analyze-skills-tokens.py --detailed
 ```
 Skill Name                         Tokens       Size   Files Recommendation
 ----------------------------------------------------------------------------------------------------
-react-best-practices               14,345      56.1K      45 🚨 URGENT: Split immediately (>10k tokens)
-1k-sentry-analysis                  9,394      37.9K       1 ⚠️  CONSIDER: Should be split (>5k tokens)
-1k-feature-guides                   8,493      34.4K       4 ⚠️  CONSIDER: Should be split (>5k tokens)
-1k-performance                      6,267      24.7K       1 ⚠️  CONSIDER: Should be split (>5k tokens)
-1k-code-quality                     3,732      14.7K       2 👀 MONITOR: Watch for growth (>2k tokens)
+1k-trade-swap-market               21,724      85.0K      10 🚨 URGENT: Split immediately (>10k tokens)
+1k-ui-recipes                      17,895      70.4K       8 🚨 URGENT: Split immediately (>10k tokens)
+1k-defi-module-integration         17,066      66.7K      10 🚨 URGENT: Split immediately (>10k tokens)
+1k-cross-platform                   4,703      18.5K       2 👀 MONITOR: Watch for growth (>2k tokens)
 ```
 
 **Recommendation levels:**
@@ -85,11 +96,11 @@ Where:
 
 ## Splitting Workflow
 
-See detailed workflow in: [.claude/skills/1k-new-skill/SKILL.md](../.claude/skills/1k-new-skill/SKILL.md#splitting-workflow)
+Use the installed `$skill-creator` guidance when creating or restructuring skills.
 
 **Quick steps:**
 1. Run analysis to identify split candidates
-2. Analyze file sizes: `ls -lh .claude/skills/<skill>/references/rules/`
+2. Analyze file sizes: `find .claude/skills/<skill>/references -name '*.md' -print`
 3. Identify independent topics with distinct trigger words
 4. Create new skill directories
 5. Move files (git tracks as rename)
@@ -156,18 +167,17 @@ This ensures all new skills are optimized from day one.
 
 ## Current Status
 
-As of 2026-01-30:
-- **Total skills**: 23
-- **Total tokens**: 76,200 (303 KB)
-- **Average per skill**: 3,313 tokens
-- **Urgent splits needed**: 1 (react-best-practices)
-- **Consider splitting**: 3 (1k-sentry-analysis, 1k-feature-guides, 1k-performance)
+As of 2026-07-14:
+- **Total skills**: 36
+- **Total tokens**: 180,263 (713.8 KB)
+- **Average per skill**: 5,007 tokens
+- **Urgent splits needed**: 3 (`1k-defi-module-integration`, `1k-trade-swap-market`, `1k-ui-recipes`)
+- **Consider splitting**: 8 (`1k-analytics`, `1k-bundle-release`, `1k-code-review-pr`, `1k-coding-patterns`, `1k-cold-start-ssr`, `1k-feature-guides`, `1k-performance`, `1k-perps-module`)
 
 ## Related Documentation
 
-- [Creating Skills Best Practices](./.claude/skills/1k-new-skill/SKILL.md)
-- [Token Optimization Guidelines](./.claude/skills/1k-new-skill/SKILL.md#token-optimization-considerations)
-- [Splitting Workflow](./.claude/skills/1k-new-skill/SKILL.md#splitting-workflow)
+- Use the installed `$skill-creator` for current creation, token optimization,
+  and progressive-disclosure guidance.
 
 ## FAQs
 
@@ -193,5 +203,3 @@ Many small files (< 1 KB each) are fine if:
 - They're related topics (shared concepts)
 - Used together frequently
 - Total skill size < 5k tokens
-
-Example: `react-best-practices` has 45 files but could be split by category (rendering, async, bundle, etc.)

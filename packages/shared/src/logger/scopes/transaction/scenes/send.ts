@@ -68,8 +68,8 @@ export class SendScene extends BaseScene {
     return this._sendFlowId;
   }
 
-  startNewFlow() {
-    this._sendFlowId = generateUUID();
+  startNewFlow(sendFlowId = generateUUID()) {
+    this._sendFlowId = sendFlowId;
     this._addressInputMethod = undefined;
     return this._sendFlowId;
   }
@@ -415,6 +415,20 @@ export class SendScene extends BaseScene {
       error,
       attemptNumber,
       retriesLeft,
+    };
+  }
+
+  @LogToLocal()
+  public refTxFetchFailed({
+    network,
+    error,
+  }: {
+    network: string | undefined;
+    error: string;
+  }) {
+    return {
+      network,
+      error,
     };
   }
 }

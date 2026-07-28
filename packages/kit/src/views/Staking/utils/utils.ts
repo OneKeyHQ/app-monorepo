@@ -11,10 +11,18 @@ function isNativeEarnEthSymbol(symbol?: string) {
 export const buildLocalTxStatusSyncId = ({
   providerName = '',
   tokenSymbol = '',
+  protocolVault,
 }: {
   providerName?: string;
   tokenSymbol?: string;
-}) => `${providerName?.toLowerCase()}-${tokenSymbol?.toLowerCase()}`;
+  protocolVault?: string;
+}) => {
+  const baseTag = `${providerName.toLowerCase()}-${tokenSymbol.toLowerCase()}`;
+  if (providerName.toLowerCase() === 'bitway' && protocolVault) {
+    return `${baseTag}-${protocolVault.toLowerCase()}`;
+  }
+  return baseTag;
+};
 
 // Borrow tag format: borrow:{provider}:{action}[:claimIds]
 export type IBorrowAction =
@@ -22,7 +30,9 @@ export type IBorrowAction =
   | 'borrow'
   | 'withdraw'
   | 'repay'
-  | 'claim';
+  | 'claim'
+  | 'setEMode'
+  | 'setCollateral';
 
 export const buildBorrowTag = ({
   provider,

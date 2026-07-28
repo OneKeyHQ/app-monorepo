@@ -19,7 +19,13 @@ import type { IPushProviderBaseProps } from './PushProviderBase';
 // expo-notifications
 // jpush
 
+const JPUSH_REGISTER_ID_RETRY_DELAYS_MS = [1000, 3000, 10_000, 30_000];
+
 export class PushProviderJPush extends PushProviderBase {
+  private loggedRegisterID = '';
+
+  private connectedRegisterID = '';
+
   constructor(props: IPushProviderBaseProps) {
     super(props);
     this.initJPush();
@@ -40,6 +46,9 @@ export class PushProviderJPush extends PushProviderBase {
       options,
     );
     this.addListeners();
+    void this.resolveRegisterID({
+      source: 'startup',
+    });
   }
 
   private addListeners() {
@@ -79,22 +88,77 @@ export class PushProviderJPush extends PushProviderBase {
     JPush.removeListener(this.handleLocalNotification);
   }
 
-  private handleConnect = (result: { connectEnable: boolean }) => {
-    defaultLogger.notification.jpush.consoleLog('JPush 连接状态:', result);
-    if (result.connectEnable) {
-      JPush.getRegistrationID(async ({ registerID }) => {
-        if (!registerID) {
-          return;
-        }
-        defaultLogger.notification.jpush.consoleLog(
-          'JPush registerID:',
-          result,
-          registerID,
+  private getRegistrationID() {
+    return new Promise<string>((resolve) => {
+      try {
+        JPush.getRegistrationID(({ registerID }) => {
+          resolve(registerID || '');
+        });
+      } catch (error) {
+        defaultLogger.notification.jpush.consoleError(
+          'JPush getRegistrationID Error >>>>> ',
+          error,
         );
-        defaultLogger.notification.jpush.registerRid(registerID);
+        resolve('');
+      }
+    });
+  }
+
+  private logRegisterIDToLocal(registerID: string) {
+    defaultLogger.notification.jpush.logRegisterRidToLocal(registerID);
+  }
+
+  private async resolveRegisterID({
+    source,
+    shouldEmitConnected = true,
+    attempt = 0,
+  }: {
+    source: string;
+    shouldEmitConnected?: boolean;
+    attempt?: number;
+  }) {
+    const registerID = await this.getRegistrationID();
+    if (registerID) {
+      defaultLogger.notification.jpush.consoleLog(
+        'JPush registerID:',
+        {
+          source,
+          attempt,
+        },
+        registerID,
+      );
+
+      if (this.loggedRegisterID !== registerID) {
+        this.loggedRegisterID = registerID;
+        this.logRegisterIDToLocal(registerID);
+      }
+
+      if (shouldEmitConnected && this.connectedRegisterID !== registerID) {
+        this.connectedRegisterID = registerID;
         this.eventEmitter.emit(EPushProviderEventNames.jpush_connected, {
           jpushId: registerID,
         });
+      }
+      return;
+    }
+
+    const retryDelay = JPUSH_REGISTER_ID_RETRY_DELAYS_MS[attempt];
+    if (retryDelay) {
+      setTimeout(() => {
+        void this.resolveRegisterID({
+          source,
+          shouldEmitConnected,
+          attempt: attempt + 1,
+        });
+      }, retryDelay);
+    }
+  }
+
+  private handleConnect = (result: { connectEnable: boolean }) => {
+    defaultLogger.notification.jpush.consoleLog('JPush 连接状态:', result);
+    if (result.connectEnable) {
+      void this.resolveRegisterID({
+        source: 'connect',
       });
     }
   };

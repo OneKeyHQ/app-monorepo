@@ -9,6 +9,7 @@ import {
   Dialog,
   Empty,
   Icon,
+  NumberSizeableText,
   SizableText,
   Skeleton,
   XStack,
@@ -23,7 +24,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EStakeProtocolGroupEnum } from '@onekeyhq/shared/types/staking';
 import type {
@@ -478,9 +478,6 @@ export function ProtocolListContent({
         .filter(Boolean)
         .join(' · ');
       const balanceInfo = protocolBalanceMap[protocolKey];
-      const balanceText = balanceInfo
-        ? numberFormat(balanceInfo.balanceParsed, { formatter: 'balance' })
-        : undefined;
 
       return (
         <XStack
@@ -525,17 +522,18 @@ export function ProtocolListContent({
               {getProtocolAprValue(item)}
             </SizableText>
             {shouldShowProtocolBalances &&
-            (balanceText || isProtocolBalanceLoading) ? (
+            (balanceInfo || isProtocolBalanceLoading) ? (
               <XStack ai="center" gap="$1">
                 <Icon name="WalletOutline" size="$3.5" color="$iconSubdued" />
-                {balanceText ? (
-                  <SizableText
+                {balanceInfo ? (
+                  <NumberSizeableText
                     size="$bodySm"
                     color="$textSubdued"
                     numberOfLines={1}
+                    formatter="balance"
                   >
-                    {balanceText}
-                  </SizableText>
+                    {balanceInfo.balanceParsed}
+                  </NumberSizeableText>
                 ) : (
                   <Skeleton h="$3" w={40} borderRadius="$2" />
                 )}

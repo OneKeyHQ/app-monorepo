@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import type { TooltipProps } from '@onekeyhq/components/src/shared/tamagui';
+import type { TooltipProps } from '@onekeyhq/components/src/shared/tamaguiOverlay';
 
 import {
   ButtonFrame,
@@ -15,7 +15,7 @@ import {
 } from '../../primitives/Button/GlassHeaderContext';
 import { useSharedPress } from '../../primitives/Button/useEvent';
 import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
-import { Tooltip } from '../Tooltip';
+import { LazyTooltip } from '../LazyTooltip';
 
 import type { IButtonProps, IIconProps, IKeyOfIcons } from '../../primitives';
 import type { ITooltipProps } from '../Tooltip';
@@ -167,7 +167,7 @@ export function IconButton(props: IIconButtonProps) {
 
   if (title) {
     return (
-      <Tooltip
+      <LazyTooltip
         renderTrigger={iconButtonElement}
         renderContent={title}
         placement={titlePlacement}

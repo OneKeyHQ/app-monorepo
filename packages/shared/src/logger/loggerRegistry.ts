@@ -6,7 +6,7 @@ import type { ApprovalScope } from './scopes/approval';
 import type { CloudBackupScope } from './scopes/cloudBackup';
 import type { CloudSyncScope } from './scopes/cloudSync';
 import type { DemoScope } from './scopes/demo';
-import type { DexScope } from './scopes/dex';
+import type { DexScope } from './scopes/dex/scope';
 import type { DiscoveryScope } from './scopes/discovery';
 import type { FiatCryptoScope } from './scopes/fiatCrypto';
 import type { HardwareScope } from './scopes/hardware';
@@ -149,7 +149,7 @@ const loggerScopeFactories: ILoggerScopeFactoryMap = {
   ),
   dex: createScopeFactory(
     () =>
-      require('./scopes/dex') as {
+      require('./scopes/dex/scope') as {
         DexScope: IScopeConstructor<DexScope>;
       },
     'DexScope',

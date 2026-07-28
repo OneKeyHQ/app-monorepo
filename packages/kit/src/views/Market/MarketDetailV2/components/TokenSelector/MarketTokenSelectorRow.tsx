@@ -25,6 +25,7 @@ import {
   useStarV2Checked,
 } from '../../../components/MarketStarV2';
 import { StockSourceLogo, SubtitleText } from '../../../components/PerpsBadges';
+import { prewarmMarketTokenImages } from '../../utils/marketDetailImagePreload';
 
 import {
   COLUMN_WIDTH_CHANGE,
@@ -50,9 +51,15 @@ const PRICE_LARGE_THRESHOLD = 1_000_000;
 const MarketTokenSelectorRow = memo(
   ({ item, networkId, onPress, showAddress }: IMarketTokenSelectorRowProps) => {
     const { copyText } = useClipboard();
+
+    const prewarmTokenImages = useCallback(() => {
+      prewarmMarketTokenImages(item);
+    }, [item]);
+
     const handlePress = useCallback(() => {
+      prewarmTokenImages();
       onPress(item);
-    }, [onPress, item]);
+    }, [onPress, item, prewarmTokenImages]);
 
     const priceFormatter = useMemo(() => {
       if (new BigNumber(item.price).gte(PRICE_LARGE_THRESHOLD)) {
@@ -109,6 +116,8 @@ const MarketTokenSelectorRow = memo(
     return (
       <XStack
         onPress={handlePress}
+        onPressIn={prewarmTokenImages}
+        onHoverIn={prewarmTokenImages}
         hoverStyle={{ bg: '$bgHover' }}
         px="$4"
         py="$3"

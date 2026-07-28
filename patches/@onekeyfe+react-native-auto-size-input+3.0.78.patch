@@ -1,0 +1,857 @@
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/android/build.gradle b/node_modules/@onekeyfe/react-native-auto-size-input/android/build.gradle
+index 55440cb..d32f581 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/android/build.gradle
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/android/build.gradle
+@@ -125,4 +125,5 @@ dependencies {
+   implementation "com.facebook.react:react-android"
+   implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+   implementation project(":react-native-nitro-modules")
++  testImplementation "junit:junit:4.13.2"
+ }
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/android/src/main/java/com/margelo/nitro/autosizeinput/AutoSizeInput.kt b/node_modules/@onekeyfe/react-native-auto-size-input/android/src/main/java/com/margelo/nitro/autosizeinput/AutoSizeInput.kt
+index 369d3b4..60dec4a 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/android/src/main/java/com/margelo/nitro/autosizeinput/AutoSizeInput.kt
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/android/src/main/java/com/margelo/nitro/autosizeinput/AutoSizeInput.kt
+@@ -8,7 +8,6 @@ import android.graphics.drawable.GradientDrawable
+ import android.os.Looper
+ import android.text.Editable
+ import android.text.InputType
+-import android.view.inputmethod.EditorInfo
+ import android.text.StaticLayout
+ import android.text.TextPaint
+ import android.text.TextWatcher
+@@ -16,6 +15,7 @@ import android.util.TypedValue
+ import android.view.Gravity
+ import android.view.View
+ import android.view.ViewGroup
++import android.view.inputmethod.EditorInfo
+ import android.widget.EditText
+ import android.widget.TextView
+ import com.facebook.proguard.annotations.DoNotStrip
+@@ -36,6 +36,7 @@ class HybridAutoSizeInput(val context: ThemedReactContext) : HybridAutoSizeInput
+   private var isDisposed = false
+   private var maxFontSizeProp: Double? = null
+   private var minFontSizeProp: Double? = null
++  private val textUpdateEventCounter = TextUpdateEventCounter()
+ 
+   // Container view
+   override val view: View = object : ViewGroup(context) {
+@@ -57,19 +58,28 @@ class HybridAutoSizeInput(val context: ThemedReactContext) : HybridAutoSizeInput
+     override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+     override fun afterTextChanged(s: Editable?) {
+       if (isUpdatingFromJS || isDisposed) return
++      textUpdateEventCounter.recordNativeChange()
+       recalculateFontSize()
+       onChangeText?.invoke(s?.toString() ?: "")
+     }
+   }
+ 
+   // Props
++  override var mostRecentEventCount: Double?
++    get() = textUpdateEventCounter.mostRecentEventCount.toDouble()
++    set(value) {
++      textUpdateEventCounter.mostRecentEventCount = value?.toInt() ?: 0
++    }
++
+   override var text: String?
+     get() = inputView.text?.toString()
+     set(value) {
+-      if (isDisposed) return
++      if (isDisposed || !textUpdateEventCounter.canApplyJsUpdate()) return
++      val nextText = value ?: ""
++      if (inputView.text?.toString() == nextText) return
+       isUpdatingFromJS = true
+       inputView.removeTextChangedListener(textWatcher)
+-      inputView.setText(value ?: "")
++      inputView.setText(nextText)
+       inputView.setSelection(inputView.text?.length ?: 0)
+       inputView.addTextChangedListener(textWatcher)
+       isUpdatingFromJS = false
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/android/src/main/java/com/margelo/nitro/autosizeinput/TextUpdateEventCounter.kt b/node_modules/@onekeyfe/react-native-auto-size-input/android/src/main/java/com/margelo/nitro/autosizeinput/TextUpdateEventCounter.kt
+new file mode 100644
+index 0000000..fddf46b
+--- /dev/null
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/android/src/main/java/com/margelo/nitro/autosizeinput/TextUpdateEventCounter.kt
+@@ -0,0 +1,14 @@
++package com.margelo.nitro.autosizeinput
++
++internal class TextUpdateEventCounter {
++  var nativeEventCount: Int = 0
++    private set
++
++  var mostRecentEventCount: Int = 0
++
++  fun recordNativeChange() {
++    nativeEventCount += 1
++  }
++
++  fun canApplyJsUpdate(): Boolean = mostRecentEventCount >= nativeEventCount
++}
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/android/src/test/java/com/margelo/nitro/autosizeinput/TextUpdateEventCounterTest.kt b/node_modules/@onekeyfe/react-native-auto-size-input/android/src/test/java/com/margelo/nitro/autosizeinput/TextUpdateEventCounterTest.kt
+new file mode 100644
+index 0000000..001f908
+--- /dev/null
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/android/src/test/java/com/margelo/nitro/autosizeinput/TextUpdateEventCounterTest.kt
+@@ -0,0 +1,76 @@
++package com.margelo.nitro.autosizeinput
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class TextUpdateEventCounterTest {
++  @Test
++  fun allowsJsUpdatesBeforeNativeInput() {
++    val counter = TextUpdateEventCounter()
++
++    assertTrue(counter.canApplyJsUpdate())
++  }
++
++  @Test
++  fun rejectsJsUpdatesThatAreOlderThanNativeInput() {
++    val counter = TextUpdateEventCounter()
++    counter.recordNativeChange()
++    counter.recordNativeChange()
++    counter.mostRecentEventCount = 1
++
++    assertFalse(counter.canApplyJsUpdate())
++  }
++
++  @Test
++  fun allowsTheLatestAcknowledgedJsUpdate() {
++    val counter = TextUpdateEventCounter()
++    counter.recordNativeChange()
++    counter.recordNativeChange()
++    counter.mostRecentEventCount = 2
++
++    assertTrue(counter.canApplyJsUpdate())
++  }
++
++  @Test
++  fun tracksEveryNativeTextChange() {
++    val counter = TextUpdateEventCounter()
++
++    repeat(10) {
++      counter.recordNativeChange()
++    }
++
++    assertEquals(10, counter.nativeEventCount)
++  }
++
++  @Test
++  fun allowsAnAcknowledgedDeletionWithoutNewerInput() {
++    val counter = TextUpdateEventCounter()
++    repeat(4) {
++      counter.recordNativeChange()
++    }
++    counter.mostRecentEventCount = 4
++    counter.recordNativeChange()
++    counter.mostRecentEventCount = 5
++
++    assertTrue(counter.canApplyJsUpdate())
++  }
++
++  @Test
++  fun rejectsAStaleDeletionUpdateAfterTheNextDigit() {
++    val counter = TextUpdateEventCounter()
++    repeat(4) {
++      counter.recordNativeChange()
++    }
++    counter.mostRecentEventCount = 4
++    counter.recordNativeChange()
++    counter.recordNativeChange()
++    counter.mostRecentEventCount = 5
++
++    assertFalse(counter.canApplyJsUpdate())
++
++    counter.mostRecentEventCount = 6
++    assertTrue(counter.canApplyJsUpdate())
++  }
++}
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/ios/AutoSizeInput.swift b/node_modules/@onekeyfe/react-native-auto-size-input/ios/AutoSizeInput.swift
+index 5823310..4911858 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/ios/AutoSizeInput.swift
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/ios/AutoSizeInput.swift
+@@ -20,6 +20,8 @@ class HybridAutoSizeInput: HybridAutoSizeInputSpec {
+   var view: UIView = UIView()
+ 
+   // MARK: - Props
++  var mostRecentEventCount: Double?
++
+   var text: String? {
+     didSet {
+       guard !isUpdatingFromJS else { return }
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/.gitattributes b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/.gitattributes
+new file mode 100644
+index 0000000..fb7a0d5
+--- /dev/null
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/.gitattributes
+@@ -0,0 +1 @@
++** linguist-generated=true
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/android/c++/JHybridAutoSizeInputSpec.cpp b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/android/c++/JHybridAutoSizeInputSpec.cpp
+index b22b6d9..a635ddd 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/android/c++/JHybridAutoSizeInputSpec.cpp
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/android/c++/JHybridAutoSizeInputSpec.cpp
+@@ -9,8 +9,8 @@
+ 
+ 
+ 
+-#include <string>
+ #include <optional>
++#include <string>
+ #include <functional>
+ #include "JFunc_void_std__string.hpp"
+ #include <NitroModules/JNICallable.hpp>
+@@ -45,6 +45,15 @@ namespace margelo::nitro::autosizeinput {
+   }
+ 
+   // Properties
++  std::optional<double> JHybridAutoSizeInputSpec::getMostRecentEventCount() {
++    static const auto method = javaClassStatic()->getMethod<jni::local_ref<jni::JDouble>()>("getMostRecentEventCount");
++    auto __result = method(_javaPart);
++    return __result != nullptr ? std::make_optional(__result->value()) : std::nullopt;
++  }
++  void JHybridAutoSizeInputSpec::setMostRecentEventCount(std::optional<double> mostRecentEventCount) {
++    static const auto method = javaClassStatic()->getMethod<void(jni::alias_ref<jni::JDouble> /* mostRecentEventCount */)>("setMostRecentEventCount");
++    method(_javaPart, mostRecentEventCount.has_value() ? jni::JDouble::valueOf(mostRecentEventCount.value()) : nullptr);
++  }
+   std::optional<std::string> JHybridAutoSizeInputSpec::getText() {
+     static const auto method = javaClassStatic()->getMethod<jni::local_ref<jni::JString>()>("getText");
+     auto __result = method(_javaPart);
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/android/c++/JHybridAutoSizeInputSpec.hpp b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/android/c++/JHybridAutoSizeInputSpec.hpp
+index 867c2a4..f9d7209 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/android/c++/JHybridAutoSizeInputSpec.hpp
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/android/c++/JHybridAutoSizeInputSpec.hpp
+@@ -50,6 +50,8 @@ namespace margelo::nitro::autosizeinput {
+ 
+   public:
+     // Properties
++    std::optional<double> getMostRecentEventCount() override;
++    void setMostRecentEventCount(std::optional<double> mostRecentEventCount) override;
+     std::optional<std::string> getText() override;
+     void setText(const std::optional<std::string>& text) override;
+     std::optional<std::string> getPrefix() override;
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/android/c++/views/JHybridAutoSizeInputStateUpdater.cpp b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/android/c++/views/JHybridAutoSizeInputStateUpdater.cpp
+index 79fca5c..ad963d4 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/android/c++/views/JHybridAutoSizeInputStateUpdater.cpp
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/android/c++/views/JHybridAutoSizeInputStateUpdater.cpp
+@@ -36,6 +36,10 @@ void JHybridAutoSizeInputStateUpdater::updateViewProps(jni::alias_ref<jni::JClas
+     throw std::runtime_error("HybridAutoSizeInputState's data doesn't contain any props!");
+   }
+   const HybridAutoSizeInputProps& props = maybeProps.value();
++  if (props.mostRecentEventCount.isDirty) {
++    view->setMostRecentEventCount(props.mostRecentEventCount.value);
++    // TODO: Set isDirty = false
++  }
+   if (props.text.isDirty) {
+     view->setText(props.text.value);
+     // TODO: Set isDirty = false
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/android/kotlin/com/margelo/nitro/autosizeinput/HybridAutoSizeInputSpec.kt b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/android/kotlin/com/margelo/nitro/autosizeinput/HybridAutoSizeInputSpec.kt
+index 43fd795..9262d57 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/android/kotlin/com/margelo/nitro/autosizeinput/HybridAutoSizeInputSpec.kt
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/android/kotlin/com/margelo/nitro/autosizeinput/HybridAutoSizeInputSpec.kt
+@@ -42,6 +42,12 @@ abstract class HybridAutoSizeInputSpec: HybridView() {
+   }
+ 
+   // Properties
++  @get:DoNotStrip
++  @get:Keep
++  @set:DoNotStrip
++  @set:Keep
++  abstract var mostRecentEventCount: Double?
++  
+   @get:DoNotStrip
+   @get:Keep
+   @set:DoNotStrip
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/ios/AutoSizeInput-Swift-Cxx-Bridge.hpp b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/ios/AutoSizeInput-Swift-Cxx-Bridge.hpp
+index bd4953e..556d36b 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/ios/AutoSizeInput-Swift-Cxx-Bridge.hpp
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/ios/AutoSizeInput-Swift-Cxx-Bridge.hpp
+@@ -30,33 +30,33 @@ namespace AutoSizeInput { class HybridAutoSizeInputSpec_cxx; }
+  */
+ namespace margelo::nitro::autosizeinput::bridge::swift {
+ 
+-  // pragma MARK: std::optional<std::string>
++  // pragma MARK: std::optional<double>
+   /**
+-   * Specialized version of `std::optional<std::string>`.
++   * Specialized version of `std::optional<double>`.
+    */
+-  using std__optional_std__string_ = std::optional<std::string>;
+-  inline std::optional<std::string> create_std__optional_std__string_(const std::string& value) noexcept {
+-    return std::optional<std::string>(value);
++  using std__optional_double_ = std::optional<double>;
++  inline std::optional<double> create_std__optional_double_(const double& value) noexcept {
++    return std::optional<double>(value);
+   }
+-  inline bool has_value_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
++  inline bool has_value_std__optional_double_(const std::optional<double>& optional) noexcept {
+     return optional.has_value();
+   }
+-  inline std::string get_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
++  inline double get_std__optional_double_(const std::optional<double>& optional) noexcept {
+     return *optional;
+   }
+   
+-  // pragma MARK: std::optional<double>
++  // pragma MARK: std::optional<std::string>
+   /**
+-   * Specialized version of `std::optional<double>`.
++   * Specialized version of `std::optional<std::string>`.
+    */
+-  using std__optional_double_ = std::optional<double>;
+-  inline std::optional<double> create_std__optional_double_(const double& value) noexcept {
+-    return std::optional<double>(value);
++  using std__optional_std__string_ = std::optional<std::string>;
++  inline std::optional<std::string> create_std__optional_std__string_(const std::string& value) noexcept {
++    return std::optional<std::string>(value);
+   }
+-  inline bool has_value_std__optional_double_(const std::optional<double>& optional) noexcept {
++  inline bool has_value_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
+     return optional.has_value();
+   }
+-  inline double get_std__optional_double_(const std::optional<double>& optional) noexcept {
++  inline std::string get_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
+     return *optional;
+   }
+   
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/ios/c++/HybridAutoSizeInputSpecSwift.hpp b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/ios/c++/HybridAutoSizeInputSpecSwift.hpp
+index 11cd396..810d398 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/ios/c++/HybridAutoSizeInputSpecSwift.hpp
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/ios/c++/HybridAutoSizeInputSpecSwift.hpp
+@@ -14,8 +14,8 @@ namespace AutoSizeInput { class HybridAutoSizeInputSpec_cxx; }
+ 
+ 
+ 
+-#include <string>
+ #include <optional>
++#include <string>
+ #include <functional>
+ 
+ #include "AutoSizeInput-Swift-Cxx-Umbrella.hpp"
+@@ -58,6 +58,13 @@ namespace margelo::nitro::autosizeinput {
+ 
+   public:
+     // Properties
++    inline std::optional<double> getMostRecentEventCount() noexcept override {
++      auto __result = _swiftPart.getMostRecentEventCount();
++      return __result;
++    }
++    inline void setMostRecentEventCount(std::optional<double> mostRecentEventCount) noexcept override {
++      _swiftPart.setMostRecentEventCount(mostRecentEventCount);
++    }
+     inline std::optional<std::string> getText() noexcept override {
+       auto __result = _swiftPart.getText();
+       return __result;
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/ios/c++/views/HybridAutoSizeInputComponent.mm b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/ios/c++/views/HybridAutoSizeInputComponent.mm
+index f4d6bd6..70790f0 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/ios/c++/views/HybridAutoSizeInputComponent.mm
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/ios/c++/views/HybridAutoSizeInputComponent.mm
+@@ -71,6 +71,11 @@ - (void) updateProps:(const std::shared_ptr<const react::Props>&)props
+   // 2. Update each prop individually
+   swiftPart.beforeUpdate();
+ 
++  // mostRecentEventCount: optional
++  if (newViewProps.mostRecentEventCount.isDirty) {
++    swiftPart.setMostRecentEventCount(newViewProps.mostRecentEventCount.value);
++    newViewProps.mostRecentEventCount.isDirty = false;
++  }
+   // text: optional
+   if (newViewProps.text.isDirty) {
+     swiftPart.setText(newViewProps.text.value);
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/ios/swift/HybridAutoSizeInputSpec.swift b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/ios/swift/HybridAutoSizeInputSpec.swift
+index 43e1b8d..db8779a 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/ios/swift/HybridAutoSizeInputSpec.swift
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/ios/swift/HybridAutoSizeInputSpec.swift
+@@ -11,6 +11,7 @@ import NitroModules
+ /// See ``HybridAutoSizeInputSpec``
+ public protocol HybridAutoSizeInputSpec_protocol: HybridObject, HybridView {
+   // Properties
++  var mostRecentEventCount: Double? { get set }
+   var text: String? { get set }
+   var prefix: String? { get set }
+   var suffix: String? { get set }
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/ios/swift/HybridAutoSizeInputSpec_cxx.swift b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/ios/swift/HybridAutoSizeInputSpec_cxx.swift
+index bbeec8d..f65ff49 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/ios/swift/HybridAutoSizeInputSpec_cxx.swift
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/ios/swift/HybridAutoSizeInputSpec_cxx.swift
+@@ -114,6 +114,23 @@ open class HybridAutoSizeInputSpec_cxx {
+   }
+ 
+   // Properties
++  public final var mostRecentEventCount: bridge.std__optional_double_ {
++    @inline(__always)
++    get {
++      return { () -> bridge.std__optional_double_ in
++        if let __unwrappedValue = self.__implementation.mostRecentEventCount {
++          return bridge.create_std__optional_double_(__unwrappedValue)
++        } else {
++          return .init()
++        }
++      }()
++    }
++    @inline(__always)
++    set {
++      self.__implementation.mostRecentEventCount = newValue.value
++    }
++  }
++  
+   public final var text: bridge.std__optional_std__string_ {
+     @inline(__always)
+     get {
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/shared/c++/HybridAutoSizeInputSpec.cpp b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/shared/c++/HybridAutoSizeInputSpec.cpp
+index 5ca7b68..224cae9 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/shared/c++/HybridAutoSizeInputSpec.cpp
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/shared/c++/HybridAutoSizeInputSpec.cpp
+@@ -14,6 +14,8 @@ namespace margelo::nitro::autosizeinput {
+     HybridObject::loadHybridMethods();
+     // load custom methods/properties
+     registerHybrids(this, [](Prototype& prototype) {
++      prototype.registerHybridGetter("mostRecentEventCount", &HybridAutoSizeInputSpec::getMostRecentEventCount);
++      prototype.registerHybridSetter("mostRecentEventCount", &HybridAutoSizeInputSpec::setMostRecentEventCount);
+       prototype.registerHybridGetter("text", &HybridAutoSizeInputSpec::getText);
+       prototype.registerHybridSetter("text", &HybridAutoSizeInputSpec::setText);
+       prototype.registerHybridGetter("prefix", &HybridAutoSizeInputSpec::getPrefix);
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/shared/c++/HybridAutoSizeInputSpec.hpp b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/shared/c++/HybridAutoSizeInputSpec.hpp
+index 4e29d93..8047afd 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/shared/c++/HybridAutoSizeInputSpec.hpp
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/shared/c++/HybridAutoSizeInputSpec.hpp
+@@ -15,8 +15,8 @@
+ 
+ 
+ 
+-#include <string>
+ #include <optional>
++#include <string>
+ #include <functional>
+ 
+ namespace margelo::nitro::autosizeinput {
+@@ -46,6 +46,8 @@ namespace margelo::nitro::autosizeinput {
+ 
+     public:
+       // Properties
++      virtual std::optional<double> getMostRecentEventCount() = 0;
++      virtual void setMostRecentEventCount(std::optional<double> mostRecentEventCount) = 0;
+       virtual std::optional<std::string> getText() = 0;
+       virtual void setText(const std::optional<std::string>& text) = 0;
+       virtual std::optional<std::string> getPrefix() = 0;
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/shared/c++/views/HybridAutoSizeInputComponent.cpp b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/shared/c++/views/HybridAutoSizeInputComponent.cpp
+index 21ad2e0..62ece82 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/shared/c++/views/HybridAutoSizeInputComponent.cpp
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/shared/c++/views/HybridAutoSizeInputComponent.cpp
+@@ -25,6 +25,16 @@ namespace margelo::nitro::autosizeinput::views {
+                                                      const HybridAutoSizeInputProps& sourceProps,
+                                                      const react::RawProps& rawProps):
+     react::ViewProps(context, sourceProps, rawProps, filterObjectKeys),
++    mostRecentEventCount([&]() -> CachedProp<std::optional<double>> {
++      try {
++        const react::RawValue* rawValue = rawProps.at("mostRecentEventCount", nullptr, nullptr);
++        if (rawValue == nullptr) return sourceProps.mostRecentEventCount;
++        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
++        return CachedProp<std::optional<double>>::fromRawValue(*runtime, value, sourceProps.mostRecentEventCount);
++      } catch (const std::exception& exc) {
++        throw std::runtime_error(std::string("AutoSizeInput.mostRecentEventCount: ") + exc.what());
++      }
++    }()),
+     text([&]() -> CachedProp<std::optional<std::string>> {
+       try {
+         const react::RawValue* rawValue = rawProps.at("text", nullptr, nullptr);
+@@ -338,6 +348,7 @@ namespace margelo::nitro::autosizeinput::views {
+ 
+   HybridAutoSizeInputProps::HybridAutoSizeInputProps(const HybridAutoSizeInputProps& other):
+     react::ViewProps(),
++    mostRecentEventCount(other.mostRecentEventCount),
+     text(other.text),
+     prefix(other.prefix),
+     suffix(other.suffix),
+@@ -372,6 +383,7 @@ namespace margelo::nitro::autosizeinput::views {
+ 
+   bool HybridAutoSizeInputProps::filterObjectKeys(const std::string& propName) {
+     switch (hashString(propName)) {
++      case hashString("mostRecentEventCount"): return true;
+       case hashString("text"): return true;
+       case hashString("prefix"): return true;
+       case hashString("suffix"): return true;
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/shared/c++/views/HybridAutoSizeInputComponent.hpp b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/shared/c++/views/HybridAutoSizeInputComponent.hpp
+index e4c8f15..8bb10a9 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/shared/c++/views/HybridAutoSizeInputComponent.hpp
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/shared/c++/views/HybridAutoSizeInputComponent.hpp
+@@ -16,8 +16,8 @@
+ #include <react/renderer/components/view/ConcreteViewShadowNode.h>
+ #include <react/renderer/components/view/ViewProps.h>
+ 
+-#include <string>
+ #include <optional>
++#include <string>
+ #include <functional>
+ #include <memory>
+ #include "HybridAutoSizeInputSpec.hpp"
+@@ -43,6 +43,7 @@ namespace margelo::nitro::autosizeinput::views {
+                              const react::RawProps& rawProps);
+ 
+   public:
++    CachedProp<std::optional<double>> mostRecentEventCount;
+     CachedProp<std::optional<std::string>> text;
+     CachedProp<std::optional<std::string>> prefix;
+     CachedProp<std::optional<std::string>> suffix;
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/shared/json/AutoSizeInputConfig.json b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/shared/json/AutoSizeInputConfig.json
+index 261adfa..b8264e0 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/shared/json/AutoSizeInputConfig.json
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/lib/nitrogen/generated/shared/json/AutoSizeInputConfig.json
+@@ -4,6 +4,7 @@
+   "bubblingEventTypes": {},
+   "directEventTypes": {},
+   "validAttributes": {
++    "mostRecentEventCount": true,
+     "text": true,
+     "prefix": true,
+     "suffix": true,
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/lib/typescript/src/AutoSizeInput.nitro.d.ts b/node_modules/@onekeyfe/react-native-auto-size-input/lib/typescript/src/AutoSizeInput.nitro.d.ts
+index 097266e..6e4f149 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/lib/typescript/src/AutoSizeInput.nitro.d.ts
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/lib/typescript/src/AutoSizeInput.nitro.d.ts
+@@ -1,5 +1,6 @@
+ import type { HybridView, HybridViewMethods, HybridViewProps } from 'react-native-nitro-modules';
+ export interface AutoSizeInputProps extends HybridViewProps {
++    mostRecentEventCount?: number;
+     text?: string;
+     prefix?: string;
+     suffix?: string;
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/.gitattributes b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/.gitattributes
+new file mode 100644
+index 0000000..fb7a0d5
+--- /dev/null
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/.gitattributes
+@@ -0,0 +1 @@
++** linguist-generated=true
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/android/c++/JHybridAutoSizeInputSpec.cpp b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/android/c++/JHybridAutoSizeInputSpec.cpp
+index b22b6d9..a635ddd 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/android/c++/JHybridAutoSizeInputSpec.cpp
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/android/c++/JHybridAutoSizeInputSpec.cpp
+@@ -9,8 +9,8 @@
+ 
+ 
+ 
+-#include <string>
+ #include <optional>
++#include <string>
+ #include <functional>
+ #include "JFunc_void_std__string.hpp"
+ #include <NitroModules/JNICallable.hpp>
+@@ -45,6 +45,15 @@ namespace margelo::nitro::autosizeinput {
+   }
+ 
+   // Properties
++  std::optional<double> JHybridAutoSizeInputSpec::getMostRecentEventCount() {
++    static const auto method = javaClassStatic()->getMethod<jni::local_ref<jni::JDouble>()>("getMostRecentEventCount");
++    auto __result = method(_javaPart);
++    return __result != nullptr ? std::make_optional(__result->value()) : std::nullopt;
++  }
++  void JHybridAutoSizeInputSpec::setMostRecentEventCount(std::optional<double> mostRecentEventCount) {
++    static const auto method = javaClassStatic()->getMethod<void(jni::alias_ref<jni::JDouble> /* mostRecentEventCount */)>("setMostRecentEventCount");
++    method(_javaPart, mostRecentEventCount.has_value() ? jni::JDouble::valueOf(mostRecentEventCount.value()) : nullptr);
++  }
+   std::optional<std::string> JHybridAutoSizeInputSpec::getText() {
+     static const auto method = javaClassStatic()->getMethod<jni::local_ref<jni::JString>()>("getText");
+     auto __result = method(_javaPart);
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/android/c++/JHybridAutoSizeInputSpec.hpp b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/android/c++/JHybridAutoSizeInputSpec.hpp
+index 867c2a4..f9d7209 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/android/c++/JHybridAutoSizeInputSpec.hpp
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/android/c++/JHybridAutoSizeInputSpec.hpp
+@@ -50,6 +50,8 @@ namespace margelo::nitro::autosizeinput {
+ 
+   public:
+     // Properties
++    std::optional<double> getMostRecentEventCount() override;
++    void setMostRecentEventCount(std::optional<double> mostRecentEventCount) override;
+     std::optional<std::string> getText() override;
+     void setText(const std::optional<std::string>& text) override;
+     std::optional<std::string> getPrefix() override;
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/android/c++/views/JHybridAutoSizeInputStateUpdater.cpp b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/android/c++/views/JHybridAutoSizeInputStateUpdater.cpp
+index 79fca5c..ad963d4 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/android/c++/views/JHybridAutoSizeInputStateUpdater.cpp
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/android/c++/views/JHybridAutoSizeInputStateUpdater.cpp
+@@ -36,6 +36,10 @@ void JHybridAutoSizeInputStateUpdater::updateViewProps(jni::alias_ref<jni::JClas
+     throw std::runtime_error("HybridAutoSizeInputState's data doesn't contain any props!");
+   }
+   const HybridAutoSizeInputProps& props = maybeProps.value();
++  if (props.mostRecentEventCount.isDirty) {
++    view->setMostRecentEventCount(props.mostRecentEventCount.value);
++    // TODO: Set isDirty = false
++  }
+   if (props.text.isDirty) {
+     view->setText(props.text.value);
+     // TODO: Set isDirty = false
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/android/kotlin/com/margelo/nitro/autosizeinput/HybridAutoSizeInputSpec.kt b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/android/kotlin/com/margelo/nitro/autosizeinput/HybridAutoSizeInputSpec.kt
+index 43fd795..9262d57 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/android/kotlin/com/margelo/nitro/autosizeinput/HybridAutoSizeInputSpec.kt
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/android/kotlin/com/margelo/nitro/autosizeinput/HybridAutoSizeInputSpec.kt
+@@ -42,6 +42,12 @@ abstract class HybridAutoSizeInputSpec: HybridView() {
+   }
+ 
+   // Properties
++  @get:DoNotStrip
++  @get:Keep
++  @set:DoNotStrip
++  @set:Keep
++  abstract var mostRecentEventCount: Double?
++  
+   @get:DoNotStrip
+   @get:Keep
+   @set:DoNotStrip
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/ios/AutoSizeInput-Swift-Cxx-Bridge.hpp b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/ios/AutoSizeInput-Swift-Cxx-Bridge.hpp
+index bd4953e..556d36b 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/ios/AutoSizeInput-Swift-Cxx-Bridge.hpp
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/ios/AutoSizeInput-Swift-Cxx-Bridge.hpp
+@@ -30,33 +30,33 @@ namespace AutoSizeInput { class HybridAutoSizeInputSpec_cxx; }
+  */
+ namespace margelo::nitro::autosizeinput::bridge::swift {
+ 
+-  // pragma MARK: std::optional<std::string>
++  // pragma MARK: std::optional<double>
+   /**
+-   * Specialized version of `std::optional<std::string>`.
++   * Specialized version of `std::optional<double>`.
+    */
+-  using std__optional_std__string_ = std::optional<std::string>;
+-  inline std::optional<std::string> create_std__optional_std__string_(const std::string& value) noexcept {
+-    return std::optional<std::string>(value);
++  using std__optional_double_ = std::optional<double>;
++  inline std::optional<double> create_std__optional_double_(const double& value) noexcept {
++    return std::optional<double>(value);
+   }
+-  inline bool has_value_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
++  inline bool has_value_std__optional_double_(const std::optional<double>& optional) noexcept {
+     return optional.has_value();
+   }
+-  inline std::string get_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
++  inline double get_std__optional_double_(const std::optional<double>& optional) noexcept {
+     return *optional;
+   }
+   
+-  // pragma MARK: std::optional<double>
++  // pragma MARK: std::optional<std::string>
+   /**
+-   * Specialized version of `std::optional<double>`.
++   * Specialized version of `std::optional<std::string>`.
+    */
+-  using std__optional_double_ = std::optional<double>;
+-  inline std::optional<double> create_std__optional_double_(const double& value) noexcept {
+-    return std::optional<double>(value);
++  using std__optional_std__string_ = std::optional<std::string>;
++  inline std::optional<std::string> create_std__optional_std__string_(const std::string& value) noexcept {
++    return std::optional<std::string>(value);
+   }
+-  inline bool has_value_std__optional_double_(const std::optional<double>& optional) noexcept {
++  inline bool has_value_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
+     return optional.has_value();
+   }
+-  inline double get_std__optional_double_(const std::optional<double>& optional) noexcept {
++  inline std::string get_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
+     return *optional;
+   }
+   
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/ios/c++/HybridAutoSizeInputSpecSwift.hpp b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/ios/c++/HybridAutoSizeInputSpecSwift.hpp
+index 11cd396..810d398 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/ios/c++/HybridAutoSizeInputSpecSwift.hpp
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/ios/c++/HybridAutoSizeInputSpecSwift.hpp
+@@ -14,8 +14,8 @@ namespace AutoSizeInput { class HybridAutoSizeInputSpec_cxx; }
+ 
+ 
+ 
+-#include <string>
+ #include <optional>
++#include <string>
+ #include <functional>
+ 
+ #include "AutoSizeInput-Swift-Cxx-Umbrella.hpp"
+@@ -58,6 +58,13 @@ namespace margelo::nitro::autosizeinput {
+ 
+   public:
+     // Properties
++    inline std::optional<double> getMostRecentEventCount() noexcept override {
++      auto __result = _swiftPart.getMostRecentEventCount();
++      return __result;
++    }
++    inline void setMostRecentEventCount(std::optional<double> mostRecentEventCount) noexcept override {
++      _swiftPart.setMostRecentEventCount(mostRecentEventCount);
++    }
+     inline std::optional<std::string> getText() noexcept override {
+       auto __result = _swiftPart.getText();
+       return __result;
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/ios/c++/views/HybridAutoSizeInputComponent.mm b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/ios/c++/views/HybridAutoSizeInputComponent.mm
+index f4d6bd6..70790f0 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/ios/c++/views/HybridAutoSizeInputComponent.mm
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/ios/c++/views/HybridAutoSizeInputComponent.mm
+@@ -71,6 +71,11 @@ - (void) updateProps:(const std::shared_ptr<const react::Props>&)props
+   // 2. Update each prop individually
+   swiftPart.beforeUpdate();
+ 
++  // mostRecentEventCount: optional
++  if (newViewProps.mostRecentEventCount.isDirty) {
++    swiftPart.setMostRecentEventCount(newViewProps.mostRecentEventCount.value);
++    newViewProps.mostRecentEventCount.isDirty = false;
++  }
+   // text: optional
+   if (newViewProps.text.isDirty) {
+     swiftPart.setText(newViewProps.text.value);
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/ios/swift/HybridAutoSizeInputSpec.swift b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/ios/swift/HybridAutoSizeInputSpec.swift
+index 43e1b8d..db8779a 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/ios/swift/HybridAutoSizeInputSpec.swift
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/ios/swift/HybridAutoSizeInputSpec.swift
+@@ -11,6 +11,7 @@ import NitroModules
+ /// See ``HybridAutoSizeInputSpec``
+ public protocol HybridAutoSizeInputSpec_protocol: HybridObject, HybridView {
+   // Properties
++  var mostRecentEventCount: Double? { get set }
+   var text: String? { get set }
+   var prefix: String? { get set }
+   var suffix: String? { get set }
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/ios/swift/HybridAutoSizeInputSpec_cxx.swift b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/ios/swift/HybridAutoSizeInputSpec_cxx.swift
+index bbeec8d..f65ff49 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/ios/swift/HybridAutoSizeInputSpec_cxx.swift
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/ios/swift/HybridAutoSizeInputSpec_cxx.swift
+@@ -114,6 +114,23 @@ open class HybridAutoSizeInputSpec_cxx {
+   }
+ 
+   // Properties
++  public final var mostRecentEventCount: bridge.std__optional_double_ {
++    @inline(__always)
++    get {
++      return { () -> bridge.std__optional_double_ in
++        if let __unwrappedValue = self.__implementation.mostRecentEventCount {
++          return bridge.create_std__optional_double_(__unwrappedValue)
++        } else {
++          return .init()
++        }
++      }()
++    }
++    @inline(__always)
++    set {
++      self.__implementation.mostRecentEventCount = newValue.value
++    }
++  }
++  
+   public final var text: bridge.std__optional_std__string_ {
+     @inline(__always)
+     get {
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/shared/c++/HybridAutoSizeInputSpec.cpp b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/shared/c++/HybridAutoSizeInputSpec.cpp
+index 5ca7b68..224cae9 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/shared/c++/HybridAutoSizeInputSpec.cpp
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/shared/c++/HybridAutoSizeInputSpec.cpp
+@@ -14,6 +14,8 @@ namespace margelo::nitro::autosizeinput {
+     HybridObject::loadHybridMethods();
+     // load custom methods/properties
+     registerHybrids(this, [](Prototype& prototype) {
++      prototype.registerHybridGetter("mostRecentEventCount", &HybridAutoSizeInputSpec::getMostRecentEventCount);
++      prototype.registerHybridSetter("mostRecentEventCount", &HybridAutoSizeInputSpec::setMostRecentEventCount);
+       prototype.registerHybridGetter("text", &HybridAutoSizeInputSpec::getText);
+       prototype.registerHybridSetter("text", &HybridAutoSizeInputSpec::setText);
+       prototype.registerHybridGetter("prefix", &HybridAutoSizeInputSpec::getPrefix);
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/shared/c++/HybridAutoSizeInputSpec.hpp b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/shared/c++/HybridAutoSizeInputSpec.hpp
+index 4e29d93..8047afd 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/shared/c++/HybridAutoSizeInputSpec.hpp
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/shared/c++/HybridAutoSizeInputSpec.hpp
+@@ -15,8 +15,8 @@
+ 
+ 
+ 
+-#include <string>
+ #include <optional>
++#include <string>
+ #include <functional>
+ 
+ namespace margelo::nitro::autosizeinput {
+@@ -46,6 +46,8 @@ namespace margelo::nitro::autosizeinput {
+ 
+     public:
+       // Properties
++      virtual std::optional<double> getMostRecentEventCount() = 0;
++      virtual void setMostRecentEventCount(std::optional<double> mostRecentEventCount) = 0;
+       virtual std::optional<std::string> getText() = 0;
+       virtual void setText(const std::optional<std::string>& text) = 0;
+       virtual std::optional<std::string> getPrefix() = 0;
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/shared/c++/views/HybridAutoSizeInputComponent.cpp b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/shared/c++/views/HybridAutoSizeInputComponent.cpp
+index 21ad2e0..62ece82 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/shared/c++/views/HybridAutoSizeInputComponent.cpp
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/shared/c++/views/HybridAutoSizeInputComponent.cpp
+@@ -25,6 +25,16 @@ namespace margelo::nitro::autosizeinput::views {
+                                                      const HybridAutoSizeInputProps& sourceProps,
+                                                      const react::RawProps& rawProps):
+     react::ViewProps(context, sourceProps, rawProps, filterObjectKeys),
++    mostRecentEventCount([&]() -> CachedProp<std::optional<double>> {
++      try {
++        const react::RawValue* rawValue = rawProps.at("mostRecentEventCount", nullptr, nullptr);
++        if (rawValue == nullptr) return sourceProps.mostRecentEventCount;
++        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
++        return CachedProp<std::optional<double>>::fromRawValue(*runtime, value, sourceProps.mostRecentEventCount);
++      } catch (const std::exception& exc) {
++        throw std::runtime_error(std::string("AutoSizeInput.mostRecentEventCount: ") + exc.what());
++      }
++    }()),
+     text([&]() -> CachedProp<std::optional<std::string>> {
+       try {
+         const react::RawValue* rawValue = rawProps.at("text", nullptr, nullptr);
+@@ -338,6 +348,7 @@ namespace margelo::nitro::autosizeinput::views {
+ 
+   HybridAutoSizeInputProps::HybridAutoSizeInputProps(const HybridAutoSizeInputProps& other):
+     react::ViewProps(),
++    mostRecentEventCount(other.mostRecentEventCount),
+     text(other.text),
+     prefix(other.prefix),
+     suffix(other.suffix),
+@@ -372,6 +383,7 @@ namespace margelo::nitro::autosizeinput::views {
+ 
+   bool HybridAutoSizeInputProps::filterObjectKeys(const std::string& propName) {
+     switch (hashString(propName)) {
++      case hashString("mostRecentEventCount"): return true;
+       case hashString("text"): return true;
+       case hashString("prefix"): return true;
+       case hashString("suffix"): return true;
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/shared/c++/views/HybridAutoSizeInputComponent.hpp b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/shared/c++/views/HybridAutoSizeInputComponent.hpp
+index e4c8f15..8bb10a9 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/shared/c++/views/HybridAutoSizeInputComponent.hpp
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/shared/c++/views/HybridAutoSizeInputComponent.hpp
+@@ -16,8 +16,8 @@
+ #include <react/renderer/components/view/ConcreteViewShadowNode.h>
+ #include <react/renderer/components/view/ViewProps.h>
+ 
+-#include <string>
+ #include <optional>
++#include <string>
+ #include <functional>
+ #include <memory>
+ #include "HybridAutoSizeInputSpec.hpp"
+@@ -43,6 +43,7 @@ namespace margelo::nitro::autosizeinput::views {
+                              const react::RawProps& rawProps);
+ 
+   public:
++    CachedProp<std::optional<double>> mostRecentEventCount;
+     CachedProp<std::optional<std::string>> text;
+     CachedProp<std::optional<std::string>> prefix;
+     CachedProp<std::optional<std::string>> suffix;
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/shared/json/AutoSizeInputConfig.json b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/shared/json/AutoSizeInputConfig.json
+index 261adfa..b8264e0 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/shared/json/AutoSizeInputConfig.json
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/nitrogen/generated/shared/json/AutoSizeInputConfig.json
+@@ -4,6 +4,7 @@
+   "bubblingEventTypes": {},
+   "directEventTypes": {},
+   "validAttributes": {
++    "mostRecentEventCount": true,
+     "text": true,
+     "prefix": true,
+     "suffix": true,
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/src/AutoSizeInput.nitro.ts b/node_modules/@onekeyfe/react-native-auto-size-input/src/AutoSizeInput.nitro.ts
+index f1e93c0..f4441b2 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/src/AutoSizeInput.nitro.ts
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/src/AutoSizeInput.nitro.ts
+@@ -6,6 +6,7 @@ import type {
+ 
+ export interface AutoSizeInputProps extends HybridViewProps {
+   // Text content
++  mostRecentEventCount?: number;
+   text?: string;
+   prefix?: string;
+   suffix?: string;

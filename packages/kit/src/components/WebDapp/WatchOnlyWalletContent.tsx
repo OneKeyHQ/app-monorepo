@@ -1,5 +1,5 @@
-import type { UseFormReturn } from '@onekeyhq/components';
 import { Stack } from '@onekeyhq/components';
+import type { UseFormReturn } from '@onekeyhq/components/src/hooks/useForm';
 import type {
   EImportMethod,
   IFormValues,

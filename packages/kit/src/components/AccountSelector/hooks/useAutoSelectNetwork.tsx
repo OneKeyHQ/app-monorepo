@@ -5,11 +5,11 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
-  useAccountSelectorActions,
   useAccountSelectorSceneInfo,
   useAccountSelectorStorageReadyAtom,
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 
 import { useAccountSelectorAvailableNetworks } from './useAccountSelectorAvailableNetworks';
 

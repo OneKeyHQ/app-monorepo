@@ -16,6 +16,7 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 
 import { DevOTPAutoFill } from '../PrimeDevUtils/DevOTPAutoFill';
 
@@ -37,7 +38,10 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   const isResendingRef = useRef(isResending);
   isResendingRef.current = isResending;
   const [verificationCode, setVerificationCode] = useState('');
-  const [state, setState] = useState<{ status: 'initial' | 'error' | 'done' }>({
+  const [state, setState] = useState<{
+    status: 'initial' | 'error' | 'done';
+    errorMessageId?: ETranslations;
+  }>({
     status: 'initial',
   });
   const intl = useIntl();
@@ -130,47 +134,65 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     // });
 
     try {
-      await loginWithCode({
-        code: verificationCode,
-        email,
-      });
-
-      Toast.success({
-        title: intl.formatMessage({ id: ETranslations.id_login_success }),
-      });
+      // Stage 1: OTP verification (Supabase verifyOtp). Only a failure here
+      // is allowed to render as "invalid verification code".
+      try {
+        await loginWithCode({
+          code: verificationCode,
+          email,
+        });
+      } catch (error) {
+        console.error('prime login error', error);
+        // A transient infrastructure failure (network down, 5xx, timeout,
+        // rate limit) says nothing about the code and does not consume it;
+        // keep the input usable so resubmitting the same code can succeed.
+        if (isTransientNetworkLikeError(error)) {
+          setState({
+            status: 'initial',
+            errorMessageId: ETranslations.global_network_error,
+          });
+        } else {
+          setState({
+            status: 'error',
+            errorMessageId: ETranslations.prime_invalid_verification_code,
+          });
+        }
+        defaultLogger.referral.page.signupOneKeyIDResult(false);
+        return;
+      }
 
       setState({ status: 'done' });
-      await onLoginSuccess?.();
-      defaultLogger.referral.page.signupOneKeyIDResult(true);
-    } catch (error) {
-      console.error('prime login error', error);
-      const e = error as Error | undefined;
-      if (
-        e?.message &&
-        [
-          'Too many requests. Please wait to try again.',
-          'Must initialize a passwordless code flow first',
-        ].includes(e?.message)
-      ) {
-        Toast.error({
-          title: e?.message,
-        });
-        void sendEmailVerificationCode();
-      } else {
-        setState({ status: 'error' });
+
+      // Stage 2: post-OTP login (getAccessToken + servicePrime.apiLogin in
+      // the caller's onLoginSuccess). The OTP is already consumed at this
+      // point, so a failure here must never render as "invalid verification
+      // code" — retyping the same code can only fail and reinforces the
+      // wrong diagnosis. The caller (PrimeLoginEmailDialogV2) surfaces the
+      // failure via showOneKeyIdLoginFailedToast and closes this dialog.
+      try {
+        await onLoginSuccess?.();
+        defaultLogger.referral.page.signupOneKeyIDResult(true);
+      } catch (error) {
+        console.error('prime login error', error);
+        setState(
+          isTransientNetworkLikeError(error)
+            ? {
+                status: 'initial',
+                errorMessageId: ETranslations.global_network_error,
+              }
+            : { status: 'initial' },
+        );
+        defaultLogger.referral.page.signupOneKeyIDResult(false);
       }
-      defaultLogger.referral.page.signupOneKeyIDResult(false);
     } finally {
       setIsSubmittingVerificationCode(false);
     }
   }, [
-    sendEmailVerificationCode,
     onConfirm,
     isSubmittingVerificationCode,
     verificationCode,
     loginWithCode,
     email,
-    intl,
     onLoginSuccess,
   ]);
 
@@ -221,10 +243,10 @@ export function PrimeLoginEmailCodeDialogV2(props: {
 
         {devSettings.enabled ? <DevOTPAutoFill email={email} /> : null}
 
-        {state.status === 'error' ? (
+        {state.errorMessageId ? (
           <SizableText size="$bodyMd" color="$red9">
             {intl.formatMessage({
-              id: ETranslations.prime_invalid_verification_code,
+              id: state.errorMessageId,
             })}
           </SizableText>
         ) : null}

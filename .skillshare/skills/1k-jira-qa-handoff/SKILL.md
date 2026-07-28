@@ -1,6 +1,6 @@
 ---
 name: 1k-jira-qa-handoff
-description: Generates a Chinese product-behavior summary + test cases from git commits and syncs them to the PM's Jira task issue (update or create), preserving any existing Slack URLs and prior context. Use after the PM commits/PRs code. Triggers on "同步 Jira / 写到 Jira / 给 QA 写测试用例 / PM 交付 / jira QA handoff / 创建 Jira issue / 更新 Jira"; or when the user supplies a Jira URL with "总结改动" / "写测试用例".
+description: Generate Chinese product behavior and QA cases from commits, then sync them to a Jira issue while preserving existing context and Slack links.
 ---
 
 # Jira QA Handoff
@@ -177,5 +177,5 @@ Then call by fully-qualified names (`mcp__atlassian__<tool_name>`). Look for: ge
 
 - `/1k-create-pr` — create the PR before / after this handoff (also injects `OK-XXXXX` into the PR title).
 - `/1k-commit` — produce the underlying commits this skill summarizes.
-- `/1k-git-workflow` — branch / commit conventions this skill assumes.
+- `/1k-dev-commands` — branch / commit conventions this skill assumes.
 - `/1k-code-review-pr` — independent diff review; useful before handoff to catch behavior changes you might have missed.

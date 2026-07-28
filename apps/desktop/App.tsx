@@ -1,5 +1,6 @@
 // oxlint-disable import-js/order
 /* eslint-disable @typescript-eslint/no-unused-vars, import/first */
+import '@onekeyhq/components/src/hocs/Provider/web-fonts.css';
 import '@onekeyhq/shared/src/web/index.css';
 import { Suspense, lazy, useEffect, useState } from 'react';
 

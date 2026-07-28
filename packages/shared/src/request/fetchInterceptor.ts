@@ -1,7 +1,7 @@
 import { forEach, isNil, isString } from 'lodash';
 
 import { defaultLogger } from '../logger/logger';
-import { isEnableLogNetwork } from '../logger/scopes/app/scenes/network';
+import { isEnableLogNetwork } from '../logger/scopes/app/scenes/networkFilter';
 import systemTimeUtils from '../utils/systemTimeUtils';
 
 import { HEADER_REQUEST_ID_KEY, getRequestHeaders } from './Interceptor';

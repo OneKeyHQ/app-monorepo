@@ -3,12 +3,16 @@ import BigNumber from 'bignumber.js';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { getPerpsChaseOrderAmendKind } from '@onekeyhq/shared/src/utils/perpsTpSlUtils';
 import {
+  calculateHyperliquidSpotHoldingPnl,
   formatSpotPairDisplayName,
   getSpotTokenDisplayName,
+  isHyperliquidSpotStableCoin,
   isSpotInstrument,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import type { IColumnConfig } from './List/CommonTableListView';
 import type { IntlShape } from 'react-intl';
@@ -19,8 +23,6 @@ const spotHoldingPnlCurrencyFormatter: INumberFormatProps = {
     currency: '$',
   },
 };
-
-const SPOT_HOLDING_STABLE_COINS = new Set(['USDC', 'USDT', 'USDB', 'USDH']);
 
 export type IPerpFillDirectionType =
   | 'openLong'
@@ -168,8 +170,7 @@ export const getFillDirectionDisplayInfo = ({
   return { text, color };
 };
 
-export const isSpotHoldingStableCoin = (coin: string) =>
-  SPOT_HOLDING_STABLE_COINS.has(coin.toUpperCase());
+export const isSpotHoldingStableCoin = isHyperliquidSpotStableCoin;
 
 export const calculateSpotHoldingPnl = ({
   total,
@@ -185,27 +186,34 @@ export const calculateSpotHoldingPnl = ({
   pnl?: string;
   pnlPercent?: number;
 } => {
-  const totalBN = new BigNumber(total);
   const entryNtlBN = new BigNumber(entryNtl || '0');
-  const midPriceBN = new BigNumber(midPrice || '0');
+  const pnl = calculateHyperliquidSpotHoldingPnl({
+    total,
+    entryNtl,
+    priceUsd: midPrice,
+    isStable,
+  });
 
-  if (
-    isStable ||
-    !midPrice ||
-    entryNtlBN.isZero() ||
-    !totalBN.isFinite() ||
-    !entryNtlBN.isFinite() ||
-    !midPriceBN.isFinite()
-  ) {
+  if (!pnl || entryNtlBN.isZero() || !entryNtlBN.isFinite()) {
     return {};
   }
 
-  const pnlBN = totalBN.multipliedBy(midPriceBN).minus(entryNtlBN);
+  const pnlBN = new BigNumber(pnl);
   return {
-    pnl: pnlBN.toFixed(),
+    pnl,
     pnlPercent: pnlBN.dividedBy(entryNtlBN).multipliedBy(100).toNumber(),
   };
 };
+
+export function canChasePerpsOrder(order: IPerpsFrontendOrder): boolean {
+  const remainingSize = new BigNumber(order.sz);
+  return Boolean(
+    !isSpotInstrument(order.coin) &&
+    getPerpsChaseOrderAmendKind(order) &&
+    remainingSize.isFinite() &&
+    remainingSize.gt(0),
+  );
+}
 
 export function formatSpotHoldingPnlText(
   pnl?: string,

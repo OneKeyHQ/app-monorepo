@@ -1,15 +1,27 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Alert, BackHandler } from 'react-native';
 
-import { Dialog, usePreventRemove } from '@onekeyhq/components';
+import {
+  Dialog,
+  rootNavigationRef,
+  usePreventRemove,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 let isNavExitConfirmShow = false;
 let isAppExitConfirmed = false;
+
+type INavigationRemoveAction = Readonly<{
+  type: string;
+  payload?: object | undefined;
+  source?: string | undefined;
+  target?: string | undefined;
+}>;
 
 export function useModalExitPrevent({
   title,
@@ -20,21 +32,42 @@ export function useModalExitPrevent({
   title: string;
   message: string;
   shouldPreventRemove?: boolean;
-  onConfirm?: () => void;
+  onConfirm?: () => Promise<void> | void;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const isFocused = useRouteIsFocused();
+  const [isNavExitConfirmed, setIsNavExitConfirmed] = useState(false);
+  const confirmedRemoveActionRef = useRef<INavigationRemoveAction | undefined>(
+    undefined,
+  );
+
+  useEffect(() => {
+    if (!isNavExitConfirmed) {
+      return;
+    }
+    const replayTimer = setTimeout(() => {
+      const action = confirmedRemoveActionRef.current;
+      confirmedRemoveActionRef.current = undefined;
+      if (action) {
+        rootNavigationRef.current?.dispatch(action);
+      }
+    });
+    const timer = setTimeout(() => {
+      setIsNavExitConfirmed(false);
+    }, 1000);
+    return () => {
+      clearTimeout(replayTimer);
+      clearTimeout(timer);
+    };
+  }, [isNavExitConfirmed, navigation]);
+
   const navPreventRemoveCallback = useCallback(
     ({
       data,
     }: {
       data: {
-        action: Readonly<{
-          type: string;
-          payload?: object | undefined;
-          source?: string | undefined;
-          target?: string | undefined;
-        }>;
+        action: INavigationRemoveAction;
       };
     }) => {
       if (isAppExitConfirmed) {
@@ -51,8 +84,10 @@ export function useModalExitPrevent({
         description: message,
         onConfirmText: intl.formatMessage({ id: ETranslations.global_quit }),
         onConfirm: () => {
-          navigation.dispatch(data.action);
-          onConfirm?.();
+          isNavExitConfirmShow = false;
+          confirmedRemoveActionRef.current = data.action;
+          setIsNavExitConfirmed(true);
+          void onConfirm?.();
         },
         onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
         onClose: () => {
@@ -62,7 +97,10 @@ export function useModalExitPrevent({
     },
     [message, navigation, title, intl, onConfirm],
   );
-  usePreventRemove(shouldPreventRemove, navPreventRemoveCallback);
+  usePreventRemove(
+    shouldPreventRemove && !isNavExitConfirmed && isFocused,
+    navPreventRemoveCallback,
+  );
 }
 
 export function useAppExitPrevent({

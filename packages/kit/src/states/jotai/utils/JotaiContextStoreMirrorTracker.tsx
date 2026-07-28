@@ -14,27 +14,11 @@ import {
   useJotaiContextTrackerMap,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import { isSwapColdStartAllNetworkContextNetworkId } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 
-import { AccountSelectorRootProvider } from '../../../components/AccountSelector/AccountSelectorRootProvider';
-import { DiscoveryBrowserRootProvider } from '../../../views/Discovery/components/DiscoveryBrowserRootProvider';
-import { EarnProvider } from '../../../views/Earn/EarnProvider';
-import { HomeTokenListRootProvider } from '../../../views/Home/components/HomeTokenListProvider/HomeTokenListRootProvider';
-import { UrlAccountHomeTokenListProvider } from '../../../views/Home/components/HomeTokenListProvider/UrlAccountHomeTokenListProvider';
-import { MarketWatchListProvider } from '../../../views/Market/MarketWatchListProvider';
-import { MarketWatchListProviderV2 } from '../../../views/Market/MarketWatchListProviderV2';
-import { PerpsRootProvider } from '../../../views/Perp/PerpsProvider';
-import { SendConfirmRootProvider } from '../../../views/Send/components/SendConfirmProvider/SendConfirmRootProvider';
-import { SignatureConfirmRootProvider } from '../../../views/SignatureConfirm/components/SignatureConfirmProvider/SignatureConfirmRootProvider';
-import {
-  SwapModalRootProvider,
-  SwapRootProvider,
-} from '../../../views/Swap/pages/SwapRootProvider';
-import { UniversalSearchProvider } from '../../../views/UniversalSearch/pages/UniversalSearchProvider';
-
+import { JotaiContextRootProviderRenderer } from './JotaiContextRootProviderRenderer';
 import {
   buildJotaiContextStoreId,
   jotaiContextStore,
@@ -55,6 +39,7 @@ type ISelectedAccountsSnapshot = Record<
 
 const COLD_START_SCOPED_KEY_SEPARATOR = '::';
 const ACCOUNT_SELECTOR_HOME_SCOPE_KEY = 'store:accountSelector@home';
+const SWAP_COLD_START_SCOPE_KEY = `store:${EJotaiContextStoreNames.swap}`;
 
 function getColdStartSnapshot() {
   return (globalThis as IGlobalColdStartSnapshot).__ONEKEY_CTX_ATOM_SNAPSHOT__;
@@ -108,7 +93,19 @@ function hasPerpsColdStartSnapshot() {
   );
 }
 
-function hasSwapColdStartSnapshot() {
+const SWAP_COLD_START_CACHE_KEYS = [
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTipsStateAtom,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapBalanceDisplayCacheAtom,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockBalanceDisplayCacheAtom,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProPositionsCacheAtom,
+];
+
+function hasSwapColdStartSnapshotForScope(coldStartScopeKey: string) {
   if (!platformEnv.isNative && !platformEnv.isDesktop) {
     return false;
   }
@@ -118,19 +115,20 @@ function hasSwapColdStartSnapshot() {
     return false;
   }
 
-  const swapColdStartCacheKeys = [
-    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTipsStateAtom,
-    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
-    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
-    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
-    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
-    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
-    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProPositionsCacheAtom,
-  ];
+  const scopePrefix = `${coldStartScopeKey}${COLD_START_SCOPED_KEY_SEPARATOR}`;
+  return Object.keys(snapshot).some(
+    (key) =>
+      key.startsWith(scopePrefix) &&
+      SWAP_COLD_START_CACHE_KEYS.some((cacheKey) =>
+        key.endsWith(`${COLD_START_SCOPED_KEY_SEPARATOR}${cacheKey}`),
+      ),
+  );
+}
+
+function hasSwapColdStartSnapshot() {
   return (
-    Object.keys(snapshot).some((key) =>
-      swapColdStartCacheKeys.some((cacheKey) => key.endsWith(`::${cacheKey}`)),
-    ) || hasAllNetworkHomeSelectedAccountSnapshot()
+    hasSwapColdStartSnapshotForScope(SWAP_COLD_START_SCOPE_KEY) ||
+    hasAllNetworkHomeSelectedAccountSnapshot()
   );
 }
 
@@ -217,97 +215,15 @@ function JotaiContextRootProvidersAutoMountCmp() {
     // );
   }
   return (
-    <>
-      {shouldMountSwapColdStartRootProvider ? <SwapRootProvider /> : null}
-      {shouldMountPerpsColdStartRootProvider ? <PerpsRootProvider /> : null}
-      {mapEntries.map(([key, value]) => {
-        const { accountSelectorInfo, count, storeName } = value;
-        // const config = {
-        //   sceneName,
-        //   sceneUrl,
-        // };
-        if (count <= 0) {
-          return null;
-        }
-
-        switch (storeName) {
-          case EJotaiContextStoreNames.accountSelector: {
-            if (!accountSelectorInfo) {
-              throw new OneKeyLocalError(
-                'JotaiContextRootProvidersAutoMount ERROR: accountSelectorInfo is required',
-              );
-            }
-            const { sceneName, sceneUrl, enabledNum } = accountSelectorInfo;
-            return (
-              <AccountSelectorRootProvider
-                key={key}
-                sceneName={sceneName}
-                sceneUrl={sceneUrl}
-                enabledNumStr={enabledNum.join(',')}
-              />
-            );
-          }
-          case EJotaiContextStoreNames.homeAccountOverview:
-          case EJotaiContextStoreNames.urlAccountOverview: {
-            // AccountOverview is mounted by page-level root providers, so
-            // it does not use global mirror auto-mount here.
-            return null;
-          }
-          case EJotaiContextStoreNames.homeTokenList: {
-            return <HomeTokenListRootProvider key={key} />;
-          }
-          case EJotaiContextStoreNames.urlAccountHomeTokenList: {
-            return <UrlAccountHomeTokenListProvider key={key} />;
-          }
-          case EJotaiContextStoreNames.discoveryBrowser: {
-            return <DiscoveryBrowserRootProvider key={key} />;
-          }
-          case EJotaiContextStoreNames.universalSearch: {
-            return <UniversalSearchProvider key={key} />;
-          }
-          case EJotaiContextStoreNames.marketWatchList: {
-            return <MarketWatchListProvider key={key} />;
-          }
-          case EJotaiContextStoreNames.marketWatchListV2: {
-            return <MarketWatchListProviderV2 key={key} />;
-          }
-          case EJotaiContextStoreNames.swap: {
-            if (shouldMountSwapColdStartRootProvider) {
-              return null;
-            }
-            return <SwapRootProvider key={key} />;
-          }
-          case EJotaiContextStoreNames.swapModal: {
-            return <SwapModalRootProvider key={key} />;
-          }
-          case EJotaiContextStoreNames.marketSwapReview: {
-            // Market review owns its local store lifecycle inside the dialog.
-            return null;
-          }
-          case EJotaiContextStoreNames.earn: {
-            return <EarnProvider key={key} />;
-          }
-          case EJotaiContextStoreNames.sendConfirm: {
-            return <SendConfirmRootProvider key={key} />;
-          }
-          case EJotaiContextStoreNames.signatureConfirm: {
-            return <SignatureConfirmRootProvider key={key} />;
-          }
-          case EJotaiContextStoreNames.perps: {
-            if (shouldMountPerpsColdStartRootProvider) {
-              return null;
-            }
-            return <PerpsRootProvider key={key} />;
-          }
-          default: {
-            const exhaustiveCheck: never = storeName;
-            throw new OneKeyLocalError(
-              `Unhandled storeName case: ${exhaustiveCheck as string}`,
-            );
-          }
-        }
-      })}
-    </>
+    <JotaiContextRootProviderRenderer
+      mapEntries={mapEntries}
+      shouldMountPerpsColdStartRootProvider={
+        shouldMountPerpsColdStartRootProvider
+      }
+      shouldMountSwapColdStartRootProvider={
+        shouldMountSwapColdStartRootProvider
+      }
+    />
   );
 }
 

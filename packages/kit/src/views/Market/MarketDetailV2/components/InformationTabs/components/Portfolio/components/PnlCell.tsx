@@ -2,7 +2,9 @@ import { memo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { NumberSizeableText, SizableText, YStack } from '@onekeyhq/components';
+import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 
 function PnlCellBase({
   usdValue,
@@ -33,17 +35,22 @@ function PnlCellBase({
   return (
     <YStack w={columnWidth} flex={flexValue} alignItems="flex-end">
       {isValid ? (
-        <NumberSizeableText
-          size="$bodySmMedium"
-          color={displayColor}
-          autoFormatter="price-marketCap"
-          autoFormatterThreshold={1000}
-          formatterOptions={{
-            currency: `${prefix}$`,
-          }}
-        >
-          {valueBN.abs().toFixed()}
-        </NumberSizeableText>
+        <XStack alignItems="center">
+          {prefix ? (
+            <SizableText size="$bodySmMedium" color={displayColor}>
+              {prefix}
+            </SizableText>
+          ) : null}
+          <Currency
+            size="$bodySmMedium"
+            color={displayColor}
+            autoFormatter="price-marketCap"
+            autoFormatterThreshold={1000}
+            sourceCurrency={USD_CURRENCY_ID}
+          >
+            {valueBN.abs().toFixed()}
+          </Currency>
+        </XStack>
       ) : (
         <SizableText size="$bodySmMedium" color="$textSubdued">
           --

@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
+import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { DOWNLOAD_MOBILE_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -31,7 +32,6 @@ import { LazyLoadPage } from '../../../components/LazyLoadPage';
 import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useNativePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
-import { PerpGuidePopover } from '../components/Guide/PerpGuidePopover';
 import { PerpContentFooter } from '../components/PerpContentFooter';
 import { PerpsActivityCenterAction } from '../components/PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../components/PerpSettingsButton';
@@ -48,6 +48,8 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../utils/mobileLayoutTrace';
+import { preloadPerpsDepositSelectTokenModal } from '../utils/preloadPerpsDepositSelectTokenModal';
+import { preloadPerpsDepositWithdrawModal } from '../utils/preloadPerpsDepositWithdrawModal';
 import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
 import { ExtPerp, shouldOpenExpandExtPerp } from './ExtPerp';
@@ -82,6 +84,9 @@ function PerpBodyContent() {
 
 function PerpContent() {
   const { gtMd } = useMedia();
+  const [activePerpsAccount] = usePerpsActiveAccountAtom();
+  const walletTypeRef = useRef(activePerpsAccount.walletType);
+  walletTypeRef.current = activePerpsAccount.walletType;
   const { top: safeAreaTop } = useSafeAreaInsets();
   const resolvedSafeAreaTop =
     safeAreaTop || initialWindowMetrics?.insets.top || 0;
@@ -96,6 +101,7 @@ function PerpContent() {
         firedRef.current = true;
         defaultLogger.perp.common.pageView({
           source: consumePerpPageEnterSource(),
+          walletType: walletTypeRef.current ?? 'unknown',
         });
       }
       return () => {
@@ -107,6 +113,8 @@ function PerpContent() {
   useEffect(() => {
     if (platformEnv.isNative) {
       void preloadPerpsMobileTokenSelectorPage();
+      void preloadPerpsDepositWithdrawModal();
+      void preloadPerpsDepositSelectTokenModal();
     }
   }, []);
 
@@ -159,11 +167,15 @@ function PerpContent() {
       }
       customToolbarItems={
         <>
-          <PerpsActivityCenterAction size="small" copyAsUrl />
-          {gtMd ? <PerpGuidePopover /> : null}
+          {!gtMd && !platformEnv.isNative ? (
+            <PerpsActivityCenterAction size="small" copyAsUrl />
+          ) : null}
           <PerpSettingsButton
             testID={PerpTestIDs.HeaderSettingsButton}
-            showGuideEntry={!gtMd}
+            showActivityCenterEntry={
+              platformEnv.isNative || (gtMd && !platformEnv.isWebDappMode)
+            }
+            showGuideEntry
           />
           <HeaderIconButton
             icon="DownloadOutline"

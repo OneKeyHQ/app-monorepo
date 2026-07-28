@@ -1,5 +1,4 @@
 import { EFirmwareType } from '@onekeyfe/hd-shared';
-import { isTrezorBleSupportedModel as isSdkTrezorBleSupportedModel } from '@onekeyfe/hwk-trezor-adapter';
 
 import type { EHardwareVendor } from '../../types/device';
 
@@ -57,8 +56,22 @@ const PERSISTED_FEATURE_FIELD_ALLOWLIST = [
   'wireless_connected',
 ] as const;
 
+// Local mirror of @onekeyfe/hwk-trezor-adapter's isTrezorBleSupportedModel:
+// this file lands in every platform's main bundle, and a runtime import of
+// the adapter drags in hwk-trezor-core (~620KB). The unit test compares this
+// against the SDK original and fails if the two drift.
+const TREZOR_BLE_SUPPORTED_MODEL_NAMES = [
+  't3w1',
+  'safe 7',
+  'trezor safe 7',
+] as const;
+
 function isTrezorBleSupportedModel(model?: string): boolean {
-  return isSdkTrezorBleSupportedModel(model);
+  if (!model) return false;
+  const normalizedModel = model.trim().replace(/\s+/g, ' ').toLowerCase();
+  return (TREZOR_BLE_SUPPORTED_MODEL_NAMES as readonly string[]).includes(
+    normalizedModel,
+  );
 }
 
 function getDeviceSettings(

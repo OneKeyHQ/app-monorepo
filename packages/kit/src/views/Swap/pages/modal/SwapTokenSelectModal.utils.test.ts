@@ -8,6 +8,7 @@ import {
 import {
   buildSwapStockSelectableNetworks,
   buildSwapTokenSelectorDisableNetworks,
+  buildSwapTokenSelectorNetworkView,
   getSwapStockTokenDisplayName,
   isSwapStockMetadataPending,
   isSwapStockTokenSearchMatch,
@@ -78,6 +79,71 @@ describe('SwapTokenSelectModal.utils', () => {
         swapNetworksIncludeAllNetwork,
       }),
     ).toEqual(['evm--1']);
+  });
+
+  it('pins the opposite token network and removes its duplicate for each Swap direction', () => {
+    const toToken = { networkId: 'evm--137' } as ISwapToken;
+
+    const fromSelectorView = buildSwapTokenSelectorNetworkView({
+      type: ESwapDirectionType.FROM,
+      swapTypeSwitch: ESwapTabSwitchType.SWAP,
+      isSwapStockSelectTarget: false,
+      fromToken,
+      toToken,
+      swapNetworksIncludeAllNetwork,
+    });
+    expect(fromSelectorView.sameChainNetwork?.networkId).toBe('evm--137');
+    expect(
+      fromSelectorView.networks.map((network) => network.networkId),
+    ).toEqual(['onekeyall--0', 'evm--1']);
+
+    const toSelectorView = buildSwapTokenSelectorNetworkView({
+      type: ESwapDirectionType.TO,
+      swapTypeSwitch: ESwapTabSwitchType.SWAP,
+      isSwapStockSelectTarget: false,
+      fromToken,
+      toToken,
+      swapNetworksIncludeAllNetwork,
+    });
+    expect(toSelectorView.sameChainNetwork?.networkId).toBe('evm--1');
+    expect(toSelectorView.networks.map((network) => network.networkId)).toEqual(
+      ['onekeyall--0', 'evm--137'],
+    );
+  });
+
+  it('does not add a Same chain recommendation outside the Swap token selector', () => {
+    const view = buildSwapTokenSelectorNetworkView({
+      type: ESwapDirectionType.TO,
+      swapTypeSwitch: ESwapTabSwitchType.LIMIT,
+      isSwapStockSelectTarget: false,
+      fromToken,
+      swapNetworksIncludeAllNetwork,
+    });
+    const stockView = buildSwapTokenSelectorNetworkView({
+      type: ESwapDirectionType.TO,
+      swapTypeSwitch: ESwapTabSwitchType.SWAP,
+      isSwapStockSelectTarget: true,
+      fromToken,
+      swapNetworksIncludeAllNetwork,
+    });
+
+    expect(view.sameChainNetwork).toBeUndefined();
+    expect(view.networks).toBe(swapNetworksIncludeAllNetwork);
+    expect(stockView.sameChainNetwork).toBeUndefined();
+    expect(stockView.networks).toBe(swapNetworksIncludeAllNetwork);
+  });
+
+  it('does not add a Same chain recommendation for an unsupported opposite network', () => {
+    const view = buildSwapTokenSelectorNetworkView({
+      type: ESwapDirectionType.FROM,
+      swapTypeSwitch: ESwapTabSwitchType.SWAP,
+      isSwapStockSelectTarget: false,
+      toToken: { networkId: 'unsupported--1' } as ISwapToken,
+      swapNetworksIncludeAllNetwork,
+    });
+
+    expect(view.sameChainNetwork).toBeUndefined();
+    expect(view.networks).toBe(swapNetworksIncludeAllNetwork);
   });
 
   it('keeps Limit To selection on the source network only', () => {

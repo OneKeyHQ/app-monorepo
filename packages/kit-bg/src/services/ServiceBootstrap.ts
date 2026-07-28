@@ -7,15 +7,28 @@ import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import localDb from '../dbs/local/localDb';
 
 import ServiceBase from './ServiceBase';
+import {
+  markIdentityRecoveryFailed,
+  markIdentityRecoveryReady,
+} from './ServiceIdentityExit/identityLifecycleMutex';
+import { scheduleWalletProfileAnalyticsChecks } from './walletProfileAnalyticsScheduler';
 
 @backgroundClass()
 class ServiceBootstrap extends ServiceBase {
+  private walletProfileAnalyticsChecksScheduled = false;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
 
   public async init() {
     await this.initCritical();
+    if (platformEnv.isWeb || platformEnv.isDesktop) {
+      setTimeout(() => {
+        void this.initDeferred();
+      }, 6000);
+      return;
+    }
     void this.initDeferred();
   }
 
@@ -38,6 +51,18 @@ class ServiceBootstrap extends ServiceBase {
     defaultLogger.app.bootstrap.initCriticalStart();
     const criticalStart = Date.now();
     await this.timed('localDb.readyDb', () => localDb.readyDb);
+    try {
+      await this.timed('serviceIdentityExit.recoverInterruptedOperations', () =>
+        this.backgroundApi.serviceIdentityExit.recoverInterruptedIdentityExitOperations(),
+      );
+      markIdentityRecoveryReady();
+    } catch (_error) {
+      markIdentityRecoveryFailed();
+      defaultLogger.app.bootstrap.initCriticalStep(
+        'identityRecovery (FAILED)',
+        0,
+      );
+    }
     try {
       await this.timed('initSystemLocale', () =>
         this.backgroundApi.serviceSetting.initSystemLocale(),
@@ -68,6 +93,14 @@ class ServiceBootstrap extends ServiceBase {
    */
   public async initDeferred() {
     const deferredStart = Date.now();
+
+    // Wallet backup-status diagnostics: sample the persisted appStatus raw
+    // BEFORE any deferred task runs — several concurrent migrations below
+    // write simpleDb.appStatus, and a sample taken after their setRawData
+    // would misreport a freshly-created appStatus as pre-boot on-disk state.
+    // Synchronous kick (the read is awaited later inside
+    // migrateHdWalletsBackedUpStatus), so bootstrap is not delayed.
+    this.backgroundApi.serviceAccount.startBackupMigrationBootRawSample();
 
     const timedDeferred = async (label: string, fn: () => Promise<unknown>) => {
       const start = Date.now();
@@ -125,9 +158,19 @@ class ServiceBootstrap extends ServiceBase {
       timedDeferred('serviceContextMenu.init', () =>
         this.backgroundApi.serviceContextMenu.init(),
       ),
-      timedDeferred('serviceDevSetting.initAnalytics', () =>
-        this.backgroundApi.serviceDevSetting.initAnalytics(),
-      ),
+      timedDeferred('serviceDevSetting.initAnalytics', async () => {
+        await this.backgroundApi.serviceDevSetting.initAnalytics();
+        if (!this.walletProfileAnalyticsChecksScheduled) {
+          this.walletProfileAnalyticsChecksScheduled = true;
+          scheduleWalletProfileAnalyticsChecks(() =>
+            timedDeferred(
+              'serviceAccount.reportWalletProfileAnalyticsIfNeeded',
+              () =>
+                this.backgroundApi.serviceAccount.reportWalletProfileAnalyticsIfNeeded(),
+            ),
+          );
+        }
+      }),
       // ext MV3 only: re-warm providers of already-connected dapps after a
       // service-worker restart so notifyDApp* can reach them. Native/desktop
       // rebuild their webviews on restart (dapp reconnects), so no warmup
@@ -139,6 +182,15 @@ class ServiceBootstrap extends ServiceBase {
             ),
           ]
         : []),
+      // Resume persisted tracking from the runtime that owns it. The dynamic
+      // preflight keeps the full Unifold service out of an idle startup while
+      // preserving recovery after this background runtime restarts.
+      timedDeferred('serviceUnifoldDeposit.resumeDepositTracking', () =>
+        import('./ServiceUnifoldDeposit/resumeUnifoldDepositTracking').then(
+          ({ resumeUnifoldDepositTracking }) =>
+            resumeUnifoldDepositTracking(this.backgroundApi),
+        ),
+      ),
       timedDeferred('serviceDevSetting.saveDevModeToSyncStorage', () =>
         this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage(),
       ),

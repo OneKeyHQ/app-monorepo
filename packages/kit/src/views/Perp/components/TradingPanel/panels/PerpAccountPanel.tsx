@@ -13,7 +13,6 @@ import {
   XStack,
   YStack,
   useClipboard,
-  useInTabDialog,
 } from '@onekeyhq/components';
 import { openHyperLiquidExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import {
@@ -27,10 +26,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
+import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { useShowPortfolio } from '../../../hooks/useShowPortfolio';
 import { getPortfolioTitle } from '../../Portfolio/PerpPortfolioModal';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
-import { showDepositWithdrawDialog } from '../modals/DepositWithdrawModal';
 
 export function PerpAccountDebugInfo() {
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
@@ -102,10 +101,11 @@ function PerpAccountPanel() {
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const [selectedAccount] = usePerpsActiveAccountAtom();
   const userAddress = selectedAccount.accountAddress;
-  const dialogInTab = useInTabDialog();
   const intl = useIntl();
   const { copyText } = useClipboard();
   const { showPortfolio } = useShowPortfolio();
+  const { showDepositWithdrawModal, isDepositDisabled } =
+    useShowDepositWithdrawModal();
 
   const unrealizedPnlInfo = useMemo(() => {
     const pnlBn = new BigNumber(accountSummary?.totalUnrealizedPnl || '0');
@@ -271,15 +271,8 @@ function PerpAccountPanel() {
             size="medium"
             h={36}
             variant="secondary"
-            onPress={() =>
-              showDepositWithdrawDialog(
-                {
-                  actionType: 'deposit',
-                },
-                dialogInTab,
-                intl,
-              )
-            }
+            disabled={isDepositDisabled}
+            onPress={() => void showDepositWithdrawModal('deposit')}
             alignItems="center"
             justifyContent="center"
             childrenAsText={false}
@@ -300,15 +293,7 @@ function PerpAccountPanel() {
             title={intl.formatMessage({
               id: ETranslations.perp_trade_withdraw,
             })}
-            onPress={() =>
-              showDepositWithdrawDialog(
-                {
-                  actionType: 'withdraw',
-                },
-                dialogInTab,
-                intl,
-              )
-            }
+            onPress={() => void showDepositWithdrawModal('withdraw')}
           />
           <IconButton
             testID="perp-icon-btn"

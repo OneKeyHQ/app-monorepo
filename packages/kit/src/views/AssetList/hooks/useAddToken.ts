@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { useForm } from '@onekeyhq/components';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';

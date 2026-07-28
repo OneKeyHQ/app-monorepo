@@ -3,10 +3,9 @@ import { type ReactNode, memo, useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { SizableText, Spinner, XStack, useMedia } from '@onekeyhq/components';
-import {
-  AccountSelectorActiveAccountHome,
-  AccountSelectorTriggerHome,
-} from '@onekeyhq/kit/src/components/AccountSelector';
+import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorActiveAccount';
+import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerHome';
+import { LazyAllNetworksManagerTrigger } from '@onekeyhq/kit/src/components/AccountSelector/LazyAllNetworksManagerTrigger';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
@@ -23,7 +22,6 @@ import {
   useActiveAccount,
   useIsAccountSelectorSyncLoading,
 } from '../../../states/jotai/contexts/accountSelector';
-import { AllNetworksManagerTrigger } from '../../AccountSelector/AllNetworksManagerTrigger';
 
 function AccountSelectorTriggerWithSpotlight({
   isFocus,
@@ -133,7 +131,7 @@ export function WalletConnectionGroup({
         network?.isAllNetworks &&
         !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
       ) {
-        return <AllNetworksManagerTrigger num={0} unifiedMode />;
+        return <LazyAllNetworksManagerTrigger num={0} unifiedMode />;
       }
       return (
         <NetworkSelectorTriggerHome

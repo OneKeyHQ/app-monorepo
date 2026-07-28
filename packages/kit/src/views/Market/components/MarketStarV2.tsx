@@ -18,6 +18,8 @@ import { MarketTestIDs } from '../testIDs';
 
 import { useWatchListV2Action } from './watchListHooksV2';
 
+import type { IMarketStarV2Props } from './MarketStarV2.types';
+
 export const useStarV2Checked = ({
   chainId,
   contractAddress,
@@ -90,15 +92,7 @@ function BasicMarketStarV2({
   isNative = false,
   customIconSize,
   ...props
-}: {
-  size?: IIconButtonProps['size'];
-  chainId: string;
-  contractAddress: string;
-  from: EWatchlistFrom;
-  tokenSymbol?: string;
-  isNative?: boolean;
-  customIconSize?: string;
-} & IStackProps) {
+}: IMarketStarV2Props) {
   const intl = useIntl();
   const { onPress, checked } = useStarV2Checked({
     chainId,

@@ -3,30 +3,27 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { debounce, noop } from 'lodash';
 import { StyleSheet } from 'react-native';
 
-import type { ISortableListViewRef } from '@onekeyhq/components';
 import {
   Page,
-  SortableListView,
   Stack,
   XStack,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { SortableListView } from '@onekeyhq/components/src/layouts/SortableListView';
+import type { ISortableListViewRef } from '@onekeyhq/components/src/layouts/SortableListView';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHardwareWalletConnectStatus } from '@onekeyhq/kit/src/hooks/useHardwareWalletConnectStatus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  useAccountSelectorActions,
-  useSelectedAccount,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import {
   useAccountSelectorStatusAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { analytics } from '@onekeyhq/shared/src/analytics';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import { BOT_WALLET_STATUS_DEACTIVATED } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
@@ -46,7 +43,6 @@ import { AccountSelectorCreateWalletButton } from './AccountSelectorCreateWallet
 import { WalletListItem } from './WalletListItem';
 import {
   buildGroupedAccountSelectorWallets,
-  computeHwVendorProfile,
   getWalletChildrenLength,
 } from './walletListUtils';
 
@@ -217,32 +213,6 @@ export function AccountSelectorWalletListSideBar({
     selectedAccount,
     walletsCount: wallets?.length ?? 0,
   });
-
-  useEffect(() => {
-    const walletCount = wallets.reduce(
-      (count, wallet) => count + 1 + (wallet.botWallets?.length ?? 0),
-      0,
-    );
-    if (walletCount > 0) {
-      const hwWalletCount = wallets.filter(
-        (wallet) => wallet.type === 'hw',
-      ).length;
-      const keylessWalletCount = wallets.filter(
-        (wallet) => wallet.isKeyless,
-      ).length;
-      const appWalletCount = walletCount - hwWalletCount;
-      const { hwVendors, primaryHwVendor } = computeHwVendorProfile(wallets);
-
-      analytics.updateUserProfile({
-        walletCount,
-        hwWalletCount,
-        appWalletCount,
-        keylessWalletCount,
-        hwVendors,
-        primaryHwVendor,
-      });
-    }
-  }, [wallets]);
 
   useEffect(() => {
     if (

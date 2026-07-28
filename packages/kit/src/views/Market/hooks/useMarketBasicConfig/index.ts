@@ -1,13 +1,15 @@
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IMarketBasicConfigHomeTab,
   IMarketBasicConfigNetwork,
   IMarketBasicConfigToken,
   IMarketPerpsCategory,
   IMarketSpotCategory,
+  IMarketStockCategory,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { fetchMarketBasicConfigForPlatform } from './fetchMarketBasicConfigForPlatform';
 import {
   formatLiquidityValue,
   getDefaultNetworkId,
@@ -20,6 +22,7 @@ const EMPTY_TOKENS: IMarketBasicConfigToken[] = [];
 const EMPTY_NETWORKS: IMarketBasicConfigNetwork[] = [];
 const EMPTY_PERPS_CATEGORIES: IMarketPerpsCategory[] = [];
 const EMPTY_SPOT_CATEGORIES: IMarketSpotCategory[] = [];
+const EMPTY_STOCK_CATEGORIES: IMarketStockCategory[] = [];
 const EMPTY_HOME_TABS: IMarketBasicConfigHomeTab[] = [];
 
 /**
@@ -29,8 +32,7 @@ const EMPTY_HOME_TABS: IMarketBasicConfigHomeTab[] = [];
 export function useMarketBasicConfig() {
   const { result, isLoading } = usePromiseResult(
     async () => {
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig();
+      const response = await fetchMarketBasicConfigForPlatform();
       const configData = response?.data;
 
       if (!configData) {
@@ -48,6 +50,7 @@ export function useMarketBasicConfig() {
       const homeTab = configData.homeTab ?? [];
       const perpsCategories = configData.perpsCategories ?? [];
       const spotCategories = configData.spotCategories ?? [];
+      const stockCategories = configData.stockCategories ?? [];
       return {
         // Raw config data
         basicConfig: configData,
@@ -61,10 +64,12 @@ export function useMarketBasicConfig() {
         homeTab,
         perpsCategories,
         spotCategories,
+        stockCategories,
       };
     },
     [],
     {
+      checkIsFocused: !platformEnv.isWeb,
       watchLoading: true,
       revalidateOnReconnect: true,
     },
@@ -85,5 +90,6 @@ export function useMarketBasicConfig() {
     homeTab: result?.homeTab ?? EMPTY_HOME_TABS,
     perpsCategories: result?.perpsCategories ?? EMPTY_PERPS_CATEGORIES,
     spotCategories: result?.spotCategories ?? EMPTY_SPOT_CATEGORIES,
+    stockCategories: result?.stockCategories ?? EMPTY_STOCK_CATEGORIES,
   };
 }

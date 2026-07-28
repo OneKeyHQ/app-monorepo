@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ETranslations, LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { LOCALES_OPTION } from '@onekeyhq/shared/src/locale/localeOptions';
 
 export function useLocaleOptions() {
   const intl = useIntl();

@@ -11,8 +11,8 @@ import {
   SizableText,
   XStack,
   YStack,
-  useForm,
 } from '@onekeyhq/components';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { RedemptionTestIDs } from '@onekeyhq/kit/src/views/Redemption/testIDs';

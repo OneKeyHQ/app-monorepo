@@ -7,11 +7,11 @@ import {
   NumberSizeableText,
   SizableText,
   Stack,
-  Tooltip,
   XStack,
   useClipboard,
   useMedia,
 } from '@onekeyhq/components';
+import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
@@ -186,7 +186,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
 
   const symbolElement =
     !showStockSubtitle && stock?.subtitle ? (
-      <Tooltip
+      <LazyTooltip
         placement="top"
         renderTrigger={symbolText}
         renderContent={stock.subtitle}

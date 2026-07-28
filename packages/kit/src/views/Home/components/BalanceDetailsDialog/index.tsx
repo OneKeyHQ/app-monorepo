@@ -10,6 +10,7 @@ import {
   Dialog,
   Divider,
   ESwitchSize,
+  PROPORTIONAL_NUMS,
   SizableText,
   Skeleton,
   Stack,
@@ -391,7 +392,7 @@ function BalanceDetailsContent({
           {isLoading ? (
             <Skeleton.Heading3Xl />
           ) : (
-            <SizableText size="$heading3xl">
+            <SizableText size="$heading3xl" fontVariant={PROPORTIONAL_NUMS}>
               {`${overview?.balanceParsed ?? '-'} ${network?.symbol ?? ''}`}
             </SizableText>
           )}

@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { IWsPriceData } from '@onekeyhq/kit-bg/src/services/ServiceMarketWS/types';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { isMarketWsPriceData } from '@onekeyhq/shared/src/utils/marketWsUtils';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { IMarketWsDataUpdatePayload } from '@onekeyhq/shared/types/marketV2';
 
 import { calculateMarketTokenLivePriceChange } from '../utils/tokenListHelpers';
 
@@ -52,16 +52,14 @@ type IMarketHomeTokenListWebSocketParams = {
   onSubscriptionCountChange?: (count: number) => void;
 };
 
-type IMarketWSDataUpdatePayload = {
-  channel: string;
-  tokenAddress: string;
-  networkId?: string;
-  isSubscriptionAmbiguous?: boolean;
-  data: unknown;
-};
-
 const DEFAULT_MARKET_HOME_WS_CHART_TYPE = '1m';
 const DEFAULT_MARKET_HOME_WS_CURRENCY = 'usd';
+
+const getBackgroundApiProxy = async () => {
+  const { default: backgroundApiProxy } =
+    await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
+  return backgroundApiProxy;
+};
 
 function normalizeAddress({
   networkId,
@@ -122,17 +120,6 @@ function findTokenByLiveOverrideKey({
   );
 }
 
-function isWsPriceData(data: unknown): data is IWsPriceData {
-  if (!data || typeof data !== 'object') {
-    return false;
-  }
-
-  const candidate = data as Partial<IWsPriceData>;
-  return (
-    typeof candidate.address === 'string' && typeof candidate.c === 'number'
-  );
-}
-
 export function buildMarketHomeTokenSubscriptions({
   tokens,
   chartType = DEFAULT_MARKET_HOME_WS_CHART_TYPE,
@@ -171,10 +158,12 @@ export function findMatchingSubscription({
   payload,
   subscriptions,
 }: {
-  payload: IMarketWSDataUpdatePayload;
+  payload: IMarketWsDataUpdatePayload;
   subscriptions: IMarketHomeTokenSubscription[];
 }) {
-  const wsPriceData = isWsPriceData(payload.data) ? payload.data : undefined;
+  const wsPriceData = isMarketWsPriceData(payload.data)
+    ? payload.data
+    : undefined;
   const tokenAddress = payload.tokenAddress || wsPriceData?.address || '';
   if (
     !tokenAddress &&
@@ -453,6 +442,7 @@ export function useMarketHomeTokenListWebSocket({
 
   const unsubscribeSubscription = useCallback(
     async (subscription: IMarketHomeTokenSubscription) => {
+      const backgroundApiProxy = await getBackgroundApiProxy();
       await backgroundApiProxy.serviceMarketWS.unsubscribeOHLCV({
         networkId: subscription.networkId,
         tokenAddress: subscription.address,
@@ -465,6 +455,7 @@ export function useMarketHomeTokenListWebSocket({
 
   const subscribeSubscription = useCallback(
     async (subscription: IMarketHomeTokenSubscription) => {
+      const backgroundApiProxy = await getBackgroundApiProxy();
       await backgroundApiProxy.serviceMarketWS.subscribeOHLCV({
         networkId: subscription.networkId,
         tokenAddress: subscription.address,
@@ -527,6 +518,7 @@ export function useMarketHomeTokenListWebSocket({
         if (subscriptionsToSubscribe.length > 0) {
           let isConnected = false;
           try {
+            const backgroundApiProxy = await getBackgroundApiProxy();
             await backgroundApiProxy.serviceMarketWS.connect();
             isConnected = true;
           } catch (error) {
@@ -622,8 +614,8 @@ export function useMarketHomeTokenListWebSocket({
       return;
     }
 
-    const handleMarketDataUpdate = (payload: IMarketWSDataUpdatePayload) => {
-      if (payload.channel !== 'ohlcv' || !isWsPriceData(payload.data)) {
+    const handleMarketDataUpdate = (payload: IMarketWsDataUpdatePayload) => {
+      if (payload.channel !== 'ohlcv' || !isMarketWsPriceData(payload.data)) {
         return;
       }
 
@@ -690,13 +682,23 @@ export function useMarketHomeTokenListWebSocket({
         });
       }
 
-      void backgroundApiProxy.serviceMarketWS.clearDataCount({
-        address: matchedSubscription.address,
-        type: 'ohlcv',
-        networkId: matchedSubscription.networkId,
-        chartType: matchedSubscription.chartType,
-        currency: matchedSubscription.currency,
-      });
+      void getBackgroundApiProxy()
+        .then((backgroundApiProxy) =>
+          backgroundApiProxy.serviceMarketWS.clearDataCount({
+            address: matchedSubscription.address,
+            type: 'ohlcv',
+            networkId: matchedSubscription.networkId,
+            chartType: matchedSubscription.chartType,
+            currency: matchedSubscription.currency,
+          }),
+        )
+        .catch((error: unknown) => {
+          defaultLogger.networkDoctor.log.error({
+            info: `Failed to clear market home token websocket data count: ${getErrorMessage(
+              error,
+            )}`,
+          });
+        });
     };
 
     appEventBus.on(

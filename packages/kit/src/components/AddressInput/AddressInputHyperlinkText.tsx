@@ -1,7 +1,7 @@
 import { useCallback, useContext } from 'react';
 
 import type { IFieldErrorProps } from '@onekeyhq/components';
-import { useFormContext } from '@onekeyhq/components';
+import { useFormContext } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';

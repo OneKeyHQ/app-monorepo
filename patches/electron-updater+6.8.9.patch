@@ -10,7 +10,15 @@ index 449df36..d592976 100644
      "update-not-available": (info: UpdateInfo) => void;
      "update-available": (info: UpdateInfo) => void;
      "update-downloaded": (event: UpdateDownloadedEvent) => void;
-@@ -204,6 +205,8 @@ export declare abstract class AppUpdater extends AppUpdater_base {
+@@ -161,6 +162,7 @@ export declare abstract class AppUpdater extends AppUpdater_base {
+      * @param options If you want to override configuration in the `app-update.yml`.
+      */
+     setFeedURL(options: PublishConfiguration | AllPublishOptions | string): void;
++    resetForRetry(): boolean;
+     /**
+      * Asks the server whether there is an update.
+      * @returns null if the updater is disabled, otherwise info about the latest version
+@@ -204,6 +206,8 @@ export declare abstract class AppUpdater extends AppUpdater_base {
      private getOrCreateDownloadHelper;
      protected executeDownload(taskOptions: DownloadExecutorTask): Promise<Array<string>>;
      protected differentialDownloadInstaller(fileInfo: ResolvedUpdateFileInfo, downloadUpdateOptions: DownloadUpdateOptions, installerPath: string, provider: Provider<any>, oldInstallerFileName: string): Promise<boolean>;
@@ -20,10 +28,35 @@ index 449df36..d592976 100644
  export interface DownloadUpdateOptions {
      readonly updateInfoAndProvider: UpdateInfoAndProvider;
 diff --git a/node_modules/electron-updater/out/AppUpdater.js b/node_modules/electron-updater/out/AppUpdater.js
-index d6d5deb..b0a8a8c 100644
+index d6d5deb..31a3efe 100644
 --- a/node_modules/electron-updater/out/AppUpdater.js
 +++ b/node_modules/electron-updater/out/AppUpdater.js
-@@ -558,6 +558,8 @@ class AppUpdater extends events_1.EventEmitter {
+@@ -245,6 +245,16 @@ class AppUpdater extends events_1.EventEmitter {
+         }
+         this.clientPromise = Promise.resolve(provider);
+     }
++    resetForRetry() {
++        if (this.checkForUpdatesPromise != null || this.downloadPromise != null) {
++            this._logger.info("Skipping updater retry reset because an operation is in progress");
++            return false;
++        }
++        this.clientPromise = null;
++        this.stagingUserIdPromise = new lazy_val_1.Lazy(() => this.getOrCreateStagingUserId());
++        this.updateInfoAndProvider = null;
++        return true;
++    }
+     /**
+      * Asks the server whether there is an update.
+      * @returns null if the updater is disabled, otherwise info about the latest version
+@@ -267,6 +277,7 @@ class AppUpdater extends events_1.EventEmitter {
+         })
+             .catch((e) => {
+             nullizePromise();
++            this.resetForRetry();
+             this.emit("error", e, `Cannot check for updates: ${(e.stack || e).toString()}`);
+             throw e;
+         });
+@@ -558,6 +569,8 @@ class AppUpdater extends events_1.EventEmitter {
      }
      async executeDownload(taskOptions) {
          const fileInfo = taskOptions.fileInfo;
@@ -46,7 +79,7 @@ index 00bbd5f..2359e0e 100644
      install(isSilent?: boolean, isForceRunAfter?: boolean): boolean;
      protected addQuitHandler(): void;
 diff --git a/node_modules/electron-updater/out/BaseUpdater.js b/node_modules/electron-updater/out/BaseUpdater.js
-index f7c2965..7a8beef 100644
+index f7c2965..266fa46 100644
 --- a/node_modules/electron-updater/out/BaseUpdater.js
 +++ b/node_modules/electron-updater/out/BaseUpdater.js
 @@ -2,6 +2,7 @@
@@ -57,7 +90,7 @@ index f7c2965..7a8beef 100644
  const path = require("path");
  const AppUpdater_1 = require("./AppUpdater");
  class BaseUpdater extends AppUpdater_1.AppUpdater {
-@@ -38,6 +39,30 @@ class BaseUpdater extends AppUpdater_1.AppUpdater {
+@@ -38,6 +39,32 @@ class BaseUpdater extends AppUpdater_1.AppUpdater {
      get installerPath() {
          return this.downloadedUpdateHelper == null ? null : this.downloadedUpdateHelper.file;
      }
@@ -77,9 +110,11 @@ index f7c2965..7a8beef 100644
 +            return;
 +        }
 +        try {
-+            const cachedInfo = await (0, fs_extra_1.readJson)(updateInfoFilePath);
++            // OneKey patch: force text decoding because packaged Electron can return a Uint8Array.
++            const cachedInfo = await (0, fs_extra_1.readJson)(updateInfoFilePath, { encoding: "utf8" });
++            const downloadedFileInfo = cachedInfo?.downloadedFileInfo ?? cachedInfo;
 +            this.downloadedUpdateHelper.updateFile(installerPath);
-+            this.downloadedUpdateHelper.updateDownloadedFileInfo(cachedInfo.downloadedFileInfo);
++            this.downloadedUpdateHelper.updateDownloadedFileInfo(downloadedFileInfo);
 +        }
 +        catch (error) {
 +            this._logger.info(error);
@@ -102,7 +137,7 @@ index 26ea883..64ed1bc 100644
      setDownloadedFile(downloadedFile: string, packageFile: string | null, versionInfo: UpdateInfo, fileInfo: ResolvedUpdateFileInfo, updateFileName: string, isSaveCache: boolean): Promise<void>;
      clear(): Promise<void>;
 diff --git a/node_modules/electron-updater/out/DownloadedUpdateHelper.js b/node_modules/electron-updater/out/DownloadedUpdateHelper.js
-index e6c33ea..7fbe978 100644
+index e6c33ea..890debd 100644
 --- a/node_modules/electron-updater/out/DownloadedUpdateHelper.js
 +++ b/node_modules/electron-updater/out/DownloadedUpdateHelper.js
 @@ -30,6 +30,14 @@ class DownloadedUpdateHelper {

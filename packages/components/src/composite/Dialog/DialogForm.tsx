@@ -1,7 +1,7 @@
 import { useContext, useMemo } from 'react';
 
 import { Form } from '../../forms/Form';
-import { useForm } from '../../hooks';
+import { useForm } from '../../hooks/useForm';
 
 import { DialogContext } from './context';
 
@@ -17,4 +17,12 @@ export function DialogForm({ formProps, children }: IDialogFormProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form]);
   return <Form form={form}>{children}</Form>;
+}
+
+export const DialogFormField = Form.Field;
+
+export function preloadDialogForm() {
+  const preload = (Form as typeof Form & { preload?: () => Promise<unknown> })
+    .preload;
+  return preload?.() ?? Promise.resolve();
 }

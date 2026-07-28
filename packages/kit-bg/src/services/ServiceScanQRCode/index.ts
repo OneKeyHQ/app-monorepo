@@ -1,4 +1,3 @@
-import { resetAnimationQrcodeScan } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/handlers/animation';
 import {
   backgroundClass,
   backgroundMethod,
@@ -32,6 +31,8 @@ class ServiceScanQRCode extends ServiceBase {
 
   @backgroundMethod()
   public async resetAnimationData() {
+    const { resetAnimationQrcodeScan } =
+      await import('./utils/parseQRCode/handlers/animation');
     resetAnimationQrcodeScan();
   }
 

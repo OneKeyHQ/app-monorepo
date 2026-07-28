@@ -19,10 +19,8 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '../../../states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 import {
   useSwapFromTokenAmountAtom,
   useSwapProDirectionAtom,
@@ -45,6 +43,7 @@ import {
 } from '../utils/swapColdStartTokenCacheUtils';
 
 import {
+  getSwapAddressAccountSelectorNum,
   shouldResetSwapRecipientOnAccountNetworkSync,
   shouldShowSwapRecipientAddressInfo,
   shouldUseSwapCustomRecipientAddress,
@@ -260,10 +259,13 @@ export function useSwapFromAccountNetworkSync() {
 }
 
 export function useSwapAddressInfo(type: ESwapDirectionType) {
-  const { activeAccount } = useActiveAccount({
-    num: type === ESwapDirectionType.FROM ? 0 : 1,
-  });
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
+  const { activeAccount } = useActiveAccount({
+    num: getSwapAddressAccountSelectorNum({
+      type,
+      swapToAnotherAccountSwitchOn,
+    }),
+  });
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();

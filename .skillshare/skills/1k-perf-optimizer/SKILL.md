@@ -1,6 +1,6 @@
 ---
 name: 1k-perf-optimizer
-description: "Systematic performance optimization and regression debugging for OneKey mobile app (iOS). Use when: (1) Fixing performance regressions - when metrics like tokensStartMs, tokensSpanMs, or functionCallCount have regressed and need to be brought back to normal levels, (2) Improving baseline performance - when there's a need to optimize cold start time or reduce function call overhead, (3) User requests performance optimization/improvement/debugging for the app's startup or home screen refresh flow."
+description: "Diagnose and optimize OneKey iOS startup and Wallet Home performance using timing metrics, call counts, profiling, and regression baselines."
 ---
 
 # Performance Optimizer

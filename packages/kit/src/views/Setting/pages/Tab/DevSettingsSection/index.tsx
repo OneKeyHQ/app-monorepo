@@ -40,6 +40,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
@@ -98,7 +99,6 @@ import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 import { showApiEndpointDialog } from '../../../components/ApiEndpointDialog';
 import { SettingTestIDs } from '../../../testIDs';
 
-import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
 import { BundleCommitSearch } from './BundleCommitSearch';
 import { CpuWatchdogDevSettings } from './CpuWatchdogDevSettings';
@@ -129,6 +129,13 @@ const LazyNavigationDiagnosticsSection = LazyLoad(async () => {
   const { NavigationDiagnosticsSection } =
     await import('./NavigationDiagnosticsSection');
   return { default: NavigationDiagnosticsSection };
+});
+
+// Loaded on demand so this dev-only diagnostics panel (and its bg RPC test
+// harness) stays out of the statically-imported startup graph.
+const LazyAsyncStorageDevSettings = LazyLoad(async () => {
+  const { AsyncStorageDevSettings } = await import('./AsyncStorageDevSettings');
+  return { default: AsyncStorageDevSettings };
 });
 
 export { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
@@ -411,6 +418,7 @@ const BaseDevSettingsSection = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { copyText } = useClipboard();
+  const { loginOneKeyIdWithLegacyEmail } = useOneKeyAuth();
   const localTradingViewUrlSubtitle = platformEnv.isNativeAndroid
     ? 'http://10.0.2.2:5173/'
     : 'http://localhost:5173/';
@@ -583,6 +591,12 @@ const BaseDevSettingsSection = () => {
       });
     }, 10_000);
   }, []);
+
+  const handleLegacyOneKeyIdEmailLogin = useCallback(() => {
+    void loginOneKeyIdWithLegacyEmail({
+      toOneKeyIdPageOnLoginSuccess: true,
+    });
+  }, [loginOneKeyIdWithLegacyEmail]);
 
   const handleOpenMockTradingViewKLineEmptyIntervalsDialog = useCallback(() => {
     Dialog.show({
@@ -949,11 +963,12 @@ const BaseDevSettingsSection = () => {
                             typeof __BUNDLE_START_TIME__ !== 'undefined'
                               ? __BUNDLE_START_TIME__
                               : 0;
-                          const { getDevicePerformanceTier } =
+                          const { getDevicePerformanceProfile } =
                             await import('@onekeyhq/shared/src/performance/devicePerformanceTier');
                           Dialog.debugMessage({
                             debugMessage: {
-                              devicePerformanceTier: getDevicePerformanceTier(),
+                              devicePerformanceProfile:
+                                getDevicePerformanceProfile(),
                               startupTimeAt:
                                 await LaunchOptionsManager.getStartupTimeAt(),
                               jsReadyTimeAt:
@@ -988,6 +1003,27 @@ const BaseDevSettingsSection = () => {
                           });
                         }}
                       />
+                      {platformEnv.isNative ? (
+                        <SearchFilterItem keywords="ble bluetooth peripheral serviceUUIDs 蓝牙 已连接设备 dump">
+                          <SectionPressItem
+                            icon="CodeOutline"
+                            title="Dump connected BLE peripherals"
+                            subtitle="打印已连接设备的 serviceUUIDs(需 0.1.6 + 重新编译)"
+                            onPress={async () => {
+                              const { default: bleManager } =
+                                await import('@onekeyhq/shared/src/hardware/bleManager');
+                              const peripherals =
+                                await bleManager.getConnectedPeripheralsDebug();
+                              Dialog.debugMessage({
+                                debugMessage: {
+                                  count: peripherals.length,
+                                  peripherals,
+                                },
+                              });
+                            }}
+                          />
+                        </SearchFilterItem>
+                      ) : null}
                       <SearchFilterItem keywords="RegistrationID 推送注册">
                         <RegistrationID />
                       </SearchFilterItem>
@@ -1262,6 +1298,18 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="ShieldOutline"
+                        name="disableIpTableFailover"
+                        title="禁用 IP 快速故障切换"
+                        subtitle={
+                          devSettings.settings?.disableIpTableFailover
+                            ? '域名失败时不自动切换到 IP'
+                            : '域名连续失败时自动切换到 IP (默认)'
+                        }
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
                       <SectionPressItem
                         icon="RefreshCcwOutline"
                         title="Reset IP Table Cache"
@@ -1313,7 +1361,7 @@ const BaseDevSettingsSection = () => {
                         onPress={() => {
                           Dialog.cancel({
                             title: 'Single data store test',
-                            renderContent: <AsyncStorageDevSettings />,
+                            renderContent: <LazyAsyncStorageDevSettings />,
                           });
                         }}
                       />
@@ -1485,11 +1533,11 @@ const BaseDevSettingsSection = () => {
                             isUncontrolled
                             size={ESwitchSize.small}
                             defaultChecked={
-                              !!devSettings.settings?.showPerformanceMonitor
+                              !!devSettings.settings?.showPerformanceMonitorV2
                             }
                             onChange={(v) => {
                               void backgroundApiProxy.serviceDevSetting.updateDevSetting(
-                                'showPerformanceMonitor',
+                                'showPerformanceMonitorV2',
                                 v,
                               );
                               setTimeout(() => {
@@ -1529,6 +1577,16 @@ const BaseDevSettingsSection = () => {
                         name="showPerpsRenderStats"
                         title="显示 Perps 渲染统计"
                         subtitle="显示 Perps 渲染统计"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+
+                      <SectionFieldItem
+                        icon="QrCodeOutline"
+                        name="unifoldUseTestDestination"
+                        title="Unifold 充值改用 Arbitrum USDC 目的地（测试用）"
+                        subtitle="开启后资金回到自己的 Arbitrum 钱包而非永续账户，仅 dev 生效，用于低成本跑通充值管线"
+                        searchKeywords="Unifold deposit destination Arbitrum USDC 充值 目的地 测试"
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
@@ -1998,6 +2056,14 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="TradeOutline"
+                        name="useTradingViewNativeInMarketDetail"
+                        title="Use TradingViewNative in Market Detail"
+                        subtitle="关闭时继续使用 TradingViewV2"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
                       <SectionPressItem
                         icon="TradeOutline"
                         title="Mock TradingView 空 K 线"
@@ -2022,6 +2088,16 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+                      {platformEnv.isNative ? (
+                        <SectionFieldItem
+                          icon="ArrowTopRightOutline"
+                          name="useSystemBrowserForExternalLinks"
+                          title="外部链接使用系统浏览器"
+                          subtitle="跳过 in-app browser（SFSafariViewController / Custom Tabs），外链直接跳出到系统浏览器"
+                        >
+                          <Switch size={ESwitchSize.small} />
+                        </SectionFieldItem>
+                      ) : null}
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
                 </Accordion.Item>,
@@ -2234,6 +2310,14 @@ const BaseDevSettingsSection = () => {
                       </SearchFilterItem>
 
                       <SectionPressItem
+                        icon="EmailOutline"
+                        title="OneKey ID Email Login"
+                        subtitle="Email/OTP 注册和登录入口"
+                        searchKeywords="OneKey ID Email OTP 注册 登录"
+                        onPress={handleLegacyOneKeyIdEmailLogin}
+                      />
+
+                      <SectionPressItem
                         icon="AppleBrand"
                         title="In-App-Purchase(Mac)"
                         subtitle="查看 Mac 内购"
@@ -2350,6 +2434,25 @@ const BaseDevSettingsSection = () => {
                             );
                           }}
                           value={devSettings.settings?.enableMockHighTxFee}
+                        />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="BezierNodesOutline"
+                        name="mockKaspaRefTxFetchFailed"
+                        title="模拟 Kaspa refTx 获取失败"
+                        subtitle="强制获取前序交易失败，验证硬件仍能回退盲签"
+                      >
+                        <Switch
+                          size={ESwitchSize.small}
+                          onChange={() => {
+                            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+                              'mockKaspaRefTxFetchFailed',
+                              !devSettings.settings?.mockKaspaRefTxFetchFailed,
+                            );
+                          }}
+                          value={
+                            devSettings.settings?.mockKaspaRefTxFetchFailed
+                          }
                         />
                       </SectionFieldItem>
                       <SectionFieldItem

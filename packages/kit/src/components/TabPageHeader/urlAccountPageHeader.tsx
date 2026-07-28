@@ -5,10 +5,8 @@ import {
 } from '@onekeyhq/components';
 
 import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccountNavHeader';
-import {
-  AccountSelectorActiveAccountHome,
-  NetworkSelectorTriggerHome,
-} from '../AccountSelector';
+import { AccountSelectorActiveAccountHome } from '../AccountSelector/AccountSelectorActiveAccount';
+import { NetworkSelectorTriggerHome } from '../AccountSelector/NetworkSelectorTrigger';
 
 export function UrlAccountPageHeader() {
   const isHorizontal = useIsWebHorizontalLayout();

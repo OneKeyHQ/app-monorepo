@@ -6,12 +6,12 @@ import { useIntl } from 'react-intl';
 import {
   Icon,
   Image,
-  Popover,
   SizableText,
   Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
@@ -26,7 +26,7 @@ const handlePress = (e: GestureResponderEvent) => {
 interface ITokenTagsPopoverProps {
   communityRecognized?: boolean;
   stock?: IMarketStockInfo;
-  /** Show subtitle & stock status badges in trigger. Defaults to false. */
+  /** Show the subtitle badge in trigger. Defaults to false. */
   showAllInTrigger?: boolean;
   /** Hide community badge from trigger (shown separately e.g. in header). */
   hideCommunityInTrigger?: boolean;
@@ -57,7 +57,7 @@ function TokenTagsPopover({
     !!customTrigger ||
     hasStockSource ||
     (communityRecognized && !hideCommunityInTrigger) ||
-    (showAllInTrigger && (hasSubtitle || hasStockStatus));
+    (showAllInTrigger && hasSubtitle);
 
   const stockLabelId = useMemo(() => {
     if (!stock?.source) return undefined;
@@ -89,9 +89,6 @@ function TokenTagsPopover({
           subtitle={stock.subtitle ?? ''}
           noTruncate={noTruncateSubtitle}
         />
-      ) : null}
-      {showAllInTrigger && hasStockStatus ? (
-        <StockIsOpenBadge stock={stock} />
       ) : null}
     </XStack>
   );
@@ -147,7 +144,7 @@ function TokenTagsPopover({
 
   return (
     <Stack onPress={handlePress}>
-      <Popover
+      <LazyPopover
         title={intl.formatMessage({ id: ETranslations.send_tag })}
         placement="bottom"
         renderTrigger={triggerElements}

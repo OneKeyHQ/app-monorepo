@@ -12,7 +12,10 @@ import {
 import { appLocale } from '../locale/appLocale';
 import { ETranslations } from '../locale/enum/translations';
 
-import { convertDecodedTxActionsToSignatureConfirmTxDisplayComponents } from './txActionUtils';
+import {
+  collectDecodedTxInvolvedAddresses,
+  convertDecodedTxActionsToSignatureConfirmTxDisplayComponents,
+} from './txActionUtils';
 
 const defaultLocal = appLocale.intl.locale;
 const defaultMessages = appLocale.intl.messages;
@@ -110,5 +113,52 @@ describe('txActionUtils', () => {
     expect(addressComponents.map((component) => component.address)).toEqual([
       '0xrecipient1',
     ]);
+  });
+});
+
+describe('collectDecodedTxInvolvedAddresses', () => {
+  it('collects transfer from/to and utxo addresses deduped', () => {
+    const decodedTx = buildDecodedTx([
+      buildTransfer('0xrecipient1'),
+      buildTransfer('0xrecipient1'),
+    ]);
+    const transfer = decodedTx.actions[0].assetTransfer;
+    if (transfer) {
+      transfer.receives = [
+        { ...buildTransfer('0xsender'), from: '0xrecipient2' },
+      ];
+      transfer.utxoFrom = [
+        {
+          address: 'bc1q-input',
+          balance: '1',
+          balanceValue: '1',
+          symbol: 'BTC',
+          isMine: true,
+        },
+      ];
+      transfer.utxoTo = [
+        {
+          address: 'bc1q-output',
+          balance: '1',
+          balanceValue: '1',
+          symbol: 'BTC',
+          isMine: false,
+        },
+      ];
+    }
+
+    expect(collectDecodedTxInvolvedAddresses({ decodedTx })).toEqual([
+      '0xsender',
+      '0xrecipient1',
+      '0xrecipient2',
+      'bc1q-input',
+      'bc1q-output',
+    ]);
+  });
+
+  it('returns empty array for txs without asset transfers', () => {
+    const decodedTx = buildDecodedTx([]);
+    decodedTx.actions = [{ type: EDecodedTxActionType.UNKNOWN }];
+    expect(collectDecodedTxInvolvedAddresses({ decodedTx })).toEqual([]);
   });
 });

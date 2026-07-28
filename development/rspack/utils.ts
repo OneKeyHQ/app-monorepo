@@ -2,6 +2,14 @@ import uniq from 'lodash/uniq';
 
 import { extChannel, isManifestV3, targetBrowser } from './constant';
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const developmentConsts = require('../developmentConsts') as {
+  platforms: {
+    web: string;
+    webEmbed: string;
+  };
+};
+
 export function createResolveExtensions({
   platform,
   configName,
@@ -30,7 +38,10 @@ export function createResolveExtensions({
       : []),
     // .ext.ts, .web.ts, .desktop.ts, .android.ts, .ios.ts, .native.ts
     ...['.ts', '.tsx', '.js', '.jsx'].map((ext) => `.${platform}${ext}`),
-    ...(platform === 'web' || platform === 'webEmbed'
+    ...([
+      developmentConsts.platforms.web,
+      developmentConsts.platforms.webEmbed,
+    ].includes(platform)
       ? [
           '.web-only.ts',
           '.web-only.tsx',

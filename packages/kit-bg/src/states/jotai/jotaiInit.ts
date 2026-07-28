@@ -5,10 +5,6 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-// Side-effect import: starts localDb IndexedDB initialization in background
-// localDb is NOT needed for jotai atom reads (they use separate OneKeyGlobalStates IndexedDB)
-import '../../dbs/local/localDb';
-
 import { EAtomNames } from './atomNames';
 import {
   buildJotaiStorageKey,
@@ -20,6 +16,16 @@ import { jotaiDefaultStore } from './utils/jotaiDefaultStore';
 
 import type { ISettingsPersistAtom } from './atoms/settings';
 import type { IJotaiWritableAtomPro } from './types';
+
+async function initLocalDbForJotaiIfNeeded() {
+  // Web main reads Jotai state from OneKeyGlobalStates IndexedDB. Importing
+  // localDb here pulls background/core crypto chunks into the cold-start path.
+  if (platformEnv.isWeb) {
+    return;
+  }
+
+  await import('../../dbs/local/localDb');
+}
 
 function checkAtomNameMatched(key: string, value: string) {
   if (key !== value) {
@@ -78,10 +84,14 @@ async function migrateToMMKVIfNeeded() {
   ).migrateFromAsyncStorage(allKeys, probeKey);
 }
 
-export async function jotaiInit() {
+let jotaiInitPromise: ReturnType<typeof jotaiInitImpl> | undefined;
+
+async function jotaiInitImpl() {
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('jotaiInit start');
   }
+
+  await initLocalDbForJotaiIfNeeded();
 
   // Native: proactively migrate AsyncStorage → MMKV per-key before reading.
   // Must complete before preloadAtomStorageValues() so MMKV has all data.
@@ -141,6 +151,7 @@ export async function jotaiInit() {
       if (isNil(storageValue)) {
         // initFrom backup (only for settingsPersistAtom on first launch)
         if (
+          !platformEnv.isWeb &&
           isNil(storageValue) &&
           storageKey === buildJotaiStorageKey(EAtomNames.settingsPersistAtom) &&
           isPlainObject(initValue)
@@ -222,4 +233,12 @@ export async function jotaiInit() {
   }
 
   return atoms;
+}
+
+export async function jotaiInit() {
+  jotaiInitPromise ??= jotaiInitImpl().catch((error: unknown) => {
+    jotaiInitPromise = undefined;
+    throw error;
+  });
+  return jotaiInitPromise;
 }

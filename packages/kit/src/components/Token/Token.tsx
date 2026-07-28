@@ -4,6 +4,7 @@
 */
 
 import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -43,6 +44,8 @@ export type ITokenProps = {
   networkImageUri?: ImageURISource['uri'];
   showNetworkIcon?: boolean;
   showNetworkIconBorder?: boolean;
+  cornerBadge?: ReactNode;
+  showCornerBadgeBorder?: boolean;
   networkId?: string;
   isAggregateToken?: boolean;
 } & Omit<IImageProps, 'size'>;
@@ -56,6 +59,8 @@ export function Token({
   networkId,
   showNetworkIcon,
   showNetworkIconBorder = true,
+  cornerBadge,
+  showCornerBadgeBorder = true,
   fallbackIcon,
   isAggregateToken,
   bg: bgProp,
@@ -139,6 +144,24 @@ export function Token({
     ) : (
       <Image source={source} {...sharedImageProps} />
     );
+
+  if (cornerBadge) {
+    return (
+      <Stack position="relative" width={tokenImageSize} height={tokenImageSize}>
+        {tokenImage}
+        <Stack
+          position="absolute"
+          right="$-1"
+          bottom="$-1"
+          p={showCornerBadgeBorder ? '$0.5' : '$0'}
+          bg={showCornerBadgeBorder ? '$bgApp' : '$transparent'}
+          borderRadius="$full"
+        >
+          {cornerBadge}
+        </Stack>
+      </Stack>
+    );
+  }
 
   if (networkImageUri) {
     return (

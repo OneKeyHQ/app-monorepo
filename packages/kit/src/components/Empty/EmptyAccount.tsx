@@ -13,7 +13,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
-import { AccountSelectorCreateAddressButton } from '../AccountSelector/AccountSelectorCreateAddressButton';
+import { LazyAccountSelectorCreateAddressButton } from '../AccountSelector/LazyAccountSelectorCreateAddressButton';
 
 type IProps = {
   name: string;
@@ -73,7 +73,7 @@ function EmptyAccount(props: IProps) {
       description={emptyMessage.description}
       button={
         activeAccount?.canCreateAddress ? (
-          <AccountSelectorCreateAddressButton
+          <LazyAccountSelectorCreateAddressButton
             num={num}
             selectAfterCreate
             autoCreateAddress={autoCreateAddress}

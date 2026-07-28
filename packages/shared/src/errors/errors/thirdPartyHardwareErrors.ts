@@ -19,6 +19,8 @@ export const THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE =
   ThirdPartyHwErrorCode.DevicePathForbidden;
 export const THIRD_PARTY_HW_BLE_CONNECT_FAILED_CODE =
   ThirdPartyHwErrorCode.BleConnectFailed;
+export const THIRD_PARTY_HW_PIN_MISMATCH_CODE =
+  ThirdPartyHwErrorCode.PinMismatch;
 
 // ---------------------------------------------------------------------------
 // Base class for third-party hardware errors
@@ -150,6 +152,20 @@ export class ThirdPartyPinInvalid extends ThirdPartyHardwareError {
   }
 
   override code = ThirdPartyHwErrorCode.PinInvalid;
+}
+
+/** Two new-PIN entries did not match during set/change PIN (host-input models) */
+export class ThirdPartyPinMismatch extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_pins_do_not_match,
+        defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override code = THIRD_PARTY_HW_PIN_MISMATCH_CODE;
 }
 
 export class ThirdPartyPinCancelled extends ThirdPartyHardwareError {
@@ -508,6 +524,35 @@ export class ThirdPartyDeviceBusy extends ThirdPartyHardwareError {
   }
 
   override code = ThirdPartyHwErrorCode.DeviceBusy;
+}
+
+/** Our own in-flight request (queue guard / firmware Failure_Busy), not another app. */
+export class ThirdPartyDeviceBusyInternal extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_third_party_device_busy_internal,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.DeviceBusyInternal;
+}
+
+export class ThirdPartyDeviceNotInitialized extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.trezor_device_not_initialized__desc,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.DeviceNotInitialized;
 }
 
 /** Multiple USB devices connected — only one allowed at a time */

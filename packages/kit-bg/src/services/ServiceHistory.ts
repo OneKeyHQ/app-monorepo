@@ -10,6 +10,7 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { HISTORY_TIME_RANGE_MONTHS } from '@onekeyhq/shared/src/consts/walletConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -24,6 +25,7 @@ import {
   isHistoryCursorAdvanced,
   sortHistoryTxsByTime,
 } from '@onekeyhq/shared/src/utils/historyUtils';
+import { isHyperliquidDirectDepositTx } from '@onekeyhq/shared/src/utils/hyperliquidDepositUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   PROMISE_CONCURRENCY_LIMIT,
@@ -35,6 +37,7 @@ import {
   isPrivateSendSwapHistoryItem,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { collectDecodedTxInvolvedAddresses } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAddressBadge,
   IAddressInfo,
@@ -46,8 +49,11 @@ import type {
   IAccountHistoryTx,
   IAllNetworkHistoryExtraItem,
   IChangedPendingTxInfo,
+  ICreateExportTransactionHistoryTaskParams,
   IFetchAccountHistoryParams,
   IFetchAccountHistoryResp,
+  IFetchAccountTransactionRangeResp,
+  IFetchExportTransactionHistoryTasksResp,
   IFetchHistoryTxDetailsParams,
   IFetchMergeDeriveAccountHistoryParams,
   IFetchTransferRecipientsResp,
@@ -72,9 +78,15 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
+import { perpsDepositOrderAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import {
+  getKnownPerpsDepositOrderTxIds,
+  isPerpsDepositOrderMatchedByTxIds,
+  shouldKeepHistoryConfirmationMarker,
+} from './utils/perpsDepositHistoryUtils';
 
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
 import type { IDBAccount } from '../dbs/local/types';
@@ -152,6 +164,42 @@ function mergeNullishRecordFields<T extends Record<string, unknown>>({
     }
   });
   return result as T;
+}
+
+async function findKnownPerpsDepositOrderTx({
+  txid,
+  originalTxId,
+}: {
+  txid: string | undefined;
+  originalTxId: string | undefined;
+}) {
+  const txIds = getKnownPerpsDepositOrderTxIds({ txid, originalTxId });
+  if (txIds.size === 0) {
+    return undefined;
+  }
+  const perpsDepositOrder = await perpsDepositOrderAtom.get();
+  return perpsDepositOrder.orders.find((order) =>
+    isPerpsDepositOrderMatchedByTxIds(order, txIds),
+  );
+}
+
+async function clearHistoryConsumedPerpsDepositOrderTx({
+  txid,
+  originalTxId,
+}: {
+  txid: string | undefined;
+  originalTxId: string | undefined;
+}) {
+  const txIds = getKnownPerpsDepositOrderTxIds({ txid, originalTxId });
+  if (txIds.size === 0) {
+    return;
+  }
+  await perpsDepositOrderAtom.set((prev) => ({
+    ...prev,
+    orders: prev.orders.filter((order) =>
+      shouldKeepHistoryConfirmationMarker(order, txIds),
+    ),
+  }));
 }
 
 function mergePrivateSendPayloadFields({
@@ -1305,6 +1353,12 @@ class ServiceHistory extends ServiceBase {
             accountId: tx.decodedTx.accountId,
             networkId: tx.decodedTx.networkId,
             txid: tx.decodedTx.txid,
+            // the locally built decoded tx carries the complete input/output
+            // set, so detail polling can narrow vault extra params to the
+            // addresses this tx actually involves
+            txInvolvedAddresses: collectDecodedTxInvolvedAddresses({
+              decodedTx: tx.decodedTx,
+            }),
           }),
       ),
       { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
@@ -1380,13 +1434,64 @@ class ServiceHistory extends ServiceBase {
         await this.backgroundApi.serviceAccount.getDBAccountSafe({
           accountId: txAccountId,
         });
+      const knownPerpsDepositOrder = await findKnownPerpsDepositOrderTx({
+        txid: tx.decodedTx.txid,
+        originalTxId: tx.decodedTx.originalTxId,
+      });
+      const isPerpsDepositTx =
+        isHyperliquidDirectDepositTx(tx.decodedTx) ||
+        Boolean(knownPerpsDepositOrder);
+      let txAccountAddress: string | undefined;
+      let txDeriveType: string | IAccountDeriveTypes | undefined;
+      if (isPerpsDepositTx) {
+        const txAccountInfo = [...accounts, ...allAccounts].find(
+          (account) =>
+            account.accountId === txAccountId &&
+            account.networkId === tx.decodedTx.networkId,
+        );
+        txAccountAddress = txAccountInfo?.apiAddress;
+        if (!txAccountAddress) {
+          try {
+            txAccountAddress =
+              await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+                accountId: txAccountId,
+                networkId: tx.decodedTx.networkId,
+              });
+          } catch {
+            txAccountAddress = undefined;
+          }
+        }
+        const parsedTxAccountId = accountUtils.parseAccountId({
+          accountId: txAccountId,
+        });
+        const normalizedTxDeriveType = accountUtils.normalizeDeriveType(
+          parsedTxAccountId.idSuffix ?? '',
+        );
+        txDeriveType =
+          txAccountInfo?.deriveType ??
+          normalizedTxDeriveType ??
+          (parsedTxAccountId.idSuffix ? undefined : 'default');
+      }
       appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
         accountId: txAccountId,
         indexedAccountId: txDBAccount?.indexedAccountId,
+        accountAddress: txAccountAddress,
+        deriveType: txDeriveType,
+        perpsAccountId: knownPerpsDepositOrder?.accountId,
+        perpsIndexedAccountId: knownPerpsDepositOrder?.indexedAccountId,
+        perpsAccountAddress: knownPerpsDepositOrder?.perpsAccountAddress,
+        perpsDeriveType: knownPerpsDepositOrder?.perpsDeriveType,
         networkId: tx.decodedTx.networkId,
         txid: tx.decodedTx.txid,
         status: tx.decodedTx.status,
+        isPerpsDepositTx,
       });
+      if (knownPerpsDepositOrder?.keepForHistoryConfirmation) {
+        await clearHistoryConsumedPerpsDepositOrderTx({
+          txid: tx.decodedTx.txid,
+          originalTxId: tx.decodedTx.originalTxId,
+        });
+      }
     }
 
     // 3. Get the locally confirmed transactions
@@ -2218,10 +2323,81 @@ class ServiceHistory extends ServiceBase {
     accountId: string;
     networkId: string;
     accountAddress: string;
+    txInvolvedAddresses?: string[];
   }) {
     const { networkId, accountId } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildFetchHistoryListParams(params);
+  }
+
+  @backgroundMethod()
+  public async fetchAccountTransactionRange() {
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    // The caller renders a retryable in-page error state, so suppress the
+    // default request toast to avoid presenting the same failure twice.
+    const requestConfig: Parameters<typeof client.post>[2] & {
+      autoHandleError?: boolean;
+    } = {
+      autoHandleError: false,
+    };
+    const resp = await client.post<{
+      data: IFetchAccountTransactionRangeResp;
+    }>('/wallet/v1/account/transaction/export/range', {}, requestConfig);
+
+    // autoHandleError: false lets code !== 0 responses resolve with no data;
+    // surface them as errors so the caller can render its retryable state.
+    const range = resp.data?.data;
+    if (!range) {
+      throw new OneKeyLocalError('Failed to fetch account transaction range');
+    }
+    return range;
+  }
+
+  @backgroundMethod()
+  public async createExportTransactionHistoryTask(
+    params: ICreateExportTransactionHistoryTaskParams,
+  ) {
+    // Prime-only endpoint: use the OneKey ID authenticated client so the
+    // request carries the auth token and prime auth errors are handled.
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Wallet);
+    await client.post(
+      '/wallet/v1/account/transaction/export-task/create',
+      params,
+    );
+  }
+
+  @backgroundMethod()
+  public async fetchExportTransactionHistoryTasks() {
+    // Prime-only endpoint: use the OneKey ID authenticated client so the
+    // request carries the auth token and prime auth errors are handled.
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Wallet);
+    // Errors are surfaced as an in-page error state by the caller, so suppress
+    // the default error toast to avoid a duplicate prompt.
+    const requestConfig: Parameters<typeof client.post>[2] & {
+      autoHandleError?: boolean;
+    } = {
+      autoHandleError: false,
+    };
+    const resp = await client.post<{
+      data: IFetchExportTransactionHistoryTasksResp;
+    }>('/wallet/v1/account/transaction/export-task/list', {}, requestConfig);
+
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  public async downloadExportTransactionHistoryTaskCsv(params: { id: number }) {
+    // Prime-only endpoint: use the OneKey ID authenticated client so the
+    // request carries the auth token and prime auth errors are handled.
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.post<{
+      data: string;
+    }>('/wallet/v1/account/transaction/export-task/csv', params, {
+      // exported CSV files can be large
+      timeout: 30_000,
+    });
+
+    return resp.data.data;
   }
 
   @backgroundMethod()
@@ -2560,17 +2736,16 @@ class ServiceHistory extends ServiceBase {
         // pass
       }
 
-      const extraParams = await this.buildFetchHistoryListParams({
-        ...params,
-        accountAddress: accountAddress || '',
-      });
-
+      // the withUTXOs request deliberately carries no account context so
+      // the server returns the tx's raw full input/output breakdown; skip
+      // account-scoped vault extra params there too — the server rejects
+      // `accountAddressArray` unless `accountAddress` accompanies it, and
+      // the raw view needs no account semantics.
       const requestParams: IServerFetchAccountHistoryDetailParams = withUTXOs
         ? {
             accountId,
             networkId,
             txid,
-            ...extraParams,
           }
         : {
             accountId,
@@ -2578,7 +2753,16 @@ class ServiceHistory extends ServiceBase {
             txid,
             xpub,
             accountAddress,
-            ...extraParams,
+            // skip account-scoped vault extras when the address lookup
+            // failed: the server rejects `accountAddressArray` without an
+            // accompanying `accountAddress`, and other vault extras (e.g.
+            // lightning auth) are equally meaningless with an empty address.
+            ...(accountAddress
+              ? await this.buildFetchHistoryListParams({
+                  ...params,
+                  accountAddress,
+                })
+              : {}),
           };
       const vault = await vaultFactory.getVault({ networkId, accountId });
       const resp = await vault.fetchAccountHistoryDetail(requestParams);

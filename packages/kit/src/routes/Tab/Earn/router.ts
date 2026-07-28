@@ -1,32 +1,27 @@
+import { createElement } from 'react';
+
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadRootTabPage } from '../../../components/LazyLoadPage';
+import { RootTabLoadingFallback } from '../RootTabLoadingFallback';
 
 const EarnHome = LazyLoadRootTabPage(
-  () => import(/* webpackPrefetch: true */ '../../../views/Earn/EarnHome'),
+  () => import('../../../views/Earn/EarnHome'),
+  createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Earn }),
 );
 
 const EarnProtocols = LazyLoadRootTabPage(
-  () =>
-    import(
-      /* webpackPrefetch: true */ '../../../views/Earn/pages/EarnProtocols'
-    ),
+  () => import('../../../views/Earn/pages/EarnProtocols'),
 );
 
 const EarnProtocolDetails = LazyLoadRootTabPage(
-  () =>
-    import(
-      /* webpackPrefetch: true */ '../../../views/Earn/pages/EarnProtocolDetails'
-    ),
+  () => import('../../../views/Earn/pages/EarnProtocolDetails'),
 );
 
 const BorrowReserveDetails = LazyLoadRootTabPage(
-  () =>
-    import(
-      /* webpackPrefetch: true */ '../../../views/Borrow/pages/ReserveDetails'
-    ),
+  () => import('../../../views/Borrow/pages/ReserveDetails'),
 );
 
 export const earnRouters: ITabSubNavigatorConfig<any, any>[] = [

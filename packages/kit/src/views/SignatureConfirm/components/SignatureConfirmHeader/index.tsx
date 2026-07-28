@@ -1,1 +1,4 @@
-export { default as TxConfirmHeaderRight } from './TxConfirmHeaderRight';
+export {
+  default as TxConfirmHeaderRight,
+  getTxConfirmMevProtectionProvider,
+} from './TxConfirmHeaderRight';

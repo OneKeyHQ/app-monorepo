@@ -35,6 +35,8 @@ export const swapSlippageDecimal = 2;
 
 export const swapTokenCatchMapMaxCount = 30;
 
+export const swapStockTokenListMaxCount = 200;
+
 export const swapApproveResetValue = '0';
 
 export const swapQuoteIntervalMaxCount = 5;
@@ -191,19 +193,12 @@ export const swapProTimeRangeItems: {
   { label: '24H', value: ESwapProTimeRange.TWENTY_FOUR_HOURS },
 ];
 
-export const swapProSellInputSegmentItems = [
-  { label: '25%', value: '0.25' },
-  { label: '50%', value: '0.5' },
-  { label: '75%', value: '0.75' },
-  { label: '100%', value: '1' },
-];
-
-export const swapProBuyInputSegmentItems = [
-  { label: '0.1', value: '0.1' },
-  { label: '0.5', value: '0.5' },
-  { label: '1', value: '1' },
-  { label: '10', value: '10' },
-];
+// Input → quote debounce delays. Pro-surface inputs (slider drags, rapid
+// edits with a spinner-locked action button) re-quote on the shorter delay;
+// ordinary swap/bridge keeps the longer one to throttle the heavier
+// multi-provider quote stream.
+export const SWAP_QUOTE_INPUT_DEBOUNCE_MS = 500;
+export const SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS = 300;
 
 export const swapProPositionsListMinValue = 1;
 export const swapProPositionsListMaxCount = 20;
@@ -440,6 +435,32 @@ export const swapDefaultSetTokens: Record<
       'isNative': false,
       'networkLogoURI':
         'https://uni.onekey-asset.com/static/chain/arbitrum.png',
+    },
+  },
+  'evm--4663': {
+    fromToken: {
+      'networkId': 'evm--4663',
+      'contractAddress': '',
+      'name': 'Ethereum',
+      'symbol': 'ETH',
+      'decimals': 18,
+      'logoURI':
+        'https://uni.onekey-asset.com/dashboard/logo/upload_1782996521358.0.27118193195795703.0.png',
+      'isNative': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/robinhood.png',
+    },
+    toToken: {
+      'networkId': 'evm--4663',
+      'contractAddress': '0x5fc5360d0400a0fd4f2af552add042d716f1d168',
+      'name': 'Global Dollar',
+      'symbol': 'USDG',
+      'decimals': 6,
+      'logoURI':
+        'https://uni.onekey-asset.com/server-service-indexer/evm--4663/tokens/address-0x5fc5360d0400a0fd4f2af552add042d716f1d168.png',
+      'isNative': false,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/robinhood.png',
     },
   },
   'evm--8453': {
@@ -792,8 +813,8 @@ export const swapDefaultSetTokens: Record<
     fromToken: {
       'networkId': 'ton--mainnet',
       'contractAddress': '',
-      'name': 'Toncoin',
-      'symbol': 'TON',
+      'name': 'Gram',
+      'symbol': 'GRAM',
       'decimals': 9,
       'logoURI':
         'https://uni.onekey-asset.com/server-service-onchain/ton--mainnet/tokens/native.png',
@@ -1871,5 +1892,10 @@ export const wrappedTokens = [
     networkId: 'evm--5000',
     address: '0x78c1b0c915c4faa5fffa6cabf0219da63d7f4cb8',
     logo: 'https://uni-test.onekey-asset.com/server-service-onchain/evm--5000/tokens/0x78c1b0c915c4faa5fffa6cabf0219da63d7f4cb8.png',
+  },
+  {
+    networkId: 'evm--4663',
+    address: '0x0bd7d308f8e1639fab988df18a8011f41eacad73',
+    logo: 'https://uni.onekey-asset.com/static/logo/WETH.png',
   },
 ];

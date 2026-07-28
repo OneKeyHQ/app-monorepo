@@ -143,8 +143,8 @@ import {
   validateSwapBtcOutputs,
 } from '../utils/swapBalanceUtils';
 import {
-  SWAP_STOCK_ANALYTICS_ORDER_TYPE,
   getStockTradeAnalyticsPayload,
+  getSwapAnalyticsCategoryFromSwapType,
 } from '../utils/swapStockAnalytics';
 import { getSwapExecutionTypeFromQuoteResult } from '../utils/swapTypeUtils';
 
@@ -2094,10 +2094,7 @@ export function useSwapBuildTx() {
         isFirstTime: isFirstTimeSwap,
         createFrom: isModalPage ? 'modal' : 'swapPage',
         orderId: buildSwapRes?.orderId ?? '',
-        orderType:
-          buildSwapRes.result?.protocol === EProtocolOfExchange.STOCK
-            ? SWAP_STOCK_ANALYTICS_ORDER_TYPE
-            : undefined,
+        orderType: getSwapAnalyticsCategoryFromSwapType(swapType),
         ...getStockTradeAnalyticsPayload({
           protocol: buildSwapRes.result?.protocol,
           fromToken: buildSwapRes.result?.fromTokenInfo,
@@ -2219,10 +2216,7 @@ export function useSwapBuildTx() {
             isFirstTime: isFirstTimeSwap,
             createFrom: isModalPage ? 'modal' : 'swapPage',
             orderId: buildSwapRes?.orderId ?? '',
-            orderType:
-              data?.protocol === EProtocolOfExchange.STOCK
-                ? SWAP_STOCK_ANALYTICS_ORDER_TYPE
-                : undefined,
+            orderType: getSwapAnalyticsCategoryFromSwapType(swapType),
             ...getStockTradeAnalyticsPayload({
               protocol: data?.protocol,
               fromToken: data?.fromTokenInfo,

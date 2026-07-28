@@ -9,6 +9,7 @@ import {
 import {
   THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE,
   THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE,
+  THIRD_PARTY_HW_PIN_MISMATCH_CODE,
 } from '../errors/thirdPartyHardwareErrors';
 
 import { convertDeviceError } from './deviceErrorUtils';
@@ -126,6 +127,17 @@ describe('convertThirdPartyDeviceError', () => {
 
     expect(error.code).toBe(ThirdPartyHwErrorCode.PinCancelled);
     expect(error.name).toBe('ThirdPartyHardwareError');
+  });
+
+  it('maps third-party PIN mismatch to the pins-do-not-match message', () => {
+    const error = convertThirdPartyDeviceError({
+      code: THIRD_PARTY_HW_PIN_MISMATCH_CODE,
+      error: 'PIN mismatch',
+    });
+
+    expect(error.code).toBe(THIRD_PARTY_HW_PIN_MISMATCH_CODE);
+    expect(error.name).toBe('ThirdPartyHardwareError');
+    expect(error.key).toBe('hardware.pins_do_not_match');
   });
 
   it('maps third-party forbidden path failures to the dedicated path message', () => {

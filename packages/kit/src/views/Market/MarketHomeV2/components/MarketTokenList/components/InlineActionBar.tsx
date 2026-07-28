@@ -143,12 +143,7 @@ function InlineActionBar({
             handleToggleWatchlist();
           }}
         >
-          <Icon
-            name="StarSolid"
-            size="$5"
-            color="$yellow9"
-            style={{ color: '#F8E71C' }}
-          />
+          <Icon name="StarSolid" size="$5" style={{ color: '#F8E71C' }} />
         </Stack>
       </XStack>
     </Stack>

@@ -52,11 +52,23 @@ export enum EModalSettingRoutes {
   SettingOneKeyIdKeylessWallet = 'SettingOneKeyIdKeylessWallet',
 }
 
+export enum ESettingsTabNames {
+  OneKeyID = 'OneKeyID',
+  Backup = 'Backup',
+  Preferences = 'Preferences',
+  Wallet = 'Wallet',
+  Security = 'Security',
+  Network = 'Network',
+  About = 'About',
+  Search = 'Search',
+  Dev = 'Dev',
+}
+
 export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingListModal]: { flag?: string } | undefined;
   [EModalSettingRoutes.SettingListSubModal]:
     | {
-        name: string;
+        name: ESettingsTabNames | string;
         title?: string;
       }
     | undefined;

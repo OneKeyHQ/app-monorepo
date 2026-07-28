@@ -9,7 +9,6 @@ import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ETabRoutes,
   type IWebViewPageParams,
@@ -27,17 +26,19 @@ import {
 } from '@onekeyhq/shared/types/notification';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useReferFriends } from '../../../hooks/useReferFriends';
 import { useVersionCompatible } from '../../../hooks/useVersionCompatible';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { useBrowserAction } from '../../../states/jotai/contexts/discovery';
-import { DiscoveryBrowserProviderMirror } from '../../../views/Discovery/components/DiscoveryBrowserProviderMirror';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector/atoms';
 import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
 
 import { executeNotificationCommand } from './commandRegistry';
 import { useInitialNotification } from './hooks';
+import {
+  NotificationHandlerDiscoveryProvider,
+  useNotificationDappNavigation,
+} from './NotificationDappNavigation';
 
 function BaseNotificationHandlerContainer() {
   const { showFallbackUpdateDialog } = useVersionCompatible();
@@ -62,7 +63,8 @@ function BaseNotificationHandlerContainer() {
     [],
   );
 
-  const browserAction = useBrowserAction().current;
+  const handleShowNotificationDappNavigation =
+    useNotificationDappNavigation(navigation);
 
   useEffect(() => {
     const handleShowFallbackUpdateDialog = ({
@@ -104,7 +106,11 @@ function BaseNotificationHandlerContainer() {
               openWebView({ url: payload as string, source: 'notification' });
               break;
             case ENotificationViewDialogActionType.openInBrowser:
-              openUrlExternal(payload as string);
+              // The dialog protocol's openInBrowser action promises the OS
+              // browser; openInApp above is the in-app counterpart.
+              openUrlExternal(payload as string, {
+                useSystemBrowser: true,
+              });
               break;
             default:
               break;
@@ -161,23 +167,6 @@ function BaseNotificationHandlerContainer() {
         console.error(error);
         showFallbackUpdateDialog(null);
       });
-    };
-    const handleShowNotificationDappNavigation = (url: string) => {
-      if (platformEnv.isNative || platformEnv.isDesktop) {
-        browserAction.handleOpenWebSite({
-          webSite: {
-            url,
-            title: '',
-            logo: undefined,
-            sortIndex: undefined,
-          },
-          navigation,
-          useCurrentWindow: false,
-          tabId: '',
-        });
-      } else {
-        openUrlExternal(url);
-      }
     };
     const handleShowNotificationInWebViewOverlay = (
       params: IWebViewPageParams,
@@ -242,9 +231,8 @@ function BaseNotificationHandlerContainer() {
       );
     };
   }, [
-    browserAction,
     getLocalParams,
-    navigation,
+    handleShowNotificationDappNavigation,
     showFallbackUpdateDialog,
     toInviteRewardPage,
     openHardwareSalesOrderDetail,
@@ -263,9 +251,9 @@ export function NotificationHandlerContainer() {
   );
   return (
     <AccountSelectorProviderMirror config={config} enabledNum={[0]}>
-      <DiscoveryBrowserProviderMirror>
+      <NotificationHandlerDiscoveryProvider>
         <BaseNotificationHandlerContainer />
-      </DiscoveryBrowserProviderMirror>
+      </NotificationHandlerDiscoveryProvider>
     </AccountSelectorProviderMirror>
   );
 }

@@ -57,6 +57,8 @@ module.exports = async () => {
         '<rootDir>/__mocks__/fileMock.js',
       '\\.(css|less)$': '<rootDir>/__mocks__/styleMock.js',
       '@onekeyhq/components': '<rootDir>/__mocks__/componentsMock.ts',
+      '^@onekeyhq/shared/src/logger/logger$':
+        '<rootDir>/packages/shared/src/logger/logger.ts',
       '@emurgo/cardano-serialization-lib-browser':
         '@emurgo/cardano-serialization-lib-nodejs',
       '@emurgo/cardano-message-signing-browser':

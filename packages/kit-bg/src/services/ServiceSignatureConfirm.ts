@@ -45,6 +45,10 @@ import {
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import {
+  getPermit2ServerDisplayExtras,
+  shouldUseLocalPermit2Display,
+} from './utils/permit2SignatureConfirmUtils';
 
 import type { IBuildDecodedTxParams } from '../vaults/types';
 
@@ -351,14 +355,31 @@ class ServiceSignatureConfirm extends ServiceBase {
       }
     }
 
-    if (
+    const shouldUseLocalTxDisplay = Boolean(
       parsedTx &&
       (unsignedTx.stakingInfo || unsignedTx.swapInfo) &&
-      parsedTx?.type === EParseTxType.Unknown &&
-      !unsignedTx.stakingInfo?.tags?.includes(EEarnLabels.Borrow)
-    ) {
-      parsedTx.display = null;
-    }
+      parsedTx.type === EParseTxType.Unknown &&
+      !unsignedTx.stakingInfo?.tags?.includes(EEarnLabels.Borrow),
+    );
+
+    const useLocalPermit2Display = shouldUseLocalPermit2Display({
+      hasPermit2ApproveInfo: Boolean(unsignedTx.approveInfo?.permit2Info),
+      parsedTx,
+    });
+
+    const shouldUseLocalDisplay =
+      shouldUseLocalTxDisplay || useLocalPermit2Display;
+    const localDisplayExtras = getPermit2ServerDisplayExtras(
+      shouldUseLocalDisplay ? parsedTx?.display : undefined,
+    );
+    // Earn fallback and locally validated Permit2 both retain server risk
+    // alerts. Simulation is retained for staking fallback and Permit2 only.
+    const serverSimulationComponents =
+      useLocalPermit2Display ||
+      (shouldUseLocalTxDisplay && Boolean(unsignedTx.stakingInfo))
+        ? localDisplayExtras.simulationComponents
+        : [];
+    const serverAlerts = localDisplayExtras.alerts;
 
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const decodedTx = await vault.buildDecodedTx({
@@ -385,7 +406,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       decodedTx.txABI = parsedTx.parsedTx?.data;
     }
 
-    if (parsedTx && parsedTx.display) {
+    if (parsedTx?.display && !shouldUseLocalDisplay) {
       decodedTx.txDisplay = parsedTx.display;
     } else {
       const vaultSettings =
@@ -403,8 +424,8 @@ class ServiceSignatureConfirm extends ServiceBase {
 
       decodedTx.txDisplay = {
         title: '',
-        components: txDisplayComponents,
-        alerts: [],
+        components: [...txDisplayComponents, ...serverSimulationComponents],
+        alerts: serverAlerts,
       };
       decodedTx.isLocalParsed = true;
     }

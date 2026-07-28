@@ -30,7 +30,7 @@ import { Layout } from './utils/Layout';
 
 import type { ITokenProps } from '../../../../../../components/Token';
 
-/* 
+/*
   do not use this demo-only component
 */
 function FakeWrapper({ children, ...rest }: IYStackProps) {
@@ -47,7 +47,7 @@ function FakeWrapper({ children, ...rest }: IYStackProps) {
   );
 }
 
-/* 
+/*
   Mock data for demo
 */
 const MOCK_DATA = {
@@ -174,7 +174,7 @@ const MOCK_DATA = {
   ],
 };
 
-/* 
+/*
   Primitive item
 */
 function SignatureDetailItemLabel(props: ISizableTextProps) {
@@ -194,7 +194,7 @@ function SignatureDetailItem(props: ISignatureDetailItemType) {
 SignatureDetailItem.Label = SignatureDetailItemLabel;
 SignatureDetailItem.Value = SignatureDetailItemValue;
 
-/* 
+/*
   Address item
 */
 function SignatureAddressDetailItem({
@@ -227,7 +227,7 @@ function SignatureAddressDetailItem({
   );
 }
 
-/* 
+/*
   Network item
 */
 function SignatureNetworkDetailItem({
@@ -249,7 +249,7 @@ function SignatureNetworkDetailItem({
   );
 }
 
-/* 
+/*
   Asset item
 */
 function SignatureAssetDetailItem({
@@ -472,7 +472,7 @@ function SignatureAdvanceSection() {
   );
 }
 
-/* 
+/*
   Demo
 */
 function YourComponentDemo() {

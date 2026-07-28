@@ -3,11 +3,6 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import type {
-  IFormMode,
-  IReValidateMode,
-  UseFormReturn,
-} from '@onekeyhq/components';
 import {
   Form,
   Icon,
@@ -17,9 +12,14 @@ import {
   Stack,
   XStack,
   YStack,
+} from '@onekeyhq/components';
+import {
+  type IFormMode,
+  type IReValidateMode,
+  type UseFormReturn,
   useForm,
   useFormWatch,
-} from '@onekeyhq/components';
+} from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   AccountSelectorProviderMirror,
@@ -33,10 +33,11 @@ import {
 import { AddressInputContext } from '@onekeyhq/kit/src/components/AddressInput/AddressInputContext';
 import { renderAddressInputHyperlinkText } from '@onekeyhq/kit/src/components/AddressInput/AddressInputHyperlinkText';
 import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
+import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -203,7 +204,12 @@ function BasicEditAddress() {
             {
               id: ETranslations.referral_address_update_desc,
             },
-            { mail: userInfo.displayEmail ?? '' },
+            {
+              mail: getDisplayEmailOrUnknown({
+                intl,
+                displayEmail: userInfo.displayEmail,
+              }),
+            },
           ),
       });
 

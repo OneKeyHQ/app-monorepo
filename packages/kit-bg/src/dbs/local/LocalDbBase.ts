@@ -331,8 +331,6 @@ function getExtraDeviceFieldString(
     | 'raw.firmwareVersion'
     | 'raw.serialNumber'
     | 'raw.modelName'
-    | 'raw.productName'
-    | 'raw.provider_product'
     | 'vendorModel'
     | 'vendorModelName',
 ) {
@@ -430,12 +428,11 @@ export function buildThirdPartyFeaturesInfoFromDevice({
   return thirdPartyDeviceUtils.buildPersistedFeatures({
     features: featureRecord,
     vendor,
-    label:
-      featureRecord.label ||
-      device.name ||
-      vendorModelName ||
-      vendorModel ||
-      profile.defaultDeviceName,
+    label: buildThirdPartyDeviceDisplayName({
+      device,
+      features: featureRecord,
+      profile,
+    }),
     model: featureRecord.model || vendorModelName || vendorModel,
     internalModel: featureRecord.internal_model || vendorModel,
     firmwareVersion,
@@ -499,11 +496,41 @@ export function getThirdPartyDeviceModelName({
     getExtraDeviceFieldString(device, 'vendorModelName') ||
     featureRecord.model ||
     getExtraDeviceFieldString(device, 'raw.modelName') ||
-    getExtraDeviceFieldString(device, 'raw.productName') ||
-    getExtraDeviceFieldString(device, 'raw.provider_product') ||
+    // No raw.productName/provider_product fallback: USB-layer fields vary per platform.
     featureRecord.provider_product;
 
   return vendorModelName;
+}
+
+// Single source of truth for a third-party device's display name. Both the
+// wallet name and the persisted device-record label go through here, so they
+// can never disagree (which is what caused the sync oscillation). When the
+// device has no on-device label, derive the name from the hardware model
+// (features.model) — NEVER from device.name / the USB productName, which the
+// platform WebUSB layer fills inconsistently (e.g. "Trezor Safe 5" on the
+// extension vs empty on desktop) and would give the same label-less device a
+// different wallet name per platform.
+export function buildThirdPartyDeviceDisplayName({
+  device,
+  features,
+  profile,
+}: {
+  device: IDBCreateHwWalletParams['device'];
+  features: IOneKeyDeviceFeatures;
+  profile: ReturnType<typeof getVendorProfile>;
+}): string {
+  const label = isString(features.label) ? features.label : undefined;
+  if (label) {
+    return label;
+  }
+  const model = getThirdPartyDeviceModelName({ device, features });
+  const vendorName = profile.defaultDeviceName;
+  if (model) {
+    return model.toLowerCase().includes(vendorName.toLowerCase())
+      ? model
+      : `${vendorName} ${model}`;
+  }
+  return `${vendorName} Device`;
 }
 
 export function getThirdPartyDeviceAvatarImage({
@@ -3323,9 +3350,26 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
         if (shouldFixName) {
           if (profile.isThirdParty) {
-            // Third-party vendor: fix name if it contains OneKey device names
-            const vendorLabel = profile.defaultDeviceName || deviceVendor;
-            if (wallet.name && wallet.name.startsWith('OneKey')) {
+            // Third-party with a settable on-device label (Trezor): wallet name
+            // follows the device label, same as OneKey. Gate on device-settings
+            // support so vendors without a real label (Ledger) fall through.
+            const label = device?.featuresInfo?.label;
+            if (
+              profile.supportsDeviceSettings &&
+              device &&
+              label &&
+              label !== wallet.name
+            ) {
+              appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
+                walletId: wallet.id,
+                dbDeviceId: device.id,
+                label,
+                walletName: wallet.name,
+              });
+              wallet.name = label;
+            } else if (wallet.name && wallet.name.startsWith('OneKey')) {
+              // No settable label (Ledger): strip any leftover OneKey name.
+              const vendorLabel = profile.defaultDeviceName || deviceVendor;
               wallet.name = vendorLabel;
             }
           } else {
@@ -5755,18 +5799,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       device,
       features,
     });
-    const deviceLabel = isString(features.label) ? features.label : undefined;
+    const finalDeviceName = buildThirdPartyDeviceDisplayName({
+      device,
+      features,
+      profile,
+    });
     return {
       deviceType: EDeviceType.Unknown,
       firmwareType: thirdPartyDeviceUtils.getFirmwareType({ features }),
       avatar: {
         img: getThirdPartyDeviceAvatarImage({ profile, modelName }),
       },
-      deviceName:
-        deviceLabel ||
-        modelName ||
-        device.name ||
-        `${profile.defaultDeviceName} Device`,
+      deviceName: finalDeviceName,
       featuresInfo: buildThirdPartyFeaturesInfoFromDevice({
         device,
         features,

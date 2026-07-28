@@ -217,7 +217,7 @@ const LeverageContent = memo(
               </SizableText>
             </XStack>
           </YStack>
-          <YStack gap="$3" pb="$4">
+          <YStack gap="$3">
             <XStack
               gap="$1"
               alignItems="center"

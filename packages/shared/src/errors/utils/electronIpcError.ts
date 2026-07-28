@@ -1,7 +1,5 @@
 import { isString } from 'lodash';
 
-import { ETranslations } from '../../locale';
-
 import type { IntlShape } from 'react-intl';
 
 /**
@@ -37,16 +35,26 @@ export class UnwrappedIpcError extends Error {
 const IPC_WRAP_PATTERN =
   /^Error invoking remote method '([^']+)':\s*([\s\S]+)$/;
 
-let eTranslationsKeySet: Set<string> | null = null;
-const getETranslationsKeySet = () => {
-  if (!eTranslationsKeySet) {
-    eTranslationsKeySet = new Set(Object.values(ETranslations));
-  }
-  return eTranslationsKeySet;
-};
+type IIntlMessageResolver = Pick<IntlShape, 'formatMessage'> &
+  Partial<Pick<IntlShape, 'messages'>>;
+type IIntlMessageId = FormatjsIntl.Message['ids'];
 
-const isETranslationsKey = (value: unknown): value is ETranslations =>
-  isString(value) && getETranslationsKeySet().has(value);
+const hasIntlMessage = (
+  intl: IIntlMessageResolver | undefined,
+  id: string,
+): id is IIntlMessageId =>
+  Boolean(
+    intl?.messages && Object.prototype.hasOwnProperty.call(intl.messages, id),
+  );
+
+const getAppLocaleIntl = (): IIntlMessageResolver => {
+  // Lazy require keeps this module free of `react-intl` at load time so
+  // tests that stub `react-intl` (without providing `createIntl`) can still
+  // import code paths that reach this file.
+  // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
+  const appLocaleModule: typeof import('../../locale/appLocale') = require('../../locale/appLocale');
+  return appLocaleModule.appLocale.intl;
+};
 
 type IUnwrappedPayload = {
   message: string;
@@ -125,23 +133,21 @@ export function unwrapElectronIpcError(err: unknown): unknown {
  */
 export function resolveErrorI18nMessage(
   err: unknown,
-  intl?: Pick<IntlShape, 'formatMessage'>,
+  intl?: IIntlMessageResolver,
 ): string {
   if (err === undefined || err === null) {
     return '';
   }
   const message = (err as { message?: unknown })?.message;
   const text = isString(message) ? message : String(err);
-  if (isETranslationsKey(text)) {
-    if (intl) {
-      return intl.formatMessage({ id: text });
-    }
-    // Lazy require keeps this module free of `react-intl` at load time so
-    // tests that stub `react-intl` (without providing `createIntl`) can still
-    // import code paths that reach this file.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
-    const appLocaleModule: typeof import('../../locale/appLocale') = require('../../locale/appLocale');
-    return appLocaleModule.appLocale.intl.formatMessage({ id: text });
+
+  if (intl) {
+    return hasIntlMessage(intl, text) ? intl.formatMessage({ id: text }) : text;
+  }
+
+  const appLocaleIntl = getAppLocaleIntl();
+  if (hasIntlMessage(appLocaleIntl, text)) {
+    return appLocaleIntl.formatMessage({ id: text });
   }
   return text;
 }

@@ -15,7 +15,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { UseFormReturn } from '@onekeyhq/components';
+import type { UseFormReturn } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';

@@ -44,7 +44,10 @@ import { PerpsTokenListSection } from './PerpsTokenListSection';
 import { useMarketBannerDetail } from './useMarketBannerDetail';
 
 import type { IMarketToken } from '../MarketHomeV2/components/MarketTokenList/MarketTokenData';
-import type { EModalMarketRoutes, IModalMarketParamList } from '../router';
+import type {
+  EModalMarketRoutes,
+  IModalMarketParamList,
+} from '../router/types';
 import type { RouteProp } from '@react-navigation/core';
 
 type IMarketBannerDetailRouteParams = RouteProp<
@@ -101,6 +104,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const handleItemPress = useCallback(
     (item: IMarketToken) => {
       void toDetailPage({
+        ...item,
         tokenAddress: item.address,
         networkId: item.networkId,
         symbol: item.symbol,
@@ -183,8 +187,9 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         />
       );
     }
-    // Native mobile: use FlatList + TokenListItem to match watchlist layout
-    if (platformEnv.isNative && !gtMd) {
+    // Narrow layouts use the compact list to avoid the desktop table's
+    // intrinsic width overflowing the viewport.
+    if (!gtMd) {
       return (
         <BannerDetailTokenFlatList
           data={mobileData}

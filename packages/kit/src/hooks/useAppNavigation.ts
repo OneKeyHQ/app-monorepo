@@ -61,7 +61,7 @@ navigate by full route path:
     
 */
 
-/* 
+/*
 replace
 import { StackActions } from '@react-navigation/native';
 

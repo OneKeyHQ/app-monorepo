@@ -1,7 +1,5 @@
 // Shared utility functions for MarketHomeV2 components
 
-import BigNumber from 'bignumber.js';
-
 import type { IMarketCategoryItem } from './types';
 
 const SPOT_CATEGORIES_WITH_FULL_STATS = new Set(['trending', 'x_mentioned']);
@@ -29,7 +27,7 @@ export const validateLiquidityInput = (value: string): boolean => {
  * Parse a string value to number, supporting K/k (thousands), M/m (millions), B/b (billions), T/t (trillions) suffixes
  * Unit letters can only appear at the end and only one unit is allowed
  * @param value - String value like "10K", "5M", "2B", "1T", "1000"
- * @returns Parsed number value using BigNumber for precision
+ * @returns Parsed numeric value, or 0 when the input is invalid
  */
 export const parseValueToNumber = (value: string): number => {
   if (!value || value.trim() === '') {
@@ -50,23 +48,27 @@ export const parseValueToNumber = (value: string): number => {
       return 0;
     }
 
-    const numValue = new BigNumber(numberPart);
+    const numValue = Number(numberPart);
+    if (!Number.isFinite(numValue)) {
+      return 0;
+    }
 
     switch (lastChar) {
       case 't':
-        return numValue.multipliedBy(new BigNumber('1000000000000')).toNumber(); // trillion
+        return numValue * 1_000_000_000_000; // trillion
       case 'b':
-        return numValue.multipliedBy(new BigNumber('1000000000')).toNumber(); // billion
+        return numValue * 1_000_000_000; // billion
       case 'm':
-        return numValue.multipliedBy(new BigNumber('1000000')).toNumber(); // million
+        return numValue * 1_000_000; // million
       case 'k':
-        return numValue.multipliedBy(new BigNumber('1000')).toNumber(); // thousand
+        return numValue * 1000; // thousand
       default:
-        return numValue.toNumber();
+        return numValue;
     }
   } else {
     // No unit, just parse as number
-    return new BigNumber(trimmedValue).toNumber();
+    const numValue = Number(trimmedValue);
+    return Number.isFinite(numValue) ? numValue : 0;
   }
 };
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { configureNetInfo, refreshNetInfo } from '@onekeyhq/components';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ONEKEY_HEALTH_CHECK_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   getEndpointByServiceName,

@@ -2,7 +2,7 @@
 import safeStringify from 'fast-safe-stringify';
 import { Base64 } from 'js-base64';
 import { isString } from 'lodash';
-import validator from 'validator';
+import isEmail from 'validator/lib/isEmail';
 
 import { OneKeyLocalError } from '../errors';
 
@@ -138,7 +138,7 @@ function isValidEmail(email: string): boolean {
   if (!email || !isString(email)) {
     return false;
   }
-  if (!validator.isEmail(email)) {
+  if (!isEmail(email)) {
     return false;
   }
   // Check if domain contains only ASCII characters
@@ -155,6 +155,10 @@ function isValidEmail(email: string): boolean {
   }
   return true;
 }
+
+const validatorUtils = {
+  isEmail,
+};
 
 function addSeparatorToString({
   str,
@@ -313,7 +317,7 @@ function stripLineBreaks(value: string) {
 export default {
   STRINGIFY_REPLACER,
   generateUUID,
-  validator,
+  validator: validatorUtils,
   isValidEmail,
   stableStringify,
   randomString,

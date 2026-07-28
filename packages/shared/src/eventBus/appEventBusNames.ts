@@ -102,6 +102,19 @@ export enum EAppEventBusNames {
   RefreshNetInfo = 'RefreshNetInfo',
   ShowSwitchAccountSelector = 'ShowSwitchAccountSelector',
   PrimeLoginInvalidToken = 'PrimeLoginInvalidToken',
+  // bg -> main: the shared keyless Supabase auth session storage was cleared
+  // by the bg runtime (e.g. keyless wallet removal); main-runtime holders
+  // must sign out their isolated in-memory keyless client copy.
+  KeylessAuthSessionCleared = 'KeylessAuthSessionCleared',
+  // bg -> main: a OneKey ID auth session source was committed
+  // (login / legacy OAuth bind / migration). A bind commit switches the
+  // source WITHOUT flipping primePersistAtom.isLoggedIn, and bg-side
+  // setSession writes never emit auth events in the main runtime, so
+  // main-runtime holders (SupabaseAuthProvider) must re-resolve the source
+  // and re-read both persisted session slots when this arrives.
+  PrimeAuthSessionSourceCommitted = 'PrimeAuthSessionSourceCommitted',
+  IdentityLifecycleCommitted = 'IdentityLifecycleCommitted',
+  PrimeSubscriptionPurchaseSuccess = 'PrimeSubscriptionPurchaseSuccess',
   PrimeExceedDeviceLimit = 'PrimeExceedDeviceLimit',
   PrimeDeviceLogout = 'PrimeDeviceLogout',
   PrimeMasterPasswordInvalid = 'PrimeMasterPasswordInvalid',
@@ -149,6 +162,7 @@ export enum EAppEventBusNames {
   StartAutoDownloadUpdate = 'StartAutoDownloadUpdate',
   PendingInstallTaskProcessFinished = 'PendingInstallTaskProcessFinished',
   HomePageReady = 'HomePageReady',
+  ModalNavigatorMounted = 'ModalNavigatorMounted',
   ShowNotificationViewDialog = 'ShowNotificationViewDialog',
   ShowNotificationPageNavigation = 'ShowNotificationPageNavigation',
   ShowNotificationInDappPage = 'ShowNotificationInDappPage',
@@ -157,7 +171,10 @@ export enum EAppEventBusNames {
   HyperliquidDataUpdate = 'HyperliquidDataUpdate',
   HyperliquidConnectionChange = 'HyperliquidConnectionChange',
   PerpsWebSocketRecovered = 'PerpsWebSocketRecovered',
+  PerpsTvPriceScaleRefreshed = 'PerpsTvPriceScaleRefreshed',
+  PerpsUnifoldDepositTerminalDelivery = 'PerpsUnifoldDepositTerminalDelivery',
   PerpSwitchActiveInstrument = 'PerpSwitchActiveInstrument',
+  PerpSwitchInfoPanelTab = 'PerpSwitchInfoPanelTab',
   BtcFreshAddressUpdated = 'BtcFreshAddressUpdated',
   BtcFreshAddressConnectDappRejected = 'BtcFreshAddressConnectDappRejected',
   BtcFindAddressUpdated = 'BtcFindAddressUpdated',

@@ -25,6 +25,7 @@ export type ITokenGroupSkeletonProps = {
 
 // Default overlap offsets based on token size (from TokenGroup.tsx)
 const defaultOverlapOffsets: Record<ITokenSize, string> = {
+  xxl: '$-6',
   xl: '$-5',
   lg: '$-4',
   md: '$-3.5',

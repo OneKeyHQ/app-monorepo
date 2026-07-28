@@ -1,7 +1,7 @@
 import type { SizeTokens } from '@onekeyhq/components';
 import { s } from '@onekeyhq/components/src/utils/scale';
 
-export type ITokenSize = 'xl' | 'lg' | 'md' | 'sm' | 'xs' | 'xxs';
+export type ITokenSize = 'xxl' | 'xl' | 'lg' | 'md' | 'sm' | 'xs' | 'xxs';
 
 export const TOKEN_SIZE_MAP: Record<
   ITokenSize,
@@ -12,6 +12,12 @@ export const TOKEN_SIZE_MAP: Record<
     tokenImageResizeWidth: number;
   }
 > = {
+  xxl: {
+    tokenImageSize: '$14',
+    chainImageSize: '$6',
+    fallbackIconSize: '$9',
+    tokenImageResizeWidth: s(56),
+  },
   xl: {
     tokenImageSize: '$12',
     chainImageSize: '$5',

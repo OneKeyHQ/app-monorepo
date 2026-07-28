@@ -567,7 +567,7 @@ function TwapActiveRow({
           cursor="pointer"
         >
           <SizableText
-            color="$red11"
+            color="$bgCriticalStrong"
             hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
             size="$bodySm"
             fontWeight={400}
@@ -1757,6 +1757,7 @@ function PerpTwapList({
           activeTab={activeTab}
           onChange={setActiveTab}
           variant={isMobile ? 'pill' : 'underline'}
+          leftInset={isMobile ? '$5' : undefined}
         />
       ) : null}
       {activeTab === 'active' ? (

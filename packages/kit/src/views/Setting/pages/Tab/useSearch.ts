@@ -8,9 +8,12 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
-import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalSettingRoutes,
+  ESettingsTabNames,
+} from '@onekeyhq/shared/src/routes';
 
-import { ESettingsTabNames, useSettingsConfig } from './config';
+import { useSettingsConfig } from './config';
 import { useIsTabNavigator } from './useIsTabNavigator';
 
 import type { ISubSettingConfig } from './config';

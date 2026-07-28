@@ -132,4 +132,6 @@ export interface IThirdPartyHardwareAdapter {
    */
   beginBindingProbe?(connectId: string): void;
   endBindingProbe?(): void;
+  /** True if the current probe's connect failed due to that silent cancel. */
+  wasBindingProbeCancelled?(): boolean;
 }

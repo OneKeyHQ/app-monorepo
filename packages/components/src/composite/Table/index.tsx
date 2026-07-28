@@ -1,5 +1,15 @@
 import type { RefObject } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Suspense,
+  forwardRef,
+  lazy,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { Pressable, StyleSheet } from 'react-native';
 import { globalRef } from 'react-native-draggable-flatlist/src/context/globalRef';
@@ -16,7 +26,6 @@ import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
 import { IconButton } from '../../actions/IconButton';
 import { ListView } from '../../layouts/ListView';
-import { SortableListView } from '../../layouts/SortableListView';
 import { SizableText, Stack, XStack, YStack } from '../../primitives';
 import { Haptics, ImpactFeedbackStyle } from '../../primitives/Haptics';
 import { useTabsContext } from '../Tabs/context';
@@ -26,7 +35,10 @@ import { Column, MemoHeaderColumn } from './components';
 
 import type { ITableProps } from './types';
 import type { IListViewRef } from '../../layouts';
-import type { IRenderItemParams } from '../../layouts/SortableListView';
+import type {
+  IRenderItemParams,
+  ISortableListViewProps,
+} from '../../layouts/SortableListView';
 import type { IXStackProps } from '../../primitives';
 import type {
   ListRenderItemInfo,
@@ -36,6 +48,31 @@ import type {
 
 const DEFAULT_ROW_HEIGHT = 60;
 const defaultEstimatedListSize = { width: 370, height: 525 };
+
+type ISortableListViewRuntime = typeof import('../../layouts/SortableListView');
+
+let sortableListViewRuntime: ISortableListViewRuntime | undefined;
+
+const SortableListViewLazyComponent = lazy(() =>
+  import('../../layouts/SortableListView').then((module) => {
+    sortableListViewRuntime = module;
+    return {
+      default: module.SortableListView as React.ComponentType<
+        ISortableListViewProps<any> & { ref?: React.Ref<any> }
+      >,
+    };
+  }),
+);
+
+const LazySortableListView = forwardRef<any, ISortableListViewProps<any>>(
+  (props, ref) => (
+    <Suspense fallback={null}>
+      <SortableListViewLazyComponent {...props} ref={ref} />
+    </Suspense>
+  ),
+);
+
+LazySortableListView.displayName = 'LazySortableListView';
 
 const resolveNumericStyleValue = (value: unknown) => {
   if (typeof value === 'number') {
@@ -95,6 +132,12 @@ function TableRow<T>({
   const themeName = useThemeName();
   const isDarkMode = themeName?.includes('dark');
   const onRowEvents = useMemo(() => onRow?.(item, index), [index, item, onRow]);
+  const hasRowActions = Boolean(
+    onRowEvents?.onPress ||
+    onRowEvents?.onLongPress ||
+    onRowEvents?.onContextMenu ||
+    draggable,
+  );
   const mergedRowProps = useMemo(
     () => ({
       ...rowProps,
@@ -102,7 +145,8 @@ function TableRow<T>({
     }),
     [onRowEvents?.rowProps, rowProps],
   );
-  const itemPressStyle = pressStyle ? listItemPressStyle : undefined;
+  const itemPressStyle =
+    pressStyle && hasRowActions ? listItemPressStyle : undefined;
   const isDragging = pressStyle && isActive;
   const pressTimeRef = useRef(0);
 
@@ -182,11 +226,15 @@ function TableRow<T>({
       bg="$bgApp"
       borderRadius="$3"
       dataSet={!platformEnv.isNative && draggable ? dataSet : undefined}
-      onPressIn={!platformEnv.isNative ? handlePressIn : undefined}
-      onPress={!useNativePressable ? handlePress : undefined}
-      onLongPress={!useNativePressable && md ? handleLongPress : undefined}
+      onPressIn={
+        !platformEnv.isNative && hasRowActions ? handlePressIn : undefined
+      }
+      onPress={!useNativePressable && hasRowActions ? handlePress : undefined}
+      onLongPress={
+        !useNativePressable && md && hasRowActions ? handleLongPress : undefined
+      }
       {...(!platformEnv.isNative && {
-        onContextMenu: handleContextMenu as any,
+        onContextMenu: hasRowActions ? (handleContextMenu as any) : undefined,
       })}
       {...(!platformEnv.isNative &&
         draggable && {
@@ -251,6 +299,8 @@ function TableRow<T>({
   return content;
 }
 
+const MemoTableRow = memo(TableRow) as typeof TableRow;
+
 function TableHeaderRow<T>({
   columns,
   onHeaderRow,
@@ -301,6 +351,7 @@ function TableHeaderRow<T>({
 
 function BasicTable<T>({
   dataSource: dataSourceOriginal,
+  estimatedDataLength,
   columns,
   extraData,
   TableHeaderComponent,
@@ -370,7 +421,7 @@ function BasicTable<T>({
 
   const handleRenderItem = useCallback(
     ({ item, index }: ListRenderItemInfo<T>) => (
-      <TableRow
+      <MemoTableRow
         pressStyle={!showSkeleton}
         showSkeleton={showSkeleton}
         scrollAtRef={scrollAtRef}
@@ -461,7 +512,8 @@ function BasicTable<T>({
       : 0;
     const emptyHeight =
       dataSource.length === 0 && TableEmptyComponent ? DEFAULT_ROW_HEIGHT : 0;
-    const dataHeight = dataSource.length * resolvedRowHeight;
+    const dataHeight =
+      (estimatedDataLength ?? dataSource.length) * resolvedRowHeight;
 
     return Math.max(
       400,
@@ -479,6 +531,7 @@ function BasicTable<T>({
     contentContainerStyle,
     dataSource.length,
     effectiveStickyHeader,
+    estimatedDataLength,
     resolvedRowHeight,
     scrollEnabled,
     showHeader,
@@ -542,7 +595,7 @@ function BasicTable<T>({
   const renderSortableItem = useCallback(
     ({ item, drag, dragProps, index, isActive }: IRenderItemParams<T>) => {
       const row = (
-        <TableRow
+        <MemoTableRow
           pressStyle={!showSkeleton}
           isActive={isActive}
           draggable={draggable}
@@ -558,11 +611,12 @@ function BasicTable<T>({
         />
       );
       if (platformEnv.isNative) {
-        return (
-          <SortableListView.ShadowDecorator>
-            {row}
-          </SortableListView.ShadowDecorator>
-        );
+        const ShadowDecorator =
+          sortableListViewRuntime?.SortableListView.ShadowDecorator;
+        if (!ShadowDecorator) {
+          return row;
+        }
+        return <ShadowDecorator>{row}</ShadowDecorator>;
       }
       return row;
     },
@@ -591,7 +645,7 @@ function BasicTable<T>({
   const list = useMemo(
     () =>
       draggable ? (
-        <SortableListView
+        <LazySortableListView
           enabled
           tabIntegrated={tabIntegrated}
           useFlashList={useFlashList}

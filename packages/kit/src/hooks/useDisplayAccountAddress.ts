@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 export function useDisplayAccountAddress({

@@ -1,6 +1,8 @@
 import type { Analytics } from '@onekeyhq/shared/src/analytics';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+// Jest maps the generic logger entry to the sync implementation for regular tests.
+// Import the web-only wrapper explicitly so this test still covers lazy queue flushing.
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger.web-only';
 import { loggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
 import type { ISwapOrderLongPendingWarningPayload } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
@@ -11,6 +13,11 @@ import {
 
 describe('SwapOrderLongPendingWarningScene', () => {
   let trackEvent: jest.MockedFunction<Analytics['trackEvent']>;
+
+  async function flushWebLazyLoggerTimers() {
+    await jest.runOnlyPendingTimersAsync();
+    await jest.runOnlyPendingTimersAsync();
+  }
 
   beforeEach(() => {
     jest.useFakeTimers();
@@ -30,7 +37,7 @@ describe('SwapOrderLongPendingWarningScene', () => {
     jest.useRealTimers();
   });
 
-  it('reports the long pending warning event to analytics with the full payload', () => {
+  it('reports the long pending warning event to analytics with the full payload', async () => {
     const payload: ISwapOrderLongPendingWarningPayload = {
       orderId: 'order-analytics',
       pendingDuration: 5430,
@@ -68,7 +75,7 @@ describe('SwapOrderLongPendingWarningScene', () => {
     defaultLogger.swap.swapOrderLongPendingWarning.swapOrderLongPendingWarning(
       payload,
     );
-    jest.runOnlyPendingTimers();
+    await flushWebLazyLoggerTimers();
 
     expect(trackEvent).toHaveBeenCalledWith(
       'swapOrderLongPendingWarning',

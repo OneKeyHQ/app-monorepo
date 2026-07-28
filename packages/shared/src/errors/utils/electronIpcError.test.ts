@@ -85,30 +85,31 @@ describe('unwrapElectronIpcError', () => {
 });
 
 describe('resolveErrorI18nMessage', () => {
+  const translatedKey =
+    ETranslations.update_installation_package_possibly_compromised;
   const formatMessage = jest.fn(
     (descriptor: { id?: unknown }) => `TRANSLATED:${String(descriptor?.id)}`,
   );
-  const intl = { formatMessage } as unknown as Parameters<
-    typeof resolveErrorI18nMessage
-  >[1];
+  const intl = {
+    formatMessage,
+    messages: {
+      [translatedKey]: 'mock message',
+    },
+  } as unknown as Parameters<typeof resolveErrorI18nMessage>[1];
 
   beforeEach(() => {
     formatMessage.mockClear();
   });
 
   it('translates when message is an ETranslations enum value', () => {
-    const err = new Error(
-      ETranslations.update_installation_package_possibly_compromised,
-    );
+    const err = new Error(translatedKey);
 
     const result = resolveErrorI18nMessage(err, intl);
 
     expect(formatMessage).toHaveBeenCalledWith({
-      id: ETranslations.update_installation_package_possibly_compromised,
+      id: translatedKey,
     });
-    expect(result).toBe(
-      `TRANSLATED:${ETranslations.update_installation_package_possibly_compromised}`,
-    );
+    expect(result).toBe(`TRANSLATED:${translatedKey}`);
   });
 
   it('returns raw message when it is not an i18n key', () => {

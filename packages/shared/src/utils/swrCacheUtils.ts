@@ -173,9 +173,15 @@ const NS = {
   perpsOrderBookTickOptions: 'perpsOrderBookTicks',
   perpsL2BookSnapshot: 'perpsL2Book',
   historyTxDetail: 'historyTxDetail',
+  marketHomeTokenList: 'marketHomeTokenList',
+  tokenSelectorView: 'tokenSelectorView',
+  specifiedTokenSelectorView: 'specifiedTokenSelectorView',
+  swapHistoryPreviewList: 'swapHistoryPreviewList',
+  swapStockChart: 'swapStockChart',
   swapStockTokenDetail: 'swapStockTokenDetail',
   swapStockSpeedConfig: 'swapStockSpeedConfig',
   swapStockPayTokenDetails: 'swapStockPayTokenDetails',
+  swapStockPositionsMetadata: 'swapStockPositionsMetadata',
 } as const;
 export type ISwrCacheNamespace = (typeof NS)[keyof typeof NS];
 export const swrCacheNamespaces = NS;
@@ -380,12 +386,127 @@ export const swrKeys = {
     txid: string;
   }) =>
     [NS.historyTxDetail, 'v1', networkId, accountAddress ?? '', txid].join(':'),
+  marketHomeTokenList: ({
+    networkId,
+    sortBy,
+    sortType,
+    pageSize,
+    minLiquidity,
+    type,
+    category,
+    timeFrame,
+  }: {
+    networkId: string;
+    sortBy?: string;
+    sortType?: string;
+    pageSize?: number;
+    minLiquidity?: number;
+    type?: string;
+    category?: string;
+    timeFrame?: string;
+  }) => {
+    const parts = [
+      NS.marketHomeTokenList,
+      'v1',
+      networkId,
+      sortBy ?? '',
+      sortType ?? '',
+      pageSize ?? '',
+      minLiquidity ?? '',
+      type ?? '',
+      timeFrame ?? '',
+    ];
+    if (category) {
+      parts.push(category);
+    }
+    return parts.join(':');
+  },
+  tokenSelectorView: ({
+    ownerMode,
+    filterMode,
+    accountId,
+    networkId,
+    indexedAccountId,
+    activeAccountId,
+    activeNetworkId,
+    isAllNetworks,
+    mergeDeriveAddressData,
+  }: {
+    ownerMode: 'normal' | 'active-account' | 'filtered';
+    filterMode: 'all-token' | 'wallet-token' | 'dapp-token';
+    accountId?: string;
+    networkId?: string;
+    indexedAccountId?: string;
+    activeAccountId?: string;
+    activeNetworkId?: string;
+    isAllNetworks?: boolean;
+    mergeDeriveAddressData?: boolean;
+  }) =>
+    [
+      NS.tokenSelectorView,
+      'v1',
+      ownerMode,
+      filterMode,
+      accountId ?? '',
+      networkId ?? '',
+      indexedAccountId ?? '',
+      activeAccountId ?? '',
+      activeNetworkId ?? '',
+      isAllNetworks ? '1' : '0',
+      mergeDeriveAddressData ? '1' : '0',
+    ].join(':'),
+  specifiedTokenSelectorView: ({
+    accountId,
+    networkId,
+    indexedAccountId,
+    targetsKey,
+  }: {
+    accountId: string;
+    networkId: string;
+    indexedAccountId?: string;
+    targetsKey: string;
+  }) =>
+    [
+      NS.specifiedTokenSelectorView,
+      'v1',
+      accountId,
+      networkId,
+      indexedAccountId ?? '',
+      targetsKey,
+    ].join(':'),
   swapStockTokenDetail: ({ tokenScope }: { tokenScope: string }) =>
     [NS.swapStockTokenDetail, 'v1', tokenScope].join(':'),
+  // Keep the existing unversioned key stable so users retain the history
+  // snapshot that already powers the ordinary Swap first frame.
+  swapHistoryPreviewList: () => NS.swapHistoryPreviewList,
+  swapStockChart: ({
+    networkId,
+    tokenAddress,
+    isNative,
+    range,
+    requestCurrency,
+  }: {
+    networkId: string;
+    tokenAddress: string;
+    isNative?: boolean;
+    range: string;
+    requestCurrency: string;
+  }) =>
+    [
+      NS.swapStockChart,
+      'v1',
+      networkId,
+      tokenAddress,
+      isNative ? 'native' : 'token',
+      range,
+      requestCurrency,
+    ].join(':'),
   swapStockSpeedConfig: ({ networkId }: { networkId: string }) =>
     [NS.swapStockSpeedConfig, 'v1', networkId].join(':'),
   swapStockPayTokenDetails: ({ scope }: { scope: string }) =>
     [NS.swapStockPayTokenDetails, 'v1', scope].join(':'),
+  swapStockPositionsMetadata: ({ scope }: { scope: string }) =>
+    [NS.swapStockPositionsMetadata, 'v1', scope].join(':'),
 };
 
 function uniqueCacheKeys(keys: string[]) {

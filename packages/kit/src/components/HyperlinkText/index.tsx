@@ -13,7 +13,7 @@ import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
-import useParseQRCode from '../../views/ScanQrCode/hooks/useParseQRCode';
+import useParseQRCodeLazy from '../../views/ScanQrCode/hooks/useParseQRCodeLazy';
 
 import type { FontSizeTokens } from 'tamagui';
 
@@ -68,7 +68,7 @@ export function HyperlinkText({
   ...basicTextProps
 }: IHyperlinkTextProps) {
   const intl = useIntl();
-  const parseQRCode = useParseQRCode();
+  const parseQRCode = useParseQRCodeLazy();
   const scriptFontSize = useMemo(
     () =>
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return

@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react';
 
 import { Badge, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { DEFI_PORTFOLIO_DETAIL_POSITION_NAME_COLOR } from '@onekeyhq/kit/src/components/DeFi/defiPortfolioDetailStyleUtils';
 import { DeFiPositionHealthFactorRow } from '@onekeyhq/kit/src/components/DeFi/DeFiPositionHealthFactorRow';
 import type { IProtocolPositionProviderDisplayInfo } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionButton';
 import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
@@ -102,18 +103,15 @@ const ProtocolCategoryGroup = memo(
                   gap="$2"
                   minWidth={0}
                 >
-                  <Badge
-                    badgeType="success"
-                    badgeSize="lg"
-                    alignSelf="flex-start"
-                    flexShrink={0}
-                  >
+                  {/* Badge + name form a quiet block header (same as the mobile
+                      detail page); the values below carry the emphasis. */}
+                  <Badge badgeType="success" badgeSize="sm" flexShrink={0}>
                     {group.categoryLabel}
                   </Badge>
                   {positionDisplayName ? (
                     <SizableText
                       size="$bodyMdMedium"
-                      color="$text"
+                      color={DEFI_PORTFOLIO_DETAIL_POSITION_NAME_COLOR}
                       numberOfLines={1}
                       flex={1}
                       minWidth={0}
@@ -151,7 +149,7 @@ const ProtocolCategoryGroup = memo(
     return (
       <YStack gap="$2">
         <YStack px="$5" pt="$3">
-          <Badge badgeType="success" badgeSize="lg" alignSelf="flex-start">
+          <Badge badgeType="success" badgeSize="sm" alignSelf="flex-start">
             {group.categoryLabel}
           </Badge>
         </YStack>

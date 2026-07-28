@@ -11,10 +11,10 @@ import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { SecureQRToast } from '../../../components/SecureQRToast';
-import useScanQrCode from '../../../views/ScanQrCode/hooks/useScanQrCode';
+import useScanQrCodeLazy from '../../../views/ScanQrCode/hooks/useScanQrCodeLazy';
 
 export function AirGapQrcodeDialogContainer() {
-  const { start: startScan } = useScanQrCode();
+  const { start: startScan } = useScanQrCodeLazy();
 
   useEffect(() => {
     let hideQrToast: (extra?: { flag?: string }) => Promise<void>;

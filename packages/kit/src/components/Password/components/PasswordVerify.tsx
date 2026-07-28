@@ -22,9 +22,9 @@ import {
   XStack,
   YStack,
   onVisibilityStateChange,
-  useForm,
 } from '@onekeyhq/components';
-import { usePasswordPersistManualLockStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
+import { usePasswordPersistManualLockStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';

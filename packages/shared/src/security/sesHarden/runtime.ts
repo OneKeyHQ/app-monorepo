@@ -1,5 +1,3 @@
-// cspell:ignore lockdown Lockdown jsbi unpermitted
-
 import { OneKeyLocalError } from '../../errors';
 
 import { getConfiguredSesHardenLevel } from './config';
@@ -367,52 +365,40 @@ function defaultLoadSes(): void {
   require('ses');
 }
 
-// Dependencies that perform the SES "override mistake" at module-init time:
-// they assign `.constructor` (or another frozen-intrinsic property) onto an
-// object whose prototype chain reaches Object.prototype, which throws (in
-// strict mode) once `lockdown()` freezes Object.prototype — unless override for
-// that property is enabled.
-//
-// The PRIMARY fix is `overrideTaming: 'severe'` (see options.ts): it enables
-// override for all of Object.prototype, so these libraries work even when loaded
-// after lockdown. This warm-up is kept as DEFENSE IN DEPTH: loading the
-// offenders here, while intrinsics are still mutable, lets their init-time
-// assignment land regardless of the override-taming setting (and the cached
-// module is reused afterwards), so they stay safe even if that setting is ever
-// relaxed to 'moderate'/'min'.
-//
-// Confirmed offenders (surfaced by the patch-warning monitor):
-//  - decimal.js (pulled in by ripple-binary-codec for XRP) does
-//    `Decimal.prototype.constructor = Decimal` on an object-literal prototype
-//    inside clone().
-//  - axios (lazily pulled in by @ton/ton's HttpApi, so it initializes AFTER
-//    lockdown) runs a "reserved names hotfix" at module init: reduceDescriptors
-//    assigns `constructor` onto a fresh `{}` whose prototype is the frozen
-//    Object.prototype.
-// bn.js / elliptic are NOT offenders (their inherits() chains keep a writable
-// own constructor). Behavior is locked down by sesHardenLibCompat.test.ts. Add
-// new offenders here as the patch-warning monitor surfaces their `culprit`.
-//
-// NOTE: a library that mutates a STANDARD intrinsic (adds non-standard own
-// properties to BigInt/Number/etc.) cannot be fixed by warm-up: lockdown()
-// REMOVES unpermitted intrinsics, so the additions are stripped regardless of
-// load order. js-conflux-sdk's jsbi shim hit exactly this; it is fixed by
-// making the shim self-contained instead (patches/js-conflux-sdk+2.3.0.patch).
-function defaultWarmUpBeforeLockdown(): void {
-  // Each warm-up is independent: a failure/absence of one must not skip the
-  // others, so they get their own try/catch instead of sharing one.
+function warmUpLitSymbolMetadata(): void {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
-    require('decimal.js');
+    // Lit's @lit/reactive-element does this at module init because TypeScript
+    // does not polyfill decorator metadata. Reown AppKit can lazy-load Lit
+    // after lockdown, where adding a property to the frozen Symbol constructor
+    // throws "Cannot add property metadata, object is not extensible".
+    const symbolConstructor = Symbol as unknown as {
+      metadata?: symbol;
+    };
+    symbolConstructor.metadata ??= Symbol('metadata');
   } catch {
-    // Best-effort: a failed/missing warm-up must never block startup.
+    // Best-effort: a failed warm-up must never block startup.
   }
+}
+
+function warmUpAxiosReservedNamesHotfix(): void {
   try {
+    // Axios runs a reserved-names hotfix at module init. Loading it before
+    // lockdown lets that write happen while Object.prototype is still mutable.
+    // The primary compatibility fix for override mistakes remains
+    // `overrideTaming: 'severe'`; this warm-up is defense in depth for the
+    // lazy @ton/ton HttpApi path.
     // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
     require('axios');
   } catch {
     // Best-effort: a failed/missing warm-up must never block startup.
   }
+}
+
+function defaultWarmUpBeforeLockdown(): void {
+  // Keep this registry narrow. Package-specific SES behavior is documented next
+  // to each warm-up helper and pinned by sesHardenLibCompat.test.ts.
+  warmUpLitSymbolMetadata();
+  warmUpAxiosReservedNamesHotfix();
 }
 
 function getLockdownAfterLoad(

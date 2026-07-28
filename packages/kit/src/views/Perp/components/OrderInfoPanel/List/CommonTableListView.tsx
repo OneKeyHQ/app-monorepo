@@ -379,6 +379,7 @@ export interface IColumnConfig {
   minWidth?: number;
   flex?: number;
   align?: 'left' | 'center' | 'right';
+  headerRightPadding?: number;
   onPress?: () => void;
   fixed?: boolean;
 }
@@ -419,6 +420,7 @@ export interface ICommonTableListViewProps<T = unknown> {
   onViewAll?: () => void;
   onPullToRefresh?: () => Promise<void>;
   ListHeaderComponent?: ReactElement | null;
+  mobileLoadingComponent?: ReactElement;
 }
 
 export function CommonTableListView<T>({
@@ -447,6 +449,7 @@ export function CommonTableListView<T>({
   onViewAll,
   onPullToRefresh,
   ListHeaderComponent,
+  mobileLoadingComponent,
 }: ICommonTableListViewProps<T>) {
   const shouldUseTabsList = useTabsList ?? true;
   const themeVariant = useThemeVariant();
@@ -712,11 +715,9 @@ export function CommonTableListView<T>({
     if (renderRowsInline) {
       let inlineRows: ReactElement | ReactElement[];
       if (paginatedData.length === 0) {
-        inlineRows = effectiveListLoading ? (
-          <MobileCardLoadingSkeleton />
-        ) : (
-          emptyComponent
-        );
+        inlineRows = effectiveListLoading
+          ? (mobileLoadingComponent ?? <MobileCardLoadingSkeleton />)
+          : emptyComponent;
       } else {
         inlineRows = paginatedData.map((item, index) => (
           <Fragment key={keyExtractor?.(item, index) ?? String(index)}>
@@ -761,11 +762,9 @@ export function CommonTableListView<T>({
               return renderRow(item, index, 'full');
             }}
             ListEmptyComponent={
-              effectiveListLoading ? (
-                <TradesHistoryLoadingView />
-              ) : (
-                emptyComponent
-              )
+              effectiveListLoading
+                ? (mobileLoadingComponent ?? <TradesHistoryLoadingView />)
+                : emptyComponent
             }
             contentContainerStyle={{
               flexGrow: paginatedData.length === 0 ? 1 : undefined,
@@ -822,6 +821,7 @@ export function CommonTableListView<T>({
     <XStack
       key={column.key}
       {...getColumnStyle(column)}
+      pr={column.headerRightPadding}
       justifyContent={calcCellAlign(column.align) as any}
       onPress={column.onPress}
       cursor="default"
@@ -839,7 +839,7 @@ export function CommonTableListView<T>({
               borderBottomColor="$border"
               borderStyle="dashed"
               cursor="help"
-              color={column.onPress ? '$textSuccess' : headerTextColor}
+              color={column.onPress ? '$bgAccent' : headerTextColor}
               textAlign={column.align || 'left'}
             >
               {column.title}
@@ -852,7 +852,7 @@ export function CommonTableListView<T>({
           size="$bodySmMedium"
           borderBottomWidth="$px"
           borderBottomColor="transparent"
-          color={column.onPress ? '$textSuccess' : headerTextColor}
+          color={column.onPress ? '$bgAccent' : headerTextColor}
           textAlign={column.align || 'left'}
         >
           {column.title}

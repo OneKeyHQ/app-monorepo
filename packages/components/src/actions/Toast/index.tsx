@@ -424,6 +424,7 @@ export { default as Toaster } from './Toaster';
 export type IToastShowResult = {
   close: (extra?: { flag?: string }) => void | Promise<void>;
 };
+
 export const Toast = {
   success: (props: IToastProps) => {
     return toastMessage({ haptic: 'success', ...props });

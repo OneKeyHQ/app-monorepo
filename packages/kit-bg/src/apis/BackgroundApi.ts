@@ -3,20 +3,29 @@
 
 // eslint-disable-next-line import-js/order
 
+import { throwMethodNotFound } from '@onekeyhq/shared/src/background/backgroundUtils';
+
 import externalWalletFactory from '../connectors/externalWalletFactory';
 import localDb from '../dbs/local/localDb';
 import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
 import BackgroundApiBase from './BackgroundApiBase';
+import { LAZY_SERVICE_LOCAL_CALL } from './lazyServiceProxy';
 
 import type { IBackgroundApi } from './IBackgroundApi';
+import type ServiceDemo from '../services/ServiceDemo';
 import type ServiceHyperliquidCache from '../services/ServiceHyperLiquid/ServiceHyperliquidCache';
 import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/ServiceHyperliquidExchange';
 import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/ServiceHyperliquidReferral';
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
 import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
 import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
+import type ServiceUnifoldDeposit from '../services/ServiceUnifoldDeposit';
+
+type ILazyServiceModule<T extends object> = {
+  default: new (params: { backgroundApi: IBackgroundApi }) => T;
+};
 
 class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   constructor() {
@@ -33,6 +42,75 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   // validator = this.engine.validator;
 
   // vaultFactory = this.engine.vaultFactory;
+
+  private buildLazyService<T extends object>(
+    propertyName: keyof IBackgroundApi,
+    loader: () => Promise<ILazyServiceModule<T>>,
+  ): T {
+    let service: T | undefined;
+    const loadService = () =>
+      loader().then(({ default: Service }) => {
+        service ??= new Service({ backgroundApi: this });
+        return service;
+      });
+    const value = new Proxy({} as T, {
+      get: (_target, methodName) => {
+        if (methodName === LAZY_SERVICE_LOCAL_CALL) {
+          return (
+            backgroundMethodName: string,
+            localMethodName: string,
+            args: unknown[],
+          ) =>
+            loadService().then((loadedService) => {
+              const backgroundMethod = Reflect.get(
+                loadedService,
+                backgroundMethodName,
+              ) as unknown;
+              const localMethod = Reflect.get(
+                loadedService,
+                localMethodName,
+              ) as unknown;
+              if (
+                typeof backgroundMethod !== 'function' ||
+                typeof localMethod !== 'function'
+              ) {
+                return throwMethodNotFound(
+                  String(propertyName),
+                  backgroundMethodName,
+                );
+              }
+              return Reflect.apply(
+                localMethod as (...params: unknown[]) => unknown,
+                loadedService,
+                args,
+              );
+            });
+        }
+        if (
+          typeof methodName !== 'string' ||
+          methodName === 'then' ||
+          methodName === 'toJSON' ||
+          methodName === 'hasOwnProperty'
+        ) {
+          return undefined;
+        }
+        return (...args: unknown[]) =>
+          loadService().then((loadedService) => {
+            const method = Reflect.get(loadedService, methodName) as unknown;
+            if (typeof method !== 'function') {
+              return throwMethodNotFound(String(propertyName), methodName);
+            }
+            return Reflect.apply(
+              method as (...params: unknown[]) => unknown,
+              loadedService,
+              args,
+            );
+          });
+      },
+    });
+    Object.defineProperty(this, propertyName, { value });
+    return value;
+  }
 
   get walletConnect() {
     const ProviderApiWalletConnect =
@@ -64,14 +142,11 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get serviceDemo() {
-    const Service =
-      require('../services/ServiceDemo') as typeof import('../services/ServiceDemo');
-    const value = new Service.default({
-      backgroundApi: this,
-    });
-    Object.defineProperty(this, 'serviceDemo', { value });
-    return value;
+  get serviceDemo(): ServiceDemo {
+    return this.buildLazyService(
+      'serviceDemo',
+      () => import('../services/ServiceDemo'),
+    );
   }
 
   get serviceV4Migration() {
@@ -182,6 +257,13 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     });
     Object.defineProperty(this, 'serviceSwap', { value });
     return value;
+  }
+
+  get serviceUnifoldDeposit(): ServiceUnifoldDeposit {
+    return this.buildLazyService(
+      'serviceUnifoldDeposit',
+      () => import('../services/ServiceUnifoldDeposit'),
+    );
   }
 
   get serviceBootstrap() {
@@ -381,6 +463,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceNotification', { value });
+    return value;
+  }
+
+  get serviceIdentityExit() {
+    const Service =
+      require('../services/ServiceIdentityExit/ServiceIdentityExit') as typeof import('../services/ServiceIdentityExit/ServiceIdentityExit');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceIdentityExit', { value });
     return value;
   }
 

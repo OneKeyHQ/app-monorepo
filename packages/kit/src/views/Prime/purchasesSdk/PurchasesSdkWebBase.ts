@@ -1,10 +1,9 @@
-import { LogLevel, Purchases } from '@revenuecat/purchases-js';
-
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
 
 import purchaseSdkUtils from './purchaseSdkUtils';
 import { PurchasesSdkBase } from './PurchasesSdkBase';
+import { loadPurchasesSdkWeb } from './purchasesSdkWebLoader';
 
 import type { IPurchasePackageParams } from './PurchasesSdkBase';
 import type {
@@ -25,6 +24,7 @@ export abstract class PurchasesSdkWebBase extends PurchasesSdkBase {
     // TODO how to configure another userId when user login with another account
     // https://www.revenuecat.com/docs/customers/user-ids#logging-in-with-a-custom-app-user-id
     const { apiKey, userId } = params;
+    const { Purchases } = await loadPurchasesSdkWeb();
     if (!userId) {
       throw new OneKeyLocalError('No userId found');
     }
@@ -33,11 +33,13 @@ export abstract class PurchasesSdkWebBase extends PurchasesSdkBase {
 
   override async setDefaultLogLevel(): Promise<void> {
     if (process.env.NODE_ENV !== 'production') {
+      const { LogLevel, Purchases } = await loadPurchasesSdkWeb();
       Purchases.setLogLevel(LogLevel.Verbose);
     }
   }
 
   override async getCustomerInfoBase(): Promise<CustomerInfo> {
+    const { Purchases } = await loadPurchasesSdkWeb();
     const customerInfo: CustomerInfo =
       await Purchases.getSharedInstance().getCustomerInfo();
     console.log('customerInfo >>>>>> ', customerInfo);
@@ -45,6 +47,7 @@ export abstract class PurchasesSdkWebBase extends PurchasesSdkBase {
   }
 
   override async getPaywallPackagesBase(): Promise<Package[]> {
+    const { Purchases } = await loadPurchasesSdkWeb();
     const offerings = await Purchases.getSharedInstance().getOfferings({
       currency: 'USD',
     });
@@ -91,6 +94,7 @@ export abstract class PurchasesSdkWebBase extends PurchasesSdkBase {
       };
       // TODO check package user is Matched to onekeyUserId
       // TODO check if user has already purchased
+      const { Purchases } = await loadPurchasesSdkWeb();
       const purchase =
         await Purchases.getSharedInstance().purchase(purchaseParams);
       // test credit card
@@ -106,6 +110,7 @@ export abstract class PurchasesSdkWebBase extends PurchasesSdkBase {
   }
 
   async getAppUserId(): Promise<string> {
+    const { Purchases } = await loadPurchasesSdkWeb();
     return Purchases.getSharedInstance().getAppUserId();
   }
 }

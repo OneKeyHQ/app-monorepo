@@ -5,12 +5,17 @@
  * `<TokenListView>` mount binds its leaves to the per-key cells (the HOME
  * projection path) or keeps reading the legacy whole `tokenListMap`.
  *
- * INTENT (spec §5): use cells UNLESS a scoped LP-override map is ACTIVE. The
- * scoped map is held in `useState<Record<string, ITokenFiat>>({})` and is only
- * POPULATED in LP-dapp mode; on the normal home mount it is an EMPTY object
- * (never `undefined`). An empty scoped map therefore MUST count as "no override"
- * — otherwise the seam is dead at runtime on home (the truthiness gate
- * `!props.scopedActiveAccountTokenListMap` is always false for `{}`).
+ * INTENT (spec §5): use cells UNLESS the mount DISPLAYS a non-home list (the
+ * TokenSelector or the scoped active-account / LP-dapp list). The gate takes
+ * display-MODE flags ONLY — never data. The scoped LP map
+ * (`scopedActiveAccountTokenListMap`) is deliberately NOT an input: it is
+ * consumed exclusively when `showActiveAccountTokenList` is true (the only
+ * mode that renders it), and TokenListBlock holds the LAST fetched map in
+ * `useState` after the home DeFi-token switch turns OFF. Gating on the map's
+ * content made that residue flip the home list onto the legacy path — which
+ * has NO data source on home (`hostTokenList` is undefined) — blanking the
+ * list until a PortfolioContainer remount (wallet/network switch). See the
+ * DeFi-switch regression case in seamGate.test.ts.
  *
  * Pure: no React / jotai / native / module globals (spec §11.5). This is the
  * unit under seamGate.test.ts.
@@ -22,7 +27,7 @@
 // seam-OFF paths CANNOT be moved onto cells by "threading" because their data
 // never enters the BG VM per-owner round pipeline (the only `ingestRound` caller
 // is home/TokenListBlock):
-//   - scoped-LP override (`hasActiveScopedOverride`): a UI-only `useState` dapp
+//   - scoped-LP override (`showActiveAccountTokenList`): a UI-only `useState` dapp
 //     map (TokenListBlock `scopedLpTokenListMap`, TokenSelector
 //     `scopedActiveTokenListMap`). It overlays LP prices on a subset of the list
 //     — there is NO ownerKey and `ingestRound` (REPLACE semantics) cannot express
@@ -51,14 +56,12 @@ export interface IResolveUseCellSeamParams {
   enableCellSeam?: boolean;
   /** TokenSelector path has no producer feeding its cells. */
   isTokenSelector?: boolean;
-  /** active-account / scoped list path has no producer feeding its cells. */
-  showActiveAccountTokenList?: boolean;
   /**
-   * scoped LP-override fiat map. `undefined` OR an empty object both mean "no
-   * override" (the home mount passes `{}` from `useState`); a POPULATED map
-   * means the LP-dapp scoped path is active and the seam must stay OFF.
+   * active-account / scoped (LP-dapp) list path has no producer feeding its
+   * cells. This flag is the ONLY authority for the scoped mode — the scoped
+   * map's content must never gate the seam (see header: DeFi-switch residue).
    */
-  scopedActiveAccountTokenListMap?: Record<string, ITokenFiat>;
+  showActiveAccountTokenList?: boolean;
 }
 
 /**
@@ -77,14 +80,13 @@ export function hasActiveScopedOverride(
 /**
  * Resolve whether the cell seam (HOME projection path) is active for a
  * `<TokenListView>` mount. True only when the producer is enabled AND this is
- * the global home list — not the TokenSelector, not the active-account list,
- * and not a POPULATED scoped LP-override map.
+ * the global home list — not the TokenSelector, not the active-account /
+ * LP-dapp scoped display mode.
  */
 export function resolveUseCellSeam(params: IResolveUseCellSeamParams): boolean {
   return (
     !!params.enableCellSeam &&
     !params.isTokenSelector &&
-    !params.showActiveAccountTokenList &&
-    !hasActiveScopedOverride(params.scopedActiveAccountTokenListMap)
+    !params.showActiveAccountTokenList
   );
 }

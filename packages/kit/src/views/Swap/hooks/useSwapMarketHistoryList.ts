@@ -9,6 +9,8 @@ import type { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 
 import { getSwapMarketPendingHistoryKey } from '../utils/swapMarketHistory';
 
+import { useShouldShowSwapLocalData } from './useSwapLocalDataVisibility';
+
 // Reads the persisted swap history and keeps it fresh on the two signals that
 // can change it: a pending order transitioning (via the derived key, which also
 // drives pending-status polling) and the explicit RefreshSwapHistoryList event
@@ -17,14 +19,20 @@ import { getSwapMarketPendingHistoryKey } from '../utils/swapMarketHistory';
 // control so the fetch + subscription is defined once.
 export function useSwapMarketHistoryList(protocol?: EProtocolOfExchange) {
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
+  const shouldShowSwapLocalData = useShouldShowSwapLocalData();
   const marketPendingKey = useMemo(
     () => getSwapMarketPendingHistoryKey(swapHistoryPendingList, protocol),
     [protocol, swapHistoryPendingList],
   );
   const { result, isLoading, run } = usePromiseResult(
-    async () => backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple(),
+    async () => {
+      if (!shouldShowSwapLocalData) {
+        return [];
+      }
+      return backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple();
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [marketPendingKey],
+    [marketPendingKey, shouldShowSwapLocalData],
     { watchLoading: true },
   );
   useEffect(() => {
@@ -41,5 +49,9 @@ export function useSwapMarketHistoryList(protocol?: EProtocolOfExchange) {
     };
   }, [run]);
 
-  return { swapTxHistoryList: result, isLoading };
+  return {
+    swapTxHistoryList: shouldShowSwapLocalData ? result : [],
+    isLoading: shouldShowSwapLocalData ? isLoading : false,
+    shouldShowSwapLocalData,
+  };
 }

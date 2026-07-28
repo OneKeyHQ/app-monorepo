@@ -38,6 +38,9 @@ import { TxSpecialInfoContainer } from './TxSpecialInfoContainer';
 
 import type { RouteProp } from '@react-navigation/core';
 
+// TODO(6.7.0): Remove this legacy SendModal confirmation page.
+// Current send confirmations go through SignatureConfirmModal -> TxConfirm;
+// debug confirmation issues in the TxConfirm page instead.
 function SendConfirmContainer() {
   const intl = useIntl();
   const route =

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
@@ -178,6 +177,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     };
     return {
       enabled: isEnabled,
+      isAccountNetworkSupported,
       warningMessage,
       actionToken,
       actionOtherToken,
@@ -711,7 +711,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       swapMevNetConfig={swapMevNetConfig}
       swapNativeTokenReserveGas={swapNativeTokenReserveGas}
       swapPanel={swapPanelWithPreference}
-      balance={balance ?? new BigNumber(0)}
+      balance={balance}
       balanceToken={balanceToken as IToken}
       balanceLoading={fetchBalanceLoading}
       isLoading={isActionLoading || isReviewOpening}

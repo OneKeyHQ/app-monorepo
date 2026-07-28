@@ -120,5 +120,5 @@ Topics covered:
 
 ## Related Skills
 
-- `/1k-git-workflow` - Git branching conventions
+- `/1k-dev-commands` - Git and development workflow conventions
 - `/1k-dev-commands` - Build and release commands

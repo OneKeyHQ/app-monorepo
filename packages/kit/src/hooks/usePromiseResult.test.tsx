@@ -301,6 +301,25 @@ describe('usePromiseResult', () => {
       expect(result.current.result).toBe('data-B');
     });
 
+    it('hydrates cached data when a readiness-gated swrKey becomes available', () => {
+      swrCacheUtils.set('history-key', 'cached-history');
+
+      const method = jest.fn(() => new Promise<string>(() => {}));
+
+      const { result, rerender } = renderHook<
+        ReturnType<typeof usePromiseResult<string>>,
+        { swrKey: string | undefined }
+      >(({ swrKey }) => usePromiseResult(method, [swrKey], { swrKey }), {
+        initialProps: { swrKey: undefined },
+      });
+
+      expect(result.current.result).toBeUndefined();
+
+      rerender({ swrKey: 'history-key' });
+
+      expect(result.current.result).toBe('cached-history');
+    });
+
     it('falls back to initResult when new swrKey has no cached entry', () => {
       swrCacheUtils.set('wallet-A', 'data-A');
 

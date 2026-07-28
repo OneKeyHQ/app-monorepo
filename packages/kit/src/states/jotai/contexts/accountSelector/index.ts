@@ -1,2 +1,6 @@
-export * from './actions';
 export * from './atoms';
+export type {
+  IAccountSelectorActionsInstance,
+  IAccountSelectorSyncFromSceneParams,
+  IFinalizeWalletSetupCreateWalletResult,
+} from './actions';

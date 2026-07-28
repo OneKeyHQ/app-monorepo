@@ -1,5 +1,3 @@
-import { LRUCache } from 'lru-cache';
-
 import { createJotaiContext } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 import { MaximumNumberOfTabs } from '@onekeyhq/kit/src/views/Discovery/config/Discovery.constants';
 import type {
@@ -8,6 +6,13 @@ import type {
 } from '@onekeyhq/kit/src/views/Discovery/types';
 import { computeAliveWebViewIds } from '@onekeyhq/kit/src/views/Discovery/utils/computeAliveWebViewIds';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
+
+type IBrowserDataReadyWaiter = {
+  promise: Promise<void>;
+  resolve: () => void;
+  startedAt: number;
+};
 
 const {
   Provider: ProviderJotaiContextDiscovery,
@@ -100,3 +105,6 @@ export const { atom: phishingLruCacheAtom, use: usePhishingLruCacheAtom } =
 // sync data lock atom
 export const { atom: browserDataReadyAtom, use: useBrowserDataReadyAtom } =
   contextAtom<boolean>(false);
+
+export const { atom: browserDataReadyWaiterAtom } =
+  contextAtom<IBrowserDataReadyWaiter | null>(null);

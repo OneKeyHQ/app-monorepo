@@ -182,6 +182,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
       inlineTokenSymbol,
       inlinePrefixGapPx,
       inlineSuffixGapPx,
+      fontFamily,
       selectionColor,
       onChangeText,
       placeholder,
@@ -337,6 +338,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
         width="100%"
         alignItems="center"
         justifyContent="center"
+        overflow="hidden"
         style={
           desktopInlineRowOffsetPx && !hasSmallWidth
             ? { transform: [{ translateX: desktopInlineRowOffsetPx }] }
@@ -349,6 +351,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
             fontWeight="500"
             lineHeight={Math.ceil(effectiveFontSize * 1.4)}
             style={{
+              fontFamily,
               fontSize: effectiveFontSize,
               marginRight: inlinePrefixGapPx,
             }}
@@ -364,6 +367,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
           editable={editable}
           fontSize={effectiveFontSize}
           fontWeight="500"
+          fontFamily={fontFamily}
           color="$text"
           unstyled
           borderWidth={0}
@@ -427,6 +431,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
             fontWeight="500"
             lineHeight={Math.ceil(effectiveFontSize * 1.4)}
             style={{
+              fontFamily,
               fontSize: effectiveFontSize,
               marginLeft: inlineSuffixGapPx,
             }}

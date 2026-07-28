@@ -97,6 +97,7 @@ export function useSwapTokenList(
   const [lpTokenRequestLoading, setLpTokenRequestLoading] = useState(false);
   const requestCurrency = currencyInfo.id;
   const latestLpTokenRef = useRef(lpToken);
+  const lpTokenRequestLoadingRef = useRef(false);
   const indexedAccountId = swapAddressInfo?.accountInfo?.indexedAccount?.id;
   const otherWalletTypeAccountId = !indexedAccountId
     ? (swapAddressInfo?.accountInfo?.account?.id ??
@@ -423,6 +424,7 @@ export function useSwapTokenList(
     const isLpTokenSwitchRequest = latestLpTokenRef.current !== lpToken;
     latestLpTokenRef.current = lpToken;
     if (isLpTokenSwitchRequest) {
+      lpTokenRequestLoadingRef.current = true;
       setLpTokenRequestLoading(true);
     }
 
@@ -444,9 +446,10 @@ export function useSwapTokenList(
         ]);
       } finally {
         if (
-          isLpTokenSwitchRequest &&
+          lpTokenRequestLoadingRef.current &&
           latestTokenListFetchEffectKeyRef.current === tokenListFetchEffectKey
         ) {
+          lpTokenRequestLoadingRef.current = false;
           setLpTokenRequestLoading(false);
         }
       }
@@ -619,6 +622,12 @@ export function useSwapSelectedTokenInfo({
       void loadSwapSelectTokenDetail(direction, addressInfo, fetchBalance);
     }, 300),
     [],
+  );
+  useEffect(
+    () => () => {
+      loadSwapSelectTokenDetailDeb.cancel();
+    },
+    [loadSwapSelectTokenDetailDeb],
   );
 
   const reloadSwapSelectTokenDetail = useCallback(

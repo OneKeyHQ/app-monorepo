@@ -112,6 +112,35 @@ export const OpenBleNotifyChangeErrorDialog = forwardRef(
   OpenBleNotifyChangeErrorDialogContainer,
 );
 
+export const buildBlePermissionDialogProps = (
+  intl: IntlShape,
+): IDialogShowProps =>
+  ({
+    icon: 'BluetoothOutline',
+    title: intl.formatMessage({
+      id: ETranslations.onboarding_bluetooth_permission_needed,
+    }),
+    description: intl.formatMessage({
+      id: ETranslations.onboarding_bluetooth_permission_needed_help_text,
+    }),
+    onConfirmText: intl.formatMessage({
+      id: ETranslations.global_go_to_settings,
+    }),
+    confirmButtonProps: {
+      testID: 'hardware-ui-ble-permission-confirm-btn',
+    },
+    onConfirm: async ({ close }) => {
+      await close?.();
+      await openBLEPermissionsSettings();
+    },
+    showCancelButton: false,
+    sheetOverlayProps: platformEnv.isNative
+      ? {
+          zIndex: undefined,
+        }
+      : undefined,
+  }) as const;
+
 function RequireBlePermissionDialogContainer(
   props: any,
   ref: ForwardedRef<IDialogInstance>,
@@ -121,24 +150,7 @@ function RequireBlePermissionDialogContainer(
   return (
     <DialogContainer
       ref={ref}
-      icon="BluetoothOutline"
-      title={intl.formatMessage({
-        id: ETranslations.onboarding_bluetooth_permission_needed,
-      })}
-      description={intl.formatMessage({
-        id: ETranslations.onboarding_bluetooth_permission_needed_help_text,
-      })}
-      onConfirmText={intl.formatMessage({
-        id: ETranslations.global_go_to_settings,
-      })}
-      confirmButtonProps={{
-        testID: 'hardware-ui-ble-permission-confirm-btn',
-      }}
-      onConfirm={async ({ close }) => {
-        await close?.();
-        await openBLEPermissionsSettings();
-      }}
-      showCancelButton={false}
+      {...buildBlePermissionDialogProps(intl)}
       {...props} // pass down cloneElement props
     />
   );

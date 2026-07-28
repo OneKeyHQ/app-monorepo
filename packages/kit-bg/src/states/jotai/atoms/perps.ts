@@ -22,6 +22,10 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid';
 import { DEFAULT_PERP_TOKEN_ACTIVE_TAB } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IUnifoldDepositExecution,
+  IUnifoldExecutionStatus,
+} from '@onekeyhq/shared/types/unifoldDeposit';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputedR } from '../utils';
@@ -35,6 +39,7 @@ export interface IPerpsActiveAccountAtom {
   indexedAccountId: string | null;
   deriveType: IAccountDeriveTypes;
   accountAddress: IHex | null;
+  walletType?: string;
 }
 export const {
   target: perpsActiveAccountAtom,
@@ -46,6 +51,7 @@ export const {
     accountId: null,
     accountAddress: null,
     deriveType: 'default',
+    walletType: 'unknown',
   },
 });
 
@@ -307,6 +313,29 @@ export const { target: perpsSpotBalancesAtom, use: usePerpsSpotBalancesAtom } =
   });
 // #endregion
 
+export type IPerpsActiveAccountStatusDetails = {
+  // undefined = activation not confirmed (check pending or failed);
+  // false = HL userRole confirmed 'missing'; true = confirmed activated
+  activatedOk: boolean | undefined;
+  agentOk: boolean;
+  referralCodeOk: boolean;
+  builderFeeOk: boolean;
+  internalRebateBoundOk: boolean;
+  abstractionOk: boolean;
+  requiresAgentRemovalSignature?: boolean;
+};
+export type IPerpsActiveAccountStatusInfoAtom =
+  | {
+      accountAddress: IHex | null;
+      details: IPerpsActiveAccountStatusDetails;
+    }
+  | undefined;
+export const { target: perpsActiveAccountStatusInfoAtom } =
+  globalAtom<IPerpsActiveAccountStatusInfoAtom>({
+    name: EAtomNames.perpsActiveAccountStatusInfoAtom,
+    initialValue: undefined,
+  });
+
 export const {
   target: perpsComputedAccountValueAtom,
   use: usePerpsComputedAccountValueAtom,
@@ -320,8 +349,12 @@ export const {
     const modeData = get(perpsAbstractionModeAtom.atom());
     const summary = get(perpsActiveAccountSummaryAtom.atom());
     const spotData = get(perpsSpotBalancesAtom.atom());
+    const status = get(perpsActiveAccountStatusInfoAtom.atom());
 
     const activeAddress = account?.accountAddress?.toLowerCase();
+    const isStatusForActiveAccount =
+      Boolean(activeAddress) &&
+      status?.accountAddress?.toLowerCase() === activeAddress;
     const isSummaryForActiveAccount =
       Boolean(activeAddress) &&
       summary?.accountAddress?.toLowerCase() === activeAddress;
@@ -335,6 +368,18 @@ export const {
     const activeSummary = isSummaryForActiveAccount ? summary : undefined;
     const activeSpotData = isSpotForActiveAccount ? spotData : undefined;
     const mode = isModeForActiveAccount ? modeData?.mode : undefined;
+    // Only a confirmed HL 'missing' role may zero the account value;
+    // activatedOk === undefined (check pending/failed) keeps the loading path
+    const isActiveAccountNotActivated =
+      isStatusForActiveAccount && status?.details?.activatedOk === false;
+
+    if (isActiveAccountNotActivated) {
+      return {
+        accountValue: '0',
+        withdrawable: '0',
+        isLoading: false,
+      };
+    }
 
     // Mode unknown or DEFAULT: use existing clearinghouse value as fallback, mark loading
     // DEFAULT is treated like disabled (spot+perps) until auto-correction sets it to unified
@@ -414,27 +459,6 @@ export const {
     return { mmr: mmr.toFixed(), mmrPercent: mmr.multipliedBy(100).toFixed(2) };
   },
 });
-
-export type IPerpsActiveAccountStatusDetails = {
-  activatedOk: boolean;
-  agentOk: boolean;
-  referralCodeOk: boolean;
-  builderFeeOk: boolean;
-  internalRebateBoundOk: boolean;
-  abstractionOk: boolean;
-  requiresAgentRemovalSignature?: boolean;
-};
-export type IPerpsActiveAccountStatusInfoAtom =
-  | {
-      accountAddress: IHex | null;
-      details: IPerpsActiveAccountStatusDetails;
-    }
-  | undefined;
-export const { target: perpsActiveAccountStatusInfoAtom } =
-  globalAtom<IPerpsActiveAccountStatusInfoAtom>({
-    name: EAtomNames.perpsActiveAccountStatusInfoAtom,
-    initialValue: undefined,
-  });
 
 export type IPerpsActiveAccountStatusAtom = {
   canTrade: boolean | null | undefined;
@@ -888,12 +912,18 @@ export interface IPerpsDepositToken {
   balanceParsed?: string;
   fiatValue?: string;
   isNative?: boolean;
+  isDefault?: boolean;
   logoURI?: string;
 }
 
 export interface IPerpsDepositTokensAtom {
   tokens: Record<string, IPerpsDepositToken[]>;
+  serverTokens?: IPerpsDepositToken[];
+  defaultTokens?: IPerpsDepositToken[];
   currentPerpsDepositSelectedToken?: IPerpsDepositToken;
+  depositTokenListOwnerKey?: string;
+  depositTokenListRevision?: number;
+  depositTokenListSource?: 'serverConfig' | 'walletBalance';
 }
 export const {
   target: perpsDepositTokensAtom,
@@ -908,13 +938,17 @@ export const {
 export interface IPerpsDepositOrderAtom {
   isArbUSDCOrder: boolean;
   fromTxId: string;
+  orderId?: string;
   toTxId?: string;
   amount: string;
   token: IPerpsDepositToken;
   status: ESwapTxHistoryStatus;
   accountId?: string | null;
   indexedAccountId?: string | null;
+  perpsAccountAddress?: string;
+  perpsDeriveType?: IAccountDeriveTypes;
   time?: number;
+  keepForHistoryConfirmation?: boolean;
 }
 
 export const { target: perpsDepositOrderAtom, use: usePerpsDepositOrderAtom } =
@@ -925,6 +959,96 @@ export const { target: perpsDepositOrderAtom, use: usePerpsDepositOrderAtom } =
       orders: [],
     },
   });
+
+// Unifold executions still in flight after the deposit modal closed. The bg
+// fetch loop keeps polling these and fires the standard perps deposit toast on
+// terminal status; entries age out after 48h (the server keeps reconciling —
+// history stays queryable forever).
+export interface IPerpsUnifoldTrackedExecution {
+  executionId: string;
+  recipientAddress: string;
+  // Support reference from the deposit-address response; shown in the
+  // failed/refunded toast (contract §1: contact support + sessionId).
+  sessionId: string | null;
+  lastStatus: IUnifoldExecutionStatus;
+  trackedAt: number;
+  // Set while a live deposit session owns the announcements for this
+  // recipient. Muted entries are retained (never deleted) so an execution the
+  // session cannot see — one older than its lookback window — still gets
+  // announced once the session ends.
+  mutedAt?: number | null;
+}
+
+// Recipient-level discovery window armed while a deposit session is open and
+// kept for a grace period after it ends: a deposit paid right before the modal
+// closed may only surface in the vendor API minutes later, when no
+// executionId-level entry exists yet for the bg loop to poll.
+export interface IPerpsUnifoldRecipientWatch {
+  recipientAddress: string;
+  sessionId: string | null;
+  // Lower bound (ms epoch) for discovery, matching the session poll's `since`:
+  // executions older than the earliest session window are never resurrected.
+  sessionStart: number;
+  // Outcomes already announced (by a session or by the bg loop itself), so
+  // discovery can never announce them a second time.
+  knownExecutionIds: string[];
+  watchedAt: number;
+  // Same semantics as the tracked-execution mute: a live session owns the
+  // announcements for this recipient while it keeps renewing the claim.
+  mutedAt?: number | null;
+  // Each foreground runtime owns an independent renewable claim. Optional for
+  // values persisted before multi-foreground ownership was introduced.
+  claims?: Array<{
+    claimId: string;
+    claimedAt: number;
+  }>;
+}
+
+export interface IPerpsUnifoldTerminalDelivery {
+  deliveryId: string;
+  execution: IUnifoldDepositExecution;
+  recipientAddress: string;
+  sessionId: string | null;
+  createdAt: number;
+  claim?: {
+    claimId: string;
+    expiresAt: number;
+  };
+}
+
+export interface IPerpsUnifoldActiveRecipientState {
+  accountAddress: IHex | null;
+}
+
+export const { target: perpsUnifoldActiveRecipientAtom } =
+  globalAtom<IPerpsUnifoldActiveRecipientState>({
+    name: EAtomNames.perpsUnifoldActiveRecipientAtom,
+    persist: true,
+    initialValue: {
+      accountAddress: null,
+    },
+  });
+
+export interface IPerpsUnifoldDepositTrackingState {
+  items: IPerpsUnifoldTrackedExecution[];
+  // Optional: absent in values persisted before watches existed.
+  watches?: IPerpsUnifoldRecipientWatch[];
+  // Terminal outcomes stay durable until a foreground confirms presentation.
+  pendingDeliveries?: IPerpsUnifoldTerminalDelivery[];
+}
+
+export const {
+  target: perpsUnifoldDepositTrackingAtom,
+  use: usePerpsUnifoldDepositTrackingAtom,
+} = globalAtom<IPerpsUnifoldDepositTrackingState>({
+  name: EAtomNames.perpsUnifoldDepositTrackingAtom,
+  persist: true,
+  initialValue: {
+    items: [],
+    watches: [],
+    pendingDeliveries: [],
+  },
+});
 
 export interface IPerpsUserConfigPersistAtom {
   perpUserConfig: IPerpUserConfig;
@@ -1104,6 +1228,14 @@ export const { target: perpsLayoutStateAtom, use: usePerpsLayoutStateAtom } =
     persist: true,
     initialValue: DEFAULT_PERPS_LAYOUT_STATE,
   });
+
+export const {
+  target: perpsPendingInfoPanelTabAtom,
+  use: usePerpsPendingInfoPanelTabAtom,
+} = globalAtom<'Positions' | 'Balances' | undefined>({
+  name: EAtomNames.perpsPendingInfoPanelTabAtom,
+  initialValue: undefined,
+});
 
 // #region Footer Ticker
 export type IPerpsFooterTickerMode = 'popular' | 'favorites' | 'none';

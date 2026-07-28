@@ -25,6 +25,7 @@ import {
   Image,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
+  NATIVE_HIT_SLOP,
   NumberSizeableText,
   Page,
   ScrollView,
@@ -35,9 +36,9 @@ import {
   TextAreaInput,
   XStack,
   YStack,
-  useForm,
   useMedia,
 } from '@onekeyhq/components';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import AddressTypeSelectorTrigger from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelectorTrigger';
@@ -109,12 +110,12 @@ import {
 import type {
   IFetchQuoteInfo,
   IFetchQuoteResult,
-  IFetchQuotesParams,
   ISwapQuoteEvent,
   ISwapQuoteEventAutoSlippage,
   ISwapQuoteEventData,
   ISwapQuoteEventError,
   ISwapQuoteEventInfo,
+  ISwapQuoteEventPayload,
   ISwapQuoteEventQuoteResult,
   ISwapToken,
   ISwapTxHistory,
@@ -142,6 +143,7 @@ import {
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
 import { AttentionPulse } from './components/AttentionPulse';
+import { showPrivateSendGuideDialog } from './components/PrivateSendGuideDialog';
 import { useAutoSwitchDeriveType } from './hooks/useAutoSwitchDeriveType';
 import {
   type ISiblingDeriveBalance,
@@ -219,13 +221,7 @@ type IPrivateSendBuildCtx = {
   payinAddress?: unknown;
 };
 
-type IPrivateSendQuoteEvent = {
-  type: 'message' | 'done' | 'error' | 'close' | 'open';
-  event: ISwapQuoteEvent;
-  params: IFetchQuotesParams;
-  accountId?: string;
-  tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
-};
+type IPrivateSendQuoteEvent = ISwapQuoteEventPayload;
 
 type IPrivateSendQuoteEventRequest = {
   fromToken: ISwapToken;
@@ -807,7 +803,7 @@ function SendAmountInputContainer() {
   const [isUseFiat, setIsUseFiat] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMaxSend, setIsMaxSend] = useState(false);
-  const [settings] = useSettingsPersistAtom();
+  const [settings, setSettings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [selectedUTXOs] = useSelectedUTXOsAtom();
   const sendConfirmActions = useSendConfirmActions();
@@ -1029,10 +1025,10 @@ function SendAmountInputContainer() {
   );
   const enableAllowListValidation = !isLightningNetwork;
   const [sendMode, setSendMode] = useState<ESendMode>(ESendMode.PUBLIC);
+  const hasOpenedPrivateSendGuideRef = useRef(false);
   const trackedPrivateSendQuoteKeysRef = useRef(new Set<string>());
   const trackedPrivateSendValueDropQuoteKeysRef = useRef(new Set<string>());
-  const shouldUsePrivateSendQuoteCollapse =
-    sendMode === ESendMode.PRIVATE && !media.gtMd;
+  const shouldUsePrivateSendQuoteCollapse = sendMode === ESendMode.PRIVATE;
   const [
     isPrivateSendQuoteDetailsExpanded,
     setIsPrivateSendQuoteDetailsExpanded,
@@ -1149,19 +1145,27 @@ function SendAmountInputContainer() {
     return undefined;
   }, [selectedUTXOs, networkId, currentAccountId]);
 
-  const maxBalance = useMemo(() => {
-    if (!tokenDetails) return '0';
-    let balance: string;
-    if (currentSelectedUtxoInfo?.totalValue && tokenDetails.info) {
-      balance = new BigNumber(
+  // Coin-control subtotal in token units, threaded to the confirm page via
+  // transferPayload so its balance checks run against what the tx can
+  // actually spend (find-address claimed UTXOs are excluded from the
+  // account-level balance the confirm page fetches).
+  const selectedUtxoTotalAmount = useMemo(() => {
+    if (currentSelectedUtxoInfo?.totalValue && tokenDetails?.info) {
+      return new BigNumber(
         chainValueUtils.convertTokenChainValueToAmount({
           value: currentSelectedUtxoInfo.totalValue,
           token: tokenDetails.info,
         }),
       ).toFixed();
-    } else {
-      balance = tokenDetails.balanceParsed;
     }
+    return undefined;
+  }, [currentSelectedUtxoInfo?.totalValue, tokenDetails?.info]);
+
+  const maxBalance = useMemo(() => {
+    if (!tokenDetails) return '0';
+    // `??` (not `||`) so a genuine "0" subtotal is kept, not replaced by the
+    // account balance.
+    const balance = selectedUtxoTotalAmount ?? tokenDetails.balanceParsed;
 
     // Lightning balanceParsed is already in sats (decimals=0)
     if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
@@ -1169,12 +1173,7 @@ function SendAmountInputContainer() {
     }
 
     return balance;
-  }, [
-    currentSelectedUtxoInfo?.totalValue,
-    isLightningNetwork,
-    lnUnit,
-    tokenDetails,
-  ]);
+  }, [selectedUtxoTotalAmount, isLightningNetwork, lnUnit, tokenDetails]);
 
   const maxBalanceFiat = useMemo(() => {
     if (!tokenDetails) return '0';
@@ -1183,21 +1182,14 @@ function SendAmountInputContainer() {
     // UTXO-selected fiat balance never renders as "NaN".
     const priceBN = new BigNumber(tokenDetails.price ?? 0);
     if (
-      currentSelectedUtxoInfo?.totalValue &&
+      selectedUtxoTotalAmount !== undefined &&
       priceBN.isFinite() &&
-      priceBN.isGreaterThan(0) &&
-      tokenDetails.info
+      priceBN.isGreaterThan(0)
     ) {
-      const balanceInToken = new BigNumber(
-        chainValueUtils.convertTokenChainValueToAmount({
-          value: currentSelectedUtxoInfo.totalValue,
-          token: tokenDetails.info,
-        }),
-      );
-      return balanceInToken.times(priceBN).toFixed();
+      return new BigNumber(selectedUtxoTotalAmount).times(priceBN).toFixed();
     }
     return tokenDetails.fiatValue ?? '0';
-  }, [tokenDetails, currentSelectedUtxoInfo?.totalValue]);
+  }, [tokenDetails, selectedUtxoTotalAmount]);
 
   const linkedAmount = useMemo(() => {
     const amountBN = new BigNumber(amount || 0);
@@ -2298,10 +2290,12 @@ function SendAmountInputContainer() {
 
   const handleAmountInputFocus = useCallback(() => {
     setIsAmountInputFocused(true);
-    if (shouldUsePrivateSendQuoteCollapse) {
+    // Auto-collapse quote details only on small screens where vertical space
+    // is limited; large screens keep the expanded state while typing.
+    if (shouldUsePrivateSendQuoteCollapse && !media.gtMd) {
       setIsPrivateSendQuoteDetailsExpanded(false);
     }
-  }, [shouldUsePrivateSendQuoteCollapse]);
+  }, [media.gtMd, shouldUsePrivateSendQuoteCollapse]);
 
   const handleAmountInputBlur = useCallback(() => {
     setIsAmountInputFocused(false);
@@ -2956,6 +2950,7 @@ function SendAmountInputContainer() {
                 isMaxSend: false,
                 isNFT: false,
                 isPrivateSend: true,
+                selectedUtxoTotalAmount,
                 originalRecipient: submitRecipientAddress,
                 privateSend: {
                   orderId: privateSendOrderId,
@@ -3023,6 +3018,7 @@ function SendAmountInputContainer() {
               amountToSend: realAmount,
               isMaxSend,
               isNFT,
+              selectedUtxoTotalAmount,
               originalRecipient: submitRecipientAddress,
               isToContract: submitRecipientIsContract,
               memo: recipientMemo,
@@ -3050,6 +3046,7 @@ function SendAmountInputContainer() {
       currentAccountId,
       currentSelectedUtxoKeys,
       currentUtxoSelectionStrategy,
+      selectedUtxoTotalAmount,
       displayTxMessageForm,
       form,
       isHexTxMessage,
@@ -3211,6 +3208,11 @@ function SendAmountInputContainer() {
     networkId,
   ]);
 
+  const openPrivateSendGuide = useCallback(async () => {
+    await dismissAmountInputKeyboardBeforeOverlayOpen();
+    showPrivateSendGuideDialog({ intl });
+  }, [dismissAmountInputKeyboardBeforeOverlayOpen, intl]);
+
   const handleSendModeChange = useCallback(
     (value: string | number) => {
       const nextMode =
@@ -3223,9 +3225,29 @@ function SendAmountInputContainer() {
           tokenSymbol,
         });
       }
+      if (
+        nextMode === ESendMode.PRIVATE &&
+        nextMode !== sendMode &&
+        !settings.isPrivateSendGuideClicked &&
+        !hasOpenedPrivateSendGuideRef.current
+      ) {
+        hasOpenedPrivateSendGuideRef.current = true;
+        setSettings((currentSettings) => ({
+          ...currentSettings,
+          isPrivateSendGuideClicked: true,
+        }));
+        void openPrivateSendGuide();
+      }
       setSendMode(nextMode);
     },
-    [networkId, sendMode, tokenSymbol],
+    [
+      networkId,
+      openPrivateSendGuide,
+      sendMode,
+      setSettings,
+      settings.isPrivateSendGuideClicked,
+      tokenSymbol,
+    ],
   );
 
   // Shared Public | Private segmented control, reused by the desktop
@@ -3250,6 +3272,7 @@ function SendAmountInputContainer() {
         minWidth: number;
       }) => (
         <XStack
+          testID={`send-mode-${value}`}
           minWidth={minWidth}
           h={28}
           px="$2"
@@ -3946,16 +3969,9 @@ function SendAmountInputContainer() {
   const renderPrivateSendQuoteCard = useMemo(() => {
     if (sendMode !== ESendMode.PRIVATE) return null;
     const showPrivateSendQuoteSkeleton = isPrivateSendQuoteRefreshing;
-    const isPrivateSendQuoteDetailsVisible =
-      !shouldUsePrivateSendQuoteCollapse || isPrivateSendQuoteDetailsExpanded;
-    const privateSendQuoteSummaryRowMinHeight =
-      shouldUsePrivateSendQuoteCollapse ? 48 : 56;
-    const privateSendQuoteDetailRowHeight = shouldUsePrivateSendQuoteCollapse
-      ? 28
-      : 36;
-    const privateSendQuoteBalanceRowHeight = shouldUsePrivateSendQuoteCollapse
-      ? 48
-      : 56;
+    const privateSendQuoteSummaryRowMinHeight = 48;
+    const privateSendQuoteDetailRowHeight = 28;
+    const privateSendQuoteBalanceRowHeight = 48;
     const toTokenSymbol =
       privateSendQuote?.toTokenInfo.symbol ?? privateSendToken?.symbol ?? '';
     const toAmount = privateSendQuote?.toAmount ?? '0';
@@ -3983,7 +3999,6 @@ function SendAmountInputContainer() {
       estimatedTime: privateSendQuote?.estimatedTime,
     });
     const handleTogglePrivateSendQuoteDetails = () => {
-      if (!shouldUsePrivateSendQuoteCollapse) return;
       if (!isPrivateSendQuoteDetailsExpanded) {
         void (async () => {
           await dismissAmountInputKeyboardBeforeOverlayOpen();
@@ -4066,7 +4081,6 @@ function SendAmountInputContainer() {
               isRefreshQuote={isPrivateSendQuoteRefreshing}
               isLoading={isPrivateSendQuoteRefreshing}
               isFocused={isRouteFocused}
-              autoRefresh={false}
             />
           </XStack>
           <XStack
@@ -4075,6 +4089,34 @@ function SendAmountInputContainer() {
             gap="$1"
             flexShrink={1}
             minWidth={0}
+            px="$1"
+            py="$1"
+            mr="$-1"
+            borderRadius="$2"
+            borderCurve="continuous"
+            userSelect="none"
+            hitSlop={NATIVE_HIT_SLOP}
+            role="button"
+            aria-expanded={isPrivateSendQuoteDetailsExpanded}
+            focusable
+            cursor="pointer"
+            hoverStyle={{ bg: '$bgHover' }}
+            pressStyle={{ bg: '$bgActive' }}
+            focusVisibleStyle={{
+              outlineColor: '$focusRing',
+              outlineWidth: 2,
+              outlineStyle: 'solid',
+              outlineOffset: 1,
+            }}
+            onPress={handleTogglePrivateSendQuoteDetails}
+            {...(!platformEnv.isNative && {
+              onKeyDown: (event: KeyboardEvent) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                event.stopPropagation();
+                handleTogglePrivateSendQuoteDetails();
+              },
+            })}
           >
             {showPrivateSendQuoteSkeleton ? (
               <Skeleton h="$4" w="$24" />
@@ -4114,40 +4156,30 @@ function SendAmountInputContainer() {
                 ) : null}
               </YStack>
             )}
-            {shouldUsePrivateSendQuoteCollapse ? (
+            <Stack
+              w="$5"
+              h="$5"
+              alignItems="center"
+              justifyContent="center"
+              borderRadius="$full"
+            >
               <Stack
-                w="$5"
-                h="$5"
-                alignItems="center"
-                justifyContent="center"
-                borderRadius="$full"
-                cursor="pointer"
-                hoverStyle={{ bg: '$bgHover' }}
-                pressStyle={{ bg: '$bgActive' }}
-                onPress={handleTogglePrivateSendQuoteDetails}
+                animation="quick"
+                rotate={isPrivateSendQuoteDetailsExpanded ? '0deg' : '-90deg'}
+                transformOrigin="center"
               >
-                <Stack
-                  animation="quick"
-                  rotate={isPrivateSendQuoteDetailsExpanded ? '0deg' : '-90deg'}
-                  transformOrigin="center"
-                >
-                  <Icon
-                    name="ChevronDownSmallOutline"
-                    size="$4"
-                    color="$iconSubdued"
-                  />
-                </Stack>
+                <Icon
+                  name="ChevronDownSmallOutline"
+                  size="$4"
+                  color="$iconSubdued"
+                />
               </Stack>
-            ) : null}
+            </Stack>
           </XStack>
         </XStack>
-        {shouldUsePrivateSendQuoteCollapse ? (
-          <HeightTransition hide={!isPrivateSendQuoteDetailsVisible}>
-            {renderPrivateSendQuoteDetails}
-          </HeightTransition>
-        ) : (
-          renderPrivateSendQuoteDetails
-        )}
+        <HeightTransition hide={!isPrivateSendQuoteDetailsExpanded}>
+          {renderPrivateSendQuoteDetails}
+        </HeightTransition>
         {showPrivateSendBalanceRow ? (
           <>
             <Stack h="$px" bg="$borderSubdued" my="$2" />
@@ -4180,7 +4212,6 @@ function SendAmountInputContainer() {
     renderPrivateSendProviderContent,
     refreshPrivateSendQuote,
     sendMode,
-    shouldUsePrivateSendQuoteCollapse,
     canFetchPrivateSendQuote,
   ]);
 
@@ -4219,6 +4250,7 @@ function SendAmountInputContainer() {
         }}
       >
         <DashText
+          testID="private-send-how-it-works"
           size="$bodyMd"
           color="$textSubdued"
           dashColor="$textSubdued"
@@ -4227,14 +4259,14 @@ function SendAmountInputContainer() {
           hoverStyle={{ color: '$text' }}
           pressStyle={{ opacity: 0.7 }}
           onPress={() => {
-            openUrlExternal(privateSendHelpCenterUrl);
+            void openPrivateSendGuide();
           }}
         >
           {intl.formatMessage({ id: ETranslations.private_send_how_it_works })}
         </DashText>
       </XStack>
     );
-  }, [intl, sendMode, shouldHidePrivateSendFooterHelp]);
+  }, [intl, openPrivateSendGuide, sendMode, shouldHidePrivateSendFooterHelp]);
 
   const footerConfirmText = isInsufficientBalance
     ? intl.formatMessage({

@@ -528,6 +528,20 @@ function DeviceSectionGeneral() {
     await actions.updateBrightness();
   }, [actions]);
 
+  // No items → hide the whole section (incl. the "General" title). e.g. an
+  // older Trezor without auto-lock/haptics/brightness features.
+  const hasVisibleItem =
+    showLanguage ||
+    showWallpaper ||
+    showBrightness ||
+    showAutoLock ||
+    showAutoShutDown ||
+    showHapticFeedback;
+
+  if (!hasVisibleItem) {
+    return null;
+  }
+
   return (
     <ListItemGroup
       withSeparator

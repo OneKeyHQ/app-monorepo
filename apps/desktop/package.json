@@ -10,21 +10,23 @@
     "clean:build": "rimraf ./build-electron && rimraf ./app/build && rimraf ./app/dist && rimraf ./node_modules/.cache",
     "start": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn dev",
     "start:rspack": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn dev:rspack",
-    "install-app-deps": "electron-builder install-app-deps",
+    "install-app-deps": "electron-builder install-app-deps && node scripts/apply-runtime-patches.js && node scripts/verify-runtime-patches.js",
     "dev": "npx concurrently \"yarn build:main:dev\" \"yarn dev:renderer\" \"cross-env LAUNCH_ELECTRON=true node scripts/dev.js\"",
     "dev:rspack": "npx concurrently \"yarn build:main:dev\" \"yarn dev:renderer:rspack\" \"cross-env LAUNCH_ELECTRON=true node scripts/dev.js\"",
     "dev:main": "electron --inspect=5858 --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1 app/dist/app.js",
-    "dev:renderer": "TRANSFORM_REGENERATOR_DISABLED=true BROWSER=none WEB_PORT=3001 webpack serve",
-    "dev:renderer:rspack": "TRANSFORM_REGENERATOR_DISABLED=true BROWSER=none WEB_PORT=3001 rspack serve",
+    "dev:renderer": "TRANSFORM_REGENERATOR_DISABLED=true BROWSER=none WEB_PORT=3001 yarn run -T rspack serve --config-loader jiti",
+    "dev:renderer:rspack": "TRANSFORM_REGENERATOR_DISABLED=true BROWSER=none WEB_PORT=3001 yarn run -T rspack serve --config-loader jiti",
     "build:main:dev": "rimraf ./app/dist && cross-env node scripts/build.js",
     "build:main": "rimraf ./app/dist && cross-env NODE_ENV=production node scripts/build.js",
-    "build:renderer": "cross-env NODE_ENV=production yarn clean:build && cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 webpack build && node scripts/finalize-renderer-assets.js",
+    "build:renderer": "cross-env NODE_ENV=production yarn clean:build && cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 yarn run -T rspack build --config-loader jiti && node scripts/finalize-production-assets.js && node scripts/finalize-renderer-assets.js",
     "build:electron": "electron-builder build -ml --config electron-builder.config.js",
     "build:electron:win": "electron-builder build -w --config electron-builder-win.config.js",
     "build:electron:winms": "electron-builder build -w --config electron-builder-ms.config.js",
     "build:electron:mac": "electron-builder build -m --config electron-builder.config.js",
     "build:electron:mas": "electron-builder build -m --config electron-builder-mas.config.js",
     "build:electron:snap": "electron-builder build -l --config electron-builder-snap.config.js",
+    "harness:node-runtime": "node scripts/run-node-runtime-integrity-harness.js",
+    "harness:node-runtime:snap": "cross-env ONEKEY_NODE_RUNTIME_INTEGRITY_HARNESS_SNAP=true node scripts/run-node-runtime-integrity-harness.js",
     "bundle:build": "yarn build:renderer",
     "build": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron --publish never",
     "build:snap": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:snap --publish never",
@@ -34,7 +36,7 @@
     "build:winms": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:winms --publish never",
     "publish:all": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron --publish always",
     "publish:winms": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:winms --publish always",
-    "build:JsBundle": "cross-env NODE_ENV=production BUILD_BUNDLE_UPDATE=true NODE_OPTIONS=--max-old-space-size=8192 webpack build",
+    "build:JsBundle": "cross-env NODE_ENV=production BUILD_BUNDLE_UPDATE=true NODE_OPTIONS=--max-old-space-size=8192 yarn run -T rspack build --config-loader jiti",
     "test:e2e:browser": "node e2e/open-url.e2e.js"
   },
   "dependencies": {
@@ -65,7 +67,6 @@
     "electron-builder": "26.4.0",
     "esbuild": "0.27.2",
     "glob": "^7.2.0",
-    "rimraf": "3.0.2",
-    "webpack": "5.90.3"
+    "rimraf": "3.0.2"
   }
 }

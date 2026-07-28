@@ -2,6 +2,7 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { MOCK_PRO2_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/devicePro2Mock';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
@@ -87,6 +88,9 @@ export const getDeviceLabel = (
   return deviceTypeItems
     .map((deviceType) => {
       switch (deviceType) {
+        // MOCK(pro2): no EDeviceType.Pro2 member yet; match the shared mock value.
+        case MOCK_PRO2_DEVICE_TYPE:
+          return 'OneKey Pro 2';
         case EDeviceType.Pro:
           return 'OneKey Pro';
         case EDeviceType.Classic:

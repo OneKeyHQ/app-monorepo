@@ -6,7 +6,7 @@ import { type RouteProp, useRoute } from '@react-navigation/core';
 import { get, isString } from 'lodash';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
-import { Linking, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import type { ILottieViewProps } from '@onekeyhq/components';
 import {
@@ -48,7 +48,7 @@ import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type { IDBCreateHwWalletParamsBase } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -83,6 +83,7 @@ import {
   getDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   EAccountSelectorSceneName,
   EHardwareTransportType,
@@ -512,7 +513,7 @@ function useDeviceConnection({
               onConfirmText: intl.formatMessage({
                 id: ETranslations.global_download_and_install,
               }),
-              onConfirm: () => Linking.openURL(HARDWARE_BRIDGE_DOWNLOAD_URL),
+              onConfirm: () => openUrlExternal(HARDWARE_BRIDGE_DOWNLOAD_URL),
             });
 
             deviceScanner.stopScan();
@@ -1281,7 +1282,7 @@ export function ConnectYourDevicePage() {
                         flex={1}
                         size="large"
                         $gtMd={{ size: 'medium' } as any}
-                        onPress={() => Linking.openURL(requestsUrl)}
+                        onPress={() => openUrlExternal(requestsUrl)}
                       >
                         {intl.formatMessage({
                           id: ETranslations.global_contact_us,

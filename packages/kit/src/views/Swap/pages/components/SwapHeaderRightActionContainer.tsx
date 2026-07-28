@@ -39,6 +39,7 @@ import {
   useSwapActions,
   useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
+  useSwapQuoteActionLockAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapStockExecutionTokensAtom,
@@ -70,7 +71,6 @@ import {
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
-  ESwapLimitOrderStatus,
   ESwapProTradeType,
   ESwapSlippageCustomStatus,
   ESwapSlippageSegmentKey,
@@ -79,11 +79,16 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { resolveStockKLineToken } from '../../hooks/swapStockChannelUtils';
+import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 import { buildSwapRecipientAddressSettingsUpdate } from '../../utils/incognitoSettings';
-import { filterSwapMarketHistoryItems } from '../../utils/swapMarketHistory';
+import {
+  filterSwapMarketHistoryItems,
+  getSwapLimitOpenOrderCount,
+} from '../../utils/swapMarketHistory';
 import { SwapKLineContentWithProvider } from '../modal/SwapKLineContent';
+import { prefetchSwapKLineMetadata } from '../modal/swapKLineTokenUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import ProviderManageContainer from './ProviderManageContainer';
@@ -298,6 +303,7 @@ const SwapSettingsDialogContent = ({
   const [{ swapBatchApproveAndSwap }, setPersistSettings] =
     useSettingsPersistAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const { cleanQuoteInterval, closeQuoteEvent, resetQuoteAction } =
     useSwapActions().current;
   const keyboardHeight = useKeyboardHeight();
@@ -375,10 +381,15 @@ const SwapSettingsDialogContent = ({
   const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
   const handleProviderManagerSaved = useCallback(() => {
     cleanQuoteInterval();
-    closeQuoteEvent();
+    closeQuoteEvent(quoteActionLock.quoteRequestId);
     void resetQuoteAction();
     void dialogRef.current?.close();
-  }, [cleanQuoteInterval, closeQuoteEvent, resetQuoteAction]);
+  }, [
+    cleanQuoteInterval,
+    closeQuoteEvent,
+    quoteActionLock.quoteRequestId,
+    resetQuoteAction,
+  ]);
   return (
     <ScrollView
       mx="$-5"
@@ -754,8 +765,9 @@ const SwapHeaderRightActionContainer = ({
 }) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-  const [{ swapHistoryPendingList, swapLimitOrders }] =
-    useInAppNotificationAtom();
+  const [
+    { swapHistoryPendingList, swapLimitOrders, swapLimitOrdersAccountIdKey },
+  ] = useInAppNotificationAtom();
   const intl = useIntl();
   const { gtLg } = useMedia();
   const InTabDialog = useInTabDialog();
@@ -764,6 +776,8 @@ const SwapHeaderRightActionContainer = ({
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const { shouldShowSwapLocalData, shouldShowSwapLimitOrders } =
+    useSwapLimitOrdersLocalDataVisibility(swapLimitOrdersAccountIdKey);
   const swapStoreName =
     pageType === EPageType.modal
       ? EJotaiContextStoreNames.swapModal
@@ -792,17 +806,16 @@ const SwapHeaderRightActionContainer = ({
       ),
     [historyProtocolType, swapHistoryPendingList],
   );
-  const limitOpenStatusList = useMemo(
+  const limitOpenOrderCount = useMemo(
     () =>
-      swapLimitOrders.filter(
-        (i) =>
-          i.status === ESwapLimitOrderStatus.OPEN ||
-          i.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
-      ),
-    [swapLimitOrders],
+      shouldShowSwapLimitOrders
+        ? getSwapLimitOpenOrderCount(swapLimitOrders)
+        : 0,
+    [shouldShowSwapLimitOrders, swapLimitOrders],
   );
-  const historyBadgeCount =
-    swapPendingStatusList.length + limitOpenStatusList.length;
+  const historyBadgeCount = shouldShowSwapLocalData
+    ? swapPendingStatusList.length + limitOpenOrderCount
+    : 0;
   const focusSwapPro =
     platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   const resolvedIconSize = iconSize ?? (compact ? 24 : 20);
@@ -827,6 +840,13 @@ const SwapHeaderRightActionContainer = ({
   const showKLineAsDialog =
     platformEnv.isNative || (platformEnv.isExtension && !gtLg);
   const kLineDialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
+  const onSwapKLinePressIn = useCallback(() => {
+    if (isKLineDisabled) {
+      return;
+    }
+
+    void prefetchSwapKLineMetadata([fromToken, toToken]);
+  }, [fromToken, isKLineDisabled, toToken]);
   const onOpenSwapKLineModal = useCallback(() => {
     if (isKLineDisabled) {
       return;
@@ -908,6 +928,7 @@ const SwapHeaderRightActionContainer = ({
         <HeaderIconButton
           testID={SwapTestIDs.kLineButton}
           icon="TradingViewCandlesOutline"
+          onPressIn={onSwapKLinePressIn}
           onPress={onOpenSwapKLineModal}
           disabled={isKLineDisabled}
           iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}

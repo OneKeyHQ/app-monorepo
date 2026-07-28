@@ -30,6 +30,13 @@ import { ESpecialManageLayoutType } from './types';
 
 import type { ISpecialManageButtonConfig } from './types';
 
+type ISpecialManageFooterAction = {
+  text: string;
+  onPress: () => void;
+  loading?: boolean;
+  disabled?: boolean;
+};
+
 interface ISpecialManageContentProps {
   holdings?: IEarnManagePageResponse['holdings'];
   historyAction?: IEarnHistoryActionIcon;
@@ -37,6 +44,7 @@ interface ISpecialManageContentProps {
   showApyDetail?: boolean;
   isInModalContext?: boolean;
   beforeFooter?: React.ReactElement | null;
+  footerActionOverride?: ISpecialManageFooterAction;
   buttonConfig: ISpecialManageButtonConfig;
   transactionConfirmation?: IStakeTransactionConfirmation;
   fallbackTokenImageUri?: string;
@@ -56,6 +64,7 @@ export function SpecialManageContent({
   showApyDetail = false,
   isInModalContext = false,
   beforeFooter,
+  footerActionOverride,
   buttonConfig,
   transactionConfirmation,
   fallbackTokenImageUri,
@@ -67,9 +76,28 @@ export function SpecialManageContent({
   onRefreshPendingRef,
 }: ISpecialManageContentProps) {
   const intl = useIntl();
-  const isSingleButton = buttonConfig.type === ESpecialManageLayoutType.Single;
-  const primaryButton = buttonConfig.buttons.primary;
-  const secondaryButton = buttonConfig.buttons.secondary;
+  const effectiveButtonConfig = useMemo<ISpecialManageButtonConfig>(() => {
+    if (!footerActionOverride) {
+      return buttonConfig;
+    }
+
+    return {
+      type: ESpecialManageLayoutType.Single,
+      buttons: {
+        primary: {
+          text: footerActionOverride.text,
+          variant: 'primary',
+          disabled: Boolean(footerActionOverride.disabled),
+          loading: Boolean(footerActionOverride.loading),
+          onPress: footerActionOverride.onPress,
+        },
+      },
+    };
+  }, [buttonConfig, footerActionOverride]);
+  const isSingleButton =
+    effectiveButtonConfig.type === ESpecialManageLayoutType.Single;
+  const primaryButton = effectiveButtonConfig.buttons.primary;
+  const secondaryButton = effectiveButtonConfig.buttons.secondary;
 
   // Action buttons for non-modal context
   const actionButtonsContent = useMemo(() => {
@@ -178,8 +206,8 @@ export function SpecialManageContent({
   const footerContent = useMemo(() => {
     if (!isInModalContext) return null;
 
-    if (buttonConfig.footer) {
-      return buttonConfig.footer;
+    if (effectiveButtonConfig.footer) {
+      return effectiveButtonConfig.footer;
     }
 
     if (isSingleButton && primaryButton) {
@@ -228,7 +256,7 @@ export function SpecialManageContent({
     isSingleButton,
     primaryButton,
     secondaryButton,
-    buttonConfig.footer,
+    effectiveButtonConfig.footer,
   ]);
 
   return (

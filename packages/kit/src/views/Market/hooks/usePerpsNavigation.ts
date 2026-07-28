@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -19,6 +18,8 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
         setPerpPageEnterSource(source ?? EPerpPageEnterSource.MarketList);
         navigation.switchTab(ETabRoutes.Perp);
         try {
+          const { default: backgroundApiProxy } =
+            await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
           await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
             coin,
           });

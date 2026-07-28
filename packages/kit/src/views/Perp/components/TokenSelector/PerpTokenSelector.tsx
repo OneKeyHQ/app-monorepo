@@ -45,6 +45,7 @@ import {
   spotAssetCtxsMapAtom,
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
+  usePerpsActiveAccountAtom,
   usePerpsFavoritesOrderPersistAtom,
   useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -58,10 +59,8 @@ import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import {
   SPOT_SELECTOR_MIN_VOLUME,
   compareSpotMarketCapValues,
-  formatSpotPairDisplayName,
   getHyperliquidTokenImageUrl,
   getSpotMarketCapValue,
-  getSpotTokenDisplayName,
   getTokenSubtitle,
   isSpotInstrument,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -103,6 +102,7 @@ import {
   buildPerpTokenSelectorCategoryTabs,
   buildPerpTokenSelectorTabs,
   buildPrimaryTabs,
+  filterPerpTokenSelectorSpotItemsBySearch,
   getNextPerpTokenSelectorActiveTabConfig,
   getPerpTokenSelectorDynamicTabItems,
   getPerpTokenSelectorFallbackTabId,
@@ -387,6 +387,7 @@ function BasePerpTokenSelectorContent({
   onLoadingChange: (isLoading: boolean) => void;
 }) {
   const intl = useIntl();
+  const [activePerpsAccount] = usePerpsActiveAccountAtom();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { searchQuery, setSearchQuery, refreshAllAssets } =
     usePerpTokenSelector();
@@ -501,10 +502,11 @@ function BasePerpTokenSelectorContent({
       defaultLogger.perp.tokenSelector.perpTokenSelectorCategoryTabClick({
         tab,
         previousTab: displayActiveTab,
+        walletType: activePerpsAccount.walletType ?? 'unknown',
       });
       updateActiveTab(tab);
     },
-    [displayActiveTab, updateActiveTab],
+    [activePerpsAccount.walletType, displayActiveTab, updateActiveTab],
   );
   const setPrimaryTab = useCallback(
     (tab: string) => {
@@ -514,10 +516,11 @@ function BasePerpTokenSelectorContent({
       defaultLogger.perp.tokenSelector.perpTokenSelectorPrimaryTabClick({
         tab,
         previousTab: displayPrimaryTab,
+        walletType: activePerpsAccount.walletType ?? 'unknown',
       });
       updateActiveTab(tab);
     },
-    [displayPrimaryTab, updateActiveTab],
+    [activePerpsAccount.walletType, displayPrimaryTab, updateActiveTab],
   );
 
   const handleSelectToken = useCallback(
@@ -534,6 +537,7 @@ function BasePerpTokenSelectorContent({
           tradeMode: isSpotToken ? 'spot' : 'perp',
           sortField,
           sortDirection,
+          walletType: activePerpsAccount.walletType ?? 'unknown',
         });
         if (isSpotToken) {
           const universe = spotUniverses.find((u) => u.name === symbol);
@@ -559,6 +563,7 @@ function BasePerpTokenSelectorContent({
       }
     },
     [
+      activePerpsAccount.walletType,
       closePopover,
       actions,
       displayActiveTab,
@@ -971,32 +976,27 @@ function BasePerpTokenSelectorContent({
     const sortField = selectorConfig?.field ?? '';
     const sortDirection = selectorConfig?.direction ?? 'desc';
 
-    const getSpotListBySearch = () => {
-      if (!searchQuery) return spotSortedList;
-      const q = searchQuery.toLowerCase();
-      return spotSortedList.filter((item) => {
-        const u = item.spotUniverse;
-        if (!u) return false;
-        const displayBase = getSpotTokenDisplayName(u.baseName);
-        const pairDisplay = formatSpotPairDisplayName(u.baseName, u.quoteName);
-        return (
-          u.baseName.toLowerCase().includes(q) ||
-          displayBase.toLowerCase().includes(q) ||
-          pairDisplay.toLowerCase().includes(q)
-        );
-      });
-    };
-
     let result: ITokenSelectorListItem[];
 
     if (isPerpTokenSelectorSpotTab(displayPrimaryTab)) {
-      result = getSpotListBySearch();
+      result = filterPerpTokenSelectorSpotItemsBySearch({
+        items: spotSortedList,
+        searchQuery,
+        tokenSearchAliases,
+      });
     } else if (isPerpTokenSelectorFavoritesTab(displayPrimaryTab)) {
       result = getTokenSelectorFavoriteItems({
         favoriteItems,
         favoritesOrder: favoritesOrder.sequence,
         perpItems: perpSortedList,
-        spotItems: spotFavoriteSortedList,
+        // perp favorites follow the search-filtered assets atom, so spot
+        // favorites must be search-filtered here too or unmatched rows
+        // stay visible while searching
+        spotItems: filterPerpTokenSelectorSpotItemsBySearch({
+          items: spotFavoriteSortedList,
+          searchQuery,
+          tokenSearchAliases,
+        }),
       });
       if (sortField) {
         result = sortTokenSelectorFavoriteItems({
@@ -1097,6 +1097,7 @@ function BasePerpTokenSelectorContent({
     spotPriceSnapshot,
     spotSortedList,
     searchQuery,
+    tokenSearchAliases,
     selectorConfig?.direction,
     selectorConfig?.field,
   ]);
@@ -1345,6 +1346,7 @@ const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
 
 function BasePerpTokenSelector() {
   const intl = useIntl();
+  const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const actions = useHyperliquidActions();
   const [isOpen, setIsOpen] = useState(false);
   const isOpeningRef = useRef(false);
@@ -1407,6 +1409,7 @@ function BasePerpTokenSelector() {
           defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
             currentToken: baseName,
             tradeMode: mode === 'spot' ? 'spot' : 'perp',
+            walletType: activePerpsAccount.walletType ?? 'unknown',
           });
           setIsOpen(true);
         }}
@@ -1477,6 +1480,7 @@ function BasePerpTokenSelector() {
       />
     ),
     [
+      activePerpsAccount.walletType,
       isOpen,
       isLoading,
       triggerLabel,
@@ -1526,12 +1530,7 @@ const PerpTickerChangeLeaf = memo(
 
     if (!hasChange24hPercent) {
       return (
-        <SizableText
-          fontSize={10}
-          fontFamily="$monoRegular"
-          color="$textSubdued"
-          alignSelf="center"
-        >
+        <SizableText fontSize={10} color="$textSubdued" alignSelf="center">
           --
         </SizableText>
       );
@@ -1539,8 +1538,6 @@ const PerpTickerChangeLeaf = memo(
     return (
       <NumberSizeableText
         style={{ fontSize: 10 }}
-        fontFamily="$monoRegular"
-        fontVariant={['tabular-nums']}
         alignSelf="center"
         color={change24hPercent < 0 ? '$red11' : '$green11'}
         formatter="priceChange"
@@ -1588,6 +1585,7 @@ const BasePerpTokenSelectorMobileView = memo(
 BasePerpTokenSelectorMobileView.displayName = 'BasePerpTokenSelectorMobileView';
 function BasePerpTokenSelectorMobile() {
   const navigation = useAppNavigation();
+  const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const prewarmTokenSelectorImages = usePrewarmPerpsTokenSelectorImages();
   const isOpeningRef = useRef(false);
   // Only low-frequency fields here (coin/displayName/mode change on coin
@@ -1616,11 +1614,18 @@ function BasePerpTokenSelectorMobile() {
     defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
       currentToken: coin,
       tradeMode: mode === 'spot' ? 'spot' : 'perp',
+      walletType: activePerpsAccount.walletType ?? 'unknown',
     });
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
     });
-  }, [coin, mode, navigation, prewarmTokenSelectorImages]);
+  }, [
+    activePerpsAccount.walletType,
+    coin,
+    mode,
+    navigation,
+    prewarmTokenSelectorImages,
+  ]);
 
   return (
     <BasePerpTokenSelectorMobileView

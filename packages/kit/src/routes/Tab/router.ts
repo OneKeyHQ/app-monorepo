@@ -8,13 +8,13 @@ import type {
   INativeTabBarIcon,
   ITabNavigatorConfig,
   ITabNavigatorExtraConfig,
+  ITabSubNavigatorConfig,
 } from '@onekeyhq/components/src/layouts/Navigation/Navigator/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { usePerpTabConfig } from '../../hooks/usePerpTabConfig';
-import { developerRouters } from '../../views/Developer/router';
 import { useDeviceManagerModalStyle } from '../../views/DeviceManagement/hooks/useDeviceManagerModalStyle';
 import { homeRouters } from '../../views/Home/router';
 import { perpRouters } from '../../views/Perp/router';
@@ -63,6 +63,19 @@ const nativeTabIcons = {
 
 type IGetTabRouterParams = {
   freezeOnBlur?: boolean;
+};
+
+const getDeveloperRouters = (): ITabSubNavigatorConfig<any, any>[] => {
+  if (process.env.NODE_ENV === 'production') {
+    return [];
+  }
+
+  if (!platformEnv.isDev) {
+    return [];
+  }
+
+  return require('../../views/Developer/router')
+    .developerRouters as ITabSubNavigatorConfig<any, any>[];
 };
 
 const getDiscoverRouterConfig = (
@@ -243,7 +256,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             freezeOnBlur: Boolean(params?.freezeOnBlur),
             rewrite: '/dev',
             exact: true,
-            children: developerRouters,
+            children: getDeveloperRouters(),
             trackId: 'global-dev',
           }
         : undefined,

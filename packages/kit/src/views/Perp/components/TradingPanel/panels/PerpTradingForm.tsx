@@ -96,6 +96,7 @@ import {
   type ITradeSide,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
+import { buildDefaultTpSlPercent } from '../../../utils/tpslSeed';
 import { PerpsSlider } from '../../PerpsSlider';
 import { PerpIpRestrictionNotice } from '../components/PerpIpRestrictionNotice';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
@@ -239,13 +240,19 @@ function useDepositButtonIconProps() {
   return useMemo(
     () =>
       ({
-        color: getTradingSideTextColor('long'),
+        color: '$bgAccent',
       }) as const,
     [],
   );
 }
 
-function MobileDepositButton({ onPress }: { onPress: () => void }) {
+function MobileDepositButton({
+  onPress,
+  disabled,
+}: {
+  onPress: () => void;
+  disabled?: boolean;
+}) {
   const depositButtonIconProps = useDepositButtonIconProps();
 
   return (
@@ -257,7 +264,8 @@ function MobileDepositButton({ onPress }: { onPress: () => void }) {
       icon="PlusCircleSolid"
       iconProps={depositButtonIconProps}
       onPress={onPress}
-      cursor="pointer"
+      disabled={disabled}
+      cursor={disabled ? 'default' : 'pointer'}
     />
   );
 }
@@ -498,12 +506,13 @@ function PerpTradingForm({
   const { price: orderPriceBN } = useOrderPrice(formData.side, {
     priceSource: tradingPriceSource,
   });
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal, isDepositDisabled } =
+    useShowDepositWithdrawModal();
   const enableTrading = useEnableTradingWithDepositFallback();
   const { universeByBaseName } = useSpotMetaMaps();
   const perpsPositions = usePerpsAccountScopedActivePositions();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
-  const isBBOActive = !!formData.bboPriceMode;
+  const isBBOActive = !isSpot && !!formData.bboPriceMode;
   const perpsSelectedDisplayName = useMemo(
     () => parseDexCoin(perpsSelectedSymbol.coin).displayName,
     [perpsSelectedSymbol.coin],
@@ -916,6 +925,12 @@ function PerpTradingForm({
       executionPrice: '',
     });
   }, [formData.orderMode, isSpot, updateForm]);
+
+  useEffect(() => {
+    if (isSpot && formData.bboPriceMode) {
+      updateForm({ bboPriceMode: null });
+    }
+  }, [formData.bboPriceMode, isSpot, updateForm]);
 
   // Reference Price: Get the effective trading price (limit price, market price, or trigger effective price)
   const [, referencePriceString] = useMemo(() => {
@@ -1343,8 +1358,11 @@ function PerpTradingForm({
   }, [actions, spotAvailableTradeUniverse]);
 
   const handleSpotAvailableDepositPress = useCallback(() => {
+    if (isDepositDisabled) {
+      return;
+    }
     void showDepositWithdrawModal('deposit');
-  }, [showDepositWithdrawModal]);
+  }, [isDepositDisabled, showDepositWithdrawModal]);
   const handleSpotEnableTradingPress = useCallback(() => {
     if (perpsAccountLoading.enableTradingLoading) {
       return;
@@ -1352,8 +1370,11 @@ function PerpTradingForm({
     void enableTrading();
   }, [enableTrading, perpsAccountLoading.enableTradingLoading]);
   const handleDepositPress = useCallback(() => {
+    if (isDepositDisabled) {
+      return;
+    }
     void showDepositWithdrawModal('deposit');
-  }, [showDepositWithdrawModal]);
+  }, [isDepositDisabled, showDepositWithdrawModal]);
 
   const isUnifiedAccountMode = useMemo(
     () =>
@@ -1496,16 +1517,31 @@ function PerpTradingForm({
 
   const handleTpslCheckboxChange = useCallback(
     (checked: ICheckedState) => {
-      updateForm({ hasTpsl: !!checked });
-
-      if (!checked) {
+      if (checked) {
         updateForm({
+          hasTpsl: true,
+          ...buildDefaultTpSlPercent({
+            tpType: formData.tpType,
+            tpValue: formData.tpValue,
+            slType: formData.slType,
+            slValue: formData.slValue,
+          }),
+        });
+      } else {
+        updateForm({
+          hasTpsl: false,
           tpTriggerPx: '',
           slTriggerPx: '',
         });
       }
     },
-    [updateForm],
+    [
+      formData.slType,
+      formData.slValue,
+      formData.tpType,
+      formData.tpValue,
+      updateForm,
+    ],
   );
 
   const handleTpValueChange = useCallback(
@@ -1541,7 +1577,7 @@ function PerpTradingForm({
       updateForm({ bboPriceMode: null });
     } else {
       updateForm({
-        bboPriceMode: { type: 'counterparty', level: 1 },
+        bboPriceMode: { type: 'counterparty', offsetTicks: 0 },
       });
     }
   }, [formData.bboPriceMode, updateForm]);
@@ -2148,7 +2184,7 @@ function PerpTradingForm({
               />
             </YStack>
           )}
-          {formData.type === 'limit' ? (
+          {formData.type === 'limit' && !isSpot ? (
             <Badge
               testID={PerpTestIDs.BBOToggleButton}
               borderRadius="$2"
@@ -2850,7 +2886,7 @@ function PerpTradingForm({
         <YStack gap="$2.5" flexShrink={0}>
           {isSpot ? null : (
             <XStack alignItems="center" gap="$2.5" width="100%">
-              <YStack flex={1} flexBasis={0} minWidth={0}>
+              <YStack flex={1.2} flexBasis={0} minWidth={0}>
                 <MarginModeSelector
                   disabled={isSubmitting}
                   isMobile={isMobile}
@@ -3093,7 +3129,10 @@ function PerpTradingForm({
                           shouldDisplayAvailableToTradeDuringLoading
                         }
                       />
-                      <MobileDepositButton onPress={handleDepositPress} />
+                      <MobileDepositButton
+                        onPress={handleDepositPress}
+                        disabled={isDepositDisabled}
+                      />
                     </>
                   )}
                 </XStack>

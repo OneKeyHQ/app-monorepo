@@ -1,12 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { throttle } from 'lodash';
 import { StyleSheet } from 'react-native';
 
-import type { useInTabDialog } from '@onekeyhq/components';
-import { Dialog, LottieView, YStack } from '@onekeyhq/components';
-import UpdateNotificationDark from '@onekeyhq/kit/assets/animations/update-notification-dark.json';
-import UpdateNotificationLight from '@onekeyhq/kit/assets/animations/update-notification-light.json';
+import {
+  Dialog,
+  type ILottieViewProps,
+  LottieView,
+  YStack,
+  type useInTabDialog,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -23,14 +26,39 @@ export const UPDATE_DIALOG_INTERVAL = timerUtils.getTimeDurationMs({
   day: 1,
 });
 
+function resolveLottieModule(module: unknown): ILottieViewProps['source'] {
+  const lottieModule = module as { default?: ILottieViewProps['source'] };
+  return lottieModule.default ?? module;
+}
+
 export function LottieViewIcon({
   themeVariant,
 }: {
   themeVariant: 'light' | 'dark';
 }) {
+  const [source, setSource] = useState<ILottieViewProps['source'] | null>(null);
   const lottieViewRef = useRef<{
     play?: () => void;
   } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSource(null);
+    const loader =
+      themeVariant === 'light'
+        ? import('@onekeyhq/kit/assets/animations/update-notification-light.json')
+        : import('@onekeyhq/kit/assets/animations/update-notification-dark.json');
+    void loader.then((module) => {
+      if (cancelled) {
+        return;
+      }
+      setSource(resolveLottieModule(module));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [themeVariant]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       lottieViewRef.current?.play?.();
@@ -47,18 +75,18 @@ export function LottieViewIcon({
       elevation={platformEnv.isNativeAndroid ? undefined : 0.5}
       overflow="hidden"
     >
-      <LottieView
-        ref={lottieViewRef as any}
-        loop={false}
-        autoPlay={false}
-        height={56}
-        width={56}
-        source={
-          themeVariant === 'light'
-            ? UpdateNotificationLight
-            : UpdateNotificationDark
-        }
-      />
+      {source ? (
+        <LottieView
+          ref={lottieViewRef as any}
+          loop={false}
+          autoPlay={false}
+          height={56}
+          width={56}
+          source={source}
+        />
+      ) : (
+        <YStack height={56} width={56} />
+      )}
     </YStack>
   );
 }

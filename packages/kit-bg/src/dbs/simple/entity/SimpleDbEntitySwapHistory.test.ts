@@ -1,3 +1,4 @@
+import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   ISwapToken,
   ISwapTxHistory,
@@ -7,7 +8,10 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { SimpleDbEntitySwapHistory } from './SimpleDbEntitySwapHistory';
+import {
+  type ISwapTxHistoryPersistList,
+  SimpleDbEntitySwapHistory,
+} from './SimpleDbEntitySwapHistory';
 
 const baseToken: ISwapToken = {
   networkId: 'evm--1',
@@ -26,6 +30,26 @@ function createToken(
 
 const usdc = createToken('USDC', '0xUSDC');
 const stockToken = createToken('AAPLon', '0xAAPLon', { isStock: true });
+const dynamicToken = createToken('RHE', '0xRHE', {
+  networkId: 'evm--4663',
+  networkLogoURI: 'https://example.com/robinhood-token.png',
+});
+const dynamicNetwork: IServerNetwork = {
+  id: 'evm--4663',
+  impl: 'evm',
+  chainId: '4663',
+  name: 'Robinhood',
+  code: 'robinhood',
+  shortname: 'Robinhood',
+  shortcode: 'robinhood',
+  symbol: 'ETH',
+  logoURI: 'https://example.com/robinhood.png',
+  decimals: 18,
+  feeMeta: { decimals: 18, symbol: 'ETH' },
+  defaultEnabled: true,
+  status: ENetworkStatus.LISTED,
+  isTestnet: false,
+};
 
 function createHistoryItem({
   id,
@@ -186,5 +210,90 @@ describe('SimpleDbEntitySwapHistory.deleteSwapHistoryItem onlyStock', () => {
       { onlyStock: true },
     );
     expect(kept).toEqual([stockSuccess, swapSuccess]);
+  });
+});
+
+describe('SimpleDbEntitySwapHistory.repairSwapHistoryNetworkInfo', () => {
+  it('does not write complete history rows', async () => {
+    const history = createHistoryItem({
+      id: 'complete',
+      protocol: EProtocolOfExchange.SWAP,
+      status: ESwapTxHistoryStatus.SUCCESS,
+      fromToken: dynamicToken,
+      toToken: dynamicToken,
+    });
+    history.baseInfo.fromNetwork = {
+      networkId: dynamicNetwork.id,
+      name: dynamicNetwork.name,
+      symbol: dynamicNetwork.symbol,
+    };
+    history.baseInfo.toNetwork = history.baseInfo.fromNetwork;
+    const entity = new SimpleDbEntitySwapHistory();
+    jest
+      .spyOn(entity, 'getRawData')
+      .mockResolvedValue({ histories: [history] });
+    const setRawData = jest.spyOn(entity, 'setRawData');
+
+    const result = await entity.repairSwapHistoryNetworkInfo([dynamicNetwork]);
+
+    expect(result).toEqual({ histories: [history], changed: false });
+    expect(setRawData).not.toHaveBeenCalled();
+  });
+
+  it('repairs the current locked blob and preserves concurrent rows', async () => {
+    const legacy = createHistoryItem({
+      id: 'legacy',
+      protocol: EProtocolOfExchange.SWAP,
+      status: ESwapTxHistoryStatus.PENDING,
+      fromToken: dynamicToken,
+      toToken: dynamicToken,
+    });
+    legacy.baseInfo.fromNetwork = {
+      networkId: '',
+      name: '',
+      symbol: '',
+    };
+    legacy.baseInfo.toNetwork = legacy.baseInfo.fromNetwork;
+    const concurrent = createHistoryItem({
+      id: 'concurrent',
+      protocol: EProtocolOfExchange.SWAP,
+      status: ESwapTxHistoryStatus.SUCCESS,
+    });
+    concurrent.baseInfo.fromNetwork = {
+      networkId: baseToken.networkId,
+      name: 'Ethereum',
+      symbol: 'ETH',
+    };
+    concurrent.baseInfo.toNetwork = concurrent.baseInfo.fromNetwork;
+
+    const entity = new SimpleDbEntitySwapHistory();
+    jest.spyOn(entity, 'getRawData').mockResolvedValue({ histories: [legacy] });
+    let writtenData: ISwapTxHistoryPersistList | undefined;
+    const setRawData = jest
+      .spyOn(entity, 'setRawData')
+      .mockImplementation(async (dataOrBuilder) => {
+        expect(typeof dataOrBuilder).toBe('function');
+        if (typeof dataOrBuilder !== 'function') {
+          return dataOrBuilder;
+        }
+        writtenData = await dataOrBuilder({
+          histories: [legacy, concurrent],
+          previewReadSeeded: true,
+        });
+        return writtenData;
+      });
+
+    const result = await entity.repairSwapHistoryNetworkInfo([dynamicNetwork]);
+
+    expect(setRawData).toHaveBeenCalledTimes(1);
+    expect(writtenData?.previewReadSeeded).toBe(true);
+    expect(result.changed).toBe(true);
+    expect(result.histories).toHaveLength(2);
+    expect(result.histories[0].baseInfo.fromNetwork).toMatchObject({
+      networkId: dynamicNetwork.id,
+      name: dynamicNetwork.name,
+      symbol: dynamicNetwork.symbol,
+    });
+    expect(result.histories[1]).toBe(concurrent);
   });
 });

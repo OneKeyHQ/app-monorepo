@@ -9,6 +9,7 @@ import {
   EVideoResizeMode,
   HeightTransition,
   LottieView,
+  SegmentControl,
   SizableText,
   Stack,
   Toast,
@@ -43,7 +44,7 @@ import {
   shouldRequestTrezorWebUsbPermissionBeforeListing,
   shouldShowTrezorScanTimeout,
 } from './ConnectionFlowTrezorUtils';
-import { ConnectionIndicator } from './ConnectYourDevice';
+import { ConnectionIndicator } from './ConnectionIndicator';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 import type { ReactVideoSource } from 'react-native-video';
@@ -107,29 +108,6 @@ function getTrezorDeviceTransportLabel(
   return undefined;
 }
 
-function TrezorDeviceTransportBadge({
-  device,
-}: {
-  device: IConnectYourDeviceItem['device'];
-}) {
-  const label = getTrezorDeviceTransportLabel(device);
-  if (!label) return null;
-  return (
-    <XStack
-      px="$2"
-      py="$0.5"
-      borderRadius="$1"
-      bg="$bgSubdued"
-      alignItems="center"
-      justifyContent="center"
-    >
-      <SizableText size="$bodySmMedium" color="$textSubdued">
-        {label}
-      </SizableText>
-    </XStack>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Trezor connection flow — mirrors LedgerConnectionFlow with three swaps:
 //   1. vendor = EHardwareVendor.trezor (drives serviceHardware scan path)
@@ -146,17 +124,47 @@ export default function TrezorConnectionFlow() {
   const { promptWebUsbDeviceAccess } = usePromptWebDeviceAccess();
 
   const vendor = EHardwareVendor.trezor;
-  const tabValue = EConnectDeviceChannel.usbOrBle;
   const deviceLabel = 'Trezor';
-  const isBle = !!platformEnv.isNative;
-  const connectionSteps = isBle
+
+  // USB / Bluetooth tabs (desktop gets the second tab), like OneKey.
+  const tabOptions = useMemo(
+    () =>
+      [
+        {
+          label: platformEnv.isNative
+            ? intl.formatMessage({ id: ETranslations.global_bluetooth })
+            : 'USB',
+          value: EConnectDeviceChannel.usbOrBle,
+        },
+        platformEnv.isSupportDesktopBle
+          ? {
+              label: intl.formatMessage({ id: ETranslations.global_bluetooth }),
+              value: EConnectDeviceChannel.bluetooth,
+            }
+          : undefined,
+      ].filter(Boolean),
+    [intl],
+  );
+  const [tabValue, setTabValue] = useState(tabOptions[0]?.value);
+
+  const isBle =
+    tabValue === EConnectDeviceChannel.bluetooth ||
+    (tabValue === EConnectDeviceChannel.usbOrBle && !!platformEnv.isNative);
+  const connectionSteps: {
+    id: ETranslations;
+    values?: Record<string, string>;
+  }[] = isBle
     ? [
-        ETranslations.trezor_ble_binding_guide_unlock__desc,
-        ETranslations.trezor_ble_binding_guide_pair__desc,
+        { id: ETranslations.trezor_ble_binding_guide_unlock__desc },
+        { id: ETranslations.trezor_ble_binding_guide_pair__desc },
       ]
     : [
-        ETranslations.hardware_third_party_connect_step_usb,
-        ETranslations.hardware_third_party_connect_step_power_on_and_unlock,
+        // Parameterized key so the step reads "Trezor", not hardcoded "Ledger".
+        {
+          id: ETranslations.connect_device_to_computer_via_usb,
+          values: { deviceLabel },
+        },
+        { id: ETranslations.trezor_ble_binding_guide_unlock__desc },
       ];
 
   // --- Device connection state ---
@@ -166,6 +174,8 @@ export default function TrezorConnectionFlow() {
   const [isCheckingDeviceLoading, setIsChecking] = useState(false);
   const searchStateRef = useRef<'start' | 'stop'>('stop');
   const isSearchingRef = useRef(false);
+  const didAutoStartRef = useRef(false);
+  const prevTabRef = useRef(tabValue);
 
   const deviceScanner = useMemo(
     () =>
@@ -181,7 +191,10 @@ export default function TrezorConnectionFlow() {
       return;
     }
 
-    const forceTransportType = await getForceTransportType(tabValue);
+    // One shared fused scan (both transports); tabs only filter the UI.
+    const forceTransportType = await getForceTransportType(
+      EConnectDeviceChannel.usbOrBle,
+    );
     if (forceTransportType) {
       await backgroundApiProxy.serviceHardware.setForceTransportType({
         forceTransportType,
@@ -246,9 +259,10 @@ export default function TrezorConnectionFlow() {
       TREZOR_SCAN_POLL_INTERVAL_MS,
       TREZOR_SCAN_MAX_TRY_COUNT,
       vendor,
-      { resetSession: true, transportType },
+      // waitForAllTransports: don't drop BLE when a USB device is also present.
+      { resetSession: true, transportType, waitForAllTransports: true },
     );
-  }, [deviceScanner, vendor, tabValue, intl]);
+  }, [deviceScanner, vendor, intl]);
 
   const stopScan = useCallback(() => {
     isSearchingRef.current = false;
@@ -278,6 +292,16 @@ export default function TrezorConnectionFlow() {
   const sortedDevicesData = useMemo(
     () => sortDevicesData(devicesData, []),
     [devicesData],
+  );
+
+  // Each tab shows only its transport; USB keeps unknown-transport rows.
+  const visibleDevicesData = useMemo(
+    () =>
+      sortedDevicesData.filter((data) => {
+        const label = getTrezorDeviceTransportLabel(data.device);
+        return isBle ? label === 'BLE' : label !== 'BLE';
+      }),
+    [sortedDevicesData, isBle],
   );
 
   // --- Device select ---
@@ -343,6 +367,31 @@ export default function TrezorConnectionFlow() {
     }
   }, [connectStatus, isFocused, listingDevice, stopScan]);
 
+  // --- Desktop auto-start ---
+  // Desktop auto-scans once on entry (ref-guarded so a timed-out scan reverting
+  // to init doesn't auto-restart). Web/ext/native keep click.
+  useEffect(() => {
+    if (!platformEnv.isDesktop || !isFocused || didAutoStartRef.current) {
+      return;
+    }
+    didAutoStartRef.current = true;
+    void listingDevice();
+  }, [isFocused, listingDevice]);
+
+  // --- Tab switch ---
+  // Switching tabs restarts the shared scan so the newly-selected transport
+  // gets fresh results (like OneKey, which re-scans on tab entry).
+  useEffect(() => {
+    if (prevTabRef.current === tabValue) {
+      return;
+    }
+    prevTabRef.current = tabValue;
+    void (async () => {
+      await ensureStopScan();
+      await listingDevice();
+    })();
+  }, [tabValue, ensureStopScan, listingDevice]);
+
   useEffect(
     () => () => {
       stopScan();
@@ -351,109 +400,114 @@ export default function TrezorConnectionFlow() {
   );
 
   return (
-    <ConnectionIndicator>
-      <ConnectionIndicator.Card>
-        <ConnectionIndicator.Animation>
-          <DevicePlaceholder isBle={isBle} />
-        </ConnectionIndicator.Animation>
-        <ConnectionIndicator.Content gap="$2">
-          <ConnectionIndicator.Title>
-            {isBle
-              ? intl.formatMessage({
-                  id: ETranslations.onboarding_bluetooth_prepare_to_connect,
-                })
-              : intl.formatMessage(
-                  {
-                    id: ETranslations.connect_device_to_computer_via_usb,
-                  },
-                  { deviceLabel },
-                )}
-          </ConnectionIndicator.Title>
-          <YStack gap="$1">
-            {connectionSteps.map((id, index) => (
-              <SizableText key={id} color="$textSubdued">
-                {`${index + 1}. ${intl.formatMessage({ id })}`}
-              </SizableText>
-            ))}
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: isBle
-                  ? ETranslations.trezor_ble_binding__desc
-                  : ETranslations.trezor_onboarding_unlock_after_power_on__desc,
-              })}
-            </SizableText>
-          </YStack>
-          {connectStatus === EConnectionStatus.init ? (
-            <Button
-              testID="trezor-start-connection"
-              variant="primary"
-              mt="$2"
-              onPress={onStartConnection}
-              loading={isCheckingDeviceLoading}
-              disabled={isCheckingDeviceLoading}
-            >
-              {intl.formatMessage({
-                id: ETranslations.global_start_connection,
-              })}
-            </Button>
-          ) : null}
-          {scanTimedOut ? (
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: isBle
-                  ? ETranslations.trezor_ble_binding_scan_timeout__msg
-                  : ETranslations.trezor_onboarding_scan_timeout__msg,
-              })}
-            </SizableText>
-          ) : null}
-        </ConnectionIndicator.Content>
-      </ConnectionIndicator.Card>
-
-      {connectStatus === EConnectionStatus.listing ||
-      sortedDevicesData.length > 0 ? (
-        <ConnectionIndicator.Footer>
-          {connectStatus === EConnectionStatus.listing ? (
-            <YStack px="$5">
-              <XStack alignItems="center" justifyContent="space-between">
-                <SizableText color="$textDisabled">
-                  {intl.formatMessage({
-                    id: isBle
-                      ? ETranslations.trezor_ble_binding_searching__desc
-                      : ETranslations.onboarding_bluetooth_connect_help_text,
-                  })}
-                  {isBle ? '' : '...'}
-                </SizableText>
-              </XStack>
-            </YStack>
-          ) : null}
-          <HeightTransition initialHeight={0}>
-            {sortedDevicesData.length > 0 ? (
-              <>
-                {sortedDevicesData.map((data) => (
-                  <ListItem
-                    // Desktop fused scan returns one USB row and one BLE row for
-                    // the same physical Trezor, sharing the same stable deviceId
-                    // (== connectId). Key on deviceId + transport so the two rows
-                    // stay distinct React nodes instead of collapsing into one.
-                    key={`${data.device?.deviceId ?? data.device?.connectId ?? ''}-${
-                      getTrezorDeviceTransportLabel(data.device) ?? ''
-                    }`}
-                    drillIn
-                    onPress={async () => {
-                      await handleDeviceSelect(data);
-                    }}
-                    userSelect="none"
-                  >
-                    <WalletAvatar wallet={undefined} img="trezor" />
-                    <ListItem.Text primary={data.device?.name} flex={1} />
-                    <TrezorDeviceTransportBadge device={data.device} />
-                  </ListItem>
-                ))}
-              </>
-            ) : null}
-          </HeightTransition>
-        </ConnectionIndicator.Footer>
+    <>
+      {tabOptions.length > 1 ? (
+        <SegmentControl
+          fullWidth
+          value={tabValue}
+          onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
+          options={tabOptions}
+        />
       ) : null}
-    </ConnectionIndicator>
+      <ConnectionIndicator>
+        <ConnectionIndicator.Card>
+          <ConnectionIndicator.Animation>
+            <DevicePlaceholder isBle={isBle} />
+          </ConnectionIndicator.Animation>
+          <ConnectionIndicator.Content gap="$2">
+            <ConnectionIndicator.Title>
+              {isBle
+                ? intl.formatMessage({
+                    id: ETranslations.onboarding_bluetooth_prepare_to_connect,
+                  })
+                : intl.formatMessage(
+                    {
+                      id: ETranslations.connect_device_to_computer_via_usb,
+                    },
+                    { deviceLabel },
+                  )}
+            </ConnectionIndicator.Title>
+            <YStack gap="$1">
+              {connectionSteps.map(({ id, values }, index) => (
+                <SizableText key={id} color="$textSubdued">
+                  {`${index + 1}. ${intl.formatMessage({ id }, values)}`}
+                </SizableText>
+              ))}
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: isBle
+                    ? ETranslations.trezor_ble_binding__desc
+                    : ETranslations.trezor_onboarding_unlock_after_power_on__desc,
+                })}
+              </SizableText>
+            </YStack>
+            {connectStatus === EConnectionStatus.init ? (
+              <Button
+                testID="trezor-start-connection"
+                variant="primary"
+                mt="$2"
+                onPress={onStartConnection}
+                loading={isCheckingDeviceLoading}
+                disabled={isCheckingDeviceLoading}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.global_start_connection,
+                })}
+              </Button>
+            ) : null}
+            {scanTimedOut ? (
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: isBle
+                    ? ETranslations.trezor_ble_binding_scan_timeout__msg
+                    : ETranslations.trezor_onboarding_scan_timeout__msg,
+                })}
+              </SizableText>
+            ) : null}
+          </ConnectionIndicator.Content>
+        </ConnectionIndicator.Card>
+
+        {connectStatus === EConnectionStatus.listing ||
+        visibleDevicesData.length > 0 ? (
+          <ConnectionIndicator.Footer>
+            {connectStatus === EConnectionStatus.listing ? (
+              <YStack px="$5">
+                <XStack alignItems="center" justifyContent="space-between">
+                  <SizableText color="$textDisabled">
+                    {intl.formatMessage({
+                      id: isBle
+                        ? ETranslations.trezor_ble_binding_searching__desc
+                        : ETranslations.onboarding_bluetooth_connect_help_text,
+                    })}
+                    {isBle ? '' : '...'}
+                  </SizableText>
+                </XStack>
+              </YStack>
+            ) : null}
+            <HeightTransition initialHeight={0}>
+              {visibleDevicesData.length > 0 ? (
+                <>
+                  {visibleDevicesData.map((data) => (
+                    <ListItem
+                      key={
+                        data.device?.deviceId ?? data.device?.connectId ?? ''
+                      }
+                      drillIn
+                      onPress={async () => {
+                        await handleDeviceSelect(data);
+                      }}
+                      userSelect="none"
+                    >
+                      <WalletAvatar wallet={undefined} img="trezor" />
+                      <ListItem.Text primary={data.device?.name} flex={1} />
+                    </ListItem>
+                  ))}
+                </>
+              ) : null}
+            </HeightTransition>
+          </ConnectionIndicator.Footer>
+        ) : null}
+      </ConnectionIndicator>
+    </>
   );
 }

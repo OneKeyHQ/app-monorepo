@@ -9,6 +9,7 @@ import {
   Toast,
 } from '@onekeyhq/components';
 import { useSupabaseAuthContext } from '@onekeyhq/kit/src/components/OneKeyAuth/supabase/SupabaseAuthContext';
+import { useIdentityExitFlow } from '@onekeyhq/kit/src/components/OneKeyAuth/useIdentityExitFlow';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -49,11 +50,11 @@ export function AuthApiTests() {
   const {
     user,
     supabaseUser,
-    supabaseSignOut,
     supabaseSignInWithOtp,
     supabaseVerifyOtp,
     getSupabaseClient,
   } = useOneKeyAuth();
+  const { run: runIdentityExit } = useIdentityExitFlow();
   const supabaseContext = useSupabaseAuthContext();
 
   const lastOneKeyIdLoginEmail = appStorage.syncStorage.getString(
@@ -117,7 +118,10 @@ export function AuthApiTests() {
           onPress={async () => {
             try {
               setSignOutLoading(true);
-              const res = await supabaseSignOut();
+              const res = await runIdentityExit({
+                type: 'logoutOneKeyId',
+                scene: 'profile',
+              });
               demoLog(res, 'sign out');
             } catch (e) {
               demoError(e, 'sign out');
@@ -164,7 +168,7 @@ export function AuthApiTests() {
         <Button
           onPress={async () => {
             demoLog(
-              await getSupabaseClient().client.auth.getUser(),
+              await (await getSupabaseClient()).client.auth.getUser(),
               'get supabase client',
             );
           }}
@@ -187,10 +191,9 @@ export function AuthApiTests() {
         <Button
           onPress={async () => {
             try {
-              const result = await getSupabaseClient().storage?.setItem(
-                storageKey,
-                storageValue,
-              );
+              const result = await (
+                await getSupabaseClient()
+              ).storage?.setItem(storageKey, storageValue);
               demoLog(result, 'storage set item');
             } catch (e) {
               demoError(e, 'storage set item');
@@ -202,8 +205,9 @@ export function AuthApiTests() {
         <Button
           onPress={async () => {
             try {
-              const result =
-                await getSupabaseClient().storage?.getItem(storageKey);
+              const result = await (
+                await getSupabaseClient()
+              ).storage?.getItem(storageKey);
               demoLog(result, 'storage get item');
             } catch (e) {
               demoError(e, 'storage get item');
@@ -215,8 +219,9 @@ export function AuthApiTests() {
         <Button
           onPress={async () => {
             try {
-              const result =
-                await getSupabaseClient().storage?.removeItem(storageKey);
+              const result = await (
+                await getSupabaseClient()
+              ).storage?.removeItem(storageKey);
               demoLog(result, 'storage remove item');
             } catch (e) {
               demoError(e, 'storage remove item');
@@ -228,7 +233,9 @@ export function AuthApiTests() {
         <Button
           onPress={async () => {
             try {
-              const result = await getSupabaseClient().storage?.getAllKeys();
+              const result = await (
+                await getSupabaseClient()
+              ).storage?.getAllKeys();
               demoLog(result, 'storage get all keys');
             } catch (e) {
               demoError(e, 'storage get all keys');
@@ -240,7 +247,7 @@ export function AuthApiTests() {
         <Button
           onPress={async () => {
             try {
-              await getSupabaseClient().storage?.clear();
+              await (await getSupabaseClient()).storage?.clear();
               demoLog('cleared', 'storage clear');
             } catch (e) {
               demoError(e, 'storage clear');

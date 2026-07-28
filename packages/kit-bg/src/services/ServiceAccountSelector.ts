@@ -1,6 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { cloneDeep } from 'lodash';
-
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   backgroundClass,
@@ -18,20 +16,17 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type {
+  EAccountSelectorSceneName,
+  IServerNetwork,
+} from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
-import { settingsAtom } from '../states/jotai/atoms';
 import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
-import {
-  isAccountSelectorHomeSyncSourceScene,
-  isAccountSelectorHomeSyncTargetScene,
-  shouldSyncAccountSelectorHomeAndSwapScenes,
-} from './utils/accountSelectorHomeSyncUtils';
 
+import type { AccountSelectorPerpsWorth } from './utils/accountSelectorPerpsWorth';
 import type {
   IDBAccount,
   IDBDevice,
@@ -57,6 +52,12 @@ class ServiceAccountSelector extends ServiceBase {
     super({ backgroundApi });
   }
 
+  // Home/swap sync helpers live in a lazily imported module so they stay out
+  // of the native background startup graph (Startup Graph Budget CI check).
+  private async _getHomeSyncUtils() {
+    return import('./utils/accountSelectorHomeSyncUtils');
+  }
+
   @backgroundMethod()
   async shouldSyncWithHome({
     sceneName,
@@ -67,11 +68,8 @@ class ServiceAccountSelector extends ServiceBase {
     sceneUrl?: string;
     num: number;
   }) {
-    const { swapToAnotherAccountSwitchOn } = await settingsAtom.get();
-    return isAccountSelectorHomeSyncTargetScene({
-      scene: { sceneName, sceneUrl, num },
-      swapToAnotherAccountSwitchOn,
-    });
+    const { shouldSyncWithHomeScene } = await this._getHomeSyncUtils();
+    return shouldSyncWithHomeScene({ scene: { sceneName, sceneUrl, num } });
   }
 
   @backgroundMethod()
@@ -80,6 +78,8 @@ class ServiceAccountSelector extends ServiceBase {
     sceneUrl?: string;
     num: number;
   }) {
+    const { isAccountSelectorHomeSyncSourceScene } =
+      await this._getHomeSyncUtils();
     return isAccountSelectorHomeSyncSourceScene(params);
   }
 
@@ -99,11 +99,24 @@ class ServiceAccountSelector extends ServiceBase {
       num: number;
     };
   }) {
-    const { swapToAnotherAccountSwitchOn } = await settingsAtom.get();
-    return shouldSyncAccountSelectorHomeAndSwapScenes({
-      sourceScene,
-      targetScene,
-      swapToAnotherAccountSwitchOn,
+    const { shouldSyncHomeAndSwapScenes } = await this._getHomeSyncUtils();
+    return shouldSyncHomeAndSwapScenes({ sourceScene, targetScene });
+  }
+
+  @backgroundMethod()
+  public async fixOthersWalletAccountNetworkPair({
+    selectedAccount,
+    source,
+  }: {
+    selectedAccount: IAccountSelectorSelectedAccount;
+    source?: string;
+  }): Promise<IAccountSelectorSelectedAccount> {
+    const { fixOthersWalletAccountNetworkPair } =
+      await this._getHomeSyncUtils();
+    return fixOthersWalletAccountNetworkPair({
+      backgroundApi: this.backgroundApi,
+      selectedAccount,
+      source,
     });
   }
 
@@ -113,44 +126,11 @@ class ServiceAccountSelector extends ServiceBase {
   }: {
     swapMap: IAccountSelectorSelectedAccountsMap | undefined;
   }) {
-    const homeData: IAccountSelectorSelectedAccount | undefined =
-      await this.backgroundApi.simpleDb.accountSelector.getSelectedAccount({
-        sceneName: EAccountSelectorSceneName.home,
-        num: 0,
-      });
-    if (homeData) {
-      // eslint-disable-next-line no-param-reassign
-      swapMap = cloneDeep(swapMap || {});
-
-      const updateSwapMap = (num: number) => {
-        if (!swapMap) {
-          return;
-        }
-        const swapDataMerged = accountSelectorUtils.buildMergedSelectedAccount({
-          data: swapMap[num],
-          mergedByData: homeData,
-        });
-        if (swapDataMerged) {
-          const usedNetworkId =
-            // swapDataMerged.networkId ??
-            // swapMap[num]?.networkId ??
-            homeData?.networkId;
-          swapMap[num] = swapDataMerged;
-          if (swapMap && swapMap[num]) {
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            swapMap[num].networkId = usedNetworkId;
-          }
-        }
-      };
-
-      updateSwapMap(0);
-
-      const { swapToAnotherAccountSwitchOn } = await settingsAtom.get();
-      if (!swapToAnotherAccountSwitchOn) {
-        updateSwapMap(1);
-      }
-    }
-    return swapMap;
+    const { mergeHomeDataToSwapMap } = await this._getHomeSyncUtils();
+    return mergeHomeDataToSwapMap({
+      backgroundApi: this.backgroundApi,
+      swapMap,
+    });
   }
 
   @backgroundMethod()
@@ -241,20 +221,22 @@ class ServiceAccountSelector extends ServiceBase {
         console.error(e);
       }
 
-      if (deriveType) {
-        if ((indexedAccountId && wallet) || othersWalletAccountId) {
-          try {
-            const r = await serviceAccount.getNetworkAccount({
-              indexedAccountId,
-              accountId: othersWalletAccountId,
-              deriveType,
-              networkId,
-            });
-            account = r;
-          } catch (e) {
-            // account may not compatible with network
-            console.error(e);
-          }
+      const canQueryIndexedNetworkAccount = Boolean(
+        deriveType && indexedAccountId && wallet,
+      );
+      const canQueryOthersNetworkAccount = Boolean(othersWalletAccountId);
+      if (canQueryIndexedNetworkAccount || canQueryOthersNetworkAccount) {
+        try {
+          const r = await serviceAccount.getNetworkAccount({
+            indexedAccountId,
+            accountId: othersWalletAccountId,
+            deriveType: deriveType || 'default',
+            networkId,
+          });
+          account = r;
+        } catch (e) {
+          // account may not compatible with network
+          console.error(e);
         }
       }
 
@@ -275,7 +257,7 @@ class ServiceAccountSelector extends ServiceBase {
       networkId && networkUtils.isAllNetwork({ networkId }),
     );
 
-    if (dbAccountId && !isAllNetwork) {
+    if (dbAccountId && (!isAllNetwork || othersWalletAccountId)) {
       try {
         const r = await serviceAccount.getDBAccount({
           accountId: dbAccountId,
@@ -436,7 +418,7 @@ class ServiceAccountSelector extends ServiceBase {
 
     const selectedAccountFixed: IAccountSelectorSelectedAccount = {
       othersWalletAccountId: isOthersWallet
-        ? activeAccount?.account?.id
+        ? activeAccount?.account?.id || activeAccount?.dbAccount?.id
         : undefined,
       indexedAccountId: activeAccount?.indexedAccount?.id,
       deriveType: activeAccount?.deriveType,
@@ -988,6 +970,7 @@ class ServiceAccountSelector extends ServiceBase {
   @backgroundMethod()
   async buildAccountSelectorAccountsValuesData({
     accounts,
+    linkedNetworkId,
   }: {
     accounts: {
       accountId: string;
@@ -996,8 +979,9 @@ class ServiceAccountSelector extends ServiceBase {
       accountAddress?: string;
       xpub?: string;
     }[];
+    linkedNetworkId?: string;
   }) {
-    const accountsDeFiOverview =
+    const accountsDeFiOverviewRaw =
       await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
         accounts,
       });
@@ -1007,18 +991,52 @@ class ServiceAccountSelector extends ServiceBase {
     // batched form folds N storage reads into one (the SimpleDb entity has
     // caching disabled, so the per-account form paid a fresh
     // deserialization per row — a 50-row selector batch turned into 50
-    // reads).
+    // reads). Extra fields on the account objects are ignored by the callee.
     const accountsValue =
       await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValueByAccountIdBatch(
-        {
-          accounts: accounts.map((a) => ({
-            accountId: a.accountId,
-            accountAddress: a.accountAddress,
-            xpub: a.xpub,
-          })),
-        },
+        { accounts },
       );
-    return { accountsValue, accountsDeFiOverview };
+    // Perps worth is additive display data — a failed lazy-module load must
+    // never break this batch's tokens/DeFi values, so fall back to the raw
+    // overview on any load error.
+    const accountsDeFiOverview = await this._getPerpsWorth()
+      .then((perpsWorth) =>
+        perpsWorth.buildDeFiOverviewWithPerps({
+          accounts,
+          linkedNetworkId,
+          accountsDeFiOverview: accountsDeFiOverviewRaw,
+        }),
+      )
+      .catch(() => accountsDeFiOverviewRaw);
+    return {
+      accountsValue,
+      accountsDeFiOverview,
+    };
+  }
+
+  // Loaded on first use: perps-worth resolution is selector-open code and
+  // its dependency chain (homeWalletTabSupportUtils, perps consts/utils)
+  // must stay out of the native background startup graph, which the Startup
+  // Graph Budget CI check enforces — keep this a dynamic import.
+  private _perpsWorthPromise: Promise<AccountSelectorPerpsWorth> | undefined;
+
+  private async _getPerpsWorth(): Promise<AccountSelectorPerpsWorth> {
+    if (!this._perpsWorthPromise) {
+      this._perpsWorthPromise = import('./utils/accountSelectorPerpsWorth')
+        .then(
+          (m) =>
+            new m.AccountSelectorPerpsWorth({
+              backgroundApi: this.backgroundApi,
+            }),
+        )
+        .catch((error) => {
+          // Drop the failed load so the next call retries, instead of pinning
+          // the rejection on this bg singleton for the rest of the session.
+          this._perpsWorthPromise = undefined;
+          throw error;
+        });
+    }
+    return this._perpsWorthPromise;
   }
 }
 

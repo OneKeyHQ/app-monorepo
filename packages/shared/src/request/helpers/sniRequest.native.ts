@@ -1,4 +1,12 @@
-import * as nativeSniConnect from '@onekeyfe/react-native-sni-connect';
+import {
+  type SniConnectMethod,
+  type SniConnectBodylessMethod as SniConnectNoBodyMethod,
+  type SniConnectOptionalBodyMethod,
+  type SniConnectRequest,
+  type SniConnectRequiredBodyMethod,
+  isProxyActiveForUrl as nativeIsProxyActiveForUrl,
+  request as nativeSniRequest,
+} from '@onekeyfe/react-native-sni-connect';
 
 import { defaultLogger } from '../../logger/logger';
 
@@ -6,8 +14,44 @@ import { safeSniLogValue } from './sniLogRedaction';
 
 import type { ISniRequestConfig, ISniResponse } from '../types/ipTable';
 
-type NativeSniConnectRequest = Parameters<typeof nativeSniConnect.request>[0];
-type NativeSniConnectMethod = NativeSniConnectRequest['method'];
+const SNI_CONNECT_NO_BODY_METHODS = [
+  'GET',
+  'HEAD',
+] as const satisfies readonly SniConnectNoBodyMethod[];
+const SNI_CONNECT_REQUIRED_BODY_METHODS = [
+  'POST',
+  'PUT',
+  'PATCH',
+] as const satisfies readonly SniConnectRequiredBodyMethod[];
+const SNI_CONNECT_OPTIONAL_BODY_METHODS = [
+  'DELETE',
+  'OPTIONS',
+] as const satisfies readonly SniConnectOptionalBodyMethod[];
+const SNI_CONNECT_METHODS = [
+  ...SNI_CONNECT_NO_BODY_METHODS,
+  ...SNI_CONNECT_REQUIRED_BODY_METHODS,
+  ...SNI_CONNECT_OPTIONAL_BODY_METHODS,
+] as const satisfies readonly SniConnectMethod[];
+
+function isSniConnectMethod(method: string): method is SniConnectMethod {
+  return (SNI_CONNECT_METHODS as readonly string[]).includes(method);
+}
+
+function isNoBodyMethod(
+  method: SniConnectMethod,
+): method is SniConnectNoBodyMethod {
+  return (SNI_CONNECT_NO_BODY_METHODS as readonly SniConnectMethod[]).includes(
+    method,
+  );
+}
+
+function isRequiredBodyMethod(
+  method: SniConnectMethod,
+): method is SniConnectRequiredBodyMethod {
+  return (
+    SNI_CONNECT_REQUIRED_BODY_METHODS as readonly SniConnectMethod[]
+  ).includes(method);
+}
 
 /**
  * SNI Request - Native implementation for iOS/Android
@@ -16,9 +60,7 @@ type NativeSniConnectMethod = NativeSniConnectRequest['method'];
 export async function sniRequest(
   config: ISniRequestConfig,
 ): Promise<ISniResponse | null> {
-  const response = await nativeSniConnect.request(
-    buildNativeSniRequest(config),
-  );
+  const response = await nativeSniRequest(buildNativeSniRequest(config));
   const multiValueHeaders = (
     response as typeof response & {
       multiValueHeaders?: Record<string, string[]>;
@@ -45,9 +87,7 @@ class SniInvalidConfigError extends Error {
   }
 }
 
-function buildNativeSniRequest(
-  config: ISniRequestConfig,
-): NativeSniConnectRequest {
+function buildNativeSniRequest(config: ISniRequestConfig): SniConnectRequest {
   const method = normalizeSniMethod(config.method);
   const base = {
     requestId: config.requestId,
@@ -58,14 +98,14 @@ function buildNativeSniRequest(
     timeout: config.timeout,
   };
 
-  if (method === 'GET' || method === 'HEAD') {
+  if (isNoBodyMethod(method)) {
     return {
       ...base,
       method,
     };
   }
 
-  if (method === 'POST' || method === 'PUT' || method === 'PATCH') {
+  if (isRequiredBodyMethod(method)) {
     return {
       ...base,
       method,
@@ -80,25 +120,13 @@ function buildNativeSniRequest(
   };
 }
 
-function normalizeSniMethod(method: string): NativeSniConnectMethod {
-  switch (method.trim().toUpperCase()) {
-    case 'GET':
-      return 'GET';
-    case 'HEAD':
-      return 'HEAD';
-    case 'POST':
-      return 'POST';
-    case 'PUT':
-      return 'PUT';
-    case 'PATCH':
-      return 'PATCH';
-    case 'DELETE':
-      return 'DELETE';
-    case 'OPTIONS':
-      return 'OPTIONS';
-    default:
-      throw new SniInvalidConfigError(`Invalid SNI request method: ${method}`);
+function normalizeSniMethod(method: string): SniConnectMethod {
+  const normalizedMethod = method.trim().toUpperCase();
+  if (isSniConnectMethod(normalizedMethod)) {
+    return normalizedMethod;
   }
+
+  throw new SniInvalidConfigError(`Invalid SNI request method: ${method}`);
 }
 
 /**
@@ -117,11 +145,9 @@ export function isSniSupported(): boolean {
 export async function isProxyActiveForUrl(
   url: string,
 ): Promise<boolean | null> {
-  const preflight = (
-    nativeSniConnect as unknown as {
-      isProxyActiveForUrl?: (targetUrl: string) => Promise<boolean>;
-    }
-  ).isProxyActiveForUrl;
+  const preflight = nativeIsProxyActiveForUrl as unknown as
+    | ((targetUrl: string) => Promise<boolean>)
+    | undefined;
 
   if (typeof preflight !== 'function') {
     logAdapterCapability('warn', {

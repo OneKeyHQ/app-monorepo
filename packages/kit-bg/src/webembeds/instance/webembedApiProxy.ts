@@ -31,6 +31,15 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
         'WebembedApiProxy should only be used in iOS/Android Native env.',
       );
     }
+    if (
+      !platformEnv.isJest &&
+      platformEnv.enableNativeBackgroundThread &&
+      platformEnv.isNativeMainThread
+    ) {
+      throw new OneKeyLocalError(
+        'WebembedApiProxy must be used from the background JS runtime in native dual-runtime builds. Route this call through backgroundApiProxy instead of calling webembed APIs from the UI/main runtime.',
+      );
+    }
   }
 
   override async waitRemoteApiReady(): Promise<void> {

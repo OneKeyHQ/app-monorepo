@@ -3,7 +3,7 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { ConfigProvider } from '@onekeyhq/components';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -21,7 +21,8 @@ function logThemeProvider(message: string) {
 }
 
 function BasicThemeProvider({ children }: PropsWithChildren<unknown>) {
-  const [{ theme: themeSetting }] = useSettingsPersistAtom();
+  const [{ hapticFeedbackEnabled, theme: themeSetting }] =
+    useSettingsPersistAtom();
   const themeVariant = useThemeVariant();
   const localeVariant = useLocaleVariant();
   logThemeProvider(
@@ -44,13 +45,21 @@ function BasicThemeProvider({ children }: PropsWithChildren<unknown>) {
         theme={themeVariant as any}
         themeSetting={themeSetting}
         locale={localeVariant}
+        hapticFeedbackEnabled={hapticFeedbackEnabled ?? true}
         HyperlinkText={HyperlinkText}
         onLocaleChange={handleLocalChange}
       >
         {children}
       </ConfigProvider>
     );
-  }, [themeSetting, themeVariant, localeVariant, handleLocalChange, children]);
+  }, [
+    themeSetting,
+    themeVariant,
+    localeVariant,
+    hapticFeedbackEnabled,
+    handleLocalChange,
+    children,
+  ]);
 }
 
 export const ThemeProvider = memo(BasicThemeProvider);

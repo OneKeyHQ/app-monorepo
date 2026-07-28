@@ -226,7 +226,7 @@ export const thirdPartyHardwareAdapterRegistry = {
     } catch (error) {
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Registry] trezor warm-load failed: ${
-          (error as Error)?.message ?? String(error)
+          error instanceof Error ? error.message : String(error)
         }`,
       );
     }
