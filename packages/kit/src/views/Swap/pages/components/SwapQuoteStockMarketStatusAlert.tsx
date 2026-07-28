@@ -84,7 +84,9 @@ export function SwapQuoteStockMarketStatusAlert({
     scopeKey: marketScopeKey,
   });
 
-  if (!isCurrentMarketClosedError) {
+  const isMarketConfirmedClosed =
+    stockDetail?.tokenDetail?.stock?.isOpen === false;
+  if (!isCurrentMarketClosedError || !isMarketConfirmedClosed) {
     return null;
   }
 
