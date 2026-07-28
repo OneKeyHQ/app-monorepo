@@ -37,6 +37,37 @@ export enum ESwapStockTradeSide {
   Sell = 'sell',
 }
 
+export const SWAP_STOCK_PAY_TOKEN_SCOPE_CACHE_MAX_ENTRIES = 20;
+
+export function upsertSwapStockPayTokenScopeCache<T>({
+  cache,
+  scope,
+  value,
+}: {
+  cache: Record<string, T>;
+  scope: string;
+  value: T;
+}): Record<string, T> {
+  const entries = Object.entries(cache).filter(([key]) => key !== scope);
+  entries.push([scope, value]);
+  return Object.fromEntries(
+    entries.slice(-SWAP_STOCK_PAY_TOKEN_SCOPE_CACHE_MAX_ENTRIES),
+  );
+}
+
+export function resolveStockExecutionTokensForTradeSideSwitch({
+  payToken,
+  stockToken,
+}: {
+  payToken?: ISwapToken;
+  stockToken?: ISwapToken;
+}): { payToken: ISwapToken; stockToken: ISwapToken } | undefined {
+  if (!payToken || !stockToken) {
+    return undefined;
+  }
+  return { payToken, stockToken };
+}
+
 export function resolveStockExecutionTokensToSync({
   currentFromToken,
   currentToToken,

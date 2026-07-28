@@ -40,6 +40,7 @@ import {
   getTokenIdentityKey,
   isStockTradeReadyForQuote,
   resolveStockChannelSwapPair,
+  resolveStockExecutionTokensForTradeSideSwitch,
   resolveStockExecutionTokensToSync,
   shouldResetStockTradeReceiveAmount,
 } from './swapStockChannelUtils';
@@ -430,21 +431,25 @@ export function useSwapStockChannel() {
       if (nextTradeSide === tradeSide) {
         return;
       }
-      const stockTokenForSwitch =
-        stockTokenSnapshotRef.current ?? currentStockToken;
-      const payTokenForSwitch = payTokenSnapshotRef.current ?? payToken;
+      const executionTokensForSwitch =
+        resolveStockExecutionTokensForTradeSideSwitch({
+          stockToken: stockTokenSnapshotRef.current ?? currentStockToken,
+          payToken: payTokenSnapshotRef.current ?? selectedPayToken,
+        });
       setTradeSideState(nextTradeSide);
       resetStockTradeAmounts();
+      if (!executionTokensForSwitch) {
+        return;
+      }
       await syncStockExecutionTokens({
         nextTradeSide,
-        stockToken: stockTokenForSwitch,
-        payToken: payTokenForSwitch,
+        ...executionTokensForSwitch,
       });
     },
     [
       currentStockToken,
-      payToken,
       resetStockTradeAmounts,
+      selectedPayToken,
       syncStockExecutionTokens,
       tradeSide,
     ],

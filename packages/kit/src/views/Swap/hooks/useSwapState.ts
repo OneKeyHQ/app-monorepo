@@ -564,6 +564,12 @@ export function useSwapActionState() {
     manualRefreshRequired: isRefreshQuote,
   });
   const noConnectWallet = alerts.states.some((item) => item.noConnectWallet);
+  const quoteKind =
+    swapTypeSwitchValue === ESwapTabSwitchType.LIMIT &&
+    toTokenAmount.isInput &&
+    toTokenAmount.value
+      ? ESwapQuoteKind.BUY
+      : ESwapQuoteKind.SELL;
   const quoteRequestMatchesCurrentInput = useMemo(
     () =>
       isSwapQuoteRequestForCurrentInput({
@@ -573,7 +579,7 @@ export function useSwapActionState() {
         currentSwapType: swapTypeSwitchValue,
         fromAmount: fromTokenAmount.value,
         fromToken,
-        quoteKind: ESwapQuoteKind.SELL,
+        quoteKind,
         quoteRequest: quoteActionLock,
         toAmount: toTokenAmount.value,
         toToken,
@@ -582,6 +588,7 @@ export function useSwapActionState() {
       fromToken,
       fromTokenAmount.value,
       quoteActionLock,
+      quoteKind,
       swapFromAddressInfo.accountInfo?.account?.id,
       swapFromAddressInfo.address,
       swapTypeSwitchValue,

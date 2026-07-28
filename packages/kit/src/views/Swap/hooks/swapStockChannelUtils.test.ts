@@ -3,6 +3,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapStockChannelAsyncStatus,
   ESwapStockTradeSide,
+  SWAP_STOCK_PAY_TOKEN_SCOPE_CACHE_MAX_ENTRIES,
   backfillSwapProTokenStockIdentity,
   buildStockPayTokenDisplaySeed,
   buildStockSwapTokenFromMarketListToken,
@@ -15,6 +16,7 @@ import {
   resolveStockBalanceSnapshot,
   resolveStockBalanceViewState,
   resolveStockChannelSwapPair,
+  resolveStockExecutionTokensForTradeSideSwitch,
   resolveStockExecutionTokensToSync,
   resolveStockKLineToken,
   resolveStockPayTokenDisplaySeed,
@@ -22,6 +24,7 @@ import {
   shouldLoadDefaultStockToken,
   shouldRenderStockTradeInputSkeleton,
   shouldResetStockTradeReceiveAmount,
+  upsertSwapStockPayTokenScopeCache,
 } from './swapStockChannelUtils';
 
 const usdcToken: ISwapToken = {
@@ -474,6 +477,55 @@ describe('swapStockChannelUtils', () => {
       fromToken: usdtToken,
       toToken: appleStockToken,
     });
+  });
+
+  it('does not build trade-side execution tokens without a live pay token', () => {
+    expect(
+      resolveStockExecutionTokensForTradeSideSwitch({
+        stockToken: appleStockToken,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockExecutionTokensForTradeSideSwitch({
+        payToken: usdcPayToken,
+        stockToken: appleStockToken,
+      }),
+    ).toEqual({
+      payToken: usdcPayToken,
+      stockToken: appleStockToken,
+    });
+  });
+
+  it('bounds account-scoped pay-token caches and retains recent writes', () => {
+    let cache: Record<string, string> = {};
+    for (
+      let index = 0;
+      index <= SWAP_STOCK_PAY_TOKEN_SCOPE_CACHE_MAX_ENTRIES;
+      index += 1
+    ) {
+      cache = upsertSwapStockPayTokenScopeCache({
+        cache,
+        scope: `scope-${index}`,
+        value: `token-${index}`,
+      });
+    }
+
+    expect(Object.keys(cache)).toHaveLength(
+      SWAP_STOCK_PAY_TOKEN_SCOPE_CACHE_MAX_ENTRIES,
+    );
+    expect(cache['scope-0']).toBeUndefined();
+    expect(cache['scope-1']).toBe('token-1');
+    expect(cache[`scope-${SWAP_STOCK_PAY_TOKEN_SCOPE_CACHE_MAX_ENTRIES}`]).toBe(
+      `token-${SWAP_STOCK_PAY_TOKEN_SCOPE_CACHE_MAX_ENTRIES}`,
+    );
+
+    cache = upsertSwapStockPayTokenScopeCache({
+      cache,
+      scope: 'scope-1',
+      value: 'token-1-updated',
+    });
+    expect(Object.keys(cache).at(-1)).toBe('scope-1');
+    expect(cache['scope-1']).toBe('token-1-updated');
   });
 
   it('keeps the buy-side pay token visible during non-initial readiness refreshes', () => {

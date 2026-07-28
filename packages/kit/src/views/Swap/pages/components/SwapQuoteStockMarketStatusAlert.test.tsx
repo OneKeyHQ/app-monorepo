@@ -264,6 +264,26 @@ describe('SwapQuoteStockMarketStatusAlert', () => {
     );
   });
 
+  it('falls back to a generic closed alert after Market detail settles empty', () => {
+    mockStockDetailResult = {
+      pending: false,
+    };
+
+    render(<SwapQuoteStockMarketStatusAlert onMarketReopen={jest.fn()} />);
+
+    expect(mockResolveStockMarketStatusCase).toHaveBeenCalledWith({
+      hasOpenTime: false,
+      hasPerps: false,
+      isOpen: false,
+    });
+    expect(mockStockMarketStatusAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        onTradePerps: undefined,
+        timeText: undefined,
+      }),
+    );
+  });
+
   it('refreshes once when the first Market detail says the market reopened', () => {
     const onMarketReopen = jest.fn();
     mockStockDetailResult = {

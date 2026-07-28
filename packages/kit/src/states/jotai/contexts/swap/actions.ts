@@ -1706,7 +1706,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         toToken,
         fromTokenAmount: fromTokenAmount.value,
         toTokenAmount: toTokenAmount.value,
-        kind,
+        kind: quoteKind,
         accountId,
         address,
         receivingAddress,
@@ -3232,35 +3232,42 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const oldVisibleType = getVisibleSwapTabSwitchType(oldType) ?? oldType;
       let currentFromToken = get(swapSelectFromTokenAtom());
       let currentToToken = get(swapSelectToTokenAtom());
-      const isNativeLimitSwitch =
-        platformEnv.isNative &&
-        (oldVisibleType === ESwapTabSwitchType.LIMIT ||
-          normalizedType === ESwapTabSwitchType.LIMIT);
-      const shouldSwitchInputAmountDraft =
-        !isNativeLimitSwitch &&
+      const shouldHandleInputAmountDraft =
         oldVisibleType !== normalizedType &&
         isIndependentSwapInputAmountType(oldVisibleType) &&
         isIndependentSwapInputAmountType(normalizedType);
+      // Native Limit owns its own amount state. Preserve the non-Limit side in
+      // the shared draft map without copying the Limit owner's state into it.
+      const shouldSaveInputAmountDraft =
+        shouldHandleInputAmountDraft &&
+        (!platformEnv.isNative || oldVisibleType !== ESwapTabSwitchType.LIMIT);
+      const shouldRestoreInputAmountDraft =
+        shouldHandleInputAmountDraft &&
+        (!platformEnv.isNative || normalizedType !== ESwapTabSwitchType.LIMIT);
       let targetInputAmountDraft: ISwapInputAmountDraft | undefined;
-      if (shouldSwitchInputAmountDraft) {
+      if (shouldSaveInputAmountDraft || shouldRestoreInputAmountDraft) {
         const inputAmountDrafts = get(swapInputAmountDraftsAtom());
-        const currentInputAmountDraft = buildSwapInputAmountDraft({
-          fromTokenAmount: get(swapFromTokenAmountAtom()),
-          toTokenAmount: get(swapToTokenAmountAtom()),
-          fromToken: currentFromToken,
-          toToken: currentToToken,
-        });
-        const shouldPreservePendingStockDraft =
-          oldVisibleType === ESwapTabSwitchType.STOCK &&
-          Boolean(inputAmountDrafts[ESwapTabSwitchType.STOCK]) &&
-          !currentInputAmountDraft;
-        set(swapInputAmountDraftsAtom(), {
-          ...inputAmountDrafts,
-          [oldVisibleType]: shouldPreservePendingStockDraft
-            ? inputAmountDrafts[ESwapTabSwitchType.STOCK]
-            : currentInputAmountDraft,
-        });
-        targetInputAmountDraft = inputAmountDrafts[normalizedType];
+        if (shouldSaveInputAmountDraft) {
+          const currentInputAmountDraft = buildSwapInputAmountDraft({
+            fromTokenAmount: get(swapFromTokenAmountAtom()),
+            toTokenAmount: get(swapToTokenAmountAtom()),
+            fromToken: currentFromToken,
+            toToken: currentToToken,
+          });
+          const shouldPreservePendingStockDraft =
+            oldVisibleType === ESwapTabSwitchType.STOCK &&
+            Boolean(inputAmountDrafts[ESwapTabSwitchType.STOCK]) &&
+            !currentInputAmountDraft;
+          set(swapInputAmountDraftsAtom(), {
+            ...inputAmountDrafts,
+            [oldVisibleType]: shouldPreservePendingStockDraft
+              ? inputAmountDrafts[ESwapTabSwitchType.STOCK]
+              : currentInputAmountDraft,
+          });
+        }
+        targetInputAmountDraft = shouldRestoreInputAmountDraft
+          ? inputAmountDrafts[normalizedType]
+          : undefined;
         set(swapFromTokenAmountAtom(), { value: '', isInput: false });
         set(swapToTokenAmountAtom(), { value: '', isInput: false });
       }

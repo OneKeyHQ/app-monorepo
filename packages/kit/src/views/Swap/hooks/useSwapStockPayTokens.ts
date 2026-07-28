@@ -33,6 +33,7 @@ import {
   findTokenFromCandidates,
   getTokenIdentityKey,
   resolveStockPayTokenDisplaySeed,
+  upsertSwapStockPayTokenScopeCache,
 } from './swapStockChannelUtils';
 import { markStockUsdPriceCurrency } from './swapStockFiatValueUtils';
 import {
@@ -570,10 +571,11 @@ export function useSwapStockPayTokens({
       if (prev[stockPayTokenPreferenceScope] === manualPayTokenKey) {
         return prev;
       }
-      return {
-        ...prev,
-        [stockPayTokenPreferenceScope]: manualPayTokenKey,
-      };
+      return upsertSwapStockPayTokenScopeCache({
+        cache: prev,
+        scope: stockPayTokenPreferenceScope,
+        value: manualPayTokenKey,
+      });
     });
   }, [
     manualStockPayTokenKeyRef,
@@ -604,10 +606,11 @@ export function useSwapStockPayTokens({
       if (isEqual(prev[stockPayTokenPreferenceScope], nextDisplaySeed)) {
         return prev;
       }
-      return {
-        ...prev,
-        [stockPayTokenPreferenceScope]: nextDisplaySeed,
-      };
+      return upsertSwapStockPayTokenScopeCache({
+        cache: prev,
+        scope: stockPayTokenPreferenceScope,
+        value: nextDisplaySeed,
+      });
     });
   }, [
     displayPayTokenCandidate,
