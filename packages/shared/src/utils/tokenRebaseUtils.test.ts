@@ -85,6 +85,13 @@ describe('tokenRebaseUtils', () => {
           decimals: 8,
         }),
       ).toBe('4.4');
+      expect(
+        tokenRebaseUtils.removeBalanceMultiplier({
+          amount: '4.4',
+          balanceMultiplier: '--',
+          decimals: 8,
+        }),
+      ).toBe('4.4');
     });
 
     it('divides and floors at token decimals', () => {
@@ -201,6 +208,101 @@ describe('tokenRebaseUtils', () => {
           decimals: undefined as unknown as number,
         }),
       ).toBe('1');
+    });
+  });
+
+  describe('normalizers', () => {
+    const M = '1.0026642075893797';
+
+    it('normalizeTokenDetailItemsBalanceMultiplier syncs item-level and info-level', () => {
+      const itemLevel = {
+        info: { decimals: 8, address: 'x', symbol: 'AAPLx' },
+        balance: '4',
+        balanceParsed: '4',
+        fiatValue: '0',
+        price: 0,
+        balanceMultiplier: M,
+      } as any;
+      const infoLevel = {
+        info: {
+          decimals: 8,
+          address: 'y',
+          symbol: 'TSLAx',
+          balanceMultiplier: M,
+        },
+        balance: '1',
+        balanceParsed: '1',
+        fiatValue: '0',
+        price: 0,
+      } as any;
+      const plain = {
+        info: { decimals: 6, address: 'z', symbol: 'USDC' },
+        balance: '1',
+        balanceParsed: '1',
+        fiatValue: '1',
+        price: 1,
+      } as any;
+
+      tokenRebaseUtils.normalizeTokenDetailItemsBalanceMultiplier([
+        itemLevel,
+        infoLevel,
+        plain,
+      ]);
+
+      expect(itemLevel.info.balanceMultiplier).toBe(M);
+      expect(infoLevel.balanceMultiplier).toBe(M);
+      expect(plain.balanceMultiplier).toBeUndefined();
+      expect(plain.info.balanceMultiplier).toBeUndefined();
+    });
+
+    it('normalizeAccountTokensRespBalanceMultiplier syncs data[] and map', () => {
+      const $key = 'sol--101_Xsb';
+      const resp = {
+        tokens: {
+          data: [{ $key, address: 'Xsb', decimals: 8, balanceMultiplier: M }],
+          keys: '',
+          map: {
+            [$key]: {
+              balance: '4',
+              balanceParsed: '4',
+              fiatValue: '0',
+              price: 0,
+            },
+          },
+        },
+        riskTokens: { data: [], keys: '', map: {} },
+        smallBalanceTokens: { data: [], keys: '', map: {} },
+      } as any;
+
+      tokenRebaseUtils.normalizeAccountTokensRespBalanceMultiplier(resp);
+
+      expect(resp.tokens.map[$key].balanceMultiplier).toBe(M);
+    });
+
+    it('map-level multiplier wins over data-level and mirrors both ways', () => {
+      const $key = 'sol--101_Y';
+      const resp = {
+        tokens: {
+          data: [{ $key, address: 'Y', decimals: 8, balanceMultiplier: '2' }],
+          keys: '',
+          map: {
+            [$key]: {
+              balance: '4',
+              balanceParsed: '4',
+              fiatValue: '0',
+              price: 0,
+              balanceMultiplier: '3',
+            },
+          },
+        },
+        riskTokens: { data: [], keys: '', map: {} },
+        smallBalanceTokens: { data: [], keys: '', map: {} },
+      } as any;
+
+      tokenRebaseUtils.normalizeAccountTokensRespBalanceMultiplier(resp);
+
+      expect(resp.tokens.data[0].balanceMultiplier).toBe('3');
+      expect(resp.tokens.map[$key].balanceMultiplier).toBe('3');
     });
   });
 });

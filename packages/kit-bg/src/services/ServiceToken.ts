@@ -23,6 +23,7 @@ import perfUtils, {
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   buildTokenSearchKeywordQueries,
   filterAccountTokenListByLimit,
@@ -741,13 +742,16 @@ class ServiceToken extends ServiceBase {
 
     return result.map((item) => ({
       ...item,
-      tokens: item.tokens.map((token) => ({
-        ...token,
-        info: {
-          ...token.info,
-          networkId,
-        },
-      })),
+      tokens:
+        tokenRebaseUtils.normalizeTokenDetailItemsBalanceMultiplier(
+          item.tokens.map((token) => ({
+            ...token,
+            info: {
+              ...token.info,
+              networkId,
+            },
+          })),
+        ) ?? [],
     }));
   }
 

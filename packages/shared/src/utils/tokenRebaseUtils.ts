@@ -2,6 +2,11 @@ import BigNumber from 'bignumber.js';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import type {
+  IFetchAccountTokensResp,
+  IFetchTokenDetailItem,
+} from '../../types/token';
+
 /**
  * Utilities for "rebase" / scaled-UI tokens (e.g. xStocks on Solana
  * Token-2022 Scaled UI Amount and TON TEP-0526).
@@ -11,8 +16,9 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
  *   (state, cache, ITransferInfo.amount).
  * - Display leaves show `balanceParsed × balanceMultiplier`.
  * - Transaction building converts user-entered display amounts back to raw
- *   (`÷ balanceMultiplier`, floored at token decimals); max-send uses the raw
- *   balance directly and must never go through the division.
+ *   (`÷ balanceMultiplier`, truncated (ROUND_DOWN) at token decimals);
+ *   max-send uses the raw balance directly and must never go through the
+ *   division.
  * - `fiatValue` / `netWorth` arrive already multiplied by the server; never
  *   multiply fiat values client-side.
  * - The multiplier used when building a transaction MUST come from the same
@@ -80,9 +86,9 @@ function applyBalanceMultiplier({
   return amountBN.times(multiplierBN).toFixed();
 }
 
-// display amount -> raw parsed amount, floored at token decimals so the
-// subsequent shiftedBy(decimals) yields an integer that never exceeds the
-// raw balance.
+// display amount -> raw parsed amount, truncated (ROUND_DOWN) at token
+// decimals so the subsequent shiftedBy(decimals) yields an integer that
+// never exceeds the raw balance.
 function removeBalanceMultiplier({
   amount,
   balanceMultiplier,
@@ -110,8 +116,60 @@ function removeBalanceMultiplier({
     .toFixed(decimals, BigNumber.ROUND_DOWN);
 }
 
+// Server payload placement is not guaranteed (item-level next to `balance`
+// vs. inside `info`); accept either and mirror onto both levels so
+// downstream code can read it from IToken (tx building, getToken /
+// localTokens) or ITokenFiat (display leaves subscribing to the fiat map)
+// alike. When both levels are present, the balance-adjacent level wins.
+function normalizeTokenDetailItemsBalanceMultiplier<
+  T extends IFetchTokenDetailItem | undefined,
+>(items: T[] | undefined): T[] | undefined {
+  items?.forEach((item) => {
+    if (!item) return;
+    const multiplier = item.balanceMultiplier ?? item.info.balanceMultiplier;
+    if (isValidBalanceMultiplier(multiplier)) {
+      item.balanceMultiplier = multiplier;
+      item.info.balanceMultiplier = multiplier;
+    }
+  });
+  return items;
+}
+
+// Same item-level vs. info-level ambiguity as above, but for the account
+// token list response: each group (tokens / riskTokens / smallBalanceTokens
+// / allTokens) carries a `data[]` array (IAccountToken, i.e. IToken) and a
+// parallel `map` keyed by `$key` (ITokenFiat). Mirror the multiplier onto
+// both so display (reads map) and tx building (reads data/IToken) agree.
+// When both are present, the map (fiat, balance-adjacent) level wins.
+function normalizeAccountTokensRespBalanceMultiplier(
+  resp: IFetchAccountTokensResp | undefined,
+): IFetchAccountTokensResp | undefined {
+  if (!resp) return resp;
+  [
+    resp.allTokens,
+    resp.tokens,
+    resp.riskTokens,
+    resp.smallBalanceTokens,
+  ].forEach((group) => {
+    if (!group) return;
+    group.data?.forEach((token) => {
+      const fiat = group.map?.[token.$key];
+      const multiplier = fiat?.balanceMultiplier ?? token.balanceMultiplier;
+      if (isValidBalanceMultiplier(multiplier)) {
+        token.balanceMultiplier = multiplier;
+        if (fiat) {
+          fiat.balanceMultiplier = multiplier;
+        }
+      }
+    });
+  });
+  return resp;
+}
+
 export default {
   isValidBalanceMultiplier,
   applyBalanceMultiplier,
   removeBalanceMultiplier,
+  normalizeTokenDetailItemsBalanceMultiplier,
+  normalizeAccountTokensRespBalanceMultiplier,
 };
