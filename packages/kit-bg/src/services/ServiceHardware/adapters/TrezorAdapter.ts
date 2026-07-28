@@ -852,6 +852,33 @@ export class TrezorAdapter
     }
   }
 
+  // A failed connect can leave a zombie BLE link behind: the SDK's
+  // session-init failure path throws without closing its transport, the
+  // main-process link still reads "connected" and gets reused, and every
+  // retry then talks into the dead pipe ("Malformed protocol format").
+  // Best-effort teardown so the next attempt rebuilds a real link. No-op
+  // off desktop, for USB connectIds, and when no link is actually held.
+  private async _teardownBleLinkAfterFailure(connectId: string): Promise<void> {
+    try {
+      const bridge = (
+        globalThis as {
+          window?: {
+            desktopApi?: {
+              thirdPartyBle?: { disconnect?: (id: string) => Promise<unknown> };
+            };
+          };
+        }
+      ).window?.desktopApi?.thirdPartyBle;
+      if (!bridge?.disconnect) return;
+      await bridge.disconnect(connectId);
+      defaultLogger.hardware.sdkLog.log(
+        `[3rdPartyHW][Trezor] post-failure BLE link teardown done connectId=${connectId}`,
+      );
+    } catch {
+      // nothing to release
+    }
+  }
+
   async connectDevice(
     connectId: string,
   ): Promise<Response<IThirdPartyConnectedDevicePayload>> {
@@ -877,6 +904,7 @@ export class TrezorAdapter
         defaultLogger.hardware.sdkLog.log(
           `[3rdPartyHW][Trezor] connectDevice FAILURE payload=${payloadStr}`,
         );
+        await this._teardownBleLinkAfterFailure(connectId);
       }
       if (result.success) {
         const info = await this.hw.getDeviceInfo(connectId, result.payload);
