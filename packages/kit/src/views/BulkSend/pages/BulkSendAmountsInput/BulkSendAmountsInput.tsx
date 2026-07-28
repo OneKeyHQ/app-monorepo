@@ -1671,6 +1671,17 @@ function BulkSendAmountsInputContent({
   }, [bulkSendMode, isMaxMode, senderBalances, transfersInfo]);
 
   useEffect(() => {
+    // ITransferInfo.amount is display-basis while it lives on this page, so
+    // strip any scaled-UI multiplier the route token happens to carry:
+    // display leaves (BulkSendTxDetails / BulkSendProcessItem) re-derive
+    // display amounts from tokenInfo.balanceMultiplier and must treat these
+    // amounts as-is. The submit conversion stamps the snapshot multiplier
+    // back at the moment amounts become raw, making "tokenInfo carries a
+    // multiplier" synonymous with "amount is raw".
+    const transferTokenInfo: IToken = {
+      ...tokenInfo,
+      balanceMultiplier: undefined,
+    };
     const generateTransfersInfo = (): ITransferInfo[] => {
       switch (bulkSendMode) {
         case EBulkSendMode.OneToMany: {
@@ -1680,7 +1691,7 @@ function BulkSendAmountsInputContent({
             from: sender.address,
             to: receiver.address,
             amount: receiver.amount ?? '',
-            tokenInfo,
+            tokenInfo: transferTokenInfo,
           }));
         }
         case EBulkSendMode.ManyToOne: {
@@ -1690,7 +1701,7 @@ function BulkSendAmountsInputContent({
             from: sender.address,
             to: receiver.address,
             amount: sender.amount ?? '',
-            tokenInfo,
+            tokenInfo: transferTokenInfo,
           }));
         }
         case EBulkSendMode.ManyToMany: {
@@ -1703,7 +1714,7 @@ function BulkSendAmountsInputContent({
             from: sender.address,
             to: receivers[i].address,
             amount: receivers[i].amount ?? sender.amount ?? '',
-            tokenInfo,
+            tokenInfo: transferTokenInfo,
           }));
         }
         default:
