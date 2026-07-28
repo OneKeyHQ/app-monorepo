@@ -432,9 +432,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
         if (payload.params.customNetworks) {
           // Dynamic import keeps the merge helper out of the native
           // background startup graph (Startup Graph Budget check).
-          const { mergeBatchCreateCustomNetworks } = await import(
-            './batchCreateCustomNetworks'
-          );
+          const { mergeBatchCreateCustomNetworks } =
+            await import('./batchCreateCustomNetworks');
           customNetworks = mergeBatchCreateCustomNetworks({
             defaultNetworks: customNetworks,
             customNetworks: payload.params.customNetworks,

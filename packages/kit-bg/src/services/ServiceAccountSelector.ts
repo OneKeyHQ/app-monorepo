@@ -32,6 +32,7 @@ import {
   shouldSyncAccountSelectorHomeAndSwapScenes,
 } from './utils/accountSelectorHomeSyncUtils';
 
+import type { AccountSelectorPerpsWorth } from './utils/accountSelectorPerpsWorth';
 import type {
   IDBAccount,
   IDBDevice,
@@ -50,7 +51,6 @@ import type {
   IAccountDeriveTypes,
   IVaultSettings,
 } from '../vaults/types';
-import type { AccountSelectorPerpsWorth } from './utils/accountSelectorPerpsWorth';
 
 @backgroundClass()
 class ServiceAccountSelector extends ServiceBase {
@@ -1141,14 +1141,13 @@ class ServiceAccountSelector extends ServiceBase {
 
   private async _getPerpsWorth(): Promise<AccountSelectorPerpsWorth> {
     if (!this._perpsWorthPromise) {
-      this._perpsWorthPromise = import(
-        './utils/accountSelectorPerpsWorth'
-      ).then(
-        (m) =>
-          new m.AccountSelectorPerpsWorth({
-            backgroundApi: this.backgroundApi,
-          }),
-      );
+      this._perpsWorthPromise =
+        import('./utils/accountSelectorPerpsWorth').then(
+          (m) =>
+            new m.AccountSelectorPerpsWorth({
+              backgroundApi: this.backgroundApi,
+            }),
+        );
     }
     return this._perpsWorthPromise;
   }
