@@ -17,12 +17,10 @@ import {
   getTradingViewNativeMaxVolume,
   getTradingViewNativePriceAtY,
   getTradingViewNativePriceExtremumHorizontalLayout,
-  getTradingViewNativePriceTransform,
   getTradingViewNativePriceY,
   getTradingViewNativeTimeAxisLayout,
   getTradingViewNativeTimeTickMinimumIndexSpacing,
   getTradingViewNativeVolumeBarHeight,
-  getTradingViewNativeVolumeScale,
   getTradingViewNativeWatermarkLayout,
 } from './chartLayout';
 
@@ -152,7 +150,7 @@ describe('TradingViewNative chart layout', () => {
     expect(getTradingViewNativePriceY(layout.maxPrice, layout)).toBe(24);
   });
 
-  it('scales volume against the currently visible candles', () => {
+  it('derives max volume from the currently visible candles', () => {
     const points = buildPoints({
       count: 4,
       startTimestamp: getLocalTimestamp(2025, 0, 15),
@@ -176,62 +174,30 @@ describe('TradingViewNative chart layout', () => {
       getTradingViewNativeMaxVolume({ ...visiblePointRange, points }),
     ).toBe(10);
     expect(layout?.maxVolume).toBe(10);
+  });
+
+  it('calculates volume bar height only for positive finite values', () => {
     expect(
-      getTradingViewNativeVolumeScale({
-        baseMaxVolume: 1000,
-        visibleMaxVolume: 10,
+      getTradingViewNativeVolumeBarHeight({
+        maxVolume: 10,
+        volume: 5,
+        volumeHeight: 100,
       }),
-    ).toBe(100);
+    ).toBe(50);
     expect(
-      getTradingViewNativeVolumeScale({
-        baseMaxVolume: 1000,
-        visibleMaxVolume: 0,
+      getTradingViewNativeVolumeBarHeight({
+        maxVolume: 10,
+        volume: 0,
+        volumeHeight: 100,
       }),
-    ).toBe(1);
-  });
-
-  it('preserves small volume ratios before applying the visible scale', () => {
-    const baseMaxVolume = 1000;
-    const visibleScale = getTradingViewNativeVolumeScale({
-      baseMaxVolume,
-      visibleMaxVolume: 10,
-    });
-    const scaledHeights = [1, 5, 10].map(
-      (volume) =>
-        getTradingViewNativeVolumeBarHeight({
-          maxVolume: baseMaxVolume,
-          volume,
-          volumeHeight: 100,
-        }) * visibleScale,
-    );
-
-    expect(scaledHeights).toEqual([10, 50, 100]);
-  });
-
-  it('maps a static price picture into the visible price range', () => {
-    const transform = getTradingViewNativePriceTransform({
-      baseMaxPrice: 10,
-      basePriceRange: 10,
-      priceChartHeight: 100,
-      targetMaxPrice: 8,
-      targetPriceRange: 4,
-    });
-    const mapY = (y: number) => y * transform.scaleY + transform.translateY;
-
-    expect(mapY(44)).toBeCloseTo(24);
-    expect(mapY(84)).toBeCloseTo(124);
-  });
-
-  it('centers a flat visible price range', () => {
-    const transform = getTradingViewNativePriceTransform({
-      baseMaxPrice: 10,
-      basePriceRange: 10,
-      priceChartHeight: 100,
-      targetMaxPrice: 7,
-      targetPriceRange: 0,
-    });
-
-    expect(54 * transform.scaleY + transform.translateY).toBeCloseTo(74);
+    ).toBe(0);
+    expect(
+      getTradingViewNativeVolumeBarHeight({
+        maxVolume: 10,
+        volume: Number.POSITIVE_INFINITY,
+        volumeHeight: 100,
+      }),
+    ).toBe(0);
   });
 
   it('centers the watermark and keeps it inside small canvases', () => {

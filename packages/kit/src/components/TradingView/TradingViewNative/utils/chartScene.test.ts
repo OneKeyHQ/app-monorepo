@@ -111,6 +111,32 @@ describe('TradingViewNative shared chart scene', () => {
     ]);
   });
 
+  it('omits empty volume and keeps small positive volume visible', () => {
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      crosshair: { visible: false, x: 0, y: 0 },
+      height: 240,
+      measureTextWidth: () => 0,
+      points: [
+        { ...POINTS[0], v: 0 },
+        { ...POINTS[1], v: 100 },
+        { ...POINTS[2], v: 0.000_001 },
+      ],
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 320,
+    });
+    const volumeBarHeights = scene.commands.flatMap((command) =>
+      command.kind === 'rect' &&
+      (command.paint === 'upVolume' || command.paint === 'downVolume')
+        ? [command.height]
+        : [],
+    );
+
+    expect(volumeBarHeights).toHaveLength(2);
+    expect(volumeBarHeights).toContain(1);
+  });
+
   it('maps semantic paints to the same platform-neutral colors', () => {
     const styles = getTradingViewNativeChartScenePaintStyles({
       axisText: '#111111',

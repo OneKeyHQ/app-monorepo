@@ -32,11 +32,6 @@ export interface ITradingViewNativeDataUpdateMetadata {
   latestTimestamp: number | undefined;
 }
 
-export interface ITradingViewNativeViewportOffsetTransition {
-  nextOffset: number;
-  offsetDelta: number;
-}
-
 export type ITradingViewNativeViewportTarget =
   | {
       kind: 'timestamp';
@@ -385,38 +380,6 @@ export function getTradingViewNativePanOffsetAfterDataUpdate({
     pointCount,
     zoomScale,
   });
-}
-
-export function getTradingViewNativeViewportOffsetTransition({
-  appendedPointCount,
-  candleGap,
-  chartWidth,
-  currentOffset,
-  pointCount,
-  zoomScale,
-}: {
-  appendedPointCount: number;
-  candleGap?: number;
-  chartWidth: number;
-  currentOffset: number;
-  pointCount: number;
-  zoomScale: number;
-}): ITradingViewNativeViewportOffsetTransition {
-  'worklet';
-
-  const resolvedCandleGap = candleGap ?? TRADING_VIEW_NATIVE_CANDLE_GAP;
-  const nextOffset = getTradingViewNativePanOffsetAfterDataUpdate({
-    appendedPointCount,
-    candleGap: resolvedCandleGap,
-    chartWidth,
-    currentOffset,
-    pointCount,
-    zoomScale,
-  });
-  return {
-    nextOffset,
-    offsetDelta: nextOffset - currentOffset,
-  };
 }
 
 export function getTradingViewNativeGestureStartOffsetAfterDataUpdate({

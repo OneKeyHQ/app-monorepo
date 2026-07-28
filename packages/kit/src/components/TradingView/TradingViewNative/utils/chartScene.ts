@@ -40,6 +40,7 @@ import {
   getTradingViewNativePriceExtremumHorizontalLayout,
   getTradingViewNativePriceY,
   getTradingViewNativeTimeTickMinimumIndexSpacing,
+  getTradingViewNativeVolumeBarHeight,
   getTradingViewNativeWatermarkLayout,
 } from './chartLayout';
 import {
@@ -464,18 +465,20 @@ export function buildTradingViewNativeChartScene({
           y: Math.min(openY, closeY),
         },
       );
-      if (maxVolume > 0 && Number.isFinite(point.v) && point.v > 0) {
-        const volumeBarHeight = Math.max(
-          (point.v / maxVolume) * volumeHeight,
-          1,
-        );
+      const volumeBarHeight = getTradingViewNativeVolumeBarHeight({
+        maxVolume,
+        volume: point.v,
+        volumeHeight,
+      });
+      if (volumeBarHeight > 0) {
+        const renderedVolumeBarHeight = Math.max(volumeBarHeight, 1);
         commands.push({
-          height: volumeBarHeight,
+          height: renderedVolumeBarHeight,
           kind: 'rect',
           paint: paint === 'up' ? 'upVolume' : 'downVolume',
           width: candleBodyWidth,
           x: x - candleBodyWidth / 2,
-          y: volumeBottom - volumeBarHeight,
+          y: volumeBottom - renderedVolumeBarHeight,
         });
       }
     }

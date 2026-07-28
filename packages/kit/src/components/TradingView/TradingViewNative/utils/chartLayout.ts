@@ -44,11 +44,6 @@ export interface ITradingViewNativePriceTick {
   y: number;
 }
 
-export interface ITradingViewNativePriceTransform {
-  scaleY: number;
-  translateY: number;
-}
-
 export interface ITradingViewNativeCurrentPriceLayout {
   labelTop: number;
   lineY: number;
@@ -223,20 +218,6 @@ export function getTradingViewNativeMaxVolume({
   return maxVolume;
 }
 
-export function getTradingViewNativeVolumeScale({
-  baseMaxVolume,
-  visibleMaxVolume,
-}: {
-  baseMaxVolume: number;
-  visibleMaxVolume: number;
-}) {
-  'worklet';
-
-  return baseMaxVolume > 0 && visibleMaxVolume > 0
-    ? baseMaxVolume / visibleMaxVolume
-    : 1;
-}
-
 export function getTradingViewNativeVolumeBarHeight({
   maxVolume,
   volume,
@@ -248,7 +229,12 @@ export function getTradingViewNativeVolumeBarHeight({
 }) {
   'worklet';
 
-  return maxVolume > 0 && volume > 0 && volumeHeight > 0
+  return Number.isFinite(maxVolume) &&
+    Number.isFinite(volume) &&
+    Number.isFinite(volumeHeight) &&
+    maxVolume > 0 &&
+    volume > 0 &&
+    volumeHeight > 0
     ? (volume / maxVolume) * volumeHeight
     : 0;
 }
@@ -687,54 +673,5 @@ export function getTradingViewNativeCurrentPriceLayout({
       maximumLabelTop,
     ),
     lineY,
-  };
-}
-
-export function getTradingViewNativePriceTransform({
-  baseMaxPrice,
-  basePriceRange,
-  priceChartHeight,
-  targetMaxPrice,
-  targetPriceRange,
-}: {
-  baseMaxPrice: number;
-  basePriceRange: number;
-  priceChartHeight: number;
-  targetMaxPrice: number;
-  targetPriceRange: number;
-}): ITradingViewNativePriceTransform {
-  'worklet';
-
-  if (
-    !Number.isFinite(baseMaxPrice) ||
-    !Number.isFinite(basePriceRange) ||
-    !Number.isFinite(priceChartHeight) ||
-    !Number.isFinite(targetMaxPrice) ||
-    !Number.isFinite(targetPriceRange) ||
-    basePriceRange <= 0 ||
-    priceChartHeight <= 0 ||
-    targetPriceRange < 0
-  ) {
-    return { scaleY: 1, translateY: 0 };
-  }
-
-  if (targetPriceRange === 0) {
-    const baseY =
-      TRADING_VIEW_NATIVE_CHART_TOP_PADDING +
-      ((baseMaxPrice - targetMaxPrice) / basePriceRange) * priceChartHeight;
-    return {
-      scaleY: 1,
-      translateY:
-        TRADING_VIEW_NATIVE_CHART_TOP_PADDING + priceChartHeight / 2 - baseY,
-    };
-  }
-
-  const scaleY = basePriceRange / targetPriceRange;
-  return {
-    scaleY,
-    translateY:
-      TRADING_VIEW_NATIVE_CHART_TOP_PADDING +
-      ((targetMaxPrice - baseMaxPrice) / targetPriceRange) * priceChartHeight -
-      scaleY * TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
   };
 }
