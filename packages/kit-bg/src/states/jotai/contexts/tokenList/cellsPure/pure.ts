@@ -117,7 +117,12 @@ export function fiatEqual(a?: ITokenFiat, b?: ITokenFiat): boolean {
     a.fiatValue === b.fiatValue &&
     a.price === b.price &&
     a.price24h === b.price24h &&
-    a.currency === b.currency
+    a.currency === b.currency &&
+    // Scaled-UI / rebase tokens (xStocks): raw balance stays constant while
+    // ONLY the multiplier can move on a refresh — without this, a
+    // multiplier-only update would be swallowed and the UI would keep
+    // displaying the stale multiplied amount.
+    a.balanceMultiplier === b.balanceMultiplier
   );
 }
 
@@ -143,7 +148,10 @@ export function metaEqual(a?: IToken, b?: IToken): boolean {
     a.isNative === b.isNative &&
     a.isAggregateToken === b.isAggregateToken &&
     a.commonSymbol === b.commonSymbol &&
-    a.riskLevel === b.riskLevel
+    a.riskLevel === b.riskLevel &&
+    // See fiatEqual — same rationale: a multiplier-only change must count as
+    // a real change.
+    a.balanceMultiplier === b.balanceMultiplier
   );
 }
 

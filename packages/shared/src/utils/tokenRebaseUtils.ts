@@ -120,19 +120,27 @@ function removeBalanceMultiplier({
 // vs. inside `info`); accept either and mirror onto both levels so
 // downstream code can read it from IToken (tx building, getToken /
 // localTokens) or ITokenFiat (display leaves subscribing to the fiat map)
-// alike. When both levels are present, the balance-adjacent level wins.
-function normalizeTokenDetailItemsBalanceMultiplier<
-  T extends IFetchTokenDetailItem | undefined,
->(items: T[] | undefined): T[] | undefined {
+// alike. When both levels are present, the balance-adjacent level wins —
+// but only if it is actually valid; an invalid/garbage value on the winning
+// level must not shadow a valid one on the other level.
+// `item.info` is typed non-optional (IFetchTokenDetailItem), but the payload
+// is untrusted server JSON — read/write it defensively at runtime anyway.
+function normalizeTokenDetailItemsBalanceMultiplier(
+  items: IFetchTokenDetailItem[] | undefined,
+): void {
   items?.forEach((item) => {
     if (!item) return;
-    const multiplier = item.balanceMultiplier ?? item.info.balanceMultiplier;
-    if (isValidBalanceMultiplier(multiplier)) {
+    const multiplier = [
+      item.balanceMultiplier,
+      item.info?.balanceMultiplier,
+    ].find(isValidBalanceMultiplier);
+    if (multiplier !== undefined) {
       item.balanceMultiplier = multiplier;
-      item.info.balanceMultiplier = multiplier;
+      if (item.info) {
+        item.info.balanceMultiplier = multiplier;
+      }
     }
   });
-  return items;
 }
 
 // Same item-level vs. info-level ambiguity as above, but for the account
@@ -140,7 +148,16 @@ function normalizeTokenDetailItemsBalanceMultiplier<
 // / allTokens) carries a `data[]` array (IAccountToken, i.e. IToken) and a
 // parallel `map` keyed by `$key` (ITokenFiat). Mirror the multiplier onto
 // both so display (reads map) and tx building (reads data/IToken) agree.
-// When both are present, the map (fiat, balance-adjacent) level wins.
+// When both are present, the map (fiat, balance-adjacent) level wins — but
+// only if it is actually valid, same rationale as above.
+//
+// Deliberately NOT normalized here: `resp.aggregateTokenMap` /
+// `resp.aggregateTokenListMap`. Aggregate entries span multiple networks
+// whose per-network multipliers can differ, so a single scalar multiplier is
+// not well-defined at the aggregate level. Aggregation is handled on the
+// already-multiplied DISPLAY basis client-side (Task 8), and server-side
+// aggregate multiplier semantics are still pending backend confirmation —
+// this is an intentional deferral, not an oversight.
 function normalizeAccountTokensRespBalanceMultiplier(
   resp: IFetchAccountTokensResp | undefined,
 ): IFetchAccountTokensResp | undefined {
@@ -154,8 +171,11 @@ function normalizeAccountTokensRespBalanceMultiplier(
     if (!group) return;
     group.data?.forEach((token) => {
       const fiat = group.map?.[token.$key];
-      const multiplier = fiat?.balanceMultiplier ?? token.balanceMultiplier;
-      if (isValidBalanceMultiplier(multiplier)) {
+      const multiplier = [
+        fiat?.balanceMultiplier,
+        token.balanceMultiplier,
+      ].find(isValidBalanceMultiplier);
+      if (multiplier !== undefined) {
         token.balanceMultiplier = multiplier;
         if (fiat) {
           fiat.balanceMultiplier = multiplier;

@@ -255,8 +255,30 @@ describe('tokenRebaseUtils', () => {
       expect(plain.info.balanceMultiplier).toBeUndefined();
     });
 
+    it('an invalid value on the winning (item) level does not shadow a valid info-level value', () => {
+      const item = {
+        info: {
+          decimals: 8,
+          address: 'w',
+          symbol: 'NVDAx',
+          balanceMultiplier: '1.5',
+        },
+        balance: '1',
+        balanceParsed: '1',
+        fiatValue: '0',
+        price: 0,
+        balanceMultiplier: '--',
+      } as any;
+
+      tokenRebaseUtils.normalizeTokenDetailItemsBalanceMultiplier([item]);
+
+      expect(item.balanceMultiplier).toBe('1.5');
+      expect(item.info.balanceMultiplier).toBe('1.5');
+    });
+
     it('normalizeAccountTokensRespBalanceMultiplier syncs data[] and map', () => {
       const $key = 'sol--101_Xsb';
+      const riskKey = 'sol--101_Risk';
       const resp = {
         tokens: {
           data: [{ $key, address: 'Xsb', decimals: 8, balanceMultiplier: M }],
@@ -270,13 +292,32 @@ describe('tokenRebaseUtils', () => {
             },
           },
         },
-        riskTokens: { data: [], keys: '', map: {} },
+        riskTokens: {
+          data: [
+            {
+              $key: riskKey,
+              address: 'Risk',
+              decimals: 8,
+              balanceMultiplier: M,
+            },
+          ],
+          keys: '',
+          map: {
+            [riskKey]: {
+              balance: '2',
+              balanceParsed: '2',
+              fiatValue: '0',
+              price: 0,
+            },
+          },
+        },
         smallBalanceTokens: { data: [], keys: '', map: {} },
       } as any;
 
       tokenRebaseUtils.normalizeAccountTokensRespBalanceMultiplier(resp);
 
       expect(resp.tokens.map[$key].balanceMultiplier).toBe(M);
+      expect(resp.riskTokens.map[riskKey].balanceMultiplier).toBe(M);
     });
 
     it('map-level multiplier wins over data-level and mirrors both ways', () => {

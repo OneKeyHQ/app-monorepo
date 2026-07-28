@@ -740,19 +740,17 @@ class ServiceToken extends ServiceBase {
 
     const result = resp.data.data ?? [];
 
-    return result.map((item) => ({
-      ...item,
-      tokens:
-        tokenRebaseUtils.normalizeTokenDetailItemsBalanceMultiplier(
-          item.tokens.map((token) => ({
-            ...token,
-            info: {
-              ...token.info,
-              networkId,
-            },
-          })),
-        ) ?? [],
-    }));
+    return result.map((item) => {
+      const tokens = item.tokens.map((token) => ({
+        ...token,
+        info: {
+          ...token.info,
+          networkId,
+        },
+      }));
+      tokenRebaseUtils.normalizeTokenDetailItemsBalanceMultiplier(tokens);
+      return { ...item, tokens };
+    });
   }
 
   @backgroundMethod()
