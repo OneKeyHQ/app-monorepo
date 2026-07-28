@@ -19,6 +19,7 @@ const mockPrimeLoginDialogAtom = {
   get: jest.fn(async () => ({})),
   set: jest.fn(async () => undefined),
 };
+const mockOneKeyIdAuthStateMigrationLog = jest.fn();
 
 const VALID_DEV_ONLY_PASSWORD = 'valid-dev-only-password';
 
@@ -58,9 +59,16 @@ jest.mock('@onekeyhq/core/src/secret', () => ({
 }));
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => {
-  function createLoggerProxy(): any {
+  function createLoggerProxy(path: string[] = []): any {
     return new Proxy(jest.fn(), {
-      get: () => createLoggerProxy(),
+      get: (_target, property: string | symbol) => {
+        const nextPath = [...path, String(property)];
+        const loggerMethod = nextPath.join('.');
+        if (loggerMethod === 'prime.subscription.onekeyIdAuthStateMigration') {
+          return mockOneKeyIdAuthStateMigrationLog;
+        }
+        return createLoggerProxy(nextPath);
+      },
     });
   }
   return {
@@ -2032,6 +2040,195 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    mockPrimePersistAtom.get.mockImplementation(async () => ({}));
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'persisted-access-token',
+    });
+    resetIdentityRecoveryStateForTest('ready');
+  });
+
+  it('recovers a source-less pre-upgrade OneKey ID from its matching Keyless OAuth session', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    const accessToken = buildFakeJwt({ sub: 'keyless-user-a' });
+    const onekeyAccount = {
+      onekeyUserId: 'onekey-user-a',
+      status: EOneKeyIdAccountStatus.Active,
+      identities: [],
+    };
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
+    });
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(undefined);
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue(undefined);
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(0);
+    simpleDbPrime.getKeylessSupabaseAuthToken.mockResolvedValue(accessToken);
+    backgroundApi.serviceAccount.getKeylessWallet.mockResolvedValue({
+      id: 'hd-keyless-a',
+    });
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken,
+    });
+    const get = jest.fn(async () => ({
+      status: 200,
+      data: { code: 0, data: { onekeyAccount } },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+    service.updatePrimeAtomByOneKeyIdAccount = jest.fn(async () => undefined);
+    backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession.mockRejectedValue(
+      new OneKeyLocalError(
+        'OneKey ID projection is inconsistent while reconciling an empty session slot.',
+      ),
+    );
+
+    await expect(
+      service.clearOneKeyIdAuthStateIfNoActiveToken({
+        callerName: 'test',
+      }),
+    ).resolves.toEqual({ cleared: false });
+
+    expect(get).toHaveBeenCalledWith('/prime/v1/account/profile', {
+      autoHandleError: false,
+      headers: {
+        'X-Onekey-Request-Token': accessToken,
+      },
+    });
+    expect(
+      backgroundApi.serviceKeylessWallet.validateTokenMatchesKeylessWallet,
+    ).toHaveBeenCalledWith({
+      token: accessToken,
+      skipFixProvider: true,
+    });
+    expect(simpleDbPrime.setAuthSessionSourceWithCommitId).toHaveBeenCalledWith(
+      {
+        authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+        sessionCommitId: expect.any(String),
+      },
+    );
+    expect(service.updatePrimeAtomByOneKeyIdAccount).toHaveBeenCalledWith({
+      onekeyAccount,
+    });
+    expect(
+      backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession,
+    ).not.toHaveBeenCalled();
+    const migrationOperationId =
+      mockOneKeyIdAuthStateMigrationLog.mock.calls[0]?.[0]?.operationId;
+    expect(migrationOperationId).toEqual(
+      expect.stringMatching(/^sourceLessOneKeyIdRecovery:/),
+    );
+    expect(mockOneKeyIdAuthStateMigrationLog).toHaveBeenCalledWith({
+      stage: 'candidateDetected',
+      status: 'succeeded',
+      operationId: migrationOperationId,
+    });
+    expect(mockOneKeyIdAuthStateMigrationLog).toHaveBeenCalledWith({
+      stage: 'walletSessionValidation',
+      status: 'succeeded',
+      operationId: migrationOperationId,
+    });
+    expect(mockOneKeyIdAuthStateMigrationLog).toHaveBeenCalledWith({
+      stage: 'profileValidation',
+      status: 'succeeded',
+      operationId: migrationOperationId,
+    });
+    expect(mockOneKeyIdAuthStateMigrationLog).toHaveBeenCalledWith({
+      stage: 'stateCommit',
+      status: 'succeeded',
+      operationId: migrationOperationId,
+    });
+    expect(
+      JSON.stringify(mockOneKeyIdAuthStateMigrationLog.mock.calls),
+    ).not.toContain(accessToken);
+    expect(
+      JSON.stringify(mockOneKeyIdAuthStateMigrationLog.mock.calls),
+    ).not.toContain('onekey-user-a');
+  });
+
+  it('does not recover when the Keyless OAuth profile belongs to another OneKey ID', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    const accessToken = buildFakeJwt({ sub: 'keyless-user-b' });
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
+    });
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(undefined);
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue(undefined);
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(0);
+    simpleDbPrime.getKeylessSupabaseAuthToken.mockResolvedValue(accessToken);
+    backgroundApi.serviceAccount.getKeylessWallet.mockResolvedValue({
+      id: 'hd-keyless-b',
+    });
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => ({
+        status: 200,
+        data: {
+          code: 0,
+          data: {
+            onekeyAccount: {
+              onekeyUserId: 'onekey-user-b',
+              status: EOneKeyIdAccountStatus.Active,
+              identities: [],
+            },
+          },
+        },
+      })),
+    }));
+
+    await expect(
+      service.clearOneKeyIdAuthStateIfNoActiveToken({
+        callerName: 'test',
+      }),
+    ).resolves.toEqual({ cleared: true });
+
+    expect(
+      simpleDbPrime.setAuthSessionSourceWithCommitId,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession,
+    ).toHaveBeenCalledWith({ callerName: 'test' });
+    expect(mockOneKeyIdAuthStateMigrationLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: 'profileValidation',
+        status: 'blocked',
+        reason: 'Keyless OAuth profile does not match the persisted OneKey ID',
+      }),
+    );
+  });
+
+  it('does not probe Keyless OAuth for a non-upgrade inconsistent state', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
+    });
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(undefined);
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(1);
+    backgroundApi.serviceAccount.getKeylessWallet.mockResolvedValue({
+      id: 'hd-keyless-a',
+    });
+
+    await expect(
+      service.clearOneKeyIdAuthStateIfNoActiveToken({
+        callerName: 'test',
+      }),
+    ).resolves.toEqual({ cleared: true });
+
+    expect(simpleDbPrime.getKeylessSupabaseAuthToken).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.setAuthSessionSourceWithCommitId,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession,
+    ).toHaveBeenCalledWith({ callerName: 'test' });
+  });
+
   it('delegates missing-session cleanup to the durable identity coordinator', async () => {
     const { service, backgroundApi, simpleDbPrime } = createService();
 
@@ -2445,6 +2642,9 @@ describe('ServicePrime OneKey ID OAuth identity precheck', () => {
     mockProfile(service);
 
     await expect(
+      service.getBoundOAuthProvidersForCurrentOneKeyId(),
+    ).resolves.toEqual([EOAuthSocialLoginProvider.Google]);
+    await expect(
       service.isOAuthProviderBoundToCurrentOneKeyId({
         provider: EOAuthSocialLoginProvider.Google,
       }),
@@ -2482,6 +2682,221 @@ describe('ServicePrime OneKey ID OAuth identity precheck', () => {
         provider: EOAuthSocialLoginProvider.Google,
       }),
     ).resolves.toBe(false);
+  });
+});
+
+describe('ServicePrime.apiPromoteBoundOAuthSessionForLegacyOneKeyId', () => {
+  const LEGACY_TOKEN = 'legacy-token-a';
+  const OAUTH_TOKEN = buildFakeJwt({
+    sub: 'keyless-user-a',
+    session_id: 'keyless-session-a',
+    user_metadata: { sub: 'google-sub-a' },
+  });
+
+  function buildAccount({
+    onekeyUserId = 'onekey-user-a',
+    oauthSubject = 'google-sub-a',
+  }: {
+    onekeyUserId?: string;
+    oauthSubject?: string;
+  } = {}) {
+    return {
+      onekeyUserId,
+      status: EOneKeyIdAccountStatus.Active,
+      normalizedEmail: 'a@example.com',
+      displayEmail: 'a@example.com',
+      identities: [
+        {
+          identityType: EOneKeyIdIdentityType.LegacyEmail,
+          legacyEmail: 'a@example.com',
+        },
+        {
+          identityType: EOneKeyIdIdentityType.OAuth,
+          oauthProvider: EOneKeyIdOAuthProvider.Google,
+          oauthSubject,
+        },
+      ],
+    };
+  }
+
+  function setupPromotion() {
+    const { service, simpleDbPrime } = createService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
+    });
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue(LEGACY_TOKEN);
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockImplementation(
+      async (source: unknown) => ({
+        status: 'ok',
+        accessToken:
+          source === EPrimeAuthSessionSource.LegacyEmailSupabase
+            ? LEGACY_TOKEN
+            : OAUTH_TOKEN,
+      }),
+    );
+    const get = jest.fn(async () => ({
+      data: { data: { onekeyAccount: buildAccount() } },
+    }));
+    const post = jest.fn(async () => ({
+      data: {
+        data: {
+          userId: 'onekey-user-a',
+          onekeyAccount: buildAccount(),
+        },
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ get, post }));
+    return { service, simpleDbPrime, get, post };
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockReset();
+  });
+
+  afterEach(() => {
+    mockPrimePersistAtom.get.mockImplementation(async () => ({}));
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'persisted-access-token',
+    });
+  });
+
+  it('promotes an already-bound OAuth identity from the legacy Email session', async () => {
+    const { service, simpleDbPrime, get, post } = setupPromotion();
+
+    await service.apiPromoteBoundOAuthSessionForLegacyOneKeyId({
+      accessToken: OAUTH_TOKEN,
+      provider: EOAuthSocialLoginProvider.Google,
+      expectedOnekeyUserId: 'onekey-user-a',
+    });
+
+    expect(get).toHaveBeenCalledWith('/prime/v1/account/profile', {
+      headers: {
+        'X-Onekey-Request-Token': LEGACY_TOKEN,
+      },
+    });
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/account/oauth/login',
+      {},
+      {
+        headers: {
+          'X-Onekey-Request-Token': OAUTH_TOKEN,
+        },
+      },
+    );
+    expect(simpleDbPrime.setAuthSessionSourceWithCommitId).toHaveBeenCalledWith(
+      {
+        authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+        sessionCommitId: expect.any(String),
+      },
+    );
+    expect(simpleDbPrime.clearLegacyAuthSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects an OAuth identity that is not bound to the current OneKey ID', async () => {
+    const { service, simpleDbPrime, get, post } = setupPromotion();
+    get.mockResolvedValueOnce({
+      data: {
+        data: {
+          onekeyAccount: buildAccount({
+            oauthSubject: 'different-google-sub',
+          }),
+        },
+      },
+    });
+
+    await expect(
+      service.apiPromoteBoundOAuthSessionForLegacyOneKeyId({
+        accessToken: OAUTH_TOKEN,
+        provider: EOAuthSocialLoginProvider.Google,
+        expectedOnekeyUserId: 'onekey-user-a',
+      }),
+    ).rejects.toThrow('OAuth identity is not bound');
+
+    expect(post).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.setAuthSessionSourceWithCommitId,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('rejects an inconsistent OneKey ID login projection', async () => {
+    const { service, simpleDbPrime, get, post } = setupPromotion();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: false,
+      onekeyUserId: 'onekey-user-a',
+    });
+
+    await expect(
+      service.apiPromoteBoundOAuthSessionForLegacyOneKeyId({
+        accessToken: OAUTH_TOKEN,
+        provider: EOAuthSocialLoginProvider.Google,
+        expectedOnekeyUserId: 'onekey-user-a',
+      }),
+    ).rejects.toThrow('login changed during OAuth verification');
+
+    expect(get).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+    expect(simpleDbPrime.getActiveAuthToken).not.toHaveBeenCalled();
+  });
+
+  it('rejects when the legacy OneKey ID changes during the profile check', async () => {
+    const { service, simpleDbPrime, get, post } = setupPromotion();
+    let authStateGeneration = 3;
+    simpleDbPrime.getAuthStateGeneration.mockImplementation(
+      async () => authStateGeneration,
+    );
+    get.mockImplementationOnce(async () => {
+      authStateGeneration = 4;
+      return {
+        data: { data: { onekeyAccount: buildAccount() } },
+      };
+    });
+
+    await expect(
+      service.apiPromoteBoundOAuthSessionForLegacyOneKeyId({
+        accessToken: OAUTH_TOKEN,
+        provider: EOAuthSocialLoginProvider.Google,
+        expectedOnekeyUserId: 'onekey-user-a',
+      }),
+    ).rejects.toThrow('login changed during OAuth verification');
+
+    expect(post).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.setAuthSessionSourceWithCommitId,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('rejects a login response resolving to a different OneKey ID', async () => {
+    const { service, simpleDbPrime, post } = setupPromotion();
+    post.mockResolvedValueOnce({
+      data: {
+        data: {
+          userId: 'onekey-user-b',
+          onekeyAccount: buildAccount({ onekeyUserId: 'onekey-user-b' }),
+        },
+      },
+    });
+
+    await expect(
+      service.apiPromoteBoundOAuthSessionForLegacyOneKeyId({
+        accessToken: OAUTH_TOKEN,
+        provider: EOAuthSocialLoginProvider.Google,
+        expectedOnekeyUserId: 'onekey-user-a',
+      }),
+    ).rejects.toThrow('OAuth login resolved a different OneKey ID');
+
+    expect(
+      simpleDbPrime.setAuthSessionSourceWithCommitId,
+    ).not.toHaveBeenCalled();
+    expect(simpleDbPrime.clearLegacyAuthSession).not.toHaveBeenCalled();
   });
 });
 
@@ -2621,6 +3036,27 @@ describe('ServicePrime.apiOAuthLogin keyless slot identity guard', () => {
     await expect(
       service.apiOAuthLogin({ accessToken: 'not-a-jwt' }),
     ).rejects.toThrow('session token payload is not decodable');
+
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('keeps the ordinary OAuth login blocked while OneKey ID is already logged in', async () => {
+    const { service, simpleDbPrime } = createService();
+    const post = mockOAuthLoginClient(service);
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+    });
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+
+    await expect(
+      service.apiOAuthLogin({
+        accessToken: buildFakeJwt({ sub: 'user-a' }),
+      }),
+    ).rejects.toThrow('OneKey ID is already logged in');
 
     expect(post).not.toHaveBeenCalled();
   });

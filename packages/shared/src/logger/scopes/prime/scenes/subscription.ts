@@ -61,6 +61,17 @@ export type IPrimeCryptoPaymentFlowParams = {
   httpStatusCode?: number;
 };
 
+export type IOneKeyIdAuthStateMigrationParams = {
+  stage:
+    | 'candidateDetected'
+    | 'walletSessionValidation'
+    | 'profileValidation'
+    | 'stateCommit';
+  status: 'started' | 'succeeded' | 'failed' | 'blocked';
+  operationId: string;
+  reason?: string;
+};
+
 export class PrimeSubscriptionScene extends BaseScene {
   /**
    * Prime feature entry click
@@ -273,6 +284,14 @@ export class PrimeSubscriptionScene extends BaseScene {
     return {
       reason,
     };
+  }
+
+  /**
+   * Local diagnostic trail for the narrowly gated pre-upgrade auth migration.
+   */
+  @LogToLocal()
+  public onekeyIdAuthStateMigration(params: IOneKeyIdAuthStateMigrationParams) {
+    return params;
   }
 
   @LogToLocal()

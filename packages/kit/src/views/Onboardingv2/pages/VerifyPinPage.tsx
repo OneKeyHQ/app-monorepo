@@ -178,11 +178,12 @@ function VerifyPinPage() {
         }
 
         const result =
-          await backgroundApiProxy.serviceKeylessWallet.apiCheckRateLimitStatus(
-            {
-              token,
-            },
+          await backgroundApiProxy.serviceKeylessWallet.apiGetCachedKeylessRateLimitStatus(
+            { token },
           );
+        if (!result) {
+          return;
+        }
 
         // Check if PIN attempts are exceeded
         if (!isNil(result.guessesRemaining) && result.guessesRemaining <= 0) {

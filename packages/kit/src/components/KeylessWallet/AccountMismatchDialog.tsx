@@ -138,12 +138,16 @@ export async function showKeylessOneKeyIdSessionConflictDialog(params: {
   });
 }
 
-export async function showOneKeyIdOAuthReauthAccountMismatchDialog(params: {
+export async function showOneKeyIdOAuthAccountMismatchDialog(params: {
   intl: IntlShape;
-  provider: EOAuthSocialLoginProvider;
+  mismatchedProvider: EOAuthSocialLoginProvider;
+  continueProvider: EOAuthSocialLoginProvider;
 }): Promise<boolean> {
-  const { intl, provider } = params;
-  const providerName = getOAuthSocialLoginProviderName(provider);
+  const { intl, mismatchedProvider, continueProvider } = params;
+  const mismatchedProviderName =
+    getOAuthSocialLoginProviderName(mismatchedProvider);
+  const continueProviderName =
+    getOAuthSocialLoginProviderName(continueProvider);
   return new Promise<boolean>((resolve) => {
     let isSettled = false;
     const settle = (value: boolean) => {
@@ -157,18 +161,62 @@ export async function showOneKeyIdOAuthReauthAccountMismatchDialog(params: {
       title: intl.formatMessage({
         id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
       }),
-      // TODO: i18n
-      description: `This ${providerName} account isn't the one linked to your current OneKey ID. Please choose the linked account and try again.`,
+      description: intl.formatMessage(
+        {
+          id: ETranslations.onekey_id_oauth_reauth_account_mismatch__desc,
+        },
+        { provider: mismatchedProviderName },
+      ),
       showCancelButton: true,
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.global_retry,
-      }),
+      onConfirmText: intl.formatMessage(
+        { id: ETranslations.continue_with_social_platform },
+        { platform: continueProviderName },
+      ),
       onCancelText: intl.formatMessage({
         id: ETranslations.global_cancel,
       }),
       onConfirm: () => settle(true),
       onCancel: () => settle(false),
       onClose: () => settle(false),
+    });
+  });
+}
+
+export type IKeylessOAuthRefreshRecoveryAction =
+  | 'dismiss'
+  | 'reauthenticate'
+  | 'retry';
+
+export async function showKeylessOAuthRefreshRecoveryDialog(params: {
+  intl: IntlShape;
+  provider?: EOAuthSocialLoginProvider;
+}): Promise<IKeylessOAuthRefreshRecoveryAction> {
+  const { intl, provider } = params;
+  const providerName =
+    getOAuthSocialLoginProviderName(provider) || 'Google or Apple';
+  return new Promise<IKeylessOAuthRefreshRecoveryAction>((resolve) => {
+    let isSettled = false;
+    const settle = (action: IKeylessOAuthRefreshRecoveryAction) => {
+      if (!isSettled) {
+        isSettled = true;
+        resolve(action);
+      }
+    };
+    Dialog.show({
+      icon: 'ErrorOutline',
+      // TODO: i18n
+      title: `Unable to refresh ${providerName} sign-in`,
+      // TODO: i18n
+      description: `We couldn't refresh your ${providerName} sign-in. Try again, or sign in with ${providerName} again to continue.`,
+      showCancelButton: true,
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_retry,
+      }),
+      // TODO: i18n
+      onCancelText: `Sign in with ${providerName} again`,
+      onConfirm: () => settle('retry'),
+      onCancel: () => settle('reauthenticate'),
+      onClose: () => settle('dismiss'),
     });
   });
 }
