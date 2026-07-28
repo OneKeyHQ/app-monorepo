@@ -157,25 +157,18 @@ export class TrezorAdapter
 
   private readonly _featuresDeviceIdByConnectId = new Map<string, string>();
 
-  // While a USB→BLE binding probe is connecting to a candidate, a non-matching
-  // device asks to pair. That's the "not this one" signal — cancel it silently
-  // instead of popping the THP pairing dialog. Set by beginBindingProbe().
+  // Which candidate the USB→BLE binding probe is currently connecting to.
+  // Identity is decided by the device_id comparison after the handshake, NOT
+  // by whether the candidate asks to pair — a device whose THP credential was
+  // invalidated asks to pair exactly like an unknown one.
   private _bindingProbeConnectId?: string;
-
-  // Set when the probe suppressed a pairing request — "not this device".
-  private _bindingProbeCancelled = false;
 
   beginBindingProbe(connectId: string): void {
     this._bindingProbeConnectId = connectId;
-    this._bindingProbeCancelled = false;
   }
 
   endBindingProbe(): void {
     this._bindingProbeConnectId = undefined;
-  }
-
-  wasBindingProbeCancelled(): boolean {
-    return this._bindingProbeCancelled;
   }
 
   constructor(hw: IHardwareWallet, disposeSdkEvents?: () => void) {

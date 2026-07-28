@@ -283,18 +283,26 @@ class ServiceThirdPartyHardware extends ServiceBase {
     try {
       const result = await adapter.connectDevice(bleConnectId);
       if (!result.success) {
-        // Probe suppressed the pairing request — "not this device", not an error.
-        if (adapter.wasBindingProbeCancelled?.()) {
-          defaultLogger.hardware.sdkLog.log(
-            `[TrezorBLEBind] candidate rejected by probe cancel bleConnectId=${bleConnectId}`,
-          );
-          return null;
-        }
         defaultLogger.hardware.sdkLog.log(
           `[TrezorBLEBind] candidate probe failed bleConnectId=${bleConnectId}`,
         );
         throw convertThirdPartyDeviceError(result.payload, {
           vendor: EHardwareVendor.trezor,
+        });
+      }
+      // No device_id read back is "could not verify", not "different device".
+      // connectDevice reports '' when features are missing; treating that as a
+      // mismatch rejects the user's own device and the dialog then greys the
+      // candidate out for good (TrezorBleBindingDialog rejectedConnectIds).
+      if (!result.payload.deviceId) {
+        defaultLogger.hardware.sdkLog.log(
+          `[TrezorBLEBind] candidate identity unavailable bleConnectId=${bleConnectId} expectedDeviceId=${featuresDeviceId}`,
+        );
+        throw new OneKeyLocalError({
+          message: appLocale.intl.formatMessage({
+            id: ETranslations.hardware_connect_failed,
+          }),
+          autoToast: true,
         });
       }
       if (result.payload.deviceId !== featuresDeviceId) {
