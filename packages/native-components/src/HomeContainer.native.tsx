@@ -103,11 +103,6 @@ const styles = StyleSheet.create({
   slotContent: {
     flex: 1,
   },
-  inactiveSlot: {
-    width: 0,
-    height: 0,
-    opacity: 0,
-  },
 });
 
 function parseCapabilities(
@@ -197,8 +192,8 @@ export function isHomeContainerAvailable(): boolean {
 }
 
 type IHomeContainerSlotViewProps = {
-  active: boolean;
   backgroundColor: string;
+  interactionEnabled: boolean;
   onProfilerRender: ProfilerOnRenderCallback;
   slot: IHomeContainerSlot;
   slotKey: string;
@@ -240,14 +235,14 @@ const HomeContainerSlotContentView = memo(
 );
 
 const HomeContainerSlotView = memo(function HomeContainerSlotView({
-  active,
   backgroundColor,
+  interactionEnabled,
   onProfilerRender,
   slot,
   slotKey,
   windowWidth,
 }: IHomeContainerSlotViewProps) {
-  const interactive = slot.interaction === 'tap';
+  const interactive = interactionEnabled && slot.interaction === 'tap';
   const authority =
     slot.authority?.slotId === slotKey ? slot.authority : undefined;
   return (
@@ -255,17 +250,16 @@ const HomeContainerSlotView = memo(function HomeContainerSlotView({
       ownerScopeKey={authority?.owner.scopeKey ?? ''}
       ownerSessionId={authority?.owner.sessionId ?? ''}
       producedByStoreCommitId={authority?.producedByStoreCommitId ?? -1}
-      slotKey={active ? slotKey : ''}
+      slotKey={slotKey}
       slotRevision={authority?.slotRevision ?? -1}
       testID={`HomeContainer.Slot.${slotKey}`}
-      pointerEvents={active && interactive ? 'auto' : 'none'}
+      pointerEvents={interactive ? 'auto' : 'none'}
       style={[
         styles.slot,
         getSlotLayoutStyle(slotKey),
         getSlotWidthStyle(slotKey, windowWidth),
         slot.height === undefined ? undefined : { height: slot.height },
         { backgroundColor },
-        active ? undefined : styles.inactiveSlot,
       ]}
     >
       <HomeContainerSlotContentView
@@ -442,6 +436,9 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
       if (!resolvedSlots) {
         return null;
       }
+      // Preserve slot ownership and geometry until the target owner publishes.
+      // Unmounting the keys exposes native fallbacks with different typography.
+      const interactionEnabled = slotBundle?.phase !== 'owner-transition';
       const values: Array<{ key: string; slot: IHomeContainerSlot }> = [];
       if (resolvedSlots.accountRow) {
         values.push({
@@ -495,8 +492,8 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
         return (
           <HomeContainerSlotView
             key={key}
-            active={slotBundle?.phase !== 'owner-transition'}
             backgroundColor={resolvedBackgroundColor}
+            interactionEnabled={interactionEnabled}
             onProfilerRender={stableOnProfilerRender}
             slot={slot}
             slotKey={key}
@@ -513,7 +510,13 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
     ]);
 
     return (
-      <HomeContainerSurface style={style} testID={testID}>
+      <HomeContainerSurface
+        pointerEvents={
+          slotBundle?.phase === 'owner-transition' ? 'none' : 'auto'
+        }
+        style={style}
+        testID={testID}
+      >
         <Profiler id="nativeHost" onRender={stableOnProfilerRender}>
           <HomeContainerHost
             initialSnapshotJson={initialSnapshotJsonRef.current}

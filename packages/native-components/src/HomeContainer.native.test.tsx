@@ -301,7 +301,7 @@ describe('HomeContainer native wrapper', () => {
     expect(mockSlotRenderCounts.get('header.balance')).toBe(1);
   });
 
-  it('updates slot authority without rerendering unchanged content', async () => {
+  it('preserves slot geometry and content while owner interaction is disabled', async () => {
     let contentRenderCount = 0;
     function CountingContent({ label }: { label: string }) {
       contentRenderCount += 1;
@@ -346,6 +346,7 @@ describe('HomeContainer native wrapper', () => {
             label: 'Balance 1',
             storeCommitId: 1,
           })}
+          testID="HomeContainer.Test"
         />,
       );
     });
@@ -360,12 +361,19 @@ describe('HomeContainer native wrapper', () => {
             phase: 'owner-transition',
             storeCommitId: 2,
           })}
+          testID="HomeContainer.Test"
         />,
       );
     });
 
-    expect(mockSlotRenderCounts.get('')).toBe(1);
+    expect(mockSlotRenderCounts.get('')).toBeUndefined();
+    expect(mockSlotRenderCounts.get('header.balance')).toBe(2);
     expect(contentRenderCount).toBe(1);
+    expect(
+      renderer.root
+        .findAllByProps({ testID: 'HomeContainer.Test' })
+        .some((node) => node.props.pointerEvents === 'none'),
+    ).toBe(true);
 
     await act(async () => {
       renderer.update(
@@ -376,12 +384,18 @@ describe('HomeContainer native wrapper', () => {
             label: 'Balance ignored',
             storeCommitId: 3,
           })}
+          testID="HomeContainer.Test"
         />,
       );
     });
 
-    expect(mockSlotRenderCounts.get('header.balance')).toBe(2);
+    expect(mockSlotRenderCounts.get('header.balance')).toBe(3);
     expect(contentRenderCount).toBe(1);
+    expect(
+      renderer.root
+        .findAllByProps({ testID: 'HomeContainer.Test' })
+        .some((node) => node.props.pointerEvents === 'auto'),
+    ).toBe(true);
 
     await act(async () => {
       renderer.update(
@@ -392,11 +406,12 @@ describe('HomeContainer native wrapper', () => {
             label: 'Balance 2',
             storeCommitId: 4,
           })}
+          testID="HomeContainer.Test"
         />,
       );
     });
 
-    expect(mockSlotRenderCounts.get('header.balance')).toBe(3);
+    expect(mockSlotRenderCounts.get('header.balance')).toBe(4);
     expect(contentRenderCount).toBe(2);
   });
 });

@@ -1638,6 +1638,7 @@ export class HomeSourceRuntime {
       }
     };
 
+    const remoteStartedAt = performance.now();
     const remoteTask = this.host.leafPool
       .run(
         priority,
@@ -1648,6 +1649,32 @@ export class HomeSourceRuntime {
         sessionId,
       )
       .then((remote) => {
+        const homeBanners = remote.filter(
+          (banner) => !banner.position || banner.position === 'home',
+        );
+        const networkMatchedBanners = homeBanners.filter(
+          (banner) =>
+            !banner.networkIds?.length ||
+            banner.networkIds.includes(network.id),
+        );
+        let outcome = 'content';
+        if (remote.length === 0) {
+          outcome = 'empty';
+        } else if (networkMatchedBanners.length === 0) {
+          outcome = 'filtered';
+        }
+        defaultLogger.wallet.homeFramePerf.frame({
+          stage: 'functionTiming',
+          functionName: 'HomeSourceRuntime.loadBanner.remote',
+          durationMs: performance.now() - remoteStartedAt,
+          accountName: environment.activeAccount.accountName,
+          walletName: wallet.name,
+          outcome,
+          inputCount: remote.length,
+          homeBannerCount: homeBanners.length,
+          networkMatchedBannerCount: networkMatchedBanners.length,
+          bannerIds: remote.map((banner) => banner.id).join(','),
+        });
         normalResultCount += 1;
         remoteState = { status: 'ready', value: remote };
         publishNormalResult();
@@ -1656,6 +1683,14 @@ export class HomeSourceRuntime {
         });
       })
       .catch(() => {
+        defaultLogger.wallet.homeFramePerf.frame({
+          stage: 'functionTiming',
+          functionName: 'HomeSourceRuntime.loadBanner.remote',
+          durationMs: performance.now() - remoteStartedAt,
+          accountName: environment.activeAccount.accountName,
+          walletName: wallet.name,
+          outcome: 'failed',
+        });
         remoteState = { status: 'failed' };
         publishNormalResult();
       });

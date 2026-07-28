@@ -2657,8 +2657,9 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
     }
     updateActionRowVisibility(header)
     bannersScroll.visibility = if (header.banners.isEmpty()) GONE else VISIBLE
+    // Keep the tabs anchored while async banner content resolves.
     preferredHeight = dp(
-      (if (header.banners.isEmpty()) 216 else 310) +
+      310 +
         (if (header.balanceActions.isEmpty()) 0 else 38) +
         40 +
         preferredHeightAdjustment(header),

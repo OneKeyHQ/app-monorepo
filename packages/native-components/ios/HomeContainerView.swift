@@ -19,7 +19,7 @@ private enum HomeContainerMetrics {
   static var compactAccountTopInset: CGFloat { scaledHeight(16, maximumScale: 1.25) }
   static var headerBottomPadding: CGFloat { scaledHeight(40, maximumScale: 1.25) }
   static let standardActionRowHeight: CGFloat = 62
-  // Loading and content banners share one row height to prevent owner-switch layout shifts.
+  // The header always reserves this row so async banner state cannot move the tabs.
   static let bannerRowHeight: CGFloat = 88
   static var legacyABZeroBalanceActionTrailingCompaction: CGFloat { scaledHeight(14) }
   static var rowHeight: CGFloat { scaledHeight(68) }
@@ -2855,9 +2855,8 @@ private final class HomeContainerHeaderView: UIView {
     bannersScroll.isHidden = header.banners.isEmpty
     let balanceActionsHeight: CGFloat = (header.balanceActions ?? []).isEmpty ? 0 : 38
     let actionHeightAdjustment = preferredHeightAdjustment(for: header)
-    preferredHeight = HomeContainerMetrics.scaledHeight(
-      header.banners.isEmpty ? 216 : 310
-    ) + HomeContainerMetrics.scaledHeight(balanceActionsHeight) +
+    preferredHeight = HomeContainerMetrics.scaledHeight(310) +
+      HomeContainerMetrics.scaledHeight(balanceActionsHeight) +
       HomeContainerMetrics.headerBottomPadding + actionHeightAdjustment
     homeContainerEnableDynamicTypeRecursively()
   }
@@ -2878,9 +2877,8 @@ private final class HomeContainerHeaderView: UIView {
     if let header {
       let balanceActionsHeight: CGFloat = (header.balanceActions ?? []).isEmpty ? 0 : 38
       let actionHeightAdjustment = preferredHeightAdjustment(for: header)
-      preferredHeight = HomeContainerMetrics.scaledHeight(
-        header.banners.isEmpty ? 216 : 310
-      ) + HomeContainerMetrics.scaledHeight(balanceActionsHeight) +
+      preferredHeight = HomeContainerMetrics.scaledHeight(310) +
+        HomeContainerMetrics.scaledHeight(balanceActionsHeight) +
         HomeContainerMetrics.headerBottomPadding + actionHeightAdjustment
     }
     homeContainerEnableDynamicTypeRecursively()

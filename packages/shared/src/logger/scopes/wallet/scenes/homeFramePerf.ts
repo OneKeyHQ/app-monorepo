@@ -29,6 +29,9 @@ export class HomeFramePerfScene extends BaseScene {
     inputCount?: number;
     outputSectionCount?: number;
     outputItemCount?: number;
+    bannerIds?: string;
+    homeBannerCount?: number;
+    networkMatchedBannerCount?: number;
     updateCount?: number;
     listenerCount?: number;
     contributionCount?: number;
