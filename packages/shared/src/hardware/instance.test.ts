@@ -8,8 +8,6 @@ import {
 } from './instance';
 import { importHardwareSDK, importHardwareSDKLowLevel } from './sdk-loader';
 
-import type { RemoteConfigResponse } from '@onekeyfe/hd-core';
-
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
@@ -91,8 +89,13 @@ describe('hardware SDK firmware config settings', () => {
     await resetHardwareSDKInstance();
   });
 
-  it('passes a serializable preloaded config through the desktop Bridge path', async () => {
-    const init = jest.fn(async () => undefined);
+  it('keeps a direct desktop SDK instance on the legacy managed manifest path', async () => {
+    const init = jest.fn(
+      async (
+        _settings: Record<string, unknown>,
+        _lowLevel: unknown,
+      ): Promise<void> => undefined,
+    );
     mockedImportHardwareSDK.mockResolvedValue({
       init,
       emit: jest.fn(),
@@ -104,29 +107,14 @@ describe('hardware SDK firmware config settings', () => {
       dispose: jest.fn(async () => undefined),
       removeAllListeners: jest.fn(),
     });
-    const preloadedConfig = {
-      bridge: {},
-      classic: { firmware: [], ble: [] },
-      classic1s: { firmware: [], ble: [] },
-      classicpure: { firmware: [], ble: [] },
-      mini: { firmware: [], ble: [] },
-      touch: { firmware: [], ble: [] },
-      pro: { firmware: [], ble: [] },
-      pro2: { firmware: [], ble: [] },
-    } as unknown as RemoteConfigResponse;
-
     await getHardwareSDKInstance({
       isPreRelease: false,
-      hardwareTransportType: EHardwareTransportType.Bridge,
-      preloadedConfig,
+      hardwareTransportType: EHardwareTransportType.WEBUSB,
     });
 
-    expect(init).toHaveBeenCalledWith(
-      expect.objectContaining({
-        firmwareManifestMode: 'sdk-managed',
-        preloadedConfig,
-      }),
-      expect.anything(),
-    );
+    const settings = init.mock.calls[0]?.[0];
+    expect(settings).toEqual(expect.objectContaining({ fetchConfig: true }));
+    expect(settings).not.toHaveProperty('firmwareManifestMode');
+    expect(settings).not.toHaveProperty('preloadedConfig');
   });
 });
