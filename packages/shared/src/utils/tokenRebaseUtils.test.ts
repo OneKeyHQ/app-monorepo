@@ -92,6 +92,17 @@ describe('tokenRebaseUtils', () => {
           decimals: 8,
         }),
       ).toBe('4.4');
+      // Native-coin call shape (e.g. TON updateUnsignedTx max-send guard,
+      // which always passes balanceMultiplier: undefined for native
+      // transfers and decimals: 0 as a native-coin fallback): must be a
+      // pure passthrough, never divided.
+      expect(
+        tokenRebaseUtils.removeBalanceMultiplier({
+          amount: '5',
+          balanceMultiplier: undefined,
+          decimals: 0,
+        }),
+      ).toBe('5');
     });
 
     it('divides and floors at token decimals', () => {
