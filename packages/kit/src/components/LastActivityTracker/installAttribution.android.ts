@@ -1,6 +1,6 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-export async function reportGooglePlayInstallAttribution(): Promise<void> {
+export async function reportInstallAttribution(): Promise<void> {
   if (
     !platformEnv.isNativeAndroidGooglePlay ||
     !platformEnv.isNativeMainThread
@@ -13,6 +13,6 @@ export async function reportGooglePlayInstallAttribution(): Promise<void> {
   }: {
     reportGooglePlayInstallAttribution: () => Promise<void>;
   } =
-    await import('@onekeyhq/shared/src/modules/GooglePlayInstallAttribution/reporter');
+    await import('@onekeyhq/shared/src/modules/InstallAttribution/googlePlay');
   await reportAttribution();
 }

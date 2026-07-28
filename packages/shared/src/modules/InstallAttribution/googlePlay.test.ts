@@ -5,7 +5,7 @@ import appStorage from '../../storage/appStorage';
 import {
   parseGooglePlayInstallReferrer,
   reportGooglePlayInstallAttribution,
-} from './reporter';
+} from './googlePlay';
 
 jest.mock('expo-application', () => ({
   getInstallReferrerAsync: jest.fn(),

@@ -16,7 +16,7 @@ import { initPosthog } from '@onekeyhq/shared/src/modules3rdParty/posthog';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
-import { reportGooglePlayInstallAttribution } from './googlePlayInstallAttribution';
+import { reportInstallAttribution } from './installAttribution';
 
 const LAST_ACTIVITY_TRACKER_START_DELAY_MS = platformEnv.isWeb ? 3000 : 0;
 const LAST_ACTIVITY_TRACKER_REFRESH_INTERVAL_MS = platformEnv.isWeb
@@ -44,7 +44,7 @@ const LastActivityTracker = () => {
         enableAnalyticsInDev:
           devSettings.enabled && devSettings.settings?.enableAnalyticsRequest,
       });
-      void reportGooglePlayInstallAttribution().catch((error) => {
+      void reportInstallAttribution().catch((error) => {
         console.warn(
           '[InstallAttribution] Google Play attribution report failed',
           error instanceof Error ? error.message : 'unknown_error',
