@@ -1,7 +1,8 @@
 /* cspell:ignore Infini */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
+import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IBadgeType } from '@onekeyhq/components';
@@ -189,40 +190,7 @@ export default function PrimeInfiniSubscription() {
   const primeExpiresAt = primeUserInfo.primeSubscription?.expiresAt;
   const currentOneKeyUserId = primeUserInfo.onekeyUserId;
 
-  // Extracted so a caller that must observe the fresh server state can await
-  // the request itself. The run() returned by usePromiseResult is debounced,
-  // and a debounced call resolves with lodash's previous return value instead
-  // of the pending trailing request, so awaiting it proves nothing.
-  const loadSubscription = useCallback(async () => {
-    if (!currentOneKeyUserId) {
-      return {
-        onekeyUserId: currentOneKeyUserId,
-        subscription: undefined,
-        hasError: true,
-      };
-    }
-    try {
-      const subscription =
-        await backgroundApiProxy.servicePrime.apiGetInfiniSubscription({
-          expectedOneKeyUserId: currentOneKeyUserId,
-        });
-      return {
-        onekeyUserId: currentOneKeyUserId,
-        subscription,
-        hasError: false,
-      };
-    } catch {
-      // Fold the error into the result: usePromiseResult clears the result
-      // on throw, and the page needs an explicit retry state
-      return {
-        onekeyUserId: currentOneKeyUserId,
-        subscription: undefined,
-        hasError: true,
-      };
-    }
-  }, [currentOneKeyUserId]);
-
-  const { result, run, setResult } = usePromiseResult(
+  const { result, run } = usePromiseResult(
     async () => {
       // primeExpiresAt is a real dependency: a successful (renewal) payment
       // bumps the merged Prime expiry in primePersistAtom (via the waiting
@@ -231,16 +199,41 @@ export default function PrimeInfiniSubscription() {
       // reflect the new billing period instead of staying stale
       noopObject(primeExpiresAt);
       noopObject(currentOneKeyUserId);
-      return loadSubscription();
+      if (!currentOneKeyUserId) {
+        return {
+          onekeyUserId: currentOneKeyUserId,
+          subscription: undefined,
+          hasError: true,
+        };
+      }
+      try {
+        const subscription =
+          await backgroundApiProxy.servicePrime.apiGetInfiniSubscription({
+            expectedOneKeyUserId: currentOneKeyUserId,
+          });
+        return {
+          onekeyUserId: currentOneKeyUserId,
+          subscription,
+          hasError: false,
+        };
+      } catch {
+        // Fold the error into the result: usePromiseResult clears the result
+        // on throw, and the page needs an explicit retry state
+        return {
+          onekeyUserId: currentOneKeyUserId,
+          subscription: undefined,
+          hasError: true,
+        };
+      }
     },
-    [currentOneKeyUserId, loadSubscription, primeExpiresAt],
-    // Debounced so the renew flow's overlapping triggers (waiting-dialog
-    // onClose refresh, the atom expiry bump, and the focus refetch) collapse
-    // into a single apiGetInfiniSubscription call instead of firing several
-    // back to back. watchLoading is intentionally omitted: refreshes keep the
-    // current content in place (see renderContent) rather than flipping the
-    // page into a full spinner.
-    { debounced: 300 },
+    [currentOneKeyUserId, primeExpiresAt],
+    // Debounce lives on the refresh callback below, not here: a hook-level
+    // debounce also wraps the run() that the reset flow has to await, and a
+    // debounced call resolves with lodash's previous return value rather than
+    // the pending request. watchLoading is intentionally omitted: refreshes
+    // keep the current content in place (see renderContent) rather than
+    // flipping the page into a full spinner.
+    {},
   );
   const isResultForCurrentUser = Boolean(
     currentOneKeyUserId && result?.onekeyUserId === currentOneKeyUserId,
@@ -249,20 +242,35 @@ export default function PrimeInfiniSubscription() {
     ? result?.subscription
     : undefined;
 
-  const refreshSubscription = useCallback(() => {
-    void run();
-  }, [run]);
+  const runRef = useRef(run);
+  runRef.current = run;
+
+  // Debounced so the renew flow's overlapping triggers collapse into a single
+  // apiGetInfiniSubscription call instead of firing several back to back.
+  // Reads run() through a ref so the debounced instance stays stable and its
+  // pending call cannot be dropped by a re-render.
+  const refreshSubscription = useMemo(
+    () =>
+      debounce(() => {
+        void runRef.current();
+      }, 300),
+    [],
+  );
+
+  useEffect(() => () => refreshSubscription.cancel(), [refreshSubscription]);
 
   // Awaited by the reset button: the subscription shown here comes from this
   // page's own apiGetInfiniSubscription call, which only re-runs when the
   // OneKey ID or primeExpiresAt changes, so a reset would otherwise leave the
-  // deleted subscription (and its cancel-renewal entry) on screen. Bypasses
-  // the debounced run() on purpose: this refresh has to be finished before the
-  // success toast, and it must not be dropped by the focus gate if the dialog
-  // hands focus back during the debounce window.
+  // deleted subscription (and its cancel-renewal entry) on screen. Goes through
+  // run() rather than writing state directly, so this refresh mints a fresh
+  // nonce inside the hook: an apiGetInfiniSubscription still in flight from an
+  // earlier trigger is invalidated instead of landing afterwards and restoring
+  // the pre-reset subscription.
   const handleSubscriptionReset = useCallback(async () => {
-    setResult(await loadSubscription());
-  }, [loadSubscription, setResult]);
+    refreshSubscription.cancel();
+    await run();
+  }, [refreshSubscription, run]);
 
   const handleCancelRenewal = useCallback(
     (currentSubscription: IPrimeInfiniSubscription) => {
