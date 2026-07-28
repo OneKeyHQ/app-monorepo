@@ -128,6 +128,8 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
 
     await expect(
       resolvePrimeInfiniPaymentReplacement({
+        captureSessionRevision: async () => undefined,
+        discardTerminalPaymentSession: async () => false,
         currentPayment: payment,
         selectedAsset: asset,
         sendStarted: false,
@@ -145,6 +147,108 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
     expect(fetchPersistedPaymentSession).not.toHaveBeenCalled();
   });
 
+  it('pins the session revision before querying the remote payment', async () => {
+    const calls: string[] = [];
+    const closedUnpaidPayment = {
+      ...payment,
+      status: 'expired',
+    };
+    const sessionRevision = { updatedAt: 1000, sendStarted: true };
+
+    await expect(
+      resolvePrimeInfiniPaymentReplacement({
+        currentPayment: payment,
+        selectedAsset: asset,
+        sendStarted: true,
+        captureSessionRevision: async () => {
+          calls.push('capture');
+          return sessionRevision;
+        },
+        fetchLatestPayment: async () => {
+          calls.push('query');
+          return closedUnpaidPayment;
+        },
+        discardPaymentSession: jest.fn(),
+        discardTerminalPaymentSession: async () => {
+          calls.push('discard');
+          return true;
+        },
+        fetchPersistedPaymentSession: jest.fn(),
+        persistTrackedPayment,
+        shouldContinue: () => true,
+      }),
+    ).resolves.toEqual({
+      type: 'replace',
+      payment: closedUnpaidPayment,
+    });
+    // A revision read after 'query' would adopt a claim made during the remote
+    // round trip as the expected value, defeating the check-and-swap.
+    expect(calls).toEqual(['capture', 'query', 'discard']);
+  });
+
+  it('releases a claimed invoice the server closed unpaid so the selection can change', async () => {
+    const closedUnpaidPayment = {
+      ...payment,
+      status: 'expired',
+    };
+    const discardPaymentSession = jest.fn();
+    const sessionRevision = { updatedAt: 1000, sendStarted: true };
+    const discardTerminalPaymentSession = jest.fn(async () => true);
+    const persistTracked = jest.fn();
+
+    await expect(
+      resolvePrimeInfiniPaymentReplacement({
+        currentPayment: payment,
+        selectedAsset: asset,
+        sendStarted: true,
+        fetchLatestPayment: async () => closedUnpaidPayment,
+        discardPaymentSession,
+        captureSessionRevision: async () => sessionRevision,
+        discardTerminalPaymentSession,
+        fetchPersistedPaymentSession: jest.fn(),
+        persistTrackedPayment: persistTracked,
+        shouldContinue: () => true,
+      }),
+    ).resolves.toEqual({
+      type: 'replace',
+      payment: closedUnpaidPayment,
+    });
+    expect(discardTerminalPaymentSession).toHaveBeenCalledWith(
+      closedUnpaidPayment,
+      sessionRevision,
+    );
+    expect(discardPaymentSession).not.toHaveBeenCalled();
+    expect(persistTracked).not.toHaveBeenCalled();
+  });
+
+  it('keeps tracking a claimed invoice when the terminal release is refused', async () => {
+    const closedUnpaidPayment = {
+      ...payment,
+      status: 'expired',
+    };
+    const sessionRevision = { updatedAt: 1000, sendStarted: true };
+    const discardTerminalPaymentSession = jest.fn(async () => false);
+
+    await expect(
+      resolvePrimeInfiniPaymentReplacement({
+        currentPayment: payment,
+        selectedAsset: asset,
+        sendStarted: true,
+        fetchLatestPayment: async () => closedUnpaidPayment,
+        discardPaymentSession: jest.fn(),
+        captureSessionRevision: async () => sessionRevision,
+        discardTerminalPaymentSession,
+        fetchPersistedPaymentSession: jest.fn(),
+        persistTrackedPayment,
+        shouldContinue: () => true,
+      }),
+    ).resolves.toEqual({
+      type: 'track',
+      payment: closedUnpaidPayment,
+    });
+    expect(discardTerminalPaymentSession).toHaveBeenCalledTimes(1);
+  });
+
   it('tracks a freshly observed payment progress without discarding it', async () => {
     const progressedPayment = {
       ...payment,
@@ -154,6 +258,8 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
 
     await expect(
       resolvePrimeInfiniPaymentReplacement({
+        captureSessionRevision: async () => undefined,
+        discardTerminalPaymentSession: async () => false,
         currentPayment: payment,
         selectedAsset: asset,
         sendStarted: false,
@@ -176,6 +282,8 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
 
     await expect(
       resolvePrimeInfiniPaymentReplacement({
+        captureSessionRevision: async () => undefined,
+        discardTerminalPaymentSession: async () => false,
         currentPayment: payment,
         selectedAsset: asset,
         sendStarted: false,
@@ -203,6 +311,8 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
 
     await expect(
       resolvePrimeInfiniPaymentReplacement({
+        captureSessionRevision: async () => undefined,
+        discardTerminalPaymentSession: async () => false,
         currentPayment: progressedPayment,
         selectedAsset: asset,
         sendStarted: false,
@@ -229,6 +339,8 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
 
     await expect(
       resolvePrimeInfiniPaymentReplacement({
+        captureSessionRevision: async () => undefined,
+        discardTerminalPaymentSession: async () => false,
         currentPayment: expiredPayment,
         selectedAsset: asset,
         sendStarted: true,
@@ -252,6 +364,8 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
 
     await expect(
       resolvePrimeInfiniPaymentReplacement({
+        captureSessionRevision: async () => undefined,
+        discardTerminalPaymentSession: async () => false,
         currentPayment: payment,
         selectedAsset: asset,
         sendStarted: false,
@@ -278,6 +392,8 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
 
     await expect(
       resolvePrimeInfiniPaymentReplacement({
+        captureSessionRevision: async () => undefined,
+        discardTerminalPaymentSession: async () => false,
         currentPayment: payment,
         selectedAsset: asset,
         sendStarted: false,
@@ -296,6 +412,8 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
 
     await expect(
       resolvePrimeInfiniPaymentReplacement({
+        captureSessionRevision: async () => undefined,
+        discardTerminalPaymentSession: async () => false,
         currentPayment: payment,
         selectedAsset: asset,
         sendStarted: false,
@@ -316,6 +434,8 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
 
     await expect(
       resolvePrimeInfiniPaymentReplacement({
+        captureSessionRevision: async () => undefined,
+        discardTerminalPaymentSession: async () => false,
         currentPayment: payment,
         selectedAsset: asset,
         sendStarted: false,
@@ -335,6 +455,8 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
 
     await expect(
       resolvePrimeInfiniPaymentReplacement({
+        captureSessionRevision: async () => undefined,
+        discardTerminalPaymentSession: async () => false,
         currentPayment: payment,
         selectedAsset: asset,
         sendStarted: false,
@@ -353,6 +475,8 @@ describe('resolvePrimeInfiniPaymentReplacement', () => {
 
     await expect(
       resolvePrimeInfiniPaymentReplacement({
+        captureSessionRevision: async () => undefined,
+        discardTerminalPaymentSession: async () => false,
         currentPayment: payment,
         selectedAsset: asset,
         sendStarted: false,
@@ -487,6 +611,75 @@ describe('resolvePrimeInfiniPaymentForcedReplacement', () => {
       payment: currentSession.payment,
     });
     expect(archivePaymentSession).toHaveBeenCalledWith(currentSession.payment);
+  });
+
+  it('still archives when the invoice endpoint is unavailable', async () => {
+    const archivePaymentSession = jest.fn(async (latestPayment) => ({
+      ...currentSession,
+      payment: latestPayment,
+    }));
+
+    await expect(
+      resolvePrimeInfiniPaymentForcedReplacement({
+        currentSession,
+        fetchLatestPayment: async () => {
+          throw new OneKeyLocalError('invoice endpoint is broken');
+        },
+        fetchPurchaseStatusSnapshot,
+        archivePaymentSession,
+        persistTrackedPayment,
+        shouldContinue: () => true,
+      }),
+    ).resolves.toEqual({
+      type: 'replace',
+      payment: currentSession.payment,
+    });
+    // Falls back to the locally stored payment, which is also what the
+    // confirmation screen showed.
+    expect(archivePaymentSession).toHaveBeenCalledWith(currentSession.payment);
+  });
+
+  it('still refuses a completed subscription when the invoice endpoint is unavailable', async () => {
+    const archivePaymentSession = jest.fn();
+
+    await expect(
+      resolvePrimeInfiniPaymentForcedReplacement({
+        currentSession,
+        fetchLatestPayment: async () => {
+          throw new OneKeyLocalError('invoice endpoint is broken');
+        },
+        fetchPurchaseStatusSnapshot: async () => ({
+          onekeyUserId: 'user-1',
+          primeSubscription: {
+            isActive: true,
+            expiresAt: Date.now() + 60_000,
+          },
+          infiniSubscription: undefined,
+        }),
+        archivePaymentSession,
+        persistTrackedPayment,
+        shouldContinue: () => true,
+      }),
+    ).resolves.toEqual({ type: 'completed' });
+    expect(archivePaymentSession).not.toHaveBeenCalled();
+  });
+
+  it('propagates a purchase status failure instead of forcing blindly', async () => {
+    const archivePaymentSession = jest.fn();
+
+    await expect(
+      resolvePrimeInfiniPaymentForcedReplacement({
+        currentSession,
+        fetchLatestPayment: async () => currentSession.payment,
+        fetchPurchaseStatusSnapshot: async () => {
+          throw new OneKeyLocalError('purchase status is unavailable');
+        },
+        archivePaymentSession,
+        persistTrackedPayment,
+        shouldContinue: () => true,
+      }),
+    ).rejects.toThrow('purchase status is unavailable');
+    expect(archivePaymentSession).not.toHaveBeenCalled();
   });
 
   it('does not replace an invoice after it becomes fully paid', async () => {
