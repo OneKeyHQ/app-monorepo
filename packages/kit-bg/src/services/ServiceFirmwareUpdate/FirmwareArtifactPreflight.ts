@@ -237,10 +237,12 @@ export const downloadTrustedFirmwareArtifact = async ({
       const remainingRouteCount = routes.length - candidateIndex;
       const attemptDeadlineMs = Math.max(
         1,
-        Math.min(
-          MAX_ATTEMPT_DEADLINE_MS,
-          Math.floor(remainingMs / remainingRouteCount),
-        ),
+        remainingRouteCount === 1
+          ? remainingMs
+          : Math.min(
+              MAX_ATTEMPT_DEADLINE_MS,
+              Math.floor(remainingMs / remainingRouteCount),
+            ),
       );
       try {
         const receipt = await firmwareArtifactAdapter.download({

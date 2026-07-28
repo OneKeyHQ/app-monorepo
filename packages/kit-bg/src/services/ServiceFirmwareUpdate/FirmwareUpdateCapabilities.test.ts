@@ -379,6 +379,47 @@ describe('orderFirmwareArtifactRoutes', () => {
     expect(download.mock.calls[1][0].route.routeType).toBe('pinnedIp');
   });
 
+  test('gives a single available route the full remaining deadline', async () => {
+    const artifact = await getTrustedFirmwareArtifact(
+      'https://common.onekey-asset.com/hw/legacy/bootloader/classic/2.0.0/classic-boot.2.0.0-0510-6d616dc.signed.bin',
+    );
+    mockGetIpTableConfig.mockResolvedValue({
+      ...configWithRuntime,
+      config: {
+        ...configWithRuntime.config,
+        domains: {},
+      },
+    });
+    const download = jest
+      .spyOn(firmwareArtifactAdapter, 'download')
+      .mockResolvedValue({
+        artifactRef: `fw:${artifact.expectedSha256}`,
+        size: artifact.expectedSize,
+        sha256: artifact.expectedSha256,
+      });
+    const deadlineAt = Date.now() + 20 * 60 * 1000;
+
+    await expect(
+      downloadTrustedFirmwareArtifact({
+        artifact,
+        artifactId: 'bootloader',
+        transactionId: 'fwtx:single-route-deadline',
+        leaseRef: 'fwlease:single-route-deadline',
+        deadlineAt,
+      }),
+    ).resolves.toMatchObject({
+      artifactRef: `fw:${artifact.expectedSha256}`,
+    });
+
+    expect(download).toHaveBeenCalledTimes(1);
+    expect(download.mock.calls[0][0].overallDeadlineSeconds).toBeGreaterThan(
+      15 * 60,
+    );
+    expect(
+      download.mock.calls[0][0].overallDeadlineSeconds,
+    ).toBeLessThanOrEqual(20 * 60);
+  });
+
   test('fails closed on TLS errors without trying another route', async () => {
     const artifact = await getTrustedFirmwareArtifact(
       'https://common.onekey-asset.com/hw/legacy/bootloader/classic/2.0.0/classic-boot.2.0.0-0510-6d616dc.signed.bin',
