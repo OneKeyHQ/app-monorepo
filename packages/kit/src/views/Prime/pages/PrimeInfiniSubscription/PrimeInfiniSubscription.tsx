@@ -245,6 +245,14 @@ export default function PrimeInfiniSubscription() {
     void run();
   }, [run]);
 
+  // Awaited by the reset button: the subscription shown here comes from this
+  // page's own apiGetInfiniSubscription call, which only re-runs when the
+  // OneKey ID or primeExpiresAt changes, so a reset would otherwise leave the
+  // deleted subscription (and its cancel-renewal entry) on screen.
+  const handleSubscriptionReset = useCallback(async () => {
+    await run();
+  }, [run]);
+
   const handleCancelRenewal = useCallback(
     (currentSubscription: IPrimeInfiniSubscription) => {
       const purchaseUserId = currentOneKeyUserId;
@@ -379,7 +387,10 @@ export default function PrimeInfiniSubscription() {
               testID="prime-infini-subscription-title"
               devSettingsOnly
               debugComponent={
-                <PrimeInfiniSubscriptionResetButton testID="prime-infini-subscription-reset" />
+                <PrimeInfiniSubscriptionResetButton
+                  testID="prime-infini-subscription-reset"
+                  onReset={handleSubscriptionReset}
+                />
               }
             >
               <XStack alignItems="center" gap="$2">
@@ -439,7 +450,7 @@ export default function PrimeInfiniSubscription() {
         </YStack>
       );
     },
-    [intl, primeUserInfo.displayEmail],
+    [handleSubscriptionReset, intl, primeUserInfo.displayEmail],
   );
 
   const renderContent = () => {

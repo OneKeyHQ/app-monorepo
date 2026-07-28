@@ -4270,11 +4270,22 @@ class ServicePrime extends ServiceBase {
   @toastIfError()
   async apiResetInfiniSubscription(
     params: IBackgroundMethodWithDevOnlyPassword,
+    { expectedOneKeyUserId }: { expectedOneKeyUserId: string },
   ): Promise<void> {
     // Destructively deletes the current user's Infini subscription.
     checkDevOnlyPassword(params, 'apiResetInfiniSubscription');
+    // Pin the request to the user who confirmed the dialog: an account switch
+    // between confirmation and send would otherwise let the interceptor attach
+    // the new user's live token and delete a subscription nobody consented to.
+    const authSnapshot =
+      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
     const client = await this.getPrimeClient();
-    await client.post('/prime/v1/infini/test/reset');
+    await client.post(
+      '/prime/v1/infini/test/reset',
+      undefined,
+      this.getInfiniPurchaseRequestConfig(authSnapshot),
+    );
+    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
   }
 
   @backgroundMethod()

@@ -391,20 +391,76 @@ describe('ServicePrime.apiFetchPrimeUserInfo', () => {
 });
 
 describe('ServicePrime.apiResetInfiniSubscription', () => {
+  const userA = {
+    isLoggedIn: true,
+    onekeyUserId: 'user-a',
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPrimePersistAtom.get.mockResolvedValue(userA);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'token-a',
+    });
   });
 
-  it('posts to the Infini test reset endpoint without a request body', async () => {
-    const { service } = createService();
+  afterEach(() => {
+    mockPrimePersistAtom.get.mockImplementation(async () => ({}));
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'persisted-access-token',
+    });
+  });
+
+  function createResetService() {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
     const post = jest.fn(async () => undefined);
     service.getPrimeClient = jest.fn(async () => ({ post }));
+    return { service, simpleDbPrime, post };
+  }
 
-    await service.apiResetInfiniSubscription({
-      $$devOnlyPassword: VALID_DEV_ONLY_PASSWORD,
+  it('pins the confirming user session on the reset request', async () => {
+    const { service, post } = createResetService();
+
+    await service.apiResetInfiniSubscription(
+      { $$devOnlyPassword: VALID_DEV_ONLY_PASSWORD },
+      { expectedOneKeyUserId: 'user-a' },
+    );
+
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/infini/test/reset',
+      undefined,
+      {
+        headers: {
+          'X-Onekey-Request-Token': 'token-a',
+        },
+      },
+    );
+  });
+
+  // An account switch between the confirmation and the send must abort the
+  // delete, never redirect it onto the account that is current by then.
+  it('rejects when the logged-in user is no longer the confirming user', async () => {
+    const { service, post } = createResetService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-b',
     });
 
-    expect(post).toHaveBeenCalledWith('/prime/v1/infini/test/reset');
+    await expect(
+      service.apiResetInfiniSubscription(
+        { $$devOnlyPassword: VALID_DEV_ONLY_PASSWORD },
+        { expectedOneKeyUserId: 'user-a' },
+      ),
+    ).rejects.toThrow('Prime purchase user changed');
+
+    expect(post).not.toHaveBeenCalled();
   });
 
   // The method is production-callable and no decorator guards it, so the method
@@ -414,13 +470,13 @@ describe('ServicePrime.apiResetInfiniSubscription', () => {
     ['missing devOnlyPassword', {} as any],
     ['wrong devOnlyPassword', { $$devOnlyPassword: 'wrong-password' } as any],
   ])('rejects a direct call with %s', async (_title, params) => {
-    const { service } = createService();
-    const post = jest.fn(async () => undefined);
-    service.getPrimeClient = jest.fn(async () => ({ post }));
+    const { service, post } = createResetService();
 
-    await expect(service.apiResetInfiniSubscription(params)).rejects.toThrow(
-      /devOnlyPassword is wrong/,
-    );
+    await expect(
+      service.apiResetInfiniSubscription(params, {
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toThrow(/devOnlyPassword is wrong/);
 
     expect(post).not.toHaveBeenCalled();
   });
