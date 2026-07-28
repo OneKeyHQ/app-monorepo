@@ -613,6 +613,75 @@ describe('resolvePrimeInfiniPaymentForcedReplacement', () => {
     expect(archivePaymentSession).toHaveBeenCalledWith(currentSession.payment);
   });
 
+  it('still archives when the invoice endpoint is unavailable', async () => {
+    const archivePaymentSession = jest.fn(async (latestPayment) => ({
+      ...currentSession,
+      payment: latestPayment,
+    }));
+
+    await expect(
+      resolvePrimeInfiniPaymentForcedReplacement({
+        currentSession,
+        fetchLatestPayment: async () => {
+          throw new OneKeyLocalError('invoice endpoint is broken');
+        },
+        fetchPurchaseStatusSnapshot,
+        archivePaymentSession,
+        persistTrackedPayment,
+        shouldContinue: () => true,
+      }),
+    ).resolves.toEqual({
+      type: 'replace',
+      payment: currentSession.payment,
+    });
+    // Falls back to the locally stored payment, which is also what the
+    // confirmation screen showed.
+    expect(archivePaymentSession).toHaveBeenCalledWith(currentSession.payment);
+  });
+
+  it('still refuses a completed subscription when the invoice endpoint is unavailable', async () => {
+    const archivePaymentSession = jest.fn();
+
+    await expect(
+      resolvePrimeInfiniPaymentForcedReplacement({
+        currentSession,
+        fetchLatestPayment: async () => {
+          throw new OneKeyLocalError('invoice endpoint is broken');
+        },
+        fetchPurchaseStatusSnapshot: async () => ({
+          onekeyUserId: 'user-1',
+          primeSubscription: {
+            isActive: true,
+            expiresAt: Date.now() + 60_000,
+          },
+          infiniSubscription: undefined,
+        }),
+        archivePaymentSession,
+        persistTrackedPayment,
+        shouldContinue: () => true,
+      }),
+    ).resolves.toEqual({ type: 'completed' });
+    expect(archivePaymentSession).not.toHaveBeenCalled();
+  });
+
+  it('propagates a purchase status failure instead of forcing blindly', async () => {
+    const archivePaymentSession = jest.fn();
+
+    await expect(
+      resolvePrimeInfiniPaymentForcedReplacement({
+        currentSession,
+        fetchLatestPayment: async () => currentSession.payment,
+        fetchPurchaseStatusSnapshot: async () => {
+          throw new OneKeyLocalError('purchase status is unavailable');
+        },
+        archivePaymentSession,
+        persistTrackedPayment,
+        shouldContinue: () => true,
+      }),
+    ).rejects.toThrow('purchase status is unavailable');
+    expect(archivePaymentSession).not.toHaveBeenCalled();
+  });
+
   it('does not replace an invoice after it becomes fully paid', async () => {
     const fullyPaidPayment = {
       ...currentSession.payment,

@@ -158,6 +158,7 @@ type ILoadPaymentOptionsState = {
   canUseExternalCheckout: boolean;
   shouldCreatePayment: boolean;
   shouldShowExistingPaymentChoice: boolean;
+  staleExistingPaymentSession?: IPrimeInfiniPendingPaymentSession;
   pendingSession?: IPrimeInfiniPendingPaymentSession;
   completedPaymentId?: string;
 };
@@ -504,11 +505,13 @@ function PrimeInfiniPaymentUnavailableSelection({
 function PrimeInfiniExistingPaymentChoice({
   session,
   isStartingNewPayment,
+  isPaymentStateStale,
   onContinueExistingPayment,
   onStartNewPayment,
 }: {
   session: IPrimeInfiniPendingPaymentSession;
   isStartingNewPayment: boolean;
+  isPaymentStateStale: boolean;
   onContinueExistingPayment: () => void;
   onStartNewPayment: () => Promise<void>;
 }) {
@@ -528,6 +531,19 @@ function PrimeInfiniExistingPaymentChoice({
           // TODO: i18n pending translation key
           description="The previous transfer may still complete. Starting a new payment could result in duplicate transfers."
         />
+        {isPaymentStateStale ? (
+          // The amounts below come from the local record because the server
+          // could not be reached for this invoice. Presenting them as current
+          // would let someone read a stale "0 confirming" as proof they never
+          // paid, which is exactly the judgement this screen asks them to make.
+          <Alert
+            type="critical"
+            // TODO: i18n pending translation key
+            title="Unable to refresh this payment"
+            // TODO: i18n pending translation key
+            description="The amounts below are from this device's last known state and may be out of date. Check the recipient address on chain before starting a new payment."
+          />
+        ) : null}
         <YStack
           gap="$3"
           p="$4"
@@ -556,6 +572,15 @@ function PrimeInfiniExistingPaymentChoice({
               {session.payment.amountConfirming ?? '0'} {session.payment.token}
             </SizableText>
           </XStack>
+          {isPaymentStateStale ? (
+            <YStack gap="$1">
+              {/* TODO: i18n pending translation key */}
+              <SizableText color="$textSubdued">Recipient address</SizableText>
+              <SizableText size="$bodySm" userSelect="text">
+                {session.payment.address}
+              </SizableText>
+            </YStack>
+          ) : null}
           {platformEnv.isDev ? (
             <YStack gap="$1">
               <SizableText color="$textSubdued">Payment ID</SizableText>
@@ -3568,6 +3593,9 @@ function PrimeInfiniWalletPaymentRoot({
       let sessionLoadFailed = false;
       let pendingSession: IPrimeInfiniPendingPaymentSession | undefined;
       let completedPaymentId: string | undefined;
+      // Kept outside the try so a failed server refresh can still fall back to
+      // what is stored locally.
+      let localSessionSnapshot: IPrimeInfiniPendingPaymentSession | undefined;
       if (onekeyUserId) {
         try {
           const restoredSession = normalizePendingPaymentSession(
@@ -3575,6 +3603,7 @@ function PrimeInfiniWalletPaymentRoot({
               { onekeyUserId },
             ),
           );
+          localSessionSnapshot = restoredSession;
           if (restoredSession) {
             const canonicalAsset = getCanonicalPrimeInfiniPaymentAsset(
               restoredSession.asset,
@@ -3702,6 +3731,20 @@ function PrimeInfiniWalletPaymentRoot({
           sendStarted: pendingSession.sendStarted,
         }),
       );
+      // The server can keep failing on one specific invoice. Showing only the
+      // retry screen would hide the unfinished-payment choice behind an error
+      // the user cannot clear, which is the one screen that can release the
+      // session. Fall back to the stored snapshot, clearly marked as stale.
+      const staleExistingPaymentSession =
+        sessionLoadFailed &&
+        shouldCreatePayment &&
+        localSessionSnapshot &&
+        !isPrimeInfiniPaymentReplaceable({
+          payment: localSessionSnapshot.payment,
+          sendStarted: localSessionSnapshot.sendStarted,
+        })
+          ? localSessionSnapshot
+          : undefined;
       if (pendingSession) {
         logPrimeInfiniPaymentFlow({
           stage: 'paymentSession',
@@ -3772,6 +3815,7 @@ function PrimeInfiniWalletPaymentRoot({
         completedPaymentId,
         shouldCreatePayment,
         shouldShowExistingPaymentChoice,
+        staleExistingPaymentSession,
         canUseExternalCheckout: Boolean(
           hasValidRouteParams &&
           onekeyUserId &&
@@ -3799,13 +3843,25 @@ function PrimeInfiniWalletPaymentRoot({
     )
       ? undefined
       : result?.pendingSession;
-  const existingPaymentChoiceSession =
+  const freshExistingPaymentChoiceSession =
     result?.shouldShowExistingPaymentChoice &&
     effectivePendingSession &&
     continuedExistingPaymentBindingId !==
       effectivePendingSession.paymentCacheKey.bindingId
       ? effectivePendingSession
       : undefined;
+  const staleExistingPaymentChoiceSession =
+    !freshExistingPaymentChoiceSession &&
+    result?.staleExistingPaymentSession &&
+    !discardedPaymentBindingIds.has(
+      result.staleExistingPaymentSession.paymentCacheKey.bindingId,
+    ) &&
+    continuedExistingPaymentBindingId !==
+      result.staleExistingPaymentSession.paymentCacheKey.bindingId
+      ? result.staleExistingPaymentSession
+      : undefined;
+  const existingPaymentChoiceSession =
+    freshExistingPaymentChoiceSession ?? staleExistingPaymentChoiceSession;
 
   useEffect(() => {
     const completedPaymentId = result?.completedPaymentId;
@@ -4211,6 +4267,7 @@ function PrimeInfiniWalletPaymentRoot({
       return (
         <PrimeInfiniExistingPaymentChoice
           session={existingPaymentChoiceSession}
+          isPaymentStateStale={Boolean(staleExistingPaymentChoiceSession)}
           isStartingNewPayment={
             isStartingForcedReplacement || Boolean(isLoading)
           }

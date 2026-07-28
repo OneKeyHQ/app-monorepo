@@ -275,8 +275,17 @@ export async function resolvePrimeInfiniPaymentForcedReplacement({
   ) => Promise<IPrimeInfiniPendingPaymentSession>;
   shouldContinue: () => boolean;
 }): Promise<IPrimeInfiniPaymentForcedReplacementResult> {
+  // The invoice endpoint can stay broken for a specific paymentId, which used
+  // to abort this whole path and leave the user with no way out at all. Degrade
+  // instead: the check that actually matters here is whether the subscription
+  // was already granted, and that comes from a different endpoint. Losing the
+  // invoice snapshot only costs the secondary "is this invoice itself already
+  // confirmed" check, which is unavailable in this state anyway.
   const [latestPayment, purchaseStatusSnapshot] = await Promise.all([
-    fetchLatestPayment(currentSession.payment.paymentId),
+    fetchLatestPayment(currentSession.payment.paymentId).then(
+      (payment) => payment,
+      () => undefined,
+    ),
     fetchPurchaseStatusSnapshot(),
   ]);
   if (
@@ -295,15 +304,16 @@ export async function resolvePrimeInfiniPaymentForcedReplacement({
     return { type: 'completed' };
   }
   if (
-    !isSamePrimeInfiniPaymentTransferSnapshot({
+    latestPayment &&
+    (!isSamePrimeInfiniPaymentTransferSnapshot({
       first: currentSession.payment,
       second: latestPayment,
       networkId: currentSession.asset.networkId,
     }) ||
-    !isPrimeInfiniPaymentForAsset({
-      payment: latestPayment,
-      asset: currentSession.asset,
-    })
+      !isPrimeInfiniPaymentForAsset({
+        payment: latestPayment,
+        asset: currentSession.asset,
+      }))
   ) {
     throw new OneKeyLocalError(
       'Infini payment changed before forced replacement',
@@ -312,10 +322,14 @@ export async function resolvePrimeInfiniPaymentForcedReplacement({
   if (!shouldContinue()) {
     return { type: 'cancelled' };
   }
-  const paymentWithDurableProgress = mergePrimeInfiniPaymentProgressSnapshot({
-    previous: currentSession.payment,
-    latest: latestPayment,
-  });
+  // Without a fresh invoice this is the last known local state, which is also
+  // what the confirmation screen showed the user.
+  const paymentWithDurableProgress = latestPayment
+    ? mergePrimeInfiniPaymentProgressSnapshot({
+        previous: currentSession.payment,
+        latest: latestPayment,
+      })
+    : currentSession.payment;
   if (
     getPrimeInfiniPaymentOutcome({
       payment: paymentWithDurableProgress,
