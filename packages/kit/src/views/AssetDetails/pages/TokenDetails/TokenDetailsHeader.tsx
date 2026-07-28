@@ -562,7 +562,7 @@ function TokenDetailsHeaderContent({
               amount: tokenDetails?.balanceParsed,
               balanceMultiplier:
                 tokenDetails?.balanceMultiplier ??
-                tokenDetails?.info.balanceMultiplier,
+                tokenDetails?.info?.balanceMultiplier,
             })}
           />
           {/* Actions */}
