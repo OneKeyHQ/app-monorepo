@@ -132,5 +132,75 @@ describe('tokenRebaseUtils', () => {
         ).toBe(true);
       }
     });
+
+    it('never rounds up across the floor boundary (div precision regression)', () => {
+      const m = '1.0009180758490996';
+      // display value whose true quotient is 0.123456779999999999999... — a
+      // naive 20dp HALF_UP division would floor to 0.12345678
+      const display = new BigNumber('0.12345678')
+        .minus('1e-21')
+        .times(m)
+        .toFixed();
+      expect(
+        tokenRebaseUtils.removeBalanceMultiplier({
+          amount: display,
+          balanceMultiplier: m,
+          decimals: 8,
+        }),
+      ).toBe('0.12345677');
+    });
+
+    it('handles multipliers below 1 in both directions', () => {
+      expect(
+        tokenRebaseUtils.applyBalanceMultiplier({
+          amount: '10',
+          balanceMultiplier: '0.5',
+        }),
+      ).toBe('5');
+      expect(
+        tokenRebaseUtils.removeBalanceMultiplier({
+          amount: '5',
+          balanceMultiplier: '0.5',
+          decimals: 8,
+        }),
+      ).toBe('10.00000000');
+    });
+
+    it('handles decimals=0 tokens', () => {
+      expect(
+        tokenRebaseUtils.removeBalanceMultiplier({
+          amount: '10',
+          balanceMultiplier: '3',
+          decimals: 0,
+        }),
+      ).toBe('3');
+    });
+
+    it('does not emit scientific notation for extreme values', () => {
+      const applied = tokenRebaseUtils.applyBalanceMultiplier({
+        amount: '0.000000001',
+        balanceMultiplier: '1.1',
+      });
+      expect(applied).toBe('0.0000000011');
+      expect(applied.includes('e')).toBe(false);
+    });
+
+    it('throws on invalid decimals when a division is required', () => {
+      expect(() =>
+        tokenRebaseUtils.removeBalanceMultiplier({
+          amount: '1',
+          balanceMultiplier: '1.1',
+          decimals: undefined as unknown as number,
+        }),
+      ).toThrow();
+      // passthrough paths must NOT touch decimals
+      expect(
+        tokenRebaseUtils.removeBalanceMultiplier({
+          amount: '1',
+          balanceMultiplier: undefined,
+          decimals: undefined as unknown as number,
+        }),
+      ).toBe('1');
+    });
   });
 });
