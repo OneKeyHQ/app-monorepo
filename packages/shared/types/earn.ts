@@ -195,6 +195,10 @@ export interface IEarnPageBannerListItem {
   title: string;
   subtitle: string;
   button: string;
+  // Campaign copy rendered at the bottom-left of the banner image
+  // (OK-58503). Optional/empty = no image overlay text.
+  imageTitle?: string;
+  imageSubtitle?: string;
   href: string;
   hrefType: string;
 }
