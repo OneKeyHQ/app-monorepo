@@ -1,6 +1,9 @@
 import { EFirmwareType } from '@onekeyfe/hd-shared';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IIpTableConfigWithRuntime } from '@onekeyhq/shared/src/request/types/ipTable';
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
+import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import { firmwareArtifactAdapter } from './FirmwareArtifactAdapter';
 import {
@@ -14,9 +17,12 @@ import {
   prepareBridgeFirmwareBinaries,
   prepareFirmwareArtifacts,
 } from './FirmwareArtifactPreflight';
+import { FirmwarePreparedArtifactController } from './FirmwarePreparedArtifactController';
+import { executePreparedFirmwareUpdateV2 } from './FirmwarePreparedExecution';
 import { getTrustedFirmwareArtifact } from './trustedFirmwareCatalog';
 
-import type { FirmwareUpdatePlan } from '@onekeyfe/hd-core';
+import type { IPreparedFirmwareArtifacts } from './FirmwareArtifactPreflight';
+import type { CoreApi, FirmwareUpdatePlan } from '@onekeyfe/hd-core';
 
 jest.mock('@onekeyhq/shared/src/request/helpers/sniRequest', () => ({
   isProxyActiveForUrl: jest.fn().mockResolvedValue(false),
@@ -77,6 +83,87 @@ describe('isExternalFirmwareCapabilityReady', () => {
         supportedRouteTypes: ['domain', 'domain'],
       }),
     ).toBe(false);
+  });
+});
+
+describe('prepared firmware execution', () => {
+  const createController = () =>
+    new FirmwarePreparedArtifactController({
+      getHardwareTransportType: async () => EHardwareTransportType.Bridge,
+      getInstanceId: async () => 'test-instance',
+      getIpTableConfig: async () => ({}) as IIpTableConfigWithRuntime,
+      getSDKInstance: async () => ({}) as CoreApi,
+    });
+
+  const createPreparedArtifacts = (
+    selected: Partial<IPreparedFirmwareArtifacts['selected']> = {},
+  ) =>
+    ({
+      transactionId: 'fwtx:test',
+      leaseRef: 'fwlease:test',
+      preparedPlan: {},
+      plan: { deviceIdentity: 'device', artifacts: [] },
+      selected: {
+        componentArtifacts: {},
+        resourceBundleArtifacts: [],
+        ...selected,
+      },
+    }) as unknown as IPreparedFirmwareArtifacts;
+
+  test('releases prepared artifacts with the exact workflow disposition', async () => {
+    const controller = createController();
+    const prepared = createPreparedArtifacts({});
+    jest
+      .spyOn(controller, 'prepareWorkflowArtifacts')
+      .mockResolvedValue(prepared);
+    const release = jest
+      .spyOn(controller, 'releasePreparedArtifacts')
+      .mockResolvedValue();
+    const releaseResult = {} as ICheckAllFirmwareReleaseResult;
+
+    await controller.withWorkflowArtifacts(releaseResult, async () => 'done');
+    await expect(
+      controller.withWorkflowArtifacts(releaseResult, async () => {
+        throw new OneKeyLocalError('install failed');
+      }),
+    ).rejects.toThrow('install failed');
+
+    expect(release).toHaveBeenNthCalledWith(1, prepared, 'completed');
+    expect(release).toHaveBeenNthCalledWith(2, prepared, 'safeCancelled');
+  });
+
+  test('never falls back to SDK network for malformed prepared artifacts', () => {
+    const firmwareUpdateV2 = jest.fn();
+    const sdk = { firmwareUpdateV2 } as unknown as CoreApi;
+    const baseParams = {
+      sdk,
+      connectId: 'device',
+      forcedUpdateRes: false,
+      platform: 'native' as const,
+      firmwareType: EFirmwareType.Universal,
+      version: [1, 0, 0],
+    };
+
+    expect(() =>
+      executePreparedFirmwareUpdateV2({
+        ...baseParams,
+        updateType: 'firmware',
+        preparedArtifacts: createPreparedArtifacts({}),
+        hostBindingGeneration: 1,
+      }),
+    ).toThrow('Prepared firmware artifact is unavailable');
+    expect(() =>
+      executePreparedFirmwareUpdateV2({
+        ...baseParams,
+        updateType: 'firmware',
+        preparedArtifacts: createPreparedArtifacts({
+          firmware: {} as NonNullable<
+            IPreparedFirmwareArtifacts['selected']['firmware']
+          >,
+        }),
+      }),
+    ).toThrow('Firmware host binding is unavailable');
+    expect(firmwareUpdateV2).not.toHaveBeenCalled();
   });
 });
 
