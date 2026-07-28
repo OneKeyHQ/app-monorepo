@@ -34,7 +34,7 @@ import {
   isResolvedTokenActionReady,
 } from './TokenActionsView.utils';
 import { useTokenListViewContext } from './TokenListViewContext';
-import { useTokenBalanceParsed } from './useTokenFiatField';
+import { useTokenBalanceParsedRaw } from './useTokenFiatField';
 
 import type { XStackProps } from 'tamagui';
 
@@ -79,7 +79,12 @@ function TokenActionsView(props: IProps) {
   const networkId =
     resolvedActiveToken?.networkId ?? activeAccount?.network?.id ?? '';
   const accountAddress = account?.addressDetail?.address;
-  const fromTokenBalance = useTokenBalanceParsed(
+  // RAW basis: this value only seeds the Swap modal's fallback balance
+  // (never rendered here), and the Swap boundary expects on-chain-raw
+  // amounts uniformly today — mixing in the display-multiplied basis would
+  // desync it from the `aggregateFromTokenFiat?.balanceParsed` (raw) branch
+  // of the `??` fallback below.
+  const fromTokenBalance = useTokenBalanceParsedRaw(
     resolvedActiveToken?.$key ?? '',
   );
   const aggregateFromTokenFiat = useAggregateSubTokenFiat(
@@ -113,7 +118,9 @@ function TokenActionsView(props: IProps) {
           tokenAddress: sameNetworkToToken.contractAddress ?? '',
         })
       : '';
-  const sameNetworkToTokenBalance = useTokenBalanceParsed(
+  // RAW basis — same rationale as `fromTokenBalance` above: only used as the
+  // Swap modal's `importToToken.balanceParsed` seed, never rendered here.
+  const sameNetworkToTokenBalance = useTokenBalanceParsedRaw(
     sameNetworkToTokenKey,
   );
   const sameNetworkToTokenAggregateKey = useMemo(

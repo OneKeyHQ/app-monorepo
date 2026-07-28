@@ -75,6 +75,14 @@ function applyBalanceMultiplier({
   if (amount === undefined) {
     return undefined;
   }
+  // Fast path: no multiplier (or the literal '1') is the overwhelming common
+  // case — every non-rebase token hits this on every render. Skip
+  // `parseBalanceMultiplier`'s BigNumber construction entirely for it. This
+  // is purely an optimization: the slow path below still handles '1.0',
+  // whitespace, and invalid strings identically via `parseBalanceMultiplier`.
+  if (balanceMultiplier === undefined || balanceMultiplier === '1') {
+    return amount;
+  }
   const multiplierBN = parseBalanceMultiplier(balanceMultiplier);
   if (!multiplierBN || multiplierBN.eq(1)) {
     return amount;
@@ -98,6 +106,13 @@ function removeBalanceMultiplier({
   balanceMultiplier: string | undefined;
   decimals: number;
 }): string {
+  // Fast path: same rationale as `applyBalanceMultiplier` above — skip
+  // `parseBalanceMultiplier`'s BigNumber construction for the common no-op
+  // case. Passthrough must not touch `decimals` (see the invalid-decimals
+  // passthrough test), and this early return runs before `decimals` is used.
+  if (balanceMultiplier === undefined || balanceMultiplier === '1') {
+    return amount;
+  }
   const multiplierBN = parseBalanceMultiplier(balanceMultiplier);
   if (!multiplierBN || multiplierBN.eq(1)) {
     return amount;
