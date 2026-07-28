@@ -1,6 +1,7 @@
 // cspell: words unifold Unifold
 import BigNumber from 'bignumber.js';
 
+import { UNIFOLD_ERROR_CODE_LOCAL_INVALID_DEPOSIT_ADDRESS_RESPONSE } from '../../types/unifoldDeposit';
 import { OneKeyError } from '../errors';
 
 import type {
@@ -156,6 +157,10 @@ export function assertUnifoldEchoMatches(
     echo?.destinationChainId === request.destinationChainId &&
     sameAddress(echo?.destinationTokenAddress, request.destinationTokenAddress);
   if (!ok) {
-    throw new OneKeyError('Unifold deposit-address echo mismatch');
+    throw new OneKeyError({
+      code: UNIFOLD_ERROR_CODE_LOCAL_INVALID_DEPOSIT_ADDRESS_RESPONSE,
+      message: 'Unifold deposit-address echo mismatch',
+      autoToast: false,
+    });
   }
 }

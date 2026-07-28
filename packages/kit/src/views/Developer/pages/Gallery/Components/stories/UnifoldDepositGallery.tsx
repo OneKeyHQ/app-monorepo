@@ -44,7 +44,7 @@ const USDC_ICON = 'https://api.unifold.io/api/public/icons/tokens/svg/usdc.svg';
 const ARB_ICON =
   'https://api.unifold.io/api/public/icons/networks/svg/arbitrum.svg';
 const SYNTHETIC_RECIPIENT = '0x1111111111111111111111111111111111111111';
-const SYNTHETIC_DEPOSIT_ADDRESS = '0x2222222222222222222222222222222222222222';
+const SYNTHETIC_DEPOSIT_ADDRESS = '0x8dE690AcD6A938d0aE3bE6e08Ce80a54Bb0b928D';
 const SYNTHETIC_TX =
   '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const INVALID_SCRIPT_EXPLORER_URL = ['java', 'script:alert(1)'].join('');

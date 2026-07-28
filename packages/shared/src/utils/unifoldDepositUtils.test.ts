@@ -1,3 +1,5 @@
+import { UNIFOLD_ERROR_CODE_LOCAL_INVALID_DEPOSIT_ADDRESS_RESPONSE } from '../../types/unifoldDeposit';
+
 import {
   assertUnifoldEchoMatches,
   filterUnifoldExecutionsByRecipient,
@@ -79,9 +81,17 @@ describe('assertUnifoldEchoMatches', () => {
       { destinationTokenAddress: '0x6d1e0000000000000000000000000000' },
     ],
   ])('throws when %s differs', (_field, override) => {
-    expect(() =>
-      assertUnifoldEchoMatches({ ...MATCHING_ECHO, ...override }, REQUEST),
-    ).toThrow('echo mismatch');
+    let thrown: unknown;
+    try {
+      assertUnifoldEchoMatches({ ...MATCHING_ECHO, ...override }, REQUEST);
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toMatchObject({
+      code: UNIFOLD_ERROR_CODE_LOCAL_INVALID_DEPOSIT_ADDRESS_RESPONSE,
+      message: 'Unifold deposit-address echo mismatch',
+      autoToast: false,
+    });
   });
 
   it('throws on missing echo or empty fields (fail-closed)', () => {

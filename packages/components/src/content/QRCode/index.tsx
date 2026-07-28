@@ -1,7 +1,6 @@
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
-import QRCodeUtil from 'qrcode';
 import Svg, {
   Circle,
   ClipPath,
@@ -24,6 +23,12 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { Icon } from '../../primitives/Icon';
 import { Stack } from '../../primitives/Stack';
 
+import {
+  generateMatrix,
+  getQRCodeLayoutMetrics,
+  getQRCodeLogoClearArenaSize,
+} from './QRCode.utils';
+
 import type { IIconProps } from '../../primitives';
 import type { ImageProps, ImageURISource } from 'react-native';
 
@@ -37,6 +42,7 @@ type IBasicQRCodeProps = {
   logoSvgColor?: IIconProps['color'];
   // Use RGB color, please avoid using colors that are close to black.
   logoBackgroundColor?: string;
+  logoBorderRadius?: number;
   logoMargin?: number;
   logoSize?: number;
   value: string;
@@ -49,24 +55,8 @@ type IBasicQRCodeProps = {
   drawType?: IQrcodeDrawType;
 };
 
-const generateMatrix = (
-  value: string,
-  errorCorrectionLevel: 'L' | 'M' | 'Q' | 'H',
-): number[][] => {
-  const arr: number[] = Array.prototype.slice.call(
-    QRCodeUtil.create(value, { errorCorrectionLevel }).modules.data,
-    0,
-  );
-  const sqrt = Math.sqrt(arr.length);
-  return arr.reduce((rows: number[][], key, index) => {
-    if (index % sqrt === 0) {
-      rows.push([key]);
-    } else {
-      rows[rows.length - 1].push(key);
-    }
-    return rows;
-  }, []);
-};
+const DEFAULT_LOGO_MARGIN = 5;
+const DEFAULT_LOGO_SIZE = 62;
 
 const transformMatrixIntoPath = (matrix: number[][], size: number) => {
   const cellSize = size / matrix.length;
@@ -99,9 +89,10 @@ function BasicQRCode({
   logo,
   logoSvg,
   logoBackgroundColor: logoBGColor,
+  logoBorderRadius,
   logoSvgColor = '$text',
-  logoMargin = 5,
-  logoSize = 62,
+  logoMargin = DEFAULT_LOGO_MARGIN,
+  logoSize = DEFAULT_LOGO_SIZE,
   size,
   value,
   quietZone = 0,
@@ -144,7 +135,11 @@ function BasicQRCode({
         }
       });
 
-      const clearArenaSize = Math.floor((logoSize + 3) / cellSize);
+      const clearArenaSize = getQRCodeLogoClearArenaSize({
+        logoSize,
+        logoMargin,
+        cellSize,
+      });
       const matrixMiddleStart = matrix.length / 2 - clearArenaSize / 2;
       const matrixMiddleEnd = matrix.length / 2 + clearArenaSize / 2 - 1;
       matrix.forEach((row: any[], i: number) => {
@@ -220,6 +215,7 @@ function BasicQRCode({
     drawType,
     hasLogo,
     linearGradient,
+    logoMargin,
     logoSize,
     primaryColor,
     quietZone,
@@ -229,15 +225,27 @@ function BasicQRCode({
   ]);
   const logoPosition = size / 2 - logoSize / 2 - logoMargin;
   const logoWrapperSize = logoSize + logoMargin * 2;
+  const logoRadius =
+    logoBorderRadius ?? (drawType === 'line' ? 9999 : undefined);
 
   return (
     <Svg height={size} width={size}>
       <Defs>
         <ClipPath id="clip-wrapper">
-          <Rect height={logoWrapperSize} width={logoWrapperSize} />
+          <Rect
+            height={logoWrapperSize}
+            width={logoWrapperSize}
+            rx={logoRadius}
+            ry={logoRadius}
+          />
         </ClipPath>
         <ClipPath id="clip-logo">
-          <Rect height={logoSize} width={logoSize} />
+          <Rect
+            height={logoSize}
+            width={logoSize}
+            rx={logoRadius}
+            ry={logoRadius}
+          />
         </ClipPath>
       </Defs>
       <Rect fill={secondaryColor} height={size} width={size} />
@@ -249,7 +257,8 @@ function BasicQRCode({
             fill={logoBackgroundColor}
             height={logoWrapperSize}
             width={logoWrapperSize}
-            rx={drawType === 'line' ? 9999 : undefined}
+            rx={logoRadius}
+            ry={logoRadius}
           />
           <G x={logoMargin} y={logoMargin}>
             {logo ? (
@@ -337,17 +346,16 @@ export function QRCode({
     // TODO return Skeleton
     return null;
   }
-  const canvasSize = props.size + padding;
-  const normalizedQuietZoneModules =
-    Number.isFinite(quietZoneModules) && quietZoneModules > 0
-      ? quietZoneModules
-      : 0;
-  const matrixSize = normalizedQuietZoneModules
-    ? generateMatrix(displayValue, props.ecl ?? 'H').length
-    : 0;
-  const qrCodeSize = normalizedQuietZoneModules
-    ? (canvasSize * matrixSize) / (matrixSize + normalizedQuietZoneModules * 2)
-    : props.size;
+  const { canvasSize, qrCodeSize, symbolScale } = getQRCodeLayoutMetrics({
+    value: displayValue,
+    ecl: props.ecl ?? 'H',
+    size: props.size,
+    padding,
+    quietZoneModules,
+  });
+  const scaledLogoSize = (props.logoSize ?? DEFAULT_LOGO_SIZE) * symbolScale;
+  const scaledLogoMargin =
+    (props.logoMargin ?? DEFAULT_LOGO_MARGIN) * symbolScale;
   return (
     <Theme name="light">
       <Stack
@@ -362,6 +370,8 @@ export function QRCode({
           drawType={drawType}
           {...props}
           size={qrCodeSize}
+          logoSize={scaledLogoSize}
+          logoMargin={scaledLogoMargin}
         />
       </Stack>
     </Theme>

@@ -3,6 +3,7 @@ import {
   type IUnifoldDepositExecution,
   type IUnifoldSupportedAsset,
   UNIFOLD_ERROR_CODE_LOCAL_ACTIVATION_UNAVAILABLE,
+  UNIFOLD_ERROR_CODE_LOCAL_INVALID_DEPOSIT_ADDRESS_RESPONSE,
   UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH,
   UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_SANCTIONED,
 } from '@onekeyhq/shared/types/unifoldDeposit';
@@ -463,6 +464,7 @@ describe('ServiceUnifoldDeposit tracking delivery', () => {
       });
 
     await expect(service.createDepositAddress(params)).rejects.toMatchObject({
+      code: UNIFOLD_ERROR_CODE_LOCAL_INVALID_DEPOSIT_ADDRESS_RESPONSE,
       message: 'Invalid Unifold deposit-address response',
       autoToast: false,
     });

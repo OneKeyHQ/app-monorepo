@@ -306,4 +306,57 @@ describe('PerpsUnifoldDepositTerminalDeliveryContainer', () => {
 
     unmount();
   });
+
+  it('advances ACK backoff when claim renewal rejects', async () => {
+    mockService.tryClaimTerminalDelivery
+      .mockResolvedValueOnce({
+        status: 'claimed',
+        delivery: {
+          deliveryId: 'delivery-1',
+          sessionId: 'session-1',
+          execution: {
+            status: 'succeeded',
+            destinationAmountUsd: '12.34',
+            sourceAmountUsd: '12.34',
+          },
+        },
+        expiresAt: Date.now() + 30_000,
+      })
+      .mockRejectedValue(new OneKeyLocalError('renewal IPC failed'));
+    mockService.acknowledgeTerminalDelivery.mockRejectedValue(
+      new OneKeyLocalError('ACK IPC failed'),
+    );
+    const { unmount } = render(
+      <PerpsUnifoldDepositTerminalDeliveryContainer />,
+    );
+    await flushPromises();
+
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.PerpsUnifoldDepositTerminalDelivery, {
+        deliveryId: 'delivery-1',
+      });
+    });
+    await flushPromises();
+
+    for (let renewalAttempt = 0; renewalAttempt < 4; renewalAttempt += 1) {
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(1050);
+      });
+    }
+    expect(mockService.tryClaimTerminalDelivery).toHaveBeenCalledTimes(5);
+    expect(mockService.acknowledgeTerminalDelivery).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(2049);
+    });
+    expect(mockService.tryClaimTerminalDelivery).toHaveBeenCalledTimes(5);
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(1);
+    });
+    expect(mockService.tryClaimTerminalDelivery).toHaveBeenCalledTimes(6);
+    expect(mockService.acknowledgeTerminalDelivery).toHaveBeenCalledTimes(1);
+
+    unmount();
+  });
 });

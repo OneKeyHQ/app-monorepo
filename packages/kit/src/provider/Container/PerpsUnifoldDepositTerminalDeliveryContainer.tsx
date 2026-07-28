@@ -58,6 +58,13 @@ export function PerpsUnifoldDepositTerminalDeliveryContainer() {
       deliveryId: string,
       presentedClaim: IPresentedClaim,
     ): Promise<number | undefined> => {
+      const attemptedClaim = {
+        ...presentedClaim,
+        acknowledgementAttempts: presentedClaim.acknowledgementAttempts + 1,
+      };
+      // A failed renewal uses the same IPC path as ACK. Persist the attempt
+      // first so renewal failures still advance exponential backoff.
+      presentedClaims.set(deliveryId, attemptedClaim);
       if (presentedClaim.acknowledgementAttempts > 0) {
         const renewedClaim =
           await backgroundApiProxy.serviceUnifoldDeposit.tryClaimTerminalDelivery(
@@ -71,11 +78,6 @@ export function PerpsUnifoldDepositTerminalDeliveryContainer() {
           return undefined;
         }
       }
-      const attemptedClaim = {
-        ...presentedClaim,
-        acknowledgementAttempts: presentedClaim.acknowledgementAttempts + 1,
-      };
-      presentedClaims.set(deliveryId, attemptedClaim);
       const result =
         await backgroundApiProxy.serviceUnifoldDeposit.acknowledgeTerminalDelivery(
           {

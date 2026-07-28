@@ -23,6 +23,8 @@ const QR_SIZE = 200;
 const QR_CODE_PADDING = 10;
 const QR_CODE_SIZE = QR_SIZE - QR_CODE_PADDING;
 const QR_QUIET_ZONE_MODULES = 4;
+const QR_LOGO_SIZE = 56;
+const QR_LOGO_MARGIN = 4;
 const UNIFOLD_TERMS_URL = 'https://unifold.io/terms';
 const UNIFOLD_HELP_URL = 'https://unifold.io/support';
 
@@ -120,29 +122,16 @@ export function UnifoldDepositQRCard({
             padding={QR_CODE_PADDING}
             quietZoneModules={QR_QUIET_ZONE_MODULES}
             drawType="dot"
+            logo={
+              normalizedChainIconUri
+                ? { uri: normalizedChainIconUri }
+                : undefined
+            }
+            logoSize={QR_LOGO_SIZE}
+            logoMargin={QR_LOGO_MARGIN}
+            logoBackgroundColor="white"
+            logoBorderRadius={9999}
           />
-          {normalizedChainIconUri ? (
-            <YStack
-              position="absolute"
-              top={0}
-              left={0}
-              right={0}
-              bottom={0}
-              alignItems="center"
-              justifyContent="center"
-              pointerEvents="none"
-            >
-              <YStack
-                borderWidth={4}
-                borderColor="white"
-                borderRadius="$full"
-                bg="white"
-                overflow="hidden"
-              >
-                <Token size="xxl" tokenImageUri={normalizedChainIconUri} />
-              </YStack>
-            </YStack>
-          ) : null}
         </Stack>
       ) : null}
       {shouldShowConversionRoute ? (

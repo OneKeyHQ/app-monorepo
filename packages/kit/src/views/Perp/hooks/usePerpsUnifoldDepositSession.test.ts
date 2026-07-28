@@ -5,6 +5,7 @@ import type {
   IUnifoldActivationStatus,
   IUnifoldDepositAddressResult,
 } from '@onekeyhq/shared/types/unifoldDeposit';
+import { UNIFOLD_ERROR_CODE_LOCAL_INVALID_DEPOSIT_ADDRESS_RESPONSE } from '@onekeyhq/shared/types/unifoldDeposit';
 
 import { usePerpsUnifoldDepositSession } from './usePerpsUnifoldDepositSession';
 
@@ -280,6 +281,35 @@ describe('usePerpsUnifoldDepositSession account alignment', () => {
     });
     expect(result.current.qrAddress).toBeNull();
     expect(result.current.addressState).toEqual({ status: 'loading' });
+
+    unmount();
+  });
+
+  it('does not retry a deterministic invalid address response', async () => {
+    mockService.createDepositAddress.mockRejectedValue({
+      code: UNIFOLD_ERROR_CODE_LOCAL_INVALID_DEPOSIT_ADDRESS_RESPONSE,
+      message: 'Invalid Unifold deposit-address response',
+    });
+    const { result, unmount } = renderHook(() =>
+      usePerpsUnifoldDepositSession({
+        enabled: true,
+        expectedRecipient: RECIPIENT,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.addressState).toEqual({
+        status: 'error',
+        errorType: 'unavailable',
+        message: undefined,
+      });
+    });
+    expect(mockService.createDepositAddress).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(15_000);
+    });
+    expect(mockService.createDepositAddress).toHaveBeenCalledTimes(1);
 
     unmount();
   });

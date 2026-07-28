@@ -125,3 +125,9 @@ export const UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_SANCTIONED = 914_102;
 // could not obtain a sanction verdict. The request fails closed and the UI
 // renders its unavailable state instead of retrying an untyped network error.
 export const UNIFOLD_ERROR_CODE_LOCAL_ACTIVATION_UNAVAILABLE = 914_103;
+
+// Client-side code, never sent by the server: the wallet-service returned a
+// deposit-address payload that cannot be safely rendered or whose echo does
+// not match the request. This is deterministic and must not enter the UI's
+// transient network retry loop.
+export const UNIFOLD_ERROR_CODE_LOCAL_INVALID_DEPOSIT_ADDRESS_RESPONSE = 914_104;

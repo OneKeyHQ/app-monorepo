@@ -18,6 +18,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import {
   UNIFOLD_ERROR_CODE_LOCAL_ACTIVATION_UNAVAILABLE,
+  UNIFOLD_ERROR_CODE_LOCAL_INVALID_DEPOSIT_ADDRESS_RESPONSE,
   UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH,
   UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_SANCTIONED,
   UNIFOLD_TERMINAL_STATUSES,
@@ -281,6 +282,7 @@ function sanitizeDepositAddressResult(
     !isNonEmptyString(value.echo.destinationTokenAddress)
   ) {
     throw new OneKeyError({
+      code: UNIFOLD_ERROR_CODE_LOCAL_INVALID_DEPOSIT_ADDRESS_RESPONSE,
       message: 'Invalid Unifold deposit-address response',
       autoToast: false,
     });
