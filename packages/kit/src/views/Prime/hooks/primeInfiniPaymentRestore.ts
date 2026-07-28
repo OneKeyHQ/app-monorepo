@@ -170,12 +170,28 @@ export async function resolvePrimeInfiniPaymentRestore({
     throw new OneKeyLocalError('Infini payment context changed during restore');
   }
 
-  const persistedSession = await persistRestoredSession({
+  const nextSession = {
     ...session,
     asset: supportedAsset ?? session.asset,
     payment: paymentWithDurableProgress,
     sendStarted: shouldTrackPayment,
-  });
+  };
+  // Writing on every restore refreshed updatedAt, and because sendStarted only
+  // ever latches on, a session that blocks the purchase entry had its age reset
+  // each time the user opened this page. The age limit meant to eventually
+  // release it therefore never arrived, and the more the user retried the
+  // longer it survived. Only write when the restore actually learned something.
+  const hasSessionChanged =
+    nextSession.asset.key !== session.asset.key ||
+    nextSession.sendStarted !== session.sendStarted ||
+    nextSession.payment.amountConfirmed !== session.payment.amountConfirmed ||
+    nextSession.payment.amountConfirming !== session.payment.amountConfirming ||
+    nextSession.payment.status !== session.payment.status ||
+    nextSession.payment.infiniStatus !== session.payment.infiniStatus ||
+    nextSession.payment.expiresAt !== session.payment.expiresAt;
+  const persistedSession = hasSessionChanged
+    ? await persistRestoredSession(nextSession)
+    : nextSession;
   return {
     type: 'restore',
     asset: persistedSession.asset,

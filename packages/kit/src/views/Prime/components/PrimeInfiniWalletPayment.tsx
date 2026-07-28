@@ -107,6 +107,10 @@ import {
   shouldRenderPrimeInfiniPaymentSelection,
 } from '../hooks/primeInfiniPaymentUtils';
 import {
+  capturePrimeInfiniSessionRevision,
+  releasePrimeInfiniTerminalSession,
+} from '../hooks/primeInfiniTerminalRelease';
+import {
   isPrimeInfiniExternalCheckoutInFlight,
   usePrimeInfiniPurchase,
 } from '../hooks/usePrimeInfiniPurchase';
@@ -1011,27 +1015,13 @@ function PrimeInfiniWalletPaymentContent({
     if (!onekeyUserId) {
       return undefined;
     }
-    // Read through the persistence queue so a local write already in flight is
-    // reflected in the revision the terminal release will be checked against.
-    // Only the closed-unpaid branch consumes this, so a failed read must not
-    // break an ordinary replacement that never needed it. Swallowing is safe
-    // because the DB layer fails closed on a missing revision: an existing
-    // session cannot match expectedUpdatedAt 0, and no session takes the
-    // idempotent branch.
-    const persistedSession = await sessionPersistenceQueueRef.current
-      .persist(async () =>
+    return capturePrimeInfiniSessionRevision({
+      queue: sessionPersistenceQueueRef.current,
+      fetchPersistedSession: () =>
         backgroundApiProxy.simpleDb.prime.getInfiniPendingPaymentSession({
           onekeyUserId,
         }),
-      )
-      .catch(() => undefined);
-    if (!persistedSession) {
-      return undefined;
-    }
-    return {
-      updatedAt: persistedSession.updatedAt,
-      sendStarted: persistedSession.sendStarted,
-    };
+    });
   }, [baseline.onekeyUserId]);
 
   const discardTerminalPaymentSessionForSelectionChange = useCallback(
@@ -1047,41 +1037,22 @@ function PrimeInfiniWalletPaymentContent({
       ) {
         return false;
       }
-      let wasDiscardRejected = false;
-      try {
-        await sessionPersistenceQueueRef.current.finalize(async () => {
-          const didDiscard =
-            await backgroundApiProxy.simpleDb.prime.discardTerminalInfiniPendingPaymentSession(
-              {
-                onekeyUserId,
-                expectedPaymentCacheIdentity,
-                // Revision pinned before the caller's remote fetch. Absent
-                // means there was no session then, and the DB layer still
-                // refuses if one has appeared since.
-                expectedUpdatedAt: sessionRevision?.updatedAt ?? 0,
-                expectedSendStarted: sessionRevision?.sendStarted ?? false,
-                latestPayment,
-              },
-            );
-          if (!didDiscard) {
-            // Must throw rather than return: finalize() only clears its
-            // finalized flag when the task rejects. Returning here would leave
-            // the queue permanently finalized, so the caller's fallback to
-            // tracking the payment would fail on a finalized persistence queue
-            // instead of resuming polling.
-            wasDiscardRejected = true;
-            throw new OneKeyLocalError(
-              'Infini payment session cannot be released',
-            );
-          }
-        });
-        return true;
-      } catch (error) {
-        if (wasDiscardRejected) {
-          return false;
-        }
-        throw error;
-      }
+      return releasePrimeInfiniTerminalSession({
+        queue: sessionPersistenceQueueRef.current,
+        discardTerminalSession: () =>
+          backgroundApiProxy.simpleDb.prime.discardTerminalInfiniPendingPaymentSession(
+            {
+              onekeyUserId,
+              expectedPaymentCacheIdentity,
+              // Revision pinned before the caller's remote fetch. Absent means
+              // there was no session then, and the DB layer still refuses if
+              // one has appeared since.
+              expectedUpdatedAt: sessionRevision?.updatedAt ?? 0,
+              expectedSendStarted: sessionRevision?.sendStarted ?? false,
+              latestPayment,
+            },
+          ),
+      });
     },
     [baseline.onekeyUserId],
   );
