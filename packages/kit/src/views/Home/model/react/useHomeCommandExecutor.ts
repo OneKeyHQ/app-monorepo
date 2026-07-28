@@ -152,6 +152,7 @@ export function useHomeCommandExecutor(runtime: HomeStoreRuntime) {
     activeAccount;
   const { showAccountSelector } = useAccountSelectorTrigger({
     num: 0,
+    editable: true,
     showConnectWalletModalInDappMode: true,
     linkNetwork: !network?.isAllNetworks,
     linkNetworkId: !network?.isAllNetworks ? network?.id : undefined,
