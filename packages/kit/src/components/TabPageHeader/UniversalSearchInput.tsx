@@ -19,15 +19,13 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 
-// The desktop header centers this pill between two flex-basis:0 spacers, so
-// every pixel of pill width costs two pixels of room for the header actions,
-// which then paint over it (OK-58363). Only Electron renders the update button
-// that creates that pressure (HeaderUpdateButton is platformEnv.isDesktop
-// gated), so desktop gives up the 320 floor a breakpoint earlier while web and
-// extension keep it from $gtLg up.
-const searchBarMinWidth = platformEnv.isDesktop
-  ? { $gtXl: { minWidth: 320 } }
-  : { $gtLg: { minWidth: 320 } };
+import { HEADER_SEARCH_MIN_WIDTH, HEADER_WIDE_MEDIA_KEY } from './headerLayout';
+
+// Paired with HeaderUpdateButton's collapse — see headerLayout.ts for why both
+// must flip at the same breakpoint (OK-58363).
+const searchBarMinWidth = {
+  [`$${HEADER_WIDE_MEDIA_KEY}`]: { minWidth: HEADER_SEARCH_MIN_WIDTH },
+};
 
 export function UniversalSearchInput({
   containerProps,
@@ -106,7 +104,7 @@ export function MDUniversalSearchInput() {
         size="medium"
         containerProps={{
           width: '100%',
-          // Clear whichever breakpoint searchBarMinWidth used on this platform.
+          // Clear whichever breakpoint HEADER_WIDE_MEDIA_KEY resolved to.
           $gtLg: undefined,
           $gtXl: undefined,
         }}

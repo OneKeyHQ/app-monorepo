@@ -11,6 +11,8 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { HEADER_WIDE_MEDIA_KEY } from '../headerLayout';
+
 // Desktop top-right "Update" button. Surfaces under the exact same conditions
 // as the toolbox update dot (isShowAppUpdateUIWhenUpdating: seamless=never,
 // manual/force=always, silent=only at ready) and shares the unified
@@ -20,7 +22,9 @@ function BasicHeaderUpdateButton() {
   const intl = useIntl();
   const appUpdateInfo = useAppUpdateInfo(true);
   const { data, isNeedUpdate, onUpdateActionDirect } = appUpdateInfo;
-  const { gtXl } = useMedia();
+  // Paired with UniversalSearchInput's width floor — see headerLayout.ts for
+  // why both must flip at the same breakpoint (OK-58363).
+  const isWideHeader = useMedia()[HEADER_WIDE_MEDIA_KEY];
 
   const showUpdate = useMemo(
     () =>
@@ -38,9 +42,7 @@ function BasicHeaderUpdateButton() {
 
   const label = intl.formatMessage({ id: ETranslations.global_update });
 
-  // Below $gtXl the header can't afford the label — see UniversalSearchInput
-  // for the centering math (OK-58363).
-  if (!gtXl) {
+  if (!isWideHeader) {
     return (
       <HeaderIconButton
         testID="header-update-button"
@@ -51,6 +53,15 @@ function BasicHeaderUpdateButton() {
         // an explicit accessible name.
         title={label}
         accessibilityLabel={label}
+        // IconButton otherwise swallows Enter/Space with a preventDefault-only
+        // onKeyDown, and HeaderIconButton drops the focus ring for the quiet
+        // header icons. This one is a CTA, so keep both.
+        hotKey
+        focusVisibleStyle={{
+          outlineColor: '$focusRing',
+          outlineStyle: 'solid',
+          outlineWidth: 2,
+        }}
         // Right gap so the button doesn't sit flush against the notification
         // bell. Self-contained (rather than parent spacing) so it disappears
         // with the button when there's no update.
