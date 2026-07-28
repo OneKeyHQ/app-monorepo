@@ -26,8 +26,7 @@ export interface IServerTokenInfo {
   adaName?: string;
   networkId?: string;
   dappName?: string | null;
-  // See IToken.balanceMultiplier. Exact server payload placement (info vs.
-  // account item) is being verified, so this is typed optionally.
+  // See IToken.balanceMultiplier.
   balanceMultiplier?: string;
 }
 
@@ -39,8 +38,7 @@ export interface IServerAccountTokenItem extends IServerTokenItemWithInfo {
   fiatValue: IFiatAmount;
   balance: IAmountUnit;
   balanceParsed: IAmount;
-  // See IToken.balanceMultiplier. Exact server payload placement (info vs.
-  // account item) is being verified, so this is typed optionally.
+  // See IToken.balanceMultiplier.
   balanceMultiplier?: string;
   frozenBalance?: string;
   frozenBalanceParsed?: string;
