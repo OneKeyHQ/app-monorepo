@@ -5,9 +5,11 @@ import BigNumber from 'bignumber.js';
 import { chunk, cloneDeep, isString } from 'lodash';
 
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
+import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   backgroundMethod,
   backgroundMethodForDev,
+  checkDevOnlyPassword,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
@@ -4260,7 +4262,15 @@ class ServicePrime extends ServiceBase {
 
   @backgroundMethodForDev()
   @toastIfError()
-  async apiResetInfiniSubscription(): Promise<void> {
+  async apiResetInfiniSubscription(
+    params: IBackgroundMethodWithDevOnlyPassword,
+  ): Promise<void> {
+    // This destructively deletes the current user's Infini subscription and is
+    // reachable from a production build, so the devOnlyPassword must be checked
+    // in the method body: @backgroundMethodForDev() only wraps the
+    // INTERNAL_ dispatch entry, which the extension main->bg bridge uses but
+    // desktop/web single-runtime and native main->bg calls do not go through.
+    checkDevOnlyPassword(params, 'apiResetInfiniSubscription');
     const client = await this.getPrimeClient();
     await client.post('/prime/v1/infini/test/reset');
   }
