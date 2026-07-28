@@ -38,7 +38,7 @@ interface ISwapQuoteResultRateProps {
   quoting?: boolean;
   isLoading?: boolean;
   showNoProvider?: boolean;
-  onOpenResult?: () => void;
+  canOpenResult?: boolean;
   refreshAction: (manual?: boolean) => void;
   openResult?: boolean;
 }
@@ -55,7 +55,7 @@ const SwapQuoteResultRate = ({
   providerIcon,
   isLoading,
   showNoProvider,
-  onOpenResult,
+  canOpenResult,
   openResult,
   refreshAction,
 }: ISwapQuoteResultRateProps) => {
@@ -180,7 +180,7 @@ const SwapQuoteResultRate = ({
         {!providerIcon ||
         !fromToken ||
         !toToken ||
-        !onOpenResult ||
+        !canOpenResult ||
         quoting ? null : (
           <XStack
             alignItems="center"
@@ -247,7 +247,7 @@ const SwapQuoteResultRate = ({
             </Stack>
           </XStack>
         )}
-        {!quoting && onOpenResult ? (
+        {!quoting && canOpenResult ? (
           <Stack
             animation="quick"
             animateOnly={ANIMATE_ONLY_TRANSFORM}
@@ -276,7 +276,7 @@ const SwapQuoteResultRate = ({
                 }}
               />
             ) : null}
-            {onOpenResult ? (
+            {canOpenResult ? (
               <Stack
                 animation="quick"
                 animateOnly={ANIMATE_ONLY_TRANSFORM}
