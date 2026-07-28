@@ -39,7 +39,7 @@ const isValidStringArray = (
   ) &&
   new Set(value).size === value.length;
 
-export function isValidFirmwareUpdateRolloutRule(
+function isValidFirmwareUpdateRolloutRule(
   value: unknown,
 ): value is IFirmwareUpdateRolloutRule {
   if (

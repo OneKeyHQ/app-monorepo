@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
@@ -393,6 +395,78 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
 
     expect(firmwareUpdateRetryAtom.set).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1 }),
+    );
+  });
+});
+
+describe('ServiceFirmwareUpdate legacy Pro firmware fallback', () => {
+  const createService = () =>
+    new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+
+  test('keeps Pro on the existing V3 path when rollout produced no Plan', async () => {
+    const service = createService();
+    const updatingFirmwareV3 = jest
+      .spyOn(service, 'updatingFirmwareV3')
+      .mockResolvedValue({ message: 'ok' });
+    const runtimeHost = jest.spyOn(
+      service as unknown as {
+        getFirmwareUpdateRuntimeHost: () => Promise<unknown>;
+      },
+      'getFirmwareUpdateRuntimeHost',
+    );
+    jest
+      .spyOn(service, 'createRunTaskWithRetry')
+      .mockImplementation(async ({ fn }) => fn({ id: 1 }));
+
+    await service.startUpdateFirmwareTaskForNewBootVersion({
+      backuped: true,
+      usbConnected: true,
+      releaseResult: {
+        deviceType: EDeviceType.Pro,
+        updateInfos: {},
+      } as ICheckAllFirmwareReleaseResult,
+    });
+
+    expect(updatingFirmwareV3).toHaveBeenCalledTimes(1);
+    expect(runtimeHost).not.toHaveBeenCalled();
+  });
+
+  test('keeps Pro2 on V4 with the complete legacy target set when no Plan exists', async () => {
+    const service = createService();
+    const updatingFirmwareV4 = jest
+      .spyOn(service, 'updatingFirmwareV4')
+      .mockResolvedValue({ message: 'ok' });
+    jest
+      .spyOn(service, 'createRunTaskWithRetry')
+      .mockImplementation(async ({ fn }) => fn({ id: 1 }));
+
+    await service.startUpdateFirmwareTaskForNewBootVersion({
+      backuped: true,
+      usbConnected: true,
+      releaseResult: {
+        deviceType: EDeviceType.Pro2,
+        updateInfos: {},
+      } as ICheckAllFirmwareReleaseResult,
+    });
+
+    expect(updatingFirmwareV4).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requirePreparedArtifacts: false,
+        targetsToUpdate: [
+          'boot',
+          'app_v1',
+          'app_v2',
+          'coprocessor',
+          'resource',
+          'se01',
+          'se02',
+          'se03',
+          'se04',
+        ],
+      }),
+      undefined,
     );
   });
 });

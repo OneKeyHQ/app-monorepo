@@ -10,7 +10,7 @@ import type { EFirmwareType } from '@onekeyfe/hd-shared';
 export { parseFirmwareVersions } from './firmwareVersions';
 
 export class FirmwareScene extends BaseScene {
-  @LogToLocal({ always: true, level: 'info' })
+  @LogToLocal({ level: 'info' })
   public firmwareArtifactSelfTest(params: {
     runId: string;
     runtime: 'bg';

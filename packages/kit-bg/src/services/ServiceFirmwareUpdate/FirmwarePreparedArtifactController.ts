@@ -117,12 +117,16 @@ export class FirmwarePreparedArtifactController {
     transportType: EHardwareTransportType;
   }): Promise<boolean> {
     const externalSdk = await this.getExternalSdk(connectId);
-    const bridgeBinaryReady =
+    const bridgeCapabilityReady =
       platformEnv.isDesktop &&
       transportType === EHardwareTransportType.Bridge &&
       (await isFirmwareArtifactCapabilityReady());
-    const externalPreparedReady =
-      externalSdk && (await this.evaluateRollout(plan)).allowed;
+    const preparedCapabilityReady =
+      bridgeCapabilityReady || Boolean(externalSdk);
+    const rolloutAllowed =
+      preparedCapabilityReady && (await this.evaluateRollout(plan)).allowed;
+    const bridgeBinaryReady = bridgeCapabilityReady && rolloutAllowed;
+    const externalPreparedReady = externalSdk && rolloutAllowed;
     if (!bridgeBinaryReady && !externalPreparedReady) {
       return false;
     }
@@ -283,7 +287,14 @@ export class FirmwarePreparedArtifactController {
     if (platformEnv.isDesktop) {
       const transportType = await this.dependencies.getHardwareTransportType();
       if (transportType === EHardwareTransportType.Bridge) {
-        return prepareBridgeFirmwareBinaries(this.getPlan(releaseResult));
+        const plan = this.getPlan(releaseResult);
+        const rollout = await this.evaluateRollout(plan);
+        if (!rollout.allowed) {
+          throw new OneKeyLocalError(
+            'Firmware external rollout is unavailable',
+          );
+        }
+        return prepareBridgeFirmwareBinaries(plan);
       }
       if (!isDirectFirmwareHostBindingTransport(transportType)) {
         throw new OneKeyLocalError(

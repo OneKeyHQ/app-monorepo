@@ -153,6 +153,7 @@ interface IFirmwareUpdateResult {
 }
 
 type IFirmwareUpdateV4AppParams = IFirmwareUpdateV3VersionParams & {
+  requirePreparedArtifacts: boolean;
   targetsToUpdate: FirmwareUpdateV4Target[];
 };
 
@@ -2450,9 +2451,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
   ): Promise<IFirmwareUpdateResult> {
     const { releaseResult } = params;
     const { updateInfos } = releaseResult;
-    const plan = (await this.getFirmwareUpdateRuntimeHost()).artifacts.getPlan(
-      releaseResult,
-    );
+    const plan = releaseResult.firmwareUpdatePlanDigest
+      ? (await this.getFirmwareUpdateRuntimeHost()).artifacts.getPlan(
+          releaseResult,
+        )
+      : undefined;
+    const executor =
+      plan?.executor ??
+      (releaseResult.deviceType === EDeviceType.Pro2 ? 'v4' : 'v3');
 
     const updateParams: IFirmwareUpdateV3VersionParams = {
       connectId: releaseResult.updatingConnectId,
@@ -2467,21 +2473,36 @@ class ServiceFirmwareUpdate extends ServiceBase {
         : undefined,
       firmwareType: updateInfos.firmware?.toFirmwareType,
     };
-    if (plan.executor === 'v4') {
+    if (executor === 'v4') {
       const { getFirmwareUpdateV4Targets } = await loadFirmwareUpdateRuntime();
-      const targetsToUpdate = getFirmwareUpdateV4Targets(plan.targetsToUpdate);
+      const targetsToUpdate = getFirmwareUpdateV4Targets(
+        plan?.targetsToUpdate ?? [
+          'boot',
+          'app_v1',
+          'app_v2',
+          'coprocessor',
+          'resource',
+          'se01',
+          'se02',
+          'se03',
+          'se04',
+        ],
+      );
       return this.createRunTaskWithRetry({
         fn: async () =>
           this.updatingFirmwareV4(
             {
               ...updateParams,
+              requirePreparedArtifacts: Boolean(
+                releaseResult.firmwareUpdatePlanDigest,
+              ),
               targetsToUpdate,
             },
             firmwareArtifacts,
           ),
       }) as Promise<IFirmwareUpdateResult>;
     }
-    if (plan.executor !== 'v3') {
+    if (executor !== 'v3') {
       throw new OneKeyLocalError(
         'Firmware update plan selected an incompatible executor',
       );
@@ -2502,7 +2523,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
       preparedArtifactController.getExecutionArtifacts(firmwareArtifacts);
     const { assertFirmwareUpdateV4Artifacts, executePreparedFirmwareUpdateV4 } =
       await loadFirmwareUpdateRuntime();
-    assertFirmwareUpdateV4Artifacts(executionArtifacts);
+    if (params.requirePreparedArtifacts) {
+      assertFirmwareUpdateV4Artifacts(executionArtifacts);
+    }
     const hardwareSDK = await this.getSDKInstance({
       connectId: params.connectId,
     });
@@ -2516,7 +2539,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
       });
       const currentTransportType =
         await this.backgroundApi.serviceSetting.getHardwareTransportType();
-      assertFirmwareUpdateV4Artifacts(executionArtifacts, currentTransportType);
+      if (params.requirePreparedArtifacts) {
+        assertFirmwareUpdateV4Artifacts(
+          executionArtifacts,
+          currentTransportType,
+        );
+      }
       const updatingConnectId = deviceUtils.getUpdatingConnectId({
         connectId: params.connectId,
         currentTransportType,
