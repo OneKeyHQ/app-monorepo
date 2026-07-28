@@ -122,11 +122,12 @@ describe('showOneKeyIdOAuthAccountMismatchDialog', () => {
         title: ETranslations.keyless_wallet_verify_pin_account_mismatch,
         description:
           ETranslations.onekey_id_oauth_reauth_account_mismatch__desc,
-        showCancelButton: true,
+        showCancelButton: false,
         onConfirmText: ETranslations.continue_with_social_platform,
-        onCancelText: ETranslations.global_cancel,
       }),
     );
+    expect(options.onCancelText).toBeUndefined();
+    expect(options.onCancel).toBeUndefined();
     expect(mockFormatMessage).toHaveBeenCalledWith(
       {
         id: ETranslations.onekey_id_oauth_reauth_account_mismatch__desc,
@@ -169,7 +170,7 @@ describe('showOneKeyIdOAuthAccountMismatchDialog', () => {
       { platform: 'Google' },
     );
 
-    (options.onCancel as () => void)();
+    await options.onClose?.();
 
     await expect(resultPromise).resolves.toBe(false);
   });

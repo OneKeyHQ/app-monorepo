@@ -167,16 +167,12 @@ export async function showOneKeyIdOAuthAccountMismatchDialog(params: {
         },
         { provider: mismatchedProviderName },
       ),
-      showCancelButton: true,
+      showCancelButton: false,
       onConfirmText: intl.formatMessage(
         { id: ETranslations.continue_with_social_platform },
         { platform: continueProviderName },
       ),
-      onCancelText: intl.formatMessage({
-        id: ETranslations.global_cancel,
-      }),
       onConfirm: () => settle(true),
-      onCancel: () => settle(false),
       onClose: () => settle(false),
     });
   });
