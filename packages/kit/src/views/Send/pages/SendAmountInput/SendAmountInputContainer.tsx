@@ -3019,12 +3019,19 @@ function SendAmountInputContainer() {
             // display balance, but the keyboard percent-100 shortcut and the
             // fiat<->token mode clamp truncate to `decimals` places first.
             // Sending the exact raw balance for these differs from a literal
-            // conversion by at most one base unit and matches the user's
-            // full-send intent.
-            const fullSendThreshold = new BigNumber(displayBalance).dp(
-              tokenDetails.info.decimals,
-              BigNumber.ROUND_DOWN,
-            );
+            // conversion by less than one display precision unit and matches
+            // the user's full-send intent. `dp(undefined)` would return the
+            // decimal-place count instead of truncating (and a negative /
+            // fractional argument throws), so only truncate when `decimals`
+            // is a usable non-negative integer.
+            const fullSendThreshold =
+              Number.isInteger(tokenDetails.info.decimals) &&
+              tokenDetails.info.decimals >= 0
+                ? new BigNumber(displayBalance).dp(
+                    tokenDetails.info.decimals,
+                    BigNumber.ROUND_DOWN,
+                  )
+                : displayBalance;
             transferAmount = new BigNumber(realAmount).gte(fullSendThreshold)
               ? tokenDetails.balanceParsed
               : tokenRebaseUtils.removeBalanceMultiplier({
