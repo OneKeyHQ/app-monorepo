@@ -274,6 +274,8 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     }
     isAuthActionInProgressRef.current = true;
     try {
+      setVerificationCode('');
+      setState({ status: 'initial' });
       await onChooseAnotherSignInMethod();
     } finally {
       isAuthActionInProgressRef.current = false;

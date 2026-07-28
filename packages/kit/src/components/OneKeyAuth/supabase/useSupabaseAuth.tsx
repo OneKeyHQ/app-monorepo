@@ -14,6 +14,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 import type { IKeylessOAuthSessionRollbackHandle } from '@onekeyhq/shared/types/prime/identityExitTypes';
 
 import { OAuthPopup } from '../OAuthPopup';
@@ -256,6 +257,9 @@ export function useSupabaseAuth() {
 
         throwLocalizedOneKeyIdLoginError({
           intl,
+          key: isTransientNetworkLikeError(res.error)
+            ? ETranslations.global_network_error
+            : ETranslations.global_unknown_error_retry_message,
           reason: `OneKey ID email verification code request failed: ${getSanitizedAuthErrorText(
             res.error,
           )}`,
