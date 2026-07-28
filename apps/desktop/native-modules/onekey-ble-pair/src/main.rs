@@ -488,7 +488,10 @@ mod win {
                     // it against the device screen, then accept.
                     DevicePairingKinds::ConfirmPinMatch => {
                         let pin = args.Pin()?;
-                        super::emit(&format!(r#"{{"type":"pairing","pin":"{pin}"}}"#));
+                        super::emit(&format!(
+                            r#"{{"type":"pairing","pin":"{}"}}"#,
+                            super::json_escape(&pin.to_string())
+                        ));
                         args.Accept()?;
                         ACCEPT_MS.store(t_ms(), Ordering::SeqCst);
                         diag("accepted ConfirmPinMatch (device confirmation pending)");
@@ -496,7 +499,10 @@ mod win {
                     // Device shows a pin; Windows just needs a yes. Surface it too.
                     DevicePairingKinds::DisplayPin => {
                         if let Ok(pin) = args.Pin() {
-                            super::emit(&format!(r#"{{"type":"pairing","pin":"{pin}"}}"#));
+                            super::emit(&format!(
+                                r#"{{"type":"pairing","pin":"{}"}}"#,
+                                super::json_escape(&pin.to_string())
+                            ));
                         }
                         args.Accept()?;
                         ACCEPT_MS.store(t_ms(), Ordering::SeqCst);
@@ -653,6 +659,20 @@ mod win {
                 // link means the device never advertises again, which is exactly
                 // why the connect that follows cannot find it. Re-open a fresh
                 // handle and watch the connection state settle.
+                //
+                // Timing/behavior here is UNCHANGED from before (same wait_ms
+                // schedule, same dev.Close() calls on each re-open) — only the
+                // start/end markers below are new, so a real-device run can show
+                // total elapsed time and the final observed link state without
+                // risking the pairing flow itself. Whether this window can be
+                // shortened/removed is exactly the open question these markers
+                // are meant to give evidence for.
+                let verify_start_ms = t_ms();
+                diag(&format!(
+                    "post-close link verification: starting at +{verify_start_ms}ms \
+                     (wait budget 0/1000/3000ms)"
+                ));
+                let mut last_status: Option<String> = None;
                 for wait_ms in [0_u64, 1000, 3000] {
                     if wait_ms > 0 {
                         std::thread::sleep(std::time::Duration::from_millis(wait_ms));
@@ -668,13 +688,26 @@ mod win {
                                     "post-close link check (+{wait_ms}ms): connection={status} \
                                      (Connected => device will NOT advertise => noble cannot find it)"
                                 ));
+                                last_status = Some(status);
                                 let _ = dev.Close();
                             }
-                            Err(e) => diag(&format!("post-close link check (+{wait_ms}ms): {e}")),
+                            Err(e) => {
+                                diag(&format!("post-close link check (+{wait_ms}ms): {e}"));
+                                last_status = Some(format!("<error: {e}>"));
+                            }
                         },
-                        Err(e) => diag(&format!("post-close link check (+{wait_ms}ms): {e}")),
+                        Err(e) => {
+                            diag(&format!("post-close link check (+{wait_ms}ms): {e}"));
+                            last_status = Some(format!("<error: {e}>"));
+                        }
                     }
                 }
+                let verify_elapsed_ms = t_ms().saturating_sub(verify_start_ms);
+                diag(&format!(
+                    "post-close link verification: done after {verify_elapsed_ms}ms, \
+                     final connection={}",
+                    last_status.unwrap_or_else(|| "<never observed>".into())
+                ));
 
                 super::emit(r#"{"type":"paired"}"#);
                 Ok(())
