@@ -22,7 +22,6 @@ import type {
 } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
-import { settingsAtom } from '../states/jotai/atoms';
 import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
@@ -69,13 +68,8 @@ class ServiceAccountSelector extends ServiceBase {
     sceneUrl?: string;
     num: number;
   }) {
-    const { swapToAnotherAccountSwitchOn } = await settingsAtom.get();
-    const { isAccountSelectorHomeSyncTargetScene } =
-      await this._getHomeSyncUtils();
-    return isAccountSelectorHomeSyncTargetScene({
-      scene: { sceneName, sceneUrl, num },
-      swapToAnotherAccountSwitchOn,
-    });
+    const { shouldSyncWithHomeScene } = await this._getHomeSyncUtils();
+    return shouldSyncWithHomeScene({ scene: { sceneName, sceneUrl, num } });
   }
 
   @backgroundMethod()
@@ -105,14 +99,8 @@ class ServiceAccountSelector extends ServiceBase {
       num: number;
     };
   }) {
-    const { swapToAnotherAccountSwitchOn } = await settingsAtom.get();
-    const { shouldSyncAccountSelectorHomeAndSwapScenes } =
-      await this._getHomeSyncUtils();
-    return shouldSyncAccountSelectorHomeAndSwapScenes({
-      sourceScene,
-      targetScene,
-      swapToAnotherAccountSwitchOn,
-    });
+    const { shouldSyncHomeAndSwapScenes } = await this._getHomeSyncUtils();
+    return shouldSyncHomeAndSwapScenes({ sourceScene, targetScene });
   }
 
   @backgroundMethod()
@@ -993,7 +981,7 @@ class ServiceAccountSelector extends ServiceBase {
     }[];
     linkedNetworkId?: string;
   }) {
-    const accountsDeFiOverview =
+    const accountsDeFiOverviewRaw =
       await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
         accounts,
       });
@@ -1003,47 +991,26 @@ class ServiceAccountSelector extends ServiceBase {
     // batched form folds N storage reads into one (the SimpleDb entity has
     // caching disabled, so the per-account form paid a fresh
     // deserialization per row — a 50-row selector batch turned into 50
-    // reads).
+    // reads). Extra fields on the account objects are ignored by the callee.
     const accountsValue =
       await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValueByAccountIdBatch(
-        {
-          accounts: accounts.map((a) => ({
-            accountId: a.accountId,
-            accountAddress: a.accountAddress,
-            xpub: a.xpub,
-          })),
-        },
+        { accounts },
       );
-    let accountsPerpsNetWorthUsd: (string | undefined)[] = accounts.map(
-      () => undefined,
-    );
-    try {
-      const perpsWorth = await this._getPerpsWorth();
-      accountsPerpsNetWorthUsd = await perpsWorth.getAccountsPerpsNetWorthUsd({
-        accounts,
-        linkedNetworkId,
-      });
-    } catch {
-      // Perps worth is additive display data — a failed lazy-module load must
-      // never break this batch's tokens/DeFi values.
-    }
-    // Ride perps worth on the DeFi overview items so the UI atom plumbing
-    // (loader → accountSelectorDeFiMapAtom → AccountValue) stays unchanged.
-    const accountsDeFiOverviewWithPerps = accounts.map((_, index) => {
-      const overviewItem = accountsDeFiOverview?.[index];
-      const perpsNetWorthUsd = accountsPerpsNetWorthUsd[index];
-      if (perpsNetWorthUsd === undefined) {
-        return overviewItem;
-      }
-      return {
-        ...overviewItem,
-        overview: overviewItem?.overview ?? {},
-        perpsNetWorthUsd,
-      };
-    });
+    // Perps worth is additive display data — a failed lazy-module load must
+    // never break this batch's tokens/DeFi values, so fall back to the raw
+    // overview on any load error.
+    const accountsDeFiOverview = await this._getPerpsWorth()
+      .then((perpsWorth) =>
+        perpsWorth.buildDeFiOverviewWithPerps({
+          accounts,
+          linkedNetworkId,
+          accountsDeFiOverview: accountsDeFiOverviewRaw,
+        }),
+      )
+      .catch(() => accountsDeFiOverviewRaw);
     return {
       accountsValue,
-      accountsDeFiOverview: accountsDeFiOverviewWithPerps,
+      accountsDeFiOverview,
     };
   }
 

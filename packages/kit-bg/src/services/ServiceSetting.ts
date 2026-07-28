@@ -269,22 +269,11 @@ class ServiceSetting extends ServiceBase {
     await currencyPersistAtom.set({
       currencyMap,
     });
-    // settings.currencyInfo.symbol is a snapshot copied from the server map at
-    // selection time and never re-checked, so a transient bad unit (e.g. "US$"
-    // for usd) sticks forever while surfaces reading the live map recover and
-    // disagree on screen. Reconcile the snapshot on every map refresh.
-    const { currencyInfo } = await settingsPersistAtom.get();
-    const serverUnit = currencyMap[currencyInfo.id]?.unit;
-    if (serverUnit && serverUnit !== currencyInfo.symbol) {
-      await settingsPersistAtom.set((prev) =>
-        prev.currencyInfo.id === currencyInfo.id
-          ? {
-              ...prev,
-              currencyInfo: { ...prev.currencyInfo, symbol: serverUnit },
-            }
-          : prev,
-      );
-    }
+    // Lazy import keeps the reconcile helper out of the native background
+    // startup graph (Startup Graph Budget check).
+    const { reconcileCurrencyInfoSymbolSnapshot } =
+      await import('./utils/currencySymbolSyncUtils');
+    await reconcileCurrencyInfoSymbolSnapshot({ currencyMap });
   }
 
   @backgroundMethod()

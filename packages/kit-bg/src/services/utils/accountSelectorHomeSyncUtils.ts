@@ -89,6 +89,35 @@ export function shouldSyncAccountSelectorHomeAndSwapScenes({
   );
 }
 
+// Atom-reading variants used by the ServiceAccountSelector delegates; the
+// pure predicates above stay exported for direct unit testing.
+export async function shouldSyncWithHomeScene({
+  scene,
+}: {
+  scene: IAccountSelectorHomeSyncScene;
+}) {
+  const { swapToAnotherAccountSwitchOn } = await settingsAtom.get();
+  return isAccountSelectorHomeSyncTargetScene({
+    scene,
+    swapToAnotherAccountSwitchOn,
+  });
+}
+
+export async function shouldSyncHomeAndSwapScenes({
+  sourceScene,
+  targetScene,
+}: {
+  sourceScene: IAccountSelectorHomeSyncScene;
+  targetScene: IAccountSelectorHomeSyncScene;
+}) {
+  const { swapToAnotherAccountSwitchOn } = await settingsAtom.get();
+  return shouldSyncAccountSelectorHomeAndSwapScenes({
+    sourceScene,
+    targetScene,
+    swapToAnotherAccountSwitchOn,
+  });
+}
+
 export async function fixOthersWalletAccountNetworkPair({
   backgroundApi,
   selectedAccount,

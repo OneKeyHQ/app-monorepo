@@ -16,11 +16,17 @@ import { isHyperliquidPortfolioSnapshotFresh } from '@onekeyhq/shared/src/utils/
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+// Direct localDb import is safe here: this module is reached only through a
+// dynamic import that unit tests never execute, so it cannot pierce the
+// ServiceAccountSelector.test.ts mock boundary the way a module-scope import
+// in the service file would.
+import localDb from '../../dbs/local/localDb';
 import { perpsCommonConfigPersistAtom } from '../../states/jotai/atoms';
 
 import { buildAccountsPerpsNetWorthUsd } from './accountSelectorPerpsWorthUtils';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { IAccountSelectorDeFiItem } from '../../states/jotai/atoms/accountSelectorValues';
 import type { IAccountDeriveTypes } from '../../vaults/types';
 
 export class AccountSelectorPerpsWorth {
@@ -193,13 +199,10 @@ export class AccountSelectorPerpsWorth {
       // than showing another derive path's balance.
       const candidateAddressesById = new Map<string, Set<string>>();
       for (const snapshotAddress of snapshotAddresses) {
-        const addressRecord =
-          await this.backgroundApi.serviceAccount.getAddressRecordByNetworkImpl(
-            {
-              networkId: PERPS_NETWORK_ID,
-              normalizedAddress: snapshotAddress.toLowerCase(),
-            },
-          );
+        const addressRecord = await localDb.getAddressByNetworkImpl({
+          networkId: PERPS_NETWORK_ID,
+          normalizedAddress: snapshotAddress.toLowerCase(),
+        });
         for (const mappedAccountId of Object.values(
           addressRecord?.wallets ?? {},
         )) {
@@ -223,12 +226,46 @@ export class AccountSelectorPerpsWorth {
     return addressByIndexedAccountId;
   }
 
+  // Attach perps worth onto the DeFi overview items (ride-along) so the UI
+  // atom plumbing (loader → accountSelectorDeFiMapAtom → AccountValue) stays
+  // unchanged.
+  async buildDeFiOverviewWithPerps({
+    accounts,
+    linkedNetworkId,
+    accountsDeFiOverview,
+  }: {
+    accounts: {
+      accountId: string;
+      indexedAccountId?: string;
+      accountAddress?: string;
+    }[];
+    linkedNetworkId?: string;
+    accountsDeFiOverview: IAccountSelectorDeFiItem[] | undefined;
+  }): Promise<IAccountSelectorDeFiItem[]> {
+    const accountsPerpsNetWorthUsd = await this._getAccountsPerpsNetWorthUsd({
+      accounts,
+      linkedNetworkId,
+    });
+    return accounts.map((_, index) => {
+      const overviewItem = accountsDeFiOverview?.[index];
+      const perpsNetWorthUsd = accountsPerpsNetWorthUsd[index];
+      if (perpsNetWorthUsd === undefined) {
+        return overviewItem;
+      }
+      return {
+        ...overviewItem,
+        overview: overviewItem?.overview ?? {},
+        perpsNetWorthUsd,
+      };
+    });
+  }
+
   // Hyperliquid perps net worth (USD) per selector row, read from the LOCAL
   // portfolio snapshot cache only — the same cache the Home overview polls
   // into — so selector totals can match Home's tokens + DeFi + perps sum.
   // Gating mirrors Home's isPerpsSupported (buildHomeWalletTabSupport): a
   // BTC-linked selector gets no perps, exactly like the BTC Home overview.
-  async getAccountsPerpsNetWorthUsd({
+  private async _getAccountsPerpsNetWorthUsd({
     accounts,
     linkedNetworkId,
   }: {
