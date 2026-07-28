@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import { chunk, cloneDeep, isString } from 'lodash';
 
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
+import type { IAxiosResponse } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   backgroundMethod,
@@ -3088,41 +3089,92 @@ class ServicePrime extends ServiceBase {
     instanceId: string;
     accessToken: string;
   }) {
-    // eslint-disable-next-line no-param-reassign
-    accessToken =
-      accessToken ||
-      (await this.backgroundApi.simpleDb.prime.getActiveAuthToken());
-    const client = await this.getPrimeClient();
-    // TODO 404 not found
-    await client.post(
-      `/prime/v1/user/device/${instanceId}`,
-      {},
-      {
-        headers: {
-          'X-Onekey-Request-Token': accessToken,
+    const flowId = `remoteDeviceLogoutInitiator:${stringUtils.generateUUID()}`;
+    defaultLogger.prime.subscription.onekeyIdRemoteLogoutFlow({
+      stage: 'initiatorRequest',
+      status: 'started',
+      flowId,
+    });
+    try {
+      // eslint-disable-next-line no-param-reassign
+      accessToken =
+        accessToken ||
+        (await this.backgroundApi.simpleDb.prime.getActiveAuthToken());
+      const client = await this.getPrimeClient();
+      // TODO 404 not found
+      const logoutResponse = await client.post<
+        IApiClientResponse<unknown>,
+        IAxiosResponse<IApiClientResponse<unknown>>
+      >(
+        `/prime/v1/user/device/${instanceId}`,
+        {},
+        {
+          headers: {
+            'X-Onekey-Request-Token': accessToken,
+          },
         },
-      },
-    );
+      );
+      defaultLogger.prime.subscription.onekeyIdRemoteLogoutFlow({
+        stage: 'initiatorRequest',
+        status: 'succeeded',
+        flowId,
+        requestId: logoutResponse.$requestId,
+      });
+    } catch (error) {
+      defaultLogger.prime.subscription.onekeyIdRemoteLogoutFlow({
+        stage: 'initiatorRequest',
+        status: 'failed',
+        flowId,
+        reason: getSanitizedAuthErrorLog(error),
+      });
+      throw error;
+    }
     if (instanceId) {
       // Re-login through the endpoint matching the active auth session
       // source: a KeylessOAuth session token belongs to the keyless Supabase
       // realm and must go to /prime/v1/account/oauth/login — posting it to
       // the legacy /prime/v1/user/login could be rejected as an invalid
       // legacy token and cascade into a full logout.
-      const authSessionSource =
-        await this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource();
-      if (authSessionSource === EPrimeAuthSessionSource.KeylessOAuth) {
-        await this.apiOAuthLogin({ accessToken });
-      } else {
-        await this.apiLogin({ accessToken });
+      defaultLogger.prime.subscription.onekeyIdRemoteLogoutFlow({
+        stage: 'initiatorRefresh',
+        status: 'started',
+        flowId,
+      });
+      try {
+        const authSessionSource =
+          await this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource();
+        if (authSessionSource === EPrimeAuthSessionSource.KeylessOAuth) {
+          await this.apiOAuthLogin({ accessToken });
+        } else {
+          await this.apiLogin({ accessToken });
+        }
+      } catch (error) {
+        defaultLogger.prime.subscription.onekeyIdRemoteLogoutFlow({
+          stage: 'initiatorRefresh',
+          status: 'failed',
+          flowId,
+          reason: `session refresh failed: ${getSanitizedAuthErrorLog(error)}`,
+        });
+        throw error;
       }
       // Refresh from profile + legacy user info for accurate
       // isPrimeDeviceLimitExceeded, as the login endpoint may return stale
       // device limit data after removal.
       try {
         await this.apiFetchPrimeUserInfo();
+        defaultLogger.prime.subscription.onekeyIdRemoteLogoutFlow({
+          stage: 'initiatorRefresh',
+          status: 'succeeded',
+          flowId,
+        });
       } catch (e) {
         // Log but don't fail — apiLogin already updated the atom with best-effort data
+        defaultLogger.prime.subscription.onekeyIdRemoteLogoutFlow({
+          stage: 'initiatorRefresh',
+          status: 'failed',
+          flowId,
+          reason: `profile refresh failed: ${getSanitizedAuthErrorLog(e)}`,
+        });
         console.error(
           'ServicePrime.apiLogoutPrimeUserDevice refresh failed:',
           getSanitizedAuthErrorLog(e),

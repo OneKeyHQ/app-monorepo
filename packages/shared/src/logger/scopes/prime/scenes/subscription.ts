@@ -61,6 +61,30 @@ export type IPrimeCryptoPaymentFlowParams = {
   httpStatusCode?: number;
 };
 
+export type IOneKeyIdRemoteLogoutFlowParams = {
+  stage:
+    | 'initiatorRequest'
+    | 'initiatorRefresh'
+    | 'targetMessage'
+    | 'targetStaging'
+    | 'targetAcknowledgement'
+    | 'targetReconciliation'
+    | 'targetPresentation'
+    | 'targetRetry';
+  status:
+    | 'started'
+    | 'succeeded'
+    | 'failed'
+    | 'blocked'
+    | 'skipped'
+    | 'deduplicated';
+  flowId: string;
+  operationId?: string;
+  requestId?: string;
+  reason?: string;
+  oneKeyIdLoggedOut?: boolean;
+};
+
 export type IOneKeyIdAuthStateMigrationParams = {
   stage:
     | 'candidateDetected'
@@ -284,6 +308,15 @@ export class PrimeSubscriptionScene extends BaseScene {
     return {
       reason,
     };
+  }
+
+  /**
+   * Local diagnostic trail for correlating both sides of a remote logout.
+   * This deliberately stays off analytics because socket retries can repeat.
+   */
+  @LogToLocal()
+  public onekeyIdRemoteLogoutFlow(params: IOneKeyIdRemoteLogoutFlowParams) {
+    return params;
   }
 
   /**

@@ -200,6 +200,58 @@ function buildInterceptedResponseFingerprint(
   )} body=${classifyInterceptedResponseBody(bodyText)}]`;
 }
 
+function isDefinitiveEmailOtpCooldownResponse({
+  input,
+  response,
+  bodyText,
+}: {
+  input: RequestInfo | URL;
+  response: Response;
+  bodyText: string | undefined;
+}): boolean {
+  if (
+    response.status !== 429 ||
+    !bodyText ||
+    !response.headers
+      ?.get?.('content-type')
+      ?.toLowerCase()
+      .includes('application/json')
+  ) {
+    return false;
+  }
+
+  let requestUrl = '';
+  if (typeof input === 'string') {
+    requestUrl = input;
+  } else if (typeof (input as { url?: unknown })?.url === 'string') {
+    requestUrl = (input as { url: string }).url;
+  } else {
+    requestUrl = String(input);
+  }
+  let pathname = '';
+  try {
+    pathname = new URL(requestUrl).pathname;
+  } catch {
+    return false;
+  }
+  if (!pathname.endsWith('/auth/v1/otp')) {
+    return false;
+  }
+
+  try {
+    const payload = JSON.parse(bodyText) as {
+      code?: unknown;
+      error_code?: unknown;
+    };
+    return (
+      payload.code === 'over_email_send_rate_limit' ||
+      payload.error_code === 'over_email_send_rate_limit'
+    );
+  } catch {
+    return false;
+  }
+}
+
 const sessionPreservingSupabaseFetch: typeof fetch = async (input, init) => {
   const response = await fetch(input, init);
   if (response.ok) {
@@ -212,6 +264,20 @@ const sessionPreservingSupabaseFetch: typeof fetch = async (input, init) => {
     // fingerprint (Cloudflare's legacy 503 challenge / 429 rate-limit pages
     // are exactly the intermediary responses worth identifying).
     const bodyPrefix = await readErrorBodyPrefixBestEffort(response);
+    // The OTP cooldown is a definitive, user-actionable GoTrue verdict, not
+    // a refresh-session failure. Pass only this exact endpoint + JSON code
+    // through so the UI can show the server retry delay. Every refresh-token
+    // 429 and intermediary/non-JSON 429 remains a fetch rejection, preserving
+    // the persisted rotating refresh-token session.
+    if (
+      isDefinitiveEmailOtpCooldownResponse({
+        input,
+        response,
+        bodyText: bodyPrefix,
+      })
+    ) {
+      return response;
+    }
     throw new TypeError(
       `Supabase transient HTTP ${
         response.status

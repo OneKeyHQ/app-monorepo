@@ -17,6 +17,8 @@ import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 
+import { getEmailOtpRateLimitRetryAfterSeconds } from './emailOtpRateLimitError';
+
 export function EmailOTPDialog(props: {
   title: string;
   description: string;
@@ -39,14 +41,24 @@ export function EmailOTPDialog(props: {
   });
   const intl = useIntl();
 
-  useMemo(() => {
-    void sendCode().catch((error) => {
-      Toast.error({
-        title: (error as Error)?.message,
-      });
-      throw error;
+  const handleSendCodeError = useCallback((error: unknown) => {
+    const retryAfterSeconds = getEmailOtpRateLimitRetryAfterSeconds(error);
+    if (retryAfterSeconds !== undefined) {
+      setCountdown(retryAfterSeconds);
+    }
+    Toast.error({
+      title: (error as Error)?.message,
     });
-  }, [sendCode]);
+    return retryAfterSeconds !== undefined;
+  }, []);
+
+  useEffect(() => {
+    void sendCode().catch((error) => {
+      if (!handleSendCodeError(error)) {
+        throw error;
+      }
+    });
+  }, [handleSendCodeError, sendCode]);
 
   const sendEmailVerificationCode = useCallback(async () => {
     if (isResending) {
@@ -59,14 +71,13 @@ export function EmailOTPDialog(props: {
       await sendCode();
       setCountdown(EMAIL_OTP_COUNTDOWN_SECONDS);
     } catch (error) {
-      Toast.error({
-        title: (error as Error)?.message,
-      });
-      throw error;
+      if (!handleSendCodeError(error)) {
+        throw error;
+      }
     } finally {
       setIsResending(false);
     }
-  }, [isResending, sendCode]);
+  }, [handleSendCodeError, isResending, sendCode]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;

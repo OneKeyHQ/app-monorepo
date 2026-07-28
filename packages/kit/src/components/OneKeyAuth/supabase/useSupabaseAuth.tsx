@@ -12,6 +12,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IKeylessOAuthSessionRollbackHandle } from '@onekeyhq/shared/types/prime/identityExitTypes';
 
+import {
+  createEmailOtpRateLimitError,
+  parseEmailOtpRateLimitRetryAfterSeconds,
+} from '../emailOtpRateLimitError';
 import { OAuthPopup } from '../OAuthPopup';
 import { ensureOneKeyOAuthState } from '../oauthUtils';
 
@@ -213,25 +217,20 @@ export function useSupabaseAuth() {
         },
       });
       if (res.error && res.error.message) {
-        // For security purposes, you can only request this after 48 seconds.
-        if (
-          res.error.message?.includes(
-            'For security purposes, you can only request this after',
-          )
-        ) {
-          const rateLimitMatch = res.error.message.match(
-            /you can only request this after (\d+) seconds?/i,
+        const retryAfterSeconds = parseEmailOtpRateLimitRetryAfterSeconds(
+          res.error,
+        );
+        if (retryAfterSeconds !== undefined) {
+          const rateLimitMessage = intl.formatMessage(
+            {
+              id: ETranslations.email_verification_rate_limit,
+            },
+            { rest: String(retryAfterSeconds) },
           );
-          if (rateLimitMatch) {
-            const seconds = rateLimitMatch[1];
-            const rateLimitMessage = intl.formatMessage(
-              {
-                id: ETranslations.email_verification_rate_limit,
-              },
-              { rest: seconds },
-            );
-            throw new OneKeyLocalError(rateLimitMessage);
-          }
+          throw createEmailOtpRateLimitError({
+            message: rateLimitMessage,
+            retryAfterSeconds,
+          });
         }
 
         throw new OneKeyLocalError(res.error.message);

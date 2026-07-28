@@ -19,6 +19,7 @@ const mockPrimeLoginDialogAtom = {
   get: jest.fn(async () => ({})),
   set: jest.fn(async () => undefined),
 };
+const mockOneKeyIdRemoteLogoutFlowLog = jest.fn();
 const mockOneKeyIdAuthStateMigrationLog = jest.fn();
 
 const VALID_DEV_ONLY_PASSWORD = 'valid-dev-only-password';
@@ -64,6 +65,9 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => {
       get: (_target, property: string | symbol) => {
         const nextPath = [...path, String(property)];
         const loggerMethod = nextPath.join('.');
+        if (loggerMethod === 'prime.subscription.onekeyIdRemoteLogoutFlow') {
+          return mockOneKeyIdRemoteLogoutFlowLog;
+        }
         if (loggerMethod === 'prime.subscription.onekeyIdAuthStateMigration') {
           return mockOneKeyIdAuthStateMigrationLog;
         }
@@ -395,6 +399,90 @@ describe('ServicePrime.apiFetchPrimeUserInfo', () => {
 
     expect(fetchWithCache.clear).toHaveBeenCalledTimes(1);
     expect(fetchWithCache).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ServicePrime.apiLogoutPrimeUserDevice logging', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('logs the initiator request and refresh without credential or device data', async () => {
+    const { service, simpleDbPrime } = createService();
+    const accessToken = 'sensitive-access-token';
+    const instanceId = 'sensitive-device-instance';
+    const post = jest.fn(async () => ({ $requestId: 'request-1' }));
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue(accessToken);
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+    service.apiLogin = jest.fn(async () => undefined);
+    service.apiFetchPrimeUserInfo = jest.fn(async () => undefined);
+
+    await service.apiLogoutPrimeUserDevice({
+      instanceId,
+      accessToken: '',
+    });
+
+    const flowId = mockOneKeyIdRemoteLogoutFlowLog.mock.calls[0]?.[0]?.flowId;
+    expect(flowId).toEqual(
+      expect.stringMatching(/^remoteDeviceLogoutInitiator:/),
+    );
+    expect(mockOneKeyIdRemoteLogoutFlowLog).toHaveBeenCalledWith({
+      stage: 'initiatorRequest',
+      status: 'started',
+      flowId,
+    });
+    expect(mockOneKeyIdRemoteLogoutFlowLog).toHaveBeenCalledWith({
+      stage: 'initiatorRequest',
+      status: 'succeeded',
+      flowId,
+      requestId: 'request-1',
+    });
+    expect(mockOneKeyIdRemoteLogoutFlowLog).toHaveBeenCalledWith({
+      stage: 'initiatorRefresh',
+      status: 'succeeded',
+      flowId,
+    });
+    expect(post).toHaveBeenCalledWith(
+      `/prime/v1/user/device/${instanceId}`,
+      {},
+      {
+        headers: {
+          'X-Onekey-Request-Token': accessToken,
+        },
+      },
+    );
+    const serializedLogs = JSON.stringify(
+      mockOneKeyIdRemoteLogoutFlowLog.mock.calls,
+    );
+    expect(serializedLogs).not.toContain(accessToken);
+    expect(serializedLogs).not.toContain(instanceId);
+  });
+
+  it('logs an initiator request failure before rethrowing it', async () => {
+    const { service } = createService();
+    const requestError = new OneKeyLocalError('Device logout request failed');
+    const post = jest.fn(async () => {
+      throw requestError;
+    });
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+
+    await expect(
+      service.apiLogoutPrimeUserDevice({
+        instanceId: 'device-a',
+        accessToken: 'token-a',
+      }),
+    ).rejects.toBe(requestError);
+
+    expect(mockOneKeyIdRemoteLogoutFlowLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: 'initiatorRequest',
+        status: 'failed',
+        reason: expect.stringContaining('Device logout request failed'),
+      }),
+    );
   });
 });
 
