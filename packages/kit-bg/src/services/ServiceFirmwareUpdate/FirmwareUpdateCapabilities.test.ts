@@ -33,15 +33,11 @@ const mockGetIpTableConfig = jest.requireMock(
 ).default.getIpTableConfig as jest.Mock;
 
 const ready = {
-  planSchemaVersion: 1,
-  preparedPlanSchemaVersion: 1,
-  hostBindingProtocolVersion: 1,
-  checkpointSchemaVersion: 1,
+  planSchemaVersion: 2,
+  preparedPlanSchemaVersion: 2,
+  hostBindingProtocolVersion: 2,
   manifestModes: ['external-only', 'sdk-managed'],
   supportsArtifactReader: true,
-  supportsAwaitableCheckpoint: true,
-  supportsResume: true,
-  supportsReconciliation: true,
 };
 
 describe('isExternalFirmwareCapabilityReady', () => {
@@ -50,7 +46,7 @@ describe('isExternalFirmwareCapabilityReady', () => {
     expect(
       isExternalFirmwareCapabilityReady({
         ...ready,
-        supportsReconciliation: false,
+        planSchemaVersion: 1,
       }),
     ).toBe(false);
     expect(
@@ -63,7 +59,7 @@ describe('isExternalFirmwareCapabilityReady', () => {
 
   test('requires the exact native artifact protocol and bounded reader contract', () => {
     const nativeReady = {
-      firmwareArtifactProtocolVersion: 1,
+      firmwareArtifactProtocolVersion: 2,
       maxReadBytes: 256 * 1024,
       supportsArchiveMaterialization: true,
       supportedRouteTypes: ['domain', 'pinnedIp'],
@@ -210,8 +206,8 @@ describe('Desktop Bridge firmware binaries', () => {
     const url =
       'https://common.onekey-asset.com/hw/legacy/bootloader/classic/2.0.0/classic-boot.2.0.0-0510-6d616dc.signed.bin';
     const trusted = getTrustedFirmwareArtifact(url);
-    const plan: FirmwareUpdatePlan = {
-      schemaVersion: 1,
+    const plan = {
+      schemaVersion: 2,
       planDigest: 'a'.repeat(64),
       executor: 'v2',
       deviceIdentity: 'device',
@@ -229,9 +225,8 @@ describe('Desktop Bridge firmware binaries', () => {
           expectedSha256: trusted.expectedSha256,
         },
       ],
-      epochs: [],
       targetsToUpdate: ['bootloader'],
-    };
+    } as unknown as FirmwareUpdatePlan;
     return { plan, trusted };
   };
 
@@ -242,7 +237,7 @@ describe('Desktop Bridge firmware binaries', () => {
   test('downloads and reads a small admitted artifact before releasing its lease', async () => {
     const { plan, trusted } = createBridgePlan();
     jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
-      firmwareArtifactProtocolVersion: 1,
+      firmwareArtifactProtocolVersion: 2,
       maxReadBytes: 256 * 1024,
       supportsArchiveMaterialization: true,
       supportedRouteTypes: ['domain', 'pinnedIp'],
@@ -284,7 +279,7 @@ describe('Desktop Bridge firmware binaries', () => {
   test('cancels an active preparation without trying another route', async () => {
     const { plan } = createBridgePlan();
     jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
-      firmwareArtifactProtocolVersion: 1,
+      firmwareArtifactProtocolVersion: 2,
       maxReadBytes: 256 * 1024,
       supportsArchiveMaterialization: true,
       supportedRouteTypes: ['domain', 'pinnedIp'],
@@ -378,8 +373,8 @@ describe('external firmware artifact preparation', () => {
       expectedSize: trusted.expectedSize,
       expectedSha256: trusted.expectedSha256,
     };
-    const plan: FirmwareUpdatePlan = {
-      schemaVersion: 1,
+    const plan = {
+      schemaVersion: 2,
       planDigest: 'a'.repeat(64),
       executor: 'v2',
       deviceIdentity: 'device',
@@ -387,11 +382,10 @@ describe('external firmware artifact preparation', () => {
       firmwareType: EFirmwareType.Universal,
       platform: 'desktop',
       artifacts: [artifact, { ...artifact, artifactId: 'bootloader-copy' }],
-      epochs: [],
       targetsToUpdate: ['bootloader'],
-    };
+    } as unknown as FirmwareUpdatePlan;
     jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
-      firmwareArtifactProtocolVersion: 1,
+      firmwareArtifactProtocolVersion: 2,
       maxReadBytes: 256 * 1024,
       supportsArchiveMaterialization: true,
       supportedRouteTypes: ['domain', 'pinnedIp'],

@@ -601,9 +601,6 @@ class ServiceHardware extends ServiceBase {
       );
 
       instance.on(DEVICE.CONNECT, (message: { device: KnownDevice }) => {
-        void this.backgroundApi.serviceFirmwareUpdate
-          .resumeActiveFirmwareTransaction()
-          .catch(() => undefined);
         const { features } = message.device || {};
         if (!features || !features.device_id) return;
         const { device_id: deviceId } = features;

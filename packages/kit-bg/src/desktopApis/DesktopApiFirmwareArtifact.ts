@@ -12,12 +12,10 @@ import {
   type FileHandle,
   mkdir,
   open,
-  readFile,
   readdir,
   rename,
   rm,
   stat,
-  writeFile,
 } from 'node:fs/promises';
 import https from 'node:https';
 import path from 'node:path';
@@ -46,8 +44,6 @@ import type { Entry, ZipFile } from 'yauzl';
 
 const MAX_READ_BYTES = 256 * 1024;
 const MAX_ARTIFACT_BYTES = 512 * 1024 * 1024;
-const MAX_LEASE_METADATA_BYTES = 1024 * 1024;
-const MAX_TOTAL_LEASE_REFS = 8192;
 const MAX_ARCHIVE_ENTRIES = 4096;
 const MAX_ARCHIVE_ENTRY_BYTES = 128 * 1024 * 1024;
 const UNIX_FILE_TYPE_MASK = 61_440;
@@ -77,15 +73,9 @@ type IStagedEntry = {
   filePath: string;
 };
 
-type IFirmwareArtifactLeaseEnvelope = {
-  schemaVersion: 1;
-  leases: Record<
-    string,
-    {
-      transactionId: string;
-      artifactRefs: string[];
-    }
-  >;
+type IFirmwareArtifactLease = {
+  transactionId: string;
+  artifactRefs: Set<string>;
 };
 
 const hashFile = async (filePath: string): Promise<string> => {
@@ -204,7 +194,7 @@ class DesktopApiFirmwareArtifact implements IFirmwareArtifactAdapter {
 
   private readonly rootPath: string;
 
-  private leaseOperation: Promise<void> = Promise.resolve();
+  private readonly leases = new Map<string, IFirmwareArtifactLease>();
 
   constructor(_params: { desktopApi: IDesktopApi }) {
     this.rootPath = path.join(app.getPath('userData'), 'firmware-artifacts');
@@ -214,7 +204,7 @@ class DesktopApiFirmwareArtifact implements IFirmwareArtifactAdapter {
 
   getCapabilities() {
     return {
-      firmwareArtifactProtocolVersion: 1,
+      firmwareArtifactProtocolVersion: 2,
       supportedRouteTypes: ['domain', 'pinnedIp'],
       supportsArchiveMaterialization: true,
       maxReadBytes: MAX_READ_BYTES,
@@ -373,22 +363,18 @@ class DesktopApiFirmwareArtifact implements IFirmwareArtifactAdapter {
         'Firmware transactionId is invalid',
       );
     }
-    return this.withLeaseLock(async () => {
-      const envelope = await this.loadLeases();
-      if (Object.keys(envelope.leases).length >= 32) {
-        throw new FirmwareArtifactDesktopError(
-          'ARTIFACT_INVALID_INPUT',
-          'Too many firmware artifact leases',
-        );
-      }
-      const leaseRef = `fwlease:${randomUUID()}`;
-      envelope.leases[leaseRef] = {
-        transactionId,
-        artifactRefs: [],
-      };
-      await this.saveLeases(envelope);
-      return { leaseRef };
+    if (this.leases.size >= 32) {
+      throw new FirmwareArtifactDesktopError(
+        'ARTIFACT_INVALID_INPUT',
+        'Too many firmware artifact leases',
+      );
+    }
+    const leaseRef = `fwlease:${randomUUID()}`;
+    this.leases.set(leaseRef, {
+      transactionId,
+      artifactRefs: new Set(),
     });
+    return { leaseRef };
   }
 
   async retain({
@@ -416,65 +402,27 @@ class DesktopApiFirmwareArtifact implements IFirmwareArtifactAdapter {
         'Firmware lease disposition is invalid',
       );
     }
-    const transactionId = await this.withLeaseLock(async () => {
-      const envelope = await this.loadLeases();
-      const lease = envelope.leases[this.validateLeaseRef(leaseRef)];
-      if (!lease) {
-        throw new FirmwareArtifactDesktopError(
-          'ARTIFACT_LEASE_UNAVAILABLE',
-          'Firmware artifact lease is unavailable',
-        );
-      }
-      delete envelope.leases[leaseRef];
-      await this.saveLeases(envelope);
-      return lease.transactionId;
-    });
+    const lease = this.leases.get(this.validateLeaseRef(leaseRef));
+    if (!lease) {
+      throw new FirmwareArtifactDesktopError(
+        'ARTIFACT_LEASE_UNAVAILABLE',
+        'Firmware artifact lease is unavailable',
+      );
+    }
+    this.leases.delete(leaseRef);
+    const { transactionId } = lease;
     this.cancelledTransactions.delete(transactionId);
-  }
-
-  async reconcileLeases(activeLeaseRefs: readonly string[]): Promise<void> {
-    if (activeLeaseRefs.length > 32) {
-      throw new FirmwareArtifactDesktopError(
-        'ARTIFACT_INVALID_INPUT',
-        'Too many active firmware artifact leases',
-      );
-    }
-    const active = new Set(
-      activeLeaseRefs.map((leaseRef) => this.validateLeaseRef(leaseRef)),
-    );
-    if (active.size !== activeLeaseRefs.length) {
-      throw new FirmwareArtifactDesktopError(
-        'ARTIFACT_INVALID_INPUT',
-        'Duplicate active firmware artifact lease',
-      );
-    }
-    await this.withLeaseLock(async () => {
-      const envelope = await this.loadLeases();
-      if ([...active].some((leaseRef) => !envelope.leases[leaseRef])) {
-        throw new FirmwareArtifactDesktopError(
-          'ARTIFACT_LEASE_UNAVAILABLE',
-          'Firmware artifact lease reconciliation is incomplete',
-        );
-      }
-      for (const leaseRef of Object.keys(envelope.leases)) {
-        if (!active.has(leaseRef)) delete envelope.leases[leaseRef];
-      }
-      await this.saveLeases(envelope);
-    });
   }
 
   async sweepOrphans(): Promise<{
     deletedFiles: number;
     deletedBytes: number;
   }> {
-    const retained = await this.withLeaseLock(async () => {
-      const envelope = await this.loadLeases();
-      return new Set(
-        Object.values(envelope.leases)
-          .flatMap((lease) => lease.artifactRefs)
-          .map((artifactRef) => artifactRef.slice(3)),
-      );
-    });
+    const retained = new Set(
+      [...this.leases.values()]
+        .flatMap((lease) => [...lease.artifactRefs])
+        .map((artifactRef) => artifactRef.slice(3)),
+    );
     const active = new Set(
       [...this.downloads.keys()].map((key) => key.slice(0, 64)),
     );
@@ -488,7 +436,7 @@ class DesktopApiFirmwareArtifact implements IFirmwareArtifactAdapter {
     let deletedFiles = 0;
     let deletedBytes = 0;
     for (const entry of files) {
-      if (entry.isFile() && entry.name !== 'leases.json') {
+      if (entry.isFile()) {
         const sha256 = entry.name.slice(0, 64);
         if (
           /^[a-f0-9]{64}$/u.test(sha256) &&
@@ -1110,15 +1058,12 @@ class DesktopApiFirmwareArtifact implements IFirmwareArtifactAdapter {
   }
 
   private async assertLease(leaseRef: string): Promise<void> {
-    await this.withLeaseLock(async () => {
-      const envelope = await this.loadLeases();
-      if (!envelope.leases[this.validateLeaseRef(leaseRef)]) {
-        throw new FirmwareArtifactDesktopError(
-          'ARTIFACT_LEASE_UNAVAILABLE',
-          'Firmware artifact lease is unavailable',
-        );
-      }
-    });
+    if (!this.leases.has(this.validateLeaseRef(leaseRef))) {
+      throw new FirmwareArtifactDesktopError(
+        'ARTIFACT_LEASE_UNAVAILABLE',
+        'Firmware artifact lease is unavailable',
+      );
+    }
   }
 
   private async retainExpected({
@@ -1136,27 +1081,20 @@ class DesktopApiFirmwareArtifact implements IFirmwareArtifactAdapter {
         'Firmware artifactRef is invalid',
       );
     }
-    await this.withLeaseLock(async () => {
-      const envelope = await this.loadLeases();
-      const lease = envelope.leases[this.validateLeaseRef(leaseRef)];
-      if (!lease) {
-        throw new FirmwareArtifactDesktopError(
-          'ARTIFACT_LEASE_UNAVAILABLE',
-          'Firmware artifact lease is unavailable',
-        );
-      }
-      if (transactionId && lease.transactionId !== transactionId) {
-        throw new FirmwareArtifactDesktopError(
-          'ARTIFACT_LEASE_MISMATCH',
-          'Firmware artifact lease transaction does not match',
-        );
-      }
-      if (!lease.artifactRefs.includes(artifactRef)) {
-        lease.artifactRefs.push(artifactRef);
-        lease.artifactRefs.sort();
-        await this.saveLeases(envelope);
-      }
-    });
+    const lease = this.leases.get(this.validateLeaseRef(leaseRef));
+    if (!lease) {
+      throw new FirmwareArtifactDesktopError(
+        'ARTIFACT_LEASE_UNAVAILABLE',
+        'Firmware artifact lease is unavailable',
+      );
+    }
+    if (transactionId && lease.transactionId !== transactionId) {
+      throw new FirmwareArtifactDesktopError(
+        'ARTIFACT_LEASE_MISMATCH',
+        'Firmware artifact lease transaction does not match',
+      );
+    }
+    lease.artifactRefs.add(artifactRef);
   }
 
   private validateLeaseRef(leaseRef: string): string {
@@ -1167,152 +1105,6 @@ class DesktopApiFirmwareArtifact implements IFirmwareArtifactAdapter {
       );
     }
     return leaseRef;
-  }
-
-  private async loadLeases(): Promise<IFirmwareArtifactLeaseEnvelope> {
-    await mkdir(this.rootPath, { recursive: true });
-    const filePath = path.join(this.rootPath, 'leases.json');
-    const fileSize = await stat(filePath)
-      .then(({ size }) => size)
-      .catch((error: NodeJS.ErrnoException) => {
-        if (error.code === 'ENOENT') return undefined;
-        throw error;
-      });
-    if (fileSize !== undefined && fileSize > MAX_LEASE_METADATA_BYTES) {
-      throw new FirmwareArtifactDesktopError(
-        'ARTIFACT_LEASE_INVALID',
-        'Firmware lease metadata is too large',
-      );
-    }
-    const data = await readFile(filePath, 'utf8').catch(
-      (error: NodeJS.ErrnoException) => {
-        if (error.code === 'ENOENT') return undefined;
-        throw error;
-      },
-    );
-    if (data === undefined) {
-      return { schemaVersion: 1, leases: {} };
-    }
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(data) as unknown;
-    } catch (error) {
-      throw new FirmwareArtifactDesktopError(
-        'ARTIFACT_LEASE_INVALID',
-        'Firmware lease metadata is invalid',
-        { cause: error },
-      );
-    }
-    if (
-      !parsed ||
-      typeof parsed !== 'object' ||
-      (parsed as { schemaVersion?: unknown }).schemaVersion !== 1 ||
-      !(parsed as { leases?: unknown }).leases ||
-      typeof (parsed as { leases?: unknown }).leases !== 'object' ||
-      Array.isArray((parsed as { leases?: unknown }).leases)
-    ) {
-      throw new FirmwareArtifactDesktopError(
-        'ARTIFACT_LEASE_INVALID',
-        'Firmware lease metadata is invalid',
-      );
-    }
-    const envelope = parsed as IFirmwareArtifactLeaseEnvelope;
-    const entries = Object.entries(envelope.leases);
-    if (entries.length > 32) {
-      throw new FirmwareArtifactDesktopError(
-        'ARTIFACT_LEASE_INVALID',
-        'Firmware lease metadata is too large',
-      );
-    }
-    let totalArtifactRefs = 0;
-    for (const [leaseRef, lease] of entries) {
-      if (
-        !LEASE_REF_PATTERN.test(leaseRef) ||
-        !lease ||
-        !IDENTIFIER_PATTERN.test(lease.transactionId) ||
-        !Array.isArray(lease.artifactRefs) ||
-        lease.artifactRefs.length > 4096 ||
-        new Set(lease.artifactRefs).size !== lease.artifactRefs.length ||
-        !lease.artifactRefs.every(
-          (artifactRef) =>
-            typeof artifactRef === 'string' &&
-            ARTIFACT_REF_PATTERN.test(artifactRef),
-        )
-      ) {
-        throw new FirmwareArtifactDesktopError(
-          'ARTIFACT_LEASE_INVALID',
-          'Firmware lease metadata contains invalid fields',
-        );
-      }
-      totalArtifactRefs += lease.artifactRefs.length;
-      if (totalArtifactRefs > MAX_TOTAL_LEASE_REFS) {
-        throw new FirmwareArtifactDesktopError(
-          'ARTIFACT_LEASE_INVALID',
-          'Firmware lease metadata is too large',
-        );
-      }
-    }
-    return envelope;
-  }
-
-  private async saveLeases(
-    envelope: IFirmwareArtifactLeaseEnvelope,
-  ): Promise<void> {
-    const leases = Object.values(envelope.leases);
-    if (
-      envelope.schemaVersion !== 1 ||
-      leases.length > 32 ||
-      leases.some((lease) => lease.artifactRefs.length > 4096) ||
-      leases.reduce((total, lease) => total + lease.artifactRefs.length, 0) >
-        MAX_TOTAL_LEASE_REFS
-    ) {
-      throw new FirmwareArtifactDesktopError(
-        'ARTIFACT_LEASE_INVALID',
-        'Firmware lease metadata is too large',
-      );
-    }
-    await mkdir(this.rootPath, { recursive: true });
-    const destination = path.join(this.rootPath, 'leases.json');
-    const temporary = path.join(this.rootPath, `.leases-${randomUUID()}.tmp`);
-    const serialized = JSON.stringify(envelope);
-    if (Buffer.byteLength(serialized, 'utf8') > MAX_LEASE_METADATA_BYTES) {
-      throw new FirmwareArtifactDesktopError(
-        'ARTIFACT_LEASE_INVALID',
-        'Firmware lease metadata is too large',
-      );
-    }
-    await writeFile(temporary, serialized, {
-      encoding: 'utf8',
-      flag: 'wx',
-    });
-    const handle = await open(temporary, 'r+');
-    try {
-      await handle.sync();
-    } finally {
-      await handle.close();
-    }
-    await rename(temporary, destination).catch(async (error) => {
-      const code = (error as NodeJS.ErrnoException).code;
-      if (code !== 'EEXIST' && code !== 'EPERM') throw error;
-      const backup = path.join(this.rootPath, `.leases-${randomUUID()}.backup`);
-      await rename(destination, backup);
-      try {
-        await rename(temporary, destination);
-      } catch (renameError) {
-        await rename(backup, destination);
-        throw renameError;
-      }
-      await rm(backup, { force: true });
-    });
-  }
-
-  private withLeaseLock<T>(operation: () => Promise<T>): Promise<T> {
-    const result = this.leaseOperation.then(operation, operation);
-    this.leaseOperation = result.then(
-      () => undefined,
-      () => undefined,
-    );
-    return result;
   }
 
   private async resolveArtifactPath(artifactRef: string): Promise<string> {

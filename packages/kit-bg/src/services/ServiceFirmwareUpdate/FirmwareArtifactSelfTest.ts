@@ -21,6 +21,7 @@ import type { IFirmwareArtifactAdapter } from './FirmwareArtifactAdapter.types';
 import type { ITrustedFirmwareArtifact } from './trustedFirmwareCatalog';
 import type {
   CoreApi,
+  FirmwareArtifactReader,
   FirmwareArtifactReference,
   FirmwareUpdatePlan,
 } from '@onekeyfe/hd-core';
@@ -237,8 +238,8 @@ const buildFirmwareSelfTestPlan = async ({
   scenario: IFirmwareArtifactSelfTestScenario;
 }): Promise<FirmwareUpdatePlan> => {
   const target = scenario === 'pro-firmware' ? 'firmware' : 'resource';
-  const planWithoutDigest: Omit<FirmwareUpdatePlan, 'planDigest'> = {
-    schemaVersion: 1,
+  const planWithoutDigest = {
+    schemaVersion: 2,
     executor: 'v3',
     deviceIdentity: 'firmware-self-test-pro',
     deviceModel: String(EDeviceType.Pro),
@@ -257,22 +258,8 @@ const buildFirmwareSelfTestPlan = async ({
         targetVersion: PRO_FIRMWARE_VERSION,
       },
     ],
-    epochs: [
-      {
-        epoch: 0,
-        kind: 'legacy-update',
-        artifactIds: [artifactId],
-        targets: [target],
-      },
-      {
-        epoch: 1,
-        kind: 'final-verify',
-        artifactIds: [],
-        targets: [target],
-      },
-    ],
     targetsToUpdate: [target],
-  };
+  } as unknown as Omit<FirmwareUpdatePlan, 'planDigest'>;
   return {
     ...planWithoutDigest,
     planDigest: await digestFirmwareSelfTestPlan(planWithoutDigest),
@@ -368,7 +355,11 @@ const executeFirmwareArtifactSdkProbe = async ({
   }
 
   const readerSizes = new Map<string, number>();
-  const generation = sdk.registerFirmwareUpdateHostBinding({
+  const generation = (
+    sdk.registerFirmwareUpdateHostBinding as unknown as (binding: {
+      artifactReader: FirmwareArtifactReader;
+    }) => number
+  )({
     artifactReader: {
       async open({ artifactRef }) {
         const opened = await adapter.open(artifactRef);
@@ -392,11 +383,6 @@ const executeFirmwareArtifactSdkProbe = async ({
         await adapter.close(readerId);
       },
     },
-    checkpointSink: {
-      async commit() {
-        return Promise.resolve();
-      },
-    },
   });
   if (!Number.isSafeInteger(generation) || generation <= 0) {
     throw new OneKeyLocalError('SDK_HOST_BINDING_REGISTRATION_FAILED');
@@ -417,7 +403,6 @@ const executeFirmwareArtifactSdkProbe = async ({
       firmwareType: EFirmwareType.Universal,
       artifacts: nextArtifacts,
       hostBindingGeneration: generation,
-      checkpointSequenceStart: 0,
       retryCount: 0,
       pollIntervalTime: 10,
       timeout: 500,

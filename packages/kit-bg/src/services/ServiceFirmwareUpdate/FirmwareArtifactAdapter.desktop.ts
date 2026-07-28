@@ -27,7 +27,5 @@ export const firmwareArtifactAdapter: IFirmwareArtifactAdapter = {
     getDesktopAdapter().createLease(transactionId),
   retain: (input) => getDesktopAdapter().retain(input),
   releaseLease: (input) => getDesktopAdapter().releaseLease(input),
-  reconcileLeases: (activeLeaseRefs) =>
-    getDesktopAdapter().reconcileLeases(activeLeaseRefs),
   sweepOrphans: () => getDesktopAdapter().sweepOrphans(),
 };

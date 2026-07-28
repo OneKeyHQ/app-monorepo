@@ -19,6 +19,5 @@ export const firmwareArtifactAdapter: IFirmwareArtifactAdapter = {
   createLease: unavailable,
   retain: unavailable,
   releaseLease: unavailable,
-  reconcileLeases: unavailable,
   sweepOrphans: unavailable,
 };

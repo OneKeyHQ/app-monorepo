@@ -81,12 +81,6 @@ export const firmwareArtifactAdapter: IFirmwareArtifactAdapter = {
     assertBackgroundRuntime();
     return ReactNativeRangeDownloader.releaseFirmwareArtifactLease(input);
   },
-  reconcileLeases(activeLeaseRefs) {
-    assertBackgroundRuntime();
-    return ReactNativeRangeDownloader.reconcileFirmwareArtifactLeases({
-      activeLeaseRefs: [...activeLeaseRefs],
-    });
-  },
   sweepOrphans() {
     assertBackgroundRuntime();
     return ReactNativeRangeDownloader.sweepFirmwareArtifactOrphans();
