@@ -83,6 +83,8 @@ export async function getPrimeInfiniPaymentEntryGuard() {
         {
           onekeyUserId,
           expectedPaymentCacheIdentity: pendingPaymentSession.paymentCacheKey,
+          expectedUpdatedAt: pendingPaymentSession.updatedAt,
+          expectedSendStarted: pendingPaymentSession.sendStarted,
           latestPayment,
         },
       );

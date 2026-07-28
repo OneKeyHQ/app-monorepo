@@ -25,12 +25,14 @@ export type IBorrowBuildTxParams = {
   collateralReserveAddress?: string;
   withdrawAll?: boolean;
   repayAll?: boolean;
+  unwrap?: boolean;
   needsSetupLut?: boolean;
   slippageBps?: number;
   routeKey?: string;
   stakingInfo?: IStakingInfo;
   onSetupLutReadyForRepay?: () => void;
   onBeforeNavigate?: () => void | Promise<void>;
+  ignoreOrderTrackingError?: boolean;
   onSettleResult?: (
     result: IBorrowSettleResult,
   ) => boolean | void | Promise<boolean | void>;
@@ -84,6 +86,8 @@ export const handleBorrowSuccess = async ({
   networkId,
   accountId,
   stakingInfo,
+  waitForFinalStatus,
+  ignoreOrderTrackingError,
   onSettleResult,
   onSuccess,
 }: {
@@ -92,6 +96,8 @@ export const handleBorrowSuccess = async ({
   networkId: string;
   accountId?: string;
   stakingInfo?: IStakingInfo;
+  waitForFinalStatus?: boolean;
+  ignoreOrderTrackingError?: boolean;
   onSettleResult?: (
     result: IBorrowSettleResult,
   ) => boolean | void | Promise<boolean | void>;
@@ -103,7 +109,9 @@ export const handleBorrowSuccess = async ({
   const label = stakingInfo?.label;
   const shouldShowConfirmSheet =
     !!accountId &&
-    (label === EEarnLabels.Withdraw || label === EEarnLabels.Repay);
+    (waitForFinalStatus ||
+      label === EEarnLabels.Withdraw ||
+      label === EEarnLabels.Repay);
 
   if (orderId && latestTxId) {
     const addEarnOrderPromise = backgroundApiProxy.serviceStaking.addEarnOrder({
@@ -113,7 +121,7 @@ export const handleBorrowSuccess = async ({
       status: data[data.length - 1]?.decodedTx.status,
       ...getEarnOrderTrackingInfo(stakingInfo),
     });
-    if (shouldShowConfirmSheet) {
+    if (shouldShowConfirmSheet || ignoreOrderTrackingError) {
       void addEarnOrderPromise.catch(() => undefined);
     } else {
       await addEarnOrderPromise;
@@ -135,7 +143,10 @@ export const handleBorrowSuccess = async ({
         return;
       }
     }
-    if (finalStatus === EOnChainHistoryTxStatus.Failed) {
+    if (
+      finalStatus === EOnChainHistoryTxStatus.Failed ||
+      (waitForFinalStatus && finalStatus !== EOnChainHistoryTxStatus.Success)
+    ) {
       return;
     }
   }
@@ -161,6 +172,7 @@ export function useUniversalBorrowWithdraw({
       marketAddress,
       reserveAddress,
       withdrawAll,
+      unwrap,
       stakingInfo,
       onBeforeNavigate,
       onSettleResult,
@@ -177,6 +189,7 @@ export function useUniversalBorrowWithdraw({
           reserveAddress,
           amount,
           withdrawAll,
+          ...(unwrap !== undefined ? { unwrap } : {}),
         });
 
       const stakingInfoWithOrderId = attachBorrowOrderId({
@@ -229,6 +242,7 @@ export function useUniversalBorrowRepay({
       repayAll,
       stakingInfo,
       onBeforeNavigate,
+      ignoreOrderTrackingError,
       onSettleResult,
       onSuccess,
       onFail,
@@ -262,6 +276,7 @@ export function useUniversalBorrowRepay({
             networkId,
             accountId,
             stakingInfo: stakingInfoWithOrderId,
+            ignoreOrderTrackingError,
             onSettleResult,
             onSuccess,
           });

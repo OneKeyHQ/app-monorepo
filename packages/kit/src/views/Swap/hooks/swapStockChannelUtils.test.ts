@@ -3,7 +3,9 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapStockChannelAsyncStatus,
   ESwapStockTradeSide,
+  SWAP_STOCK_PAY_TOKEN_SCOPE_CACHE_MAX_ENTRIES,
   backfillSwapProTokenStockIdentity,
+  buildStockPayTokenDisplaySeed,
   buildStockSwapTokenFromMarketListToken,
   filterStockPayTokenCandidates,
   hasValidStockBalanceForTrade,
@@ -14,12 +16,15 @@ import {
   resolveStockBalanceSnapshot,
   resolveStockBalanceViewState,
   resolveStockChannelSwapPair,
+  resolveStockExecutionTokensForTradeSideSwitch,
+  resolveStockExecutionTokensToSync,
   resolveStockKLineToken,
   resolveStockPayTokenDisplaySeed,
   resolveSwapStockDefaultTokenStatus,
   shouldLoadDefaultStockToken,
   shouldRenderStockTradeInputSkeleton,
   shouldResetStockTradeReceiveAmount,
+  upsertSwapStockPayTokenScopeCache,
 } from './swapStockChannelUtils';
 
 const usdcToken: ISwapToken = {
@@ -193,6 +198,68 @@ describe('swapStockChannelUtils', () => {
         persistedTokenKey: 'evm--56:0xusdt:token',
       }),
     ).toBe(usdtPayToken);
+  });
+
+  it('restores a full persisted pay-token seed while live candidates are unavailable', () => {
+    expect(
+      resolveStockPayTokenDisplaySeed({
+        allowPersistedTokenFallback: true,
+        candidates: [],
+        persistedToken: usdtToken,
+      }),
+    ).toBe(usdtToken);
+  });
+
+  it('reconciles a persisted display seed to the live pay-token candidate', () => {
+    expect(
+      resolveStockPayTokenDisplaySeed({
+        candidates: [usdcPayToken, usdtPayToken],
+        persistedToken: usdtToken,
+      }),
+    ).toBe(usdtPayToken);
+  });
+
+  it('ignores an unsupported persisted display seed', () => {
+    expect(
+      resolveStockPayTokenDisplaySeed({
+        allowPersistedTokenFallback: true,
+        candidates: [],
+        persistedToken: ethToken,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('drops the persisted display seed after live candidates settle empty', () => {
+    expect(
+      resolveStockPayTokenDisplaySeed({
+        allowPersistedTokenFallback: false,
+        candidates: [],
+        persistedToken: usdtToken,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('stores only presentation fields in the persisted pay-token seed', () => {
+    expect(
+      buildStockPayTokenDisplaySeed({
+        ...usdtToken,
+        accountAddress: '0xaccount',
+        balanceParsed: '10',
+        fiatValue: '10',
+        logoURI: 'https://example.com/usdt.png',
+        networkLogoURI: 'https://example.com/bsc.png',
+        price: '1',
+      }),
+    ).toEqual({
+      networkId: 'evm--56',
+      contractAddress: '0xusdt',
+      decimals: 6,
+      isNative: undefined,
+      symbol: 'USDT',
+      name: undefined,
+      logoURI: 'https://example.com/usdt.png',
+      networkLogoURI: 'https://example.com/bsc.png',
+    });
   });
 
   it('keeps the selected pay token ahead of the persisted display preference', () => {
@@ -383,6 +450,82 @@ describe('swapStockChannelUtils', () => {
         stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
       }),
     ).toBe(false);
+  });
+
+  it('keeps a display-only cached pay token out of execution until live readiness', () => {
+    expect(
+      resolveStockExecutionTokensToSync({
+        currentFromToken: usdtToken,
+        currentToToken: appleStockToken,
+        payToken: usdcToken,
+        readyForQuote: false,
+        stockToken: appleStockToken,
+        tradeSide: ESwapStockTradeSide.Buy,
+      }),
+    ).toBeUndefined();
+
+    expect(
+      resolveStockExecutionTokensToSync({
+        currentFromToken: usdcToken,
+        currentToToken: appleStockToken,
+        payToken: usdtToken,
+        readyForQuote: true,
+        stockToken: appleStockToken,
+        tradeSide: ESwapStockTradeSide.Buy,
+      }),
+    ).toEqual({
+      fromToken: usdtToken,
+      toToken: appleStockToken,
+    });
+  });
+
+  it('does not build trade-side execution tokens without a live pay token', () => {
+    expect(
+      resolveStockExecutionTokensForTradeSideSwitch({
+        stockToken: appleStockToken,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockExecutionTokensForTradeSideSwitch({
+        payToken: usdcPayToken,
+        stockToken: appleStockToken,
+      }),
+    ).toEqual({
+      payToken: usdcPayToken,
+      stockToken: appleStockToken,
+    });
+  });
+
+  it('bounds account-scoped pay-token caches and retains recent writes', () => {
+    let cache: Record<string, string> = {};
+    for (
+      let index = 0;
+      index <= SWAP_STOCK_PAY_TOKEN_SCOPE_CACHE_MAX_ENTRIES;
+      index += 1
+    ) {
+      cache = upsertSwapStockPayTokenScopeCache({
+        cache,
+        scope: `scope-${index}`,
+        value: `token-${index}`,
+      });
+    }
+
+    expect(Object.keys(cache)).toHaveLength(
+      SWAP_STOCK_PAY_TOKEN_SCOPE_CACHE_MAX_ENTRIES,
+    );
+    expect(cache['scope-0']).toBeUndefined();
+    expect(cache['scope-1']).toBe('token-1');
+    expect(cache[`scope-${SWAP_STOCK_PAY_TOKEN_SCOPE_CACHE_MAX_ENTRIES}`]).toBe(
+      `token-${SWAP_STOCK_PAY_TOKEN_SCOPE_CACHE_MAX_ENTRIES}`,
+    );
+
+    cache = upsertSwapStockPayTokenScopeCache({
+      cache,
+      scope: 'scope-1',
+      value: 'token-1-updated',
+    });
+    expect(Object.keys(cache).at(-1)).toBe('scope-1');
+    expect(cache['scope-1']).toBe('token-1-updated');
   });
 
   it('keeps the buy-side pay token visible during non-initial readiness refreshes', () => {

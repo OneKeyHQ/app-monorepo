@@ -237,6 +237,53 @@ describe('SwapQuoteStockMarketStatusAlert', () => {
     expect(mockStockMarketStatusAlert).not.toHaveBeenCalled();
   });
 
+  it('waits for Market detail to confirm closure before rendering the alert', () => {
+    mockStockDetailResult = {
+      pending: true,
+    };
+    const { rerender } = render(
+      <SwapQuoteStockMarketStatusAlert onMarketReopen={jest.fn()} />,
+    );
+
+    expect(mockStockMarketStatusAlert).not.toHaveBeenCalled();
+
+    mockStockDetailResult = {
+      pending: false,
+      tokenDetail: {
+        stock: {
+          description: 'Reopens in 2h\nProvider description',
+          isOpen: false,
+        },
+      },
+    };
+    rerender(<SwapQuoteStockMarketStatusAlert onMarketReopen={jest.fn()} />);
+
+    expect(mockStockMarketStatusAlert).toHaveBeenCalledTimes(1);
+    expect(mockStockMarketStatusAlert.mock.calls[0]?.[0].timeText).toBe(
+      'Reopens in 2h',
+    );
+  });
+
+  it('falls back to a generic closed alert after Market detail settles empty', () => {
+    mockStockDetailResult = {
+      pending: false,
+    };
+
+    render(<SwapQuoteStockMarketStatusAlert onMarketReopen={jest.fn()} />);
+
+    expect(mockResolveStockMarketStatusCase).toHaveBeenCalledWith({
+      hasOpenTime: false,
+      hasPerps: false,
+      isOpen: false,
+    });
+    expect(mockStockMarketStatusAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        onTradePerps: undefined,
+        timeText: undefined,
+      }),
+    );
+  });
+
   it('refreshes once when the first Market detail says the market reopened', () => {
     const onMarketReopen = jest.fn();
     mockStockDetailResult = {
@@ -252,10 +299,12 @@ describe('SwapQuoteStockMarketStatusAlert', () => {
     );
 
     expect(onMarketReopen).toHaveBeenCalledTimes(1);
+    expect(mockStockMarketStatusAlert).not.toHaveBeenCalled();
 
     rerender(
       <SwapQuoteStockMarketStatusAlert onMarketReopen={onMarketReopen} />,
     );
     expect(onMarketReopen).toHaveBeenCalledTimes(1);
+    expect(mockStockMarketStatusAlert).not.toHaveBeenCalled();
   });
 });
