@@ -5,12 +5,14 @@ import type { IIpTableConfigWithRuntime } from '@onekeyhq/shared/src/request/typ
 import { firmwareArtifactAdapter } from './FirmwareArtifactAdapter';
 import {
   cancelFirmwareArtifactPreparations,
+  downloadTrustedFirmwareArtifact,
   getBridgeFirmwareV3BinaryParams,
   getBridgeFirmwareV4BinaryParams,
   isExternalFirmwareCapabilityReady,
   isFirmwareArtifactCapabilityReadyValue,
   orderFirmwareArtifactRoutes,
   prepareBridgeFirmwareBinaries,
+  prepareFirmwareArtifacts,
 } from './FirmwareArtifactPreflight';
 import { getTrustedFirmwareArtifact } from './trustedFirmwareCatalog';
 
@@ -25,6 +27,10 @@ jest.mock('@onekeyhq/shared/src/request/requestHelper', () => ({
     getIpTableConfig: jest.fn().mockResolvedValue(undefined),
   },
 }));
+
+const mockGetIpTableConfig = jest.requireMock(
+  '@onekeyhq/shared/src/request/requestHelper',
+).default.getIpTableConfig as jest.Mock;
 
 const ready = {
   planSchemaVersion: 1,
@@ -103,6 +109,11 @@ describe('orderFirmwareArtifactRoutes', () => {
     },
   };
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+    mockGetIpTableConfig.mockResolvedValue(undefined);
+  });
+
   test('keeps proxy and unknown proxy state on the domain route', () => {
     expect(
       orderFirmwareArtifactRoutes({
@@ -152,6 +163,45 @@ describe('orderFirmwareArtifactRoutes', () => {
       { routeType: 'pinnedIp', resolvedIp: '2.2.2.2' },
       { routeType: 'domain' },
     ]);
+  });
+
+  test('fails closed on TLS errors without trying another route', async () => {
+    const artifact = getTrustedFirmwareArtifact(
+      'https://common.onekey-asset.com/hw/legacy/bootloader/classic/2.0.0/classic-boot.2.0.0-0510-6d616dc.signed.bin',
+    );
+    mockGetIpTableConfig.mockResolvedValue({
+      ...configWithRuntime,
+      config: {
+        ...configWithRuntime.config,
+        domains: {
+          'common.onekey-asset.com': {
+            endpoints: [
+              { ip: '1.1.1.1', provider: 'a', region: 'CN', weight: 100 },
+            ],
+          },
+        },
+      },
+      runtime: {
+        ...configWithRuntime.runtime!,
+        selections: { 'common.onekey-asset.com': '1.1.1.1' },
+      },
+    });
+    const download = jest
+      .spyOn(firmwareArtifactAdapter, 'download')
+      .mockRejectedValue(
+        new Error('ARTIFACT_TLS_FAILED: firmware TLS validation failed'),
+      );
+
+    await expect(
+      downloadTrustedFirmwareArtifact({
+        artifact,
+        artifactId: 'bootloader',
+        transactionId: 'fwtx:test',
+        leaseRef: 'fwlease:test',
+        deadlineAt: Date.now() + 10_000,
+      }),
+    ).rejects.toThrow('ARTIFACT_TLS_FAILED');
+    expect(download).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -307,5 +357,72 @@ describe('Desktop Bridge firmware binaries', () => {
       applicationP1Binary: firmware,
       coprocessorBinary: ble,
     });
+  });
+});
+
+describe('external firmware artifact preparation', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test('cancels sibling downloads before surfacing a preparation failure', async () => {
+    const url =
+      'https://common.onekey-asset.com/hw/legacy/bootloader/classic/2.0.0/classic-boot.2.0.0-0510-6d616dc.signed.bin';
+    const trusted = getTrustedFirmwareArtifact(url);
+    const artifact = {
+      artifactId: 'bootloader',
+      role: 'bootloader' as const,
+      target: 'bootloader' as const,
+      url,
+      container: 'raw' as const,
+      expectedSize: trusted.expectedSize,
+      expectedSha256: trusted.expectedSha256,
+    };
+    const plan: FirmwareUpdatePlan = {
+      schemaVersion: 1,
+      planDigest: 'a'.repeat(64),
+      executor: 'v2',
+      deviceIdentity: 'device',
+      deviceModel: 'classic',
+      firmwareType: EFirmwareType.Universal,
+      platform: 'desktop',
+      artifacts: [artifact, { ...artifact, artifactId: 'bootloader-copy' }],
+      epochs: [],
+      targetsToUpdate: ['bootloader'],
+    };
+    jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
+      firmwareArtifactProtocolVersion: 1,
+      maxReadBytes: 256 * 1024,
+      supportsArchiveMaterialization: true,
+      supportedRouteTypes: ['domain', 'pinnedIp'],
+    });
+    let rejectSibling: (reason?: unknown) => void = () => undefined;
+    const download = jest
+      .spyOn(firmwareArtifactAdapter, 'download')
+      .mockImplementationOnce(
+        () =>
+          new Promise((_resolve, reject) => {
+            rejectSibling = reject;
+          }),
+      )
+      .mockRejectedValueOnce(
+        new Error('ARTIFACT_TLS_FAILED: firmware TLS validation failed'),
+      );
+    const cancel = jest
+      .spyOn(firmwareArtifactAdapter, 'cancelDownloads')
+      .mockImplementation(async () => {
+        rejectSibling(new Error('ARTIFACT_CANCELLED'));
+      });
+
+    await expect(
+      prepareFirmwareArtifacts(plan, {
+        transactionId: 'fwtx:test',
+        leaseRef: 'fwlease:test',
+        preparePlan: jest.fn(),
+      }),
+    ).rejects.toThrow('ARTIFACT_TLS_FAILED');
+    expect(download).toHaveBeenCalledTimes(2);
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(cancel).toHaveBeenCalledWith('fwtx:test');
   });
 });
