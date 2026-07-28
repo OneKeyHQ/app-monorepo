@@ -1,11 +1,5 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import {
-  trustedFirmwareCatalog,
-  trustedPreReleaseFirmwareConfig,
-  trustedStableFirmwareConfig,
-} from './trustedFirmwareCatalog.generated';
-
 import type { RemoteConfigResponse } from '@onekeyfe/hd-core';
 
 export type ITrustedFirmwareArchiveEntry = {
@@ -32,24 +26,40 @@ export type ITrustedFirmwareArtifact = {
   expectedEntries?: readonly ITrustedFirmwareArchiveEntry[];
 };
 
-const artifactsByUrl =
-  trustedFirmwareCatalog.artifactsByUrl as unknown as Readonly<
-    Record<string, ITrustedFirmwareArtifact>
-  >;
+type ITrustedFirmwareCatalogModule =
+  typeof import('./trustedFirmwareCatalog.generated');
 
-export function getTrustedFirmwareConfig({
+let trustedFirmwareCatalogPromise:
+  | Promise<ITrustedFirmwareCatalogModule>
+  | undefined;
+
+const loadTrustedFirmwareCatalog =
+  (): Promise<ITrustedFirmwareCatalogModule> => {
+    trustedFirmwareCatalogPromise ??=
+      import('./trustedFirmwareCatalog.generated');
+    return trustedFirmwareCatalogPromise;
+  };
+
+export async function getTrustedFirmwareConfig({
   preRelease,
 }: {
   preRelease: boolean;
-}): RemoteConfigResponse {
+}): Promise<RemoteConfigResponse> {
+  const { trustedPreReleaseFirmwareConfig, trustedStableFirmwareConfig } =
+    await loadTrustedFirmwareCatalog();
   return preRelease
     ? trustedPreReleaseFirmwareConfig
     : trustedStableFirmwareConfig;
 }
 
-export function getTrustedFirmwareArtifact(
+export async function getTrustedFirmwareArtifact(
   url: string,
-): ITrustedFirmwareArtifact {
+): Promise<ITrustedFirmwareArtifact> {
+  const { trustedFirmwareCatalog } = await loadTrustedFirmwareCatalog();
+  const artifactsByUrl =
+    trustedFirmwareCatalog.artifactsByUrl as unknown as Readonly<
+      Record<string, ITrustedFirmwareArtifact>
+    >;
   const artifact = artifactsByUrl[url];
   if (!artifact) {
     throw new OneKeyLocalError(
@@ -57,35 +67,4 @@ export function getTrustedFirmwareArtifact(
     );
   }
   return artifact;
-}
-
-export function getTrustedFirmwareArtifactByIntegrity({
-  expectedSha256,
-  expectedSize,
-  role,
-  container,
-  logicalName,
-}: {
-  expectedSha256: string;
-  expectedSize: number;
-  role: ITrustedFirmwareArtifact['role'];
-  container: ITrustedFirmwareArtifact['container'];
-  logicalName?: string;
-}): ITrustedFirmwareArtifact {
-  const normalizedSha256 = expectedSha256.toLowerCase();
-  const match = Object.values(artifactsByUrl).find(
-    (artifact) =>
-      artifact.expectedSha256.toLowerCase() === normalizedSha256 &&
-      artifact.expectedSize === expectedSize &&
-      artifact.container === container &&
-      artifact.logicalName === logicalName &&
-      (artifact.role === role ||
-        (role === 'resource' && artifact.role === 'fullResource')),
-  );
-  if (!match) {
-    throw new OneKeyLocalError(
-      'Firmware artifact is not admitted by the bundled catalog',
-    );
-  }
-  return match;
 }

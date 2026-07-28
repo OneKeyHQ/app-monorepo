@@ -162,7 +162,7 @@ describe('orderFirmwareArtifactRoutes', () => {
   });
 
   test('fails closed on TLS errors without trying another route', async () => {
-    const artifact = getTrustedFirmwareArtifact(
+    const artifact = await getTrustedFirmwareArtifact(
       'https://common.onekey-asset.com/hw/legacy/bootloader/classic/2.0.0/classic-boot.2.0.0-0510-6d616dc.signed.bin',
     );
     mockGetIpTableConfig.mockResolvedValue({
@@ -202,10 +202,10 @@ describe('orderFirmwareArtifactRoutes', () => {
 });
 
 describe('Desktop Bridge firmware binaries', () => {
-  const createBridgePlan = () => {
+  const createBridgePlan = async () => {
     const url =
       'https://common.onekey-asset.com/hw/legacy/bootloader/classic/2.0.0/classic-boot.2.0.0-0510-6d616dc.signed.bin';
-    const trusted = getTrustedFirmwareArtifact(url);
+    const trusted = await getTrustedFirmwareArtifact(url);
     const plan = {
       schemaVersion: 2,
       planDigest: 'a'.repeat(64),
@@ -235,7 +235,7 @@ describe('Desktop Bridge firmware binaries', () => {
   });
 
   test('downloads and reads a small admitted artifact before releasing its lease', async () => {
-    const { plan, trusted } = createBridgePlan();
+    const { plan, trusted } = await createBridgePlan();
     jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
       firmwareArtifactProtocolVersion: 2,
       maxReadBytes: 256 * 1024,
@@ -277,7 +277,7 @@ describe('Desktop Bridge firmware binaries', () => {
   });
 
   test('cancels an active preparation without trying another route', async () => {
-    const { plan } = createBridgePlan();
+    const { plan } = await createBridgePlan();
     jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
       firmwareArtifactProtocolVersion: 2,
       maxReadBytes: 256 * 1024,
@@ -363,7 +363,7 @@ describe('external firmware artifact preparation', () => {
   test('cancels sibling downloads before surfacing a preparation failure', async () => {
     const url =
       'https://common.onekey-asset.com/hw/legacy/bootloader/classic/2.0.0/classic-boot.2.0.0-0510-6d616dc.signed.bin';
-    const trusted = getTrustedFirmwareArtifact(url);
+    const trusted = await getTrustedFirmwareArtifact(url);
     const artifact = {
       artifactId: 'bootloader',
       role: 'bootloader' as const,

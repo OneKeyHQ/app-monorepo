@@ -308,7 +308,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       env: 'desktop-webusb',
       fetchConfig: false,
       firmwareManifestMode: 'external-only',
-      preloadedConfig: getTrustedFirmwareConfig({ preRelease: false }),
+      preloadedConfig: await getTrustedFirmwareConfig({ preRelease: false }),
     });
     if (!initialized) {
       throw new OneKeyLocalError(
@@ -388,7 +388,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const now = Date.now();
     const state: IFirmwareArtifactSelfTestState = {
       runId,
-      descriptor: getFirmwareArtifactSelfTestArtifact(scenario).descriptor,
+      descriptor: (await getFirmwareArtifactSelfTestArtifact(scenario))
+        .descriptor,
       platform: getFirmwareArtifactSelfTestPlatform(),
       status: 'running',
       phase: 'starting',

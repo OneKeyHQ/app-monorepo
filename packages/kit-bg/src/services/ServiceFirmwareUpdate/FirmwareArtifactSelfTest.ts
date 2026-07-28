@@ -135,10 +135,11 @@ type IFirmwareArtifactSdkFailure = {
   error: string;
 };
 
-const getProRelease = () => {
-  const release = getTrustedFirmwareConfig({ preRelease: false }).pro[
-    'firmware-v8'
-  ]?.find((item) => item.version.join('.') === PRO_FIRMWARE_VERSION);
+const getProRelease = async () => {
+  const config = await getTrustedFirmwareConfig({ preRelease: false });
+  const release = config.pro['firmware-v8']?.find(
+    (item) => item.version.join('.') === PRO_FIRMWARE_VERSION,
+  );
   if (!release) {
     throw new OneKeyLocalError(
       `Trusted Pro firmware ${PRO_FIRMWARE_VERSION} is unavailable`,
@@ -147,14 +148,14 @@ const getProRelease = () => {
   return release;
 };
 
-export const getFirmwareArtifactSelfTestArtifact = (
+export const getFirmwareArtifactSelfTestArtifact = async (
   scenario: IFirmwareArtifactSelfTestScenario,
-): {
+): Promise<{
   descriptor: IFirmwareArtifactSelfTestDescriptor;
   artifact: ITrustedFirmwareArtifact;
   artifactId: string;
-} => {
-  const release = getProRelease();
+}> => {
+  const release = await getProRelease();
   let url: string | undefined;
   let label: string;
   let artifactId: string;
@@ -174,7 +175,7 @@ export const getFirmwareArtifactSelfTestArtifact = (
   if (!url) {
     throw new OneKeyLocalError(`${label} URL is unavailable`);
   }
-  const artifact = getTrustedFirmwareArtifact(url);
+  const artifact = await getTrustedFirmwareArtifact(url);
   return {
     artifact,
     artifactId,
@@ -509,7 +510,7 @@ export const executeFirmwareArtifactSelfTest = async ({
     throw new OneKeyLocalError('ARTIFACT_CAPABILITY_MISMATCH');
   }
   const { artifact, artifactId } =
-    getFirmwareArtifactSelfTestArtifact(scenario);
+    await getFirmwareArtifactSelfTestArtifact(scenario);
   let leaseRef = existingLeaseRef;
   if (!leaseRef) {
     try {
