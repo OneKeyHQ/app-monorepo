@@ -22,6 +22,10 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid';
 import { DEFAULT_PERP_TOKEN_ACTIVE_TAB } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IUnifoldDepositExecution,
+  IUnifoldExecutionStatus,
+} from '@onekeyhq/shared/types/unifoldDeposit';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputedR } from '../utils';
@@ -955,6 +959,96 @@ export const { target: perpsDepositOrderAtom, use: usePerpsDepositOrderAtom } =
       orders: [],
     },
   });
+
+// Unifold executions still in flight after the deposit modal closed. The bg
+// fetch loop keeps polling these and fires the standard perps deposit toast on
+// terminal status; entries age out after 48h (the server keeps reconciling —
+// history stays queryable forever).
+export interface IPerpsUnifoldTrackedExecution {
+  executionId: string;
+  recipientAddress: string;
+  // Support reference from the deposit-address response; shown in the
+  // failed/refunded toast (contract §1: contact support + sessionId).
+  sessionId: string | null;
+  lastStatus: IUnifoldExecutionStatus;
+  trackedAt: number;
+  // Set while a live deposit session owns the announcements for this
+  // recipient. Muted entries are retained (never deleted) so an execution the
+  // session cannot see — one older than its lookback window — still gets
+  // announced once the session ends.
+  mutedAt?: number | null;
+}
+
+// Recipient-level discovery window armed while a deposit session is open and
+// kept for a grace period after it ends: a deposit paid right before the modal
+// closed may only surface in the vendor API minutes later, when no
+// executionId-level entry exists yet for the bg loop to poll.
+export interface IPerpsUnifoldRecipientWatch {
+  recipientAddress: string;
+  sessionId: string | null;
+  // Lower bound (ms epoch) for discovery, matching the session poll's `since`:
+  // executions older than the earliest session window are never resurrected.
+  sessionStart: number;
+  // Outcomes already announced (by a session or by the bg loop itself), so
+  // discovery can never announce them a second time.
+  knownExecutionIds: string[];
+  watchedAt: number;
+  // Same semantics as the tracked-execution mute: a live session owns the
+  // announcements for this recipient while it keeps renewing the claim.
+  mutedAt?: number | null;
+  // Each foreground runtime owns an independent renewable claim. Optional for
+  // values persisted before multi-foreground ownership was introduced.
+  claims?: Array<{
+    claimId: string;
+    claimedAt: number;
+  }>;
+}
+
+export interface IPerpsUnifoldTerminalDelivery {
+  deliveryId: string;
+  execution: IUnifoldDepositExecution;
+  recipientAddress: string;
+  sessionId: string | null;
+  createdAt: number;
+  claim?: {
+    claimId: string;
+    expiresAt: number;
+  };
+}
+
+export interface IPerpsUnifoldActiveRecipientState {
+  accountAddress: IHex | null;
+}
+
+export const { target: perpsUnifoldActiveRecipientAtom } =
+  globalAtom<IPerpsUnifoldActiveRecipientState>({
+    name: EAtomNames.perpsUnifoldActiveRecipientAtom,
+    persist: true,
+    initialValue: {
+      accountAddress: null,
+    },
+  });
+
+export interface IPerpsUnifoldDepositTrackingState {
+  items: IPerpsUnifoldTrackedExecution[];
+  // Optional: absent in values persisted before watches existed.
+  watches?: IPerpsUnifoldRecipientWatch[];
+  // Terminal outcomes stay durable until a foreground confirms presentation.
+  pendingDeliveries?: IPerpsUnifoldTerminalDelivery[];
+}
+
+export const {
+  target: perpsUnifoldDepositTrackingAtom,
+  use: usePerpsUnifoldDepositTrackingAtom,
+} = globalAtom<IPerpsUnifoldDepositTrackingState>({
+  name: EAtomNames.perpsUnifoldDepositTrackingAtom,
+  persist: true,
+  initialValue: {
+    items: [],
+    watches: [],
+    pendingDeliveries: [],
+  },
+});
 
 export interface IPerpsUserConfigPersistAtom {
   perpUserConfig: IPerpUserConfig;
