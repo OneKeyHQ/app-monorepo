@@ -29,7 +29,6 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
-import localDb from '../dbs/local/localDb';
 import {
   perpsCommonConfigPersistAtom,
   settingsAtom,
@@ -1297,21 +1296,38 @@ class ServiceAccountSelector extends ServiceBase {
       indexedAccountIds.filter((id) => !addressByIndexedAccountId[id]),
     );
     if (unresolvedIdSet.size && snapshotAddresses?.length) {
+      // The Address index key (`${impl}--${normalizedAddress}`) omits the
+      // derive type, so the same indexedAccount maps every derive path's
+      // address to identical wallets values. Collect all candidates first and
+      // adopt only an unambiguous single hit; with multiple hits the derive
+      // path cannot be determined, so the row keeps no perps worth rather
+      // than showing another derive path's balance.
+      const candidateAddressesById = new Map<string, Set<string>>();
       for (const snapshotAddress of snapshotAddresses) {
-        const addressRecord = await localDb.getAddressByNetworkImpl({
-          networkId: PERPS_NETWORK_ID,
-          normalizedAddress: snapshotAddress.toLowerCase(),
-        });
+        const addressRecord =
+          await this.backgroundApi.serviceAccount.getAddressRecordByNetworkImpl(
+            {
+              networkId: PERPS_NETWORK_ID,
+              normalizedAddress: snapshotAddress.toLowerCase(),
+            },
+          );
         for (const mappedAccountId of Object.values(
           addressRecord?.wallets ?? {},
         )) {
           if (unresolvedIdSet.has(mappedAccountId)) {
-            addressByIndexedAccountId[mappedAccountId] = snapshotAddress;
-            unresolvedIdSet.delete(mappedAccountId);
+            let candidates = candidateAddressesById.get(mappedAccountId);
+            if (!candidates) {
+              candidates = new Set<string>();
+              candidateAddressesById.set(mappedAccountId, candidates);
+            }
+            candidates.add(snapshotAddress);
           }
         }
-        if (!unresolvedIdSet.size) {
-          break;
+      }
+      for (const [mappedAccountId, candidates] of candidateAddressesById) {
+        if (candidates.size === 1) {
+          const [candidateAddress] = candidates;
+          addressByIndexedAccountId[mappedAccountId] = candidateAddress;
         }
       }
     }

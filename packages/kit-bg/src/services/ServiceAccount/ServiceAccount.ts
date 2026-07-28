@@ -1913,6 +1913,20 @@ class ServiceAccount extends ServiceBase {
     });
   }
 
+  // Thin wrapper so callers (e.g. ServiceAccountSelector) can reach the
+  // Address index through the backgroundApi boundary instead of a module-level
+  // localDb import, which unit-test stubs cannot intercept.
+  @backgroundMethod()
+  async getAddressRecordByNetworkImpl({
+    networkId,
+    normalizedAddress,
+  }: {
+    networkId: string;
+    normalizedAddress: string;
+  }): Promise<IDBAddress | null> {
+    return localDb.getAddressByNetworkImpl({ networkId, normalizedAddress });
+  }
+
   private extractUserAddressFromCredentialId(credentialId: string): string {
     // Format: hyperliquid-agent--{userAddress}--{agentName}
     const parts = credentialId.split('--');
