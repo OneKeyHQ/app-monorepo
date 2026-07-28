@@ -114,7 +114,8 @@ export function createTrezorBlePairingIpcMain(
     // main-process i18n (i18nText) so it follows the app language instead of the
     // previous hardcoded English; keys are reused from the RN side.
     const shownAt = Date.now();
-    logger.info(`[TrezorBLE] pin dialog shown (pin=${pin})`);
+    // Never log the code itself — it authorizes the bond while it is on screen.
+    logger.info('[TrezorBLE] pin dialog shown');
     void dialog
       .showMessageBox(browserWindow, {
         type: 'info',

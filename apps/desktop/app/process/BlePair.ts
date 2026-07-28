@@ -122,8 +122,14 @@ function runHelper(
             if (event.type === 'diag') {
               logger.info(`[BlePair] +${event.t_ms}ms ${event.msg}`);
             } else {
+              // The pairing code is a live credential for the few seconds the
+              // ceremony lasts — log that it arrived, never its value.
+              const logged =
+                event.type === 'pairing'
+                  ? { type: event.type, pin: '[redacted]' }
+                  : event;
               logger.info(
-                `[BlePair] +${sinceSpawn()}ms event ${JSON.stringify(event)}`,
+                `[BlePair] +${sinceSpawn()}ms event ${JSON.stringify(logged)}`,
               );
             }
             if (event.type === 'error') {

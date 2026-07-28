@@ -842,7 +842,13 @@ fn emit(line: &str) {
     let mut out = std::io::stdout().lock();
     let _ = writeln!(out, "{line}");
     let _ = out.flush();
-    log_line(line);
+    // stdout carries the pin to the parent; the log file must not keep it —
+    // it authorizes the bond while the ceremony is on screen.
+    if line.contains(r#""type":"pairing""#) {
+        log_line(r#"{"type":"pairing","pin":"[redacted]"}"#);
+    } else {
+        log_line(line);
+    }
 }
 
 /// Diagnostics go out as their own stdout JSON line (so the parent logs them
