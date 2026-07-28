@@ -9,6 +9,7 @@ import { getListedNetworkMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   getPrimeInfiniPaymentAssetKey,
   hasPrimeInfiniPaymentProgressSnapshot,
+  isPrimeInfiniPaymentClosedUnpaidSnapshot,
   isPrimeInfiniPaymentExplicitlyExpiredSnapshot,
   isPrimeInfiniPaymentExplicitlyFailedSnapshot,
   isPrimeInfiniPaymentForAssetSnapshot,
@@ -313,6 +314,10 @@ export function isPrimeInfiniPaymentReplaceable({
   return !sendStarted && !hasPrimeInfiniPaymentProgress(payment);
 }
 
+export function isPrimeInfiniPaymentClosedUnpaid(payment: IPrimeInfiniPayment) {
+  return isPrimeInfiniPaymentClosedUnpaidSnapshot(payment);
+}
+
 export function canChangePrimeInfiniPaymentSelection({
   phase,
   payment,
@@ -334,7 +339,10 @@ export function canChangePrimeInfiniPaymentSelection({
       isPrimeInfiniPaymentReplaceable({
         payment,
         sendStarted,
-      }))
+      }) ||
+      // A claimed send whose invoice the server closed with nothing collected
+      // would otherwise leave the user stranded on a dead payment.
+      isPrimeInfiniPaymentClosedUnpaid(payment))
   );
 }
 

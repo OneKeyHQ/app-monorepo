@@ -480,21 +480,31 @@ class ServiceSend extends ServiceBase {
             autoToast: false,
           });
         }
-        let decodedTx: IDecodedTx;
-        try {
-          decodedTx = await vault.buildDecodedTx({
+        ensureBroadcastDeadline();
+        await ensurePrimePaymentUserIsCurrent();
+        const decodedTxPromise = vault
+          .buildDecodedTx({
             unsignedTx: {
               ...unsignedTx,
               encodedTx: signedTx.encodedTx,
             },
             transferPayload,
+          })
+          .catch(() => {
+            throw new OneKeyLocalError({
+              message: 'Infini payment transaction cannot be verified',
+              autoToast: false,
+            });
           });
-        } catch {
-          throw new OneKeyLocalError({
-            message: 'Infini payment transaction cannot be verified',
-            autoToast: false,
-          });
-        }
+        const preBroadcastSnapshotPromise =
+          this.backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot(
+            {
+              paymentId: paymentCacheKey.paymentId,
+              expectedOneKeyUserId: paymentCacheKey.onekeyUserId,
+            },
+          );
+        const [decodedTx, { payment: latestPayment, purchaseStatusSnapshot }] =
+          await Promise.all([decodedTxPromise, preBroadcastSnapshotPromise]);
         const action = decodedTx.actions[0];
         const transfer = action?.assetTransfer?.sends[0];
         const isExpectedSingleTokenTransfer =
@@ -546,15 +556,6 @@ class ServiceSend extends ServiceBase {
           contractAddress: transfer.tokenIdOnNetwork,
           amount: transfer.amount,
         };
-        ensureBroadcastDeadline();
-        await ensurePrimePaymentUserIsCurrent();
-        const { payment: latestPayment, purchaseStatusSnapshot } =
-          await this.backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot(
-            {
-              paymentId: paymentCacheKey.paymentId,
-              expectedOneKeyUserId: paymentCacheKey.onekeyUserId,
-            },
-          );
         ensureBroadcastDeadline();
         if (
           !isPrimeInfiniPaymentPreBroadcastSnapshotSendable({

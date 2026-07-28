@@ -420,6 +420,23 @@ export function isPrimeInfiniPaymentExplicitlyExpiredSnapshot(
   );
 }
 
+// An invoice the server has closed with nothing collected, so the local
+// session pinned to it can be released even after it claimed sendStarted.
+// A locally elapsed `expiresAt` deliberately does not qualify: a transaction
+// broadcast shortly before expiry can still land and be credited, and only the
+// server declaring the invoice dead proves that no money moved.
+export function isPrimeInfiniPaymentClosedUnpaidSnapshot(
+  payment: IPrimeInfiniPayment,
+) {
+  return (
+    !hasPrimeInfiniPaymentProgressSnapshot(payment) &&
+    !isPrimeInfiniPaymentExplicitlySuccessfulSnapshot(payment) &&
+    !isPrimeInfiniPaymentFullyConfirmedSnapshot(payment) &&
+    (isPrimeInfiniPaymentExplicitlyExpiredSnapshot(payment) ||
+      isPrimeInfiniPaymentExplicitlyFailedSnapshot(payment))
+  );
+}
+
 export function isPrimeInfiniPaymentExplicitlySuccessfulSnapshot(
   payment: IPrimeInfiniPayment,
 ) {
