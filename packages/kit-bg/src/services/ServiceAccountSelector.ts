@@ -29,6 +29,7 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
+import localDb from '../dbs/local/localDb';
 import {
   perpsCommonConfigPersistAtom,
   settingsAtom,
@@ -1141,22 +1142,22 @@ class ServiceAccountSelector extends ServiceBase {
     };
   }
 
-  // Gating inputs (perp config, DeFi-enabled map, all-networks state, global
-  // derive type) are constant across one selector open, but the values loader
+  // Network-support inputs (perp config, DeFi-enabled map, all-networks
+  // state) are constant across one selector open, but the values loader
   // calls the bg method once per 50-row batch — memoize briefly so a
-  // multi-batch open computes them once. Perps worth is additive display
-  // data, so a short-lived stale hit is acceptable.
+  // multi-batch open computes them once. The perps derive type is
+  // deliberately NOT part of this cache: it changes when the user switches
+  // the EVM global derive type and is re-read per call in
+  // _getPerpsSelectorGating.
   private _getPerpsSelectorGatingCached = cacheUtils.memoizee(
     async (
       linkedNetworkId: string | undefined,
     ): Promise<{
       isPerpsSupported: boolean;
-      perpsDeriveType: IAccountDeriveTypes | undefined;
       isGatingReady: boolean;
     }> => {
       const notSupported = {
         isPerpsSupported: false,
-        perpsDeriveType: undefined,
         isGatingReady: true,
       };
       const { perpConfigCommon, perpConfigLoaded } =
@@ -1216,11 +1217,7 @@ class ServiceAccountSelector extends ServiceBase {
       if (!isPerpsSupported) {
         return { ...notSupported, isGatingReady: isReady };
       }
-      const perpsDeriveType =
-        await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId: PERPS_NETWORK_ID,
-        });
-      return { isPerpsSupported, perpsDeriveType, isGatingReady: isReady };
+      return { isPerpsSupported, isGatingReady: isReady };
     },
     {
       max: 4,
@@ -1233,12 +1230,28 @@ class ServiceAccountSelector extends ServiceBase {
   // still ends with an empty map (sync failure or empty server list), that
   // provisional verdict must not be pinned for the whole memo TTL — dropping
   // it lets the next loader pass retry once the map actually syncs.
-  private async _getPerpsSelectorGating(linkedNetworkId: string | undefined) {
+  private async _getPerpsSelectorGating(
+    linkedNetworkId: string | undefined,
+  ): Promise<{
+    isPerpsSupported: boolean;
+    perpsDeriveType: IAccountDeriveTypes | undefined;
+    isGatingReady: boolean;
+  }> {
     const gating = await this._getPerpsSelectorGatingCached(linkedNetworkId);
     if (!gating.isGatingReady) {
       void this._getPerpsSelectorGatingCached.delete(linkedNetworkId);
     }
-    return gating;
+    if (!gating.isPerpsSupported) {
+      return { ...gating, perpsDeriveType: undefined };
+    }
+    // Re-read on every call, outside the memo TTL: switching the EVM global
+    // derive type must not leave rows resolving perps snapshots for the
+    // previous derive type's addresses.
+    const perpsDeriveType =
+      await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        networkId: PERPS_NETWORK_ID,
+      });
+    return { ...gating, perpsDeriveType };
   }
 
   // One getAllAccounts read + in-memory lookups instead of a per-row
@@ -1247,9 +1260,11 @@ class ServiceAccountSelector extends ServiceBase {
   async _resolvePerpsAddressesByIndexedAccountIds({
     indexedAccountIds,
     perpsDeriveType,
+    snapshotAddresses,
   }: {
     indexedAccountIds: string[];
     perpsDeriveType: IAccountDeriveTypes;
+    snapshotAddresses?: string[];
   }): Promise<Record<string, string | undefined>> {
     const addressByIndexedAccountId: Record<string, string | undefined> = {};
     const { accounts: allDbAccounts } =
@@ -1270,6 +1285,34 @@ class ServiceAccountSelector extends ServiceBase {
           account.addressDetail?.normalizedAddress ||
           account.address ||
           undefined;
+      }
+    }
+    // Home can materialize an indexed account's EVM address on demand,
+    // writing the Address index (saveAccountAddresses) and the perps
+    // snapshot cache WITHOUT creating an Account record; such rows miss the
+    // Account-table pass above. Before treating them as unresolvable,
+    // reverse-map the cached snapshot addresses through the Address index
+    // so their Home-visible perps net worth also shows in the selector.
+    const unresolvedIdSet = new Set(
+      indexedAccountIds.filter((id) => !addressByIndexedAccountId[id]),
+    );
+    if (unresolvedIdSet.size && snapshotAddresses?.length) {
+      for (const snapshotAddress of snapshotAddresses) {
+        const addressRecord = await localDb.getAddressByNetworkImpl({
+          networkId: PERPS_NETWORK_ID,
+          normalizedAddress: snapshotAddress.toLowerCase(),
+        });
+        for (const mappedAccountId of Object.values(
+          addressRecord?.wallets ?? {},
+        )) {
+          if (unresolvedIdSet.has(mappedAccountId)) {
+            addressByIndexedAccountId[mappedAccountId] = snapshotAddress;
+            unresolvedIdSet.delete(mappedAccountId);
+          }
+        }
+        if (!unresolvedIdSet.size) {
+          break;
+        }
       }
     }
     return addressByIndexedAccountId;
@@ -1339,6 +1382,7 @@ class ServiceAccountSelector extends ServiceBase {
           this._resolvePerpsAddressesByIndexedAccountIds({
             indexedAccountIds,
             perpsDeriveType,
+            snapshotAddresses: Object.keys(snapshotNetWorthUsdByAddress),
           }),
       });
     } catch {
