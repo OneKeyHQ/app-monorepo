@@ -398,6 +398,34 @@ export class OneKeyErrorOneKeyIdKeylessSessionSlotReplaced extends OneKeyAppErro
     EOneKeyErrorClassNames.OneKeyErrorOneKeyIdKeylessSessionSlotReplaced;
 }
 
+// Local (bg-side) guard rejection for the irreversible legacy -> OAuth bind:
+// the legacy login the user consented to (LegacyEmailSupabase source + the
+// account the bind UI displayed) no longer holds, or the captured legacy
+// token does not belong to that account. Definitive for THIS bind flow, but
+// main-runtime failure cleanup must recognize this class and SKIP the shared
+// keyless-slot teardown — the slot may hold (or back) the concurrent flow's
+// valid session, and wiping it would break that login too. className/name
+// are plain own properties so the check survives bg -> main bridge
+// serialization.
+export class OneKeyErrorOneKeyIdLegacyBindStateChanged extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        // TODO: i18n
+        defaultMessage:
+          'OneKey ID login changed during this bind; please retry.',
+        defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override className =
+    EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged;
+
+  override name =
+    EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged;
+}
+
 export class OneKeyInternalError extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(

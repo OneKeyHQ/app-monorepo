@@ -55,6 +55,19 @@ describe('SWR cache keys', () => {
     ).toBe('swapStockPayTokenDetails:v1:1:usdc|usdt:idx:acc');
   });
 
+  it('scopes specified token balances by owner, network, and token set', () => {
+    expect(
+      swrKeys.specifiedTokenSelectorView({
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        indexedAccountId: 'wallet-1--1',
+        targetsKey: 'evm--1:0xusdc:usdc',
+      }),
+    ).toBe(
+      'specifiedTokenSelectorView:v1:account-1:evm--1:wallet-1--1:evm--1:0xusdc:usdc',
+    );
+  });
+
   it('uses the default and latest keys when no tick option is requested', () => {
     expect(
       getPerpsL2BookSnapshotCacheKeys({
