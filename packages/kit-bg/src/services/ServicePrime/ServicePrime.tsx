@@ -8,7 +8,6 @@ import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   backgroundMethod,
-  backgroundMethodForDev,
   checkDevOnlyPassword,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
@@ -4260,16 +4259,19 @@ class ServicePrime extends ServiceBase {
     });
   }
 
-  @backgroundMethodForDev()
+  // Intentionally @backgroundMethod() and not @backgroundMethodForDev(): this
+  // entry is reachable from a production build, so a dev-only decorator would
+  // be a wrong description of it. Its password wrapper also only guards the
+  // INTERNAL_ dispatch entry, which the extension main->bg bridge uses but
+  // desktop/web single-runtime and native main->bg calls skip. The
+  // devOnlyPassword is therefore checked in the method body, which holds on
+  // every platform.
+  @backgroundMethod()
   @toastIfError()
   async apiResetInfiniSubscription(
     params: IBackgroundMethodWithDevOnlyPassword,
   ): Promise<void> {
-    // This destructively deletes the current user's Infini subscription and is
-    // reachable from a production build, so the devOnlyPassword must be checked
-    // in the method body: @backgroundMethodForDev() only wraps the
-    // INTERNAL_ dispatch entry, which the extension main->bg bridge uses but
-    // desktop/web single-runtime and native main->bg calls do not go through.
+    // Destructively deletes the current user's Infini subscription.
     checkDevOnlyPassword(params, 'apiResetInfiniSubscription');
     const client = await this.getPrimeClient();
     await client.post('/prime/v1/infini/test/reset');

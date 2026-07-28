@@ -407,9 +407,9 @@ describe('ServicePrime.apiResetInfiniSubscription', () => {
     expect(post).toHaveBeenCalledWith('/prime/v1/infini/test/reset');
   });
 
-  // The decorator only guards the INTERNAL_ dispatch entry, which desktop/web
-  // and native main->bg calls skip, so the method body must reject a missing or
-  // wrong devOnlyPassword before the destructive request is sent.
+  // The method is production-callable and no decorator guards it, so the method
+  // body itself must reject a missing or wrong devOnlyPassword before the
+  // destructive request is sent.
   it.each([
     ['missing devOnlyPassword', {} as any],
     ['wrong devOnlyPassword', { $$devOnlyPassword: 'wrong-password' } as any],
