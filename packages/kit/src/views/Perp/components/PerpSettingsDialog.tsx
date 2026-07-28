@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { styled } from '@tamagui/core';
 import { useIntl } from 'react-intl';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import {
+  AnimatePresence,
+  Dialog,
   ESwitchSize,
   Icon,
   Popover,
   SizableText,
+  Stack,
   Switch,
   Toast,
   XStack,
@@ -15,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { WebAccountPanelHeader } from '@onekeyhq/kit/src/components/TabPageHeader/components/WebAccountPanel/atoms/WebAccountPanelHeader';
 import {
   usePerpsAbstractionModeAtom,
   usePerpsActiveAccountAtom,
@@ -28,6 +34,36 @@ import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid'
 
 import { useShowGuide } from '../hooks/useShowGuide';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
+import { PerpTestIDs } from '../testIDs';
+
+import { PerpGuideContent } from './Guide/PerpGuideContent';
+import { PerpsActivityCenterContent } from './PerpsActivityCenterAction';
+
+import type { LayoutChangeEvent } from 'react-native';
+
+type IPerpSettingsView = 'settings' | 'activityCenter' | 'guide';
+
+const SETTINGS_PANEL_WIDTH = 360;
+const ANIMATE_ONLY_HEIGHT: string[] = ['height'];
+
+const AnimatedSettingsPanelView = styled(Stack, {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  variants: {
+    going: {
+      ':number': (going: number) => ({
+        enterStyle: {
+          x: going >= 0 ? SETTINGS_PANEL_WIDTH : -SETTINGS_PANEL_WIDTH,
+        },
+        exitStyle: {
+          x: going >= 0 ? -SETTINGS_PANEL_WIDTH : SETTINGS_PANEL_WIDTH,
+        },
+      }),
+    },
+  } as const,
+});
 
 const ABSTRACTION_MODE_OPTIONS = [
   {
@@ -81,7 +117,7 @@ function DevAbstractionModeSelector() {
 
   return (
     <YStack
-      px="$2.5"
+      mx="$3"
       pt="$2"
       gap="$2"
       borderTopWidth={1}
@@ -117,7 +153,10 @@ function DevAbstractionModeSelector() {
 }
 
 interface IPerpSettingsPopoverContentProps {
-  closePopover: () => void;
+  closePopover: () => void | Promise<void>;
+  onOpenActivityCenter?: () => void;
+  onOpenGuide?: () => void;
+  showActivityCenterEntry?: boolean;
   showGuideEntry?: boolean;
 }
 
@@ -286,7 +325,7 @@ function SpotDustingOptOutSetting() {
   return (
     <ListItem
       mx="$0"
-      px="$2.5"
+      px="$3"
       titleProps={{ size: '$bodyMdMedium' }}
       subtitleProps={{ size: '$bodySm' }}
       title={copy.title}
@@ -304,20 +343,24 @@ function SpotDustingOptOutSetting() {
   );
 }
 
-function PerpSettingsPopoverContent({
-  closePopover,
+function PerpSettingsMainContent({
+  showActivityCenterEntry = false,
   showGuideEntry = false,
-}: IPerpSettingsPopoverContentProps) {
+  onOpenActivityCenter,
+  onOpenGuide,
+}: Omit<IPerpSettingsPopoverContentProps, 'closePopover'> & {
+  onOpenActivityCenter: () => void;
+  onOpenGuide: () => void;
+}) {
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
   const intl = useIntl();
-  const { showGuide } = useShowGuide();
 
   return (
     <YStack py="$3" px="$2">
       <ListItem
         mx="$0"
-        px="$2.5"
+        px="$3"
         titleProps={{ size: '$bodyMdMedium' }}
         subtitleProps={{ size: '$bodySm' }}
         title={intl.formatMessage({
@@ -345,7 +388,7 @@ function PerpSettingsPopoverContent({
 
       <ListItem
         mx="$0"
-        px="$2.5"
+        px="$3"
         titleProps={{ size: '$bodyMdMedium' }}
         subtitleProps={{ size: '$bodySm' }}
         title={intl.formatMessage({
@@ -368,7 +411,7 @@ function PerpSettingsPopoverContent({
 
       <ListItem
         mx="$0"
-        px="$2.5"
+        px="$3"
         titleProps={{ size: '$bodyMdMedium' }}
         subtitleProps={{ size: '$bodySm' }}
         title={intl.formatMessage({
@@ -389,18 +432,32 @@ function PerpSettingsPopoverContent({
         />
       </ListItem>
 
+      {showActivityCenterEntry ? (
+        <ListItem
+          testID={PerpTestIDs.ActivityCenterButton}
+          mx="$0"
+          px="$3"
+          titleProps={{ size: '$bodyMdMedium' }}
+          title={intl.formatMessage({
+            id: ETranslations.perps_activity_hub,
+          })}
+          onPress={onOpenActivityCenter}
+          cursor="default"
+        >
+          <Icon name="ChevronRightOutline" size="$4" color="$iconSubdued" />
+        </ListItem>
+      ) : null}
+
       {showGuideEntry ? (
         <ListItem
+          testID={PerpTestIDs.GuideButton}
           mx="$0"
-          px="$2.5"
+          px="$3"
           titleProps={{ size: '$bodyMdMedium' }}
           title={intl.formatMessage({
             id: ETranslations.perp_guide_title,
           })}
-          onPress={() => {
-            closePopover();
-            showGuide();
-          }}
+          onPress={onOpenGuide}
           cursor="default"
         >
           <Icon name="ChevronRightOutline" size="$4" color="$iconSubdued" />
@@ -412,13 +469,203 @@ function PerpSettingsPopoverContent({
   );
 }
 
+function PerpSettingsPopoverContent({
+  closePopover,
+  onOpenActivityCenter,
+  onOpenGuide,
+  showActivityCenterEntry = false,
+  showGuideEntry = false,
+}: IPerpSettingsPopoverContentProps) {
+  const intl = useIntl();
+  const reducedMotion = useReducedMotion();
+  const { showGuide } = useShowGuide();
+  const [view, setView] = useState<IPerpSettingsView>('settings');
+  const [going, setGoing] = useState(1);
+  const [navSeq, setNavSeq] = useState(0);
+  const [contentHeight, setContentHeight] = useState<number | undefined>(
+    undefined,
+  );
+  const [heightReady, setHeightReady] = useState(false);
+  const navSeqRef = useRef(navSeq);
+  navSeqRef.current = navSeq;
+
+  const navigate = useCallback((nextView: IPerpSettingsView) => {
+    setGoing(1);
+    setNavSeq((seq) => seq + 1);
+    setView(nextView);
+  }, []);
+
+  const back = useCallback(() => {
+    setGoing(-1);
+    setNavSeq((seq) => seq + 1);
+    setView('settings');
+  }, []);
+
+  const handleViewLayout = useCallback((seq: number, height: number) => {
+    if (height > 0 && navSeqRef.current === seq) {
+      setContentHeight(height);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (contentHeight !== undefined && !heightReady) {
+      setHeightReady(true);
+    }
+  }, [contentHeight, heightReady]);
+
+  const handleOpenActivityCenter = useCallback(() => {
+    if (onOpenActivityCenter) {
+      void Promise.resolve(closePopover()).then(onOpenActivityCenter);
+      return;
+    }
+    navigate('activityCenter');
+  }, [closePopover, navigate, onOpenActivityCenter]);
+
+  const handleOpenGuide = useCallback(() => {
+    if (onOpenGuide) {
+      void Promise.resolve(closePopover()).then(onOpenGuide);
+      return;
+    }
+    if (showActivityCenterEntry) {
+      navigate('guide');
+      return;
+    }
+    void closePopover();
+    showGuide();
+  }, [closePopover, navigate, onOpenGuide, showActivityCenterEntry, showGuide]);
+
+  const rendered = useMemo(() => {
+    if (view === 'settings') {
+      return (
+        <PerpSettingsMainContent
+          showActivityCenterEntry={showActivityCenterEntry}
+          showGuideEntry={showGuideEntry}
+          onOpenActivityCenter={handleOpenActivityCenter}
+          onOpenGuide={handleOpenGuide}
+        />
+      );
+    }
+
+    const backLabel = intl.formatMessage({
+      id: ETranslations.global_back,
+    });
+    if (view === 'activityCenter') {
+      return (
+        <YStack w="100%">
+          <WebAccountPanelHeader title={backLabel} onBack={back} />
+          <PerpsActivityCenterContent
+            copyAsUrl
+            closePopover={closePopover}
+            showTitle={false}
+          />
+        </YStack>
+      );
+    }
+
+    return (
+      <YStack w="100%">
+        <WebAccountPanelHeader title={backLabel} onBack={back} />
+        <YStack h={640}>
+          <PerpGuideContent onClose={closePopover} />
+        </YStack>
+      </YStack>
+    );
+  }, [
+    back,
+    closePopover,
+    handleOpenActivityCenter,
+    handleOpenGuide,
+    intl,
+    showActivityCenterEntry,
+    showGuideEntry,
+    view,
+  ]);
+
+  const animation = reducedMotion || !heightReady ? '0ms' : 'smooth';
+  const presenceCustom = useMemo(() => ({ going }), [going]);
+
+  return (
+    <Stack
+      position="relative"
+      width="100%"
+      overflow="hidden"
+      height={contentHeight}
+      animation={animation}
+      animateOnly={ANIMATE_ONLY_HEIGHT}
+    >
+      <AnimatePresence custom={presenceCustom} initial={false}>
+        <AnimatedSettingsPanelView
+          key={navSeq}
+          going={going}
+          animation={reducedMotion ? '0ms' : 'smooth'}
+          onLayout={(event: LayoutChangeEvent) =>
+            handleViewLayout(navSeq, event.nativeEvent.layout.height)
+          }
+        >
+          {rendered}
+        </AnimatedSettingsPanelView>
+      </AnimatePresence>
+    </Stack>
+  );
+}
+
 export interface IPerpSettingsPopoverProps {
   renderTrigger: ReactNode;
+  showActivityCenterEntry?: boolean;
   showGuideEntry?: boolean;
+}
+
+export function showPerpSettingsDialog({
+  title,
+  onOpenActivityCenter,
+  onOpenGuide,
+  showActivityCenterEntry = false,
+  showGuideEntry = false,
+}: {
+  title: string;
+  onOpenActivityCenter?: () => void;
+  onOpenGuide?: () => void;
+  showActivityCenterEntry?: boolean;
+  showGuideEntry?: boolean;
+}) {
+  const dialogInstanceRef: {
+    current: ReturnType<typeof Dialog.show> | undefined;
+  } = {
+    current: undefined,
+  };
+  const closeDialog = () => {
+    return dialogInstanceRef.current?.close();
+  };
+
+  const dialogInstance = Dialog.show({
+    title,
+    showFooter: false,
+    contentContainerProps: {
+      p: '$0',
+    },
+    floatingPanelProps: {
+      overflow: 'hidden',
+    },
+    renderContent: (
+      <PerpsProviderMirror>
+        <PerpSettingsPopoverContent
+          closePopover={closeDialog}
+          onOpenActivityCenter={onOpenActivityCenter}
+          onOpenGuide={onOpenGuide}
+          showActivityCenterEntry={showActivityCenterEntry}
+          showGuideEntry={showGuideEntry}
+        />
+      </PerpsProviderMirror>
+    ),
+  });
+  dialogInstanceRef.current = dialogInstance;
+
+  return dialogInstance;
 }
 
 export function PerpSettingsPopover({
   renderTrigger,
+  showActivityCenterEntry = false,
   showGuideEntry = false,
 }: IPerpSettingsPopoverProps) {
   const intl = useIntl();
@@ -433,11 +680,15 @@ export function PerpSettingsPopover({
         renderContent={({ closePopover }) => (
           <PerpSettingsPopoverContent
             closePopover={closePopover}
+            showActivityCenterEntry={showActivityCenterEntry}
             showGuideEntry={showGuideEntry}
           />
         )}
         floatingPanelProps={{
-          width: 360,
+          width: SETTINGS_PANEL_WIDTH,
+          maxWidth: SETTINGS_PANEL_WIDTH,
+          overflow: 'hidden',
+          style: { transformOrigin: 'top right' },
         }}
       />
     </PerpsProviderMirror>

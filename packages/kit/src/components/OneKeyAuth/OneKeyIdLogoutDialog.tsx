@@ -6,18 +6,12 @@ import type { ICheckedState } from '@onekeyhq/components';
 import { Checkbox, Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { getOAuthSocialLoginProviderName } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import type {
   IIdentityExitPlan,
   IIdentityExitReceipt,
 } from '@onekeyhq/shared/types/prime/identityExitTypes';
 
-import {
-  ONEKEY_ID_ASSOCIATED_KEYLESS_LOGOUT_DESCRIPTION,
-  ONEKEY_ID_ASSOCIATED_KEYLESS_LOGOUT_TITLE,
-} from './oneKeyIdLogoutConsts';
-
-import type { IntlShape } from 'react-intl';
+import { getOneKeyIdLogoutDialogContent } from './oneKeyIdLogoutDialogContent';
 
 type IReadyIdentityExitPlan = Extract<IIdentityExitPlan, { status: 'ready' }>;
 
@@ -40,96 +34,6 @@ type IOneKeyIdLogoutDialogOptions = {
   confirmButtonTestID?: string;
   beforeExecute?: () => void | Promise<void>;
 };
-
-type IOneKeyIdLogoutDialogContentConfig = {
-  icon: 'ErrorOutline' | 'InfoCircleOutline';
-  tone?: 'destructive';
-  title: string;
-  description: string;
-  confirmText: string;
-};
-
-function getOneKeyIdLogoutDialogContent({
-  intl,
-  plan,
-}: {
-  intl: IntlShape;
-  plan: IReadyIdentityExitPlan;
-}): IOneKeyIdLogoutDialogContentConfig {
-  const { presentation } = plan;
-  if (presentation.type === 'recoverMalformedKeyless') {
-    const nextProviderName = presentation.nextProvider
-      ? getOAuthSocialLoginProviderName(presentation.nextProvider)
-      : undefined;
-    return {
-      icon: 'ErrorOutline',
-      tone: 'destructive',
-      // TODO: i18n
-      title: 'Remove Unavailable Keyless Wallet?',
-      // TODO: i18n
-      description: `The local Keyless wallet data cannot be read correctly. ${
-        nextProviderName
-          ? `To continue with ${nextProviderName}, first remove this Keyless wallet from this device.`
-          : 'Remove this Keyless wallet from this device to continue.'
-      } You can restore it later with its original account and PIN.${
-        presentation.oneKeyIdWillBeLoggedOut
-          ? ' The OneKey ID session backed by this Keyless wallet will also be logged out.'
-          : ''
-      }`,
-      confirmText: intl.formatMessage({ id: ETranslations.global_logout }),
-    };
-  }
-  if (presentation.type === 'switchOAuthProvider') {
-    const currentProviderName = getOAuthSocialLoginProviderName(
-      presentation.currentProvider,
-    );
-    const nextProviderName = getOAuthSocialLoginProviderName(
-      presentation.nextProvider,
-    );
-    return {
-      icon: 'ErrorOutline',
-      tone: 'destructive',
-      // TODO: i18n (use a complete message with provider placeholders)
-      title: `Switch to ${nextProviderName} Sign-In?`,
-      // TODO: i18n (use a complete message with provider placeholders)
-      description: `You're currently using ${currentProviderName} Keyless. Continuing with ${nextProviderName} will log out and remove this Keyless wallet from this device. To restore it, you'll need access to your ${currentProviderName} account and your PIN.`,
-      confirmText: intl.formatMessage({ id: ETranslations.global_logout }),
-    };
-  }
-
-  if (presentation.type === 'linkedOneKeyIdAndKeyless') {
-    return {
-      icon: 'ErrorOutline',
-      tone: 'destructive',
-      title: ONEKEY_ID_ASSOCIATED_KEYLESS_LOGOUT_TITLE,
-      description: `${ONEKEY_ID_ASSOCIATED_KEYLESS_LOGOUT_DESCRIPTION}\n\n${intl.formatMessage(
-        { id: ETranslations.log_out_wallet_desc },
-      )}`,
-      confirmText: intl.formatMessage({ id: ETranslations.global_logout }),
-    };
-  }
-
-  if (presentation.type === 'keylessOnly') {
-    return {
-      icon: 'ErrorOutline',
-      tone: 'destructive',
-      title: intl.formatMessage({ id: ETranslations.log_out_wallet }),
-      description: intl.formatMessage({
-        id: ETranslations.log_out_wallet_desc,
-      }),
-      confirmText: intl.formatMessage({ id: ETranslations.global_logout }),
-    };
-  }
-
-  return {
-    icon: 'InfoCircleOutline',
-    title: intl.formatMessage({ id: ETranslations.prime_onekeyid_log_out }),
-    description: intl.formatMessage({
-      id: ETranslations.prime_onekeyid_log_out_description,
-    }),
-    confirmText: intl.formatMessage({ id: ETranslations.prime_log_out }),
-  };
-}
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) {

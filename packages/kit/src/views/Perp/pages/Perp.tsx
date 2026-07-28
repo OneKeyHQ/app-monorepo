@@ -32,7 +32,6 @@ import { LazyLoadPage } from '../../../components/LazyLoadPage';
 import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useNativePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
-import { PerpGuidePopover } from '../components/Guide/PerpGuidePopover';
 import { PerpContentFooter } from '../components/PerpContentFooter';
 import { PerpsActivityCenterAction } from '../components/PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../components/PerpSettingsButton';
@@ -168,11 +167,15 @@ function PerpContent() {
       }
       customToolbarItems={
         <>
-          <PerpsActivityCenterAction size="small" copyAsUrl />
-          {gtMd ? <PerpGuidePopover /> : null}
+          {!gtMd && !platformEnv.isNative ? (
+            <PerpsActivityCenterAction size="small" copyAsUrl />
+          ) : null}
           <PerpSettingsButton
             testID={PerpTestIDs.HeaderSettingsButton}
-            showGuideEntry={!gtMd}
+            showActivityCenterEntry={
+              platformEnv.isNative || (gtMd && !platformEnv.isWebDappMode)
+            }
+            showGuideEntry
           />
           <HeaderIconButton
             icon="DownloadOutline"
