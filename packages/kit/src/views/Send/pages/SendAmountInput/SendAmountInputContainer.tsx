@@ -3002,13 +3002,30 @@ function SendAmountInputContainer() {
           if (
             !isNFT &&
             tokenDetails &&
+            // A scaled-UI multiplier is a Token-2022 / jetton feature and can
+            // never legitimately appear on a native coin. Excluding native
+            // here keeps a hypothetical bad server value from colliding with
+            // the native max-send rewrite paths, which spend the display
+            // `amountToSend` and would over-send against a divided amount.
+            !tokenDetails.info.isNative &&
             tokenRebaseUtils.isValidBalanceMultiplier(rebaseMultiplier)
           ) {
             const displayBalance = tokenRebaseUtils.applyBalanceMultiplier({
               amount: tokenDetails.balanceParsed,
               balanceMultiplier: rebaseMultiplier,
             });
-            transferAmount = new BigNumber(realAmount).gte(displayBalance)
+            // Any input >= the display balance truncated to the token's input
+            // precision is a full send: the MAX button sets the untruncated
+            // display balance, but the keyboard percent-100 shortcut and the
+            // fiat<->token mode clamp truncate to `decimals` places first.
+            // Sending the exact raw balance for these differs from a literal
+            // conversion by at most one base unit and matches the user's
+            // full-send intent.
+            const fullSendThreshold = new BigNumber(displayBalance).dp(
+              tokenDetails.info.decimals,
+              BigNumber.ROUND_DOWN,
+            );
+            transferAmount = new BigNumber(realAmount).gte(fullSendThreshold)
               ? tokenDetails.balanceParsed
               : tokenRebaseUtils.removeBalanceMultiplier({
                   amount: realAmount,
