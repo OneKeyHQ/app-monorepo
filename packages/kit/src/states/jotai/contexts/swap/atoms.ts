@@ -278,25 +278,36 @@ export const {
   use: useSwapModalSelectToTokenAtom,
 } = contextAtom<ISwapToken | undefined>(undefined);
 
+export type ISwapTokenAmountState = {
+  value: string;
+  isInput: boolean;
+};
+
+export type ISwapInputAmountDraft = {
+  fromTokenAmount: ISwapTokenAmountState;
+  toTokenAmount: ISwapTokenAmountState;
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+};
+
 export const {
   atom: swapFromTokenAmountAtom,
   use: useSwapFromTokenAmountAtom,
-} = contextAtom<{
-  value: string;
-  isInput: boolean;
-}>({
+} = contextAtom<ISwapTokenAmountState>({
   value: '',
   isInput: false,
 });
 
 export const { atom: swapToTokenAmountAtom, use: useSwapToTokenAmountAtom } =
-  contextAtom<{
-    value: string;
-    isInput: boolean;
-  }>({
+  contextAtom<ISwapTokenAmountState>({
     value: '',
     isInput: false,
   });
+
+export const {
+  atom: swapInputAmountDraftsAtom,
+  use: useSwapInputAmountDraftsAtom,
+} = contextAtom<Partial<Record<ESwapTabSwitchType, ISwapInputAmountDraft>>>({});
 
 export const {
   atom: swapSelectedFromTokenBalanceAtom,

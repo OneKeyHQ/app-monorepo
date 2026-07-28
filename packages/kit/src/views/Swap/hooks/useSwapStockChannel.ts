@@ -18,6 +18,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IFetchUSMarketStatusResult,
@@ -585,7 +586,7 @@ export function useSwapStockChannel() {
   });
 
   useEffect(() => {
-    if (!readyForQuote) {
+    if (!readyForQuote && platformEnv.isNative) {
       return;
     }
 
@@ -597,9 +598,10 @@ export function useSwapStockChannel() {
       stockToken: currentStockToken,
       tradeSide,
     });
+    if (!stockExecutionFromToken || !stockExecutionToToken) {
+      return;
+    }
     const executionPairSynced = Boolean(
-      stockExecutionFromToken &&
-      stockExecutionToToken &&
       equalTokenNoCaseSensitive({
         token1: fromToken,
         token2: stockExecutionFromToken,
