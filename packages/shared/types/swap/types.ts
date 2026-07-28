@@ -1099,6 +1099,7 @@ export interface ISwapTxHistory {
     chainFlipExplorerUrl?: string;
     instantRate: string;
     protocolFee?: number;
+    hideProtocolFee?: boolean;
     oneKeyFee?: number;
     oneKeyFeeExtraInfo?: IOneKeyFeeInfo;
     otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
