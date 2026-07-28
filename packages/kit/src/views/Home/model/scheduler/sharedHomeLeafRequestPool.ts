@@ -3,12 +3,13 @@ import type { IRuntimeRequestPriority } from '@onekeyhq/shared/src/types/homeRun
 
 type IQueuedLeaf = {
   clientId: string;
+  controller: AbortController;
   enqueuedAt: number;
   priority: IRuntimeRequestPriority;
   sessionId?: string;
   reject(reason: unknown): void;
   resolve(value: unknown): void;
-  run(): Promise<unknown>;
+  run(signal: AbortSignal): Promise<unknown>;
 };
 
 const PRIORITIES: readonly IRuntimeRequestPriority[] = [
@@ -26,6 +27,8 @@ export class SharedHomeLeafRequestPool {
 
   private readonly clientOrder: string[] = [];
 
+  private readonly runningLeaves = new Set<IQueuedLeaf>();
+
   private runningCount = 0;
 
   private roundRobinCursor = 0;
@@ -39,7 +42,7 @@ export class SharedHomeLeafRequestPool {
   run<TResult>(
     clientId: string,
     priority: IRuntimeRequestPriority,
-    request: () => Promise<TResult>,
+    request: (signal: AbortSignal) => Promise<TResult>,
     sessionId?: string,
   ): Promise<TResult> {
     if (sessionId && this.cancelledSessions.get(clientId)?.has(sessionId)) {
@@ -57,6 +60,7 @@ export class SharedHomeLeafRequestPool {
       );
       if (disposableIndex >= 0) {
         const [disposable] = queue.splice(disposableIndex, 1);
+        disposable?.controller.abort();
         disposable?.reject(
           new OneKeyLocalError('Shared leaf request was superseded'),
         );
@@ -69,6 +73,7 @@ export class SharedHomeLeafRequestPool {
     return new Promise<TResult>((resolve, reject) => {
       queue.push({
         clientId,
+        controller: new AbortController(),
         enqueuedAt: Date.now(),
         priority,
         sessionId,
@@ -85,12 +90,21 @@ export class SharedHomeLeafRequestPool {
     const queue = this.queues.get(clientId);
     if (queue) {
       this.queues.delete(clientId);
-      queue.forEach((leaf) =>
+      queue.forEach((leaf) => {
+        leaf.controller.abort();
         leaf.reject(
           new OneKeyLocalError('Shared leaf request client is disposed'),
-        ),
-      );
+        );
+      });
     }
+    this.runningLeaves.forEach((leaf) => {
+      if (leaf.clientId === clientId) {
+        leaf.controller.abort();
+        leaf.reject(
+          new OneKeyLocalError('Shared leaf request client is disposed'),
+        );
+      }
+    });
     const index = this.clientOrder.indexOf(clientId);
     if (index >= 0) {
       this.clientOrder.splice(index, 1);
@@ -107,33 +121,41 @@ export class SharedHomeLeafRequestPool {
     cancelled.add(sessionId);
     this.cancelledSessions.set(clientId, cancelled);
     const queue = this.queues.get(clientId);
-    if (!queue) {
-      return;
+    if (queue) {
+      const retained: IQueuedLeaf[] = [];
+      queue.forEach((leaf) => {
+        if (leaf.sessionId === sessionId) {
+          leaf.controller.abort();
+          leaf.reject(
+            new OneKeyLocalError('Shared leaf request session was cancelled'),
+          );
+        } else {
+          retained.push(leaf);
+        }
+      });
+      if (retained.length === 0) {
+        this.queues.delete(clientId);
+        const index = this.clientOrder.indexOf(clientId);
+        if (index >= 0) {
+          this.clientOrder.splice(index, 1);
+          if (this.clientOrder.length === 0) {
+            this.roundRobinCursor = 0;
+          } else {
+            this.roundRobinCursor %= this.clientOrder.length;
+          }
+        }
+      } else {
+        this.queues.set(clientId, retained);
+      }
     }
-    const retained: IQueuedLeaf[] = [];
-    queue.forEach((leaf) => {
-      if (leaf.sessionId === sessionId) {
+    this.runningLeaves.forEach((leaf) => {
+      if (leaf.clientId === clientId && leaf.sessionId === sessionId) {
+        leaf.controller.abort();
         leaf.reject(
           new OneKeyLocalError('Shared leaf request session was cancelled'),
         );
-      } else {
-        retained.push(leaf);
       }
     });
-    if (retained.length === 0) {
-      this.queues.delete(clientId);
-      const index = this.clientOrder.indexOf(clientId);
-      if (index >= 0) {
-        this.clientOrder.splice(index, 1);
-        if (this.clientOrder.length === 0) {
-          this.roundRobinCursor = 0;
-        } else {
-          this.roundRobinCursor %= this.clientOrder.length;
-        }
-      }
-      return;
-    }
-    this.queues.set(clientId, retained);
   }
 
   getSnapshot(clientId: string) {
@@ -209,13 +231,22 @@ export class SharedHomeLeafRequestPool {
         return;
       }
       this.runningCount += 1;
-      void leaf
-        .run()
+      this.runningLeaves.add(leaf);
+      let request: Promise<unknown>;
+      try {
+        request = leaf.controller.signal.aborted
+          ? Promise.resolve(undefined)
+          : leaf.run(leaf.controller.signal);
+      } catch (error) {
+        request = Promise.reject(error);
+      }
+      void request
         .then(
           (value) => leaf.resolve(value),
           (error) => leaf.reject(error),
         )
         .finally(() => {
+          this.runningLeaves.delete(leaf);
           this.runningCount -= 1;
           this.drain();
         });

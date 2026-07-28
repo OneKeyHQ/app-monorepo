@@ -1,5 +1,12 @@
 export interface INativeHomeAllNetworkScopedResponse {
+  accountId?: string;
   isSameAllNetworksAccountData?: boolean;
+  networkId?: string;
+}
+
+export interface INativeHomeAllNetworkRequestTarget {
+  accountId: string;
+  networkId: string;
 }
 
 export interface INativeHomeAllNetworkRequestOutcome {
@@ -20,6 +27,17 @@ export function isNativeHomeAllNetworkResponseAuthoritative(
   response: INativeHomeAllNetworkScopedResponse,
 ): boolean {
   return response.isSameAllNetworksAccountData !== false;
+}
+
+export function isNativeHomeAllNetworkTargetResponseAuthoritative(
+  response: INativeHomeAllNetworkScopedResponse,
+  target: INativeHomeAllNetworkRequestTarget,
+): boolean {
+  return (
+    response.isSameAllNetworksAccountData === true &&
+    response.accountId === target.accountId &&
+    response.networkId === target.networkId
+  );
 }
 
 export function recordNativeHomeAllNetworkResponse(

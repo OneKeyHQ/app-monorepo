@@ -22,7 +22,7 @@ export class HomeLeafRequestPool {
 
   run<TResult>(
     priority: IRuntimeRequestPriority,
-    request: () => Promise<TResult>,
+    request: (signal: AbortSignal) => Promise<TResult>,
     sessionId?: string,
   ): Promise<TResult> {
     if (this.disposed) {

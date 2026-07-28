@@ -33,6 +33,12 @@ function createHomeCachedSourceRecord({
   ) {
     return undefined;
   }
+  if (
+    slot.kind === 'empty' &&
+    slot.coverageFingerprint !== `confirmed-empty:${sourceId}:v1`
+  ) {
+    return undefined;
+  }
   return {
     sourceId,
     sourceKeyIdentity: getHomeSourceKeyIdentity(slot.token.sourceKey),
@@ -91,7 +97,9 @@ function hasConsistentSectionCoverage(
     readonly [key: string]: IHomeRuntimeJsonValue;
   };
   if (sectionObject.kind === 'empty') {
-    return record.coverageFingerprint === `${record.sourceId}:empty`;
+    return (
+      record.coverageFingerprint === `confirmed-empty:${record.sourceId}:v1`
+    );
   }
   if (sectionObject.kind !== 'ready' || !Array.isArray(sectionObject.rowIds)) {
     return false;

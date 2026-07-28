@@ -285,7 +285,11 @@ export type IHomeStoreSectionSourceResult =
       freshness: 'live' | 'confirmedCache';
       refresh: 'idle' | 'refreshing' | 'failed';
     }
-  | { kind: 'empty' }
+  | {
+      kind: 'empty';
+      confirmedEmpty?: boolean;
+      coverageFingerprint?: string;
+    }
   | { kind: 'error' };
 
 export type IHomeStoreEvent =

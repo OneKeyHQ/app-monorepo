@@ -49,6 +49,13 @@ import {
   resolveHomeWalletTabSupportAccountScopeId,
 } from '../../hooks/homeWalletTabSupportUtils';
 import {
+  createNativeHomeAllNetworkRequestOutcome,
+  isNativeHomeAllNetworkTargetResponseAuthoritative,
+  recordNativeHomeAllNetworkFailure,
+  recordNativeHomeAllNetworkResponse,
+  resolveNativeHomeAllNetworkAuthorityStatus,
+} from '../../nativeHomeAllNetworkAuthority';
+import {
   type INativeHomeAllNetworkTokenResponse,
   buildNativeHomeAllNetworkPortfolioProjection,
 } from '../../nativeHomeAllNetworkPortfolioProjection';
@@ -73,6 +80,7 @@ import { getHomeNFTItemRowId } from '../sections/nft/homeNFTSourceAdapter';
 import { HOME_PORTFOLIO_SHOW_LP_TOKENS_CONTROL_ID } from '../sections/spot/homePortfolioControls';
 import { mergeHomePortfolioProgressivePayload } from '../sections/spot/homePortfolioProgressiveMerge';
 import {
+  HOME_SPOT_DATA_SCHEMA_VERSION,
   type IHomeSpotLegacyPayload,
   createHomeSpotSnapshotDefaults,
 } from '../sections/spot/homeSpotSourceAdapter';
@@ -142,6 +150,7 @@ interface IHomeSourceRuntimeHost {
 
 type ISectionWireResult = {
   [key: string]: IHomeRuntimeJsonValue;
+  confirmedEmpty: boolean;
   empty: boolean;
   error: boolean;
   payload: IHomeRuntimeJsonValue | null;
@@ -159,6 +168,26 @@ type ISourceCacheEntry = {
 
 const SOURCE_CACHE_TTL_MS = 30_000;
 const SOURCE_CACHE_MAX_IDENTITIES = 8;
+
+function getHomeSourceDataSchemaVersion(sourceId: IHomeStoreSourceId): number {
+  return sourceId === 'portfolio' ? HOME_SPOT_DATA_SCHEMA_VERSION : 1;
+}
+
+function buildSectionCoverageFingerprint({
+  confirmedEmpty,
+  rowIds,
+  sourceId,
+}: {
+  confirmedEmpty: boolean;
+  rowIds: readonly string[];
+  sourceId: IHomeSectionId;
+}): string {
+  return confirmedEmpty
+    ? `confirmed-empty:${sourceId}:v1`
+    : [rowIds.length, rowIds[0] ?? '', rowIds[rowIds.length - 1] ?? ''].join(
+        ':',
+      );
+}
 
 function assertHomeSourceRequestActive(signal: AbortSignal): void {
   if (signal.aborted) {
@@ -186,7 +215,7 @@ function createSourceRequestToken({
       scopeKey: authority.ownerScopeKey,
       sourceId,
       paramsFingerprint: authority.sourceKey,
-      dataSchemaVersion: 1,
+      dataSchemaVersion: getHomeSourceDataSchemaVersion(sourceId),
     },
   };
 }
@@ -730,6 +759,7 @@ export class HomeSourceRuntime {
       sessionId: ownerToken.sessionId,
       taskId,
     });
+    const requestStartedAt = Date.now();
     const outcome = await this.host.scheduler.schedule({
       taskId,
       key: sourceKey,
@@ -745,7 +775,7 @@ export class HomeSourceRuntime {
         if (signal.aborted) {
           return;
         }
-        await this.loadAndPublish({
+        const loaded = await this.loadAndPublish({
           authority,
           environment,
           force,
@@ -758,6 +788,7 @@ export class HomeSourceRuntime {
           yieldIfMainBudgetExceeded: () => yieldIfMainBudgetExceeded(),
         });
         if (
+          loaded &&
           this.activeAuthority.get(sourceId) === authority &&
           !signal.aborted
         ) {
@@ -768,6 +799,20 @@ export class HomeSourceRuntime {
         }
       },
     });
+    defaultLogger.wallet.homeSchedulerPerf.snapshot({
+      stage: 'sourceOutcome',
+      sourceId,
+      requestSequence,
+      schedulerOutcome: outcome.kind,
+      durationMs: Date.now() - requestStartedAt,
+    });
+    if (outcome.kind !== 'fulfilled') {
+      this.commitSourceFailure(
+        authority,
+        sourceId,
+        outcome.kind === 'timedOut' ? 'transport' : 'source',
+      );
+    }
     if (this.inFlight.get(sourceId)?.taskId === taskId) {
       this.inFlight.delete(sourceId);
     }
@@ -874,7 +919,7 @@ export class HomeSourceRuntime {
     sourceId: IHomeStoreSourceId;
     sourceKey: string;
     yieldIfMainBudgetExceeded: () => Promise<void>;
-  }): Promise<void> {
+  }): Promise<boolean> {
     try {
       assertHomeSourceRequestActive(signal);
       if (sourceId === 'capability') {
@@ -889,7 +934,7 @@ export class HomeSourceRuntime {
           payload: wire,
           rowIds: [],
         });
-        return;
+        return true;
       }
       if (sourceId === 'banner') {
         const payload = await this.loadBanner(
@@ -910,7 +955,7 @@ export class HomeSourceRuntime {
           payload: wire,
           rowIds: [],
         });
-        return;
+        return true;
       }
       const publishIntermediate = (input: {
         payload: unknown;
@@ -948,13 +993,18 @@ export class HomeSourceRuntime {
         force,
         priority,
         publishIntermediate,
+        requestSequence: authority.requestSequence,
         sessionId,
         signal,
         sourceId,
         yieldIfMainBudgetExceeded,
       });
       assertHomeSourceRequestActive(signal);
-      const wire = this.createSectionWire(section.payload, section.rowIds);
+      const wire = this.createSectionWire(
+        section.payload,
+        section.rowIds,
+        section.confirmedEmpty === true,
+      );
       if (!wire) {
         throw new OneKeyLocalError(
           `Home ${sourceId} result is not serializable`,
@@ -967,43 +1017,42 @@ export class HomeSourceRuntime {
         wireValue: wire,
       });
       this.rememberCache(sourceId, sourceKey, {
-        coverageFingerprint: [
-          section.rowIds.length,
-          section.rowIds[0] ?? '',
-          section.rowIds[section.rowIds.length - 1] ?? '',
-        ].join(':'),
+        coverageFingerprint: buildSectionCoverageFingerprint({
+          confirmedEmpty: section.confirmedEmpty === true,
+          rowIds: section.rowIds,
+          sourceId,
+        }),
         dataRevision: this.dataRevision,
         expiresAt: Date.now() + SOURCE_CACHE_TTL_MS,
         phase: 'final',
         payload: wire,
         rowIds: section.rowIds,
       });
+      return true;
     } catch {
       if (signal.aborted) {
-        return;
+        return false;
       }
-      if (sourceId === 'banner') {
-        this.commitBannerFailure(authority);
-      } else if (isSectionSource(sourceId)) {
-        this.dataRevision += 1;
-        sink.publish({
-          phase: 'final',
-          revision: this.dataRevision,
-          wireValue: {
-            empty: true,
-            error: true,
-            payload: null,
-            rowIds: [],
-          },
-        });
-      }
+      this.commitSourceFailure(authority, sourceId);
+      return false;
     }
   }
 
-  private commitBannerFailure(authority: IHomeResultAuthority): void {
+  private commitSourceFailure(
+    authority: IHomeResultAuthority,
+    sourceId: IHomeStoreSourceId,
+    errorKind:
+      | 'source'
+      | 'transport'
+      | 'schemaMismatch'
+      | 'runtimeUnavailable' = 'source',
+  ): void {
+    if (this.activeAuthority.get(sourceId) !== authority) {
+      return;
+    }
     const token = createSourceRequestToken({
       authority,
-      sourceId: 'banner',
+      sourceId,
     });
     this.host.dispatchAtomically([
       { type: 'sourceRequested', token },
@@ -1011,7 +1060,7 @@ export class HomeSourceRuntime {
         type: 'sourceResponded',
         envelope: {
           token,
-          result: { kind: 'error', errorKind: 'source' },
+          result: { kind: 'error', errorKind },
         },
       },
     ]);
@@ -1038,12 +1087,14 @@ export class HomeSourceRuntime {
   private createSectionWire(
     payload: unknown,
     rowIds: readonly string[],
+    confirmedEmpty = false,
   ): ISectionWireResult | undefined {
     const data = normalizeHomeStoreJson(payload);
     if (data === undefined) {
       return undefined;
     }
     return {
+      confirmedEmpty: rowIds.length === 0 && confirmedEmpty,
       empty: rowIds.length === 0,
       error: false,
       payload: data,
@@ -1129,6 +1180,17 @@ export class HomeSourceRuntime {
     let sectionWire = wire as ISectionWireResult;
     const currentResource = state.resources[sourceId];
     if (
+      sourceId === 'portfolio' &&
+      phase === 'final' &&
+      sectionWire.empty &&
+      sectionWire.confirmedEmpty !== true
+    ) {
+      sectionWire = {
+        ...sectionWire,
+        error: true,
+      };
+    }
+    if (
       phase === 'intermediate' &&
       sectionWire.empty &&
       (currentResource.kind === 'ready' || currentResource.kind === 'empty')
@@ -1167,7 +1229,15 @@ export class HomeSourceRuntime {
     } else if (phase === 'intermediate' && sectionWire.empty) {
       sectionResult = { kind: 'loading' };
     } else if (sectionWire.empty) {
-      sectionResult = { kind: 'empty' };
+      sectionResult = {
+        kind: 'empty',
+        confirmedEmpty: sectionWire.confirmedEmpty === true,
+        coverageFingerprint: buildSectionCoverageFingerprint({
+          confirmedEmpty: sectionWire.confirmedEmpty === true,
+          rowIds: [],
+          sourceId,
+        }),
+      };
     } else {
       sectionResult = {
         kind: 'ready',
@@ -1776,6 +1846,7 @@ export class HomeSourceRuntime {
     force,
     priority,
     publishIntermediate,
+    requestSequence,
     sessionId,
     signal,
     sourceId,
@@ -1788,17 +1859,23 @@ export class HomeSourceRuntime {
       payload: unknown;
       rowIds: readonly string[];
     }) => void;
+    requestSequence: number;
     sessionId: string;
     signal: AbortSignal;
     sourceId: IHomeSectionId;
     yieldIfMainBudgetExceeded: () => Promise<void>;
-  }): Promise<{ payload: unknown; rowIds: readonly string[] }> {
+  }): Promise<{
+    payload: unknown;
+    rowIds: readonly string[];
+    confirmedEmpty?: boolean;
+  }> {
     if (sourceId === 'portfolio') {
       return this.loadPortfolio({
         environment,
         force,
         priority,
         publishIntermediate,
+        requestSequence,
         sessionId,
         signal,
         yieldIfMainBudgetExceeded,
@@ -1829,6 +1906,7 @@ export class HomeSourceRuntime {
     force,
     priority,
     publishIntermediate,
+    requestSequence,
     sessionId,
     signal,
     yieldIfMainBudgetExceeded,
@@ -1840,10 +1918,15 @@ export class HomeSourceRuntime {
       payload: unknown;
       rowIds: readonly string[];
     }) => void;
+    requestSequence: number;
     sessionId: string;
     signal: AbortSignal;
     yieldIfMainBudgetExceeded: () => Promise<void>;
-  }): Promise<{ payload: IHomeSpotLegacyPayload; rowIds: readonly string[] }> {
+  }): Promise<{
+    payload: IHomeSpotLegacyPayload;
+    rowIds: readonly string[];
+    confirmedEmpty: boolean;
+  }> {
     assertHomeSourceRequestActive(signal);
     const { account, indexedAccount, network, vaultSettings, wallet } =
       environment.activeAccount;
@@ -1940,6 +2023,7 @@ export class HomeSourceRuntime {
               isManualRefresh: force,
               allNetworksAccountId: account.id,
               allNetworksNetworkId: network.id,
+              requestScopedAllNetworksAuthority: true,
               saveToLocal: true,
               ...(lpToken ? lpTokenFilterParams : walletTokenFilterParams),
             }),
@@ -1968,20 +2052,38 @@ export class HomeSourceRuntime {
       targets: readonly IPortfolioFetchTarget[];
     }) => {
       const responses: INativeHomeAllNetworkTokenResponse[] = [];
+      let outcome = createNativeHomeAllNetworkRequestOutcome();
+      let rejectedCount = 0;
+      let staleAuthorityCount = 0;
       for (let index = 0; index < targets.length; index += 4) {
         assertHomeSourceRequestActive(signal);
         const chunk = targets.slice(index, index + 4);
         const settled = await Promise.allSettled(
           chunk.map((target) => fetchTokens(target, lpToken)),
         );
-        responses.push(
-          ...settled.flatMap((item) =>
-            item.status === 'fulfilled' &&
-            item.value.isSameAllNetworksAccountData !== false
-              ? [item.value]
-              : [],
-          ),
-        );
+        for (const [chunkIndex, item] of settled.entries()) {
+          if (item.status === 'rejected') {
+            rejectedCount += 1;
+            outcome = recordNativeHomeAllNetworkFailure(outcome);
+          } else {
+            const target = chunk[chunkIndex];
+            const authoritative = Boolean(
+              target &&
+              isNativeHomeAllNetworkTargetResponseAuthoritative(
+                item.value,
+                target,
+              ),
+            );
+            outcome = recordNativeHomeAllNetworkResponse(outcome, {
+              isSameAllNetworksAccountData: authoritative,
+            });
+            if (authoritative) {
+              responses.push(item.value);
+            } else {
+              staleAuthorityCount += 1;
+            }
+          }
+        }
         assertHomeSourceRequestActive(signal);
         if (
           onProgress &&
@@ -1992,7 +2094,12 @@ export class HomeSourceRuntime {
           await onProgress(responses, Math.min(index + 4, targets.length));
         }
       }
-      return responses;
+      return {
+        outcome,
+        rejectedCount,
+        responses,
+        staleAuthorityCount,
+      };
     };
     let publishedCacheResponseCount = 0;
     const fetchCachedTargets = async (
@@ -2186,7 +2293,7 @@ export class HomeSourceRuntime {
 
     await fetchCachedTargets(walletTargets);
     assertHomeSourceRequestActive(signal);
-    const walletResponses = await fetchTargets({
+    const walletBatch = await fetchTargets({
       lpToken: false,
       targets: walletTargets,
       onProgress: showLpTokensOnly
@@ -2219,21 +2326,50 @@ export class HomeSourceRuntime {
           },
     });
     assertHomeSourceRequestActive(signal);
+    const walletAuthorityStatus = resolveNativeHomeAllNetworkAuthorityStatus({
+      emptyAccountsResolved: walletTargets.length === 0,
+      expectedRequestCount: walletTargets.length,
+      outcome: walletBatch.outcome,
+      startedSucceeded: true,
+    });
     const walletPayload = await this.buildPortfolioPayload({
       environment,
       mergeDeriveAddressData,
       priority,
-      responses: walletResponses,
+      responses: walletBatch.responses,
       expectedResponseCount: walletTargets.length,
       sessionId,
-      shouldIngest: true,
+      shouldIngest: walletAuthorityStatus === 'success',
       showLpTokenFilterSwitch,
       showLpTokensOnly: false,
     });
-    if (!showLpTokensOnly) {
-      return { payload: walletPayload, rowIds: walletPayload.displayIds };
+    defaultLogger.wallet.homeSchedulerPerf.snapshot({
+      stage: 'sourceBatchOutcome',
+      sourceId: 'portfolio',
+      requestSequence,
+      mode: 'wallet',
+      expectedTargetCount: walletTargets.length,
+      attemptCount: walletBatch.outcome.attemptCount,
+      fulfilledCount:
+        walletBatch.outcome.attemptCount - walletBatch.rejectedCount,
+      rejectedCount: walletBatch.rejectedCount,
+      staleAuthorityCount: walletBatch.staleAuthorityCount,
+      finalRowCount: walletPayload.displayIds.length,
+      resultClassification: walletAuthorityStatus,
+    });
+    if (walletAuthorityStatus === 'error') {
+      throw new OneKeyLocalError('Home Portfolio wallet batch is incomplete');
     }
-    const lpResponses = await fetchTargets({
+    if (!showLpTokensOnly) {
+      return {
+        payload: walletPayload,
+        rowIds: walletPayload.displayIds,
+        confirmedEmpty:
+          walletPayload.displayIds.length === 0 &&
+          walletPayload.accountTokensValueComplete === true,
+      };
+    }
+    const lpBatch = await fetchTargets({
       lpToken: true,
       targets: lpTargets,
       onProgress: async (responses, processedTargetCount) => {
@@ -2265,11 +2401,17 @@ export class HomeSourceRuntime {
       },
     });
     assertHomeSourceRequestActive(signal);
+    const lpAuthorityStatus = resolveNativeHomeAllNetworkAuthorityStatus({
+      emptyAccountsResolved: lpTargets.length === 0,
+      expectedRequestCount: lpTargets.length,
+      outcome: lpBatch.outcome,
+      startedSucceeded: true,
+    });
     const payload = await this.buildPortfolioPayload({
       environment,
       mergeDeriveAddressData,
       priority,
-      responses: lpResponses,
+      responses: lpBatch.responses,
       expectedResponseCount: lpTargets.length,
       sessionId,
       shouldIngest: false,
@@ -2277,7 +2419,29 @@ export class HomeSourceRuntime {
       showLpTokensOnly: true,
       valuationPayload: walletPayload,
     });
-    return { payload, rowIds: payload.displayIds };
+    defaultLogger.wallet.homeSchedulerPerf.snapshot({
+      stage: 'sourceBatchOutcome',
+      sourceId: 'portfolio',
+      requestSequence,
+      mode: 'lp',
+      expectedTargetCount: lpTargets.length,
+      attemptCount: lpBatch.outcome.attemptCount,
+      fulfilledCount: lpBatch.outcome.attemptCount - lpBatch.rejectedCount,
+      rejectedCount: lpBatch.rejectedCount,
+      staleAuthorityCount: lpBatch.staleAuthorityCount,
+      finalRowCount: payload.displayIds.length,
+      resultClassification: lpAuthorityStatus,
+    });
+    if (lpAuthorityStatus === 'error') {
+      throw new OneKeyLocalError('Home Portfolio LP batch is incomplete');
+    }
+    return {
+      payload,
+      rowIds: payload.displayIds,
+      confirmedEmpty:
+        payload.displayIds.length === 0 &&
+        payload.accountTokensValueComplete === true,
+    };
   }
 
   private async buildPortfolioPayload({
@@ -2343,15 +2507,18 @@ export class HomeSourceRuntime {
     const ownerKey =
       this.host.getStateView().session.ownerToken?.scopeKey ?? '';
     const responseValues = responses.map(sumTokenValue);
+    const resolvedWithoutRequests = expectedResponseCount === 0;
     const accountTokensValueAvailable = valuationPayload
       ? valuationPayload.accountTokensValueAvailable === true
-      : responseValues.some((value) => value !== undefined);
+      : resolvedWithoutRequests ||
+        responseValues.some((value) => value !== undefined);
     const accountTokensValueComplete = valuationPayload
       ? valuationPayload.accountTokensValueComplete === true
-      : responses.length > 0 &&
-        (expectedResponseCount === undefined ||
-          responses.length === expectedResponseCount) &&
-        responseValues.every((value) => value !== undefined);
+      : resolvedWithoutRequests ||
+        (responses.length > 0 &&
+          (expectedResponseCount === undefined ||
+            responses.length === expectedResponseCount) &&
+          responseValues.every((value) => value !== undefined));
     const accountTokensValue =
       valuationPayload?.accountTokensValue ??
       responseValues
@@ -3071,7 +3238,7 @@ export class HomeSourceRuntime {
           {
             sourceId,
             sourceKeyIdentity: sourceKey,
-            dataSchemaVersion: 1,
+            dataSchemaVersion: getHomeSourceDataSchemaVersion(sourceId),
             coverageFingerprint: entry.coverageFingerprint,
             quoteBasis: null,
             confirmedAt: entry.expiresAt - SOURCE_CACHE_TTL_MS,
@@ -3104,12 +3271,23 @@ export class HomeSourceRuntime {
       return;
     }
     const wire = entry.payload as ISectionWireResult;
+    if (
+      isSectionSource(sourceId) &&
+      wire.empty &&
+      wire.confirmedEmpty !== true
+    ) {
+      return;
+    }
     const sectionEvent: IHomeStoreEvent = {
       type: 'sectionSourceChanged',
       ownerToken: state.session.ownerToken,
       sectionId: sourceId,
       result: wire.empty
-        ? { kind: 'empty' }
+        ? {
+            kind: 'empty',
+            confirmedEmpty: wire.confirmedEmpty === true,
+            coverageFingerprint: entry.coverageFingerprint,
+          }
         : {
             kind: 'ready',
             rowIds: [...entry.rowIds],
@@ -3140,6 +3318,13 @@ export class HomeSourceRuntime {
     sourceKey: string,
     entry: ISourceCacheEntry,
   ): void {
+    if (
+      isSectionSource(sourceId) &&
+      (entry.payload as ISectionWireResult).empty === true &&
+      (entry.payload as ISectionWireResult).confirmedEmpty !== true
+    ) {
+      return;
+    }
     let entries = this.cache.get(sourceId);
     if (!entries) {
       entries = new Map();

@@ -1,3 +1,5 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import { HomeLeafRequestPool } from './homeLeafRequestPool';
 
 function createDeferred<T>() {
@@ -102,6 +104,40 @@ describe('HomeLeafRequestPool', () => {
     client.dispose();
   });
 
+  test('aborts and rejects a running leaf owned by a cancelled session', async () => {
+    const client = new HomeLeafRequestPool(
+      1,
+      'pool-test-running-session-cancel',
+      12,
+    );
+    const underlying = createDeferred<string>();
+    let signal: AbortSignal | undefined;
+    const runningTask = client.run(
+      'critical',
+      (requestSignal) => {
+        signal = requestSignal;
+        return underlying.promise;
+      },
+      'session-old',
+    );
+    await Promise.resolve();
+    const rejectedTask = runningTask.catch((error: unknown) => error);
+
+    client.cancelSession('session-old');
+
+    expect(signal?.aborted).toBe(true);
+    await expect(rejectedTask).resolves.toMatchObject({
+      message: 'Shared leaf request session was cancelled',
+    });
+    expect(client.getSnapshot()).toMatchObject({ runningCount: 1 });
+
+    underlying.resolve('ignored');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(client.getSnapshot()).toMatchObject({ runningCount: 0 });
+    client.dispose();
+  });
+
   test('rejects work scheduled after its session was cancelled', async () => {
     const client = new HomeLeafRequestPool(
       1,
@@ -116,6 +152,21 @@ describe('HomeLeafRequestPool', () => {
       'Shared leaf request session was cancelled',
     );
     expect(start).not.toHaveBeenCalled();
+    client.dispose();
+  });
+
+  test('releases capacity when a leaf throws synchronously', async () => {
+    const client = new HomeLeafRequestPool(1, 'pool-test-sync-throw', 14);
+
+    await expect(
+      client.run('critical', () => {
+        throw new OneKeyLocalError('sync leaf failure');
+      }),
+    ).rejects.toThrow('sync leaf failure');
+    await expect(client.run('critical', async () => 'recovered')).resolves.toBe(
+      'recovered',
+    );
+    expect(client.getSnapshot()).toMatchObject({ runningCount: 0 });
     client.dispose();
   });
 });

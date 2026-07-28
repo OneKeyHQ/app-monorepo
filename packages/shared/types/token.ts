@@ -96,6 +96,7 @@ export type IFetchAccountTokensParams = {
 
   allNetworksAccountId?: string;
   allNetworksNetworkId?: string;
+  requestScopedAllNetworksAuthority?: boolean;
   saveToLocal?: boolean;
   saveToLocalLimit?: number;
   customTokensRawData?: ICustomTokenDBStruct;

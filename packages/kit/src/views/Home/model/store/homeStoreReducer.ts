@@ -406,6 +406,7 @@ function serializeSectionForResource(
   data?: IHomeRuntimeJsonValue,
   freshness: 'confirmedCache' | 'live' = 'live',
   token?: IHomeRuntimeRequestToken,
+  emptyCoverageFingerprint?: string,
 ):
   | IHomeStoreResourceSlot<
       IHomeStoreState['resources'][IHomeStoreSourceId] extends IHomeStoreResourceSlot<
@@ -419,8 +420,8 @@ function serializeSectionForResource(
     return {
       kind: 'empty',
       token,
-      coverageFingerprint: 'empty:v2',
-      freshness: 'live',
+      coverageFingerprint: emptyCoverageFingerprint ?? 'empty:v2',
+      freshness,
       refresh: 'idle',
     };
   }
@@ -1515,6 +1516,10 @@ export function reduceHomeStore(
             event.result.kind === 'ready' ? event.result.data : undefined,
             event.result.kind === 'ready' ? event.result.freshness : undefined,
             event.token,
+            event.result.kind === 'empty' &&
+              event.result.confirmedEmpty === true
+              ? event.result.coverageFingerprint
+              : undefined,
           );
       if (resource && !equal(currentResource, resource)) {
         mutations.push({

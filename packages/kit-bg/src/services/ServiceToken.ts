@@ -231,6 +231,7 @@ class ServiceToken extends ServiceBase {
       isManualRefresh,
       allNetworksAccountId,
       allNetworksNetworkId,
+      requestScopedAllNetworksAuthority,
       saveToLocal,
       saveToLocalLimit = 50,
       customTokensRawData,
@@ -249,8 +250,19 @@ class ServiceToken extends ServiceBase {
     const currentAccountId = isUrlAccount
       ? this._currentUrlAccountId
       : this._currentAccountId;
+    // Home all-network requests carry their immutable owner authority with each
+    // RPC because the background service's current owner is shared and mutable.
+    const hasRequestScopedAllNetworksAuthority = Boolean(
+      requestScopedAllNetworksAuthority &&
+      allNetworksAccountId &&
+      allNetworksNetworkId === getNetworkIdsMap().onekeyall,
+    );
 
-    if (isAllNetworks && currentNetworkId !== getNetworkIdsMap().onekeyall)
+    if (
+      isAllNetworks &&
+      !hasRequestScopedAllNetworksAuthority &&
+      currentNetworkId !== getNetworkIdsMap().onekeyall
+    )
       return {
         ...getEmptyTokenData(),
         networkId: currentNetworkId,
@@ -548,12 +560,15 @@ class ServiceToken extends ServiceBase {
         });
       }
     }
-    resp.data.data.isSameAllNetworksAccountData = !!(
-      allNetworksAccountId &&
-      allNetworksNetworkId &&
-      allNetworksAccountId === currentAccountId &&
-      allNetworksNetworkId === currentNetworkId
-    );
+    resp.data.data.isSameAllNetworksAccountData =
+      hasRequestScopedAllNetworksAuthority
+        ? true
+        : Boolean(
+            allNetworksAccountId &&
+            allNetworksNetworkId &&
+            allNetworksAccountId === currentAccountId &&
+            allNetworksNetworkId === currentNetworkId,
+          );
 
     resp.data.data.accountId = accountId;
     resp.data.data.networkId = networkId;

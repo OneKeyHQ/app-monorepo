@@ -1,10 +1,57 @@
 import {
   createNativeHomeAllNetworkRequestOutcome,
   filterNativeHomeAllNetworkAuthoritativeResponses,
+  isNativeHomeAllNetworkTargetResponseAuthoritative,
   recordNativeHomeAllNetworkFailure,
   recordNativeHomeAllNetworkResponse,
   resolveNativeHomeAllNetworkAuthorityStatus,
 } from './nativeHomeAllNetworkAuthority';
+
+describe('request-scoped AllNetworks response authority', () => {
+  const target = { accountId: 'account-a', networkId: 'network-a' };
+
+  it('requires an explicit authority marker', () => {
+    expect(
+      isNativeHomeAllNetworkTargetResponseAuthoritative(
+        { accountId: 'account-a', networkId: 'network-a' },
+        target,
+      ),
+    ).toBe(false);
+  });
+
+  it('requires the exact target account and network', () => {
+    expect(
+      isNativeHomeAllNetworkTargetResponseAuthoritative(
+        {
+          accountId: 'account-b',
+          networkId: 'network-a',
+          isSameAllNetworksAccountData: true,
+        },
+        target,
+      ),
+    ).toBe(false);
+    expect(
+      isNativeHomeAllNetworkTargetResponseAuthoritative(
+        {
+          accountId: 'account-a',
+          networkId: 'network-b',
+          isSameAllNetworksAccountData: true,
+        },
+        target,
+      ),
+    ).toBe(false);
+    expect(
+      isNativeHomeAllNetworkTargetResponseAuthoritative(
+        {
+          accountId: 'account-a',
+          networkId: 'network-a',
+          isSameAllNetworksAccountData: true,
+        },
+        target,
+      ),
+    ).toBe(true);
+  });
+});
 
 describe.each(['Portfolio', 'DeFi'])(
   '%s AllNetworks response authority',

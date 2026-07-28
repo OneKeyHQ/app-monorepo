@@ -1,5 +1,8 @@
 import { getHomeSourceKeyIdentity } from '../../core/homeIdentity';
-import { isHomeCachedRecordExactForToken } from '../homeCachedSourceRecord';
+import {
+  createHomeCachedSourceRecord,
+  isHomeCachedRecordExactForToken,
+} from '../homeCachedSourceRecord';
 
 import type { IHomeCachedSourceRecord } from '../homeStoreTypes';
 
@@ -57,5 +60,56 @@ describe('Home cached source record', () => {
         token,
       ),
     ).toBe(false);
+  });
+
+  it('persists only explicitly confirmed empty sections', () => {
+    const token = {
+      protocolVersion: 1 as const,
+      clientInstanceId: 'client-a',
+      producerInstanceId: 'producer-a',
+      sessionId: 'session-a',
+      requestSeq: 1,
+      sourceKey: {
+        scopeKey: 'owner-a',
+        sourceId: 'portfolio' as const,
+        paramsFingerprint: 'params-a',
+        dataSchemaVersion: 2,
+      },
+    };
+
+    expect(
+      createHomeCachedSourceRecord({
+        now: 1000,
+        sourceId: 'portfolio',
+        slot: {
+          kind: 'empty',
+          token,
+          coverageFingerprint: 'empty:v2',
+          freshness: 'live',
+          refresh: 'idle',
+        },
+      }),
+    ).toBeUndefined();
+
+    const confirmed = createHomeCachedSourceRecord({
+      now: 1000,
+      sourceId: 'portfolio',
+      slot: {
+        kind: 'empty',
+        token,
+        coverageFingerprint: 'confirmed-empty:portfolio:v1',
+        freshness: 'live',
+        refresh: 'idle',
+      },
+    });
+    expect(confirmed).toMatchObject({
+      coverageFingerprint: 'confirmed-empty:portfolio:v1',
+      dataSchemaVersion: 2,
+      payload: { section: { kind: 'empty' } },
+      sourceId: 'portfolio',
+    });
+    expect(confirmed && isHomeCachedRecordExactForToken(confirmed, token)).toBe(
+      true,
+    );
   });
 });

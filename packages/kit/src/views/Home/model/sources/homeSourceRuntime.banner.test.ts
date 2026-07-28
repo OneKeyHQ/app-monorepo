@@ -367,6 +367,212 @@ describe('HomeSourceRuntime banner workflow', () => {
     runtime.dispose();
   });
 
+  it('preserves visible Portfolio data when a final empty is unconfirmed', () => {
+    const dispatchAtomically = jest.fn();
+    const state = {
+      session: {
+        ownerToken: { scopeKey: 'owner-a', sessionId: 'session-a' },
+      },
+      resources: {
+        portfolio: {
+          kind: 'ready',
+          coverageFingerprint: '1:eth:eth',
+          data: {
+            payload: {
+              accountTokensValue: '1',
+              accountTokensValueComplete: true,
+              displayIds: ['eth'],
+              fundedIds: ['eth'],
+            },
+          },
+          freshness: 'live',
+          refresh: 'refreshing',
+        },
+      },
+    } as unknown as IHomeStoreState;
+    const runtime = new HomeSourceRuntime({
+      identity: {
+        runtimeInstanceId: 'runtime-a',
+        clientInstanceId: 'client-a',
+      },
+      scheduler: {} as never,
+      commitBudget: {} as never,
+      leafPool: {
+        cancelSession: jest.fn(),
+        dispose: jest.fn(),
+        getSnapshot: jest.fn(),
+        run: jest.fn(),
+      } as never,
+      dispatch: jest.fn(),
+      dispatchAtomically,
+      getStateView: () => state,
+    });
+    const commitWireResult = (
+      runtime as unknown as {
+        commitWireResult(input: {
+          authority: IHomeResultAuthority;
+          phase: 'final';
+          sourceId: 'portfolio';
+          wire: {
+            confirmedEmpty: boolean;
+            empty: boolean;
+            error: boolean;
+            payload: null;
+            rowIds: string[];
+          };
+        }): void;
+      }
+    ).commitWireResult.bind(runtime);
+
+    commitWireResult({
+      authority: createAuthority('portfolio'),
+      phase: 'final',
+      sourceId: 'portfolio',
+      wire: {
+        confirmedEmpty: false,
+        empty: true,
+        error: false,
+        payload: null,
+        rowIds: [],
+      },
+    });
+
+    expect(dispatchAtomically).toHaveBeenCalledWith([
+      expect.objectContaining({
+        result: { kind: 'error' },
+        sectionId: 'portfolio',
+        type: 'sectionSourceChanged',
+      }),
+    ]);
+    runtime.dispose();
+  });
+
+  it('publishes a complete Portfolio zero as confirmed empty', () => {
+    const dispatchAtomically = jest.fn();
+    const state = {
+      session: {
+        ownerToken: { scopeKey: 'owner-a', sessionId: 'session-a' },
+      },
+      resources: {
+        portfolio: { kind: 'loading' },
+      },
+    } as unknown as IHomeStoreState;
+    const runtime = new HomeSourceRuntime({
+      identity: {
+        runtimeInstanceId: 'runtime-a',
+        clientInstanceId: 'client-a',
+      },
+      scheduler: {} as never,
+      commitBudget: {} as never,
+      leafPool: {
+        cancelSession: jest.fn(),
+        dispose: jest.fn(),
+        getSnapshot: jest.fn(),
+        run: jest.fn(),
+      } as never,
+      dispatch: jest.fn(),
+      dispatchAtomically,
+      getStateView: () => state,
+    });
+    const commitWireResult = (
+      runtime as unknown as {
+        commitWireResult(input: {
+          authority: IHomeResultAuthority;
+          phase: 'final';
+          sourceId: 'portfolio';
+          wire: {
+            confirmedEmpty: boolean;
+            empty: boolean;
+            error: boolean;
+            payload: null;
+            rowIds: string[];
+          };
+        }): void;
+      }
+    ).commitWireResult.bind(runtime);
+
+    commitWireResult({
+      authority: createAuthority('portfolio'),
+      phase: 'final',
+      sourceId: 'portfolio',
+      wire: {
+        confirmedEmpty: true,
+        empty: true,
+        error: false,
+        payload: null,
+        rowIds: [],
+      },
+    });
+
+    expect(dispatchAtomically).toHaveBeenCalledWith([
+      expect.objectContaining({
+        result: {
+          confirmedEmpty: true,
+          coverageFingerprint: 'confirmed-empty:portfolio:v1',
+          kind: 'empty',
+        },
+        sectionId: 'portfolio',
+        type: 'sectionSourceChanged',
+      }),
+    ]);
+    runtime.dispose();
+  });
+
+  it('settles only the active source authority after scheduler failure', () => {
+    const dispatchAtomically = jest.fn();
+    const state = {} as IHomeStoreState;
+    const runtime = new HomeSourceRuntime({
+      identity: {
+        runtimeInstanceId: 'runtime-a',
+        clientInstanceId: 'client-a',
+      },
+      scheduler: {} as never,
+      commitBudget: {} as never,
+      leafPool: {
+        cancelSession: jest.fn(),
+        dispose: jest.fn(),
+        getSnapshot: jest.fn(),
+        run: jest.fn(),
+      } as never,
+      dispatch: jest.fn(),
+      dispatchAtomically,
+      getStateView: () => state,
+    });
+    const authority = createAuthority('banner');
+    const privateRuntime = runtime as unknown as {
+      activeAuthority: Map<string, IHomeResultAuthority>;
+      commitSourceFailure(
+        inputAuthority: IHomeResultAuthority,
+        sourceId: 'banner',
+        errorKind: 'transport',
+      ): void;
+    };
+    privateRuntime.activeAuthority.set('banner', authority);
+
+    privateRuntime.commitSourceFailure(authority, 'banner', 'transport');
+    privateRuntime.commitSourceFailure(
+      { ...authority, requestSequence: 2 },
+      'banner',
+      'transport',
+    );
+
+    expect(dispatchAtomically).toHaveBeenCalledTimes(1);
+    expect(dispatchAtomically).toHaveBeenCalledWith([
+      expect.objectContaining({
+        token: expect.objectContaining({ requestSeq: 1 }),
+        type: 'sourceRequested',
+      }),
+      expect.objectContaining({
+        envelope: expect.objectContaining({
+          result: { errorKind: 'transport', kind: 'error' },
+          token: expect.objectContaining({ requestSeq: 1 }),
+        }),
+        type: 'sourceResponded',
+      }),
+    ]);
+    runtime.dispose();
+  });
+
   it('marks a cached Section as refreshing without emitting a loading result', () => {
     const dispatch = jest.fn();
     const authority = createAuthority('portfolio');
