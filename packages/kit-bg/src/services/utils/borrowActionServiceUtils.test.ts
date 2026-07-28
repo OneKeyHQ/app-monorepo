@@ -4,13 +4,23 @@ import {
   type IBorrowActionServiceContext,
   borrowBuildApproveDelegationTransaction,
   borrowBuildBorrowTransaction,
+  borrowBuildClaimTransaction,
+  borrowBuildRepayTransaction,
+  borrowBuildRepayWithCollateralTransaction,
   borrowBuildSetCollateralTransaction,
   borrowBuildSetEModeTransaction,
+  borrowBuildSetupLutTransaction,
+  borrowBuildSupplyTransaction,
   borrowBuildWithdrawTransaction,
   borrowSwitchCheckEMode,
   getBorrowCheckAmount,
   getBorrowEModeStatus,
   getBorrowEstimateFee,
+  getBorrowHealthFactor,
+  getBorrowManagePage,
+  getBorrowRepayWithCollateralQuote,
+  getBorrowReserveDetails,
+  getBorrowRewards,
   getBorrowTransactionConfirmation,
 } from './borrowActionServiceUtils';
 
@@ -309,6 +319,221 @@ describe('borrowActionServiceUtils', () => {
         action: 'withdraw',
         amount: '4',
         withdrawAll: true,
+        accountAddress,
+      },
+    });
+  });
+
+  it('loads reserve details with an optional account address', async () => {
+    const details = { reserveAddress: '0xreserve' };
+    get.mockResolvedValue({ data: { data: details } });
+
+    await expect(
+      getBorrowReserveDetails(service, {
+        networkId: 'evm--1',
+        provider: 'aave',
+        marketAddress: '0xMARKET',
+        reserveAddress: '0xRESERVE',
+        accountId: 'account-1',
+      }),
+    ).resolves.toEqual(details);
+
+    expect(get).toHaveBeenCalledWith('/earn/v1/borrow/reserve-detail', {
+      params: {
+        networkId: 'evm--1',
+        provider: 'aave',
+        marketAddress: '0xmarket',
+        reserveAddress: '0xreserve',
+        accountAddress,
+      },
+    });
+  });
+
+  it.each([
+    {
+      call: () =>
+        borrowBuildSupplyTransaction(service, {
+          networkId: 'evm--1',
+          provider: 'aave',
+          marketAddress: '0xMARKET',
+          reserveAddress: '0xRESERVE',
+          accountId: 'account-1',
+          amount: '1',
+        }),
+      path: '/earn/v1/borrow/build-supply-transaction',
+      request: {
+        networkId: 'evm--1',
+        provider: 'aave',
+        marketAddress: '0xmarket',
+        reserveAddress: '0xreserve',
+        amount: '1',
+        accountAddress,
+      },
+    },
+    {
+      call: () =>
+        borrowBuildRepayTransaction(service, {
+          networkId: 'evm--1',
+          provider: 'aave',
+          marketAddress: '0xMARKET',
+          reserveAddress: '0xRESERVE',
+          accountId: 'account-1',
+          amount: '2',
+          repayAll: true,
+        }),
+      path: '/earn/v1/borrow/build-repay-transaction',
+      request: {
+        networkId: 'evm--1',
+        provider: 'aave',
+        marketAddress: '0xmarket',
+        reserveAddress: '0xreserve',
+        amount: '2',
+        accountAddress,
+        repayAll: true,
+      },
+    },
+    {
+      call: () =>
+        borrowBuildSetupLutTransaction(service, {
+          networkId: 'sol--101',
+          provider: 'kamino',
+          marketAddress: 'Market',
+          reserveAddress: 'Reserve',
+          collateralReserveAddress: 'Collateral',
+          accountId: 'account-1',
+        }),
+      path: '/earn/v1/borrow/build-setup-lut-transaction',
+      request: {
+        networkId: 'sol--101',
+        provider: 'kamino',
+        marketAddress: 'Market',
+        reserveAddress: 'Reserve',
+        collateralReserveAddress: 'Collateral',
+        accountAddress,
+      },
+    },
+    {
+      call: () =>
+        borrowBuildClaimTransaction(service, {
+          networkId: 'evm--1',
+          provider: 'aave',
+          marketAddress: '0xMARKET',
+          accountId: 'account-1',
+          ids: ['reward-1'],
+        }),
+      path: '/earn/v1/borrow/build-claim-transaction',
+      request: {
+        networkId: 'evm--1',
+        provider: 'aave',
+        marketAddress: '0xmarket',
+        ids: ['reward-1'],
+        accountAddress,
+      },
+    },
+  ])('builds deferred borrow action through $path', async (testCase) => {
+    post.mockResolvedValue({ data: { data: transaction } });
+
+    await expect(testCase.call()).resolves.toEqual(transaction);
+    expect(post).toHaveBeenCalledWith(testCase.path, testCase.request);
+  });
+
+  it.each([
+    {
+      call: () =>
+        getBorrowRepayWithCollateralQuote(service, {
+          networkId: 'evm--1',
+          provider: 'aave',
+          marketAddress: '0xMARKET',
+          reserveAddress: '0xRESERVE',
+          collateralReserveAddress: '0xCOLLATERAL',
+          accountId: 'account-1',
+          amount: '3.00',
+          repayAll: true,
+          slippageBps: 50,
+        }),
+      path: '/earn/v1/borrow/repay-with-collateral/quote',
+    },
+    {
+      call: () =>
+        borrowBuildRepayWithCollateralTransaction(service, {
+          networkId: 'evm--1',
+          provider: 'aave',
+          marketAddress: '0xMARKET',
+          reserveAddress: '0xRESERVE',
+          collateralReserveAddress: '0xCOLLATERAL',
+          accountId: 'account-1',
+          amount: '3.00',
+          repayAll: true,
+          slippageBps: 50,
+          routeKey: 'route-1',
+        }),
+      path: '/earn/v1/borrow/build-repay-with-collateral-transaction',
+    },
+  ])('normalizes collateral repayment through $path', async (testCase) => {
+    post.mockResolvedValue({ data: { data: transaction } });
+
+    await expect(testCase.call()).resolves.toEqual(transaction);
+    expect(post).toHaveBeenCalledWith(testCase.path, {
+      networkId: 'evm--1',
+      provider: 'aave',
+      marketAddress: '0xmarket',
+      reserveAddress: '0xreserve',
+      collateralReserveAddress: '0xcollateral',
+      repayAll: true,
+      slippageBps: 50,
+      ...(testCase.path.includes('build-') ? { routeKey: 'route-1' } : {}),
+      accountAddress,
+      amount: '3',
+    });
+  });
+
+  it.each([
+    {
+      call: () =>
+        getBorrowManagePage(service, {
+          networkId: 'evm--1',
+          provider: 'aave',
+          marketAddress: '0xMARKET',
+          reserveAddress: '0xRESERVE',
+          accountId: 'account-1',
+          type: 'borrow',
+        }),
+      path: '/earn/v1/borrow/manage-page',
+      extra: { reserveAddress: '0xreserve', type: 'borrow' },
+    },
+    {
+      call: () =>
+        getBorrowHealthFactor(service, {
+          networkId: 'evm--1',
+          provider: 'aave',
+          marketAddress: '0xMARKET',
+          accountId: 'account-1',
+        }),
+      path: '/earn/v1/borrow/health-factor',
+      extra: {},
+    },
+    {
+      call: () =>
+        getBorrowRewards(service, {
+          networkId: 'evm--1',
+          provider: 'aave',
+          marketAddress: '0xMARKET',
+          accountId: 'account-1',
+        }),
+      path: '/earn/v1/borrow/rewards',
+      extra: {},
+    },
+  ])('loads deferred borrow data from $path', async (testCase) => {
+    const data = { ok: true };
+    get.mockResolvedValue({ data: { data } });
+
+    await expect(testCase.call()).resolves.toEqual(data);
+    expect(get).toHaveBeenCalledWith(testCase.path, {
+      params: {
+        networkId: 'evm--1',
+        provider: 'aave',
+        marketAddress: '0xmarket',
+        ...testCase.extra,
         accountAddress,
       },
     });
