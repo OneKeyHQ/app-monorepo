@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -28,7 +28,11 @@ export function MultipleClickStack({
   // onPress alone is NOT gated on devSettings, only debugComponent is.
   devSettingsOnly?: boolean;
 } & ComponentProps<typeof Stack>) {
-  const [clickCount, setClickCount] = useState(0);
+  // Counted in a ref, not in state: two presses landing in the same React
+  // batch (RNW dispatching onPress and onClick, or consecutive presses in one
+  // native event batch) would both read the same stale render value and the
+  // count would advance once, making the entry unreachable on some platforms.
+  const clickCountRef = useRef(0);
   const [debugComponentVisible, setDebugComponentVisible] = useState(false);
   const [devSettings] = useDevSettingsPersistAtom();
   const isTriggerAllowed = !devSettingsOnly || devSettings.enabled;
@@ -40,14 +44,14 @@ export function MultipleClickStack({
         bg={showDevBgColor && platformEnv.isDev ? '$bgCritical' : undefined}
         {...others}
         onPress={(event) => {
-          const nextClickCount = clickCount + 1;
-          if (nextClickCount >= triggerAt && isTriggerAllowed) {
+          clickCountRef.current += 1;
+          // Fires on the configured click and on every click after it
+          if (clickCountRef.current >= triggerAt && isTriggerAllowed) {
             onPress?.(event);
             if (debugComponent && devSettings.enabled) {
               setDebugComponentVisible(true);
             }
           }
-          setClickCount(nextClickCount);
         }}
       >
         {children}

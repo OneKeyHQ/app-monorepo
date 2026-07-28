@@ -69,6 +69,29 @@ describe.each([3, 10])(
       expect(onPress).toHaveBeenCalledTimes(1);
       expect(screen.queryByText('Debug component')).not.toBeNull();
     });
+
+    // The threshold is a floor, not a one-shot: callers keep receiving onPress
+    // for every click past it. Pinned so the contract cannot drift silently.
+    it(`keeps firing after click ${triggerAt}`, () => {
+      const onPress = jest.fn();
+
+      render(
+        <MultipleClickStack
+          testID="multiple-click-target"
+          triggerAt={triggerAt}
+          onPress={onPress}
+        >
+          Target
+        </MultipleClickStack>,
+      );
+
+      const target = screen.getByTestId('multiple-click-target');
+      for (let clickIndex = 0; clickIndex < triggerAt + 1; clickIndex += 1) {
+        fireEvent.click(target);
+      }
+
+      expect(onPress).toHaveBeenCalledTimes(2);
+    });
   },
 );
 
