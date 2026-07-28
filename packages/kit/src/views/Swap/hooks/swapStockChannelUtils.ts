@@ -359,6 +359,14 @@ export function isStockBalanceInitializing({
   return balance === undefined && requestPending;
 }
 
+export function hasValidStockBalanceForTrade(balance?: string) {
+  if (!balance) {
+    return false;
+  }
+  const balanceBN = new BigNumber(balance);
+  return balanceBN.isFinite() && balanceBN.gte(0);
+}
+
 export function resolveStockBalanceSeed({
   hasActiveAccount,
   networkAccountAddress,
@@ -426,14 +434,16 @@ export function resolveStockBalanceSnapshot({
 }
 
 export function resolveStockBalanceViewState({
+  authoritativeBalance,
   balanceSnapshot,
   cachedDisplayBalance,
 }: {
+  authoritativeBalance?: string;
   balanceSnapshot?: IStockBalanceSnapshot;
   cachedDisplayBalance?: string;
 }) {
   return {
-    balance: balanceSnapshot?.balance,
+    balance: authoritativeBalance,
     displayBalance: balanceSnapshot?.balance ?? cachedDisplayBalance,
     tokenDetail: balanceSnapshot?.tokenDetail,
   };

@@ -789,6 +789,9 @@ export function useSwapProTokenInit() {
     useSwapProInputAmountAtom();
   const [swapFromInputAmount, setSwapFromInputAmount] =
     useSwapFromTokenAmountAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const shouldSyncSwapProTokenInfo =
+    swapTypeSwitch !== ESwapTabSwitchType.STOCK;
 
   const {
     defaultTokens,
@@ -1118,6 +1121,9 @@ export function useSwapProTokenInit() {
   } = useSwapProTokenInfoSync();
 
   useEffect(() => {
+    if (!shouldSyncSwapProTokenInfo) {
+      return;
+    }
     if (
       (inputToken && !inputToken.balanceParsed) ||
       (inputToken as ISwapToken)?.accountAddress !==
@@ -1127,21 +1133,28 @@ export function useSwapProTokenInit() {
     }
   }, [
     inputToken,
+    shouldSyncSwapProTokenInfo,
     syncInputTokenBalance,
     netAccountRes.result?.addressDetail.address,
   ]);
 
   useEffect(() => {
+    if (!shouldSyncSwapProTokenInfo) {
+      return;
+    }
     if (swapProSellToToken && !swapProSellToToken.price) {
       void syncToTokenPrice();
     }
-  }, [swapProSellToToken, syncToTokenPrice]);
+  }, [shouldSyncSwapProTokenInfo, swapProSellToToken, syncToTokenPrice]);
 
   useEffect(() => {
+    if (!shouldSyncSwapProTokenInfo) {
+      return;
+    }
     if (swapProSelectToken && isNil(swapProSelectToken?.isNative)) {
       void syncSelectTokenNative();
     }
-  }, [swapProSelectToken, syncSelectTokenNative]);
+  }, [shouldSyncSwapProTokenInfo, swapProSelectToken, syncSelectTokenNative]);
 
   const isMEV = useMemo(() => {
     return Array.isArray(swapMevNetConfig)
