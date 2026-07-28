@@ -7,7 +7,6 @@ import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import localDb from '../dbs/local/localDb';
 
 import ServiceBase from './ServiceBase';
-import { firmwareArtifactAdapter } from './ServiceFirmwareUpdate/FirmwareArtifactAdapter';
 import {
   markIdentityRecoveryFailed,
   markIdentityRecoveryReady,
@@ -25,12 +24,16 @@ class ServiceBootstrap extends ServiceBase {
   public async init() {
     await this.initCritical();
     if (platformEnv.isNative || platformEnv.isDesktop) {
-      void firmwareArtifactAdapter.sweepOrphans().catch(() => {
-        defaultLogger.app.bootstrap.initCriticalStep(
-          'firmwareArtifactOrphanSweep (FAILED)',
-          0,
-        );
-      });
+      void import('./ServiceFirmwareUpdate/FirmwareUpdateRuntime')
+        .then(({ firmwareArtifactAdapter }) =>
+          firmwareArtifactAdapter.sweepOrphans(),
+        )
+        .catch(() => {
+          defaultLogger.app.bootstrap.initCriticalStep(
+            'firmwareArtifactOrphanSweep (FAILED)',
+            0,
+          );
+        });
     }
     if (platformEnv.isWeb || platformEnv.isDesktop) {
       setTimeout(() => {
