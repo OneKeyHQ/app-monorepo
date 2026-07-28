@@ -25,7 +25,10 @@ import type { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import { SizeInputModeSelector } from '../selectors/SizeInputModeSelector';
 
-import { convertPerpsSizeDisplayValueToToken } from './sizeInputConversion';
+import {
+  canSkipPerpsSizePriceConversion,
+  convertPerpsSizeDisplayValueToToken,
+} from './sizeInputConversion';
 import { TradingFormInput } from './TradingFormInput';
 
 import type { ISide } from '../selectors/TradeSideToggle';
@@ -309,7 +312,14 @@ export const SizeInput = memo(
     useEffect(() => {
       if (isSliderMode) return;
 
-      if (!prevValueRef.current) {
+      if (
+        canSkipPerpsSizePriceConversion({
+          tokenValue: prevValueRef.current,
+          inputMode,
+          usdAmount,
+          marginAmount,
+        })
+      ) {
         prevPriceRef.current = referencePrice;
         return;
       }
