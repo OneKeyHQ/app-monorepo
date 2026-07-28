@@ -7,6 +7,7 @@
  */
 import BigNumber from 'bignumber.js';
 
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { buildHomeDefaultTokenMapKey } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IAccountToken,
@@ -20,8 +21,17 @@ import type {
  * `flattenAggregateTokensMap` (tokenUtils.ts:709-790) so `aggCell` and the
  * legacy flatten share one summation implementation (spec §3.1, §11.1).
  *
- * - balance / balanceParsed / fiatValue / frozen* / total* are BigNumber.plus
- *   summed across the per-network entries.
+ * - balance / fiatValue / frozen* / total* are BigNumber.plus summed across
+ *   the per-network entries as-is.
+ * - balanceParsed: scaled-UI (rebase) tokens can carry a per-member
+ *   `balanceMultiplier` (OK-58046 Plan A), and cross-network members of one
+ *   aggregate token can carry DIFFERENT multipliers — so a single scalar
+ *   multiplier is ill-defined on the summed entry. Each member is therefore
+ *   converted to its own display amount (`applyBalanceMultiplier`) BEFORE
+ *   summing, and the resulting `aggregated.balanceParsed` is already
+ *   display-basis. The summed entry deliberately does NOT carry a
+ *   `balanceMultiplier` so downstream display selectors pass it through
+ *   unchanged (no double multiply).
  * - price / price24h / currency are taken from the FIRST entry (DO NOT drop
  *   price24h, otherwise the PriceChange leaf regresses — spec §3.1).
  * - undefined entries are tolerated (skipped); empty set yields a zeroed frame.
@@ -50,8 +60,15 @@ export function sumAggregateEntry(
     aggregated.balance = new BigNumber(aggregated.balance)
       .plus(tokenFiat.balance)
       .toFixed();
+    // Scale THIS member by its own multiplier before summing — the summed
+    // entry has no single scalar multiplier of its own (see header comment).
     aggregated.balanceParsed = new BigNumber(aggregated.balanceParsed)
-      .plus(tokenFiat.balanceParsed)
+      .plus(
+        tokenRebaseUtils.applyBalanceMultiplier({
+          amount: tokenFiat.balanceParsed,
+          balanceMultiplier: tokenFiat.balanceMultiplier,
+        }),
+      )
       .toFixed();
     aggregated.fiatValue = new BigNumber(aggregated.fiatValue)
       .plus(tokenFiat.fiatValue)
