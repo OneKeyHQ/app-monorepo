@@ -480,17 +480,21 @@ describe('swap quote progress', () => {
         zeroProviderQuoteCompleted: true,
         quote: undefined,
         quoteResultPairNoMatch: false,
+        quoteEventCompleted: true,
+        quoteRequestMatchesCurrentInput: true,
       }),
     ).toBe(true);
 
-    // Selected quote carries no toAmount and no limit info.
+    // An early provider error cannot finish the current quote round.
     expect(
       isSwapNoProviderSupportsTrade({
         zeroProviderQuoteCompleted: false,
         quote: { toAmount: '' },
         quoteResultPairNoMatch: false,
+        quoteEventCompleted: false,
+        quoteRequestMatchesCurrentInput: true,
       }),
-    ).toBe(true);
+    ).toBe(false);
 
     // Real server shape for an unsupported pair: totalQuoteCount > 0 and
     // every provider returns an error quote WITHOUT any amount fields
@@ -501,6 +505,8 @@ describe('swap quote progress', () => {
         zeroProviderQuoteCompleted: false,
         quote: { toAmount: undefined, limit: undefined },
         quoteResultPairNoMatch: false,
+        quoteEventCompleted: true,
+        quoteRequestMatchesCurrentInput: true,
       }),
     ).toBe(true);
 
@@ -510,6 +516,8 @@ describe('swap quote progress', () => {
         zeroProviderQuoteCompleted: false,
         quote: { toAmount: '', limit: { min: '1' } },
         quoteResultPairNoMatch: false,
+        quoteEventCompleted: true,
+        quoteRequestMatchesCurrentInput: true,
       }),
     ).toBe(false);
 
@@ -519,6 +527,19 @@ describe('swap quote progress', () => {
         zeroProviderQuoteCompleted: false,
         quote: { toAmount: '10' },
         quoteResultPairNoMatch: false,
+        quoteEventCompleted: true,
+        quoteRequestMatchesCurrentInput: true,
+      }),
+    ).toBe(false);
+
+    // A terminal provider error from a stale request is not current.
+    expect(
+      isSwapNoProviderSupportsTrade({
+        zeroProviderQuoteCompleted: false,
+        quote: { toAmount: '' },
+        quoteResultPairNoMatch: false,
+        quoteEventCompleted: true,
+        quoteRequestMatchesCurrentInput: false,
       }),
     ).toBe(false);
 
@@ -529,6 +550,8 @@ describe('swap quote progress', () => {
         zeroProviderQuoteCompleted: true,
         quote: { toAmount: '' },
         quoteResultPairNoMatch: true,
+        quoteEventCompleted: true,
+        quoteRequestMatchesCurrentInput: true,
       }),
     ).toBe(false);
   });
