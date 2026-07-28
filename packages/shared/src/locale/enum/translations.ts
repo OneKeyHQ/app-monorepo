@@ -2951,6 +2951,7 @@ export enum ETranslations {
   perp_no_active_twap__title = 'perp_no_active_twap__title',
   perp_no_twap_fill_history__title = 'perp_no_twap_fill_history__title',
   perp_no_twap_history__title = 'perp_no_twap_history__title',
+  perp_order_size_small__desc = 'perp_order_size_small__desc',
   perp_order_trigger_limit = 'perp_order_trigger_limit',
   perp_order_trigger_market = 'perp_order_trigger_market',
   perp_order_type_limit_desc__desc = 'perp_order_type_limit_desc__desc',
