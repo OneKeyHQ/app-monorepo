@@ -1,6 +1,4 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { createConfigFetcher } from '@onekeyhq/shared/src/hardware/configFetcher';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import {
   trustedFirmwareCatalog,
@@ -39,11 +37,6 @@ const artifactsByUrl =
     Record<string, ITrustedFirmwareArtifact>
   >;
 
-const FIRMWARE_CONFIG_URLS = {
-  stable: 'https://data.onekey.so/config.json',
-  preRelease: 'https://data.onekey.so/pre-config.json',
-} as const;
-
 export function getTrustedFirmwareConfig({
   preRelease,
 }: {
@@ -52,35 +45,6 @@ export function getTrustedFirmwareConfig({
   return preRelease
     ? trustedPreReleaseFirmwareConfig
     : trustedStableFirmwareConfig;
-}
-
-export async function loadTrustedFirmwareConfig({
-  preRelease,
-}: {
-  preRelease: boolean;
-}): Promise<RemoteConfigResponse> {
-  const bundledConfig = getTrustedFirmwareConfig({ preRelease });
-  const fetchConfig = await createConfigFetcher();
-  if (!fetchConfig) {
-    return bundledConfig;
-  }
-  try {
-    const remoteConfig = await fetchConfig(
-      preRelease
-        ? FIRMWARE_CONFIG_URLS.preRelease
-        : FIRMWARE_CONFIG_URLS.stable,
-    );
-    if (
-      remoteConfig &&
-      stringUtils.stableStringify(remoteConfig) ===
-        stringUtils.stableStringify(bundledConfig)
-    ) {
-      return remoteConfig;
-    }
-  } catch {
-    return bundledConfig;
-  }
-  return bundledConfig;
 }
 
 export function getTrustedFirmwareArtifact(

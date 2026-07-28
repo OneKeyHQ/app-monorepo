@@ -15,7 +15,6 @@ import type {
   ConnectSettings,
   CoreApi,
   LowLevelCoreApi,
-  RemoteConfigResponse,
 } from '@onekeyfe/hd-core';
 
 // eslint-disable-next-line import/no-mutable-exports
@@ -78,7 +77,6 @@ const createHardwareSDKInstance = async (params: {
   hardwareConnectSrc?: EOnekeyDomain;
   debugMode?: boolean;
   hardwareTransportType?: EHardwareTransportType;
-  preloadedConfig?: RemoteConfigResponse;
 }) =>
   // eslint-disable-next-line no-async-promise-executor
   new Promise<CoreApi>(async (resolve, reject) => {
@@ -98,21 +96,10 @@ const createHardwareSDKInstance = async (params: {
     }
 
     const configFetcher = await createConfigFetcher();
-    const usesDirectFirmwareHostBinding = isDirectFirmwareHostBindingTransport(
-      params.hardwareTransportType,
-    );
-
-    const settings: Partial<ConnectSettings> & {
-      firmwareManifestMode: 'sdk-managed' | 'external-only';
-      preloadedConfig?: RemoteConfigResponse;
-    } = {
+    const settings: Partial<ConnectSettings> = {
       debug: params.debugMode,
       fetchConfig: true,
       env,
-      firmwareManifestMode: usesDirectFirmwareHostBinding
-        ? 'external-only'
-        : 'sdk-managed',
-      preloadedConfig: params.preloadedConfig,
       configFetcher,
     };
 

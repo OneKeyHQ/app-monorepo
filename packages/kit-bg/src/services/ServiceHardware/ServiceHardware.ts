@@ -74,7 +74,6 @@ import {
   settingsPersistAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
-import { loadTrustedFirmwareConfig } from '../ServiceFirmwareUpdate/trustedFirmwareCatalog';
 
 import { DeviceSettingsManager } from './DeviceSettingsManager';
 import { HardwareConnectionManager } from './HardwareConnectionManager';
@@ -362,12 +361,6 @@ class ServiceHardware extends ServiceBase {
     this.connectionManager.setCurrentTransportType(hardwareTransportType);
 
     try {
-      const preloadedConfig =
-        platformEnv.isNative || platformEnv.isDesktop
-          ? await loadTrustedFirmwareConfig({
-              preRelease: isPreRelease === true,
-            })
-          : undefined;
       const instance = await getHardwareSDKInstance({
         hardwareTransportType,
         // https://data.onekey.so/pre-config.json?noCache=1714090312200
@@ -375,7 +368,6 @@ class ServiceHardware extends ServiceBase {
         isPreRelease: isPreRelease === true,
         hardwareConnectSrc,
         debugMode,
-        preloadedConfig,
       });
 
       // TODO re-register events when hardwareConnectSrc or isPreRelease changed
