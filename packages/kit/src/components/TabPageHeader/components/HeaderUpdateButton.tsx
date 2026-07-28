@@ -1,17 +1,17 @@
-import { useMemo } from 'react';
+import { useMemo } from "react";
 
-import { useIntl } from 'react-intl';
+import { useIntl } from "react-intl";
 
-import { Button, useMedia } from '@onekeyhq/components';
-import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { Button, useMedia } from "@onekeyhq/components";
+import { HeaderIconButton } from "@onekeyhq/components/src/layouts/Navigation/Header";
 import {
   isShowAppUpdateUIWhenUpdating,
   useAppUpdateInfo,
-} from '@onekeyhq/kit/src/components/AppUpdate';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+} from "@onekeyhq/kit/src/components/AppUpdate";
+import { ETranslations } from "@onekeyhq/shared/src/locale";
+import platformEnv from "@onekeyhq/shared/src/platformEnv";
 
-import { HEADER_WIDE_MEDIA_KEY } from '../headerLayout';
+import { HEADER_WIDE_MEDIA_KEY } from "../headerLayout";
 
 // Desktop top-right "Update" button. Surfaces under the exact same conditions
 // as the toolbox update dot (isShowAppUpdateUIWhenUpdating: seamless=never,
@@ -33,7 +33,7 @@ function BasicHeaderUpdateButton() {
         updateStrategy: data.updateStrategy,
         updateStatus: data.status,
       }),
-    [isNeedUpdate, data.updateStrategy, data.status],
+    [isNeedUpdate, data.updateStrategy, data.status]
   );
 
   if (!showUpdate) {
@@ -48,7 +48,7 @@ function BasicHeaderUpdateButton() {
         testID="header-update-button"
         size="small"
         variant="accent"
-        icon="RenewOutline"
+        icon="ArrowTopCircleOutline"
         // `title` only renders a tooltip, so an icon-only button still needs
         // an explicit accessible name.
         title={label}
@@ -58,8 +58,8 @@ function BasicHeaderUpdateButton() {
         // header icons. This one is a CTA, so keep both.
         hotKey
         focusVisibleStyle={{
-          outlineColor: '$focusRing',
-          outlineStyle: 'solid',
+          outlineColor: "$focusRing",
+          outlineStyle: "solid",
           outlineWidth: 2,
         }}
         // Right gap so the button doesn't sit flush against the notification
