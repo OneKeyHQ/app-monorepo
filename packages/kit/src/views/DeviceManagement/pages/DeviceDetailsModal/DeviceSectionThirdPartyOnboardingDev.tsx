@@ -319,13 +319,13 @@ function DeviceSectionThirdPartyOnboardingDev() {
         description: [
           vendor === EHardwareVendor.trezor
             ? 'The SDK asked the connected Trezor to authenticate a fresh challenge and accepted its genuine-check result.'
-            : 'The local OneKey DMK server drove Ledger’s official Genuine Check through the SDK’s existing device session and captured the physical-device DSID.',
+            : 'The App-local mock service called Ledger’s official SDK Genuine Check and captured the physical-device DSID.',
           '',
           `Verification mode: ${result.verificationMode}`,
           `Device DSID: ${result.deviceId}`,
           vendor === EHardwareVendor.trezor
             ? `Challenge: ${result.challengeHex}`
-            : `Client claim nonce: ${result.challengeHex}`,
+            : `Local claim nonce: ${result.challengeHex}`,
           `Mock voucher: ${result.voucherCode}`,
           '',
           'This is only a local integration check. The production backend must own or witness its own verification before issuing a real voucher.',

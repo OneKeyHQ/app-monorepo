@@ -77,12 +77,11 @@ describe('verifyLocalMockDeviceClaimEvidence', () => {
           vendor: 'ledger',
           verified: true,
           deviceId: '12'.repeat(32),
-          ledgerVerificationAuthority: 'onekey-local-dmk-server',
         },
       }),
     ).toEqual({
       deviceId: '12'.repeat(32),
-      verificationMode: 'ledger-server-dmk-relay',
+      verificationMode: 'ledger-sdk-genuine-check',
     });
 
     for (const authenticity of [
@@ -95,12 +94,6 @@ describe('verifyLocalMockDeviceClaimEvidence', () => {
         vendor: 'ledger' as const,
         verified: true,
         deviceId: 'not-a-dsid',
-        ledgerVerificationAuthority: 'onekey-local-dmk-server' as const,
-      },
-      {
-        vendor: 'ledger' as const,
-        verified: true,
-        deviceId: '12'.repeat(32),
       },
     ]) {
       expect(() =>
@@ -108,28 +101,28 @@ describe('verifyLocalMockDeviceClaimEvidence', () => {
           vendor: 'ledger',
           authenticity,
         }),
-      ).toThrow('Ledger DMK server');
+      ).toThrow('Ledger genuine check');
     }
   });
 
-  it('uses only the DEV voucher issued by the local Ledger DMK server', async () => {
+  it('issues a local DEV voucher only after the Ledger SDK check passes', async () => {
     const result = await runTrustedLocalMockDeviceClaim({
       vendor: 'ledger',
       executeAuthenticityCheck: async () => ({
         vendor: 'ledger',
         verified: true,
         deviceId: '34'.repeat(32),
-        ledgerVerificationAuthority: 'onekey-local-dmk-server',
-        serverVoucherCode: 'DEV-LOCAL-LEDGER-A1B2C3D4',
       }),
     });
 
     expect(result).toMatchObject({
       status: 'issued',
-      voucherCode: 'DEV-LOCAL-LEDGER-A1B2C3D4',
       deviceId: '34'.repeat(32),
-      verificationMode: 'ledger-server-dmk-relay',
+      verificationMode: 'ledger-sdk-genuine-check',
     });
+    expect(result.voucherCode).toBe(
+      `DEV-LOCAL-LEDGER-${result.challengeHex.slice(0, 8).toUpperCase()}`,
+    );
   });
 
   it('runs the hardware check before issuing the local voucher', async () => {

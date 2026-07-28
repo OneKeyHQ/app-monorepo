@@ -6,13 +6,11 @@ type ILocalMockAuthenticityResult = {
   deviceId?: string;
   usedDebugKey?: boolean;
   error?: string;
-  ledgerVerificationAuthority?: 'onekey-local-dmk-server';
-  serverVoucherCode?: string;
 };
 
 export type ILocalMockDeviceClaimVerification = {
   deviceId: string;
-  verificationMode: 'trezor-sdk-genuine-check' | 'ledger-server-dmk-relay';
+  verificationMode: 'trezor-sdk-genuine-check' | 'ledger-sdk-genuine-check';
 };
 
 export type ILocalMockDeviceClaimResult = ILocalMockDeviceClaimVerification & {
@@ -68,23 +66,23 @@ export function verifyLocalMockDeviceClaimEvidence({
   if (
     !authenticity.verified ||
     !authenticity.deviceId ||
-    !/^[0-9a-f]{64}$/i.test(authenticity.deviceId) ||
-    authenticity.ledgerVerificationAuthority !== 'onekey-local-dmk-server'
+    !/^[0-9a-f]{64}$/i.test(authenticity.deviceId)
   ) {
     throw new OneKeyLocalError({
       message:
-        'The local Ledger DMK server did not return a verified physical-device DSID',
+        'Ledger genuine check did not return a verified physical-device DSID',
     });
   }
   return {
     deviceId: authenticity.deviceId.toLowerCase(),
-    verificationMode: 'ledger-server-dmk-relay',
+    verificationMode: 'ledger-sdk-genuine-check',
   };
 }
 
 /**
- * Minimal local UI-flow check. The fresh challenge and hardware call happen in
- * the background service; a future backend must own an equivalent remote flow.
+ * App-local mock for the future claim service. The async executor is the seam:
+ * today it calls the hardware SDK directly; production replaces it with a
+ * backend challenge/session API without changing the UI contract.
  */
 export async function runTrustedLocalMockDeviceClaim({
   vendor,
@@ -101,12 +99,9 @@ export async function runTrustedLocalMockDeviceClaim({
     vendor,
     authenticity,
   });
-  const voucherCode =
-    vendor === 'ledger'
-      ? authenticity.serverVoucherCode
-      : `DEV-LOCAL-${vendor.toUpperCase()}-${challengeHex
-          .slice(0, 8)
-          .toUpperCase()}`;
+  const voucherCode = `DEV-LOCAL-${vendor.toUpperCase()}-${challengeHex
+    .slice(0, 8)
+    .toUpperCase()}`;
   if (
     !voucherCode ||
     !new RegExp(`^DEV-LOCAL-${vendor.toUpperCase()}-[0-9A-F]{8}$`).test(

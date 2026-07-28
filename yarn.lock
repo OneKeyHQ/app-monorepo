@@ -7267,7 +7267,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ledgerhq/device-management-kit@npm:1.2.0, @ledgerhq/device-management-kit@npm:^1.1.0":
+"@ledgerhq/device-management-kit@npm:^1.1.0":
   version: 1.2.0
   resolution: "@ledgerhq/device-management-kit@npm:1.2.0"
   dependencies:
@@ -10181,17 +10181,6 @@ __metadata:
     url-parse: "npm:^1.5.10"
     use-debounce: "npm:^9.0.4"
     zbar.wasm: "npm:^2.1.1"
-  languageName: unknown
-  linkType: soft
-
-"@onekeyhq/ledger-attestation-server@workspace:apps/ledger-attestation-server":
-  version: 0.0.0-use.local
-  resolution: "@onekeyhq/ledger-attestation-server@workspace:apps/ledger-attestation-server"
-  dependencies:
-    "@ledgerhq/device-management-kit": "npm:1.2.0"
-    purify-ts: "npm:2.1.0"
-    rxjs: "npm:^7.8.2"
-    ws: "npm:^8.18.3"
   languageName: unknown
   linkType: soft
 
@@ -15705,29 +15694,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@sentry/types@npm:6.19.7":
-  version: 6.19.7
-  resolution: "@sentry/types@npm:6.19.7"
-  checksum: 10/f9f70e94c4a3876f6119f7e3979051ea2a054adce6f5583de9f70a08642c7d2c2f80a70a1f9fe5f9fad4e99315f4483340ded1110ae2e7c825c4c1f210fc2507
-  languageName: node
-  linkType: hard
-
 "@sentry/types@npm:8.42.0":
   version: 8.42.0
   resolution: "@sentry/types@npm:8.42.0"
   dependencies:
     "@sentry/core": "npm:8.42.0"
   checksum: 10/92cc2c94bc5b59a7424a243919292290248d891e08b86e1c78ffbf544fc1220d5dbbb7dcba1fd1af2a00c5a70a2a87f69598a8ad35e203f9add65eddb1c5d859
-  languageName: node
-  linkType: hard
-
-"@sentry/utils@npm:6.19.7":
-  version: 6.19.7
-  resolution: "@sentry/utils@npm:6.19.7"
-  dependencies:
-    "@sentry/types": "npm:6.19.7"
-    tslib: "npm:^1.9.3"
-  checksum: 10/0ea94d32940705d77b019ca821e45a5866bb3d443e0f19b9bf5edf3d7ffed68c451803f3388913fec4da875e4b7df46b5f8a8681c4d69972fb3d775d864997b2
   languageName: node
   linkType: hard
 
@@ -43850,7 +43822,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rxjs@npm:7.8.2, rxjs@npm:^7.8.2":
+"rxjs@npm:7.8.2":
   version: 7.8.2
   resolution: "rxjs@npm:7.8.2"
   dependencies:
@@ -49925,21 +49897,6 @@ __metadata:
     utf-8-validate:
       optional: true
   checksum: 10/746a3102d43e8df7b09f5814bec858f12d10185a7abd655537f3291b687d440bb80fc9d1e082f8dee42d4d74307f78a96810e18a2c8e13053b003c6608c1c648
-  languageName: node
-  linkType: hard
-
-"ws@npm:^8.18.3":
-  version: 8.21.1
-  resolution: "ws@npm:8.21.1"
-  peerDependencies:
-    bufferutil: ^4.0.1
-    utf-8-validate: ">=5.0.2"
-  peerDependenciesMeta:
-    bufferutil:
-      optional: true
-    utf-8-validate:
-      optional: true
-  checksum: 10/8493bc543072763d7bacffb2282c9d7954dc5c599c9df4c2d15f91c217f63e293a33ffc70756e3f2bf8c5d85bc6069ad7d9983c382d4713c807b083ffb1b1719
   languageName: node
   linkType: hard
 

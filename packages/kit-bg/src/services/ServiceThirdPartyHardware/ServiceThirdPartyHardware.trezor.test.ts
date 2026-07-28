@@ -668,6 +668,44 @@ describe('ServiceThirdPartyHardware developer account name sync', () => {
     getLocalDbMock().getAllWallets.mockResolvedValue({ wallets: [] });
   });
 
+  it('runs the Ledger claim through the App-local async SDK service', async () => {
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    jest.spyOn(service, 'isDevModeEnabled').mockResolvedValue(true);
+    const verifyDeviceAuthenticity = jest
+      .spyOn(service, 'thirdPartyHardwareVerifyDeviceAuthenticity')
+      .mockResolvedValue({
+        success: true,
+        payload: {
+          vendor: 'ledger',
+          verified: true,
+          deviceId: '12'.repeat(32),
+        },
+      });
+
+    const result = await service.runLocalMockThirdPartyDeviceClaim({
+      vendor: EHardwareVendor.ledger,
+      connectId: '',
+      dbDeviceId: 'db-ledger',
+    });
+
+    expect(verifyDeviceAuthenticity).toHaveBeenCalledWith({
+      vendor: EHardwareVendor.ledger,
+      connectId: '',
+      dbDeviceId: 'db-ledger',
+      challenge: undefined,
+    });
+    expect(result).toMatchObject({
+      status: 'issued',
+      deviceId: '12'.repeat(32),
+      verificationMode: 'ledger-sdk-genuine-check',
+    });
+    expect(result.voucherCode).toBe(
+      `DEV-LOCAL-LEDGER-${result.challengeHex.slice(0, 8).toUpperCase()}`,
+    );
+  });
+
   it('recovers over the bound Trezor transport before running a device authenticity check', async () => {
     const originalIsDesktop = platformEnv.isDesktop;
     const originalIsSupportDesktopBle = platformEnv.isSupportDesktopBle;
