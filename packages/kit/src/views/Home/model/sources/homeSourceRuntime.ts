@@ -11,6 +11,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   HOME_RUNTIME_PROTOCOL_VERSION,
   type IHomeRuntimeJsonValue,
+  type IHomeRuntimeRequestToken,
   type IRuntimeRequestPriority,
 } from '@onekeyhq/shared/src/types/homeRuntime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -70,6 +71,7 @@ import { getHomeHistoryRowIds } from '../sections/history/homeHistorySourceAdapt
 import { getHomeMarketRowIds } from '../sections/market/homeMarketSourceAdapter';
 import { getHomeNFTItemRowId } from '../sections/nft/homeNFTSourceAdapter';
 import { HOME_PORTFOLIO_SHOW_LP_TOKENS_CONTROL_ID } from '../sections/spot/homePortfolioControls';
+import { mergeHomePortfolioProgressivePayload } from '../sections/spot/homePortfolioProgressiveMerge';
 import {
   type IHomeSpotLegacyPayload,
   createHomeSpotSnapshotDefaults,
@@ -158,6 +160,29 @@ type ISourceCacheEntry = {
 const SOURCE_CACHE_TTL_MS = 30_000;
 const SOURCE_CACHE_MAX_IDENTITIES = 8;
 const FIRST_FRAME_WARM_DELAY_MS = 800;
+
+function createSourceRequestToken({
+  authority,
+  sourceId,
+}: {
+  authority: IHomeResultAuthority;
+  sourceId: IHomeStoreSourceId;
+}): IHomeRuntimeRequestToken {
+  return {
+    protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
+    clientInstanceId: authority.clientInstanceId,
+    producerInstanceId: authority.producerInstanceId,
+    sessionId: authority.sessionId,
+    requestSeq: authority.requestSequence,
+    sourceKey: {
+      scopeKey: authority.ownerScopeKey,
+      sourceId,
+      paramsFingerprint: authority.sourceKey,
+      dataSchemaVersion: 1,
+    },
+  };
+}
+
 const HOME_PERPS_HOT_ROW_LIMIT = 6;
 const POLLING_INTERVAL_MS = 60_000;
 const SOURCE_TIMEOUT_MS = 90_000;
@@ -674,31 +699,10 @@ export class HomeSourceRuntime {
         ) {
           return;
         }
-        if (sourceId === 'banner') {
-          this.host.dispatch({
-            type: 'sourceRequested',
-            token: {
-              protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
-              clientInstanceId: authority.clientInstanceId,
-              producerInstanceId: authority.producerInstanceId,
-              sessionId: authority.sessionId,
-              requestSeq: authority.requestSequence,
-              sourceKey: {
-                scopeKey: authority.ownerScopeKey,
-                sourceId,
-                paramsFingerprint: authority.sourceKey,
-                dataSchemaVersion: 1,
-              },
-            },
-          });
-        } else if (isSectionSource(sourceId) && state.session.ownerToken) {
-          this.host.dispatch({
-            type: 'sectionSourceChanged',
-            ownerToken: state.session.ownerToken,
-            sectionId: sourceId,
-            result: { kind: 'loading' },
-          });
-        }
+        this.host.dispatch({
+          type: 'sourceRequested',
+          token: createSourceRequestToken({ authority, sourceId }),
+        });
       },
     });
   }
@@ -880,19 +884,10 @@ export class HomeSourceRuntime {
   }
 
   private commitBannerFailure(authority: IHomeResultAuthority): void {
-    const token = {
-      protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
-      clientInstanceId: authority.clientInstanceId,
-      producerInstanceId: authority.producerInstanceId,
-      sessionId: authority.sessionId,
-      requestSeq: authority.requestSequence,
-      sourceKey: {
-        scopeKey: authority.ownerScopeKey,
-        sourceId: 'banner' as const,
-        paramsFingerprint: authority.sourceKey,
-        dataSchemaVersion: 1,
-      },
-    };
+    const token = createSourceRequestToken({
+      authority,
+      sourceId: 'banner',
+    });
     this.host.dispatchAtomically([
       { type: 'sourceRequested', token },
       {
@@ -979,19 +974,10 @@ export class HomeSourceRuntime {
       ) {
         return;
       }
-      const token = {
-        protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
-        clientInstanceId: authority.clientInstanceId,
-        producerInstanceId: authority.producerInstanceId,
-        sessionId: authority.sessionId,
-        requestSeq: authority.requestSequence,
-        sourceKey: {
-          scopeKey: authority.ownerScopeKey,
-          sourceId: 'banner' as const,
-          paramsFingerprint: authority.sourceKey,
-          dataSchemaVersion: 1,
-        },
-      };
+      const token = createSourceRequestToken({
+        authority,
+        sourceId: 'banner',
+      });
       const requestEvent: IHomeStoreEvent = {
         type: 'sourceRequested',
         token,
@@ -1023,13 +1009,37 @@ export class HomeSourceRuntime {
     if (!isSectionSource(sourceId)) {
       return;
     }
-    const sectionWire = wire as ISectionWireResult;
+    let sectionWire = wire as ISectionWireResult;
     const currentResource = state.resources[sourceId];
     if (
       phase === 'intermediate' &&
+      sectionWire.empty &&
       (currentResource.kind === 'ready' || currentResource.kind === 'empty')
     ) {
       return;
+    }
+    let intermediateFreshness: 'confirmedCache' | 'live' = 'live';
+    if (phase === 'intermediate' && currentResource.kind === 'ready') {
+      intermediateFreshness = currentResource.freshness;
+      if (sourceId === 'portfolio' && sectionWire.payload) {
+        const basePayload = readHomeStoreSectionPayload<IHomeSpotLegacyPayload>(
+          currentResource.data,
+        );
+        if (basePayload) {
+          const mergedPayload = mergeHomePortfolioProgressivePayload({
+            base: basePayload,
+            incoming: sectionWire.payload as unknown as IHomeSpotLegacyPayload,
+          });
+          const normalizedPayload = normalizeHomeStoreJson(mergedPayload);
+          if (normalizedPayload) {
+            sectionWire = {
+              ...sectionWire,
+              payload: normalizedPayload,
+              rowIds: [...mergedPayload.displayIds],
+            };
+          }
+        }
+      }
     }
     let sectionResult: Extract<
       IHomeStoreEvent,
@@ -1046,7 +1056,7 @@ export class HomeSourceRuntime {
         kind: 'ready',
         rowIds: sectionWire.rowIds as string[],
         data: sectionWire.payload ?? undefined,
-        freshness: 'live',
+        freshness: phase === 'intermediate' ? intermediateFreshness : 'live',
         refresh: phase === 'final' ? 'idle' : 'refreshing',
       };
     }
@@ -1054,19 +1064,7 @@ export class HomeSourceRuntime {
       type: 'sectionSourceChanged',
       ownerToken,
       sectionId: sourceId,
-      token: {
-        protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
-        clientInstanceId: authority.clientInstanceId,
-        producerInstanceId: authority.producerInstanceId,
-        sessionId: authority.sessionId,
-        requestSeq: authority.requestSequence,
-        sourceKey: {
-          scopeKey: authority.ownerScopeKey,
-          sourceId,
-          paramsFingerprint: authority.sourceKey,
-          dataSchemaVersion: 1,
-        },
-      },
+      token: createSourceRequestToken({ authority, sourceId }),
       result: sectionResult,
     };
     const balanceEvent =
@@ -1076,6 +1074,8 @@ export class HomeSourceRuntime {
             payload: sectionWire.payload,
             rowIds: sectionWire.rowIds as string[],
             empty: sectionWire.empty,
+            freshness:
+              phase === 'intermediate' ? intermediateFreshness : 'live',
             phase,
           })
         : undefined;
@@ -1830,11 +1830,45 @@ export class HomeSourceRuntime {
       }
       return responses;
     };
-    let publishedCacheIntermediate = false;
+    let publishedCacheResponseCount = 0;
     const fetchCachedTargets = async (
       targets: readonly IPortfolioFetchTarget[],
     ) => {
       const responses: INativeHomeAllNetworkTokenResponse[] = [];
+      const publishCachedResponses = async (processedTargetCount: number) => {
+        if (
+          responses.length === 0 ||
+          responses.length === publishedCacheResponseCount
+        ) {
+          return;
+        }
+        const intermediate = await this.buildPortfolioPayload({
+          environment,
+          mergeDeriveAddressData,
+          priority,
+          responses: [...responses],
+          sessionId,
+          shouldIngest: true,
+          showLpTokenFilterSwitch,
+          showLpTokensOnly: false,
+        });
+        if (intermediate.displayIds.length === 0) {
+          return;
+        }
+        publishedCacheResponseCount = responses.length;
+        defaultLogger.wallet.homeUi.homePortfolioProgress({
+          publicationKind: 'localCacheIntermediate',
+          mode: 'wallet',
+          processedTargetCount,
+          responseCount: responses.length,
+          rowCount: intermediate.displayIds.length,
+        });
+        publishIntermediate({
+          payload: intermediate,
+          rowIds: intermediate.displayIds,
+        });
+        await yieldIfMainBudgetExceeded();
+      };
       for (let index = 0; index < targets.length; index += 4) {
         const chunk = targets.slice(index, index + 4);
         const settled = await Promise.allSettled(
@@ -1900,34 +1934,11 @@ export class HomeSourceRuntime {
             item.status === 'fulfilled' && item.value ? [item.value] : [],
           ),
         );
-        if (responses.length > 0 && !publishedCacheIntermediate) {
-          const intermediate = await this.buildPortfolioPayload({
-            environment,
-            mergeDeriveAddressData,
-            priority,
-            responses: [...responses],
-            sessionId,
-            shouldIngest: true,
-            showLpTokenFilterSwitch,
-            showLpTokensOnly: false,
-          });
-          if (intermediate.displayIds.length > 0) {
-            publishedCacheIntermediate = true;
-            defaultLogger.wallet.homeUi.homePortfolioProgress({
-              publicationKind: 'localCacheIntermediate',
-              mode: 'wallet',
-              processedTargetCount: Math.min(index + 4, targets.length),
-              responseCount: responses.length,
-              rowCount: intermediate.displayIds.length,
-            });
-            publishIntermediate({
-              payload: intermediate,
-              rowIds: intermediate.displayIds,
-            });
-            await yieldIfMainBudgetExceeded();
-          }
+        if (publishedCacheResponseCount === 0) {
+          await publishCachedResponses(Math.min(index + 4, targets.length));
         }
       }
+      await publishCachedResponses(targets.length);
       return responses;
     };
     let walletTargets: IPortfolioFetchTarget[];

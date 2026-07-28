@@ -1,10 +1,13 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { createIdleHomeSourceFacts } from '../facts/homeFacts';
 import { buildHomeBannerSemanticFingerprint } from '../sections/banner/homeBannerStoreModel';
+import { createHomeSpotSnapshotDefaults } from '../sections/spot/homeSpotSourceAdapter';
 
 import { HomeSourceRuntime } from './homeSourceRuntime';
 
+import type { IHomeResultAuthority } from '../results/homeResultSink';
 import type { IHomeStoreEvent, IHomeStoreState } from '../store/homeStoreTypes';
 
 type IHomeBannerStorePayload = Parameters<
@@ -45,6 +48,45 @@ function createDeferred<T>() {
     resolve = promiseResolve;
   });
   return { promise, resolve };
+}
+
+function createToken(key: string, symbol: string): IAccountToken {
+  return {
+    $key: key,
+    address: key,
+    decimals: 18,
+    isNative: false,
+    name: symbol,
+    symbol,
+  };
+}
+
+function createFiat(fiatValue: string): ITokenFiat {
+  return {
+    balance: '1',
+    balanceParsed: '1',
+    fiatValue,
+    price: Number(fiatValue),
+  };
+}
+
+function createAuthority(
+  sourceId: IHomeResultAuthority['sourceId'],
+): IHomeResultAuthority {
+  return {
+    ownerScopeKey: 'owner-a',
+    runtimeInstanceId: 'runtime-a',
+    appEpoch: 'app-a',
+    clientInstanceId: 'client-a',
+    sessionId: 'session-a',
+    producerInstanceId: 'producer-a',
+    sourceId,
+    sourceKey: `${sourceId}-key`,
+    requestSequence: 1,
+    sourceRevision: 1,
+    requestGroupId: `session-a:${sourceId}`,
+    taskId: `task:${sourceId}`,
+  };
 }
 
 describe('HomeSourceRuntime banner workflow', () => {
@@ -322,6 +364,292 @@ describe('HomeSourceRuntime banner workflow', () => {
 
     expect(dispatch).not.toHaveBeenCalled();
     expect(dispatchAtomically).not.toHaveBeenCalled();
+    runtime.dispose();
+  });
+
+  it('marks a cached Section as refreshing without emitting a loading result', () => {
+    const dispatch = jest.fn();
+    const authority = createAuthority('portfolio');
+    const state = {
+      session: {
+        ownerToken: { scopeKey: 'owner-a', sessionId: 'session-a' },
+        surfaceVisibility: 'visible',
+      },
+      resources: {
+        portfolio: {
+          kind: 'ready',
+          coverageFingerprint: 'cached',
+          freshness: 'confirmedCache',
+          refresh: 'refreshing',
+        },
+      },
+    } as unknown as IHomeStoreState;
+    const runtime = new HomeSourceRuntime({
+      identity: {
+        runtimeInstanceId: 'runtime-a',
+        clientInstanceId: 'client-a',
+      },
+      scheduler: {} as never,
+      commitBudget: {
+        submit: jest.fn((publication: { commit(): void }) => {
+          publication.commit();
+          return true;
+        }),
+      } as never,
+      leafPool: {
+        cancelSession: jest.fn(),
+        dispose: jest.fn(),
+        getSnapshot: jest.fn(),
+        run: jest.fn(),
+      } as never,
+      dispatch,
+      dispatchAtomically: jest.fn(),
+      getStateView: () => state,
+    });
+    const privateRuntime = runtime as unknown as {
+      activeAuthority: Map<string, IHomeResultAuthority>;
+      scheduleSourceStart(
+        sourceId: 'portfolio',
+        inputAuthority: IHomeResultAuthority,
+        priority: 'critical',
+      ): void;
+    };
+    privateRuntime.activeAuthority.set('portfolio', authority);
+
+    privateRuntime.scheduleSourceStart('portfolio', authority, 'critical');
+
+    expect(dispatch).toHaveBeenCalledWith({
+      type: 'sourceRequested',
+      token: expect.objectContaining({
+        requestSeq: authority.requestSequence,
+        sourceKey: expect.objectContaining({
+          paramsFingerprint: authority.sourceKey,
+          sourceId: 'portfolio',
+        }),
+      }),
+    });
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: { kind: 'loading' },
+        type: 'sectionSourceChanged',
+      }),
+    );
+    runtime.dispose();
+  });
+
+  it('overlays a live intermediate on cached Portfolio rows', () => {
+    const dispatchAtomically = jest.fn();
+    const cachedToken = createToken('cached', 'CACHED');
+    const updatedToken = createToken('updated', 'UPDATED');
+    const liveToken = createToken('live', 'LIVE');
+    const cachedPayload = {
+      ...createHomeSpotSnapshotDefaults(),
+      displayIds: ['updated', 'cached'],
+      fundedIds: ['updated', 'cached'],
+      tokenListMap: {
+        updated: createFiat('10'),
+        cached: createFiat('20'),
+      },
+      tapTokenMap: {
+        updated: createFiat('10'),
+        cached: createFiat('20'),
+      },
+      tokens: [updatedToken, cachedToken],
+    };
+    const livePayload = {
+      ...createHomeSpotSnapshotDefaults(),
+      displayIds: ['updated', 'live'],
+      fundedIds: ['updated', 'live'],
+      tokenListMap: {
+        updated: createFiat('30'),
+        live: createFiat('1'),
+      },
+      tapTokenMap: {
+        updated: createFiat('30'),
+        live: createFiat('1'),
+      },
+      tokens: [updatedToken, liveToken],
+    };
+    const state = {
+      session: {
+        ownerToken: { scopeKey: 'owner-a', sessionId: 'session-a' },
+      },
+      resources: {
+        portfolio: {
+          kind: 'ready',
+          coverageFingerprint: '2:updated:cached',
+          data: {
+            payload: cachedPayload,
+            section: {
+              kind: 'ready',
+              rowIds: cachedPayload.displayIds,
+            },
+          },
+          freshness: 'confirmedCache',
+          refresh: 'refreshing',
+        },
+      },
+    } as unknown as IHomeStoreState;
+    const runtime = new HomeSourceRuntime({
+      identity: {
+        runtimeInstanceId: 'runtime-a',
+        clientInstanceId: 'client-a',
+      },
+      scheduler: {} as never,
+      commitBudget: {} as never,
+      leafPool: {
+        cancelSession: jest.fn(),
+        dispose: jest.fn(),
+        getSnapshot: jest.fn(),
+        run: jest.fn(),
+      } as never,
+      dispatch: jest.fn(),
+      dispatchAtomically,
+      getStateView: () => state,
+    });
+    const commitWireResult = (
+      runtime as unknown as {
+        commitWireResult(input: {
+          authority: IHomeResultAuthority;
+          phase: 'intermediate';
+          sourceId: 'portfolio';
+          wire: {
+            empty: boolean;
+            error: boolean;
+            payload: typeof livePayload;
+            rowIds: string[];
+          };
+        }): void;
+      }
+    ).commitWireResult.bind(runtime);
+
+    commitWireResult({
+      authority: createAuthority('portfolio'),
+      phase: 'intermediate',
+      sourceId: 'portfolio',
+      wire: {
+        empty: false,
+        error: false,
+        payload: livePayload,
+        rowIds: [...livePayload.displayIds],
+      },
+    });
+
+    expect(dispatchAtomically).toHaveBeenCalledWith([
+      expect.objectContaining({
+        result: expect.objectContaining({
+          data: expect.objectContaining({
+            displayIds: ['updated', 'cached', 'live'],
+            tokenListMap: expect.objectContaining({
+              cached: expect.objectContaining({ fiatValue: '20' }),
+              updated: expect.objectContaining({ fiatValue: '30' }),
+            }),
+          }),
+          freshness: 'confirmedCache',
+          kind: 'ready',
+          refresh: 'refreshing',
+          rowIds: ['updated', 'cached', 'live'],
+        }),
+        sectionId: 'portfolio',
+        type: 'sectionSourceChanged',
+      }),
+    ]);
+    runtime.dispose();
+  });
+
+  it('replaces cached Portfolio rows with the final live result', () => {
+    const dispatchAtomically = jest.fn();
+    const cachedPayload = {
+      ...createHomeSpotSnapshotDefaults(),
+      displayIds: ['cached'],
+      fundedIds: ['cached'],
+      tokenListMap: { cached: createFiat('20') },
+      tapTokenMap: { cached: createFiat('20') },
+      tokens: [createToken('cached', 'CACHED')],
+    };
+    const livePayload = {
+      ...createHomeSpotSnapshotDefaults(),
+      displayIds: ['live'],
+      fundedIds: ['live'],
+      tokenListMap: { live: createFiat('30') },
+      tapTokenMap: { live: createFiat('30') },
+      tokens: [createToken('live', 'LIVE')],
+    };
+    const state = {
+      session: {
+        ownerToken: { scopeKey: 'owner-a', sessionId: 'session-a' },
+      },
+      resources: {
+        portfolio: {
+          kind: 'ready',
+          coverageFingerprint: '1:cached:cached',
+          data: {
+            payload: cachedPayload,
+            section: { kind: 'ready', rowIds: ['cached'] },
+          },
+          freshness: 'confirmedCache',
+          refresh: 'refreshing',
+        },
+      },
+    } as unknown as IHomeStoreState;
+    const runtime = new HomeSourceRuntime({
+      identity: {
+        runtimeInstanceId: 'runtime-a',
+        clientInstanceId: 'client-a',
+      },
+      scheduler: {} as never,
+      commitBudget: {} as never,
+      leafPool: {
+        cancelSession: jest.fn(),
+        dispose: jest.fn(),
+        getSnapshot: jest.fn(),
+        run: jest.fn(),
+      } as never,
+      dispatch: jest.fn(),
+      dispatchAtomically,
+      getStateView: () => state,
+    });
+    const commitWireResult = (
+      runtime as unknown as {
+        commitWireResult(input: {
+          authority: IHomeResultAuthority;
+          phase: 'final';
+          sourceId: 'portfolio';
+          wire: {
+            empty: boolean;
+            error: boolean;
+            payload: typeof livePayload;
+            rowIds: string[];
+          };
+        }): void;
+      }
+    ).commitWireResult.bind(runtime);
+
+    commitWireResult({
+      authority: createAuthority('portfolio'),
+      phase: 'final',
+      sourceId: 'portfolio',
+      wire: {
+        empty: false,
+        error: false,
+        payload: livePayload,
+        rowIds: [...livePayload.displayIds],
+      },
+    });
+
+    expect(dispatchAtomically).toHaveBeenCalledWith([
+      expect.objectContaining({
+        result: expect.objectContaining({
+          data: livePayload,
+          freshness: 'live',
+          kind: 'ready',
+          refresh: 'idle',
+          rowIds: ['live'],
+        }),
+        sectionId: 'portfolio',
+        type: 'sectionSourceChanged',
+      }),
+    ]);
     runtime.dispose();
   });
 
