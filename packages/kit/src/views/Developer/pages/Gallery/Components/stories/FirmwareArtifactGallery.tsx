@@ -195,6 +195,8 @@ function FirmwareArtifactValidator() {
         </SizableText>
       </YStack>
 
+      {state ? <FirmwareArtifactStatus state={state} /> : null}
+
       {scenarios.map((item) => (
         <YStack
           key={item.scenario}
@@ -224,7 +226,6 @@ function FirmwareArtifactValidator() {
       {uiError ? (
         <SizableText color="$textCritical">UI error: {uiError}</SizableText>
       ) : null}
-      {state ? <FirmwareArtifactStatus state={state} /> : null}
 
       <YStack gap="$1">
         <SizableText size="$bodySm" color="$textSubdued">
@@ -242,18 +243,6 @@ function FirmwareArtifactValidator() {
 const FirmwareArtifactGallery = () => (
   <Layout
     componentName="Firmware Artifact Validator"
-    description="Validate trusted Pro firmware and resource artifacts without connecting a hardware device."
-    suggestions={[
-      'Run one scenario at a time and keep the App in the foreground for the first smoke test',
-      'SDK entry validation must stop at the missing-device boundary before any hardware command',
-      'Use a fresh App data directory when the test must prove a network transfer instead of a cache hit',
-      'Use the Run ID to correlate UI state with app-latest.log',
-    ]}
-    boundaryConditions={[
-      'Available only on Desktop, iOS, and Android developer builds',
-      'This validates artifact preparation only and never sends hardware commands',
-      'URLs, resolved IPs, local paths, and device identifiers are not logged',
-    ]}
     getFilePath={() => __CURRENT_FILE_PATH__}
   >
     <FirmwareArtifactValidator />
