@@ -41,7 +41,7 @@ const createAdapter = ({
   }));
   const adapter: IFirmwareArtifactAdapter = {
     getCapabilities: async () => ({
-      firmwareArtifactProtocolVersion: 1,
+      firmwareArtifactProtocolVersion: 2,
       supportedRouteTypes: ['domain', 'pinnedIp'],
       supportsArchiveMaterialization: true,
       maxReadBytes: 256 * 1024,
@@ -55,7 +55,6 @@ const createAdapter = ({
     createLease: jest.fn(async () => ({ leaseRef: 'fwlease:test' })),
     retain: jest.fn(async () => undefined),
     releaseLease,
-    reconcileLeases: jest.fn(async () => undefined),
     sweepOrphans,
   };
   return {
@@ -110,15 +109,11 @@ const createSdk = () => {
     });
   const sdk = {
     getFirmwareUpdateCapabilities: () => ({
-      planSchemaVersion: 1 as const,
-      preparedPlanSchemaVersion: 1 as const,
-      hostBindingProtocolVersion: 1 as const,
-      checkpointSchemaVersion: 1 as const,
+      planSchemaVersion: 2 as const,
+      preparedPlanSchemaVersion: 2 as const,
+      hostBindingProtocolVersion: 2 as const,
       manifestModes: ['external-only', 'sdk-managed'] as const,
       supportsArtifactReader: true as const,
-      supportsAwaitableCheckpoint: true as const,
-      supportsResume: true as const,
-      supportsReconciliation: true as const,
     }),
     prepareFirmwareUpdatePlan,
     validateFirmwareUpdatePreparedPlan: (plan: FirmwareUpdatePreparedPlan) =>

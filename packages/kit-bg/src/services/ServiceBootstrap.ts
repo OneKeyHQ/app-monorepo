@@ -7,7 +7,7 @@ import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import localDb from '../dbs/local/localDb';
 
 import ServiceBase from './ServiceBase';
-import { firmwareUpdateJournal } from './ServiceFirmwareUpdate/FirmwareUpdateJournal';
+import { firmwareArtifactAdapter } from './ServiceFirmwareUpdate/FirmwareArtifactAdapter';
 import {
   markIdentityRecoveryFailed,
   markIdentityRecoveryReady,
@@ -25,24 +25,12 @@ class ServiceBootstrap extends ServiceBase {
   public async init() {
     await this.initCritical();
     if (platformEnv.isNative || platformEnv.isDesktop) {
-      void this.backgroundApi.serviceFirmwareUpdate
-        .resumeActiveFirmwareTransaction()
-        .catch(() => {
-          defaultLogger.app.bootstrap.initCriticalStep(
-            'firmwareUpdateRecovery (FAILED)',
-            0,
-          );
-        })
-        .finally(async () => {
-          try {
-            await firmwareUpdateJournal.sweepOrphansAfterRecovery();
-          } catch {
-            defaultLogger.app.bootstrap.initCriticalStep(
-              'firmwareUpdateOrphanSweep (FAILED)',
-              0,
-            );
-          }
-        });
+      void firmwareArtifactAdapter.sweepOrphans().catch(() => {
+        defaultLogger.app.bootstrap.initCriticalStep(
+          'firmwareArtifactOrphanSweep (FAILED)',
+          0,
+        );
+      });
     }
     if (platformEnv.isWeb || platformEnv.isDesktop) {
       setTimeout(() => {
@@ -72,16 +60,6 @@ class ServiceBootstrap extends ServiceBase {
     defaultLogger.app.bootstrap.initCriticalStart();
     const criticalStart = Date.now();
     await this.timed('localDb.readyDb', () => localDb.readyDb);
-    try {
-      await this.timed('firmwareUpdateJournal.bootstrapRecover', () =>
-        firmwareUpdateJournal.bootstrapRecover(),
-      );
-    } catch (_error) {
-      defaultLogger.app.bootstrap.initCriticalStep(
-        'firmwareUpdateJournal.bootstrapRecover (FAILED)',
-        0,
-      );
-    }
     try {
       await this.timed('serviceIdentityExit.recoverInterruptedOperations', () =>
         this.backgroundApi.serviceIdentityExit.recoverInterruptedIdentityExitOperations(),

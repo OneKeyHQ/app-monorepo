@@ -9,14 +9,12 @@ import { firmwareArtifactAdapter } from './FirmwareArtifactAdapter';
 import {
   type ITrustedFirmwareArtifact,
   getTrustedFirmwareArtifact,
-  getTrustedFirmwareArtifactByIntegrity,
 } from './trustedFirmwareCatalog';
 
 import type {
   IFirmwareArtifactReceipt,
   IFirmwareArtifactRoute,
 } from './FirmwareArtifactAdapter.types';
-import type { IFirmwareUpdateJournalPrepared } from './FirmwareUpdateJournal';
 import type {
   CoreApi,
   FirmwareArtifactReader,
@@ -37,12 +35,8 @@ const FIRMWARE_CAPABILITY_KEYS = [
   'planSchemaVersion',
   'preparedPlanSchemaVersion',
   'hostBindingProtocolVersion',
-  'checkpointSchemaVersion',
   'manifestModes',
   'supportsArtifactReader',
-  'supportsAwaitableCheckpoint',
-  'supportsResume',
-  'supportsReconciliation',
 ] as const;
 
 export const isExternalFirmwareCapabilityReady = (
@@ -61,14 +55,10 @@ export const isExternalFirmwareCapabilityReady = (
   }
   const capabilities = value as Record<string, unknown>;
   if (
-    capabilities.planSchemaVersion !== 1 ||
-    capabilities.preparedPlanSchemaVersion !== 1 ||
-    capabilities.hostBindingProtocolVersion !== 1 ||
-    capabilities.checkpointSchemaVersion !== 1 ||
+    capabilities.planSchemaVersion !== 2 ||
+    capabilities.preparedPlanSchemaVersion !== 2 ||
+    capabilities.hostBindingProtocolVersion !== 2 ||
     capabilities.supportsArtifactReader !== true ||
-    capabilities.supportsAwaitableCheckpoint !== true ||
-    capabilities.supportsResume !== true ||
-    capabilities.supportsReconciliation !== true ||
     !Array.isArray(capabilities.manifestModes) ||
     capabilities.manifestModes.length !== 2
   ) {
@@ -670,7 +660,7 @@ export const isFirmwareArtifactCapabilityReadyValue = (
   const value = capabilities as Record<string, unknown>;
   const routeTypes = value.supportedRouteTypes;
   return (
-    value.firmwareArtifactProtocolVersion === 1 &&
+    value.firmwareArtifactProtocolVersion === 2 &&
     value.maxReadBytes === MAX_READ_BYTES &&
     value.supportsArchiveMaterialization === true &&
     Array.isArray(routeTypes) &&
@@ -689,237 +679,4 @@ export async function isFirmwareArtifactCapabilityReady(): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-export function restoreFirmwareUpdatePlanFromPrepared(
-  prepared: FirmwareUpdatePreparedPlan,
-): FirmwareUpdatePlan {
-  const artifacts = prepared.artifacts.map((preparedArtifact) => {
-    const trustedArtifact = getTrustedFirmwareArtifactByIntegrity({
-      expectedSha256: preparedArtifact.artifact.sha256,
-      expectedSize: preparedArtifact.artifact.size,
-      role: preparedArtifact.role,
-      container: preparedArtifact.container,
-      logicalName: preparedArtifact.logicalName,
-    });
-    return {
-      artifactId: preparedArtifact.artifactId,
-      role: preparedArtifact.role,
-      target: preparedArtifact.target,
-      url: trustedArtifact.url,
-      container: preparedArtifact.container,
-      ...(preparedArtifact.logicalName
-        ? { logicalName: preparedArtifact.logicalName }
-        : {}),
-      expectedSize: preparedArtifact.artifact.size,
-      expectedSha256: preparedArtifact.artifact.sha256,
-      ...(preparedArtifact.targetVersion
-        ? { targetVersion: preparedArtifact.targetVersion }
-        : {}),
-    };
-  });
-  const plan: FirmwareUpdatePlan = {
-    schemaVersion: 1,
-    planDigest: prepared.planDigest,
-    executor: prepared.executor,
-    deviceIdentity: prepared.deviceIdentity,
-    deviceModel: prepared.deviceModel,
-    firmwareType: prepared.firmwareType,
-    platform: prepared.platform,
-    artifacts,
-    epochs: prepared.epochs.map((epoch) => ({
-      ...epoch,
-      artifactIds: [...epoch.artifactIds],
-      targets: [...epoch.targets],
-    })),
-    targetsToUpdate: [...prepared.targetsToUpdate],
-  };
-  return plan;
-}
-
-export async function restorePreparedFirmwareArtifacts({
-  plan,
-  transactionId,
-  leaseRef,
-  prepared,
-  preparePlan,
-  validatePreparedPlan,
-}: {
-  plan: FirmwareUpdatePlan;
-  transactionId: string;
-  leaseRef: string;
-  prepared: IFirmwareUpdateJournalPrepared;
-  preparePlan: CoreApi['prepareFirmwareUpdatePlan'];
-  validatePreparedPlan: CoreApi['validateFirmwareUpdatePreparedPlan'];
-}): Promise<IPreparedFirmwareArtifacts> {
-  const persistedPreparedPlan = validatePreparedPlan(prepared);
-  if (
-    persistedPreparedPlan.planDigest !== plan.planDigest ||
-    persistedPreparedPlan.leaseRef !== leaseRef
-  ) {
-    throw new OneKeyLocalError(
-      'Prepared firmware plan is not bound to this transaction',
-    );
-  }
-  const preparedPlan = preparePlan({
-    plan,
-    leaseRef,
-    artifacts: persistedPreparedPlan.artifacts.map((artifact) => ({
-      artifactId: artifact.artifactId,
-      artifact: artifact.artifact,
-      ...(artifact.materializedEntries
-        ? { materializedEntries: artifact.materializedEntries }
-        : {}),
-    })),
-  });
-  if (
-    preparedPlan.preparedPlanDigest !== persistedPreparedPlan.preparedPlanDigest
-  ) {
-    throw new OneKeyLocalError(
-      'Prepared firmware plan does not match the update plan',
-    );
-  }
-  const artifactsById: Record<string, IFirmwareArtifactReference> = {};
-  if (preparedPlan.artifacts.length !== plan.artifacts.length) {
-    throw new OneKeyLocalError(
-      'Prepared firmware artifact set does not match the plan',
-    );
-  }
-  for (const planArtifact of plan.artifacts) {
-    const preparedArtifact = preparedPlan.artifacts.find(
-      (artifact) => artifact.artifactId === planArtifact.artifactId,
-    );
-    const journalArtifact = preparedArtifact?.artifact;
-    if (
-      !journalArtifact ||
-      journalArtifact.size !== planArtifact.expectedSize ||
-      journalArtifact.sha256.toLowerCase() !==
-        planArtifact.expectedSha256?.toLowerCase() ||
-      journalArtifact.artifactRef !==
-        `fw:${planArtifact.expectedSha256?.toLowerCase()}`
-    ) {
-      throw new OneKeyLocalError(
-        'Prepared firmware artifact integrity does not match the plan',
-      );
-    }
-    await firmwareArtifactAdapter.retain({
-      leaseRef,
-      artifactRef: journalArtifact.artifactRef,
-    });
-    const opened = await firmwareArtifactAdapter.open(
-      journalArtifact.artifactRef,
-    );
-    try {
-      if (opened.size !== journalArtifact.size) {
-        throw new OneKeyLocalError(
-          'Prepared firmware artifact size is invalid',
-        );
-      }
-    } finally {
-      await firmwareArtifactAdapter.close(opened.readerId);
-    }
-    artifactsById[planArtifact.artifactId] = journalArtifact;
-  }
-
-  const resourceEntries: {
-    entryName: string;
-    artifact: IFirmwareArtifactReference;
-  }[] = [];
-  const archivePlanArtifact = plan.artifacts.find(
-    (artifact) => artifact.container === 'zip',
-  );
-  if (archivePlanArtifact) {
-    const archivePreparedArtifact = preparedPlan.artifacts.find(
-      (artifact) => artifact.artifactId === archivePlanArtifact.artifactId,
-    );
-    const preparedEntries = archivePreparedArtifact?.materializedEntries ?? [];
-    const trustedArchive = getTrustedFirmwareArtifact(archivePlanArtifact.url);
-    const expectedEntries = trustedArchive.expectedEntries ?? [];
-    if (preparedEntries.length !== expectedEntries.length) {
-      throw new OneKeyLocalError(
-        'Prepared firmware archive entry set is incomplete',
-      );
-    }
-    for (const expectedEntry of expectedEntries) {
-      const journalEntry = preparedEntries.find(
-        (entry) => entry.entryName === expectedEntry.entryName,
-      );
-      const journalArtifact = journalEntry?.artifact;
-      if (
-        !journalArtifact ||
-        journalArtifact.size !== expectedEntry.expectedSize ||
-        journalArtifact.sha256 !== expectedEntry.expectedSha256.toLowerCase() ||
-        journalArtifact.artifactRef !==
-          `fw:${expectedEntry.expectedSha256.toLowerCase()}`
-      ) {
-        throw new OneKeyLocalError(
-          'Prepared firmware archive entry integrity is invalid',
-        );
-      }
-      await firmwareArtifactAdapter.retain({
-        leaseRef,
-        artifactRef: journalArtifact.artifactRef,
-      });
-      resourceEntries.push({
-        entryName: expectedEntry.entryName,
-        artifact: journalArtifact,
-      });
-    }
-  } else if (
-    preparedPlan.artifacts.some(
-      (artifact) => artifact.materializedEntries?.length,
-    )
-  ) {
-    throw new OneKeyLocalError(
-      'Prepared firmware journal has unexpected archive entries',
-    );
-  }
-
-  const componentArtifacts: IPreparedFirmwareArtifacts['selected']['componentArtifacts'] =
-    {};
-  const resourceBundleArtifacts: IPreparedFirmwareArtifacts['selected']['resourceBundleArtifacts'] =
-    [];
-  for (const planArtifact of plan.artifacts) {
-    const artifact = artifactsById[planArtifact.artifactId];
-    if (planArtifact.role === 'component') {
-      const target = planArtifact.target;
-      if (
-        target === 'firmware' ||
-        target === 'ble' ||
-        target === 'bootloader' ||
-        target === 'resource'
-      ) {
-        throw new OneKeyLocalError('Firmware component target is invalid');
-      }
-      componentArtifacts[target] = artifact;
-    }
-    if (planArtifact.role === 'resourceBundle') {
-      if (!planArtifact.logicalName) {
-        throw new OneKeyLocalError(
-          'Firmware resource bundle has no logical name',
-        );
-      }
-      resourceBundleArtifacts.push({
-        name: planArtifact.logicalName,
-        artifact,
-      });
-    }
-  }
-
-  return {
-    transactionId,
-    leaseRef,
-    plan,
-    preparedPlan,
-    artifactsById,
-    selected: {
-      firmware: artifactsById.firmware,
-      ble: artifactsById.ble,
-      bootloader: artifactsById.bootloader,
-      resourceEntries: resourceEntries.length ? resourceEntries : undefined,
-      componentArtifacts,
-      resourceBundleArtifacts,
-    },
-    artifactReader: createArtifactReader(),
-  };
 }

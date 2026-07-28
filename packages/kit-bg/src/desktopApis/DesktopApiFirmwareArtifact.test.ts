@@ -44,24 +44,20 @@ describe('DesktopApiFirmwareArtifact URL admission', () => {
     ).toBe(false);
   });
 
-  it('probes its root and persists the minimum lease lifecycle', async () => {
+  it('probes its root and keeps the minimum lease lifecycle in memory', async () => {
     const adapter = new DesktopApiFirmwareArtifact({
       desktopApi: {} as never,
     });
     expect(adapter.getCapabilities()).toMatchObject({
-      firmwareArtifactProtocolVersion: 1,
+      firmwareArtifactProtocolVersion: 2,
       maxReadBytes: 256 * 1024,
     });
     const transactionId = 'fwtx:00000000-0000-4000-8000-000000000001';
     const lease = await adapter.createLease(transactionId);
-    await expect(
-      adapter.reconcileLeases([lease.leaseRef]),
-    ).resolves.toBeUndefined();
     await adapter.releaseLease({
       leaseRef: lease.leaseRef,
       disposition: 'safeCancelled',
     });
-    await expect(adapter.reconcileLeases([])).resolves.toBeUndefined();
   });
 
   it('rejects cancelled transactions until their lease is released', async () => {

@@ -67,6 +67,5 @@ export interface IFirmwareArtifactAdapter {
     leaseRef: string;
     disposition: IFirmwareArtifactLeaseDisposition;
   }): Promise<void>;
-  reconcileLeases(activeLeaseRefs: readonly string[]): Promise<void>;
   sweepOrphans(): Promise<{ deletedFiles: number; deletedBytes: number }>;
 }
