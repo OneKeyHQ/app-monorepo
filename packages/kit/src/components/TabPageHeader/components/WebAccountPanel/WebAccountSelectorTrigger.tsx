@@ -89,5 +89,11 @@ export function WebAccountSelectorTrigger({
     </XStack>
   );
 
-  return <WebAccountPanelPopover renderTrigger={trigger} connected />;
+  return (
+    <WebAccountPanelPopover
+      renderTrigger={trigger}
+      connected
+      showPerpsActivityCenter={isPerpsRoute}
+    />
+  );
 }

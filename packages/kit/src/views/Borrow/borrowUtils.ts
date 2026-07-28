@@ -3,7 +3,6 @@ import {
   WEB_APP_URL,
   WEB_APP_URL_DEV,
 } from '@onekeyhq/shared/src/config/appConfig';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
@@ -12,13 +11,13 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
-import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 
 import { safePushToEarnRoute } from '../Earn/earnUtils';
 
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
 import type { EManagePositionType } from '../Staking/pages/ManagePosition/hooks/useManagePage';
-import type { IntlShape } from 'react-intl';
+
+export { getBorrowTxTitle } from './borrowTxTitle';
 
 export const BorrowNavigation = {
   pushToBorrowHome(navigation: IAppNavigation) {
@@ -185,6 +184,22 @@ export const BorrowNavigation = {
     });
   },
 
+  pushToBorrowEModeSwitch(
+    navigation: IAppNavigation,
+    params: {
+      accountId: string;
+      indexedAccountId?: string;
+      networkId: string;
+      provider: string;
+      marketAddress: string;
+    },
+  ) {
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.BorrowEModeSwitch,
+      params,
+    });
+  },
+
   generateBorrowShareLink({
     networkId,
     symbol,
@@ -227,27 +242,4 @@ export const BorrowNavigation = {
 export const isBorrowTx = (unsignedTx: IUnsignedTxPro | undefined) => {
   if (!unsignedTx) return false;
   return unsignedTx?.stakingInfo?.tags?.includes(EEarnLabels.Borrow);
-};
-
-export const getBorrowTxTitle = ({
-  intl,
-  stakingInfo,
-}: {
-  intl: IntlShape;
-  stakingInfo: IStakingInfo | undefined;
-}) => {
-  switch (stakingInfo?.label) {
-    case EEarnLabels.Supply:
-      return intl.formatMessage({ id: ETranslations.defi_supply });
-    case EEarnLabels.Borrow:
-      return intl.formatMessage({ id: ETranslations.global_borrow });
-    case EEarnLabels.Repay:
-      return intl.formatMessage({ id: ETranslations.defi_repay });
-    case EEarnLabels.Withdraw:
-      return intl.formatMessage({ id: ETranslations.global_withdraw });
-    case EEarnLabels.Claim:
-      return intl.formatMessage({ id: ETranslations.earn_claim });
-    default:
-      return undefined;
-  }
 };

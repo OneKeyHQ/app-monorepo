@@ -1,5 +1,23 @@
+// This module is loaded ONLY via dynamic import from ServiceAccountSelector:
+// home/swap selector sync logic runs on selector interactions, and keeping it
+// behind a lazy segment keeps it out of the native background startup graph
+// (Startup Graph Budget CI check). Do not add static imports of this module.
+import { cloneDeep } from 'lodash';
+
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
+import { settingsAtom } from '../../states/jotai/atoms';
+
+import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { IDBAccount } from '../../dbs/local/types';
+import type {
+  IAccountSelectorSelectedAccount,
+  IAccountSelectorSelectedAccountsMap,
+} from '../../dbs/simple/entity/SimpleDbEntityAccountSelector';
 
 type IAccountSelectorHomeSyncScene = {
   sceneName: EAccountSelectorSceneName;
@@ -69,4 +87,166 @@ export function shouldSyncAccountSelectorHomeAndSwapScenes({
       swapToAnotherAccountSwitchOn,
     })
   );
+}
+
+// Atom-reading variants used by the ServiceAccountSelector delegates; the
+// pure predicates above stay exported for direct unit testing.
+export async function shouldSyncWithHomeScene({
+  scene,
+}: {
+  scene: IAccountSelectorHomeSyncScene;
+}) {
+  const { swapToAnotherAccountSwitchOn } = await settingsAtom.get();
+  return isAccountSelectorHomeSyncTargetScene({
+    scene,
+    swapToAnotherAccountSwitchOn,
+  });
+}
+
+export async function shouldSyncHomeAndSwapScenes({
+  sourceScene,
+  targetScene,
+}: {
+  sourceScene: IAccountSelectorHomeSyncScene;
+  targetScene: IAccountSelectorHomeSyncScene;
+}) {
+  const { swapToAnotherAccountSwitchOn } = await settingsAtom.get();
+  return shouldSyncAccountSelectorHomeAndSwapScenes({
+    sourceScene,
+    targetScene,
+    swapToAnotherAccountSwitchOn,
+  });
+}
+
+export async function fixOthersWalletAccountNetworkPair({
+  backgroundApi,
+  selectedAccount,
+  source,
+}: {
+  backgroundApi: IBackgroundApi;
+  selectedAccount: IAccountSelectorSelectedAccount;
+  source?: string;
+}): Promise<IAccountSelectorSelectedAccount> {
+  const { walletId, networkId, othersWalletAccountId } = selectedAccount;
+  if (
+    !walletId ||
+    !networkId ||
+    !othersWalletAccountId ||
+    !accountUtils.isOthersWallet({ walletId }) ||
+    networkUtils.isAllNetwork({ networkId })
+  ) {
+    return selectedAccount;
+  }
+
+  let dbAccount: IDBAccount | undefined;
+  try {
+    dbAccount = await backgroundApi.serviceAccount.getDBAccount({
+      accountId: othersWalletAccountId,
+    });
+  } catch {
+    return selectedAccount;
+  }
+
+  if (!dbAccount) {
+    return selectedAccount;
+  }
+
+  try {
+    if (
+      accountUtils.isAccountCompatibleWithNetwork({
+        account: dbAccount,
+        networkId,
+      })
+    ) {
+      return selectedAccount;
+    }
+  } catch {
+    // Fall through to compatible-network resolution below.
+  }
+
+  let fixedNetworkId: string | undefined;
+  try {
+    fixedNetworkId = accountUtils.getAccountCompatibleNetwork({
+      account: dbAccount,
+      networkId,
+    });
+  } catch {
+    return selectedAccount;
+  }
+
+  if (!fixedNetworkId || fixedNetworkId === networkId) {
+    return selectedAccount;
+  }
+
+  defaultLogger.accountSelector.listData.fixOthersWalletAccountNetworkPair({
+    source,
+    walletId,
+    networkId,
+    fixedNetworkId,
+    accountImpl: dbAccount.impl,
+    accountCreateAtNetwork: dbAccount.createAtNetwork,
+    accountNetworksCount: dbAccount.networks?.length,
+  });
+
+  return {
+    ...selectedAccount,
+    networkId: fixedNetworkId,
+    deriveType: selectedAccount.deriveType || 'default',
+  };
+}
+
+export async function mergeHomeDataToSwapMap({
+  backgroundApi,
+  swapMap,
+}: {
+  backgroundApi: IBackgroundApi;
+  swapMap: IAccountSelectorSelectedAccountsMap | undefined;
+}) {
+  const homeData: IAccountSelectorSelectedAccount | undefined =
+    await backgroundApi.simpleDb.accountSelector.getSelectedAccount({
+      sceneName: EAccountSelectorSceneName.home,
+      num: 0,
+    });
+  if (homeData) {
+    const fixedHomeData = await fixOthersWalletAccountNetworkPair({
+      backgroundApi,
+      selectedAccount: homeData,
+      source: 'mergeHomeDataToSwapMap:home',
+    });
+    // eslint-disable-next-line no-param-reassign
+    swapMap = cloneDeep(swapMap || {});
+
+    const updateSwapMap = async (num: number) => {
+      if (!swapMap) {
+        return;
+      }
+      const swapDataMerged = accountSelectorUtils.buildMergedSelectedAccount({
+        data: swapMap[num],
+        mergedByData: fixedHomeData,
+      });
+      if (swapDataMerged) {
+        const usedNetworkId =
+          // swapDataMerged.networkId ??
+          // swapMap[num]?.networkId ??
+          fixedHomeData?.networkId;
+        const fixedSwapDataMerged = await fixOthersWalletAccountNetworkPair({
+          backgroundApi,
+          selectedAccount: {
+            ...swapDataMerged,
+            networkId: usedNetworkId,
+          },
+          source: `mergeHomeDataToSwapMap:${num}`,
+        });
+        swapMap[num] = fixedSwapDataMerged;
+      }
+    };
+
+    await updateSwapMap(0);
+
+    const { swapToAnotherAccountSwitchOn } = await settingsAtom.get();
+    if (!swapToAnotherAccountSwitchOn) {
+      await updateSwapMap(1);
+    }
+  }
+  return swapMap;
 }

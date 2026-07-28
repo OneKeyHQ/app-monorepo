@@ -42,6 +42,10 @@ export const useBorrowHealthFactor = ({
       initResult: null,
       watchLoading: true,
       pollingInterval: POLLING_INTERVAL,
+      revalidateOnFocus: true,
+      // Account/network/market changes must never render the previous scope's
+      // risk metric while the next request is in flight.
+      undefinedResultIfReRun: true,
       // Fix: Ensure API responses update state even when page loses focus during request
       alwaysSetState: true,
     },

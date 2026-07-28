@@ -1,16 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import {
-  flatten,
-  groupBy,
-  isEmpty,
-  isNaN,
-  isNil,
-  map,
-  uniq,
-  uniqBy,
-} from 'lodash';
+import { flatten, groupBy, isEmpty, isNaN, map } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -65,6 +56,7 @@ import { EmptyNoWalletView } from '../../AccountManagerStacks/pages/AccountSelec
 import { BATCH_CREATE_ACCONT_MAX_COUNT } from '../../AccountManagerStacks/pages/BatchCreateAccount/BatchCreateAccountFormBase';
 import { showBatchCreateAccountProcessingDialog } from '../../AccountManagerStacks/pages/BatchCreateAccount/ProcessingDialog';
 import { BulkCopyAddressesTestIDs } from '../testIDs';
+import { buildBulkCopyByAccountsFlowParams } from '../utils/buildBulkCopyByAccountsParams';
 
 enum EBulkCopyType {
   Account = 'account',
@@ -452,45 +444,29 @@ function BulkCopyAddresses({
       return {};
     }
 
-    let indexes = [];
-    let customNetworks: {
-      networkId: string;
-      deriveType: IAccountDeriveTypes;
-    }[] = [];
-
-    let addressCount = 0;
-
-    for (const networkAccount of networkAccounts ?? []) {
-      for (const account of networkAccount.networkAccounts) {
-        if (!isNil(account.account?.pathIndex)) {
-          customNetworks.push({
-            networkId: networkAccount.network.id,
-            deriveType: account.deriveType,
-          });
-          indexes.push(account.account.pathIndex);
-        }
-      }
-    }
-
-    indexes = uniq(indexes);
-    customNetworks = uniqBy(
-      customNetworks,
-      (item) => `${item.networkId}_${item.deriveType}`,
-    );
-
-    addressCount = new BigNumber(customNetworks.length)
-      .multipliedBy(indexes.length)
-      .toNumber();
+    // Each (network, deriveType) pair carries exactly its own account
+    // indexes so the flow fetches one address per existing account — the
+    // progress total equals the visible account count, not the
+    // (derive types x max indexes) cartesian product (e.g. 13, not 40,
+    // for 10 taproot + 1 nested + 1 native + 1 legacy).
+    const { customNetworks, indexes, addressCount } =
+      buildBulkCopyByAccountsFlowParams({
+        networkAccounts: networkAccounts ?? [],
+      });
 
     const normalParams: IBatchBuildAccountsNormalFlowParams = {
       walletId: selectedWalletId,
       networkId: selectedNetworkId,
+      // Anchor the flow's seeded (networkId, deriveType) pair on a pair the
+      // helper already scoped with indexes; the global derive type is only a
+      // fallback for the empty-account edge case.
       deriveType:
-        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        customNetworks[0]?.deriveType ??
+        (await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
           networkId: selectedNetworkId,
-        }),
+        })),
       saveToDb: false,
-      indexes: uniq(indexes),
+      indexes,
       showUIProgress: true,
       errorMessage: intl.formatMessage({
         id: ETranslations.global_bulk_copy_addresses_loading_error,

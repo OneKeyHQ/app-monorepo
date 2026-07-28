@@ -1,8 +1,10 @@
+/* cspell:ignore Infini */
 import BigNumber from 'bignumber.js';
 import { cloneDeep, isNil } from 'lodash';
 import pLimit from 'p-limit';
 import pRetry from 'p-retry';
 
+import type { IEncodedTxTron } from '@onekeyhq/core/src/chains/tron/types';
 import type {
   IEncodedTx,
   IUnsignedMessage,
@@ -18,6 +20,7 @@ import {
   SEND_TX_SERVER_ERROR_CODES,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
+  InvoiceExpiredError,
   OneKeyLocalError,
   PendingQueueTooLong,
   ReplaceTxNonceConsumedError,
@@ -43,6 +46,10 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  isPrimeInfiniPaymentPreBroadcastSnapshotSendable,
+  isSamePrimeInfiniNetworkAddress,
+} from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -54,6 +61,7 @@ import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import type { IParseTransactionResp } from '@onekeyhq/shared/types/signatureConfirm';
 import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
+import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 import type {
   EReplaceTxType,
   IDecodedTx,
@@ -362,6 +370,9 @@ class ServiceSend extends ServiceBase {
       ISignTransactionParamsBase & {
         gasAccountUiState?: IBatchSignTransactionParamsBase['gasAccountUiState'];
         gasAccountSubmitId?: IBatchSignTransactionParamsBase['gasAccountSubmitId'];
+        broadcastDeadline?: IBatchSignTransactionParamsBase['broadcastDeadline'];
+        beforeBroadcastAction?: IBatchSignTransactionParamsBase['beforeBroadcastAction'];
+        transferPayload?: IBatchSignTransactionParamsBase['transferPayload'];
         isPrivateSend?: boolean;
       },
   ) {
@@ -374,6 +385,9 @@ class ServiceSend extends ServiceBase {
       tronResourceRentalInfo,
       gasAccountUiState,
       gasAccountSubmitId,
+      broadcastDeadline,
+      beforeBroadcastAction,
+      transferPayload,
       isPrivateSend,
       useDefaultRpc,
     } = params;
@@ -411,7 +425,170 @@ class ServiceSend extends ServiceBase {
         accountId,
       });
 
+      let effectiveBroadcastDeadline = broadcastDeadline;
+      const ensureBroadcastDeadline = () => {
+        if (
+          effectiveBroadcastDeadline !== undefined &&
+          Date.now() >= effectiveBroadcastDeadline
+        ) {
+          throw new InvoiceExpiredError();
+        }
+      };
+      // Threat model: this hook is attached only to OneKey-built Prime
+      // transfers (isInternalTransfer + local transfersInfo + vault-built
+      // encodedTx), never to dApp- or third-party-supplied transactions. It
+      // must run in full before broadcast: require a signed encodedTx, bind the
+      // current Prime user and invoice recipient/amount/token/network/signer,
+      // enforce the deadline, refresh the server snapshot, and atomically
+      // claim sendStarted. That claim is the duplicate-broadcast/payment
+      // boundary. The decoded action count is only an internal consistency
+      // check; it does not prove that a chain-native transaction contains one
+      // money-moving instruction. The TRON contract-count check below is
+      // likewise low-cost hardening, not a security boundary. Under these
+      // assumptions, current and future Prime rails intentionally do not need
+      // chain-native instruction validators. Reusing this hook for externally
+      // supplied encodedTx invalidates the threat model and requires
+      // redesigning this defense.
+      if (beforeBroadcastAction?.type === 'primeInfiniPayment') {
+        const paymentCacheKey = beforeBroadcastAction.paymentCacheKey;
+        const ensurePrimePaymentUserIsCurrent = async () => {
+          const currentPrimeUser =
+            await this.backgroundApi.servicePrime.getLocalUserInfo();
+          if (
+            !currentPrimeUser.isLoggedIn ||
+            currentPrimeUser.onekeyUserId !== paymentCacheKey.onekeyUserId
+          ) {
+            throw new OneKeyLocalError({
+              message: 'Prime payment user changed before broadcast',
+              autoToast: false,
+            });
+          }
+        };
+        if (signedTx.encodedTx === null) {
+          throw new OneKeyLocalError({
+            message: 'Infini payment transaction cannot be verified',
+            autoToast: false,
+          });
+        }
+        const hasExpectedNativeTransactionShape =
+          !networkUtils.isTronNetworkByNetworkId(networkId) ||
+          (signedTx.encodedTx as IEncodedTxTron).raw_data?.contract?.length ===
+            1;
+        if (!hasExpectedNativeTransactionShape) {
+          throw new OneKeyLocalError({
+            message: 'Infini payment transaction cannot be verified',
+            autoToast: false,
+          });
+        }
+        ensureBroadcastDeadline();
+        await ensurePrimePaymentUserIsCurrent();
+        const decodedTxPromise = vault
+          .buildDecodedTx({
+            unsignedTx: {
+              ...unsignedTx,
+              encodedTx: signedTx.encodedTx,
+            },
+            transferPayload,
+          })
+          .catch(() => {
+            throw new OneKeyLocalError({
+              message: 'Infini payment transaction cannot be verified',
+              autoToast: false,
+            });
+          });
+        const preBroadcastSnapshotPromise =
+          this.backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot(
+            {
+              paymentId: paymentCacheKey.paymentId,
+              expectedOneKeyUserId: paymentCacheKey.onekeyUserId,
+            },
+          );
+        const [decodedTx, { payment: latestPayment, purchaseStatusSnapshot }] =
+          await Promise.all([decodedTxPromise, preBroadcastSnapshotPromise]);
+        const action = decodedTx.actions[0];
+        const transfer = action?.assetTransfer?.sends[0];
+        const isExpectedSingleTokenTransfer =
+          decodedTx.networkId === networkId &&
+          decodedTx.accountId === accountId &&
+          isSamePrimeInfiniNetworkAddress({
+            networkId,
+            first: decodedTx.signer,
+            second: accountAddress,
+          }) &&
+          decodedTx.actions.length === 1 &&
+          (!decodedTx.outputActions || decodedTx.outputActions.length === 0) &&
+          !decodedTx.approveInfo &&
+          action.type === EDecodedTxActionType.ASSET_TRANSFER &&
+          Boolean(action.assetTransfer) &&
+          action.assetTransfer?.sends.length === 1 &&
+          action.assetTransfer.receives.length === 0 &&
+          Boolean(transfer) &&
+          Boolean(transfer?.from.trim()) &&
+          Boolean(transfer?.to.trim()) &&
+          Boolean(transfer?.tokenIdOnNetwork.trim()) &&
+          new BigNumber(transfer?.amount ?? '').isFinite() &&
+          new BigNumber(transfer?.amount ?? '').gt(0) &&
+          transfer?.isNative !== true &&
+          transfer?.isNFT !== true &&
+          (!transfer?.networkId || transfer.networkId === networkId) &&
+          isSamePrimeInfiniNetworkAddress({
+            networkId,
+            first: action.assetTransfer?.from ?? '',
+            second: accountAddress,
+          }) &&
+          isSamePrimeInfiniNetworkAddress({
+            networkId,
+            first: action.assetTransfer?.to ?? '',
+            second: transfer?.to ?? '',
+          });
+        if (!isExpectedSingleTokenTransfer || !transfer) {
+          throw new OneKeyLocalError({
+            message: 'Infini payment transaction cannot be verified',
+            autoToast: false,
+          });
+        }
+        const transferClaim = {
+          networkId,
+          accountId,
+          accountAddress,
+          fromAddress: transfer.from,
+          toAddress: transfer.to,
+          contractAddress: transfer.tokenIdOnNetwork,
+          amount: transfer.amount,
+        };
+        ensureBroadcastDeadline();
+        if (
+          !isPrimeInfiniPaymentPreBroadcastSnapshotSendable({
+            payment: latestPayment,
+            paymentCacheKey,
+            transferClaim,
+          })
+        ) {
+          throw new OneKeyLocalError({
+            message: 'Infini payment session is unavailable before broadcast',
+            autoToast: false,
+          });
+        }
+        const markedSession =
+          await this.backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted(
+            {
+              onekeyUserId: paymentCacheKey.onekeyUserId,
+              paymentCacheKey,
+              transferClaim,
+              latestPayment,
+              purchaseStatusSnapshot,
+            },
+          );
+        effectiveBroadcastDeadline = Math.min(
+          effectiveBroadcastDeadline ?? markedSession.payment.expiresAt,
+          markedSession.payment.expiresAt,
+        );
+        await ensurePrimePaymentUserIsCurrent();
+        ensureBroadcastDeadline();
+      }
+
       const broadcastOnce = async () => {
+        ensureBroadcastDeadline();
         return vault.broadcastTransaction({
           accountId,
           networkId,
@@ -538,6 +715,9 @@ class ServiceSend extends ServiceBase {
             vaultSettings.minRetryBroadcastTxInterval ??
             timerUtils.getTimeDurationMs({ seconds: 3 }),
           shouldRetry: async (error) => {
+            if (error instanceof InvoiceExpiredError) {
+              return false;
+            }
             return vault.checkShouldRetryBroadcastTx(error);
           },
         });
@@ -617,10 +797,18 @@ class ServiceSend extends ServiceBase {
       tronResourceRentalInfo,
       gasAccountUiState,
       gasAccountSubmitId,
+      broadcastDeadline,
+      beforeBroadcastAction,
       useDefaultRpc,
     } = params;
 
     const isMultiTxs = unsignedTxs.length > 1;
+    if (beforeBroadcastAction && isMultiTxs) {
+      throw new OneKeyLocalError({
+        message: 'Infini payment supports exactly one transaction',
+        autoToast: false,
+      });
+    }
     const isPrivateSend = transferPayload?.isPrivateSend === true;
     const vault = await vaultFactory.getVault({ networkId, accountId });
 
@@ -688,6 +876,9 @@ class ServiceSend extends ServiceBase {
                 tronResourceRentalInfo,
                 gasAccountUiState: effectiveGasAccountUiState,
                 gasAccountSubmitId: effectiveGasAccountSubmitId,
+                broadcastDeadline,
+                beforeBroadcastAction,
+                transferPayload,
                 isPrivateSend,
                 useDefaultRpc,
               });

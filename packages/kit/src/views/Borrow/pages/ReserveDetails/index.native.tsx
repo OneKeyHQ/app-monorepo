@@ -64,8 +64,15 @@ const ReserveDetailsPage = () => {
   });
 
   const shareUrl = useMemo(() => {
-    if (!symbol || !provider || !networkId || !marketAddress || !reserveAddress)
+    if (
+      !symbol ||
+      !provider ||
+      !networkId ||
+      !marketAddress ||
+      reserveAddress === undefined
+    ) {
       return undefined;
+    }
     return BorrowNavigation.generateBorrowShareLink({
       networkId,
       symbol,

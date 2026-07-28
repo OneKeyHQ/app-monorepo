@@ -25,6 +25,7 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type {
   IBorrowAlert,
+  IBorrowEModeStatus,
   IEarnText,
   IEarnTooltip,
 } from '@onekeyhq/shared/types/staking';
@@ -43,6 +44,7 @@ import { BorrowNavigation } from '../borrowUtils';
 import { useBorrowHealthFactor } from '../hooks/useBorrowHealthFactor';
 import { useBorrowRewards } from '../hooks/useBorrowRewards';
 import { useUniversalBorrowClaim } from '../hooks/useUniversalBorrowHooks';
+import { normalizeEModeLabel } from '../pages/BorrowEModeSwitch/emodeUtils';
 import { BorrowTestIDs } from '../testIDs';
 
 import { BorrowBonusTooltip } from './BorrowBonusTooltip';
@@ -94,11 +96,13 @@ const OverviewItem = ({
 };
 
 export const Overview = ({
+  eModeStatus,
   showBottomSpacing = true,
   isActive = true,
   onHealthFactorAlertsChange,
   onBorrowHistoryActionChange,
 }: {
+  eModeStatus: IBorrowEModeStatus | null;
   showBottomSpacing?: boolean;
   isActive?: boolean;
   onHealthFactorAlertsChange?: (alerts?: IBorrowAlert[]) => void;
@@ -175,6 +179,33 @@ export const Overview = ({
       isActive && !!(networkId && provider && marketAddress && earnAccountId),
   });
   const healthFactorAlerts = healthFactorData?.alerts;
+
+  const currentEMode = eModeStatus?.categories?.find(
+    (c) => c.eModeId === eModeStatus.eModeId,
+  );
+  const currentEModeDisplayLabel = currentEMode
+    ? normalizeEModeLabel(currentEMode.label)
+    : '';
+  const hasEMode = (eModeStatus?.categories?.length ?? 0) > 0;
+  const openEModeSwitch = useCallback(() => {
+    if (!networkId || !provider || !marketAddress || !earnAccountId) {
+      return;
+    }
+    BorrowNavigation.pushToBorrowEModeSwitch(navigation, {
+      accountId: earnAccountId,
+      indexedAccountId: earnAccountData?.account?.indexedAccountId,
+      networkId,
+      provider,
+      marketAddress,
+    });
+  }, [
+    earnAccountData?.account?.indexedAccountId,
+    earnAccountId,
+    marketAddress,
+    navigation,
+    networkId,
+    provider,
+  ]);
 
   useEffect(() => {
     onHealthFactorAlertsChange?.(healthFactorAlerts);
@@ -442,6 +473,30 @@ export const Overview = ({
                 )}
               </XStack>
             </YStack>
+            {hasEMode ? (
+              <YStack
+                gap="$1"
+                flex={1}
+                onPress={openEModeSwitch}
+                testID="borrow-overview-emode-cell"
+              >
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({ id: ETranslations.defi_emode_title })}
+                </SizableText>
+                <XStack ai="center" gap="$1">
+                  <SizableText size="$headingLg">
+                    {eModeStatus?.eModeId === 0 || !currentEMode
+                      ? intl.formatMessage({ id: ETranslations.defi_emode_off })
+                      : currentEModeDisplayLabel}
+                  </SizableText>
+                  <Icon
+                    name="ChevronRightSmallOutline"
+                    size="$4"
+                    color="$iconSubdued"
+                  />
+                </XStack>
+              </YStack>
+            ) : null}
             <YStack gap="$1" flex={1}>
               <SizableText size="$bodyMd" color="$textSubdued">
                 {labels.platformBonus}
@@ -578,6 +633,29 @@ export const Overview = ({
           ) : undefined
         }
       />
+      {hasEMode ? (
+        <OverviewItem
+          needDivider
+          title={{
+            text: intl.formatMessage({ id: ETranslations.defi_emode_title }),
+          }}
+          text={{
+            text:
+              eModeStatus?.eModeId === 0 || !currentEMode
+                ? intl.formatMessage({ id: ETranslations.defi_emode_off })
+                : currentEModeDisplayLabel,
+          }}
+          action={
+            <IconButton
+              testID="borrow-overview-emode-btn"
+              icon="ChevronRightSmallOutline"
+              variant="tertiary"
+              size="small"
+              onPress={openEModeSwitch}
+            />
+          }
+        />
+      ) : null}
       <OverviewItem
         needDivider
         title={
