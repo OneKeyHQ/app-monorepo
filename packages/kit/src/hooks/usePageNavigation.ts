@@ -33,3 +33,50 @@ export const navigateToBackupWalletReminderPage = ({
     },
   });
 };
+
+// Same atomic-reset entry pattern as above (OK-50182): the KeyTag content pages
+// (view dots, enter phrase, interactive import) live in the Onboarding V2 page
+// stack, while the KeyTag hub + wallet selector stay in KeyTagModal. These
+// helpers cross that modal→V2 boundary race-safely.
+export const navigateToKeyTagBackupDotMapPage = ({
+  walletId,
+  isWalletBackedUp,
+  encodedText,
+  title,
+}: {
+  walletId?: string;
+  isWalletBackedUp?: boolean;
+  encodedText: string;
+  title: string;
+}) => {
+  resetToRoute(ERootRoutes.Onboarding, {
+    screen: EOnboardingV2Routes.OnboardingV2,
+    params: {
+      screen: EOnboardingPagesV2.KeyTagBackupDotMap,
+      params: {
+        walletId,
+        isWalletBackedUp,
+        encodedText,
+        title,
+      },
+    },
+  });
+};
+
+export const navigateToKeyTagImportPage = () => {
+  resetToRoute(ERootRoutes.Onboarding, {
+    screen: EOnboardingV2Routes.OnboardingV2,
+    params: {
+      screen: EOnboardingPagesV2.ImportKeyTag,
+    },
+  });
+};
+
+export const navigateToKeyTagEnterPhrasePage = () => {
+  resetToRoute(ERootRoutes.Onboarding, {
+    screen: EOnboardingV2Routes.OnboardingV2,
+    params: {
+      screen: EOnboardingPagesV2.KeyTagEnterPhrase,
+    },
+  });
+};

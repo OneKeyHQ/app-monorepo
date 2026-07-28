@@ -126,11 +126,27 @@ const ConnectExternalWallet = LazyLoadPage(
   false,
   legacyLayoutFallback,
 );
+// KeyTag content pages hosted in the onboarding stack (the hub + wallet
+// selector stay in KeyTagModal). They use the modern OnboardingPage layout,
+// so their Suspense fallback must be pageFallback — legacyLayoutFallback would
+// flash the V1 onboarding frame while the chunk loads.
 const ImportKeyTag = LazyLoadPage(
   () => import('../pages/ImportKeyTag'),
   undefined,
   false,
-  legacyLayoutFallback,
+  pageFallback,
+);
+const KeyTagBackupDotMap = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/KeyTag/pages/BackupDotMap'),
+  undefined,
+  false,
+  pageFallback,
+);
+const KeyTagEnterPhrase = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/KeyTag/pages/BackupRecoveryPhrase'),
+  undefined,
+  false,
+  pageFallback,
 );
 const OneKeyIDLogin = LazyLoadPage(
   () => import('../pages/OneKeyIDLoginPage'),
@@ -289,6 +305,16 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.ImportKeyTag,
     component: ImportKeyTag,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.KeyTagBackupDotMap,
+    component: KeyTagBackupDotMap,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.KeyTagEnterPhrase,
+    component: KeyTagEnterPhrase,
     options: hiddenHeaderOptions,
   },
   {
