@@ -94,6 +94,7 @@ import {
   openUrlExternal,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { IAddressValidateStatus } from '@onekeyhq/shared/types/address';
@@ -1172,7 +1173,15 @@ function SendAmountInputContainer() {
       return chainValueUtils.convertSatsToBtc(balance);
     }
 
-    return balance;
+    // Scaled-UI (rebase) tokens: show the multiplied display balance. UTXO
+    // subtotals and Lightning never belong to such tokens, so applying
+    // unconditionally is a no-op for every other chain.
+    return (
+      tokenRebaseUtils.applyBalanceMultiplier({
+        amount: balance,
+        balanceMultiplier: tokenRebaseUtils.pickBalanceMultiplier(tokenDetails),
+      }) ?? balance
+    );
   }, [selectedUtxoTotalAmount, isLightningNetwork, lnUnit, tokenDetails]);
 
   const maxBalanceFiat = useMemo(() => {
@@ -2604,7 +2613,11 @@ function SendAmountInputContainer() {
                 realAmount =
                   isLightningNetwork && lnUnit === ELightningUnit.BTC
                     ? chainValueUtils.convertSatsToBtc(balance)
-                    : balance;
+                    : (tokenRebaseUtils.applyBalanceMultiplier({
+                        amount: balance,
+                        balanceMultiplier:
+                          tokenRebaseUtils.pickBalanceMultiplier(tokenDetails),
+                      }) ?? balance);
               } else {
                 realAmount = linkedAmount.originalAmount;
               }
@@ -2975,11 +2988,40 @@ function SendAmountInputContainer() {
             return;
           }
 
+          // Scaled-UI (rebase) tokens: `realAmount` is the multiplied display
+          // amount, but ITransferInfo.amount carries the raw parsed amount.
+          // Sending the full balance takes the raw balance directly (no
+          // division => no rounding failure); partial amounts divide and
+          // truncate at token decimals so the raw amount never exceeds the
+          // balance. The >= display-balance check (rather than isMaxSend)
+          // also covers a hand-typed full balance and the fiat-overflow
+          // branch, and cannot go stale if the user edits after tapping MAX.
+          let transferAmount = realAmount;
+          const rebaseMultiplier =
+            tokenRebaseUtils.pickBalanceMultiplier(tokenDetails);
+          if (
+            !isNFT &&
+            tokenDetails &&
+            tokenRebaseUtils.isValidBalanceMultiplier(rebaseMultiplier)
+          ) {
+            const displayBalance = tokenRebaseUtils.applyBalanceMultiplier({
+              amount: tokenDetails.balanceParsed,
+              balanceMultiplier: rebaseMultiplier,
+            });
+            transferAmount = new BigNumber(realAmount).gte(displayBalance)
+              ? tokenDetails.balanceParsed
+              : tokenRebaseUtils.removeBalanceMultiplier({
+                  amount: realAmount,
+                  balanceMultiplier: rebaseMultiplier,
+                  decimals: tokenDetails.info.decimals,
+                });
+          }
+
           const transfersInfo: ITransferInfo[] = [
             {
               from: account.address,
               to: submitRecipientAddress,
-              amount: realAmount,
+              amount: transferAmount,
               nftInfo:
                 isNFT && nftDetails
                   ? {
