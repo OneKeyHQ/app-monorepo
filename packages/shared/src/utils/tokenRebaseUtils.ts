@@ -56,6 +56,23 @@ function isValidBalanceMultiplier(
   return parseBalanceMultiplier(balanceMultiplier) !== undefined;
 }
 
+// Picks the effective multiplier from a token-detail-shaped object
+// ({ info } & ITokenFiat). First VALID of [item-level, info-level] — `??`
+// would let an invalid item-level value ('0', '--') shadow a valid
+// info-level one and silently yield the raw balance.
+function pickBalanceMultiplier(
+  detail:
+    | { balanceMultiplier?: string; info?: { balanceMultiplier?: string } }
+    | undefined,
+): string | undefined {
+  if (!detail) {
+    return undefined;
+  }
+  return [detail.balanceMultiplier, detail.info?.balanceMultiplier].find(
+    isValidBalanceMultiplier,
+  );
+}
+
 // raw parsed amount -> display amount
 function applyBalanceMultiplier(params: {
   amount: string;
@@ -167,12 +184,16 @@ function normalizeTokenDetailItemsBalanceMultiplier(
 // only if it is actually valid, same rationale as above.
 //
 // Deliberately NOT normalized here: `resp.aggregateTokenMap` /
-// `resp.aggregateTokenListMap`. Aggregate entries span multiple networks
-// whose per-network multipliers can differ, so a single scalar multiplier is
-// not well-defined at the aggregate level. Aggregation is handled on the
-// already-multiplied DISPLAY basis client-side (Task 8), and server-side
-// aggregate multiplier semantics are still pending backend confirmation —
-// this is an intentional deferral, not an oversight.
+// `resp.aggregateTokenListMap`. Entries in these maps are still per-network
+// member fiats (client-built per network round), so a scalar multiplier IS
+// well-defined for any single entry — the ill-defined case is the FLATTENED
+// aggregate row (one aggregate token spanning members whose per-network
+// multipliers can differ), which has no single scalar multiplier of its own.
+// Aggregation of that flattened row is handled on the already-multiplied
+// DISPLAY basis client-side (Task 8), summing each member by its own
+// multiplier first. The server-provided aggregate maps above are skipped
+// here pending backend confirmation of their multiplier semantics — this is
+// an intentional deferral, not an oversight.
 function normalizeAccountTokensRespBalanceMultiplier(
   resp: IFetchAccountTokensResp | undefined,
 ): IFetchAccountTokensResp | undefined {
@@ -205,6 +226,7 @@ export default {
   isValidBalanceMultiplier,
   applyBalanceMultiplier,
   removeBalanceMultiplier,
+  pickBalanceMultiplier,
   normalizeTokenDetailItemsBalanceMultiplier,
   normalizeAccountTokensRespBalanceMultiplier,
 };

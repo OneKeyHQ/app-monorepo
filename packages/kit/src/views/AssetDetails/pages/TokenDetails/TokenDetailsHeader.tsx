@@ -561,8 +561,7 @@ function TokenDetailsHeaderContent({
             balanceParsed={tokenRebaseUtils.applyBalanceMultiplier({
               amount: tokenDetails?.balanceParsed,
               balanceMultiplier:
-                tokenDetails?.balanceMultiplier ??
-                tokenDetails?.info?.balanceMultiplier,
+                tokenRebaseUtils.pickBalanceMultiplier(tokenDetails),
             })}
           />
           {/* Actions */}

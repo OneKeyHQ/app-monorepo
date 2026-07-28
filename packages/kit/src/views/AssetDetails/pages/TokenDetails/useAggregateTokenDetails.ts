@@ -145,7 +145,8 @@ export function useAggregateTokenDetails({
           totalBalance = totalBalance.plus(
             tokenRebaseUtils.applyBalanceMultiplier({
               amount: tokenDetail.balanceParsed,
-              balanceMultiplier: tokenDetail.balanceMultiplier,
+              balanceMultiplier:
+                tokenRebaseUtils.pickBalanceMultiplier(tokenDetail),
             }),
           );
         }

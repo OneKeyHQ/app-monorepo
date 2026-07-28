@@ -211,6 +211,21 @@ describe('tokenRebaseUtils', () => {
     });
   });
 
+  describe('pickBalanceMultiplier', () => {
+    it('skips an invalid item-level value and falls back to a valid info-level value', () => {
+      expect(
+        tokenRebaseUtils.pickBalanceMultiplier({
+          balanceMultiplier: '--',
+          info: { balanceMultiplier: '1.5' },
+        }),
+      ).toBe('1.5');
+    });
+
+    it('returns undefined when the detail itself is undefined', () => {
+      expect(tokenRebaseUtils.pickBalanceMultiplier(undefined)).toBeUndefined();
+    });
+  });
+
   describe('normalizers', () => {
     const M = '1.0026642075893797';
 

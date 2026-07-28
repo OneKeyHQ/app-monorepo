@@ -532,7 +532,8 @@ function TokenDetailsOverview(props: IProps) {
           const percentText = renderPercent(tokenDetail);
           const displayBalanceParsed = tokenRebaseUtils.applyBalanceMultiplier({
             amount: tokenDetail?.balanceParsed,
-            balanceMultiplier: tokenDetail?.balanceMultiplier,
+            balanceMultiplier:
+              tokenRebaseUtils.pickBalanceMultiplier(tokenDetail),
           });
           return (
             <ListItem

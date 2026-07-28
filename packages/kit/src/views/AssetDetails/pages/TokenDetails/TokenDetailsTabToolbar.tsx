@@ -110,7 +110,10 @@ function TokenDetailsTabToolbar(props: IProps) {
                           tokenDetail.fiatValue,
                           tokenRebaseUtils.applyBalanceMultiplier({
                             amount: tokenDetail.balanceParsed,
-                            balanceMultiplier: tokenDetail.balanceMultiplier,
+                            balanceMultiplier:
+                              tokenRebaseUtils.pickBalanceMultiplier(
+                                tokenDetail,
+                              ),
                           }),
                         )}
                       </Currency>
