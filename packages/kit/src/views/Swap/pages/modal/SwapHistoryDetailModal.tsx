@@ -1396,6 +1396,9 @@ const SwapHistoryDetailModal = () => {
   );
 
   const renderProtocolFee = useCallback(() => {
+    if (txHistory?.swapInfo.hideProtocolFee) {
+      return null;
+    }
     const protocolFee = txHistory?.swapInfo.protocolFee;
     const protocolFeeBN = new BigNumber(protocolFee ?? 0);
     const positiveOtherFeeInfos = txHistory?.swapInfo.otherFeeInfos?.filter(
@@ -1456,6 +1459,7 @@ const SwapHistoryDetailModal = () => {
     displayCurrencyId,
     displayCurrencySymbol,
     historySourceCurrencyId,
+    txHistory?.swapInfo.hideProtocolFee,
     txHistory?.swapInfo.otherFeeInfos,
     txHistory?.swapInfo.protocolFee,
   ]);
