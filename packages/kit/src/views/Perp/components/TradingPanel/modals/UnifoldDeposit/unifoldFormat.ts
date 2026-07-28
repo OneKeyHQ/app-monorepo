@@ -1,5 +1,6 @@
 // cspell: words unifold Unifold
 
+import { UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL } from '@onekeyhq/kit/src/views/Perp/consts/unifold';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -68,7 +69,26 @@ export function formatUnifoldTokenAmount({
   if (rendered === null) {
     return '—';
   }
-  return currency ? `${rendered} ${currency.toUpperCase()}` : rendered;
+  if (!currency) {
+    return rendered;
+  }
+  const currencyLabel =
+    currency === UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL
+      ? currency
+      : currency.toUpperCase();
+  return `${rendered} ${currencyLabel}`;
+}
+
+export function formatUnifoldRouteAssetDescription({
+  tokenSymbol,
+  networkName,
+}: {
+  tokenSymbol: string;
+  networkName?: string;
+}) {
+  return networkName && !tokenSymbol.includes('(')
+    ? `${tokenSymbol} (${networkName})`
+    : tokenSymbol;
 }
 
 // The vendor serves every icon as both SVG and PNG under parallel paths

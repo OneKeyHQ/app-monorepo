@@ -37,6 +37,7 @@ import {
 } from './UnifoldExecutionStatusCards';
 import {
   formatUnifoldProcessingTime,
+  formatUnifoldRouteAssetDescription,
   formatUnifoldUsd,
   normalizeUnifoldIconUrl,
 } from './unifoldFormat';
@@ -130,12 +131,14 @@ function DepositRouteRow({
   const title = intl.formatMessage({
     id: ETranslations.perp_unifold_conversion_route__title,
   });
-  const sourceTokenDescription = sourceNetworkName
-    ? `${sourceTokenSymbol} (${sourceNetworkName})`
-    : sourceTokenSymbol;
-  const receiveTokenDescription = receiveNetworkName
-    ? `${receiveTokenSymbol} (${receiveNetworkName})`
-    : receiveTokenSymbol;
+  const sourceTokenDescription = formatUnifoldRouteAssetDescription({
+    tokenSymbol: sourceTokenSymbol,
+    networkName: sourceNetworkName,
+  });
+  const receiveTokenDescription = formatUnifoldRouteAssetDescription({
+    tokenSymbol: receiveTokenSymbol,
+    networkName: receiveNetworkName,
+  });
 
   return (
     <XStack

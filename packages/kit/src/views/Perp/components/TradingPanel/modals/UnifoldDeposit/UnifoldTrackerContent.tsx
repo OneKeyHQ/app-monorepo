@@ -23,6 +23,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL } from '@onekeyhq/kit/src/views/Perp/consts/unifold';
 import {
   isUnifoldHyperCoreDestination,
   resolveUnifoldDepositDestination,
@@ -348,9 +349,11 @@ export function UnifoldExecutionDetail({
   const processing = isProcessing(execution);
   const [devSettings] = useDevSettingsPersistAtom();
   const destination = resolveUnifoldDepositDestination(devSettings);
-  const destinationLabel = isUnifoldHyperCoreDestination(destination)
-    ? 'HyperCore'
-    : 'Arbitrum';
+  const isHyperCoreDestination = isUnifoldHyperCoreDestination(destination);
+  const destinationLabel = isHyperCoreDestination ? 'HyperCore' : 'Arbitrum';
+  const destinationCurrency = isHyperCoreDestination
+    ? UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL
+    : execution.destinationCurrency;
   const explorerUrl = normalizeUnifoldExplorerUrl(execution.explorerUrl);
   const destinationExplorerUrl = normalizeUnifoldExplorerUrl(
     execution.destinationExplorerUrl,
@@ -428,7 +431,7 @@ export function UnifoldExecutionDetail({
             value={formatUnifoldTokenAmount({
               baseUnit: execution.destinationAmountBaseUnit,
               decimals: execution.destinationTokenDecimals,
-              currency: execution.destinationCurrency,
+              currency: destinationCurrency,
             })}
           />
           <Divider borderColor="$bgSubdued" />

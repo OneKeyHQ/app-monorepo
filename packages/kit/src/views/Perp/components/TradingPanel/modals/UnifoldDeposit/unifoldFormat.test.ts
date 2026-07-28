@@ -1,4 +1,8 @@
-import { normalizeUnifoldExplorerUrl } from './unifoldFormat';
+import {
+  formatUnifoldRouteAssetDescription,
+  formatUnifoldTokenAmount,
+  normalizeUnifoldExplorerUrl,
+} from './unifoldFormat';
 
 describe('normalizeUnifoldExplorerUrl', () => {
   it.each([
@@ -24,5 +28,42 @@ describe('normalizeUnifoldExplorerUrl', () => {
   it('rejects missing explorer URLs', () => {
     expect(normalizeUnifoldExplorerUrl(null)).toBeNull();
     expect(normalizeUnifoldExplorerUrl(undefined)).toBeNull();
+  });
+});
+
+describe('Unifold destination labels', () => {
+  it('preserves the HyperCore account suffix in received amounts', () => {
+    expect(
+      formatUnifoldTokenAmount({
+        baseUnit: '12340000',
+        decimals: 6,
+        currency: 'USDC (Perp)',
+      }),
+    ).toBe('12.34 USDC (Perp)');
+  });
+
+  it('keeps ordinary vendor currency normalization', () => {
+    expect(
+      formatUnifoldTokenAmount({
+        baseUnit: '12340000',
+        decimals: 6,
+        currency: 'usdc',
+      }),
+    ).toBe('12.34 USDC');
+  });
+
+  it('does not append a second parenthetical destination', () => {
+    expect(
+      formatUnifoldRouteAssetDescription({
+        tokenSymbol: 'USDC (Perp)',
+        networkName: 'HyperCore',
+      }),
+    ).toBe('USDC (Perp)');
+    expect(
+      formatUnifoldRouteAssetDescription({
+        tokenSymbol: 'USDC',
+        networkName: 'Arbitrum',
+      }),
+    ).toBe('USDC (Arbitrum)');
   });
 });
