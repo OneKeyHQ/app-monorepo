@@ -170,7 +170,10 @@ import {
   shouldShowStockQuoteActionLoading,
 } from './SwapStockDesktopContainer.utils';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
-import { isCurrentStockQuoteEventError } from './SwapStockTradeAlertUtils';
+import {
+  isCurrentStockMarketClosedQuoteEventError,
+  isCurrentStockQuoteEventError,
+} from './SwapStockTradeAlertUtils';
 import {
   SwapStockTradeProvider,
   useSwapStockTradeContext,
@@ -1284,16 +1287,29 @@ function StockTradeTicket({
   compact?: boolean;
 }) {
   const amountInputState = useSwapStockAmountInputState({ stockChannel });
+  const [quoteEventError] = useSwapQuoteEventErrorAtom();
   const hasPositiveInputAmount = new BigNumber(
     amountInputState.inputValue || 0,
   ).gt(0);
+  const isCurrentQuoteMarketClosed = isCurrentStockMarketClosedQuoteEventError({
+    fromToken: stockChannel.fromToken,
+    fromTokenAmount: amountInputState.inputValue,
+    quoteEventError,
+    toToken: stockChannel.toToken,
+  });
+  const quoteScopeKey = [
+    getTokenIdentityKey(stockChannel.fromToken),
+    getTokenIdentityKey(stockChannel.toToken),
+    amountInputState.inputValue,
+  ].join('|');
   useRefreshQuoteWhenStockMarketReopens({
     enabled: stockChannel.readyForQuote && hasPositiveInputAmount,
     // The normalized status stays open while detail is unavailable so quote
     // execution can continue; reopen detection needs the raw tri-state value.
     marketIsOpen: stockChannel.activeStockTokenDetail?.stock?.isOpen,
     onRefresh: refreshAction,
-    scopeKey: getTokenIdentityKey(stockChannel.currentStockToken),
+    quoteMarketClosed: isCurrentQuoteMarketClosed,
+    scopeKey: quoteScopeKey,
   });
 
   return (
