@@ -189,7 +189,40 @@ export default function PrimeInfiniSubscription() {
   const primeExpiresAt = primeUserInfo.primeSubscription?.expiresAt;
   const currentOneKeyUserId = primeUserInfo.onekeyUserId;
 
-  const { result, run } = usePromiseResult(
+  // Extracted so a caller that must observe the fresh server state can await
+  // the request itself. The run() returned by usePromiseResult is debounced,
+  // and a debounced call resolves with lodash's previous return value instead
+  // of the pending trailing request, so awaiting it proves nothing.
+  const loadSubscription = useCallback(async () => {
+    if (!currentOneKeyUserId) {
+      return {
+        onekeyUserId: currentOneKeyUserId,
+        subscription: undefined,
+        hasError: true,
+      };
+    }
+    try {
+      const subscription =
+        await backgroundApiProxy.servicePrime.apiGetInfiniSubscription({
+          expectedOneKeyUserId: currentOneKeyUserId,
+        });
+      return {
+        onekeyUserId: currentOneKeyUserId,
+        subscription,
+        hasError: false,
+      };
+    } catch {
+      // Fold the error into the result: usePromiseResult clears the result
+      // on throw, and the page needs an explicit retry state
+      return {
+        onekeyUserId: currentOneKeyUserId,
+        subscription: undefined,
+        hasError: true,
+      };
+    }
+  }, [currentOneKeyUserId]);
+
+  const { result, run, setResult } = usePromiseResult(
     async () => {
       // primeExpiresAt is a real dependency: a successful (renewal) payment
       // bumps the merged Prime expiry in primePersistAtom (via the waiting
@@ -198,34 +231,9 @@ export default function PrimeInfiniSubscription() {
       // reflect the new billing period instead of staying stale
       noopObject(primeExpiresAt);
       noopObject(currentOneKeyUserId);
-      if (!currentOneKeyUserId) {
-        return {
-          onekeyUserId: currentOneKeyUserId,
-          subscription: undefined,
-          hasError: true,
-        };
-      }
-      try {
-        const subscription =
-          await backgroundApiProxy.servicePrime.apiGetInfiniSubscription({
-            expectedOneKeyUserId: currentOneKeyUserId,
-          });
-        return {
-          onekeyUserId: currentOneKeyUserId,
-          subscription,
-          hasError: false,
-        };
-      } catch {
-        // Fold the error into the result: usePromiseResult clears the result
-        // on throw, and the page needs an explicit retry state
-        return {
-          onekeyUserId: currentOneKeyUserId,
-          subscription: undefined,
-          hasError: true,
-        };
-      }
+      return loadSubscription();
     },
-    [currentOneKeyUserId, primeExpiresAt],
+    [currentOneKeyUserId, loadSubscription, primeExpiresAt],
     // Debounced so the renew flow's overlapping triggers (waiting-dialog
     // onClose refresh, the atom expiry bump, and the focus refetch) collapse
     // into a single apiGetInfiniSubscription call instead of firing several
@@ -248,10 +256,13 @@ export default function PrimeInfiniSubscription() {
   // Awaited by the reset button: the subscription shown here comes from this
   // page's own apiGetInfiniSubscription call, which only re-runs when the
   // OneKey ID or primeExpiresAt changes, so a reset would otherwise leave the
-  // deleted subscription (and its cancel-renewal entry) on screen.
+  // deleted subscription (and its cancel-renewal entry) on screen. Bypasses
+  // the debounced run() on purpose: this refresh has to be finished before the
+  // success toast, and it must not be dropped by the focus gate if the dialog
+  // hands focus back during the debounce window.
   const handleSubscriptionReset = useCallback(async () => {
-    await run();
-  }, [run]);
+    setResult(await loadSubscription());
+  }, [loadSubscription, setResult]);
 
   const handleCancelRenewal = useCallback(
     (currentSubscription: IPrimeInfiniSubscription) => {
