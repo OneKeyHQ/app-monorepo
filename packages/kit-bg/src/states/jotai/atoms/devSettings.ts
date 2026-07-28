@@ -82,6 +82,11 @@ export interface IDevSettings {
   // use the data-only native chart in Market Detail
   useTradingViewNativeInMarketDetail?: boolean;
   showPerpsRenderStats?: boolean;
+  // Route Unifold deposits to the Arbitrum USDC destination instead of
+  // HyperCore, so the whole deposit pipeline can be exercised for source-chain
+  // gas only (funds settle back into the user's own wallet). Dev builds only —
+  // production always uses the HyperCore destination.
+  unifoldUseTestDestination?: boolean;
   mockTradingViewKLineEmptyEnabled?: boolean;
   mockTradingViewKLineEmptyIntervals?: ITradingViewKLineMockEmptyInterval[];
   // Show Market Home websocket subscription debug overlay and row highlight.

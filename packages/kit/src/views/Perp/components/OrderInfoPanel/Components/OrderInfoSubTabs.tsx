@@ -1,3 +1,5 @@
+import type { ComponentProps } from 'react';
+
 import { ScrollView, SizableText, XStack, YStack } from '@onekeyhq/components';
 
 function OrderInfoSubTabs<T extends string>({
@@ -5,6 +7,7 @@ function OrderInfoSubTabs<T extends string>({
   activeTab,
   onChange,
   variant: _variant = 'underline',
+  leftInset,
 }: {
   tabs: {
     key: T;
@@ -13,8 +16,10 @@ function OrderInfoSubTabs<T extends string>({
   activeTab: T;
   onChange: (tab: T) => void;
   variant?: 'pill' | 'underline';
+  leftInset?: ComponentProps<typeof XStack>['pl'];
 }) {
   const isPillVariant = _variant === 'pill';
+  const resolvedLeftInset = leftInset ?? (isPillVariant ? '$2' : '$5');
 
   return (
     <XStack mt={isPillVariant ? '$2' : undefined}>
@@ -29,7 +34,7 @@ function OrderInfoSubTabs<T extends string>({
       >
         <XStack
           minWidth={isPillVariant ? undefined : '100%'}
-          pl={isPillVariant ? '$2' : '$5'}
+          pl={resolvedLeftInset}
           pr={isPillVariant ? '$4' : '$5'}
           py={isPillVariant ? '$1.5' : '$0'}
           gap={isPillVariant ? '$2' : '$5'}
