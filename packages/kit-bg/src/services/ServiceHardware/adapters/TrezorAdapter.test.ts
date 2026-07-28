@@ -95,7 +95,7 @@ describe('TrezorAdapter', () => {
     expect(hw.uiResponse).not.toHaveBeenCalled();
   });
 
-  it('records a probe cancel when a candidate asks to pair during a binding probe', () => {
+  it('still surfaces the THP pairing dialog when a candidate asks to pair during a binding probe', () => {
     const listeners = new Map<string, (event: unknown) => void>();
     const hw = {
       on: jest.fn((eventName: string, listener: (event: unknown) => void) => {
@@ -111,15 +111,14 @@ describe('TrezorAdapter', () => {
       payload: { connectId: 'BLE_X' },
     });
 
-    expect(hw.cancel).toHaveBeenCalledWith('BLE_X');
-    expect(adapter.wasBindingProbeCancelled()).toBe(true);
-    expect(mockedThirdPartyHardwareUiStateAtom.set).not.toHaveBeenCalledWith(
+    // A device whose THP credential was invalidated asks to pair exactly like
+    // an unknown one, so cancelling here rejected the user's OWN device and
+    // deadlocked the rebind. Identity is settled by the post-handshake
+    // device_id comparison, which needs this dialog to complete.
+    expect(hw.cancel).not.toHaveBeenCalled();
+    expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'requestTrezorThpPairing' }),
     );
-
-    // A new probe starts clean.
-    adapter.beginBindingProbe('BLE_Y');
-    expect(adapter.wasBindingProbeCancelled()).toBe(false);
   });
 
   it('cleans up registry-owned SDK event subscription on reset', () => {

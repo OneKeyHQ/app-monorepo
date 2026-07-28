@@ -254,17 +254,15 @@ export class TrezorAdapter
         selectedMethod?: number;
         nfcData?: string;
       };
-      // During a binding probe, a candidate asking to pair means "not this
-      // device" — cancel silently rather than surfacing the pairing dialog.
-      if (
-        this._bindingProbeConnectId &&
-        (!payload.connectId ||
-          payload.connectId === this._bindingProbeConnectId)
-      ) {
-        this._bindingProbeCancelled = true;
-        void this.hw.cancel(this._bindingProbeConnectId);
-        return;
-      }
+      // A pairing request during a binding probe used to be treated as "not
+      // this device" and cancelled silently. That is wrong: a device whose THP
+      // credential was invalidated (user cleared the bond) asks to pair too,
+      // so our OWN device got rejected, the code-entry dialog never appeared,
+      // and the stored bleConnectId could never be refreshed — a deadlock the
+      // user could not escape. Identity is decided by the device_id comparison
+      // after the handshake (ServiceThirdPartyHardware tryBind), which needs
+      // this dialog to complete. The probe only ever runs on a device the user
+      // explicitly picked, so prompting is expected.
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Trezor] REQUEST_TREZOR_THP_PAIRING method=${
           payload.selectedMethod ?? '-'
