@@ -86,6 +86,7 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
       },
     });
     const disconnect = jest.fn().mockResolvedValue(undefined);
+    const flushThpCredentials = jest.fn().mockResolvedValue(undefined);
     const { getDeviceByQuery, updateDeviceConnectId } = getLocalDbMock();
     const adapter = {
       hw: { cancel: jest.fn() },
@@ -93,6 +94,7 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
       endBindingProbe,
       connectDevice,
       disconnect,
+      flushThpCredentials,
     } as unknown as IThirdPartyHardwareAdapter;
     getDeviceByQuery.mockResolvedValue(dbDevice);
     const emitSpy = jest
@@ -116,10 +118,14 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
       }),
     ).resolves.toBe('BLE_CONNECT_ID');
 
-    // Binding probe suppresses the THP pairing dialog for the probed candidate,
-    // then clears it when done.
     expect(beginBindingProbe).toHaveBeenCalledWith('BLE_CONNECT_ID');
     expect(endBindingProbe).toHaveBeenCalled();
+    // Binding can mint fresh THP credentials; without this drain the user
+    // re-enters the pairing code on every later connect. Must run before the
+    // finally-block disconnect.
+    expect(flushThpCredentials).toHaveBeenCalledWith('FEATURES_DEVICE_ID', {
+      connectId: 'BLE_CONNECT_ID',
+    });
     // Notifies the device-details UI so the bind row updates without a reopen.
     expect(emitSpy).toHaveBeenCalledWith(
       EAppEventBusNames.HardwareFeaturesUpdate,

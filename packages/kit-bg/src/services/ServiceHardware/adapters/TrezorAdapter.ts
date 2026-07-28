@@ -157,10 +157,12 @@ export class TrezorAdapter
 
   private readonly _featuresDeviceIdByConnectId = new Map<string, string>();
 
-  // Which candidate the USB→BLE binding probe is currently connecting to.
-  // Identity is decided by the device_id comparison after the handshake, NOT
-  // by whether the candidate asks to pair — a device whose THP credential was
-  // invalidated asks to pair exactly like an unknown one.
+  // Which candidate the USB→BLE binding probe is connecting to. Currently
+  // BOOKKEEPING ONLY — nothing reads it. It used to gate silent cancellation
+  // of pairing requests during a probe; that was wrong (a device whose THP
+  // credential expired asks to pair exactly like an unknown one, so our own
+  // device got rejected) and identity is now decided solely by the
+  // post-handshake device_id comparison. Kept as the probe lifecycle marker.
   private _bindingProbeConnectId?: string;
 
   beginBindingProbe(connectId: string): void {

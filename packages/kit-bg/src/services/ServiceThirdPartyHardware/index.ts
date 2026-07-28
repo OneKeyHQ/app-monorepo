@@ -332,6 +332,21 @@ class ServiceThirdPartyHardware extends ServiceBase {
         dbDeviceId: device.id,
         bleConnectId,
       });
+      // Binding can mint fresh THP credentials (the device asks to pair when
+      // its old ones expired). They were buffered because the row did not
+      // carry this bleConnectId yet — it does now, so drain them here, or the
+      // user re-enters the pairing code on every future connect. Both callers
+      // of this method need it: signing-time auto-fallback AND the manual
+      // "bind Bluetooth" row in device details. Best-effort, exactly like the
+      // createHWWallet flush — losing credentials must never fail the bind.
+      try {
+        await this.persistTrezorThpCredentials({
+          connectId: bleConnectId,
+          deviceId: featuresDeviceId,
+        });
+      } catch {
+        // ignore — credential persistence is non-critical to binding.
+      }
       // The DB write emits nothing on its own; notify the device-details UI so
       // the "bind Bluetooth" row reflects the new bleConnectId immediately.
       appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
