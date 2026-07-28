@@ -22,6 +22,8 @@ const mockDiscardTerminalPaymentSession = jest.fn<
     {
       onekeyUserId: string;
       expectedPaymentCacheIdentity: { paymentId: string };
+      expectedUpdatedAt: number;
+      expectedSendStarted: boolean;
       latestPayment: unknown;
     },
   ]
@@ -54,6 +56,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         discardTerminalInfiniPendingPaymentSession: (params: {
           onekeyUserId: string;
           expectedPaymentCacheIdentity: { paymentId: string };
+          expectedUpdatedAt: number;
+          expectedSendStarted: boolean;
           latestPayment: unknown;
         }) => mockDiscardTerminalPaymentSession(params),
         latchInfiniPendingPaymentSessionProgress: (params: {
@@ -250,6 +254,7 @@ describe('getPrimeInfiniExternalCheckoutGuard', () => {
     mockGetPendingPaymentSession.mockResolvedValue({
       sendStarted: true,
       selectedSubscriptionPeriod: 'P1M',
+      updatedAt: 1000,
       paymentCacheKey: {
         paymentId: 'payment-1',
       },
@@ -278,6 +283,8 @@ describe('getPrimeInfiniExternalCheckoutGuard', () => {
     expect(mockDiscardTerminalPaymentSession).toHaveBeenCalledWith({
       onekeyUserId: 'user-1',
       expectedPaymentCacheIdentity: { paymentId: 'payment-1' },
+      expectedUpdatedAt: 1000,
+      expectedSendStarted: true,
       latestPayment,
     });
     expect(mockLatchPendingPaymentProgress).not.toHaveBeenCalled();

@@ -214,6 +214,63 @@ describe('swap quote progress', () => {
     });
   });
 
+  it('matches a Limit exact-buy request against the receive amount', () => {
+    const fromToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xfrom',
+      decimals: 6,
+      isNative: false,
+      symbol: 'FROM',
+    };
+    const toToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xto',
+      decimals: 6,
+      isNative: false,
+      symbol: 'TO',
+    };
+    const quoteRequest = {
+      type: ESwapTabSwitchType.LIMIT,
+      fromToken,
+      toToken,
+      fromTokenAmount: '',
+      toTokenAmount: '2.5',
+      kind: ESwapQuoteKind.BUY,
+      accountId: 'account-1',
+      address: '0xsender-1',
+      receivingAddress: '0xreceiver-1',
+    };
+
+    expect(
+      isSwapQuoteRequestForCurrentInput({
+        currentAccountId: 'account-1',
+        currentAddress: '0xsender-1',
+        currentReceivingAddress: '0xreceiver-1',
+        currentSwapType: ESwapTabSwitchType.LIMIT,
+        fromAmount: '',
+        fromToken,
+        quoteKind: ESwapQuoteKind.BUY,
+        quoteRequest,
+        toAmount: '2.50',
+        toToken,
+      }),
+    ).toBe(true);
+    expect(
+      isSwapQuoteRequestForCurrentInput({
+        currentAccountId: 'account-1',
+        currentAddress: '0xsender-1',
+        currentReceivingAddress: '0xreceiver-1',
+        currentSwapType: ESwapTabSwitchType.LIMIT,
+        fromAmount: '',
+        fromToken,
+        quoteKind: ESwapQuoteKind.SELL,
+        quoteRequest,
+        toAmount: '2.50',
+        toToken,
+      }),
+    ).toBe(false);
+  });
+
   it('keeps a new input round loading until its current quote is actionable', () => {
     expect(
       shouldShowSwapQuoteRequestLoading({
@@ -480,17 +537,21 @@ describe('swap quote progress', () => {
         zeroProviderQuoteCompleted: true,
         quote: undefined,
         quoteResultPairNoMatch: false,
+        quoteEventCompleted: true,
+        quoteRequestMatchesCurrentInput: true,
       }),
     ).toBe(true);
 
-    // Selected quote carries no toAmount and no limit info.
+    // An early provider error cannot finish the current quote round.
     expect(
       isSwapNoProviderSupportsTrade({
         zeroProviderQuoteCompleted: false,
         quote: { toAmount: '' },
         quoteResultPairNoMatch: false,
+        quoteEventCompleted: false,
+        quoteRequestMatchesCurrentInput: true,
       }),
-    ).toBe(true);
+    ).toBe(false);
 
     // Real server shape for an unsupported pair: totalQuoteCount > 0 and
     // every provider returns an error quote WITHOUT any amount fields
@@ -501,6 +562,8 @@ describe('swap quote progress', () => {
         zeroProviderQuoteCompleted: false,
         quote: { toAmount: undefined, limit: undefined },
         quoteResultPairNoMatch: false,
+        quoteEventCompleted: true,
+        quoteRequestMatchesCurrentInput: true,
       }),
     ).toBe(true);
 
@@ -510,6 +573,8 @@ describe('swap quote progress', () => {
         zeroProviderQuoteCompleted: false,
         quote: { toAmount: '', limit: { min: '1' } },
         quoteResultPairNoMatch: false,
+        quoteEventCompleted: true,
+        quoteRequestMatchesCurrentInput: true,
       }),
     ).toBe(false);
 
@@ -519,6 +584,19 @@ describe('swap quote progress', () => {
         zeroProviderQuoteCompleted: false,
         quote: { toAmount: '10' },
         quoteResultPairNoMatch: false,
+        quoteEventCompleted: true,
+        quoteRequestMatchesCurrentInput: true,
+      }),
+    ).toBe(false);
+
+    // A terminal provider error from a stale request is not current.
+    expect(
+      isSwapNoProviderSupportsTrade({
+        zeroProviderQuoteCompleted: false,
+        quote: { toAmount: '' },
+        quoteResultPairNoMatch: false,
+        quoteEventCompleted: true,
+        quoteRequestMatchesCurrentInput: false,
       }),
     ).toBe(false);
 
@@ -529,6 +607,8 @@ describe('swap quote progress', () => {
         zeroProviderQuoteCompleted: true,
         quote: { toAmount: '' },
         quoteResultPairNoMatch: true,
+        quoteEventCompleted: true,
+        quoteRequestMatchesCurrentInput: true,
       }),
     ).toBe(false);
   });

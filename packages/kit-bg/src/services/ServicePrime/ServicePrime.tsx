@@ -5,9 +5,10 @@ import BigNumber from 'bignumber.js';
 import { chunk, cloneDeep, isString } from 'lodash';
 
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
+import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   backgroundMethod,
-  backgroundMethodForDev,
+  checkDevOnlyPassword,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
@@ -4258,11 +4259,33 @@ class ServicePrime extends ServiceBase {
     });
   }
 
-  @backgroundMethodForDev()
+  // Intentionally @backgroundMethod() and not @backgroundMethodForDev(): this
+  // entry is reachable from a production build, so a dev-only decorator would
+  // be a wrong description of it. Its password wrapper also only guards the
+  // INTERNAL_ dispatch entry, which the extension main->bg bridge uses but
+  // desktop/web single-runtime and native main->bg calls skip. The
+  // devOnlyPassword is therefore checked in the method body, which holds on
+  // every platform.
+  @backgroundMethod()
   @toastIfError()
-  async apiResetInfiniSubscription(): Promise<void> {
+  async apiResetInfiniSubscription(
+    params: IBackgroundMethodWithDevOnlyPassword,
+    { expectedOneKeyUserId }: { expectedOneKeyUserId: string },
+  ): Promise<void> {
+    // Destructively deletes the current user's Infini subscription.
+    checkDevOnlyPassword(params, 'apiResetInfiniSubscription');
+    // Pin the request to the user who confirmed the dialog: an account switch
+    // between confirmation and send would otherwise let the interceptor attach
+    // the new user's live token and delete a subscription nobody consented to.
+    const authSnapshot =
+      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
     const client = await this.getPrimeClient();
-    await client.post('/prime/v1/infini/test/reset');
+    await client.post(
+      '/prime/v1/infini/test/reset',
+      undefined,
+      this.getInfiniPurchaseRequestConfig(authSnapshot),
+    );
+    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
   }
 
   @backgroundMethod()
