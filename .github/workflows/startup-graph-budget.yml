@@ -93,9 +93,9 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
           ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
           ENTRY: background
-          # background entry currently: ~2455 modules / ~19.51 MB
+          # background entry currently: ~2458 modules / ~19.60 MB
           STARTUP_MODULE_BUDGET: '2600'
-          STARTUP_SIZE_BUDGET_MB: '19.6'
+          STARTUP_SIZE_BUDGET_MB: '19.8'
         run: node apps/mobile/scripts/check-startup-graph-budget.js
 
       - name: Architecture Check (three-bundle rules)

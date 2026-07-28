@@ -2132,6 +2132,8 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
       entity.discardTerminalInfiniPendingPaymentSession({
         onekeyUserId: 'user-1',
         expectedPaymentCacheIdentity: session.paymentCacheKey,
+        expectedUpdatedAt: getStoredSession().updatedAt,
+        expectedSendStarted: true,
         latestPayment: { ...session.payment, status: 'expired' },
       }),
     ).resolves.toBe(false);
@@ -2141,12 +2143,29 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
       freshEntity.discardTerminalInfiniPendingPaymentSession({
         onekeyUserId: 'user-1',
         expectedPaymentCacheIdentity: session.paymentCacheKey,
+        expectedUpdatedAt:
+          getRawData().infiniPendingPaymentSessionByUserId['user-1'].updatedAt,
+        expectedSendStarted: true,
         latestPayment: { ...session.payment, status: 'expired' },
       }),
     ).resolves.toBe(true);
     expect(
       getRawData().infiniPendingPaymentSessionByUserId['user-1'],
     ).toBeUndefined();
+    // Tombstone and session removal must always come as a pair.
+    expect(
+      (
+        getRawData() as unknown as {
+          infiniPaymentCacheTombstonesByUserId?: Record<string, unknown[]>;
+        }
+      ).infiniPaymentCacheTombstonesByUserId?.['user-1'],
+    ).toEqual([
+      expect.objectContaining({
+        paymentId: session.paymentCacheKey.paymentId,
+        bindingId: session.paymentCacheKey.bindingId,
+        retiredAt: expect.any(Number),
+      }),
+    ]);
   });
 
   test('refuses to release a claimed session that only expired on the local clock', async () => {
@@ -2156,12 +2175,165 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
       entity.discardTerminalInfiniPendingPaymentSession({
         onekeyUserId: 'user-1',
         expectedPaymentCacheIdentity: session.paymentCacheKey,
+        expectedUpdatedAt:
+          getRawData().infiniPendingPaymentSessionByUserId['user-1'].updatedAt,
+        expectedSendStarted: true,
         latestPayment: { ...session.payment, expiresAt: 1 },
       }),
     ).resolves.toBe(false);
     expect(
       getRawData().infiniPendingPaymentSessionByUserId['user-1'],
     ).toBeDefined();
+  });
+
+  // Applies concurrentWrite between the caller pinning the revision and the
+  // updater running, so the claim genuinely lands while the delete is in
+  // flight rather than as static setup.
+  const makeInFlightClaimEntity = (
+    observedUpdatedAt: number,
+    concurrentWrite: (current: typeof session & { updatedAt: number }) => void,
+  ) => {
+    const entity = new SimpleDbEntityPrime();
+    let persisted = {
+      infiniPendingPaymentSessionByUserId: {
+        'user-1': {
+          ...session,
+          schemaVersion: 2 as const,
+          updatedAt: observedUpdatedAt,
+          sendStarted: false,
+        },
+      },
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: typeof persisted) => typeof persisted,
+    ) => {
+      concurrentWrite(persisted.infiniPendingPaymentSessionByUserId['user-1']);
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+    return {
+      entity,
+      getStored: () => persisted.infiniPendingPaymentSessionByUserId['user-1'],
+    };
+  };
+
+  test('refuses a terminal discard when the session is claimed while the delete is in flight', async () => {
+    const observedUpdatedAt = Date.now() - 5000;
+    const { entity, getStored } = makeInFlightClaimEntity(
+      observedUpdatedAt,
+      (current) => {
+        current.sendStarted = true;
+        current.updatedAt = Date.now();
+      },
+    );
+
+    await expect(
+      entity.discardTerminalInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        expectedPaymentCacheIdentity: session.paymentCacheKey,
+        expectedUpdatedAt: observedUpdatedAt,
+        expectedSendStarted: false,
+        latestPayment: { ...session.payment, status: 'expired' },
+      }),
+    ).resolves.toBe(false);
+    expect(getStored()).toBeDefined();
+    expect(getStored().sendStarted).toBe(true);
+  });
+
+  // Isolates the updatedAt half of the CAS: sendStarted matches on both sides,
+  // so only the revision bump can reject. Without this the two conditions are
+  // ORed and removing the updatedAt check would still leave the suite green.
+  test('refuses a terminal discard when only the session revision moved on', async () => {
+    const observedUpdatedAt = Date.now() - 5000;
+    const { entity, getStored } = makeInFlightClaimEntity(
+      observedUpdatedAt,
+      (current) => {
+        current.updatedAt = observedUpdatedAt + 1;
+      },
+    );
+
+    await expect(
+      entity.discardTerminalInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        expectedPaymentCacheIdentity: session.paymentCacheKey,
+        expectedUpdatedAt: observedUpdatedAt,
+        expectedSendStarted: false,
+        latestPayment: { ...session.payment, status: 'expired' },
+      }),
+    ).resolves.toBe(false);
+    expect(getStored()).toBeDefined();
+    expect(getStored().sendStarted).toBe(false);
+  });
+
+  // Matching payment ids alone would let a mutated response have the merge
+  // adopt new transfer terms, and the delete would then release a session whose
+  // original transfer can still settle.
+  test.each([
+    ['recipient address', { address: '0xattacker' }],
+    ['amount due', { amountDue: '999' }],
+    ['token', { token: 'USDT' }],
+  ])(
+    'refuses a terminal discard when the response changes the %s',
+    async (_label, paymentOverride) => {
+      const observedUpdatedAt = Date.now() - 5000;
+      const { entity, getStored } = makeInFlightClaimEntity(
+        observedUpdatedAt,
+        () => undefined,
+      );
+
+      await expect(
+        entity.discardTerminalInfiniPendingPaymentSession({
+          onekeyUserId: 'user-1',
+          expectedPaymentCacheIdentity: session.paymentCacheKey,
+          expectedUpdatedAt: observedUpdatedAt,
+          expectedSendStarted: false,
+          latestPayment: {
+            ...session.payment,
+            ...paymentOverride,
+            status: 'expired',
+          },
+        }),
+      ).resolves.toBe(false);
+      expect(getStored()).toBeDefined();
+    },
+  );
+
+  test('treats a terminal discard as done when no session remains', async () => {
+    const entity = new SimpleDbEntityPrime();
+    let persisted: Record<string, unknown> = {};
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: typeof persisted) => typeof persisted,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await expect(
+      entity.discardTerminalInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        expectedPaymentCacheIdentity: session.paymentCacheKey,
+        expectedUpdatedAt: 0,
+        expectedSendStarted: false,
+        latestPayment: { ...session.payment, status: 'expired' },
+      }),
+    ).resolves.toBe(true);
+    // The tombstone is the only side effect of this branch and the sole source
+    // of the 'Infini payment cache is retired' rejection, so without it a
+    // writer still holding the old cache key could resurrect the session right
+    // after the caller was told it was released.
+    expect(
+      (
+        persisted as {
+          infiniPaymentCacheTombstonesByUserId?: Record<string, unknown[]>;
+        }
+      ).infiniPaymentCacheTombstonesByUserId?.['user-1'],
+    ).toEqual([
+      expect.objectContaining({
+        paymentId: session.paymentCacheKey.paymentId,
+        bindingId: session.paymentCacheKey.bindingId,
+        retiredAt: expect.any(Number),
+      }),
+    ]);
   });
 
   test('atomically marks the matching session before transaction broadcast', async () => {
