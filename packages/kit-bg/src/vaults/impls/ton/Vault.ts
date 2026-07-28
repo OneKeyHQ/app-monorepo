@@ -22,6 +22,7 @@ import {
   OneKeyWeb3RpcError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -225,7 +226,12 @@ export default class Vault extends VaultBase {
             tokenIdOnNetwork: tokenAddress,
           });
           if (token) {
-            amount = new BigNumber(amount).shiftedBy(-token.decimals).toFixed();
+            amount = tokenRebaseUtils.applyBalanceMultiplier({
+              amount: new BigNumber(amount)
+                .shiftedBy(-token.decimals)
+                .toFixed(),
+              balanceMultiplier: token.balanceMultiplier,
+            });
           }
           toAddress = to;
           return this.buildTxTransferAssetAction({
@@ -353,7 +359,15 @@ export default class Vault extends VaultBase {
         accountId: this.accountId,
         tokenIdOnNetwork: jetton ? jetton.jettonMasterAddress : '',
       });
-      const amount = new BigNumber(params.nativeAmountInfo.maxSendAmount)
+      // maxSendAmount is a display-basis amount; scaled-UI jettons must be
+      // converted back to the raw basis before the decimals shift.
+      const amount = new BigNumber(
+        tokenRebaseUtils.removeBalanceMultiplier({
+          amount: params.nativeAmountInfo.maxSendAmount,
+          balanceMultiplier: token?.balanceMultiplier,
+          decimals: token?.decimals ?? 0,
+        }),
+      )
         .shiftedBy(token?.decimals ?? 0)
         .toFixed(0, BigNumber.ROUND_FLOOR);
       if (encodedTx.messages[0].jetton) {

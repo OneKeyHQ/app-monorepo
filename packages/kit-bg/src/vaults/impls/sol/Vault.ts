@@ -68,6 +68,7 @@ import {
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -1339,7 +1340,10 @@ export default class Vault extends VaultBase {
                 icon: tokenInfo.logoURI ?? '',
                 name: tokenInfo.name,
                 symbol: tokenInfo.symbol,
-                amount: tokenAmount.shiftedBy(-tokenInfo.decimals).toFixed(),
+                amount: tokenRebaseUtils.applyBalanceMultiplier({
+                  amount: tokenAmount.shiftedBy(-tokenInfo.decimals).toFixed(),
+                  balanceMultiplier: tokenInfo.balanceMultiplier,
+                }),
                 isNFT,
               };
 
