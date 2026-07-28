@@ -13,6 +13,7 @@ export type IGooglePlayInstallAttributionParams = {
 
 export class InstallScene extends BaseScene {
   @LogToServer()
+  @LogToLocal({ level: 'info' })
   public googlePlayInstallAttribution(
     params: IGooglePlayInstallAttributionParams,
   ) {
