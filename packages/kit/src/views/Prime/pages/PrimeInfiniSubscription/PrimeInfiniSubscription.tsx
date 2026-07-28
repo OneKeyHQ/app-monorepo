@@ -171,7 +171,6 @@ export default function PrimeInfiniSubscription() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [primeUserInfo] = usePrimePersistAtom();
-  const [isResetButtonVisible, setIsResetButtonVisible] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -245,10 +244,6 @@ export default function PrimeInfiniSubscription() {
   const refreshSubscription = useCallback(() => {
     void run();
   }, [run]);
-
-  const handleSubscriptionTitleMultipleClick = useCallback(() => {
-    setIsResetButtonVisible(true);
-  }, []);
 
   const handleCancelRenewal = useCallback(
     (currentSubscription: IPrimeInfiniSubscription) => {
@@ -374,10 +369,17 @@ export default function PrimeInfiniSubscription() {
             borderColor="$borderSubdued"
             gap="$3"
           >
+            {/* Hidden reset entry: revealed by repeated clicks on the title,
+                and only when developer mode is enabled. MultipleClickStack
+                gates debugComponent on devSettings.enabled, unlike onPress
+                which fires for every user. (Enabling developer mode itself
+                requires the devOnly password plus the app password.) */}
             <MultipleClickStack
               alignSelf="flex-start"
               testID="prime-infini-subscription-title"
-              onPress={handleSubscriptionTitleMultipleClick}
+              debugComponent={
+                <PrimeInfiniSubscriptionResetButton testID="prime-infini-subscription-reset" />
+              }
             >
               <XStack alignItems="center" gap="$2">
                 <SizableText size="$headingLg" flexShrink={1}>
@@ -388,9 +390,6 @@ export default function PrimeInfiniSubscription() {
                 </Badge>
               </XStack>
             </MultipleClickStack>
-            {isResetButtonVisible ? (
-              <PrimeInfiniSubscriptionResetButton testID="prime-infini-subscription-reset" />
-            ) : null}
             <SizableText size="$headingXl">{priceText}</SizableText>
             <Divider />
             <YStack gap="$2.5">
@@ -439,12 +438,7 @@ export default function PrimeInfiniSubscription() {
         </YStack>
       );
     },
-    [
-      handleSubscriptionTitleMultipleClick,
-      intl,
-      isResetButtonVisible,
-      primeUserInfo.displayEmail,
-    ],
+    [intl, primeUserInfo.displayEmail],
   );
 
   const renderContent = () => {

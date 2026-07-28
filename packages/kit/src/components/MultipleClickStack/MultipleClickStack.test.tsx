@@ -22,8 +22,10 @@ jest.mock('@onekeyhq/components', () => ({
   ),
 }));
 
+const mockDevSettings = { enabled: true };
+
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  useDevSettingsPersistAtom: () => [{ enabled: true }],
+  useDevSettingsPersistAtom: () => [mockDevSettings],
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -32,6 +34,10 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     isDev: true,
   },
 }));
+
+beforeEach(() => {
+  mockDevSettings.enabled = true;
+});
 
 describe.each([3, 10])(
   'MultipleClickStack with triggerAt=$triggerAt',
@@ -65,3 +71,33 @@ describe.each([3, 10])(
     });
   },
 );
+
+// debugComponent is the only devSettings-gated way to reveal something behind
+// the multi-click. Callers that must not expose an entry to ordinary users have
+// to use it instead of onPress, which fires regardless of developer mode.
+describe('MultipleClickStack with developer mode disabled', () => {
+  it('keeps debugComponent hidden past the click threshold', () => {
+    mockDevSettings.enabled = false;
+    const onPress = jest.fn();
+
+    render(
+      <MultipleClickStack
+        testID="multiple-click-target"
+        triggerAt={3}
+        onPress={onPress}
+        debugComponent={<span>Debug component</span>}
+      >
+        Target
+      </MultipleClickStack>,
+    );
+
+    const target = screen.getByTestId('multiple-click-target');
+    for (let clickIndex = 0; clickIndex < 5; clickIndex += 1) {
+      fireEvent.click(target);
+    }
+
+    expect(screen.queryByText('Debug component')).toBeNull();
+    // onPress is intentionally not gated on developer mode.
+    expect(onPress).toHaveBeenCalled();
+  });
+});
