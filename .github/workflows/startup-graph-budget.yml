@@ -8,6 +8,7 @@ on:
     paths:
       - '.github/workflows/startup-graph-budget.yml'
       - 'packages/**'
+      - 'apps/ext/**'
       - 'apps/mobile/**'
       - 'apps/web/**'
       - 'development/babel-plugins/**'
@@ -139,6 +140,11 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: yarn install --immutable
+
+      - name: Check extension production build budgets
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn app:ext:build
 
       # Current GitHub Actions cold-entry median baseline, measured on
       # ubuntu-24.04 with 3 fresh-browser runs in PR #12286 run 28733529052.

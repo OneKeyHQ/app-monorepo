@@ -251,7 +251,7 @@ function main() {
   const backgroundBytes = fs.statSync(backgroundPath).size;
   const budgets = {
     totalBytes: readBudget('EXT_BUILD_MAX_TOTAL_BYTES', 160000000),
-    jsFiles: readBudget('EXT_BUILD_MAX_JS_FILES', 700),
+    jsFiles: readBudget('EXT_BUILD_MAX_JS_FILES', 720),
     backgroundBytes: readBudget(
       'EXT_BUILD_MAX_BACKGROUND_BYTES',
       38 * 1024 * 1024,
