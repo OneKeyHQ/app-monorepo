@@ -30,6 +30,53 @@ function createFiat(fiatValue: string): ITokenFiat {
 }
 
 describe('mergeHomePortfolioProgressivePayload', () => {
+  it('does not retain wallet tokens in DeFi-token mode', () => {
+    const walletToken = createToken('wallet', 'BTC', 'network-a');
+    const lpToken = createToken('lp', 'aEthUSDe', 'network-b');
+    const base = {
+      ...createHomeSpotSnapshotDefaults(),
+      showLpTokensOnly: false,
+      tokenListMap: {
+        [walletToken.$key]: createFiat('20'),
+      },
+      tokens: [walletToken],
+    };
+    const incoming = {
+      ...createHomeSpotSnapshotDefaults(),
+      showLpTokensOnly: true,
+      tokenListMap: {
+        [lpToken.$key]: createFiat('1'),
+      },
+      tokens: [lpToken],
+    };
+
+    const merged = mergeHomePortfolioProgressivePayload({ base, incoming });
+
+    expect(merged.tokens.map((token) => token.$key)).toEqual(['lp']);
+    expect(merged.tokenListMap).toEqual(incoming.tokenListMap);
+  });
+
+  it('clears stale DeFi tokens when the current batch is empty', () => {
+    const staleLpToken = createToken('stale-lp', 'aEthUSDe', 'network-a');
+    const base = {
+      ...createHomeSpotSnapshotDefaults(),
+      showLpTokensOnly: true,
+      tokenListMap: {
+        [staleLpToken.$key]: createFiat('1'),
+      },
+      tokens: [staleLpToken],
+    };
+    const incoming = {
+      ...createHomeSpotSnapshotDefaults(),
+      showLpTokensOnly: true,
+    };
+
+    const merged = mergeHomePortfolioProgressivePayload({ base, incoming });
+
+    expect(merged.tokens).toEqual([]);
+    expect(merged.tokenListMap).toEqual({});
+  });
+
   it('overlays live rows while retaining cached rows outside live coverage', () => {
     const cachedToken = createToken('cached', 'CACHED', 'network-b');
     const staleCoveredToken = createToken(

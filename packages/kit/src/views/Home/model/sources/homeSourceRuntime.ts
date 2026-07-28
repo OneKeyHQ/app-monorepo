@@ -2017,14 +2017,14 @@ export class HomeSourceRuntime {
               dbAccount: target.dbAccount,
               indexedAccountId: indexedAccount?.id,
               networkId: target.networkId,
-              mergeTokens: true,
-              flag: 'home-token-list',
-              isAllNetworks: Boolean(network.isAllNetworks),
+              mergeTokens: !lpToken,
+              flag: lpToken ? 'token-selector' : 'home-token-list',
+              isAllNetworks: lpToken ? false : Boolean(network.isAllNetworks),
               isManualRefresh: force,
               allNetworksAccountId: account.id,
               allNetworksNetworkId: network.id,
               requestScopedAllNetworksAuthority: true,
-              saveToLocal: true,
+              saveToLocal: !lpToken,
               ...(lpToken ? lpTokenFilterParams : walletTokenFilterParams),
             }),
           sessionId,
@@ -2239,20 +2239,7 @@ export class HomeSourceRuntime {
         networkId: item.networkId,
       }));
       if (showLpTokensOnly) {
-        const lpAccounts = await this.allNetworkAccounts.get(
-          {
-            accountId: account.id,
-            indexedAccountId: indexedAccount?.id,
-            networkId: network.id,
-            DeFiEnabledOnly: true,
-            networksEnabledOnly: true,
-            excludeTestNetwork: true,
-            maxConcurrency: 4,
-          },
-          { force, walletId: wallet.id },
-        );
-        assertHomeSourceRequestActive(signal);
-        lpTargets = lpAccounts.accountsInfo.map((item) => ({
+        lpTargets = walletAccounts.accountsInfoBackendIndexed.map((item) => ({
           accountId: item.accountId,
           accountAddress: item.apiAddress,
           accountXpub: item.accountXpub,

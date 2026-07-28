@@ -65,19 +65,14 @@ function mergeHomePortfolioProgressivePayload({
   base: IHomeSpotLegacyPayload;
   incoming: IHomeSpotLegacyPayload;
 }): IHomeSpotLegacyPayload {
+  if (
+    incoming.showLpTokensOnly ||
+    base.showLpTokensOnly !== incoming.showLpTokensOnly
+  ) {
+    return incoming;
+  }
   const coveredAccountNetworkKeys = new Set(
-    incoming.showLpTokensOnly
-      ? incoming.tokens.flatMap((token) =>
-          token.accountId && token.networkId
-            ? [
-                accountUtils.buildAccountValueKey({
-                  accountId: token.accountId,
-                  networkId: token.networkId,
-                }),
-              ]
-            : [],
-        )
-      : Object.keys(incoming.accountWorthByNetwork ?? {}),
+    Object.keys(incoming.accountWorthByNetwork ?? {}),
   );
   const mergedTokenListMap = mergeTokenMap(
     base.tokenListMap,
