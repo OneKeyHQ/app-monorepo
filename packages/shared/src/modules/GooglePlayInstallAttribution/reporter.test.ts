@@ -21,14 +21,6 @@ jest.mock('../../logger/logger', () => ({
   },
 }));
 
-jest.mock('../../platformEnv', () => ({
-  __esModule: true,
-  default: {
-    isNativeAndroidGooglePlay: true,
-    isNativeMainThread: true,
-  },
-}));
-
 jest.mock('../../storage/appStorage', () => ({
   __esModule: true,
   default: {

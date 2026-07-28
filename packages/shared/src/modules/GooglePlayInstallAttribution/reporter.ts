@@ -1,7 +1,6 @@
 import { getInstallReferrerAsync } from 'expo-application';
 
 import { defaultLogger } from '../../logger/logger';
-import platformEnv from '../../platformEnv';
 import appStorage from '../../storage/appStorage';
 
 const REPORTED_STORAGE_KEY = 'google_play_install_attribution_reported_v1';
@@ -36,11 +35,7 @@ export function parseGooglePlayInstallReferrer(
 }
 
 export async function reportGooglePlayInstallAttribution(): Promise<void> {
-  if (
-    !platformEnv.isNativeAndroidGooglePlay ||
-    !platformEnv.isNativeMainThread ||
-    (await appStorage.getItem(REPORTED_STORAGE_KEY))
-  ) {
+  if (await appStorage.getItem(REPORTED_STORAGE_KEY)) {
     return;
   }
 
