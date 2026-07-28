@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  useConnectionStateAtom,
   useHyperliquidActions,
   usePerpsAllMidsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -86,6 +87,7 @@ const AddPositionForm = memo(
     const keyboardHeight = useKeyboardHeight();
     const actions = useHyperliquidActions();
     const [activeAccount] = usePerpsActiveAccountAtom();
+    const [{ isConnected }] = useConnectionStateAtom();
     const [tradingPreferences] = usePerpsTradingPreferencesAtom();
     const sizeInputUnit = tradingPreferences.sizeInputUnit ?? 'usd';
     const tpslButtonPaddingTop = keyboardHeight > 0 ? 0 : '$4';
@@ -116,6 +118,8 @@ const AddPositionForm = memo(
     const [assetData, setAssetData] = useState<IActiveAssetData>();
     const [targetAsset, setTargetAsset] = useState<IPerpsActiveAssetAtom>();
     const [isLoadingAssetData, setIsLoadingAssetData] = useState(true);
+    const [hasAssetDataError, setHasAssetDataError] = useState(false);
+    const [assetDataRetryNonce, setAssetDataRetryNonce] = useState(0);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const orderBookTop = useCoinOrderBookTop(coin);
     const requestIdRef = useRef(0);
@@ -166,12 +170,14 @@ const AddPositionForm = memo(
           if (!disposed && requestId === requestIdRef.current) {
             setAssetData(result.data);
             setTargetAsset(result.targetAsset);
+            setHasAssetDataError(false);
           }
         })
         .catch(() => {
           if (!disposed && requestId === requestIdRef.current) {
             setAssetData(undefined);
             setTargetAsset(undefined);
+            setHasAssetDataError(true);
           }
         })
         .finally(() => {
@@ -182,7 +188,19 @@ const AddPositionForm = memo(
       return () => {
         disposed = true;
       };
-    }, [fetchTargetAssetData]);
+    }, [fetchTargetAssetData, assetDataRetryNonce]);
+
+    // Opening this dialog offline leaves the target asset unresolved, and the
+    // fetch above only re-runs on a coin/account change — so without this the
+    // dialog stays permanently unusable even after the socket comes back.
+    const wasConnectedRef = useRef(isConnected);
+    useEffect(() => {
+      const reconnected = isConnected && !wasConnectedRef.current;
+      wasConnectedRef.current = isConnected;
+      if (reconnected && hasAssetDataError) {
+        setAssetDataRetryNonce((nonce) => nonce + 1);
+      }
+    }, [hasAssetDataError, isConnected]);
 
     useEffect(() => {
       if (midPrice && !isLimitPriceInitializedRef.current) {
@@ -337,7 +355,22 @@ const AddPositionForm = memo(
     );
 
     const handleSubmit = useCallback(async () => {
-      if (isSubmitting || !isTargetAssetReady) {
+      if (isSubmitting) {
+        return;
+      }
+      // The market data this ticket needs failed to load (typically offline).
+      // Say so and retry instead of leaving a dead button, matching how the size
+      // validations below keep the button pressable and explain themselves.
+      if (hasAssetDataError) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.target_market_data_changed__msg,
+          }),
+        });
+        setAssetDataRetryNonce((nonce) => nonce + 1);
+        return;
+      }
+      if (!isTargetAssetReady) {
         return;
       }
       if (!isScopeValid) {
@@ -462,6 +495,7 @@ const AddPositionForm = memo(
       coin,
       effectivePrice,
       fetchTargetAssetData,
+      hasAssetDataError,
       hasTpsl,
       intl,
       isBuy,
@@ -647,7 +681,12 @@ const AddPositionForm = memo(
               testID={PerpTestIDs.AddPositionConfirmButton}
               size={PERP_DIALOG_BUTTON_SIZE}
               variant="primary"
-              disabled={isSubmitting || !isTargetAssetReady}
+              // Stays pressable on a load failure so the press can explain
+              // itself and retry, instead of leaving a dead button after
+              // going offline.
+              disabled={
+                isSubmitting || (!isTargetAssetReady && !hasAssetDataError)
+              }
               loading={isSubmitting}
               onPress={handleSubmit}
             >
