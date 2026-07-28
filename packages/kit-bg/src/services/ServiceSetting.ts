@@ -269,6 +269,11 @@ class ServiceSetting extends ServiceBase {
     await currencyPersistAtom.set({
       currencyMap,
     });
+    // Lazy import keeps the reconcile helper out of the native background
+    // startup graph (Startup Graph Budget check).
+    const { reconcileCurrencyInfoSymbolSnapshot } =
+      await import('./utils/currencySymbolSyncUtils');
+    await reconcileCurrencyInfoSymbolSnapshot({ currencyMap });
   }
 
   @backgroundMethod()
