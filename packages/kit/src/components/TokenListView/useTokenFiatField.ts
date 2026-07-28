@@ -21,6 +21,7 @@ import { useAtomValue } from 'jotai';
 import { selectAtom } from 'jotai/utils';
 
 import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { useTokenListContextData } from '../../states/jotai/contexts/tokenList/atoms';
@@ -99,8 +100,14 @@ function useTokenFiatField<T>(
 
 // --- per-field selectors (module-level for selectAtom caching) -------------
 
+// Scaled-UI (rebase) tokens: the fiat map keeps balanceParsed RAW; the display
+// leaf shows balanceParsed × balanceMultiplier (no-op when absent). fiatValue
+// is already multiplied server-side.
 const selectBalanceParsed = (f: ITokenFiat | undefined): string | undefined =>
-  f?.balanceParsed;
+  tokenRebaseUtils.applyBalanceMultiplier({
+    amount: f?.balanceParsed,
+    balanceMultiplier: f?.balanceMultiplier,
+  });
 
 const selectPrice24h = (f: ITokenFiat | undefined): number | undefined =>
   f?.price24h;
@@ -123,7 +130,10 @@ export interface ITokenValueSlice {
 const selectValueSlice = (f: ITokenFiat | undefined): ITokenValueSlice => ({
   has: !!f,
   fiatValue: f?.fiatValue,
-  balanceParsed: f?.balanceParsed,
+  balanceParsed: tokenRebaseUtils.applyBalanceMultiplier({
+    amount: f?.balanceParsed,
+    balanceMultiplier: f?.balanceMultiplier,
+  }),
   currency: f?.currency,
 });
 
