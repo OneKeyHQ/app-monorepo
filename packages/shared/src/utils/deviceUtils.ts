@@ -28,6 +28,7 @@ import type {
   IOneKeyDeviceType,
 } from '../../types/device';
 import type {
+  DeviceSettingsProtocol,
   Features,
   IDeviceType,
   KnownDevice,
@@ -709,9 +710,18 @@ async function getLanguageConfig({ deviceType }: { deviceType: IDeviceType }) {
   return sdkGetLanguageConfig(deviceType);
 }
 
+function getDeviceSettingsProtocol(
+  deviceType: IDeviceType,
+): DeviceSettingsProtocol {
+  return deviceType === EDeviceType.Pro2 ? 'V2' : 'V1';
+}
+
 async function getAutoLockOptions({ deviceType }: { deviceType: IDeviceType }) {
   const { getAutoLockOptions: sdkGetAutoLockOptions } = await CoreSDKLoader();
-  return sdkGetAutoLockOptions(deviceType);
+  return sdkGetAutoLockOptions(
+    deviceType,
+    getDeviceSettingsProtocol(deviceType),
+  );
 }
 
 async function getAutoShutDownOptions({
@@ -721,7 +731,10 @@ async function getAutoShutDownOptions({
 }) {
   const { getAutoShutDownOptions: sdkGetAutoShutDownOptions } =
     await CoreSDKLoader();
-  return sdkGetAutoShutDownOptions(deviceType);
+  return sdkGetAutoShutDownOptions(
+    deviceType,
+    getDeviceSettingsProtocol(deviceType),
+  );
 }
 
 export enum ESupportSettings {

@@ -62,6 +62,34 @@ function getDurationLabel({
   );
 }
 
+function getOneKeyDurationOption({
+  intl,
+  valueMs,
+}: {
+  intl: ReturnType<typeof useIntl>;
+  valueMs: number;
+}) {
+  if (valueMs === 0 || valueMs === NEVER_LOCK_VALUE) {
+    return {
+      label: intl.formatMessage({ id: ETranslations.global_never }),
+      value: NEVER_LOCK_VALUE,
+    };
+  }
+  const seconds = valueMs / 1000;
+  const useSeconds = seconds < 60;
+  return {
+    label: intl.formatMessage(
+      {
+        id: useSeconds
+          ? ETranslations.earn_number_seconds
+          : ETranslations.earn_number_minutes,
+      },
+      { number: useSeconds ? seconds : seconds / 60 },
+    ),
+    value: valueMs,
+  };
+}
+
 function isNumberFeature(features: Record<string, unknown>, field: string) {
   return typeof features[field] === 'number';
 }
@@ -362,31 +390,9 @@ function DeviceSectionGeneral() {
       }
       if (!deviceType) return [];
       const options = await deviceUtils.getAutoLockOptions({ deviceType });
-      return options.map((option) => {
-        const value = timerUtils.getTimeDurationMs(option);
-        if (
-          option.seconds === 0 &&
-          option.minute === 0 &&
-          option.hour === 0 &&
-          option.day === 0
-        ) {
-          return {
-            label: intl.formatMessage({ id: ETranslations.global_never }),
-            value: NEVER_LOCK_VALUE,
-          };
-        }
-
-        const label = option.seconds
-          ? intl.formatMessage(
-              { id: ETranslations.earn_number_seconds },
-              { number: option.seconds },
-            )
-          : intl.formatMessage(
-              { id: ETranslations.earn_number_minutes },
-              { number: option.minute },
-            );
-        return { label, value };
-      });
+      return options.map((option) =>
+        getOneKeyDurationOption({ intl, valueMs: option.valueMs }),
+      );
     },
     [deviceType, intl, isTrezor],
     {
@@ -400,30 +406,9 @@ function DeviceSectionGeneral() {
       if (isTrezor) return [];
       if (!deviceType) return [];
       const options = await deviceUtils.getAutoShutDownOptions({ deviceType });
-      return options.map((option) => {
-        const value = timerUtils.getTimeDurationMs(option);
-        if (
-          option.seconds === 0 &&
-          option.minute === 0 &&
-          option.hour === 0 &&
-          option.day === 0
-        ) {
-          return {
-            label: intl.formatMessage({ id: ETranslations.global_never }),
-            value: NEVER_LOCK_VALUE,
-          };
-        }
-        const label = option.seconds
-          ? intl.formatMessage(
-              { id: ETranslations.earn_number_seconds },
-              { number: option.seconds },
-            )
-          : intl.formatMessage(
-              { id: ETranslations.earn_number_minutes },
-              { number: option.minute },
-            );
-        return { label, value };
-      });
+      return options.map((option) =>
+        getOneKeyDurationOption({ intl, valueMs: option.valueMs }),
+      );
     },
     [deviceType, intl, isTrezor],
     {
