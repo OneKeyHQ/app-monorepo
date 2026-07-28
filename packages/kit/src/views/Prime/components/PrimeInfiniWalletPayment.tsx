@@ -119,6 +119,7 @@ import {
 } from '../primeSubscriptionPurchaseSuccess';
 
 import { showPrimeInfiniWaitingDialog } from './PrimeInfiniWaitingDialog';
+import { usePrimePurchaseCallback } from './PrimePurchaseDialog/PrimePurchaseDialog';
 
 import type { IPrimeInfiniPaymentSessionRevision } from '../hooks/primeInfiniPaymentReplacement';
 import type {
@@ -3508,6 +3509,7 @@ function PrimeInfiniWalletPaymentRoot({
   const initialAccountSyncPromiseRef = useRef<Promise<void> | undefined>(
     undefined,
   );
+  const { purchase } = usePrimePurchaseCallback();
   const completedPaymentHandledRef = useRef('');
   const paymentCreationIntentRef = useRef(createNewPayment);
   const forcedReplacementGenerationRef = useRef(0);
@@ -3987,7 +3989,7 @@ function PrimeInfiniWalletPaymentRoot({
     forcedReplacementGenerationRef.current = attemptGeneration;
     const shouldContinue = () =>
       forcedReplacementGenerationRef.current === attemptGeneration;
-    let handedOffToPaymentCreation = false;
+    let handedOffToPaymentEntry = false;
     setIsStartingForcedReplacement(true);
     onExitPreventedChange(true);
     logPrimeInfiniPaymentFlow({
@@ -4076,12 +4078,17 @@ function PrimeInfiniWalletPaymentRoot({
           reason: 'previousPaymentSuperseded',
           sendStarted: false,
         });
-        paymentCreationIntentRef.current = true;
-        setSelectedAssetKey(currentSession.asset.key);
         setIsStartingForcedReplacement(false);
         onExitPreventedChange(false);
-        handedOffToPaymentCreation = true;
-        await run({ alwaysSetState: true });
+        handedOffToPaymentEntry = true;
+        // The superseded session no longer holds the entry gate, so hand the
+        // user back to the payment method picker rather than silently minting
+        // another invoice for the same token. Someone forcing a new payment may
+        // be doing it precisely because they can no longer pay with that asset,
+        // and having accepted the duplicate-transfer warning they are entitled
+        // to every channel, not just the crypto one.
+        onClose();
+        await purchase({ selectedSubscriptionPeriod, featureName });
         return;
       }
       if (replacementResult.type === 'track') {
@@ -4123,7 +4130,7 @@ function PrimeInfiniWalletPaymentRoot({
       errorToastUtils.toastIfError(error);
       errorToastUtils.showToastOfError(error);
     } finally {
-      if (!handedOffToPaymentCreation) {
+      if (!handedOffToPaymentEntry) {
         setIsStartingForcedReplacement(false);
         onExitPreventedChange(false);
       }
@@ -4132,7 +4139,9 @@ function PrimeInfiniWalletPaymentRoot({
     existingPaymentChoiceSession,
     featureName,
     isStartingForcedReplacement,
+    onClose,
     onExitPreventedChange,
+    purchase,
     result?.baseline.onekeyUserId,
     run,
     plan,
