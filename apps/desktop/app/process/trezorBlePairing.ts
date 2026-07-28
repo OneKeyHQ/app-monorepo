@@ -159,20 +159,13 @@ export function createTrezorBlePairingIpcMain(
     }
     const address = addressByConnectId.get(connectId);
     if (!address) {
-      // Reconnect by stored connectId without a fresh scan: no cached address.
-      // Assume a prior OS bond and let noble try; if it fails, T0 guidance
-      // (pair in Windows settings) is the fallback.
+      // No cached address means it was never scanned this session — the
+      // stale-RPA signature for a persisted bleConnectId. Assume a prior OS
+      // bond and let noble try anyway.
       logger.warn(
-        `[TrezorBLE] no cached address for ${connectId}; skipping OS pairing. ` +
-          `known=[${[...addressByConnectId.keys()].join(',') || 'none'}]`,
-      );
-      // Never-advertised-this-session is the stale-RPA signature.
-      logger.warn(
-        `[TrezorBLE][RPA-STALE?] connect target ${connectId} (${classifyBleAddress(
+        `[TrezorBLE] no cached address for ${connectId} (${classifyBleAddress(
           connectId,
-        )}) was never seen in a scan this session; if it is a persisted ` +
-          `bleConnectId, expect the connect below to fail. ` +
-          `seenThisSession=[${seenHistoryForLog()}]`,
+        )}); skipping OS pairing, expect connect to fail. seenThisSession=[${seenHistoryForLog()}]`,
       );
       return 'skipped';
     }
@@ -340,21 +333,17 @@ export function createTrezorBlePairingIpcMain(
           const attemptConnect = async (attempt: number) => {
             const startedAt = Date.now();
             const sinceScan = lastScanAt ? startedAt - lastScanAt : -1;
-            logger.info(
-              `[TrezorBLE] noble connect start ${connectId} (attempt ${attempt}); ${sinceScan}ms since last scan (SDK clears its peripheral cache ${SDK_SCAN_IDLE_STOP_MS}ms after the last scan)`,
-            );
-            // Target's freshness in this session, logged on every connect.
             const targetSeen = seenTrezorAddresses.get(connectId);
             logger.info(
-              `[TrezorBLE][RPA] connect target ${connectId} (${classifyBleAddress(
+              `[TrezorBLE] connect start ${connectId} (${classifyBleAddress(
                 connectId,
-              )}) ${
+              )}, attempt ${attempt}); ${sinceScan}ms since last scan (SDK cache idle-stop ${SDK_SCAN_IDLE_STOP_MS}ms); ${
                 targetSeen
                   ? `last advertised ${Math.round(
                       (startedAt - targetSeen.lastSeenAt) / 1000,
-                    )}s ago (${targetSeen.scans} scans this session)`
+                    )}s ago`
                   : 'NEVER advertised this session'
-              }; seenThisSession=[${seenHistoryForLog()}]`,
+              }`,
             );
             // Reaching a bonded, silent device is the SDK's job
             // (NobleBleHandler._directConnect); the app-side attempt at it
@@ -362,53 +351,39 @@ export function createTrezorBlePairingIpcMain(
             try {
               const result = await listener(event, ...args);
               logger.info(
-                `[TrezorBLE] noble connect OK for ${connectId} in ${
+                `[TrezorBLE] connect OK ${connectId} in ${
                   Date.now() - startedAt
                 }ms (attempt ${attempt})`,
               );
               return result;
             } catch (error) {
-              // Three very different diseases share one symptom here, so name
-              // the one we actually hit: the peripheral was gone from noble's
-              // cache and could not be rediscovered ("not found"), vs the link
-              // itself refused or timed out. Different root causes and fixes.
+              // Name the disease: gone from noble's cache and not
+              // re-advertising, vs a link that refused or timed out.
               const message = error instanceof Error ? error.message : '';
-              const isPeripheralGone = /not found/i.test(message);
-              const isConnectTimeout = /timed out/i.test(message);
               let kind = 'OTHER';
-              if (isPeripheralGone) {
-                kind =
-                  'PERIPHERAL-GONE (evicted from cache AND not re-advertising)';
-              } else if (isConnectTimeout) {
-                kind =
-                  'CONNECT-TIMEOUT (peripheral known, link did not come up)';
+              if (/not found/i.test(message)) {
+                kind = 'PERIPHERAL-GONE';
+              } else if (/timed out/i.test(message)) {
+                kind = 'CONNECT-TIMEOUT';
               }
-              logger.warn(
-                `[TrezorBLE] noble connect FAILED for ${connectId} after ${
-                  Date.now() - startedAt
-                }ms (attempt ${attempt}) [${kind}]: ${message}`,
-              );
-              // Verdict line: correlate the failure with the session's address
-              // history so a stale-RPA failure is legible from the log alone.
+              // A stale address is the prime suspect when the target never
+              // advertised this session, or last did so long ago — the device
+              // mints a fresh RPA on every advertising restart.
               const seen = seenTrezorAddresses.get(connectId);
-              if (!seen) {
-                logger.warn(
-                  `[TrezorBLE][RPA-VERDICT] ${connectId} never advertised while this app ran ` +
-                    `-> stale persisted address is the prime suspect (fresh RPA per advertising start). ` +
-                    `seenThisSession=[${seenHistoryForLog()}]`,
-                );
-              } else {
-                const sinceSeen = Date.now() - seen.lastSeenAt;
-                // The device restarts advertising (fast->slow interval) ~30s
-                // in, and every restart mints a new address.
-                if (sinceSeen > 30_000) {
-                  logger.warn(
-                    `[TrezorBLE][RPA-VERDICT] ${connectId} last advertised ${Math.round(
-                      sinceSeen / 1000,
-                    )}s ago -> the address may have rotated since (advertising restarts mint a new RPA)`,
-                  );
-                }
-              }
+              const staleness = seen
+                ? Math.round((Date.now() - seen.lastSeenAt) / 1000)
+                : undefined;
+              const verdict =
+                staleness === undefined
+                  ? '; STALE-ADDRESS suspected (never advertised this session)'
+                  : `; last advertised ${staleness}s ago${
+                      staleness > 30 ? ' (may have rotated since)' : ''
+                    }`;
+              logger.warn(
+                `[TrezorBLE] connect FAILED ${connectId} after ${
+                  Date.now() - startedAt
+                }ms (attempt ${attempt}) [${kind}]: ${message}${verdict}`,
+              );
               throw error;
             }
           };
