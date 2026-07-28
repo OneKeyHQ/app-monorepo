@@ -20,6 +20,8 @@ const mockPrimeLoginDialogAtom = {
   set: jest.fn(async () => undefined),
 };
 
+const VALID_DEV_ONLY_PASSWORD = 'valid-dev-only-password';
+
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
   backgroundMethod:
@@ -30,6 +32,21 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
     () =>
     (_target: unknown, _propertyKey: string, descriptor: PropertyDescriptor) =>
       descriptor,
+  // Mirrors the real guard: throws unless the caller passes the devOnlyPassword.
+  // The literal is inlined because a jest.mock factory cannot read outer scope.
+  checkDevOnlyPassword: (
+    params: { $$devOnlyPassword?: string } | undefined,
+    methodName?: string,
+  ) => {
+    if (params?.$$devOnlyPassword !== 'valid-dev-only-password') {
+      const { OneKeyLocalError } = require('@onekeyhq/shared/src/errors');
+      throw new OneKeyLocalError(
+        `You are not allowed to call this method, devOnlyPassword is wrong. method=${
+          methodName || ''
+        }`,
+      );
+    }
+  },
   toastIfError:
     () =>
     (_target: unknown, _propertyKey: string, descriptor: PropertyDescriptor) =>
@@ -383,9 +400,29 @@ describe('ServicePrime.apiResetInfiniSubscription', () => {
     const post = jest.fn(async () => undefined);
     service.getPrimeClient = jest.fn(async () => ({ post }));
 
-    await service.apiResetInfiniSubscription();
+    await service.apiResetInfiniSubscription({
+      $$devOnlyPassword: VALID_DEV_ONLY_PASSWORD,
+    });
 
     expect(post).toHaveBeenCalledWith('/prime/v1/infini/test/reset');
+  });
+
+  // The decorator only guards the INTERNAL_ dispatch entry, which desktop/web
+  // and native main->bg calls skip, so the method body must reject a missing or
+  // wrong devOnlyPassword before the destructive request is sent.
+  it.each([
+    ['missing devOnlyPassword', {} as any],
+    ['wrong devOnlyPassword', { $$devOnlyPassword: 'wrong-password' } as any],
+  ])('rejects a direct call with %s', async (_title, params) => {
+    const { service } = createService();
+    const post = jest.fn(async () => undefined);
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+
+    await expect(service.apiResetInfiniSubscription(params)).rejects.toThrow(
+      /devOnlyPassword is wrong/,
+    );
+
+    expect(post).not.toHaveBeenCalled();
   });
 });
 
