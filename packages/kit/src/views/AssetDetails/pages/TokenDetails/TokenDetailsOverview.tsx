@@ -42,6 +42,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   displayFiatValueOrUnavailable,
   displayOrUnavailable,
@@ -529,6 +530,10 @@ function TokenDetailsOverview(props: IProps) {
         </SizableText>
         {rows.map(({ token, tokenDetail }) => {
           const percentText = renderPercent(tokenDetail);
+          const displayBalanceParsed = tokenRebaseUtils.applyBalanceMultiplier({
+            amount: tokenDetail?.balanceParsed,
+            balanceMultiplier: tokenDetail?.balanceMultiplier,
+          });
           return (
             <ListItem
               key={token.$key}
@@ -551,7 +556,7 @@ function TokenDetailsOverview(props: IProps) {
                       size="$bodyLgMedium"
                       textAlign="right"
                     >
-                      {displayOrUnavailable(tokenDetail.balanceParsed)}
+                      {displayOrUnavailable(displayBalanceParsed)}
                     </NumberSizeableTextWrapper>
                   }
                   secondary={
@@ -565,7 +570,7 @@ function TokenDetailsOverview(props: IProps) {
                     >
                       {displayFiatValueOrUnavailable(
                         tokenDetail.fiatValue,
-                        tokenDetail.balanceParsed,
+                        displayBalanceParsed,
                       )}
                     </Currency>
                   }

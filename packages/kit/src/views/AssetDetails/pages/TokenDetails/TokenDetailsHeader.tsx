@@ -51,6 +51,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { getSwapBridgeDefaultToToken } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapSource,
@@ -557,7 +558,12 @@ function TokenDetailsHeaderContent({
             isLoading={showLoadingState}
             currency={tokenDetails?.currency}
             fiatValue={tokenDetails?.fiatValue}
-            balanceParsed={tokenDetails?.balanceParsed}
+            balanceParsed={tokenRebaseUtils.applyBalanceMultiplier({
+              amount: tokenDetails?.balanceParsed,
+              balanceMultiplier:
+                tokenDetails?.balanceMultiplier ??
+                tokenDetails?.info.balanceMultiplier,
+            })}
           />
           {/* Actions */}
           <RawActions>

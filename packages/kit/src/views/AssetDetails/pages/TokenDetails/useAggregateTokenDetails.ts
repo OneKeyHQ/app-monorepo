@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { sortTokensByOrder } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { isValidNumberValue } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type {
@@ -138,7 +139,15 @@ export function useAggregateTokenDetails({
           hasFiatValue = true;
         }
         if (isValidNumberValue(tokenDetail.balanceParsed)) {
-          totalBalance = totalBalance.plus(tokenDetail.balanceParsed);
+          // Each member's raw balance is scaled by ITS OWN multiplier before
+          // summing — cross-network multipliers for the same aggregate token
+          // can differ, so the sum must happen on the display basis.
+          totalBalance = totalBalance.plus(
+            tokenRebaseUtils.applyBalanceMultiplier({
+              amount: tokenDetail.balanceParsed,
+              balanceMultiplier: tokenDetail.balanceMultiplier,
+            }),
+          );
         }
         if (!currency && tokenDetail.currency) {
           currency = tokenDetail.currency;
