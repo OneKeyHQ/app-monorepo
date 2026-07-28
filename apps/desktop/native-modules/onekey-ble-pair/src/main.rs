@@ -654,60 +654,26 @@ mod win {
                 }
                 drop(device);
 
-                // Did Close() actually drop the LINK, or is the device still held
-                // (by us, or by Windows auto-connecting to the fresh bond)? A held
-                // link means the device never advertises again, which is exactly
-                // why the connect that follows cannot find it. Re-open a fresh
-                // handle and watch the connection state settle.
-                //
-                // Timing/behavior here is UNCHANGED from before (same wait_ms
-                // schedule, same dev.Close() calls on each re-open) — only the
-                // start/end markers below are new, so a real-device run can show
-                // total elapsed time and the final observed link state without
-                // risking the pairing flow itself. Whether this window can be
-                // shortened/removed is exactly the open question these markers
-                // are meant to give evidence for.
-                let verify_start_ms = t_ms();
-                diag(&format!(
-                    "post-close link verification: starting at +{verify_start_ms}ms \
-                     (wait budget 0/1000/3000ms)"
-                ));
-                let mut last_status: Option<String> = None;
-                for wait_ms in [0_u64, 1000, 3000] {
-                    if wait_ms > 0 {
-                        std::thread::sleep(std::time::Duration::from_millis(wait_ms));
-                    }
-                    match BluetoothLEDevice::FromBluetoothAddressAsync(addr) {
-                        Ok(op) => match op.await {
-                            Ok(dev) => {
-                                let status = dev
-                                    .ConnectionStatus()
-                                    .map(|v| format!("{v:?}"))
-                                    .unwrap_or_else(|_| "<err>".into());
-                                diag(&format!(
-                                    "post-close link check (+{wait_ms}ms): connection={status} \
-                                     (Connected => device will NOT advertise => noble cannot find it)"
-                                ));
-                                last_status = Some(status);
-                                let _ = dev.Close();
-                            }
-                            Err(e) => {
-                                diag(&format!("post-close link check (+{wait_ms}ms): {e}"));
-                                last_status = Some(format!("<error: {e}>"));
-                            }
-                        },
-                        Err(e) => {
-                            diag(&format!("post-close link check (+{wait_ms}ms): {e}"));
-                            last_status = Some(format!("<error: {e}>"));
+                // One immediate link check, no waits: the device holds the
+                // pairing link through the settle window anyway, and the app
+                // auto-retries the first connect after a fresh bond.
+                match BluetoothLEDevice::FromBluetoothAddressAsync(addr) {
+                    Ok(op) => match op.await {
+                        Ok(dev) => {
+                            let status = dev
+                                .ConnectionStatus()
+                                .map(|v| format!("{v:?}"))
+                                .unwrap_or_else(|_| "<err>".into());
+                            diag(&format!(
+                                "post-close link check: connection={status} \
+                                 (Connected => device will NOT advertise => noble cannot find it)"
+                            ));
+                            let _ = dev.Close();
                         }
-                    }
+                        Err(e) => diag(&format!("post-close link check: {e}")),
+                    },
+                    Err(e) => diag(&format!("post-close link check: {e}")),
                 }
-                let verify_elapsed_ms = t_ms().saturating_sub(verify_start_ms);
-                diag(&format!(
-                    "post-close link verification: done after {verify_elapsed_ms}ms, \
-                     final connection={}",
-                    last_status.unwrap_or_else(|| "<never observed>".into())
-                ));
 
                 super::emit(r#"{"type":"paired"}"#);
                 Ok(())
