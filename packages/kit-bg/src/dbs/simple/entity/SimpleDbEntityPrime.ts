@@ -1650,6 +1650,20 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
           currentSession.paymentCacheKey,
         ) ||
         currentSession.payment.paymentId !== latestPayment.paymentId ||
+        // Matching payment ids are not enough. A response carrying different
+        // transfer terms under the same id would have the merge adopt those
+        // terms and the delete then release a session whose original transfer
+        // can still settle. The progress latch already refuses that, and this
+        // deletes rather than marks, so it cannot be the looser of the two.
+        !isSamePrimeInfiniPaymentTransferSnapshot({
+          first: currentSession.payment,
+          second: latestPayment,
+          networkId: currentSession.asset.networkId,
+        }) ||
+        !isPrimeInfiniPaymentForAssetSnapshot({
+          payment: latestPayment,
+          asset: currentSession.asset,
+        }) ||
         // The stored session must still be the exact revision the caller
         // inspected. Another window can claim the same invoice while the
         // terminal snapshot is in flight, and deleting that fresh claim would

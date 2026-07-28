@@ -3993,6 +3993,16 @@ function PrimeInfiniWalletPaymentRoot({
       reason: 'userContinuedExistingPayment',
       sendStarted: existingPaymentChoiceSession.sendStarted,
     });
+    if (staleExistingPaymentChoiceSession) {
+      // This choice was rendered from the stored snapshot because the server
+      // would not confirm the invoice, so there is nothing to resume into:
+      // polling needs the same request that just failed. Marking it continued
+      // would also hide the forced replacement along with the screen, leaving
+      // no way back to it. Retry the load instead, which either recovers the
+      // real session or brings both options back.
+      void run({ alwaysSetState: true });
+      return;
+    }
     setContinuedExistingPaymentBindingId(
       existingPaymentChoiceSession.paymentCacheKey.bindingId,
     );
@@ -4000,7 +4010,9 @@ function PrimeInfiniWalletPaymentRoot({
     existingPaymentChoiceSession,
     featureName,
     plan,
+    run,
     selectedSubscriptionPeriod,
+    staleExistingPaymentChoiceSession,
   ]);
   const handleStartForcedReplacement = useCallback(async () => {
     if (

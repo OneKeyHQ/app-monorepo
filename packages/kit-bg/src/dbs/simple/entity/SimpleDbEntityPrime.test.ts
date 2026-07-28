@@ -2265,6 +2265,39 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     expect(getStored().sendStarted).toBe(false);
   });
 
+  // Matching payment ids alone would let a mutated response have the merge
+  // adopt new transfer terms, and the delete would then release a session whose
+  // original transfer can still settle.
+  test.each([
+    ['recipient address', { address: '0xattacker' }],
+    ['amount due', { amountDue: '999' }],
+    ['token', { token: 'USDT' }],
+  ])(
+    'refuses a terminal discard when the response changes the %s',
+    async (_label, paymentOverride) => {
+      const observedUpdatedAt = Date.now() - 5000;
+      const { entity, getStored } = makeInFlightClaimEntity(
+        observedUpdatedAt,
+        () => undefined,
+      );
+
+      await expect(
+        entity.discardTerminalInfiniPendingPaymentSession({
+          onekeyUserId: 'user-1',
+          expectedPaymentCacheIdentity: session.paymentCacheKey,
+          expectedUpdatedAt: observedUpdatedAt,
+          expectedSendStarted: false,
+          latestPayment: {
+            ...session.payment,
+            ...paymentOverride,
+            status: 'expired',
+          },
+        }),
+      ).resolves.toBe(false);
+      expect(getStored()).toBeDefined();
+    },
+  );
+
   test('treats a terminal discard as done when no session remains', async () => {
     const entity = new SimpleDbEntityPrime();
     let persisted: Record<string, unknown> = {};
