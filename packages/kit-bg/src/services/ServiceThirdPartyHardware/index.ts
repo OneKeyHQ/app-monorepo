@@ -46,11 +46,11 @@ import {
 } from '../ServiceHardware/adapters/thirdPartyHardwareAdapterRegistry';
 import { mapThirdPartyDeviceToSearchDevice } from '../ServiceHardware/thirdPartyDeviceMapping';
 
-import { runTrustedLocalMockDeviceClaim } from './localMockDeviceClaim';
 import {
   type ILedgerAttestationBridgeAdapter,
   runLedgerLocalServerAttestation,
 } from './ledgerLocalAttestationBridge';
+import { runTrustedLocalMockDeviceClaim } from './localMockDeviceClaim';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type {
@@ -94,10 +94,14 @@ function createThirdPartyAdapterNotRegisteredError(vendor: EHardwareVendor) {
 function buildAccountNameTargets({
   accounts,
   indexedAccounts,
+  walletNameById,
+  allowedWalletIds,
   onlyBitcoin,
 }: {
   accounts: IDBAccount[];
   indexedAccounts: IDBIndexedAccount[];
+  walletNameById: Map<string, string>;
+  allowedWalletIds?: Set<string>;
   onlyBitcoin?: boolean;
 }) {
   const indexedAccountById = new Map(
@@ -107,30 +111,88 @@ function buildAccountNameTargets({
     const indexedAccount = account.indexedAccountId
       ? indexedAccountById.get(account.indexedAccountId)
       : undefined;
-    const addresses = new Set<string>(
-      [
-        account.address,
-        ...('addresses' in account
-          ? Object.values(account.addresses ?? {})
-          : []),
-      ].filter(Boolean),
-    );
     if (
       !indexedAccount ||
-      addresses.size === 0 ||
+      (allowedWalletIds && !allowedWalletIds.has(indexedAccount.walletId)) ||
       (onlyBitcoin && account.impl !== 'btc')
     ) {
       return [];
     }
-    return [...addresses].map((address) => ({
-      indexedAccountId: indexedAccount.id,
-      accountId: account.id,
-      walletId: indexedAccount.walletId,
-      currentName: indexedAccount.name,
-      address,
-      path: account.path,
-    }));
+    const defaultNetworkId =
+      account.createAtNetwork || account.networks?.[0] || account.impl;
+    const addressEntries: Array<{
+      address: string;
+      networkId: string;
+      path?: string;
+    }> = [
+      {
+        address: account.address,
+        networkId: defaultNetworkId,
+        path: account.path,
+      },
+    ];
+    if ('addresses' in account) {
+      for (const [addressKey, rawAddress] of Object.entries(
+        account.addresses ?? {},
+      )) {
+        const networkId =
+          account.impl !== 'btc' &&
+          (addressKey.includes('--') || addressKey === account.impl)
+            ? addressKey
+            : defaultNetworkId;
+        for (const address of rawAddress
+          .split(',')
+          .map((item) => item.trim())) {
+          addressEntries.push({
+            address,
+            networkId,
+            path: account.path,
+          });
+        }
+      }
+    }
+    const seen = new Set<string>();
+    return addressEntries.flatMap(({ address, networkId, path }) => {
+      if (!address) {
+        return [];
+      }
+      const dedupeKey = `${networkId}:${normalizeInventoryAddress(address)}`;
+      if (seen.has(dedupeKey)) {
+        return [];
+      }
+      seen.add(dedupeKey);
+      return [
+        {
+          indexedAccountId: indexedAccount.id,
+          accountId: account.id,
+          walletId: indexedAccount.walletId,
+          walletName:
+            walletNameById.get(indexedAccount.walletId) ??
+            indexedAccount.walletId,
+          currentName: indexedAccount.name,
+          networkId,
+          networkName: getFallbackNetworkName(account.impl),
+          networkImpl: account.impl,
+          address,
+          path,
+        },
+      ];
+    });
   });
+}
+
+function getFallbackNetworkName(impl: string): string {
+  const names: Record<string, string> = {
+    btc: 'Bitcoin',
+    evm: 'Ethereum / EVM',
+    sol: 'Solana',
+    sui: 'Sui',
+    aptos: 'Aptos',
+    cosmos: 'Cosmos',
+    near: 'NEAR',
+    tron: 'TRON',
+  };
+  return names[impl] ?? impl;
 }
 
 function normalizeInventoryAddress(address: string): string {
@@ -162,7 +224,12 @@ function buildAccountNameSourceInventory({
       indexedAccountId: string;
       accountId: string;
       walletId: string;
+      walletName: string;
       currentName: string;
+      networkId: string;
+      networkName: string;
+      networkImpl: string;
+      address: string;
       path?: string;
     }>
   >();
@@ -171,14 +238,24 @@ function buildAccountNameSourceInventory({
     const matches = targetsByAddress.get(address) ?? [];
     if (
       !matches.some(
-        (match) => match.indexedAccountId === target.indexedAccountId,
+        (match) =>
+          match.indexedAccountId === target.indexedAccountId &&
+          match.accountId === target.accountId &&
+          match.networkId === target.networkId &&
+          normalizeInventoryAddress(match.address) ===
+            normalizeInventoryAddress(target.address),
       )
     ) {
       matches.push({
         indexedAccountId: target.indexedAccountId,
         accountId: target.accountId,
         walletId: target.walletId,
+        walletName: target.walletName,
         currentName: target.currentName,
+        networkId: target.networkId,
+        networkName: target.networkName,
+        networkImpl: target.networkImpl,
+        address: target.address,
         path: target.path,
       });
       targetsByAddress.set(address, matches);
@@ -189,9 +266,15 @@ function buildAccountNameSourceInventory({
     address: account.address,
     path: account.path,
     source,
-    sourceDeviceId: account.sourceDeviceId,
-    sourceAccountType: account.sourceAccountType,
-    selectedDeviceMatch: account.selectedDeviceMatch,
+    ...(account.sourceDeviceId
+      ? { sourceDeviceId: account.sourceDeviceId }
+      : {}),
+    ...(account.sourceAccountType
+      ? { sourceAccountType: account.sourceAccountType }
+      : {}),
+    ...(account.selectedDeviceMatch !== undefined
+      ? { selectedDeviceMatch: account.selectedDeviceMatch }
+      : {}),
     matchedOneKeyAccounts:
       targetsByAddress.get(normalizeInventoryAddress(account.address)) ?? [],
   }));
@@ -204,7 +287,11 @@ function buildLocalAccountNameInventory(
     indexedAccountId: target.indexedAccountId,
     accountId: target.accountId,
     walletId: target.walletId,
+    walletName: target.walletName,
     currentName: target.currentName,
+    networkId: target.networkId,
+    networkName: target.networkName,
+    networkImpl: target.networkImpl,
     address: target.address,
     path: target.path,
   }));
@@ -313,6 +400,31 @@ class ServiceThirdPartyHardware extends ServiceBase {
         'Third-party onboarding diagnostics require Developer Mode',
       );
     }
+  }
+
+  private async resolveAccountNameTargetNetworkNames(
+    targets: ReturnType<typeof buildAccountNameTargets>,
+  ): Promise<ReturnType<typeof buildAccountNameTargets>> {
+    const networkIds = [
+      ...new Set(
+        targets
+          .map((target) => target.networkId)
+          .filter((networkId) => networkId.includes('--')),
+      ),
+    ];
+    if (!networkIds.length) {
+      return targets;
+    }
+    const { networks } = await this.backgroundApi.serviceNetwork
+      .getNetworksByIds({ networkIds })
+      .catch(() => ({ networks: [] }));
+    const networkNameById = new Map(
+      networks.map((network) => [network.id, network.name]),
+    );
+    return targets.map((target) => ({
+      ...target,
+      networkName: networkNameById.get(target.networkId) ?? target.networkName,
+    }));
   }
 
   private isRegisteredThirdPartyVendor(
@@ -1380,14 +1492,25 @@ class ServiceThirdPartyHardware extends ServiceBase {
     ) {
       return empty('unsupported_source', 'Unsupported third-party source.');
     }
-    const [{ accounts }, { indexedAccounts }] = await Promise.all([
+    const [{ accounts }, { indexedAccounts }, { wallets }] = await Promise.all([
       this.backgroundApi.serviceAccount.getAllAccounts({
         filterRemoved: true,
       }),
       this.backgroundApi.serviceAccount.getAllIndexedAccounts({
         filterRemoved: true,
       }),
+      localDb.getAllWallets(),
     ]);
+    const walletNameById = new Map(
+      wallets.map((wallet) => [wallet.id, wallet.name]),
+    );
+    const selectedWalletIds = params.dbDeviceId
+      ? new Set(
+          wallets
+            .filter((wallet) => wallet.associatedDevice === params.dbDeviceId)
+            .map((wallet) => wallet.id),
+        )
+      : undefined;
     const selectedDbDevice = params.dbDeviceId
       ? await localDb.getDevice(params.dbDeviceId).catch(() => undefined)
       : undefined;
@@ -1395,11 +1518,17 @@ class ServiceThirdPartyHardware extends ServiceBase {
 
     if (params.vendor === EHardwareVendor.ledger) {
       const scopeDescription =
-        'All plaintext Ethereum name/address entries parsed from Ledger Live on this computer.';
-      const localTargets = buildAccountNameTargets({
-        accounts,
-        indexedAccounts,
-      }).filter((account) => /^0x[0-9a-f]{40}$/i.test(account.address.trim()));
+        'Ledger Live: all plaintext Ethereum name/address entries on this computer. OneKey: only wallets associated with the selected Ledger device, grouped by chain and address.';
+      const localTargets = (
+        await this.resolveAccountNameTargetNetworkNames(
+          buildAccountNameTargets({
+            accounts,
+            indexedAccounts,
+            walletNameById,
+            allowedWalletIds: selectedWalletIds,
+          }),
+        )
+      ).filter((account) => /^0x[0-9a-f]{40}$/i.test(account.address.trim()));
       const localAccounts = buildLocalAccountNameInventory(localTargets);
       if (!platformEnv.isDesktop || !globalThis.desktopApiProxy?.system) {
         return empty('unsupported_source', scopeDescription, {
@@ -1439,12 +1568,16 @@ class ServiceThirdPartyHardware extends ServiceBase {
     }
 
     const scopeDescription =
-      'All locally cached Trezor Suite Bitcoin accounts: one cached receive address per account, associated by Suite deviceId. No hardware address derivation is performed.';
-    const localTargets = buildAccountNameTargets({
-      accounts,
-      indexedAccounts,
-      onlyBitcoin: true,
-    });
+      'Trezor Suite: locally cached Bitcoin accounts for the selected Suite deviceId, with one cached receive address per account. OneKey: only wallets associated with the selected Trezor device. No hardware address derivation is performed.';
+    const localTargets = await this.resolveAccountNameTargetNetworkNames(
+      buildAccountNameTargets({
+        accounts,
+        indexedAccounts,
+        walletNameById,
+        allowedWalletIds: selectedWalletIds,
+        onlyBitcoin: true,
+      }),
+    );
     const localAccounts = buildLocalAccountNameInventory(localTargets);
     if (!params.dbDeviceId) {
       return empty('no_matches', scopeDescription, { localAccounts });
@@ -1478,16 +1611,23 @@ class ServiceThirdPartyHardware extends ServiceBase {
         selectedDevice,
       });
     }
-    const selectedDeviceId = dbDevice.deviceId.trim().toLowerCase();
-    const sourceAccounts = sourceResponse.accounts.map((account) => ({
-      name: account.name,
-      address: account.address,
-      path: account.path,
-      sourceDeviceId: account.deviceId,
-      sourceAccountType: account.accountType,
-      selectedDeviceMatch:
-        account.deviceId.trim().toLowerCase() === selectedDeviceId,
-    }));
+    const selectedDeviceIds = new Set(
+      [dbDevice.deviceId, selectedDevice?.featuresDeviceId]
+        .filter((deviceId): deviceId is string => Boolean(deviceId?.trim()))
+        .map((deviceId) => deviceId.trim().toLowerCase()),
+    );
+    const sourceAccounts = sourceResponse.accounts
+      .filter((account) =>
+        selectedDeviceIds.has(account.deviceId.trim().toLowerCase()),
+      )
+      .map((account) => ({
+        name: account.name,
+        address: account.address,
+        path: account.path,
+        sourceDeviceId: account.deviceId,
+        sourceAccountType: account.accountType,
+        selectedDeviceMatch: true,
+      }));
     const inventory = buildAccountNameSourceInventory({
       sourceAccounts,
       targetAccounts: localTargets,

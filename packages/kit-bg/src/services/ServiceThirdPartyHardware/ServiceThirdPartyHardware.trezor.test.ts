@@ -18,6 +18,7 @@ import type { IThirdPartyHardwareAdapter } from '../ServiceHardware/adapters/typ
 type ILocalDbMock = {
   getDevice: jest.Mock;
   getDeviceByQuery: jest.Mock;
+  getAllWallets: jest.Mock;
   updateDeviceConnectId: jest.Mock;
 };
 
@@ -36,6 +37,7 @@ jest.mock('../../dbs/local/localDb', () => ({
   default: {
     getDevice: jest.fn(),
     getDeviceByQuery: jest.fn(),
+    getAllWallets: jest.fn(),
     updateDeviceConnectId: jest.fn(),
   },
 }));
@@ -662,6 +664,8 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
 describe('ServiceThirdPartyHardware developer account name sync', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    getLocalDbMock().getAllWallets.mockReset();
+    getLocalDbMock().getAllWallets.mockResolvedValue({ wallets: [] });
   });
 
   it('recovers over the bound Trezor transport before running a device authenticity check', async () => {
@@ -838,6 +842,15 @@ describe('ServiceThirdPartyHardware developer account name sync', () => {
       connectId: 'TREZOR-USB',
       deviceId: 'TREZOR-DEVICE',
     } as IDBDevice);
+    getLocalDbMock().getAllWallets.mockResolvedValue({
+      wallets: [
+        {
+          id: 'hw-1',
+          name: 'Trezor Wallet',
+          associatedDevice: 'db-trezor',
+        },
+      ],
+    });
     (platformEnv as { isDesktop: boolean }).isDesktop = true;
     globalThis.desktopApiProxy = {
       system: { readTrezorSuiteAccountNames },
@@ -853,7 +866,7 @@ describe('ServiceThirdPartyHardware developer account name sync', () => {
 
       expect(readTrezorSuiteAccountNames).toHaveBeenCalledTimes(1);
       expect(inventory.status).toBe('available');
-      expect(inventory.accounts).toHaveLength(2);
+      expect(inventory.accounts).toHaveLength(1);
       expect(inventory.accounts).toContainEqual(
         expect.objectContaining({
           sourceName: 'Bitcoin #1',
@@ -868,17 +881,19 @@ describe('ServiceThirdPartyHardware developer account name sync', () => {
               indexedAccountId: 'hw-1--0',
               accountId: 'btc-account',
               walletId: 'hw-1',
+              walletName: 'Trezor Wallet',
               currentName: 'OneKey BTC Account',
+              networkId: 'btc',
+              networkName: 'Bitcoin',
+              networkImpl: 'btc',
+              address: matchedAddress,
               path: "m/84'/0'/0'",
             },
           ],
         }),
       );
-      expect(inventory.accounts).toContainEqual(
-        expect.objectContaining({
-          sourceDeviceId: 'OTHER-TREZOR',
-          selectedDeviceMatch: false,
-        }),
+      expect(inventory.accounts).not.toContainEqual(
+        expect.objectContaining({ sourceDeviceId: 'OTHER-TREZOR' }),
       );
       expect(inventory.selectedDevice).toEqual({
         dbDeviceId: 'db-trezor',
@@ -893,7 +908,11 @@ describe('ServiceThirdPartyHardware developer account name sync', () => {
           indexedAccountId: 'hw-1--0',
           accountId: 'btc-account',
           walletId: 'hw-1',
+          walletName: 'Trezor Wallet',
           currentName: 'OneKey BTC Account',
+          networkId: 'btc',
+          networkName: 'Bitcoin',
+          networkImpl: 'btc',
           address: matchedAddress,
           path: "m/84'/0'/0'",
         },
@@ -937,6 +956,11 @@ describe('ServiceThirdPartyHardware developer account name sync', () => {
                 indexedAccountId: 'hw-1--0',
                 impl: 'evm',
                 address: '0x1111111111111111111111111111111111111111',
+                addresses: {
+                  'evm--1': '0x1111111111111111111111111111111111111111',
+                  'evm--137': '0x1111111111111111111111111111111111111111',
+                },
+                createAtNetwork: 'evm--1',
                 path: "m/44'/60'/0'/0/0",
               },
             ],
@@ -950,6 +974,14 @@ describe('ServiceThirdPartyHardware developer account name sync', () => {
                 index: 0,
                 idHash: 'hash',
               },
+            ],
+          }),
+        },
+        serviceNetwork: {
+          getNetworksByIds: jest.fn().mockResolvedValue({
+            networks: [
+              { id: 'evm--1', name: 'Ethereum' },
+              { id: 'evm--137', name: 'Polygon' },
             ],
           }),
         },
@@ -974,7 +1006,24 @@ describe('ServiceThirdPartyHardware developer account name sync', () => {
               indexedAccountId: 'hw-1--0',
               accountId: 'evm-account',
               walletId: 'hw-1',
+              walletName: 'hw-1',
               currentName: 'OneKey EVM',
+              networkId: 'evm--1',
+              networkName: 'Ethereum',
+              networkImpl: 'evm',
+              address: '0x1111111111111111111111111111111111111111',
+              path: "m/44'/60'/0'/0/0",
+            },
+            {
+              indexedAccountId: 'hw-1--0',
+              accountId: 'evm-account',
+              walletId: 'hw-1',
+              walletName: 'hw-1',
+              currentName: 'OneKey EVM',
+              networkId: 'evm--137',
+              networkName: 'Polygon',
+              networkImpl: 'evm',
+              address: '0x1111111111111111111111111111111111111111',
               path: "m/44'/60'/0'/0/0",
             },
           ],
@@ -992,7 +1041,23 @@ describe('ServiceThirdPartyHardware developer account name sync', () => {
           indexedAccountId: 'hw-1--0',
           accountId: 'evm-account',
           walletId: 'hw-1',
+          walletName: 'hw-1',
           currentName: 'OneKey EVM',
+          networkId: 'evm--1',
+          networkName: 'Ethereum',
+          networkImpl: 'evm',
+          address: '0x1111111111111111111111111111111111111111',
+          path: "m/44'/60'/0'/0/0",
+        },
+        {
+          indexedAccountId: 'hw-1--0',
+          accountId: 'evm-account',
+          walletId: 'hw-1',
+          walletName: 'hw-1',
+          currentName: 'OneKey EVM',
+          networkId: 'evm--137',
+          networkName: 'Polygon',
+          networkImpl: 'evm',
           address: '0x1111111111111111111111111111111111111111',
           path: "m/44'/60'/0'/0/0",
         },

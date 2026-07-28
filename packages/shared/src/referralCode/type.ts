@@ -910,7 +910,12 @@ export interface IThirdPartyAccountNameSourceInventoryAccount {
     indexedAccountId: string;
     accountId: string;
     walletId: string;
+    walletName: string;
     currentName: string;
+    networkId: string;
+    networkName: string;
+    networkImpl: string;
+    address: string;
     path?: string;
   }>;
 }
@@ -919,7 +924,11 @@ export interface IThirdPartyAccountNameLocalAccount {
   indexedAccountId: string;
   accountId: string;
   walletId: string;
+  walletName: string;
   currentName: string;
+  networkId: string;
+  networkName: string;
+  networkImpl: string;
   address: string;
   path?: string;
 }

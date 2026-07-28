@@ -51,16 +51,42 @@ function getNameSourceStatusMessage(
 }
 
 function AccountNameSourceInventory({
+  vendor,
   accounts,
   localAccounts,
   selectedDevice,
   scopeDescription,
 }: {
+  vendor: EHardwareVendor.trezor | EHardwareVendor.ledger;
   accounts: IThirdPartyAccountNameSourceInventoryAccount[];
   localAccounts: IThirdPartyAccountNameLocalAccount[];
   selectedDevice?: IThirdPartyAccountNameSelectedDevice;
   scopeDescription: string;
 }) {
+  const sourceWalletName =
+    vendor === EHardwareVendor.trezor ? 'Trezor Suite' : 'Ledger Live';
+  const sourceChainName =
+    vendor === EHardwareVendor.trezor ? 'Bitcoin' : 'Ethereum';
+  const localWalletGroups = localAccounts.reduce<
+    Array<{
+      walletId: string;
+      walletName: string;
+      accounts: IThirdPartyAccountNameLocalAccount[];
+    }>
+  >((groups, account) => {
+    let group = groups.find((item) => item.walletId === account.walletId);
+    if (!group) {
+      group = {
+        walletId: account.walletId,
+        walletName: account.walletName,
+        accounts: [],
+      };
+      groups.push(group);
+    }
+    group.accounts.push(account);
+    return groups;
+  }, []);
+
   return (
     <ScrollView maxHeight={480}>
       <YStack gap="$3">
@@ -105,7 +131,7 @@ function AccountNameSourceInventory({
           </YStack>
         ) : null}
         <SizableText size="$bodyMdMedium">
-          Source wallet accounts ({accounts.length})
+          {sourceWalletName} accounts ({accounts.length})
         </SizableText>
         {accounts.map((account, index) => (
           <YStack
@@ -117,7 +143,7 @@ function AccountNameSourceInventory({
           >
             <XStack justifyContent="space-between" gap="$3">
               <SizableText flex={1} size="$bodyMdMedium">
-                {account.sourceName}
+                {sourceWalletName} name: {account.sourceName}
               </SizableText>
               <SizableText
                 size="$bodySm"
@@ -128,13 +154,16 @@ function AccountNameSourceInventory({
                 }
               >
                 {account.matchedOneKeyAccounts.length
-                  ? `${account.matchedOneKeyAccounts.length} match`
+                  ? `${account.matchedOneKeyAccounts.length} OneKey match`
                   : 'No match'}
               </SizableText>
             </XStack>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {sourceWalletName} chain: {sourceChainName}
+            </SizableText>
             {account.path ? (
               <SizableText size="$bodySm" color="$textSubdued" selectable>
-                {account.path}
+                {sourceWalletName} path: {account.path}
               </SizableText>
             ) : null}
             {account.sourceDeviceId ? (
@@ -155,27 +184,31 @@ function AccountNameSourceInventory({
               </SizableText>
             ) : null}
             <SizableText size="$bodySm" color="$textSubdued" selectable>
-              {account.address}
+              {sourceWalletName} address: {account.address}
             </SizableText>
             {account.matchedOneKeyAccounts.map((match) => (
               <YStack
-                key={match.indexedAccountId}
+                key={`${match.accountId}:${match.networkId}:${match.address}`}
                 gap="$0.5"
+                mt="$1"
                 pl="$2"
                 borderLeftWidth="$px"
                 borderLeftColor="$borderSuccess"
               >
                 <SizableText size="$bodySm" color="$textSuccess">
-                  OneKey: {match.currentName}
+                  OneKey account name: {match.currentName}
                 </SizableText>
                 <SizableText size="$bodySm" color="$textSubdued" selectable>
-                  Wallet: {match.walletId}
+                  OneKey wallet: {match.walletName}
                 </SizableText>
                 <SizableText size="$bodySm" color="$textSubdued" selectable>
-                  Indexed account: {match.indexedAccountId}
+                  Wallet ID: {match.walletId}
                 </SizableText>
                 <SizableText size="$bodySm" color="$textSubdued" selectable>
-                  DB account: {match.accountId}
+                  OneKey chain: {match.networkName} ({match.networkId})
+                </SizableText>
+                <SizableText size="$bodySm" color="$textSubdued" selectable>
+                  OneKey address: {match.address}
                 </SizableText>
                 {match.path ? (
                   <SizableText size="$bodySm" color="$textSubdued" selectable>
@@ -187,36 +220,48 @@ function AccountNameSourceInventory({
           </YStack>
         ))}
         <SizableText size="$bodyMdMedium">
-          Local OneKey address records ({localAccounts.length})
+          OneKey wallets ({localWalletGroups.length}) · address records (
+          {localAccounts.length})
         </SizableText>
-        {localAccounts.map((account, index) => (
+        {localWalletGroups.map((wallet) => (
           <YStack
-            key={`${account.accountId}:${account.address}:${index}`}
-            gap="$1"
-            pb="$3"
-            borderBottomWidth="$px"
-            borderBottomColor="$borderSubdued"
+            key={wallet.walletId}
+            gap="$2"
+            p="$3"
+            borderWidth="$px"
+            borderColor="$borderSubdued"
+            borderRadius="$3"
           >
             <SizableText size="$bodyMdMedium">
-              {account.currentName}
+              OneKey wallet: {wallet.walletName}
             </SizableText>
             <SizableText size="$bodySm" color="$textSubdued" selectable>
-              Wallet: {account.walletId}
+              Wallet ID: {wallet.walletId}
             </SizableText>
-            <SizableText size="$bodySm" color="$textSubdued" selectable>
-              Indexed account: {account.indexedAccountId}
-            </SizableText>
-            <SizableText size="$bodySm" color="$textSubdued" selectable>
-              DB account: {account.accountId}
-            </SizableText>
-            {account.path ? (
-              <SizableText size="$bodySm" color="$textSubdued" selectable>
-                OneKey path: {account.path}
-              </SizableText>
-            ) : null}
-            <SizableText size="$bodySm" color="$textSubdued" selectable>
-              {account.address}
-            </SizableText>
+            {wallet.accounts.map((account) => (
+              <YStack
+                key={`${account.accountId}:${account.networkId}:${account.address}`}
+                gap="$0.5"
+                pt="$2"
+                borderTopWidth="$px"
+                borderTopColor="$borderSubdued"
+              >
+                <SizableText size="$bodySmMedium">
+                  {account.networkName} ({account.networkId})
+                </SizableText>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  Current OneKey name: {account.currentName}
+                </SizableText>
+                <SizableText size="$bodySm" color="$textSubdued" selectable>
+                  Address: {account.address}
+                </SizableText>
+                {account.path ? (
+                  <SizableText size="$bodySm" color="$textSubdued" selectable>
+                    OneKey path: {account.path}
+                  </SizableText>
+                ) : null}
+              </YStack>
+            ))}
           </YStack>
         ))}
       </YStack>
@@ -327,6 +372,7 @@ function DeviceSectionThirdPartyOnboardingDev() {
           .join('\n'),
         renderContent: (
           <AccountNameSourceInventory
+            vendor={vendor}
             accounts={result.accounts}
             localAccounts={result.localAccounts}
             selectedDevice={result.selectedDevice}
@@ -387,7 +433,11 @@ function DeviceSectionThirdPartyOnboardingDev() {
       />
       <ListItem
         icon="EditOutline"
-        title="2. View all source accounts and address matches"
+        title={
+          vendor === EHardwareVendor.trezor
+            ? '2. Compare Trezor Suite Bitcoin names'
+            : '2. Compare Ledger Live Ethereum names'
+        }
         subtitle={nameSyncSubtitle}
         titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
