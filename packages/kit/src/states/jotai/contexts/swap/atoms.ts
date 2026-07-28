@@ -242,6 +242,20 @@ export const {
 );
 
 export const {
+  atom: swapStockPayTokenDisplayAtom,
+  use: useSwapStockPayTokenDisplayAtom,
+} = contextAtom<Record<string, ISwapToken>>(
+  {},
+  {
+    // Account-scoped Stock pay-token seeds are display-only. Live speed config
+    // and token details still gate selection, quote, and execution.
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockPayTokenDisplayAtom,
+  },
+);
+
+export const {
   atom: swapBalanceDisplayCacheAtom,
   use: useSwapBalanceDisplayCacheAtom,
 } = contextAtom<ISwapBalanceDisplayCache>(EMPTY_SWAP_BALANCE_DISPLAY_CACHE, {

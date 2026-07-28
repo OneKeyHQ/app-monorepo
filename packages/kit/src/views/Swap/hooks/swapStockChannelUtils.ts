@@ -83,6 +83,19 @@ export function getTokenIdentityKey(token?: Partial<ISwapTokenBase>) {
   }`;
 }
 
+export function buildStockPayTokenDisplaySeed(token: ISwapToken): ISwapToken {
+  return {
+    networkId: token.networkId,
+    contractAddress: token.contractAddress,
+    decimals: token.decimals,
+    isNative: token.isNative,
+    symbol: token.symbol,
+    name: token.name,
+    logoURI: token.logoURI,
+    networkLogoURI: token.networkLogoURI,
+  };
+}
+
 export function shouldResetStockTradeReceiveAmount({
   nextStockToken,
   previousStockToken,
@@ -494,13 +507,17 @@ export function findDefaultStockPayToken({
 }
 
 export function resolveStockPayTokenDisplaySeed({
+  allowPersistedTokenFallback,
   balances,
   candidates,
+  persistedToken,
   persistedTokenKey,
   selectedToken,
 }: {
+  allowPersistedTokenFallback?: boolean;
   balances?: Record<string, string | undefined>;
   candidates: IToken[];
+  persistedToken?: ISwapToken;
   persistedTokenKey?: string;
   selectedToken?: Partial<ISwapTokenBase>;
 }) {
@@ -517,8 +534,18 @@ export function resolveStockPayTokenDisplaySeed({
         (candidate) => getTokenIdentityKey(candidate) === persistedTokenKey,
       )
     : undefined;
+  const persistedDisplayCandidate = findTokenFromCandidates({
+    candidates,
+    token: persistedToken,
+  });
+  const coldStartDisplaySeed =
+    allowPersistedTokenFallback && candidates.length === 0 && persistedToken
+      ? filterStockPayTokenCandidates([persistedToken])[0]
+      : undefined;
   return (
     persistedCandidate ??
+    persistedDisplayCandidate ??
+    coldStartDisplaySeed ??
     findDefaultStockPayToken({
       candidates,
       balances,

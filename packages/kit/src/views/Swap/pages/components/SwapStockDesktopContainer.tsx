@@ -876,8 +876,6 @@ function StockActionGate({
   const isStockChannelInitializing =
     stockChannel.stockTokenStatus ===
       ESwapStockChannelAsyncStatus.Initializing ||
-    stockChannel.marketStatusStatus ===
-      ESwapStockChannelAsyncStatus.Initializing ||
     stockChannel.payTokenStatus === ESwapStockChannelAsyncStatus.Initializing;
   const forceQuoteActionLoading = shouldShowStockQuoteActionLoading({
     inputAmount: fromTokenAmount.value,

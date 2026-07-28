@@ -4,6 +4,7 @@ import {
   ESwapStockChannelAsyncStatus,
   ESwapStockTradeSide,
   backfillSwapProTokenStockIdentity,
+  buildStockPayTokenDisplaySeed,
   buildStockSwapTokenFromMarketListToken,
   filterStockPayTokenCandidates,
   hasValidStockBalanceForTrade,
@@ -193,6 +194,68 @@ describe('swapStockChannelUtils', () => {
         persistedTokenKey: 'evm--56:0xusdt:token',
       }),
     ).toBe(usdtPayToken);
+  });
+
+  it('restores a full persisted pay-token seed while live candidates are unavailable', () => {
+    expect(
+      resolveStockPayTokenDisplaySeed({
+        allowPersistedTokenFallback: true,
+        candidates: [],
+        persistedToken: usdtToken,
+      }),
+    ).toBe(usdtToken);
+  });
+
+  it('reconciles a persisted display seed to the live pay-token candidate', () => {
+    expect(
+      resolveStockPayTokenDisplaySeed({
+        candidates: [usdcPayToken, usdtPayToken],
+        persistedToken: usdtToken,
+      }),
+    ).toBe(usdtPayToken);
+  });
+
+  it('ignores an unsupported persisted display seed', () => {
+    expect(
+      resolveStockPayTokenDisplaySeed({
+        allowPersistedTokenFallback: true,
+        candidates: [],
+        persistedToken: ethToken,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('drops the persisted display seed after live candidates settle empty', () => {
+    expect(
+      resolveStockPayTokenDisplaySeed({
+        allowPersistedTokenFallback: false,
+        candidates: [],
+        persistedToken: usdtToken,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('stores only presentation fields in the persisted pay-token seed', () => {
+    expect(
+      buildStockPayTokenDisplaySeed({
+        ...usdtToken,
+        accountAddress: '0xaccount',
+        balanceParsed: '10',
+        fiatValue: '10',
+        logoURI: 'https://example.com/usdt.png',
+        networkLogoURI: 'https://example.com/bsc.png',
+        price: '1',
+      }),
+    ).toEqual({
+      networkId: 'evm--56',
+      contractAddress: '0xusdt',
+      decimals: 6,
+      isNative: undefined,
+      symbol: 'USDT',
+      name: undefined,
+      logoURI: 'https://example.com/usdt.png',
+      networkLogoURI: 'https://example.com/bsc.png',
+    });
   });
 
   it('keeps the selected pay token ahead of the persisted display preference', () => {
