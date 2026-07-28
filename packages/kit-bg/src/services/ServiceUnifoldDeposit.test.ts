@@ -28,12 +28,17 @@ const mockActiveAccountGet = jest.fn<
 >();
 let mockTrackingState: IPerpsUnifoldDepositTrackingState;
 let mockFailPendingDeliveryWrite = false;
+let mockFailNextTrackingWrite = false;
 
 const mockTrackingGet = jest.fn(async () => mockTrackingState);
 const mockTrackingSet = jest.fn(async (update: ITrackingUpdate) => {
   const previous = mockTrackingState;
   const next = typeof update === 'function' ? update(previous) : update;
   mockTrackingState = next;
+  if (mockFailNextTrackingWrite) {
+    mockFailNextTrackingWrite = false;
+    throw new OneKeyLocalError('persist failed');
+  }
   if (
     mockFailPendingDeliveryWrite &&
     (next.pendingDeliveries?.length ?? 0) >
@@ -158,6 +163,7 @@ describe('ServiceUnifoldDeposit tracking delivery', () => {
     jest.useFakeTimers();
     jest.clearAllMocks();
     mockFailPendingDeliveryWrite = false;
+    mockFailNextTrackingWrite = false;
     mockTrackingState = {
       items: [],
       watches: [],
@@ -469,6 +475,58 @@ describe('ServiceUnifoldDeposit tracking delivery', () => {
     expect(mockTrackingState.watches?.[0].claims).toEqual([]);
     expect(mockTrackingState.watches?.[0].mutedAt).toBeNull();
     expect(mockTrackingState.items[0].mutedAt).toBeNull();
+  });
+
+  it('drops announced entries during finalize after settle persistence fails', async () => {
+    const claimedAt = Date.now();
+    mockTrackingState = {
+      items: [{ ...buildTrackedExecution(), mutedAt: claimedAt }],
+      watches: [
+        {
+          ...buildWatch(),
+          mutedAt: claimedAt,
+          claims: [{ claimId: 'claim-1', claimedAt }],
+        },
+      ],
+      pendingDeliveries: [],
+    };
+    const service = createService();
+    jest
+      .spyOn(service, 'unifoldDepositTrackingLoop')
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'listDepositExecutions')
+      .mockResolvedValue([buildTerminalExecution()]);
+
+    mockFailNextTrackingWrite = true;
+    await expect(
+      service.settleAnnouncedExecution({
+        recipientAddress: RECIPIENT,
+        executionId: 'execution-1',
+      }),
+    ).rejects.toThrow('persist failed');
+    expect(mockTrackingState.items).toHaveLength(1);
+    expect(mockTrackingState.watches?.[0].knownExecutionIds).toEqual([]);
+
+    await service.finalizeDepositSessionTracking({
+      recipientAddress: RECIPIENT,
+      claimId: 'claim-1',
+      sessionId: 'session-1',
+      sessionStart: 100,
+      announcedExecutionIds: ['execution-1'],
+      executions: [],
+    });
+    expect(mockTrackingState.items).toEqual([]);
+    expect(mockTrackingState.watches?.[0].knownExecutionIds).toEqual([
+      'execution-1',
+    ]);
+
+    const runTrackingIteration = (
+      service as unknown as { runTrackingIteration: () => Promise<void> }
+    ).runTrackingIteration.bind(service);
+    await runTrackingIteration();
+    expect(mockTrackingState.pendingDeliveries).toEqual([]);
+    expect(mockEventEmit).not.toHaveBeenCalled();
   });
 
   it('rolls back a failed delivery write and settles only after foreground ACK', async () => {

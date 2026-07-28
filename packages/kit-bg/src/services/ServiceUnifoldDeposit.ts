@@ -541,9 +541,14 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
       const mutedAt = claims.length
         ? Math.max(...claims.map((claim) => claim.claimedAt))
         : null;
+      const announcedExecutionIds = new Set(params.announcedExecutionIds);
       const existingIds = new Set(prev.items.map((i) => i.executionId));
       const added = params.executions
-        .filter((e) => !existingIds.has(e.executionId))
+        .filter(
+          (e) =>
+            !announcedExecutionIds.has(e.executionId) &&
+            !existingIds.has(e.executionId),
+        )
         .map((e) => ({
           executionId: e.executionId,
           recipientAddress: params.recipientAddress,
@@ -552,14 +557,20 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
           trackedAt: now,
           mutedAt,
         }));
-      // Release only this foreground's claim. Another live foreground keeps
-      // every recipient entry muted until its own claim is released or ages
-      // out, preventing the bg loop from announcing behind a surviving modal.
-      const handedOffItems = prev.items.map((item) =>
-        item.recipientAddress.toLowerCase() === recipient
-          ? { ...item, mutedAt }
-          : item,
-      );
+      // Removing announced items here is the durable fallback when their
+      // earlier settle write failed. Release only this foreground's claim on
+      // the remaining items; another live foreground keeps them muted.
+      const handedOffItems = prev.items
+        .filter(
+          (item) =>
+            item.recipientAddress.toLowerCase() !== recipient ||
+            !announcedExecutionIds.has(item.executionId),
+        )
+        .map((item) =>
+          item.recipientAddress.toLowerCase() === recipient
+            ? { ...item, mutedAt }
+            : item,
+        );
       const knownExecutionIds = Array.from(
         new Set([
           ...(existingWatch?.knownExecutionIds ?? []),
