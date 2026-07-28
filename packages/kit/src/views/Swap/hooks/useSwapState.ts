@@ -90,6 +90,7 @@ import {
   isStockQuoteInputAmountMatched,
 } from '../utils/swapStockTradeControl';
 
+import { hasValidStockBalanceForTrade } from './swapStockChannelUtils';
 import { useSwapAddressInfo } from './useSwapAccount';
 
 function useSwapWarningCheck() {
@@ -734,7 +735,12 @@ export function useSwapActionState() {
 
       const balanceBN = new BigNumber(selectedFromTokenBalance ?? 0);
       const fromTokenAmountBN = new BigNumber(fromTokenAmount.value);
-      if (
+      const stockBalanceUnavailable =
+        swapTypeSwitchValue === ESwapTabSwitchType.STOCK &&
+        !hasValidStockBalanceForTrade(selectedFromTokenBalance);
+      if (stockBalanceUnavailable) {
+        infoRes.disable = true;
+      } else if (
         fromToken &&
         swapFromAddressInfo.address &&
         balanceBN.lt(fromTokenAmountBN)

@@ -330,7 +330,16 @@ export const {
 export const {
   atom: swapAllNetworkActionLockAtom,
   use: useSwapAllNetworkActionLockAtom,
-} = contextAtom<Record<string, boolean>>({});
+} = contextAtom<
+  Record<
+    string,
+    {
+      activeRequestKey: string;
+      completionPromise: Promise<void>;
+      pendingRequestKey?: string;
+    }
+  >
+>({});
 
 // swap quote
 export const {
