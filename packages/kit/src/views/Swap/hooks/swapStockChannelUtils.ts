@@ -150,7 +150,7 @@ export function canActivateStockExecutionOwnership({
   return (
     stockTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
     payTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
-    marketStatusStatus !== ESwapStockChannelAsyncStatus.Initializing
+    marketStatusStatus === ESwapStockChannelAsyncStatus.Ready
   );
 }
 
@@ -215,7 +215,7 @@ export function isStockTradeReadyForQuote({
     currentStockToken &&
     payToken &&
     stockTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
-    marketStatusStatus !== ESwapStockChannelAsyncStatus.Initializing &&
+    marketStatusStatus === ESwapStockChannelAsyncStatus.Ready &&
     payTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
     marketOpen !== false &&
     marketPaused !== true,

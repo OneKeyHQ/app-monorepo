@@ -456,11 +456,11 @@ describe('swapStockChannelUtils', () => {
     ).toBe(false);
   });
 
-  it('keeps Stock quote execution ready when only market detail is unavailable', () => {
+  it('keeps Stock quote execution ready after the market request settles without detail', () => {
     expect(
       isStockTradeReadyForQuote({
         currentStockToken: appleStockToken,
-        marketStatusStatus: ESwapStockChannelAsyncStatus.Empty,
+        marketStatusStatus: ESwapStockChannelAsyncStatus.Ready,
         payToken: usdcToken,
         payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
         stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
@@ -537,7 +537,7 @@ describe('swapStockChannelUtils', () => {
   it('activates Stock execution only after Stock and Pay are ready and the initial market check settles', () => {
     expect(
       canActivateStockExecutionOwnership({
-        marketStatusStatus: ESwapStockChannelAsyncStatus.Empty,
+        marketStatusStatus: ESwapStockChannelAsyncStatus.Ready,
         payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
         stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
       }),
@@ -556,12 +556,19 @@ describe('swapStockChannelUtils', () => {
         stockTokenStatus: ESwapStockChannelAsyncStatus.Initializing,
       }),
     ).toBe(false);
+    expect(
+      canActivateStockExecutionOwnership({
+        marketStatusStatus: ESwapStockChannelAsyncStatus.Empty,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+      }),
+    ).toBe(false);
   });
 
-  it('resolves a Stock draft after Stock and Pay are ready even when Market detail is empty', () => {
+  it('resolves a Stock draft only after all execution statuses are ready', () => {
     expect(
       canResolveStockInputAmountSnapshot({
-        marketStatusStatus: ESwapStockChannelAsyncStatus.Empty,
+        marketStatusStatus: ESwapStockChannelAsyncStatus.Ready,
         payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
         stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
       }),
@@ -577,6 +584,13 @@ describe('swapStockChannelUtils', () => {
       canResolveStockInputAmountSnapshot({
         marketStatusStatus: ESwapStockChannelAsyncStatus.Ready,
         payTokenStatus: ESwapStockChannelAsyncStatus.Initializing,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+      }),
+    ).toBe(false);
+    expect(
+      canResolveStockInputAmountSnapshot({
+        marketStatusStatus: ESwapStockChannelAsyncStatus.Empty,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
         stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
       }),
     ).toBe(false);

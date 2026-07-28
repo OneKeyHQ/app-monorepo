@@ -1870,7 +1870,7 @@ describe('useSwapActions', () => {
     ).toBeUndefined();
   });
 
-  it('drops a saved Stock amount when its execution pair resolves differently', async () => {
+  it('drops a saved Stock amount when a late pay token changes the execution pair', async () => {
     const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
       storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
       storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
