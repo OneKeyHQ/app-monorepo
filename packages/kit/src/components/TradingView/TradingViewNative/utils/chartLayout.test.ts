@@ -368,6 +368,69 @@ describe('TradingViewNative chart layout', () => {
     expect(pannedLayout.ticks).toEqual(initialLayout.ticks);
   });
 
+  it('limits time-axis point reads to the visible window', () => {
+    const sourcePoints = buildPoints({
+      count: 10_000,
+      startTimestamp: getLocalTimestamp(2025, 0, 15, 8),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    let pointReadCount = 0;
+    const points = sourcePoints.map((point) => ({
+      ...point,
+      get t() {
+        pointReadCount += 1;
+        return point.t;
+      },
+    }));
+
+    const layout = getTradingViewNativeTimeAxisLayout({
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      chartWidth: 271,
+      endIndex: 5050,
+      minimumIndexSpacing: 12,
+      points,
+      startIndex: 5000,
+    });
+
+    expect(layout.ticks.length).toBeGreaterThan(0);
+    expect(pointReadCount).toBeLessThan(200);
+    expect(
+      layout.ticks.every(({ index }) => index > 4900 && index < 5150),
+    ).toBe(true);
+  });
+
+  it('keeps visible tick anchors stable across an aligned window boundary', () => {
+    const points = buildPoints({
+      count: 240,
+      startTimestamp: getLocalTimestamp(2025, 0, 15, 8),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    const commonOptions = {
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      chartWidth: 271,
+      minimumIndexSpacing: 12,
+      points,
+    };
+    const initialLayout = getTradingViewNativeTimeAxisLayout({
+      ...commonOptions,
+      endIndex: 153,
+      startIndex: 107,
+    });
+    const pannedLayout = getTradingViewNativeTimeAxisLayout({
+      ...commonOptions,
+      endIndex: 154,
+      startIndex: 108,
+    });
+    const getSharedVisibleTicks = (
+      layout: ReturnType<typeof getTradingViewNativeTimeAxisLayout>,
+    ) => layout.ticks.filter(({ index }) => index >= 108 && index < 153);
+
+    expect(pannedLayout.unit).toBe(initialLayout.unit);
+    expect(getSharedVisibleTicks(pannedLayout)).toEqual(
+      getSharedVisibleTicks(initialLayout),
+    );
+  });
+
   it('uses day ticks for a multi-week visible range', () => {
     const points = buildPoints({
       count: 29,
