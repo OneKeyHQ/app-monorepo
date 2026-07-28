@@ -1,9 +1,9 @@
 import {
-  LedgerAttestationRelayServer,
-  type LedgerRelayClientMessage,
-  type LedgerRelayServerMessage,
-  type RunLedgerServerGenuineCheck,
-} from '@onekeyfe/hwk-ledger-adapter/attestation-relay';
+  type ILedgerRelayClientMessage,
+  type ILedgerRelayServerMessage,
+  type IRunLedgerServerGenuineCheck,
+  LedgerLocalAttestationServer,
+} from './ledgerLocalAttestationServer';
 import WebSocket from 'ws';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -31,9 +31,9 @@ export async function runLedgerLocalServerAttestation({
    * Test seam only. The background service never accepts or forwards a
    * renderer-supplied runner, so production verdict ownership stays local.
    */
-  serverRunGenuineCheck?: RunLedgerServerGenuineCheck;
+  serverRunGenuineCheck?: IRunLedgerServerGenuineCheck;
 }): Promise<ILedgerLocalAttestationResult> {
-  const server = await LedgerAttestationRelayServer.listen({
+  const server = await LedgerLocalAttestationServer.listen({
     host: '127.0.0.1',
     port: 0,
     runGenuineCheck: serverRunGenuineCheck,
@@ -46,9 +46,9 @@ export async function runLedgerLocalServerAttestation({
         const socket = new WebSocket(ticket.webSocketUrl);
         let clientError: Error | undefined;
         socket.on('message', (raw) => {
-          let message: LedgerRelayServerMessage;
+          let message: ILedgerRelayServerMessage;
           try {
-            message = JSON.parse(raw.toString()) as LedgerRelayServerMessage;
+            message = JSON.parse(raw.toString()) as ILedgerRelayServerMessage;
           } catch (error) {
             clientError =
               error instanceof Error ? error : new Error(String(error));
@@ -73,7 +73,7 @@ export async function runLedgerLocalServerAttestation({
                   requestId: message.requestId,
                   dataHex: apduResponse.dataHex,
                   statusCodeHex: apduResponse.statusCodeHex,
-                } satisfies LedgerRelayClientMessage),
+                } satisfies ILedgerRelayClientMessage),
               );
             },
             (error) => {
@@ -86,7 +86,7 @@ export async function runLedgerLocalServerAttestation({
                   requestId: message.requestId,
                   message:
                     error instanceof Error ? error.message : String(error),
-                } satisfies LedgerRelayClientMessage),
+                } satisfies ILedgerRelayClientMessage),
               );
             },
           );
@@ -97,7 +97,7 @@ export async function runLedgerLocalServerAttestation({
             type: 'hello',
             protocolVersion: 1,
             device: bridge.device,
-          } satisfies LedgerRelayClientMessage),
+          } satisfies ILedgerRelayClientMessage),
         );
         try {
           const result = await ticket.result;
