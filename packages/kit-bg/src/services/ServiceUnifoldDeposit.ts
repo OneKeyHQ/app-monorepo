@@ -16,6 +16,7 @@ import {
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import {
+  UNIFOLD_TERMINAL_STATUSES,
   UNIFOLD_ERROR_CODE_LOCAL_ACTIVATION_UNAVAILABLE,
   UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH,
   UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_SANCTIONED,
@@ -95,6 +96,108 @@ function isString(value: unknown): value is string {
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
+}
+
+const UNIFOLD_EXECUTION_STATUSES = new Set<IUnifoldExecutionStatus>([
+  'waiting',
+  'pending',
+  'delayed',
+  'succeeded',
+  'failed',
+  'refunded',
+]);
+const MAX_UNIFOLD_TOKEN_DECIMALS = 255;
+
+function isValidExecutionStatus(
+  value: unknown,
+): value is IUnifoldExecutionStatus {
+  return (
+    typeof value === 'string' &&
+    UNIFOLD_EXECUTION_STATUSES.has(value as IUnifoldExecutionStatus)
+  );
+}
+
+function sanitizeNullableString(value: unknown): string | null {
+  return isString(value) ? value : null;
+}
+
+function sanitizeTokenDecimals(value: unknown): number | null {
+  return typeof value === 'number' &&
+    Number.isSafeInteger(value) &&
+    value >= 0 &&
+    value <= MAX_UNIFOLD_TOKEN_DECIMALS
+    ? value
+    : null;
+}
+
+function sanitizeDepositExecutions(
+  value: unknown,
+): IUnifoldDepositExecution[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.flatMap((execution): IUnifoldDepositExecution[] => {
+    if (
+      !isRecord(execution) ||
+      !isNonEmptyString(execution.executionId) ||
+      !isValidExecutionStatus(execution.status) ||
+      typeof execution.terminal !== 'boolean'
+    ) {
+      return [];
+    }
+    const terminal = UNIFOLD_TERMINAL_STATUSES.includes(execution.status);
+    if (execution.terminal !== terminal) {
+      return [];
+    }
+    return [
+      {
+        executionId: execution.executionId,
+        status: execution.status,
+        terminal,
+        destinationTransactionHashes: Array.isArray(
+          execution.destinationTransactionHashes,
+        )
+          ? execution.destinationTransactionHashes.filter(isString)
+          : [],
+        vendorStatus: sanitizeNullableString(execution.vendorStatus),
+        recipientAddress: sanitizeNullableString(execution.recipientAddress),
+        depositWalletId: sanitizeNullableString(execution.depositWalletId),
+        depositAddress: sanitizeNullableString(execution.depositAddress),
+        transactionHash: sanitizeNullableString(execution.transactionHash),
+        sourceChainType: sanitizeNullableString(execution.sourceChainType),
+        sourceChainId: sanitizeNullableString(execution.sourceChainId),
+        sourceAmountBaseUnit: sanitizeNullableString(
+          execution.sourceAmountBaseUnit,
+        ),
+        sourceAmountUsd: sanitizeNullableString(execution.sourceAmountUsd),
+        sourceCurrency: sanitizeNullableString(execution.sourceCurrency),
+        sourceTokenDecimals: sanitizeTokenDecimals(
+          execution.sourceTokenDecimals,
+        ),
+        destinationAmountBaseUnit: sanitizeNullableString(
+          execution.destinationAmountBaseUnit,
+        ),
+        destinationAmountUsd: sanitizeNullableString(
+          execution.destinationAmountUsd,
+        ),
+        destinationCurrency: sanitizeNullableString(
+          execution.destinationCurrency,
+        ),
+        destinationTokenDecimals: sanitizeTokenDecimals(
+          execution.destinationTokenDecimals,
+        ),
+        destinationTokenIconUrl: sanitizeNullableString(
+          execution.destinationTokenIconUrl,
+        ),
+        explorerUrl: sanitizeNullableString(execution.explorerUrl),
+        destinationExplorerUrl: sanitizeNullableString(
+          execution.destinationExplorerUrl,
+        ),
+        failureReason: sanitizeNullableString(execution.failureReason),
+        createdAt: sanitizeNullableString(execution.createdAt),
+      },
+    ];
+  });
 }
 
 function isValidSupportedAssetChain(
@@ -320,7 +423,7 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
     recipientAddress: string;
     since?: string;
   }): Promise<IUnifoldDepositExecution[]> {
-    const data = await this.requestUnifold<IUnifoldDepositExecution[]>({
+    const data = await this.requestUnifold<unknown>({
       method: 'get',
       url: '/wallet/v1/perp/unifold/deposit-executions',
       params: { ...params },
@@ -330,7 +433,7 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
     // this method, so none of them can render — or toast "deposit completed"
     // for — an execution credited to somebody else.
     return filterUnifoldExecutionsByRecipient(
-      data ?? [],
+      sanitizeDepositExecutions(data),
       params.recipientAddress,
     );
   }
@@ -657,7 +760,9 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
       };
       return {
         ...prev,
-        pendingDeliveries: pendingDeliveries.with(index, claimedDelivery),
+        pendingDeliveries: pendingDeliveries.map((item, itemIndex) =>
+          itemIndex === index ? claimedDelivery : item,
+        ),
       };
     });
     return result;

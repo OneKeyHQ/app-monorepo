@@ -241,6 +241,70 @@ describe('ServiceUnifoldDeposit tracking delivery', () => {
     ).resolves.toEqual([]);
   });
 
+  it('sanitizes malformed execution fields at the bg boundary', async () => {
+    const service = createService();
+    jest
+      .spyOn(
+        service as unknown as {
+          requestUnifold: (request: unknown) => Promise<unknown>;
+        },
+        'requestUnifold',
+      )
+      .mockResolvedValue([
+        {
+          ...buildTerminalExecution(),
+          destinationTransactionHashes: null,
+          vendorStatus: 123,
+          transactionHash: {},
+          sourceTokenDecimals: 6.5,
+          destinationTokenDecimals: Number.MAX_SAFE_INTEGER + 1,
+        },
+        {
+          ...buildTerminalExecution(),
+          executionId: 'invalid-status',
+          status: 'complete',
+        },
+        {
+          ...buildTerminalExecution(),
+          executionId: 'inconsistent-terminal',
+          status: 'pending',
+        },
+      ]);
+
+    await expect(
+      service.listDepositExecutions({
+        recipientAddress: RECIPIENT,
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        executionId: 'execution-1',
+        destinationTransactionHashes: [],
+        vendorStatus: null,
+        transactionHash: null,
+        sourceTokenDecimals: null,
+        destinationTokenDecimals: null,
+      }),
+    ]);
+  });
+
+  it('returns an empty execution list for a non-array payload', async () => {
+    const service = createService();
+    jest
+      .spyOn(
+        service as unknown as {
+          requestUnifold: (request: unknown) => Promise<unknown>;
+        },
+        'requestUnifold',
+      )
+      .mockResolvedValue({ data: [] });
+
+    await expect(
+      service.listDepositExecutions({
+        recipientAddress: RECIPIENT,
+      }),
+    ).resolves.toEqual([]);
+  });
+
   it('fails closed when bg cannot restore the active perps account', async () => {
     mockActiveAccountGet.mockResolvedValue({
       accountAddress: null,
@@ -593,5 +657,63 @@ describe('ServiceUnifoldDeposit tracking delivery', () => {
         claimId: 'claim-1',
       }),
     ).resolves.toEqual({ updated: false, reason: 'gone' });
+  });
+
+  it('claims a delivery when Array.prototype.with is unavailable', async () => {
+    const firstExecution = buildTerminalExecution();
+    const secondExecution = {
+      ...buildTerminalExecution(),
+      executionId: 'execution-2',
+    };
+    mockTrackingState = {
+      items: [],
+      watches: [],
+      pendingDeliveries: [
+        {
+          deliveryId: 'delivery-1',
+          execution: firstExecution,
+          recipientAddress: RECIPIENT,
+          sessionId: null,
+          createdAt: 1,
+        },
+        {
+          deliveryId: 'delivery-2',
+          execution: secondExecution,
+          recipientAddress: RECIPIENT,
+          sessionId: null,
+          createdAt: 2,
+        },
+      ],
+    };
+    const service = createService();
+    const withDescriptor = Object.getOwnPropertyDescriptor(
+      Array.prototype,
+      'with',
+    );
+    Object.defineProperty(Array.prototype, 'with', {
+      configurable: true,
+      writable: true,
+      value: undefined,
+    });
+    try {
+      await expect(
+        service.tryClaimTerminalDelivery({
+          deliveryId: 'delivery-2',
+          claimId: 'claim-2',
+        }),
+      ).resolves.toMatchObject({
+        status: 'claimed',
+      });
+    } finally {
+      if (withDescriptor) {
+        Object.defineProperty(Array.prototype, 'with', withDescriptor);
+      } else {
+        delete (Array.prototype as { with?: unknown }).with;
+      }
+    }
+    expect(mockTrackingState.pendingDeliveries?.[0].claim).toBeUndefined();
+    expect(mockTrackingState.pendingDeliveries?.[1].claim?.claimId).toBe(
+      'claim-2',
+    );
   });
 });
