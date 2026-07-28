@@ -25,6 +25,15 @@ const winExcludePrebuilds = [
   '!**/prebuilds/android-*/**',
   '!**/prebuilds/darwin-*/**',
   '!**/prebuilds/linux-*/**',
+  // node-gyp-build loads build/Release BEFORE prebuilds/, so a binding
+  // compiled on the packaging machine (e.g. a mac Mach-O when cross-packaging
+  // win from macOS) shadows the correct win32 prebuild shipped in the npm
+  // package and fails at runtime with "not a valid Win32 application".
+  // Every excluded module here ships win32 prebuilds to fall back to.
+  '!**/node_modules/@stoprocent/noble/build/**',
+  '!**/node_modules/@stoprocent/bluetooth-hci-socket/build/**',
+  '!**/node_modules/usb/build/**',
+  '!**/node_modules/@serialport/bindings-cpp/build/**',
 ];
 const linuxExcludePrebuilds = [
   '!**/prebuilds/android-*/**',
