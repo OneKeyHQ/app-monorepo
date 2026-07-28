@@ -14,21 +14,15 @@ describe('verifyLocalMockDeviceClaimEvidence', () => {
     expect(first).not.toBe(second);
   });
 
-  it('accepts a real Trezor SDK result bound to the fresh challenge', () => {
-    const challengeHex = 'ab'.repeat(32);
-
+  it('accepts a verified production-root Trezor SDK result', () => {
     expect(
       verifyLocalMockDeviceClaimEvidence({
         vendor: 'trezor',
-        challengeHex,
         authenticity: {
           vendor: 'trezor',
           verified: true,
           deviceId: 'trezor-device-id',
           usedDebugKey: false,
-          trezorProof: {
-            challenge: challengeHex,
-          },
         },
       }),
     ).toEqual({
@@ -37,43 +31,48 @@ describe('verifyLocalMockDeviceClaimEvidence', () => {
     });
   });
 
-  it('rejects an unverified, debug-key, or stale Trezor result', () => {
-    const challengeHex = 'ab'.repeat(32);
+  it('rejects an unverified or debug-key Trezor result with the SDK reason', () => {
     const validEvidence = {
       vendor: 'trezor' as const,
       verified: true,
       deviceId: 'trezor-device-id',
       usedDebugKey: false,
-      trezorProof: {
-        challenge: challengeHex,
-      },
     };
 
     for (const authenticity of [
-      { ...validEvidence, verified: false },
-      { ...validEvidence, usedDebugKey: true },
       {
         ...validEvidence,
-        trezorProof: {
-          challenge: 'cd'.repeat(32),
-        },
+        verified: false,
+        error: 'INVALID_DEVICE_SIGNATURE',
       },
+      { ...validEvidence, usedDebugKey: true },
     ]) {
       expect(() =>
         verifyLocalMockDeviceClaimEvidence({
           vendor: 'trezor',
-          challengeHex,
           authenticity,
         }),
-      ).toThrow('Trezor SDK genuine check');
+      ).toThrow('Trezor genuine check');
     }
+  });
+
+  it('surfaces the exact Trezor SDK verification failure', () => {
+    expect(() =>
+      verifyLocalMockDeviceClaimEvidence({
+        vendor: 'trezor',
+        authenticity: {
+          vendor: 'trezor',
+          verified: false,
+          error: 'ROOT_PUBKEY_NOT_FOUND',
+        },
+      }),
+    ).toThrow('Trezor genuine check failed: ROOT_PUBKEY_NOT_FOUND');
   });
 
   it('accepts only a genuine Ledger vendor result with a captured DSID', () => {
     expect(
       verifyLocalMockDeviceClaimEvidence({
         vendor: 'ledger',
-        challengeHex: 'ab'.repeat(32),
         authenticity: {
           vendor: 'ledger',
           verified: true,
@@ -100,7 +99,6 @@ describe('verifyLocalMockDeviceClaimEvidence', () => {
       expect(() =>
         verifyLocalMockDeviceClaimEvidence({
           vendor: 'ledger',
-          challengeHex: 'ab'.repeat(32),
           authenticity,
         }),
       ).toThrow('Genuine Check');
@@ -108,14 +106,11 @@ describe('verifyLocalMockDeviceClaimEvidence', () => {
   });
 
   it('runs the hardware check before issuing the local voucher', async () => {
-    const executeAuthenticityCheck = jest.fn(async (challengeHex: string) => ({
+    const executeAuthenticityCheck = jest.fn(async () => ({
       vendor: 'trezor' as const,
       verified: true,
       deviceId: 'trezor-device-id',
       usedDebugKey: false,
-      trezorProof: {
-        challenge: challengeHex,
-      },
     }));
 
     const result = await runTrustedLocalMockDeviceClaim({

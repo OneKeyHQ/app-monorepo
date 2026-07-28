@@ -1306,6 +1306,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
           verified: boolean;
           deviceId?: string;
           usedDebugKey?: boolean;
+          error?: string;
           // cspell:ignore optiga
           trezorProof?: {
             challenge: string;

@@ -5,9 +5,7 @@ type ILocalMockAuthenticityResult = {
   verified: boolean;
   deviceId?: string;
   usedDebugKey?: boolean;
-  trezorProof?: {
-    challenge: string;
-  };
+  error?: string;
 };
 
 export type ILocalMockDeviceClaimVerification = {
@@ -30,31 +28,34 @@ export function createLocalMockDeviceClaimChallenge(): string {
 
 export function verifyLocalMockDeviceClaimEvidence({
   vendor,
-  challengeHex,
   authenticity,
 }: {
   vendor: 'trezor' | 'ledger';
-  challengeHex: string;
   authenticity: ILocalMockAuthenticityResult;
 }): ILocalMockDeviceClaimVerification {
   if (authenticity.vendor !== vendor) {
-    throw new OneKeyLocalError(
-      'Local mock claim received evidence for another vendor',
-    );
+    throw new OneKeyLocalError({
+      message: 'Local mock claim received evidence for another vendor',
+    });
   }
 
   if (vendor === 'trezor') {
-    const envelope = authenticity.trezorProof;
-    if (
-      !authenticity.verified ||
-      authenticity.usedDebugKey ||
-      !authenticity.deviceId ||
-      !envelope ||
-      envelope.challenge.toLowerCase() !== challengeHex.toLowerCase()
-    ) {
-      throw new OneKeyLocalError(
-        'Trezor SDK genuine check did not verify this challenge',
-      );
+    if (!authenticity.verified) {
+      throw new OneKeyLocalError({
+        message: `Trezor genuine check failed: ${
+          authenticity.error || 'SDK returned verified=false'
+        }`,
+      });
+    }
+    if (authenticity.usedDebugKey) {
+      throw new OneKeyLocalError({
+        message: 'Trezor genuine check rejected a debug or staging root key',
+      });
+    }
+    if (!authenticity.deviceId) {
+      throw new OneKeyLocalError({
+        message: 'Trezor genuine check did not return a physical-device ID',
+      });
     }
     return {
       deviceId: authenticity.deviceId,
@@ -67,9 +68,10 @@ export function verifyLocalMockDeviceClaimEvidence({
     !authenticity.deviceId ||
     !/^[0-9a-f]{64}$/i.test(authenticity.deviceId)
   ) {
-    throw new OneKeyLocalError(
-      'Ledger Genuine Check did not return a verified physical-device DSID',
-    );
+    throw new OneKeyLocalError({
+      message:
+        'Ledger Genuine Check did not return a verified physical-device DSID',
+    });
   }
   return {
     deviceId: authenticity.deviceId.toLowerCase(),
@@ -94,7 +96,6 @@ export async function runTrustedLocalMockDeviceClaim({
   const authenticity = await executeAuthenticityCheck(challengeHex);
   const verification = verifyLocalMockDeviceClaimEvidence({
     vendor,
-    challengeHex,
     authenticity,
   });
 

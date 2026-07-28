@@ -12,6 +12,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useDeviceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IThirdPartyAccountNameLocalAccount,
   IThirdPartyAccountNameSelectedDevice,
@@ -284,7 +285,7 @@ function DeviceSectionThirdPartyOnboardingDev() {
       setVerificationStatus('failed');
       setVerificationError(message);
       Toast.error({
-        title: message,
+        title: ETranslations.device_communication_failed,
       });
     }
   }, [device, isThirdParty, vendor, verificationStatus]);
@@ -332,7 +333,7 @@ function DeviceSectionThirdPartyOnboardingDev() {
       setNameSyncStatus('failed');
       setNameSyncError(message);
       Toast.error({
-        title: message,
+        title: ETranslations.global_an_error_occurred,
       });
     }
   }, [device, isThirdParty, nameSyncStatus, vendor]);
