@@ -15,6 +15,7 @@ import {
   resolveStockBalanceSnapshot,
   resolveStockBalanceViewState,
   resolveStockChannelSwapPair,
+  resolveStockExecutionTokensToSync,
   resolveStockKLineToken,
   resolveStockPayTokenDisplaySeed,
   resolveSwapStockDefaultTokenStatus,
@@ -446,6 +447,33 @@ describe('swapStockChannelUtils', () => {
         stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
       }),
     ).toBe(false);
+  });
+
+  it('keeps a display-only cached pay token out of execution until live readiness', () => {
+    expect(
+      resolveStockExecutionTokensToSync({
+        currentFromToken: usdtToken,
+        currentToToken: appleStockToken,
+        payToken: usdcToken,
+        readyForQuote: false,
+        stockToken: appleStockToken,
+        tradeSide: ESwapStockTradeSide.Buy,
+      }),
+    ).toBeUndefined();
+
+    expect(
+      resolveStockExecutionTokensToSync({
+        currentFromToken: usdcToken,
+        currentToToken: appleStockToken,
+        payToken: usdtToken,
+        readyForQuote: true,
+        stockToken: appleStockToken,
+        tradeSide: ESwapStockTradeSide.Buy,
+      }),
+    ).toEqual({
+      fromToken: usdtToken,
+      toToken: appleStockToken,
+    });
   });
 
   it('keeps the buy-side pay token visible during non-initial readiness refreshes', () => {

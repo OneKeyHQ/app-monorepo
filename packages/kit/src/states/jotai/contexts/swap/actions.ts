@@ -980,7 +980,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ESwapTabSwitchType.STOCK
       ];
       if (
-        !platformEnv.isNative &&
         getVisibleSwapTabSwitchType(get(swapTypeSwitchAtom())) ===
           ESwapTabSwitchType.STOCK &&
         stockInputAmountDraft &&
@@ -3233,8 +3232,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const oldVisibleType = getVisibleSwapTabSwitchType(oldType) ?? oldType;
       let currentFromToken = get(swapSelectFromTokenAtom());
       let currentToToken = get(swapSelectToTokenAtom());
+      const isNativeLimitSwitch =
+        platformEnv.isNative &&
+        (oldVisibleType === ESwapTabSwitchType.LIMIT ||
+          normalizedType === ESwapTabSwitchType.LIMIT);
       const shouldSwitchInputAmountDraft =
-        !platformEnv.isNative &&
+        !isNativeLimitSwitch &&
         oldVisibleType !== normalizedType &&
         isIndependentSwapInputAmountType(oldVisibleType) &&
         isIndependentSwapInputAmountType(normalizedType);

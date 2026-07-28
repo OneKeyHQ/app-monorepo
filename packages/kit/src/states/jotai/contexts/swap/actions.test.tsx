@@ -15,6 +15,7 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { settingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { globalJotaiStorageReadyHandler } from '@onekeyhq/kit-bg/src/states/jotai/jotaiStorage';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
   swapQuoteIntervalMaxCount,
@@ -349,6 +350,7 @@ function createWrapper(
 
 describe('useSwapActions', () => {
   beforeEach(() => {
+    platformEnv.isNative = false;
     globalJotaiStorageReadyHandler.resolveReady(true);
     jest.clearAllMocks();
     mockSetSwapNetworksSortRawData.mockResolvedValue(undefined);
@@ -368,6 +370,10 @@ describe('useSwapActions', () => {
       swapSlippagePercentageMode: ESwapSlippageSegmentKey.AUTO,
       swapToAnotherAccountSwitchOn: false,
     });
+  });
+
+  afterEach(() => {
+    platformEnv.isNative = false;
   });
 
   it('uses the complete Stock list limit for child-network balance requests', async () => {
@@ -1478,77 +1484,84 @@ describe('useSwapActions', () => {
     expect(store.get(swapActiveSelectedFromTokenBalanceAtom())).toBe('0.1724');
   });
 
-  it('keeps Swap and Stock input amounts isolated and restores each draft', async () => {
-    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
-      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
-      storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
-      storeInstance.set(swapSelectToTokenAtom(), usdtToken);
-      storeInstance.set(swapFromTokenAmountAtom(), {
+  it.each([
+    { isNative: false, platform: 'web' },
+    { isNative: true, platform: 'native' },
+  ])(
+    'keeps Swap and Stock input amounts isolated and restores each draft on $platform',
+    async ({ isNative }) => {
+      platformEnv.isNative = isNative;
+      const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+        storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+        storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
+        storeInstance.set(swapSelectToTokenAtom(), usdtToken);
+        storeInstance.set(swapFromTokenAmountAtom(), {
+          value: '1.25',
+          isInput: true,
+        });
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.swapTypeSwitchAction(ESwapTabSwitchType.STOCK);
+      });
+
+      expect(store.get(swapFromTokenAmountAtom())).toEqual({
+        value: '',
+        isInput: false,
+      });
+
+      await act(async () => {
+        await result.current.selectStockExecutionTokens({
+          fromToken: usdcToken,
+          toToken: appleStockToken,
+          syncId: 1,
+        });
+      });
+      store.set(swapFromTokenAmountAtom(), {
+        value: '20',
+        isInput: true,
+      });
+
+      await act(async () => {
+        await result.current.swapTypeSwitchAction(ESwapTabSwitchType.SWAP);
+      });
+
+      expect(store.get(swapSelectFromTokenAtom())).toEqual(bnbToken);
+      expect(store.get(swapSelectToTokenAtom())).toEqual(usdtToken);
+      expect(store.get(swapFromTokenAmountAtom())).toEqual({
         value: '1.25',
         isInput: true,
       });
-    });
-    const { result } = renderHook(() => useSwapActions().current, {
-      wrapper: Wrapper,
-    });
 
-    await act(async () => {
-      await result.current.swapTypeSwitchAction(ESwapTabSwitchType.STOCK);
-    });
-
-    expect(store.get(swapFromTokenAmountAtom())).toEqual({
-      value: '',
-      isInput: false,
-    });
-
-    await act(async () => {
-      await result.current.selectStockExecutionTokens({
-        fromToken: usdcToken,
-        toToken: appleStockToken,
-        syncId: 1,
+      await act(async () => {
+        await result.current.swapTypeSwitchAction(ESwapTabSwitchType.STOCK);
       });
-    });
-    store.set(swapFromTokenAmountAtom(), {
-      value: '20',
-      isInput: true,
-    });
 
-    await act(async () => {
-      await result.current.swapTypeSwitchAction(ESwapTabSwitchType.SWAP);
-    });
-
-    expect(store.get(swapSelectFromTokenAtom())).toEqual(bnbToken);
-    expect(store.get(swapSelectToTokenAtom())).toEqual(usdtToken);
-    expect(store.get(swapFromTokenAmountAtom())).toEqual({
-      value: '1.25',
-      isInput: true,
-    });
-
-    await act(async () => {
-      await result.current.swapTypeSwitchAction(ESwapTabSwitchType.STOCK);
-    });
-
-    expect(store.get(swapFromTokenAmountAtom())).toEqual({
-      value: '',
-      isInput: false,
-    });
-
-    await act(async () => {
-      await result.current.selectStockExecutionTokens({
-        fromToken: usdcToken,
-        toToken: appleStockToken,
-        syncId: 2,
+      expect(store.get(swapFromTokenAmountAtom())).toEqual({
+        value: '',
+        isInput: false,
       });
-    });
 
-    expect(store.get(swapFromTokenAmountAtom())).toEqual({
-      value: '20',
-      isInput: true,
-    });
-    expect(
-      store.get(swapInputAmountDraftsAtom())[ESwapTabSwitchType.STOCK],
-    ).toBeUndefined();
-  });
+      await act(async () => {
+        await result.current.selectStockExecutionTokens({
+          fromToken: usdcToken,
+          toToken: appleStockToken,
+          syncId: 2,
+        });
+      });
+
+      expect(store.get(swapFromTokenAmountAtom())).toEqual({
+        value: '20',
+        isInput: true,
+      });
+      expect(
+        store.get(swapInputAmountDraftsAtom())[ESwapTabSwitchType.STOCK],
+      ).toBeUndefined();
+    },
+  );
 
   it('does not restore a tab input draft for a different token pair', async () => {
     const { store, Wrapper } = createWrapperWithStore((storeInstance) => {

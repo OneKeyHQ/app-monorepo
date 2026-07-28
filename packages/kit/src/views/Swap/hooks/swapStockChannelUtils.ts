@@ -37,6 +37,42 @@ export enum ESwapStockTradeSide {
   Sell = 'sell',
 }
 
+export function resolveStockExecutionTokensToSync({
+  currentFromToken,
+  currentToToken,
+  payToken,
+  readyForQuote,
+  stockToken,
+  tradeSide,
+}: {
+  currentFromToken?: ISwapToken;
+  currentToToken?: ISwapToken;
+  payToken?: ISwapToken;
+  readyForQuote: boolean;
+  stockToken?: ISwapToken;
+  tradeSide: ESwapStockTradeSide;
+}): { fromToken: ISwapToken; toToken: ISwapToken } | undefined {
+  if (!readyForQuote) {
+    return undefined;
+  }
+  const fromToken =
+    tradeSide === ESwapStockTradeSide.Buy ? payToken : stockToken;
+  const toToken = tradeSide === ESwapStockTradeSide.Buy ? stockToken : payToken;
+  if (!fromToken || !toToken) {
+    return undefined;
+  }
+  const executionPairSynced =
+    equalTokenNoCaseSensitive({
+      token1: currentFromToken,
+      token2: fromToken,
+    }) &&
+    equalTokenNoCaseSensitive({
+      token1: currentToToken,
+      token2: toToken,
+    });
+  return executionPairSynced ? undefined : { fromToken, toToken };
+}
+
 export function isStockTradeReadyForQuote({
   currentStockToken,
   marketOpen,
