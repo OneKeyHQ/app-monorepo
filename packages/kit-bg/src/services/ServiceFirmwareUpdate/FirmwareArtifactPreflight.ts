@@ -537,38 +537,54 @@ export async function prepareFirmwareArtifacts(
     }[]
   > = {};
 
-  await Promise.all(
+  let cancellationRequested = false;
+  let preparationFailure: { reason: unknown } | undefined;
+  await Promise.allSettled(
     plan.artifacts.map(async (planArtifact) => {
-      const trustedArtifact = getTrustedFirmwareArtifact(planArtifact.url);
-      assertPlanArtifactMatchesCatalog({ planArtifact, trustedArtifact });
-      const receipt = await downloadTrustedFirmwareArtifact({
-        artifact: trustedArtifact,
-        artifactId: planArtifact.artifactId,
-        transactionId,
-        leaseRef,
-        deadlineAt,
-      });
-      artifactsById[planArtifact.artifactId] = receipt;
-      if (planArtifact.container === 'zip') {
-        if (!trustedArtifact.expectedEntries?.length) {
-          throw new OneKeyLocalError(
-            'Trusted firmware archive has no exact entry allow-list',
+      try {
+        const trustedArtifact = getTrustedFirmwareArtifact(planArtifact.url);
+        assertPlanArtifactMatchesCatalog({ planArtifact, trustedArtifact });
+        const receipt = await downloadTrustedFirmwareArtifact({
+          artifact: trustedArtifact,
+          artifactId: planArtifact.artifactId,
+          transactionId,
+          leaseRef,
+          deadlineAt,
+        });
+        artifactsById[planArtifact.artifactId] = receipt;
+        if (planArtifact.container === 'zip') {
+          if (!trustedArtifact.expectedEntries?.length) {
+            throw new OneKeyLocalError(
+              'Trusted firmware archive has no exact entry allow-list',
+            );
+          }
+          const entries = await firmwareArtifactAdapter.materialize({
+            leaseRef,
+            archiveArtifactRef: receipt.artifactRef,
+            expectedEntries: trustedArtifact.expectedEntries,
+          });
+          resourceEntriesByArtifactId[planArtifact.artifactId] = entries.map(
+            (entry) => ({
+              entryName: entry.entryName,
+              artifact: entry.receipt,
+            }),
           );
         }
-        const entries = await firmwareArtifactAdapter.materialize({
-          leaseRef,
-          archiveArtifactRef: receipt.artifactRef,
-          expectedEntries: trustedArtifact.expectedEntries,
-        });
-        resourceEntriesByArtifactId[planArtifact.artifactId] = entries.map(
-          (entry) => ({
-            entryName: entry.entryName,
-            artifact: entry.receipt,
-          }),
-        );
+      } catch (error) {
+        if (!cancellationRequested) {
+          cancellationRequested = true;
+          preparationFailure = { reason: error };
+          await firmwareArtifactAdapter
+            .cancelDownloads(transactionId)
+            .catch(() => undefined);
+        }
+        throw error;
       }
     }),
   );
+  if (preparationFailure) {
+    throw preparationFailure.reason;
+  }
 
   const componentArtifacts: IPreparedFirmwareArtifacts['selected']['componentArtifacts'] =
     {};
