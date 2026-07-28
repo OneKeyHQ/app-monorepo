@@ -13,6 +13,7 @@ import {
   type IStockTokenDetailFetchState,
   getStockTokenDetailDisplaySeed,
   isStockTokenDetailStateLanded,
+  isStockTokenDetailStateResolvedForActivation,
 } from '../utils/stockTokenDetailFreshness';
 
 import { getTokenIdentityKey } from './swapStockChannelUtils';
@@ -32,7 +33,13 @@ const SWAP_STOCK_DETAIL_LAST_GOOD_TTL_MS = timerUtils.getTimeDurationMs({
   minute: 1,
 });
 
+let stockDetailActivationSerial = 0;
 let stockDetailMountSerial = 0;
+
+function nextStockDetailActivationId() {
+  stockDetailActivationSerial += 1;
+  return `${Date.now()}-${stockDetailActivationSerial}`;
+}
 
 function nextStockDetailMountId() {
   stockDetailMountSerial += 1;
@@ -41,9 +48,11 @@ function nextStockDetailMountId() {
 
 export function useSwapStockTokenDetail({
   enabled = true,
+  requireCurrentActivation = false,
   token,
 }: {
   enabled?: boolean;
+  requireCurrentActivation?: boolean;
   token?: ISwapToken;
 }) {
   const tokenKey = getTokenIdentityKey(token);
@@ -56,11 +65,23 @@ export function useSwapStockTokenDetail({
   if (!mountIdRef.current) {
     mountIdRef.current = nextStockDetailMountId();
   }
+  const activationScopeRef = useRef<string | undefined>(undefined);
+  const activationIdRef = useRef('');
+  const activationScope = isActive ? tokenDetailScope : '';
+  if (activationScopeRef.current !== activationScope) {
+    activationScopeRef.current = activationScope;
+    activationIdRef.current = activationScope
+      ? nextStockDetailActivationId()
+      : '';
+  }
+  const activationId = activationIdRef.current;
 
   // A response for a token that has already been replaced must not warm the
   // last-good snapshot used by the new token scope.
   const latestScopeRef = useRef(tokenDetailScope);
   latestScopeRef.current = tokenDetailScope;
+  const latestActivationIdRef = useRef(activationId);
+  latestActivationIdRef.current = activationId;
 
   const { result: tokenDetailState, setStopPolling } = usePromiseResult(
     async () => {
@@ -85,8 +106,12 @@ export function useSwapStockTokenDetail({
             ? response?.data?.perpsInfo
             : undefined,
           fetchedAt: Date.now(),
+          resolvedByActivationId: activationId,
         };
-        if (latestScopeRef.current === tokenDetailScope) {
+        if (
+          latestScopeRef.current === tokenDetailScope &&
+          latestActivationIdRef.current === activationId
+        ) {
           lastGoodTokenDetailRef.current = nextState;
         }
         return nextState;
@@ -113,18 +138,24 @@ export function useSwapStockTokenDetail({
           lastGood.fetchedAt &&
           Date.now() - lastGood.fetchedAt <= SWAP_STOCK_DETAIL_LAST_GOOD_TTL_MS
         ) {
-          return lastGood;
+          return {
+            ...lastGood,
+            isUsingLastGood: true,
+            resolvedByActivationId: activationId,
+          };
         }
         return {
           scope: tokenDetailScope,
           token: undefined,
           perpsInfo: undefined,
           fallbackOfMountId: mountIdRef.current,
+          resolvedByActivationId: activationId,
         };
       }
     },
     [
       isActive,
+      activationId,
       token?.contractAddress,
       token?.networkId,
       tokenDetailScope,
@@ -156,6 +187,15 @@ export function useSwapStockTokenDetail({
     mountId: mountIdRef.current,
     ttlMs: SWAP_STOCK_DETAIL_LAST_GOOD_TTL_MS,
   });
+  const currentActivationResolved =
+    isStockTokenDetailStateResolvedForActivation({
+      activationId,
+      state: tokenDetailState,
+      scope: tokenDetailScope,
+    });
+  const authoritativeStateLanded = requireCurrentActivation
+    ? currentActivationResolved
+    : landed;
   const displayTokenDetail = getStockTokenDetailDisplaySeed({
     state: tokenDetailState,
     scope: tokenDetailScope,
@@ -163,8 +203,18 @@ export function useSwapStockTokenDetail({
 
   return {
     displayTokenDetail,
-    pending: Boolean(tokenDetailScope) && !landed,
-    perpsInfo: landed ? tokenDetailState?.perpsInfo : undefined,
-    tokenDetail: landed ? tokenDetailState?.token : undefined,
+    fetchedAt: authoritativeStateLanded
+      ? tokenDetailState?.fetchedAt
+      : undefined,
+    latestFetchSucceeded: Boolean(
+      currentActivationResolved &&
+      tokenDetailState?.fetchedAt &&
+      !tokenDetailState.isUsingLastGood,
+    ),
+    pending: Boolean(tokenDetailScope) && !authoritativeStateLanded,
+    perpsInfo: authoritativeStateLanded
+      ? tokenDetailState?.perpsInfo
+      : undefined,
+    tokenDetail: authoritativeStateLanded ? tokenDetailState?.token : undefined,
   };
 }

@@ -55,6 +55,7 @@ import {
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteEventCompletedAtom,
   useSwapQuoteEventErrorAtom,
+  useSwapQuoteEventFailedAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteFetchingAtom,
   useSwapQuoteListAtom,
@@ -249,6 +250,7 @@ export function useSwapQuoteProgressState() {
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
   const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
+  const [quoteEventFailed] = useSwapQuoteEventFailedAtom();
   const [quoteEventError] = useSwapQuoteEventErrorAtom();
   const [currentEventProviderKeys] = useSwapQuoteCurrentEventProviderKeysAtom();
 
@@ -347,12 +349,14 @@ export function useSwapQuoteProgressState() {
         previousQuote,
         quoteEventTotalCount,
         quoteEventCompleted,
+        quoteEventFailed,
         quoteEventError,
       }),
     [
       quoteCurrentSelect,
       quoteEventCompleted,
       quoteEventError,
+      quoteEventFailed,
       quoteEventFetching,
       quoteEventTotalCount,
       quoteLoading,
@@ -372,6 +376,51 @@ export function useSwapZeroProviderQuoteCompleted() {
         quoteEventCompleted,
       }),
     [quoteEventCompleted, quoteEventTotalCount],
+  );
+}
+
+export function useSwapQuoteRequestMatchesCurrentInput() {
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [quoteActionLock] = useSwapQuoteActionLockAtom();
+  const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
+  const [toTokenAmount] = useSwapToTokenAmountAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
+  const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const currentQuoteKind =
+    swapTypeSwitchValue === ESwapTabSwitchType.LIMIT &&
+    toTokenAmount.isInput &&
+    Boolean(toTokenAmount.value)
+      ? ESwapQuoteKind.BUY
+      : ESwapQuoteKind.SELL;
+
+  return useMemo(
+    () =>
+      isSwapQuoteRequestForCurrentInput({
+        currentAccountId: swapFromAddressInfo.accountInfo?.account?.id,
+        currentAddress: swapFromAddressInfo.address,
+        currentReceivingAddress: swapToAddressInfo.address,
+        currentSwapType: swapTypeSwitchValue,
+        fromAmount: fromTokenAmount.value,
+        fromToken,
+        quoteKind: currentQuoteKind,
+        quoteRequest: quoteActionLock,
+        toAmount: toTokenAmount.value,
+        toToken,
+      }),
+    [
+      currentQuoteKind,
+      fromToken,
+      fromTokenAmount.value,
+      quoteActionLock,
+      swapFromAddressInfo.accountInfo?.account?.id,
+      swapFromAddressInfo.address,
+      swapToAddressInfo.address,
+      swapTypeSwitchValue,
+      toToken,
+      toTokenAmount.value,
+    ],
   );
 }
 
@@ -565,39 +614,8 @@ export function useSwapActionState() {
     manualRefreshRequired: isRefreshQuote,
   });
   const noConnectWallet = alerts.states.some((item) => item.noConnectWallet);
-  const currentQuoteKind =
-    swapTypeSwitchValue === ESwapTabSwitchType.LIMIT &&
-    toTokenAmount.isInput &&
-    Boolean(toTokenAmount.value)
-      ? ESwapQuoteKind.BUY
-      : ESwapQuoteKind.SELL;
-  const quoteRequestMatchesCurrentInput = useMemo(
-    () =>
-      isSwapQuoteRequestForCurrentInput({
-        currentAccountId: swapFromAddressInfo.accountInfo?.account?.id,
-        currentAddress: swapFromAddressInfo.address,
-        currentReceivingAddress: swapToAddressInfo.address,
-        currentSwapType: swapTypeSwitchValue,
-        fromAmount: fromTokenAmount.value,
-        fromToken,
-        quoteKind: currentQuoteKind,
-        quoteRequest: quoteActionLock,
-        toAmount: toTokenAmount.value,
-        toToken,
-      }),
-    [
-      fromToken,
-      fromTokenAmount.value,
-      currentQuoteKind,
-      quoteActionLock,
-      swapFromAddressInfo.accountInfo?.account?.id,
-      swapFromAddressInfo.address,
-      swapTypeSwitchValue,
-      swapToAddressInfo.address,
-      toToken,
-      toTokenAmount.value,
-    ],
-  );
+  const quoteRequestMatchesCurrentInput =
+    useSwapQuoteRequestMatchesCurrentInput();
   const noProviderSupportsTrade = useMemo(
     () =>
       isSwapNoProviderSupportsTrade({

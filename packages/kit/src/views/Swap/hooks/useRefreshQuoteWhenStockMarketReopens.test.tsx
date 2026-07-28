@@ -158,4 +158,89 @@ describe('useRefreshQuoteWhenStockMarketReopens', () => {
     });
     expect(onRefresh).toHaveBeenCalledTimes(2);
   });
+
+  it('does not refresh while Stock trading is paused', () => {
+    const onRefresh = jest.fn();
+    const { rerender } = renderHook<
+      void,
+      { marketDetailFetchedAt: number; marketIsPaused: boolean }
+    >(
+      ({ marketDetailFetchedAt, marketIsPaused }) =>
+        useRefreshQuoteWhenStockMarketReopens({
+          enabled: true,
+          marketDetailFetchedAt,
+          marketIsOpen: true,
+          marketIsPaused,
+          onRefresh,
+          scopeKey: 'stock-a',
+        }),
+      {
+        initialProps: {
+          marketDetailFetchedAt: 1,
+          marketIsPaused: true,
+        },
+      },
+    );
+
+    expect(onRefresh).not.toHaveBeenCalled();
+
+    rerender({
+      marketDetailFetchedAt: 2,
+      marketIsPaused: false,
+    });
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries a current closed quote once per successful open-market poll', () => {
+    const onRefresh = jest.fn();
+    const { rerender } = renderHook<
+      void,
+      {
+        marketDetailFetchedAt: number;
+        refreshOnMarketStatusUpdate: boolean;
+      }
+    >(
+      ({ marketDetailFetchedAt, refreshOnMarketStatusUpdate }) =>
+        useRefreshQuoteWhenStockMarketReopens({
+          enabled: true,
+          marketDetailFetchedAt,
+          marketIsOpen: true,
+          onRefresh,
+          refreshOnMarketStatusUpdate,
+          scopeKey: 'stock-a',
+        }),
+      {
+        initialProps: {
+          marketDetailFetchedAt: 1,
+          refreshOnMarketStatusUpdate: false,
+        },
+      },
+    );
+
+    expect(onRefresh).not.toHaveBeenCalled();
+
+    rerender({
+      marketDetailFetchedAt: 1,
+      refreshOnMarketStatusUpdate: true,
+    });
+    expect(onRefresh).not.toHaveBeenCalled();
+
+    rerender({
+      marketDetailFetchedAt: 2,
+      refreshOnMarketStatusUpdate: true,
+    });
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+
+    rerender({
+      marketDetailFetchedAt: 2,
+      refreshOnMarketStatusUpdate: true,
+    });
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+
+    rerender({
+      marketDetailFetchedAt: 3,
+      refreshOnMarketStatusUpdate: true,
+    });
+    expect(onRefresh).toHaveBeenCalledTimes(2);
+  });
 });

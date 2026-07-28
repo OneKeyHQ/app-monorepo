@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
@@ -72,6 +79,7 @@ import {
   useSwapProSellToTokenAtom,
   useSwapProSupportNetworksTokenListAtom,
   useSwapProTokenBalanceLoadingAtom,
+  useSwapProTokenMarketDetailActivationStateAtom,
   useSwapProTokenMarketDetailInfoAtom,
   useSwapProTokenSupportLimitAtom,
   useSwapProTokenTransactionPriceAtom,
@@ -100,6 +108,10 @@ import {
 } from '../utils/swapProAccountUtils';
 import { getValidSwapProPositionsCache } from '../utils/swapProPositionsCacheUtils';
 import {
+  isSelectedProStockMarketDetailActivationSettled,
+  isSelectedProStockMarketDetailResolved,
+} from '../utils/swapProStockMarketClosed';
+import {
   SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
   getSwapAnalyticsTokenListType,
   getSwapAnalyticsTokenRole,
@@ -109,7 +121,11 @@ import {
   getSwapProDefaultTokens,
 } from '../utils/swapTypeUtils';
 
-import { backfillSwapProTokenStockIdentity } from './swapStockChannelUtils';
+import {
+  backfillSwapProTokenStockIdentity,
+  getTokenIdentityKey,
+} from './swapStockChannelUtils';
+import { useRefreshQuoteWhenStockMarketReopens } from './useRefreshQuoteWhenStockMarketReopens';
 import { useSwapSlippagePercentageModeInfo } from './useSwapState';
 
 type ISwapProSearchTokenListItem = IMarketSearchV2Token & {
@@ -250,6 +266,12 @@ export function useSwapProAccount() {
     activeIndexedAccountId: activeAccount?.indexedAccount?.id,
     activeAccountId: activeAccount?.account?.id ?? activeAccount?.dbAccount?.id,
   });
+  let accountOwnerKey = '';
+  if (indexedAccountId) {
+    accountOwnerKey = `indexed:${indexedAccountId}`;
+  } else if (accountId) {
+    accountOwnerKey = `account:${accountId}`;
+  }
   const hasConnectedAccount = Boolean(indexedAccountId || accountId);
   const accountScope = buildSwapProAccountScope({
     targetNetworkId,
@@ -359,6 +381,7 @@ export function useSwapProAccount() {
   return {
     ...netAccountStateRes,
     result: accountForCurrentScope,
+    accountOwnerKey,
     accountScope,
     accountStatus,
     hasConnectedAccount,
@@ -1434,7 +1457,7 @@ export function useSwapProTokenDetailInfo() {
   }, [proTokenDetail, swapProSelectToken, setSwapProSelectToken]);
   const fetchTokenMarketDetailInfo = useCallback(async () => {
     if (swapProSelectToken?.networkId) {
-      void swapProTokenMarketDetailFetchAction(
+      await swapProTokenMarketDetailFetchAction(
         swapProSelectToken?.contractAddress,
         swapProSelectToken?.networkId,
       );
@@ -1978,6 +2001,9 @@ export function useSwapProActionsQuote() {
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProUseSelectBuyTokenAtom] = useSwapProUseSelectBuyTokenAtom();
   const [swapProSellToTokenAtom] = useSwapProSellToTokenAtom();
+  const [proTokenDetail] = useSwapProTokenMarketDetailInfoAtom();
+  const [proTokenDetailActivationState] =
+    useSwapProTokenMarketDetailActivationStateAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const swapProAccount = useSwapProAccount();
   const slippageItemRef = useRef(slippageItem);
@@ -1994,6 +2020,77 @@ export function useSwapProActionsQuote() {
       swapTradeType === ESwapProTradeType.MARKET,
     [swapTabSwitchType, swapTradeType],
   );
+
+  useLayoutEffect(() => {
+    cancelSpeedQuote();
+    void cleanSpeedQuote();
+  }, [
+    cancelSpeedQuote,
+    cleanSpeedQuote,
+    enableSwapProMarketQuote,
+    slippageItem.key,
+    swapProAccount.result?.addressDetail.address,
+    swapProAccount.result?.id,
+    swapProDirection,
+    swapProInputAmount,
+    swapProSelectToken?.contractAddress,
+    swapProSelectToken?.networkId,
+    swapProSellToTokenAtom?.contractAddress,
+    swapProSellToTokenAtom?.networkId,
+    swapProUseSelectBuyTokenAtom?.contractAddress,
+    swapProUseSelectBuyTokenAtom?.networkId,
+    swapProMarketQuoteCustomSlippage,
+  ]);
+
+  const refreshCurrentSpeedQuote = useCallback(() => {
+    const currentInputAmountBN = new BigNumber(swapProInputAmount || '0');
+    if (
+      enableSwapProMarketQuote &&
+      swapProAccount.result?.addressDetail.address &&
+      currentInputAmountBN.isFinite() &&
+      currentInputAmountBN.gt(0)
+    ) {
+      void quoteSpeedAction(
+        slippageItemRef.current,
+        swapProAccount.result.addressDetail.address,
+        swapProAccount.result.id,
+        swapProAccount.result.addressDetail.address,
+      );
+    }
+  }, [
+    enableSwapProMarketQuote,
+    quoteSpeedAction,
+    swapProAccount.result?.addressDetail.address,
+    swapProAccount.result?.id,
+    swapProInputAmount,
+  ]);
+  const isCurrentMarketDetailActivationSettled =
+    isSelectedProStockMarketDetailActivationSettled(
+      proTokenDetailActivationState,
+      swapProSelectToken,
+    );
+  const hasCurrentSuccessfulMarketDetail =
+    isCurrentMarketDetailActivationSettled &&
+    proTokenDetailActivationState.latestFetchSucceeded &&
+    isSelectedProStockMarketDetailResolved(proTokenDetail, swapProSelectToken);
+  useRefreshQuoteWhenStockMarketReopens({
+    enabled: Boolean(
+      enableSwapProMarketQuote &&
+      swapProAccount.result?.addressDetail.address &&
+      swapProInputAmount,
+    ),
+    marketDetailFetchedAt: hasCurrentSuccessfulMarketDetail
+      ? proTokenDetailActivationState.lastSettledRequestId
+      : undefined,
+    marketIsOpen: hasCurrentSuccessfulMarketDetail
+      ? proTokenDetail?.stock?.isOpen
+      : undefined,
+    marketIsPaused: hasCurrentSuccessfulMarketDetail
+      ? proTokenDetail?.stock?.isPaused
+      : undefined,
+    onRefresh: refreshCurrentSpeedQuote,
+    scopeKey: getTokenIdentityKey(swapProSelectToken),
+  });
 
   useEffect(() => {
     const debounceInputAmountBN = new BigNumber(debounceInputAmount ?? '0');
@@ -2028,25 +2125,13 @@ export function useSwapProActionsQuote() {
   ]);
 
   useEffect(() => {
-    const debounceInputAmountBN = new BigNumber(debounceInputAmount || '0');
-    if (debounceInputAmountBN.isNaN() || debounceInputAmountBN.lte(0)) {
-      cancelSpeedQuote();
-      void cleanSpeedQuote();
-    }
-  }, [cancelSpeedQuote, cleanSpeedQuote, debounceInputAmount]);
-
-  useEffect(() => {
-    if (
-      !enableSwapProMarketQuote ||
-      !swapProAccount.result?.addressDetail.address
-    ) {
+    if (enableSwapProMarketQuote && !swapProAccount.hasConnectedAccount) {
       setSwapProInputAmount('');
     }
   }, [
-    cleanSpeedQuote,
     enableSwapProMarketQuote,
     setSwapProInputAmount,
-    swapProAccount.result?.addressDetail.address,
+    swapProAccount.hasConnectedAccount,
   ]);
 
   return {
@@ -2090,6 +2175,7 @@ export function useSwapProErrorAlert({
     }
     if (alertAction === ESwapProErrorAlertAction.UNSUPPORTED) {
       setSwapProErrorAlert({
+        source: 'account',
         title: intl.formatMessage({
           id: ETranslations.swap_page_alert_account_does_not_support_swap,
         }),
@@ -2099,6 +2185,7 @@ export function useSwapProErrorAlert({
       currentQuoteRes?.errorMessage
     ) {
       setSwapProErrorAlert({
+        source: 'quote',
         title: currentQuoteRes.errorMessage,
       });
     } else {

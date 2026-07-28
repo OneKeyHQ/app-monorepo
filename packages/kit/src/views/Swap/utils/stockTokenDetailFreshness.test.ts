@@ -1,6 +1,7 @@
 import {
   getStockTokenDetailDisplaySeed,
   isStockTokenDetailStateLanded,
+  isStockTokenDetailStateResolvedForActivation,
 } from './stockTokenDetailFreshness';
 
 import type { IStockTokenDetailFetchState } from './stockTokenDetailFreshness';
@@ -9,6 +10,7 @@ const TTL = 60_000;
 const NOW = 1_000_000_000;
 const SCOPE = 'evm--1:0xstock:token';
 const MOUNT = 'mount-1';
+const ACTIVATION = 'activation-1';
 
 function landed(
   state: IStockTokenDetailFetchState | undefined,
@@ -20,6 +22,17 @@ function landed(
     mountId,
     ttlMs: TTL,
     now: NOW,
+  });
+}
+
+function resolvedForActivation(
+  state: IStockTokenDetailFetchState | undefined,
+  activationId = ACTIVATION,
+) {
+  return isStockTokenDetailStateResolvedForActivation({
+    activationId,
+    state,
+    scope: SCOPE,
   });
 }
 
@@ -37,7 +50,7 @@ describe('isStockTokenDetailStateLanded', () => {
     ).toBe(true);
   });
 
-  it('rejects a token payload whose fetchedAt exceeded the TTL (stale SWR hydration)', () => {
+  it('rejects a token payload whose fetchedAt exceeded the TTL', () => {
     expect(
       landed({
         scope: SCOPE,
@@ -48,13 +61,13 @@ describe('isStockTokenDetailStateLanded', () => {
     ).toBe(false);
   });
 
-  it('rejects legacy payloads without fetchedAt (untrustworthy cache-entry timestamps)', () => {
+  it('rejects legacy payloads without fetchedAt', () => {
     expect(
       landed({ scope: SCOPE, token: stockToken, perpsInfo: undefined }),
     ).toBe(false);
   });
 
-  it('lands a genuine empty answer (asset is not a stock) via its own fetchedAt', () => {
+  it('lands a genuine empty answer via its own fetchedAt', () => {
     expect(
       landed({
         scope: SCOPE,
@@ -73,17 +86,14 @@ describe('isStockTokenDetailStateLanded', () => {
     ).toBe(false);
   });
 
-  it('lands the post-TTL error fallback only within the mount that produced it', () => {
+  it('lands a post-TTL fallback only within the mount that produced it', () => {
     const fallback: IStockTokenDetailFetchState = {
       scope: SCOPE,
       token: undefined,
       perpsInfo: undefined,
       fallbackOfMountId: MOUNT,
     };
-    // Same mount: extended outage settles to MarketUnavailable.
     expect(landed(fallback, MOUNT)).toBe(true);
-    // Later mount (persisted fallback hydrated back): stays pending so
-    // the first real request decides — the backend may have recovered.
     expect(landed(fallback, 'mount-2')).toBe(false);
   });
 
@@ -97,6 +107,40 @@ describe('isStockTokenDetailStateLanded', () => {
       }),
     ).toBe(false);
     expect(landed(undefined)).toBe(false);
+  });
+});
+
+describe('isStockTokenDetailStateResolvedForActivation', () => {
+  it('accepts only a result produced by the current activation', () => {
+    const currentState: IStockTokenDetailFetchState = {
+      scope: SCOPE,
+      token: stockToken,
+      perpsInfo: undefined,
+      fetchedAt: NOW,
+      resolvedByActivationId: ACTIVATION,
+    };
+    expect(resolvedForActivation(currentState)).toBe(true);
+    expect(resolvedForActivation(currentState, 'activation-2')).toBe(false);
+  });
+
+  it('settles a current failed request without accepting cached fallback', () => {
+    expect(
+      resolvedForActivation({
+        scope: SCOPE,
+        token: undefined,
+        perpsInfo: undefined,
+        resolvedByActivationId: ACTIVATION,
+      }),
+    ).toBe(true);
+    expect(
+      resolvedForActivation({
+        scope: SCOPE,
+        token: undefined,
+        perpsInfo: undefined,
+        fallbackOfMountId: MOUNT,
+        resolvedByActivationId: 'activation-previous',
+      }),
+    ).toBe(false);
   });
 });
 

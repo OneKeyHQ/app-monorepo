@@ -3,9 +3,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
+  useSwapInputAmountSnapshotsAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapStockExecutionTokenSyncIdAtom,
   useSwapStockExecutionTokensAtom,
+  useSwapStockQuoteReadyAtom,
   useSwapStockSelectedTokenAtom,
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -23,7 +26,10 @@ import type {
   IFetchUSMarketStatusResult,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapSelectTokenSource } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapSelectTokenSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_DEFAULT,
@@ -37,12 +43,22 @@ import {
   ESwapStockChannelStage,
   ESwapStockTradeSide,
   buildStockSwapTokenFromMarketToken,
+  canActivateStockExecutionOwnership,
+  canResolveStockInputAmountSnapshot,
   filterStockPayTokenCandidates,
   getTokenIdentityKey,
+  isSameStockPayTokenIdentity,
+  isStockExecutionTokensReady,
   isStockTradeReadyForQuote,
   resolveStockChannelSwapPair,
+  resolveStockMarketDetailAuthority,
+  resolveStockMarketStatusStatus,
+  resolveStockPayTokenForCommittedOwner,
+  shouldResetStockPayTokenInputAmount,
   shouldResetStockTradeReceiveAmount,
+  shouldSyncStockExecutionState,
 } from './swapStockChannelUtils';
+import { usePublishSwapStockQuoteReadiness } from './usePublishSwapStockQuoteReadiness';
 import {
   getSwapColdStartDisplayTokensFromGlobalSnapshot,
   getSwapStockColdStartDisplayTokenFromGlobalSnapshot,
@@ -92,12 +108,16 @@ type ISelectStockSwapTokenOptions = {
 export function useSwapStockChannel() {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [stockExecutionTokenSyncId] = useSwapStockExecutionTokenSyncIdAtom();
   const [stockExecutionTokens] = useSwapStockExecutionTokensAtom();
+  const [, setStockQuoteReady] = useSwapStockQuoteReadyAtom();
+  const [inputAmountSnapshots] = useSwapInputAmountSnapshotsAtom();
   const [stockSelectedToken, setStockSelectedToken] =
     useSwapStockSelectedTokenAtom();
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
-  const { selectStockExecutionTokens } = useSwapActions().current;
+  const { resetQuoteAction, selectStockExecutionTokens } =
+    useSwapActions().current;
   const { spotCategories, isLoading: marketBasicConfigLoading } =
     useMarketBasicConfig();
   const [tradeSideState, setTradeSideState] = useState<
@@ -109,9 +129,18 @@ export function useSwapStockChannel() {
   const [payTokenState, setPayTokenState] = useState<ISwapToken | undefined>(
     undefined,
   );
+  const [stockQuoteReadinessEpoch, setStockQuoteReadinessEpoch] = useState(0);
   const manualStockPayTokenKeyRef = useRef('');
   const stockTokenSnapshotRef = useRef<ISwapToken | undefined>(undefined);
   const payTokenSnapshotRef = useRef<ISwapToken | undefined>(undefined);
+  const stockQuoteReadyRef = useRef(false);
+
+  const deactivateStockQuote = useCallback(() => {
+    stockQuoteReadyRef.current = false;
+    setStockQuoteReady(false);
+    setStockQuoteReadinessEpoch((value) => value + 1);
+    void resetQuoteAction();
+  }, [resetQuoteAction, setStockQuoteReady]);
 
   const selectedTokensStockPair = useMemo(
     () =>
@@ -208,10 +237,13 @@ export function useSwapStockChannel() {
   const stockNetworkId = currentStockToken?.networkId ?? '';
   const {
     displayTokenDetail: cachedStockTokenDetail,
+    fetchedAt: stockMarketDetailFetchedAt,
+    latestFetchSucceeded: stockMarketDetailFetchSucceeded,
     pending: stockTokenDetailPending,
     perpsInfo: stockPerpsInfo,
     tokenDetail: stockTokenDetail,
   } = useSwapStockTokenDetail({
+    requireCurrentActivation: true,
     token: currentStockToken,
   });
   const { realtimeChartPoint, realtimeTokenDetail: activeStockTokenDetail } =
@@ -222,6 +254,11 @@ export function useSwapStockChannel() {
     });
   const displayStockTokenDetail =
     activeStockTokenDetail ?? cachedStockTokenDetail;
+  const currentStockMarketDetail = resolveStockMarketDetailAuthority({
+    currentActivationPending: stockTokenDetailPending,
+    realtimeTokenDetail: activeStockTokenDetail,
+  });
+  const stockMarketPaused = currentStockMarketDetail?.stock?.isPaused;
   const disableNativePayToken = isOndoStockSource(
     activeStockTokenDetail?.stock?.source,
   );
@@ -231,10 +268,12 @@ export function useSwapStockChannel() {
       nextTradeSide = tradeSide,
       stockToken = stockTokenSnapshotRef.current ?? currentStockToken,
       payToken: nextPayToken = payTokenSnapshotRef.current ?? selectedPayToken,
+      resolveInputSnapshot = false,
     }: {
       nextTradeSide?: ESwapStockTradeSide;
       stockToken?: ISwapToken;
       payToken?: ISwapToken;
+      resolveInputSnapshot?: boolean;
     } = {}) => {
       // The stock channel token is authoritatively the stock side of the trade.
       // Stock metadata (token.stock) loads asynchronously and may be missing at
@@ -256,6 +295,7 @@ export function useSwapStockChannel() {
 
       await selectStockExecutionTokens({
         fromToken: nextFromToken,
+        resolveInputSnapshot,
         toToken: nextToToken,
         syncId: nextStockExecutionTokenSyncId(),
       });
@@ -302,10 +342,17 @@ export function useSwapStockChannel() {
   const selectStockSwapToken = useCallback(
     (token: ISwapToken, options?: ISelectStockSwapTokenOptions) => {
       const nextStockToken = normalizeSelectedStockSwapToken(token);
+      const previousStockToken = stockTokenSnapshotRef.current;
+      if (
+        getTokenIdentityKey(previousStockToken) !==
+        getTokenIdentityKey(nextStockToken)
+      ) {
+        deactivateStockQuote();
+      }
       if (
         shouldResetStockTradeReceiveAmount({
           nextStockToken,
-          previousStockToken: stockTokenSnapshotRef.current,
+          previousStockToken,
           resetReceiveAmount: options?.resetReceiveAmount,
         })
       ) {
@@ -314,15 +361,8 @@ export function useSwapStockChannel() {
       setStockTokenState(nextStockToken);
       setStockSelectedToken(nextStockToken);
       stockTokenSnapshotRef.current = nextStockToken;
-      void syncStockExecutionTokens({
-        stockToken: nextStockToken,
-      });
     },
-    [
-      resetStockTradeReceiveAmount,
-      setStockSelectedToken,
-      syncStockExecutionTokens,
-    ],
+    [deactivateStockQuote, resetStockTradeReceiveAmount, setStockSelectedToken],
   );
 
   useEffect(() => {
@@ -363,24 +403,18 @@ export function useSwapStockChannel() {
   const stockMarketStatus = useMemo<
     IFetchUSMarketStatusResult | undefined
   >(() => {
-    if (!activeStockTokenDetail?.stock) {
+    if (!currentStockMarketDetail?.stock) {
       return undefined;
     }
-    const isOpen = activeStockTokenDetail.stock.isOpen;
-    if (typeof isOpen !== 'boolean') {
-      return {
-        open: true,
-        session: 'REGULAR',
-        reason: activeStockTokenDetail.stock.description ?? null,
-        unavailable: true,
-      };
-    }
+    const isOpen = currentStockMarketDetail.stock.isOpen;
     return {
-      open: isOpen === true,
-      session: isOpen === true ? 'REGULAR' : 'CLOSED',
-      reason: activeStockTokenDetail.stock.description ?? null,
+      // Only an explicit close blocks trading. Pre/post/overnight sessions and
+      // fresh detail without an isOpen flag remain eligible for quote requests.
+      open: isOpen !== false,
+      session: isOpen === false ? 'CLOSED' : 'REGULAR',
+      reason: currentStockMarketDetail.stock.description ?? null,
     };
-  }, [activeStockTokenDetail?.stock]);
+  }, [currentStockMarketDetail?.stock]);
 
   const selectPayToken = useCallback(
     (token: IToken, manual = true) => {
@@ -393,13 +427,43 @@ export function useSwapStockChannel() {
         });
       }
       const nextPayToken = token as ISwapToken;
+      const previousPayToken = payTokenSnapshotRef.current ?? selectedPayToken;
+      if (
+        previousPayToken &&
+        !isSameStockPayTokenIdentity({
+          token1: previousPayToken,
+          token2: nextPayToken,
+        })
+      ) {
+        deactivateStockQuote();
+      }
+      if (
+        shouldResetStockPayTokenInputAmount({
+          nextPayToken,
+          previousPayToken,
+          tradeSide,
+        })
+      ) {
+        resetStockTradeAmounts();
+      } else if (
+        previousPayToken &&
+        !isSameStockPayTokenIdentity({
+          token1: previousPayToken,
+          token2: nextPayToken,
+        })
+      ) {
+        resetStockTradeReceiveAmount();
+      }
       setPayTokenState(nextPayToken);
       payTokenSnapshotRef.current = nextPayToken;
-      void syncStockExecutionTokens({
-        payToken: nextPayToken,
-      });
     },
-    [syncStockExecutionTokens],
+    [
+      resetStockTradeAmounts,
+      resetStockTradeReceiveAmount,
+      selectedPayToken,
+      deactivateStockQuote,
+      tradeSide,
+    ],
   );
 
   const syncPayTokenDetail = useCallback((token: IToken) => {
@@ -426,7 +490,10 @@ export function useSwapStockChannel() {
     stockNetworkId,
     syncPayTokenDetail,
   });
-  const payToken = displayPayToken ?? selectedPayToken;
+  const payToken = resolveStockPayTokenForCommittedOwner({
+    displayPayToken,
+    selectedPayToken,
+  });
 
   const selectStockToken = useCallback(
     (token: IMarketToken) => {
@@ -449,6 +516,7 @@ export function useSwapStockChannel() {
       const stockTokenForSwitch =
         stockTokenSnapshotRef.current ?? currentStockToken;
       const payTokenForSwitch = payTokenSnapshotRef.current ?? payToken;
+      deactivateStockQuote();
       setTradeSideState(nextTradeSide);
       resetStockTradeAmounts();
       await syncStockExecutionTokens({
@@ -459,6 +527,7 @@ export function useSwapStockChannel() {
     },
     [
       currentStockToken,
+      deactivateStockQuote,
       payToken,
       resetStockTradeAmounts,
       syncStockExecutionTokens,
@@ -488,7 +557,18 @@ export function useSwapStockChannel() {
         shouldUseSellSide ? pairFromToken : pairToToken,
       );
       const nextPayToken = shouldUseSellSide ? pairToToken : pairFromToken;
+      const stockScopeChanged =
+        nextTradeSide !== tradeSide ||
+        getTokenIdentityKey(nextStockToken) !==
+          getTokenIdentityKey(
+            stockTokenSnapshotRef.current ?? currentStockToken,
+          ) ||
+        getTokenIdentityKey(nextPayToken) !==
+          getTokenIdentityKey(payTokenSnapshotRef.current ?? payToken);
 
+      if (stockScopeChanged) {
+        deactivateStockQuote();
+      }
       resetStockTradeAmounts();
       setTradeSideState(nextTradeSide);
       setStockTokenState(nextStockToken);
@@ -503,7 +583,15 @@ export function useSwapStockChannel() {
         payToken: nextPayToken,
       });
     },
-    [resetStockTradeAmounts, setStockSelectedToken, syncStockExecutionTokens],
+    [
+      deactivateStockQuote,
+      currentStockToken,
+      payToken,
+      resetStockTradeAmounts,
+      setStockSelectedToken,
+      syncStockExecutionTokens,
+      tradeSide,
+    ],
   );
 
   const stockTokenStatus = useMemo(() => {
@@ -516,30 +604,13 @@ export function useSwapStockChannel() {
     return ESwapStockChannelAsyncStatus.Empty;
   }, [currentStockToken, defaultStockTokenStatus, shouldLoadDefaultStockToken]);
 
-  const marketStatusStatus = useMemo(() => {
-    if (!currentStockTokenKey) {
-      return ESwapStockChannelAsyncStatus.Idle;
-    }
-    if (!activeStockTokenDetail?.stock) {
-      // Initializing only until the FIRST result for the current token scope
-      // lands (pending). Per-request loading is deliberately excluded: the
-      // 10s detail polling would otherwise flip this status on every tick
-      // while the detail stays empty (e.g. offline), blinking the
-      // unavailable alert and the action button.
-      return stockTokenDetailPending
-        ? ESwapStockChannelAsyncStatus.Initializing
-        : ESwapStockChannelAsyncStatus.Empty;
-    }
-    if (stockMarketStatus) {
-      return ESwapStockChannelAsyncStatus.Ready;
-    }
-    return ESwapStockChannelAsyncStatus.Empty;
-  }, [
-    currentStockTokenKey,
-    activeStockTokenDetail?.stock,
-    stockMarketStatus,
-    stockTokenDetailPending,
-  ]);
+  // Only an explicit closed/paused state restricts Stock trading. Once the
+  // initial status request settles, missing fields and request failures must
+  // fail open while the independent quote contract remains authoritative.
+  const marketStatusStatus = resolveStockMarketStatusStatus({
+    currentActivationPending: stockTokenDetailPending,
+    hasCurrentStockToken: Boolean(currentStockTokenKey),
+  });
 
   const channelStage = useMemo(() => {
     if (stockTokenStatus === ESwapStockChannelAsyncStatus.Initializing) {
@@ -551,11 +622,11 @@ export function useSwapStockChannel() {
     if (marketStatusStatus === ESwapStockChannelAsyncStatus.Initializing) {
       return ESwapStockChannelStage.CheckingMarketStatus;
     }
-    if (
-      marketStatusStatus !== ESwapStockChannelAsyncStatus.Ready ||
-      stockMarketStatus?.unavailable
-    ) {
+    if (marketStatusStatus !== ESwapStockChannelAsyncStatus.Ready) {
       return ESwapStockChannelStage.MarketUnavailable;
+    }
+    if (stockMarketPaused) {
+      return ESwapStockChannelStage.MarketPaused;
     }
     if (stockMarketStatus?.open === false) {
       return ESwapStockChannelStage.MarketClosed;
@@ -571,20 +642,37 @@ export function useSwapStockChannel() {
     marketStatusStatus,
     payTokenStatus,
     stockMarketStatus?.open,
-    stockMarketStatus?.unavailable,
+    stockMarketPaused,
     stockTokenStatus,
   ]);
 
   const readyForQuote = isStockTradeReadyForQuote({
     currentStockToken,
     marketOpen: stockMarketStatus?.open,
+    marketPaused: stockMarketPaused,
     marketStatusStatus,
     payToken,
     payTokenStatus,
     stockTokenStatus,
   });
+  usePublishSwapStockQuoteReadiness({
+    readinessEpoch: stockQuoteReadinessEpoch,
+    readyForQuote,
+    readyForQuoteRef: stockQuoteReadyRef,
+    resetQuote: resetQuoteAction,
+    setReadyForQuote: setStockQuoteReady,
+  });
 
   useEffect(() => {
+    if (
+      !canActivateStockExecutionOwnership({
+        marketStatusStatus,
+        payTokenStatus,
+        stockTokenStatus,
+      })
+    ) {
+      return;
+    }
     const {
       fromToken: stockExecutionFromToken,
       toToken: stockExecutionToToken,
@@ -598,7 +686,7 @@ export function useSwapStockChannel() {
     if (!stockExecutionFromToken || !stockExecutionToToken) {
       return;
     }
-    const executionPairSynced = Boolean(
+    const selectedPairSynced =
       equalTokenNoCaseSensitive({
         token1: fromToken,
         token2: stockExecutionFromToken,
@@ -606,20 +694,46 @@ export function useSwapStockChannel() {
       equalTokenNoCaseSensitive({
         token1: toToken,
         token2: stockExecutionToToken,
-      }),
-    );
-    if (executionPairSynced) {
+      });
+    const executionOwnershipSynced = isStockExecutionTokensReady({
+      currentSyncId: stockExecutionTokenSyncId,
+      executionTokens: stockExecutionTokens,
+      fromToken: stockExecutionFromToken,
+      toToken: stockExecutionToToken,
+    });
+    const canResolvePendingInputSnapshot = canResolveStockInputAmountSnapshot({
+      marketStatusStatus,
+      payTokenStatus,
+      stockTokenStatus,
+    });
+    if (
+      !shouldSyncStockExecutionState({
+        executionOwnershipSynced,
+        hasPendingInputSnapshot: Boolean(
+          canResolvePendingInputSnapshot &&
+          inputAmountSnapshots[ESwapTabSwitchType.STOCK],
+        ),
+        selectedPairSynced,
+      })
+    ) {
       return;
     }
 
     void syncStockExecutionTokens({
       payToken,
+      resolveInputSnapshot: canResolvePendingInputSnapshot,
       stockToken: currentStockToken,
     });
   }, [
     currentStockToken,
+    inputAmountSnapshots,
+    marketStatusStatus,
     payToken,
+    payTokenStatus,
     syncStockExecutionTokens,
+    stockExecutionTokenSyncId,
+    stockExecutionTokens,
+    stockTokenStatus,
     tradeSide,
     fromToken,
     toToken,
@@ -635,6 +749,9 @@ export function useSwapStockChannel() {
       tradeSide,
       stockNetworkId,
       stockMarketStatus,
+      stockMarketDetailFetchedAt,
+      stockMarketDetailFetchSucceeded,
+      stockMarketPaused,
       stockPerpsInfo,
       activeStockTokenDetail,
       displayStockTokenDetail,
@@ -677,6 +794,9 @@ export function useSwapStockChannel() {
       activeStockTokenDetail,
       displayStockTokenDetail,
       stockMarketStatus,
+      stockMarketDetailFetchedAt,
+      stockMarketDetailFetchSucceeded,
+      stockMarketPaused,
       stockNetworkId,
       stockPerpsInfo,
       stockTokenStatus,

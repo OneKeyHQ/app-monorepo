@@ -9,6 +9,7 @@ import {
   ESwapQuoteRefreshAction,
   ESwapQuoteUiPhase,
   buildSwapQuoteProviderKey,
+  filterSwapCurrentEventQuotes,
   getSwapQuoteEventProgressTotalCount,
   getSwapQuoteProgressState,
   hasSwapQuoteEventTotalCount,
@@ -25,6 +26,7 @@ import {
   selectSwapPreviousActionableQuote,
   shouldOfferSwapQuoteRefresh,
   shouldPlaySwapQuoteRefreshAnimation,
+  shouldShowSwapNoProviderResult,
   shouldShowSwapQuoteActionLoading,
   shouldShowSwapQuoteRequestLoading,
 } from './quoteProgress';
@@ -627,6 +629,32 @@ describe('swap quote progress', () => {
     ).toBe(false);
   });
 
+  it('shows the no-provider result only for the current request input', () => {
+    expect(
+      shouldShowSwapNoProviderResult({
+        hasQuoteResultForDisplay: false,
+        quoteRequestMatchesCurrentInput: true,
+        quoteUiPhase: ESwapQuoteUiPhase.ZeroProvider,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldShowSwapNoProviderResult({
+        hasQuoteResultForDisplay: false,
+        quoteRequestMatchesCurrentInput: false,
+        quoteUiPhase: ESwapQuoteUiPhase.ZeroProvider,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldShowSwapNoProviderResult({
+        hasQuoteResultForDisplay: true,
+        quoteRequestMatchesCurrentInput: true,
+        quoteUiPhase: ESwapQuoteUiPhase.ZeroProvider,
+      }),
+    ).toBe(false);
+  });
+
   it('keeps an error-first quote in waiting until the event settles (OK-58528)', () => {
     const errorQuote = buildQuote({
       eventId: 'event-1',
@@ -931,6 +959,44 @@ describe('swap quote progress', () => {
     ).toBeUndefined();
   });
 
+  it('does not promote an old quote when the current event fails before any provider responds', () => {
+    const oldQuote = buildQuote({
+      eventId: 'event-1',
+      provider: 'old-provider',
+    });
+
+    expect(
+      filterSwapCurrentEventQuotes({
+        currentEventProviderKeys: [],
+        quoteEventCompleted: true,
+        quoteEventFailed: true,
+        quoteEventTotalCount: { count: 0 },
+        quotes: [oldQuote],
+      }),
+    ).toEqual([]);
+  });
+
+  it('keeps only providers that responded in the current event without a total-count event', () => {
+    const oldQuote = buildQuote({
+      eventId: 'event-1',
+      provider: 'old-provider',
+    });
+    const currentQuote = buildQuote({
+      eventId: 'event-2',
+      provider: 'current-provider',
+    });
+
+    expect(
+      filterSwapCurrentEventQuotes({
+        currentEventProviderKeys: [buildSwapQuoteProviderKey(currentQuote)],
+        quoteEventCompleted: true,
+        quoteEventFailed: true,
+        quoteEventTotalCount: { count: 0 },
+        quotes: [oldQuote, currentQuote],
+      }),
+    ).toEqual([currentQuote]);
+  });
+
   it('moves to hasQuote when the current event quote arrives', () => {
     const currentQuote = buildQuote({
       eventId: 'event-2',
@@ -967,6 +1033,37 @@ describe('swap quote progress', () => {
     expect(state.phase).toBe(ESwapQuoteUiPhase.ZeroProvider);
     expect(state.displayQuote).toBeUndefined();
     expect(state.isWaitingActionableQuote).toBe(false);
+  });
+
+  it('does not report no-provider when the quote transport fails', () => {
+    const state = getSwapQuoteProgressState({
+      quoteLoading: false,
+      quoteEventFetching: false,
+      quoteEventTotalCount: { eventId: 'event-2', count: 1 },
+      quoteEventCompleted: true,
+      quoteEventFailed: true,
+    });
+
+    expect(state.phase).toBe(ESwapQuoteUiPhase.Error);
+    expect(state.displayQuote).toBeUndefined();
+  });
+
+  it('keeps an actionable provider quote when the transport closes after partial success', () => {
+    const actionableQuote = buildQuote({
+      eventId: 'event-2',
+      provider: 'completed-provider',
+    });
+    const state = getSwapQuoteProgressState({
+      quoteLoading: false,
+      quoteEventFetching: false,
+      quoteCurrentSelect: actionableQuote,
+      quoteEventTotalCount: { eventId: 'event-2', count: 2 },
+      quoteEventCompleted: true,
+      quoteEventFailed: true,
+    });
+
+    expect(state.phase).toBe(ESwapQuoteUiPhase.HasQuote);
+    expect(state.displayQuote).toBe(actionableQuote);
   });
 
   it('uses error phase before falling back to stale quotes', () => {

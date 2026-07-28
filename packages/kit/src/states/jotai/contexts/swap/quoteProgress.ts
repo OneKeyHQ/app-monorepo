@@ -26,6 +26,7 @@ type ISwapQuoteProgressInput = {
   previousQuote?: IFetchQuoteResult;
   quoteEventTotalCount?: ISwapQuoteEventTotalCount;
   quoteEventCompleted?: boolean;
+  quoteEventFailed?: boolean;
   quoteEventError?: { message?: string } | undefined;
 };
 
@@ -170,6 +171,34 @@ export function hasSwapCurrentEventProvider(
   return currentEventProviderKeys.includes(buildSwapQuoteProviderKey(quote));
 }
 
+export function filterSwapCurrentEventQuotes({
+  currentEventProviderKeys,
+  quoteEventCompleted,
+  quoteEventFailed,
+  quoteEventTotalCount,
+  quotes,
+}: {
+  currentEventProviderKeys: string[];
+  quoteEventCompleted: boolean;
+  quoteEventFailed: boolean;
+  quoteEventTotalCount: ISwapQuoteEventTotalCount;
+  quotes: IFetchQuoteResult[];
+}) {
+  const hasCurrentEventBoundary =
+    Boolean(quoteEventTotalCount.eventId) ||
+    quoteEventTotalCount.count > 0 ||
+    currentEventProviderKeys.length > 0 ||
+    quoteEventCompleted ||
+    quoteEventFailed;
+  if (!hasCurrentEventBoundary) {
+    return quotes;
+  }
+  const currentEventProviderKeySet = new Set(currentEventProviderKeys);
+  return quotes.filter((quote) =>
+    currentEventProviderKeySet.has(buildSwapQuoteProviderKey(quote)),
+  );
+}
+
 export function isSwapQuoteEventFetching({
   quoteEventTotalCount,
   currentEventReceivedCount,
@@ -242,6 +271,22 @@ export function isSwapNoProviderSupportsTrade({
     (zeroProviderQuoteCompleted ||
       Boolean(quote && !quote.toAmount && !quote.limit)) &&
     !quoteResultPairNoMatch
+  );
+}
+
+export function shouldShowSwapNoProviderResult({
+  hasQuoteResultForDisplay,
+  quoteRequestMatchesCurrentInput,
+  quoteUiPhase,
+}: {
+  hasQuoteResultForDisplay: boolean;
+  quoteRequestMatchesCurrentInput: boolean;
+  quoteUiPhase: ESwapQuoteUiPhase;
+}) {
+  return (
+    quoteUiPhase === ESwapQuoteUiPhase.ZeroProvider &&
+    quoteRequestMatchesCurrentInput &&
+    !hasQuoteResultForDisplay
   );
 }
 
@@ -601,6 +646,7 @@ export function getSwapQuoteProgressState({
   previousQuote,
   quoteEventTotalCount = { count: 0 },
   quoteEventCompleted = false,
+  quoteEventFailed = false,
   quoteEventError,
 }: ISwapQuoteProgressInput): ISwapQuoteProgressState {
   const isCurrentQuoteForActiveEvent = isSwapQuoteFromCurrentEvent({
@@ -630,7 +676,7 @@ export function getSwapQuoteProgressState({
 
   let phase = ESwapQuoteUiPhase.Idle;
   let displayQuote = currentQuote;
-  if (quoteEventError?.message) {
+  if (quoteEventError?.message || (quoteEventFailed && !hasActionableQuote)) {
     phase = ESwapQuoteUiPhase.Error;
     displayQuote = undefined;
   } else if (hasActionableQuote) {

@@ -62,7 +62,7 @@ import { createJotaiContext } from '../../utils/createJotaiContext';
 import {
   type ISwapQuoteEventTotalCount,
   type ISwapQuoteSelectionIntent,
-  buildSwapQuoteProviderKey,
+  filterSwapCurrentEventQuotes,
   selectSwapCurrentQuote,
 } from './quoteProgress';
 
@@ -208,6 +208,11 @@ export const {
     }
   | undefined
 >(undefined);
+
+export const {
+  atom: swapStockQuoteReadyAtom,
+  use: useSwapStockQuoteReadyAtom,
+} = contextAtom<boolean>(false);
 
 export const {
   atom: swapStockSelectedTokenAtom,
@@ -406,6 +411,11 @@ export const {
 } = contextAtom<boolean>(false);
 
 export const {
+  atom: swapQuoteEventFailedAtom,
+  use: useSwapQuoteEventFailedAtom,
+} = contextAtom<boolean>(false);
+
+export const {
   atom: swapQuoteCurrentEventProviderKeysAtom,
   use: useSwapQuoteCurrentEventProviderKeysAtom,
 } = contextAtom<string[]>([]);
@@ -420,19 +430,24 @@ export const {
   use: useSwapShouldRefreshQuoteAtom,
 } = contextAtom<boolean>(false);
 
+export const { atom: swapWarningCheckRequestIdAtom } = contextAtom<number>(0);
+
 export const {
   atom: swapQuoteCurrentEventListAtom,
   use: useSwapQuoteCurrentEventListAtom,
 } = contextAtomComputed<IFetchQuoteResult[]>((get) => {
   const list = get(swapQuoteListAtom());
   const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
+  const quoteEventCompleted = get(swapQuoteEventCompletedAtom());
+  const quoteEventFailed = get(swapQuoteEventFailedAtom());
   const currentEventProviderKeys = get(swapQuoteCurrentEventProviderKeysAtom());
-  const currentEventProviderKeySet = new Set(currentEventProviderKeys);
-  return quoteEventTotalCount.count > 0
-    ? list.filter((quote) =>
-        currentEventProviderKeySet.has(buildSwapQuoteProviderKey(quote)),
-      )
-    : list;
+  return filterSwapCurrentEventQuotes({
+    currentEventProviderKeys,
+    quoteEventCompleted,
+    quoteEventFailed,
+    quoteEventTotalCount,
+    quotes: list,
+  });
 });
 
 export const {
@@ -748,6 +763,11 @@ export const { atom: swapProInputAmountAtom, use: useSwapProInputAmountAtom } =
   contextAtom<string>('');
 
 export const {
+  atom: swapProInputAmountOwnerKeyAtom,
+  use: useSwapProInputAmountOwnerKeyAtom,
+} = contextAtom<string>('');
+
+export const {
   atom: swapProUseSelectBuyTokenAtom,
   use: useSwapProUseSelectBuyTokenAtom,
 } = contextAtom<IToken | undefined>(undefined);
@@ -779,6 +799,34 @@ export const {
   atom: swapProTokenMarketDetailInfoLoadingAtom,
   use: useSwapProTokenMarketDetailInfoLoadingAtom,
 } = contextAtom<boolean>(false);
+
+export const {
+  atom: swapProTokenMarketDetailRequestIdAtom,
+  use: useSwapProTokenMarketDetailRequestIdAtom,
+} = contextAtom<number>(0);
+
+export type ISwapProTokenMarketDetailActivationState = {
+  contractAddress: string;
+  lastSettledRequestId: number;
+  lastSuccessfulFetchAt?: number;
+  latestFetchSucceeded: boolean;
+  networkId: string;
+  requestId: number;
+  settled: boolean;
+};
+
+export const {
+  atom: swapProTokenMarketDetailActivationStateAtom,
+  use: useSwapProTokenMarketDetailActivationStateAtom,
+} = contextAtom<ISwapProTokenMarketDetailActivationState>({
+  contractAddress: '',
+  lastSettledRequestId: 0,
+  lastSuccessfulFetchAt: undefined,
+  latestFetchSucceeded: false,
+  networkId: '',
+  requestId: 0,
+  settled: false,
+});
 
 const DEFAULT_TIME_RANGE = ESwapProTimeRange.TWENTY_FOUR_HOURS;
 export const defaultTimeRangeItem =
@@ -866,6 +914,13 @@ export const {
   use: useSwapSpeedQuoteFetchingAtom,
 } = contextAtom<boolean>(false);
 
+export const { atom: swapSpeedQuoteRequestIdAtom } = contextAtom<number>(0);
+
+export const {
+  atom: swapProStockQuoteErrorMarketDetailSettledRequestIdAtom,
+  use: useSwapProStockQuoteErrorMarketDetailSettledRequestIdAtom,
+} = contextAtom<number | undefined>(undefined);
+
 export const {
   atom: swapSpeedQuoteResultAtom,
   use: useSwapSpeedQuoteResultAtom,
@@ -886,7 +941,14 @@ export const {
 });
 
 export const { atom: swapProErrorAlertAtom, use: useSwapProErrorAlertAtom } =
-  contextAtom<{ title: string; message?: string } | undefined>(undefined);
+  contextAtom<
+    | {
+        title: string;
+        message?: string;
+        source: 'account' | 'quote';
+      }
+    | undefined
+  >(undefined);
 
 export const {
   atom: swapLimitPriceMarketPriceAtom,

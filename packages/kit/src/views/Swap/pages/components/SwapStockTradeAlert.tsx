@@ -23,6 +23,7 @@ import type {
 import { ESwapAlertLevel } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  ESwapStockChannelAsyncStatus,
   ESwapStockChannelStage,
   type IUseSwapStockChannelReturn,
 } from '../../hooks/useSwapStockChannel';
@@ -108,7 +109,11 @@ function BasicSwapStockTradeAlert({
   // The same underlying may have a Perps (contract) equivalent we can hand off
   // to while the stock market is closed. `stockPerpsInfo.hlTicker` from the
   // token detail tells us, and drives the "with Perps" cases (1 & 4).
-  const hlTicker = stockChannel.stockPerpsInfo?.hlTicker;
+  const hasAuthoritativeClosedMarketDetail =
+    stockChannel.channelStage === ESwapStockChannelStage.MarketClosed;
+  const hlTicker = hasAuthoritativeClosedMarketDetail
+    ? stockChannel.stockPerpsInfo?.hlTicker
+    : undefined;
   const hasPerps = Boolean(hlTicker);
   // Attribute the perps handoff to the Trade tab for analytics.
   const { navigateToPerps } = usePerpsNavigation(EPerpPageEnterSource.Trade);
@@ -116,6 +121,12 @@ function BasicSwapStockTradeAlert({
   const stockQuoteAlert = useStockQuoteAlert({ quoteResult, stockChannel });
   const notAvailableInRegionMessage = intl.formatMessage({
     id: ETranslations.trade_stock_not_available_in_region,
+  });
+  const marketPausedMessage = intl.formatMessage({
+    id: ETranslations.market_status_halted,
+  });
+  const marketPausedDescription = intl.formatMessage({
+    id: ETranslations.trading_hours_trading_halts_description,
   });
 
   const currentStockQuoteEventError = useMemo(
@@ -134,21 +145,38 @@ function BasicSwapStockTradeAlert({
     ],
   );
 
-  const isStockMarketClosed =
-    stockChannel.channelStage === ESwapStockChannelStage.MarketClosed ||
+  const currentStockMarketClosedError =
     isCurrentStockMarketClosedQuoteEventError({
       fromToken: stockChannel.fromToken,
       fromTokenAmount: fromTokenAmount.value,
       quoteEventError,
       toToken: stockChannel.toToken,
     });
+  const isStockMarketPaused =
+    stockChannel.channelStage === ESwapStockChannelStage.MarketPaused;
+  const isStockMarketStatusPending =
+    stockChannel.marketStatusStatus ===
+    ESwapStockChannelAsyncStatus.Initializing;
+  const isPolledStockMarketAvailable =
+    stockChannel.marketStatusStatus === ESwapStockChannelAsyncStatus.Ready &&
+    stockChannel.stockMarketDetailFetchSucceeded &&
+    Boolean(stockChannel.activeStockTokenDetail?.stock) &&
+    stockChannel.stockMarketStatus?.open !== false &&
+    stockChannel.stockMarketPaused !== true;
+  const isStockMarketClosed =
+    stockChannel.channelStage === ESwapStockChannelStage.MarketClosed ||
+    (currentStockMarketClosedError &&
+      !isStockMarketStatusPending &&
+      !isPolledStockMarketAvailable &&
+      !isStockMarketPaused);
 
   const stockEventAlert = useMemo<ISwapAlertState | undefined>(() => {
     if (
       !quoteEventError?.isStock ||
       !currentStockQuoteEventError ||
       !quoteEventError.message ||
-      isStockMarketClosed
+      isStockMarketClosed ||
+      currentStockMarketClosedError
     ) {
       return undefined;
     }
@@ -161,6 +189,7 @@ function BasicSwapStockTradeAlert({
     };
   }, [
     currentStockQuoteEventError,
+    currentStockMarketClosedError,
     isStockMarketClosed,
     notAvailableInRegionMessage,
     quoteEventError?.isStock,
@@ -175,6 +204,7 @@ function BasicSwapStockTradeAlert({
   const stockPrimaryAlert = stockQuoteAlert ?? stockEventAlert;
   const stockTradeDisabled =
     isStockMarketClosed ||
+    isStockMarketPaused ||
     stockChannel.channelStage === ESwapStockChannelStage.MissingPayToken ||
     Boolean(stockQuoteAlert || stockEventAlert);
 
@@ -195,6 +225,16 @@ function BasicSwapStockTradeAlert({
   }, [stockPrimaryAlert, swapAlerts]);
 
   const stockAlertForLog = useMemo(() => {
+    if (isStockMarketPaused) {
+      return {
+        alertType: getStockTradeAlertType({
+          message: marketPausedMessage,
+          notAvailableInRegionMessage,
+        }),
+        alertLevel: ESwapAlertLevel.WARNING,
+        message: marketPausedMessage,
+      };
+    }
     if (isStockMarketClosed) {
       return {
         alertType: getStockTradeAlertType({ isMarketClosed: true }),
@@ -219,7 +259,9 @@ function BasicSwapStockTradeAlert({
     }
     return undefined;
   }, [
+    isStockMarketPaused,
     isStockMarketClosed,
+    marketPausedMessage,
     notAvailableInRegionMessage,
     stockChannel.channelStage,
     stockPrimaryAlert,
@@ -258,12 +300,24 @@ function BasicSwapStockTradeAlert({
     stockTradeDisabled,
   ]);
 
+  if (isStockMarketPaused) {
+    return (
+      <Alert
+        testID={SwapTestIDs.stockTradeStatusAlert}
+        type="warning"
+        icon="InfoCircleOutline"
+        title={marketPausedMessage}
+        description={marketPausedDescription}
+      />
+    );
+  }
+
   if (isStockMarketClosed) {
     // Backend returns a localized countdown string (the first line of
     // stock.description); its presence means "we know the next open time".
-    const closedTimeText = getStockMarketClosedDescription(
-      stockChannel.stockMarketStatus?.reason,
-    );
+    const closedTimeText = hasAuthoritativeClosedMarketDetail
+      ? getStockMarketClosedDescription(stockChannel.stockMarketStatus?.reason)
+      : undefined;
     const statusCase = resolveStockMarketStatusCase({
       isOpen: false,
       hasOpenTime: Boolean(closedTimeText),

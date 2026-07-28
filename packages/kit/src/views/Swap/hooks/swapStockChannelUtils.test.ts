@@ -5,9 +5,12 @@ import {
   ESwapStockTradeSide,
   backfillSwapProTokenStockIdentity,
   buildStockSwapTokenFromMarketListToken,
+  canActivateStockExecutionOwnership,
+  canResolveStockInputAmountSnapshot,
   filterStockPayTokenCandidates,
   hasValidStockBalanceForTrade,
   isStockBalanceInitializing,
+  isStockExecutionTokensReady,
   isStockPayTokenReadyForTradeInput,
   isStockTradeReadyForQuote,
   resolveStockBalanceSeed,
@@ -15,11 +18,16 @@ import {
   resolveStockBalanceViewState,
   resolveStockChannelSwapPair,
   resolveStockKLineToken,
+  resolveStockMarketDetailAuthority,
+  resolveStockMarketStatusStatus,
   resolveStockPayTokenDisplaySeed,
+  resolveStockPayTokenForCommittedOwner,
   resolveSwapStockDefaultTokenStatus,
   shouldLoadDefaultStockToken,
   shouldRenderStockTradeInputSkeleton,
+  shouldResetStockPayTokenInputAmount,
   shouldResetStockTradeReceiveAmount,
+  shouldSyncStockExecutionState,
 } from './swapStockChannelUtils';
 
 const usdcToken: ISwapToken = {
@@ -71,6 +79,27 @@ const micronStockToken: ISwapToken = {
 };
 
 describe('swapStockChannelUtils', () => {
+  it('only waits for the initial Stock market status activation', () => {
+    expect(
+      resolveStockMarketStatusStatus({
+        currentActivationPending: false,
+        hasCurrentStockToken: false,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Idle);
+    expect(
+      resolveStockMarketStatusStatus({
+        currentActivationPending: true,
+        hasCurrentStockToken: true,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Initializing);
+    expect(
+      resolveStockMarketStatusStatus({
+        currentActivationPending: false,
+        hasCurrentStockToken: true,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Ready);
+  });
+
   it('loads the default stock when no stock token has been selected', () => {
     expect(
       shouldLoadDefaultStockToken({
@@ -203,6 +232,85 @@ describe('swapStockChannelUtils', () => {
         selectedToken: usdcToken,
       }),
     ).toBe(usdcPayToken);
+  });
+
+  it('uses enriched pay-token detail immediately only for the same identity', () => {
+    const enrichedUsdc = {
+      ...usdcToken,
+      balanceParsed: '12.5',
+      fiatValue: '12.5',
+      price: '1',
+    };
+    expect(
+      resolveStockPayTokenForCommittedOwner({
+        displayPayToken: enrichedUsdc,
+        selectedPayToken: usdcToken,
+      }),
+    ).toBe(enrichedUsdc);
+    expect(
+      resolveStockPayTokenForCommittedOwner({
+        displayPayToken: usdtToken,
+        selectedPayToken: usdcToken,
+      }),
+    ).toBe(usdcToken);
+    expect(
+      resolveStockPayTokenForCommittedOwner({
+        displayPayToken: usdtToken,
+      }),
+    ).toBe(usdtToken);
+  });
+
+  it('resets a Buy input only when the pay-token identity changes', () => {
+    expect(
+      shouldResetStockPayTokenInputAmount({
+        nextPayToken: {
+          ...usdcToken,
+          balanceParsed: '1',
+        },
+        previousPayToken: usdcToken,
+        tradeSide: ESwapStockTradeSide.Buy,
+      }),
+    ).toBe(false);
+    expect(
+      shouldResetStockPayTokenInputAmount({
+        nextPayToken: usdtToken,
+        previousPayToken: usdcToken,
+        tradeSide: ESwapStockTradeSide.Buy,
+      }),
+    ).toBe(true);
+    expect(
+      shouldResetStockPayTokenInputAmount({
+        nextPayToken: {
+          ...usdcToken,
+          contractAddress: '0xUSDC',
+        },
+        previousPayToken: usdcToken,
+        tradeSide: ESwapStockTradeSide.Buy,
+      }),
+    ).toBe(false);
+    expect(
+      shouldResetStockPayTokenInputAmount({
+        nextPayToken: {
+          ...usdcToken,
+          networkId: 'evm--1',
+        },
+        previousPayToken: usdcToken,
+        tradeSide: ESwapStockTradeSide.Buy,
+      }),
+    ).toBe(true);
+    expect(
+      shouldResetStockPayTokenInputAmount({
+        nextPayToken: usdtToken,
+        tradeSide: ESwapStockTradeSide.Buy,
+      }),
+    ).toBe(false);
+    expect(
+      shouldResetStockPayTokenInputAmount({
+        nextPayToken: usdtToken,
+        previousPayToken: usdcToken,
+        tradeSide: ESwapStockTradeSide.Sell,
+      }),
+    ).toBe(false);
   });
 
   it('resolves a buy-side stock execution pair from swap selected tokens', () => {
@@ -360,7 +468,141 @@ describe('swapStockChannelUtils', () => {
     ).toBe(true);
   });
 
-  it('blocks Stock quote execution only when the market is explicitly closed', () => {
+  it('requires current Stock execution ownership even when the selected pair already matches', () => {
+    expect(
+      isStockExecutionTokensReady({
+        currentSyncId: 1,
+        fromToken: usdcToken,
+        toToken: appleStockToken,
+      }),
+    ).toBe(false);
+
+    expect(
+      isStockExecutionTokensReady({
+        currentSyncId: 2,
+        executionTokens: {
+          syncId: 1,
+          fromToken: usdcToken,
+          toToken: appleStockToken,
+        },
+        fromToken: usdcToken,
+        toToken: appleStockToken,
+      }),
+    ).toBe(false);
+
+    expect(
+      isStockExecutionTokensReady({
+        currentSyncId: 1,
+        executionTokens: {
+          syncId: 1,
+          fromToken: usdtToken,
+          toToken: appleStockToken,
+        },
+        fromToken: usdcToken,
+        toToken: appleStockToken,
+      }),
+    ).toBe(false);
+
+    expect(
+      isStockExecutionTokensReady({
+        currentSyncId: 1,
+        executionTokens: {
+          syncId: 1,
+          fromToken: usdcToken,
+          toToken: appleStockToken,
+        },
+        fromToken: usdcToken,
+        toToken: appleStockToken,
+      }),
+    ).toBe(true);
+  });
+
+  it('syncs an already-owned Stock pair when a draft still needs restoration', () => {
+    expect(
+      shouldSyncStockExecutionState({
+        executionOwnershipSynced: true,
+        hasPendingInputSnapshot: true,
+        selectedPairSynced: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldSyncStockExecutionState({
+        executionOwnershipSynced: true,
+        hasPendingInputSnapshot: false,
+        selectedPairSynced: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('activates Stock execution only after Stock and Pay are ready and the initial market check settles', () => {
+    expect(
+      canActivateStockExecutionOwnership({
+        marketStatusStatus: ESwapStockChannelAsyncStatus.Empty,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+      }),
+    ).toBe(true);
+    expect(
+      canActivateStockExecutionOwnership({
+        marketStatusStatus: ESwapStockChannelAsyncStatus.Ready,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Initializing,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+      }),
+    ).toBe(false);
+    expect(
+      canActivateStockExecutionOwnership({
+        marketStatusStatus: ESwapStockChannelAsyncStatus.Ready,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Initializing,
+      }),
+    ).toBe(false);
+  });
+
+  it('resolves a Stock draft after Stock and Pay are ready even when Market detail is empty', () => {
+    expect(
+      canResolveStockInputAmountSnapshot({
+        marketStatusStatus: ESwapStockChannelAsyncStatus.Empty,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+      }),
+    ).toBe(true);
+    expect(
+      canResolveStockInputAmountSnapshot({
+        marketStatusStatus: ESwapStockChannelAsyncStatus.Initializing,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+      }),
+    ).toBe(false);
+    expect(
+      canResolveStockInputAmountSnapshot({
+        marketStatusStatus: ESwapStockChannelAsyncStatus.Ready,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Initializing,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps current-activation last-good detail authoritative after a transient failure', () => {
+    const closedDetail = {
+      stock: {
+        isOpen: false,
+      },
+    } as never;
+    expect(
+      resolveStockMarketDetailAuthority({
+        currentActivationPending: true,
+        realtimeTokenDetail: closedDetail,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockMarketDetailAuthority({
+        currentActivationPending: false,
+        realtimeTokenDetail: closedDetail,
+      }),
+    ).toBe(closedDetail);
+  });
+
+  it('blocks Stock quote execution when the market is explicitly closed', () => {
     expect(
       isStockTradeReadyForQuote({
         currentStockToken: appleStockToken,
@@ -371,6 +613,33 @@ describe('swapStockChannelUtils', () => {
         stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
       }),
     ).toBe(false);
+  });
+
+  it('blocks Stock quote execution while trading is paused', () => {
+    expect(
+      isStockTradeReadyForQuote({
+        currentStockToken: appleStockToken,
+        marketOpen: true,
+        marketPaused: true,
+        marketStatusStatus: ESwapStockChannelAsyncStatus.Ready,
+        payToken: usdcToken,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps Stock quote execution ready for other fresh market states', () => {
+    expect(
+      isStockTradeReadyForQuote({
+        currentStockToken: appleStockToken,
+        marketPaused: false,
+        marketStatusStatus: ESwapStockChannelAsyncStatus.Ready,
+        payToken: usdcToken,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+      }),
+    ).toBe(true);
   });
 
   it('waits for the initial Stock market detail request to settle', () => {

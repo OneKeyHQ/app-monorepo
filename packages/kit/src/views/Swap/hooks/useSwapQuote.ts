@@ -50,6 +50,7 @@ import {
   useSwapShouldRefreshQuoteAtom,
   useSwapSlippageDialogOpeningAtom,
   useSwapStockExecutionTokenSyncIdAtom,
+  useSwapStockQuoteReadyAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
@@ -128,11 +129,14 @@ export function useSwapQuote() {
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
   const [swapStockExecutionTokenSyncId] =
     useSwapStockExecutionTokenSyncIdAtom();
+  const [swapStockQuoteReady] = useSwapStockQuoteReadyAtom();
   const [swapFromToken, setSwapSelectFromToken] = useSwapSelectFromTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [swapToToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
-  const shouldPauseQuote = Boolean(currentSelectNetwork?.networkId);
+  const shouldPauseQuote =
+    Boolean(currentSelectNetwork?.networkId) ||
+    (swapTabSwitchType === ESwapTabSwitchType.STOCK && !swapStockQuoteReady);
   const swapProInputToken = useSwapProInputToken();
   const swapProToToken = useSwapProToToken();
   const focusSwapPro = useMemo(() => {
@@ -590,6 +594,12 @@ export function useSwapQuote() {
       return;
     }
     if (shouldPauseQuote) {
+      return;
+    }
+    // Stock readiness and execution ownership settle asynchronously. The
+    // amount/token effect above owns that first quote; running the tab effect
+    // as well would start two identical quote events when readiness flips.
+    if (swapTabSwitchType === ESwapTabSwitchType.STOCK) {
       return;
     }
     let kind = ESwapQuoteKind.SELL;

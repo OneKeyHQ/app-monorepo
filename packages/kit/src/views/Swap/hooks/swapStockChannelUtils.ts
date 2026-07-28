@@ -25,6 +25,7 @@ export enum ESwapStockChannelStage {
   InitializingStock = 'initializingStock',
   MissingStock = 'missingStock',
   CheckingMarketStatus = 'checkingMarketStatus',
+  MarketPaused = 'marketPaused',
   MarketClosed = 'marketClosed',
   MarketUnavailable = 'marketUnavailable',
   InitializingPayToken = 'initializingPayToken',
@@ -37,9 +38,166 @@ export enum ESwapStockTradeSide {
   Sell = 'sell',
 }
 
+export function resolveStockMarketStatusStatus({
+  currentActivationPending,
+  hasCurrentStockToken,
+}: {
+  currentActivationPending: boolean;
+  hasCurrentStockToken: boolean;
+}) {
+  if (!hasCurrentStockToken) {
+    return ESwapStockChannelAsyncStatus.Idle;
+  }
+  return currentActivationPending
+    ? ESwapStockChannelAsyncStatus.Initializing
+    : ESwapStockChannelAsyncStatus.Ready;
+}
+
+export function isSameStockPayTokenIdentity({
+  token1,
+  token2,
+}: {
+  token1?: Partial<ISwapTokenBase>;
+  token2?: Partial<ISwapTokenBase>;
+}) {
+  return Boolean(
+    token1 &&
+    token2 &&
+    Boolean(token1.isNative) === Boolean(token2.isNative) &&
+    equalTokenNoCaseSensitive({
+      token1,
+      token2,
+    }),
+  );
+}
+
+export function shouldResetStockPayTokenInputAmount({
+  nextPayToken,
+  previousPayToken,
+  tradeSide,
+}: {
+  nextPayToken?: Partial<ISwapTokenBase>;
+  previousPayToken?: Partial<ISwapTokenBase>;
+  tradeSide: ESwapStockTradeSide;
+}) {
+  return Boolean(
+    tradeSide === ESwapStockTradeSide.Buy &&
+    previousPayToken &&
+    nextPayToken &&
+    !isSameStockPayTokenIdentity({
+      token1: previousPayToken,
+      token2: nextPayToken,
+    }),
+  );
+}
+
+export function resolveStockPayTokenForCommittedOwner({
+  displayPayToken,
+  selectedPayToken,
+}: {
+  displayPayToken?: ISwapToken;
+  selectedPayToken?: ISwapToken;
+}) {
+  if (!selectedPayToken || !displayPayToken) {
+    return selectedPayToken ?? displayPayToken;
+  }
+  return isSameStockPayTokenIdentity({
+    token1: selectedPayToken,
+    token2: displayPayToken,
+  })
+    ? displayPayToken
+    : selectedPayToken;
+}
+
+export function isStockExecutionTokensReady({
+  currentSyncId,
+  executionTokens,
+  fromToken,
+  toToken,
+}: {
+  currentSyncId: number;
+  executionTokens?: {
+    syncId: number;
+    fromToken: ISwapToken;
+    toToken: ISwapToken;
+  };
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+}) {
+  return Boolean(
+    executionTokens &&
+    executionTokens.syncId === currentSyncId &&
+    equalTokenNoCaseSensitive({
+      token1: executionTokens.fromToken,
+      token2: fromToken,
+    }) &&
+    equalTokenNoCaseSensitive({
+      token1: executionTokens.toToken,
+      token2: toToken,
+    }),
+  );
+}
+
+export function canActivateStockExecutionOwnership({
+  marketStatusStatus,
+  payTokenStatus,
+  stockTokenStatus,
+}: {
+  marketStatusStatus: ESwapStockChannelAsyncStatus;
+  payTokenStatus: ESwapStockChannelAsyncStatus;
+  stockTokenStatus: ESwapStockChannelAsyncStatus;
+}) {
+  return (
+    stockTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
+    payTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
+    marketStatusStatus !== ESwapStockChannelAsyncStatus.Initializing
+  );
+}
+
+export function shouldSyncStockExecutionState({
+  executionOwnershipSynced,
+  hasPendingInputSnapshot,
+  selectedPairSynced,
+}: {
+  executionOwnershipSynced: boolean;
+  hasPendingInputSnapshot: boolean;
+  selectedPairSynced: boolean;
+}) {
+  return (
+    !selectedPairSynced || !executionOwnershipSynced || hasPendingInputSnapshot
+  );
+}
+
+export function canResolveStockInputAmountSnapshot({
+  marketStatusStatus,
+  payTokenStatus,
+  stockTokenStatus,
+}: {
+  marketStatusStatus: ESwapStockChannelAsyncStatus;
+  payTokenStatus: ESwapStockChannelAsyncStatus;
+  stockTokenStatus: ESwapStockChannelAsyncStatus;
+}) {
+  return canActivateStockExecutionOwnership({
+    marketStatusStatus,
+    payTokenStatus,
+    stockTokenStatus,
+  });
+}
+
+export function resolveStockMarketDetailAuthority({
+  currentActivationPending,
+  realtimeTokenDetail,
+}: {
+  currentActivationPending: boolean;
+  realtimeTokenDetail?: IMarketTokenDetail;
+}) {
+  return currentActivationPending ? undefined : realtimeTokenDetail;
+}
+
 export function isStockTradeReadyForQuote({
   currentStockToken,
   marketOpen,
+  marketPaused,
   marketStatusStatus,
   payToken,
   payTokenStatus,
@@ -47,6 +205,7 @@ export function isStockTradeReadyForQuote({
 }: {
   currentStockToken?: ISwapToken;
   marketOpen?: boolean;
+  marketPaused?: boolean;
   marketStatusStatus: ESwapStockChannelAsyncStatus;
   payToken?: ISwapToken;
   payTokenStatus: ESwapStockChannelAsyncStatus;
@@ -58,7 +217,8 @@ export function isStockTradeReadyForQuote({
     stockTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
     marketStatusStatus !== ESwapStockChannelAsyncStatus.Initializing &&
     payTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
-    marketOpen !== false,
+    marketOpen !== false &&
+    marketPaused !== true,
   );
 }
 

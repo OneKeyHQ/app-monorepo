@@ -30,6 +30,7 @@ import {
   ESwapQuoteUiPhase,
   isSwapQuoteActionable,
   resolveSwapQuoteForDisplay,
+  shouldShowSwapNoProviderResult,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import {
   useInAppNotificationAtom,
@@ -63,6 +64,7 @@ import { useSwapSlippageActions } from '../../hooks/useSwapSlippageActions';
 import {
   useSwapQuoteLoading,
   useSwapQuoteProgressState,
+  useSwapQuoteRequestMatchesCurrentInput,
 } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 
@@ -113,6 +115,8 @@ const SwapQuoteResult = ({
     phase: quoteUiPhase,
   });
   const hasQuoteResultForDisplay = isSwapQuoteActionable(quoteResultForDisplay);
+  const quoteRequestMatchesCurrentInput =
+    useSwapQuoteRequestMatchesCurrentInput();
   const quoteDuration = formatSwapQuoteDuration({
     estTime: quoteResultForDisplay?.estTime,
     estimatedTime: quoteResultForDisplay?.estimatedTime,
@@ -218,9 +222,11 @@ const SwapQuoteResult = ({
   const isWaitingForQuote =
     quoteUiPhase === ESwapQuoteUiPhase.Waiting && !hasQuoteResultForDisplay;
   const isStaleRefreshing = quoteUiPhase === ESwapQuoteUiPhase.StaleRefreshing;
-  const showNoProvider =
-    quoteUiPhase === ESwapQuoteUiPhase.ZeroProvider &&
-    !hasQuoteResultForDisplay;
+  const showNoProvider = shouldShowSwapNoProviderResult({
+    hasQuoteResultForDisplay,
+    quoteRequestMatchesCurrentInput,
+    quoteUiPhase,
+  });
 
   const onValueChange = useCallback((value: string) => {
     if (value === SWAP_ACCORDION_VALUE) {

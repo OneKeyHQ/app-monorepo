@@ -86,6 +86,7 @@ describe('useSwapStockTokenDetail', () => {
       ({ enabled }) =>
         useSwapStockTokenDetail({
           enabled,
+          requireCurrentActivation: true,
           token: stockToken,
         }),
       {
@@ -111,9 +112,13 @@ describe('useSwapStockTokenDetail', () => {
     );
     expect(result.current.tokenDetail?.stock?.isOpen).toBe(false);
     expect(result.current.perpsInfo?.hlTicker).toBe('AAPL');
+    expect(result.current.latestFetchSucceeded).toBe(true);
+    const firstFetchedAt = result.current.fetchedAt;
+    expect(firstFetchedAt).toBeDefined();
 
     await tick(10_000);
     expect(mockFetchMarketTokenDetail.mock.calls.length).toBeGreaterThan(1);
+    expect(result.current.fetchedAt).toBeGreaterThan(firstFetchedAt ?? 0);
 
     rerender({ enabled: false });
     await tick(0);
@@ -121,6 +126,217 @@ describe('useSwapStockTokenDetail', () => {
 
     await tick(30_000);
     expect(mockFetchMarketTokenDetail).toHaveBeenCalledTimes(callsAfterDisable);
+    unmount();
+  });
+
+  it('keeps last-good current-activation data without treating a failed poll as successful', async () => {
+    mockFetchMarketTokenDetail
+      .mockResolvedValueOnce({
+        data: {
+          perpsInfo: {
+            hlTicker: 'AAPL',
+          },
+          token: {
+            address: stockToken.contractAddress,
+            stock: {
+              isOpen: true,
+            },
+          },
+        },
+      })
+      .mockRejectedValueOnce(new Error('transient Market failure'))
+      .mockResolvedValueOnce({
+        data: {
+          perpsInfo: {
+            hlTicker: 'AAPL',
+          },
+          token: {
+            address: stockToken.contractAddress,
+            stock: {
+              description: 'Reopens in 2h',
+              isOpen: false,
+            },
+          },
+        },
+      });
+
+    const { result, unmount } = renderHook(() =>
+      useSwapStockTokenDetail({
+        enabled: true,
+        requireCurrentActivation: true,
+        token: stockToken,
+      }),
+    );
+
+    await tick(0);
+    const firstFetchedAt = result.current.fetchedAt;
+    expect(result.current.latestFetchSucceeded).toBe(true);
+    expect(result.current.tokenDetail?.stock?.isOpen).toBe(true);
+
+    await tick(10_000);
+    expect(result.current.pending).toBe(false);
+    expect(result.current.latestFetchSucceeded).toBe(false);
+    expect(result.current.fetchedAt).toBe(firstFetchedAt);
+    expect(result.current.tokenDetail?.stock?.isOpen).toBe(true);
+
+    await tick(10_000);
+    expect(result.current.latestFetchSucceeded).toBe(true);
+    expect(result.current.fetchedAt).toBeGreaterThan(firstFetchedAt ?? 0);
+    expect(result.current.tokenDetail?.stock?.isOpen).toBe(false);
+    unmount();
+  });
+
+  it('keeps a restrictive last-good status until its TTL expires', async () => {
+    mockFetchMarketTokenDetail
+      .mockResolvedValueOnce({
+        data: {
+          token: {
+            address: stockToken.contractAddress,
+            stock: {
+              isPaused: true,
+              isOpen: true,
+            },
+          },
+        },
+      })
+      .mockRejectedValue(new Error('Market unavailable'));
+
+    const { result, unmount } = renderHook(() =>
+      useSwapStockTokenDetail({
+        enabled: true,
+        requireCurrentActivation: true,
+        token: stockToken,
+      }),
+    );
+
+    await tick(0);
+    expect(result.current.tokenDetail?.stock?.isPaused).toBe(true);
+
+    for (let elapsed = 10_000; elapsed <= 60_000; elapsed += 10_000) {
+      await tick(10_000);
+      expect(result.current.pending).toBe(false);
+      expect(result.current.latestFetchSucceeded).toBe(false);
+      expect(result.current.tokenDetail?.stock?.isPaused).toBe(true);
+    }
+
+    await tick(10_000);
+    expect(result.current.pending).toBe(false);
+    expect(result.current.latestFetchSucceeded).toBe(false);
+    expect(result.current.tokenDetail).toBeUndefined();
+    unmount();
+  });
+
+  it('keeps a cached success pending until the current activation resolves', async () => {
+    const { result, rerender, unmount } = renderHook<
+      ReturnType<typeof useSwapStockTokenDetail>,
+      { enabled: boolean }
+    >(
+      ({ enabled }) =>
+        useSwapStockTokenDetail({
+          enabled,
+          requireCurrentActivation: true,
+          token: stockToken,
+        }),
+      {
+        initialProps: {
+          enabled: true,
+        },
+      },
+    );
+
+    await tick(0);
+    expect(result.current.latestFetchSucceeded).toBe(true);
+
+    rerender({ enabled: false });
+    await tick(0);
+
+    let resolveCurrentActivation: (value: unknown) => void = () => {};
+    mockFetchMarketTokenDetail.mockImplementationOnce(
+      () =>
+        new Promise<unknown>((resolve) => {
+          resolveCurrentActivation = resolve;
+        }),
+    );
+    rerender({ enabled: true });
+    await tick(0);
+
+    expect(result.current.pending).toBe(true);
+    expect(result.current.latestFetchSucceeded).toBe(false);
+    expect(result.current.tokenDetail).toBeUndefined();
+
+    resolveCurrentActivation({
+      data: {
+        token: {
+          address: stockToken.contractAddress,
+          stock: {
+            isOpen: false,
+          },
+        },
+      },
+    });
+    await tick(0);
+
+    expect(result.current.pending).toBe(false);
+    expect(result.current.latestFetchSucceeded).toBe(true);
+    expect(result.current.tokenDetail?.stock?.isOpen).toBe(false);
+    unmount();
+  });
+
+  it('does not land an old same-mount fallback in a new activation', async () => {
+    mockFetchMarketTokenDetail.mockRejectedValueOnce(
+      new Error('initial Market failure'),
+    );
+    const { result, rerender, unmount } = renderHook<
+      ReturnType<typeof useSwapStockTokenDetail>,
+      { enabled: boolean }
+    >(
+      ({ enabled }) =>
+        useSwapStockTokenDetail({
+          enabled,
+          requireCurrentActivation: true,
+          token: stockToken,
+        }),
+      {
+        initialProps: {
+          enabled: true,
+        },
+      },
+    );
+
+    await tick(0);
+    expect(result.current.pending).toBe(false);
+    expect(result.current.latestFetchSucceeded).toBe(false);
+
+    rerender({ enabled: false });
+    await tick(0);
+
+    let resolveCurrentActivation: (value: unknown) => void = () => {};
+    mockFetchMarketTokenDetail.mockImplementationOnce(
+      () =>
+        new Promise<unknown>((resolve) => {
+          resolveCurrentActivation = resolve;
+        }),
+    );
+    rerender({ enabled: true });
+    await tick(0);
+
+    expect(result.current.pending).toBe(true);
+    expect(result.current.latestFetchSucceeded).toBe(false);
+
+    resolveCurrentActivation({
+      data: {
+        token: {
+          address: stockToken.contractAddress,
+          stock: {
+            isOpen: false,
+          },
+        },
+      },
+    });
+    await tick(0);
+
+    expect(result.current.pending).toBe(false);
+    expect(result.current.latestFetchSucceeded).toBe(true);
     unmount();
   });
 

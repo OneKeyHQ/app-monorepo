@@ -118,6 +118,7 @@ import {
   useSwapProToToken,
   useSwapProTokenInit,
 } from '../../hooks/useSwapPro';
+import { useSwapProInputAmountOwnerChange } from '../../hooks/useSwapProInputAmountOwnerChange';
 import { useSwapQuote } from '../../hooks/useSwapQuote';
 import {
   useSwapQuoteEventFetching,
@@ -201,6 +202,23 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [swapProJumpToken] = useSwapProJumpTokenAtom();
   const swapProAccount = useSwapProAccount();
+  const focusSwapPro = useMemo(() => {
+    return Boolean(
+      platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT,
+    );
+  }, [swapTypeSwitch]);
+  const clearSwapProInputAmountForAccountChange = useCallback(() => {
+    setSwapProInputAmount('');
+    setFromInputAmount({
+      value: '',
+      isInput: true,
+    });
+  }, [setFromInputAmount, setSwapProInputAmount]);
+  useSwapProInputAmountOwnerChange({
+    accountOwnerKey: platformEnv.isNative ? swapProAccount.accountOwnerKey : '',
+    enabled: focusSwapPro,
+    onOwnerChange: clearSwapProInputAmountForAccountChange,
+  });
   const tokenDetailActions = useTokenDetailActions();
 
   const swapFromTokenRef = useRef<ISwapToken | undefined>(undefined);
@@ -212,9 +230,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapToTokenRef.current = toSelectTokenAtom;
   }
 
-  const focusSwapPro = useMemo(() => {
-    return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
-  }, [swapTypeSwitch]);
   const [marketPresetTokenContext, setMarketPresetTokenContext] = useState<
     IMarketPresetTokenContext | undefined
   >(

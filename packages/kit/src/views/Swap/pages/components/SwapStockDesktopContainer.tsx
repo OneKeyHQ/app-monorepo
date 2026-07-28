@@ -44,6 +44,7 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
+  useSwapActions,
   useSwapFromTokenAmountAtom,
   useSwapProEnableCurrentSymbolAtom,
   useSwapQuoteActionLockAtom,
@@ -52,7 +53,6 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapToTokenAmountAtom,
-  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { BaseMarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import {
@@ -170,7 +170,10 @@ import {
   shouldShowStockQuoteActionLoading,
 } from './SwapStockDesktopContainer.utils';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
-import { isCurrentStockQuoteEventError } from './SwapStockTradeAlertUtils';
+import {
+  isCurrentStockMarketClosedQuoteEventError,
+  isCurrentStockQuoteEventError,
+} from './SwapStockTradeAlertUtils';
 import {
   SwapStockTradeProvider,
   useSwapStockTradeContext,
@@ -903,6 +906,10 @@ function StockActionGate({
         return intl.formatMessage({
           id: ETranslations.swap_page_alert_no_provider_supports_trade,
         });
+      case ESwapStockChannelStage.MarketPaused:
+        return intl.formatMessage({
+          id: ETranslations.market_status_halted,
+        });
       default:
         return intl.formatMessage({
           id: ETranslations.swap_page_button_enter_amount,
@@ -960,9 +967,12 @@ function StockActionGate({
 
   const isMarketClosed =
     stockChannel.channelStage === ESwapStockChannelStage.MarketClosed;
-  const disabledButtonProps = isMarketClosed
-    ? undefined
-    : getStockDisabledActionButtonProps(stockChannel.tradeSide);
+  const isMarketPaused =
+    stockChannel.channelStage === ESwapStockChannelStage.MarketPaused;
+  const disabledButtonProps =
+    isMarketClosed || isMarketPaused
+      ? undefined
+      : getStockDisabledActionButtonProps(stockChannel.tradeSide);
 
   return renderActionButton(
     <Button
@@ -1286,15 +1296,32 @@ function StockTradeTicket({
   compact?: boolean;
 }) {
   const amountInputState = useSwapStockAmountInputState({ stockChannel });
+  const [quoteEventError] = useSwapQuoteEventErrorAtom();
   const hasPositiveInputAmount = new BigNumber(
     amountInputState.inputValue || 0,
   ).gt(0);
+  const isCurrentMarketClosedError = isCurrentStockMarketClosedQuoteEventError({
+    fromToken: stockChannel.fromToken,
+    fromTokenAmount: amountInputState.inputValue,
+    quoteEventError,
+    toToken: stockChannel.toToken,
+  });
   useRefreshQuoteWhenStockMarketReopens({
-    enabled: stockChannel.readyForQuote && hasPositiveInputAmount,
-    // The normalized status stays open while detail is unavailable so quote
-    // execution can continue; reopen detection needs the raw tri-state value.
-    marketIsOpen: stockChannel.activeStockTokenDetail?.stock?.isOpen,
+    enabled:
+      isCurrentMarketClosedError &&
+      stockChannel.readyForQuote &&
+      hasPositiveInputAmount,
+    marketDetailFetchedAt: stockChannel.stockMarketDetailFetchSucceeded
+      ? stockChannel.stockMarketDetailFetchedAt
+      : undefined,
+    marketIsOpen: stockChannel.stockMarketDetailFetchSucceeded
+      ? stockChannel.activeStockTokenDetail?.stock?.isOpen
+      : undefined,
+    marketIsPaused: stockChannel.stockMarketDetailFetchSucceeded
+      ? stockChannel.stockMarketPaused
+      : undefined,
     onRefresh: refreshAction,
+    refreshOnMarketStatusUpdate: true,
     scopeKey: getTokenIdentityKey(stockChannel.currentStockToken),
   });
 
@@ -1962,7 +1989,7 @@ function StockMobilePositionsSection({
   const intl = useIntl();
   const stockChannel = useSwapStockTradeContext();
   const [swapProEnableCurrentSymbol] = useSwapProEnableCurrentSymbolAtom();
-  const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
+  const { swapTypeSwitchAction } = useSwapActions().current;
   const [swapFromToken] = useSwapSelectFromTokenAtom();
   const [swapToToken] = useSwapSelectToTokenAtom();
   const { selectStockSwapToken } = stockChannel;
@@ -1988,15 +2015,15 @@ function StockMobilePositionsSection({
     );
   }, [swapFromToken, swapProEnableCurrentSymbol, swapToToken]);
   const handlePositionPress = useCallback(
-    (token: ISwapToken) => {
+    async (token: ISwapToken) => {
       if (token.isStock) {
         selectStockSwapToken(token, { resetReceiveAmount: true });
         return;
       }
-      void setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
+      await swapTypeSwitchAction(ESwapTabSwitchType.SWAP, token.networkId);
       onTokenPress?.(token);
     },
-    [onTokenPress, selectStockSwapToken, setSwapTypeSwitch],
+    [onTokenPress, selectStockSwapToken, swapTypeSwitchAction],
   );
 
   const [activeStockTab, setActiveStockTab] = useState<'position' | 'history'>(
@@ -2132,7 +2159,9 @@ function StockMarketContextPanel({
     stockChannel.channelStage,
   );
   // Only pulse the chart tail while the market is open (live updating).
-  const isMarketOpen = stockChannel.stockMarketStatus?.open === true;
+  const isMarketOpen =
+    stockChannel.stockMarketStatus?.open === true &&
+    !stockChannel.stockMarketPaused;
   let chartContent: ReactNode;
   if (chartReady) {
     chartContent = (

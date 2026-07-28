@@ -1,8 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
+import { useIntl } from 'react-intl';
 import { ScrollView } from 'react-native';
 
 import {
+  Alert,
   IconButton,
   RefreshControl,
   XStack,
@@ -15,9 +23,13 @@ import {
   useSwapProErrorAlertAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
+  useSwapProStockQuoteErrorMarketDetailSettledRequestIdAtom,
+  useSwapProTokenMarketDetailActivationStateAtom,
   useSwapProTokenMarketDetailInfoAtom,
   useSwapProTokenMarketDetailPerpsInfoAtom,
   useSwapProTradeTypeAtom,
+  useSwapQuoteCurrentSelectAtom,
+  useSwapSpeedQuoteResultAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   StockMarketStatusAlert,
@@ -26,15 +38,20 @@ import {
 } from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
 import type {
   IFetchLimitOrderRes,
+  IFetchQuoteResult,
   ISwapProSpeedConfig,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  ESwapProTradeType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   estimateMarketPresetGasFeeFiatValues,
@@ -49,7 +66,13 @@ import {
   useSwapProTokenInfoSync,
 } from '../../hooks/useSwapPro';
 import { SwapTestIDs } from '../../testIDs';
-import { isSelectedProStockMarketClosed } from '../../utils/swapProStockMarketClosed';
+import {
+  isSelectedProStockMarketClosed,
+  isSelectedProStockMarketDetailActivationSettled,
+  isSelectedProStockMarketDetailAuthoritative,
+  isSelectedProStockTradingPaused,
+  shouldDeferSelectedProStockQuoteErrorAlert,
+} from '../../utils/swapProStockMarketClosed';
 
 import SwapProTabListContainer from './SwapProTabListContainer';
 import SwapProTokenSelector from './SwapProTokenSelect';
@@ -102,6 +125,7 @@ const SwapProContainer = ({
   marketPresetSettings,
   config,
 }: ISwapProContainerProps) => {
+  const intl = useIntl();
   const {
     isLoading,
     speedConfigReady,
@@ -128,8 +152,14 @@ const SwapProContainer = ({
   // stock market is closed we show the standard alert instead of the generic
   // error alert; the action button is already disabled (no valid quote).
   const [proTokenDetail] = useSwapProTokenMarketDetailInfoAtom();
+  const [proTokenDetailActivationState] =
+    useSwapProTokenMarketDetailActivationStateAtom();
   const [proPerpsInfo] = useSwapProTokenMarketDetailPerpsInfoAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const [stockQuoteErrorMarketDetailSettledRequestId] =
+    useSwapProStockQuoteErrorMarketDetailSettledRequestIdAtom();
+  const [swapQuoteResult] = useSwapQuoteCurrentSelectAtom();
+  const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
   const { navigateToPerps } = usePerpsNavigation(
     EPerpPageEnterSource.SwapProStockClosed,
   );
@@ -140,11 +170,74 @@ const SwapProContainer = ({
   );
   // Guard on the selected token so a stale Pro detail (the detail atom is not
   // cleared on token switch) can't drive the closed alert for another token.
-  const isProStockMarketClosed = isSelectedProStockMarketClosed(
-    proTokenDetail,
-    swapProSelectToken,
-  );
+  const isProStockMarketDetailAuthoritative =
+    isSelectedProStockMarketDetailAuthoritative(
+      proTokenDetail,
+      proTokenDetailActivationState,
+      swapProSelectToken,
+    );
+  const isProStockMarketClosed =
+    isProStockMarketDetailAuthoritative &&
+    isSelectedProStockMarketClosed(proTokenDetail, swapProSelectToken);
   const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const currentQuoteResult =
+    swapProTradeType === ESwapProTradeType.MARKET
+      ? swapProQuoteResult
+      : swapQuoteResult;
+  const currentQuoteErrorMessage = currentQuoteResult?.errorMessage?.trim();
+  const isProStockTrade =
+    swapProSelectToken?.isStock === true ||
+    currentQuoteResult?.protocol === EProtocolOfExchange.STOCK;
+  const reconciledStockQuoteResultRef = useRef<IFetchQuoteResult | undefined>(
+    undefined,
+  );
+  useEffect(() => {
+    if (
+      !isProStockTrade ||
+      !currentQuoteErrorMessage ||
+      stockQuoteErrorMarketDetailSettledRequestId === undefined
+    ) {
+      reconciledStockQuoteResultRef.current = undefined;
+      return;
+    }
+    if (reconciledStockQuoteResultRef.current === currentQuoteResult) {
+      return;
+    }
+    reconciledStockQuoteResultRef.current = currentQuoteResult;
+    // Resolve every Stock quote error against a fresh Market detail once.
+    // Closed/paused errors become the enriched alert; all other errors remain
+    // normal quote errors and are not re-quoted on every polling tick.
+    void fetchTokenMarketDetailInfo();
+  }, [
+    currentQuoteErrorMessage,
+    currentQuoteResult,
+    fetchTokenMarketDetailInfo,
+    isProStockTrade,
+    stockQuoteErrorMarketDetailSettledRequestId,
+  ]);
+  const isProStockTradingPaused =
+    isProStockMarketDetailAuthoritative &&
+    isSelectedProStockTradingPaused(proTokenDetail, swapProSelectToken);
+  const isCurrentMarketDetailActivationSettled =
+    isSelectedProStockMarketDetailActivationSettled(
+      proTokenDetailActivationState,
+      swapProSelectToken,
+    );
+  const marketDetailReconciled =
+    stockQuoteErrorMarketDetailSettledRequestId === undefined
+      ? isCurrentMarketDetailActivationSettled
+      : isCurrentMarketDetailActivationSettled &&
+        proTokenDetailActivationState.lastSettledRequestId >
+          stockQuoteErrorMarketDetailSettledRequestId;
+  const shouldWaitForProStockMarketDetail =
+    shouldDeferSelectedProStockQuoteErrorAlert({
+      hasAuthoritativeMarketRestriction:
+        isProStockMarketClosed || isProStockTradingPaused,
+      isStockTrade: isProStockTrade,
+      marketDetailReconciled,
+      quoteErrorMessage: currentQuoteResult?.errorMessage,
+      visibleAlertTitle: swapProErrorAlert?.title,
+    });
   const [settingsAtom] = useSettingsPersistAtom();
   const { syncInputTokenBalance, syncToTokenPrice, netAccountRes } =
     useSwapProTokenInfoSync();
@@ -203,11 +296,6 @@ const SwapProContainer = ({
     [onTokenPress],
   );
 
-  const netAccountAddress = netAccountRes.result?.addressDetail.address;
-  useEffect(() => {
-    cleanInputAmount();
-  }, [netAccountAddress, cleanInputAmount]);
-
   const showMarketPresetSelector =
     swapProTradeType === ESwapProTradeType.MARKET &&
     !!marketPresetSettings?.enabled;
@@ -261,6 +349,47 @@ const SwapProContainer = ({
         toToken,
       ],
     );
+  let proAlert: ReactNode = null;
+  if (isProStockTradingPaused) {
+    proAlert = (
+      <Alert
+        type="warning"
+        icon="InfoCircleOutline"
+        title={intl.formatMessage({
+          id: ETranslations.market_status_halted,
+        })}
+        description={intl.formatMessage({
+          id: ETranslations.trading_hours_trading_halts_description,
+        })}
+      />
+    );
+  } else if (isProStockMarketClosed) {
+    proAlert = (
+      <StockMarketStatusAlert
+        statusCase={resolveStockMarketStatusCase({
+          isOpen: false,
+          hasOpenTime: Boolean(proStockClosedTimeText),
+          hasPerps: proStockHasPerps,
+        })}
+        timeText={proStockClosedTimeText}
+        onTradePerps={
+          proStockHlTicker ? () => navigateToPerps(proStockHlTicker) : undefined
+        }
+      />
+    );
+  } else if (
+    !shouldWaitForProStockMarketDetail &&
+    (swapProErrorAlert?.source !== 'quote' ||
+      (currentQuoteErrorMessage &&
+        swapProErrorAlert.title.trim() === currentQuoteErrorMessage))
+  ) {
+    proAlert = (
+      <SwapProErrorAlert
+        title={swapProErrorAlert?.title}
+        message={swapProErrorAlert?.message}
+      />
+    );
+  }
 
   return (
     <ScrollView
@@ -344,26 +473,7 @@ const SwapProContainer = ({
           />
         </YStack>
       </XStack>
-      {isProStockMarketClosed ? (
-        <StockMarketStatusAlert
-          statusCase={resolveStockMarketStatusCase({
-            isOpen: false,
-            hasOpenTime: Boolean(proStockClosedTimeText),
-            hasPerps: proStockHasPerps,
-          })}
-          timeText={proStockClosedTimeText}
-          onTradePerps={
-            proStockHlTicker
-              ? () => navigateToPerps(proStockHlTicker)
-              : undefined
-          }
-        />
-      ) : (
-        <SwapProErrorAlert
-          title={swapProErrorAlert?.title}
-          message={swapProErrorAlert?.message}
-        />
-      )}
+      {proAlert}
       <SwapProTabListContainer
         onTokenPress={onTokenPressCallback}
         onOpenOrdersClick={onOpenOrdersClick}
