@@ -8,11 +8,8 @@ export async function reportInstallAttribution(): Promise<void> {
     return;
   }
 
-  const {
-    reportGooglePlayInstallAttribution: reportAttribution,
-  }: {
-    reportGooglePlayInstallAttribution: () => Promise<void>;
-  } =
-    await import('@onekeyhq/shared/src/modules/InstallAttribution/googlePlay');
-  await reportAttribution();
+  const { reportGooglePlayInstallAttribution } = await import(
+    '@onekeyhq/shared/src/modules/InstallAttribution/googlePlay'
+  );
+  await reportGooglePlayInstallAttribution();
 }
