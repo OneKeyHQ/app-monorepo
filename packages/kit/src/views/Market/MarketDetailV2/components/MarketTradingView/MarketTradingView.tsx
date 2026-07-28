@@ -23,6 +23,7 @@ import type {
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { MarketTestIDs } from '../../../testIDs';
@@ -332,7 +333,11 @@ export const MarketTradingViewView = memo(
           onRetry={handleChartRetry}
         />
       );
-    } else if (readyChartIdentity !== chartIdentity) {
+    } else if (
+      !platformEnv.isWeb &&
+      !platformEnv.isDesktop &&
+      readyChartIdentity !== chartIdentity
+    ) {
       chartOverlay = <MarketTradingViewLoading key={chartIdentity} overlay />;
     }
 
@@ -414,6 +419,9 @@ export const MarketTradingView = memo((props: IMarketTradingViewProps) => {
   );
 
   if (!arePreferencesHydrated) {
+    if (platformEnv.isWeb || platformEnv.isDesktop) {
+      return null;
+    }
     return (
       <Stack position="relative" flex={1}>
         <MarketTradingViewLoading overlay />

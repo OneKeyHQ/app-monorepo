@@ -10,6 +10,7 @@ export {
   cancelTradingViewV2FirstScreenPrefetchData,
   getTradingViewV2FirstScreenPrefetchPromise,
   prefetchTradingViewV2FirstScreenData,
+  subscribeTradingViewV2FirstScreenPrefetch,
   fetchTradingViewV2Data,
   fetchTradingViewV2DataWithSlicing,
 } from './useTradingViewV2';

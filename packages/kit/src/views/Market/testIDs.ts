@@ -17,6 +17,7 @@ export const MarketTestIDs = {
 
   // Token detail
   detailPage: 'market-detail-page',
+  detailPageLoading: 'market-detail-page-loading',
   detailChart: 'market-detail-chart',
   detailChartError: 'market-detail-chart-error',
   detailChartLoading: 'market-detail-chart-loading',

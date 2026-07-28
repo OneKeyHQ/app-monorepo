@@ -5,7 +5,11 @@ import type {
 
 import { sliceRequest } from '../sliceRequest';
 
-import { fetchTradingViewV2DataWithSlicing } from './useTradingViewV2';
+import {
+  fetchTradingViewV2DataWithSlicing,
+  prefetchTradingViewV2FirstScreenData,
+  subscribeTradingViewV2FirstScreenPrefetch,
+} from './useTradingViewV2';
 
 type IFetchMarketTokenKline = (params: {
   tokenAddress: string;
@@ -15,7 +19,18 @@ type IFetchMarketTokenKline = (params: {
   timeTo: number;
 }) => Promise<IMarketTokenKLineResponse | null>;
 
+type IFetchMarketTokenKlineByCount = (
+  params: Parameters<IFetchMarketTokenKline>[0] & {
+    requestId?: string;
+    targetCount: number;
+    stopAfterCount?: number;
+    historyStartTime?: number;
+  },
+) => Promise<IMarketTokenKLineResponse | null>;
+
 const mockFetchMarketTokenKline: jest.MockedFunction<IFetchMarketTokenKline> =
+  jest.fn();
+const mockFetchMarketTokenKlineByCount: jest.MockedFunction<IFetchMarketTokenKlineByCount> =
   jest.fn();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
@@ -24,6 +39,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceMarketV2: {
       fetchMarketTokenKline: (params: Parameters<IFetchMarketTokenKline>[0]) =>
         mockFetchMarketTokenKline(params),
+      fetchMarketTokenKlineByCount: (
+        params: Parameters<IFetchMarketTokenKlineByCount>[0],
+      ) => mockFetchMarketTokenKlineByCount(params),
+      cancelMarketTokenKlineByCount: jest.fn(() => Promise.resolve()),
     },
   },
 }));
@@ -280,5 +299,367 @@ describe('fetchTradingViewV2DataWithSlicing', () => {
     });
     expect(result?.points).toEqual([buildPoint(1020, 3)]);
     consoleErrorSpy.mockRestore();
+  });
+});
+
+describe('first-screen K-line prefetch subscription', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('uses the expanded first-screen buffer for the prefetch target count', async () => {
+    const originalWindow = globalThis.window;
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: { innerWidth: 1688 },
+    });
+    const tokenAddress = '0x0000000000000000000000000000000000000789';
+    mockFetchMarketTokenKlineByCount.mockResolvedValueOnce({
+      points: [buildPoint(1020, 3)],
+      total: 1,
+      historyMeta: {
+        noData: true,
+        requestedCount: 466,
+        returnedCount: 1,
+        coveredFrom: 1000,
+        coveredTo: 1120,
+      },
+    });
+
+    try {
+      await prefetchTradingViewV2FirstScreenData({
+        tokenAddress,
+        networkId: 'evm--1',
+        interval: '1m',
+      });
+
+      expect(mockFetchMarketTokenKlineByCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          // Wide screens are capped to the backend single-page limit.
+          targetCount: 299,
+          stopAfterCount: 299,
+        }),
+      );
+    } finally {
+      if (originalWindow === undefined) {
+        Reflect.deleteProperty(globalThis, 'window');
+      } else {
+        Object.defineProperty(globalThis, 'window', {
+          configurable: true,
+          value: originalWindow,
+        });
+      }
+    }
+  });
+
+  it('delivers a prefetch result when registration happens after the chart subscribes', async () => {
+    const onResult = jest.fn();
+    const tokenAddress = '0x0000000000000000000000000000000000000123';
+    const unsubscribe = subscribeTradingViewV2FirstScreenPrefetch({
+      tokenAddress,
+      networkId: 'evm--1',
+      interval: '1m',
+      kLineProvider: 'onekey',
+      onResult,
+    });
+    const response: IMarketTokenKLineResponse = {
+      points: [buildPoint(1020, 3)],
+      total: 1,
+      historyMeta: {
+        noData: true,
+        requestedCount: 200,
+        returnedCount: 1,
+        coveredFrom: 1000,
+        coveredTo: 1120,
+      },
+    };
+    mockFetchMarketTokenKlineByCount.mockResolvedValueOnce(response);
+
+    await prefetchTradingViewV2FirstScreenData({
+      tokenAddress,
+      networkId: 'evm--1',
+      interval: '1m',
+    });
+
+    expect(onResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        interval: '1m',
+        points: response.points,
+        historyExhausted: true,
+      }),
+      'initial',
+    );
+    unsubscribe();
+  });
+
+  it('publishes a single viewport-complete prefetch package to chart subscribers', async () => {
+    const onResult = jest.fn();
+    const tokenAddress = '0x0000000000000000000000000000000000000345';
+    const completedResponse: IMarketTokenKLineResponse = {
+      points: [buildPoint(1020, 2), buildPoint(1080, 3)],
+      total: 2,
+      historyMeta: {
+        noData: true,
+        isPartial: false,
+        requestedCount: 200,
+        returnedCount: 2,
+        coveredFrom: 940,
+        coveredTo: 1120,
+      },
+    };
+    mockFetchMarketTokenKlineByCount.mockResolvedValueOnce(completedResponse);
+    const unsubscribe = subscribeTradingViewV2FirstScreenPrefetch({
+      tokenAddress,
+      networkId: 'evm--1',
+      interval: '1m',
+      kLineProvider: 'onekey',
+      onResult,
+    });
+
+    await prefetchTradingViewV2FirstScreenData({
+      tokenAddress,
+      networkId: 'evm--1',
+      interval: '1m',
+    });
+    for (
+      let attempt = 0;
+      attempt < 10 && onResult.mock.calls.length < 1;
+      attempt += 1
+    ) {
+      await Promise.resolve();
+    }
+
+    expect(mockFetchMarketTokenKlineByCount).toHaveBeenCalledTimes(1);
+    expect(mockFetchMarketTokenKlineByCount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stopAfterCount: expect.any(Number),
+      }),
+    );
+    const firstCall = mockFetchMarketTokenKlineByCount.mock.calls[0][0];
+    expect(firstCall.stopAfterCount).toBe(firstCall.targetCount);
+    expect(onResult).toHaveBeenCalledTimes(1);
+    expect(onResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        points: completedResponse.points,
+        historyExhausted: true,
+      }),
+      'initial',
+    );
+    unsubscribe();
+  });
+
+  it('waits for the native-token target before publishing its first package', async () => {
+    const onResult = jest.fn();
+    const nativePoints = Array.from({ length: 195 }, (_, index) =>
+      buildPoint(1000 + index * 60, index + 1),
+    );
+    const response: IMarketTokenKLineResponse = {
+      points: nativePoints,
+      total: nativePoints.length,
+      historyMeta: {
+        noData: false,
+        isPartial: true,
+        requestedCount: 200,
+        returnedCount: nativePoints.length,
+        coveredFrom: 1000,
+        coveredTo: 13_000,
+      },
+    };
+    mockFetchMarketTokenKlineByCount.mockResolvedValueOnce(response);
+    const unsubscribe = subscribeTradingViewV2FirstScreenPrefetch({
+      tokenAddress: '',
+      networkId: 'btc--0',
+      interval: '1m',
+      kLineProvider: 'onekey',
+      onResult,
+    });
+
+    await prefetchTradingViewV2FirstScreenData({
+      tokenAddress: '',
+      networkId: 'btc--0',
+      interval: '1m',
+      kLineProvider: 'onekey',
+    });
+
+    expect(mockFetchMarketTokenKlineByCount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tokenAddress: '',
+        networkId: 'btc--0',
+        targetCount: 200,
+        stopAfterCount: 200,
+      }),
+    );
+    expect(onResult).toHaveBeenCalledTimes(1);
+    expect(onResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        points: nativePoints,
+        historyExhausted: false,
+      }),
+      'initial',
+    );
+    unsubscribe();
+  });
+
+  it('prefetches BTC native-token bars through the HyperLiquid identity', async () => {
+    const originalWindow = globalThis.window;
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: { innerWidth: 1688 },
+    });
+    const onResult = jest.fn();
+    const btcPoints = Array.from({ length: 299 }, (_, index) =>
+      buildPoint(1000 + index * 60, index + 1),
+    );
+    const response: IMarketTokenKLineResponse = {
+      points: btcPoints,
+      total: btcPoints.length,
+      historyMeta: {
+        noData: false,
+        isPartial: false,
+        requestedCount: 299,
+        returnedCount: btcPoints.length,
+        coveredFrom: 1000,
+        coveredTo: 19_000,
+      },
+    };
+    mockFetchMarketTokenKlineByCount.mockResolvedValueOnce(response);
+    const identity = {
+      tokenAddress: '',
+      networkId: 'btc--0',
+      interval: '1m',
+      kLineProvider: 'hyperliquid' as const,
+      kLineProviderSymbol: 'BTC',
+    };
+    const unsubscribe = subscribeTradingViewV2FirstScreenPrefetch({
+      ...identity,
+      onResult,
+    });
+
+    try {
+      await prefetchTradingViewV2FirstScreenData(identity);
+
+      expect(mockFetchMarketTokenKlineByCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tokenAddress: '',
+          networkId: 'btc--0',
+          provider: 'hyperliquid',
+          providerSymbol: 'BTC',
+          targetCount: 299,
+          stopAfterCount: 299,
+        }),
+      );
+      expect(onResult).toHaveBeenCalledTimes(1);
+      expect(onResult).toHaveBeenCalledWith(
+        expect.objectContaining({
+          points: btcPoints,
+          historyExhausted: false,
+        }),
+        'initial',
+      );
+    } finally {
+      unsubscribe();
+      if (originalWindow === undefined) {
+        Reflect.deleteProperty(globalThis, 'window');
+      } else {
+        Object.defineProperty(globalThis, 'window', {
+          configurable: true,
+          value: originalWindow,
+        });
+      }
+    }
+  });
+
+  it('does not deliver a late registration after the chart unsubscribes', async () => {
+    const onResult = jest.fn();
+    const tokenAddress = '0x0000000000000000000000000000000000000456';
+    const unsubscribe = subscribeTradingViewV2FirstScreenPrefetch({
+      tokenAddress,
+      networkId: 'evm--1',
+      interval: '1m',
+      kLineProvider: 'onekey',
+      onResult,
+    });
+    unsubscribe();
+    mockFetchMarketTokenKlineByCount.mockResolvedValueOnce({
+      points: [buildPoint(1020, 3)],
+      total: 1,
+      historyMeta: {
+        noData: true,
+        requestedCount: 200,
+        returnedCount: 1,
+        coveredFrom: 1000,
+        coveredTo: 1120,
+      },
+    });
+
+    await prefetchTradingViewV2FirstScreenData({
+      tokenAddress,
+      networkId: 'evm--1',
+      interval: '1m',
+    });
+
+    expect(onResult).not.toHaveBeenCalled();
+  });
+
+  it('reuses a completed first-screen prefetch for later chart history requests', async () => {
+    const nowSeconds = 1_000_000;
+    const targetCount = 269;
+    const tokenAddress = '0x0000000000000000000000000000000000000678';
+    const dateNowSpy = jest
+      .spyOn(Date, 'now')
+      .mockReturnValue(nowSeconds * 1000);
+    const completedPoints = Array.from({ length: targetCount }, (_, index) =>
+      buildPoint(nowSeconds - (targetCount - index) * 60, index + 1),
+    );
+    const completedResponse: IMarketTokenKLineResponse = {
+      points: completedPoints,
+      total: completedPoints.length,
+      historyMeta: {
+        noData: false,
+        isPartial: false,
+        requestedCount: targetCount,
+        returnedCount: completedPoints.length,
+        coveredFrom: nowSeconds - targetCount * 60,
+        coveredTo: nowSeconds + 5 * 60,
+      },
+    };
+    mockFetchMarketTokenKlineByCount.mockResolvedValueOnce(completedResponse);
+
+    try {
+      const initialResult = await prefetchTradingViewV2FirstScreenData({
+        tokenAddress,
+        networkId: 'evm--1',
+        interval: '1m',
+      });
+
+      expect(initialResult?.points).toHaveLength(targetCount);
+      expect(mockFetchMarketTokenKlineByCount).toHaveBeenCalledTimes(1);
+      const completedRequest =
+        mockFetchMarketTokenKlineByCount.mock.calls[0][0];
+      expect(completedRequest.stopAfterCount).toBe(
+        completedRequest.targetCount,
+      );
+
+      const historyResult = await fetchTradingViewV2DataWithSlicing({
+        tokenAddress,
+        networkId: 'evm--1',
+        interval: '1m',
+        timeFrom: completedRequest.timeFrom,
+        timeTo: completedRequest.timeTo,
+        targetCount: 200,
+        requestExactRange: true,
+        reuseLatestPage: true,
+      });
+      expect(mockFetchMarketTokenKlineByCount).toHaveBeenCalledTimes(1);
+      expect(historyResult?.points).toHaveLength(200);
+      expect(historyResult?.historyMeta).toMatchObject({
+        noData: false,
+        isPartial: false,
+        requestedCount: 200,
+        returnedCount: 200,
+      });
+    } finally {
+      dateNowSpy.mockRestore();
+    }
   });
 });

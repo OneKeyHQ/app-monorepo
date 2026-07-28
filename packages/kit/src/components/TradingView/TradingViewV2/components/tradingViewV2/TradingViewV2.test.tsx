@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
@@ -36,6 +36,15 @@ const mockUseAutoTokenDetailUpdate = jest.fn();
 const mockUseMarketSymbolSync = jest.fn();
 const mockUseTradingViewV2WebSocket = jest.fn();
 const mockUseTradingViewMessageHandler = jest.fn();
+const mockSubscribeTradingViewV2FirstScreenPrefetch = jest.fn();
+const mockPrefetchTradingViewV2FirstScreenData = jest.fn(
+  (_params: Record<string, unknown>) => Promise.resolve(undefined),
+);
+let mockHyperLiquidKlineSource = {
+  isHyperLiquidSource: false,
+  symbol: undefined as string | undefined,
+  isLoading: true,
+};
 let mockRouteIsFocused = true;
 
 jest.mock('@onekeyhq/kit/src/components/WebView', () => {
@@ -109,17 +118,21 @@ jest.mock('../TradingViewNativeChartControls', () => ({
 jest.mock('./hooks', () => ({
   buildMarketTradingViewUrl: ({ baseUrl }: { baseUrl: string }) => baseUrl,
   getTradingViewV2FirstScreenPrefetchPromise: () => undefined,
+  prefetchTradingViewV2FirstScreenData: (params: Record<string, unknown>) =>
+    mockPrefetchTradingViewV2FirstScreenData(params),
+  subscribeTradingViewV2FirstScreenPrefetch: (
+    params: Record<string, unknown>,
+  ) => {
+    mockSubscribeTradingViewV2FirstScreenPrefetch(params);
+    return () => undefined;
+  },
   useAutoKLineUpdate: (params: unknown) => {
     mockUseAutoKLineUpdate(params);
   },
   useAutoTokenDetailUpdate: (params: unknown) => {
     mockUseAutoTokenDetailUpdate(params);
   },
-  useHyperLiquidKlineSource: () => ({
-    isHyperLiquidSource: false,
-    symbol: undefined,
-    isLoading: true,
-  }),
+  useHyperLiquidKlineSource: () => mockHyperLiquidKlineSource,
   useMarketSymbolSync: (params: unknown) => {
     mockUseMarketSymbolSync(params);
   },
@@ -159,6 +172,13 @@ describe('TradingViewV2 native source discovery', () => {
     mockUseMarketSymbolSync.mockClear();
     mockUseTradingViewV2WebSocket.mockClear();
     mockUseTradingViewMessageHandler.mockClear();
+    mockSubscribeTradingViewV2FirstScreenPrefetch.mockReset();
+    mockPrefetchTradingViewV2FirstScreenData.mockClear();
+    mockHyperLiquidKlineSource = {
+      isHyperLiquidSource: false,
+      symbol: undefined,
+      isLoading: true,
+    };
     mockTradingViewLogger.dexTVFirstPaint.mockClear();
     mockRouteIsFocused = true;
   });
@@ -198,6 +218,228 @@ describe('TradingViewV2 native source discovery', () => {
     expect((injectedScript as string).length).toBeLessThan(3000);
     expect(injectedScript).toContain('window.ReactNativeWebView');
     expect(injectedScript).toContain("scope: '$private'");
+  });
+
+  it('delivers first-screen K-line data that registers after the WebView mounts', () => {
+    render(
+      <TradingViewV2
+        symbol="ABC"
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        decimal={8}
+      />,
+    );
+
+    const webViewProps = mockWebViewProps.at(-1);
+    const sendMessageViaInjectedScript = jest.fn();
+    act(() => {
+      (
+        webViewProps?.onWebViewRef as
+          | ((ref: { sendMessageViaInjectedScript: jest.Mock }) => void)
+          | undefined
+      )?.({ sendMessageViaInjectedScript });
+    });
+
+    expect(mockSubscribeTradingViewV2FirstScreenPrefetch).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(sendMessageViaInjectedScript).not.toHaveBeenCalled();
+
+    const subscriptionParams = mockSubscribeTradingViewV2FirstScreenPrefetch
+      .mock.calls[0][0] as {
+      onResult: (
+        result: {
+          interval: string;
+          requestedTimeTo: number;
+          coveredTimeFrom: number;
+          coveredTimeTo: number;
+          historyExhausted: boolean;
+          points: {
+            o: number;
+            h: number;
+            l: number;
+            c: number;
+            v: number;
+            t: number;
+          }[];
+        },
+        delivery: 'initial' | 'upgrade',
+      ) => void;
+    };
+    act(() => {
+      subscriptionParams.onResult(
+        {
+          interval: '1m',
+          requestedTimeTo: 1120,
+          coveredTimeFrom: 1000,
+          coveredTimeTo: 1120,
+          historyExhausted: false,
+          points: [{ o: 1, h: 1, l: 1, c: 1, v: 0, t: 1020 }],
+        },
+        'initial',
+      );
+    });
+
+    expect(sendMessageViaInjectedScript).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'KLINE_BOOTSTRAP',
+        payload: expect.objectContaining({
+          resolution: '1m',
+          points: [{ o: 1, h: 1, l: 1, c: 1, v: 0, t: 1020 }],
+        }),
+      }),
+    );
+    expect(
+      sendMessageViaInjectedScript.mock.calls.at(-1)?.[0]?.payload,
+    ).not.toHaveProperty('continuationMode');
+
+    act(() => {
+      subscriptionParams.onResult(
+        {
+          interval: '1m',
+          requestedTimeTo: 1120,
+          coveredTimeFrom: 880,
+          coveredTimeTo: 1120,
+          historyExhausted: true,
+          points: [
+            { o: 1, h: 1, l: 1, c: 1, v: 0, t: 960 },
+            { o: 2, h: 2, l: 2, c: 2, v: 0, t: 1020 },
+          ],
+        },
+        'upgrade',
+      );
+    });
+
+    // Upgrade deliveries are ignored to avoid post-paint chart resets.
+    expect(sendMessageViaInjectedScript).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the empty native-token address in the bootstrap identity', () => {
+    mockHyperLiquidKlineSource = {
+      isHyperLiquidSource: true,
+      symbol: 'BTC',
+      isLoading: false,
+    };
+    render(
+      <TradingViewV2
+        symbol="BTC"
+        tokenAddress=""
+        networkId="btc--0"
+        decimal={8}
+      />,
+    );
+
+    const webViewProps = mockWebViewProps.at(-1);
+    const sendMessageViaInjectedScript = jest.fn();
+    act(() => {
+      (
+        webViewProps?.onWebViewRef as
+          | ((ref: { sendMessageViaInjectedScript: jest.Mock }) => void)
+          | undefined
+      )?.({ sendMessageViaInjectedScript });
+    });
+
+    expect(mockSubscribeTradingViewV2FirstScreenPrefetch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tokenAddress: '',
+        networkId: 'btc--0',
+        kLineProvider: 'hyperliquid',
+        kLineProviderSymbol: 'BTC',
+      }),
+    );
+    expect(mockPrefetchTradingViewV2FirstScreenData).toHaveBeenCalledWith({
+      tokenAddress: '',
+      networkId: 'btc--0',
+      interval: '1m',
+      kLineProvider: 'hyperliquid',
+      kLineProviderSymbol: 'BTC',
+      historyStartTime: undefined,
+    });
+    const subscriptionParams = mockSubscribeTradingViewV2FirstScreenPrefetch
+      .mock.calls[0][0] as {
+      onResult: (
+        result: {
+          interval: string;
+          requestedTimeTo: number;
+          coveredTimeFrom: number;
+          coveredTimeTo: number;
+          historyExhausted: boolean;
+          points: {
+            o: number;
+            h: number;
+            l: number;
+            c: number;
+            v: number;
+            t: number;
+          }[];
+        },
+        delivery: 'initial' | 'upgrade',
+      ) => void;
+    };
+    act(() => {
+      subscriptionParams.onResult(
+        {
+          interval: '1m',
+          requestedTimeTo: 1120,
+          coveredTimeFrom: 1000,
+          coveredTimeTo: 1120,
+          historyExhausted: false,
+          points: [{ o: 1, h: 1, l: 1, c: 1, v: 0, t: 1020 }],
+        },
+        'initial',
+      );
+    });
+
+    expect(sendMessageViaInjectedScript).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'KLINE_BOOTSTRAP',
+        payload: expect.objectContaining({
+          identity: {
+            symbol: 'BTC',
+            tokenAddress: '',
+            networkId: 'btc--0',
+            decimal: '8',
+          },
+        }),
+      }),
+    );
+  });
+
+  it('subscribes a warm chart to the next token bootstrap without remounting', () => {
+    const { rerender } = render(
+      <TradingViewV2
+        symbol="ONEKEY_PREWARM"
+        tokenAddress=""
+        networkId=""
+        decimal={8}
+      />,
+    );
+    const webViewProps = mockWebViewProps.at(-1);
+    const webViewRef = { sendMessageViaInjectedScript: jest.fn() };
+    act(() => {
+      (
+        webViewProps?.onWebViewRef as
+          | ((ref: { sendMessageViaInjectedScript: jest.Mock }) => void)
+          | undefined
+      )?.(webViewRef);
+    });
+    mockSubscribeTradingViewV2FirstScreenPrefetch.mockClear();
+
+    rerender(
+      <TradingViewV2
+        symbol="ABC"
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        decimal={8}
+      />,
+    );
+
+    expect(mockSubscribeTradingViewV2FirstScreenPrefetch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tokenAddress: '0xabc',
+        networkId: 'evm--1',
+      }),
+    );
   });
 
   it('pauses realtime work while a persistent chart session is inactive', () => {

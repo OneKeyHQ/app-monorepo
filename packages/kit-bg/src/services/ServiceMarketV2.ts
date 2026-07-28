@@ -161,6 +161,24 @@ function normalizeMarketKlineTargetCount(targetCount: number) {
   );
 }
 
+function normalizeUtilityKlineInterval(interval?: string) {
+  let normalizedInterval = interval?.toUpperCase();
+  if (normalizedInterval?.includes('M') || normalizedInterval?.includes('S')) {
+    normalizedInterval = normalizedInterval.toLowerCase();
+  }
+  return normalizedInterval;
+}
+
+function isMarketTokenKLineResponse(
+  value: unknown,
+): value is IMarketTokenKLineResponse {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const response = value as Record<string, unknown>;
+  return Array.isArray(response.points) && typeof response.total === 'number';
+}
+
 function getMarketKlineIntervalSeconds(interval?: string) {
   const normalizedInterval = interval?.trim();
   if (!normalizedInterval) {
@@ -527,11 +545,7 @@ class ServiceMarketV2 extends ServiceBase {
       } satisfies IMarketTokenKLineResponse;
     }
 
-    let innerInterval = interval?.toUpperCase();
-
-    if (innerInterval?.includes('M') || innerInterval?.includes('S')) {
-      innerInterval = innerInterval?.toLowerCase();
-    }
+    const innerInterval = normalizeUtilityKlineInterval(interval);
 
     const requestConfig = {
       params: {
@@ -609,7 +623,7 @@ class ServiceMarketV2 extends ServiceBase {
     stopAfterCount: rawStopAfterCount,
     historyStartTime,
     ...params
-  }: IFetchMarketTokenKlineByCountParams) {
+  }: IFetchMarketTokenKlineByCountParams): Promise<IMarketTokenKLineResponse> {
     const targetCount = normalizeMarketKlineTargetCount(rawTargetCount);
     const stopAfterCount = Math.min(
       targetCount,
@@ -647,6 +661,56 @@ class ServiceMarketV2 extends ServiceBase {
     const requestedTimeFrom = Number.isFinite(params.timeFrom)
       ? Math.floor(params.timeFrom ?? requestTo)
       : requestTo - intervalSeconds * targetCount;
+
+    const buildCancelledResponse = () =>
+      ({
+        points: [],
+        total: 0,
+        historyMeta: {
+          noData: false,
+          isPartial: true,
+          cancelled: true,
+          requestedCount: targetCount,
+          returnedCount: 0,
+          coveredFrom: requestTo,
+          coveredTo: requestTo,
+        },
+      }) satisfies IMarketTokenKLineResponse;
+    if (this.isKlineRequestCancelled(requestId)) {
+      return buildCancelledResponse();
+    }
+
+    const canUseBackendBackfill =
+      params.provider !== 'hyperliquid' && stopAfterCount === targetCount;
+    if (canUseBackendBackfill) {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const requestConfig = {
+        params: {
+          tokenAddress: params.tokenAddress,
+          networkId: params.networkId,
+          interval: normalizeUtilityKlineInterval(params.interval),
+          targetCount,
+          timeTo: requestTo,
+          historyStartTime: normalizedHistoryStartTime,
+          currency: 'usd',
+        },
+        autoHandleError: false,
+      };
+      const response = await client.get<{
+        code: number;
+        message: string;
+        data: unknown;
+      }>('/utility/v3/market/token/kline', requestConfig);
+      if (this.isKlineRequestCancelled(requestId)) {
+        return buildCancelledResponse();
+      }
+      const responseData: unknown = response.data.data;
+      if (!isMarketTokenKLineResponse(responseData)) {
+        throw new OneKeyLocalError('Invalid market K-line by-count response');
+      }
+      return responseData;
+    }
+
     return fetchMarketKlineBackfill({
       targetCount,
       stopAfterCount,

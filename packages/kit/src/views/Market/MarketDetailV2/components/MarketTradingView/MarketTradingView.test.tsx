@@ -28,6 +28,7 @@ jest.doMock('../../../../../../../../__mocks__/componentsMock', () => {
           ? React.createElement(
               'button',
               {
+                type: 'button',
                 'data-testid': buttonProps.testID,
                 onClick: buttonProps.onPress,
               },
@@ -53,6 +54,11 @@ const mockHydrateMarketTradingViewPreferences = jest.fn(() =>
   Promise.resolve(),
 );
 const mockIsMarketTradingViewPreferencesHydrated = jest.fn(() => true);
+const mockPlatformEnv = {
+  isNative: true,
+  isWeb: false,
+  isDesktop: false,
+};
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -97,9 +103,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: {
-    isNative: true,
-  },
+  default: mockPlatformEnv,
 }));
 
 jest.mock('@onekeyhq/shared/src/locale', () => ({
@@ -145,6 +149,9 @@ describe('MarketTradingViewView readiness', () => {
     mockHydrateMarketTradingViewPreferences.mockResolvedValue(undefined);
     mockIsMarketTradingViewPreferencesHydrated.mockReset();
     mockIsMarketTradingViewPreferencesHydrated.mockReturnValue(true);
+    mockPlatformEnv.isNative = true;
+    mockPlatformEnv.isWeb = false;
+    mockPlatformEnv.isDesktop = false;
   });
 
   afterEach(() => {
@@ -183,6 +190,38 @@ describe('MarketTradingViewView readiness', () => {
 
     expect(screen.queryByTestId(MarketTestIDs.detailChartLoading)).toBeNull();
     unmount();
+  });
+
+  it('does not cover the chart with a loading overlay on web', () => {
+    mockPlatformEnv.isNative = false;
+    mockPlatformEnv.isWeb = true;
+
+    render(
+      <MarketTradingViewView
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        tokenSymbol="ABC"
+      />,
+    );
+
+    expect(screen.getByTestId(MarketTestIDs.detailChart)).toBeTruthy();
+    expect(screen.queryByTestId(MarketTestIDs.detailChartLoading)).toBeNull();
+  });
+
+  it('does not cover the chart with a loading overlay on desktop', () => {
+    mockPlatformEnv.isNative = false;
+    mockPlatformEnv.isDesktop = true;
+
+    render(
+      <MarketTradingViewView
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        tokenSymbol="ABC"
+      />,
+    );
+
+    expect(screen.getByTestId(MarketTestIDs.detailChart)).toBeTruthy();
+    expect(screen.queryByTestId(MarketTestIDs.detailChartLoading)).toBeNull();
   });
 
   it('does not treat a readiness timeout as a successful first paint', () => {
@@ -326,5 +365,45 @@ describe('MarketTradingViewView readiness', () => {
     });
 
     expect(mockTradingViewProps).toHaveLength(1);
+  });
+
+  it('does not show the preferences loading overlay on web', () => {
+    mockPlatformEnv.isNative = false;
+    mockPlatformEnv.isWeb = true;
+    mockIsMarketTradingViewPreferencesHydrated.mockReturnValue(false);
+    mockHydrateMarketTradingViewPreferences.mockReturnValueOnce(
+      new Promise<void>(() => undefined),
+    );
+
+    render(
+      <MarketTradingView
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        tokenSymbol="ABC"
+      />,
+    );
+
+    expect(mockTradingViewProps).toHaveLength(0);
+    expect(screen.queryByTestId(MarketTestIDs.detailChartLoading)).toBeNull();
+  });
+
+  it('does not show the preferences loading overlay on desktop', () => {
+    mockPlatformEnv.isNative = false;
+    mockPlatformEnv.isDesktop = true;
+    mockIsMarketTradingViewPreferencesHydrated.mockReturnValue(false);
+    mockHydrateMarketTradingViewPreferences.mockReturnValueOnce(
+      new Promise<void>(() => undefined),
+    );
+
+    render(
+      <MarketTradingView
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        tokenSymbol="ABC"
+      />,
+    );
+
+    expect(mockTradingViewProps).toHaveLength(0);
+    expect(screen.queryByTestId(MarketTestIDs.detailChartLoading)).toBeNull();
   });
 });

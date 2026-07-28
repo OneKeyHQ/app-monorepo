@@ -11,15 +11,17 @@ import { sliceRequest } from '../sliceRequest';
 
 const FIRST_SCREEN_KLINE_PREFETCH_MIN_BAR_COUNT = 200;
 const FIRST_SCREEN_KLINE_ESTIMATED_BAR_WIDTH_PX = 5;
-const FIRST_SCREEN_KLINE_PREFETCH_BUFFER_BAR_COUNT = 64;
+const FIRST_SCREEN_KLINE_PREFETCH_BUFFER_BAR_COUNT = 128;
 const NATIVE_FIRST_SCREEN_KLINE_PREFETCH_BAR_COUNT = 200;
+// Align first-screen requests with the backend single-page OKX cap so the
+// initial chart package can complete in one utility round-trip when dense.
+const FIRST_SCREEN_KLINE_SINGLE_PAGE_MAX_BAR_COUNT = 299;
 const FIRST_SCREEN_KLINE_PREFETCH_FUTURE_SECONDS = 5 * 60;
 const MAX_FIRST_SCREEN_KLINE_PREFETCH_FUTURE_SECONDS = 24 * 60 * 60;
 const MAX_FIRST_SCREEN_KLINE_PREFETCH_HISTORY_SECONDS = 5 * 365 * 24 * 60 * 60;
 const FIRST_SCREEN_KLINE_PREFETCH_CACHE_TTL_MS = 30 * 1000;
 const MAX_FIRST_SCREEN_KLINE_PREFETCH_CACHE_ENTRIES = 12;
 const MAX_TRADING_VIEW_KLINE_TARGET_COUNT = 2000;
-const FIRST_SCREEN_KLINE_BOOTSTRAP_MIN_BAR_COUNT = 1;
 
 export type ITradingViewV2KLineDataFallback = (params: {
   tokenAddress: string;
@@ -60,6 +62,23 @@ interface ITradingViewV2FirstScreenPrefetchRecord {
   isUpgradePending: boolean;
   expiresAt: number;
 }
+
+interface ITradingViewV2FirstScreenPrefetchSubscriberParams extends Pick<
+  ITradingViewV2FirstScreenPrefetchParams,
+  'tokenAddress' | 'networkId' | 'kLineProvider' | 'kLineProviderSymbol'
+> {
+  interval: string;
+  onResult: (
+    result: ITradingViewV2FirstScreenPrefetchResult | undefined,
+    delivery: 'initial' | 'upgrade',
+  ) => void;
+  onError?: (error: unknown) => void;
+}
+
+type ITradingViewV2FirstScreenPrefetchRecordSubscriber = (
+  record: ITradingViewV2FirstScreenPrefetchRecord,
+  delivery: 'initial' | 'upgrade',
+) => void;
 
 interface IFetchKLineDataFallbackParams {
   tokenAddress: string;
@@ -110,6 +129,10 @@ const kLineRequestEntries: IKLineRequestEntry[] = [];
 const firstScreenPrefetchRecords = new Map<
   string,
   ITradingViewV2FirstScreenPrefetchRecord
+>();
+const firstScreenPrefetchRecordSubscribers = new Map<
+  string,
+  Set<ITradingViewV2FirstScreenPrefetchRecordSubscriber>
 >();
 let firstScreenPrefetchRequestSequence = 0;
 
@@ -172,6 +195,7 @@ function getFirstScreenKLinePrefetchTargetCount() {
     Math.ceil(viewportWidth / FIRST_SCREEN_KLINE_ESTIMATED_BAR_WIDTH_PX) +
     FIRST_SCREEN_KLINE_PREFETCH_BUFFER_BAR_COUNT;
   return Math.min(
+    FIRST_SCREEN_KLINE_SINGLE_PAGE_MAX_BAR_COUNT,
     MAX_TRADING_VIEW_KLINE_TARGET_COUNT,
     Math.max(FIRST_SCREEN_KLINE_PREFETCH_MIN_BAR_COUNT, visibleBarEstimate),
   );
@@ -367,6 +391,78 @@ export function getTradingViewV2FirstScreenPrefetchPromise({
   return record?.latestResult
     ? Promise.resolve(record.latestResult)
     : record?.promise;
+}
+
+export function subscribeTradingViewV2FirstScreenPrefetch({
+  tokenAddress,
+  networkId,
+  interval,
+  kLineProvider,
+  kLineProviderSymbol,
+  onResult,
+  onError,
+}: ITradingViewV2FirstScreenPrefetchSubscriberParams) {
+  pruneExpiredFirstScreenPrefetchRecords();
+  const key = buildKLineRequestKey({
+    tokenAddress,
+    networkId,
+    interval,
+    kLineProvider,
+    kLineProviderSymbol,
+  });
+  let isActive = true;
+  const handleRecord = (
+    record: ITradingViewV2FirstScreenPrefetchRecord,
+    delivery: 'initial' | 'upgrade',
+  ) => {
+    const promise = record.latestResult
+      ? Promise.resolve(record.latestResult)
+      : record.promise;
+    void promise.then(
+      (result) => {
+        if (isActive) {
+          onResult(result, delivery);
+        }
+      },
+      (error: unknown) => {
+        if (isActive) {
+          onError?.(error);
+        }
+      },
+    );
+  };
+  const subscribers =
+    firstScreenPrefetchRecordSubscribers.get(key) ??
+    new Set<ITradingViewV2FirstScreenPrefetchRecordSubscriber>();
+  subscribers.add(handleRecord);
+  firstScreenPrefetchRecordSubscribers.set(key, subscribers);
+  const existingRecord = firstScreenPrefetchRecords.get(key);
+  if (existingRecord) {
+    handleRecord(existingRecord, 'initial');
+  }
+
+  return () => {
+    isActive = false;
+    const currentSubscribers = firstScreenPrefetchRecordSubscribers.get(key);
+    currentSubscribers?.delete(handleRecord);
+    if (currentSubscribers?.size === 0) {
+      firstScreenPrefetchRecordSubscribers.delete(key);
+    }
+  };
+}
+
+function notifyFirstScreenPrefetchRecordSubscribers(
+  key: string,
+  record: ITradingViewV2FirstScreenPrefetchRecord,
+  delivery: 'initial' | 'upgrade',
+) {
+  const subscribers = firstScreenPrefetchRecordSubscribers.get(key);
+  if (!subscribers) {
+    return;
+  }
+  for (const subscriber of subscribers) {
+    subscriber(record, delivery);
+  }
 }
 
 function cancelFirstScreenPrefetchRecord(
@@ -1149,20 +1245,40 @@ async function fetchTradingViewV2DataWithRequestReuse(
     if (params.requestId) {
       sharedRequest.backgroundRequestId = params.requestId;
     }
-    const sharedData =
-      requestedTargetCount !== undefined
-        ? await ensureKLineRequestTargetCount({
-            entry: sharedRequest,
-            params,
-            targetCount: requestedTargetCount,
-          })
-        : await sharedRequest.promise;
+    let sharedData: IMarketTokenKLineResponse | null = null;
+    try {
+      sharedData =
+        requestedTargetCount !== undefined
+          ? await ensureKLineRequestTargetCount({
+              entry: sharedRequest,
+              params,
+              targetCount: requestedTargetCount,
+            })
+          : await sharedRequest.promise;
+    } catch (error) {
+      removeKLineRequest(sharedRequest);
+      if (!retryAfterSharedFailure) {
+        throw error;
+      }
+    }
     const sharedRequestCoversRange =
       sharedRequest.coveredFrom <= params.timeFrom &&
       sharedRequest.coveredTo >= params.timeTo;
     const canReuseLatestPage =
       params.reuseLatestPage && sharedRequest.coveredTo >= params.timeTo;
-    if (sharedData && (sharedRequestCoversRange || canReuseLatestPage)) {
+    const sharedDataIsSufficient =
+      requestedTargetCount === undefined ||
+      (sharedData !== null &&
+        isKLineResponseSufficient({
+          data: sharedData,
+          timeTo: params.timeTo,
+          targetCount: requestedTargetCount,
+        }));
+    if (
+      sharedData &&
+      sharedDataIsSufficient &&
+      (sharedRequestCoversRange || canReuseLatestPage)
+    ) {
       if (requestedTargetCount !== undefined) {
         return clipKLineResponseToRange({
           data: sharedData,
@@ -1179,7 +1295,7 @@ async function fetchTradingViewV2DataWithRequestReuse(
       });
     }
 
-    if (!sharedData) {
+    if (!sharedData || !sharedDataIsSufficient) {
       removeKLineRequest(sharedRequest);
     }
     if (!retryAfterSharedFailure) {
@@ -1248,8 +1364,6 @@ function buildFirstScreenPrefetchResult({
 
 async function runTradingViewV2FirstScreenPrefetch({
   requestId,
-  onUpgradePendingChange,
-  onUpgradeResult,
   tokenAddress,
   networkId,
   kLineProvider = 'onekey',
@@ -1261,8 +1375,6 @@ async function runTradingViewV2FirstScreenPrefetch({
   historyStartTime,
 }: ITradingViewV2FirstScreenPrefetchParams & {
   requestId: string;
-  onUpgradePendingChange: (pending: boolean) => void;
-  onUpgradeResult: (result: ITradingViewV2FirstScreenPrefetchResult) => void;
 }): Promise<ITradingViewV2FirstScreenPrefetchResult | undefined> {
   if (!networkId) {
     return;
@@ -1274,11 +1386,20 @@ async function runTradingViewV2FirstScreenPrefetch({
   const defaultTargetCount = isOneKeyNativeToken
     ? NATIVE_FIRST_SCREEN_KLINE_PREFETCH_BAR_COUNT
     : getFirstScreenKLinePrefetchTargetCount();
-  const targetCount = isOneKeyNativeToken
+  // Prefer a viewport-complete first package over a 1-bar progressive stub.
+  // Cap at the backend single-page limit so first paint does not wait on multi-page
+  // left-history backfill that users only need after panning.
+  const uncappedTargetCount = isOneKeyNativeToken
     ? defaultTargetCount
     : Math.max(
         normalizeKLineTargetCount(preferredCountBack) ?? 0,
         defaultTargetCount,
+      );
+  const targetCount = isOneKeyNativeToken
+    ? uncappedTargetCount
+    : Math.min(
+        FIRST_SCREEN_KLINE_SINGLE_PAGE_MAX_BAR_COUNT,
+        uncappedTargetCount,
       );
   const { timeFrom, timeTo } = getFirstScreenKLinePrefetchRange({
     nowSeconds,
@@ -1299,10 +1420,8 @@ async function runTradingViewV2FirstScreenPrefetch({
       timeFrom,
       timeTo,
       targetCount,
-      stopAfterCount: Math.min(
-        targetCount,
-        FIRST_SCREEN_KLINE_BOOTSTRAP_MIN_BAR_COUNT,
-      ),
+      // Wait for a usable first-screen package instead of returning after 1 bar.
+      stopAfterCount: targetCount,
       historyStartTime,
       autoHandleError: false,
       requestExactRange: true,
@@ -1312,55 +1431,6 @@ async function runTradingViewV2FirstScreenPrefetch({
       retainCompletedResult: true,
     },
   );
-  if (
-    data &&
-    data.historyMeta?.cancelled !== true &&
-    data.points.length > 0 &&
-    data.historyMeta?.noData !== true &&
-    data.points.length < targetCount
-  ) {
-    onUpgradePendingChange(true);
-    void fetchTradingViewV2DataWithRequestReuse(
-      {
-        requestId,
-        tokenAddress,
-        networkId,
-        kLineProvider,
-        kLineProviderSymbol,
-        interval: normalizedInterval,
-        timeFrom,
-        timeTo,
-        targetCount,
-        historyStartTime,
-        autoHandleError: false,
-        requestExactRange: true,
-        reuseLatestPage: true,
-      },
-      {
-        retryAfterSharedFailure: true,
-        retainCompletedResult: true,
-      },
-    )
-      .then((completedData) => {
-        if (!completedData || completedData.historyMeta?.cancelled === true) {
-          return;
-        }
-        onUpgradeResult(
-          buildFirstScreenPrefetchResult({
-            data: completedData,
-            interval: normalizedInterval,
-            timeFrom,
-            timeTo,
-          }),
-        );
-      })
-      .catch((error: unknown) => {
-        console.error('Failed to complete prefetched kline data:', error);
-      })
-      .finally(() => {
-        onUpgradePendingChange(false);
-      });
-  }
   if (data?.historyMeta?.cancelled === true) {
     return undefined;
   }
@@ -1407,16 +1477,6 @@ export function prefetchTradingViewV2FirstScreenData(
     ...params,
     interval,
     requestId: backgroundRequestId,
-    onUpgradePendingChange: (pending) => {
-      record.isUpgradePending = pending;
-    },
-    onUpgradeResult: (result) => {
-      if (firstScreenPrefetchRecords.get(key) !== record) {
-        return;
-      }
-      record.latestResult = result;
-      record.expiresAt = Date.now() + FIRST_SCREEN_KLINE_PREFETCH_CACHE_TTL_MS;
-    },
   });
   record.promise = promise;
   void promise
@@ -1429,6 +1489,7 @@ export function prefetchTradingViewV2FirstScreenData(
       record.isInitialPending = false;
     });
   firstScreenPrefetchRecords.set(key, record);
+  notifyFirstScreenPrefetchRecordSubscribers(key, record, 'initial');
   if (
     firstScreenPrefetchRecords.size >
     MAX_FIRST_SCREEN_KLINE_PREFETCH_CACHE_ENTRIES

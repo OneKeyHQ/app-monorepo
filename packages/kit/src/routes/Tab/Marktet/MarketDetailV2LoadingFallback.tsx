@@ -1,5 +1,4 @@
 import { Page, Spinner, Stack, useMedia } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -17,7 +16,7 @@ function LoadingSpinner() {
 export function MarketDetailV2LoadingFallback() {
   const media = useMedia();
 
-  if (platformEnv.isNative || media.md) {
+  if (media.md) {
     return (
       <>
         <Page.Header headerShown={false} />

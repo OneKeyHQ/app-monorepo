@@ -45,7 +45,8 @@ import {
 
 import {
   buildMarketTradingViewUrl,
-  getTradingViewV2FirstScreenPrefetchPromise,
+  prefetchTradingViewV2FirstScreenData,
+  subscribeTradingViewV2FirstScreenPrefetch,
   useAutoKLineUpdate,
   useAutoTokenDetailUpdate,
   useHyperLiquidKlineSource,
@@ -208,6 +209,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     : initialKLineResolutionProp;
   const webRef = useRef<IWebViewRef | null>(null);
   const webViewLoadGeneration = useRef(0);
+  const cancelInitialHistoryBootstrapSubscriptionRef = useRef<
+    (() => void) | undefined
+  >(undefined);
   const marksTimeRange = useRef<IMarksTimeRange | null>(null);
   const pendingLegacyHistoryReadyKeyRef = useRef<string | null>(null);
   const firstPaintTrackingRef = useRef({
@@ -1012,6 +1016,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
 
   const handleLoadStart = useCallback(
     (event: WebViewNavigationEvent) => {
+      cancelInitialHistoryBootstrapSubscriptionRef.current?.();
+      cancelInitialHistoryBootstrapSubscriptionRef.current = undefined;
       webViewLoadGeneration.current += 1;
       firstPaintTrackingRef.current.startedAt = Date.now();
       firstPaintTrackingRef.current.hasTracked = false;
@@ -1032,6 +1038,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
 
   const deliverInitialHistoryBootstrap = useCallback(
     (ref: IWebViewRef) => {
+      cancelInitialHistoryBootstrapSubscriptionRef.current?.();
+      cancelInitialHistoryBootstrapSubscriptionRef.current = undefined;
       const requestTarget = captureTradingViewRequestTarget({
         webRef,
         webViewLoadGeneration,
@@ -1076,46 +1084,65 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         return;
       }
 
-      const prefetchPromise = getTradingViewV2FirstScreenPrefetchPromise({
+      cancelInitialHistoryBootstrapSubscriptionRef.current =
+        subscribeTradingViewV2FirstScreenPrefetch({
+          tokenAddress,
+          networkId,
+          interval: bootstrapKLineResolution,
+          kLineProvider,
+          kLineProviderSymbol,
+          onResult: (result, delivery) => {
+            if (!requestTarget.isCurrent()) {
+              return;
+            }
+            if (
+              !result ||
+              (!result.points.length && !result.historyExhausted)
+            ) {
+              sendUnavailable('prefetch-empty');
+              return;
+            }
+            // First screen is a single viewport-complete package. Ignore late
+            // upgrade deliveries so the chart never resets after first paint.
+            if (delivery !== 'initial') {
+              return;
+            }
+            requestTarget.sendMessage({
+              type: 'KLINE_BOOTSTRAP',
+              payload: {
+                protocolVersion: KLINE_BOOTSTRAP_PROTOCOL_VERSION,
+                bootstrapId: [
+                  bootstrapIdPrefix,
+                  result.requestedTimeTo,
+                  delivery,
+                  result.coveredTimeFrom,
+                  result.points.length,
+                ].join(':'),
+                identity,
+                resolution: result.interval,
+                coveredRange: {
+                  fromInclusive: result.coveredTimeFrom,
+                  toExclusive: result.coveredTimeTo,
+                },
+                historyExhausted: result.historyExhausted,
+                points: result.points,
+                historyMeta: result.historyMeta,
+              },
+            });
+          },
+          onError: () => sendUnavailable('prefetch-failed'),
+        });
+      // Route restoration and direct links do not pass through the market-list
+      // preload. Start the same deduplicated request here so the chart never
+      // depends on an earlier navigation side effect to receive its bootstrap.
+      void prefetchTradingViewV2FirstScreenData({
         tokenAddress,
         networkId,
         interval: bootstrapKLineResolution,
         kLineProvider,
         kLineProviderSymbol,
+        historyStartTime,
       });
-      if (!prefetchPromise) {
-        sendUnavailable('prefetch-not-started');
-        return;
-      }
-
-      void prefetchPromise.then(
-        (result) => {
-          if (!requestTarget.isCurrent()) {
-            return;
-          }
-          if (!result || (!result.points.length && !result.historyExhausted)) {
-            sendUnavailable('prefetch-empty');
-            return;
-          }
-          requestTarget.sendMessage({
-            type: 'KLINE_BOOTSTRAP',
-            payload: {
-              protocolVersion: KLINE_BOOTSTRAP_PROTOCOL_VERSION,
-              bootstrapId: `${bootstrapIdPrefix}:${result.requestedTimeTo}`,
-              identity,
-              resolution: result.interval,
-              coveredRange: {
-                fromInclusive: result.coveredTimeFrom,
-                toExclusive: result.coveredTimeTo,
-              },
-              historyExhausted: result.historyExhausted,
-              points: result.points,
-              historyMeta: result.historyMeta,
-            },
-          });
-        },
-        () => sendUnavailable('prefetch-failed'),
-      );
     },
     [
       bootstrapKLineResolution,
@@ -1123,6 +1150,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       decimal,
       firstPaintMetricIdentity,
       forceEmptyKLineData,
+      historyStartTime,
       kLineDataFallback,
       kLineProvider,
       kLineProviderSymbol,
@@ -1138,6 +1166,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const handleWebViewRef = useCallback(
     (ref: IWebViewRef | null) => {
       if (!ref) {
+        cancelInitialHistoryBootstrapSubscriptionRef.current?.();
+        cancelInitialHistoryBootstrapSubscriptionRef.current = undefined;
         resetInteractionLocks();
       }
       webRef.current = ref;
@@ -1157,6 +1187,12 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     },
     [deliverInitialHistoryBootstrap, onLoadEnd, webRef],
   );
+
+  useEffect(() => {
+    if (webRef.current) {
+      deliverInitialHistoryBootstrap(webRef.current);
+    }
+  }, [deliverInitialHistoryBootstrap, webRef]);
 
   const nativeIndicatorQuickBar = useMemo(() => {
     if (
@@ -1193,6 +1229,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
 
   useEffect(() => {
     return () => {
+      cancelInitialHistoryBootstrapSubscriptionRef.current?.();
       resetInteractionLocks();
     };
   }, [resetInteractionLocks]);

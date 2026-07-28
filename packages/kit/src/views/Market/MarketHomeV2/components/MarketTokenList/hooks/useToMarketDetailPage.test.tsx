@@ -3,8 +3,14 @@ import { act, renderHook } from '@testing-library/react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  ERootRoutes,
+  ETabMarketRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 import { useToDetailPage } from './useToMarketDetailPage';
 
@@ -12,6 +18,7 @@ const mockNavigation = {
   push: jest.fn(),
   switchTab: jest.fn(),
 };
+const mockRootNavigate = jest.fn();
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -45,7 +52,9 @@ jest.mock('@onekeyhq/components', () => ({
   },
   rootNavigationRef: {
     current: {
-      navigate: jest.fn(),
+      navigate: (...args: unknown[]) => {
+        mockRootNavigate(...args);
+      },
     },
   },
   useMedia: jest.fn(() => ({ gtLg: false })),
@@ -113,6 +122,7 @@ describe('useToDetailPage', () => {
     mutablePlatformEnv.isExtensionUiSidePanel = false;
     mutablePlatformEnv.isNative = false;
     jest.mocked(useAppNavigation).mockReturnValue(mockNavigation as never);
+    jest.mocked(preloadMarketDetailV2Page).mockResolvedValue(undefined);
     openExtensionMarketTokenDetailMock = jest.spyOn(
       backgroundApiProxy.serviceApp,
       'openExtensionMarketTokenDetail',
@@ -166,7 +176,7 @@ describe('useToDetailPage', () => {
     expect(globalThis.close).toHaveBeenCalledTimes(1);
   });
 
-  it('pushes the native detail route after the shell preload resolves', async () => {
+  it('pushes the native detail route without waiting for the shell preload', async () => {
     const mutablePlatformEnv = platformEnv as typeof platformEnv & {
       isExtensionUiPopup: boolean;
       isNative: boolean;
@@ -174,9 +184,12 @@ describe('useToDetailPage', () => {
     mutablePlatformEnv.isExtensionUiPopup = false;
     mutablePlatformEnv.isNative = true;
     const { result } = renderHook(() => useToDetailPage());
+    const pendingShellPreload = new Promise<void>(() => undefined);
+    jest.mocked(preloadMarketDetailV2Page).mockReturnValue(pendingShellPreload);
+    let navigationPromise: Promise<void> | undefined;
 
-    await act(async () => {
-      await result.current({
+    act(() => {
+      navigationPromise = result.current({
         tokenAddress: '0xabc',
         networkId: 'evm--1',
         symbol: 'ABC',
@@ -190,5 +203,44 @@ describe('useToDetailPage', () => {
       isNative: false,
       from: undefined,
     });
+    await expect(navigationPromise).resolves.toBeUndefined();
+  });
+
+  it('opens the native nested detail route without waiting for the shell preload', async () => {
+    const mutablePlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+      isNative: boolean;
+    };
+    mutablePlatformEnv.isExtensionUiPopup = false;
+    mutablePlatformEnv.isNative = true;
+    const { result } = renderHook(() =>
+      useToDetailPage({ switchToMarketTabFirst: true }),
+    );
+    const pendingShellPreload = new Promise<void>(() => undefined);
+    jest.mocked(preloadMarketDetailV2Page).mockReturnValue(pendingShellPreload);
+    let navigationPromise: Promise<void> | undefined;
+
+    act(() => {
+      navigationPromise = result.current({
+        tokenAddress: '0xabc',
+        networkId: 'evm--1',
+        symbol: 'ABC',
+        isNative: false,
+      });
+    });
+
+    expect(mockRootNavigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+      screen: ETabRoutes.Discovery,
+      params: {
+        screen: ETabMarketRoutes.MarketDetailV2,
+        params: {
+          tokenAddress: '0xabc',
+          network: 'eth',
+          isNative: false,
+          from: undefined,
+        },
+      },
+    });
+    await expect(navigationPromise).resolves.toBeUndefined();
   });
 });

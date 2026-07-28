@@ -28,7 +28,7 @@ function buildResponse(timestamps: number[]): IMarketTokenKLineResponse {
 }
 
 describe('fetchMarketKlineBackfill', () => {
-  test('keeps the initial bootstrap request single-page', async () => {
+  test('keeps the initial bootstrap request single-page and safely bounded', async () => {
     const requestedRanges: Array<{ timeFrom: number; timeTo: number }> = [];
 
     const result = await fetchMarketKlineBackfill({
@@ -45,7 +45,7 @@ describe('fetchMarketKlineBackfill', () => {
       isCancelled: () => false,
     });
 
-    expect(requestedRanges).toEqual([{ timeFrom: 700, timeTo: 1000 }]);
+    expect(requestedRanges).toEqual([{ timeFrom: 800, timeTo: 1000 }]);
     expect(result.points.map((point) => point.t)).toEqual([999]);
     expect(result.historyMeta).toMatchObject({
       noData: false,
@@ -171,6 +171,91 @@ describe('fetchMarketKlineBackfill', () => {
     expect(result.points.map((point) => point.t)).toEqual([
       900, 980, 989, 990, 999,
     ]);
+  });
+
+  test('does not skip sparse data when the endpoint silently caps time slots', async () => {
+    const requestedRanges: Array<{ timeFrom: number; timeTo: number }> = [];
+    const endpointSlotCapacity = 200;
+    const availableTimestamps = [150, 350, 550, 750, 850, 950];
+
+    const result = await fetchMarketKlineBackfill({
+      targetCount: 10,
+      stopAfterCount: 10,
+      intervalSeconds: 1,
+      requestTimeFrom: 990,
+      requestTimeTo: 1000,
+      historyFloor: 0,
+      fetchPage: async (range) => {
+        requestedRanges.push(range);
+        const effectiveTimeFrom = Math.max(
+          range.timeFrom,
+          range.timeTo - endpointSlotCapacity,
+        );
+        return buildResponse(
+          availableTimestamps.filter(
+            (timestamp) =>
+              timestamp >= effectiveTimeFrom && timestamp < range.timeTo,
+          ),
+        );
+      },
+      isCancelled: () => false,
+    });
+
+    expect(
+      requestedRanges.every(
+        (range) => range.timeTo - range.timeFrom <= endpointSlotCapacity,
+      ),
+    ).toBe(true);
+    expect(result.points.map((point) => point.t)).toEqual(availableTimestamps);
+    expect(result.historyMeta).toMatchObject({
+      noData: true,
+      isPartial: false,
+      coveredFrom: 0,
+      coveredTo: 1000,
+    });
+  });
+
+  test('fills the requested count across sparse capped ranges without ending history', async () => {
+    const requestedRanges: Array<{ timeFrom: number; timeTo: number }> = [];
+    const endpointSlotCapacity = 200;
+    const availableTimestamps = [150, 350, 550, 750, 950];
+
+    const result = await fetchMarketKlineBackfill({
+      targetCount: 4,
+      stopAfterCount: 4,
+      intervalSeconds: 1,
+      requestTimeFrom: 996,
+      requestTimeTo: 1000,
+      historyFloor: 0,
+      fetchPage: async (range) => {
+        requestedRanges.push(range);
+        const effectiveTimeFrom = Math.max(
+          range.timeFrom,
+          range.timeTo - endpointSlotCapacity,
+        );
+        return buildResponse(
+          availableTimestamps.filter(
+            (timestamp) =>
+              timestamp >= effectiveTimeFrom && timestamp < range.timeTo,
+          ),
+        );
+      },
+      isCancelled: () => false,
+    });
+
+    expect(
+      requestedRanges.every(
+        (range) => range.timeTo - range.timeFrom <= endpointSlotCapacity,
+      ),
+    ).toBe(true);
+    expect(result.points.map((point) => point.t)).toEqual([350, 550, 750, 950]);
+    expect(result.historyMeta).toMatchObject({
+      noData: false,
+      isPartial: false,
+      requestedCount: 4,
+      returnedCount: 4,
+      coveredTo: 1000,
+    });
   });
 
   test('does not start another wave after cancellation', async () => {

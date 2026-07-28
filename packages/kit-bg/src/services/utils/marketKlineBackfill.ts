@@ -56,17 +56,19 @@ export function normalizeMarketKlinePoints(
 function buildMarketKlineRangeWave({
   pageToExclusive,
   pageSpan,
+  maxRangeSpan,
   historyFloor,
   maxRanges,
 }: {
   pageToExclusive: number;
   pageSpan: number;
+  maxRangeSpan: number;
   historyFloor: number;
   maxRanges: number;
 }) {
   const ranges: IMarketKlineRange[] = [];
   let rangeTo = pageToExclusive;
-  let rangeSpan = Math.max(1, Math.floor(pageSpan));
+  let rangeSpan = Math.min(maxRangeSpan, Math.max(1, Math.floor(pageSpan)));
 
   for (
     let rangeIndex = 0;
@@ -80,7 +82,7 @@ function buildMarketKlineRangeWave({
     }
     rangeTo = rangeFrom;
     rangeSpan = Math.min(
-      Number.MAX_SAFE_INTEGER,
+      maxRangeSpan,
       rangeSpan * MARKET_KLINE_RANGE_EXPANSION_FACTOR,
     );
   }
@@ -100,11 +102,19 @@ export async function fetchMarketKlineBackfill({
 }: IFetchMarketKlineBackfillParams): Promise<IMarketTokenKLineResponse> {
   const pointsByTimestamp = new Map<number, IMarketTokenKLineDataPoint>();
   const normalizedIntervalSeconds = Math.max(1, Math.floor(intervalSeconds));
+  // The remote endpoint limits time slots before removing empty candles.
+  // Keep every range within the smallest known slot capacity so a sparse
+  // response cannot silently hide an earlier part of the requested range.
+  const maxRangeSpan =
+    normalizedIntervalSeconds * MARKET_KLINE_MIN_REMOTE_PAGE_CAPACITY;
   const maxRangesPerWave =
     stopAfterCount < targetCount ? 1 : MARKET_KLINE_MAX_PARALLEL_RANGES;
-  let pageSpan = Math.max(
-    normalizedIntervalSeconds * targetCount,
-    requestTimeTo - Math.min(requestTimeTo, requestTimeFrom),
+  let pageSpan = Math.min(
+    maxRangeSpan,
+    Math.max(
+      normalizedIntervalSeconds * targetCount,
+      requestTimeTo - Math.min(requestTimeTo, requestTimeFrom),
+    ),
   );
   let pageToExclusive = requestTimeTo;
   let coveredFrom = requestTimeTo;
@@ -119,6 +129,7 @@ export async function fetchMarketKlineBackfill({
     const ranges = buildMarketKlineRangeWave({
       pageToExclusive,
       pageSpan,
+      maxRangeSpan,
       historyFloor,
       maxRanges: maxRangesPerWave,
     });
@@ -180,9 +191,9 @@ export async function fetchMarketKlineBackfill({
         break;
       }
 
-      // The smallest known endpoint cap is 200 bars. A response below that
-      // limit proves this complete half-open range was not truncated, so
-      // adjacent sparse ranges can be committed together safely.
+      // The range itself is bounded by the smallest known endpoint slot
+      // capacity, so a response below the point cap verifies this complete
+      // half-open range even when most slots contain no candle.
       nextPageToExclusive = range.timeFrom;
       coveredFrom = Math.min(coveredFrom, range.timeFrom);
       verifiedSecondsInWave += range.timeTo - range.timeFrom;
@@ -213,19 +224,25 @@ export async function fetchMarketKlineBackfill({
 
     const missingCount = Math.max(1, targetCount - pointsByTimestamp.size);
     if (newPointCountInWave > 0) {
-      pageSpan = Math.max(
-        normalizedIntervalSeconds * missingCount,
-        Math.ceil(
-          (Math.max(normalizedIntervalSeconds, verifiedSecondsInWave) /
-            newPointCountInWave) *
-            missingCount *
-            MARKET_KLINE_SPARSE_RANGE_BUFFER,
+      pageSpan = Math.min(
+        maxRangeSpan,
+        Math.max(
+          normalizedIntervalSeconds * missingCount,
+          Math.ceil(
+            (Math.max(normalizedIntervalSeconds, verifiedSecondsInWave) /
+              newPointCountInWave) *
+              missingCount *
+              MARKET_KLINE_SPARSE_RANGE_BUFFER,
+          ),
         ),
       );
     } else {
-      pageSpan = Math.max(
-        normalizedIntervalSeconds * missingCount,
-        largestRangeSpan * MARKET_KLINE_RANGE_EXPANSION_FACTOR,
+      pageSpan = Math.min(
+        maxRangeSpan,
+        Math.max(
+          normalizedIntervalSeconds * missingCount,
+          largestRangeSpan * MARKET_KLINE_RANGE_EXPANSION_FACTOR,
+        ),
       );
     }
     pageToExclusive = nextPageToExclusive;
