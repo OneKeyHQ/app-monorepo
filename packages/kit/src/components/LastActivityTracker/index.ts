@@ -46,7 +46,7 @@ const LastActivityTracker = () => {
       });
       void reportInstallAttribution().catch((error) => {
         console.warn(
-          '[InstallAttribution] Google Play attribution report failed',
+          '[InstallAttribution] Attribution report failed',
           error instanceof Error ? error.message : 'unknown_error',
         );
       });
