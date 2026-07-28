@@ -29,6 +29,7 @@ import type {
 const MAX_READ_BYTES = 256 * 1024;
 const MAX_BRIDGE_BINARY_BYTES = 4 * 1024 * 1024;
 const TOTAL_DEADLINE_MS = 30 * 60 * 1000;
+const MAX_ATTEMPT_DEADLINE_MS = 15 * 60 * 1000;
 const MAX_PINNED_CANDIDATES = 3;
 const activeArtifactDownloadCounts = new Map<string, number>();
 const FIRMWARE_CAPABILITY_KEYS = [
@@ -71,7 +72,7 @@ export const isExternalFirmwareCapabilityReady = (
 };
 
 export type IFirmwareArtifactReference = FirmwareArtifactReference;
-export type IFirmwareArtifactReader = FirmwareArtifactReader;
+type IFirmwareArtifactReader = FirmwareArtifactReader;
 
 export type IPreparedFirmwareArtifacts = {
   transactionId: string;
@@ -108,9 +109,14 @@ export type IBridgeFirmwareBinaries = {
   targetBinaries: Partial<Record<IBridgeBinaryTarget, ArrayBuffer>>;
 };
 
-const isRetryableRouteError = (error: unknown): boolean => {
+export const isRetryableRouteError = (error: unknown): boolean => {
   const message = error instanceof Error ? error.message : String(error);
-  if (message.includes('ARTIFACT_NETWORK_FAILED')) return true;
+  if (
+    message.includes('ARTIFACT_NETWORK_FAILED') ||
+    message.includes('ARTIFACT_DEADLINE_EXCEEDED')
+  ) {
+    return true;
+  }
   const status = /\bARTIFACT_HTTP_(\d{3})\b/u.exec(message)?.[1];
   if (!status) return false;
   const code = Number(status);
@@ -228,6 +234,14 @@ export const downloadTrustedFirmwareArtifact = async ({
         );
       }
       const attemptStartedAt = Date.now();
+      const remainingRouteCount = routes.length - candidateIndex;
+      const attemptDeadlineMs = Math.max(
+        1,
+        Math.min(
+          MAX_ATTEMPT_DEADLINE_MS,
+          Math.floor(remainingMs / remainingRouteCount),
+        ),
+      );
       try {
         const receipt = await firmwareArtifactAdapter.download({
           taskId: `fw-${artifact.expectedSha256.slice(0, 24)}`,
@@ -239,17 +253,21 @@ export const downloadTrustedFirmwareArtifact = async ({
           expectedSize: artifact.expectedSize,
           expectedSha256: artifact.expectedSha256,
           maxBytes: artifact.expectedSize,
-          overallDeadlineSeconds: remainingMs / 1000,
+          overallDeadlineSeconds: attemptDeadlineMs / 1000,
         });
         defaultLogger.ipTable.request.info({
-          info: `firmware_artifact route=${route.routeType} outcome=success candidateIndex=${candidateIndex} durationMs=${
+          info: `firmware_artifact route=${
+            route.routeType
+          } outcome=success candidateIndex=${candidateIndex} durationMs=${
             Date.now() - attemptStartedAt
           } bytes=${receipt.size} retry=${candidateIndex}`,
         });
         return assertReceipt(receipt, artifact);
       } catch (error) {
         defaultLogger.ipTable.request.info({
-          info: `firmware_artifact route=${route.routeType} outcome=failure candidateIndex=${candidateIndex} durationMs=${
+          info: `firmware_artifact route=${
+            route.routeType
+          } outcome=failure candidateIndex=${candidateIndex} durationMs=${
             Date.now() - attemptStartedAt
           } bytes=0 retry=${candidateIndex}`,
         });
@@ -327,9 +345,11 @@ const assertPlanArtifactMatchesCatalog = ({
     !roleMatches ||
     planArtifact.container !== trustedArtifact.container ||
     planArtifact.logicalName !== trustedArtifact.logicalName ||
-    planArtifact.expectedSize !== trustedArtifact.expectedSize ||
-    planArtifact.expectedSha256?.toLowerCase() !==
-      trustedArtifact.expectedSha256.toLowerCase()
+    (planArtifact.expectedSize !== undefined &&
+      planArtifact.expectedSize !== trustedArtifact.expectedSize) ||
+    (planArtifact.expectedSha256 !== undefined &&
+      planArtifact.expectedSha256.toLowerCase() !==
+        trustedArtifact.expectedSha256.toLowerCase())
   ) {
     throw new OneKeyLocalError(
       'Firmware update plan does not match the bundled catalog',
@@ -387,13 +407,7 @@ const getBridgeBinaryPlanArtifacts = (
       (artifact) => artifact.role === 'component',
     );
     return components.length > 0 &&
-      components.every(
-        (artifact) =>
-          artifact.container === 'raw' &&
-          Number.isSafeInteger(artifact.expectedSize) &&
-          (artifact.expectedSize ?? 0) > 0 &&
-          (artifact.expectedSize ?? 0) <= MAX_BRIDGE_BINARY_BYTES,
-      )
+      components.every((artifact) => artifact.container === 'raw')
       ? components
       : [];
   }
@@ -402,10 +416,7 @@ const getBridgeBinaryPlanArtifacts = (
       (artifact.role === 'firmware' ||
         artifact.role === 'ble' ||
         artifact.role === 'bootloader') &&
-      artifact.container === 'raw' &&
-      Number.isSafeInteger(artifact.expectedSize) &&
-      (artifact.expectedSize ?? 0) > 0 &&
-      (artifact.expectedSize ?? 0) <= MAX_BRIDGE_BINARY_BYTES,
+      artifact.container === 'raw',
   );
 };
 

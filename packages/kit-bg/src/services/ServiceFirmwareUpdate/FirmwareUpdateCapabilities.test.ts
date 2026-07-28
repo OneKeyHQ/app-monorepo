@@ -1,6 +1,7 @@
 import { EFirmwareType } from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IIpTableConfigWithRuntime } from '@onekeyhq/shared/src/request/types/ipTable';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
@@ -13,6 +14,7 @@ import {
   getBridgeFirmwareV4BinaryParams,
   isExternalFirmwareCapabilityReady,
   isFirmwareArtifactCapabilityReadyValue,
+  isRetryableRouteError,
   orderFirmwareArtifactRoutes,
   prepareBridgeFirmwareBinaries,
   prepareFirmwareArtifacts,
@@ -165,6 +167,66 @@ describe('prepared firmware execution', () => {
     ).toThrow('Firmware host binding is unavailable');
     expect(firmwareUpdateV2).not.toHaveBeenCalled();
   });
+
+  test('applies the rollout gate to Desktop Bridge at cache and execution time', async () => {
+    const previousPlatform = {
+      isDesktop: platformEnv.isDesktop,
+      appPlatform: platformEnv.appPlatform,
+      symbol: platformEnv.symbol,
+    };
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      appPlatform: 'desktop',
+      symbol: 'desktop',
+    });
+    try {
+      jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
+        firmwareArtifactProtocolVersion: 2,
+        maxReadBytes: 256 * 1024,
+        supportsArchiveMaterialization: true,
+        supportedRouteTypes: ['domain', 'pinnedIp'],
+      });
+      const controller = createController();
+      const plan = {
+        planDigest: 'a'.repeat(64),
+        deviceIdentity: 'device',
+        deviceModel: 'pro',
+        platform: 'desktop',
+        artifacts: [],
+      } as unknown as FirmwareUpdatePlan;
+      jest
+        .spyOn(
+          controller as unknown as {
+            evaluateRollout: () => Promise<{ allowed: boolean }>;
+          },
+          'evaluateRollout',
+        )
+        .mockResolvedValue({ allowed: false });
+
+      await expect(
+        controller.cachePlanIfPreparedSupported({
+          plan,
+          connectId: 'device',
+          transportType: EHardwareTransportType.Bridge,
+        }),
+      ).resolves.toBe(false);
+
+      (
+        controller as unknown as {
+          plans: Map<string, FirmwareUpdatePlan>;
+        }
+      ).plans.set(plan.planDigest, plan);
+      await expect(
+        controller.prepareWorkflowArtifacts({
+          firmwareUpdatePlanDigest: plan.planDigest,
+          deviceUUID: 'device',
+          deviceType: 'pro',
+        } as unknown as ICheckAllFirmwareReleaseResult),
+      ).rejects.toThrow('Firmware external rollout is unavailable');
+    } finally {
+      Object.assign(platformEnv, previousPlatform);
+    }
+  });
 });
 
 describe('orderFirmwareArtifactRoutes', () => {
@@ -246,6 +308,75 @@ describe('orderFirmwareArtifactRoutes', () => {
       { routeType: 'pinnedIp', resolvedIp: '2.2.2.2' },
       { routeType: 'domain' },
     ]);
+  });
+
+  test('treats native network and deadline errors as retryable route failures', () => {
+    expect(
+      isRetryableRouteError(
+        new Error('ARTIFACT_NETWORK_FAILED: firmware request failed'),
+      ),
+    ).toBe(true);
+    expect(
+      isRetryableRouteError(
+        new Error(
+          'ARTIFACT_DEADLINE_EXCEEDED: firmware download exceeded its deadline',
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      isRetryableRouteError(
+        new Error('ARTIFACT_TLS_FAILED: firmware TLS validation failed'),
+      ),
+    ).toBe(false);
+  });
+
+  test('reserves deadline for the next route after a stalled attempt', async () => {
+    const artifact = await getTrustedFirmwareArtifact(
+      'https://common.onekey-asset.com/hw/legacy/bootloader/classic/2.0.0/classic-boot.2.0.0-0510-6d616dc.signed.bin',
+    );
+    mockGetIpTableConfig.mockResolvedValue({
+      ...configWithRuntime,
+      config: {
+        ...configWithRuntime.config,
+        domains: {
+          'common.onekey-asset.com': {
+            endpoints: [
+              { ip: '1.1.1.1', provider: 'a', region: 'CN', weight: 100 },
+            ],
+          },
+        },
+      },
+    });
+    const download = jest
+      .spyOn(firmwareArtifactAdapter, 'download')
+      .mockRejectedValueOnce(
+        new Error(
+          'ARTIFACT_DEADLINE_EXCEEDED: firmware download exceeded its deadline',
+        ),
+      )
+      .mockResolvedValueOnce({
+        artifactRef: `fw:${artifact.expectedSha256}`,
+        size: artifact.expectedSize,
+        sha256: artifact.expectedSha256,
+      });
+
+    await expect(
+      downloadTrustedFirmwareArtifact({
+        artifact,
+        artifactId: 'bootloader',
+        transactionId: 'fwtx:deadline',
+        leaseRef: 'fwlease:deadline',
+        deadlineAt: Date.now() + 10_000,
+      }),
+    ).resolves.toMatchObject({
+      artifactRef: `fw:${artifact.expectedSha256}`,
+    });
+
+    expect(download).toHaveBeenCalledTimes(2);
+    expect(
+      download.mock.calls[0][0].overallDeadlineSeconds,
+    ).toBeLessThanOrEqual(5);
+    expect(download.mock.calls[1][0].route.routeType).toBe('pinnedIp');
   });
 
   test('fails closed on TLS errors without trying another route', async () => {
@@ -361,6 +492,45 @@ describe('Desktop Bridge firmware binaries', () => {
       leaseRef: 'fwlease:test',
       disposition: 'completed',
     });
+  });
+
+  test('uses the bundled catalog when optional plan integrity fields are absent', async () => {
+    const { plan, trusted } = await createBridgePlan();
+    delete plan.artifacts[0].expectedSize;
+    delete plan.artifacts[0].expectedSha256;
+    jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
+      firmwareArtifactProtocolVersion: 2,
+      maxReadBytes: 256 * 1024,
+      supportsArchiveMaterialization: true,
+      supportedRouteTypes: ['domain', 'pinnedIp'],
+    });
+    jest
+      .spyOn(firmwareArtifactAdapter, 'createLease')
+      .mockResolvedValue({ leaseRef: 'fwlease:catalog' });
+    const download = jest
+      .spyOn(firmwareArtifactAdapter, 'download')
+      .mockResolvedValue({
+        artifactRef: `fw:${trusted.expectedSha256}`,
+        size: trusted.expectedSize,
+        sha256: trusted.expectedSha256,
+      });
+    jest.spyOn(firmwareArtifactAdapter, 'open').mockResolvedValue({
+      readerId: 'reader',
+      size: trusted.expectedSize,
+    });
+    jest
+      .spyOn(firmwareArtifactAdapter, 'read')
+      .mockImplementation(async ({ length }) => new ArrayBuffer(length));
+    jest.spyOn(firmwareArtifactAdapter, 'close').mockResolvedValue();
+    jest.spyOn(firmwareArtifactAdapter, 'releaseLease').mockResolvedValue();
+
+    await expect(prepareBridgeFirmwareBinaries(plan)).resolves.toBeDefined();
+    expect(download).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedSize: trusted.expectedSize,
+        expectedSha256: trusted.expectedSha256,
+      }),
+    );
   });
 
   test('cancels an active preparation without trying another route', async () => {

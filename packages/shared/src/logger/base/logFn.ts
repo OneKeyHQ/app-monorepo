@@ -77,7 +77,7 @@ function processEntry(entry: ILogEntry) {
         //   web/ext: consoleFunc in utils/index.ts
         //   desktop: file.format hook in apps/desktop/app/logger.ts
         //   native:  OneKeyLog.swift / OneKeyLog.kt
-        if (!platformEnv.isWebEmbed && (shouldLog || metadata.always)) {
+        if (!platformEnv.isWebEmbed && shouldLog) {
           const logger = getLoggerExtension('');
           logger[metadata.level || 'info'](getMsg());
           if (metadata.level === 'error' && platformEnv.isDev) {
@@ -91,7 +91,7 @@ function processEntry(entry: ILogEntry) {
         break;
       case 'console':
       default:
-        if (shouldLog || metadata.always) {
+        if (shouldLog) {
           if (platformEnv.isNative) {
             console[metadata.level || 'info'](
               `${entry.timestamp()} ${getMsg()}`,
