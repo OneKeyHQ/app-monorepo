@@ -155,6 +155,48 @@ describe('resolvePrimeInfiniPaymentRestore', () => {
     expect(persistRestoredSession).not.toHaveBeenCalled();
   });
 
+  // Writing on every restore refreshed updatedAt, and sendStarted only ever
+  // latches on, so a session blocking the purchase entry had its age reset each
+  // time the user opened the page and the age limit never released it.
+  it('does not rewrite a session when the restore learned nothing', async () => {
+    const persistRestoredSession = jest.fn(
+      async (nextSession: IPrimeInfiniPendingPaymentSession) => nextSession,
+    );
+    const session = buildSession({ sendStarted: true });
+
+    const result = await resolvePrimeInfiniPaymentRestore({
+      ...baseParams,
+      session,
+      fetchLatestPayment: async () => session.payment,
+      persistRestoredSession,
+      discardPaymentSession: async () => true,
+    });
+
+    expect(result.type).toBe('restore');
+    expect(persistRestoredSession).not.toHaveBeenCalled();
+  });
+
+  it('rewrites a session when the server reports new progress', async () => {
+    const persistRestoredSession = jest.fn(
+      async (nextSession: IPrimeInfiniPendingPaymentSession) => nextSession,
+    );
+    const session = buildSession({ sendStarted: true });
+
+    const result = await resolvePrimeInfiniPaymentRestore({
+      ...baseParams,
+      session,
+      fetchLatestPayment: async () => ({
+        ...session.payment,
+        amountConfirming: '0.5',
+      }),
+      persistRestoredSession,
+      discardPaymentSession: async () => true,
+    });
+
+    expect(result.type).toBe('restore');
+    expect(persistRestoredSession).toHaveBeenCalledTimes(1);
+  });
+
   it('fails closed when the fresh purchase status cannot be verified', async () => {
     const persistRestoredSession = jest.fn(
       async (nextSession: IPrimeInfiniPendingPaymentSession) => nextSession,

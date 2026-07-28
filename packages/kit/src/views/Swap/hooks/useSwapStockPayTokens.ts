@@ -7,7 +7,10 @@ import { isEqual } from 'lodash';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useSwapStockPayTokenPreferenceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  useSwapStockPayTokenDisplayAtom,
+  useSwapStockPayTokenPreferenceAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
@@ -25,10 +28,12 @@ import {
 
 import {
   ESwapStockChannelAsyncStatus,
+  buildStockPayTokenDisplaySeed,
   filterStockPayTokenCandidates,
   findTokenFromCandidates,
   getTokenIdentityKey,
   resolveStockPayTokenDisplaySeed,
+  upsertSwapStockPayTokenScopeCache,
 } from './swapStockChannelUtils';
 import { markStockUsdPriceCurrency } from './swapStockFiatValueUtils';
 import {
@@ -37,6 +42,7 @@ import {
   shouldRefreshStockPayTokensForHistoryEvent,
   shouldSyncStockPayTokenDetail,
 } from './swapStockPayTokenUtils';
+import { getSwapStockPayTokenDisplayFromGlobalSnapshot } from './useSwapColdStartDisplayTokens';
 
 const defaultSpeedSwapConfig: ISpeedSwapConfig = {
   provider: '',
@@ -171,6 +177,8 @@ export function useSwapStockPayTokens({
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [payTokenPreferenceByScope, setPayTokenPreferenceByScope] =
     useSwapStockPayTokenPreferenceAtom();
+  const [payTokenDisplayByScope, setPayTokenDisplayByScope] =
+    useSwapStockPayTokenDisplayAtom();
   const stockPayTokenPreferenceScope = useMemo(
     () =>
       buildStockPayTokenPreferenceScope({
@@ -187,6 +195,28 @@ export function useSwapStockPayTokens({
   const persistedStockPayTokenKey = stockPayTokenPreferenceScope
     ? (payTokenPreferenceByScope[stockPayTokenPreferenceScope] ?? '')
     : '';
+  const coldStartPayTokenDisplayRef = useRef<
+    | {
+        scope: string;
+        token?: ISwapToken;
+      }
+    | undefined
+  >(undefined);
+  if (
+    stockPayTokenPreferenceScope &&
+    coldStartPayTokenDisplayRef.current?.scope !== stockPayTokenPreferenceScope
+  ) {
+    coldStartPayTokenDisplayRef.current = {
+      scope: stockPayTokenPreferenceScope,
+      token: getSwapStockPayTokenDisplayFromGlobalSnapshot({
+        scope: stockPayTokenPreferenceScope,
+      }),
+    };
+  }
+  const persistedStockPayTokenDisplay = stockPayTokenPreferenceScope
+    ? (payTokenDisplayByScope[stockPayTokenPreferenceScope] ??
+      coldStartPayTokenDisplayRef.current?.token)
+    : undefined;
   const speedSwapConfigScope = stockNetworkId;
   const { result: speedSwapConfigState, isLoading: speedSwapConfigLoading } =
     usePromiseResult(
@@ -470,16 +500,21 @@ export function useSwapStockPayTokens({
   const displayPayTokenCandidate = useMemo(
     () =>
       resolveStockPayTokenDisplaySeed({
+        allowPersistedTokenFallback: !speedConfigReady || !payTokenDetailsReady,
         balances: payTokenBalances,
         candidates: selectablePayTokens,
+        persistedToken: persistedStockPayTokenDisplay,
         persistedTokenKey: persistedStockPayTokenKey,
         selectedToken: payToken,
       }),
     [
       payToken,
       payTokenBalances,
+      payTokenDetailsReady,
+      persistedStockPayTokenDisplay,
       persistedStockPayTokenKey,
       selectablePayTokens,
+      speedConfigReady,
     ],
   );
   const displayPayToken = displayPayTokenCandidate as ISwapToken | undefined;
@@ -536,15 +571,52 @@ export function useSwapStockPayTokens({
       if (prev[stockPayTokenPreferenceScope] === manualPayTokenKey) {
         return prev;
       }
-      return {
-        ...prev,
-        [stockPayTokenPreferenceScope]: manualPayTokenKey,
-      };
+      return upsertSwapStockPayTokenScopeCache({
+        cache: prev,
+        scope: stockPayTokenPreferenceScope,
+        value: manualPayTokenKey,
+      });
     });
   }, [
     manualStockPayTokenKeyRef,
     payToken,
     setPayTokenPreferenceByScope,
+    stockPayTokenPreferenceScope,
+  ]);
+
+  useEffect(() => {
+    if (
+      !stockPayTokenPreferenceScope ||
+      !payTokenDetailsReady ||
+      !displayPayTokenCandidate
+    ) {
+      return;
+    }
+    const liveDisplayPayToken = findTokenFromCandidates({
+      candidates: selectablePayTokens,
+      token: displayPayTokenCandidate,
+    });
+    if (!liveDisplayPayToken) {
+      return;
+    }
+    const nextDisplaySeed = buildStockPayTokenDisplaySeed(
+      liveDisplayPayToken as ISwapToken,
+    );
+    setPayTokenDisplayByScope((prev) => {
+      if (isEqual(prev[stockPayTokenPreferenceScope], nextDisplaySeed)) {
+        return prev;
+      }
+      return upsertSwapStockPayTokenScopeCache({
+        cache: prev,
+        scope: stockPayTokenPreferenceScope,
+        value: nextDisplaySeed,
+      });
+    });
+  }, [
+    displayPayTokenCandidate,
+    payTokenDetailsReady,
+    selectablePayTokens,
+    setPayTokenDisplayByScope,
     stockPayTokenPreferenceScope,
   ]);
 
@@ -576,7 +648,10 @@ export function useSwapStockPayTokens({
       return;
     }
 
-    const nextPayToken = displayPayTokenCandidate;
+    const nextPayToken = findTokenFromCandidates({
+      candidates: selectablePayTokens,
+      token: displayPayTokenCandidate,
+    });
     if (!nextPayToken) {
       return;
     }

@@ -45,10 +45,6 @@ import type {
   IBabylonPortfolioItem,
   IBorrowApyHistoryItem,
   IBorrowAssetsList,
-  IBorrowCheckAmount,
-  IBorrowEModeStatus,
-  IBorrowEModeSwitchCheck,
-  IBorrowEstimateFee,
   IBorrowFaqList,
   IBorrowHealthFactor,
   IBorrowHistory,
@@ -58,7 +54,6 @@ import type {
   IBorrowReserveItem,
   IBorrowReserveRequestParams,
   IBorrowRewards,
-  IBorrowTransactionConfirmation,
   IBorrowUnsignedTransaction,
   IBuildPermit2ApproveSignDataParams,
   IBuildRegisterSignMessageParams,
@@ -168,6 +163,9 @@ interface IEarnBatchInvestmentDetailResponse {
   items: IEarnInvestmentItemV2[];
   errors: IEarnBatchInvestmentDetailError[];
 }
+
+const loadBorrowActionServiceUtils = () =>
+  import('./utils/borrowActionServiceUtils');
 
 @backgroundClass()
 class ServiceStaking extends ServiceBase {
@@ -2450,7 +2448,7 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getBorrowTransactionConfirmation(params: {
+  getBorrowTransactionConfirmation(params: {
     networkId: string;
     provider: string;
     marketAddress: string;
@@ -2471,28 +2469,9 @@ class ServiceStaking extends ServiceBase {
     collateralReserveAddress?: string;
     slippageBps?: number;
   }) {
-    const { accountId, amount, ...rest } =
-      earnUtils.normalizeBorrowAddressParams(params);
-
-    const amountNumber = BigNumber(amount || 0);
-
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId: params.networkId,
-        accountId,
-      });
-
-    const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const response = await client.get<{
-      data: IBorrowTransactionConfirmation;
-    }>('/earn/v1/borrow/transaction-confirmation', {
-      params: {
-        ...rest,
-        amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
-        accountAddress,
-      },
-    });
-    return response.data.data;
+    return loadBorrowActionServiceUtils().then((utils) =>
+      utils.getBorrowTransactionConfirmation(this, params),
+    );
   }
 
   @backgroundMethod()
@@ -2524,7 +2503,7 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async borrowBuildWithdrawTransaction(params: {
+  borrowBuildWithdrawTransaction(params: {
     networkId: string;
     provider: string;
     marketAddress: string;
@@ -2534,29 +2513,13 @@ class ServiceStaking extends ServiceBase {
     withdrawAll?: boolean;
     unwrap?: boolean;
   }) {
-    const { accountId, withdrawAll, unwrap, ...rest } =
-      earnUtils.normalizeBorrowAddressParams(params);
-
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId: params.networkId,
-        accountId,
-      });
-
-    const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const response = await client.post<{
-      data: IBorrowUnsignedTransaction;
-    }>('/earn/v1/borrow/build-withdraw-transaction', {
-      ...rest,
-      accountAddress,
-      ...(withdrawAll !== undefined ? { withdrawAll } : {}),
-      ...(unwrap !== undefined ? { unwrap } : {}),
-    });
-    return response.data.data;
+    return loadBorrowActionServiceUtils().then((utils) =>
+      utils.borrowBuildWithdrawTransaction(this, params),
+    );
   }
 
   @backgroundMethod()
-  async borrowBuildBorrowTransaction(params: {
+  borrowBuildBorrowTransaction(params: {
     networkId: string;
     provider: string;
     marketAddress: string;
@@ -2565,51 +2528,22 @@ class ServiceStaking extends ServiceBase {
     amount: string;
     unwrap?: boolean;
   }) {
-    const { accountId, unwrap, ...rest } =
-      earnUtils.normalizeBorrowAddressParams(params);
-
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId: params.networkId,
-        accountId,
-      });
-
-    const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const response = await client.post<{
-      data: IBorrowUnsignedTransaction;
-    }>('/earn/v1/borrow/build-borrow-transaction', {
-      ...rest,
-      accountAddress,
-      ...(unwrap !== undefined ? { unwrap } : {}),
-    });
-    return response.data.data;
+    return loadBorrowActionServiceUtils().then((utils) =>
+      utils.borrowBuildBorrowTransaction(this, params),
+    );
   }
 
   @backgroundMethod()
-  async borrowBuildApproveDelegationTransaction(params: {
+  borrowBuildApproveDelegationTransaction(params: {
     networkId: string;
     provider: string;
     marketAddress: string;
     reserveAddress: string;
     accountId: string;
   }) {
-    const { accountId, ...rest } =
-      earnUtils.normalizeBorrowAddressParams(params);
-
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId: params.networkId,
-        accountId,
-      });
-
-    const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const response = await client.post<{
-      data: IBorrowUnsignedTransaction;
-    }>('/earn/v1/borrow/build-approve-delegation-transaction', {
-      ...rest,
-      accountAddress,
-    });
-    return response.data.data;
+    return loadBorrowActionServiceUtils().then((utils) =>
+      utils.borrowBuildApproveDelegationTransaction(this, params),
+    );
   }
 
   @backgroundMethod()
@@ -2860,29 +2794,19 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getBorrowEModeStatus(params: {
+  getBorrowEModeStatus(params: {
     networkId: string;
     provider: string;
     marketAddress: string;
     accountId: string;
   }) {
-    const { accountId, ...rest } =
-      earnUtils.normalizeBorrowAddressParams(params);
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId: params.networkId,
-        accountId,
-      });
-    const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const response = await client.get<{ data: IBorrowEModeStatus }>(
-      '/earn/v1/borrow/e-mode/status',
-      { params: { ...rest, accountAddress } },
+    return loadBorrowActionServiceUtils().then((utils) =>
+      utils.getBorrowEModeStatus(this, params),
     );
-    return response.data.data;
   }
 
   @backgroundMethod()
-  async borrowSwitchCheckEMode(params: {
+  borrowSwitchCheckEMode(params: {
     networkId: string;
     provider: string;
     marketAddress: string;
@@ -2890,58 +2814,26 @@ class ServiceStaking extends ServiceBase {
     targetEModeId: number;
     autoHandleError?: boolean;
   }) {
-    const { accountId, autoHandleError, ...rest } =
-      earnUtils.normalizeBorrowAddressParams(params);
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId: params.networkId,
-        accountId,
-      });
-    const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const requestConfig:
-      | (Parameters<typeof client.post>[2] & {
-          autoHandleError?: boolean;
-        })
-      | undefined =
-      autoHandleError === false ? { autoHandleError: false } : undefined;
-    // switch-check is an envelope { code, message, data }
-    const response = await client.post<{
-      code: number;
-      message: string;
-      data: IBorrowEModeSwitchCheck;
-    }>(
-      '/earn/v1/borrow/e-mode/switch-check',
-      { ...rest, accountAddress },
-      requestConfig,
+    return loadBorrowActionServiceUtils().then((utils) =>
+      utils.borrowSwitchCheckEMode(this, params),
     );
-    return response.data;
   }
 
   @backgroundMethod()
-  async borrowBuildSetEModeTransaction(params: {
+  borrowBuildSetEModeTransaction(params: {
     networkId: string;
     provider: string;
     marketAddress: string;
     accountId: string;
     eModeId: number;
   }) {
-    const { accountId, ...rest } =
-      earnUtils.normalizeBorrowAddressParams(params);
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId: params.networkId,
-        accountId,
-      });
-    const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const response = await client.post<{ data: IBorrowUnsignedTransaction }>(
-      '/earn/v1/borrow/build-set-emode-transaction',
-      { ...rest, accountAddress },
+    return loadBorrowActionServiceUtils().then((utils) =>
+      utils.borrowBuildSetEModeTransaction(this, params),
     );
-    return response.data.data;
   }
 
   @backgroundMethod()
-  async borrowBuildSetCollateralTransaction(params: {
+  borrowBuildSetCollateralTransaction(params: {
     networkId: string;
     provider: string;
     marketAddress: string;
@@ -2950,23 +2842,13 @@ class ServiceStaking extends ServiceBase {
     useAsCollateral: boolean;
     eModeId?: number;
   }) {
-    const { accountId, ...rest } =
-      earnUtils.normalizeBorrowAddressParams(params);
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId: params.networkId,
-        accountId,
-      });
-    const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const response = await client.post<{ data: IBorrowUnsignedTransaction }>(
-      '/earn/v1/borrow/build-set-collateral-transaction',
-      { ...rest, accountAddress },
+    return loadBorrowActionServiceUtils().then((utils) =>
+      utils.borrowBuildSetCollateralTransaction(this, params),
     );
-    return response.data.data;
   }
 
   @backgroundMethod()
-  async getBorrowCheckAmount(params: {
+  getBorrowCheckAmount(params: {
     networkId: string;
     provider: string;
     marketAddress: string;
@@ -2977,35 +2859,13 @@ class ServiceStaking extends ServiceBase {
     repayAll?: boolean;
     collateralReserveAddress?: string;
   }) {
-    const { accountId, amount, repayAll, ...rest } =
-      earnUtils.normalizeBorrowAddressParams(params);
-
-    const amountNumber = BigNumber(amount || 0);
-
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId: params.networkId,
-        accountId,
-      });
-
-    const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const response = await client.get<{
-      code: number;
-      message: string;
-      data: IBorrowCheckAmount;
-    }>('/earn/v1/borrow/check-amount', {
-      params: {
-        ...rest,
-        amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
-        accountAddress,
-        ...(repayAll !== undefined ? { repayAll } : {}),
-      },
-    });
-    return response.data;
+    return loadBorrowActionServiceUtils().then((utils) =>
+      utils.getBorrowCheckAmount(this, params),
+    );
   }
 
   @backgroundMethod()
-  async getBorrowEstimateFee(params: {
+  getBorrowEstimateFee(params: {
     networkId: string;
     provider: string;
     marketAddress: string;
@@ -3016,32 +2876,9 @@ class ServiceStaking extends ServiceBase {
     withdrawAll?: boolean;
     repayAll?: boolean;
   }) {
-    const { accountId, amount, withdrawAll, repayAll, ...rest } =
-      earnUtils.normalizeBorrowAddressParams(params);
-
-    const amountNumber = BigNumber(amount || 0);
-
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId: params.networkId,
-        accountId,
-      });
-
-    const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const response = await client.get<{
-      code: number;
-      message: string;
-      data: IBorrowEstimateFee;
-    }>('/earn/v1/borrow/estimate-fee', {
-      params: {
-        ...rest,
-        amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
-        ...(withdrawAll !== undefined ? { withdrawAll } : {}),
-        ...(repayAll !== undefined ? { repayAll } : {}),
-        accountAddress,
-      },
-    });
-    return response.data.data;
+    return loadBorrowActionServiceUtils().then((utils) =>
+      utils.getBorrowEstimateFee(this, params),
+    );
   }
 
   @backgroundMethod()
