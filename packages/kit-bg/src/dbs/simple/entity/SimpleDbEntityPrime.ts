@@ -1606,10 +1606,14 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   async discardTerminalInfiniPendingPaymentSession({
     onekeyUserId,
     expectedPaymentCacheIdentity,
+    expectedUpdatedAt,
+    expectedSendStarted,
     latestPayment,
   }: {
     onekeyUserId: string;
     expectedPaymentCacheIdentity: IPrimeInfiniPaymentCacheKey;
+    expectedUpdatedAt: number;
+    expectedSendStarted: boolean;
     latestPayment: IPrimeInfiniPayment;
   }): Promise<boolean> {
     if (
@@ -1623,8 +1627,20 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       const now = Date.now();
       const currentSession =
         rawData?.infiniPendingPaymentSessionByUserId?.[onekeyUserId];
+      if (!currentSession) {
+        // Nothing left to release, which is the state the caller asked for.
+        // Reporting failure here would make the caller re-persist a session for
+        // an invoice the server already closed. Matches the idempotent success
+        // of discardUnsentInfiniPendingPaymentSession, tombstone included.
+        didDiscard = true;
+        return retireInfiniPaymentCache({
+          rawData: rawData ?? {},
+          onekeyUserId,
+          paymentCacheKey: expectedPaymentCacheIdentity,
+          now,
+        });
+      }
       if (
-        !currentSession ||
         !isValidInfiniPendingPaymentSession(currentSession, {
           onekeyUserId,
           now,
@@ -1633,7 +1649,28 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
           expectedPaymentCacheIdentity,
           currentSession.paymentCacheKey,
         ) ||
-        currentSession.payment.paymentId !== latestPayment.paymentId
+        currentSession.payment.paymentId !== latestPayment.paymentId ||
+        // Matching payment ids are not enough. A response carrying different
+        // transfer terms under the same id would have the merge adopt those
+        // terms and the delete then release a session whose original transfer
+        // can still settle. The progress latch already refuses that, and this
+        // deletes rather than marks, so it cannot be the looser of the two.
+        !isSamePrimeInfiniPaymentTransferSnapshot({
+          first: currentSession.payment,
+          second: latestPayment,
+          networkId: currentSession.asset.networkId,
+        }) ||
+        !isPrimeInfiniPaymentForAssetSnapshot({
+          payment: latestPayment,
+          asset: currentSession.asset,
+        }) ||
+        // The stored session must still be the exact revision the caller
+        // inspected. Another window can claim the same invoice while the
+        // terminal snapshot is in flight, and deleting that fresh claim would
+        // let the entry gate report no pending payment while the broadcast it
+        // already authorized is still on its way.
+        currentSession.updatedAt !== expectedUpdatedAt ||
+        currentSession.sendStarted !== expectedSendStarted
       ) {
         return rawData ?? {};
       }
