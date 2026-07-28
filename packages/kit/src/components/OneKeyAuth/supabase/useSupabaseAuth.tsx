@@ -4,6 +4,10 @@ import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  getSanitizedAuthErrorText,
+  throwLocalizedOneKeyIdLoginError,
+} from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -103,7 +107,8 @@ export function useSupabaseAuth() {
       // first (see extOneKeyIdAuthExpandTab); fail loudly if one slips
       // through instead of dying without any feedback.
       if (platformEnv.isExtensionUiPopup) {
-        // TODO: i18n
+        // This diagnostic is replaced with localized client copy at the
+        // signInWithSocialLogin boundary below.
         throw new OneKeyLocalError(
           'OAuth sign-in cannot run in the extension popup. Please continue in the expanded view.',
         );
@@ -193,11 +198,22 @@ export function useSupabaseAuth() {
       provider: EOAuthSocialLoginProvider,
     ): Promise<IOAuthSignInResult> => {
       return errorToastUtils.withErrorAutoToast(async () => {
-        const oauthResult = await performOAuthSignIn(provider);
-        return oauthResult;
+        try {
+          return await performOAuthSignIn(provider);
+        } catch (error) {
+          if (errorToastUtils.isUserCancelStyleError(error)) {
+            throw error;
+          }
+          throwLocalizedOneKeyIdLoginError({
+            intl,
+            reason: `OneKey ID OAuth sign-in failed: ${getSanitizedAuthErrorText(
+              error,
+            )}`,
+          });
+        }
       });
     },
-    [performOAuthSignIn],
+    [intl, performOAuthSignIn],
   );
 
   // ============ Email OTP Methods ============
@@ -230,11 +246,20 @@ export function useSupabaseAuth() {
               },
               { rest: seconds },
             );
-            throw new OneKeyLocalError(rateLimitMessage);
+            throw new OneKeyLocalError({
+              message: rateLimitMessage,
+              key: ETranslations.email_verification_rate_limit,
+              info: { rest: seconds },
+            });
           }
         }
 
-        throw new OneKeyLocalError(res.error.message);
+        throwLocalizedOneKeyIdLoginError({
+          intl,
+          reason: `OneKey ID email verification code request failed: ${getSanitizedAuthErrorText(
+            res.error,
+          )}`,
+        });
       }
       return res;
     },

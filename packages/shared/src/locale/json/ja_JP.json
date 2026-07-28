@@ -260,6 +260,7 @@
   "bluetooth.paring_guides_wait_for_confirmation_win": "続行するにはOneKeyに戻ってください",
   "bluetooth.permission_prompt": "OneKeyは接続のためにBluetoothが必要です。求められた際は許可してください",
   "bluetooth_paring_dialog_title": "デバイスとペアリング中…",
+  "boosted_ltv__title": "引き上げ後のLTV",
   "borrow_repay_with_collateral_unavailable__msg": "このアセットでは担保による返済を利用できません。更新してからもう一度お試しください。",
   "browser.bookmark": "ブックマーク",
   "browser.can_be_re_enabled_in_settings": "設定で再度有効にできます。",

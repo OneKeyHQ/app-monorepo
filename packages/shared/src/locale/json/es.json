@@ -260,6 +260,7 @@
   "bluetooth.paring_guides_wait_for_confirmation_win": "Vuelve a OneKey para continuar",
   "bluetooth.permission_prompt": "OneKey necesita Bluetooth para conectarse. Por favor, permítelo cuando se te solicite",
   "bluetooth_paring_dialog_title": "Emparejando con tu dispositivo…",
+  "boosted_ltv__title": "LTV aumentado",
   "borrow_repay_with_collateral_unavailable__msg": "El repago con garantía no está disponible para este activo. Actualiza e inténtalo de nuevo.",
   "browser.bookmark": "Marcar página",
   "browser.can_be_re_enabled_in_settings": "Se puede volver a habilitar en la configuración.",

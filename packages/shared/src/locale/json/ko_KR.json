@@ -260,6 +260,7 @@
   "bluetooth.paring_guides_wait_for_confirmation_win": "계속하려면 OneKey로 돌아가세요",
   "bluetooth.permission_prompt": "OneKey가 연결하려면 블루투스가 필요합니다. 요청 시 허용해 주세요.",
   "bluetooth_paring_dialog_title": "기기와 페어링 중…",
+  "boosted_ltv__title": "상향된 LTV",
   "borrow_repay_with_collateral_unavailable__msg": "이 자산은 담보로 상환할 수 없습니다. 새로고침 후 다시 시도하세요.",
   "browser.bookmark": "북마크",
   "browser.can_be_re_enabled_in_settings": "설정에서 다시 활성화할 수 있습니다.",
