@@ -160,24 +160,30 @@ describe('SwapStockDesktopContainer utils', () => {
     ).toBe(false);
   });
 
-  it('keeps a stale Stock quote in loading instead of disabled Review', () => {
-    expect(
-      shouldShowStockQuoteActionLoading({
+  it('keeps loading from a new input through its current quote request', () => {
+    const transitionStates = [
+      {
         inputAmount: '100',
         quoteEventCompleted: true,
         quoteRequestMatchesStockTrade: false,
-      }),
-    ).toBe(true);
-  });
+      },
+      {
+        inputAmount: '100',
+        quoteEventCompleted: false,
+        quoteRequestMatchesStockTrade: true,
+      },
+      {
+        inputAmount: '100',
+        quoteEventCompleted: true,
+        quoteRequestMatchesStockTrade: true,
+      },
+    ];
 
-  it('keeps a new Stock input loading before its quote request starts', () => {
-    expect(
-      shouldShowStockQuoteActionLoading({
-        inputAmount: '100',
-        quoteEventCompleted: true,
-        quoteRequestMatchesStockTrade: false,
-      }),
-    ).toBe(true);
+    expect(transitionStates.map(shouldShowStockQuoteActionLoading)).toEqual([
+      true,
+      true,
+      false,
+    ]);
   });
 
   it('does not turn current terminal or empty-input states into loading', () => {

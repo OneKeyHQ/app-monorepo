@@ -17,6 +17,7 @@ import {
   isSwapQuoteEventFetching,
   isSwapQuoteFromCurrentEvent,
   isSwapQuoteInputAmountMatched,
+  isSwapQuoteManualRefreshRequired,
   isSwapQuoteRequestForCurrentInput,
   isSwapZeroProviderQuoteCompleted,
   resolveSwapQuoteForDisplay,
@@ -682,6 +683,27 @@ describe('swap quote progress', () => {
         phase: ESwapQuoteUiPhase.HasQuote,
       }),
     ).toBe(currentErrorQuote);
+  });
+
+  it('requires manual refresh only for the current quote request', () => {
+    expect(
+      isSwapQuoteManualRefreshRequired({
+        shouldRefreshQuote: true,
+        quoteRequestMatchesCurrentInput: true,
+      }),
+    ).toBe(true);
+    expect(
+      isSwapQuoteManualRefreshRequired({
+        shouldRefreshQuote: true,
+        quoteRequestMatchesCurrentInput: false,
+      }),
+    ).toBe(false);
+    expect(
+      isSwapQuoteManualRefreshRequired({
+        shouldRefreshQuote: false,
+        quoteRequestMatchesCurrentInput: true,
+      }),
+    ).toBe(false);
   });
 
   it('offers refresh only after quote mismatch and request state settle', () => {

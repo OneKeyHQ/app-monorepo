@@ -1,6 +1,7 @@
 export const SwapTestIDs = {
   // Page
   pageContainer: 'swap-content-container', // preserve existing
+  typeTab: (type: string) => `swap-type-tab-${type}`,
 
   // Token selection
   fromTokenSelector: 'swap-from-token-selector',
@@ -39,6 +40,7 @@ export const SwapTestIDs = {
   // Stock
   stockBuyTab: 'swap-stock-buy-tab',
   stockSellTab: 'swap-stock-sell-tab',
+  stockAmountInputSkeleton: 'swap-stock-amount-input-skeleton',
   stockEstimatedReceive: 'swap-stock-estimated-receive',
   stockMobileContainer: 'swap-stock-mobile-container',
   stockMarketTokenHeader: 'swap-stock-market-token-header',
