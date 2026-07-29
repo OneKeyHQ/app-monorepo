@@ -22,6 +22,7 @@ import { normalizeUnifoldIconUrl } from './unifoldFormat';
 const QR_SIZE = 200;
 const QR_CODE_PADDING = 10;
 const QR_CODE_SIZE = QR_SIZE - QR_CODE_PADDING;
+const QR_QUIET_ZONE_MODULES = 4;
 const QR_LOGO_SIZE = 56;
 const QR_LOGO_MARGIN = 4;
 const UNIFOLD_TERMS_URL = 'https://unifold.io/terms';
@@ -119,6 +120,7 @@ export function UnifoldDepositQRCard({
             value={address}
             size={QR_CODE_SIZE}
             padding={QR_CODE_PADDING}
+            quietZoneModules={QR_QUIET_ZONE_MODULES}
             drawType="dot"
             logo={
               normalizedChainIconUri
