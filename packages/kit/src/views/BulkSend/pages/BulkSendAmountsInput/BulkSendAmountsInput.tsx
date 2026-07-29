@@ -1049,11 +1049,16 @@ function BulkSendAmountsInputContent({
   // shown on this page are display-basis; ITransferInfo.amount must stay raw.
   // One multiplier for the whole page is correct because every transfer moves
   // the same token. Native coins can never legitimately carry a multiplier —
-  // same guard as the Send page.
+  // same guard as the Send page. When the details poll fails and clears
+  // matchedTokenDetails, fall back to the route token snapshot so the
+  // display-to-raw conversion at submit never silently degrades to a no-op;
+  // a live detail overrides the snapshot whenever it exists (same pattern as
+  // TokenDetailsHeader).
   const rebaseMultiplier = useMemo(
     () =>
       tokenInfo && !tokenInfo.isNative
-        ? tokenRebaseUtils.pickBalanceMultiplier(matchedTokenDetails)
+        ? (tokenRebaseUtils.pickBalanceMultiplier(matchedTokenDetails) ??
+          tokenInfo.balanceMultiplier)
         : undefined,
     [tokenInfo, matchedTokenDetails],
   );
