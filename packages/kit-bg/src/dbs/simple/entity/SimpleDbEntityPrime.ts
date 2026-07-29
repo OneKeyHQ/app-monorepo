@@ -351,6 +351,7 @@ export type IIdentityExitJournalEntry = {
     source: EPrimeAuthSessionSource;
     sessionCommitId: string;
     sessionTokenSub?: string;
+    allowSourceLessPreUpgrade?: boolean;
   };
   keyless?: {
     walletId: string;

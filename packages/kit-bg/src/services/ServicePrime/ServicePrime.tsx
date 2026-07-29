@@ -243,6 +243,17 @@ type IKeylessOAuthSessionRollbackRecord = {
   expiryTimer?: ReturnType<typeof setTimeout>;
 };
 
+type ISourceLessOneKeyIdRecoveryResult =
+  | { status: 'recovered' }
+  | { status: 'retryableIndeterminate' }
+  | {
+      status: 'definitiveInvalid';
+      repair?: {
+        expectedOneKeyUserId: string;
+        expectedSessionTokenSub?: string;
+      };
+    };
+
 type IKeylessOAuthJwtPayload = ISupabaseJWTPayload & {
   session_id?: unknown;
 };
@@ -789,6 +800,55 @@ class ServicePrime extends ServiceBase {
   // slot check is a strict persisted-bytes read
   // (readPersistedAccessTokenBySessionSourceStrict), never getSession.
   authStateWriteMutex = new Semaphore(1);
+
+  private sourceLessOneKeyIdRecoveryRetryTimer:
+    | ReturnType<typeof setTimeout>
+    | undefined;
+
+  private sourceLessOneKeyIdRecoveryRetryAttempt = 0;
+
+  private resetSourceLessOneKeyIdRecoveryRetry() {
+    if (this.sourceLessOneKeyIdRecoveryRetryTimer) {
+      clearTimeout(this.sourceLessOneKeyIdRecoveryRetryTimer);
+      this.sourceLessOneKeyIdRecoveryRetryTimer = undefined;
+    }
+    this.sourceLessOneKeyIdRecoveryRetryAttempt = 0;
+  }
+
+  private scheduleSourceLessOneKeyIdRecoveryRetry({
+    callerName,
+  }: {
+    callerName: string;
+  }) {
+    if (this.sourceLessOneKeyIdRecoveryRetryTimer) {
+      return;
+    }
+    const delayMs = Math.min(
+      timerUtils.getTimeDurationMs({ seconds: 1 }) *
+        2 ** this.sourceLessOneKeyIdRecoveryRetryAttempt,
+      timerUtils.getTimeDurationMs({ seconds: 30 }),
+    );
+    this.sourceLessOneKeyIdRecoveryRetryAttempt += 1;
+    this.sourceLessOneKeyIdRecoveryRetryTimer = setTimeout(() => {
+      this.sourceLessOneKeyIdRecoveryRetryTimer = undefined;
+      void this.clearOneKeyIdAuthStateIfNoActiveToken({
+        callerName: `${callerName}.sourceLessRecoveryRetry`,
+      }).catch((error) => {
+        defaultLogger.prime.subscription.onekeyIdAuthStateMigration({
+          stage: 'profileValidation',
+          status: 'failed',
+          operationId: 'sourceLessOneKeyIdRecoveryRetry',
+          reason: getSanitizedAuthErrorLog(error),
+        });
+        this.scheduleSourceLessOneKeyIdRecoveryRetry({ callerName });
+      });
+    }, delayMs);
+    (
+      this.sourceLessOneKeyIdRecoveryRetryTimer as ReturnType<
+        typeof setTimeout
+      > & { unref?: () => void }
+    ).unref?.();
+  }
 
   /**
    * Entry guard for invalid-token reconciliation. The coordinator performs
@@ -2570,6 +2630,7 @@ class ServicePrime extends ServiceBase {
       source: EPrimeAuthSessionSource;
       sessionCommitId: string;
       sessionTokenSub?: string;
+      allowSourceLessPreUpgrade?: boolean;
     };
     keylessSession?: {
       sessionCommitId?: string;
@@ -2646,6 +2707,13 @@ class ServicePrime extends ServiceBase {
             currentUser.onekeyUserId === oneKeyId.onekeyUserId &&
             currentUser.isLoggedIn &&
             currentUser.isLoggedInOnServer;
+          const isExpectedSourceLessPreUpgradeOneKeyId =
+            oneKeyId.allowSourceLessPreUpgrade &&
+            currentSource === undefined &&
+            currentAuthState === undefined &&
+            currentUser.onekeyUserId === oneKeyId.onekeyUserId &&
+            currentUser.isLoggedIn &&
+            currentUser.isLoggedInOnServer;
           const isOneKeyIdCleared =
             currentSource === undefined &&
             currentAuthState === 'loggedOut' &&
@@ -2659,6 +2727,7 @@ class ServicePrime extends ServiceBase {
             currentUser.isLoggedInOnServer;
           if (
             !isExpectedOneKeyId &&
+            !isExpectedSourceLessPreUpgradeOneKeyId &&
             !isOneKeyIdCleared &&
             !isOneKeyIdMetadataClearedBeforeAtom
           ) {
@@ -2853,14 +2922,14 @@ class ServicePrime extends ServiceBase {
    * the global rule that a source-less Keyless session never implies OneKey ID
    * login. Recovery requires every old-data marker, a local-wallet match, and
    * a server-authenticated profile whose OneKey ID equals the persisted login
-   * projection. Any missing or conflicting proof keeps the existing
-   * fail-closed cleanup path.
+   * projection. Definitive conflicts enter durable cleanup; transient or
+   * indeterminate failures preserve the old projection and retry.
    */
   private async tryRecoverSourceLessPreUpgradeOneKeyIdSession({
     callerName,
   }: {
     callerName: string;
-  }): Promise<boolean> {
+  }): Promise<ISourceLessOneKeyIdRecoveryResult> {
     await identityLifecycleMutex.waitForUnlock();
     return this.loginMutex.runExclusive(async () => {
       const operationId = `sourceLessOneKeyIdRecovery:${stringUtils.generateUUID()}`;
@@ -2869,7 +2938,12 @@ class ServicePrime extends ServiceBase {
         | 'walletSessionValidation'
         | 'profileValidation'
         | 'stateCommit' = 'candidateDetected';
-      let didDetectMigrationCandidate = false;
+      let repair:
+        | {
+            expectedOneKeyUserId: string;
+            expectedSessionTokenSub?: string;
+          }
+        | undefined;
       beginIdentityLifecycleReservation(operationId);
       try {
         const [
@@ -2896,9 +2970,9 @@ class ServicePrime extends ServiceBase {
           keylessWallet,
         );
         if (!isSourceLessPreUpgradeState || !expectedOneKeyUserId) {
-          return false;
+          return { status: 'definitiveInvalid' };
         }
-        didDetectMigrationCandidate = true;
+        repair = { expectedOneKeyUserId };
         defaultLogger.prime.subscription.onekeyIdAuthStateMigration({
           stage: 'candidateDetected',
           status: 'succeeded',
@@ -2915,7 +2989,7 @@ class ServicePrime extends ServiceBase {
             operationId,
             reason: 'Keyless OAuth access token is unavailable',
           });
-          return false;
+          return { status: 'definitiveInvalid', repair };
         }
         const tokenSub =
           (stringUtils.decodeJWT(accessToken) as ISupabaseJWTPayload | null)
@@ -2927,8 +3001,9 @@ class ServicePrime extends ServiceBase {
             operationId,
             reason: 'Keyless OAuth token subject is unavailable',
           });
-          return false;
+          return { status: 'definitiveInvalid', repair };
         }
+        repair.expectedSessionTokenSub = tokenSub;
         const { isValid } =
           await this.backgroundApi.serviceKeylessWallet.validateTokenMatchesKeylessWallet(
             {
@@ -2943,7 +3018,7 @@ class ServicePrime extends ServiceBase {
             operationId,
             reason: 'Keyless OAuth token does not match the local wallet',
           });
-          return false;
+          return { status: 'definitiveInvalid', repair };
         }
         defaultLogger.prime.subscription.onekeyIdAuthStateMigration({
           stage: migrationStage,
@@ -2986,7 +3061,7 @@ class ServicePrime extends ServiceBase {
             reason:
               'Keyless OAuth profile does not match the persisted OneKey ID',
           });
-          return false;
+          return { status: 'definitiveInvalid', repair };
         }
         defaultLogger.prime.subscription.onekeyIdAuthStateMigration({
           stage: migrationStage,
@@ -3042,16 +3117,21 @@ class ServicePrime extends ServiceBase {
             operationId,
           });
         });
-        return recovered;
+        return recovered
+          ? { status: 'recovered' }
+          : { status: 'retryableIndeterminate' };
       } catch (error) {
-        if (didDetectMigrationCandidate) {
+        if (repair) {
           defaultLogger.prime.subscription.onekeyIdAuthStateMigration({
             stage: migrationStage,
             status: 'failed',
             operationId,
             reason: getSanitizedAuthErrorLog(error),
           });
-          return false;
+          if (error instanceof OneKeyErrorPrimeLoginInvalidToken) {
+            return { status: 'definitiveInvalid', repair };
+          }
+          return { status: 'retryableIndeterminate' };
         }
         throw error;
       } finally {
@@ -3070,15 +3150,26 @@ class ServicePrime extends ServiceBase {
     callerName,
   }: {
     callerName: string;
-  }): Promise<{ cleared: boolean }> {
-    const recovered = await this.tryRecoverSourceLessPreUpgradeOneKeyIdSession({
+  }): Promise<{ cleared: boolean; retryScheduled?: boolean }> {
+    const recovery = await this.tryRecoverSourceLessPreUpgradeOneKeyIdSession({
       callerName,
     });
-    if (recovered) {
+    if (recovery.status === 'recovered') {
+      this.resetSourceLessOneKeyIdRecoveryRetry();
       return { cleared: false };
     }
+    if (recovery.status === 'retryableIndeterminate') {
+      this.scheduleSourceLessOneKeyIdRecoveryRetry({ callerName });
+      return { cleared: false, retryScheduled: true };
+    }
+    this.resetSourceLessOneKeyIdRecoveryRetry();
     return this.backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession(
-      { callerName },
+      {
+        callerName,
+        ...(recovery.repair
+          ? { sourceLessPreUpgradeRepair: recovery.repair }
+          : {}),
+      },
     );
   }
 

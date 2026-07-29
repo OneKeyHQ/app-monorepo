@@ -97,6 +97,10 @@ const mockSupabaseRefreshSession = jest.fn();
 const mockSupabaseSetSession = jest.fn();
 const mockJuiceboxExchangeToken = jest.fn();
 const mockJuiceboxDispose = jest.fn();
+const mockJuiceboxSetAsGlobalAuthTokenProvider = jest.fn();
+const mockJuiceboxRecover = jest.fn();
+const mockJuiceboxRegister = jest.fn();
+const mockJuiceboxCheckRateLimitStatus = jest.fn();
 
 jest.mock('@onekeyhq/shared/src/utils/supabaseClientUtils', () => ({
   __esModule: true,
@@ -115,6 +119,10 @@ jest.mock('./utils/JuiceboxClient', () => ({
   JuiceboxClient: jest.fn().mockImplementation(() => ({
     exchangeToken: mockJuiceboxExchangeToken,
     dispose: mockJuiceboxDispose,
+    setAsGlobalAuthTokenProvider: mockJuiceboxSetAsGlobalAuthTokenProvider,
+    recover: mockJuiceboxRecover,
+    register: mockJuiceboxRegister,
+    checkRateLimitStatus: mockJuiceboxCheckRateLimitStatus,
   })),
 }));
 
@@ -443,6 +451,10 @@ describe('ServiceKeylessWallet realm exchange access token refresh', () => {
     mockSupabaseRefreshSession.mockReset();
     mockJuiceboxExchangeToken.mockReset();
     mockJuiceboxDispose.mockReset();
+    mockJuiceboxSetAsGlobalAuthTokenProvider.mockReset();
+    mockJuiceboxRecover.mockReset();
+    mockJuiceboxRegister.mockReset();
+    mockJuiceboxCheckRateLimitStatus.mockReset();
     serviceAny.getOrMigrateKeylessOAuthAccessTokenForLocalWallet = jest.fn(
       async () => TOKEN,
     );
@@ -536,38 +548,86 @@ describe('ServiceKeylessWallet realm exchange access token refresh', () => {
     expect(serviceAny.validateTokenMatchesKeylessWallet).not.toHaveBeenCalled();
   });
 
-  test('exchanges a realm access token only once across concurrent cache misses', async () => {
+  test('exchanges a realm access token only once across concurrent operations', async () => {
     jest.useFakeTimers();
     try {
-      const accessToken = buildFakeSupabaseJwt(
-        Math.floor(Date.now() / 1000) + 60 * 60,
-      );
-      const exchangeStarted = createDeferred<void>();
-      const releaseExchange = createDeferred<void>();
-      mockJuiceboxExchangeToken.mockImplementationOnce(async () => {
-        exchangeStarted.resolve();
-        await releaseExchange.promise;
+      const accessToken = buildFakeSupabaseJwt(1_900_000_001);
+      const firstOperationStarted = createDeferred<void>();
+      const releaseFirstOperation = createDeferred<void>();
+
+      const firstOperation = serviceAny.runJuiceboxOperation({
+        token: accessToken,
+        operation: 'resetOrVerifyPin',
+        run: async () => {
+          firstOperationStarted.resolve();
+          await releaseFirstOperation.promise;
+          return 'first';
+        },
+      });
+      await firstOperationStarted.promise;
+      const secondRun = jest.fn(async () => 'second');
+      const secondOperation = serviceAny.runJuiceboxOperation({
+        token: accessToken,
+        operation: 'resetOrVerifyPin',
+        run: secondRun,
       });
 
-      const firstClientPromise = serviceAny.getJuiceboxClientFromCache(
-        accessToken,
-        'resetOrVerifyPin',
-      );
-      await exchangeStarted.promise;
-      const secondClientPromise = serviceAny.getJuiceboxClientFromCache(
-        accessToken,
-        'resetOrVerifyPin',
-      );
-
       expect(mockJuiceboxExchangeToken).toHaveBeenCalledTimes(1);
-      releaseExchange.resolve();
-      const [firstClient, secondClient] = await Promise.all([
-        firstClientPromise,
-        secondClientPromise,
-      ]);
+      expect(secondRun).not.toHaveBeenCalled();
 
-      expect(secondClient).toBe(firstClient);
+      releaseFirstOperation.resolve();
+      await expect(
+        Promise.all([firstOperation, secondOperation]),
+      ).resolves.toEqual(['first', 'second']);
       expect(mockJuiceboxExchangeToken).toHaveBeenCalledTimes(1);
+      expect(mockJuiceboxSetAsGlobalAuthTokenProvider).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+  });
+
+  test('does not replace an identity client while its Juicebox operation is in flight', async () => {
+    jest.useFakeTimers();
+    try {
+      const firstAccessToken = buildFakeSupabaseJwt(1_900_000_002);
+      const secondAccessToken = buildFakeSupabaseJwt(1_900_000_003);
+      const firstOperationStarted = createDeferred<void>();
+      const releaseFirstOperation = createDeferred<void>();
+
+      const firstOperation = serviceAny.runJuiceboxOperation({
+        token: firstAccessToken,
+        operation: 'recover',
+        run: async () => {
+          firstOperationStarted.resolve();
+          await releaseFirstOperation.promise;
+        },
+      });
+      await firstOperationStarted.promise;
+      const disposeCountBeforeSecondIdentity =
+        mockJuiceboxDispose.mock.calls.length;
+      const secondRun = jest.fn(async () => undefined);
+      const secondOperation = serviceAny.runJuiceboxOperation({
+        token: secondAccessToken,
+        operation: 'register',
+        run: secondRun,
+      });
+
+      await Promise.resolve();
+      expect(mockJuiceboxExchangeToken).toHaveBeenCalledTimes(1);
+      expect(mockJuiceboxDispose).toHaveBeenCalledTimes(
+        disposeCountBeforeSecondIdentity,
+      );
+      expect(secondRun).not.toHaveBeenCalled();
+
+      releaseFirstOperation.resolve();
+      await Promise.all([firstOperation, secondOperation]);
+
+      expect(mockJuiceboxExchangeToken).toHaveBeenCalledTimes(2);
+      expect(mockJuiceboxDispose).toHaveBeenCalledTimes(
+        disposeCountBeforeSecondIdentity + 1,
+      );
+      expect(mockJuiceboxSetAsGlobalAuthTokenProvider).toHaveBeenCalledTimes(2);
     } finally {
       jest.clearAllTimers();
       jest.useRealTimers();

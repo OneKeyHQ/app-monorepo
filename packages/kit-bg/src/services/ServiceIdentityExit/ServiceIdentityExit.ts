@@ -2300,14 +2300,21 @@ class ServiceIdentityExit extends ServiceBase {
   }
 
   /**
-   * Durable repair for a logged-in OneKey ID whose active session slot is
-   * definitively empty. This is BG-internal: UI/profile effects may observe
-   * the projection, but they cannot directly clear auth metadata or atoms.
+   * Durable repair for a logged-in OneKey ID whose active session is
+   * definitively invalid. The optional source-less proof handles the exact
+   * pre-upgrade projection without weakening normal source invariants. This is
+   * BG-internal: UI/profile effects may observe the projection, but they
+   * cannot directly clear auth metadata or atoms.
    */
   async reconcileMissingOneKeyIdSession({
     callerName,
+    sourceLessPreUpgradeRepair,
   }: {
     callerName: string;
+    sourceLessPreUpgradeRepair?: {
+      expectedOneKeyUserId: string;
+      expectedSessionTokenSub?: string;
+    };
   }): Promise<{ cleared: boolean }> {
     await this.recoverInterruptedIdentityExitOperations();
     return identityLifecycleMutex.runExclusive(async () => {
@@ -2331,34 +2338,69 @@ class ServiceIdentityExit extends ServiceBase {
         const isLoggedIn = Boolean(
           primeUser.isLoggedIn && primeUser.isLoggedInOnServer,
         );
+        const isExpectedSourceLessPreUpgradeState = Boolean(
+          sourceLessPreUpgradeRepair &&
+          isLoggedIn &&
+          !source &&
+          oneKeyIdAuthState === undefined &&
+          primeUser.onekeyUserId ===
+            sourceLessPreUpgradeRepair.expectedOneKeyUserId,
+        );
         if (!isLoggedIn && oneKeyIdAuthState === 'loggedOut' && !source) {
           return { cleared: false };
         }
         if (
           primeUser.isLoggedIn !== primeUser.isLoggedInOnServer ||
           !isLoggedIn ||
-          oneKeyIdAuthState !== 'loggedIn' ||
-          !source ||
-          !primeUser.onekeyUserId
+          !primeUser.onekeyUserId ||
+          (!isExpectedSourceLessPreUpgradeState &&
+            (oneKeyIdAuthState !== 'loggedIn' || !source))
         ) {
           throw new OneKeyLocalError(
             `${callerName}: OneKey ID projection is inconsistent while reconciling an empty session slot.`,
           );
         }
+        const sourceToClear = isExpectedSourceLessPreUpgradeState
+          ? EPrimeAuthSessionSource.KeylessOAuth
+          : source;
+        if (!sourceToClear) {
+          throw new OneKeyLocalError(
+            `${callerName}: OneKey ID auth source is unavailable.`,
+          );
+        }
         const slot =
-          await readPersistedAccessTokenBySessionSourceStrict(source);
-        if (slot.status === 'ok') {
+          await readPersistedAccessTokenBySessionSourceStrict(sourceToClear);
+        if (!isExpectedSourceLessPreUpgradeState && slot.status === 'ok') {
           return { cleared: false };
         }
-        if (slot.status !== 'empty') {
+        if (slot.status !== 'empty' && slot.status !== 'ok') {
           throw new OneKeyLocalError(
             `${callerName}: OneKey ID session slot is ${slot.status}; automatic reconciliation is unsafe.`,
           );
         }
-        const sessionCommitId =
+        const expectedSessionTokenSub =
+          sourceLessPreUpgradeRepair?.expectedSessionTokenSub;
+        if (
+          isExpectedSourceLessPreUpgradeState &&
+          slot.status === 'ok' &&
+          expectedSessionTokenSub
+        ) {
+          const currentTokenSub =
+            (stringUtils.decodeJWT(slot.accessToken) as ISupabaseJWTPayload)
+              ?.sub || '';
+          if (currentTokenSub !== expectedSessionTokenSub) {
+            throw new OneKeyLocalError(
+              `${callerName}: source-less OneKey ID session identity changed before repair.`,
+            );
+          }
+        }
+        let sessionCommitId =
           await this.backgroundApi.simpleDb.prime.getAuthSessionCommitId(
-            source,
+            sourceToClear,
           );
+        if (!sessionCommitId && isExpectedSourceLessPreUpgradeState) {
+          sessionCommitId = stringUtils.generateUUID();
+        }
         if (!sessionCommitId) {
           throw new OneKeyLocalError(
             `${callerName}: OneKey ID session commit identity is unavailable.`,
@@ -2366,7 +2408,7 @@ class ServiceIdentityExit extends ServiceBase {
         }
 
         let keyless: IIdentityExitJournalEntry['keyless'];
-        if (source === EPrimeAuthSessionSource.KeylessOAuth && wallet) {
+        if (sourceToClear === EPrimeAuthSessionSource.KeylessOAuth && wallet) {
           const ownerId = wallet.keylessDetailsInfo?.keylessOwnerId;
           const provider = wallet.keylessDetailsInfo?.keylessProvider;
           const socialUserIdHash = wallet.keylessDetailsInfo?.socialUserIdHash;
@@ -2409,12 +2451,21 @@ class ServiceIdentityExit extends ServiceBase {
             logoutOneKeyId: true,
             removeKeyless: false,
             clearKeylessSession:
-              source === EPrimeAuthSessionSource.KeylessOAuth,
+              sourceToClear === EPrimeAuthSessionSource.KeylessOAuth,
+            ...(isExpectedSourceLessPreUpgradeState && !expectedSessionTokenSub
+              ? { allowUnknownKeylessSessionIdentity: true }
+              : {}),
           },
           oneKeyId: {
             onekeyUserId: primeUser.onekeyUserId,
-            source,
+            source: sourceToClear,
             sessionCommitId,
+            ...(expectedSessionTokenSub
+              ? { sessionTokenSub: expectedSessionTokenSub }
+              : {}),
+            ...(isExpectedSourceLessPreUpgradeState
+              ? { allowSourceLessPreUpgrade: true }
+              : {}),
           },
           keyless,
         };
@@ -2426,8 +2477,13 @@ class ServiceIdentityExit extends ServiceBase {
             expectedIdentityLifecycleRevision: lifecycleRevision,
             oneKeyId: journal.oneKeyId,
             keylessSession:
-              source === EPrimeAuthSessionSource.KeylessOAuth
-                ? { sessionCommitId }
+              sourceToClear === EPrimeAuthSessionSource.KeylessOAuth
+                ? {
+                    sessionCommitId,
+                    sessionTokenSub: expectedSessionTokenSub,
+                    allowUnknownIdentity:
+                      journal.target.allowUnknownKeylessSessionIdentity,
+                  }
                 : undefined,
             keylessWalletSession: keyless
               ? {

@@ -1787,6 +1787,46 @@ describe('ServicePrime.commitIdentityExitLocalState', () => {
     ).resolves.toEqual({ status: 'stateChanged' });
     expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
   });
+
+  it('commits a journaled cleanup for the exact source-less pre-upgrade projection', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(7);
+    simpleDbPrime.bumpIdentityLifecycleRevision.mockResolvedValue(8);
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(undefined);
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue(undefined);
+    simpleDbPrime.getAuthSessionCommitId.mockResolvedValue(undefined);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'keyless-user-a' }),
+    });
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
+    });
+
+    await expect(
+      service.commitIdentityExitLocalState({
+        expectedIdentityLifecycleRevision: 7,
+        oneKeyId: {
+          onekeyUserId: 'onekey-user-a',
+          source: EPrimeAuthSessionSource.KeylessOAuth,
+          sessionCommitId: 'source-less-repair',
+          sessionTokenSub: 'keyless-user-a',
+          allowSourceLessPreUpgrade: true,
+        },
+        keylessSession: {
+          sessionCommitId: 'source-less-repair',
+          sessionTokenSub: 'keyless-user-a',
+        },
+      }),
+    ).resolves.toEqual({ status: 'committed', revision: 8 });
+
+    expect(mockRemoveAuthSessionStorageBySessionSource).toHaveBeenCalledWith(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    expect(simpleDbPrime.clearAuthTokens).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('ServicePrime invalid-token handling', () => {
@@ -2278,7 +2318,13 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
     ).not.toHaveBeenCalled();
     expect(
       backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession,
-    ).toHaveBeenCalledWith({ callerName: 'test' });
+    ).toHaveBeenCalledWith({
+      callerName: 'test',
+      sourceLessPreUpgradeRepair: {
+        expectedOneKeyUserId: 'onekey-user-a',
+        expectedSessionTokenSub: 'keyless-user-b',
+      },
+    });
     expect(mockOneKeyIdAuthStateMigrationLog).toHaveBeenCalledWith(
       expect.objectContaining({
         stage: 'profileValidation',
@@ -2288,7 +2334,7 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
     );
   });
 
-  it('falls through to durable cleanup when the pre-upgrade recovery probe fails', async () => {
+  it('preserves source-less state and schedules a retry when the recovery probe fails transiently', async () => {
     const { service, backgroundApi, simpleDbPrime } = createService();
     const accessToken = buildFakeJwt({ sub: 'keyless-user-a' });
     const profileError = new OneKeyLocalError('profile request failed');
@@ -2314,20 +2360,25 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
       service.clearOneKeyIdAuthStateIfNoActiveToken({
         callerName: 'test',
       }),
-    ).resolves.toEqual({ cleared: true });
+    ).resolves.toEqual({ cleared: false, retryScheduled: true });
 
     expect(
       simpleDbPrime.setAuthSessionSourceWithCommitId,
     ).not.toHaveBeenCalled();
     expect(
       backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession,
-    ).toHaveBeenCalledWith({ callerName: 'test' });
+    ).not.toHaveBeenCalled();
     expect(mockOneKeyIdAuthStateMigrationLog).toHaveBeenCalledWith(
       expect.objectContaining({
         stage: 'profileValidation',
         status: 'failed',
       }),
     );
+    (
+      service as unknown as {
+        resetSourceLessOneKeyIdRecoveryRetry: () => void;
+      }
+    ).resetSourceLessOneKeyIdRecoveryRetry();
   });
 
   it('does not probe Keyless OAuth for a non-upgrade inconsistent state', async () => {

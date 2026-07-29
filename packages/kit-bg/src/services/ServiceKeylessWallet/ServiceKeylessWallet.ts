@@ -103,7 +103,9 @@ const juiceboxClientDiagnosticContextCache = new Map<
 const juiceboxClientCache = new cacheUtils.LRUCache<string, JuiceboxClient>({
   max: 100,
   ttl: timerUtils.getTimeDurationMs({ minute: 8 }),
-  ttlAutopurge: true,
+  // Expired entries are purged by cache access while the operation mutex is
+  // held. A background timer must not dispose an in-flight SDK client.
+  ttlAutopurge: false,
   dispose: (client, token, reason) => {
     const diagnosticContext = juiceboxClientDiagnosticContextCache.get(token);
     if (diagnosticContext) {
@@ -252,7 +254,12 @@ class ServiceKeylessWallet extends ServiceBase {
 
   updatePinConfirmStatusMutex = new Semaphore(1);
 
-  private realmAccessTokenExchangeMutex = new Semaphore(1);
+  // Juicebox SDK authentication is process-global: every client instance
+  // replaces globalThis.JuiceboxGetAuthToken. Keep client lookup/exchange,
+  // provider binding, and the complete SDK operation in one critical section
+  // so another identity cannot dispose the active client or replace its token
+  // provider while register/recover/rate-limit work is still in flight.
+  private juiceboxOperationMutex = new Semaphore(1);
 
   // Serializes EVERY consumer of the legacy per-owner encrypted keyless
   // OAuth refresh-token blob (pre-OneKey-ID-unification builds). The blob
@@ -325,7 +332,7 @@ class ServiceKeylessWallet extends ServiceBase {
     };
   }
 
-  private async getJuiceboxClientFromCache(
+  private async getJuiceboxClientFromCacheInsideOperationLock(
     token: string,
     operation: IKeylessRealmOperation,
   ): Promise<JuiceboxClient> {
@@ -341,43 +348,67 @@ class ServiceKeylessWallet extends ServiceBase {
       cacheHit: !!client,
     });
     if (!client) {
-      client = await this.realmAccessTokenExchangeMutex.runExclusive(
-        async () => {
-          const cachedClient = juiceboxClientCache.get(token);
-          if (cachedClient) {
-            juiceboxClientDiagnosticContextCache.set(token, diagnosticContext);
-            return cachedClient;
-          }
-          const exchangeTombstone =
-            await this.getRealmAccessTokenExchangeTombstone(token);
-          if (exchangeTombstone) {
-            throw new OneKeyLocalError(
-              exchangeTombstone === 'confirmed'
-                ? 'The OAuth access token was already used for a realm-token exchange. Refresh or reauthenticate before retrying.'
-                : 'The previous realm-token exchange result is unknown. Refresh or reauthenticate before retrying.',
-            );
-          }
-          // Mark before the request: an ambiguous network failure may still
-          // have consumed the access token on the server.
-          await this.setRealmAccessTokenExchangeTombstone(token, 'presumed');
-          juiceboxClientCache.clear();
-          const { JuiceboxClient: JuiceboxClientRuntime } =
-            await import('./utils/JuiceboxClient');
-          const newClient = new JuiceboxClientRuntime();
-          await newClient.exchangeToken(token, diagnosticContext);
-          await this.setRealmAccessTokenExchangeTombstone(token, 'confirmed');
-          juiceboxClientDiagnosticContextCache.set(token, diagnosticContext);
-          juiceboxClientCache.set(token, newClient);
-          return newClient;
-        },
-      );
+      const exchangeTombstone =
+        await this.getRealmAccessTokenExchangeTombstone(token);
+      if (exchangeTombstone) {
+        throw new OneKeyLocalError(
+          exchangeTombstone === 'confirmed'
+            ? 'The OAuth access token was already used for a realm-token exchange. Refresh or reauthenticate before retrying.'
+            : 'The previous realm-token exchange result is unknown. Refresh or reauthenticate before retrying.',
+        );
+      }
+      // Mark before the request: an ambiguous network failure may still
+      // have consumed the access token on the server.
+      await this.setRealmAccessTokenExchangeTombstone(token, 'presumed');
+      juiceboxClientCache.clear();
+      const { JuiceboxClient: JuiceboxClientRuntime } =
+        await import('./utils/JuiceboxClient');
+      const newClient = new JuiceboxClientRuntime();
+      await newClient.exchangeToken(token, diagnosticContext);
+      await this.setRealmAccessTokenExchangeTombstone(token, 'confirmed');
+      juiceboxClientDiagnosticContextCache.set(token, diagnosticContext);
+      juiceboxClientCache.set(token, newClient);
+      client = newClient;
     } else {
       juiceboxClientDiagnosticContextCache.set(token, diagnosticContext);
     }
-    // Juicebox SDK uses a global callback for auth token retrieval.
-    // Re-bind it to the current instance to avoid being overwritten by other instances.
-    // client.setAsGlobalAuthTokenProvider();
     return client;
+  }
+
+  private async runJuiceboxOperation<T>({
+    token,
+    operation,
+    run,
+  }: {
+    token: string;
+    operation: IKeylessRealmOperation;
+    run: (client: JuiceboxClient) => Promise<T>;
+  }): Promise<T> {
+    return this.juiceboxOperationMutex.runExclusive(async () => {
+      const client = await this.getJuiceboxClientFromCacheInsideOperationLock(
+        token,
+        operation,
+      );
+      client.setAsGlobalAuthTokenProvider();
+      return run(client);
+    });
+  }
+
+  private async runCachedJuiceboxOperation<T>({
+    token,
+    run,
+  }: {
+    token: string;
+    run: (client: JuiceboxClient) => Promise<T>;
+  }): Promise<T | null> {
+    return this.juiceboxOperationMutex.runExclusive(async () => {
+      const client = juiceboxClientCache.get(token);
+      if (!client) {
+        return null;
+      }
+      client.setAsGlobalAuthTokenProvider();
+      return run(client);
+    });
   }
 
   private async getRealmAccessTokenExchangeTombstone(
@@ -2371,41 +2402,43 @@ class ServiceKeylessWallet extends ServiceBase {
       );
     }
 
-    const juiceboxClient = await this.getJuiceboxClientFromCache(
+    return this.runJuiceboxOperation({
       token,
-      'recover',
-    );
-    try {
-      const secret = await juiceboxClient.recover({
-        pin,
-        // userInfo: `${ownerId}::::hello-world`,
-        userInfo: ownerId,
-      });
+      operation: 'recover',
+      run: async (juiceboxClient) => {
+        try {
+          const secret = await juiceboxClient.recover({
+            pin,
+            // userInfo: `${ownerId}::::hello-world`,
+            userInfo: ownerId,
+          });
 
-      const parts = secret.split('--');
-      const backendShareXStr = parts.pop();
-      if (!backendShareXStr) {
-        throw new OneKeyLocalError(
-          'Failed to get keyless juicebox share: backendShareXStr is empty',
-        );
-      }
-      const backendShareX = parseInt(backendShareXStr || '0', 10);
-      const juiceboxShare = parts.join('');
-      if (!juiceboxShare) {
-        throw new OneKeyLocalError(
-          'Failed to get keyless juicebox share: juiceboxShare is empty',
-        );
-      }
-      return {
-        ownerId,
-        pin,
-        juiceboxShare,
-        backendShareX,
-      };
-    } catch (_error) {
-      console.error(_error);
-      throw _error;
-    }
+          const parts = secret.split('--');
+          const backendShareXStr = parts.pop();
+          if (!backendShareXStr) {
+            throw new OneKeyLocalError(
+              'Failed to get keyless juicebox share: backendShareXStr is empty',
+            );
+          }
+          const backendShareX = parseInt(backendShareXStr || '0', 10);
+          const juiceboxShare = parts.join('');
+          if (!juiceboxShare) {
+            throw new OneKeyLocalError(
+              'Failed to get keyless juicebox share: juiceboxShare is empty',
+            );
+          }
+          return {
+            ownerId,
+            pin,
+            juiceboxShare,
+            backendShareX,
+          };
+        } catch (_error) {
+          console.error(_error);
+          throw _error;
+        }
+      },
+    });
   }
 
   @backgroundMethod()
@@ -2555,21 +2588,23 @@ class ServiceKeylessWallet extends ServiceBase {
       backendShareX,
     };
 
-    const juiceboxClient = await this.getJuiceboxClientFromCache(
+    await this.runJuiceboxOperation({
       token,
-      'register',
-    );
-    try {
-      const secret = `${juiceboxShare}--${backendShareX}`;
-      await juiceboxClient.register({
-        pin,
-        secret,
-        userInfo: ownerId,
-      });
-    } catch (e) {
-      console.error(e);
-      throw e;
-    }
+      operation: 'register',
+      run: async (juiceboxClient) => {
+        try {
+          const secret = `${juiceboxShare}--${backendShareX}`;
+          await juiceboxClient.register({
+            pin,
+            secret,
+            userInfo: ownerId,
+          });
+        } catch (e) {
+          console.error(e);
+          throw e;
+        }
+      },
+    });
 
     return juiceboxShareData;
   }
@@ -2996,15 +3031,9 @@ class ServiceKeylessWallet extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async clearKeylessOnboardingCache() {
-    // Best-effort cleanup: clear per-client token caches first, then clear the LRU itself.
-    for (const client of juiceboxClientCache.values()) {
-      try {
-        client.dispose();
-      } catch {
-        // ignore
-      }
-    }
-    juiceboxClientCache.clear();
+    await this.juiceboxOperationMutex.runExclusive(async () => {
+      juiceboxClientCache.clear();
+    });
   }
 
   @backgroundMethod()
@@ -4366,11 +4395,10 @@ class ServiceKeylessWallet extends ServiceBase {
     retryAfterSeconds: number;
     guessesRemaining: number;
   } | null> {
-    const client = juiceboxClientCache.get(params.token);
-    if (!client) {
-      return null;
-    }
-    return client.checkRateLimitStatus();
+    return this.runCachedJuiceboxOperation({
+      token: params.token,
+      run: (client) => client.checkRateLimitStatus(),
+    });
   }
 
   @backgroundMethod()
@@ -4381,13 +4409,11 @@ class ServiceKeylessWallet extends ServiceBase {
     guessesRemaining: number;
   }> {
     const { token } = params;
-    // getJuiceboxClientFromCache already calls exchangeToken internally when creating a new client
-    // Do not call exchangeToken again as each token can only be exchanged once
-    const client = await this.getJuiceboxClientFromCache(
+    return this.runJuiceboxOperation({
       token,
-      'rateLimitCheck',
-    );
-    return client.checkRateLimitStatus();
+      operation: 'rateLimitCheck',
+      run: (client) => client.checkRateLimitStatus(),
+    });
   }
 
   private async getAllKeylessWallets(): Promise<IDBWallet[]> {
