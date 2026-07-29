@@ -9,8 +9,13 @@ import type {
   IBorrowEModeStatus,
   IBorrowEModeSwitchCheck,
   IBorrowEstimateFee,
+  IBorrowHealthFactor,
+  IBorrowManagePage,
+  IBorrowReserveDetail,
+  IBorrowRewards,
   IBorrowTransactionConfirmation,
   IBorrowUnsignedTransaction,
+  IRepayWithCollateralQuote,
 } from '@onekeyhq/shared/types/staking';
 
 import type { AxiosInstance } from 'axios';
@@ -341,6 +346,295 @@ export async function getBorrowEstimateFee(
       amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
       ...(withdrawAll !== undefined ? { withdrawAll } : {}),
       ...(repayAll !== undefined ? { repayAll } : {}),
+      accountAddress,
+    },
+  });
+  return response.data.data;
+}
+
+export async function getBorrowReserveDetails(
+  service: IBorrowActionServiceContext,
+  params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    accountId?: string;
+  },
+) {
+  const { accountId, ...rest } = earnUtils.normalizeBorrowAddressParams(params);
+  const accountAddress = accountId
+    ? await service.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      })
+    : undefined;
+  const client = await service.getClient(EServiceEndpointEnum.Earn);
+  const response = await client.get<{
+    data: IBorrowReserveDetail;
+  }>('/earn/v1/borrow/reserve-detail', {
+    params: {
+      ...rest,
+      ...(accountAddress ? { accountAddress } : {}),
+    },
+  });
+  return response.data.data;
+}
+
+export async function borrowBuildSupplyTransaction(
+  service: IBorrowActionServiceContext,
+  params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    accountId: string;
+    amount: string;
+  },
+) {
+  const { accountId, ...rest } = earnUtils.normalizeBorrowAddressParams(params);
+  const accountAddress =
+    await service.backgroundApi.serviceAccount.getAccountAddressForApi({
+      networkId: params.networkId,
+      accountId,
+    });
+  const client = await service.getClient(EServiceEndpointEnum.Earn);
+  const response = await client.post<{
+    data: IBorrowUnsignedTransaction;
+  }>('/earn/v1/borrow/build-supply-transaction', {
+    ...rest,
+    accountAddress,
+  });
+  return response.data.data;
+}
+
+export async function borrowBuildRepayTransaction(
+  service: IBorrowActionServiceContext,
+  params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    accountId: string;
+    amount: string;
+    repayAll?: boolean;
+  },
+) {
+  const { accountId, repayAll, ...rest } =
+    earnUtils.normalizeBorrowAddressParams(params);
+  const accountAddress =
+    await service.backgroundApi.serviceAccount.getAccountAddressForApi({
+      networkId: params.networkId,
+      accountId,
+    });
+  const client = await service.getClient(EServiceEndpointEnum.Earn);
+  const response = await client.post<{
+    data: IBorrowUnsignedTransaction;
+  }>('/earn/v1/borrow/build-repay-transaction', {
+    ...rest,
+    accountAddress,
+    ...(repayAll !== undefined ? { repayAll } : {}),
+  });
+  return response.data.data;
+}
+
+export async function getBorrowRepayWithCollateralQuote(
+  service: IBorrowActionServiceContext,
+  params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    collateralReserveAddress: string;
+    accountId: string;
+    amount: string;
+    repayAll?: boolean;
+    slippageBps?: number;
+  },
+) {
+  const { accountId, amount, ...rest } =
+    earnUtils.normalizeBorrowAddressParams(params);
+  const amountNumber = BigNumber(amount || 0);
+  const accountAddress =
+    await service.backgroundApi.serviceAccount.getAccountAddressForApi({
+      networkId: params.networkId,
+      accountId,
+    });
+  const client = await service.getClient(EServiceEndpointEnum.Earn);
+  const response = await client.post<{
+    data: IRepayWithCollateralQuote;
+  }>('/earn/v1/borrow/repay-with-collateral/quote', {
+    ...rest,
+    accountAddress,
+    amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
+  });
+  return response.data.data;
+}
+
+export async function borrowBuildRepayWithCollateralTransaction(
+  service: IBorrowActionServiceContext,
+  params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    collateralReserveAddress: string;
+    accountId: string;
+    amount: string;
+    repayAll?: boolean;
+    slippageBps?: number;
+    routeKey?: string;
+  },
+) {
+  const { accountId, amount, ...rest } =
+    earnUtils.normalizeBorrowAddressParams(params);
+  const amountNumber = BigNumber(amount || 0);
+  const accountAddress =
+    await service.backgroundApi.serviceAccount.getAccountAddressForApi({
+      networkId: params.networkId,
+      accountId,
+    });
+  const client = await service.getClient(EServiceEndpointEnum.Earn);
+  const response = await client.post<{
+    data: IBorrowUnsignedTransaction;
+  }>('/earn/v1/borrow/build-repay-with-collateral-transaction', {
+    ...rest,
+    accountAddress,
+    amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
+  });
+  return response.data.data;
+}
+
+export async function borrowBuildSetupLutTransaction(
+  service: IBorrowActionServiceContext,
+  params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    collateralReserveAddress: string;
+    accountId: string;
+  },
+) {
+  const { accountId, ...rest } = earnUtils.normalizeBorrowAddressParams(params);
+  const accountAddress =
+    await service.backgroundApi.serviceAccount.getAccountAddressForApi({
+      networkId: params.networkId,
+      accountId,
+    });
+  const client = await service.getClient(EServiceEndpointEnum.Earn);
+  const response = await client.post<{
+    data: IBorrowUnsignedTransaction;
+  }>('/earn/v1/borrow/build-setup-lut-transaction', {
+    ...rest,
+    accountAddress,
+  });
+  return response.data.data;
+}
+
+export async function borrowBuildClaimTransaction(
+  service: IBorrowActionServiceContext,
+  params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    accountId: string;
+    ids: string[];
+  },
+) {
+  const { accountId, ...rest } = earnUtils.normalizeBorrowAddressParams(params);
+  const accountAddress =
+    await service.backgroundApi.serviceAccount.getAccountAddressForApi({
+      networkId: params.networkId,
+      accountId,
+    });
+  const client = await service.getClient(EServiceEndpointEnum.Earn);
+  const response = await client.post<{
+    data: IBorrowUnsignedTransaction;
+  }>('/earn/v1/borrow/build-claim-transaction', {
+    ...rest,
+    accountAddress,
+  });
+  return response.data.data;
+}
+
+export async function getBorrowManagePage(
+  service: IBorrowActionServiceContext,
+  params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    accountId: string;
+    type: 'supply' | 'withdraw' | 'borrow' | 'repay';
+  },
+) {
+  const { accountId, ...rest } = earnUtils.normalizeBorrowAddressParams(params);
+  const accountAddress =
+    await service.backgroundApi.serviceAccount.getAccountAddressForApi({
+      networkId: params.networkId,
+      accountId,
+    });
+  const client = await service.getClient(EServiceEndpointEnum.Earn);
+  const response = await client.get<{
+    data: IBorrowManagePage;
+  }>('/earn/v1/borrow/manage-page', {
+    params: {
+      ...rest,
+      accountAddress,
+    },
+  });
+  return response.data.data;
+}
+
+export async function getBorrowHealthFactor(
+  service: IBorrowActionServiceContext,
+  params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    accountId: string;
+  },
+) {
+  const { accountId, ...rest } = earnUtils.normalizeBorrowAddressParams(params);
+  const accountAddress =
+    await service.backgroundApi.serviceAccount.getAccountAddressForApi({
+      networkId: params.networkId,
+      accountId,
+    });
+  const client = await service.getClient(EServiceEndpointEnum.Earn);
+  const response = await client.get<{
+    data: IBorrowHealthFactor;
+  }>('/earn/v1/borrow/health-factor', {
+    params: {
+      ...rest,
+      accountAddress,
+    },
+  });
+  return response.data.data;
+}
+
+export async function getBorrowRewards(
+  service: IBorrowActionServiceContext,
+  params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    accountId: string;
+  },
+) {
+  const { accountId, ...rest } = earnUtils.normalizeBorrowAddressParams(params);
+  const accountAddress =
+    await service.backgroundApi.serviceAccount.getAccountAddressForApi({
+      networkId: params.networkId,
+      accountId,
+    });
+  const client = await service.getClient(EServiceEndpointEnum.Earn);
+  const response = await client.get<{
+    data: IBorrowRewards;
+  }>('/earn/v1/borrow/rewards', {
+    params: {
+      ...rest,
       accountAddress,
     },
   });
