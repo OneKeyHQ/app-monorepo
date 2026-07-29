@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 import {
   type IPageNavigationProp,
   NavBackButton,
-  NavCloseButton,
   Page,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -42,12 +41,12 @@ export default function MobileUnifoldDepositTransferModal() {
     () => <NavBackButton onPress={closeDetail} />,
     [closeDetail],
   );
-  const closeModal = useCallback(() => {
+  const goBack = useCallback(() => {
     navigation.goBack();
   }, [navigation]);
-  const renderCloseHeaderLeft = useCallback(
-    () => <NavCloseButton onPress={closeModal} />,
-    [closeModal],
+  const renderBackHeaderLeft = useCallback(
+    () => <NavBackButton onPress={goBack} />,
+    [goBack],
   );
   const clearSourceSelectorResult = useCallback(() => {
     navigation.setParams({ sourceSelectorResult: undefined });
@@ -62,7 +61,7 @@ export default function MobileUnifoldDepositTransferModal() {
             : ETranslations.perp_unifold_transfer_crypto__title,
         })}
         headerLeft={
-          detailExecutionId ? renderDetailHeaderLeft : renderCloseHeaderLeft
+          detailExecutionId ? renderDetailHeaderLeft : renderBackHeaderLeft
         }
       />
       <Page.Body px="$4" {...PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS}>

@@ -15,11 +15,14 @@ import {
   ScrollView,
   SearchBar,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -27,6 +30,7 @@ import {
   type IModalPerpParamList,
   type IUnifoldSourceSelectorResult,
 } from '@onekeyhq/shared/src/routes/perp';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { normalizeUnifoldIconUrl } from './unifoldFormat';
 
@@ -79,6 +83,22 @@ function MobileSourceSelectorRow({
   );
 }
 
+function MobileSourceSelectorSkeleton() {
+  return (
+    <YStack>
+      {Array.from({ length: 6 }).map((_, index) => (
+        <XStack key={index} width="100%" alignItems="center" gap="$3" py="$2.5">
+          <Skeleton width="$10" height="$10" radius="round" />
+          <YStack gap="$1.5">
+            <Skeleton width="$16" height="$4" />
+            <Skeleton width="$24" height="$3" />
+          </YStack>
+        </XStack>
+      ))}
+    </YStack>
+  );
+}
+
 export default function MobileUnifoldSourceSelectorModal() {
   const intl = useIntl();
   const [searchValue, setSearchValue] = useState('');
@@ -97,10 +117,29 @@ export default function MobileUnifoldSourceSelectorModal() {
     selectedAssetSymbol,
     selectedChainType,
     selectedChainId,
+    entryFlow,
   } = route.params;
+  const { result: loadedAssets, isLoading } = usePromiseResult(
+    async () => {
+      if (assets) {
+        return assets;
+      }
+      if (!entryFlow) {
+        return [];
+      }
+      return backgroundApiProxy.serviceUnifoldDeposit.getSupportedAssets(
+        entryFlow.destination,
+      );
+    },
+    [assets, entryFlow],
+    {
+      initResult: assets,
+      watchLoading: true,
+    },
+  );
   const usableAssets = useMemo(
-    () => assets.filter((asset) => asset.chains.length > 0),
-    [assets],
+    () => (loadedAssets ?? []).filter((asset) => asset.chains.length > 0),
+    [loadedAssets],
   );
   const filteredAssets = useMemo(() => {
     const keyword = searchValue.trim().toLowerCase();
@@ -146,6 +185,47 @@ export default function MobileUnifoldSourceSelectorModal() {
     },
     [navigation],
   );
+  const selectEntryToken = useCallback(
+    (assetSymbol: string) => {
+      if (!entryFlow) {
+        return;
+      }
+      navigation.push(EModalPerpRoutes.MobileUnifoldSourceSelector, {
+        requestId: generateUUID(),
+        mode: 'chain',
+        assets: usableAssets,
+        selectedAssetSymbol: assetSymbol,
+        entryFlow,
+      });
+    },
+    [entryFlow, navigation, usableAssets],
+  );
+  const selectEntryChain = useCallback(
+    ({
+      assetSymbol,
+      chainType,
+      chainId,
+    }: {
+      assetSymbol: string;
+      chainType: string;
+      chainId: string;
+    }) => {
+      if (!entryFlow) {
+        return;
+      }
+      navigation.push(EModalPerpRoutes.MobileUnifoldDepositTransfer, {
+        expectedRecipient: entryFlow.expectedRecipient,
+        sourceSelectorResult: {
+          requestId,
+          mode: 'chain',
+          assetSymbol,
+          chainType,
+          chainId,
+        },
+      });
+    },
+    [entryFlow, navigation, requestId],
+  );
   let optionRows: ReactNode = null;
   if (mode === 'token') {
     optionRows = filteredAssets.map((asset) => (
@@ -165,13 +245,17 @@ export default function MobileUnifoldSourceSelectorModal() {
               )
         }
         selected={asset.symbol === selectedAssetSymbol}
-        onPress={() =>
-          returnSelection({
-            requestId,
-            mode: 'token',
-            assetSymbol: asset.symbol,
-          })
-        }
+        onPress={() => {
+          if (entryFlow) {
+            selectEntryToken(asset.symbol);
+          } else {
+            returnSelection({
+              requestId,
+              mode: 'token',
+              assetSymbol: asset.symbol,
+            });
+          }
+        }}
       />
     ));
   } else if (selectedAsset) {
@@ -188,20 +272,42 @@ export default function MobileUnifoldSourceSelectorModal() {
           chain.chain_type === selectedChainType &&
           chain.chain_id === selectedChainId
         }
-        onPress={() =>
-          returnSelection({
-            requestId,
-            mode: 'chain',
+        onPress={() => {
+          const result = {
             assetSymbol: selectedAsset.symbol,
             chainType: chain.chain_type,
             chainId: chain.chain_id,
-          })
-        }
+          };
+          if (entryFlow) {
+            selectEntryChain(result);
+          } else {
+            returnSelection({
+              requestId,
+              mode: 'chain',
+              ...result,
+            });
+          }
+        }}
       />
     ));
   }
   const hasResults =
     mode === 'token' ? filteredAssets.length > 0 : filteredChains.length > 0;
+  let listContent: ReactNode = (
+    <YStack py="$10">
+      <Empty
+        illustration="TwoBlocks"
+        title={intl.formatMessage({
+          id: ETranslations.global_no_results,
+        })}
+      />
+    </YStack>
+  );
+  if (isLoading && !loadedAssets) {
+    listContent = <MobileSourceSelectorSkeleton />;
+  } else if (hasResults) {
+    listContent = optionRows;
+  }
 
   return (
     <Page>
@@ -233,20 +339,7 @@ export default function MobileUnifoldSourceSelectorModal() {
           </YStack>
           <Stack flex={1} minHeight={0} mx="$-2">
             <ScrollView flex={1} showsVerticalScrollIndicator={false}>
-              <YStack px="$2">
-                {hasResults ? (
-                  optionRows
-                ) : (
-                  <YStack py="$10">
-                    <Empty
-                      illustration="TwoBlocks"
-                      title={intl.formatMessage({
-                        id: ETranslations.global_no_results,
-                      })}
-                    />
-                  </YStack>
-                )}
-              </YStack>
+              <YStack px="$2">{listContent}</YStack>
             </ScrollView>
           </Stack>
         </YStack>

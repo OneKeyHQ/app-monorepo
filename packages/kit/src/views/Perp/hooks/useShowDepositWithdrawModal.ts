@@ -7,6 +7,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   perpsActiveAccountAtom,
   perpsCommonConfigPersistAtom,
+  useDevSettingsPersistAtom,
   usePerpsActiveAccountAtom,
   usePerpsCommonConfigPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -14,6 +15,7 @@ import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotai
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { loadPerpsDepositWithdrawModal } from '../utils/preloadPerpsDepositWithdrawModal';
 import { loadPerpsUnifoldDepositModals } from '../utils/preloadPerpsUnifoldDeposit';
@@ -21,6 +23,8 @@ import {
   getSafeUnifoldRecipient,
   isUnifoldDepositAccountDisabled,
 } from '../utils/unifoldRecipient';
+
+import { resolveUnifoldDepositDestination } from './usePerpsUnifoldDepositSession';
 
 type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
 
@@ -100,6 +104,7 @@ export function useShowDepositWithdrawModal() {
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
   const dialogInTab = useInTabDialog();
+  const [devSettings] = useDevSettingsPersistAtom();
   const [activeAccount] = usePerpsActiveAccountAtom();
   const isDepositDisabled = useMemo(
     () => isUnifoldDepositAccountDisabled(activeAccount.accountId),
@@ -197,11 +202,22 @@ export function useShowDepositWithdrawModal() {
             }
             return;
           }
+          if (action === 'transfer') {
+            navigation.pushModal(EModalRoutes.PerpModal, {
+              screen: EModalPerpRoutes.MobileUnifoldSourceSelector,
+              params: {
+                requestId: generateUUID(),
+                mode: 'token',
+                entryFlow: {
+                  expectedRecipient: safeRecipient,
+                  destination: resolveUnifoldDepositDestination(devSettings),
+                },
+              },
+            });
+            return;
+          }
           navigation.pushModal(EModalRoutes.PerpModal, {
-            screen:
-              action === 'transfer'
-                ? EModalPerpRoutes.MobileUnifoldDepositTransfer
-                : EModalPerpRoutes.MobileUnifoldDepositTracker,
+            screen: EModalPerpRoutes.MobileUnifoldDepositTracker,
             params: { expectedRecipient: safeRecipient },
           });
         },
@@ -212,6 +228,7 @@ export function useShowDepositWithdrawModal() {
       openDepositWithdrawForm,
       gtMd,
       dialogInTab,
+      devSettings,
       intl,
       navigation,
     ],
