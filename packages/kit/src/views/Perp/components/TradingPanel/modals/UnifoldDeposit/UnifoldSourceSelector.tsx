@@ -1,13 +1,11 @@
 // cspell: words unifold Unifold
 import { useState } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
   Button,
   DashText,
-  type IPageNavigationProp,
   Icon,
   IconButton,
   Popover,
@@ -24,11 +22,6 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import type { IUnifoldSourceSelection } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalPerpRoutes,
-  type IModalPerpParamList,
-} from '@onekeyhq/shared/src/routes/perp';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
   IUnifoldSupportedAsset,
   IUnifoldSupportedAssetChain,
@@ -68,7 +61,6 @@ function SelectorTrigger({
       borderRadius="$2"
       borderWidth="$px"
       borderColor="$borderSubdued"
-      opacity={disabled ? 0.6 : 1}
       disabled={disabled}
       cursor={disabled ? 'default' : 'pointer'}
       hoverStyle={
@@ -108,12 +100,7 @@ function SelectorTrigger({
           </SizableText>
         </>
       )}
-      <Icon
-        name="ChevronDownSmallOutline"
-        size="$4"
-        color="$iconSubdued"
-        opacity={0.6}
-      />
+      <Icon name="ChevronDownSmallOutline" size="$4" color="$icon" />
     </XStack>
   );
 }
@@ -309,18 +296,20 @@ export function UnifoldSourceSelector({
   loading,
   onSelectToken,
   onSelectChain,
+  onOpenMobileTokenSelector,
+  onOpenMobileChainSelector,
 }: {
   assets: IUnifoldSupportedAsset[] | undefined;
   selection: IUnifoldSourceSelection | null;
   loading: boolean;
   onSelectToken: (asset: IUnifoldSupportedAsset) => void;
   onSelectChain: (chain: IUnifoldSupportedAssetChain) => void;
+  onOpenMobileTokenSelector?: () => void;
+  onOpenMobileChainSelector?: () => void;
 }) {
   const intl = useIntl();
   const [tokenOpen, setTokenOpen] = useState(false);
   const [chainOpen, setChainOpen] = useState(false);
-  const navigation = useNavigation<IPageNavigationProp<IModalPerpParamList>>();
-
   const usableAssets = (assets ?? []).filter((a) => (a.chains ?? []).length);
   const chainOptions = selection?.asset.chains ?? [];
   const minUsd = selection?.chain.minimum_deposit_amount_usd ?? 3;
@@ -345,14 +334,7 @@ export function UnifoldSourceSelector({
           return;
         }
 
-        navigation.push(EModalPerpRoutes.MobileUnifoldSourceSelector, {
-          requestId: generateUUID(),
-          mode: 'token',
-          assets: usableAssets,
-          selectedAssetSymbol: selection?.asset.symbol,
-          selectedChainType: selection?.chain.chain_type,
-          selectedChainId: selection?.chain.chain_id,
-        });
+        onOpenMobileTokenSelector?.();
       }}
     />
   );
@@ -373,14 +355,7 @@ export function UnifoldSourceSelector({
           return;
         }
 
-        navigation.push(EModalPerpRoutes.MobileUnifoldSourceSelector, {
-          requestId: generateUUID(),
-          mode: 'chain',
-          assets: usableAssets,
-          selectedAssetSymbol: selection?.asset.symbol,
-          selectedChainType: selection?.chain.chain_type,
-          selectedChainId: selection?.chain.chain_id,
-        });
+        onOpenMobileChainSelector?.();
       }}
     />
   );
