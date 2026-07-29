@@ -37,7 +37,11 @@ import {
 } from '../../../services/ServicePrime/primeAuthSessionAccess';
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
-const INFINI_PENDING_PAYMENT_SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+// Upper bound on how long a pending session may block the purchase entry when
+// every server-side release path stays unreachable (for example the invoice
+// endpoint failing on that paymentId). It is the worst-case lockout, so it must
+// stay short; sessions with reachable escapes are released long before this.
+const INFINI_PENDING_PAYMENT_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const INFINI_PENDING_PAYMENT_SESSION_MAX_CLOCK_SKEW_MS = 24 * 60 * 60 * 1000;
 const INFINI_PAYMENT_CACHE_TOMBSTONE_LIMIT = 20;
 const INFINI_SUPERSEDED_PAYMENT_SESSION_LIMIT = 10;

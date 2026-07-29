@@ -1394,6 +1394,44 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     ).toBeUndefined();
   });
 
+  test('removes a session older than the one-day TTL while its tombstone survives', async () => {
+    // Two days is inside the previous seven-day TTL, so this pins the
+    // shortened lockout: the session must be purged on read, yet the retired
+    // binding must stay tombstoned so a lingering window cannot re-persist it.
+    const entity = new SimpleDbEntityPrime();
+    const staleSession = {
+      ...session,
+      schemaVersion: 2 as const,
+      updatedAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
+    };
+    let persisted: ISimpleDBPrime = {
+      infiniPendingPaymentSessionByUserId: {
+        'user-1': staleSession,
+      },
+    };
+    jest.spyOn(entity, 'getRawData').mockImplementation(async () => persisted);
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await expect(
+      entity.getInfiniPendingPaymentSession({ onekeyUserId: 'user-1' }),
+    ).resolves.toBeUndefined();
+    expect(
+      persisted.infiniPendingPaymentSessionByUserId?.['user-1'],
+    ).toBeUndefined();
+    expect(persisted.infiniPaymentCacheTombstonesByUserId?.['user-1']).toEqual([
+      expect.objectContaining({
+        paymentId: staleSession.paymentCacheKey.paymentId,
+        bindingId: staleSession.paymentCacheKey.bindingId,
+        retiredAt: expect.any(Number),
+      }),
+    ]);
+  });
+
   test('self-heals a corrupted persisted session without a payment', async () => {
     const entity = new SimpleDbEntityPrime();
     let persisted = {
