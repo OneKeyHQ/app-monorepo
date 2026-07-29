@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 
 import { Freeze } from 'react-freeze';
 
@@ -52,8 +52,9 @@ function DesktopBrowserNavigationBar({
   // component state. `refReady` is set to true exactly once per tab and is
   // never reset, so the effect that used to refresh that state never fired
   // again after an LRU eviction replaced the <webview>. Every nav bar then
-  // kept pointing at a destroyed element — and through its `__reactFiber$`
-  // expando pinned the whole previous WebContent subtree in the heap.
+  // kept pointing at a destroyed element — and through the `__reactFiber$`
+  // property React attaches to it, pinned the whole previous WebContent
+  // subtree in the heap.
   const getInnerRef = useCallback(
     () => webviewRefs[id]?.innerRef as IElectronWebView | undefined,
     [id],

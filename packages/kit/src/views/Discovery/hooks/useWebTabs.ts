@@ -24,7 +24,7 @@ export const useWebTabs = () => {
 export const useWebTabDataById = (id?: string) => {
   const [map] = useWebTabsMapAtom();
   const tab = map[id ?? ''] as IWebTab | undefined;
-  // Memoise on the tab, not on the map. buildWebTabs hands out a new map
+  // Memoize on the tab, not on the map. buildWebTabs hands out a new map
   // object whenever any tab changes, so keying the result on `map` produced a
   // fresh `{ tab }` for every mounted tab shell on every write — with 26 open
   // tabs one title change re-rendered all 26 subtrees. Tabs whose own entry is
