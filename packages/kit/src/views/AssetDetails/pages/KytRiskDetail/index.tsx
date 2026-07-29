@@ -213,6 +213,9 @@ function KytRiskDetail() {
       uriUtils.parseUrl(riskDetail.reportUrl ?? '')?.urlSchema === 'https',
     [riskDetail.reportUrl],
   );
+  const hasCompletedRiskResult =
+    riskDetail.level !== EKytRiskLevel.Checking &&
+    riskDetail.level !== EKytRiskLevel.Failed;
 
   const handleViewReport = useCallback(() => {
     if (!canViewReport || !riskDetail.reportUrl) {
@@ -407,7 +410,7 @@ function KytRiskDetail() {
           ) : null}
         </ScrollView>
       </Page.Body>
-      {canViewReport ? (
+      {canViewReport || hasCompletedRiskResult ? (
         <Page.Footer>
           <YStack
             px="$5"
@@ -418,22 +421,30 @@ function KytRiskDetail() {
             borderTopWidth={1}
             borderTopColor="$borderSubdued"
           >
-            <Button
-              testID="kyt-view-report"
-              variant="secondary"
-              size="large"
-              iconAfter="ArrowTopRightOutline"
-              onPress={handleViewReport}
-            >
-              {intl.formatMessage({
-                id: ETranslations.kyt_view_report__action,
-              })}
-            </Button>
-            <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
-              {intl.formatMessage({
-                id: ETranslations.kyt_result_disclaimer__desc,
-              })}
-            </SizableText>
+            {canViewReport ? (
+              <Button
+                testID="kyt-view-report"
+                variant="secondary"
+                size="large"
+                iconAfter="ArrowTopRightOutline"
+                onPress={handleViewReport}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.kyt_view_report__action,
+                })}
+              </Button>
+            ) : null}
+            {hasCompletedRiskResult ? (
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                textAlign="center"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.kyt_result_disclaimer__desc,
+                })}
+              </SizableText>
+            ) : null}
           </YStack>
         </Page.Footer>
       ) : null}
