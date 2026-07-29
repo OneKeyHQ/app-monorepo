@@ -1,6 +1,7 @@
 import {
   formatTradingViewNativeVolume,
   getTradingViewNativeChartLegend,
+  getTradingViewNativeChartLegendRowLayout,
 } from './chartLegend';
 
 describe('TradingViewNative chart legend', () => {
@@ -45,5 +46,37 @@ describe('TradingViewNative chart legend', () => {
     expect(formatTradingViewNativeVolume(0)).toBe('0');
     expect(formatTradingViewNativeVolume(Number.NaN)).toBe('--');
     expect(formatTradingViewNativeVolume(-1)).toBe('--');
+  });
+
+  it('lays out a renderer-independent legend row', () => {
+    expect(
+      getTradingViewNativeChartLegendRowLayout({
+        items: [
+          { label: 'O', value: '1' },
+          { label: 'H', value: '2' },
+        ],
+        maxX: 100,
+        measureTextWidth: (text) => text.length * 5,
+        top: 2,
+      }),
+    ).toEqual({
+      backgroundRect: {
+        height: 15,
+        width: 42,
+        x: 4,
+        y: 0,
+      },
+      clipRect: {
+        height: 15,
+        width: 96,
+        x: 4,
+        y: 0,
+      },
+      segments: [
+        { label: 'O', labelX: 8, value: '1', valueX: 16 },
+        { label: 'H', labelX: 29, value: '2', valueX: 37 },
+      ],
+      textBaselineY: 13,
+    });
   });
 });
