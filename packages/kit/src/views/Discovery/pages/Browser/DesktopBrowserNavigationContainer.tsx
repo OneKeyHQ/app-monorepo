@@ -48,17 +48,19 @@ function DesktopBrowserNavigationBar({
     addOrUpdateBrowserBookmark: addBrowserBookmark,
     removeBrowserBookmark,
   } = useBrowserBookmarkAction().current;
-  const [innerRef, setInnerRef] = useState<IElectronWebView>(
-    webviewRefs[id]?.innerRef as IElectronWebView,
+  // Resolve the live wrapper on demand instead of caching the element in
+  // component state. `refReady` is set to true exactly once per tab and is
+  // never reset, so the effect that used to refresh that state never fired
+  // again after an LRU eviction replaced the <webview>. Every nav bar then
+  // kept pointing at a destroyed element — and through its `__reactFiber$`
+  // expando pinned the whole previous WebContent subtree in the heap.
+  const getInnerRef = useCallback(
+    () => webviewRefs[id]?.innerRef as IElectronWebView | undefined,
+    [id],
   );
 
-  useEffect(() => {
-    if (tab?.refReady) {
-      setInnerRef(webviewRefs[id]?.innerRef as IElectronWebView);
-    }
-  }, [id, tab?.refReady]);
-
   const goBack = useCallback(() => {
+    const innerRef = getInnerRef();
     let canGoBack = tab?.refReady && tab?.canGoBack;
     if (innerRef) {
       canGoBack = innerRef.canGoBack();
@@ -71,21 +73,21 @@ function DesktopBrowserNavigationBar({
         /* empty */
       }
     }
-  }, [innerRef, tab?.canGoBack, tab?.refReady]);
+  }, [getInnerRef, tab?.canGoBack, tab?.refReady]);
   const goForward = useCallback(() => {
     try {
-      innerRef?.goForward();
+      getInnerRef()?.goForward();
     } catch {
       /* empty */
     }
-  }, [innerRef]);
+  }, [getInnerRef]);
   const stopLoading = useCallback(() => {
     try {
-      innerRef?.stop();
+      getInnerRef()?.stop();
     } catch {
       /* empty */
     }
-  }, [innerRef]);
+  }, [getInnerRef]);
   const reload = useCallback(() => {
     try {
       const wrapperRef = getWebviewWrapperRef(id);
@@ -178,9 +180,14 @@ function DesktopBrowserNavigationBar({
     onShortcutsChangeUrl,
   );
 
+  // Key on the tab id only. Embedding the url meant every in-page navigation
+  // of any tab discarded that tab's whole info-bar subtree and mounted a fresh
+  // one — a steady stream of thrown-away fiber trees on a component that is
+  // mounted once per open tab. The bar already re-renders from `tab` props
+  // when the url changes.
   if (tab) {
     return (
-      <Freeze key={`${id}-${tab?.url ?? ''}-navigationBar`} freeze={!isActive}>
+      <Freeze key={`${id}-navigationBar`} freeze={!isActive}>
         <DesktopBrowserInfoBar
           {...tab}
           goBack={goBack}
