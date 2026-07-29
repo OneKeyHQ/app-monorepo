@@ -12,20 +12,30 @@ import type { IDBDevice, IDBWallet } from '../../dbs/local/types';
  * row of the existing STANDARD hardware wallet whose seed (XFP) and model
  * (vendorModel) match, so the old (possibly deprecated) wallet is reused.
  *
- * Match is XFP + vendor + vendorModel ONLY — never connectId (it differs
- * across USB/BLE transports). The incoming vendorModel is the SDK's internal
- * model code (e.g. 'T3W1' for a Trezor Safe 7) — NOT `IDBDevice.deviceType`,
- * which is an hd-core classification that only understands OneKey's own model
- * encoding and always resolves to 'unknown' for a third-party device, making
- * a deviceType guard a no-op.
+ * IDENTITY COMES FROM THE XFP, and the caller has already applied it: the
+ * `walletsWithXfp` it passes in are the wallets whose master fingerprint —
+ * derived cryptographically from the seed — equals the connected device's.
+ * Two devices sharing an XFP hold the same seed and ARE the same wallet, so
+ * this is the strong identifier, not a heuristic. No BLE/USB identifier takes
+ * part: connectId differs across transports and a Trezor's BLE address
+ * rotates, so neither can identify anything.
  *
- * The model guard only blocks a CONFIDENT mismatch. Stored
- * `settings.vendorModel` is written by several paths and may hold either the
- * internal code ('T3W1') or a display name ('Trezor Safe 7' — see
- * isTrezorBleSupportedModel, which accepts both). A display name is not
- * comparable against an internal code, so the comparison runs only when both
- * sides are code-shaped (single token) — anything else means "unknown, not
- * disproven" and must not veto a match XFP + vendor already carry.
+ * vendor and vendorModel are narrowing filters ON TOP of that, guarding
+ * against an XFP collision across vendors or hardware generations. They can
+ * only ever REJECT a candidate the XFP already accepted; they never promote
+ * one.
+ *
+ * The model filter deliberately blocks a CONFIDENT mismatch only. Incoming
+ * vendorModel is the SDK's internal code ('T3W1'), but stored
+ * `settings.vendorModel` is written by several paths and may hold that code
+ * OR a display name ('Trezor Safe 7' — isTrezorBleSupportedModel accepts
+ * both). A display name cannot be compared against an internal code, so the
+ * comparison runs only when both sides are code-shaped (single token).
+ * Anything else means "unknown, not disproven" and must not veto the XFP
+ * match — a false rejection here creates the duplicate wallet this whole
+ * function exists to prevent. (`IDBDevice.deviceType` is useless for this:
+ * it is an hd-core classification that always resolves to 'unknown' for a
+ * third-party device.)
  *
  * Among matches the most recent wallet (walletNo desc) wins, so an
  * already-live duplicate is preferred over a stale deprecated one.
@@ -51,6 +61,8 @@ export function pickThirdPartyRebindDevice({
   const normalizedVendor = vendor ?? EHardwareVendor.onekey;
   const deviceById = new Map(devices.map((d) => [d.id, d]));
 
+  // Every entry here already matched on XFP (same seed = same wallet). What
+  // follows only narrows that set; it can reject, never promote.
   const matched = walletsWithXfp
     .filter((w) => {
       if (
