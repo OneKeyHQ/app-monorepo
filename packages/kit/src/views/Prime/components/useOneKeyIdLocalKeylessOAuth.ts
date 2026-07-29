@@ -16,6 +16,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getOAuthSocialLoginProviderName } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import type { IKeylessOAuthSessionRollbackHandle } from '@onekeyhq/shared/types/prime/identityExitTypes';
 
+import {
+  logOneKeyIdLoginFailureReason,
+  throwLocalizedOneKeyIdLoginError,
+} from './oneKeyIdLoginToastUtils';
+
 export function isOneKeyIdLocalKeylessOAuthMode(
   status?: EOneKeyIdLoginWithLocalKeylessPrepareStatus,
 ) {
@@ -117,6 +122,9 @@ export function useOneKeyIdLocalKeylessOAuth({
       const accessToken = result?.session?.accessToken || '';
       const refreshToken = result?.session?.refreshToken || '';
       if (!accessToken) {
+        logOneKeyIdLoginFailureReason(
+          `OneKey ID OAuth login failed: access token not found for ${provider}.`,
+        );
         throw new OneKeyLocalError(missingTokenMessage);
       }
       return {
@@ -181,9 +189,11 @@ export function useOneKeyIdLocalKeylessOAuth({
             (effectiveLocalKeylessWalletId &&
               localSessionResult.walletId !== effectiveLocalKeylessWalletId)
           ) {
-            throw new OneKeyLocalError(
-              'Local Keyless wallet changed before OneKey ID login could continue.',
-            );
+            throwLocalizedOneKeyIdLoginError({
+              intl,
+              reason:
+                'OneKey ID login stopped because the local Keyless wallet changed before continuation.',
+            });
           }
           accessToken = localSessionResult.accessToken;
         }
@@ -231,6 +241,7 @@ export function useOneKeyIdLocalKeylessOAuth({
     [
       assertTokenMatchesLocalKeylessWallet,
       getInteractiveOAuthTokens,
+      intl,
       isLocalKeylessOAuthMode,
       localKeylessProvider,
       localKeylessWalletId,
@@ -251,17 +262,17 @@ export function useOneKeyIdLocalKeylessOAuth({
         missingTokenMessage,
       });
       if (!refreshToken) {
-        // TODO: i18n
-        throw new OneKeyLocalError(
-          'OAuth login failed: refresh token not found',
-        );
+        throwLocalizedOneKeyIdLoginError({
+          intl,
+          reason: 'OneKey ID OAuth login failed: refresh token not found.',
+        });
       }
       return {
         accessToken,
         refreshToken,
       };
     },
-    [getInteractiveOAuthTokens],
+    [getInteractiveOAuthTokens, intl],
   );
 
   const rollbackProvisionalOAuthSession = useCallback(
