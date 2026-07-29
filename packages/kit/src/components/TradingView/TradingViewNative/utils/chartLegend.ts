@@ -1,5 +1,15 @@
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
+import {
+  TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
+  TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_HORIZONTAL_PADDING,
+  TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_VERTICAL_PADDING,
+  TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE,
+  TRADING_VIEW_NATIVE_LEGEND_HORIZONTAL_PADDING,
+  TRADING_VIEW_NATIVE_LEGEND_ITEM_GAP,
+  TRADING_VIEW_NATIVE_LEGEND_LABEL_VALUE_GAP,
+} from '../chartConstants';
+
 import { formatTradingViewNativePriceTick } from './chartLayout';
 import { isTradingViewNativePriceUp } from './chartStyle';
 
@@ -14,6 +24,25 @@ export interface ITradingViewNativeChartLegend {
   volumeItem: ITradingViewNativeLegendItem;
 }
 
+export interface ITradingViewNativeLegendRect {
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+}
+
+export interface ITradingViewNativeLegendTextSegmentLayout extends ITradingViewNativeLegendItem {
+  labelX: number;
+  valueX: number;
+}
+
+export interface ITradingViewNativeChartLegendRowLayout {
+  backgroundRect: ITradingViewNativeLegendRect;
+  clipRect: ITradingViewNativeLegendRect;
+  segments: ITradingViewNativeLegendTextSegmentLayout[];
+  textBaselineY: number;
+}
+
 const VOLUME_UNITS = [
   { divisor: 1_000_000_000_000, suffix: 'T' },
   { divisor: 1_000_000_000, suffix: 'B' },
@@ -22,12 +51,16 @@ const VOLUME_UNITS = [
 ] as const;
 
 function formatPrice(value: number) {
+  'worklet';
+
   return Number.isFinite(value)
     ? formatTradingViewNativePriceTick(value)
     : '--';
 }
 
 export function formatTradingViewNativeVolume(volume: number) {
+  'worklet';
+
   if (!Number.isFinite(volume) || volume < 0) {
     return '--';
   }
@@ -44,6 +77,8 @@ export function formatTradingViewNativeVolume(volume: number) {
 export function getTradingViewNativeChartLegend(
   point: IMarketTokenKLineDataPoint,
 ): ITradingViewNativeChartLegend {
+  'worklet';
+
   return {
     isUp: isTradingViewNativePriceUp(point),
     priceItems: [
@@ -56,5 +91,76 @@ export function getTradingViewNativeChartLegend(
       label: 'Volume',
       value: formatTradingViewNativeVolume(point.v),
     },
+  };
+}
+
+export function getTradingViewNativeChartLegendRowLayout({
+  items,
+  maxX,
+  measureTextWidth,
+  top,
+}: {
+  items: ITradingViewNativeLegendItem[];
+  maxX: number;
+  measureTextWidth: (text: string) => number;
+  top: number;
+}): ITradingViewNativeChartLegendRowLayout | null {
+  'worklet';
+
+  const backgroundLeft = Math.max(
+    TRADING_VIEW_NATIVE_LEGEND_HORIZONTAL_PADDING -
+      TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_HORIZONTAL_PADDING,
+    TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
+  );
+  const backgroundTop = Math.max(
+    top - TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_VERTICAL_PADDING,
+    0,
+  );
+  const clipWidth = Math.max(maxX - backgroundLeft, 0);
+  if (!items.length || clipWidth <= 0) {
+    return null;
+  }
+
+  let x = TRADING_VIEW_NATIVE_LEGEND_HORIZONTAL_PADDING;
+  const segments = items.map((item) => {
+    const labelX = x;
+    const valueX =
+      labelX +
+      measureTextWidth(item.label) +
+      TRADING_VIEW_NATIVE_LEGEND_LABEL_VALUE_GAP;
+    x =
+      valueX +
+      measureTextWidth(item.value) +
+      TRADING_VIEW_NATIVE_LEGEND_ITEM_GAP;
+    return { ...item, labelX, valueX };
+  });
+  const contentRight = Math.max(
+    x - TRADING_VIEW_NATIVE_LEGEND_ITEM_GAP,
+    TRADING_VIEW_NATIVE_LEGEND_HORIZONTAL_PADDING,
+  );
+  const rowHeight =
+    TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE +
+    TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_VERTICAL_PADDING * 2;
+
+  return {
+    backgroundRect: {
+      height: rowHeight,
+      width: Math.min(
+        contentRight -
+          TRADING_VIEW_NATIVE_LEGEND_HORIZONTAL_PADDING +
+          TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_HORIZONTAL_PADDING * 2,
+        clipWidth,
+      ),
+      x: backgroundLeft,
+      y: backgroundTop,
+    },
+    clipRect: {
+      height: rowHeight,
+      width: clipWidth,
+      x: backgroundLeft,
+      y: backgroundTop,
+    },
+    segments,
+    textBaselineY: top + TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE,
   };
 }

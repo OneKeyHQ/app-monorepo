@@ -72,7 +72,7 @@ describe('buildSwapTokenFetchParams', () => {
     });
   });
 
-  it('does not invent account params for all-network requests', () => {
+  it('requests the complete Stock list without inventing all-network account params', () => {
     expect(
       buildSwapTokenFetchParams({
         currentNetworkId: 'onekeyall--0',
@@ -88,6 +88,20 @@ describe('buildSwapTokenFetchParams', () => {
       keywords: '',
       lpToken: undefined,
       currency: 'usd',
+      limit: 200,
     });
+  });
+
+  it('keeps the default limit for non-Stock all-network requests', () => {
+    expect(
+      buildSwapTokenFetchParams({
+        currentNetworkId: 'onekeyall--0',
+        currentSelectNetworkId: 'onekeyall--0',
+        keywords: '',
+        swapType: ESwapTabSwitchType.SWAP,
+        requestCurrency: 'usd',
+        shouldUseCurrentAccountAddress: false,
+      }),
+    ).not.toHaveProperty('limit');
   });
 });

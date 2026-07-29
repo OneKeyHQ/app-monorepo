@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import { useState } from 'react';
 
 import {
@@ -19,6 +20,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
+import { PrimeInfiniSubscriptionResetButton } from '../../components/PrimeDevUtils';
 import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/PrimePurchaseDialog';
 
 function CloudSyncDebugTest() {
@@ -257,6 +259,8 @@ export function PrimeDebugPanel({
         >
           ServerPrimeUserInfo
         </Button>
+
+        <PrimeInfiniSubscriptionResetButton />
 
         <Button
           onPress={() => {

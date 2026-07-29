@@ -34,6 +34,18 @@ jest.mock('../vaults/settings', () => ({
   getVaultSettings: jest.fn(),
 }));
 
+// Defensive boundary: nothing in this suite reaches localDb today, but any
+// future test touching the lazily imported accountSelectorPerpsWorth segment
+// (or any other localDb-importing dependency) would otherwise execute
+// localDbInstance's module-level `new LocalDbIndexed()` under
+// jest-environment-node (no indexedDB), whose un-awaited `_openDb()` becomes
+// a dangling rejection that hard-crashes the whole Jest worker after the
+// last test passes.
+jest.mock('../dbs/local/localDb', () => ({
+  __esModule: true,
+  default: {},
+}));
+
 jest.mock('@onekeyhq/shared/src/logger/logger', () => {
   const noopLogger = new Proxy(jest.fn(), {
     apply: () => undefined,

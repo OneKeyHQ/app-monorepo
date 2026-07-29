@@ -1,21 +1,12 @@
-import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
-
+// KeyTagModal only hosts the navigation hub and the wallet selector. The actual
+// content pages (view dots to back up, enter phrase, interactive dot import)
+// live in the Onboarding V2 page stack.
 export enum EModalKeyTagRoutes {
   UserOptions = 'Options',
   BackupWallet = 'BackupWallet',
-  BackupDotMap = 'BackupDotMap',
-  BackupRecoveryPhrase = 'BackupRecoveryPhrase',
-  BackupDocs = 'BackupDocs',
 }
 
 export type IModalKeyTagParamList = {
   [EModalKeyTagRoutes.UserOptions]: undefined;
-  [EModalKeyTagRoutes.BackupRecoveryPhrase]: undefined;
   [EModalKeyTagRoutes.BackupWallet]: undefined;
-  [EModalKeyTagRoutes.BackupDotMap]: {
-    wallet?: IDBWallet;
-    encodedText: string;
-    title: string;
-  };
-  [EModalKeyTagRoutes.BackupDocs]: undefined;
 };

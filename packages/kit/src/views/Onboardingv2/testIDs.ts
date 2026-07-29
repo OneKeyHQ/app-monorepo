@@ -171,4 +171,11 @@ export const OnboardingTestIDs = {
   deviceSetupPage: 'onboarding-device-setup-page',
   deviceSetupDoneBtn: 'onboarding-device-setup-done-btn',
   deviceSetupRetryBtn: 'onboarding-device-setup-retry-btn',
+
+  // KeyTag import
+  importKeyTagPage: 'onboarding-import-keytag-page',
+  importKeyTagConfirm: 'onboarding-import-keytag-confirm-btn',
+  importKeyTagWordCount: 'onboarding-import-keytag-word-count',
+  importKeyTagFlipNext: 'onboarding-import-keytag-flip-next-btn',
+  importKeyTagFlipBack: 'onboarding-import-keytag-flip-back-btn',
 } as const;

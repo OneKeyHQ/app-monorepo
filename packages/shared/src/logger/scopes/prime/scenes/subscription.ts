@@ -1,9 +1,65 @@
+/* cspell:ignore Infini */
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
+
+// Payment channel dimension: 'iap' = native in-app purchase (RevenueCat),
+// 'stripe' = RevenueCat web billing (Stripe), 'crypto' = Infini crypto checkout
+export type IPrimePaymentMethod = 'iap' | 'stripe' | 'crypto';
+
+export type IPrimeCryptoPaymentStage =
+  | 'paymentMethod'
+  | 'walletPaymentPage'
+  | 'paymentContext'
+  | 'paymentSession'
+  | 'paymentCreation'
+  | 'paymentReplacement'
+  | 'assetSelection'
+  | 'accountSelection'
+  | 'paymentPreflight'
+  | 'sendConfirmation'
+  | 'broadcast'
+  | 'paymentPolling'
+  | 'externalCheckout'
+  | 'purchaseCompletion';
+
+export type IPrimeCryptoPaymentStatus =
+  | 'started'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled'
+  | 'blocked'
+  | 'pending'
+  | 'expired'
+  | 'selected'
+  | 'restored'
+  | 'refreshed'
+  | 'recovered';
+
+export type IPrimeCryptoPaymentFlowParams = {
+  stage: IPrimeCryptoPaymentStage;
+  status: IPrimeCryptoPaymentStatus;
+  subscriptionPeriod?: ISubscriptionPeriod;
+  featureName?: EPrimeFeatures;
+  plan?: 'monthly' | 'yearly';
+  checkoutType?: 'internalWallet' | 'externalWallet';
+  paymentId?: string;
+  networkId?: string;
+  tokenSymbol?: string;
+  amountDue?: string;
+  reason?: string;
+  sendStarted?: boolean;
+  isRetry?: boolean;
+  durationMs?: number;
+  retryCount?: number;
+  errorName?: string;
+  errorCode?: string;
+  requestId?: string;
+  httpStatusCode?: number;
+};
 
 export class PrimeSubscriptionScene extends BaseScene {
   /**
@@ -83,15 +139,18 @@ export class PrimeSubscriptionScene extends BaseScene {
     subscriptionPeriod,
     featureName,
     isLoggedIn,
+    paymentMethod,
   }: {
     subscriptionPeriod: ISubscriptionPeriod;
     featureName?: EPrimeFeatures;
     isLoggedIn: boolean;
+    paymentMethod?: IPrimePaymentMethod;
   }) {
     return {
       subscriptionPeriod,
       featureName,
       isLoggedIn,
+      paymentMethod,
     };
   }
 
@@ -105,16 +164,25 @@ export class PrimeSubscriptionScene extends BaseScene {
     subscriptionPeriod,
     featureName,
     currency,
+    paymentMethod,
   }: {
     subscriptionPeriod: ISubscriptionPeriod;
     featureName?: EPrimeFeatures;
     currency?: string;
+    paymentMethod?: IPrimePaymentMethod;
   }) {
     return {
       subscriptionPeriod,
       featureName,
       currency,
+      paymentMethod,
     };
+  }
+
+  @LogToLocal({ level: 'info' })
+  @LogToServer()
+  public primeCryptoPaymentFlow(params: IPrimeCryptoPaymentFlowParams) {
+    return params;
   }
 
   /**
@@ -167,17 +235,20 @@ export class PrimeSubscriptionScene extends BaseScene {
     amount,
     currency,
     featureName,
+    paymentMethod,
   }: {
     planType: 'monthly' | 'yearly';
     amount: number;
     currency: string;
     featureName?: EPrimeFeatures;
+    paymentMethod?: IPrimePaymentMethod;
   }) {
     return {
       planType,
       amount,
       currency,
       featureName,
+      paymentMethod,
     };
   }
 
@@ -247,6 +318,19 @@ export class PrimeSubscriptionScene extends BaseScene {
   @LogToLocal()
   @LogToServer()
   public onekeyIdLoginFailedToast({ reason }: { reason: string }) {
+    return {
+      reason,
+    };
+  }
+
+  // A OneKey ID auth failure reason recorded at the throw site: the
+  // user-facing copy is localized/generic, so this keeps the stable English
+  // cause for server triage. Fires regardless of which toast (auto,
+  // fallback, or none) surfaces the failure — unlike onekeyIdLoginFailedToast
+  // above, which strictly means "the fallback toast was shown".
+  @LogToLocal()
+  @LogToServer()
+  public onekeyIdLoginFailedReason({ reason }: { reason: string }) {
     return {
       reason,
     };
