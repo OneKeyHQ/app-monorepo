@@ -60,6 +60,7 @@ export const TradingViewNativeContainer = memo(
     const {
       calendarAvailableTimeRange,
       candleIntervalSeconds,
+      chartType,
       chartPictureVersion,
       dataProviderKey,
       dataState,
@@ -233,6 +234,7 @@ export const TradingViewNativeContainer = memo(
           <TradingViewNativeChart
             key={`${dataProviderKey}:${candleIntervalSeconds}`}
             candleIntervalSeconds={candleIntervalSeconds}
+            chartType={chartType}
             chartPictureVersion={chartPictureVersion}
             isSwitchingInterval={isSwitchingInterval}
             onChartWidthChange={setChartWidth}

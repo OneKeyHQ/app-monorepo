@@ -289,6 +289,44 @@ describe('TradingViewNative chart viewport', () => {
     });
   });
 
+  it('derives and deduplicates line extrema from close prices', () => {
+    const points: IMarketTokenKLineDataPoint[] = [
+      { c: 10, h: 1000, l: 1, o: 9, t: 1, v: 0 },
+      { c: 30, h: 500, l: 2, o: 10, t: 2, v: 0 },
+      { c: 20, h: 800, l: 3, o: 30, t: 3, v: 0 },
+    ];
+
+    expect(
+      getTradingViewNativePriceRange({
+        chartType: 'line',
+        endIndex: points.length,
+        points,
+        startIndex: 0,
+      }),
+    ).toEqual({ maxPrice: 30, minPrice: 10 });
+    expect(
+      getTradingViewNativePriceExtrema({
+        chartType: 'line',
+        endIndex: points.length,
+        points,
+        startIndex: 0,
+      }),
+    ).toEqual({
+      high: { index: 1, price: 30 },
+      low: { index: 0, price: 10 },
+    });
+    expect(
+      getTradingViewNativePriceExtrema({
+        chartType: 'line',
+        endIndex: 1,
+        points,
+        startIndex: 0,
+      }),
+    ).toEqual({
+      high: { index: 0, price: 10 },
+    });
+  });
+
   it('includes candle bodies that intersect either viewport edge', () => {
     expect(
       getTradingViewNativeVisiblePointRange({

@@ -13,6 +13,8 @@ import {
 import { formatTradingViewNativePriceTick } from './chartLayout';
 import { isTradingViewNativePriceUp } from './chartStyle';
 
+import type { ITradingViewNativeChartType } from '../types';
+
 export interface ITradingViewNativeLegendItem {
   label: string;
   value: string;
@@ -43,6 +45,9 @@ export interface ITradingViewNativeChartLegendRowLayout {
   textBaselineY: number;
 }
 
+export type ITradingViewNativeChartLegendRowLayouts =
+  ITradingViewNativeChartLegendRowLayout[];
+
 const VOLUME_UNITS = [
   { divisor: 1_000_000_000_000, suffix: 'T' },
   { divisor: 1_000_000_000, suffix: 'B' },
@@ -56,6 +61,87 @@ function formatPrice(value: number) {
   return Number.isFinite(value)
     ? formatTradingViewNativePriceTick(value)
     : '--';
+}
+
+function expandTradingViewNativeScientificNotation(value: string) {
+  'worklet';
+
+  const exponentIndex = value.indexOf('e');
+  if (exponentIndex < 0) {
+    return value;
+  }
+
+  const mantissa = value.slice(0, exponentIndex);
+  const exponent = Number(value.slice(exponentIndex + 1));
+  if (!Number.isInteger(exponent)) {
+    return value;
+  }
+
+  const sign = mantissa.startsWith('-') ? '-' : '';
+  const unsignedMantissa = mantissa.replace(/^[+-]/, '');
+  const decimalIndex = unsignedMantissa.indexOf('.');
+  const digits = unsignedMantissa.replace('.', '');
+  const decimalPosition =
+    (decimalIndex < 0 ? unsignedMantissa.length : decimalIndex) + exponent;
+
+  if (decimalPosition <= 0) {
+    return `${sign}0.${'0'.repeat(-decimalPosition)}${digits}`;
+  }
+  if (decimalPosition >= digits.length) {
+    return `${sign}${digits}${'0'.repeat(decimalPosition - digits.length)}`;
+  }
+  return `${sign}${digits.slice(0, decimalPosition)}.${digits.slice(
+    decimalPosition,
+  )}`;
+}
+
+function formatTradingViewNativePriceChangeValue(value: number) {
+  'worklet';
+
+  if (!Number.isFinite(value)) {
+    return '--';
+  }
+
+  const roundedValue = Number(value.toPrecision(6));
+  if (!Number.isFinite(roundedValue)) {
+    return '--';
+  }
+  return expandTradingViewNativeScientificNotation(roundedValue.toString());
+}
+
+export function formatTradingViewNativePriceChange({
+  close,
+  open,
+  previousClose,
+}: {
+  close: number;
+  open: number;
+  previousClose?: number;
+}) {
+  'worklet';
+
+  // Match TradingView's bar-change status line when the previous close is available.
+  const referencePrice = previousClose === undefined ? open : previousClose;
+  if (
+    !Number.isFinite(referencePrice) ||
+    !Number.isFinite(close) ||
+    referencePrice === 0
+  ) {
+    return '--';
+  }
+
+  const change = close - referencePrice;
+  const percentage = (change / referencePrice) * 100;
+  if (!Number.isFinite(change) || !Number.isFinite(percentage)) {
+    return '--';
+  }
+
+  const roundedPercentage = Number(percentage.toFixed(2));
+  const changeSign = change > 0 ? '+' : '';
+  const percentageSign = roundedPercentage > 0 ? '+' : '';
+  return `${changeSign}${formatTradingViewNativePriceChangeValue(
+    change,
+  )} (${percentageSign}${roundedPercentage.toString()}%)`;
 }
 
 export function formatTradingViewNativeVolume(volume: number) {
@@ -76,17 +162,31 @@ export function formatTradingViewNativeVolume(volume: number) {
 
 export function getTradingViewNativeChartLegend(
   point: IMarketTokenKLineDataPoint,
+  chartType: ITradingViewNativeChartType = 'candlestick',
+  previousClose?: number,
 ): ITradingViewNativeChartLegend {
   'worklet';
 
+  const priceChangeItem = {
+    label: '',
+    value: formatTradingViewNativePriceChange({
+      close: point.c,
+      open: point.o,
+      previousClose,
+    }),
+  };
   return {
     isUp: isTradingViewNativePriceUp(point),
-    priceItems: [
-      { label: 'O', value: formatPrice(point.o) },
-      { label: 'H', value: formatPrice(point.h) },
-      { label: 'L', value: formatPrice(point.l) },
-      { label: 'C', value: formatPrice(point.c) },
-    ],
+    priceItems:
+      chartType === 'line'
+        ? [{ label: 'Price', value: formatPrice(point.c) }, priceChangeItem]
+        : [
+            { label: 'O', value: formatPrice(point.o) },
+            { label: 'H', value: formatPrice(point.h) },
+            { label: 'L', value: formatPrice(point.l) },
+            { label: 'C', value: formatPrice(point.c) },
+            priceChangeItem,
+          ],
     volumeItem: {
       label: 'Volume',
       value: formatTradingViewNativeVolume(point.v),
@@ -94,7 +194,7 @@ export function getTradingViewNativeChartLegend(
   };
 }
 
-export function getTradingViewNativeChartLegendRowLayout({
+function getLegendRowLayout({
   items,
   maxX,
   measureTextWidth,
@@ -163,4 +263,102 @@ export function getTradingViewNativeChartLegendRowLayout({
     segments,
     textBaselineY: top + TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE,
   };
+}
+
+export function getTradingViewNativeChartLegendRowLayouts({
+  items,
+  maxX,
+  measureTextWidth,
+  top,
+}: {
+  items: ITradingViewNativeLegendItem[];
+  maxX: number;
+  measureTextWidth: (text: string) => number;
+  top: number;
+}): ITradingViewNativeChartLegendRowLayouts {
+  'worklet';
+
+  const backgroundLeft = Math.max(
+    TRADING_VIEW_NATIVE_LEGEND_HORIZONTAL_PADDING -
+      TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_HORIZONTAL_PADDING,
+    TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
+  );
+  const clipWidth = Math.max(maxX - backgroundLeft, 0);
+  if (!items.length || clipWidth <= 0) {
+    return [];
+  }
+  const clipRight = backgroundLeft + clipWidth;
+
+  const rowHeight =
+    TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE +
+    TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_VERTICAL_PADDING * 2;
+  const rows: ITradingViewNativeLegendItem[][] = [];
+  let currentRow: ITradingViewNativeLegendItem[] = [];
+  let currentWidth = 0;
+  for (const item of items) {
+    const itemWidth =
+      measureTextWidth(item.label) +
+      TRADING_VIEW_NATIVE_LEGEND_LABEL_VALUE_GAP +
+      measureTextWidth(item.value);
+    const nextWidth =
+      currentRow.length === 0
+        ? itemWidth
+        : currentWidth + TRADING_VIEW_NATIVE_LEGEND_ITEM_GAP + itemWidth;
+    if (
+      currentRow.length > 0 &&
+      TRADING_VIEW_NATIVE_LEGEND_HORIZONTAL_PADDING + nextWidth > clipRight
+    ) {
+      rows.push(currentRow);
+      currentRow = [];
+      currentWidth = 0;
+    }
+    currentRow.push(item);
+    currentWidth =
+      currentRow.length === 1
+        ? itemWidth
+        : currentWidth + TRADING_VIEW_NATIVE_LEGEND_ITEM_GAP + itemWidth;
+  }
+  if (currentRow.length > 0) {
+    rows.push(currentRow);
+  }
+
+  const layouts: ITradingViewNativeChartLegendRowLayouts = [];
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+    const row = rows[rowIndex];
+    if (row) {
+      const rowLayout = getLegendRowLayout({
+        items: row,
+        maxX,
+        measureTextWidth,
+        top: top + rowIndex * rowHeight,
+      });
+      if (rowLayout) {
+        layouts.push(rowLayout);
+      }
+    }
+  }
+  return layouts;
+}
+
+export function getTradingViewNativeChartLegendRowLayout({
+  items,
+  maxX,
+  measureTextWidth,
+  top,
+}: {
+  items: ITradingViewNativeLegendItem[];
+  maxX: number;
+  measureTextWidth: (text: string) => number;
+  top: number;
+}): ITradingViewNativeChartLegendRowLayout | null {
+  'worklet';
+
+  return (
+    getTradingViewNativeChartLegendRowLayouts({
+      items,
+      maxX,
+      measureTextWidth,
+      top,
+    })[0] ?? null
+  );
 }
