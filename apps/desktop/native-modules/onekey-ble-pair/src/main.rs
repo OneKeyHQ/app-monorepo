@@ -229,10 +229,9 @@ mod win {
         ));
     }
 
-    /// List every BLE device Windows currently considers paired. A stale bond
-    /// here — especially one whose address differs from the one we are pairing —
-    /// is the signature of the "half bond under a previous RPA" theory, and is
-    /// exactly what makes the device un-scannable/un-connectable afterwards.
+    /// Every BLE bond Windows currently holds. Manual `inspect` only — the ids
+    /// embed real MACs of the user's other peripherals, so this must not run in
+    /// the automatic pairing flow, whose log gets exported.
     async fn dump_paired_inventory(tag: &str) {
         let selector = match BluetoothLEDevice::GetDeviceSelectorFromPairingState(true) {
             Ok(s) => s,
@@ -435,7 +434,6 @@ mod win {
         let addr = super::require_address(address)?;
         diag(&format!("run_pair keepLink={keep_link}"));
 
-        dump_paired_inventory("before").await;
 
         let (device, pairing) = open_pairing(addr).await?;
         describe_device(&device, &pairing, "before");
@@ -620,7 +618,6 @@ mod win {
 
         match status {
             DevicePairingResultStatus::Paired => {
-                dump_paired_inventory("after-paired").await;
 
                 // The RPA we just paired against is disposable — the device will
                 // rotate it. Hand the caller the identity address from the bond
@@ -694,7 +691,6 @@ mod win {
                         Err(e) => diag(&format!("cleanup unpair error: {e}")),
                     }
                 }
-                dump_paired_inventory("after").await;
                 Err(format!("pairing failed with status {status:?}"))
             }
         }
@@ -816,13 +812,11 @@ mod win {
 
     pub async fn run_forget(address: Option<String>) -> Result<(), String> {
         let addr = super::require_address(address)?;
-        dump_paired_inventory("forget-before").await;
         let (device, pairing) = open_pairing(addr).await?;
         describe_device(&device, &pairing, "forget-before");
         let result = pairing.UnpairAsync().map_err(we)?.await.map_err(we)?;
         let status = result.Status().map_err(we)?;
         diag(&format!("unpair status={status:?}"));
-        dump_paired_inventory("forget-after").await;
         match status {
             DeviceUnpairingResultStatus::Unpaired | DeviceUnpairingResultStatus::AlreadyUnpaired => {
                 super::emit(r#"{"type":"unpaired"}"#);
