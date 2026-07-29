@@ -339,10 +339,26 @@ function TokenDetailsOverview(props: IProps) {
     walletId,
   ]);
 
-  const handleSwapPress = useCallback(async () => {
-    // Rows are sorted by fiat value, so the first member is the one the user
-    // most plausibly wants to trade; the swap page allows changing it.
+  // Rows are sorted by fiat value, so the first member is the one the user
+  // most plausibly wants to trade; the swap page allows changing it. The
+  // member's scaled-UI multiplier (detail level first, token level fallback)
+  // rides along so the swap gate below and `pushSwapFromTokenDetails`'s
+  // fail-closed re-check judge the same member.
+  const swapMember = useMemo(() => {
     const member = rows[0]?.token ?? tokens[0];
+    if (!member) {
+      return undefined;
+    }
+    return {
+      token: member,
+      balanceMultiplier:
+        tokenRebaseUtils.pickBalanceMultiplier(rows[0]?.tokenDetail) ??
+        member.balanceMultiplier,
+    };
+  }, [rows, tokens]);
+
+  const handleSwapPress = useCallback(async () => {
+    const member = swapMember?.token;
     if (!member?.networkId) {
       return;
     }
@@ -363,6 +379,7 @@ function TokenDetailsOverview(props: IProps) {
         decimals: member.decimals,
         name: member.name,
         logoURI: member.logoURI ?? tokenInfo.logoURI,
+        balanceMultiplier: swapMember?.balanceMultiplier,
       },
       networkId: member.networkId,
       networkLogoURI: memberNetwork?.logoURI,
@@ -371,8 +388,7 @@ function TokenDetailsOverview(props: IProps) {
       isSoftwareWalletOnlyUser,
     });
   }, [
-    rows,
-    tokens,
+    swapMember,
     tokenInfo.logoURI,
     wallet?.type,
     isSoftwareWalletOnlyUser,
@@ -380,8 +396,13 @@ function TokenDetailsOverview(props: IProps) {
   ]);
 
   const disableSwapAction = useMemo(
-    () => accountUtils.isUrlAccountFn({ accountId }),
-    [accountId],
+    () =>
+      accountUtils.isUrlAccountFn({ accountId }) ||
+      // Scaled-UI member: same fail-closed swap gate as the single-network
+      // header — Swap would display/build on the raw basis, out of sync with
+      // the wallet display.
+      tokenRebaseUtils.isValidBalanceMultiplier(swapMember?.balanceMultiplier),
+    [accountId, swapMember?.balanceMultiplier],
   );
 
   const disableBuyAction = isWatchOnly && !platformEnv.isDev;

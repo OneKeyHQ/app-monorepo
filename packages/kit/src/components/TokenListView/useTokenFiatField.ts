@@ -115,6 +115,12 @@ const selectBalanceParsedRaw = (
   f: ITokenFiat | undefined,
 ): string | undefined => f?.balanceParsed;
 
+// Raw `balanceMultiplier` field — for consumers that gate scaled-UI-unaware
+// flows (e.g. the swap entry), not for display math.
+const selectBalanceMultiplier = (
+  f: ITokenFiat | undefined,
+): string | undefined => f?.balanceMultiplier;
+
 const selectPrice24h = (f: ITokenFiat | undefined): number | undefined =>
   f?.price24h;
 
@@ -164,6 +170,14 @@ export function useTokenBalanceParsed($key: string): string | undefined {
  */
 export function useTokenBalanceParsedRaw($key: string): string | undefined {
   return useTokenFiatField($key, selectBalanceParsedRaw);
+}
+
+/**
+ * `balanceMultiplier` only — lets scaled-UI-unaware consumers (e.g. the swap
+ * entry) detect rebase tokens and fail closed.
+ */
+export function useTokenBalanceMultiplier($key: string): string | undefined {
+  return useTokenFiatField($key, selectBalanceMultiplier);
 }
 
 /** `price24h` only. */

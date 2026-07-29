@@ -318,6 +318,8 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
       // division can never sum above the raw balance the validators checked.
       let rawTransfersInfo = effectiveTransfersInfo;
       let approvalTokenAmount = effectiveTotalTokenAmount;
+      let finalTotalTokenAmount = effectiveTotalTokenAmount;
+      let finalTotalFiatAmount = effectiveTotalFiatAmount;
       if (tokenRebaseUtils.isValidBalanceMultiplier(rebaseMultiplier)) {
         rawTransfersInfo = effectiveTransfersInfo.map((transfer) => ({
           ...transfer,
@@ -356,6 +358,24 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
             new BigNumber(0),
           )
           .toFixed();
+        // The per-row display->raw division floors at token decimals, so the
+        // pre-division totals can exceed what actually gets signed. Rebuild
+        // the Grand Summary totals from the raw amounts — the same numbers
+        // Review/Process re-derive their per-row display from — so summary
+        // and details always agree.
+        ({
+          totalTokenAmount: finalTotalTokenAmount,
+          totalFiatAmount: finalTotalFiatAmount,
+        } = calculateTotalAmounts({
+          transfersInfo: rawTransfersInfo.map((transfer) => ({
+            ...transfer,
+            amount: tokenRebaseUtils.applyBalanceMultiplier({
+              amount: transfer.amount,
+              balanceMultiplier: rebaseMultiplier,
+            }),
+          })),
+          tokenPrice: tokenDetails?.price,
+        }));
       }
 
       const unsignedTxs: IUnsignedTxPro[] = [];
@@ -446,8 +466,8 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
         transfersInfo: rawTransfersInfo,
         bulkSendMode,
         isInModal,
-        totalTokenAmount: effectiveTotalTokenAmount,
-        totalFiatAmount: effectiveTotalFiatAmount,
+        totalTokenAmount: finalTotalTokenAmount,
+        totalFiatAmount: finalTotalFiatAmount,
         ataCount,
       });
     } catch (error) {
@@ -459,6 +479,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     accountId,
     networkId,
     tokenInfo,
+    tokenDetails?.price,
     bulkSendContractAddress,
     isNativeBatchTransfer,
     needsApproval,

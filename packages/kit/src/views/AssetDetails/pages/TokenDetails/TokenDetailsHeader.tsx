@@ -98,6 +98,7 @@ export async function pushSwapFromTokenDetails({
     decimals: number;
     name?: string;
     logoURI?: string;
+    balanceMultiplier?: string;
   };
   networkId: string;
   networkLogoURI?: string;
@@ -105,6 +106,13 @@ export async function pushSwapFromTokenDetails({
   walletType?: string;
   isSoftwareWalletOnlyUser: boolean;
 }) {
+  // Swap has no end-to-end scaled-UI (rebase) support yet — the ISwapToken
+  // pipeline treats every amount as raw. The entries are disabled for these
+  // tokens; re-check here so no trigger path can seed Swap with a basis out
+  // of sync with the wallet display.
+  if (tokenRebaseUtils.isValidBalanceMultiplier(token.balanceMultiplier)) {
+    return;
+  }
   const importFromToken: ISwapToken = {
     contractAddress: token.address,
     symbol: token.symbol,
@@ -399,6 +407,12 @@ function TokenDetailsHeaderContent({
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
+  // Scaled-UI (rebase) marker for the swap gate below; also passed into
+  // `pushSwapFromTokenDetails` so its fail-closed re-check sees the same
+  // snapshot the disabled state was derived from.
+  const tokenDetailsBalanceMultiplier =
+    tokenRebaseUtils.pickBalanceMultiplier(tokenDetails);
+
   const handleOnSwap = useCallback(
     () =>
       pushSwapFromTokenDetails({
@@ -410,6 +424,7 @@ function TokenDetailsHeaderContent({
           decimals: tokenInfo.decimals,
           name: tokenInfo.name,
           logoURI: tokenInfo.logoURI,
+          balanceMultiplier: tokenDetailsBalanceMultiplier,
         },
         networkId,
         networkLogoURI: network?.logoURI,
@@ -428,14 +443,19 @@ function TokenDetailsHeaderContent({
       tokenInfo.decimals,
       tokenInfo.name,
       tokenInfo.logoURI,
+      tokenDetailsBalanceMultiplier,
       deriveType,
       isSoftwareWalletOnlyUser,
     ],
   );
 
   const disableSwapAction = useMemo(
-    () => accountUtils.isUrlAccountFn({ accountId }),
-    [accountId],
+    () =>
+      accountUtils.isUrlAccountFn({ accountId }) ||
+      // Scaled-UI tokens: Swap would display/build on the raw basis, out of
+      // sync with the wallet display.
+      tokenRebaseUtils.isValidBalanceMultiplier(tokenDetailsBalanceMultiplier),
+    [accountId, tokenDetailsBalanceMultiplier],
   );
 
   const handleSendPress = useCallback(() => {

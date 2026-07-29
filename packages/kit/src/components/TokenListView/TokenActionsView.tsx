@@ -8,6 +8,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   buildTokenListMapKey,
   equalTokenNoCaseSensitive,
@@ -34,7 +35,10 @@ import {
   isResolvedTokenActionReady,
 } from './TokenActionsView.utils';
 import { useTokenListViewContext } from './TokenListViewContext';
-import { useTokenBalanceParsedRaw } from './useTokenFiatField';
+import {
+  useTokenBalanceMultiplier,
+  useTokenBalanceParsedRaw,
+} from './useTokenFiatField';
 
 import type { XStackProps } from 'tamagui';
 
@@ -93,6 +97,20 @@ function TokenActionsView(props: IProps) {
   );
   const fromTokenBalanceSeed =
     aggregateFromTokenFiat?.balanceParsed ?? fromTokenBalance;
+  const fromTokenBalanceMultiplier = useTokenBalanceMultiplier(
+    resolvedActiveToken?.$key ?? '',
+  );
+  // Swap has no end-to-end scaled-UI (rebase) support yet — ISwapToken and the
+  // swap display/validation/tx-building paths all treat amounts as raw, so a
+  // token with a valid balanceMultiplier would show and build on a basis out
+  // of sync with the wallet list. Fail closed: disable the entry (and
+  // re-check in the press callback) until Swap learns the multiplier.
+  const isScaledUiSwapBlocked =
+    [
+      aggregateFromTokenFiat?.balanceMultiplier,
+      fromTokenBalanceMultiplier,
+      resolvedActiveToken?.balanceMultiplier,
+    ].find(tokenRebaseUtils.isValidBalanceMultiplier) !== undefined;
   const sameNetworkToToken = useMemo(() => {
     if (!resolvedActiveToken || !networkId) {
       return undefined;
@@ -203,7 +221,11 @@ function TokenActionsView(props: IProps) {
 
   const handleTokenOnSwap = useCallback(() => {
     void (async () => {
-      if (!resolvedActiveToken || !isTokenActionReady) {
+      if (
+        !resolvedActiveToken ||
+        !isTokenActionReady ||
+        isScaledUiSwapBlocked
+      ) {
         return;
       }
 
@@ -279,6 +301,7 @@ function TokenActionsView(props: IProps) {
     network,
     deriveType,
     isTokenActionReady,
+    isScaledUiSwapBlocked,
     networkId,
     resolvedActiveToken,
     sameNetworkToToken,
@@ -298,7 +321,7 @@ function TokenActionsView(props: IProps) {
         variant="secondary"
         cursor="pointer"
         onPress={handleTokenOnSwap}
-        disabled={!isTokenActionReady}
+        disabled={!isTokenActionReady || isScaledUiSwapBlocked}
       >
         {intl.formatMessage({ id: ETranslations.global_swap })}
       </Button>
