@@ -492,6 +492,15 @@ export function usePerpsUnifoldDepositSession({
     [destination],
   );
 
+  const selectSource = useCallback(
+    (asset: IUnifoldSupportedAsset, chain: IUnifoldSupportedAssetChain) => {
+      const next = { asset, chain };
+      cacheSourceSelection(destination, next);
+      setSelection(next);
+    },
+    [destination],
+  );
+
   // ── Deposit address (echo-checked in bg); 5s auto-retry on failure ──
   const [addressAttempt, setAddressAttempt] = useState(0);
   useEffect(() => {
@@ -969,6 +978,7 @@ export function usePerpsUnifoldDepositSession({
     selection,
     selectToken,
     selectChain,
+    selectSource,
     qrAddress,
     sessionExecutions: isLiveAccountAligned ? sessionExecutions : [],
     acknowledgePresentedExecution,
