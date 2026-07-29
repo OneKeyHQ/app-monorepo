@@ -35,6 +35,8 @@ export const swapSlippageDecimal = 2;
 
 export const swapTokenCatchMapMaxCount = 30;
 
+export const swapStockTokenListMaxCount = 200;
+
 export const swapApproveResetValue = '0';
 
 export const swapQuoteIntervalMaxCount = 5;

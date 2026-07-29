@@ -20,6 +20,8 @@ import { EBorrowDataStatus } from './borrowDataStatus';
 
 import type { ISwapConfig } from './components/BorrowTableList';
 
+export { buildBorrowMarketKey } from './borrowMarketKey';
+
 // Unified async data type for all requests
 export type IAsyncData<T> = {
   data: T;
@@ -47,6 +49,8 @@ const defaultAsyncData = <T,>(data: T): IAsyncData<T> => ({
 
 type IBorrowContextValue = {
   // Market (sync data)
+  markets: IBorrowMarketItem[];
+  setMarkets: React.Dispatch<React.SetStateAction<IBorrowMarketItem[]>>;
   market: IBorrowMarketItem | null;
   setMarket: React.Dispatch<React.SetStateAction<IBorrowMarketItem | null>>;
 
@@ -85,6 +89,7 @@ export const BorrowProvider = ({
 }: PropsWithChildren<{
   value?: IBorrowContextValue;
 }>) => {
+  const [markets, setMarkets] = useState<IBorrowMarketItem[]>([]);
   const [market, setMarket] = useState<IBorrowMarketItem | null>(null);
   const [earnAccount, setEarnAccount] = useState<
     IAsyncData<IBorrowEarnAccount>
@@ -129,6 +134,8 @@ export const BorrowProvider = ({
 
   const contextValue = useMemo(
     () => ({
+      markets,
+      setMarkets,
       market,
       setMarket,
       earnAccount,
@@ -144,6 +151,7 @@ export const BorrowProvider = ({
       setRefreshAllBorrowData,
     }),
     [
+      markets,
       market,
       earnAccount,
       reserves,

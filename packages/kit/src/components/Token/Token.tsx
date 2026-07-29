@@ -4,6 +4,7 @@
 */
 
 import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -33,7 +34,7 @@ import { NetworkAvatar, NetworkAvatarBase } from '../NetworkAvatar';
 
 import type { ImageURISource } from 'react-native';
 
-type ITokenSize = 'xl' | 'lg' | 'md' | 'sm' | 'xs' | 'xxs';
+type ITokenSize = 'xxl' | 'xl' | 'lg' | 'md' | 'sm' | 'xs' | 'xxs';
 export type ITokenProps = {
   isNFT?: boolean;
   fallbackIcon?: IKeyOfIcons;
@@ -43,6 +44,8 @@ export type ITokenProps = {
   networkImageUri?: ImageURISource['uri'];
   showNetworkIcon?: boolean;
   showNetworkIconBorder?: boolean;
+  cornerBadge?: ReactNode;
+  showCornerBadgeBorder?: boolean;
   networkId?: string;
   isAggregateToken?: boolean;
 } & Omit<IImageProps, 'size'>;
@@ -55,6 +58,7 @@ const sizeMap: Record<
     fallbackIconSize: SizeTokens;
   }
 > = {
+  xxl: { tokenImageSize: '$14', chainImageSize: '$6', fallbackIconSize: '$9' },
   xl: { tokenImageSize: '$12', chainImageSize: '$5', fallbackIconSize: '$8' },
   lg: { tokenImageSize: '$10', chainImageSize: '$4', fallbackIconSize: '$7' },
   md: { tokenImageSize: '$8', chainImageSize: '$4', fallbackIconSize: '$6' },
@@ -72,6 +76,8 @@ export function Token({
   networkId,
   showNetworkIcon,
   showNetworkIconBorder = true,
+  cornerBadge,
+  showCornerBadgeBorder = true,
   fallbackIcon,
   isAggregateToken,
   bg: bgProp,
@@ -155,6 +161,24 @@ export function Token({
     ) : (
       <Image source={source} {...sharedImageProps} />
     );
+
+  if (cornerBadge) {
+    return (
+      <Stack position="relative" width={tokenImageSize} height={tokenImageSize}>
+        {tokenImage}
+        <Stack
+          position="absolute"
+          right="$-1"
+          bottom="$-1"
+          p={showCornerBadgeBorder ? '$0.5' : '$0'}
+          bg={showCornerBadgeBorder ? '$bgApp' : '$transparent'}
+          borderRadius="$full"
+        >
+          {cornerBadge}
+        </Stack>
+      </Stack>
+    );
+  }
 
   if (networkImageUri) {
     return (

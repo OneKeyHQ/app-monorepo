@@ -20,6 +20,7 @@ import type {
   IEarnText,
 } from '@onekeyhq/shared/types/staking';
 
+import { filterUnsupportedAaveNativeReserveAssets } from '../../components/borrowRepayPosition.utils';
 import {
   AmountField,
   AssetField,
@@ -78,7 +79,15 @@ export default function BorrowTokenSelectModal() {
     },
   );
 
-  const assets = assetsList.assets;
+  const assets = useMemo(
+    () =>
+      filterUnsupportedAaveNativeReserveAssets({
+        assets: assetsList.assets,
+        networkId,
+        providerName: provider,
+      }),
+    [assetsList.assets, networkId, provider],
+  );
 
   const filteredAssets = useMemo(() => {
     const keyword = searchKeyword.trim().toLowerCase();

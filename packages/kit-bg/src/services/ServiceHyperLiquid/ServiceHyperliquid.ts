@@ -141,6 +141,7 @@ import {
   perpsSpotBalancesAtom,
   perpsSpotDustingAtom,
   perpsTradesHistoryDataAtom,
+  perpsUnifoldActiveRecipientAtom,
   spotActiveAssetAtom,
   spotActiveAssetCtxAtom,
   spotAssetCtxsMapAtom,
@@ -751,6 +752,8 @@ export default class ServiceHyperliquid extends ServiceBase {
               disablePerpActionPerp:
                 commonConfig.disablePerpActionPerp === true,
               ipDisablePerp: commonConfig.ipDisablePerp === true,
+              unifoldDepositEnabled:
+                commonConfig.unifoldDepositEnabled === true,
             }),
             perpBannerConfig: options?.fromServerConfig
               ? bannerConfig
@@ -2632,11 +2635,28 @@ export default class ServiceHyperliquid extends ServiceBase {
       }
     }
 
-    // Expose the new active account last. Account-value consumers must still
-    // verify address alignment because multiple atom sets are observable.
+    // Commit the background recipient guard before publishing the account to
+    // main. On split-runtime targets the UI must never observe a recipient
+    // that the persisted IPC guard has not accepted yet; a failed persistence
+    // write therefore leaves the previous active account published.
     if (!this.isLatestActivePerpsAccountChange(requestId)) {
       return undefined;
     }
+    await perpsUnifoldActiveRecipientAtom.set((prev) => {
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return prev;
+      }
+      return {
+        accountAddress: perpsAccount.accountAddress,
+      };
+    });
+    if (!this.isLatestActivePerpsAccountChange(requestId)) {
+      return undefined;
+    }
+
+    // Expose the new active account last. Account-value consumers must still
+    // verify address alignment because the other account-data atom resets
+    // above remain independently observable.
     await perpsActiveAccountAtom.set((prev): IPerpsActiveAccountAtom => {
       if (!this.isLatestActivePerpsAccountChange(requestId)) {
         return prev;

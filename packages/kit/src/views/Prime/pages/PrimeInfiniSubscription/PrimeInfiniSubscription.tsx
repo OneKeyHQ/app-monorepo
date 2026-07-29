@@ -1,7 +1,8 @@
 /* cspell:ignore Infini */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
+import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IBadgeType } from '@onekeyhq/components';
@@ -22,6 +23,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -33,6 +35,8 @@ import type {
   IPrimeInfiniSubscription,
   IPrimeInfiniSubscriptionPlan,
 } from '@onekeyhq/shared/types/prime/primeTypes';
+
+import { PrimeInfiniSubscriptionResetButton } from '../../components/PrimeDevUtils';
 
 import {
   isInfiniSubscriptionRenewalStopped,
@@ -223,13 +227,13 @@ export default function PrimeInfiniSubscription() {
       }
     },
     [currentOneKeyUserId, primeExpiresAt],
-    // Debounced so the renew flow's overlapping triggers (waiting-dialog
-    // onClose refresh, the atom expiry bump, and the focus refetch) collapse
-    // into a single apiGetInfiniSubscription call instead of firing several
-    // back to back. watchLoading is intentionally omitted: refreshes keep the
-    // current content in place (see renderContent) rather than flipping the
-    // page into a full spinner.
-    { debounced: 300 },
+    // Debounce lives on the refresh callback below, not here: a hook-level
+    // debounce also wraps the run() that the reset flow has to await, and a
+    // debounced call resolves with lodash's previous return value rather than
+    // the pending request. watchLoading is intentionally omitted: refreshes
+    // keep the current content in place (see renderContent) rather than
+    // flipping the page into a full spinner.
+    {},
   );
   const isResultForCurrentUser = Boolean(
     currentOneKeyUserId && result?.onekeyUserId === currentOneKeyUserId,
@@ -238,9 +242,35 @@ export default function PrimeInfiniSubscription() {
     ? result?.subscription
     : undefined;
 
-  const refreshSubscription = useCallback(() => {
-    void run();
-  }, [run]);
+  const runRef = useRef(run);
+  runRef.current = run;
+
+  // Debounced so the renew flow's overlapping triggers collapse into a single
+  // apiGetInfiniSubscription call instead of firing several back to back.
+  // Reads run() through a ref so the debounced instance stays stable and its
+  // pending call cannot be dropped by a re-render.
+  const refreshSubscription = useMemo(
+    () =>
+      debounce(() => {
+        void runRef.current();
+      }, 300),
+    [],
+  );
+
+  useEffect(() => () => refreshSubscription.cancel(), [refreshSubscription]);
+
+  // Awaited by the reset button: the subscription shown here comes from this
+  // page's own apiGetInfiniSubscription call, which only re-runs when the
+  // OneKey ID or primeExpiresAt changes, so a reset would otherwise leave the
+  // deleted subscription (and its cancel-renewal entry) on screen. Goes through
+  // run() rather than writing state directly, so this refresh mints a fresh
+  // nonce inside the hook: an apiGetInfiniSubscription still in flight from an
+  // earlier trigger is invalidated instead of landing afterwards and restoring
+  // the pre-reset subscription.
+  const handleSubscriptionReset = useCallback(async () => {
+    refreshSubscription.cancel();
+    await run();
+  }, [refreshSubscription, run]);
 
   const handleCancelRenewal = useCallback(
     (currentSubscription: IPrimeInfiniSubscription) => {
@@ -366,14 +396,31 @@ export default function PrimeInfiniSubscription() {
             borderColor="$borderSubdued"
             gap="$3"
           >
-            <XStack alignItems="center" gap="$2">
-              <SizableText size="$headingLg" flexShrink={1}>
-                {planLabel}
-              </SizableText>
-              <Badge badgeType={badgeType} badgeSize="sm">
-                {statusLabel}
-              </Badge>
-            </XStack>
+            {/* Hidden reset entry: revealed by repeated clicks on the title,
+                and only when developer mode is enabled. devSettingsOnly keeps
+                the gate in place even if an onPress is added here later.
+                (Enabling developer mode itself requires the devOnly password
+                plus the app password.) */}
+            <MultipleClickStack
+              alignSelf="flex-start"
+              testID="prime-infini-subscription-title"
+              devSettingsOnly
+              debugComponent={
+                <PrimeInfiniSubscriptionResetButton
+                  testID="prime-infini-subscription-reset"
+                  onReset={handleSubscriptionReset}
+                />
+              }
+            >
+              <XStack alignItems="center" gap="$2">
+                <SizableText size="$headingLg" flexShrink={1}>
+                  {planLabel}
+                </SizableText>
+                <Badge badgeType={badgeType} badgeSize="sm">
+                  {statusLabel}
+                </Badge>
+              </XStack>
+            </MultipleClickStack>
             <SizableText size="$headingXl">{priceText}</SizableText>
             <Divider />
             <YStack gap="$2.5">
@@ -422,7 +469,7 @@ export default function PrimeInfiniSubscription() {
         </YStack>
       );
     },
-    [intl, primeUserInfo.displayEmail],
+    [handleSubscriptionReset, intl, primeUserInfo.displayEmail],
   );
 
   const renderContent = () => {
