@@ -6,10 +6,18 @@ on:
     branches:
       - x
     paths:
+      - '.env.example'
+      - '.env.expo'
+      - '.env.version'
       - '.github/workflows/ext-build-budget.yml'
       - 'apps/ext/**'
       - 'packages/**'
       - 'development/babel-plugins/**'
+      - 'development/babelTools.js'
+      - 'development/developmentConsts.js'
+      - 'development/env.js'
+      - 'development/envExposedToClient.js'
+      - 'development/platformEnvDefine.js'
       - 'development/rspack/**'
       - 'package.json'
       - 'yarn.lock'
