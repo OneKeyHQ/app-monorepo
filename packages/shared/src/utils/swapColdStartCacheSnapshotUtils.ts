@@ -167,6 +167,21 @@ export function isSwapSelectedTokensColdStartContextMatched({
   );
 }
 
+function isSwapSelectedTokensColdStartOwnerMatched(
+  cachedAccountKey: string,
+  currentAccountKey: string,
+) {
+  const [cachedWalletId = '', cachedAccountId = ''] =
+    cachedAccountKey.split('|');
+  const [currentWalletId = '', currentAccountId = ''] =
+    currentAccountKey.split('|');
+  return Boolean(
+    (cachedWalletId || cachedAccountId) &&
+    cachedWalletId === currentWalletId &&
+    cachedAccountId === currentAccountId,
+  );
+}
+
 function isSwapSelectedTokensColdStartContextOwnedByHomeOrSwapAccount({
   cachedContext,
   homeActiveAccount,
@@ -179,12 +194,21 @@ function isSwapSelectedTokensColdStartContextOwnedByHomeOrSwapAccount({
   const homeAccountKey =
     buildSwapSelectedTokensColdStartAccountKey(homeActiveAccount);
   if (homeAccountKey) {
-    return cachedContext.accountKey === homeAccountKey;
+    return isSwapSelectedTokensColdStartOwnerMatched(
+      cachedContext.accountKey,
+      homeAccountKey,
+    );
   }
 
   const swapAccountKey =
     buildSwapSelectedTokensColdStartAccountKey(swapActiveAccount);
-  return Boolean(swapAccountKey && cachedContext.accountKey === swapAccountKey);
+  return Boolean(
+    swapAccountKey &&
+    isSwapSelectedTokensColdStartOwnerMatched(
+      cachedContext.accountKey,
+      swapAccountKey,
+    ),
+  );
 }
 
 function getActiveAccountFromSnapshot(

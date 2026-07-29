@@ -46,12 +46,13 @@ const validBalanceDisplayCache = {
 function buildActiveAccount({
   networkId = 'btc--0',
   indexedAccountId = 'indexed-account-1',
+  deriveType = 'default',
 } = {}) {
   return {
     ready: true,
     wallet: { id: 'wallet-1' },
     indexedAccount: { id: indexedAccountId },
-    deriveType: 'default',
+    deriveType,
     network: { id: networkId },
   };
 }
@@ -60,8 +61,10 @@ function buildSwapSnapshot({
   contextNetworkId = 'btc--0',
   activeNetworkId = 'btc--0',
   activeIndexedAccountId = 'indexed-account-1',
+  activeDeriveType = 'default',
   swapActiveNetworkId,
   swapActiveIndexedAccountId = activeIndexedAccountId,
+  swapActiveDeriveType = activeDeriveType,
   contextSwapType = ESwapTabSwitchType.BRIDGE,
   snapshotSwapType = ESwapTabSwitchType.BRIDGE,
   fromTokenNetworkId = 'btc--0',
@@ -71,8 +74,10 @@ function buildSwapSnapshot({
   contextNetworkId?: string;
   activeNetworkId?: string;
   activeIndexedAccountId?: string;
+  activeDeriveType?: string;
   swapActiveNetworkId?: string;
   swapActiveIndexedAccountId?: string;
+  swapActiveDeriveType?: string;
   contextSwapType?: ESwapTabSwitchType;
   snapshotSwapType?: ESwapTabSwitchType;
   fromTokenNetworkId?: string;
@@ -82,6 +87,7 @@ function buildSwapSnapshot({
   const activeAccount = buildActiveAccount({
     networkId: activeNetworkId,
     indexedAccountId: activeIndexedAccountId,
+    deriveType: activeDeriveType,
   });
   const snapshot: Record<string, unknown> = {
     [buildSnapshotKey(
@@ -124,6 +130,7 @@ function buildSwapSnapshot({
       0: buildActiveAccount({
         networkId: swapActiveNetworkId,
         indexedAccountId: swapActiveIndexedAccountId,
+        deriveType: swapActiveDeriveType,
       }),
     };
   }
@@ -660,6 +667,39 @@ describe('swapColdStartCacheSnapshotUtils', () => {
     expect(snapshot[stockDisplaySeedSnapshotKey]).toEqual(
       validStockDisplaySeed,
     );
+  });
+
+  it('keeps a same-account Tron pair when Home and Trade derive types differ', () => {
+    const snapshot = buildSwapSnapshot({
+      contextNetworkId: 'tron--0x2b6653dc',
+      activeNetworkId: 'btc--0',
+      activeDeriveType: 'BIP44',
+      swapActiveNetworkId: 'tron--0x2b6653dc',
+      swapActiveDeriveType: 'default',
+      contextSwapType: ESwapTabSwitchType.SWAP,
+      snapshotSwapType: ESwapTabSwitchType.SWAP,
+      fromTokenNetworkId: 'tron--0x2b6653dc',
+      toTokenNetworkId: 'tron--0x2b6653dc',
+    });
+
+    normalizeSwapColdStartCacheSnapshot(snapshot);
+
+    expect(
+      snapshot[
+        buildSnapshotKey(
+          swapScope,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
+        )
+      ],
+    ).toEqual({ networkId: 'tron--0x2b6653dc', symbol: 'BTC' });
+    expect(
+      snapshot[
+        buildSnapshotKey(
+          swapScope,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
+        )
+      ],
+    ).toEqual({ networkId: 'tron--0x2b6653dc', symbol: 'ETH' });
   });
 
   it('normalizes a persisted Limit channel to Swap while keeping its pair', () => {
