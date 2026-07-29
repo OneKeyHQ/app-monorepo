@@ -5,19 +5,6 @@ on:
   pull_request:
     branches:
       - x
-    paths:
-      - '.github/workflows/startup-graph-budget.yml'
-      - 'packages/**'
-      - 'apps/mobile/**'
-      - 'apps/web/**'
-      - 'development/babel-plugins/**'
-      - 'development/perf-ci/run-web-cold.js'
-      - 'development/perf-ci/lib/**'
-      - 'development/perf-ci/thresholds/web.cold.json'
-      - 'development/rspack/**'
-      - 'development/webpack/**'
-      - 'package.json'
-      - 'yarn.lock'
 
 # Cancel previous runs for the same PR
 concurrency:
@@ -26,28 +13,88 @@ concurrency:
 
 permissions:
   contents: read
+  pull-requests: read
 
 env:
   YARN_ENABLE_GLOBAL_CACHE: true
 
 jobs:
+  detect-changes:
+    name: Detect startup graph changes
+    runs-on: ubuntu-24.04
+    outputs:
+      native: ${{ steps.changes.outputs.native }}
+      web: ${{ steps.changes.outputs.web }}
+
+    steps:
+      - name: Detect affected budgets
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            {
+              echo "native=true"
+              echo "web=true"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          gh api --paginate \
+            "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files" \
+            --jq '.[].filename' > changed-files.txt
+
+          native=false
+          web=false
+
+          if grep -Eq '^(\.github/workflows/startup-graph-budget\.yml|packages/|apps/mobile/|development/babel-plugins/|development/rspack/|development/webpack/|package\.json$|yarn\.lock$)' changed-files.txt; then
+            native=true
+          fi
+
+          if grep -Eq '^(\.github/workflows/startup-graph-budget\.yml|packages/|apps/web/|development/babel-plugins/|development/perf-ci/run-web-cold\.js$|development/perf-ci/lib/|development/perf-ci/thresholds/web\.cold\.json$|development/rspack/|development/webpack/|package\.json$|yarn\.lock$)' changed-files.txt; then
+            web=true
+          fi
+
+          {
+            echo "native=$native"
+            echo "web=$web"
+          } >> "$GITHUB_OUTPUT"
+
   # Dual-thread three-bundle architecture check (Phase 4)
   # Runs unionBuild to produce allocation reports, then validates
   # forbidden packages, module budgets, and architectural rules.
   native-startup-graph-budget:
     name: Native startup graph budget
     runs-on: ubuntu-24.04
+    needs: detect-changes
+    if: ${{ always() }}
 
     strategy:
       matrix:
         node-version: [24.x]
 
     steps:
+      - name: Check change detection
+        if: ${{ needs.detect-changes.result != 'success' }}
+        run: |
+          echo "::error::Unable to determine whether the Native startup graph is affected."
+          exit 1
+
+      - name: Skip unaffected Native budget
+        if: ${{ needs.detect-changes.outputs.native != 'true' }}
+        run: echo "Native startup graph is not affected by this pull request."
+
       - uses: actions/checkout@v4
+        if: ${{ needs.detect-changes.outputs.native == 'true' }}
         with:
           lfs: true
 
       - name: Use Node.js ${{ matrix.node-version }}
+        if: ${{ needs.detect-changes.outputs.native == 'true' }}
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
@@ -56,12 +103,14 @@ jobs:
           scope: '@onekeyhq'
 
       - name: Install Dependencies
+        if: ${{ needs.detect-changes.outputs.native == 'true' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: yarn install --immutable
 
       - name: Union Build (three-bundle split)
+        if: ${{ needs.detect-changes.outputs.native == 'true' }}
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
@@ -79,6 +128,7 @@ jobs:
             --assets-dest /tmp/assets
 
       - name: Budget Check (main entry)
+        if: ${{ needs.detect-changes.outputs.native == 'true' }}
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
@@ -89,6 +139,7 @@ jobs:
         run: node apps/mobile/scripts/check-startup-graph-budget.js
 
       - name: Budget Check (background entry)
+        if: ${{ needs.detect-changes.outputs.native == 'true' }}
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
@@ -99,10 +150,11 @@ jobs:
         run: node apps/mobile/scripts/check-startup-graph-budget.js
 
       - name: Architecture Check (three-bundle rules)
+        if: ${{ needs.detect-changes.outputs.native == 'true' }}
         run: node apps/mobile/scripts/check-bundle-architecture.js
 
       - name: Upload Reports
-        if: always()
+        if: ${{ always() && needs.detect-changes.outputs.native == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: bundle-architecture-reports
@@ -116,17 +168,31 @@ jobs:
   web-startup-graph-budget:
     name: Web startup graph budget
     runs-on: ubuntu-24.04
+    needs: detect-changes
+    if: ${{ always() }}
 
     strategy:
       matrix:
         node-version: [24.x]
 
     steps:
+      - name: Check change detection
+        if: ${{ needs.detect-changes.result != 'success' }}
+        run: |
+          echo "::error::Unable to determine whether the Web startup graph is affected."
+          exit 1
+
+      - name: Skip unaffected Web budget
+        if: ${{ needs.detect-changes.outputs.web != 'true' }}
+        run: echo "Web startup graph is not affected by this pull request."
+
       - uses: actions/checkout@v4
+        if: ${{ needs.detect-changes.outputs.web == 'true' }}
         with:
           lfs: true
 
       - name: Use Node.js ${{ matrix.node-version }}
+        if: ${{ needs.detect-changes.outputs.web == 'true' }}
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
@@ -135,6 +201,7 @@ jobs:
           scope: '@onekeyhq'
 
       - name: Install Dependencies
+        if: ${{ needs.detect-changes.outputs.web == 'true' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
@@ -156,6 +223,7 @@ jobs:
       # defi: 15.95 MiB JS, 160 scripts, 190 resources, 1092 ms long tasks
       # referFriends: 15.85 MiB JS, 157 scripts, 175 resources, 692 ms long tasks
       - name: Check web startup/cold entry budgets
+        if: ${{ needs.detect-changes.outputs.web == 'true' }}
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           MARKET_HOME_TOKEN_SEED_MIN_COUNT: '20'
@@ -195,7 +263,7 @@ jobs:
           yarn perf:web:cold
 
       - name: Upload web startup/cold budget reports
-        if: always()
+        if: ${{ always() && needs.detect-changes.outputs.web == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: web-startup-cold-budget-reports
