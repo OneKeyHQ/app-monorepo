@@ -1601,18 +1601,21 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           if (title && title !== tab.title) {
             pendingTitleUpdates[tabId] = {
               title,
-              timer: setTimeout(() => {
-                const pending = pendingTitleUpdates[tabId];
-                delete pendingTitleUpdates[tabId];
-                if (!pending) {
-                  return;
-                }
-                lastTitleUpdateFlags[tabId] = Date.now();
-                this.setWebTabData.call(set, {
-                  id: tabId,
-                  title: pending.title,
-                });
-              }, TITLE_UPDATE_THROTTLE_MS - (now - lastTitleAt)),
+              timer: setTimeout(
+                () => {
+                  const pending = pendingTitleUpdates[tabId];
+                  delete pendingTitleUpdates[tabId];
+                  if (!pending) {
+                    return;
+                  }
+                  lastTitleUpdateFlags[tabId] = Date.now();
+                  this.setWebTabData.call(set, {
+                    id: tabId,
+                    title: pending.title,
+                  });
+                },
+                TITLE_UPDATE_THROTTLE_MS - (now - lastTitleAt),
+              ),
             };
           }
           return;
