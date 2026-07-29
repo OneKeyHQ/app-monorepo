@@ -438,9 +438,17 @@ export type IDBDevice = IDBBaseObjectWithName & {
   updatedAt: number;
   verifiedAtVersion?: string;
 
-  // New fields for USB/BLE connection support
-  usbConnectId?: string; // USB connection ID (serial number)
-  bleConnectId?: string; // BLE connection ID (MAC address)
+  // Per-transport connect handles. What they hold depends on vendor and on how
+  // the device was added, so never assume a format:
+  // - usbConnectId: the USB serial for a USB-added device, but for a Trezor
+  //   added over desktop BLE it is the features device_id
+  //   (buildTrezorDesktopBleUsbConnectId), NOT a serial.
+  // - bleConnectId: the BLE address last bound. For a Trezor this is a
+  //   Resolvable Private Address that the device rotates on every advertising
+  //   restart, so it is a last-known handle, not a stable identity.
+  // Identity comparisons belong on deviceId/XFP, never on these.
+  usbConnectId?: string;
+  bleConnectId?: string;
 
   // Runtime field — populated by refillDeviceInfo() from settings.vendor, not a DB column
   vendor?: EHardwareVendor;
