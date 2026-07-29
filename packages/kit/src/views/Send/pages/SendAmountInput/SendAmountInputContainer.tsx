@@ -1778,58 +1778,22 @@ function SendAmountInputContainer() {
   ]);
 
   // Scaled-UI (rebase) tokens: `displayAmount` is the multiplied display
-  // amount, but ITransferInfo.amount carries the raw parsed amount. Sending
-  // the full balance takes the raw balance directly (no division => no
-  // rounding failure); partial amounts divide and truncate at token decimals
-  // so the raw amount never exceeds the balance. The >= display-balance check
-  // (rather than isMaxSend) also covers a hand-typed full balance and the
-  // fiat-overflow branch, and cannot go stale if the user edits after tapping
-  // MAX. Shared by the submit path and the form validator so the amount that
-  // gets validated is exactly the amount that gets sent.
+  // amount, but ITransferInfo.amount carries the raw parsed amount. The
+  // conversion (full-send threshold detection + truncating division) lives
+  // in tokenRebaseUtils.convertDisplayAmountToRawAmount so it stays
+  // unit-testable; it is shared by the submit path and the form validator
+  // so the amount that gets validated is exactly the amount that gets sent.
   const convertDisplayAmountToRawAmount = useCallback(
     (displayAmount: string): { rawAmount: string; isFullSend: boolean } => {
-      if (
-        isNFT ||
-        !tokenDetails ||
-        !tokenRebaseUtils.isValidBalanceMultiplier(rebaseMultiplier)
-      ) {
+      if (isNFT || !tokenDetails) {
         return { rawAmount: displayAmount, isFullSend: false };
       }
-      const displayBalance = tokenRebaseUtils.applyBalanceMultiplier({
-        amount: tokenDetails.balanceParsed,
+      return tokenRebaseUtils.convertDisplayAmountToRawAmount({
+        displayAmount,
+        balanceParsed: tokenDetails.balanceParsed,
         balanceMultiplier: rebaseMultiplier,
+        decimals: tokenDetails.info.decimals,
       });
-      // Any input >= the display balance truncated to the token's input
-      // precision is a full send: the MAX button sets the untruncated
-      // display balance, but the keyboard percent-100 shortcut and the
-      // fiat<->token mode clamp truncate to `decimals` places first.
-      // Sending the exact raw balance for these differs from a literal
-      // conversion by less than one display precision unit and matches
-      // the user's full-send intent. `dp(undefined)` would return the
-      // decimal-place count instead of truncating (and a negative /
-      // fractional argument throws), so only truncate when `decimals`
-      // is a usable non-negative integer. The asymmetry with the
-      // division arm below is intentional: that one fails closed
-      // (removeBalanceMultiplier throws) on the same invalid decimals.
-      const fullSendThreshold =
-        Number.isInteger(tokenDetails.info.decimals) &&
-        tokenDetails.info.decimals >= 0
-          ? new BigNumber(displayBalance).dp(
-              tokenDetails.info.decimals,
-              BigNumber.ROUND_DOWN,
-            )
-          : displayBalance;
-      if (new BigNumber(displayAmount).gte(fullSendThreshold)) {
-        return { rawAmount: tokenDetails.balanceParsed, isFullSend: true };
-      }
-      return {
-        rawAmount: tokenRebaseUtils.removeBalanceMultiplier({
-          amount: displayAmount,
-          balanceMultiplier: rebaseMultiplier,
-          decimals: tokenDetails.info.decimals,
-        }),
-        isFullSend: false,
-      };
     },
     [isNFT, tokenDetails, rebaseMultiplier],
   );

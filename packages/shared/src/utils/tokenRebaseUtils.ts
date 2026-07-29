@@ -164,6 +164,70 @@ function removeBalanceMultiplier({
     .toFixed(decimals, BigNumber.ROUND_DOWN);
 }
 
+// display amount -> transfer payload: full-send detection + truncating
+// division. Sending the full balance takes the raw balance directly (no
+// division => no rounding failure); partial amounts divide via
+// `removeBalanceMultiplier` so the raw amount never exceeds the balance.
+// The >= display-balance check (rather than an isMaxSend flag) also covers
+// a hand-typed full balance and the fiat-overflow branch, and cannot go
+// stale if the user edits after tapping MAX.
+//
+// Threshold: the MAX button sets the untruncated display balance, but the
+// keyboard percent-100 shortcut and the fiat<->token mode clamp truncate to
+// `decimals` places first, so any input >= the display balance truncated to
+// the token's input precision counts as a full send — the raw balance
+// differs from a literal conversion of such an input by less than one
+// display precision unit. When the display balance itself is below one
+// input-precision unit that truncation collapses the threshold to 0, and a
+// zero threshold would classify EVERY non-negative input — zero-valued
+// strings like '0.0' as well as ordinary partial amounts — as a full send
+// of the entire raw balance. Guard both ways: fall back to the untruncated
+// display balance so partial inputs keep dividing, and require a positive
+// input so zero can never be promoted to a full send.
+//
+// `dp(undefined)` would return the decimal-place count instead of
+// truncating (and a negative / fractional argument throws), so only
+// truncate when `decimals` is a usable non-negative integer; the division
+// arm fails closed (`removeBalanceMultiplier` throws) on the same invalid
+// decimals.
+function convertDisplayAmountToRawAmount({
+  displayAmount,
+  balanceParsed,
+  balanceMultiplier,
+  decimals,
+}: {
+  displayAmount: string;
+  balanceParsed: string;
+  balanceMultiplier: string | undefined;
+  decimals: number;
+}): { rawAmount: string; isFullSend: boolean } {
+  if (!isValidBalanceMultiplier(balanceMultiplier)) {
+    return { rawAmount: displayAmount, isFullSend: false };
+  }
+  const displayBalanceBN = new BigNumber(
+    applyBalanceMultiplier({ amount: balanceParsed, balanceMultiplier }),
+  );
+  const truncatedDisplayBalance =
+    Number.isInteger(decimals) && decimals >= 0
+      ? displayBalanceBN.dp(decimals, BigNumber.ROUND_DOWN)
+      : displayBalanceBN;
+  const fullSendThreshold = truncatedDisplayBalance.gt(0)
+    ? truncatedDisplayBalance
+    : displayBalanceBN;
+  const displayAmountBN = new BigNumber(displayAmount);
+  if (displayAmountBN.gt(0) && displayAmountBN.gte(fullSendThreshold)) {
+    return { rawAmount: balanceParsed, isFullSend: true };
+  }
+  return {
+    rawAmount: removeBalanceMultiplier({
+      amount: displayAmount,
+      balanceMultiplier,
+      decimals,
+    }),
+    isFullSend: false,
+  };
+}
+
 // Server payload placement is not guaranteed (item-level next to `balance`
 // vs. inside `info`); accept either and mirror onto both levels so
 // downstream code can read it from IToken (tx building, getToken /
@@ -243,6 +307,7 @@ export default {
   isScalingBalanceMultiplier,
   applyBalanceMultiplier,
   removeBalanceMultiplier,
+  convertDisplayAmountToRawAmount,
   pickBalanceMultiplier,
   normalizeTokenDetailItemsBalanceMultiplier,
   normalizeAccountTokensRespBalanceMultiplier,

@@ -248,6 +248,138 @@ describe('tokenRebaseUtils', () => {
     });
   });
 
+  describe('convertDisplayAmountToRawAmount (display -> transfer payload)', () => {
+    it('passes through when the multiplier is missing or invalid', () => {
+      expect(
+        tokenRebaseUtils.convertDisplayAmountToRawAmount({
+          displayAmount: '1.5',
+          balanceParsed: '4',
+          balanceMultiplier: undefined,
+          decimals: 8,
+        }),
+      ).toEqual({ rawAmount: '1.5', isFullSend: false });
+      expect(
+        tokenRebaseUtils.convertDisplayAmountToRawAmount({
+          displayAmount: '1.5',
+          balanceParsed: '4',
+          balanceMultiplier: '--',
+          decimals: 8,
+        }),
+      ).toEqual({ rawAmount: '1.5', isFullSend: false });
+    });
+
+    it('detects a MAX (untruncated display balance) input as a full send', () => {
+      // balance 4 x 1.1 = display 4.4
+      expect(
+        tokenRebaseUtils.convertDisplayAmountToRawAmount({
+          displayAmount: '4.4',
+          balanceParsed: '4',
+          balanceMultiplier: '1.1',
+          decimals: 8,
+        }),
+      ).toEqual({ rawAmount: '4', isFullSend: true });
+    });
+
+    it('detects an input truncated to token decimals as a full send', () => {
+      // 0.04602179 x 1.0009180758490996 = 0.046064041493931333480284;
+      // the keyboard percent-100 shortcut truncates it to 8 dp first
+      expect(
+        tokenRebaseUtils.convertDisplayAmountToRawAmount({
+          displayAmount: '0.04606404',
+          balanceParsed: '0.04602179',
+          balanceMultiplier: '1.0009180758490996',
+          decimals: 8,
+        }),
+      ).toEqual({ rawAmount: '0.04602179', isFullSend: true });
+    });
+
+    it('divides partial amounts (floored at token decimals)', () => {
+      expect(
+        tokenRebaseUtils.convertDisplayAmountToRawAmount({
+          displayAmount: '2.2',
+          balanceParsed: '4',
+          balanceMultiplier: '1.1',
+          decimals: 8,
+        }),
+      ).toEqual({ rawAmount: '2.00000000', isFullSend: false });
+    });
+
+    describe('display balance below one input-precision unit (threshold truncates to 0)', () => {
+      // decimals=8, multiplier=0.5, raw balance 0.00000001: display balance
+      // 0.000000005 truncates to 0 at 8 dp, so an unguarded gte(0) would
+      // treat every non-negative input as a full send.
+      const dust = {
+        balanceParsed: '0.00000001',
+        balanceMultiplier: '0.5',
+        decimals: 8,
+      };
+
+      it('zero-valued input strings never become a full send', () => {
+        for (const zero of ['0', '0.0', '0.00']) {
+          const res = tokenRebaseUtils.convertDisplayAmountToRawAmount({
+            displayAmount: zero,
+            ...dust,
+          });
+          expect(res.isFullSend).toBe(false);
+          expect(new BigNumber(res.rawAmount).isZero()).toBe(true);
+        }
+      });
+
+      it('MAX (the untruncated display balance) still full-sends', () => {
+        expect(
+          tokenRebaseUtils.convertDisplayAmountToRawAmount({
+            displayAmount: '0.000000005',
+            ...dust,
+          }),
+        ).toEqual({ rawAmount: '0.00000001', isFullSend: true });
+      });
+
+      it('partial amounts divide instead of full-sending a non-dust balance', () => {
+        // decimals=2, multiplier=0.001, balance 5: display balance 0.005
+        // truncates to 0 at 2 dp, yet 5 whole tokens are at stake — a zero
+        // threshold would send all 5 for a 0.001 input.
+        expect(
+          tokenRebaseUtils.convertDisplayAmountToRawAmount({
+            displayAmount: '0.001',
+            balanceParsed: '5',
+            balanceMultiplier: '0.001',
+            decimals: 2,
+          }),
+        ).toEqual({ rawAmount: '1.00', isFullSend: false });
+        expect(
+          tokenRebaseUtils.convertDisplayAmountToRawAmount({
+            displayAmount: '0.005',
+            balanceParsed: '5',
+            balanceMultiplier: '0.001',
+            decimals: 2,
+          }),
+        ).toEqual({ rawAmount: '5', isFullSend: true });
+      });
+    });
+
+    it('zero input on a zero balance is not a full send', () => {
+      expect(
+        tokenRebaseUtils.convertDisplayAmountToRawAmount({
+          displayAmount: '0',
+          balanceParsed: '0',
+          balanceMultiplier: '1.1',
+          decimals: 8,
+        }),
+      ).toEqual({ rawAmount: '0.00000000', isFullSend: false });
+    });
+
+    it('fails closed (throws) on invalid decimals for partial amounts', () => {
+      expect(() =>
+        tokenRebaseUtils.convertDisplayAmountToRawAmount({
+          displayAmount: '1',
+          balanceParsed: '4',
+          balanceMultiplier: '1.1',
+          decimals: undefined as unknown as number,
+        }),
+      ).toThrow();
+    });
+  });
+
   describe('pickBalanceMultiplier', () => {
     it('skips an invalid item-level value and falls back to a valid info-level value', () => {
       expect(
