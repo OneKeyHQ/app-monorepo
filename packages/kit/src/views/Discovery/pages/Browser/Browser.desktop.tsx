@@ -70,11 +70,7 @@ function DesktopBrowser() {
       />
       <Page.Body>
         {orderTabIds.map((id) => (
-          <DesktopBrowserContent
-            key={id}
-            id={id}
-            activeTabId={activeTabId}
-          />
+          <DesktopBrowserContent key={id} id={id} activeTabId={activeTabId} />
         ))}
       </Page.Body>
     </Page>

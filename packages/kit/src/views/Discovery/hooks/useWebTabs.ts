@@ -39,7 +39,11 @@ export const useWebTabs = () => {
 const selectWebTabIds = (value: IWebTabsAtom) => value.tabs.map((t) => t.id);
 const areIdListsEqual = (a: string[], b: string[]) =>
   a === b || (a.length === b.length && a.every((id, i) => id === b[i]));
-const webTabIdsAtom = selectAtom(webTabsAtom(), selectWebTabIds, areIdListsEqual);
+const webTabIdsAtom = selectAtom(
+  webTabsAtom(),
+  selectWebTabIds,
+  areIdListsEqual,
+);
 
 export const useWebTabIds = () => {
   const { store } = useDiscoveryContextStoreData();
