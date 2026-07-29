@@ -867,6 +867,7 @@ export class TrezorAdapter
       action: EThirdPartyHardwareUiAction.connecting,
       vendor: EHardwareVendor.trezor,
     });
+    let connected = false;
     try {
       const result = await this.hw.connectDevice(connectId);
       defaultLogger.hardware.sdkLog.log(
@@ -882,7 +883,6 @@ export class TrezorAdapter
         defaultLogger.hardware.sdkLog.log(
           `[3rdPartyHW][Trezor] connectDevice FAILURE payload=${payloadStr}`,
         );
-        await this._teardownBleLinkAfterFailure(connectId);
       }
       if (result.success) {
         const info = await this.hw.getDeviceInfo(connectId, result.payload);
@@ -927,6 +927,7 @@ export class TrezorAdapter
             features,
             raw,
           };
+          connected = true;
           return {
             success: true,
             payload,
@@ -944,6 +945,12 @@ export class TrezorAdapter
       throw error;
     } finally {
       void thirdPartyHardwareUiStateAtom.set(undefined);
+      // Every non-success exit, including a thrown one and a getDeviceInfo
+      // failure after the link came up — otherwise the next attempt reuses a
+      // dead link and reports "Malformed protocol format".
+      if (!connected) {
+        await this._teardownBleLinkAfterFailure(connectId);
+      }
     }
   }
 
