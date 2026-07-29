@@ -1225,12 +1225,13 @@ function BulkSendAmountsInputContent({
   // ManyToOne/ManyToMany with a scaled-UI token: sender balances arrive raw
   // with the multiplier stripped, so display-basis input cannot be converted
   // per sender. Fail closed at submit (same policy as private send) instead
-  // of building txs that would move multiplier× the intended amount.
+  // of building txs that would move multiplier× the intended amount. A
+  // multiplier of exactly 1 is a no-op (raw == display) and must not block.
   const isScaledUiUnsupported = useMemo(
     () =>
       !isOneToMany &&
       (senderHasScaledUiToken ||
-        tokenRebaseUtils.isValidBalanceMultiplier(rebaseMultiplier)),
+        tokenRebaseUtils.isScalingBalanceMultiplier(rebaseMultiplier)),
     [isOneToMany, senderHasScaledUiToken, rebaseMultiplier],
   );
 
@@ -1533,7 +1534,11 @@ function BulkSendAmountsInputContent({
                   });
                 if (resp[0]) {
                   balanceMap[sender.address] = resp[0].balanceParsed;
-                  if (tokenRebaseUtils.pickBalanceMultiplier(resp[0])) {
+                  if (
+                    tokenRebaseUtils.isScalingBalanceMultiplier(
+                      tokenRebaseUtils.pickBalanceMultiplier(resp[0]),
+                    )
+                  ) {
                     setSenderHasScaledUiToken(true);
                   }
                 } else {
@@ -1630,7 +1635,11 @@ function BulkSendAmountsInputContent({
           );
           if (matchedToken?.balanceParsed !== undefined) {
             batchBalancesByKey.set(addressKey, matchedToken.balanceParsed);
-            if (tokenRebaseUtils.pickBalanceMultiplier(matchedToken)) {
+            if (
+              tokenRebaseUtils.isScalingBalanceMultiplier(
+                tokenRebaseUtils.pickBalanceMultiplier(matchedToken),
+              )
+            ) {
               setSenderHasScaledUiToken(true);
             }
           }

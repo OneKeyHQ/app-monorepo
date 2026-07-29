@@ -2778,8 +2778,9 @@ function SendAmountInputContainer() {
             // Scaled-UI (rebase) tokens are display-basis in this branch and
             // never reach the display->raw conversion below; fail closed
             // instead of silently over-sending by the multiplier if one ever
-            // gets listed for private send.
-            if (tokenRebaseUtils.isValidBalanceMultiplier(rebaseMultiplier)) {
+            // gets listed for private send. A multiplier of exactly 1 is a
+            // no-op (raw == display) and must not block.
+            if (tokenRebaseUtils.isScalingBalanceMultiplier(rebaseMultiplier)) {
               throw new OneKeyLocalError(
                 'Private send does not support scaled-UI tokens',
               );
