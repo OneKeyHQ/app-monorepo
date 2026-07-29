@@ -400,8 +400,11 @@ function TokenDetailsOverview(props: IProps) {
       accountUtils.isUrlAccountFn({ accountId }) ||
       // Scaled-UI member: same fail-closed swap gate as the single-network
       // header — Swap would display/build on the raw basis, out of sync with
-      // the wallet display.
-      tokenRebaseUtils.isValidBalanceMultiplier(swapMember?.balanceMultiplier),
+      // the wallet display. A multiplier of exactly 1 is a no-op and must
+      // not block.
+      tokenRebaseUtils.isScalingBalanceMultiplier(
+        swapMember?.balanceMultiplier,
+      ),
     [accountId, swapMember?.balanceMultiplier],
   );
 

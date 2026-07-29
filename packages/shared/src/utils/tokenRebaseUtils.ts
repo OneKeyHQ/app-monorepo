@@ -56,6 +56,20 @@ function isValidBalanceMultiplier(
   return parseBalanceMultiplier(balanceMultiplier) !== undefined;
 }
 
+// True only when the multiplier would actually rescale amounts: parses to a
+// finite positive number other than 1. `isValidBalanceMultiplier` answers
+// "is this field usable?", while this answers "does this token really scale?"
+// — apply/remove treat exactly 1 as a no-op, and Scaled UI Amount /
+// TEP-0526 mints start at multiplier 1, so entry gates that disable
+// scaled-UI-unaware flows (e.g. Swap) must use this predicate or they would
+// silently block tokens whose math is identical to a plain token.
+function isScalingBalanceMultiplier(
+  balanceMultiplier: string | undefined,
+): balanceMultiplier is string {
+  const bn = parseBalanceMultiplier(balanceMultiplier);
+  return bn !== undefined && !bn.eq(1);
+}
+
 // Picks the effective multiplier from a token-detail-shaped object
 // ({ info } & ITokenFiat). First VALID of [item-level, info-level] — `??`
 // would let an invalid item-level value ('0', '--') shadow a valid
@@ -226,6 +240,7 @@ function normalizeAccountTokensRespBalanceMultiplier(
 
 export default {
   isValidBalanceMultiplier,
+  isScalingBalanceMultiplier,
   applyBalanceMultiplier,
   removeBalanceMultiplier,
   pickBalanceMultiplier,

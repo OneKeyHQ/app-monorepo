@@ -20,6 +20,32 @@ describe('tokenRebaseUtils', () => {
     });
   });
 
+  describe('isScalingBalanceMultiplier', () => {
+    it('rejects everything isValidBalanceMultiplier rejects', () => {
+      expect(tokenRebaseUtils.isScalingBalanceMultiplier(undefined)).toBe(
+        false,
+      );
+      expect(tokenRebaseUtils.isScalingBalanceMultiplier('')).toBe(false);
+      expect(tokenRebaseUtils.isScalingBalanceMultiplier('--')).toBe(false);
+      expect(tokenRebaseUtils.isScalingBalanceMultiplier('0')).toBe(false);
+      expect(tokenRebaseUtils.isScalingBalanceMultiplier('-1.1')).toBe(false);
+    });
+
+    it('rejects the no-op multiplier 1 in any spelling', () => {
+      expect(tokenRebaseUtils.isScalingBalanceMultiplier('1')).toBe(false);
+      expect(tokenRebaseUtils.isScalingBalanceMultiplier('1.0')).toBe(false);
+      expect(tokenRebaseUtils.isScalingBalanceMultiplier('1.000')).toBe(false);
+    });
+
+    it('accepts multipliers that actually rescale', () => {
+      expect(
+        tokenRebaseUtils.isScalingBalanceMultiplier('1.0026642075893797'),
+      ).toBe(true);
+      expect(tokenRebaseUtils.isScalingBalanceMultiplier('4.4')).toBe(true);
+      expect(tokenRebaseUtils.isScalingBalanceMultiplier('0.5')).toBe(true);
+    });
+  });
+
   describe('applyBalanceMultiplier (raw -> display)', () => {
     it('passes through when multiplier is missing, invalid, or 1', () => {
       expect(

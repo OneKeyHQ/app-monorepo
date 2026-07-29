@@ -109,8 +109,9 @@ export async function pushSwapFromTokenDetails({
   // Swap has no end-to-end scaled-UI (rebase) support yet — the ISwapToken
   // pipeline treats every amount as raw. The entries are disabled for these
   // tokens; re-check here so no trigger path can seed Swap with a basis out
-  // of sync with the wallet display.
-  if (tokenRebaseUtils.isValidBalanceMultiplier(token.balanceMultiplier)) {
+  // of sync with the wallet display. A multiplier of exactly 1 is the
+  // documented no-op and must not block.
+  if (tokenRebaseUtils.isScalingBalanceMultiplier(token.balanceMultiplier)) {
     return;
   }
   const importFromToken: ISwapToken = {
@@ -409,9 +410,13 @@ function TokenDetailsHeaderContent({
 
   // Scaled-UI (rebase) marker for the swap gate below; also passed into
   // `pushSwapFromTokenDetails` so its fail-closed re-check sees the same
-  // snapshot the disabled state was derived from.
+  // snapshot the disabled state was derived from. While the details request
+  // is still in flight (or the tab opted out of the tokenMap seed), fall back
+  // to the route token so the loading window stays fail closed instead of
+  // treating a scaled-UI token as a plain one.
   const tokenDetailsBalanceMultiplier =
-    tokenRebaseUtils.pickBalanceMultiplier(tokenDetails);
+    tokenRebaseUtils.pickBalanceMultiplier(tokenDetails) ??
+    tokenInfo.balanceMultiplier;
 
   const handleOnSwap = useCallback(
     () =>
@@ -454,7 +459,9 @@ function TokenDetailsHeaderContent({
       accountUtils.isUrlAccountFn({ accountId }) ||
       // Scaled-UI tokens: Swap would display/build on the raw basis, out of
       // sync with the wallet display.
-      tokenRebaseUtils.isValidBalanceMultiplier(tokenDetailsBalanceMultiplier),
+      tokenRebaseUtils.isScalingBalanceMultiplier(
+        tokenDetailsBalanceMultiplier,
+      ),
     [accountId, tokenDetailsBalanceMultiplier],
   );
 

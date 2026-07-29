@@ -102,15 +102,16 @@ function TokenActionsView(props: IProps) {
   );
   // Swap has no end-to-end scaled-UI (rebase) support yet — ISwapToken and the
   // swap display/validation/tx-building paths all treat amounts as raw, so a
-  // token with a valid balanceMultiplier would show and build on a basis out
-  // of sync with the wallet list. Fail closed: disable the entry (and
-  // re-check in the press callback) until Swap learns the multiplier.
+  // token whose multiplier actually scales (≠ 1) would show and build on a
+  // basis out of sync with the wallet list. Fail closed: disable the entry
+  // (and re-check in the press callback) until Swap learns the multiplier. A
+  // multiplier of exactly 1 is the documented no-op and must NOT block.
   const isScaledUiSwapBlocked =
     [
       aggregateFromTokenFiat?.balanceMultiplier,
       fromTokenBalanceMultiplier,
       resolvedActiveToken?.balanceMultiplier,
-    ].find(tokenRebaseUtils.isValidBalanceMultiplier) !== undefined;
+    ].find(tokenRebaseUtils.isScalingBalanceMultiplier) !== undefined;
   const sameNetworkToToken = useMemo(() => {
     if (!resolvedActiveToken || !networkId) {
       return undefined;
