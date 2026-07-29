@@ -67,6 +67,7 @@ import PreSwapStep from '../../components/PreSwapStep';
 import { PreSwapTipInfo } from '../../components/PreSwapTipInfo';
 import PreSwapTokenItem from '../../components/PreSwapTokenItem';
 import { resolveQuoteShowTip } from '../../utils/quoteShowTipUtils';
+import { shouldShowSwapReviewToAmountSkeleton } from '../../utils/swapReviewState';
 import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
 
 interface IPreSwapDialogContentProps {
@@ -663,7 +664,10 @@ const PreSwapDialogContent = ({
             <PreSwapTokenItem
               token={preSwapData?.toToken}
               amount={toAmount}
-              loading={preSwapData.swapBuildLoading}
+              loading={shouldShowSwapReviewToAmountSkeleton({
+                swapBuildLoading: preSwapData.swapBuildLoading,
+                toTokenAmount: preSwapData.toTokenAmount,
+              })}
               isFloating={quoteResult?.isFloating}
               rateDifference={preSwapData.rateDifference}
             />
