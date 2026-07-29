@@ -86,13 +86,18 @@ import {
   FIRMWARE_UPDATE_MIN_VERSION_ALLOWED,
 } from './firmwareUpdateConsts';
 import { FirmwareUpdateDetectMap } from './FirmwareUpdateDetectMap';
+import { firmwareUpdateTrace } from './FirmwareUpdateTrace';
 
 import type {
   IFirmwareArtifactSelfTestScenario,
   IFirmwareArtifactSelfTestState,
 } from './FirmwareArtifactSelfTest';
-import type { IFirmwareWorkflowArtifacts } from './FirmwarePreparedArtifactController';
+import type {
+  IFirmwareExecutionArtifacts,
+  IFirmwareWorkflowArtifacts,
+} from './FirmwarePreparedArtifactController';
 import type { IFirmwareUpdateRuntimeHost } from './FirmwareUpdateRuntime';
+import type { IFirmwareUpdateTraceInputMode } from './FirmwareUpdateTrace';
 import type { IDBDevice } from '../../dbs/local/types';
 import type {
   IPromiseContainerCallbackCreate,
@@ -1163,12 +1168,40 @@ class ServiceFirmwareUpdate extends ServiceBase {
     return updateInfo;
   }
 
-  async withFirmwareUpdateEvents<T>(fn: () => Promise<T>): Promise<T> {
+  async withFirmwareUpdateEvents<T>(
+    fn: () => Promise<T>,
+    executionArtifacts?: IFirmwareExecutionArtifacts,
+  ): Promise<T> {
     const hardwareSDK = await this.getSDKInstance({
       connectId: undefined,
     });
+    const transactionId =
+      executionArtifacts?.preparedArtifacts?.transactionId ??
+      executionArtifacts?.bridgeBinaries?.transactionId;
+    const executor =
+      executionArtifacts?.preparedArtifacts?.plan.executor ??
+      executionArtifacts?.bridgeBinaries?.executor;
+    let inputMode: IFirmwareUpdateTraceInputMode = 'sdk-managed';
+    if (executionArtifacts?.preparedArtifacts) {
+      inputMode = 'artifact-reader';
+    } else if (executionArtifacts?.bridgeBinaries) {
+      inputMode = 'bridge-binary';
+    }
     const listener = (data: any) => {
       serviceHardwareUtils.hardwareLog('autoUpdateFirmware', data);
+      const tipMessage =
+        get(data, 'data.message') ??
+        get(data, 'payload.data.message') ??
+        get(data, 'message');
+      if (transactionId && typeof tipMessage === 'string') {
+        firmwareUpdateTrace({
+          transactionId,
+          stage: 'sdk-tip',
+          executor,
+          inputMode,
+          tipMessage,
+        });
+      }
       // dispatch(setUpdateFirmwareStep(get(data, 'data.message', '')));
     };
     hardwareSDK.on(EHardwareUiStateAction.FIRMWARE_TIP, listener);
@@ -1227,8 +1260,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const preparedArtifactController = (
       await this.getFirmwareUpdateRuntimeHost()
     ).artifacts;
-    const executionArtifacts =
-      preparedArtifactController.getExecutionArtifacts(firmwareArtifacts);
+    const executionArtifacts = preparedArtifactController.getExecutionArtifacts(
+      firmwareArtifacts,
+      'bootloaderUpdate',
+    );
     const {
       executePreparedDeviceUpdateBootloader,
       executePreparedFirmwareUpdateV2Bootloader,
@@ -1291,7 +1326,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
           }),
         );
       }
-    });
+    }, executionArtifacts);
   }
 
   updatingBootloaderForTouchAndProLegacy(
@@ -1357,8 +1392,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const preparedArtifactController = (
       await this.getFirmwareUpdateRuntimeHost()
     ).artifacts;
-    const executionArtifacts =
-      preparedArtifactController.getExecutionArtifacts(firmwareArtifacts);
+    const executionArtifacts = preparedArtifactController.getExecutionArtifacts(
+      firmwareArtifacts,
+      'firmwareUpdateV2',
+    );
     const { executePreparedFirmwareUpdateV2 } =
       await loadFirmwareUpdateRuntime();
     // const { dispatch } = this.backgroundApi;
@@ -1423,7 +1460,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       }
       // TODO handleErrors UpdatingModal
       return result;
-    });
+    }, executionArtifacts);
   }
 
   @backgroundMethod()
@@ -2511,8 +2548,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const preparedArtifactController = (
       await this.getFirmwareUpdateRuntimeHost()
     ).artifacts;
-    const executionArtifacts =
-      preparedArtifactController.getExecutionArtifacts(firmwareArtifacts);
+    const executionArtifacts = preparedArtifactController.getExecutionArtifacts(
+      firmwareArtifacts,
+      'firmwareUpdateV4',
+    );
     const { assertFirmwareUpdateV4Artifacts, executePreparedFirmwareUpdateV4 } =
       await loadFirmwareUpdateRuntime();
     if (params.requirePreparedArtifacts) {
@@ -2558,7 +2597,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         finalBootloaderVersion: updateResult?.bootloaderVersion || '',
       });
       return { message: 'success', ...updateResult };
-    });
+    }, executionArtifacts);
   }
 
   async updatingFirmwareV3(
@@ -2568,8 +2607,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const preparedArtifactController = (
       await this.getFirmwareUpdateRuntimeHost()
     ).artifacts;
-    const executionArtifacts =
-      preparedArtifactController.getExecutionArtifacts(firmwareArtifacts);
+    const executionArtifacts = preparedArtifactController.getExecutionArtifacts(
+      firmwareArtifacts,
+      'firmwareUpdateV3',
+    );
     const { executePreparedFirmwareUpdateV3 } =
       await loadFirmwareUpdateRuntime();
     const hardwareSDK = await this.getSDKInstance({
@@ -2661,7 +2702,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         console.log('updatingFirmwareV3 error: ', error);
         throw error;
       }
-    });
+    }, executionArtifacts);
   }
 
   async validateShouldUpdateFullResource(

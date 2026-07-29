@@ -1,6 +1,7 @@
 import { EFirmwareType } from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import loggerUtils from '@onekeyhq/shared/src/logger/utils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
@@ -17,7 +18,10 @@ import {
   prepareFirmwareArtifacts,
 } from './FirmwareArtifactPreflight';
 import { FirmwarePreparedArtifactController } from './FirmwarePreparedArtifactController';
-import { executePreparedFirmwareUpdateV2 } from './FirmwarePreparedExecution';
+import {
+  executePreparedFirmwareUpdateV2,
+  executePreparedFirmwareUpdateV3,
+} from './FirmwarePreparedExecution';
 import { getTrustedFirmwareArtifact } from './trustedFirmwareCatalog';
 
 import type { IPreparedFirmwareArtifacts } from './FirmwareArtifactPreflight';
@@ -72,6 +76,10 @@ describe('isExternalFirmwareCapabilityReady', () => {
 });
 
 describe('prepared firmware execution', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   const createController = () =>
     new FirmwarePreparedArtifactController({
       getHardwareTransportType: async () => EHardwareTransportType.Bridge,
@@ -149,6 +157,116 @@ describe('prepared firmware execution', () => {
     expect(firmwareUpdateV2).not.toHaveBeenCalled();
   });
 
+  test('logs and passes matching prepared firmware and resource inputs to V3', async () => {
+    const firmwareUpdateV3 = jest.fn();
+    const sdk = { firmwareUpdateV3 } as unknown as CoreApi;
+    const firmware = {
+      artifactRef: 'fw:firmware',
+      size: 4,
+      sha256: 'a'.repeat(64),
+    };
+    const resource = {
+      artifactRef: 'fw:resource',
+      size: 6,
+      sha256: 'b'.repeat(64),
+    };
+    const prepared = createPreparedArtifacts({
+      firmware,
+      resourceEntries: [{ entryName: 'resource.bin', artifact: resource }],
+    });
+    prepared.artifactsById = { firmware, resource };
+    prepared.plan.executor = 'v3';
+    const controller = createController();
+    jest
+      .spyOn(controller, 'getExecutionBindingParams')
+      .mockReturnValue({ hostBindingGeneration: 105 });
+    const localLog = jest
+      .spyOn(loggerUtils, 'consoleFunc')
+      .mockImplementation(() => undefined);
+    const executionArtifacts = controller.getExecutionArtifacts(
+      prepared,
+      'firmwareUpdateV3',
+    );
+
+    await executePreparedFirmwareUpdateV3({
+      sdk,
+      connectId: 'device',
+      ...executionArtifacts,
+      platform: 'native',
+      firmwareType: EFirmwareType.Universal,
+      bleVersion: undefined,
+      firmwareVersion: [4, 21, 0],
+      bootloaderVersion: undefined,
+    });
+
+    expect(firmwareUpdateV3).toHaveBeenCalledWith(
+      'device',
+      expect.objectContaining({
+        preparedPlan: prepared.preparedPlan,
+        hostBindingGeneration: 105,
+        artifacts: {
+          firmware,
+          resourceEntries: [{ entryName: 'resource.bin', artifact: resource }],
+        },
+      }),
+    );
+    expect(localLog).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '"stage":"sdk-handoff","executor":"v3","sdkMethod":"firmwareUpdateV3"',
+      ),
+    );
+    expect(localLog).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '"artifacts":{"count":2,"bytes":10,"firmwareBytes":4,"resourceCount":1,"resourceBytes":6,"integrityVerified":true}',
+      ),
+    );
+  });
+
+  test('logs and passes Desktop Bridge binaries without claiming a resource input', async () => {
+    const firmwareUpdateV3 = jest.fn();
+    const sdk = { firmwareUpdateV3 } as unknown as CoreApi;
+    const firmware = new ArrayBuffer(4);
+    const controller = createController();
+    const localLog = jest
+      .spyOn(loggerUtils, 'consoleFunc')
+      .mockImplementation(() => undefined);
+    const executionArtifacts = controller.getExecutionArtifacts(
+      {
+        transactionId: 'bridge:test',
+        executor: 'v3',
+        planDigest: 'a'.repeat(64),
+        targetBinaries: { firmware },
+      },
+      'firmwareUpdateV3',
+    );
+
+    await executePreparedFirmwareUpdateV3({
+      sdk,
+      connectId: 'device',
+      ...executionArtifacts,
+      platform: 'desktop',
+      firmwareType: EFirmwareType.Universal,
+      bleVersion: undefined,
+      firmwareVersion: [4, 21, 0],
+      bootloaderVersion: undefined,
+    });
+
+    expect(firmwareUpdateV3).toHaveBeenCalledWith(
+      'device',
+      expect.objectContaining({
+        firmwareBinary: firmware,
+      }),
+    );
+    expect(firmwareUpdateV3.mock.calls[0][1]).not.toHaveProperty(
+      'resourceBinary',
+    );
+    expect(localLog).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '"artifacts":{"count":1,"bytes":4,"firmwareBytes":4,"resourceCount":0,"resourceBytes":0,"integrityVerified":true}',
+      ),
+    );
+  });
+
   test('uses artifact capability to enable Desktop Bridge plan caching', async () => {
     const previousPlatform = {
       isDesktop: platformEnv.isDesktop,
@@ -161,6 +279,9 @@ describe('prepared firmware execution', () => {
       symbol: 'desktop',
     });
     try {
+      jest
+        .spyOn(loggerUtils, 'consoleFunc')
+        .mockImplementation(() => undefined);
       jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
         firmwareArtifactProtocolVersion: 2,
         maxReadBytes: 256 * 1024,
@@ -425,6 +546,8 @@ describe('Desktop Bridge firmware binaries', () => {
     const boot = new ArrayBuffer(3);
     expect(
       getBridgeFirmwareV3BinaryParams({
+        transactionId: 'bridge:v3',
+        executor: 'v3',
         planDigest: 'a',
         targetBinaries: { firmware, ble, bootloader: boot },
       }),
@@ -435,6 +558,8 @@ describe('Desktop Bridge firmware binaries', () => {
     });
     expect(
       getBridgeFirmwareV4BinaryParams({
+        transactionId: 'bridge:v4',
+        executor: 'v4',
         planDigest: 'b',
         targetBinaries: {
           boot,

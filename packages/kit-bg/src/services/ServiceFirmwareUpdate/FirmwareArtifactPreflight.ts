@@ -95,6 +95,8 @@ export type IPreparedFirmwareArtifacts = {
 type IBridgeBinaryTarget = Exclude<FirmwareUpdatePlanTarget, 'resource'>;
 
 export type IBridgeFirmwareBinaries = {
+  transactionId: string;
+  executor: FirmwareUpdatePlan['executor'];
   planDigest: string;
   targetBinaries: Partial<Record<IBridgeBinaryTarget, ArrayBuffer>>;
 };
@@ -311,6 +313,7 @@ const getBridgeBinaryPlanArtifacts = (
 
 export async function prepareBridgeFirmwareBinaries(
   plan: FirmwareUpdatePlan,
+  requestedTransactionId?: string,
 ): Promise<IBridgeFirmwareBinaries | undefined> {
   if (!(await isFirmwareArtifactCapabilityReady())) {
     throw new OneKeyLocalError(
@@ -320,7 +323,9 @@ export async function prepareBridgeFirmwareBinaries(
   const planArtifacts = getBridgeBinaryPlanArtifacts(plan);
   if (!planArtifacts.length) return undefined;
 
-  const transactionId = `bridge:${plan.planDigest.slice(0, 32)}:${Date.now()}`;
+  const transactionId =
+    requestedTransactionId ??
+    `bridge:${plan.planDigest.slice(0, 32)}:${Date.now()}`;
   const { leaseRef } = await firmwareArtifactAdapter.createLease(transactionId);
   let completed = false;
   try {
@@ -346,7 +351,12 @@ export async function prepareBridgeFirmwareBinaries(
       targetBinaries[planArtifact.target] = await readFirmwareArtifact(receipt);
     }
     completed = true;
-    return { planDigest: plan.planDigest, targetBinaries };
+    return {
+      transactionId,
+      executor: plan.executor,
+      planDigest: plan.planDigest,
+      targetBinaries,
+    };
   } finally {
     await firmwareArtifactAdapter.releaseLease({
       leaseRef,

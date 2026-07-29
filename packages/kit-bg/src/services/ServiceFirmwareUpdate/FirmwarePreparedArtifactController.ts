@@ -12,6 +12,7 @@ import {
   prepareBridgeFirmwareBinaries,
   prepareFirmwareArtifacts,
 } from './FirmwareArtifactPreflight';
+import { firmwareUpdateTrace } from './FirmwareUpdateTrace';
 
 import type {
   IBridgeFirmwareBinaries,
@@ -37,6 +38,58 @@ type IFirmwareHostBinding = {
 type IFirmwarePreparedArtifactControllerDependencies = {
   getHardwareTransportType: () => Promise<EHardwareTransportType>;
   getSDKInstance: (connectId: string | undefined) => Promise<CoreApi>;
+};
+
+const getPreparedArtifactTraceSummary = (
+  prepared: IPreparedFirmwareArtifacts,
+) => {
+  const artifactReferences = Object.values(prepared.artifactsById ?? {});
+  const resourceEntries = prepared.selected.resourceEntries ?? [];
+  return {
+    count: artifactReferences.length,
+    bytes: artifactReferences.reduce(
+      (total, artifact) => total + artifact.size,
+      0,
+    ),
+    firmwareBytes: prepared.selected.firmware?.size,
+    bleBytes: prepared.selected.ble?.size,
+    bootloaderBytes: prepared.selected.bootloader?.size,
+    resourceCount:
+      resourceEntries.length + prepared.selected.resourceBundleArtifacts.length,
+    resourceBytes:
+      resourceEntries.reduce((total, entry) => total + entry.artifact.size, 0) +
+      prepared.selected.resourceBundleArtifacts.reduce(
+        (total, entry) => total + entry.artifact.size,
+        0,
+      ),
+    integrityVerified:
+      artifactReferences.length > 0 &&
+      artifactReferences.every(
+        (artifact) =>
+          artifact.size > 0 &&
+          typeof artifact.sha256 === 'string' &&
+          artifact.sha256.length > 0,
+      ),
+  };
+};
+
+const getBridgeArtifactTraceSummary = (bridge: IBridgeFirmwareBinaries) => {
+  const binaries = Object.values(bridge.targetBinaries).filter(
+    (binary): binary is ArrayBuffer => binary !== undefined,
+  );
+  const firmware = bridge.targetBinaries.firmware;
+  const ble = bridge.targetBinaries.ble;
+  const bootloader = bridge.targetBinaries.bootloader;
+  return {
+    count: binaries.length,
+    bytes: binaries.reduce((total, binary) => total + binary.byteLength, 0),
+    firmwareBytes: firmware?.byteLength,
+    bleBytes: ble?.byteLength,
+    bootloaderBytes: bootloader?.byteLength,
+    resourceCount: 0,
+    resourceBytes: 0,
+    integrityVerified: binaries.length > 0,
+  };
 };
 
 export class FirmwarePreparedArtifactController {
@@ -186,17 +239,43 @@ export class FirmwarePreparedArtifactController {
 
   getExecutionArtifacts(
     artifacts: IFirmwareWorkflowArtifacts | undefined,
+    sdkMethod?: string,
   ): IFirmwareExecutionArtifacts {
     const prepared =
       artifacts && 'preparedPlan' in artifacts ? artifacts : undefined;
-    return {
+    const bridge =
+      artifacts && 'targetBinaries' in artifacts ? artifacts : undefined;
+    const executionArtifacts = {
       preparedArtifacts: prepared,
-      bridgeBinaries:
-        artifacts && 'targetBinaries' in artifacts ? artifacts : undefined,
+      bridgeBinaries: bridge,
       hostBindingGeneration: prepared
         ? this.getExecutionBindingParams(prepared).hostBindingGeneration
         : undefined,
     };
+    if (prepared) {
+      firmwareUpdateTrace({
+        transactionId: prepared.transactionId,
+        stage: 'sdk-handoff',
+        executor: prepared.plan.executor,
+        sdkMethod,
+        inputMode: 'artifact-reader',
+        preparedPlanProvided: true,
+        hostBindingProvided: Boolean(executionArtifacts.hostBindingGeneration),
+        artifacts: getPreparedArtifactTraceSummary(prepared),
+      });
+    } else if (bridge) {
+      firmwareUpdateTrace({
+        transactionId: bridge.transactionId,
+        stage: 'sdk-handoff',
+        executor: bridge.executor,
+        sdkMethod,
+        inputMode: 'bridge-binary',
+        preparedPlanProvided: false,
+        hostBindingProvided: false,
+        artifacts: getBridgeArtifactTraceSummary(bridge),
+      });
+    }
+    return executionArtifacts;
   }
 
   private async prepareExternal(
@@ -217,6 +296,13 @@ export class FirmwarePreparedArtifactController {
     }
     // cspell:disable-next-line
     const transactionId = `fwtx:${generateUUID().toLowerCase()}`;
+    firmwareUpdateTrace({
+      transactionId,
+      stage: 'preflight-start',
+      executor: plan.executor,
+      inputMode: 'artifact-reader',
+      expectedArtifactCount: plan.artifacts.length,
+    });
     const { leaseRef } =
       await firmwareArtifactAdapter.createLease(transactionId);
     try {
@@ -226,6 +312,15 @@ export class FirmwarePreparedArtifactController {
         preparePlan: sdk.prepareFirmwareUpdatePlan,
       });
       this.bindHost(prepared, sdk);
+      firmwareUpdateTrace({
+        transactionId,
+        stage: 'preflight-complete',
+        executor: plan.executor,
+        inputMode: 'artifact-reader',
+        preparedPlanProvided: true,
+        hostBindingProvided: true,
+        artifacts: getPreparedArtifactTraceSummary(prepared),
+      });
       return prepared;
     } catch (error) {
       this.releaseHost(transactionId);
@@ -247,7 +342,30 @@ export class FirmwarePreparedArtifactController {
       const transportType = await this.dependencies.getHardwareTransportType();
       if (transportType === EHardwareTransportType.Bridge) {
         const plan = this.getPlan(releaseResult);
-        return prepareBridgeFirmwareBinaries(plan);
+        const transactionId = `bridge:${generateUUID().toLowerCase()}`;
+        firmwareUpdateTrace({
+          transactionId,
+          stage: 'preflight-start',
+          executor: plan.executor,
+          inputMode: 'bridge-binary',
+          expectedArtifactCount: plan.artifacts.length,
+        });
+        const prepared = await prepareBridgeFirmwareBinaries(
+          plan,
+          transactionId,
+        );
+        if (prepared) {
+          firmwareUpdateTrace({
+            transactionId,
+            stage: 'preflight-complete',
+            executor: plan.executor,
+            inputMode: 'bridge-binary',
+            preparedPlanProvided: false,
+            hostBindingProvided: false,
+            artifacts: getBridgeArtifactTraceSummary(prepared),
+          });
+        }
+        return prepared;
       }
       if (!isDirectFirmwareHostBindingTransport(transportType)) {
         throw new OneKeyLocalError(
