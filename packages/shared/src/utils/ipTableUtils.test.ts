@@ -373,25 +373,6 @@ describe('computeIpTableConfigHash', () => {
     });
     expect(changed).not.toBe(base);
   });
-
-  test('includes firmware rollout policy in the signed canonical payload', () => {
-    const base = computeIpTableConfigHash(DEFAULT_IP_TABLE_CONFIG);
-    const withRollout = computeIpTableConfigHash({
-      ...DEFAULT_IP_TABLE_CONFIG,
-      firmware_rollout: {
-        schemaVersion: 1,
-        policyVersion: 1,
-        salt: 'rollout-test',
-        expiresAt: Date.parse('2030-01-01T00:00:00.000Z'),
-        coordinatorExternalOnly: {
-          enabled: false,
-          killSwitch: true,
-          percentageBps: 0,
-        },
-      },
-    });
-    expect(withRollout).not.toBe(base);
-  });
 });
 
 describe('pruneIpTableRuntimeSelections', () => {

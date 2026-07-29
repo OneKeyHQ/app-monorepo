@@ -1,10 +1,6 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { isDirectFirmwareHostBindingTransport } from '@onekeyhq/shared/src/hardware/instance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  IFirmwareUpdateRolloutPlatform,
-  IIpTableConfigWithRuntime,
-} from '@onekeyhq/shared/src/request/types/ipTable';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
@@ -16,7 +12,6 @@ import {
   prepareBridgeFirmwareBinaries,
   prepareFirmwareArtifacts,
 } from './FirmwareArtifactPreflight';
-import { evaluateFirmwareUpdateRollout } from './FirmwareUpdateRolloutPolicy';
 
 import type {
   IBridgeFirmwareBinaries,
@@ -41,8 +36,6 @@ type IFirmwareHostBinding = {
 
 type IFirmwarePreparedArtifactControllerDependencies = {
   getHardwareTransportType: () => Promise<EHardwareTransportType>;
-  getInstanceId: () => Promise<string>;
-  getIpTableConfig: () => Promise<IIpTableConfigWithRuntime>;
   getSDKInstance: (connectId: string | undefined) => Promise<CoreApi>;
 };
 
@@ -54,30 +47,6 @@ export class FirmwarePreparedArtifactController {
   constructor(
     private readonly dependencies: IFirmwarePreparedArtifactControllerDependencies,
   ) {}
-
-  private async evaluateRollout(plan: FirmwareUpdatePlan) {
-    const appPlatform = platformEnv.appPlatform;
-    if (
-      appPlatform !== 'ios' &&
-      appPlatform !== 'android' &&
-      appPlatform !== 'desktop'
-    ) {
-      throw new OneKeyLocalError(
-        'External firmware rollout is unavailable on this platform',
-      );
-    }
-    const [configWithRuntime, installationKey] = await Promise.all([
-      this.dependencies.getIpTableConfig(),
-      this.dependencies.getInstanceId(),
-    ]);
-    return evaluateFirmwareUpdateRollout({
-      configWithRuntime,
-      installationKey,
-      platform: appPlatform as IFirmwareUpdateRolloutPlatform,
-      deviceType: plan.deviceModel,
-      appVersion: platformEnv.version ?? '',
-    });
-  }
 
   private async getExternalSdk(
     connectId: string | undefined,
@@ -121,13 +90,7 @@ export class FirmwarePreparedArtifactController {
       platformEnv.isDesktop &&
       transportType === EHardwareTransportType.Bridge &&
       (await isFirmwareArtifactCapabilityReady());
-    const preparedCapabilityReady =
-      bridgeCapabilityReady || Boolean(externalSdk);
-    const rolloutAllowed =
-      preparedCapabilityReady && (await this.evaluateRollout(plan)).allowed;
-    const bridgeBinaryReady = bridgeCapabilityReady && rolloutAllowed;
-    const externalPreparedReady = externalSdk && rolloutAllowed;
-    if (!bridgeBinaryReady && !externalPreparedReady) {
+    if (!bridgeCapabilityReady && !externalSdk) {
       return false;
     }
     this.plans.set(plan.planDigest, plan);
@@ -252,10 +215,6 @@ export class FirmwarePreparedArtifactController {
         'Firmware external SDK capability is unavailable',
       );
     }
-    const rollout = await this.evaluateRollout(plan);
-    if (!rollout.allowed) {
-      throw new OneKeyLocalError('Firmware external rollout is unavailable');
-    }
     // cspell:disable-next-line
     const transactionId = `fwtx:${generateUUID().toLowerCase()}`;
     const { leaseRef } =
@@ -288,12 +247,6 @@ export class FirmwarePreparedArtifactController {
       const transportType = await this.dependencies.getHardwareTransportType();
       if (transportType === EHardwareTransportType.Bridge) {
         const plan = this.getPlan(releaseResult);
-        const rollout = await this.evaluateRollout(plan);
-        if (!rollout.allowed) {
-          throw new OneKeyLocalError(
-            'Firmware external rollout is unavailable',
-          );
-        }
         return prepareBridgeFirmwareBinaries(plan);
       }
       if (!isDirectFirmwareHostBindingTransport(transportType)) {

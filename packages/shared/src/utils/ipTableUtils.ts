@@ -7,109 +7,13 @@ import platformEnv from '../platformEnv';
 import { CDN_SIGNER_ADDRESS } from '../request/constants/ipTableDefaults';
 
 import type {
-  IFirmwareUpdateRolloutConfig,
-  IFirmwareUpdateRolloutRule,
   IIpTableConfigWithRuntime,
   IIpTableRemoteConfig,
   IIpTableSignatureVerifyResult,
 } from '../request/types/ipTable';
 
-const FIRMWARE_ROLLOUT_PLATFORMS = new Set(['ios', 'android', 'desktop']);
-
 export function isSupportIpTablePlatform() {
   return platformEnv.isNative || platformEnv.isDesktop;
-}
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
-const isValidStringArray = (
-  value: unknown,
-  validator: (entry: string) => boolean,
-): value is string[] =>
-  Array.isArray(value) &&
-  value.length > 0 &&
-  value.length <= 128 &&
-  value.every(
-    (entry) =>
-      typeof entry === 'string' &&
-      entry.length > 0 &&
-      entry.length <= 128 &&
-      validator(entry),
-  ) &&
-  new Set(value).size === value.length;
-
-function isValidFirmwareUpdateRolloutRule(
-  value: unknown,
-): value is IFirmwareUpdateRolloutRule {
-  if (
-    !isRecord(value) ||
-    Object.keys(value).some(
-      (key) =>
-        ![
-          'enabled',
-          'killSwitch',
-          'percentageBps',
-          'allowDeviceTypes',
-          'allowPlatforms',
-          'minAppVersion',
-        ].includes(key),
-    ) ||
-    typeof value.enabled !== 'boolean' ||
-    typeof value.killSwitch !== 'boolean' ||
-    !Number.isSafeInteger(value.percentageBps) ||
-    (value.percentageBps as number) < 0 ||
-    (value.percentageBps as number) > 10_000
-  ) {
-    return false;
-  }
-  if (
-    value.allowDeviceTypes !== undefined &&
-    !isValidStringArray(value.allowDeviceTypes, () => true)
-  ) {
-    return false;
-  }
-  if (
-    value.allowPlatforms !== undefined &&
-    !isValidStringArray(value.allowPlatforms, (entry) =>
-      FIRMWARE_ROLLOUT_PLATFORMS.has(entry),
-    )
-  ) {
-    return false;
-  }
-  return (
-    value.minAppVersion === undefined ||
-    (typeof value.minAppVersion === 'string' &&
-      value.minAppVersion.length > 0 &&
-      value.minAppVersion.length <= 64)
-  );
-}
-
-export function isValidFirmwareUpdateRolloutConfig(
-  value: unknown,
-): value is IFirmwareUpdateRolloutConfig {
-  return (
-    isRecord(value) &&
-    Object.keys(value).every((key) =>
-      [
-        'schemaVersion',
-        'policyVersion',
-        'salt',
-        'expiresAt',
-        'coordinatorExternalOnly',
-      ].includes(key),
-    ) &&
-    value.schemaVersion === 1 &&
-    Number.isSafeInteger(value.policyVersion) &&
-    (value.policyVersion as number) >= 0 &&
-    typeof value.salt === 'string' &&
-    value.salt.length > 0 &&
-    value.salt.length <= 128 &&
-    Number.isSafeInteger(value.expiresAt) &&
-    (value.expiresAt as number) > 0 &&
-    (value.coordinatorExternalOnly === undefined ||
-      isValidFirmwareUpdateRolloutRule(value.coordinatorExternalOnly))
-  );
 }
 
 /**
@@ -123,9 +27,6 @@ function buildCanonicalSignedPayload(config: IIpTableRemoteConfig): string {
     ttl_sec: config.ttl_sec,
     generated_at: config.generated_at,
     domains: config.domains,
-    ...(config.firmware_rollout
-      ? { firmware_rollout: config.firmware_rollout }
-      : {}),
   });
 }
 
@@ -184,10 +85,7 @@ export function isValidIpTableRemoteConfigShape(
       }
     }
   }
-  return (
-    config.firmware_rollout === undefined ||
-    isValidFirmwareUpdateRolloutConfig(config.firmware_rollout)
-  );
+  return true;
 }
 
 export function getOrderedIpTableCandidates(options: {

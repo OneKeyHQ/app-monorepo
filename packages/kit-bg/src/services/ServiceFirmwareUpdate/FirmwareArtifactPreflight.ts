@@ -1,9 +1,4 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { isProxyActiveForUrl } from '@onekeyhq/shared/src/request/helpers/sniRequest';
-import requestHelper from '@onekeyhq/shared/src/request/requestHelper';
-import type { IIpTableConfigWithRuntime } from '@onekeyhq/shared/src/request/types/ipTable';
-import { getOrderedIpTableCandidates } from '@onekeyhq/shared/src/utils/ipTableUtils';
 
 import { firmwareArtifactAdapter } from './FirmwareArtifactAdapter';
 import {
@@ -11,10 +6,7 @@ import {
   getTrustedFirmwareArtifact,
 } from './trustedFirmwareCatalog';
 
-import type {
-  IFirmwareArtifactReceipt,
-  IFirmwareArtifactRoute,
-} from './FirmwareArtifactAdapter.types';
+import type { IFirmwareArtifactReceipt } from './FirmwareArtifactAdapter.types';
 import type {
   CoreApi,
   FirmwareArtifactReader,
@@ -29,8 +21,6 @@ import type {
 const MAX_READ_BYTES = 256 * 1024;
 const MAX_BRIDGE_BINARY_BYTES = 4 * 1024 * 1024;
 const TOTAL_DEADLINE_MS = 30 * 60 * 1000;
-const MAX_ATTEMPT_DEADLINE_MS = 15 * 60 * 1000;
-const MAX_PINNED_CANDIDATES = 3;
 const activeArtifactDownloadCounts = new Map<string, number>();
 const FIRMWARE_CAPABILITY_KEYS = [
   'planSchemaVersion',
@@ -109,70 +99,6 @@ export type IBridgeFirmwareBinaries = {
   targetBinaries: Partial<Record<IBridgeBinaryTarget, ArrayBuffer>>;
 };
 
-export const isRetryableRouteError = (error: unknown): boolean => {
-  const message = error instanceof Error ? error.message : String(error);
-  if (
-    message.includes('ARTIFACT_NETWORK_FAILED') ||
-    message.includes('ARTIFACT_DEADLINE_EXCEEDED')
-  ) {
-    return true;
-  }
-  const status = /\bARTIFACT_HTTP_(\d{3})\b/u.exec(message)?.[1];
-  if (!status) return false;
-  const code = Number(status);
-  return (
-    code === 408 || code === 416 || code === 429 || (code >= 500 && code <= 599)
-  );
-};
-
-export const orderFirmwareArtifactRoutes = ({
-  hostname,
-  configWithRuntime,
-  proxyActive,
-}: {
-  hostname: string;
-  configWithRuntime: IIpTableConfigWithRuntime | undefined;
-  proxyActive: boolean | null;
-}): IFirmwareArtifactRoute[] => {
-  const domainRoute = { routeType: 'domain' } as const;
-  if (proxyActive !== false || !configWithRuntime) {
-    return [domainRoute];
-  }
-  const normalizedHostname = hostname.toLowerCase().replace(/\.$/u, '');
-  const pinnedRoutes = getOrderedIpTableCandidates({
-    hostname: normalizedHostname,
-    configWithRuntime,
-    exactHostOnly: true,
-    maxCandidates: MAX_PINNED_CANDIDATES,
-  }).map((resolvedIp) => ({ routeType: 'pinnedIp', resolvedIp }) as const);
-  const selectedIp =
-    configWithRuntime.runtime?.selections?.[normalizedHostname];
-  const hasEndorsedSelection =
-    typeof selectedIp === 'string' &&
-    selectedIp.length > 0 &&
-    pinnedRoutes[0]?.resolvedIp === selectedIp;
-  return hasEndorsedSelection
-    ? [...pinnedRoutes, domainRoute]
-    : [domainRoute, ...pinnedRoutes];
-};
-
-const getRoutes = async (
-  artifact: ITrustedFirmwareArtifact,
-): Promise<IFirmwareArtifactRoute[]> => {
-  const parsed = new URL(artifact.url);
-  const proxyActive = await isProxyActiveForUrl(artifact.url).catch(() => null);
-  const configWithRuntime =
-    proxyActive === false
-      ? ((await requestHelper.getIpTableConfig().catch(() => undefined)) ??
-        undefined)
-      : undefined;
-  return orderFirmwareArtifactRoutes({
-    hostname: parsed.hostname,
-    configWithRuntime,
-    proxyActive,
-  });
-};
-
 const assertReceipt = (
   receipt: IFirmwareArtifactReceipt,
   artifact: ITrustedFirmwareArtifact,
@@ -224,64 +150,25 @@ export const downloadTrustedFirmwareArtifact = async ({
   deadlineAt: number;
 }): Promise<IFirmwareArtifactReference> =>
   trackArtifactDownload(transactionId, async () => {
-    let lastError: unknown;
-    const routes = await getRoutes(artifact);
-    for (const [candidateIndex, route] of routes.entries()) {
-      const remainingMs = deadlineAt - Date.now();
-      if (remainingMs <= 0) {
-        throw new OneKeyLocalError(
-          'Firmware artifact preparation exceeded its deadline',
-        );
-      }
-      const attemptStartedAt = Date.now();
-      const remainingRouteCount = routes.length - candidateIndex;
-      const attemptDeadlineMs = Math.max(
-        1,
-        remainingRouteCount === 1
-          ? remainingMs
-          : Math.min(
-              MAX_ATTEMPT_DEADLINE_MS,
-              Math.floor(remainingMs / remainingRouteCount),
-            ),
+    const remainingMs = deadlineAt - Date.now();
+    if (remainingMs <= 0) {
+      throw new OneKeyLocalError(
+        'Firmware artifact preparation exceeded its deadline',
       );
-      try {
-        const receipt = await firmwareArtifactAdapter.download({
-          taskId: `fw-${artifact.expectedSha256.slice(0, 24)}`,
-          transactionId,
-          leaseRef,
-          artifactId,
-          url: artifact.url,
-          route,
-          expectedSize: artifact.expectedSize,
-          expectedSha256: artifact.expectedSha256,
-          maxBytes: artifact.expectedSize,
-          overallDeadlineSeconds: attemptDeadlineMs / 1000,
-        });
-        defaultLogger.ipTable.request.info({
-          info: `firmware_artifact route=${
-            route.routeType
-          } outcome=success candidateIndex=${candidateIndex} durationMs=${
-            Date.now() - attemptStartedAt
-          } bytes=${receipt.size} retry=${candidateIndex}`,
-        });
-        return assertReceipt(receipt, artifact);
-      } catch (error) {
-        defaultLogger.ipTable.request.info({
-          info: `firmware_artifact route=${
-            route.routeType
-          } outcome=failure candidateIndex=${candidateIndex} durationMs=${
-            Date.now() - attemptStartedAt
-          } bytes=0 retry=${candidateIndex}`,
-        });
-        if (!isRetryableRouteError(error)) throw error;
-        lastError = error;
-      }
     }
-    throw new OneKeyLocalError(
-      `Firmware artifact routes were exhausted: ${
-        lastError instanceof Error ? lastError.message : 'unknown error'
-      }`,
-    );
+    const receipt = await firmwareArtifactAdapter.download({
+      taskId: `fw-${artifact.expectedSha256.slice(0, 24)}`,
+      transactionId,
+      leaseRef,
+      artifactId,
+      url: artifact.url,
+      route: { routeType: 'domain' },
+      expectedSize: artifact.expectedSize,
+      expectedSha256: artifact.expectedSha256,
+      maxBytes: artifact.expectedSize,
+      overallDeadlineSeconds: remainingMs / 1000,
+    });
+    return assertReceipt(receipt, artifact);
   });
 
 export const cancelFirmwareArtifactPreparations = async (): Promise<void> => {
@@ -681,10 +568,7 @@ export const isFirmwareArtifactCapabilityReadyValue = (
     value.maxReadBytes === MAX_READ_BYTES &&
     value.supportsArchiveMaterialization === true &&
     Array.isArray(routeTypes) &&
-    routeTypes.length === 2 &&
-    new Set(routeTypes).size === 2 &&
-    routeTypes.includes('domain') &&
-    routeTypes.includes('pinnedIp')
+    routeTypes.includes('domain')
   );
 };
 

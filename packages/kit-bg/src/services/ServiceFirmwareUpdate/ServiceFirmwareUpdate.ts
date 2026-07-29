@@ -171,10 +171,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
         createFirmwareUpdateRuntimeHost({
           getHardwareTransportType: () =>
             this.backgroundApi.serviceSetting.getHardwareTransportType(),
-          getInstanceId: () =>
-            this.backgroundApi.serviceSetting.getInstanceId(),
-          getIpTableConfig: () =>
-            this.backgroundApi.simpleDb.ipTable.getConfig(),
           getSDKInstance: (connectId?: string) =>
             this.getSDKInstance({ connectId }),
         }),
