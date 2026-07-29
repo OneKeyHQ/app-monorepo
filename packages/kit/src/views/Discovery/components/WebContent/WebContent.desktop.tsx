@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
@@ -317,4 +317,9 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
   );
 }
 
-export default WebContent;
+// The parent shell re-renders whenever the shared tab map changes. Without a
+// memo boundary here that rebuilt the whole webview subtree — including the
+// useMemo'd <WebView> element — on every tab-state write. All props are stable
+// (`customReceiveHandler` is a no-dependency useCallback), so this bails out
+// unless the tab's own url/id or its active state actually changes.
+export default memo(WebContent);
