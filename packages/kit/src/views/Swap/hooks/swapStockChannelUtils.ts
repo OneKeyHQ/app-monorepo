@@ -452,6 +452,26 @@ export function isStockPayTokenReadyForTradeInput({
   );
 }
 
+export function resolveStockPayTokenState({
+  channelToken,
+  coldStartToken,
+  liveToken,
+  stockPairToken,
+  swapPairToken,
+}: {
+  channelToken?: ISwapToken;
+  coldStartToken?: ISwapToken;
+  liveToken?: ISwapToken;
+  stockPairToken?: ISwapToken;
+  swapPairToken?: ISwapToken;
+}) {
+  const stockOwnedToken = channelToken ?? stockPairToken ?? coldStartToken;
+  return {
+    displayToken: liveToken ?? stockOwnedToken,
+    selectionToken: stockOwnedToken ?? swapPairToken,
+  };
+}
+
 export function resolveStockTradeInputTokenStatus({
   isBuySide,
   payTokenStatus,
@@ -491,6 +511,21 @@ export function shouldRenderStockTradeInputSkeleton({
     return false;
   }
   return isBuySide ? !inputTokenVisible : !inputTokenReady;
+}
+
+export function isStockBalanceActionReady({
+  authoritativeBalance,
+  authoritativeStockToken,
+  isBuySide,
+}: {
+  authoritativeBalance?: string;
+  authoritativeStockToken?: ISwapToken;
+  isBuySide: boolean;
+}) {
+  return Boolean(
+    authoritativeBalance !== undefined &&
+    (isBuySide || authoritativeStockToken),
+  );
 }
 
 export function isStockBalanceInitializing({

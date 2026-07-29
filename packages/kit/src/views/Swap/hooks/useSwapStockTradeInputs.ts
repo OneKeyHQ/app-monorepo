@@ -38,6 +38,7 @@ import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
 
 import {
   type IStockBalanceSnapshot,
+  isStockBalanceActionReady,
   isStockBalanceInitializing,
   isStockPayTokenReadyForTradeInput,
   resolveStockBalanceSeed,
@@ -609,6 +610,11 @@ export function useSwapStockAmountInputState({
         token: inputToken,
         tokenDetail: stockInputTokenBalance.authoritativeTokenDetail,
       });
+  const balanceActionsReady = isStockBalanceActionReady({
+    authoritativeBalance: stockInputTokenBalance.balance,
+    authoritativeStockToken: authoritativeStockInputToken,
+    isBuySide,
+  });
   const amountInputToken = authoritativeStockInputToken ?? inputToken;
   const resolvedInputTokenBalance = stockInputTokenBalance.balance ?? '0';
   const displayBalance = stockInputTokenBalance.displayBalance ?? '--';
@@ -684,10 +690,7 @@ export function useSwapStockAmountInputState({
     syncStockTokenDetail(authoritativeStockInputToken);
   }, [authoritativeStockInputToken, syncStockTokenDetail]);
   const onBalanceMaxPress = useCallback(() => {
-    if (
-      stockInputTokenBalance.balance === undefined ||
-      (!isBuySide && !authoritativeStockInputToken)
-    ) {
+    if (!balanceActionsReady) {
       return;
     }
     if (authoritativeStockInputToken) {
@@ -696,18 +699,14 @@ export function useSwapStockAmountInputState({
     setInputAmount(new BigNumber(resolvedInputTokenBalance));
   }, [
     authoritativeStockInputToken,
-    isBuySide,
+    balanceActionsReady,
     resolvedInputTokenBalance,
     setInputAmount,
-    stockInputTokenBalance.balance,
     syncStockTokenDetail,
   ]);
   const onSelectPercentageStage = useCallback(
     (stage: number) => {
-      if (
-        stockInputTokenBalance.balance === undefined ||
-        (!isBuySide && !authoritativeStockInputToken)
-      ) {
+      if (!balanceActionsReady) {
         return;
       }
       if (authoritativeStockInputToken) {
@@ -718,10 +717,9 @@ export function useSwapStockAmountInputState({
     },
     [
       authoritativeStockInputToken,
-      isBuySide,
+      balanceActionsReady,
       resolvedInputTokenBalance,
       setInputAmount,
-      stockInputTokenBalance.balance,
       syncStockTokenDetail,
     ],
   );
@@ -759,6 +757,7 @@ export function useSwapStockAmountInputState({
 
   return {
     amountFiatValue,
+    balanceActionsReady,
     balanceLoading: stockInputTokenBalance.loading,
     currencySymbol,
     disableNativePayToken,

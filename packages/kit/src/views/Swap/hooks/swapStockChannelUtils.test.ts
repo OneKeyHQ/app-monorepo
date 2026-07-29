@@ -9,6 +9,7 @@ import {
   buildStockSwapTokenFromMarketListToken,
   filterStockPayTokenCandidates,
   hasValidStockBalanceForTrade,
+  isStockBalanceActionReady,
   isStockBalanceInitializing,
   isStockPayTokenReadyForTradeInput,
   isStockTradeReadyForQuote,
@@ -21,6 +22,7 @@ import {
   resolveStockExecutionTokensToSync,
   resolveStockKLineToken,
   resolveStockPayTokenDisplaySeed,
+  resolveStockPayTokenState,
   resolveStockTradeInputTokenStatus,
   resolveSwapStockDefaultTokenStatus,
   shouldLoadDefaultStockToken,
@@ -598,6 +600,36 @@ describe('swapStockChannelUtils', () => {
     ).toBe(false);
   });
 
+  it('uses an ordinary Swap pay token only as a selection hint until Stock confirms it', () => {
+    const initializingState = resolveStockPayTokenState({
+      swapPairToken: usdcToken,
+    });
+    expect(initializingState).toEqual({
+      displayToken: undefined,
+      selectionToken: usdcToken,
+    });
+
+    expect(
+      resolveStockPayTokenState({
+        liveToken: usdcPayToken,
+        swapPairToken: usdcToken,
+      }),
+    ).toEqual({
+      displayToken: usdcPayToken,
+      selectionToken: usdcToken,
+    });
+
+    expect(
+      resolveStockPayTokenState({
+        coldStartToken: usdtToken,
+        swapPairToken: usdcToken,
+      }),
+    ).toEqual({
+      displayToken: usdtToken,
+      selectionToken: usdtToken,
+    });
+  });
+
   it('keeps the buy-side input initializing until the stock identity is ready', () => {
     expect(
       resolveStockTradeInputTokenStatus({
@@ -808,6 +840,35 @@ describe('swapStockChannelUtils', () => {
       displayBalance: '0.25',
       tokenDetail: usdcToken,
     });
+  });
+
+  it('keeps balance actions unavailable until authoritative execution state is ready', () => {
+    expect(
+      isStockBalanceActionReady({
+        authoritativeBalance: undefined,
+        authoritativeStockToken: appleStockToken,
+        isBuySide: false,
+      }),
+    ).toBe(false);
+    expect(
+      isStockBalanceActionReady({
+        authoritativeBalance: '0.24',
+        isBuySide: false,
+      }),
+    ).toBe(false);
+    expect(
+      isStockBalanceActionReady({
+        authoritativeBalance: '0.24',
+        authoritativeStockToken: appleStockToken,
+        isBuySide: false,
+      }),
+    ).toBe(true);
+    expect(
+      isStockBalanceActionReady({
+        authoritativeBalance: '0.24',
+        isBuySide: true,
+      }),
+    ).toBe(true);
   });
 
   it('keeps sell-side stock input skeleton tied to full readiness', () => {
