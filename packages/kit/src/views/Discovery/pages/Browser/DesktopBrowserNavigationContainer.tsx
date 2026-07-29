@@ -21,7 +21,7 @@ import { usePageTranslation } from '../../hooks/usePageTranslation';
 import {
   useActiveTabId,
   useWebTabDataById,
-  useWebTabs,
+  useWebTabIds,
 } from '../../hooks/useWebTabs';
 import { getWebviewWrapperRef, webviewRefs } from '../../utils/explorerUtils';
 
@@ -218,12 +218,14 @@ function DesktopBrowserNavigationBar({
 const DesktopBrowserNavigationBarMemo = memo(DesktopBrowserNavigationBar);
 
 function DesktopBrowserNavigationBarContainer() {
-  const { tabs } = useWebTabs();
+  // ids-only subscription: the container maps ids to memoized per-tab bars and
+  // never reads tab fields itself, so field-only writes must not re-run it.
+  const { ids } = useWebTabIds();
   const { activeTabId } = useActiveTabId();
-  return tabs.map((t) => (
+  return ids.map((id) => (
     <DesktopBrowserNavigationBarMemo
-      key={`DesktopBrowserNavigationContainer-${t.id}`}
-      id={t.id}
+      key={`DesktopBrowserNavigationContainer-${id}`}
+      id={id}
       activeTabId={activeTabId}
     />
   ));

@@ -1,41 +1,70 @@
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
+
+import { useAtomValue } from 'jotai';
+import { selectAtom } from 'jotai/utils';
 
 import {
   useActiveTabIdAtom,
   useAliveWebViewIdsAtom,
   useDisabledAddedNewTabAtom,
+  useDiscoveryContextStoreData,
   useDisplayHomePageAtom,
   useWebTabsAtom,
-  useWebTabsMapAtom,
+  webTabsAtom,
+  webTabsMapAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
-import type { IWebTab } from '../types';
+import type { IWebTab, IWebTabsAtom } from '../types';
 
+// Fresh snapshot of the full tab array. Always tracks the atom, so consumers
+// that read fields off the array (isPinned grouping in the tab bars, the
+// pinned-tab guard in useShortcuts.desktop, MobileTabListModal) can never see
+// stale values. Shell containers that only need to key child components by id
+// should use useWebTabIds instead, which stays referentially stable across
+// field-only writes.
 export const useWebTabs = () => {
   const [webTabs] = useWebTabsAtom();
-  // Key on the id list, not on the atom value. webTabsAtom is now written on
-  // any tab field change (title/loading/favicon) so later reads cannot go
-  // stale; keying on the whole value would hand every consumer a fresh `tabs`
-  // array on each of those writes. Consumers here only iterate ids to render
-  // per-tab shells — they read fields through useWebTabDataById — so the array
-  // only needs a new identity when the set or order of tabs changes.
-  const idsKey = webTabs.tabs.map((t) => t.id).join(',');
-  const cache = useRef({ idsKey, tabs: webTabs.tabs });
-  if (cache.current.idsKey !== idsKey) {
-    cache.current = { idsKey, tabs: webTabs.tabs };
-  }
-  const { tabs } = cache.current;
-  return useMemo(() => ({ tabs }), [tabs]);
+  return useMemo(
+    () => ({
+      tabs: webTabs.tabs,
+    }),
+    [webTabs],
+  );
 };
 
+// Module-level select/equality so the derived atom is created once (the same
+// discipline as useTokenFiatField). Emits a new value only when the id list
+// (set or order) changes — field-only writes keep the previous array identity,
+// so shell containers mapping ids to memoized children skip re-rendering.
+const selectWebTabIds = (value: IWebTabsAtom) => value.tabs.map((t) => t.id);
+const areIdListsEqual = (a: string[], b: string[]) =>
+  a === b || (a.length === b.length && a.every((id, i) => id === b[i]));
+const webTabIdsAtom = selectAtom(webTabsAtom(), selectWebTabIds, areIdListsEqual);
+
+export const useWebTabIds = () => {
+  const { store } = useDiscoveryContextStoreData();
+  const ids = useAtomValue(webTabIdsAtom, { store });
+  return useMemo(() => ({ ids }), [ids]);
+};
+
+// Per-tab subscription. Subscribing to the whole map atom meant every tab
+// shell and navigation bar re-rendered on every map replacement no matter
+// whose tab changed — memoizing the returned object cannot stop a re-render
+// that the component's own atom subscription triggers. selectAtom narrows the
+// subscription to this tab's entry: buildWebTabData reuses untouched tab
+// objects (setWebTabData is copy-on-write for the changed one only), so the
+// Object.is equality holds and only the changed tab's subscribers run.
 export const useWebTabDataById = (id?: string) => {
-  const [map] = useWebTabsMapAtom();
-  const tab = map[id ?? ''] as IWebTab | undefined;
-  // Memoize on the tab, not on the map. buildWebTabs hands out a new map
-  // object whenever any tab changes, so keying the result on `map` produced a
-  // fresh `{ tab }` for every mounted tab shell on every write — with 26 open
-  // tabs one title change re-rendered all 26 subtrees. Tabs whose own entry is
-  // untouched now keep a stable reference and their children bail out.
+  const { store } = useDiscoveryContextStoreData();
+  const tabAtom = useMemo(
+    () =>
+      selectAtom(
+        webTabsMapAtom(),
+        (map) => map[id ?? ''] as IWebTab | undefined,
+      ),
+    [id],
+  );
+  const tab = useAtomValue(tabAtom, { store });
   return useMemo(() => ({ tab }), [tab]);
 };
 
