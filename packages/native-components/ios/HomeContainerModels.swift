@@ -132,7 +132,7 @@ struct HomeContainerSection: Decodable {
   let items: [HomeContainerItem]
 }
 
-enum HomeContainerTabDestination: String, Decodable {
+enum HomeContainerTabDestination: String, Decodable, Equatable {
   case inline
   case handoff
 }
@@ -202,6 +202,31 @@ struct HomeContainerTab: Decodable {
       }
       handoffCommandId = commandId
     }
+  }
+}
+
+private struct HomeContainerTabViewKey: Equatable {
+  let id: String
+  let title: String
+  let destination: HomeContainerTabDestination
+}
+
+func homeContainerTabsRequireRebuild(
+  previous: [HomeContainerTab],
+  next: [HomeContainerTab]
+) -> Bool {
+  previous.map {
+    HomeContainerTabViewKey(
+      id: $0.id,
+      title: $0.title,
+      destination: $0.destination
+    )
+  } != next.map {
+    HomeContainerTabViewKey(
+      id: $0.id,
+      title: $0.title,
+      destination: $0.destination
+    )
   }
 }
 

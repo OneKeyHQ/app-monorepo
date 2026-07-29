@@ -70,10 +70,7 @@ import {
   resolveHomePortfolioLpTokenSwitch,
 } from '@onekeyhq/kit/src/views/Home/model/sections/spot/homePortfolioControls';
 import type { IHomeSectionId } from '@onekeyhq/kit/src/views/Home/model/semantic/homeSemanticTypes';
-import {
-  HOME_SECTION_ACTION_IDS,
-  HOME_SHELL_ACTION_IDS,
-} from '@onekeyhq/kit/src/views/Home/model/store/homeStoreCommandIds';
+import { HOME_SECTION_ACTION_IDS } from '@onekeyhq/kit/src/views/Home/model/store/homeStoreCommandIds';
 import type {
   IHomeStoreEffect,
   IHomeStoreIntent,
@@ -120,6 +117,7 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   type IHomeNativeExpandedState,
   type IHomeNativeMarketRecommendationState,
+  type IMobileNativeHomeTabTopology,
   MOBILE_NATIVE_HOME_BANNER_SKELETON_ID,
   MOBILE_NATIVE_HOME_MARKET_ACTION_IDS,
   MOBILE_NATIVE_HOME_MARKET_CATEGORY_ACTION_PREFIX,
@@ -130,6 +128,7 @@ import {
   resolveMobileNativeHomeActionRowHeight,
   resolveMobileNativeHomeBannerPresentation,
   resolveMobileNativeHomeBodySections,
+  resolveMobileNativeHomeTabTopology,
 } from './mobileNativeHomeViewModelAdapter';
 
 const TAB_ORDER: readonly IHomeContainerTabId[] = [
@@ -183,34 +182,6 @@ function equal(left: unknown, right: unknown): boolean {
   return (
     stringUtils.stableStringify(left) === stringUtils.stableStringify(right)
   );
-}
-
-function formatShellBalance({
-  amount,
-  currency,
-  hidden,
-}: {
-  amount: string;
-  currency: string;
-  hidden: boolean;
-}): string {
-  if (hidden) {
-    return '****';
-  }
-  const value = Number(amount);
-  if (!Number.isFinite(value)) {
-    return '';
-  }
-  try {
-    return new Intl.NumberFormat(undefined, {
-      currency: currency.toUpperCase(),
-      maximumFractionDigits: 2,
-      minimumFractionDigits: 2,
-      style: 'currency',
-    }).format(value);
-  } catch {
-    return `${currency} ${value.toFixed(2)}`;
-  }
 }
 
 function countSectionItems(sections: IHomeContainerSection[]): number {
@@ -679,21 +650,41 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     };
   }, [intl.locale, nativeLabels]);
 
-  const tabs = useMemo<IHomeContainerTab[]>(() => {
+  const currentTabTopology = useMemo<
+    IMobileNativeHomeTabTopology | undefined
+  >(() => {
     const value = homeNavigation.value;
-    let visibleTabs: readonly IHomeContainerTabId[] = ['portfolio'];
-    if (
-      displayModel.navigation.kind !== 'portfolioOnly' &&
-      value.kind === 'ready'
-    ) {
-      visibleTabs = value.tabs;
+    if (value.kind !== 'ready') {
+      return undefined;
     }
-    return TAB_ORDER.filter((tabId) => visibleTabs.includes(tabId)).map(
+    return {
+      destinations: value.destinations,
+      tabIds: value.tabs,
+    };
+  }, [homeNavigation.value]);
+  const lastCommittedTabTopologyRef = useRef<
+    IMobileNativeHomeTabTopology | undefined
+  >(undefined);
+  const tabTopology = resolveMobileNativeHomeTabTopology({
+    current: currentTabTopology,
+    lastCommitted: lastCommittedTabTopologyRef.current,
+    portfolioOnly: displayModel.navigation.kind === 'portfolioOnly',
+  });
+  useLayoutEffect(() => {
+    if (currentTabTopology) {
+      lastCommittedTabTopologyRef.current = currentTabTopology;
+    }
+  }, [currentTabTopology]);
+
+  const tabs = useMemo<IHomeContainerTab[]>(() => {
+    // Owner-scoped Store data must reset immediately, but pending capability
+    // state is not a confirmed Spot-only topology. Keep the last committed
+    // topology so native reuses its tabs/pages while the new owner renders
+    // cached content or loading sections, then replace it when capability is ready.
+    return TAB_ORDER.filter((tabId) => tabTopology.tabIds.includes(tabId)).map(
       (tabId) => {
         const destination =
-          value.kind === 'ready' && value.destinations?.[tabId] === 'web'
-            ? 'handoff'
-            : 'inline';
+          tabTopology.destinations?.[tabId] === 'web' ? 'handoff' : 'inline';
         if (destination === 'handoff') {
           return {
             id: tabId,
@@ -719,11 +710,10 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     );
   }, [
     displayModel.body.kind,
-    displayModel.navigation.kind,
-    homeNavigation.value,
     loadingSectionsByTab,
     renderedTabIds,
     sectionsByTab,
+    tabTopology,
     tabTitles,
   ]);
 
@@ -742,14 +732,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     hasBannerContent,
   });
   const header = useMemo<IHomeContainerHeader>(() => {
-    const balance = balanceModel
-      ? formatShellBalance({
-          amount: balanceModel.amount,
-          currency: balanceModel.currency,
-          hidden: hideValue,
-        })
-      : '';
-    const match = hideValue ? undefined : balance.match(/^(.*)([.,]\d+)$/);
     const actionLayout = resolveMobileNativeHomeActionLayout({
       actionPresentationKind: displayModel.actions.kind,
     });
@@ -823,21 +805,17 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     }
     return {
       accountName: '',
-      balance: match?.[1] ?? balance,
-      balanceSecondary: match?.[2],
-      balanceActionId: balanceModel ? HOME_SHELL_ACTION_IDS.balance : undefined,
+      balance: '',
       actionRowHeight,
       actionLayout,
       actions: [],
       banners,
     };
   }, [
-    balanceModel,
     bannerPresentation,
     bannerPayload?.banners,
     bannerPayload?.tronResource,
     displayModel.actions.kind,
-    hideValue,
     intl,
     isBackupRequired,
     tronAccountResource.result,

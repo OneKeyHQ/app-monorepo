@@ -19,7 +19,6 @@ import {
 import HomeContainerConfig from '../nitrogen/generated/shared/json/HomeContainerConfig.json';
 
 import {
-  type IHomeContainerOwner,
   type IHomeContainerProps,
   type IHomeContainerRef,
   type IHomeContainerSlot,
@@ -101,13 +100,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
-
-function ownersMatch(
-  left: IHomeContainerOwner,
-  right: IHomeContainerOwner,
-): boolean {
-  return left.scopeKey === right.scopeKey && left.sessionId === right.sessionId;
-}
 
 function getSlotLayoutStyle(key: string) {
   if (key === 'header.account-row') {
@@ -255,18 +247,16 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
       [stableHybridRef],
     );
 
-    const authoritativeBundle =
-      state && slotBundle && ownersMatch(state.owner, slotBundle.owner)
-        ? slotBundle
-        : undefined;
-    const resolvedSlots = authoritativeBundle?.slots;
+    // Slot presence owns presentation; native owner checks only gate interaction.
+    const presentedBundle = slotBundle;
+    const resolvedSlots = presentedBundle?.slots;
     const resolvedBackgroundColor = resolveHomeContainerBackgroundColor({
       snapshotBackgroundColor: state?.payload.theme.backgroundColor,
       slotBackgroundColor: resolvedSlots?.backgroundColor,
     });
 
     const slotViews = useMemo(() => {
-      if (!resolvedSlots || !authoritativeBundle) {
+      if (!resolvedSlots || !presentedBundle) {
         return null;
       }
       const values: Array<{ key: string; slot: IHomeContainerSlot }> = [];
@@ -323,8 +313,8 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
         return (
           <HomeContainerSlot
             key={key}
-            ownerScopeKey={authoritativeBundle.owner.scopeKey}
-            ownerSessionId={authoritativeBundle.owner.sessionId}
+            ownerScopeKey={presentedBundle.owner.scopeKey}
+            ownerSessionId={presentedBundle.owner.sessionId}
             slotKey={key}
             testID={`HomeContainer.Slot.${key}`}
             pointerEvents={interactive ? 'auto' : 'none'}
@@ -346,12 +336,7 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
           </HomeContainerSlot>
         );
       });
-    }, [
-      authoritativeBundle,
-      resolvedBackgroundColor,
-      resolvedSlots,
-      windowWidth,
-    ]);
+    }, [presentedBundle, resolvedBackgroundColor, resolvedSlots, windowWidth]);
 
     return (
       <HomeContainerSurface style={style} testID={testID}>

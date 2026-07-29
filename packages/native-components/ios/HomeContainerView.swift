@@ -934,13 +934,15 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
         }
         DispatchQueue.main.async { [weak self] in
           guard let self, !self.isDisposed() else { return }
-          if self.state?.owner != nil, self.state?.owner != next.owner {
-            self.resetViewportForOwnerChange()
+          let ownerChanged = self.state?.owner != nil && self.state?.owner != next.owner
+          if ownerChanged {
+            self.prepareViewportForOwnerChange()
           }
           self.state = next
           self.applySnapshot(
             next.payload,
-            allowsMissingSelectedTabFallback: false
+            allowsMissingSelectedTabFallback: false,
+            ownerChanged: ownerChanged
           )
         }
       } catch {
@@ -989,13 +991,15 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
         return
       }
       self.pendingInitialState = nil
-      if self.state?.owner != nil, self.state?.owner != next.owner {
-        self.resetViewportForOwnerChange()
+      let ownerChanged = self.state?.owner != nil && self.state?.owner != next.owner
+      if ownerChanged {
+        self.prepareViewportForOwnerChange()
       }
       self.state = next
       self.applySnapshot(
         next.payload,
-        allowsMissingSelectedTabFallback: false
+        allowsMissingSelectedTabFallback: false,
+        ownerChanged: ownerChanged
       )
     }
   }
@@ -1088,14 +1092,11 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     lifecycleLock.unlock()
   }
 
-  private func resetViewportForOwnerChange() {
+  private func prepareViewportForOwnerChange() {
     pagerTransitionState = .idle
     pendingPagerNotify = false
     tabSelectionQueue = HomeContainerTabSelectionQueue()
-    pages.forEach { $0.removeFromSuperview() }
-    pages = []
-    selectedTabId = ""
-    snapshot = nil
+    pages.forEach { $0.prepareViewportForOwnerChange() }
     refreshRequestIds.removeAll()
     refreshControl.endRefreshing()
     outerScrollView.setContentOffset(.zero, animated: false)
@@ -1105,7 +1106,8 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
 
   private func applySnapshot(
     _ next: HomeContainerSnapshot,
-    allowsMissingSelectedTabFallback: Bool
+    allowsMissingSelectedTabFallback: Bool,
+    ownerChanged: Bool = false
   ) {
     guard !isDisposed() else { return }
     guard homeContainerValidatesBusinessInvariants(next) else { return }
@@ -1133,7 +1135,11 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     let inlineTabs = next.tabs.filter { $0.destination == .inline }
     for tab in inlineTabs {
       let page = oldPages[tab.id] ?? makePage(tabId: tab.id)
-      page.apply(tab: tab, theme: next.theme)
+      page.apply(
+        tab: tab,
+        theme: next.theme,
+        allowsAnimatedDifferences: !ownerChanged
+      )
       nextPages.append(page)
       if page.superview == nil {
         pager.addSubview(page)
@@ -1159,6 +1165,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     homeContainerEnableDynamicTypeRecursively()
     setNeedsLayout()
     layoutIfNeeded()
+    slotLayoutDidChange?()
   }
 
   private func makePage(tabId: String) -> HomeContainerPageView {
@@ -1769,6 +1776,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   func apply(
     tab: HomeContainerTab,
     theme: HomeContainerTheme,
+    allowsAnimatedDifferences: Bool = true,
     completion: (() -> Void)? = nil
   ) {
     let nextThemeSignature = theme.contentSignature
@@ -1782,6 +1790,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     updateSections(
       tab.sections,
       forceReconfigureAll: shouldReconfigureAllRows,
+      allowsAnimatedDifferences: allowsAnimatedDifferences,
       completion: completion
     )
   }
@@ -1789,10 +1798,15 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   func updateSections(
     _ sections: [HomeContainerSection],
     forceReconfigureAll: Bool = false,
+    allowsAnimatedDifferences: Bool = true,
     completion: (() -> Void)? = nil
   ) {
     self.sections = sections
-    rebuildRows(forceReconfigureAll: forceReconfigureAll, completion: completion)
+    rebuildRows(
+      forceReconfigureAll: forceReconfigureAll,
+      allowsAnimatedDifferences: allowsAnimatedDifferences,
+      completion: completion
+    )
   }
 
   func setMountedSlotKeys(_ keys: Set<String>) {
@@ -1809,9 +1823,17 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     rebuildRows(reloadsStateSlotRows: reloadsStateSlotRows)
   }
 
+  func prepareViewportForOwnerChange() {
+    cancelMarketMutationContentOffsetPin()
+    suppressContentOffsetCallback = true
+    tableView.setContentOffset(.zero, animated: false)
+    suppressContentOffsetCallback = false
+  }
+
   private func rebuildRows(
     forceReconfigureAll: Bool = false,
     reloadsStateSlotRows: Bool = false,
+    allowsAnimatedDifferences: Bool = true,
     completion: (() -> Void)? = nil
   ) {
     var rows: [HomeContainerRow] = []
@@ -1938,7 +1960,8 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     }
     dataSource.apply(
       nextSnapshot,
-      animatingDifferences: cellUpdatePlan.reloadRowIds.isEmpty &&
+      animatingDifferences: allowsAnimatedDifferences &&
+        cellUpdatePlan.reloadRowIds.isEmpty &&
         (
           animatesMarketMutation ||
             animatesPortfolioDeFiMutation ||
@@ -2382,8 +2405,7 @@ private final class HomeContainerHeaderView: UIView {
   private let networkIconsStack = UIStackView()
   private let networkIconViews = [UIImageView(), UIImageView()]
   private let networkButton = UIButton(type: .system)
-  private let balanceButton = UIButton(type: .system)
-  private var balanceSkeletonView: SkeletonNativeView?
+  private let balanceAnchor = UIView()
   private let balanceActionsStack = UIStackView()
   private let actionsScroll = HomeContainerHorizontalScrollView()
   private let actionsStack = UIStackView()
@@ -2402,7 +2424,6 @@ private final class HomeContainerHeaderView: UIView {
   private var representedNetworkImageURL: URL?
   private var representedNetworkGroupImageValues: [String] = []
   private var header: HomeContainerHeader?
-  private var currentTheme: HomeContainerTheme?
   private var mountedSlotKeys = Set<String>()
   private var accountRowHeightConstraint: NSLayoutConstraint!
   private var balanceHeightConstraint: NSLayoutConstraint!
@@ -2513,26 +2534,13 @@ private final class HomeContainerHeaderView: UIView {
     networkSelectorControl.alpha = 0
     networkSelectorControl.isUserInteractionEnabled = false
 
-    balanceButton.titleLabel?.font = HomeContainerTypography.system(
-      48,
-      weight: .medium,
-      textStyle: .largeTitle,
-      maximumScale: 1.3
-    )
-    balanceButton.titleLabel?.adjustsFontSizeToFitWidth = true
-    balanceButton.titleLabel?.minimumScaleFactor = 0.6
-    balanceButton.contentHorizontalAlignment = .leading
-    balanceHeightConstraint = balanceButton.heightAnchor.constraint(
+    balanceHeightConstraint = balanceAnchor.heightAnchor.constraint(
       equalToConstant: HomeContainerMetrics.scaledHeight(58, maximumScale: 1.3)
     )
     balanceHeightConstraint.isActive = true
-    balanceButton.addAction(UIAction { [weak self] _ in
-      guard let self, let actionId = self.header?.balanceActionId, !actionId.isEmpty else { return }
-      self.onAction?(actionId, "balance")
-    }, for: .touchUpInside)
-    balanceButton.alpha = 0
-    balanceButton.isUserInteractionEnabled = false
-    contentStack.addArrangedSubview(balanceButton)
+    balanceAnchor.isUserInteractionEnabled = false
+    balanceAnchor.accessibilityElementsHidden = true
+    contentStack.addArrangedSubview(balanceAnchor)
 
     balanceActionsStack.axis = .horizontal
     balanceActionsStack.alignment = .leading
@@ -2555,7 +2563,7 @@ private final class HomeContainerHeaderView: UIView {
     )
     contentStack.addArrangedSubview(actionsScroll)
     contentStack.addArrangedSubview(bannersScroll)
-    contentStack.setCustomSpacing(26, after: balanceButton)
+    contentStack.setCustomSpacing(26, after: balanceAnchor)
     contentStack.setCustomSpacing(21, after: actionsScroll)
     addSubview(compactBackdropView)
     addSubview(accountSlotHost)
@@ -2569,7 +2577,6 @@ private final class HomeContainerHeaderView: UIView {
 
   func apply(header: HomeContainerHeader, theme: HomeContainerTheme) {
     self.header = header
-    currentTheme = theme
     backgroundColor = .clear
     compactBackdropView.backgroundColor = UIColor(
       homeContainerColor: theme.backgroundColor,
@@ -2616,18 +2623,6 @@ private final class HomeContainerHeaderView: UIView {
     networkButton.setTitleColor(primaryColor, for: .normal)
     networkIconsStack.isHidden = !isNetworkGroup
     networkSelectorControl.isHidden = !isNetworkGroup && networkTitle.isEmpty
-    let balanceSecondary = header.balanceSecondary ?? ""
-    let balanceTitle = NSMutableAttributedString(
-      string: header.balance,
-      attributes: [.foregroundColor: primaryColor]
-    )
-    if !balanceSecondary.isEmpty {
-      balanceTitle.append(NSAttributedString(
-        string: balanceSecondary,
-        attributes: [.foregroundColor: secondaryColor]
-      ))
-    }
-    balanceButton.setAttributedTitle(balanceTitle, for: .normal)
     loadAccountImage(header.accountImageUrl)
     if isNetworkGroup {
       networkImageTask?.cancel()
@@ -2701,17 +2696,8 @@ private final class HomeContainerHeaderView: UIView {
     super.layoutSubviews()
     updatePinnedAccountRow()
     layoutSlotHost(accountSlotHost, target: accountRow)
-    layoutSlotHost(balanceSlotHost, target: balanceButton)
+    layoutSlotHost(balanceSlotHost, target: balanceAnchor)
     layoutSlotHost(actionRowSlotHost, target: actionsScroll)
-    if let balanceSkeletonView {
-      let skeletonHeight = min(balanceButton.bounds.height, 40)
-      balanceSkeletonView.frame = CGRect(
-        x: 0,
-        y: max(0, (balanceButton.bounds.height - skeletonHeight) / 2),
-        width: min(balanceButton.bounds.width, 209),
-        height: skeletonHeight
-      )
-    }
     bringSubviewToFront(compactBackdropView)
     bringSubviewToFront(accountSlotHost)
   }
@@ -2749,7 +2735,7 @@ private final class HomeContainerHeaderView: UIView {
     case "header.account-row":
       return accountRow.isHidden ? nil : accountSlotHost
     case "header.balance":
-      return balanceButton.isHidden ? nil : balanceSlotHost
+      return balanceAnchor.isHidden ? nil : balanceSlotHost
     case "header.action-row":
       return actionsScroll.isHidden ? nil : actionRowSlotHost
     default:
@@ -2764,7 +2750,7 @@ private final class HomeContainerHeaderView: UIView {
     case "header.account-row":
       target = accountRow
     case "header.balance":
-      target = balanceButton
+      target = balanceAnchor
     case "header.action-row":
       target = actionsScroll
     default:
@@ -2953,11 +2939,8 @@ private final class HomeContainerHeaderView: UIView {
     networkSelectorControl.isUserInteractionEnabled = ownsAccountRow
     accountSlotHost.isUserInteractionEnabled = !ownsAccountRow
 
-    let ownsBalance = !mountedSlotKeys.contains("header.balance")
-    balanceButton.alpha = ownsBalance ? 1 : 0
-    balanceButton.isUserInteractionEnabled = ownsBalance
-    balanceSlotHost.isUserInteractionEnabled = !ownsBalance
-    updateBalanceSkeleton()
+    balanceSlotHost.isUserInteractionEnabled =
+      mountedSlotKeys.contains("header.balance")
 
     let ownsActionRow = !mountedSlotKeys.contains("header.action-row")
     actionControls.values.forEach { control in
@@ -2965,29 +2948,6 @@ private final class HomeContainerHeaderView: UIView {
       control.isUserInteractionEnabled = ownsActionRow
     }
     actionRowSlotHost.isUserInteractionEnabled = !ownsActionRow
-  }
-
-  private func updateBalanceSkeleton() {
-    let shouldShow = !mountedSlotKeys.contains("header.balance") &&
-      header?.actionLayout == "loading" &&
-      header?.balance.isEmpty == true &&
-      header?.balanceSecondary?.isEmpty != false
-    guard shouldShow, let currentTheme else {
-      balanceSkeletonView?.removeFromSuperview()
-      balanceSkeletonView = nil
-      return
-    }
-    let skeleton = balanceSkeletonView ?? SkeletonNativeView(frame: .zero)
-    if skeleton.superview == nil {
-      skeleton.isUserInteractionEnabled = false
-      skeleton.accessibilityElementsHidden = true
-      skeleton.layer.cornerRadius = 8
-      skeleton.clipsToBounds = true
-      balanceButton.addSubview(skeleton)
-    }
-    skeleton.applyHomeContainerSkeletonTheme(currentTheme)
-    balanceSkeletonView = skeleton
-    setNeedsLayout()
   }
 
   private func updateBalanceActions(
@@ -3662,6 +3622,7 @@ private final class HomeContainerTabsView: UIView {
   private let toolbarButton = HomeContainerInteractiveButton(type: .system)
   private let toolbarSlotHost = HomeContainerSlotHostView()
   private var buttons: [String: HomeContainerInteractiveButton] = [:]
+  private var renderedTabs: [HomeContainerTab] = []
   private var tabsById: [String: HomeContainerTab] = [:]
   private var selectedTabId = ""
   private var theme: HomeContainerTheme?
@@ -3724,33 +3685,43 @@ private final class HomeContainerTabsView: UIView {
   }
 
   func apply(tabs: [HomeContainerTab], selectedTabId: String, theme: HomeContainerTheme) {
+    let requiresRebuild = homeContainerTabsRequireRebuild(
+      previous: renderedTabs,
+      next: tabs
+    )
     self.theme = theme
     self.selectedTabId = selectedTabId
     tabsById = Dictionary(uniqueKeysWithValues: tabs.map { ($0.id, $0) })
     backgroundColor = UIColor(homeContainerColor: theme.backgroundColor, fallback: .systemBackground)
-    stack.arrangedSubviews.forEach { view in
-      stack.removeArrangedSubview(view)
-      view.removeFromSuperview()
-    }
-    buttons.removeAll()
-    for tab in tabs {
-      let button = HomeContainerInteractiveButton(type: .system)
-      button.setTitle(tab.title, for: .normal)
-      button.titleLabel?.font = HomeContainerTypography.medium(18)
-      button.titleLabel?.numberOfLines = 1
-      button.titleLabel?.adjustsFontSizeToFitWidth = true
-      button.titleLabel?.minimumScaleFactor = 0.85
-      button.accessibilityLabel = tab.title
-      button.accessibilityIdentifier =
-        HomeContainerAccessibilityIdentifier.tabIdentifier(for: tab.id)
-      button.layer.cornerRadius = 12
-      button.addAction(UIAction { [weak self] _ in self?.onSelect?(tab.id) }, for: .touchUpInside)
-      button.alpha = 1
-      button.isUserInteractionEnabled = true
-      button.transform = CGAffineTransform(translationX: 0, y: -8)
-      button.heightAnchor.constraint(equalToConstant: 36).isActive = true
-      buttons[tab.id] = button
-      stack.addArrangedSubview(button)
+    if requiresRebuild {
+      renderedTabs = tabs
+      stack.arrangedSubviews.forEach { view in
+        stack.removeArrangedSubview(view)
+        view.removeFromSuperview()
+      }
+      buttons.removeAll()
+      for tab in tabs {
+        let button = HomeContainerInteractiveButton(type: .system)
+        button.setTitle(tab.title, for: .normal)
+        button.titleLabel?.font = HomeContainerTypography.medium(18)
+        button.titleLabel?.numberOfLines = 1
+        button.titleLabel?.adjustsFontSizeToFitWidth = true
+        button.titleLabel?.minimumScaleFactor = 0.85
+        button.accessibilityLabel = tab.title
+        button.accessibilityIdentifier =
+          HomeContainerAccessibilityIdentifier.tabIdentifier(for: tab.id)
+        button.layer.cornerRadius = 12
+        button.addAction(
+          UIAction { [weak self] _ in self?.onSelect?(tab.id) },
+          for: .touchUpInside
+        )
+        button.alpha = 1
+        button.isUserInteractionEnabled = true
+        button.transform = CGAffineTransform(translationX: 0, y: -8)
+        button.heightAnchor.constraint(equalToConstant: 36).isActive = true
+        buttons[tab.id] = button
+        stack.addArrangedSubview(button)
+      }
     }
     updateButtonColors()
     updateToolbar()

@@ -256,6 +256,103 @@ describe('Native Home runtime surface', () => {
     expect(legacyImporters).toEqual([]);
   });
 
+  it('keeps React slot presentation stable while native owner authority switches', () => {
+    const nativeBridgeSource = readSource(
+      path.resolve(
+        __dirname,
+        '../../../../native-components/src/HomeContainer.native.tsx',
+      ),
+    );
+    const mobileRendererSource = readSource(
+      path.resolve(
+        __dirname,
+        '../../../../../apps/mobile/src/home/MobileNativeHomeRenderer.tsx',
+      ),
+    );
+    const iosNativeSource = readSource(
+      path.resolve(
+        __dirname,
+        '../../../../native-components/ios/HomeContainerView.swift',
+      ),
+    );
+    const iosSurfaceSource = readSource(
+      path.resolve(
+        __dirname,
+        '../../../../native-components/ios/HomeContainerSurfaceComponentView.mm',
+      ),
+    );
+    const androidNativeSource = readSource(
+      path.resolve(
+        __dirname,
+        '../../../../native-components/android/src/main/java/com/margelo/nitro/onekeynativecomponents/HomeContainerView.kt',
+      ),
+    );
+    const androidSurfaceSource = readSource(
+      path.resolve(
+        __dirname,
+        '../../../../native-components/android/src/main/java/com/margelo/nitro/onekeynativecomponents/HomeContainerSurfaceView.kt',
+      ),
+    );
+    const androidSlotSource = readSource(
+      path.resolve(
+        __dirname,
+        '../../../../native-components/android/src/main/java/com/margelo/nitro/onekeynativecomponents/HomeContainerSlotView.kt',
+      ),
+    );
+
+    expect(nativeBridgeSource).toContain('const presentedBundle = slotBundle;');
+    expect(nativeBridgeSource).not.toContain('const authoritativeBundle');
+    expect(iosSurfaceSource).toContain(
+      '- (NSArray<NSString *> *)presentedSlotKeys',
+    );
+    expect(iosSurfaceSource).toContain(
+      'slot.accessibilityElementsHidden = !ownsSlot;',
+    );
+    expect(iosSurfaceSource).not.toContain(
+      'slot.slotKey.length > 0 && ownsSlot',
+    );
+    expect(androidSurfaceSource).toContain('val presentedSlotKeys = slots');
+    expect(androidSurfaceSource).toContain('slot.ownerAuthorized =');
+    expect(androidNativeSource).toMatch(
+      /updateSharedChromeLayout\(\)\s*onSlotLayoutChange\?\.invoke\(\)/,
+    );
+    expect(androidNativeSource).toContain(
+      'adapter.pages().forEach(HomePageView::resetViewportForOwnerChange)',
+    );
+    expect(androidNativeSource).not.toMatch(
+      /private fun resetViewportForOwnerChange\(\) \{[^}]*pager\.adapter = null/s,
+    );
+    expect(androidSlotSource).toContain(
+      'if (ownerAuthorized) super.dispatchTouchEvent(event) else true',
+    );
+
+    expect(mobileRendererSource).not.toContain('function formatShellBalance');
+    expect(mobileRendererSource).toMatch(/accountName:\s*'',\s*balance:\s*'',/);
+    expect(iosNativeSource).toContain('private let balanceAnchor = UIView()');
+    expect(iosNativeSource).toMatch(
+      /layoutIfNeeded\(\)\s*slotLayoutDidChange\?\(\)/,
+    );
+    expect(iosNativeSource).toContain(
+      'pages.forEach { $0.prepareViewportForOwnerChange() }',
+    );
+    expect(iosNativeSource).not.toContain(
+      'pages.forEach { $0.removeFromSuperview() }',
+    );
+    expect(iosNativeSource).toContain(
+      'allowsAnimatedDifferences: !ownerChanged',
+    );
+    expect(iosNativeSource).toContain(
+      'let requiresRebuild = homeContainerTabsRequireRebuild(',
+    );
+    expect(iosNativeSource).not.toContain('balanceButton');
+    expect(iosNativeSource).not.toContain('balanceSkeletonView');
+    expect(androidNativeSource).toContain(
+      'private val balanceContainer = HomeContainerSlotHostView(context)',
+    );
+    expect(androidNativeSource).not.toContain('balanceButton');
+    expect(androidNativeSource).not.toContain('balanceSkeletonView');
+  });
+
   it('physically retires the old Native business host and source adapters', () => {
     const retiredFiles = [
       'NativeHomePage.native.tsx',

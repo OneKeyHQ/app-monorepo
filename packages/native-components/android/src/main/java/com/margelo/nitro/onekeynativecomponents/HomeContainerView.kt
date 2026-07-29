@@ -760,6 +760,7 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       suppressPageCallback = false
     }
     updateSharedChromeLayout()
+    onSlotLayoutChange?.invoke()
   }
 
   private fun preparePageForPresentation(tabId: String) {
@@ -1112,14 +1113,12 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
     pendingPagerTabId = null
     pendingPagerSelectionIsProgrammatic = false
     pendingPagerSelectionShouldNotify = false
+    pagerScrollState = ViewPager2.SCROLL_STATE_IDLE
     collapseOffset = 0
     activeRefreshRequestId = null
     isRefreshing = false
-    val mountedPages = adapter.pages().toList()
-    pager.adapter = null
-    mountedPages.forEach(HomePageView::recycle)
-    adapter = HomePagerAdapter()
-    pager.adapter = adapter
+    (pager.getChildAt(0) as? RecyclerView)?.stopScroll()
+    adapter.pages().forEach(HomePageView::resetViewportForOwnerChange)
     updateSharedChromePosition()
   }
 
@@ -1246,6 +1245,18 @@ private class HomePageView(context: Context) : FrameLayout(context) {
     onAction = null
     onCollapseOffsetChange = null
     onSlotLayoutChange = null
+  }
+
+  fun resetViewportForOwnerChange() {
+    pendingSynchronizedCollapseOffset = null
+    lastDispatchedCollapseOffset = null
+    userScrollActive = false
+    suppressCollapseCallback = true
+    recycler.stopScroll()
+    (recycler.layoutManager as? LinearLayoutManager)
+      ?.scrollToPositionWithOffset(0, 0)
+    suppressCollapseCallback = false
+    recycler.requestLayout()
   }
 
   fun stateSlotTarget(): ViewGroup? {
@@ -1832,8 +1843,6 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
   private val accountRow = LinearLayout(context)
   private val accountRowHost = HomeContainerSlotHostView(context)
   private val balanceContainer = HomeContainerSlotHostView(context)
-  private val balanceButton = text("", 48f, Typeface.NORMAL, "#111111")
-  private var balanceSkeletonView: SkeletonNativeView? = null
   private val balanceActionsContent = LinearLayout(context)
   private val actionsScroll = AxisLockHorizontalScrollView(context)
   private val actionRowHost = HomeContainerSlotHostView(context)
@@ -1853,8 +1862,6 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
   private var representedAccountImageUrl: String? = null
   private var representedNetworkImageUrl: String? = null
   private var representedNetworkSecondaryImageUrl: String? = null
-  private var balanceIsLoading = false
-  private var currentTheme: HomeContainerTheme? = null
   private var pinnedOffset = 0
 
   init {
@@ -1895,10 +1902,6 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
       FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
     )
     addView(accountRowHost, row(32))
-    balanceContainer.addView(
-      balanceButton,
-      FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
-    )
     addView(balanceContainer, row(58).apply {
       topMargin = dp(10)
     })
@@ -1934,7 +1937,6 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
     accountGroup.alpha = 0f
     copyButton.alpha = 0f
     networkGroup.alpha = 0f
-    balanceButton.alpha = 0f
   }
 
   fun bind(
@@ -1942,7 +1944,6 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
     theme: HomeContainerTheme,
   ) {
     this.header = header
-    currentTheme = theme
     val backgroundColor = parseHomeContainerColor(theme.backgroundColor, Color.WHITE)
     setBackgroundColor(backgroundColor)
     compactBackdropPaint.color = backgroundColor
@@ -1966,25 +1967,6 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
     networkIcon.visibility = if (isNetworkGroup || networkTitle.isNotEmpty()) VISIBLE else GONE
     networkIconSecondary.visibility =
       if (isNetworkGroup && header.networkImageUrls.size > 1) VISIBLE else GONE
-    val balanceText = header.balance + header.balanceSecondary
-    balanceIsLoading =
-      header.actionLayout == "loading" && balanceText.isEmpty()
-    balanceButton.text = SpannableString(balanceText).apply {
-      setSpan(
-        ForegroundColorSpan(primary),
-        0,
-        header.balance.length,
-        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
-      )
-      if (header.balanceSecondary.isNotEmpty()) {
-        setSpan(
-          ForegroundColorSpan(secondary),
-          header.balance.length,
-          balanceText.length,
-          Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
-        )
-      }
-    }
     loadHeaderImage(header.accountImageUrl, accountIcon, isAccount = true)
     loadHeaderImage(header.networkImageUrls.firstOrNull().orEmpty(), networkIcon, isAccount = false)
     loadSecondaryNetworkImage(
@@ -2139,37 +2121,11 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
     networkGroup.alpha = if (ownsAccountRow) 1f else 0f
     networkGroup.isClickable = ownsAccountRow
 
-    val ownsBalance = !mountedSlotKeys.contains("header.balance")
-    balanceButton.alpha = if (ownsBalance) 1f else 0f
-    balanceButton.isClickable = ownsBalance
-    updateBalanceSkeleton(ownsBalance && balanceIsLoading)
-
     val ownsActionRow = !mountedSlotKeys.contains("header.action-row")
     actionViews.values.forEach { view ->
       view.alpha = if (ownsActionRow) 1f else 0f
       view.isClickable = ownsActionRow
     }
-  }
-
-  private fun updateBalanceSkeleton(shouldShow: Boolean) {
-    val theme = currentTheme
-    if (!shouldShow || theme == null) {
-      balanceSkeletonView?.let(balanceContainer::removeView)
-      balanceSkeletonView = null
-      return
-    }
-    val skeleton = balanceSkeletonView ?: SkeletonNativeView(context).also {
-      it.clipToOutline = true
-      it.background = GradientDrawable().apply {
-        cornerRadius = dp(8).toFloat()
-      }
-      balanceContainer.addView(
-        it,
-        FrameLayout.LayoutParams(dp(209), dp(40), Gravity.START or Gravity.CENTER_VERTICAL),
-      )
-      balanceSkeletonView = it
-    }
-    skeleton.applyHomeContainerSkeletonTheme(theme)
   }
 
   private fun updateBanners(banners: List<HomeContainerBanner>, theme: HomeContainerTheme) {

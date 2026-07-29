@@ -201,13 +201,15 @@ internal class HomeContainerSurfaceView(context: Context) : FrameLayout(context)
   }
 
   private fun updateMountedSlotKeys(currentEngine: HomeContainerView?) {
-    val mountedSlotKeys = reactChildren
-      .filterIsInstance<HomeContainerSlotView>()
-      .filter { slot ->
+    val slots = reactChildren.filterIsInstance<HomeContainerSlotView>()
+    slots.forEach { slot ->
+      slot.ownerAuthorized =
         currentEngine?.ownsSlot(slot.ownerScopeKey, slot.ownerSessionId) == true
-      }
-      .mapTo(mutableSetOf()) { it.slotKey }
-    currentEngine?.setMountedSlotKeys(mountedSlotKeys)
+    }
+    // Presence suppresses native fallback while owner authority is switching.
+    val presentedSlotKeys = slots
+      .mapNotNullTo(mutableSetOf()) { slot -> slot.slotKey.takeIf { it.isNotEmpty() } }
+    currentEngine?.setMountedSlotKeys(presentedSlotKeys)
   }
 
   private fun findEngine(view: View): HomeContainerView? {

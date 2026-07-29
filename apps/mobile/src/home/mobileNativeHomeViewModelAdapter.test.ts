@@ -20,6 +20,7 @@ import {
   resolveMobileNativeHomeActionRowHeight,
   resolveMobileNativeHomeBannerPresentation,
   resolveMobileNativeHomeBodySections,
+  resolveMobileNativeHomeTabTopology,
 } from './mobileNativeHomeViewModelAdapter';
 
 const presentation = {
@@ -58,6 +59,72 @@ const presentation = {
 };
 
 describe('mobileNativeHomeViewModelAdapter', () => {
+  it('keeps the committed tab topology while a replacement owner is loading', () => {
+    const lastCommitted = {
+      destinations: {
+        portfolio: 'inline',
+        perps: 'web',
+        defi: 'inline',
+        nft: 'inline',
+        history: 'inline',
+      },
+      tabIds: ['portfolio', 'perps', 'defi', 'nft', 'history'],
+    } as const;
+
+    expect(
+      resolveMobileNativeHomeTabTopology({
+        lastCommitted,
+        portfolioOnly: false,
+      }),
+    ).toBe(lastCommitted);
+  });
+
+  it('uses a replacement owner cached topology immediately when available', () => {
+    const lastCommitted = {
+      destinations: { portfolio: 'inline', history: 'inline' },
+      tabIds: ['portfolio', 'history'],
+    } as const;
+    const cached = {
+      destinations: {
+        portfolio: 'inline',
+        perps: 'inline',
+        defi: 'inline',
+      },
+      tabIds: ['portfolio', 'perps', 'defi'],
+    } as const;
+
+    expect(
+      resolveMobileNativeHomeTabTopology({
+        current: cached,
+        lastCommitted,
+        portfolioOnly: false,
+      }),
+    ).toBe(cached);
+  });
+
+  it('uses Spot only without committed topology or for a portfolio-only surface', () => {
+    expect(
+      resolveMobileNativeHomeTabTopology({
+        portfolioOnly: false,
+      }),
+    ).toEqual({
+      destinations: { portfolio: 'inline' },
+      tabIds: ['portfolio'],
+    });
+    expect(
+      resolveMobileNativeHomeTabTopology({
+        lastCommitted: {
+          destinations: { portfolio: 'inline', history: 'inline' },
+          tabIds: ['portfolio', 'history'],
+        },
+        portfolioOnly: true,
+      }),
+    ).toEqual({
+      destinations: { portfolio: 'inline' },
+      tabIds: ['portfolio'],
+    });
+  });
+
   it('shows funded actions before the final balance total settles', () => {
     expect(
       resolveMobileNativeHomeActionLayout({

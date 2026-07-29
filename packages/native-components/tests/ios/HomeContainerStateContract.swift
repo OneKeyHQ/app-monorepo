@@ -16,5 +16,16 @@ enum HomeContainerStateContract {
           state.payload.selectedTabId == "portfolio" else {
       throw HomeContainerStateContractError.assertion("Valid state was rejected")
     }
+    guard !homeContainerTabsRequireRebuild(
+      previous: state.payload.tabs,
+      next: state.payload.tabs
+    ), homeContainerTabsRequireRebuild(
+      previous: [],
+      next: state.payload.tabs
+    ) else {
+      throw HomeContainerStateContractError.assertion(
+        "Stable tab presentation was not preserved"
+      )
+    }
   }
 }

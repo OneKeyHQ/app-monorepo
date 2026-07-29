@@ -29,10 +29,22 @@ internal class HomeContainerSlotView(context: Context) : FrameLayout(context) {
       notifyMetadataChanged()
     }
 
+  var ownerAuthorized: Boolean = false
+    set(value) {
+      if (field == value) return
+      field = value
+      importantForAccessibility = if (value) {
+        IMPORTANT_FOR_ACCESSIBILITY_AUTO
+      } else {
+        IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+      }
+    }
+
   init {
     clipChildren = true
     isClickable = true
     isFocusable = false
+    importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
   }
 
   fun addReactChild(child: View, index: Int) {
@@ -62,7 +74,8 @@ internal class HomeContainerSlotView(context: Context) : FrameLayout(context) {
     }
   }
 
-  override fun dispatchTouchEvent(event: MotionEvent): Boolean = super.dispatchTouchEvent(event)
+  override fun dispatchTouchEvent(event: MotionEvent): Boolean =
+    if (ownerAuthorized) super.dispatchTouchEvent(event) else true
 
   private fun notifyMetadataChanged() {
     findSurface()?.onSlotMetadataChanged()

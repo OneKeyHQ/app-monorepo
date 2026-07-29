@@ -76,6 +76,32 @@ const MOBILE_NATIVE_HOME_ZERO_BALANCE_ACTION_ROW_HEIGHT = 98;
 
 type IMobileNativeHomeBannerPresentation = 'content' | 'hidden' | 'loading';
 type IMobileNativeHomeActionLayout = 'loading' | 'standard' | 'zeroBalance';
+type IMobileNativeHomeTabTopology = {
+  destinations?: Readonly<
+    Partial<Record<IHomeContainerTabId, 'inline' | 'web'>>
+  >;
+  tabIds: readonly IHomeContainerTabId[];
+};
+
+const DEFAULT_MOBILE_NATIVE_HOME_TAB_TOPOLOGY: IMobileNativeHomeTabTopology = {
+  destinations: { portfolio: 'inline' },
+  tabIds: ['portfolio'],
+};
+
+function resolveMobileNativeHomeTabTopology({
+  current,
+  lastCommitted,
+  portfolioOnly,
+}: {
+  current?: IMobileNativeHomeTabTopology;
+  lastCommitted?: IMobileNativeHomeTabTopology;
+  portfolioOnly: boolean;
+}): IMobileNativeHomeTabTopology {
+  if (portfolioOnly) {
+    return DEFAULT_MOBILE_NATIVE_HOME_TAB_TOPOLOGY;
+  }
+  return current ?? lastCommitted ?? DEFAULT_MOBILE_NATIVE_HOME_TAB_TOPOLOGY;
+}
 
 function resolveMobileNativeHomeActionLayout({
   actionPresentationKind,
@@ -1552,6 +1578,7 @@ export {
   resolveMobileNativeHomeActionRowHeight,
   resolveMobileNativeHomeBannerPresentation,
   resolveMobileNativeHomeBodySections,
+  resolveMobileNativeHomeTabTopology,
 };
 export type {
   IHomeNativeExpandedState,
@@ -1559,4 +1586,5 @@ export type {
   IHomeNativeLabels,
   IHomeNativeMarketRecommendationState,
   IHomeNativePayloads,
+  IMobileNativeHomeTabTopology,
 };

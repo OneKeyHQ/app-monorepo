@@ -113,20 +113,15 @@ static UIView *FindHomeContainerEngine(UIView *view)
   }
 }
 
-- (NSArray<NSString *> *)mountedSlotKeysForEngine:(UIView *)engine
+- (NSArray<NSString *> *)presentedSlotKeys
 {
+  // Presence suppresses native fallback while owner authority is switching.
   NSMutableArray<NSString *> *keys = [NSMutableArray new];
   for (UIView *child in _mountedChildren) {
     if ([child isKindOfClass:HomeContainerSlotComponentView.class]) {
       HomeContainerSlotComponentView *slot =
           (HomeContainerSlotComponentView *)child;
-      BOOL ownsSlot =
-          ((BOOL (*)(id, SEL, NSString *, NSString *))objc_msgSend)(
-              engine,
-              @selector(ownsSlotWithScopeKey:sessionId:),
-              slot.ownerScopeKey,
-              slot.ownerSessionId);
-      if (slot.slotKey.length > 0 && ownsSlot) {
+      if (slot.slotKey.length > 0) {
         [keys addObject:slot.slotKey];
       }
     }
@@ -140,20 +135,37 @@ static UIView *FindHomeContainerEngine(UIView *view)
     return nil;
   }
 
+  [self connectEngineIfNeeded];
+  UIView *engine = _engine;
   for (UIView *child in [_mountedChildren reverseObjectEnumerator]) {
     if (![child isKindOfClass:HomeContainerSlotComponentView.class] ||
-        child.hidden || child.alpha <= 0.01 || !child.userInteractionEnabled) {
+        child.hidden || child.alpha <= 0.01) {
       continue;
     }
     CGPoint childPoint = [child convertPoint:point fromView:self];
+    if (!CGRectContainsPoint(child.bounds, childPoint)) {
+      continue;
+    }
+    HomeContainerSlotComponentView *slot =
+        (HomeContainerSlotComponentView *)child;
+    BOOL ownsSlot = engine != nil &&
+        ((BOOL (*)(id, SEL, NSString *, NSString *))objc_msgSend)(
+            engine,
+            @selector(ownsSlotWithScopeKey:sessionId:),
+            slot.ownerScopeKey,
+            slot.ownerSessionId);
+    if (!ownsSlot) {
+      return self;
+    }
+    if (!child.userInteractionEnabled) {
+      continue;
+    }
     UIView *slotHit = [child hitTest:childPoint withEvent:event];
     if (slotHit != nil) {
       return slotHit;
     }
   }
 
-  [self connectEngineIfNeeded];
-  UIView *engine = _engine;
   if (engine != nil && !engine.hidden && engine.userInteractionEnabled) {
     CGPoint enginePoint = [engine convertPoint:point fromView:self];
     UIView *engineHit = [engine hitTest:enginePoint withEvent:event];
@@ -170,7 +182,7 @@ static UIView *FindHomeContainerEngine(UIView *view)
   [self connectEngineIfNeeded];
   UIView *engine = _engine;
   if (engine != nil) {
-    NSArray<NSString *> *keys = [self mountedSlotKeysForEngine:engine];
+    NSArray<NSString *> *keys = [self presentedSlotKeys];
     ((void (*)(id, SEL, NSArray<NSString *> *))objc_msgSend)(
         engine,
         @selector(setMountedSlotKeys:),
@@ -185,21 +197,22 @@ static UIView *FindHomeContainerEngine(UIView *view)
     }
     HomeContainerSlotComponentView *slot =
         (HomeContainerSlotComponentView *)child;
-    BOOL ownsSlot = engine != nil &&
-        ((BOOL (*)(id, SEL, NSString *, NSString *))objc_msgSend)(
-            engine,
-            @selector(ownsSlotWithScopeKey:sessionId:),
-            slot.ownerScopeKey,
-            slot.ownerSessionId);
-    if (engine == nil || slot.slotKey.length == 0 || !ownsSlot) {
+    if (engine == nil || slot.slotKey.length == 0) {
       if (slot.superview != _slotParkingView) {
         [slot removeFromSuperview];
         [_slotParkingView addSubview:slot];
       }
       slot.hidden = YES;
+      slot.accessibilityElementsHidden = YES;
       slot.frame = CGRectZero;
       continue;
     }
+    BOOL ownsSlot =
+        ((BOOL (*)(id, SEL, NSString *, NSString *))objc_msgSend)(
+            engine,
+            @selector(ownsSlotWithScopeKey:sessionId:),
+            slot.ownerScopeKey,
+            slot.ownerSessionId);
     UIView *hostView =
         ((UIView *(*)(id, SEL, NSString *))objc_msgSend)(
             engine,
@@ -213,6 +226,7 @@ static UIView *FindHomeContainerEngine(UIView *view)
         [_slotParkingView addSubview:slot];
       }
       slot.hidden = YES;
+      slot.accessibilityElementsHidden = YES;
       slot.frame = CGRectZero;
       continue;
     }
@@ -221,6 +235,7 @@ static UIView *FindHomeContainerEngine(UIView *view)
       [hostView addSubview:slot];
     }
     slot.hidden = NO;
+    slot.accessibilityElementsHidden = !ownsSlot;
     slot.frame = hostView.bounds;
     [slot setNeedsLayout];
   }
