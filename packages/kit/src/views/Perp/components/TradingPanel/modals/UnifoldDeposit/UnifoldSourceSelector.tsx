@@ -1,29 +1,34 @@
 // cspell: words unifold Unifold
 import { useState } from 'react';
 
+import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
   Button,
   DashText,
-  Dialog,
+  type IPageNavigationProp,
   Icon,
   IconButton,
   Popover,
   ScrollView,
   SizableText,
+  Skeleton,
   Stack,
   Tooltip,
   XStack,
   YStack,
   useClipboard,
-  useInPageDialog,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { deferHeavyWorkUntilUIIdle } from '@onekeyhq/kit/src/utils/deferHeavyWork';
 import type { IUnifoldSourceSelection } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EModalPerpRoutes,
+  type IModalPerpParamList,
+} from '@onekeyhq/shared/src/routes/perp';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
   IUnifoldSupportedAsset,
   IUnifoldSupportedAssetChain,
@@ -51,7 +56,6 @@ function SelectorTrigger({
   disabled?: boolean;
   onPress: () => void;
 }) {
-  const intl = useIntl();
   return (
     <XStack
       testID={testID}
@@ -84,11 +88,12 @@ function SelectorTrigger({
       onPress={onPress}
     >
       {loading ? (
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.perp_token_selector_loading,
-          })}
-        </SizableText>
+        <>
+          <Skeleton w="$6" h="$6" radius="round" />
+          <XStack flex={1} minWidth={0}>
+            <Skeleton h="$3" w="$16" />
+          </XStack>
+        </>
       ) : (
         <>
           <Token size="xs" tokenImageUri={normalizeUnifoldIconUrl(iconUri)} />
@@ -298,25 +303,6 @@ function TokenContractDisclosure({
   );
 }
 
-function showSelectorDialog({
-  title,
-  content,
-  dialog,
-}: {
-  title: string;
-  content: React.ReactNode;
-  dialog: ReturnType<typeof useInPageDialog>;
-}) {
-  const DialogInstance = platformEnv.isNativeAndroid ? Dialog : dialog;
-
-  return DialogInstance.show({
-    title,
-    renderContent: content,
-    contentContainerProps: platformEnv.isNative ? { pb: 0 } : undefined,
-    showFooter: false,
-  });
-}
-
 export function UnifoldSourceSelector({
   assets,
   selection,
@@ -333,7 +319,7 @@ export function UnifoldSourceSelector({
   const intl = useIntl();
   const [tokenOpen, setTokenOpen] = useState(false);
   const [chainOpen, setChainOpen] = useState(false);
-  const dialog = useInPageDialog();
+  const navigation = useNavigation<IPageNavigationProp<IModalPerpParamList>>();
 
   const usableAssets = (assets ?? []).filter((a) => (a.chains ?? []).length);
   const chainOptions = selection?.asset.chains ?? [];
@@ -359,43 +345,13 @@ export function UnifoldSourceSelector({
           return;
         }
 
-        const dialogInstance = showSelectorDialog({
-          title: intl.formatMessage({
-            id: ETranslations.token_selector_title,
-          }),
-          dialog,
-          content: (
-            <SelectorOptions>
-              {usableAssets.map((asset) => (
-                <OptionRow
-                  key={asset.symbol}
-                  testID={`perps-unifold-token-option-${asset.symbol}`}
-                  iconUri={asset.icon_url}
-                  label={asset.symbol}
-                  description={
-                    asset.chains.length === 1
-                      ? `1 ${intl.formatMessage({
-                          id: ETranslations.global_network,
-                        })}`
-                      : intl.formatMessage(
-                          { id: ETranslations.global_count_networks },
-                          { count: asset.chains.length },
-                        )
-                  }
-                  selected={asset.symbol === selection?.asset.symbol}
-                  onPress={() => {
-                    void (async () => {
-                      await dialogInstance.close();
-                      await deferHeavyWorkUntilUIIdle({
-                        minFrames: platformEnv.isNative ? 3 : 1,
-                      });
-                      onSelectToken(asset);
-                    })();
-                  }}
-                />
-              ))}
-            </SelectorOptions>
-          ),
+        navigation.push(EModalPerpRoutes.MobileUnifoldSourceSelector, {
+          requestId: generateUUID(),
+          mode: 'token',
+          assets: usableAssets,
+          selectedAssetSymbol: selection?.asset.symbol,
+          selectedChainType: selection?.chain.chain_type,
+          selectedChainId: selection?.chain.chain_id,
         });
       }}
     />
@@ -417,36 +373,13 @@ export function UnifoldSourceSelector({
           return;
         }
 
-        const dialogInstance = showSelectorDialog({
-          title: intl.formatMessage({
-            id: ETranslations.global_select_network,
-          }),
-          dialog,
-          content: (
-            <SelectorOptions>
-              {chainOptions.map((chain) => (
-                <OptionRow
-                  key={`${chain.chain_type}-${chain.chain_id}`}
-                  testID={`perps-unifold-network-option-${chain.chain_type}-${chain.chain_id}`}
-                  iconUri={chain.icon_url}
-                  label={chain.chain_name}
-                  selected={chain.chain_id === selection?.chain.chain_id}
-                  description={`${intl.formatMessage({
-                    id: ETranslations.perp_unifold_minimum_deposit__title,
-                  })} $${chain.minimum_deposit_amount_usd ?? 3}`}
-                  onPress={() => {
-                    void (async () => {
-                      await dialogInstance.close();
-                      await deferHeavyWorkUntilUIIdle({
-                        minFrames: platformEnv.isNative ? 3 : 1,
-                      });
-                      onSelectChain(chain);
-                    })();
-                  }}
-                />
-              ))}
-            </SelectorOptions>
-          ),
+        navigation.push(EModalPerpRoutes.MobileUnifoldSourceSelector, {
+          requestId: generateUUID(),
+          mode: 'chain',
+          assets: usableAssets,
+          selectedAssetSymbol: selection?.asset.symbol,
+          selectedChainType: selection?.chain.chain_type,
+          selectedChainId: selection?.chain.chain_id,
         });
       }}
     />

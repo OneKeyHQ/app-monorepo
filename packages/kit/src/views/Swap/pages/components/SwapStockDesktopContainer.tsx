@@ -959,11 +959,10 @@ function StockActionGate({
     );
   }
 
-  const isMarketClosed =
-    stockChannel.channelStage === ESwapStockChannelStage.MarketClosed;
-  const disabledButtonProps = isMarketClosed
-    ? undefined
-    : getStockDisabledActionButtonProps(stockChannel.tradeSide);
+  const disabledButtonProps = getStockDisabledActionButtonProps(
+    stockChannel.tradeSide,
+    stockChannel.channelStage,
+  );
 
   return renderActionButton(
     <Button

@@ -595,7 +595,7 @@ export function useSwapStockAmountInputState({
     token: inputToken,
   });
   const resolvedInputTokenBalance = stockInputTokenBalance.balance ?? '0';
-  const displayBalance = stockInputTokenBalance.displayBalance ?? '0';
+  const displayBalance = stockInputTokenBalance.displayBalance ?? '--';
   const inputTokenNetworkLogoURI =
     inputToken?.networkLogoURI ?? getNetworkLogoURI(inputToken?.networkId);
   const inputTokenPrice =

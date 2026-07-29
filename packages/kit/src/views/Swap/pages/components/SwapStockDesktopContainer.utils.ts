@@ -48,7 +48,15 @@ export function getStockNetworkLogoUri({
 
 export function getStockDisabledActionButtonProps(
   tradeSide: ESwapStockTradeSide,
+  channelStage: ESwapStockChannelStage,
 ) {
+  if (
+    channelStage === ESwapStockChannelStage.CheckingMarketStatus ||
+    channelStage === ESwapStockChannelStage.MarketClosed
+  ) {
+    return undefined;
+  }
+
   return {
     bg:
       tradeSide === ESwapStockTradeSide.Sell

@@ -8,6 +8,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   buildTokenListMapKey,
   equalTokenNoCaseSensitive,
@@ -34,7 +35,10 @@ import {
   isResolvedTokenActionReady,
 } from './TokenActionsView.utils';
 import { useTokenListViewContext } from './TokenListViewContext';
-import { useTokenBalanceParsed } from './useTokenFiatField';
+import {
+  useTokenBalanceMultiplier,
+  useTokenBalanceParsedRaw,
+} from './useTokenFiatField';
 
 import type { XStackProps } from 'tamagui';
 
@@ -79,7 +83,12 @@ function TokenActionsView(props: IProps) {
   const networkId =
     resolvedActiveToken?.networkId ?? activeAccount?.network?.id ?? '';
   const accountAddress = account?.addressDetail?.address;
-  const fromTokenBalance = useTokenBalanceParsed(
+  // RAW basis: this value only seeds the Swap modal's fallback balance
+  // (never rendered here), and the Swap boundary expects on-chain-raw
+  // amounts uniformly today — mixing in the display-multiplied basis would
+  // desync it from the `aggregateFromTokenFiat?.balanceParsed` (raw) branch
+  // of the `??` fallback below.
+  const fromTokenBalance = useTokenBalanceParsedRaw(
     resolvedActiveToken?.$key ?? '',
   );
   const aggregateFromTokenFiat = useAggregateSubTokenFiat(
@@ -88,6 +97,21 @@ function TokenActionsView(props: IProps) {
   );
   const fromTokenBalanceSeed =
     aggregateFromTokenFiat?.balanceParsed ?? fromTokenBalance;
+  const fromTokenBalanceMultiplier = useTokenBalanceMultiplier(
+    resolvedActiveToken?.$key ?? '',
+  );
+  // Swap has no end-to-end scaled-UI (rebase) support yet — ISwapToken and the
+  // swap display/validation/tx-building paths all treat amounts as raw, so a
+  // token whose multiplier actually scales (≠ 1) would show and build on a
+  // basis out of sync with the wallet list. Fail closed: disable the entry
+  // (and re-check in the press callback) until Swap learns the multiplier. A
+  // multiplier of exactly 1 is the documented no-op and must NOT block.
+  const isScaledUiSwapBlocked =
+    [
+      aggregateFromTokenFiat?.balanceMultiplier,
+      fromTokenBalanceMultiplier,
+      resolvedActiveToken?.balanceMultiplier,
+    ].find(tokenRebaseUtils.isScalingBalanceMultiplier) !== undefined;
   const sameNetworkToToken = useMemo(() => {
     if (!resolvedActiveToken || !networkId) {
       return undefined;
@@ -113,7 +137,9 @@ function TokenActionsView(props: IProps) {
           tokenAddress: sameNetworkToToken.contractAddress ?? '',
         })
       : '';
-  const sameNetworkToTokenBalance = useTokenBalanceParsed(
+  // RAW basis — same rationale as `fromTokenBalance` above: only used as the
+  // Swap modal's `importToToken.balanceParsed` seed, never rendered here.
+  const sameNetworkToTokenBalance = useTokenBalanceParsedRaw(
     sameNetworkToTokenKey,
   );
   const sameNetworkToTokenAggregateKey = useMemo(
@@ -196,7 +222,11 @@ function TokenActionsView(props: IProps) {
 
   const handleTokenOnSwap = useCallback(() => {
     void (async () => {
-      if (!resolvedActiveToken || !isTokenActionReady) {
+      if (
+        !resolvedActiveToken ||
+        !isTokenActionReady ||
+        isScaledUiSwapBlocked
+      ) {
         return;
       }
 
@@ -272,6 +302,7 @@ function TokenActionsView(props: IProps) {
     network,
     deriveType,
     isTokenActionReady,
+    isScaledUiSwapBlocked,
     networkId,
     resolvedActiveToken,
     sameNetworkToToken,
@@ -291,7 +322,7 @@ function TokenActionsView(props: IProps) {
         variant="secondary"
         cursor="pointer"
         onPress={handleTokenOnSwap}
-        disabled={!isTokenActionReady}
+        disabled={!isTokenActionReady || isScaledUiSwapBlocked}
       >
         {intl.formatMessage({ id: ETranslations.global_swap })}
       </Button>
