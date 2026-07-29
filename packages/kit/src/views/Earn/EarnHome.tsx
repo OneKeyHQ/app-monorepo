@@ -510,6 +510,15 @@ function BasicEarnHome({
     EarnNavigation.pushToEarnPositions(navigation);
   }, [navigation]);
 
+  // 首页顶部快捷入口 (OK-58562)
+  const handleOpenTokens = useCallback(() => {
+    EarnNavigation.pushToEarnTokens(navigation);
+  }, [navigation]);
+
+  const handleOpenAllProtocols = useCallback(() => {
+    EarnNavigation.pushToEarnAllProtocols(navigation);
+  }, [navigation]);
+
   // const [tabPageHeight, setTabPageHeight] = useState(
   //   platformEnv.isNativeIOS ? 143 : 92,
   // );
@@ -548,6 +557,8 @@ function BasicEarnHome({
           onRefresh={refreshEarnData}
           onOpenBorrow={handleOpenBorrowHome}
           onOpenPortfolio={handleOpenPortfolio}
+          onOpenTokens={handleOpenTokens}
+          onOpenProtocols={handleOpenAllProtocols}
           onHeaderHorizontalSwipe={handleHeaderHorizontalSwipe}
         />
 

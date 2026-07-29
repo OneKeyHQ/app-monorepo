@@ -21,6 +21,15 @@ const DiscoveryDashboard = LazyLoadRootTabPage(
 const EarnProtocols = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnProtocols'),
 );
+const EarnTokens = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnTokens'),
+);
+const EarnAllProtocols = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnAllProtocols'),
+);
+const EarnProtocolTokens = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnProtocolTokens'),
+);
 const EarnProtocolDetails = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnProtocolDetails'),
 );
@@ -52,6 +61,21 @@ export const discoveryRouters: ITabSubNavigatorConfig<any, any>[] = [
     // Reuse earn pages inside Discovery tab to keep tab selection when navigating from DeFi sub-tab.
     name: ETabEarnRoutes.EarnProtocols,
     component: EarnProtocols,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnTokens,
+    component: EarnTokens,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnAllProtocols,
+    component: EarnAllProtocols,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnProtocolTokens,
+    component: EarnProtocolTokens,
     headerShown: !platformEnv.isNative,
   },
   {

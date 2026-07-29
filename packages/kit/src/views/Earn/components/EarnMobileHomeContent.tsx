@@ -33,6 +33,8 @@ function EarnMobileHomeContentComponent({
   onRefresh,
   onOpenBorrow,
   onOpenPortfolio,
+  onOpenTokens,
+  onOpenProtocols,
   onHeaderHorizontalSwipe,
 }: {
   bannerList: IEarnPageBannerListItem[];
@@ -47,6 +49,8 @@ function EarnMobileHomeContentComponent({
   onRefresh: () => Promise<void>;
   onOpenBorrow: () => void;
   onOpenPortfolio: () => void;
+  onOpenTokens: () => void;
+  onOpenProtocols: () => void;
   onHeaderHorizontalSwipe: (direction: 'left' | 'right') => void;
 }) {
   const intl = useIntl();
@@ -74,7 +78,11 @@ function EarnMobileHomeContentComponent({
               onPressTotalValue={onOpenPortfolio}
             />
           </YStack>
-          <EarnHomeShortcuts onOpenLoans={onOpenBorrow} />
+          <EarnHomeShortcuts
+            onOpenLoans={onOpenBorrow}
+            onOpenTokens={onOpenTokens}
+            onOpenProtocols={onOpenProtocols}
+          />
           <EarnHomeBanner banners={bannerList} isLoading={isBannerLoading} />
         </YStack>
       </HeaderScrollGestureWrapper>

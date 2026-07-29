@@ -6,6 +6,19 @@ const preservedChildRoutes: Partial<
   [ETabEarnRoutes.EarnProtocols]: new Set([ETabEarnRoutes.EarnProtocolDetails]),
   [ETabEarnRoutes.EarnPositions]: new Set([ETabEarnRoutes.EarnProtocolDetails]),
   [ETabEarnRoutes.BorrowHome]: new Set([ETabEarnRoutes.BorrowReserveDetails]),
+  // Tokens 首页 → Token 的协议列表 / 协议详情 (OK-58505)
+  [ETabEarnRoutes.EarnTokens]: new Set([
+    ETabEarnRoutes.EarnProtocols,
+    ETabEarnRoutes.EarnProtocolDetails,
+  ]),
+  // Protocols 首页 → 协议的代币列表 / 协议详情 (OK-58505)
+  [ETabEarnRoutes.EarnAllProtocols]: new Set([
+    ETabEarnRoutes.EarnProtocolTokens,
+    ETabEarnRoutes.EarnProtocolDetails,
+  ]),
+  [ETabEarnRoutes.EarnProtocolTokens]: new Set([
+    ETabEarnRoutes.EarnProtocolDetails,
+  ]),
 };
 
 export function shouldResetEarnRouteStackBeforePush({

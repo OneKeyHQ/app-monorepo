@@ -22,6 +22,19 @@ export const EarnTestIDs = {
   portfolioEntry: 'earn-portfolio-entry',
   portfolioItem: (name: string) => `earn-portfolio-item-${name}`,
 
+  // Tokens / Protocols pages (OK-58505)
+  tokensSearchInput: 'earn-tokens-search-input',
+  tokensNetworkFilter: 'earn-tokens-network-filter',
+  tokensCategoryChip: (type: string) => `earn-tokens-category-chip-${type}`,
+  tokensSortControl: 'earn-tokens-sort-control',
+  tokensPageItem: (symbol: string) => `earn-tokens-page-item-${symbol}`,
+  allProtocolsSearchInput: 'earn-all-protocols-search-input',
+  allProtocolsNetworkFilter: 'earn-all-protocols-network-filter',
+  allProtocolsSortControl: 'earn-all-protocols-sort-control',
+  allProtocolsItem: (provider: string) => `earn-all-protocols-${provider}`,
+  protocolTokensSortControl: 'earn-protocol-tokens-sort-control',
+  protocolTokensItem: (key: string) => `earn-protocol-tokens-${key}`,
+
   // Available assets
   assetItem: (symbol: string) => `earn-asset-${symbol}`,
   flatAssetItem: (category: string, symbol: string) =>

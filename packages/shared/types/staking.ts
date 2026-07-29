@@ -1767,6 +1767,8 @@ export enum EBorrowProviderEnum {
 }
 
 export type IStakeProtocolListItem = {
+  // 全量列表(不传 symbol)场景服务端标识每行所属 symbol (6.6.0+)
+  symbol?: string;
   provider: IStakeProviderInfo & {
     group: EStakeProtocolGroupEnum;
     category?: string | null;

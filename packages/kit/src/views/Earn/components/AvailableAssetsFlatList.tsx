@@ -4,9 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
-  Dialog,
   Icon,
-  ScrollView,
   SizableText,
   Skeleton,
   XStack,
@@ -14,6 +12,7 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useEarnAtom,
   useEarnLoadingStatesAtom,
@@ -22,6 +21,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
+import { EarnNavigation } from '../earnUtils';
 import { useNavigateToEarnAsset } from '../hooks/useNavigateToEarnAsset';
 import { EarnTestIDs } from '../testIDs';
 
@@ -29,8 +29,6 @@ import { AprText } from './AprText';
 import { buildEarnHomeFlatSections } from './earnCategoryTabs';
 
 const MAX_INLINE_ASSETS = 4;
-const AVAILABLE_ASSETS_DIALOG_MAX_HEIGHT = 512;
-
 function AvailableAssetsSectionSkeleton() {
   return (
     <YStack gap="$3">
@@ -47,7 +45,8 @@ function AvailableAssetsSectionSkeleton() {
   );
 }
 
-function AvailableAssetItem({
+// 导出供 Tokens 首页 (EarnTokens, OK-58505) 复用同款行渲染
+export function AvailableAssetItem({
   asset,
   categoryType,
   totalLiquidityLabel,
@@ -107,43 +106,12 @@ function AvailableAssetItem({
   );
 }
 
-function AvailableAssetsDialogContent({
-  assets,
-  categoryType,
-  totalLiquidityLabel,
-  onAssetPress,
-}: {
-  assets: IEarnAvailableAsset[];
-  categoryType: EAvailableAssetsTypeEnum;
-  totalLiquidityLabel: string;
-  onAssetPress: (asset: IEarnAvailableAsset) => void;
-}) {
-  return (
-    <ScrollView
-      maxHeight={AVAILABLE_ASSETS_DIALOG_MAX_HEIGHT}
-      nestedScrollEnabled
-    >
-      <YStack>
-        {assets.map((asset) => (
-          <AvailableAssetItem
-            key={`${categoryType}-${asset.symbol}`}
-            asset={asset}
-            categoryType={categoryType}
-            totalLiquidityLabel={totalLiquidityLabel}
-            testID={EarnTestIDs.flatAssetDialogItem(categoryType, asset.symbol)}
-            onPress={() => onAssetPress(asset)}
-          />
-        ))}
-      </YStack>
-    </ScrollView>
-  );
-}
-
 function AvailableAssetsFlatListComponent() {
   const intl = useIntl();
   const [{ availableAssetsByType = {} }] = useEarnAtom();
   const [loadingStates] = useEarnLoadingStatesAtom();
   const navigateToAsset = useNavigateToEarnAsset();
+  const navigation = useAppNavigation();
   const sections = useMemo(() => buildEarnHomeFlatSections(intl), [intl]);
   // Staked 资产并入 Trending tokens 分区展示，不再单独成区 (OK-58506)。
   // 按 symbol 去重：同一 symbol 以 SimpleEarn 列表为准。
@@ -181,41 +149,10 @@ function AvailableAssetsFlatListComponent() {
     [navigateToAsset],
   );
 
-  const handleOpenSection = useCallback(
-    ({
-      assets,
-      categoryType,
-      title,
-    }: {
-      assets: IEarnAvailableAsset[];
-      categoryType: EAvailableAssetsTypeEnum;
-      title: string;
-    }) => {
-      const dialog = Dialog.show({
-        title,
-        testID: EarnTestIDs.flatAssetCategoryDialog(categoryType),
-        showFooter: false,
-        contentContainerProps: {
-          px: '$0',
-          pb: '$5',
-        },
-        renderContent: (
-          <AvailableAssetsDialogContent
-            assets={assets}
-            categoryType={categoryType}
-            totalLiquidityLabel={totalLiquidityLabel}
-            onAssetPress={(asset) => {
-              void (async () => {
-                await dialog.close();
-                await navigateToAsset(asset, categoryType);
-              })();
-            }}
-          />
-        ),
-      });
-    },
-    [navigateToAsset, totalLiquidityLabel],
-  );
+  const handleOpenSection = useCallback(() => {
+    // 分区点击进入独立的 Tokens 页面，不再用 Dialog (OK-58508)
+    EarnNavigation.pushToEarnTokens(navigation);
+  }, [navigation]);
 
   return (
     <YStack gap="$8">
@@ -250,13 +187,7 @@ function AvailableAssetsFlatListComponent() {
               cursor="pointer"
               userSelect="none"
               pressStyle={{ opacity: 0.5 }}
-              onPress={() =>
-                handleOpenSection({
-                  assets,
-                  categoryType: type,
-                  title,
-                })
-              }
+              onPress={handleOpenSection}
             >
               <SizableText size="$headingLg" pointerEvents="none">
                 {title}

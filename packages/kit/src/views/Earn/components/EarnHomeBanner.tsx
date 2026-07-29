@@ -18,6 +18,19 @@ import { EarnTestIDs } from '../testIDs';
 
 const BANNER_HEIGHT = 200;
 const BANNER_INFO_HEIGHT = 48;
+// 与管理后台 BannerPreview 的 text-shadow 对齐，保证深浅底图都可读
+const BANNER_IMAGE_COPY_SHADOW = {
+  textShadowColor: 'rgba(0,0,0,0.45)',
+  textShadowRadius: 4,
+  textShadowOffset: { width: 0, height: 1 },
+} as const;
+// Figma 默认文字色（双兜底：优先服务端下发的配置色，缺省回退这里）
+const BANNER_DEFAULT_COLORS = {
+  imageTitle: 'rgba(0,0,0,0.88)',
+  imageSubtitle: 'rgba(0,0,0,0.61)',
+  title: 'rgba(0,0,0,0.88)',
+  subtitle: 'rgba(0,0,0,0.61)',
+} as const;
 
 function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
   const handlePress = useCallback(() => {
@@ -52,14 +65,17 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
         />
       </YStack>
       <Stack flex={1} />
-      {/* 图片左下 campaign 文案。多语言长文案：限行 + 换行，不溢出卡片 */}
+      {/* 图片左下 campaign 文案。多语言长文案：限行 + 换行，不溢出卡片。
+          颜色双兜底：优先管理后台配置色，缺省回退 Figma 默认深色；
+          轻阴影提升深浅底图的可读性 (OK-58503)。 */}
       {hasImageCopy ? (
         <YStack px="$3" pb="$2" gap="$1" pr="$8">
           {item.imageTitle ? (
             <SizableText
               size="$headingXl"
-              color="rgba(0,0,0,0.88)"
+              color={item.imageTitleColor || BANNER_DEFAULT_COLORS.imageTitle}
               numberOfLines={2}
+              style={BANNER_IMAGE_COPY_SHADOW}
             >
               {item.imageTitle}
             </SizableText>
@@ -67,8 +83,11 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
           {item.imageSubtitle ? (
             <SizableText
               size="$bodyLg"
-              color="rgba(0,0,0,0.61)"
+              color={
+                item.imageSubtitleColor || BANNER_DEFAULT_COLORS.imageSubtitle
+              }
               numberOfLines={1}
+              style={BANNER_IMAGE_COPY_SHADOW}
             >
               {item.imageSubtitle}
             </SizableText>
@@ -103,14 +122,14 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
           <YStack flex={1} minWidth={0} jc="center">
             <SizableText
               size="$bodyMdMedium"
-              color="rgba(0,0,0,0.88)"
+              color={item.titleColor || BANNER_DEFAULT_COLORS.title}
               numberOfLines={1}
             >
               {item.title}
             </SizableText>
             <SizableText
               size="$bodySm"
-              color="rgba(0,0,0,0.61)"
+              color={item.subtitleColor || BANNER_DEFAULT_COLORS.subtitle}
               numberOfLines={1}
             >
               {item.subtitle}

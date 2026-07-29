@@ -45,8 +45,12 @@ function EarnHomeShortcut({
 
 export function EarnHomeShortcuts({
   onOpenLoans,
+  onOpenTokens,
+  onOpenProtocols,
 }: {
   onOpenLoans: () => void;
+  onOpenTokens: () => void;
+  onOpenProtocols: () => void;
 }) {
   // FIXME: Replace these labels with product-approved i18n keys once available.
   return (
@@ -55,6 +59,7 @@ export function EarnHomeShortcuts({
         icon="DollarOutline"
         label="Tokens"
         testID={EarnTestIDs.homeShortcut('tokens')}
+        onPress={onOpenTokens}
       />
       <EarnHomeShortcut
         icon="HandCoinsOutline"
@@ -66,6 +71,7 @@ export function EarnHomeShortcuts({
         icon="FileTextOutline"
         label="Protocols"
         testID={EarnTestIDs.homeShortcut('protocols')}
+        onPress={onOpenProtocols}
       />
     </XStack>
   );

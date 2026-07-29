@@ -954,6 +954,27 @@ class ServiceStaking extends ServiceBase {
     },
   );
 
+  // 全量协议列表 (Protocols 聚合页, 6.6.0+):同一接口不传 symbol,
+  // 服务端一次返回所有协议行。纯展示数据(TVL/APY),缓存 5 分钟。
+  _getAllProtocolList = memoizee(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Earn);
+      const resp = await client.post<{
+        data: { protocols: IStakeProtocolListItem[] };
+      }>('/earn/v2/stake-protocol/list', {});
+      return resp.data.data.protocols;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
+  @backgroundMethod()
+  async getAllProtocolList() {
+    return this._getAllProtocolList();
+  }
+
   @backgroundMethod()
   async getProtocolList(params: {
     symbol: string;

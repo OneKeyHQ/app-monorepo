@@ -2,6 +2,9 @@ export enum ETabEarnRoutes {
   EarnHome = 'EarnHome',
   BorrowHome = 'BorrowHome',
   EarnPositions = 'EarnPositions',
+  EarnTokens = 'EarnTokens',
+  EarnAllProtocols = 'EarnAllProtocols',
+  EarnProtocolTokens = 'EarnProtocolTokens',
   EarnProtocols = 'EarnProtocols',
   EarnProtocolDetails = 'EarnProtocolDetails',
   EarnProtocolDetailsShare = 'EarnProtocolDetailsShare',
@@ -18,6 +21,16 @@ export type ITabEarnParamList = {
       };
   [ETabEarnRoutes.BorrowHome]: undefined;
   [ETabEarnRoutes.EarnPositions]: undefined;
+  // Tokens 首页 (OK-58505)：全量代币列表 (页面内自带 All/Stable/Non-Stable 分类)
+  [ETabEarnRoutes.EarnTokens]: undefined;
+  // Protocols 首页 (OK-58505)：全协议聚合列表
+  [ETabEarnRoutes.EarnAllProtocols]: undefined;
+  // 某个 Protocol 的 Tokens 列表 (OK-58505)
+  [ETabEarnRoutes.EarnProtocolTokens]: {
+    provider: string;
+    providerName?: string;
+    logoURI?: string;
+  };
   [ETabEarnRoutes.EarnProtocols]: {
     symbol: string;
     filterNetworkId?: string;

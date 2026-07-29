@@ -155,6 +155,9 @@ export async function safePushToEarnRoute(
   const shouldSwitchToEarnMode =
     route === ETabEarnRoutes.EarnHome ||
     route === ETabEarnRoutes.EarnPositions ||
+    route === ETabEarnRoutes.EarnTokens ||
+    route === ETabEarnRoutes.EarnAllProtocols ||
+    route === ETabEarnRoutes.EarnProtocolTokens ||
     route === ETabEarnRoutes.EarnProtocols ||
     route === ETabEarnRoutes.EarnProtocolDetails ||
     route === ETabEarnRoutes.EarnProtocolDetailsShare;
@@ -509,6 +512,28 @@ export const EarnNavigation = {
     },
   ) {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocols, params);
+  },
+
+  // Tokens 首页 (OK-58505/OK-58562/OK-58508)
+  pushToEarnTokens(navigation: IAppNavigation) {
+    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnTokens);
+  },
+
+  // Protocols 首页 (OK-58505/OK-58562)
+  pushToEarnAllProtocols(navigation: IAppNavigation) {
+    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnAllProtocols);
+  },
+
+  // 某个 Protocol 的 Tokens 列表 (OK-58505)
+  pushToEarnProtocolTokens(
+    navigation: IAppNavigation,
+    params: { provider: string; providerName?: string; logoURI?: string },
+  ) {
+    void safePushToEarnRoute(
+      navigation,
+      ETabEarnRoutes.EarnProtocolTokens,
+      params,
+    );
   },
 
   async pushToEarnProtocolDetails(
