@@ -127,6 +127,10 @@ describe('loadPreparedHomeDisplaySnapshot native', () => {
         },
       },
     });
+    expect(mockLoadSourceRecords).toHaveBeenCalledWith({
+      context,
+      sourceIds: ['banner', 'portfolio', 'market'],
+    });
   });
 
   it('rejects a navigation-only snapshot without portfolio data', () => {

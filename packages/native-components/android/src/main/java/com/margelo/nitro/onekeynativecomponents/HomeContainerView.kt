@@ -5429,6 +5429,23 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
     onAction: ((String, String) -> Unit)?,
   ) {
     val isLoading = item.renderer == "loading"
+    val isAsset = item.renderer == "asset"
+    setPadding(dp(if (isAsset) 20 else 16), 0, dp(if (isAsset) 20 else 16), 0)
+    title.typeface =
+      if (isAsset) HomeContainerFonts.medium(context)
+      else Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+    subtitle.typeface =
+      if (isAsset) HomeContainerFonts.regular(context)
+      else Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+    subtitleDetail.typeface =
+      if (isAsset) HomeContainerFonts.regular(context)
+      else Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+    value.typeface =
+      if (isAsset) HomeContainerFonts.medium(context)
+      else Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+    detail.typeface =
+      if (isAsset) HomeContainerFonts.regular(context)
+      else Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
     alpha = 1f
     setBackgroundColor(parseHomeContainerColor(theme.backgroundColor, Color.WHITE))
     icon.text = if (isLoading) {
@@ -5664,6 +5681,7 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
           "nft" -> 92
           "history" -> 60
           "defi", "market" -> 64
+          "asset" -> item.displayHeight.takeIf { it > 0 } ?: 60
           "showMore" -> 48
           "earn", "marketTabs" -> 56
           "supportAction" -> 76

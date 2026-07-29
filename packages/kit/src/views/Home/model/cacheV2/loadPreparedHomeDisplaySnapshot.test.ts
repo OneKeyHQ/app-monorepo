@@ -66,7 +66,7 @@ describe('loadPreparedHomeDisplaySnapshot', () => {
     });
     expect(mockLoadSourceRecords).toHaveBeenCalledWith({
       context,
-      sourceIds: ['banner', 'portfolio'],
+      sourceIds: ['banner', 'portfolio', 'market'],
     });
   });
 

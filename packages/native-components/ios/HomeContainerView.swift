@@ -6506,7 +6506,7 @@ private final class HomeContainerItemCell: UITableViewCell {
 
     let usesRoobertTypography =
       usesLegacyHiddenAssetArtwork ||
-      ["market", "perps", "defi", "history"].contains(item.renderer)
+      ["asset", "market", "perps", "defi", "history"].contains(item.renderer)
     titleLabel.font = usesRoobertTypography
       ? HomeContainerTypography.medium(16)
       : HomeContainerTypography.system(16, weight: .medium)

@@ -86,6 +86,7 @@ import { TabHeaderSettings } from '@onekeyhq/kit/src/views/Home/pages/TabHeaderS
 import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
 import { usePrimeAvailable } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAvailable';
 import {
+  useCurrencyPersistAtom,
   useSettingsPersistAtom,
   useSettingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -282,6 +283,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
   const bannerResource = useHomeResource('banner');
   const portfolioResource = useHomeResource('portfolio');
   const displayModel = useHomeDisplayModel();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const [settings] = useSettingsPersistAtom();
   const [{ hideValue }] = useSettingsValuePersistAtom();
   const { dispatchHomeIntent } = useHomeStoreIntentActions().current;
@@ -541,11 +543,18 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       buildMobileNativeHomeViewModelSections({
         allNetworksBadgeImageUrl: network?.logoURI,
         expanded: expandedSections,
+        fiatContext: {
+          currencyMap,
+          targetCurrencyId: settings.currencyInfo.id,
+          targetCurrencyUnit: settings.currencyInfo.symbol,
+        },
         formatActionLabel: (labelId) => intl.formatMessage({ id: labelId }),
+        hideValue,
         isAllNetworks: Boolean(network?.isAllNetworks),
         labels: nativeLabels,
         locale: intl.locale,
         marketRecommendationState,
+        marketSemantic: marketSection.value,
         payloads: {
           portfolio: portfolioPayload,
           defi: defiPayload,
@@ -556,15 +565,20 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       }),
     [
       defiPayload,
+      currencyMap,
       expandedSections,
+      hideValue,
       intl,
       marketPayload,
       marketRecommendationState,
+      marketSection.value,
       nativeLabels,
       network?.logoURI,
       network?.isAllNetworks,
       portfolioPayload,
       portfolioSection.value,
+      settings.currencyInfo.id,
+      settings.currencyInfo.symbol,
     ],
   );
   const perpsSections = useMemo(
@@ -2061,7 +2075,9 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
           commandId ===
           MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS.openManageToken
         ) {
-          handleOnManageToken();
+          if (!portfolioPayload?.showLpTokensOnly) {
+            handleOnManageToken();
+          }
           return;
         }
         if (
@@ -2220,6 +2236,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       openLowValueAssets,
       openRiskAssets,
       owner,
+      portfolioPayload?.showLpTokensOnly,
       selectMarketCategory,
       selectedTabId,
       selectedRecommendedMarketRowIds,

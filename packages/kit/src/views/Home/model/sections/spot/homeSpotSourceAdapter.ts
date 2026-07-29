@@ -89,13 +89,10 @@ type IHomeSpotLegacyPayload = {
 const HOME_SPOT_SNAPSHOT_KEYS = [
   'accountTokensValue',
   'accountTokensWorthCurrency',
-  'aggregateTokenListMap',
-  'allAggregateTokenMap',
   'blockedRiskTokenCount',
   'displayIds',
   'fundedIds',
   'generation',
-  'homeDefaultTokenMap',
   'isAllNetworkEmptyAccount',
   'mergeDeriveAddressData',
   'networksMap',
@@ -109,6 +106,11 @@ const HOME_SPOT_SNAPSHOT_KEYS = [
   'tokenCount',
   'tokens',
 ] as const satisfies readonly (keyof IHomeSpotLegacyPayload)[];
+
+type IHomeSpotSnapshotPayload = Pick<
+  IHomeSpotLegacyPayload,
+  (typeof HOME_SPOT_SNAPSHOT_KEYS)[number]
+>;
 
 function createHomeSpotSnapshotDefaults(): IHomeSpotLegacyPayload {
   return {
@@ -162,7 +164,7 @@ function pickRecordFields<T>(
 
 function projectHomeSpotSnapshotData(
   value: IHomeSpotLegacyPayload,
-): IHomeSpotLegacyPayload {
+): IHomeSpotSnapshotPayload {
   const source = {
     ...createHomeSpotSnapshotDefaults(),
     ...value,
@@ -185,7 +187,6 @@ function projectHomeSpotSnapshotData(
       .filter((networkId): networkId is string => Boolean(networkId)),
   );
   return {
-    ...createHomeSpotSnapshotDefaults(),
     accountTokensValue: source.accountTokensValue,
     accountTokensWorthCurrency: source.accountTokensWorthCurrency,
     blockedRiskTokenCount: source.blockedRiskTokenCount,
@@ -196,13 +197,13 @@ function projectHomeSpotSnapshotData(
     mergeDeriveAddressData: source.mergeDeriveAddressData,
     networksMap: pickRecordFields(source.networksMap, networkIds),
     ownerKey: source.ownerKey,
-    riskTokenCount: source.riskTokenCount ?? source.riskTokens.length,
+    riskTokenCount: value.riskTokenCount ?? value.riskTokens?.length ?? 0,
     showLpTokenFilterSwitch: source.showLpTokenFilterSwitch,
     showLpTokensOnly: source.showLpTokensOnly,
     smallBalanceFiatValue: source.smallBalanceFiatValue,
     smallBalanceTokenCount:
-      source.smallBalanceTokenCount ?? source.smallBalanceTokens.length,
-    tokenCount: source.tokenCount ?? source.tokens.length,
+      value.smallBalanceTokenCount ?? value.smallBalanceTokens?.length ?? 0,
+    tokenCount: value.tokenCount ?? value.tokens?.length ?? 0,
     tokenListMap: pickRecordFields(source.tokenListMap, tokenIds),
     tokens,
   };
@@ -309,5 +310,6 @@ export type {
   IHomeSpotNativePayload,
   IHomeSpotSourceParams,
   IHomeSpotSourceSnapshot,
+  IHomeSpotSnapshotPayload,
   IHomeSpotTokenMode,
 };

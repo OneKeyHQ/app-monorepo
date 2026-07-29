@@ -3,7 +3,11 @@ import type { IHomeDeFiLegacyPayload } from '@onekeyhq/kit/src/views/Home/model/
 import type { IHomeHistoryStorePayload } from '@onekeyhq/kit/src/views/Home/model/sections/history/homeHistorySourceAdapter';
 import { HOME_HISTORY_ACTION_IDS } from '@onekeyhq/kit/src/views/Home/model/sections/history/homeHistoryStoreModel';
 import type { IHomeSpotLegacyPayload } from '@onekeyhq/kit/src/views/Home/model/sections/spot/homeSpotSourceAdapter';
-import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import { buildAddressMapInfoKey } from '@onekeyhq/shared/src/utils/historyUtils';
+import {
+  EOnChainHistoryTxType,
+  type IAccountHistoryTx,
+} from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxActionType,
   EDecodedTxDirection,
@@ -409,6 +413,204 @@ describe('mobileNativeHomeViewModelAdapter', () => {
     });
   });
 
+  it('does not offer Add Token while the DeFi token filter is active', () => {
+    const tokens = Array.from({ length: 7 }, (_, index) => ({
+      $key: `lp-token-${index}`,
+      accountId: 'account-a',
+      address: `0x${index}`,
+      balanceParsed: '1',
+      decimals: 18,
+      isNative: false,
+      name: `LP Token ${index}`,
+      networkId: 'evm--1',
+      symbol: `LP${index}`,
+    }));
+    const sections = buildMobileNativeHomeViewModelSections({
+      ...presentation,
+      expanded: {
+        defi: false,
+        portfolioAssets: true,
+        portfolioDeFi: false,
+      },
+      payloads: {
+        portfolio: {
+          accountTokensValue: '7',
+          accountTokensWorthCurrency: 'USD',
+          displayIds: tokens.map((token) => token.$key),
+          networksMap: {},
+          showLpTokensOnly: true,
+          tokenListMap: Object.fromEntries(
+            tokens.map((token) => [
+              token.$key,
+              {
+                balanceParsed: '1',
+                currency: 'usd',
+                fiatValue: '1',
+                price: '1',
+                price24h: '0',
+              },
+            ]),
+          ),
+          tokens,
+        } as unknown as IHomeSpotLegacyPayload,
+      },
+      sectionId: 'portfolio',
+      semantic: {
+        kind: 'ready',
+        rowIds: tokens.map((token) => token.$key),
+        freshness: 'live',
+        refresh: 'idle',
+      },
+    });
+
+    expect(
+      sections.some((section) => section.id === 'portfolio-assets-add-token'),
+    ).toBe(false);
+    expect(sections.at(-1)).toMatchObject({
+      id: 'portfolio-assets-toggle',
+      items: [expect.objectContaining({ title: 'Show less' })],
+    });
+  });
+
+  it('uses display order, user currency, privacy masking, and network-specific asset chrome', () => {
+    const nativeToken = {
+      $key: 'native',
+      accountId: 'account-a',
+      address: '',
+      balanceParsed: '2',
+      decimals: 18,
+      isNative: true,
+      name: 'Native',
+      networkId: 'evm--1',
+      symbol: 'NATIVE',
+    };
+    const otherToken = {
+      ...nativeToken,
+      $key: 'other',
+      address: '0xother',
+      isNative: false,
+      name: 'Other',
+      symbol: 'OTHER',
+    };
+    const sections = buildMobileNativeHomeViewModelSections({
+      ...presentation,
+      fiatContext: {
+        currencyMap: {
+          eur: {
+            id: 'eur',
+            name: 'Euro',
+            type: ['fiat'],
+            unit: '€',
+            value: '0.9',
+          },
+          usd: {
+            id: 'usd',
+            name: 'US Dollar',
+            type: ['fiat'],
+            unit: '$',
+            value: '1',
+          },
+        },
+        targetCurrencyId: 'eur',
+        targetCurrencyUnit: '€',
+      },
+      hideValue: true,
+      isAllNetworks: false,
+      payloads: {
+        portfolio: {
+          accountTokensValue: '30',
+          accountTokensWorthCurrency: 'usd',
+          displayIds: ['other', 'native'],
+          networksMap: {
+            'evm--1': { id: 'evm--1', logoURI: 'network.png' },
+          },
+          showLpTokensOnly: false,
+          tokenListMap: {
+            native: {
+              balanceParsed: '2',
+              currency: 'usd',
+              fiatValue: '20',
+              price: '10',
+              price24h: '1',
+            },
+            other: {
+              balanceParsed: '1',
+              currency: 'usd',
+              fiatValue: '10',
+              price: '10',
+              price24h: '-1',
+            },
+          },
+          tokens: [nativeToken, otherToken],
+        } as unknown as IHomeSpotLegacyPayload,
+      },
+      sectionId: 'portfolio',
+      semantic: {
+        kind: 'ready',
+        rowIds: ['other', 'native'],
+        freshness: 'live',
+        refresh: 'idle',
+      },
+    });
+    const items = sections[0]?.items ?? [];
+
+    expect(items.map((item) => item.title)).toEqual(['OTHER', 'NATIVE']);
+    expect(items[0]).toMatchObject({
+      badgeImageUrl: undefined,
+      detail: '••••',
+      displayHeight: 60,
+      subtitle: '€9.00',
+      subtitleDetail: '-1.00%',
+      value: '••••',
+    });
+    expect(items[1]).toMatchObject({
+      badgeImageUrl: undefined,
+      titleAccessoryIcon: 'gas',
+    });
+  });
+
+  it('keeps cached Portfolio rows display-only until live data arrives', () => {
+    const sections = buildMobileNativeHomeViewModelSections({
+      ...presentation,
+      payloads: {
+        portfolio: {
+          accountTokensWorthCurrency: 'USD',
+          displayIds: ['eth'],
+          networksMap: {},
+          showLpTokensOnly: false,
+          tokenListMap: {
+            eth: {
+              balanceParsed: '1',
+              fiatValue: '1',
+              price: '1',
+              price24h: '0',
+            },
+          },
+          tokens: [
+            {
+              $key: 'eth',
+              accountId: 'account-a',
+              address: '',
+              decimals: 18,
+              isNative: true,
+              name: 'Ethereum',
+              symbol: 'ETH',
+            },
+          ],
+        } as unknown as IHomeSpotLegacyPayload,
+      },
+      sectionId: 'portfolio',
+      semantic: {
+        kind: 'ready',
+        rowIds: ['eth'],
+        freshness: 'confirmedCache',
+        refresh: 'refreshing',
+      },
+    });
+
+    expect(sections[0]?.items[0]?.actionId).toBeUndefined();
+  });
+
   it('keeps hidden assets out of token rows and exposes their entry rows', () => {
     const token = (key: string, symbol: string) => ({
       $key: key,
@@ -562,6 +764,12 @@ describe('mobileNativeHomeViewModelAdapter', () => {
 
     const sections = buildMobileNativeHomeViewModelSections({
       ...presentation,
+      marketSemantic: {
+        kind: 'ready',
+        rowIds: ['spot:evm--1:0xabc'],
+        freshness: 'live',
+        refresh: 'idle',
+      },
       payloads: { market: marketPayload },
       sectionId: 'portfolio',
       semantic: {
@@ -593,6 +801,35 @@ describe('mobileNativeHomeViewModelAdapter', () => {
         renderer: 'earn',
         title: 'USDC',
       }),
+    ]);
+  });
+
+  it('keeps a stable Market section while the owner-scoped cache misses', () => {
+    const sections = buildMobileNativeHomeViewModelSections({
+      ...presentation,
+      marketSemantic: { kind: 'loading', placeholder: 'market' },
+      payloads: {},
+      sectionId: 'portfolio',
+      semantic: {
+        kind: 'ready',
+        rowIds: [],
+        freshness: 'live',
+        refresh: 'idle',
+      },
+    });
+
+    expect(sections).toEqual([
+      { id: 'portfolio-assets', items: [] },
+      {
+        id: 'portfolio-market',
+        title: 'Market',
+        items: Array.from({ length: 3 }, (_, index) => ({
+          id: `portfolio-market-loading-${index}`,
+          displayHeight: 68,
+          renderer: 'loading',
+          title: 'Loading',
+        })),
+      },
     ]);
   });
 
@@ -634,6 +871,12 @@ describe('mobileNativeHomeViewModelAdapter', () => {
           .slice(0, 3)
           .map((row) => `spot:${row.chainId}:${row.contractAddress}`),
       },
+      marketSemantic: {
+        kind: 'ready',
+        rowIds: rows.map((row) => `spot:${row.chainId}:${row.contractAddress}`),
+        freshness: 'live',
+        refresh: 'idle',
+      },
       payloads: { market: marketPayload },
       sectionId: 'portfolio',
       semantic: {
@@ -648,6 +891,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
     );
 
     expect(market).toMatchObject({
+      actionId: 'home.native.market.recommended.add',
       actionDisabled: false,
       actionTitle: 'Add 3 tokens',
       layout: 'marketRecommendations',
@@ -786,6 +1030,121 @@ describe('mobileNativeHomeViewModelAdapter', () => {
       build({ historyLoadingMore: true }).at(-1)?.actionId,
     ).toBeUndefined();
     expect(build({ isAllNetworks: true }).at(-1)?.actionId).toBeUndefined();
+  });
+
+  it('renders UTXO change outputs as one net transfer like the React History row', () => {
+    const recipient = 'bc1qrecipient';
+    const history = {
+      id: 'history-utxo-send',
+      decodedTx: {
+        accountId: 'account-a',
+        actions: [
+          {
+            type: EDecodedTxActionType.ASSET_TRANSFER,
+            direction: EDecodedTxDirection.OUT,
+            assetTransfer: {
+              from: 'bc1qsender',
+              to: recipient,
+              sends: [
+                {
+                  from: 'bc1qsender',
+                  to: recipient,
+                  amount: '0.2',
+                  icon: 'btc.png',
+                  isOwn: true,
+                  name: 'Bitcoin',
+                  price: '63919',
+                  symbol: 'BTC',
+                  tokenIdOnNetwork: '',
+                },
+              ],
+              receives: [
+                {
+                  from: 'bc1qsender',
+                  to: recipient,
+                  amount: '0.0000546',
+                  icon: 'btc.png',
+                  isOwn: false,
+                  name: 'Bitcoin',
+                  price: '63919',
+                  symbol: 'BTC',
+                  tokenIdOnNetwork: '',
+                },
+                {
+                  from: 'bc1qsender',
+                  to: 'bc1qchange',
+                  amount: '0.1999454',
+                  icon: 'btc.png',
+                  isOwn: true,
+                  name: 'Bitcoin',
+                  price: '63919',
+                  symbol: 'BTC',
+                  tokenIdOnNetwork: '',
+                },
+              ],
+            },
+          },
+        ],
+        createdAt: Date.UTC(2025, 0, 9),
+        extraInfo: null,
+        nativeAmount: '0.0000546',
+        networkId: 'btc--0',
+        networkLogoURI: 'network.png',
+        nonce: 0,
+        owner: 'bc1qsender',
+        payload: {
+          label: '',
+          type: EOnChainHistoryTxType.Send,
+          value: '',
+        },
+        signer: 'bc1qsender',
+        status: EDecodedTxStatus.Confirmed,
+        txid: 'utxo-send',
+      },
+    } as unknown as IAccountHistoryTx;
+
+    const sections = buildMobileNativeHomeViewModelSections({
+      ...presentation,
+      isAllNetworks: true,
+      payloads: {
+        history: {
+          addressMap: {
+            [buildAddressMapInfoKey({
+              address: recipient,
+              networkId: 'btc--0',
+            })]: {
+              label: 'TEST / Account #3',
+              type: 'default',
+            },
+          },
+          cursor: null,
+          data: [history],
+          hasMore: false,
+          isLoadingMore: false,
+          refresh: 'idle',
+          tokenMap: {},
+        },
+      },
+      sectionId: 'history',
+      semantic: {
+        kind: 'ready',
+        rowIds: [history.id],
+        freshness: 'live',
+        refresh: 'idle',
+      },
+    });
+
+    expect(sections[0]?.items[0]).toEqual(
+      expect.objectContaining({
+        badgeImageUrl: 'network.png',
+        detail: '$3.49',
+        imageUrl: 'btc.png',
+        subtitle: 'TEST / Account #3',
+        title: 'Send',
+        value: '-0.0000546 BTC',
+      }),
+    );
+    expect(sections[0]?.items[0]?.secondaryImageUrl).toBeUndefined();
   });
 
   it('uses a compact subscript exponent for tiny History amounts', () => {

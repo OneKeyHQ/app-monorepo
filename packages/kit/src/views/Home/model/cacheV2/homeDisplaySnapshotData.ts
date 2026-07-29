@@ -39,7 +39,10 @@ import type {
 } from '../sections/market/homeMarketSourceAdapter';
 import type { IHomeNFTLegacyPayload } from '../sections/nft/homeNFTSourceAdapter';
 import type { IHomePerpsLegacyPayload } from '../sections/perps/homePerpsSourceAdapter';
-import type { IHomeSpotLegacyPayload } from '../sections/spot/homeSpotSourceAdapter';
+import type {
+  IHomeSpotLegacyPayload,
+  IHomeSpotSnapshotPayload,
+} from '../sections/spot/homeSpotSourceAdapter';
 import type {
   IHomeCachedSourceRecord,
   IHomeStoreSourceId,
@@ -205,6 +208,26 @@ function getPersistedSection(
   };
 }
 
+function getProjectedSectionRowIds({
+  fallbackRowIds,
+  payload,
+  sourceId,
+}: {
+  fallbackRowIds: readonly string[];
+  payload: IHomeRuntimeJsonValue;
+  sourceId: IHomeStoreSourceId;
+}): readonly string[] {
+  if (sourceId === 'portfolio') {
+    return (payload as unknown as IHomeSpotSnapshotPayload).displayIds;
+  }
+  if (sourceId === 'market') {
+    return getHomeMarketRowIds(
+      payload as unknown as IHomeMarketSnapshotPayload<IHomeMarketTokenRow>,
+    );
+  }
+  return fallbackRowIds;
+}
+
 function projectHomeDisplaySnapshotRecord(
   record: IHomeCachedSourceRecord,
 ): IHomeCachedSourceRecord | undefined {
@@ -242,14 +265,11 @@ function projectHomeDisplaySnapshotRecord(
       payload,
       section: {
         kind: 'ready',
-        rowIds:
-          record.sourceId === 'portfolio'
-            ? (payload as unknown as IHomeSpotLegacyPayload).displayIds
-            : record.sourceId === 'market'
-              ? getHomeMarketRowIds(
-                  payload as unknown as IHomeMarketSnapshotPayload<IHomeMarketTokenRow>,
-                )
-              : section.rowIds,
+        rowIds: getProjectedSectionRowIds({
+          fallbackRowIds: section.rowIds,
+          payload,
+          sourceId: record.sourceId,
+        }),
       },
     },
   };

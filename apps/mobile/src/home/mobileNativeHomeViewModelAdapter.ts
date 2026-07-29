@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import { getProtocolActionBadgeLabelIds } from '@onekeyhq/kit/src/utils/defiPositionUtils';
+import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import {
   buildAprRangeText,
   buildAprText,
@@ -31,6 +32,7 @@ import type {
 import { SHOW_NFT_AMOUNT_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import { buildAddressMapInfoKey } from '@onekeyhq/shared/src/utils/historyUtils';
 import {
@@ -38,10 +40,19 @@ import {
   formatBalance,
   formatDisplayNumber,
   formatMarketCap,
+  formatPrice,
+  formatPriceChange,
+  formatValue,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
-import { sortTokensByFiatValue } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  UNAVAILABLE_DISPLAY,
+  displayFiatValueOrUnavailable,
+  displayOrUnavailable,
+  isValidNumberValue,
+} from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import { getDisplayedActions } from '@onekeyhq/shared/src/utils/txActionUtils';
+import type { ICurrencyItem } from '@onekeyhq/shared/types';
 import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import {
   EOnChainHistoryTxType,
@@ -239,6 +250,12 @@ type IHomeNativeExpandedState = {
   portfolioDeFi: boolean;
 };
 
+type IHomeNativeFiatContext = {
+  currencyMap: Record<string, ICurrencyItem>;
+  targetCurrencyId: string;
+  targetCurrencyUnit: string;
+};
+
 function displayNumberToString(
   value: string | IFormatDisplayNumberPart[],
 ): string {
@@ -294,6 +311,101 @@ function formatCurrency(
   } catch {
     return `${currency.toUpperCase()} ${number.toFixed(2)}`;
   }
+}
+
+function getFallbackCurrencyUnit(currency: string): string {
+  return currency.toUpperCase() === 'USD' ? '$' : `${currency.toUpperCase()} `;
+}
+
+function formatFiatNumber({
+  fiatContext,
+  formatter,
+  sourceCurrency,
+  value,
+}: {
+  fiatContext?: IHomeNativeFiatContext;
+  formatter: typeof formatPrice | typeof formatValue;
+  sourceCurrency: string;
+  value: string | number;
+}): string {
+  const targetCurrency = fiatContext?.targetCurrencyId ?? sourceCurrency;
+  const convertedValue = fiatContext
+    ? convertFiat({
+        currencyMap: fiatContext.currencyMap,
+        sourceCurrency,
+        targetCurrency,
+        value,
+      })
+    : String(value);
+  const currencyUnit =
+    fiatContext?.currencyMap[targetCurrency]?.unit ??
+    fiatContext?.currencyMap[sourceCurrency]?.unit ??
+    fiatContext?.targetCurrencyUnit ??
+    getFallbackCurrencyUnit(targetCurrency);
+  return displayNumberToString(
+    formatDisplayNumber(
+      formatter(convertedValue, {
+        currency: currencyUnit,
+      }),
+    ),
+  );
+}
+
+function formatTokenPrice({
+  fiatContext,
+  sourceCurrency,
+  value,
+}: {
+  fiatContext?: IHomeNativeFiatContext;
+  sourceCurrency: string;
+  value: string | number | null | undefined;
+}): string {
+  const displayValue = displayOrUnavailable(value);
+  return displayValue === UNAVAILABLE_DISPLAY
+    ? UNAVAILABLE_DISPLAY
+    : formatFiatNumber({
+        fiatContext,
+        formatter: formatPrice,
+        sourceCurrency,
+        value: displayValue,
+      });
+}
+
+function formatTokenValue({
+  balance,
+  fiatContext,
+  sourceCurrency,
+  value,
+}: {
+  balance: string | number | null | undefined;
+  fiatContext?: IHomeNativeFiatContext;
+  sourceCurrency: string;
+  value: string | number | null | undefined;
+}): string {
+  const displayValue = displayFiatValueOrUnavailable(value, balance);
+  return displayValue === UNAVAILABLE_DISPLAY
+    ? UNAVAILABLE_DISPLAY
+    : formatFiatNumber({
+        fiatContext,
+        formatter: formatValue,
+        sourceCurrency,
+        value: displayValue,
+      });
+}
+
+function formatTokenPriceChange(
+  value: string | number | null | undefined,
+): string {
+  if (!isValidNumberValue(value)) {
+    return UNAVAILABLE_DISPLAY;
+  }
+  return displayNumberToString(
+    formatDisplayNumber(
+      formatPriceChange(String(value), {
+        showPlusMinusSigns: !new BigNumber(value).isZero(),
+      }),
+    ),
+  );
 }
 
 function formatCompactCurrency(
@@ -352,15 +464,11 @@ function formatEarnApr(
   );
 }
 
-function formatSectionDate(timestamp: number, locale: string): string {
+function formatSectionDate(timestamp: number): string {
   const date = new Date(
     timestamp < 1_000_000_000_000 ? timestamp * 1000 : timestamp,
   );
-  return new Intl.DateTimeFormat(locale, {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(date);
+  return formatDate(date, { hideTimeForever: true });
 }
 
 function formatTimestamp(timestamp: number, locale: string): string {
@@ -433,44 +541,55 @@ function buildStateSection({
 }
 
 function buildPortfolioAssetSections({
+  actionsEnabled,
   allNetworksBadgeImageUrl,
   expanded,
+  fiatContext,
+  hideValue,
   isAllNetworks,
   labels,
-  locale,
   payload,
 }: {
+  actionsEnabled: boolean;
   allNetworksBadgeImageUrl?: string;
   expanded: boolean;
+  fiatContext?: IHomeNativeFiatContext;
+  hideValue: boolean;
   isAllNetworks: boolean;
   labels: IHomeNativeLabels;
-  locale: string;
   payload: IHomeSpotLegacyPayload | undefined;
 }): IHomeContainerSection[] {
-  const sortedTokens = sortTokensByFiatValue({
-    tokens: payload?.tokens ?? [],
-    map: payload?.tokenListMap ?? {},
-  });
-  const smallBalanceTokens = sortTokensByFiatValue({
-    tokens: payload?.smallBalanceTokens ?? [],
-    map: payload?.smallBalanceMap ?? {},
-  });
-  const riskTokens = sortTokensByFiatValue({
-    tokens: payload?.riskTokens ?? [],
-    map: payload?.riskMap ?? {},
-  });
+  const tokenMap = new Map(
+    (payload?.tokens ?? []).map((token) => [token.$key, token]),
+  );
+  const orderedTokens = (payload?.displayIds ?? [])
+    .map((id) => tokenMap.get(id))
+    .filter((token): token is NonNullable<typeof token> => Boolean(token));
+  const orderedTokenIds = new Set(orderedTokens.map((token) => token.$key));
+  const displayTokens = [
+    ...orderedTokens,
+    ...(payload?.tokens ?? []).filter(
+      (token) => !orderedTokenIds.has(token.$key),
+    ),
+  ];
+  const smallBalanceTokens = payload?.smallBalanceTokens ?? [];
+  const riskTokens = payload?.riskTokens ?? [];
+  const smallBalanceTokenCount =
+    payload?.smallBalanceTokenCount ?? smallBalanceTokens.length;
+  const riskTokenCount = payload?.riskTokenCount ?? riskTokens.length;
   const visibleTokens = expanded
-    ? sortedTokens
-    : sortedTokens.slice(0, VISIBLE_ROW_LIMIT);
-  const currency = payload?.accountTokensWorthCurrency ?? 'USD';
+    ? displayTokens
+    : displayTokens.slice(0, VISIBLE_ROW_LIMIT);
+  const accountCurrency = payload?.accountTokensWorthCurrency ?? 'USD';
   const sections: IHomeContainerSection[] = [
     {
       id: 'portfolio-assets',
       items: visibleTokens.map((token) => {
         const fiat = payload?.tokenListMap[token.$key];
         const priceChange = Number(fiat?.price24h);
+        const sourceCurrency = fiat?.currency ?? accountCurrency;
         let badgeImageUrl: string | undefined;
-        if (token.networkId) {
+        if (isAllNetworks && token.networkId) {
           badgeImageUrl = payload?.networksMap[token.networkId]?.logoURI;
         } else if (isAllNetworks) {
           badgeImageUrl = allNetworksBadgeImageUrl;
@@ -479,75 +598,90 @@ function buildPortfolioAssetSections({
           id: token.$key,
           renderer: 'asset' as const,
           title: token.symbol || token.name,
-          subtitle: formatCurrency(fiat?.price, currency, locale),
-          subtitleDetail: Number.isFinite(priceChange)
-            ? `${priceChange > 0 ? '+' : ''}${priceChange.toFixed(2)}%`
-            : undefined,
+          subtitle: formatTokenPrice({
+            fiatContext,
+            sourceCurrency,
+            value: fiat?.price,
+          }),
+          subtitleDetail: formatTokenPriceChange(fiat?.price24h),
           subtitleDetailColor: getPriceChangeColor(priceChange),
-          value: formatAmount(fiat?.balanceParsed ?? fiat?.balance),
-          detail: formatCurrency(fiat?.fiatValue, currency, locale),
+          value: hideValue
+            ? '••••'
+            : formatAmount(fiat?.balanceParsed ?? fiat?.balance),
+          detail: hideValue
+            ? '••••'
+            : formatTokenValue({
+                balance: fiat?.balanceParsed ?? fiat?.balance,
+                fiatContext,
+                sourceCurrency,
+                value: fiat?.fiatValue,
+              }),
           imageUrl: token.logoURI,
+          displayHeight: 60,
           titleAccessoryIcon:
-            token.isNative &&
-            !isAllNetworks &&
-            !payload?.networksMap[token.networkId ?? '']
-              ? ('gas' as const)
-              : undefined,
+            token.isNative && !isAllNetworks ? ('gas' as const) : undefined,
           badgeImageUrl,
-          actionId: HOME_SECTION_ACTION_IDS.openAsset,
+          actionId: actionsEnabled
+            ? HOME_SECTION_ACTION_IDS.openAsset
+            : undefined,
         };
       }),
     },
   ];
-  const hasHiddenAssetRows =
-    smallBalanceTokens.length > 0 || riskTokens.length > 0;
+  const hasHiddenAssetRows = smallBalanceTokenCount > 0 || riskTokenCount > 0;
   if (expanded && hasHiddenAssetRows) {
     sections.push({
       id: 'portfolio-assets-hidden-groups',
       items: [
-        ...(smallBalanceTokens.length > 0
+        ...(smallBalanceTokenCount > 0
           ? [
               {
                 id: 'portfolio-assets-low-value',
                 renderer: 'asset' as const,
-                title: `${smallBalanceTokens.length} ${labels.lowValueAssets}`,
+                title: `${smallBalanceTokenCount} ${labels.lowValueAssets}`,
                 displayHeight: 56,
-                value: formatCurrency(
-                  payload?.smallBalanceFiatValue ??
-                    sumTokenFiatValue({
-                      tokens: smallBalanceTokens,
-                      map: payload?.smallBalanceMap ?? {},
+                value: hideValue
+                  ? '••••'
+                  : formatTokenValue({
+                      balance: smallBalanceTokenCount,
+                      fiatContext,
+                      sourceCurrency: accountCurrency,
+                      value:
+                        payload?.smallBalanceFiatValue ??
+                        sumTokenFiatValue({
+                          tokens: smallBalanceTokens,
+                          map: payload?.smallBalanceMap ?? {},
+                        }),
                     }),
-                  currency,
-                  locale,
-                ),
                 leadingIcon: 'lowValue' as const,
                 titleAccessoryIcon: 'question' as const,
-                actionId:
-                  MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS.openLowValueAssets,
+                actionId: actionsEnabled
+                  ? MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS.openLowValueAssets
+                  : undefined,
               },
             ]
           : []),
-        ...(riskTokens.length > 0
+        ...(riskTokenCount > 0
           ? [
               {
                 id: 'portfolio-assets-risk',
                 renderer: 'asset' as const,
                 title: labels.riskAssets(
-                  payload?.blockedRiskTokenCount ?? riskTokens.length,
+                  payload?.blockedRiskTokenCount ?? riskTokenCount,
                 ),
                 displayHeight: 56,
                 leadingIcon: 'risk' as const,
-                actionId:
-                  MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS.openRiskAssets,
+                actionId: actionsEnabled
+                  ? MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS.openRiskAssets
+                  : undefined,
               },
             ]
           : []),
       ],
     });
   }
-  if (sortedTokens.length > VISIBLE_ROW_LIMIT || hasHiddenAssetRows) {
-    if (expanded) {
+  if (displayTokens.length > VISIBLE_ROW_LIMIT || hasHiddenAssetRows) {
+    if (expanded && !payload?.showLpTokensOnly && actionsEnabled) {
       sections.push({
         id: 'portfolio-assets-add-token',
         items: [
@@ -652,14 +786,31 @@ function buildDeFiSections({
 
 function buildMarketSections(
   payload: IHomePopularTradingPayload | undefined,
+  semantic: IHomeSectionSemanticModel | undefined,
   labels: IHomeNativeLabels,
   locale: string,
   networkImageById: Record<string, string>,
   recommendationState?: IHomeNativeMarketRecommendationState,
 ): IHomeContainerSection[] {
   if (!payload?.rows.length) {
+    if (semantic?.kind === 'loading') {
+      return [
+        {
+          id: 'portfolio-market',
+          title: labels.market,
+          items: Array.from({ length: 3 }, (_, index) => ({
+            id: `portfolio-market-loading-${index}`,
+            renderer: 'loading',
+            title: labels.loading,
+            displayHeight: 68,
+          })),
+        },
+      ];
+    }
     return [];
   }
+  const actionsEnabled =
+    semantic?.kind === 'ready' && semantic.freshness === 'live';
   const selectedCategoryId = payload.resolvedCategoryId;
   const isRecommendation = payload.favoriteMode === 'recommendation';
   const selectedRecommendationIds = new Set(
@@ -669,6 +820,10 @@ function buildMarketSections(
   const shouldShowMore =
     !isRecommendation &&
     (payload.favoriteMode !== 'favorites' || payload.totalFavorites > 3);
+  const recommendationActionId =
+    isRecommendation && actionsEnabled
+      ? MOBILE_NATIVE_HOME_MARKET_ACTION_IDS.addRecommended
+      : undefined;
   return [
     {
       id: 'portfolio-market',
@@ -677,9 +832,7 @@ function buildMarketSections(
       actionTitle: isRecommendation
         ? recommendationState?.actionTitle
         : undefined,
-      actionId: isRecommendation
-        ? MOBILE_NATIVE_HOME_MARKET_ACTION_IDS.addRecommended
-        : undefined,
+      actionId: recommendationActionId,
       actionDisabled: isRecommendation && selectedRecommendationIds.size === 0,
       items: [
         {
@@ -710,6 +863,10 @@ function buildMarketSections(
                   item.contractAddress.toLowerCase() ===
                     token.contractAddress.toLowerCase(),
             );
+          const favoriteActionId =
+            !isRecommendation && actionsEnabled
+              ? MOBILE_NATIVE_HOME_MARKET_ACTION_IDS.toggleFavorite
+              : undefined;
           return {
             id: rowId,
             renderer: 'market' as const,
@@ -735,9 +892,7 @@ function buildMarketSections(
             badge: token.maxLeverage ? `${token.maxLeverage}x` : undefined,
             communityRecognized: token.communityRecognized,
             favorite,
-            favoriteActionId: isRecommendation
-              ? undefined
-              : MOBILE_NATIVE_HOME_MARKET_ACTION_IDS.toggleFavorite,
+            favoriteActionId,
             favoriteLabel: favorite
               ? labels.favoriteRemove
               : labels.favoriteAdd,
@@ -916,6 +1071,7 @@ function getHistoryAddressLabel({
 
 function getHistoryTransferTarget(
   transfer: IDecodedTxActionAssetTransfer,
+  historyType?: EOnChainHistoryTxType,
 ): string | undefined {
   const isZeroAddress = (address?: string) =>
     address?.toLowerCase() === '0x0000000000000000000000000000000000000000';
@@ -938,6 +1094,23 @@ function getHistoryTransferTarget(
       ),
     );
     return targets.length === 1 ? targets[0] : transfer.to || transfer.from;
+  }
+  const isUtxoTransfer = [...transfer.sends, ...transfer.receives].some(
+    (item) => item.isOwn !== undefined,
+  );
+  if (isUtxoTransfer) {
+    const counterparties =
+      historyType === EOnChainHistoryTxType.Receive
+        ? transfer.sends.filter((item) => !item.isOwn).map((item) => item.from)
+        : transfer.receives
+            .filter((item) => !item.isOwn)
+            .map((item) => item.to);
+    const targets = Array.from(
+      new Set(counterparties.filter((address) => Boolean(address))),
+    );
+    if (targets.length === 1) {
+      return targets[0];
+    }
   }
   return transfer.to;
 }
@@ -1032,12 +1205,22 @@ function getHistoryDisplay({
   const receive = transfer.receives[0];
   const hasSend = Boolean(send);
   const hasReceive = Boolean(receive);
+  const historyType = history.decodedTx.payload?.type;
   const isOutgoing =
-    history.decodedTx.payload?.type === EOnChainHistoryTxType.Send ||
+    historyType === EOnChainHistoryTxType.Send ||
     action.direction === EDecodedTxDirection.OUT;
+  const isUtxoTransfer = [...transfer.sends, ...transfer.receives].some(
+    (transferItem) => transferItem.isOwn !== undefined,
+  );
+  const isUtxoReceive =
+    isUtxoTransfer && historyType === EOnChainHistoryTxType.Receive;
+  const isUtxoSend =
+    isUtxoTransfer &&
+    (historyType === EOnChainHistoryTxType.Send ||
+      historyType === EOnChainHistoryTxType.PrivateSend);
   const item = hasSend && !hasReceive ? send : (receive ?? send);
   const secondaryItem = hasSend && hasReceive ? send : undefined;
-  const target = getHistoryTransferTarget(transfer);
+  const target = getHistoryTransferTarget(transfer, historyType);
   let defaultTitle = isOutgoing ? labels.send : labels.receive;
   if (transfer.isInternalSwap) {
     defaultTitle = labels.swap;
@@ -1058,6 +1241,31 @@ function getHistoryDisplay({
       subtitle,
       imageUrl: networkLogoURI,
     };
+  }
+  if (isUtxoSend || isUtxoReceive) {
+    const utxoItem = isUtxoReceive ? receive : send;
+    if (utxoItem) {
+      const amount = new BigNumber(
+        history.decodedTx.nativeAmount ?? utxoItem.amount,
+      )
+        .abs()
+        .toFixed();
+      const fiatValue = utxoItem.price
+        ? new BigNumber(amount).times(utxoItem.price).toFixed()
+        : undefined;
+      return {
+        title: transfer.label || (isUtxoReceive ? labels.receive : labels.send),
+        subtitle,
+        value: `${isUtxoReceive ? '+' : '-'}${formatAmount(amount)} ${
+          utxoItem.symbol
+        }`,
+        detail: fiatValue
+          ? formatCurrency(fiatValue, 'USD', locale)
+          : undefined,
+        imageUrl: utxoItem.icon || networkLogoURI,
+        accentColor: isUtxoReceive ? '#1F9D67' : undefined,
+      };
+    }
   }
   const sign = item === send ? '-' : '+';
   const fiatValue = item.price
@@ -1091,7 +1299,7 @@ function buildHistorySections(
   (payload?.data ?? []).forEach((history) => {
     const timestamp =
       history.decodedTx.updatedAt ?? history.decodedTx.createdAt ?? 0;
-    const title = formatSectionDate(timestamp, locale);
+    const title = formatSectionDate(timestamp);
     groups.set(title, [...(groups.get(title) ?? []), history]);
   });
   const sections = Array.from(groups.entries()).map(
@@ -1107,7 +1315,7 @@ function buildHistorySections(
         });
         return {
           id: history.id,
-          renderer: 'history',
+          renderer: 'history' as const,
           ...display,
           badgeImageUrl: isAllNetworks
             ? history.decodedTx.networkLogoURI
@@ -1182,10 +1390,13 @@ function getDeFiTotal(payload: IHomeDeFiLegacyPayload | undefined): number {
 export function buildMobileNativeHomeViewModelSections({
   allNetworksBadgeImageUrl,
   expanded,
+  fiatContext,
   formatActionLabel,
+  hideValue = false,
   labels,
   locale,
   marketRecommendationState,
+  marketSemantic,
   payloads,
   sectionTitle,
   sectionId,
@@ -1195,10 +1406,13 @@ export function buildMobileNativeHomeViewModelSections({
 }: {
   allNetworksBadgeImageUrl?: string;
   expanded?: IHomeNativeExpandedState;
+  fiatContext?: IHomeNativeFiatContext;
   formatActionLabel?: (id: ETranslations) => string;
+  hideValue?: boolean;
   labels: IHomeNativeLabels;
   locale: string;
   marketRecommendationState?: IHomeNativeMarketRecommendationState;
+  marketSemantic?: IHomeSectionSemanticModel;
   payloads: IHomeNativePayloads;
   sectionTitle?: string;
   sectionId: IHomeContainerTabId;
@@ -1233,11 +1447,14 @@ export function buildMobileNativeHomeViewModelSections({
       const deFiTotal = getDeFiTotal(payloads.defi);
       return [
         ...buildPortfolioAssetSections({
+          actionsEnabled:
+            semantic.kind === 'ready' && semantic.freshness === 'live',
           allNetworksBadgeImageUrl,
           expanded: resolvedExpanded.portfolioAssets,
+          fiatContext,
+          hideValue,
           isAllNetworks,
           labels,
-          locale,
           payload: payloads.portfolio,
         }),
         ...(payloads.defi?.protocols.length
@@ -1258,6 +1475,7 @@ export function buildMobileNativeHomeViewModelSections({
           : []),
         ...buildMarketSections(
           payloads.market,
+          marketSemantic,
           labels,
           locale,
           Object.fromEntries(
@@ -1326,6 +1544,7 @@ export {
 };
 export type {
   IHomeNativeExpandedState,
+  IHomeNativeFiatContext,
   IHomeNativeLabels,
   IHomeNativeMarketRecommendationState,
   IHomeNativePayloads,
