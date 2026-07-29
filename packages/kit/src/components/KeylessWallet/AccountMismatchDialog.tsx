@@ -189,7 +189,8 @@ export async function showKeylessOAuthRefreshRecoveryDialog(params: {
 }): Promise<IKeylessOAuthRefreshRecoveryAction> {
   const { intl, provider } = params;
   const providerName =
-    getOAuthSocialLoginProviderName(provider) || 'Google or Apple';
+    getOAuthSocialLoginProviderName(provider) ||
+    intl.formatMessage({ id: ETranslations.google_or_apple__label });
   return new Promise<IKeylessOAuthRefreshRecoveryAction>((resolve) => {
     let isSettled = false;
     const settle = (action: IKeylessOAuthRefreshRecoveryAction) => {
@@ -200,16 +201,25 @@ export async function showKeylessOAuthRefreshRecoveryDialog(params: {
     };
     Dialog.show({
       icon: 'ErrorOutline',
-      // TODO: i18n
-      title: `Unable to refresh ${providerName} sign-in`,
-      // TODO: i18n
-      description: `We couldn't refresh your ${providerName} sign-in. Try again, or sign in with ${providerName} again to continue.`,
+      title: intl.formatMessage({
+        id: ETranslations.global_connection_failed,
+      }),
+      description: intl.formatMessage(
+        {
+          id: ETranslations.keyless_verify_identity_desc,
+        },
+        { provider: providerName },
+      ),
       showCancelButton: true,
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_retry,
       }),
-      // TODO: i18n
-      onCancelText: `Sign in with ${providerName} again`,
+      onCancelText: intl.formatMessage(
+        {
+          id: ETranslations.continue_with_social_platform,
+        },
+        { platform: providerName },
+      ),
       onConfirm: () => settle('retry'),
       onCancel: () => settle('reauthenticate'),
       onClose: () => settle('dismiss'),

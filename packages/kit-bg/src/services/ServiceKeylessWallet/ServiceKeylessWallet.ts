@@ -125,11 +125,23 @@ const juiceboxClientCache = new cacheUtils.LRUCache<string, JuiceboxClient>({
 // The realm-token endpoint consumes each Supabase access token once. Keep a
 // process-local tombstone beyond the Juicebox client lifetime so clearing or
 // evicting a client can never make the same access token look reusable.
-const exchangedRealmAccessTokenCache = new cacheUtils.LRUCache<string, true>({
+type IRealmAccessTokenExchangeTombstone = 'confirmed' | 'presumed';
+
+const exchangedRealmAccessTokenCache = new cacheUtils.LRUCache<
+  string,
+  IRealmAccessTokenExchangeTombstone
+>({
   max: 1000,
   ttl: timerUtils.getTimeDurationMs({ hour: 2 }),
   ttlAutopurge: true,
 });
+
+async function getRealmAccessTokenTombstoneKey(token: string): Promise<string> {
+  const tokenHash = await appCrypto.hash.sha256(
+    bufferUtils.toBuffer(token, 'utf-8'),
+  );
+  return bufferUtils.bytesToHex(tokenHash);
+}
 
 const KEYLESS_BACKEND_SHARE_PASSIVE_MIGRATION_INTERVAL_MS =
   timerUtils.getTimeDurationMs({ hour: 24 });
@@ -327,19 +339,24 @@ class ServiceKeylessWallet extends ServiceBase {
       cacheHit: !!client,
     });
     if (!client) {
-      if (exchangedRealmAccessTokenCache.has(token)) {
+      const exchangeTombstone =
+        await this.getRealmAccessTokenExchangeTombstone(token);
+      if (exchangeTombstone) {
         throw new OneKeyLocalError(
-          'The OAuth access token was already used for a realm-token exchange. Refresh or reauthenticate before retrying.',
+          exchangeTombstone === 'confirmed'
+            ? 'The OAuth access token was already used for a realm-token exchange. Refresh or reauthenticate before retrying.'
+            : 'The previous realm-token exchange result is unknown. Refresh or reauthenticate before retrying.',
         );
       }
       // Mark before the request: an ambiguous network failure may still have
       // consumed the access token on the server.
-      exchangedRealmAccessTokenCache.set(token, true);
+      await this.setRealmAccessTokenExchangeTombstone(token, 'presumed');
       juiceboxClientCache.clear();
       const { JuiceboxClient: JuiceboxClientRuntime } =
         await import('./utils/JuiceboxClient');
       client = new JuiceboxClientRuntime();
       await client.exchangeToken(token, diagnosticContext);
+      await this.setRealmAccessTokenExchangeTombstone(token, 'confirmed');
       juiceboxClientDiagnosticContextCache.set(token, diagnosticContext);
       juiceboxClientCache.set(token, client);
     } else {
@@ -349,6 +366,24 @@ class ServiceKeylessWallet extends ServiceBase {
     // Re-bind it to the current instance to avoid being overwritten by other instances.
     // client.setAsGlobalAuthTokenProvider();
     return client;
+  }
+
+  private async getRealmAccessTokenExchangeTombstone(
+    token: string,
+  ): Promise<IRealmAccessTokenExchangeTombstone | undefined> {
+    return exchangedRealmAccessTokenCache.get(
+      await getRealmAccessTokenTombstoneKey(token),
+    );
+  }
+
+  private async setRealmAccessTokenExchangeTombstone(
+    token: string,
+    tombstone: IRealmAccessTokenExchangeTombstone,
+  ): Promise<void> {
+    exchangedRealmAccessTokenCache.set(
+      await getRealmAccessTokenTombstoneKey(token),
+      tombstone,
+    );
   }
 
   /**
@@ -1382,7 +1417,10 @@ class ServiceKeylessWallet extends ServiceBase {
         token: refreshedAccessToken,
       });
     const tokenChanged = refreshedAccessToken !== previousAccessToken;
-    if (!tokenChanged) {
+    if (
+      !tokenChanged &&
+      (await this.getRealmAccessTokenExchangeTombstone(refreshedAccessToken))
+    ) {
       defaultLogger.wallet.keyless.oauthAccessTokenRefreshResult({
         ...diagnosticContext,
         refreshedTokenExpiresAt: refreshedDiagnosticContext.tokenExpiresAt,

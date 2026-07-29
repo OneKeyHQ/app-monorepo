@@ -12,6 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { getEmailOtpRateLimitRetryAfterSeconds } from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpRateLimitError';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -60,13 +61,16 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       setIsApiReady(true);
       setCountdown(COUNTDOWN_TIME);
     } catch (error) {
+      const retryAfterSeconds = getEmailOtpRateLimitRetryAfterSeconds(error);
       Toast.error({
         title: (error as Error)?.message,
       });
       setIsApiReady(true);
       setState({ status: 'initial' });
-      setCountdown(0);
-      throw error;
+      setCountdown(retryAfterSeconds ?? 0);
+      if (retryAfterSeconds === undefined) {
+        throw error;
+      }
     } finally {
       setIsResending(false);
     }

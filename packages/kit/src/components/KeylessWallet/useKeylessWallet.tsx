@@ -1429,6 +1429,23 @@ export function useKeylessWallet() {
     ],
   );
 
+  const checkKeylessOnboardingRateLimitStatus = useCallback(
+    async ({ mode }: { mode?: EOnboardingV2OneKeyIDLoginMode }) => {
+      const realmAccessToken = await getKeylessOnboardingTokenForRealmExchange({
+        mode: mode ?? EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
+        validateLocalWallet:
+          mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly,
+      });
+      if (!realmAccessToken) {
+        return null;
+      }
+      return backgroundApiProxy.serviceKeylessWallet.apiCheckRateLimitStatus({
+        token: realmAccessToken,
+      });
+    },
+    [getKeylessOnboardingTokenForRealmExchange],
+  );
+
   // Renamed function, checks if KeylessWallet exists locally
   const checkKeylessWalletLocalExistence = useCallback(
     async ({
@@ -1728,7 +1745,11 @@ export function useKeylessWallet() {
       }
 
       // Default: continue with restore flow
-      await cacheKeylessOnboardingToken({ token: realmAccessToken });
+      await cacheKeylessOnboardingToken({
+        token: realmAccessToken,
+        provider: await getKeylessOnboardingProvider(),
+        realmTokenState: 'refreshRequired',
+      });
       await cacheKeylessOnboardingPinConfirmStatusUpdated({
         updated: pinConfirmStatusUpdated,
       });
@@ -1753,6 +1774,7 @@ export function useKeylessWallet() {
     checkKeylessWalletCreatedOnServer, // step2 (handles all modes: default, ResetPin, VerifyPinOnly)
     confirmKeylessOnboardingPin, // step3
     verifyKeylessOnboardingPin,
+    checkKeylessOnboardingRateLimitStatus,
     finalizeKeylessWalletV2, // step4
     keylessOnboardingCache,
     cacheKeylessOnboardingPin,

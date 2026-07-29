@@ -468,12 +468,43 @@ describe('ServiceKeylessWallet realm exchange access token refresh', () => {
     });
   });
 
-  test('does not reuse the previous access token when refresh returns it unchanged', async () => {
+  test('accepts an unchanged freshly issued access token when it has not been exchanged', async () => {
     const previousAccessToken = buildFakeSupabaseJwt(
       Math.floor(Date.now() / 1000) + 60 * 60,
     );
     serviceAny.getOrMigrateKeylessOAuthAccessTokenForLocalWallet.mockResolvedValue(
       previousAccessToken,
+    );
+    mockSupabaseRefreshSession.mockResolvedValue({
+      data: {
+        session: {
+          access_token: previousAccessToken,
+        },
+      },
+      error: null,
+    });
+
+    await expect(
+      serviceAny.getFreshKeylessOAuthAccessTokenForRealmExchange(),
+    ).resolves.toEqual({
+      status: EKeylessOAuthAccessTokenRefreshStatus.Ready,
+      accessToken: previousAccessToken,
+    });
+    expect(serviceAny.validateTokenMatchesKeylessWallet).toHaveBeenCalledWith({
+      token: previousAccessToken,
+    });
+  });
+
+  test('does not reuse an unchanged access token with an exchange tombstone', async () => {
+    const previousAccessToken = buildFakeSupabaseJwt(
+      Math.floor(Date.now() / 1000) + 60 * 60,
+    );
+    serviceAny.getOrMigrateKeylessOAuthAccessTokenForLocalWallet.mockResolvedValue(
+      previousAccessToken,
+    );
+    await serviceAny.setRealmAccessTokenExchangeTombstone(
+      previousAccessToken,
+      'confirmed',
     );
     mockSupabaseRefreshSession.mockResolvedValue({
       data: {
@@ -624,7 +655,7 @@ describe('ServiceKeylessWallet realm exchange access token refresh', () => {
     });
   });
 
-  test('does not exchange realm tokens for the initial PIN rate-limit check', async () => {
+  test('does not exchange realm tokens for a cached PIN rate-limit check', async () => {
     await expect(
       serviceAny.apiGetCachedKeylessRateLimitStatus({
         token: 'never-exchanged-access-token',

@@ -66,11 +66,24 @@ describe('showKeylessOAuthRefreshRecoveryDialog', () => {
 
     expect(options).toEqual(
       expect.objectContaining({
-        title: 'Unable to refresh Google sign-in',
+        title: ETranslations.global_connection_failed,
+        description: ETranslations.keyless_verify_identity_desc,
         showCancelButton: true,
         onConfirmText: ETranslations.global_retry,
-        onCancelText: 'Sign in with Google again',
+        onCancelText: ETranslations.continue_with_social_platform,
       }),
+    );
+    expect(mockFormatMessage).toHaveBeenCalledWith(
+      {
+        id: ETranslations.keyless_verify_identity_desc,
+      },
+      { provider: 'Google' },
+    );
+    expect(mockFormatMessage).toHaveBeenCalledWith(
+      {
+        id: ETranslations.continue_with_social_platform,
+      },
+      { platform: 'Google' },
     );
 
     (options.onConfirm as () => void)();
@@ -85,7 +98,15 @@ describe('showKeylessOAuthRefreshRecoveryDialog', () => {
     });
     const options = mockedDialogShow.mock.calls[0][0];
 
-    expect(options.onCancelText).toBe('Sign in with Apple again');
+    expect(options.onCancelText).toBe(
+      ETranslations.continue_with_social_platform,
+    );
+    expect(mockFormatMessage).toHaveBeenCalledWith(
+      {
+        id: ETranslations.continue_with_social_platform,
+      },
+      { platform: 'Apple' },
+    );
     (options.onCancel as () => void)();
 
     await expect(resultPromise).resolves.toBe('reauthenticate');
@@ -97,7 +118,18 @@ describe('showKeylessOAuthRefreshRecoveryDialog', () => {
     });
     const options = mockedDialogShow.mock.calls[0][0];
 
-    expect(options.onCancelText).toBe('Sign in with Google or Apple again');
+    expect(options.onCancelText).toBe(
+      ETranslations.continue_with_social_platform,
+    );
+    expect(mockFormatMessage).toHaveBeenCalledWith({
+      id: ETranslations.google_or_apple__label,
+    });
+    expect(mockFormatMessage).toHaveBeenCalledWith(
+      {
+        id: ETranslations.continue_with_social_platform,
+      },
+      { platform: ETranslations.google_or_apple__label },
+    );
     await options.onClose?.();
 
     await expect(resultPromise).resolves.toBe('dismiss');

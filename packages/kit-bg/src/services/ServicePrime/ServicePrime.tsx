@@ -3051,6 +3051,7 @@ class ServicePrime extends ServiceBase {
             operationId,
             reason: getSanitizedAuthErrorLog(error),
           });
+          return false;
         }
         throw error;
       } finally {

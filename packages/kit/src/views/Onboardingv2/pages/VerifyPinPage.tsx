@@ -45,8 +45,11 @@ function VerifyPinPage() {
   const route =
     useRoute<RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.VerifyPin>>();
   const { mode } = route.params ?? {};
-  const { verifyKeylessOnboardingPin, getKeylessOnboardingToken } =
-    useKeylessWallet();
+  const {
+    verifyKeylessOnboardingPin,
+    getKeylessOnboardingToken,
+    checkKeylessOnboardingRateLimitStatus,
+  } = useKeylessWallet();
   const { cancelVerifyPin } = useVerifyKeylessPinChecking();
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingRateLimit, setIsCheckingRateLimit] = useState(true);
@@ -172,15 +175,19 @@ function VerifyPinPage() {
     async ({ isFirstCheck }: { isFirstCheck: boolean }) => {
       try {
         setIsCheckingRateLimit(true);
-        const token = await getKeylessOnboardingToken();
-        if (!token) {
-          return;
+        let result;
+        if (isFirstCheck) {
+          result = await checkKeylessOnboardingRateLimitStatus({ mode });
+        } else {
+          const token = await getKeylessOnboardingToken();
+          if (!token) {
+            return;
+          }
+          result =
+            await backgroundApiProxy.serviceKeylessWallet.apiGetCachedKeylessRateLimitStatus(
+              { token },
+            );
         }
-
-        const result =
-          await backgroundApiProxy.serviceKeylessWallet.apiGetCachedKeylessRateLimitStatus(
-            { token },
-          );
         if (!result) {
           return;
         }
@@ -210,7 +217,14 @@ function VerifyPinPage() {
         // Focus is now handled by PinInputLayout when skeleton transitions to input
       }
     },
-    [getKeylessOnboardingToken, handleForgotPin, intl, startCooldown],
+    [
+      checkKeylessOnboardingRateLimitStatus,
+      getKeylessOnboardingToken,
+      handleForgotPin,
+      intl,
+      mode,
+      startCooldown,
+    ],
   );
 
   // Check rate limit status on page enter

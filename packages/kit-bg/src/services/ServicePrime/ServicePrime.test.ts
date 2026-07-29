@@ -2288,6 +2288,48 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
     );
   });
 
+  it('falls through to durable cleanup when the pre-upgrade recovery probe fails', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    const accessToken = buildFakeJwt({ sub: 'keyless-user-a' });
+    const profileError = new OneKeyLocalError('profile request failed');
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
+    });
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(undefined);
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue(undefined);
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(0);
+    simpleDbPrime.getKeylessSupabaseAuthToken.mockResolvedValue(accessToken);
+    backgroundApi.serviceAccount.getKeylessWallet.mockResolvedValue({
+      id: 'hd-keyless-a',
+    });
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => {
+        throw profileError;
+      }),
+    }));
+
+    await expect(
+      service.clearOneKeyIdAuthStateIfNoActiveToken({
+        callerName: 'test',
+      }),
+    ).resolves.toEqual({ cleared: true });
+
+    expect(
+      simpleDbPrime.setAuthSessionSourceWithCommitId,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession,
+    ).toHaveBeenCalledWith({ callerName: 'test' });
+    expect(mockOneKeyIdAuthStateMigrationLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: 'profileValidation',
+        status: 'failed',
+      }),
+    );
+  });
+
   it('does not probe Keyless OAuth for a non-upgrade inconsistent state', async () => {
     const { service, backgroundApi, simpleDbPrime } = createService();
     mockPrimePersistAtom.get.mockResolvedValue({
