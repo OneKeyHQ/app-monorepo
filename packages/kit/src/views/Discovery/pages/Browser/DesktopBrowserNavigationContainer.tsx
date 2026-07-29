@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { memo, useCallback } from 'react';
 
 import { Freeze } from 'react-freeze';
 
@@ -211,11 +211,17 @@ function DesktopBrowserNavigationBar({
   return null;
 }
 
+// Memo boundary per tab. The container re-renders whenever the tab list atom
+// is written — which now happens on any tab field change, not just an id-list
+// change — and without this every open tab's whole info bar (translation hooks,
+// shortcut registrations, Tamagui subtree) re-rendered with it.
+const DesktopBrowserNavigationBarMemo = memo(DesktopBrowserNavigationBar);
+
 function DesktopBrowserNavigationBarContainer() {
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
   return tabs.map((t) => (
-    <DesktopBrowserNavigationBar
+    <DesktopBrowserNavigationBarMemo
       key={`DesktopBrowserNavigationContainer-${t.id}`}
       id={t.id}
       activeTabId={activeTabId}

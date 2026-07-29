@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 
 import {
   useActiveTabIdAtom,
@@ -13,12 +13,19 @@ import type { IWebTab } from '../types';
 
 export const useWebTabs = () => {
   const [webTabs] = useWebTabsAtom();
-  return useMemo(
-    () => ({
-      tabs: webTabs.tabs,
-    }),
-    [webTabs],
-  );
+  // Key on the id list, not on the atom value. webTabsAtom is now written on
+  // any tab field change (title/loading/favicon) so later reads cannot go
+  // stale; keying on the whole value would hand every consumer a fresh `tabs`
+  // array on each of those writes. Consumers here only iterate ids to render
+  // per-tab shells — they read fields through useWebTabDataById — so the array
+  // only needs a new identity when the set or order of tabs changes.
+  const idsKey = webTabs.tabs.map((t) => t.id).join(',');
+  const cache = useRef({ idsKey, tabs: webTabs.tabs });
+  if (cache.current.idsKey !== idsKey) {
+    cache.current = { idsKey, tabs: webTabs.tabs };
+  }
+  const { tabs } = cache.current;
+  return useMemo(() => ({ tabs }), [tabs]);
 };
 
 export const useWebTabDataById = (id?: string) => {
