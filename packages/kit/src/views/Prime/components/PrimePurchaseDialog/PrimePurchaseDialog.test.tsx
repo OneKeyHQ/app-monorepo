@@ -144,6 +144,11 @@ jest.mock('./usePurchasePackageWebview', () => ({
 
 type IPaymentMethodDialogContent = ReactElement<{
   children: ReactElement<{
+    freeTrial?: {
+      periodIso: string;
+      periodNumber: number;
+      periodUnit: 'day' | 'week' | 'month' | 'year';
+    };
     onSelect: (method: 'webStripe') => Promise<boolean>;
   }>;
 }>;
@@ -192,15 +197,27 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
       onekeyUserId: 'user-1',
     });
     const { result } = renderHook(() => usePrimePurchaseCallback());
+    const freeTrial = {
+      periodIso: 'P3D',
+      periodNumber: 3,
+      periodUnit: 'day' as const,
+    };
 
     await act(async () => {
       await result.current.purchase({
         selectedSubscriptionPeriod: 'P1M',
+        freeTrial,
       });
     });
 
     expect(mockDialogShow).toHaveBeenCalledTimes(1);
     expect(mockPurchaseByCrypto).not.toHaveBeenCalled();
+    const dialogConfig = mockDialogShow.mock.calls[0][0] as {
+      renderContent: IPaymentMethodDialogContent;
+    };
+    expect(dialogConfig.renderContent.props.children.props.freeTrial).toEqual(
+      freeTrial,
+    );
   });
 
   it('blocks the purchase with a visible error when the guard request fails', async () => {

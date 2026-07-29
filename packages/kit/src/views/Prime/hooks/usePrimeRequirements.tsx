@@ -15,7 +15,10 @@ import { usePrimePurchaseCallback } from '../components/PrimePurchaseDialog/Prim
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
 
-import type { ISubscriptionPeriod } from './usePrimePaymentTypes';
+import type {
+  IPackageFreeTrial,
+  ISubscriptionPeriod,
+} from './usePrimePaymentTypes';
 
 const PrimePurchaseDialog = LazyLoadPage(
   () => import('../components/PrimePurchaseDialog/PrimePurchaseDialog'),
@@ -75,10 +78,12 @@ export function usePrimeRequirements({
       skipDialogConfirm,
       selectedSubscriptionPeriod,
       featureName,
+      freeTrial,
     }: {
       skipDialogConfirm?: boolean;
       selectedSubscriptionPeriod?: ISubscriptionPeriod;
       featureName?: EPrimeFeatures;
+      freeTrial?: IPackageFreeTrial;
     } = {}) => {
       await ensureOneKeyIDLoggedIn({
         skipDialogConfirm,
@@ -92,7 +97,9 @@ export function usePrimeRequirements({
           });
           if (isSandboxKey && !user.isEnableSandboxPay) {
             Toast.error({
-              title: 'Your account is not eligible for sandbox payment',
+              title: intl.formatMessage({
+                id: ETranslations.prime_sandbox_payment_unavailable__msg,
+              }),
             });
             return;
           }
@@ -100,6 +107,7 @@ export function usePrimeRequirements({
             await purchase({
               selectedSubscriptionPeriod,
               featureName,
+              freeTrial,
             });
           } else {
             const _purchaseDialog = Dialog.show({

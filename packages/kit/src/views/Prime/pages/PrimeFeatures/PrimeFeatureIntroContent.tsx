@@ -728,12 +728,14 @@ export function PrimeFeatureIntroContent({
       skipDialogConfirm: true,
       selectedSubscriptionPeriod: subscriptionPeriod,
       featureName: activeFeature.id,
+      freeTrial: selectedPackage?.freeTrial,
     });
   }, [
     activeFeature,
     ensurePrimeSubscriptionActive,
     isLoggedIn,
     isPackagesLoading,
+    selectedPackage?.freeTrial,
     subscriptionPeriod,
   ]);
 

@@ -38,12 +38,15 @@ export function isPrimeInfiniExternalCheckoutInFlight() {
   return isExternalCheckoutInFlight;
 }
 
-async function ensurePrimeLoggedIn() {
+async function ensurePrimeLoggedIn(
+  intl: ReturnType<typeof useIntl>,
+): Promise<boolean> {
   const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
   if (!isLoggedIn) {
     Toast.error({
-      // TODO: i18n pending translation key
-      title: 'Please log in to your OneKey ID first',
+      title: intl.formatMessage({
+        id: ETranslations.prime_not_logged_in_description,
+      }),
     });
   }
   return isLoggedIn;
@@ -93,7 +96,7 @@ export function usePrimeInfiniPurchase() {
         // ensureOneKeyIDLoggedIn (usePrimeRequirements) before reaching here.
         // Calling usePrimeRequirements directly would create a circular import
         // with PrimePurchaseDialog, so the login state is verified via bg service.
-        if (!(await ensurePrimeLoggedIn())) {
+        if (!(await ensurePrimeLoggedIn(intl))) {
           logPrimeInfiniPaymentFlow({
             stage: 'externalCheckout',
             status: 'blocked',
@@ -173,8 +176,9 @@ export function usePrimeInfiniPurchase() {
         const baselinePrimeSubscription = baselineSnapshot.primeSubscription;
         if (baselinePrimeSubscription?.isActive) {
           Toast.message({
-            // TODO: i18n pending translation key
-            title: 'OneKey Prime is already active for this account.',
+            title: intl.formatMessage({
+              id: ETranslations.prime_already_active__msg,
+            }),
           });
           logPrimeInfiniPaymentFlow({
             stage: 'externalCheckout',
@@ -223,8 +227,9 @@ export function usePrimeInfiniPurchase() {
           // and business errors are already toasted by @toastIfError on
           // apiGetInfiniCheckoutUrl; only this local throw needs it.
           Toast.error({
-            // TODO: i18n pending translation key
-            title: 'Failed to create the checkout, please try again',
+            title: intl.formatMessage({
+              id: ETranslations.prime_payment_start_failed__msg,
+            }),
           });
           throw new OneKeyLocalError({
             message: 'Infini checkout url is empty',
@@ -317,7 +322,7 @@ export function usePrimeInfiniPurchase() {
         checkoutType: 'internalWallet',
       });
       try {
-        if (!(await ensurePrimeLoggedIn())) {
+        if (!(await ensurePrimeLoggedIn(intl))) {
           logPrimeInfiniPaymentFlow({
             stage: 'walletPaymentPage',
             status: 'blocked',
@@ -360,7 +365,7 @@ export function usePrimeInfiniPurchase() {
         isWalletPaymentPageOpening = false;
       }
     },
-    [navigation],
+    [intl, navigation],
   );
 
   return { purchaseByCrypto, purchaseByExternalCheckout };

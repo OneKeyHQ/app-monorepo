@@ -29,21 +29,24 @@ import {
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
 import { usePurchasePackageWebview } from './usePurchasePackageWebview';
 
-import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
+import type {
+  IPackageFreeTrial,
+  ISubscriptionPeriod,
+} from '../../hooks/usePrimePaymentTypes';
 import type { IPrimeSubscriptionPurchaseSuccessPayload } from '../../primeSubscriptionPurchaseSuccess';
 
 type IPrimePaymentMethodKey = 'native' | 'webview' | 'webStripe' | 'crypto';
 
 type IPrimePaymentMethodOption = {
   key: IPrimePaymentMethodKey;
-  label: string;
+  label: ETranslations;
   icon?: IActionListItemProps['icon'];
   testID?: string;
 };
 
 const CRYPTO_PAYMENT_METHOD: IPrimePaymentMethodOption = {
   key: 'crypto',
-  label: 'Crypto',
+  label: ETranslations.prime_crypto_payment__label,
   icon: 'CryptoCoinOutline',
   testID: 'prime-pay-with-crypto',
 };
@@ -51,7 +54,7 @@ const CRYPTO_PAYMENT_METHOD: IPrimePaymentMethodOption = {
 const WEB_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
   {
     key: 'webStripe',
-    label: 'Credit card',
+    label: ETranslations.prime_credit_card__label,
     icon: 'CreditCardOutline',
     testID: 'prime-pay-with-card',
   },
@@ -61,7 +64,7 @@ const WEB_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
 const ANDROID_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
   {
     key: 'webview',
-    label: 'Purchase by Webview',
+    label: ETranslations.prime_credit_card__label,
     icon: 'CreditCardOutline',
   },
   CRYPTO_PAYMENT_METHOD,
@@ -70,7 +73,7 @@ const ANDROID_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
 const ANDROID_GOOGLE_PLAY_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
   {
     key: 'native',
-    label: 'Purchase by GooglePlay',
+    label: ETranslations.prime_google_play__label,
     icon: 'GooglePlayBrand',
   },
   ...ANDROID_PAYMENT_METHODS,
@@ -78,12 +81,38 @@ const ANDROID_GOOGLE_PLAY_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
 
 function PrimePaymentMethodItems({
   methods,
+  freeTrial,
   onSelect,
 }: {
   methods: IPrimePaymentMethodOption[];
+  freeTrial?: IPackageFreeTrial;
   onSelect: (method: IPrimePaymentMethodKey) => Promise<boolean>;
 }) {
+  const intl = useIntl();
   const [pendingMethod, setPendingMethod] = useState<IPrimePaymentMethodKey>();
+  let trialIncludedSubtitle: string | undefined;
+  if (freeTrial?.periodUnit === 'day') {
+    trialIncludedSubtitle = intl.formatMessage(
+      { id: ETranslations.prime_free_trial_included_days__desc },
+      { count: freeTrial.periodNumber },
+    );
+  } else if (freeTrial) {
+    trialIncludedSubtitle = intl.formatMessage({
+      id: ETranslations.prime_free_trial_included__desc,
+    });
+  }
+  const getMethodSubtitle = (method: IPrimePaymentMethodOption) => {
+    // Without a free trial both channels grant the same thing, so there is
+    // no difference worth stating on the rows.
+    if (!freeTrial) {
+      return undefined;
+    }
+    return method.key === 'crypto'
+      ? intl.formatMessage({
+          id: ETranslations.prime_no_free_trial__desc,
+        })
+      : trialIncludedSubtitle;
+  };
   const handleSelect = useCallback(
     async (method: IPrimePaymentMethodKey) => {
       if (pendingMethod) {
@@ -112,7 +141,8 @@ function PrimePaymentMethodItems({
           drillIn
           icon={method.icon}
           testID={method.testID ?? `prime-payment-method-${method.key}`}
-          title={method.label}
+          title={intl.formatMessage({ id: method.label })}
+          subtitle={getMethodSubtitle(method)}
           disabled={Boolean(pendingMethod)}
           isLoading={pendingMethod === method.key}
           onPress={async () => {
@@ -148,11 +178,10 @@ export function usePrimePurchaseCallback({
       // purchasePackageNative owns the post-purchase refresh for both
       // outcomes (claim -> refresh -> emit on success, one defensive refresh
       // on failure); refreshing here again would duplicate it.
-      const result = await purchasePackageNative?.({
+      await purchasePackageNative?.({
         subscriptionPeriod: selectedSubscriptionPeriod,
         featureName,
       });
-      console.log('purchasePackageNative result >>>>>>', result);
     },
     [purchasePackageNative],
   );
@@ -208,13 +237,14 @@ export function usePrimePurchaseCallback({
       if (
         !(await ensurePrimePurchaseEligible({
           expectedOneKeyUserId: user?.onekeyUserId,
+          intl,
         }))
       ) {
         return;
       }
       await purchaseByNativeUnchecked(params);
     },
-    [purchaseByNativeUnchecked, user?.onekeyUserId],
+    [intl, purchaseByNativeUnchecked, user?.onekeyUserId],
   );
 
   const purchaseByWebview = useCallback(
@@ -226,13 +256,14 @@ export function usePrimePurchaseCallback({
       if (
         !(await ensurePrimePurchaseEligible({
           expectedOneKeyUserId: user?.onekeyUserId,
+          intl,
         }))
       ) {
         return;
       }
       await purchaseByWebviewUnchecked(params);
     },
-    [purchaseByWebviewUnchecked, user?.onekeyUserId],
+    [intl, purchaseByWebviewUnchecked, user?.onekeyUserId],
   );
 
   // TODO move to jotai context method
@@ -241,10 +272,12 @@ export function usePrimePurchaseCallback({
       selectedSubscriptionPeriod,
       currency,
       featureName,
+      freeTrial,
     }: {
       selectedSubscriptionPeriod: ISubscriptionPeriod;
       currency?: string;
       featureName?: EPrimeFeatures;
+      freeTrial?: IPackageFreeTrial;
     }) => {
       // primeSubscribeIntent must fire exactly once per actual payment
       // attempt with its channel (see the scene doc: it pairs with
@@ -324,6 +357,7 @@ export function usePrimePurchaseCallback({
         if (
           !(await ensurePrimePurchaseEligible({
             expectedOneKeyUserId: user?.onekeyUserId,
+            intl,
           }))
         ) {
           return;
@@ -349,13 +383,15 @@ export function usePrimePurchaseCallback({
       }
 
       const paymentMethodDialog = Dialog.show({
-        // TODO: i18n pending translation key
-        title: 'Payment method',
+        title: intl.formatMessage({
+          id: ETranslations.prime_payment_method__title,
+        }),
         showFooter: false,
         renderContent: (
           <YStack mx="$-5" mt="$-1" mb="$-3" $md={{ pb: '$3', mb: '$0' }}>
             <PrimePaymentMethodItems
               methods={paymentMethods}
+              freeTrial={freeTrial}
               onSelect={async (method) => {
                 if (
                   await continuePendingCryptoPayment({
@@ -369,6 +405,7 @@ export function usePrimePurchaseCallback({
                 if (
                   !(await ensurePrimePurchaseEligible({
                     expectedOneKeyUserId: user?.onekeyUserId,
+                    intl,
                   }))
                 ) {
                   return false;
@@ -484,12 +521,13 @@ export const PrimePurchaseDialog = (props: {
           disabled: !packages,
         }}
         onConfirm={() => {
-          const currency = packages?.find(
+          const selectedPackage = packages?.find(
             (p) => p.subscriptionPeriod === selectedSubscriptionPeriod,
-          )?.currencyCode;
+          );
           return purchase({
             selectedSubscriptionPeriod,
-            currency,
+            currency: selectedPackage?.currencyCode,
+            freeTrial: selectedPackage?.freeTrial,
             featureName,
           });
         }}

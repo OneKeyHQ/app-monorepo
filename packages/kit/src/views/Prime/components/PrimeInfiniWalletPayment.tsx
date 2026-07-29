@@ -115,7 +115,6 @@ import {
   usePrimeInfiniPurchase,
 } from '../hooks/usePrimeInfiniPurchase';
 import { logPrimeInfiniPaymentFlow } from '../primeInfiniPaymentLogger';
-import { PRIME_PAY_WITH_CRYPTO_LABEL } from '../primePaymentLabels';
 import { ensurePrimePurchaseEligible } from '../primePurchaseEligibility';
 import {
   finishPrimeSubscriptionPurchaseSuccess,
@@ -231,6 +230,7 @@ function PrimeInfiniExternalCheckoutLink({
   loading,
   onPress,
 }: IPrimeInfiniExternalCheckoutLinkProps) {
+  const intl = useIntl();
   return (
     <XStack justifyContent="center" $gtMd={{ justifyContent: 'flex-start' }}>
       <Button
@@ -244,11 +244,12 @@ function PrimeInfiniExternalCheckoutLink({
         onPress={onPress}
       >
         <XStack alignItems="center" gap="$1">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {/* TODO: i18n pending translation key */}
-            Pay with an external wallet
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.prime_pay_with_external_wallet__action,
+            })}
           </SizableText>
-          <Icon name="ArrowTopRightOutline" size="$3.5" color="$iconSubdued" />
+          <Icon name="ArrowTopRightOutline" size="$4" color="$iconSubdued" />
         </XStack>
       </Button>
     </XStack>
@@ -519,6 +520,7 @@ function PrimeInfiniExistingPaymentChoice({
   onContinueExistingPayment: () => void;
   onStartNewPayment: () => Promise<void>;
 }) {
+  const intl = useIntl();
   const handleStartNewPayment = useCallback(() => {
     void onStartNewPayment().catch((error) => {
       errorToastUtils.showToastOfError(error);
@@ -530,10 +532,12 @@ function PrimeInfiniExistingPaymentChoice({
       <YStack gap="$4">
         <Alert
           type="warning"
-          // TODO: i18n pending translation key
-          title="Unfinished payment found"
-          // TODO: i18n pending translation key
-          description="The previous transfer may still complete. Starting a new payment could result in duplicate transfers."
+          title={intl.formatMessage({
+            id: ETranslations.prime_unfinished_payment__title,
+          })}
+          description={intl.formatMessage({
+            id: ETranslations.prime_unfinished_payment__desc,
+          })}
         />
         {isPaymentStateStale ? (
           // The amounts below come from the local record because the server
@@ -542,10 +546,12 @@ function PrimeInfiniExistingPaymentChoice({
           // paid, which is exactly the judgement this screen asks them to make.
           <Alert
             type="critical"
-            // TODO: i18n pending translation key
-            title="Unable to refresh this payment"
-            // TODO: i18n pending translation key
-            description="The amounts below are from this device's last known state and may be out of date. Check the recipient address on chain before starting a new payment."
+            title={intl.formatMessage({
+              id: ETranslations.prime_payment_refresh_failed__title,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.prime_payment_stale__desc,
+            })}
           />
         ) : null}
         <YStack
@@ -556,30 +562,40 @@ function PrimeInfiniExistingPaymentChoice({
           borderRadius="$3"
         >
           <XStack justifyContent="space-between" gap="$3">
-            {/* TODO: i18n pending translation key */}
-            <SizableText color="$textSubdued">Payment amount</SizableText>
+            <SizableText color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.prime_payment_amount__label,
+              })}
+            </SizableText>
             <SizableText size="$bodyMdMedium">
               {session.payment.amountDue} {session.payment.token}
             </SizableText>
           </XStack>
           <XStack justifyContent="space-between" gap="$3">
-            {/* TODO: i18n pending translation key */}
-            <SizableText color="$textSubdued">Confirmed</SizableText>
+            <SizableText color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.prime_payment_confirmed__label,
+              })}
+            </SizableText>
             <SizableText size="$bodyMdMedium">
               {session.payment.amountConfirmed ?? '0'} {session.payment.token}
             </SizableText>
           </XStack>
           <XStack justifyContent="space-between" gap="$3">
-            {/* TODO: i18n pending translation key */}
-            <SizableText color="$textSubdued">Confirming</SizableText>
+            <SizableText color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.global_confirming })}
+            </SizableText>
             <SizableText size="$bodyMdMedium">
               {session.payment.amountConfirming ?? '0'} {session.payment.token}
             </SizableText>
           </XStack>
           {isPaymentStateStale ? (
             <YStack gap="$1">
-              {/* TODO: i18n pending translation key */}
-              <SizableText color="$textSubdued">Recipient address</SizableText>
+              <SizableText color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.prime_recipient_address__label,
+                })}
+              </SizableText>
               <SizableText size="$bodySm" userSelect="text">
                 {session.payment.address}
               </SizableText>
@@ -600,27 +616,32 @@ function PrimeInfiniExistingPaymentChoice({
         </YStack>
       </YStack>
       <Page.Footer>
-        <YStack gap="$2" px="$5" py="$5">
-          <Button
-            testID="prime-infini-continue-existing-payment"
-            variant="secondary"
-            disabled={isStartingNewPayment}
-            onPress={onContinueExistingPayment}
-          >
-            {/* TODO: i18n pending translation key */}
-            Keep waiting for this payment
-          </Button>
-          <Button
-            testID="prime-infini-start-new-payment"
-            variant="primary"
-            loading={isStartingNewPayment}
-            disabled={isStartingNewPayment}
-            onPress={handleStartNewPayment}
-          >
-            {/* TODO: i18n pending translation key */}
-            Start a new payment anyway
-          </Button>
-        </YStack>
+        <Page.FooterActions
+          // The close callbacks are unused on purpose: declaring the parameter
+          // opts out of FooterCancelButton's auto-pop, and continuing the
+          // existing payment must never navigate away.
+          onCancel={(_close) => {
+            onContinueExistingPayment();
+          }}
+          onCancelText={intl.formatMessage({
+            id: ETranslations.prime_keep_waiting__action,
+          })}
+          cancelButtonProps={{
+            testID: 'prime-infini-continue-existing-payment',
+            disabled: isStartingNewPayment,
+          }}
+          onConfirm={() => {
+            handleStartNewPayment();
+          }}
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.prime_start_new_payment__action,
+          })}
+          confirmButtonProps={{
+            testID: 'prime-infini-start-new-payment',
+            loading: isStartingNewPayment,
+            disabled: isStartingNewPayment,
+          }}
+        />
       </Page.Footer>
     </>
   );
@@ -1365,11 +1386,15 @@ function PrimeInfiniWalletPaymentContent({
     onStateChange: handlePaymentExpiryStateChange,
   });
   const payButtonText = displayPayment
-    ? `${intl.formatMessage({
-        id: ETranslations.global_pay,
-      })} ${displayPayment.amountDue} ${displayPayment.token}${
-        paymentExpiryCountdown ? ` · ${paymentExpiryCountdown}` : ''
-      }`
+    ? `${intl.formatMessage(
+        {
+          id: ETranslations.prime_pay_amount__action,
+        },
+        {
+          amount: displayPayment.amountDue,
+          token: displayPayment.token,
+        },
+      )}${paymentExpiryCountdown ? ` · ${paymentExpiryCountdown}` : ''}`
     : intl.formatMessage({
         id: ETranslations.global_pay,
       });
@@ -2054,6 +2079,7 @@ function PrimeInfiniWalletPaymentContent({
       if (
         !(await ensurePrimePurchaseEligible({
           expectedOneKeyUserId,
+          intl,
         }))
       ) {
         submitInFlightRef.current = false;
@@ -3191,11 +3217,12 @@ function PrimeInfiniWalletPaymentContent({
       reason: 'externalWalletSelectedFromInternalPayment',
     });
     Dialog.show({
-      // TODO: i18n pending translation key
-      title: 'Pay with an external wallet?',
-      // TODO: i18n pending translation key
-      description:
-        'You’ll continue payment in your browser. The current in-app payment will be closed.',
+      title: intl.formatMessage({
+        id: ETranslations.prime_pay_with_external_wallet__title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.prime_external_wallet_checkout__desc,
+      }),
       showFooter: true,
       showCancelButton: true,
       showConfirmButton: true,
@@ -3288,7 +3315,7 @@ function PrimeInfiniWalletPaymentContent({
       avatarProps={
         displayAccount
           ? {
-              size: 'small',
+              size: 'medium',
               indexedAccount: displayActiveAccount.indexedAccount,
               account: displayAccount,
               dbAccount: displayActiveAccount.dbAccount,
@@ -3384,6 +3411,15 @@ function PrimeInfiniWalletPaymentContent({
 
   return (
     <YStack gap="$4">
+      {/* Order summary: state what is being purchased, not only how to pay. */}
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {`OneKey Prime · ${intl.formatMessage({
+          id:
+            plan === 'yearly'
+              ? ETranslations.prime_yearly
+              : ETranslations.prime_monthly,
+        })}`}
+      </SizableText>
       <YStack gap="$2">
         <SizableText size="$bodyMdMedium">
           {intl.formatMessage({ id: ETranslations.global_account })}
@@ -3403,6 +3439,7 @@ function PrimeInfiniWalletPaymentContent({
           borderColor="$borderSubdued"
           tokenImageSrc={displayBalanceDetail?.info.logoURI}
           networkImageSrc={selectedNetwork?.logoURI}
+          tokenSize="md"
           tokenSymbol={displayAsset.token}
           tokenName={displayBalanceDetail?.info.name ?? displayAsset.token}
           tokenSymbolAccessory={
@@ -3459,7 +3496,6 @@ function PrimeInfiniWalletPaymentContent({
 
       {platformEnv.isDev && displayPayment ? (
         <YStack testID="prime-infini-payment-id" gap="$1">
-          {/* TODO: i18n pending translation key */}
           <SizableText color="$textSubdued">Payment ID</SizableText>
           <SizableText size="$bodySm" color="$textSubdued" userSelect="text">
             {displayPayment.paymentId}
@@ -4305,12 +4341,13 @@ function PrimeInfiniWalletPaymentRoot({
     }
     let paymentContextErrorTitle: string | undefined;
     if (!effectivePendingSession && !hasValidRouteParams) {
-      // TODO: i18n pending translation key
-      paymentContextErrorTitle =
-        'Unable to start payment because the purchase context is invalid';
+      paymentContextErrorTitle = intl.formatMessage({
+        id: ETranslations.prime_payment_start_failed__msg,
+      });
     } else if (!result.baseline.onekeyUserId) {
-      // TODO: i18n pending translation key
-      paymentContextErrorTitle = 'Please log in to your OneKey ID first';
+      paymentContextErrorTitle = intl.formatMessage({
+        id: ETranslations.prime_not_logged_in_description,
+      });
     } else if (result.hasError) {
       paymentContextErrorTitle = intl.formatMessage({
         id: ETranslations.global_network_error,
@@ -4382,6 +4419,7 @@ function PrimeInfiniWalletPaymentRoot({
 }
 
 export default function PrimeInfiniWalletPayment() {
+  const intl = useIntl();
   const navigation = useAppNavigation<IPageNavigationProp<IPrimeParamList>>();
   const route = useAppRoute<IPrimeParamList, EPrimePages.PrimeInfiniPayment>();
   const createNewPaymentRef = useRef(route.params?.createNewPayment === true);
@@ -4439,15 +4477,20 @@ export default function PrimeInfiniWalletPayment() {
       return;
     }
     Toast.error({
-      // TODO: i18n pending translation key
-      title: 'Crypto payments are not available on this platform',
+      title: intl.formatMessage({
+        id: ETranslations.prime_crypto_payment_unsupported__msg,
+      }),
     });
     closePaymentPage();
-  }, [closePaymentPage, isCryptoPaymentSupported]);
+  }, [closePaymentPage, intl, isCryptoPaymentSupported]);
 
   return (
     <Page testID="prime-infini-payment-page" scrollEnabled>
-      <Page.Header headerTitle={PRIME_PAY_WITH_CRYPTO_LABEL} />
+      <Page.Header
+        headerTitle={intl.formatMessage({
+          id: ETranslations.prime_pay_with_crypto__title,
+        })}
+      />
       <Page.Body>
         <YStack px="$5" py="$4" gap="$4">
           {isCryptoPaymentSupported ? (
