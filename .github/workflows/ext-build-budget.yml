@@ -12,6 +12,7 @@ on:
       - '.github/workflows/ext-build-budget.yml'
       - 'apps/ext/**'
       - 'packages/**'
+      - 'patches/**'
       - 'development/babel-plugins/**'
       - 'development/babelTools.js'
       - 'development/developmentConsts.js'
