@@ -3456,6 +3456,10 @@ class ServiceAccount extends ServiceBase {
             featuresDeviceId: dbDevice.deviceId,
             features: dbDevice.featuresInfo,
             hardwareCallContext,
+            // We hold the record here, so pass its vendor: lets the resolver find
+            // a third-party device and pick its transport-correct connectId
+            // (Trezor BLE session -> bleConnectId instead of the deviceId).
+            vendor: dbDevice.vendor,
           });
       } catch (error) {
         // If getCompatibleConnectId fails, use the original connectId
@@ -3558,6 +3562,10 @@ class ServiceAccount extends ServiceBase {
       await this.backgroundApi.serviceHardware.getCompatibleConnectId({
         connectId,
         featuresDeviceId: dbDevice.deviceId,
+        // Without the vendor the lookup defaults to OneKey and misses a
+        // third-party device row, so a Trezor main connectId (deviceId) leaks
+        // raw into the BLE session and hangs on the noble connect timeout.
+        vendor: dbDevice.vendor,
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
 
@@ -3739,6 +3747,10 @@ class ServiceAccount extends ServiceBase {
         : await this.backgroundApi.serviceHardware.getCompatibleConnectId({
             connectId: params.device.connectId ?? '',
             featuresDeviceId: params.device.deviceId ?? '',
+            // Third-party rows are invisible to the default (OneKey) lookup;
+            // without this a Trezor arriving with its main connectId (e.g. the
+            // hidden-wallet path passes the DB record) keeps the raw deviceId.
+            vendor,
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           });
 
@@ -3789,15 +3801,17 @@ class ServiceAccount extends ServiceBase {
           isMockedStandardHwWallet,
         });
       },
-      verifySeedMatchFn:
-        vendor === EHardwareVendor.ledger
-          ? async (matchedDevice) =>
-              verifyLedgerSeedMatch(
-                this.backgroundApi,
-                matchedDevice,
-                compatibleConnectId,
-              )
-          : undefined,
+      // Gated by vendor capability, not `vendor === ledger`, so a future vendor
+      // with the same non-persistent-identity connectId opts in via its profile
+      // instead of a new branch here.
+      verifySeedMatchFn: vendorProfile?.requiresSeedVerifyOnConnectIdMatch
+        ? async (matchedDevice) =>
+            verifyLedgerSeedMatch(
+              this.backgroundApi,
+              matchedDevice,
+              compatibleConnectId,
+            )
+        : undefined,
       transportType,
     });
     // Third-party chain fingerprints are generated lazily by the keyring via SDK.
@@ -3808,14 +3822,6 @@ class ServiceAccount extends ServiceBase {
     // Best-effort — a miss just means re-pairing on next boot, never a failure.
     if (vendor === EHardwareVendor.trezor) {
       try {
-        defaultLogger.hardware.sdkLog.log(
-          `[TrezorTHPTrace][serviceAccount.persist] ${JSON.stringify({
-            connectId: params.device.connectId,
-            rawDeviceId: deviceId,
-            paramsDeviceId: params.device.deviceId,
-            featuresDeviceId: features.device_id,
-          })}`,
-        );
         await this.backgroundApi.serviceThirdPartyHardware.persistTrezorThpCredentials(
           {
             connectId: params.device.connectId ?? undefined,
