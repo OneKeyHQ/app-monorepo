@@ -748,6 +748,7 @@ function PrimeInfiniWalletPaymentContent({
   onReplacePaymentSession,
   onReloadPaymentSession,
   onRestartPaymentSession,
+  onPaymentSessionPersisted,
   onPayWithExternalWallet,
   onClose,
   onExitPreventedChange,
@@ -776,6 +777,9 @@ function PrimeInfiniWalletPaymentContent({
   }) => void;
   onReloadPaymentSession: () => void;
   onRestartPaymentSession: () => void;
+  // Reports every binding this content persisted, so the root can keep its
+  // loader re-runs from bouncing an in-flow payment back to the choice screen.
+  onPaymentSessionPersisted: (bindingId: string) => void;
   onPayWithExternalWallet: IPayWithExternalWallet;
   onClose: () => void;
   onExitPreventedChange: (isPrevented: boolean) => void;
@@ -962,9 +966,17 @@ function PrimeInfiniWalletPaymentContent({
           'Infini payment session persistence returned invalid data',
         );
       }
+      onPaymentSessionPersisted(normalizedSession.paymentCacheKey.bindingId);
       return normalizedSession;
     },
-    [baseline, featureName, paymentBindingId, plan, selectedSubscriptionPeriod],
+    [
+      baseline,
+      featureName,
+      onPaymentSessionPersisted,
+      paymentBindingId,
+      plan,
+      selectedSubscriptionPeriod,
+    ],
   );
 
   const discardPaymentSessionForSelectionChange = useCallback(
@@ -3492,6 +3504,24 @@ function PrimeInfiniWalletPaymentRoot({
     continuedExistingPaymentBindingId,
     setContinuedExistingPaymentBindingId,
   ] = useState('');
+  // Bindings the content already worked with in this mount (created, refreshed
+  // or broadcast here). Mid-flow loader re-runs must not bounce them back to
+  // the existing-payment choice: right after a broadcast the server may not
+  // report progress yet, and offering "start new payment" in that window is
+  // exactly the duplicate-transfer risk the choice screen warns about.
+  const [handledPaymentBindingIds, setHandledPaymentBindingIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
+  const handlePaymentSessionPersisted = useCallback((bindingId: string) => {
+    setHandledPaymentBindingIds((current) => {
+      if (current.has(bindingId)) {
+        return current;
+      }
+      const next = new Set(current);
+      next.add(bindingId);
+      return next;
+    });
+  }, []);
   const [isStartingForcedReplacement, setIsStartingForcedReplacement] =
     useState(false);
   const [
@@ -3697,7 +3727,10 @@ function PrimeInfiniWalletPaymentRoot({
       // Deliberately not gated on the payment creation intent: every entry
       // with a non-replaceable pending session pauses here once, resume
       // included, so the user always passes the one screen that can force a
-      // new payment instead of being funneled straight into polling.
+      // new payment instead of being funneled straight into polling. Bindings
+      // this mount already worked with are filtered out downstream via
+      // handledPaymentBindingIds — a mid-flow loader re-run must not bounce a
+      // just-broadcast payment back to this choice.
       const shouldShowExistingPaymentChoice = Boolean(
         pendingSession &&
         !isPrimeInfiniPaymentReplaceable({
@@ -3822,6 +3855,9 @@ function PrimeInfiniWalletPaymentRoot({
   const freshExistingPaymentChoiceSession =
     result?.shouldShowExistingPaymentChoice &&
     effectivePendingSession &&
+    !handledPaymentBindingIds.has(
+      effectivePendingSession.paymentCacheKey.bindingId,
+    ) &&
     continuedExistingPaymentBindingId !==
       effectivePendingSession.paymentCacheKey.bindingId
       ? effectivePendingSession
@@ -3830,6 +3866,9 @@ function PrimeInfiniWalletPaymentRoot({
     !freshExistingPaymentChoiceSession &&
     result?.staleExistingPaymentSession &&
     !discardedPaymentBindingIds.has(
+      result.staleExistingPaymentSession.paymentCacheKey.bindingId,
+    ) &&
+    !handledPaymentBindingIds.has(
       result.staleExistingPaymentSession.paymentCacheKey.bindingId,
     ) &&
     continuedExistingPaymentBindingId !==
@@ -4314,6 +4353,7 @@ function PrimeInfiniWalletPaymentRoot({
         onReplacePaymentSession={handleReplacePaymentSession}
         onReloadPaymentSession={handleReloadPaymentSession}
         onRestartPaymentSession={handleRestartPaymentSession}
+        onPaymentSessionPersisted={handlePaymentSessionPersisted}
         onPayWithExternalWallet={onPayWithExternalWallet}
         onClose={onClose}
         onExitPreventedChange={onExitPreventedChange}
