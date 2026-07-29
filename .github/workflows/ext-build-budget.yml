@@ -19,6 +19,7 @@ on:
       - 'development/env.js'
       - 'development/envExposedToClient.js'
       - 'development/htmlBootstrapData.js'
+      - 'development/module-resolver/**'
       - 'development/platformEnvDefine.js'
       - 'development/rspack/**'
       - 'development/utils/resolveCommitSha.js'

@@ -46,7 +46,8 @@ jobs:
 
           gh api --paginate \
             "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files" \
-            --jq '.[].filename' > changed-files.txt
+            --jq '.[] | .filename, (.previous_filename // empty)' \
+            > changed-files.txt
 
           native=false
           web=false
