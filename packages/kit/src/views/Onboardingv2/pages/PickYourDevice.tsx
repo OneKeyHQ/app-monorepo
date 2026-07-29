@@ -222,6 +222,7 @@ export default function PickYourDevice() {
                   width="100%"
                   height="90%"
                   $gtMd={{ height: '100%' }}
+                  resizeWidth={240}
                   resizeMode="contain"
                 />
               </YStack>
