@@ -1,4 +1,6 @@
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 export type IBulkExportHistoryAccountIdentity =
   | {
@@ -98,6 +100,37 @@ export function getBulkExportHistoryAccountNetworkCompatibility({
     return { walletId: indexedAccountWalletId };
   }
   return undefined;
+}
+
+// Look up the indexed account's network account under the global derive type.
+// The lookup throws "record not found" when the account has never been derived
+// on that network (e.g. a task list containing BCH/DOGE tasks created by
+// another account); bulk export treats that as "owns no addresses on this
+// network" rather than an error, mirroring the tolerant per-derive-type lookup
+// in ServiceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes.
+// Derive type resolution failures still propagate as genuine errors.
+export async function getBulkExportHistoryNetworkAccountSafe({
+  networkId,
+  indexedAccountId,
+}: {
+  networkId: string;
+  indexedAccountId: string;
+}): Promise<INetworkAccount | undefined> {
+  const deriveType =
+    await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+      networkId,
+    });
+  try {
+    const { accounts } =
+      await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
+        indexedAccountIds: [indexedAccountId],
+        networkId,
+        deriveType,
+      });
+    return accounts[0];
+  } catch {
+    return undefined;
+  }
 }
 
 export function buildBulkExportHistoryAccountIdentifierMap({
