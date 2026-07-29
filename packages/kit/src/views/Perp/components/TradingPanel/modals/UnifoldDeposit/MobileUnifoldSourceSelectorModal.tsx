@@ -1,10 +1,4 @@
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { type ReactNode, useCallback, useMemo, useState } from 'react';
 
 import {
   StackActions,
@@ -21,17 +15,11 @@ import {
   ScrollView,
   SearchBar,
   SizableText,
-  Skeleton,
   Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import {
-  type IUnifoldDepositErrorType,
-  getUnifoldDepositErrorType,
-} from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -92,22 +80,6 @@ function MobileSourceSelectorRow({
   );
 }
 
-function MobileSourceSelectorSkeleton() {
-  return (
-    <YStack>
-      {Array.from({ length: 6 }).map((_, index) => (
-        <XStack key={index} width="100%" alignItems="center" gap="$3" py="$2.5">
-          <Skeleton width="$10" height="$10" radius="round" />
-          <YStack gap="$1.5">
-            <Skeleton width="$16" height="$4" />
-            <Skeleton width="$24" height="$3" />
-          </YStack>
-        </XStack>
-      ))}
-    </YStack>
-  );
-}
-
 export default function MobileUnifoldSourceSelectorModal() {
   const intl = useIntl();
   const [searchValue, setSearchValue] = useState('');
@@ -126,57 +98,11 @@ export default function MobileUnifoldSourceSelectorModal() {
     selectedAssetSymbol,
     selectedChainType,
     selectedChainId,
-    entryFlow,
+    continueToChain,
   } = route.params;
-  const [loadedAssets, setLoadedAssets] = useState(assets);
-  const [isLoading, setIsLoading] = useState(!assets && Boolean(entryFlow));
-  const [loadError, setLoadError] = useState<IUnifoldDepositErrorType | null>(
-    null,
-  );
-  const [retryNonce, setRetryNonce] = useState(0);
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      if (assets) {
-        setLoadedAssets(assets);
-        setLoadError(null);
-        setIsLoading(false);
-        return;
-      }
-      if (!entryFlow) {
-        setLoadedAssets([]);
-        setLoadError(null);
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const nextAssets =
-          await backgroundApiProxy.serviceUnifoldDeposit.getSupportedAssets(
-            entryFlow.destination,
-          );
-        if (!cancelled) {
-          setLoadedAssets(nextAssets);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setLoadedAssets(undefined);
-          setLoadError(getUnifoldDepositErrorType(error));
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [assets, entryFlow, retryNonce]);
   const usableAssets = useMemo(
-    () => (loadedAssets ?? []).filter((asset) => asset.chains.length > 0),
-    [loadedAssets],
+    () => assets.filter((asset) => asset.chains.length > 0),
+    [assets],
   );
   const filteredAssets = useMemo(() => {
     const keyword = searchValue.trim().toLowerCase();
@@ -222,46 +148,16 @@ export default function MobileUnifoldSourceSelectorModal() {
     },
     [navigation],
   );
-  const selectEntryToken = useCallback(
+  const selectTokenAndContinue = useCallback(
     (assetSymbol: string) => {
-      if (!entryFlow) {
-        return;
-      }
       navigation.push(EModalPerpRoutes.MobileUnifoldSourceSelector, {
         requestId: generateUUID(),
         mode: 'chain',
         assets: usableAssets,
         selectedAssetSymbol: assetSymbol,
-        entryFlow,
       });
     },
-    [entryFlow, navigation, usableAssets],
-  );
-  const selectEntryChain = useCallback(
-    ({
-      assetSymbol,
-      chainType,
-      chainId,
-    }: {
-      assetSymbol: string;
-      chainType: string;
-      chainId: string;
-    }) => {
-      if (!entryFlow) {
-        return;
-      }
-      navigation.push(EModalPerpRoutes.MobileUnifoldDepositTransfer, {
-        expectedRecipient: entryFlow.expectedRecipient,
-        sourceSelectorResult: {
-          requestId,
-          mode: 'chain',
-          assetSymbol,
-          chainType,
-          chainId,
-        },
-      });
-    },
-    [entryFlow, navigation, requestId],
+    [navigation, usableAssets],
   );
   let optionRows: ReactNode = null;
   if (mode === 'token') {
@@ -283,8 +179,8 @@ export default function MobileUnifoldSourceSelectorModal() {
         }
         selected={asset.symbol === selectedAssetSymbol}
         onPress={() => {
-          if (entryFlow) {
-            selectEntryToken(asset.symbol);
+          if (continueToChain) {
+            selectTokenAndContinue(asset.symbol);
           } else {
             returnSelection({
               requestId,
@@ -315,15 +211,11 @@ export default function MobileUnifoldSourceSelectorModal() {
             chainType: chain.chain_type,
             chainId: chain.chain_id,
           };
-          if (entryFlow) {
-            selectEntryChain(result);
-          } else {
-            returnSelection({
-              requestId,
-              mode: 'chain',
-              ...result,
-            });
-          }
+          returnSelection({
+            requestId,
+            mode: 'chain',
+            ...result,
+          });
         }}
       />
     ));
@@ -340,39 +232,7 @@ export default function MobileUnifoldSourceSelectorModal() {
       />
     </YStack>
   );
-  if (isLoading) {
-    listContent = <MobileSourceSelectorSkeleton />;
-  } else if (loadError) {
-    const isNetworkError = loadError === 'network';
-    listContent = (
-      <YStack py="$10">
-        <Empty
-          icon="ErrorOutline"
-          title={intl.formatMessage({
-            id: isNetworkError
-              ? ETranslations.global_connet_error_try_again
-              : ETranslations.provider_unavailable,
-          })}
-          description={
-            isNetworkError
-              ? undefined
-              : intl.formatMessage({
-                  id:
-                    loadError === 'geoBlocked'
-                      ? ETranslations.description_403
-                      : ETranslations.global_unknown_error_retry_message,
-                })
-          }
-          buttonProps={{
-            children: intl.formatMessage({
-              id: ETranslations.global_retry,
-            }),
-            onPress: () => setRetryNonce((value) => value + 1),
-          }}
-        />
-      </YStack>
-    );
-  } else if (hasResults) {
+  if (hasResults) {
     listContent = optionRows;
   }
 

@@ -1,5 +1,5 @@
 // cspell: words unifold Unifold
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -10,10 +10,15 @@ import {
   Page,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
+import {
   EModalPerpRoutes,
-  IModalPerpParamList,
+  type IModalPerpParamList,
 } from '@onekeyhq/shared/src/routes/perp';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import type {
+  IUnifoldSupportedAsset,
+  IUnifoldSupportedAssetChain,
+} from '@onekeyhq/shared/types/unifoldDeposit';
 
 import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../../../PerpDialogLayout';
 
@@ -34,6 +39,7 @@ export default function MobileUnifoldDepositTransferModal() {
         EModalPerpRoutes.MobileUnifoldDepositTransfer
       >
     >();
+  const initialSourceSelectorOpenedRef = useRef(false);
   const closeDetail = useCallback(() => {
     setDetailExecutionId(null);
   }, []);
@@ -51,6 +57,36 @@ export default function MobileUnifoldDepositTransferModal() {
   const clearSourceSelectorResult = useCallback(() => {
     navigation.setParams({ sourceSelectorResult: undefined });
   }, [navigation]);
+  const openInitialSourceSelector = useCallback(
+    ({
+      assets,
+      asset,
+      chain,
+    }: {
+      assets: IUnifoldSupportedAsset[];
+      asset: IUnifoldSupportedAsset;
+      chain: IUnifoldSupportedAssetChain;
+    }) => {
+      if (
+        !route.params?.openSourceSelectorOnReady ||
+        initialSourceSelectorOpenedRef.current
+      ) {
+        return;
+      }
+      initialSourceSelectorOpenedRef.current = true;
+      navigation.setParams({ openSourceSelectorOnReady: undefined });
+      navigation.push(EModalPerpRoutes.MobileUnifoldSourceSelector, {
+        requestId: generateUUID(),
+        mode: 'token',
+        assets,
+        selectedAssetSymbol: asset.symbol,
+        selectedChainType: chain.chain_type,
+        selectedChainId: chain.chain_id,
+        continueToChain: true,
+      });
+    },
+    [navigation, route.params?.openSourceSelectorOnReady],
+  );
 
   return (
     <Page scrollEnabled safeAreaEnabled>
@@ -71,6 +107,7 @@ export default function MobileUnifoldDepositTransferModal() {
           expectedRecipient={route.params?.expectedRecipient}
           sourceSelectorResult={route.params?.sourceSelectorResult}
           onSourceSelectorResultHandled={clearSourceSelectorResult}
+          onSourceSelectorReady={openInitialSourceSelector}
           statusCardsPlacement="pageFooter"
           useExternalHeader
           detailExecutionId={detailExecutionId}

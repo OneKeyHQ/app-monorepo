@@ -24,13 +24,19 @@ import {
   UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL,
 } from '@onekeyhq/kit/src/views/Perp/consts/unifold';
 import { usePerpsUnifoldDepositSession } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
-import type { IUnifoldDepositErrorType } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
+import type {
+  IUnifoldDepositErrorType,
+  IUnifoldSourceSelection,
+} from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { UNIFOLD_THIRD_PARTY_CONVERSION_FEE_PERCENT } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IUnifoldSourceSelectorResult } from '@onekeyhq/shared/src/routes/perp';
-import type { IUnifoldDepositExecution } from '@onekeyhq/shared/types/unifoldDeposit';
+import type {
+  IUnifoldDepositExecution,
+  IUnifoldSupportedAsset,
+} from '@onekeyhq/shared/types/unifoldDeposit';
 
 import { UnifoldDepositQRCard } from './UnifoldDepositQRCard';
 import {
@@ -297,6 +303,7 @@ export function UnifoldTransferContent({
   onDetailExecutionIdChange,
   sourceSelectorResult,
   onSourceSelectorResultHandled,
+  onSourceSelectorReady,
 }: {
   expectedRecipient: string | null | undefined;
   onPressExecution?: (execution: IUnifoldDepositExecution) => void;
@@ -311,6 +318,15 @@ export function UnifoldTransferContent({
   onDetailExecutionIdChange?: (executionId: string | null) => void;
   sourceSelectorResult?: IUnifoldSourceSelectorResult;
   onSourceSelectorResultHandled?: () => void;
+  onSourceSelectorReady?: ({
+    assets,
+    asset,
+    chain,
+  }: {
+    assets: IUnifoldSupportedAsset[];
+    asset: IUnifoldSourceSelection['asset'];
+    chain: IUnifoldSourceSelection['chain'];
+  }) => void;
 }) {
   const intl = useIntl();
   const [dismissedExecutionStatuses, setDismissedExecutionStatuses] = useState<
@@ -337,6 +353,17 @@ export function UnifoldTransferContent({
     activationRetrying,
   } = usePerpsUnifoldDepositSession({ enabled: true, expectedRecipient });
   const handledSourceSelectorRequestIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!supportedAssets || !selection) {
+      return;
+    }
+    onSourceSelectorReady?.({
+      assets: supportedAssets,
+      asset: selection.asset,
+      chain: selection.chain,
+    });
+  }, [onSourceSelectorReady, selection, supportedAssets]);
 
   useEffect(() => {
     if (
