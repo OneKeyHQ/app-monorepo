@@ -1,5 +1,13 @@
 // cspell: words unifold Unifold hypercore Hypercore
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -36,6 +44,7 @@ import type { IUnifoldSourceSelectorResult } from '@onekeyhq/shared/src/routes/p
 import type {
   IUnifoldDepositExecution,
   IUnifoldSupportedAsset,
+  IUnifoldSupportedAssetChain,
 } from '@onekeyhq/shared/types/unifoldDeposit';
 
 import { UnifoldDepositQRCard } from './UnifoldDepositQRCard';
@@ -292,42 +301,61 @@ function BodyFrame({
   );
 }
 
-export function UnifoldTransferContent({
-  expectedRecipient,
-  onPressExecution,
-  bodyMaxHeight,
-  statusCardsPlacement = 'overlay',
-  useDialogHeader = false,
-  useExternalHeader = false,
-  detailExecutionId: controlledDetailExecutionId,
-  onDetailExecutionIdChange,
-  sourceSelectorResult,
-  onSourceSelectorResultHandled,
-  onSourceSelectorReady,
-}: {
-  expectedRecipient: string | null | undefined;
-  onPressExecution?: (execution: IUnifoldDepositExecution) => void;
-  bodyMaxHeight?: number;
-  // 'pageFooter' pins the cards to a mobile Page footer; the default overlay
-  // mode floats them over the panel. Only a host that owns a <Page> may ask
-  // for the footer, so this must stay a prop rather than a platform check.
-  statusCardsPlacement?: 'overlay' | 'pageFooter';
-  useDialogHeader?: boolean;
-  useExternalHeader?: boolean;
-  detailExecutionId?: string | null;
-  onDetailExecutionIdChange?: (executionId: string | null) => void;
-  sourceSelectorResult?: IUnifoldSourceSelectorResult;
-  onSourceSelectorResultHandled?: () => void;
-  onSourceSelectorReady?: ({
-    assets,
-    asset,
-    chain,
-  }: {
-    assets: IUnifoldSupportedAsset[];
-    asset: IUnifoldSourceSelection['asset'];
-    chain: IUnifoldSourceSelection['chain'];
-  }) => void;
-}) {
+export type IUnifoldTransferContentRef = {
+  selectSource: (
+    asset: IUnifoldSupportedAsset,
+    chain: IUnifoldSupportedAssetChain,
+  ) => void;
+};
+
+export const UnifoldTransferContent = forwardRef<
+  IUnifoldTransferContentRef,
+  {
+    expectedRecipient: string | null | undefined;
+    onPressExecution?: (execution: IUnifoldDepositExecution) => void;
+    bodyMaxHeight?: number;
+    // 'pageFooter' pins the cards to a mobile Page footer; the default overlay
+    // mode floats them over the panel. Only a host that owns a <Page> may ask
+    // for the footer, so this must stay a prop rather than a platform check.
+    statusCardsPlacement?: 'overlay' | 'pageFooter';
+    useDialogHeader?: boolean;
+    useExternalHeader?: boolean;
+    detailExecutionId?: string | null;
+    onDetailExecutionIdChange?: (executionId: string | null) => void;
+    sourceSelectorResult?: IUnifoldSourceSelectorResult;
+    onSourceSelectorResultHandled?: () => void;
+    onSourceSelectorReady?: ({
+      assets,
+      asset,
+      chain,
+    }: {
+      assets: IUnifoldSupportedAsset[];
+      asset: IUnifoldSourceSelection['asset'];
+      chain: IUnifoldSourceSelection['chain'];
+    }) => void;
+    onSourceSelectorUnavailable?: () => void;
+    onOpenMobileTokenSelector?: () => void;
+    onOpenMobileChainSelector?: () => void;
+  }
+>(function UnifoldTransferContent(
+  {
+    expectedRecipient,
+    onPressExecution,
+    bodyMaxHeight,
+    statusCardsPlacement = 'overlay',
+    useDialogHeader = false,
+    useExternalHeader = false,
+    detailExecutionId: controlledDetailExecutionId,
+    onDetailExecutionIdChange,
+    sourceSelectorResult,
+    onSourceSelectorResultHandled,
+    onSourceSelectorReady,
+    onSourceSelectorUnavailable,
+    onOpenMobileTokenSelector,
+    onOpenMobileChainSelector,
+  },
+  ref,
+) {
   const intl = useIntl();
   const [dismissedExecutionStatuses, setDismissedExecutionStatuses] = useState<
     Partial<Record<string, IUnifoldDepositExecution['status']>>
@@ -345,6 +373,7 @@ export function UnifoldTransferContent({
     selection,
     selectToken,
     selectChain,
+    selectSource,
     qrAddress,
     sessionExecutions,
     acknowledgePresentedExecution,
@@ -353,6 +382,8 @@ export function UnifoldTransferContent({
     activationRetrying,
   } = usePerpsUnifoldDepositSession({ enabled: true, expectedRecipient });
   const handledSourceSelectorRequestIdRef = useRef<string | null>(null);
+
+  useImperativeHandle(ref, () => ({ selectSource }), [selectSource]);
 
   useEffect(() => {
     if (!supportedAssets || !selection) {
@@ -364,6 +395,15 @@ export function UnifoldTransferContent({
       chain: selection.chain,
     });
   }, [onSourceSelectorReady, selection, supportedAssets]);
+
+  useEffect(() => {
+    if (
+      addressState.status === 'error' &&
+      addressState.errorType !== 'network'
+    ) {
+      onSourceSelectorUnavailable?.();
+    }
+  }, [addressState, onSourceSelectorUnavailable]);
 
   useEffect(() => {
     if (
@@ -469,7 +509,30 @@ export function UnifoldTransferContent({
     platformEnv.isNativeAndroid && Boolean(detailExecutionId),
   );
 
-  const chain = selection?.chain;
+  const pendingSelection = useMemo(() => {
+    if (!sourceSelectorResult || !supportedAssets) {
+      return null;
+    }
+    const asset = supportedAssets.find(
+      (item) => item.symbol === sourceSelectorResult.assetSymbol,
+    );
+    if (!asset) {
+      return null;
+    }
+    const chain =
+      sourceSelectorResult.mode === 'chain'
+        ? asset.chains.find(
+            (item) =>
+              item.chain_type === sourceSelectorResult.chainType &&
+              item.chain_id === sourceSelectorResult.chainId,
+          )
+        : (asset.chains.find(
+            (item) => item.chain_id === selection?.chain.chain_id,
+          ) ?? asset.chains[0]);
+    return chain ? { asset, chain } : null;
+  }, [selection?.chain.chain_id, sourceSelectorResult, supportedAssets]);
+  const displaySelection = pendingSelection ?? selection;
+  const chain = displaySelection?.chain;
   const receiveAsset = supportedAssets?.find(
     (asset) =>
       asset.symbol.toUpperCase() === UNIFOLD_ARBITRUM_USDC_SYMBOL.toUpperCase(),
@@ -638,10 +701,12 @@ export function UnifoldTransferContent({
     <YStack gap="$3">
       <UnifoldSourceSelector
         assets={supportedAssets}
-        selection={selection}
+        selection={displaySelection}
         loading={Boolean(assetsLoading && !selection)}
         onSelectToken={selectToken}
         onSelectChain={selectChain}
+        onOpenMobileTokenSelector={onOpenMobileTokenSelector}
+        onOpenMobileChainSelector={onOpenMobileChainSelector}
       />
 
       {addressState.status === 'error' &&
@@ -707,8 +772,8 @@ export function UnifoldTransferContent({
       <UnifoldDepositQRCard
         address={qrAddress}
         chainIconUri={chain?.icon_url}
-        sourceTokenSymbol={selection?.asset.symbol}
-        sourceTokenIconUri={selection?.asset.icon_url}
+        sourceTokenSymbol={displaySelection?.asset.symbol}
+        sourceTokenIconUri={displaySelection?.asset.icon_url}
         receiveTokenSymbol={receiveTokenSymbol}
         receiveTokenIconUri={receiveAsset?.icon_url}
         receiveNetworkIconUri={receiveNetworkIconUri}
@@ -718,8 +783,9 @@ export function UnifoldTransferContent({
         // message instead of shimmering forever.
         loading={
           Boolean(assetsLoading) ||
+          Boolean(sourceSelectorResult) ||
           addressState.status === 'loading' ||
-          (addressState.status === 'ready' && !selection)
+          (addressState.status === 'ready' && !displaySelection)
         }
       />
 
@@ -757,11 +823,11 @@ export function UnifoldTransferContent({
         py="$2"
         overflow="hidden"
       >
-        {useCompactLayout && selection?.asset.symbol ? (
+        {useCompactLayout && displaySelection?.asset.symbol ? (
           <DepositRouteRow
-            sourceTokenSymbol={selection.asset.symbol}
+            sourceTokenSymbol={displaySelection.asset.symbol}
             sourceNetworkName={chain?.chain_name}
-            sourceTokenIconUri={selection.asset.icon_url}
+            sourceTokenIconUri={displaySelection.asset.icon_url}
             sourceNetworkIconUri={chain?.icon_url}
             receiveTokenSymbol={receiveTokenSymbol}
             receiveNetworkName={receiveNetworkName}
@@ -816,4 +882,4 @@ export function UnifoldTransferContent({
       </YStack>
     </YStack>,
   );
-}
+});
