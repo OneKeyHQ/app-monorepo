@@ -551,6 +551,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       return;
     }
 
+    // Reaching here proves the Perp UI is live (route focused, token selector
+    // open, or favorites bar active), so a disabled handler can only be a
+    // stale blur verdict — without this the reconcile below is silently
+    // skipped and the book starves until the next focus event.
+    await backgroundApiProxy.serviceHyperliquidSubscription.enableSubscriptionsHandler();
+
     try {
       await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptions();
     } catch (error) {
