@@ -9,8 +9,10 @@ import {
   NavBackButton,
   Page,
   Stack,
+  useBackHandler,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalPerpRoutes,
   IModalPerpParamList,
@@ -79,6 +81,14 @@ export default function MobileUnifoldDepositTransferModal() {
     }
     navigation.goBack();
   }, [flowHistory.length, navigation]);
+  const handleSystemBackPress = useCallback(() => {
+    goBack();
+    return true;
+  }, [goBack]);
+  useBackHandler(
+    handleSystemBackPress,
+    platformEnv.isNativeAndroid && Boolean(initialSelectorMode),
+  );
   const renderBackHeaderLeft = useCallback(
     () => <NavBackButton onPress={goBack} />,
     [goBack],
