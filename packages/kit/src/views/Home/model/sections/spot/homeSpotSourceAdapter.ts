@@ -21,6 +21,7 @@ import type {
 
 const HOME_SPOT_SOURCE_REVISION = 1;
 const HOME_SPOT_DATA_SCHEMA_VERSION = 2;
+const HOME_SPOT_SNAPSHOT_TOKEN_LIMIT = 50;
 
 type IHomeSpotTokenMode = 'wallet' | 'lp';
 
@@ -62,11 +63,13 @@ type IHomeSpotLegacyPayload = {
   networksMap: Record<string, IServerNetwork>;
   ownerKey: string;
   riskMap: Record<string, ITokenFiat>;
+  riskTokenCount?: number;
   riskTokens: IAccountToken[];
   showLpTokenFilterSwitch: boolean;
   showLpTokensOnly: boolean;
   smallBalanceFiatValue?: string;
   smallBalanceMap: Record<string, ITokenFiat>;
+  smallBalanceTokenCount?: number;
   smallBalanceTokens: IAccountToken[];
   scopedLpTokenList: {
     keys: string;
@@ -79,6 +82,7 @@ type IHomeSpotLegacyPayload = {
   };
   tapTokenMap: Record<string, ITokenFiat>;
   tokenListMap: Record<string, ITokenFiat>;
+  tokenCount?: number;
   tokens: IAccountToken[];
 };
 
@@ -96,17 +100,13 @@ const HOME_SPOT_SNAPSHOT_KEYS = [
   'mergeDeriveAddressData',
   'networksMap',
   'ownerKey',
-  'riskMap',
-  'riskTokens',
+  'riskTokenCount',
   'showLpTokenFilterSwitch',
   'showLpTokensOnly',
   'smallBalanceFiatValue',
-  'smallBalanceMap',
-  'smallBalanceTokens',
-  'scopedLpTokenList',
-  'scopedLpTokenListMap',
-  'tapTokenMap',
+  'smallBalanceTokenCount',
   'tokenListMap',
+  'tokenCount',
   'tokens',
 ] as const satisfies readonly (keyof IHomeSpotLegacyPayload)[];
 
@@ -127,11 +127,13 @@ function createHomeSpotSnapshotDefaults(): IHomeSpotLegacyPayload {
     networksMap: {},
     ownerKey: '',
     riskMap: {},
+    riskTokenCount: 0,
     riskTokens: [],
     showLpTokenFilterSwitch: false,
     showLpTokensOnly: false,
     smallBalanceFiatValue: '0',
     smallBalanceMap: {},
+    smallBalanceTokenCount: 0,
     smallBalanceTokens: [],
     scopedLpTokenList: {
       keys: '',
@@ -144,7 +146,61 @@ function createHomeSpotSnapshotDefaults(): IHomeSpotLegacyPayload {
     },
     tapTokenMap: {},
     tokenListMap: {},
+    tokenCount: 0,
     tokens: [],
+  };
+}
+
+function pickRecordFields<T>(
+  record: Record<string, T>,
+  keys: ReadonlySet<string>,
+): Record<string, T> {
+  return Object.fromEntries(
+    Object.entries(record).filter(([key]) => keys.has(key)),
+  );
+}
+
+function projectHomeSpotSnapshotData(
+  value: IHomeSpotLegacyPayload,
+): IHomeSpotLegacyPayload {
+  const displayOrder = new Map(
+    value.displayIds.map((id, index) => [id, index]),
+  );
+  const tokens = value.tokens
+    .filter((token) => displayOrder.has(token.$key))
+    .toSorted(
+      (left, right) =>
+        (displayOrder.get(left.$key) ?? Number.MAX_SAFE_INTEGER) -
+        (displayOrder.get(right.$key) ?? Number.MAX_SAFE_INTEGER),
+    )
+    .slice(0, HOME_SPOT_SNAPSHOT_TOKEN_LIMIT);
+  const tokenIds = new Set(tokens.map((token) => token.$key));
+  const networkIds = new Set(
+    tokens
+      .map((token) => token.networkId)
+      .filter((networkId): networkId is string => Boolean(networkId)),
+  );
+  return {
+    ...createHomeSpotSnapshotDefaults(),
+    accountTokensValue: value.accountTokensValue,
+    accountTokensWorthCurrency: value.accountTokensWorthCurrency,
+    blockedRiskTokenCount: value.blockedRiskTokenCount,
+    displayIds: tokens.map((token) => token.$key),
+    fundedIds: value.fundedIds.filter((id) => tokenIds.has(id)),
+    generation: value.generation,
+    isAllNetworkEmptyAccount: value.isAllNetworkEmptyAccount,
+    mergeDeriveAddressData: value.mergeDeriveAddressData,
+    networksMap: pickRecordFields(value.networksMap, networkIds),
+    ownerKey: value.ownerKey,
+    riskTokenCount: value.riskTokenCount ?? value.riskTokens.length,
+    showLpTokenFilterSwitch: value.showLpTokenFilterSwitch,
+    showLpTokensOnly: value.showLpTokensOnly,
+    smallBalanceFiatValue: value.smallBalanceFiatValue,
+    smallBalanceTokenCount:
+      value.smallBalanceTokenCount ?? value.smallBalanceTokens.length,
+    tokenCount: value.tokenCount ?? value.tokens.length,
+    tokenListMap: pickRecordFields(value.tokenListMap, tokenIds),
+    tokens,
   };
 }
 
@@ -237,10 +293,12 @@ function adaptHomeSpotSourceSnapshot<T>({
 export {
   HOME_SPOT_DATA_SCHEMA_VERSION,
   HOME_SPOT_SNAPSHOT_KEYS,
+  HOME_SPOT_SNAPSHOT_TOKEN_LIMIT,
   HOME_SPOT_SOURCE_REVISION,
   adaptHomeSpotSourceSnapshot,
   createHomeSpotSnapshotDefaults,
   createHomeSpotSourceIdentity,
+  projectHomeSpotSnapshotData,
 };
 export type {
   IHomeSpotLegacyPayload,

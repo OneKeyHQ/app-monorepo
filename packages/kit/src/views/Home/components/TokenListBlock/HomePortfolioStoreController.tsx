@@ -1403,6 +1403,7 @@ function HomePortfolioStoreController({
       networksMap: homeNetworksMap,
       ownerKey: showLpTokensOnly ? cellsOwnerKey : listStructure.ownerKey,
       riskMap: showLpTokensOnly ? {} : riskTokenSnapshot.tokenListMap,
+      riskTokenCount: showLpTokensOnly ? 0 : riskTokenSnapshot.tokens.length,
       riskTokens: showLpTokensOnly ? [] : riskTokenSnapshot.tokens,
       scopedLpTokenList,
       scopedLpTokenListMap,
@@ -1415,6 +1416,9 @@ function HomePortfolioStoreController({
       smallBalanceMap: showLpTokensOnly
         ? {}
         : smallBalanceTokenSnapshot.tokenListMap,
+      smallBalanceTokenCount: showLpTokensOnly
+        ? 0
+        : smallBalanceTokenSnapshot.tokens.length,
       smallBalanceTokens: showLpTokensOnly
         ? []
         : smallBalanceTokenSnapshot.tokens,
@@ -1422,6 +1426,9 @@ function HomePortfolioStoreController({
       tokenListMap: showLpTokensOnly
         ? scopedLpTokenListMap
         : walletTokenSnapshot.tokenListMap,
+      tokenCount: showLpTokensOnly
+        ? scopedLpTokenList.tokens.length
+        : walletTokenSnapshot.tokens.length,
       tokens: showLpTokensOnly
         ? scopedLpTokenList.tokens
         : walletTokenSnapshot.tokens,

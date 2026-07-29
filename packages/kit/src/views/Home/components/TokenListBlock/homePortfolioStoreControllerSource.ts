@@ -183,6 +183,7 @@ function reuseHomePortfolioPayload(
     previous.networksMap === next.networksMap &&
     previous.ownerKey === next.ownerKey &&
     previous.riskMap === next.riskMap &&
+    previous.riskTokenCount === next.riskTokenCount &&
     previous.riskTokens === next.riskTokens &&
     previous.scopedLpTokenList === next.scopedLpTokenList &&
     previous.scopedLpTokenListMap === next.scopedLpTokenListMap &&
@@ -191,9 +192,11 @@ function reuseHomePortfolioPayload(
     previous.showLpTokensOnly === next.showLpTokensOnly &&
     previous.smallBalanceFiatValue === next.smallBalanceFiatValue &&
     previous.smallBalanceMap === next.smallBalanceMap &&
+    previous.smallBalanceTokenCount === next.smallBalanceTokenCount &&
     previous.smallBalanceTokens === next.smallBalanceTokens &&
     previous.tapTokenMap === next.tapTokenMap &&
     previous.tokenListMap === next.tokenListMap &&
+    previous.tokenCount === next.tokenCount &&
     previous.tokens === next.tokens
   ) {
     return previous;
