@@ -23,7 +23,7 @@ export async function loadPreparedHomeDisplaySnapshot({
   }
   const records = await loadHomeDisplaySnapshotSourceRecords({
     context,
-    sourceIds: ['banner', 'portfolio'],
+    sourceIds: ['banner', 'portfolio', 'market'],
   });
   if (
     critical.shell.kind === 'portfolio' &&

@@ -55,7 +55,7 @@ function getSourceIdsText(sourceIds: readonly IHomeStoreSourceId[]): string {
  *
  * V3 stores only explicitly selected business fields. It waits for
  * ActiveAccount to confirm the owner, then exact-reads the critical, Banner,
- * and Portfolio chunks. The remaining list chunks warm asynchronously after
+ * Portfolio, and Market chunks. The remaining list chunks warm asynchronously after
  * the first display is ready, so lazy views can mount from cache without
  * extending the startup critical path.
  *
@@ -294,6 +294,7 @@ export function HomeDisplaySnapshotControllerShared() {
     if (preparedSnapshotAlreadyLoaded) {
       loadedChunksRef.current.add(`${ownerToken.scopeKey}:banner`);
       loadedChunksRef.current.add(`${ownerToken.scopeKey}:portfolio`);
+      loadedChunksRef.current.add(`${ownerToken.scopeKey}:market`);
       ensureSourceRef.current = ensureSource;
       void warmCachedSources();
       return () => {
@@ -402,11 +403,15 @@ export function HomeDisplaySnapshotControllerShared() {
           sourceId: selectedSourceId,
           stage: 'visibleChunks',
         });
+        const marketLoad = loadSourceChunk({
+          candidateOwnerToken: ownerToken,
+          context,
+          sourceId: 'market',
+          stage: 'visibleChunks',
+        });
 
-        const [bannerRecordCount, selectedRecordCount] = await Promise.all([
-          bannerLoad,
-          selectedLoad,
-        ]);
+        const [bannerRecordCount, selectedRecordCount, marketRecordCount] =
+          await Promise.all([bannerLoad, selectedLoad, marketLoad]);
         const selectedSourceReady =
           critical?.shell?.kind !== 'portfolio' || selectedRecordCount > 0;
         const initialDisplayReady = criticalDisplayReady && selectedSourceReady;
@@ -416,6 +421,9 @@ export function HomeDisplaySnapshotControllerShared() {
         }
         if (selectedRecordCount > 0) {
           loadedSourceIds.push(selectedSourceId);
+        }
+        if (marketRecordCount > 0) {
+          loadedSourceIds.push('market');
         }
         defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
           stage: 'initialHydrate',

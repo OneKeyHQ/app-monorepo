@@ -20,7 +20,7 @@ import type {
 } from '../homeSectionCoordinator';
 
 const HOME_SPOT_SOURCE_REVISION = 1;
-const HOME_SPOT_DATA_SCHEMA_VERSION = 2;
+const HOME_SPOT_DATA_SCHEMA_VERSION = 3;
 const HOME_SPOT_SNAPSHOT_TOKEN_LIMIT = 50;
 
 type IHomeSpotTokenMode = 'wallet' | 'lp';
@@ -163,10 +163,14 @@ function pickRecordFields<T>(
 function projectHomeSpotSnapshotData(
   value: IHomeSpotLegacyPayload,
 ): IHomeSpotLegacyPayload {
+  const source = {
+    ...createHomeSpotSnapshotDefaults(),
+    ...value,
+  };
   const displayOrder = new Map(
-    value.displayIds.map((id, index) => [id, index]),
+    source.displayIds.map((id, index) => [id, index]),
   );
-  const tokens = value.tokens
+  const tokens = source.tokens
     .filter((token) => displayOrder.has(token.$key))
     .toSorted(
       (left, right) =>
@@ -182,24 +186,24 @@ function projectHomeSpotSnapshotData(
   );
   return {
     ...createHomeSpotSnapshotDefaults(),
-    accountTokensValue: value.accountTokensValue,
-    accountTokensWorthCurrency: value.accountTokensWorthCurrency,
-    blockedRiskTokenCount: value.blockedRiskTokenCount,
+    accountTokensValue: source.accountTokensValue,
+    accountTokensWorthCurrency: source.accountTokensWorthCurrency,
+    blockedRiskTokenCount: source.blockedRiskTokenCount,
     displayIds: tokens.map((token) => token.$key),
-    fundedIds: value.fundedIds.filter((id) => tokenIds.has(id)),
-    generation: value.generation,
-    isAllNetworkEmptyAccount: value.isAllNetworkEmptyAccount,
-    mergeDeriveAddressData: value.mergeDeriveAddressData,
-    networksMap: pickRecordFields(value.networksMap, networkIds),
-    ownerKey: value.ownerKey,
-    riskTokenCount: value.riskTokenCount ?? value.riskTokens.length,
-    showLpTokenFilterSwitch: value.showLpTokenFilterSwitch,
-    showLpTokensOnly: value.showLpTokensOnly,
-    smallBalanceFiatValue: value.smallBalanceFiatValue,
+    fundedIds: source.fundedIds.filter((id) => tokenIds.has(id)),
+    generation: source.generation,
+    isAllNetworkEmptyAccount: source.isAllNetworkEmptyAccount,
+    mergeDeriveAddressData: source.mergeDeriveAddressData,
+    networksMap: pickRecordFields(source.networksMap, networkIds),
+    ownerKey: source.ownerKey,
+    riskTokenCount: source.riskTokenCount ?? source.riskTokens.length,
+    showLpTokenFilterSwitch: source.showLpTokenFilterSwitch,
+    showLpTokensOnly: source.showLpTokensOnly,
+    smallBalanceFiatValue: source.smallBalanceFiatValue,
     smallBalanceTokenCount:
-      value.smallBalanceTokenCount ?? value.smallBalanceTokens.length,
-    tokenCount: value.tokenCount ?? value.tokens.length,
-    tokenListMap: pickRecordFields(value.tokenListMap, tokenIds),
+      source.smallBalanceTokenCount ?? source.smallBalanceTokens.length,
+    tokenCount: source.tokenCount ?? source.tokens.length,
+    tokenListMap: pickRecordFields(source.tokenListMap, tokenIds),
     tokens,
   };
 }

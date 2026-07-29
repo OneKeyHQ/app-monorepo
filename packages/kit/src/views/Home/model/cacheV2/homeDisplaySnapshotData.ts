@@ -13,6 +13,11 @@ import {
   createHomeHistorySnapshotDefaults,
 } from '../sections/history/homeHistorySourceAdapter';
 import {
+  createHomeMarketSnapshotDefaults,
+  getHomeMarketRowIds,
+  projectHomeMarketSnapshotData,
+} from '../sections/market/homeMarketSourceAdapter';
+import {
   HOME_NFT_SNAPSHOT_KEYS,
   createHomeNFTSnapshotDefaults,
 } from '../sections/nft/homeNFTSourceAdapter';
@@ -21,13 +26,17 @@ import {
   createHomePerpsSnapshotDefaults,
 } from '../sections/perps/homePerpsSourceAdapter';
 import {
-  HOME_SPOT_SNAPSHOT_KEYS,
   createHomeSpotSnapshotDefaults,
+  projectHomeSpotSnapshotData,
 } from '../sections/spot/homeSpotSourceAdapter';
 
 import type { IHomeBannerStorePayload } from '../sections/banner/homeBannerStoreModel';
 import type { IHomeDeFiLegacyPayload } from '../sections/defi/homeDeFiSourceAdapter';
 import type { IHomeHistoryStorePayload } from '../sections/history/homeHistorySourceAdapter';
+import type {
+  IHomeMarketSnapshotPayload,
+  IHomeMarketTokenRow,
+} from '../sections/market/homeMarketSourceAdapter';
 import type { IHomeNFTLegacyPayload } from '../sections/nft/homeNFTSourceAdapter';
 import type { IHomePerpsLegacyPayload } from '../sections/perps/homePerpsSourceAdapter';
 import type { IHomeSpotLegacyPayload } from '../sections/spot/homeSpotSourceAdapter';
@@ -86,10 +95,13 @@ function projectSourceData({
         HOME_BANNER_SNAPSHOT_KEYS,
       ) as IHomeRuntimeJsonValue;
     case 'portfolio':
-      return pickSnapshotFields(
+      return projectHomeSpotSnapshotData(
         value as IHomeSpotLegacyPayload,
-        HOME_SPOT_SNAPSHOT_KEYS,
-      ) as IHomeRuntimeJsonValue;
+      ) as unknown as IHomeRuntimeJsonValue;
+    case 'market':
+      return projectHomeMarketSnapshotData(
+        value as unknown as IHomeMarketSnapshotPayload<IHomeMarketTokenRow>,
+      ) as unknown as IHomeRuntimeJsonValue;
     case 'perps':
       return pickSnapshotFields(
         value as IHomePerpsLegacyPayload,
@@ -111,7 +123,6 @@ function projectSourceData({
         HOME_HISTORY_SNAPSHOT_KEYS,
       ) as IHomeRuntimeJsonValue;
     case 'capability':
-    case 'market':
       return undefined;
     default:
       return sourceId satisfies never;
@@ -136,6 +147,11 @@ function restoreSourceData({
         createDefaults: createHomeSpotSnapshotDefaults,
         persisted: value,
       }) as unknown as IHomeRuntimeJsonValue;
+    case 'market':
+      return restoreSnapshotFields({
+        createDefaults: createHomeMarketSnapshotDefaults,
+        persisted: value,
+      }) as unknown as IHomeRuntimeJsonValue;
     case 'perps':
       return restoreSnapshotFields({
         createDefaults: createHomePerpsSnapshotDefaults,
@@ -157,7 +173,6 @@ function restoreSourceData({
         persisted: value,
       }) as unknown as IHomeRuntimeJsonValue;
     case 'capability':
-    case 'market':
       return undefined;
     default:
       return sourceId satisfies never;
@@ -193,7 +208,7 @@ function getPersistedSection(
 function projectHomeDisplaySnapshotRecord(
   record: IHomeCachedSourceRecord,
 ): IHomeCachedSourceRecord | undefined {
-  if (record.sourceId === 'capability' || record.sourceId === 'market') {
+  if (record.sourceId === 'capability') {
     return undefined;
   }
   if (record.sourceId === 'banner') {
@@ -227,7 +242,14 @@ function projectHomeDisplaySnapshotRecord(
       payload,
       section: {
         kind: 'ready',
-        rowIds: section.rowIds,
+        rowIds:
+          record.sourceId === 'portfolio'
+            ? (payload as unknown as IHomeSpotLegacyPayload).displayIds
+            : record.sourceId === 'market'
+              ? getHomeMarketRowIds(
+                  payload as unknown as IHomeMarketSnapshotPayload<IHomeMarketTokenRow>,
+                )
+              : section.rowIds,
       },
     },
   };
@@ -236,7 +258,7 @@ function projectHomeDisplaySnapshotRecord(
 function restoreHomeDisplaySnapshotRecord(
   record: IHomeCachedSourceRecord,
 ): IHomeCachedSourceRecord | undefined {
-  if (record.sourceId === 'capability' || record.sourceId === 'market') {
+  if (record.sourceId === 'capability') {
     return undefined;
   }
   if (record.sourceId === 'banner') {

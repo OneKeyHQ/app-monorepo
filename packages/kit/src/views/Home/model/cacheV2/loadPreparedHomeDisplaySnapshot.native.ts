@@ -104,7 +104,7 @@ export function loadPreparedHomeDisplaySnapshot({
   }
   const records = loadHomeDisplaySnapshotSourceRecords({
     context,
-    sourceIds: ['banner', 'portfolio'],
+    sourceIds: ['banner', 'portfolio', 'market'],
   });
   const hasPortfolioRecord = records.some(
     (record) => record.sourceId === 'portfolio',

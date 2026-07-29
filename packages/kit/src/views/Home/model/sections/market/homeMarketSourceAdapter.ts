@@ -14,6 +14,9 @@ import type {
 
 const HOME_MARKET_SOURCE_REVISION = 1;
 const HOME_MARKET_DATA_SCHEMA_VERSION = 2;
+const HOME_MARKET_SNAPSHOT_EARN_ROW_LIMIT = 6;
+const HOME_MARKET_SNAPSHOT_PERPS_ROW_LIMIT = 5;
+const HOME_MARKET_SNAPSHOT_ROW_LIMIT = 4;
 
 type IHomeMarketTokenRow = {
   chainId: string;
@@ -63,6 +66,14 @@ type IHomeMarketLegacyPayload<TToken extends IHomeMarketTokenRow> = {
   watchListContentKey: string;
   watchListItems?: readonly IHomeMarketWatchListItem[];
 };
+
+type IHomeMarketSnapshotPayload<TToken extends IHomeMarketTokenRow> =
+  IHomeMarketLegacyPayload<TToken> & {
+    categories: readonly IHomeMarketCategory[];
+    earnRows: readonly unknown[];
+    perpsHotRows: readonly TToken[];
+    watchListItems: readonly IHomeMarketWatchListItem[];
+  };
 
 type IHomeMarketSourceSnapshot<TToken extends IHomeMarketTokenRow> =
   | { kind: 'loading'; requestSeq: number }
@@ -115,6 +126,65 @@ function getHomeMarketRowIds<TToken extends IHomeMarketTokenRow>(
   return [...data.rows, ...(data.perpsHotRows ?? [])].map(
     getHomeMarketTokenRowId,
   );
+}
+
+function isSameMarketRow(
+  row: IHomeMarketTokenRow,
+  watchListItem: IHomeMarketWatchListItem,
+): boolean {
+  return row.perpsCoin
+    ? row.perpsCoin === watchListItem.perpsCoin
+    : row.chainId === watchListItem.chainId &&
+        row.contractAddress.toLowerCase() ===
+          watchListItem.contractAddress.toLowerCase();
+}
+
+function createHomeMarketSnapshotDefaults(): IHomeMarketSnapshotPayload<IHomeMarketTokenRow> {
+  return {
+    categories: [],
+    earnRows: [],
+    favoriteMode: 'favorites',
+    perpsHotRows: [],
+    prefetchCategoryIds: [],
+    prefetchedRowsByRequestKey: {},
+    resolvedCategoryId: '',
+    rows: [],
+    selectedCategoryId: '',
+    totalFavorites: 0,
+    watchListContentKey: '',
+    watchListItems: [],
+  };
+}
+
+function projectHomeMarketSnapshotData<TToken extends IHomeMarketTokenRow>(
+  value: IHomeMarketSnapshotPayload<TToken>,
+): IHomeMarketSnapshotPayload<TToken> {
+  const source = {
+    ...createHomeMarketSnapshotDefaults(),
+    ...value,
+  } as IHomeMarketSnapshotPayload<TToken>;
+  const rows = source.rows.slice(0, HOME_MARKET_SNAPSHOT_ROW_LIMIT);
+  const perpsHotRows = source.perpsHotRows.slice(
+    0,
+    HOME_MARKET_SNAPSHOT_PERPS_ROW_LIMIT,
+  );
+  const visibleRows = [...rows, ...perpsHotRows];
+  return {
+    categories: source.categories,
+    earnRows: source.earnRows.slice(0, HOME_MARKET_SNAPSHOT_EARN_ROW_LIMIT),
+    favoriteMode: source.favoriteMode,
+    perpsHotRows,
+    prefetchCategoryIds: [],
+    prefetchedRowsByRequestKey: {},
+    resolvedCategoryId: source.resolvedCategoryId,
+    rows,
+    selectedCategoryId: source.selectedCategoryId,
+    totalFavorites: source.totalFavorites,
+    watchListContentKey: source.watchListContentKey,
+    watchListItems: source.watchListItems.filter((watchListItem) =>
+      visibleRows.some((row) => isSameMarketRow(row, watchListItem)),
+    ),
+  };
 }
 
 function createHomeMarketSourceIdentity({
@@ -173,17 +243,23 @@ function adaptHomeMarketSourceSnapshot<TToken extends IHomeMarketTokenRow>({
 
 export {
   HOME_MARKET_DATA_SCHEMA_VERSION,
+  HOME_MARKET_SNAPSHOT_EARN_ROW_LIMIT,
+  HOME_MARKET_SNAPSHOT_PERPS_ROW_LIMIT,
+  HOME_MARKET_SNAPSHOT_ROW_LIMIT,
   HOME_MARKET_SOURCE_REVISION,
   adaptHomeMarketSourceSnapshot,
+  createHomeMarketSnapshotDefaults,
   createHomeMarketSourceIdentity,
   getHomeMarketRowIds,
   getHomeMarketTokenRowId,
+  projectHomeMarketSnapshotData,
 };
 export type {
   IHomeMarketCategory,
   IHomeMarketLegacyPayload,
   IHomeMarketSourceParams,
   IHomeMarketSourceSnapshot,
+  IHomeMarketSnapshotPayload,
   IHomeMarketTokenRow,
   IHomeMarketWatchListItem,
 };
