@@ -1024,7 +1024,13 @@ function StockPayTokenPopoverContent({
 function StockAmountInputSkeleton({ isBuySide }: { isBuySide: boolean }) {
   const intl = useIntl();
   return (
-    <YStack h={124} bg="$bgSubdued" borderRadius="$4" overflow="hidden">
+    <YStack
+      testID={SwapTestIDs.stockAmountInputSkeleton}
+      h={124}
+      bg="$bgSubdued"
+      borderRadius="$4"
+      overflow="hidden"
+    >
       <XStack
         pt="$3.5"
         px="$3.5"

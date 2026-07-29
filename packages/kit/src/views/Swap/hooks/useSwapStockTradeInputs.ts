@@ -44,6 +44,7 @@ import {
   resolveStockBalanceSnapshot,
   resolveStockBalanceViewState,
   resolveStockExecutionTokenMetadata,
+  resolveStockTradeInputTokenStatus,
   shouldRenderStockTradeInputSkeleton,
 } from './swapStockChannelUtils';
 import {
@@ -580,7 +581,11 @@ export function useSwapStockAmountInputState({
   } = stockChannel;
   const isBuySide = tradeSide === ESwapStockTradeSide.Buy;
   const inputToken = isBuySide ? payToken : currentStockToken;
-  const inputTokenStatus = isBuySide ? payTokenStatus : stockTokenStatus;
+  const inputTokenStatus = resolveStockTradeInputTokenStatus({
+    isBuySide,
+    payTokenStatus,
+    stockTokenStatus,
+  });
   const inputTokenVisible = Boolean(inputToken);
   const stockIdentityReady =
     stockTokenStatus === ESwapStockChannelAsyncStatus.Ready;

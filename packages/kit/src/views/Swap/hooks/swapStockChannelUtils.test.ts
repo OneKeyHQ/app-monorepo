@@ -21,6 +21,7 @@ import {
   resolveStockExecutionTokensToSync,
   resolveStockKLineToken,
   resolveStockPayTokenDisplaySeed,
+  resolveStockTradeInputTokenStatus,
   resolveSwapStockDefaultTokenStatus,
   shouldLoadDefaultStockToken,
   shouldRenderStockTradeInputSkeleton,
@@ -595,6 +596,57 @@ describe('swapStockChannelUtils', () => {
         isBuySide: true,
       }),
     ).toBe(false);
+  });
+
+  it('keeps the buy-side input initializing until the stock identity is ready', () => {
+    expect(
+      resolveStockTradeInputTokenStatus({
+        isBuySide: true,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Idle,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Initializing,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Initializing);
+    expect(
+      resolveStockTradeInputTokenStatus({
+        isBuySide: true,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Idle,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Initializing);
+  });
+
+  it('settles the buy-side input only after its owning state settles', () => {
+    expect(
+      resolveStockTradeInputTokenStatus({
+        isBuySide: true,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Idle,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Empty,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Empty);
+    expect(
+      resolveStockTradeInputTokenStatus({
+        isBuySide: true,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Empty,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Empty);
+    expect(
+      resolveStockTradeInputTokenStatus({
+        isBuySide: true,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Ready);
+  });
+
+  it('keeps the sell-side input owned by the stock-token status', () => {
+    expect(
+      resolveStockTradeInputTokenStatus({
+        isBuySide: false,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Initializing,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Initializing);
   });
 
   it('shows Stock balance loading only before the first scoped balance lands', () => {

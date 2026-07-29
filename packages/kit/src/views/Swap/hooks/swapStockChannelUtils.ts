@@ -452,6 +452,30 @@ export function isStockPayTokenReadyForTradeInput({
   );
 }
 
+export function resolveStockTradeInputTokenStatus({
+  isBuySide,
+  payTokenStatus,
+  stockTokenStatus,
+}: {
+  isBuySide: boolean;
+  payTokenStatus: ESwapStockChannelAsyncStatus;
+  stockTokenStatus: ESwapStockChannelAsyncStatus;
+}) {
+  if (!isBuySide) {
+    return stockTokenStatus;
+  }
+  if (stockTokenStatus === ESwapStockChannelAsyncStatus.Empty) {
+    return ESwapStockChannelAsyncStatus.Empty;
+  }
+  if (
+    stockTokenStatus !== ESwapStockChannelAsyncStatus.Ready ||
+    payTokenStatus === ESwapStockChannelAsyncStatus.Idle
+  ) {
+    return ESwapStockChannelAsyncStatus.Initializing;
+  }
+  return payTokenStatus;
+}
+
 export function shouldRenderStockTradeInputSkeleton({
   inputTokenStatus,
   inputTokenReady,
