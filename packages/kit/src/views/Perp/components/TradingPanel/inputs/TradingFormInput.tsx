@@ -26,23 +26,25 @@ export const InputAccessoryDoneButton = ({
   const isKeyboardShown = useIsKeyboardShown();
   if (!platformEnv.isNativeIOS && !isKeyboardShown) return null;
   return (
-    <XStack
-      p="$2.5"
-      px="$3.5"
-      justifyContent={leftContent ? 'space-between' : 'flex-end'}
-      bg="$bgSubdued"
-      borderTopWidth="$px"
-      borderTopColor="$borderSubduedLight"
-    >
-      {leftContent}
-      <Button
-        variant="tertiary"
-        onPress={() => Keyboard.dismiss()}
-        testID="perp-is-keyboard-shown-btn"
+    <YStack pt="$2" bg="$bgApp">
+      <XStack
+        p="$2.5"
+        px="$3.5"
+        justifyContent={leftContent ? 'space-between' : 'flex-end'}
+        bg="$bgSubdued"
+        borderTopWidth="$px"
+        borderTopColor="$borderSubduedLight"
       >
-        {intl.formatMessage({ id: ETranslations.global_done })}
-      </Button>
-    </XStack>
+        {leftContent}
+        <Button
+          variant="tertiary"
+          onPress={() => Keyboard.dismiss()}
+          testID="perp-is-keyboard-shown-btn"
+        >
+          {intl.formatMessage({ id: ETranslations.global_done })}
+        </Button>
+      </XStack>
+    </YStack>
   );
 };
 

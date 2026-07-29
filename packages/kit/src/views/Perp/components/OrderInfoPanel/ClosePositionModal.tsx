@@ -34,8 +34,9 @@ import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import {
   PERP_DIALOG_BUTTON_SIZE,
-  PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+  PERP_KEYBOARD_AWARE_DIALOG_CONTENT_CONTAINER_PROPS,
 } from '../PerpDialogLayout';
+import { PerpKeyboardAwareDialogContent } from '../PerpKeyboardAwareDialogContent';
 import { PerpsSlider } from '../PerpsSlider';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { PriceInput } from '../TradingPanel/inputs/PriceInput';
@@ -543,14 +544,16 @@ export function showClosePositionDialog({
     disableDrag: true,
     renderContent: (
       <PerpsProviderMirror>
-        <ClosePositionForm
-          position={position}
-          type={type}
-          onClose={() => dialogInstance.close()}
-        />
+        <PerpKeyboardAwareDialogContent>
+          <ClosePositionForm
+            position={position}
+            type={type}
+            onClose={() => dialogInstance.close()}
+          />
+        </PerpKeyboardAwareDialogContent>
       </PerpsProviderMirror>
     ),
-    contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+    contentContainerProps: PERP_KEYBOARD_AWARE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
   });
 

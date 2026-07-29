@@ -14,6 +14,7 @@ import {
   XStack,
   YStack,
   getFontSize,
+  useKeyboardHeight,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -46,8 +47,9 @@ import { resolveTpSlTriggerPx } from '../../utils/resolveTpSlTriggerPx';
 import { buildDefaultTpSlPercent } from '../../utils/tpslSeed';
 import {
   PERP_DIALOG_BUTTON_SIZE,
-  PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+  PERP_KEYBOARD_AWARE_DIALOG_CONTENT_CONTAINER_PROPS,
 } from '../PerpDialogLayout';
+import { PerpKeyboardAwareDialogContent } from '../PerpKeyboardAwareDialogContent';
 import { PerpsSlider } from '../PerpsSlider';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { PriceInput } from '../TradingPanel/inputs/PriceInput';
@@ -78,10 +80,12 @@ interface IAddPositionFormProps extends IAddPositionParams {
 const AddPositionForm = memo(
   ({ coin, isBuy, accountAddress, onClose }: IAddPositionFormProps) => {
     const intl = useIntl();
+    const keyboardHeight = useKeyboardHeight();
     const actions = useHyperliquidActions();
     const [activeAccount] = usePerpsActiveAccountAtom();
     const [tradingPreferences] = usePerpsTradingPreferencesAtom();
     const sizeInputUnit = tradingPreferences.sizeInputUnit ?? 'usd';
+    const tpslButtonPaddingTop = keyboardHeight > 0 ? 0 : '$4';
     const [allMids] = usePerpsAllMidsAtom();
     const activePositions = usePerpsAccountScopedActivePositions();
     const currentPosition = useMemo(
@@ -550,74 +554,82 @@ const AddPositionForm = memo(
           allowMarginInput
           ifOnDialog
         />
-        <PerpsSlider
-          min={0}
-          max={100}
-          value={sizeInputMode === EPerpsSizeInputMode.SLIDER ? sizePercent : 0}
-          onChange={handleSliderPercentChange}
-          disabled={isSubmitting || !isTargetAssetReady}
-          segments={4}
-          snapTapToSegment
-          showBubble={false}
-          sliderHeight={4}
-        />
-        <Checkbox
-          testID="perp-add-position-tpsl-checkbox"
-          value={hasTpsl}
-          onChange={(checked) => handleTpslCheckboxChange(Boolean(checked))}
-          label={intl.formatMessage({
-            id: ETranslations.perp_position_tp_sl,
-          })}
-          labelProps={{
-            fontSize: getFontSize('$bodyMd'),
-            color: '$textSubdued',
-          }}
-          containerProps={{ alignItems: 'center' }}
-          width="$4"
-          height="$4"
-        />
-        {hasTpsl ? (
-          <YStack gap="$2">
-            <TpSlFormInput
-              type="tp"
-              label={intl.formatMessage({
-                id: ETranslations.perp_trade_tp_price,
-              })}
-              value={tpValue}
-              inputType={tpType}
-              referencePrice={effectivePrice}
-              szDecimals={szDecimals ?? 0}
-              onChange={setTpValue}
-              onTypeChange={setTpType}
-            />
-            <TpSlFormInput
-              type="sl"
-              label={intl.formatMessage({
-                id: ETranslations.perp_trade_sl_price,
-              })}
-              value={slValue}
-              inputType={slType}
-              referencePrice={effectivePrice}
-              szDecimals={szDecimals ?? 0}
-              onChange={setSlValue}
-              onTypeChange={setSlType}
-            />
-          </YStack>
-        ) : null}
-        <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
-          <Button
-            testID={PerpTestIDs.AddPositionConfirmButton}
-            size={PERP_DIALOG_BUTTON_SIZE}
-            variant="primary"
+        <YStack gap="$1.5">
+          <PerpsSlider
+            min={0}
+            max={100}
+            value={
+              sizeInputMode === EPerpsSizeInputMode.SLIDER ? sizePercent : 0
+            }
+            onChange={handleSliderPercentChange}
             disabled={isSubmitting || !isTargetAssetReady}
-            loading={isSubmitting}
-            onPress={handleSubmit}
-          >
-            {intl.formatMessage({
-              id: ETranslations.perp_confirm_order_action,
-            })}
-          </Button>
-        </TradingGuardWrapper>
+            segments={4}
+            snapTapToSegment
+            showBubble={false}
+            sliderHeight={4}
+          />
+          <YStack gap="$2">
+            <Checkbox
+              testID="perp-add-position-tpsl-checkbox"
+              value={hasTpsl}
+              onChange={(checked) => handleTpslCheckboxChange(Boolean(checked))}
+              label={intl.formatMessage({
+                id: ETranslations.perp_position_tp_sl,
+              })}
+              labelProps={{
+                fontSize: getFontSize('$bodyMd'),
+                color: '$textSubdued',
+              }}
+              containerProps={{ alignItems: 'center' }}
+              width="$4"
+              height="$4"
+            />
+            {hasTpsl ? (
+              <YStack gap="$4">
+                <TpSlFormInput
+                  type="tp"
+                  label={intl.formatMessage({
+                    id: ETranslations.perp_trade_tp_price,
+                  })}
+                  value={tpValue}
+                  inputType={tpType}
+                  referencePrice={effectivePrice}
+                  szDecimals={szDecimals ?? 0}
+                  onChange={setTpValue}
+                  onTypeChange={setTpType}
+                />
+                <TpSlFormInput
+                  type="sl"
+                  label={intl.formatMessage({
+                    id: ETranslations.perp_trade_sl_price,
+                  })}
+                  value={slValue}
+                  inputType={slType}
+                  referencePrice={effectivePrice}
+                  szDecimals={szDecimals ?? 0}
+                  onChange={setSlValue}
+                  onTypeChange={setSlType}
+                />
+              </YStack>
+            ) : null}
+          </YStack>
+        </YStack>
+        <YStack pt={hasTpsl ? tpslButtonPaddingTop : undefined}>
+          <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
+            <Button
+              testID={PerpTestIDs.AddPositionConfirmButton}
+              size={PERP_DIALOG_BUTTON_SIZE}
+              variant="primary"
+              disabled={isSubmitting || !isTargetAssetReady}
+              loading={isSubmitting}
+              onPress={handleSubmit}
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_confirm_order_action,
+              })}
+            </Button>
+          </TradingGuardWrapper>
+        </YStack>
       </YStack>
     );
   },
@@ -641,16 +653,18 @@ export function showAddPositionDialog({
     renderContent: (
       <PerpsAccountSelectorProviderMirror>
         <PerpsProviderMirror>
-          <AddPositionForm
-            coin={coin}
-            isBuy={isBuy}
-            accountAddress={accountAddress}
-            onClose={() => dialogInstance.close()}
-          />
+          <PerpKeyboardAwareDialogContent>
+            <AddPositionForm
+              coin={coin}
+              isBuy={isBuy}
+              accountAddress={accountAddress}
+              onClose={() => dialogInstance.close()}
+            />
+          </PerpKeyboardAwareDialogContent>
         </PerpsProviderMirror>
       </PerpsAccountSelectorProviderMirror>
     ),
-    contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+    contentContainerProps: PERP_KEYBOARD_AWARE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
   });
   return dialogInstance;
