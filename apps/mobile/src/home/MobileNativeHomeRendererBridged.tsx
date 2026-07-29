@@ -477,6 +477,7 @@ const MobileNativeHomeHeaderBridge = memo(
     const [{ currencyMap }] = useCurrencyPersistAtom();
     const [settings] = useSettingsPersistAtom();
     const balanceDecisionKeyRef = useRef<string | null>(null);
+    const bannerDecisionKeyRef = useRef<string | null>(null);
     const actionRowOwnerKey = `${owner.scopeKey}:${owner.sessionId}`;
     const [activatedActionRowOwnerKey, setActivatedActionRowOwnerKey] =
       useState<string>();
@@ -633,6 +634,36 @@ const MobileNativeHomeHeaderBridge = memo(
         (bannerPayload.banners.length > 0 || bannerPayload.tronResource),
       ),
     });
+    useEffect(() => {
+      const decision = {
+        bannerPolicyKind: displayModel.banner.kind,
+        bannerResourceKind: bannerResource.kind,
+        bannerPayloadParsed: Boolean(bannerPayload),
+        bannerCount: bannerPayload?.banners.length ?? 0,
+        hasTronResource: Boolean(bannerPayload?.tronResource),
+        presentation: bannerPresentation,
+      };
+      const key = buildHomeScalarKey(Object.values(decision));
+      if (bannerDecisionKeyRef.current === key) {
+        return;
+      }
+      bannerDecisionKeyRef.current = key;
+      defaultLogger.wallet.homeFramePerf.frame({
+        stage: 'functionTiming',
+        functionName: 'MobileNativeHomeBannerDecision',
+        bannerPolicyKind: decision.bannerPolicyKind,
+        bannerResourceKind: decision.bannerResourceKind,
+        bannerPayloadParsed: decision.bannerPayloadParsed,
+        inputCount: decision.bannerCount,
+        hasTronResource: decision.hasTronResource,
+        outcome: decision.presentation,
+      });
+    }, [
+      bannerPayload,
+      bannerPresentation,
+      bannerResource.kind,
+      displayModel.banner.kind,
+    ]);
     const header = useMemo<IHomeContainerHeader>(() => {
       const balance = balanceModel
         ? formatShellBalance({

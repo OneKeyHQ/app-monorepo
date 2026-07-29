@@ -183,11 +183,17 @@ export function createHomeResultSink<
         previousModel,
       );
       const after = options.getCurrentAuthority();
-      if (
-        disposed ||
-        !authorityMatches(authority, after) ||
-        after?.surfaceVisibility !== 'visible'
-      ) {
+      if (disposed || !authorityMatches(authority, after)) {
+        return;
+      }
+      if (after?.surfaceVisibility !== 'visible') {
+        if (
+          after?.surfaceVisibility === 'hidden' &&
+          publication.phase === 'final'
+        ) {
+          stagedHidden = { publication, publicationId };
+          ensureAvailabilityRetry();
+        }
         return;
       }
       if (

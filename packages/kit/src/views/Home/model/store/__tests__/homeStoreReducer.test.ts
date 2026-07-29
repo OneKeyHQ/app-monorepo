@@ -1207,6 +1207,106 @@ describe('Home Store reducer', () => {
     );
   });
 
+  it('matches separately allocated request tokens by value', () => {
+    let state = createOwnedState();
+    const requestedToken = createToken(1);
+    state = dispatch(state, {
+      type: 'sourceRequested',
+      token: requestedToken,
+    });
+    const duplicateToken = {
+      ...requestedToken,
+      sourceKey: { ...requestedToken.sourceKey },
+    };
+    const duplicateTransition = reduceHomeStore(state, {
+      type: 'sourceRequested',
+      token: duplicateToken,
+    });
+    expect(duplicateTransition.patch.mutations).toEqual([]);
+    expect(duplicateTransition.effects).toEqual([]);
+
+    state = dispatch(state, {
+      type: 'sourceResponded',
+      envelope: {
+        token: {
+          ...duplicateToken,
+          sourceKey: { ...duplicateToken.sourceKey },
+        },
+        result: {
+          kind: 'success',
+          data: {
+            payload: { protocols: [{ id: 'defi-a' }] },
+            section: {
+              kind: 'ready',
+              rowIds: ['defi-a'],
+              freshness: 'live',
+              refresh: 'idle',
+            },
+          },
+          coverageFingerprint: 'defi-complete-a',
+        },
+      },
+    });
+
+    expect(state.resources.defi).toMatchObject({
+      kind: 'ready',
+      coverageFingerprint: 'defi-complete-a',
+    });
+    expect(state.diagnostics.lastRejectReason).toBeUndefined();
+  });
+
+  it('rejects a response with a different quote basis', () => {
+    let state = createOwnedState();
+    const requestedToken = {
+      ...createToken(1),
+      sourceKey: {
+        ...createToken(1).sourceKey,
+        quoteBasis: {
+          currency: 'usd',
+          pricingRevision: 'prices-a',
+        },
+      },
+    };
+    state = dispatch(state, {
+      type: 'sourceRequested',
+      token: requestedToken,
+    });
+    state = dispatch(state, {
+      type: 'sourceResponded',
+      envelope: {
+        token: {
+          ...requestedToken,
+          sourceKey: {
+            ...requestedToken.sourceKey,
+            quoteBasis: {
+              currency: 'usd',
+              pricingRevision: 'prices-b',
+            },
+          },
+        },
+        result: {
+          kind: 'success',
+          data: {
+            payload: { protocols: [{ id: 'defi-stale' }] },
+            section: {
+              kind: 'ready',
+              rowIds: ['defi-stale'],
+              freshness: 'live',
+              refresh: 'idle',
+            },
+          },
+          coverageFingerprint: 'defi-stale',
+        },
+      },
+    });
+
+    expect(state.resources.defi).toMatchObject({
+      kind: 'loading',
+      token: requestedToken,
+    });
+    expect(state.diagnostics.lastRejectReason).toBe('requestSequenceStale');
+  });
+
   it('persists and hydrates section readiness through the scoped resource', () => {
     let state = createOwnedState();
     state = dispatch(state, {

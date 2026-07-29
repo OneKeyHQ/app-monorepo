@@ -121,4 +121,56 @@ describe('HomeResultSink', () => {
 
     expect(committed).toEqual(['occupied', 'final']);
   });
+
+  it('buffers a final when the surface hides during materialization', async () => {
+    const drains: Array<() => void> = [];
+    const committed: string[] = [];
+    let resolveFirstMaterialization:
+      | ((value: { model: string; dataRevision: number }) => void)
+      | undefined;
+    let materializationCount = 0;
+    let current: IHomeCurrentResultAuthority = {
+      ...authority,
+      surfaceVisibility: 'visible',
+    };
+    const sink = createHomeResultSink<string, string>({
+      authority,
+      priority: 'critical',
+      commitBudget: new HomeStoreCommitBudget({
+        scheduleVisibleDrain: (callback) => {
+          drains.push(callback);
+          return () => undefined;
+        },
+      }),
+      getCurrentAuthority: () => current,
+      materialize: (wireValue) => {
+        materializationCount += 1;
+        if (materializationCount === 1) {
+          return new Promise((resolve) => {
+            resolveFirstMaterialization = resolve;
+          });
+        }
+        return { model: wireValue, dataRevision: materializationCount };
+      },
+      commit: ({ materialized }) => committed.push(materialized.model),
+    });
+
+    expect(
+      sink.publish({ phase: 'final', revision: 1, wireValue: 'final' }),
+    ).toMatchObject({ kind: 'accepted' });
+    current = { ...current, surfaceVisibility: 'hidden' };
+    resolveFirstMaterialization?.({ model: 'final', dataRevision: 1 });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(committed).toEqual([]);
+
+    current = { ...current, surfaceVisibility: 'visible' };
+    expect(sink.flushBuffered()).toMatchObject({ kind: 'accepted' });
+    await Promise.resolve();
+    await Promise.resolve();
+    drains.shift()?.();
+
+    expect(committed).toEqual(['final']);
+    expect(materializationCount).toBe(2);
+  });
 });

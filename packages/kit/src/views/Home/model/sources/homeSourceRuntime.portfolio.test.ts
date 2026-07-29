@@ -125,11 +125,14 @@ function getLoadPortfolio(runtime: HomeSourceRuntime) {
         signal: AbortSignal;
         yieldIfMainBudgetExceeded: () => Promise<void>;
       }): Promise<{
+        confirmedEmpty: boolean;
         payload: {
           accountTokensValue: string;
+          showLpTokenFilterSwitch: boolean;
           showLpTokensOnly: boolean;
           tokens: { symbol: string }[];
         };
+        rowIds: readonly string[];
       }>;
     }
   ).loadPortfolio.bind(runtime);
@@ -315,6 +318,90 @@ describe('HomeSourceRuntime Portfolio workflow', () => {
         tokens: [expect.objectContaining({ symbol: 'aEthUSDe' })],
       }),
     );
+    runtime.dispose();
+  });
+
+  it('keeps the DeFi token filter capability when the LP result is empty', async () => {
+    mockedBackgroundApiProxy.serviceToken.fetchAccountTokens.mockImplementation(
+      async (params) => {
+        const response = buildTokenResponse(params);
+        if (params.withoutWalletToken !== true) {
+          return response as never;
+        }
+        return {
+          ...response,
+          tokens: {
+            ...response.tokens,
+            data: [],
+            keys: '',
+            map: {},
+            fiatValue: '0',
+          },
+        } as never;
+      },
+    );
+    const state = {
+      interaction: {
+        sectionControls: {
+          portfolio: {
+            'home.portfolio.showLpTokensOnly': true,
+          },
+        },
+      },
+      session: {
+        ownerToken: {
+          scopeKey: 'wallet:account:all',
+          sessionId: 'session-empty-lp',
+        },
+      },
+    } as unknown as IHomeStoreState;
+    const activeAccount = {
+      account: { createAtNetwork: 'evm--1', id: 'all-account' },
+      indexedAccount: { id: 'indexed-account' },
+      network: { id: 'all--0', isAllNetworks: true },
+      ready: true,
+      vaultSettings: { mergeDeriveAssetsEnabled: false },
+      wallet: { id: 'wallet-1' },
+    } as IAccountSelectorActiveAccountInfo;
+    const environment = {
+      activeAccount,
+      bannerLabels: { referralDescription: '', referralTitle: '' },
+      currencyMap: {},
+      settings: {
+        currencyInfo: { id: 'usd' },
+        isFilterLowValueHistoryEnabled: false,
+        isFilterScamHistoryEnabled: false,
+        locale: 'en-US',
+      },
+    } as IHomeSourceEnvironment;
+    const runtime = createRuntime(state);
+    (
+      runtime as unknown as {
+        environment: IHomeSourceEnvironment;
+      }
+    ).environment = environment;
+
+    const result = await getLoadPortfolio(runtime)({
+      environment,
+      force: false,
+      priority: 'interactive',
+      publishIntermediate: jest.fn(),
+      requestSequence: 1,
+      sessionId: 'session-empty-lp',
+      signal: new AbortController().signal,
+      yieldIfMainBudgetExceeded: () => Promise.resolve(),
+    });
+
+    expect(result).toMatchObject({
+      confirmedEmpty: true,
+      rowIds: [],
+      payload: {
+        accountTokensValue: '4',
+        showLpTokenFilterSwitch: true,
+        showLpTokensOnly: true,
+        tokens: [],
+      },
+    });
     runtime.dispose();
   });
 });

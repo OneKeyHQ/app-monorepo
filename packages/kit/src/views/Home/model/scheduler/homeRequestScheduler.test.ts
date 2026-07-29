@@ -132,4 +132,47 @@ describe('HomeRequestScheduler', () => {
     stale.resolve();
     await expect(staleOutcome).resolves.toEqual({ kind: 'superseded' });
   });
+
+  it('admits a reused session behind its cancelled running generation', async () => {
+    const cancelledGeneration = deferred();
+    const nextRun = jest.fn(async () => undefined);
+    const scheduler = new HomeRequestScheduler({
+      maxRunning: 1,
+      requestLeaf: jest.fn(),
+    });
+    const schedule = (taskId: string, run: () => Promise<void>) =>
+      scheduler.schedule({
+        taskId,
+        key: 'portfolio:key',
+        groupKey: 'session-a',
+        clientInstanceId: 'client-a',
+        appEpoch: 'epoch-a',
+        sessionId: 'session-a',
+        requestGroupId: 'session-a:portfolio',
+        priority: 'critical',
+        policy: 'exhaust',
+        timeoutMs: 5000,
+        run,
+      });
+    const cancelledOutcome = schedule(
+      'cancelled-generation',
+      () => cancelledGeneration.promise,
+    );
+
+    scheduler.cancelSession('session-a');
+    const nextOutcome = schedule('next-generation', nextRun);
+    expect(nextRun).not.toHaveBeenCalled();
+    expect(scheduler.getSnapshot()).toMatchObject({
+      pendingCount: 1,
+      runningCount: 1,
+    });
+
+    cancelledGeneration.resolve();
+    await expect(cancelledOutcome).resolves.toEqual({ kind: 'cancelled' });
+    await expect(nextOutcome).resolves.toEqual({
+      kind: 'fulfilled',
+      value: undefined,
+    });
+    expect(nextRun).toHaveBeenCalledTimes(1);
+  });
 });

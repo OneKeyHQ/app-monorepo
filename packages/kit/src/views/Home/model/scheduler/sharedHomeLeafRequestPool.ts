@@ -23,8 +23,6 @@ const DEFAULT_PER_CLIENT_PENDING = 32;
 export class SharedHomeLeafRequestPool {
   private readonly queues = new Map<string, IQueuedLeaf[]>();
 
-  private readonly cancelledSessions = new Map<string, Set<string>>();
-
   private readonly clientOrder: string[] = [];
 
   private readonly runningLeaves = new Set<IQueuedLeaf>();
@@ -45,11 +43,6 @@ export class SharedHomeLeafRequestPool {
     request: (signal: AbortSignal) => Promise<TResult>,
     sessionId?: string,
   ): Promise<TResult> {
-    if (sessionId && this.cancelledSessions.get(clientId)?.has(sessionId)) {
-      return Promise.reject(
-        new OneKeyLocalError('Shared leaf request session was cancelled'),
-      );
-    }
     const queue = this.getClientQueue(clientId);
     if (
       this.pendingCount() >= this.maxPending ||
@@ -86,7 +79,6 @@ export class SharedHomeLeafRequestPool {
   }
 
   cancelClient(clientId: string): void {
-    this.cancelledSessions.delete(clientId);
     const queue = this.queues.get(clientId);
     if (queue) {
       this.queues.delete(clientId);
@@ -117,9 +109,6 @@ export class SharedHomeLeafRequestPool {
   }
 
   cancelSession(clientId: string, sessionId: string): void {
-    const cancelled = this.cancelledSessions.get(clientId) ?? new Set<string>();
-    cancelled.add(sessionId);
-    this.cancelledSessions.set(clientId, cancelled);
     const queue = this.queues.get(clientId);
     if (queue) {
       const retained: IQueuedLeaf[] = [];

@@ -5,7 +5,10 @@ import { createIdleHomeSourceFacts } from '../facts/homeFacts';
 import { buildHomeBannerSemanticFingerprint } from '../sections/banner/homeBannerStoreModel';
 import { createHomeSpotSnapshotDefaults } from '../sections/spot/homeSpotSourceAdapter';
 
-import { HomeSourceRuntime } from './homeSourceRuntime';
+import {
+  HomeSourceRuntime,
+  type IHomeSourceEnvironment,
+} from './homeSourceRuntime';
 
 import type { IHomeResultAuthority } from '../results/homeResultSink';
 import type { IHomeStoreEvent, IHomeStoreState } from '../store/homeStoreTypes';
@@ -90,6 +93,108 @@ function createAuthority(
 }
 
 describe('HomeSourceRuntime banner workflow', () => {
+  it('continues request sequencing from the Store after a runtime rebuild', async () => {
+    const schedule = jest.fn().mockResolvedValue({ kind: 'ignored' });
+    const submit = jest.fn().mockReturnValue(true);
+    const dispatchAtomically = jest.fn();
+    const state = {
+      session: {
+        appEpoch: 'app-a',
+        authority: 'ready',
+        ownerToken: { scopeKey: 'owner-a', sessionId: 'session-a' },
+        producerInstanceId: 'producer-a',
+        surfaceVisibility: 'visible',
+      },
+      resources: {
+        banner: {
+          kind: 'loading',
+          token: {
+            clientInstanceId: 'client-old',
+            producerInstanceId: 'producer-old',
+            protocolVersion: 1,
+            requestSeq: 7,
+            sessionId: 'session-a',
+            sourceKey: {
+              dataSchemaVersion: 1,
+              paramsFingerprint: 'banner-old',
+              scopeKey: 'owner-a',
+              sourceId: 'banner',
+            },
+          },
+        },
+      },
+      interaction: { sectionControls: {} },
+      walletInputs: { accountType: 'hd' },
+    } as unknown as IHomeStoreState;
+    const environment = {
+      activeAccount: {
+        account: { id: 'account-a' },
+        indexedAccount: { id: 'indexed-a' },
+        network: { id: 'evm--1', impl: 'evm' },
+        ready: true,
+        wallet: { id: 'wallet-a' },
+      },
+      bannerLabels: { referralDescription: '', referralTitle: '' },
+      currencyMap: {},
+      settings: {
+        currencyInfo: { id: 'usd' },
+        isFilterLowValueHistoryEnabled: false,
+        isFilterScamHistoryEnabled: false,
+        locale: 'en-US',
+      },
+    } as unknown as IHomeSourceEnvironment;
+    const runtime = new HomeSourceRuntime({
+      identity: {
+        runtimeInstanceId: 'runtime-new',
+        clientInstanceId: 'client-new',
+      },
+      scheduler: {
+        schedule,
+      } as never,
+      commitBudget: {
+        submit,
+      } as never,
+      leafPool: {
+        cancelSession: jest.fn(),
+        dispose: jest.fn(),
+        getSnapshot: jest.fn(),
+        run: jest.fn(),
+      } as never,
+      dispatch: jest.fn(),
+      dispatchAtomically,
+      getStateView: () => state,
+    });
+    (
+      runtime as unknown as {
+        environment: IHomeSourceEnvironment;
+      }
+    ).environment = environment;
+    const runSource = (
+      runtime as unknown as {
+        runSource(
+          sourceId: 'banner',
+          priority: 'critical',
+        ): Promise<{ kind: string }>;
+      }
+    ).runSource.bind(runtime);
+
+    await runSource('banner', 'critical');
+
+    expect(schedule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        taskId: 'home-source:banner:session-a:8',
+      }),
+    );
+    expect(submit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authority: expect.objectContaining({
+          requestSequence: 8,
+        }),
+      }),
+    );
+    runtime.dispose();
+  });
+
   it('publishes a normal banner before optional referral settles', async () => {
     const remote =
       createDeferred<
@@ -510,6 +615,88 @@ describe('HomeSourceRuntime banner workflow', () => {
           confirmedEmpty: true,
           coverageFingerprint: 'confirmed-empty:portfolio:v1',
           kind: 'empty',
+        },
+        sectionId: 'portfolio',
+        type: 'sectionSourceChanged',
+      }),
+    ]);
+    runtime.dispose();
+  });
+
+  it('preserves a composite Portfolio payload when its token rows are empty', () => {
+    const dispatchAtomically = jest.fn();
+    const state = {
+      session: {
+        ownerToken: { scopeKey: 'owner-a', sessionId: 'session-a' },
+      },
+      resources: {
+        portfolio: { kind: 'loading' },
+      },
+    } as unknown as IHomeStoreState;
+    const runtime = new HomeSourceRuntime({
+      identity: {
+        runtimeInstanceId: 'runtime-a',
+        clientInstanceId: 'client-a',
+      },
+      scheduler: {} as never,
+      commitBudget: {} as never,
+      leafPool: {
+        cancelSession: jest.fn(),
+        dispose: jest.fn(),
+        getSnapshot: jest.fn(),
+        run: jest.fn(),
+      } as never,
+      dispatch: jest.fn(),
+      dispatchAtomically,
+      getStateView: () => state,
+    });
+    const commitWireResult = (
+      runtime as unknown as {
+        commitWireResult(input: {
+          authority: IHomeResultAuthority;
+          phase: 'final';
+          sourceId: 'portfolio';
+          wire: {
+            confirmedEmpty: boolean;
+            empty: boolean;
+            error: boolean;
+            payload: {
+              showLpTokenFilterSwitch: boolean;
+              showLpTokensOnly: boolean;
+              tokens: never[];
+            };
+            rowIds: string[];
+          };
+        }): void;
+      }
+    ).commitWireResult.bind(runtime);
+    const payload = {
+      showLpTokenFilterSwitch: true,
+      showLpTokensOnly: true,
+      tokens: [],
+    };
+
+    commitWireResult({
+      authority: createAuthority('portfolio'),
+      phase: 'final',
+      sourceId: 'portfolio',
+      wire: {
+        confirmedEmpty: true,
+        empty: true,
+        error: false,
+        payload,
+        rowIds: [],
+      },
+    });
+
+    expect(dispatchAtomically).toHaveBeenCalledWith([
+      expect.objectContaining({
+        result: {
+          data: payload,
+          freshness: 'live',
+          kind: 'ready',
+          refresh: 'idle',
+          rowIds: [],
         },
         sectionId: 'portfolio',
         type: 'sectionSourceChanged',
@@ -1208,6 +1395,112 @@ describe('HomeSourceRuntime banner workflow', () => {
           refresh: 'refreshing',
           rowIds: ['eth'],
         }),
+      },
+    ]);
+    runtime.dispose();
+  });
+
+  it('rehydrates an empty composite Portfolio snapshot as ready', () => {
+    const dispatchAtomically = jest.fn();
+    const ownerToken = { scopeKey: 'owner-a', sessionId: 'session-new' };
+    const state = {
+      session: { ownerToken },
+      resources: { portfolio: { kind: 'idle' } },
+    } as unknown as IHomeStoreState;
+    const runtime = new HomeSourceRuntime({
+      identity: {
+        runtimeInstanceId: 'runtime-a',
+        clientInstanceId: 'client-a',
+      },
+      scheduler: {} as never,
+      commitBudget: {} as never,
+      leafPool: {
+        cancelSession: jest.fn(),
+        dispose: jest.fn(),
+        getSnapshot: jest.fn(),
+        run: jest.fn(),
+      } as never,
+      dispatch: jest.fn(),
+      dispatchAtomically,
+      getStateView: () => state,
+    });
+    const privateRuntime = runtime as unknown as {
+      hydrateCache(
+        sourceId: 'portfolio',
+        sourceKey: string,
+        authority: {
+          ownerScopeKey: string;
+          sessionId: string;
+        },
+        sink: { flushBuffered(): undefined },
+      ): void;
+      rememberCache(
+        sourceId: 'portfolio',
+        sourceKey: string,
+        entry: {
+          coverageFingerprint: string;
+          dataRevision: number;
+          expiresAt: number;
+          phase: 'final';
+          payload: {
+            confirmedEmpty: boolean;
+            empty: boolean;
+            error: boolean;
+            payload: {
+              accountTokensValue: string;
+              showLpTokenFilterSwitch: boolean;
+              showLpTokensOnly: boolean;
+              tokens: never[];
+            };
+            rowIds: never[];
+          };
+          rowIds: never[];
+        },
+      ): void;
+    };
+    const payload = {
+      accountTokensValue: '4',
+      showLpTokenFilterSwitch: true,
+      showLpTokensOnly: true,
+      tokens: [],
+    };
+    privateRuntime.rememberCache('portfolio', 'portfolio-empty-lp', {
+      coverageFingerprint: 'portfolio-empty-lp',
+      dataRevision: 1,
+      expiresAt: Date.now() + 30_000,
+      phase: 'final',
+      payload: {
+        confirmedEmpty: true,
+        empty: true,
+        error: false,
+        payload,
+        rowIds: [],
+      },
+      rowIds: [],
+    });
+
+    privateRuntime.hydrateCache(
+      'portfolio',
+      'portfolio-empty-lp',
+      {
+        ownerScopeKey: ownerToken.scopeKey,
+        sessionId: ownerToken.sessionId,
+      },
+      { flushBuffered: () => undefined },
+    );
+
+    expect(dispatchAtomically).toHaveBeenCalledWith([
+      {
+        type: 'sectionSourceChanged',
+        ownerToken,
+        sectionId: 'portfolio',
+        result: {
+          kind: 'ready',
+          rowIds: [],
+          data: payload,
+          freshness: 'confirmedCache',
+          refresh: 'refreshing',
+        },
       },
     ]);
     runtime.dispose();

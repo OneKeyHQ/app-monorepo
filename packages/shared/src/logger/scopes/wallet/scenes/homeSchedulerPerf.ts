@@ -8,6 +8,7 @@ export class HomeSchedulerPerfScene extends BaseScene {
       | 'requestQueue'
       | 'sessionCancellation'
       | 'sourceBatchOutcome'
+      | 'sourceFailure'
       | 'sourceOutcome';
     walletName?: string;
     accountName?: string;
@@ -33,6 +34,7 @@ export class HomeSchedulerPerfScene extends BaseScene {
     staleAuthorityCount?: number;
     finalRowCount?: number;
     resultClassification?: 'success' | 'error';
+    errorName?: string;
   }) {
     return params;
   }

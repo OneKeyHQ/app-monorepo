@@ -60,6 +60,7 @@ import {
   buildNativeHomeAllNetworkPortfolioProjection,
 } from '../../nativeHomeAllNetworkPortfolioProjection';
 import { adaptCurrentHomeCapabilityFacts } from '../capabilities/currentHomeCapabilityFactsAdapter';
+import { areHomeSourceKeysEqual } from '../core/homeIdentity';
 import {
   type IHomeResultAuthority,
   type IHomeResultPhase,
@@ -168,6 +169,18 @@ type ISourceCacheEntry = {
 
 const SOURCE_CACHE_TTL_MS = 30_000;
 const SOURCE_CACHE_MAX_IDENTITIES = 8;
+
+function preservesCompositeSectionPayload(
+  sourceId: IHomeStoreSourceId,
+  wire: ISectionWireResult,
+): boolean {
+  return (
+    sourceId === 'portfolio' &&
+    wire.payload !== null &&
+    typeof wire.payload === 'object' &&
+    !Array.isArray(wire.payload)
+  );
+}
 
 function getHomeSourceDataSchemaVersion(sourceId: IHomeStoreSourceId): number {
   return sourceId === 'portfolio' ? HOME_SPOT_DATA_SCHEMA_VERSION : 1;
@@ -725,7 +738,16 @@ export class HomeSourceRuntime {
     if (this.inFlight.get(sourceId)?.executionKey === executionKey) {
       return { kind: 'ignored' };
     }
-    const requestSequence = (this.requestSequence.get(sourceId) ?? 0) + 1;
+    const currentResource = state.resources[sourceId];
+    const committedRequestSequence =
+      currentResource.kind !== 'idle' && 'token' in currentResource
+        ? (currentResource.token?.requestSeq ?? 0)
+        : 0;
+    const requestSequence =
+      Math.max(
+        this.requestSequence.get(sourceId) ?? 0,
+        committedRequestSequence,
+      ) + 1;
     this.requestSequence.set(sourceId, requestSequence);
     const taskId = [
       'home-source',
@@ -1029,10 +1051,16 @@ export class HomeSourceRuntime {
         rowIds: section.rowIds,
       });
       return true;
-    } catch {
+    } catch (error) {
       if (signal.aborted) {
         return false;
       }
+      defaultLogger.wallet.homeSchedulerPerf.snapshot({
+        stage: 'sourceFailure',
+        sourceId,
+        requestSequence: authority.requestSequence,
+        errorName: error instanceof Error ? error.name : typeof error,
+      });
       this.commitSourceFailure(authority, sourceId);
       return false;
     }
@@ -1167,11 +1195,36 @@ export class HomeSourceRuntime {
         rowIds: [],
         empty: false,
       });
-      this.host.dispatchAtomically(
+      const receipt = this.host.dispatchAtomically(
         balanceEvent
           ? [requestEvent, bannerEvent, balanceEvent]
           : [requestEvent, bannerEvent],
       );
+      const dispatchReceipt = receipt as
+        | { accepted?: boolean; rejectReason?: string }
+        | undefined;
+      const currentToken =
+        currentBanner.kind !== 'idle' && 'token' in currentBanner
+          ? currentBanner.token
+          : undefined;
+      defaultLogger.wallet.homeFramePerf.frame({
+        stage: 'functionTiming',
+        functionName: 'HomeSourceRuntime.commitBanner',
+        phase,
+        requestSequence: authority.requestSequence,
+        inputCount: bannerPayload.banners.length,
+        hasTronResource: Boolean(bannerPayload.tronResource),
+        outcome: dispatchReceipt?.accepted === false ? 'rejected' : 'accepted',
+        rejectReason: dispatchReceipt?.rejectReason,
+        currentRequestSequence: currentToken?.requestSeq,
+        currentClientMatches:
+          currentToken?.clientInstanceId === token.clientInstanceId,
+        currentProducerMatches:
+          currentToken?.producerInstanceId === token.producerInstanceId,
+        currentSourceKeyMatches:
+          currentToken !== undefined &&
+          areHomeSourceKeysEqual(currentToken.sourceKey, token.sourceKey),
+      });
       return;
     }
     if (!isSectionSource(sourceId)) {
@@ -1220,6 +1273,10 @@ export class HomeSourceRuntime {
         }
       }
     }
+    const preservesCompositePayload = preservesCompositeSectionPayload(
+      sourceId,
+      sectionWire,
+    );
     let sectionResult: Extract<
       IHomeStoreEvent,
       { type: 'sectionSourceChanged' }
@@ -1228,7 +1285,7 @@ export class HomeSourceRuntime {
       sectionResult = { kind: 'error' };
     } else if (phase === 'intermediate' && sectionWire.empty) {
       sectionResult = { kind: 'loading' };
-    } else if (sectionWire.empty) {
+    } else if (sectionWire.empty && !preservesCompositePayload) {
       sectionResult = {
         kind: 'empty',
         confirmedEmpty: sectionWire.confirmedEmpty === true,
@@ -1260,7 +1317,7 @@ export class HomeSourceRuntime {
             sourceId,
             payload: sectionWire.payload,
             rowIds: sectionWire.rowIds as string[],
-            empty: sectionWire.empty,
+            empty: sectionWire.empty && !preservesCompositePayload,
             freshness:
               phase === 'intermediate' ? intermediateFreshness : 'live',
             phase,
@@ -1733,6 +1790,15 @@ export class HomeSourceRuntime {
         } else if (networkMatchedBanners.length === 0) {
           outcome = 'filtered';
         }
+        normalResultCount += 1;
+        remoteState = { status: 'ready', value: remote };
+        const local =
+          localState.status === 'ready' ? localState.value : undefined;
+        const closedForever = local?.closedForever ?? {};
+        const dismissedIds = new Set(
+          this.host.getStateView().interaction.dismissedBannerIds,
+        );
+        const payload = buildPayload();
         defaultLogger.wallet.homeFramePerf.frame({
           stage: 'functionTiming',
           functionName: 'HomeSourceRuntime.loadBanner.remote',
@@ -1743,10 +1809,15 @@ export class HomeSourceRuntime {
           inputCount: remote.length,
           homeBannerCount: homeBanners.length,
           networkMatchedBannerCount: networkMatchedBanners.length,
+          dismissedBannerCount: networkMatchedBanners.filter((banner) =>
+            dismissedIds.has(banner.id),
+          ).length,
+          closedForeverBannerCount: networkMatchedBanners.filter(
+            (banner) => closedForever[banner.id],
+          ).length,
+          outputItemCount: payload.banners.length,
           bannerIds: remote.map((banner) => banner.id).join(','),
         });
-        normalResultCount += 1;
-        remoteState = { status: 'ready', value: remote };
         publishNormalResult();
         void backgroundApiProxy.serviceWalletBanner.updateLocalTopBanners({
           topBanners: remote,
@@ -1838,7 +1909,20 @@ export class HomeSourceRuntime {
     if (normalResultCount === 0) {
       throw new OneKeyLocalError('Home banner sources are unavailable');
     }
-    return buildPayload();
+    const finalPayload = buildPayload();
+    defaultLogger.wallet.homeFramePerf.frame({
+      stage: 'functionTiming',
+      functionName: 'HomeSourceRuntime.loadBanner.final',
+      accountName: environment.activeAccount.accountName,
+      walletName: wallet.name,
+      outcome:
+        finalPayload.banners.length > 0 || finalPayload.tronResource
+          ? 'content'
+          : 'empty',
+      outputItemCount: finalPayload.banners.length,
+      bannerIds: finalPayload.banners.map((banner) => banner.id).join(','),
+    });
+    return finalPayload;
   }
 
   private async loadSection({
@@ -3258,6 +3342,10 @@ export class HomeSourceRuntime {
       return;
     }
     const wire = entry.payload as ISectionWireResult;
+    const preservesCompositePayload = preservesCompositeSectionPayload(
+      sourceId,
+      wire,
+    );
     if (
       isSectionSource(sourceId) &&
       wire.empty &&
@@ -3269,19 +3357,20 @@ export class HomeSourceRuntime {
       type: 'sectionSourceChanged',
       ownerToken: state.session.ownerToken,
       sectionId: sourceId,
-      result: wire.empty
-        ? {
-            kind: 'empty',
-            confirmedEmpty: wire.confirmedEmpty === true,
-            coverageFingerprint: entry.coverageFingerprint,
-          }
-        : {
-            kind: 'ready',
-            rowIds: [...entry.rowIds],
-            data: wire.payload ?? undefined,
-            freshness: 'confirmedCache',
-            refresh: 'refreshing',
-          },
+      result:
+        wire.empty && !preservesCompositePayload
+          ? {
+              kind: 'empty',
+              confirmedEmpty: wire.confirmedEmpty === true,
+              coverageFingerprint: entry.coverageFingerprint,
+            }
+          : {
+              kind: 'ready',
+              rowIds: [...entry.rowIds],
+              data: wire.payload ?? undefined,
+              freshness: 'confirmedCache',
+              refresh: 'refreshing',
+            },
     };
     const balanceEvent =
       sourceId === 'portfolio' || sourceId === 'defi' || sourceId === 'perps'
@@ -3289,7 +3378,7 @@ export class HomeSourceRuntime {
             sourceId,
             payload: wire.payload,
             rowIds: [...entry.rowIds],
-            empty: wire.empty,
+            empty: wire.empty && !preservesCompositePayload,
             freshness: 'confirmedCache',
             phase: entry.phase,
           })

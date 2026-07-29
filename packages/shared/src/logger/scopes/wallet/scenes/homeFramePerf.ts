@@ -24,6 +24,22 @@ export class HomeFramePerfScene extends BaseScene {
     sectionId?: string;
     phase?: string;
     outcome?: string;
+    bannerPolicyKind?: 'eligible' | 'hidden' | 'pending';
+    bannerResourceKind?:
+      | 'empty'
+      | 'error'
+      | 'idle'
+      | 'loading'
+      | 'partial'
+      | 'ready';
+    bannerPayloadParsed?: boolean;
+    hasTronResource?: boolean;
+    rejectReason?: string;
+    requestSequence?: number;
+    currentRequestSequence?: number;
+    currentClientMatches?: boolean;
+    currentProducerMatches?: boolean;
+    currentSourceKeyMatches?: boolean;
     eventCount?: number;
     effectCount?: number;
     inputCount?: number;
@@ -32,6 +48,8 @@ export class HomeFramePerfScene extends BaseScene {
     bannerIds?: string;
     homeBannerCount?: number;
     networkMatchedBannerCount?: number;
+    dismissedBannerCount?: number;
+    closedForeverBannerCount?: number;
     updateCount?: number;
     listenerCount?: number;
     contributionCount?: number;

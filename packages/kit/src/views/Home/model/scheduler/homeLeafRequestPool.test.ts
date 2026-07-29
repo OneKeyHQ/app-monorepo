@@ -138,25 +138,83 @@ describe('HomeLeafRequestPool', () => {
     client.dispose();
   });
 
-  test('rejects work scheduled after its session was cancelled', async () => {
-    const client = new HomeLeafRequestPool(
-      1,
-      'pool-test-session-tombstone',
-      13,
-    );
-    const start = jest.fn(async () => 'unexpected');
+  test('allows a reused session to schedule a new request generation', async () => {
+    const client = new HomeLeafRequestPool(1, 'pool-test-session-reuse', 13);
+    const start = jest.fn(async () => 'recovered');
 
     client.cancelSession('session-old');
 
-    await expect(client.run('critical', start, 'session-old')).rejects.toThrow(
-      'Shared leaf request session was cancelled',
+    await expect(client.run('critical', start, 'session-old')).resolves.toBe(
+      'recovered',
     );
-    expect(start).not.toHaveBeenCalled();
+    expect(start).toHaveBeenCalledTimes(1);
+    client.dispose();
+  });
+
+  test('allows a reused session after its cancelled leaf finishes', async () => {
+    const client = new HomeLeafRequestPool(
+      1,
+      'pool-test-running-session-reuse',
+      14,
+    );
+    const underlying = createDeferred<string>();
+    const runningTask = client
+      .run('critical', () => underlying.promise, 'session-reused')
+      .catch((error: unknown) => error);
+
+    client.cancelSession('session-reused');
+    await expect(runningTask).resolves.toMatchObject({
+      message: 'Shared leaf request session was cancelled',
+    });
+
+    const recoveredStart = jest.fn(async () => 'recovered');
+    const recoveredTask = client.run(
+      'critical',
+      recoveredStart,
+      'session-reused',
+    );
+    expect(recoveredStart).not.toHaveBeenCalled();
+
+    underlying.resolve('ignored');
+    await expect(recoveredTask).resolves.toBe('recovered');
+    expect(recoveredStart).toHaveBeenCalledTimes(1);
+    client.dispose();
+  });
+
+  test('treats every session cancellation as a new boundary', async () => {
+    const client = new HomeLeafRequestPool(
+      1,
+      'pool-test-repeated-session-cancel',
+      15,
+    );
+    const firstGeneration = createDeferred<string>();
+    const firstTask = client
+      .run('critical', () => firstGeneration.promise, 'session-repeated')
+      .catch((error: unknown) => error);
+
+    client.cancelSession('session-repeated');
+    await expect(firstTask).resolves.toMatchObject({
+      message: 'Shared leaf request session was cancelled',
+    });
+    firstGeneration.resolve('ignored');
+    await Promise.resolve();
+
+    const secondGeneration = createDeferred<string>();
+    const secondTask = client
+      .run('critical', () => secondGeneration.promise, 'session-repeated')
+      .catch((error: unknown) => error);
+    await Promise.resolve();
+
+    client.cancelSession('session-repeated');
+    await expect(secondTask).resolves.toMatchObject({
+      message: 'Shared leaf request session was cancelled',
+    });
+    secondGeneration.resolve('ignored');
     client.dispose();
   });
 
   test('releases capacity when a leaf throws synchronously', async () => {
-    const client = new HomeLeafRequestPool(1, 'pool-test-sync-throw', 14);
+    const client = new HomeLeafRequestPool(1, 'pool-test-sync-throw', 16);
 
     await expect(
       client.run('critical', () => {

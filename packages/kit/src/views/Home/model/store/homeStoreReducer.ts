@@ -5,6 +5,7 @@ import type {
 } from '@onekeyhq/shared/src/types/homeRuntime';
 
 import { aggregateHomeBalanceFacts } from '../balance/homeBalanceAggregation';
+import { areHomeSourceKeysEqual } from '../core/homeIdentity';
 import {
   type IHomeLifecycleSessionState,
   transitionHomeSession,
@@ -898,10 +899,18 @@ function tokensMatch(
       ? TPayload
       : never
   >,
-  candidate: object,
+  candidate: IHomeRuntimeRequestToken,
 ): boolean {
   const token = getResourceToken(current);
-  return Boolean(token && equal(token, candidate));
+  return Boolean(
+    token &&
+    token.protocolVersion === candidate.protocolVersion &&
+    token.clientInstanceId === candidate.clientInstanceId &&
+    token.producerInstanceId === candidate.producerInstanceId &&
+    token.sessionId === candidate.sessionId &&
+    token.requestSeq === candidate.requestSeq &&
+    areHomeSourceKeysEqual(token.sourceKey, candidate.sourceKey),
+  );
 }
 
 function validateIntent(
@@ -1597,8 +1606,7 @@ export function reduceHomeStore(
         current.kind === 'idle' ? 0 : (current.token?.requestSeq ?? 0);
       if (event.token.requestSeq <= currentSeq) {
         return event.token.requestSeq === currentSeq &&
-          currentToken &&
-          equal(currentToken, event.token)
+          tokensMatch(current, event.token)
           ? emptyTransition()
           : rejectedTransition(state, 'requestSequenceStale');
       }

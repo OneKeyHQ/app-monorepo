@@ -158,6 +158,7 @@ export class HomeRequestScheduler {
     );
     const duplicateRunning = Array.from(this.running.values()).filter(
       (candidate) =>
+        candidate.outcomeOverride === undefined &&
         isSameRequestLane(candidate.task, task) &&
         (task.policy === 'takeLatest' || candidate.task.key === task.key),
     );
