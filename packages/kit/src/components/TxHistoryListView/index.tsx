@@ -160,7 +160,7 @@ type IProps = {
   hasMore?: boolean;
 };
 
-const ListFooterComponent = ({
+const TxHistoryListFooter = ({
   accountId,
   networkId,
   walletId,
@@ -636,7 +636,7 @@ function BaseTxHistoryListView(props: IProps) {
       onEndReached={onEndReached}
       onEndReachedThreshold={onEndReachedThreshold ?? 0.2}
       ListFooterComponent={
-        <ListFooterComponent
+        <TxHistoryListFooter
           showFooter={showFooter}
           hasItems={sections.length > 0}
           accountId={accountId}
@@ -669,4 +669,4 @@ function TxHistoryListView(props: IProps) {
   );
 }
 
-export { TxHistoryListView };
+export { TxHistoryListFooter, TxHistoryListView };

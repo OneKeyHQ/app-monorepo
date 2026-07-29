@@ -14,6 +14,7 @@ import type {
 } from '@onekeyhq/kit/src/views/Home/model/policies/homeDisplayModelPolicy';
 import type { IHomeDeFiLegacyPayload } from '@onekeyhq/kit/src/views/Home/model/sections/defi/homeDeFiSourceAdapter';
 import type { IHomeHistoryStorePayload } from '@onekeyhq/kit/src/views/Home/model/sections/history/homeHistorySourceAdapter';
+import { HOME_HISTORY_ACTION_IDS } from '@onekeyhq/kit/src/views/Home/model/sections/history/homeHistoryStoreModel';
 import { getHomeMarketTokenRowId } from '@onekeyhq/kit/src/views/Home/model/sections/market/homeMarketSourceAdapter';
 import {
   type IHomeNFTLegacyPayload,
@@ -1084,6 +1085,7 @@ function buildHistorySections(
   labels: IHomeNativeLabels,
   locale: string,
   isAllNetworks: boolean,
+  isLoadingMore: boolean,
 ): IHomeContainerSection[] {
   const groups = new Map<string, IAccountHistoryTx[]>();
   (payload?.data ?? []).forEach((history) => {
@@ -1092,31 +1094,47 @@ function buildHistorySections(
     const title = formatSectionDate(timestamp, locale);
     groups.set(title, [...(groups.get(title) ?? []), history]);
   });
-  return Array.from(groups.entries()).map(([title, histories], index) => ({
-    id: `history:${index}:${title}`,
-    title,
-    items: histories.map((history) => {
-      const display = getHistoryDisplay({
-        addressMap: payload?.addressMap ?? {},
-        history,
-        labels,
-        locale,
-      });
-      return {
-        id: history.id,
-        renderer: 'history',
-        ...display,
-        badgeImageUrl: isAllNetworks
-          ? history.decodedTx.networkLogoURI
-          : undefined,
-        badge: getHistoryStatusLabel(
-          history.displayStatus ?? history.decodedTx.status,
+  const sections = Array.from(groups.entries()).map(
+    ([title, histories], index) => ({
+      id: `history:${index}:${title}`,
+      title,
+      items: histories.map((history) => {
+        const display = getHistoryDisplay({
+          addressMap: payload?.addressMap ?? {},
+          history,
           labels,
-        ),
-        actionId: HOME_SECTION_ACTION_IDS.openHistory,
-      };
+          locale,
+        });
+        return {
+          id: history.id,
+          renderer: 'history',
+          ...display,
+          badgeImageUrl: isAllNetworks
+            ? history.decodedTx.networkLogoURI
+            : undefined,
+          badge: getHistoryStatusLabel(
+            history.displayStatus ?? history.decodedTx.status,
+            labels,
+          ),
+          actionId: HOME_SECTION_ACTION_IDS.openHistory,
+        };
+      }),
     }),
-  }));
+  );
+  if (
+    isAllNetworks ||
+    isLoadingMore ||
+    !payload?.hasMore ||
+    sections.length === 0
+  ) {
+    return sections;
+  }
+  const lastSectionIndex = sections.length - 1;
+  return sections.map((section, index) =>
+    index === lastSectionIndex
+      ? { ...section, actionId: HOME_HISTORY_ACTION_IDS.loadMore }
+      : section,
+  );
 }
 
 function buildNFTSections(
@@ -1173,6 +1191,7 @@ export function buildMobileNativeHomeViewModelSections({
   sectionId,
   semantic,
   isAllNetworks = false,
+  historyLoadingMore = false,
 }: {
   allNetworksBadgeImageUrl?: string;
   expanded?: IHomeNativeExpandedState;
@@ -1185,6 +1204,7 @@ export function buildMobileNativeHomeViewModelSections({
   sectionId: IHomeContainerTabId;
   semantic: IHomeSectionSemanticModel;
   isAllNetworks?: boolean;
+  historyLoadingMore?: boolean;
 }): IHomeContainerSection[] {
   const state = buildStateSection({ labels, sectionId, semantic });
   if (state) {
@@ -1285,6 +1305,7 @@ export function buildMobileNativeHomeViewModelSections({
         labels,
         locale,
         isAllNetworks,
+        historyLoadingMore,
       );
     default:
       return [];

@@ -23,6 +23,7 @@ import {
 } from '@onekeyhq/kit/src/components/Resource';
 import { HomeTabSearchHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
+import { TxHistoryListFooter } from '@onekeyhq/kit/src/components/TxHistoryListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHomeDisplayModel } from '@onekeyhq/kit/src/hooks/useHomeBalanceState';
 import { useManageToken } from '@onekeyhq/kit/src/hooks/useManageToken';
@@ -64,6 +65,7 @@ import {
   HOME_BANNER_ACTION_IDS,
   readHomeBannerStorePayload,
 } from '@onekeyhq/kit/src/views/Home/model/sections/banner/homeBannerStoreModel';
+import { HOME_HISTORY_ACTION_IDS } from '@onekeyhq/kit/src/views/Home/model/sections/history/homeHistoryStoreModel';
 import { getHomeMarketTokenRowId } from '@onekeyhq/kit/src/views/Home/model/sections/market/homeMarketSourceAdapter';
 import { HOME_PORTFOLIO_SHOW_LP_TOKENS_CONTROL_ID } from '@onekeyhq/kit/src/views/Home/model/sections/spot/homePortfolioControls';
 import {
@@ -300,6 +302,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       indexedAccount,
       isOthersWallet,
       network,
+      vaultSettings,
       wallet,
     },
   } = useActiveAccount({ num: 0 });
@@ -324,6 +327,12 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
   const defiPayload = useHomeSectionPayload('defi');
   const nftPayload = useHomeSectionPayload('nft');
   const historyPayload = useHomeSectionPayload('history');
+  const isHistoryLoadingMore = interaction.pendingSectionCommands.some(
+    (command) =>
+      command.sectionId === 'history' &&
+      command.type === 'sectionActionInvoked' &&
+      command.actionId === HOME_HISTORY_ACTION_IDS.loadMore,
+  );
   const marketPayload = useHomeSectionPayload('market');
   const bannerPayload =
     bannerResource.kind === 'ready' || bannerResource.kind === 'partial'
@@ -620,6 +629,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
   const historySections = useMemo(
     () =>
       buildMobileNativeHomeViewModelSections({
+        historyLoadingMore: isHistoryLoadingMore,
         isAllNetworks: Boolean(network?.isAllNetworks),
         labels: nativeLabels,
         locale: intl.locale,
@@ -630,6 +640,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     [
       historyPayload,
       historySection.value,
+      isHistoryLoadingMore,
       intl.locale,
       nativeLabels,
       network?.isAllNetworks,
@@ -876,6 +887,13 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     historySection.value.kind === 'empty' ||
     (historySection.value.kind === 'ready' &&
       (historyPayload?.data.length ?? 0) === 0);
+  const shouldMountHistoryEndFooter = Boolean(
+    renderedTabIds.has('history') &&
+    (historyPayload?.data.length ?? 0) > 0 &&
+    (isHistoryLoadingMore ||
+      (!historyPayload?.hasMore &&
+        (network?.isAllNetworks || !vaultSettings?.hideBlockExplorer))),
+  );
 
   const accountRowAuthority = useMemo(
     () =>
@@ -1076,6 +1094,19 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
         : undefined,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [owner?.scopeKey, owner?.sessionId],
+  );
+  const historyEndFooterAuthority = useMemo(
+    () =>
+      owner && shouldMountHistoryEndFooter
+        ? {
+            owner,
+            producedByStoreCommitId: commitIdentity.storeCommitId,
+            slotId:
+              'content.footer.history.historyEnd' as IHomeContainerSlotKey,
+            slotRevision: commitIdentity.storeCommitId,
+          }
+        : undefined,
+    [commitIdentity.storeCommitId, owner, shouldMountHistoryEndFooter],
   );
 
   const footerAuthorities = useMemo(() => {
@@ -1430,6 +1461,30 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
               },
             }
           : {}),
+        ...(historyEndFooterAuthority
+          ? {
+              history: {
+                historyEnd: {
+                  interaction: isHistoryLoadingMore
+                    ? ('none' as const)
+                    : ('tap' as const),
+                  authority: historyEndFooterAuthority,
+                  content: (
+                    <TxHistoryListFooter
+                      showFooter
+                      hasItems
+                      accountId={account?.id}
+                      networkId={network?.id}
+                      walletId={wallet?.id}
+                      indexedAccountId={indexedAccount?.id}
+                      isLoadingMore={isHistoryLoadingMore}
+                      hasMore={historyPayload?.hasMore ?? false}
+                    />
+                  ),
+                },
+              },
+            }
+          : {}),
       },
     }),
     [
@@ -1443,12 +1498,15 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       footerAuthorities,
       header.actionRowHeight,
       historyAccessoryAuthority,
+      historyEndFooterAuthority,
+      historyPayload?.hasMore,
       historyPayload?.tokenMap,
       historyStateAuthority,
       indexedAccount?.id,
       intl,
       isBackupRequired,
       isOthersWallet,
+      isHistoryLoadingMore,
       nativeTheme.backgroundColor,
       nativeLabels.tokens,
       network?.id,

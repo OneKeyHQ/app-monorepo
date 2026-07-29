@@ -1,6 +1,7 @@
 import type { IHomePopularTradingPayload } from '@onekeyhq/kit/src/views/Home/components/PopularTrading/types';
 import type { IHomeDeFiLegacyPayload } from '@onekeyhq/kit/src/views/Home/model/sections/defi/homeDeFiSourceAdapter';
 import type { IHomeHistoryStorePayload } from '@onekeyhq/kit/src/views/Home/model/sections/history/homeHistorySourceAdapter';
+import { HOME_HISTORY_ACTION_IDS } from '@onekeyhq/kit/src/views/Home/model/sections/history/homeHistoryStoreModel';
 import type { IHomeSpotLegacyPayload } from '@onekeyhq/kit/src/views/Home/model/sections/spot/homeSpotSourceAdapter';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import {
@@ -736,6 +737,55 @@ describe('mobileNativeHomeViewModelAdapter', () => {
         value: '+0.25 ETH',
       }),
     ]);
+  });
+
+  it('arms History load-more only for an idle single-network last row', () => {
+    const history = {
+      id: 'history-load-more',
+      decodedTx: {
+        accountId: 'account-a',
+        actions: [],
+        createdAt: Date.UTC(2026, 6, 22),
+        networkId: 'evm--1',
+        status: EDecodedTxStatus.Confirmed,
+        txid: '0xloadmore',
+      },
+    } as unknown as IAccountHistoryTx;
+    const historyPayload: IHomeHistoryStorePayload = {
+      addressMap: {},
+      cursor: 'next-page',
+      data: [history],
+      hasMore: true,
+      isLoadingMore: false,
+      refresh: 'idle',
+      tokenMap: {},
+    };
+    const build = ({
+      historyLoadingMore = false,
+      isAllNetworks = false,
+    }: {
+      historyLoadingMore?: boolean;
+      isAllNetworks?: boolean;
+    }) =>
+      buildMobileNativeHomeViewModelSections({
+        ...presentation,
+        historyLoadingMore,
+        isAllNetworks,
+        payloads: { history: historyPayload },
+        sectionId: 'history',
+        semantic: {
+          kind: 'ready',
+          rowIds: [history.id],
+          freshness: 'live',
+          refresh: 'idle',
+        },
+      });
+
+    expect(build({}).at(-1)?.actionId).toBe(HOME_HISTORY_ACTION_IDS.loadMore);
+    expect(
+      build({ historyLoadingMore: true }).at(-1)?.actionId,
+    ).toBeUndefined();
+    expect(build({ isAllNetworks: true }).at(-1)?.actionId).toBeUndefined();
   });
 
   it('uses a compact subscript exponent for tiny History amounts', () => {
