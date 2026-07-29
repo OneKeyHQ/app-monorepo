@@ -292,6 +292,10 @@ export function isPrimeInfiniPaymentTransferClaimForSession({
     transferAmount.gt(0) &&
     invoiceAmount.isFinite() &&
     invoiceAmount.gt(0) &&
+    // NOTE: transferClaim.amount is the decoded transfer amount, which is
+    // display-basis (multiplied) for scaled-UI/rebase tokens. This exact
+    // comparison assumes non-rebase assets (stablecoin-style); it would need
+    // adjustment if Prime Infini ever accepted a rebase token.
     transferAmount.eq(invoiceAmount)
   );
 }
@@ -338,6 +342,10 @@ export function isPrimeInfiniPaymentPreBroadcastSnapshotSendable({
     paymentAmount.isFinite() &&
     paymentAmount.gt(0) &&
     transferAmount.isFinite() &&
+    // NOTE: transferClaim.amount is the decoded transfer amount, which is
+    // display-basis (multiplied) for scaled-UI/rebase tokens. This exact
+    // comparison assumes non-rebase assets (stablecoin-style); it would need
+    // adjustment if Prime Infini ever accepted a rebase token.
     transferAmount.eq(paymentAmount) &&
     !hasPrimeInfiniPaymentProgressSnapshot(payment) &&
     !isPrimeInfiniPaymentExplicitlyFailedSnapshot(payment) &&

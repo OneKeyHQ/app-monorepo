@@ -302,16 +302,6 @@ export function shouldHandleSwapColdStartHomeAccountUpdate({
 
   if (
     hasSelectedTokens &&
-    shouldResetSelectedTokensForAllNetworkHome({
-      cachedContext,
-      selectedAccount: eventPayload.selectedAccount,
-    })
-  ) {
-    return true;
-  }
-
-  if (
-    hasSelectedTokens &&
     isSwapSelectedTokensColdStartOwnerMatchedWithSelectedAccountIgnoringDeriveType(
       {
         cachedContext,
@@ -320,6 +310,16 @@ export function shouldHandleSwapColdStartHomeAccountUpdate({
     )
   ) {
     return false;
+  }
+
+  if (
+    hasSelectedTokens &&
+    shouldResetSelectedTokensForAllNetworkHome({
+      cachedContext,
+      selectedAccount: eventPayload.selectedAccount,
+    })
+  ) {
+    return true;
   }
 
   return shouldClearSwapSelectedTokensOnHomeAccountUpdate({
@@ -690,6 +690,17 @@ export function shouldClearSwapSelectedTokensBeforeHomeAccountSync({
   }
 
   if (
+    isSwapSelectedTokensColdStartOwnerMatchedWithSelectedAccountIgnoringDeriveType(
+      {
+        cachedContext,
+        selectedAccount: homeSelectedAccount,
+      },
+    )
+  ) {
+    return false;
+  }
+
+  if (
     shouldResetSelectedTokensForAllNetworkHome({
       cachedContext,
       selectedAccount: homeSelectedAccount,
@@ -915,6 +926,20 @@ export function shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
   }
 
   if (hasSelectedTokens) {
+    if (
+      isSwapSelectedTokensColdStartOwnerMatchedWithSelectedAccountIgnoringDeriveType(
+        {
+          cachedContext,
+          selectedAccount: eventPayload.selectedAccount,
+        },
+      )
+    ) {
+      return !isSelectedAccountOwnerMatchedIgnoringDeriveType(
+        eventPayload.selectedAccount,
+        swapSelectedAccount,
+      );
+    }
+
     if (
       initialSelectedTokensSynced &&
       isSelectedAccountOwnerMatchedIgnoringDeriveType(

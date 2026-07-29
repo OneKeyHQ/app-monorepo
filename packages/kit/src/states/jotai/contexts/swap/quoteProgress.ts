@@ -224,18 +224,22 @@ export function isSwapNoProviderSupportsTrade({
   zeroProviderQuoteCompleted,
   quote,
   quoteResultPairNoMatch,
+  quoteEventCompleted,
+  quoteRequestMatchesCurrentInput,
 }: {
   zeroProviderQuoteCompleted: boolean;
   quote?: Pick<IFetchQuoteResult, 'toAmount' | 'limit'>;
   quoteResultPairNoMatch: boolean;
+  quoteEventCompleted: boolean;
+  quoteRequestMatchesCurrentInput: boolean;
 }) {
-  // Only trust the no-provider verdict when the quote belongs to the current
-  // token pair; a stale quote left over from a previous pair must not lock
-  // the action button out of its "Refresh quotes" recovery state. The veto
-  // must stay identity-based: provider-error quotes carry no amount fields
-  // at all, so an amount-based mismatch check would permanently veto the
-  // genuine no-provider signal. (OK-57545)
+  // Provider errors can arrive before the rest of the quote event. Only the
+  // matching request's terminal state can establish that no provider supports
+  // the trade. Pair identity remains separate because provider-error quotes
+  // do not carry amount fields. (OK-57545, OK-58528)
   return (
+    quoteEventCompleted &&
+    quoteRequestMatchesCurrentInput &&
     (zeroProviderQuoteCompleted ||
       Boolean(quote && !quote.toAmount && !quote.limit)) &&
     !quoteResultPairNoMatch
